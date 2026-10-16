@@ -247,7 +247,7 @@ class TestRemoveConnection:
         assert Path(canonical_source["path"]).is_file()
         assert "canonical" in _config(home)["connections"]
 
-    def test_recovers_legacy_retiring_tombstone_before_config_write(
+    def test_recovers_tombstone_before_config_write(
         self,
         home,
         tmp_path,
@@ -256,7 +256,9 @@ class TestRemoveConnection:
         _seed_https(home, tmp_path, env="canonical")
         writer.set_active_env("canonical")
         secret = home / "secrets" / "prod.token"
-        tombstone = secret.with_name(secret.name + ".retiring")
+        from yoke_cli.config import writer_connection_remove as retirement
+
+        tombstone = retirement._retirement_tombstone("prod")
         secret.replace(tombstone)
 
         report = writer.remove_connection("prod")

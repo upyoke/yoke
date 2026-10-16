@@ -57,12 +57,14 @@ receipt, then stop. Forbidden: new implementation/exploration/tests/refactors.
 Re-run the gate after return. Do not convert submission remediation into a
 full implementation retry or advance from a safety-net commit.
 
-After every gate passes, record actual Engineer agent id and seed exact review:
+After every gate passes, seed the exact task review:
 
 ```text
-yoke workflow-item epic-task metadata-update --epic PREFIX-N --task-num {task_num} --fields-json '{"agent_id":"ENGINEER_AGENT_ID"}'
 yoke workflow-item epic-task review-seed --epic PREFIX-N --task-num {task_num}
 ```
 
+Source review has no deployment environment target and requires no URL.
+A refusal retains its diagnostic; correct the named cause and retry the same
+epic/task without replacing its submission or CI evidence.
 Seed is idempotent and advances task to reviewing-implementation. It does not
 complete the parent. Continue with claimed-lane merge and shared Tester prompt.

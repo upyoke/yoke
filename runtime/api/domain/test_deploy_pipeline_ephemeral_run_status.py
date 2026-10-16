@@ -104,16 +104,6 @@ class _Harness:
             ),
             mock.patch.object(
                 deploy_pipeline.control_plane,
-                "seed_qa",
-                return_value=0,
-            ),
-            mock.patch.object(
-                deploy_pipeline.control_plane,
-                "record_qa_stage",
-                return_value=None,
-            ),
-            mock.patch.object(
-                deploy_pipeline.control_plane,
                 "unresolved_qa",
                 return_value=[],
             ),

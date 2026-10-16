@@ -4,7 +4,7 @@ Owns ``cmd_run_add_batch`` — the JSON-driven multi-row run insertion path.
 Keeping this command in its own module groups the batch-specific validation,
 transaction, and per-row event emission together.
 
-This module imports the Browser-method classifier and ``_normalize_qa_kind``
+This module imports the Browser-method classifier
 from :mod:`yoke_core.domain.qa_constants` (the leaf vocabulary module)
 and ``emit_qa_run_event`` from :mod:`yoke_core.domain.qa_events` (the
 leaf events module) — never from the parent ``qa_execution`` shim. That
@@ -28,7 +28,6 @@ from yoke_core.domain.db_helpers import (
 from yoke_core.domain.qa_artifact_ops import attach_linked_screenshot
 from yoke_core.domain.qa_artifact_storage import ArtifactStorageError
 from yoke_core.domain.qa_constants import (
-    _normalize_qa_kind,
     is_browser_method_requirement,
     normalized_verdict_reason,
 )
@@ -90,8 +89,6 @@ def cmd_run_add_batch(
             )
             sys.exit(2)
 
-        if row.get("qa_kind"):
-            row["qa_kind"] = _normalize_qa_kind(row["qa_kind"])
         try:
             row["verdict_reason"] = normalized_verdict_reason(
                 row.get("verdict"), row.get("verdict_reason")
@@ -121,16 +118,15 @@ def cmd_run_add_batch(
                 )
                 sys.exit(2)
             req_kind = requirement["qa_kind"]
-            normalized_req_kind = _normalize_qa_kind(str(req_kind))
+            stored_req_kind = str(req_kind)
             if not row.get("qa_kind"):
-                row["qa_kind"] = normalized_req_kind
+                row["qa_kind"] = stored_req_kind
             else:
-                row["qa_kind"] = _normalize_qa_kind(row["qa_kind"])
-                if row["qa_kind"] != normalized_req_kind:
+                if row["qa_kind"] != stored_req_kind:
                     print(
                         f"Error: row {idx}: qa_kind '{row['qa_kind']}' "
                         f"does not match the requirement's stored kind "
-                        f"'{normalized_req_kind}'. Omit qa_kind to use "
+                        f"'{stored_req_kind}'. Omit qa_kind to use "
                         "the requirement's kind, or fix the value.",
                         file=sys.stderr,
                     )

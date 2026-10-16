@@ -14,6 +14,8 @@ from typing import Any, Mapping
 
 #: function_id -> minimum serving version. Do not copy already-served ids here.
 FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
+    "merge.audit.snapshot": "next-release",
+    "ouroboros.reflection.capture": "next-release",
     "actors.role.set": "next-release",
     "actors.roster": "next-release",
     "actors.state.set": "next-release",
@@ -112,6 +114,8 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "universe.level_capacity.get": "next-release",
     "universe.levels.get": "next-release",
     "universe.levels.set": "next-release",
+    "universe.retention.get": "next-release",
+    "universe.prune.run": "next-release",
     "universe.cursor_quota_order.get": "next-release",
     "universe.cursor_quota_order.set": "next-release",
     "workflows.canon_status.list": "next-release",

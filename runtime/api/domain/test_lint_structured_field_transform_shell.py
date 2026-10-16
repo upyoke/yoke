@@ -62,14 +62,14 @@ class TestEvaluateCommandAllows(unittest.TestCase):
         self.assertIsNone(lint.evaluate_command(cmd))
 
     def test_read_only_section_get(self) -> None:
-        section = "'Progress " "Log'"
+        section = "'Progress Log'"
         cmd = f"python3 -m yoke_core.cli.db_router sections get 42 {section}"
         self.assertIsNone(lint.evaluate_command(cmd))
 
     def test_direct_stdin_write(self) -> None:
         cmd = (
             'printf "%s" "intended full content" '
-            '| python3 -m yoke_core.cli.db_router items update 42 spec --stdin'
+            "| python3 -m yoke_core.cli.db_router items update 42 spec --stdin"
         )
         self.assertIsNone(lint.evaluate_command(cmd))
 
@@ -124,16 +124,15 @@ class TestEvaluateCommandBlocks(unittest.TestCase):
         reason = lint.evaluate_command(cmd)
         self.assertIsNotNone(reason)
         self.assertIn("structured-field transform via shell choreography", reason)
-        self.assertIn("item_field_transform", reason)
-        # Remediation names section-append for Progress Log appends.
-        self.assertIn("section-append", reason)
+        self.assertIn("yoke items structured-field append-addendum", reason)
+        self.assertIn("yoke items progress-log append", reason)
         self.assertIn("Progress Log", reason)
-        # Remediation names the function-call surface.
-        self.assertIn("FunctionCallRequest", reason)
-        self.assertIn("yoke_function_dispatch", reason)
+        self.assertIn("selected connection", reason)
+        self.assertNotIn("python3 -m yoke_core.domain.item_field_transform", reason)
+        self.assertNotIn("yoke_function_dispatch.dispatch", reason)
 
     def test_sections_get_then_upsert_content_file(self) -> None:
-        section = "'Progress " "Log'"
+        section = "'Progress Log'"
         cmd = (
             f"python3 -m yoke_core.cli.db_router sections get 42 {section} "
             "> /tmp/progress.md && "
@@ -143,7 +142,7 @@ class TestEvaluateCommandBlocks(unittest.TestCase):
         )
         reason = lint.evaluate_command(cmd)
         self.assertIsNotNone(reason)
-        self.assertIn("section-append", reason)
+        self.assertIn("yoke items progress-log append", reason)
         self.assertIn("sections upsert", reason)
 
     def test_command_substitution_capture(self) -> None:
@@ -219,7 +218,8 @@ class TestEvaluate(unittest.TestCase):
         self.assertIs(decision.next, Next.STOP)
         decoded = json.loads(decision.message)
         self.assertEqual(
-            decoded["hookSpecificOutput"]["permissionDecision"], "deny",
+            decoded["hookSpecificOutput"]["permissionDecision"],
+            "deny",
         )
 
     def test_evaluate_allows_safe_command(self) -> None:
@@ -238,8 +238,11 @@ class TestEvaluate(unittest.TestCase):
     def test_evaluate_handles_non_dict_payload(self) -> None:
         # Defensive shape: payload defaults to {} when not a dict.
         record = lint.HookContext(
-            event_name="PreToolUse", executor_family="claude",
-            executor_surface="claude", payload={})
+            event_name="PreToolUse",
+            executor_family="claude",
+            executor_surface="claude",
+            payload={},
+        )
         decision = lint.evaluate(record)
         self.assertIs(decision.outcome, Outcome.NOOP)
 
@@ -262,13 +265,15 @@ class TestEvaluate(unittest.TestCase):
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
         self.assertEqual(
-            decision.audit_fields["audit_outcome"], "suppression_attempted")
+            decision.audit_fields["audit_outcome"], "suppression_attempted"
+        )
         self.assertEqual(calls, ["suppression_attempted"])
 
     def test_evaluate_token_on_safe_command_noop_no_event(self) -> None:
         with mock.patch.object(lint, "_emit_denial") as emit_mock:
-            decision = lint.evaluate(_record_for(
-                _payload("git status # lint:no-structured-transform-check")))
+            decision = lint.evaluate(
+                _record_for(_payload("git status # lint:no-structured-transform-check"))
+            )
         self.assertIs(decision.outcome, Outcome.NOOP)
         emit_mock.assert_not_called()
 

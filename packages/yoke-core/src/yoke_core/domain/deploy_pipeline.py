@@ -103,11 +103,7 @@ def run_pipeline(
     flow_id = str(run.get("flow") or "")
     release_lineage = str(run.get("release_lineage") or "")
     bound_inputs = bound_input_values(parse_bound_sources(run.get("bound_sources")))
-    qa_result = (
-        json.dumps({"verification_tree": {"head_sha": release_lineage}})
-        if release_lineage
-        else "{}"
-    )
+
     run_status = str(run.get("status") or "")
     current_stage = str(run.get("current_stage") or "")
     member_items = [str(member["public_ref"]) for member in members]
@@ -179,12 +175,6 @@ def run_pipeline(
         sd=sd,
     )
     if not ok:
-        return EXIT_USAGE
-
-    try:
-        timed_call("qa_seed", control_plane.seed_qa, run_id)
-    except control_plane.DeploymentControlPlaneError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
         return EXIT_USAGE
 
     start_stage = from_stage
@@ -289,7 +279,6 @@ def run_pipeline(
             return EXIT_AWAITING_APPROVAL
         if exec_rc == -3:
             print(f"  Stage '{s_name}' completed successfully")
-            control_plane.record_qa_pass(run_id, s_name, qa_result)
             continue
         if exec_rc == -4:
             try:
@@ -315,7 +304,6 @@ def run_pipeline(
                 sd=sd,
             )
             print(f"  Stage '{s_name}' completed successfully")
-            control_plane.record_qa_pass(run_id, s_name, qa_result)
         else:
             return deploy_pipeline_failure.fail_pipeline_stage(
                 exit_code=exec_rc,

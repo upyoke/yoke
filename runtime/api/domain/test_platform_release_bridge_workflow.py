@@ -74,11 +74,11 @@ def test_hosted_release_workflow_changes_select_their_contract_tests() -> None:
 def test_bridge_creates_or_recovers_one_annotated_release_tag() -> None:
     text = _text()
 
-    assert "yoke github release create-next-tag" in text
+    assert "yoke github release create-commit-tag" in text
     assert 'upyoke/yoke "$PRODUCT_SHA"' in text
     assert "secrets.YOKE_RELEASE_API_TOKEN" in text
     assert "yoke-release.yml yoke-server-image.yml" in text
-    assert "yoke github-actions find-run" in text
+    assert ".head_branch ==" in text and "$RELEASE_TAG" in text
 
 
 def test_bridge_restarts_one_already_failed_factory_attempt() -> None:
@@ -192,7 +192,7 @@ def test_bridge_records_pin_only_after_terminal_platform_success() -> None:
         "- name: Dispatch and await Platform pin promotion and release"
     ) < text.index(record_marker)
     assert text.count("yoke release-pin record") == 1
-    assert 'VERSION="${PRODUCT_REF#v}"' in record
+    assert 'VERSION="$PRODUCT_REF"' in record
     assert 'receipt="$(yoke release-pin record \\' in record
     assert "--project platform" in record
     assert '--environment "$TARGET_ENVIRONMENT"' in record

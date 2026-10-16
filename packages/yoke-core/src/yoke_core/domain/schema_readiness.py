@@ -37,7 +37,7 @@ does not ship the entry that would tell it so.
 schema-creation step in :func:`yoke_core.domain.schema_init.converge_core_schema`
 (the sequence server boot converges via
 :func:`yoke_core.api.server_entrypoint.ensure_core_schema`; ``cmd_init`` layers
-seeds and the birth-only tail on top), not the full expected-schema declaration
+seeds and initial schema invariants on top), not the full expected-schema declaration
 the schema-drift doctor diffs —
 so the probe stays a single cheap ``information_schema`` membership query
 on a hot, unauthenticated endpoint. Names must stay clear of the

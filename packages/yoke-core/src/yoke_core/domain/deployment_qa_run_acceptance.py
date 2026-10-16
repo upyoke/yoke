@@ -20,11 +20,8 @@ outstanding item-scoped QA is that member's gate, and blocking on it
 would deadlock a batch whose members legitimately finish at different
 times.
 
-Legacy flows carry no scoped QA vocabulary at all; for them this reader
-returns nothing and the legacy ``deployment_run_qa`` projection stays
-the only QA authority. Anything it cannot evaluate blocks with the
-reason it failed on, because an unreadable release gate is not a
-passing one.
+Anything this reader cannot evaluate blocks with the reason it failed on,
+because an unreadable release gate is not a passing one.
 """
 
 from __future__ import annotations
@@ -37,7 +34,6 @@ from typing import Any
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_flow_policy import (
     QA_STEP_RUNNER,
-    RELEASE_POLICY_SCHEMA_VERSION,
     STAGE_KIND_QA,
 )
 from yoke_core.domain.deployment_qa_stage_acceptance import (
@@ -53,37 +49,12 @@ from yoke_core.domain.deployment_qa_stage_contract import (
 from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
 )
-from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
 from yoke_core.domain.deployment_qa_presentation_facts import member_presentation
 
 
-#: Every storage surface the scoped QA vocabulary is expressed in. A
-#: universe missing any of them cannot hold a scoped obligation at all,
-#: which is a different answer from a read that failed.
-_SCOPED_QA_SURFACES = (
-    ("deployment_flows", "definition_schema_version"),
-    ("deployment_runs", "flow"),
-    ("qa_requirements", "deployment_run_id"),
-)
-
-
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _scoped_qa_storage_present(conn: Any) -> bool:
-    """Whether this universe can express a scoped QA obligation at all.
-
-    Checked explicitly rather than by swallowing a query error, so a
-    transient read failure still blocks while a schema that genuinely
-    predates the scoped vocabulary reports "nothing owed" instead of
-    "could not tell".
-    """
-    return all(
-        _table_exists(conn, table) and _column_exists(conn, table, column)
-        for table, column in _SCOPED_QA_SURFACES
-    )
 
 
 def _is_qa_stage(stage: Mapping[str, Any]) -> bool:
@@ -94,9 +65,7 @@ def _is_qa_stage(stage: Mapping[str, Any]) -> bool:
 
 
 def _pinned_stages(conn: Any, run_id: str) -> list[dict[str, Any]]:
-    """Every stage the run pinned, in order, or ``[]`` for a legacy flow."""
-    if not _scoped_qa_storage_present(conn):
-        return []
+    """Every stage the run pinned, in order."""
     from yoke_core.domain.deployment_qa_presentation_facts import run_facts
 
     row = run_facts(conn, run_id)
@@ -108,7 +77,7 @@ def _pinned_stages(conn: Any, run_id: str) -> list[dict[str, Any]]:
 def _read_pinned_flow(conn, run_id):
     marker = _p(conn)
     return conn.execute(
-        "SELECT df.definition_schema_version, df.stages FROM deployment_runs dr "
+        "SELECT df.stages FROM deployment_runs dr "
         "JOIN deployment_flows df ON df.id=dr.flow "
         f"WHERE dr.id={marker}",
         (str(run_id),),
@@ -118,12 +87,7 @@ def _read_pinned_flow(conn, run_id):
 def _decode_pinned_stages(row, run_id):
     if row is None:
         raise LookupError(f"deployment run {run_id!r} not found")
-    schema_version = (
-        row["definition_schema_version"] if hasattr(row, "keys") else row[0]
-    )
-    raw_stages = row["stages"] if hasattr(row, "keys") else row[1]
-    if int(schema_version or 1) != RELEASE_POLICY_SCHEMA_VERSION:
-        return []
+    raw_stages = row["stages"] if hasattr(row, "keys") else row[0]
     try:
         stages = json.loads(str(raw_stages))
     except (TypeError, ValueError) as exc:
@@ -138,7 +102,7 @@ def pinned_stages(conn: Any, run_id: str) -> list[dict[str, Any]]:
 
 
 def _pinned_qa_stages(conn: Any, run_id: str) -> list[dict[str, Any]]:
-    """The run's own pinned QA stages, or ``[]`` for a legacy definition."""
+    """The run's own pinned QA stages."""
     return [stage for stage in _pinned_stages(conn, run_id) if _is_qa_stage(stage)]
 
 

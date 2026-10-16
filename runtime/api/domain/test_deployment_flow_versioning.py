@@ -17,7 +17,7 @@ from yoke_core.domain.deployment_flow_versioning import (
     cmd_version_definition,
 )
 from yoke_core.domain.flow_create import cmd_create
-from yoke_core.domain.flow_crud import cmd_delete, cmd_set_status
+from yoke_core.domain.flow_crud import cmd_delete, cmd_set_status, cmd_update_stages
 from yoke_core.domain.schema_init import converge_core_schema
 from yoke_core.domain.project_seed_test_helpers import (
     SEED_PROJECT_IDS,
@@ -25,10 +25,10 @@ from yoke_core.domain.project_seed_test_helpers import (
 )
 
 
-LEGACY_STAGES = json.dumps(
+EXECUTION_STAGES = json.dumps(
     [
-        {"name": "deploy", "step_runner": "auto"},
-        {"name": "complete", "step_runner": "auto"},
+        {"name": "deploy", "step_runner": "auto", "stage_kind": "execution"},
+        {"name": "complete", "step_runner": "auto", "stage_kind": "execution"},
     ]
 )
 ADVANCED_STAGES = json.dumps(
@@ -77,8 +77,8 @@ SUPPORTED_ADVANCED_STAGES = json.dumps(
 )
 
 
-def _create_legacy(conn: Any, flow_id: str = "mutable-flow") -> None:
-    cmd_create(conn, flow_id, "yoke", "Mutable flow", "", LEGACY_STAGES)
+def _create_execution_flow(conn: Any, flow_id: str = "mutable-flow") -> None:
+    cmd_create(conn, flow_id, "yoke", "Mutable flow", "", EXECUTION_STAGES)
 
 
 def _seed_ephemeral_capability(
@@ -117,7 +117,7 @@ def test_run_preview_target_requires_registered_capability(test_db: Any) -> None
 
 
 def test_complete_update_and_reorder_preserve_one_flow_identity(test_db: Any) -> None:
-    _create_legacy(test_db)
+    _create_execution_flow(test_db)
     updated = cmd_update_definition(
         test_db,
         "mutable-flow",
@@ -135,7 +135,7 @@ def test_complete_update_and_reorder_preserve_one_flow_identity(test_db: Any) ->
 def test_used_definition_is_immutable_but_can_publish_a_new_version(
     test_db: Any,
 ) -> None:
-    _create_legacy(test_db, "used-flow")
+    _create_execution_flow(test_db, "used-flow")
     test_db.execute(
         "INSERT INTO deployment_runs(id,project_id,flow,status,created_at) "
         "VALUES ('run-used-flow',1,'used-flow','cancelled','2026-09-14T00:00:00Z')"
@@ -257,7 +257,7 @@ def test_delivery_intent_constraint_matches_both_initialization_orders(
         conn = connect_test_db(db_path)
         try:
             seed_project_identities(conn)
-            _create_legacy(conn, "intent-flow")
+            _create_execution_flow(conn, "intent-flow")
             conn.execute(
                 "INSERT INTO deployment_runs(id,project_id,flow,status,created_at) "
                 "VALUES (%s,1,'intent-flow','created',%s)",
@@ -285,3 +285,20 @@ def test_delivery_intent_constraint_matches_both_initialization_orders(
             conn.rollback()
         finally:
             conn.close()
+
+
+@pytest.mark.parametrize("writer", ["create", "stages", "definition"])
+def test_flow_writes_require_explicit_stage_policy(test_db: Any, writer: str) -> None:
+    stages = json.dumps([{"name": "deploy", "step_runner": "auto"}])
+    _create_execution_flow(test_db)
+    with pytest.raises(ValueError, match="stage_kind"):
+        if writer == "create":
+            cmd_create(test_db, "new-flow", "yoke", "New flow", "", stages)
+        elif writer == "stages":
+            cmd_update_stages(test_db, "mutable-flow", stages)
+        else:
+            cmd_update_definition(test_db, "mutable-flow", {"stages": stages})
+    stored = test_db.execute(
+        "SELECT stages FROM deployment_flows WHERE id='mutable-flow'"
+    ).fetchone()[0]
+    assert stored == EXECUTION_STAGES

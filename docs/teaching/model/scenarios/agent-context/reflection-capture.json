@@ -1,0 +1,13 @@
+{
+ "id": "reflection-capture",
+ "title": "Capture a response without an automatic Agent receipt",
+ "status": "observed",
+ "audience": "agent",
+ "when": "A dispatched agent returns through a surface that has no automatic capture matcher",
+ "need": "The parent sends the complete response file through the registered capture route with the actual project and role, keeps it until a successful receipt, and follows named recovery for incomplete parsing or persistence. An older server requires the carrying release from the control-plane operator.",
+ "disclosure": "current cue",
+ "surface": "Conduct reflection instructions and shared role reflection contract",
+ "review": "Authenticated HTTP source tests plus parser/persistence tests; installed release proof remains pending.",
+ "sources": [".agents/skills/yoke/conduct/dispatch-context-artifacts.md", "runtime/agents/_shared/ouroboros-reflection-contract.md", "runtime/api/test_agent_control_plane_http.py"],
+ "position": 8
+}

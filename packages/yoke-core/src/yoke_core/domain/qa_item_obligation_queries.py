@@ -20,6 +20,40 @@ def unsatisfied_blocking(
     Item-bound and member-scoped run-bound rows share
     :meth:`GateTarget.where_clause`; admitted copies are not independent.
     """
+    return unsatisfied_blocking_many(
+        conn, item_ids=(item_id,), target_status=target_status
+    )[int(item_id)]
+
+
+def unsatisfied_blocking_many(
+    conn: Any, *, item_ids, target_status: str
+) -> dict[int, UnsatisfiedBlocking]:
+    """The canonical item scan over a bounded set, without materialization."""
+    ids = tuple(dict.fromkeys(int(value) for value in item_ids))
+    if not ids:
+        return {}
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    holes = ",".join(marker for _ in ids)
+    fetched = conn.execute(
+        "SELECT qr.* FROM qa_requirements qr "
+        f"WHERE (qr.item_id IN ({holes}) OR qr.deployment_member_item_id IN ({holes})) "
+        "AND qr.blocking_mode = 'blocking' AND qr.waived_at IS NULL "
+        f"AND {unretracted_requirement_sql(conn, 'qr')}",
+        (*ids, *ids),
+    ).fetchall()
+    by_item = {item_id: [] for item_id in ids}
+    for raw in fetched:
+        row = dict(raw)
+        for item_id in {row.get("item_id"), row.get("deployment_member_item_id")}:
+            if item_id in by_item:
+                by_item[item_id].append(row)
+    return {
+        item_id: _score(conn, rows, item_id=item_id, target_status=target_status)
+        for item_id, rows in by_item.items()
+    }
+
+
+def _score(conn, fetched, *, item_id: int, target_status: str) -> UnsatisfiedBlocking:
     from yoke_core.domain.deployment_qa_source_obligation import (
         UnsatisfiedBlocking,
         row_unsatisfied_at_done,
@@ -29,21 +63,10 @@ def unsatisfied_blocking(
         obligation_settled,
     )
     from yoke_core.domain.qa_gate_definitions import (
-        GateTarget,
         independent_item_obligation,
         status_settles_blocking_qa,
     )
 
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    where, params = GateTarget(item_id=int(item_id)).where_clause()
-    if marker != "%s":
-        where = where.replace("%s", marker)
-    fetched = conn.execute(
-        "SELECT qr.* FROM qa_requirements qr "
-        f"WHERE {where} AND qr.blocking_mode = 'blocking' "
-        f"AND qr.waived_at IS NULL AND {unretracted_requirement_sql(conn, 'qr')}",
-        params,
-    ).fetchall()
     scored = []
     for item in effective_obligations(conn, [dict(row) for row in fetched]):
         if obligation_settled(item) or not independent_item_obligation(item):

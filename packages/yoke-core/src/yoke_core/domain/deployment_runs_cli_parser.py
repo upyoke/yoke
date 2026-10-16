@@ -77,20 +77,6 @@ def build_parser() -> argparse.ArgumentParser:
     lfs = sub.add_parser("lineage-final-status", help="Status of production-target run")
     lfs.add_argument("lineage_id")
 
-    qa = sub.add_parser("qa-add", help="Add QA requirement to run")
-    qa.add_argument("run_id")
-    qa.add_argument("check_name")
-    qa.add_argument("source")
-    qa.add_argument("blocking", type=int)
-
-    ql = sub.add_parser("qa-list", help="List QA requirements")
-    ql.add_argument("run_id")
-
-    qu = sub.add_parser("qa-update", help="Update QA check status")
-    qu.add_argument("run_id")
-    qu.add_argument("check_name")
-    qu.add_argument("status")
-
     vc = sub.add_parser(
         "validate-composition",
         help="Compose the run now and report enrolled members or the refusal",

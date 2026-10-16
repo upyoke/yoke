@@ -22,9 +22,6 @@ from yoke_core.domain.advance_path_claim_task_activation import (
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.path_claims import PathClaimError, get_claim
-from yoke_core.domain.path_claims_blocked_coordination_repair import (
-    repair_coordination_only_blocked,
-)
 from yoke_core.domain.path_claims_register import activate_with_events
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 from yoke_core.domain.work_claim_targets import scope_int_sql
@@ -174,9 +171,7 @@ def run_activation_phase(
     session_id: Optional[str] = None,
     resolved_heads: Optional[Mapping[int, str]] = None,
 ) -> ActivationResult:
-    """Activate planned claims for ``(item_id, actor_id)``. Pre-loop,
-    legacy coord-only mutex residue (``state='blocked'`` rows the live
-    classifier no longer flags) is repaired to ``planned``. Survivors
+    """Activate planned claims for ``(item_id, actor_id)``. Blocked claims
     surface ``"claim N is blocked by upstream M"`` and emit one
     ``PathClaimActivationBlocked`` event; active claims are no-ops;
     diverged refs surface via :attr:`diverged_error`.
@@ -194,7 +189,6 @@ def run_activation_phase(
     if task_block:
         result.blocked_errors.append(task_block)
         return result
-    repair_coordination_only_blocked(conn, item_id=item_id, actor_id=actor_id)
     emitted_keys: set = set()
     for row in _list_claims_for_session(conn, item_id=item_id, actor_id=actor_id):
         claim_id = int(row[0])

@@ -1,11 +1,13 @@
 {
  "id": "identity",
  "title": "Session identity",
- "status": "draft-copy",
+ "status": "observed",
  "plan_refs": ["FIRST-USER.23", "FIRST-USER.C", "FIRST-USER.P1", "JOURNEYS.situation-3"],
  "surface_refs": ["global-orientation", "project-orientation", "resume-context"],
  "commands": ["yoke sessions identity"],
  "functions": ["sessions.identity"],
  "page": "sessions",
- "position": 0
+ "position": 0,
+ "summary": "Authenticated function calls carry the actor session through nested Conduct task-status claim checks. Exact task claims or parent authority authorize the write; payload identity and the server process session do not. Retained local calls use canonical ambient identity.",
+ "sources": ["docs/public/reference/db-reference/functions-tasks.md", "packages/yoke-core/src/yoke_core/domain/handlers/conduct_epic_pipeline.py", "packages/yoke-core/src/yoke_core/domain/verify_claim.py", "runtime/api/domain/handlers/test_conduct_task_actor_identity.py"]
 }

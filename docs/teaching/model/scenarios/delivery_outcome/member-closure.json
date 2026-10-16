@@ -1,0 +1,14 @@
+{
+ "id": "member-closure",
+ "title": "Deployment finished while a member still owes acceptance",
+ "status": "observed",
+ "audience": "agent",
+ "when": "A release has no outstanding run-bound QA but remains in settlement",
+ "need": "Read member closure diagnostics before choosing recovery. Name the exact requirement and target, distinguish atomic siblings from independently blocked or deferred members, and preserve live driver authority.",
+ "disclosure": "current cue",
+ "surface": "Steering release report and deployment-runs get",
+ "review": "Focused source regressions cover blocker resolution, other-target deferral, no-obligation answers and driver recovery; deployed observation remains owed.",
+ "recipes": ["yoke deployment-runs get"],
+ "sources": ["docs/public/reference/db-reference/steering-fleet-report.md", "docs/public/reference/db-reference/deployment-run-records.md", "runtime/api/domain/test_deployment_run_completion_preview.py"],
+ "position": 3
+}

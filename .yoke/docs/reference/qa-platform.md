@@ -98,8 +98,7 @@ aware start instant precedes equal-start id ties, and detached verdict reviews
 are excluded. case_outcome projects judged outcome without rewriting capture
 outcome/raw evidence/timestamps. Browser review judges its capture identity.
 Closed verdict-less superseded executions need a passed/discharged successor;
-post-deploy successors need accepted completion-member copies (run-wide for
-legacy schema-1). Live executions/active plans still block; name the unsettled
+post-deploy successors need accepted completion-member copies. Live executions/active plans still block; name the unsettled
 successor. `YOKE_QA_GATE_BYPASS=1` is pytest-only; production refuses
 GATE_QA_BYPASS_FORBIDDEN. Unset it and satisfy or explicitly waive obligations.
 

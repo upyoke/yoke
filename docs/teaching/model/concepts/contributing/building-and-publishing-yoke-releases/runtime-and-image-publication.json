@@ -3,9 +3,9 @@
  "title": "Runtime and image publication",
  "status": "observed",
  "audience": "Maintainers",
- "page": "contributing-guides",
+ "page": "release-publication",
  "position": 1,
- "current": "Source defines github.release.create_commit_tag with a serving floor and BASE.YYYYMMDDHHMM from the UTC committer clock. Repeated calls recover an identical annotated tag; minute collisions refuse. The bridge and factories still use launch tags.",
- "desired": "After the API is served, activate commit tags and exact main-push wheel and image promotion together. Prove the real consumer and measure release duration before claiming live improvement.",
- "sources": ["docs/releases/README.md", "packages/yoke-core/src/yoke_core/domain/handlers/github_commit_release_tag.py"]
+ "current": "Main factories attest wheels and native images before tag promotion of identical bytes. New tags, wheels, images, pins and display share BASE.YYYYMMDDHHMM from the exact commit UTC committer minute, without prefixes or local segments. Installed-package readers use generic PEP 440.",
+ "desired": "Complete real consumer CI and coordinated activation after required existing-format releases. Record artifact equality and release-time improvement. Dormant installs reinstall instead of adding old-version bridges.",
+ "sources": ["docs/releases/README.md", "packages/yoke-core/src/yoke_core/domain/handlers/github_commit_release_tag.py", "packages/yoke-core/src/yoke_core/tools/promote_main_artifacts.py", "packages/yoke-core/src/yoke_core/tools/publish_server_image.py"]
 }

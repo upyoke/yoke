@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "When an item reaches its merge boundary or the project first enables a merge queue.",
- "need": "Know whether this item lands locally or through a governed pull request/queue, what proof the route uses, and which result proves landing.",
+ "need": "Know whether this item lands locally or through a governed pull request/queue, what proof the route uses, and which result proves landing. The observer saves current PR identity atomically with landing stamps; the worker still owes result and verification closeout.",
  "disclosure": "audit needed",
  "surface": "Merge item; merge-review candidate; merge receipt/landing reads; GitHub queue readiness",
  "gap": "Existing sources and commands are present; scenario-to-first-explanation timing has not been traced. Review question: should JOURNEYS add first-landing and first-queue-use situations?",

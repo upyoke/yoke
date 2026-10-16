@@ -17,7 +17,6 @@ from typing import Any, Mapping
 
 from yoke_core.domain.deployment_run_bound_sources import (
     BOUND_SOURCES_FIELD,
-    bound_sources_recorded,
     declared_bindings,
     parse_bound_sources,
 )
@@ -205,13 +204,6 @@ def record_release_output(
     )
     from yoke_core.domain.project_identity import resolve_project_id
 
-    if not bound_sources_recorded(conn):
-        raise ReleaseOutputRefused(
-            "bound_sources_unconverged",
-            "this control plane has not converged deployment_runs.bound_sources, "
-            "which is where a run records the commits it produced; deploy the "
-            "build carrying that column, then record again",
-        )
     project_id = int(resolve_project_id(conn, project))
     run = _run_record(conn, run_id)
     stored_text = str(run[BOUND_SOURCES_FIELD])

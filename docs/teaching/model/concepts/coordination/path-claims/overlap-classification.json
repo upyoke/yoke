@@ -3,5 +3,7 @@
  "title": "Overlap classification",
  "status": "draft-copy",
  "page": "coordination",
- "position": 2
+ "position": 2,
+ "summary": "Dependency changes reclassify blocked file reservations immediately: no remaining blocker returns the reservation to planned; surviving blockers retain current reasons. Completed items are not reopened.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/path_claims_blocked_reason_refresh.py", "docs/public/reference/agent-rules/lanes-and-claims.md"]
 }

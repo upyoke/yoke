@@ -91,6 +91,7 @@ def update_task_status(
     new_status: str,
     note: str = "",
     *,
+    session_id: Optional[str] = None,
     no_github: bool = False,
     no_derive: bool = False,
     stdout: Optional[TextIO] = None,
@@ -151,22 +152,19 @@ def update_task_status(
 
     if new_status == "implementing":
         from yoke_core.domain.epic_task_scope import (
-            schema_available as task_scope_schema_available,
             task_scope_issues,
         )
 
-        if task_scope_schema_available(conn):
-            scope_issues = task_scope_issues(conn, int(epic_id))
-            if scope_issues:
-                print(
-                    "Error: generated task activation blocked: "
-                    + "; ".join(scope_issues),
-                    file=stderr,
-                )
-                return 1
+        scope_issues = task_scope_issues(conn, int(epic_id))
+        if scope_issues:
+            print(
+                "Error: generated task activation blocked: " + "; ".join(scope_issues),
+                file=stderr,
+            )
+            return 1
 
     # --- claim verification ---
-    _verify_claim(epic_id, task_num, stderr=stderr)
+    _verify_claim(epic_id, task_num, session_id=session_id, stderr=stderr)
 
     # --- DB update ---
     conn.execute(

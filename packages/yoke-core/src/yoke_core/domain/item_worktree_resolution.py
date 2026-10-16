@@ -137,10 +137,8 @@ def resolve_item_id_by_worktree_name(conn: Any, name: str) -> Optional[int]:
     :func:`yoke_core.domain.worktree_naming.worktree_name_for_item`. Given a
     branch name or worktree-directory basename, return the owning
     ``item_worktrees.item_id``. A recorded ``branch`` is matched first, then a
-    recorded ``path`` whose basename equals the name — so worktrees created
-    under the public-ref scheme (``PREFIX-{project_sequence}``) or the legacy
-    ``YOK-{internal_id}`` scheme both resolve to the correct internal id. An
-    active lane wins over a released one when several rows share the name.
+    recorded ``path`` whose basename equals the name. An active lane wins
+    over a released one when several rows share the name.
     Returns ``None`` when nothing matches or the registry is unavailable.
     """
     clean = (name or "").strip().strip("/")

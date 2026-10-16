@@ -4,12 +4,11 @@ One spelling of the states a session row can be in, so the roster, the
 recipient selector, and every adapter that offers a ``--liveness`` flag
 accept and report the same words.
 
-A live session is ``active`` or ``stale`` by its activity, except one that
-has parked (declared a quiet reason) while holding an active work claim: that
-session is ``waiting`` on purpose — a deploy, a landing, a migration slot —
-whatever its age, because its claim protects it from the reclaim sweep and it
-resumes on the next prompt. ``stale`` therefore never names a parked claim
-holder.
+A live session is ``stale`` exactly when it is eligible for automatic reclaim.
+Active work claims always protect their holders. An intentional pause (mode
+``parked`` or turn posture ``waiting``) holding a claim is ``waiting``, shown
+as parked to people. Other protected or fresh live sessions are ``active``.
+Activity age remains a separate diagnostic and routing signal.
 
 How a session became dead is a separate facet.
 A session killed through ``session_control.session.terminate`` is ``ended``

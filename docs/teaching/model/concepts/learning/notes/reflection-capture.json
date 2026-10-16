@@ -1,0 +1,10 @@
+{
+ "id": "reflection-capture",
+ "title": "Capture a returned agent reflection",
+ "status": "observed",
+ "page": "learning",
+ "commands": ["yoke ouroboros reflection capture"],
+ "functions": ["ouroboros.reflection.capture"],
+ "sources": ["runtime/agents/_shared/ouroboros-reflection-contract.md", ".agents/skills/yoke/conduct/dispatch-context-artifacts.md"],
+ "summary": "The automatic Agent hook and registered manual route share the complete server parser and writer. A parent without an automatic receipt sends its captured response with the real project and role, retaining it until success. Receipts include parser, duplicate and persistence counts; incomplete work has a named refusal and recovery. Session, project and stable field-note request identity survive transport. Source tests establish the candidate behavior; installed carrying-release proof remains separate."
+}

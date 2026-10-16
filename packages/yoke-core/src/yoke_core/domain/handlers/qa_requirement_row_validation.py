@@ -23,8 +23,6 @@ def validate_row(row: Dict[str, Any], jsonpath: str) -> Optional[HandlerOutcome]
     """
     from yoke_core.domain.qa_constants import (
         VALID_BLOCKING_MODES,
-        _normalize_qa_kind,
-        _normalize_qa_phase,
     )
     from yoke_core.domain.qa_requirement_policy_validation import (
         validate_requirement_source,
@@ -61,8 +59,8 @@ def validate_row(row: Dict[str, Any], jsonpath: str) -> Optional[HandlerOutcome]
             jsonpath=f"{jsonpath}.qa_phase",
         )
     if not row.get("method_id"):
-        row["qa_kind"] = _normalize_qa_kind(str(qa_kind))
-    row["qa_phase"] = _normalize_qa_phase(qa_phase)
+        row["qa_kind"] = str(qa_kind)
+    row["qa_phase"] = qa_phase
 
     blocking_mode = str(row.get("blocking_mode") or "blocking")
     if blocking_mode not in VALID_BLOCKING_MODES:

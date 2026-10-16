@@ -1,16 +1,14 @@
 """Live in-process board render — the server-side composition.
 
 ``render_board`` opens a :class:`yoke_core.board.db.BoardDB`, collects the
-query plan from the connected DB, then renders from the recorded payload — the
+named board facts from the connected DB, then renders from the snapshot — the
 same data-fed assembly an https-fetched payload feeds. The render-from-payload
-path and the shared ``_assemble`` are client-tier and live in the shipped
-:mod:`yoke_contracts.board.renderer`; they are re-exported here for existing
-importers.
+function lives in :mod:`yoke_contracts.board.renderer` and is re-exported here.
 
 Public API
 ----------
 - ``render_board(db_token, scope, config_path, seed, repo_root) -> str``
-  — collect + replay against the connected DB in one process (tests,
+  — collect + render against the connected DB in one process (tests,
   direct in-process callers).
 - ``render_board_from_payload(payload, ...) -> str`` — render from a
   fetched ``board.data.get`` payload with no DB connection (the
@@ -28,14 +26,7 @@ from yoke_core.board.db import BoardDB
 from yoke_contracts.board.phase_timer import PhaseRecorder, measure_phase
 from yoke_contracts.board.zen import _zen_extract_vision
 
-# Render-from-payload + the shared assembly are client-tier (no DB connection);
-# they ship in yoke_contracts.board.renderer and are re-exported here.
-from yoke_contracts.board.renderer import (  # noqa: F401
-    _assemble,
-    _count_expected_tasks,
-    _project_filter,
-    render_board_from_payload,
-)
+from yoke_contracts.board.renderer import render_board_from_payload
 
 
 def render_board(
@@ -49,7 +40,7 @@ def render_board(
     """Render the complete BOARD.md content against the connected DB.
 
     The in-process composition of the board data layer: collect the
-    query plan from the live DB, then render from the recorded payload
+    named board facts from the live DB, then render from the snapshot
     — the same data-fed assembly an https-fetched payload feeds.
 
     Parameters

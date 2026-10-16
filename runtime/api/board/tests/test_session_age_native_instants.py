@@ -42,44 +42,28 @@ def test_usage_prices_at_native_offered_instant(offset):
         timezone(timedelta(minutes=offset))
     )
 
-    class RecordedDB:
-        def has_query(self, sql, params):
+    class DB:
+        def query(self, sql, params):
             assert "effective_at <= %s" in sql
             assert params == (parse_instant("2026-04-12T10:31:00.000001Z"),)
             assert isinstance(params[0], datetime)
-            return False
+            return [("revision", offered)]
 
-    assert isinstance(_display_usage(RecordedDB(), None, offered), str)
-    assert isinstance(_display_usage(RecordedDB(), None, None), str)
+    db = DB()
+    db._board_model_catalogs = {"revision": []}
+    assert isinstance(_display_usage(db, None, offered), str)
+    assert isinstance(_display_usage(db, None, None), str)
 
 
-def test_board_wire_codec_preserves_native_microseconds_and_archived_bytes():
+def test_board_wire_codec_preserves_native_values_without_mutation():
     import json
-    from copy import deepcopy
-    from yoke_contracts.board.data import (
-        BOARD_DATA_VERSION,
-        ReplayBoardDB,
-        _encode_value,
-    )
+    from datetime import date
+    from decimal import Decimal
+    from yoke_contracts.board.data import _encode_value, _decode_value
 
     stamp = parse_instant("2026-04-12T10:31:00.000001Z")
-    assert _encode_value(stamp) == {
-        "__t": "datetime",
-        "v": "2026-04-12T10:31:00.000001Z",
-    }
-    tagged = {"__t": "datetime", "v": "2026-04-12T16:16:00.000001+05:45"}
-    payload = {
-        "version": BOARD_DATA_VERSION,
-        "entries": [
-            {
-                "kind": "query",
-                "sql": "SELECT clock WHERE clock <= %s",
-                "params": [tagged],
-                "rows": [[tagged]],
-            }
-        ],
-    }
-    before = json.dumps(deepcopy(payload), sort_keys=True)
-    replay = ReplayBoardDB.from_payload(payload)
-    assert replay.query("SELECT clock WHERE clock <= %s", (stamp,)) == [(stamp,)]
+    values = {"clock": stamp, "cost": Decimal("0.0000123"), "day": date(2026, 4, 12)}
+    payload = _encode_value(values)
+    before = json.dumps(payload, sort_keys=True)
+    assert _decode_value(json.loads(before)) == values
     assert json.dumps(payload, sort_keys=True) == before

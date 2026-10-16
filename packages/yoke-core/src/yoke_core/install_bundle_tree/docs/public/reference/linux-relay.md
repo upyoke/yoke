@@ -53,6 +53,32 @@ logout behavior, and relay health. `yoke relay install` repairs the unit using
 the existing launcher and release installer; `yoke relay uninstall` disables
 and removes it. Logs stay in the selected relay's state directory.
 
+## Recover a release fetch failure
+
+For a relay stuck on an older installer, update the operator CLI to the
+server's exact release carrying the fix, then reinstall from that connection:
+
+```bash
+yoke update --version VERSION
+yoke --env team relay install
+yoke --env team relay status
+```
+
+Replace `VERSION` with that served release and `team` with your connection.
+The update command uses the official installer for the configured distribution.
+Check the pinned and served releases in relay status. In the dashboard
+Machine relays view, confirm this machine reports the same relay version with
+a fresh last-seen time after installation; a pin or CLI update alone does
+not prove which build is running.
+The four product wheels come from the environment's immutable release directory,
+with URL-encoded release and filename segments (including `%2B` for `+`).
+A fetch failure preserves the prior release and records its named cause and
+recovery in relay status. Repair that cause before reinstalling; an HTTP 403
+alone does not establish a permissions problem. Existing workers and pending
+reports remain available across the release switch.
+
+## Shutdown and service recovery
+
 TERM interrupts the current poll or maintenance call and closes job admission.
 At startup the relay reads the loaded systemd user unit's `TimeoutStopUSec`
 (or launchd's exit timeout on macOS). Active settlements use that allowance

@@ -14,10 +14,8 @@ from yoke_core.domain.deployment_flow_target_support import (
     require_supported_stage_targets_for_flow,
 )
 from yoke_core.domain.deployment_flow_policy import (
-    LEGACY_DEFINITION_SCHEMA_VERSION,
     require_supported_definition_schema,
 )
-from yoke_core.domain.schema_common import _column_exists
 
 
 def _p(conn: Any) -> str:
@@ -107,17 +105,12 @@ def validate_and_lookup_flow_project(
     if flow_id is None or flow_id == "":
         return None, None
 
-    schema_expr = (
-        "definition_schema_version"
-        if _column_exists(conn, "deployment_flows", "definition_schema_version")
-        else str(LEGACY_DEFINITION_SCHEMA_VERSION)
-    )
     if lock_binding:
         locked = lock_deployment_flow_rows(conn, (flow_id,), binding=True).get(flow_id)
         row = None
         if locked is not None:
             project_row = conn.execute(
-                f"SELECT slug, (SELECT {schema_expr} FROM deployment_flows "
+                f"SELECT slug, (SELECT definition_schema_version FROM deployment_flows "
                 f"WHERE id={_p(conn)}) AS definition_schema_version "
                 f"FROM projects WHERE id = {_p(conn)}",
                 (flow_id, locked[0]),
@@ -136,7 +129,7 @@ def validate_and_lookup_flow_project(
                 row = (project_slug, locked[1], schema_version)
     else:
         row = conn.execute(
-            f"SELECT p.slug AS project, df.status, {schema_expr} "
+            f"SELECT p.slug AS project, df.status, definition_schema_version "
             "FROM deployment_flows df "
             "JOIN projects p ON p.id = df.project_id "
             f"WHERE df.id = {_p(conn)}",
@@ -155,7 +148,7 @@ def validate_and_lookup_flow_project(
                 f"deployment_flow '{flow_id}' is {status} and cannot be assigned."
                 f"{suffix}"
             )
-        schema_version = int(row[2] or LEGACY_DEFINITION_SCHEMA_VERSION)
+        schema_version = int(row[2])
         try:
             require_supported_definition_schema(
                 schema_version, operation=f"assigning deployment flow {flow_id!r}"

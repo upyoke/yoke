@@ -19,7 +19,6 @@ import json
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from yoke_core.domain.qa_converging_columns import converged_select
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.qa_plan_case_definition import (
     case_baselines,
@@ -139,9 +138,7 @@ def _comparable(value: Any) -> str:
 
 
 def _row(conn: Any, requirement_id: int) -> Any:
-    columns = converged_select(
-        conn, "qa_requirements", (*_SUBJECT_COLUMNS, *PLAN_DEFINITION_COLUMNS)
-    )
+    columns = ",".join((*_SUBJECT_COLUMNS, *PLAN_DEFINITION_COLUMNS))
     return query_one(
         conn,
         f"SELECT id,{columns} FROM qa_requirements WHERE id={marker(conn)}",
@@ -226,9 +223,7 @@ def rows_behind_plan(conn: Any, plan_id: int) -> list[PlanCaseDivergence]:
     Waived rows are left out: a waived row runs nothing, so it cannot certify
     against a superseded body, and naming it would bury the rows that can.
     """
-    columns = converged_select(
-        conn, "qa_requirements", (*_SUBJECT_COLUMNS, *PLAN_DEFINITION_COLUMNS)
-    )
+    columns = ",".join((*_SUBJECT_COLUMNS, *PLAN_DEFINITION_COLUMNS))
     rows = query_rows(
         conn,
         f"SELECT id,{columns} FROM qa_requirements "

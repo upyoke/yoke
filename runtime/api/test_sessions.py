@@ -33,6 +33,7 @@ from runtime.api.test_dependency_schema import (
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.actors import seed_canonical_human
+from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.local_operating_actor import ensure_local_operating_actor
 from runtime.api.fixtures.backlog import insert_item, seed_fixture_operating_actor
 from runtime.api.fixtures.operating_actor import seed_fixture_universe_identity
@@ -96,10 +97,7 @@ from yoke_contracts.session_model_facts import SessionModelFacts
 def _create_schema(conn) -> None:
     """Create the harness_sessions, work_claims, actor, and items tables for testing.
 
-    ``items`` is the empty best-effort target of ``read_item_status`` on the
-    release-diagnose path; under the backend-aware conn on Postgres a missing
-    ``items`` would raise an uncaught ``UndefinedTable`` (the caller's except is
-    SQLite-pinned), so the empty table must exist for the read to return ``None``.
+    Include current fleet-control tables for launch-aware session lifecycle reads.
     """
     apply_ddl_statements(
         conn,
@@ -134,6 +132,7 @@ def _create_schema(conn) -> None:
     ensure_workflow_schema(conn)
     converge_builtin_workflows(conn)
     create_level_store_tables(conn)
+    create_session_control_tables(conn)
 
 
 def _apply_on_backend(build) -> None:

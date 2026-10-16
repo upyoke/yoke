@@ -12,14 +12,14 @@ and reads it back on reuse (:func:`lookup_call` from
 First write wins (``ON CONFLICT (request_id) DO NOTHING``). Replay is bound
 to the stored function, authenticated actor, authorization scope, and
 canonical payload checksum; any mismatch is an idempotency-key collision.
-Rows older than :data:`LEDGER_TTL_DAYS` are pruned by the
-retention surface (``events_prune.cmd_prune``); after the TTL a reused
-``request_id`` dispatches fresh instead of replaying.
+The universe retention policy owns physical cleanup. Lookup has no read-time
+expiry; a row remains replayable until cleanup removes it. The supported
+replay guarantee is at least seven days.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from yoke_contracts.timestamps import utc_now, parse_instant
 from yoke_core.domain.db_helpers import instant_parameter
 
@@ -30,9 +30,6 @@ from yoke_contracts.timestamps import temporal_wire
 
 LEDGER_TABLE = "function_call_ledger"
 
-# Replay/dedup window in days. Consumed by the retention prune
-# (events_prune.cmd_prune).
-LEDGER_TTL_DAYS = 7
 
 # Single DDL source, executed by schema_init_tables.create_core_tables.
 FUNCTION_CALL_LEDGER_CREATE_SQL = f"""
@@ -55,12 +52,6 @@ def serialize_result(result: Dict[str, Any]) -> str:
     return json.dumps(
         temporal_wire(dict(result)), sort_keys=True, separators=(",", ":")
     )
-
-
-def ttl_cutoff_iso(now: datetime | str | None = None) -> datetime:
-    """Return the native instant below which retained rows expire."""
-    base = utc_now() if now is None else parse_instant(now)
-    return base - timedelta(days=LEDGER_TTL_DAYS)
 
 
 def record_call(
@@ -189,45 +180,10 @@ def lookup_call(
     )
 
 
-def count_expired(conn: Any) -> int:
-    """Rows past the TTL window (dry-run reporting for the prune)."""
-    from yoke_core.domain.schema_common import _table_exists
-
-    if not _table_exists(conn, LEDGER_TABLE):
-        return 0
-    row = conn.execute(
-        f"SELECT COUNT(*) FROM {LEDGER_TABLE} WHERE created_at < %s",
-        (instant_parameter(conn, ttl_cutoff_iso()),),
-    ).fetchone()
-    if row is None:
-        return 0
-    return int(row[0] or 0)
-
-
-def prune_expired(conn: Any) -> int:
-    """Delete rows past the TTL window; returns the pruned count.
-
-    The caller (``events_prune.cmd_prune``) owns the connection, the
-    commit, and the retention audit fingerprint.
-    """
-    from yoke_core.domain.schema_common import _table_exists
-
-    if not _table_exists(conn, LEDGER_TABLE):
-        return 0
-    return conn.execute(
-        f"DELETE FROM {LEDGER_TABLE} WHERE created_at < %s",
-        (instant_parameter(conn, ttl_cutoff_iso()),),
-    ).rowcount
-
-
 __all__ = [
     "FUNCTION_CALL_LEDGER_CREATE_SQL",
     "LEDGER_TABLE",
-    "LEDGER_TTL_DAYS",
-    "count_expired",
     "lookup_call",
-    "prune_expired",
     "record_call",
     "serialize_result",
-    "ttl_cutoff_iso",
 ]

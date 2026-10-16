@@ -70,6 +70,9 @@ _SCHEMA_DDL = """
         project_id INTEGER NOT NULL,
         name TEXT,
         stages TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        definition_schema_version INTEGER NOT NULL DEFAULT 2,
+        takes_delivery_custody INTEGER NOT NULL DEFAULT 0,
         target_tier TEXT,
         target_environment_id INTEGER,
         done_description TEXT,
@@ -81,7 +84,7 @@ _SCHEMA_DDL = """
     INSERT INTO deployment_flows
         (id, project_id, name, stages, target_tier, target_environment_id)
         VALUES ('externalwebapp-standard', 2, 'externalwebapp-standard',
-                '[{"name":"preview"},{"name":"prod"}]',
+                '[{"name":"preview","stage_kind":"execution","step_runner":"auto"},{"name":"prod","stage_kind":"execution","step_runner":"auto"}]',
                 'persistent', 202);
 
     CREATE TABLE IF NOT EXISTS items (
@@ -93,6 +96,7 @@ _SCHEMA_DDL = """
         project_sequence INTEGER NOT NULL DEFAULT 0,
         deployment_flow TEXT,
         merged_at TIMESTAMPTZ,
+        merge_queue_landed_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ NOT NULL,
         updated_at TIMESTAMPTZ NOT NULL,
         source TEXT NOT NULL DEFAULT '2',
@@ -130,6 +134,11 @@ def _apply_schema() -> None:
     finally:
         conn.close()
     dr.cmd_init()
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.flow_init import converge_flow_catalog
+
+    with connect() as conn:
+        converge_flow_catalog(conn)
 
 
 @pytest.fixture()

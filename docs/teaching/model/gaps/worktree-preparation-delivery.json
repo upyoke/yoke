@@ -1,0 +1,8 @@
+{
+ "id": "worktree-preparation-delivery",
+ "title": "Prove installed Conduct preparation after delivery",
+ "status": "observed",
+ "sources": ["runtime/api/cli/test_worktree_preparation_runtime.py", ".agents/skills/yoke/conduct/entry-activation-resolution.md"],
+ "text": "The source recipe uses registered preparation and candidate tests; installed delivery has not yet been independently verified.",
+ "plan_refs": ["FIRST-USER.24"]
+}

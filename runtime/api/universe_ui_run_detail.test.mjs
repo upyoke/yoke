@@ -190,7 +190,7 @@ test("the run page reads the run by id and draws it in the page's shape", async 
   assert.equal(identityValues[1], "No artifact identity recorded; this run pins a source revision.");
   assert.equal(identityValues[2], "not frozen");
   assert.equal(identityValues[3], "prod · https://upyoke.com");
-  const qa = byClass(root, "run-qa-section")[0];
+  const qa = byClass(root, "run-qa-section").find((node) => !node.classList.contains("item-qa-section"));
   assert.equal(byClass(qa, "run-verdict")[0].textContent, "1 of 1 passed");
   // A check is named for its method, never its case key.
   assert.equal(byClass(qa, "run-qa-check-name")[0].textContent, "Browser check");
@@ -202,6 +202,7 @@ test("the run page reads the run by id and draws it in the page's shape", async 
   assert.equal(items[0].textContent, "YOK-2228");
   assert.equal(items[1].textContent, "Ship the release");
   assert.equal(byClass(decision, "carried-item-evidence").length, 0);
+  assert.match(decision.textContent, /item_qa_requirements_unavailable/);
   assert.equal(byClass(decision, "run-request-kind")[0].textContent, "Release approval");
   assert.deepEqual(
     byClass(decision, "review-action").map((node) => node.textContent),
@@ -230,7 +231,7 @@ test("a run with nothing waiting says what it is doing instead", async (t) => {
   assert.ok(byClass(root, "run-top")[0].children.includes(decision));
   assert.ok(byClass(root, "run-stages")[0]);
   // A run with no run checks and no decision has no Run QA section at all.
-  assert.equal(byClass(root, "run-qa-section").length, 0);
+  assert.equal(byClass(root, "run-qa-section").filter((node) => !node.classList.contains("item-qa-section")).length, 0);
   assert.doesNotMatch(root.textContent, /No run checks were recorded/);
   mounted.unmount();
 });
@@ -319,5 +320,19 @@ test("a run page leaves run-less item QA on the item", async (t) => {
   }]);
   const { root } = await mountAt(t, "/deployments/runs/run-20260726-001?project=1", client);
   await settle();
-  assert.equal(byClass(byClass(root, "run-items")[0], "carried-item-evidence").length, 0);
+  const carried = byClass(root, "run-items")[0];
+  assert.equal(byClass(carried, "run-qa-check").length, 0);
+  assert.match(carried.textContent, /item_qa_requirements_unavailable/);
+});
+
+test("run detail shows source-only pending QA with no copy or attempt", async (t) => {
+  const pending = { requirement_id: 10, project: 1, qa_phase: "post_deploy",
+    deployment_run_id: "run-20260726-001", pending_obligation: true, run_id: null,
+    outcome: "queued", method_name: "Browser inspection", artifacts: [] };
+  const row = runRow();
+  row.member_items[0].qa_obligations = { current: [pending], history: [] };
+  const { root } = await mountAt(t, "/deployments/runs/run-20260726-001?project=1", runClient(row));
+  assert.equal(byClass(root, "is-pending-obligation").length, 1);
+  assert.match(byClass(root, "run-items")[0].textContent, /Item QA.*Not started.*Browser inspection/);
+  assert.equal(byClass(root, "review-shot").length, 0);
 });

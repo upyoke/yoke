@@ -42,7 +42,7 @@ def test_terminal_and_stopped_items_skip(stage_id):
     assert classify_next_action(workflow, stage_id) is AdapterCategory.SKIP
 
 
-@pytest.mark.parametrize("stage_id", ["blocked", "failed"])
+@pytest.mark.parametrize("stage_id", ["failed",])
 def test_wait_states_are_engine_owned(stage_id):
     workflow = builtin_workflow_runtime("issue")
     assert classify_next_action(workflow, stage_id) is AdapterCategory.WAIT

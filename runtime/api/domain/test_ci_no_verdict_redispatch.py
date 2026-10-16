@@ -164,14 +164,44 @@ def test_a_real_red_check_keeps_the_lane_fix_recovery():
     assert "fix it on the lane" in instruction
 
 
-def _rerun_fakes(monkeypatch, *, post_error=None):
+def _rerun_fakes(monkeypatch, *, post_error=None, started=True):
     posts = []
 
-    def request(req, *, token):
-        posts.append((req.method, req.path, token))
-        if post_error is not None:
-            raise post_error
-        return SimpleNamespace(status=201, body={})
+    def request(req, *, token, max_attempts=None):
+        if req.method == "POST":
+            assert max_attempts == 1
+            posts.append((req.method, req.path, token))
+            if post_error is not None:
+                raise post_error
+            return SimpleNamespace(status=201, body={})
+        if "/pulls/" in req.path:
+            body = {
+                "state": "open",
+                "head": {"sha": "1" * 40, "ref": "ALP-1", "repo": {"full_name": "o/r"}},
+            }
+        elif req.path.endswith("/jobs"):
+            body = {
+                "jobs": [
+                    {
+                        "runner_name": "runner" if started else "",
+                        "steps": [{}] if started else [],
+                        "conclusion": "cancelled",
+                    }
+                ]
+            }
+        elif "/actions/workflows/" in req.path:
+            body = {"workflow_runs": [{"id": 37365021162}]}
+        else:
+            body = {
+                "id": 37365021162,
+                "workflow_id": 1,
+                "head_sha": "1" * 40,
+                "head_branch": "ALP-1",
+                "status": "completed",
+                "conclusion": "cancelled",
+                "run_attempt": 1,
+            }
+        return SimpleNamespace(status=200, body=body)
 
     monkeypatch.setattr(
         merge_queue_entry_check_redispatch,
@@ -179,7 +209,7 @@ def _rerun_fakes(monkeypatch, *, post_error=None):
         lambda _ctx, _perms: (SimpleNamespace(repo="o/r", token="tok"), None),
     )
     monkeypatch.setattr(
-        merge_queue_entry_check_redispatch, "request_with_retry", request
+        "yoke_core.domain.github_actions_rest.request_with_retry", request
     )
     return posts
 
@@ -228,7 +258,7 @@ def test_a_rerun_github_refuses_is_named_with_its_recovery(monkeypatch):
 
     assert "re-running run 37365021162" in refusal
     assert "403 forbidden" in refusal
-    assert "Re-run `yoke merge item`" in refusal
+    assert "Inspect the run's attempt and status" in refusal
 
 
 def test_checks_github_has_not_replaced_yet_refuse_with_reentry(monkeypatch):

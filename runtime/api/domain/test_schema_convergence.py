@@ -1,12 +1,4 @@
-"""Tests for boot-time schema convergence.
-
-A prod/self-host deploy only reconciles schema on the boot after core-deploy,
-and that boot runs :func:`yoke_core.domain.schema_init.converge_core_schema`
-(via :func:`yoke_core.api.server_entrypoint.ensure_core_schema`). These tests
-prove a universe born before a recent additive change converges to the current
-schema on boot — WITHOUT running the birth-only destructive drops or data
-backfills that :func:`apply_legacy_data_migrations` carries.
-"""
+"""Boot-time additive schema convergence coverage."""
 
 from __future__ import annotations
 
@@ -16,7 +8,6 @@ from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.schema_fingerprint import fingerprint_kind
 from yoke_core.domain.schema_init import converge_core_schema
-from yoke_core.domain.schema_init_columns import apply_idempotent_migrations
 
 # Recent additive tables a universe born before them would be missing — the
 # exact drift observed on the live control plane before this fix.
@@ -79,38 +70,17 @@ def test_converge_adds_missing_columns_and_tables(tmp_path: Path) -> None:
 
 
 def test_converge_is_non_destructive(tmp_path: Path) -> None:
-    """Converge must NOT run the birth-only drops: a retired surface the full
-    init chain would drop survives the boot converge untouched."""
+    """Additive convergence preserves unrelated tables and their rows."""
     with init_test_db(tmp_path) as db_path:
         conn = connect_test_db(db_path)
         try:
-            # epic_reviews is dropped by apply_legacy_data_migrations at full
-            # init; converge must never touch it.
-            conn.execute("CREATE TABLE epic_reviews (id INTEGER)")
-            conn.execute("INSERT INTO epic_reviews (id) VALUES (1)")
+            conn.execute("CREATE TABLE unrelated_records (id INTEGER)")
+            conn.execute("INSERT INTO unrelated_records (id) VALUES (1)")
             conn.commit()
             converge_core_schema(conn)
 
-            assert _table_exists(conn, "epic_reviews") is True
-            assert _row_count(conn, "epic_reviews") == 1
-        finally:
-            conn.close()
-
-
-def test_full_migration_wrapper_still_drops_legacy(tmp_path: Path) -> None:
-    """The birth/full-init path (apply_idempotent_migrations) keeps running the
-    destructive tail — the split routed the drop to the birth-only path, it did
-    not delete it."""
-    with init_test_db(tmp_path) as db_path:
-        conn = connect_test_db(db_path)
-        try:
-            conn.execute("CREATE TABLE epic_reviews (id INTEGER)")
-            conn.commit()
-            assert _table_exists(conn, "epic_reviews") is True
-
-            apply_idempotent_migrations(conn)
-
-            assert _table_exists(conn, "epic_reviews") is False
+            assert _table_exists(conn, "unrelated_records") is True
+            assert _row_count(conn, "unrelated_records") == 1
         finally:
             conn.close()
 

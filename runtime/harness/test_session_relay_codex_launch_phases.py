@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from threading import Thread
+from types import SimpleNamespace
 
 import pytest
 
@@ -12,6 +14,7 @@ from yoke_contracts.session_control.launch_bootstrap import native_launch_bootst
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_harness import session_relay_codex_app_server as app_module
 from yoke_harness import session_relay_codex_app_server_client as client_module
+from yoke_harness import session_relay_codex_cli_process as process_module
 from yoke_harness.session_relay_codex import (
     CodexNativeOutcome,
     CodexNativeRequest,
@@ -26,7 +29,34 @@ from yoke_harness.session_relay_inventory import ResolvedNativeCli
 
 
 THREAD_ID = "01a038d8-96df-7802-be79-cc35851a919c"
-INSTRUCTION = native_launch_bootstrap("launch-1")
+LAUNCH_ID = "11111111-1111-4111-8111-111111111111"
+ATTEMPT_ID = "22222222-2222-4222-8222-222222222222"
+INSTRUCTION = native_launch_bootstrap(LAUNCH_ID)
+pytestmark = pytest.mark.filterwarnings(
+    "error::pytest.PytestUnhandledThreadExceptionWarning"
+)
+
+
+@pytest.fixture(autouse=True)
+def finish_native_cleanup(monkeypatch, tmp_path):
+    threads = []
+
+    def thread(**kwargs):
+        started = Thread(**kwargs)
+        threads.append(started)
+        return started
+
+    monkeypatch.setattr(process_module, "threading", SimpleNamespace(Thread=thread))
+    monkeypatch.setattr(
+        "yoke_harness.session_relay_native_diagnostics.relay_state_dir",
+        lambda: tmp_path,
+    )
+    yield
+    for started in threads:
+        started.join(timeout=2)
+        assert not started.is_alive(), (
+            "native cleanup did not finish; inspect the fake process"
+        )
 
 
 class _FakeNative:
@@ -72,7 +102,7 @@ def _request(
 ) -> CodexNativeRequest:
     return CodexNativeRequest(
         job_kind=job_kind,
-        job_id="launch-1" if job_kind == "launch" else "attempt-1",
+        job_id=LAUNCH_ID if job_kind == "launch" else ATTEMPT_ID,
         surface="codex-cli",
         surface_version="0.149.0-alpha.4.3",
         checkout=tmp_path,

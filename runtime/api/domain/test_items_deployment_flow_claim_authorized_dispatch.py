@@ -59,8 +59,8 @@ def claim_plane():
         conn.execute(
             "INSERT INTO deployment_flows "
             "(id,project_id,name,description,stages,on_failure,created_at,"
-            "target_tier,status) VALUES "
-            "(%s,%s,%s,'test flow','[]','halt',%s,'ephemeral','active')",
+            "target_tier,status,definition_schema_version) VALUES "
+            "(%s,%s,%s,'test flow','[]','halt',%s,'ephemeral','active',2)",
             (FLOW, project_id, FLOW, iso8601_now()),
         )
         workflow_id, workflow_version_id = resolve_current_workflow_pin(conn, "issue")

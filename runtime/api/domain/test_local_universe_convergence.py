@@ -82,7 +82,8 @@ def test_board_collection_succeeds_once_the_universe_is_converged(
 
     payload = _collect_board(stale_universe, tmp_path)
 
-    assert payload["entry_count"] > 0
+    assert payload["scope"] == "yoke"
+    assert set(payload["items"]) == {"active", "pipeline", "backlog", "blocked", "freezer", "done", "unknown"}
 
 
 def test_this_machine_owns_its_own_embedded_universe():

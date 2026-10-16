@@ -10,7 +10,6 @@ from typing import Callable, List, Optional
 from yoke_core.domain import deploy_pipeline_poll_authority as poll_authority
 from yoke_core.domain import deploy_pipeline_reporting as reporting
 from yoke_core.domain import deploy_pipeline_run_updates as run_updates
-from yoke_core.domain import deploy_pipeline_control_plane as control_plane
 
 
 EXIT_STAGE_FAILED = 1
@@ -151,13 +150,6 @@ def fail_pipeline_stage(
         member_items,
         sd=sd,
     )
-    try:
-        control_plane.record_qa_stage(run_id, stage_name, "fail")
-    except control_plane.DeploymentControlPlaneError as exc:
-        print(
-            f"Warning: could not record QA verdict for stage {stage_name!r}: {exc}",
-            file=sys.stderr,
-        )
     run_updates.update_run_field(run_id, "status", "failed")
     emit_event(
         "DeploymentRunFailed",

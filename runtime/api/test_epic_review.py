@@ -177,7 +177,7 @@ class TestReviewAndSimulationWrites:
             task_num=1,
             qa_kind="implementation_review",
             qa_phase="verification",
-            target_env="local",
+            target_env=None,
             blocking_mode="blocking",
             requirement_source="explicit",
             success_policy='{"type":"deterministic","criteria":"verdict_pass"}',

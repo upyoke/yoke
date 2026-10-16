@@ -16,8 +16,6 @@ from yoke_core.domain.qa_constants import (
     browser_requirement_predicate,
     _coalesce,
     is_browser_method_requirement,
-    _normalize_qa_kind,
-    _normalize_qa_phase,
     _pipe_row,
 )
 
@@ -83,48 +81,6 @@ def test_non_browser_method_is_not_browser_execution():
 def test_browser_requirement_predicate_uses_only_method_identity():
     predicate = browser_requirement_predicate("req")
     assert predicate == "req.method_id IN ('browser-check', 'browser-inspection')"
-
-
-# ---------------------------------------------------------------------------
-# _normalize_qa_phase
-# ---------------------------------------------------------------------------
-
-
-def test_normalize_qa_phase_canonical_passes_through():
-    assert _normalize_qa_phase("verification") == "verification"
-    assert _normalize_qa_phase("post_deploy") == "post_deploy"
-    assert _normalize_qa_phase("manual_acceptance") == "manual_acceptance"
-
-
-def test_normalize_qa_phase_legacy_validation_to_verification():
-    assert _normalize_qa_phase("validation") == "verification"
-
-
-def test_normalize_qa_phase_unknown_passes_through():
-    """Unknown values are returned unchanged (validation happens elsewhere)."""
-    assert _normalize_qa_phase("custom_phase") == "custom_phase"
-
-
-def test_normalize_qa_phase_is_case_sensitive():
-    """The current implementation does not lower-case its input."""
-    assert _normalize_qa_phase("VERIFICATION") == "VERIFICATION"
-
-
-# ---------------------------------------------------------------------------
-# _normalize_qa_kind
-# ---------------------------------------------------------------------------
-
-
-def test_normalize_qa_kind_plan_case_round_trips():
-    assert _normalize_qa_kind("plan_case") == "plan_case"
-
-
-def test_normalize_qa_kind_legacy_review_rewritten():
-    assert _normalize_qa_kind("review") == "implementation_review"
-
-
-def test_normalize_qa_kind_unknown_passes_through():
-    assert _normalize_qa_kind("custom_kind") == "custom_kind"
 
 
 # ---------------------------------------------------------------------------

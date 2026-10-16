@@ -8,10 +8,6 @@ from typing import Any
 from yoke_contracts.qa_plan_case_document import QA_PLAN_CASE_FIELDS
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.db_helpers import instant_parameter, query_one, query_rows
-from yoke_core.domain.qa_converging_columns import (
-    STARTING_STATE_COLUMNS,
-    converged_select,
-)
 from yoke_core.domain.qa_plan_case_store import insert_plan_cases
 from yoke_core.domain.qa_plan_management import (
     QaPlanError,
@@ -69,7 +65,7 @@ def _current_cases(conn: Any, plan_id: int) -> list[dict[str, Any]]:
             "SELECT case_key, position, method_id, instructions, "
             "expected_outcome, method_config, success_policy_id, "
             "success_policy_params, host_baselines, "
-            f"{converged_select(conn, 'qa_plan_cases', (*STARTING_STATE_COLUMNS, 'target_envs', 'stage_reason'))}, "
+            f"{'starting_state,starting_state_reason,target_envs,stage_reason'}, "
             "entry_surface, "
             f"required_completion FROM qa_plan_cases WHERE plan_id={marker} "
             "ORDER BY position",

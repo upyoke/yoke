@@ -21,13 +21,14 @@ from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
 @pytest.fixture()
-def tmp_db(tmp_path):
+def tmp_db(tmp_path, monkeypatch):
     """Backend-aware DB with the merge-audit tables; yields its path.
 
     ``merge_audit.generate_report`` reads through the backend factory, so the
     schema and seed must land in the same backend (the file on SQLite, the
     repointed per-test database on Postgres).
     """
+    monkeypatch.setenv("YOKE_PROJECT", "yoke")
     with init_test_db(tmp_path, apply_schema=apply_merge_audit_schema) as path:
         yield path
 
@@ -49,11 +50,14 @@ def fake_repo(tmp_path):
     subprocess.run(["git", "init", str(repo)], capture_output=True, check=True)
     subprocess.run(
         ["git", "-C", str(repo), "commit", "--allow-empty", "-m", "init"],
-        capture_output=True, check=True, env=GIT_ENV,
+        capture_output=True,
+        check=True,
+        env=GIT_ENV,
     )
     subprocess.run(
         ["git", "-C", str(repo), "branch", "-M", "main"],
-        capture_output=True, check=True,
+        capture_output=True,
+        check=True,
     )
     return str(repo)
 
@@ -62,16 +66,28 @@ def _add_branch(repo: str, name: str, num_commits: int = 1) -> None:
     """Create a branch with commits ahead of main."""
     subprocess.run(
         ["git", "-C", repo, "checkout", "-b", name],
-        capture_output=True, check=True,
+        capture_output=True,
+        check=True,
     )
     for i in range(num_commits):
         subprocess.run(
-            ["git", "-C", repo, "commit", "--allow-empty", "-m", f"work {i+1} on {name}"],
-            capture_output=True, check=True, env=GIT_ENV,
+            [
+                "git",
+                "-C",
+                repo,
+                "commit",
+                "--allow-empty",
+                "-m",
+                f"work {i + 1} on {name}",
+            ],
+            capture_output=True,
+            check=True,
+            env=GIT_ENV,
         )
     subprocess.run(
         ["git", "-C", repo, "checkout", "main"],
-        capture_output=True, check=True,
+        capture_output=True,
+        check=True,
     )
 
 
@@ -85,7 +101,9 @@ class TestMergeOrder:
     def test_recommended_merge_order(self, tmp_db, fake_repo):
         """Report includes recommended merge order."""
         conn = connect_test_db(tmp_db)
-        conn.execute("INSERT INTO items (id, title, status) VALUES (600, 'Merge Order', 'implementing')")
+        conn.execute(
+            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (600, 1, 600, 'Merge Order', 'implementing')"
+        )
         seed_merge_audit_task(
             conn,
             epic_id=600,
@@ -112,7 +130,9 @@ class TestSummaryCounts:
     def test_ready_branch_counted(self, tmp_db, fake_repo):
         """Ready branch (all tasks done) counted correctly."""
         conn = connect_test_db(tmp_db)
-        conn.execute("INSERT INTO items (id, title, status) VALUES (700, 'Ready', 'implementing')")
+        conn.execute(
+            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (700, 1, 700, 'Ready', 'implementing')"
+        )
         seed_merge_audit_task(
             conn,
             epic_id=700,
@@ -134,7 +154,9 @@ class TestSummaryCounts:
     def test_blocked_branch_counted(self, tmp_db, fake_repo):
         """Blocked branch (incomplete tasks) counted correctly."""
         conn = connect_test_db(tmp_db)
-        conn.execute("INSERT INTO items (id, title, status) VALUES (710, 'Blocked', 'implementing')")
+        conn.execute(
+            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (710, 1, 710, 'Blocked', 'implementing')"
+        )
         seed_merge_audit_task(
             conn,
             epic_id=710,
@@ -164,7 +186,9 @@ class TestSummaryCounts:
     def test_conflicts_detected_zero(self, tmp_db, fake_repo):
         """Summary shows 'Conflicts detected: 0' when no conflicts."""
         conn = connect_test_db(tmp_db)
-        conn.execute("INSERT INTO items (id, title, status) VALUES (720, 'NC', 'implementing')")
+        conn.execute(
+            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (720, 1, 720, 'NC', 'implementing')"
+        )
         seed_merge_audit_task(
             conn,
             epic_id=720,
@@ -228,7 +252,9 @@ class TestCLI:
     def test_exit_code_always_zero(self, tmp_db, fake_repo):
         """CLI exits 0 even when there are warnings."""
         conn = connect_test_db(tmp_db)
-        conn.execute("INSERT INTO items (id, title, status) VALUES (800, 'Ex', 'implementing')")
+        conn.execute(
+            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (800, 1, 800, 'Ex', 'implementing')"
+        )
         seed_merge_audit_task(
             conn,
             epic_id=800,
@@ -243,7 +269,7 @@ class TestCLI:
         _add_branch(fake_repo, "YOK-800")
 
         with mock.patch.dict(os.environ, _env(tmp_db, fake_repo)):
-            report = merge_audit.generate_report(epic_filter=800)
+            report = merge_audit.generate_report(epic_filter=f"YOK-{800}")
         assert "# Merge Readiness Audit" in report
 
     def test_invalid_epic_id_via_main(self, fake_repo):
@@ -262,8 +288,8 @@ class TestCLI:
     def test_sun_prefix_stripped(self, tmp_db, fake_repo):
         """YOK- prefix is stripped from epic ID argument."""
         with mock.patch.dict(os.environ, _env(tmp_db, fake_repo)):
-            report = merge_audit.generate_report(epic_filter=42)
-        assert "No unmerged branches found for epic 42." in report
+            report = merge_audit.generate_report(epic_filter=f"YOK-{42}")
+        assert "No unmerged branches found for epic YOK-42." in report
 
     def test_no_args_runs_all(self, tmp_db, fake_repo):
         """No arguments runs all-epic audit."""

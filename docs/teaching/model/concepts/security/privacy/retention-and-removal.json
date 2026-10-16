@@ -1,7 +1,10 @@
 {
  "id": "retention-and-removal",
  "title": "Retention and removal",
- "status": "draft-copy",
+ "status": "observed",
+ "summary": "An admin previews one connected universe before manual apply. Human-involved messages remain forever; settled unreferenced agent-only graphs may expire. Unknown origins, live references, strategy revisions and Doctor history stay. Counts and failures are output only; no scheduled pruning or physical shrink promise.",
+ "sources": ["docs/public/universe-retention.md", "runtime/api/domain/test_universe_retention.py"],
+ "related": "universes/universe/retention",
  "page": "security",
  "position": 4
 }

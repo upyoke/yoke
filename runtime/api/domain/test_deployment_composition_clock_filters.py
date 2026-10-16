@@ -9,9 +9,7 @@ import pytest
 from runtime.api.fixtures.native_instant_database import blank_database
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain import deployment_run_carried_work_sources as sources
-from yoke_core.domain import deployment_runs_crud_query as runs
 from yoke_core.domain.deployment_flow_succession import succession_chains
-from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
 
 STAMP = parse_instant("2026-10-10T23:30:00.123456Z")
 DRIVER_STAMP = parse_instant("2026-10-10T23:07:54.695930Z")
@@ -157,30 +155,3 @@ def test_empty_optional_landing_clocks_are_absent_in_sql_window(clocks, native):
 def test_recorded_commit_evidence_survives_outside_landing_window(clocks):
     clocks.execute("UPDATE items SET resolution_ref=%s WHERE id=2", ("a" * 40,))
     assert _resolve(clocks) == {"a" * 40: {1, 2}}
-
-
-def test_driver_text_clock_converts_at_boot_and_retry_reads_do_not_decode_it(
-    clocks, monkeypatch
-):
-    raw = clocks.execute("SELECT created_at FROM deployment_runs").fetchone()[0]
-    assert raw == "2026-10-10 23:07:54.69593+00"
-    monkeypatch.setattr(
-        runs,
-        "connect",
-        lambda *_: SimpleNamespace(execute=clocks.execute, close=lambda: None),
-    )
-    assert runs.cmd_get("run-clock-filter", field="status") == "created"
-    assert runs.cmd_get("run-clock-filter", field="release_lineage") == "a" * 40
-    row = runs.cmd_get("run-clock-filter").split("|")
-    assert row[RUN_FIELDS.index("created_at")] == raw
-    with pytest.raises(InvalidInstant):
-        runs.cmd_get("run-clock-filter", field="created_at")
-    history.apply(clocks)
-    history.invariants(clocks)
-    assert (
-        clocks.execute("SELECT created_at FROM deployment_runs").fetchone()[0]
-        == DRIVER_STAMP
-    )
-    assert runs.cmd_get("run-clock-filter", field="created_at") == format_instant(
-        DRIVER_STAMP
-    )

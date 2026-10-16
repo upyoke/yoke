@@ -2,7 +2,7 @@
 
 Owns the ``events``, ``severity_config``, and ``event_registry`` table DDL
 plus the supporting index CREATE statements. The split sibling modules
-(``events_writes`` for inserts/severity, ``events_prune`` for retention)
+(``events_writes`` for inserts/severity, ``universe_retention`` for retention)
 focus on row-level operations and depend on the schema this module owns.
 """
 

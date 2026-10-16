@@ -8,7 +8,9 @@
 * RULE_TEXT_OPERATORS_CMP — Check 2a (! = operator) and
   Check 2b (escaped comparison operators).
 """
+
 from __future__ import annotations
+
 RULE_TEXT_SQLITE3 = r"""
 # --- Check 1a: Pipe-to-shell with sqlite3 in quoted content ---
 # Even after quote stripping, detect sqlite3 inside quoted strings being piped
@@ -29,8 +31,8 @@ if "sqlite3" in command and "|" in command:
                         "permissionDecisionReason": (
                             "BLOCKED: Do not call sqlite3 directly. "
                             "Use the Python DB router instead. Examples:\n"
-                            "  python3 -m yoke_core.cli.db_router items get YOK-N status\n"
-                            "  python3 -m yoke_core.cli.db_router query \"SELECT ...\"\n"
+                            "  yoke items get PREFIX-N status\n"
+                            "  yoke db read \"SELECT ...\"\n"
                             "See AGENTS.md § Code Conventions (DB rules)."
                         ),
                     }
@@ -96,8 +98,8 @@ if "sqlite3" in command_stripped:
                             "permissionDecisionReason": (
                                 "BLOCKED: Do not call sqlite3 directly. "
                                 "Use the Python DB router instead. Examples:\n"
-                                "  python3 -m yoke_core.cli.db_router items get YOK-N status\n"
-                                "  python3 -m yoke_core.cli.db_router query \"SELECT ...\"\n"
+                                "  yoke items get PREFIX-N status\n"
+                                "  yoke db read \"SELECT ...\"\n"
                                 "See AGENTS.md § Code Conventions (DB rules)."
                             ),
                         }
@@ -172,8 +174,8 @@ if "sqlite3" in command_stripped:
                     "permissionDecisionReason": (
                         "BLOCKED: Do not call sqlite3 directly. "
                         "Use the Python DB router instead. Examples:\n"
-                        "  python3 -m yoke_core.cli.db_router items get YOK-N status\n"
-                        "  python3 -m yoke_core.cli.db_router query \"SELECT ...\"\n"
+                        "  yoke items get PREFIX-N status\n"
+                        "  yoke db read \"SELECT ...\"\n"
                         "See AGENTS.md § Code Conventions (DB rules)."
                     ),
                 }

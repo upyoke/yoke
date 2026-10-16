@@ -80,9 +80,7 @@ def cmd_create(
             project=project,
         )
     validate_stage_references(conn, project=project, stages_json=stages_json)
-    custody = resolve_takes_delivery_custody(
-        takes_delivery_custody, schema_version=schema_version
-    )
+    custody = resolve_takes_delivery_custody(takes_delivery_custody)
     target_environment_id = resolve_flow_target(
         conn,
         project=project,

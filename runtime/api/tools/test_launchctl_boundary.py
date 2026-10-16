@@ -180,7 +180,7 @@ def test_a_child_process_installing_a_relay_lands_in_the_sandbox(
 
     The onboard apply path spawns the relay installer, so nothing the test
     monkeypatches reaches it. The child resolves the operator's real home,
-    and every launchd effect it asks for — including the canonical bootout
+    and every launchd effect it asks for — including the exact instance bootout
     the installer performs on the way in — has to land in the sandbox the
     parent exported.
     """
@@ -242,9 +242,7 @@ def test_a_child_process_installing_a_relay_lands_in_the_sandbox(
     assert [entry[1] for entry in recorded] == [
         "bootout",
         "print",
-        "bootout",
-        "print",
         "bootstrap",
         "print",
     ]
-    assert recorded[0][-1].endswith(f"/{boundary.CANONICAL_RELAY_LABEL}")
+    assert recorded[0][-1].endswith(f"/{installed.stem}")

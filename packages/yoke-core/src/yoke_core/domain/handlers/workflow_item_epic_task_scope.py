@@ -1,10 +1,10 @@
-"""Registered generated-task scope finalization and repair operations."""
+"""Registered generated-task scope finalization operations."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -15,7 +15,6 @@ from yoke_core.domain.epic_task_scope import (
     TaskScopeIncomplete,
     finalize_generated_task_scopes,
     reopen_generated_task_scopes,
-    repair_legacy_task_scopes,
     set_no_files_scope,
 )
 from yoke_core.domain.project_identity import render_item_ref
@@ -28,15 +27,10 @@ class EmptyRequest(BaseModel):
     pass
 
 
-class LegacyRepairRequest(BaseModel):
-    tenant_id: str = "current"
-
-
 class ScopeResponse(BaseModel):
     epic_id: int
     task_num: int | None = None
     message: str
-    diagnostics: list[str] = Field(default_factory=list)
 
 
 def _bad(message: str) -> HandlerOutcome:
@@ -129,36 +123,6 @@ def handle_reopen(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
-def handle_repair_legacy(request: FunctionCallRequest) -> HandlerOutcome:
-    target = _target(request)
-    if target is None:
-        return _bad("target must carry public_ref")
-    epic_id, _task_num = target
-    try:
-        payload = LegacyRepairRequest.model_validate(request.payload)
-        with _connect() as conn:
-            report = repair_legacy_task_scopes(
-                conn,
-                tenant_id=payload.tenant_id,
-                item_id=epic_id,
-            )
-            epic_ref = render_item_ref(conn, epic_id)
-    except (TaskScopeIncomplete, ValueError) as exc:
-        return _bad(str(exc))
-    return HandlerOutcome(
-        result_payload=ScopeResponse(
-            epic_id=epic_id,
-            message=(
-                f"{epic_ref} legacy task scopes typed: "
-                f"{len(report.path_tasks)} paths, "
-                f"{len(report.deferred_tasks)} deferred"
-            ),
-            diagnostics=list(report.diagnostics),
-        ).model_dump(),
-        primary_success=True,
-    )
-
-
 def _entry(
     function_id: str,
     handler: Any,
@@ -195,11 +159,6 @@ REGISTRATIONS = [
         "workflow_item.epic_task.scope_reopen",
         handle_reopen,
         EmptyRequest,
-    ),
-    _entry(
-        "workflow_item.epic_task.scope_repair_legacy",
-        handle_repair_legacy,
-        LegacyRepairRequest,
     ),
 ]
 

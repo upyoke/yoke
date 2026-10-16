@@ -30,11 +30,9 @@ from yoke_core.domain.session_message_types import (
     parse_timestamp,
     row_dict,
 )
+from yoke_core.domain.session_relay_job_leases import require_job_lease
 from yoke_core.domain.session_relay_storage import (
-    clear_relay_batch_when_drained,
-    mark_relay_batch,
     marker,
-    require_relay_batch,
 )
 from yoke_core.domain.session_relay_types import (
     RelayHeartbeat,
@@ -124,13 +122,7 @@ def claim_evidence_fetch(
         return None
     session_id = str(selected["target_session_id"])
     reference = str(selected.get("diagnostic_ref") or "")
-    mark_relay_batch(
-        conn,
-        relay_id=heartbeat.relay_id,
-        batch_id=lease_id,
-        expires_at=expires_at,
-        now=now,
-    )
+
     conn.commit()
     return RelayJob(
         job_kind="evidence",
@@ -174,7 +166,9 @@ def report_evidence_fetch(
         if str(record.get("result_code") or "") == result_code:
             return {"fetch_id": fetch_id, "result_code": result_code}
         raise SessionRelayError("report_conflict", "evidence read was already reported")
-    require_relay_batch(conn, relay_id=relay_id, now=now)
+    require_job_lease(
+        conn, relay_id=relay_id, job_kind="evidence", job_id=fetch_id, now=now
+    )
     source = document if isinstance(document, Mapping) else {}
     files: Sequence[Any] = source.get("files") or ()
     content = str(source.get("content") or "")[:EVIDENCE_MAX_BYTES]
@@ -209,7 +203,6 @@ def report_evidence_fetch(
             fetch_id,
         ),
     )
-    clear_relay_batch_when_drained(conn, relay_id=relay_id, batch_id=lease_id)
     conn.commit()
     return {"fetch_id": fetch_id, "result_code": result_code}
 

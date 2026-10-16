@@ -27,7 +27,6 @@ from typing import Any, Mapping
 from yoke_core.domain.deployment_run_bound_sources import (
     BOUND_SOURCES_FIELD,
     bound_project_shas,
-    bound_sources_recorded,
     parse_bound_sources,
 )
 from yoke_core.domain.deployment_run_project_carried_work import (
@@ -74,17 +73,10 @@ def _cell(row: Any, key: str, index: int) -> Any:
     return row[key] if hasattr(row, "keys") else row[index]
 
 
-def _bound_sources_column(conn: Any) -> str:
-    """Name the stored record, or a constant empty one before converge."""
-    if bound_sources_recorded(conn):
-        return BOUND_SOURCES_FIELD
-    return f"'' AS {BOUND_SOURCES_FIELD}"
-
-
 def previous_release_run(conn: Any, run_id: str, project_id: int, environment_id: Any):
     """The newest other succeeded run for this project and target environment."""
     return conn.execute(
-        f"SELECT id,project_id,release_lineage,{_bound_sources_column(conn)},"
+        f"SELECT id,project_id,release_lineage,{BOUND_SOURCES_FIELD},"
         "completed_at "
         "FROM deployment_runs "
         "WHERE project_id=%s AND status='succeeded' AND id<>%s "
@@ -112,7 +104,7 @@ def derive_carried_work(
     """Derive every project's carried set for one run, own project first."""
     row = conn.execute(
         "SELECT project_id,target_environment_id,release_lineage,"
-        f"{_bound_sources_column(conn)} FROM deployment_runs WHERE id=%s",
+        f"{BOUND_SOURCES_FIELD} FROM deployment_runs WHERE id=%s",
         (run_id,),
     ).fetchone()
     if row is None:
@@ -286,7 +278,7 @@ def _require_bound_project_coverage(
     conn: Any, run_id: str, payload: dict[str, Any]
 ) -> None:
     row = conn.execute(
-        f"SELECT {_bound_sources_column(conn)} FROM deployment_runs WHERE id=%s",
+        f"SELECT {BOUND_SOURCES_FIELD} FROM deployment_runs WHERE id=%s",
         (run_id,),
     ).fetchone()
     assert row is not None

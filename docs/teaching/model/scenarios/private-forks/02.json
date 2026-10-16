@@ -4,12 +4,12 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "Publishing a fork build or resolving relay_release_fetch_failed",
- "need": "Operator supplies compatible immutable installer/channel/wheels/index/image. Relay needs the server exact immutable version, not another channel guess. Upstream hosted publishing and automatic fork/migration governance are outside this contract.",
+ "need": "Operator supplies compatible immutable installer/channel/wheels/index/image. Relay needs the server exact immutable version, not another channel guess. All four product wheel URLs encode the exact release directory and filename. A stuck older installer needs the operator CLI updated through the official installer to the carrying served release, then registered relay install and running-build verification; deployment alone is insufficient. Upstream hosted publishing and automatic fork/migration governance are outside this contract.",
  "disclosure": "current cue",
  "surface": "Private forks guide -> artifact requirements, relay status recovery and Unsupported at this level.",
  "review": "Pending exact recipe proof.",
- "recipes": ["yoke relay status", "yoke relay install --help"],
+ "recipes": ["yoke relay status", "yoke relay install --help", "yoke update --help"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/private-forks.md", "packages/yoke-cli/src/yoke_cli/config/distribution.py"],
+ "sources": ["docs/public/private-forks.md", "docs/public/reference/linux-relay.md", "packages/yoke-cli/src/yoke_cli/config/distribution.py"],
  "position": 1
 }

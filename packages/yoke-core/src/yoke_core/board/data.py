@@ -1,179 +1,110 @@
-"""Board data recording layer — server half of the record/replay seam.
-
-The render plan executes at the BoardDB seam (``query`` / ``query_quiet`` /
-``scalar``). :class:`RecordingBoardDB` wraps a live
-:class:`yoke_core.board.db.BoardDB` and records every
-``(kind, sql, params) -> result`` the render plan issues;
-:func:`collect_board_data` runs the full board assembly against it (discarding
-the markdown) and returns a JSON-safe payload — the server half of
-``board.data.get``.
-
-The client/render half — :class:`ReplayBoardDB`, the value codec, the payload
-version, and the error types — lives in the shipped
-:mod:`yoke_contracts.board.data` so the render ships core-free; it is
-re-exported here for this module's existing importers.
-"""
+"""Collect named board facts for local and HTTPS clients."""
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
-
-from yoke_contracts.board.data import (  # noqa: F401
-    BOARD_DATA_VERSION,
-    BoardDataError,
-    BoardDataMissError,
-    ReplayBoardDB,
-    _decode_value,
-    _encode_params,
-    _encode_value,
-    entry_key,
+from yoke_contracts.board.data import BOARD_DATA_VERSION, BoardDataError, _encode_value
+from yoke_contracts.board.project_scope import project_filter, scoped_project_visibility
+from yoke_contracts.board.sections import (
+    classify_items,
+    frontier_counts,
+    precompute_epic_stats,
+    precompute_epic_task_rows,
+    task_expanded_count,
 )
-
-
-# ---------------------------------------------------------------------------
-# Recording wrapper — the server half
-# ---------------------------------------------------------------------------
-
-
-class RecordingBoardDB:
-    """BoardDB proxy that records every seam read it serves.
-
-    ``record_mode`` marks the handle for render components that must
-    over-collect instead of consulting machine-local caches (the
-    activity day-counts cache reads it): every query a client render
-    could need has to land in the recorded payload.
-
-    Identical query reads reuse this collection's first result, matching
-    the single result replay will serve and loading immutable catalogs once.
-    """
-
-    record_mode = True
-
-    def __init__(self, inner: Any) -> None:
-        self._inner = inner
-        self._entries: List[Dict[str, Any]] = []
-        self._recorded: set = set()
-        self._query_results: Dict[Tuple[str, str, str], List[Tuple]] = {}
-
-    def query(self, sql: str, params: Optional[Sequence[Any]] = None) -> List[Tuple]:
-        return self._record("query", sql, params, self._inner.query)
-
-    def query_quiet(
-        self, sql: str, params: Optional[Sequence[Any]] = None
-    ) -> List[Tuple]:
-        return self._record("query_quiet", sql, params, self._inner.query_quiet)
-
-    def scalar(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
-        key = entry_key("scalar", sql, params)
-        value = self._inner.scalar(sql, params)
-        if key not in self._recorded:
-            self._recorded.add(key)
-            self._entries.append(
-                {
-                    "kind": "scalar",
-                    "sql": sql,
-                    "params": _encode_params(params),
-                    "value": _encode_value(value),
-                }
-            )
-        return value
-
-    def _record(self, kind: str, sql: str, params, run) -> List[Tuple]:
-        key = entry_key(kind, sql, params)
-        if key in self._query_results:
-            return list(self._query_results[key])
-        rows = run(sql, params)
-        self._query_results[key] = list(rows)
-        if key not in self._recorded:
-            self._recorded.add(key)
-            self._entries.append(
-                {
-                    "kind": kind,
-                    "sql": sql,
-                    "params": _encode_params(params),
-                    "rows": [[_encode_value(v) for v in row] for row in rows],
-                }
-            )
-        return rows
-
-    def encoded_entries(self) -> List[Dict[str, Any]]:
-        return list(self._entries)
-
-
-# ---------------------------------------------------------------------------
-# Collection — run the render plan against a live DB, keep only the data
-# ---------------------------------------------------------------------------
+from yoke_contracts.board.renderer_dashboard import collect_dashboard_data
+from yoke_contracts.board.sections_sessions import collect_session_rows
+from yoke_contracts.board.sections_sessions_occupancy import prefetch_session_occupancy
+from yoke_contracts.board.sections_architecture import collect_architecture_rows
+from yoke_contracts.board.zen_data import _zen_check_visibility
+from yoke_contracts.board.zen_render import collect_timeline_rows
 
 
 def collect_board_data(
-    db: Any,
+    db,
     *,
-    scope: str,
-    config: Any,
-    repo_root: Optional[str] = None,
-    vision_entries: Iterable[Tuple[str, str]] = (),
-    vision_project: Optional[str] = None,
-    visible_project_ids: Optional[Iterable[int]] = None,
-) -> Dict[str, Any]:
-    """Execute the board's full query plan and return the recorded payload.
-
-    Runs the same ``_assemble`` the client render runs — markdown is
-    discarded; only the recorded seam reads matter. ``config``,
-    ``repo_root`` and ``vision_entries`` must be the CLIENT's values
-    (shipped in the ``board.data.get`` payload) because they shape which
-    queries run and with which parameters. ``vision_project`` names the
-    project the client's checkout maps to — the owner of its VISION — and
-    travels in the payload so replay draws the same zone. Art config and seed shape
-    only the discarded text, so collection always uses an empty art
-    config and no seed.
-    """
-    from yoke_contracts.board.art import ArtConfig
-    from yoke_contracts.board.project_scope import scoped_project_visibility
-    from yoke_contracts.board.renderer import _assemble
-
-    recorder = RecordingBoardDB(db)
-    normalized_visible = (
+    scope,
+    config,
+    repo_root=None,
+    vision_entries=(),
+    vision_project=None,
+    visible_project_ids=None,
+) -> dict:
+    """Read authorized facts once; no board rendering or SQL enters the payload."""
+    visible = (
         None
         if visible_project_ids is None
-        else tuple(sorted({int(project_id) for project_id in visible_project_ids}))
+        else tuple(sorted(set(map(int, visible_project_ids))))
     )
-    with scoped_project_visibility(normalized_visible):
-        _assemble(
-            recorder,
-            config,
-            ArtConfig(),
-            scope,
-            None,
-            repo_root,
-            list(vision_entries),
-            vision_project=vision_project,
-        )
-    from yoke_contracts.engine_version import installed_engine_version
+    db._activity_day_counts_cache = {}
+    db._board_model_catalogs = {}
+    with scoped_project_visibility(visible):
+        stats = precompute_epic_stats(db, scope)
+        buckets = classify_items(db, scope, epic_stats=stats)
+        task_counts = {eid: stat.task_count for eid, stat in stats.items()}
+        tasks = precompute_epic_task_rows(db, scope) if task_counts else {}
+        counts = {
+            key: task_expanded_count(rows, task_counts) for key, rows in buckets.items()
+        }
+        pf, params = project_filter(scope)
+        max_id = db.scalar("SELECT MAX(id) FROM items WHERE 1=1" + pf, params)
+        sessions_scope = config.dashboard_sessions_scope or scope
+        prefetch_session_occupancy(db, scope)
+        timeline = []
+        if _zen_check_visibility(
+            config.timeline_widget,
+            counts["active"],
+            counts["pipeline"],
+            counts["backlog"],
+        ):
+            timeline = collect_timeline_rows(
+                db,
+                config,
+                config.timeline_scope or scope,
+                vision_count=len(list(vision_entries)),
+                vision_project=vision_project,
+            )
+        data = {
+            "version": BOARD_DATA_VERSION,
+            "scope": scope,
+            "vision_project": vision_project,
+            "items": {
+                key: [row._asdict() for row in rows] for key, rows in buckets.items()
+            },
+            "epics": [
+                {
+                    "id": eid,
+                    "task_count": count,
+                    "tasks": [
+                        {
+                            "id": row[0],
+                            "title": row[1],
+                            "status": row[2],
+                            "status_glyph": row[3],
+                        }
+                        for row in tasks.get(eid, ())
+                    ],
+                }
+                for eid, count in task_counts.items()
+            ],
+            "max_id_width": len(str(max_id or 0)) + 4,
+            "frontier": frontier_counts(db, scope, config.art_frontier_since),
+            "dashboard": collect_dashboard_data(
+                db, config, scope, counts["done"], repo_root
+            ),
+            "timeline": timeline,
+            "sessions": {
+                "active": collect_session_rows(
+                    db, scope=sessions_scope, active_only=True
+                ),
+                "recent": collect_session_rows(
+                    db, scope=sessions_scope, active_only=False
+                )
+                if config.dashboard_recent_sessions
+                else [],
+            },
+            "architecture": collect_architecture_rows(db, scope),
+        }
+    return _encode_value(data)
 
-    payload = {
-        "version": BOARD_DATA_VERSION,
-        "scope": scope,
-        # Which build shaped these queries. The replay side compares it with
-        # its own to tell a genuine parity bug from the two sides simply
-        # running different code, which are indistinguishable at the miss.
-        "engine_version": installed_engine_version(),
-        "entries": recorder.encoded_entries(),
-        "entry_count": len(recorder.encoded_entries()),
-    }
-    if normalized_visible is not None:
-        payload["visible_project_ids"] = list(normalized_visible)
-    # Always present, so a client can tell "no owner" from a server that
-    # predates vision ownership.
-    payload["vision_project"] = vision_project or None
-    return payload
 
-
-__all__ = [
-    "BOARD_DATA_VERSION",
-    "BoardDataError",
-    "BoardDataMissError",
-    "RecordingBoardDB",
-    "ReplayBoardDB",
-    "collect_board_data",
-    "entry_key",
-]
+__all__ = ["BOARD_DATA_VERSION", "BoardDataError", "collect_board_data"]

@@ -1,7 +1,9 @@
 {
  "id": "schema-convergence",
  "title": "Schema convergence",
- "status": "draft-copy",
+ "status": "observed",
+ "current": "Boot convergence creates additive schema. Initialization installs current indexes, status checks and immutable QA evidence triggers. Data transformations belong to permanent ordered migration history.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/schema_init.py", "packages/yoke-core/src/yoke_core/domain/schema_init_columns.py"],
  "audience": "Maintainers",
  "page": "runtime",
  "position": 1

@@ -113,16 +113,12 @@ def test_health_check_reports_null_and_unknown_scope_states(test_db):
     test_db.execute(
         "ALTER TABLE epic_tasks DROP CONSTRAINT epic_tasks_scope_state_check"
     )
+    test_db.execute("ALTER TABLE epic_tasks ALTER COLUMN scope_state DROP NOT NULL")
     test_db.execute(
-        "ALTER TABLE epic_tasks ALTER COLUMN scope_state DROP NOT NULL"
+        "UPDATE epic_tasks SET scope_state=NULL WHERE epic_id=1705 AND task_num=1"
     )
     test_db.execute(
-        "UPDATE epic_tasks SET scope_state=NULL WHERE epic_id=1705 "
-        "AND task_num=1"
-    )
-    test_db.execute(
-        "UPDATE epic_tasks SET scope_state='mystery' WHERE epic_id=1705 "
-        "AND task_num=2"
+        "UPDATE epic_tasks SET scope_state='mystery' WHERE epic_id=1705 AND task_num=2"
     )
     test_db.commit()
     rec = RecordCollector()
@@ -168,8 +164,7 @@ def test_dispatch_chain_refuses_implicit_scope(test_db):
         )
 
     count = test_db.execute(
-        "SELECT COUNT(*) AS count FROM epic_dispatch_chains "
-        "WHERE epic_id=1704"
+        "SELECT COUNT(*) AS count FROM epic_dispatch_chains WHERE epic_id=1704"
     ).fetchone()
     assert count["count"] == 0
 
@@ -242,7 +237,10 @@ def test_sqlite_serializes_task_insert_against_finalization(tmp_path):
     setup = sqlite3.connect(database_path)
     setup.executescript(
         """
-        CREATE TABLE items (id INTEGER PRIMARY KEY);
+        CREATE TABLE items (
+          id INTEGER PRIMARY KEY,
+          generated_task_membership_finalized_at TEXT
+        );
         CREATE TABLE epic_tasks (
           id INTEGER PRIMARY KEY,
           epic_id INTEGER NOT NULL,

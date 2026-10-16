@@ -4,7 +4,7 @@
  "status": "observed",
  "plan_refs": ["FIRST-USER.11"],
  "commands": ["yoke git pre-commit", "yoke git post-commit"],
- "current": "The installed hooks find yoke on PATH, then at ${XDG_BIN_HOME:-$HOME/.local/bin}/yoke. A computer without Yoke commits with one line naming the computer and the install command; CI and the merge-queue preflight re-run the authored-file checks. Hook messages never suggest --no-verify.",
+ "current": "The installed hooks find yoke on PATH, then at ${XDG_BIN_HOME:-$HOME/.local/bin}/yoke. A computer without Yoke commits with one line naming the computer and the install command; CI and the merge-queue preflight re-run the authored-file checks. Hook messages never suggest --no-verify. Refresh recognizes current hook contents or a matching install-record hash; uninstall removes hooks only when their contents match the recorded hash.",
  "sources": ["packages/yoke-cli/src/yoke_cli/project_install/managed_git_hooks.py", "runtime/api/cli/test_managed_git_hook_launcher_lookup.py", "packages/yoke-core/src/yoke_core/domain/authored_file_merge_preflight.py", "packages/yoke-core/src/yoke_core/tools/ci_repo_contracts.py"],
  "page": "repositories",
  "position": 5

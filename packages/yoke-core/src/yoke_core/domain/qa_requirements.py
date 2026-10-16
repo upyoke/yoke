@@ -22,8 +22,6 @@ from yoke_core.domain.qa_constants import (
     VALID_VERDICTS,
     _REQ_SELECT,
     _coalesce,
-    _normalize_qa_kind,
-    _normalize_qa_phase,
     _pipe_row,
 )
 from yoke_core.domain.qa_events import emit_qa_requirement_event
@@ -55,8 +53,6 @@ __all__ = (
     "BROWSER_METHOD_IDS",
     "_REQ_SELECT",
     "_coalesce",
-    "_normalize_qa_phase",
-    "_normalize_qa_kind",
     "_pipe_row",
     # Read/mutate ops (sourced from qa_requirement_ops)
     "UPDATABLE_REQUIREMENT_FIELDS",
@@ -101,8 +97,6 @@ def cmd_requirement_add(
     if not qa_phase:
         print("Error: --qa-phase is required", file=sys.stderr)
         sys.exit(2)
-    qa_phase = _normalize_qa_phase(qa_phase)
-    qa_kind = _normalize_qa_kind(qa_kind)
 
     # Validate exactly one attachment target
     targets = 0

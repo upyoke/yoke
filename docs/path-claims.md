@@ -253,7 +253,7 @@ the named anchor surface. Auto-retires when either participant goes
 terminal or the holder narrows the anchors out of its coverage.
 
 ```
-python3 -m yoke_core.api.service_client path-claim-override <claim-id> \
+yoke claims path override --claim-id <claim-id> \
     --override-point amend \
     --integration-target <project-trunk> \
     --actor-id <operator-actor-id> \

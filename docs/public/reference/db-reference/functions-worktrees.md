@@ -20,7 +20,6 @@ Read [envelope and authority](functions.md) first. `none` means no dispatcher wo
 | `done_transition.latest_deployment_run` | `none` |
 | `done_transition.populate_merged_at` | `none` |
 | `done_transition.registered_flow_ids` | `none` |
-| `done_transition.run_blocking_qa` | `none` |
 | `done_transition.run_stage` | `none` |
 | `done_transition.run_stage_qa_acceptance` | `none` |
 | `item_landings.list` | `none` |
@@ -33,6 +32,7 @@ Read [envelope and authority](functions.md) first. `none` means no dispatcher wo
 | `item_worktrees.path_record` | `item` |
 | `item_worktrees.release` | `item` |
 | `item_worktrees.release_merged_lane` | `none` |
+| `merge.audit.snapshot` | `none` |
 | `merge.lock.acquire` | `none` |
 | `merge.lock.list` | `none` |
 | `merge.lock.release` | `none` |
@@ -74,6 +74,28 @@ yoke item-worktrees list PREFIX-N --json
 yoke item-worktrees path-record PREFIX-N --worktree-id <worktree-id> --branch BRANCH --path ABSOLUTE_PATH
 ```
 
+If checkout creation succeeded but path persistence failed, keep the checkout
+and its contents. Hold the item's work claim, read `item_worktrees.list` for
+the current active lane id and branch, and verify the existing checkout's branch
+locally with `git -C /absolute/checkout branch --show-current`. Retry
+`item_worktrees.path_record` with that id, branch and quoted client path using
+the recipe above. The item must still accept active resources; stale lanes,
+changed branches and paths owned by another active lane refuse. A missing lane
+or branch mismatch needs authority reconciliation before recording a path.
+
+Path recording validates client syntax independently of the server OS. It
+accepts POSIX absolute paths, Windows drive-rooted paths (`C:/checkout` or
+`C:\checkout`), and complete backslash UNC paths (`\\server\share\checkout`,
+including the share root). It trims outer whitespace and stores the remaining
+spelling unchanged; the server neither resolves the path nor inspects the
+client checkout. Drive-relative `C:checkout`, backslash-rooted `\checkout`,
+incomplete UNC, and backslash Windows device namespaces (`\\?\`, `\\.\`)
+refuse. Every leading-forward-slash form retains POSIX meaning, including
+`//server` and `//?/C:/checkout`; that syntax is ambiguous across operating
+systems and is accepted as POSIX rather than interpreted as Windows UNC or
+device syntax. Use a drive-qualified or backslash UNC spelling for Windows.
+This metadata support does not expand the native Windows support boundary.
+
 Evidence-only release requires an allowed post-implementation stage, exactly one
 active implementation lane, fixed `evidence-only-recovery` reason and
 fresh clean-lane attestation. Verify registered path/branch and absence of
@@ -92,3 +114,18 @@ entry and merge-when-ready cleared, correct and rerun QA, then re-arm through th
 merge boundary. A hold that observes landing returns the actual merge commit.
 Pending landing records are durable; clearing one does not fabricate completion.
 Release pins retain exact lineage; [deployment contracts](deployment-run-records.md).
+
+## Prepare local registered lanes
+
+```text
+yoke worktree prepare --item PREFIX-N --project PROJECT
+yoke worktree paths main
+```
+
+Preparation runs on the installed Yoke interpreter from the item's mapped main
+checkout, before any task lane exists. It reuses the shared preflight and creator
+for every registered task and integration lane. Work ownership, path claims,
+upstream freshness and lane identity still gate preparation; reruns reuse lanes.
+Read the named refusal, repair its cause and rerun the same command. List
+`yoke item-worktrees list PREFIX-N` if preparation stopped after recording paths.
+Use `yoke dev run -- <command>` only after a claimed source lane exists.

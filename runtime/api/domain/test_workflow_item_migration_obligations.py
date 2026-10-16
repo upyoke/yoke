@@ -252,7 +252,7 @@ def test_changed_worktree_policy_requires_lanes_after_implementation_entry(
     assert _pin(test_db) == before
 
 
-@pytest.mark.parametrize("status", ("blocked", "failed"))
+@pytest.mark.parametrize("status", ("failed",))
 def test_changed_worktree_policy_fails_closed_for_wait_stages(
     test_db,
     status: str,

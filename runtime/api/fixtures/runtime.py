@@ -204,6 +204,7 @@ def isolate_test_machine_and_session_identity(
         CURSOR_SESSION_MAP_DIR_NAME,
     )
     from yoke_contracts.harness_family_identity import YOKE_SESSION_ENV_VAR
+    from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
     from yoke_contracts.session_identity import ANCHORS_DIR_NAME
     from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 
@@ -212,6 +213,8 @@ def isolate_test_machine_and_session_identity(
     monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
     monkeypatch.delenv("YOKE_ENV", raising=False)
     monkeypatch.delenv("YOKE_PROJECT", raising=False)
+    # A synthetic session must never inherit the invoking worker's lane authority.
+    monkeypatch.delenv(SOURCE_DEV_RUN_ROOT_ENV, raising=False)
     for name in (*AMBIENT_ENV_VARS, CURSOR_CONVERSATION_ENV_VAR):
         monkeypatch.delenv(name, raising=False)
     if session_id is not None:

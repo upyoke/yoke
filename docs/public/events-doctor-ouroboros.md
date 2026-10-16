@@ -2,6 +2,11 @@
 
 ## Events
 
+Preview disposable universe records with `yoke universe prune --dry-run`.
+An organization administrator can review defaults with
+`yoke universe retention get`; [universe retention](universe-retention.md)
+owns the windows, protections, apply command and interrupted-run recovery.
+
 The workbench collects usage analytics from first load in every mode — local,
 self-hosted, and hosted — with no consent prompt, banner, or toggle; nothing it
 collects is personal data, and a local or self-hosted workbench collects into

@@ -13,15 +13,8 @@ from yoke_core.domain.deployment_requirement_snapshot_format import (
     REQUIREMENT_FIELDS,
     semantic_row,
 )
-from yoke_core.domain.qa_converging_columns import converged_select
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.qa_plan_attachment_reads import (
-    live_item_attachment_sql,
-    retracted_item_plan_ids,
-)
-from yoke_core.domain.qa_obligation_settlement import requirement_retracted_at_select
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 SNAPSHOT_SCHEMA = 1
@@ -34,13 +27,6 @@ def _p(conn: Any) -> str:
 
 def _canonical(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
-
-
-def _row_dict(cursor: Any, row: Any) -> dict[str, Any]:
-    if hasattr(row, "keys"):
-        return {str(key): row[key] for key in row.keys()}
-    columns = [str(getattr(col, "name", None) or col[0]) for col in cursor.description]
-    return dict(zip(columns, row))
 
 
 def _positive_ids(values: Iterable[Any], *, field: str) -> list[int]:
@@ -107,13 +93,18 @@ def _plan_snapshot(
     project_id: int,
     case_keys: Iterable[str] | None = None,
     lock_plan: bool = True,
+    admission=None,
 ) -> dict[str, Any]:
     from yoke_core.domain.deployment_qa_shared_plan_reads import (
         plan_snapshot_row,
         plan_snapshot_cases,
     )
 
-    raw_plan = plan_snapshot_row(conn, plan_id, lock_plan=lock_plan)
+    raw_plan = (
+        admission.plans.get(plan_id, (None, ()))[0]
+        if admission is not None
+        else plan_snapshot_row(conn, plan_id, lock_plan=lock_plan)
+    )
     if raw_plan is None:
         raise LookupError(f"QA plan {plan_id} not found")
     plan = semantic_row(raw_plan, PLAN_FIELDS)
@@ -126,7 +117,11 @@ def _plan_snapshot(
         raise ValueError(f"QA plan {plan_id} case_keys must be unique non-empty names")
     cases = [
         semantic_row(raw, CASE_FIELDS)
-        for raw in plan_snapshot_cases(conn, plan_id, lock_plan=lock_plan)
+        for raw in (
+            admission.plans[plan_id][1]
+            if admission is not None
+            else plan_snapshot_cases(conn, plan_id, lock_plan=lock_plan)
+        )
     ]
     from yoke_contracts.qa_case_starting_state import (
         StartingStateError,
@@ -180,20 +175,11 @@ def _requirement_snapshot(
     run_id: str,
     item_id: int,
     requirement_id: int,
+    admission,
 ) -> dict[str, Any] | None:
-    marker = _p(conn)
-    lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
-    cursor = conn.execute(
-        f"SELECT {converged_select(conn, 'qa_requirements', REQUIREMENT_FIELDS)},"
-        "waived_at,"
-        f"{requirement_retracted_at_select(conn)} "
-        f"FROM qa_requirements WHERE id={marker}{lock}",
-        (int(requirement_id),),
-    )
-    row = cursor.fetchone()
-    if row is None:
+    raw_requirement = admission.requirements.get(requirement_id)
+    if raw_requirement is None:
         raise LookupError(f"QA requirement {requirement_id} not found")
-    raw_requirement = _row_dict(cursor, row)
     requirement = semantic_row(raw_requirement, REQUIREMENT_FIELDS)
     bound_run = str(requirement.get("deployment_run_id") or "")
     if bound_run and bound_run != run_id:
@@ -218,12 +204,20 @@ def snapshot_member_requirements(
     run_id: str,
     item_id: int,
     selection_json: Any,
+    admission=None,
 ) -> str:
     """Freeze explicitly selected member requirements and attached plans."""
+    from yoke_core.domain.deployment_admission_reads import read_snapshot_inputs
+
     selected = _selection(selection_json)
-    withdrawn_plans = retracted_item_plan_ids(conn, item_id)
-    if not _table_exists(conn, "qa_requirements") and selected["requirement_ids"]:
-        raise LookupError("QA requirement catalog is not installed")
+    if admission is None:
+        admission = read_snapshot_inputs(
+            conn,
+            item_ids=(item_id,),
+            requirement_ids=selected["requirement_ids"],
+            plan_ids=selected["plan_ids"],
+        )
+    withdrawn_plans = admission.withdrawn_plans(item_id)
     requirements = []
     for requirement_id in selected["requirement_ids"]:
         requirement = _requirement_snapshot(
@@ -231,30 +225,30 @@ def snapshot_member_requirements(
             run_id=run_id,
             item_id=item_id,
             requirement_id=requirement_id,
+            admission=admission,
         )
         if (
             requirement is not None
             and requirement.get("plan_id") not in withdrawn_plans
         ):
             requirements.append(requirement)
-    item_row = conn.execute(
-        f"SELECT project_id FROM items WHERE id={_p(conn)}", (int(item_id),)
-    ).fetchone()
-    if item_row is None:
-        raise LookupError(ITEM_NOT_FOUND)
-    project_id = int(
-        item_row["project_id"] if hasattr(item_row, "keys") else item_row[0]
-    )
+    project_id = admission.project_id(item_id)
     plans: list[dict[str, Any]] = []
-    for plan_id in selected["plan_ids"]:
+    plan_ids = set(selected["plan_ids"])
+    plan_ids.update(
+        int(r["plan_id"]) for r in requirements if r.get("plan_id") is not None
+    )
+    plan_ids.update(admission.attached_plans(item_id))
+    for plan_id in sorted(plan_ids):
         if plan_id in withdrawn_plans:
             continue
-        attached = conn.execute(
-            f"SELECT transition_id,qa_phase FROM qa_plan_item_attachments "
-            f"WHERE item_id={_p(conn)} AND plan_id={_p(conn)} "
-            f"AND {live_item_attachment_sql(conn)}",
-            (int(item_id), int(plan_id)),
-        ).fetchone()
+        attached = admission.attachment(item_id, plan_id)
+        if attached is None and plan_id not in selected["plan_ids"]:
+            phases = {
+                r["qa_phase"] for r in requirements if r.get("plan_id") == plan_id
+            }
+            if len(phases) == 1:
+                attached = {"transition_id": "", "qa_phase": phases.pop()}
         if attached is None:
             raise ValueError(
                 f"QA plan {plan_id} is not attached to {render_item_ref(conn, item_id)}; attach it "
@@ -274,7 +268,9 @@ def snapshot_member_requirements(
                         else attached[1]
                     ),
                 },
-                **_plan_snapshot(conn, plan_id, project_id=project_id),
+                **_plan_snapshot(
+                    conn, plan_id, project_id=project_id, admission=admission
+                ),
             }
         )
     payload = {

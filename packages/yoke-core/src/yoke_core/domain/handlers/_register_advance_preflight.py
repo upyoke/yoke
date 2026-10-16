@@ -1,10 +1,10 @@
 """Register the internal advance implementation-entry preflight gate evals.
 
-These three ``advance.preflight.*`` functions are pure control-plane reads
+These ``advance.preflight.*`` functions are pure control-plane reads
 the transport-aware advance preflight relays to so its refusal gates run
 over an https control plane as well as a local Postgres connection. They
-are ``adapter_status='internal'`` (preflight glue, never an agent CLI
-surface), so they need no CLI adapter inventory row.
+include the public hard-block adapter; budget and coverage evaluations remain
+internal preflight glue.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ def register(registry) -> None:
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
-        adapter_status="internal",
+        adapter_status="live",
         claim_required_kind=None,
     )
     registry.register(

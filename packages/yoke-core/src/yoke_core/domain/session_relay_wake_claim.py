@@ -193,6 +193,11 @@ def claim_wake_attempt(
         clause, values = _match(column, expected, p)
         session_clauses.append(clause)
         session_params.extend(values)
+    lock = " FOR UPDATE" if p == "%s" else ""
+    conn.execute(
+        f"SELECT session_id FROM harness_sessions WHERE session_id={p}" + lock,
+        (session_id,),
+    ).fetchone()
     updated = conn.execute(
         # The reason lands on the receipt as well as the attempt: the fleet
         # report reads receipts, so an escalated resume is otherwise
@@ -212,8 +217,7 @@ def claim_wake_attempt(
         + f"AND {' AND '.join(session_clauses)}"
         + ") "
         "AND NOT EXISTS (SELECT 1 FROM session_message_attempts a "
-        "WHERE a.message_id=session_message_recipients.message_id "
-        "AND a.target_session_id=session_message_recipients.session_id "
+        "WHERE a.target_session_id=session_message_recipients.session_id "
         "AND a.attempt_kind IN ('wake_relay','wake_broker') "
         "AND a.completed_at IS NULL)",
         tuple(

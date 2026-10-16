@@ -36,10 +36,10 @@ def release_status_payload(
     )
     recovery = ""
     if status.error_code:
-        recovery = (
-            f"verify `yoke --env {instance.environment} status`, then retry "
-            f"`yoke --env {instance.environment} relay install`"
+        installer = importlib.import_module(
+            "yoke_core.tools.session_relay_release_install"
         )
+        recovery = installer.relay_release_recovery(instance.environment)
     return {
         "pinned_release": status.pinned_release or None,
         "served_build": status.served_build or None,

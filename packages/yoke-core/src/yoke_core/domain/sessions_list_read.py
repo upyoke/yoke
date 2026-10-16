@@ -10,18 +10,14 @@ Liveness is derived server-side so no consumer re-encodes TTL numbers:
 * ``ended`` — ``ended_at`` or ``terminated_at`` is set. A kill is gone the
   same way an ordinary end is gone; what separates them is the ``ended_cause``
   facet below, not a liveness state of its own.
-* ``waiting`` — not ended, parked (a declared quiet reason) and holding an
-  active work claim, whatever its age: it went quiet on purpose and resumes
-  on the next prompt, from its transcript when its process has exited.
-* ``stale`` — not ended, not waiting, and the latest activity timestamp is
-  older than the executor-aware TTL.
-* ``active`` — not ended, not waiting, and the activity timestamp is fresh.
+* ``waiting`` — an intentional pause holding an active work claim. Mode
+  ``parked`` and turn posture ``waiting`` both declare a pause; age never does.
+* ``stale`` — eligible for automatic reclaim, with all holdings and in-flight
+  protections applied. ``reclaimable`` is exactly this same set.
+* ``active`` — another live, protected or fresh session.
 
-One classifier, :func:`yoke_core.domain.session_staleness.session_liveness`,
-decides all four for every surface. ``reclaimable`` is a separate per-row
-answer — whether the stale reclaim sweep would act on the session — from
-:func:`yoke_core.domain.session_staleness.stale_reclaim_candidate`, the
-predicate the sweep itself uses.
+The shared automatic decision supplies roster, preview and execution; the
+execution rechecks protection. Activity age remains a separate diagnostic.
 
 Probe sessions never appear at all: a harness startup process that
 registered, did nothing and ended is excluded by the shared predicate in

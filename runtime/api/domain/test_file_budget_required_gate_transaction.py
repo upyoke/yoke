@@ -9,7 +9,7 @@ from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.domain.file_budget_required_gate import evaluate
 
 
-def test_legacy_schema_skips_but_invalid_complete_pin_blocks_cleanly():
+def test_invalid_pin_blocks_without_poisoning_transaction():
     db_name = create_test_database()
     conn = connect_test_database(db_name)
     try:
@@ -21,10 +21,6 @@ def test_legacy_schema_skips_but_invalid_complete_pin_blocks_cleanly():
             "INSERT INTO items VALUES (7, 'missing', 9, '{}');",
         )
 
-        legacy = evaluate(conn, 7)
-
-        assert legacy["verdict"] == "pass"
-        assert conn.execute("SELECT 1").fetchone()[0] == 1
         apply_fixture_ddl(
             conn,
             "CREATE TABLE workflow_versions ("

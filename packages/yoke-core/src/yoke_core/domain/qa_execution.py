@@ -15,7 +15,6 @@ from yoke_core.domain.db_helpers import (
 from yoke_core.domain.qa_constants import (  # noqa: F401  (re-exported)
     _coalesce,
     is_browser_method_requirement,
-    _normalize_qa_kind,
     _pipe_row,
     case_outcome_for_verdict,
     normalized_verdict_reason,
@@ -69,10 +68,10 @@ def _resolve_qa_kind(
             file=sys.stderr,
         )
         sys.exit(2)
-    canonical = _normalize_qa_kind(str(stored))
+    canonical = str(stored)
     if not qa_kind:
         return canonical
-    supplied = _normalize_qa_kind(qa_kind)
+    supplied = qa_kind
     if supplied != canonical:
         print(
             f"Error: --qa-kind '{supplied}' does not match the "

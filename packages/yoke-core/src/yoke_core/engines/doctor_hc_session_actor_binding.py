@@ -1,159 +1,22 @@
-"""HC-session-actor-binding: sessions must name the actor they act for.
-
-``harness_sessions.actor_id`` is bound at registration, and every write
-that asks "who is doing this?" reads it — path-claim registration most
-visibly, which refuses outright for a session that carries none. A row
-written before actor binding existed keeps that NULL until something
-re-registers it, and the operator only learns about it when a claim
-refuses several steps later.
-
-This check reads the rows directly and repairs them under ``--fix``,
-binding each actor-less session to the actor that operates this
-universe (:func:`yoke_core.domain.session_actor_binding.resolve_operating_actor`
-— the same resolver registration uses, so a repaired row is
-indistinguishable from a freshly registered one). When that actor cannot
-be resolved, the check reports the resolver's own reason and recovery
-rather than guessing at an identity. ``--fix`` also records the machine's
-operating-actor binding when a single-owner universe has none, which is
-the one case where the id is not in question.
-
-The paired authority check asks the next question — does that actor hold
-the org role its sessions act under? — and answers it with the same
-grant, membership read, and repair command
-:mod:`yoke_core.domain.local_operating_actor` gives birth, the
-registration convergence, and the permission denial, so every surface
-names one command.
-"""
+"""Check the recorded local operator holds its universe admin role."""
 
 from __future__ import annotations
 
-from typing import Any, List
+from typing import Any
 
-from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.local_operating_actor import (
     OPERATING_ACTOR_GRANT_REPAIR,
     ensure_local_operating_actor,
     holds_org_admin,
 )
 from yoke_core.domain.session_actor_binding import resolve_operating_actor
-from yoke_core.domain.session_actor_binding_write import (
-    converge_operating_actor_binding,
-)
 
 import yoke_core.engines.doctor_report as _base
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
-SLUG = "session-actor-binding"
-TITLE = "Harness sessions carry the actor they act for"
 AUTHORITY_SLUG = "local-operating-actor-authority"
 AUTHORITY_TITLE = "The local universe's operating actor holds its org admin role"
-_LISTED_SESSIONS = 5
-
-
-def _p(conn: Any) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _actorless_session_ids(conn: Any) -> List[str]:
-    rows = query_rows(
-        conn,
-        "SELECT session_id FROM harness_sessions "
-        "WHERE actor_id IS NULL ORDER BY session_id",
-    )
-    return [
-        str(row["session_id"] if isinstance(row, dict) else row[0])
-        for row in rows
-    ]
-
-
-def _bind_sessions(conn: Any, actor_id: int) -> int:
-    cursor = conn.execute(
-        f"UPDATE harness_sessions SET actor_id = {_p(conn)} "
-        "WHERE actor_id IS NULL",
-        (actor_id,),
-    )
-    conn.commit()
-    return int(getattr(cursor, "rowcount", 0) or 0)
-
-
-def _summarize(session_ids: List[str]) -> str:
-    shown = ", ".join(session_ids[:_LISTED_SESSIONS])
-    remaining = len(session_ids) - _LISTED_SESSIONS
-    return f"{shown} (+{remaining} more)" if remaining > 0 else shown
-
-
-def _operating_actor(conn: Any, args: DoctorArgs) -> Any:
-    """Resolve the operating actor, converging an unrecorded binding on --fix.
-
-    A universe born before the binding existed carries exactly one human
-    and no recorded id, which is a repair rather than a question: `--fix`
-    records it once, and every later resolution reads the id. A universe
-    with several humans is a real question and stays a refusal naming the
-    command that answers it.
-    """
-    binding = resolve_operating_actor(conn)
-    if binding.bound or not args.fix:
-        return binding
-    try:
-        converged = converge_operating_actor_binding(conn)
-    except Exception:  # noqa: BLE001 — the refusal already names the recovery
-        return binding
-    return resolve_operating_actor(conn) if converged is not None else binding
-
-
-def hc_session_actor_binding(
-    conn: Any, args: DoctorArgs, rec: RecordCollector
-) -> None:
-    """Flag — and under ``--fix`` bind — sessions with no actor_id."""
-    if not _base._table_exists(conn, "harness_sessions"):
-        rec.record(
-            SLUG, TITLE, "PASS", "harness_sessions table missing — nothing to check"
-        )
-        return
-
-    actorless = _actorless_session_ids(conn)
-    if not actorless:
-        rec.record(SLUG, TITLE, "PASS", "every session row names an actor")
-        return
-
-    binding = _operating_actor(conn, args)
-    if not binding.bound:
-        rec.record(
-            SLUG,
-            TITLE,
-            "FAIL",
-            f"{len(actorless)} session(s) carry no actor_id "
-            f"({_summarize(actorless)}) and the operating actor cannot be "
-            f"resolved to repair them: {binding.detail}",
-        )
-        return
-
-    if args.fix:
-        bound = _bind_sessions(conn, int(binding.actor_id))
-        remaining = _actorless_session_ids(conn)
-        if not remaining:
-            rec.record(
-                SLUG,
-                TITLE,
-                "PASS",
-                f"--fix: bound {bound} session(s) to actor "
-                f"{binding.actor_id} (this universe's operating actor)",
-            )
-            return
-        actorless = remaining
-
-    rec.record(
-        SLUG,
-        TITLE,
-        "FAIL",
-        f"{len(actorless)} session(s) carry no actor_id "
-        f"({_summarize(actorless)}); those sessions cannot register a path "
-        f"claim. Repair: `{OPERATING_ACTOR_GRANT_REPAIR}`, which binds exactly "
-        f"those rows to actor {binding.actor_id}, this universe's operating "
-        "actor.",
-    )
 
 
 def hc_local_operating_actor_authority(
@@ -177,11 +40,9 @@ def hc_local_operating_actor_authority(
             )
             return
 
-    binding = _operating_actor(conn, args)
+    binding = resolve_operating_actor(conn)
     if not binding.bound:
-        rec.record(
-            AUTHORITY_SLUG, AUTHORITY_TITLE, "FAIL", binding.detail
-        )
+        rec.record(AUTHORITY_SLUG, AUTHORITY_TITLE, "FAIL", binding.detail)
         return
 
     actor_id = int(binding.actor_id)
@@ -219,8 +80,5 @@ def hc_local_operating_actor_authority(
 __all__ = [
     "AUTHORITY_SLUG",
     "AUTHORITY_TITLE",
-    "SLUG",
-    "TITLE",
     "hc_local_operating_actor_authority",
-    "hc_session_actor_binding",
 ]

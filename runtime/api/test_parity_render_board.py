@@ -54,7 +54,6 @@ class TestBoardProjectionParity:
             ("planning", 0, False, "planning"),
             ("implemented", 0, False, "implemented"),
             ("release", 0, False, "release"),
-            ("blocked", 0, False, "blocked"),
             ("stopped", 0, False, "blocked"),
             ("failed", 0, False, "blocked"),
             # Frozen override
@@ -140,9 +139,7 @@ class TestBoardProjectionParity:
             "Item 8 should not remain in implemented bucket"
         )
 
-        # Item 9: blocked -> blocked bucket
-        blocked_ids = [item["id"] for item in columns.get("blocked", [])]
-        assert f"YOK-{8}" in blocked_ids, "Item 9 (blocked) should be in blocked bucket"
+        assert "YOK-8" in implementing_ids
 
     def test_board_api_scopes_items_to_requested_project(self, parity_env):
         """Board should not include items from other projects."""

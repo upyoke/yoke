@@ -1,0 +1,12 @@
+{
+ "id": "retention",
+ "title": "Universe retention",
+ "status": "observed",
+ "summary": "One admin command previews or prunes explicit disposable tables using universe settings, bounded committed transactions and permanent reference protections. Existing faster cleanup keeps its original expiry boundaries and cadence; the one-day cutoff only selects remaining old rows and never creates a minimum hold. The foreground loop has no overall cutoff or saved run. Source and disposable-database behavior are tested; deployed preview proof is still owed.",
+ "commands": ["yoke universe retention get", "yoke universe prune"],
+ "functions": ["universe.retention.get", "universe.prune.run"],
+ "sources": ["docs/public/universe-retention.md", "packages/yoke-contracts/src/yoke_contracts/retention_defaults.py", "runtime/api/domain/test_universe_retention.py"],
+ "gaps": ["universe-retention-preview"],
+ "page": "universes",
+ "position": 4
+}

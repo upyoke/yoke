@@ -77,9 +77,7 @@ def _clock_columns(conn: Any, columns: Mapping[str, Any]) -> dict[str, Any]:
             instant = (
                 None if value is None and name != "created_at" else parse_instant(value)
             )
-            result[name] = instant_parameter(
-                conn, instant, table="qa_runs", column=name
-            )
+            result[name] = instant_parameter(conn, instant)
     return result
 
 
@@ -109,7 +107,8 @@ def _bind_evidence(conn: Any, run_id: int | None, columns: dict[str, Any]) -> No
 
     run = (
         query_one(conn, "SELECT * FROM qa_runs WHERE id=%s FOR UPDATE", (run_id,))
-        if run_id is not None else {}
+        if run_id is not None
+        else {}
     )
     if run is None or run.get("verdict") is not None:
         return
@@ -155,10 +154,7 @@ def update_qa_run(
     columns = _clock_columns(conn, columns)
     if default_completed_at is not None:
         default_completed_at = instant_parameter(
-            conn,
-            parse_instant(default_completed_at),
-            table="qa_runs",
-            column="completed_at",
+            conn, parse_instant(default_completed_at)
         )
     p = marker(conn)
     subject = conn.execute(

@@ -7,8 +7,6 @@ import threading
 from pathlib import Path
 from typing import Any, Callable
 
-import pytest
-
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.epic_task_crud import task_upsert
@@ -171,20 +169,4 @@ def test_sqlite_empty_membership_snapshot_blocks_concurrent_insert(
 
     conn = sqlite3.connect(database_path)
     _assert_blocked_then_reopened(conn, item_id, outcomes)
-    conn.close()
-
-
-def test_empty_membership_refuses_false_success_before_snapshot_migration(
-    tmp_path,
-) -> None:
-    item_id = 1825
-    database_path = tmp_path / "legacy-empty-membership.db"
-    _create_sqlite_database(database_path, item_id)
-    conn = sqlite3.connect(database_path)
-    conn.execute(f"ALTER TABLE items DROP COLUMN {MEMBERSHIP_FINALIZED_COLUMN}")
-    conn.commit()
-
-    with pytest.raises(TaskScopeIncomplete, match="snapshot schema"):
-        finalize_generated_task_scopes(conn, item_id)
-
     conn.close()

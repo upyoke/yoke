@@ -15,10 +15,6 @@ from yoke_cli.commands._helpers import (
 from yoke_contracts.api.function_call import TargetRef
 
 
-GITHUB_RELEASE_CREATE_NEXT_TAG_USAGE = (
-    "yoke github release create-next-tag <repo-slug> <source-sha> "
-    "--summary TEXT --project P [--session-id S] [--json]"
-)
 RELEASE_TAG_REQUEST_TIMEOUT_SECONDS = 120.0
 GITHUB_RELEASE_CREATE_COMMIT_TAG_USAGE = (
     "yoke github release create-commit-tag <repo-slug> <source-sha> "
@@ -31,36 +27,10 @@ def _write_created_tag(response, stdout, stderr) -> None:
     print(response.result.get("tag") or "", file=stdout)
 
 
-def github_release_create_next_tag(args: List[str]) -> int:
-    return _create_tag(
-        args,
-        "create-next-tag",
-        "github.release.create_next_tag",
-        GITHUB_RELEASE_CREATE_NEXT_TAG_USAGE,
-        "Create the next immutable annotated vX.Y.Z+launch.N tag. "
-        "A retry returns the existing tag for that source commit.",
-    )
-
-
 def github_release_create_commit_tag(args: List[str]) -> int:
-    return _create_tag(
-        args,
-        "create-commit-tag",
-        "github.release.create_commit_tag",
-        GITHUB_RELEASE_CREATE_COMMIT_TAG_USAGE,
-        "Create an immutable annotated BASE.YYYYMMDDHHMM tag from the commit "
-        "UTC clock. Retries recover the same annotated tag. A different commit "
-        "in that minute refuses. Requires a serving release carrying this API. "
-        "Ask the control-plane operator to install it before changing callers.",
-    )
-
-
-def _create_tag(
-    args: List[str], command: str, function_id: str, usage: str, description: str
-) -> int:
     parser = argparse.ArgumentParser(
-        prog=f"yoke github release {command}",
-        description=description,
+        prog="yoke github release create-commit-tag",
+        description="Create the immutable BASE.YYYYMMDDHHMM tag from the commit UTC clock. Same-source retries recover it. Minute collisions require a distinct source commit. Requires its carrying serving release.",
     )
     parser.add_argument("repo", help="GitHub repo slug, e.g. upyoke/yoke.")
     parser.add_argument("source_sha", help="Full 40-character release commit SHA.")
@@ -79,7 +49,7 @@ def _create_tag(
     parsed = parse_or_usage_error(
         parser,
         args,
-        usage,
+        GITHUB_RELEASE_CREATE_COMMIT_TAG_USAGE,
     )
     if parsed is None:
         return 2
@@ -89,7 +59,7 @@ def _create_tag(
         return usage_error("source-sha must be a full 40-character commit SHA")
 
     return dispatch_and_emit(
-        function_id=function_id,
+        function_id="github.release.create_commit_tag",
         target=TargetRef(kind="global"),
         payload={
             "repo": parsed.repo,
@@ -107,7 +77,5 @@ def _create_tag(
 __all__ = [
     "GITHUB_RELEASE_CREATE_COMMIT_TAG_USAGE",
     "github_release_create_commit_tag",
-    "GITHUB_RELEASE_CREATE_NEXT_TAG_USAGE",
     "RELEASE_TAG_REQUEST_TIMEOUT_SECONDS",
-    "github_release_create_next_tag",
 ]

@@ -36,10 +36,10 @@ class TestMergeGuardOriginAncestry:
         with mock.patch.object(done_transition, "_run_git") as mock_git:
             mock_git.side_effect = [
                 mock.Mock(returncode=0, stdout="abc\n"),  # rev-parse branch
-                mock.Mock(returncode=0, stdout=""),       # fetch origin main
+                mock.Mock(returncode=0, stdout=""),  # fetch origin main
                 mock.Mock(returncode=0, stdout="def\n"),  # rev-parse origin/main
-                mock.Mock(returncode=1, stdout=""),       # ancestry vs origin/main FAILS
-                mock.Mock(returncode=0, stdout=""),       # log grep — no squash evidence
+                mock.Mock(returncode=1, stdout=""),  # ancestry vs origin/main FAILS
+                mock.Mock(returncode=0, stdout=""),  # log grep — no squash evidence
             ]
             result = done_transition._check_merge_guard(
                 "YOK-9999", Path("/tmp"), "main"
@@ -51,9 +51,9 @@ class TestMergeGuardOriginAncestry:
         with mock.patch.object(done_transition, "_run_git") as mock_git:
             mock_git.side_effect = [
                 mock.Mock(returncode=0, stdout="abc\n"),  # rev-parse branch
-                mock.Mock(returncode=128, stdout=""),     # fetch fails
-                mock.Mock(returncode=128, stdout=""),     # rev-parse origin/main fails
-                mock.Mock(returncode=0, stdout=""),       # ancestry vs local main succeeds
+                mock.Mock(returncode=128, stdout=""),  # fetch fails
+                mock.Mock(returncode=128, stdout=""),  # rev-parse origin/main fails
+                mock.Mock(returncode=0, stdout=""),  # ancestry vs local main succeeds
             ]
             result = done_transition._check_merge_guard(
                 "YOK-9999", Path("/tmp"), "main"
@@ -67,36 +67,36 @@ class TestVerifyRecoveryEvidence:
     def test_evidence_present_returns_true(self):
         with mock.patch.object(done_transition, "_run_git") as mock_git:
             mock_git.side_effect = [
-                mock.Mock(returncode=0, stdout=""),        # fetch
-                mock.Mock(returncode=0, stdout="def\n"),   # rev-parse origin/main
+                mock.Mock(returncode=0, stdout=""),  # fetch
+                mock.Mock(returncode=0, stdout="def\n"),  # rev-parse origin/main
                 mock.Mock(returncode=0, stdout="abc123 YOK-1700 commit\n"),
             ]
             result = done_transition._verify_recovery_evidence(
-                1700, Path("/tmp"), "main"
+                1700, Path("/tmp"), "main", public_ref="YOK-1700"
             )
         assert result is True
 
     def test_evidence_absent_returns_false(self):
         with mock.patch.object(done_transition, "_run_git") as mock_git:
             mock_git.side_effect = [
-                mock.Mock(returncode=0, stdout=""),       # fetch
+                mock.Mock(returncode=0, stdout=""),  # fetch
                 mock.Mock(returncode=0, stdout="def\n"),  # rev-parse origin/main
-                mock.Mock(returncode=0, stdout=""),       # log grep — empty
+                mock.Mock(returncode=0, stdout=""),  # log grep — empty
             ]
             result = done_transition._verify_recovery_evidence(
-                9999, Path("/tmp"), "main"
+                9999, Path("/tmp"), "main", public_ref="YOK-9999"
             )
         assert result is False
 
     def test_origin_ref_missing_falls_back_to_local(self):
         with mock.patch.object(done_transition, "_run_git") as mock_git:
             mock_git.side_effect = [
-                mock.Mock(returncode=128, stdout=""),     # fetch fails
-                mock.Mock(returncode=128, stdout=""),     # rev-parse origin/main fails
+                mock.Mock(returncode=128, stdout=""),  # fetch fails
+                mock.Mock(returncode=128, stdout=""),  # rev-parse origin/main fails
                 mock.Mock(returncode=0, stdout="abc YOK-42\n"),  # log on local main
             ]
             result = done_transition._verify_recovery_evidence(
-                42, Path("/tmp"), "main"
+                42, Path("/tmp"), "main", public_ref="YOK-42"
             )
         assert result is True
 
@@ -118,49 +118,37 @@ class TestRecoveryEvidenceSearchKeys:
             if isinstance(arg, str) and arg.startswith("--grep=")
         ]
 
-    def test_searches_the_public_ref_and_the_legacy_identity(self):
+    def test_searches_the_public_ref(self):
         with mock.patch.object(done_transition, "_run_git") as mock_git:
             mock_git.side_effect = [
-                mock.Mock(returncode=0, stdout=""),   # fetch origin main
+                mock.Mock(returncode=0, stdout=""),  # fetch origin main
                 mock.Mock(returncode=0, stdout="a\n"),  # rev-parse origin/main
-                mock.Mock(returncode=0, stdout=""),   # grep public ref — miss
-                mock.Mock(returncode=0, stdout=""),   # grep legacy identity — miss
+                mock.Mock(returncode=0, stdout=""),  # grep public ref — miss
             ]
             found = done_transition._verify_recovery_evidence(
-                4242, Path("/tmp"), "main", public_ref="YOK-77",
+                4242,
+                Path("/tmp"),
+                "main",
+                public_ref="YOK-77",
             )
 
         assert found is False
-        assert self._greps(mock_git) == ["--grep=YOK-77", "--grep=YOK-4242"]
+        assert self._greps(mock_git) == ["--grep=YOK-77"]
 
     def test_never_searches_the_generic_unresolved_phrase(self):
-        """Without a public ref it still searches this item, not a phrase."""
+        """Without a public ref there is no authoritative history search key."""
         with mock.patch.object(done_transition, "_run_git") as mock_git:
             mock_git.side_effect = [
-                mock.Mock(returncode=0, stdout=""),   # fetch origin main
+                mock.Mock(returncode=0, stdout=""),  # fetch origin main
                 mock.Mock(returncode=0, stdout="a\n"),  # rev-parse origin/main
-                mock.Mock(returncode=0, stdout=""),   # grep legacy identity — miss
             ]
             found = done_transition._verify_recovery_evidence(
-                4242, Path("/tmp"), "main",
+                4242,
+                Path("/tmp"),
+                "main",
             )
 
         assert found is False
         greps = self._greps(mock_git)
-        assert greps == ["--grep=YOK-4242"]
+        assert greps == []
         assert not any("unresolved item ref" in grep for grep in greps)
-
-    def test_a_legacy_named_merge_commit_is_still_found(self):
-        """The historical lookup this guard exists for keeps working."""
-        with mock.patch.object(done_transition, "_run_git") as mock_git:
-            mock_git.side_effect = [
-                mock.Mock(returncode=0, stdout=""),   # fetch origin main
-                mock.Mock(returncode=0, stdout="a\n"),  # rev-parse origin/main
-                mock.Mock(returncode=0, stdout=""),   # grep public ref — miss
-                mock.Mock(returncode=0, stdout="9f2 Merge branch 'YOK-4242'\n"),
-            ]
-            found = done_transition._verify_recovery_evidence(
-                4242, Path("/tmp"), "main", public_ref="YOK-77",
-            )
-
-        assert found is True

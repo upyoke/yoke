@@ -31,7 +31,15 @@ observation. A merged pull request receives the normal completion notice.
 Recovery belongs to the holder: address the named check or protection rule
 and re-run the same governed `yoke merge item` command. If the lane or base
 moved, rebase onto the base, re-run verification, and re-enter that command.
-The observer never re-arms a pull request. Repeated observation reuses the
+The observer never re-arms a pull request. A governed retry recovers cancelled
+or never-started required checks even when the open PR is already armed but
+unadmitted; it never sends a duplicate arming request. It verifies current
+head, newest workflow run and job evidence before one rerun POST. Active,
+successful, superseded and enqueued attempts are protected. After three
+cancelled attempts, inspect job annotations and fix the runner or workflow
+limit before starting a fresh declared attempt. An accepted rerun is not a
+pass: required checks must be replaced on the exact candidate. A new
+`workflow_dispatch` is a fresh attempt whose head and replacement need proof. Repeated observation reuses the
 same stop notice; a new governed arming starts a new episode.
 
 The harness manifest determines whether the existing wake route can resume
@@ -39,7 +47,17 @@ the holder automatically. Operator-driven surfaces need the operator to
 re-enter the session. If the holder is gone, the notice routes to the project's
 steering seat for restaffing.
 
-Before recording a landing, the merge boundary fetches the remote default
+The observer saves the current PR's head branch, target, head SHA and merge
+SHA in the item's existing Merge Receipts document in the same transaction as
+its landing stamps, before sending the completion notice. Missing identity
+leaves the landing unstamped and records `merge_landing_identity_missing` in
+the project refresh error; retry with a complete GitHub PR readback. Release
+containment can use this identity while worker closeout is still pending.
+The worker still records results and verification and enriches that exact
+receipt with changed files and contributed commits. Re-observation is
+idempotent; a later landing preserves the earlier receipt's identity.
+
+During worker closeout, the merge boundary fetches the remote default
 branch and requires it to contain the exact candidate commit. The recorded
 merge SHA is the merge on that fetched branch's first-parent history that
 first carried the candidate: the item's own pull request merge. A merge-queue

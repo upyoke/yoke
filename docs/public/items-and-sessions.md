@@ -54,26 +54,28 @@ blue; Blocked remains visible beside it. Blocked alone colors that segment
 red. Completed and upcoming segments retain their normal colors. A parked or
 idle session does not, by itself, mark its item Frozen or Blocked.
 
-Every session has one liveness: `active`, `waiting`, `stale`, or `ended`. A
-parked session that still holds a work claim is `waiting` — quiet on purpose
-for a deploy, a landing, or a migration slot, and resumed by the next message
-(from its transcript when its process has exited) — and is never reported
-`stale`, however long it has been quiet. `stale` is a quiet session nothing
-accounts for. The Sessions page, the Frontier, and `yoke sessions list` all
-read this one classification.
+Every session has one liveness: `active`, `waiting`, `stale`, or `ended`.
+`stale` means eligible for automatic reclaim, with every work-claim,
+document-holdings, in-flight and episode-progress rule applied. A live active
+work-claim holder never reads stale. An intentional pause declared by mode
+`parked` or turn posture `waiting` while holding work is `waiting`, displayed
+as **parked**, however old its activity becomes. Other protected live sessions
+remain active; their activity age is a separate diagnostic. Silence does not
+declare a pause. Ended sessions stay ended.
 
-The roster opens on **Active**, which includes active, waiting, and stale
-sessions. Stale sessions remain visible as light-red cards with a red `stale`
-pill. **All** includes ended sessions too, while **Ended** shows only
-ended sessions. **Reclaim stale** counts only the sessions the reclaim sweep
-would act on — quiet past their TTL and holding no work claim — and reloads
-the roster after cleanup, so reclaimed rows leave Active immediately.
+The roster opens on **Active**, including active, waiting and stale sessions.
+**All** includes ended sessions; **Ended** shows only ended sessions.
+**Reclaim stale** counts exactly the stale sessions in the same scope and
+snapshot. Execution rechecks the shared eligibility decision and reports
+newly protected sessions skipped, with their reason; refresh the roster before
+retrying. Explicit authorized termination is a separate action and can settle
+protected claims. Cleanup reloads the roster so reclaimed rows leave Active.
 
 On the **Frontier**, every claimed item's card carries its holding session's
 chip — surface, park state, and quiet reason — whichever band it lands in.
 **Owner unavailable**, with its advice to release the claim or terminate the
-session, appears only for an abandoned holder: not parked, its process gone,
-and quiet past its activity window.
+session, appears for a holder without a declared pause whose process is gone
+and whose surface cannot resume it from its transcript.
 
 Every session card offers **Message**, including ended sessions. An idle or
 parked session whose wake belongs to the operator shows **Queued — delivered
@@ -280,6 +282,14 @@ content changed since this session's last pull read, plus an unchanged count.
 `--full` shows every section; `--json` computes all facts and `--json --full`
 permits the full reply without consuming the human checkpoint. Read state belongs to the session and does not spend the
 hook/watcher delivery interval.
+
+The machine relay admits ready wakes and diagnostic reads on each poll while
+unrelated jobs are still running, and continues to admit assigned launches.
+Each job keeps its own lease and report; one job finishing cannot expire or
+release another. Native capacity checks and the bounded supervisor still
+control execution. A session with an outstanding wake or running native turn
+waits for its own custody to settle; other sessions keep moving. Desktop wakes
+still require the surface's declared operator authority.
 
 Only the registered top-level session may send, acknowledge, or cancel Fleet messages or handle Fleet wake requests. In-process subagents receive no Fleet delivery at all; they report through their parent channel. Independently launched workers participate as top-level sessions.
 

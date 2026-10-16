@@ -100,7 +100,10 @@ def handle_path_record(request: FunctionCallRequest) -> HandlerOutcome:
     except Exception as exc:
         return _error(
             "payload_invalid",
-            f"path-record payload invalid: {exc}",
+            f"path-record payload invalid: {exc}. "
+            "Supply a non-empty fully qualified client path; preserve an "
+            "existing checkout and use item_worktrees.list to read its "
+            "current lane id and branch before retrying item_worktrees.path_record.",
             jsonpath="$.payload",
         )
     try:

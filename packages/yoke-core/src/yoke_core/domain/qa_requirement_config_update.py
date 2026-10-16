@@ -19,7 +19,6 @@ from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.qa_constants import (
     VALID_BLOCKING_MODES,
     VALID_QA_PHASES,
-    _normalize_qa_phase,
 )
 from yoke_core.domain.qa_method_capabilities import (
     QaMethodCapabilityError,
@@ -138,7 +137,7 @@ def apply_requirement_update(
             jsonpath="$.payload.value",
         )
     if field == "qa_phase":
-        normalized = _normalize_qa_phase(str(value or ""))
+        normalized = str(value or "")
         if normalized not in VALID_QA_PHASES:
             return _fail(
                 code="payload_invalid",

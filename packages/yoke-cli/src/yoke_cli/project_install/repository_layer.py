@@ -13,9 +13,6 @@ from pathlib import Path
 from typing import Any, Dict
 
 from yoke_cli.project_install.bundle_apply import apply_bundle
-from yoke_cli.project_install.file_line_config_migration import (
-    migrate_file_line_exceptions,
-)
 from yoke_cli.project_install.file_line_managed_exceptions import (
     ensure_managed_file_line_exceptions,
 )
@@ -48,8 +45,6 @@ def write_repository_layer(
     # launcher leaves the shims unable to exec. Surface both loudly.
     if mode == MODE_COPY:
         report.setdefault("warnings", []).extend(collect_hooks_path_warnings(repo_root))
-    # Runs after apply so the seeded .yoke/project.config exists to move into.
-    report["file_line_config_migration"] = migrate_file_line_exceptions(repo_root)
     # The install writes the managed rules files AND the gate that measures
     # them, so it also owns exempting them — otherwise a project's first
     # commit fails on the install's own output.

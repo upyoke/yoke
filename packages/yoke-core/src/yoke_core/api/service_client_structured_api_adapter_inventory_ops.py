@@ -21,6 +21,14 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 )
 
 OPS_ADAPTERS: List[AdapterEntry] = [
+    _read_entry(
+        function_id="advance.preflight.hard_blocks",
+        cli_invocation="yoke advance preflight hard-blocks PREFIX-N [--gate-point POINT] [--json]",
+    ),
+    AdapterEntry(
+        function_id="ouroboros.reflection.capture",
+        cli_invocation="yoke ouroboros reflection capture (--text-file PATH | --stdin) [--project P] [--json]",
+    ),
     AdapterEntry(
         function_id="operator.data_repair.run",
         cli_invocation="yoke operator data-repair --content-file FILE --reviewed-sha256 SHA [--dry-run] [--json]",
@@ -204,7 +212,8 @@ OPS_ADAPTERS: List[AdapterEntry] = [
     ),
     # Scoped setup facts and saved choices.
     _read_entry(
-        function_id="onboard.checklist.get", cli_invocation="yoke onboard checklist get [--project P] [--run-id RUN] [--json]"
+        function_id="onboard.checklist.get",
+        cli_invocation="yoke onboard checklist get [--project P] [--run-id RUN] [--json]",
     ),
     AdapterEntry(
         function_id="onboard.checklist.run", cli_invocation="yoke onboard checklist"

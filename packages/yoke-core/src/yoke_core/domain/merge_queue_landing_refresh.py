@@ -57,18 +57,8 @@ def claim_due_projects(
     cadence_seconds: float = REFRESH_CADENCE_SECONDS,
 ) -> tuple[int, ...]:
     """Atomically claim each project whose last sweep began before cadence."""
-    current = instant_parameter(
-        conn,
-        parse_instant(now),
-        table="merge_queue_landing_refreshes",
-        column="started_at",
-    )
-    cutoff = instant_parameter(
-        conn,
-        now - timedelta(seconds=float(cadence_seconds)),
-        table="merge_queue_landing_refreshes",
-        column="started_at",
-    )
+    current = instant_parameter(conn, parse_instant(now))
+    cutoff = instant_parameter(conn, now - timedelta(seconds=float(cadence_seconds)))
     p = _p(conn)
     claimed: list[int] = []
     for project_id in sorted({int(value) for value in project_ids}):
@@ -110,12 +100,7 @@ def complete_projects(
         "UPDATE merge_queue_landing_refreshes SET "
         f"completed_at={p},last_error='' WHERE project_id IN ({slots})",
         (
-            instant_parameter(
-                conn,
-                parse_instant(now),
-                table="merge_queue_landing_refreshes",
-                column="completed_at",
-            ),
+            instant_parameter(conn, parse_instant(now)),
             *projects,
         ),
     )
@@ -138,12 +123,7 @@ def fail_projects(
         "UPDATE merge_queue_landing_refreshes SET "
         f"completed_at={p},last_error={p} WHERE project_id IN ({slots})",
         (
-            instant_parameter(
-                conn,
-                parse_instant(now),
-                table="merge_queue_landing_refreshes",
-                column="completed_at",
-            ),
+            instant_parameter(conn, parse_instant(now)),
             str(error),
             *projects,
         ),

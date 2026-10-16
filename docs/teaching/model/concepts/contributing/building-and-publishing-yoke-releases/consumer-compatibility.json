@@ -3,9 +3,9 @@
  "title": "Consumer compatibility",
  "status": "observed",
  "audience": "Maintainers",
- "page": "contributing-guides",
+ "page": "release-publication",
  "position": 4,
- "summary": "Every upstream PR, main push and manual candidate receives an independent advisory. Identical product trees at the same observed Platform commit reuse the durable original dispatch and its run, including after a rebase. Merge-queue groups do not dispatch advisories. Release publication still requires the exact product/consumer commit pair. The advisory reads its dispatch receipt on the consumer project's run-read permission, which the release identity's deployment_ci role carries; an engine serving below that grant reports NOT CHECKED with dispatch_receipt_unauthorized and never asks for project admin.",
+ "summary": "Every upstream PR, main push and manual candidate receives an independent advisory. Identical product trees at the same observed Platform commit reuse the durable original dispatch and its run, including after a rebase. Merge-queue groups do not dispatch advisories. Release publication still requires the exact product/consumer commit pair. The advisory reads its dispatch receipt on the consumer project's run-read permission, which the release identity's deployment_ci role carries; an engine serving below that grant reports NOT CHECKED with dispatch_receipt_unauthorized and never asks for project admin. Release gates reuse an existing passed durable dispatch for the same exact product/consumer pair across environments; they verify the original run and consumer head again before acceptance. Advisory tree equivalence never substitutes for release pair identity.",
  "sources": [".github/workflows/consumer-compatibility-advisory.yml", "runtime/api/tools/consumer_compatibility_advisory.py", "docs/source-dev-doctrine.md", "packages/yoke-core/src/yoke_core/domain/function_authz_scope_release_ci.py"],
  "functions": ["github_actions.dispatch_receipt.get"]
 }
