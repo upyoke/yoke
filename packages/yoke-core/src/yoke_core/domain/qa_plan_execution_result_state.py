@@ -16,6 +16,8 @@ _PLAN_STATE_PRECEDENCE = {
     "failed": 3,
     "waiting": 4,
     "error": 5,
+    # The run removed this member mid-case: QA was cancelled, not judged.
+    "removed": 6,
 }
 
 
@@ -45,6 +47,8 @@ def aggregate_state(current: str, result: dict[str, Any]) -> str:
         result_state = "waiting"
     if outcome == "error" or verdict == "error":
         result_state = "error"
+    if outcome == "removed":
+        result_state = "removed"
     if _PLAN_STATE_PRECEDENCE[result_state] > _PLAN_STATE_PRECEDENCE[current]:
         return result_state
     return current
