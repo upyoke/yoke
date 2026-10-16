@@ -204,11 +204,8 @@ def undelivered_messages(
     placeholder = marker(conn)
     # When the plane owes an attempt, and how long after that its absence is
     # the plane's failure rather than the next poll's ordinary work.
-    grace = timedelta(
-        seconds=int(
-            scope_policy(conn, project_id=int(project_id)).wake_ack_grace_seconds
-        )
-    )
+    message_policy = scope_policy(conn, project_id=int(project_id))
+    grace = timedelta(seconds=int(message_policy.wake_ack_grace_seconds))
     sla = timedelta(seconds=int(relay_policy().poll_seconds))
     attempts = last_attempts(conn, project_id=project_id, marker=placeholder, now=now)
     rows = report_receipts(conn, project_id=project_id, now=now, session_id=session_id)
