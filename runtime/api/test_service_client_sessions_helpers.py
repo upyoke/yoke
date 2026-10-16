@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.item_refs_schema import ensure_item_refs_view
+
 import json
 import os
 from pathlib import Path
@@ -162,6 +164,7 @@ def _apply_session_schema() -> None:
             ITEM_DEPENDENCIES_SCHEMA,
             _SESSION_SCHEMA_DDL,
         )
+        ensure_item_refs_view(conn)
         # The dispatcher authorizes every mutation against the session's
         # actor, so this fixture carries the org/role tables a real
         # universe has and the operator grant that goes with them.
@@ -174,7 +177,9 @@ def _apply_session_schema() -> None:
         create_actor_identity_tables(conn)
         create_auth_tables(conn)
         create_org_tables(conn)
-        from yoke_core.domain.session_control_schema import create_session_control_tables
+        from yoke_core.domain.session_control_schema import (
+            create_session_control_tables,
+        )
 
         create_session_control_tables(conn)
         ensure_local_operating_actor(conn)
