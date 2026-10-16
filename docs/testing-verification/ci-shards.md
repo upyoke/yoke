@@ -1,11 +1,9 @@
 # CI interpreter coverage and shard timing
 
 CI executes the full suite on the newest supported Python endpoint. The oldest
-endpoint executes only in the merge queue, covering interpreter behavior while
-repository checks, documentation, generated files, path snapshots, and installed
-wheel scenarios stay on the newest leg. The existing required check contexts
-remain present outside the queue; the oldest leg's steps perform no setup or
-test execution there.
+endpoint runs in parallel on every CI event, pull requests included, covering
+interpreter behavior while repository checks, documentation, generated files,
+path snapshots, and installed wheel scenarios stay on the newest leg.
 
 `runtime/ci_test_selection.py` owns the interpreter-independent selection. Its
 collection hook runs before pytest-split, so every selected test belongs to
@@ -60,5 +58,30 @@ installed packages on the same interpreter, retaining its engine-absence proof.
 The eight import-graph scenarios remain eight parametrized cases in
 `tests/import_graph/test_yoke_cli_wheel_smoke.py`.
 
-The merge queue cannot reuse a newest-only PR proof as both-interpreter proof.
-Queue reuse requires an identical-tree successful merge-group run.
+## Identical-tree coverage reuse
+
+When `reuse-coverage` decides a run must execute the suite, it publishes a
+one-day artifact named `yoke-ci-coverage-<tree>`. Its `yoke-ci-coverage.json`
+names the commit and tree the shards actually check out, the run and attempt,
+and the per-interpreter scope and shard count the matrix executes. A pull
+request run tests GitHub's synthetic merge commit, not the pull request head,
+so the evidence records that checkout. The coverage counts as completed only
+once that attempt concludes `success`.
+
+Every run's `reuse-coverage` job
+(`packages/yoke-core/src/yoke_core/tools/yoke_ci_tree_reuse.py`) looks up
+evidence for its own checked-out tree. It reuses evidence only when the
+artifact is unexpired and under 24 hours old, comes from a same-repository
+`yoke-ci.yml` run whose recorded attempt concluded `success`, and names the
+same tree and the complete required coverage. A merge-queue entry that adds
+one pull request to an unchanged base therefore reuses that pull request's
+run, and the push after landing reuses its queue run. A moved base or a
+multi-entry queue composition creates a new tree and runs the suite.
+
+On reuse, the test shards skip setup and pytest but still report every
+required context. Repository contracts, browser runtime, the container build,
+release artifacts, and attestations always run. A reusing run publishes no
+evidence, so a reuse always names an original executed proof whose age cannot
+be renewed. The job summary lists the covering run URL, or every rejected
+artifact with its reason; any rejection or probe fault runs the suite, which
+needs no recovery step.

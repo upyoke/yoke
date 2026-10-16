@@ -4,6 +4,6 @@
  "status": "draft-copy",
  "page": "merging",
  "position": 6,
- "sources": ["docs/public/reference/merge-queue-landings.md", "docs/public/reference/db-reference/merge-queue-landing-attempts.md"],
- "description": "A pull request opened for an item that already landed is a re-land attempt. The item keeps its current landing until the observer sees the attempt merge; an attempt that closes unmerged closes with its reason, and an armed one still sends its holder the stopped-landing notice. Board label, fleet landings, readiness and the waiting worker describe the open attempt; the item read shows it under merge_queue.attempt."
+ "sources": ["docs/public/reference/merge-queue-landings.md", "docs/public/reference/db-reference/merge-queue-landing-attempts.md", "docs/public/reference/db-reference/steering-fleet-report.md", "packages/yoke-core/src/yoke_core/domain/steering_fleet_report_landed_phrases.py"],
+ "description": "A pull request opened for an item that already landed is a re-land attempt. The item keeps its current landing until the observer sees the attempt merge; an attempt that closes unmerged closes with its reason, and an armed one still sends its holder the stopped-landing notice. Board label, fleet landings, readiness and the waiting worker describe the open attempt; the item read shows it under merge_queue.attempt. An item that rework sends back from release to an earlier stage after it landed owes a re-landing: the fleet report's landed row ends `re-landing owed`, treats its park as no delivery wait, and wakes the holder to review and merge (or names the bound skill to re-enter) instead of a close-out."
 }
