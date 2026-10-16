@@ -183,15 +183,13 @@ def _connect_hosted(parsed: argparse.Namespace) -> int:
             )
             return
         print(f"Open {pending.verification_uri_complete}", file=stream)
-        print(f"One-time code: {pending.user_code}", file=stream)
-        if parsed.self_host:
-            print(
-                "Or approve from your own machine already connected to this "
-                f"server: yoke machine-authorization resolve {pending.user_code} "
-                "--action approve. The approver's identity is the one this "
-                "machine receives; a first machine connects with --token-stdin.",
-                file=stream,
-            )
+        print(f"Match code: {pending.user_code}", file=stream)
+        print(
+            "Approve it from a machine already connected to this server: "
+            f"`yoke machines approve {pending.user_code}`, or Approve under "
+            "Machines → Waiting for approval.",
+            file=stream,
+        )
         if browser.attempted and not browser.opened:
             print(
                 f"The browser did not open ({browser.reason}); open the URL above "

@@ -1,7 +1,7 @@
 // Card renderers for the three live objects on the Overview frontier: items,
 // sessions (rendered by the Sessions module), and deployment runs.
 
-import { appendRemovedMembers, carriedRunItems } from "./universe_run_removed_members.js";
+import { appendRemovedMembers, carriedRunItems, itemQaSubjects } from "./universe_run_removed_members.js";
 import { appendOutsideCommits, outsideCommitCount } from "./universe_outside_commits.js";
 import { appendCarriedItemHeading } from "./universe_carried_item_titles.js";
 import {
@@ -167,6 +167,10 @@ export function appendCarried(context, host, row, options = {}) {
     "release-batch-title",
     `Carries · ${items.length} item${items.length === 1 ? "" : "s"}`,
   ));
+  if (!itemQaSubjects(row).length && items.length) {
+    batch.appendChild(el(documentNode, "p", "shipping-run-derived",
+      "No item QA owed on this target"));
+  }
   const memberFor = (item) => {
     const member = el(documentNode, "div", "release-member");
     appendCarriedItemHeading(documentNode, member, {
@@ -174,7 +178,7 @@ export function appendCarried(context, host, row, options = {}) {
     }, runProjectId(context, row, options.scope || "all"), options.facts?.titles);
     const drawn = appendCarriedItemEvidence(context, member, {
       item,
-      requireProjection: true,
+      requireProjection: itemQaSubjects(row).length > 0,
       runId: row.id || row.run_id,
       deployedSha: row.release_lineage,
       facts: { ...options.facts, gates: row.gates },

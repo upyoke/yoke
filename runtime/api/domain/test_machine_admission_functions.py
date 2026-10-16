@@ -199,7 +199,7 @@ def test_mode_owner_and_pending_agree(conn, monkeypatch, hosted, env):
     assert decisions.pending(conn, actor_id=1)["mode"] == expected
 
 
-def test_pending_registration_declares_read_scope_floor_and_internal_adapter():
+def test_pending_registration_declares_read_scope_floor_and_live_adapter():
     rows = {}
 
     def register(function_id, *args, **metadata):
@@ -219,7 +219,7 @@ def test_pending_registration_declares_read_scope_floor_and_internal_adapter():
         "side_effects": [],
         "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": ["verified_actor", "org_membership"],
-        "adapter_status": "internal",
+        "adapter_status": "live",
         "claim_required_kind": None,
         "ambient_session_required": False,
         "minimum_serving_version": "next-release",

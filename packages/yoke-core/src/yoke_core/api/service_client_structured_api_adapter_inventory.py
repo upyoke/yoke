@@ -11,6 +11,9 @@ from __future__ import annotations
 
 from typing import Dict, List
 from yoke_core.api.service_client_retention_inventory import RETENTION_ADAPTERS
+from yoke_core.api.service_client_structured_api_adapter_inventory_admission import (
+    ADMISSION_ADAPTERS,
+)
 
 from yoke_core.api.service_client_structured_api_adapter_inventory_claims import (
     CLAIMS_ADAPTERS,
@@ -231,6 +234,7 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     # readiness, item-dependency, ephemeral-env, strategy-carry/checkpoint,
     # events/ouroboros) + onboard-checklist; parity-synced into the inventory.
     *OPS_ADAPTERS,
+    *ADMISSION_ADAPTERS,
     *GITHUB_ACTIONS_ADAPTERS,
     AdapterEntry(
         function_id="github.release.create_commit_tag",

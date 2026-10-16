@@ -42,6 +42,25 @@ export function limitNote(documentNode, reason, guidance) {
   return note;
 }
 
+// Paid usage past the included windows, one line under them. The server
+// composes the phrase with the same rule that decides launches and wakes, so
+// the card cannot disagree with them; a stale reading says so rather than
+// presenting an old balance as current. A server that predates extra usage
+// sends no phrase and the line is omitted.
+export function extraUsageRow(documentNode, reading, stale) {
+  const label = reading?.extra_usage_label;
+  if (!label) return null;
+  const status = stale ? "stale" : reading.extra_usage_status || "unknown";
+  const row = el(
+    documentNode,
+    "p",
+    "machine-limit-extra",
+    stale ? "extra usage reading stale" : label,
+  );
+  row.setAttribute("data-status", status);
+  return row;
+}
+
 function headroomTrack(documentNode, headroom, tone) {
   const track = el(documentNode, "span", "machine-headroom-track");
   track.setAttribute("role", "img");
@@ -209,6 +228,8 @@ export function surfaceRow(documentNode, relay, surface) {
         );
       }
     }
+    const extra = extraUsageRow(documentNode, reading, stale);
+    if (extra) limits.appendChild(extra);
     row.appendChild(limits);
   } else if (state !== "absent") {
     row.appendChild(el(

@@ -26,7 +26,7 @@ test("a recorded removal supersedes old membership and candidate containment", (
   assert.equal(index.get("SAMPLE-51").filter((r) => r.id === removed.id).length, 1);
   const box = card([run("run-old", { status: "failed" }), removed]);
   const outcome = byClass(box, "item-deployment-outcome")[0];
-  assert.equal(outcome.textContent, "○ removed · QA cancelled · rides a later release");
+  assert.equal(outcome.textContent, "○ removed · QA awaits a repaired golden · rides a later release");
   assert.equal(outcome.title, "QA awaits a repaired golden");
   assert.equal(byClass(box, "item-deployment-run")[0].textContent, "run-removed");
   assert.equal(byClass(box, "item-deployment-relation")[0].textContent, "removed");
@@ -38,7 +38,7 @@ test("a removal names and links its recorded later holder", () => {
     removed_member_items: [{ ...item, later_run_id: "run-later" }],
   })]);
   assert.equal(byClass(box, "item-deployment-outcome")[0].textContent,
-    "○ removed · QA cancelled · rides run-later");
+    "○ removed · rides run-later");
   assert.equal(byClass(box, "overview-card-link")[0].href,
     "/deployments/runs/run-later?project=7");
 });

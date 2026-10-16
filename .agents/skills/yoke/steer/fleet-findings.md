@@ -36,7 +36,8 @@ or plan note. Nothing acknowledged is automatically completed.
   exhausted/spent resume budget. Read lane commits first: produced work merits
   recovery, never-started work can restaff. Repeated machine signature needs
   evidence-led provider/client diagnosis.
-- **Stranded sessions**: confirmed published meter empty, credentials rejected
+- **Stranded sessions**: confirmed published meter empty with extra usage
+  blocked, credentials rejected
   or model unavailable cannot resume; don't wake. Changed preferred default,
   unreadable meter or launch still within registration deadline is not stranded.
   meter_exhausted names relaunch with headroom; resumed-died can report
@@ -75,7 +76,9 @@ Do not wake a confirmed exhausted model; no direct native resume bridge.
 **Plan limits** are informational scoped vendor pools, not launch gates.
 Read model against its own pool; Cursor composer/grok selections use Cursor
 Models, others Other Models. Claude/Codex likewise name enforced scope.
-Only that pool at zero is exhausted. Unreadable is not empty: stale_credential
+Only that pool at zero, with fresh paid extra usage disabled, cap_reached or
+unavailable, is exhausted; extra usage available/unknown/stale lets work run
+and the provider's refusal decides. Unreadable is not empty: stale_credential
 needs sign-in; http_429/failed probe retries refresh and proves nothing about
 launchability. Do not route away on unreadable alone. Compare all windows'
 quota/headroom/reset and raise approaching walls to operator. See model-selection.

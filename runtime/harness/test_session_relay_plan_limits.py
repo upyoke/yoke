@@ -173,6 +173,7 @@ def test_cursor_parser_keeps_both_monthly_included_usage_pools() -> None:
             "planUsage": {"autoPercentUsed": 100, "apiPercentUsed": 10.084},
         },
         observed_at=NOW,
+        hard_limit={"noUsageBasedAllowed": True},
     )
     assert reading["plan_tier"] == "Ultra"
     cursor_models, other_models = reading["windows"]

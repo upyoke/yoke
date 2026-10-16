@@ -8,6 +8,10 @@ import pytest
 
 from yoke_contracts.timestamps import parse_instant
 
+from yoke_contracts.session_control.extra_usage import (
+    EXTRA_AVAILABLE,
+    extra_usage,
+)
 from yoke_contracts.session_control.models import (
     LaunchCreateRequest,
     LaunchPreviewRequest,
@@ -24,10 +28,12 @@ from yoke_core.domain.session_launch_types import LaunchRequest, SessionLaunchEr
 from runtime.api.domain.session_launch_level_test_support import (
     CLAUDE_OPUS,
     CODEX_SOL,
+    EXTRA_OFF,
     LEVEL,
     add_surface,
     level_connection,
     pin_live_workers,
+    plan_reading,
     weekly,
 )
 from runtime.api.domain.session_launch_test_support import (
@@ -46,21 +52,26 @@ def _no_live_workers(monkeypatch):
     pin_live_workers(monkeypatch, {})
 
 
-def _meters(conn, machine_id: str, surface: str, remaining: float) -> None:
+NO_EXTRA = EXTRA_OFF
+
+
+def _meters(
+    conn, machine_id: str, surface: str, remaining: float, extra=NO_EXTRA
+) -> None:
     conn.execute(
         "UPDATE session_relays SET surface_plan_limits = ? WHERE relay_id = ?",
         (
-            json.dumps({surface: {"plan_tier": "max", "windows": [weekly(remaining)]}}),
+            json.dumps({surface: plan_reading([weekly(remaining)], extra)}),
             f"relay-{machine_id}-{surface}",
         ),
     )
     conn.commit()
 
 
-def _two_options(*, claude: float, codex: float):
+def _two_options(*, claude: float, codex: float, codex_extra=NO_EXTRA):
     conn = level_connection(CODEX_SOL, CLAUDE_OPUS)
-    add_surface(conn, "m-codex", "codex-cli", [weekly(codex)])
-    add_surface(conn, "m-claude", "claude-cli", [weekly(claude)])
+    add_surface(conn, "m-codex", "codex-cli", [weekly(codex)], codex_extra)
+    add_surface(conn, "m-claude", "claude-cli", [weekly(claude)], NO_EXTRA)
     return conn
 
 
@@ -200,7 +211,22 @@ def test_a_retry_with_no_capacity_left_is_refused_naming_the_pools() -> None:
         retry_launch(conn, launch_id=launch.launch_id, auth=authorization(), now=NOW)
 
     assert raised.value.code == LEVEL_NO_CAPACITY
-    assert "pool exhausted" in str(raised.value)
+    assert "pool exhausted and extra usage disabled" in str(raised.value)
+
+
+def test_an_empty_included_pool_with_codex_credits_still_places() -> None:
+    credits = extra_usage(
+        EXTRA_AVAILABLE, meter="rateLimits.credits", balance=10.0, units="Codex credits"
+    )
+    conn = _two_options(claude=0.0, codex=0.0, codex_extra=credits)
+
+    launch = _create(conn).launch
+
+    assert launch.selected_surface == "codex-cli"
+    evidence = json.loads(str(launch.level_placement))
+    codex_pool = evidence["chosen"]["pools"][0]
+    assert codex_pool["exhausted"] is False
+    assert codex_pool["extra_status"] == EXTRA_AVAILABLE
 
 
 def test_the_preview_handler_reports_the_level_option_as_the_knob_source(

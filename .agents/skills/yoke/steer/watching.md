@@ -18,6 +18,7 @@ one foreground invocation while incoming work is handled.
 Use the declared `Monitor` background command/subscription. In-turn stays
 Bash foreground at its documented long timeout. Keep ScheduleWakeup fallback
 at least 1200 seconds only if the manifest declares that timer available.
+The watcher counts as live only while its `yoke watch tail` subscriber runs.
 <!-- YOKE:HARNESS end -->
 
 <!-- YOKE:HARNESS cursor start -->
@@ -51,6 +52,8 @@ and name the narrower recipe or --full opt-in.
 
 After compaction, resume, watcher exit or subscription loss, verify live mode
 and existing process. Reattach its stream/subscription; rearm only if absent.
+A hook `FLEET WATCHER ALERT` block means this machine's process list shows no
+live watcher for an active seat; run the re-arm command it names.
 Read failed capture's named reason/recovery before retry. Successful bounded
 exit is not the end of continuous steering.
 

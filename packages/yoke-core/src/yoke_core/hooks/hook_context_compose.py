@@ -6,6 +6,7 @@ from collections.abc import Iterable
 
 from yoke_contracts.hook_context_compose import (
     FLEET_REPORT_CONTEXT_FIELD,
+    FLEET_WATCHER_ALERT_CONTEXT_FIELD,
     classify_hook_context,
     compose_hook_context,
 )
@@ -17,27 +18,32 @@ def composed_additional_context(
     *,
     harness_id: str,
 ) -> str:
-    """Delivery first, hints next, fleet report last, under the harness cap."""
-    deliveries: list[str] = []
-    hints: list[str] = []
-    reports: list[str] = []
+    """Delivery first, alerts, hints next, fleet report last, under the harness cap."""
+    parts: dict[str, list[str]] = {
+        "delivery": [],
+        "alert": [],
+        "hint": [],
+        "report": [],
+    }
     for decision in decisions:
         if decision.outcome is Outcome.DENY or decision.block:
             continue
-        extra = decision.audit_fields.get(FLEET_REPORT_CONTEXT_FIELD)
-        if isinstance(extra, str) and extra.strip():
-            reports.append(extra)
+        for field, kind in (
+            (FLEET_WATCHER_ALERT_CONTEXT_FIELD, "alert"),
+            (FLEET_REPORT_CONTEXT_FIELD, "report"),
+        ):
+            extra = decision.audit_fields.get(field)
+            if isinstance(extra, str) and extra.strip():
+                parts[kind].append(extra)
         value = decision.audit_fields.get("additionalContext")
         if isinstance(value, str) and value.strip():
-            kind = classify_hook_context(value)
-            if kind == "delivery":
-                deliveries.append(value)
-            elif kind == "report":
-                reports.append(value)
-            else:
-                hints.append(value)
+            parts[classify_hook_context(value)].append(value)
     return compose_hook_context(
-        deliveries, hints, reports, harness_id=harness_id
+        parts["delivery"],
+        parts["hint"],
+        parts["report"],
+        harness_id=harness_id,
+        alerts=parts["alert"],
     )
 
 

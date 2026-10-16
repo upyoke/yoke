@@ -1,8 +1,8 @@
 """Public start/poll door, using the same device-code wire as Cloud.
 
 The device-code door is open whether or not company sign-in is configured:
-a connected machine approves a new one with ``yoke machine-authorization
-resolve`` or the workbench approval page, both reachable by API token. Its
+a connected machine approves a new one with ``yoke machines approve CODE``
+or the workbench approval page, both reachable by API token. Its
 public origin is the company sign-in base URL when one is configured and the
 request's own origin otherwise; the connecting client refuses any origin
 other than the server it named before it persists a credential.

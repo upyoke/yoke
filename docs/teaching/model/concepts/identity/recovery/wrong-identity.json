@@ -1,7 +1,9 @@
 {
  "id": "wrong-identity",
  "title": "Wrong identity",
- "status": "draft-copy",
+ "status": "observed",
+ "text": "Check Requested by and Approving as before approving a machine. Supplied identities show the name and actor number. An owner mismatch says this connection was already handled by the bound person, using a name only from an existing read; otherwise it says another person in your org. If that was not you, ask them or an admin to retire the machine, then run yoke connect again. The refusal never discloses a new identity. An older server without viewer facts says your signed-in account and asks its operator to upgrade.",
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_approval.js"],
  "page": "identity",
  "position": 2
 }

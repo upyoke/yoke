@@ -12,6 +12,7 @@ import { createDecisionResolver } from "./inbox_rows.js";
 import { deploymentRunsHref } from "./universe_navigation.js";
 import { appendSteps } from "./universe_run_verification.js";
 import { runQaSection } from "./universe_run_qa.js";
+import { itemQaSubjects } from "./universe_run_removed_members.js";
 import { carriedItems } from "./universe_work_cards.js";
 import {
   appendCarriedItemEvidence,
@@ -89,13 +90,17 @@ function decisionCard(context, row, project, checks, onAct, itemFacts, onItemDec
     appendCarriedItemHeading(documentNode, list, item, project?.id, itemFacts.titles);
     const drawn = appendCarriedItemEvidence(context, list, {
       item,
-      requireProjection: true,
+      requireProjection: itemQaSubjects(row).length > 0,
       runId: row.id || row.run_id,
       deployedSha: row.release_lineage,
       facts: { ...itemFacts, gates: row.gates },
       onDecide: onItemDecision,
     });
     for (const id of drawn?.requestIds || []) drawnRequests.add(id);
+  }
+  if (!itemQaSubjects(row).length && items.length) {
+    list.appendChild(el(documentNode, "p", "shipping-run-derived",
+      "No item QA owed on this target"));
   }
   // Two different questions. The heading asks whether anything on this page
   // is waiting on somebody, which a member's own review answers just as well
@@ -176,7 +181,7 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
     let activity;
     // The run's own checks and what its carried items proved on their own
     // are two reads about one page; neither waits on the other.
-    const carried = loadCarriedItemEvidence(context, carriedItems(row).map(
+    const carried = loadCarriedItemEvidence(context, itemQaSubjects(row).map(
       (item) => ({
         ...item,
         project_id: item.project_id ?? project.id,

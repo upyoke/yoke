@@ -46,7 +46,7 @@ PLAN_LIMIT_CACHE_FILE_NAME = "plan-limits.json"
 # different shape is discarded rather than reported, so an upgraded relay
 # publishes real windows on its first poll instead of unreadable ones for
 # the rest of the refresh interval.
-PLAN_LIMIT_CACHE_SCHEMA_VERSION = 4
+PLAN_LIMIT_CACHE_SCHEMA_VERSION = 5
 _CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 # The usage endpoint rate-limits callers that do not identify as Claude Code
 # far more strictly than the CLI itself; without these headers the 4-minute
@@ -178,10 +178,16 @@ def probe_cursor_cli(*, observed_at: str) -> dict[str, Any]:
     )
     if isinstance(usage, str):
         return unknown_reading("cursor-cli", usage, observed_at=observed_at)
+    # Whether Cursor bills past the included pools: usage-based pricing on or off.
+    hard_limit = plan_limit_http_json(
+        _CURSOR_RPC + "GetHardLimit", headers=headers, data=b"{}", method="POST"
+    )
     plan_doc = plan if isinstance(plan, dict) else {}
     if not plan_doc:
         plan_doc = _cursor_tier_from_cli()
-    return parse_cursor_usage(plan_doc, usage, observed_at=observed_at)
+    return parse_cursor_usage(
+        plan_doc, usage, observed_at=observed_at, hard_limit=hard_limit
+    )
 
 
 def _cursor_tier_from_cli() -> dict[str, Any]:

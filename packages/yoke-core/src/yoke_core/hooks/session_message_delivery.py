@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import Iterable
 
 from yoke_contracts.hook_context_compose import (
     FLEET_REPORT_CONTEXT_FIELD,
+    FLEET_WATCHER_ALERT_CONTEXT_FIELD,
     compose_context_list,
     token_delivered,
 )
@@ -27,7 +27,7 @@ from yoke_core.domain.session_message_delivery_probe import (
     PROBE_SESSION_NOT_DELIVERABLE,
 )
 from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN
-from yoke_core.hooks.fleet_watcher_presence import maybe_append_fleet_watcher_nudge
+from yoke_core.hooks.fleet_watcher_presence import fleet_watcher_alert
 from yoke_core.hooks.session_message_delivery_port import (
     CoreSessionMessageDeliveryPort,
     SessionMessageDeliveryPort,
@@ -112,15 +112,7 @@ def _context_decision(
 def _decision_for_event(
     lease: SessionMessageLease, context: HookContext
 ) -> HookDecision:
-    lease = replace(
-        lease,
-        report=maybe_append_fleet_watcher_nudge(
-            lease.report,
-            session_id=str(context.session_id or ""),
-            executor_family=context.executor_family,
-            remote=context.remote,
-        ),
-    )
+    alert = fleet_watcher_alert(lease.report, context)
     rendered, token = render_lease(
         lease,
         session_id=str(context.session_id or ""),
@@ -149,11 +141,13 @@ def _decision_for_event(
         # would concatenate a JSON envelope with raw text into one invalid
         # reply.
         rendered = compose_context_list(
-            [rendered, lease.report] if lease.report else [rendered],
+            [rendered, alert, lease.report],
             harness_id=context.executor_family,
         )
     elif lease.report:
         extra[FLEET_REPORT_CONTEXT_FIELD] = lease.report
+        if alert:
+            extra[FLEET_WATCHER_ALERT_CONTEXT_FIELD] = alert
     return _context_decision(context, rendered, audit, extra_fields=extra or None)
 
 

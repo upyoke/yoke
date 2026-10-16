@@ -139,13 +139,18 @@ backoff; show next attempt/time. A named usage limit (`quota_exhausted`),
 rejected credentials or exhausted retry budget need seat action; only those
 rows are actionable.
 
-Stranded sessions cannot resume: exhausted published model pool, rejected
+Stranded sessions cannot resume: exhausted published model pool (included
+zero and fresh paid extra usage disabled, cap reached or unfunded), rejected
 credentials or removed model. Show count/items/relaunch on available headroom,
 never automatic model substitution/wake. Preferred-default drift is not a wall;
 still-registering sessions within deadline are excluded. Unknown/unreadable
-meter is not exhaustion; only that model's own zero pool is. Wake refuses
-meter_exhausted with remaining/reset; recurring resumed-died may project
-blocked-meter-exhausted.
+meter is not exhaustion; only that model's own zero pool is, and only when
+extra usage cannot cover it. Extra usage available, unknown or stale lets the
+wake run and the provider decides. Wake refuses meter_exhausted with
+remaining/reset and the extra-usage phrase; recurring resumed-died may project
+blocked-meter-exhausted. The plan-limit table ends with one `extra usage ·
+machine · surface:` line per surface, and JSON rows carry `extra_usage` and
+`extra_usage_label`.
 
 Unregistered launches report immediately for failed correlation or exact
 active harness session lacking binding; otherwise after deadline_at. Deadline

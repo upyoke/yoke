@@ -17,6 +17,13 @@ export function carriedRunItems(row) {
   return items.filter((item) => !removed.has(String(item.public_ref ?? item.ref ?? item.item_ref)));
 }
 
+// Item QA projections exist only on recorded run members. Derived carried
+// work is what a stage run shows when it owes no members, and it never
+// carries those projections.
+export function itemQaSubjects(row) {
+  return (row.member_items || []).length ? carriedRunItems(row) : [];
+}
+
 export function appendRemovedMembers(context, host, row, projectId) {
   const items = row.removed_member_items || [];
   if (!items.length) return;
@@ -27,7 +34,9 @@ export function appendRemovedMembers(context, host, row, projectId) {
   for (const item of items) {
     const member = el(documentNode, "div", "release-removed-item");
     appendCarriedItemHeading(documentNode, member, item, projectId);
-    const note = el(documentNode, "span", "release-removed-note", "QA cancelled — rides ");
+    const reason = String(item.reason || "").trim();
+    const note = el(documentNode, "span", "release-removed-note",
+      `${reason ? `${reason} — ` : ""}rides `);
     if (item.later_run_id) {
       const link = el(documentNode, "a", "overview-card-link", item.later_run_id);
       link.href = deploymentRunHref(projectId, item.later_run_id);

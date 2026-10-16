@@ -71,6 +71,7 @@ TERMINAL_RECIPES: frozenset[str] = frozenset(
         "identity.invite.revoke",
         "identity.link.set",
         "items.create",
+        "machine_authorization.resolve",
         "organizations.create",
         "organizations.domain.set",
         "organizations.settings.merge",

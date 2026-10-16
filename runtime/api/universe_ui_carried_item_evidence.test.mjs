@@ -93,7 +93,8 @@ test("each carried item shows its own evidence and no one else's", async () => {
   // run's own words and without restating the release the card is about.
   const lead = byClass(second, "item-qa-section")[0].children
     .find((node) => node.classList.contains("run-qa-check"));
-  assert.equal(byClass(lead, "run-qa-check-name")[0].textContent, "Browser inspection");
+  assert.equal(byClass(lead, "run-qa-check-name")[0].textContent,
+    "Browser inspection · marketing-pages-visual");
   assert.equal(byClass(lead, "run-qa-check-outcome")[0].textContent, "Passed");
   assert.equal(byClass(lead, "run-qa-check-mark")[0].textContent, "✓");
   assert.doesNotMatch(second.textContent, /this release/);

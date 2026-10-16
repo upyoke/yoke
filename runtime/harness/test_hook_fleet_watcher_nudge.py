@@ -1,4 +1,4 @@
-"""Hook injection appends a one-line fleet-watcher nudge when it is missing."""
+"""Report delivery adds a separate fleet-watcher alert the client proved owed."""
 
 from __future__ import annotations
 
@@ -6,11 +6,19 @@ from dataclasses import dataclass, replace
 
 import pytest
 
-from yoke_contracts.hook_context_compose import FLEET_REPORT_CONTEXT_FIELD
+from yoke_contracts.fleet_watcher_observation import FLEET_WATCHER_OBSERVATION_KEY
+from yoke_contracts.hook_context_compose import (
+    ALERT_BEGIN,
+    FLEET_REPORT_CONTEXT_FIELD,
+    FLEET_WATCHER_ALERT_CONTEXT_FIELD,
+    REPORT_OMITTED_NOTICE,
+    compose_context_list,
+)
+from yoke_contracts.hook_inline_context import inline_context_bytes_for_harness
 from yoke_core.hooks import fleet_watcher_presence as presence
 from yoke_core.hooks import session_message_delivery as delivery
+from yoke_core.hooks.hook_context_compose import composed_additional_context
 from yoke_core.hooks.session_message_delivery_port import SessionMessageLease
-from yoke_core.tools import watch_fleet
 from runtime.harness.session_message_delivery_test_helpers import (
     FakePort,
     hook_context,
@@ -25,15 +33,11 @@ REPORT = (
     "=== END YOKE FLEET REPORT ==="
 )
 SESSION = "session-top"
-CAPTURE = (
-    f"/scratch/yoke/sessions/{SESSION}/runs/pid-9/"
-    "watcher-captures/yoke-fleet.raw.abc.log"
-)
-WATCHER_CMDLINES = (
-    f"python3 -m {presence.PROBE_MODULE} --project yoke",
-    f"python3 -m {presence.WRAPPER_MODULE} --raw-capture {CAPTURE} -- --project yoke",
-)
-UNRELATED_CMDLINES = ("zsh", "cursor", "python3 -m pytest")
+REARM = "`yoke watch fleet --print-streaming-pair -- --project yoke`"
+
+
+def observed(live: bool, session_id: str = SESSION) -> dict:
+    return {FLEET_WATCHER_OBSERVATION_KEY: {"session_id": session_id, "live": live}}
 
 
 @dataclass
@@ -54,151 +58,128 @@ def active_steering_session(monkeypatch):
     monkeypatch.setattr(presence, "_session_row", lambda _session: {"mode": "steer"})
 
 
-def test_detection_tokens_match_the_live_watcher_wrapper() -> None:
-    assert presence.PROBE_MODULE == watch_fleet.PROBE_MODULE
-    assert presence.WRAPPER_MODULE == watch_fleet.WRAPPER_MODULE
-    assert presence.CAPTURE_KIND == watch_fleet.KIND
+def _evaluate(monkeypatch, family, surface, payload, *, report=REPORT, remote=False):
+    monkeypatch.setattr(delivery, "_delivery_port", lambda: ReportPort(report=report))
+    context = replace(
+        hook_context("PreToolUse", family=family, surface=surface, payload=payload),
+        remote=remote,
+    )
+    return delivery.evaluate(context)
 
 
-def test_report_injection_with_no_watcher_appends_the_nudge_line(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    port = ReportPort()
-    monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
-    monkeypatch.setattr(presence, "list_process_cmdlines", lambda: UNRELATED_CMDLINES)
-
-    decision = delivery.evaluate(
-        hook_context("PreToolUse", family="claude", surface="claude-cli")
+@pytest.mark.parametrize("remote", [False, True])
+def test_proven_absence_rides_its_own_block_beside_the_report(monkeypatch, remote):
+    decision = _evaluate(
+        monkeypatch, "claude", "claude-cli", observed(False), remote=remote
     )
 
-    report = decision.audit_fields[FLEET_REPORT_CONTEXT_FIELD]
-    assert REPORT in report
-    assert "YOKE FLEET REPORT" not in decision.audit_fields["additionalContext"]
-    nudge_lines = [
-        line
-        for line in report.splitlines()
-        if line.startswith("Fleet watcher is not running for this session")
-    ]
-    assert nudge_lines == [
-        "Fleet watcher is not running for this session; re-arm with "
-        "`yoke watch fleet --print-streaming-pair -- --project yoke`."
-        " That prints the invocation and starts nothing; run it, using only "
-        "the native subscription its wait_mode declares."
-    ]
+    assert decision.audit_fields[FLEET_REPORT_CONTEXT_FIELD] == REPORT
+    alert = decision.audit_fields[FLEET_WATCHER_ALERT_CONTEXT_FIELD]
+    assert alert.startswith(ALERT_BEGIN)
+    assert f"re-arm with {REARM}." in alert
+    assert "native subscription its wait_mode declares" in alert
 
 
-def test_report_injection_with_a_live_watcher_does_not_append_the_nudge(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    port = ReportPort()
-    monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
-    monkeypatch.setattr(presence, "list_process_cmdlines", lambda: WATCHER_CMDLINES)
+@pytest.mark.parametrize(
+    "payload",
+    [observed(True), {}, observed(False, session_id="someone-else")],
+    ids=["live", "unobserved", "other-session"],
+)
+def test_no_alert_without_proven_absence(monkeypatch, payload):
+    decision = _evaluate(monkeypatch, "claude", "claude-cli", payload)
 
-    decision = delivery.evaluate(
-        hook_context("PreToolUse", family="claude", surface="claude-cli")
+    assert decision.audit_fields[FLEET_REPORT_CONTEXT_FIELD] == REPORT
+    assert FLEET_WATCHER_ALERT_CONTEXT_FIELD not in decision.audit_fields
+
+
+def test_codex_stdout_channel_folds_the_alert_into_one_block(monkeypatch):
+    context = hook_context(
+        "SessionStart", family="codex", surface="codex-cli", payload=observed(False)
     )
+    monkeypatch.setattr(delivery, "_delivery_port", lambda: ReportPort())
+    decision = delivery.evaluate(context)
 
-    report = decision.audit_fields[FLEET_REPORT_CONTEXT_FIELD]
-    assert REPORT in report
-    assert "YOKE FLEET REPORT" not in decision.audit_fields["additionalContext"]
-    assert "Fleet watcher is not running" not in report
+    rendered = decision.audit_fields[delivery.DELIVERY_AUDIT_FIELD]["rendered_text"]
+    assert rendered.index(ALERT_BEGIN) < rendered.index("BEGIN YOKE FLEET REPORT")
+    assert "exec_command/write_stdin" in rendered
+    assert "ended desktop turn has no native background notification" in rendered
 
 
-def test_codex_nudge_names_the_active_tool_stream(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    port = ReportPort()
-    monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
-    monkeypatch.setattr(presence, "list_process_cmdlines", lambda: UNRELATED_CMDLINES)
-
-    decision = delivery.evaluate(
-        hook_context("PreToolUse", family="codex", surface="codex-cli")
+def test_turn_start_without_idle_wake_names_the_scheduled_reentry():
+    report = presence.fleet_watcher_absent_nudge(REPORT, "codex", "UserPromptSubmit")
+    assert "in-turn command" in report
+    assert "`keep steering`" in report
+    assert ".agents/skills/yoke/steer/watching.md" in report
+    mid_turn = presence.fleet_watcher_absent_nudge(REPORT, "codex", "PostToolUse")
+    assert "keep steering" not in mid_turn
+    idle_wake = presence.fleet_watcher_absent_nudge(
+        REPORT, "cursor", "UserPromptSubmit"
     )
-
-    report = decision.audit_fields[FLEET_REPORT_CONTEXT_FIELD]
-    assert REPORT in report
-    assert "YOKE FLEET REPORT" not in decision.audit_fields["additionalContext"]
-    assert "Fleet watcher is not running" in report
-    assert "exec_command/write_stdin" in report
-    assert "commentary" in report
-    assert "ended desktop turn has no native background notification" in report
-    assert presence.list_process_cmdlines() == UNRELATED_CMDLINES
+    assert "keep steering" not in idle_wake and "in-turn" not in idle_wake
 
 
-def test_cursor_family_nudges_when_the_watcher_is_absent() -> None:
-    nudged = presence.maybe_append_fleet_watcher_nudge(
-        REPORT,
-        session_id=SESSION,
-        executor_family="cursor",
-        remote=False,
-        cmdlines=UNRELATED_CMDLINES,
-    )
-    assert nudged.endswith(
-        "Fleet watcher is not running for this session; re-arm with "
-        "`yoke watch fleet --print-streaming-pair -- --project yoke`."
-        " That prints the invocation and starts nothing; run it, using only "
-        "the native subscription its wait_mode declares."
-    )
-
-
-def test_remote_evaluation_does_not_invent_a_local_gap() -> None:
-    assert (
-        presence.maybe_append_fleet_watcher_nudge(
-            REPORT,
-            session_id=SESSION,
-            executor_family="claude",
-            remote=True,
-            cmdlines=UNRELATED_CMDLINES,
-        )
-        == REPORT
-    )
-
-
+@pytest.mark.parametrize(
+    "row",
+    [
+        {"mode": "parked", "quiet_reason": "operator paused steering"},
+        {"mode": "steer", "ended_at": "2026-09-01T00:00:00Z"},
+        {"mode": "steer", "terminated_at": "2026-09-01T00:00:00Z"},
+        None,
+    ],
+    ids=["parked", "ended", "terminated", "unreadable"],
+)
 @pytest.mark.parametrize("family", ["claude", "codex", "cursor"])
-def test_pause_suppresses_rearm_until_explicit_resume(monkeypatch, family):
-    row = {"mode": "parked", "quiet_reason": "operator paused steering"}
+def test_posture_suppresses_the_alert(monkeypatch, row, family):
     monkeypatch.setattr(presence, "_session_row", lambda _session: row)
-    kwargs = dict(
-        session_id=SESSION,
-        executor_family=family,
-        remote=False,
-        cmdlines=UNRELATED_CMDLINES,
+    context = hook_context(family=family, payload=observed(False))
+    assert presence.fleet_watcher_alert(REPORT, context) == ""
+
+
+def test_failed_posture_read_stays_silent(monkeypatch):
+    def boom(_session):
+        raise RuntimeError("transport down")
+
+    monkeypatch.setattr(presence, "_session_row", boom)
+    assert (
+        presence.fleet_watcher_alert(REPORT, hook_context(payload=observed(False)))
+        == ""
     )
-    assert presence.maybe_append_fleet_watcher_nudge(REPORT, **kwargs) == REPORT
-    row["mode"] = "steer"
-    assert "re-arm" in presence.maybe_append_fleet_watcher_nudge(REPORT, **kwargs)
 
 
 @pytest.mark.parametrize("mode", ["wait", "busy", "steer"])
-def test_live_report_backed_seat_rearms_across_active_modes(monkeypatch, mode):
+def test_active_modes_alert(monkeypatch, mode):
     monkeypatch.setattr(presence, "_session_row", lambda _session: {"mode": mode})
-    report = presence.maybe_append_fleet_watcher_nudge(
-        REPORT,
-        session_id=SESSION,
-        executor_family="codex",
-        remote=False,
-        cmdlines=UNRELATED_CMDLINES,
+    assert "re-arm" in presence.fleet_watcher_alert(
+        REPORT, hook_context(payload=observed(False))
     )
-    assert "re-arm" in report
 
 
 def test_document_seats_rearm_once_per_distinct_project():
     report = "## project-a · FIRST\n## project-a · SECOND\n## project-b\n"
-    nudge = presence.fleet_watcher_absent_nudge(report, "codex")
+    nudge = presence.fleet_watcher_absent_nudge(report, "codex", "PostToolUse")
     assert "--project project-a --project project-b" in nudge
     assert nudge.count("--project project-a") == 1
     assert "FIRST" not in nudge and "SECOND" not in nudge
 
 
-def test_unreadable_posture_teaches_recovery_without_overriding_pause(monkeypatch):
-    monkeypatch.setattr(presence, "_session_row", lambda _session: None)
-    report = presence.maybe_append_fleet_watcher_nudge(
-        REPORT,
-        session_id=SESSION,
-        executor_family="codex",
-        remote=False,
-        cmdlines=UNRELATED_CMDLINES,
-    )
-    assert "posture is unreadable" in report
-    assert "preserving an explicit parked/stop request" in report
-    assert "yoke sessions list --json" in report
+@pytest.mark.parametrize("harness", ["claude-code", "codex", "cursor"])
+def test_byte_ceiling_drops_the_report_and_keeps_the_alert(harness):
+    budget = inline_context_bytes_for_harness(harness)
+    report = f"{REPORT}\n{'x' * budget}"
+    alert = presence.fleet_watcher_absent_nudge(REPORT, harness, "PostToolUse")
+    alert_block = f"{ALERT_BEGIN}\n{alert}\n=== END YOKE FLEET WATCHER ALERT ==="
+
+    body = compose_context_list(["a hint", report, alert_block], harness_id=harness)
+
+    assert alert_block in body
+    assert REPORT_OMITTED_NOTICE in body
+    assert "a hint" not in body and "x" * 50 not in body
+
+
+def test_decision_composition_ranks_the_alert_above_hints_and_report(monkeypatch):
+    decision = _evaluate(monkeypatch, "claude", "claude-cli", observed(False))
+    hint = replace(decision, audit_fields={"additionalContext": "a hint"})
+
+    body = composed_additional_context([hint, decision], harness_id="claude-code")
+
+    assert body.index(ALERT_BEGIN) < body.index("a hint") < body.index("FLEET REPORT")

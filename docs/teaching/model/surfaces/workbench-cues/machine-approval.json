@@ -3,7 +3,8 @@
  "title": "Match your terminal code before approval",
  "status": "observed",
  "form": "Do",
- "verification": "DOM checks cover outcomes. Deployed visuals and stage installer proof remain pending.",
+ "verification": "Source DOM checks cover supplied identities, approval outcomes, local reachability and registry-code parity. Source rendering captures cover desktop and narrow layouts; deployed browser and installer proof remain separate.",
+ "text": "Match the uppercase code with your terminal, then check Requested by and Approving as. This machine will act as you. No manual code-entry form is offered. An older server without viewer facts names your signed-in account and asks the operator to upgrade.",
  "topics": ["machines/registration/machine-identity", "machines/registration/connect-request", "machines/registration/approve-or-deny", "identity/auth", "workbench/onboarding"],
  "plan_refs": ["FIRST-USER.27"],
  "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_approval.js", "runtime/api/universe_ui_machine_approval.test.mjs"]

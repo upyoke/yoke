@@ -184,6 +184,7 @@
 /* A surface that cannot launch says why, in the place the meters would be. */
 .machine-surface-reason,
 .machine-limit-unavailable,
+.machine-limit-extra,
 .machine-limit-note {
   margin: 4px 0 0;
   color: var(--yoke-muted);
@@ -193,6 +194,11 @@
   color: var(--yoke-ink-2);
   font-family: var(--yoke-font-mono);
 }
+/* Paid usage past the included windows reads darker when it decides a pool. */
+.machine-limit-extra[data-status="available"] { color: var(--yoke-ink-2); }
+.machine-limit-extra[data-status="disabled"],
+.machine-limit-extra[data-status="cap_reached"],
+.machine-limit-extra[data-status="unavailable"] { color: var(--yoke-ink); }
 /* A disabled surface still has real meters, and they still read — what changed
    is that nothing will be launched onto them. */
 .machine-surface-disabled .machine-limit-row { opacity: .55; }

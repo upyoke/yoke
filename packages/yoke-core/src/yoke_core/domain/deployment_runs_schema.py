@@ -71,11 +71,23 @@ _RUN_SELECT = (
 )
 
 
-def _run_named_columns(alias: str = "dr") -> tuple[str, str]:
+def _run_named_columns(
+    alias: str = "dr", *, include_preparation_receipt: bool = True
+) -> tuple[str, str]:
     """Named-column SELECT list and its environments join; callers join projects."""
 
     def col(name: str) -> str:
         return f"{alias}.{name}"
+
+    bound_sources = col("bound_sources")
+    if not include_preparation_receipt:
+        # Shipping needs pinned project identities, not the driver's frozen
+        # intake receipt. Project it before transferring large rows from SQL.
+        bound_sources = (
+            f"CASE WHEN {bound_sources} IS NULL OR {bound_sources} = '' "
+            f"THEN {bound_sources} ELSE ({bound_sources}::jsonb "
+            "- 'preparation_receipt')::text END AS bound_sources"
+        )
 
     environment = "e.name AS target_environment"
     env_join = f"LEFT JOIN environments e ON e.id = {alias}.target_environment_id"
@@ -95,7 +107,7 @@ def _run_named_columns(alias: str = "dr") -> tuple[str, str]:
             col("completed_at"),
             col("created_by"),
             col("carried_work"),
-            col("bound_sources"),
+            bound_sources,
             col("artifact_identity"),
             col("composition_resolution"),
             col("composition_frozen_at"),

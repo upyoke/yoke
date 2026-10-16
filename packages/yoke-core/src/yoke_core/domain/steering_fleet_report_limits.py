@@ -7,7 +7,7 @@ from datetime import datetime
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.db_helpers import instant_parameter
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 from typing import Any, Mapping
 
@@ -37,10 +37,17 @@ class MachinePlanLimit:
     resets_at: datetime | None
     status: str
     reason: str | None
+    #: When the relay read this surface; freshness decides whether its
+    #: extra-usage answer can prove anything now.
+    observed_at: datetime | None = None
+    #: The surface's account-wide paid extra-usage fact, shared by its windows.
+    extra_usage: Mapping[str, Any] | None = field(default=None, compare=False)
 
     def __post_init__(self) -> None:
         if self.resets_at is not None:
             object.__setattr__(self, "resets_at", parse_instant(self.resets_at))
+        if self.observed_at is not None:
+            object.__setattr__(self, "observed_at", parse_instant(self.observed_at))
 
 
 def _p(conn: Any) -> str:
@@ -127,6 +134,8 @@ def load_plan_limits(
             if row_data is None:
                 continue
             plan_tier = row_data.get("plan_tier")
+            observed_at = row_data.get("observed_at")
+            extra = row_data.get("extra_usage")
             for window in row_data.get("windows") or ():
                 remaining = window.get("remaining_percent")
                 values.append(
@@ -146,6 +155,8 @@ def load_plan_limits(
                         reason=window.get("reason")
                         if isinstance(window.get("reason"), str)
                         else None,
+                        observed_at=observed_at,
+                        extra_usage=extra,
                     )
                 )
         found.extend(

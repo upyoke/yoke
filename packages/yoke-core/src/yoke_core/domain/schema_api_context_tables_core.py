@@ -189,6 +189,8 @@ CORE_TABLES: dict[str, dict] = {
             "and context_label fields; they are not physical SQL columns. "
             "Filter function timings with envelope::jsonb->'context'->>'function', "
             "not a context_label SQL predicate. "
+            "Request correlation is envelope::jsonb->>'request_id'; "
+            "request_id is not a physical events column. "
             "Use the columns listed here and `envelope` context in SELECTs. "
             "`$.context.detail.actor_role` is present on subagent-delegated "
             "tool-call events and absent on parent-turn calls. "

@@ -17,7 +17,8 @@ from yoke_core.domain.universe_levels import write_universe_levels
 from yoke_core.domain.workflow_stage_levels import default_launch_level
 from runtime.api.domain.session_launch_level_test_support import (
     CODEX_SOL,
-    add_surface,
+    EXTRA_OFF,
+    add_surface as _add_surface,
     level_connection,
     pin_live_workers,
     weekly,
@@ -27,6 +28,11 @@ from runtime.api.domain.test_session_launch_terminal_admission import (
     _pin_definition,
     _seed_pinned_item,
 )
+
+
+def add_surface(conn, machine_id, surface, windows=None):
+    """These accounts bill no paid extra usage, so an empty pool blocks."""
+    _add_surface(conn, machine_id, surface, windows, EXTRA_OFF)
 
 
 def staged_launch(monkeypatch, *, capacity=50):

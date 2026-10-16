@@ -46,6 +46,7 @@ def test_registration_leaf_declares_every_engine_action():
         "decision_requests.dispose_ended",
     ]
     live_ids = {
+        "machine_authorization.pending",
         "machine_authorization.get",
         "machine_authorization.resolve",
         "decision_requests.get",

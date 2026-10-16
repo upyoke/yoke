@@ -61,4 +61,6 @@ Standing invariants:
   document writes. Ask only at its explicit missing-document creation or
   reserved operator-decision gate.
 
-Start with scope-and-authority; follow one current phase at a time.
+Start with scope-and-authority. After both seat halves are held, read handoff
+mail, attach the fleet watcher ([watching.md](watching.md)), then begin
+[loop.md](loop.md). Follow one current phase at a time.

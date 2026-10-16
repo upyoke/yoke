@@ -1,31 +1,33 @@
-"""Client-side detection of a steering session's standing fleet watcher.
+"""Alert a steering session whose standing fleet watcher is gone.
 
-The fleet report is composed server-side and injected by the local hook.
-That injection keeps arriving even when the standing watcher that is
-supposed to arm the seat has died — so the gap is invisible unless this
-machine says so. Detection is process-listing only: the wrapper runs
-``yoke_core.domain.fleet_delta_probe`` with captures under the session's
-scratch run directory. No pidfile is added; none already exists.
+The fleet report is composed where the hook chain evaluates — the server over
+HTTPS, this process in a local universe. That injection keeps arriving even
+when the watcher that is supposed to arm the seat has died, so the gap is
+invisible unless the harness's own machine says so. That machine makes the
+one presence check (:mod:`yoke_contracts.fleet_watcher_observation`) and
+ships it with the hook request. This module only renders: it never claims
+absence the client did not prove, and an unreadable posture stays silent.
+
+The alert is its own context block, not a line inside the report, so the
+byte ceiling that drops the report keeps the alert.
 """
 
 from __future__ import annotations
 
-import subprocess
 import shlex
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import Any
 
 from yoke_contracts.executor_labels import canonical_harness_id
+from yoke_contracts.fleet_watcher_observation import observed_absent
 from yoke_contracts.harness_wake_capability import wake_capability_for_harness
+from yoke_contracts.hook_context_compose import ALERT_BEGIN, ALERT_END
 from yoke_core.domain.session_mode import session_is_parked
+from yoke_core.hooks.types import HookContext
 
-
-# Keep equal to yoke_core.tools.watch_fleet.{PROBE_MODULE, WRAPPER_MODULE, KIND}.
-PROBE_MODULE = "yoke_core.domain.fleet_delta_probe"
-WRAPPER_MODULE = "yoke_core.tools.watch_fleet"
-CAPTURE_KIND = "fleet"
 
 _REARM = "yoke watch fleet --print-streaming-pair --"
+_TURN_START_EVENT = "UserPromptSubmit"
 
 
 def _session_row(session_id: str) -> Mapping[str, Any] | None:
@@ -54,41 +56,6 @@ def _session_row(session_id: str) -> Mapping[str, Any] | None:
     )
 
 
-def list_process_cmdlines() -> tuple[str, ...]:
-    """Return this machine's process command lines, or empty on failure."""
-    try:
-        completed = subprocess.run(
-            ["ps", "-ax", "-o", "command="],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return ()
-    if completed.returncode != 0:
-        return ()
-    return tuple(completed.stdout.splitlines())
-
-
-def session_fleet_watcher_alive(
-    session_id: str,
-    cmdlines: Sequence[str],
-) -> bool:
-    """True when a live probe and this session's fleet capture path are listed."""
-    if not session_id:
-        return False
-    marker = f"/sessions/{session_id}/"
-    capture_token = f"yoke-{CAPTURE_KIND}."
-    has_probe = any(PROBE_MODULE in line for line in cmdlines)
-    has_session_capture = any(
-        marker in line
-        and (PROBE_MODULE in line or WRAPPER_MODULE in line or capture_token in line)
-        for line in cmdlines
-    )
-    return has_probe and has_session_capture
-
-
 def _project_flags(report: str) -> str:
     projects = dict.fromkeys(
         line[3:].split(" · ", 1)[0].strip()
@@ -100,74 +67,53 @@ def _project_flags(report: str) -> str:
     return " ".join(f"--project {shlex.quote(project)}" for project in projects)
 
 
-def fleet_watcher_absent_nudge(report: str, executor_family: str) -> str:
-    """One line naming the gap and the exact re-arm recipe."""
+def fleet_watcher_absent_nudge(
+    report: str, executor_family: str, event_name: str
+) -> str:
+    """Name the gap and the exact re-arm recipe for this harness's wake model."""
     wake = wake_capability_for_harness(canonical_harness_id(executor_family))
     recipe = (
         " That prints the invocation and starts nothing; run it, using only "
         "the native subscription its wait_mode declares."
     )
-    if executor_family == "codex" and wake.idle_wake != "supported":
+    if wake.idle_wake == "none":
         recipe = (
             " That prints the invocation and starts nothing; run the printed "
             "in-turn command and keep its exec_command/write_stdin stream "
             "active; answer ordinary questions in commentary and continue. An "
             "ended desktop turn has no native background notification."
         )
+        if event_name == _TURN_START_EVENT:
+            recipe += (
+                " Between turns, desktop re-entry is the `keep steering` "
+                "scheduled task in `.agents/skills/yoke/steer/watching.md`."
+            )
     return (
         "Fleet watcher is not running for this session; re-arm with "
         f"`{_REARM} {_project_flags(report)}`.{recipe}"
     )
 
 
-def maybe_append_fleet_watcher_nudge(
-    report: str,
-    *,
-    session_id: str,
-    executor_family: str,
-    remote: bool,
-    cmdlines: Sequence[str] | None = None,
-) -> str:
-    """Nudge an active steering session whose local watcher is gone.
-
-    Remote evaluations cannot see this machine's process table, so they
-    leave the composed report unchanged rather than inventing a gap.
-    A process-list failure is the same: absence is not proven.
-    """
-    if remote or not report or not session_id:
-        return report
-    listed = list_process_cmdlines() if cmdlines is None else cmdlines
-    if not listed:
-        return report
-    if session_fleet_watcher_alive(session_id, listed):
-        return report
+def fleet_watcher_alert(report: str, context: HookContext) -> str:
+    """Return the alert block for an active steering session, or nothing."""
+    session_id = str(context.session_id or "")
+    if not report or not observed_absent(context.payload, session_id):
+        return ""
     try:
         row = _session_row(session_id)
     except Exception:  # A failed posture read never overrides an explicit pause.
-        row = None
-    if row is None:
-        line = (
-            "Fleet watcher posture is unreadable; check `yoke sessions list --json` "
-            "before re-arming, preserving an explicit parked/stop request."
-        )
-    elif (
-        session_is_parked(row.get("mode"))
+        return ""
+    if (
+        row is None
+        or session_is_parked(row.get("mode"))
         or row.get("ended_at")
         or row.get("terminated_at")
     ):
-        return report
-    else:
-        line = fleet_watcher_absent_nudge(report, executor_family)
-    prefix = "" if report.endswith("\n") else "\n"
-    return f"{report}{prefix}{line}"
+        return ""
+    line = fleet_watcher_absent_nudge(
+        report, context.executor_family, context.event_name
+    )
+    return f"{ALERT_BEGIN}\n{line}\n{ALERT_END}"
 
 
-__all__ = [
-    "CAPTURE_KIND",
-    "PROBE_MODULE",
-    "WRAPPER_MODULE",
-    "fleet_watcher_absent_nudge",
-    "list_process_cmdlines",
-    "maybe_append_fleet_watcher_nudge",
-    "session_fleet_watcher_alive",
-]
+__all__ = ["fleet_watcher_absent_nudge", "fleet_watcher_alert"]

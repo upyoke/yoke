@@ -50,10 +50,11 @@ def _reading(observed_at: str) -> dict[str, object]:
 def test_refresh_policy_covers_the_bounded_probe_and_delivery_path() -> None:
     relay_poll_seconds = RELAY_POLL_SECONDS
     refresh_reserve = PLAN_LIMIT_FRESH_SECONDS - PLAN_LIMIT_REFRESH_SECONDS
-    # Cursor has the longest existing path: two HTTP reads and, when its plan
-    # read fails, one bounded CLI fallback before the bounded relay report.
+    # Cursor has the longest existing path: three HTTP reads (plan, usage,
+    # usage-based pricing) and, when its plan read fails, one bounded CLI
+    # fallback before the bounded relay report.
     longest_normal_path = (
-        3 * PLAN_LIMIT_PROBE_TIMEOUT_SECONDS + RELAY_REPORT_TIMEOUT_SECONDS
+        4 * PLAN_LIMIT_PROBE_TIMEOUT_SECONDS + RELAY_REPORT_TIMEOUT_SECONDS
     )
 
     assert PLAN_LIMIT_REFRESH_SECONDS == 4 * 60

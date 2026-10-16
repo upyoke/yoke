@@ -125,7 +125,7 @@ class FleetReport:
     #: Live sessions whose last turn the model provider ended. Every other
     #: detector reads one of these as a worker quietly thinking.
     vendor_errors: tuple[VendorErrorSession, ...] = ()
-    #: Live sessions that cannot resume: exhausted meter, rejected
+    #: Live sessions that cannot resume: exhausted meter and extra usage, rejected
     #: credentials, or a model the surface no longer offers. A wake cannot
     #: return them. A pin that only differs from the preferred default is
     #: not this.

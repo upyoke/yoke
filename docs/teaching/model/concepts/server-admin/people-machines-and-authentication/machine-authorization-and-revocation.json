@@ -1,8 +1,11 @@
 {
  "id": "machine-authorization-and-revocation",
  "title": "Machine authorization and revocation",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "Administrators",
  "page": "server-admin",
- "position": 2
+ "position": 2,
+ "commands": ["yoke machines pending", "yoke machines approve", "yoke machines deny", "yoke machine retire"],
+ "text": "Use yoke machines pending to list waiting requests, then approve only your own matching code with yoke machines approve CODE or refuse it with yoke machines deny CODE. Read the deciding identity before approval. The singular yoke machine family manages machines already registered; retiring a machine revokes its machine-bound credentials. A local universe is reachable only on its computer.",
+ "sources": ["docs/self-host-people.md", "docs/public/reference/machine-authorization.md"]
 }

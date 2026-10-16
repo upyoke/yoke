@@ -1,9 +1,9 @@
 {
  "id": "quota-pools",
  "title": "Quota pools",
- "status": "verified-live",
- "text": "Candidates read only the pools their model consumes. Readable zero blocks; unreadable or missing quota is unknown. Claude has a separate 5-hour cap. Cursor has exactly two monthly pools, ordered universe-wide; pool preference affects consumption, never level membership.",
- "evidence": "Two Cursor rows proved by QA run 45473 / artifact 32323; current order reread through universe.cursor_quota_order.get, 2026-10-13. Other quota semantics observed in the routing guide.",
+ "status": "observed",
+ "text": "Candidates read only the pools their model consumes. A readable included zero blocks only when the surface's fresh paid extra usage is disabled, capped or unfunded; extra usage that is available, unknown or stale leaves the launch to the provider. Unreadable or missing quota is unknown. Claude has a separate 5-hour cap. Cursor has exactly two monthly pools, ordered universe-wide; pool preference affects consumption, never level membership.",
+ "evidence": "Two Cursor rows proved by QA run 45473 / artifact 32323; current order reread through universe.cursor_quota_order.get, 2026-10-13. Extra-usage gating observed in source and focused tests (runtime/harness/test_extra_usage_readings.py); not yet verified on a deployed release.",
  "page": "levels",
  "position": 0
 }

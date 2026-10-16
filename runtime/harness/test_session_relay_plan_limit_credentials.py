@@ -38,11 +38,14 @@ def test_linux_cursor_file_token_reaches_usage_probe(monkeypatch, linux_home, xd
         calls.append(kwargs["headers"]["Authorization"])
         if url.endswith("GetPlanInfo"):
             return {"planInfo": {"planName": "Ultra"}}
+        if url.endswith("GetHardLimit"):
+            return {"noUsageBasedAllowed": True}
         return {"planUsage": {"autoPercentUsed": 10, "apiPercentUsed": 20}}
 
     monkeypatch.setattr(limits, "plan_limit_http_json", http)
     reading = limits.probe_cursor_cli(observed_at=NOW)
-    assert calls == ["Bearer fixture-token", "Bearer fixture-token"]
+    assert calls == ["Bearer fixture-token"] * 3
+    assert reading["extra_usage"]["status"] == "disabled"
     assert reading["plan_tier"] == "Ultra"
     assert [w["remaining_percent"] for w in reading["windows"]] == [90, 80]
     assert "fixture-token" not in repr(reading)

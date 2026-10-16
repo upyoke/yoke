@@ -63,7 +63,10 @@ yoke deployment-runs list --relevance overview
 ```
 
 This includes current member QA and delivery facts, with a bounded live/recent
-run window per project. Read its handler timing separately from browser HTTP
+run window per project. The overview includes pinned source identities without
+copying the driver's frozen preparation receipt into every card. Read that full
+receipt with `yoke deployment-runs get RUN-ID bound_sources` when diagnosing
+release preparation or recovery. Read its handler timing separately from browser HTTP
 and selection-to-card timings; SQL call counts alone do not prove latency.
 
 `events.performance.aggregate` and `events.performance.detail` authorize every
