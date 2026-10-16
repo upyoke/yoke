@@ -195,6 +195,16 @@ def register_session(
                 "SESSION_SCOPE_IMMUTABLE",
                 "A session cannot change its registered project. Recovery: open a new session in that folder.",
             )
+        if existing is not None and existing["org_id"] is not None:
+            retained_scope = resolve_registration_scope(
+                conn, actor_id=resolved_actor_id, project_id=None, machine_scope=True
+            )
+            if retained_scope.org_id != existing["org_id"]:
+                raise SessionError(
+                    "SESSION_ORG_UNRESOLVED",
+                    "Session registration cannot resolve its authority scope. Recovery: "
+                    "reconnect with `yoke connection set` or ask an org admin for membership.",
+                )
         if existing is None or existing["ended_at"] is None:
             refresh_active_duplicate_identity(
                 conn,
