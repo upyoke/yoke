@@ -15,6 +15,7 @@ from yoke_core.domain.install_bundle import InstallBundleError, validate_docs_fo
 from yoke_core.domain.install_bundle_tree_sync import PACKAGED_TREE_REL
 
 FIXTURES = Path(__file__).parent / "fixtures/documentation_corpus"
+MARKER = "SYNTHETIC_PRIVATE_MARKER"
 
 
 def _corpus(root):
@@ -324,3 +325,20 @@ def test_private_navigation_metadata_is_not_published(tmp_path):
     assert len(refusals) == 1 and refusals[0].target.endswith("nav.yaml")
     assert refusals[0].repair
     assert "alice" not in str(refusals[0])
+
+
+@pytest.mark.parametrize("build", [{"token": MARKER}, MARKER, 10**39, None])
+def test_malformed_receipt_cli_is_bounded(candidate, tmp_path, capsys, build):
+    root, commit, proof = candidate
+    receipt = tmp_path / "receipt.json"
+    receipt.write_text(json.dumps({"source_build": build}))
+    args = ["verify-candidate", "--root", str(root), "--commit", commit]
+    args += ["--receipt", str(receipt), "--consumer-evidence", str(proof)]
+    assert validation.main(args) == 1
+    output = capsys.readouterr().out
+    assert "CANDIDATE_IDENTITY_MISMATCH" in output
+    assert str(receipt) in output
+    assert validation._IDENTITY_REPAIR in output
+    assert MARKER not in output
+    assert "malformed" in output
+    assert len(output) < 1000

@@ -275,12 +275,14 @@ def verify_candidate(
         if receipt:
             try:
                 value = json.loads(receipt.read_text(encoding="utf-8"))
-                build = value.get("source_build") if isinstance(value, dict) else None
+                sha = value.get("source_build") if isinstance(value, dict) else None
             except (OSError, ValueError):
-                build = None
-            if build != declared_commit:
+                sha = None
+            sha = sha if isinstance(sha, str) and _COMMIT.fullmatch(sha) else None
+            if sha != declared_commit:
                 mismatch(
-                    receipt, f"source_build {build!r} differs from {declared_commit}"
+                    receipt,
+                    f"source_build {sha or 'malformed'!r} differs from {declared_commit}",
                 )
         files = _git(
             repo, "ls-tree", "-r", "--name-only", declared_commit, "--", "docs/public"
