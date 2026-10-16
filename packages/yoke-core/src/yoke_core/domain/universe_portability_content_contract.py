@@ -71,18 +71,10 @@ ARCHIVE_OMITTABLE_TARGET_COLUMNS = {
             "replacement_requirement_id",
             "starting_state",
             "starting_state_reason",
-            "wake_path",
-            "wake_evidence",
         }
     ),
     "qa_plan_cases": frozenset(
-        {
-            "starting_state",
-            "starting_state_reason",
-            "stage_reason",
-            "wake_path",
-            "wake_evidence",
-        }
+        {"starting_state", "starting_state_reason", "stage_reason"}
     ),
     "qa_plan_item_attachments": frozenset(
         {

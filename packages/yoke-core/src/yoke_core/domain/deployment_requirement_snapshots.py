@@ -9,7 +9,6 @@ from typing import Any
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_requirement_snapshot_format import (
     CASE_FIELDS,
-    CASE_WAKE_FIELDS,
     PLAN_FIELDS,
     REQUIREMENT_FIELDS,
     semantic_row,
@@ -117,7 +116,7 @@ def _plan_snapshot(
     if any(not value for value in requested) or len(requested) != len(set(requested)):
         raise ValueError(f"QA plan {plan_id} case_keys must be unique non-empty names")
     cases = [
-        semantic_row(raw, (*CASE_FIELDS, *CASE_WAKE_FIELDS))
+        semantic_row(raw, CASE_FIELDS)
         for raw in (
             admission.plans[plan_id][1]
             if admission is not None

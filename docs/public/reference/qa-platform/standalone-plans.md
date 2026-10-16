@@ -106,46 +106,6 @@ cases. Use each item requirement or matching deployment QA stage to collect
 those separate proofs; a standalone plan run never completes an item gate.
 
 
-## Cases that wait for real traffic
-
-Some checks can only be judged once real production traffic has happened after
-a deploy, such as "a real failed direct wake that a relay then claimed". Run at
-stage entry, they fail or prove nothing. Give such a case
-`"wake_path": "manual"` and a one-line `wake_evidence`:
-
-```json
-{"case_key": "relay-claim-observation", "method_id": "exploratory-mission", "wake_path": "manual", "wake_evidence": "a session wake that failed directly and a relay then claimed exists after this release"}
-```
-
-| `wake_path` | Starts |
-|---|---|
-| `automatic` (default) | When its stage begins: the stage driver wakes the member's owner |
-| `manual` | Only when steering wakes the owner, after confirming `wake_evidence` |
-
-Write `wake_evidence` as the evidence itself, as something a registered read
-can confirm (`yoke deployment-runs get`, `yoke db read`, `yoke qa requirement
-list`), not as a time or a hope. Method, runner and verdict path are
-unchanged, and the case stays blocking until it is settled, waived or removed.
-`manual` without evidence refuses `wake_evidence_required`; evidence on an
-automatic case refuses `wake_evidence_without_manual_wake`; an unknown path
-refuses `wake_path_invalid`; more than one line or 300 characters refuses
-`wake_evidence_not_one_line`.
-
-The stage driver does not wake a member's owner while one of its manual cases
-is open, because one stage execution runs the member's whole roster: its
-automatic cases wait with it. The steering fleet report lists each open one
-under "waiting on manual wake" with its run, item, requirement, case,
-evidence, owner and wake command. To mark an already materialized requirement,
-set the evidence first, then the path:
-
-```text
-yoke qa requirement update --requirement-id N --field wake_evidence --value '<evidence>'
-yoke qa requirement update --requirement-id N --field wake_path --value manual
-```
-
-The write reaches only that row. Correct the plan case as well, so later
-materializations carry it.
-
 ## Recover a lost check-in response
 
 ```text

@@ -55,9 +55,6 @@ yoke qa requirement get --requirement-id 1
 yoke qa requirement update --requirement-id 4309 --field blocking_mode --value non_blocking
 yoke qa requirement update --requirement-id 4309 --field success_policy --value "$policy_json"
 yoke qa requirement update --requirement-id 4309 --field method_config --value "$config_json"
-# Mark a live case manual-wake: evidence first, then the path
-yoke qa requirement update --requirement-id 4309 --field wake_evidence --value "$evidence"
-yoke qa requirement update --requirement-id 4309 --field wake_path --value manual
 
 # Record a QA run for that item-bound review requirement.
 # Blocking passes stamp verification_tree.head_sha from the claimed lane HEAD

@@ -16,7 +16,6 @@ from yoke_core.domain.steering_fleet_report import ClaimHolder, FleetReport
 from yoke_core.domain.steering_fleet_report_balance import session_selection_label
 from yoke_core.domain.steering_fleet_report_available import FrontierEntry
 from yoke_core.domain.steering_fleet_report_dead_waits import DeadWait
-from yoke_core.domain.steering_fleet_report_render_manual_wake import manual_wake_dict
 from yoke_core.domain.steering_fleet_report_deployment_runs import (
     DeploymentRunProgress,
 )
@@ -154,7 +153,6 @@ def _run_dict(entry: DeploymentRunProgress) -> dict[str, Any]:
         "unresolved": list(entry.unresolved),
         "no_obligation_lines": list(entry.no_obligation_lines),
         "member_lines": list(entry.member_lines),
-        "manual_wakes": [manual_wake_dict(wake) for wake in entry.manual_wakes],
         "member_closure": list(entry.completion.lines),
         "member_closure_blocked": entry.completion.blocked,
         "red": [

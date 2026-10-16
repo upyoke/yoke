@@ -57,10 +57,7 @@ clean JSON authoring document in `$VISUAL`, `$EDITOR`, or `vi` and compare-and-s
 metadata plus the complete ordered case set. The document carries every case
 field, including `target_envs` and `stage_reason` (required when a case targets
 an environment without `role.production: true`; see
-[case environment obligations](public/reference/qa-platform/standalone-plans.md#case-environment-obligations)),
-and `wake_path`/`wake_evidence` (`manual` for a case steering starts once real
-traffic exists; see
-[cases that wait for real traffic](public/reference/qa-platform/standalone-plans.md#cases-that-wait-for-real-traffic)).
+[case environment obligations](public/reference/qa-platform/standalone-plans.md#case-environment-obligations)).
 Invalid JSON, an editor failure, a concurrent
 edit, or a save that would reset a stored case field the document left out
 (`qa_plan_edit_unedited_field_changed`) preserves the temporary document and

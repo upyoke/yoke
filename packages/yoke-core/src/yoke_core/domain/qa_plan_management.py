@@ -304,12 +304,8 @@ def _validated_plan_cases(
             )
         except QaMethodConfigError as exc:
             raise QaPlanError(f"case {case['case_key']!r}: {exc}") from exc
-    from yoke_core.domain.qa_plan_case_store import (
-        apply_starting_states,
-        apply_wake_paths,
-    )
+    from yoke_core.domain.qa_plan_case_store import apply_starting_states
 
-    apply_wake_paths(cases)
     apply_starting_states(
         cases,
         runner_ids={

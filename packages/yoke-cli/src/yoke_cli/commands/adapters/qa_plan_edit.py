@@ -60,10 +60,6 @@ with stage_reason_required.
 Machine-run cases declare host_baselines, starting_state "inherit" (never the
 first case), or "as_is" with a starting_state_reason.
 
-A case that can only be judged after real production traffic sets wake_path
-"manual" with a one-line wake_evidence a registered read can confirm; its stage
-never wakes the owner, steering does. Default wake_path is "automatic".
-
 Flag guidance:
   PLAN_SLUG     required, immutable plan slug
   --project     project slug/id; defaults to checkout or YOKE_PROJECT context

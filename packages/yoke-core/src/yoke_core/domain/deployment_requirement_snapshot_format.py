@@ -41,9 +41,6 @@ CASE_FIELDS = (
     "verdict_path",
     "config_contract_id",
 )
-#: Case fields a snapshot records but never requires: snapshots frozen before
-#: ``wake_path`` existed lack them and read as automatic, not as incomplete.
-CASE_WAKE_FIELDS = ("wake_path", "wake_evidence")
 REQUIREMENT_FIELDS = (
     "id",
     "item_id",
@@ -69,8 +66,6 @@ REQUIREMENT_FIELDS = (
     "starting_state_reason",
     "entry_surface",
     "required_completion",
-    "wake_path",
-    "wake_evidence",
     "workflow_transition_id",
     "instructions",
     "expected_outcome",
@@ -108,8 +103,6 @@ PLAN_CASE_COLUMNS = (
     "starting_state_reason",
     "entry_surface",
     "required_completion",
-    "wake_path",
-    "wake_evidence",
 )
 
 

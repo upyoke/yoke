@@ -166,8 +166,6 @@ REQ_COLUMNS = (
     "instructions",
     "expected_outcome",
     "method_config",
-    "wake_path",
-    "wake_evidence",
     "created_at",
 )
 

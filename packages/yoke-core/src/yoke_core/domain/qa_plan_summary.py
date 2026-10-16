@@ -36,8 +36,6 @@ _CASE_FIELDS = (
     "stage_reason",
     "entry_surface",
     "required_completion",
-    "wake_path",
-    "wake_evidence",
 )
 
 #: Proof fields that carry a verdict rather than the evidence behind it.

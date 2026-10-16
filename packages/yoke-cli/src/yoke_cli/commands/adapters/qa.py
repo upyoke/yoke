@@ -59,9 +59,7 @@ def qa_requirement_update(args: List[str]) -> int:
         help=(
             "Updatable field: success_policy, blocking_mode, target_env, "
             "capability_requirements, suite_id, qa_phase, "
-            "workflow_transition_id, method_config, wake_path, wake_evidence. "
-            "Mark a live case manual with wake_evidence first, then "
-            "wake_path manual. A field outside the set "
+            "workflow_transition_id, method_config. A field outside the set "
             "is refused by name with the allowlist the engine holds."
         ),
     )

@@ -59,8 +59,6 @@ def test_edit_opens_only_authorable_fields_and_dispatches_full_cas() -> None:
             "stage_reason",
             "entry_surface",
             "required_completion",
-            "wake_path",
-            "wake_evidence",
         }
         document["name"] = "Release gate"
         editor_path.write_text(

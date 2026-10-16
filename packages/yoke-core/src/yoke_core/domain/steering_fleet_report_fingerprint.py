@@ -126,12 +126,6 @@ def project_payload(rows: ProjectRows) -> dict[str, Any]:
                 tuple(sorted(red.requirement_id for red in entry.red)),
                 tuple(sorted(item.requirement_id for item in entry.pin_qa.unpassable)),
                 tuple(sorted(item.requirement_id for item in entry.pin_qa.unproven)),
-                tuple(
-                    sorted(
-                        (wake.requirement_id, wake.owner_session_id)
-                        for wake in entry.manual_wakes
-                    )
-                ),
                 (
                     (
                         entry.answered_decision.request_id,
