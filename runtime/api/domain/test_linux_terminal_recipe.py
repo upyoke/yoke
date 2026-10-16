@@ -210,3 +210,53 @@ def test_chromium_refusal_stops_before_the_installer_starts(monkeypatch):
     assert result.error_code == "linux_desktop_default_browser_not_chromium"
     assert "xdg-settings" in result.evidence["recovery"]
     assert events == ["closed"]
+
+
+def _ready_recipe():
+    config = recipe(mode="terminal-multiplexer")
+    config["post_checks"] = []
+    config["actions"] = [
+        {
+            "step": "uv-consent",
+            "keys": ["Enter"],
+            "capture": False,
+            "ready_text": ["Install uv now?"],
+            "ready_timeout_seconds": 0.05,
+        },
+        {"step": "done", "keys": [], "capture": False},
+    ]
+    return config
+
+
+def test_step_whose_ready_text_never_appears_fails_by_name(monkeypatch):
+    events = []
+    _terminal(monkeypatch, events, "Starting Yoke setup\n")
+    result = execute_linux_recipe(
+        _control(),
+        entry_surface="/usr/bin/true",
+        required_completion="done",
+        config=_ready_recipe(),
+        size=(120, 40),
+    )
+    assert result.error_code == "terminal_action_not_ready"
+    assert result.evidence["step"] == "uv-consent"
+    assert result.evidence["waiting_for"] == ["Install uv now?"]
+    assert not any(event[0] == "keys" for event in events if isinstance(event, tuple))
+
+
+def test_setup_exit_before_its_prompt_reports_that_exit(monkeypatch):
+    events = []
+    refusal = "setup_terminal_ownership_lost: setup stopped. Run `yoke setup` again."
+    _terminal(monkeypatch, events, f"Starting Yoke setup\n{refusal}\n__YOKE_EXIT_1\n")
+    config = _ready_recipe()
+    config["actions"][0]["ready_timeout_seconds"] = 300
+    result = execute_linux_recipe(
+        _control(),
+        entry_surface="/usr/bin/true",
+        required_completion="done",
+        config=config,
+        size=(120, 40),
+    )
+    assert result.error_code == "terminal_setup_exited"
+    assert result.evidence["step"] == "uv-consent"
+    assert result.evidence["setup_exit"] == {"exit_code": 1, "refusal": refusal}

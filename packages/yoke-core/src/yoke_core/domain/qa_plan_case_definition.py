@@ -36,30 +36,55 @@ from yoke_core.domain.qa_method_capabilities import encoded_capability_kinds
 from yoke_core.domain.qa_plan_management import QaPlanError, _json
 
 
-def require_runnable_case(case: Any) -> dict:
+def require_runnable_case(
+    case: Any,
+    *,
+    host_baseline: Optional[str] = None,
+    conn: Any | None = None,
+    project_id: int | None = None,
+) -> dict:
     """Return the case config, refusing one its method could never run.
 
-    Plan-case authoring validates the same contract, so this is the second
-    reader of it — and the one that matters, because materialization is
-    what mints the executable requirement. A row written around authoring
-    would otherwise become a requirement whose only possible outcome is a
-    runner refusing it at gate time.
+    Plan-case authoring and materialization both read this, because
+    materialization is what mints the executable requirement: a row written
+    around authoring would otherwise become a requirement whose only possible
+    outcome is a runner refusing it after resetting its host. A Machine QA
+    case therefore also passes the runner's own recipe contract here, with
+    its ``entry_surface``, ``required_completion`` and ``host_baseline``.
     """
+    from yoke_core.domain.machine_qa_method_contracts import (
+        MACHINE_METHODS,
+        MachineQaExecutionError,
+        validate_machine_method_config,
+    )
     from yoke_core.domain.qa_method_config_validation import (
         QaMethodConfigError,
         validate_method_config,
     )
 
-    raw_config = case["method_config"] or {}
-    config = (
-        dict(raw_config)
-        if isinstance(raw_config, Mapping)
-        else json.loads(str(raw_config))
-    )
+    raw_config = case["method_config"] or None
+    if isinstance(raw_config, str):
+        raw_config = json.loads(raw_config)
+    elif isinstance(raw_config, Mapping):
+        raw_config = dict(raw_config)
     try:
-        return validate_method_config(str(case["config_contract_id"]), config)
-    except QaMethodConfigError as exc:
+        config = validate_method_config(
+            str(case["config_contract_id"]),
+            raw_config,
+            conn=conn,
+            project_id=project_id,
+        )
+        if str(case["method_id"]) in MACHINE_METHODS:
+            validate_machine_method_config(
+                str(case["method_id"]),
+                config,
+                entry_surface=case.get("entry_surface"),
+                required_completion=case.get("required_completion"),
+                host_baseline=host_baseline,
+            )
+    except (QaMethodConfigError, MachineQaExecutionError) as exc:
         raise QaPlanError(f"case {str(case['case_key'])!r}: {exc}") from exc
+    return config
 
 
 def _success_policy(plan: Any, case: Any) -> str:
@@ -95,7 +120,7 @@ def materialized_definition(
     know what the case itself says omits it, and the two target columns are
     then absent rather than guessed.
     """
-    method_config = require_runnable_case(case)
+    method_config = require_runnable_case(case, host_baseline=baseline)
     definition: dict[str, Any] = {
         "qa_kind": "plan_case",
         "qa_phase": str(qa_phase),

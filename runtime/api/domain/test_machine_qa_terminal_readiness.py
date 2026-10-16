@@ -12,6 +12,10 @@ from runtime.api.domain.machine_qa_terminal_recipe_test_support import (
     completed,
     recipe,
 )
+from yoke_core.domain.machine_qa_recipe_contracts import (
+    MachineQaRecipeError,
+    validate_terminal_recipe,
+)
 from yoke_core.domain.ssh_mac_terminal_readiness import wait_for_ready_text
 from yoke_core.domain.ssh_mac_terminal_recipe import execute_terminal_recipe
 
@@ -111,5 +115,17 @@ def test_ready_text_times_out_without_sending_input(
 
     assert result.ok is False
     assert result.error_code == "terminal_action_not_ready"
+    assert result.evidence["step"] == "apply"
     assert result.evidence["waiting_for"] == ["Review what Yoke will save."]
     assert not any(" stuff " in command for command in commands)
+
+
+def test_keyed_step_without_ready_text_is_refused_by_name() -> None:
+    config = recipe(mode="terminal-multiplexer")
+    config["actions"] = [
+        {"step": "uv-consent", "keys": ["Enter"], "wait_seconds": 90},
+        {"step": "done", "keys": []},
+    ]
+
+    with pytest.raises(MachineQaRecipeError, match="'uv-consent' sends keys without"):
+        validate_terminal_recipe(config, required_completion="done")

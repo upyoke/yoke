@@ -230,12 +230,19 @@ APPLY_HANDOFF = terminal_case(
                 ready_text=("Your Yoke lives on this machine.",),
                 ready_timeout_seconds=180,
             ),
-            transition("continue-local-universe", "Enter"),
+            transition(
+                "continue-local-universe",
+                "Enter",
+                ready_text=("Your Yoke lives on this machine.",),
+            ),
             transition(
                 "local-admin-name",
                 validate_admin_name("Installer QA"),
                 "Enter",
-                ready_text=("What's your name?", "Yoke creates this universe's first admin as you."),
+                ready_text=(
+                    "What's your name?",
+                    "Yoke creates this universe's first admin as you.",
+                ),
                 ready_timeout_seconds=180,
             ),
             transition("machine-github", *CHOOSE_BACKLOG_KEYS),

@@ -78,6 +78,7 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
         run,
         backend="screen",
         session="approval-session",
+        status_path="/tmp/approval-session.exit",
         action=_gate_action(),
         progress_callback=lambda: heartbeats.append(True),
         allowed_base_urls=("https://app.stage.upyoke.com",),
@@ -132,6 +133,7 @@ def test_browser_gate_ignores_stale_outcomes_before_current_code(
     result = run_machine_browser_approval_with_io(
         read_transcript=lambda: next(transcripts),
         send_keys=lambda _keys: True,
+        read_exit_code=lambda _transcript: None,
         action=_gate_action(),
         progress_callback=None,
         allowed_base_urls=("https://app.stage.upyoke.com",),
@@ -161,6 +163,7 @@ def test_browser_gate_accepts_completion_after_browser_automation_failure() -> N
     result = run_machine_browser_approval_with_io(
         read_transcript=lambda: next(transcripts),
         send_keys=lambda _keys: True,
+        read_exit_code=lambda _transcript: None,
         action=_gate_action(),
         progress_callback=None,
         allowed_base_urls=("https://app.stage.upyoke.com",),
@@ -185,6 +188,7 @@ def test_browser_gate_rejects_a_non_entry_path_before_automation() -> None:
             "One-time code: AB12-CD34\nOpen: https://app.stage.upyoke.com/anything\n"
         ),
         send_keys=lambda _keys: True,
+        read_exit_code=lambda _transcript: None,
         action=_gate_action(),
         progress_callback=None,
         allowed_base_urls=("https://app.stage.upyoke.com",),
@@ -239,6 +243,7 @@ def test_standalone_gate_accepts_the_current_complete_verification_uri():
     result = run_machine_browser_approval_with_io(
         read_transcript=lambda: next(transcripts),
         send_keys=lambda keys: True,
+        read_exit_code=lambda _transcript: None,
         action=_gate_action(),
         progress_callback=None,
         allowed_base_urls=("https://example.invalid",),
@@ -258,6 +263,7 @@ def test_complete_uri_on_an_undeclared_origin_is_refused_before_approval():
             "One-time code: AB12-CD34\nOpen: https://other.invalid/connect?user_code=AB12-CD34\n"
         ),
         send_keys=lambda keys: True,
+        read_exit_code=lambda _transcript: None,
         action=_gate_action(),
         progress_callback=None,
         allowed_base_urls=("https://example.invalid",),
@@ -269,3 +275,41 @@ def test_complete_uri_on_an_undeclared_origin_is_refused_before_approval():
     assert result.error_code == "machine_browser_approval_context_invalid"
     assert result.browser_evidence["recovery"]
     assert not requests
+
+
+def _exiting_gate(transcripts: list[str], exit_code: int | None):
+    readings = iter(transcripts)
+    approvals: list[str] = []
+    result = run_machine_browser_approval_with_io(
+        read_transcript=lambda: next(readings),
+        send_keys=lambda _keys: True,
+        read_exit_code=lambda transcript: exit_code if "exit" in transcript else None,
+        action=_gate_action(),
+        progress_callback=None,
+        allowed_base_urls=("https://app.upyoke.com",),
+        browser="Chromium",
+        approve_browser=lambda url, code: (
+            approvals.append(code) or BrowserApprovalResult(True, {})
+        ),
+    )
+    return result, approvals
+
+
+def test_setup_exit_before_the_approval_prompt_reports_that_exit() -> None:
+    refusal = "setup_terminal_ownership_lost: setup stopped. Run `yoke setup` again."
+    result, approvals = _exiting_gate([f"Starting Yoke setup\n{refusal}\nexit"], 1)
+
+    assert not result.ok
+    assert result.error_code == "terminal_setup_exited"
+    assert result.step_evidence["step"] == "operator-browser-approval"
+    assert result.step_evidence["setup_exit"] == {"exit_code": 1, "refusal": refusal}
+    assert approvals == []
+
+
+def test_setup_exit_during_approval_is_named_instead_of_waiting() -> None:
+    prompt = "One-time code: AB12-CD34\nOpen: https://app.upyoke.com/connect\n"
+    result, approvals = _exiting_gate([prompt, prompt + "exit"], 2)
+
+    assert result.error_code == "terminal_setup_exited"
+    assert result.step_evidence["setup_exit"]["exit_code"] == 2
+    assert approvals == ["AB12-CD34"]
