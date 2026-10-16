@@ -229,7 +229,7 @@ def _connect_hosted(parsed: argparse.Namespace) -> int:
         )
 
     try:
-        if parsed.invite_code:
+        if getattr(parsed, "invite_code", None):
             credential = teammate_invite_redemption.redeem(
                 platform_url,
                 parsed.invite_code,
@@ -256,7 +256,7 @@ def _connect_hosted(parsed: argparse.Namespace) -> int:
         server_connect.ServerConnectError,
     ) as exc:
         print(f"error: {exc}", file=sys.stderr)
-        if parsed.invite_code:
+        if getattr(parsed, "invite_code", None):
             print(teammate_invite_redemption.LOST_DELIVERY, file=sys.stderr)
         return 1
     if parsed.json_mode:
