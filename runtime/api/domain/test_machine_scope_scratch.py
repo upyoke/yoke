@@ -120,13 +120,67 @@ def test_named_authorities_do_not_alias_fallback_modes(
         assert fallback != named
 
 
+@pytest.mark.parametrize("names", [("Prod", "prod"), ("é", "e\u0301"), ("Å", "Å")])
+def test_authority_identity_survives_filesystem_comparisons(monkeypatch, names):
+    def materialize(name):
+        monkeypatch.setattr(
+            yoke_connected_env, "load_active", lambda: SimpleNamespace(environment=name)
+        )
+        namespace = identity.machine_scope_namespace()[0]
+        paths = (
+            scratch.scratch_root(),
+            scratch.hook_marker_path("ready"),
+            scratch.harness_runtime_cache_path("cache.json"),
+        )
+        with scratch.scratch_machine_owner(11):
+            paths += (
+                scratch.scratch_root(),
+                scratch.hook_marker_path("ready"),
+                scratch.harness_runtime_cache_path("cache.json"),
+            )
+        for path in paths:
+            if not path.is_dir():
+                path.write_text(name, encoding="utf-8")
+        return namespace, paths
+
+    first, first_paths = materialize(names[0])
+    second, second_paths = materialize(names[1])
+    for left, right in zip(first_paths, second_paths, strict=True):
+        assert not left.samefile(right)
+    assert first.casefold() != second.casefold()
+    assert first.isascii() and second.isascii()
+    assert first == first.lower() and second == second.lower()
+
+
+def test_machine_segment_length_includes_actor_suffix(monkeypatch):
+    name = "a" * 116
+    monkeypatch.setattr(
+        yoke_connected_env, "load_active", lambda: SimpleNamespace(environment=name)
+    )
+    with scratch.scratch_machine_owner(11):
+        assert len(scratch.scratch_root().parents[3].name) == 254
+    name = "a" * 117
+    assert len(identity.machine_scope_namespace()[0]) == 247
+    with (
+        scratch.scratch_machine_owner(11),
+        pytest.raises(
+            scratch.ScratchRootResolutionError,
+            match="scratch_machine_namespace_too_long",
+        ),
+    ):
+        scratch.hook_marker_path("ready")
+    name = "é" * 61
+    with pytest.raises(scratch.ScratchRootResolutionError, match="shorter name"):
+        scratch.harness_runtime_cache_path("cache.json")
+
+
 def test_local_dsn_authority(monkeypatch):
     monkeypatch.setattr(db_backend, "pg_dsn_is_bound", lambda: True)
     assert identity.machine_scope_namespace() == ("_machine-local",)
     monkeypatch.setattr(
         yoke_connected_env, "load_active", lambda: SimpleNamespace(environment="prod")
     )
-    assert identity.machine_scope_namespace() == ("_machine-env-prod",)
+    assert identity.machine_scope_namespace() == ("_machine-env-70726f64",)
 
 
 def test_machine_owner_binding_isolates_actors():
@@ -216,7 +270,9 @@ def test_no_project_detection_makes_no_relay_call(monkeypatch):
     assert calls == []
 
 
-@pytest.mark.parametrize("project", ["_machine-offline", "_machine-prod-actor-11"])
+@pytest.mark.parametrize(
+    "project", ["_machine-offline", "_machine-prod-actor-11", "_MACHINE-offline"]
+)
 def test_machine_dirname_project_refused(project):
     with pytest.raises(
         scratch.ScratchRootResolutionError, match="rename the offline project reference"

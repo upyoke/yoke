@@ -10,7 +10,6 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Iterator
-from urllib.parse import quote
 
 from yoke_core.domain.control_plane_transport import local_connection_or_none, relay
 from yoke_core.domain.project_scratch_roots import (
@@ -74,6 +73,15 @@ def scratch_machine_owner(actor_id: int) -> Iterator[None]:
         _machine_owner.reset(token)
 
 
+def _machine_segment(value: str) -> str:
+    if len(value.encode("utf-8")) > 255:
+        raise ScratchRootResolutionError(
+            "scratch_machine_namespace_too_long: encoded authority and actor exceed "
+            "the 255-byte directory limit; select a connected environment with a shorter name"
+        )
+    return safe_segment(value)
+
+
 def machine_scope_namespace() -> tuple[str, ...]:
     """Return one directory for the selected authority, without connecting."""
     from yoke_core.domain import db_backend, yoke_connected_env
@@ -84,11 +92,11 @@ def machine_scope_namespace() -> tuple[str, ...]:
         if env
         else ("local" if db_backend.pg_dsn_is_bound() else "offline")
     )
-    # Encode separators and the actor delimiter without merging distinct names.
-    key = quote(authority, safe="").replace("-", "%2D").replace(".", "%2E")
+    # Byte hex preserves identity on case-insensitive, Unicode-normalizing filesystems.
+    key = authority.encode("utf-8").hex() if env else authority
     # Named connections are distinct from the unnamed local/offline modes.
     mode = "env-" if env else ""
-    return (MACHINE_SCOPE_DIRNAME + mode + safe_segment(key),)
+    return (_machine_segment(MACHINE_SCOPE_DIRNAME + mode + key),)
 
 
 def resolve_scratch_namespace(
@@ -101,13 +109,13 @@ def resolve_scratch_namespace(
     if not selected:
         owner = _machine_owner.get()
         if owner is not None:
-            return (f"{machine_scope_namespace()[0]}-actor-{owner}",)
+            return (_machine_segment(f"{machine_scope_namespace()[0]}-actor-{owner}"),)
         selected = os.environ.get("YOKE_PROJECT", "").strip()
         selected = selected or default_project_for_directory(Path.cwd())
     if not selected:
         return machine_scope_namespace()
     namespace = safe_segment(resolve_project_namespace(selected))
-    if namespace.startswith(MACHINE_SCOPE_DIRNAME):
+    if namespace.casefold().startswith(MACHINE_SCOPE_DIRNAME):
         raise ScratchRootResolutionError(
             f"scratch project namespace {namespace!r} is reserved for machine scope; "
             "rename the offline project reference"
