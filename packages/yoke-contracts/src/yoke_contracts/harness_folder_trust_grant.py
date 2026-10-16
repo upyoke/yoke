@@ -95,30 +95,29 @@ def _grant_claude(path: str, state_path: Optional[Path]) -> List[str]:
 def _grant_codex(path: str, config_path: Optional[Path]) -> List[str]:
     from yoke_contracts.harness_unattended_posture import codex_config_path
     from yoke_contracts.codex_config_posture import (
-        CodexConfigUnreadable,
         changed,
         plan,
-        read_config_text,
         record_written,
     )
+    from yoke_contracts.codex_hook_trust_toml import CodexHookTrustStoreError, mutate
 
     target = config_path if config_path is not None else codex_config_path()
-    text = read_config_text(target)
-    if text is None:
+    if not target.parent.is_dir():
         return []
-    try:
+
+    def trust(text, document):
         # The same pass that writes Codex's approval posture also owns its
         # trust table, so trusting a path reuses it rather than re-deriving
         # the TOML surgery. Posture keys already present are left untouched.
         updated, record = plan(text, path)
-    except CodexConfigUnreadable as exc:
-        return [f"codex: {target} is not valid TOML ({exc})"]
+        return (updated if record["trusted_checkout"] else text), record
+
+    try:
+        record = mutate(target, trust)
+    except CodexHookTrustStoreError as exc:
+        return [f"codex: {exc}"]
     if not changed(record) or not record["trusted_checkout"]:
         return []
-    try:
-        target.write_text(updated, encoding="utf-8")
-    except OSError as exc:
-        return [f"codex: {target} could not be updated ({exc})"]
     granted = [f"codex: trusted {path}"]
     if record["set_keys"]:
         granted.append(

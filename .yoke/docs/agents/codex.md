@@ -42,6 +42,19 @@ entry so Codex does not ask about the directory either. It only writes a key
 that is absent, reports rather than overwrites a value you set yourself, and
 leaves your model choices and hook trust untouched.
 
+Yoke serializes its folder trust, posture, hook trust and owned-setting removal
+against the resolved configuration file, including symlink aliases. Each update
+reads current state under the same private lock and atomically replaces the
+file, preserving permissions and unrelated operator values. Parallel Yoke
+updates cannot overwrite each other's changes or expose a partial file.
+
+If an update reports `Codex config is busy`, wait for the other update to finish
+and retry the same operation; the message names the resolved target. Do not
+delete its lock file to bypass a running writer. For invalid TOML or UTF-8,
+repair the named file, then retry. Permission or publication failures name the
+target and recovery; a refused update leaves the original configuration intact.
+These file updates grant no new sign-in, machine or project approval.
+
 If a `yoke` command is refused with `Operation not permitted`, that is this
 posture missing, not a broken database: the CLI says so and names the repair.
 `HC-harness-unattended-posture` reports the standing posture for every
