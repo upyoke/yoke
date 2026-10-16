@@ -166,6 +166,11 @@ retirement. Apply, invariants and attested verification commands share that name
 restore point. On failure, retain the receipt and archive, fix the cause, restore
 the validation baseline when needed, and rerun the governed rehearsal.
 
+Attested commands run after each module's apply and invariants. The runner sets
+reserved `YOKE_MIGRATION_REHEARSAL_MODULE` to that module's exact identifier,
+replacing inherited values. Module-specific commands must validate this context
+before using the copy; whole-fleet callbacks still run after complete convergence.
+
 There is no separate live-apply invocation and no
 operator checkpoint to hold, because rehearsal is the only thing a work item
 performs: the apply happens on the boot converge of a server running the merged

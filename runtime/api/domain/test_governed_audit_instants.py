@@ -124,6 +124,7 @@ def test_new_verification_documents_format_clock_and_preserve_command_output(
     monkeypatch.setattr(verify.subprocess, "run", run)
     outcomes, error = verify.run_rehearsal_commands(
         ["Verify clock"],
+        module_identifier="sample_migration",
         env_var="APP_DB",
         validation_db_path="disposable-validation",
         cwd=tmp_path,

@@ -106,10 +106,15 @@ def test_replay_refuses_changes_and_never_echoes_failure_payloads(
     assert SECRET not in failure + output.out + output.err
 
 
+@pytest.mark.parametrize("context", (None, "0078_project_optional_sessions"))
 @pytest.mark.parametrize("failed_check", (None, "replay", "readers", "release"))
-def test_fleet_callback_preserves_order_and_refusals(monkeypatch, failed_check):
+def test_fleet_callback_preserves_order_and_refusals(monkeypatch, failed_check, context):
     from runtime.api.tools import migration_rehearsal_readers
 
+    if context is None:
+        monkeypatch.delenv(replay.REHEARSAL_MODULE_ENV, raising=False)
+    else:
+        monkeypatch.setenv(replay.REHEARSAL_MODULE_ENV, context)
     seen = []
     conn, dsn = object(), "fixture-copy"
 
@@ -133,6 +138,7 @@ def test_fleet_callback_preserves_order_and_refusals(monkeypatch, failed_check):
 
 @pytest.mark.parametrize("binding", ("missing", "mismatch", "archive-missing", "archive-empty"))
 def test_entrypoint_requires_verified_bindings_and_archive(monkeypatch, tmp_path, binding, capsys):
+    monkeypatch.setenv(replay.REHEARSAL_MODULE_ENV, replay.ENTRY_NAME)
     archive = tmp_path / "validation.sql"
     archive.write_text("baseline")
     monkeypatch.setenv("YOKE_DB", "fixture-validation")
@@ -157,6 +163,7 @@ def test_entrypoint_requires_verified_bindings_and_archive(monkeypatch, tmp_path
 def test_entrypoint_binds_exact_copy_and_rolls_back_failed_proof(
     copy, monkeypatch, tmp_path, failure,
 ):
+    monkeypatch.setenv(replay.REHEARSAL_MODULE_ENV, replay.ENTRY_NAME)
     archive = tmp_path / "validation.sql"
     archive.write_text("baseline")
     monkeypatch.setenv("YOKE_DB", "fixture-validation")
@@ -177,4 +184,45 @@ def test_entrypoint_binds_exact_copy_and_rolls_back_failed_proof(
     assert targets == ["fixture-validation"]
     assert copy.execute("SELECT envelope FROM events").fetchone()[0] == (
         ' {"preserve": "exact bytes"} ' if failure else "changed"
+    )
+
+
+@pytest.mark.parametrize("context", (
+    None, "", " ", "0079", replay.ENTRY_NAME + " ", "unexpected_module", SECRET,
+    "0078_project_optional_sessions",
+))
+def test_entrypoint_context_refuses_or_skips_before_connection(monkeypatch, capsys, context):
+    if context is None:
+        monkeypatch.delenv(replay.REHEARSAL_MODULE_ENV, raising=False)
+    else:
+        monkeypatch.setenv(replay.REHEARSAL_MODULE_ENV, context)
+    connect, verify = Mock(), Mock()
+    monkeypatch.setattr(replay.db_backend, "connect_psycopg", connect)
+    monkeypatch.setattr(replay, "verify_secret_receipt_replay", verify)
+    skip = context == "0078_project_optional_sessions"
+    assert replay.main() == (0 if skip else 1)
+    connect.assert_not_called()
+    verify.assert_not_called()
+    output = capsys.readouterr()
+    assert output.out == (
+        "admission_secret_receipts_replay status=not_applicable\n" if skip else
+        "secret_receipt_replay_refused: expected exact rehearsal module context\n"
+    )
+    assert output.err == ""
+
+
+def test_entrypoint_runs_replay_proof_after_scrub(copy, monkeypatch, tmp_path, capsys):
+    archive = tmp_path / "validation.sql"
+    archive.write_text("baseline")
+    monkeypatch.setenv(replay.REHEARSAL_MODULE_ENV, replay.ENTRY_NAME)
+    monkeypatch.setenv("YOKE_DB", "fixture-validation")
+    monkeypatch.setenv("YOKE_PG_DSN", "fixture-validation")
+    monkeypatch.setenv(RESTORE_POINT_ENV, str(archive))
+    monkeypatch.setattr(replay.db_backend, "connect_psycopg", lambda target: copy)
+    _entry().apply(copy)
+    capsys.readouterr()
+    assert replay.main() == 0
+    assert capsys.readouterr().out == (
+        "admission_secret_receipts_replay ledger_rows_rewritten=0 "
+        "event_envelopes_rewritten=0 ledger_rows_checked=1 event_envelopes_checked=1\n"
     )

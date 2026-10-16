@@ -244,6 +244,7 @@ def _rehearse_inner(
 
                 outcomes, cmd_err = _run_rehearsal_commands(
                     rehearsal_commands,
+                    module_identifier=identifier,
                     env_var=env_var,
                     validation_db_path=validation_target.target,
                     cwd=worktree_path,

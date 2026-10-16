@@ -12,6 +12,7 @@ from pathlib import Path
 
 from yoke_contracts.timestamps import temporal_wire
 from yoke_core.domain import db_backend
+from yoke_core.domain.migration_apply_verify import REHEARSAL_MODULE_ENV
 from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
 from yoke_core.domain.schema_common import _table_exists
 
@@ -81,6 +82,13 @@ def verify_secret_receipt_replay(conn) -> str | None:
 
 def main() -> int:
     """Consume only the explicit target and restore point bound by rehearsal."""
+    module_identifier = os.environ.get(REHEARSAL_MODULE_ENV)
+    if module_identifier == "0078_project_optional_sessions":
+        print("admission_secret_receipts_replay status=not_applicable")
+        return 0
+    if module_identifier != ENTRY_NAME:
+        print("secret_receipt_replay_refused: expected exact rehearsal module context")
+        return 1
     target = os.environ.get("YOKE_DB", "")
     archive = os.environ.get(RESTORE_POINT_ENV, "")
     if (
