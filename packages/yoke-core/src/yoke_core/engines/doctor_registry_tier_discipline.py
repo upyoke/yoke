@@ -45,6 +45,7 @@ TIER_GLOBS: dict[int, tuple[str, ...]] = {
         "docs/OVERVIEW.md",
         ".yoke/docs/reference/lifecycle.md",
         ".yoke/docs/agents/commands.md",
+        ".yoke/docs/agents/maintenance-commands.md",
         "docs/harness-substrate.md",
         "docs/harness-bootstrap.md",
     ),

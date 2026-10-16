@@ -28,8 +28,6 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
-# The tier-discipline HCs scan this repo's own teaching surfaces, so this
-# project registers all six in .yoke/doctor/ rather than in the engine bundle.
 _TIER_DISCIPLINE_CHECK_FUNCTIONS = {
     "tier-schema-bleed": schema_mod.hc_tier_schema_bleed,
     "tier-cli-shape-bleed": cli_mod.hc_tier_cli_shape_bleed,
@@ -93,9 +91,6 @@ def _detail(rec: RecordCollector) -> str:
 
 
 def test_tier_discipline_checks_registered_as_project_checks():
-    # All six tier-discipline HCs — ``cli-help-handler-present`` included —
-    # are registered once each from this project's own check folder, and the
-    # engine bundle carries none of them.
     assert [hc.slug for hc in TIER_DISCIPLINE_HEALTH_CHECKS] == []
     checks = discover_project_checks(REPO_ROOT).checks
     slugs = [hc.slug for hc in checks]
@@ -106,15 +101,11 @@ def test_tier_discipline_checks_registered_as_project_checks():
             f"discovered under {REPO_ROOT}"
         )
         registered = by_slug[slug].fn
-        # Discovery imports a fresh module object per run, so compare the
-        # function's identity by module + name rather than by object identity.
         assert (registered.__module__, registered.__name__) == (
             fn.__module__, fn.__name__,
         )
 
 
-# HC-tier-schema-bleed Class A — (table.column, kind). `real` = column
-# exists on table (restated truth); `fake` = non-existent column.
 _CLASS_A_CASES = [
     ("item_worktrees.branch", "real"),
     ("epic_progress_notes.note_num", "real"),
@@ -144,7 +135,6 @@ def test_schema_bleed_class_a(tmp_path, monkeypatch, conn, table_col, kind):
     ) in detail
 
 
-# HC-tier-schema-bleed Class B — JSON nested field accessed as top-level.
 _CLASS_B_CASES = [
     ("migration_strategy", "items", "db_mutation_profile"),
 ]
@@ -168,8 +158,6 @@ def test_schema_bleed_class_b_json_nested(
     assert f"`{table}.{json_col}`" in detail
 
 
-# HC-tier-cli-shape-bleed cases: (label, file rel, tier, body, help-table,
-# expected detail substring). help-table is (module, sub) -> (rc, stdout).
 _NM_ERR = (1, "No module named yoke_core.engines.nonexistent")
 _CLI_CASES = [
     (
@@ -216,8 +204,6 @@ _CLI_CASES = [
         "confabulated_subcommand",
         ".yoke/docs/agents/commands.md", 2,
         "    python3 -m yoke_core.engines.nonexistent-cmd --help\n",
-        # Module regex stops at `-`; both subcommand-split and parent-help
-        # fallback lookups must err to surface the confabulation.
         {
             ("yoke_core.engines.nonexistent", "cmd"): _NM_ERR,
             ("yoke_core.engines.nonexistent", None): _NM_ERR,
@@ -343,6 +329,19 @@ def test_progressive_disclosure_tier5_vague_denial_without_function_id(
 
 
 def test_distinct_bad_shape_count_meets_floor():
-    """At least 15 distinct injected bad shapes are covered."""
     total = len(_CLASS_A_CASES) + len(_CLASS_B_CASES) + 5 + 2 + 2 + 2
     assert total >= 15, f"expected >= 15 distinct shapes, counted {total}"
+
+
+@pytest.mark.parametrize("name", ["commands.md", "maintenance-commands.md"])
+def test_command_homes_retain_real_scan_coverage(tmp_path, monkeypatch, conn, name):
+    rel = f".yoke/docs/agents/{name}"
+    _materialize(tmp_path, {rel: "Inspect the item_worktrees.branch column.\n"})
+    for mod in (schema_mod, cli_mod, mod_path_mod, disc_mod):
+        assert (2, tmp_path / rel) in list(mod.iter_tier_paths(tmp_path))
+    assert disc_mod._classify_path(rel, tmp_path) == 2
+    # Keep the real registry iterator: a patched one would hide lost coverage.
+    monkeypatch.setattr(schema_mod, "_resolve_repo_root", lambda: str(tmp_path))
+    rec = _run(schema_mod.hc_tier_schema_bleed, conn)
+    assert rec.results[0].result == "WARN"
+    assert rel in _detail(rec)
