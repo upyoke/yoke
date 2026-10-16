@@ -2,7 +2,7 @@
  "id": "host-lease-refusal",
  "title": "Host lease refusal",
  "status": "observed",
- "page": "test-machines",
+ "page": "test-machine-lease-recovery",
  "position": 3,
  "current": "Host operations diagnose missing, unbound, mismatched, foreign and inactive leases with their actual state, machine and holding session or actor when known. A local Command case declares method_config.machine and obtains custody through the existing plan host admission path; its own active plan can run a nested reset and retains its lease through submission. An awaiting mission cannot reset or verify its live host: finish or abort that mission first. A released lease with no receipt requires evidence inspection and receipt recovery, never repeating the host action.",
  "desired": "Deployed proof that the declared-host Command waits for admission, runs its nested reset as leaseholder and preserves host custody until its plan settles.",
