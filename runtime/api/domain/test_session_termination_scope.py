@@ -262,7 +262,10 @@ def test_org_evidence_missing_workspace_is_terminal_without_job(world):
         and record["result_code"] == "session_workspace_unrecorded"
     )
     assert record["lease_id"] is None and record["completed_at"] is not None
-    assert evidence_fetch_result(record)["recovery"] is None
+    assert evidence_fetch_result(record)["recovery"] == (
+        "org-scoped session has no recorded workspace on this machine — terminate it deliberately "
+        "(confirm the command with `yoke sessions --help`) or start a new session; project registration does not apply"
+    )
 
 
 @pytest.mark.parametrize(

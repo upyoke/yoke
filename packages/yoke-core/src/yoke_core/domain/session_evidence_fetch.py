@@ -205,6 +205,20 @@ def evidence_fetch_result(record: Mapping[str, Any]) -> dict[str, Any]:
         files = json_helper.loads_text(str(record.get("files") or "[]"))
     except (TypeError, ValueError):
         files = []
+    recovery = None
+    if (
+        state == "failed"
+        and record.get("org_id") is not None
+        and record.get("result_code") == "session_workspace_unrecorded"
+    ):
+        recovery = (
+            "org-scoped session has no recorded workspace on this machine — terminate it deliberately "
+            "(confirm the command with `yoke sessions --help`) or start a new session; project registration does not apply"
+        )
+    elif state not in _TERMINAL_STATES:
+        recovery = evidence_pull_command(
+            session_id, str(record.get("diagnostic_ref") or "") or None
+        )
     return {
         "fetch_id": str(record.get("fetch_id") or ""),
         "session_id": session_id,
@@ -216,14 +230,7 @@ def evidence_fetch_result(record: Mapping[str, Any]) -> dict[str, Any]:
         "content": record.get("content"),
         "content_bytes": int(record.get("content_bytes") or 0),
         "truncated": bool(record.get("truncated")),
-        "recovery": (
-            None
-            if state in _TERMINAL_STATES
-            else evidence_pull_command(
-                session_id,
-                str(record.get("diagnostic_ref") or "") or None,
-            )
-        ),
+        "recovery": recovery,
     }
 
 
