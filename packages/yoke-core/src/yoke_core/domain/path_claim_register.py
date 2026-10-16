@@ -29,30 +29,48 @@ from yoke_core.domain.project_identity import (
 )
 
 
-def _overlap_recovery(conn: Optional[Any], item_id: int, public_ref: str) -> str:
-    from yoke_core.domain.schema_common import _column_exists
-
-    if conn is None or not _column_exists(conn, "items", "workflow_id"):
-        return (
-            "Read the item workflow before choosing its overlap repair; "
-            "route unavailable workflow evidence via yoke say --steering."
-        )
-    row = conn.execute(
-        f"SELECT workflow_id FROM items WHERE id = {_p(conn)}", (int(item_id),)
-    ).fetchone()
-    if row is None:
-        return "Item workflow unavailable; route via yoke say --steering."
-    if str(row[0]) != "dash":
-        return f"/yoke refine {public_ref}"
+def _self_attest_recovery(public_ref: str, source: str) -> str:
     return (
-        f"Continue /yoke dash {public_ref}: for independent edits, read both "
+        f"Continue /yoke {source} {public_ref}: for independent edits, read both "
         "specs and `yoke claims path coordination-decision-build --help`, "
         "record an evidence-backed coordination_only edge using "
-        "`yoke items dependency add` with source dash, then retry complete "
+        f"`yoke items dependency add` with source {source}, then retry complete "
         "registration. For ordered edits, wait for the holder's landing "
         "proof and re-survey. If independence cannot be attested, route the "
         "holder, shared paths and evidence via yoke say --steering."
     )
+
+
+def _overlap_recovery(conn: Optional[Any], item_id: int, public_ref: str) -> str:
+    if conn is None:
+        return (
+            "Read the item workflow before choosing its overlap repair; "
+            "route unavailable workflow evidence via yoke say --steering."
+        )
+    try:
+        row = conn.execute(
+            f"SELECT id FROM items WHERE id = {_p(conn)}", (int(item_id),)
+        ).fetchone()
+    except Exception:  # noqa: BLE001 - denial composition must not raise.
+        return "Item workflow unavailable; route via yoke say --steering."
+    if row is None:
+        return "Item workflow unavailable; route via yoke say --steering."
+    try:
+        from yoke_core.domain.path_claim_coordination_decision import (
+            resolve_holder_attestation,
+        )
+
+        attestation = resolve_holder_attestation(conn, int(item_id))
+    except Exception:  # noqa: BLE001 - denial composition must not raise.
+        return (
+            "Work-claim holder could not be read. Route the item, shared "
+            "paths and this refusal via yoke say --steering."
+        )
+    if attestation.source:
+        return _self_attest_recovery(public_ref, attestation.source)
+    if attestation.holder_present:
+        return attestation.detail
+    return f"/yoke refine {public_ref}"
 
 
 def _p(conn: Any) -> str:

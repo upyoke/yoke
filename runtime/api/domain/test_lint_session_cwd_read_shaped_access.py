@@ -41,9 +41,19 @@ INSTALLED_READ_TARGETS = (
     "~/.claude/plugins/marketplaces/browser/SKILL.md",
     "~/.codex/AGENTS.md",
     "~/.yoke/browser-runtime/chrome",
+    "~/.yoke/playwright-cache/yoke",
     "~/.local/bin/yoke",
     "~/.claude/settings.json",
 )
+
+
+def _lane_verdict(tool_name, tool_input, **kwargs):
+    return lint_session_cwd.evaluate_pre_tool_use(
+        {"session_id": "sid-lane", "tool_name": tool_name, "tool_input": tool_input},
+        **kwargs,
+    )
+
+
 EXCLUDED_READ_TARGETS = (
     "~/.yoke/secrets/capability-secrets/yoke/aws-admin/credentials",
     "~/.codex/auth.json",
@@ -225,32 +235,17 @@ class TestSanctionedReadPaths:
 
     @pytest.mark.parametrize("target", INSTALLED_READ_TARGETS)
     def test_installed_harness_path_read_allowed_with_lane_claim(
-        self,
-        conn,
-        repo,
-        target,
+        self, conn, repo, target
     ):
         _seed_lane(conn, repo, session_id="sid-lane")
-        verdict = lint_session_cwd.evaluate_pre_tool_use(
-            {
-                "session_id": "sid-lane",
-                "tool_name": "Read",
-                "tool_input": {"file_path": os.path.expanduser(target)},
-            }
-        )
-        assert verdict.allow is True
+        path = os.path.expanduser(target)
+        assert _lane_verdict("Read", {"file_path": path}).allow is True
 
     def test_installed_plugin_shell_read_allowed_with_lane_claim(self, conn, repo):
         _seed_lane(conn, repo, session_id="sid-lane")
         target = os.path.expanduser(INSTALLED_READ_TARGETS[0])
-        verdict = lint_session_cwd.evaluate_pre_tool_use(
-            {
-                "session_id": "sid-lane",
-                "tool_name": "Bash",
-                "tool_input": {"command": f"sed -n '1,20p' {target}"},
-            }
-        )
-        assert verdict.allow is True
+        command = f"sed -n '1,20p' {target}"
+        assert _lane_verdict("Bash", {"command": command}).allow is True
 
     def test_xdg_installed_launcher_read_allowed_with_lane_claim(
         self,
@@ -273,34 +268,69 @@ class TestSanctionedReadPaths:
 
     @pytest.mark.parametrize("target", INSTALLED_READ_TARGETS)
     def test_installed_harness_path_write_still_denied_with_lane_claim(
-        self,
-        conn,
-        repo,
-        target,
+        self, conn, repo, target
     ):
         _seed_lane(conn, repo, session_id="sid-lane")
-        verdict = lint_session_cwd.evaluate_pre_tool_use(
-            {
-                "session_id": "sid-lane",
-                "tool_name": "Write",
-                "tool_input": {"file_path": os.path.expanduser(target)},
-            }
-        )
-        assert verdict.allow is False
+        path = os.path.expanduser(target)
+        assert _lane_verdict("Write", {"file_path": path}).allow is False
 
     @pytest.mark.parametrize("target", EXCLUDED_READ_TARGETS)
     def test_sensitive_or_uninstalled_harness_path_read_still_denied(
-        self,
-        conn,
-        repo,
-        target,
+        self, conn, repo, target
     ):
         _seed_lane(conn, repo, session_id="sid-lane")
-        verdict = lint_session_cwd.evaluate_pre_tool_use(
-            {
-                "session_id": "sid-lane",
-                "tool_name": "Read",
-                "tool_input": {"file_path": os.path.expanduser(target)},
-            }
+        path = os.path.expanduser(target)
+        assert _lane_verdict("Read", {"file_path": path}).allow is False
+
+    @pytest.mark.parametrize(
+        "runtime",
+        (
+            "~/.yoke/browser-runtime/node_modules/playwright",
+            "~/.yoke/playwright-cache/yoke",
+        ),
+    )
+    def test_runtime_read_beside_redirect_is_allowed(self, conn, repo, runtime):
+        lane = _seed_lane(conn, repo, session_id="sid-lane")
+        command = f"node {lane}/x.mjs {runtime} /tmp/out > /tmp/log 2>&1"
+        assert _lane_verdict("Bash", {"command": command}).allow is True
+
+    def test_env_prefixed_runtime_read_beside_redirect_is_allowed(self, conn, repo):
+        lane = _seed_lane(conn, repo, session_id="sid-lane")
+        command = (
+            "env PLAYWRIGHT_BROWSERS_PATH=~/.yoke/playwright-cache/yoke "
+            f"node {lane}/x.mjs ~/.yoke/browser-runtime/node_modules/playwright "
+            "/tmp/out > /tmp/log 2>&1"
         )
-        assert verdict.allow is False
+        assert _lane_verdict("Bash", {"command": command}).allow is True
+
+    @pytest.mark.parametrize(
+        "command",
+        (
+            "echo x > ~/.yoke/browser-runtime/f",
+            "cp a ~/.yoke/browser-runtime/",
+            "echo x > ~/.yoke/playwright-cache/f",
+            "cp a ~/.yoke/playwright-cache/",
+        ),
+    )
+    def test_write_into_sanctioned_runtime_stays_refused(self, conn, repo, command):
+        _seed_lane(conn, repo, session_id="sid-lane")
+        assert _lane_verdict("Bash", {"command": command}).allow is False
+
+    def test_client_home_gates_the_same_read(self, conn, repo, tmp_path):
+        lane = _seed_lane(conn, repo, session_id="sid-lane")
+        command = (
+            f"node {lane}/x.mjs ~/.yoke/browser-runtime/node_modules/playwright "
+            "/tmp/out > /tmp/log 2>&1"
+        )
+        home = tmp_path / "client"
+        assert (
+            _lane_verdict("Bash", {"command": command}, machine_home="").allow is False
+        )
+        allowed = _lane_verdict("Bash", {"command": command}, machine_home=str(home))
+        assert allowed.allow is True
+
+    @pytest.mark.parametrize("target", EXCLUDED_READ_TARGETS)
+    def test_excluded_target_stays_refused_beside_a_redirect(self, conn, repo, target):
+        _seed_lane(conn, repo, session_id="sid-lane")
+        command = f"cat {target} > /tmp/log"
+        assert _lane_verdict("Bash", {"command": command}).allow is False
