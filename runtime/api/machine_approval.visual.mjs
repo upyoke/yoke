@@ -18,7 +18,7 @@ const entry = await readFile(path.join(root, "index.html"), "utf8");
 const styles = [...entry.matchAll(/href="(?:\.\/|\/)assets\/([^\"]+\.css)"/g)].map((match) => match[1]);
 assert(styles.length, "Read the source stylesheet roster.");
 const states = ["waiting", "later", "approved", "denied", "expired", "consumed", "unavailable",
-  "read-failed", "refused", "owner-bound", "failed-write", "recording", "missing-viewer",
+  "read-failed", "refused", "owner-bound", "owner-unknown", "failed-write", "recording", "missing-viewer",
   "local", "local-code", "token", "embedded", "long-facts", "no-code"];
 const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 ${styles.map((name) => `<link rel="stylesheet" href="/assets/${name}">`).join("\n")}
@@ -50,6 +50,7 @@ const client = {async call(request){
  if(state === 'unavailable')return fail('authorization_unavailable');
  if(state === 'read-failed')return fail('storage_unavailable','The request could not be read.');
  if(state === 'refused')return fail('organization_membership_required','Membership is required.');
+ if(state === 'owner-unknown')return fail('authorization_owner_mismatch','start your own connection');
  return ok({authorization});
 }};
 const context = {document,isMounted:()=>true,client,capabilities:{data:{portability:{mode:state.startsWith('local') ? 'local' : 'hosted'}}}};
@@ -115,7 +116,8 @@ try {
       }
       if (state === "embedded") assert.equal(values.focused, "Approve this machine");
       if (state === "recording") assert(values.text.includes("Recording your decision…"));
-      if (state === "owner-bound") assert(values.text.includes("Only Morgan can approve it."));
+      if (state === "owner-bound") assert(values.text.includes("This connection was already handled by Morgan."));
+      if (state === "owner-unknown") assert(values.text.includes("This connection was already handled by another person in your org."));
       if (state.startsWith("local")) assert(values.text.includes("Reachable here only."));
       if (state === "token") assert(values.text.includes("This token works on this computer only."));
       if (["waiting", "later"].includes(state)) {

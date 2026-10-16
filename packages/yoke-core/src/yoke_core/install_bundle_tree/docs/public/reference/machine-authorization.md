@@ -126,6 +126,10 @@ connection with `yoke connect` from the terminal. A consumed request says it
 was already answered and directs you to Machines or a fresh connection.
 Membership refusals name sign-in recovery, and a failed write keeps the actions
 available for retry without reporting success.
+An owner mismatch says the connection was already handled by the bound person,
+using a name only when an existing read supplied it, otherwise **another person
+in your org**. If that was not you, ask them or an admin to retire the machine,
+then run `yoke connect` again. The refusal never discloses a new identity.
 The installer and connect wait stop on expiry; neither rotates codes silently.
 
 In a local universe the page makes no approval reads. It explains that other

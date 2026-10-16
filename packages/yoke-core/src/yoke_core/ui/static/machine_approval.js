@@ -119,8 +119,9 @@ export async function renderApprovalCard(context, main, code, { embedded = false
   };
   function refusal(error, writing = false, body = card) {
     const kind = error.code;
-    if (kind === "authorization_owner_mismatch" && authorization?.requested_by) {
-      outcome(doc, card, "Another person is answering this request", `Only ${authorization.requested_by.name} can approve it. Ask them, or run \`yoke connect\` again on the new machine.`);
+    if (kind === "authorization_owner_mismatch") {
+      const name = authorization?.requested_by?.name || "another person in your org";
+      outcome(doc, card, "Another person is answering this request", `This connection was already handled by ${name}. If that wasn't you, ask them or an admin to retire this machine, then run \`yoke connect\` again.`);
     } else if (["actor_disabled", "organization_membership_required", "authorization_human_required"].includes(kind)) {
       outcome(doc, card, "You can't approve machines here", `${error.message || "Approval is not allowed."} Sign in as an active member of ${org?.name || "this organization"}.`);
     } else if (["authorization_consumed", "authorization_already_decided"].includes(kind)) {

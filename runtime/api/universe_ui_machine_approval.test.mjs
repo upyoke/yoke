@@ -219,7 +219,20 @@ test("a consumed approval cannot present an unconsumed success", async () => {
 test("owner refusal after a bound read names only the supplied requester", async () => {
   const { main } = page({ failure: { code: "authorization_owner_mismatch" } });
   await settle(); button(main, "Approve machine").dispatchEvent(new Event("click")); await settle();
-  assert.match(main.textContent, /Another person is answering this requestOnly Morgan can approve it/);
+  assert.match(main.textContent, /Another person is answering this requestThis connection was already handled by Morgan/);
+  assert.match(main.textContent, /If that wasn't you, ask them or an admin to retire this machine, then run `yoke connect` again/);
+  assert.equal(button(main, "Approve machine"), undefined);
+  assert.equal(byClass(main, "machine-approval-outcome")[0].getAttribute("role"), "alert");
+});
+
+for (const read of [true, false]) test(`owner refusal with no supplied name uses truthful recovery on ${read ? "read" : "write"}`, async () => {
+  const failure = { code: "authorization_owner_mismatch", message: "start your own connection" };
+  const { main } = page({ requested_by: null, ...(read ? { readError: failure } : { failure }) });
+  await settle();
+  if (!read) { button(main, "Approve machine").dispatchEvent(new Event("click")); await settle(); }
+  assert.match(main.textContent, /Another person is answering this requestThis connection was already handled by another person in your org/);
+  assert.match(main.textContent, /If that wasn't you, ask them or an admin to retire this machine, then run `yoke connect` again/);
+  assert.doesNotMatch(main.textContent, /Morgan|actor #9/);
   assert.equal(button(main, "Approve machine"), undefined);
   assert.equal(byClass(main, "machine-approval-outcome")[0].getAttribute("role"), "alert");
 });
