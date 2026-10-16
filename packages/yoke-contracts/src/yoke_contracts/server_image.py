@@ -7,32 +7,22 @@ container restart cannot silently advance the running engine.
 """
 
 from __future__ import annotations
+from yoke_contracts.release_version import release_version
 
 PUBLISHED_SERVER_IMAGE_REPOSITORY = "ghcr.io/upyoke/yoke-server"
-CANONICAL_IMAGE_TAG_LENGTH = 12
 
 
-def canonical_server_image_tag(source_commit: str) -> str:
-    """Return the fixed-width immutable image tag for a source commit."""
-    normalized = str(source_commit or "").strip()
-    if len(normalized) < CANONICAL_IMAGE_TAG_LENGTH:
-        raise ValueError(
-            "source commit is shorter than the canonical server image tag "
-            f"length ({CANONICAL_IMAGE_TAG_LENGTH})"
-        )
-    return normalized[:CANONICAL_IMAGE_TAG_LENGTH]
+def canonical_server_image_tag(version: str) -> str:
+    """Use the release's identical commit-clock version as its image tag."""
+    return release_version(version)
 
 
-def pinned_server_image(source_commit: str) -> str:
-    """Return the published immutable image reference for *source_commit*."""
-    return (
-        f"{PUBLISHED_SERVER_IMAGE_REPOSITORY}:"
-        f"{canonical_server_image_tag(source_commit)}"
-    )
+def pinned_server_image(version: str) -> str:
+    """Return the published immutable image reference for *version*."""
+    return f"{PUBLISHED_SERVER_IMAGE_REPOSITORY}:{canonical_server_image_tag(version)}"
 
 
 __all__ = [
-    "CANONICAL_IMAGE_TAG_LENGTH",
     "PUBLISHED_SERVER_IMAGE_REPOSITORY",
     "canonical_server_image_tag",
     "pinned_server_image",

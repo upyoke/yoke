@@ -76,6 +76,17 @@ def route_shared_plan_execution(begin):
             f"AND NOT {settled_obligation_sql(conn)} AND {unanswered_attempt_sql(conn)}",
             (run_id, stage, member),
         ).fetchone()[0]
+        if private:
+            private_accepted = stage_acceptance(
+                conn,
+                subject={**subject, "shared_plans_resolved": True},
+                target=target,
+                acceptance_qa_kind="deployment_stage_acceptance",
+            ).accepted
+            if not private_accepted:
+                # Private evidence has its own cursor and custody. Completing it
+                # must not start a shared campaign as a client-side continuation.
+                return begin(conn, **kwargs)
         if pending:
             from yoke_core.domain.qa_plan_execution_store import (
                 live_plan_execution_id,
@@ -122,11 +133,8 @@ def route_shared_plan_execution(begin):
                         ),
                     ).fetchone()[0]
                     for group in pending[1:]
-                )
-                + int(private),
+                ),
             }
-        if private:
-            return begin(conn, **kwargs)
         if completed is not None:
             return {**completed, "remaining_requirement_count": 0}
         from yoke_core.domain.qa_plan_empty_roster import QaPlanRosterDischarged

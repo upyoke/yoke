@@ -16,6 +16,7 @@ import subprocess
 from typing import Iterator
 import uuid
 
+from yoke_core.tools.distribution_channel import join_public_url
 from yoke_cli import manifest
 from yoke_cli.config.session_relay_instance import RelayInstance, resolve_relay_instance
 from yoke_core.tools.session_relay_release import (
@@ -215,8 +216,14 @@ def _install_candidate(
                 "--only-binary",
                 ":all:",
                 *[
-                    f"{index.removesuffix('/simple/')}/dist/releases/{release}/wheels/"
-                    f"yoke_{name}-{release}-py3-none-any.whl"
+                    join_public_url(
+                        index.removesuffix("/simple/"),
+                        "dist",
+                        "releases",
+                        release,
+                        "wheels",
+                        f"yoke_{name}-{release}-py3-none-any.whl",
+                    )
                     for name in ("contracts", "cli", "harness", "core")
                 ],
             ],
@@ -228,7 +235,7 @@ def _install_candidate(
             raise RelayReleaseError(
                 RELAY_RELEASE_FETCH_FAILED,
                 f"could not fetch {PRODUCT_REQUIREMENT}=={release} from "
-                f"{index}: {_command_detail(result)}",
+                f"{index}: {subprocess_failure_detail(result)}",
             )
         broken_reason = relay_package_runnable_reason(
             runtime_python,
@@ -292,9 +299,20 @@ def _with_recovery(
     )
     return RelayReleaseError(
         code,
-        f"{code}: {detail}; {preservation}. Recovery: verify `yoke --env "
-        f"{instance.environment} status`, then retry `yoke --env "
-        f"{instance.environment} relay install`.",
+        f"{code}: {detail}; {preservation}. Recovery: {relay_release_recovery(instance.environment)}",
+    )
+
+
+def relay_release_recovery(environment: str) -> str:
+    """Teach bootstrap repair even when the installed relay cannot update itself."""
+    return (
+        f"verify `yoke --env {environment} status` and repair the named cause. "
+        "If an older installer cannot fetch a published release, update the "
+        "operator CLI with `yoke update --version VERSION` (the official installer), "
+        "using the served release carrying the fix. Then run "
+        f"`yoke --env {environment} relay install` and check the pin with "
+        f"`yoke --env {environment} relay status`; confirm the same relay version "
+        "with a fresh last-seen time in the dashboard Machine relays view."
     )
 
 
@@ -323,8 +341,9 @@ def _clear_failure(state_dir: Path) -> None:
         pass
 
 
-def _command_detail(result: subprocess.CompletedProcess[str]) -> str:
-    return subprocess_failure_detail(result)
-
-
-__all__ = ["converge_relay_launcher", "pin_relay_release", "relay_launcher_path"]
+__all__ = [
+    "converge_relay_launcher",
+    "pin_relay_release",
+    "relay_launcher_path",
+    "relay_release_recovery",
+]

@@ -56,14 +56,6 @@ class RunStageResponse(BaseModel):
     current_stage: str
 
 
-class RunBlockingQaRequest(BaseModel):
-    run_id: str = Field(..., min_length=1)
-
-
-class RunBlockingQaResponse(BaseModel):
-    blocking: List[str] = Field(default_factory=list)
-
-
 class RunStageQaAcceptanceRequest(BaseModel):
     run_id: str = Field(..., min_length=1)
 
@@ -186,45 +178,12 @@ def handle_run_stage(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
-def handle_run_blocking_qa(request: FunctionCallRequest) -> HandlerOutcome:
-    """Return a run's unsatisfied blocking QA descriptions.
-
-    Runs the engine's exact ``deployment_run_qa`` read (blocking, not passed,
-    not waived) and returns each ``check_name (status)`` string; the engine
-    prints them and blocks when the list is non-empty.
-    """
-    try:
-        body = RunBlockingQaRequest.model_validate(request.payload)
-    except Exception as exc:  # noqa: BLE001 - surface a structured payload error
-        return _err("payload_invalid", f"run_blocking_qa payload invalid: {exc}")
-
-    try:
-        with _connect_rw() as conn:
-            marker = _placeholder(conn)
-            rows = conn.execute(
-                "SELECT check_name || ' (' || status || ')' "
-                "FROM deployment_run_qa "
-                f"WHERE run_id = {marker} AND blocking = 1 "
-                "AND status <> 'passed' AND status <> 'waived'",
-                (body.run_id,),
-            ).fetchall()
-    except Exception as exc:  # noqa: BLE001 - surfaced so the guard aborts
-        return _err("run_blocking_qa_failed", str(exc))
-
-    return HandlerOutcome(
-        result_payload={"blocking": [str(r[0]) for r in rows]},
-        primary_success=True,
-    )
-
-
 def handle_run_stage_qa_acceptance(request: FunctionCallRequest) -> HandlerOutcome:
     """Return the run's unsettled scoped stage verdicts for this item.
 
     Wraps :func:`yoke_core.domain.deployment_qa_run_acceptance.item_qa_acceptance_blockers`
     unchanged; the engine prints the reasons and blocks when the list is
-    non-empty. A legacy flow definition has no scoped stages and returns
-    an empty list, so the legacy ``deployment_run_qa`` projection stays
-    the only QA authority for those runs.
+    non-empty.
     """
     item_id = _require_item_id(request)
     if item_id is None:
@@ -298,8 +257,6 @@ __all__ = [
     "LatestDeploymentRunResponse",
     "RegisteredFlowIdsRequest",
     "RegisteredFlowIdsResponse",
-    "RunBlockingQaRequest",
-    "RunBlockingQaResponse",
     "RunStageQaAcceptanceRequest",
     "RunStageQaAcceptanceResponse",
     "RunStageRequest",
@@ -307,7 +264,6 @@ __all__ = [
     "handle_done_preconditions",
     "handle_latest_deployment_run",
     "handle_registered_flow_ids",
-    "handle_run_blocking_qa",
     "handle_run_stage",
     "handle_run_stage_qa_acceptance",
 ]

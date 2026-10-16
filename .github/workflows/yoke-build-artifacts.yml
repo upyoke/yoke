@@ -25,13 +25,6 @@ on:
   merge_group:
   push:
     branches: [main]
-    paths:
-      - ".github/workflows/yoke-build-artifacts.yml"
-      - "packages/**"
-      - "packaging/**"
-      - "runtime/**"
-      - "pyproject.toml"
-      - "uv.lock"
   workflow_dispatch:
   workflow_call:
     outputs:
@@ -45,8 +38,8 @@ on:
 concurrency:
   # A called workflow inherits the caller's github.workflow name. A literal
   # namespace keeps this group distinct from yoke-release's caller group.
-  group: yoke-build-artifacts-${{ github.ref }}
-  cancel-in-progress: true
+  group: yoke-build-artifacts-${{ github.sha }}
+  cancel-in-progress: false
 
 permissions: {}
 
@@ -128,8 +121,7 @@ jobs:
     if: >-
       github.event_name == 'merge_group' ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     permissions:
       actions: read

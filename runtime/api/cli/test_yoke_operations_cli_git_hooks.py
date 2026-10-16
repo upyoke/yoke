@@ -1,6 +1,6 @@
 """Tests for the tool-shaped ``yoke git pre-commit`` / ``git post-commit``.
 
-Field-note 12957: the installed ``.git/hooks`` shims exec these launcher
+The installed ``.git/hooks`` shims exec these launcher
 subcommands so hooked commits work in external repos with no Yoke
 checkout importable by the ambient python3. Covers:
 
@@ -11,13 +11,11 @@ checkout importable by the ambient python3. Covers:
   ``yoke project snapshot sync --hook --head-only`` and exits 0 even
   when sync needs repair — never errors a completed commit
 * operation-inventory rows (status=permanent, tool_shaped)
-* shim text <-> routed tokens coupling, and refresh rewriting the
-  legacy module-form pre-commit shim
+* shim text and routed tokens agree
 """
 
 from __future__ import annotations
 
-import os
 import subprocess
 from pathlib import Path
 
@@ -26,11 +24,8 @@ import pytest
 from yoke_cli.commands import git_hook as mod
 from yoke_cli.main import main as cli_main
 from yoke_core.domain.project_install_git_hooks import (
-    PRE_COMMIT_MARKER,
     PRE_COMMIT_SHIM,
     POST_COMMIT_SHIM,
-    BootstrapResult,
-    install_pre_commit_hook,
 )
 
 _GATE_RUN = "yoke_harness.git_hooks.pre_commit.run"
@@ -212,30 +207,3 @@ class TestShimCliCoupling:
         assert "machine-installed `yoke` launcher" in PRE_COMMIT_SHIM
         assert "editable install" in PRE_COMMIT_SHIM
         assert POST_COMMIT_SHIM.count("command -v yoke") == 1
-
-    def test_no_module_invocation_form_remains(self):
-        for shim in (PRE_COMMIT_SHIM, POST_COMMIT_SHIM):
-            assert "python3 -m yoke_core.domain.git_pre_commit" not in shim
-            assert "python3 -m yoke_core.domain.path_snapshots" not in shim
-
-    def test_refresh_rewrites_legacy_module_form_pre_commit(
-        self,
-        scratch_repo,
-    ):
-        # The exact pre-launcher shim earlier installs wrote (the text
-        # ExternalWebapp received before this slice) MUST be rewritten on refresh.
-        legacy = (
-            "#!/bin/sh\n"
-            f"# {PRE_COMMIT_MARKER} hook installed by `yoke project install`\n"
-            "# Hard-fails on file_line_check violations. "
-            "Bypass with `git commit --no-verify`.\n"
-            'exec python3 -m yoke_core.domain.git_pre_commit "$@"\n'
-        )
-        hook = scratch_repo / ".git" / "hooks" / "pre-commit"
-        hook.parent.mkdir(parents=True, exist_ok=True)
-        hook.write_text(legacy)
-        os.chmod(hook, 0o755)
-        result = BootstrapResult()
-        install_pre_commit_hook(scratch_repo, result)
-        assert result.updated == 1
-        assert hook.read_text() == PRE_COMMIT_SHIM

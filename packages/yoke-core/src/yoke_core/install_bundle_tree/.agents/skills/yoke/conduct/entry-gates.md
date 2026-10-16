@@ -51,7 +51,7 @@ Activation dependencies alone gate dispatch; integration/closure belong to
 downstream landing/completion. The retained source-dev checker is scoped:
 
 ```text
-python3 -m yoke_core.domain.check_hard_blocks PREFIX-N --gate-point activation
+yoke advance preflight hard-blocks PREFIX-N --gate-point activation
 yoke items dependency list PREFIX-N
 ```
 

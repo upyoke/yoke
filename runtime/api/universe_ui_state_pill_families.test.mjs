@@ -17,7 +17,7 @@ test("a declared park is its own family, not neutral and not an alert", () => {
 });
 
 test("states that need attention are amber, and failures stay red", () => {
-  for (const state of ["waiting", "offline", "stale", "possibly stale"]) {
+  for (const state of ["waiting", "offline", "stale", "quiet"]) {
     assert.equal(pillFamilyForState(state), "warn", state);
   }
   for (const state of ["process-gone", "failed", "expired"]) {
@@ -41,7 +41,7 @@ test("every state a session card can show carries a deliberate family", () => {
   // other pill families across the UI.
   const shown = [
     "active", "waiting", "parked", "probed", "stale",
-    "possibly stale", "process-gone", "process-exited", "resuming", "ended",
+    "quiet", "process-gone", "process-exited", "resuming", "ended",
     "unknown",
   ];
   const families = new Map(shown.map((s) => [s, pillFamilyForState(s)]));
@@ -51,7 +51,7 @@ test("every state a session card can show carries a deliberate family", () => {
     ["parked", "park"],
     ["probed", "run"],
     ["stale", "warn"],
-    ["possibly stale", "warn"],
+    ["quiet", "warn"],
     ["process-gone", "crit"],
     ["process-exited", "warn"],
     ["resuming", "run"],

@@ -30,6 +30,7 @@ from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
 from yoke_core.domain.workflows_definition_read import _stage_names
 from yoke_core.domain.schema_read_scope import composition_operation
+from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
 
 
 OVERVIEW_RUN_WINDOW = timedelta(hours=24)
@@ -90,6 +91,7 @@ def _stage_rows(
     return rows, current_index
 
 
+@presentation_operation
 def present_deployment_runs(
     conn: Any,
     base: list[dict[str, Any]],
@@ -113,6 +115,14 @@ def present_deployment_runs(
         members[run_id] = [
             m for m in members.get(run_id, []) if m["id"] not in excluded
         ]
+    from yoke_core.domain.deployment_member_qa_projection import member_qa_obligations
+
+    if include_carried_work:
+        obligations = member_qa_obligations(conn, base, members)
+        for run_id, entries in members.items():
+            for member in entries:
+                member["qa_obligations"] = obligations.get((run_id, int(member["id"])))
+
     from yoke_core.domain.deployment_qa_run_acceptance import member_qa_standings
 
     qa = (
@@ -174,6 +184,7 @@ def present_deployment_runs(
                         "project_id",
                         "project_sequence",
                         "item_qa",
+                        "qa_obligations",
                         "completed_deliveries",
                     )
                     if key in member
@@ -275,7 +286,7 @@ def list_deployment_runs(
         if relevance == "overview":
             append_overview_run_window(clauses, params, conn=conn)
         where = f"WHERE {' AND '.join(clauses)} " if clauses else ""
-        run_columns, env_join = _run_named_columns(conn)
+        run_columns, env_join = _run_named_columns()
         priority_order = ""
         if relevance == "overview":
             quoted = ", ".join(f"'{status}'" for status in TERMINAL_RUN_STATUSES)

@@ -31,6 +31,7 @@ from yoke_core.domain.deployment_source_reads import (
     SourcePreparationChanged,
 )
 from yoke_core.domain.deployment_runs_lock import bounded_run_write
+from yoke_core.domain.deployment_start_timing import timed_preparation, timing_facts
 
 
 class CompositionRefused(DomainRefusal, ValueError):
@@ -185,14 +186,23 @@ def create_run(
     try:
         with composition_reads():
             if db_backend.connection_is_postgres(conn):
-                validate_before_lock(conn, project, **request, **run)
+                timed_preparation(
+                    "create_provisional_composition",
+                    validate_before_lock,
+                    conn,
+                    project,
+                    **request,
+                    **run,
+                )
                 for attempt in range(8):
                     try:
                         with (
                             bounded_run_write(conn, "new release"),
                             prepared_sources_only(),
                         ):
-                            conn.execute(_CREATE_LOCK_SQL)
+                            timed_preparation(
+                                "create_lock", conn.execute, _CREATE_LOCK_SQL
+                            )
                             return _create_locked(conn, project, **request, **run)
                     except SourcePreparationChanged as exc:
                         conn.rollback()
@@ -200,7 +210,7 @@ def create_run(
                             raise
                         # Answer only the new exact source question with every
                         # write lock released, then revalidate mutable facts.
-                        exc.prepare()
+                        timed_preparation("create_source_refresh", exc.prepare)
             return _create_locked(conn, project, **request, **run)
     finally:
         conn.close()
@@ -222,13 +232,7 @@ def _create_locked(
     re-checks the database facts the lock protects.
     """
     project_id = resolve_project_id(conn, project)
-    basis = None
-    if idempotency_key:
-        basis = (
-            idempotency.BASIS_RECORDED_KEY
-            if idempotency.key_columns_converged(conn)
-            else idempotency.BASIS_UNCONVERGED_REQUEST_MATCH
-        )
+    basis = idempotency.BASIS_RECORDED_KEY if idempotency_key else None
     if basis == idempotency.BASIS_RECORDED_KEY:
         existing = idempotency.existing_run(
             conn, project_id, idempotency_key, create_request
@@ -238,29 +242,17 @@ def _create_locked(
             return CreatedRun(existing, True, basis)
     target = run_target(conn, run["flow"], project_id, environment)
 
-    if basis == idempotency.BASIS_UNCONVERGED_REQUEST_MATCH:
-        existing = idempotency.unconverged_match(
-            conn,
-            idempotency_key,
-            project_id=project_id,
-            flow=run["flow"],
-            target_environment_id=target[1],
-            release_lineage=run["release_lineage"],
-            artifact_identity=run["artifact_identity"],
-            created_by=run["created_by"],
-        )
-        if existing is not None:
-            conn.rollback()
-            return CreatedRun(existing, True, basis)
-
     refuse_run_that_cannot_execute(conn, run["flow"], run["release_lineage"])
 
     # Allocation and insertion share this serialized transaction. The
     # standalone next-id command remains a non-reserving preview.
     now = utc_now()
     run_id = _next_run_id(conn, now)
+    timing_facts(run_id=run_id, source_sha=run["release_lineage"] or "")
     keyed = basis == idempotency.BASIS_RECORDED_KEY
-    valid, message = compose_run(
+    valid, message = timed_preparation(
+        "create_locked_composition",
+        compose_run,
         conn,
         run_id,
         created_at=now,
@@ -272,8 +264,10 @@ def _create_locked(
     )
     if not valid:
         raise CompositionRefused(message)
-    conn.commit()
-    _finish_superseded_run(conn, run_id)
+    timed_preparation("create_commit", conn.commit)
+    timed_preparation(
+        "create_takeover_settlement", _finish_superseded_run, conn, run_id
+    )
     return CreatedRun(run_id, False, basis)
 
 

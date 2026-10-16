@@ -90,7 +90,9 @@ def _scope_rows(
         project_ids,
     ).fetchall()
     scopes: dict[int, dict[str, Any]] = {}
-    for row in rows:
+    from .session_automatic_reclaim import reclaim_facts
+
+    for row in reclaim_facts(conn, rows):
         row_dict = dict(row)
         scope = {
             "claim_id": int(row_dict["claim_id"]),

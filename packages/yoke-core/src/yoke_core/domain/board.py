@@ -16,8 +16,6 @@ Status-to-bucket mapping rules (in priority order):
     done, cancelled         -> done
     frozen (flag=1)         -> frozen   (excluded from normal board display)
     blocked (flag=1)        -> blocked  (item-level routing/display flag)
-    blocked status (legacy) -> blocked  (drift detection — post-cutover any row
-                                          with status='blocked' is doctor-flagged)
     stopped, failed         -> blocked
     implemented + active-run -> release  (active-run upgrade)
     implemented             -> implemented  (pre-release success state)
@@ -66,7 +64,6 @@ from yoke_contracts.board.status import (  # noqa: F401
 
 # Re-export for convenience
 BOARD_COLUMNS = BOARD_BUCKET_ORDER
-
 
 
 # ---------------------------------------------------------------------------

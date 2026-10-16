@@ -10,11 +10,6 @@ from yoke_contracts.session_control.launch_registration import (
     LAUNCH_DELIVERY_PENDING_STATUS,
     NATIVE_LAUNCH_WORKSPACE_FIELD,
 )
-from yoke_core.domain.schema_common import (
-    _column_exists,
-    _get_columns,
-    _table_exists,
-)
 from yoke_core.domain.session_launch_registration_candidate import (
     REGISTRATION_CANDIDATE_STATES,
     registration_binding_window,
@@ -25,58 +20,14 @@ from yoke_core.domain.session_launch_store import marker, parse_time, utc_now
 from yoke_core.domain.session_message_types import row_dict
 
 
-def _schema_available(conn: Any) -> bool:
-    required = {
-        "session_launches": {
-            "launch_id",
-            "state",
-            "project_id",
-            "selected_surface",
-            "assigned_machine_id",
-            "native_session_id",
-            "registered_session_id",
-            "deadline_at",
-        },
-        "session_launch_attempts": {
-            "launch_id",
-            "attempt_number",
-            "started_at",
-            "evidence",
-        },
-        "harness_sessions": {
-            "session_id",
-            "project_id",
-            "executor_surface",
-            "machine_id",
-            "workspace",
-            "offered_at",
-            "ended_at",
-        },
-    }
-    # One column read per table, not one per column: the question is "does
-    # this schema carry the launch vocabulary", and a table answers all of
-    # its own columns in a single catalog statement.
-    return all(
-        _table_exists(conn, table) and columns <= set(_get_columns(conn, table))
-        for table, columns in required.items()
-    )
-
-
 def _sessions(conn: Any, targets: tuple[str, ...]) -> dict[str, dict[str, Any]]:
     p = marker(conn)
-    has_episode = _column_exists(conn, "harness_sessions", "episode_started_at")
-    has_terminated = _column_exists(conn, "harness_sessions", "terminated_at")
-    registered_at = (
-        "COALESCE(episode_started_at,offered_at)" if has_episode else "offered_at"
-    )
-    terminal_clause = " AND terminated_at IS NULL" if has_terminated else ""
     rows = conn.execute(
         "SELECT session_id,project_id,executor_surface,machine_id,workspace,"
-        + registered_at
-        + " AS registered_at FROM harness_sessions WHERE session_id IN ("
+        "COALESCE(episode_started_at,offered_at)"
+        " AS registered_at FROM harness_sessions WHERE session_id IN ("
         + ",".join(p for _ in targets)
-        + ") AND ended_at IS NULL"
-        + terminal_clause,
+        + ") AND ended_at IS NULL AND terminated_at IS NULL",
         targets,
     ).fetchall()
     return {str(row_dict(row)["session_id"]): row_dict(row) for row in rows}
@@ -115,7 +66,7 @@ def pending_launch_deliveries(
 ) -> dict[str, dict[str, Any]]:
     """Return launch-window holds for newly registered, still-unbound sessions."""
     targets = tuple(dict.fromkeys(str(one) for one in session_ids if str(one)))
-    if not targets or not _schema_available(conn):
+    if not targets:
         return {}
     sessions = _sessions(conn, targets)
     if not sessions:

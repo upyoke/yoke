@@ -27,7 +27,6 @@ from yoke_core.domain.migration_apply_attribution import (
     require_attribution,
 )
 from yoke_core.domain.migration_apply_contract import MigrationApplyError
-from yoke_core.domain.preboot_instant_parameters import clear_storage_types
 from yoke_core.domain.migration_boot_ledger import (
     MIGRATION_APPLY_LOCK_KEY,
     acquire_apply_lock,
@@ -160,7 +159,6 @@ def apply_pending(
         "applying a migration history",
         administering_env=administered_postgres.administering_target(connection=conn),
     )
-    clear_storage_types()
     if not history:
         return ApplyOutcome(applied=(), restore_point=None)
 
@@ -206,7 +204,6 @@ def apply_pending(
                 model_name=model,
             )
             applied.append(entry.name)
-        clear_storage_types()
         return ApplyOutcome(applied=tuple(applied), restore_point=restore_point)
     finally:
         release_apply_lock(conn)

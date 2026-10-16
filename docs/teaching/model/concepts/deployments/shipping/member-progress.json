@@ -1,7 +1,9 @@
 {
  "id": "member-progress",
  "title": "Member progress",
- "status": "draft-copy",
- "page": "deployments",
- "position": 1
+ "status": "observed",
+ "page": "shipping",
+ "position": 1,
+ "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_member_qa_projection.py", "packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.js", "docs/public/qa.md"],
+ "text": "Shipping cards and deployment run detail show current applicable member obligations before copies or attempts exist. Matching deployment copies supply release-specific proof; waived obligations stay explicit and completed releases preserve frozen definitions."
 }

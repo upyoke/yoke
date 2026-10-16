@@ -56,6 +56,16 @@ preflight -- rehearsal needs three bindings, in this order:
 
      {YOKE_SOURCE_REHEARSAL_RECIPE}
 
+   With several lanes, select the migration's worker explicitly:
+
+     yoke --env <name> dev run --lane <registered-path> -- yoke migration rehearse ITEM
+
+   Rehearsal uses that exact active lane only when it belongs to ITEM and
+   the caller holds its matching item/task work claim. Invalid, missing or
+   released bindings refuse with rehearsal_source_lane_invalid and claim
+   recovery. Without a source binding, rehearsal keeps the item's ordinary
+   registered lane default, regardless of the caller's working directory.
+
 2. Item universe. Rehearsal is item-bound: it reads the item's mutation
    profile and compatibility attestation from the selected connection's
    universe. A local connection whose universe holds no such item cannot

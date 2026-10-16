@@ -234,3 +234,20 @@ member acceptance. A case needing several hosts at once declares
 `method_config.machines` alongside its driving `machine`; its plan execution
 holds the complete set through the case and review. See
 [case attachment](reference/qa-platform/case-attachment.md).
+
+## Item QA on releases
+
+Open **Shipping**, then open a deployment run to inspect its carried items.
+Both pages show each item's applicable post-deploy obligations before deployment
+copies, attempts or artifacts exist. **Not started** means proof is still owed;
+**Waived** records an explicit waiver and does not count as passing.
+
+Active releases show current source requirements and attached-plan cases for
+their QA destinations. A matching deployment copy supplies that release's result
+and evidence. Previous releases keep their own attempts; takeover starts with
+pending obligations on the replacement run. Completed releases retain their
+frozen definitions and results when item sources later change.
+
+An empty obligation list, loading, and a failed read are different states. A
+named Item QA read error includes its recovery: reload the page, then ask the
+project operator to repair the named definition or target if it persists.

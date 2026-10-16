@@ -69,8 +69,8 @@ QA cannot be read, with the QA reason available on the same tooltip.
 to a run, execute the pipeline, and move members toward done. Flow id ≠ run
 id (`run-YYYYMMDD-NNN`).
 
-Legacy (schema 1) flows settle delivered members using that run's run-wide
-post-deploy requirements; scoped flows require exact member binding. Failing
+Delivered members require exact private-member or attached shared-plan
+binding for post-deploy requirements. Failing
 or unanswered requirements still block, and superseded requirements hand the
 obligation to their successors. Re-drive a settling run with
 `yoke deployment-runs update RUN status succeeded`.

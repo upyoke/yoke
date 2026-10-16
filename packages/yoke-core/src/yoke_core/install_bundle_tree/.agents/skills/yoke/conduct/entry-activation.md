@@ -2,11 +2,11 @@
 
 Apply [entry-gates.md](entry-gates.md) before mutation. Keep the complete public
 ref; its numeric tail is project_sequence, never items.id. Resolve the item's
-project and owning main checkout through the retained source-dev resolver:
+project and owning main checkout through the installed-runtime resolver:
 
 ```text
 yoke items get PREFIX-N project
-python3 -m yoke_core.domain.worktree paths main
+yoke worktree paths main
 ```
 
 Missing project halts project_required. MAIN_ROOT is control-plane/branch-ref

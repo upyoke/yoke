@@ -202,11 +202,12 @@ return actionable contradictions/completeness/naming/quality findings.
 ## Hook ownership and execution safety
 
 [Subagent hook composer](../packages/yoke-core/src/yoke_core/domain/agents_render_subagent_hooks.py)
-injects six Bash-capable Claude roles' hooks. PreToolUse is one matcherless
+injects every Claude role's hooks. PreToolUse is one matcherless
 `yoke hook evaluate PreToolUse`, with role/config-owner identity; universal chain
-selects guards by tool_name. PostToolUse/PostToolUseFailure use role-attributed
-observe; SubagentStop uses agent_stop. This includes Boss. PM/Designer retain
-their sidecar hooks; all eight have reflection/stop observation. Read actual
+selects guards by tool_name. PostToolUse/PostToolUseFailure use the same
+transport-aware runner with role attribution; SubagentStop uses the local
+agent_stop safety net. PM/Designer keep their non-Bash tool grants and share
+the hook composer. Read actual
 generated frontmatter rather than reproduce per-tool choreography here.
 
 `agent_stop` is an item-lane auto-commit safety net and HarnessSessionStopped

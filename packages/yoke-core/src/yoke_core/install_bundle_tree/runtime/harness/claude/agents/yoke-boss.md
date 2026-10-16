@@ -13,11 +13,11 @@ hooks:
   PostToolUse:
   - hooks:
     - type: command
-      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=boss python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type boss --hook-event PostToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=boss yoke hook evaluate PostToolUse
   PostToolUseFailure:
   - hooks:
     - type: command
-      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=boss python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type boss --hook-event PostToolUseFailure
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=boss yoke hook evaluate PostToolUseFailure
   SubagentStop:
   - hooks:
     - type: command

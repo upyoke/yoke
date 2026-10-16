@@ -157,6 +157,23 @@ function runWait(run) {
   return `run still open: waiting ${gate ? "on approval" : "at"}${stage ? ` · ${stage}` : " · run completion"}`;
 }
 
+// A project default flow is not a delivery promise. The workflow policy is.
+// `merge_free` never owes one, and a cancelled item no longer does. A card
+// read from a serving build that omits `delivery_policy` keeps the previous
+// promise rather than hiding a release that build still considers pending.
+const NO_DELIVERY_OBLIGATION = "merge_free";
+
+function deliveryPolicy(row) {
+  return Object.hasOwn(row, "delivery_policy") ? String(row.delivery_policy || "") : null;
+}
+
+function owesPendingDelivery(row) {
+  if (String(row.status || "").toLowerCase() === "cancelled") return false;
+  const policy = deliveryPolicy(row);
+  if (policy === null) return true;
+  return policy !== "" && policy !== NO_DELIVERY_OBLIGATION;
+}
+
 function environmentRow(documentNode, environment, outcome, run, row) {
   const card = el(documentNode, "div", "item-deployment");
   card.appendChild(el(documentNode, "strong", "item-deployment-environment", environment || NO_ENVIRONMENT_LABEL));
@@ -188,6 +205,11 @@ function environmentRow(documentNode, environment, outcome, run, row) {
 }
 
 export function appendItemDelivery(documentNode, card, row, deployments, projects = []) {
+  const runs = deliveryRuns(row, deployments);
+  // Nothing delivered and nothing owed: the box would only invent a pending
+  // release. A delivery that happened stays, including after cancellation
+  // and on a workflow that does not owe one.
+  if (!runs.length && !owesPendingDelivery(row)) return null;
   const box = el(documentNode, "div", "item-delivery");
   const head = el(documentNode, "div", "item-delivery-head");
   head.appendChild(el(documentNode, "span", "item-delivery-label", "Delivery"));
@@ -209,16 +231,15 @@ export function appendItemDelivery(documentNode, card, row, deployments, project
     // wait for — an absent merge line alone would read as unfinished work.
     box.appendChild(el(documentNode, "small", "item-delivery-no-change", "no code change"));
   }
-  const runs = deliveryRuns(row, deployments);
   for (const run of runs) {
     box.appendChild(environmentRow(documentNode, runEnvironment(run), itemOutcome(run), run, row));
   }
   const environment = String(row.completion_environment || "");
-  // "Next release" is a promise only a flow can keep: an item that resolves
-  // no completion flow has no release coming, so it shows no placeholder.
+  // "Next release" needs a debt and a flow. Either one missing means no
+  // placeholder: a bare inherited flow is not the debt.
   const flow = flowId(row.completion_flow) || flowId(row.deployment_flow) || flowId(row.delivery?.flow);
   const awaiting = !runs.length || (environment && !runs.some((run) => runEnvironment(run) === environment));
-  if (flow && awaiting) {
+  if (owesPendingDelivery(row) && flow && awaiting) {
     box.appendChild(environmentRow(documentNode, environment, {
       symbol: "○", text: "not yet · next release",
     }, null, row));
@@ -240,7 +261,11 @@ export function deliverySummary(row, deployments) {
     return `${environment} deploying`;
   });
   const environment = String(row.completion_environment || "");
-  if (environment && !runs.some((run) => runEnvironment(run) === environment)) {
+  if (
+    owesPendingDelivery(row)
+    && environment
+    && !runs.some((run) => runEnvironment(run) === environment)
+  ) {
     parts.push(`${environment} not yet`);
   }
   return parts.join(" · ");

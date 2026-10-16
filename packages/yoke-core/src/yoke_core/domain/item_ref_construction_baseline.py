@@ -31,11 +31,6 @@ BASELINE: dict[str, dict[str, object]] = {
         "reason": "legacy_key_lookup",
         "note": "stop query matches historical YOK-{internal_id} environment labels",
     },
-    "packages/yoke-core/src/yoke_core/domain/item_worktree_resolution.py": {
-        "count": 1,
-        "reason": "doc_comment_only",
-        "note": "documents legacy YOK-{internal_id} worktree naming scheme",
-    },
     "packages/yoke-core/src/yoke_core/domain/lint_shell_quoted_function_payload.py": {
         "count": 1,
         "reason": "token_recognition",
@@ -56,25 +51,10 @@ BASELINE: dict[str, dict[str, object]] = {
         "reason": "doc_comment_only",
         "note": "documents dual public-ref and legacy resolver schemes",
     },
-    "packages/yoke-core/src/yoke_core/domain/worktree_preflight_steps.py": {
-        "count": 1,
-        "reason": "doc_comment_only",
-        "note": "documents the legacy scheme a recorded lane may still use",
-    },
-    "packages/yoke-core/src/yoke_core/engines/doctor_hc_worktrees_branches.py": {
-        "count": 1,
-        "reason": "doc_comment_only",
-        "note": "documents legacy branch naming beside public refs",
-    },
     "packages/yoke-core/src/yoke_core/engines/done_transition_cleanup.py": {
         "count": 1,
         "reason": "branch_name_convention",
-        "note": "trial branch glob and comment on legacy naming fallback",
-    },
-    "packages/yoke-core/src/yoke_core/engines/done_transition_merge_ops.py": {
-        "count": 1,
-        "reason": "doc_comment_only",
-        "note": "documents branch resolution rather than inline ref construction",
+        "note": "trial branch glob",
     },
     "runtime/api/events_crud_test_fixtures.py": {
         "count": 1,

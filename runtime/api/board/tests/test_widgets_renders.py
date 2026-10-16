@@ -37,40 +37,40 @@ def _now_iso() -> str:
 class TestRenderWeather:
     def test_clear(self, test_db_path):
         now = _now_iso()
-        insert_item_raw(test_db_path, [
-            (i, f"item-{i}", "idea", "issue", "yoke", 0, now, now)
-            for i in range(5)
-        ])
+        insert_item_raw(
+            test_db_path,
+            [(i, f"item-{i}", "idea", "issue", "yoke", 0, now, now) for i in range(5)],
+        )
         with BoardDB(test_db_path) as db:
             result = render_weather(db, BoardConfig(), "yoke")
         assert "Clear" in result
 
     def test_fair(self, test_db_path):
         now = _now_iso()
-        insert_item_raw(test_db_path, [
-            (i, f"item-{i}", "idea", "issue", "yoke", 0, now, now)
-            for i in range(15)
-        ])
+        insert_item_raw(
+            test_db_path,
+            [(i, f"item-{i}", "idea", "issue", "yoke", 0, now, now) for i in range(15)],
+        )
         with BoardDB(test_db_path) as db:
             result = render_weather(db, BoardConfig(), "yoke")
         assert "Fair" in result
 
     def test_stormy(self, test_db_path):
         now = _now_iso()
-        insert_item_raw(test_db_path, [
-            (i, f"item-{i}", "idea", "issue", "yoke", 0, now, now)
-            for i in range(30)
-        ])
+        insert_item_raw(
+            test_db_path,
+            [(i, f"item-{i}", "idea", "issue", "yoke", 0, now, now) for i in range(30)],
+        )
         with BoardDB(test_db_path) as db:
             result = render_weather(db, BoardConfig(), "yoke")
         assert "Stormy" in result
 
     def test_frozen_excluded(self, test_db_path):
         now = _now_iso()
-        insert_item_raw(test_db_path, [
-            (i, f"item-{i}", "idea", "issue", "yoke", 1, now, now)
-            for i in range(30)
-        ])
+        insert_item_raw(
+            test_db_path,
+            [(i, f"item-{i}", "idea", "issue", "yoke", 1, now, now) for i in range(30)],
+        )
         with BoardDB(test_db_path) as db:
             result = render_weather(db, BoardConfig(), "yoke")
         assert "Clear" in result
@@ -89,9 +89,12 @@ class TestRenderWeather:
 class TestRenderVelocitySparkline:
     def test_produces_output(self, test_db_path):
         now = _now_iso()
-        insert_item_raw(test_db_path, [
-            (1, "item-1", "implementing", "issue", "yoke", 0, now, now),
-        ])
+        insert_item_raw(
+            test_db_path,
+            [
+                (1, "item-1", "implementing", "issue", "yoke", 0, now, now),
+            ],
+        )
         with BoardDB(test_db_path) as db:
             result = render_velocity_sparkline(db, BoardConfig(), "yoke")
         assert result is not None
@@ -107,9 +110,12 @@ class TestRenderVelocitySparkline:
         """The activity bar renders from item_activity_days rows."""
         now = _now_iso()
         today = now[:10]
-        insert_item_raw(test_db_path, [
-            (1, "item-1", "implementing", "issue", "yoke", 0, now, now),
-        ])
+        insert_item_raw(
+            test_db_path,
+            [
+                (1, "item-1", "implementing", "issue", "yoke", 0, now, now),
+            ],
+        )
         insert_activity_day(test_db_path, "yoke", 1, today)
         with BoardDB(test_db_path) as db:
             result = render_velocity_sparkline(db, BoardConfig(), "yoke")
@@ -137,17 +143,29 @@ class TestRenderVelocityMeter:
 
         now = _now_iso()
         today = now[:10]
-        insert_item_raw(test_db_path, [
-            (1, "epic-1", "implementing", "epic", "yoke", 0, now, now),
-        ])
+        insert_item_raw(
+            test_db_path,
+            [
+                (1, "epic-1", "implementing", "epic", "yoke", 0, now, now),
+            ],
+        )
         insert_activity_day(test_db_path, "yoke", 1, today)
         insert_transition(
-            test_db_path, "yoke", 1, "implementing",
-            f"{today}T10:00:00Z", task_num=2, from_status="planned",
+            test_db_path,
+            "yoke",
+            1,
+            "implementing",
+            f"{today}T10:00:00Z",
+            task_num=2,
+            from_status="planned",
         )
         insert_transition(
-            test_db_path, "yoke", 1, "done",
-            f"{today}T11:00:00Z", task_num=2,
+            test_db_path,
+            "yoke",
+            1,
+            "done",
+            f"{today}T11:00:00Z",
+            task_num=2,
             from_status="reviewed-implementation",
         )
         with BoardDB(test_db_path) as db:
@@ -165,43 +183,6 @@ class TestRenderVelocityMeter:
             "seeded done transition must light today's delivery slot"
         )
 
-    def test_meter_serves_legacy_payloads_without_shared_series(
-        self, monkeypatch
-    ):
-        """A replay payload recorded before the shared-series cutover
-        routes to the retained legacy query shapes instead of missing
-        loudly mid-rollout."""
-        from yoke_contracts.board import widgets_velocity_meter as meter
-
-        class _LegacyOnlyReplay:
-            def has_query(self, sql, params=None):
-                return False
-
-            def query_quiet(self, sql, params=None):
-                if sql.startswith("SELECT id FROM projects"):
-                    return [(1,)]
-                return []
-
-            def query(self, sql, params=None):
-                raise AssertionError(
-                    "shared-series query issued against a legacy payload"
-                )
-
-        today = datetime.now(UTC).date().isoformat()
-        legacy = ({today: 3}, {}, {}, {})
-        monkeypatch.setattr(
-            meter,
-            "_legacy_series",
-            lambda db, scope, project_ids, days, dates: legacy,
-        )
-        rows = meter.render_velocity_meter(
-            _LegacyOnlyReplay(), BoardConfig(), "all"
-        )
-        assert rows is not None and len(rows) == 4
-        assert rows[0].split(" ")[1][-1] != "▁", (
-            "legacy activity counts must still light the sparkline"
-        )
-
     def test_strategy_row_reads_saved_doc_revisions(self, test_db_path):
         """The strategy row is sourced from saved revisions, so it holds
         its value past event retention: a revision saved today lights the
@@ -213,17 +194,34 @@ class TestRenderVelocityMeter:
 
         now = _now_iso()
         today = now[:10]
-        insert_item_raw(test_db_path, [
-            (1, "epic-1", "implementing", "epic", "yoke", 0, now, now),
-        ])
-        insert_doc_revision(
-            test_db_path, "yoke", "MISSION", 1, 100, f"{today}T09:00:00Z",
+        insert_item_raw(
+            test_db_path,
+            [
+                (1, "epic-1", "implementing", "epic", "yoke", 0, now, now),
+            ],
         )
         insert_doc_revision(
-            test_db_path, "yoke", "MISSION", 2, 4200, f"{today}T10:00:00Z",
+            test_db_path,
+            "yoke",
+            "MISSION",
+            1,
+            100,
+            f"{today}T09:00:00Z",
         )
         insert_doc_revision(
-            test_db_path, "externalwebapp", "MISSION", 1, 9000,
+            test_db_path,
+            "yoke",
+            "MISSION",
+            2,
+            4200,
+            f"{today}T10:00:00Z",
+        )
+        insert_doc_revision(
+            test_db_path,
+            "externalwebapp",
+            "MISSION",
+            1,
+            9000,
             f"{today}T09:00:00Z",
         )
         with BoardDB(test_db_path) as db:
@@ -251,10 +249,13 @@ class TestRenderAgeHeatmap:
         now_dt = datetime.now(UTC)
         now = now_dt.isoformat()
         week_ago = (now_dt - timedelta(days=5)).isoformat()
-        insert_item_raw(test_db_path, [
-            (1, "fresh", "implementing", "issue", "yoke", 0, now, now),
-            (2, "old", "implementing", "issue", "yoke", 0, week_ago, week_ago),
-        ])
+        insert_item_raw(
+            test_db_path,
+            [
+                (1, "fresh", "implementing", "issue", "yoke", 0, now, now),
+                (2, "old", "implementing", "issue", "yoke", 0, week_ago, week_ago),
+            ],
+        )
         with BoardDB(test_db_path) as db:
             result = render_age_heatmap(db, BoardConfig(), "yoke")
         assert result is not None
@@ -262,9 +263,12 @@ class TestRenderAgeHeatmap:
 
     def test_done_excluded(self, test_db_path):
         now = _now_iso()
-        insert_item_raw(test_db_path, [
-            (1, "done-item", "done", "issue", "yoke", 0, now, now),
-        ])
+        insert_item_raw(
+            test_db_path,
+            [
+                (1, "done-item", "done", "issue", "yoke", 0, now, now),
+            ],
+        )
         with BoardDB(test_db_path) as db:
             result = render_age_heatmap(db, BoardConfig(), "yoke")
         assert result is None
@@ -283,11 +287,14 @@ class TestRenderWorkflowBadges:
 
     def test_with_items(self, test_db_path):
         now = _now_iso()
-        insert_item_raw(test_db_path, [
-            (1, "a", "implementing", "issue", "yoke", 0, now, now),
-            (2, "b", "implementing", "epic", "yoke", 0, now, now),
-            (3, "c", "implementing", "issue", "yoke", 0, now, now),
-        ])
+        insert_item_raw(
+            test_db_path,
+            [
+                (1, "a", "implementing", "issue", "yoke", 0, now, now),
+                (2, "b", "implementing", "epic", "yoke", 0, now, now),
+                (3, "c", "implementing", "issue", "yoke", 0, now, now),
+            ],
+        )
         with BoardDB(test_db_path) as db:
             result = render_workflow_badges(db, BoardConfig(), "yoke")
         assert result is not None
@@ -296,10 +303,13 @@ class TestRenderWorkflowBadges:
 
     def test_scoped(self, test_db_path):
         now = _now_iso()
-        insert_item_raw(test_db_path, [
-            (1, "a", "implementing", "issue", "yoke", 0, now, now),
-            (2, "b", "implementing", "issue", "externalwebapp", 0, now, now),
-        ])
+        insert_item_raw(
+            test_db_path,
+            [
+                (1, "a", "implementing", "issue", "yoke", 0, now, now),
+                (2, "b", "implementing", "issue", "externalwebapp", 0, now, now),
+            ],
+        )
         with BoardDB(test_db_path) as db:
             result = render_workflow_badges(db, BoardConfig(), "externalwebapp")
         assert result is not None

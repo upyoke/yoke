@@ -27,6 +27,45 @@ class _PreHostError(RuntimeError):
 
 
 class TestReasonCarriesTheDiagnosis:
+    def test_long_begin_refusal_releases_execution_and_keeps_full_error(self) -> None:
+        from yoke_core.domain.handlers.qa_plan_execution_models import (
+            PlanExecutionAbortRequest,
+        )
+        from yoke_core.domain.qa_plan_execution import QaPlanExecutionError
+        from yoke_core.domain.qa_plan_execution_begin_validation import (
+            release_unusable_execution,
+        )
+
+        diagnostic = (
+            "deployment_target_drifted: expected "
+            + "a" * 40
+            + "; live "
+            + "b" * 40
+            + "; inspect the frozen release. " * 20
+        )
+        requests = []
+
+        def abort(**kwargs):
+            assert kwargs["function_id"] == "qa.plan_execution.abort"
+            requests.append(PlanExecutionAbortRequest(**kwargs["payload"]))
+            return {"state": "aborted"}
+
+        refusal = release_unusable_execution(
+            abort,
+            target=None,
+            execution_id="begun-execution",
+            subject_flag="--deployment-run-id run-example",
+            actor=None,
+            error=QaPlanExecutionError(diagnostic),
+        )
+        assert len(requests) == 1
+        assert len(requests[0].reason) == 200
+        assert abort_reason_code(requests[0].reason) == UNUSABLE_BEGIN_REASON
+        assert "deployment_target_drifted" in requests[0].reason
+        assert diagnostic.strip() in str(refusal)
+        assert "has been released" in str(refusal)
+        assert "correct the plan or the arguments and re-run" in str(refusal)
+
     def test_long_case_error_can_be_recorded_without_losing_its_code(self) -> None:
         from yoke_core.domain.handlers.qa_plan_execution import (
             PlanExecutionAbortRequest,

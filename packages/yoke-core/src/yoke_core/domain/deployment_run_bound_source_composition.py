@@ -37,7 +37,6 @@ from yoke_core.domain.deployment_run_candidate_containment import (
     CandidateContainment,
 )
 from yoke_core.domain.json_helper import dumps_compact
-from yoke_core.domain.schema_common import _column_exists
 
 
 @dataclass(frozen=True)
@@ -113,8 +112,6 @@ def _preview_containment(
     project_ids: frozenset[int],
     members: set[int],
 ) -> dict[str, Any] | None:
-    if not _column_exists(conn, "deployment_runs", "candidate_containment"):
-        return None
     stored = conn.execute(
         "SELECT candidate_containment FROM deployment_runs WHERE id=%s", (run_id,)
     ).fetchone()[0]

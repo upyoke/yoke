@@ -19,7 +19,7 @@ def test_only_version_tag_pushes_trigger_release():
     text = _text()
     trigger = text[text.index("on:\n") : text.index("\nconcurrency:")]
     assert "push:" in trigger
-    assert '      - "v*"' in trigger
+    assert '      - "[0-9]*"' in trigger
     assert "pull_request" not in trigger
     assert "workflow_dispatch" not in trigger
     assert "branches:" not in trigger
@@ -53,44 +53,41 @@ def test_tag_must_have_local_version_exact_commit_and_tag_notes():
     assert "docs/releases/$TAG_NAME.md" not in text
 
 
-def test_release_reuses_attested_wheel_factory_with_only_signing_scope():
+def test_release_promotes_main_factory_without_build_or_signing_authority():
     text = _text()
-    assert "uses: ./.github/workflows/yoke-build-artifacts.yml" in text
-    build_start = text.index("  build:\n")
-    release_start = text.index("  release:\n")
-    build_block = text[build_start:release_start]
-    assert "needs: validate-tag" in build_block
-    assert "contents: read" in build_block
-    assert "attestations: write" in build_block
-    assert "id-token: write" in build_block
-    assert "actions: read" in build_block
-    assert "contents: write" not in build_block
-    assert "secrets: inherit" not in build_block
+    assert "uses: ./.github/workflows/yoke-build-artifacts.yml" not in text
+    assert "  build:" not in text
+    release = text[text.index("  release:\n") :]
+    assert "needs: validate-tag" in release
+    assert "actions: read" in release
+    assert "attestations: read" in release
+    assert "attestations: write" not in text
+    assert "id-token: write" not in text
+    assert "secrets: inherit" not in text
+    assert "promote_main_artifacts.py wheels" in release
+    assert '--source-sha "$GITHUB_SHA"' in release
+    assert '--version "$RELEASE_VERSION"' in release
 
 
-def test_built_version_and_transferred_wheels_are_reverified():
-    text = _text()
-    assert "name: ${{ needs.build.outputs.artifact_name }}" in text
-    assert '[[ "$TAG_NAME" != "v$RELEASE_VERSION" ]]' in text
-    assert 'records_path = root / "release-records.json"' in text
-    assert "python3 -I - <<'PY'" in text
-    assert 'actual = {path.name for path in wheels_dir.glob("*.whl")}' in text
-    assert "if actual != expected:" in text
-    assert "hashlib.sha256(body).hexdigest()" in text
-    assert 'int(record["size"])' in text
-    assert 'gh attestation verify "$wheel"' in text
-    assert (
-        '--signer-workflow "$GITHUB_REPOSITORY/.github/workflows/yoke-build-artifacts.yml"'
-        in text
-    )
-    assert '--source-ref "$GITHUB_REF"' in text
-    assert '--source-digest "$GITHUB_SHA"' in text
-    assert "--deny-self-hosted-runners" in text
+def test_transferred_wheels_are_reverified_by_publication_helper():
+    helper = (
+        _ROOT / "packages/yoke-core/src/yoke_core/tools/promote_main_artifacts.py"
+    ).read_text()
+    assert '"release-records.json"' in helper
+    assert 'root / "wheels"' in helper
+    assert "hashlib.sha256" in helper
+    assert 'len(content) != record["size"]' in helper
+    assert '"--signer-workflow"' in helper
+    assert 'f"{repo}/.github/workflows/{workflow}"' in helper
+    assert '"--source-ref",\n        "refs/heads/main"' in helper
+    assert '"--source-digest",\n        source' in helper
+    assert '"--deny-self-hosted-runners"' in helper
+    assert '"yoke-build-artifacts.yml"' in helper
 
 
 def test_release_creation_uses_tag_notes_and_validated_assets():
     text = _text()
-    verify_index = text.index("Verify tag, manifest, and transferred wheel bytes")
+    verify_index = text.index("Promote verified main-push wheel bytes")
     remote_check_index = text.index(
         "Re-resolve the tag and create the GitHub Release entry"
     )
@@ -132,8 +129,7 @@ def test_public_operator_doc_teaches_current_release_and_verification():
     assert "gh attestation verify ./yoke_core-*.whl" in text
     assert "oci://ghcr.io/upyoke/yoke-server@sha256:<digest>" in text
     assert '--source-ref "$release_ref"' in text
-    assert '--source-ref "refs/tags/$tag"' in text
-    assert '--source-ref "refs/tags/$image_tag"' in text
+    assert text.count("--source-ref refs/heads/main") == 2
     assert text.count("--source-digest") == 3
     assert "--deny-self-hosted-runners" in text
     contributing = (_ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")

@@ -51,6 +51,7 @@ function bandItem({ itemId, item }, facts = {}) {
     project_id: 1,
     project_sequence: itemId - 400,
     workflow_id: "issue",
+    delivery_policy: "release_stage",
     deployment_flow: FLOW,
     created_at: ago(6),
     updated_at: ago(1),
@@ -197,6 +198,9 @@ for (const band of BANDS) {
     stubFetch(t);
     const { mounted, box } = await mountBand(band, () => [], {
       completion_environment: "prod",
+      completion_flow: FLOW,
+      completion_flow_source: "project_default",
+      deployment_flow: { value: FLOW, source: "project_default" },
     });
     t.after(() => mounted.unmount());
     assert.equal(byClass(box, "item-deployment-environment")[0].textContent, "prod");
@@ -269,6 +273,59 @@ for (const band of BANDS) {
   });
 }
 
+
+function cardIn(root, band) {
+  return byClass(byClass(root, `work-band-${band.key}`)[0], "work-item-card")[0];
+}
+
+test("cancelled work with only an inherited flow has no delivery box", async (t) => {
+  stubFetch(t);
+  const band = BANDS[1];
+  const { mounted, root } = await mountBand(band, () => [], {
+    status: "cancelled",
+    completion_flow: FLOW,
+    completion_flow_source: "project_default",
+    deployment_flow: { value: FLOW, source: "project_default" },
+    completion_environment: "prod",
+  });
+  t.after(() => mounted.unmount());
+  assert.equal(byClass(cardIn(root, band), "item-delivery").length, 0);
+});
+
+test("a workflow that owes no delivery and has no history has no delivery box", async (t) => {
+  stubFetch(t);
+  for (const band of BANDS) {
+    const { mounted, root } = await mountBand(band, () => [], {
+      delivery_policy: "merge_free",
+      completion_flow: FLOW,
+      completion_flow_source: "project_default",
+      deployment_flow: { value: FLOW, source: "project_default" },
+      completion_environment: "prod",
+    });
+    assert.equal(byClass(cardIn(root, band), "item-delivery").length, 0);
+    mounted.unmount();
+  }
+});
+
+test("recorded delivery stays visible and does not promise a next release", async (t) => {
+  stubFetch(t);
+  const band = BANDS[1];
+  for (const facts of [
+    { status: "cancelled" },
+    { delivery_policy: "merge_free" },
+  ]) {
+    const { mounted, box } = await mountBand(band, (itemId) => [run("run-prod", itemId)], {
+      ...facts,
+      completion_environment: "prod",
+      completion_flow: FLOW,
+      completion_flow_source: "project_default",
+    });
+    assert.equal(byClass(box, "item-deployment-environment")[0].textContent, "prod");
+    assert.equal(byClass(box, "item-deployment-outcome")
+      .some((node) => node.textContent.includes("not yet")), false);
+    mounted.unmount();
+  }
+});
 
 test("compact delivery summary joins runs by complete public ref", async () => {
   const { deliverySummary } = await import(

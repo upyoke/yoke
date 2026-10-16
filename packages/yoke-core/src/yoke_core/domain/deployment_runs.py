@@ -14,7 +14,6 @@ from yoke_core.domain.deployment_runs_schema import (  # noqa: F401
     RUN_FIELDS,
     UPDATABLE_FIELDS,
     VALID_ENV_TYPES,
-    VALID_QA_STATUSES,
     VALID_STATUSES,
     _RUN_SELECT,
     _pipe_row,
@@ -46,13 +45,6 @@ from yoke_core.domain.deployment_runs_lineage import (  # noqa: F401
     cmd_lineage_final_status,
 )
 
-# QA checks on the run
-from yoke_core.domain.deployment_runs_qa import (  # noqa: F401
-    cmd_qa_add,
-    cmd_qa_list,
-    cmd_qa_update,
-)
-
 # Composition / batch validation
 from yoke_core.domain.deployment_runs_validation import (  # noqa: F401
     cmd_check_batch_compatibility,
@@ -81,7 +73,6 @@ __all__ = [
     "RUN_FIELDS",
     "UPDATABLE_FIELDS",
     "VALID_ENV_TYPES",
-    "VALID_QA_STATUSES",
     "VALID_STATUSES",
     "cmd_add_item",
     "cmd_can_cleanup_preview",
@@ -101,9 +92,6 @@ __all__ = [
     "cmd_preview_check",
     "cmd_preview_claim",
     "cmd_preview_release",
-    "cmd_qa_add",
-    "cmd_qa_list",
-    "cmd_qa_update",
     "cmd_remove_item",
     "cmd_resolve_target",
     "cmd_update",

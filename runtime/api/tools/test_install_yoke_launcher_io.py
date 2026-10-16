@@ -35,14 +35,6 @@ def test_refuse_foreign_binary_accepts_pip_console_script(tmp_path: Path):
     isl.refuse_foreign_binary(target)
 
 
-def test_refuse_foreign_binary_accepts_legacy_runtime_launcher(tmp_path: Path):
-    target = tmp_path / "yoke"
-    target.write_text(
-        "#!/usr/bin/env python3\nfrom runtime.api.cli.yoke_operations_cli import main\n"
-    )
-    isl.refuse_foreign_binary(target)
-
-
 def test_refuse_foreign_binary_refuses_non_script(tmp_path: Path):
     target = tmp_path / "yoke"
     target.write_bytes(b"\x7fELF\x02\x01\x01\x00")

@@ -58,14 +58,14 @@ def test_successful_pin_installs_a_wheel_then_repoints_the_active_release(
 
     status = pin_relay_release(
         instance=instance,
-        served_build=f"v{RELEASE}",
+        served_build=RELEASE,
         create_venv=fake_venv,
         runner=runner_for(RELEASE, calls),
     )
 
     assert status.current
     assert status.pinned_release == RELEASE
-    assert status.served_build == f"v{RELEASE}"
+    assert status.served_build == RELEASE
     assert status.launch_executable == instance.state_dir / "venv" / "bin" / "yoke"
     assert status.runtime_executable == instance.state_dir / "runtime" / "bin" / "yoke"
     assert status.runtime_python == instance.state_dir / "runtime" / "bin" / "python"
@@ -79,9 +79,10 @@ def test_successful_pin_installs_a_wheel_then_repoints_the_active_release(
         f"#!{status.runtime_python} -I\n"
     )
     install = calls[0]
+    encoded_release = RELEASE.replace("+", "%2B")
     assert install[-4:] == [
-        f"https://wheels.example.test/dist/releases/{RELEASE}/wheels/"
-        f"yoke_{name}-{RELEASE}-py3-none-any.whl"
+        f"https://wheels.example.test/dist/releases/{encoded_release}/wheels/"
+        f"yoke_{name}-{encoded_release}-py3-none-any.whl"
         for name in ("contracts", "cli", "harness", "core")
     ]
     assert "--extra-index-url" not in install
@@ -94,7 +95,7 @@ def test_same_served_build_reuses_the_verified_install(tmp_path: Path) -> None:
 
     reused = pin_relay_release(
         instance=instance,
-        served_build=f"v{RELEASE}",
+        served_build=RELEASE,
         create_venv=lambda _path: pytest.fail("same release created another venv"),
         runner=reuse_only_runner(RELEASE),
     )
@@ -114,7 +115,7 @@ def test_existing_release_link_converges_to_the_stable_runtime(
         {
             "schema": 1,
             "pinned_release": RELEASE,
-            "served_build": f"v{RELEASE}",
+            "served_build": RELEASE,
             "distribution_index": "https://relay.example.test/simple/",
         },
     )
@@ -124,7 +125,7 @@ def test_existing_release_link_converges_to_the_stable_runtime(
     with pytest.raises(RelayReleaseError, match="runtime unavailable"):
         pin_relay_release(
             instance=instance,
-            served_build=f"v{RELEASE}",
+            served_build=RELEASE,
             create_runtime=lambda _path: (_ for _ in ()).throw(
                 OSError("runtime unavailable")
             ),
@@ -135,7 +136,7 @@ def test_existing_release_link_converges_to_the_stable_runtime(
 
     status = pin_relay_release(
         instance=instance,
-        served_build=f"v{RELEASE}",
+        served_build=RELEASE,
         create_venv=lambda _path: pytest.fail("working release was reinstalled"),
         runner=reuse_only_runner(RELEASE),
     )
@@ -158,7 +159,7 @@ def test_fetch_failure_keeps_the_last_working_install_and_records_recovery(
     instance = relay_instance(tmp_path)
     installed = pin_relay_release(
         instance=instance,
-        served_build=f"v{RELEASE}",
+        served_build=RELEASE,
         create_venv=fake_venv,
         runner=runner_for(RELEASE, []),
     )
@@ -172,7 +173,7 @@ def test_fetch_failure_keeps_the_last_working_install_and_records_recovery(
     with pytest.raises(RelayReleaseError) as raised:
         pin_relay_release(
             instance=instance,
-            served_build=f"v{NEXT_RELEASE}",
+            served_build=NEXT_RELEASE,
             create_venv=fake_venv,
             runner=fail,
         )
@@ -193,7 +194,7 @@ def test_local_install_failure_keeps_the_last_working_release(tmp_path: Path) ->
     instance = relay_instance(tmp_path)
     pin_relay_release(
         instance=instance,
-        served_build=f"v{RELEASE}",
+        served_build=RELEASE,
         create_venv=fake_venv,
         runner=runner_for(RELEASE, []),
     )
@@ -202,7 +203,7 @@ def test_local_install_failure_keeps_the_last_working_release(tmp_path: Path) ->
     with pytest.raises(RelayReleaseError) as raised:
         pin_relay_release(
             instance=instance,
-            served_build=f"v{NEXT_RELEASE}",
+            served_build=NEXT_RELEASE,
             create_venv=lambda _path: (_ for _ in ()).throw(
                 OSError("venv directory unavailable")
             ),
@@ -219,7 +220,7 @@ def test_state_directory_failure_is_named_with_recovery(tmp_path: Path) -> None:
     instance.state_dir.write_text("not a directory", encoding="utf-8")
 
     with pytest.raises(RelayReleaseError) as raised:
-        pin_relay_release(instance=instance, served_build=f"v{RELEASE}")
+        pin_relay_release(instance=instance, served_build=RELEASE)
 
     assert raised.value.code == RELAY_RELEASE_INSTALL_FAILED
     assert "FileExistsError" in str(raised.value)
@@ -232,7 +233,7 @@ def test_status_compares_the_pinned_release_with_a_fresh_handshake(
     instance = relay_instance(tmp_path)
     pin_relay_release(
         instance=instance,
-        served_build=f"v{RELEASE}",
+        served_build=RELEASE,
         create_venv=fake_venv,
         runner=runner_for(RELEASE, []),
     )
@@ -253,7 +254,7 @@ def test_status_never_treats_a_stale_served_build_as_a_fresh_handshake(
     instance = relay_instance(tmp_path)
     pin_relay_release(
         instance=instance,
-        served_build=f"v{RELEASE}",
+        served_build=RELEASE,
         create_venv=fake_venv,
         runner=runner_for(RELEASE, []),
     )
@@ -313,7 +314,7 @@ def test_broken_matching_release_is_rebuilt_from_a_verified_candidate(
 
     rebuilt = pin_relay_release(
         instance=instance,
-        served_build=f"v{RELEASE}",
+        served_build=RELEASE,
         create_venv=fake_venv,
         runner=recovering,
     )
@@ -335,7 +336,7 @@ def test_broken_release_rebuild_failure_keeps_the_prior_pointer(
     with pytest.raises(RelayReleaseError) as raised:
         pin_relay_release(
             instance=instance,
-            served_build=f"v{RELEASE}",
+            served_build=RELEASE,
             create_venv=lambda _path: (_ for _ in ()).throw(OSError("disk full")),
             runner=always_broken,
         )

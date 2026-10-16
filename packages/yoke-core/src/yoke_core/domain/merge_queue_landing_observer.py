@@ -13,8 +13,8 @@ So the pull request is recorded when it is opened
 (:mod:`yoke_core.domain.merge_queue_landing_pending`), and this observer
 reads GitHub for every non-terminal item that has one. Relay upkeep and a
 waiting lane both call it, while the project cadence row makes those callers
-share one GitHub sweep. A merge stamps the item's landing facts once and
-notifies whoever owns the lane
+share one GitHub sweep. A merge stamps the item's landing facts and current
+PR receipt identity atomically, then notifies whoever owns the lane
 (:mod:`yoke_core.domain.merge_queue_landing_notice`). Nothing here
 transitions an item: close-out is evidence-bound work that belongs to a
 claim holder, and a landing recorded without it is exactly the state the
@@ -49,6 +49,7 @@ from yoke_core.domain.merge_queue_landing_record import (
     write_landing_record,
 )
 from yoke_core.domain.merge_queue_landing_record_state import ENTRY_CHECKS_FAILED
+from yoke_core.domain.merge_queue_landing_identity import stamp_landing
 from yoke_core.domain.merge_queue_landing_refresh import (
     REFRESH_CADENCE_SECONDS,
     claim_due_projects,
@@ -151,12 +152,7 @@ def observe_pending_landings(
                         f"WHERE id={marker} AND merge_queue_pr_number={marker} "
                         "AND NULLIF(CAST(merge_queue_enqueued_at AS TEXT),'') IS NULL",
                         (
-                            instant_parameter(
-                                conn,
-                                episode,
-                                table="items",
-                                column="merge_queue_enqueued_at",
-                            ),
+                            instant_parameter(conn, episode),
                             item_id,
                             pr_number,
                         ),
@@ -232,12 +228,7 @@ def observe_pending_landings(
                         (
                             item_id,
                             pr_number,
-                            instant_parameter(
-                                conn,
-                                episode,
-                                table="items",
-                                column="merge_queue_enqueued_at",
-                            ),
+                            instant_parameter(conn, episode),
                         ),
                     )
                 result["ejected"] += 1
@@ -253,31 +244,13 @@ def observe_pending_landings(
             merge_commit = state.merge_commit_sha if state is not None else ""
             prior_landing = row.get("merge_queue_landed_at") or None
             if prior_landing is None:
-                # merged_at is assigned, not coalesced: the guard below fires
-                # this once per landing, so the only value it could preserve
-                # belongs to a landing this item has already replaced -- an
-                # item repointed at a second pull request would otherwise go
-                # on reporting the first one's merge time forever.
-                cursor = conn.execute(
-                    f"UPDATE items SET merge_queue_landed_at={marker}, "
-                    f"merged_at={marker} "
-                    f"WHERE id={marker} AND merge_queue_pr_number={marker} "
-                    "AND NULLIF(CAST(merge_queue_landed_at AS TEXT),'') IS NULL",
-                    (
-                        instant_parameter(
-                            conn,
-                            landed_at,
-                            table="items",
-                            column="merge_queue_landed_at",
-                        ),
-                        instant_parameter(
-                            conn, landed_at, table="items", column="merged_at"
-                        ),
-                        item_id,
-                        pr_number,
-                    ),
-                )
-                if not cursor.rowcount:
+                if not stamp_landing(
+                    conn,
+                    item_id=item_id,
+                    pr_number=pr_number,
+                    state=state,
+                    landed_at=landed_at,
+                ):
                     conn.rollback()
                     continue
                 result["landed"] += 1
@@ -303,12 +276,7 @@ def observe_pending_landings(
                     f"WHERE id={marker} AND merge_queue_pr_number={marker} "
                     "AND NULLIF(CAST(merge_queue_notified_at AS TEXT),'') IS NULL",
                     (
-                        instant_parameter(
-                            conn,
-                            current,
-                            table="items",
-                            column="merge_queue_notified_at",
-                        ),
+                        instant_parameter(conn, current),
                         item_id,
                         pr_number,
                     ),

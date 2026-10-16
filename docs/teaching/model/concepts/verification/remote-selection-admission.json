@@ -1,0 +1,7 @@
+{
+ "id": "remote-selection-admission",
+ "title": "Remote iteration and the registered full CI gate",
+ "status": "observed",
+ "sources": ["packages/yoke-core/src/yoke_core/tools/pytest_remote_selection.py", "packages/yoke-core/src/yoke_core/tools/pytest_remote_full_scope.py", "docs/testing-verification/full-suite-authority.md", "runtime/api/tools/test_pytest_remote_full_scope.py"],
+ "summary": "The shared router refuses proven unfiltered coverage of every declared test root before publishing or dispatching when the registered full CI gate is available. Recovery names the attached QA requirement or its lookup. Iterate with targeted files/node IDs or bounded impacted selection, then execute the attached full gate once. Nonempty keyword/marker filters, collect-only, CI execution and explicit local outage checks retain their routes; empty effective expressions are diagnosed. Source behavior and focused fixture tests do not establish deployed proof."
+}

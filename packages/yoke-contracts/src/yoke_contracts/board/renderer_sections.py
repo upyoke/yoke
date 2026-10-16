@@ -48,7 +48,27 @@ def render_board_sections(
             "SELECT MAX(id) FROM items WHERE 1=1" + project_sql,
             project_params,
         )
-    max_id_width = len(str(max_numid or 0)) + 4
+    return render_item_sections(
+        config,
+        buckets,
+        epic_task_counts,
+        epic_task_rows_by_epic,
+        len(str(max_numid or 0)) + 4,
+        phase_recorder,
+        celebration,
+    )
+
+
+def render_item_sections(
+    config: BoardConfig,
+    buckets: Dict[str, List[ItemRow]],
+    epic_task_counts: Dict[int, int],
+    epic_task_rows_by_epic: Mapping[int, Sequence[EpicTaskRow]],
+    max_id_width: int,
+    phase_recorder: PhaseRecorder | None = None,
+    celebration: Optional[str] = None,
+) -> Tuple[List[str], int]:
+    """Lay out named item and task facts without querying storage."""
 
     lines: List[str] = []
     rendered_expected_tasks = 0
@@ -77,7 +97,7 @@ def render_board_sections(
                 heading,
                 rendered_items,
                 epic_task_counts,
-                db,
+                None,
                 section_emoji,
                 max_id_width,
                 epic_task_rows_by_epic,
@@ -101,4 +121,4 @@ def _count_rendered_epic_tasks(
     return total
 
 
-__all__ = ["render_board_sections"]
+__all__ = ["render_board_sections", "render_item_sections"]

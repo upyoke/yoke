@@ -3,10 +3,9 @@
 The write side of :mod:`yoke_core.domain.session_actor_binding`. Reading
 a binding happens on every session registration; writing one happens at
 the few moments that actually know the answer — universe birth, universe
-import, the operator's own bind command, and the doctor repair for a
-single-owner universe that predates the binding.
+import, and the operator's explicit bind command.
 
-Both writers refuse rather than record something a later reader could
+Writers refuse rather than record something a later reader could
 not prove: a binding is only as good as the universe it names, so a
 control plane that cannot state its own identity gets no binding at all.
 """
@@ -18,7 +17,6 @@ from typing import Any, Optional
 from yoke_contracts.machine_config import runtime as machine_config
 from yoke_contracts.machine_config.schema_connections import (
     MachineConfigContractError,
-    operating_actor_binding,
     with_operating_actor_binding,
 )
 from yoke_core.domain.session_actor_binding import _selected_env
@@ -35,7 +33,7 @@ def persist_operating_actor(
     """Record *actor_id* as this machine's operating actor for a connection.
 
     Called by the paths that already know the answer — universe birth,
-    universe import, the doctor repair, and the operator's own bind
+    universe import and the operator's own bind
     command — so that every later session reads an id instead of guessing
     from a login or a name. Returns ``(env, universe)`` as recorded.
 
@@ -69,47 +67,4 @@ def persist_operating_actor(
     return selected, universe
 
 
-def converge_operating_actor_binding(
-    conn: Any,
-    *,
-    env: Optional[str] = None,
-    config_path: Any = None,
-) -> Optional[int]:
-    """Record the binding a single-owner universe leaves in no doubt.
-
-    The one-time conversion for a machine whose universe predates the
-    binding: exactly one human actor means there is nothing to choose
-    between, so the id is recorded once and read by id forever after.
-    Returns the actor recorded, or ``None`` when there was nothing to
-    converge — a binding already exists, the universe carries several
-    humans (the operator says which), or no env is selected.
-
-    Deliberately not reached from :func:`resolve_operating_actor`. A
-    conversion that ran on every resolution would be a standing fallback,
-    and a standing fallback silently re-answers the identity question
-    every time the recorded answer stops matching — which is exactly the
-    moment somebody needs to be told.
-    """
-    from yoke_core.domain.actors import sole_human_actor_id
-
-    selected = _selected_env(env, config_path)
-    if not selected:
-        return None
-    try:
-        payload = machine_config.load_config(config_path)
-    except Exception:  # noqa: BLE001 — an unreadable config converges nothing
-        return None
-    existing, _universe = operating_actor_binding(payload, selected)
-    if existing is not None:
-        return None
-    actor_id = sole_human_actor_id(conn)
-    if actor_id is None:
-        return None
-    persist_operating_actor(conn, actor_id, env=selected, config_path=config_path)
-    return actor_id
-
-
-__all__ = [
-    "converge_operating_actor_binding",
-    "persist_operating_actor",
-]
+__all__ = ["persist_operating_actor"]

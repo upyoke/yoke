@@ -58,6 +58,10 @@ from yoke_core.domain.deployment_run_unpassable_blocking_qa import (
     PinQaDiagnosis,
     diagnose_unpassable_blocking_qa,
 )
+from yoke_core.domain.deployment_run_completion_preview import (
+    CompletionPreview,
+    completion_preview,
+)
 from yoke_core.domain.runs import RunStatus
 from yoke_core.domain.schema_read_scope import composition_operation
 from yoke_core.domain.steering_fleet_report_deployment_run_facts import (
@@ -135,6 +139,7 @@ class DeploymentRunProgress:
     #: whether its owner was woken. The per-requirement detail stays on
     #: ``yoke deployment-runs stages RUN``.
     member_lines: tuple[str, ...] = ()
+    completion: CompletionPreview = CompletionPreview()
 
     @property
     def needs_action(self) -> bool:
@@ -154,10 +159,17 @@ class DeploymentRunProgress:
             and not self.driver_phase
         )
         return (
-            bool(self.red) or self.answered_decision is not None or waiting_to_be_driven
+            self.completion.blocked
+            or bool(self.red)
+            or self.answered_decision is not None
+            or waiting_to_be_driven
         )
 
     def recovery(self) -> str:
+        if recovery := self.completion.recovery(self.run_id):
+            return recovery
+        if self.driver_phase:
+            return f"Live driver {self.driver_phase} owns this run; read its progress before recovery."
         if self.pin_qa.unpassable:
             return self.pin_qa.supersede_recovery(self.run_id)
         if self.status == RunStatus.CREATED and self.outstanding == 0:
@@ -291,6 +303,7 @@ def run_progress(
                 ),
                 driver_phase=driver_phase,
                 member_lines=member_lines,
+                completion=completion_preview(conn, run_id, run=run),
             )
         )
     return tuple(rows)

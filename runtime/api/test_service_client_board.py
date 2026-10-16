@@ -43,10 +43,6 @@ class TestClassifyStatus:
         assert result.returncode == 0
         assert result.stdout.strip() == "release"
 
-    def test_blocked_maps_to_blocked(self):
-        result = _run_client(["classify-status", "blocked"])
-        assert result.returncode == 0
-        assert result.stdout.strip() == "blocked"
 
     def test_reviewing_implementation_maps_to_reviewing(self):
         result = _run_client(["classify-status", "reviewing-implementation"])

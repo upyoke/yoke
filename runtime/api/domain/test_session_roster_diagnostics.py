@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 import sqlite3
+from runtime.api.domain.session_roster_test_support import add_launch_read_schema
 
 from yoke_core.domain.session_control_diagnostics import session_diagnostics
 from yoke_core.domain.session_control_roster import session_control_roster_result
@@ -85,6 +86,7 @@ def _connection() -> sqlite3.Connection:
         );
         """
     )
+    add_launch_read_schema(conn)
     return conn
 
 
@@ -95,7 +97,7 @@ def _add_session(
     envelope: dict | None = None,
 ) -> None:
     conn.execute(
-        "INSERT INTO harness_sessions VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO harness_sessions (session_id, project_id, executor_surface, executor_version, machine_id, last_heartbeat, last_tool_call_at, ended_at, terminated_at, turn_posture, turn_posture_at, offer_envelope, model, requested_model) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             session_id,
             1,
@@ -198,7 +200,7 @@ def test_roster_projects_latest_message_blockers_and_effective_ttl() -> None:
         "active_document_lock_count": 1,
     }
     assert by_session["claim-session"]["effective_stale_ttl_minutes"] is None
-    assert by_session["claim-session"]["stale_eligible_at"] is None
+    assert by_session["claim-session"]["activity_quiet_at"] is None
     assert by_session["lock-session"]["effective_stale_ttl_minutes"] == 1440
 
 
@@ -228,4 +230,4 @@ def test_killed_session_has_no_end_or_stale_diagnostic() -> None:
     )["terminated-session"]
 
     assert projected["end_blocker"] is None
-    assert projected["stale_eligible_at"] is None
+    assert projected["activity_quiet_at"] is None

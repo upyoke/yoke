@@ -4,7 +4,8 @@
  "status": "draft-copy",
  "sources": ["docs/public/reference/merge-queue-landings.md", "docs/public/reference/db-reference/item-landings.md", ".agents/skills/yoke/usher/SKILL.md"],
  "commands": ["yoke merge audit", "yoke merge item"],
- "functions": ["merge.lock.acquire", "merge.lock.list", "merge.lock.release", "merge.preflight.blocked_gate", "merge.preflight.dependency_gate", "merge.preflight.epic_task_statuses", "merge.prune.authority_verdict", "merge.prune.authority_verdicts", "merge.tests.post_rebase_requirement", "merge.tests.record_post_rebase_ci_run", "merge.tests.recorded_queue_receipt"],
+ "functions": ["merge.lock.acquire", "merge.lock.list", "merge.lock.release", "merge.preflight.blocked_gate", "merge.preflight.dependency_gate", "merge.preflight.epic_task_statuses", "merge.prune.authority_verdict", "merge.prune.authority_verdicts", "merge.tests.post_rebase_requirement", "merge.tests.record_post_rebase_ci_run", "merge.tests.recorded_queue_receipt", "merge.audit.snapshot"],
  "page": "merging",
- "position": 23
+ "position": 23,
+ "note": "The merge audit reads a project-scoped registered snapshot over HTTPS or local dispatch, then checks Git branches, dirt and conflicts on the client. It refuses an unavailable snapshot with a named recovery; source proof does not establish deployed availability."
 }

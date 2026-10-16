@@ -208,7 +208,8 @@ def _item_coordination_blockers(
     params: list[Any] = []
     if budget_join:
         params.append(FILE_BUDGET_SECTION)
-    params.extend([int(item["project_id"]), int(item["id"])])
+    terminal = tuple(sorted(_TERMINAL_STATUSES))
+    params.extend([int(item["project_id"]), int(item["id"]), *terminal])
     rows = _dict_rows(
         conn.execute(
             "SELECT i.id, i.status, COALESCE(i.frozen, 0) AS frozen, "
@@ -216,7 +217,9 @@ def _item_coordination_blockers(
             f"{worktree_select}{claim_select}{doc_select}{budget_select}"
             f" FROM items i"
             f"{worktree_join}{claim_join}{doc_join}{budget_join} "
-            f"WHERE i.project_id = {marker} AND i.id <> {marker}",
+            f"WHERE i.project_id = {marker} AND i.id <> {marker} "
+            f"AND COALESCE(i.status, '') NOT IN ({', '.join(marker for _ in terminal)}) "
+            "AND COALESCE(i.frozen, 0) = 0",
             tuple(params),
         )
     )
@@ -232,8 +235,6 @@ def _item_coordination_blockers(
     blockers: list[ConflictMatch] = []
     seen: set[tuple[str, int, str]] = set()
     for row in rows:
-        if str(row["status"]) in _TERMINAL_STATUSES or bool(row.get("frozen")):
-            continue
         declared = [
             *extract_file_budget_paths(f"{row['spec']}\n{row['execution_document']}"),
             *extract_file_budget_section_paths(

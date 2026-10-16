@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from yoke_contracts.timestamps import utc_now
 from typing import Any, Mapping, Optional
 
 from .session_reclaim_evidence import ReclaimActivityEvidence, ReclaimClassification
@@ -171,13 +172,17 @@ def latest_activity(
 
 
 def in_flight_activity_is_hard_stale(
-    activity_at: datetime | None, *, effective_ttl_minutes: int
+    activity_at: datetime | None,
+    *,
+    effective_ttl_minutes: int,
+    now: Optional[datetime] = None,
 ) -> bool:
     """Bound crashed in-flight markers while normal liveness remains protected."""
     return activity_is_stale(
         activity_at,
         executor=None,
         base_ttl_minutes=effective_ttl_minutes * IN_FLIGHT_HARD_TTL_MULTIPLIER,
+        now=now,
         executor_ttl_overrides={},
     )
 
@@ -187,11 +192,27 @@ def classify_reclaimable(
     session_id: str,
     *,
     claim_id: Optional[int] = None,
+    scope: str = SCOPE_ITEM_CLAIM,
     base_ttl_minutes: int = DEFAULT_STALE_THRESHOLD_MINUTES,
     overrides: Optional[Mapping[str, int]] = None,
     progress_threshold_minutes: Optional[int] = None,
 ) -> ReclaimClassification:
     """Classify whether ``session_id`` is reclaimable right now."""
+    if scope == SCOPE_SESSION_CLEANUP:
+        from .session_automatic_reclaim import automatic_reclaim, reclaim_facts
+        from .sessions_analytics_core import DEFAULT_PROGRESS_THRESHOLD_MINUTES
+
+        row = reclaim_facts(conn, [{"session_id": session_id}])[0]
+        return automatic_reclaim(
+            row,
+            stale_threshold_minutes=base_ttl_minutes,
+            executor_ttl_overrides=overrides,
+            progress_threshold_minutes=(
+                progress_threshold_minutes
+                if progress_threshold_minutes is not None
+                else DEFAULT_PROGRESS_THRESHOLD_MINUTES
+            ),
+        )
     evidence = read_activity_signals(
         conn,
         session_id,
@@ -200,46 +221,36 @@ def classify_reclaimable(
         overrides=overrides,
     )
 
+    from .session_cleanup_holdings import session_has_active_work_claim
+
+    return classify_activity(
+        evidence,
+        holds_work_claim=session_has_active_work_claim(conn, session_id),
+        progress_threshold_minutes=progress_threshold_minutes,
+    )
+
+
+def classify_activity(
+    evidence: ReclaimActivityEvidence,
+    *,
+    holds_work_claim: bool,
+    progress_threshold_minutes: Optional[int] = None,
+    now: Optional[datetime] = None,
+) -> ReclaimClassification:
+    """Decide from durable activity facts, shared by automatic and item reclaim."""
+    now = utc_now() if now is None else now
+    base_ttl_minutes = evidence.effective_ttl_minutes
     if evidence.ended_at is not None:
         return ReclaimClassification(True, REASON_ENDED, evidence)
 
-    from .session_cleanup_holdings import session_has_active_work_claim
-
-    if session_has_active_work_claim(conn, session_id):
+    if holds_work_claim:
         return ReclaimClassification(False, REASON_ACTIVE_WORK_CLAIM, evidence)
 
-    overrides_dict = dict(overrides) if overrides is not None else None
-    heartbeat_stale = activity_is_stale(
-        evidence.last_heartbeat,
-        executor=evidence.executor,
+    if not evidence.in_flight and activity_is_stale(
+        evidence.activity_at,
+        executor=None,
         base_ttl_minutes=base_ttl_minutes,
-        executor_ttl_overrides=overrides_dict,
-    )
-    event_stale = activity_is_stale(
-        evidence.last_event_at,
-        executor=evidence.executor,
-        base_ttl_minutes=base_ttl_minutes,
-        executor_ttl_overrides=overrides_dict,
-    )
-    claim_heartbeat_stale = activity_is_stale(
-        evidence.claim_last_heartbeat,
-        executor=evidence.executor,
-        base_ttl_minutes=base_ttl_minutes,
-        executor_ttl_overrides=overrides_dict,
-    )
-    claim_claimed_stale = activity_is_stale(
-        evidence.claim_claimed_at,
-        executor=evidence.executor,
-        base_ttl_minutes=base_ttl_minutes,
-        executor_ttl_overrides=overrides_dict,
-    )
-
-    if (
-        heartbeat_stale
-        and event_stale
-        and claim_heartbeat_stale
-        and claim_claimed_stale
-        and not evidence.in_flight
+        now=now,
     ):
         if evidence.activity_at is None:
             reason = REASON_NEVER_ENGAGED
@@ -265,6 +276,7 @@ def classify_reclaimable(
             executor=evidence.executor,
             base_ttl_minutes=progress_threshold_minutes,
             executor_ttl_overrides={},
+            now=now,
         )
         if progress_stale:
             return ReclaimClassification(
@@ -276,6 +288,7 @@ def classify_reclaimable(
     if evidence.in_flight and in_flight_activity_is_hard_stale(
         evidence.activity_at,
         effective_ttl_minutes=evidence.effective_ttl_minutes,
+        now=now,
     ):
         return ReclaimClassification(True, REASON_ABANDONED_IN_FLIGHT, evidence)
 

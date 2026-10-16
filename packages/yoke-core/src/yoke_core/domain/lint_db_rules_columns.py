@@ -63,7 +63,7 @@ if "# lint:no-column-check" not in command_stripped:
         ("epic_progress_notes", "note", "body"),
         ("deployment_runs", "item_id", "no such column — join through deployment_run_items"),
         ("deployment_run_items", "id", "no id column — composite PK: run_id + item_id"),
-        ("deployment_run_items", "deploy_stage", "junction table only — stage lives on items.deploy_stage (via python3 -m yoke_core.cli.db_router items update N deploy_stage VAL)"),
+        ("deployment_run_items", "deploy_stage", "junction table only — stage lives on items.deploy_stage through the registered deployment-run owner"),
         ("deployment_run_items", "current_stage", "junction table only — stage lives on deployment_runs.current_stage (via python3 -m yoke_core.domain.deployment_runs update RUN current_stage VAL)"),
         ("deployment_run_items", "status", "junction table only — status lives on items.status or deployment_runs.status"),
         ("events", "outcome", "event_outcome"),

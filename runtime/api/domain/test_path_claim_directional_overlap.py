@@ -1,39 +1,10 @@
 # ruff: noqa: F811
-"""End-to-end regression for the directional path-claim overlap contract.
-Covers three scenarios for the directional dependency classifier,
-exercised end-to-end across register / classify / repair / activate.
-
-Scenario (a): candidate as DEPENDENT of a non-coordination edge
-    candidate (cand) ``depends-on`` other (oth) ``activation``
-    -> classify_overlap returns ``SERIAL_VIA_DEPENDENCY``
-    -> register stores ``state='blocked'`` with the upstream pointer
-    -> repair leaves the row blocked (other still active)
-
-Scenario (b): candidate as BLOCKER (upstream-of-``blocks``)
-    candidate (cand) ``blocks`` other (oth) ``activation``
-    -> classify_overlap returns ``NONE``
-    -> register stores ``state='planned'`` (no operator override needed)
-    -> repair is a no-op (no blocked row exists)
-    -> directly mirrors the self-shape (claim 146 vs 139)
-
-Scenario (c): coordination_only edges in either direction
-    candidate <-> other coordination_only
-    -> classify_overlap returns ``NONE``
-    -> register stores ``state='planned'``
-    -> repair is a no-op
-
-Plus an explicit cross-surface consistency check: the hard-block
-dependency gate and ``classify_overlap`` agree on the upstream-of-blocks
-verdict — both surfaces say "candidate is upstream, does not wait."
-"""
+"""Registration respects dependency direction and coordination-only overlap."""
 
 from __future__ import annotations
 
 
 from yoke_core.domain.path_claims import register
-from yoke_core.domain.path_claims_blocked_coordination_repair import (
-    repair_coordination_only_blocked,
-)
 from yoke_core.domain.path_claims_overlap import (
     OverlapClassification,
     classify_overlap,
@@ -150,17 +121,6 @@ class TestScenarioA_CandidateDependent:
         ).fetchone()
         assert row[0] == "blocked"
 
-        repaired = repair_coordination_only_blocked(
-            conn,
-            item_id=cand_item,
-        )
-        assert repaired == []
-        row = conn.execute(
-            "SELECT state FROM path_claims WHERE id = %s",
-            (claim_id,),
-        ).fetchone()
-        assert row[0] == "blocked"
-
 
 class TestScenarioB_CandidateUpstreamOfBlocks:
     """(b) candidate is BLOCKER — classify_overlap == NONE ."""
@@ -170,10 +130,7 @@ class TestScenarioB_CandidateUpstreamOfBlocks:
         oth_item = _seed_item(conn, item_id=3003)
         cand_item = _seed_item(conn, item_id=3004)
         _seed_active_claim(conn, item_id=oth_item, target_id=target)
-        # Candidate BLOCKS other on activation — the cross-claim
-        # shape. The pre-directional classifier walked this edge
-        # bidirectionally and stranded BOTH parties in state='blocked';
-        # the directional classifier returns NONE for the candidate side.
+        # The upstream candidate does not wait for its dependent.
         _add_dep_edge(conn, dependent=oth_item, blocking=cand_item)
 
         verdict = classify_overlap(
@@ -197,105 +154,6 @@ class TestScenarioB_CandidateUpstreamOfBlocks:
             (claim_id,),
         ).fetchone()
         assert row[0] == "planned"
-
-    def test_repair_flips_legacy_blocked_to_planned(self, conn):
-        """A legacy row stranded by the old bidirectional classifier
-        flips to ``planned`` on the next repair sweep and emits
-        ``directional_release=true``.
-        """
-        target = seed_target(conn, path_string="runtime/api/domain")
-        oth_item = _seed_item(conn, item_id=3005)
-        cand_item = _seed_item(conn, item_id=3006)
-        _seed_active_claim(conn, item_id=oth_item, target_id=target)
-        _add_dep_edge(conn, dependent=oth_item, blocking=cand_item)
-
-        # Simulate a legacy stranded row: state='blocked' with the
-        # pre-directional ``serial-via-dependency`` wording.
-        actor = local_human(conn)
-        cur = conn.execute(
-            "INSERT INTO path_claims "
-            "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
-            "integration_target, registered_at, base_commit_sha, "
-            "blocked_reason) "
-            "VALUES ('blocked', 'exclusive', 'item', %s, %s, 'main', "
-            "'2026-05-01T00:00:00Z', %s, %s) RETURNING id",
-            (
-                cand_item,
-                actor,
-                SNAP,
-                "serial-via-dependency on path_claims.id=999",
-            ),
-        )
-        claim_id = int(cur.fetchone()[0])
-        conn.execute(
-            "INSERT INTO path_claim_targets (claim_id, target_id, "
-            "declared_at) VALUES (%s, %s, '2026-05-01T00:00:00Z')",
-            (claim_id, target),
-        )
-        conn.commit()
-
-        repaired = repair_coordination_only_blocked(
-            conn,
-            item_id=cand_item,
-        )
-        assert repaired == [claim_id]
-        row = conn.execute(
-            "SELECT state, blocked_reason FROM path_claims WHERE id = %s",
-            (claim_id,),
-        ).fetchone()
-        assert row[0] == "planned"
-        assert row[1] is None
-
-        event_row = conn.execute(
-            "SELECT envelope FROM events "
-            "WHERE event_name = 'PathClaimCoordinationOnlyRepaired' "
-            "ORDER BY id DESC LIMIT 1"
-        ).fetchone()
-        assert event_row is not None
-        import json as _json
-
-        envelope = _json.loads(event_row[0])
-        ctx = envelope.get("context") or {}
-        assert ctx.get("directional_release") is True
-
-    def test_repair_does_not_resurrect_terminal_item_claim(self, conn):
-        target = seed_target(conn, path_string="runtime/api/domain/terminal")
-        item_id = _seed_item(conn, item_id=3016)
-        actor = local_human(conn)
-        claim_id = int(
-            conn.execute(
-                "INSERT INTO path_claims "
-                "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
-                "integration_target, registered_at, blocked_reason) "
-                "VALUES ('blocked', 'exclusive', 'item', %s, %s, 'main', "
-                "'2026-05-01T00:00:00Z', 'stale coordination') RETURNING id",
-                (item_id, actor),
-            ).fetchone()[0]
-        )
-        conn.execute(
-            "INSERT INTO path_claim_targets "
-            "(claim_id, target_id, declared_at) "
-            "VALUES (%s, %s, '2026-05-01T00:00:00Z')",
-            (claim_id, target),
-        )
-        conn.execute(
-            "UPDATE items SET status='done' WHERE id=%s",
-            (item_id,),
-        )
-        conn.commit()
-
-        assert (
-            repair_coordination_only_blocked(
-                conn,
-                item_id=item_id,
-            )
-            == []
-        )
-        state = conn.execute(
-            "SELECT state FROM path_claims WHERE id=%s",
-            (claim_id,),
-        ).fetchone()[0]
-        assert str(state) == "blocked"
 
 
 class TestScenarioC_CoordinationOnlyEitherDirection:

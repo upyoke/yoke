@@ -44,6 +44,8 @@ def test_help_names_every_binding_rehearsal_needs(capsys) -> None:
     assert "YOKE_PG_DSN_VALIDATION" in rendered
     assert PROVISION_RECIPE in rendered
     assert YOKE_SOURCE_REHEARSAL_RECIPE in rendered
+    assert "dev run --lane <registered-path>" in rendered
+    assert "rehearsal_source_lane_invalid" in rendered
 
 
 def test_unexpected_failure_stays_redacted_but_points_at_the_preflight(

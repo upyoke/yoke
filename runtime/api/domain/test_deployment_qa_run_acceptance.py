@@ -21,9 +21,7 @@ from runtime.api.domain.test_deployment_qa_stage_ordering import (
     _complete_failed,
     _stages as _ordered_stages,
 )
-from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.deployment_flow_versioning import cmd_create
 from yoke_core.domain.deployment_qa_run_acceptance import (
     item_qa_acceptance_blockers,
     current_item_qa,
@@ -219,37 +217,6 @@ def test_run_scoped_stage_blocks_every_member_until_it_settles(test_db) -> None:
     blockers = item_qa_acceptance_blockers(test_db, run_id="run-shared", item_id=9815)
     assert any("release-qa" in reason for reason in blockers)
     assert not any("member-qa" in reason for reason in blockers)
-
-
-def test_legacy_flow_owes_no_scoped_verdicts(test_db) -> None:
-    """A schema-1 definition has no scoped stages; the legacy table rules."""
-    stages = [{"name": "deploy-stage", "step_runner": "auto"}]
-    cmd_create(
-        test_db,
-        "flow-legacy-acceptance",
-        "yoke",
-        "flow-legacy-acceptance",
-        "",
-        json.dumps(stages),
-        status="disabled",
-    )
-    insert_item(
-        test_db, id=9816, project_sequence=9816, workflow_id="issue", status="release"
-    )
-    test_db.execute(
-        "INSERT INTO deployment_runs(id,project_id,flow,release_lineage,status,"
-        "current_stage,created_at) VALUES "
-        "('run-legacy',1,'flow-legacy-acceptance',%s,'succeeded','complete',%s)",
-        ("a" * 40, "2026-09-14T00:00:00Z"),
-    )
-    test_db.execute(
-        "INSERT INTO deployment_run_items(run_id,item_id,added_at) "
-        "VALUES ('run-legacy',9816,%s)",
-        ("2026-09-14T00:00:00Z",),
-    )
-    test_db.commit()
-
-    assert item_qa_acceptance_blockers(test_db, run_id="run-legacy", item_id=9816) == []
 
 
 def test_ancillary_run_cannot_borrow_selected_flow_qa_or_reopen_done(

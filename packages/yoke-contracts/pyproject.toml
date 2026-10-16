@@ -15,6 +15,7 @@ license-files = ["LICENSE.md"]
 requires-python = ">=3.11"
 dependencies = [
     "pydantic==2.13.4",
+    "packaging>=24,<27",
     # board-art ASCII variant generation (FIGlet banners) — pure, client-safe.
     "pyfiglet>=1.0.4,<2",
     # Renders a recorded QA screenshot into the region and size a reviewer

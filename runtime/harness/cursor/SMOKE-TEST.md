@@ -117,7 +117,7 @@ Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
 
 ## Registration proofs
 
-10. `python3 -m yoke_core.hooks.sessions_cli list` shows the session
+10. `yoke sessions list` shows the session
     with `executor=cursor`; `HC-executor-canonicalization` passes.
 11. `yoke agents render --check` (drift gate) passes with the Cursor
     outputs enumerated.

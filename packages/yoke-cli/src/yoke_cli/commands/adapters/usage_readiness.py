@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Dict
 
+from yoke_cli.commands.adapters.hard_blocks import USAGE as HARD_BLOCKS_USAGE
+
 from yoke_cli.commands.adapters.claims_path_flow import (
     CLAIMS_PATH_ACTIVATION_RUN_USAGE,
     CLAIMS_PATH_BOUNDARY_PROVE_USAGE,
@@ -18,6 +20,7 @@ from yoke_cli.commands.adapters.readiness import (
 
 
 READINESS_USAGE_BY_ID: Dict[str, str] = {
+    "advance.preflight.hard_blocks": HARD_BLOCKS_USAGE,
     "claims.path.required_gate": CLAIMS_PATH_REQUIRED_GATE_USAGE,
     "claims.path.activation_run": CLAIMS_PATH_ACTIVATION_RUN_USAGE,
     "claims.path.boundary_prove": CLAIMS_PATH_BOUNDARY_PROVE_USAGE,

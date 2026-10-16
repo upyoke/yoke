@@ -63,10 +63,6 @@ class TestGetDefaultFlow:
     def test_returns_none_when_unset(self, initialized_db: str) -> None:
         assert dd.get_default_flow("solo", db_path=initialized_db) is None
 
-    def test_returns_seeded_yoke_default(self, initialized_db: str) -> None:
-        ps.cmd_seed("yoke", "yoke-source", db_path=initialized_db)
-        assert dd.get_default_flow("yoke", db_path=initialized_db) == "yoke-internal"
-
     def test_returns_explicitly_written_value(self, initialized_db: str) -> None:
         dd.set_default_flow("solo", "solo-prod", db_path=initialized_db)
         assert dd.get_default_flow("solo", db_path=initialized_db) == "solo-prod"

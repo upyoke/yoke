@@ -30,7 +30,6 @@ LAUNCHER_FILENAME = "yoke"
 LAUNCHER_SOURCE = Path(__file__).resolve().parent / "yoke_launcher.py"
 PROBE_BYTES = 4096
 LAUNCHER_FINGERPRINT_IMPORT = "from yoke_cli.main"
-LEGACY_LAUNCHER_FINGERPRINT_IMPORT = "from runtime.api.cli.yoke_operations_cli"
 _LOCAL_WORKSPACE_PACKAGE_KEYS = frozenset(
     name.replace("_", "-").lower() for name in YOKE_EDITABLE_PACKAGE_NAMES
 )
@@ -235,10 +234,7 @@ def refuse_foreign_binary(target_path: Path, force: bool = False) -> None:
         raise InstallError(
             f"{target_path} shebang ({shebang!r}) is not a python interpreter; pass --force."
         )
-    if (
-        LAUNCHER_FINGERPRINT_IMPORT in text
-        or LEGACY_LAUNCHER_FINGERPRINT_IMPORT in text
-    ):
+    if LAUNCHER_FINGERPRINT_IMPORT in text:
         return
     raise InstallError(
         f"{target_path} does not look like a Yoke launcher "

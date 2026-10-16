@@ -66,7 +66,17 @@ def read_seat_items(
         project_ids=tuple(sorted(project_ids)),
         available=item_rows("available"),
         holders=holders,
-        undelivered=session_rows("undelivered"),
+        undelivered=tuple(
+            row
+            for source in sources
+            for row in source.undelivered
+            if members is None
+            or row.session_id in sessions
+            or (
+                getattr(row, "recipient_gone_at", None) is not None
+                and row.item_id in members
+            )
+        ),
         landed_open=item_rows("landed_open"),
         vendor_errors=session_rows("vendor_errors"),
         stranded=session_rows("stranded"),

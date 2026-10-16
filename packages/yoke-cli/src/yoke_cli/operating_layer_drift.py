@@ -79,7 +79,8 @@ def _source_comparison(
     reference_build: str,
 ) -> RunningReleaseComparison:
     source = source_build_skew.compare_to_server_build(
-        str(checkout), reference_build,
+        str(checkout),
+        reference_build,
     )
     source_relationship = source.relationship
     detail = source.reason
@@ -120,7 +121,9 @@ def compare_running_to_release(
     source_build = str(reference_source_build or "").strip()
     if not reference:
         return RunningReleaseComparison(
-            RUNNING_UNKNOWN, reference, running_version=current,
+            RUNNING_UNKNOWN,
+            reference,
+            running_version=current,
             detail="reference engine release is unavailable",
         )
     checkout = source_checkout_root(running_module_file)
@@ -174,8 +177,7 @@ def compare_running_to_release(
             reference,
             detail="running code has no package version or source checkout",
         )
-    tag = reference if reference.startswith("v") else f"v{reference}"
-    return _source_comparison(checkout, reference, tag)
+    return _source_comparison(checkout, reference, reference)
 
 
 def compare_installed_layer(

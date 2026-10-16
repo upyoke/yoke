@@ -48,15 +48,15 @@ def test_behind_cli_installs_exactly_the_observed_release(
     tmp_path, monkeypatch
 ) -> None:
     yoke, installed, run = _cli(
-        tmp_path, monkeypatch, ["0.1.1+launch.616", "0.1.1+launch.621"]
+        tmp_path, monkeypatch, ["0.2.0.202610140940", "0.2.0.202610140941"]
     )
     record = follow.follow_release(
-        "v0.1.1+launch.621", tmp_path, run=run, executable=yoke
+        "0.2.0.202610140941", tmp_path, run=run, executable=yoke
     )
     assert record["outcome"] == "updated"
-    assert installed == ["0.1.1+launch.621"]
+    assert installed == ["0.2.0.202610140941"]
     stored = json.loads((tmp_path / follow.FOLLOW_RECORD_NAME).read_text())
-    assert stored["after"] == "0.1.1+launch.621"
+    assert stored["after"] == "0.2.0.202610140941"
 
 
 def test_probe_and_install_run_outside_the_relay_python(tmp_path, monkeypatch) -> None:
@@ -75,7 +75,7 @@ def test_probe_and_install_run_outside_the_relay_python(tmp_path, monkeypatch) -
         envs.append(env)
         # Inside the relay's activation the launcher reports the relay's release.
         moved = installed or "PYTHONPATH" in env
-        version = "0.1.1+launch.623" if moved else "0.1.1+launch.622"
+        version = "0.2.0.202610140943" if moved else "0.2.0.202610140942"
         return subprocess.CompletedProcess(argv, 0, stdout=version + "\n")
 
     def install(target, _bin, *, env):
@@ -85,9 +85,9 @@ def test_probe_and_install_run_outside_the_relay_python(tmp_path, monkeypatch) -
     monkeypatch.setattr(self_update, "resolve_target", lambda *, version: version)
     monkeypatch.setattr(self_update, "install_release", install)
     record = follow.follow_release(
-        "v0.1.1+launch.623", tmp_path, run=run, executable=yoke
+        "0.2.0.202610140943", tmp_path, run=run, executable=yoke
     )
-    assert record["before"] == "0.1.1+launch.622"
+    assert record["before"] == "0.2.0.202610140942"
     assert record["outcome"] == "updated"
     for env in envs:
         assert "PYTHONPATH" not in env and "VIRTUAL_ENV" not in env
@@ -95,9 +95,9 @@ def test_probe_and_install_run_outside_the_relay_python(tmp_path, monkeypatch) -
 
 
 def test_current_cli_is_left_alone(tmp_path, monkeypatch) -> None:
-    yoke, installed, run = _cli(tmp_path, monkeypatch, ["0.1.1+launch.621"])
+    yoke, installed, run = _cli(tmp_path, monkeypatch, ["0.2.0.202610140941"])
     record = follow.follow_release(
-        "v0.1.1+launch.621", tmp_path, run=run, executable=yoke
+        "0.2.0.202610140941", tmp_path, run=run, executable=yoke
     )
     assert record["outcome"] == "current"
     assert installed == []
@@ -109,19 +109,19 @@ def test_a_hand_installed_development_build_is_moved_to_the_release(
     yoke, installed, run = _cli(
         tmp_path,
         monkeypatch,
-        ["0.1.2.dev49+launch.621.g09b049c58", "0.1.1+launch.622"],
+        ["0.1.2.dev49+launch.621.g09b049c58", "0.2.0.202610140942"],
     )
     record = follow.follow_release(
-        "v0.1.1+launch.622", tmp_path, run=run, executable=yoke
+        "0.2.0.202610140942", tmp_path, run=run, executable=yoke
     )
     assert record["outcome"] == "updated"
-    assert installed == ["0.1.1+launch.622"]
+    assert installed == ["0.2.0.202610140942"]
 
 
 def test_a_source_checkout_launcher_is_left_to_git(tmp_path, monkeypatch) -> None:
     yoke, installed, run = _cli(tmp_path, monkeypatch, ["source"])
     record = follow.follow_release(
-        "v0.1.1+launch.622", tmp_path, run=run, executable=yoke
+        "0.2.0.202610140942", tmp_path, run=run, executable=yoke
     )
     assert record["outcome"] == "source_checkout"
     assert installed == []
@@ -129,16 +129,16 @@ def test_a_source_checkout_launcher_is_left_to_git(tmp_path, monkeypatch) -> Non
 
 def test_failed_install_names_the_recovery(tmp_path, monkeypatch, capsys) -> None:
     yoke, _installed, run = _cli(
-        tmp_path, monkeypatch, ["0.1.1+launch.616"], installs=False
+        tmp_path, monkeypatch, ["0.2.0.202610140940"], installs=False
     )
     record = follow.follow_release(
-        "v0.1.1+launch.621", tmp_path, run=run, executable=yoke
+        "0.2.0.202610140941", tmp_path, run=run, executable=yoke
     )
     assert record["outcome"] == "update_failed"
     err = capsys.readouterr().err
     assert "OPERATOR-CLI-FOLLOW-FAILED" in err
     assert "installer failed" in err
-    assert "yoke update --version 0.1.1+launch.621" in err
+    assert "yoke update --version 0.2.0.202610140941" in err
 
 
 def _https_config(tmp_path: Path, *, active_env: str) -> Path:
@@ -194,7 +194,7 @@ def _serve_relay(monkeypatch, tmp_path, *, machine_active: bool) -> list[str]:
         "relay_release_status",
         lambda **_k: SimpleNamespace(
             current=True,
-            pinned_release="v0.1.1+launch.621",
+            pinned_release="0.2.0.202610140941",
             runtime_python=Path(sys.prefix) / "bin" / "python",
         ),
     )
@@ -210,7 +210,7 @@ def test_active_connection_relay_start_follows_its_pinned_release(
     monkeypatch, tmp_path
 ) -> None:
     followed = _serve_relay(monkeypatch, tmp_path, machine_active=True)
-    assert followed == ["v0.1.1+launch.621"]
+    assert followed == ["0.2.0.202610140941"]
 
 
 def test_other_relays_leave_the_installed_cli_alone(monkeypatch, tmp_path) -> None:
@@ -248,10 +248,10 @@ def test_update_installs_the_requested_version_from_the_recorded_origin(
 
     monkeypatch.setattr(release_target, "fetch_installer", stop)
     try:
-        self_update.run_update(version="v1.1.0+launch.7")
+        self_update.run_update(version="1.1.0.202610140941")
     except self_update.SelfUpdateError:
         pass
-    assert installed == ["1.1.0+launch.7"]
+    assert installed == ["1.1.0.202610140941"]
 
 
 def test_stale_cli_warns_once_and_only_against_the_active_connection(
@@ -260,12 +260,14 @@ def test_stale_cli_warns_once_and_only_against_the_active_connection(
     select_machine_config_file(monkeypatch, _https_config(tmp_path, active_env="prod"))
     monkeypatch.setattr(installed_cli_staleness, "_warned", False)
     stream = io.StringIO()
-    kwargs = dict(server_version="0.1.1+launch.621", local_version="0.1.1+launch.616")
+    kwargs = dict(
+        server_version="0.2.0.202610140941", local_version="0.2.0.202610140940"
+    )
     warn = installed_cli_staleness.warn_if_behind_active_connection
     assert not warn(env="stage", stream=stream, **kwargs)
     assert warn(env="prod", stream=stream, **kwargs)
     assert not warn(env="prod", stream=stream, **kwargs)
-    assert "yoke update --version 0.1.1+launch.621" in stream.getvalue()
+    assert "yoke update --version 0.2.0.202610140941" in stream.getvalue()
     assert "active connection 'prod'" in stream.getvalue()
 
 
@@ -274,6 +276,6 @@ def test_current_cli_does_not_warn(monkeypatch) -> None:
     assert not installed_cli_staleness.warn_if_behind_active_connection(
         env="prod",
         active_env="prod",
-        server_version="0.1.1+launch.621",
-        local_version="0.1.1+launch.621",
+        server_version="0.2.0.202610140941",
+        local_version="0.2.0.202610140941",
     )

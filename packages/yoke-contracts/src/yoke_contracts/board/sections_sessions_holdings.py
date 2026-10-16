@@ -79,7 +79,7 @@ def _work_target(db: BoardDBLike, claim: Tuple) -> str:
 def _work_observations(
     db: BoardDBLike,
     claims: List[Tuple],
-    steering_docs: Mapping[Any, list[str]] | None,
+    steering_docs: Mapping[Any, list[str]],
 ) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]], list[int]]:
     observations: list[dict[str, Any]] = []
     states: dict[str, dict[str, Any]] = {}
@@ -102,8 +102,7 @@ def _work_observations(
                 "claimed_at": claim[4],
                 "released_at": released_at,
                 "project_id": project_id,
-                "strategy_docs": list((steering_docs or {}).get(steering_key, [])),
-                "steering_docs_available": steering_docs is not None,
+                "strategy_docs": list(steering_docs.get(steering_key, [])),
             }
         )
         state = states.setdefault(key, {"current": False, "released_at": None})
@@ -121,9 +120,6 @@ def _process_anchor(db: BoardDBLike, work_claim_id: Optional[int]) -> Optional[s
         return None
     sql = "SELECT scope FROM work_claims WHERE id = %s AND target_kind = 'process'"
     params = (work_claim_id,)
-    probe = getattr(db, "has_query_quiet", None)
-    if callable(probe) and not probe(sql, params):
-        return None
     rows = db.query_quiet(sql, params)
     if not rows:
         return None
@@ -275,8 +271,7 @@ def _holding_label(entry: Mapping[str, Any]) -> str:
     if entry.get("target_kind") == "steering":
         docs = [str(slug) for slug in entry.get("strategy_docs") or [] if slug]
         target = f"{STEERING_GLYPH} {target}"
-        if entry.get("steering_docs_available"):
-            target = f"{target} · {', '.join(docs) or 'no doc lock'}"
+        target = f"{target} · {', '.join(docs) or 'no doc lock'}"
     if entry.get("path_count") is not None:
         target = f"{target} {PATH_GLYPH}{int(entry['path_count'])}"
     return target

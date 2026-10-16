@@ -22,7 +22,11 @@ REF_GROUP = "${{ github.workflow }}-${{ github.ref }}"
             "${{ github.ref != 'refs/heads/main' }}",
         ),
         ("yoke-release.yml", REF_GROUP, False),
-        ("yoke-server-image.yml", REF_GROUP, False),
+        (
+            "yoke-server-image.yml",
+            "${{ github.workflow }}-${{ github.sha }}-${{ github.ref }}",
+            False,
+        ),
     ],
 )
 def test_release_gate_workflows_preserve_in_progress_evidence(

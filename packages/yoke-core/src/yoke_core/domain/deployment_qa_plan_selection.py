@@ -59,6 +59,15 @@ def selected_plans(
             require_correction_only_plan(snapshot, replacement_keys or set())
         if replacement_scopes:
             snapshot["replacement_scopes"] = replacement_scopes
+        snapshot["selected_by_agent"] = True
+        frozen = [
+            value
+            for value in frozen
+            if not (
+                value.get("selected_by_agent")
+                and int(value["plan"]["id"]) == agent_plan_id
+            )
+        ]
         frozen.append(snapshot)
     unique: dict[tuple[int, tuple[str, ...]], dict[str, Any]] = {}
     for snapshot in frozen:

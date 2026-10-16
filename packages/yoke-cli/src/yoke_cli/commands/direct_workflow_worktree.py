@@ -1,4 +1,4 @@
-"""Client adapter for engine-owned Dash and Blitz worktree preparation."""
+"""Client adapters for engine-owned worktree preparation and path resolution."""
 
 from __future__ import annotations
 
@@ -46,11 +46,51 @@ def direct_workflow_worktree_prepare(args: List[str]) -> int:
     return completed.returncode
 
 
+WORKTREE_PREPARE_USAGE = "yoke worktree prepare --item PREFIX-N [--project P]"
+WORKTREE_PATHS_USAGE = "yoke worktree paths main"
+
+
+def worktree_prepare(args: List[str]) -> int:
+    """Use the running Yoke interpreter before any claimed lane exists."""
+    if show_delegate_help(
+        args,
+        WORKTREE_PREPARE_USAGE,
+        "Requires the item work claim; creates/reuses every registered task and "
+        "integration lane from the item's mapped main checkout. Refusals name "
+        "the failed claim, path, upstream or lane check; repair it and rerun.",
+    ):
+        return 0
+    return subprocess.run(
+        [sys.executable, "-m", "yoke_core.domain.worktree_preflight", *args],
+        check=False,
+    ).returncode
+
+
+def worktree_paths(args: List[str]) -> int:
+    """Resolve paths on the installed runtime, without a source lane."""
+    if show_delegate_help(
+        args,
+        WORKTREE_PATHS_USAGE,
+        "Resolve the registered main checkout before task lanes exist. "
+        "Run from the owning project checkout; preparation resolves the "
+        "item's own project mapping independently.",
+    ):
+        return 0
+    return subprocess.run(
+        [sys.executable, "-m", "yoke_core.domain.worktree", "paths", *args],
+        check=False,
+    ).returncode
+
+
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("direct-workflow", "worktree", "prepare"): (direct_workflow_worktree_prepare),
+    ("worktree", "prepare"): worktree_prepare,
+    ("worktree", "paths"): worktree_paths,
 }
 TOOL_SHAPED_USAGE = {
     "yoke direct-workflow worktree prepare": PREPARE_USAGE,
+    "yoke worktree prepare": WORKTREE_PREPARE_USAGE,
+    "yoke worktree paths": WORKTREE_PATHS_USAGE,
 }
 
 

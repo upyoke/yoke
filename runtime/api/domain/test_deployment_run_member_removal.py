@@ -213,11 +213,9 @@ def test_failed_item_qa_resume_excludes_removed_member(test_db, monkeypatch):
     control = deploy_pipeline.control_plane
     monkeypatch.setattr(control, "execution_context", lambda _: context)
     monkeypatch.setattr(control, "project_field", lambda *_: "")
-    monkeypatch.setattr(control, "seed_qa", lambda _: 0)
     monkeypatch.setattr(
         control, "unresolved_qa", lambda _: unresolved_blocking_qa(test_db, RUN)
     )
-    monkeypatch.setattr(control, "record_qa_pass", lambda *_: None)
     monkeypatch.setattr(
         deploy_pipeline, "resolve_project_checkout_path", lambda _: "/repo"
     )

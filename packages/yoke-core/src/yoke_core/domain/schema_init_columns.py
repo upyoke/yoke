@@ -1,34 +1,24 @@
-"""Idempotent schema convergence with separate additive and birth-only paths.
-
-``apply_additive_schema`` creates self-sufficient columns without row rewrites.
-``apply_legacy_data_migrations`` owns birth-only backfills and retired drops.
-``apply_idempotent_migrations`` retains their ordered combination for birth
-and fixture callers; ordinary boot convergence runs only the additive half.
-"""
+"""Additive schema convergence and initial schema invariants."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain import db_backend
 from yoke_core.domain.epic_task_membership import MEMBERSHIP_FINALIZED_COLUMN
-from yoke_core.domain.qa_schema import _migrate_qa_vocab
 from yoke_core.domain.schema_checks import (
     _validate_epic_task_statuses,
     _validate_item_workflow_stages,
 )
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
-    _column_exists,
     _table_exists,
 )
 from yoke_core.domain.schema_harness_session_columns import (
     apply_harness_session_columns,  # noqa: F401
 )
-from yoke_core.domain.schema_migrations import _migrate_qa_execution_status
+from yoke_core.domain.schema_migrations import _ensure_qa_runs_verdict_trigger
 from yoke_core.domain.projects_github_sync_mode_schema import (
     github_sync_mode_column_sql,
-    normalize_github_sync_modes,
 )
 
 
@@ -58,7 +48,7 @@ def apply_additive_schema(conn: Any) -> None:
     additive column MUST therefore be self-sufficient on ADD alone — nullable
     (NULL is a valid value) or ``NOT NULL DEFAULT`` (Postgres populates existing
     rows at ADD time). A column that needs a follow-up data backfill to be valid
-    belongs in :func:`apply_legacy_data_migrations`, not here. A column added to
+    belongs in permanent ordered migration history, not here. A column added to
     a table the release driver reads must land with window-tolerant reads in the
     same change: ``runs get`` / ``runs list`` and their shared projection
     substitute empty for a declared column the live table has not yet converged.
@@ -135,11 +125,6 @@ def apply_additive_schema(conn: Any) -> None:
 
     # Numeric project authority must be explicitly attributed. Adding this
     # column to populated unattributed data refuses instead of guessing.
-    # project_sequence
-    # has no DB default and needs an id-based backfill to be valid, so it, its
-    # backfill, and its unique index live together in
-    # apply_legacy_data_migrations (the birth/full-init path), never on this
-    # additive converge path.
     _add_column_if_not_exists(conn, "items", "project_id", "INTEGER NOT NULL")
     conn.commit()
 
@@ -253,82 +238,18 @@ def apply_additive_schema(conn: Any) -> None:
     conn.commit()
 
 
-def apply_legacy_data_migrations(conn: Any) -> None:
-    """Birth/full-init-only data-shape migrations and legacy drops.
-
-    Runs ONLY from the full init chain (:func:`yoke_core.domain.schema_init.cmd_init`)
-    and the schema fixtures — never on the boot converge path — because it
-    performs the operations that are unsafe to run on every deploy: guarded
-    destructive drops of retired surfaces, data backfills that normalize legacy
-    NULL/'' rows, the qa-vocabulary table rebuild, and the canonical-status
-    validators. Assumes :func:`apply_additive_schema` has already added every
-    column these statements touch.
-    """
-    placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-    normalize_github_sync_modes(conn)
-
-    # items.project_sequence — add the column, backfill it from the id, and
-    # create its unique index. project_sequence has no DB default so its ADD is
-    # not self-sufficient; the column, its backfill, and its unique index stay
-    # co-located here (project_id is already present from apply_additive_schema).
-    _add_column_if_not_exists(conn, "items", "project_sequence", "INTEGER")
-    conn.execute(
-        "UPDATE items SET project_sequence = id WHERE project_sequence IS NULL"
-    )
+def finalize_initial_schema(conn: Any) -> None:
+    """Install initial schema indexes and evidence invariants."""
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_items_project_sequence ON items(project_id, project_sequence)"
     )
+    _ensure_qa_runs_verdict_trigger(conn)
     conn.commit()
-
-    # Drop legacy epic_reviews table
-    if _table_exists(conn, "epic_reviews"):
-        conn.execute("DROP TABLE IF EXISTS epic_reviews")
-        conn.commit()
-        print("Dropped legacy epic_reviews table (consolidated into reviews).")
-
-    # db_mutation_profile / db_compatibility_attestation — normalize legacy
-    # NULL/''/'null' rows to the explicit negative defaults.
-    from yoke_core.domain.db_mutation_profile import NEGATIVE_DEFAULT_JSON as _DMP_NEG
-    from yoke_core.domain.db_compatibility_attestation import (
-        NEGATIVE_DEFAULT_JSON as _DCA_NEG,
-    )
-
-    conn.execute(
-        f"UPDATE items SET db_mutation_profile = {placeholder} WHERE db_mutation_profile IS NULL OR db_mutation_profile = '' OR db_mutation_profile = 'null'",
-        (_DMP_NEG,),
-    )
-    conn.execute(
-        f"UPDATE items SET db_compatibility_attestation = {placeholder} "
-        "WHERE db_compatibility_attestation IS NULL "
-        "OR db_compatibility_attestation = '' "
-        "OR db_compatibility_attestation = 'null'",
-        (_DCA_NEG,),
-    )
-    conn.commit()
-
-    # architecture_impact — normalize legacy NULL/''/'null' rows to 'none'.
-    conn.execute(
-        "UPDATE items SET architecture_impact = 'none' WHERE architecture_impact IS NULL OR architecture_impact = '' OR architecture_impact = 'null'"
-    )
-    conn.commit()
-
-    # Drop deprecated prd column if upgrading from an older schema
-    if _column_exists(conn, "items", "prd"):
-        conn.execute("ALTER TABLE items DROP COLUMN prd")
-        conn.commit()
-        print("Dropped deprecated 'prd' column from items table.")
-
-    _migrate_qa_vocab(conn)
-
-    # Split browser capture from inspection verdict
-    _migrate_qa_execution_status(conn)
-
     _validate_item_workflow_stages(conn)
     _validate_epic_task_statuses(conn)
 
 
 def apply_idempotent_migrations(conn: Any) -> None:
-    """Run additive schema then birth-only legacy data migrations."""
+    """Converge additive schema and initialize its invariants."""
     apply_additive_schema(conn)
-    apply_legacy_data_migrations(conn)
+    finalize_initial_schema(conn)

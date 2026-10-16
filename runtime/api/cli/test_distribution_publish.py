@@ -16,7 +16,7 @@ SOURCE_COMMIT = "a" * 40
 def _write_downloaded_release_artifact(
     artifact_dir: Path,
     *,
-    version: str = "0.2.0+gabc123",
+    version: str = "0.2.0.202610140941",
 ) -> list[dict[str, object]]:
     """Model actions/download-artifact output for the uploaded release_dir."""
     wheels_dir = artifact_dir / release_artifacts.WHEELS_DIR
@@ -32,8 +32,8 @@ def _write_downloaded_release_artifact(
 def test_distribution_publish_validates_release_and_writes_channel(
     tmp_path: Path,
 ) -> None:
-    version = "0.2.0+gabc123"
-    url_version = "0.2.0%2Bgabc123"
+    version = "0.2.0.202610140941"
+    url_version = "0.2.0.202610140941"
     output_root = tmp_path / "release"
     release_dir = output_root / "dist" / "releases" / version
     wheels_dir = release_dir / "wheels"
@@ -94,7 +94,7 @@ def test_distribution_publish_validates_release_and_writes_channel(
     )
     wheel_url = (
         f"https://api.upyoke.com/dist/releases/{url_version}/wheels/"
-        "yoke_cli-0.2.0%2Bgabc123-py3-none-any.whl"
+        "yoke_cli-0.2.0.202610140941-py3-none-any.whl"
     )
     assert urls[wheel_url].cache_control_contains == "immutable"
     assert urls[wheel_url].sha256 == _record(records, "yoke-cli")["sha256"]
@@ -176,8 +176,8 @@ def test_validate_release_artifact_cli_reports_tampering(
 @pytest.mark.parametrize(
     "relative_release_dir",
     (
-        Path("0.2.0+gabc123"),
-        Path("dist/releases/0.2.0+gabc123/nested"),
+        Path("0.2.0.202610140941"),
+        Path("dist/releases/0.2.0.202610140941/nested"),
     ),
     ids=("shallow", "deep"),
 )
@@ -196,7 +196,7 @@ def test_validate_release_rejects_noncanonical_layout(
 
 
 def test_validate_release_rejects_missing_simple_index(tmp_path: Path) -> None:
-    version = "0.2.0+gabc123"
+    version = "0.2.0.202610140941"
     release_dir = tmp_path / "dist" / "releases" / version
     _write_downloaded_release_artifact(release_dir, version=version)
 
@@ -234,7 +234,7 @@ def test_channel_contract_preserves_v2_and_requires_evidence_for_v3() -> None:
 
 
 def test_distribution_publish_rejects_simple_index_hash_drift(tmp_path: Path) -> None:
-    version = "0.2.0+gabc123"
+    version = "0.2.0.202610140941"
     output_root = tmp_path / "release"
     release_dir = output_root / "dist" / "releases" / version
     wheels_dir = release_dir / "wheels"
@@ -249,7 +249,9 @@ def test_distribution_publish_rejects_simple_index_hash_drift(tmp_path: Path) ->
     package_index.write_simple_index(
         index_dir=simple_dir,
         records=wheel_records,
-        wheel_base_url=("https://api.upyoke.com/dist/releases/0.2.0%2Bgabc123/wheels"),
+        wheel_base_url=(
+            "https://api.upyoke.com/dist/releases/0.2.0.202610140941/wheels"
+        ),
     )
     record = records[0]
     project_index = simple_dir / str(record["project"]) / "index.html"
@@ -275,12 +277,12 @@ def test_distribution_publish_rejects_migration_evidence_tampering(
     tmp_path: Path,
 ) -> None:
     output_root = tmp_path / "release"
-    release_dir = output_root / "dist" / "releases" / "0.2.0+gabc123"
+    release_dir = output_root / "dist" / "releases" / "0.2.0.202610140941"
     wheels_dir = release_dir / "wheels"
     wheels_dir.mkdir(parents=True)
     records, wheel_records = _sample_release(
         wheels_dir,
-        version="0.2.0+gabc123",
+        version="0.2.0.202610140941",
     )
     (release_dir / release_artifacts.RELEASE_RECORDS_FILENAME).write_text(
         json.dumps(records, indent=2) + "\n",
@@ -289,7 +291,9 @@ def test_distribution_publish_rejects_migration_evidence_tampering(
     package_index.write_simple_index(
         index_dir=output_root / "simple",
         records=wheel_records,
-        wheel_base_url=("https://api.upyoke.com/dist/releases/0.2.0%2Bgabc123/wheels"),
+        wheel_base_url=(
+            "https://api.upyoke.com/dist/releases/0.2.0.202610140941/wheels"
+        ),
     )
     evidence_path = (
         release_dir / release_artifacts.MIGRATION_HISTORY_RELEASE_EVIDENCE_FILENAME
@@ -312,7 +316,7 @@ def test_distribution_publish_rejects_migration_evidence_tampering(
 def test_validate_release_matches_url_quoted_local_version_links(
     tmp_path: Path,
 ) -> None:
-    version = "0.2.0+gabc123"
+    version = "0.2.0.202610140941"
     output_root = tmp_path / "release"
     release_dir = output_root / "dist" / "releases" / version
     wheels_dir = release_dir / "wheels"

@@ -96,14 +96,8 @@ def prepare_member_close(conn: Any, *, item_id: int, public_ref: str) -> str:
             conn.rollback()
             return f"its delivery evidence could not be stamped: {exc}"
         conn.commit()
-        evidence = evaluate_dash_evidence(conn, int(item_id))
-        if not evidence.satisfied:
-            missing = ", ".join(evidence.missing) or "execution_evidence"
-            return (
-                f"landing evidence is missing {missing}. Record it with "
-                "`yoke merge item` `--result` and `--verification`, then "
-                "re-drive the run"
-            )
+        if refusal := member_close_evidence_refusal(conn, item_id=int(item_id)):
+            return refusal
     with _bypass(public_ref):
         preflight = prepare_status_transition(
             conn,
@@ -116,6 +110,33 @@ def prepare_member_close(conn: Any, *, item_id: int, public_ref: str) -> str:
     if preflight.failure is not None:
         return str(preflight.failure.get("error") or "close-out preflight refused")
     return ""
+
+
+def member_close_evidence_refusal(
+    conn: Any, *, item_id: int, delivery_pending: bool = False
+) -> str:
+    """Read the same execution evidence preparation requires, without stamping.
+
+    Preparation derives the delivery rung before checking evidence. A preview
+    may omit that one pending stamp only; no authored evidence is invented.
+    """
+    from yoke_core.domain.gate_satisfier_resolution import OBLIGATION_DELIVERY_EVIDENCE
+
+    runtime = load_item_workflow_runtime(conn, item_id)
+    if runtime.workflow_id not in DIRECT_EVIDENCE_WORKFLOWS:
+        return ""
+    evidence = evaluate_dash_evidence(conn, item_id)
+    missing = tuple(
+        name
+        for name in evidence.missing
+        if not (delivery_pending and name == OBLIGATION_DELIVERY_EVIDENCE)
+    )
+    if not missing:
+        return ""
+    return (
+        f"landing evidence is missing {', '.join(missing)}. Record it with "
+        "`yoke merge item` `--result` and `--verification`, then re-drive the run"
+    )
 
 
 def stage_member_close(
@@ -164,5 +185,6 @@ __all__ = [
     "STATUS_SOURCE",
     "StagedMemberClose",
     "prepare_member_close",
+    "member_close_evidence_refusal",
     "stage_member_close",
 ]

@@ -191,6 +191,15 @@ current head and be the newest run of that workflow on the PR branch, and
 records intent and outcome in the item's Progress Log. A stale head or
 superseded run refuses and names the current identity to inspect; never rerun
 an older run through another tool because it can cancel newer CI work.
+Cancelled terminal runs use the same command. Never-started jobs trigger a
+full run rerun; jobs that started use failed-job recovery. Cancellation
+recovery stops at three total run attempts: inspect job annotations and fix
+runner capacity, labels or workflow limits before a fresh declared attempt.
+Merge re-entry also recovers eligible cancelled checks on an already-armed,
+unadmitted PR without arming it twice. Active, successful and superseded runs
+are protected. Acceptance is not a passing check: resume the exact-head wait.
+A fresh `workflow_dispatch` is a new attempt; verify its head and that GitHub
+replaced the required checks before treating it as recovery.
 Repair test failures in the item and commit before retrying verification.
 A lost POST response reports `ci_rerun_ambiguous`: inspect the run's attempt
 and status before retrying. If GitHub accepted the rerun but receipt recording

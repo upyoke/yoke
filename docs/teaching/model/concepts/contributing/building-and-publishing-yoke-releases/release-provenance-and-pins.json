@@ -1,8 +1,11 @@
 {
  "id": "release-provenance-and-pins",
  "title": "Release provenance and pins",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "Maintainers",
- "page": "contributing-guides",
- "position": 2
+ "page": "release-publication",
+ "position": 2,
+ "current": "Main-push attestations bind immutable artifact bytes to their exact source commit.",
+ "desired": "Final main-bound release-pin proof binds exact producer and merged consumer SHAs. Branch/bootstrap proofs are baseline only. Recheck a durable passed pair before cross-environment reuse.",
+ "sources": ["docs/releases/README.md", "runtime/api/tools/require_platform_consumer_compatibility.py", "packages/yoke-core/src/yoke_core/tools/promote_main_artifacts.py"]
 }

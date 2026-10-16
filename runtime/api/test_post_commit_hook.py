@@ -106,31 +106,6 @@ class TestInstaller:
         assert hook.read_text() == stale
         assert result.updated == 0
 
-    def test_refresh_rewrites_legacy_module_form_shim(self, fresh_repo):
-        # The exact pre-launcher shim text that earlier installs wrote
-        # (module invocation — dies ModuleNotFoundError on machines with
-        # no Yoke checkout importable by the ambient python3). A
-        # refresh MUST rewrite it to the launcher-routed text.
-        legacy = (
-            "#!/bin/sh\n"
-            f"# {POST_COMMIT_MARKER} hook installed by `yoke project install`\n"
-            "# Pre-warms the path-snapshot cache for the project's HEAD so that\n"
-            "# downstream activate / boundary calls never hit a cold-start miss.\n"
-            "# Harness-neutral: fires on every commit regardless of source\n"
-            "# (agent tool calls, manual git commit, merge, rebase, cherry-pick).\n"
-            "exec python3 -m yoke_core.domain.path_snapshots --ensure-head"
-            ' "${YOKE_PROJECT_ID:-yoke}" >/dev/null 2>&1\n'
-        )
-        hook = _hook_path(fresh_repo)
-        hook.parent.mkdir(parents=True, exist_ok=True)
-        hook.write_text(legacy)
-        os.chmod(hook, 0o755)
-        result = BootstrapResult()
-        install_post_commit_hook(fresh_repo, result)
-        assert result.updated == 1
-        assert hook.read_text() == POST_COMMIT_SHIM
-        assert "python3 -m yoke_core.domain.path_snapshots" not in (hook.read_text())
-
     def test_skips_when_git_hooks_dir_missing(self, tmp_path):
         # No .git/ at all.
         result = BootstrapResult()
@@ -141,12 +116,7 @@ class TestInstaller:
 
 class TestHookShape:
     def test_shim_execs_installed_launcher(self):
-        # The shim routes through the machine-installed `yoke` launcher
-        # (field-note 12957: the module-invocation form requires a Yoke
-        # checkout importable by the ambient python3 — external repos
-        # died ModuleNotFoundError).
         assert 'exec "$yoke_bin" git post-commit' in POST_COMMIT_SHIM
-        assert "python3 -m yoke_core.domain.path_snapshots" not in POST_COMMIT_SHIM
 
     def test_shim_carries_marker(self):
         assert POST_COMMIT_MARKER in POST_COMMIT_SHIM

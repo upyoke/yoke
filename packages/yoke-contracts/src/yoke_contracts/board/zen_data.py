@@ -130,7 +130,7 @@ def _zen_compute_window(db: BoardDBLike, project: str) -> Optional[str]:
         (project_id,),
     )
     if val is not None:
-        # Record/replay encodes instants in UTC; derive the same day on both sides.
+        # Timeline calendar boundaries use UTC regardless of the connection timezone.
         return format_instant(parse_instant(val))[:10]
     return None
 

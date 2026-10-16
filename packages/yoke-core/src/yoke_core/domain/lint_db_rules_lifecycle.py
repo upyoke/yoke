@@ -157,7 +157,7 @@ if uses_raw_query_escape_hatch(command) and "# lint:no-lifecycle-mutation-check"
                 for _lc in _lt_cols:
                     if re.search(r"\b" + _lc + r"\b\s*=", _set_clause, re.IGNORECASE):
                         _repair_hint = (
-                            "  python3 -m yoke_core.api.service_client backlog-cli update YOK-<id> status <status>\n"
+                            "  yoke lifecycle transition PREFIX-N --to STAGE\n"
                             if _lt_table == "items" else
                             "  python3 -m yoke_core.domain.epic task-update-status <epic-id> <task-num> <status>\n"
                         )

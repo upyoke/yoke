@@ -11,7 +11,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.qa_execution_proof import (
     qa_artifact_rows_by_run,
-    qa_evidence_run_id,
+    qa_evidence_run_ids,
     qa_precondition_reason,
     qa_proof_summary,
     qa_run_outcome,
@@ -61,6 +61,7 @@ def _list_activity(
     item_ids: Optional[Iterable[int]] = None,
     deployment_run_ids: Optional[Iterable[str]] = None,
     limit: int = 100,
+    requirement_ids: Optional[Iterable[int]] = None,
 ) -> tuple[list[dict], Optional[dict[str, Any]]]:
     """Return activity rows, and how an item-scoped read was bounded.
 
@@ -79,7 +80,11 @@ def _list_activity(
     """
     marker = _placeholder(conn)
     params: list[Any] = []
-    where = f"WHERE {EXECUTABLE_REQUIREMENT}"
+    where = (
+        "WHERE 1=1"
+        if requirement_ids is not None
+        else f"WHERE {EXECUTABLE_REQUIREMENT}"
+    )
     if identity is not None:
         where += f" AND {PROJECT_FILTER_COLUMN}={marker}"
         params.append(int(identity.id))
@@ -88,7 +93,19 @@ def _list_activity(
         params.append(deployment_run_id)
     where += item_filter(marker, params, item_ids)
     where += run_group_filter(marker, params, deployment_run_ids)
-    bounded = max(1, min(int(limit), 500))
+    if requirement_ids is not None:
+        wanted = tuple(sorted(set(requirement_ids)))
+        where += (
+            f" AND q.id IN ({','.join(marker for _ in wanted)})"
+            if wanted
+            else " AND 1=0"
+        )
+        params.extend(wanted)
+    bounded = (
+        max(1, len(wanted))
+        if requirement_ids is not None
+        else max(1, min(int(limit), 500))
+    )
     item_scoped = item_ids is not None
     params.append(bounded + 1 if item_scoped else bounded)
     rows = query_rows(
@@ -102,18 +119,16 @@ def _list_activity(
     # Actual attempts own their artifacts. A durable historical judgment
     # association may resolve its original capture through the shared reader;
     # an untrusted raw pointer cannot lend another attempt's evidence.
-    evidence_run_ids = [
-        (
-            qa_evidence_run_id(
-                conn,
-                requirement_id=int(row["requirement_id"]),
-                run_id=int(row["run_id"]) if row["run_id"] is not None else None,
-                performed_by=row["performed_by"],
-                raw_result=row["raw_result"],
-            )
+    evidence_ids = qa_evidence_run_ids(
+        conn,
+        [
+            (int(row["requirement_id"]), int(row["run_id"]))
+            for row in rows
             if row["run_id"] is not None
-            else None
-        )
+        ],
+    )
+    evidence_run_ids = [
+        evidence_ids.get(int(row["run_id"])) if row["run_id"] is not None else None
         for row in rows
     ]
     artifact_rows = qa_artifact_rows_by_run(

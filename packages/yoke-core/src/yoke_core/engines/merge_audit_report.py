@@ -3,19 +3,15 @@
 from __future__ import annotations
 
 import os
-from typing import List, Optional
+from typing import List
 
-from yoke_core.domain.db_helpers import connect, query_rows, query_one, query_scalar
-from yoke_core.domain.task_lifecycle import sql_task_terminal_success_list
-from yoke_core.engines.merge_audit_report_helpers import (
-    _display_item_ref,
-    _epic_worktrees_sql,
-    _p,
-    _parent,
-)
+from yoke_core.engines import merge_audit_report_helpers as facts
+from yoke_core.engines.merge_audit_report_helpers import _parent
 
 
-def generate_report(epic_filter: Optional[int] = None) -> str:
+def generate_report(
+    epic_filter: str | None = None, *, project: str | None = None
+) -> str:
     """Generate the full merge readiness audit report.
 
     Parameters
@@ -38,7 +34,8 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
     _check_conflict = ma._check_conflict
     _now_iso = ma._now_iso
 
-    conn = connect()
+    snapshot = facts.load_snapshot(epic_filter, project=project)
+    epics = snapshot["epics"]
     repo_root = _resolve_repo_root()
 
     lines: List[str] = []
@@ -46,48 +43,14 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
     lines.append(f"Generated: {_now_iso()}")
     lines.append("")
 
-    # Terminal success statuses for SQL
-    terminal_success_sql = sql_task_terminal_success_list()
-
-
-    if epic_filter is not None:
-        epic_ids_rows = query_rows(
-            conn,
-            "SELECT DISTINCT t.epic_id FROM epic_tasks t JOIN item_worktrees iw "
-            f"ON iw.id=t.item_worktree_id WHERE t.epic_id = {_p(conn)} "
-            "AND iw.state = 'active'",
-            (epic_filter,),
-        )
-    else:
-        epic_ids_rows = query_rows(
-            conn,
-            "SELECT DISTINCT t.epic_id FROM epic_tasks t JOIN item_worktrees iw "
-            "ON iw.id=t.item_worktree_id WHERE iw.state = 'active' "
-            "ORDER BY t.epic_id",
-        )
-
-    epic_ids = [row["epic_id"] for row in epic_ids_rows]
-
     has_epic_content = False
     warning_count = 0
 
-    for eid in epic_ids:
-        # Get item info
-        item_row = query_one(
-            conn,
-            f"SELECT id, title, status FROM items WHERE id = {_p(conn)} LIMIT 1",
-            (eid,),
-        )
-        if item_row is None:
-            continue
-
-        item_title = item_row["title"]
-        item_status = item_row["status"]
-        epic_ref = _display_item_ref(conn, eid)
-
-        # Get distinct worktree branches for this epic.
-        wt_rows = query_rows(conn, _epic_worktrees_sql(conn), (eid,))
-        worktrees = [r["worktree"] for r in wt_rows]
+    for epic in epics:
+        item_title = epic["title"]
+        item_status = epic["status"]
+        epic_ref = epic["public_ref"]
+        worktrees = list(epic["branches"])
 
         # Check if any branches still exist (unmerged)
         has_branches = any(_branch_exists(repo_root, wt) for wt in worktrees)
@@ -96,35 +59,14 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
 
         has_epic_content = True
 
-        # Task completion stats
-        total_tasks = query_scalar(
-            conn, f"SELECT COUNT(*) FROM epic_tasks WHERE epic_id = {_p(conn)}", (eid,)
-        ) or 0
-        done_tasks = query_scalar(
-            conn,
-            f"SELECT COUNT(*) FROM epic_tasks WHERE epic_id = {_p(conn)} "
-            f"AND status IN ({terminal_success_sql})",
-            (eid,),
-        ) or 0
-
-        # Integration simulation status
-        sim_display = "MISSING"
-        try:
-            sim_row = query_one(
-                conn,
-                f"SELECT result FROM epic_simulations WHERE epic_id = {_p(conn)} "
-                "AND phase = 'integration' "
-                "ORDER BY created_at DESC LIMIT 1",
-                (eid,),
-            )
-            if sim_row is not None:
-                sim_display = sim_row["result"] or "UNKNOWN"
-        except Exception:
-            # Table may not exist or query may fail
-            pass
+        total_tasks = epic["total"]
+        done_tasks = epic["done"]
+        sim_display = epic["simulation"]
 
         lines.append(f"## Epic {epic_ref}: {item_title}")
-        lines.append(f"Status: {item_status} | Tasks: {done_tasks}/{total_tasks} completed | Simulation: {sim_display}")
+        lines.append(
+            f"Status: {item_status} | Tasks: {done_tasks}/{total_tasks} completed | Simulation: {sim_display}"
+        )
         lines.append("")
 
         # --- Branch table ---
@@ -155,17 +97,13 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
         lines.append("")
 
         # --- Incomplete tasks ---
-        incomplete_rows = query_rows(
-            conn,
-            f"SELECT task_num, title, status FROM epic_tasks "
-            f"WHERE epic_id = {_p(conn)} AND status NOT IN ({terminal_success_sql}) "
-            f"ORDER BY task_num",
-            (eid,),
-        )
+        incomplete_rows = epic["incomplete"]
         if incomplete_rows:
             lines.append("### Incomplete Tasks")
             for row in incomplete_rows:
-                lines.append(f"- Task {row['task_num']}: {row['title']} (status: {row['status']})")
+                lines.append(
+                    f"- Task {row['task_num']}: {row['title']} (status: {row['status']})"
+                )
             lines.append("")
 
         # --- Warnings ---
@@ -182,7 +120,7 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
         # Simulation missing
         if sim_display == "MISSING":
             warnings.append(
-                f"- Integration simulation missing. Run `/yoke simulate {eid}` before merging."
+                f"- Integration simulation missing. Run `/yoke simulate {epic_ref}` before merging."
             )
             warning_count += 1
 
@@ -205,23 +143,14 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
         lines.append("---")
         lines.append("")
 
-
     has_standalone = False
 
     if epic_filter is None:
-        standalone_rows = query_rows(
-            conn,
-            "SELECT iw.branch, i.id, i.title, i.status "
-            "FROM item_worktrees iw JOIN items i ON i.id = iw.item_id "
-            "WHERE i.status = 'done' AND NOT EXISTS ("
-            "SELECT 1 FROM epic_tasks t WHERE t.epic_id = i.id"
-            ") ORDER BY i.id, iw.id",
-        )
+        standalone_rows = snapshot["standalone"]
         for standalone in standalone_rows:
             ibranch = str(standalone["branch"])
             if not _branch_exists(repo_root, ibranch):
                 continue
-            isun = int(standalone["id"])
             istatus = str(standalone["status"])
 
             if not has_standalone:
@@ -232,7 +161,7 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
 
             ititle = str(standalone["title"] or "")
             iahead = _commits_ahead(repo_root, ibranch)
-            iref = _display_item_ref(conn, isun)
+            iref = standalone["public_ref"]
             lines.append(f"| {ibranch} | {iref}: {ititle} | {istatus} | {iahead} |")
 
         if has_standalone:
@@ -240,12 +169,9 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
             lines.append("---")
             lines.append("")
 
-
     all_ready_branches: List[str] = []
-    for eid in epic_ids:
-        wt_rows = query_rows(conn, _epic_worktrees_sql(conn), (eid,))
-        for r in wt_rows:
-            wt = r["worktree"]
+    for epic in epics:
+        for wt in epic["branches"]:
             if _branch_exists(repo_root, wt) and wt not in all_ready_branches:
                 all_ready_branches.append(wt)
 
@@ -254,14 +180,16 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
     if all_ready_branches and _has_merge_tree(repo_root):
         checked: set = set()
         for branch_index, left_branch in enumerate(all_ready_branches):
-            for right_branch in all_ready_branches[branch_index + 1:]:
+            for right_branch in all_ready_branches[branch_index + 1 :]:
                 pair = frozenset((left_branch, right_branch))
                 if pair in checked:
                     continue
                 checked.add(pair)
 
                 conflict_files = _check_conflict(
-                    repo_root, left_branch, right_branch,
+                    repo_root,
+                    left_branch,
+                    right_branch,
                 )
                 if conflict_files:
                     if not has_conflicts:
@@ -276,9 +204,10 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
             lines.append("")
     elif all_ready_branches and not _has_merge_tree(repo_root):
         lines.append("## Potential Conflicts")
-        lines.append("*Skipped: `git merge-tree --write-tree` not available (requires Git 2.38+).*")
+        lines.append(
+            "*Skipped: `git merge-tree --write-tree` not available (requires Git 2.38+).*"
+        )
         lines.append("")
-
 
     lines.append("## Summary")
 
@@ -286,25 +215,12 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
     total_ready = 0
     total_blocked = 0
 
-    for eid in epic_ids:
-        wt_rows = query_rows(conn, _epic_worktrees_sql(conn), (eid,))
-        for r in wt_rows:
-            wt = r["worktree"]
+    for epic in epics:
+        for wt, counts in epic["branches"].items():
             if not _branch_exists(repo_root, wt):
                 continue
             total_branches += 1
-            wt_total = query_scalar(
-                conn, "SELECT COUNT(*) FROM epic_tasks t JOIN item_worktrees iw "
-                f"ON iw.id=t.item_worktree_id WHERE t.epic_id = {_p(conn)} "
-                f"AND iw.branch = {_p(conn)}", (eid, wt),
-            ) or 0
-            wt_done = query_scalar(
-                conn, "SELECT COUNT(*) FROM epic_tasks t JOIN item_worktrees iw "
-                f"ON iw.id=t.item_worktree_id WHERE t.epic_id = {_p(conn)} "
-                f"AND iw.branch = {_p(conn)} AND t.status IN ({terminal_success_sql})",
-                (eid, wt),
-            ) or 0
-            if wt_done == wt_total:
+            if counts["done"] == counts["total"]:
                 total_ready += 1
             else:
                 total_blocked += 1
@@ -326,5 +242,4 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
         else:
             lines.append("No unmerged epic or standalone issue branches found.")
 
-    conn.close()
     return "\n".join(lines) + "\n"

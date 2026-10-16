@@ -7,11 +7,11 @@ from unittest.mock import patch
 from yoke_cli.commands.adapters import github_release
 
 
-def test_release_tag_allocation_allows_the_server_to_batch_a_large_history() -> None:
+def test_commit_tag_allows_bounded_repository_access() -> None:
     source_sha = "a" * 40
 
     with patch.object(github_release, "dispatch_and_emit", return_value=0) as dispatch:
-        result = github_release.github_release_create_next_tag(
+        result = github_release.github_release_create_commit_tag(
             [
                 "upyoke/yoke",
                 source_sha,

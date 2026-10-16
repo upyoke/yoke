@@ -13,8 +13,8 @@ from yoke_core.tools import release_tag_validation as tags
 @pytest.fixture
 def release_env():
     return {
-        "TAG_NAME": "v1.2.3+launch.4",
-        "GITHUB_REF": "refs/tags/v1.2.3+launch.4",
+        "TAG_NAME": "0.2.0.202610140941",
+        "GITHUB_REF": "refs/tags/0.2.0.202610140941",
         "GITHUB_REPOSITORY": "owner/yoke",
         "GITHUB_REPOSITORY_OWNER": "Owner",
         "GITHUB_SHA": "a" * 40,
@@ -27,13 +27,21 @@ def patch_tag_api(
     object_type="tag",
     target_type="commit",
     source=None,
-    message="Yoke 1.2.3+launch.4\n\nRelease notes",
+    message="Yoke 0.2.0.202610140941\n\nRelease notes",
 ):
     calls = []
 
     def run(command, **kwargs):
         calls.append(command)
         assert kwargs["check"] and kwargs["timeout"] == 60
+        if "/git/commits/" in command[-1]:
+            return subprocess.CompletedProcess(
+                command, 0, json.dumps({"committer": {"date": "2026-10-14T09:41:59Z"}})
+            )
+        if "/compare/" in command[-1]:
+            return subprocess.CompletedProcess(
+                command, 0, json.dumps({"status": "ahead"})
+            )
         if "/git/ref/" in command[-1]:
             obj = {"type": object_type, "sha": "b" * 40}
         else:
@@ -51,26 +59,28 @@ def test_annotated_tag_outputs_exact_release_identity(monkeypatch, release_env):
     assert tags.validate_release_tag(release_env) == {
         "latest_ref": "ghcr.io/owner/yoke-server:latest",
         "repository": "ghcr.io/owner/yoke-server",
-        "release_version": "1.2.3+launch.4",
-        "sha_ref": "ghcr.io/owner/yoke-server:" + "a" * 12,
-        "sha_tag": "a" * 12,
+        "release_version": "0.2.0.202610140941",
+        "version_ref": "ghcr.io/owner/yoke-server:0.2.0.202610140941",
+        "image_tag": "0.2.0.202610140941",
         "source_sha": "a" * 40,
         "tag_object_sha": "b" * 40,
     }
-    assert len(calls) == 2
+    assert len(calls) == 4
 
 
-@pytest.mark.parametrize("message", ["Yoke 1.2.3+launch.4\nRelease notes", "", "Wrong"])
+@pytest.mark.parametrize(
+    "message", ["Yoke 0.2.0.202610140941\nRelease notes", "", "Wrong"]
+)
 def test_wheel_factory_requires_matching_note_heading(
     monkeypatch, release_env, message
 ):
     patch_tag_api(monkeypatch, message=message)
-    if message.startswith("Yoke 1.2.3+launch.4\n"):
+    if message.startswith("Yoke 0.2.0.202610140941\n"):
         assert (
             tags.validate_release_tag(release_env, require_note_heading=True)[
                 "release_version"
             ]
-            == "1.2.3+launch.4"
+            == "0.2.0.202610140941"
         )
     else:
         with pytest.raises(
@@ -80,12 +90,12 @@ def test_wheel_factory_requires_matching_note_heading(
 
 
 @pytest.mark.parametrize(
-    "tag", ["v01.2.3+launch.4", "v1.2.3+launch.04", "v1.2.3", "dev"]
+    "tag", ["v00.2.0.202610140941", "v1.2.3+launch.04", "v1.2.3", "dev"]
 )
 def test_noncanonical_tag_never_queries_github(monkeypatch, release_env, tag):
     calls = patch_tag_api(monkeypatch)
     release_env.update(TAG_NAME=tag, GITHUB_REF=f"refs/tags/{tag}")
-    with pytest.raises(ValueError, match="without leading-zero numeric atoms"):
+    with pytest.raises(ValueError, match="release_version_invalid"):
         tags.validate_release_tag(release_env)
     assert calls == []
 

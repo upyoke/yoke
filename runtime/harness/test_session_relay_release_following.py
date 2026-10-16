@@ -7,9 +7,9 @@ from yoke_harness.session_relay import ServeOnceOutcome
 from yoke_harness.session_relay_daemon import serve_forever
 
 
-PINNED_RELEASE = "0.1.1+launch.365"
-SERVED_RELEASE = f"v{PINNED_RELEASE}"
-NEXT_SERVED_RELEASE = "v0.1.1+launch.366"
+PINNED_RELEASE = "0.2.0.202610140941"
+SERVED_RELEASE = PINNED_RELEASE
+NEXT_SERVED_RELEASE = "0.2.0.202610140942"
 
 
 def _served_cycle(build: str):

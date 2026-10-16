@@ -190,6 +190,12 @@ def land_item_through_merge_queue(
         and not pre_state.closed
         and pre_state.auto_merge_active
     )
+    if already_armed:
+        red_checks = red_entry_checks_refusal(
+            ctx, pr_num, sleep=sleep, lane_head=commit_sha, armed=True
+        )
+        if red_checks:
+            return fail_landing(pr_num, red_checks, tuple(warnings))
     if pre_state is None or not (already_merged or already_armed):
         refusal = unchanged_failed_train_refusal(
             ctx,
@@ -209,7 +215,9 @@ def land_item_through_merge_queue(
         # refused is what turns a red gate into a wait nothing ends:
         # merge-when-ready takes, and every later read sees an armed
         # landing waiting for an entry GitHub will never create.
-        red_checks = red_entry_checks_refusal(ctx, pr_num, sleep=sleep)
+        red_checks = red_entry_checks_refusal(
+            ctx, pr_num, sleep=sleep, lane_head=commit_sha
+        )
         if red_checks:
             return fail_landing(pr_num, red_checks, tuple(warnings))
         entry = enter_merge_queue(ctx, pr_num)

@@ -14,20 +14,13 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Sequence
-
-
-_ATOM = r"([a-z0-9]*[a-z][a-z0-9]*|0|[1-9][0-9]*)"
-_NUMBER = r"(0|[1-9][0-9]*)"
-_TAG = re.compile(rf"v{_NUMBER}\.{_NUMBER}\.{_NUMBER}\+{_ATOM}(\.{_ATOM})*")
+from datetime import datetime
+from yoke_contracts.release_version import commit_version, release_version
 
 
 def validate_tag_spelling(tag: str) -> None:
-    """Refuse tag aliases that PEP 440 would normalize to a different spelling."""
-    if not _TAG.fullmatch(tag):
-        raise ValueError(
-            "release tags must use canonical vX.Y.Z+local.N spelling "
-            f"without leading-zero numeric atoms: {tag}"
-        )
+    """Require the same commit-clock spelling as wheels and images."""
+    release_version(tag)
 
 
 def validate_release_tag(
@@ -60,8 +53,18 @@ def validate_release_tag(
         raise ValueError(
             f"remote tag does not peel to workflow commit {env['GITHUB_SHA']}"
         )
+    commit = api(f"git/commits/{source_sha}")
+    clock = datetime.fromisoformat(commit["committer"]["date"].replace("Z", "+00:00"))
+    if commit_version(clock) != tag:
+        raise ValueError(
+            "release_commit_clock_mismatch: use the exact commit UTC version"
+        )
+    if api(f"compare/{source_sha}...main").get("status") not in {"ahead", "identical"}:
+        raise ValueError(
+            "release_source_not_on_main: merge the exact candidate before publishing"
+        )
     if require_note_heading:
-        expected = f"Yoke {tag[1:]}"
+        expected = f"Yoke {tag}"
         heading = (tag_object.get("message") or "").split("\n", 1)[0]
         if heading != expected:
             raise ValueError(
@@ -71,9 +74,9 @@ def validate_release_tag(
     return {
         "latest_ref": f"{repository}:latest",
         "repository": repository,
-        "release_version": tag[1:],
-        "sha_ref": f"{repository}:{source_sha[:12]}",
-        "sha_tag": source_sha[:12],
+        "release_version": tag,
+        "version_ref": f"{repository}:{tag}",
+        "image_tag": tag,
         "source_sha": source_sha,
         "tag_object_sha": tag_sha,
     }

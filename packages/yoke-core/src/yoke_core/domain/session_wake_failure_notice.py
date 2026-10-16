@@ -20,7 +20,7 @@ from yoke_core.domain.session_message_steering import (
     seat_session_id,
 )
 from yoke_core.domain.session_message_selectors import resolve_recipients
-from yoke_core.domain.session_message_store import insert_message
+from yoke_core.domain.session_message_store import idempotent_message, insert_message
 from yoke_core.domain.session_message_starvation import turn_in_flight
 from yoke_core.domain.session_message_types import parse_timestamp
 from yoke_core.domain.session_relay_storage import marker
@@ -95,6 +95,9 @@ def notify_failed_wake(
         ):
             return None
     failure = "wake_attempts_exhausted" if exhausted else str(attempt[0])
+    key = f"{NOTICE_PREFIX}:{message_id}:{session_id}:{failure}"
+    if idempotent_message(conn, sender_actor_id=None, idempotency_key=key) is not None:
+        return None
     held = session_item_scope(conn, session_id)
     project_id = held.project_id if held is not None else int(row["project_id"])
     selector = RecipientSelector(
@@ -153,7 +156,7 @@ def notify_failed_wake(
             "session_ids": [sender_session] if sender_session else [],
             "actors": [str(sender_actor)] if actors else [],
         },
-        idempotency_key=f"{NOTICE_PREFIX}:{message_id}:{session_id}:{failure}",
+        idempotency_key=key,
         idempotency_intent_only=True,
         created_at=now,
         expires_at=now + timedelta(hours=policy.expiry_hours),

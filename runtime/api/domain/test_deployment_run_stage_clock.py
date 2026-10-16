@@ -68,14 +68,11 @@ def test_boot_adds_column_without_backfilling_existing_runs(test_db):
     _seed_run(conn, run_id=run_id, entered_at=None)
     conn.execute("ALTER TABLE deployment_runs DROP COLUMN current_stage_entered_at")
     conn.commit()
-    clock.set_current_stage(conn, run_id, "complete")
-    conn.commit()
-
     converge_flow_catalog(conn)
     converge_flow_catalog(conn)
 
     row = _row(conn, run_id)
-    assert row["current_stage"] == "complete"
+    assert row["current_stage"] == "item-qa"
     assert row["current_stage_entered_at"] is None
 
 

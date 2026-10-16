@@ -17,20 +17,22 @@ import {
 import {
   appendSessionPrimaryStatus,
   sessionIsLive,
+  sessionHealthState,
+  sessionPrimaryStatus,
 } from "./universe_session_diagnostics.js";
 import { harnessIdentity } from "./universe_session_presentation.js";
 import { el } from "./universe_view_support.js";
 
 let claimantPanelSequence = 0;
 
-// A holder is abandoned only when nothing accounts for its silence: the
-// server calls it stale — past its activity TTL and not parked on its claim —
-// and its process has been seen gone. A parked holder is `waiting`, never
-// stale, so an exited process alone never makes it abandoned: the next
-// message resumes it from its transcript.
+// Claim protection and process availability are separate facts. Preserve the
+// explicit recovery for an unavailable holder without calling it stale.
 export function isAbandonedHolder(row) {
-  return String(row.liveness || "").toLowerCase() === "stale"
-    && String(row.native_process?.state || "") === "gone";
+  return !row.declared_wait
+    && row.mode !== "parked"
+    && row.liveness !== "waiting"
+    && row.native_process?.state === "gone"
+    && row.native_process?.resumable_from_transcript !== true;
 }
 
 // A session is a qualifying claimant — its item counts as being worked on —
@@ -78,6 +80,11 @@ function miniSessionCard(documentNode, row, note) {
     documentNode, "span", "session-executor", harness.label,
   ));
   appendSessionPrimaryStatus(documentNode, button, row);
+  const health = sessionHealthState(row);
+  if (sessionPrimaryStatus(row).state === "parked"
+      && ["process-exited", "process-gone", "resuming"].includes(health?.state)) {
+    button.appendChild(el(documentNode, "span", "item-claimant-process", health.label));
+  }
   // Anything else this session holds reads after its status, inside the same
   // chip, because it is a property of the session and not a thing the
   // session is filed under.

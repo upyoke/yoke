@@ -1,33 +1,9 @@
-"""Prove GitHub took the landing before reporting the handoff.
+"""Prove GitHub holds a landing before recording its handoff.
 
-Four facts describe a pull request the queue is going to land, and a
-landing that reads any one of them alone gets a different question
-answered than the one it asked:
-
-* **armed** — ``autoMergeRequest`` is set, so the merge-when-ready
-  mutation actually took. This is the fact the handoff marker depends on,
-  and the mutation returning success is not it: what the marker promises
-  its holder is that GitHub is going to land the pull request, which only
-  GitHub's own answer can establish.
-* **queued** — ``isInMergeQueue`` / ``mergeQueueEntry``. GitHub creates
-  the entry only once the pull request's own required checks pass, so an
-  armed pull request whose checks are still running is legitimately not
-  queued. Requiring this at arming time would refuse ordinary landings.
-* **eligible** — ``mergeable`` / ``mergeStateStatus``. A pull request
-  that has gone ``DIRTY`` cannot be taken, whatever the other two say.
-* **entry-gated** — the required checks in the pull request's own status
-  rollup. Because GitHub waits for them before creating the entry, one
-  that has already concluded red means the entry can never happen.
-  ``BLOCKED`` with the rest of the set still pending is the ordinary
-  wait; ``BLOCKED`` with a red required check is an ejection wearing the
-  same clothes, and reading only the first three fields held a worker
-  thirteen minutes on a pull request that could never enqueue.
-
-So admission is a mergeable queue entry, or else armed, still eligible, and not
-already red, and a refusal names which of the four failed. The read-back
-is confirmed once before refusing: arming has just been asked for rather
-than being a run in progress, so it settles in seconds and the confirm is
-a bounded probe.
+Admission requires a viable queue entry, or an armed eligible PR without red
+required checks. Arming is a request, never evidence that GitHub accepted it.
+A bounded read-back confirms membership, eligibility and required-check state.
+Cancelled checks recover before admission, independently of duplicate arming.
 """
 
 from __future__ import annotations
@@ -306,6 +282,8 @@ def red_entry_checks_refusal(
     *,
     read_checks: Callable[..., object] = read_required_checks,
     sleep: Callable[[float], None] = time.sleep,
+    lane_head: str = "",
+    armed: bool = False,
 ) -> str:
     """Refuse to arm a pull request its required checks have already failed.
 
@@ -319,7 +297,17 @@ def red_entry_checks_refusal(
     refused: those checks are re-run on the same head, and arming proceeds
     once GitHub shows them replaced.
     """
-    checks, checks_error = read_checks(ctx, pr_num)
+    if armed:
+        facts = read_landing(ctx, pr_num, read_checks=read_checks)
+        if facts.merged or (facts.state and facts.state.closed):
+            return ""
+        if not facts.readable:
+            return f"ci_recovery_unreadable: {facts.describe()}. Restore GitHub reads and retry merge; no rerun was sent."
+        if facts.admitted() or not landing_eligible(facts.state):
+            return ""
+        checks, checks_error = facts.required_checks, facts.checks_error
+    else:
+        checks, checks_error = read_checks(ctx, pr_num)
     if checks_error or checks is None:
         return ""
     failed = failed_required_checks(checks)
@@ -332,10 +320,11 @@ def red_entry_checks_refusal(
             failed,
             read_checks=read_checks,
             sleep=sleep,
+            lane_head=lane_head,
         )
+    action = "cannot enter" if armed else "was not armed for"
     return (
-        f"pull request {pr_num} was not armed for the merge queue: "
-        f"{regate_instruction(failed)}."
+        f"pull request {pr_num} {action} the merge queue: {regate_instruction(failed)}."
     )
 
 

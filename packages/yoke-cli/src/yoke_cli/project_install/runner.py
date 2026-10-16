@@ -139,13 +139,18 @@ def install(
     )
 
     def regenerate() -> Dict[str, Any]:
-        return repository_layer.write_repository_layer(
+        result = repository_layer.write_repository_layer(
             root,
             bundle,
             operation=operation,
             source=source,
             mode=resolved_mode,
         )
+        if registered:
+            from yoke_cli.project_install.owned_cleanup import record_registration
+
+            record_registration(root, resolved_id, config_path)
+        return result
 
     report = regenerate()
     report["git_credentials"] = git_credentials

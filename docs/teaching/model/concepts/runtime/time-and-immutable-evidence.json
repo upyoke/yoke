@@ -3,7 +3,7 @@
  "title": "Time and immutable evidence",
  "status": "draft-copy",
  "audience": "Maintainers",
- "sources": ["docs/native-instant-preboot.md"],
+ "sources": ["docs/native-instant-storage.md"],
  "private_sources": ["platform"],
  "page": "runtime-evidence",
  "position": 6

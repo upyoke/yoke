@@ -12,7 +12,7 @@ from yoke_cli.commands._helpers import parse_or_usage_error
 
 AdapterFn = Callable[[List[str]], int]
 
-MERGE_AUDIT_USAGE = "yoke merge audit [PREFIX-N]"
+MERGE_AUDIT_USAGE = "yoke merge audit [PREFIX-N] [--project P]"
 
 _MERGE_AUDIT_HELP = """\
 Render the read-only merge readiness audit. With an item ref, limit the
@@ -44,6 +44,7 @@ def merge_audit(args: List[str]) -> int:
         nargs="?",
         help="Optional epic/item ref; accepts PREFIX-N.",
     )
+    parser.add_argument("--project", default=None)
     parsed = parse_or_usage_error(parser, args, MERGE_AUDIT_USAGE)
     if parsed is None:
         return 2
@@ -64,7 +65,12 @@ def merge_audit(args: List[str]) -> int:
         )
         return 1
 
-    print(engine.generate_report(epic_filter), end="")
+    try:
+        context = {"project": parsed.project} if parsed.project else {}
+        print(engine.generate_report(epic_filter, **context), end="")
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
     return 0
 
 

@@ -39,30 +39,22 @@ def _p(connection):
     return "%s" if db_backend.connection_is_postgres(connection) else "?"
 
 
-def _ensure_attempts_table(connection) -> None:
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS session_message_attempts (
-            attempt_id TEXT PRIMARY KEY,
-            message_id TEXT NOT NULL,
-            target_session_id TEXT NOT NULL,
-            broker_session_id TEXT,
-            attempt_kind TEXT NOT NULL,
-            adapter_revision TEXT,
-            lease_id TEXT,
-            started_at TIMESTAMPTZ NOT NULL,
-            completed_at TIMESTAMPTZ,
-            result_code TEXT,
-            evidence TEXT
-        )
-        """
-    )
-    connection.commit()
-
-
 def _insert_open_wake_attempt(connection, session_id: str) -> None:
-    _ensure_attempts_table(connection)
     marker = _p(connection)
+    connection.execute(
+        "INSERT INTO session_messages "
+        "(message_id, body, body_sha256, selector_snapshot, created_at, expires_at) "
+        "VALUES ('message-1', 'wake', 'digest', '{}', "
+        "'2026-08-25T15:00:00Z', '2026-08-25T16:00:00Z')"
+    )
+    connection.execute(
+        "INSERT INTO session_message_recipients "
+        "(message_id, session_id, project_id, resolution_evidence, routing_snapshot, "
+        "state, created_at, wake_after) "
+        f"VALUES ('message-1', {marker}, 1, '{{}}', '{{}}', 'pending', "
+        "'2026-08-25T15:00:00Z', '2026-08-25T15:00:00Z')",
+        (session_id,),
+    )
     connection.execute(
         "INSERT INTO session_message_attempts "
         "(attempt_id, message_id, target_session_id, attempt_kind, "

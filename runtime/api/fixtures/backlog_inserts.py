@@ -266,8 +266,8 @@ def insert_deployment_run(
     if not existing:
         conn.execute(
             "INSERT INTO deployment_flows "
-            "(id, project_id, name, stages, created_at) "
-            f"VALUES ({p}, {p}, {p}, {p}, {p})",
+            "(id, project_id, name, stages, definition_schema_version, created_at) "
+            f"VALUES ({p}, {p}, {p}, {p}, 2, {p})",
             (flow, project_id, flow, "[]", instant_parameter(conn, ts)),
         )
 

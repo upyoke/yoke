@@ -4,13 +4,13 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "When attaching QA to a workflow transition or composing item-scoped versus run-wide release QA.",
- "need": "A requirement belongs to an item/task or a deployment run, optionally a stage and member. Matching member attachments, including plans that reach a member only through an admitted requirement, share one plan/source/target execution and verdict; each member waits only on its attached groups. A shared failure blocks every attaching member, while other plans and targets remain separate.",
+ "need": "A requirement belongs to an item/task or a deployment run, optionally a stage and member. Matching member attachments, including plans that reach a member only through an admitted requirement, share one plan/source/target execution and verdict; each member waits only on its attached groups. A shared failure blocks every attaching member, while other plans and targets remain separate. Unfinished private cases can execute before shared acceptance, with their own custody and target. Completing that private invocation never starts a shared campaign; every attached shared group remains required.",
  "disclosure": "current cue",
  "surface": "Case attachment validation; Shipping Item QA/Run QA; QA subject reads",
  "gap": "Review question: should the first mixed release show a small explanation of item-versus-run QA, with detailed binding rules fetched by the agent?",
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke qa requirement list --help"],
  "plan_notes": ["JOURNEYS row 12", "JOURNEYS row 13"],
- "sources": ["docs/public/reference/qa-platform/case-attachment.md", "docs/public/reference/qa-platform/deployment-plan-execution.md", "docs/public/reference/qa-platform.md", "docs/public/items-and-sessions.md", "runtime/api/domain/test_deployment_qa_shared_plans.py", "runtime/api/domain/test_deployment_qa_shared_admitted_plans.py"],
+ "sources": ["docs/public/reference/qa-platform/case-attachment.md", "docs/public/reference/qa-platform/deployment-plan-execution.md", "docs/public/reference/qa-platform.md", "docs/public/items-and-sessions.md", "runtime/api/domain/test_deployment_qa_shared_plans.py", "runtime/api/domain/test_deployment_qa_shared_admitted_plans.py", "runtime/api/domain/test_deployment_qa_private_before_shared.py"],
  "position": 0
 }

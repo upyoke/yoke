@@ -14,16 +14,13 @@ from typing import Any
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.deployment_qa_case_failure_kinds import RED_VERDICTS
-from yoke_core.domain.deployment_run_completion_preconditions import (
-    RESOLVED_RUN_QA_STATUSES,
-)
 from yoke_core.domain.deployment_run_stage_entry import (
     is_scoped_qa_stage,
     parse_stage_plan,
 )
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
 from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
-from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_message_types import row_dict
 from yoke_core.domain.steering_fleet_report_detectors import marker
 
@@ -34,7 +31,6 @@ _FACT_TABLES = (
     "qa_requirements",
     "qa_runs",
     "decision_requests",
-    "deployment_run_qa",
 )
 
 
@@ -69,14 +65,10 @@ def live_deployment_runs(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
     p = marker(conn)
     terminal = sorted(TERMINAL_RUN_STATUSES)
     holes = ", ".join(p for _ in terminal)
-    entered = (
-        "current_stage_entered_at"
-        if _column_exists(conn, "deployment_runs", "current_stage_entered_at")
-        else "NULL"
-    )
     rows = conn.execute(
         f"""SELECT id, flow, status, COALESCE(current_stage, '') AS current_stage,
-                   {entered} AS current_stage_entered_at, driver_attachment
+                   current_stage_entered_at, driver_attachment,
+                   settling_at
               FROM deployment_runs
              WHERE project_id = {p}
                AND status NOT IN ({holes})
@@ -250,28 +242,6 @@ def _completion_boundary(
     unresolved: dict[str, list[str]] = {run_id: [] for run_id in run_ids}
     totals: dict[str, int] = {run_id: 0 for run_id in run_ids}
     holes, params = _holes(conn, run_ids)
-    if tables.has("deployment_run_qa"):
-        resolved_holes, resolved_params = _holes(conn, list(RESOLVED_RUN_QA_STATUSES))
-        flow_rows = conn.execute(
-            f"""SELECT run_id, check_name, status FROM deployment_run_qa
-                 WHERE run_id IN ({holes}) AND blocking=1
-                   AND status NOT IN ({resolved_holes})
-                 ORDER BY run_id, check_name""",
-            params + resolved_params,
-        ).fetchall()
-        for raw in flow_rows:
-            row = row_dict(raw)
-            unresolved[str(row["run_id"])].append(
-                f"check '{row['check_name']}' is {row['status']}"
-            )
-        for raw in conn.execute(
-            f"""SELECT run_id, COUNT(*) AS total FROM deployment_run_qa
-                 WHERE run_id IN ({holes}) AND blocking=1
-                 GROUP BY run_id""",
-            params,
-        ).fetchall():
-            row = row_dict(raw)
-            totals[str(row["run_id"])] += int(row["total"] or 0)
     if tables.has("qa_requirements") and tables.has("qa_runs"):
         settled = settled_obligation_sql(conn, "r")
         plan_rows = conn.execute(

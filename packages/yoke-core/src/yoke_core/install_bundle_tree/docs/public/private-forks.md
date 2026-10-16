@@ -53,9 +53,11 @@ history evidence with the source commit and manifest digest/URLs. Keep
 the artifacts immutable and verify them through your own publishing process.
 
 A private relay installs the exact immutable version reported by its server
-handshake, using `RECORDED_ORIGIN/simple/`. Publish that version before
-booting the server that advertises it; it must include a PEP 440 local
-release segment. The relay does not use the channel to choose a different
+handshake, fetching all four product wheels from
+`RECORDED_ORIGIN/dist/releases/VERSION/wheels/` with encoded URL segments.
+Publish that exact PEP 440 version before booting the server that advertises
+it. New publications use `BASE.YYYYMMDDHHMM` for wheels and images.
+The relay does not use the channel to choose a different
 version, derive an index from the API URL, or substitute upstream's Yoke
 index. Public dependencies still resolve from PyPI. Hosted upstream stage
 and production connections use their respective hosted indexes.
@@ -73,6 +75,10 @@ no valid distribution record, relay installation refuses with
 distribution validation reason. The refusal records recovery instructions
 in relay status and preserves any prior release. Repair the record with
 `yoke config distribution set`, then retry the named relay install command.
+For an older installer that cannot
+fetch an already-published release, follow the
+[release fetch recovery](reference/linux-relay.md#recover-a-release-fetch-failure)
+to update the operator CLI first and verify the running relay afterward.
 
 ## Build and boot your server
 

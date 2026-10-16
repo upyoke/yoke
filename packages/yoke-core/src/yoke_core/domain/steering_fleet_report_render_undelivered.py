@@ -114,7 +114,8 @@ def _state_phrase(entry: UndeliveredMessages) -> str:
         settle = cancel_recovery(entry.message_ids[0] if entry.message_ids else None)
         return (
             f"{phrase} {format_instant(entry.recipient_gone_at)} — no delivery route remains; "
-            f"settle with `{settle}`"
+            f"read `yoke messages get {entry.message_ids[0] if entry.message_ids else 'MESSAGE-ID'}`; "
+            f"handle the work or re-address it, then sender actor/project admin may settle with `{settle}`"
         )
     return phrase
 
@@ -176,7 +177,8 @@ def _held_silence(entry: UndeliveredMessages) -> str:
 def undelivered_line(entry: UndeliveredMessages) -> str:
     return (
         f"  session {entry.session_id}  {entry.envelope_count} message(s)"
-        f"{_references(entry)}, oldest {minutes(entry.oldest_seconds)}, "
+        f"{_references(entry)}"
+        f"{f' ({entry.public_ref}, project {entry.item_project})' if entry.public_ref else ''}, oldest {minutes(entry.oldest_seconds)}, "
         f"{_state_phrase(entry)}{_wake_suffix(entry)}"
         f"{evidence_pull_suffix(entry.session_id, entry.evidence_id)}"
     )

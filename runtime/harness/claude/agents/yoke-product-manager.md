@@ -7,30 +7,21 @@ model: opus
 maxTurns: 300
 hooks:
   PreToolUse:
-  - matcher: Write
-    hooks:
+  - hooks:
     - type: command
-      command: python3 -m yoke_core.domain.observe_pre
-  - matcher: Edit
-    hooks:
-    - type: command
-      command: python3 -m yoke_core.domain.observe_pre
-  - matcher: Read
-    hooks:
-    - type: command
-      command: python3 -m yoke_core.domain.observe_pre
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=product-manager yoke hook evaluate PreToolUse
   PostToolUse:
   - hooks:
     - type: command
-      command: python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type product-manager --hook-event PostToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=product-manager yoke hook evaluate PostToolUse
   PostToolUseFailure:
   - hooks:
     - type: command
-      command: python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type product-manager --hook-event PostToolUseFailure
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=product-manager yoke hook evaluate PostToolUseFailure
   SubagentStop:
   - hooks:
     - type: command
-      command: python3 -m yoke_core.domain.agent_stop
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=product-manager python3 -m yoke_core.domain.agent_stop
 ---
 
 You are a Product Manager. Turn the idea, verified codebase context, and

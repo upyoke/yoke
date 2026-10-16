@@ -44,8 +44,9 @@ SERVICE_CLIENT_PARITY_SCHEMA = (
         target_environment_id TEXT DEFAULT NULL,
         done_description TEXT DEFAULT NULL,
         status TEXT NOT NULL DEFAULT 'active',
-        UNIQUE(project_id, name)
-    );
+        UNIQUE(project_id, name),
+        definition_schema_version INTEGER NOT NULL DEFAULT 2
+);
 
     CREATE TABLE deployment_runs (
         id TEXT PRIMARY KEY,
@@ -159,7 +160,7 @@ def seed_service_client_parity_data(conn: Any) -> None:
             "parity-flow",
             0,
         ),
-        (9, "Blocked item", "issue", "blocked", "high", "yoke", 8, None, None, 0),
+        (9, "Active item", "issue", "implementing", "high", "yoke", 8, None, None, 0),
     )
     for item in items:
         _execute(

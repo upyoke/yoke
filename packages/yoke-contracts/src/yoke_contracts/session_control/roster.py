@@ -23,7 +23,7 @@ SESSION_CONTROL_ROSTER_DISPLAY_FIELDS = (
     "latest_message",
     "end_blocker",
     "effective_stale_ttl_minutes",
-    "stale_eligible_at",
+    "activity_quiet_at",
     "declared_wait",
     "stale_alive_probe",
     "steering_scope",

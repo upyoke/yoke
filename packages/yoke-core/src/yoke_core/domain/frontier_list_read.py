@@ -152,7 +152,7 @@ def _blocked_row(
     blocking_route: Optional[Dict[str, Any]],
 ) -> Dict[str, Any]:
     if detail is None:
-        # Non-edge wait: operator block, legacy blocked status, or an item
+        # Non-edge wait: operator block or an item
         # that needs a spec. No blocking item or gate point; reasons say why.
         return {
             "item_id": public_ref,

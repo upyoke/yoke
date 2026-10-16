@@ -89,8 +89,9 @@ Passing requires exactly one new session for each probe with the correct executo
 and workspace, evaluated native hook records, and affirmative allow/deny
 `PreToolUse` decisions. Model prose and native CLI exit status are diagnostic only.
 Missing telemetry is unavailable evidence, never a passing product verdict.
-Runner exceptions close the execution with a bounded diagnostic reason; the
-returned case result retains the full error for repair before a fresh run.
+Runner exceptions and unusable begin responses close the execution with a bounded
+diagnostic reason; the returned refusal or case result retains the full error
+for repair before a fresh run.
 The driver emits `REAL_HARNESS_PROVED` only after those assertions and cleanup.
 Each native prompt has a 120-second budget. Once the status probe begins, the
 terminal recipe waits for `REAL_HARNESS_COMPLETE`, including failed probe reports.

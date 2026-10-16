@@ -160,7 +160,7 @@ def anchor_hits(
         )
 
         seat = covering_seat(conn, steering_target)
-        if seat is not None and str(seat["session_id"]) in sessions:
+        if seat is not None:
             _add_hit(
                 hits,
                 str(seat["session_id"]),

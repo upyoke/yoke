@@ -1,8 +1,10 @@
 {
  "id": "job-launch-and-isolation",
  "title": "Job launch and isolation",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "Maintainers",
  "page": "runtime-execution",
- "position": 3
+ "position": 3,
+ "summary": "Each poll admits one eligible wake and one diagnostic read alongside assigned launches, including while unrelated jobs run. Per-job records own deadlines and settlement; session-wide wake exclusion and native custody prevent duplicate turns. Desktop authority and harness capability checks still apply.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/session_relay.py", "packages/yoke-core/src/yoke_core/domain/session_relay_job_leases.py", "packages/yoke-harness/src/yoke_harness/session_relay_supervision.py"]
 }

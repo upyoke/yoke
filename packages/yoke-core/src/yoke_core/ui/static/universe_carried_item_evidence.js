@@ -3,7 +3,7 @@
 // inside its own entry in a deployment card's Carries box.
 //
 // Evidence is read for the carried items, then scoped to the exact run
-// on each card. Run-less source requirements and other runs stay on the item.
+// on each card. The run read supplies current obligations before copies exist.
 
 import { QA_STATE, classifyMemberQa, classifyQaRow } from "./qa_state.js";
 import { itemQaChecks } from "./universe_carried_item_qa.js";
@@ -35,6 +35,7 @@ export const EMPTY_CARRIED_ITEM_FACTS = Object.freeze({
   perGroupLimit: CHECKS_PER_ITEM,
   titles: new Map(),
   failed: null,
+  loading: true,
 });
 
 // One item's checks within one deployment run — the unit the read bounds,
@@ -58,7 +59,8 @@ function subjectsByProject(items) {
     // guessed into somebody else's project: the read is project-scoped.
     if (id === null || item.project_id == null) continue;
     const key = String(item.project_id);
-    const bucket = byProject.get(key) || { items: new Set() };
+    const bucket = byProject.get(key) || { items: new Set(), runs: new Set() };
+    if (item.run_id) bucket.runs.add(String(item.run_id));
     bucket.items.add(id);
     byProject.set(key, bucket);
   }
@@ -71,7 +73,7 @@ function subjectsByProject(items) {
 // past the recent-activity window.
 export async function loadCarriedItemEvidence(context, items) {
   const buckets = [...subjectsByProject(items).entries()];
-  if (!buckets.length) return EMPTY_CARRIED_ITEM_FACTS;
+  if (!buckets.length) return { ...EMPTY_CARRIED_ITEM_FACTS, loading: false };
   const calls = [];
   for (const [project, bucket] of buckets) {
     const subjects = [...bucket.items];
@@ -83,6 +85,7 @@ export async function loadCarriedItemEvidence(context, items) {
           public_refs: subjects.slice(at, at + SUBJECTS_PER_CALL),
           // Each card filters these per-item, per-run groups to its own run.
           limit: CHECKS_PER_ITEM,
+          deployment_run_ids: [...bucket.runs],
         },
       });
     }
@@ -112,6 +115,7 @@ export async function loadCarriedItemEvidence(context, items) {
     }
   }
   return {
+    loading: false,
     byItem,
     pendingByRequirement,
     pendingByItem: reviewsByItem(pendingByRequirement),
@@ -238,24 +242,51 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   const itemId = carriedItemRef(item);
   if (itemId === null) return null;
   const { checks } = carriedItemEvidence(facts, itemId, runId);
-  const history = checks;
+  const projection = item.qa_obligations;
+  const projected = projection?.current || [];
+  const history = [...projected, ...checks];
   const gates = carriedItemReviews(facts, itemId, runId, checks).map(asGate);
   const memberState = classifyMemberQa(history, { runId });
   const hasQa = history.some((row) => {
     const state = classifyQaRow(row, history)?.id;
     return state !== QA_STATE.NO_OBLIGATION && state !== QA_STATE.RUN_MACHINERY;
   });
-  // An item with no QA requirement and no decision shows no QA block at all.
-  const noObligation = memberState.id === QA_STATE.NO_OBLIGATION;
-  if (!hasQa && !noObligation && !gates.length) return null;
+  // An explicit declaration differs from an empty applicable scope.
+  const noObligation = !hasQa && memberState.id === QA_STATE.NO_OBLIGATION;
+  const readError = projection?.error || (facts?.failed
+    ? `item_qa_evidence_read_failed: ${facts.failed} Reload to retry item QA evidence and decisions.`
+    : null) || (!projection && options.requireProjection
+    ? "item_qa_requirements_unavailable: This server did not return release QA requirements. "
+      + "Reload; if it persists, ask the operator to serve a release with carried-item QA projections."
+    : null);
+
+  if (!projection && !options.requireProjection && !hasQa && !noObligation
+    && !gates.length && !readError) return null;
   const documentNode = context.document;
+  if (!hasQa && !noObligation && !gates.length) {
+    const note = el(documentNode, "p", "carried-item-qa-diagnostic",
+      `Item QA: ${readError || (facts?.loading ? "Loading earlier item QA and decisions…"
+        : "No applicable item QA obligations for this release.")}`);
+    if (readError) note.classList.add("error");
+    host.appendChild(note);
+    return { node: note, requestIds: new Set() };
+  }
   const wrap = el(
     documentNode,
     "div",
     `carried-item-evidence is-${String(memberState.id).replaceAll("_", "-")}`,
   );
-  const scoped = hasQa ? itemQaChecks(history, { runId })
-    : { current: [], history: [] };
+  const scoped = itemQaChecks(checks, { runId });
+  if (projection) {
+    const ids = new Set(projected.map((row) => String(row.requirement_id)));
+    scoped.current = projected.filter((row) => ![QA_STATE.NO_OBLIGATION,
+      QA_STATE.RUN_MACHINERY].includes(classifyQaRow(row, projected)?.id));
+    scoped.history = [...(projection.history || []), ...scoped.history,
+      ...checks.filter((row) => !ids.has(String(row.requirement_id)))].filter(
+      (row, at, all) => all.findIndex((other) => String(other.requirement_id)
+        === String(row.requirement_id)) === at && !ids.has(String(row.requirement_id)),
+    );
+  }
   const section = qaScopeSection(context, {
     heading: "Item QA",
     headingTag: "h4",
@@ -273,6 +304,9 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
     head.appendChild(el(documentNode, "span", "run-verdict is-approved", "No obligation"));
     section.appendChild(el(documentNode, "p", "run-qa-check-reason", memberState.detail));
   }
+  if (facts?.loading) section.appendChild(el(documentNode, "p",
+    "carried-item-evidence-note", "Loading earlier item QA and decisions…"));
+  if (readError) section.appendChild(el(documentNode, "p", "error", readError));
   wrap.appendChild(section);
   if (hasQa) appendTruncationNote(documentNode, section, facts, itemId, runId);
   const decisions = decisionList(context, gates, onDecide || null, {

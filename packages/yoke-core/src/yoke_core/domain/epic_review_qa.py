@@ -114,21 +114,26 @@ def _ensure_implementation_review_requirement(
         item_id=int(epic_id),
         gate_id=GATE_QA_VERIFICATION,
     )
+    diagnostic = io.StringIO()
     try:
-        return _qa_req_add(
-            epic_id=int(epic_id),
-            task_num=task_num,
-            qa_kind="implementation_review",
-            qa_phase="verification",
-            target_env="local",
-            blocking_mode="blocking",
-            requirement_source="explicit",
-            success_policy='{"type":"deterministic","criteria":"verdict_pass"}',
-            workflow_transition_id=workflow_transition_id,
-        )
+        with contextlib.redirect_stderr(diagnostic):
+            return _qa_req_add(
+                epic_id=int(epic_id),
+                task_num=task_num,
+                qa_kind="implementation_review",
+                qa_phase="verification",
+                target_env=None,
+                blocking_mode="blocking",
+                requirement_source="explicit",
+                success_policy='{"type":"deterministic","criteria":"verdict_pass"}',
+                workflow_transition_id=workflow_transition_id,
+            )
     except SystemExit as exc:
         raise RuntimeError(
-            f"Error creating requirement: qa requirement-add exited with {exc.code}"
+            "implementation_review_requirement_create_failed: "
+            f"{diagnostic.getvalue().strip() or f'QA requirement creation exited {exc.code}'}. "
+            "Inspect the named refusal and review-get before retrying review-seed "
+            "for the same epic and task."
         ) from exc
 
 

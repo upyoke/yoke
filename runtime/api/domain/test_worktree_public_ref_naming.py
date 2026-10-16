@@ -26,8 +26,6 @@ from yoke_core.domain.worktree_lane_plan import (
 )
 from yoke_core.domain.worktree_naming import (
     ItemWorktreeIdentityUnresolved,
-    candidate_worktree_names,
-    legacy_worktree_name,
     worktree_name_for_item,
 )
 from runtime.api.domain.worktree_test_helpers import (
@@ -158,36 +156,24 @@ def test_minting_refuses_without_a_connection():
         worktree_name_for_item(None, 99246)
 
 
-def test_lookup_still_offers_the_legacy_name_for_an_unbacked_item(yoke_db):
-    """Recognising an existing lane is the direction that may still guess.
-
-    Lanes created before public-ref naming are on disk under the legacy
-    shape and are never renamed, so the candidate set keeps offering it even
-    where minting refuses.
-    """
-    unbacked_id = 99247
-
-    conn = connect_test_db(yoke_db)
-    try:
-        names = candidate_worktree_names(conn, unbacked_id)
-    finally:
-        conn.close()
-
-    assert legacy_worktree_name(unbacked_id) in names
-
-
 def test_lane_plan_refuses_rather_than_planning_an_invented_name(
-    git_repo, yoke_db,
+    git_repo,
+    yoke_db,
 ):
     """The degraded plan used to name a lane from the internal id."""
     with pytest.raises(ItemWorktreeIdentityUnresolved):
         resolve_worktree_lanes_for_item(
-            99248, str(git_repo), ".worktrees", yoke_db,
+            99248,
+            str(git_repo),
+            ".worktrees",
+            yoke_db,
         )
 
 
 def test_create_reports_the_refusal_instead_of_creating_a_lane(
-    git_repo, yoke_db, monkeypatch,
+    git_repo,
+    yoke_db,
+    monkeypatch,
 ):
     """The refusal reaches the caller as a result, naming no branch."""
     monkeypatch.setenv("YOKE_SESSION_ID", "unbacked-lane-owner")
@@ -240,7 +226,10 @@ def test_recorded_lanes_survive_an_unreadable_sequence(git_repo, yoke_db):
         conn.close()
 
     lanes = resolve_worktree_lanes_for_item(
-        internal_id, str(git_repo), ".worktrees", yoke_db,
+        internal_id,
+        str(git_repo),
+        ".worktrees",
+        yoke_db,
     )
 
     assert [lane[0] for lane in lanes] == ["EXT-legacy-lane"]
@@ -263,5 +252,8 @@ def test_a_required_new_lane_still_refuses_without_identity(git_repo, yoke_db):
 
     with pytest.raises(ItemWorktreeIdentityUnresolved):
         resolve_worktree_lanes_for_item(
-            internal_id, str(git_repo), ".worktrees", yoke_db,
+            internal_id,
+            str(git_repo),
+            ".worktrees",
+            yoke_db,
         )

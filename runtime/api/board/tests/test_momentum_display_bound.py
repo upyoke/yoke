@@ -87,12 +87,7 @@ def test_strategy_windows_the_whole_history_before_cutting_off_days() -> None:
     assert "AND day >=" in sql[window_end:]
 
 
-def test_strategy_serves_a_payload_recorded_before_this_measure() -> None:
-    # The board renders from a payload recorded server-side, so between this
-    # build merging and the server shipping it the query is absent. The only
-    # strategy figure such a payload holds is the expiring events total this
-    # measure replaced, so the series is empty rather than wrong, and the
-    # board still renders.
+def test_strategy_reads_saved_revisions() -> None:
     from yoke_contracts.board.momentum_series import (
         _strategy_query,
         strategy_bytes_by_day,
@@ -101,42 +96,13 @@ def test_strategy_serves_a_payload_recorded_before_this_measure() -> None:
     project_ids = [1]
     revisions_sql, _ = _strategy_query(project_ids, 120)
 
-    class _PayloadWithoutTheMeasure:
-        def has_query(self, sql: str, params=None) -> bool:
-            return sql != revisions_sql
-
-        def query(self, sql: str, params=None):
-            raise AssertionError("must not issue an unrecorded query")
-
-    assert (
-        strategy_bytes_by_day(
-            _PayloadWithoutTheMeasure(),
-            project_ids,
-            days=120,
-        )
-        == {}
-    )
-
-
-def test_strategy_serves_a_payload_that_carries_the_measure() -> None:
-    from yoke_contracts.board.momentum_series import (
-        _strategy_query,
-        strategy_bytes_by_day,
-    )
-
-    project_ids = [1]
-    revisions_sql, _ = _strategy_query(project_ids, 120)
-
-    class _PayloadWithTheMeasure:
-        def has_query(self, sql: str, params=None) -> bool:
-            return True
-
+    class RevisionDB:
         def query(self, sql: str, params=None):
             assert sql == revisions_sql
             return [("2026-07-05", 17)]
 
     assert strategy_bytes_by_day(
-        _PayloadWithTheMeasure(),
+        RevisionDB(),
         project_ids,
         days=120,
     ) == {"2026-07-05": 17}

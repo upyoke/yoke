@@ -34,7 +34,7 @@ if "# lint:no-worktree-db-path-check" not in command_stripped:
                         "BLOCKED: Yoke control-plane DB paths are resolved, "
                         "never constructed. Do not use a worktree-local "
                         "`data/yoke.db` or `$PWD/data/yoke.db`. Use:\n"
-                        "  python3 -m yoke_core.cli.db_router ...\n"
+                        "  yoke <subcommand> --help\n"
                         "  YOKE_PG_DSN / YOKE_PG_DSN_FILE for authority binding\n"
                         "Worktree-local DBs are validation surfaces only when "
                         "explicit env bindings surface them.\n"

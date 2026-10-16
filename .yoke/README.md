@@ -14,8 +14,7 @@ that truth for humans without duplicating it as editable runtime state.
 ## Files
 
 - `lint-config` - hook guard policy in the line-oriented Yoke format.
-- `file-line-exceptions` - repo-relative globs for files exempt from the
-  local authored-file line limit.
+- `project.config` - authored-file line limits and exception globs.
 - `labels` - GitHub label color policy in `label_color_*=HEX` format.
 - `board-art` - live board header art read by the renderer.
 - `test-inventory.md` - Yoke test surfaces and lifecycle placement.
@@ -41,7 +40,7 @@ including the starter board art — renders from Python
 ## What lives where
 
 - Project appearance and repo-owned policy files (this directory):
-  `board-art`, `lint-config`, `file-line-exceptions`, `labels`.
+  `board-art`, `lint-config`, `project.config`, `labels`.
 - Shared project behavior (authoritative DB): `project-policy` capability
   settings such as `base_branch`, `wip_cap`, `default_priority`,
   `merge_conflict_threshold`, `max_attempts`, and `file_line_limit`; board

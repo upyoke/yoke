@@ -17,7 +17,34 @@ from typing import Sequence
 # Pytest flags that consume the following token, so a flag value like
 # ``-k runtime`` is never mistaken for a positional path arg.
 _PYTEST_VALUE_FLAGS = frozenset(
-    {"-k", "-m", "-n", "-p", "-o", "-W", "-c", "--rootdir", "--numprocesses"}
+    {
+        "-k",
+        "-m",
+        "-n",
+        "-p",
+        "-o",
+        "-W",
+        "-c",
+        "--rootdir",
+        "--numprocesses",
+        "--dist",
+        "--splits",
+        "--group",
+        "--splitting-algorithm",
+        "--durations-path",
+        "--durations",
+        "--junitxml",
+        "--tb",
+        "--maxfail",
+        "--deselect",
+        "--ignore",
+        "--ignore-glob",
+        "--basetemp",
+        "--confcutdir",
+        "--import-mode",
+        "--color",
+        "--capture",
+    }
 )
 
 
@@ -97,14 +124,29 @@ def invalid_test_selection_diagnostic(args: Sequence[str], cwd: Path) -> str | N
     return "\n".join(lines)
 
 
-def _active_selection_filters(args: Sequence[str]) -> tuple[str, ...]:
-    filters: list[str] = []
+def selection_filters(args: Sequence[str]) -> dict[str, str]:
+    """Effective keyword/marker expressions, including attached and empty values."""
+    filters: dict[str, str] = {}
+    skip_next = False
     for index, token in enumerate(args):
-        if token in {"-k", "-m"} and index + 1 < len(args):
-            filters.append(f"{token} {args[index + 1]}")
+        if skip_next:
+            skip_next = False
+            continue
+        if token == "--":
+            break
+        if token in {"-k", "-m"}:
+            if index + 1 < len(args):
+                filters[token] = args[index + 1]
+                skip_next = True
         elif token.startswith(("-k", "-m")) and not token.startswith("--"):
-            filters.append(token)
-    return tuple(filters)
+            filters[token[:2]] = token[2:].removeprefix("=")
+        else:
+            skip_next = pytest_flag_consumes_value(token) and "=" not in token
+    return filters
+
+
+def _active_selection_filters(args: Sequence[str]) -> tuple[str, ...]:
+    return tuple(f"{flag} {value}" for flag, value in selection_filters(args).items())
 
 
 def zero_collection_diagnostic(
@@ -137,5 +179,6 @@ __all__ = [
     "invalid_test_selection_diagnostic",
     "pytest_flag_consumes_value",
     "supplied_test_files",
+    "selection_filters",
     "zero_collection_diagnostic",
 ]

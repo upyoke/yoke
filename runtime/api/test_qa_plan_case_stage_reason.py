@@ -98,29 +98,6 @@ def test_undeclared_environment_counts_as_stage(test_db):
         )
 
 
-def test_reason_before_schema_converges_refuses_and_reads_tolerate(test_db):
-    plan = _plan(test_db)
-    replace_plan_cases(
-        test_db, plan_id=plan["id"], cases=[{**CASE, "target_envs": ["prod"]}]
-    )
-    test_db.execute("ALTER TABLE qa_plan_cases DROP COLUMN stage_reason")
-    assert _current_cases(test_db, plan["id"])[0]["stage_reason"] is None
-    assert get_plan(test_db, plan_id=plan["id"])["cases"][0]["stage_reason"] is None
-    with pytest.raises(QaPlanError, match="qa_case_stage_reason_schema_unavailable"):
-        replace_plan_cases(
-            test_db,
-            plan_id=plan["id"],
-            cases=[
-                {
-                    **CASE,
-                    "target_envs": ["stage"],
-                    "stage_reason": "changes_infrastructure",
-                }
-            ],
-        )
-    assert _current_cases(test_db, plan["id"])[0]["target_envs"] == ["prod"]
-
-
 @pytest.mark.parametrize(
     ("target_envs", "reason", "code"),
     [

@@ -8,7 +8,6 @@ from yoke_contracts.timestamps import format_instant, utc_now
 from yoke_core.domain.deployment_run_bound_sources import (
     parse_bound_sources,
     declared_bindings,
-    bound_sources_recorded,
 )
 from yoke_core.domain.deployment_run_stale_bound_sources import _compare_to_branch_heads
 from yoke_core.domain.deployment_run_project_sources import invalidate_run_source_facts
@@ -53,10 +52,6 @@ def _prepare_bound_sources(conn: Any, run_id: str, stage_name: str) -> dict[str,
     The caller commits before dispatch. A crash after commit conservatively
     keeps the source consumed, protecting any ambiguous provider attempt.
     """
-    if not bound_sources_recorded(conn):
-        raise ValueError(
-            f"bound_source_record_unavailable: {run_id} cannot record consumption; ask the control-plane operator to converge the bound_sources column"
-        )
     row = conn.execute(
         "SELECT dr.bound_sources,df.stages,dr.current_stage,dr.status,dr.flow,dr.release_lineage FROM deployment_runs dr JOIN deployment_flows df ON df.id=dr.flow WHERE dr.id=%s",
         (run_id,),

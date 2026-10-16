@@ -223,7 +223,8 @@ def test_read_pr_landing_state_includes_mergeable_state(monkeypatch):
                 "state": "open",
                 "auto_merge": {"enabled_by": {}},
                 "mergeable_state": "dirty",
-                "head": {"sha": "abc123def"},
+                "head": {"sha": "abc123def", "ref": "feature/current"},
+                "base": {"ref": "release"},
             }
         ),
     )
@@ -234,6 +235,8 @@ def test_read_pr_landing_state_includes_mergeable_state(monkeypatch):
     assert not state.merged
     assert not state.closed
     assert state.head_sha == "abc123def"
+    assert state.head_branch == "feature/current"
+    assert state.target_branch == "release"
 
 
 def test_leave_merge_queue_disarms_merge_when_ready(monkeypatch):

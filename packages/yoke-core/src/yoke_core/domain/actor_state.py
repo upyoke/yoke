@@ -22,19 +22,8 @@ def _p(conn: Any) -> str:
 
 
 def actor_status_sql(conn: Any, alias: str) -> str:
-    """Read status before and after the additive column reaches a universe.
-
-    The workstation can drive the serving API's own release before boot
-    convergence. An absent column means the legacy schema, whose actors all
-    had authority; an existing column with NULL or an unknown value does not.
-    """
-    if not db_backend.connection_is_postgres(conn):
-        return f"{alias}.status"
-    actor = f"to_jsonb({alias})"
-    return (
-        f"CASE WHEN jsonb_exists({actor}, 'status') "
-        f"THEN {actor}->>'status' ELSE 'active' END"
-    )
+    """Read the actor's explicit authority state."""
+    return f"{alias}.status"
 
 
 def actor_active_sql(conn: Any, alias: str) -> str:
@@ -92,26 +81,16 @@ def set_actor_enabled(
     stored_now = instant_parameter(conn, now)
     p = _p(conn)
     lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
-    status_present = (
-        "jsonb_exists(to_jsonb(a), 'status')"
-        if db_backend.connection_is_postgres(conn)
-        else "1"
-    )
     try:
         conn.execute(f"SELECT id FROM organizations ORDER BY id{lock}").fetchall()
         row = conn.execute(
-            f"SELECT a.kind, a.system_component, {status_present}, "
+            "SELECT a.kind, a.system_component, "
             f"{actor_status_sql(conn, 'a')} FROM actors a WHERE a.id = {p}{lock}",
             (actor_id,),
         ).fetchone()
         if row is None:
             raise ActorStateRefused(f"actor {actor_id} does not exist; refresh Actors")
-        kind, component, has_status, status = row
-        if not has_status:
-            raise ActorStateRefused(
-                "actor enable/disable requires the serving build to boot-converge "
-                "the actor status column; deploy that build first"
-            )
+        kind, component, status = row
         if not enabled and actor_id == caller_actor_id:
             raise ActorStateRefused(
                 "cannot disable your own actor; ask another org admin to do it"

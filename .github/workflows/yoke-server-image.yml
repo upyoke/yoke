@@ -1,52 +1,81 @@
 name: yoke-server-image
 # Classification: FACTORY. Publishes the GHCR Yoke server image referenced by
 # the self-host compose .env (yoke_contracts.server_image); stays in the public product repo.
-# Tag-driven publication builds every validated release's complete image set;
-# branch pushes cannot move latest to a development version.
-# Fork safety: only annotated release tags peeling to their exact workflow commit build.
-# Validation has read-only repository scope; native builds, manifest assembly,
-# signing, and tag publication are separate GitHub-hosted jobs. The signer has
-# no checkout/run; sha12/latest become visible only after digest attestation succeeds.
-# No cloud credentials or operator registry are available in this lane.
-# Job limits and recovery: docs/testing-verification/ci-job-timeouts.md.
+# Main builds and attests native images; release tags promote those exact digests.
+# Signing runs without checkout or run steps and never publishes release pointers.
 on:
+  merge_group:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+    tags: ["[0-9]*"]
 concurrency:
-  # Immutable releases build concurrently; latest moves only for the highest
-  # canonical launch tag, so an older slow build cannot roll the pointer backward.
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.sha }}-${{ github.ref }}
   cancel-in-progress: false
 permissions: {}
 jobs:
   validate-tag:
     timeout-minutes: 5
-    name: validate-release-tag
+    name: resolve-commit-identity
     runs-on: ubuntu-latest
     permissions: {contents: read}
     outputs:
       latest_ref: ${{ steps.tag.outputs.latest_ref }}
-      repository: ${{ steps.tag.outputs.repository }}
-      release_version: ${{ steps.tag.outputs.release_version }}
-      sha_ref: ${{ steps.tag.outputs.sha_ref }}
-      sha_tag: ${{ steps.tag.outputs.sha_tag }}
-      source_sha: ${{ steps.tag.outputs.source_sha }}
+      repository: ${{ steps.commit.outputs.repository || steps.tag.outputs.repository }}
+      release_version: ${{ steps.commit.outputs.release_version || steps.tag.outputs.release_version }}
+      version_ref: ${{ steps.tag.outputs.version_ref }}
+      image_tag: ${{ steps.tag.outputs.image_tag }}
+      source_sha: ${{ steps.commit.outputs.source_sha || steps.tag.outputs.source_sha }}
       tag_object_sha: ${{ steps.tag.outputs.tag_object_sha }}
     steps:
       - name: Check out the exact workflow commit for read-only tag validation
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: false
+      - name: Resolve the exact main or queue commit clock
+        id: commit
+        if: github.ref == 'refs/heads/main' || github.event_name == 'merge_group'
+        env:
+          PYTHONPATH: packages/yoke-contracts/src
+        run: |
+          python3 packages/yoke-core/src/yoke_core/tools/commit_release_identity.py \
+            --source-sha "$GITHUB_SHA" --github-output
+          echo "repository=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/yoke-server" >> "$GITHUB_OUTPUT"
       - name: Require an immutable annotated release tag
         id: tag
+        if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
-        run: |
-          python3 packages/yoke-core/src/yoke_core/tools/release_tag_validation.py
+          PYTHONPATH: packages/yoke-contracts/src
+        run: python3 packages/yoke-core/src/yoke_core/tools/release_tag_validation.py
+  check-build:
+    if: github.event_name == 'merge_group'
+    timeout-minutes: 10
+    needs: validate-tag
+    runs-on: ${{ matrix.runner }}
+    permissions: {contents: read}
+    strategy:
+      matrix:
+        include:
+          - {platform: linux/amd64, runner: ubuntu-latest}
+          - {platform: linux/arm64, runner: ubuntu-24.04-arm}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with: {persist-credentials: false}
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
+      - name: Check both native image builds without registry or signing authority
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a
+        with:
+          context: .
+          push: false
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            YOKE_BUILD_SHA=${{ needs.validate-tag.outputs.source_sha }}
+            YOKE_ENGINE_VERSION=${{ needs.validate-tag.outputs.release_version }}
   build:
+    if: github.ref == 'refs/heads/main'
     timeout-minutes: 10
     name: build-native-${{ matrix.arch }}
     needs: validate-tag
@@ -81,15 +110,15 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push the native content-addressed image
         id: push
-        # Push without sha12/latest. /v1/health exposes the baked full source SHA;
-        # package versions use the validated release tag, not a branch development version.
+        # Push without version/latest. /v1/health exposes the baked full source SHA;
+        # package versions use the exact commit UTC clock.
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           push: true
           platforms: ${{ matrix.platform }}
           # Push content-addressed images first without changing human-facing tags;
-          # post-attestation publication refuses a conflicting immutable sha12.
+          # post-attestation publication refuses a conflicting immutable version.
           outputs: type=image,name=${{ needs.validate-tag.outputs.repository }},push-by-digest=true,name-canonical=true,push=true
           provenance: false
           build-args: |
@@ -115,8 +144,9 @@ jobs:
           name: digest-${{ matrix.arch }}
           path: ${{ runner.temp }}/digests/*
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 14
   assemble:
+    if: github.ref == 'refs/heads/main'
     timeout-minutes: 5
     name: assemble-content-addressed-image
     needs: [validate-tag, build]
@@ -188,6 +218,7 @@ jobs:
             echo "staging_ref=$staging_ref"
           } >> "$GITHUB_OUTPUT"
   attest:
+    if: github.ref == 'refs/heads/main'
     timeout-minutes: 5
     name: attest-content-addressed-image
     needs: [validate-tag, assemble]
@@ -231,119 +262,70 @@ jobs:
           subject-digest: ${{ needs.assemble.outputs.digest }}
           push-to-registry: true
           create-storage-record: false
-  publish-tags:
+  record:
     timeout-minutes: 5
-    name: publish-and-verify-image-tags
     needs: [validate-tag, assemble, attest]
     runs-on: ubuntu-latest
-    permissions: {contents: read, packages: write}
+    permissions: {contents: read}
     steps:
+      - name: Record the attested main image identity
+        env:
+          SOURCE_SHA: ${{ needs.validate-tag.outputs.source_sha }}
+          RELEASE_VERSION: ${{ needs.validate-tag.outputs.release_version }}
+          REPOSITORY: ${{ needs.validate-tag.outputs.repository }}
+          DIGEST: ${{ needs.assemble.outputs.digest }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          record = {key: os.environ[env] for key, env in (
+              ("source_sha", "SOURCE_SHA"), ("release_version", "RELEASE_VERSION"),
+              ("repository", "REPOSITORY"), ("digest", "DIGEST"))}
+          Path("image.json").write_text(json.dumps(record, sort_keys=True) + "\n")
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: yoke-image-${{ github.sha }}
+          path: image.json
+          retention-days: 14
+          if-no-files-found: error
+
+  publish-tags:
+    timeout-minutes: 10
+    concurrency:
+      group: yoke-server-image-publication-${{ github.repository }}
+      cancel-in-progress: false
+    if: startsWith(github.ref, 'refs/tags/')
+    name: promote-and-verify-image-tags
+    needs: validate-tag
+    runs-on: ubuntu-latest
+    permissions: {actions: read, attestations: read, contents: read, packages: write}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
       - name: Login to GHCR
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Revalidate tag and publish image references
-        id: references
+      - name: Recover and verify the attested main image
+        id: promoted
         env:
-          EXPECTED_SOURCE_SHA: ${{ needs.validate-tag.outputs.source_sha }}
-          EXPECTED_TAG_OBJECT_SHA: ${{ needs.validate-tag.outputs.tag_object_sha }}
           GH_TOKEN: ${{ github.token }}
-          LATEST_REF: ${{ needs.validate-tag.outputs.latest_ref }}
-          PUSHED_DIGEST: ${{ needs.assemble.outputs.digest }}
-          REPOSITORY: ${{ needs.validate-tag.outputs.repository }}
-          SHA_REF: ${{ needs.validate-tag.outputs.sha_ref }}
-          TAG_NAME: ${{ github.ref_name }}
+          RELEASE_VERSION: ${{ needs.validate-tag.outputs.release_version }}
         run: |
-          remote_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG_NAME")"
-          object_type="$(jq -r '.object.type' <<< "$remote_ref")"
-          tag_object_sha="$(jq -r '.object.sha' <<< "$remote_ref")"
-          if [[ "$object_type" != "tag" || "$tag_object_sha" != "$EXPECTED_TAG_OBJECT_SHA" ]]; then
-            echo "remote image tag changed before publication: $TAG_NAME" >&2
-            exit 1
-          fi
-          tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object_sha")"
-          target_type="$(jq -r '.object.type' <<< "$tag_object")"
-          source_sha="$(jq -r '.object.sha' <<< "$tag_object")"
-          if [[ "$target_type" != "commit" || "$source_sha" != "$EXPECTED_SOURCE_SHA" || "$source_sha" != "$GITHUB_SHA" ]]; then
-            echo "remote image tag no longer peels to the workflow commit" >&2
-            exit 1
-          fi
-          inspect_error="$RUNNER_TEMP/sha12-inspect-error"
-          existing_digest=""
-          if existing_digest="$(docker buildx imagetools inspect \
-            "$SHA_REF" --format '{{ .Manifest.Digest }}' \
-            2>"$inspect_error")"; then
-            if [[ "$existing_digest" != "$PUSHED_DIGEST" ]]; then
-              echo "refusing conflicting immutable sha12: $SHA_REF is $existing_digest, build is $PUSHED_DIGEST" >&2
-              exit 1
-            fi
-          elif grep -Eqi 'manifest unknown|not found' "$inspect_error"; then
-            docker buildx imagetools create \
-              --prefer-index=false \
-              --tag "$SHA_REF" "$REPOSITORY@$PUSHED_DIGEST"
-          else
-            cat "$inspect_error" >&2
-            exit 1
-          fi
-          latest_tag=""
-          latest_key=""
-          for page in $(seq 1 100); do
-            release_refs="$(gh api \
-              "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v?per_page=100&page=$page")"
-            while IFS= read -r candidate_ref; do
-              if [[ "$candidate_ref" =~ ^refs/tags/(v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\+launch\.(0|[1-9][0-9]*))$ ]]; then
-                printf -v candidate_key '%010d%010d%010d%010d' \
-                  "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" \
-                  "${BASH_REMATCH[4]}" "${BASH_REMATCH[5]}"
-                if [[ -z "$latest_key" || "$candidate_key" > "$latest_key" ]]; then
-                  latest_key="$candidate_key"
-                  latest_tag="${BASH_REMATCH[1]}"
-                fi
-              fi
-            done < <(jq -r '.[].ref' <<< "$release_refs")
-            ref_count="$(jq 'length' <<< "$release_refs")"
-            if [[ "$ref_count" -lt 100 ]]; then
-              break
-            fi
-          done
-          if [[ "$TAG_NAME" = "$latest_tag" ]]; then
-            docker buildx imagetools create \
-              --prefer-index=false \
-              --tag "$LATEST_REF" "$REPOSITORY@$PUSHED_DIGEST"
-            echo "published_latest=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Keeping latest on newer release $latest_tag; published immutable $SHA_REF"
-            echo "published_latest=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Verify published references resolve to the built digest
+          PYTHONPATH=packages/yoke-contracts/src python3 packages/yoke-core/src/yoke_core/tools/promote_main_artifacts.py image \
+            --repo "$GITHUB_REPOSITORY" --source-sha "$GITHUB_SHA" \
+            --version "$RELEASE_VERSION" --destination "$RUNNER_TEMP/main-image"
+      - name: Revalidate tag and publish exact image references
         env:
-          LATEST_REF: ${{ needs.validate-tag.outputs.latest_ref }}
-          PUBLISHED_LATEST: ${{ steps.references.outputs.published_latest }}
-          PUSHED_DIGEST: ${{ needs.assemble.outputs.digest }}
-          SHA_REF: ${{ needs.validate-tag.outputs.sha_ref }}
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+          EXPECTED_TAG_OBJECT_SHA: ${{ needs.validate-tag.outputs.tag_object_sha }}
+          PUSHED_DIGEST: ${{ steps.promoted.outputs.digest }}
         run: |
-          sha_digest="$(docker buildx imagetools inspect \
-            "$SHA_REF" --format '{{ .Manifest.Digest }}')"
-          if [[ "$sha_digest" != "$PUSHED_DIGEST" ]]; then
-            echo "published sha12 differs from built digest: sha12=$sha_digest built=$PUSHED_DIGEST" >&2
-            exit 1
-          fi
-          if [[ "$PUBLISHED_LATEST" = "true" ]]; then
-            latest_digest="$(docker buildx imagetools inspect \
-              "$LATEST_REF" --format '{{ .Manifest.Digest }}')"
-            if [[ "$latest_digest" != "$PUSHED_DIGEST" ]]; then
-              echo "published latest differs from built digest: latest=$latest_digest built=$PUSHED_DIGEST" >&2
-              exit 1
-            fi
-          fi
-          manifest="$(docker buildx imagetools inspect \
-            "$SHA_REF" --format '{{json .Manifest}}')"
-          platforms="$(jq -r \
-            '[.manifests[]?.platform | select(.os != "unknown") | "\(.os)/\(.architecture)"] | unique | sort | join(",")' \
-            <<< "$manifest")"
-          if [[ "$platforms" != "linux/amd64,linux/arm64" ]]; then
-            echo "published image lacks the required linux platforms: $platforms" >&2
-            exit 1
-          fi
+          PYTHONPATH=packages/yoke-contracts/src:packages/yoke-core/src python3 packages/yoke-core/src/yoke_core/tools/publish_server_image.py

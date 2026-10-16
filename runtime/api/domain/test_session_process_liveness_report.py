@@ -219,7 +219,7 @@ def test_every_shared_projection_holding_blocks_process_death_end(
     monkeypatch.setattr(
         liveness_report,
         "session_holdings_by_session",
-        lambda _conn, previous_limit=0: {
+        lambda _conn, previous_limit=0, session_ids=None: {
             session_id: {"current": [{"holding_kind": holding_kind}]}
         },
     )

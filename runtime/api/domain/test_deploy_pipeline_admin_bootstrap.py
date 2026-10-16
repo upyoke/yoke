@@ -210,7 +210,5 @@ def test_local_admin_candidate_bootstraps_execution_handlers(
     assert {
         "deployment_runs.execution.context",
         "deployment_runs.execution.update",
-        "deployment_runs.execution.qa_seed",
-        "deployment_runs.execution.qa_record",
         "deployment_runs.execution.qa_pending",
     }.issubset(called)

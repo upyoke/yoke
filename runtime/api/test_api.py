@@ -118,7 +118,6 @@ class TestCanonicalVocabulary:
             "implemented",
             "planning",
             "release",
-            "blocked",
             "stopped",
             "failed",
         ]:
