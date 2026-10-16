@@ -84,6 +84,7 @@ def test_table_lock_timeout_skips_table_and_continues(test_db, monkeypatch, caps
     assert _old_count(test_db) == 0
     assert "Deleted 3 rows" in out
     assert "api_token_audit (retention_table_limit, 3 attempts)" in out
+    assert "a lock wait hit its lock timeout" in out
     assert "Recovery: Other tables continued." in out
 
 
@@ -124,3 +125,15 @@ def test_unknown_skip_table_refuses(test_db):
     _policy(test_db)
     with pytest.raises(ValueError, match="^retention_table_index_invalid:"):
         passes.prune_pass(test_db, PruneRequest(skip_tables=["not_a_table"]))
+
+
+def test_event_cohort_reads_bounded_index_slices():
+    from datetime import datetime, timezone
+
+    from yoke_core.domain.retention_table_policies import policies
+
+    rule = policies(RetentionPolicy(), datetime.now(timezone.utc))[0]
+    sql, params = retention._cohort_select(None, rule, True, 6)
+    assert rule.table == "events" and "FOR UPDATE" not in sql
+    assert sql.count("ORDER BY t.created_at LIMIT %s") == len(rule.branches)
+    assert sql.count("%s") == len(params) and params[-1] == 6
