@@ -52,7 +52,7 @@ def register(registry) -> None:
             "machine_authorization.resolve",
             authorization.handle_resolve,
             authorization.AuthorizationResolveRequest,
-            ["machine_authorization_approve", "decision_requests_resolve"],
+            ["machine_authorization_codes_update"],
         ),
     ):
         registry.register(

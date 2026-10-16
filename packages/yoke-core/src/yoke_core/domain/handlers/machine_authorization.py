@@ -10,9 +10,8 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.machine_authorization_codes import (
     MachineAuthorizationError,
-    inspect,
-    resolve,
 )
+from yoke_core.domain.machine_authorization_decisions import inspect, resolve
 
 
 class AuthorizationGetRequest(BaseModel):

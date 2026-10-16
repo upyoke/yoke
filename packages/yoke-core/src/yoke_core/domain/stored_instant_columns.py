@@ -118,6 +118,7 @@ STORED_INSTANT_COLUMNS: tuple[tuple[str, str], ...] = (
     ("model_reference_revisions", "published_at"),
     ("machine_authorization_codes", "expires_at"),
     ("machine_authorization_codes", "consumed_at"),
+    ("machine_authorization_codes", "decided_at"),
     ("machines", "registered_at"),
     ("machines", "last_seen_at"),
     ("machines", "retired_at"),

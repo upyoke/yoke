@@ -20,7 +20,9 @@ def create_machine_authorization_table(conn: Any) -> None:
             machine_name TEXT,
             platform TEXT,
             consumed_at TIMESTAMPTZ,
-            client_key TEXT
+            client_key TEXT,
+            decision TEXT CHECK (decision IN ('approve','deny')),
+            decided_at TIMESTAMPTZ
         );
         CREATE INDEX IF NOT EXISTS idx_machine_authorization_expiry
             ON machine_authorization_codes(expires_at);
@@ -37,4 +39,13 @@ def create_machine_authorization_table(conn: Any) -> None:
     )
     _add_column_if_not_exists(conn, "machine_authorization_codes", "client_key", "TEXT")
     _add_column_if_not_exists(conn, "machine_authorization_codes", "platform", "TEXT")
+    _add_column_if_not_exists(
+        conn,
+        "machine_authorization_codes",
+        "decision",
+        "TEXT CHECK (decision IN ('approve','deny'))",
+    )
+    _add_column_if_not_exists(
+        conn, "machine_authorization_codes", "decided_at", "TIMESTAMPTZ"
+    )
     conn.commit()
