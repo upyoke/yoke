@@ -52,6 +52,7 @@ from yoke_contracts.session_control.liveness import LIVENESS_ENDED, LIVENESS_STA
 from yoke_core.domain.session_launch_abandonment import (
     settle_and_notify_native_death,
 )
+from yoke_core.domain.session_scope_identity import relay_serves_scope
 from yoke_core.domain.session_staleness import activity_liveness
 from yoke_core.domain.session_message_store import cancel_open_recipients
 from yoke_core.domain.session_message_types import row_dict
@@ -76,7 +77,7 @@ from yoke_core.domain.steering_message_recipients import session_awaiting_seat_r
 PROCESS_VERIFIED_DEAD_REASON = "process_verified_dead"
 
 _SESSION_COLUMNS = (
-    "session_id, project_id, machine_id, executor, mode, last_heartbeat, "
+    "session_id, project_id, org_id, actor_id, machine_id, executor, mode, last_heartbeat, "
     "last_tool_call_at, episode_started_at, ended_at, terminated_at, "
     "native_process_gone_at, native_process_gone_evidence"
 )
@@ -100,14 +101,22 @@ def _unauthorized(
     *,
     machine_id: str,
     authorized_projects: Sequence[int],
+    relay_actor_id: int | None = None,
 ) -> str | None:
     """Why this machine may not report about this session, or ``None``."""
     if row is None:
         return "session_not_found"
     if str(row.get("machine_id") or "") != machine_id:
         return "machine_mismatch"
-    project_id = row.get("project_id")
-    if project_id is None or int(project_id) not in set(authorized_projects):
+    if not relay_serves_scope(
+        relay_machine_id=machine_id,
+        relay_actor_id=relay_actor_id,
+        advertised_project_ids=authorized_projects,
+        row_machine_id=row.get("machine_id"),
+        row_project_id=row.get("project_id"),
+        row_org_id=row.get("org_id"),
+        row_actor_id=row.get("actor_id"),
+    ):
         return "project_unauthorized"
     return None
 
@@ -140,6 +149,7 @@ def _skip_reason(
     *,
     machine_id: str,
     authorized_projects: Sequence[int],
+    relay_actor_id: int | None = None,
     now: datetime,
     launch_named: bool,
 ) -> str | None:
@@ -147,6 +157,7 @@ def _skip_reason(
         row,
         machine_id=machine_id,
         authorized_projects=authorized_projects,
+        relay_actor_id=relay_actor_id,
     )
     if denial is not None or row is None:
         return denial
@@ -212,6 +223,7 @@ def apply_verified_process_death_reports(
     machine_id: str,
     authorized_projects: Iterable[int],
     reports: Iterable[Mapping[str, Any]],
+    relay_actor_id: int | None = None,
     now: datetime | None = None,
 ) -> Dict[str, Any]:
     """End settled dead processes and retain every session still owed to."""
@@ -227,11 +239,16 @@ def apply_verified_process_death_reports(
             continue
         evidence = report.get("evidence") or {}
         row = _session_row(conn, session_id)
-        if (
-            _unauthorized(row, machine_id=machine_id, authorized_projects=projects)
-            is None
-        ):
-            _record_reported_usage(conn, session_id, report.get("usage_totals"))
+        denial = _unauthorized(
+            row,
+            machine_id=machine_id,
+            authorized_projects=projects,
+            relay_actor_id=relay_actor_id,
+        )
+        if denial is not None:
+            skipped.append({"session_id": session_id, "status": denial})
+            continue
+        _record_reported_usage(conn, session_id, report.get("usage_totals"))
         # Launch reconciliation commits independently. Take the lifecycle lock
         # afterward and reread activity/holdings through the ending decision.
         if settle_and_notify_native_death(conn, session_id, evidence) is not None:
@@ -242,6 +259,7 @@ def apply_verified_process_death_reports(
             row,
             machine_id=machine_id,
             authorized_projects=projects,
+            relay_actor_id=relay_actor_id,
             now=current,
             launch_named=_launch_named(evidence),
         )

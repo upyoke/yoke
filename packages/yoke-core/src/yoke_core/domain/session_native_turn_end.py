@@ -22,6 +22,7 @@ from yoke_contracts.session_control.native_turn_end import (
 )
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.session_scope_identity import relay_serves_scope
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_message_types import (
     parse_timestamp,
@@ -40,7 +41,7 @@ EVENT_SESSION_TURN_END_OBSERVED = "HarnessSessionTurnEndObserved"
 MAX_PROBE_TARGETS = 25
 
 _SESSION_COLUMNS = (
-    "session_id, project_id, machine_id, executor_surface, turn_posture, "
+    "session_id, project_id, org_id, actor_id, machine_id, executor_surface, turn_posture, "
     "ended_at, terminated_at"
 )
 
@@ -57,26 +58,34 @@ _READABLE_LIVE_SESSION = (
     "AND hs.turn_posture<>{marker} "
     "AND hs.machine_id={marker} "
     "AND hs.executor_surface IN ({surfaces}) "
-    "AND hs.project_id IN ({projects})"
+    "AND ({scope})"
 )
 
 
-def _live_session_clause(marker: str, *, projects: Sequence[int]) -> str:
+def _live_session_clause(
+    marker: str, *, projects: Sequence[int], relay_actor_id: int | None
+) -> str:
+    scopes = (
+        [f"hs.project_id IN ({','.join(marker for _ in projects)})"] if projects else []
+    )
+    if relay_actor_id is not None:
+        scopes.append(f"(hs.org_id IS NOT NULL AND hs.actor_id={marker})")
     return _READABLE_LIVE_SESSION.format(
         marker=marker,
         surfaces=",".join(marker for _ in NATIVE_TURN_RECORD_SURFACES),
-        projects=",".join(marker for _ in projects),
+        scope=" OR ".join(scopes),
     )
 
 
 def _live_session_params(
-    machine_id: str, *, projects: Sequence[int]
+    machine_id: str, *, projects: Sequence[int], relay_actor_id: int | None
 ) -> tuple[Any, ...]:
     return (
         NATIVE_TURN_END_POSTURE,
         machine_id,
         *NATIVE_TURN_RECORD_SURFACES,
         *projects,
+        *((relay_actor_id,) if relay_actor_id is not None else ()),
     )
 
 
@@ -85,6 +94,7 @@ def probe_targets(
     *,
     machine_id: str,
     authorized_projects: Iterable[int],
+    relay_actor_id: int | None = None,
     now: datetime | None = None,
 ) -> List[Dict[str, str]]:
     """Name this machine's sessions worth reading a turn record back for.
@@ -104,13 +114,17 @@ def probe_targets(
     session leaves the set as soon as its end is recorded.
     """
     projects = tuple(sorted({int(value) for value in authorized_projects}))
-    if not projects or not machine_id:
+    if not machine_id or (not projects and relay_actor_id is None):
         return []
     current = parse_instant(utc_now() if now is None else now)
     stamped = instant_parameter(conn, current)
     marker = _p(conn)
-    live = _live_session_clause(marker, projects=projects)
-    live_params = _live_session_params(machine_id, projects=projects)
+    live = _live_session_clause(
+        marker, projects=projects, relay_actor_id=relay_actor_id
+    )
+    live_params = _live_session_params(
+        machine_id, projects=projects, relay_actor_id=relay_actor_id
+    )
     claim_holders = conn.execute(
         "SELECT DISTINCT hs.session_id,hs.executor_surface "
         "FROM harness_sessions hs "
@@ -162,14 +176,22 @@ def _skip_reason(
     *,
     machine_id: str,
     authorized_projects: Sequence[int],
+    relay_actor_id: int | None = None,
 ) -> str | None:
     """Name why a reported turn end must not be applied, or ``None`` to apply."""
     if row is None:
         return "session_not_found"
     if str(row.get("machine_id") or "") != machine_id:
         return "machine_mismatch"
-    project_id = row.get("project_id")
-    if project_id is None or int(project_id) not in set(authorized_projects):
+    if not relay_serves_scope(
+        relay_machine_id=machine_id,
+        relay_actor_id=relay_actor_id,
+        advertised_project_ids=authorized_projects,
+        row_machine_id=row.get("machine_id"),
+        row_project_id=row.get("project_id"),
+        row_org_id=row.get("org_id"),
+        row_actor_id=row.get("actor_id"),
+    ):
         return "project_unauthorized"
     if str(row.get("executor_surface") or "") not in NATIVE_TURN_RECORD_SURFACES:
         # Every other surface's turn end stamps itself, so a report about
@@ -229,6 +251,7 @@ def apply_native_turn_ends(
     machine_id: str,
     authorized_projects: Iterable[int],
     reports: Iterable[Mapping[str, Any]],
+    relay_actor_id: int | None = None,
     now: datetime | None = None,
 ) -> Dict[str, Any]:
     """Apply one machine's observed turn ends and name every refusal.
@@ -248,7 +271,12 @@ def apply_native_turn_ends(
         if not session_id:
             continue
         row = _session_row(conn, session_id)
-        status = _skip_reason(row, machine_id=machine_id, authorized_projects=projects)
+        status = _skip_reason(
+            row,
+            machine_id=machine_id,
+            authorized_projects=projects,
+            relay_actor_id=relay_actor_id,
+        )
         if status is None:
             observed_at = parse_timestamp(report.get("observed_at"))
             stamped = stamp_turn_posture(
