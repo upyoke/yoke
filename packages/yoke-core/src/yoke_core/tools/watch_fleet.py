@@ -12,8 +12,9 @@ This wrapper runs :mod:`yoke_core.domain.fleet_delta_probe` under the shared
 raw + progress contract. Its central tier table sends actionable deltas to
 the follower immediately, keeps routine churn raw until the next report
 wake, holds a changed report until it closes so the follower sees one
-complete block rather than a delimiter then a body, and always ends with
-the follower's sentinel.
+block rather than a delimiter then a body — carrying only the rows new or
+changed since the last report, ages ignored, while the raw capture keeps it
+whole — and always ends with the follower's sentinel.
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ from typing import Sequence
 from yoke_core.domain import fleet_delta_probe
 from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN, REPORT_END
 from yoke_core.tools import _watch_digest, _watch_runner
+from yoke_core.tools._fleet_report_changes import changed_lines, row_identity
 from yoke_core.tools._watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_fleet"
@@ -51,21 +53,35 @@ def _as_line(line: str) -> str:
 
 
 class FleetLineClassifier:
-    """Hold a changed-report block and emit it as one urgent wake."""
+    """Hold a changed-report block and emit its new or changed rows as one wake.
+
+    Every line still reaches the raw capture; the progress stream carries
+    only rows that differ from the previous report once their elapsed-time
+    fields are ignored, so an unchanged row is not re-announced each pass.
+    """
 
     def __init__(self) -> None:
         self._in_report = False
         self._held: list[str] = []
         self._ready: str | None = None
+        self._seen: set[str] = set()
+        self._reported = False
         self.read_failed = False
 
     def _stage_ready(self, *, partial: bool) -> None:
         if not self._held:
             return
-        text = "".join(self._held)
-        if partial:
-            text += PARTIAL_REPORT_NOTE
-        self._ready = text
+        header = 2 if self._held[1:2] and self._held[1].startswith("composed ") else 1
+        opening, body = self._held[:header], self._held[header:]
+        closing = [] if partial else body[-1:]
+        if not partial:
+            body = body[:-1]
+        first, self._reported = not self._reported, True
+        rows = changed_lines(body, self._seen)
+        self._seen = {row_identity(line) for line in body}
+        tail = [PARTIAL_REPORT_NOTE] if partial else closing
+        emit = rows or partial or first
+        self._ready = "".join([*opening, *rows, *tail]) if emit else None
         self._held = []
         self._in_report = False
 
@@ -155,7 +171,10 @@ The steerer's session id comes from ambient harness identity, so the same
 command survives handoff. Every delta remains in the raw capture. The wake
 stream emits worker messages, alarms, abnormal session ends, blocked item
 transitions, newly available work, read failures, and a changed report as
-one block — opening marker, hook digest, and closing marker together. A
+one block — opening marker, header, the rows new or changed since the last
+report with the headings above them, and closing marker together. A row
+whose only change is an age ("for 1h32m", "quiet 42m", "pending=10m") or
+an instant is unchanged; the raw capture keeps every report whole. A
 delimiter never wakes on its own. A report truncated by a dead or quiet
 probe still reaches the follower, marked partial. Report checks run on
 quiet passes too, covering every held project/document seat; a timer-only

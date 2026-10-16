@@ -335,10 +335,10 @@ up; yoke status lists marks. No auto-trip/probing/counters.
 Watcher SIGHUP/SIGINT/SIGTERM reaps child groups and writes interruption/sentinel.
 Missing dead-writer sentinel is interrupted; watch tail diagnoses, raw capture
 precedes retry. Evidence get FETCH JOB STATE succeeded means file fetched,
-not native alive. Unchanged reports stay silent; heartbeat/stall diagnostics
-remain raw. Drain complete ready lines before waiting, forward whole report
-in one write. Parked release holder awaiting newer candidate remains expected
-even after removal from earlier release.
+not native alive. A report's wake carries only rows new or changed apart from
+ages/instants, under their parent lines; raw keeps every report and stall line
+whole. Drain ready lines before waiting; forward the report in one write.
+Parked release holder awaiting newer candidate stays expected after removal.
 
 Watcher remembers printed holder/landing/run rows, project facts under stable
 lexically-first held descriptor despite actionable reorder. Removed row emits
