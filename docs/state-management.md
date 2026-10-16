@@ -248,9 +248,9 @@ never duplicates its branch or filesystem path.
 | `id` | INTEGER | Auto-increment primary key |
 | `epic_id` | INTEGER | Numeric parent item ID |
 | `item_worktree_id` | INTEGER | Universal lane record in `item_worktrees` |
-| `queue` | TEXT | JSON array of task numbers |
-| `current_index` | INTEGER | Index into queue |
-| `current_task` | TEXT | Currently active task number |
+| `queue` | TEXT | JSON array of task numbers, ordered dependencies-first |
+| `current_index` | INTEGER | Queue index of the lane's selected task |
+| `current_task` | TEXT | The lane's selected task number |
 | `current_attempt` | INTEGER | Retry counter for current task |
 | `max_attempts` | INTEGER | Retry limit (default 5) |
 | `no_chain` | INTEGER | 1 = single-task dispatch, no auto-advance |
@@ -258,11 +258,19 @@ never duplicates its branch or filesystem path.
 | `last_updated` | TEXT | ISO timestamp |
 
 **How auto-chaining works:**
-1. The generated-task skill selected by the parent item's pinned binding
-   queries for the existing chain record via the epic dispatch-chain reader
-2. If current task is `implementing` → recovering from crash
-3. If current task is already in terminal success (`implemented` or `done`) → advance `current_index`, start next
-4. Before executing next, check dependencies. If unmet → set `blocked`, stop chain
+1. Sync builds each lane's queue dependencies-first (dependency depth, then
+   task number) and refuses a dependency cycle or a dependency on a task the
+   epic does not have.
+2. A lane runs one task at a time. `yoke workflow-item epic-dispatch-chain
+   advance` selects the first queued `planned` task whose dependencies all
+   reached a successful task status, scanning the whole queue, so a waiting
+   task never holds back a ready one behind it and is picked up once its
+   dependency completes (`yoke_core.domain.dispatch_chain_selection`).
+3. Advance refuses by name when nothing is dispatchable: `chain_busy` (the
+   lane is running a task), `chain_waiting` (each remaining task and what it
+   waits on), `chain_complete` (end of queue) or `chain_queue_inconsistent`.
+4. Conduct advances every idle lane at fan-out and again as each task's review
+   returns, so freed lanes refill without waiting for sibling tasks.
 5. Chain state survives crashes, compaction, tab closes
 
 ## Epic Dashboard

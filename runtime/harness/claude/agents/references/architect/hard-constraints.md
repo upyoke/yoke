@@ -38,7 +38,8 @@ Read/apply before technical plan, task specs or worktree plan.
 12. **Same-file sequencing.** Within one lane declare dependencies, foundational
     task first; later insertion anchors reference its added content. List file,
     tasks and required order in Same-file modifications. Prevent parallel edits
-    assuming incompatible baselines.
+    assuming incompatible baselines. Cross-lane order (merge points, activation
+    gates) is likewise a task dependency, never plan prose alone.
 13. **Live-state AC tags.** Exactly `[READ-ONLY]` or `[APPLY-MUTATION]` on live DB/
     deployment/service/shared-state ACs; no MUTATE/WRITE aliases. Untagged defaults
     read-only, so mutation needs explicit intent and domain safeguards.

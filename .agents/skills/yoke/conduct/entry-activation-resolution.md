@@ -31,11 +31,11 @@ yoke lifecycle transition PREFIX-N --from {LIVE_STAGE} --to {IMPLEMENTING_STAGE}
 
 ## Epic Fan-Out Enumeration
 
-Read every chain/current task. Completed done/reviewed-implementation heads
-advance; planned is a candidate; blocked reports its reason. For implementing/
-reviewing-implementation, require that task's result.head_dispatch row from
-the registered chain get/list, including task_num, decision, reason and
-holder_session_id. No absent-field or local-import fallback:
+Read every chain. A chain whose current task is implementing or
+reviewing-implementation is in flight: require that task's
+result.head_dispatch row from the registered chain get/list, including
+task_num, decision, reason and holder_session_id. No absent-field or
+local-import fallback:
 
 | decision | Action |
 |---|---|
@@ -48,13 +48,26 @@ The read does not reclaim/advance; exact task acquire remains the final gate.
 Never age-reclaim a protected live claim holder. Required producer unavailable
 is a deployment/control-plane recovery, not permission to reconstruct a decision.
 
-Per candidate, exclude only when another task on the same branch is implementing
-or reviewing-implementation, or a dependency is not done/reviewed-implementation.
-Check each Expects provider and its named files/exports. Independent chains
-continue. Surviving local task numbers form _task_ids; retain each
-_worktree_branch_${_task_id} and _worktree_path_${_task_id}. Primary aliases point
-only at the first candidate. Empty list reports complete/busy/blocked/mixed
-accurately; all tasks complete means fresh parent handoff, never parent done.
+Every other chain is idle. Select its next task; do not judge only the queue
+head:
+
+```text
+yoke workflow-item epic-dispatch-chain advance --epic PREFIX-N --worktree {BRANCH}
+```
+
+Advance picks the lane's first queued planned task whose dependencies are all
+done/reviewed-implementation, so a waiting head never holds back a ready task
+behind it. The returned next_task_num is the candidate. Refusals are named:
+chain_waiting lists each remaining task and what it waits on (report it; the
+lane refills when a dependency completes), chain_complete ends that lane,
+chain_busy means a task is running there (read its head_dispatch), and
+chain_queue_inconsistent or task_dependency_* halts for its stated repair.
+Check each candidate's Expects provider and its named files/exports.
+Independent chains continue. Surviving local task numbers form _task_ids;
+retain each _worktree_branch_${_task_id} and _worktree_path_${_task_id}.
+Primary aliases point only at the first candidate. Empty list reports
+complete/busy/waiting/mixed accurately; all tasks complete means fresh parent
+handoff, never parent done.
 
 ## Activate before dispatch
 
@@ -92,7 +105,9 @@ git -C "${MAIN_ROOT}" rev-parse "${_worktree_branch}"
 Store TASK_BASELINE_${_task_id} once and retain it across retries. Before the
 task claim, branch-ref reads through MAIN_ROOT avoid unauthorized lane access.
 Read worktree_plan's Cross-Task Merge Plan; each predecessor must be reviewed
-or done. Delegated claimed-lane merge always runs, including idempotent reentry:
+or done, and must also be one of the task's dependencies, because advance
+waits only on real dependencies. A predecessor named only in the plan halts
+with task_dependency_missing for pinned authoring repair. Delegated claimed-lane merge always runs, including idempotent reentry:
 
 ```text
 git -C {WORKTREE_PATH} merge {PREDECESSOR_BRANCH} --no-edit
