@@ -114,11 +114,11 @@ def test_command_preview_apply_rerun_and_seed_preserve_data(
         RetentionPolicy(windows={**policy.windows, "replay": 1})
 
 
-def _target(conn, path):
+def _target(conn, path, generation=1):
     return conn.execute(
         "INSERT INTO path_targets (project_id,kind,path_string,generation,created_at) "
-        "VALUES (1,'file',%s,1,%s) RETURNING id",
-        (path, utc_now()),
+        "VALUES (1,'file',%s,%s,%s) RETURNING id",
+        (path, generation, utc_now()),
     ).fetchone()[0]
 
 
@@ -161,16 +161,17 @@ def test_human_live_reference_snapshot_and_upload_protections(test_db):
     )
     main, gone = _target(test_db, "current.py"), _target(test_db, "gone.py")
     snapshots = []
-    for index in range(5):
+    for index in range(6):
         snap = test_db.execute(
             "INSERT INTO path_snapshots (project_id,commit_sha,built_at) VALUES (1,%s,%s) RETURNING id",
             (str(index) * 40, old),
         ).fetchone()[0]
         snapshots.append(snap)
-        test_db.execute(
-            "INSERT INTO path_snapshot_entries (snapshot_id,target_id) VALUES (%s,%s)",
-            (snap, main),
-        )
+        if index < 5:
+            test_db.execute(
+                "INSERT INTO path_snapshot_entries (snapshot_id,target_id) VALUES (%s,%s)",
+                (snap, main),
+            )
     test_db.execute(
         "INSERT INTO path_snapshot_entries (snapshot_id,target_id) VALUES (%s,%s)",
         (snapshots[0], gone),
@@ -180,11 +181,15 @@ def test_human_live_reference_snapshot_and_upload_protections(test_db):
         "SELECT 1,'file','bulk/'||n,1,%s FROM generate_series(1,5001) n",
         (old,),
     )
-    for snap in snapshots[2:]:
+    for snap in snapshots[2:5]:
         test_db.execute(
             "INSERT INTO path_snapshot_entries (snapshot_id,target_id) "
             "SELECT %s,id FROM path_targets WHERE path_string LIKE 'bulk/%%'",
             (snap,),
+        )
+    for snap, generation in ((snapshots[2], 1), (snapshots[4], 2)):
+        test_db.execute(
+            "INSERT INTO path_snapshot_entries (snapshot_id,target_id) VALUES (%s,%s)", (snap, _target(test_db, "changing.py", generation)),
         )
     insert_item(test_db)
     insert_item_worktree(test_db, item_id=1, branch="active")
@@ -227,7 +232,7 @@ def test_human_live_reference_snapshot_and_upload_protections(test_db):
         test_db, RetentionPolicy(), time.monotonic() + 20, snapshot_policy(), True
     )
     assert first["deleted"] == {
-        "path_snapshot_entries": 5002,
+        "path_snapshot_entries": 5003,
         "path_snapshot_symlink_facts": 0,
         "path_snapshots": 1,
     }
@@ -262,9 +267,7 @@ def test_human_live_reference_snapshot_and_upload_protections(test_db):
         "SELECT event_id FROM events WHERE event_id IN ('pinned','unreferenced')"
     ).fetchall() == [("pinned",)]
     assert {r[0] for r in test_db.execute("SELECT id FROM path_snapshots")} == {
-        snapshots[0],
-        snapshots[1],
-        snapshots[4],
+        snapshots[index] for index in (0, 1, 4, 5)
     }
     assert (
         test_db.execute(

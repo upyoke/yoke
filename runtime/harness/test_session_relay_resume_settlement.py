@@ -274,7 +274,7 @@ def test_a_running_resume_is_left_alone_until_its_outcome_lands(
     assert finished[0].result.result_code == RESUME_EXITED_NONZERO_RESULT
 
 
-def test_a_vanished_resume_without_an_outcome_settles_as_died(
+def test_ineligible_records_skip_inspection_while_leased_resume_settles(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -293,11 +293,28 @@ def test_a_vanished_resume_without_an_outcome_settles_as_died(
     )
     # The supervisor was killed alongside the native it was waiting on, so no
     # outcome was ever written and the recorded process is gone.
-    monkeypatch.setattr(settlement, "custody_state", lambda record: "gone")
+    records = list(settlement.supervised_records(tmp_path))
+    record_path, eligible = records[0]
+    before = record_path.read_bytes()
+    records[:0] = [
+        (record_path, {**eligible, "launch_id": ""}),
+        (record_path, {**eligible, "lease_id": ""}),
+    ]
+    observed = []
+
+    def observe(record):
+        observed.append(record)
+        return "gone"
+
+    monkeypatch.setattr(settlement, "supervised_records", lambda _state: records)
+    monkeypatch.setattr(settlement, "custody_state", observe)
 
     finished = finished_native_resumes(state_dir=tmp_path)
 
     assert len(finished) == 1
+    assert observed == [eligible]
+    assert record_path.read_bytes() == before
+    assert finished[0].attempt_id == ATTEMPT_ID and finished[0].lease_id == LEASE_ID
     assert finished[0].result.result_code == RESUMED_DIED_RESULT
     assert "exit_code" not in finished[0].result.evidence
 

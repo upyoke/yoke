@@ -16,6 +16,7 @@ from runtime.api.domain.machine_registry_test_support import (
 )
 from yoke_contracts.api.function_call import FunctionCallResponse, HandlerOutcome
 from yoke_core.domain import machine_authorization_codes as codes
+from yoke_core.domain import machine_authorization_decisions as decisions
 from yoke_core.domain import yoke_function_dispatch_events as events
 from yoke_core.domain.handlers.machine_authorization_handoff import handle_handoff_poll
 from yoke_core.domain.machine_authorization_handoff import handoff
@@ -43,7 +44,7 @@ def poll(conn, **updates):
 def test_handoff_poll_tracks_existing_pending_approval_and_single_use(conn):
     handoff(conn, **payload(), actor_id=6)
     assert poll(conn) == {"state": "pending", "machine_id": MACHINE_ID}
-    codes.resolve(conn, code="K7F2", actor_id=1, action="approve")
+    decisions.resolve(conn, code="K7F2", actor_id=1, action="approve")
     first = poll(conn)
     assert first["state"] == "approved"
     assert first["token"]
@@ -55,7 +56,7 @@ def test_handoff_poll_tracks_existing_pending_approval_and_single_use(conn):
 def test_terminal_states_come_from_domain_poll(conn, state):
     handoff(conn, **payload(), actor_id=6)
     if state == "denied":
-        codes.resolve(conn, code="K7F2", actor_id=1, action="deny")
+        decisions.resolve(conn, code="K7F2", actor_id=1, action="deny")
     else:
         conn.execute(
             "UPDATE machine_authorization_codes SET expires_at='2000-01-01T00:00:00Z'"
@@ -84,7 +85,7 @@ def test_unknown_and_wrong_machine_do_not_consume(conn):
     with pytest.raises(codes.MachineAuthorizationError, match="authorization_unknown"):
         poll(conn)
     handoff(conn, **payload(), actor_id=6)
-    codes.resolve(conn, code="K7F2", actor_id=1, action="approve")
+    decisions.resolve(conn, code="K7F2", actor_id=1, action="approve")
     with pytest.raises(
         codes.MachineAuthorizationError, match="machine_identity_mismatch"
     ):
@@ -107,7 +108,7 @@ def test_unknown_and_wrong_machine_do_not_consume(conn):
 
 def test_failed_credential_issuance_rolls_back_then_can_retry(conn, monkeypatch):
     handoff(conn, **payload(), actor_id=6)
-    codes.resolve(conn, code="K7F2", actor_id=1, action="approve")
+    decisions.resolve(conn, code="K7F2", actor_id=1, action="approve")
     real_mint = codes.register_with_credential
 
     def broken(*args, **kwargs):
@@ -137,7 +138,7 @@ def test_same_request_id_runs_handler_again_and_never_ledgers_or_captures_token(
         "yoke_core.domain.handlers.machine_authorization.db_helpers.connect", connect
     )
     handoff(conn, **payload(), actor_id=6)
-    codes.resolve(conn, code="K7F2", actor_id=1, action="approve")
+    decisions.resolve(conn, code="K7F2", actor_id=1, action="approve")
     req = request(
         {
             "device_code": "hosted-device-secret",
@@ -213,7 +214,7 @@ def test_poll_validation_never_echoes_device_secret(registry):
 
 def test_disabled_service_and_disabled_approver_cannot_receive_tokens(conn):
     handoff(conn, **payload(), actor_id=6)
-    codes.resolve(conn, code="K7F2", actor_id=1, action="approve")
+    decisions.resolve(conn, code="K7F2", actor_id=1, action="approve")
     conn.execute("UPDATE actors SET status='disabled' WHERE id=6")
     with pytest.raises(codes.MachineAuthorizationError, match="permission_denied"):
         poll(conn)

@@ -43,11 +43,19 @@ new-surface scope routes pinned authoring repair. Claims never narrow scope.
 
 ```text
 yoke workflow-item epic-task review-seed --epic PREFIX-N --task-num {task_num}
-yoke workflow-item epic-task review-insert --epic PREFIX-N --task-num {task_num} --verdict PASS --body-file {REVIEW_FILE}
+yoke workflow-item epic-task review-insert --epic PREFIX-N --task-num {task_num} --verdict PASS --head-sha {REVIEWED_HEAD_SHA} --body-file {REVIEW_FILE}
 yoke qa requirement list --epic PREFIX-N --json
 yoke qa requirement list --item PREFIX-N --json
 yoke qa run list --requirement-id {requirement_id}
 ```
+
+Capture REVIEWED_HEAD_SHA from the exact clean registered task lane before
+Tester reviews it. PASS must name that full commit; persistence checks the
+task's own active worker lane and recorded candidate, never a parent or
+integration checkout. FAIL needs no passing candidate. A refusal retains its
+cause: inspect review-get, repair that cause, then retry the same actual verdict
+with the complete report. A stale lane/head needs its normal post-commit
+snapshot repaired by the control-plane operator.
 
 Seed once idempotently before review. Insert ACTUAL verdict with per-AC body
 reuses that requirement; no duplicate requirement or manual qa run add for task

@@ -13,16 +13,11 @@ from yoke_contracts.machine_authorization import (
     CODE_TTL_SECONDS,
     POLL_INTERVAL_SECONDS,
 )
-from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
+from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_state import ActorDisabledError, require_actor_active
 from yoke_core.domain.external_identities import default_org_id
-from yoke_core.domain.machine_approval_requests import (
-    ensure_machine_approval,
-    machine_approval_decision,
-)
-from yoke_core.domain.decision_request_resolution import resolve_decision_request
 from yoke_core.domain.machine_credentials import register_with_credential
 from yoke_core.domain.machine_authorization_limits import (
     CLIENT_PENDING_CODES,
@@ -94,8 +89,9 @@ def start(
             429,
         )
     device = secrets.token_urlsafe(32)
-    code = secrets.token_hex(5).upper()
-    code = code[:5] + "-" + code[5:]
+    from yoke_core.domain.machine_match_codes import allocate_match_code
+
+    code = allocate_match_code(conn)
     expires = now + timedelta(seconds=CODE_TTL_SECONDS)
     conn.execute(
         "INSERT INTO machine_authorization_codes (device_hash,user_code,org_id,expires_at,machine_id,machine_name,platform,client_key) "
@@ -138,6 +134,8 @@ def _row(
         "machine_name",
         "consumed_at",
         "platform",
+        "decision",
+        "decided_at",
     )
     row = conn.execute(
         f"SELECT {','.join(names)} FROM machine_authorization_codes WHERE {key}={_p(conn)}{suffix}",
@@ -187,65 +185,6 @@ def _require_member(conn: Any, org_id: int, actor_id: int) -> None:
         )
 
 
-def inspect(conn: Any, *, code: str, actor_id: int) -> dict[str, Any]:
-    row = _row(conn, "user_code", code.strip().upper(), inspect_closed=True)
-    _require_member(conn, row["org_id"], actor_id)
-    if row["actor_id"] and row["actor_id"] != actor_id:
-        raise MachineAuthorizationError(
-            "authorization_owner_mismatch",
-            "this code belongs to another signed-in user; start your own connection",
-            403,
-        )
-    return {
-        "code": row["user_code"],
-        "machine": row["machine_name"],
-        "machine_id": row["machine_id"],
-        "platform": row["platform"],
-        "expires_at": format_instant(row["expires_at"]),
-        "decision": machine_approval_decision(conn, auth_request_id=row["device_hash"]),
-    }
-
-
-def resolve(conn: Any, *, code: str, actor_id: int, action: str) -> dict[str, Any]:
-    if action not in {"approve", "deny"}:
-        raise MachineAuthorizationError(
-            "authorization_action_invalid", "choose approve or deny"
-        )
-    row = _row(conn, "user_code", code.strip().upper(), lock=True)
-    _require_member(conn, row["org_id"], actor_id)
-    if row["actor_id"] and row["actor_id"] != actor_id:
-        raise MachineAuthorizationError(
-            "authorization_owner_mismatch", "start your own connection code", 403
-        )
-    previous = machine_approval_decision(conn, auth_request_id=row["device_hash"])
-    if previous:
-        if previous != action:
-            raise MachineAuthorizationError(
-                "authorization_already_decided",
-                "start a fresh code to make a different decision",
-                409,
-            )
-        return {"decision": previous}
-    conn.execute(
-        f"UPDATE machine_authorization_codes SET actor_id={_p(conn)} WHERE device_hash={_p(conn)}",
-        (actor_id, row["device_hash"]),
-    )
-    request, _ = ensure_machine_approval(
-        conn,
-        auth_request_id=row["device_hash"],
-        org_id=row["org_id"],
-        originator_actor_id=actor_id,
-        self_approval_actor_id=actor_id,
-        context={
-            "code": row["user_code"],
-            "machine": row["machine_name"] or "Connecting machine",
-            "expires_at": format_instant(row["expires_at"]),
-        },
-    )
-    resolve_decision_request(conn, request["id"], actor_id=actor_id, action=action)
-    return {"decision": action}
-
-
 def poll(
     conn: Any, *, device_code: str, machine_id: str, machine_name: str, origin: str
 ) -> dict[str, Any]:
@@ -268,7 +207,7 @@ def poll(
         f"UPDATE machine_authorization_codes SET machine_id={p},machine_name={p} WHERE device_hash={p}",
         (machine_id, machine_name, row["device_hash"]),
     )
-    decision = machine_approval_decision(conn, auth_request_id=row["device_hash"])
+    decision = row["decision"]
     if decision == "deny":
         conn.commit()
         raise MachineAuthorizationError(

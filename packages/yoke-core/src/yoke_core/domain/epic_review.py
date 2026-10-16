@@ -22,6 +22,8 @@ helpers are reached via a lazy module-attribute lookup pattern (analogous to the
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import sys
@@ -103,6 +105,7 @@ def review_insert(
     body: str,
     *,
     scripts_dir: Optional[str] = None,
+    head_sha: Optional[str] = None,
 ) -> str:
     """Insert a review verdict."""
     # Map PASS/FAIL to lowercase
@@ -117,17 +120,23 @@ def review_insert(
     env["YOKE_INTERNAL_EPIC_REVIEW_WRITE"] = "1"
     original_env = os.environ.copy()
     os.environ.update(env)
+    diagnostic = io.StringIO()
     try:
-        _qa_run_add(
-            requirement_id=req_id,
-            performed_by="agent",
-            qa_kind="implementation_review",
-            verdict=lower_verdict,
-            raw_result=raw_result,
-        )
+        with contextlib.redirect_stderr(diagnostic):
+            _qa_run_add(
+                requirement_id=req_id,
+                performed_by="agent",
+                qa_kind="implementation_review",
+                verdict=lower_verdict,
+                raw_result=raw_result,
+                **({"head_sha": head_sha} if head_sha is not None else {}),
+            )
     except SystemExit as exc:
         raise RuntimeError(
-            f"Error creating review run: qa run-add exited with {exc.code}"
+            "implementation_review_run_create_failed: "
+            f"{diagnostic.getvalue().strip() or f'QA run creation exited {exc.code}'}. "
+            "Inspect review-get for this epic/task before retrying the same verdict; "
+            "repair the named refusal and retain the complete review report."
         ) from exc
     finally:
         os.environ.clear()
