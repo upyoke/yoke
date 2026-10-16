@@ -25,7 +25,7 @@ const rows = ["wrapping-row", "activation-head", "machine-detail-fact", "machine
   "session-top", "strategy-doc-metadata", "strategy-spark-label", "test-machine-head",
   "workflow-dialog-footer", "workflow-panel-meta"];
 const flow = "production-release-with-consumer-verification-and-item-quality-assurance";
-const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">${styles.map((s) => `<link rel="stylesheet" href="/assets/${s}">`).join("")}
+const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${styles.map((s) => `<link rel="stylesheet" href="/assets/${s}">`).join("")}
 <style>body{margin:0;padding:0}.proof{margin:0 0 20px;min-width:0}.content{max-width:100%}
 #rows{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
 .sample{border:1px solid #aaa;padding:10px;min-width:0}.sample label,footer{font:12px sans-serif}
@@ -222,6 +222,7 @@ try{
  const captures=[];
  for(const width of [1280,375])for(const theme of ["light","dark"]){
   const page=await freshPage(width);await page.emulateMedia({colorScheme:theme});
+  await page.addStyleTag({content:".universe-app-root .topbar{position:static}"});
   const proof=page.locator("#machines-proof");
   const capture=async(state)=>{
    const values=await proof.evaluate(n=>({width:n.clientWidth,scroll:n.scrollWidth,
