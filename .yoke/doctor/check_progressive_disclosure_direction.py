@@ -8,15 +8,19 @@ denials to name a registered function id or explicitly state that none exists.
 from __future__ import annotations
 
 import fnmatch
-import posixpath
+from posixpath import dirname, join, normpath
 import re
 from pathlib import Path
 from typing import Iterable, List, Set, Tuple
 
 from yoke_contracts.project_contract.strategy_docs_paths import is_strategy_view_path
 from yoke_core.engines.doctor_registry_tier_discipline import (
-    BARE_NAME_CITATION_FAMILIES, REQUIRED_FUNCTION_IDS, TIER_3_GLOBS,
-    TIER_6_ARCHIVE_PREFIXES, TIER_GLOBS, iter_tier_paths,
+    BARE_NAME_CITATION_FAMILIES,
+    REQUIRED_FUNCTION_IDS,
+    TIER_3_GLOBS,
+    TIER_6_ARCHIVE_PREFIXES,
+    TIER_GLOBS,
+    iter_tier_paths,
 )
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
@@ -24,11 +28,9 @@ from yoke_core.engines.doctor_report import (
     _resolve_repo_root,
 )
 
-
 HC_SLUG = "HC-progressive-disclosure-direction"
 HC_LABEL = "Backward tier reference or vague denial without concrete function id"
 _MAX_FINDINGS = 40
-
 
 # Tier 1 is in-memory and always reachable from on-disk tiers.
 TIER_DIRECTION_RULES: dict[int, frozenset[int]] = {
@@ -39,16 +41,13 @@ TIER_DIRECTION_RULES: dict[int, frozenset[int]] = {
     6: frozenset({0, 1, 2, 3, 4, 5, 6}),
 }
 
-
 VAGUE_DENIAL_MARKERS: tuple[str, ...] = (
     "use function dispatch",
     "via the function-call surface",
     "use the function-call surface",
     "route through the function registry",
 )
-
 _NO_REGISTERED_NOTE = "no registered function id exists"
-
 _MARKDOWN_LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 _BACKTICK_PATH_RE = re.compile(
     r"`([a-zA-Z0-9_/.][a-zA-Z0-9_/.\\-]*\.(?:md|toml|json))`"
@@ -61,34 +60,49 @@ _BARE_PATH_RE = re.compile(
 )
 _COMMAND_SECTION_RE = re.compile(r"^### ([a-z][a-z0-9_-]*)\s*$")
 _SKILL_ROOT = ".agents/skills/yoke"
-_GENERATED_COMMAND_DOC = ".yoke/docs/agents/commands.md"
-_GENERATED_SKILL_REFERENCE_DOCS = frozenset(
-    {_GENERATED_COMMAND_DOC, ".yoke/docs/workflows/lifecycle.md",
-     ".yoke/docs/workflows/transitions.md"}
+_LIFECYCLE_DOC = ".yoke/docs/workflows/lifecycle.md"
+_SESSION_RULES = "runtime/harness/claude/rules/session.md"
+_BOOTSTRAP_DOC = "docs/harness-bootstrap.md"
+_GENERATED_COMMAND_DOCS = frozenset(
+    {".yoke/docs/agents/commands.md", ".yoke/docs/agents/maintenance-commands.md"}
 )
-_EXPLICIT_CITATION_ALIASES = {
-    (".yoke/docs/workflows/lifecycle.md", "body-and-sync.md"): f"{_SKILL_ROOT}/idea/body-and-sync.md",
-    (".yoke/docs/workflows/lifecycle.md", "infer-and-create.md"): f"{_SKILL_ROOT}/idea/infer-and-create.md",
-    ("docs/harness-bootstrap.md", "manifest-schema.md"): "runtime/harness/manifest-schema.md",
-    ("runtime/agents/boss.md", "reference.md"): ".yoke/docs/databases/reference.md",
-    ("runtime/agents/engineer.md", "session.md"): "runtime/harness/claude/rules/session.md",
-    ("runtime/agents/tester.md", "session.md"): "runtime/harness/claude/rules/session.md",
-    (f"{_SKILL_ROOT}/shared/tester-dispatch-template.md", "dispatch-context.md"): f"{_SKILL_ROOT}/conduct/dispatch-context.md",
+_GENERATED_SKILL_REFERENCE_DOCS = _GENERATED_COMMAND_DOCS | {
+    _LIFECYCLE_DOC,
+    ".yoke/docs/workflows/transitions.md",
 }
-_NON_TEACHING_PATH_LABELS = frozenset({
-    "product-designer-spec.md",
-    "product-manager-spec.md",
-    # Legal/governance artifacts cited from orientation prose — not teaching tiers.
-    "LICENSE.md",
-    "CLA.md",
-})
+_EXPLICIT_CITATION_ALIASES = {
+    (_LIFECYCLE_DOC, "body-and-sync.md"): f"{_SKILL_ROOT}/idea/body-and-sync.md",
+    (_LIFECYCLE_DOC, "infer-and-create.md"): f"{_SKILL_ROOT}/idea/infer-and-create.md",
+    (_BOOTSTRAP_DOC, "manifest-schema.md"): "runtime/harness/manifest-schema.md",
+    ("runtime/agents/boss.md", "reference.md"): ".yoke/docs/databases/reference.md",
+    ("runtime/agents/engineer.md", "session.md"): _SESSION_RULES,
+    ("runtime/agents/tester.md", "session.md"): _SESSION_RULES,
+    (
+        f"{_SKILL_ROOT}/shared/tester-dispatch-template.md",
+        "dispatch-context.md",
+    ): f"{_SKILL_ROOT}/conduct/dispatch-context.md",
+}
+_NON_TEACHING_PATH_LABELS = frozenset(
+    {
+        "product-designer-spec.md",
+        "product-manager-spec.md",
+        # Legal/governance artifacts cited from orientation prose — not teaching tiers.
+        "LICENSE.md",
+        "CLA.md",
+    }
+)
 _EXPLICIT_DIRECTION_EDGES = frozenset(
     {
-        ("AGENTS.md", ".yoke/docs/workflows/lifecycle.md"),
-        ("AGENTS.md", "docs/harness-bootstrap.md"),
-        ("runtime/harness/claude/rules/session.md", f"{_SKILL_ROOT}/idea/path-claim-blocking.md"),
+        ("AGENTS.md", _LIFECYCLE_DOC),
+        ("AGENTS.md", _BOOTSTRAP_DOC),
+        (_SESSION_RULES, f"{_SKILL_ROOT}/idea/path-claim-blocking.md"),
         ("docs/OVERVIEW.md", f"{_SKILL_ROOT}/SKILL.md"),
-        ("runtime/agents/architect.md", f"{_SKILL_ROOT}/conduct/entry-activation-resolution.md"),
+        (
+            "runtime/agents/architect.md",
+            f"{_SKILL_ROOT}/conduct/entry-activation-resolution.md",
+        ),
+        # Help consults the generated catalogue for the full skill inventory.
+        (f"{_SKILL_ROOT}/help/SKILL.md", ".yoke/docs/agents/commands.md"),
     }
 )
 
@@ -119,9 +133,7 @@ def _classify_path(cited: str, repo_root: Path) -> int | None:
             return 5
         if cited.startswith("runtime/agents/"):
             return 4
-        if cited.startswith(
-            ("docs/", ".yoke/docs/", "ouroboros/", "runtime/harness/")
-        ):
+        if cited.startswith(("docs/", ".yoke/docs/", "ouroboros/", "runtime/harness/")):
             return 3
     return None
 
@@ -137,32 +149,28 @@ def _normalize_cited(
 
     cited = raw_cited.strip().split("#", 1)[0]
     root_prefixes = (
-        ".agents/", ".claude/", ".codex/", ".yoke/",
-        "docs/", "ouroboros/", "runtime/",
+        ".agents/",
+        ".claude/",
+        ".codex/",
+        ".yoke/",
+        "docs/",
+        "ouroboros/",
+        "runtime/",
     )
     if cited.startswith(root_prefixes) or cited in {"AGENTS.md", "CLAUDE.md"}:
-        normalized = posixpath.normpath(cited)
+        normalized = normpath(cited)
     else:
-        normalized = posixpath.normpath(
-            posixpath.join(posixpath.dirname(citing_rel), cited)
-        )
-    candidates = [
-        _EXPLICIT_CITATION_ALIASES.get((citing_rel, cited)),
-        normalized,
-    ]
+        normalized = normpath(join(dirname(citing_rel), cited))
+    candidates = [_EXPLICIT_CITATION_ALIASES.get((citing_rel, cited)), normalized]
     if citing_rel.startswith(f"{_SKILL_ROOT}/"):
         skill_remainder = citing_rel.removeprefix(f"{_SKILL_ROOT}/")
         command_name = skill_remainder.split("/", 1)[0]
-        candidates.append(
-            posixpath.normpath(posixpath.join(_SKILL_ROOT, command_name, cited))
-        )
+        candidates.append(normpath(join(_SKILL_ROOT, command_name, cited)))
     if command_scope:
-        candidates.append(
-            posixpath.normpath(posixpath.join(_SKILL_ROOT, command_scope, cited))
-        )
-    candidates.append(posixpath.normpath(posixpath.join(_SKILL_ROOT, cited)))
+        candidates.append(normpath(join(_SKILL_ROOT, command_scope, cited)))
+    candidates.append(normpath(join(_SKILL_ROOT, cited)))
     if "/" not in cited and cited.endswith(".md"):
-        candidates += [posixpath.join(d, cited) for d in BARE_NAME_CITATION_FAMILIES]
+        candidates += [join(d, cited) for d in BARE_NAME_CITATION_FAMILIES]
     if cited.startswith("yoke/ouroboros/"):
         candidates.append(cited.removeprefix("yoke/"))
     for candidate in candidates:
@@ -170,7 +178,8 @@ def _normalize_cited(
             return candidate
     if citing_rel in _GENERATED_SKILL_REFERENCE_DOCS and "/" not in cited:
         matches = [
-            path for path in (repo_root / _SKILL_ROOT).glob(f"**/{cited}")
+            path
+            for path in (repo_root / _SKILL_ROOT).glob(f"**/{cited}")
             if path.is_file()
         ]
         if len(matches) == 1:
@@ -179,16 +188,14 @@ def _normalize_cited(
 
 
 def _extract_citations(
-    text: str,
-    citing_rel: str,
-    repo_root: Path,
+    text: str, citing_rel: str, repo_root: Path
 ) -> List[Tuple[int, str]]:
     """Return ``[(lineno, cited_path), ...]`` deduped per-line."""
 
     citations: List[Tuple[int, str]] = []
     command_scope: str | None = None
     for lineno, raw in enumerate(text.splitlines(), start=1):
-        if citing_rel == _GENERATED_COMMAND_DOC and raw.startswith("### "):
+        if citing_rel in _GENERATED_COMMAND_DOCS and raw.startswith("### "):
             section_match = _COMMAND_SECTION_RE.match(raw)
             command_scope = section_match.group(1) if section_match else None
         seen_on_line: Set[str] = set()
@@ -200,10 +207,7 @@ def _extract_citations(
                 if original.split("#", 1)[0] in _NON_TEACHING_PATH_LABELS:
                     continue
                 cited = _normalize_cited(
-                    original,
-                    citing_rel,
-                    repo_root,
-                    command_scope=command_scope,
+                    original, citing_rel, repo_root, command_scope=command_scope
                 )
                 if not cited.endswith((".json", ".md", ".py", ".toml")):
                     continue
@@ -255,17 +259,11 @@ def _is_sanctioned_direction_edge(citing: str, cited: str) -> bool:
 
     if (citing, cited) in _EXPLICIT_DIRECTION_EDGES:
         return True
-    if citing == _GENERATED_COMMAND_DOC and cited.startswith(f"{_SKILL_ROOT}/"):
+    if citing in _GENERATED_COMMAND_DOCS and cited.startswith(f"{_SKILL_ROOT}/"):
         return True
-    if (
-        citing == ".yoke/docs/workflows/lifecycle.md"
-        and cited.startswith(f"{_SKILL_ROOT}/idea/")
-    ):
+    if citing == _LIFECYCLE_DOC and cited.startswith(f"{_SKILL_ROOT}/idea/"):
         return True
-    if (
-        citing == "docs/harness-bootstrap.md"
-        and cited.startswith(f"{_SKILL_ROOT}/")
-    ):
+    if citing == _BOOTSTRAP_DOC and cited.startswith(f"{_SKILL_ROOT}/"):
         return True
     return False
 
@@ -344,5 +342,9 @@ from yoke_project_checks._declare import (  # noqa: E402
 )
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
-    ('progressive-disclosure-direction', 'Backward tier citation or vague denial without concrete function id', hc_progressive_disclosure_direction),
+    (
+        "progressive-disclosure-direction",
+        "Backward tier citation or vague denial without concrete function id",
+        hc_progressive_disclosure_direction,
+    )
 )

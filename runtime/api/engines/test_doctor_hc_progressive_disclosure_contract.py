@@ -1,5 +1,7 @@
 """Static contract-shape tests for progressive disclosure direction."""
 
+import pytest
+
 from yoke_project_checks import check_progressive_disclosure_direction as mod
 from yoke_project_checks.check_progressive_disclosure_direction import (
     TIER_DIRECTION_RULES,
@@ -8,7 +10,7 @@ from yoke_project_checks.check_progressive_disclosure_direction import (
 
 
 def test_required_function_ids_consumed_from_upstream():
-    """HC consumes REQUIRED_FUNCTION_IDS from the Task 001 scaffold."""
+    """HC consumes required function IDs from the shared registry."""
 
     from yoke_core.engines import doctor_registry_tier_discipline as up
 
@@ -55,3 +57,96 @@ def test_bare_citation_resolution_ignores_strategy_render_cache(tmp_path):
     rendered.parent.mkdir(parents=True)
     rendered.write_text("# rendered cache\n", encoding="utf-8")
     assert mod._normalize_cited(cited, citing, tmp_path) == expected
+
+
+@pytest.mark.parametrize(
+    "catalogue",
+    (
+        ".yoke/docs/agents/commands.md",
+        ".yoke/docs/agents/maintenance-commands.md",
+    ),
+)
+def test_generated_catalogues_resolve_skill_citations_and_keep_their_tier(
+    tmp_path, catalogue
+):
+    targets = (
+        ".agents/skills/yoke/amend/SKILL.md",
+        ".agents/skills/yoke/amend/instructions.md",
+        ".agents/skills/yoke/approve/instructions.md",
+        ".agents/skills/yoke/shared/unique.md",
+    )
+    for target in targets:
+        path = tmp_path / target
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("# Skill input\n", encoding="utf-8")
+    text = (
+        "# Catalogue\n### amend\nRead `instructions.md` and `unique.md`.\n"
+        "Use `.agents/skills/yoke/amend/SKILL.md`.\n"
+    )
+    page = tmp_path / catalogue
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(text, encoding="utf-8")
+
+    assert (2, page) in list(mod.iter_tier_paths(tmp_path))
+    assert mod._classify_path(catalogue, tmp_path) == 2
+    assert {
+        cited for _, cited in mod._extract_citations(text, catalogue, tmp_path)
+    } == {
+        targets[0],
+        targets[1],
+        targets[3],
+    }
+    assert mod._scan_all(tmp_path) == []
+
+    agent = tmp_path / "runtime/agents/tester.md"
+    agent.parent.mkdir(parents=True)
+    agent.write_text("# Agent\n", encoding="utf-8")
+    page.write_text(text + "Read `runtime/agents/tester.md`.\n", encoding="utf-8")
+    findings = mod._scan_all(tmp_path)
+    assert len(findings) == 1
+    assert (
+        "tier 2 file references backward tier 4 file runtime/agents/tester.md"
+        in findings[0]
+    )
+
+
+def test_help_inventory_lookup_does_not_allow_other_backward_directions(tmp_path):
+    contents = {
+        ".yoke/docs/agents/commands.md": "# Commands\n",
+        ".yoke/docs/agents/maintenance-commands.md": "# Maintenance\n",
+        ".agents/skills/yoke/help/SKILL.md": (
+            "# Help\nFull inventory: `.yoke/docs/agents/commands.md`.\n"
+        ),
+    }
+    for relative, text in contents.items():
+        page = tmp_path / relative
+        page.parent.mkdir(parents=True, exist_ok=True)
+        page.write_text(text, encoding="utf-8")
+    assert mod._scan_all(tmp_path) == []
+
+    unrelated = tmp_path / ".agents/skills/yoke/other/SKILL.md"
+    unrelated.parent.mkdir(parents=True)
+    unrelated.write_text("Read `.yoke/docs/agents/commands.md`.\n", encoding="utf-8")
+    orientation = tmp_path / "docs/OVERVIEW.md"
+    orientation.parent.mkdir(parents=True)
+    orientation.write_text(
+        "Read `.agents/skills/yoke/other/SKILL.md`.\n", encoding="utf-8"
+    )
+    help_page = tmp_path / ".agents/skills/yoke/help/SKILL.md"
+    help_page.write_text(
+        "Read `.yoke/docs/agents/maintenance-commands.md`.\n", encoding="utf-8"
+    )
+    findings = mod._scan_all(tmp_path)
+    assert len(findings) == 3
+    assert any("tier 2 file references backward tier 5" in row for row in findings)
+    assert any(
+        ".agents/skills/yoke/other/SKILL.md" in row
+        and "tier 5 file references backward tier 2" in row
+        for row in findings
+    )
+    assert any(
+        ".agents/skills/yoke/help/SKILL.md" in row
+        and "maintenance-commands.md" in row
+        and "tier 5 file references backward tier 2" in row
+        for row in findings
+    )
