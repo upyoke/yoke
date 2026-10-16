@@ -1,30 +1,29 @@
-"""Tool-shaped ``yoke connect URL`` command.
-
-Client-local machine operation with NO dispatcher function id: it
-verifies a Yoke API server and writes this machine's config to point at
-it — there is no active connection to dispatch through while attaching.
-Resolves via the tool-shaped table after SUBCOMMAND_REGISTRY misses.
-"""
+"""Attach this machine through the tool-shaped command, without a dispatcher."""
 
 from __future__ import annotations
 
 import argparse
 import json
+import platform
 import sys
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.config import hosted_machine_authorization
-from yoke_cli.config import server_connect, team_server_authorization
-from yoke_cli.config import setup_browser
+from yoke_cli.config import server_connect, team_server_authorization, setup_browser
+from yoke_cli.config import teammate_invite_redemption
+from yoke_cli.config.local_reachability import (
+    active_connection_is_local,
+    LOCAL_REACHABILITY_NOTICE,
+)
 from yoke_contracts.api_urls import HOSTED_PLATFORM_URL, HOSTED_STAGE_PLATFORM_URL
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 
 AdapterFn = Callable[[List[str]], int]
 
 CONNECT_USAGE = (
-    "yoke connect [URL] [--name ENV] [--token-file PATH | --token-stdin] "
+    "yoke connect [URL] [--name ENV] [--token-file PATH | --token-stdin | --invite-code-stdin] "
     "[--no-activate] [--config PATH] [--json]"
 )
 
@@ -37,15 +36,13 @@ def connect(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke connect",
         description=(
-            "Attach this machine to a Yoke API server: verify the server "
-            "(GET /v1/health) and the token (GET /v1/auth/identity), then "
-            "write an https connection entry plus an owner-only token "
-            "secret file, and make it the active env. Nothing is persisted "
-            "when verification fails. Scheme policy: https:// is the "
-            "normal shape and is required for every network server. Plain "
+            "Verify server health and identity, then save a connection and "
+            "owner-only credential file. Failed verification saves no connection. "
+            "Use browser approval, a teammate invite code, or an explicit token. "
+            "HTTPS is required for every network server. Plain "
             "http:// is accepted only for a numeric loopback endpoint "
             "(for example, http://127.0.0.1:8765). Other schemes and "
-            "non-loopback plaintext endpoints are refused. No browser is opened. "
+            "non-loopback plaintext endpoints are refused. "
             "With --json, authorization link/code/instructions arrive as JSON "
             "lines on stderr before polling; present them to the person."
         ),
@@ -97,18 +94,32 @@ def connect(args: List[str]) -> int:
         help="Machine config path override.",
     )
     parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--invite-code-stdin",
+        action="store_true",
+        help="Read a teammate invite code privately from stdin.",
+    )
     parsed = parse_or_usage_error(parser, args, CONNECT_USAGE)
     if parsed is None:
         return 2
-    if parsed.token_file and parsed.token_stdin:
+    if (
+        sum(
+            bool(value)
+            for value in (
+                parsed.token_file,
+                parsed.token_stdin,
+                parsed.invite_code_stdin,
+            )
+        )
+        > 1
+    ):
         return usage_error(
-            "use at most one token source (--token-file PATH or "
-            f"--token-stdin): {CONNECT_USAGE}"
+            f"use at most one token or invite-code source: {CONNECT_USAGE}"
         )
     explicit_token = bool(parsed.token_file or parsed.token_stdin)
-    if explicit_token and not parsed.url:
+    if (explicit_token or parsed.invite_code_stdin) and not parsed.url:
         return usage_error(
-            f"a server URL is required with an explicit token: {CONNECT_USAGE}"
+            f"a server URL is required with an explicit token or invite code: {CONNECT_USAGE}"
         )
     hosted_platform_urls = {
         HOSTED_PLATFORM_URL.rstrip("/"),
@@ -117,6 +128,9 @@ def connect(args: List[str]) -> int:
     parsed.self_host = bool(
         parsed.url and parsed.url.rstrip("/") not in hosted_platform_urls
     )
+    if active_connection_is_local(parsed.config_path):
+        print(LOCAL_REACHABILITY_NOTICE, file=sys.stderr)
+    offer_invite = False
     if not explicit_token and parsed.self_host:
         try:
             methods = team_server_authorization.sign_in_methods(parsed.url)
@@ -129,6 +143,17 @@ def connect(args: List[str]) -> int:
                 "approval without company sign-in; upgrade it, or connect with "
                 "--token-file PATH or --token-stdin: " + CONNECT_USAGE
             )
+        offer_invite = not methods.company_sign_in
+    try:
+        parsed.invite_code = teammate_invite_redemption.choose_code(
+            from_stdin=parsed.invite_code_stdin,
+            offer_choice=offer_invite,
+        )
+    except hosted_machine_authorization.HostedMachineAuthorizationCancelled:
+        return 0
+    except hosted_machine_authorization.HostedMachineAuthorizationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     if not explicit_token:
         return _connect_hosted(parsed)
     try:
@@ -204,11 +229,21 @@ def _connect_hosted(parsed: argparse.Namespace) -> int:
         )
 
     try:
-        credential = hosted_machine_authorization.authorize(
-            platform_url,
-            notify=_notify,
-            self_host=parsed.self_host,
-        )
+        if parsed.invite_code:
+            credential = teammate_invite_redemption.redeem(
+                platform_url,
+                parsed.invite_code,
+                machine={
+                    **hosted_machine_authorization._machine_identity(),
+                    "platform": platform.system(),
+                },
+            )
+        else:
+            credential = hosted_machine_authorization.authorize(
+                platform_url,
+                notify=_notify,
+                self_host=parsed.self_host,
+            )
         report = server_connect.connect_server(
             credential.api_url,
             token=credential.token,
@@ -221,6 +256,8 @@ def _connect_hosted(parsed: argparse.Namespace) -> int:
         server_connect.ServerConnectError,
     ) as exc:
         print(f"error: {exc}", file=sys.stderr)
+        if parsed.invite_code:
+            print(teammate_invite_redemption.LOST_DELIVERY, file=sys.stderr)
         return 1
     if parsed.json_mode:
         print(json.dumps(report, indent=2, sort_keys=True))

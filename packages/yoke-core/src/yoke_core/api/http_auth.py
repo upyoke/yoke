@@ -22,6 +22,7 @@ from yoke_contracts.browser_sign_in import (
 )
 
 from yoke_contracts.machine_authorization import START_PATH, POLL_PATH
+from yoke_contracts.teammate_invite_wire import INVITE_REDEEM_PATH
 from yoke_core.api.observability import request_id_for
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.api_tokens import (
@@ -54,6 +55,7 @@ PUBLIC_PATHS = frozenset(
         BROWSER_SIGN_IN_REDEEM_PATH,
         START_PATH,
         POLL_PATH,
+        INVITE_REDEEM_PATH,
     }
 )
 

@@ -1,7 +1,9 @@
 {
  "id": "remote-clients",
  "title": "Remote clients",
- "status": "draft-copy",
+ "status": "observed",
  "page": "modes",
- "position": 3
+ "position": 3,
+ "text": "Run yoke connect with the team server origin. Without company sign-in, choose your own machine for approval by an already connected machine, Enter invite code for a teammate's first machine, or Back without changing connections. An admin creates the code with yoke invite and sends it privately. Non-interactive runs default to own-machine approval; --invite-code-stdin reads a private code. Company sign-in goes directly to personal browser approval. Explicit --token-file and --token-stdin remain available. A local universe is reachable here only; use yoke self-host init to make a reachable team server.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/connect.py", "packages/yoke-cli/src/yoke_cli/config/teammate_invite_redemption.py"]
 }
