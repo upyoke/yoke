@@ -28,7 +28,13 @@ function outcome(doc, body, title, recovery, success = false) {
   const line = el(doc, "div", `machine-approval-outcome ${success ? "good" : "warn"}`);
   line.setAttribute("role", success ? "status" : "alert");
   line.appendChild(el(doc, "strong", null, title));
-  if (recovery) line.appendChild(el(doc, "p", null, recovery));
+  if (recovery) {
+    const message = el(doc, "p");
+    for (const part of recovery.split(/(`[^`]+`)/)) {
+      message.appendChild(part.startsWith("`") ? el(doc, "code", null, part.slice(1, -1)) : doc.createTextNode(part));
+    }
+    line.appendChild(message);
+  }
   body.appendChild(line);
 }
 

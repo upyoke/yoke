@@ -60,8 +60,10 @@ if(state === 'embedded') {
  await renderApprovalCard(context,host,authorization.code,{embedded:true});
 } else if(state === 'token') {
  document.querySelector('h1').textContent='API tokens';
- host.classList.add('machine-approval-card');
- host.appendChild(localReachabilityNotice(document,{variant:'token'}));
+ const card = document.createElement('section');
+ card.className='machine-approval-card';
+ card.appendChild(localReachabilityNotice(document,{variant:'token'}));
+ host.appendChild(card);
 } else await renderMachineApproval(context,host,null,['local','no-code'].includes(state) ? null : authorization.code,
  {setPageHead:({title})=>{document.querySelector('h1').textContent=title;}});
 if(['owner-bound','failed-write','recording'].includes(state)) {
@@ -95,7 +97,7 @@ try {
         const card = document.querySelector('.machine-approval-card') || document.querySelector('#approval');
         const bounds = card.getBoundingClientRect();
         return { title:document.querySelector('h1').textContent, text:card.textContent,
-          cardWidth:bounds.width, cardRight:bounds.right, bodyWidth:document.body.scrollWidth,
+          cardWidth:bounds.width, cardHeight:bounds.height, cardRight:bounds.right, bodyWidth:document.body.scrollWidth,
           columns:getComputedStyle(document.querySelector('.machine-approval-fact') || card).gridTemplateColumns,
           active:document.querySelectorAll('.machine-approval-steps [aria-current="step"]').length,
           steps:document.querySelectorAll('.machine-approval-steps li').length,
@@ -119,7 +121,10 @@ try {
       if (state === "owner-bound") assert(values.text.includes("This connection was already handled by Morgan."));
       if (state === "owner-unknown") assert(values.text.includes("This connection was already handled by another person in your org."));
       if (state.startsWith("local")) assert(values.text.includes("Reachable here only."));
-      if (state === "token") assert(values.text.includes("This token works on this computer only."));
+      if (state === "token") {
+        assert(values.text.includes("This token works on this computer only."));
+        assert(values.cardHeight < 250);
+      }
       if (["waiting", "later"].includes(state)) {
         assert(values.text.includes("macOS · machine 4f2c9a1e"));
         assert(values.text.includes("EDT") || values.text.includes("EST"));

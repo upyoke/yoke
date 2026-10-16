@@ -117,7 +117,8 @@ test("expired facts name the local time without promising automatic renewal", as
   await settle();
   assert.equal(titles.at(-1), "Connect your machine");
   assert.match(main.textContent, /This code expired at .*Nothing was authorized/);
-  assert.match(main.textContent, /Run `yoke connect` again for a new code/);
+  assert.match(main.textContent, /Run yoke connect again for a new code/);
+  assert.equal(tag(main, "CODE")[0].textContent, "yoke connect");
   assert.equal(button(main, "Approve machine"), undefined);
   assert.doesNotMatch(main.textContent, new RegExp(expires));
 });
@@ -220,7 +221,8 @@ test("owner refusal after a bound read names only the supplied requester", async
   const { main } = page({ failure: { code: "authorization_owner_mismatch" } });
   await settle(); button(main, "Approve machine").dispatchEvent(new Event("click")); await settle();
   assert.match(main.textContent, /Another person is answering this requestThis connection was already handled by Morgan/);
-  assert.match(main.textContent, /If that wasn't you, ask them or an admin to retire this machine, then run `yoke connect` again/);
+  assert.match(main.textContent, /If that wasn't you, ask them or an admin to retire this machine, then run yoke connect again/);
+  assert.equal(tag(main, "CODE")[0].textContent, "yoke connect");
   assert.equal(button(main, "Approve machine"), undefined);
   assert.equal(byClass(main, "machine-approval-outcome")[0].getAttribute("role"), "alert");
 });
@@ -231,7 +233,8 @@ for (const read of [true, false]) test(`owner refusal with no supplied name uses
   await settle();
   if (!read) { button(main, "Approve machine").dispatchEvent(new Event("click")); await settle(); }
   assert.match(main.textContent, /Another person is answering this requestThis connection was already handled by another person in your org/);
-  assert.match(main.textContent, /If that wasn't you, ask them or an admin to retire this machine, then run `yoke connect` again/);
+  assert.match(main.textContent, /If that wasn't you, ask them or an admin to retire this machine, then run yoke connect again/);
+  assert.equal(tag(main, "CODE")[0].textContent, "yoke connect");
   assert.doesNotMatch(main.textContent, /Morgan|actor #9/);
   assert.equal(button(main, "Approve machine"), undefined);
   assert.equal(byClass(main, "machine-approval-outcome")[0].getAttribute("role"), "alert");
@@ -293,7 +296,7 @@ test("expiry timer repaints without reading or automatically replacing the code"
   await settle();
   assert.ok(button(main, "Approve machine"));
   t.mock.timers.tick(540001); repaint();
-  assert.match(main.textContent, /This code expired at.*Run `yoke connect` again/);
+  assert.match(main.textContent, /This code expired at.*Run yoke connect again/);
   assert.equal(button(main, "Approve machine"), undefined);
   assert.equal(requests.length, 3);
 });
