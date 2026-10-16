@@ -9,11 +9,17 @@ Copy exact downstream headings. Plan includes:
 - `## Dependency groups`: intra/inter-lane.
 - `## Same-file modifications`
 - `## File overlap check`: intra/cross-lane.
-- `## Execution order`: within-lane plus cross-lane activation gates.
+- `## Execution order`: within-lane plus cross-lane activation gates. Every
+  ordering here is also a task dependency in the task graph: Conduct dispatches
+  each lane's first task whose dependencies are complete and reads no prose, so
+  a gate such as "after the scope lane's first merge point" that is not a
+  dependency does not hold.
 - Optional `## Cross-Task Merge Plan` only for sibling code needed before Engineer
   dispatch: predecessor branches and per-task merge order, reviewed-implementation+
-  predecessors. Conduct S6f consumes it; exact example is in
-  `.agents/skills/yoke/conduct/entry-activation-resolution.md` S6f step4a.
+  predecessors. Each predecessor is also a dependency of the consuming task;
+  Conduct halts a predecessor named only here. Conduct S6f consumes it; exact
+  example is in `.agents/skills/yoke/conduct/entry-activation-resolution.md`
+  S6f step4a.
 
 Every shared-path pair gets decision-build evaluation before final output:
 coordination_only for attested independence, directional activation when ordered,

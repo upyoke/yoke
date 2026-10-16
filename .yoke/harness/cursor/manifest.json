@@ -135,6 +135,13 @@
     "verified_on_surface": "cursor-cli",
     "evidence": "Live probe: the session ends its turn after a Shell call with block_until_ms=0 and a notify_on_output pattern, then receives system_notification pattern matches while idle — a working equivalent of Claude's Monitor. No timer wake was observed."
   },
+  "parallel_subagents": {
+    "source": "yoke_contracts.harness_subagent_capability.HARNESS_SUBAGENT_CAPABILITIES",
+    "parallel_subagents": "unverified",
+    "mechanism": "",
+    "verified_on_surface": "",
+    "evidence": "Cursor dispatches named sub-agents through its Task tool, but no session has been observed running several at once. Conduct dispatches one sub-agent at a time here and records that deferral until a probe adds a measured entry."
+  },
   "turn_record": {
     "source": "yoke_contracts.harness_turn_record_capability.HARNESS_TURN_RECORD_CAPABILITIES",
     "turn_record": "none",

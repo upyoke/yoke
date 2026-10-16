@@ -190,7 +190,11 @@ EPIC_DISPATCH_CHAIN_ADVANCE_USAGE = (
 def epic_dispatch_chain_advance(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-dispatch-chain advance",
-        description="Atomically advance one dispatch chain to its next task.",
+        description=(
+            "Point one dispatch chain at its lane's first planned task whose "
+            "dependencies are complete. Refuses chain_busy, chain_waiting or "
+            "chain_complete with the recovery."
+        ),
     )
     parser.add_argument("--epic", required=True)
     parser.add_argument("--worktree", required=True)

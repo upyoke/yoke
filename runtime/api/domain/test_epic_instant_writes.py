@@ -67,7 +67,12 @@ def test_dispatch_progress_cascade_and_sections_keep_native_microseconds(
     assert dispatch_chain_get(test_db, "42", "native-clock").split("|")[-2] == ""
     next_clock = anchor + timedelta(microseconds=1)
     monkeypatch.setattr(epic_dispatch, "utc_now", lambda: next_clock)
+    test_db.execute(
+        "UPDATE epic_tasks SET status=CASE task_num WHEN 1 THEN 'done' "
+        "ELSE 'planned' END WHERE epic_id=42"
+    )
     assert epic_dispatch.dispatch_chain_advance(test_db, "42", "native-clock") == "1|2"
+    test_db.execute("UPDATE epic_tasks SET status='planning' WHERE epic_id=42")
     row = test_db.execute(
         "SELECT started_at,last_updated,current_attempt FROM epic_dispatch_chains WHERE epic_id=42"
     ).fetchone()
