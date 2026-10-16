@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -12,11 +13,14 @@ from runtime.api.steering_fleet_test_helpers import (
     NOW,
     PROJECT_ID,
     STEERING_SESSION,
+    SURFACE,
     WORKER_SESSION,
     compose as _compose,
     seed_session,
     seed_steering_scope,
 )
+from yoke_contracts.session_control.capabilities import capability_for_surface
+from yoke_core.domain.session_message_delivery import lease_for_hook
 from yoke_core.domain.sessions_analytics import SessionError
 from yoke_core.domain.sessions_lifecycle_claim import release_claim
 from yoke_core.domain.steering_claims import acquire as acquire_steering, list_claims
@@ -99,6 +103,37 @@ def test_acquiring_the_seat_hands_over_the_scope_parked_mail(steering_scope):
         "WHERE message_id = 'msg-parked'"
     ).fetchone()
     assert dict(row) == {"state": "delivered", "seat_session_id": "successor-seat"}
+    assert handoff["messages"] == [{"message_id": "msg-parked", "receipt": True}]
+    assert "ack: yoke messages acknowledge msg-parked" in handoff["digest"]
+
+
+def test_handed_over_mail_injects_into_the_seat_like_a_live_send(steering_scope):
+    """The handover writes the seat's session receipt, so the hook leases it."""
+    seed_session(steering_scope, "successor-seat")
+    _park_role_message(steering_scope, "msg-parked")
+    steering_scope.execute(
+        "UPDATE session_messages SET expires_at = %s WHERE message_id = 'msg-parked'",
+        (datetime.now(timezone.utc) + timedelta(hours=1),),
+    )
+    _release_the_seat(steering_scope)
+    acquire_steering(
+        steering_scope,
+        session_id="successor-seat",
+        project_id=PROJECT_ID,
+        reason="successor seat",
+    )
+    steering_scope.commit()
+
+    receipt = steering_scope.execute(
+        "SELECT state, project_id FROM session_message_recipients "
+        "WHERE message_id = 'msg-parked' AND session_id = 'successor-seat'"
+    ).fetchone()
+    assert dict(receipt) == {"state": "pending", "project_id": PROJECT_ID}
+    event = capability_for_surface(SURFACE).inject_events[0]
+    lease = lease_for_hook(
+        steering_scope, session_id="successor-seat", hook_event=event, limit=10
+    )
+    assert [m["message_id"] for m in lease["messages"]] == ["msg-parked"]
 
 
 def test_a_clean_acquire_reports_no_handoff(steering_scope):
@@ -115,6 +150,7 @@ def test_a_clean_acquire_reports_no_handoff(steering_scope):
         "drained_count": 0,
         "parked_count": 0,
         "digest": "",
+        "messages": [],
     }
 
 
@@ -171,4 +207,5 @@ def test_acknowledged_mail_is_absent_from_report_and_successor_handoff(
         "drained_count": 0,
         "parked_count": 0,
         "digest": "",
+        "messages": [],
     }

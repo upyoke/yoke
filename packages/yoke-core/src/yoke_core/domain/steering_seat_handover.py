@@ -38,6 +38,7 @@ def cancel_session_receipt(
     now: datetime,
 ) -> None:
     """Withdraw one session's unacknowledged receipt for a message."""
+    moment = parse_instant(now)
     if not session_id:
         return
     marker = _marker(conn)
@@ -48,7 +49,7 @@ def cancel_session_receipt(
         f"AND state <> {marker}",
         (
             "cancelled",
-            instant_parameter(conn, parse_instant(now)),
+            instant_parameter(conn, moment),
             message_id,
             session_id,
             "acknowledged",
