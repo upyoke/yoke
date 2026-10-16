@@ -9,6 +9,7 @@ docs tree exists only in the Yoke source repo.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -116,3 +117,50 @@ def test_public_extraction_contract_keeps_private_rollback_and_delivery() -> Non
     ):
         assert instruction in text
     assert "a global session cannot assume this directory contains `.yoke/docs`" in text
+
+
+def test_every_rendered_worker_receives_the_portable_homes() -> None:
+    for harness, extension in (("claude", "md"), ("codex", "toml"), ("cursor", "md")):
+        adapters = ROOT / "runtime/harness" / harness / "agents"
+        paths = list(adapters.glob(f"yoke-*.{extension}"))
+        assert len(paths) == 8
+        for path in paths:
+            text = path.read_text()
+            for home in PORTABLE_HOMES:
+                assert home in text, (path, home)
+
+
+def test_conditional_procedures_are_available_before_their_action() -> None:
+    references = {
+        "engineer": ("implementation", "before editing or running checks"),
+        "architect": ("task-templates", "Before authoring a plan or task"),
+        "tester": ("reporting", "Before writing or recording a verdict"),
+    }
+    bundle = ROOT / "packages/yoke-core/src/yoke_core/install_bundle_tree"
+    for role, (name, moment) in references.items():
+        source = ROOT / f"runtime/agents/{role}.md"
+        assert moment in source.read_text()
+        relative = f"runtime/harness/claude/agents/references/{role}/{name}.md"
+        assert (ROOT / relative).read_bytes() == (bundle / relative).read_bytes()
+        for harness, ext in (("claude", "md"), ("codex", "toml"), ("cursor", "md")):
+            prompt = ROOT / f"runtime/harness/{harness}/agents/yoke-{role}.{ext}"
+            assert f".claude/agents/references/{role}/{name}.md" in prompt.read_text()
+
+
+def test_active_machine_pack_pointer_is_portable_and_retains_sign_in_boundary() -> None:
+    catalog = ROOT / "packs/machine-qa/pack.json"
+    descriptor = json.loads(catalog.read_text())
+    latest = descriptor["versions"][descriptor["latest_version"]]
+    payload = catalog.parent / latest["source"] / "docs/packs/machine-qa"
+    assert (
+        ".yoke/docs/verification/browser-identities.md"
+        in (payload / "browser-identities.md").read_text()
+    )
+    for os_name in ("linux", "macos", "windows"):
+        text = (payload / f"{os_name}-host-provisioning.md").read_text()
+        assert "project-owned sign-in policy" in text
+        assert (
+            "personal\n   credentials and completes personal approval prompts" in text
+        )
+        assert "https://github.com/upyoke/yoke/blob/" not in text
+        assert "docs/public/" not in text

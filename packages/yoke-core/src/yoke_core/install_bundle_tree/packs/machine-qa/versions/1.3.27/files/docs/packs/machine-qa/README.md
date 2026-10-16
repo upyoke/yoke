@@ -112,3 +112,6 @@ through representative new and mature projects, resume and a second machine.
 A human opens interactive sessions and grants personal approvals. Report
 missing modes, unavailable behavior and required human steps explicitly;
 installed files and a merge alone do not establish the promised outcome.
+
+Linux hosts finish with [Linux baseline capture and recovery](linux-baseline-recovery.md):
+standard probes, the save/reset roundtrip and named sealed-state recovery.
