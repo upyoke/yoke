@@ -5,15 +5,17 @@ directional ``activation``, or operator ``escalate`` for two overlapping
 claims. Does NOT make the decision — semantic independence analysis is the
 agent's job. The packet carries both specs, the conflicting claim's state,
 shared-path metadata, and three ready-to-paste command lines (one per
-decision option). Callers: ``runtime/agents/architect.md`` (intra-epic),
-``.agents/skills/yoke/idea/path-claim-blocking.md`` (cross-item overlap
-resolution), ``.agents/skills/yoke/refine/readiness-repair.md``, and Dash survey.
+decision option). The session holding the candidate's work claim records
+the decision with its own skill as ``source``. When no live holder exists,
+the pre-filled source is ``refine``.
 """
 
 from __future__ import annotations
 
-from typing import Any, List, TypedDict
+from dataclasses import dataclass
+from typing import Any, List, Optional, TypedDict
 
+from yoke_contracts.dependency_values import VALID_SOURCES
 from yoke_core.domain import db_backend, runtime_settings
 from yoke_core.domain.dependency_types import GatePoint, Satisfaction
 from yoke_core.domain.items_queries import query_item
@@ -29,6 +31,71 @@ DECISION_OPTIONS: List[str] = ["coordination_only", "directional", "escalate"]
 
 def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+@dataclass(frozen=True)
+class HolderAttestation:
+    """Who may record an overlap decision for one item."""
+
+    holder_present: bool
+    source: Optional[str]
+    detail: str
+
+
+def resolve_holder_attestation(conn: Any, item_id: int) -> HolderAttestation:
+    """Return the live work-claim holder's dependency source.
+
+    ``holder_present`` is false when no exclusive claim is visible, including
+    when the claim tables are absent. A holder whose session mode is not a
+    dependency source leaves ``source`` empty and names the mode in ``detail``.
+    """
+    from yoke_core.domain.schema_common import _table_exists
+
+    if not _table_exists(conn, "work_claims") or not _table_exists(
+        conn, "harness_sessions"
+    ):
+        return HolderAttestation(False, None, "")
+    from yoke_core.domain.work_claim_holder import holder_session_for_item
+
+    holder = holder_session_for_item(conn, int(item_id))
+    session_id = holder.get("holder_session_id")
+    if not session_id:
+        return HolderAttestation(False, None, "")
+    row = conn.execute(
+        f"SELECT mode FROM harness_sessions WHERE session_id = {_p(conn)}",
+        (str(session_id),),
+    ).fetchone()
+    mode = str(row[0]).strip() if row and row[0] else ""
+    if not mode:
+        return HolderAttestation(
+            True,
+            None,
+            "Work-claim holder session has no mode. Route the holder, "
+            "shared paths and evidence via yoke say --steering.",
+        )
+    if mode not in VALID_SOURCES:
+        return HolderAttestation(
+            True,
+            None,
+            f"Work-claim holder session mode {mode!r} is not a dependency "
+            "source. Route the holder, shared paths and evidence via "
+            "yoke say --steering.",
+        )
+    return HolderAttestation(True, mode, "")
+
+
+def dependency_source_for_commands(conn: Any, item_id: int) -> str:
+    """Source token pasted into ``yoke items dependency add``.
+
+    The live holder's skill when one exists, ``refine`` when nobody holds
+    the work claim, and ``<source>`` when the holder cannot be named.
+    """
+    attestation = resolve_holder_attestation(conn, item_id)
+    if attestation.source:
+        return attestation.source
+    if attestation.holder_present:
+        return "<source>"
+    return "refine"
 
 
 class CoordinationContext(TypedDict):
@@ -146,10 +213,7 @@ def _suggested_commands(
     co = GatePoint.COORDINATION_ONLY.value
     merged = Satisfaction.FACT_MERGED.value
     dep_add = "yoke items dependency add"
-    row = conn.execute(
-        f"SELECT workflow_id FROM items WHERE id = {_p(conn)}", (cand_id,)
-    ).fetchone()
-    source = "dash" if row and str(row[0]) == "dash" else "<source>"
+    source = dependency_source_for_commands(conn, cand_id)
     shared = ",".join(shared_paths) if shared_paths else "<shared-paths>"
     coord_rationale = (
         f"decision=coordination_only. shared_paths={shared}. "

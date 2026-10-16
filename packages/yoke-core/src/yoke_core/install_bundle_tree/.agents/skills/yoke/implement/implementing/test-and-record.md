@@ -19,7 +19,8 @@ yoke qa plan run --item PREFIX-N --transition <pinned-verification-stage>
 Surface each plan case's key, method, instructions, expected outcome,
 transition and host baseline. An empty roster is not permission to guess a
 command. A registered Test Machine pin uses `--machine NAME`; otherwise the
-runner prefers a verified free machine and honors case constraints.
+runner prefers a verified free machine and honors case constraints. A busy
+or unhealthy host queues you in its line: park until the host-turn wake.
 
 The method owns execution: Command runs in the mapped lane with exit verdict;
 Browser check evaluates assertions; inspection captures for agent review;

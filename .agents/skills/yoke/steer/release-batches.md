@@ -87,7 +87,9 @@ yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage STAGE --member PREFIX
 ```
 
 Broadcast this form, not unscoped qa plan or requirement-only qa case: those
-cannot credit stage/member. Add --plan PLAN only if stage names no cases.
+cannot credit stage/member. A busy or unhealthy Test Machine queues the member
+in its host line and wakes it on its turn; never notify a waiter by hand, and
+tell an owner holding free-text instead to run this command and park. Add --plan PLAN only if stage names no cases.
 Correction-only plan may name --replaces CASE_KEY=FAILED_REQUIREMENT_ID even
 for admitted cases; supersession occurs when reviewed correction passes,
 never manual replacement. System-owned missing wake is a defect to repair.

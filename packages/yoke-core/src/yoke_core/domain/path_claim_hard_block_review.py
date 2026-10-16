@@ -30,6 +30,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
+from yoke_contracts.dependency_values import VALID_SOURCES
 from yoke_core.domain.item_ref_columns import render_column_item_ref
 from yoke_core.domain.schema_common import _table_exists as _schema_table_exists
 
@@ -40,10 +41,14 @@ from yoke_core.domain.schema_common import _table_exists as _schema_table_exists
 # those items still have merge/deploy handoff remaining.
 TERMINAL_STATUSES: frozenset[str] = frozenset({"done", "cancelled"})
 
-# Sources commonly authored by the idea/refine path-claim conflict
-# workflow. Activation rows from these sources, lacking directional
-# evidence, are the cleanup target.
-PATH_CLAIM_AUTHORING_SOURCES: frozenset[str] = frozenset({"idea", "refine", "dash"})
+# Skills that attest a path overlap. An activation row from one of these
+# sources, with path evidence and no directional token, is the cleanup
+# target. operator, feed, and migration author other edges.
+PATH_CLAIM_AUTHORING_SOURCES: frozenset[str] = VALID_SOURCES - {
+    "operator",
+    "feed",
+    "migration",
+}
 
 # Heuristic markers in rationale text. A rationale must include concrete
 # path evidence — a repo file path/root file, or a structured shared_paths
@@ -152,9 +157,9 @@ def review_activation_row(
             ),
         )
 
-    # Path-claim-driven authoring intent: source is idea/refine/dash and
-    # rationale mentions concrete path evidence. Without directional
-    # evidence, this is the cleanup-pass over-hard shape.
+    # Path-claim-driven authoring intent: source is an overlap-attestation
+    # skill and the rationale mentions concrete path evidence. Without
+    # directional evidence, this is the cleanup-pass over-hard shape.
     source_normalized = (source or "").lower()
     if source_normalized in PATH_CLAIM_AUTHORING_SOURCES and _rationale_mentions_path(
         rationale_text

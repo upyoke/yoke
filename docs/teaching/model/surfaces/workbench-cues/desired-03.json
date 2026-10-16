@@ -3,9 +3,10 @@
  "title": "Make identity, machine approval, progress and useful next actions understandable.",
  "status": "candidate",
  "form": "Do",
- "verification": "Standalone hosted setup has a committed candidate with fixture screenshots of beta refusals and organization creation at desktop/375px in light/dark themes. Production captures still show the previous serving baseline; exact deployed proof and timed stage founding acceptance remain pending. Shared machine approval has its own implementation and approval proof; this candidate does not prove that page.",
- "current": "The hosted candidate removes title eyebrows and the no-invite diagnostic while keeping named invitation failures. Settled URL and Subscription rows are grouped; creation shows one indicator and a quiet line that changes after 45 seconds to explain resumability.",
- "desired": "Accept the standalone hosted screens against their exact deployed build and real timed founding journey. Verify shared machine approval separately, including its machine identity, local expiry and human approval outcome. These standalone screens do not apply to local or self-hosted setup.",
+ "verification": "Standalone hosted setup has candidate fixture screenshots; exact deployed proof and timed founding acceptance remain pending. Shared machine approval and its waiting list have source DOM checks for identities, decisions, local expiry, independent reads and recovery. Source fixtures do not prove deployment or live credential issuance.",
+ "current": "The hosted candidate groups settled URL and Subscription rows, preserves named invitation failures and explains creation resumability after 45 seconds. Machines and the approval route share a waiting list and approval card: compare the terminal code, check the supplied identities, then approve as yourself. The outcome stays visible after the request leaves the list. Local mode explains reachability without reading pending requests.",
+ "desired": "Accept the standalone hosted screens against their exact deployed build and real timed founding journey. Verify the shared waiting-list and approval journey against its serving candidate in hosted and self-host modes. Standalone hosted screens do not apply to local or self-hosted setup.",
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_admission_pending.js", "packages/yoke-core/src/yoke_core/ui/static/machine_approval.js", "runtime/api/universe_ui_machine_admission_pending.test.mjs"],
  "topics": ["identity/auth", "identity/accounts/beta-access-and-organization-creation", "machines/registration", "workbench/onboarding"],
  "plan_refs": ["FIRST-USER.P5", "FIRST-USER.P7", "FIRST-USER.4", "FIRST-USER.12", "FIRST-USER.27"],
  "position": 7

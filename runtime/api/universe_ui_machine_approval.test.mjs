@@ -23,6 +23,7 @@ function page({ decision = null, failure = null, readError = null, count = 0,
     client: { async call(request) {
       requests.push(request);
       const ok = (result) => ({ status: 200, envelope: { success: true, result } });
+      if (request.function === "machine_authorization.pending") return ok({ requests: [], viewer });
       if (request.function === "organizations.get") return ok({ name: "Example org" });
       if (request.function === "machine.list") return ok({ count, machines: [] });
       if (request.function === "machine_authorization.get") {
@@ -130,11 +131,11 @@ test("an unavailable code has named recovery without a code entry form", async (
   assert.equal(tag(main, "INPUT").length + tag(main, "FORM").length, 0);
 });
 
-test("no URL code renders the connection heading without reads or entry controls", async () => {
+test("no URL code reads only waiting machines without entry controls", async () => {
   const { main, requests, titles } = page({ code: null });
   await settle();
   assert.equal(titles.at(-1), "Connect your machine");
-  assert.equal(requests.length, 0);
+  assert.deepEqual(requests.map(({ function: id, payload }) => [id, payload]), [["machine_authorization.pending", {}]]);
   assert.equal(tag(main, "INPUT").length + tag(main, "FORM").length, 0);
   assert.equal(button(main, "Continue"), undefined);
 });
@@ -298,7 +299,7 @@ test("expiry timer repaints without reading or automatically replacing the code"
   t.mock.timers.tick(540001); repaint();
   assert.match(main.textContent, /This code expired at.*Run yoke connect again/);
   assert.equal(button(main, "Approve machine"), undefined);
-  assert.equal(requests.length, 3);
+  assert.deepEqual(requests.map((request) => request.function).sort(), ["machine.list", "machine_authorization.get", "machine_authorization.pending", "organizations.get"].sort());
 });
 
 test("a detached card ignores a late write and does not notify its host", async () => {

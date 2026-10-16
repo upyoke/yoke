@@ -97,6 +97,24 @@ org membership, or disabled actor refuses with its recovery step. A database
 failure before issuance leaves delivery retryable. Cookies authorize browser
 functions only with the workbench's existing same-origin CSRF protection.
 
+## Waiting for approval
+
+Machines shows **Waiting for approval** above the roster when requests are
+waiting. Match the code to your terminal, then choose **Review** to open the
+shared approval card inline. The URL becomes `/machine-approval/CODE` without
+adding a history entry. Approve only a machine you are connecting yourself.
+The list shows its name, full machine ID, requester when known and local expiry;
+an unbound request says **Not signed in yet**. Expired rows cannot be reviewed.
+
+The approval route without a code lists waiting requests without an entry form.
+A selected link shows **Other machines waiting** below its card. Lists refresh
+every 30 seconds while a card is open and when the page becomes visible; after
+a decision the next read removes the row and keeps the card's outcome visible.
+An empty approval route teaches `yoke connect <server>` on the new machine.
+Roster or relay failures leave pending requests usable. A failed pending read
+offers **Try again**; an older server directs you to the link your terminal
+printed. Local mode shows the reachability notice without a pending read.
+
 ## Approval page
 
 The selected request shows one shared card headed **Approve this machine**.

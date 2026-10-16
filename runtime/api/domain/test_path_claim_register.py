@@ -69,8 +69,23 @@ class TestComposeOverlapDenialWithConflicts:
     the body enumerates each conflicting claim id with its overlapping
     paths and emits the resolution command pointed at the first conflict."""
 
-    @pytest.mark.parametrize("workflow", ["issue", "dash"])
-    def test_enumerates_conflicts_and_paths(self, tmp_path, workflow) -> None:
+    @pytest.mark.parametrize(
+        ("workflow", "holder_mode"),
+        [
+            ("dash", None),
+            ("issue", None),
+            ("issue", "dash"),
+            ("issue", "conduct"),
+            ("issue", "implement"),
+            ("issue", "polish"),
+            ("issue", "usher"),
+            ("issue", "blitz"),
+            ("issue", "wait"),
+        ],
+    )
+    def test_enumerates_conflicts_and_paths(
+        self, tmp_path, workflow, holder_mode
+    ) -> None:
         from runtime.api.fixtures import pg_testdb
         from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
         from yoke_core.domain.path_claims_overlap import (
@@ -124,6 +139,19 @@ class TestComposeOverlapDenialWithConflicts:
                 project_sequence INTEGER,
                 workflow_id TEXT
             );
+            CREATE TABLE harness_sessions (
+                session_id TEXT PRIMARY KEY,
+                mode TEXT
+            );
+            CREATE TABLE work_claims (
+                id INTEGER PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                target_kind TEXT NOT NULL,
+                scope TEXT NOT NULL,
+                claim_type TEXT NOT NULL DEFAULT 'exclusive',
+                claimed_at TIMESTAMPTZ NOT NULL,
+                released_at TIMESTAMPTZ
+            );
         """,
         )
         # The denial names the item by its public ref, so the identity the
@@ -164,6 +192,22 @@ class TestComposeOverlapDenialWithConflicts:
             "INSERT INTO path_claim_targets VALUES (%s, %s, %s)",
             (200, 11, None),
         )
+        if holder_mode is not None:
+            conn.execute(
+                "INSERT INTO harness_sessions (session_id, mode) VALUES (%s, %s)",
+                ("sess-holder", holder_mode),
+            )
+            conn.execute(
+                "INSERT INTO work_claims "
+                "(id, session_id, target_kind, scope, claim_type, claimed_at) "
+                "VALUES (%s, %s, 'item', %s, 'exclusive', %s)",
+                (
+                    1,
+                    "sess-holder",
+                    '{"item_id": %d}' % OVERLAP_INTERNAL_ID,
+                    "2026-10-16T00:00:00Z",
+                ),
+            )
         conn.commit()
 
         # Pin the overlap classifier to INCOMPATIBLE so the conflict
@@ -176,6 +220,10 @@ class TestComposeOverlapDenialWithConflicts:
             return OverlapClassification.INCOMPATIBLE
 
         read_mod.classify_overlap = _stub
+        from yoke_core.domain.path_claim_coordination_decision import (
+            _suggested_commands,
+        )
+
         try:
             body = compose_overlap_denial(
                 item_id=OVERLAP_INTERNAL_ID,
@@ -183,6 +231,13 @@ class TestComposeOverlapDenialWithConflicts:
                 candidate_target_ids=[10, 11],
                 base_message="overlap on main",
                 conn=conn,
+            )
+            coord = next(
+                c
+                for c in _suggested_commands(
+                    conn, OVERLAP_INTERNAL_ID, 999, ["a.py"], 200
+                )
+                if "--gate-point coordination_only" in c
             )
         finally:
             read_mod.classify_overlap = original
@@ -193,12 +248,20 @@ class TestComposeOverlapDenialWithConflicts:
         assert "claim 200" in body
         assert "a.py" in body and "b.py" in body
         assert f"holder {ITEM_PREFIX}-{OVERLAP_SEQUENCE + 1}" in body
-        if workflow == "dash":
-            assert "/yoke refine" not in body
-            assert "coordination_only" in body
-            assert "source dash" in body
-            assert "holder's landing" in body
-            assert "yoke say --steering" in body
-        else:
+        if holder_mode is None:
             assert f"/yoke refine {ITEM_PREFIX}-{OVERLAP_SEQUENCE}" in body
             assert "coordination-decision-build" not in body
+            assert " refine " in coord
+        elif holder_mode == "wait":
+            assert "/yoke refine" not in body
+            assert "wait" in body
+            assert "yoke say --steering" in body
+            assert "<source>" in coord
+        else:
+            assert "/yoke refine" not in body
+            assert "coordination_only" in body
+            assert f"source {holder_mode}" in body
+            assert f"Continue /yoke {holder_mode} " in body
+            assert "holder's landing" in body
+            assert "yoke say --steering" in body
+            assert f" {holder_mode} " in coord

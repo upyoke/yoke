@@ -168,6 +168,7 @@ def begin_host_control_execution(
     baseline_position: int | None = None,
     machine: str | None = None,
     select_any: bool = True,
+    healthy_only: bool = False,
 ) -> HostControlExecutionContract:
     """Validate settings and acquire the serial host claim."""
     if not str(session_id or "").strip():
@@ -186,6 +187,7 @@ def begin_host_control_execution(
             session_id=session_id,
             machine=machine,
             select_any=select_any,
+            healthy_only=healthy_only,
         )
     except CoordinationClaimStaleHolderError as exc:
         raise MachineQaProtocolError(str(exc)) from None
