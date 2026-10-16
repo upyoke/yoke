@@ -25,6 +25,11 @@ not a way to remove a selected gate.
 
 ## Phase map
 
+Before implementation, read `.yoke/docs/agents/rules/code-and-cli.md` for
+complete scope, portable behavior and durable-state ownership. Carry required
+consumer and teaching changes through the same work; follow
+`.yoke/docs/documentation/index.md` when updating guidance.
+
 | Phase | Read before acting |
 |---|---|
 | Resolve/file/claim | [file-and-claim.md](file-and-claim.md) |

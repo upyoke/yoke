@@ -75,7 +75,35 @@ The delivery columns converge additively on boot. Existing instruction rows
 retain their prose and scope and acquire defaults; no data rewrite or separate
 migration entry is required.
 
-For Yoke source work, the teaching-prototype upkeep instruction points to
-`docs/teaching/README.md`: commit the model in the item lane and build views
-locally to read them. `docs/teaching/views/` is generated and gitignored; the
-check validates the model and renders views in memory.
+## Keep portable guidance in shipped homes
+
+Before adding an instruction, classify its clauses by audience and authority:
+
+| Clause | Maintained home | Instruction appearance |
+|---|---|---|
+| Portable product rule or recipe | Public concept page or agent operation home | Concise action and exact installed or web pointer |
+| Project policy, installation topology, credentials or current operator state | Its authorized project/private owner | Only the scoped facts the receiving actor needs |
+| Source-contributor procedure | The repository's contributor documentation | A pointer only for contributors with that source |
+
+The [teaching standard](../documentation/index.md) owns how guidance is written;
+[operation homes](../agents/rules/index.md) own agent procedures. A public rule
+does not inherit an installation's release policy, account choices or current
+holds. Source-contributor maps and generated research views do not become an
+installed project's requirements.
+
+To extract reusable guidance from an existing private instruction or strategy
+document, read it through its registered list/get/resolve command into private
+scratch. Inventory every clause and old pointer; record only neutral summaries,
+classifications and canonical destinations in shared evidence. Keep full text,
+secrets, account details and current operator state out of public repositories
+and logs. Verify delivery in the actual receiving context before replacing the
+private copy with its concise pointer. Immediately before an authorized source
+replacement, re-read the private record and save fresh durable private rollback
+evidence; an earlier planning capture is not that rollback.
+
+Inside an installed project, point at `.yoke/docs/<concept>/<page>.md` from the
+matching release. Outside a project, use the corresponding
+`https://upyoke.com/docs/<concept>/<page>` route and label its service identity;
+a global session cannot assume this directory contains `.yoke/docs`. Preserve
+the instruction's scope and delivery settings. A pointer alone does not prove
+that a main agent or worker received the required guidance before acting.

@@ -199,7 +199,9 @@ Adapters build the function-call envelope: `actor.session_id` binds the harness;
   - `yoke workflow-item epic-progress-note append --epic PREFIX-1704 --task-num 5 --note-num 3 --body-file PATH`
   - `yoke workflow-item epic-progress-note list --epic PREFIX-1704 --task-num 5 --limit 10`
   - `yoke workflow-item epic-task submission-receipt-get --epic PREFIX-1704 --task-num 5 --after-note-count 2`
-- _Find or request the CLI adapter for a function id_
+- _Read operation rules and find the CLI adapter for a function id_
+  - `cat .yoke/docs/agents/rules/code-and-cli.md`
+  - `cat .yoke/docs/documentation/index.md`
   - `yoke <family> --help`
 - _Field-note channel: log a failed/new/unclear recipe or observation_
   - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths' --correlation-id polish-run-2026-05-20`

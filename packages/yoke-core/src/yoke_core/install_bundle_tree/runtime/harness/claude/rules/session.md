@@ -4,6 +4,13 @@ Read `AGENTS.md` for shared rules. Before Claude hook or recovery work,
 read `.yoke/docs/agents/rules/claude-sessions.md`; it owns the inventory,
 failure paths, session revival and identity across episodes.
 
+Before changing behavior, read `.yoke/docs/agents/rules/code-and-cli.md` for
+complete scope and portable implementation. Teach the next action with its
+prerequisites and exact deeper pointer; the maintained standard is
+`.yoke/docs/documentation/index.md`. Keep installation facts and private
+instructions with their scoped owner; see
+`.yoke/docs/projects/execution-instructions.md` before extracting guidance.
+
 Hook schema is all-or-nothing: every `settings.json` entry uses nested
 `{hooks: [{type, command}]}`. One flat entry disables all hooks.
 

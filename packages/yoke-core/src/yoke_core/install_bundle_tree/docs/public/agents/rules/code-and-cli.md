@@ -84,6 +84,47 @@ declared counted population; completion alone proves no counter changed.
 Use manifest/live wake projections and probes for harness capability claims.
 Correct inaccurate teaching when discovered.
 
+## Complete work and portable behavior
+
+Before implementation, identify the changed behavior, its real consumers and
+the evidence each receiving context needs. Complete the stored scope in this
+item. Newly discovered required files remain in scope: reconcile their budget,
+claims and dependencies before editing them. Report an actual blocker with its
+owner and recovery rather than treating unfinished requirements as delivered.
+
+Build the smallest complete path first, then add capabilities to that working
+path. Give components one clear responsibility. Prefer a maintained dependency
+already in the project when its documented behavior and types fit. Choose the
+intended durable interface; retire obsolete implementations and their callers
+in the same change. Preserve permanent migrations and failure evidence.
+
+Shared behavior must hold in local, self-hosted and hosted contexts and in the
+environments, databases and tenants the contract covers. Read declared project
+capabilities and settings rather than branching on a particular installation.
+For sessions, hooks, launches, messages, identity and rendering, implement the
+common behavior once behind the existing harness-neutral owner. Read each
+supported harness's manifest before selecting a primitive; keep unavoidable
+capability-specific branches thin and named. An unavailable primitive needs an
+explicit coverage decision and evidence; it cannot silently count as a pass.
+Read [harness discovery](../harness-discovery.md) for the receiving surfaces.
+
+Verify the whole consumed contract. A change another project consumes requires
+the linked companion and exact candidate proof described in
+[project scoping](lanes-and-claims.md#project-scoping). One item's claim grants
+no authority over another project's source or release.
+
+Required state belongs to its durable owner. Events are disposable telemetry:
+diagnostics may inspect them, but operational correctness must survive absent,
+expired or failed event delivery. A refusal, timeout or crash must name the
+actual cause, affected facts and supported recovery where its user or agent
+will see it; successful exit alone cannot prove the intended effect.
+
+When behavior changes, update every affected teaching surface in the same
+change: docs, skills, generated references, configuration examples and refusal
+or denial guidance. Maintain the full rule once and derive concise appearances
+with exact receiving-context pointers. Follow the
+[teaching standard](../../documentation/index.md) before authoring guidance.
+
 ## DB authority and structured content
 
 The DB is authoritative; `.yoke/BOARD.md` and `.yoke/strategy/` are generated

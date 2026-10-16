@@ -25,6 +25,11 @@ act only inside this binding. Its through-stage is a fresh skill/claim boundary.
 
 ## Phase map
 
+Before changing behavior, read `.yoke/docs/agents/rules/code-and-cli.md` for
+complete scope, portable implementation and durable-state ownership. Update
+affected teaching through its existing owner; the standard and concise derived
+pointer rule live in `.yoke/docs/documentation/index.md`.
+
 | Phase | Read before acting |
 |---|---|
 | Resolve/enter | [`entry.md`](entry.md) |

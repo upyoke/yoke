@@ -15,6 +15,11 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Output
 
+Teach the next action with prerequisites, a complete example and an exact
+deeper pointer. Follow `.yoke/docs/documentation/index.md` in an installed
+project or `https://upyoke.com/docs/documentation` outside one; verify the
+receiving context before offering an installed path.
+
 Match the request's scope before answering. For general help, show:
 
 ```text

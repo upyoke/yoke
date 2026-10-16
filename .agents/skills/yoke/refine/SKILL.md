@@ -19,6 +19,12 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Boundaries from the first action
 
+Before reviewing scope and interfaces, read
+`.yoke/docs/agents/rules/code-and-cli.md` and the teaching standard at
+`.yoke/docs/documentation/index.md`. Classify portable guidance and private
+policy by `.yoke/docs/projects/execution-instructions.md`; a private instruction
+never proves that an external worker receives the rule.
+
 No worktree, implementation-code edits or commits. Hold the item work claim
 before artifact, File Budget, path-claim or GitHub-body writes. Identity is not
 authority. The binding is three rungs: source, one active stage, handoff;

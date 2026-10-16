@@ -179,7 +179,9 @@ verify presence/permissions without reading secret content.
   - `yoke workflow-item epic-task get --epic <epic-id> --task-num <task-num>`
   - `yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>`
   - `yoke workflow-item epic-task simulation-get --epic <epic-id> --phase integration`
-- _Find or request the CLI adapter for a function id_
+- _Read operation rules and find the CLI adapter for a function id_
+  - `cat .yoke/docs/agents/rules/code-and-cli.md`
+  - `cat .yoke/docs/documentation/index.md`
   - `yoke <family> --help`
 - _Field-note channel: log a failed/new/unclear recipe or observation_
   - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths' --correlation-id polish-run-2026-05-20`

@@ -54,6 +54,11 @@ Read the applicable `.yoke/docs/agents/rules/` home first, then the operation's 
 - `claude-sessions.md`: read before Claude hooks, session identity or recovery.
 - `claude-long-commands.md`: read before Claude long commands or watcher waits.
 
+Before implementation, read `.yoke/docs/agents/rules/code-and-cli.md` for complete
+scope, portable behavior and durable-state ownership. Before teaching, read
+`.yoke/docs/documentation/index.md`; private-source classification and verified
+pointer replacement live in `.yoke/docs/projects/execution-instructions.md`.
+
 ## Code Conventions
 
 Verify capabilities/state against live evidence before asserting them. Resolve refs to bare integer `item_id` and full commit hashes; never expand abbreviations. Purge retired terms; historical provenance goes in commits/archive. Prefer Python for stateful helpers.

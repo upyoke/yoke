@@ -43,6 +43,24 @@ Repo-relative paths:
 - Browser: packaged under `packages/yoke-harness/src/yoke_harness/browser_runtime/`, materialized to `~/.yoke/browser-runtime/` (`yoke_harness.browser_*` / `yoke_core.domain.browser_*`). Harness adapters: `runtime/harness/{harness-id}/`; Codex via `.codex/hooks.json` and `codex app <repo>`.
 - Machine config `~/.yoke/config.json`; the machine id it carries is registered in the control-plane `machines` row that every relay poll, launch, plan-limit and surface-policy row names, and whose `access` document decides which actors may spend that machine's capacity (`yoke machine list|show|register|settings`, [`docs/machine-registry.md`](machine-registry.md)); project surfaces `.yoke/`; docs `docs/`; design specs in `items.design_spec`. Hook sources: `runtime/harness/claude/settings.json` materialized at `.claude/settings.json`, plus `runtime/harness/codex/hooks.json` through the `.codex` link.
 
+## Teaching-model upkeep
+
+Read `docs/teaching/README.md` when planning and before finishing a change to
+what Yoke teaches. Review the affected concept, surface and scenario records;
+keep stable ids, distinguish current evidence from desired behavior, and name
+the owner and evidence for unfinished teaching. Commit model changes in the
+item's own lane and report changed node ids. Build the views with
+`yoke dev run -- python3 docs/teaching/tools/build.py`, then run it with
+`--check`; generated `views/` stays untracked. Steering connects the affected
+gaps to existing work or files the necessary item. Strategy changes use the
+README's fresh registered-read reconciliation recipe.
+
+The model belongs to this source repository and never ships as a requirement
+for installed projects. A consumer project requests model changes through a
+linked Yoke item naming exact node ids, desired changes and evidence, preserving
+private evidence behind its authorized access. This contributor procedure is
+separate from the public teaching standard and receiving-context delivery proof.
+
 ## Product code never branches on a project name
 
 Product code runs for every install, so it reads the declared fact a project
