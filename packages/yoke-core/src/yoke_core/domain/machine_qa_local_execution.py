@@ -176,7 +176,11 @@ def execute_machine_case_contract(
     if contract.operation not in {"case", "plan_case"}:
         raise ValueError("expected a Machine QA case contract")
     try:
-        execution = _execution(contract, progress_callback=progress_callback)
+        execution = (
+            _execution(contract)
+            if progress_callback is None
+            else _execution(contract, progress_callback=progress_callback)
+        )
     except HostControlLocalError as exc:
         if exc.code != SSH_UNAVAILABLE or contract.operation != "plan_case":
             raise
