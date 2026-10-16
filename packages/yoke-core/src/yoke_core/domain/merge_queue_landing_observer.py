@@ -28,6 +28,13 @@ An item that merely has a pull request open is asked one
 question — did it merge — because the ordinary answer for a pull request
 still being verified is *not yet*, and a landing that was never armed
 cannot have been ejected from a queue it never entered.
+
+An item that already landed reads its open re-land attempt instead of its
+current landing (:mod:`yoke_core.domain.merge_queue_landing_attempt`). A
+merged attempt is promoted onto the item before its landing is stamped, so
+the item's landing moves only when the new pull request actually merges;
+one that closed unmerged is closed with its reason and the item keeps the
+landing it had.
 """
 
 from __future__ import annotations
@@ -49,7 +56,13 @@ from yoke_core.domain.merge_queue_landing_record import (
     write_landing_record,
 )
 from yoke_core.domain.merge_queue_landing_record_state import ENTRY_CHECKS_FAILED
+from yoke_core.domain.merge_queue_landing_attempt import (
+    close_attempt,
+    closed_unmerged_reason,
+)
+from yoke_core.domain.merge_queue_landing_episode import clear_episode, restore_episode
 from yoke_core.domain.merge_queue_landing_identity import stamp_landing
+from yoke_core.domain.merge_queue_landing_marker import promote_landing_attempt
 from yoke_core.domain.merge_queue_landing_refresh import (
     REFRESH_CADENCE_SECONDS,
     claim_due_projects,
@@ -147,17 +160,7 @@ def observe_pending_landings(
                     # Replacing its observation with STALLED must not erase the
                     # evidence needed to retry a failed notice transport.
                     episode = parse_instant(row["previous_observed_at"])
-                    updated = conn.execute(
-                        f"UPDATE items SET merge_queue_enqueued_at={marker} "
-                        f"WHERE id={marker} AND merge_queue_pr_number={marker} "
-                        "AND NULLIF(CAST(merge_queue_enqueued_at AS TEXT),'') IS NULL",
-                        (
-                            instant_parameter(conn, episode),
-                            item_id,
-                            pr_number,
-                        ),
-                    )
-                    if not updated.rowcount:
+                    if not restore_episode(conn, row, episode):
                         conn.rollback()
                         continue  # A concurrent re-arm owns the fresh episode.
                     row["merge_queue_enqueued_at"] = episode
@@ -178,6 +181,13 @@ def observe_pending_landings(
             continue
         if readback.state_error:
             continue
+        state = readback.state
+        if row.get("attempt") and state and state.closed and not state.merged:
+            # A re-land that closed unmerged leaves the item's current landing
+            # as it was; the attempt record keeps the reason. An armed one
+            # still owes its holder the stopped notice below.
+            close_attempt(conn, item_id, pr_number, closed_unmerged_reason(pr_number))
+            conn.commit()
         observation = classify_pending_landing(readback, target=target)
         if observation.kind not in (LANDED, EJECTED):
             continue
@@ -221,16 +231,7 @@ def observe_pending_landings(
                 # reaches its recipient. Pending delivery owns the wake;
                 # an old acknowledgement cannot settle a fresh ejection.
                 if episode is not None and delivery == "delivered":
-                    conn.execute(
-                        f"UPDATE items SET merge_queue_enqueued_at=NULL "
-                        f"WHERE id={marker} AND merge_queue_pr_number={marker} "
-                        f"AND merge_queue_enqueued_at={marker}",
-                        (
-                            item_id,
-                            pr_number,
-                            instant_parameter(conn, episode),
-                        ),
-                    )
+                    clear_episode(conn, row, episode)
                 result["ejected"] += 1
                 conn.commit()
                 continue
@@ -244,6 +245,11 @@ def observe_pending_landings(
             merge_commit = state.merge_commit_sha if state is not None else ""
             prior_landing = row.get("merge_queue_landed_at") or None
             if prior_landing is None:
+                if row.get("attempt") and not promote_landing_attempt(
+                    conn, item_id, pr_number
+                ):
+                    conn.rollback()
+                    continue  # A concurrent write already settled the attempt.
                 if not stamp_landing(
                     conn,
                     item_id=item_id,

@@ -91,7 +91,7 @@ def test_marker_is_repointed_at_the_pull_request_that_merged(monkeypatch):
     )
 
     assert written == [(7, CARRIER_PR)]
-    assert f"repointed from {OWN_PR} to {CARRIER_PR}" in note
+    assert f"recorded as {CARRIER_PR} instead of {OWN_PR}" in note
 
 
 def test_marker_already_naming_the_carrier_is_left_alone(monkeypatch):
@@ -242,7 +242,7 @@ def test_close_out_records_the_pull_request_that_landed(monkeypatch):
 
     assert written == [(7, CARRIER_PR)]
     assert any(
-        f"repointed from {OWN_PR} to {CARRIER_PR}" in warning
+        f"recorded as {CARRIER_PR} instead of {OWN_PR}" in warning
         for warning in outcome.warnings
     )
 
