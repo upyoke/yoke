@@ -13,15 +13,21 @@ _MEMBERS = ContextVar("qa_presentation_members", default=None)
 
 
 def member_presentation(function):
+    """Read the members of ``subjects`` as one set; an enclosing set covering them stays."""
+
     @wraps(function)
     def run(conn, subjects):
-        token = _MEMBERS.set(
-            (
-                conn,
-                tuple(sorted({item for _, item, _ in subjects})),
-                tuple(sorted({run for run, _, _ in subjects})),
-            )
-        )
+        items = tuple(sorted({item for _, item, _ in subjects}))
+        runs = tuple(sorted({run for run, _, _ in subjects}))
+        outer = _MEMBERS.get()
+        if (
+            outer is not None
+            and outer[0] is conn
+            and set(items) <= set(outer[1])
+            and set(runs) <= set(outer[2])
+        ):
+            return function(conn, subjects)
+        token = _MEMBERS.set((conn, items, runs))
         try:
             return function(conn, subjects)
         finally:
@@ -248,7 +254,7 @@ def _requirements_by_stage(conn, runs):
             conn,
             "SELECT id,deployment_run_id,deployment_stage,deployment_member_item_id,"
             "plan_id,method_id,qa_kind,execution_target_json,execution_target_digest,"
-            "plan_case_key,case_position,baseline_position,host_baseline,"
+            "plan_case_key,target_env,case_position,baseline_position,host_baseline,"
             "blocking_mode,waived_at,superseded_by_requirement_id,"
             f"replacement_requirement_id,{requirement_retracted_at_select(conn)},"
             f"{unretracted_requirement_sql(conn)} AS unretracted,"
@@ -284,6 +290,25 @@ def subject_requirement_rows(conn, run_id, stage, member):
         ),
         key=lambda row: int(row["id"]),
     )
+
+
+def subject_direct_method_cases(conn, run_id, stage, member):
+    """Plan-less method cases of one subject, without admitted copies."""
+    from yoke_core.domain.deployment_qa_admission_materialization import (
+        ADMITTED_REQUIREMENT_CASE_PREFIX as ADMITTED,
+    )
+
+    rows = subject_requirement_rows(conn, run_id, stage, member)
+    if rows is None:
+        return None
+    return [
+        row
+        for row in rows
+        if row["plan_id"] is None
+        and row["method_id"] is not None
+        and row["waived_at"] is None
+        and not str(row["plan_case_key"] or "").startswith(ADMITTED)
+    ]
 
 
 def requirement_row(conn, requirement_id):

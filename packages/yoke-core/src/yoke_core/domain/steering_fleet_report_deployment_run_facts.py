@@ -12,16 +12,15 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Any
 
-from yoke_contracts.public_ref import format_item_ref
-from yoke_core.domain.deployment_qa_case_failure_kinds import RED_VERDICTS
 from yoke_core.domain.deployment_run_stage_entry import (
     is_scoped_qa_stage,
     parse_stage_plan,
 )
-from yoke_core.domain.qa_obligation_settlement import (
-    settled_obligation_sql,
-    unretracted_requirement_sql,
+from yoke_core.domain.deployment_run_red_requirements import (
+    RedRequirement,
+    red_blocking_requirements,
 )
+from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
 from yoke_core.domain.qa_review_waits import requirements_awaiting_human_review
 from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
 from yoke_core.domain.schema_common import _table_exists
@@ -35,6 +34,7 @@ _FACT_TABLES = (
     "qa_requirements",
     "qa_runs",
     "decision_requests",
+    "deployment_run_items",
 )
 
 
@@ -42,9 +42,12 @@ _FACT_TABLES = (
 class LiveRunFactMaps:
     """One report request's live-run status facts, keyed by run id."""
 
-    qa_stage_run_ids: frozenset[str]
+    #: Runs standing on a scoped-QA stage, with that stage's name.
+    qa_stages: dict[str, str]
+    #: Each scoped-QA run's member item ids, in id order.
+    members: dict[str, tuple[int, ...]]
     entered_at: dict[str, datetime]
-    red: dict[str, tuple[dict[str, Any], ...]]
+    red: dict[str, tuple[RedRequirement, ...]]
     decisions: dict[str, dict[str, Any]]
     unresolved: dict[str, tuple[str, ...]]
     totals: dict[str, int]
@@ -91,22 +94,23 @@ def load_live_run_facts(
     """Stage clocks, red verdicts, decisions, and completion-boundary counts."""
     run_ids = [str(run["id"]) for run in runs]
     if not run_ids:
-        return LiveRunFactMaps(frozenset(), {}, {}, {}, {}, {})
+        return LiveRunFactMaps({}, {}, {}, {}, {}, {}, {})
     plans = _flow_stage_plans(conn, runs=runs, tables=tables)
-    qa_stage_run_ids = _qa_stage_run_ids(runs=runs, plans=plans)
+    qa_stages = _qa_stages(runs=runs, plans=plans)
     unresolved, totals = _completion_boundary(
         conn,
-        run_ids=[run_id for run_id in run_ids if run_id not in qa_stage_run_ids],
+        run_ids=[run_id for run_id in run_ids if run_id not in qa_stages],
         tables=tables,
     )
     return LiveRunFactMaps(
-        qa_stage_run_ids=qa_stage_run_ids,
+        qa_stages=qa_stages,
+        members=_qa_stage_members(conn, run_ids=list(qa_stages), tables=tables),
         entered_at={
             str(run["id"]): parse_stamp(run["current_stage_entered_at"])
             for run in runs
             if run.get("current_stage_entered_at")
         },
-        red=_red_requirements(conn, run_ids=run_ids, tables=tables),
+        red=red_blocking_requirements(conn, run_ids),
         decisions=_resolved_decisions(conn, runs=runs, tables=tables),
         unresolved=unresolved,
         totals=totals,
@@ -140,58 +144,35 @@ def _flow_stage_plans(
     return plans
 
 
-def _qa_stage_run_ids(
+def _qa_stages(
     *,
     runs: list[dict[str, Any]],
     plans: dict[str, tuple[dict[str, Any], ...]],
-) -> frozenset[str]:
-    found: set[str] = set()
-    for run in runs:
-        run_id = str(run["id"])
-        stage_name = str(run["current_stage"])
-        if stage_name and is_scoped_qa_stage(plans.get(run_id, ()), stage_name):
-            found.add(run_id)
-    return frozenset(found)
+) -> dict[str, str]:
+    return {
+        str(run["id"]): str(run["current_stage"])
+        for run in runs
+        if str(run["current_stage"])
+        and is_scoped_qa_stage(plans.get(str(run["id"]), ()), str(run["current_stage"]))
+    }
 
 
-def _red_requirements(
+def _qa_stage_members(
     conn: Any, *, run_ids: list[str], tables: _Tables
-) -> dict[str, tuple[dict[str, Any], ...]]:
-    if not (tables.has("qa_requirements") and tables.has("qa_runs")):
+) -> dict[str, tuple[int, ...]]:
+    """Every scoped-QA run's members in one read, for the shared stage walk."""
+    if not run_ids or not tables.has("deployment_run_items"):
         return {}
     holes, params = _holes(conn, run_ids)
-    rows = conn.execute(
-        f"""SELECT r.id, r.deployment_run_id,
-                   (SELECT qr.verdict FROM qa_runs qr
-                     WHERE qr.qa_requirement_id = r.id
-                     ORDER BY qr.created_at DESC, qr.id DESC LIMIT 1) AS verdict,
-                   p.slug, p.public_item_prefix, i.project_sequence
-              FROM qa_requirements r
-              LEFT JOIN items i ON i.id = r.deployment_member_item_id
-              LEFT JOIN projects p ON p.id = i.project_id
-             WHERE r.deployment_run_id IN ({holes})
-               AND r.blocking_mode = 'blocking'
-               AND r.waived_at IS NULL
-               AND r.superseded_by_requirement_id IS NULL
-               AND {unretracted_requirement_sql(conn, "r")}
-             ORDER BY r.deployment_run_id, r.id""",
+    members: dict[str, list[int]] = {}
+    for raw in conn.execute(
+        f"""SELECT run_id, item_id FROM deployment_run_items
+             WHERE run_id IN ({holes}) ORDER BY run_id, item_id""",
         params,
-    ).fetchall()
-    grouped: dict[str, list[dict[str, Any]]] = {run_id: [] for run_id in run_ids}
-    for raw in rows:
+    ).fetchall():
         row = row_dict(raw)
-        verdict = str(row["verdict"] or "")
-        if verdict not in RED_VERDICTS:
-            continue
-        ref = ""
-        if row.get("project_sequence") is not None:
-            ref = format_item_ref(
-                row["slug"], row["public_item_prefix"], row["project_sequence"]
-            )
-        grouped[str(row["deployment_run_id"])].append(
-            {"requirement_id": int(row["id"]), "verdict": verdict, "member_ref": ref}
-        )
-    return {run_id: tuple(items) for run_id, items in grouped.items() if items}
+        members.setdefault(str(row["run_id"]), []).append(int(row["item_id"]))
+    return {run_id: tuple(items) for run_id, items in members.items()}
 
 
 def _resolved_decisions(
