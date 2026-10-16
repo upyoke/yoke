@@ -30,7 +30,8 @@ class NavigationRefusal:
     repair: str
 
     def __str__(self) -> str:
-        return f"{self.code} {self.target}: {self.detail}. Repair: {self.repair}"
+        message = f"{self.code} {self.target}: {self.detail}. Repair: {self.repair}"
+        return message.encode("utf-8", errors="backslashreplace").decode("utf-8")
 
 
 class NavigationError(ValueError):
@@ -62,6 +63,10 @@ def route_for(path: str) -> str:
 def _validate_path(path: str) -> None:
     if not isinstance(path, str) or not path:
         raise ValueError("use a non-empty POSIX Markdown path")
+    try:
+        path.encode("utf-8")
+    except UnicodeError as exc:
+        raise ValueError("use a UTF-8 page path") from exc
     if path.startswith("/") or ".." in path.split("/"):
         raise ValueError("path escapes the documentation root")
     if (

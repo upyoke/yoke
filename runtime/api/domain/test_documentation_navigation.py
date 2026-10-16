@@ -211,3 +211,11 @@ def test_source_git_failure_has_named_recovery(tmp_path, monkeypatch):
     refusals = nav.validate_navigation(root, complete=True)
     assert [r.code for r in refusals] == ["NAV_SCHEMA"]
     assert "restore git access" in refusals[0].repair
+
+
+def test_path_must_encode_as_utf8(corpus):
+    _document(corpus, {"root": _node("index.md", children=[_node("\ud800.md")])})
+    refusals = nav.validate_navigation(corpus, complete=False)
+    assert [r.code for r in refusals] == ["NAV_PATH_INVALID"]
+    assert "UTF-8" in refusals[0].detail
+    assert str(refusals[0]).encode("utf-8")

@@ -171,7 +171,18 @@ def validate_links(root: Path, pages: Iterable[str]) -> list[LinkRefusal]:
                 )
             )
             continue
-        text = source.read_text(encoding="utf-8")
+        try:
+            text = source.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            refusals.append(
+                LinkRefusal(
+                    "LINK_TARGET_MISSING",
+                    page,
+                    "source page is unreadable as UTF-8",
+                    "restore a readable UTF-8 page and retry",
+                )
+            )
+            continue
         for heading in _html_heading_ids(text):
             refusals.append(
                 LinkRefusal(
@@ -217,7 +228,18 @@ def validate_links(root: Path, pages: Iterable[str]) -> list[LinkRefusal]:
                     )
                 )
             elif resolved.fragment and destination.suffix == ".md":
-                ids = heading_ids(destination.read_text(encoding="utf-8"))
+                try:
+                    ids = heading_ids(destination.read_text(encoding="utf-8"))
+                except (OSError, UnicodeError):
+                    refusals.append(
+                        LinkRefusal(
+                            "LINK_TARGET_MISSING",
+                            target,
+                            "target page is unreadable as UTF-8",
+                            "restore a readable UTF-8 target and retry",
+                        )
+                    )
+                    continue
                 if unquote(resolved.fragment) not in ids:
                     refusals.append(
                         LinkRefusal(
@@ -238,6 +260,11 @@ def main(argv: list[str] | None = None) -> int:
         "--paths", nargs="+", help="only page paths beginning with these prefixes"
     )
     args = parser.parse_args(argv)
+    if not args.root.is_dir():
+        print(
+            f"LINK_TARGET_MISSING {args.root}: documentation root is absent. Repair: supply an existing corpus root"
+        )
+        return 1
     pages = sorted(p.relative_to(args.root).as_posix() for p in args.root.rglob("*.md"))
     if args.paths:
         pages = [p for p in pages if any(p.startswith(prefix) for prefix in args.paths)]

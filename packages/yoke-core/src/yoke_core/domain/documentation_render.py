@@ -104,6 +104,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--paths", nargs="+", help="select page path prefixes")
     args = parser.parse_args(argv)
     try:
+        if not args.root.is_dir():
+            raise ValueError(
+                "documentation root is absent; supply an existing corpus root"
+            )
         if args.command == "measure":
             pages = sorted(
                 p
@@ -154,7 +158,7 @@ def main(argv: list[str] | None = None) -> int:
         return int(bool(failures))
     except NavigationError as exc:
         print(exc)
-    except (OSError, ValueError, RuntimeError) as exc:
+    except (OSError, UnicodeError, ValueError, RuntimeError) as exc:
         print(
             f"NAV_SCHEMA {args.root}: {exc}. Repair: fix the named page or restore claimed write authority and retry"
         )

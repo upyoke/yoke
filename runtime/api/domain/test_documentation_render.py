@@ -116,3 +116,8 @@ def test_measure_counts_wrapping_and_advisory_without_gate(corpus, capsys):
     # An unlisted page still owes the same displayed-line limit.
     (corpus / "unlisted.md").write_text("x" * 80 * 351)
     assert render.main(["measure", "--root", str(corpus)]) == 1
+
+
+def test_measure_refuses_missing_root(tmp_path, capsys):
+    assert render.main(["measure", "--root", str(tmp_path / "absent")]) == 1
+    assert "NAV_SCHEMA" in capsys.readouterr().out

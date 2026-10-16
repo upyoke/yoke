@@ -104,3 +104,12 @@ def test_cli_path_selection_and_symlink_escape(tmp_path, capsys):
     (tmp_path / "escape.md").symlink_to(tmp_path.parent / "outside.md")
     (tmp_path / "index.md").write_text("# Root\n[escape](escape.md)")
     assert links.validate_links(tmp_path, ["index.md"])[0].code == "LINK_ESCAPES"
+
+
+def test_missing_root_and_unreadable_utf8_have_named_refusals(tmp_path, capsys):
+    assert links.main(["check", "--root", str(tmp_path / "absent")]) == 1
+    assert "LINK_TARGET_MISSING" in capsys.readouterr().out
+    (tmp_path / "bad.md").write_bytes(b"\xff")
+    assert links.validate_links(tmp_path, ["bad.md"])[0].code == "LINK_TARGET_MISSING"
+    (tmp_path / "index.md").write_text("# Root\n[bad](bad.md#heading)")
+    assert links.validate_links(tmp_path, ["index.md"])[0].code == "LINK_TARGET_MISSING"
