@@ -90,7 +90,6 @@ def validate_method_requirement(
                 row["method_config"],
                 entry_surface=row.get("entry_surface"),
                 required_completion=row.get("required_completion"),
-                host_baseline=row.get("host_baseline"),
             )
     except (QaMethodConfigError, MachineQaExecutionError) as exc:
         return _error(

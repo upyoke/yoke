@@ -189,6 +189,8 @@ def _validate_single_method_config(
             {"steps", "capture_checkpoints"},
             required={"steps"},
         )
+        if len(str(entry_surface)) > 2000:
+            raise MachineQaExecutionError("Terminal step entry_surface exceeds 2000")
         steps = config.get("steps")
         if not isinstance(steps, list) or not 1 <= len(steps) <= _MAX_STEPS:
             raise MachineQaExecutionError("Terminal cases require 1..100 steps")
@@ -256,8 +258,6 @@ def _require_terminal_case_fields(
             "case with `yoke qa plan edit PLAN_SLUG`, then `yoke qa plan "
             "rematerialize` the affected requirements."
         )
-    if len(str(entry_surface)) > 2000:
-        raise MachineQaExecutionError("entry_surface is longer than 2000 characters")
 
 
 def _require_keys(
