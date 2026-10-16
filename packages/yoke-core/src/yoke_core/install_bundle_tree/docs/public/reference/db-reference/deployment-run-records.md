@@ -71,6 +71,24 @@ content. Missing first-baseline attribution must be resolved explicitly before
 start. Cancellation preserves the frozen evidence. Schema-v1 runs retain their
 legacy start behavior.
 
+QA acceptance, target occupancy, takeover selection and audited member removal
+read complete frozen plan/case selections, never a later standing publication.
+Admission freezes attached post-deploy plans and plans named by admitted
+requirements. A newly selected plan freezes its complete definition before
+its first executable requirements, in the same transaction. Explicit
+rematerialization owns authorized updates; withdrawals and replacements retain
+their usual effect. Candidate ancestry checks still apply to frozen sources.
+
+An admitted or already materialized selection missing its complete frozen
+contract refuses as `qa_frozen_plan_snapshot_incomplete`. Preserve the run and
+ask the control-plane operator to prepare a reviewed repair from original
+admission evidence through `operator.data_repair.run` before resuming an active
+run. Do not import current cases as historical acceptance. Historical requirement
+and result records remain viewable without reconstructing an executable plan;
+terminal history requires no rewrite. Missing original descriptive metadata
+must be recorded truthfully; method configuration contracts, effective policies,
+source/target identity, case order and baseline variants require original proof.
+
 **Composition completes candidate membership.** Run creation and item-bound composition (`deployment_runs.start_for_item`, `deployment_runs.validate_composition`) enroll every delivery-ready item the pinned candidate carries and the run does not hold, through the same admission validation `add_item` uses. Creation validates provisionally in its insertion transaction and rolls back on refusal. It runs that validation twice in one read scope: first before the creation lock, on a provisional `run-unlocked-*` row that is always rolled back and whose verdict decides nothing, so the repository reads (bound branch heads, commit comparisons, containment) happen outside the lock; then under the lock on the real row, re-checking database facts against those same reads and re-deriving any comparison whose preceding release changed meanwhile. `deployment_runs.execution.context` revalidates before dispatch. Its driver reuses that context once; [start diagnostics](../deployment-start.md) explain containment-only refresh, batched reads, and flushed timing records.
 
 Before a stage first consumes a bound project, `deployment_runs.execution.bound_sources_prepare` may replace a stale pin with the declared branch's current head. It records `rebindings` (from/to commit, stage and time), re-derives carried work and admits newly carried members through existing custody, dependency and target rules. Recorded carried-work facts for the carrier and unchanged bound projects stay fixed. Existing requirement snapshots remain fixed; new members get snapshots. Containment is refreshed against the candidate. The source's `consumed_by` and `consumed_at` are persisted before dispatch; retries copy them, and a moved consumed source still requires a new run. Source walks happen before item/run locks; changed preparation state refuses a same-run retry. Missing or unreadable evidence never authorizes dispatch.
@@ -133,6 +151,20 @@ Release verification and notices — how release-to-done reads both QA
 authorities, who observes a stage receipt, and the verdict and owner
 notices — live in [release-delivery.md](release-delivery.md).
 
+## Member completion diagnostics
+
+`yoke deployment-runs get RUN` includes `member_closure` beside the run fields.
+During settlement it reads current canonical member prerequisites, requirement
+ids, phases and declared targets, independently blocked members, atomic siblings,
+and other-target deferrals. Its `blocked` flag describes member settlement,
+not the count of run-bound QA. An empty run-bound case set proves nothing about
+item completion. Closed members may still have finalization effects pending.
+
+Satisfy each named requirement or gate through its registered recovery. A live
+driver retains execution authority; do not dispatch another one. Repeating a
+success write cannot supply missing acceptance. These diagnostics never run
+close-out or change QA history, acceptance, lifecycle, or atomicity.
+
 ## Table: deployment_run_items
 
 Membership table linking items to deployment runs. Zero rows for a run are valid when the run is an environment-level deploy with no attached backlog item; do not infer failure from item-less membership after the run has started executing.
@@ -170,7 +202,7 @@ Creating a run (`deployment_runs.create`, `deployment_runs.start_for_item`) and 
 
 Nothing takes a `deploy_serialization` claim any more: a `DEPLOY:` key refuses with `deploy_lock_retired`. A hold taken before the retirement still lists under its `DEPLOY:<project>` key until its holder releases it by id (`yoke claims coordination-claim release --claim-id N --reason R`); the kind is no longer sticky, so the session sweep frees one whose holder ended. Released rows remain as claim history.
 
-`deployment_runs.create` also takes a caller `idempotency_key` (CLI `--idempotency-key`, required there) naming the one run the call intends. It is stored on that run as `deployment_runs.create_idempotency_key`, unique per project, with the canonical request in `create_request`, both written inside the table-locked creation transaction; a repeat with the same key and request returns the original run with `replayed: true` — even after the lock was released — and the same key with a changed input refuses `idempotency_key_conflict` naming the run and the differing fields. A create that yielded is usually still running: continue it; repeat with the same key only once it really exited without a run id. A deliberate second run of the same candidate takes a new key. Those two columns are additive, so they arrive with the serving build's boot converge — and a self-deploy creates its production run from a driver already at the new release against a database the old release still serves. Until they converge the key cannot be stored: the create proceeds without it, and under the same table lock a repeat returns the one never-started (`status='created'`) run carrying the identical resolved request. The receipt names which applies in `idempotency_basis` (`recorded_key` or `unconverged_request_match`, null when unkeyed); once a matched run has started, a repeat is a new run, and more than one never-started match refuses `idempotency_replay_ambiguous` naming them.
+`deployment_runs.create` also takes a caller `idempotency_key` (CLI `--idempotency-key`, required there) naming the one run the call intends. It is stored on that run as `deployment_runs.create_idempotency_key`, unique per project, with the canonical request in `create_request`, both written inside the table-locked creation transaction; a repeat with the same key and request returns the original run with `replayed: true` — even after the lock was released — and the same key with a changed input refuses `idempotency_key_conflict` naming the run and the differing fields. A create that yielded is usually still running: continue it; repeat with the same key only once it really exited without a run id. A deliberate second run of the same candidate takes a new key. The receipt reports `idempotency_basis=recorded_key` for a keyed request and null when unkeyed.
 
 Claim storage, stickiness, and the board rendering for every coordination kind: the "Shared-operation coordination claims" section of [`qa-and-sessions.md`](qa-and-sessions.md).
 

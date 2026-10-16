@@ -222,7 +222,7 @@ def test_relay_can_dispatch_and_read_only_deploy_reporting_surfaces() -> None:
             "github_actions.failed_log": False,
             "deployment_runs.failure_trace": False,
             "github_actions.variable.get": False,
-            "github.release.create_next_tag": True,
+            "github.release.create_commit_tag": True,
             "release_pin.record": True,
             "deployment_runs.release_output.record": True,
         }

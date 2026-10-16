@@ -52,10 +52,15 @@ The single-unit harness used by the explicit exception pathway stays in
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+from pathlib import Path
 from typing import List, Optional
 
 from yoke_contracts.session_identity import AMBIENT_RESOLUTION_FAILED
+from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
+from yoke_core.domain import db_helpers, db_backend
+from yoke_core.domain.session_claimed_worktrees import claimed_worktrees
 from yoke_core.domain.migration_apply_contract import (
     STATE_PLANNED,
     STATE_TEST_COPY_CREATED,
@@ -98,9 +103,44 @@ def _parse_item_argument(raw: str) -> int:
     return parse_item_argument(raw)
 
 
-# _resolve_item_worktree_path moved to migration_apply_resolve so both
-# the module-override path and the rehearse wrapper can share it without
-# circular imports.
+def _source_worktree_path(item_id: int, session_id: str) -> Optional[Path]:
+    """Revalidate the source runner's binding against item/task lane authority."""
+    raw = os.environ.get(SOURCE_DEV_RUN_ROOT_ENV)
+    if raw is None:
+        return None
+    root = Path(raw)
+    reason = "source root must name an existing absolute lane directory"
+    if raw.strip() and root.is_absolute() and root.is_dir():
+        root = root.resolve()
+        with db_helpers.connect() as conn:
+            p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+            lanes = conn.execute(
+                "SELECT path FROM item_worktrees "
+                f"WHERE item_id = {p} AND state = 'active' "
+                "AND released_at IS NULL",
+                (item_id,),
+            ).fetchall()
+            registered = any(row[0] and Path(row[0]).resolve() == root for row in lanes)
+            reason = "source root is not an active registered lane of this item"
+            if registered:
+                if any(
+                    lane.item_id == item_id
+                    and Path(lane.worktree_path).resolve() == root
+                    for lane in claimed_worktrees(conn, session_id=session_id)
+                ):
+                    return root
+                reason = (
+                    "caller has no matching active item/task work claim for this lane"
+                )
+    raise MigrationApplyError(
+        f"rehearsal_source_lane_invalid: item_id={item_id}, source={root}: {reason}. "
+        "Recovery: inspect `yoke claims work holder-list --session-id-filter "
+        f"{session_id}` and the named item's registered lanes; acquire the "
+        "matching item/task claim and rerun "
+        "`yoke --env <name> dev run --lane <registered-path> -- "
+        "yoke migration rehearse ITEM`. Restore a missing lane through its "
+        "worktree preparation command; do not set the source binding by hand."
+    )
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -145,7 +185,13 @@ def main(argv: Optional[List[str]] = None) -> int:
             session_id = resolve_ambient_session_id()
             if not session_id:
                 raise MigrationApplyError(AMBIENT_RESOLUTION_FAILED)
-            result = rehearse(item_id, session_id=session_id)
+            worktree_path = _source_worktree_path(item_id, session_id)
+            if worktree_path is None:
+                result = rehearse(item_id, session_id=session_id)
+            else:
+                result = rehearse(
+                    item_id, session_id=session_id, worktree_path=worktree_path
+                )
             print(format_rehearse(result))
             return 0 if result.all_succeeded else 1
     except (CoordinationClaimHeldError, MigrationApplyError) as exc:

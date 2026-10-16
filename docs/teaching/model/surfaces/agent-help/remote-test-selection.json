@@ -1,0 +1,9 @@
+{
+ "id": "remote-test-selection",
+ "title": "Pytest wrapper help teaches iteration before one attached full gate",
+ "status": "observed",
+ "form": "Inline recipe",
+ "verification": "Source help and bare-runtime recovery name targeted/impacted iteration, the attached QA lookup and the pre-publication redundant_full_suite boundary. Fixture regression exercises both public callers; deployed command proof is still required.",
+ "topics": ["verification/remote-selection-admission"],
+ "sources": ["packages/yoke-core/src/yoke_core/tools/_watch_pytest_args.py", "runtime/api/tools/test_watch_pytest_guards.py"]
+}

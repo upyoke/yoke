@@ -13,7 +13,6 @@ from yoke_contracts.cursor_hook_root import (
     resolve_existing_hook_root,
 )
 from yoke_contracts.hook_runner.config_owner import (
-    CURSOR_LEGACY_LIFECYCLE_COMMAND_MARKER,
     CURSOR_LIFECYCLE_COMMAND_MARKER,
 )
 from yoke_harness.hooks import cursor_lifecycle_hooks
@@ -143,31 +142,3 @@ def test_ensure_user_lifecycle_hooks_merges(tmp_path: Path) -> None:
         for e in payload["hooks"]["sessionEnd"]
     )
     assert ensure_user_lifecycle_hooks(hooks_path=path) is False
-
-
-def test_user_hook_refresh_replaces_legacy_invalid_marker(tmp_path: Path) -> None:
-    path = tmp_path / ".cursor" / "hooks.json"
-    path.parent.mkdir(parents=True)
-    path.write_text(
-        json.dumps(
-            {
-                "version": 1,
-                "hooks": {
-                    "stop": [
-                        {
-                            "command": (
-                                f"{CURSOR_LEGACY_LIFECYCLE_COMMAND_MARKER}; "
-                                "yoke hook evaluate Stop"
-                            ),
-                        }
-                    ],
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    assert ensure_user_lifecycle_hooks(hooks_path=path)
-    refreshed = path.read_text(encoding="utf-8")
-    assert CURSOR_LEGACY_LIFECYCLE_COMMAND_MARKER not in refreshed
-    assert CURSOR_LIFECYCLE_COMMAND_MARKER in refreshed

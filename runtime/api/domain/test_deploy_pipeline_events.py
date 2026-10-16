@@ -50,7 +50,6 @@ def test_stage_event_is_one_run_level_event(emitted) -> None:
 def test_failed_stage_on_multi_member_run_writes_each_event_once(emitted) -> None:
     with (
         mock.patch.object(deploy_pipeline_failure.reporting, "_set_deploy_stage"),
-        mock.patch.object(deploy_pipeline_failure.control_plane, "record_qa_stage"),
         mock.patch.object(run_updates, "update_run_field"),
         mock.patch.object(deploy_pipeline_failure, "_report_failure_trace"),
     ):

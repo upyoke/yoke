@@ -1,4 +1,4 @@
-"""Tests for yoke_core.domain.events_crud — init, insert, queries, prune,
+"""Tests for yoke_core.domain.events_crud — init, insert, queries,
 severity config, and event-name validation."""
 
 from __future__ import annotations
@@ -10,7 +10,6 @@ from yoke_core.domain.schema_common import _table_exists
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.events_crud_test_fixtures import (
     _insert_event,
-    _instant_offset_days,
 )
 
 
@@ -179,98 +178,6 @@ class TestQueries:
         _insert_event(db_path, event_id="q-1")
         result = ec.cmd_query(db_path, "SELECT COUNT(*) FROM events")
         assert "1" in result
-
-
-class TestPrune:
-    def test_prune_dry_run(self, db_path: str) -> None:
-        _insert_event(db_path, event_id="prune-d", severity="DEBUG", skip_severity=True)
-        result = ec.cmd_prune(db_path, dry_run=True)
-        assert "Would prune:" in result
-
-    def test_prune_respects_retention(self, db_path: str) -> None:
-        """Prune respects per-severity retention."""
-        conn = connect_test_db(db_path)
-        # Insert old DEBUG event (8 days ago)
-        conn.execute(
-            "INSERT INTO events (event_id, source_type, session_id, severity, "
-            "event_kind, event_type, event_name, created_at) "
-            "VALUES ('old-debug', 'agent', 's1', 'DEBUG', 'k', 't', 'N', %s)",
-            (_instant_offset_days(-8),),
-        )
-        # Insert recent DEBUG event inside its one-day retention window
-        conn.execute(
-            "INSERT INTO events (event_id, source_type, session_id, severity, "
-            "event_kind, event_type, event_name, created_at) "
-            "VALUES ('new-debug', 'agent', 's1', 'DEBUG', 'k', 't', 'N', %s)",
-            (_instant_offset_days(0),),
-        )
-        # Insert old ERROR event (never pruned)
-        conn.execute(
-            "INSERT INTO events (event_id, source_type, session_id, severity, "
-            "event_kind, event_type, event_name, created_at) "
-            "VALUES ('old-error', 'agent', 's1', 'ERROR', 'k', 't', 'N', %s)",
-            (_instant_offset_days(-365),),
-        )
-        conn.commit()
-        conn.close()
-
-        result = ec.cmd_prune(db_path)
-        assert "DEBUG=1" in result  # old-debug pruned
-        # Verify remaining
-        assert ec.cmd_count(db_path) == 2  # new-debug + old-error
-
-    def test_prune_status_never_pruned(self, db_path: str) -> None:
-        """STATUS events are never pruned."""
-        conn = connect_test_db(db_path)
-        conn.execute(
-            "INSERT INTO events (event_id, source_type, session_id, severity, "
-            "event_kind, event_type, event_name, created_at) "
-            "VALUES ('old-status', 'system', 's1', 'STATUS', 'lifecycle', "
-            "'status_change', 'ItemStatusChanged', %s)",
-            (_instant_offset_days(-365),),
-        )
-        conn.commit()
-        conn.close()
-
-        ec.cmd_prune(db_path)
-        assert ec.cmd_count(db_path) == 1
-
-    def test_prune_ledger_ttl(self, db_path: str) -> None:
-        """function_call_ledger rows past the replay TTL are pruned."""
-        from yoke_core.domain.function_call_ledger import (
-            FUNCTION_CALL_LEDGER_CREATE_SQL,
-            LEDGER_TTL_DAYS,
-        )
-
-        conn = connect_test_db(db_path)
-        conn.execute(FUNCTION_CALL_LEDGER_CREATE_SQL)
-        conn.execute(
-            "INSERT INTO function_call_ledger "
-            "(request_id, function_id, result, created_at) "
-            "VALUES ('r-old', 'x.y.z', '{}', %s), ('r-new', 'x.y.z', '{}', %s)",
-            (_instant_offset_days(-(LEDGER_TTL_DAYS + 1)), _instant_offset_days(-1)),
-        )
-        conn.commit()
-        conn.close()
-
-        dry = ec.cmd_prune(db_path, dry_run=True)
-        assert "function_call_ledger: 1 rows past" in dry
-
-        result = ec.cmd_prune(db_path)
-        assert "function_call_ledger=1" in result
-        conn = connect_test_db(db_path)
-        try:
-            rows = conn.execute(
-                "SELECT request_id FROM function_call_ledger"
-            ).fetchall()
-        finally:
-            conn.close()
-        assert [r[0] for r in rows] == ["r-new"]
-
-    def test_prune_without_ledger_table_is_noop(self, db_path: str) -> None:
-        """Pre-migration DBs (no ledger table) still prune events cleanly."""
-        result = ec.cmd_prune(db_path)
-        assert "function_call_ledger=0" in result
 
 
 class TestSeverityConfig:

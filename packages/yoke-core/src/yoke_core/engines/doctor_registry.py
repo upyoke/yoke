@@ -26,7 +26,6 @@ from yoke_core.engines.doctor_report import (  # noqa: F401
 # Re-export HC functions from sub-modules
 from yoke_core.engines.doctor_hc_blocked_flag import (
     hc_blocked_flag_consistency,
-    hc_blocked_status_drift,
 )  # noqa: F401
 from yoke_core.engines.doctor_hc_branch_protection import (
     hc_branch_protection_required_check,
@@ -204,7 +203,6 @@ HEALTH_CHECKS: list[HealthCheck] = [
     # DB-only: backlog / lifecycle
     HealthCheck("status-consistency", "Backlog status consistency", hc_status_consistency),
     HealthCheck("blocked-items", "Blocked items", hc_blocked_items),
-    HealthCheck("blocked-status-drift", "Blocked status drift", hc_blocked_status_drift),
     HealthCheck("blocked-flag-consistency", "Blocked flag consistency", hc_blocked_flag_consistency),
     HealthCheck("dispatch-chain", "Dispatch chain integrity", hc_dispatch_chain),
     HealthCheck("backlog-hygiene", "Backlog hygiene", hc_backlog_hygiene),

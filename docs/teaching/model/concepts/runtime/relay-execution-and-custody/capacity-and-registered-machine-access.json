@@ -1,8 +1,10 @@
 {
  "id": "capacity-and-registered-machine-access",
  "title": "Capacity and registered machine access",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "Maintainers",
  "page": "runtime-execution",
- "position": 0
+ "position": 0,
+ "summary": "Independent queue admission reuses the bounded relay supervisor and native spawn headroom checks. A busy target waits on its own custody; unrelated workers and diagnostic reads receive service each poll. Source regression proof does not establish production timing; legitimate production observations must precede the post-deploy mission.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/session_relay.py", "packages/yoke-core/src/yoke_core/domain/session_relay_job_leases.py", "packages/yoke-harness/src/yoke_harness/session_relay_supervision.py"]
 }

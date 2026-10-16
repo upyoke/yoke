@@ -29,21 +29,15 @@ REMEDIATION_TEXT = (
     "`items update <field> --stdin` or `sections upsert --content-file`. "
     "This pattern hits quoting/empty-content friction and lacks "
     "idempotency.\n\n"
-    "Use the Python-owned helper instead:\n\n"
-    "  python3 -m yoke_core.domain.item_field_transform append-addendum"
-    " \\\n"
-    '    --item YOK-N --field <field> --heading "<heading>"'
+    "Use the registered additive adapter instead:\n\n"
+    "  yoke items structured-field append-addendum PREFIX-N"
+    " --field FIELD --heading HEADING"
     " --source <name> --stdin\n\n"
-    "For Progress Log appends (or any safe append to an item_sections "
-    "row), use `section-append` instead of read-then-`sections upsert` "
-    "choreography:\n\n"
-    "  python3 -m yoke_core.domain.item_field_transform section-append"
-    " \\\n"
-    '    --item YOK-N --section "Progress Log" --headline "<headline>"'
-    " \\\n"
-    "    --ordering 200 --source <name> --stdin\n\n"
+    "For a Progress Log checkpoint, use the registered append instead of "
+    "read-then-write choreography:\n\n"
+    "  yoke items progress-log append PREFIX-N --headline HEADLINE --stdin\n\n"
     "For a full-field rewrite, write the complete intended content "
-    "directly via `items update <field> --stdin` -- without the "
+    "directly via `yoke items structured-field replace PREFIX-N --field FIELD --stdin` without the "
     "intermediate get + transform step.\n\n"
     "Suppression: `# lint:no-structured-transform-check` on the command "
     "body is audit-only (recorded as outcome=suppression_attempted) — the "
@@ -52,18 +46,11 @@ REMEDIATION_TEXT = (
 
 
 REMEDIATION_API_FIRST: str = (
-    "Function-call surface (preferred): dispatch through the typed registry "
-    "from Python or HTTP — there is no shell-CLI meta-adapter for arbitrary "
-    "function_id dispatch. For shell paths, use the named subcommand that "
-    "covers the operation you need:\n\n"
-    "  - Python: yoke_core.domain.yoke_function_dispatch.dispatch("
-    "FunctionCallRequest(...))\n"
-    "  - HTTP:   POST /api/functions/call (FunctionCallRequest JSON body)\n"
-    "  - Shell:  use the named adapter below, for example "
-    "`execute-structured-write`, `sections upsert`, `claim-work`, or "
-    "`qa run-add`.\n\n"
-    "Registered adapter inventory:\n"
-    "  runtime/api/service_client_structured_api_adapter_inventory.py"
+    "Use the registered yoke adapter on the selected connection. Run "
+    "yoke --help for its command family and --help for flags. If no adapter "
+    "serves the operation, ask the control-plane operator to provide it; "
+    "retain the request and current connection. Direct database, runtime "
+    "imports and HTTP requests are not an agent recovery path."
 )
 
 

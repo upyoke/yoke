@@ -37,8 +37,12 @@ plan/source/target groups; each member waits only on its attached groups.
 Matching attachments share case rows and an ordered execution, with member
 identity omitted from the shared target. A pass credits every attaching member;
 a shared failure blocks them all. Different plans, sources and targets stay
-separate. The same member command reuses completed group evidence and continues
-its next unfinished group. shared_plan_execution_busy names another group's live
+separate. The member command runs unfinished private cases first with their own
+target, ordering, host prerequisites and reviews. Completing that private roster
+ends this invocation without starting a shared campaign; shared acceptance is
+still required. Once private acceptance is complete, the same command reuses
+completed group evidence and continues its next unfinished shared group.
+shared_plan_execution_busy names another group's live
 cursor: continue its owner's watcher and retry when it completes.
 
 So the scope flags are not optional decoration:

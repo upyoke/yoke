@@ -1,0 +1,10 @@
+{
+ "id": "control-plane-transport",
+ "title": "Run role telemetry through the selected control plane",
+ "status": "observed",
+ "form": "State",
+ "verification": "Source route and renderer checks cover shared hooks; deployed uptake is not yet verified.",
+ "topics": ["runtime/transport/https-function-calls", "learning/notes/reflection-capture"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/agents_render_subagent_hooks.py", "docs/source-dev/control-plane-client-routes.md"],
+ "position": 8
+}

@@ -1,7 +1,9 @@
 {
  "id": "organization-and-membership",
  "title": "Organization and membership",
- "status": "draft-copy",
+ "status": "observed",
  "page": "modes",
- "position": 1
+ "position": 1,
+ "text": "Hosted codes exist before organization choice. A signed-in member selects the organization; its engine owns the authorization after service handoff with explicit actual engine org scope. Repeating that route is idempotent, while another organization refuses and requires a fresh connection. Personal approval stays with the member. Hosted Members retains seats and billing and keeps role/invite controls until the materialized Team contract declares the people destination. Platform continues serving hosted email invitations behind Team. Consumer source adoption is observed; production proof remains pending.",
+ "sources": ["docs/public/reference/machine-authorization.md"]
 }

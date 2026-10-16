@@ -110,6 +110,7 @@ def _run_lines(runs: tuple[DeploymentRunProgress, ...]) -> list[str]:
         lines.extend(f"      {detail}" for detail in run.unresolved)
         lines.extend(f"      {detail}" for detail in run.member_lines)
         lines.extend(f"      {detail}" for detail in run.no_obligation_lines)
+        lines.extend(f"      {detail}" for detail in run.completion.lines)
         if run.red:
             lines.append(f"      red: {', '.join(r.describe() for r in run.red)}")
         lines.extend(f"      {note}" for note in run.pin_qa.notes())

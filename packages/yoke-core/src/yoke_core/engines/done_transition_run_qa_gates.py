@@ -1,20 +1,4 @@
-"""Both QA authorities a deployment run answers to before its item is done.
-
-A run carries QA evidence in two shapes, and an item is done only when
-both hold:
-
-* the legacy ``deployment_run_qa`` projection, which schema-1 flow checks
-  record against, and
-* the scoped per-stage acceptance the richer flow definition pins, which
-  settles through ``qa_requirements`` / ``qa_runs`` and deliberately
-  writes no ``deployment_run_qa`` row at all.
-
-Neither is a superset of the other, so consulting one alone lets the
-other pass unread: a legacy flow has no scoped stages, and a scoped flow
-has no legacy rows. Both reads relay, so the gate runs over an https
-control plane as well as a local Postgres connection, and an
-unavailable read raises rather than reporting a clear gate.
-"""
+"""Require the item's pinned stage QA acceptance before completion."""
 
 from __future__ import annotations
 
@@ -38,17 +22,6 @@ def _relay_read(
     return resp.result or {}
 
 
-def _legacy_blocking(run_id: str) -> List[str]:
-    """Unsatisfied schema-1 flow checks recorded on the run."""
-    return list(
-        _relay_read(
-            "done_transition.run_blocking_qa",
-            TargetRef(kind="global"),
-            {"run_id": run_id},
-        ).get("blocking", [])
-    )
-
-
 def _scoped_blocking(item_id: int, run_id: str) -> List[str]:
     """Unsatisfied scoped stage verdicts this item still owes in the run."""
     return list(
@@ -61,13 +34,13 @@ def _scoped_blocking(item_id: int, run_id: str) -> List[str]:
 
 
 def check_run_qa_gates(item_id: int, run_id: str) -> bool:
-    """Report and block when either QA authority is unsatisfied.
+    """Report and block when pinned stage QA is unsatisfied.
 
     Returns ``True`` when the item must not proceed to done.
     """
     if not run_id:
         return False
-    blocking = _legacy_blocking(run_id) + _scoped_blocking(item_id, run_id)
+    blocking = _scoped_blocking(item_id, run_id)
     if not blocking:
         return False
     print("\n=== Deployment QA guard ===")

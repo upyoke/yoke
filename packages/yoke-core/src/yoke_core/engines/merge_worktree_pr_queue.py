@@ -263,6 +263,10 @@ def read_pr_landing_state(
             auto_merge_active=body.get("auto_merge") is not None,
             merge_state_status=str(body.get("mergeable_state") or "").lower(),
             head_sha=head_sha,
+            head_branch=str(head.get("ref") or "").strip()
+            if isinstance(head, dict)
+            else "",
+            target_branch=str((body.get("base") or {}).get("ref") or "").strip(),
             merged_at=None
             if body.get("merged_at") in (None, "")
             else body["merged_at"],

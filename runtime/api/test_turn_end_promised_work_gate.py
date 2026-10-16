@@ -95,7 +95,7 @@ def test_question_escape_allows(monkeypatch) -> None:
 
 def test_terminal_and_wait_allow(monkeypatch) -> None:
     monkeypatch.setattr(gate, "_evidence_for", lambda ctx: _present())
-    for status in ("done", "blocked", "cancelled", "stopped", "failed"):
+    for status in ("done", "cancelled", "stopped", "failed"):
         captured = _patch_db(monkeypatch, claim={"item_id": 3, "status": status})
         decision = gate.evaluate(_ctx())
         assert decision.outcome is Outcome.ALLOW

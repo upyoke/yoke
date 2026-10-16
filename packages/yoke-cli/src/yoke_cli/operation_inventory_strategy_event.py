@@ -13,6 +13,8 @@ from yoke_cli.operation_inventory_model import (
 
 
 WRAPPED_ROWS: Tuple[_Row, ...] = (
+    _w("yoke ouroboros reflection capture", "ouroboros"),
+    _w("yoke advance preflight hard-blocks", "advance.preflight"),
     _w("yoke events emit", "events"),
     _w("yoke events performance aggregate", "events.performance"),
     _w("yoke events performance detail", "events.performance"),

@@ -165,7 +165,7 @@ test("a repaint reuses a ready artifact read and retries a failed one", async ()
 });
 
 
-test("a card without run-bound QA draws no Item QA despite other-run history", async () => {
+test("a card reports unavailable requirements without borrowing other-run history", async () => {
   const client = readingClient({ rows: [
     activityRow({ deployment_run_id: OLDER_RUN, outcome: "queued" }),
     activityRow({ requirement_id: 99, deployment_run_id: null }),
@@ -173,6 +173,8 @@ test("a card without run-bound QA draws no Item QA despite other-run history", a
   const prefix = "SAMPLE";
   const { card } = await cardFor(new FakeDocument(), [member(1896, `${prefix}-1`)], client);
   assert.equal(byClass(memberEntry(card), "item-qa-section").length, 0);
+  assert.match(memberEntry(card).textContent, /item_qa_requirements_unavailable/);
+  assert.equal(byClass(memberEntry(card), "run-qa-check").length, 0);
 });
 
 test("a nonblocking no-obligation fact does not hide or count beside a live check", async () => {

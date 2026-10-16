@@ -23,6 +23,16 @@ HELD_WITH_RUN = (
 
 def unsettled_reason(conn: Any, run_id: str, member: dict[str, Any]) -> str:
     """Why a member this run must close is still at its release wait."""
+    return member_readiness_reason(conn, run_id, member) or (
+        "its close-out has not completed; read `yoke items get "
+        f"{member['public_ref']} status` and its done gates"
+    )
+
+
+def member_readiness_reason(
+    conn: Any, run_id: str, member: dict[str, Any], *, blocking=None
+) -> str:
+    """Read settlement's delivery/QA prerequisites; never prepare or close."""
     from yoke_core.domain.deployment_delivery_close_out_notice import (
         delivery_now_discharged,
     )
@@ -41,7 +51,8 @@ def unsettled_reason(conn: Any, run_id: str, member: dict[str, Any]) -> str:
             f"`yoke deployment-runs get {run_id}` and repair the run's "
             "completion authority for it"
         )
-    blocking = unsatisfied_blocking(conn, item_id=item_id, target_status="done")
+    if blocking is None:
+        blocking = unsatisfied_blocking(conn, item_id=item_id, target_status="done")
     if blocking.count:
         # The header line restates the done refusal; each later line names
         # one open requirement and what clears it.
@@ -58,10 +69,7 @@ def unsettled_reason(conn: Any, run_id: str, member: dict[str, Any]) -> str:
             "pass or waive each one, or record `yoke qa post-deploy "
             "record-no-obligation` when nothing is observable once deployed"
         )
-    return (
-        "its close-out has not completed; read `yoke items get "
-        f"{member['public_ref']} status` and its done gates"
-    )
+    return ""
 
 
 def settle_refusal(run_id: str, unsettled: list[str], *, closed: bool) -> str:

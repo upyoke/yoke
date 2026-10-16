@@ -1,16 +1,4 @@
-"""doctor health checks for the items.blocked flag model.
-
-Two checks:
-
-- ``HC-blocked-status-drift`` — FAIL when any row holds the legacy
-  ``status='blocked'`` value after the migration. Post-cutover, the
-  flag-driven model is canonical; any legacy lifecycle-position
-  ``blocked`` is drift that must be repaired.
-- ``HC-blocked-flag-consistency`` — FAIL when ``blocked=1`` but
-  ``blocked_reason`` is empty, when ``blocked=0`` but ``blocked_reason``
-  is non-empty, or when ``blocked=1`` and every live hard-block
-  dependency is already satisfied (the flag survived a discharged wait).
-"""
+"""Check item block flags, reasons and discharged dependency waits."""
 
 from __future__ import annotations
 
@@ -24,45 +12,7 @@ from yoke_core.domain.schema_common import _table_exists
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
-def hc_blocked_status_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """post-cutover, no row should hold status='blocked'."""
-    fails: List[str] = []
-    rows = query_rows(
-        conn,
-        "SELECT id, blocked, blocked_reason FROM items WHERE status='blocked'",
-    )
-    for row in rows:
-        public_ref = render_item_ref(conn, int(row["id"]))
-        if row["blocked"] == 1:
-            fails.append(
-                f"- {public_ref}: status='blocked' AND blocked=1 (drift "
-                "from legacy status — migrate via yoke items block / repair)"
-            )
-        else:
-            fails.append(
-                f"- {public_ref}: status='blocked' but blocked=0 "
-                "(legacy lifecycle position survived without flag — repair "
-                "the row to use the flag instead)"
-            )
-    if fails:
-        rec.record(
-            "HC-blocked-status-drift",
-            "Blocked status drift",
-            "FAIL",
-            "\n".join(fails),
-        )
-    else:
-        rec.record(
-            "HC-blocked-status-drift",
-            "Blocked status drift",
-            "PASS",
-            "",
-        )
-
-
-def hc_blocked_flag_consistency(
-    conn, args: DoctorArgs, rec: RecordCollector
-) -> None:
+def hc_blocked_flag_consistency(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """blocked flag, reason, and discharged hard-block waits must agree."""
     fails: List[str] = []
     missing_reason = query_rows(
@@ -134,8 +84,7 @@ def _leftover_flag_findings(conn) -> List[str]:
             )
             continue
         hard = [
-            line for line in unsatisfied
-            if _gate_point(line) in HARD_BLOCK_GATE_POINTS
+            line for line in unsatisfied if _gate_point(line) in HARD_BLOCK_GATE_POINTS
         ]
         if not hard:
             findings.append(
@@ -151,4 +100,4 @@ def _gate_point(line: str) -> str:
     return parts[4] if len(parts) > 4 else ""
 
 
-__all__ = ["hc_blocked_status_drift", "hc_blocked_flag_consistency"]
+__all__ = ["hc_blocked_flag_consistency"]

@@ -70,7 +70,7 @@ Run each operator command in a Codex session against an item in the right status
 
 | Step | Command | Status precondition | Verify |
 |------|---------|---------------------|--------|
-| 8 | `/yoke refine YOK-{N}` | Spec/plan worth tightening | Codex reads structured fields, writes via `python3 -m yoke_core.cli.db_router items update <id> <field> --stdin`; no worktree or code edits |
+| 8 | `/yoke refine YOK-{N}` | Spec/plan worth tightening | Codex reads structured fields, writes via `yoke items structured-field replace PREFIX-N --field spec --stdin`; no worktree or code edits |
 | 9 | `/yoke implement YOK-{N}` | Implementation-eligible issue | Codex creates or re-enters the issue worktree; implementation and review stay in the same worktree; `implement` in supported_paths |
 | 10 | `/yoke polish YOK-{N}` | Existing worktree branch | Codex resolves the recorded worktree, reviews diff against artifacts, commits fixes on the branch, runs verification from the worktree root |
 | 11 | `/yoke usher YOK-{N} --dry-run` | `implemented` item | Dry-run eligible; hard-block deps empty/explained; blocking QA count zero; deployment routing explicit; `usher` in supported_paths |

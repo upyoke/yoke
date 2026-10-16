@@ -9,7 +9,6 @@ from yoke_core.domain import events, events_project_identity as identity
 from yoke_core.domain import path_claim_bash_guard, path_claim_pre_edit_guard
 from yoke_core.hooks import telemetry, stdin, dispatch_dedup
 from yoke_core.domain import path_claims_dependency_events as dependency_events
-from yoke_core.domain import path_claims_blocked_coordination_repair as repair
 from yoke_core.domain import path_claims_blocked_reason_refresh as refresh
 
 
@@ -105,7 +104,6 @@ def test_guard_denial_uses_durable_session_project(conn, monkeypatch, guard):
     "emitter,extra",
     [
         (dependency_events.emit_blocked_reason_refreshed, {"released_claim_id": 2}),
-        (repair._emit_repair_event, {"directional_release": False}),
         (refresh._emit_refresh_event, {"dependent_item_id": 6, "blocking_item_id": 7}),
     ],
 )
@@ -113,7 +111,6 @@ def test_claim_dependency_event_uses_item_project(conn, monkeypatch, emitter, ex
     calls = []
     monkeypatch.setattr(events, "emit_event", lambda *a, **kw: calls.append(kw))
     kwargs = dict(conn=conn, claim_id=1, item_id=6, prior_blocked_reason="old", **extra)
-    if emitter is not repair._emit_repair_event:
-        kwargs["new_blocked_reason"] = "new"
+    kwargs["new_blocked_reason"] = "new"
     emitter(**kwargs)
     assert calls[0]["project"] == 42

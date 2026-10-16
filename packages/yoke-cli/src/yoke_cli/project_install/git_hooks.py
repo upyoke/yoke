@@ -104,9 +104,7 @@ def install_git_hook(
             existing = ""
         rel = f".git/hooks/{hook_name}"
         digest = hashlib.sha256(existing.encode("utf-8")).hexdigest()
-        manifest_owned = (
-            owned_hashes is not None and owned_hashes.get(rel) == digest
-        )
+        manifest_owned = owned_hashes is not None and owned_hashes.get(rel) == digest
         if not manifest_owned and not is_managed_git_hook(existing, hook_name):
             result.warn(
                 f".git/hooks/{hook_name} exists and is not Yoke-managed. "
@@ -115,9 +113,7 @@ def install_git_hook(
             )
             return
         if existing == shim:
-            result.note(
-                f"Exists: .git/hooks/{hook_name} (Yoke-managed, up to date)"
-            )
+            result.note(f"Exists: .git/hooks/{hook_name} (Yoke-managed, up to date)")
             return
         hook_path.write_text(shim, encoding="utf-8")
         os.chmod(hook_path, 0o755)
@@ -134,14 +130,22 @@ def install_git_hook(
 def install_pre_commit_hook(target_root: Path, result: BootstrapResult) -> None:
     """Install the product-local pre-commit gate shim."""
     install_git_hook(
-        target_root, "pre-commit", PRE_COMMIT_MARKER, PRE_COMMIT_SHIM, result,
+        target_root,
+        "pre-commit",
+        PRE_COMMIT_MARKER,
+        PRE_COMMIT_SHIM,
+        result,
     )
 
 
 def install_post_commit_hook(target_root: Path, result: BootstrapResult) -> None:
     """Install the post-commit path snapshot sync shim."""
     install_git_hook(
-        target_root, "post-commit", POST_COMMIT_MARKER, POST_COMMIT_SHIM, result,
+        target_root,
+        "post-commit",
+        POST_COMMIT_MARKER,
+        POST_COMMIT_SHIM,
+        result,
     )
 
 
@@ -211,7 +215,8 @@ def preview_git_hooks(
                 owned_hashes is not None and owned_hashes.get(rel) == digest
             )
             if not manifest_owned and not is_managed_git_hook(
-                existing, spec["name"],
+                existing,
+                spec["name"],
             ):
                 result.warn(
                     f".git/hooks/{spec['name']} exists and is not "
@@ -231,7 +236,8 @@ def preview_git_hooks(
 
 
 def managed_git_hook_hashes(
-    target_root: Path, specs: List[dict[str, str]],
+    target_root: Path,
+    specs: List[dict[str, str]],
 ) -> dict[str, str]:
     """Hash only exact selected shims currently present on disk."""
     hashes = {}
@@ -248,7 +254,8 @@ def managed_git_hook_hashes(
 
 
 def remove_yoke_git_hooks(
-    target_root: Path, owned_hashes: dict[str, str] | None = None,
+    target_root: Path,
+    owned_hashes: dict[str, str],
 ) -> List[str]:
     """Uninstall pass: remove exactly owned git hook shims only.
 
@@ -274,13 +281,7 @@ def remove_yoke_git_hooks(
             continue
         rel = f".git/hooks/{hook_name}"
         digest = hashlib.sha256(existing.encode("utf-8")).hexdigest()
-        exact_manifest_owner = (
-            owned_hashes is not None and owned_hashes.get(rel) == digest
-        )
-        legacy_shape_owner = owned_hashes is None and is_managed_git_hook(
-            existing, hook_name,
-        )
-        if exact_manifest_owner or legacy_shape_owner:
+        if owned_hashes.get(rel) == digest:
             hook_path.unlink()
             removed.append(hook_name)
     return removed

@@ -1,6 +1,6 @@
 """Insert and severity config/check helpers for the Yoke event platform.
 
-Schema/init belongs to events_schema and retention to events_prune.
+Schema/init belongs to events_schema and retention to universe_retention.
 Import events_crud constants inside functions: that module re-exports this
 module after defining its helpers, so eager imports would create a cycle.
 """
@@ -15,7 +15,6 @@ from yoke_core.domain import db_backend
 from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
 from yoke_core.domain.events_schema import _create_events_table, cmd_init
-from yoke_core.domain.events_prune import cmd_prune
 from yoke_core.domain.yok_n_parser import parse_item_id
 
 __all__ = [
@@ -24,7 +23,6 @@ __all__ = [
     "check_severity_conn",
     "cmd_init",
     "cmd_insert",
-    "cmd_prune",
     "cmd_severity_check",
     "cmd_severity_config_list",
     "cmd_severity_config_set",

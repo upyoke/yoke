@@ -1,62 +1,41 @@
-"""Query and display helpers for the merge-readiness audit report.
-
-Split out of :mod:`yoke_core.engines.merge_audit_report` so the renderer
-stays under the authored-file line limit. Holds the SQL placeholder and
-epic-worktree query builders, the lazy accessor for the parent
-:mod:`merge_audit` git helpers, and the guarded public item-ref resolver
-the report's display lines call.
-"""
+"""Transport-aware facts and local Git helper access for merge audits."""
 
 from __future__ import annotations
 
-from typing import Any, Optional
+import os
+from pathlib import Path
 
-from yoke_core.domain import db_backend
-from yoke_core.domain.project_identity import (
-    render_item_ref,
-    unresolved_item_ref,
-)
+from yoke_contracts.project_defaults import default_project_for_directory
 
 
-def _p(conn) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
+def load_snapshot(epic_filter: str | None, *, project: str | None = None) -> dict:
+    """Relay DB facts; Git and filesystem evidence stays on this machine."""
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
-
-# One row per distinct worktree branch for an epic, ordered by the earliest
-# task in each worktree. GROUP BY worktree already collapses duplicates, so no
-# DISTINCT is needed — and omitting it keeps the ORDER BY MIN(task_num)
-# aggregate portable (Postgres rejects ORDER BY expressions absent from the
-# SELECT list under SELECT DISTINCT).
-def _epic_worktrees_sql(conn) -> str:
-    p = _p(conn)
-    return (
-        "SELECT iw.branch AS worktree FROM epic_tasks t "
-        "JOIN item_worktrees iw ON iw.id=t.item_worktree_id "
-        f"WHERE t.epic_id = {p} AND iw.state = 'active' "
-        "GROUP BY iw.branch ORDER BY MIN(t.task_num)"
+    project = (
+        project
+        or os.environ.get("YOKE_PROJECT")
+        or default_project_for_directory(Path.cwd())
     )
+    if epic_filter is None:
+        target = TargetRef(kind="global", project_id=project)
+    else:
+        target = TargetRef(kind="item", public_ref=epic_filter, project_id=project)
+    response = call_dispatcher(
+        function_id="merge.audit.snapshot", target=target, payload={}
+    )
+    if not response.success:
+        error = response.error
+        raise RuntimeError(
+            f"merge_audit_snapshot_unavailable: {error.code if error else 'unknown'}: "
+            f"{error.message if error else 'snapshot refused'}. "
+            f"{error.recovery_hint if error and error.recovery_hint else 'Pass --project P; if the function is not served, ask the control-plane operator to serve the carrying release, then retry yoke merge audit.'}"
+        )
+    return response.result or {}
 
 
 def _parent():
     from yoke_core.engines import merge_audit as _ma
+
     return _ma
-
-
-def _display_item_ref(conn: Optional[Any], item_id: int) -> str:
-    """Public item ref for a merge-audit report display line.
-
-    The report runs every read on one shared connection, and some fixtures
-    build a minimal ``items`` schema without the ``projects`` join that
-    :func:`render_item_ref` needs. On Postgres a failed lookup aborts the
-    surrounding transaction, so roll it back and report the ref as
-    unresolved rather than poisoning the rest of the report.
-    """
-    if conn is not None:
-        try:
-            return render_item_ref(conn, int(item_id))
-        except Exception:  # noqa: BLE001 - a report line must never raise.
-            try:
-                conn.rollback()
-            except Exception:  # noqa: BLE001 - best-effort transaction reset.
-                pass
-    return unresolved_item_ref(consulted=conn is not None)

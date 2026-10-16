@@ -15,7 +15,7 @@ from yoke_contracts.lifecycle_status import LEGACY_STATUS_BUCKETS
 
 # The special "frozen" bucket — excluded from normal board display.
 FROZEN_BUCKET = "frozen"
-# The "blocked" bucket — blocked-flagged items (legacy ``status='blocked'`` too).
+# The "blocked" bucket contains blocked-flagged items.
 BLOCKED_BUCKET = "blocked"
 # The "unknown" bucket — items with unrecognized statuses.
 UNKNOWN_BUCKET = "unknown"
@@ -83,10 +83,7 @@ def _definition_bucket(
         if position == start:
             return "refined"
         policies = definition.get("policies") or {}
-        if (
-            position + 1 == stop
-            and policies.get("generated_children") != "epic_tasks"
-        ):
+        if position + 1 == stop and policies.get("generated_children") != "epic_tasks":
             return "reviewing"
         return "implementing"
     return UNKNOWN_BUCKET

@@ -10,8 +10,7 @@ from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
 from yoke_core.domain.qa_plan_attachment_reads import retracted_item_plan_ids
 from yoke_core.domain.qa_deployment_member_attached_plans import (
-    attached_member_plans,
-    plan_matches_stage_environment,
+    attached_member_plan_ids,
     stage_environment_id_for_plan_selection,
 )
 
@@ -93,6 +92,14 @@ def _member_plans(
     for value in snapshot.get("plans") or []:
         if not isinstance(value, Mapping):
             continue
+        # A correction keeps its complete contract, but answers the original
+        # group rather than selecting an additional standalone obligation.
+        if value.get("replacement_scopes"):
+            continue
+        from yoke_core.domain.deployment_qa_snapshot_selection import (
+            require_complete_snapshot,
+        )
+
         attachment = value.get("attachment")
         plan = value.get("plan")
         if not isinstance(attachment, Mapping) or not isinstance(plan, Mapping):
@@ -101,14 +108,17 @@ def _member_plans(
             continue
         if int(plan["id"]) in withdrawn_plans:
             continue
+        require_complete_snapshot(value)
         from yoke_core.domain.qa_plan_case_targets import (
             case_applies_to_target,
             case_target_envs,
         )
 
-        default_matches = plan_matches_stage_environment(
-            plan.get("target_environment_id"), stage_environment_id
+        from yoke_core.domain.deployment_qa_snapshot_selection import (
+            plan_matches_target,
         )
+
+        default_matches = plan_matches_target(conn, plan, target, stage_environment_id)
         cases = [
             case
             for case in value.get("cases", ())
@@ -130,20 +140,41 @@ def frozen_stage_plans(
 ) -> list[dict[str, Any]]:
     """Keep plan-owned obligations on their plan's ordered snapshot path."""
     frozen = [*_flow_plan(subject), *_member_plans(conn, subject, target=target)]
-    if not frozen:
-        frozen = attached_member_plans(
-            conn, subject, target=target, lock_plans=lock_plans
-        )
     selected_ids = {int(snapshot["plan"]["id"]) for snapshot in frozen}
     project_id = int(subject.get("member_project_id") or subject["project_id"])
-    for requirement in admitted:
-        plan_id = requirement.get("plan_id")
-        if plan_id is None or int(plan_id) in selected_ids:
-            continue
-        frozen.append(
-            _plan_snapshot(
-                conn, int(plan_id), project_id=project_id, lock_plan=lock_plans
+    wanted = {int(r["plan_id"]) for r in admitted if r.get("plan_id") is not None}
+    if subject.get("member_item_id") is not None:
+        wanted.update(
+            attached_member_plan_ids(
+                conn,
+                member_item_id=int(subject["member_item_id"]),
+                environment_id=stage_environment_id_for_plan_selection(conn, target),
             )
         )
-        selected_ids.add(int(plan_id))
+    from yoke_core.domain.deployment_qa_snapshot_selection import (
+        incomplete_snapshot,
+        materialized_plan_ids,
+        require_complete_snapshot,
+    )
+
+    for snapshot in frozen:
+        require_complete_snapshot(snapshot)
+    declared = subject["stage"].get("cases")
+    if isinstance(declared, Mapping):
+        wanted.add(int(declared["plan_id"]))
+    historical = None
+    for plan_id in sorted(wanted - selected_ids):
+        if any(r.get("plan_id") == plan_id for r in admitted) or (
+            isinstance(declared, Mapping) and int(declared["plan_id"]) == plan_id
+        ):
+            incomplete_snapshot(plan_id, "admitted selection has no frozen plan")
+        if historical is None:
+            historical = materialized_plan_ids(conn, subject)
+        if plan_id in historical:
+            incomplete_snapshot(
+                plan_id, "previously materialized selection has no frozen plan"
+            )
+        frozen.append(
+            _plan_snapshot(conn, plan_id, project_id=project_id, lock_plan=lock_plans)
+        )
     return frozen

@@ -1,9 +1,4 @@
-"""Pure-unit tests for deploy_pipeline and deploy_qa_recorder.
-
-Covers stage iteration, branch verification, and CLI parsing without a DB.
-DB-backed integration tests (deploy_db fixture, seed helpers) live in the
-sibling test_deploy_pipeline_qa_integration.py.
-"""
+"""Pipeline stage iteration, branch verification, and CLI parsing."""
 
 from __future__ import annotations
 
@@ -16,99 +11,11 @@ from yoke_core.domain import (
     deploy_pipeline,
     deploy_pipeline_step_runners,
     deploy_pipeline_reporting,
-    deploy_qa_recorder,
 )
 
 
 # ===========================================================================
-# deploy_qa_recorder tests
 # ===========================================================================
-
-
-class TestParseStagesQa:
-    """Unit tests for stage QA parsing."""
-
-    def test_explicit_qa_kind(self):
-        stages = json.dumps(
-            [
-                {"name": "deploy", "step_runner": "auto"},
-                {"name": "verify", "step_runner": "auto", "qa_kind": "health_check"},
-            ]
-        )
-        result = deploy_qa_recorder._parse_stages_qa(stages)
-        assert len(result) == 1
-        assert result[0]["qa_kind"] == "health_check"
-        assert result[0]["name"] == "verify"
-
-    def test_inferred_smoke_kind(self):
-        stages = json.dumps(
-            [
-                {"name": "smoke-test", "step_runner": "auto"},
-            ]
-        )
-        result = deploy_qa_recorder._parse_stages_qa(stages)
-        assert len(result) == 1
-        assert result[0]["qa_kind"] == "smoke"
-
-    def test_no_qa_stages(self):
-        stages = json.dumps([{"name": "deploy", "step_runner": "auto"}])
-        result = deploy_qa_recorder._parse_stages_qa(stages)
-        assert result == []
-
-    def test_custom_success_policy(self):
-        stages = json.dumps(
-            [
-                {
-                    "name": "smoke",
-                    "step_runner": "auto",
-                    "qa_kind": "smoke",
-                    "success_policy": "All tests green",
-                },
-            ]
-        )
-        result = deploy_qa_recorder._parse_stages_qa(stages)
-        assert result[0]["success_policy"] == "All tests green"
-
-    def test_default_success_policy(self):
-        stages = json.dumps(
-            [
-                {"name": "smoke", "step_runner": "auto", "qa_kind": "smoke"},
-            ]
-        )
-        result = deploy_qa_recorder._parse_stages_qa(stages)
-        assert result[0]["success_policy"] == "all-pass"
-
-
-class TestResolveQaKind:
-    def test_explicit_kind_in_config(self):
-        stages = json.dumps([{"name": "health", "qa_kind": "health_check"}])
-        assert (
-            deploy_qa_recorder._resolve_qa_kind_for_stage(stages, "health")
-            == "health_check"
-        )
-
-    def test_inferred_smoke_from_name(self):
-        stages = json.dumps([{"name": "smoke-test"}])
-        assert (
-            deploy_qa_recorder._resolve_qa_kind_for_stage(stages, "smoke-test")
-            == "smoke"
-        )
-
-    def test_unknown_stage_returns_empty(self):
-        stages = json.dumps([{"name": "deploy"}])
-        assert deploy_qa_recorder._resolve_qa_kind_for_stage(stages, "deploy") == ""
-
-    def test_fallback_smoke_when_stage_not_in_config(self):
-        assert (
-            deploy_qa_recorder._resolve_qa_kind_for_stage("[]", "smoke-check")
-            == "smoke"
-        )
-
-    def test_invalid_json(self):
-        assert (
-            deploy_qa_recorder._resolve_qa_kind_for_stage("not-json", "smoke")
-            == "smoke"
-        )
 
 
 # ===========================================================================
@@ -260,38 +167,6 @@ class TestPipelineCLI:
             == 0
         )
         assert run.call_args.kwargs["product_repo_path"] == "/pinned"
-
-
-class TestQaRecorderCLI:
-    def test_seed_from_flow_parser(self):
-        parser = deploy_qa_recorder._build_parser()
-        args = parser.parse_args(["seed-from-flow", "run-1"])
-        assert args.subcmd == "seed-from-flow"
-        assert args.run_id == "run-1"
-
-    def test_record_stage_result_parser(self):
-        parser = deploy_qa_recorder._build_parser()
-        args = parser.parse_args(
-            [
-                "record-stage-result",
-                "run-1",
-                "smoke",
-                "pass",
-                "--raw-result",
-                '{"key": "val"}',
-                "--duration-ms",
-                "1234",
-                "--workflow-run",
-                "99",
-            ]
-        )
-        assert args.subcmd == "record-stage-result"
-        assert args.verdict == "pass"
-        assert args.duration_ms == "1234"
-        assert args.workflow_run == "99"
-
-    def test_no_subcmd_returns_2(self):
-        assert deploy_qa_recorder.main([]) == 2
 
 
 class TestBackfillCLI:

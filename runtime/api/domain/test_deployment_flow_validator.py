@@ -25,7 +25,8 @@ def _seed_conn():
     conn.execute(
         "CREATE TEMP TABLE deployment_flows "
         "(id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, "
-        "status TEXT NOT NULL DEFAULT 'active')"
+        "status TEXT NOT NULL DEFAULT 'active', "
+        "definition_schema_version INTEGER NOT NULL DEFAULT 2)"
     )
     for row in [
         ("yoke-internal", 1),
@@ -33,7 +34,9 @@ def _seed_conn():
         ("externalwebapp-internal", 2),
         ("externalwebapp-prod-release", 2),
     ]:
-        conn.execute("INSERT INTO deployment_flows (id, project_id) VALUES (%s, %s)", row)
+        conn.execute(
+            "INSERT INTO deployment_flows (id, project_id) VALUES (%s, %s)", row
+        )
     return conn
 
 
@@ -147,7 +150,9 @@ def test_validate_rejects_unregistered_value_filtered_by_project():
 
 def test_validate_with_project_filter_no_registered_flows_says_so():
     conn = _seed_conn()
-    flow_project, err = validate_and_lookup_flow_project(conn, "garbage", "ghost-project")
+    flow_project, err = validate_and_lookup_flow_project(
+        conn, "garbage", "ghost-project"
+    )
     assert flow_project is None
     assert err is not None
     assert "ghost-project" in err
@@ -156,9 +161,7 @@ def test_validate_with_project_filter_no_registered_flows_says_so():
 
 def test_validate_passes_registered_id_with_project_filter():
     conn = _seed_conn()
-    flow_project, err = validate_and_lookup_flow_project(
-        conn, "yoke-internal", "yoke"
-    )
+    flow_project, err = validate_and_lookup_flow_project(conn, "yoke-internal", "yoke")
     assert flow_project == "yoke"
     assert err is None
 

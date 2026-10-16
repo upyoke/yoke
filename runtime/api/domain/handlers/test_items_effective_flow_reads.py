@@ -30,7 +30,7 @@ def test_item_flow_read_includes_effective_value_and_source(monkeypatch, source)
             "yoke",
             "Effective flow",
             "",
-            json.dumps([{"name": "deploy", "step_runner": "auto"}]),
+            json.dumps([{"name": "deploy", "stage_kind": "execution", "step_runner": "auto"}]),
         )
         insert_item(
             conn,

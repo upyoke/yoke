@@ -106,22 +106,3 @@ def test_approval_and_live_driver_prevent_parallel_completion(
     attached = finish_ready_run(test_db, run_id)
     assert "live-driver" in attached.waiting
     assert _run_status(test_db, run_id) == "executing"
-
-
-def test_failed_blocking_qa_does_not_complete_run(test_db: Any, monkeypatch) -> None:
-    _isolate_status_effects(monkeypatch)
-    run_id = "run-failed-qa-auto-hold"
-    _seed_undriven(test_db, run_id, shared_qa=False)
-    test_db.execute(
-        "INSERT INTO deployment_run_qa(run_id,check_name,source,blocking,status) "
-        "VALUES (%s,'smoke','flow_default',1,'failed')",
-        (run_id,),
-    )
-    test_db.commit()
-    _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_A)
-    _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_B)
-
-    result = finish_ready_run(test_db, run_id)
-
-    assert "smoke" in result.waiting
-    assert _run_status(test_db, run_id) == "executing"

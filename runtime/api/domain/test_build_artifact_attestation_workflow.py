@@ -19,16 +19,6 @@ _ATTESTED_SUBJECTS = (
     "${{ runner.temp }}/validated-release/migration-history.json",
     "${{ runner.temp }}/validated-release/migration-history-record.json",
 )
-_RELEASE_FACTORY_INPUTS = frozenset(
-    {
-        ".github/workflows/yoke-build-artifacts.yml",
-        "packages/**",
-        "packaging/**",
-        "runtime/**",
-        "pyproject.toml",
-        "uv.lock",
-    }
-)
 
 
 def _text() -> str:
@@ -75,15 +65,16 @@ def test_remains_fork_buildable_and_reusable_by_release_factory():
     assert "workflow_call:" in text
     assert "value: ${{ jobs.build.outputs.release_version }}" in text
     assert "value: ${{ jobs.build.outputs.artifact_name }}" in text
-    assert "group: yoke-build-artifacts-${{ github.ref }}" in text
+    assert "group: yoke-build-artifacts-${{ github.sha }}" in text
     assert "group: ${{ github.workflow }}-${{ github.ref }}" not in text
 
 
 def test_main_push_trigger_covers_every_release_factory_input():
-    paths = _trigger_paths(_text(), "push")
-    assert _RELEASE_FACTORY_INPUTS <= paths, (
-        f"push trigger misses release inputs: {sorted(_RELEASE_FACTORY_INPUTS - paths)}"
-    )
+    text = _text()
+    assert not _trigger_paths(text, "push")
+    assert "paths:" not in text
+    assert "paths-ignore:" not in text
+    assert "cancel-in-progress: false" in text
 
 
 def test_hosted_runner_and_no_operator_credentials():
@@ -121,7 +112,7 @@ def test_trusted_ref_and_queue_signer_attest_without_repository_code():
     assert "needs: build" in signer
     assert "github.event_name == 'merge_group'" in signer
     assert "github.ref == 'refs/heads/main'" in signer
-    assert "startsWith(github.ref, 'refs/tags/v')" in signer
+    assert "startsWith(github.ref, 'refs/tags/')" not in signer
     assert "actions: read" in signer
     assert "attestations: write" in signer
     assert "contents: read" in signer

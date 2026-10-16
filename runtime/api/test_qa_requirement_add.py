@@ -144,19 +144,3 @@ class TestRequirementAdd:
         count = conn.execute("SELECT COUNT(*) FROM qa_requirements").fetchone()[0]
         conn.close()
         assert count == 0
-
-    def test_legacy_aliases_normalize_to_current_vocab(self, db_path: str) -> None:
-        rid = add_bound_requirement(
-            db_path=db_path,
-            item_id=10,
-            qa_kind="review",
-            qa_phase="validation",
-        )
-        conn = connect_test_db(db_path)
-        row = conn.execute(
-            "SELECT qa_kind, qa_phase FROM qa_requirements WHERE id = %s",
-            (rid,),
-        ).fetchone()
-        conn.close()
-        assert row[0] == "implementation_review"
-        assert row[1] == "verification"

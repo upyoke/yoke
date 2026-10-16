@@ -45,6 +45,7 @@ RED_CONCLUSIONS = frozenset(
         "error",
         "failure",
         "startup_failure",
+        "stale",
         "timed_out",
     }
 )
@@ -99,7 +100,8 @@ def _recovery(failed: Sequence[LandingCheck]) -> str:
         return (
             "they were cancelled or never started, which is no verdict about "
             "the head — re-run `yoke merge item`, which re-runs them on the "
-            "same head"
+            "same head while eligible; the retry refuses active, superseded or "
+            "repeatedly cancelled attempts with the current recovery step"
         )
     return (
         "fix it on the lane, commit, re-run the verification gate, and "

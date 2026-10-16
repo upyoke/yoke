@@ -26,7 +26,7 @@ from yoke_core.domain.deployment_run_carried_membership import admit_run_item
 from yoke_core.domain.flow_create import cmd_create
 from yoke_core.domain.item_completion_flow_projection import completion_flow_values
 
-_STAGES = json.dumps([{"name": "deploy", "step_runner": "auto"}])
+_STAGES = json.dumps([{"name": "deploy", "stage_kind": "execution", "step_runner": "auto"}])
 
 
 def _flow(

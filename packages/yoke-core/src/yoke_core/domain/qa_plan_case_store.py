@@ -11,7 +11,6 @@ from yoke_contracts.qa_case_starting_state import (
     chain_baselines,
     normalize_starting_state,
 )
-from yoke_core.domain.qa_converging_columns import converged_values, present_columns
 from yoke_core.domain.qa_plan_management import QaPlanError, _json, _placeholder
 
 
@@ -53,57 +52,30 @@ def insert_plan_cases(
     """Replace a plan's stored cases with validated ones."""
     clock = instant_parameter(conn, stamp)
     marker = _placeholder(conn)
-    columns = present_columns(conn, "qa_plan_cases")
-    target_column_present = "target_envs" in columns
-    reason_column_present = "stage_reason" in columns
-    if not target_column_present and any(case["target_envs"] for case in cases):
-        raise QaPlanError(
-            "qa_case_environment_schema_unavailable: install the release declaring "
-            "qa_plan_cases.target_envs and let boot converge it, then retry "
-            "`yoke qa plan-cases replace`"
-        )
-    if not reason_column_present and any(case.get("stage_reason") for case in cases):
-        raise QaPlanError(
-            "qa_case_stage_reason_schema_unavailable: install the release declaring "
-            "qa_plan_cases.stage_reason and let boot converge it, then retry "
-            "`yoke qa plan-cases replace`"
-        )
     conn.execute(f"DELETE FROM qa_plan_cases WHERE plan_id={marker}", (plan_id,))
     for case in cases:
-        values = converged_values(
-            conn,
-            "qa_plan_cases",
-            {
-                "plan_id": plan_id,
-                "case_key": case["case_key"],
-                "position": case["position"],
-                "method_id": case["method_id"],
-                "instructions": case["instructions"],
-                "expected_outcome": case["expected_outcome"],
-                "method_config": _json(case.get("method_config") or {}),
-                "success_policy_id": case.get("success_policy_id"),
-                "success_policy_params": _json(case["success_policy_params"])
-                if case.get("success_policy_params") is not None
-                else None,
-                "host_baselines": _json(case["host_baselines"]),
-                **(
-                    {"target_envs": _json(case["target_envs"])}
-                    if target_column_present
-                    else {}
-                ),
-                **(
-                    {"stage_reason": case.get("stage_reason")}
-                    if reason_column_present
-                    else {}
-                ),
-                "starting_state": case.get("starting_state"),
-                "starting_state_reason": case.get("starting_state_reason"),
-                "entry_surface": case.get("entry_surface"),
-                "required_completion": case.get("required_completion"),
-                "created_at": clock,
-                "updated_at": clock,
-            },
-        )
+        values = {
+            "plan_id": plan_id,
+            "case_key": case["case_key"],
+            "position": case["position"],
+            "method_id": case["method_id"],
+            "instructions": case["instructions"],
+            "expected_outcome": case["expected_outcome"],
+            "method_config": _json(case.get("method_config") or {}),
+            "success_policy_id": case.get("success_policy_id"),
+            "success_policy_params": _json(case["success_policy_params"])
+            if case.get("success_policy_params") is not None
+            else None,
+            "host_baselines": _json(case["host_baselines"]),
+            "target_envs": _json(case["target_envs"]),
+            "stage_reason": case.get("stage_reason"),
+            "starting_state": case.get("starting_state"),
+            "starting_state_reason": case.get("starting_state_reason"),
+            "entry_surface": case.get("entry_surface"),
+            "required_completion": case.get("required_completion"),
+            "created_at": clock,
+            "updated_at": clock,
+        }
         conn.execute(
             f"INSERT INTO qa_plan_cases({', '.join(values)}) "
             f"VALUES ({', '.join([marker] * len(values))})",

@@ -2,7 +2,7 @@
 
 Covers TestComputeFrontier (basic partition, hard/integration gates,
 project scoping, frozen exclusion) and TestEdgeCases (empty backlog,
-all-blocked, multiple-blockers, failed/blocked-status handling).
+all-blocked, multiple-blockers, failed-status handling).
 """
 
 from __future__ import annotations
@@ -196,19 +196,6 @@ class TestEdgeCases:
         assert len(result.runnable) == 1
         assert result.runnable[0].item_id == 20
 
-    def test_blocked_status_items_go_to_blocked_bucket(self):
-        """Explicitly blocked items should never be offered as runnable work."""
-        conn = _create_test_db()
-        _insert_item(conn, 10, status="blocked")
-        conn.commit()
-
-        result = compute_frontier(conn, project_scope=["yoke"])
-        assert result.runnable == []
-        assert len(result.blocked) == 1
-        assert result.blocked[0].item_id == 10
-        assert result.blocked[0].adapter == AdapterCategory.WAIT
-        assert result.blocked[0].blocked_by == []
-        assert "blocked status" in result.blocked[0].blocked_reasons[0]
 
     def test_single_item_frontier(self):
         """Single-item backlog produces exactly one runnable item."""

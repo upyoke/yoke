@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from yoke_contracts.session_control.liveness import (
     ENDED_CAUSE_KILLED,
     ENDED_CAUSE_WOUND_DOWN,
-    LIVENESS_ENDED,
+    LIVENESS_STALE,
 )
 from yoke_contracts.timestamps import (
     format_instant,
@@ -40,7 +40,6 @@ from yoke_core.domain.session_presentation_read import (
 )
 from yoke_core.domain.session_staleness import (
     session_liveness,
-    stale_reclaim_candidate,
 )
 from yoke_core.domain.sessions_queries_base import normalize_claim_item_id
 
@@ -83,7 +82,10 @@ def render_session_roster_rows(
     is resolved here for the whole page before the loop starts, so the read
     costs one statement per distinct question rather than one per row.
     """
-    page = [dict(raw) for raw in rows]
+    from .session_automatic_reclaim import reclaim_facts
+
+    page = reclaim_facts(conn, rows)
+    now = utc_now()
     schedule = revision_schedule(conn) if page else []
     current_records = (
         revision_from_schedule(schedule, None)["records"] if schedule else ()
@@ -115,7 +117,7 @@ def render_session_roster_rows(
             row.get("last_heartbeat"),
             row.get("last_tool_call_at"),
         )
-        state = session_liveness(row)
+        state = session_liveness(row, now=now)
         cause: Optional[str] = None
         if row.get("terminated_at"):
             cause = ENDED_CAUSE_KILLED
@@ -149,14 +151,7 @@ def render_session_roster_rows(
                 "session_id": session_id,
                 "liveness": state,
                 "ended_cause": cause,
-                # Whether the stale reclaim sweep would act on this session:
-                # the Sessions page counts these, never every stale row.
-                "reclaimable": state != LIVENESS_ENDED
-                and stale_reclaim_candidate(
-                    activity_at,
-                    executor=row.get("executor"),
-                    holds_work_claim=bool(row.get("holds_work_claim")),
-                ),
+                "reclaimable": state == LIVENESS_STALE,
                 "activity_at": activity_at,
                 "last_tool_call_at": (
                     format_instant(row["last_tool_call_at"])

@@ -42,8 +42,13 @@ reap, never authorized termination. Claimless stale cleanup uses heartbeat;
 other holdings may use configured TTL.
 
 Relay liveness needs machine-observed pid/start/state, no record means no death
-claim. A named launched-process exit applies immediately; hook-anchor-only
-observation waits TTL. Gone unregistered launch with retained supervision closes
+claim. A current named launched-process exit applies immediately; hook-anchor-only
+observation waits TTL. Later heartbeat/tool/episode activity supersedes death
+evidence even when it names a launch. `process_death_superseded` keeps the
+session live; resume or reacquire normally, and probe the current native
+before reporting a new death. The ending decision rereads activity and
+holdings under the session lifecycle lock.
+Gone unregistered launch with retained supervision closes
 native_exited_unregistered with exit/capture, not registration timeout.
 Control plane ends process_verified_dead/cancels pending mail only with no
 holdings, no park and no real steering-reply wait. claims_held/parked/

@@ -22,7 +22,6 @@ _ENGINE_SESSION_SLUGS = (
     "stale-sessions",
     "stale-session-reclaimer-alive",
     "stale-reclaim-collision",
-    "session-actor-binding",
     "local-operating-actor-authority",
     "session-cwd-binding",
     "session-pre-implementing-activity",

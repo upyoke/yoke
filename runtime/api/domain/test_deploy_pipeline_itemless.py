@@ -103,11 +103,6 @@ class TestItemLessRun:
                 return_value="",
             ),
             mock.patch.object(
-                deploy_pipeline.control_plane,
-                "seed_qa",
-                return_value=0,
-            ),
-            mock.patch.object(
                 deploy_pipeline,
                 "resolve_project_checkout_path",
                 checkout_lookup,
@@ -129,10 +124,6 @@ class TestItemLessRun:
             mock.patch.object(
                 deploy_pipeline,
                 "_emit_run_event",
-            ),
-            mock.patch.object(
-                deploy_pipeline.control_plane,
-                "record_qa_stage",
             ),
             mock.patch.object(
                 deploy_pipeline.control_plane,

@@ -59,16 +59,15 @@ accurately; all tasks complete means fresh parent handoff, never parent done.
 ## Activate before dispatch
 
 Activate planned path claims only when the effective claims axis requires them.
-These are path-claim states, not item lifecycle statuses. Read activation-run
-help for named refusal recovery; do not continue a nonzero exit. The retained
-source-dev unified creator then provisions every project-routed lane:
+These are path-claim states, not item lifecycle statuses. Registered preparation
+activates required claims and provisions every project-routed lane on Yoke's installed interpreter, before a lane exists:
 
 ```text
-yoke claims path activation-run --item "${_epic_ref}"
-python3 -m yoke_core.domain.worktree create "${_epic_ref}" --project "${PROJECT}"
+yoke worktree prepare --item "${_epic_ref}" --project "${PROJECT}"
 ```
 
-Creator is idempotent on correct existing branches. Upstream-unverified/stale,
+Read `yoke worktree prepare --help` for entry and recovery. Preparation is
+idempotent on correct existing branches. Upstream-unverified/stale,
 dirty main, capacity or wrong lane stops with exact recovery; no reset/rebase,
 borrowed project or guessed path. Complete this before each task baseline.
 

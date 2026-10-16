@@ -1,7 +1,9 @@
 {
  "id": "deployment-run-qa",
  "title": "Deployment-run QA",
- "status": "draft-copy",
+ "status": "observed",
  "page": "qa-plans",
- "position": 3
+ "position": 3,
+ "summary": "Acceptance and execution use complete frozen plan/case selections. Authorized withdrawals, rematerialization and replacements retain source ancestry and target checks. An incomplete historical selection names operator repair recovery; raw historical requirements and results remain viewable without current-definition reinterpretation. Unfinished private member QA runs before shared groups on its own scoped cursor; completing it does not start a shared campaign. Member acceptance still requires all private and attached shared evidence.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_qa_frozen_plan_selection.py", "packages/yoke-core/src/yoke_core/domain/deployment_qa_snapshot_selection.py", "docs/public/reference/db-reference/deployment-run-records.md", "packages/yoke-core/src/yoke_core/domain/deployment_qa_shared_execution.py", "runtime/api/domain/test_deployment_qa_private_before_shared.py"]
 }

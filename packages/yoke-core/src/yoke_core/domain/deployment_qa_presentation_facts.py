@@ -172,8 +172,6 @@ def run_facts(conn, run_id):
         return None
 
     def read():
-        from yoke_core.domain.deployment_run_project_sources import _stored_column
-
         markers = ",".join("%s" for _ in runs)
         rows = query_rows(
             conn,
@@ -181,7 +179,7 @@ def run_facts(conn, run_id):
             "o.id AS tenant_id,o.slug AS tenant_slug,o.name AS tenant_name,"
             "dr.flow,dr.status,dr.current_stage,dr.release_lineage,"
             "dr.artifact_identity,dr.composition_frozen_at,dr.requirement_snapshot,"
-            f"{_stored_column(conn, 'dr')} AS bound_sources,"
+            "dr.bound_sources,"
             "df.definition_schema_version,df.stages "
             "FROM deployment_runs dr JOIN deployment_flows df ON df.id=dr.flow "
             "JOIN projects p ON p.id=dr.project_id JOIN organizations o ON o.id=p.org_id "
@@ -240,7 +238,8 @@ def _requirements_by_stage(conn, runs):
             conn,
             "SELECT id,deployment_run_id,deployment_stage,deployment_member_item_id,"
             "plan_id,method_id,qa_kind,execution_target_json,execution_target_digest,"
-            "plan_case_key,blocking_mode,waived_at,superseded_by_requirement_id,"
+            "plan_case_key,case_position,baseline_position,host_baseline,"
+            "blocking_mode,waived_at,superseded_by_requirement_id,"
             f"replacement_requirement_id,{requirement_retracted_at_select(conn)},"
             f"{unretracted_requirement_sql(conn)} AS unretracted,"
             f"{settled_obligation_sql(conn)} AS settled FROM qa_requirements "

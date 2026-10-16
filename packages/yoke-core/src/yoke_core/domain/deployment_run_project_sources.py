@@ -23,7 +23,6 @@ from yoke_core.domain.time_parse import parse_timestamp_utc
 from yoke_core.domain.deployment_run_bound_sources import (
     BOUND_SOURCES_FIELD,
     bound_project_shas,
-    bound_sources_recorded,
     parse_bound_sources,
 )
 from yoke_core.domain.deployment_run_release_output import project_release_outputs
@@ -37,14 +36,6 @@ def _p(conn: Any) -> str:
 
 def _cell(row: Any, key: str, index: int) -> Any:
     return row[key] if hasattr(row, "keys") else row[index]
-
-
-def _stored_column(conn: Any, alias: str = "") -> str:
-    """Select the stored record, or a constant empty one before converge."""
-    prefix = f"{alias}." if alias else ""
-    if bound_sources_recorded(conn):
-        return f"COALESCE({prefix}{BOUND_SOURCES_FIELD},'')"
-    return "''"
 
 
 def recorded_source_sha(run: Mapping[str, Any], project_id: int) -> str:
@@ -123,7 +114,7 @@ def run_source_facts(conn: Any, run_id: str) -> dict[str, Any] | None:
             }
         row = conn.execute(
             "SELECT dr.project_id,COALESCE(dr.release_lineage,'') AS release_lineage,"
-            f"{_stored_column(conn, 'dr')} AS {BOUND_SOURCES_FIELD},dr.flow,df.stages "
+            f"COALESCE(dr.{BOUND_SOURCES_FIELD},'') AS {BOUND_SOURCES_FIELD},dr.flow,df.stages "
             "FROM deployment_runs dr LEFT JOIN deployment_flows df ON df.id=dr.flow "
             f"WHERE dr.id={_p(conn)}",
             (run_id,),
@@ -203,12 +194,6 @@ def carrying_runs_for_project(
     environment serving it is the one of the same name — the same name the
     stage already passes through to the bound project's release.
     """
-    from yoke_core.domain.schema_common import _column_exists
-
-    if not bound_sources_recorded(conn) or not _column_exists(
-        conn, "deployment_runs", "target_environment_id"
-    ):
-        return []
     marker = _p(conn)
     rows = conn.execute(
         f"SELECT dr.id,dr.project_id,COALESCE(dr.{BOUND_SOURCES_FIELD},'') AS "

@@ -1,28 +1,8 @@
-"""MASTER-PLAN.md frontier order + prerequisite validator.
+"""Read-only validator for MASTER-PLAN frontier order and prerequisite prose.
 
-This module lets strategize explicitly validate two concrete things
-against live backlog state:
-
-1. **Ordered frontier entries** listed under
-   ``## 5. Backlog By Generation`` > ``#### Remaining frontier``. The
-   order encodes the operator's intended sequencing. If a later-ordered
-   item is materially ahead of an earlier-ordered enabling item, that is
-   ordered-frontier drift.
-2. **Prerequisite/enabling prose** — sentences that use relationship
-   language ("prerequisite", "depends on", "built on", "must not
-   outrun", etc.) alongside two or more ``YOK-N`` refs. If the prose
-   says ``YOK-A`` depends on ``YOK-B``, but live status reality shows
-   ``YOK-A`` past ``YOK-B``, that is prerequisite-prose drift.
-
-The module is **read-only**. It never mutates the plan, the DB, or any
-item. It returns a structured result that strategize can render, or
-falls through to advisory output when inputs are ambiguous.
-
-Entry-point of a parser/evaluator/reporter triplet. Owns dataclasses,
-the status-rank scale, ``lookup_statuses``, ``run_validation``, and the
-CLI. Sibling modules ``master_plan_check_parse``,
-``master_plan_check_evaluate``, and ``master_plan_check_render`` are
-re-exported below.
+Compare ordered entries and dependency statements with live lifecycle ranks.
+Ambiguous inputs yield advisory output. Parser, evaluator and renderer siblings
+share the dataclasses declared here and are re-exported after those declarations.
 """
 
 from __future__ import annotations
@@ -59,8 +39,8 @@ _STATUS_RANK: Dict[str, int] = {
 }
 
 # Exceptional/orthogonal states get a neutral "no rank" (no false-positive
-# ordered-frontier hits). "blocked" is legacy drift here.
-_EXCEPTIONAL_STATES = {"blocked", "stopped", "failed", "cancelled"}
+# ordered-frontier hits).
+_EXCEPTIONAL_STATES = {"stopped", "failed", "cancelled"}
 
 
 def status_rank(status: Optional[str]) -> Optional[int]:
@@ -150,7 +130,9 @@ class ValidationResult:
             "remaining_entries": [e.__dict__ for e in self.remaining_entries],
             "landed_entries": [e.__dict__ for e in self.landed_entries],
             "relationships": [r.__dict__ for r in self.relationships],
-            "ambiguous_relationships": [r.__dict__ for r in self.ambiguous_relationships],
+            "ambiguous_relationships": [
+                r.__dict__ for r in self.ambiguous_relationships
+            ],
             "contradictions": [c.__dict__ for c in self.contradictions],
             "advisories": list(self.advisories),
         }
@@ -192,7 +174,8 @@ def lookup_statuses(
     for sid in yok_ids:
         try:
             internal_by_ref[sid] = parse_item_id(
-                sid, conn=conn,
+                sid,
+                conn=conn,
             )
         except Exception:
             # Read-only advisory validator: an unresolvable ref (unknown
@@ -299,9 +282,20 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "prose against live backlog state."
         ),
     )
-    parser.add_argument("--plan-path", help="Path to MASTER-PLAN.md (default: the rendered view under $YOKE_REPO_ROOT/.yoke/strategy/)")
-    parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON instead of a markdown report.")
-    parser.add_argument("--exit-nonzero-on-drift", action="store_true", help="Exit non-zero when any contradiction is found (for CI gating).")
+    parser.add_argument(
+        "--plan-path",
+        help="Path to MASTER-PLAN.md (default: the rendered view under $YOKE_REPO_ROOT/.yoke/strategy/)",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit machine-readable JSON instead of a markdown report.",
+    )
+    parser.add_argument(
+        "--exit-nonzero-on-drift",
+        action="store_true",
+        help="Exit non-zero when any contradiction is found (for CI gating).",
+    )
     return parser
 
 

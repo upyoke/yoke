@@ -1,7 +1,10 @@
 {
  "id": "universe-settings",
  "title": "Universe settings",
- "status": "draft-copy",
+ "status": "observed",
+ "summary": "The retention key holds a validated versioned document. Normal initialization inserts defaults only if absent and preserves stored settings; reads never seed. There is no retention editor or per-invocation policy override. An absent row resolves shipped defaults read-only.",
+ "sources": ["docs/public/universe-retention.md", "packages/yoke-core/src/yoke_core/domain/universe_retention.py"],
+ "related": "universes/universe/retention",
  "page": "universes",
  "position": 0
 }

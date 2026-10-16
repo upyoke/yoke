@@ -29,8 +29,8 @@ def _seed_flows(db_path: str) -> None:
     try:
         p = _p(conn)
         flow_sql = (
-            "INSERT INTO deployment_flows (id, project_id, name, stages, created_at) "
-            f"VALUES ({p}, {p}, {p}, '[]', '2026-05-07T00:00:00Z')"
+            "INSERT INTO deployment_flows (id, project_id, name, stages, definition_schema_version, created_at) "
+            f"VALUES ({p}, {p}, {p}, '[]', 2, '2026-05-07T00:00:00Z')"
         )
         for row in [
             ("yoke-internal", 1, "YokeInternal"),

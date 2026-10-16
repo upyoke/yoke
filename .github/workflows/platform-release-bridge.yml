@@ -114,7 +114,7 @@ jobs:
       # resolved once by the deploy pipeline's own driver before dispatch
       # (a plain git ls-remote against Platform's registered checkout, no
       # dependency on this release's own not-yet-served API). Simultaneous
-      # stage/prod callers proving the identical pair join one proof.
+      # stage/prod callers proving the identical pair reuse one passed proof.
       # Platform's promotion-time check remains the final backstop.
       - name: Prove the hosted consumer against the exact release candidate
         id: consumer_proof
@@ -132,7 +132,7 @@ jobs:
           PRODUCT_SHA: ${{ inputs.product_sha }}
           DEPLOYMENT_RUN_ID: ${{ inputs.deployment_run_id }}
         run: |
-          release_tag="$(yoke github release create-next-tag \
+          release_tag="$(yoke github release create-commit-tag \
             upyoke/yoke "$PRODUCT_SHA" \
             --summary "Automated hosted release for deployment run $DEPLOYMENT_RUN_ID." \
             --project yoke)"
@@ -144,13 +144,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PRODUCT_SHA: ${{ inputs.product_sha }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
           for workflow in yoke-release.yml yoke-server-image.yml; do
             run_id=""
             for attempt in $(seq 1 60); do
-              if run_id="$(yoke github-actions find-run \
-                upyoke/yoke "$workflow" "$PRODUCT_SHA" \
-                --project yoke 2>/dev/null)"; then
+              if run_id="$(gh api \
+                "repos/upyoke/yoke/actions/workflows/$workflow/runs?head_sha=$PRODUCT_SHA&event=push&per_page=100" \
+                --jq ".workflow_runs | map(select(.head_sha == \"$PRODUCT_SHA\" and .head_branch == \"$RELEASE_TAG\" and .event == \"push\")) | max_by(.id) | .id // empty")" && [ -n "$run_id" ]; then
                 break
               fi
               sleep 5
@@ -247,7 +248,7 @@ jobs:
           PRODUCT_REF: ${{ steps.release.outputs.tag }}
           TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
         run: |
-          VERSION="${PRODUCT_REF#v}"
+          VERSION="$PRODUCT_REF"
           test -n "$VERSION"
           receipt="$(yoke release-pin record \
             --project platform \
@@ -288,7 +289,7 @@ jobs:
             --deployment-run-id "$DEPLOYMENT_RUN_ID" \
             --promotion-run-id "$PROMOTION_RUN_ID" \
             --environment "$TARGET_ENVIRONMENT" --product-sha "$PRODUCT_SHA" \
-            --consumer-sha "$CONSUMER_SHA" --version "${PRODUCT_REF#v}" \
+            --consumer-sha "$CONSUMER_SHA" --version "$PRODUCT_REF" \
             --project platform >"$output" 2>&1; then
             cat "$output"
           else

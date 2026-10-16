@@ -24,28 +24,16 @@ BUSY_TIMEOUT_MS = 60000
 def instant_parameter(
     conn: Any,
     value: datetime | None,
-    *,
-    table: str | None = None,
-    column: str | None = None,
 ) -> datetime | str | None:
     """Bind an aware instant natively, or canonically at the SQLite boundary.
 
-    SQL writers and comparison cutoffs pass native datetimes. Declared
-    pre-boot clocks alone use canonical text while their live column is TEXT.
+    SQL writers and comparison cutoffs pass native datetimes.
     Ingress must already have parsed its wire value; strings, epochs and naive
     datetimes refuse.
     """
     if value is None:
         return None
     instant = as_utc(value)
-    if table is not None or column is not None:
-        if table is None or column is None:
-            raise ValueError("an instant storage declaration needs table and column")
-        if db_backend.connection_is_postgres(conn):
-            from yoke_core.domain.preboot_instant_parameters import text_storage
-
-            if text_storage(conn, table, column):
-                return format_instant(instant)
     return (
         instant if db_backend.connection_is_postgres(conn) else format_instant(instant)
     )

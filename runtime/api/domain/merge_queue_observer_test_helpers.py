@@ -39,6 +39,9 @@ MERGED = PrLandingState(
     auto_merge_active=False,
     merged_at=GITHUB_MERGED_AT,
     merge_commit_sha=MERGE_COMMIT,
+    head_sha="cd" * 20,
+    head_branch="feature/observed",
+    target_branch="main",
 )
 
 #: Armed when the base moved underneath it, so GitHub can no longer create
@@ -111,6 +114,12 @@ def observer_connection():
     conn = message_connection()
     conn.executescript(
         """
+        CREATE TABLE item_sections (
+          item_id INTEGER NOT NULL, section_name TEXT NOT NULL, content TEXT,
+          ordering INTEGER, source TEXT NOT NULL DEFAULT 'operator',
+          created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL,
+          PRIMARY KEY (item_id, section_name)
+        );
         ALTER TABLE items ADD COLUMN status TEXT DEFAULT 'reviewing-implementation';
         ALTER TABLE items ADD COLUMN merged_at TIMESTAMPTZ;
         ALTER TABLE items ADD COLUMN merge_queue_pr_number TEXT;

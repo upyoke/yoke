@@ -1,15 +1,8 @@
-"""Version policy for product wheels served beside public dependencies."""
+"""Canonical commit-clock version policy for product wheels."""
 
-from __future__ import annotations
-
-from packaging.version import Version
+from yoke_contracts.release_version import release_version
 
 
-def assert_public_index_unforgeable(version: str) -> None:
-    """Require a version string that PyPI cannot host for a same-named project."""
-
-    if Version(version).local is None:
-        raise ValueError(
-            "product release version must include a PEP 440 local segment: "
-            f"{version}"
-        )
+def assert_release_version(version: str) -> None:
+    """Require the shared BASE.YYYYMMDDHHMM spelling."""
+    release_version(version)

@@ -42,12 +42,6 @@ def _drive(capsys, monkeypatch, carried_work):
     def fake_dispatch(stage, **kwargs):
         return 0, ""
 
-    def seed_qa(_run_id):
-        assert execution_context.call_count == 1, (
-            "Containment was refreshed before pre-start preparation finished"
-        )
-        return 0
-
     with (
         mock.patch.object(
             deploy_pipeline,
@@ -72,11 +66,6 @@ def _drive(capsys, monkeypatch, carried_work):
             return_value="",
         ),
         mock.patch.object(
-            deploy_pipeline.control_plane,
-            "seed_qa",
-            side_effect=seed_qa,
-        ),
-        mock.patch.object(
             deploy_pipeline,
             "resolve_project_checkout_path",
             return_value="/repo",
@@ -89,7 +78,6 @@ def _drive(capsys, monkeypatch, carried_work):
             side_effect=fake_dispatch,
         ),
         mock.patch.object(deploy_pipeline, "_emit_run_event"),
-        mock.patch.object(deploy_pipeline.control_plane, "record_qa_stage"),
         mock.patch.object(
             deploy_pipeline.control_plane,
             "unresolved_qa",

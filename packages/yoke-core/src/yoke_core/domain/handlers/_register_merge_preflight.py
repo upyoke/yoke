@@ -10,9 +10,11 @@ so they need no CLI adapter inventory row.
 from __future__ import annotations
 
 from yoke_core.domain.handlers import merge_preflight_gate_evals as _mpg
+from yoke_core.domain.handlers import merge_audit_snapshot
 
 
 def register(registry) -> None:
+    merge_audit_snapshot.register(registry)
     registry.register(
         "merge.preflight.epic_task_statuses",
         _mpg.handle_epic_task_statuses,

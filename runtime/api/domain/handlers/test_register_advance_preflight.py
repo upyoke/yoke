@@ -40,7 +40,9 @@ def test_preflight_gate_eval_is_internal_item_scoped_read(function_id) -> None:
     init_register.register_all_handlers()
     entry = yoke_function_registry.lookup(function_id)
     assert entry is not None
-    assert entry.adapter_status == "internal"
+    assert entry.adapter_status == (
+        "live" if function_id == "advance.preflight.hard_blocks" else "internal"
+    )
     assert entry.target_kinds == ("item",)
     assert entry.side_effects == ()
     assert entry.claim_required_kind is None

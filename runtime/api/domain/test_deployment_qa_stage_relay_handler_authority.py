@@ -103,7 +103,7 @@ def qa_stage_plane():
         project_id = resolve_project_id(conn, PROJECT)
         stages = json.dumps(
             [
-                {"name": "merged", "step_runner": "auto"},
+                {"name": "merged", "stage_kind": "execution", "step_runner": "auto"},
                 {
                     "name": ITEM_QA_STAGE,
                     "step_runner": "qa",
@@ -116,15 +116,15 @@ def qa_stage_plane():
                     "stage_kind": "qa",
                     "scope": "run",
                 },
-                {"name": "complete", "step_runner": "auto"},
+                {"name": "complete", "stage_kind": "execution", "step_runner": "auto"},
             ]
         )
         conn.execute(
             "INSERT INTO deployment_flows "
             "(id,project_id,name,description,stages,on_failure,created_at,"
-            "target_tier,status,takes_delivery_custody) VALUES "
+            "target_tier,status,takes_delivery_custody,definition_schema_version) VALUES "
             "(%s,%s,%s,'scoped QA authority test',%s,'halt',%s,'ephemeral',"
-            "'active',1)",
+            "'active',1,2)",
             (FLOW, project_id, FLOW, stages, iso8601_now()),
         )
         owner_session = "qa-stage-owner"

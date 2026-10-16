@@ -9,7 +9,7 @@ Linux/WSL setup:
 
 Session/harness substrate:
   ``stale-sessions``, ``stale-session-reclaimer-alive``,
-  ``stale-reclaim-collision``, ``session-actor-binding``,
+  ``stale-reclaim-collision``,
   ``local-operating-actor-authority``, ``session-cwd-binding``,
   ``session-pre-implementing-activity``,
   ``launcher-authority``, ``session-relay``, ``session-relay-orphans``.
@@ -72,10 +72,7 @@ from yoke_core.engines.doctor_hc_pack_prerequisites import (
 from yoke_core.engines.doctor_hc_session_actor_binding import (
     AUTHORITY_SLUG as OPERATING_ACTOR_AUTHORITY_SLUG,
     AUTHORITY_TITLE as OPERATING_ACTOR_AUTHORITY_TITLE,
-    SLUG as SESSION_ACTOR_BINDING_SLUG,
-    TITLE as SESSION_ACTOR_BINDING_TITLE,
     hc_local_operating_actor_authority,
-    hc_session_actor_binding,
 )
 from yoke_core.engines.doctor_hc_session_cwd_binding import (
     hc_session_cwd_binding,
@@ -130,11 +127,6 @@ HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
         "stale-reclaim-collision",
         "Silent two-session reclaim collisions",
         hc_stale_reclaim_collision,
-    ),
-    HealthCheck(
-        SESSION_ACTOR_BINDING_SLUG,
-        SESSION_ACTOR_BINDING_TITLE,
-        hc_session_actor_binding,
     ),
     HealthCheck(
         OPERATING_ACTOR_AUTHORITY_SLUG,

@@ -47,9 +47,7 @@ def test_render_uses_the_items_own_project_prefix_and_sequence():
     conn = make_test_db()
     _seed(conn)
 
-    assert render_item_ref(conn, EXTERNAL_INTERNAL_ID) == (
-        f"EXT-{EXTERNAL_SEQUENCE}"
-    )
+    assert render_item_ref(conn, EXTERNAL_INTERNAL_ID) == (f"EXT-{EXTERNAL_SEQUENCE}")
 
 
 def test_render_never_reads_an_internal_id_as_a_sequence():
@@ -144,15 +142,15 @@ def test_message_text_scan_flags_an_internal_id_presented_as_a_reference(tmp_pat
     source = tmp_path / "packages" / "pkg"
     source.mkdir(parents=True)
     (source / "leaks.py").write_text(
-        'def a(item_id):\n'
+        "def a(item_id):\n"
         '    return f"item {item_id} is terminal"\n'
-        'def b(item_id):\n'
+        "def b(item_id):\n"
         '    return f"register --item {item_id} first"\n'
-        'def c(item_id):\n'
+        "def c(item_id):\n"
         '    return f"row is items.id {item_id}"\n'
-        'def d(conn, item_id):\n'
+        "def d(conn, item_id):\n"
         '    return f"item {render_item_ref(conn, item_id)} is terminal"\n'
-        'def e(conn, p, item_id):\n'
+        "def e(conn, p, item_id):\n"
         '    return conn.execute(f"SELECT 1 WHERE items.id = {p}", (item_id,))\n',
         encoding="utf-8",
     )
@@ -219,13 +217,13 @@ def test_search_key_scan_flags_a_display_renderer_used_as_a_grep(tmp_path):
     source = tmp_path / "packages" / "pkg"
     source.mkdir(parents=True)
     (source / "search.py").write_text(
-        'def leaks(conn, item_id):\n'
+        "def leaks(conn, item_id):\n"
         '    return ["log", f"--grep={render_item_ref(conn, item_id)}"]\n'
-        'def also_leaks():\n'
+        "def also_leaks():\n"
         '    return ["log", f"--grep={unresolved_item_ref()}"]\n'
-        'def fine(item_id, public_ref):\n'
-        '    return ["log", f"--grep={legacy_worktree_name(item_id)}"]\n'
-        'def also_fine(lane_branch):\n'
+        "def fine(item_id, public_ref):\n"
+        '    return ["log", f"--grep={public_ref}"]\n'
+        "def also_fine(lane_branch):\n"
         '    return ["log", f"--grep={lane_branch}"]\n',
         encoding="utf-8",
     )

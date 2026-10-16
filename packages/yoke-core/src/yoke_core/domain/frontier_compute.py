@@ -148,7 +148,7 @@ def compute_frontier(
         adapter = classify_next_action(workflow, status)
         if adapter == AdapterCategory.SKIP:
             continue
-        if status in ENGINE_WAIT_STAGE_IDS and status != "blocked":
+        if status in ENGINE_WAIT_STAGE_IDS:
             continue
         stage_index = workflow.stage_index(status)
         if not is_frozen(item["frozen"]) and workflow.skill_has_started(
@@ -192,11 +192,6 @@ def compute_frontier(
                 fi.blocked_reasons.append(f"Blocked by operator: {reason}")
             else:
                 fi.blocked_reasons.append("Blocked by operator.")
-        elif status == "blocked":
-            # Legacy drift: post-cutover this status should not appear.
-            fi.blocked_reasons.append(
-                "Item is in legacy blocked status; resolve the blocking issue before dispatch."
-            )
 
         if blockers:
             fi.blocked_by = [b[0] for b in blockers]
@@ -216,7 +211,7 @@ def compute_frontier(
                 needs_spec_reason(render_item_ref(conn, internal_item_id))
             )
 
-        if flag_blocked or status == "blocked" or blockers or fi.needs_spec:
+        if flag_blocked or blockers or fi.needs_spec:
             fi.adapter = AdapterCategory.WAIT
             blocked.append(fi)
         elif internal_item_id in defended_items:

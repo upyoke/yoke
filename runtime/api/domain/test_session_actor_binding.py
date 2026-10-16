@@ -24,7 +24,6 @@ from yoke_core.domain.session_actor_binding import (
     resolve_operating_actor,
 )
 from yoke_core.domain.session_actor_binding_write import (
-    converge_operating_actor_binding,
     persist_operating_actor,
 )
 from yoke_core.domain.universe_identity import universe_fingerprint
@@ -222,41 +221,6 @@ def test_no_human_actor_refuses_before_asking_about_a_binding(conn, config_path)
     result = resolve_operating_actor(conn, env=ENV, config_path=config_path)
 
     assert result.code == ACTOR_MISSING
-
-
-def test_converge_records_the_binding_a_single_owner_leaves_in_no_doubt(
-    conn, config_path
-):
-    actor_id = _sole_human(conn)
-
-    assert (
-        converge_operating_actor_binding(conn, env=ENV, config_path=config_path)
-        == actor_id
-    )
-    assert (
-        resolve_operating_actor(conn, env=ENV, config_path=config_path).actor_id
-        == actor_id
-    )
-
-
-def test_converge_declines_to_choose_between_several_humans(conn, config_path):
-    seed_human_actor(conn, "Ada Lovelace")
-    seed_human_actor(conn, "Grace Hopper")
-
-    assert (
-        converge_operating_actor_binding(conn, env=ENV, config_path=config_path) is None
-    )
-    assert _recorded(config_path) == {}
-
-
-def test_converge_never_overwrites_an_existing_binding(conn, config_path):
-    actor_id = seed_human_actor(conn, "Ada Lovelace")
-    persist_operating_actor(conn, actor_id, env=ENV, config_path=config_path)
-
-    assert (
-        converge_operating_actor_binding(conn, env=ENV, config_path=config_path) is None
-    )
-    assert _recorded(config_path)["actor_id"] == actor_id
 
 
 def test_no_os_login_rung_survives(conn):

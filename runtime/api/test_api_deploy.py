@@ -124,7 +124,7 @@ class TestChargeFrontierEndpoint:
         yok27 = [b for b in blocked if b["item_id"] == "YOK-27"]
         assert len(yok27) == 1
         assert yok27[0]["blocked_by"] == []
-        assert any("blocked status" in reason for reason in yok27[0]["blocked_reasons"])
+        assert any("Waiting for operator" in reason for reason in yok27[0]["blocked_reasons"])
 
     def test_frontier_frozen_items_separate(self):
         """Frozen items appear in the frozen list, not runnable."""

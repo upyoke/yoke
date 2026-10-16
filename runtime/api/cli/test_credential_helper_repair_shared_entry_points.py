@@ -88,7 +88,7 @@ def _stub_update_through_real_installer(
             "kind": "packaged_wheel",
             "checkout_root": None,
             "module_origin": "/wherever/yoke_cli/__init__.py",
-            "version": "0.1.1+launch.433",
+            "version": "0.2.0.202610140433",
         },
     )
     monkeypatch.setattr(self_update.shutil, "which", lambda _name: yoke_bin)
@@ -96,7 +96,7 @@ def _stub_update_through_real_installer(
     target = release_target.ReleaseTarget(
         version="2.0.0",
         source_commit=source_commit,
-        image=pinned_server_image(source_commit),
+        image=pinned_server_image("0.2.0.202610140433"),
         base_url=DISTRIBUTION_PROD_URL,
         channel="stable",
         installer_url=f"{DISTRIBUTION_PROD_URL}/dist/install.py",

@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from yoke_contracts.board.config import BoardConfig
-from yoke_contracts.board.activity_cache import activity_day_counts
+from yoke_contracts.board.activity_data import activity_day_counts
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.momentum_series import display_bound, display_fraction
 from yoke_contracts.board.project_scope import (
@@ -125,9 +125,6 @@ def _project_age_days(db: BoardDBLike, scope: str) -> Tuple[Optional[str], int]:
     pf, params = _project_filter(scope)
     first_day = day_from_timestamp_expr(f"MIN({timestamp_expr('created_at')})")
     sql = f"SELECT {first_day} FROM items WHERE 1=1 {pf}"
-    probe = getattr(db, "has_scalar", None)
-    if callable(probe) and not probe(sql, params):
-        return None, 0
     first = db.scalar(sql, params)
     if not first:
         return None, 0
@@ -163,7 +160,7 @@ def _build_sparkline(values: List[int]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def render_weather(db: BoardDBLike, config: BoardConfig, scope: str) -> str:
+def collect_weather_count(db: BoardDBLike, config: BoardConfig, scope: str) -> int:
     """Render weather indicator based on unfrozen idea-status item count.
 
     Always produces output (never returns None).
@@ -177,12 +174,7 @@ def render_weather(db: BoardDBLike, config: BoardConfig, scope: str) -> str:
     backlog = db.scalar(sql, params) or 0
     backlog = int(backlog)
 
-    if backlog < 10:
-        return "🌞 Clear"  # sun (Clear)
-    elif backlog < 25:
-        return "\u26c5 Fair"  # ⛅ Fair
-    else:
-        return "☔ Stormy"  # umbrella (Stormy)
+    return backlog
 
 
 # ---------------------------------------------------------------------------
@@ -190,12 +182,12 @@ def render_weather(db: BoardDBLike, config: BoardConfig, scope: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def render_velocity_sparkline(
+def collect_activity_series(
     db: BoardDBLike,
     config: BoardConfig,
     scope: str,
     repo_root: Optional[str] = None,
-) -> Optional[str]:
+) -> dict:
     """Render the 14-day velocity sparkline with streak indicator.
 
     Returns ``None`` if the sparkline is empty.
@@ -217,42 +209,29 @@ def render_velocity_sparkline(
     }
 
     # One control-plane rollup covers the 14d bar, the 365d streak, and the
-    # lifetime percentage. Age-windowed SQL would change the replay key
-    # every midnight; the all-time rollup stays stable and callers clamp.
+    # lifetime percentage; callers clamp the all-time rollup to display windows.
     first_iso, project_days = _project_age_days(db, scope)
     commits = code_commit_days_all_time(db, scope)
     for day, n in commits.items():
         if n > 0:
             day_counts[day] = day_counts.get(day, 0) + n
 
-    merged = _merge_counts(day_counts, dates)
-    values = [c for _, c in merged]
-
-    sparkline = _build_sparkline(values)
-
     streak = _compute_streak(db, scope, 365, commits=commits)
-
-    output = f"{_CHART} {sparkline} 14d activity"
-
+    active_days = 0
     if streak > 0:
-        fire_cap = min(streak, 14)
-        fires = _FIRE * fire_cap
         active_days, project_days = _compute_lifetime_activity(
             db,
             scope,
             commits=commits,
             project_age=(first_iso, project_days),
         )
-        if project_days > 0:
-            # Cap at 100%: active_days can exceed project_days (append-only
-            # events survive deletion; backdated seeds predate the anchor).
-            pct = min((active_days * 10000 + project_days // 2) // project_days, 10000)
-            lifetime = f" ({pct // 100}.{pct % 100:02d}%)"
-        else:
-            lifetime = ""
-        output = f"{output} | {fires} {streak}d streak{lifetime}"
-
-    return output
+    return dict(
+        dates=dates,
+        day_counts=day_counts,
+        streak=streak,
+        active_days=active_days,
+        project_days=project_days,
+    )
 
 
 def _active_day_set(
@@ -348,3 +327,17 @@ def _compute_lifetime_activity(
                 active_set.add(day)
 
     return len(active_set), project_days
+
+
+def render_weather(db: BoardDBLike, config: BoardConfig, scope: str) -> str:
+    from yoke_contracts.board.widget_data import render_weather_count
+
+    return render_weather_count(collect_weather_count(db, config, scope))
+
+
+def render_velocity_sparkline(db, config, scope, repo_root=None):
+    from yoke_contracts.board.widget_data import render_activity_series
+
+    return render_activity_series(
+        **collect_activity_series(db, config, scope, repo_root)
+    )

@@ -1,38 +1,6 @@
-"""Project-scope query-shape and replay diagnostics regressions."""
+"""Project scope uses bound parameters."""
 
-from __future__ import annotations
-
-import pytest
-
-from yoke_contracts.board.data import (
-    BOARD_DATA_VERSION,
-    BoardDataMissError,
-    ReplayBoardDB,
-)
 from yoke_contracts.board.project_scope import project_filter
-
-
-def test_replay_miss_names_parameter_difference():
-    sql = "SELECT id FROM items WHERE project_id = %s"
-    replay = ReplayBoardDB.from_payload(
-        {
-            "version": BOARD_DATA_VERSION,
-            "entries": [
-                {
-                    "kind": "query",
-                    "sql": sql,
-                    "params": [1],
-                    "rows": [],
-                }
-            ],
-        }
-    )
-
-    with pytest.raises(
-        BoardDataMissError,
-        match=r"SQL matched but parameters differed: recorded=\[\[1\]\], replay=\(2,\)",
-    ):
-        replay.query(sql, (2,))
 
 
 def test_project_scope_changes_parameters_not_query_shape():

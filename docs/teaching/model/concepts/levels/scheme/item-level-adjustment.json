@@ -1,7 +1,9 @@
 {
  "id": "item-level-adjustment",
  "title": "Item level adjustment",
- "status": "draft-copy",
+ "status": "observed",
  "page": "levels",
- "position": 5
+ "position": 5,
+ "text": "An item may shift or bound its workflow stage default. Item details shows Level only for an effective difference, labeling Default and Override with the adjustment and reason. Stored bounds resolving to the default remain supported but show no row; level is separate from execution posture.",
+ "sources": ["docs/public/reference/session-level-routing.md", "packages/yoke-core/src/yoke_core/ui/static/item_view_facts.js"]
 }

@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "merging",
  "position": 1,
- "summary": "The receipt names the candidate and its own landing. GitHub reports the merged PR identity; local merges resolve the first carrying merge or fast-forward candidate.",
+ "summary": "The observer atomically records the current PR branch, target, head and merge SHA with landing stamps before notifying the worker. Worker closeout enriches that receipt with results and verification; later landings retain earlier identities. Local merges resolve the first carrying merge or fast-forward candidate.",
  "sources": ["docs/public/reference/merge-queue-landings.md"]
 }

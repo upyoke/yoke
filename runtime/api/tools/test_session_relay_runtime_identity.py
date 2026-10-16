@@ -27,8 +27,8 @@ from yoke_harness import session_relay_native_spawn
 from yoke_harness.session_relay_environment import native_session_environment
 
 
-FIRST_RELEASE = "0.1.1+launch.365"
-SECOND_RELEASE = "0.1.1+launch.366"
+FIRST_RELEASE = "0.2.0.202610140941"
+SECOND_RELEASE = "0.2.0.202610140942"
 
 
 def _fake_release(path: Path, release: str) -> None:

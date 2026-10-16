@@ -17,18 +17,14 @@ _ROOT = Path(__file__).resolve().parents[3]
 _RELEASE_WORKFLOW = _ROOT / ".github" / "workflows" / "yoke-release.yml"
 _IMAGE_WORKFLOW = _ROOT / ".github" / "workflows" / "yoke-server-image.yml"
 _RELEASE_DOC = _ROOT / "docs" / "releases" / "README.md"
-_CANONICAL_TAGS = (
-    "v0.0.0+0",
-    "v1.2.3+launch.1",
-    "v10.20.30+g140dff0aa.2abc.0",
-)
+_CANONICAL_TAGS = ("0.2.0.202610140941", "1.2.3.202612312359", "10.20.30.202601010000")
 _NORMALIZING_ALIASES = (
-    "v01.02.03+launch.01",
-    "v1.02.3+launch.1",
-    "v1.2.03+launch.1",
-    "v1.2.3+launch.01",
-    "v1.2.3+01",
-    "v0.0.0+00.abc",
+    "v0.2.0.202610140941",
+    "00.2.0.202610140941",
+    "0.02.0.202610140941",
+    "0.2.00.202610140941",
+    "0.2.0+202610140941",
+    "0.2.0.202613010000",
 )
 
 
@@ -48,11 +44,9 @@ def test_release_and_image_factories_share_the_canonical_tag_language():
         validate_tag_spelling(tag)
 
     for tag in _NORMALIZING_ALIASES:
-        raw_version = tag.removeprefix("v")
-        assert str(Version(raw_version)) != raw_version
-        with pytest.raises(ValueError, match="without leading-zero numeric atoms"):
+        with pytest.raises(ValueError, match="release_version_invalid"):
             validate_tag_spelling(tag)
 
     operator_doc = _RELEASE_DOC.read_text(encoding="utf-8")
-    assert "Use canonical decimal atoms" in operator_doc
-    assert "numeric-local atoms with leading zeros are refused" in operator_doc
+    assert "BASE.YYYYMMDDHHMM" in operator_doc
+    assert "without a `v` prefix" in operator_doc

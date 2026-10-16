@@ -162,24 +162,26 @@ from yoke_core.engines.merge_audit_report import (  # noqa: E402
 )
 
 
-def generate_report(epic_filter: str | int | None = None) -> str:
-    """Render a report after resolving an optional public item argument."""
-    resolved = epic_filter
-    if isinstance(epic_filter, str):
-        from yoke_core.domain.yok_n_parser import parse_item_argument
+def generate_report(
+    epic_filter: str | None = None, *, project: str | None = None
+) -> str:
+    """Render local Git evidence with a registered control-plane snapshot."""
+    if epic_filter is not None:
+        from yoke_contracts.public_ref import parse_public_item_ref
 
-        resolved = parse_item_argument(epic_filter)
-    return _generate_report(None if resolved is None else int(resolved))
+        if None in parse_public_item_ref(epic_filter):
+            raise ValueError("public_item_ref_required: pass PREFIX-N")
+    return _generate_report(epic_filter, project=project)
 
 
 def main() -> None:
     """CLI: ``python3 -m yoke_core.engines.merge_audit [epic-id]``."""
-    epic_filter: str | int | None = None
+    epic_filter: str | None = None
     if len(sys.argv) > 1:
         epic_filter = sys.argv[1]
     try:
         print(generate_report(epic_filter), end="")
-    except ValueError as exc:
+    except (ValueError, RuntimeError) as exc:
         print(f"Error: invalid epic ID: {exc}", file=sys.stderr)
         sys.exit(1)
 

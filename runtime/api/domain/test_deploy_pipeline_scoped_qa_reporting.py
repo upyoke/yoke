@@ -68,7 +68,6 @@ def test_driver_wait_counts_member_without_selected_cases(
     }
     monkeypatch.setattr(pipeline.control_plane, "execution_context", lambda r: context)
     monkeypatch.setattr(pipeline.control_plane, "project_field", lambda *a: "")
-    monkeypatch.setattr(pipeline.control_plane, "seed_qa", lambda r: None)
     monkeypatch.setattr(pipeline, "resolve_project_checkout_path", lambda p: "/repo")
     monkeypatch.setattr(pipeline, "resolve_flow_gate_branch", lambda *a: "main")
     monkeypatch.setattr(

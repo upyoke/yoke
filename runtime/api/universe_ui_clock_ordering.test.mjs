@@ -136,16 +136,16 @@ test("an unqualified meter observation supplies no freshness", () => {
   assert.equal(readingIsStale("2060-10-08T00:00:00.000001Z", now), false);
 });
 
-test("session staleness is inclusive only after the exact eligible instant", () => {
+test("session activity age respects exact instants without assigning stale", () => {
   const now = Date.parse("2060-10-08T00:00:00Z");
   const row = { liveness: "active", claims: [{ target_kind: "item" }],
-    stale_eligible_at: "2060-10-08T00:00:00.000001Z" };
+    activity_quiet_at: "2060-10-08T00:00:00.000001Z" };
   assert.equal(sessionHealthState(row, now), null);
   assert.equal(sessionHealthState({ ...row,
-    stale_eligible_at: "2060-10-08T05:45:00.000001+05:45" }, now), null);
+    activity_quiet_at: "2060-10-08T05:45:00.000001+05:45" }, now), null);
   assert.equal(sessionHealthState({ ...row,
-    stale_eligible_at: "2060-10-08T00:00:00.000000Z" }, now).state, "possibly stale");
-  assert.equal(sessionHealthState({ ...row, liveness: "stale" }, now).state, "stale");
+    activity_quiet_at: "2060-10-08T00:00:00.000000Z" }, now).state, "quiet");
+  assert.equal(sessionHealthState({ ...row, liveness: "stale" }, now), null);
 });
 
 

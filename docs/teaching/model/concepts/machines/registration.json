@@ -1,11 +1,13 @@
 {
  "id": "registration",
  "title": "Registration and approval",
- "status": "draft-copy",
+ "status": "observed",
  "plan_refs": ["FIRST-USER.26", "FIRST-USER.27", "FIRST-USER.33"],
  "surface_refs": ["workbench-cues"],
  "commands": ["yoke connect", "yoke machine register", "yoke machine retire", "yoke machine-authorization get", "yoke machine-authorization resolve"],
- "functions": ["machine.register", "machine.retire", "machine_approval.lifecycle.apply", "machine_authorization.get", "machine_authorization.resolve"],
+ "functions": ["machine.register", "machine.retire", "machine_authorization.get", "machine_authorization.resolve", "machine_authorization.handoff", "machine_authorization.handoff_poll"],
  "page": "machines",
- "position": 0
+ "position": 0,
+ "text": "The engine owns machine decisions and one-time credentials. Hosted routing hands a preissued code into the selected organization through service-only handoff and polling. Source adoption is observed; production delivery remains unverified.",
+ "sources": ["docs/public/reference/machine-authorization.md"]
 }

@@ -39,7 +39,7 @@ def revert_recorded() -> Tuple[List[str], List[str]]:
     failures: List[str] = []
     for entry in entries:
         try:
-            line = _revert(entry)
+            line = revert_entry(entry)
         except (OSError, ValueError, KeyError, TypeError) as exc:
             failures.append(f"{entry.get('file')}: {type(exc).__name__}: {exc}")
         else:
@@ -48,7 +48,8 @@ def revert_recorded() -> Tuple[List[str], List[str]]:
     return lines, failures
 
 
-def _revert(entry: Dict[str, Any]) -> str:
+def revert_entry(entry: Dict[str, Any]) -> str:
+    """Revert one already-selected owned entry; report changes or preservation."""
     kind = entry["kind"]
     target = Path(entry["file"])
     if kind == "created_file":
@@ -82,7 +83,7 @@ def _revert_json(target: Path, keys: List[str], value: Any, existing: int) -> st
     current = node.get(keys[-1], _MISSING) if isinstance(node, dict) else _MISSING
     if current is _MISSING:
         return ""
-    if current != value:
+    if type(current) is not type(value) or current != value:
         return _left_alone(target, dotted, current)
     del node[keys[-1]]
     # Drop emptied containers Yoke created; keep every one that predated it.
@@ -174,4 +175,4 @@ def _replace(target: Path, text: str) -> None:
     os.replace(tmp, target)
 
 
-__all__ = ["remove_cursor_user_hooks", "revert_recorded"]
+__all__ = ["remove_cursor_user_hooks", "revert_recorded", "revert_entry"]

@@ -9,8 +9,7 @@ Completed failed runs remain immutable history and advance to a new attempt.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from yoke_contracts.timestamps import utc_now, parse_instant
+from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 
 from dataclasses import dataclass
@@ -20,7 +19,6 @@ from yoke_core.domain import json_helper
 
 
 INTENT_TABLE = "github_workflow_dispatch_intents"
-INTENT_TTL_DAYS = 30
 
 GITHUB_WORKFLOW_DISPATCH_INTENTS_CREATE_SQL = f"""
 CREATE TABLE IF NOT EXISTS {INTENT_TABLE} (
@@ -255,50 +253,13 @@ def reject_intent(intent: DispatchIntent) -> None:
         )
 
 
-def ttl_cutoff_iso(now: datetime | str | None = None) -> datetime:
-    """Return the native instant below which retained rows expire."""
-    base = utc_now() if now is None else parse_instant(now)
-    return base - timedelta(days=INTENT_TTL_DAYS)
-
-
-def count_expired(conn: Any) -> int:
-    """Count terminal attempts past TTL; pending ambiguity is immortal."""
-    from yoke_core.domain.schema_common import _table_exists
-
-    if not _table_exists(conn, INTENT_TABLE):
-        return 0
-    row = conn.execute(
-        f"SELECT COUNT(*) FROM {INTENT_TABLE} "
-        "WHERE state IN ('completed', 'rejected') AND updated_at < %s",
-        (instant_parameter(conn, ttl_cutoff_iso()),),
-    ).fetchone()
-    return int(row[0] or 0) if row else 0
-
-
-def prune_expired(conn: Any) -> int:
-    """Delete expired terminal attempts without ever deleting pending rows."""
-    from yoke_core.domain.schema_common import _table_exists
-
-    if not _table_exists(conn, INTENT_TABLE):
-        return 0
-    return conn.execute(
-        f"DELETE FROM {INTENT_TABLE} "
-        "WHERE state IN ('completed', 'rejected') AND updated_at < %s",
-        (instant_parameter(conn, ttl_cutoff_iso()),),
-    ).rowcount
-
-
 __all__ = [
     "DispatchIntent",
     "DispatchIntentStoreError",
     "GITHUB_WORKFLOW_DISPATCH_INTENTS_CREATE_SQL",
-    "INTENT_TTL_DAYS",
     "INTENT_TABLE",
     "claim_attempt",
     "complete_intent",
-    "count_expired",
     "latest_intent",
     "reject_intent",
-    "prune_expired",
-    "ttl_cutoff_iso",
 ]

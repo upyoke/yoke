@@ -186,6 +186,7 @@ def evaluate(record: HookContext) -> HookDecision:
             response_text,
             default_agent=role,
             project=project,
+            session_id=record.session_id,
         )
     except Exception as exc:
         # Capture failures are non-blocking; record on the event.

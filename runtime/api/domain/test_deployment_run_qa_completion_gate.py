@@ -1,13 +1,14 @@
 # ruff: noqa: F811
 """A deployment run may not be stamped succeeded over unresolved blocking QA.
 
-Blocking QA reaches a run through two independent tables, so each case
-here exercises one of them against the real registered completion path
+Each case exercises run-bound plan obligations against the real registered completion path
 (``deployment_runs.cmd_update``) and the pipeline's report renderer. No
 case touches a live run.
 """
 
 from __future__ import annotations
+
+import json
 
 from yoke_contracts.timestamps import parse_instant
 
@@ -25,24 +26,33 @@ PROJECT = "externalwebapp"
 FINAL_STAGE = "prod"
 
 
+@pytest.fixture(autouse=True)
+def execution_flow(db_path):
+    from yoke_core.domain.flow_init import converge_flow_catalog
+
+    with _conn(db_path) as conn:
+        converge_flow_catalog(conn)
+        conn.execute(
+            "UPDATE deployment_flows SET definition_schema_version=2, "
+            "takes_delivery_custody=0, stages=%s WHERE id=%s",
+            (
+                json.dumps(
+                    [
+                        {"name": name, "stage_kind": "execution", "step_runner": "auto"}
+                        for name in ("preview", "prod")
+                    ]
+                ),
+                FLOW,
+            ),
+        )
+        conn.commit()
+
+
 def _run_on_final_stage(db_path: str) -> str:
     """A run whose stages are delivered — only QA can still hold it."""
     run_id = dr.cmd_create_run(PROJECT, FLOW, db_path=db_path)
     dr.cmd_update(run_id, "current_stage", FINAL_STAGE, db_path=db_path)
     return run_id
-
-
-def _add_flow_check(
-    db_path: str,
-    run_id: str,
-    check_name: str,
-    *,
-    blocking: int = 1,
-    status: str = "pending",
-) -> None:
-    dr.cmd_qa_add(run_id, check_name, "flow_default", blocking, db_path=db_path)
-    if status != "pending":
-        assert dr.cmd_qa_update(run_id, check_name, status, db_path=db_path) is None
 
 
 def _add_plan_case(
@@ -108,87 +118,6 @@ def _add_plan_case(
         conn.commit()
     finally:
         conn.close()
-
-
-class TestFlowDerivedChecks:
-    """``deployment_run_qa`` rows seeded from the flow's stages."""
-
-    @pytest.mark.parametrize("status", ["pending", "failed"])
-    def test_unresolved_check_refuses_succeeded(self, db_path, status):
-        run_id = _run_on_final_stage(db_path)
-        _add_flow_check(db_path, run_id, "smoke-test", status=status)
-
-        err = dr.cmd_update(run_id, "status", "succeeded", db_path=db_path)
-
-        assert err is not None
-        assert "blocking QA" in err
-        assert "smoke-test" in err
-        assert status in err
-        assert dr.cmd_get(run_id, field="status", db_path=db_path) != "succeeded"
-
-    def test_no_completion_stamp_while_unresolved(self, db_path):
-        run_id = _run_on_final_stage(db_path)
-        _add_flow_check(db_path, run_id, "smoke-test")
-
-        dr.cmd_update(run_id, "status", "succeeded", db_path=db_path)
-
-        assert not dr.cmd_get(run_id, field="completed_at", db_path=db_path)
-
-    @pytest.mark.parametrize("status", ["passed", "waived"])
-    def test_settled_check_completes(self, db_path, status):
-        run_id = _run_on_final_stage(db_path)
-        _add_flow_check(db_path, run_id, "smoke-test", status=status)
-
-        assert dr.cmd_update(run_id, "status", "succeeded", db_path=db_path) is None
-
-    def test_nonblocking_check_never_holds_the_run(self, db_path):
-        run_id = _run_on_final_stage(db_path)
-        _add_flow_check(db_path, run_id, "lighthouse", blocking=0)
-
-        assert dr.cmd_update(run_id, "status", "succeeded", db_path=db_path) is None
-
-    def test_run_with_no_qa_completes(self, db_path):
-        run_id = _run_on_final_stage(db_path)
-
-        assert dr.cmd_update(run_id, "status", "succeeded", db_path=db_path) is None
-
-    def test_every_unresolved_check_is_named(self, db_path):
-        run_id = _run_on_final_stage(db_path)
-        _add_flow_check(db_path, run_id, "smoke-test")
-        _add_flow_check(db_path, run_id, "manual-acceptance", status="failed")
-
-        err = dr.cmd_update(run_id, "status", "succeeded", db_path=db_path)
-
-        assert err is not None
-        assert "smoke-test" in err
-        assert "manual-acceptance" in err
-
-    def test_force_overrides_the_qa_hold(self, db_path):
-        run_id = _run_on_final_stage(db_path)
-        _add_flow_check(db_path, run_id, "smoke-test")
-
-        err = dr.cmd_update(run_id, "status", "succeeded", force=True, db_path=db_path)
-
-        assert err is None
-
-    def test_settling_then_re_driving_completes(self, db_path):
-        """Re-driving after settlement is the resumable recovery."""
-        run_id = _run_on_final_stage(db_path)
-        _add_flow_check(db_path, run_id, "smoke-test")
-        assert dr.cmd_update(run_id, "status", "succeeded", db_path=db_path)
-
-        dr.cmd_qa_update(run_id, "smoke-test", "passed", db_path=db_path)
-
-        assert dr.cmd_update(run_id, "status", "succeeded", db_path=db_path) is None
-        assert dr.cmd_get(run_id, field="status", db_path=db_path) == "succeeded"
-
-    def test_repeated_completion_is_idempotent(self, db_path):
-        run_id = _run_on_final_stage(db_path)
-        _add_flow_check(db_path, run_id, "smoke-test", status="passed")
-        assert dr.cmd_update(run_id, "status", "succeeded", db_path=db_path) is None
-
-        assert dr.cmd_update(run_id, "status", "succeeded", db_path=db_path) is None
-        assert dr.cmd_get(run_id, field="status", db_path=db_path) == "succeeded"
 
 
 class TestRunBoundPlanCases:
@@ -280,7 +209,7 @@ class TestStagePreconditionsStillHold:
         """A failed stage is reported as such, not as unresolved QA."""
         run_id = dr.cmd_create_run(PROJECT, FLOW, db_path=db_path)
         dr.cmd_update(run_id, "current_stage", "deploy-failed", db_path=db_path)
-        _add_flow_check(db_path, run_id, "smoke-test")
+        _add_plan_case(db_path, run_id, 4109)
 
         err = dr.cmd_update(run_id, "status", "succeeded", db_path=db_path)
 
@@ -293,18 +222,23 @@ class TestPipelineWaitingReport:
     def test_report_names_each_obligation_and_the_recovery(self):
         lines = precond.awaiting_qa_report_lines(
             "run-20260909-001",
-            ["check 'smoke-test' is pending", "requirement #7 (smoke): no passing run"],
+            [
+                "requirement #6 (smoke): no passing run",
+                "requirement #7 (smoke): no passing run",
+            ],
         )
 
         assert lines[0].startswith(precond.AWAITING_QA_PREFIX)
         assert "2 blocking QA" in lines[0]
-        assert lines[1] == "  - check 'smoke-test' is pending"
+        assert lines[1] == "  - requirement #6 (smoke): no passing run"
         assert lines[2] == "  - requirement #7 (smoke): no passing run"
         assert "run finishes by itself" in lines[3]
         assert "yoke deployment-runs get run-20260909-001" in lines[3]
         assert "yoke deployment-runs remove-item --help" in lines[3]
 
     def test_report_does_not_claim_the_deploy_succeeded(self):
-        lines = precond.awaiting_qa_report_lines("run-1", ["check 'x' is failed"])
+        lines = precond.awaiting_qa_report_lines(
+            "run-1", ["requirement #8 (smoke): no passing run"]
+        )
 
         assert "succeeded" not in "\n".join(lines)

@@ -252,7 +252,7 @@ def _message_by_id(args: List[str], operation: str) -> int:
         description={
             "get": "Show one message and its recipient receipts.",
             "acknowledge": "Record that this recipient session acted on a message.",
-            "cancel": "Cancel an undelivered message as its sender.",
+            "cancel": "Cancel pending or injected recipients as the sender actor or target-project admin.",
         }[operation],
         epilog=MESSAGE_WORKFLOW_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,

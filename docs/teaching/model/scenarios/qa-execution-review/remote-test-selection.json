@@ -1,0 +1,12 @@
+{
+ "id": "remote-test-selection",
+ "title": "Iterate narrowly, then run the attached full CI gate once",
+ "status": "observed",
+ "audience": "agent",
+ "when": "Before remote pytest iteration or the final review gate.",
+ "need": "Targeted files/node IDs and bounded impacted selection support iteration. An unfiltered request covering every declared test root duplicates an available registered full CI gate and refuses before publication/dispatch. Follow the named attached requirement or its lookup for full verification; keep its native verdict. Empty effective keyword/marker expressions are unfiltered; nonempty filters and collection keep their routes.",
+ "disclosure": "before action",
+ "surface": "Wrapper help, routing refusal and verification rules",
+ "review": "Source and fixture coverage only; post-deploy Command proof must exercise the candidate router with fake dispatch boundaries.",
+ "sources": ["docs/testing-verification/full-suite-authority.md", "docs/public/reference/agent-rules/verification.md", "runtime/api/tools/test_pytest_remote_full_scope.py"]
+}

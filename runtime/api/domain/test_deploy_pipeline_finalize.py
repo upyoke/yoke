@@ -192,11 +192,6 @@ def _run_resumed(monkeypatch, *, status: str, stage: str, finish=None):
             return_value="",
         ),
         mock.patch.object(
-            deploy_pipeline.control_plane,
-            "seed_qa",
-            return_value=0,
-        ),
-        mock.patch.object(
             deploy_pipeline,
             "resolve_project_checkout_path",
             return_value="/repo",

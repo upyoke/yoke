@@ -4,18 +4,9 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_core.domain.schema_common import _column_exists
-
 
 def has_frozen_composition(conn: Any, run_id: str) -> bool:
-    """Return whether the additive composition-freeze marker is populated.
-
-    An unconverged legacy schema has no marker and retains its status-only
-    mutation contract. Once the additive column exists, the marker remains
-    authoritative even if legacy tooling writes an earlier lifecycle status.
-    """
-    if not _column_exists(conn, "deployment_runs", "composition_frozen_at"):
-        return False
+    """The freeze marker remains authoritative across lifecycle status changes."""
     row = conn.execute(
         "SELECT composition_frozen_at IS NOT NULL FROM deployment_runs WHERE id=%s",
         (run_id,),

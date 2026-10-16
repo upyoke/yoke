@@ -19,7 +19,6 @@ from yoke_core.domain.qa_requirement_source_retirement import (
 from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
 )
-from yoke_core.domain.deployment_qa_member_scope import legacy_run_credits_run_wide
 from yoke_core.domain.deployment_qa_run_bound_done_settlement import (
     run_bound_row_satisfied_at_done,
 )
@@ -39,7 +38,7 @@ from yoke_core.domain.qa_obligation_settlement import (
 # Intake recovery wording is pinned in test_post_deploy_recovery_exit_conditions.py.
 POST_DEPLOY_RECOVERY = (
     "A post_deploy obligation is satisfied by its admitted copy on the selected "
-    "completion member (run-wide for a legacy schema-1 run); re-running intake "
+    "completion member; re-running intake "
     "cannot clear it. If no admitted copy "
     "was accepted because no final delivery or matching QA target exists, deliver "
     "the item through a flow whose stage target matches target_env and finish "
@@ -151,14 +150,9 @@ def source_obligation_consumed(
     }
     if source["item_id"] != int(item_id):
         return False
-    legacy = legacy_run_credits_run_wide(conn, run_id=run_id, item_id=item_id)
-    if legacy:
-        identity = "qa_phase='post_deploy' AND blocking_mode='blocking'"
-        identity_params = ()
-    else:
-        identity, identity_params = lineage_identity_clause(conn, source, marker=marker)
+    identity, identity_params = lineage_identity_clause(conn, source, marker=marker)
     member_scope = f"deployment_member_item_id={marker}"
-    if legacy or source["plan_id"] is not None:
+    if source["plan_id"] is not None:
         member_scope = f"({member_scope} OR deployment_member_item_id IS NULL)"
     rows = conn.execute(
         "SELECT id,deployment_stage,deployment_member_item_id,"
@@ -169,7 +163,7 @@ def source_obligation_consumed(
         "ORDER BY id",
         (run_id, int(source["item_id"]), *identity_params),
     ).fetchall()
-    if not legacy and source["plan_id"] is not None:
+    if source["plan_id"] is not None:
         from yoke_core.domain.deployment_qa_shared_plans import (
             member_group_digests,
             shared_target_identity,
@@ -191,39 +185,29 @@ def source_obligation_consumed(
         rows = selected
     if not rows:
         return False
-    if legacy:
-        from yoke_core.domain.no_obligation_member_close_out import (
-            satisfied_delivery_member,
+    row = rows[0]
+    stage_name = str(_row_value(row, "deployment_stage", 1) or "")
+    member = _row_value(row, "deployment_member_item_id", 2)
+    member_item_id = int(member) if member not in (None, 0) else int(item_id)
+    try:
+        subject = deployment_qa_stage_subject(
+            conn,
+            run_id=run_id,
+            stage_name=stage_name,
+            member_item_id=member_item_id,
+            require_active=False,
         )
-
-        # Corrections can change case identity; the run-wide gate also reads
-        # their successors, just as scoped stage acceptance does below.
-        if not satisfied_delivery_member(conn, run_id=run_id, item_id=item_id):
-            return False
-    else:
-        row = rows[0]
-        stage_name = str(_row_value(row, "deployment_stage", 1) or "")
-        member = _row_value(row, "deployment_member_item_id", 2)
-        member_item_id = int(member) if member not in (None, 0) else int(item_id)
-        try:
-            subject = deployment_qa_stage_subject(
-                conn,
-                run_id=run_id,
-                stage_name=stage_name,
-                member_item_id=member_item_id,
-                require_active=False,
-            )
-            target = deployment_qa_execution_target(conn, subject)
-            blockers = stage_acceptance_blockers(
-                conn,
-                subject=subject,
-                target=target,
-                acceptance_qa_kind=DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
-            )
-        except (LookupError, TypeError, ValueError):
-            return False
-        if blockers:
-            return False
+        target = deployment_qa_execution_target(conn, subject)
+        blockers = stage_acceptance_blockers(
+            conn,
+            subject=subject,
+            target=target,
+            acceptance_qa_kind=DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
+        )
+    except (LookupError, TypeError, ValueError):
+        return False
+    if blockers:
+        return False
     for row in rows:
         copy_id = int(_row_value(row, "id", 0))
         settled = obligation_settled(

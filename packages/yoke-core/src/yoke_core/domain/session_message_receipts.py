@@ -58,23 +58,22 @@ def acknowledge_message(
             acknowledged_at=acknowledged_at,
         )
     except SessionMessageError as exc:
-        if seated:
-            conn.commit()
-            return message_details(conn, message_id)
-        conn.rollback()
-        if exc.code == "acknowledge_self_only":
-            actor_id = _actor_id_for_session(conn, session_id)
-            if actor_id is not None:
-                try:
-                    return acknowledge_actor_message(
-                        conn,
-                        message_id=message_id,
-                        actor_id=actor_id,
-                        now=acknowledged_at,
-                    )
-                except SessionMessageError:
-                    pass
-        raise
+        if not seated:
+            conn.rollback()
+            if exc.code == "acknowledge_self_only":
+                actor_id = _actor_id_for_session(conn, session_id)
+                if actor_id is not None:
+                    try:
+                        return acknowledge_actor_message(
+                            conn,
+                            message_id=message_id,
+                            actor_id=actor_id,
+                            now=acknowledged_at,
+                        )
+                    except SessionMessageError:
+                        pass
+            raise
+        details = message_details(conn, message_id)
     recipient = next(
         (
             row
@@ -115,6 +114,17 @@ def acknowledge_message(
             # A raced, expired, or revoked grant stays unproven without making
             # an otherwise valid delivered message impossible to acknowledge.
             pass
+    actor_id = _actor_id_for_session(conn, session_id)
+    if actor_id is not None and any(
+        row["actor_id"] == actor_id and row["state"] == "pending"
+        for row in details.get("actor_recipients", [])
+    ):
+        # A person and their session can both be addressed by one envelope.
+        # Settle their own receipts together; leave every other person alone.
+        acknowledge_actor_recipient(
+            conn, message_id=message_id, actor_id=actor_id, read_at=acknowledged_at
+        )
+        details = message_details(conn, message_id)
     conn.commit()
     return details
 

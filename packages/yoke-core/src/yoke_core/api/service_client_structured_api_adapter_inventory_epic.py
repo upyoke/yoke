@@ -73,11 +73,6 @@ EPIC_ADAPTERS: List[AdapterEntry] = [
         "[--session-id S] [--json]",
     ),
     AdapterEntry(
-        "workflow_item.epic_task.scope_repair_legacy",
-        "yoke workflow-item epic-task scope-repair-legacy --epic PREFIX-N "
-        "[--tenant-id ID] [--session-id S] [--json]",
-    ),
-    AdapterEntry(
         "workflow_item.epic_task.history_insert",
         "yoke workflow-item epic-task history-insert --epic PREFIX-N --task-num N --from-status S --to-status S",
     ),

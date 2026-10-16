@@ -8,7 +8,6 @@ from typing import Any, Mapping
 
 from yoke_contracts.timestamps import InvalidInstant, parse_instant, temporal_wire
 from yoke_core.domain.db_helpers import connect, instant_parameter
-from yoke_core.domain.deployment_run_bound_sources import bound_sources_recorded
 from yoke_core.domain.deployment_run_carried_work import parse_carried_work
 from yoke_core.domain.deployment_runs_schema import (
     RUN_FIELDS,
@@ -87,7 +86,7 @@ def _row_snapshot(row: Any) -> dict[str, Any]:
 
 
 def _locked_existing(conn: Any, run_id: str) -> dict[str, Any] | None:
-    columns, env_join = _run_named_columns(conn)
+    columns, env_join = _run_named_columns()
     row = conn.execute(
         f"SELECT {columns} "
         "FROM deployment_runs dr JOIN projects p ON p.id=dr.project_id "
@@ -158,21 +157,15 @@ def project_snapshot(
             outcome = "unchanged"
             changed: list[str] = []
         elif existing is None:
-            # A destination that has not converged the bound-source column
-            # takes every other field rather than refusing the projection.
-            records_bound = bound_sources_recorded(authority)
-            bound_column = "bound_sources," if records_bound else ""
-            bound_value = "%s," if records_bound else ""
-            bound_parameter = (snapshot["bound_sources"],) if records_bound else ()
             authority.execute(
                 "INSERT INTO deployment_runs("
                 "id,project_id,flow,target_tier,target_environment_id,"
                 "release_lineage,status,"
                 "current_stage,created_at,started_at,completed_at,created_by,"
-                f"carried_work,{bound_column}artifact_identity,"
+                "carried_work,bound_sources,artifact_identity,"
                 "composition_resolution,"
                 "composition_frozen_at,requirement_snapshot) VALUES ("
-                f"%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,{bound_value}%s,%s,%s,%s)",
+                "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 (
                     snapshot["id"],
                     project_id,
@@ -187,7 +180,7 @@ def project_snapshot(
                     instant_parameter(authority, snapshot["completed_at"]),
                     snapshot["created_by"],
                     snapshot["carried_work"],
-                    *bound_parameter,
+                    snapshot["bound_sources"],
                     snapshot["artifact_identity"],
                     snapshot["composition_resolution"],
                     instant_parameter(authority, snapshot["composition_frozen_at"]),

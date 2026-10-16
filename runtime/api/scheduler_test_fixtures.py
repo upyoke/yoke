@@ -186,7 +186,7 @@ def scheduler_db(tmp_path):
             (3, "Idea epic", "epic", "idea", "high"),
             (4, "Implementing issue", "issue", "implementing", "medium"),
             (5, "Implemented issue", "issue", "implemented", "low"),
-            (6, "Blocked issue", "issue", "blocked", "medium"),
+            (6, "Blocked issue", "issue", "implementing", "medium"),
             (7, "Done issue", "issue", "done", "high"),
             (8, "Refined epic", "epic", "refined-idea", "medium"),
         ]
@@ -214,6 +214,7 @@ def scheduler_db(tmp_path):
                 ),
             )
 
+        conn.execute("UPDATE items SET blocked=1 WHERE id=6")
         seed_strategy_docs(conn, project_id=1)
         conn.commit()
 

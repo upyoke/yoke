@@ -112,7 +112,7 @@ Registering a producer is therefore the whole act of widening the
 boundary: `RECEIPT_PRODUCERS` gains an entry, `SUPPORTED_TARGET_KINDS`
 derives from its keys, and these gates stop refusing that kind.
 
-## Release-to-done reads both QA authorities again
+## Release-to-done rechecks pinned QA acceptance
 
 A succeeded run is not by itself proof that an attached item may close.
 An acceptance can be rejected by a human after the run finished, a
@@ -120,24 +120,15 @@ replacement producer receipt can retarget a stage so the earlier
 acceptance no longer answers for it, and an operator can carry an item
 toward done on recorded evidence rather than a live pass
 (`--skip-deploy`, a resume, a run left at an unexpected status). So the
-release-to-done guard re-reads both authorities for the item it is
-closing:
+release-to-done guard re-reads the pinned scoped per-stage acceptance through
+`done_transition.run_stage_qa_acceptance` — the item's own
+item-scoped stages plus every run-scoped stage. Another member's
+outstanding item-scoped QA is that member's gate, not this item's.
 
-- `deployment_run_qa`, through `done_transition.run_blocking_qa`.
-- the pinned scoped per-stage acceptance, through
-  `done_transition.run_stage_qa_acceptance` — the item's own
-  item-scoped stages plus every run-scoped stage. Another member's
-  outstanding item-scoped QA is that member's gate, not this item's.
-
-Neither is a superset of the other: a legacy definition has no scoped
-stages, and a scoped stage deliberately writes no `deployment_run_qa`
-row. An unreadable read raises rather than reporting a clear gate, and
-a universe whose schema predates the scoped vocabulary reports nothing
-owed instead of failing.
+An unreadable read raises rather than reporting a clear gate.
 
 Member settlement and the terminal done gate also read blocking `post_deploy` requirements on the run.
-Legacy schema-1 runs credit their shared run-wide requirements without source keys;
-scoped runs keep exact private-member or attached shared-plan binding. Failing or unanswered requirements block;
+Requirements keep exact private-member or attached shared-plan binding. Failing or unanswered requirements block;
 supersession transfers the obligation to the successor requirement.
 
 Owners: `yoke_core.engines.done_transition_run_qa_gates` (the guard),

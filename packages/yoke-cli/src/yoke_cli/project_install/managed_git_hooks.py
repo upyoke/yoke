@@ -70,35 +70,6 @@ PRE_MERGE_COMMIT_SHIM = (
     + 'exec "$yoke_bin" git pre-commit "$@"\n'
 )
 
-# Exact historical bytes that the installer itself shipped before launcher
-# routing.  These may be upgraded safely; arbitrary marker-bearing composites
-# are never ownership evidence.
-_LEGACY_PRE_COMMIT_SHIMS = frozenset(
-    {
-        (
-            "#!/bin/sh\n"
-            f"# {PRE_COMMIT_MARKER} hook installed by `yoke project install`\n"
-            "# Hard-fails on file_line_check violations. "
-            "Bypass with `git commit --no-verify`.\n"
-            'exec python3 -m yoke_core.domain.git_pre_commit "$@"\n'
-        ),
-    }
-)
-_LEGACY_POST_COMMIT_SHIMS = frozenset(
-    {
-        (
-            "#!/bin/sh\n"
-            f"# {POST_COMMIT_MARKER} hook installed by `yoke project install`\n"
-            "# Pre-warms the path-snapshot cache for the project's HEAD so that\n"
-            "# downstream activate / boundary calls never hit a cold-start miss.\n"
-            "# Harness-neutral: fires on every commit regardless of source\n"
-            "# (agent tool calls, manual git commit, merge, rebase, cherry-pick).\n"
-            "exec python3 -m yoke_core.domain.path_snapshots --ensure-head"
-            ' "${YOKE_PROJECT_ID:-yoke}" >/dev/null 2>&1\n'
-        ),
-    }
-)
-
 _MARKER_BY_HOOK = {
     "pre-commit": PRE_COMMIT_MARKER,
     "post-commit": POST_COMMIT_MARKER,
@@ -111,20 +82,13 @@ _SHIM_BY_HOOK = {
     "pre-merge-commit": PRE_MERGE_COMMIT_SHIM,
 }
 
-_LEGACY_SHIMS_BY_HOOK: dict[str, frozenset[str]] = {
-    "pre-commit": _LEGACY_PRE_COMMIT_SHIMS,
-    "post-commit": _LEGACY_POST_COMMIT_SHIMS,
-    "pre-merge-commit": frozenset(),
-}
-
 
 def is_managed_git_hook(content: str, hook_name: str) -> bool:
-    """Recognize only exact current or enumerated historical shim bytes."""
+    """Recognize only the exact current managed hook payload."""
     expected = _SHIM_BY_HOOK.get(hook_name)
     if expected is None:
         return False
-    legacy = _LEGACY_SHIMS_BY_HOOK.get(hook_name, frozenset())
-    return content == expected or content in legacy
+    return content == expected
 
 
 def managed_git_hook_specs() -> List[dict[str, str]]:

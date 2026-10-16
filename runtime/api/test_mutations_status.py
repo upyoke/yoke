@@ -117,7 +117,7 @@ class TestStatusTransition:
     def test_issue_accepts_exceptional_statuses(self):
         """FR-3: Issue items accept exceptional statuses."""
         gate = _make_gate(done_nonce_verified=True)
-        for status in ("blocked", "stopped", "failed", "cancelled"):
+        for status in ("stopped", "failed", "cancelled"):
             item = _make_item(workflow="issue", status="idea")
             result = prepare_update(
                 item=item,
@@ -181,7 +181,7 @@ class TestStatusTransition:
     def test_epic_accepts_exceptional_statuses(self):
         """FR-3: Epic items accept exceptional statuses."""
         gate = _make_gate(done_nonce_verified=True)
-        for status in ("blocked", "stopped", "failed", "cancelled"):
+        for status in ("stopped", "failed", "cancelled"):
             item = _make_item(workflow="epic", status="idea")
             result = prepare_update(
                 item=item,

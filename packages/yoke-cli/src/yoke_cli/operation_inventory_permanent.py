@@ -269,6 +269,8 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     ),
     # Unified worktree creation provisions git worktrees on disk and runs
     # lane preflight; no safe dispatcher/function-call wrapper exists yet.
+    _p("yoke worktree prepare", "worktree", REASON_TOOL_SHAPED),
+    _p("yoke worktree paths", "worktree", REASON_TOOL_SHAPED),
     _p("python3 -m yoke_core.domain.worktree create", "worktree", REASON_TOOL_SHAPED),
     _p("yoke merge audit", "merge", REASON_TOOL_SHAPED),
     _p("yoke usher reconcile-github", "usher", REASON_TOOL_SHAPED),

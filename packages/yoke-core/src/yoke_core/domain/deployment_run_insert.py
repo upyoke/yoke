@@ -1,4 +1,4 @@
-"""Rollout-tolerant deployment-run insertion."""
+"""Deployment-run insertion with artifact and request identity."""
 
 from __future__ import annotations
 
@@ -6,8 +6,6 @@ from typing import Any
 from datetime import datetime
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.db_helpers import instant_parameter
-
-from yoke_core.domain.schema_common import _column_exists
 
 
 def insert_run(
@@ -25,7 +23,7 @@ def insert_run(
     create_idempotency_key: str | None = None,
     create_request: str | None = None,
 ) -> Any:
-    """Insert through both legacy and additively converged run schemas."""
+    """Insert a run and its immutable creation identity."""
     stamp = parse_instant(created_at)
     columns = [
         "id",
@@ -47,26 +45,8 @@ def insert_run(
         created_by,
         instant_parameter(conn, stamp),
     ]
-    has_artifact_identity = _column_exists(conn, "deployment_runs", "artifact_identity")
-    if artifact_identity and not has_artifact_identity:
-        raise RuntimeError(
-            "deployment_runs.artifact_identity has not converged; apply the "
-            "current additive schema before creating an artifact-bound run"
-        )
-    if has_artifact_identity:
-        columns.append("artifact_identity")
-        values.append(artifact_identity or None)
-    if create_idempotency_key:
-        # The create decides the key basis under its lock and passes a key only
-        # once the columns converged, so absence here is a caller that skipped
-        # that decision.
-        if not _column_exists(conn, "deployment_runs", "create_idempotency_key"):
-            raise RuntimeError(
-                "deployment_runs.create_idempotency_key has not converged; "
-                "apply the current additive schema before creating a keyed run"
-            )
-        columns += ["create_idempotency_key", "create_request"]
-        values += [create_idempotency_key, create_request]
+    columns += ["artifact_identity", "create_idempotency_key", "create_request"]
+    values += [artifact_identity or None, create_idempotency_key, create_request]
     placeholders = ", ".join(["%s"] * len(columns))
     return conn.execute(
         f"INSERT INTO deployment_runs ({', '.join(columns)}) "

@@ -1,7 +1,8 @@
 {
  "id": "uninstall",
  "title": "Uninstall",
- "status": "draft-copy",
+ "status": "observed",
+ "note": "Project uninstall removes exact installer-owned checkout registration and folder trust only with exclusive ownership proof. Shared, modified and unknown entries are preserved; partial cleanup retains its manifest and reports recovery. Machine uninstall remains a separate operation.",
  "plan_refs": ["FIRST-USER.1"],
  "commands": ["yoke project uninstall", "yoke self-host teardown", "yoke uninstall"],
  "functions": ["project.uninstall.run"],

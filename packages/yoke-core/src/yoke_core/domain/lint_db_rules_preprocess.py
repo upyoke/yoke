@@ -254,8 +254,8 @@ for py_code in extract_python_payloads(original_command):
                     "BLOCKED: Do not open the Yoke DB from ad-hoc Python using a hardcoded or relative "
                     "path like yoke.db. Use the canonical DB router / Postgres authority instead:\n"
                     "Examples:\n"
-                    "  python3 -m yoke_core.cli.db_router query \"SELECT ...\"\n"
-                    "  python3 -m yoke_core.cli.db_router items get YOK-N status\n"
+                    "  yoke db read \"SELECT ...\"\n"
+                    "  yoke items get PREFIX-N status\n"
                     "See AGENTS.md \"Worktree DB Authority\" rule."
                 ),
             }

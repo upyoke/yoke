@@ -84,7 +84,6 @@ from yoke_cli.commands.adapters.github import (
     GITHUB_STATUS_USAGE,
 )
 from yoke_cli.commands.adapters.github_release import (
-    GITHUB_RELEASE_CREATE_NEXT_TAG_USAGE,
     GITHUB_RELEASE_CREATE_COMMIT_TAG_USAGE,
 )
 from yoke_cli.commands.adapters.release_pin_record import RECORD_USAGE
@@ -257,7 +256,6 @@ ADAPTER_USAGE: Dict[str, str] = {
     "doctor.run.run": DOCTOR_RUN_USAGE,
     "doctor.last_run.get": DOCTOR_LAST_RUN_GET_USAGE,
     **DEPLOYMENT_USAGE,
-    "github.release.create_next_tag": GITHUB_RELEASE_CREATE_NEXT_TAG_USAGE,
     "github.release.create_commit_tag": GITHUB_RELEASE_CREATE_COMMIT_TAG_USAGE,
     "release_pin.record": RECORD_USAGE,
     "ephemeral_env.update": EPHEMERAL_ENV_UPDATE_USAGE,

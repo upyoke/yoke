@@ -69,27 +69,6 @@ class TestQaKindAutoDerive:
             )
         assert exc.value.code == 2
 
-    def test_legacy_alias_normalizes_against_requirement(
-        self,
-        db_path: str,
-    ) -> None:
-        # Requirement stored as canonical implementation_review;
-        # caller passes the legacy alias 'review'. The two should
-        # normalize to the same value and the run is accepted.
-        rid = add_bound_requirement(
-            db_path=db_path,
-            item_id=42,
-            qa_kind="implementation_review",
-            qa_phase="verification",
-        )
-        run_id = qa.cmd_run_add(
-            db_path=db_path,
-            requirement_id=rid,
-            performed_by="agent",
-            qa_kind="review",
-        )
-        assert isinstance(run_id, int)
-
 
 class TestRunAdd:
     def test_add_without_verdict(self, db_path: str, req_id: int) -> None:
@@ -262,29 +241,6 @@ class TestRunAdd:
         assert payload["evidence"] == "all green"
         assert payload["verification_tree"]["head_sha"] == "a" * 40
         assert row[3] == 1234
-
-    def test_legacy_review_alias_normalized_on_write(self, db_path: str) -> None:
-        rid = add_bound_requirement(
-            db_path=db_path,
-            item_id=10,
-            qa_kind="review",
-            qa_phase="validation",
-        )
-        run_id = qa.cmd_run_add(
-            db_path=db_path,
-            requirement_id=rid,
-            performed_by="agent",
-            qa_kind="review",
-            verdict="pass",
-            head_sha="a" * 40,
-        )
-        conn = connect_test_db(db_path)
-        row = conn.execute(
-            "SELECT qa_kind FROM qa_runs WHERE id = %s",
-            (run_id,),
-        ).fetchone()
-        conn.close()
-        assert row[0] == "implementation_review"
 
     def test_artifact_path_creates_linked_artifact(
         self,

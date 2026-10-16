@@ -88,5 +88,5 @@ def commit(root: Path, paths: list[str]) -> dict[str, Any]:
         raise ProjectInstallError(
             f"project_uninstall_commit_failed: removal in {root} is uncommitted. "
             "Repair git, then stage and commit the removed Yoke layer before "
-            f"retrying machine uninstall. {exc}"
+            f"retrying project uninstall if its manifest remains. {exc}"
         ) from exc

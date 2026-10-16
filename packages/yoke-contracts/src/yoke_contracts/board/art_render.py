@@ -28,7 +28,7 @@ from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.utils import display_width
 
 # Sentinel: render_header derives the celebration glyph from the seed when the
-# caller does not supply one. _assemble passes the shared value so the stats
+# caller does not supply one. the board renderer passes the shared value so the stats
 # box, frontier grid/legend, Done section header, and per-row done all match.
 _COMPUTE_CELEBRATION = object()
 
@@ -84,7 +84,7 @@ def render_header(
 
     # Celebration mode (frontier inbox-zero): resolve the one glyph for this
     # render so it flows to the grid, legend, and stats box. Direct callers
-    # (and tests) leave it _COMPUTE and we derive it from the seed; _assemble
+    # (and tests) leave it _COMPUTE and we derive it from the seed; the board renderer
     # passes the shared value so the Done section + per-row done stay in sync.
     if celebration is _COMPUTE_CELEBRATION:
         celebration = resolve_celebration(stats_counts or frontier_counts, mode, seed)
@@ -99,7 +99,7 @@ def render_header(
         art_type = "emoji_grid"
     elif mode.startswith("rainbow_"):
         grid_lines = list(art_config.master_map)
-        sub_mode = mode[len("rainbow_"):]
+        sub_mode = mode[len("rainbow_") :]
         grid_lines = _apply_rainbow(grid_lines, sub_mode, rng, letter_bounds)
         art_type = "emoji_grid"
     elif mode.startswith("emoji_"):
@@ -150,17 +150,11 @@ def render_header(
     # Split across 3 lines to stay within the stats-box width.
     if mode == "frontier":
         done_legend = celebration if celebration else C_DONE
-        legend_1 = (
-            f" {done_legend}done {C_RELEASE}release {C_IMPLEMENTED}implemented"
-        )
+        legend_1 = f" {done_legend}done {C_RELEASE}release {C_IMPLEMENTED}implemented"
         legend_2 = (
-            f" {C_REVIEWING}reviewing"
-            f" {C_IMPLEMENTING}implementing {C_BLOCKED}blocked"
+            f" {C_REVIEWING}reviewing {C_IMPLEMENTING}implementing {C_BLOCKED}blocked"
         )
-        legend_3 = (
-            f" {C_REFINED}refined"
-            f" {C_PLANNING}planning {C_IDEA}idea"
-        )
+        legend_3 = f" {C_REFINED}refined {C_PLANNING}planning {C_IDEA}idea"
         # Rows 9-11 (0-indexed) = rows 10-12 (1-indexed)
         if len(combined) >= 12:
             combined[9] = combined[9] + legend_1
@@ -215,9 +209,7 @@ def _paste_grid_with_stats(
         # Measure the art's max visual width (emoji-aware) and pad both the
         # real rows and the synthetic filler rows to it.
         max_width = max((display_width(line) for line in grid_lines), default=0)
-        padded = [
-            line + " " * (max_width - display_width(line)) for line in grid_lines
-        ]
+        padded = [line + " " * (max_width - display_width(line)) for line in grid_lines]
         filler = _blank_filler_row(padded)
         while len(padded) < box_rows:
             padded.append(filler)
@@ -236,9 +228,7 @@ def _paste_grid_with_stats(
     return result
 
 
-def _paste_ascii_with_stats(
-    art_lines: List[str], stats_lines: List[str]
-) -> List[str]:
+def _paste_ascii_with_stats(art_lines: List[str], stats_lines: List[str]) -> List[str]:
     """Paste stats box to the right of ASCII/mixed art.
 
     Pads art lines to uniform visual width before concatenation.

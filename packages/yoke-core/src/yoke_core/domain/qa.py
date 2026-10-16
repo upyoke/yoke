@@ -39,8 +39,6 @@ from yoke_core.domain.qa_constants import (  # noqa: F401
     VALID_REQUIREMENT_SOURCES,
     VALID_VERDICTS,
     _coalesce,
-    _normalize_qa_phase,
-    _normalize_qa_kind,
     _pipe_row,
     _REQ_SELECT,
 )
@@ -82,7 +80,6 @@ from yoke_core.domain.qa_reporting import (  # noqa: F401
 
 from yoke_core.domain.qa_schema import (  # noqa: F401
     _QA_SCHEMA,
-    _migrate_qa_vocab,
     cmd_init,
 )
 

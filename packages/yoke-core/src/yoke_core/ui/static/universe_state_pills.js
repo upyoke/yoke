@@ -37,7 +37,7 @@ const FAMILIES = {
   warn: "warn",
   warning: "warn",
   stale: "warn",
-  "possibly stale": "warn",
+  "quiet": "warn",
   "process-gone": "crit",
   // An exited headless worker between turns: a message resumes it, so it
   // wants attention, not alarm. One a wake is already resuming is in flight.

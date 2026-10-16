@@ -62,7 +62,7 @@ def stage_names_cases(
     """
     if isinstance(subject["stage"].get("cases"), Mapping):
         return True
-    if frozen_plans:
+    if any(not snapshot.get("selected_by_agent") for snapshot in frozen_plans):
         return True
     if any(requirement.get("method_id") for requirement in admitted):
         return True

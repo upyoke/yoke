@@ -3,8 +3,9 @@
  "title": "Item dependencies",
  "status": "draft-copy",
  "plan_refs": ["JOURNEYS.situation-14"],
- "commands": ["yoke items dependency add", "yoke items dependency list", "yoke items dependency remove", "yoke items dependency update"],
- "functions": ["items.dependency.add", "items.dependency.list", "items.dependency.remove", "items.dependency.update"],
+ "commands": ["yoke items dependency add", "yoke items dependency list", "yoke items dependency remove", "yoke items dependency update", "yoke advance preflight hard-blocks"],
+ "functions": ["items.dependency.add", "items.dependency.list", "items.dependency.remove", "items.dependency.update", "advance.preflight.hard_blocks"],
  "page": "planning",
- "position": 2
+ "position": 2,
+ "note": "The registered gate evaluates every persisted satisfaction condition on the selected control plane. A dependency list does not replace it. Activation, integration and closure filters retain their shared evaluator; clear exits zero and blocked exits one."
 }

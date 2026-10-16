@@ -104,21 +104,22 @@ def serving_plane():
         project_id = resolve_project_id(conn, PROJECT)
         stages = json.dumps(
             [
-                {"name": "merged", "step_runner": "auto"},
-                {"name": "approve-deploy", "step_runner": "human-approval"},
+                {"name": "merged", "stage_kind": "execution", "step_runner": "auto"},
+                {"name": "approve-deploy", "stage_kind": "execution", "step_runner": "human-approval"},
                 {
                     "name": "hosted-release",
+                    "stage_kind": "execution",
                     "step_runner": "github-actions-workflow",
                     "workflow": "deploy.yml",
                 },
-                {"name": "complete", "step_runner": "auto"},
+                {"name": "complete", "stage_kind": "execution", "step_runner": "auto"},
             ]
         )
         conn.execute(
             "INSERT INTO deployment_flows "
             "(id,project_id,name,description,stages,on_failure,created_at,"
-            "target_tier,status) VALUES "
-            "(%s,%s,%s,'external delivery',%s,'halt',%s,'ephemeral','active')",
+            "target_tier,status,definition_schema_version) VALUES "
+            "(%s,%s,%s,'external delivery',%s,'halt',%s,'ephemeral','active',2)",
             (FLOW, project_id, FLOW, stages, iso8601_now()),
         )
         workflow_id, workflow_version_id = resolve_current_workflow_pin(conn, "issue")

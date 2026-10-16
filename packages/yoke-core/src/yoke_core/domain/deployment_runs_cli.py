@@ -46,7 +46,6 @@ from yoke_core.domain.deployment_runs_preview import (
     cmd_preview_claim,
     cmd_preview_release,
 )
-from yoke_core.domain.deployment_runs_qa import cmd_qa_add, cmd_qa_list, cmd_qa_update
 from yoke_core.domain.deployment_runs_schema import cmd_init
 from yoke_core.domain.deployment_runs_validation import (
     cmd_check_batch_compatibility,
@@ -150,23 +149,6 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         elif args.command == "lineage-final-status":
             print(cmd_lineage_final_status(args.lineage_id))
-            return 0
-
-        elif args.command == "qa-add":
-            print(cmd_qa_add(args.run_id, args.check_name, args.source, args.blocking))
-            return 0
-
-        elif args.command == "qa-list":
-            result = cmd_qa_list(args.run_id)
-            if result:
-                print(result)
-            return 0
-
-        elif args.command == "qa-update":
-            err = cmd_qa_update(args.run_id, args.check_name, args.status)
-            if err:
-                print(err, file=sys.stderr)
-                return 2
             return 0
 
         elif args.command == "validate-composition":

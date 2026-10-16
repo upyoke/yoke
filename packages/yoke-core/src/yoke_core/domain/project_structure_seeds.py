@@ -146,12 +146,6 @@ _RECIPES: Dict[str, Dict[str, Any]] = {
                     "description": "Primary integration branch.",
                 },
             },
-            # Yoke's delivery deployment flow.
-            {
-                "family": "deploy_defaults",
-                "attachment": "project",
-                "payload": {"deployment_flow": "yoke-internal"},
-            },
             # Yoke's context routing: project-wide always-included docs. The
             # reserved ``always`` entry_key is the project-wide doc set; yoke
             # defines no topic-keyed entries today.

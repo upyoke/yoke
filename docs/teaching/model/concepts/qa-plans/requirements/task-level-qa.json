@@ -1,7 +1,9 @@
 {
  "id": "task-level-qa",
  "title": "Task-level QA",
- "status": "draft-copy",
+ "status": "observed",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/epic_review_qa.py", ".agents/skills/yoke/conduct/dispatch-context-gates.md"],
+ "summary": "Task implementation review is blocking source review without a deployment environment or URL. Seeding preserves the epic/task and workflow binding; creation refusals retain their diagnostic and recovery. Retry the same task after correcting the cause, retaining its submission and CI evidence.",
  "page": "qa-plans",
  "position": 2
 }

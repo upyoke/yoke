@@ -24,7 +24,7 @@ def _edge_ids(conn, dependent: str, blocking: str) -> tuple[int, int]:
 
 
 def _refresh_blocked_reasons(conn, dep_id: int, blk_id: int) -> None:
-    """Trigger wording refresh after an item_dependencies edge change."""
+    """Reclassify blocked reservations after an item dependency changes."""
     refresh_blocked_reason_for_edge_change(
         conn,
         dependent_item_id=dep_id,

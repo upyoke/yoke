@@ -59,13 +59,6 @@ _NON_TERMINAL_STATUSES = frozenset(
         "polishing-implementation",
         "implemented",
         "release",
-        # legacy lifecycle status retained here only so a row whose
-        # status='blocked' has not yet been migrated still participates in
-        # overlap detection. Post-cutover the canonical block signal is
-        # items.blocked=1 (orthogonal to status); a flag-blocked item still
-        # holds an in-flight lifecycle position above and stays in this set
-        # via that status, not via the legacy "blocked" entry.
-        "blocked",
     }
 )
 
