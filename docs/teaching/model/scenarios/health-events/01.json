@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke events anomalies --since \"24 hours ago\""],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/index.md", "docs/public/nav.yaml", "docs/public/operations/doctor.md", ".agents/skills/yoke/doctor/SKILL.md"],
+ "sources": ["docs/public/index.md", "docs/public/nav.yaml", "docs/public/operations/events.md", ".agents/skills/yoke/doctor/SKILL.md"],
  "position": 0
 }
