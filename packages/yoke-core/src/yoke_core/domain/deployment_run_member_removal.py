@@ -169,7 +169,7 @@ def remove_member_on(
         retract_orphaned_shared_copies,
     )
 
-    abort_removed_member_executions(conn, run_id=run_id, item_id=item_id)
+    aborted = abort_removed_member_executions(conn, run_id=run_id, item_id=item_id)
     retract_member_copies(conn, run_id, item_id=item_id, reason=reason)
     retract_orphaned_shared_copies(conn, run_id=run_id, reason=reason)
     from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
@@ -188,6 +188,7 @@ def remove_member_on(
         public_ref=ref,
         reason=reason,
         removed_by=removed_by,
+        execution_aborted=aborted > 0,
     )
     return ref
 

@@ -1,6 +1,9 @@
 """Removed member owners receive cancellation, never a QA-pass notice."""
 
+import pytest
+
 from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
+from runtime.api.fixtures.deployment_scoped_qa_run_fixture import ITEM_QA_STAGE
 from runtime.api.domain.test_deployment_run_member_removal import (
     ITEM,
     RUN,
@@ -11,9 +14,13 @@ from runtime.api.domain.test_deployment_run_member_removal import (
 from runtime.api.domain.test_deployment_delivery_close_out_notice import _parked_owner
 from runtime.api.domain.test_deployment_qa_stage_wake_delivery import HOLDER_A, _project
 from yoke_core.domain import deployment_member_removal_notice as notice
+from yoke_core.domain.deployment_run_member_removal import remove_member_on
+from yoke_core.domain.deployment_run_target_takeover import TAKEOVER_REMOVED_BY
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_remove_item
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_gates import GateTarget, check_done_gate
+from yoke_core.domain.qa_plan_execution_store import roster_digest
+from yoke_core.domain.session_explicit_wake import explicit_stopped_wake_requested
 
 
 def test_removal_tells_the_holder_even_when_remaining_run_succeeds(
@@ -95,3 +102,93 @@ def test_done_gate_ignores_retracted_run_qa_without_calling_it_passed(
         ]
         == "release"
     )
+
+
+def _notices(conn):
+    return conn.execute(
+        "SELECT m.body,r.routing_snapshot,r.wake_after,m.expires_at "
+        "FROM session_messages m "
+        "JOIN session_message_recipients r ON r.message_id=m.message_id "
+        "WHERE m.idempotency_key LIKE %s",
+        (f"removed-member:{RUN}:{ITEM}:%",),
+    ).fetchall()
+
+
+def _take_over(conn, *, live: bool):
+    _project(conn)
+    _red_member(conn)
+    _parked_owner(conn, HOLDER_A, ITEM)
+    release_seeded_driver(conn, RUN)
+    if live:
+        conn.execute(
+            "INSERT INTO qa_plan_executions(id,deployment_run_id,deployment_stage,"
+            "deployment_member_item_id,actor_id,session_id,roster_digest,"
+            "roster_json,cursor_ordinal,state,created_at,heartbeat_at) VALUES "
+            "('exec-takeover-notice',%s,%s,%s,'2',%s,%s,'[]',0,'active',"
+            "now(),now())",
+            (RUN, ITEM_QA_STAGE, ITEM, HOLDER_A, roster_digest([])),
+        )
+    new_run = "run-takeover-next"
+    remove_member_on(
+        conn,
+        RUN,
+        ITEM,
+        reason=(
+            f"taken over by run {new_run}, whose candidate contains this run's; "
+            "the member's QA continues there"
+        ),
+        session_id="remover",
+        actor_id=2,
+        removed_by=TAKEOVER_REMOVED_BY,
+    )
+    conn.commit()
+    return new_run
+
+
+def test_takeover_without_a_running_execution_sends_nothing(test_db):
+    _take_over(test_db, live=False)
+    assert _notices(test_db) == []
+
+
+def test_takeover_that_aborts_a_running_execution_wakes_naming_the_new_run(test_db):
+    new_run = _take_over(test_db, live=True)
+    rows = _notices(test_db)
+    assert len(rows) == 1
+    body = rows[0]["body"]
+    assert new_run in body
+    assert "continues on the new run" in body
+    assert "stay parked" in body
+    assert "rides a later release" not in body
+    assert "re-park" not in body
+    assert explicit_stopped_wake_requested(rows[0]["routing_snapshot"])
+    assert rows[0]["wake_after"] != rows[0]["expires_at"]
+    assert (
+        test_db.execute(
+            "SELECT state FROM qa_plan_executions WHERE id=%s",
+            ("exec-takeover-notice",),
+        ).fetchone()["state"]
+        == "aborted"
+    )
+
+
+@pytest.mark.parametrize("removed_by", ["item QA failure", "settlement"])
+def test_qa_failure_and_settlement_notices_still_wake(test_db, removed_by):
+    _project(test_db)
+    _red_member(test_db)
+    _parked_owner(test_db, HOLDER_A, ITEM)
+    release_seeded_driver(test_db, RUN)
+    remove_member_on(
+        test_db,
+        RUN,
+        ITEM,
+        reason=REASON,
+        session_id="remover",
+        actor_id=2,
+        removed_by=removed_by,
+    )
+    test_db.commit()
+    rows = _notices(test_db)
+    assert len(rows) == 1
+    assert "rides a later release; do not attempt close-out" in rows[0]["body"]
+    assert "re-park" in rows[0]["body"]
+    assert explicit_stopped_wake_requested(rows[0]["routing_snapshot"])
