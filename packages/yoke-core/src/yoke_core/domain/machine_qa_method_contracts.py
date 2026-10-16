@@ -175,6 +175,7 @@ def _validate_single_method_config(
     if blocker is not None:
         return {"execution_blocker": blocker}
     if config_contract_id in {"terminal-check", "terminal-inspection"}:
+        _require_terminal_case_fields(entry_surface, required_completion)
         if "actions" in config:
             try:
                 return validate_terminal_recipe(
@@ -188,10 +189,6 @@ def _validate_single_method_config(
             {"steps", "capture_checkpoints"},
             required={"steps"},
         )
-        if not str(entry_surface or "").strip() or len(str(entry_surface)) > 2000:
-            raise MachineQaExecutionError("Terminal cases require entry_surface")
-        if not str(required_completion or "").strip():
-            raise MachineQaExecutionError("Terminal cases require required_completion")
         steps = config.get("steps")
         if not isinstance(steps, list) or not 1 <= len(steps) <= _MAX_STEPS:
             raise MachineQaExecutionError("Terminal cases require 1..100 steps")
@@ -238,6 +235,29 @@ def _validate_single_method_config(
         "assertions": [_assertion(row) for row in assertions],
         **fixture_operations,
     }
+
+
+def _require_terminal_case_fields(
+    entry_surface: str | None,
+    required_completion: str | None,
+) -> None:
+    """Refuse a Terminal case whose runner would have nothing to start or await."""
+    fields = {
+        "entry_surface": entry_surface,
+        "required_completion": required_completion,
+    }
+    missing = [name for name, value in fields.items() if not str(value or "").strip()]
+    if missing:
+        raise MachineQaExecutionError(
+            f"terminal_case_fields_missing: missing={missing}. Set entry_surface "
+            "to the command the Terminal runs first (for example `{yoke_bin} "
+            "setup --connect https://app.upyoke.com --project-mode machine-only`) "
+            "and required_completion to the step that proves completion. Save the "
+            "case with `yoke qa plan edit PLAN_SLUG`, then `yoke qa plan "
+            "rematerialize` the affected requirements."
+        )
+    if len(str(entry_surface)) > 2000:
+        raise MachineQaExecutionError("entry_surface is longer than 2000 characters")
 
 
 def _require_keys(

@@ -41,6 +41,11 @@ def validate_method_requirement(
             )
         return None
     from yoke_core.domain.db_helpers import query_one
+    from yoke_core.domain.machine_qa_method_contracts import (
+        MACHINE_METHODS,
+        MachineQaExecutionError,
+        validate_machine_method_config,
+    )
     from yoke_core.domain.qa_method_config_validation import (
         QaMethodConfigError,
         validate_method_config,
@@ -79,7 +84,15 @@ def validate_method_requirement(
             str(method["config_contract_id"]),
             row.get("method_config"),
         )
-    except QaMethodConfigError as exc:
+        if str(method_id) in MACHINE_METHODS:
+            validate_machine_method_config(
+                str(method_id),
+                row["method_config"],
+                entry_surface=row.get("entry_surface"),
+                required_completion=row.get("required_completion"),
+                host_baseline=row.get("host_baseline"),
+            )
+    except (QaMethodConfigError, MachineQaExecutionError) as exc:
         return _error(
             "payload_invalid",
             str(exc),

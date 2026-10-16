@@ -6,17 +6,22 @@ from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.domain.machine_qa_fixture_lifecycle_test_support import (
+    case_contract,
+)
 from yoke_core.domain import machine_qa_local_execution as local
 from yoke_core.domain.machine_qa_case_result import MachineCaseResult
 
 
 def _contract(*, baselines, starting_state="baseline", ends_chain=True):
-    case = SimpleNamespace(
-        requirement_id=11,
-        starting_state=starting_state,
-        host_baseline="fresh-host" if starting_state != "as_is" else None,
-        ends_chain=ends_chain,
-        project="yoke",
+    case = case_contract(
+        host_baseline="fresh-host" if starting_state != "as_is" else None
+    ).model_copy(
+        update={
+            "requirement_id": 11,
+            "starting_state": starting_state,
+            "ends_chain": ends_chain,
+        }
     )
     return SimpleNamespace(
         operation="plan_case",

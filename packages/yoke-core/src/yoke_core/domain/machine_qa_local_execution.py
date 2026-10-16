@@ -43,6 +43,7 @@ from yoke_core.domain.machine_qa_chain_restore import (
 )
 from yoke_core.domain.machine_qa_fixture_lifecycle import (
     execute_case_with_fixture_lifecycle,
+    require_runnable_recipe,
 )
 from yoke_core.domain.machine_qa_mission_scratch import create_mission_scratch
 from yoke_core.domain.machine_qa_result_safety import (
@@ -175,6 +176,7 @@ def execute_machine_case_contract(
     contract = HostControlExecutionContract.model_validate(raw_contract)
     if contract.operation not in {"case", "plan_case"}:
         raise ValueError("expected a Machine QA case contract")
+    require_runnable_recipe(contract.cases[0])
     try:
         execution = (
             _execution(contract)
