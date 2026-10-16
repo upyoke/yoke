@@ -25,6 +25,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter
@@ -187,7 +188,7 @@ def record_attempt(
     reset = not same or episode != previous
     attempt = read_open_attempt(conn, item_id)
     if attempt is None:
-        raise LookupError(f"landing attempt not recorded: item {item_id} is absent")
+        raise LookupError(ITEM_NOT_FOUND)
     return attempt, reset
 
 

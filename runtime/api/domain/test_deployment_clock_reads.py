@@ -67,7 +67,7 @@ def native_clocks(clocks, monkeypatch):
         "CREATE TABLE merge_queue_landing_refreshes (project_id integer PRIMARY KEY,started_at text,completed_at text,last_error text)"
     )
     clocks.execute(
-        "CREATE TABLE merge_queue_landing_attempts (item_id integer,project_id integer,pr_number text,enqueued_at text,opened_at text,closed_at text,closed_reason text NOT NULL DEFAULT '',PRIMARY KEY(item_id,pr_number))"
+        "CREATE TABLE merge_queue_landing_attempts (item_id integer,project_id integer,pr_number text,enqueued_at timestamptz,opened_at timestamptz,closed_at timestamptz,closed_reason text NOT NULL DEFAULT '',PRIMARY KEY(item_id,pr_number))"
     )
     clocks.execute(
         "CREATE TABLE merge_queue_landing_records (item_id integer PRIMARY KEY,project_id integer,pr_number text,state text,head_sha text,queue_holding text,queue_entry_state text,merge_when_ready text,failed_checks text,narrative text,disarm_note text,observed_at text,changed_at text)"
