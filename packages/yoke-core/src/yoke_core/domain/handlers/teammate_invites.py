@@ -4,7 +4,11 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
 
-from yoke_contracts.api.function_call import FunctionCallRequest, FunctionError, HandlerOutcome
+from yoke_contracts.api.function_call import (
+    FunctionCallRequest,
+    FunctionError,
+    HandlerOutcome,
+)
 from yoke_core.domain import db_backend, db_helpers, teammate_invite_codes as invites
 from yoke_core.domain.actor_permissions import ROLE_OPERATOR
 from yoke_core.domain.actor_role import ActorRoleRefused, require_human_org_role
@@ -16,7 +20,9 @@ class _Model(BaseModel):
 
 
 class InviteCreateRequest(_Model):
-    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+    name: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)
+    ]
     role: str | None = None
 
 
@@ -47,9 +53,14 @@ class InviteListResponse(_Model):
 def _require_code_form() -> None:
     fact = invites.invite_form_fact()
     if fact["invite_form"] == "email":
-        method = "a Yoke account" if fact["sign_in_method"] == "yoke_account" else "company sign-in"
+        method = (
+            "a Yoke account"
+            if fact["sign_in_method"] == "yoke_account"
+            else "company sign-in"
+        )
         raise invites.TeammateInviteError(
-            "invite_email_required", f"this server uses {method}; enter their email instead",
+            "invite_email_required",
+            f"this server uses {method}; enter their email instead",
         )
     if fact["invite_form"] == "local":
         raise invites.TeammateInviteError(
@@ -60,7 +71,8 @@ def _require_code_form() -> None:
 
 def _created_result(created: invites.CreatedInvite) -> dict:
     return {
-        "invite": created.invite, "code": created.code,
+        "invite": created.invite,
+        "code": created.code,
         "expires_at": created.invite["expires_at"],
         "guidance": {
             "send_to": f"send it to {created.invite['name']} only, through a private channel",
@@ -75,28 +87,45 @@ def _create(conn, payload, request, actor_id):
     _require_code_form()
     role = payload.role if payload.role is not None else ROLE_OPERATOR
     require_human_org_role(role)
-    return _created_result(invites.create_invite(
-        conn, name=payload.name, role=role, inviter_actor_id=actor_id,
-        request_id=request.request_id,
-    ))
+    return _created_result(
+        invites.create_invite(
+            conn,
+            name=payload.name,
+            role=role,
+            inviter_actor_id=actor_id,
+            request_id=request.request_id,
+        )
+    )
 
 
 def _list(conn, payload, request, actor_id):
     fact = invites.invite_form_fact()
-    return {**fact, "invites": invites.list_invites(conn, include_used=payload.include_used)}
+    return {
+        **fact,
+        "invites": invites.list_invites(conn, include_used=payload.include_used),
+    }
 
 
 def _revoke(conn, payload, request, actor_id):
-    return {"invite": invites.revoke_invite(
-        conn, invite_id=payload.invite_id, actor_id=actor_id,
-    )}
+    return {
+        "invite": invites.revoke_invite(
+            conn,
+            invite_id=payload.invite_id,
+            actor_id=actor_id,
+        )
+    }
 
 
 def _reissue(conn, payload, request, actor_id):
     _require_code_form()
-    return _created_result(invites.reissue_invite(
-        conn, invite_id=payload.invite_id, actor_id=actor_id, request_id=request.request_id,
-    ))
+    return _created_result(
+        invites.reissue_invite(
+            conn,
+            invite_id=payload.invite_id,
+            actor_id=actor_id,
+            request_id=request.request_id,
+        )
+    )
 
 
 def _handle(request, model, operation) -> HandlerOutcome:

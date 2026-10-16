@@ -121,7 +121,8 @@ def handle_identity_invite_create(request: FunctionCallRequest) -> HandlerOutcom
             )
     except TeammateInviteError as exc:
         return HandlerOutcome(
-            primary_success=False, error=FunctionError(code=exc.code, message=exc.detail)
+            primary_success=False,
+            error=FunctionError(code=exc.code, message=exc.detail),
         )
     parsed, failure = _parse(InviteCreateRequest, request)
     if failure is not None:
