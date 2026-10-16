@@ -120,7 +120,8 @@ def notify_failed_wake(
     sender_session = str(original[3] or "")
     sender_actor = original[4]
     actor_reason = "original_sender"
-    if project_id is None and sender_actor is None and not sender_session:
+    if project_id is None and sender_actor is None:
+        sender_session = ""
         owner = conn.execute(
             f"SELECT actor_id FROM harness_sessions WHERE session_id={p}", (session_id,)
         ).fetchone()

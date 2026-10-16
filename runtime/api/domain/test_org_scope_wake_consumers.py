@@ -121,11 +121,8 @@ def test_wake_skip_org(world, monkeypatch):
         ).fetchone()[0]
         == 1
     )
-    assert (
-        conn.execute("SELECT result_code FROM session_message_attempts")
-        .fetchone()[0]
-        .startswith("skipped_")
-    )
+    attempt = conn.execute("SELECT result_code FROM session_message_attempts")
+    assert attempt.fetchone()[0].startswith("skipped_")
 
 
 def test_reconciliation_org_grace(world):
@@ -314,13 +311,16 @@ def test_operator_notice_org_no_hidden_project(world, surface):
     )
 
 
-@pytest.mark.parametrize("engine", [False, True])
-def test_failure_notice_org_owner(world, monkeypatch, engine):
+@pytest.mark.parametrize(
+    "engine,sender_session",
+    [(False, "project"), (True, None), (True, "project"), (True, "own")],
+)
+def test_failure_notice_org_owner(world, monkeypatch, engine, sender_session):
     conn, owner, sender = world
     row = receipt(conn)
     conn.execute(
         "UPDATE session_messages SET sender_actor_id=%s,sender_session_id=%s",
-        (None if engine else sender, None if engine else "project"),
+        (None if engine else sender, sender_session),
     )
     conn.execute(
         "INSERT INTO session_message_attempts(attempt_id,message_id,target_session_id,attempt_kind,started_at,completed_at,result_code) VALUES ('failed','pending','own','wake_relay',%s,%s,'failed')",
