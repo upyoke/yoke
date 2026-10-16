@@ -113,8 +113,11 @@ jobs:
       # and the exact consumer commit this run was dispatched with —
       # resolved once by the deploy pipeline's own driver before dispatch
       # (a plain git ls-remote against Platform's registered checkout, no
-      # dependency on this release's own not-yet-served API). Simultaneous
-      # stage/prod callers proving the identical pair reuse one passed proof.
+      # dependency on this release's own not-yet-served API). The consumer
+      # check runs at an immutable tag on that commit. The main push of this
+      # commit already started the identical exact-pair request, so this
+      # step joins a running or passed run; a moved Platform main is a new
+      # pair and a failed run is retried. Stage/prod callers join one run.
       # Platform's promotion-time check remains the final backstop.
       - name: Prove the hosted consumer against the exact release candidate
         id: consumer_proof

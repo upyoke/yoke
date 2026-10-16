@@ -15,6 +15,31 @@ from yoke_core.hooks.session_message_delivery_port import (
 )
 
 
+#: Body characters a reminder repeats; the full body is one read away.
+REMINDER_EXCERPT_CHARS = 400
+
+
+def _reminder_lines(message: LeasedSessionMessage) -> list[str]:
+    """Name a re-presentation as a reminder and point at the full body."""
+    if not message.shown_count:
+        return []
+    return [
+        f"Reminder: shown {message.shown_count} time(s) and still unacknowledged. "
+        "If you already acted on it, acknowledge it now; if not, act on it first.",
+    ]
+
+
+def _body_text(message: LeasedSessionMessage, message_id: str) -> tuple[str, str]:
+    """Whole body for a first delivery; a bounded excerpt for a reminder."""
+    body = message.body
+    if not message.shown_count or len(body) <= REMINDER_EXCERPT_CHARS:
+        return body, ""
+    return (
+        body[:REMINDER_EXCERPT_CHARS].rstrip() + " …",
+        f"Excerpt only; read the full body with `yoke messages get {message_id}`.",
+    )
+
+
 def _render_message(
     message: LeasedSessionMessage,
     *,
@@ -22,6 +47,7 @@ def _render_message(
     acknowledgement: str,
 ) -> str:
     message_id = canonical_fleet_message_id(message.message_id) or "invalid-message-id"
+    body, excerpt_note = _body_text(message, message_id)
     body_lines = [
         "| "
         + json.dumps(line, ensure_ascii=False)
@@ -30,7 +56,7 @@ def _render_message(
         .replace("\u0085", "\\u0085")
         .replace("\u2028", "\\u2028")
         .replace("\u2029", "\\u2029")
-        for line in message.body.split("\n")
+        for line in body.split("\n")
     ]
     sender = message.sender_actor_label or f"actor {message.sender_actor_id}"
     if message.sender_session_id:
@@ -47,7 +73,9 @@ def _render_message(
         (
             f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {token} {message_id} ===",
             f"Authenticated sender: {sender_description}",
+            *_reminder_lines(message),
             *body_lines,
+            *([excerpt_note] if excerpt_note else []),
             acknowledgement,
             "=== END YOKE SESSION MESSAGE DELIVERY ===",
         )
