@@ -3,6 +3,11 @@
 import json
 import pytest
 
+from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+    _bodies,
+    _claim,
+    seed_session,
+)
 from runtime.api.domain.test_dash_post_deploy_done_consumption import (
     _accept_member_qa,
 )
@@ -15,6 +20,10 @@ from runtime.api.domain.test_status_transition_preflight import (
 )
 from runtime.api.fixtures.backlog_inserts import insert_qa_run
 from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
+from yoke_core.domain.actor_permissions import (
+    grant_actor_project_role,
+    seed_roles_and_permissions,
+)
 from yoke_core.domain.deployment_qa_member_acceptance_notice import (
     notify_item_qa_accepted,
 )
@@ -31,6 +40,7 @@ from yoke_core.domain.deployment_run_member_targeting import (
     run_needs_member,
 )
 from yoke_core.domain.deployment_run_other_target_members import (
+    SET_ASIDE_KEY_PREFIX,
     owes_only_other_targets,
 )
 
@@ -111,6 +121,37 @@ def test_production_run_settles_while_a_member_still_owes_stage(test_db, monkeyp
     row = _item(test_db, item_id)
     assert row["status"] == "release"
     assert row["deployed_to"] == "prod"
+
+
+def test_set_aside_member_holder_gets_one_notice_naming_what_it_owes(
+    test_db, monkeypatch
+):
+    """Nothing else drives the remaining acceptance, so its owner is told once."""
+    _isolate_status_effects(monkeypatch)
+    item_id = 9757
+    sources = _production_delivered(test_db, item_id)
+    seed_roles_and_permissions(test_db)
+    grant_actor_project_role(test_db, actor_id=1, project_id=1, role_name="owner")
+    seed_session(test_db, "set-aside-holder", project_id=1)
+    _claim(
+        test_db,
+        session_id="set-aside-holder",
+        target_kind="item",
+        scope_json=json.dumps({"item_id": item_id}),
+    )
+
+    mark_settling(test_db, "run-prod")
+    assert settle_members(test_db, "run-prod") is None
+    assert settle_members(test_db, "run-prod") is None
+
+    bodies = _bodies(test_db, f"{SET_ASIDE_KEY_PREFIX}{item_id}:run-prod")
+    assert len(bodies) == 1
+    assert f"requirement {sources['stage']}" in bodies[0]
+    assert "on stage" in bodies[0]
+    assert "delivered to prod" in bodies[0]
+    assert "yoke qa plan run --deployment-run-id" in bodies[0]
+    assert "You hold its work claim" in bodies[0]
+    assert f"requirement {sources['prod']}" not in bodies[0]
 
 
 def test_own_target_red_still_blocks_settlement(test_db):

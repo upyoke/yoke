@@ -85,6 +85,7 @@ def _final_members(conn: Any, run_id: str, *, at_wait: bool) -> list[dict[str, A
         members.append(
             {
                 "item_id": item_id,
+                "project_id": int(row["project_id"]),
                 "public_ref": format_item_ref(
                     None, row["public_item_prefix"], row["project_sequence"]
                 ),
@@ -259,11 +260,13 @@ def _commit_phase(conn: Any, run_id: str) -> tuple[list[Any], Optional[str]]:
         held = {int(written.item_id) for written in staged}
         return [], _blocked(conn, run_id, required, refusals, held, cleared)
     from yoke_core.domain.deployment_run_other_target_members import (
+        notify_set_aside_members,
         record_other_target_deliveries,
     )
 
     record_other_target_deliveries(conn, run_id, deferred)
     conn.commit()
+    notify_set_aside_members(conn, run_id, deferred)
     return staged, None
 
 
