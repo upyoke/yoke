@@ -16,6 +16,7 @@ prompt will still appear.
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -141,9 +142,12 @@ def _grant_cursor(path: str, trust_file: Optional[Path]) -> List[str]:
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
         _write_json(target, payload)
+        digest = hashlib.sha256(target.read_bytes()).hexdigest()
     except OSError as exc:
         return [f"cursor: {target} could not be written ({exc})"]
-    unrecorded = ledger.record(ledger.created_file_entry(target))
+    record = ledger.created_file_entry(target)
+    record["sha256"] = digest
+    unrecorded = ledger.record(record)
     return [f"cursor: trusted {path}"] + (
         [f"cursor: {unrecorded}"] if unrecorded else []
     )

@@ -1,18 +1,4 @@
-"""QA schema DDL, init command, and QA-vocabulary migration.
-
-Canonical owner of:
-
-- ``_QA_SCHEMA`` — the QA tables/indexes DDL block.
-- ``cmd_init`` — creates QA tables (idempotent) and runs the QA-vocab and
-  execution-status migrations.
-- ``_migrate_qa_vocab`` — rebuilds retired QA vocabulary in-place when an
-  older schema is present.
-
-``yoke_core.domain.schema`` imports ``_migrate_qa_vocab`` from this module
-when wiring full schema initialization. The lazy import of
-``_migrate_qa_execution_status`` inside :func:`cmd_init` avoids a circular
-import between this module and ``yoke_core.domain.schema``.
-"""
+"""QA table definitions and initialization."""
 
 from __future__ import annotations
 
@@ -20,7 +6,7 @@ import sys
 
 from typing import Optional
 
-from yoke_core.domain.db_helpers import connect, query_scalar
+from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.qa_plan_execution_schema import (
     QA_PLAN_EXECUTION_SCHEMA_SQL,
 )
@@ -32,11 +18,6 @@ from yoke_core.domain.qa_deployment_scope_schema import (
 )
 from yoke_core.domain.qa_standalone_schema import (
     REQUIREMENT_SUBJECT_EXPRESSION,
-)
-from yoke_core.domain.schema_common import (
-    _column_exists,
-    _get_check_constraint_defs,
-    _table_exists,
 )
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
@@ -133,191 +114,16 @@ CREATE INDEX IF NOT EXISTS idx_qa_artifacts_run ON qa_artifacts(qa_run_id);
     + QA_PLAN_REVIEW_SCHEMA_SQL
 )
 
-_QA_REQUIREMENTS_TABLE = "qa_requirements"
-_QA_PHASE_CURRENT_VALUE = "verification"
-
-
-# ---------------------------------------------------------------------------
-# Init / migration
-# ---------------------------------------------------------------------------
-
 
 def cmd_init(*, db_path: Optional[str] = None) -> None:
     """Create QA tables (idempotent)."""
-    # Lazy import avoids a circular import: ``schema`` imports
-    # ``_migrate_qa_vocab`` from this module, and
-    # ``schema_migrations`` is imported here only at call time.
-    from yoke_core.domain.schema_migrations import _migrate_qa_execution_status
+    from yoke_core.domain.schema_migrations import _ensure_qa_runs_verdict_trigger
 
     conn = connect(path=db_path)
     try:
         execute_schema_script(conn, _QA_SCHEMA)
-        _migrate_qa_vocab(conn)
-        _migrate_qa_execution_status(conn)
+        _ensure_qa_runs_verdict_trigger(conn)
         conn.commit()
     finally:
         conn.close()
     print("QA tables initialized", file=sys.stderr)
-
-
-def _qa_requirements_structurally_stale(conn) -> bool:
-    """Detect stale QA vocabulary constraints through native schema probes."""
-    constraint_defs = _get_check_constraint_defs(conn, _QA_REQUIREMENTS_TABLE)
-    qa_phase_defs = [
-        definition for definition in constraint_defs if "qa_phase" in definition
-    ]
-    if not qa_phase_defs:
-        return False
-    return not any(
-        _QA_PHASE_CURRENT_VALUE in definition for definition in qa_phase_defs
-    )
-
-
-def _migrate_qa_vocab(conn) -> None:
-    """Rebuild retired QA vocabulary in-place when an older schema is present."""
-    if not _table_exists(conn, _QA_REQUIREMENTS_TABLE):
-        return
-
-    legacy_phase_count = (
-        query_scalar(
-            conn,
-            "SELECT COUNT(*) FROM qa_requirements WHERE qa_phase='validation'",
-        )
-        or 0
-    )
-    legacy_kind_count = (
-        query_scalar(
-            conn,
-            "SELECT COUNT(*) FROM qa_requirements WHERE qa_kind='review'",
-        )
-        or 0
-    )
-    legacy_run_kind_count = (
-        query_scalar(
-            conn,
-            "SELECT COUNT(*) FROM qa_runs WHERE qa_kind='review'",
-        )
-        or 0
-    )
-
-    structural_stale = _qa_requirements_structurally_stale(conn)
-    needs_rebuild = (
-        structural_stale
-        or legacy_phase_count > 0
-        or legacy_kind_count > 0
-        or legacy_run_kind_count > 0
-    )
-    if not needs_rebuild:
-        return
-
-    snapshot_columns = (
-        "standalone_execution_id",
-        "deployment_stage",
-        "deployment_member_item_id",
-        "plan_id",
-        "plan_case_key",
-        "case_position",
-        "baseline_position",
-        "method_id",
-        "method_name",
-        "runner_id",
-        "verdict_path",
-        "host_baseline",
-        "entry_surface",
-        "required_completion",
-        "workflow_transition_id",
-        "instructions",
-        "expected_outcome",
-        "method_config",
-    )
-    snapshot_select = ",\n            ".join(
-        column
-        if _column_exists(conn, _QA_REQUIREMENTS_TABLE, column)
-        else f"NULL AS {column}"
-        for column in snapshot_columns
-    )
-
-    execute_schema_script(
-        conn,
-        f"""
-        ALTER TABLE qa_requirements RENAME TO qa_requirements_old;
-
-        CREATE TABLE qa_requirements (
-            id INTEGER PRIMARY KEY,
-            standalone_execution_id TEXT,
-            item_id INTEGER,
-            epic_id INTEGER,
-            task_num INTEGER,
-            deployment_run_id TEXT,
-            deployment_stage TEXT,
-            deployment_member_item_id INTEGER,
-            qa_kind TEXT NOT NULL,
-            qa_phase TEXT NOT NULL CHECK(qa_phase IN ('verification','post_deploy','manual_acceptance')),
-            target_env TEXT,
-            blocking_mode TEXT NOT NULL DEFAULT 'blocking' CHECK(blocking_mode IN ('blocking','non_blocking')),
-            requirement_source TEXT NOT NULL DEFAULT 'explicit' CHECK(requirement_source IN ('explicit','seeded_default','ac_derived','flow_derived')),
-            success_policy TEXT,
-            capability_requirements TEXT,
-            suite_id TEXT,
-            waived_at TIMESTAMPTZ,
-            waiver_rationale TEXT,
-            waiver_source TEXT,
-            plan_id INTEGER,
-            plan_case_key TEXT,
-            case_position INTEGER,
-            baseline_position INTEGER,
-            method_id TEXT,
-            method_name TEXT,
-            runner_id TEXT,
-            verdict_path TEXT,
-            host_baseline TEXT,
-            entry_surface TEXT,
-            required_completion TEXT,
-            workflow_transition_id TEXT,
-            instructions TEXT,
-            expected_outcome TEXT,
-            method_config TEXT,
-            created_at TIMESTAMPTZ NOT NULL,
-            CONSTRAINT {REQUIREMENT_SUBJECT_CONSTRAINT}
-                CHECK ({REQUIREMENT_SUBJECT_EXPRESSION})
-        );
-
-        INSERT INTO qa_requirements (
-            id, item_id, epic_id, task_num, deployment_run_id, qa_kind, qa_phase,
-            target_env, blocking_mode, requirement_source, success_policy,
-            capability_requirements, suite_id, waived_at, waiver_rationale,
-            waiver_source, standalone_execution_id, deployment_stage, deployment_member_item_id,
-            plan_id, plan_case_key, case_position,
-            baseline_position, method_id, method_name, runner_id,
-            verdict_path, host_baseline,
-            entry_surface, required_completion, workflow_transition_id,
-            instructions, expected_outcome, method_config, created_at
-        )
-        SELECT
-            id,
-            item_id,
-            epic_id,
-            task_num,
-            deployment_run_id,
-            CASE qa_kind WHEN 'review' THEN 'implementation_review' ELSE qa_kind END,
-            CASE qa_phase WHEN 'validation' THEN 'verification' ELSE qa_phase END,
-            target_env,
-            blocking_mode,
-            requirement_source,
-            success_policy,
-            capability_requirements,
-            suite_id,
-            waived_at,
-            waiver_rationale,
-            waiver_source,
-            {snapshot_select},
-            created_at
-        FROM qa_requirements_old;
-
-        DROP TABLE qa_requirements_old;
-
-        UPDATE qa_runs
-        SET qa_kind='implementation_review'
-        WHERE qa_kind='review';
-        """,
-    )

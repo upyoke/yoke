@@ -1,28 +1,7 @@
-"""What must hold before a deployment run may be stamped succeeded.
+"""Require terminal stages and settled run-bound plan cases for completion.
 
-A run reaches its final stage and a run has delivered are different
-facts. The stage checks here answer the first — the recorded stage is a
-real terminal stage of the run's own flow, and it did not fail. The QA
-scan answers the second: every blocking check the run carries has an
-outcome a person or a runner actually produced.
-
-Blocking QA lives in two places because it arrives two ways.
-``deployment_run_qa`` carries the flow-derived checks seeded from the
-flow's stages, keyed by check name. ``qa_requirements`` carries the
-run's plan cases, keyed by ``deployment_run_id`` and satisfied by a
-passing row in ``qa_runs``. Neither is a projection of the other, so a
-completion boundary that reads one of them still lets the other through.
-
-Only ``passed`` and ``waived`` resolve a flow-derived check. Everything
-else is unresolved, and that deliberately includes ``failed``: a failed
-blocking check is the strongest reason not to call a run succeeded, and
-reading it as resolved because it is no longer pending is the shape this
-module exists to prevent.
-
-A plan case is settled by the shared rule in
-:mod:`yoke_core.domain.qa_obligation_settlement`, the same one the stage
-acceptance check applies, so the end of a release never re-opens an
-obligation a stage already accepted as discharged.
+Plan cases use the shared obligation settlement rule and current passing
+evidence, matching the acceptance checks at each QA stage.
 """
 
 from __future__ import annotations
@@ -34,9 +13,6 @@ from yoke_core.domain.db_helpers import query_rows, query_scalar
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.schema_common import _table_exists
-
-#: Flow-derived ``deployment_run_qa`` statuses that settle a blocking check.
-RESOLVED_RUN_QA_STATUSES = ("passed", "waived")
 
 #: Leads the pipeline report when stages delivered but blocking QA has not
 #: settled. Deliberately not the finalization-pending wording, which says
@@ -51,30 +27,8 @@ HELD_STAGE_PREFIX = "final stage held, blocking QA unresolved"
 
 
 def unresolved_blocking_qa(conn: Any, run_id: str) -> List[str]:
-    """Describe every blocking QA obligation *run_id* has not settled.
-
-    Returns one operator-readable line per unresolved obligation, empty
-    when the run is free to complete. A universe whose schema predates
-    either table reports nothing from that table rather than failing —
-    the completion boundary runs against fixtures that carry only the
-    deployment tables they exercise.
-    """
-    return _unresolved_flow_checks(conn, run_id) + _unresolved_plan_cases(conn, run_id)
-
-
-def _unresolved_flow_checks(conn: Any, run_id: str) -> List[str]:
-    """Flow-derived ``deployment_run_qa`` checks without a settled status."""
-    if not _table_exists(conn, "deployment_run_qa"):
-        return []
-    placeholders = ", ".join(["%s"] * len(RESOLVED_RUN_QA_STATUSES))
-    rows = query_rows(
-        conn,
-        "SELECT check_name, status FROM deployment_run_qa "
-        f"WHERE run_id=%s AND blocking=1 AND status NOT IN ({placeholders}) "
-        "ORDER BY check_name ASC",
-        (run_id, *RESOLVED_RUN_QA_STATUSES),
-    )
-    return [f"check '{row['check_name']}' is {row['status']}" for row in rows]
+    """Describe the run-bound plan cases that remain unsettled."""
+    return _unresolved_plan_cases(conn, run_id)
 
 
 def _unresolved_plan_cases(conn: Any, run_id: str) -> List[str]:
@@ -116,20 +70,11 @@ def _unresolved_plan_cases(conn: Any, run_id: str) -> List[str]:
 def blocking_obligation_total(conn: Any, run_id: str) -> int:
     """How many blocking QA obligations *run_id* carries in total.
 
-    Counted the same two ways :func:`unresolved_blocking_qa` reads them, so
+    Counted from the same plan cases :func:`unresolved_blocking_qa` reads, so
     "M of P outstanding" is always a subset relation rather than two
     numbers from two different populations.
     """
     total = 0
-    if _table_exists(conn, "deployment_run_qa"):
-        total += int(
-            query_scalar(
-                conn,
-                "SELECT COUNT(*) FROM deployment_run_qa WHERE run_id=%s AND blocking=1",
-                (run_id,),
-            )
-            or 0
-        )
     if _table_exists(conn, "qa_requirements"):
         total += int(
             query_scalar(
@@ -276,7 +221,6 @@ __all__ = [
     "blocking_obligation_total",
     "held_stage_report_lines",
     "HELD_STAGE_PREFIX",
-    "RESOLVED_RUN_QA_STATUSES",
     "redrive_recovery",
     "refuse_succeeded",
     "unresolved_blocking_qa",

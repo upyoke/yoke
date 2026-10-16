@@ -44,13 +44,10 @@ export function killExplanation(row) {
   return reason ? `${base} Reason: ${reason}` : base;
 }
 
-// Past the staleness window: the session has been quiet long enough that the
-// cleanup sweep would consider it, whether or not the roster has re-read its
-// liveness since.
-function pastStalenessWindow(row, now) {
-  if (!row.stale_eligible_at) return false;
-  if (String(row.liveness || "") === "stale") return true;
-  const eligible = instantMicros(row.stale_eligible_at);
+// Activity age is diagnostic; eligibility remains the server decision.
+function pastActivityWindow(row, now) {
+  if (!row.activity_quiet_at) return false;
+  const eligible = instantMicros(row.activity_quiet_at);
   return eligible <= instantMicros(instantFromDate(new Date(now)));
 }
 
@@ -83,7 +80,7 @@ function selfParkedStatus(row) {
   return {
     state: "parked",
     label: "parked",
-    detail: "parked by the session itself; its next tool call takes it back",
+    detail: "parked by the session itself; its next accepted prompt takes it back",
   };
 }
 
@@ -91,7 +88,6 @@ function selfParkedStatus(row) {
 // exits between turns and the next message resumes it from its transcript,
 // so the card says which of the three it is and never offers termination
 // for a worker a message would bring back.
-const PROCESS_STATES = new Set(["resuming", "process-exited", "process-gone"]);
 
 function processHealth(process) {
   if (!process) return null;
@@ -122,8 +118,7 @@ function processHealth(process) {
 // or holding its turn open is waiting by declaration and nothing is wrong with
 // it. A session the stale-alive probe has already asked has a question
 // outstanding, so its silence is being resolved. A quiet claim-holder with
-// neither of those is unaccounted for: confirmed stale when the server already
-// says so, possibly stale only while it is still classified active.
+// neither of those is unaccounted for: protected while its activity age remains a separate diagnostic.
 export function sessionHealthState(row, now = Date.now()) {
   if (String(row.liveness || "") === "ended") return null;
   const holdings = row.holdings && Array.isArray(row.holdings.current)
@@ -133,9 +128,9 @@ export function sessionHealthState(row, now = Date.now()) {
   }
   const process = processHealth(row.native_process);
   if (process) return process;
-  if (!pastStalenessWindow(row, now)) return null;
   const wait = row.declared_wait;
   if (wait) return declaredWaitStatus(wait);
+  if (!pastActivityWindow(row, now)) return null;
   const probe = row.stale_alive_probe;
   if (probe) {
     return {
@@ -144,13 +139,10 @@ export function sessionHealthState(row, now = Date.now()) {
       detail: `awaiting response · asked ${relativeAge(probe.created_at)}`,
     };
   }
-  const detail = "quiet past the staleness window with claims still held";
-  // Server-stale is confirmed. "Possibly stale" is only the still-active
-  // holder whose roster has not yet re-read liveness — never both.
-  if (String(row.liveness || "") === "stale") {
-    return { state: "stale", label: "stale", detail };
-  }
-  return { state: "possibly stale", label: "possibly stale", detail };
+  return {
+    state: "quiet", label: "quiet",
+    detail: "activity is old; held work protects this session from automatic reclaim",
+  };
 }
 
 /**
@@ -164,7 +156,7 @@ export function sessionHealthState(row, now = Date.now()) {
  *
  * A self-declared park is checked before the quiet reads for the same reason
  * a declared wait is: the session has already accounted for its own silence,
- * so reporting it as possibly stale would describe a session nobody is
+ * so reporting it as quiet would describe a session nobody is
  * missing.
  */
 export function sessionPrimaryStatus(row, now = Date.now()) {
@@ -176,21 +168,17 @@ export function sessionPrimaryStatus(row, now = Date.now()) {
   if (liveness === "ended") {
     return carrying({ state: "ended", label: "ended", detail: null });
   }
-  const health = sessionHealthState(row, now);
-  if (health && PROCESS_STATES.has(health.state)) return carrying(health);
-  const parked = selfParkedStatus(row);
-  if (parked) return carrying(parked);
-  if (health) return carrying(health);
-  if (liveness === "waiting") {
-    return carrying({
-      state: "waiting",
-      label: "waiting",
-      detail: "parked holding its claim; the next message resumes it",
-    });
-  }
   if (liveness === "stale") {
     return carrying({ state: "stale", label: "stale", detail: null });
   }
+  const parked = selfParkedStatus(row);
+  if (parked) return carrying(parked);
+  if (row.declared_wait) return carrying(declaredWaitStatus(row.declared_wait));
+  if (liveness === "waiting") {
+    return carrying({ state: "parked", label: "parked", detail: "intentional pause holding its claim; the next message resumes it" });
+  }
+  const health = sessionHealthState(row, now);
+  if (health) return carrying(health);
   // Recency lives on the timing line as "active now" / "idle Xm"; the
   // identity pill says only that the session is live.
   if (liveness === "active") {

@@ -87,7 +87,7 @@ def _parse_timestamp(value: Any) -> datetime | None:
     return parse_instant(value) if value is not None else None
 
 
-def _stale_eligible_at(activity_at: Any, ttl_minutes: int) -> str | None:
+def _activity_quiet_at(activity_at: Any, ttl_minutes: int) -> str | None:
     parsed = _parse_timestamp(activity_at)
     if parsed is None:
         return None
@@ -143,9 +143,9 @@ def session_diagnostics(
             "latest_message": latest_messages.get(session_id),
             "end_blocker": blocker,
             "effective_stale_ttl_minutes": ttl_minutes,
-            "stale_eligible_at": None
+            "activity_quiet_at": None
             if terminal or ttl_minutes is None
-            else _stale_eligible_at(row.get("activity_at"), ttl_minutes),
+            else _activity_quiet_at(row.get("activity_at"), ttl_minutes),
         }
     return temporal_wire(projected)
 

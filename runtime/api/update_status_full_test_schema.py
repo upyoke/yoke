@@ -75,6 +75,8 @@ CREATE TABLE IF NOT EXISTS epic_tasks (
     max_attempts INTEGER DEFAULT 5,
     agent_id TEXT,
     last_heartbeat TIMESTAMPTZ,
+    scope_state TEXT NOT NULL DEFAULT 'pending',
+    scope_finalized_at TIMESTAMPTZ,
     UNIQUE(epic_id, task_num),
     FOREIGN KEY (item_worktree_id) REFERENCES item_worktrees(id)
 );

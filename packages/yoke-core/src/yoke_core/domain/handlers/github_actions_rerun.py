@@ -1,4 +1,4 @@
-"""Rerun failed jobs only on an item's current, newest landing-PR run."""
+"""Recover CI only on an item's current, newest landing-PR run."""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ from yoke_core.domain.github_actions_identifiers import (
     repository_api_path,
 )
 from yoke_core.domain.github_actions_rest import rest_get, rest_post
+from yoke_core.domain.github_actions_rerun_safety import checked_run
 from yoke_core.domain.handlers.github_actions_set import _auth_failed
 from yoke_core.domain.item_detail_read import get_item_detail
 from yoke_core.domain.progress_log import PROGRESS_LOG_ORDERING, PROGRESS_LOG_SECTION
@@ -56,90 +57,12 @@ def _record(item_id: int, content: str) -> bool:
     result = item_field_transform.section_append(
         item_id=item_id,
         section=PROGRESS_LOG_SECTION,
-        headline="CI failed-job rerun",
+        headline="CI rerun",
         content=content,
         ordering=PROGRESS_LOG_ORDERING,
         source=FUNCTION_ID,
     )
     return result.success
-
-
-def _checked_run(root: str, pr_number: str, run_id: str, token: str):
-    pr = rest_get(f"{root}/pulls/{pr_number}", token=token)
-    run = rest_get(f"{root}/actions/runs/{run_id}", token=token)
-    if not isinstance(pr, dict) or not isinstance(run, dict):
-        return _refused(
-            "ci_rerun_identity_unavailable",
-            "GitHub omitted PR or run identity; restore repository read access and retry.",
-        )
-    head = pr.get("head") or {}
-    if not isinstance(head, dict):
-        return _refused(
-            "ci_rerun_identity_unavailable",
-            "PR head identity is malformed; restore GitHub PR reads and retry.",
-        )
-    sha, branch = head.get("sha"), head.get("ref")
-    if pr.get("state") != "open" or not sha or not branch:
-        return _refused(
-            "ci_rerun_pr_not_open",
-            "Landing PR is not open with a readable head; inspect the item's landing PR before retrying.",
-        )
-    if run.get("head_sha") != sha:
-        return _refused(
-            "ci_rerun_stale_head",
-            f"Run {run_id} head {run.get('head_sha')} differs from PR head {sha}; use the newest run for the current PR head.",
-        )
-    head_repo = head.get("repo") or {}
-    if (
-        not isinstance(head_repo, dict)
-        or head_repo.get("full_name") != root.removeprefix("/repos/")
-        or run.get("head_branch") != branch
-    ):
-        return _refused(
-            "ci_rerun_ref_mismatch",
-            "Run and landing PR must name the bound repository's same branch; use this item's own landing-PR run.",
-        )
-    workflow_id = run.get("workflow_id")
-    if (
-        not isinstance(workflow_id, int)
-        or isinstance(workflow_id, bool)
-        or workflow_id < 1
-    ):
-        return _refused(
-            "ci_rerun_identity_unavailable",
-            "Run has no valid workflow id; restore GitHub run reads before retrying.",
-        )
-    latest = rest_get(
-        f"{root}/actions/workflows/{workflow_id}/runs",
-        query={"branch": branch, "per_page": "1"},
-        token=token,
-    )
-    runs = latest.get("workflow_runs") if isinstance(latest, dict) else None
-    if (
-        not isinstance(runs, list)
-        or not runs
-        or not isinstance(runs[0], dict)
-        or not runs[0].get("id")
-    ):
-        return _refused(
-            "ci_rerun_identity_unavailable",
-            "Newest workflow-run identity is unavailable; restore GitHub workflow reads and retry.",
-        )
-    if str(runs[0]["id"]) != run_id:
-        return _refused(
-            "ci_rerun_superseded",
-            f"Run {run_id} is older than newest run {runs[0]['id']} for workflow {workflow_id} on {branch}; inspect the newer run instead. No rerun was sent.",
-        )
-    if (
-        str(run.get("id")) != run_id
-        or run.get("status") != "completed"
-        or run.get("conclusion") not in {"failure", "timed_out"}
-    ):
-        return _refused(
-            "ci_rerun_not_failed",
-            "Only a completed failed or timed-out run can rerun failed jobs; wait for the current run or repair and commit a failing test.",
-        )
-    return run
 
 
 def handle_rerun_failed(request: FunctionCallRequest) -> HandlerOutcome:
@@ -176,7 +99,7 @@ def handle_rerun_failed(request: FunctionCallRequest) -> HandlerOutcome:
         return _auth_failed(exc, project)
     root = repository_api_path(auth.repo)
     try:
-        run = _checked_run(root, pr_number, payload.run_id, auth.token)
+        run = checked_run(root, pr_number, payload.run_id, auth.token, get=rest_get)
     except RestTransportError as exc:
         return _refused(
             "ci_rerun_read_failed",
@@ -203,7 +126,9 @@ def handle_rerun_failed(request: FunctionCallRequest) -> HandlerOutcome:
         )
     # Persisting the intent can take time; refresh identity immediately before POST.
     try:
-        refreshed = _checked_run(root, pr_number, payload.run_id, auth.token)
+        refreshed = checked_run(
+            root, pr_number, payload.run_id, auth.token, get=rest_get
+        )
     except RestTransportError as exc:
         refreshed = _refused(
             "ci_rerun_read_failed",
@@ -217,9 +142,23 @@ def handle_rerun_failed(request: FunctionCallRequest) -> HandlerOutcome:
         if not recorded:
             refreshed.error.message += " Refusal recording also failed; restore item writes and append this receipt."
         return refreshed
+    if (
+        refreshed["head_sha"],
+        refreshed.get("run_attempt"),
+        refreshed["rerun_endpoint"],
+    ) != (run["head_sha"], run.get("run_attempt"), run["rerun_endpoint"]):
+        _record(
+            item_id,
+            f"Rerun refused after intent: {identity}. ci_rerun_attempt_changed; inspect the current attempt.",
+        )
+        return _refused(
+            "ci_rerun_attempt_changed",
+            "Run changed during intent recording; inspect its current attempt before retrying. No rerun was sent.",
+            **facts,
+        )
     try:
         rest_post(
-            f"{root}/actions/runs/{payload.run_id}/rerun-failed-jobs",
+            f"{root}/actions/runs/{payload.run_id}/{refreshed['rerun_endpoint']}",
             body={},
             token=auth.token,
             max_attempts=1,
@@ -238,7 +177,7 @@ def handle_rerun_failed(request: FunctionCallRequest) -> HandlerOutcome:
     facts["accepted"] = True
     if not _record(
         item_id,
-        f"GitHub accepted failed-job rerun: {identity}. Resume the same CI/QA wait for its new attempt.",
+        f"GitHub accepted CI rerun: {identity}. Resume the same CI/QA wait for its new attempt.",
     ):
         return _refused(
             "ci_rerun_record_failed",

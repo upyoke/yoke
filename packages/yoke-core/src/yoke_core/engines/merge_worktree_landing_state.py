@@ -21,6 +21,8 @@ class PrLandingState:
     #: landing's own moment rather than the moment it noticed.
     merged_at: datetime | None = None
     merge_commit_sha: str = ""
+    head_branch: str = ""
+    target_branch: str = ""
 
     def __post_init__(self) -> None:
         if self.merged_at is not None:

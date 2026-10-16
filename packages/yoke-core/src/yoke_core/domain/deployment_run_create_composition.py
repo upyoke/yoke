@@ -88,6 +88,7 @@ def compose_run(
     copy a retry's membership, and validate composition."""
     from yoke_core.domain.deployment_run_target_takeover import take_over_waiting_run
     from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
+    from yoke_core.domain.deployment_start_timing import timed_preparation
 
     inserted = insert_run(
         conn,
@@ -112,7 +113,9 @@ def compose_run(
         # bound branches here would let a retry ship a consumer revision
         # the run it retries never carried.
         copy_bound_sources(conn, inherit_members_from, run_id)
-    take_over_waiting_run(
+    timed_preparation(
+        "create_takeover",
+        take_over_waiting_run,
         conn,
         run_id,
         session_id=session_id,
@@ -123,7 +126,9 @@ def compose_run(
     # validator used by the explicit command has checked the pinned
     # sources, carried work, member flows, and dependencies. A refusal
     # rolls back the row, so it consumes no run ID.
-    return cmd_validate_composition(
+    return timed_preparation(
+        "create_validation",
+        cmd_validate_composition,
         run_id,
         allow_pending_pair_merges=allow_pending_pair_merges,
         connection=conn,
@@ -156,12 +161,8 @@ def validate_before_lock(
     """
     try:
         project_id = resolve_project_id(conn, project)
-        if (
-            idempotency_key
-            and idempotency.key_columns_converged(conn)
-            and idempotency.existing_run(
-                conn, project_id, idempotency_key, create_request
-            )
+        if idempotency_key and idempotency.existing_run(
+            conn, project_id, idempotency_key, create_request
         ):
             return
         target = run_target(conn, run["flow"], project_id, environment)

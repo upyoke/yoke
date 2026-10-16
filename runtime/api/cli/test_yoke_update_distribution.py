@@ -88,7 +88,7 @@ def test_update_without_recorded_origin_refuses_before_network(
         "detect",
         lambda: {
             "kind": KIND_PACKAGED_WHEEL,
-            "version": "1.0.0",
+            "version": "0.2.0.202610140941",
         },
     )
     monkeypatch.setattr(self_update.shutil, "which", lambda _: "/bin/yoke")
@@ -132,14 +132,14 @@ from yoke_cli.self_host import release_target
 from yoke_contracts.api_urls import DISTRIBUTION_BASE_URL_ENV
 import os
 os.environ.pop(DISTRIBUTION_BASE_URL_ENV, None)
-self_update.install_binding.detect = lambda: {"kind": "packaged-wheel", "version": "1.0.0"}
+self_update.install_binding.detect = lambda: {"kind": "packaged-wheel", "version": "0.2.0.202610140941"}
 self_update.shutil.which = lambda _: "/bin/yoke"
-self_update._RUN = lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, "1.0.1\\n", "")
+self_update._RUN = lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, "0.2.0.202610140942\\n", "")
 seen = []
 def fetch(url):
     seen.append(url)
     if url.endswith("/dist/channels/preview.json"):
-        return json.dumps({"schema_version": 3, "channel": "preview", "version": "1.0.1",
+        return json.dumps({"schema_version": 3, "channel": "preview", "version": "0.2.0.202610140942",
             "migration_history": {"source_commit": "a" * 40},
             "installer": {"python_url": "https://fork.example/dist/install.py"}}).encode()
     assert url == "https://fork.example/dist/install.py"
@@ -158,7 +158,7 @@ print(json.dumps({"result": self_update.run_update(), "seen": seen}))
     result = json.loads(completed.stdout)
     assert result["result"]["base_url"] == "https://fork.example"
     assert result["result"]["channel"] == "preview"
-    assert result["result"]["new_version"] == "1.0.1"
+    assert result["result"]["new_version"] == "0.2.0.202610140942"
     assert result["seen"] == [
         "https://fork.example/dist/channels/preview.json",
         "https://fork.example/dist/install.py",
@@ -172,7 +172,7 @@ def test_explicit_update_channel_keeps_recorded_origin(config_file, monkeypatch)
         "detect",
         lambda: {
             "kind": KIND_PACKAGED_WHEEL,
-            "version": "1.0.0",
+            "version": "0.2.0.202610140941",
         },
     )
     monkeypatch.setattr(self_update.shutil, "which", lambda _: "/bin/yoke")

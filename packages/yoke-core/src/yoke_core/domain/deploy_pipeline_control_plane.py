@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sys
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain.deployment_start_timing import emit_records
@@ -110,48 +109,6 @@ def update_run_field(
     if not result.get("updated"):
         raise DeploymentControlPlaneError(
             f"deployment_runs.execution.update did not verify {field}={value}"
-        )
-
-
-def seed_qa(run_id: str) -> int:
-    """Idempotently seed the run's flow-derived QA checks."""
-    return int(
-        _call("deployment_runs.execution.qa_seed", run_id, {}).get("seeded") or 0
-    )
-
-
-def record_qa_stage(
-    run_id: str,
-    stage: str,
-    verdict: str,
-    *,
-    raw_result: str = "{}",
-    duration_ms: Optional[str] = None,
-    workflow_run: Optional[str] = None,
-) -> Optional[str]:
-    """Record one stage verdict on the run's serving control plane."""
-    payload: Dict[str, Any] = {
-        "stage": stage,
-        "verdict": verdict,
-        "raw_result": raw_result,
-    }
-    if duration_ms is not None:
-        payload["duration_ms"] = duration_ms
-    if workflow_run is not None:
-        payload["workflow_run"] = workflow_run
-    result = _call("deployment_runs.execution.qa_record", run_id, payload)
-    value = result.get("qa_run_id")
-    return str(value) if value is not None else None
-
-
-def record_qa_pass(run_id: str, stage: str, qa_result: str) -> None:
-    """Record a passing stage verdict; warn rather than crash a done stage."""
-    try:
-        record_qa_stage(run_id, stage, "pass", raw_result=qa_result)
-    except DeploymentControlPlaneError as exc:
-        print(
-            f"  Warning: could not record QA verdict for stage '{stage}': {exc}",
-            file=sys.stderr,
         )
 
 
@@ -270,9 +227,7 @@ __all__ = [
     "ephemeral_qa_ready",
     "latest_stage_receipt",
     "project_field",
-    "record_qa_stage",
     "run_pin",
-    "seed_qa",
     "unresolved_qa",
     "update_run_field",
 ]

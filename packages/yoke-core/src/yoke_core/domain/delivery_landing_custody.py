@@ -25,7 +25,6 @@ from yoke_core.domain.deployment_run_candidate_containment import (
 )
 from yoke_core.domain.deployment_run_bound_sources import (
     BOUND_SOURCES_FIELD,
-    bound_sources_recorded,
 )
 from yoke_core.domain.deployment_run_project_sources import recorded_source_sha
 from yoke_core.domain.item_json_sections import read_json_sections
@@ -34,7 +33,7 @@ from yoke_core.domain.item_merge_receipt_document import (
     newest_first,
 )
 from yoke_core.domain.runs import ACTIVE_RUN_STATUSES, RunStatus
-from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.schema_common import _table_exists
 
 
 #: A live or succeeded member run's candidate carries this landing. The
@@ -95,36 +94,9 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _bound_sources_column(conn: Any) -> str:
-    """Name the stored bound-source record, or a constant before converge.
-
-    The column arrives on a boot converge this very code may be driving, so
-    the read cannot assume it and cannot refuse without it.
-    """
-    if bound_sources_recorded(conn):
-        return f"COALESCE(dr.{BOUND_SOURCES_FIELD},'')"
-    return "''"
-
-
-def landing_stamp_columns(conn: Any) -> tuple[str, ...]:
-    """The landing stamps this database actually has.
-
-    ``merge_queue_landed_at`` arrives with the merge-queue schema, so a
-    control plane that has not converged it still answers the question from
-    ``merged_at`` alone rather than failing the whole read.
-    """
-    return tuple(
-        column
-        for column in LANDING_STAMP_COLUMNS
-        if _column_exists(conn, "items", column)
-    )
-
-
 def merged_open_items(conn: Any, project_id: int) -> tuple[dict[str, Any], ...]:
     """Landed nonterminal items and their pinned close-out workflows."""
-    columns = landing_stamp_columns(conn)
-    if not columns:
-        return ()
+    columns = LANDING_STAMP_COLUMNS
     marker = _p(conn)
     terminal = sorted(TERMINAL_STATUSES)
     holes = ", ".join(marker for _ in terminal)
@@ -172,7 +144,7 @@ def _member_runs(
         f"SELECT dri.item_id AS item_id, dr.id AS run_id, dr.status AS status, "
         f"dr.project_id AS project_id, "
         f"COALESCE(dr.release_lineage,'') AS release_lineage, "
-        f"{_bound_sources_column(conn)} AS {BOUND_SOURCES_FIELD} "
+        f"COALESCE(dr.{BOUND_SOURCES_FIELD},'') AS {BOUND_SOURCES_FIELD} "
         f"FROM deployment_run_items dri "
         f"JOIN deployment_runs dr ON dr.id = dri.run_id "
         f"WHERE dri.item_id IN ({item_holes}) AND dr.status IN ({status_holes}) "
@@ -341,6 +313,5 @@ __all__ = [
     "UNHELD",
     "landed_at",
     "landing_custody",
-    "landing_stamp_columns",
     "merged_open_items",
 ]

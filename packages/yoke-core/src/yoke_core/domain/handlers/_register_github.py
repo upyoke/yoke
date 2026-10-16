@@ -8,7 +8,7 @@ GitHub CLI binary.
 
 from __future__ import annotations
 
-from yoke_core.domain.handlers import github_pr_create, github_release_tag
+from yoke_core.domain.handlers import github_pr_create
 from yoke_core.domain.handlers import github_branch_head
 from yoke_core.domain.handlers import github_commit_release_tag
 from yoke_core.domain.handlers import github_merge_queue_apply
@@ -21,7 +21,6 @@ def register(registry) -> None:
     """Register the github family handlers via the given registry."""
     for entry in (
         *github_pr_create.REGISTRATIONS,
-        *github_release_tag.REGISTRATIONS,
         *github_commit_release_tag.REGISTRATIONS,
         *github_branch_head.REGISTRATIONS,
         *github_merge_queue_apply.REGISTRATIONS,

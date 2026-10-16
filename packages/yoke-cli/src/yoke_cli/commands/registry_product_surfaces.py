@@ -21,6 +21,7 @@ from yoke_cli.commands.adapters import (
     test_machine,
     test_machine_desktop,
     universe_levels,
+    universe_retention,
     quota_pool_order,
 )
 from yoke_cli.commands.registry_direct_workflows import (
@@ -216,10 +217,18 @@ MODELS_SUBCOMMAND_REGISTRY = {
     ("models", "restore"): ("models.restore.run", models.models_restore),
 }
 
-UNIVERSE_LEVELS_SUBCOMMAND_REGISTRY = {
+UNIVERSE_SUBCOMMAND_REGISTRY = {
     ("universe", "levels", "get"): (
         "universe.levels.get",
         universe_levels.universe_levels_get,
+    ),
+    ("universe", "retention", "get"): (
+        "universe.retention.get",
+        universe_retention.retention_get,
+    ),
+    ("universe", "prune"): (
+        "universe.prune.run",
+        universe_retention.universe_prune,
     ),
     ("universe", "level-capacity", "get"): (
         "universe.level_capacity.get",
@@ -303,7 +312,7 @@ PRODUCT_SURFACE_SUBCOMMAND_REGISTRY = {
     **QA_CATALOG_SUBCOMMAND_REGISTRY,
     **STRATEGY_SURFACE_SUBCOMMAND_REGISTRY,
     **TEST_MACHINE_SUBCOMMAND_REGISTRY,
-    **UNIVERSE_LEVELS_SUBCOMMAND_REGISTRY,
+    **UNIVERSE_SUBCOMMAND_REGISTRY,
 }
 
 PRODUCT_SURFACE_QA_ALIASES = {

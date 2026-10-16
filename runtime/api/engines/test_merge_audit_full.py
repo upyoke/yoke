@@ -132,7 +132,7 @@ class TestGenerateReport:
         _add_branch(fake_repo, "YOK-201")
 
         with mock.patch.dict(os.environ, _env(tmp_db, fake_repo)):
-            report = merge_audit.generate_report(epic_filter=200)
+            report = merge_audit.generate_report(epic_filter=f"YOK-{200}")
 
         assert "## Epic YOK-200: Epic A" in report
         assert "YOK-201" not in report
@@ -140,8 +140,8 @@ class TestGenerateReport:
     def test_no_branches_for_epic_filter(self, tmp_db, fake_repo):
         """Epic filter with no matching branches."""
         with mock.patch.dict(os.environ, _env(tmp_db, fake_repo)):
-            report = merge_audit.generate_report(epic_filter=999)
-        assert "No unmerged branches found for epic 999." in report
+            report = merge_audit.generate_report(epic_filter=f"YOK-{999}")
+        assert "No unmerged branches found for epic YOK-999." in report
 
 
 class TestWarnings:
@@ -219,7 +219,7 @@ class TestWarnings:
             report = merge_audit.generate_report()
 
         assert "Integration simulation missing" in report
-        assert "/yoke simulate 400" in report
+        assert "/yoke simulate YOK-400" in report
 
     def test_simulation_present_no_warning(self, tmp_db, fake_repo):
         """Simulation present shows result, no missing warning."""
@@ -333,6 +333,6 @@ class TestStandaloneBranches:
         _add_branch(fake_repo, "YOK-52")
 
         with mock.patch.dict(os.environ, _env(tmp_db, fake_repo)):
-            report = merge_audit.generate_report(epic_filter=999)
+            report = merge_audit.generate_report(epic_filter=f"YOK-{999}")
 
         assert "Standalone Issue Branches" not in report

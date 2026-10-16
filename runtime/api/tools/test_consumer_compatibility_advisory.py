@@ -20,9 +20,13 @@ TREE = "d" * 40
 CONSUMER = "b" * 40
 
 
+@pytest.fixture(autouse=True)
+def isolate_step_summary(monkeypatch):
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+
+
 @pytest.fixture
 def proof(monkeypatch):
-    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
     monkeypatch.setenv(gate.CONSUMER_TOKEN_ENV, "scoped-token")
     monkeypatch.setattr(gate, "bind_consumer_authority", lambda: "")
     monkeypatch.setattr(advisory, "candidate_tree", lambda _: TREE)

@@ -19,3 +19,6 @@ yoke merge audit PREFIX-N
 
 It reports task completion, heads/dirty state, simulation, dependency order,
 status mismatches and cross-lane conflicts; uncertainty can warrant it.
+`merge.audit.snapshot` reads control-plane facts on the selected connection;
+Git and dirty-file checks stay local. With no item, pass `--project P` or run
+from its registered checkout. An unavailable snapshot refuses with recovery.

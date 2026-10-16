@@ -300,8 +300,12 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
     const reclaimed = Number(
       (result.envelope.result || {}).total_reclaimed,
     ) || 0;
+    const skipped = (result.envelope.result?.skipped_between_turns || [])
+      .filter((entry) => entry.recheck || entry.reason === "active_work_claim")
+      .map((entry) => `${entry.session_id}: ${entry.reason}; refresh the roster before retrying`);
     actionStatus.textContent =
-      `${reclaimed} stale session${reclaimed === 1 ? "" : "s"} reclaimed`;
+      `${reclaimed} stale session${reclaimed === 1 ? "" : "s"} reclaimed`
+      + (skipped.length ? `; skipped after recheck: ${skipped.join("; ")}` : "");
     if (!await loader.loadOpen()) {
       actionStatus.textContent += `; ${presentSessionControlFailure(
         loader.openError(), "open-session refresh failed; retry reclaim",

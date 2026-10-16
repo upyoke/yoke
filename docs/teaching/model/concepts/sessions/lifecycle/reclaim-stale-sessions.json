@@ -1,7 +1,9 @@
 {
  "id": "reclaim-stale-sessions",
  "title": "Reclaim stale sessions",
- "status": "draft-copy",
+ "status": "observed",
  "page": "sessions",
- "position": 5
+ "position": 5,
+ "summary": "Roster, counts, filters, preview and automatic cleanup use one harness-independent decision including holdings retention, in-flight and episode progress protections. Execution rechecks and explains newly protected skips; authorized termination remains separate.",
+ "sources": ["docs/public/items-and-sessions.md", "packages/yoke-core/src/yoke_core/domain/session_automatic_reclaim.py", "packages/yoke-core/src/yoke_core/domain/session_staleness.py"]
 }

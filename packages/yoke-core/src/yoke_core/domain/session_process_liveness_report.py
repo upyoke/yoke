@@ -13,9 +13,10 @@ launch that started the process carries no ambiguity to wait out: the machine
 started that native, kept its pid and start time, and is reporting that the
 pid is no longer that process.  Waiting the TTL out anyway is what left a
 finished worker's row open for twenty-three minutes until a person killed it
-by hand.  So a launch-named report ends its session on the poll that observed
-the exit, and only a report with no launch behind it -- an anchor a hook
-happened to write for some session -- still waits for the TTL to agree.
+by hand.  So a current launch-named report ends its session on the poll that observed
+the exit. Launch identity never overrides later session activity: superseded
+death evidence keeps its original stamp and cannot end a resumed session.
+Only a report with no launch behind it still waits for the TTL to agree.
 
 Storing what the native measured is separate from ending its session too.
 A report may carry the reading the native's own result stated -- the one
@@ -59,12 +60,16 @@ from yoke_core.domain.session_native_process_observation import (
     AWAITING_SEAT_REPLY_STATUS,
     CLAIMS_HELD_STATUS,
     PARKED_STATUS,
+    current_native_process_observation,
     record_native_process_gone,
 )
 from yoke_core.domain.sessions_orphan_tool_call_sweep import sweep_orphaned_tool_calls
 from yoke_core.domain.sessions_analytics import SessionError
 from yoke_core.domain.sessions_holdings_projection import session_holdings_by_session
 from yoke_core.domain.sessions_render_end import end_session
+from yoke_core.domain.sessions_claim_lifecycle_lock import (
+    lock_session_rows_for_claim_lifecycle,
+)
 from yoke_core.domain.steering_message_recipients import session_awaiting_seat_reply
 
 
@@ -72,7 +77,8 @@ PROCESS_VERIFIED_DEAD_REASON = "process_verified_dead"
 
 _SESSION_COLUMNS = (
     "session_id, project_id, machine_id, executor, mode, last_heartbeat, "
-    "last_tool_call_at, ended_at, terminated_at"
+    "last_tool_call_at, episode_started_at, ended_at, terminated_at, "
+    "native_process_gone_at, native_process_gone_evidence"
 )
 
 
@@ -212,7 +218,6 @@ def apply_verified_process_death_reports(
     now = parse_instant(utc_now() if now is None else now)
     current = now
     projects = tuple(sorted({int(value) for value in authorized_projects}))
-    holdings = session_holdings_by_session(conn, previous_limit=0)
     ended: List[str] = []
     corrected: List[str] = []
     skipped: List[Dict[str, Any]] = []
@@ -227,6 +232,12 @@ def apply_verified_process_death_reports(
             is None
         ):
             _record_reported_usage(conn, session_id, report.get("usage_totals"))
+        # Launch reconciliation commits independently. Take the lifecycle lock
+        # afterward and reread activity/holdings through the ending decision.
+        if settle_and_notify_native_death(conn, session_id, evidence) is not None:
+            corrected.append(session_id)
+        lock_session_rows_for_claim_lifecycle(conn, (session_id,))
+        row = _session_row(conn, session_id)
         status = _skip_reason(
             row,
             machine_id=machine_id,
@@ -234,18 +245,24 @@ def apply_verified_process_death_reports(
             now=current,
             launch_named=_launch_named(evidence),
         )
-        if settle_and_notify_native_death(conn, session_id, evidence) is not None:
-            corrected.append(session_id)
         if status is None and row is not None:
+            record_native_process_gone(conn, session_id, evidence, observed_at=current)
+            row = _session_row(conn, session_id)
+            if (
+                current_native_process_observation(row, include_expected_exit=True)
+                is None
+            ):
+                status = "process_death_superseded"
+        if status is None and row is not None:
+            holdings = session_holdings_by_session(
+                conn, previous_limit=0, session_ids=(session_id,)
+            )
             status = _retention_reason(
                 conn,
                 row,
                 holdings=(holdings.get(session_id) or {}).get("current") or [],
             )
             if status is not None:
-                record_native_process_gone(
-                    conn, session_id, evidence, observed_at=current
-                )
                 sweep_orphaned_tool_calls(
                     conn,
                     session_id=session_id,

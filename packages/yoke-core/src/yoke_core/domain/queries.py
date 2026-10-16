@@ -40,8 +40,6 @@ from yoke_contracts.item_flags import (  # noqa: F401
 # ---------------------------------------------------------------------------
 
 
-
-
 def _sql_flag_filter(value: bool, col: str) -> str:
     if value:
         return f"{col} = 1"
@@ -248,10 +246,7 @@ def classify_item_state(
 
     The blocked-flag check fires after frozen and after the done/cancelled
     terminals so that a done/cancelled/frozen item is never reported as
-    blocked. ``status='blocked'`` is preserved as legacy drift detection
-    only — after the migration cutover no row should hold that lifecycle
-    status; the doctor health check ``HC-blocked-status-drift`` flags any
-    that do.
+    blocked.
 
     This is useful for quick categorization without full board projection.
     """
@@ -272,12 +267,7 @@ def classify_item_state(
         "polishing-implementation",
         "implemented",
         "release",
-        "blocked",
     ):
         return "active_work"
     # idea, planned, refined-idea, planning, refining-plan
     return "pipeline"
-
-
-# Back-compat alias for callers that adopted the spec name.
-compute_dispatch_status = classify_item_state

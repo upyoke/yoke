@@ -83,7 +83,6 @@ from yoke_core.domain.steering_fleet_report_scope import (
     seat_claim_holders,
     seat_landed_open,
     seat_members,
-    sessions_only,
 )
 from yoke_core.domain.steering_fleet_report_stranded import StrandedSession
 from yoke_core.domain.steering_fleet_report_undelivered import UndeliveredMessages
@@ -298,11 +297,7 @@ def compose_report(
         available=available,
         holders=holders,
         idle=idle,
-        undelivered=sessions_only(
-            item_facts.undelivered,
-            session_ids=(holder.session_id for holder in holders),
-            members=members,
-        ),
+        undelivered=item_facts.undelivered,
         unregistered_launches=facts.unregistered_launches,
         abandoned_launches=facts.abandoned_launches,
         landed_open=landed_open,

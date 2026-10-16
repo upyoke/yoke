@@ -145,23 +145,6 @@ def test_a_document_with_no_knowable_baseline_is_excluded(tmp_db: str) -> None:
     assert series == {DAY: 30}
 
 
-def test_both_meter_paths_report_the_same_figure(tmp_db: str) -> None:
-    from yoke_contracts.board.widgets_velocity_meter import _legacy_series
-
-    conn = connect_test_db(tmp_db)
-    try:
-        _save(conn, "MISSION", "a" * 100)
-        _save(conn, "MISSION", "a" * 130)
-        conn.commit()
-        _drop_all_events(conn)
-        db = ConnBoardDB(conn)
-        shared = strategy_bytes_by_day(db, [PROJECT], days=120)
-        *_, legacy = _legacy_series(db, "", [PROJECT], 120, [])
-    finally:
-        conn.close()
-    assert shared == legacy == {DAY: 130}
-
-
 @pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
 def test_strategy_day_bucket_uses_utc_with_native_microseconds(tmp_db, zone):
     from yoke_contracts.timestamps import parse_instant

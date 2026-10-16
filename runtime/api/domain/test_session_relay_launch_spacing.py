@@ -1,4 +1,4 @@
-"""Launch batches drain without waiting behind serial control work."""
+"""Launches and independent wakes drain without unrelated report waits."""
 
 from __future__ import annotations
 
@@ -175,8 +175,17 @@ def test_wakes_stay_one_per_cycle_even_when_several_are_eligible() -> None:
 
     assert len(outcome.jobs) == 1
     assert outcome.jobs[0].job_kind == "wake"
-    # The single wake holds the relay until it is reported.
-    assert _claim(conn, now="2026-08-22T12:00:01.000000Z").jobs == ()
+    following = _claim(conn, now="2026-08-22T12:00:01.000000Z")
+    assert len(following.jobs) == 1
+    assert following.jobs[0].job_kind == "wake"
+    assert following.jobs[0].target_session_id != outcome.jobs[0].target_session_id
+    assert _claim(conn, now="2026-08-22T12:00:02.000000Z").jobs == ()
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) FROM session_message_attempts WHERE completed_at IS NULL"
+        ).fetchone()[0]
+        == 2
+    )
 
 
 def test_an_eligible_wake_does_not_starve_assigned_launches() -> None:

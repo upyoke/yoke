@@ -5,8 +5,7 @@ commits), issues delivered, approximate strategy-doc size change, and code
 from the ``project_code_days`` rollup — parameterized by explicit project
 ids so the terminal velocity meter and the Overview momentum endpoint
 cannot diverge on composition. Date cutoffs live inside the SQL text
-(:func:`days_ago_text_expr`), never in client-computed parameters, so board
-record/replay keys stay stable across a midnight boundary; ``days=None``
+(:func:`days_ago_text_expr`), so the database owns the clock for each window; ``days=None``
 means all-time.
 """
 
@@ -30,10 +29,7 @@ def _day_filter(column_sql: str, days: Optional[int]) -> str:
 
 
 def _available_rows(db: BoardDBLike, sql: str, params: Tuple):
-    """Read only the figures the recorded payload can actually supply."""
-    probe = getattr(db, "has_query", None)
-    if callable(probe) and not probe(sql, params):
-        return []
+    """Read the shared activity figures from storage."""
     return db.query(sql, params)
 
 
@@ -81,8 +77,7 @@ def activity_items_query(
 ) -> Tuple[str, Tuple]:
     """(sql, params) for the distinct-items activity component.
 
-    Exposed so replay consumers can probe payload coverage with the exact
-    query key before choosing this series over an older recorded shape.
+    Shared by activity-series collectors.
     """
 
     sql = (
@@ -194,14 +189,6 @@ def strategy_bytes_by_day(
     if not project_ids:
         return {}
     sql, params = _strategy_query(project_ids, days)
-    has_query = getattr(db, "has_query", None)
-    if callable(has_query) and not has_query(sql, params):
-        # A board payload recorded before this measure existed holds no
-        # strategy figure this measure can serve, and the events total such
-        # a payload does carry is the expiring one this measure replaced.
-        # An empty series keeps the board rendering across the window
-        # between this build merging and the server shipping it.
-        return {}
     counts: Dict[str, int] = {}
     for row in db.query(sql, params):
         if row and row[0]:

@@ -133,9 +133,9 @@ def _invoke_missing_context_boundary(name: str, monkeypatch) -> str:
 
         return str(check_ac_presence.main(["2318"]))
     if name == "hard-blocks":
-        from yoke_core.domain import check_hard_blocks
+        from yoke_cli.commands.adapters.hard_blocks import hard_blocks
 
-        return str(check_hard_blocks.main(["2318"]))
+        return str(hard_blocks(["2318"]))
     if name == "conduct-handoff":
         from yoke_core.domain import conduct_reviewed_handoff
 

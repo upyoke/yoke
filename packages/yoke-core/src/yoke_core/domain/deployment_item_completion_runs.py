@@ -38,25 +38,10 @@ from yoke_core.domain.deployment_run_project_sources import (
     recorded_source_sha,
     run_recorded_and_delivered_shas,
 )
-from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
 def _row_value(row: Any, key: str, position: int) -> Any:
     return row[key] if hasattr(row, "keys") else row[position]
-
-
-def _settling_column(conn: Any) -> str:
-    """Select the native settlement marker, or null before convergence."""
-    if _column_exists(conn, "deployment_runs", "settling_at"):
-        return "dr.settling_at"
-    return "NULL AS settling_at"
-
-
-def _bound_sources_column(conn: Any) -> str:
-    """Select the recorded bound sources, or empty on an unconverged plane."""
-    if _column_exists(conn, "deployment_runs", BOUND_SOURCES_FIELD):
-        return f"COALESCE(dr.{BOUND_SOURCES_FIELD}, '') AS {BOUND_SOURCES_FIELD}"
-    return f"'' AS {BOUND_SOURCES_FIELD}"
 
 
 def completion_runs(
@@ -69,9 +54,6 @@ def completion_runs(
     the run recorded for THIS item's project, which for an own-project run
     is the run's own lineage and for a carrier is the bound commit.
     """
-    required = ("deployment_runs", "deployment_run_items")
-    if not all(_table_exists(conn, table) for table in required):
-        return []
     flows = item_closing_flows(conn, int(item_id))
     if not flows:
         return []
@@ -80,7 +62,8 @@ def completion_runs(
         "SELECT dr.id, dr.status, dr.current_stage, dr.project_id, "
         "COALESCE(dr.release_lineage, '') AS release_lineage, dr.flow, "
         "i.project_id AS item_project_id, "
-        f"{_bound_sources_column(conn)}, {_settling_column(conn)} "
+        f"COALESCE(dr.{BOUND_SOURCES_FIELD}, '') AS {BOUND_SOURCES_FIELD}, "
+        "dr.settling_at "
         "FROM deployment_runs dr "
         "JOIN deployment_run_items dri ON dr.id = dri.run_id "
         "JOIN items i ON i.id = dri.item_id "
@@ -209,8 +192,6 @@ def latest_qa_member_run(
         stage_target_admits,
     )
 
-    from yoke_core.domain.deployment_qa_member_scope import legacy_run_credits_run_wide
-
     finals = completion_runs(conn, item_id)
     current_final = current_final_run(finals)
     credited = (
@@ -228,10 +209,7 @@ def latest_qa_member_run(
             continue
         if run["status"] in {"failed", "cancelled"}:
             continue
-        if not target_env or (
-            run in finals
-            and legacy_run_credits_run_wide(conn, run_id=run["id"], item_id=item_id)
-        ):
+        if not target_env:
             return run
         environments, dynamic = run_qa_stage_targets(conn, run["id"])
         if stage_target_admits(target_env, environments=environments, dynamic=dynamic):

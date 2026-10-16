@@ -132,7 +132,8 @@ def _create_sqlite_database(database_path: Path, item_id: int) -> None:
         f"""
         CREATE TABLE items (
           id INTEGER PRIMARY KEY,
-          project_id INTEGER
+          project_id INTEGER,
+          generated_task_membership_finalized_at TEXT
         );
         CREATE TABLE epic_tasks (
           id INTEGER PRIMARY KEY,

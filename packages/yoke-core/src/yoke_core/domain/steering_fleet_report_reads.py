@@ -144,7 +144,9 @@ def read_project_facts(
     return ProjectFleetFacts(
         available=scope_candidates(conn, project_id=project_id, session_id=session_id),
         holders=holders,
-        undelivered=undelivered_messages(conn, project_id=project_id, now=now),
+        undelivered=undelivered_messages(
+            conn, project_id=project_id, now=now, session_id=session_id
+        ),
         unregistered_launches=unregistered_launches(
             conn, project_id=project_id, now=now
         ),

@@ -27,7 +27,12 @@ def release_version(value: str) -> str:
             "release_version_invalid: use BASE.YYYYMMDDHHMM from the commit UTC time"
         )
     base, date, time = match.groups()
-    datetime.strptime(date + time, "%Y%m%d%H%M")
+    try:
+        datetime.strptime(date + time, "%Y%m%d%H%M")
+    except ValueError as exc:
+        raise ValueError(
+            "release_version_invalid: use a valid UTC commit date and minute"
+        ) from exc
     return f"{base}.{date}{time}"
 
 

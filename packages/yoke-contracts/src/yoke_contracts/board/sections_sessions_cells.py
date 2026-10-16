@@ -73,9 +73,6 @@ def _display_usage(
         "ORDER BY effective_at DESC,published_at DESC,revision_id DESC LIMIT 1"
     )
     params = (when,)
-    has_query = getattr(db, "has_query", None)
-    if callable(has_query) and not has_query(sql, params):
-        return usage_cell(usage, None)
     rows = db.query(sql, params)
     if not rows:
         raise ValueError("no model catalog revision covers this session; publish one")
@@ -85,16 +82,21 @@ def _display_usage(
         "SELECT catalog_json FROM model_reference_revisions WHERE revision_id = %s"
     )
     catalog_params = (revision_id,)
-    if callable(has_query) and not has_query(catalog_sql, catalog_params):
-        return usage_cell(usage, None)
-    catalog_rows = db.query(catalog_sql, catalog_params)
-    if not catalog_rows:
-        raise ValueError("session model catalog revision is missing; publish it again")
-    document = catalog_rows[0][0]
+    catalogs = getattr(db, "_board_model_catalogs", None)
+    if catalogs is None:
+        catalogs = {}
+        db._board_model_catalogs = catalogs
+    if revision_id not in catalogs:
+        catalog_rows = db.query(catalog_sql, catalog_params)
+        if not catalog_rows:
+            raise ValueError(
+                "session model catalog revision is missing; publish it again"
+            )
+        catalogs[revision_id] = validate_catalog(json.loads(catalog_rows[0][0]))
     revision = {
         "revision_id": revision_id,
         "effective_at": effective_at,
-        "records": validate_catalog(json.loads(document)),
+        "records": catalogs[revision_id],
     }
     return usage_cell(usage, estimated_session_cost(usage, revision))
 

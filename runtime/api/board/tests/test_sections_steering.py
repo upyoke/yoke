@@ -8,7 +8,8 @@ from pathlib import Path
 
 from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.board import sections_sessions
-from yoke_contracts.board.data import BOARD_DATA_VERSION, ReplayBoardDB
+from yoke_contracts.board.data import _encode_value, _decode_value
+from yoke_contracts.board.session_data import render_session_rows
 from yoke_contracts.board.renderer import render_board_from_payload
 from yoke_contracts.board.sections_sessions_holdings import session_holding_labels
 from yoke_contracts.board.sections_sessions_occupancy import prefetch_session_occupancy
@@ -17,7 +18,6 @@ from yoke_contracts.board.sections_sessions_rendering import (
     _render_claim_target,
 )
 from yoke_core.board.db import BoardDB
-from yoke_core.board.data import RecordingBoardDB
 from yoke_core.domain.work_claim_targets import make_steering_target
 from runtime.api.fixtures.file_test_db import (
     apply_inline_ddl,
@@ -187,7 +187,7 @@ def test_a_project_steered_without_a_document_still_names_itself(
     assert keycaps == ["🛞 steering platform · no doc lock"]
 
 
-def test_recorded_payload_folds_new_pair_read_and_preserves_old_rows(
+def test_session_facts_preserve_steering_document_labels(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -218,37 +218,20 @@ def test_recorded_payload_folds_new_pair_read_and_preserves_old_rows(
     monkeypatch.setattr(
         sections_sessions, "session_level_presentation", lambda *_args: None
     )
-    monkeypatch.setattr(sections_sessions, "_format_session_age", lambda _value: "1m")
+    monkeypatch.setattr(
+        "yoke_contracts.board.session_data._format_session_age", lambda _value: "1m"
+    )
 
     with _board_db(tmp_path) as (db, db_path):
         _seed(db_path)
-        recorder = RecordingBoardDB(db)
-        prefetch_session_occupancy(recorder, "all")
-        rendered = sections_sessions.render_sessions_section(recorder)
-        payload = {
-            "version": BOARD_DATA_VERSION,
-            "engine_version": "contract-test",
-            "entries": recorder.encoded_entries(),
-        }
-
+        prefetch_session_occupancy(db, "all")
+        active = sections_sessions.collect_session_rows(
+            db, scope="all", active_only=True
+        )
+        payload = json.loads(json.dumps(_encode_value(active)))
+    rendered = render_session_rows(_decode_value(payload), [])
     assert "steering platform · CURRENT-PLAN" in rendered
-    replay = ReplayBoardDB.from_payload(json.loads(json.dumps(payload)))
-    prefetch_session_occupancy(replay, "all")
-    assert "steering yoke · MISSION" in sections_sessions.render_sessions_section(
-        replay
-    )
-
-    payload["entries"] = [
-        entry
-        for entry in payload["entries"]
-        if "doc.registered_at" not in str(entry.get("sql") or "")
-    ]
-    old_replay = ReplayBoardDB.from_payload(json.loads(json.dumps(payload)))
-    prefetch_session_occupancy(old_replay, "all")
-    old_rendered = sections_sessions.render_sessions_section(old_replay)
-    assert "steering platform · CURRENT-PLAN" not in old_rendered
-    assert "steering platform" in old_rendered
-    assert "platform · CURRENT-PLAN" in old_rendered
+    assert "steering yoke · MISSION" in rendered
 
 
 def test_board_renderer_omits_the_steering_section() -> None:

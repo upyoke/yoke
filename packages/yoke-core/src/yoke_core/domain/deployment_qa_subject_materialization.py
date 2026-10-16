@@ -88,6 +88,11 @@ def materialize_subject(
             "SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE",
             (str(deployment_run_id),),
         )
+        from yoke_core.domain.deployment_qa_snapshot_selection import (
+            freeze_selected_plans,
+        )
+
+        freeze_selected_plans(conn, subject, snapshots)
         bound_direct = (
             []
             if subject.get("shared_plan")

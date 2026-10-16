@@ -99,7 +99,7 @@ def test_the_stage_runner_dispatches_at_the_tag(monkeypatch) -> None:
 
 
 def _stages(**stage_fields) -> str:
-    stage = {"name": "deploy", "step_runner": "github-actions-workflow",
+    stage = {"name": "deploy", "stage_kind": "execution", "step_runner": "github-actions-workflow",
              "workflow": "release.yml", **stage_fields}
     return json.dumps([stage])
 
@@ -115,7 +115,7 @@ def test_validation_accepts_the_declared_key() -> None:
         (_stages(run_from_release_commit="yes"), "must be a boolean"),
         (_stages(run_from_release_commit=True, ref="main"), 'remove "ref"'),
         (
-            json.dumps([{"name": "x", "step_runner": "auto",
+            json.dumps([{"name": "x", "stage_kind": "execution", "step_runner": "auto",
                          "run_from_release_commit": True}]),
             "applies only to",
         ),

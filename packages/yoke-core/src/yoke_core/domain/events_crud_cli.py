@@ -51,7 +51,7 @@ _TOP_USAGE = (
     "Usage: events_crud <subcommand> [args...]\n"
     "\n"
     "Subcommands:\n"
-    "  init, insert, list, query, count, anomalies, prune, tail,\n"
+    "  init, insert, list, query, count, anomalies, tail,\n"
     "  severity-config, severity-check, registry"
 )
 
@@ -143,14 +143,6 @@ def main(argv: Optional[list[str]] = None) -> int:
         from yoke_core.domain.events_queries import cli_anomalies
 
         return cli_anomalies(db_path, rest)
-    if subcmd == "prune":
-        try:
-            print(_ec.cmd_prune(db_path, **_ec.prune_cli_kwargs(rest)))
-        except ValueError as exc:
-            print(f"Error: {exc}", file=sys.stderr)
-            return 2
-        return 0
-
     if subcmd == "tail":
         limit = 20
         if rest:

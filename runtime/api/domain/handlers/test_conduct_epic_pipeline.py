@@ -40,9 +40,19 @@ def _request(
 
 def test_update_status_uses_pipeline_env_and_flags() -> None:
     def fake_update(
-        conn, epic_id, task_num, status, note, *,
-        no_github, no_derive, stdout, stderr,
+        conn,
+        epic_id,
+        task_num,
+        status,
+        note,
+        *,
+        session_id,
+        no_github,
+        no_derive,
+        stdout,
+        stderr,
     ) -> int:
+        assert session_id == "session-1"
         assert epic_id == "42"
         assert task_num == "7"
         assert status == "implementing"
@@ -56,7 +66,8 @@ def test_update_status_uses_pipeline_env_and_flags() -> None:
 
     with patch.object(handlers, "_open_connection", _fake_conn):
         with patch.object(
-            handlers.update_status, "update_task_status",
+            handlers.update_status,
+            "update_task_status",
             side_effect=fake_update,
         ):
             outcome = handlers.handle_update_status(
@@ -84,7 +95,8 @@ def test_update_status_nonzero_maps_failure() -> None:
 
     with patch.object(handlers, "_open_connection", _fake_conn):
         with patch.object(
-            handlers.update_status, "update_task_status",
+            handlers.update_status,
+            "update_task_status",
             side_effect=fake_update,
         ):
             outcome = handlers.handle_update_status(
@@ -101,7 +113,9 @@ def test_update_status_nonzero_maps_failure() -> None:
 
 def test_proceed_handoff_uses_actor_session_when_payload_omits_it() -> None:
     with patch.object(
-        handlers.epic, "proceed_triage_and_handoff", return_value=0,
+        handlers.epic,
+        "proceed_triage_and_handoff",
+        return_value=0,
     ) as handoff:
         outcome = handlers.handle_proceed_triage_handoff(
             _request(

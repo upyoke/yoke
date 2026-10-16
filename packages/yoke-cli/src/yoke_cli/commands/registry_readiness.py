@@ -7,12 +7,17 @@ from typing import Callable, Dict, List, Tuple
 from yoke_cli.commands import flag_adapters as _adapters
 from yoke_cli.commands.adapters.claims_path_override import claims_path_override
 from yoke_cli.commands.adapters.claims_path_flow import claims_path_boundary_prove
+from yoke_cli.commands.adapters.hard_blocks import hard_blocks
 
 
 AdapterFn = Callable[[List[str]], int]
 
 
 READINESS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
+    ("advance", "preflight", "hard-blocks"): (
+        "advance.preflight.hard_blocks",
+        hard_blocks,
+    ),
     ("readiness", "check"): ("readiness.check.run", _adapters.readiness_check),
     ("readiness", "prd-validate"): (
         "readiness.prd_validate.run",

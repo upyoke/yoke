@@ -1,0 +1,11 @@
+{
+ "id": "project-uninstall",
+ "title": "Explain exact project cleanup and preserved state",
+ "status": "observed",
+ "audience": "both",
+ "when": "Removing the installed operating layer from one checkout",
+ "need": "Remove only exact installer-owned registration and folder trust with exclusive checkout proof. Preserve credentials, shared roots, Git worktrees, edited and unproven entries. A partial outcome exits nonzero, names recovery and retains the install manifest for the same command's retry.",
+ "topics": ["maintenance/uninstall"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/project_install/owned_cleanup.py", "packages/yoke-contracts/src/yoke_contracts/harness_folder_trust_revert.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/install.py", "docs/public/install.md"],
+ "recipes": ["yoke project uninstall --help"]
+}

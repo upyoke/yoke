@@ -79,7 +79,7 @@ def test_exceptional_transition_without_plan_attachment_skips_materialization(
     result = backlog.execute_update(
         item_id=item_id,
         field="status",
-        value="blocked",
+        value="stopped",
         force=True,
         no_github=True,
     )
@@ -90,7 +90,7 @@ def test_exceptional_transition_without_plan_attachment_skips_materialization(
         "SELECT status FROM items WHERE id=%s",
         (item_id,),
     ).fetchone()[0]
-    assert str(status) == "blocked"
+    assert str(status) == "stopped"
 
 
 def test_expected_source_status_survives_retry_after_status_drift(
@@ -126,7 +126,7 @@ def test_expected_source_status_survives_retry_after_status_drift(
         if result.failure is None and not drifted:
             drifted = True
             conn.execute(
-                "UPDATE items SET status='blocked' WHERE id=%s",
+                "UPDATE items SET status='stopped' WHERE id=%s",
                 (item_id,),
             )
             conn.commit()
@@ -152,7 +152,7 @@ def test_expected_source_status_survives_retry_after_status_drift(
         "SELECT status FROM items WHERE id=%s",
         (item_id,),
     ).fetchone()[0]
-    assert str(status) == "blocked"
+    assert str(status) == "stopped"
 
 
 def test_lifecycle_source_drift_rejects_before_preflight_artifacts(
@@ -206,7 +206,7 @@ def test_lifecycle_source_drift_rejects_before_preflight_artifacts(
         thread.start()
         assert frozen_check_entered.wait(timeout=10)
         test_db.execute(
-            "UPDATE items SET status='blocked' WHERE id=%s",
+            "UPDATE items SET status='stopped' WHERE id=%s",
             (item_id,),
         )
         test_db.commit()

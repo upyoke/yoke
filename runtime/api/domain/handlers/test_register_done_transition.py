@@ -29,7 +29,6 @@ _DONE_TRANSITION_READS = {
     "done_transition.registered_flow_ids": (("global",), _DEPLOY_MODULE),
     "done_transition.latest_deployment_run": (("item",), _DEPLOY_MODULE),
     "done_transition.run_stage": (("global",), _DEPLOY_MODULE),
-    "done_transition.run_blocking_qa": (("global",), _DEPLOY_MODULE),
     "done_transition.run_stage_qa_acceptance": (("item",), _DEPLOY_MODULE),
     "done_transition.done_preconditions": (("item",), _DEPLOY_MODULE),
 }

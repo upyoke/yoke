@@ -101,6 +101,11 @@ Never repeat a mutation merely to request `--json`; request its receipt initiall
 Mutations remain committed when a separately reported downstream side effect
 degrades. Required operational facts belong to durable owners, not event history.
 
+`universe.prune.run` manages idempotency by reselecting remaining eligible rows;
+it stores no result receipt. Its foreground command does not resend a lost
+mutating pass and reports that pass's count as unknown. See
+[universe retention](../../universe-retention.md) for the output-only exception.
+
 The registry owns ids, request schemas, handler/claim metadata, adapter status
 and minimum serving versions. New ids declare their serving floor; below-floor
 calls refuse with a served recovery or operator escalation. Clients tolerate

@@ -93,14 +93,16 @@ def _seed_frontier_conn(conn) -> None:
            VALUES (26, 'Passed task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implemented', 'high', 1, 26, 0,
                    '2026-03-01T00:00:00Z', '2026-03-08T00:00:00Z', 'user')"""
     )
-    # Item 27: explicit blocked item, yoke (reported in blocked bucket)
+    # Item 27: operator-blocked item retains its lifecycle stage.
     conn.execute(
         """INSERT INTO items
            (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence, frozen,
             created_at, updated_at, source)
-           VALUES (27, 'Explicitly blocked task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'blocked', 'medium', 1, 27, 0,
+           VALUES (27, 'Explicitly blocked task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'medium', 1, 27, 0,
                    '2026-03-01T00:00:00Z', '2026-03-09T00:00:00Z', 'user')"""
     )
+
+    conn.execute("UPDATE items SET blocked=1, blocked_reason='Waiting for operator' WHERE id=27")
 
     from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 

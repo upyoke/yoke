@@ -179,15 +179,12 @@ def post_deploy_admission_split(
     it derives nothing and reports nothing: there is no admitted copy for a
     selection to become.
     """
-    if not requires_release_admission(conn, run_id):
-        return (), ()
-    environments, dynamic = run_qa_stage_targets(conn, run_id)
-    admitted: list[int] = []
-    unadmitted: list[dict[str, Any]] = []
-    from yoke_core.domain.deployment_run_member_targeting import supplemental_qa_run
+    return post_deploy_admission_sets(conn, run_id=run_id, item_ids=(item_id,))[item_id]
 
-    supplemental = supplemental_qa_run(conn, run_id=run_id, item_id=item_id)
-    for row in outstanding_post_deploy_requirements(conn, int(item_id)):
+
+def _admission_split(rows, *, supplemental, environments, dynamic):
+    admitted, unadmitted = [], []
+    for row in rows:
         if supplemental and not row["target_env"]:
             continue
         if stage_target_admits(
@@ -197,6 +194,30 @@ def post_deploy_admission_split(
         else:
             unadmitted.append(row)
     return tuple(admitted), tuple(unadmitted)
+
+
+def post_deploy_admission_sets(conn, *, run_id, item_ids):
+    """Derive every member's selection from one fresh intake and target read."""
+    from yoke_core.domain.deployment_item_flow_resolution import item_completion_flows
+    from yoke_core.domain.deployment_run_member_targeting import supplemental_item_ids
+
+    ids = tuple(sorted(set(int(value) for value in item_ids)))
+    if not ids or not requires_release_admission(conn, run_id):
+        return {item_id: ((), ()) for item_id in ids}
+    environments, dynamic = run_qa_stage_targets(conn, run_id)
+    supplemental = supplemental_item_ids(
+        conn, run_id=run_id, completion_flows=item_completion_flows(conn, ids)
+    )
+    requirements = outstanding_post_deploy_requirement_sets(conn, ids)
+    return {
+        item_id: _admission_split(
+            requirements.get(item_id, ()),
+            supplemental=item_id in supplemental,
+            environments=environments,
+            dynamic=dynamic,
+        )
+        for item_id in ids
+    }
 
 
 def admissible_post_deploy_requirement_ids(

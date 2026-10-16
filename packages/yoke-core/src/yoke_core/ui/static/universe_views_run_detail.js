@@ -89,6 +89,7 @@ function decisionCard(context, row, project, checks, onAct, itemFacts, onItemDec
     appendCarriedItemHeading(documentNode, list, item, project?.id, itemFacts.titles);
     const drawn = appendCarriedItemEvidence(context, list, {
       item,
+      requireProjection: true,
       runId: row.id || row.run_id,
       deployedSha: row.release_lineage,
       facts: { ...itemFacts, gates: row.gates },

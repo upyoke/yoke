@@ -33,6 +33,7 @@ from yoke_core.domain.path_claims_dependency_resolver_coordination import (
     items_are_coordination_only,
 )
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.schema_read_scope import composition_operation
 from yoke_core.domain.project_identity import render_item_ref
 
 DIRECT_WORKFLOW_IDS = frozenset({"blitz", "dash"})
@@ -87,6 +88,7 @@ def _item(conn: Any, item_id: int) -> dict[str, Any]:
     return row
 
 
+@composition_operation
 def survey_conflicts(
     conn: Any,
     *,

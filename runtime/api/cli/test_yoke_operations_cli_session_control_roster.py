@@ -67,7 +67,7 @@ def test_full_roster_dispatches_detail_and_prints_every_field(
                         "max_chain_steps": 3,
                     },
                     "effective_stale_ttl_minutes": 60,
-                    "stale_eligible_at": "2099-08-22T13:00:00Z",
+                    "activity_quiet_at": "2099-08-22T13:00:00Z",
                 }
             ],
         }

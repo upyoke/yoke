@@ -14,9 +14,9 @@ wheel's own version, asserts every product wheel shares one version (the
 earliest lockstep guard), requires the exact unconditional product dependency
 graph, and rewrites each product-sibling ``Requires-Dist`` entry from its bare
 form to ``<name>==<shared version>``. The built wheels then declare exact pins
-so a pip-based install can only resolve the real siblings from the same channel.
-Release validation additionally requires the shared version to carry a PEP 440
-local segment, which cannot be reproduced by a package on the public index.
+so a pip-based install requires the same sibling version. Release validation
+additionally requires canonical commit-clock spelling. Explicit product wheel
+origins in installers and factory inputs prevent public-index substitution.
 
 Editing wheel metadata means the wheel's ``RECORD`` (which carries a
 ``sha256=...,<size>`` row per file) must be updated for the rewritten
@@ -68,9 +68,7 @@ def pin_wheelhouse_product_siblings(
     wheels_by_name: dict[str, list[Path]] = {}
     for record in package_index.read_wheel_records(wheelhouse):
         if record.canonical_name in product_canonical:
-            wheels_by_name.setdefault(record.canonical_name, []).append(
-                record.source
-            )
+            wheels_by_name.setdefault(record.canonical_name, []).append(record.source)
     missing = sorted(product_canonical - set(wheels_by_name))
     duplicates = sorted(
         name for name, wheels in wheels_by_name.items() if len(wheels) != 1
@@ -85,9 +83,7 @@ def pin_wheelhouse_product_siblings(
             "wheelhouse must contain exactly one wheel per product: "
             + "; ".join(details)
         )
-    product_wheels = [
-        wheels_by_name[name][0] for name in sorted(product_canonical)
-    ]
+    product_wheels = [wheels_by_name[name][0] for name in sorted(product_canonical)]
 
     versions = {_wheel_version(wheel) for wheel in product_wheels}
     if len(versions) != 1:
@@ -113,9 +109,7 @@ def pin_wheelhouse_product_siblings(
             else:
                 candidate = wheel
             wheel_record_validation.assert_wheel_record_valid(candidate)
-            assert_wheel_siblings_pinned(
-                candidate, product_canonical, version
-            )
+            assert_wheel_siblings_pinned(candidate, product_canonical, version)
         for candidate, wheel in staged:
             candidate.replace(wheel)
     finally:
@@ -153,9 +147,7 @@ def _stage_one_wheel(
         if wheel_record_validation.has_record_signature(
             archive.namelist(), record_arcname
         ):
-            raise WheelSiblingPinError(
-                f"{wheel.name}: cannot rewrite a signed wheel"
-            )
+            raise WheelSiblingPinError(f"{wheel.name}: cannot rewrite a signed wheel")
         record_raw = archive.read(record_arcname)
         infos = archive.infolist()
         payloads = {info.filename: archive.read(info.filename) for info in infos}
@@ -202,9 +194,7 @@ def _rewrite_metadata(
             parsed = Parser().parsestr("".join(field_lines))
             values = parsed.get_all("Requires-Dist") or []
             if len(values) != 1:
-                raise WheelSiblingPinError(
-                    "Requires-Dist header could not be parsed"
-                )
+                raise WheelSiblingPinError("Requires-Dist header could not be parsed")
             value = normalize_requires_dist(values[0])
             pinned = _maybe_pin_requirement(value, product_canonical, version)
             if pinned is not None and pinned != value:
@@ -291,9 +281,7 @@ def _record_hash(data: bytes) -> str:
 
 def _single_metadata_arcname(archive: zipfile.ZipFile, wheel: Path) -> str:
     names = [
-        name
-        for name in archive.namelist()
-        if name.endswith(".dist-info/METADATA")
+        name for name in archive.namelist() if name.endswith(".dist-info/METADATA")
     ]
     if len(names) != 1:
         raise WheelSiblingPinError(f"wheel has no single METADATA file: {wheel}")
@@ -315,9 +303,7 @@ def _wheel_version(wheel: Path) -> str:
 def _wheel_metadata(wheel: Path) -> dict[str, str]:
     with zipfile.ZipFile(wheel) as archive:
         metadata_arcname = _single_metadata_arcname(archive, wheel)
-        message = Parser().parsestr(
-            archive.read(metadata_arcname).decode("utf-8")
-        )
+        message = Parser().parsestr(archive.read(metadata_arcname).decode("utf-8"))
     name = message.get("Name")
     version = message.get("Version")
     if not name or not version:

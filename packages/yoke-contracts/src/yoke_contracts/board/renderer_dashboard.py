@@ -1,91 +1,107 @@
-"""Dashboard widget-row assembly for the board renderer.
+"""Dashboard collection and pure rendering of named widget data."""
 
-Extracted from :mod:`yoke_core.board.renderer` to keep that module
-under the authored-line cap. ``db`` is any handle honoring the BoardDBLike
-seam (live, recording, or replay).
-"""
-
-from __future__ import annotations
-
-from typing import Dict, List, Optional
-
-from yoke_contracts.board.config import BoardConfig
+from typing import List, Optional
 from yoke_contracts.board.sections import task_expanded_count
-from yoke_contracts.board.widgets import (
-    render_achievement_badges,
-    render_age_heatmap,
-    render_workflow_badges,
-    render_velocity_meter,
-    render_velocity_sparkline,
-    render_weather,
+from yoke_contracts.board.widgets_activity import (
+    collect_weather_count,
+    collect_activity_series,
+)
+from yoke_contracts.board.widgets_badges import (
+    collect_age_counts,
+    collect_workflow_counts,
+    collect_achievement_counts,
+)
+from yoke_contracts.board.widgets_velocity_meter import collect_velocity_series
+from yoke_contracts.board.widget_data import (
+    render_weather_count,
+    render_activity_series,
+    render_age_counts,
+    render_workflow_counts,
+    render_achievement_counts,
+    render_velocity_series,
 )
 
 
-def render_dashboard(
-    db,
-    config: BoardConfig,
-    scope: str,
-    buckets: Dict[str, list],
-    epic_task_counts: Dict[int, int],
-    repo_root: Optional[str],
-) -> List[str]:
-    """Render dashboard widget rows in canonical order.
-
-    Canonical order:
-    1. Weather (if enabled)
-    2. Row 1: velocity sparkline | achievement badges
-    3. Velocity meter (if enabled)
-    4. Row 2: age heatmap | workflow badges
-    """
-    lines: List[str] = []
-
-    # Weather
+def collect_dashboard_data(db, config, scope, tex_done, repo_root=None) -> dict:
+    """Read only enabled widgets, with named values rather than a query plan."""
+    data = {}
     if config.dashboard_weather:
-        weather = render_weather(db, config, scope)
-        if weather:
-            lines.append("")
-            lines.append(weather)
-
-    # Row 1: velocity sparkline | achievement badges
-    velocity = None
+        data["weather"] = collect_weather_count(db, config, scope)
     if config.dashboard_velocity:
-        velocity = render_velocity_sparkline(db, config, scope, repo_root)
-
-    # Compute tex_done for badge thresholds
-    done_items = buckets.get("done", [])
-    tex_done = task_expanded_count(done_items, epic_task_counts)
-
-    badges = None
+        data["activity"] = collect_activity_series(db, config, scope, repo_root)
     if config.dashboard_badges:
-        badges = render_achievement_badges(db, config, scope, tex_done)
-
-    row1 = _combine_row(velocity, badges)
-    if row1:
-        lines.append("")
-        lines.append(row1)
-
-    # Velocity meter (4 rows, if enabled)
+        data["achievements"] = collect_achievement_counts(db, config, scope, tex_done)
     if config.dashboard_velocity_meter:
-        meter_lines = render_velocity_meter(db, config, scope, repo_root)
-        if meter_lines:
-            lines.append("")
-            lines.extend(meter_lines)
-
-    # Row 2: age heatmap | workflow badges
-    age = None
+        data["velocity"] = collect_velocity_series(db, config, scope, repo_root)
     if config.dashboard_age:
-        age = render_age_heatmap(db, config, scope)
-
-    workflows = None
+        data["age"] = collect_age_counts(db, config, scope)
     if config.dashboard_workflows:
-        workflows = render_workflow_badges(db, config, scope)
+        data["workflows"] = collect_workflow_counts(db, config, scope)
+    return data
 
-    row2 = _combine_row(age, workflows)
-    if row2:
+
+def render_dashboard_data(data: dict) -> List[str]:
+    """Lay out enabled widgets from one collected snapshot."""
+    lines = []
+    if "weather" in data:
+        lines.extend(["", render_weather_count(data["weather"])])
+    activity = (
+        render_activity_series(
+            *(
+                data["activity"][key]
+                for key in (
+                    "dates",
+                    "day_counts",
+                    "streak",
+                    "active_days",
+                    "project_days",
+                )
+            )
+        )
+        if "activity" in data
+        else None
+    )
+    badges = (
+        render_achievement_counts(
+            *(
+                data["achievements"][key]
+                for key in ("done", "streak", "bug_count", "idea_count")
+            )
+        )
+        if "achievements" in data
+        else None
+    )
+    row = _combine_row(activity, badges)
+    if row:
+        lines.extend(["", row])
+    if "velocity" in data:
         lines.append("")
-        lines.append(row2)
-
+        lines.extend(
+            render_velocity_series(
+                *(
+                    data["velocity"][key]
+                    for key in ("dates", "activity", "code", "issues", "strategy")
+                )
+            )
+        )
+    age = render_age_counts(data["age"]) if data.get("age") is not None else None
+    workflows = (
+        render_workflow_counts(data["workflows"]) if "workflows" in data else None
+    )
+    row = _combine_row(age, workflows)
+    if row:
+        lines.extend(["", row])
     return lines
+
+
+def render_dashboard(
+    db, config, scope, buckets, epic_task_counts, repo_root
+) -> List[str]:
+    """Compose the same collector and renderer for an in-process caller."""
+    done = task_expanded_count(buckets.get("done", []), epic_task_counts)
+    return render_dashboard_data(
+        collect_dashboard_data(db, config, scope, done, repo_root)
+    )
 
 
 def _combine_row(left: Optional[str], right: Optional[str]) -> Optional[str]:
@@ -98,4 +114,4 @@ def _combine_row(left: Optional[str], right: Optional[str]) -> Optional[str]:
     return left or right
 
 
-__all__ = ["render_dashboard"]
+__all__ = ["collect_dashboard_data", "render_dashboard_data", "render_dashboard"]

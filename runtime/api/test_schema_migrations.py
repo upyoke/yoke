@@ -1,9 +1,4 @@
-"""Pytest coverage for ADD COLUMN migrations and qa_runs status migration.
-
-The init helpers route through the Postgres-only test-DB seam. Migration-replay
-tests (drop column, re-init, verify backfill) run wholly inside one
-``init_test_db`` context so every step targets the same per-test database.
-"""
+"""Current item and QA schema defaults and constraints."""
 
 from __future__ import annotations
 
@@ -11,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import db_backend, schema
+from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _get_columns
 from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
@@ -24,17 +19,6 @@ def _connect(db_path: str):
     DSN repoint is still active.
     """
     return connect_test_db(db_path)
-
-
-def _reinit(db_path: str) -> None:
-    """Re-apply ``schema.cmd_init`` against the same test DB (migration replay).
-
-    The active :func:`init_test_db` context has already repointed
-    ``YOKE_PG_DSN``. ``db_path`` stays in the signature so call sites read
-    like the older replay shape while authority comes from the DSN.
-    """
-    del db_path
-    schema.cmd_init()
 
 
 def _column_names(conn, table: str) -> list[str]:
@@ -109,22 +93,9 @@ class TestAddColumnMigrations:
             assert col in cols, f"Missing structured column: {col}"
 
 
-class TestQaExecutionStatusMigration:
-    """ALTER TABLE adds execution_status and partitions existing browser rows."""
+class TestQaExecutionStatus:
+    """Current QA execution status constraints and immutable verdict evidence."""
 
-    def _drop_execution_status_column(self, db_path: str) -> None:
-        """Simulate a pre-migration DB by dropping the column post-init.
-
-        The caller's :func:`init_test_db` context has already applied the full
-        schema; this just removes ``execution_status`` so the next
-        :func:`_reinit` exercises the ALTER + partition backfill path.
-        """
-        conn = _connect(db_path)
-        cols = _column_names(conn, "qa_runs")
-        if "execution_status" in cols:
-            conn.execute("ALTER TABLE qa_runs DROP COLUMN execution_status")
-            conn.commit()
-        conn.close()
 
     def _seed_qa_row(
         self,
@@ -159,68 +130,6 @@ class TestQaExecutionStatusMigration:
             conn.close()
         assert "execution_status" in cols
 
-    def test_partitions_fail_rows_to_capture_failed(self, tmp_path: Path) -> None:
-        with init_test_db(tmp_path) as db_path:
-            self._drop_execution_status_column(db_path)
-            conn = _connect(db_path)
-            self._seed_qa_row(conn, item_id=1, qa_kind="browser_smoke", verdict="fail")
-            conn.commit()
-            conn.close()
-
-            _reinit(db_path)
-
-            conn = _connect(db_path)
-            row = conn.execute(
-                "SELECT execution_status, verdict FROM qa_runs"
-            ).fetchone()
-            conn.close()
-        assert row["execution_status"] == "capture_failed"
-        assert row["verdict"] == "fail"
-
-    def test_preserves_pass_with_sibling_ac_evidence(self, tmp_path: Path) -> None:
-        with init_test_db(tmp_path) as db_path:
-            self._drop_execution_status_column(db_path)
-            conn = _connect(db_path)
-            self._seed_qa_row(conn, item_id=7, qa_kind="browser_smoke", verdict="pass")
-            self._seed_qa_row(
-                conn,
-                item_id=7,
-                qa_kind="ac_verification",
-                verdict="pass",
-                success_policy="visible change [requires_screenshot_evidence]",
-            )
-            conn.commit()
-            conn.close()
-
-            _reinit(db_path)
-
-            conn = _connect(db_path)
-            browser_row = conn.execute(
-                "SELECT execution_status, verdict FROM qa_runs qr "
-                "JOIN qa_requirements req ON req.id = qr.qa_requirement_id "
-                "WHERE req.qa_kind = 'browser_smoke'"
-            ).fetchone()
-            conn.close()
-        assert browser_row["execution_status"] == "captured"
-        assert browser_row["verdict"] == "pass"
-
-    def test_nulls_pass_without_inspection_evidence(self, tmp_path: Path) -> None:
-        with init_test_db(tmp_path) as db_path:
-            self._drop_execution_status_column(db_path)
-            conn = _connect(db_path)
-            self._seed_qa_row(conn, item_id=9, qa_kind="browser_smoke", verdict="pass")
-            conn.commit()
-            conn.close()
-
-            _reinit(db_path)
-
-            conn = _connect(db_path)
-            row = conn.execute(
-                "SELECT execution_status, verdict FROM qa_runs"
-            ).fetchone()
-            conn.close()
-        assert row["execution_status"] == "captured"
-        assert row["verdict"] is None
 
     def test_check_constraint_rejects_bogus_value(self, tmp_path: Path) -> None:
         with init_test_db(tmp_path) as db_path:
@@ -241,26 +150,6 @@ class TestQaExecutionStatusMigration:
                 )
             conn.close()
 
-    def test_migration_idempotent_on_second_init(self, tmp_path: Path) -> None:
-        with init_test_db(tmp_path) as db_path:
-            self._drop_execution_status_column(db_path)
-            conn = _connect(db_path)
-            self._seed_qa_row(conn, item_id=3, qa_kind="browser_smoke", verdict="pass")
-            conn.commit()
-            conn.close()
-
-            _reinit(db_path)
-            _reinit(db_path)  # Must not error or reset the column
-
-            conn = _connect(db_path)
-            cols = _column_names(conn, "qa_runs")
-            row = conn.execute(
-                "SELECT execution_status, verdict FROM qa_runs"
-            ).fetchone()
-            conn.close()
-        assert "execution_status" in cols
-        assert row["execution_status"] == "captured"
-        assert row["verdict"] is None
 
     def test_verdict_raw_result_immutable_after_verdict_set(
         self, tmp_path: Path

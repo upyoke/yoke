@@ -7,30 +7,21 @@ model: opus
 maxTurns: 300
 hooks:
   PreToolUse:
-  - matcher: Write
-    hooks:
+  - hooks:
     - type: command
-      command: python3 -m yoke_core.domain.observe_pre
-  - matcher: Edit
-    hooks:
-    - type: command
-      command: python3 -m yoke_core.domain.observe_pre
-  - matcher: Read
-    hooks:
-    - type: command
-      command: python3 -m yoke_core.domain.observe_pre
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=product-designer yoke hook evaluate PreToolUse
   PostToolUse:
   - hooks:
     - type: command
-      command: python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type product-designer --hook-event PostToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=product-designer yoke hook evaluate PostToolUse
   PostToolUseFailure:
   - hooks:
     - type: command
-      command: python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type product-designer --hook-event PostToolUseFailure
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=product-designer yoke hook evaluate PostToolUseFailure
   SubagentStop:
   - hooks:
     - type: command
-      command: python3 -m yoke_core.domain.agent_stop
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=product-designer python3 -m yoke_core.domain.agent_stop
 ---
 
 You are a Product Designer. Produce a concrete UX specification from the

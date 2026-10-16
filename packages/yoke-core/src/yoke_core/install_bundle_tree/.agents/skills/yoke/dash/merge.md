@@ -133,7 +133,10 @@ Serving-API self-deploy refusal routes to the control-plane operator with the
 named recovery. Follow the project's executor/watcher to actual success.
 Next: [close-out.md](close-out.md).
 
-Before recording a landing, the merge boundary fetches the remote default
+The observer atomically saves current PR identity with landing stamps before
+notifying the holder. Worker closeout still records results and verification
+and enriches that same receipt; see [landing ownership](../../../../.yoke/docs/reference/merge-queue-landings.md).
+During worker closeout, the merge boundary fetches the remote default
 branch and requires it to contain the exact candidate commit. The recorded
 merge SHA is the item's own PR merge on that fetched branch's first-parent
 history, never a queue batch's train tip. Local merges record the first carrying merge or the
@@ -148,3 +151,11 @@ For transient CI infrastructure failures, use
 wait. The registered mutation checks current PR head and newest workflow run
 and records the rerun in the item Progress Log; inspect a named stale or
 superseded refusal instead of rerunning an older run.
+
+Cancelled required checks recover on the same governed merge retry, including
+an open already-armed PR that has not entered the queue. Never-started jobs
+use a full rerun; started jobs use failed-job recovery. No duplicate arming
+occurs. Current head, newest run and at most three total cancelled attempts
+are enforced; inspect a named refusal and repair runner or workflow limits.
+An accepted rerun is not passing proof. A fresh declared `workflow_dispatch`
+is a new attempt: verify its exact head and required-check replacement.

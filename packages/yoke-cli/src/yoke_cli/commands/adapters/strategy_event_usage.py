@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Dict
 
+from yoke_cli.commands.adapters.reflection_capture import (
+    USAGE as REFLECTION_CAPTURE_USAGE,
+)
+
 from yoke_cli.commands.adapters.events import EVENTS_EMIT_USAGE
 from yoke_cli.commands.adapters.performance import (
     PERFORMANCE_AGGREGATE_USAGE,
@@ -26,6 +30,7 @@ from yoke_cli.commands.adapters.strategy_ops import (
 
 
 USAGE_BY_FUNCTION_ID: Dict[str, str] = {
+    "ouroboros.reflection.capture": REFLECTION_CAPTURE_USAGE,
     "events.emit": EVENTS_EMIT_USAGE,
     "events.performance.aggregate": PERFORMANCE_AGGREGATE_USAGE,
     "events.performance.detail": PERFORMANCE_DETAIL_USAGE,

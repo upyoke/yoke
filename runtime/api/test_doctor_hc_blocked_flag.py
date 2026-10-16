@@ -11,7 +11,6 @@ from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.engines.doctor_hc_blocked_flag import (
     hc_blocked_flag_consistency,
-    hc_blocked_status_drift,
 )
 
 
@@ -72,47 +71,32 @@ def conn():
         """,
     )
     c.execute(
-        "INSERT INTO projects (id, slug, public_item_prefix) "
-        "VALUES (1, 'yoke', 'YOK')"
+        "INSERT INTO projects (id, slug, public_item_prefix) VALUES (1, 'yoke', 'YOK')"
     )
     yield c
     c.close()
     pg_testdb.drop_test_database(name)
 
 
-def test_status_drift_passes_when_clean(conn):
-    conn.execute("INSERT INTO items (id, project_id, project_sequence, status, blocked) VALUES (1, 1, 701, 'idea', 0)")
-    rec = _RecorderStub()
-    hc_blocked_status_drift(conn, _DoctorArgsStub(), rec)
-    assert rec.records[0].verdict == "PASS"
-
-
-def test_status_drift_fails_when_legacy_status_remains(conn):
-    conn.execute("INSERT INTO items (id, project_id, project_sequence, status, blocked) VALUES (2, 1, 702, 'blocked', 0)")
-    rec = _RecorderStub()
-    hc_blocked_status_drift(conn, _DoctorArgsStub(), rec)
-    assert rec.records[0].verdict == "FAIL"
-    assert "YOK-702" in rec.records[0].detail
-
-
-def test_status_drift_fails_when_both_status_and_flag_set(conn):
-    conn.execute("INSERT INTO items (id, project_id, project_sequence, status, blocked) VALUES (3, 1, 703, 'blocked', 1)")
-    rec = _RecorderStub()
-    hc_blocked_status_drift(conn, _DoctorArgsStub(), rec)
-    assert rec.records[0].verdict == "FAIL"
-
-
 def test_flag_consistency_passes_when_clean(conn):
-    conn.execute("INSERT INTO items (id, project_id, project_sequence, status, blocked, blocked_reason) VALUES (1, 1, 701, 'implementing', 1, 'paused')")
-    conn.execute("INSERT INTO items (id, project_id, project_sequence, status, blocked, blocked_reason) VALUES (2, 1, 702, 'idea', 0, NULL)")
+    conn.execute(
+        "INSERT INTO items (id, project_id, project_sequence, status, blocked, blocked_reason) VALUES (1, 1, 701, 'implementing', 1, 'paused')"
+    )
+    conn.execute(
+        "INSERT INTO items (id, project_id, project_sequence, status, blocked, blocked_reason) VALUES (2, 1, 702, 'idea', 0, NULL)"
+    )
     rec = _RecorderStub()
     hc_blocked_flag_consistency(conn, _DoctorArgsStub(), rec)
     assert rec.records[0].verdict == "PASS"
 
 
 def test_flag_consistency_fails_when_blocked_without_reason(conn):
-    conn.execute("INSERT INTO items (id, project_id, project_sequence, status, blocked, blocked_reason) VALUES (3, 1, 703, 'idea', 1, NULL)")
-    conn.execute("INSERT INTO items (id, project_id, project_sequence, status, blocked, blocked_reason) VALUES (4, 1, 704, 'idea', 1, '')")
+    conn.execute(
+        "INSERT INTO items (id, project_id, project_sequence, status, blocked, blocked_reason) VALUES (3, 1, 703, 'idea', 1, NULL)"
+    )
+    conn.execute(
+        "INSERT INTO items (id, project_id, project_sequence, status, blocked, blocked_reason) VALUES (4, 1, 704, 'idea', 1, '')"
+    )
     rec = _RecorderStub()
     hc_blocked_flag_consistency(conn, _DoctorArgsStub(), rec)
     assert rec.records[0].verdict == "FAIL"
@@ -121,7 +105,9 @@ def test_flag_consistency_fails_when_blocked_without_reason(conn):
 
 
 def test_flag_consistency_fails_when_unblocked_with_stale_reason(conn):
-    conn.execute("INSERT INTO items (id, project_id, project_sequence, status, blocked, blocked_reason) VALUES (5, 1, 705, 'idea', 0, 'old reason')")
+    conn.execute(
+        "INSERT INTO items (id, project_id, project_sequence, status, blocked, blocked_reason) VALUES (5, 1, 705, 'idea', 0, 'old reason')"
+    )
     rec = _RecorderStub()
     hc_blocked_flag_consistency(conn, _DoctorArgsStub(), rec)
     assert rec.records[0].verdict == "FAIL"
@@ -129,7 +115,9 @@ def test_flag_consistency_fails_when_unblocked_with_stale_reason(conn):
     assert "old reason" in rec.records[0].detail
 
 
-def _seed_blocked_dependent(conn, *, item_id: int, sequence: int, gate_point: str) -> None:
+def _seed_blocked_dependent(
+    conn, *, item_id: int, sequence: int, gate_point: str
+) -> None:
     conn.execute(
         "INSERT INTO items (id, project_id, project_sequence, status, "
         "blocked, blocked_reason) VALUES (%s, 1, %s, 'implementing', 1, 'waiting')",
@@ -148,7 +136,8 @@ def _seed_blocked_dependent(conn, *, item_id: int, sequence: int, gate_point: st
 
 
 def test_flag_consistency_fails_when_blocked_and_hard_block_edges_satisfied(
-    conn, monkeypatch,
+    conn,
+    monkeypatch,
 ):
     _seed_blocked_dependent(conn, item_id=10, sequence=710, gate_point="closure")
     monkeypatch.setattr(
@@ -163,7 +152,8 @@ def test_flag_consistency_fails_when_blocked_and_hard_block_edges_satisfied(
 
 
 def test_flag_consistency_passes_when_a_hard_block_edge_is_unsatisfied(
-    conn, monkeypatch,
+    conn,
+    monkeypatch,
 ):
     _seed_blocked_dependent(conn, item_id=12, sequence=712, gate_point="activation")
     monkeypatch.setattr(

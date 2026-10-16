@@ -26,7 +26,7 @@ def test_null_flow_with_deploying_default_cannot_satisfy_merge_only(test_db):
         "yoke",
         flow_id,
         "",
-        json.dumps([{"name": "deploy", "step_runner": "auto"}]),
+        json.dumps([{"name": "deploy", "stage_kind": "execution", "step_runner": "auto"}]),
         target_tier="persistent",
         environment="development",
     )

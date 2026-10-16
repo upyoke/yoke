@@ -44,9 +44,8 @@ def test_a_parked_claim_holder_is_waiting_whatever_its_age(test_db):
 
     assert by_id["s-parked-holder"]["liveness"] == "waiting"
     assert by_id["s-fresh-parked-holder"]["liveness"] == "waiting"
-    # Neither half alone accounts for the quiet: an unparked holder and a
-    # parked session holding nothing are still stale past their TTL.
-    assert by_id["s-quiet-holder"]["liveness"] == "stale"
+    # Claims protect every holder; a park declaration alone does not change retention.
+    assert by_id["s-quiet-holder"]["liveness"] == "active"
     assert by_id["s-parked-claimless"]["liveness"] == "stale"
     assert by_id["s-quiet-claimless"]["liveness"] == "stale"
     assert by_id["s-active"]["liveness"] == "active"

@@ -5,6 +5,8 @@ and removes Yoke-marked git hook shims. Source-link checkouts (the
 Yoke source repo) refuse entirely: the dev layer there is the repo's
 own tracked content, not an installed copy. Split from
 :mod:`project_install`, which owns install/refresh and the apply core.
+After the removal commit, retire only exclusive installer-owned checkout
+registration and folder trust; preserve unresolved ownership for retry.
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ from typing import Any, Dict, List
 from yoke_cli.config import project_worktrees_ignore
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import uninstall_commit
+from yoke_cli.project_install import owned_cleanup
 from yoke_cli.project_install import skill_discovery
 from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install import hooks as hooks_layer
@@ -44,7 +47,7 @@ def uninstall(
     repo_root: str | Path | None = None,
     config_path: str | Path | None = None,
 ) -> Dict[str, Any]:
-    """Remove manifest-tracked files and de-merge Yoke hook entries.
+    """Remove the installed layer and exclusive owned registration/folder trust.
 
     Copy-mode only. The source-checkout detection guard backstops the
     manifest mode so a legacy or hand-edited manifest can never
@@ -92,6 +95,7 @@ def uninstall(
     commit_paths, commit_warnings = uninstall_commit.prepare(
         root, manifest, config_path
     )
+    shared_scope = owned_cleanup.scope_reason(root, manifest, config_path)
     file_records = dict(manifest.get("files") or {})
     discovery_removed = skill_discovery.remove(
         root, manifest.get("skill_discovery_links")
@@ -145,24 +149,41 @@ def uninstall(
     # Strategy files are planning content that outlives the tooling —
     # uninstall never removes them, tracked or not.
     strategy_preserved = sorted(dict(manifest.get("strategy_files") or {}))
-    owned_git_hooks = (
-        dict(manifest["git_hook_hashes"]) if "git_hook_hashes" in manifest else None
-    )
-    git_hooks_removed = git_hooks_layer.remove_yoke_git_hooks(
-        root,
-        owned_git_hooks,
+    owned_git_hooks = dict(manifest.get("git_hook_hashes") or {})
+    git_hooks_removed = (
+        []
+        if shared_scope
+        else git_hooks_layer.remove_yoke_git_hooks(
+            root,
+            owned_git_hooks,
+        )
     )
     worktrees_ignore = (
         project_worktrees_ignore.remove_owned_entry(
             root,
             created_file=bool(manifest.get("worktrees_ignore_created_file")),
         )
-        if manifest.get("worktrees_ignore_added")
+        if manifest.get("worktrees_ignore_added") and not shared_scope
         else {"removed": False, "deleted_file": False}
     )
+    # A partial cleanup keeps ownership evidence for the same command's retry.
+    commit_report = uninstall_commit.commit(root, commit_paths)
+    local_cleanup = owned_cleanup.cleanup(root, manifest, config_path)
+    if shared_scope:
+        local_cleanup["complete"] = False
+        warnings.append(
+            f"project_uninstall_{shared_scope}: Git hooks and the worktree ignore entry may serve other checkouts; resolve sharing or checkout identity, then rerun project uninstall."
+        )
+    for row in [local_cleanup["registration"], *local_cleanup["trust"]]:
+        if row["status"] in {"preserved", "failed"}:
+            warnings.append(f"project_uninstall_{row['reason']}: {row['recovery']}")
     (root / PENDING_REL).unlink(missing_ok=True)
-    files_layer.manifest_path(root).unlink()
-    files_layer.remove_empty_parents(root, files_layer.MANIFEST_REL)
+    if local_cleanup["complete"]:
+        files_layer.manifest_path(root).unlink()
+        files_layer.remove_empty_parents(root, files_layer.MANIFEST_REL)
+        manifest_commit = uninstall_commit.commit(root, [files_layer.MANIFEST_REL])
+        if manifest_commit["status"] == "created":
+            commit_report = manifest_commit
     report = {
         "operation": "uninstall",
         MODE_KEY: MODE_COPY,
@@ -183,6 +204,7 @@ def uninstall(
         "strategy_files_preserved": strategy_preserved,
         "hooks_removed": hooks_removed,
         "git_hooks_removed": git_hooks_removed,
+        "git_hooks_preserved_reason": shared_scope,
         "settings_permissions_removed": settings_permissions_removed,
         "settings_status_line_removed": settings_status_line_removed,
         "cursor_permissions_removed": cursor_permissions_removed,
@@ -192,10 +214,12 @@ def uninstall(
         ),
         "worktrees_ignore": worktrees_ignore,
         "settings_files_deleted": settings_deleted,
-        "manifest_removed": True,
+        "local_cleanup": local_cleanup,
+        "outcome": "complete" if local_cleanup["complete"] else "partial",
+        "manifest_removed": local_cleanup["complete"],
         "warnings": warnings,
     }
-    report["commit"] = uninstall_commit.commit(root, commit_paths)
+    report["commit"] = commit_report
     return report
 
 

@@ -42,9 +42,9 @@ def initialized_bundle(tmp_path: Path) -> Path:
 def selected_release() -> release_target.ReleaseTarget:
     source_commit = "2" * 40
     return release_target.ReleaseTarget(
-        version="0.1.1+launch.400",
+        version="0.2.0.202610140400",
         source_commit=source_commit,
-        image=pinned_server_image(source_commit),
+        image=pinned_server_image("0.2.0.202610140400"),
         base_url="https://distribution.example",
         channel="stable",
         installer_url="https://distribution.example/dist/install.py",
@@ -74,7 +74,7 @@ def test_channel_target_binds_version_commit_image_and_installer(monkeypatch):
             {
                 "schema_version": 3,
                 "channel": "stable",
-                "version": "0.1.1+launch.401",
+                "version": "0.2.0.202610140401",
                 "migration_history": {"source_commit": source_commit},
                 "installer": {
                     "python_url": "https://distribution.example/dist/install.py"
@@ -88,9 +88,9 @@ def test_channel_target_binds_version_commit_image_and_installer(monkeypatch):
     )
 
     assert seen == ["https://distribution.example/dist/channels/stable.json"]
-    assert target.version == "0.1.1+launch.401"
+    assert target.version == "0.2.0.202610140401"
     assert target.source_commit == source_commit
-    assert target.image == pinned_server_image(source_commit)
+    assert target.image == pinned_server_image("0.2.0.202610140401")
 
 
 def test_run_installer_writes_pinned_args_and_cleans_up_temp_file(
@@ -146,7 +146,7 @@ def test_plan_is_read_only_and_names_every_step(
     assert plan.target == selected_release
     assert plan.previous_image.endswith(":111111111111")
     assert plan.steps == (
-        "install Yoke CLI 0.1.1+launch.400 from stable",
+        "install Yoke CLI 0.2.0.202610140400 from stable",
         f"replace YOKE_SERVER_IMAGE with {selected_release.image}",
         "run docker compose pull core",
         "restart through the private host secret handoff",

@@ -46,7 +46,7 @@ def _active_flow(conn, flow_id: str, *, environment: str | None = None) -> None:
         "yoke",
         flow_id,
         "",
-        json.dumps([{"name": "deploy", "step_runner": "auto"}]),
+        json.dumps([{"name": "deploy", "stage_kind": "execution", "step_runner": "auto"}]),
         status="active",
         target_tier="persistent" if environment else None,
         environment=environment,
@@ -79,6 +79,7 @@ def test_an_unpinned_item_inherits_the_project_default() -> None:
 
     assert enriched[0]["completion_flow"] == FLOW
     assert enriched[0]["completion_flow_source"] == "project_default"
+    assert enriched[0]["delivery_policy"] == "release_stage"
 
 
 def test_a_stored_flow_is_the_items_own() -> None:
@@ -183,6 +184,19 @@ def test_an_unreadable_default_is_named_and_does_not_blank_the_roster(
     assert by_id[8505]["completion_flow"] == FLOW
     assert by_id[8505]["completion_flow_source"] == "item"
     assert by_id[8505]["public_ref"]
+
+
+def test_a_merge_free_workflow_projects_that_delivery_policy() -> None:
+    with test_database() as conn:
+        insert_item(
+            conn, id=8507, title="floor only", workflow_id="task", status="done"
+        )
+        conn.commit()
+        row = _release_row(conn, 8507)
+        row["status"] = "done"
+        enriched = enrich_item_overview_rows([row])
+
+    assert enriched[0]["delivery_policy"] == "merge_free"
 
 
 def test_a_selected_environment_is_named_before_the_item_has_a_run() -> None:

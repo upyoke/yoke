@@ -118,7 +118,6 @@ def test_pipeline_scoped_qa_park_is_a_designed_watcher_wait(
     }
     monkeypatch.setattr(pipeline.control_plane, "execution_context", lambda _r: context)
     monkeypatch.setattr(pipeline.control_plane, "project_field", lambda *a: "")
-    monkeypatch.setattr(pipeline.control_plane, "seed_qa", lambda _r: None)
     monkeypatch.setattr(
         pipeline.control_plane,
         "held_qa_report_lines",

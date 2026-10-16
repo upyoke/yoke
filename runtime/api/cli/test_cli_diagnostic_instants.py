@@ -34,22 +34,22 @@ def test_malformed_human_clock_refuses_instead_of_guessing(value):
     with pytest.raises(InvalidInstant):
         roster._age(value, now=MOMENT)
     with pytest.raises(InvalidInstant):
-        roster.roster_diagnostics({"stale_eligible_at": value})
+        roster.roster_diagnostics({"activity_quiet_at": value})
 
 
-def test_stale_countdown_preserves_microsecond_cutoff_order(monkeypatch):
+def test_activity_countdown_preserves_microsecond_cutoff_order(monkeypatch):
     monkeypatch.setattr(roster, "utc_now", lambda: MOMENT)
     row = {"effective_stale_ttl_minutes": 60}
     for delta, expected in [
-        (timedelta(microseconds=-1), "stale-eligible now"),
-        (timedelta(0), "stale-eligible now"),
-        (timedelta(microseconds=1), "stale in 1m"),
-        (timedelta(minutes=1), "stale in 1m"),
-        (timedelta(minutes=1, microseconds=1), "stale in 2m"),
+        (timedelta(microseconds=-1), "activity window reached"),
+        (timedelta(0), "activity window reached"),
+        (timedelta(microseconds=1), "activity window in 1m"),
+        (timedelta(minutes=1), "activity window in 1m"),
+        (timedelta(minutes=1, microseconds=1), "activity window in 2m"),
     ]:
         assert (
             roster.roster_diagnostics(
-                {**row, "stale_eligible_at": (MOMENT + delta).astimezone(OFFSET)}
+                {**row, "activity_quiet_at": (MOMENT + delta).astimezone(OFFSET)}
             )
             == f"{expected} (TTL 60m)"
         )

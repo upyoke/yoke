@@ -87,6 +87,8 @@ def dt_db(tmp_path, monkeypatch):
             current_stage TEXT,
             created_at TIMESTAMPTZ,
             release_lineage TEXT,
+            bound_sources TEXT,
+            settling_at TIMESTAMPTZ,
             target_environment_id INTEGER
         );
         CREATE TABLE deployment_run_items (

@@ -12,7 +12,6 @@ from typing import Any
 from yoke_core.domain.deployment_run_bound_sources import (
     BOUND_SOURCES_FIELD,
     _resolve_branch_head,
-    bound_sources_recorded,
     declared_bindings,
     parse_bound_sources,
 )
@@ -144,8 +143,6 @@ def _recorded_sources(
     conn: Any, run_id: str
 ) -> tuple[list[dict[str, Any]], dict[str, str]]:
     """The run's recorded bound commits and the branch each was resolved from."""
-    if not bound_sources_recorded(conn):
-        return [], {}
     row = conn.execute(
         f"SELECT COALESCE(dr.{BOUND_SOURCES_FIELD},'') AS {BOUND_SOURCES_FIELD}, "
         "df.stages FROM deployment_runs dr "

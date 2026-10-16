@@ -56,7 +56,9 @@ def _flow(conn: Any, flow_id: str, *, advanced: bool) -> None:
     stages = (
         ADVANCED_STAGES
         if advanced
-        else json.dumps([{"name": "deploy", "step_runner": "auto"}])
+        else json.dumps(
+            [{"name": "deploy", "step_runner": "auto", "stage_kind": "execution"}]
+        )
     )
     cmd_create(
         conn,
@@ -66,6 +68,7 @@ def _flow(conn: Any, flow_id: str, *, advanced: bool) -> None:
         "",
         stages,
         status="disabled" if advanced else "active",
+        takes_delivery_custody=advanced,
     )
 
 
@@ -129,15 +132,14 @@ def _known_carried(item_id: int) -> dict[str, Any]:
     }
 
 
-def test_legacy_run_and_empty_environment_run_skip_new_admission(
+def test_flow_without_delivery_custody_skips_admission(
     test_db: Any,
 ) -> None:
-    _flow(test_db, "legacy-flow", advanced=False)
-    _run(test_db, "run-legacy", "legacy-flow", lineage="main")
-    assert composition.freeze_run_composition(test_db, "run-legacy") == {
-        "run_id": "run-legacy",
+    _flow(test_db, "execution-only", advanced=False)
+    _run(test_db, "run-execution-only", "execution-only", lineage="main")
+    assert composition.freeze_run_composition(test_db, "run-execution-only") == {
+        "run_id": "run-execution-only",
         "frozen_at": None,
-        "legacy": True,
     }
 
 

@@ -221,8 +221,8 @@ def test_local_wheel_constraints_emit_exact_split_package_versions(
     )
 
     assert constraints_for_wheelhouse(tmp_path, ["yoke-cli", "yoke-harness"]) == [
-        "yoke-cli==0.2.0.dev1",
-        "yoke-harness==0.2.0.dev1",
+        f"yoke-cli @ {(tmp_path / 'yoke_cli-0.2.0.dev1-py3-none-any.whl').as_uri()}",
+        f"yoke-harness @ {(tmp_path / 'yoke_harness-0.2.0.dev1-py3-none-any.whl').as_uri()}",
     ]
 
 

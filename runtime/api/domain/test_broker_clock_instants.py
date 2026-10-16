@@ -14,8 +14,10 @@ from yoke_core.domain.session_broker_wake_recruit import machine_has_fresh_relay
 from yoke_core.domain.session_message_store import insert_message
 from yoke_core.domain.session_message_types import ResolvedRecipient, row_dict
 from yoke_core.domain.session_relay_storage import heartbeat_relay
+from yoke_core.domain.session_relay_job_leases import require_job_lease
 from yoke_core.domain.session_relay_types import (
     RelayHeartbeat,
+    SessionRelayError,
     WAKE_LEASE_SECONDS,
     WakeMode,
 )
@@ -204,9 +206,7 @@ def test_broker_hook_lease_expires_inclusively_at_exact_microsecond(
 
 
 @pytest.mark.parametrize("zone", ZONES)
-def test_broker_adoption_accepts_equal_offset_snapshot_and_native_batch_clock(
-    test_db, zone
-):
+def test_broker_adoption_keeps_native_job_clock(test_db, zone):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
     candidate, heartbeat, original = _prepare(test_db)
     lease = _reserve(test_db, candidate)
@@ -238,7 +238,29 @@ def test_broker_adoption_accepts_equal_offset_snapshot_and_native_batch_clock(
         "SELECT last_seen_at,lease_expires_at FROM session_relays"
     ).fetchone()
     assert isinstance(row[0], datetime)
-    assert tuple(row) == (current, current + timedelta(seconds=WAKE_LEASE_SECONDS))
+    assert tuple(row) == (current, None)
+    started = test_db.execute(
+        "SELECT started_at FROM session_message_attempts WHERE attempt_id=%s",
+        (job.job_id,),
+    ).fetchone()[0]
+    assert isinstance(started, datetime) and started == current
+    job_horizon = current + timedelta(seconds=WAKE_LEASE_SECONDS)
+    require_job_lease(
+        test_db,
+        relay_id=heartbeat.relay_id,
+        job_kind="wake",
+        job_id=job.job_id,
+        now=job_horizon - timedelta(microseconds=1),
+    )
+    with pytest.raises(SessionRelayError) as caught:
+        require_job_lease(
+            test_db,
+            relay_id=heartbeat.relay_id,
+            job_kind="wake",
+            job_id=job.job_id,
+            now=job_horizon,
+        )
+    assert caught.value.code == "relay_lease_expired"
     assert tuple(
         test_db.execute(
             "SELECT wake_attempt_count,last_wake_at FROM session_message_recipients"
@@ -257,7 +279,7 @@ def test_relay_freshness_is_strict_at_exact_native_microsecond(
     edge = heartbeat_relay(
         test_db, heartbeat, state="active", next_poll_seconds=1, now=MOMENT
     )
-    assert isinstance(edge, datetime) and edge == MOMENT + timedelta(seconds=2)
+    assert isinstance(edge, datetime) and edge == MOMENT + timedelta(seconds=120)
     assert (
         machine_has_fresh_relay(
             test_db, heartbeat.machine_id, edge + timedelta(microseconds=delta)

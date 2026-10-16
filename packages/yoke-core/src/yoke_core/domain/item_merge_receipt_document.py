@@ -17,8 +17,6 @@ from yoke_core.domain.item_json_sections import read_json_section, upsert_json_s
 from yoke_core.domain.json_helper import loads_text
 from yoke_core.domain.schema_common import _table_exists
 
-#: Section name and ordering of the receipt document on its item. The
-#: ordering places it just after the execution evidence at 190.
 MERGE_RECEIPTS_SECTION = "Merge Receipts"
 MERGE_RECEIPTS_ORDERING = 195
 
@@ -125,17 +123,21 @@ def record_entry(
 ) -> dict[str, Any]:
     """Fold one merge's facts into its entry and return the stored entry.
 
-    A value that arrives empty leaves whatever the entry already held: the
-    pre-merge write carries no merge commit, and the completed write carries
-    no changed files, so neither may erase the other's contribution.
-
-    A landed merge settles the identity. ``merge_sha`` and an explicit
-    ``settled`` both drop the recorded failure, because a merge that finished
-    is not a merge that is currently failing.
+    Empty values retain known facts. A new landing archives the previous
+    identity; worker enrichment folds into the current one. Landing clears failure.
     """
+    # Serialize document folds with observer landing stamps and worker enrichment.
+    if db_backend.connection_is_postgres(conn):
+        conn.execute("SELECT id FROM items WHERE id=%s FOR UPDATE", (int(item_id),))
     entries = read_entries(conn, item_id)
     key = entry_key(branch, target)
     entry = dict(entries.get(key) or {})
+    if entry.get("merge_sha") and (
+        (commit_sha and commit_sha != entry.get("commit_sha"))
+        or (merge_sha and merge_sha != entry["merge_sha"])
+    ):
+        entries[f"{key}::{entry['merge_sha']}"] = entry
+        entry = {}
     entry["branch"] = branch
     entry["target"] = target
     entry["commit_sha"] = str(commit_sha or entry.get("commit_sha") or "")

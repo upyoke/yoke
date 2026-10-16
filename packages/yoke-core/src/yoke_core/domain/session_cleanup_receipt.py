@@ -2,59 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Dict, List, Optional
-
-from .session_cleanup_holdings import effective_cleanup_ttl
-from .session_staleness import activity_is_stale
-from .sessions_analytics_core import DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES
+from typing import Any, Dict, List
 
 TERMINATE_ESCALATION = (
     "yoke sessions terminate SESSION-ID --reason R "
     "(releases that session's held work claims)"
 )
-
-
-def bucket_holdings_spared_session(
-    conn: Any,
-    sid: str,
-    entry: Dict[str, Any],
-    progress_stale_flag: bool,
-    activity_at: datetime | None,
-    stale_threshold_minutes: int,
-    progress_stale: List[Dict[str, Any]],
-    heartbeat_stale: List[Dict[str, Any]],
-    skipped_between_turns: List[Dict[str, Any]],
-) -> None:
-    """Place a holdings-TTL-fresh session into the matching sweep bucket."""
-    if progress_stale_flag:
-        progress_stale.append({**entry, "reason": "progress_stale"})
-        return
-    if not activity_is_stale(
-        activity_at,
-        executor=None,
-        base_ttl_minutes=stale_threshold_minutes,
-        executor_ttl_overrides={},
-    ):
-        return
-    skipped_between_turns.append({**entry, "reason": "between_turns"})
-
-
-def reclaim_ttl_for_candidate(
-    entry: Dict[str, Any],
-    *,
-    has_active_holdings: bool,
-    stale_threshold_minutes: int,
-    executor_ttl_overrides: Optional[Dict[str, int]],
-) -> int:
-    """Select the TTL used by the mutation recheck."""
-    return effective_cleanup_ttl(
-        entry["executor"],
-        base_ttl_minutes=stale_threshold_minutes,
-        executor_ttl_overrides=executor_ttl_overrides,
-        has_active_holdings=has_active_holdings,
-        holdings_ttl_minutes=DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
-    )
 
 
 def sweep_receipt(

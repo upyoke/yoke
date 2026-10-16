@@ -35,10 +35,6 @@ RELEASE_CI_AUTHZ_BY_ID = {
         PROJECT,
         PERM_RELEASE_OUTPUT_RECORD,
     ),
-    "github.release.create_next_tag": AuthzSpec(
-        PROJECT,
-        PERM_GITHUB_RELEASE_CREATE,
-    ),
     # Hosted deploy runners may trigger and observe the project's deployment
     # workflows without receiving project administration. Every other
     # github_actions.* function keeps the project-admin prefix default below.

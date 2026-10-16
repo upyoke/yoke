@@ -4,10 +4,10 @@
  "status": "observed",
  "audience": "agent",
  "when": "Transient infrastructure failure on the item's current PR head",
- "need": "The work claim holder reruns failed jobs through the item. Project authority comes from the stored item across all function families; a project hint cannot change it. The run must match the current PR head and be newest for its workflow. Intent and outcome persist in the item's Progress Log; a stale or superseded identity names what to inspect.",
+ "need": "The work claim holder reruns failed jobs through the item. Project authority comes from the stored item across all function families; a project hint cannot change it. The run must match the current PR head and be newest for its workflow. Intent and outcome persist in the item's Progress Log; a stale or superseded identity names what to inspect. Cancelled terminal runs share this item-owned recovery. Never-started jobs use a full rerun; started jobs use failed-job recovery. Merge retry also recovers an open already-armed but unadmitted PR without duplicate arming. Current-head and newest-run safety checks protect active, successful and superseded attempts. Recovery stops at three total cancelled attempts and teaches runner or workflow repair; acceptance never proves a passing replacement.",
  "disclosure": "current cue",
  "surface": "Verification rules, registered rerun help and dispatch permission boundary",
- "review": "Dispatch regression and registry-wide item-target permission tests fail before the fix and pass on candidate source; deployed proof remains pending.",
- "sources": ["docs/public/reference/agent-rules/verification.md", "packages/yoke-core/src/yoke_core/domain/function_target_resolution.py", "runtime/api/domain/test_item_target_dispatch_project.py"],
+ "review": "Route and handler regression tests cover candidate-source cancellation recovery with faked GitHub transport; independent carrying-candidate post-deploy Command proof remains required.",
+ "sources": ["docs/public/reference/agent-rules/verification.md", "packages/yoke-core/src/yoke_core/domain/function_target_resolution.py", "runtime/api/domain/test_item_target_dispatch_project.py", "packages/yoke-core/src/yoke_core/domain/github_actions_rerun_safety.py", "runtime/api/domain/handlers/test_github_actions_rerun.py"],
  "position": 1
 }

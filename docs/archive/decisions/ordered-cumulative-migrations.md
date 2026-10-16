@@ -358,13 +358,7 @@ Birth stamping keeps working because it stamps whatever history exists.
 
 ## Not folded in
 
-`schema_init_columns.apply_legacy_data_migrations` is the pre-existing,
-unledgered pile of one-off data migrations that runs only on the full-init
-chain. It stays as it is; it has run everywhere and is idempotent. The forward
-rule is that new data-transforming changes go in the ordered history, and
-nothing further is appended there.
-
-The same rule applies to `converge_platform_schema`'s inline repairs in the
+Permanent ordered history also owns new changes to `converge_platform_schema`'s inline repairs in the
 Platform repo — the constraint drop/re-add, the `DROP NOT NULL`, the backfill
 updates. Settled, idempotent, left alone; new destructive changes go to the
 registry's own history.

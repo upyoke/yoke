@@ -186,9 +186,7 @@ class TestRequirementUpdate:
         assert decoded["steps"][0]["route"] == "/login"
         assert decoded["steps"][1]["duration"] == 3000
 
-    def test_update_qa_phase_normalizes_synonyms(
-        self, db_path: str, req_id: int
-    ) -> None:
+    def test_update_qa_phase(self, db_path: str, req_id: int) -> None:
         qa.cmd_requirement_update(req_id, "qa_phase", "post_deploy", db_path=db_path)
         conn = connect_test_db(db_path)
         row = conn.execute(

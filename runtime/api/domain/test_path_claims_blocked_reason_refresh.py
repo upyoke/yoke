@@ -1,21 +1,14 @@
 # ruff: noqa: F811
 
-"""Focused helper tests for :mod:`path_claims_blocked_reason_refresh`.
-
-Split out of ``test_path_claims_dependency_propagation_coordination.py`` so
-the propagation-coordination file stays under the 350-line cap and these
-edge-change wording tests live next to the helper they exercise.
-
-Covers every direction of ``item_dependencies`` edge change
-between a candidate and a blocker recomputes wording on the candidate's
-``state='blocked'`` row to reflect the *current* edge shape, while state
-is preserved. ``cause='item_dependency_edge_change'`` distinguishes this
-refresh from the upstream-release path.
-"""
+"""Dependency changes release eligible reservations and refresh surviving blockers."""
 
 from __future__ import annotations
 
 import json
+
+import pytest
+
+from yoke_core.domain.item_dependency import cmd_dependency_update
 
 from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     add_edge,
@@ -29,39 +22,39 @@ from yoke_core.domain.path_claims_blocked_reason_refresh import (
     refresh_blocked_reason_for_edge_change,
 )
 
+
 class TestEdgeChangeRefresh:
-    """Wording-only refresh after item_dependencies edge-type change.
-
-    When the dep edge between two items changes
-    (UPDATE to coordination_only, DELETE, or INSERT that introduces a
-    serial edge), every non-terminal blocked row whose upstream pointer
-    references a claim owned by either party has its blocked_reason
-    rewritten to reflect the current edge shape. The refresh is
-    wording-only — state stays ``blocked`` (state repair lives in
-    ``path_claims_blocked_coordination_repair``). A
-    ``PathClaimBlockedReasonRefreshed`` event with
-    ``cause='item_dependency_edge_change'`` records each rewrite.
-    """
-
     def _seed_three_item_overlap(self, conn):
         target = seed_target(conn, path_string="runtime/api/domain")
         a_item = seed_item(conn, item_id=5101)
         b_item = seed_item(conn, item_id=5102)
         c_item = seed_item(conn, item_id=5103)
         a_claim = seed_claim(
-            conn, item_id=a_item, target_id=target, state="active",
+            conn,
+            item_id=a_item,
+            target_id=target,
+            state="active",
         )
         b_claim = seed_claim(
-            conn, item_id=b_item, target_id=target, state="active",
+            conn,
+            item_id=b_item,
+            target_id=target,
+            state="active",
         )
         c_claim = seed_claim(
-            conn, item_id=c_item, target_id=target, state="blocked",
+            conn,
+            item_id=c_item,
+            target_id=target,
+            state="blocked",
             blocked_reason=f"serial-via-dependency on path_claims.id={a_claim}",
         )
         return {
-            "a_item": a_item, "a_claim": a_claim,
-            "b_item": b_item, "b_claim": b_claim,
-            "c_item": c_item, "c_claim": c_claim,
+            "a_item": a_item,
+            "a_claim": a_claim,
+            "b_item": b_item,
+            "b_claim": b_claim,
+            "c_item": c_item,
+            "c_claim": c_claim,
         }
 
     def _last_refresh_event(self, conn, *, claim_id):
@@ -82,13 +75,15 @@ class TestEdgeChangeRefresh:
         # serial), but B still overlaps C with no edge — path-mutex.
         seeded = self._seed_three_item_overlap(conn)
         add_edge(
-            conn, dependent=seeded["c_item"], blocking=seeded["a_item"],
+            conn,
+            dependent=seeded["c_item"],
+            blocking=seeded["a_item"],
             gate_point="activation",
         )
         conn.execute(
             "UPDATE item_dependencies SET gate_point='coordination_only' "
             "WHERE dependent_item_id=%s AND blocking_item_id=%s",
-            (seeded['c_item'], seeded['a_item']),
+            (seeded["c_item"], seeded["a_item"]),
         )
         conn.commit()
         refreshed = refresh_blocked_reason_for_edge_change(
@@ -116,13 +111,15 @@ class TestEdgeChangeRefresh:
         # the lowest-id overlap as the canonical "path-mutex on X" peer.
         seeded = self._seed_three_item_overlap(conn)
         add_edge(
-            conn, dependent=seeded["c_item"], blocking=seeded["a_item"],
+            conn,
+            dependent=seeded["c_item"],
+            blocking=seeded["a_item"],
             gate_point="coordination_only",
         )
         conn.execute(
             "DELETE FROM item_dependencies "
             "WHERE dependent_item_id=%s AND blocking_item_id=%s",
-            (seeded['c_item'], seeded['a_item']),
+            (seeded["c_item"], seeded["a_item"]),
         )
         conn.commit()
         refreshed = refresh_blocked_reason_for_edge_change(
@@ -148,13 +145,15 @@ class TestEdgeChangeRefresh:
         # "serial-via-dep" to "path-mutex" is the load-bearing assertion.
         seeded = self._seed_three_item_overlap(conn)
         add_edge(
-            conn, dependent=seeded["c_item"], blocking=seeded["a_item"],
+            conn,
+            dependent=seeded["c_item"],
+            blocking=seeded["a_item"],
             gate_point="activation",
         )
         conn.execute(
             "DELETE FROM item_dependencies "
             "WHERE dependent_item_id=%s AND blocking_item_id=%s",
-            (seeded['c_item'], seeded['a_item']),
+            (seeded["c_item"], seeded["a_item"]),
         )
         conn.commit()
         refreshed = refresh_blocked_reason_for_edge_change(
@@ -182,53 +181,76 @@ class TestEdgeChangeRefresh:
         a_item = seed_item(conn, item_id=5301)
         c_item = seed_item(conn, item_id=5302)
         a_claim = seed_claim(
-            conn, item_id=a_item, target_id=target, state="active",
+            conn,
+            item_id=a_item,
+            target_id=target,
+            state="active",
         )
         c_claim = seed_claim(
-            conn, item_id=c_item, target_id=target, state="blocked",
+            conn,
+            item_id=c_item,
+            target_id=target,
+            state="blocked",
             blocked_reason=f"path-mutex on path_claims.id={a_claim}",
         )
         add_edge(
-            conn, dependent=c_item, blocking=a_item,
+            conn,
+            dependent=c_item,
+            blocking=a_item,
             gate_point="activation",
         )
         refreshed = refresh_blocked_reason_for_edge_change(
-            conn, dependent_item_id=c_item, blocking_item_id=a_item,
+            conn,
+            dependent_item_id=c_item,
+            blocking_item_id=a_item,
         )
         assert c_claim in refreshed
         reason = conn.execute(
             "SELECT blocked_reason FROM path_claims WHERE id = %s",
             (c_claim,),
         ).fetchone()[0]
-        assert str(reason) == (
-            f"serial-via-dependency on path_claims.id={a_claim}"
-        )
+        assert str(reason) == (f"serial-via-dependency on path_claims.id={a_claim}")
 
-    def test_refresh_skips_when_overlap_is_none(self, conn):
-        # When path mutex is no longer real (NONE), refresh skips
-        # and lets the coord-only repair pass handle state.
+    @pytest.mark.parametrize("item_status", ["idea", "done"])
+    def test_dependency_demotion_releases_only_live_item_claim(self, conn, item_status):
         target = seed_target(conn, path_string="runtime/api/domain")
-        a_item = seed_item(conn, item_id=5201)
-        c_item = seed_item(conn, item_id=5202)
-        a_claim = seed_claim(
-            conn, item_id=a_item, target_id=target, state="released",
+        upstream = seed_item(conn, item_id=5201)
+        dependent = seed_item(conn, item_id=5202, status=item_status)
+        upstream_claim = seed_claim(
+            conn,
+            item_id=upstream,
+            target_id=target,
+            state="active",
         )
-        c_claim = seed_claim(
-            conn, item_id=c_item, target_id=target, state="blocked",
-            blocked_reason=f"serial-via-dependency on path_claims.id={a_claim}",
+        reason = f"serial-via-dependency on path_claims.id={upstream_claim}"
+        claim = seed_claim(
+            conn,
+            item_id=dependent,
+            target_id=target,
+            state="blocked",
+            blocked_reason=reason,
         )
-        before = count_refresh_events(conn, claim_id=c_claim)
-        refresh_blocked_reason_for_edge_change(
-            conn, dependent_item_id=c_item, blocking_item_id=a_item,
+        add_edge(conn, dependent=dependent, blocking=upstream, gate_point="activation")
+        cmd_dependency_update(
+            conn,
+            dependent=f"YOK-{dependent}",
+            blocking=f"YOK-{upstream}",
+            match_gate_point="activation",
+            gate_point="coordination_only",
         )
-        after = count_refresh_events(conn, claim_id=c_claim)
-        assert after == before
-        reason = conn.execute(
-            "SELECT blocked_reason FROM path_claims WHERE id = %s",
-            (c_claim,),
-        ).fetchone()[0]
-        assert str(reason) == (
-            f"serial-via-dependency on path_claims.id={a_claim}"
+        row = conn.execute(
+            "SELECT state, blocked_reason FROM path_claims WHERE id=%s",
+            (claim,),
+        ).fetchone()
+        expected = ("planned", None) if item_status == "idea" else ("blocked", reason)
+        assert tuple(row) == expected
+        assert (
+            refresh_blocked_reason_for_edge_change(
+                conn,
+                dependent_item_id=dependent,
+                blocking_item_id=upstream,
+            )
+            == []
         )
 
     def test_refresh_is_idempotent_when_wording_unchanged(self, conn):
@@ -236,7 +258,9 @@ class TestEdgeChangeRefresh:
         # recomputed wording matches the prior.
         seeded = self._seed_three_item_overlap(conn)
         add_edge(
-            conn, dependent=seeded["c_item"], blocking=seeded["a_item"],
+            conn,
+            dependent=seeded["c_item"],
+            blocking=seeded["a_item"],
             gate_point="coordination_only",
         )
         before = count_refresh_events(conn, claim_id=seeded["c_claim"])

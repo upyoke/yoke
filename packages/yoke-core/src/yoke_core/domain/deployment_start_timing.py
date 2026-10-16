@@ -2,9 +2,10 @@
 
 from contextlib import contextmanager
 from contextvars import ContextVar, copy_context
-from functools import wraps
+from functools import partial, wraps
 import json
 import os
+import sys
 from pathlib import Path
 from time import monotonic
 from threading import Event, Thread
@@ -40,9 +41,11 @@ def timing_scope(run_id, *, collect=False, capture=None):
         _SCOPE.reset(token)
 
 
-def timing_facts(*, source_sha=None, member_count=None):
+def timing_facts(*, run_id=None, source_sha=None, member_count=None):
     state = _SCOPE.get()
     if state is not None:
+        if run_id is not None:
+            state["run_id"] = run_id
         if source_sha is not None:
             state["source_sha"] = source_sha
         if member_count is not None:
@@ -136,13 +139,15 @@ def timed_pipeline(function):
     return run
 
 
-def timed_handler(function):
+def timed_handler(function=None, *, progress=False):
     """Return server substeps so the driver can flush them into its capture."""
+    if function is None:
+        return partial(timed_handler, progress=progress)
 
     @wraps(function)
     def run(request):
         run_id = str(request.target.workflow_run_id or "")
-        with timing_scope(run_id, collect=True) as records:
+        with timing_scope(run_id, collect=not progress, capture=sys.stderr) as records:
             outcome = function(request)
         outcome.result_payload["start_timings"] = records
         return outcome

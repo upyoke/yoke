@@ -8,7 +8,6 @@ import pytest
 
 from yoke_core.domain import db_backend, events_crud
 from runtime.api.events_crud_full_test_helpers import (
-    _SEVEN_DAYS_AGO,
     _event_count,
     _insert_event_direct,
     _setup_severity_config,
@@ -300,51 +299,3 @@ class TestQueryBuilder:
                 ["--item", "YOK-999999", "--project", "yoke"],
                 db_path=db_path,
             )
-
-
-class TestPrune:
-    def test_prune_dry_run(self, test_db):
-        _setup_severity_config(test_db)
-        _insert_event_direct(
-            test_db, severity="DEBUG", created_at="2020-01-01T00:00:00Z"
-        )
-        _insert_event_direct(
-            test_db, severity="INFO", created_at="2020-01-01T00:00:00Z"
-        )
-
-        # Dry run: check counts
-        debug_count = test_db.execute(
-            "SELECT COUNT(*) FROM events WHERE severity='DEBUG' AND created_at < %s",
-            (_SEVEN_DAYS_AGO,),
-        ).fetchone()[0]
-        assert debug_count == 1
-
-    def test_prune_actually_deletes(self, test_db):
-        _insert_event_direct(
-            test_db, severity="DEBUG", created_at="2020-01-01T00:00:00Z"
-        )
-        _insert_event_direct(
-            test_db, severity="STATUS", created_at="2020-01-01T00:00:00Z"
-        )
-
-        before = _event_count(test_db)
-        assert before == 2
-
-        # Delete old DEBUG events
-        test_db.execute(
-            "DELETE FROM events WHERE severity='DEBUG' AND created_at < %s",
-            (_SEVEN_DAYS_AGO,),
-        )
-        test_db.commit()
-
-        after = _event_count(test_db)
-        assert after == 1  # STATUS retained
-
-    def test_retention_tiers(self):
-        """Verify retention tier constants."""
-        assert events_crud._RETENTION_DAYS["DEBUG"] == 1
-        assert events_crud._RETENTION_DAYS["INFO"] == 30
-        assert events_crud._RETENTION_DAYS["WARN"] == 90
-        assert events_crud._RETENTION_DAYS["STATUS"] is None  # forever
-        assert events_crud._RETENTION_DAYS["ERROR"] is None
-        assert events_crud._RETENTION_DAYS["FATAL"] is None

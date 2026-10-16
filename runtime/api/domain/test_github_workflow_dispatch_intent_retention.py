@@ -6,11 +6,12 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from yoke_core.domain.github_workflow_dispatch_intents import (
-    INTENT_TTL_DAYS,
     claim_attempt,
-    count_expired,
-    prune_expired,
 )
+from yoke_contracts.universe_retention import RetentionPolicy
+from yoke_core.domain.retention_table_policies import policies
+from yoke_core.domain.universe_retention import _table_pass
+import time
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
@@ -32,9 +33,9 @@ def _claim(request_id: str) -> None:
 def test_prune_expires_only_terminal_intents_and_never_pending(
     tmp_path: Path,
 ) -> None:
-    old = (
-        datetime.now(timezone.utc) - timedelta(days=INTENT_TTL_DAYS + 1)
-    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = datetime.now(timezone.utc)
+    policy = RetentionPolicy()
+    old = now - timedelta(days=policy.windows["dispatch_intents"] + 1)
     with init_test_db(tmp_path) as db_path:
         for request_id in ("completed-old", "rejected-old", "pending-old", "recent"):
             _claim(request_id)
@@ -59,8 +60,18 @@ def test_prune_expires_only_terminal_intents_and_never_pending(
                 "workflow_run_id='2' WHERE request_id='recent'"
             )
             conn.commit()
-            assert count_expired(conn) == 2
-            assert prune_expired(conn) == 2
+            rule = next(
+                r
+                for r in policies(policy, now)
+                if r.table == "github_workflow_dispatch_intents"
+            )
+            assert (
+                _table_pass(conn, policy, time.monotonic() + 8, rule, False)["eligible"]
+                == 2
+            )
+            assert _table_pass(conn, policy, time.monotonic() + 8, rule, True)[
+                "deleted"
+            ] == {"github_workflow_dispatch_intents": 2}
             conn.commit()
             rows = conn.execute(
                 "SELECT request_id, state FROM github_workflow_dispatch_intents "

@@ -27,8 +27,10 @@ or plan note. Nothing acknowledged is automatically completed.
   recovery. Pull row's read-only machine evidence before diagnosing repeated
   relay code. Attempt moving, queued next hook or recipient turn in flight
   means waiting: no second wake. Ended/terminated recipient has no route:
-  cancel named message then re-address content to current recipient; a successor
-  cannot acknowledge old session mail.
+  read the named message, handle or re-address its work, then cancel obsolete
+  pending/injected mail as sender actor or target-project admin; a successor
+  cannot acknowledge old session mail. The report detects ended-session debt
+  automatically; ordinary pauses and worker exit keep their existing rules.
 - **Vendor-stopped sessions**: row with attempt/time belongs to relay retry;
   leave it. Row naming seat needs account repair or deliberate restaff after
   exhausted/spent resume budget. Read lane commits first: produced work merits

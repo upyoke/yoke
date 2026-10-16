@@ -1,7 +1,10 @@
 {
  "id": "severity",
  "title": "Severity",
- "status": "draft-copy",
+ "status": "observed",
+ "summary": "Retention uses universe settings: protection first, event-name override next, severity last. Unknown severities remain protected. Shipped windows are DEBUG 1, INFO 30, WARN 90, ERROR 180, FATAL/STATUS 365 elapsed days; this is source-observed, not deployed proof.",
+ "sources": ["docs/public/universe-retention.md", "packages/yoke-contracts/src/yoke_contracts/retention_defaults.py"],
+ "related": "universes/universe/retention",
  "page": "observability",
  "position": 1
 }

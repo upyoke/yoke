@@ -4,5 +4,7 @@
  "status": "draft-copy",
  "audience": "Maintainers",
  "page": "runtime",
- "position": 4
+ "position": 4,
+ "summary": "Relay installation updates only the selected environment instance; production and stage use separate jobs and state directories.",
+ "sources": ["packages/yoke-core/src/yoke_core/tools/session_relay_plist.py"]
 }

@@ -36,7 +36,7 @@ from yoke_core.domain.session_launch_types import (
 )
 from yoke_core.domain.session_relay_storage import (
     clear_relay_batch_when_drained,
-    relay_holds_batch,
+    relay_holds_launch,
 )
 
 
@@ -69,18 +69,17 @@ def _settle_open_attempts(
         relay_id = str(attempt[1] or "")
         if not relay_id:
             continue
-        # Only the batch that leased this attempt can still be executing it.
-        # A relay that has moved on to a newer batch has abandoned this one,
-        # which is exactly the attempt an operator is here to repair.
-        if relay_holds_batch(
+        # Independent jobs can finish in any order. The attempt remains
+        # protected until its own lease expires, regardless of newer polls.
+        if relay_holds_launch(
             conn,
             relay_id=relay_id,
-            batch_id=str(attempt[2] or ""),
+            launch_id=launch_id,
             now=now,
         ):
             raise SessionLaunchError(
                 "relay_lease_active",
-                "launch attempt is still held by an active relay batch",
+                "Launch attempt still holds its lease. Recovery: wait for its own deadline and inspect native custody before reconciliation.",
             )
 
     result_code = "native_created" if observed_native_id else "not_created"

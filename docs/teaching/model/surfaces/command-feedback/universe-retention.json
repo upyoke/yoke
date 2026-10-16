@@ -1,0 +1,12 @@
+{
+ "id": "universe-retention",
+ "title": "Preview, committed counts and bounded recovery",
+ "status": "observed",
+ "form": "CLI help and output",
+ "verification": "Lane-source help and focused disposable-database command tests; no deployed preview proof yet.",
+ "topics": ["universes/universe/retention", "security/privacy/retention-and-removal"],
+ "commands": ["yoke universe retention get", "yoke universe prune"],
+ "functions": ["universe.retention.get", "universe.prune.run"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/universe_retention.py", "docs/public/universe-retention.md"],
+ "gaps": ["universe-retention-preview"]
+}

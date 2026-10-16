@@ -7,8 +7,9 @@ achievement-streak helper.
 from __future__ import annotations
 
 from datetime import date
-from typing import List, Optional
+from typing import List
 
+from yoke_contracts.board.widget_data import _allocate_proportional  # noqa: F401
 from yoke_contracts.board.config import BoardConfig
 from yoke_contracts.project_contract.board_art import emoji as E
 from yoke_contracts.board.board_db import BoardDBLike
@@ -39,9 +40,7 @@ _AGE_ANCIENT = E.AGE_ANCIENT
 # ---------------------------------------------------------------------------
 
 
-def render_age_heatmap(
-    db: BoardDBLike, config: BoardConfig, scope: str
-) -> Optional[str]:
+def collect_age_counts(db: BoardDBLike, config: BoardConfig, scope: str) -> dict | None:
     """Render the age heatmap bar with legend.
 
     Returns ``None`` if there are no active (non-done, non-frozen) items.
@@ -64,74 +63,17 @@ def render_age_heatmap(
         "  COUNT(*) AS total"
         " FROM aged"
     )
-    probe = getattr(db, "has_query_quiet", None)
-    if callable(probe) and not probe(sql, params):
-        return None
     row = db.query_quiet(sql, params)
     if not row or not row[0]:
         return None
 
-    r = row[0]
-    fresh = int(r[0] or 0)
-    week = int(r[1] or 0)
-    biweek = int(r[2] or 0)
-    month = int(r[3] or 0)
-    ancient = int(r[4] or 0)
-    total = int(r[5] or 0)
-
-    if total == 0:
-        return None
-
-    # Allocate up to 20 cells proportionally
-    max_cells = 20
-    buckets = [
-        ("fresh", fresh, _AGE_FRESH),
-        ("week", week, _AGE_WEEK),
-        ("biweek", biweek, _AGE_BIWEEK),
-        ("month", month, _AGE_MONTH),
-        ("ancient", ancient, _AGE_ANCIENT),
-    ]
-
-    cells = _allocate_proportional([count for _, count, _ in buckets], total, max_cells)
-
-    bar = ""
-    for i, (_, _, emoji) in enumerate(buckets):
-        bar += emoji * cells[i]
-
-    return (
-        f"{_CLOCK} {bar} age: "
-        f"{_AGE_FRESH}<6h {_AGE_WEEK}<1d {_AGE_BIWEEK}<3d "
-        f"{_AGE_MONTH}<1w {_AGE_ANCIENT}>1w"
+    return dict(
+        zip(
+            ("fresh", "week", "biweek", "month", "ancient", "total"),
+            [int(value or 0) for value in row[0]],
+            strict=True,
+        )
     )
-
-
-def _allocate_proportional(counts: List[int], total: int, max_cells: int) -> List[int]:
-    """Allocate cells proportionally with rounding.
-
-    Non-zero counts get at least 1 cell. Excess is trimmed from the largest.
-    """
-    if total <= 0:
-        return [0] * len(counts)
-
-    half = total // 2
-    cells = [((c * max_cells + half) // total) for c in counts]
-
-    # Ensure at least 1 for non-zero
-    for i, c in enumerate(counts):
-        if c > 0 and cells[i] < 1:
-            cells[i] = 1
-
-    # Clamp: reduce largest bucket if over max_cells
-    while sum(cells) > max_cells:
-        largest_idx = 0
-        largest_val = cells[0]
-        for i in range(1, len(cells)):
-            if cells[i] > largest_val:
-                largest_val = cells[i]
-                largest_idx = i
-        cells[largest_idx] -= 1
-
-    return cells
 
 
 # ---------------------------------------------------------------------------
@@ -139,11 +81,11 @@ def _allocate_proportional(counts: List[int], total: int, max_cells: int) -> Lis
 # ---------------------------------------------------------------------------
 
 
-def render_workflow_badges(
+def collect_workflow_counts(
     db: BoardDBLike,
     config: BoardConfig,
     scope: str,
-) -> Optional[str]:
+) -> list:
     """Render workflow distribution badges.
 
     Returns ``None`` if there are no active (non-done, non-frozen) items.
@@ -157,20 +99,7 @@ def render_workflow_badges(
         " GROUP BY workflow_id ORDER BY COUNT(*) DESC"
     )
     rows = db.query_quiet(sql, params)
-    if not rows:
-        return None
-
-    parts = []
-    for row in rows:
-        workflow_id = row[0]
-        if not workflow_id:
-            continue
-        parts.append(f"{workflow_id}:{int(row[1])}")
-
-    if not parts:
-        return None
-
-    return f"{_TAG} {' '.join(parts)}"
+    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -178,49 +107,12 @@ def render_workflow_badges(
 # ---------------------------------------------------------------------------
 
 
-def render_achievement_badges(
+def collect_achievement_counts(
     db: BoardDBLike, config: BoardConfig, scope: str, tex_done: int = 0
-) -> Optional[str]:
-    """Render achievement badges based on done count, streak, and DB heuristics.
-
-    Parameters
-    ----------
-    tex_done : int
-        Task-expanded done count from section-derived stats.
-
-    Returns ``None`` if no badges earned.
-    """
-    badges: List[str] = []
+) -> dict:
+    """Collect achievement counts and render their earned badges."""
     pf, params = _project_filter(scope)
-
-    done = max(0, int(tex_done))
-
-    # --- Milestone badges ---
-    half_k = done // 500
-    if half_k >= 20:
-        k = done // 1000
-        badges.append(f"{_MEDAL} {k}kdone")
-    elif half_k >= 2:
-        k = half_k // 2
-        half = half_k % 2
-        if half == 1:
-            badges.append(f"{_MEDAL} {k}.5kdone")
-        else:
-            badges.append(f"{_MEDAL} {k}kdone")
-    elif done >= 500:
-        badges.append(f"{_MEDAL} 500done")
-    elif done >= 100:
-        badges.append(f"{_MEDAL} 100done")
-    elif done >= 50:
-        badges.append(f"{_MEDAL} 50done")
-
-    # --- Streak badges ---
     streak = _compute_achievement_streak(db, scope)
-    tier = _streak_tier(streak)
-    if tier > 0:
-        badges.append(f"{_TARGET} streak{tier}")
-
-    # --- Zero-bugs badge ---
     bug_count = db.scalar(
         "SELECT COUNT(*) FROM items"
         " WHERE status NOT IN ('done','cancelled')"
@@ -229,10 +121,6 @@ def render_achievement_badges(
         params,
     )
     bug_count = int(bug_count or 0)
-    if bug_count == 0:
-        badges.append(f"{_SHIELD} zero-bugs")
-
-    # --- Inbox-zero badge ---
     idea_count = db.scalar(
         "SELECT COUNT(*) FROM items"
         " WHERE status = 'idea'"
@@ -241,13 +129,9 @@ def render_achievement_badges(
         params,
     )
     idea_count = int(idea_count or 0)
-    if idea_count == 0:
-        badges.append(f"{_MAILBOX} inbox-zero")
-
-    if not badges:
-        return None
-
-    return "  ".join(badges)
+    return dict(
+        done=tex_done, streak=streak, bug_count=bug_count, idea_count=idea_count
+    )
 
 
 def _streak_tier(streak: int) -> int:
@@ -299,3 +183,24 @@ def _compute_achievement_streak(db: BoardDBLike, scope: str) -> int:
             best = current_run
 
     return best
+
+
+def render_age_heatmap(db, config, scope):
+    from yoke_contracts.board.widget_data import render_age_counts
+
+    counts = collect_age_counts(db, config, scope)
+    return render_age_counts(counts) if counts is not None else None
+
+
+def render_workflow_badges(db, config, scope):
+    from yoke_contracts.board.widget_data import render_workflow_counts
+
+    return render_workflow_counts(collect_workflow_counts(db, config, scope))
+
+
+def render_achievement_badges(db, config, scope, tex_done=0):
+    from yoke_contracts.board.widget_data import render_achievement_counts
+
+    return render_achievement_counts(
+        **collect_achievement_counts(db, config, scope, tex_done)
+    )

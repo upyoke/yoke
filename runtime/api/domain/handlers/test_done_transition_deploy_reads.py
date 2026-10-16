@@ -74,15 +74,6 @@ def _link_run(conn, run_id, item_id):
     conn.commit()
 
 
-def _insert_qa(conn, run_id, check_name, *, blocking, status):
-    conn.execute(
-        "INSERT INTO deployment_run_qa (run_id, check_name, source, blocking, status) "
-        "VALUES (%s, %s, 'flow_default', %s, %s)",
-        (run_id, check_name, blocking, status),
-    )
-    conn.commit()
-
-
 def _insert_flow(conn, flow_id):
     conn.execute(
         "INSERT INTO deployment_flows (id, project_id, name, stages, created_at) "
@@ -118,15 +109,21 @@ class TestLatestDeploymentRun:
         conn = connect_test_db(db)
         try:
             insert_item(
-                conn, id=item_id, source=str(seed_human_actor(conn)),
+                conn,
+                id=item_id,
+                source=str(seed_human_actor(conn)),
                 deployment_flow="flow-test",
             )
             insert_deployment_run(
-                conn, id="run-old", status="failed",
+                conn,
+                id="run-old",
+                status="failed",
                 created_at="2026-01-01T00:00:00Z",
             )
             insert_deployment_run(
-                conn, id="run-new", status="succeeded",
+                conn,
+                id="run-new",
+                status="succeeded",
                 created_at="2026-02-01T00:00:00Z",
             )
             _link_run(conn, "run-old", item_id)
@@ -145,15 +142,23 @@ class TestLatestDeploymentRun:
         conn = connect_test_db(db)
         try:
             insert_item(
-                conn, id=item_id, source=str(seed_human_actor(conn)),
+                conn,
+                id=item_id,
+                source=str(seed_human_actor(conn)),
                 deployment_flow="prod-flow",
             )
             insert_deployment_run(
-                conn, id="run-prod", flow="prod-flow", status="executing",
+                conn,
+                id="run-prod",
+                flow="prod-flow",
+                status="executing",
                 created_at="2026-01-01T00:00:00Z",
             )
             insert_deployment_run(
-                conn, id="run-stage", flow="stage-flow", status="succeeded",
+                conn,
+                id="run-stage",
+                flow="stage-flow",
+                status="succeeded",
                 created_at="2026-02-01T00:00:00Z",
             )
             _link_run(conn, "run-prod", item_id)
@@ -165,7 +170,8 @@ class TestLatestDeploymentRun:
         )
         assert outcome.primary_success, outcome.error
         assert outcome.result_payload == {
-            "run_id": "run-prod", "status": "executing",
+            "run_id": "run-prod",
+            "status": "executing",
         }
 
     def test_empty_when_no_run(self, db):
@@ -181,7 +187,9 @@ class TestRunStage:
         conn = connect_test_db(db)
         try:
             insert_deployment_run(
-                conn, id="run-stage", status="succeeded",
+                conn,
+                id="run-stage",
+                status="succeeded",
                 current_stage="production-failed",
             )
         finally:
@@ -201,25 +209,6 @@ class TestRunStage:
         assert outcome.result_payload["current_stage"] == ""
 
 
-class TestRunBlockingQa:
-    def test_reports_unsatisfied_blocking_only(self, db):
-        conn = connect_test_db(db)
-        try:
-            insert_deployment_run(conn, id="run-qa", status="succeeded")
-            _insert_qa(conn, "run-qa", "smoke", blocking=1, status="failed")
-            _insert_qa(conn, "run-qa", "lint", blocking=1, status="passed")
-            _insert_qa(conn, "run-qa", "advisory", blocking=0, status="failed")
-        finally:
-            conn.close()
-        outcome = reads.handle_run_blocking_qa(
-            _global_env("done_transition.run_blocking_qa",
-                        payload={"run_id": "run-qa"})
-        )
-        assert outcome.primary_success, outcome.error
-        assert outcome.result_payload["blocking"] == ["smoke (failed)"]
-        reads.RunBlockingQaResponse(**outcome.result_payload)
-
-
 class TestDonePreconditions:
     def test_allows_item_without_deployment_flow(self, db):
         item_id = 8520
@@ -229,8 +218,11 @@ class TestDonePreconditions:
         finally:
             conn.close()
         outcome = reads.handle_done_preconditions(
-            _item_env("done_transition.done_preconditions", item_id=item_id,
-                      payload={"deploy_flow": "", "require_plan_verdict": False})
+            _item_env(
+                "done_transition.done_preconditions",
+                item_id=item_id,
+                payload={"deploy_flow": "", "require_plan_verdict": False},
+            )
         )
         assert outcome.primary_success, outcome.error
         assert outcome.result_payload == {"allowed": True, "reason": None}
@@ -242,15 +234,22 @@ class TestDonePreconditions:
         try:
             insert_deployment_run(conn, id="run-pre", flow="externalwebapp-prod")
             insert_item(
-                conn, id=item_id, source=str(seed_human_actor(conn)),
+                conn,
+                id=item_id,
+                source=str(seed_human_actor(conn)),
                 deployment_flow="externalwebapp-prod",
             )
         finally:
             conn.close()
         outcome = reads.handle_done_preconditions(
-            _item_env("done_transition.done_preconditions", item_id=item_id,
-                      payload={"deploy_flow": "externalwebapp-prod",
-                               "require_plan_verdict": False})
+            _item_env(
+                "done_transition.done_preconditions",
+                item_id=item_id,
+                payload={
+                    "deploy_flow": "externalwebapp-prod",
+                    "require_plan_verdict": False,
+                },
+            )
         )
         assert outcome.primary_success, outcome.error
         assert outcome.result_payload["allowed"] is False

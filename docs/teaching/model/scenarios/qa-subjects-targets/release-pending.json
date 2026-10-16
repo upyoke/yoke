@@ -1,0 +1,14 @@
+{
+ "id": "release-pending",
+ "title": "Read release obligations before execution",
+ "status": "observed",
+ "audience": "human",
+ "when": "Before starting or reviewing a release, including a replacement run after failed QA.",
+ "need": "Read Item QA on Shipping and run detail. Not started is an existing obligation without release proof. A former release result cannot answer it; a waiver is explicit. Completed releases keep their frozen acceptance definitions.",
+ "disclosure": "current cue",
+ "surface": "Shipping carried-item row and deployment run detail",
+ "review": "Component and database tests prove projection semantics; deployed browser review must inspect both pages.",
+ "topics": ["deployments/shipping/member-progress", "qa-evidence/gates/member-obligations"],
+ "sources": ["docs/public/qa.md", "packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.js"],
+ "position": 3
+}

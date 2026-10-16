@@ -1,7 +1,7 @@
 # ruff: noqa: F811
-"""Tests for yoke_core.domain.deployment_runs — lineage, QA, validation, CLI.
+"""Tests for yoke_core.domain.deployment_runs — lineage, validation, CLI.
 
-Split from test_deployment_runs.py: TestLineage, TestQA,
+Split from test_deployment_runs.py: TestLineage,
 TestValidateComposition, TestCheckBatchCompatibility, TestResolveTarget,
 TestCLIExitCodes.
 """
@@ -18,8 +18,12 @@ from runtime.api.fixtures.file_test_db import connect_test_db
 class TestLineage:
     def test_lineage_groups_runs(self, db_path: str) -> None:
         lin = dr.cmd_lineage_create(db_path=db_path)
-        r1 = dr.cmd_create_run("yoke", "flow-main", release_lineage=lin, db_path=db_path)
-        r2 = dr.cmd_create_run("yoke", "flow-main", release_lineage=lin, db_path=db_path)
+        r1 = dr.cmd_create_run(
+            "yoke", "flow-main", release_lineage=lin, db_path=db_path
+        )
+        r2 = dr.cmd_create_run(
+            "yoke", "flow-main", release_lineage=lin, db_path=db_path
+        )
         result = dr.cmd_lineage(r1, db_path=db_path)
         assert r1 in result
         assert r2 in result
@@ -46,8 +50,10 @@ class TestLineage:
     def test_lineage_final_status_succeeded(self, db_path: str) -> None:
         lin = dr.cmd_lineage_create(db_path=db_path)
         run_id = dr.cmd_create_run(
-            "yoke", "flow-main",
-            release_lineage=lin, environment="prod",
+            "yoke",
+            "flow-main",
+            release_lineage=lin,
+            environment="prod",
             db_path=db_path,
         )
         dr.cmd_update(run_id, "current_stage", "complete", db_path=db_path)
@@ -55,34 +61,13 @@ class TestLineage:
         assert dr.cmd_lineage_final_status(lin, db_path=db_path) == "succeeded"
 
 
-class TestQA:
-    def test_qa_lifecycle(self, db_path: str) -> None:
-        run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        dr.cmd_qa_add(run_id, "lint-check", "flow_default", 1, db_path=db_path)
-        dr.cmd_qa_add(run_id, "e2e-test", "manual", 0, db_path=db_path)
-
-        result = dr.cmd_qa_list(run_id, db_path=db_path)
-        assert "lint-check" in result
-        assert "e2e-test" in result
-        assert "pending" in result
-
-        dr.cmd_qa_update(run_id, "lint-check", "passed", db_path=db_path)
-        result = dr.cmd_qa_list(run_id, db_path=db_path)
-        assert "passed" in result
-
-    def test_qa_update_invalid_status(self, db_path: str) -> None:
-        run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        dr.cmd_qa_add(run_id, "check", "src", 1, db_path=db_path)
-        err = dr.cmd_qa_update(run_id, "check", "invalid", db_path=db_path)
-        assert err is not None
-        assert "invalid QA status" in err
-
-
 class TestValidateComposition:
     def test_valid_composition(self, db_path: str) -> None:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
         conn = connect_test_db(db_path)
-        conn.execute("INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (400, 'A', 'implemented', 1, 400)")
+        conn.execute(
+            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (400, 'A', 'implemented', 1, 400)"
+        )
         conn.commit()
         conn.close()
         dr.cmd_add_item(run_id, 400, db_path=db_path)
@@ -94,7 +79,9 @@ class TestValidateComposition:
     def test_wrong_project(self, db_path: str) -> None:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
         conn = connect_test_db(db_path)
-        conn.execute("INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (401, 'B', 'implemented', 2, 401)")
+        conn.execute(
+            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (401, 'B', 'implemented', 2, 401)"
+        )
         conn.commit()
         conn.close()
         dr.cmd_add_item(run_id, 401, db_path=db_path)
@@ -106,7 +93,9 @@ class TestValidateComposition:
     def test_wrong_status(self, db_path: str) -> None:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
         conn = connect_test_db(db_path)
-        conn.execute("INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (402, 'C', 'idea', 1, 402)")
+        conn.execute(
+            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (402, 'C', 'idea', 1, 402)"
+        )
         conn.commit()
         conn.close()
         dr.cmd_add_item(run_id, 402, db_path=db_path)
@@ -142,35 +131,49 @@ class TestValidateComposition:
 class TestCheckBatchCompatibility:
     def test_valid_batch(self, db_path: str) -> None:
         conn = connect_test_db(db_path)
-        conn.execute("INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (500, 'X', 'implemented', 1, 500)")
-        conn.execute("INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (501, 'Y', 'release', 1, 501)")
+        conn.execute(
+            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (500, 'X', 'implemented', 1, 500)"
+        )
+        conn.execute(
+            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (501, 'Y', 'release', 1, 501)"
+        )
         conn.commit()
         conn.close()
 
-        ok, msg = dr.cmd_check_batch_compatibility("yoke", "flow-main", [500, 501], db_path=db_path)
+        ok, msg = dr.cmd_check_batch_compatibility(
+            "yoke", "flow-main", [500, 501], db_path=db_path
+        )
         assert ok
         assert msg == "OK"
 
     def test_batch_wrong_project(self, db_path: str) -> None:
         conn = connect_test_db(db_path)
-        conn.execute("INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (502, 'Z', 'implemented', 2, 502)")
+        conn.execute(
+            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (502, 'Z', 'implemented', 2, 502)"
+        )
         conn.commit()
         conn.close()
 
-        ok, msg = dr.cmd_check_batch_compatibility("yoke", "flow-main", [502], db_path=db_path)
+        ok, msg = dr.cmd_check_batch_compatibility(
+            "yoke", "flow-main", [502], db_path=db_path
+        )
         assert not ok
         assert "Project mismatch" in msg
 
     def test_batch_no_items(self, db_path: str) -> None:
-        ok, msg = dr.cmd_check_batch_compatibility("yoke", "flow-main", [], db_path=db_path)
+        ok, msg = dr.cmd_check_batch_compatibility(
+            "yoke", "flow-main", [], db_path=db_path
+        )
         assert not ok
 
 
 class TestResolveTarget:
     def test_override_wins(self, db_path: str) -> None:
         result = dr.cmd_resolve_target(
-            "yoke", "flow-main",
-            environment_override="stage", db_path=db_path,
+            "yoke",
+            "flow-main",
+            environment_override="stage",
+            db_path=db_path,
         )
         assert result == ("persistent", 202, "stage")
 
@@ -187,10 +190,13 @@ class TestCLIExitCodes:
     def test_no_command_returns_2(self) -> None:
         assert dr.main([]) == 2
 
-    @pytest.mark.parametrize("module", [
-        "yoke_core.domain.deployment_runs",
-        "yoke_core.domain.deployment_runs_cli",
-    ])
+    @pytest.mark.parametrize(
+        "module",
+        [
+            "yoke_core.domain.deployment_runs",
+            "yoke_core.domain.deployment_runs_cli",
+        ],
+    )
     def test_module_invocation_reaches_main(self, module: str) -> None:
         # Both module paths must be runnable entrypoints: a missing
         # __main__ guard makes `python3 -m <module> <args>` import and
@@ -201,7 +207,9 @@ class TestCLIExitCodes:
 
         completed = subprocess.run(
             [sys.executable, "-m", module, "--help"],
-            capture_output=True, text=True, check=False,
+            capture_output=True,
+            text=True,
+            check=False,
         )
         assert completed.returncode == 0
         assert "create-run" in completed.stdout

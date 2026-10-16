@@ -11,6 +11,7 @@ from yoke_contracts.board.project_scope import (
 )
 from yoke_contracts.board.sections_sessions_levels import board_levels
 from yoke_contracts.levels import level_presentation
+from yoke_contracts.session_queue_posture import session_pause_mode_sql
 from yoke_contracts.coordination_claim_keys import (
     COORDINATION_TARGET_KINDS,
 )
@@ -37,10 +38,6 @@ def session_rows(
     classifies active or stale, folded together — the board shows one live
     table and does not present the two tiers separately.
 
-    The ``executor_surface`` pair below is replay coverage, not live column
-    tolerance. Only a payload replay defines ``has_query_quiet``, so a live
-    database always takes the enriched read, while a payload recorded before
-    that column joined the plan still renders.
     """
     ended_filter = live_session_sql("hs") if active_only else ended_session_sql("hs")
     order_col = "hs.offered_at" if active_only else ended_at_sql("hs")
@@ -53,22 +50,8 @@ def session_rows(
         limit=limit,
         scope_sql=scope_sql,
         ended_col=ended_col,
-        surface_col=", hs.executor_surface",
     )
-    probe = getattr(db, "has_query_quiet", None)
-    if not callable(probe) or probe(enriched_sql, params):
-        return db.query_quiet(enriched_sql, params)
-    legacy_sql = _session_rows_sql(
-        ended_filter=ended_filter,
-        order_col=order_col,
-        limit=limit,
-        scope_sql=scope_sql,
-        ended_col=ended_col,
-        surface_col="",
-    )
-    return [
-        (row[0], row[1], None, *row[2:]) for row in db.query_quiet(legacy_sql, params)
-    ]
+    return db.query_quiet(enriched_sql, params)
 
 
 def _session_rows_sql(
@@ -78,12 +61,11 @@ def _session_rows_sql(
     limit: str,
     scope_sql: str,
     ended_col: str,
-    surface_col: str,
 ) -> str:
     return f"""
-        SELECT hs.session_id, hs.executor{surface_col}, hs.model,
+        SELECT hs.session_id, hs.executor, hs.executor_surface, hs.model,
                hs.requested_model, hs.usage_totals,
-               hs.mode, hs.execution_level, hs.offered_at, hs.last_heartbeat,
+               {session_pause_mode_sql("hs")}, hs.execution_level, hs.offered_at, hs.last_heartbeat,
                hs.workspace, hs.project_id
                {ended_col}
         FROM harness_sessions hs

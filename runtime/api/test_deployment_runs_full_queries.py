@@ -1,6 +1,6 @@
 # ruff: noqa: F811
 """Query/listing tests for yoke_core.domain.deployment_runs.
-Covers cmd_list, cmd_items, cmd_find_by_item, cmd_lineage*, cmd_qa_*.
+Covers cmd_list, cmd_items, cmd_find_by_item, cmd_lineage*.
 
 Split from ``test_deployment_runs_full.py``.
 """
@@ -146,38 +146,3 @@ class TestLineage:
         dr.cmd_update(rid, "status", "succeeded", db_path=db_path)
         status = dr.cmd_lineage_final_status("rel-succ", db_path=db_path)
         assert status == "succeeded"
-
-
-class TestQA:
-    """cmd_qa_add, cmd_qa_list, cmd_qa_update."""
-
-    def test_qa_add_and_list(self, db_path):
-        rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
-        dr.cmd_qa_add(rid, "smoke-test", "flow_default", 1, db_path=db_path)
-        dr.cmd_qa_add(rid, "integration", "flow_default", 0, db_path=db_path)
-
-        result = dr.cmd_qa_list(rid, db_path=db_path)
-        lines = [line for line in result.strip().split("\n") if line]
-        assert len(lines) == 2
-
-    def test_qa_update(self, db_path):
-        rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
-        dr.cmd_qa_add(rid, "smoke-test", "flow_default", 1, db_path=db_path)
-
-        err = dr.cmd_qa_update(rid, "smoke-test", "passed", db_path=db_path)
-        assert err is None
-
-        result = dr.cmd_qa_list(rid, db_path=db_path)
-        assert "passed" in result
-
-    def test_qa_update_invalid_status(self, db_path):
-        rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
-        dr.cmd_qa_add(rid, "smoke-test", "flow_default", 1, db_path=db_path)
-        err = dr.cmd_qa_update(rid, "smoke-test", "bogus", db_path=db_path)
-        assert err is not None
-        assert "invalid QA status" in err
-
-    def test_qa_list_empty(self, db_path):
-        rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
-        result = dr.cmd_qa_list(rid, db_path=db_path)
-        assert result == ""

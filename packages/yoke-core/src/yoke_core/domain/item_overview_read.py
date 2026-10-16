@@ -229,6 +229,7 @@ def enrich_item_overview_rows(
                 "stage_label": runtime.stage_label(str(row["status"])),
                 "qa_attention": qa_attention.get(item_id),
                 "delivery": delivery.get(item_id),
+                "delivery_policy": str(runtime.policies["delivery"]),
                 "landing_count": landings.get(item_id, 0),
             }
         )

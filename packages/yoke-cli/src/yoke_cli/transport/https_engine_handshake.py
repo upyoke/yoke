@@ -104,7 +104,7 @@ def _source_checkout_comparison(
     checkout = _loaded_source_checkout()
     if checkout is None:
         return None
-    return source_build_skew.compare_to_server_build(checkout, f"v{raw_server_version}")
+    return source_build_skew.compare_to_server_build(checkout, raw_server_version)
 
 
 __all__ = [

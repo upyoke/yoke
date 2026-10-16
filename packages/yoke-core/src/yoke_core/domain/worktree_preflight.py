@@ -12,13 +12,6 @@ active ``work_claims`` row, validated per tool call by
 ``lint_session_cwd``. The preflight no longer binds a session-scope
 envelope, and no ``scope:entered`` action is emitted.
 
-Dirty-main checks run on new lanes; tracked dirt blocks on path overlap.
-Untracked files under source/package roots always block; untracked
-files outside those roots warn via envelope notes. Errors surface as
-``ok=False`` outcomes with a ``block_kind`` and rendered ``narrative``.
-CLI: exit 0 (envelope to stdout), exit 1 (sanctioned block, narrative
-to stderr), exit 2 (usage / bad-input).
-
 Before the lane or laneless work begins, the default branch is brought
 current with its remote (:mod:`yoke_cli.config.repo_upstream_freshness`):
 a new lane starts from the verified upstream revision, a resumed lane is
@@ -47,6 +40,7 @@ from yoke_core.domain.worktree_dirty_main_guard import (
 from yoke_core.domain.worktree_paths import _normalize_repo_root
 from yoke_core.domain.worktree_preflight_outcome import (
     WorktreePreflightOutcome,
+    unexpected_failure_envelope,
 )
 from yoke_core.domain.worktree_preflight_upstream import (
     gate_upstream_for_preparation,
@@ -303,8 +297,8 @@ def run_preflight(
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke dev run -- python3 -m yoke_core.domain.worktree_preflight",
-        description="Harness-universal /yoke implement worktree re-entry primitive.",
+        prog="yoke worktree prepare",
+        description="Prepare registered item lanes from the owning main checkout.",
     )
     parser.add_argument(
         "--item",
@@ -325,13 +319,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     except ValueError as exc:
         print(f"Invalid --item: {exc}", file=sys.stderr)
         return 2
-    outcome = run_preflight(
-        item_id=item_id,
-        project=args.project,
-        session_id=args.session_id,
-        actual_cwd=os.getcwd(),
-        no_worktree=args.no_worktree,
-    )
+    try:
+        outcome = run_preflight(
+            item_id=item_id,
+            project=args.project,
+            session_id=args.session_id,
+            actual_cwd=os.getcwd(),
+            no_worktree=args.no_worktree,
+        )
+    except Exception as exc:  # noqa: BLE001 — preparation owes a recovery receipt
+        print(json.dumps(unexpected_failure_envelope(args.item, exc), indent=2))
+        return 1
     print(json.dumps(outcome.to_envelope(), indent=2))
     if outcome.ok:
         return 0

@@ -13,8 +13,8 @@ These handlers are thin wrappers over the existing gate domain functions
 :mod:`yoke_core.domain.path_claim_spec_coverage_gate`), unchanged. The
 transport-aware preflight relays to them so the DB reads run server-side
 over https and dispatch in-process against local Postgres. They are
-``adapter_status='internal'`` (pure preflight glue, never an agent CLI
-surface), so they carry no CLI adapter inventory row.
+internal preflight glue except for hard-block evaluation, which also serves
+the public ``yoke advance preflight hard-blocks`` adapter.
 
 The narrative construction and gate ordering stay client-side in
 :mod:`yoke_core.engines.advance_implementation_preflight_gates`; these

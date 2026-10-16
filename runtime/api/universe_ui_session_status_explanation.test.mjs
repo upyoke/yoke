@@ -12,7 +12,7 @@ function card(extra) {
     executor: "codex",
     claims: [],
     activity_at: new Date().toISOString(),
-    stale_eligible_at: "2099-01-01T00:00:00Z",
+    activity_quiet_at: "2099-01-01T00:00:00Z",
     messageability: { messageable: false },
     ...extra,
   }, () => {});

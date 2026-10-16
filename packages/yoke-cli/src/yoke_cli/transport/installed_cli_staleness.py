@@ -53,7 +53,7 @@ def warn_if_behind_active_connection(
     if env != active_env:
         return False
     _warned = True
-    served = server_version.strip().removeprefix("v")
+    served = server_version.strip()
     print(
         f"yoke: warning: this CLI ({local}) is older than {served}, the release "
         f"your active connection {env!r} serves. Its relay installs each "

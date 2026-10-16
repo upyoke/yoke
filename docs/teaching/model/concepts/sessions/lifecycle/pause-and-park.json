@@ -1,7 +1,9 @@
 {
  "id": "pause-and-park",
  "title": "Pause and park",
- "status": "draft-copy",
+ "status": "observed",
  "page": "sessions",
- "position": 2
+ "position": 2,
+ "summary": "Mode parked or turn posture waiting declares intentional pause. A paused work-claim holder remains parked as activity ages; silence alone never declares pause.",
+ "sources": ["docs/public/items-and-sessions.md", "packages/yoke-core/src/yoke_core/domain/session_automatic_reclaim.py", "packages/yoke-core/src/yoke_core/domain/session_staleness.py"]
 }

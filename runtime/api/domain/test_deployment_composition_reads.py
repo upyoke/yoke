@@ -64,7 +64,6 @@ def test_freeze_shares_one_custody_resolution_between_refusal_checks():
     custody = object()
     with (
         patch.object(freeze, "requires_release_admission", return_value=True),
-        patch.object(freeze, "_require_schema"),
         patch.object(freeze, "snapshot_flow_requirements", return_value="{}"),
         patch.object(freeze, "record_bound_sources"),
         patch.object(freeze, "record_carried_work", return_value={}),

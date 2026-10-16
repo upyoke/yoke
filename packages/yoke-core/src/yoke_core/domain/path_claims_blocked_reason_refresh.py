@@ -1,36 +1,7 @@
-"""Refresh ``path_claims.blocked_reason`` wording when item-dep edges change.
+"""Reclassify blocked path reservations when their item dependencies change.
 
-Sibling helper of :mod:`path_claims_dependency_propagation`. The existing
-``_refresh_blocked_reason`` only fires from the upstream-release
-propagation path; it never re-evaluates wording when the
-``item_dependencies`` row that motivated the original block is later
-demoted (e.g. ``activation`` -> ``coordination_only``) or removed
-entirely. That gap leaves diagnostic text stale: a row authored as
-``serial-via-dependency on path_claims.id=N`` keeps that wording even
-after the matching dependency edge has been demoted to
-``coordination_only`` or removed, misleading operators who read the
-claim row to diagnose why a candidate is still blocked.
-
-This helper closes the gap with a wording-only refresh:
-
-* state stays ``blocked`` (state repair for genuinely-not-mutex'd rows
-  lives in ``repair_coordination_only_blocked``),
-* INSERT / UPDATE / DELETE on ``item_dependencies`` between a pair of
-  items triggers a recompute of every non-terminal blocked claim whose
-  upstream pointer references a claim owned by either party,
-* the new wording reflects the *current* edge shape:
-  ``serial-via-dependency on path_claims.id=X`` when a forward serial
-  edge survives, ``path-mutex on path_claims.id=X`` when only a path
-  mutex survives, and ``path-mutex serialization only`` when neither
-  remain, and
-* a ``PathClaimBlockedReasonRefreshed`` event fires per refresh with
-  ``cause='item_dependency_edge_change'`` plus the affected pair so
-  ouroboros distinguishes this trigger from the upstream-release
-  refresh path.
-
-The refresh-vs-state-flip split mirrors :mod:`db_mutation_gate_overlap`'s
-two-axes pattern: this helper owns the wording axis, while
-``repair_coordination_only_blocked`` owns the state axis.
+Reservations with no remaining blocker return to planned immediately;
+others retain a reason naming the current blocking relationship.
 """
 
 from __future__ import annotations
@@ -185,22 +156,14 @@ def refresh_blocked_reason_for_edge_change(
     dependent_item_id: int,
     blocking_item_id: int,
 ) -> List[int]:
-    """Recompute ``blocked_reason`` for the affected pair. Wording-only.
-
-    Walks every non-terminal ``state='blocked'`` row whose
-    ``_blocked_reason_claim_id`` resolves to a claim owned by either
-    ``dependent_item_id`` or ``blocking_item_id``. For each candidate,
-    re-runs :func:`classify_overlap` in register phase. ``NONE`` is
-    skipped (state repair belongs to the coord-only repair pass).
-    ``SERIAL_VIA_DEPENDENCY`` and ``INCOMPATIBLE`` are rewritten to
-    reflect the current edge shape (serial-via-dependency on a surviving
-    serial edge, path-mutex on a surviving overlap without one, or the
-    no-claim-id wording when no overlap survives).
-
-    Returns the list of claim ids whose ``blocked_reason`` was rewritten.
-    Idempotent: when the recomputed wording matches the prior wording
-    the row is left untouched and no event is emitted.
-    """
+    """Update affected reservations and return the changed claim ids."""
+    from yoke_core.domain.path_claims_dependency_binding_lock import (
+        lock_candidate_item_bindings,
+    )
+    from yoke_core.domain.workflow_item_binding_validation import (
+        WorkflowItemBindingError,
+        item_binding_runtime_state,
+    )
     from yoke_core.domain.path_claims_dependency_propagation import (
         _blocked_reason_claim_id,
         _claim_owning_item,
@@ -236,6 +199,13 @@ def refresh_blocked_reason_for_edge_change(
         if upstream_item_id is None or upstream_item_id not in affected_pair:
             continue
 
+        lock_candidate_item_bindings(conn, [claim_id])
+        if candidate_item_id is not None:
+            try:
+                item_binding_runtime_state(conn, candidate_item_id)
+            except WorkflowItemBindingError:
+                continue
+
         p = _p(conn)
         target_rows = conn.execute(
             f"SELECT target_id FROM path_claim_targets WHERE claim_id = {p}",
@@ -252,6 +222,13 @@ def refresh_blocked_reason_for_edge_change(
             phase="register",
         )
         if classification is OverlapClassification.NONE:
+            cursor = conn.execute(
+                "UPDATE path_claims SET state = 'planned', blocked_reason = NULL "
+                f"WHERE id = {p} AND state = 'blocked'",
+                (claim_id,),
+            )
+            if int(cursor.rowcount or 0) == 1:
+                refreshed.append(claim_id)
             continue
 
         new_reason = _compute_new_reason(

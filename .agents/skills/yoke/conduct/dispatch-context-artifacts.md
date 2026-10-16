@@ -11,14 +11,18 @@ Use the installed harness manifest and capture receipts. Claude's PostToolUse
 Agent hook (`yoke_core.domain.reflection_capture_hook`) normally captures the
 complete delimited response once; no duplicate
 manual insert. Codex custom-agent returns do not fire that Agent matcher; the
-retained operator/debug parity owner consumes the captured response with actual
+registered `ouroboros.reflection.capture` owner consumes the captured response with actual
 project and canonical role before continuing:
 
 ```text
-python3 -m yoke_core.domain.reflection_capture --default-agent {ROLE} --project {PROJECT} --output-text {RESPONSE_TEXT}
+yoke ouroboros reflection capture --default-agent {ROLE} --project {PROJECT} --text-file {RESPONSE_FILE}
 ```
 
-For large output use its documented stdin form. No silent project=yoke fallback.
+Use `--stdin` to pipe a captured response instead. The result carries parser,
+duplicate and persistence counts; incomplete capture refuses with the failed
+counts and recovery. Keep the file until that receipt succeeds. An older
+server names the serving floor; ask the control-plane operator to serve the
+carrying release. No silent project=yoke fallback.
 Recovery/backfill requires evidence automatic capture was absent; preserve
 ReflectionCaptureHookFired/Unhandled diagnostics. Reflection failures report a
 field-note, not a fabricated capture. Keep full response only until captured.

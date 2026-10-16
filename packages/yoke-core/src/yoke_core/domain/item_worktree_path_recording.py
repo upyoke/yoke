@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any
 
 from yoke_core.domain import db_backend
@@ -25,6 +25,28 @@ def _dict_row(cursor: Any) -> dict[str, Any] | None:
     return dict(row) if hasattr(row, "keys") else dict(zip(columns, row))
 
 
+def _is_absolute_client_path(path: str) -> bool:
+    # Leading slashes retain POSIX meaning, including // namespace ambiguity.
+    if PurePosixPath(path).is_absolute():
+        return True
+    windows = PureWindowsPath(path)
+    if not windows.is_absolute():
+        return False
+    drive = windows.drive
+    if (
+        len(drive) == 2
+        and drive[0] in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+        and drive[1] == ":"
+    ):
+        return True
+    if drive.startswith("\\\\"):
+        parts = drive[2:].split("\\")
+        return len(parts) == 2 and all(
+            part not in {"", ".", "..", "?"} for part in parts
+        )
+    return False
+
+
 def record_item_worktree_path(
     conn: Any,
     *,
@@ -36,8 +58,17 @@ def record_item_worktree_path(
     """Record one machine-local path against an unchanged active lane."""
     clean_path = str(path).strip()
     clean_branch = str(expected_branch).strip()
-    if not clean_path or not Path(clean_path).is_absolute():
-        raise ValueError("item worktree path must be an absolute path")
+    if not clean_path or not _is_absolute_client_path(clean_path):
+        raise ValueError(
+            "item worktree path must be a fully qualified client path: "
+            "submit a POSIX absolute path, Windows drive-rooted path "
+            "(C:/checkout or C:\\checkout), or complete UNC path "
+            "(\\\\server\\share\\checkout); drive-relative, backslash-rooted, "
+            "incomplete UNC and Windows device-namespace paths are unsupported. "
+            "Preserve an existing checkout; retry item_worktrees.path_record "
+            "with its absolute client path and the current lane id/branch "
+            "from item_worktrees.list."
+        )
     if not clean_branch:
         raise ValueError("expected item worktree branch must be non-empty")
 

@@ -166,3 +166,11 @@ For transient CI infrastructure failures, the claimed item worker uses
 `yoke github-actions run rerun-failed ITEM RUN-ID`, then resumes the same
 CI/QA wait. It refuses stale PR heads and superseded workflow runs and records
 the outcome in the item Progress Log; inspect the newer identity on refusal.
+
+Cancelled required checks recover on the same governed merge retry, including
+an open already-armed PR that has not entered the queue. Never-started jobs
+use a full rerun; started jobs use failed-job recovery. No duplicate arming
+occurs. Current head, newest run and at most three total cancelled attempts
+are enforced; inspect a named refusal and repair runner or workflow limits.
+An accepted rerun is not passing proof. A fresh declared `workflow_dispatch`
+is a new attempt: verify its exact head and required-check replacement.

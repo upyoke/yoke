@@ -60,9 +60,8 @@ refuses a universe with anything other than exactly one organization
 identity card, so that row's slug and creation instant identify it.
 
 Writing the binding belongs to the paths that already know the answer —
-universe birth, universe import, `yoke config bind-actor`, and the
-doctor repair, which records it for a single-owner universe that predates
-the binding. Reading it is by id only. Deliberately, **resolution has no
+universe birth, universe import, and `yoke config bind-actor --actor-id <id>`.
+Reading it is by id only. Deliberately, **resolution has no
 fallback**: a missing or stale binding refuses and names the command that
 fixes it. A standing "well, there's only one human" fallback would
 re-answer the identity question every time the recorded answer stopped

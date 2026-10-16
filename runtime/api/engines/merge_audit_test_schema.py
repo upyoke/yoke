@@ -39,6 +39,9 @@ CREATE TABLE IF NOT EXISTS items (
     project_id INTEGER REFERENCES projects(id),
     project_sequence INTEGER
 );
+INSERT INTO items (id, title, status, project_id, project_sequence)
+VALUES (42, 'No active lanes', 'idea', 1, 42),
+       (999, 'No active lanes', 'idea', 1, 999);
 CREATE TABLE IF NOT EXISTS item_worktrees (
     id INTEGER PRIMARY KEY,
     item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,

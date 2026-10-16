@@ -80,31 +80,38 @@ def test_item_filter_exclude_blocked():
 
 def test_classify_item_state_returns_blocked_for_flag():
     assert classify_item_state("idea", frozen=False, blocked=True) == "blocked"
-    assert classify_item_state(
-        "implementing", frozen=False, blocked=True,
-    ) == "blocked"
+    assert (
+        classify_item_state(
+            "implementing",
+            frozen=False,
+            blocked=True,
+        )
+        == "blocked"
+    )
 
 
 def test_classify_item_state_done_outranks_blocked_flag():
     assert classify_item_state("done", frozen=False, blocked=True) == "done"
-    assert classify_item_state(
-        "cancelled", frozen=False, blocked=True,
-    ) == "cancelled"
+    assert (
+        classify_item_state(
+            "cancelled",
+            frozen=False,
+            blocked=True,
+        )
+        == "cancelled"
+    )
 
 
 def test_classify_item_state_frozen_outranks_blocked_flag():
     """Frozen ordering wins over blocked when both flags are set."""
-    assert classify_item_state(
-        "implementing", frozen=True, blocked=True,
-    ) == "frozen"
-
-
-def test_classify_item_state_legacy_blocked_status_classifies_as_active_work():
-    """Legacy drift: a row whose status='blocked' (no flag) classifies as
-    active_work. The dedicated ``HC-blocked-status-drift`` doctor check owns
-    drift detection; the live classifier preserves pre-cutover semantics so
-    the scheduler keeps offering work until the migration repairs the row."""
-    assert classify_item_state("blocked", frozen=False, blocked=False) == "active_work"
+    assert (
+        classify_item_state(
+            "implementing",
+            frozen=True,
+            blocked=True,
+        )
+        == "frozen"
+    )
 
 
 def test_classify_item_state_default_blocked_is_none():

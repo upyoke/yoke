@@ -33,7 +33,6 @@ LEGACY_STATUS_GLYPHS: Mapping[str, str] = {
 LEGACY_STATUS_BUCKETS: Mapping[str, str] = {
     "done": "done",
     "cancelled": "done",
-    "blocked": "blocked",
     "stopped": "blocked",
     "failed": "blocked",
     "release": "release",

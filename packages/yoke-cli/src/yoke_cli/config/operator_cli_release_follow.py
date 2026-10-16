@@ -47,7 +47,7 @@ def follow_release(
     activation; inside it, the launcher imports the relay's release and
     reports that version as its own.
     """
-    target = release.strip().removeprefix("v")
+    target = release.strip()
     yoke = executable or Path(tool_bin_dir()) / "yoke"
     record: dict[str, Any] = {"release": target, "cli": str(yoke), "at": iso8601_now()}
     if not yoke.is_file():

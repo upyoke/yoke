@@ -27,9 +27,6 @@ _UNIVERSE_SQL = "SELECT value FROM universe_settings WHERE key = %s"
 
 
 def _first_document(db: BoardDBLike, sql: str, params: tuple[Any, ...]) -> Any:
-    has_query_quiet = getattr(db, "has_query_quiet", None)
-    if callable(has_query_quiet) and not has_query_quiet(sql, params):
-        return None
     rows = db.query_quiet(sql, params)
     if not rows:
         return None

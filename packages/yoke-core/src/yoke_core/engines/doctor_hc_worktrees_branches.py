@@ -174,9 +174,7 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
             continue
         cache, target_repo, target_branch = context
 
-        # A stale branch may be named by the item's public ref, the legacy
-        # YOK-{internal_id} scheme, or any branch recorded in item_worktrees;
-        # inspect every present candidate rather than one reconstructed guess.
+        # Inspect the public ref and recorded branches that are still present.
         present = sorted(
             name for name in candidate_worktree_names(conn, int(did)) if name in cache
         )

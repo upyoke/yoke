@@ -15,11 +15,9 @@ from yoke_core.domain.session_message_types import (
     row_dict,
 )
 from yoke_core.domain.session_relay_evidence import redacted_evidence
+from yoke_core.domain.session_relay_job_leases import require_job_lease
 from yoke_core.domain.session_relay_storage import (
-    clear_relay_batch_when_drained,
-    mark_relay_batch,
     marker,
-    require_relay_batch,
 )
 from yoke_core.domain.session_relay_types import (
     RelayHeartbeat,
@@ -96,13 +94,7 @@ def claim_termination_reap(
     )
     if cursor.rowcount != 1:
         return None
-    mark_relay_batch(
-        conn,
-        relay_id=heartbeat.relay_id,
-        batch_id=lease_id,
-        expires_at=expires_at,
-        now=now,
-    )
+
     conn.commit()
     surface = str(selected.get("executor_surface") or "")
     return RelayJob(
@@ -160,7 +152,9 @@ def report_termination_reap(
         raise SessionRelayError(
             "report_conflict", "termination reap was already reported"
         )
-    require_relay_batch(conn, relay_id=relay_id, now=now)
+    require_job_lease(
+        conn, relay_id=relay_id, job_kind="terminate", job_id=target_session_id, now=now
+    )
     state = "succeeded" if result_code in _SUCCESS_RESULTS else "failed"
     attempts = json.loads(row[3] or "{}").get("attempts", [])
     conn.execute(
@@ -193,7 +187,6 @@ def report_termination_reap(
             target_session_id,
         ),
     )
-    clear_relay_batch_when_drained(conn, relay_id=relay_id, batch_id=lease_id)
     conn.commit()
     return {"target_session_id": target_session_id, "result_code": result_code}
 

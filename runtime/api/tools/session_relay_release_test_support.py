@@ -14,8 +14,8 @@ import subprocess
 from yoke_cli.config.session_relay_instance import RelayInstance, resolve_relay_instance
 
 
-RELEASE = "0.1.1+launch.365"
-NEXT_RELEASE = "0.1.1+launch.366"
+RELEASE = "0.2.0.202610140941"
+NEXT_RELEASE = "0.2.0.202610140942"
 DEFAULT_API_URL = "https://relay.example.test/api"
 
 
@@ -100,7 +100,7 @@ def pin_baseline(tmp_path: Path, release: str = RELEASE) -> RelayInstance:
     instance = relay_instance(tmp_path)
     pin_relay_release(
         instance=instance,
-        served_build=f"v{release}",
+        served_build=release,
         create_venv=fake_venv,
         runner=runner_for(release, []),
     )
@@ -118,3 +118,11 @@ __all__ = [
     "runner_for",
     "write_relay_config",
 ]
+
+
+def product_wheel_urls(origin: str, version: str) -> list[str]:
+    """All product roots must come from the selected immutable release."""
+    return [
+        f"{origin}/dist/releases/{version}/wheels/yoke_{name}-{version}-py3-none-any.whl"
+        for name in ("contracts", "cli", "harness", "core")
+    ]
