@@ -38,9 +38,11 @@ class ReleaseStartSchemaError(RuntimeError):
 def converge_release_start_schema(run_id: str) -> bool:
     """Apply the additive phase when this driver dispatches in-process.
 
-    Returns whether it ran. Each DDL statement waits at most
-    :data:`RUN_ROW_LOCK_TIMEOUT_MS` for its table lock, so a busy table
-    refuses by name instead of queueing every serving request behind it.
+    Returns whether it ran. Only missing objects are created, one table per
+    transaction, and each statement waits at most
+    :data:`RUN_ROW_LOCK_TIMEOUT_MS` for its table lock so serving requests
+    never queue behind it. A busy table is retried with backoff and then
+    refuses by name (:mod:`yoke_core.domain.schema_converge_statements`).
     """
     from yoke_cli.transport import https as https_transport
 
@@ -52,6 +54,7 @@ def converge_release_start_schema(run_id: str) -> bool:
     from yoke_core.domain import db_helpers
     from yoke_core.domain.environment_bootstrap import universe_is_born_on
     from yoke_core.domain.migration_fleet_ownership import acting_as_serving_owner
+    from yoke_core.domain.schema_converge_statements import SchemaConvergeLockError
     from yoke_core.domain.schema_creation import converge_additive_schema
 
     recovery = (
@@ -67,14 +70,12 @@ def converge_release_start_schema(run_id: str) -> bool:
             # serves the database, never as the driver's admin role.
             with acting_as_serving_owner(conn):
                 converge_additive_schema(conn)
-    except (psycopg.errors.LockNotAvailable, psycopg.errors.QueryCanceled) as exc:
+    except SchemaConvergeLockError as exc:
         raise ReleaseStartSchemaError(
             LOCK_UNAVAILABLE,
-            "applying this release's additive schema needed a table lock that "
-            f"stayed busy for {RUN_ROW_LOCK_TIMEOUT_MS}ms ({exc}). Find the "
-            'holder with `yoke db read "SELECT pid, state, query FROM '
-            "pg_stat_activity WHERE wait_event_type = 'Lock' OR state = "
-            "'idle in transaction'\"`, let it finish. " + recovery,
+            f"applying this release's additive schema waited "
+            f"{RUN_ROW_LOCK_TIMEOUT_MS}ms per attempt for a busy table: {exc} "
+            + recovery,
         ) from None
     except psycopg.Error as exc:
         raise ReleaseStartSchemaError(
