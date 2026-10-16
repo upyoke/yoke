@@ -324,6 +324,9 @@ root:
       summary: Write, navigate and verify complete, concise teaching.
       path: documentation/index.md
       children:
+        - title: Verification
+          summary: Validate complete teaching, publication copies and exact candidate proof.
+          path: documentation/verification.md
         - title: Navigation contract
           summary: Share page routes, heading fragments and exact corpus identity.
           path: documentation/navigation.md

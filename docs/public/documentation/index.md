@@ -70,9 +70,11 @@ In Yoke source development, run these through `yoke dev run --lane <lane> --`.
 Navigation checks enforce schema, ownership, routes and listed pages; link
 checks enforce targets and heading fragments; render checks enforce derived
 blocks. Measurement enforces the 350 wrapped-line limit and reports advisory
-readability notes. Scenario evidence must also prove discovery, usable recipes
+readability notes. The [complete publication gate](verification.md) validates privacy, copies and
+exact candidate identity. Scenario evidence must also prove discovery, usable recipes
 and delivered context; passing structural checks alone cannot prove teaching.
 
 <!-- yoke:contents -->
+- [Verification](verification.md) — Validate complete teaching, publication copies and exact candidate proof.
 - [Navigation contract](navigation.md) — Share page routes, heading fragments and exact corpus identity.
 <!-- /yoke:contents -->

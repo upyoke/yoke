@@ -7,10 +7,10 @@
  "need": "Verify first; authorize opens only expired sites. Human supplies personal credentials; unreachable probes need technical repair. Sign-in pauses automated browsers on that machine until windows close. From the connected workstation, --machine reads declarations and opens sign-in on the registered Test Machine GUI, without a control-plane connection there. Unrouted hosts still receive nonsecret declarations locally; live identity store survives reset.",
  "disclosure": "current cue",
  "surface": "Browser identities reference and authorize help; Pack per-OS sign-in procedure.",
- "gap": "Verified pointer defect: Pack browser-identities names docs/public/reference/... which external projects do not receive there. Use the installed .yoke/docs home. Per-OS links to Yoke-private test-account policy also need a portable audience boundary.",
+ "gap": "Verified pointer defect: the active Machine QA Pack browser-identities page cites a retired source documentation home that external projects do not receive. It needs the installed browser-identities reference. Per-OS links to Yoke-private test-account policy also need a portable audience boundary.",
  "review": "Remote command, lease ownership, settings validation, quoting, OS GUI helpers and post-window outcome forwarding have source regression tests; live operator sign-in proof remains pending.",
  "recipes": ["yoke browser authorize --help", "yoke projects capability-settings get --project P --cap-type browser-control --json"],
  "plan_notes": ["FIRST-USER E", "JOURNEYS row 13"],
- "sources": ["docs/public/verification/browser-identities.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/browser-identities.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/macos-host-provisioning.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/linux-host-provisioning.md", "packages/yoke-cli/src/yoke_cli/commands/browser_authorize_remote.py", "runtime/api/cli/test_browser_authorize_remote.py"],
+ "sources": ["docs/public/verification/browser-identities.md", "packs/machine-qa/versions/1.3.26/files/docs/packs/machine-qa/browser-identities.md", "packs/machine-qa/versions/1.3.26/files/docs/packs/machine-qa/macos-host-provisioning.md", "packs/machine-qa/versions/1.3.26/files/docs/packs/machine-qa/linux-host-provisioning.md", "packages/yoke-cli/src/yoke_cli/commands/browser_authorize_remote.py", "runtime/api/cli/test_browser_authorize_remote.py"],
  "position": 2
 }

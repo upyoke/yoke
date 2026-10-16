@@ -140,6 +140,11 @@ def detect_drift(*, target_root: Path) -> List[str]:
     for stray in _stray_packaged_files(packaged):
         drift.append(f"stray packaged file (outside declared source dirs): {stray}")
     drift.extend(docs_dest_drift(repo=repo, relative_files=_relative_files))
+    from yoke_core.domain.install_bundle_docs_validation import (
+        validate_published_copies,
+    )
+
+    drift.extend(str(r) for r in validate_published_copies(repo))
     for entry in harness_manifest_files(repo):
         installed = repo / entry["path"]
         if not installed.is_file() or installed.read_text() != entry["content"]:
@@ -173,6 +178,11 @@ def sync(*, target_root: Path, dry_run: bool = False) -> Dict[str, List[str]]:
                 f"install-bundle source file is missing: {repo / rel}"
             )
         source_file_bytes(repo / rel)
+    from yoke_core.domain.install_bundle_docs_validation import validate_public_corpus
+
+    refusals = validate_public_corpus(repo / "docs/public")
+    if refusals:
+        raise InstallBundleTreeError("\n".join(str(r) for r in refusals))
     manifests = harness_manifest_files(repo)
     packaged = repo / PACKAGED_TREE_REL
     written: List[str] = []
@@ -233,16 +243,6 @@ def sync(*, target_root: Path, dry_run: bool = False) -> Dict[str, List[str]]:
             target = packaged / stray
             assert_target_under_session_work_authority(target)
             target.unlink()
-    # Remove the retired packaged docs tree (``.yoke/docs`` under the
-    # snapshot) if it still exists after the source moved to ``docs/public``.
-    legacy_packaged_docs = packaged / ".yoke" / "docs"
-    if legacy_packaged_docs.exists():
-        for extra in _relative_files_raw(legacy_packaged_docs):
-            removed.append(f".yoke/docs/{extra}")
-            if not dry_run:
-                target = legacy_packaged_docs / extra
-                assert_target_under_session_work_authority(target)
-                target.unlink()
     mirror = mirror_docs_dest(
         repo=repo,
         dry_run=dry_run,
@@ -253,7 +253,7 @@ def sync(*, target_root: Path, dry_run: bool = False) -> Dict[str, List[str]]:
     written.extend(mirror["written"])
     removed.extend(mirror["removed"])
     prune_empty_dirs(
-        bases=[repo / DOCS_DEST, packaged / ".yoke" / "docs", packaged / ".yoke"],
+        bases=[repo / DOCS_DEST],
         dry_run=dry_run,
     )
     return {"written": written, "removed": removed}

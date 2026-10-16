@@ -96,56 +96,55 @@ def hc_doc_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
 
 def hc_doc_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """HC-doc-health: Documentation health audit."""
-    hc_id = "HC-doc-health"
-    _emit_hc_progress(hc_id, "resolve-root")
+    """Public corpus and copies fail closed; contributor links are review notes."""
+    from yoke_core.domain.documentation_links import validate_links
+    from yoke_core.domain.documentation_residue import scan_retired_references
+    from yoke_core.domain.install_bundle_docs_validation import (
+        CorpusRefusal,
+        validate_public_corpus,
+        validate_published_copies,
+    )
+
     repo_root = _base._resolve_repo_root()
     if not repo_root:
         rec.record("HC-doc-health", "Documentation health audit", "PASS", "")
         return
-
     repo = Path(repo_root)
-    severity = "PASS"
-    issues: List[str] = []
-
-    def escalate(new: str):
-        nonlocal severity
-        order = {"PASS": 0, "WARN": 1, "FAIL": 2}
-        if order.get(new, 0) > order.get(severity, 0):
-            severity = new
-
-    # Sub-check 1: Missing README
-    _emit_hc_progress(hc_id, "check-readme")
+    _emit_hc_progress("HC-doc-health", "validate-complete-public-corpus")
+    failures = validate_public_corpus(repo / "docs/public")
+    failures.extend(validate_published_copies(repo))
+    failures.extend(scan_retired_references(repo))
     if not (repo / "README.md").is_file():
-        issues.append(f"- {repo}/README.md: missing")
-        escalate("FAIL")
-
-    # Sub-check 2: Broken internal doc links
-    docs_dir = repo / "docs"
-    if docs_dir.is_dir():
-        docs = sorted(docs_dir.glob("*.md"))
-        total_docs = len(docs)
-        _emit_hc_progress(hc_id, f"scan-doc-links 0/{total_docs}")
-        for index, doc in enumerate(docs, start=1):
-            if index == 1 or index % 25 == 0:
-                _emit_hc_progress(hc_id, f"scan-doc-links {index}/{total_docs}")
-            text = doc.read_text(errors="replace")
-            for m in re.finditer(r"\]\(([^)]+)\)", text):
-                target = m.group(1)
-                if target.startswith(("http://", "https://", "#")):
-                    continue
-                target_path = target.split("#")[0]
-                if not target_path:
-                    continue
-                if not (doc.parent / target_path).exists():
-                    issues.append(f"- {doc}: broken link to '{target}'")
-                    escalate("FAIL")
-
+        failures.append(
+            CorpusRefusal(
+                "CORPUS_ROOT_MISSING",
+                "README.md",
+                "missing orientation",
+                "restore the repository README",
+            )
+        )
+    tracked = _base._run(["git", "-C", str(repo), "ls-files", "--", "docs"], timeout=15)
+    if tracked.returncode:
+        failures.append(
+            CorpusRefusal(
+                "CORPUS_READ_FAILED",
+                "docs",
+                "tracked pages unavailable",
+                "restore readable git metadata and retry",
+            )
+        )
+    pages = [
+        p
+        for p in tracked.stdout.splitlines()
+        if p.endswith(".md") and not p.startswith(("docs/public/", "docs/archive/"))
+    ]
+    _emit_hc_progress("HC-doc-health", f"validate-contributor-links {len(pages)} pages")
+    notes = validate_links(repo, pages)
     rec.record(
         "HC-doc-health",
         "Documentation health audit",
-        severity,
-        "\n".join(issues) if issues else "",
+        "FAIL" if failures else "WARN" if notes else "PASS",
+        "\n".join([str(r) for r in failures] + [f"REVIEW {r}" for r in notes]),
     )
 
 

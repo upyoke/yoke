@@ -136,11 +136,11 @@ def test_fails_when_a_shipped_destination_has_no_source(
 ) -> None:
     _seed(
         tmp_path,
-        doctrine_body="- Reference: `.yoke/docs/reference/never-authored.md`.",
+        doctrine_body="- Reference: `.yoke/docs/documentation/never-authored.md`.",
     )
     result, detail = _run(tmp_path, monkeypatch)
     assert result == "FAIL"
-    assert "docs/public/reference/never-authored.md" in detail
+    assert "docs/public/documentation/never-authored.md" in detail
 
 
 def test_ignores_placeholders_conventions_and_generated_views(

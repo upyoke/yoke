@@ -134,7 +134,8 @@ targets may omit it. Architect decomposes `generated_children=epic_tasks` into
 epic_tasks; do not pre-file imagined child backlog items.
 
 Follow the [teaching standard](../../documentation/index.md) and its
-[navigation and validation contract](../../documentation/navigation.md) when
+[navigation contract](../../documentation/navigation.md) and
+[publication checks](../../documentation/verification.md) when
 writing operation guidance.
 
 ## Simplify
