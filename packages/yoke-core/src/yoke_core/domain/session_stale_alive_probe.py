@@ -38,7 +38,7 @@ from yoke_contracts.session_control.liveness import LIVENESS_STALE
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
-from yoke_core.domain.session_message_authorization import project_policy
+from yoke_core.domain.session_message_recipient_scope import recipient_policy
 from yoke_core.domain.session_message_types import row_dict, utc_now
 from yoke_core.domain.session_staleness import activity_is_stale, activity_liveness
 from yoke_core.domain.session_mode import SESSION_MODE_PARKED
@@ -73,22 +73,31 @@ def _claim_holding_quiet_sessions(
     *,
     machine_id: str,
     projects: Sequence[int],
+    relay_actor_id: int | None = None,
 ) -> List[Dict[str, Any]]:
-    """Return this machine's live, claim-holding sessions in its projects."""
-    if not projects:
+    """Return this machine's project or relay-actor-owned quiet claim holders."""
+    if not projects and relay_actor_id is None:
         return []
     marker = _p(conn)
-    placeholders = ",".join(marker for _ in projects)
+    scopes = (
+        [f"hs.project_id IN ({','.join(marker for _ in projects)})"] if projects else []
+    )
+    if relay_actor_id is not None:
+        scopes.append(f"(hs.org_id IS NOT NULL AND hs.actor_id={marker})")
     rows = conn.execute(
-        "SELECT DISTINCT hs.session_id,hs.project_id,hs.actor_id,hs.executor,"
+        "SELECT DISTINCT hs.session_id,hs.project_id,hs.org_id,hs.actor_id,hs.executor,"
         "hs.machine_id,hs.last_heartbeat,hs.last_tool_call_at,hs.ended_at,"
         "hs.terminated_at,hs.mode "
         "FROM harness_sessions hs JOIN work_claims wc "
         "ON wc.session_id=hs.session_id AND wc.released_at IS NULL "
         f"WHERE hs.machine_id={marker} AND hs.ended_at IS NULL "
-        f"AND hs.terminated_at IS NULL AND hs.project_id IN ({placeholders}) "
+        f"AND hs.terminated_at IS NULL AND ({' OR '.join(scopes)}) "
         "ORDER BY hs.session_id",
-        (machine_id, *projects),
+        (
+            machine_id,
+            *projects,
+            *((relay_actor_id,) if relay_actor_id is not None else ()),
+        ),
     ).fetchall()
     return [row_dict(row) for row in rows]
 
@@ -148,6 +157,7 @@ def probe_stale_alive_sessions(
     *,
     machine_id: str,
     authorized_projects: Iterable[int],
+    relay_actor_id: int | None = None,
     now: datetime | None = None,
 ) -> Dict[str, Any]:
     """Probe this machine's quiet claim-holders that are not proven dead.
@@ -162,7 +172,7 @@ def probe_stale_alive_sessions(
     probed: List[str] = []
     skipped: List[Dict[str, Any]] = []
     for row in _claim_holding_quiet_sessions(
-        conn, machine_id=machine_id, projects=projects
+        conn, machine_id=machine_id, projects=projects, relay_actor_id=relay_actor_id
     ):
         session_id = str(row["session_id"])
         if str(row.get("mode") or "") == SESSION_MODE_PARKED:
@@ -178,9 +188,7 @@ def probe_stale_alive_sessions(
         # threshold ago reuses the same executor-aware predicate and gives
         # the knob one meaning everywhere.
         threshold = timedelta(
-            seconds=project_policy(
-                conn, int(row["project_id"])
-            ).stale_alive_probe_seconds
+            seconds=recipient_policy(conn, row).stale_alive_probe_seconds
         )
         if not activity_is_stale(
             max(

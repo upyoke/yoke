@@ -18,7 +18,7 @@ from yoke_core.domain.session_broker_wake_recruit import (
     machine_has_fresh_relay,
     should_defer_operator_facing_broker,
 )
-from yoke_core.domain.session_message_authorization import project_policy
+from yoke_core.domain.session_message_recipient_scope import recipient_policy
 from yoke_core.domain.session_message_types import (
     parse_timestamp,
     row_dict,
@@ -110,7 +110,7 @@ def _candidate_routes(
             session_id=str(row["session_id"]),
             now=now,
         )
-        policy = project_policy(conn, int(row["project_id"]))
+        policy = recipient_policy(conn, row)
         previous = parse_timestamp(row.get("last_wake_at"))
         waiting_cooldown = (
             row.get("wake_mode") == "waiting"

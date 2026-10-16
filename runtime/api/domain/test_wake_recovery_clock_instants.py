@@ -107,7 +107,7 @@ def test_deferral_backoff_and_refund_comparison_preserve_native_microsecond(
     message_id, _ = _seed(test_db)
     monkeypatch.setattr(
         deferral,
-        "project_policy",
+        "recipient_policy",
         lambda *_: SimpleNamespace(wake_after_idle_seconds=60),
     )
     backoff = MOMENT + timedelta(seconds=60)
@@ -189,7 +189,7 @@ def test_stale_probe_threshold_selects_latest_native_activity_with_strict_order(
     )
     monkeypatch.setattr(
         probe,
-        "project_policy",
+        "recipient_policy",
         lambda *_: SimpleNamespace(stale_alive_probe_seconds=60),
     )
     sent = []

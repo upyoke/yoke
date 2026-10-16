@@ -87,7 +87,11 @@ CLAIMS_TABLES: dict[str, dict] = {
             "actor_id. Wrong guess: a project-only launch/message fixture can omit org_id; "
             "include the nullable column even when every seeded session has project_id. "
             "Project sessions set org_id NULL; org sessions set project_id NULL and retain "
-            "their authenticated actor_id."
+            "their authenticated actor_id. Wake eligibility also selects "
+            "harness_sessions.actor_id. Wrong guess: a project-only relay fixture may "
+            "omit its session actor; seed the authenticated fixture actor. "
+            "File-backed relay tests copy test_session_relay._connection, "
+            "not the launch-only relay_connection."
         ),
     },
     "session_tool_calls": {

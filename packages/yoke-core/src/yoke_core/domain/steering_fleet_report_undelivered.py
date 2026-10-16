@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from yoke_core.domain.session_message_authorization import project_policy
+from yoke_core.domain.session_message_authorization import scope_policy
 from yoke_core.domain.session_relay_policy import relay_policy
 from yoke_core.domain.steering_fleet_report_attempt_summary import last_attempts
 from yoke_core.domain.steering_fleet_report_queued_wake import (
@@ -205,7 +205,9 @@ def undelivered_messages(
     # When the plane owes an attempt, and how long after that its absence is
     # the plane's failure rather than the next poll's ordinary work.
     grace = timedelta(
-        seconds=int(project_policy(conn, int(project_id)).wake_ack_grace_seconds)
+        seconds=int(
+            scope_policy(conn, project_id=int(project_id)).wake_ack_grace_seconds
+        )
     )
     sla = timedelta(seconds=int(relay_policy().poll_seconds))
     attempts = last_attempts(conn, project_id=project_id, marker=placeholder, now=now)
