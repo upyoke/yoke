@@ -10,6 +10,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain import epic
+from yoke_core.domain.epic_task_scope import set_no_files_scope
 from runtime.api.conftest import insert_item
 from runtime.api.fixtures.backlog import insert_item_worktree
 
@@ -20,6 +21,12 @@ TEST_EPIC_WORKTREE_PATH = f"/tmp/worktrees/{TEST_EPIC_REF}"
 
 def _p(conn) -> str:
     return epic._placeholder(conn)
+
+
+def _declare_no_files(conn, task_nums) -> None:
+    for task_num in task_nums:
+        set_no_files_scope(conn, TEST_EPIC_ID, task_num)
+    conn.commit()
 
 
 class TestFileOperations:
@@ -76,7 +83,11 @@ class TestDispatchChains:
     @pytest.fixture(autouse=True)
     def _seed_parent_item(self, test_db):
         insert_item(
-            test_db, id=TEST_EPIC_ID, workflow_id="epic", status="planned", project="yoke"
+            test_db,
+            id=TEST_EPIC_ID,
+            workflow_id="epic",
+            status="planned",
+            project="yoke",
         )
 
     def test_upsert_and_get(self, test_db):
@@ -135,18 +146,33 @@ class TestDispatchChains:
         assert result == ""
 
     def test_advance(self, test_db):
+        for task_num in (10, 20, 30):
+            epic.task_upsert(test_db, "42", task_num, f"Task {task_num}", "", "", "")
+        test_db.execute("UPDATE epic_tasks SET status='planned' WHERE epic_id='42'")
+        test_db.execute(
+            "UPDATE epic_tasks SET status='done' WHERE epic_id='42' AND task_num=10"
+        )
+        _declare_no_files(test_db, (10, 20, 30))
         data = {"queue": [10, 20, 30], "current_index": 0, "current_task": "10"}
         epic.dispatch_chain_upsert(test_db, "42", "wt1", data)
         result = epic.dispatch_chain_advance(test_db, "42", "wt1")
         assert result == "1|20"
 
+        test_db.execute(
+            "UPDATE epic_tasks SET status='reviewed-implementation' "
+            "WHERE epic_id='42' AND task_num=20"
+        )
+        test_db.commit()
         result2 = epic.dispatch_chain_advance(test_db, "42", "wt1")
         assert result2 == "2|30"
 
     def test_advance_at_end_raises(self, test_db):
+        epic.task_upsert(test_db, "42", 10, "Task 10", "", "", "")
+        test_db.execute("UPDATE epic_tasks SET status='done' WHERE epic_id='42'")
+        _declare_no_files(test_db, (10,))
         data = {"queue": [10], "current_index": 0, "current_task": "10"}
         epic.dispatch_chain_upsert(test_db, "42", "wt1", data)
-        with pytest.raises(IndexError, match="already at end"):
+        with pytest.raises(RuntimeError, match="chain_complete"):
             epic.dispatch_chain_advance(test_db, "42", "wt1")
 
     def test_advance_not_found(self, test_db):
@@ -168,6 +194,12 @@ class TestDispatchChains:
             f"VALUES ({p}, {p}, {p}, {p}, {p})",
             ("42", lane["id"], "10,20,30", 0, "10"),
         )
+        for task_num, status in ((10, "done"), (20, "planned"), (30, "planned")):
+            epic.task_upsert(test_db, "42", task_num, f"Task {task_num}", "", "", "")
+            test_db.execute(
+                f"UPDATE epic_tasks SET status={p} WHERE epic_id='42' AND task_num={p}",
+                (status, task_num),
+            )
         test_db.commit()
         result = epic.dispatch_chain_advance(test_db, "42", "wt-csv")
         assert result == "1|20"

@@ -7,6 +7,7 @@ from datetime import datetime
 import pytest
 
 from yoke_core.domain import epic
+from yoke_core.domain.dispatch_chain_selection import ChainSelectionRefusal
 from runtime.api.conftest import insert_item, insert_epic_task
 from runtime.api.fixtures.backlog import insert_item_worktree
 
@@ -118,11 +119,28 @@ class TestDispatchChain:
 
 
 class TestDispatchChainAdvance:
-    def test_advance_increments_index(self, db_with_chain):
+    @staticmethod
+    def _tasks(db, statuses):
+        p = _p(db)
+        for task_num, status in statuses.items():
+            if task_num == 1:
+                db.execute(
+                    f"UPDATE epic_tasks SET status={p} WHERE epic_id={p} AND task_num=1",
+                    (status, TEST_ITEM_ID),
+                )
+            else:
+                insert_epic_task(
+                    db, epic_id=TEST_ITEM_ID, task_num=task_num, status=status
+                )
+        db.commit()
+
+    def test_advance_selects_next_planned_task(self, db_with_chain):
+        self._tasks(
+            db_with_chain, {1: "reviewed-implementation", 2: "planned", 3: "planned"}
+        )
         result = epic.dispatch_chain_advance(db_with_chain, "42", TEST_ITEM_REF)
         assert result == "1|2"
 
-        # Verify DB state
         row = db_with_chain.execute(
             "SELECT c.current_index, c.current_task FROM epic_dispatch_chains c "
             "JOIN item_worktrees iw ON iw.id=c.item_worktree_id "
@@ -131,13 +149,9 @@ class TestDispatchChainAdvance:
         assert row["current_index"] == 1
         assert row["current_task"] == "2"
 
-    def test_advance_to_end(self, db_with_chain):
-        # Advance twice (0->1, 1->2)
-        epic.dispatch_chain_advance(db_with_chain, "42", TEST_ITEM_REF)
-        epic.dispatch_chain_advance(db_with_chain, "42", TEST_ITEM_REF)
-
-        # Now at index 2, queue has 3 items -> end of queue
-        with pytest.raises(IndexError, match="end of queue"):
+    def test_advance_when_every_task_is_complete(self, db_with_chain):
+        self._tasks(db_with_chain, {1: "done", 2: "done", 3: "reviewed-implementation"})
+        with pytest.raises(ChainSelectionRefusal, match="chain_complete"):
             epic.dispatch_chain_advance(db_with_chain, "42", TEST_ITEM_REF)
 
     def test_advance_not_found(self, db):
@@ -147,6 +161,10 @@ class TestDispatchChainAdvance:
     def test_advance_csv_queue(self, db_with_task):
         """Queue stored as CSV string instead of JSON array."""
         p = _p(db_with_task)
+        for task_num, status in ((10, "done"), (20, "planned"), (30, "planned")):
+            insert_epic_task(
+                db_with_task, epic_id=TEST_ITEM_ID, task_num=task_num, status=status
+            )
         lane = insert_item_worktree(
             db_with_task,
             item_id=TEST_ITEM_ID,
