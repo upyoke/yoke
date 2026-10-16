@@ -13,6 +13,7 @@ from yoke_core.domain.path_claim_bash_splitter import (
     split_pipeline as _split_pipeline,
 )
 
+import os
 import shlex
 from dataclasses import dataclass
 from typing import List
@@ -140,13 +141,14 @@ def _extract_verb_paths(verb: str, args: List[str]) -> List[Mutation]:
     return out
 
 
-def _extract_git_paths(args: List[str]) -> List[Mutation]:
+def _extract_git_paths(args: List[str], cwd: str) -> List[Mutation]:
     """Pull paths from ``git rm``/``git restore``/``git checkout --``.
 
     Read-only git inspection is an explicit allow case, including
-    path-specific forms such as ``git diff -- path``.
+    path-specific forms such as ``git diff -- path``. Relative paths join
+    the ``-C`` directory, itself resolved from ``cwd``, as git does.
     """
-    args = _strip_git_global_options(args)
+    base, args = _split_git_global_options(args, cwd)
     if not args:
         return []
     sub = args[0]
@@ -164,25 +166,32 @@ def _extract_git_paths(args: List[str]) -> List[Mutation]:
     out: List[Mutation] = []
     verb = f"git {sub}"
     for p in paths:
-        if _is_tmp_path(p):
+        target = os.path.join(base, p)
+        if _is_tmp_path(target):
             continue
-        out.append(Mutation(verb=verb, target_path=p))
+        out.append(Mutation(verb=verb, target_path=target))
     return out
 
 
-def _strip_git_global_options(args: List[str]) -> List[str]:
-    """Drop common git global options so the subcommand is first."""
+def _split_git_global_options(args: List[str], cwd: str) -> tuple[str, List[str]]:
+    """Return the ``-C`` directory (``""`` when absent) and the subcommand on.
+
+    Each ``-C DIR`` applies relative to the previous one, then to ``cwd``.
+    """
+    base = ""
     i = 0
     while i < len(args):
         token = args[i]
         if token in ("-C", "-c") and i + 1 < len(args):
+            if token == "-C":
+                base = os.path.join(base or cwd, args[i + 1])
             i += 2
             continue
         if token.startswith(("--git-dir=", "--work-tree=")):
             i += 1
             continue
         break
-    return args[i:]
+    return base, args[i:]
 
 
 def _extract_find_paths(args: List[str]) -> List[Mutation]:
@@ -200,7 +209,7 @@ def _extract_find_paths(args: List[str]) -> List[Mutation]:
     return [Mutation(verb="find -delete", target_path=root)]
 
 
-def _classify_segment(segment: str) -> List[Mutation]:
+def _classify_segment(segment: str, cwd: str) -> List[Mutation]:
     """Classify a single pipeline segment.
 
     Returns ``[Mutation("ambiguous", ...)]`` when the segment cannot be
@@ -260,7 +269,7 @@ def _classify_segment(segment: str) -> List[Mutation]:
 
     out: List[Mutation] = list(redirect_muts)
     if verb == "git":
-        out.extend(_extract_git_paths(args))
+        out.extend(_extract_git_paths(args, cwd))
         return out
     if verb == "find":
         out.extend(_extract_find_paths(args))
@@ -308,10 +317,11 @@ def _safe_tokenize(segment: str) -> List[str]:
         return []
 
 
-def extract_mutations(command: str) -> List[Mutation]:
+def extract_mutations(command: str, cwd: str = "") -> List[Mutation]:
     """Extract ``(verb, target_path)`` tuples from a Bash command.
 
-    Returns a (possibly empty) list. ``ambiguous`` entries indicate the
+    ``cwd`` is the command's execution directory; ``git -C`` targets
+    resolve against it. Returns a (possibly empty) list. ``ambiguous`` entries indicate the
     parser fell closed on a chunk — the consuming guard MUST treat them
     as deny. ``suppressed`` entries indicate the operator added the
     ``# lint:no-worktree-path-check`` token; the guard records audit
@@ -326,7 +336,7 @@ def extract_mutations(command: str) -> List[Mutation]:
     tmp_vars = temp_file_vars(command)
     out: List[Mutation] = []
     for segment in _split_pipeline(command):
-        out.extend(_classify_segment(segment))
+        out.extend(_classify_segment(segment, cwd))
     return [mut for mut in out if not is_temp_file_var_ref(mut.target_path, tmp_vars)]
 
 
