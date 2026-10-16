@@ -7,9 +7,7 @@ from typing import Any
 from yoke_cli.config.onboard_wizard_flow_team_server import TeamServerConnectFlow
 from yoke_cli.config.onboard_wizard_server_form import ServerConnectionForm
 
-from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import yoke_token_verify
-from yoke_cli.config.onboard_wizard_palette import BRAND
 from yoke_cli.config.setup_prompt import (
     TONE_ERROR,
     SetupPrompt,
@@ -50,57 +48,7 @@ class ConnectFlow(TeamServerConnectFlow, ServerConnectionForm):
                 return
             self._goto_machine_github()
             return
-        self._goto(
-            self._selection_view(
-                "connect.token_source",
-                STEP_CONNECT,
-                f"Provide your {BRAND} API token.",
-                "How do you want to give Yoke your token?",
-                steps.YOKE_TOKEN_SOURCE_ROWS,
-                self._after_token_source,
-            )
-        )
-
-    def _after_token_source(self: _Shell, choice: str) -> None:
-        if choice == "file":
-            self._goto_input(
-                "connect.token_file",
-                STEP_CONNECT,
-                "Point at your token file.",
-                "Yoke reads your token from this file — it stays where it is.",
-                placeholder=f"~/.yoke/secrets/{self.result.env_name}.token",
-                allow_placeholder=False,
-                on_done=self._after_token_file,
-            )
-            return
-        self._goto_input(
-            "connect.token",
-            STEP_CONNECT,
-            f"Paste your {BRAND} API token.",
-            f"Never shown on screen. Saved to ~/.yoke/secrets/{self.result.env_name}.token, owner-only.",
-            placeholder="paste token",
-            password=True,
-            allow_placeholder=False,
-            on_done=self._after_token,
-        )
-
-    def _after_token(self: _Shell, value: str) -> None:
-        self._verify_yoke_token_value(
-            token=value,
-            token_file=None,
-            token_source_kind="prompt",
-            retry_source="prompt",
-            replace_current=True,
-        )
-
-    def _after_token_file(self: _Shell, value: str) -> None:
-        self._verify_yoke_token_value(
-            token=None,
-            token_file=value,
-            token_source_kind="token_file",
-            retry_source="file",
-            replace_current=True,
-        )
+        self._goto_machine_admission()
 
     def _verify_yoke_token_value(
         self: _Shell,
@@ -225,20 +173,9 @@ class ConnectFlow(TeamServerConnectFlow, ServerConnectionForm):
         if choice == "retry":
             if self._history:
                 self._history.pop()
-            if retry_source == "server-form":
-                self._goto_server_connection_form()
-                return
-            self._after_token_source(retry_source)
+            self._goto_server_connection_form()
             return
-        if retry_source in {"server-form", "team-server"}:
-            self._return_to_destination_picker()
-            return
-        if self._history:
-            self._history.pop()
-        if self._history:
-            self._render_current()
-        else:
-            self._goto_token_source()
+        self._return_to_destination_picker()
 
 
 __all__ = [

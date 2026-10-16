@@ -1,10 +1,11 @@
 {
  "id": "machine-access",
  "title": "Machine admission, shared capacity and retirement",
- "status": "draft-copy",
+ "status": "observed",
  "situations": ["Connect a second computer.", "Make a machine available to other operators.", "Retire or reconnect a machine after credentials change."],
  "coverage": "partial",
- "current": "Research trace; requirements and source paths need live proof.",
+ "current": "Source connects an own machine through a match code approved from an existing connection, or a teammate machine through the teammate's private invite. Setup also offers an explicit existing API token for first boot or recovery. Back/Esc before submission preserves connection config; lost invite delivery names reissue and stray-machine retirement. Active local connections show reachability and self-host guidance before remote admission. Live proof remains pending.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_machine_admission.py", "packages/yoke-cli/src/yoke_cli/config/teammate_invite_redemption.py", "runtime/api/cli/test_team_server_authorization.py"],
  "desired": "Reconciled against current plan records.",
  "questions": ["Does machine retirement explain effects on running sessions and outstanding custody?", "Where is capacity sharing taught before users encounter a placement refusal?"],
  "plan_refs": ["FIRST-USER.27", "FIRST-USER.33"]

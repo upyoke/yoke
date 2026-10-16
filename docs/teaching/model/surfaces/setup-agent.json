@@ -8,7 +8,7 @@
  "location": "Public install entry → setup agent mode → yoke-global → /yoke onboard",
  "basis": "FIRST-USER continuation; homepage entry shipped",
  "note": "Existing and mature projects need intake and preservation, not a forced blank-slate scaffold. Full project onboarding remains a project operation.",
- "current": "https://upyoke.com/ ships the agent entry; full install proof is pending. Without a terminal, setup and the installer run agent mode (yoke setup --agent): one resumable JSON question at a time, browser steps as data. /yoke onboard starts from existing work and configures only what the first work needs. Deployed proof remains pending.",
+ "current": "Headless setup asks resumable JSON questions. Admission separates own machines, teammates and explicit tokens; progress carries match_code, approval_hint, browser link and wait. Secret invites require TUI input. /yoke onboard preserves existing work. Deployed proof remains pending.",
  "desired": "Same setup engine with structured resumable answers; relevant GitHub explanation; readiness then project-bound minimal onboard.",
  "plan_notes": ["FIRST-USER A/B/C/D/24/P1–P4", "JOURNEYS 1–14"],
  "plan_refs": ["FIRST-USER.A", "FIRST-USER.C", "FIRST-USER.24", "FIRST-USER.26", "FIRST-USER.42", "FIRST-USER.D"],

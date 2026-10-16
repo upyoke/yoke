@@ -100,15 +100,7 @@ MACHINE_GITHUB_ROWS = [
     _github_skip_row(onboard_machine_github.CHOICE_SKIP),
 ]
 
-YOKE_TOKEN_SOURCE_ROWS = [
-    SelectionRow("prompt", "Paste it now", "saved to ~/.yoke/secrets"),
-    SelectionRow("file", "Read it from a file", "path on disk"),
-]
 VERIFY_OK_ROWS = [SelectionRow("continue", "Continue", "")]
-YOKE_TOKEN_VERIFY_RETRY_ROWS = [
-    SelectionRow("retry", "Try again", "paste a different token"),
-    SelectionRow("back", "Back", "choose a different option"),
-]
 HOSTED_MACHINE_RETRY_ROWS = [
     SelectionRow("retry", "Try again", "start a fresh browser sign-in"),
     SelectionRow("back", "Back", "choose a different option"),
@@ -222,9 +214,7 @@ __all__ = [
     "REVIEW_BLOCKED_ROWS",
     "REVIEW_SUBTITLE",
     "REVIEW_TITLE",
-    "YOKE_TOKEN_SOURCE_ROWS",
     "VERIFY_OK_ROWS",
-    "YOKE_TOKEN_VERIFY_RETRY_ROWS",
     "HOSTED_MACHINE_RETRY_ROWS",
     "apply_failure_body",
     "apply_progress_body",

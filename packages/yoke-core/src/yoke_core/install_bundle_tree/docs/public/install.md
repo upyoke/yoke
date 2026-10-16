@@ -82,11 +82,7 @@ doesn't have or that your account can't access — typically left over from an
 earlier install — the wizard says so and offers **Unlink and set up fresh**.
 Nothing is written until you confirm Apply.
 
-For **A team server**, enter its URL first. When company sign-in is configured,
-Yoke opens the workbench with a one-time machine code; sign in and approve your
-own machine. Otherwise paste an API token or select its file. The same flow is
-available with `yoke connect https://<server>`; servers without company sign-in
-use `--token-stdin` or `--token-file PATH`.
+For **A team server**, follow [teammate invitations and machine connections](teammate-invitations.md).
 
 Flags: `--yes` for non-interactive apply; `--local` or `--connect URL` to skip
 the destination picker.

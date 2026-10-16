@@ -113,11 +113,15 @@ def test_server_without_machine_approval_keeps_explicit_token_path(monkeypatch, 
     assert "--token-stdin" in capsys.readouterr().err
 
 
-def test_team_tui_routes_browser_or_token_after_server_discovery():
+def test_team_tui_routes_company_sign_in_or_admission_choices(monkeypatch, tmp_path):
     from yoke_cli.config.onboard_wizard_flow_team_server import TeamServerConnectFlow
+    from yoke_cli.config.onboard_wizard_view_helpers import ViewHelpers
 
-    class Shell(TeamServerConnectFlow):
-        result = argparse.Namespace(api_url="")
+    class Shell(TeamServerConnectFlow, ViewHelpers):
+        result = argparse.Namespace(api_url="", config_path=tmp_path / "config.json")
+
+        def _goto(self, view):
+            self.view = view
 
         def _run_checking(self, **kwargs):
             self.success = kwargs["on_success"]
@@ -128,14 +132,143 @@ def test_team_tui_routes_browser_or_token_after_server_discovery():
         def _goto_server_connection_form(self):
             self.selected = "token"
 
+        def _step_back(self):
+            self.selected = "back"
+
     shell = Shell()
     shell._discover_team_server(ORIGIN)
     shell.success(True)
     assert shell.selected == "browser"
     assert shell._machine_authorization_server == ORIGIN
     shell.success(False)
+    assert [row.label for row in shell.view.prompt.choices] == [
+        "This is my own machine",
+        "Enter invite code",
+        "Use an API token",
+        "Back",
+    ]
+    shell.view.on_select("own")
+    assert shell.selected == "browser" and shell._machine_authorization_server == ORIGIN
+    shell.view.on_select("token")
     assert shell.selected == "token"
     assert shell._machine_authorization_server is None
+    shell.view.on_select("back")
+    assert shell.selected == "back"
+
+
+def test_local_notice_and_private_invite_back_preserve_config(monkeypatch, tmp_path):
+    import asyncio
+    from runtime.api.cli.onboard_wizard_test_helpers import make_app, stub_path_doctor
+    from yoke_cli.config import local_reachability
+    from yoke_cli.config.onboard_wizard import WizardDefaults
+
+    stub_path_doctor(monkeypatch)
+    config = tmp_path / "config.json"
+    config.write_text('{"settings":{"preserved":true}}')
+    before = config.read_bytes()
+    monkeypatch.setattr(
+        local_reachability,
+        "active_connection_is_local",
+        lambda path: path == str(config),
+    )
+    app, _ = make_app(WizardDefaults(config_path=str(config), api_url=ORIGIN))
+
+    async def scenario():
+        async with app.run_test() as pilot:
+            app._goto_team_server()
+            assert (
+                local_reachability.LOCAL_REACHABILITY_NOTICE
+                in app._history[-1].prompt.subtitle
+            )
+            assert "yoke self-host init" in app._history[-1].prompt.subtitle
+            app._discover_team_server(ORIGIN)
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert app._history[-1].prompt.key == "connect.machine_admission"
+            app._after_machine_admission("invite")
+            await pilot.pause()
+            prompt = app._history[-1].prompt
+            assert prompt.input.password and not prompt.input.allow_placeholder
+            assert "ask an admin to run `yoke invite <name>`" in prompt.subtitle
+            await pilot.press("escape")
+            assert app._history[-1].prompt.key == "connect.machine_admission"
+            app._after_machine_admission("back")
+            assert app._history[-1].prompt.key == "connect.team_server_url"
+            assert config.read_bytes() == before
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("refused", [False, True])
+def test_invite_choice_uses_teammate_identity_and_private_persistence(
+    monkeypatch, tmp_path, refused
+):
+    from yoke_cli.config import onboard_wizard_flow_machine_admission as admission
+    from yoke_cli.config.onboard_wizard_flow_team_server import TeamServerConnectFlow
+    from yoke_cli.config.onboard_wizard_view_helpers import ViewHelpers
+    from runtime.api.fixtures.machine_config_test import select_machine_config_file
+
+    config = tmp_path / "config.json"
+    config.write_text(json.dumps({"machine_id": MACHINE_ID}))
+    select_machine_config_file(monkeypatch, config)
+    before = config.read_bytes()
+    code, token = "yinv_private", "invited-machine-token"
+    calls = []
+
+    def request(req, **kwargs):
+        calls.append(json.loads(req.data))
+        if refused:
+            raise BoundedJsonHttpStatusError(409, {"error": "invite_consumed"})
+        return BoundedJsonHttpResponse(
+            {"api_url": ORIGIN, "org": "team", "token": token}, 200, {}
+        )
+
+    monkeypatch.setattr(admission.teammate_invite_redemption, "request_json", request)
+    verification = {"ok": True, "actor": {"label": "Invited teammate"}}
+    monkeypatch.setattr(
+        admission.yoke_token_verify,
+        "verify",
+        lambda url, value: (
+            verification if value == token else pytest.fail("wrong credential")
+        ),
+    )
+
+    class Shell(TeamServerConnectFlow, ViewHelpers):
+        result = argparse.Namespace(api_url=ORIGIN, config_path=config)
+
+        def _goto(self, view):
+            self.view = view
+
+        def _run_checking(self, **kwargs):
+            try:
+                value = kwargs["work"]()
+            except auth.HostedMachineAuthorizationError as exc:
+                kwargs["on_error"](exc)
+            else:
+                kwargs["on_success"](value)
+
+        def _goto_yoke_verify_success(self, result):
+            self.connected = result
+
+    shell = Shell()
+    shell._after_machine_admission("invite")
+    shell.view.on_select(code)
+    assert calls[0]["invite_code"] == code and calls[0]["machine_id"] == MACHINE_ID
+    if refused:
+        assert "invite_consumed" in shell.view.prompt.message
+        assert (
+            "reissue" in shell.view.prompt.message
+            and code not in shell.view.prompt.message
+        )
+        assert config.read_bytes() == before
+    else:
+        from pathlib import Path
+
+        secret = Path(shell.result.token_file)
+        assert shell.connected["actor"]["label"] == "Invited teammate"
+        assert shell.result.token is None and secret.read_text().strip() == token
+        assert secret.stat().st_mode & 0o777 == 0o600
+        assert code not in config.read_text() and token not in config.read_text()
 
 
 @pytest.mark.parametrize(

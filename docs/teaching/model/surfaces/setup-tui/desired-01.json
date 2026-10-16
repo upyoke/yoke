@@ -3,7 +3,8 @@
  "title": "Choose local, self-hosted or hosted with clear reachability; support stale setup and backup recovery.",
  "status": "candidate",
  "form": "Do",
- "verification": "Desired outline; exact recipe and live delivery still need proof.",
+ "verification": "Desired broader recovery outline remains separate. Source now teaches local reachability and yoke self-host init before remote admission prompts; company sign-in, own-machine approval and private teammate invites have distinct paths. Live delivery still needs proof.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/local_reachability.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_team_server.py"],
  "topics": ["modes", "installation/choices", "maintenance/portability"],
  "plan_refs": ["FIRST-USER.1", "FIRST-USER.7", "FIRST-USER.10", "FIRST-USER.17", "FIRST-USER.26", "FIRST-USER.37", "FIRST-USER.38", "FIRST-USER.39"],
  "position": 7

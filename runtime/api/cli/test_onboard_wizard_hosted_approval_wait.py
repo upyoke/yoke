@@ -167,7 +167,7 @@ def test_every_approval_view_names_the_complete_url_and_the_browser_outcome(
             await pilot.pause()
             waiting = _body_text(app)
             assert f"Open: {COMPLETE_URL}" in waiting
-            assert "One-time code: ABCD-2345" in waiting
+            assert "Match code: ABCD-2345" in waiting
             assert "No browser available here. Open this link on any device" in waiting
             assert "opened for you" not in waiting
             assert FAILURE_REASON in waiting

@@ -68,6 +68,13 @@ def open_requested(
 
 def render_progress(event: Mapping[str, Any], *, json_mode: bool) -> None:
     """Flush human authorization data before polling; final stdout stays JSON."""
+    request = event.get("browser_action")
+    if event.get("phase") == "machine_authorization" and isinstance(request, Mapping):
+        from yoke_cli.config.onboard_wizard_flow_machine_admission import approval_hint
+
+        code = request.get("user_code")
+        if code:
+            event = {**event, "match_code": code, "approval_hint": approval_hint(code)}
     if json_mode:
         data = dict(event)
         if event.get("phase") in {"device_browser", "machine_authorization"}:
@@ -79,7 +86,6 @@ def render_progress(event: Mapping[str, Any], *, json_mode: bool) -> None:
             }
         print(json.dumps(data, sort_keys=True), file=sys.stderr, flush=True)
         return
-    request = event.get("browser_action")
     if isinstance(request, Mapping):
         print(
             f"Open {github_response_safety.safe_error_text(request['url'])}",
@@ -87,8 +93,9 @@ def render_progress(event: Mapping[str, Any], *, json_mode: bool) -> None:
             flush=True,
         )
         if request.get("user_code"):
+            label = "Match code" if event.get("match_code") else "One-time code"
             print(
-                f"One-time code: {github_response_safety.safe_error_text(request['user_code'])}",
+                f"{label}: {github_response_safety.safe_error_text(request['user_code'])}",
                 file=sys.stderr,
                 flush=True,
             )
@@ -97,6 +104,8 @@ def render_progress(event: Mapping[str, Any], *, json_mode: bool) -> None:
             file=sys.stderr,
             flush=True,
         )
+        if event.get("approval_hint"):
+            print(event["approval_hint"], file=sys.stderr, flush=True)
     elif event.get("phase") == "github_access_propagation_retry":
         print(
             f"GitHub is finishing authorization; retrying the access check in {event.get('retry_in_seconds'):g}s...",

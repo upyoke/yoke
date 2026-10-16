@@ -1,9 +1,10 @@
 {
  "id": "02",
- "title": "At sign-in or machine approval: why it is needed, what to do and how to return.",
- "status": "draft-copy",
+ "title": "Choose own-machine approval, a teammate invite code, or an explicit existing token after team-server discovery.",
+ "status": "observed",
  "form": "Teach",
- "verification": "No delivery proof attached.",
+ "verification": "Source and focused tests cover the four admission choices, private invite input, Back/Esc, match code and the connected-machine approval command. Company sign-in keeps browser authorization. Deployed proof remains pending.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_machine_admission.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_hosted_machine_views.py", "runtime/api/cli/test_team_server_authorization.py"],
  "topics": ["identity/auth", "machines/registration"],
  "plan_refs": ["FIRST-USER.1", "FIRST-USER.7", "FIRST-USER.10", "FIRST-USER.17", "FIRST-USER.26", "FIRST-USER.37", "FIRST-USER.38", "FIRST-USER.39"],
  "position": 2

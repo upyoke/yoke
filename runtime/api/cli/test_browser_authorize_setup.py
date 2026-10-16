@@ -86,3 +86,42 @@ def test_setup_refusal_preserves_profile_and_stops_before_window(
     assert (
         "browser_apparmor_setup_failed" in json.loads(capsys.readouterr().out)["error"]
     )
+
+
+@pytest.mark.parametrize("json_mode", [False, True])
+def test_machine_progress_carries_match_code_and_approval_hint(capsys, json_mode):
+    from yoke_cli.config import setup_browser
+    from yoke_cli.config.onboard_wizard_flow_machine_admission import approval_hint
+
+    browser_action = setup_browser.action(
+        "https://team.example/machine-approval/K7F2",
+        "Return after approval.",
+        user_code="K7F2",
+    )
+    setup_browser.render_progress(
+        {
+            "phase": "machine_authorization",
+            "browser_action": browser_action,
+            "expires_in": 600,
+            "interval": 2,
+            "browser_attempted": False,
+        },
+        json_mode=json_mode,
+    )
+    output = capsys.readouterr()
+    assert output.out == ""
+    if json_mode:
+        event = json.loads(output.err)
+        assert event["match_code"] == "K7F2"
+        assert event["approval_hint"] == approval_hint("K7F2")
+        assert event["browser_action"] == browser_action
+        assert event["wait"]["max_seconds"] == 600
+    else:
+        assert "Match code: K7F2" in output.err
+        assert approval_hint("K7F2") in output.err
+    setup_browser.render_progress(
+        {"phase": "device_browser", "browser_action": browser_action},
+        json_mode=json_mode,
+    )
+    github = capsys.readouterr().err
+    assert "approval_hint" not in github and "Match code" not in github

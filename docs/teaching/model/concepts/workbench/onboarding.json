@@ -6,6 +6,6 @@
  "surface_refs": ["workbench-cues"],
  "page": "workbench",
  "position": 3,
- "text": "A first org connection shows four setup steps, with Connect machine active and all four complete after approval in the same visit. Later requests omit the bar.",
+ "text": "A first org connection shows four setup steps, with Connect machine active and all four complete after approval in the same visit. Later requests omit the bar. Setup's own-machine path carries the match code and browser link to this approval surface, or teaches yoke machines approve CODE on a connected machine. The machine belongs to the human who approves; a teammate uses their own invite code instead.",
  "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_approval.js", "docs/public/reference/machine-authorization.md"]
 }

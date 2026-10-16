@@ -12,8 +12,11 @@ from yoke_cli.config import setup_browser
 from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_wizard_diagnostics
 from yoke_cli.config import onboard_wizard_steps as steps
-from yoke_cli.config import writer
 from yoke_cli.config import yoke_token_verify
+from yoke_cli.config.onboard_wizard_flow_machine_admission import (
+    accept_machine_credential,
+    save_machine_credential,
+)
 from yoke_cli.config.onboard_destinations import ENV_STAGE
 from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT
 from yoke_cli.config.onboard_wizard_hosted_machine_views import (
@@ -116,9 +119,9 @@ class HostedMachineConnectFlow(HostedMachineApprovalViews):
             else "Starting secure browser sign-in."
         )
         message = (
-            "Minting a fresh one-time machine code so you can approve it."
+            "Requesting a fresh match code so you can approve this machine."
             if after_denial
-            else "Requesting a one-time machine code from your Yoke server."
+            else "Requesting a match code from your Yoke server."
         )
         self._run_checking(
             step=STEP_CONNECT,
@@ -179,29 +182,11 @@ class HostedMachineConnectFlow(HostedMachineApprovalViews):
                 cancelled=stop.is_set,
             )
             verification = yoke_token_verify.verify(
-                credential.api_url,
-                credential.token,
+                credential.api_url, credential.token
             )
-            connection = writer.set_connection(
-                credential.org,
-                transport="https",
-                api_url=credential.api_url,
-                token=credential.token,
-                activate=True,
-                path=self.result.config_path,
+            return save_machine_credential(
+                credential, verification, self.result.config_path
             )
-            token_file = str(connection["connection"]["credential_source"]["path"])
-            return credential, verification, token_file
-
-        def _success(value: Any) -> None:
-            credential, verification, token_file = value
-            self.result.env_name = credential.org
-            self.result.api_url = credential.api_url
-            self.result.token = None
-            self.result.token_file = token_file
-            self.result.token_source_kind = "token_file"
-            self.result.yoke_token_verification = verification
-            self._goto_yoke_verify_success(verification)
 
         def _error(exc: BaseException) -> None:
             if isinstance(
@@ -225,7 +210,7 @@ class HostedMachineConnectFlow(HostedMachineApprovalViews):
             ),
             detail_lines=self._approval_detail_lines(pending, browser_line),
             work=_work,
-            on_success=_success,
+            on_success=lambda value: accept_machine_credential(self, value),
             on_error=_error,
             on_cancel=_cancel,
             group="onboard-hosted-machine-poll",
@@ -257,7 +242,11 @@ class HostedMachineConnectFlow(HostedMachineApprovalViews):
                     step=STEP_CONNECT,
                     title="Browser sign-in did not finish.",
                     message=message,
-                    detail_lines=tuple(["Check your network, then start a fresh one-time authorization."]),
+                    detail_lines=tuple(
+                        [
+                            "Check your network, then start a fresh one-time authorization."
+                        ]
+                    ),
                     choices=tuple(steps.HOSTED_MACHINE_RETRY_ROWS),
                     tone=TONE_ERROR,
                 ),
