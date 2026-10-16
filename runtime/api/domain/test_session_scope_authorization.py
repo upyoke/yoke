@@ -77,7 +77,7 @@ def test_non_member_refused_with_recovery(conn):
 
 def test_operate_session_org_rules(conn, monkeypatch):
     monkeypatch.setattr(
-        scope.actor_permission_checks,
+        scope.actor_permissions,
         "org_permission_decision",
         lambda *a, **kw: SimpleNamespace(allowed=kw["actor_id"] == 2),
     )
@@ -96,7 +96,7 @@ def test_operate_session_org_rules(conn, monkeypatch):
     assert not allowed(1, 2)
     assert not allowed(3, 3)
     monkeypatch.setattr(
-        scope.actor_permission_checks,
+        scope.actor_permissions,
         "permission_decision",
         lambda *a, **kw: SimpleNamespace(
             allowed=kw["actor_id"] == 1 and kw["project_id"] == 4
