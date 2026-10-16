@@ -42,6 +42,7 @@ const client = {async call(request){
  const fail = (code,message) => ({status:403,envelope:{success:false,error:{code,message}}});
  if(request.function === 'organizations.get')return ok({name:'Example team'});
  if(request.function === 'machine.list')return ok({count:state === 'later' ? 3 : 0,machines:[]});
+ if(request.function === 'machine_authorization.pending')return ok({requests:[],viewer:authorization.viewer});
  if(request.function === 'machine_authorization.resolve') {
   if(state === 'recording')return new Promise(()=>{});
   if(state === 'owner-bound')return fail('authorization_owner_mismatch','start your own connection code');
