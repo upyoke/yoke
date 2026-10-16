@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.item_refs_schema import ensure_item_refs_view
+
 import os
 import subprocess
 import sys
@@ -134,6 +136,7 @@ def _apply_stale_db_schema() -> None:
     conn = db_backend.connect()
     try:
         apply_ddl_statements(conn, _STALE_DB_SCHEMA)
+        ensure_item_refs_view(conn)
         from runtime.api.fixtures.level_store import create_level_store_tables
 
         create_level_store_tables(conn)

@@ -9,6 +9,8 @@ helper itself — so no event seeding is required.
 
 from __future__ import annotations
 
+from yoke_core.domain.item_refs_schema import ensure_item_refs_view
+
 import unittest
 from typing import Any, Optional
 
@@ -77,6 +79,7 @@ def apply_release_gap_schema() -> None:
             + EVENTS_SCHEMA
             + PATH_CLAIMS_SCHEMA,
         )
+        ensure_item_refs_view(conn)
         from yoke_core.domain.workflow_registry import converge_builtin_workflows
         from yoke_core.domain.workflow_schema import ensure_workflow_schema
 
