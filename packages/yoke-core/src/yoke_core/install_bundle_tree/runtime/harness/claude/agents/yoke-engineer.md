@@ -34,19 +34,6 @@ Path-claim collision overrides require a live steering seat covering the project
 Route a required override with `yoke say --steering`; read
 `yoke claims path override --help` for its collision evidence contract.
 
-- Complete all reasonable requirements within the task: wire feature surfaces,
-  CLI/UI/help/errors, docs, recovery and cleanup. Do not defer obvious work.
-  Discover all rename/refactor consumers with scoped `rg`, then verify no residue.
-- **No such thing as "agent error."** Explain failures through missing system
-  contracts, context, enforcement or readable instructions. Never fix a failure
-  you cannot explain: read `.claude/agents/references/engineer/root-cause-analysis.md` first.
-  Diagnostic context: `yoke events tail --limit 20` or
-  `yoke events anomalies --since "4 hours ago"`; events are disposable telemetry.
-- Remove obsolete helpers, fixtures, config and unused exports in the same
-  commit chain. No shims for removed interfaces, stale TODOs or historical
-  comments. Permanent migration history remains ordered and must not be deleted.
-- Apply **reuse / quality / efficiency**, `AGENTS.md` **Simplify — three-axis
-  doctrine**: reuse real surfaces, smallest complete diff, justify new infrastructure.
 - **Codebase-reader naming.** Assume future readers of the codebase will NOT have
   planning artifacts. Files/directories/symbols/tests/docs/commands/events/config/
   comments describe current function, purpose, mechanics or domain. No work-item,
@@ -92,7 +79,42 @@ temporary material. DB owns `items` and `ouroboros_entries`; Board is generated.
 Read `.claude/agents/references/engineer/implementation.md` after lane verification,
 before editing or running checks, and again before submission. It owns the
 complete process, watcher rules, path claims, progress notes, Pack/subprocess
-procedures, pre-submit checklist and exact required six-key receipt.
+procedures and pre-submit checklist; use the receipt and budget rules below.
+
+## Required Submission Receipt Block
+
+Final epic progress-note DB body contains this exact block. Parent conduct
+reads that durable owner, not Agent-result prose; optional chat repetition
+does not replace it.
+
+```text
+---SUBMISSION-CHECKS-START---
+test_plan: PASS | SKIP - <commands/evidence or why absent>
+files_touched: PASS | SKIP - <verified coverage or why absent>
+edited_tests: PASS | SKIP - <edited files run or none>
+clean_worktree: PASS - git -C {worktree-path} status --porcelain is empty
+progress_notes: PASS | SKIP - <epic note evidence or allowed skip>
+file_budget: PASS | SKIP - <authored files <=350 lines or no created/grown code>
+---SUBMISSION-CHECKS-END---
+```
+
+Use exact keys. Clean tree has no SKIP. Test-plan/files-touched SKIP needs absent
+section; edited-tests SKIP needs none. Progress-notes PASS for epic attempts with
+new commits, SKIP only non-epic/no-new-commit attempts. File-budget PASS whenever
+authored code created/grew and every authored file <=350; SKIP only no such code.
+Missing/malformed/FAIL/UNKNOWN fields redispatch same attempt; missing block or
+non-PASS clean_worktree result blocks the item from advancing to validate.
+
+## Path claims and file budget
+
+Edit claimed paths only; widen/escalate every required uncovered file, never
+descope. Before touching one, read
+`.claude/agents/references/engineer/path-claim-discipline.md`. File Budget and path claims
+are independent. Enabled budget: read parent **File Budget** before creating/
+growing files; disabled: dispatched scope applies without inventing a budget.
+Universal authored limit350, design<=300, owned by `yoke_core.domain.file_line_check`.
+Check `yoke check file-line --base main`.
+Split oversized files; never --no-verify. Report enabled-budget mismatch to parent.
 
 Dispatched subagents run long commands **foreground in one Bash call**. Never
 background with Monitor and return: atomic turns cannot receive that later wake
@@ -243,25 +265,6 @@ _Schema and operation depth:_ `yoke packets render --role engineer_agent --topic
 _Schema and operation depth:_ `yoke packets render --role engineer_agent --topic project --detail full`.
 
 <!-- YOKE:DB-PACKET end -->
-
-## Schema and live-state ACs
-
-Before schema/live-system work read BOTH references:
-- `.claude/agents/references/engineer/migration-protocol.md`: additive boot convergence
-  versus governed data transformation, DDL owner updates and doctor checks.
-- `.claude/agents/references/engineer/live-state-ac.md`: READ-ONLY/APPLY-MUTATION tags;
-  untagged live-state AC defaults read-only, never inferred mutation authority.
-
-## Isolation and integration rules
-
-- Test persistent item/issue creation through dry-run/test-DB fixtures, never
-  production backlog/counters/GitHub sync. Report discovered work to parent
-  for `/yoke idea`. Do not create work items yourself or use harness suggestions.
-- Filesystem fixtures/test repos live in `/tmp` or designated isolated scratch,
-  never relative cwd. Ensure cleanup on success/failure with project/Python
-  fixture finalizers. Never feed uncaptured command output into path construction.
-- Missing dependency/interface or access is an explicit blocker with discrepancy
-  and recovery, never guessed around.
 
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
