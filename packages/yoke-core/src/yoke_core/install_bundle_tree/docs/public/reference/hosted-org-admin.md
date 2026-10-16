@@ -40,14 +40,18 @@ pending invites included, is used; more seats are contact-only),
 ## Approve or deny a machine
 
 ```bash
-yoke machine-authorization get ABCD-EFGH
-yoke machine-authorization resolve ABCD-EFGH --action approve   # or deny
+yoke machines pending
+yoke machines approve K7F2   # or: yoke machines deny K7F2
 ```
 
-The code is the one the connecting machine's CLI printed. An org admin decides
-it; the connecting machine then finishes its own poll. Refusals:
-`authorization_code_required`, `authorization_unavailable`,
-`authorization_expired` (start a fresh connection), and `not_admin`.
+Match the four-character code printed by your connecting machine and check the
+approver's displayed identity. An active human member decides their own request;
+the connecting machine receives that person's identity and finishes its own poll.
+The first decision binds the code to its approver. Refusals include
+`authorization_owner_mismatch`, `authorization_already_decided`,
+`organization_membership_required`, `actor_disabled`, `authorization_unavailable`
+and `authorization_expired` (start a fresh connection). If the server lacks these
+commands, connect with `yoke connect <server> --token-stdin` or ask its operator to upgrade.
 
 ## Every surface refuses with its recovery
 

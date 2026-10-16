@@ -55,6 +55,7 @@ def transport(monkeypatch):
             return FunctionCallResponse(
                 success=False,
                 function=request.function,
+                version=request.version,
                 request_id=request.request_id,
                 error=FunctionError(
                     code="function_not_registered",
@@ -66,6 +67,7 @@ def transport(monkeypatch):
             return FunctionCallResponse(
                 success=outcome.primary_success,
                 function=request.function,
+                version=request.version,
                 request_id=request.request_id,
                 result=outcome.result_payload,
                 error=outcome.error,
@@ -89,6 +91,7 @@ def transport(monkeypatch):
         return FunctionCallResponse(
             success=True,
             function=request.function,
+            version=request.version,
             request_id=request.request_id,
             result=result,
         )
@@ -154,8 +157,13 @@ def test_plain_terminal_calls_real_registered_decision_as_token_actor(
         return rows[request.function][0](bound)
 
     transport.handler = bound_call
-    _, adapter, _ = registry.resolve(["machines", action, code.lower()])
-    assert adapter([code.lower()]) == 0
+    assert commands.machines_pending(["--json"]) == 0
+    waiting = json.loads(capsys.readouterr().out)["result"]
+    assert waiting["viewer"] == VIEWER
+    assert waiting["requests"][0]["code"] == code
+    transport.calls.clear()
+    _, _, adapter, remaining = registry.resolve(["machines", action, code.lower()])
+    assert adapter(remaining) == 0
     output = capsys.readouterr().out
     assert "Pat (actor 1)" in output and "Pat's laptop" in output
     assert output.index("Deciding as") < output.index(

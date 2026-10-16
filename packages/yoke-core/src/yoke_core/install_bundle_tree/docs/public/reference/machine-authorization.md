@@ -5,14 +5,16 @@ Cloud and self-hosted servers share the device-code wire contract in
 
 ## Connect
 
-Run `yoke connect https://<server>` and approve your own machine in the signed-in
-workbench. The setup wizard's **A team server** option discovers the server's
+Run `yoke connect https://<server>` and compare the four-character **Match code**
+with your own machine's request. Approve it from a machine already connected to
+that server with `yoke machines approve K7F2`, or use **Machines → Waiting for
+approval** in the signed-in workbench. The setup wizard's **A team server** option discovers the server's
 sign-in method before showing browser approval or API-token entry. Without
 company sign-in, a first machine uses `yoke connect https://<server> --token-stdin`
 or `--token-file PATH`; the first-boot admin token remains the bootstrap. Your
 own next machine runs `yoke connect https://<server>` and you approve its code
 from a machine you already connected with
-`yoke machine-authorization resolve CODE --action approve`. The approved
+`yoke machines approve CODE`. The approved
 machine receives the approver's identity, so approve only your own codes; the
 wizard therefore keeps a teammate without company sign-in on API-token entry.
 
@@ -49,18 +51,23 @@ wizard therefore keeps a teammate without company sign-in on API-token entry.
 
 ## Approval and delivery
 
-The shared `/machine-approval[/CODE]` workbench page calls
-`machine_authorization.get` and `machine_authorization.resolve` through its
-normal function client. The read returns `authorization` with code, machine
-name/ID, platform, expiry, and decision; resolve takes `{code, action: approve|deny}`
-and returns that decision. A host consuming the core wheel supplies its normal
-client and owns its pending-code store; Cloud's companion integration maps
-these calls to its store, where organization selection occurs at approval.
+`yoke machines pending` lists code, machine, requested-by identity and expiry for
+the signed-in organization. `yoke machines approve CODE` and
+`yoke machines deny CODE` show the viewer and machine before recording a decision;
+codes accept either case. `--json` emits structured function replies. A local
+universe instead explains that other computers cannot connect and points to
+`yoke self-host init`.
 
-Self-host accepts decisions only from active org members. The signed-in person
-claims the code and approves their own machine through a named-actor decision
-request; other actors cannot take it over. Cloud's existing org-admin requests
-retain their role authority. Credential issuance remains engine-owned atomic
+The CLI and shared `/machine-approval[/CODE]` workbench page use
+`machine_authorization.get` and `machine_authorization.resolve`. The read returns
+`authorization` with code, machine name/ID, platform, expiry, decision, current
+state, viewer and requested-by identity; resolve takes `{code, action: approve|deny}`
+and returns that decision. The pending function is `machine_authorization.pending`.
+Hosted routing selects the organization and hands its code to the engine store.
+
+Only an active human org member can approve their own machine. The first decision
+binds the code to that person; another actor cannot take it over. An identical
+decision can be repeated, while an opposite decision refuses. Credential issuance remains engine-owned atomic
 machine registration/rotation. Consumption and issuance commit together; one
 poll receives the raw credential and no raw credential is stored in the code
 record. Network loss after delivery requires starting a new code.
@@ -116,17 +123,19 @@ but resolve and poll still refuse expired or consumed codes. A record removed
 by pending-store expiry cleanup is unavailable; membership and ownership still
 protect reads. Light and dark themes share the same card and narrow layouts.
 
-## Inspect as the signed-in actor
+## Decide as the signed-in actor
 
-Run `yoke machine-authorization get CODE` to read a code, then
-`yoke machine-authorization resolve CODE --action approve` (or `deny`) to
-record your personal decision. Read the returned decision and finish polling
+Run `yoke machines pending` to see waiting requests, then
+`yoke machines approve CODE` or `yoke machines deny CODE` to record your personal
+decision. Read the returned decision and approver, and finish polling
 from the original machine. These operations never accept a caller-supplied
 owner, org, or credential.
 
-On a hosted connection (`https://app.upyoke.com/api/orgs/<slug>`) Platform answers
-both calls from its own code store, and an org admin decides any code waiting
-for that org. See [Hosted org administration](hosted-org-admin.md).
+On a hosted connection (`https://app.upyoke.com/api/orgs/<slug>`), the selected
+organization scopes the request. See [Hosted org administration](hosted-org-admin.md).
+An older server refuses a missing command with `function_version_skew` and its
+minimum serving version. Connect with an explicit token using
+`yoke connect <server> --token-stdin`, or ask the server operator to upgrade.
 
 ## Shared schema
 

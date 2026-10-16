@@ -4,12 +4,12 @@
  "status": "observed",
  "audience": "both",
  "when": "Connecting another computer or recovering an expired device code",
- "need": "Read the four-character terminal code before hosted organization selection. Select the intended organization, compare the machine, code and local expiry, and approve or deny personally. A code already routed elsewhere names its original organization and requires a fresh connection. Return to the terminal: pending waits until one-time delivery, denial or expiry. Lost delivery requires a fresh connection; expiry does not renew a code. A below-floor install names the operator rollout recovery.",
+ "need": "Read the four-character terminal code before hosted organization selection. Select the intended organization, compare the machine, code, expiry and signed-in identity with yoke machines pending, then approve personally using yoke machines approve CODE or refuse using yoke machines deny CODE. A code already routed elsewhere names its original organization and requires a fresh connection. Return to the terminal: pending waits until one-time delivery, denial or expiry. Lost delivery requires a fresh connection; expiry does not renew a code. A below-floor server names its minimum version and offers an explicit token or an operator upgrade.",
  "disclosure": "current cue",
  "surface": "Shared approval card and machine authorization reference.",
  "review": "Engine producer contract and authorized consumer source evidence reviewed. Hosted source adoption is observed; exact redesign consumer integration, fresh installer approval and deployed personal-approval/one-time-delivery captures remain pending.",
- "recipes": ["yoke connect --help", "yoke machine-authorization get CODE"],
+ "recipes": ["yoke connect --help", "yoke machines pending", "yoke machines approve CODE", "yoke machines deny CODE"],
  "plan_notes": ["FIRST-USER items 26,27,33", "FIRST-USER D"],
- "sources": ["docs/public/install.md", "docs/public/actors-members-billing.md", "docs/public/reference/machine-authorization.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/machine_authorization.py", "packages/yoke-core/src/yoke_core/ui/static/machine_approval.js"],
+ "sources": ["docs/public/install.md", "docs/public/actors-members-billing.md", "docs/public/reference/machine-authorization.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/machine_admission.py", "packages/yoke-core/src/yoke_core/ui/static/machine_approval.js"],
  "position": 0
 }
