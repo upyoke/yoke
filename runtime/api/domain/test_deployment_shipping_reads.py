@@ -53,6 +53,7 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
     stages[1].pop("cases")
     subjects = []
     requirement_ids = []
+    execution_ids = []
     for index in range(12):
         run_id = f"shipping-run-{index}"
         count = 17 if index < 2 else 16
@@ -76,6 +77,7 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
             session_id="shipping-read",
         )
         requirement_ids.append(_complete_case(test_db, execution))
+        execution_ids.append(execution["id"])
         assert deployment_qa_stage_status(
             test_db,
             run_id=run_id,
@@ -120,6 +122,9 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
         if "SELECT id FROM deployment_stage_receipts" in sql
     )
     assert (run_reads, member_reads, receipt_reads) == (1, 0, 0)
+    assert not any(
+        "SELECT * FROM qa_plan_executions WHERE id=" in sql for sql in conn.queries
+    )
     assert conn.callers["yoke_core.domain.deployment_qa_presentation_facts.read"] <= 7
     assert (
         conn.callers["yoke_core.domain.deployment_requirement_snapshots._plan_snapshot"]
@@ -257,6 +262,22 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
     _fail(test_db, requirement_ids[0])
     changed = member_qa_standings(conn, subjects[:17])
     assert all(answer["state"] == "cases unresolved" for answer in changed.values())
+    # Selected corrupted rows must still refuse through the scalar validator,
+    # including after an earlier request cached the valid execution.
+    test_db.execute(
+        "UPDATE qa_plan_executions SET roster_json='[1]' WHERE id=%s",
+        (execution_ids[1],),
+    )
+    invalid = member_qa_standings(conn, subjects[17:34])
+    assert all(answer["state"] == "unreadable" for answer in invalid.values())
+    assert all(
+        "invalid roster snapshot" in answer["reason"] for answer in invalid.values()
+    )
+    import pytest
+
+    with pytest.raises(ValueError, match="invalid roster snapshot"):
+        run, member, stage = subjects[17]
+        current_item_qa(conn, run_id=run, item_id=member, current_stage=stage)
 
 
 def test_combined_overview_preserves_each_project_window_and_shared_members(test_db):
