@@ -82,11 +82,15 @@ def _model_pool_cell(row: Mapping[str, Any]) -> str:
     if not isinstance(pool, Mapping):
         return "-"
     name = pool.get("pool") or "unpooled"
+    # An older server omits the extra-usage label; the cell then reads as before.
+    extra = f", {pool['extra_label']}" if pool.get("extra_label") else ""
     if pool.get("exhausted"):
-        return f"{name}: exhausted"
+        return f"{name}: exhausted{extra}"
     remaining = pool.get("remaining_percent")
     if remaining is None:
         return f"{name}: {_POOL_CELL_LABELS.get(pool.get('reason'), 'unknown')}"
+    if pool.get("included_empty"):
+        return f"{name}: included 0% left{extra}"
     return f"{name}: {int(round(float(remaining)))}% left"
 
 

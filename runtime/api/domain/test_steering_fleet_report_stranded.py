@@ -14,6 +14,7 @@ from runtime.api.steering_fleet_test_helpers import (
     seed_steering_scope,
 )
 from yoke_contracts.session_control.native_models import models_reading, native_model
+from yoke_contracts.session_control.extra_usage import EXTRA_DISABLED, extra_usage
 from yoke_contracts.session_control.plan_limits import (
     CURSOR_MODELS_SCOPE,
     CURSOR_OTHER_MODELS_SCOPE,
@@ -69,6 +70,12 @@ def _pin_worker(conn, *, windows=None, native=None, model=OPUS):
                     "plan_tier": "Ultra",
                     "observed_at": NOW,
                     "windows": windows,
+                    # Usage-based pricing off: an empty pool really stops work.
+                    "extra_usage": extra_usage(
+                        EXTRA_DISABLED,
+                        meter="GetHardLimit.noUsageBasedAllowed",
+                        reason="usage_based_pricing_off",
+                    ),
                 }
             }
         )

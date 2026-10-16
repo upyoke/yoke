@@ -19,6 +19,9 @@ from typing import Any, Callable
 from yoke_contracts.levels import Level
 from yoke_contracts.model_reference import lookup_model_reference
 from yoke_contracts.model_reference_records import ModelReferenceError
+from yoke_contracts.session_control.extra_usage import EXTRA_BLOCKING_STATUSES
+from yoke_contracts.session_control.model_billing_pools import extra_usage_status
+from yoke_core.domain.plan_limit_extra_usage import extra_label_now
 from yoke_contracts.session_control.plan_limits import CLI_PLAN_LIMIT_SURFACES
 from yoke_core.domain.model_reference_store import revision_at
 from yoke_core.domain.steering_fleet_plan_capacity import compute_plan_limit
@@ -95,6 +98,9 @@ def read_level_capacity(conn: Any, *, authorize: Authorize) -> dict[str, Any]:
             offered.add((ready.machine_id, ready.surface))
         for row in load_plan_limits(conn, project_id=project_id, now=now):
             computed = compute_plan_limit(row, now=now)
+            extra = extra_usage_status(
+                row.extra_usage, observed_at=row.observed_at, now=now
+            )
             key = (row.machine_id, row.surface, row.window_kind, row.scope, row.meter)
             meters[key] = Meter(
                 machine_id=row.machine_id,
@@ -104,6 +110,8 @@ def read_level_capacity(conn: Any, *, authorize: Authorize) -> dict[str, Any]:
                 status=row.status,
                 remaining_percent=row.remaining_percent,
                 headroom_percent=computed.headroom_percent,
+                extra_blocks=extra in EXTRA_BLOCKING_STATUSES,
+                extra=extra_label_now(row, now=now),
             )
         for count in live_session_counts(conn, project_id=project_id):
             if count.surface in live_workers:

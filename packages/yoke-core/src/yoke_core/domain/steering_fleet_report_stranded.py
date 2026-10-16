@@ -1,6 +1,7 @@
 """Sessions that cannot return, named instead of quiet.
 
-A wake against an exhausted meter dies. Rejected credentials or a model
+A wake against an exhausted meter dies when paid extra usage cannot cover
+it either. Rejected credentials or a model
 the surface no longer offers are the same wall. Differing from the
 options of a level is not: those are a launch choice. A
 session still inside its launch deadline and still registering has not
@@ -175,14 +176,7 @@ def _reason(
     model: str,
 ) -> tuple[str, str]:
     if kind == KIND_METER_EXHAUSTED and wall is not None:
-        quota = f"{int(round(wall.remaining_percent))}%"
-        reset = (
-            format_instant(wall.resets_at) if wall.resets_at is not None else "unknown"
-        )
-        return (
-            f"meter {wall.meter} ({wall.window}) {quota} remaining, resets {reset}",
-            RECOVERY,
-        )
+        return wall.detail(), RECOVERY
     if kind == KIND_CREDENTIAL_REJECTED:
         return (
             "provider rejected the session's credentials",

@@ -116,6 +116,8 @@ def test_pool_projection_preserves_null_reset_and_opaque_window():
         "exhausted": False,
         "reason": "http_429",
         "workers": 0,
+        "extra_status": "unknown",
+        "extra_label": "",
         "share_percent": None,
         "guidance": "the vendor throttled the limits check; the surface is not known to be signed out; it retries on the next refresh",
     }

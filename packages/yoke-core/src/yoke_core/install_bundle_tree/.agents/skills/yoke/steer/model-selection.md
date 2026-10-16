@@ -39,8 +39,10 @@ all authorized machine/options against only their billed pools, spreads to idle
 surfaces above 100% headroom then greatest headroom. Read level_placement with
 option/machine/pool and reason, not manual imitation. Depth:
 [level routing](../../../../.yoke/docs/reference/session-level-routing.md#launching-by-level).
-Cursor fallback on Other Models only when Cursor Models is confirmed zero:
-unreadable, low headroom or ample other pool is not exhaustion.
+Cursor fallback on Other Models only when Cursor Models is confirmed exhausted:
+included zero plus fresh extra usage disabled/cap_reached/unavailable.
+Unreadable, low headroom, ample other pool, or extra usage available/unknown/
+stale is not exhaustion.
 level_no_capacity names options/blocking pool; deliberate permissible other
 level, reset wait or operator wall. Never borrow other level silently.
 

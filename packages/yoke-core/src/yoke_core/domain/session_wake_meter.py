@@ -8,8 +8,11 @@ steering report all read it so they cannot disagree.
 
 Exhaustion is the existing pool reading
 (:func:`yoke_contracts.session_control.model_billing_pools.pool_exhaustion`):
-affirmative, readable, pool-matched zero. Unknown is never exhaustion, and
-this never raises or bypasses a plan limit.
+an affirmative, readable, pool-matched included zero that fresh paid extra
+usage affirmatively cannot cover. An empty included pool with extra usage
+available, unknown or stale is not a wall: the wake proceeds and the
+provider's own refusal stays authoritative. This never raises or bypasses a
+plan limit, and never enables spending.
 """
 
 from __future__ import annotations
@@ -41,8 +44,9 @@ SKIP_REASON_METER_EXHAUSTED = "model_meter_exhausted"
 BLOCKED_METER_RESUME = "blocked-meter-exhausted"
 _SKIP_ADAPTER_REVISION = "session-wake-meter-v1"
 RECOVERY = (
-    "Relaunch on a surface with headroom; this session cannot return "
-    "until the meter resets."
+    "Relaunch on a surface with headroom, or turn on or fund the provider's "
+    "paid extra usage; otherwise this session cannot return until the meter "
+    "resets."
 )
 
 
@@ -60,16 +64,21 @@ class MeterWall:
     remaining_percent: float
     resets_at: datetime | None
     window: str
+    #: The shared phrase naming why extra usage cannot cover the empty pool.
+    extra: str = ""
 
-    def refusal_message(self) -> str:
+    def detail(self) -> str:
         quota = f"{int(round(self.remaining_percent))}%"
         reset = (
             format_instant(self.resets_at) if self.resets_at is not None else "unknown"
         )
         return (
-            f"Native wake refused: meter {self.meter} ({self.window}) has "
-            f"{quota} remaining, resets {reset}. {RECOVERY}"
+            f"meter {self.meter} ({self.window}) {quota} remaining, resets "
+            f"{reset}; {self.extra or 'extra usage blocked'}"
         )
+
+    def refusal_message(self) -> str:
+        return f"Native wake refused: {self.detail()}. {RECOVERY}"
 
 
 def pinned_model(row: Mapping[str, Any]) -> str:
@@ -93,9 +102,15 @@ def _session_row(conn: Any, session_id: str) -> dict[str, Any] | None:
     return dict(row)
 
 
-def _windows_for(
+def _surface_rows(
     limits: tuple[MachinePlanLimit, ...], *, machine_id: str, surface: str
-) -> list[dict[str, Any]]:
+) -> list[MachinePlanLimit]:
+    return [
+        row for row in limits if row.machine_id == machine_id and row.surface == surface
+    ]
+
+
+def _windows(rows: list[MachinePlanLimit]) -> list[dict[str, Any]]:
     return [
         {
             "scope": row.scope,
@@ -105,8 +120,7 @@ def _windows_for(
             "resets_at": row.resets_at,
             "window_kind": row.window_kind,
         }
-        for row in limits
-        if row.machine_id == machine_id and row.surface == surface
+        for row in rows
     ]
 
 
@@ -117,9 +131,18 @@ def _wall_from_windows(
     machine_id: str,
     surface: str,
     model: str,
-    windows: list[dict[str, Any]],
+    rows: list[MachinePlanLimit],
+    now: datetime,
 ) -> MeterWall | None:
-    reading = pool_exhaustion(surface, model, windows)
+    windows = _windows(rows)
+    reading = pool_exhaustion(
+        surface,
+        model,
+        windows,
+        extra_usage=rows[0].extra_usage if rows else None,
+        observed_at=rows[0].observed_at if rows else None,
+        now=now,
+    )
     if not reading.exhausted:
         return None
     matched = next(
@@ -146,6 +169,7 @@ def _wall_from_windows(
             str(matched.get("window_kind") or "unknown"),
             str(reading.pool or ""),
         ),
+        extra=reading.extra_label,
     )
 
 
@@ -182,7 +206,8 @@ def meter_wall(
         machine_id=machine_id,
         surface=surface,
         model=model,
-        windows=_windows_for(rows, machine_id=machine_id, surface=surface),
+        rows=_surface_rows(rows, machine_id=machine_id, surface=surface),
+        now=stamp,
     )
 
 
@@ -231,11 +256,7 @@ def record_meter_exhausted_skip(
                     "skip_reason": SKIP_REASON_METER_EXHAUSTED,
                     "requested_model": wall.model,
                     "surface": wall.surface,
-                    "probe_detail": (
-                        f"meter {wall.meter} ({wall.window}) "
-                        f"{int(round(wall.remaining_percent))}% remaining, "
-                        f"resets {format_instant(wall.resets_at) if wall.resets_at is not None else 'unknown'}"
-                    ),
+                    "probe_detail": wall.detail(),
                 }
             ),
         ),

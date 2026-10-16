@@ -119,7 +119,8 @@ def _weigh(
         headroom_window=binding.window if binding else None,
         live_workers=binding.workers if binding else 0,
         blocked=(
-            f"{empty.window} pool exhausted (resets {empty.to_dict()['resets_at'] or 'unknown'})"
+            f"{empty.window} pool exhausted and {empty.extra_label} "
+            f"(resets {empty.to_dict()['resets_at'] or 'unknown'})"
             if empty
             else None
         ),
