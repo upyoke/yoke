@@ -63,11 +63,14 @@ What you DO do during a Monitor-armed background command:
   watches liveness with its own fleet watcher. Ending a turn sends no
   Fleet message; send terminal and other actionable worker reports
   deliberately with `yoke say --steering`.
-- A `# watch_<kind> digest ...` line is ONE wake covering every
-  signal in it, joined by middle dots in the order they happened.
-  Relay it as it stands - do not unpack it into a turn per signal,
-  and do not report only its last signal. Urgent lines still arrive
-  the moment they happen. An emitted line may also carry a
+- Routine progress never wakes you on its own: `yoke watch tail`
+  holds `# watch_<kind> digest ...` lines and stall notices and hands
+  them over in front of the next urgent line or the exit sentinel. A
+  digest covers every signal between its middle dots in the order they
+  happened; relay it as it stands with that wake - do not unpack it
+  into a turn per signal, and do not report only its last signal.
+  Urgent lines still arrive the moment they happen. A bare tail needs
+  no filter. An emitted line may also carry a
   `(suppressed N ticks)` suffix, meaning N numeric ticks were
   superseded by that one; relay the suffix, do not strip it.
 - Parallel work in other tools (Read, Edit, unrelated Bash) is fine

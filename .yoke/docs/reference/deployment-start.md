@@ -177,8 +177,9 @@ Connections opened under a bound copy still physically close.
 Every timing line stays in the driver raw capture, which is where preparation
 is identified before any provider dispatch. Outcome-only watchers do not
 forward each line on its own: ordinary lines join the progress digest, at
-most one digest line per flush window, and a line whose outcome is failed is
-urgent and is forwarded immediately. Other watchers still emit timing lines
+most one digest line per flush window, which `yoke watch tail` holds until the
+next urgent line or sentinel rather than waking on it; a line whose outcome is
+failed is urgent and is forwarded immediately. Other watchers still emit timing lines
 as they arrive. They carry run/source identity when supplied and no DSNs.
 A missing end marker is unfinished evidence, never a successful receipt.
 

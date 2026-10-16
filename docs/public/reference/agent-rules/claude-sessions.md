@@ -263,7 +263,8 @@ and --help own sanctioned recovery. Do not blanket-suppress unrelated checks.
 ### Monitor output and messaging
 
 Relay matched line/digest verbatim into own visible output, including suppressed
-N ticks suffix. One digest is one wake; do not unpack into separate turns.
+N ticks suffix. Digests and stall notices never wake alone: the tail hands them
+over ahead of the next urgent line or sentinel, so a bare tail needs no filter.
 Merge/deploy suppress routine progress/retry/metadata/no-progress; other wrappers
 may batch progress (flush-seconds where supported). Silence needs no filler.
 This never authorizes Fleet mail: no percentages/elapsed polls/heartbeats/still
