@@ -1,6 +1,7 @@
 // First-run progress follows organization state in every hosting mode.
 import { callFunction, el, portabilityMode } from "./universe_view_support.js";
 import { localReachabilityNotice } from "./local_reachability_notice.js";
+import { renderPendingMachines } from "./machine_admission_pending.js";
 
 const STEPS = ["Sign in", "Approve machine", "Create org", "Connect machine"];
 const identity = (actor) => `${actor.name} · actor #${actor.actor_id}`;
@@ -88,9 +89,6 @@ function facts(doc, authorization, org, approved) {
 }
 
 export async function renderMachineApproval(context, main, _scope, code, page = {}) {
-  if (code && portabilityMode(context.capabilities) !== "local") {
-    return renderApprovalCard(context, main, code, { page });
-  }
   main.replaceChildren();
   if (page.setPageHead) page.setPageHead({ title: "Connect your machine" });
   else main.appendChild(el(context.document, "h1", "title", "Connect your machine"));
@@ -98,7 +96,15 @@ export async function renderMachineApproval(context, main, _scope, code, page = 
     const card = el(context.document, "section", "machine-approval-card");
     card.appendChild(localReachabilityNotice(context.document, { variant: "full" }));
     main.appendChild(card);
+    return;
   }
+  const selected = el(context.document, "div");
+  selected.id = "machine-approval-selected";
+  const pending = el(context.document, "div");
+  main.append(selected, pending);
+  const open = (value) => renderApprovalCard(context, selected, value, { page, onDecided: () => list.reload() });
+  const list = renderPendingMachines(context, pending, { selectedCode: code, compact: true, onSelect: open });
+  if (code) return open(code);
 }
 
 export async function renderApprovalCard(context, main, code, { embedded = false, onDecided, page = {} } = {}) {
