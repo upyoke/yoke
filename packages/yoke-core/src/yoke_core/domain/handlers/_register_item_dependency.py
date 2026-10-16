@@ -1,4 +1,5 @@
 """Handler registrations for the items dependency family."""
+
 from __future__ import annotations
 
 from yoke_core.domain.handlers import item_dependency_reads as _idr
@@ -8,14 +9,18 @@ from yoke_core.domain.handlers import item_dependency_writes as _idw
 def register(registry) -> None:
     """Register item-dependency handlers via the given registry module."""
     registry.register(
-        "items.dependency.list", _idr.handle_item_dependency_list,
+        "items.dependency.list",
+        _idr.handle_item_dependency_list,
         _idr.ItemDependencyListRequest,
         _idr.ItemDependencyListResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.item_dependency_reads",
-        target_kinds=["item"], side_effects=[],
+        target_kinds=["item"],
+        side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=[], adapter_status="live", claim_required_kind=None,
+        guardrails=[],
+        adapter_status="live",
+        claim_required_kind=None,
     )
     registry.register(
         "items.dependency.add",
@@ -25,7 +30,7 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.item_dependency_writes",
         target_kinds=["item"],
-        side_effects=["item_dependencies_insert"],
+        side_effects=["item_dependencies_insert", "item_dependencies_update"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["authored_rationale_required"],
         adapter_status="live",
