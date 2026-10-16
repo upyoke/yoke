@@ -14,6 +14,7 @@ the receipt, and failure signatures to its progress capture.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -65,9 +66,21 @@ PREFLIGHT_PROGRESS_PATTERN = re.compile(
 )
 
 
+def _timing_outcome_failed(line: str) -> bool:
+    """True when a deployment-start timing line records outcome failed."""
+    payload = line.removeprefix("Deployment start timing: ").strip()
+    try:
+        record = json.loads(payload)
+    except json.JSONDecodeError:
+        return False
+    return isinstance(record, dict) and record.get("outcome") == "failed"
+
+
 def classify_preflight_line(line: str) -> Classification:
     """Classify one fleet-preflight output line."""
     if line.startswith("Deployment start timing: "):
+        if _timing_outcome_failed(line):
+            return Classification(LineClass.URGENT)
         return Classification(LineClass.METADATA)
     if PREFLIGHT_URGENT_RE.search(line):
         return Classification(LineClass.URGENT)
