@@ -245,6 +245,7 @@ def dispatch_and_emit(
     preconditions: Optional[Dict[str, Any]] = None,
     response_recovery: Optional[Callable[[Any, Any], Any]] = None,
     relay_env: Optional[str] = None,
+    function_hint: Optional[Callable[[str], str]] = None,
 ) -> int:
     ensure_handlers_loaded()
     actor = build_actor(session_id=session_id)
@@ -269,6 +270,7 @@ def dispatch_and_emit(
         options=options,
         preconditions=preconditions,
         relay_env=relay_env,
+        _function_hint=function_hint,
     )
     if response_recovery is not None:
         response = response_recovery(response, actor)

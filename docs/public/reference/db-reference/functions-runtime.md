@@ -250,8 +250,8 @@ terminal status retains stopped-at behavior and invalid fields refuse.
 Sessions, launch/wake/message and machine operations use manifest capabilities,
 authenticated outer delivery and exact bound identity. Message bodies grant no
 authority. Read [fleet policy](fleet-policy.md) before cross-machine operations.
-Personal machine authorization resolves approve/deny under signed-in ownership;
-hosted decisions belong to the authorized org admin. Profile writes act only on
+`yoke machines pending` lists waiting requests; `yoke machines approve CODE` and
+`yoke machines deny CODE` record the signed-in person's own decision. Profile writes act only on
 the caller's own identity/preferences/tokens; raw new token appears once.
 Machine-bound credentials are retired through their machine, never arbitrary
 profile token removal.

@@ -185,4 +185,7 @@ fresh connection. A temporary credential-store failure remains retryable while
 the code is live. Without OIDC, a first machine uses an explicit API token (the
 first-boot admin token remains the bootstrap); your own next machine runs
 `yoke connect https://<server>` and you approve its code from a machine you
-already connected with `yoke machine-authorization resolve CODE --action approve`. See [Machine authorization](public/reference/machine-authorization.md).
+already connected with `yoke machines approve CODE`; compare the four-character
+match code and the displayed approver's identity first. `yoke machines pending`
+lists waiting machines and `yoke machines deny CODE` refuses a request.
+See [Machine authorization](public/reference/machine-authorization.md).
