@@ -6,5 +6,5 @@
  "page": "runtime-evidence",
  "position": 0,
  "summary": "Source and containment preparation precede bounded item/run locks; locked validation rereads mutable facts and reuses only identical repository answers. Occupancy shares QA facts within one evaluation and stops at its first blocker. Item QA followed by gates and final auto completion permits takeover; execution work, different flow/target, missing containment or another live driver prevents it. Refusals name the actual facts; recreating alone is not recovery.",
- "sources": ["docs/public/reference/deployment-start.md", "packages/yoke-core/src/yoke_core/domain/deployment_run_start.py", "packages/yoke-core/src/yoke_core/domain/deployment_run_target_takeover.py"]
+ "sources": ["docs/public/deployments/start-diagnostics.md", "packages/yoke-core/src/yoke_core/domain/deployment_run_start.py", "packages/yoke-core/src/yoke_core/domain/deployment_run_target_takeover.py"]
 }

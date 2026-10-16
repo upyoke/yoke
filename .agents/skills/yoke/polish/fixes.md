@@ -18,7 +18,7 @@ yoke db-claim amend "$ITEM_REF" --reason "polish discovered governed DB mutation
 ```
 
 Supply the unified claim on stdin; read the
-[DB reference](../../../../.yoke/docs/reference/db-reference.md) and database
+[DB reference](../../../../.yoke/docs/databases/reference.md) and database
 operation rules for its shape. The handler atomically updates
 `db_mutation_profile` and `db_compatibility_attestation` and records a
 best-effort `DbClaimAmended` event. Inspect the pinned target's actual gates:

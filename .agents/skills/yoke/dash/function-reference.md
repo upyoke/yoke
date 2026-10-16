@@ -1,6 +1,6 @@
 # Dash — registered operation authority
 
-Use the [single function catalog](../../../../.yoke/docs/reference/db-reference/functions.md)
+Use the [single function catalog](../../../../.yoke/docs/functions/index.md)
 for exact target, payload, claim, option and response schema, then the adapter's
 --help for flags/refusals. This is a lookup home, not another phase.
 Each CLI adapter dispatches the same typed function authority.

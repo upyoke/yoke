@@ -10,6 +10,6 @@
  "gap": "Workflow-kind choice is mapped; post-planning amendment and integration-gap discovery are not. Review question: should the human see this depth only when their work actually requires multiple lanes or an amendment?",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["JOURNEYS row 11", "outside both"],
- "sources": [".agents/skills/yoke/shepherd/SKILL.md", ".agents/skills/yoke/conduct/SKILL.md", ".agents/skills/yoke/amend/SKILL.md", ".agents/skills/yoke/simulate/SKILL.md", "docs/public/reference/db-reference/functions-tasks.md", "docs/public/github/sync.md"],
+ "sources": [".agents/skills/yoke/shepherd/SKILL.md", ".agents/skills/yoke/conduct/SKILL.md", ".agents/skills/yoke/amend/SKILL.md", ".agents/skills/yoke/simulate/SKILL.md", "docs/public/functions/tasks.md", "docs/public/github/sync.md"],
  "position": 0
 }

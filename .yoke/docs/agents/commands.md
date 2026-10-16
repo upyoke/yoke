@@ -110,7 +110,7 @@ Use the Idea phase map for inference and additive body writes.
 Review authoritative structured artifacts for scope, interfaces, cleanup,
 failure/recovery, testability and architecture impact. Reconcile claims and
 independent File Budget policy without omitting required paths. Write through
-[typed item operations](../reference/db-reference/functions-items.md), verify stored results
+[typed item operations](../functions/items.md), verify stored results
 and advance only the pin's declared edge. Successful Refine advances status;
 it edits artifacts, not code.
 
@@ -197,7 +197,7 @@ skill and returned run recovery before resuming.
 Add, split, reassign or remove generated tasks through the existing typed task
 family and progress notes. Reverify overlap, dependencies, numbering and lane
 assignment; preserve the complete required graph. See
-[task operations](../reference/db-reference/functions-tasks.md) and the Amend skill.
+[task operations](../functions/tasks.md) and the Amend skill.
 
 ### simulate
 

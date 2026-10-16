@@ -38,7 +38,7 @@ DB failures stop immediately; dispatch failures NOT_READY within limit;
 missing definitions stop by name. Existing task data requires state-aware
 restart/resume/stop, never blind deletion.
 
-[Canonical function catalog](../../../../.yoke/docs/reference/db-reference/functions.md)
+[Canonical function catalog](../../../../.yoke/docs/functions/index.md)
 owns envelopes; items.get.run reads fields, lifecycle.transition.execute
 owns stage gates, typed structured/task owners write artifacts, shepherd verdict/
 caveat owners persist rows, yoke db read is diagnostic only.

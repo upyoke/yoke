@@ -2,7 +2,7 @@
  "id": "items",
  "title": "Work items",
  "status": "draft-copy",
- "sources": ["docs/public/items/index.md", "docs/public/agents/rules/item-writes.md", "docs/public/reference/db-reference/functions-items.md"],
+ "sources": ["docs/public/items/index.md", "docs/public/agents/rules/item-writes.md", "docs/public/functions/items.md"],
  "surface_refs": ["manual-overview"],
  "functions": ["items.deployment_flow.claim_default", "items.github_done_sync"],
  "page": "items",

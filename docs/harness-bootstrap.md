@@ -127,7 +127,7 @@ and deployment records use their registered owners. Raw service clients,
 db-router mutations or internal helpers are not alternative agent entrypoints.
 Diagnostic SELECTs use `yoke db read`; source-development break-glass retains
 the separate [source-dev doctrine](source-dev-doctrine.md) authority.
-The [function catalog](public/reference/db-reference/functions.md) and command
+The [function catalog](public/functions/index.md) and command
 `--help` provide exact targets, envelopes, claim policy and recovery.
 
 ## Session Identity Expectations

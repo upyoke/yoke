@@ -141,7 +141,7 @@ class AdapterCategory(str, Enum):
 
 - [commands.md](../agents/commands.md) -- full command reference
 - `docs/OVERVIEW.md` (yoke source repo) -- architecture overview with frontier-based flow
-- [db-reference.md](../reference/db-reference.md) -- database schema (items, item_dependencies tables)
+- [reference.md](../databases/reference.md) -- database schema (items, item_dependencies tables)
 
 
 ## Related

@@ -102,7 +102,7 @@ def _schema_hint_message(kind: str, name: str) -> str:
         "session-owner, claim-session, item-claim, and generic target-column "
         "guesses that do not exist in Yoke's schema.\n"
         "- Full reference: .yoke/docs/reference/db-reference/ (start at "
-        ".yoke/docs/reference/db-reference.md)."
+        ".yoke/docs/databases/reference.md)."
     )
 
 

@@ -10,6 +10,6 @@
  "gap": "Existing map traces path overlaps and steering, but not every non-path coordination scenario. Review question: should JOURNEYS show resource-busy recovery as a branch rather than teaching all claims during installation?",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["JOURNEYS row 11", "FIRST-USER 35", "outside both"],
- "sources": ["docs/public/reference/db-reference/functions-claims.md", "docs/public/agents/rules/lanes-and-claims.md", ".agents/skills/yoke/steer/close-out.md"],
+ "sources": ["docs/public/functions/claims.md", "docs/public/agents/rules/lanes-and-claims.md", ".agents/skills/yoke/steer/close-out.md"],
  "position": 0
 }

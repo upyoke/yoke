@@ -42,7 +42,7 @@ the exact project environment, history, schema-shape digest and source artifact.
 A receipt covers one target; one environment's receipt never satisfies another.
 Receipts write to the control plane ``--receipt-env`` (or ``YOKE_ENV``)
 names, independently of the admin connection used to read the covered fleet.
-Authority is probed before copying. See docs/public/reference/deployment-start.md
+Authority is probed before copying. See docs/public/deployments/start-diagnostics.md
 for diagnostics.
 
 ``--engine-wheel`` puts a named already-built artifact at the head of the

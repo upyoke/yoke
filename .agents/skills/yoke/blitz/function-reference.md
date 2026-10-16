@@ -3,17 +3,17 @@
 Use registered function ids; command adapters build those envelopes.
 Exact target/payload contracts are in the existing catalog:
 
-- [Items/workflow runtime](../../../../.yoke/docs/reference/db-reference/functions-items.md):
+- [Items/workflow runtime](../../../../.yoke/docs/functions/items.md):
   `items.detail.get`; use `--include ''` for posture/`content_index`, or request
   `narrative`, `body`, `progress_log`. Lifecycle transitions use
   `lifecycle.transition.execute`.
-- [Workflows](../../../../.yoke/docs/reference/db-reference/functions-workflows.md):
+- [Workflows](../../../../.yoke/docs/functions/workflows.md):
   `workflows.item.get`, `direct_workflow.blitz.survey`.
-- [Project configuration](../../../../.yoke/docs/reference/db-reference/functions-project-configuration.md):
+- [Project configuration](../../../../.yoke/docs/functions/project-configuration.md):
   `strategy.execution.get`, `strategy.doc.get`, `strategy.coordination.append`,
   `strategy.doc.replace`, `strategy.claim.release`.
   Read the selected command's `--help` before a strategy write.
-- [Claims](../../../../.yoke/docs/reference/db-reference/functions-claims.md):
+- [Claims](../../../../.yoke/docs/functions/claims.md):
   `claims.work.release`.
 
 | Function id | Short adapter lookup |

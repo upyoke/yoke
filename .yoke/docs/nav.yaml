@@ -212,6 +212,90 @@ root:
         - title: Charge dispatch
           summary: Read the frontier API and dispatch ranked work.
           path: strategy/charge-dispatch.md
+    - title: Deployments
+      summary: Follow delivery destinations, inspect runs and read release authority.
+      path: deployments/index.md
+      children:
+        - title: Start diagnostics
+          summary: Diagnose candidate preparation, containment refresh and start timing.
+          path: deployments/start-diagnostics.md
+        - title: Runs
+          summary: Read deployment run composition and carried-work authority.
+          path: deployments/model/runs.md
+        - title: Stage receipts
+          summary: Read durable non-QA deployment-stage attempt evidence.
+          path: deployments/model/stage-receipts.md
+        - title: Run members and QA
+          summary: Read member custody, target occupancy and run-bound QA.
+          path: deployments/model/run-members.md
+        - title: Release authorities
+          summary: Read deployed revision checks and release-to-done QA authority.
+          path: deployments/model/releases.md
+        - title: Release notices
+          summary: Read caseless QA, settled-result and owner delivery notices.
+          path: deployments/model/release-notices.md
+        - title: Sites, environments and flows
+          summary: Read deployment targets, flow definitions and supported stage contracts.
+          path: deployments/model/flows.md
+    - title: Databases
+      summary: Inspect declared models, migration conventions and governed repair.
+      path: databases/index.md
+      children:
+        - title: Database reference
+          summary: Read diagnostic columns, packet ownership and current data-model homes.
+          path: databases/reference.md
+        - title: Migration conventions
+          summary: Use timestamp, query-clock and migration-audit conventions.
+          path: databases/migrations.md
+        - title: Migration models
+          summary: Declare migration models, validate their payloads and run migrations.
+          path: databases/migration-model.md
+        - title: Migration pairing
+          summary: Configure migration audit bootstrap, environment pairing and Webapp Packs.
+          path: databases/migration-model-pairing.md
+        - title: Migration fleets
+          summary: Declare and rehearse every live database a release must cover.
+          path: databases/migration-fleet.md
+        - title: Operator data repair
+          summary: Review and apply bounded guarded repairs with audited authority.
+          path: databases/operator-data-repair.md
+        - title: Machine-local evidence
+          summary: Retrieve bounded relay logs, watcher captures and diagnostics from their owner.
+          path: databases/machine-local-evidence.md
+        - title: Projects and capabilities
+          summary: Read project identity, Project Structure and capability schemas.
+          path: databases/model/projects.md
+    - title: Functions
+      summary: Discover typed function envelopes and registered operation families.
+      path: functions/index.md
+      children:
+        - title: Claims
+          summary: Read claim function identities, policies and operation obligations.
+          path: functions/claims.md
+        - title: Items
+          summary: Read item function identities and structured-write contracts.
+          path: functions/items.md
+        - title: Project configuration
+          summary: Read configuration, strategy and shared-file operation contracts.
+          path: functions/project-configuration.md
+        - title: QA
+          summary: Read QA function identities and execution and evidence obligations.
+          path: functions/qa.md
+        - title: Runtime
+          summary: Read runtime function identities, actor roles and output authority.
+          path: functions/runtime.md
+        - title: Tasks
+          summary: Read generated-task, dispatch and review operation contracts.
+          path: functions/tasks.md
+        - title: Workflows
+          summary: Read workflow function identities, immutable pins and routing contracts.
+          path: functions/workflows.md
+        - title: Worktrees
+          summary: Read lane preparation, landing, merge and close-out contracts.
+          path: functions/worktrees.md
+        - title: Models
+          summary: Read effective-dated model catalog and publication functions.
+          path: functions/models.md
     - title: Documentation
       summary: Write, navigate and verify complete, concise teaching.
       path: documentation/index.md

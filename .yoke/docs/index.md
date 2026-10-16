@@ -46,5 +46,8 @@ item from the frontier for the current session.
 - [Sessions](sessions/index.md) — Inspect live sessions, ownership, messages and steering reports.
 - [Workflows](workflows/index.md) — Choose definitions and follow pinned lifecycle gates and transitions.
 - [Strategy](strategy/index.md) — Maintain project direction and select ready work from the frontier.
+- [Deployments](deployments/index.md) — Follow delivery destinations, inspect runs and read release authority.
+- [Databases](databases/index.md) — Inspect declared models, migration conventions and governed repair.
+- [Functions](functions/index.md) — Discover typed function envelopes and registered operation families.
 - [Documentation](documentation/index.md) — Write, navigate and verify complete, concise teaching.
 <!-- /yoke:contents -->

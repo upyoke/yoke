@@ -1,6 +1,6 @@
 # DB Reference — QA, Release, and Session Tables
 
-Schemas for the QA platform tables, release entries, merge locks, and harness session / claim tables. Cross-link back from [db-reference.md](../db-reference.md) for entry points, the domain catalog, timestamp discipline, JSON-payload conventions, qa CLI, body write path, and the status lifecycle reference.
+Schemas for the QA platform tables, release entries, merge locks, and harness session / claim tables. Cross-link back from [reference.md](../../databases/reference.md) for entry points, the domain catalog, timestamp discipline, JSON-payload conventions, qa CLI, body write path, and the status lifecycle reference.
 
 ## Table: qa_requirements
 
@@ -298,7 +298,7 @@ Deployment runs take no coordination claim. `deploy_serialization` is the
 retired per-project deploy lock: nothing takes one, a `DEPLOY:` key refuses
 with `deploy_lock_retired`, a hold from before the retirement is released by
 its claim id, and runs serialize by the servers they occupy, described in
-[`deployment-run-records.md`](deployment-run-records.md).
+[run membership and target occupancy](../../deployments/model/run-members.md).
 
 ### BOARD.md Claims column rendering
 

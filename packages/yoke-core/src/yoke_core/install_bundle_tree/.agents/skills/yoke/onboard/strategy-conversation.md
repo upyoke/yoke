@@ -7,7 +7,7 @@ names the first work. Rows: `repo-survey`, `strategy-setup`.
 Strategy owns every later profile/Pack/environment/work proposal.
 DB strategy documents are authority; `.yoke/strategy/` is a gitignored render.
 Read the selected write's `--help`; contract:
-[project configuration](../../../../.yoke/docs/reference/db-reference/functions-project-configuration.md).
+[project configuration](../../../../.yoke/docs/functions/project-configuration.md).
 
 ## Confirm what to scan
 

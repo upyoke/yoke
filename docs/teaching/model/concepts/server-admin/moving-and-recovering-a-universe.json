@@ -3,7 +3,7 @@
  "title": "Moving and recovering a universe",
  "status": "draft-copy",
  "audience": "Administrators",
- "sources": ["docs/universe-portability.md", "docs/public/operator-data-repair.md", "docs/public/databases-and-migrations.md"],
+ "sources": ["docs/universe-portability.md", "docs/public/databases/operator-data-repair.md", "docs/public/databases/index.md"],
  "page": "server-admin",
  "position": 3
 }

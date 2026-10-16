@@ -89,7 +89,7 @@ Items are read via `yoke items get YOK-N <field>`. The `body` field is a virtual
 - `updated_at` — ISO timestamp, updated on every field change
 - `merged_at` — ISO timestamp, automatically populated by `yoke_core.engines.done_transition` when the item transitions to `done` (set to current UTC timestamp if null). Not overwritten if already set (e.g., by the merge pipeline). Tracks when the item's code was finalized on main.
 
-**Item-level dependencies** are stored in the `item_dependencies` table (not as an item field). Every row is a canonical blocker with `gate_point` (`activation`, `integration`, or `closure`) and `satisfaction` (`status:<stage-id>`, `fact:merged`, or `fact:deployed:<environment-name>`). Use the blocker's pinned workflow stage, normally `status:done` when deployment and closeout must finish. Use `fact:merged` when trunk is enough. Reserve the deployed fact for a dependent that needs the blocker live in a registered environment before `done`: it clears when the blocker is a member in `deployment_run_items` of a succeeded run targeting that environment name, across run-owner projects. Code containment alone does not count. Each row carries a `rationale` (human-readable) and `evidence_json` (structured provenance). A shared dependency-planning kernel (`dependency_planning.py`) evaluates gates and plans candidate sets for all consumers. Transition and dispatch gates call the hard-block gate or the dependency-planning service commands. See `.yoke/docs/reference/db-reference.md` for the full schema.
+**Item-level dependencies** are stored in the `item_dependencies` table (not as an item field). Every row is a canonical blocker with `gate_point` (`activation`, `integration`, or `closure`) and `satisfaction` (`status:<stage-id>`, `fact:merged`, or `fact:deployed:<environment-name>`). Use the blocker's pinned workflow stage, normally `status:done` when deployment and closeout must finish. Use `fact:merged` when trunk is enough. Reserve the deployed fact for a dependent that needs the blocker live in a registered environment before `done`: it clears when the blocker is a member in `deployment_run_items` of a succeeded run targeting that environment name, across run-owner projects. Code containment alone does not count. Each row carries a `rationale` (human-readable) and `evidence_json` (structured provenance). A shared dependency-planning kernel (`dependency_planning.py`) evaluates gates and plans candidate sets for all consumers. Transition and dispatch gates call the hard-block gate or the dependency-planning service commands. See `.yoke/docs/databases/reference.md` for the full schema.
 
 Creation resolves the project, allocates its next sequence, receives the global
 item id, then formats the reference. Counters never decrement; removed items
@@ -127,7 +127,7 @@ bound projects; a truly empty run remains an environment run.
 Run execution may move the item through the definition's delivery
 stages, while `needs-capability` and `awaiting-approval` remain run halt states.
 Stage authority for the run itself lives on `deployment_runs.current_stage`.
-See `.yoke/docs/reference/db-reference.md` for the `deployment_runs`,
+See `.yoke/docs/databases/reference.md` for the `deployment_runs`,
 `deployment_run_items`, `deployment_run_qa`, `deployment_flows`, `sites`,
 `environments`, and `project_capabilities` table schemas.
 
@@ -176,7 +176,7 @@ Run mechanics, halt states, step runner types, and ephemeral environments live i
 ## Epic Task State (DB table: `epic_tasks`)
 
 One row per generated task. Registered epic-task operations own its creation
-and transitions; [task functions](public/reference/db-reference/functions-tasks.md)
+and transitions; [task functions](public/functions/tasks.md)
 name the callable contracts.
 
 **Columns:**

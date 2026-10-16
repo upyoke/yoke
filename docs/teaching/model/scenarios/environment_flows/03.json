@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke deployment-runs approve --help"],
  "plan_notes": ["JOURNEYS row 12"],
- "sources": [".agents/skills/yoke/approve/SKILL.md", "docs/public/reference/db-reference/projects-and-flows.md"],
+ "sources": [".agents/skills/yoke/approve/SKILL.md", "docs/public/deployments/model/flows.md"],
  "position": 2
 }

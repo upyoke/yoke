@@ -2,7 +2,7 @@
  "id": "reference",
  "title": "Reference catalogs",
  "status": "draft-copy",
- "sources": ["docs/public/reference/db-reference/functions.md", "docs/public/agents/commands.md", "runtime/harness/manifest-schema.md"],
+ "sources": ["docs/public/functions/index.md", "docs/public/agents/commands.md", "runtime/harness/manifest-schema.md"],
  "page": "reference",
  "position": 34
 }

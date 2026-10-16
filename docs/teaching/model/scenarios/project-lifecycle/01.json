@@ -10,6 +10,6 @@
  "gap": "Initial adoption and uninstall are covered elsewhere; ongoing project identity lifecycle is only catalogued here. Review question: should JOURNEYS include moved-checkout, retired-project and stale-layer situations?",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["FIRST-USER 1", "FIRST-USER 24", "JOURNEYS row 6", "outside both"],
- "sources": ["docs/public/projects/index.md", "docs/project-selection.md", "docs/public/reference/db-reference/functions-project-configuration.md"],
+ "sources": ["docs/public/projects/index.md", "docs/project-selection.md", "docs/public/functions/project-configuration.md"],
  "position": 0
 }

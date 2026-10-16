@@ -223,10 +223,11 @@ closes eligible members atomically through their ordinary done gates. Effects
 run idempotently after commit; the run reaches `succeeded` only when settlement
 finishes. Refusal preserves members, claims and recovery evidence.
 Independent member closure is allowed only by its final-delivery and shared
-gate contract. See [deployment run records](../public/reference/db-reference/deployment-run-records.md)
-for admission, custody, receipt ordering, failed-stage policy, removal and
-settlement detail; [release delivery](../public/reference/db-reference/release-delivery.md)
-owns the distinct QA authorities and notices.
+gate contract. See [deployment runs](../public/deployments/model/runs.md) for
+admission; [stage receipts](../public/deployments/model/stage-receipts.md) for receipt
+ordering; [members and QA](../public/deployments/model/run-members.md) for custody,
+failed-stage policy, removal and settlement; [release authorities](../public/deployments/model/releases.md)
+and [notices](../public/deployments/model/release-notices.md) for verification and announcements.
 
 ## Answering "did this release contain that merge"
 The deployment driver reads and attests the containment basis immediately before starting execution, after pre-start preparation. A `candidate_containment_attestation_stale` refusal refreshes the basis and retries start up to three times, with one diagnostic line per retry; any other refusal or exhausted retry preserves the named failure and re-drive recovery. The final `status=succeeded` write keeps the server's error code: only `https_transport_failed` (no answer, including a response deadline) is repeated, twice with backoff; any refusal, `run_settlement_blocked` included, ends finalization at once with exit 4 and that refusal's own recovery. Finalization skips the `deployed_to` stamp for members the execution context reports `done` with the same delivery, and member settlement is timed as `member_settlement`.

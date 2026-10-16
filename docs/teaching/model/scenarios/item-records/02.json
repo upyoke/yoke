@@ -10,6 +10,6 @@
  "gap": "Help advertises item writes/search, but this pass did not verify a general item import or arbitrary attachment facility. Review question: what adoption formats and evidence links are actually supported, and which need instructions rather than new import code?",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["FIRST-USER 13", "FIRST-USER 24", "FIRST-USER 28"],
- "sources": [".agents/skills/yoke/idea/infer-and-create.md", ".agents/skills/yoke/refine/SKILL.md", "docs/public/reference/db-reference/functions-items.md"],
+ "sources": [".agents/skills/yoke/idea/infer-and-create.md", ".agents/skills/yoke/refine/SKILL.md", "docs/public/functions/items.md"],
  "position": 1
 }

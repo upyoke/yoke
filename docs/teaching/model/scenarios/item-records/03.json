@@ -11,5 +11,5 @@
  "review": "Source tests cover independent text files/stdin, nonblank validation and older-server no-write refusal.",
  "recipes": ["yoke items create --help"],
  "plan_refs": ["FIRST-USER.13"],
- "sources": ["docs/public/reference/db-reference/functions-items.md", "runtime/api/cli/test_items_create_spec_sources.py", "runtime/api/cli/test_items_create_serving_floor.py", "runtime/api/test_items_create_spec_storage.py"]
+ "sources": ["docs/public/functions/items.md", "runtime/api/cli/test_items_create_spec_sources.py", "runtime/api/cli/test_items_create_serving_floor.py", "runtime/api/test_items_create_spec_storage.py"]
 }

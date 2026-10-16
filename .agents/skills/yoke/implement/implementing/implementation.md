@@ -34,7 +34,7 @@ Correct a negative or incomplete claim through registered `db_claim.amend`
 before continuing. The unified claim atomically stores profile/attestation;
 pre_merge_safe needs readers/writers, invariants, rehearsal commands and
 residual risk inline. See the
-[DB function home](../../../../../.yoke/docs/reference/db-reference/functions-claims.md)
+[DB function home](../../../../../.yoke/docs/functions/claims.md)
 for the live payload. No rollback to idea is required.
 Review checks prose-vs-claim and rehearsal evidence; an event is telemetry,
 not a replacement for stored claim authority. Permanent migration history

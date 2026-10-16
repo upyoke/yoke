@@ -30,7 +30,7 @@ wait for its completion or have it ended. Abort before FeedStarted or dispatch.
 No strategy-file path claims: `strategy_docs` in the project DB is authority;
 `.yoke/strategy/` is a gitignored render. FEED claim authorizes document replaces
 and excludes another session's ingest. Before a strategy write read its
-`--help`; exact contracts: `.yoke/docs/reference/db-reference/functions-project-configuration.md`.
+`--help`; exact contracts: `.yoke/docs/functions/project-configuration.md`.
 
 **Every abort after acquisition releases FEED before exiting**.
 Use the acquired integer `<claim-id>` in both places:

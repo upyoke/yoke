@@ -208,7 +208,7 @@ the CLI resolves its complete public `--item` reference first. Stored `events.it
 
 Deployment and QA events use the same ledger with registered kind/type/name and
 `context.detail` contracts. The [catalog](event-catalog.md) owns discovery;
-[deployment records](public/reference/db-reference/deployment-run-records.md)
+[deployment records](public/deployments/model/runs.md)
 remain durable state/evidence independent of telemetry retention.
 
 ## 4. Event Naming Registry

@@ -142,7 +142,7 @@ No deferral passes, waives or retracts acceptance. Refusals identify the item,
 requirement, phase, target and recovery. Recreating a run does not repair an
 ineligible takeover. Startup prepares source facts outside item/run locks,
 revalidates mutable facts under bounded locks, and preserves unknown outcomes
-on response loss; follow [deployment start diagnostics](../../reference/deployment-start.md)
+on response loss; follow [deployment start diagnostics](../../deployments/start-diagnostics.md)
 before retrying a request or changing its run to failed.
 
 ## Related

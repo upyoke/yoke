@@ -1,6 +1,6 @@
 # DB Reference — qa Domain CLI and Body Write Path
 
-Operator-facing CLI for the QA platform tables and the canonical body write/render pipeline. Cross-link back from [db-reference.md](../db-reference.md) for entry points, the domain catalog, table schemas, status lifecycle, and common pitfalls.
+Operator-facing CLI for the QA platform tables and the canonical body write/render pipeline. Cross-link back from [reference.md](../../databases/reference.md) for entry points, the domain catalog, table schemas, status lifecycle, and common pitfalls.
 
 ## qa domain CLI
 
@@ -144,7 +144,7 @@ Exit codes: 0 = success, 1 = error/not found, 2 = usage error
 
 ### Structured field writes (the only supported path)
 
-All body content reaches the database through structured field writes. The agent path is the Yoke function-call surface (`items.structured_field.replace`, `items.structured_field.append_addendum`, `items.structured_field.section_upsert`, `items.structured_field.section_append`); see [functions.md](functions.md). Operator/debug callers use the matching CLI adapter:
+All body content reaches the database through structured field writes. The agent path is the Yoke function-call surface (`items.structured_field.replace`, `items.structured_field.append_addendum`, `items.structured_field.section_upsert`, `items.structured_field.section_append`); see [index.md](../../functions/index.md). Operator/debug callers use the matching CLI adapter:
 
 ```
 Agent calls items.structured_field.replace via POST /v1/functions/call (or the in-process dispatcher)

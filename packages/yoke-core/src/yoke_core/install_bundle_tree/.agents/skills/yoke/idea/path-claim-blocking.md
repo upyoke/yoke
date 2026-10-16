@@ -1,7 +1,7 @@
 # Idea — Claim Conflict Resolution
 
 A draft cannot leave intake with an unrepresented coverage/overlap conflict.
-The [claims catalog](../../../../.yoke/docs/reference/db-reference/functions.md)
+The [claims catalog](../../../../.yoke/docs/functions/index.md)
 owns schemas; this phase owns decision order. Idea, Refine and the planning
 Architect attest coordination. Runtime Engineer/Tester/Boss/Conduct/Polish/Usher
 route collisions back to authoring through the pin/shared handoff, never author

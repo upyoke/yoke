@@ -36,7 +36,7 @@ important actions after they happen or wrap every domain in a new registry.
 The connected Postgres authority is the source of truth. Use registered
 `yoke <subcommand>` operations and typed function calls; diagnostic SQL uses
 `yoke db read`. Never construct a DB file path or treat a linked worktree as a
-control plane. [Function authority](public/reference/db-reference/functions.md)
+control plane. [Function authority](public/functions/index.md)
 defines envelope and permission/claim contracts.
 
 An item's immutable workflow/version pin owns stages, gates, policies, entry
@@ -81,7 +81,7 @@ Project Structure declares architecture, areas/mappings, ownership/test roots,
 integration targets, context routing, hosting/verification posture and delivery
 defaults. Descriptive verification profiles do not execute a gate: immutable
 registered QA cases do. Explicit operator no-tests attestation is distinct from
-missing or failing tests. [Projects and flows](public/reference/db-reference/projects-and-flows.md)
+missing or failing tests. [Projects and flows](public/databases/model/projects.md)
 and [test setup](install-onboard-archetypes/test-setup.md) own details.
 
 Each project uses the same registry/capability machinery; a literal slug does
@@ -159,7 +159,7 @@ Project migration models govern data transforms: permanent ordered entries,
 restore points, item rehearsal and all-live-fleet release evidence; boot converges
 and applies fail-hard. [Delivery rules](public/agents/rules/delivery.md),
 [database rules](public/agents/rules/databases.md) and
-[fleet rehearsal](public/reference/db-reference/migration-model-fleet.md) own
+[fleet rehearsal](public/databases/migration-fleet.md) own
 operation depth.
 
 ## Hooks, telemetry and learning

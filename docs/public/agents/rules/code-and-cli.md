@@ -6,7 +6,7 @@
 
 Deep home for the short rules in AGENTS.md. Read the applicable section before
 its operation. Use the session packet for live schemas and
-[function families](../../reference/db-reference/functions.md) for registered identities;
+[function families](../../functions/index.md) for registered identities;
 teaching prose helps discovery, while registered results establish live state.
 
 ## Code conventions
@@ -115,7 +115,7 @@ Raw SQL is diagnostic escape-hatch authority: `yoke db read "SELECT ..."`.
 A session holding a live steering seat on the repaired project, acting for an
 org administrator, can run operator-approved row repair without a lane through
 `yoke operator data-repair --content-file repair.json --reviewed-sha256 SHA --dry-run`.
-Review the simulation audit before applying; [the repair contract](../../operator-data-repair.md) owns its guards.
+Review the simulation audit before applying; [the repair contract](../../databases/operator-data-repair.md) owns its guards.
 Never construct a DB path/DSN; lower-level queries are source-dev/operator-debug
 only. SQL inequality is `<>`, never `!=`.
 

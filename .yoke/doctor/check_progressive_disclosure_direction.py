@@ -70,7 +70,7 @@ _EXPLICIT_CITATION_ALIASES = {
     (".yoke/docs/workflows/lifecycle.md", "body-and-sync.md"): f"{_SKILL_ROOT}/idea/body-and-sync.md",
     (".yoke/docs/workflows/lifecycle.md", "infer-and-create.md"): f"{_SKILL_ROOT}/idea/infer-and-create.md",
     ("docs/harness-bootstrap.md", "manifest-schema.md"): "runtime/harness/manifest-schema.md",
-    ("runtime/agents/boss.md", "db-reference.md"): ".yoke/docs/reference/db-reference.md",
+    ("runtime/agents/boss.md", "reference.md"): ".yoke/docs/databases/reference.md",
     ("runtime/agents/engineer.md", "session.md"): "runtime/harness/claude/rules/session.md",
     ("runtime/agents/tester.md", "session.md"): "runtime/harness/claude/rules/session.md",
     (f"{_SKILL_ROOT}/shared/tester-dispatch-template.md", "dispatch-context.md"): f"{_SKILL_ROOT}/conduct/dispatch-context.md",

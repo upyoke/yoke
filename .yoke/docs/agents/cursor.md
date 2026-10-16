@@ -18,7 +18,7 @@ Cursor loads native `AGENTS.md`; its opening hook supplies orientation via
 `additional_context`. The generated `main_agent` packet teaches role-needed
 decisions and executable recipes, with explicit topic depth discoverable via
 `yoke packets render --help`. `harness_contract` separately owns substrate
-facts. See the [packet reference](../reference/db-reference.md#agent-context-packet).
+facts. See the [packet reference](../databases/reference.md#agent-context-packet).
 
 `.cursor/hooks.json` is the primary project-policy hook owner in Cursor. Cursor may also list compatible entries discovered in the regular `.claude/settings.json` file when third-party config import is enabled; with matched Cursor process/payload provenance they defer only to a valid matching native owner and otherwise remain the compatibility path. For stop/sessionEnd the order is native project hook, machine-local backstop, then Claude compatibility, so one owner dispatches even after a worktree is deleted or a project config is missing. Project refresh and source-dev setup materialize both Cursor-scanned files and migrate legacy in-repo symlinks.
 

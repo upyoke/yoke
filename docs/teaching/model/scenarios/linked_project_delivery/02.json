@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke deployment-flows stages FLOW-ID"],
  "plan_notes": ["JOURNEYS row 14"],
- "sources": ["docs/public/agents/rules/delivery.md", "docs/public/reference/db-reference/projects-and-flows.md", "runtime/api/tools/platform_consumer_dispatch_ref.py", ".github/workflows/platform-release-bridge.yml"],
+ "sources": ["docs/public/agents/rules/delivery.md", "docs/public/deployments/model/flows.md", "runtime/api/tools/platform_consumer_dispatch_ref.py", ".github/workflows/platform-release-bridge.yml"],
  "position": 1
 }

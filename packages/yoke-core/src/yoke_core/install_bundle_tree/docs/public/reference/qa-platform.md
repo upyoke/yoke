@@ -3,7 +3,7 @@
 QA requirements declare an obligation; typed runs, artifacts and success policies
 record its evidence. Items need materialized requirements before entering
 `reviewing-implementation`. Write through registered `yoke qa ...` adapters;
-[function families](db-reference/functions-qa.md) own typed envelopes. For
+[function families](../functions/qa.md) own typed envelopes. For
 standalone QA use `yoke qa plan run --plan PLAN --project P`; read its `--help`
 and [standalone plans](qa-platform/standalone-plans.md) before execution.
 

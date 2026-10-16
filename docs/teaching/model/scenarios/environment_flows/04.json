@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke deployment-runs approve --help"],
  "plan_notes": ["JOURNEYS row 12"],
- "sources": ["docs/public/agents/rules/delivery.md", "docs/public/reference/db-reference/deployment-run-records.md"],
+ "sources": ["docs/public/agents/rules/delivery.md", "docs/public/deployments/model/run-members.md"],
  "position": 3
 }

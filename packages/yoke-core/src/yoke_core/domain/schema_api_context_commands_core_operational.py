@@ -104,7 +104,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "purpose": "Find or request the CLI adapter for a function id",
         "recipe": "yoke <family> --help",
         "notes": (
-            "`.yoke/docs/reference/db-reference/functions.md` links the registered "
+            "`.yoke/docs/functions/index.md` links the registered "
             "function catalogs per family, and the matching `yoke <subcommand> "
             "--help` carries that adapter's variants and flag matrix. The "
             "CLI grammar is reversible — dots become spaces, underscores "

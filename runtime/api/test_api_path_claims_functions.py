@@ -47,7 +47,7 @@ class TestClaimsPath(_ClaimsHandlerSuite):
         denial = (
             "BLOCKED: path-claim register overlap on item YOK-1665.\n"
             "  conflicting claims:\n"
-            "    claim 300: .yoke/docs/reference/db-reference/functions.md"
+            "    claim 300: .yoke/docs/functions/index.md"
         )
         with (
             self._hold_item_claim(),
@@ -77,7 +77,7 @@ class TestClaimsPath(_ClaimsHandlerSuite):
                     payload={
                         "item_id": 1665,
                         "integration_target": "main",
-                        "paths": [".yoke/docs/reference/db-reference/functions.md"],
+                        "paths": [".yoke/docs/functions/index.md"],
                         "allow_planned": True,
                     },
                     actor_id=None,
@@ -89,7 +89,7 @@ class TestClaimsPath(_ClaimsHandlerSuite):
         self.assertIn("BLOCKED: path-claim register overlap", resp.error.message)
         self.assertIn("claim 300", resp.error.message)
         self.assertIn(
-            ".yoke/docs/reference/db-reference/functions.md", resp.error.message
+            ".yoke/docs/functions/index.md", resp.error.message
         )
         render_denial.assert_called_once()
 

@@ -6,7 +6,7 @@
 
 Raw item reads join `item_refs r ON r.item_id = items.id` and select `r.public_ref`. The read-only view follows prefix updates; `project_sequence` alone is ambiguous across projects. `yoke db read` warns when the result omits both `public_ref` and `public_item_prefix`.
 
-Schemas for backlog items, epic tasks, and the supporting shepherd / caveat / dependency tables. Cross-link back from [db-reference.md](../../reference/db-reference.md) for entry points, the domain catalog, timestamp discipline, JSON-payload conventions, qa CLI, body write path, common pitfalls, and the status lifecycle reference.
+Schemas for backlog items, epic tasks, and the supporting shepherd / caveat / dependency tables. Cross-link back from [reference.md](../../databases/reference.md) for entry points, the domain catalog, timestamp discipline, JSON-payload conventions, qa CLI, body write path, common pitfalls, and the status lifecycle reference.
 
 ## Backlog ontology
 
@@ -66,7 +66,7 @@ resolution_comment TEXT -- free-text resolution notes
 > `yoke workflows item get PREFIX-N`, then `yoke workflows version get WORKFLOW VERSION`; transition code loads the item's explicit
 > version pin rather than a status table in this document.
 
-Structured item mutations use the registered [function surfaces](../../reference/db-reference/functions.md).
+Structured item mutations use the registered [function surfaces](../../functions/index.md).
 Read `yoke items structured-field --help` before replacing or transforming fields.
 
 > **Blocked is a flag on items.** Columns `items.blocked INTEGER DEFAULT 0` and `items.blocked_reason TEXT` carry the operator-set block; lifecycle status is preserved. The flag is for waits with no blocking item: `items.block` refuses when a live activation/integration/closure edge already carries the wait (`yoke items dependency add`). Legacy `status='blocked'` is retired (`HC-blocked-status-drift`). Operators use `yoke items block PREFIX-N --reason TEXT` / `yoke items unblock PREFIX-N`. Epic-task `blocked` is unchanged. View column `item_progress_view.blocked_reason` is `pipeline_blocked_reason`. Architectural-why: `docs/archive/decisions/blocked-flag-retirement.md`.
@@ -75,7 +75,7 @@ Read `yoke items structured-field --help` before replacing or transforming field
 
 `db_mutation_profile` and `db_compatibility_attestation` are two JSON columns on the `items` table (not standalone tables) — the two storage halves of one operator-facing concept: the item's **DB claim**. The claim says (a) what governed DB mutation the work item performs and (b) the safety argument for why pre-merge `main` stays true after it lands.
 
-The canonical writer is `db_claim.amend` (see [functions-claims.md](../../reference/db-reference/functions-claims.md)).
+The canonical writer is `db_claim.amend` (see [claims.md](../../functions/claims.md)).
 Use `yoke db-claim amend PREFIX-N --reason TEXT --payload-file /tmp/claim.json`;
 read its `--help` for the flat payload and reviewed-none form. Idea, Refine,
 Implement and Polish use the same atomic writer when classification changes.

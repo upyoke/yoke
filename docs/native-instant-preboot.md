@@ -93,6 +93,6 @@ Fleet rehearsal converges each restored copy through
 `migration_fleet_preflight.rehearse` and then requires real product readers to
 decode the migrated rows; reader refusals fail the gate. It does not replay
 candidate release-driver code against the pre-boot schema. The
-[fleet contract](public/reference/db-reference/migration-model-fleet.md) owns
+[fleet contract](public/databases/migration-fleet.md) owns
 complete copy custody. The instant census remains read-only diagnostic evidence
 and cannot earn a release receipt.

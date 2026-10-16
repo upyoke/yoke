@@ -1,6 +1,6 @@
 # DB Reference — Events and Environment Tracking
 
-Schemas for the unified events log, write-side severity config and registry, and ephemeral / preview environment tracking. Cross-link back from [db-reference.md](../db-reference.md) for entry points, the domain catalog, timestamp discipline, JSON-payload conventions, qa CLI, body write path, and the status lifecycle reference.
+Schemas for the unified events log, write-side severity config and registry, and ephemeral / preview environment tracking. Cross-link back from [reference.md](../../databases/reference.md) for entry points, the domain catalog, timestamp discipline, JSON-payload conventions, qa CLI, body write path, and the status lifecycle reference.
 
 ## Table: events
 
@@ -83,7 +83,7 @@ severity_default TEXT NOT NULL DEFAULT 'INFO' -- default severity level
 
 ## Deployment run authority
 
-[Deployment run records](deployment-run-records.md) defines run lineage, composition and custody, stage receipts, membership and settlement, target occupancy and run drivers, idempotent creation, and blocking QA. Read it before creating or executing a run or interpreting release completion.
+[Deployment runs](../../deployments/model/runs.md) define lineage, composition and idempotent creation; [stage receipts](../../deployments/model/stage-receipts.md) define executor evidence; [members and QA](../../deployments/model/run-members.md) define custody, settlement, target occupancy, run drivers and blocking QA. Read these before creating or executing a run or interpreting release completion.
 
 Run lifecycle events (`type='deployment_run'`, such as `DeploymentRunStageStarted` or `DeploymentRunWarmedUp`) are written once per run, carry `run_id` in their context, and name no member item. Find a run's members in `deployment_run_items`; the events are telemetry, never the record of what a run carried.
 

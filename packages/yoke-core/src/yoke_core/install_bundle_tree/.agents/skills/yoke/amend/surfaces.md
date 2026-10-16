@@ -1,7 +1,7 @@
 # Amend — Typed Surfaces
 
 Read [common envelopes](../idea/body-and-sync-functions.md) and
-[task catalog](../../../../.yoke/docs/reference/db-reference/functions-tasks.md)
+[task catalog](../../../../.yoke/docs/functions/tasks.md)
 before calling an operation.
 
 Task mutations:
@@ -15,7 +15,7 @@ Simulation and dispatch-chain reads/writes use registered
 `yoke workflow-item epic-dispatch-chain ...`.
 
 Resolve/create registered lanes through
-[worktree catalog](../../../../.yoke/docs/reference/db-reference/functions-worktrees.md);
+[worktree catalog](../../../../.yoke/docs/functions/worktrees.md);
 preserve policy-required roles, verified-current upstream, work/path claims,
 absolute path recording and stale-state preconditions. Browser QA retains its
 existing operator-debug reads.

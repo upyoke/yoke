@@ -5,7 +5,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 INFER = REPO / ".agents/skills/yoke/idea/infer-and-create.md"
 SIBLING = REPO / ".agents/skills/yoke/idea/infer-deployment-flow.md"
-DOCS = REPO / "docs/public/reference/db-reference/projects-and-flows.md"
+DOCS = REPO / "docs/public/databases/model/projects.md"
 
 
 def test_idea_defers_flow_assignment_to_sibling() -> None:

@@ -194,8 +194,8 @@ def test_bundle_ships_universal_docs(conn) -> None:
         "nav.yaml",
         "agents/commands.md",
         "workflows/lifecycle.md",
-        "reference/db-reference.md",
-        "reference/db-reference/functions.md",
+        "databases/reference.md",
+        "functions/index.md",
         "reference/qa-platform/success-policy-schema.md",
     ):
         path = f"{DOCS_DEST}/{rel}"

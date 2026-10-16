@@ -135,5 +135,5 @@ alone is not recovery. Delivered members may still owe another target's manual
 acceptance; leave that requirement unmet and the item open. On
 `deployment_outcome_unknown`, preserve run/receipt state, read the exact
 preparation receipt or existing provider attempt before retrying, and do not
-use `--fresh`. [Deployment start diagnostics](../../../../.yoke/docs/reference/deployment-start.md)
+use `--fresh`. [Deployment start diagnostics](../../../../.yoke/docs/deployments/start-diagnostics.md)
 explains source preparation, bounded locks and the phase timing evidence.

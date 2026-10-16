@@ -3,7 +3,7 @@
  "title": "Developing and extending Yoke",
  "status": "draft-copy",
  "audience": "Maintainers",
- "sources": ["docs/source-dev-doctrine.md", "runtime/harness/manifest-schema.md", "docs/public/operator-data-repair.md", "packages/yoke-core/src/yoke_core/tools/atlas_render_docs.py"],
+ "sources": ["docs/source-dev-doctrine.md", "runtime/harness/manifest-schema.md", "docs/public/databases/operator-data-repair.md", "packages/yoke-core/src/yoke_core/tools/atlas_render_docs.py"],
  "page": "contributing",
  "position": 8
 }

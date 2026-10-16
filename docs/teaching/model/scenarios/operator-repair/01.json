@@ -10,6 +10,6 @@
  "gap": "The current public guide describes operator.data_repair.run, but the supplied root-help capture has no operator namespace. Review question: is this a release/help-scope difference, and what shipped discovery/refusal should reach the guide?",
  "review": "Item-reference update/delete, a non-key deployment_member_public_ref dry-run, simulation rollback and refusal behavior have candidate PostgreSQL tests in runtime/api/domain/test_operator_data_repair_items.py; shipped recipe proof remains pending.",
  "plan_notes": ["FIRST-USER 35", "outside both"],
- "sources": ["docs/public/operator-data-repair.md", "docs/public/agents/rules/code-and-cli.md", "docs/public/agents/rules/databases.md"],
+ "sources": ["docs/public/databases/operator-data-repair.md", "docs/public/agents/rules/code-and-cli.md", "docs/public/agents/rules/databases.md"],
  "position": 0
 }

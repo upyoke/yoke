@@ -21,7 +21,7 @@ def operator_data_repair(args: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke operator data-repair",
         description=USAGE
-        + "\n\nReview the complete JSON repair document before approving its digest. A session holding a live steering seat on the document's project, whose actor is an org administrator, may execute one bounded UPDATE or DELETE with exact before/after snapshots; other callers refuse with steering_seat_required. The command owns its transaction and stores SQL hash, row images and outcome in migration_audit. No work lane is needed. See docs/public/operator-data-repair.md for the document schema and restrictions.",
+        + "\n\nReview the complete JSON repair document before approving its digest. A session holding a live steering seat on the document's project, whose actor is an org administrator, may execute one bounded UPDATE or DELETE with exact before/after snapshots; other callers refuse with steering_seat_required. The command owns its transaction and stores SQL hash, row images and outcome in migration_audit. No work lane is needed. See docs/public/databases/operator-data-repair.md for the document schema and restrictions.",
     )
     parser.add_argument("--content-file", required=True)
     approval = parser.add_mutually_exclusive_group(required=True)

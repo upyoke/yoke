@@ -1,7 +1,7 @@
 # Idea — Typed Operation Depth
 
 Use registered `yoke` adapters; they build the same typed function envelope.
-The [function index](../../../../.yoke/docs/reference/db-reference/functions.md)
+The [function index](../../../../.yoke/docs/functions/index.md)
 routes each registered id to its sole family owner. Read that family and
 the operation's --help before a write; this receiver does not duplicate schemas.
 

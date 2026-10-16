@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke migration rehearse --help"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/agents/rules/databases.md", "docs/public/reference/db-reference/migration-model-capabilities.md", "packages/yoke-cli/src/yoke_cli/commands/migration_rehearse.py"],
+ "sources": ["docs/public/agents/rules/databases.md", "docs/public/databases/migration-model.md", "docs/public/databases/migration-model-pairing.md", "packages/yoke-cli/src/yoke_cli/commands/migration_rehearse.py"],
  "position": 1
 }

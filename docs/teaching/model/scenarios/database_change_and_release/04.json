@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke migration rehearse --help"],
  "plan_notes": ["JOURNEYS row 12", "outside both"],
- "sources": ["docs/public/agents/rules/databases.md", "docs/public/reference/db-reference/migration-model-fleet.md", "docs/public/reference/db-reference/migration-model-capabilities.md"],
+ "sources": ["docs/public/agents/rules/databases.md", "docs/public/databases/migration-fleet.md", "docs/public/databases/migration-model.md"],
  "position": 3
 }

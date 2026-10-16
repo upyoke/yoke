@@ -126,7 +126,7 @@ need. Do not label progressing/failed deliveries as operator waiting.
 
 Every row names machine evidence: `yoke session-control evidence get --session
 SESSION-ID`, plus --evidence-id when diagnostic reference exists; see
-[machine-local-evidence.md](../reference/db-reference/machine-local-evidence.md).
+[machine-local-evidence.md](../databases/machine-local-evidence.md).
 
 ## Stopped sessions and launches
 

@@ -4,7 +4,7 @@
 [Yoke](../../index.md) > [Workflows](../index.md) > Status model
 <!-- /yoke:breadcrumbs -->
 
-Item-level and epic-task-level status lifecycles, with valid transitions, derivation rules, and gate enforcement points. Cross-link back from [db-reference.md](../../reference/db-reference.md) for entry points, the domain catalog, and the per-table reference.
+Item-level and epic-task-level status lifecycles, with valid transitions, derivation rules, and gate enforcement points. Cross-link back from [reference.md](../../databases/reference.md) for entry points, the domain catalog, and the per-table reference.
 
 ## Item Workflow Lifecycle (`items` table)
 

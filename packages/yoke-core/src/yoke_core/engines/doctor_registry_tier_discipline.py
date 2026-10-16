@@ -92,7 +92,10 @@ TIER_1_GLOBS: tuple[str, ...] = ()
 TIER_3_GLOBS: tuple[str, ...] = (
     "docs/atlas.md",
     "docs/event-catalog.md",
-    ".yoke/docs/reference/db-reference.md",
+    ".yoke/docs/databases/*.md",
+    ".yoke/docs/databases/model/*.md",
+    ".yoke/docs/deployments/model/*.md",
+    ".yoke/docs/functions/*.md",
     ".yoke/docs/reference/db-reference/*.md",
     "docs/state-management.md",
     ".yoke/docs/strategy/charge-frontier.md",

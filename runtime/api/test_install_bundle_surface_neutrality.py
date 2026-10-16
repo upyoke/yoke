@@ -56,7 +56,7 @@ def test_module_detection_distinguishes_document_links():
     pattern = dict(REPO_LAYOUT_PATTERNS)["runtime.* package"]
     assert pattern.search("Import runtime.api.engine")
     assert pattern.search("`runtime.harness.hooks`")
-    assert pattern.search("[Runtime](functions-runtime.md)") is None
+    assert pattern.search("[Runtime](runtime.md)") is None
 
 
 def _shipped_files():

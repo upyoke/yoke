@@ -130,7 +130,7 @@ def test_implement_skill_does_not_depend_on_private_strategy_files() -> None:
         ("docs/qa-platform/cli-reference.md", ".yoke/docs/reference/qa-platform.md"),
         (
             "docs/qa-platform/cli-reference.md",
-            ".yoke/docs/reference/db-reference/functions.md",
+            ".yoke/docs/functions/index.md",
         ),
     ),
 )
