@@ -13,7 +13,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_contracts.server_mode import SERVER_MODE_ENV
-from yoke_contracts.timestamps import utc_now
+from yoke_contracts.timestamps import temporal_wire, utc_now
 from yoke_core.api import oidc_config
 from yoke_core.api.observability import service_name
 from yoke_core.api.observability_debug import (
@@ -213,3 +213,37 @@ def test_list_revoke_and_reissue_keep_the_invited_actor(test_db, calls):
     assert issued["invite"]["actor_id"] == invite["actor_id"]
     assert issued["code"] != created["code"] and issued["invite"]["role"] == "viewer"
     assert _counts(test_db) == (before[0], before[1], before[2] + 1)
+
+
+@pytest.mark.parametrize("name", ["  Avery  ", ""])
+def test_create_reissue_and_list_publish_stored_time_and_inviter(test_db, calls, name):
+    admin = calls[0]
+    test_db.execute("UPDATE actors SET name=%s WHERE id=%s", (name, admin))
+    test_db.commit()
+    first = _dispatch(admin, "create", {"name": "Ana"}).result["invite"]
+    second = _dispatch(admin, "reissue", {"invite_id": first["invite_id"]}).result[
+        "invite"
+    ]
+    for row in (first, second):
+        created_at, expires_at = test_db.execute(
+            "SELECT created_at,expires_at FROM teammate_invite_codes WHERE id=%s",
+            (row["invite_id"],),
+        ).fetchone()
+        assert row == {
+            "invite_id": row["invite_id"],
+            "ref": f"code-{row['invite_id']}",
+            "kind": "code",
+            "actor_id": first["actor_id"],
+            "name": "Ana",
+            "role": "operator",
+            "state": "pending",
+            "invited_by": name,
+            "invited_by_name": name.strip() or None,
+            "created_at": temporal_wire(created_at),
+            "expires_at": temporal_wire(expires_at),
+        }
+    assert second["invite_id"] != first["invite_id"]
+    assert second["created_at"] > first["created_at"]
+    assert _dispatch(admin, "list", {"include_used": True}).result["invites"] == [
+        second
+    ]

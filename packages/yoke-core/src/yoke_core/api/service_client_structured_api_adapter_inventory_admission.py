@@ -1,4 +1,4 @@
-"""CLI entry points for personal machine admission and API tokens."""
+"""CLI entry points for people, machines and API tokens."""
 
 from typing import List
 
@@ -35,5 +35,33 @@ ADMISSION_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         function_id="profile.token.revoke",
         cli_invocation="yoke tokens revoke TOKEN-ID [--json]",
+    ),
+    AdapterEntry(
+        function_id="teammate_invites.create",
+        cli_invocation="yoke invite PERSON [--role ROLE] [--json]",
+    ),
+    read_entry(
+        function_id="teammate_invites.list",
+        cli_invocation="yoke invites list [--include-used] [--json]",
+    ),
+    AdapterEntry(
+        function_id="teammate_invites.revoke",
+        cli_invocation="yoke invites revoke REF [--json]",
+    ),
+    AdapterEntry(
+        function_id="teammate_invites.reissue",
+        cli_invocation="yoke invites reissue REF [--json]",
+    ),
+    AdapterEntry(
+        function_id="identity.invite.create",
+        cli_invocation="yoke invite PERSON [--role ROLE] [--json]",
+    ),
+    read_entry(
+        function_id="identity.invite.list",
+        cli_invocation="yoke invites list [--include-used] [--json]",
+    ),
+    AdapterEntry(
+        function_id="identity.invite.revoke",
+        cli_invocation="yoke invites revoke REF [--json]",
     ),
 ]

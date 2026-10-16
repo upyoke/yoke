@@ -89,11 +89,11 @@ def _refusal(response, code, message):
     )
 
 
-def _fact(parsed):
+def _fact(parsed, *, include_used=False):
     response = _read(
         parsed,
         "teammate_invites.list",
-        {"include_used": getattr(parsed, "include_used", False)},
+        {"include_used": include_used},
     )
     if not response.success:
         return response
@@ -191,7 +191,7 @@ def invites_list(args):
     parsed = _parse(args, "list")
     if parsed is None:
         return 2
-    fact = _fact(parsed)
+    fact = _fact(parsed, include_used=True)
     if not fact.success:
         return emit_response(fact, json_mode=parsed.json_mode)
     rows = list(fact.result["invites"])

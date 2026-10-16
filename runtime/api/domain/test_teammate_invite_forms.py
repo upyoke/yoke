@@ -119,10 +119,7 @@ def test_registration_models_floors_and_telemetry():
         for operation in ("create", "list", "revoke", "reissue"):
             function = f"teammate_invites.{operation}"
             entry = registry.lookup(function)
-            assert (
-                entry.adapter_status == "internal"
-                and not entry.ambient_session_required
-            )
+            assert entry.adapter_status == "live" and not entry.ambient_session_required
             assert (
                 entry.minimum_serving_version
                 == FUNCTION_MINIMUM_SERVING_VERSIONS[function]

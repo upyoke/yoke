@@ -14,11 +14,11 @@ keeps the operator's original casing for display.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any, List, Optional
 
-from yoke_contracts.timestamps import utc_now, parse_instant
+from yoke_contracts.timestamps import utc_now, parse_instant, temporal_wire
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.external_identity_events import (
@@ -189,6 +189,31 @@ def list_invites(
         tuple(params),
     ).fetchall()
     return [_row_to_invite(row) for row in rows]
+
+
+def serialize_invites(conn: Any, invites: list[Invite]) -> list[dict]:
+    """Retain invite fields and resolve recorded role and inviter names in bulk."""
+    if not invites:
+        return []
+    ids = [invite.invite_id for invite in invites]
+    rows = conn.execute(
+        "SELECT i.id, r.name, a.name FROM actor_invites i "
+        "LEFT JOIN roles r ON r.id = i.role_id "
+        "LEFT JOIN actors a ON a.id = i.invited_by_actor_id "
+        f"WHERE i.id IN ({','.join([_p(conn)] * len(ids))})",
+        tuple(ids),
+    ).fetchall()
+    names = {row[0]: (row[1], (row[2] or "").strip() or None) for row in rows}
+    return [
+        temporal_wire(
+            dict(
+                asdict(invite),
+                role=names[invite.invite_id][0],
+                invited_by_name=names[invite.invite_id][1],
+            )
+        )
+        for invite in invites
+    ]
 
 
 def pending_invite_for_email(conn: Any, *, email: str) -> Optional[Invite]:
