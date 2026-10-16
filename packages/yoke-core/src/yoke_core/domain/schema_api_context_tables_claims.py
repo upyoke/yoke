@@ -90,8 +90,8 @@ CLAIMS_TABLES: dict[str, dict] = {
             "their authenticated actor_id. Wake eligibility also selects "
             "harness_sessions.actor_id. Wrong guess: a project-only relay fixture may "
             "omit its session actor; seed the authenticated fixture actor. "
-            "File-backed relay tests copy test_session_relay._connection, "
-            "not the launch-only relay_connection."
+            "Shared and file-backed relay tests use "
+            "session_launch_test_support.relay_connection, which owns this column."
         ),
     },
     "session_tool_calls": {

@@ -34,9 +34,7 @@ RELAY_ID = f"machine:{MACHINE_ID}"
 
 
 def _connection():
-    conn = relay_connection()
-    conn.execute("ALTER TABLE harness_sessions ADD COLUMN actor_id INTEGER DEFAULT 1")
-    return conn
+    return relay_connection()
 
 
 def _heartbeat(
