@@ -2,20 +2,16 @@
 
 from __future__ import annotations
 
-from yoke_contracts.machine_config.directories import create_private_directory
-
-import fcntl
-import hashlib
 import os
 import socket
 import subprocess
 import sys
-import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from yoke_cli.config import machine_config
+from yoke_cli import hook_resident_paths as _resident_paths
+from yoke_contracts import platform_file_lock
 from yoke_contracts.execution_provenance import collect_execution_provenance
 from yoke_contracts.hook_evaluator_protocol import (
     HookClientWallReport,
@@ -26,6 +22,13 @@ from yoke_contracts.hook_evaluator_protocol import (
 )
 
 
+ResidentPaths = _resident_paths.ResidentPaths
+resident_paths = _resident_paths.resident_paths
+resident_transport_available = _resident_paths.resident_transport_available
+# Compatibility seam for lifecycle callers and tests that redirect the cache root.
+machine_config = _resident_paths.machine_config
+
+
 # Total time this process may spend reaching a usable resident: connecting,
 # starting one, and re-trying after a restart handshake. An absolute
 # deadline imposed on every socket operation, not a loop-top glance.
@@ -34,15 +37,6 @@ _CONNECT_ATTEMPT_SECONDS = 0.1
 _START_RETRY_SECONDS = 0.025
 # The floor a legitimate evaluation keeps however much the grace spent.
 _MINIMUM_RESULT_SECONDS = 1.0
-_SOCKET_PATH_LIMIT_BYTES = 100
-
-
-@dataclass(frozen=True)
-class ResidentPaths:
-    state_dir: Path
-    socket: Path
-    lock: Path
-    log: Path
 
 
 @dataclass(frozen=True)
@@ -69,27 +63,6 @@ class ResidentUnavailable(RuntimeError):
         self.log_path = log_path
         self.resident_wait_ms = resident_wait_ms
         super().__init__(f"{code}: {detail}")
-
-
-def resident_paths() -> ResidentPaths:
-    state_dir = machine_config.cache_dir() / "hook-evaluator"
-    create_private_directory(state_dir)
-    try:
-        state_dir.chmod(0o700)
-    except OSError:
-        pass
-    candidate = state_dir / "evaluator.sock"
-    if len(os.fsencode(candidate)) > _SOCKET_PATH_LIMIT_BYTES:
-        digest = hashlib.sha256(os.fsencode(state_dir)).hexdigest()[:16]
-        candidate = Path(tempfile.gettempdir()) / (
-            f"yoke-hook-{os.getuid()}-{digest}.sock"
-        )
-    return ResidentPaths(
-        state_dir=state_dir,
-        socket=candidate,
-        lock=state_dir / "evaluator.lock",
-        log=state_dir / "evaluator.log",
-    )
 
 
 def _result_ceiling_seconds(environment: dict[str, str]) -> float:
@@ -188,7 +161,7 @@ def _round_trip(
 def _open_start_lock(path: Path) -> int | None:
     descriptor = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
     try:
-        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        platform_file_lock.acquire_exclusive_nonblocking(descriptor)
     except BlockingIOError:
         os.close(descriptor)
         return None
@@ -294,6 +267,12 @@ def evaluate_with_resident(
 ) -> ResidentEvaluation:
     """Evaluate through the resident or raise a named fallback reason."""
     paths = resident_paths()
+    if not resident_transport_available():
+        raise ResidentUnavailable(
+            "YOKE_HOOK_RESIDENT_UNSUPPORTED",
+            "Unix-domain socket transport is unavailable on this platform",
+            log_path=paths.log,
+        )
     request = _request(event_name, stdin_data, dry_run, client_timing_id)
     started = time.monotonic()
     deadline = started + RESIDENT_CONNECT_GRACE_SECONDS
@@ -339,7 +318,6 @@ def evaluate_with_resident(
         resident_wait_ms=waited_ms(),
     )
 
-
 __all__ = [
     "RESIDENT_CONNECT_GRACE_SECONDS",
     "ResidentEvaluation",
@@ -347,4 +325,5 @@ __all__ = [
     "ResidentUnavailable",
     "evaluate_with_resident",
     "resident_paths",
+    "resident_transport_available",
 ]

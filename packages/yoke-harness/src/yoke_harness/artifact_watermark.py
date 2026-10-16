@@ -33,7 +33,6 @@ gone.
 
 from __future__ import annotations
 
-import fcntl
 import json
 import os
 import time
@@ -43,6 +42,7 @@ from pathlib import Path
 from typing import Any, Iterator, Optional
 
 from yoke_cli.config import machine_config
+from yoke_contracts import platform_file_lock
 from yoke_harness.artifact_scan import (
     CATCH_UP_PENDING_REASON,
     OVERSIZED_RECORD_REASON,
@@ -121,17 +121,17 @@ def watermark_lock(
     acquired = False
     try:
         try:
-            fcntl.flock(
-                descriptor,
-                fcntl.LOCK_EX if blocking else fcntl.LOCK_EX | fcntl.LOCK_NB,
-            )
+            if blocking:
+                platform_file_lock.acquire_exclusive(descriptor)
+            else:
+                platform_file_lock.acquire_exclusive_nonblocking(descriptor)
             acquired = True
         except (BlockingIOError, OSError):
             acquired = False
         yield acquired
     finally:
         if acquired:
-            fcntl.flock(descriptor, fcntl.LOCK_UN)
+            platform_file_lock.release_exclusive(descriptor)
         os.close(descriptor)
 
 

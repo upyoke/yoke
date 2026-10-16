@@ -51,6 +51,20 @@ def test_claimed_root_chooses_the_only_yoke_lane(monkeypatch, tmp_path):
     assert fallback_project_id is None
 
 
+def test_claimed_root_resolves_a_machine_local_path_alias(monkeypatch, tmp_path):
+    source_lane = _make_source_lane(tmp_path / "source-lane")
+    _set_claimed_lanes(monkeypatch, Path("/mnt/c/recorded/source-lane"))
+    monkeypatch.setattr(
+        source_dev_run.verification_tree_binding,
+        "local_worktree_path",
+        lambda _path: source_lane,
+    )
+
+    root, error, fallback_project_id = source_dev_run._claimed_root()
+
+    assert (root, error, fallback_project_id) == (source_lane, None, None)
+
+
 def test_claimed_root_falls_back_when_live_claims_are_not_yoke(
     monkeypatch,
     tmp_path,

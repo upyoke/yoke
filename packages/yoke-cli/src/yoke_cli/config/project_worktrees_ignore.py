@@ -66,7 +66,7 @@ def remove_owned_entry(
     if created_file and not remainder:
         path.unlink()
         return {"removed": True, "deleted_file": True}
-    path.write_text(remainder, encoding="utf-8")
+    path.write_text(remainder, encoding="utf-8", newline="")
     return {"removed": True, "deleted_file": False}
 
 
@@ -79,7 +79,9 @@ def _append_entry(path: Path, text: str) -> None:
     prefix = text
     if prefix and not prefix.endswith("\n"):
         prefix += "\n"
-    path.write_text(prefix + WORKTREES_IGNORE_ENTRY + "\n", encoding="utf-8")
+    path.write_text(
+        prefix + WORKTREES_IGNORE_ENTRY + "\n", encoding="utf-8", newline=""
+    )
 
 
 __all__ = ["WORKTREES_IGNORE_ENTRY", "remove_owned_entry", "report"]

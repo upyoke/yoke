@@ -6,7 +6,6 @@ from yoke_contracts.machine_config.directories import create_private_directory
 from yoke_contracts.machine_config import directories
 
 from contextlib import contextmanager
-import fcntl
 import hashlib
 import os
 from pathlib import Path
@@ -17,6 +16,7 @@ from typing import Iterator
 
 from yoke_cli.config import github_git_credential_access_cache
 from yoke_cli.config import github_git_credential_file
+from yoke_cli.config import github_git_credential_permissions
 from yoke_cli.config import github_git_credential_document
 from yoke_cli.config import github_git_credential_helper
 from yoke_cli.config import github_git_credential_launcher
@@ -32,6 +32,9 @@ from yoke_contracts import (
     github_app_tokens,
     github_origin,
     timestamps,
+    platform_file_lock,
+    platform_file_sync,
+    windows_private_directory,
 )
 
 
@@ -40,6 +43,9 @@ STABLE_STORE_FILE_NAME = github_git_credential_launcher.BUNDLE_STORE_NAME
 STABLE_ORIGIN_FILE_NAME = github_git_credential_launcher.BUNDLE_ORIGIN_NAME
 STABLE_API_URLS_NAME = github_git_credential_launcher.BUNDLE_API_URLS_NAME
 STABLE_FILE_IO_NAME = github_git_credential_launcher.BUNDLE_FILE_IO_NAME
+STABLE_FILE_PERMISSIONS_NAME = (
+    github_git_credential_launcher.BUNDLE_FILE_PERMISSIONS_NAME
+)
 STABLE_DOCUMENT_NAME = github_git_credential_launcher.BUNDLE_DOCUMENT_NAME
 STABLE_ACCESS_CACHE_NAME = github_git_credential_launcher.BUNDLE_ACCESS_CACHE_NAME
 STABLE_TOKEN_CONTRACT_NAME = github_git_credential_launcher.BUNDLE_TOKEN_CONTRACT_NAME
@@ -93,6 +99,22 @@ def _bundle_sources() -> tuple[tuple[Path, str], ...]:
             Path(designed_wait.__file__),
             github_git_credential_launcher.BUNDLE_DESIGNED_WAIT_NAME,
         ),
+        (
+            Path(platform_file_lock.__file__),
+            github_git_credential_launcher.BUNDLE_PLATFORM_FILE_LOCK_NAME,
+        ),
+        (
+            Path(platform_file_sync.__file__),
+            github_git_credential_launcher.BUNDLE_PLATFORM_FILE_SYNC_NAME,
+        ),
+        (
+            Path(windows_private_directory.__file__),
+            github_git_credential_launcher.BUNDLE_WINDOWS_PRIVATE_DIRECTORY_NAME,
+        ),
+        (
+            Path(github_git_credential_permissions.__file__),
+            STABLE_FILE_PERMISSIONS_NAME,
+        ),
         (Path(github_git_credential_file.__file__), STABLE_FILE_IO_NAME),
         (Path(github_git_credential_document.__file__), STABLE_DOCUMENT_NAME),
         (
@@ -130,9 +152,9 @@ def _install_immutable_bundle(
         os.chmod(temp, 0o755)
         for source, target_name in sources:
             _write_unpublished_source(source, temp / target_name)
-        _fsync_directory(temp)
+        platform_file_sync.sync_directory(temp)
         os.replace(temp, target)
-        _fsync_directory(bundle_root)
+        platform_file_sync.sync_directory(bundle_root)
     except Exception:
         shutil.rmtree(temp, ignore_errors=True)
         raise
@@ -237,10 +259,10 @@ def _bundle_install_lock(target_dir: Path) -> Iterator[None]:
     )
     try:
         os.fchmod(descriptor, 0o600)
-        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        platform_file_lock.acquire_exclusive(descriptor)
         yield
     finally:
-        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        platform_file_lock.release_exclusive(descriptor)
         os.close(descriptor)
 
 
@@ -259,7 +281,7 @@ def _atomic_replace_bytes(payload: bytes, target: Path) -> None:
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(tmp_path, target)
-        _fsync_directory(target.parent)
+        platform_file_sync.sync_directory(target.parent)
     except Exception:
         if descriptor >= 0:
             os.close(descriptor)
@@ -267,18 +289,11 @@ def _atomic_replace_bytes(payload: bytes, target: Path) -> None:
         raise
 
 
-def _fsync_directory(path: Path) -> None:
-    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
-
-
 __all__ = [
     "STABLE_API_URLS_NAME",
     "STABLE_DOCUMENT_NAME",
     "STABLE_FILE_IO_NAME",
+    "STABLE_FILE_PERMISSIONS_NAME",
     "STABLE_HELPER_FILE_NAME",
     "STABLE_OAUTH_TRANSPORT_NAME",
     "STABLE_ORIGIN_FILE_NAME",

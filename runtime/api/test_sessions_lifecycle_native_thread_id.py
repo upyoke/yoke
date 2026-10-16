@@ -84,13 +84,23 @@ class TestRegisterSessionNativeThreadId:
         )
         assert "native_thread_id" not in result
 
-    def test_active_duplicate_never_overwrites_stored_mapping(self, conn):
-        """Once a thread id is known, a later re-registration (even one
-        that observed a different or blank value) never clobbers it.
+    def test_active_codex_duplicate_never_overwrites_stored_mapping(self, conn):
+        """Once a Codex thread id is known, a later re-registration (even
+        one that observed a different or blank value) never clobbers it.
         """
-        _register(conn, session_id="sess-stable", native_thread_id="thread-1")
+        _register(
+            conn,
+            session_id="sess-stable",
+            executor="codex",
+            native_thread_id="thread-1",
+        )
         with pytest.raises(SessionError):
-            _register(conn, session_id="sess-stable", native_thread_id="thread-2")
+            _register(
+                conn,
+                session_id="sess-stable",
+                executor="codex",
+                native_thread_id="thread-2",
+            )
 
         row = conn.execute(
             f"SELECT native_thread_id FROM harness_sessions "
@@ -98,3 +108,16 @@ class TestRegisterSessionNativeThreadId:
             ("sess-stable",),
         ).fetchone()
         assert row["native_thread_id"] == "thread-1"
+
+    def test_active_non_codex_duplicate_accepts_replacement_mapping(self, conn):
+        """Harnesses whose native ids can change keep replacement behavior."""
+        _register(conn, session_id="sess-replace", native_thread_id="thread-1")
+        with pytest.raises(SessionError):
+            _register(conn, session_id="sess-replace", native_thread_id="thread-2")
+
+        row = conn.execute(
+            f"SELECT native_thread_id FROM harness_sessions "
+            f"WHERE session_id = {_p(conn)}",
+            ("sess-replace",),
+        ).fetchone()
+        assert row["native_thread_id"] == "thread-2"

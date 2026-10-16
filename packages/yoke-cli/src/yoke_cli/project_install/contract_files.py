@@ -55,7 +55,7 @@ def apply_contract_files(
                     adopted.append(rel)
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
+        target.write_text(content, encoding="utf-8", newline="")
         contract_map[rel] = sha256_text(content)
         written.append(rel)
     return contract_map, written, existing, adopted
@@ -115,7 +115,9 @@ def reconcile_gitignore(
         return []
     if current and not current.endswith("\n"):
         current += "\n"
-    target.write_text(current + "\n".join(missing) + "\n", encoding="utf-8")
+    target.write_text(
+        current + "\n".join(missing) + "\n", encoding="utf-8", newline=""
+    )
     return missing
 
 

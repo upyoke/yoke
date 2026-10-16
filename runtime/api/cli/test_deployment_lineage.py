@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import fcntl
 import os
 import subprocess
 from unittest.mock import patch
@@ -13,11 +12,15 @@ from yoke_cli.commands.deployment_lineage import (
     DeploymentLineageResolutionError,
     resolve_commit_lineage,
 )
+from yoke_contracts import platform_file_lock
 
 
 def _completed(returncode: int = 0, stdout: str = "", stderr: str = ""):
     return subprocess.CompletedProcess(
-        args=[], returncode=returncode, stdout=stdout, stderr=stderr,
+        args=[],
+        returncode=returncode,
+        stdout=stdout,
+        stderr=stderr,
     )
 
 
@@ -47,11 +50,20 @@ def test_resolve_commit_lineage_fetches_and_resolves_the_named_remote_ref(
         ["git", "-C", str(tmp_path), "rev-parse", "--git-common-dir"],
         ["git", "-C", str(tmp_path), "remote", "get-url", "origin"],
         [
-            "git", "-C", str(tmp_path), "fetch", "--quiet", "--no-tags",
+            "git",
+            "-C",
+            str(tmp_path),
+            "fetch",
+            "--quiet",
+            "--no-tags",
             "origin",
         ],
         [
-            "git", "-C", str(tmp_path), "rev-parse", "--verify",
+            "git",
+            "-C",
+            str(tmp_path),
+            "rev-parse",
+            "--verify",
             "origin/stage^{commit}",
         ],
     ]
@@ -73,7 +85,7 @@ def test_resolve_commit_lineage_holds_checkout_lock_while_fetching(tmp_path):
             contender = os.open(lock_path, os.O_RDWR)
             try:
                 with pytest.raises(BlockingIOError):
-                    fcntl.flock(contender, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    platform_file_lock.acquire_exclusive_nonblocking(contender)
             finally:
                 os.close(contender)
             return _completed()
