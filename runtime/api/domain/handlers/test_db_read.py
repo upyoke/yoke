@@ -11,6 +11,11 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain import json_helper
+from yoke_core.domain.db_read_column_hints import (
+    ITEM_REFS_LINE,
+    sql_touches_item_ids,
+    table_notes,
+)
 from yoke_core.domain.handlers import db_read
 from yoke_core.domain.handlers.db_read import DbReadRunRequest
 from yoke_core.domain.handlers.db_read_sql import validate_read_only_sql
@@ -194,3 +199,64 @@ def test_unqualified_sequence_warns_without_refusing(sql, warned):
     if warned:
         assert outcome.warnings[0].code == "project_sequence_unqualified"
         assert "JOIN item_refs" in outcome.warnings[0].detail
+
+
+def _db_read(sql: str):
+    return db_read.handle_db_read(
+        FunctionCallRequest(
+            function=db_read.DB_READ_FUNCTION_ID,
+            actor=ActorContext(actor_id="1", session_id=""),
+            target=TargetRef(kind="global"),
+            payload={"sql": sql},
+        )
+    )
+
+
+def test_item_id_column_without_item_refs_teaches_the_join() -> None:
+    with pg_testdb.test_database():
+        outcome = _db_read("SELECT 7 AS deployment_member_item_id")
+    assert outcome.primary_success
+    assert [w.code for w in outcome.warnings] == ["item_refs_not_joined"]
+    assert outcome.warnings[0].detail == ITEM_REFS_LINE
+
+
+def test_query_already_joining_item_refs_is_not_warned() -> None:
+    with pg_testdb.test_database():
+        outcome = _db_read(
+            "SELECT r.public_ref FROM item_refs r "
+            "WHERE r.item_id IN (SELECT 7 AS deployment_member_item_id)"
+        )
+    assert outcome.primary_success
+    assert outcome.warnings == []
+
+
+def test_failed_item_id_query_names_item_refs() -> None:
+    with pg_testdb.test_database():
+        outcome = _db_read("SELECT deployment_member_item_id FROM no_such_table")
+    assert not outcome.primary_success
+    assert outcome.error is not None
+    assert outcome.error.message.endswith(ITEM_REFS_LINE)
+
+
+@pytest.mark.parametrize(
+    "sql, touches",
+    [
+        ("SELECT id, title FROM items", True),
+        ("SELECT i.id FROM items i WHERE i.status = 'idea'", True),
+        ("SELECT * FROM items", True),
+        ("SELECT item_id FROM work_claims", True),
+        ("SELECT count(*) FROM items", False),
+        ("SELECT title FROM items WHERE status = 'idea'", False),
+        ("SELECT slug FROM projects", False),
+    ],
+)
+def test_sql_touches_item_ids(sql, touches) -> None:
+    assert sql_touches_item_ids(sql) is touches
+
+
+def test_packet_notes_lead_with_item_refs_for_item_id_tables() -> None:
+    columns = [("id", "INTEGER"), ("item_id", "INTEGER")]
+    assert table_notes("work_claims", columns, "Claims.").startswith(ITEM_REFS_LINE)
+    assert table_notes("items", [("id", "INTEGER")], "Rows.").startswith(ITEM_REFS_LINE)
+    assert table_notes("item_refs", columns, "View.") == "View."
+    assert table_notes("projects", [("id", "INTEGER")], "Projects.") == "Projects."

@@ -26,8 +26,9 @@ _DB_READ_HELP = (
     "function dispatcher. Default output labels the query result. "
     "``--format json`` emits the result payload; ``--format lines`` emits one pipe-delimited row per line "
     "for shell consumption. ``--json`` emits the full typed "
-    "FunctionCallResponse envelope. Bare project_sequence results warn: "
-    "join item_refs on item_id and select public_ref to name the project.\n\n"
+    "FunctionCallResponse envelope. A query that reads item ids (items.id or any "
+    "*item_id column) without item_refs warns, on success and on failure: "
+    "join item_refs on item_id and select public_ref to show PREFIX-N refs.\n\n"
     + DB_GROUP_TEACHING
 )
 

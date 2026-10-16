@@ -1,0 +1,12 @@
+{
+ "id": "db-read-item-refs",
+ "title": "A diagnostic read that touches item ids names the item_refs join for public refs, on success and on failure.",
+ "status": "observed",
+ "form": "CLI warning, refusal text and packet note",
+ "verification": "Focused disposable-database tests in runtime/api/domain/handlers/test_db_read.py cover the item_refs_not_joined warning for a *item_id column, its absence when the query already joins item_refs, the same line on a failed read, and packet notes that lead with item_refs for tables carrying item ids. No deployed run proof yet.",
+ "topics": ["runtime/storage"],
+ "commands": ["yoke db read"],
+ "functions": ["db.read.run"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/db_read_column_hints.py", "packages/yoke-core/src/yoke_core/domain/handlers/db_read.py", "packages/yoke-core/src/yoke_core/domain/schema_api_context_render.py", "docs/public/reference/db-reference.md"],
+ "plan_refs": ["FIRST-USER.35"]
+}
