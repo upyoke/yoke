@@ -49,7 +49,7 @@ Subcommands:
   dispatch-chain-advance <epic-id> <worktree>
   dispatch-chain-refresh-activation <epic-id> <worktree> <task-num>
   review-seed <epic-id> <task_num>
-  review-insert <epic-id> <task_num> <verdict> [--body-file <path>]  (reads body from stdin when omitted)
+  review-insert <epic-id> <task_num> <verdict> [--head-sha <reviewed-commit>] [--body-file <path>]  (PASS requires the reviewed commit; reads body from stdin when omitted)
   review-get <epic-id> <task_num>
   progress-note-insert <epic-id> <task_num> <note_num> [--body-file <path>]
   progress-note-list <epic-id> <task_num> [--limit N]
