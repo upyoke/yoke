@@ -17,7 +17,6 @@ from yoke_core.domain.steering_fleet_report_compose import (
     COMBINED_PREAMBLE,
 )
 from yoke_core.domain.steering_fleet_report_fingerprint import digest
-from yoke_core.domain.steering_fleet_report_inbox import unacked_section_lines
 from yoke_core.domain.steering_fleet_report_machine_block import machine_shared_lines
 from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_project_rows import rows_per_section
@@ -67,11 +66,6 @@ def _sections(combined: CombinedFleetReport) -> dict[str, tuple[str, str]]:
             digest(_age_blind(facts)),
             f"## {section.descriptor}\n{scope_inner_body(section.report, rows)}",
         )
-    sections["inbox"] = (
-        digest([row.message_id for row in combined.unacked_injected]),
-        "\n".join(unacked_section_lines(combined.unacked_injected))
-        or "unacked inbox: none",
-    )
     sections["unattended"] = (
         digest([row.finding for row in combined.unattended]),
         "## unattended linked work\n"

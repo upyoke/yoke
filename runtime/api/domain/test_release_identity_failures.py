@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -89,19 +90,38 @@ def test_unverified_dispatch_tag_never_dispatches(monkeypatch, receipt):
     assert len(calls) == 1 and calls[0][1:3] == ["dispatch-tag", "ensure"]
 
 
-def test_release_bridge_dispatch_avoids_session_required_tag_creation(monkeypatch):
+def test_moved_trunk_cannot_change_the_consumer_workflow_commit(monkeypatch):
     consumer = "b" * 40
+    refs = {}
     calls = []
 
     def run(argv, **_kwargs):
         calls.append(argv)
-        assert argv[:2] == ["github-actions", "trigger"]
+        if argv[1:3] == ["dispatch-tag", "ensure"]:
+            refs[argv[4]] = argv[5]
+            refs["main"] = "c" * 40
+            result = {"repo": argv[3], "tag": argv[4], "sha": argv[5]}
+            return 0, json.dumps({"success": True, "result": result}), ""
         ref = argv[argv.index("--ref") + 1]
-        assert ref == "main"
+        assert refs[ref] == consumer
         return 0, "42\n", ""
 
     monkeypatch.setattr(gate, "_yoke", run)
     assert gate.dispatch("a" * 40, consumer) == ("42", "")
+    assert len(calls) == 2
+
+
+def test_refused_dispatch_tag_names_recovery_and_never_dispatches(monkeypatch):
+    calls = []
+
+    def run(argv, **_kwargs):
+        calls.append(argv)
+        return 1, "", "function_version_skew: next-release"
+
+    monkeypatch.setattr(gate, "_yoke", run)
+    run_id, error = gate.dispatch("a" * 40, "b" * 40)
+    assert not run_id and "consumer_dispatch_ref_unavailable" in error
+    assert "function_version_skew" in error and "retry this exact pair" in error
     assert len(calls) == 1
 
 

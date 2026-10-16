@@ -74,7 +74,11 @@ def test_browser_runtime_workflow_provisions_and_runs_the_locked_suite() -> None
     )
     assert _step(job, "Run browser-runtime tests")["run"] == "npm test"
     provision = _step(job, "Provision Chromium sandbox")
-    assert provision["env"]["PYTHONPATH"] == "packages/yoke-harness/src"
+    # browser_apparmor imports the shared detached-process helper (contracts)
+    # and the wizard terminal marker (cli).
+    assert provision["env"]["PYTHONPATH"] == (
+        "packages/yoke-harness/src:packages/yoke-cli/src:packages/yoke-contracts/src"
+    )
     assert "ensure_chromium_apparmor(" in provision["run"]
     names = [step["name"] for step in job["steps"]]
     assert names.index("Install Chromium") < names.index("Provision Chromium sandbox")

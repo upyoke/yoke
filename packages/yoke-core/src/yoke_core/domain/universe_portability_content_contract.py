@@ -92,6 +92,7 @@ ARCHIVE_OMITTABLE_TARGET_COLUMNS = {
             "retracted_by_actor_id",
         }
     ),
+    "qa_plans": frozenset({"retirement_reason", "retired_by_actor_id"}),
     "qa_runs": frozenset({"capture_degraded_reason", "case_outcome"}),
     "strategy_doc_revisions": frozenset({"session_id"}),
     "strategy_docs": frozenset({"parent_slug"}),

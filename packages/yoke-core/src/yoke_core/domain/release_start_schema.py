@@ -8,7 +8,8 @@ tables and columns, so without this step a release that adds a column fails
 its own start on ``UndefinedColumn``.
 
 This step runs boot's creation phase — tables, indexes and additive columns,
-the same code — before the first such call. Ordered migration history and its
+the same code — before the first such call, as the role that owns the
+database's tables, so a new table stays convergeable by the serving build. Ordered migration history and its
 restore points stay with boot. The serving build tolerates what this adds,
 and the fleet preflight converges a copy of every live database through the
 same boot sequence before any release, which is the proof the phase is safe.
@@ -50,6 +51,7 @@ def converge_release_start_schema(run_id: str) -> bool:
 
     from yoke_core.domain import db_helpers
     from yoke_core.domain.environment_bootstrap import universe_is_born_on
+    from yoke_core.domain.migration_fleet_ownership import acting_as_serving_owner
     from yoke_core.domain.schema_creation import converge_additive_schema
 
     recovery = (
@@ -61,7 +63,10 @@ def converge_release_start_schema(run_id: str) -> bool:
             if not universe_is_born_on(conn):
                 return False
             conn.execute(f"SET lock_timeout = '{RUN_ROW_LOCK_TIMEOUT_MS}ms'")
-            converge_additive_schema(conn)
+            # Tables belong to their creator; create them as the role that
+            # serves the database, never as the driver's admin role.
+            with acting_as_serving_owner(conn):
+                converge_additive_schema(conn)
     except (psycopg.errors.LockNotAvailable, psycopg.errors.QueryCanceled) as exc:
         raise ReleaseStartSchemaError(
             LOCK_UNAVAILABLE,
@@ -74,9 +79,9 @@ def converge_release_start_schema(run_id: str) -> bool:
     except psycopg.Error as exc:
         raise ReleaseStartSchemaError(
             CONVERGENCE_FAILED,
-            f"applying this release's additive schema failed ({exc}). Boot "
-            "would fail the same way: repair the named table or column in the "
-            "release, then rerun. " + recovery,
+            f"applying this release's additive schema as the serving owner "
+            f"failed ({exc}). Repair the named role grant, table or column, "
+            "then rerun. " + recovery,
         ) from exc
     return True
 

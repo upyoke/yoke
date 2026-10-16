@@ -24,6 +24,7 @@ from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.install_binding import source_checkout_root
 from yoke_cli.config.server_image_repository import image_for_release
 from yoke_contracts.release_version import commit_version
+from yoke_contracts.terminal_detached_process import run as _RUN
 
 DEFAULT_RELEASE_CHANNEL = "stable"
 FETCH_TIMEOUT_SECONDS = 60.0
@@ -31,7 +32,6 @@ INSTALLER_RUN_TIMEOUT_SECONDS = 600.0
 
 _SOURCE_COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _CHANNEL = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
-_RUN = subprocess.run
 _FETCH_BYTES: Callable[[str], bytes]
 
 

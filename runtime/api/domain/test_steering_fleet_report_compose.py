@@ -126,7 +126,6 @@ def test_two_held_scopes_become_two_named_sections(test_db, monkeypatch) -> None
     combined = compose_held_reports(test_db, session_id=SESSION_ALPHA, now=NOW)
 
     assert [section.descriptor for section in combined.sections] == ["alpha", "beta"]
-    assert combined.unacked_injected == ()
     body = combined_body(combined)
     assert body.index("## alpha") < body.index("## beta")
     assert "2 held scopes" in body

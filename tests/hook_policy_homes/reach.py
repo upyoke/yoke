@@ -40,6 +40,10 @@ EXEC_SOURCES = {
 }
 
 _SUBPROCESS_CALLS = frozenset({"run", "Popen", "check_output", "check_call", "call"})
+# The shared terminal-detached wrapper launches a process like subprocess.run;
+# each call site is the read, so the wrapper's own body is not traversed.
+_DETACHED_PROCESS_MODULE = "yoke_contracts.terminal_detached_process"
+_DETACHED_PROCESS_CALLS = frozenset({"run", "popen"})
 _OS_CALLS = frozenset(
     {
         "getcwd",
@@ -175,7 +179,7 @@ def reach(seeds: Iterable[tuple[str, str]]) -> set[tuple[str, str]]:
         if (name, symbol) in seen:
             continue
         mod = _module(name)
-        if mod is None:
+        if mod is None or name == _DETACHED_PROCESS_MODULE:
             continue
         if symbol not in mod.defs:
             alias = mod.aliases.get(symbol)
@@ -205,6 +209,11 @@ def _read_kind(node: ast.AST) -> str | None:
     if isinstance(owner, ast.Name):
         if owner.id == "subprocess" and func.attr in _SUBPROCESS_CALLS:
             return f"subprocess.{func.attr}"
+        if (
+            owner.id == "terminal_detached_process"
+            and func.attr in _DETACHED_PROCESS_CALLS
+        ):
+            return f"terminal_detached_process.{func.attr}"
         if owner.id == "os" and func.attr in _OS_CALLS:
             return f"os.{func.attr}"
         if owner.id == "Path" and func.attr in _PATH_CLASSMETHODS:

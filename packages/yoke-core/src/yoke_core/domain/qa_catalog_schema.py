@@ -57,7 +57,6 @@ CREATE TABLE IF NOT EXISTS qa_plans (
     slug TEXT NOT NULL,
     name TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
-    source_revision TEXT,
     success_policy_id TEXT NOT NULL DEFAULT 'all-pass',
     success_policy_params TEXT NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL,
@@ -172,6 +171,12 @@ _REQUIREMENT_COLUMNS = (
     ("rebind_endpoint_delta_json", "TEXT"),
     ("wake_path", "TEXT"),  # see yoke_contracts.qa_case_wake_path
     ("wake_evidence", "TEXT"),
+)
+
+_PLAN_COLUMNS = (
+    ("source_revision", "TEXT"),
+    ("retirement_reason", "TEXT"),
+    ("retired_by_actor_id", "INTEGER"),
 )
 
 _PLAN_CASE_TEXT_COLUMNS = (
@@ -296,7 +301,8 @@ def create_qa_catalog_tables(
         "required_capability_kinds",
         "TEXT NOT NULL DEFAULT '[]'",
     )
-    _add_column_if_not_exists(conn, "qa_plans", "source_revision", "TEXT")
+    for column, definition in _PLAN_COLUMNS:
+        _add_column_if_not_exists(conn, "qa_plans", column, definition)
     _add_column_if_not_exists(
         conn,
         "qa_plans",

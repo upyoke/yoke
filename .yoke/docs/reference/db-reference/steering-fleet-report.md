@@ -244,11 +244,10 @@ unknown, never run-start or source-QA age. Boot adds column without backfill.
 
 ## Inbox, shared placement and capacity
 
-Steering-awaiting-seat counts parked role reports/unacknowledged ended-seat
-reports; acknowledged never inherits. Acquire shows inherited/parked/stranded
-counts and messages-list unacknowledged; JSON keeps newest-by-item digest.
-Zero count is omitted. Unacked-injected-this-session rows past grace name
-`yoke messages acknowledge MESSAGE-ID`; separate from awaiting-seat inbox.
+Awaiting-seat counts unacknowledged parked/ended-seat reports. Acquire gives
+each a seat session receipt (hook-injected), prints each `yoke messages
+acknowledge MESSAGE-ID` (first 20; unresolved seat = not injectable); the JSON
+digest repeats them. No unacked inbox: the delivery hook re-presents those.
 Every holder appears once in its most specific alarm/landed/live section;
 ordinary live-claim inventory is not an idle alarm. Empty sections print nothing.
 
@@ -296,7 +295,8 @@ marked control-plane facts. Message leases do not wait for report composition:
 one structured event reply carries envelope; report follows empty hook rather
 than holding 30-second lease/ranking or appending unparsable second bytes.
 Hook and watcher use same compact digest/closing marker/actionable sections,
-own unacked inbox and full-read/help pointer; deliver=true/shared delivered
+and full-read/help pointer (unacknowledged messages are re-presented by
+message delivery, not the report); deliver=true/shared delivered
 record prevents reprinting other's report. Worker mail wakes normally; no mail
 is still followed by next due hook report.
 

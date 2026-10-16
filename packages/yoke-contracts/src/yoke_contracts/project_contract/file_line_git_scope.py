@@ -13,9 +13,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-import subprocess
 
 from yoke_contracts.project_contract.file_line_policy import item_base_config_key
+from yoke_contracts import terminal_detached_process
 
 
 @dataclass(frozen=True)
@@ -28,7 +28,7 @@ class FileLineGitScope:
 
 
 def _git(repo_root: Path, *args: str) -> str:
-    result = subprocess.run(
+    result = terminal_detached_process.run(
         ["git", "-C", str(repo_root), *args],
         capture_output=True,
         text=True,
@@ -42,21 +42,30 @@ def _git(repo_root: Path, *args: str) -> str:
 
 def _paths(repo_root: Path, *refs: str) -> tuple[str, ...]:
     output = _git(
-        repo_root, "diff", "--name-only", "--diff-filter=ACMR", *refs,
+        repo_root,
+        "diff",
+        "--name-only",
+        "--diff-filter=ACMR",
+        *refs,
     )
     return tuple(path for path in output.splitlines() if path)
 
 
 def resolve_file_line_git_scope(
-    repo_root: Path, integration_target: str,
+    repo_root: Path,
+    integration_target: str,
 ) -> FileLineGitScope:
     """Resolve own delta from the recorded item base, never moving main."""
     branch = _git(repo_root, "branch", "--show-current")
     configured = ""
     if branch:
-        result = subprocess.run(
+        result = terminal_detached_process.run(
             [
-                "git", "-C", str(repo_root), "config", "--get",
+                "git",
+                "-C",
+                str(repo_root),
+                "config",
+                "--get",
                 item_base_config_key(branch),
             ],
             capture_output=True,
@@ -71,7 +80,8 @@ def resolve_file_line_git_scope(
         item_base = _git(repo_root, "merge-base", "HEAD", integration_target)
     own_paths = _paths(repo_root, item_base)
     inherited_paths = tuple(
-        path for path in _paths(repo_root, integration_target, item_base)
+        path
+        for path in _paths(repo_root, integration_target, item_base)
         if path not in set(own_paths)
     )
     return FileLineGitScope(

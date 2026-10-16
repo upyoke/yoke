@@ -26,6 +26,7 @@ class PlanListRequest(ProjectReadRequest):
     limit: Optional[int] = Field(default=None, ge=1, le=500)
     offset: int = Field(default=0, ge=0)
     detail: ReadDetail = DETAIL_SUMMARY
+    include_retired: bool = False
 
 
 class PlanGetRequest(ProjectReadRequest):
@@ -171,6 +172,7 @@ def handle_plan_list(request: FunctionCallRequest) -> HandlerOutcome:
                 limit=payload.limit,
                 offset=payload.offset,
                 full=payload.detail == DETAIL_FULL,
+                include_retired=payload.include_retired,
             )
     except LookupError as exc:
         return _error("not_found", str(exc), "$.payload.project")

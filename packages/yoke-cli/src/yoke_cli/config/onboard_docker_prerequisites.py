@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from yoke_contracts.self_host_bootstrap_output import redact_api_tokens
+from yoke_contracts import terminal_detached_process
 
 
 DOCKER_INSTALL_GUIDANCE = (
@@ -20,7 +21,7 @@ DOCKER_ENGINE_WAIT_SECONDS = 20.0
 DOCKER_PROBE_TIMEOUT_SECONDS = 5.0
 DOCKER_RETRY_INTERVAL_SECONDS = 1.0
 
-_RUN = subprocess.run
+_RUN = terminal_detached_process.run
 _WHICH = shutil.which
 _SLEEP = time.sleep
 _MONOTONIC = time.monotonic

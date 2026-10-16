@@ -1,11 +1,11 @@
-"""A persisted agent-verdict batch is closed: do not wake or recapture it.
+"""A persisted agent-verdict batch closes review; a passing verdict settles QA.
 
 The review wake is queued when capture reaches awaiting review. The verdict
-can land before that wake is delivered. Delivery then cancels it. Re-entering
-the plan runner reprints the recorded verdicts and leaves already-settled
-requirements out of any new roster. A requirement with no verdict batch is
-unchanged, so the existing admission path (including ``--replaces``) still
-starts a capture.
+can land before that wake is delivered. Delivery then cancels it, whatever
+the verdict. Re-entering the plan runner reprints passing verdicts and leaves
+those settled requirements out of any new roster. A requirement whose newest
+verdict is fail or undetermined, or that has no verdict, stays open, so the
+existing admission path (including ``--replaces``) starts a fresh capture.
 """
 
 from __future__ import annotations
@@ -28,9 +28,9 @@ def settled_review_wake_reason(execution_id: str) -> str:
     """Named cancel reason, plus the recovery the owner should follow."""
     return (
         f"{SETTLED_REVIEW_WAKE_REASON}: execution {execution_id} already has a "
-        "persisted verdict batch; the plan runner reprints that batch and does "
-        "not capture again. A new capture requires `yoke qa plan run` with "
-        "`--replaces`."
+        "persisted verdict batch, so its review is complete. Rerun "
+        "`yoke qa plan run`: it reprints passing verdicts and captures fresh "
+        "evidence for failed or undetermined requirements."
     )
 
 
@@ -108,10 +108,14 @@ def _persisted_verdicts(
         (digest, *subject_params, *requirement_ids),
     ).fetchall()
     newest_execution_id = None
+    newest: set[int] = set()
     verdicts: dict[int, dict[str, Any]] = {}
     for row in rows:
         requirement_id = int(_value(row, "requirement_id", 0))
-        if requirement_id in verdicts:
+        if requirement_id in newest:
+            continue
+        newest.add(requirement_id)
+        if str(_value(row, "verdict", 1)) != "pass":
             continue
         if newest_execution_id is None:
             newest_execution_id = str(_value(row, "execution_id", 4))
@@ -134,11 +138,11 @@ def open_unsettled_roster(
     deployment_stage: str | None,
     deployment_member_item_id: int | None,
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
-    """Drop requirements that already have a verdict batch.
+    """Drop requirements whose newest recorded verdict is a pass.
 
     When nothing remains, return the settled execution carrying those
     verdicts so the runner reprints them. Otherwise return the roster still
-    eligible to capture.
+    eligible to capture, including failed or undetermined requirements.
     """
     if not roster or not _review_tables(conn):
         return None, roster
@@ -195,7 +199,7 @@ def settled_review_run_result(execution: Mapping[str, Any]) -> dict[str, Any]:
         results.append(result)
         state = aggregate_state(state, result)
     recovery = (
-        "Review verdicts are already recorded and reprinted here. "
+        "Passing review verdicts are already recorded and reprinted here. "
         "A new capture requires the existing admission path: "
         "`yoke qa plan run` with `--replaces`."
     )

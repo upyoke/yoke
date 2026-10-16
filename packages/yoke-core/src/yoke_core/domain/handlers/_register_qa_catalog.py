@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import qa_catalog_reads as _reads
 from yoke_core.domain.handlers import qa_plan_edit as _edit
+from yoke_core.domain.handlers import qa_plan_retire as _retire
 from yoke_core.domain.handlers import qa_item_plan_retract as _retract
 from yoke_core.domain.handlers import qa_plan_writes as _writes
 from yoke_core.domain.handlers import qa_plan_source_sync as _source_sync
@@ -129,6 +130,21 @@ def register(registry) -> None:
         adapter_status="live",
         claim_required_kind=None,
         ambient_session_required=False,
+    )
+    registry.register(
+        "qa.plan.retire",
+        _retire.handle_plan_retire,
+        _retire.PlanRetireRequest,
+        _retire.PlanRetireResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.qa_plan_retire",
+        target_kinds=["global"],
+        side_effects=["qa_plans_retire"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["project_scope_required", "steering_seat_required"],
+        adapter_status="live",
+        claim_required_kind=None,
+        minimum_serving_version="next-release",
     )
     registry.register(
         "qa.plan_cases.replace",
