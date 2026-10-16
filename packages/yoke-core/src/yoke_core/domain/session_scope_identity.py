@@ -87,6 +87,8 @@ def actor_may_operate_session(
     session_actor_id: int | None,
     permission_key: str,
 ) -> bool:
+    if actor_id is None:
+        return False
     if scope.project_id is not None:
         return actor_permissions.permission_decision(
             conn,
@@ -94,8 +96,6 @@ def actor_may_operate_session(
             project_id=scope.project_id,
             permission_key=permission_key,
         ).allowed
-    if not _member(conn, actor_id, scope.org_id):
-        return False
     return (
         actor_id == session_actor_id
         or actor_permissions.org_permission_decision(

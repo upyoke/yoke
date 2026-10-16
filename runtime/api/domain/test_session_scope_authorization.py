@@ -92,9 +92,12 @@ def test_operate_session_org_rules(conn, monkeypatch):
         )
 
     assert allowed(1, 1)
+    assert not allowed(None, None)
     assert allowed(2, 1)
     assert not allowed(1, 2)
-    assert not allowed(3, 3)
+    assert not allowed(3, 1)
+    conn.execute("DELETE FROM actor_org_roles WHERE actor_id=1")
+    assert allowed(1, 1)
     monkeypatch.setattr(
         scope.actor_permissions,
         "permission_decision",
