@@ -100,3 +100,65 @@ def test_https_driver_leaves_the_schema_to_the_serving_build(monkeypatch) -> Non
         lambda *_a, **_k: pytest.fail("an HTTPS driver opened the database"),
     )
     assert converge_release_start_schema("run-https") is False
+
+
+_NEW_TABLE = "merge_queue_landing_attempts"
+
+
+def _hand_schema_to(conn, owner: str) -> None:
+    """Give every relation and function in the schema to the serving role."""
+    for (statement,) in conn.execute(
+        "SELECT format('ALTER %%s %%I.%%I OWNER TO %%I', "
+        "CASE c.relkind WHEN 'v' THEN 'VIEW' WHEN 'm' THEN 'MATERIALIZED VIEW' "
+        "WHEN 'S' THEN 'SEQUENCE' ELSE 'TABLE' END, n.nspname, c.relname, %s::text) "
+        "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+        "WHERE n.nspname = current_schema() AND c.relkind IN ('r','p','v','m') "
+        "UNION ALL SELECT format('ALTER ROUTINE %%s OWNER TO %%I', "
+        "p.oid::regprocedure, %s::text) FROM pg_proc p "
+        "JOIN pg_namespace n ON n.oid = p.pronamespace "
+        "WHERE n.nspname = current_schema()",
+        (owner, owner),
+    ).fetchall():
+        conn.execute(statement)
+
+
+def test_a_table_created_at_release_start_belongs_to_the_serving_owner(
+    monkeypatch,
+) -> None:
+    """An admin driver must not become the owner of a table it creates.
+
+    The tables are handed to a separate serving role, so the fixture's own
+    connecting role plays the admin door. The new table must come out owned
+    by the serving role, or the next serving converge cannot alter it.
+    """
+    import uuid
+
+    from runtime.api.fixtures import pg_testdb
+    from yoke_cli.transport import https as https_transport
+    from yoke_core.domain import migration_fleet_ownership as ownership
+
+    monkeypatch.setattr(
+        https_transport, "resolve_https_connection", lambda *_a, **_k: None
+    )
+    owner = f"release_owner_{uuid.uuid4().hex[:10]}"
+    with pg_testdb.test_database() as conn:
+        admin = conn.execute("SELECT current_user").fetchone()[0]
+        conn.execute(f'CREATE ROLE "{owner}" NOLOGIN')
+        conn.commit()
+        try:
+            conn.execute(f'GRANT CREATE, USAGE ON SCHEMA public TO "{owner}"')
+            _hand_schema_to(conn, owner)
+            conn.execute(f"DROP TABLE {_NEW_TABLE} CASCADE")
+            conn.commit()
+
+            assert converge_release_start_schema("run-owner") is True
+
+            assert ownership.table_owner(conn, _NEW_TABLE) == owner
+            assert ownership.inspect(conn).drifted == ()
+            assert conn.execute("SELECT current_user").fetchone()[0] == admin
+        finally:
+            conn.rollback()
+            conn.execute(f'REASSIGN OWNED BY "{owner}" TO "{admin}"')
+            conn.execute(f'DROP OWNED BY "{owner}"')
+            conn.execute(f'DROP ROLE "{owner}"')
+            conn.commit()

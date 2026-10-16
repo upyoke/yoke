@@ -18,7 +18,8 @@ A driver connected straight to the control-plane database runs the
 release's own code against it before that release has booted. Before its
 first in-process call it applies boot's creation phase — tables, indexes and
 additive columns, never the ordered migration history — so a release that
-adds a column can start. Each statement waits at most the run-lock timeout;
+adds a column can start. It runs as the role that owns the database's tables,
+so a table it creates stays convergeable by the serving build. Each statement waits at most the run-lock timeout;
 a busy table refuses as `release_start_schema_lock_unavailable` and any other
 failure as `release_start_schema_convergence_failed`, each naming the re-drive
 step, before anything about the run changes. A driver relaying through HTTPS
