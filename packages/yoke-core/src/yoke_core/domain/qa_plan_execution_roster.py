@@ -160,17 +160,25 @@ def expected_plan_case(
     ordinal: int,
     requirement_id: int,
     allow_replay: bool = False,
+    allow_host_free_ahead: bool = False,
 ) -> dict[str, Any]:
-    """Validate an ordinal and return its immutable roster case."""
+    """Validate an ordinal and return its immutable roster case.
+
+    *allow_host_free_ahead* admits a later host-free automatic case: a plan
+    queued for a host records those before it parks.
+    """
+    from yoke_core.domain.qa_plan_host_free_cases import is_host_free_case
+
     cursor = int(execution["cursor_ordinal"])
-    if ordinal != cursor and not (allow_replay and ordinal < cursor):
-        raise QaPlanExecutionStateError(
-            f"QA plan execution expects ordinal {cursor}, not {ordinal}"
-        )
     roster = execution["roster"]
     if ordinal < 0 or ordinal >= len(roster):
         raise QaPlanExecutionStateError("QA plan execution ordinal is out of range")
     case = dict(roster[ordinal])
+    ahead = allow_host_free_ahead and ordinal > cursor and is_host_free_case(case)
+    if ordinal != cursor and not (allow_replay and ordinal < cursor) and not ahead:
+        raise QaPlanExecutionStateError(
+            f"QA plan execution expects ordinal {cursor}, not {ordinal}"
+        )
     if int(case["requirement_id"]) != int(requirement_id):
         raise QaPlanExecutionStateError(
             "QA plan execution ordinal targets a different requirement"

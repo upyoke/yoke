@@ -11,6 +11,10 @@ from yoke_core.domain.qa_plan_execution_result_state import (
     plan_order as _plan_order,
 )
 from yoke_core.domain.qa_plan_execution_continuation import continuation_abort_reason
+from yoke_core.domain.qa_plan_host_free_cases import (
+    run_host_free_cases_while_waiting,
+    waiting_recovery,
+)
 
 
 def execute_begun_plan(
@@ -52,20 +56,52 @@ def execute_begun_plan(
             failed_cases.append(int(recorded["requirement_id"]))
     from yoke_core.domain.qa_case_execution import execute_case_context
 
+    def _execute_local(requirement):
+        return execute_case_context(
+            requirement,
+            base_url=resolved_base_url,
+            expected_branch=expected_branch,
+            expected_sha=expected_sha,
+            timeout_seconds=timeout_seconds,
+            checkout_path=checkout_path,
+            allow_tree_mismatch=allow_tree_mismatch,
+            actor=resolved_actor,
+        )
+
+    def _check_in():
+        checked = _call_plan_function(
+            function_id="qa.plan_execution.heartbeat",
+            target=target,
+            payload={"execution_id": execution_id},
+            actor=resolved_actor,
+        )
+        if checked.get("delivery"):
+            deliveries.append(checked["delivery"])
+
+    def _record(ordinal, normalized):
+        _call_plan_function(
+            function_id="qa.plan_execution.advance",
+            target=target,
+            payload={
+                "execution_id": execution_id,
+                "ordinal": ordinal,
+                "requirement_id": int(normalized["requirement_id"]),
+                "result": normalized,
+            },
+            actor=resolved_actor,
+        )
+
+    # Host-free cases recorded ahead while an earlier walk queued for a host.
+    done_ordinals = set(begun.recorded_ordinals)
     for ordinal in range(cursor, len(requirements)):
+        if ordinal in done_ordinals:
+            continue
         requirement = requirements[ordinal]
         requirement_id = int(requirement["requirement_id"])
         order = _plan_order(requirement)
         phase = "checkin"
         try:
-            checked = _call_plan_function(
-                function_id="qa.plan_execution.heartbeat",
-                target=target,
-                payload={"execution_id": execution_id},
-                actor=resolved_actor,
-            )
-            if checked.get("delivery"):
-                deliveries.append(checked["delivery"])
+            _check_in()
             phase = "case"
             if requirement.get("runner_id") == "host_control":
                 from yoke_core.domain.machine_qa_plan_case_execution import (
@@ -94,16 +130,7 @@ def execute_begun_plan(
                 )
                 advance_result = False
             else:
-                result = execute_case_context(
-                    requirement,
-                    base_url=resolved_base_url,
-                    expected_branch=expected_branch,
-                    expected_sha=expected_sha,
-                    timeout_seconds=timeout_seconds,
-                    checkout_path=checkout_path,
-                    allow_tree_mismatch=allow_tree_mismatch,
-                    actor=resolved_actor,
-                )
+                result = _execute_local(requirement)
                 advance_result = True
             if int(result.get("requirement_id") or 0) != requirement_id:
                 raise QaPlanExecutionError(
@@ -112,17 +139,7 @@ def execute_begun_plan(
             normalized = {**order, **result}
             phase = "recording"
             if advance_result:
-                _call_plan_function(
-                    function_id="qa.plan_execution.advance",
-                    target=target,
-                    payload={
-                        "execution_id": execution_id,
-                        "ordinal": ordinal,
-                        "requirement_id": requirement_id,
-                        "result": normalized,
-                    },
-                    actor=resolved_actor,
-                )
+                _record(ordinal, normalized)
         except BaseException as exc:
             if unknown := communication_unknown(exc):
                 return paused_result(
@@ -178,6 +195,25 @@ def execute_begun_plan(
         if case_failed(normalized):
             failed_cases.append(requirement_id)
         if _aggregate_state("passed", normalized) == "waiting":
+            if begun.host_free_cases_ahead:
+                # Queued for a host: run the host-free automatic cases first,
+                # then park. Their failures are recorded, not a reason to
+                # leave the line.
+                ran, skipped = run_host_free_cases_while_waiting(
+                    requirements=requirements,
+                    after_ordinal=ordinal,
+                    done_ordinals=done_ordinals,
+                    execute_case=_execute_local,
+                    record_result=_record,
+                    check_in=_check_in,
+                )
+                failed_cases.extend(
+                    int(row["requirement_id"]) for row in ran if case_failed(row)
+                )
+                results[-1:-1] = ran
+                normalized["recovery"] = waiting_recovery(
+                    normalized.get("recovery"), ran, skipped
+                )
             state = "waiting"
             break
 

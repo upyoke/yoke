@@ -100,6 +100,15 @@ receipts do not change health. Ending the session, settling the execution, or
 releasing an unused reservation cancels the wait and passes a reserved turn to
 the next waiter.
 
+Before it parks, a queued plan runs every remaining host-free automatic case in
+its roster — Command and Command (CI) — through the ordinary case runner and
+records each result against its requirement. A failing case is recorded and
+the plan stays queued; a case whose runner raises stays unrecorded and runs in
+order on resume. The park message names the cases it ran. On the host, the
+cursor steps over cases already recorded, so resume never reruns them. Machine
+cases, `inherit` chains, baselines, and agent- or human-judged cases keep their
+roster order.
+
 If a walker discovers a second required host is occupied, return
 `WALK_STATUS: HOST_WAIT` and its registered name plus holder evidence. Submit
 through the current bundle's `yoke qa plan review-submit ... --stdin`:
