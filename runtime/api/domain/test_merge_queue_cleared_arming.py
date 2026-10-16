@@ -26,6 +26,7 @@ from runtime.api.domain.merge_queue_observer_test_helpers import (
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_core.domain.merge_queue_landing_marker import point_item_at_pull_request
 from yoke_core.domain.merge_queue_landing_record import read_landing_record
+import yoke_core.domain.merge_queue_landing_episode as landing_episode
 import yoke_core.domain.merge_queue_landing_observer as landing_observer
 from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
 
@@ -180,6 +181,7 @@ def test_recovered_arming_episode_is_native_before_sql_binding(
         return bind(connection, value, **storage)
 
     monkeypatch.setattr(landing_observer, "instant_parameter", record_binding)
+    monkeypatch.setattr(landing_episode, "instant_parameter", record_binding)
     observe(
         conn,
         now=episode + timedelta(seconds=1),

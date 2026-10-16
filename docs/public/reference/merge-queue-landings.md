@@ -42,6 +42,29 @@ pass: required checks must be replaced on the exact candidate. A new
 `workflow_dispatch` is a fresh attempt whose head and replacement need proof. Repeated observation reuses the
 same stop notice; a new governed arming starts a new episode.
 
+## Re-landing an item that already landed
+
+An item keeps its current landing until a new pull request actually merges.
+When the merge boundary records a pull request for an item that already
+landed (its `merged_at` or `merge_queue_landed_at` is set), the pull request
+becomes a re-land attempt in
+[`merge_queue_landing_attempts`](db-reference/merge-queue-landing-attempts.md)
+and the item's `merge_queue_*` columns stay on the previous landing. One
+attempt is open per item; a newer pull request closes the older attempt as
+superseded.
+
+The observer reads the open attempt instead of the delivered landing. When
+the attempt merges, the observer moves the item's columns onto it, stamps
+GitHub's merge time and sends the normal completion notice. When it closes
+unmerged, the attempt closes with the reason `pull request N closed without
+merging; the item keeps its previous landing`, the item's landing is
+unchanged. An armed attempt first sends its holder the stopped-landing notice
+and closes once that notice is delivered, so a failed notice is retried.
+The board label, the fleet landing readback, `github.merge_queue.readiness`
+and the waiting worker describe the open attempt. `yoke items detail get`
+shows the current landing under `merge_queue` and the open or last closed
+attempt, with its reason, under `merge_queue.attempt`.
+
 The harness manifest determines whether the existing wake route can resume
 the holder automatically. Operator-driven surfaces need the operator to
 re-enter the session. If the holder is gone, the notice routes to the project's

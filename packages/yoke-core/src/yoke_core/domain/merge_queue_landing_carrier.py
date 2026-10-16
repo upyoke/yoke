@@ -161,11 +161,12 @@ def repoint_to_landing_carrier(
             f"({source}); the repoint write failed: {error}"
         )
     return (
-        f"pull request marker repointed from {recorded} to {carrier}: the "
-        f"base holds this lane's work under merge {merge_sha[:12]}, which "
+        f"landing pull request recorded as {carrier} instead of {recorded}: "
+        f"the base holds this lane's work under merge {merge_sha[:12]}, which "
         f"pull request {carrier} carried ({source}). Pull request {recorded} "
         "never merged this landing, so every later question now asks the one "
-        "that did"
+        "that did. An item that already landed keeps its previous landing "
+        f"until the landing observer confirms {carrier} merged"
     )
 
 

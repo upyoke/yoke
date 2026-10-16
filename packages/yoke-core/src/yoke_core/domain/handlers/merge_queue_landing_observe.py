@@ -13,6 +13,7 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 from yoke_core.domain.merge_queue_landing_observer import observe_pending_landings
+from yoke_core.domain.merge_queue_landing_attempt import read_latest_attempt
 from yoke_core.domain.merge_queue_landing_record import read_landing_record
 from yoke_core.domain.merge_queue_landing_refresh import (
     LANDING_RECORD_STALE_SECONDS,
@@ -59,10 +60,27 @@ def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _stored_record(conn: Any, item_id: int, pr_number: str) -> Any:
+def _lane_pull_requests(conn: Any, item_id: int, item_pr_number: str) -> set[str]:
+    """The pull requests whose stored observation answers this lane.
+
+    An open re-land attempt is the landing in flight. Without one, the
+    item's current landing answers, and so does the attempt that just
+    closed: its last observation is how a waiter learns it closed unmerged
+    instead of waiting on a pull request nobody will merge.
+    """
+    attempt = read_latest_attempt(conn, item_id)
+    if attempt is not None and attempt["closed_at"] is None:
+        return {attempt["pr_number"]}
+    lane = {item_pr_number}
+    if attempt is not None:
+        lane.add(attempt["pr_number"])
+    return lane
+
+
+def _stored_record(conn: Any, item_id: int, pr_numbers: set[str]) -> Any:
     """This lane's durable record, or None when it describes another PR."""
     record = read_landing_record(conn, item_id)
-    if record is not None and record.pr_number != pr_number:
+    if record is not None and record.pr_number not in pr_numbers:
         return None
     return record
 
@@ -117,10 +135,12 @@ def handle_observe_landing(request: FunctionCallRequest) -> HandlerOutcome:
                 return _error("target_not_found", ITEM_NOT_FOUND)
             item = row_dict(row)
             project_id = int(item["project_id"])
-            pr_number = str(item.get("merge_queue_pr_number") or "")
+            pr_numbers = _lane_pull_requests(
+                conn, item_id, str(item.get("merge_queue_pr_number") or "")
+            )
             before = read_refresh(conn, project_id)
             after = before
-            record = _stored_record(conn, item_id, pr_number)
+            record = _stored_record(conn, item_id, pr_numbers)
             observation_error = ""
             if _stale(record, before, now=current):
                 try:
@@ -128,7 +148,7 @@ def handle_observe_landing(request: FunctionCallRequest) -> HandlerOutcome:
                 except Exception as exc:  # The refresh row carries this evidence.
                     observation_error = str(exc)
                 after = read_refresh(conn, project_id)
-                record = _stored_record(conn, item_id, pr_number)
+                record = _stored_record(conn, item_id, pr_numbers)
             stale = _stale(record, after, now=current) or bool(observation_error)
             age = record_age_seconds(
                 record.observed_at if record is not None else None,
