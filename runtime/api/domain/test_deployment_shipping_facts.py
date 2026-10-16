@@ -150,3 +150,60 @@ def test_pending_independent_review_remains_pending_then_refreshes(test_db):
     assert pending["reason"] == expected.reason
     _submit(test_db, execution, bundle, requirement, "pass")
     assert member_qa_standings(test_db, subjects)[(run, MEMBER)]["state"] == "accepted"
+
+
+def test_case_environment_overrides_share_reads_and_refresh_next_request(test_db):
+    import json
+    from runtime.api.domain.test_deployment_qa_stage_execution import _environment
+    from yoke_core.domain.qa_deployment_member_attached_plans import (
+        attached_member_plan_ids,
+    )
+
+    _environment(test_db)
+    plan = _plan(test_db, "cross-environment-display", target_envs=["stage"])
+    members = tuple(range(33001, 33021))
+    _seed_run(
+        test_db, run_id="cross-environment-read", stages=_stages(plan), members=members
+    )
+    stage = test_db.execute(
+        "SELECT id FROM environments WHERE name='stage'"
+    ).fetchone()[0]
+    other = test_db.execute(
+        "INSERT INTO environments(site,project_id,name,url,settings,created_at) "
+        "SELECT site,project_id,'other','https://other.example.test','{}',created_at "
+        "FROM environments WHERE id=%s RETURNING id",
+        (stage,),
+    ).fetchone()[0]
+    test_db.execute(
+        "UPDATE qa_plans SET target_environment_id=%s WHERE id=%s", (other, plan)
+    )
+    for member in members:
+        _attach(test_db, member, plan)
+
+    @presentation_operation
+    @member_presentation
+    def read(conn, subjects):
+        return [
+            attached_member_plan_ids(conn, member_item_id=member, environment_id=stage)
+            for _, member, _ in subjects
+        ]
+
+    subjects = [("cross-environment-read", member, "item-qa") for member in members]
+    conn = CountedConnection(test_db)
+    assert read(conn, subjects) == [[plan]] * len(members)
+    assert (
+        sum(
+            n
+            for sql, n in conn.queries.items()
+            if "SELECT name FROM environments" in sql
+        )
+        == 1
+    )
+    assert (
+        sum(n for sql, n in conn.queries.items() if "FROM qa_plan_cases c" in sql) == 1
+    )
+    test_db.execute(
+        "UPDATE qa_plan_cases SET target_envs=%s WHERE plan_id=%s",
+        (json.dumps(["other"]), plan),
+    )
+    assert read(conn, subjects) == [[]] * len(members)
