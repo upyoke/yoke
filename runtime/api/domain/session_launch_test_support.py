@@ -26,7 +26,7 @@ def launch_connection() -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(
         """
-        CREATE TABLE organizations (id INTEGER PRIMARY KEY, settings TEXT);
+        CREATE TABLE organizations (id INTEGER PRIMARY KEY, settings TEXT NOT NULL);
         CREATE TABLE actors (
             status TEXT NOT NULL DEFAULT 'active', id INTEGER PRIMARY KEY,
             kind TEXT NOT NULL DEFAULT 'human', system_component TEXT,

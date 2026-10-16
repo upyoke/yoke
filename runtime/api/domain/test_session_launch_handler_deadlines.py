@@ -122,9 +122,6 @@ def test_retry_mutation_settles_deadline_before_applying_retry(monkeypatch) -> N
 def test_create_refuses_surface_fallback_under_fixed_policy(monkeypatch) -> None:
     conn = launch_connection()
     conn.execute("ALTER TABLE projects ADD COLUMN org_id INTEGER DEFAULT 1")
-    conn.execute(
-        "CREATE TABLE organizations (id INTEGER PRIMARY KEY,settings TEXT NOT NULL)"
-    )
     conn.execute("INSERT INTO organizations VALUES (1,'{}')")
     conn.commit()
     add_relay(
