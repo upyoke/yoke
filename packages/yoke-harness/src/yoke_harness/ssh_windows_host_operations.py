@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_contracts.machine_qa_failures import HostControlLocalError
+from yoke_contracts.machine_qa_failures import SSH_UNAVAILABLE, HostControlLocalError
 from yoke_harness.ssh_linux_host_operations import SshLinuxHostOperations
 from yoke_harness.test_machine_types import HostActionResult
 from yoke_harness.windows_wsl_command import windows_wsl_command, windows_wsl_input
@@ -27,7 +27,7 @@ class SshWindowsHostOperations(SshLinuxHostOperations):
         try:
             facts = super()._host_facts()
         except HostControlLocalError as exc:
-            if exc.code == "ssh_unavailable":
+            if exc.code == SSH_UNAVAILABLE:
                 raise
             raise HostControlLocalError(
                 code="windows_wsl_user_required",

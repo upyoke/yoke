@@ -16,6 +16,8 @@ from yoke_harness.ssh_mac_gui_session import (
     classify_macos_session_context_failure,
 )
 from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
+from yoke_contracts.machine_qa_failures import SSH_UNAVAILABLE, HostControlLocalError
+from yoke_core.domain.machine_qa_host_unreachable import unreachable_submission
 from yoke_contracts.qa_mission_scratch import mission_scratch_path
 
 from yoke_core.domain.agent_mission_preparation import (
@@ -167,15 +169,18 @@ def execute_machine_case_contract(
     chain's starting state is restored after the case when it ends its chain
     or its capture failed, including when local execution raises. Successful
     captures awaiting independent review preserve intermediate chain state.
+    A plan case whose host SSH cannot reach is reported unstarted so the
+    authority marks the host unhealthy and queues the plan on its line.
     """
     contract = HostControlExecutionContract.model_validate(raw_contract)
     if contract.operation not in {"case", "plan_case"}:
         raise ValueError("expected a Machine QA case contract")
-    execution = (
-        _execution(contract)
-        if progress_callback is None
-        else _execution(contract, progress_callback=progress_callback)
-    )
+    try:
+        execution = _execution(contract, progress_callback=progress_callback)
+    except HostControlLocalError as exc:
+        if exc.code != SSH_UNAVAILABLE or contract.operation != "plan_case":
+            raise
+        return unreachable_submission(contract, exc)
     case = contract.cases[0]
     machine = contract.settings["resource_name"]
     secret_values = tuple(execution.material.secrets.values())
