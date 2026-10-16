@@ -189,7 +189,8 @@ def test_human_live_reference_snapshot_and_upload_protections(test_db):
         )
     for snap, generation in ((snapshots[2], 1), (snapshots[4], 2)):
         test_db.execute(
-            "INSERT INTO path_snapshot_entries (snapshot_id,target_id) VALUES (%s,%s)", (snap, _target(test_db, "changing.py", generation)),
+            "INSERT INTO path_snapshot_entries (snapshot_id,target_id) VALUES (%s,%s)",
+            (snap, _target(test_db, "changing.py", generation)),
         )
     insert_item(test_db)
     insert_item_worktree(test_db, item_id=1, branch="active")
