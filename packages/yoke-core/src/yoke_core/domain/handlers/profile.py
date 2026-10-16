@@ -34,6 +34,7 @@ from yoke_core.domain.profile_read import (
 
 PREFERENCE_KEYS = (TIME_ZONE_PREF_KEY,)
 
+
 class ProfileGetRequest(BaseModel):
     pass
 
