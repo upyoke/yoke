@@ -241,7 +241,8 @@ def test_unknown_lease_gets_diagnosed_refusal(test_db, tmp_path, monkeypatch, ha
         )
     refused = handler(request(payload))
     assert not refused.primary_success
-    assert "was not issued" in refused.error.message
+    assert "no lease was issued with that id" in refused.error.message
+    assert "Declare method_config.machine" in refused.error.message
 
 
 def test_later_mission_screenshot_can_replace_receipt(mission):
@@ -305,6 +306,7 @@ def test_live_mission_refuses_destructive_baseline_operations(mission, operation
     refused = begin(operation)
     assert not refused.primary_success
     assert "test_machine_cleanup_live_lease" in refused.error.message
-    assert "finish or abort" in refused.error.message
+    assert "Finish or abort your mission" in refused.error.message
+    assert "you hold the lease on mac-mini-lab" in refused.error.message
     assert control.full_reset_calls == before
     assert get_claim(conn, contract["lease_id"]).is_active

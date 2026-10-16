@@ -101,9 +101,10 @@ def begin_operation_execution(
         )
     if shape.get("baselines") and mission["state"] == "awaiting_agent_review":
         raise MachineQaProtocolError(
-            "test_machine_cleanup_live_lease: reset/verify would clear temporary "
-            "state owned by a live mission; finish or abort the owning mission "
-            "before resetting or verifying this host"
+            "test_machine_cleanup_live_lease: you hold the lease on "
+            f"{candidate.settings['resource_name']} for your awaiting mission "
+            f"{mission['id']}; reset/verify would clear that mission's temporary "
+            "state. Finish or abort your mission before resetting or verifying this host"
         )
     lease, candidate = _validate_lease_owner(
         conn,

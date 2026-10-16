@@ -236,9 +236,11 @@ def handle_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
         )
         if result is None:
             if not lease.is_active:
-                raise ValueError(
-                    "host-control lease is released without a recorded case result"
+                from yoke_core.domain.machine_qa_lease_messages import (
+                    released_without_receipt,
                 )
+
+                raise ValueError(released_without_receipt(lease))
             with TemporaryDirectory(prefix="yoke-machine-qa-") as temp_dir:
                 result = record_submitted_case(
                     commit_deferred_connection(conn),
