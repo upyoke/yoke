@@ -20,7 +20,7 @@ from runtime.api.steering_fleet_test_helpers import (
     compose,
     seed_steering_scope,
 )
-from yoke_core.domain.steering_fleet_report_deployment_runs import run_progress
+from yoke_core.domain.steering_fleet_report_run_progress import run_progress
 from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_render import report_body
 

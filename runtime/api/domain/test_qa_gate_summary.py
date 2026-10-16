@@ -25,7 +25,7 @@ from yoke_core.domain.qa_gate_summary import (
     _format_text,
     render_gate_summary,
 )
-from yoke_core.domain.qa_review_requests import QaReviewWait
+from yoke_core.domain.qa_review_waits import QaReviewWait
 from runtime.api.domain.qa_gate_summary_test_fixtures import (  # noqa: F401
     SUMMARY_EPIC_REF,
     add_artifact,

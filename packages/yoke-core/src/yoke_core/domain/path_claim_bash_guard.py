@@ -17,7 +17,11 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from yoke_contracts.hook_runner.session_cwd import client_scratch_root
+from yoke_contracts.hook_runner.session_cwd import (
+    client_machine_home,
+    client_scratch_root,
+)
+from yoke_core.domain.command_workdir import command_execution_cwd
 from yoke_core.domain.lint_command_extract import extract_command
 from yoke_core.domain.observe_normalization import (
     TOOL_KIND_BASH,
@@ -67,7 +71,7 @@ class BashGuardVerdict:
 
 
 def _resolve_cwd(record: ToolEventRecord) -> str:
-    """Return the payload's cwd; the evaluating process's own cwd is not it."""
+    """Return the command's execution cwd; never the evaluator's own cwd."""
     return (record.cwd or "").strip()
 
 
@@ -92,7 +96,7 @@ def evaluate_payload(
     if not command.strip():
         return BashGuardVerdict(outcome="allow")
 
-    mutations: List[Mutation] = extract_mutations(command)
+    mutations: List[Mutation] = extract_mutations(command, _resolve_cwd(record))
     if not mutations:
         return BashGuardVerdict(outcome="allow")
 
@@ -179,21 +183,17 @@ def _coerce_record(payload: Any) -> Optional[ToolEventRecord]:
         return payload
     if not isinstance(payload, dict):
         return None
-    tool_input = payload.get("tool_input") or payload.get("toolInput") or {}
-    command = extract_command(payload)
-    cwd = str(payload.get("cwd") or "") or (
-        str(tool_input.get("cwd") or "") if isinstance(tool_input, dict) else ""
-    )
     return ToolEventRecord(
         tool_kind=TOOL_KIND_BASH,
         changed_paths=[],
-        command=command,
+        command=extract_command(payload),
         patch_body="",
         tool_name=str(payload.get("tool_name") or "Bash"),
         session_id=str(payload.get("session_id") or ""),
         tool_use_id=payload.get("tool_use_id"),
         turn_id=payload.get("turn_id") or payload.get("message_id"),
-        cwd=cwd,
+        # The client's home, never this process's: "" leaves ``~`` as written.
+        cwd=command_execution_cwd(payload, machine_home=client_machine_home(payload)),
         project_dir=str(payload.get("cwd") or payload.get("project_dir") or ""),
     )
 

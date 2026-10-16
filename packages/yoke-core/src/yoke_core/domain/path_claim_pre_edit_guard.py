@@ -161,7 +161,7 @@ def _format_narrative(
     template = widen_template(
         claim_id=ctx.claim_id,
         item_id=ctx.item_id,
-        target_path=target_path,
+        target_path=failure.repo_path or target_path,
         public_ref=ctx.public_ref,
     )
     expected_wt = failure.effective_worktree_path or ctx.worktree_path

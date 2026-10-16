@@ -4,7 +4,7 @@ Wake capability is a manifest fact, not prose. Source of truth:
 `yoke_contracts.harness_wake_capability`. Change the contract and re-render; never
 restate one of these facts on a document's own authority.
 
-- `claude-code` — idle wake: supported (`Monitor`); timer wake: supported (`ScheduleWakeup`). Verified on claude-cli.
+- `claude-code` — idle wake: supported (`Monitor`), each subscription ending within 30 minutes (`timeout_ms`); re-arm the same tail on the expiry notice; timer wake: supported (`ScheduleWakeup`). Verified on claude-cli.
 - `codex` — idle wake: none; timer wake: none. Verified on codex-cli.
 - `cursor` — idle wake: supported (`notify_on_output`); timer wake: none. Verified on cursor-cli.
 <!-- END GENERATED: harness-wake-capability -->

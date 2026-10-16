@@ -47,7 +47,7 @@ from yoke_core.domain.deployment_requirement_snapshots import (
 from yoke_core.domain.post_deploy_verification_answer import answer_for_item
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
-from yoke_core.domain.steering_fleet_report_deployment_runs import run_progress
+from yoke_core.domain.steering_fleet_report_run_progress import run_progress
 
 RUN = "run-carried-item-qa"
 MEMBER = 9951

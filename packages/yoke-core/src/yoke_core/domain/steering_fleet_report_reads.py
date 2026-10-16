@@ -46,8 +46,8 @@ from yoke_core.domain.steering_fleet_report_capacity import (
 )
 from yoke_core.domain.steering_fleet_report_deployment_runs import (
     DeploymentRunProgress,
-    run_progress,
 )
+from yoke_core.domain.steering_fleet_report_run_progress import run_progress
 from yoke_core.domain.steering_fleet_report_detectors import (
     UnregisteredLaunch,
     unregistered_launches,

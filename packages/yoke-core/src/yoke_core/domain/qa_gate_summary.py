@@ -28,7 +28,7 @@ from yoke_core.domain.qa_obligation_settlement import (
     settled_obligation_sql,
 )
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
-from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
+from yoke_core.domain.qa_review_waits import requirement_awaits_human_review
 
 
 VALID_TARGETS = ("reviewed-implementation", "implemented")

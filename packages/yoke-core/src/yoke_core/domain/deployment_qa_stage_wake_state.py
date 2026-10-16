@@ -18,7 +18,8 @@ Three answers, each one line per member:
   (re-driving sends it).
 
 Reads are bounded per run, not per member: one notice read for the whole
-stage, and at most two addressability reads.
+stage, and at most two addressability reads. Inside a member presentation
+the notice read covers every presented run at once.
 """
 
 from __future__ import annotations
@@ -72,6 +73,41 @@ def _member_of(key: str, prefixes: dict[str, str]) -> tuple[int, str] | None:
     return None
 
 
+def _notice_rows(conn: Any, *, run_id: str, stage_name: str) -> list[Any]:
+    """Stored wake notices, newest first, for every presented run at once.
+
+    Inside a member presentation one read covers every presented run's
+    stages; callers keep only their own stage's prefixes.
+    """
+    from yoke_core.domain.deployment_qa_presentation_facts import presented_run_ids
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
+
+    runs = presented_run_ids(conn, run_id)
+    scopes = [f"{run}:" for run in runs] if runs else [f"{run_id}:{stage_name}:"]
+    patterns = tuple(
+        f"{prefix}{scope}%"
+        for scope in scopes
+        for prefix in (DEPLOYMENT_QA_STAGE_WAIT_PREFIX, FAILURE_HANDOFF_PREFIX)
+    )
+    marker = _p(conn)
+
+    def read() -> list[Any]:
+        return conn.execute(
+            "SELECT m.message_id AS message_id, m.idempotency_key AS idempotency_key, "
+            "m.created_at AS sent_at, COALESCE(r.session_id, '') AS session_id, "
+            "CASE WHEN m.cancelled_at IS NOT NULL THEN 'cancelled' "
+            "ELSE COALESCE(r.state, '') END AS state, "
+            "COALESCE(r.wake_escalation, '') AS escalation "
+            "FROM session_messages m "
+            "LEFT JOIN session_message_recipients r ON r.message_id = m.message_id "
+            f"WHERE ({' OR '.join(f'm.idempotency_key LIKE {marker}' for _ in patterns)}) "
+            "ORDER BY m.created_at DESC, (m.cancelled_at IS NULL) DESC, m.message_id",
+            patterns,
+        ).fetchall()
+
+    return presentation_read(conn, ("qa_wake_notices", patterns), read)
+
+
 def _latest_notices(
     conn: Any, *, run_id: str, stage_name: str
 ) -> dict[int, tuple[str, datetime | None, str, str]]:
@@ -89,19 +125,7 @@ def _latest_notices(
         f"{DEPLOYMENT_QA_STAGE_WAIT_PREFIX}{run_id}:{stage_name}:": _WAIT,
         f"{FAILURE_HANDOFF_PREFIX}{run_id}:{stage_name}:": _FAILURE_HANDOFF,
     }
-    marker = _p(conn)
-    rows = conn.execute(
-        "SELECT m.message_id AS message_id, m.idempotency_key AS idempotency_key, "
-        "m.created_at AS sent_at, COALESCE(r.session_id, '') AS session_id, "
-        "CASE WHEN m.cancelled_at IS NOT NULL THEN 'cancelled' "
-        "ELSE COALESCE(r.state, '') END AS state, "
-        "COALESCE(r.wake_escalation, '') AS escalation "
-        "FROM session_messages m "
-        "LEFT JOIN session_message_recipients r ON r.message_id = m.message_id "
-        f"WHERE (m.idempotency_key LIKE {marker} OR m.idempotency_key LIKE {marker}) "
-        "ORDER BY m.created_at DESC, (m.cancelled_at IS NULL) DESC, m.message_id",
-        tuple(f"{prefix}%" for prefix in prefixes),
-    ).fetchall()
+    rows = _notice_rows(conn, run_id=run_id, stage_name=stage_name)
     newest: dict[int, str] = {}
     best: dict[int, tuple[tuple[int, str], tuple[str, datetime | None, str, str]]] = {}
     for row in rows:
@@ -145,6 +169,26 @@ def _describe(notice: tuple[str, datetime | None, str, str]) -> str:
     return f"woken {sent}{by}, not yet delivered"
 
 
+def _addressable(conn: Any, members: list[int], *, project_id: int) -> set[int]:
+    """Addressable members; inside a presentation, asked once for every presented one."""
+    from yoke_core.domain.deployment_qa_presentation_facts import (
+        presented_member_ids,
+    )
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
+
+    presented = presented_member_ids(conn)
+    ask = (
+        tuple(presented)
+        if presented and set(members) <= set(presented)
+        else tuple(members)
+    )
+    return presentation_read(
+        conn,
+        ("qa_addressable_members", ask, int(project_id)),
+        lambda: addressable_items(conn, item_ids=ask, project_id=project_id),
+    )
+
+
 def member_wake_states(
     conn: Any,
     *,
@@ -162,7 +206,7 @@ def member_wake_states(
     if driver_live:
         states.update({m: "wake pending (driver live, not yet sent)" for m in unsent})
         return states
-    reachable = addressable_items(conn, item_ids=unsent, project_id=project_id)
+    reachable = _addressable(conn, unsent, project_id=project_id)
     for member in unsent:
         states[member] = (
             f"not woken: driver gone or stale; re-drive {run_id} to send it"

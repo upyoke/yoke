@@ -53,7 +53,8 @@ Always explicit gate-point; defaulting to activation is not classification.
 Re-register without upstream pin so the resolver walks the authoritative graph.
 Candidate is blocked until the actual condition; multiple overlapping upstream
 holders all must satisfy/release, not just the latest blocked_reason display.
-Only the dependent waits. Rationale/doctor review detects missing/stale or
+Only the dependent waits; the blocker's landing or done transition notifies
+it when its gate clears. Rationale/doctor review detects missing/stale or
 unjustified path-only hard blocks.
 
 ## 4. Explicit upstream claim pin, secondary

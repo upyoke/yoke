@@ -2,19 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.qa_latest_execution import latest_executions
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain.approval_policy import ApprovalPolicy
 from yoke_core.domain.decision_requests import (
     RoleAuthority,
     create_decision_request,
-    list_subject_requests,
 )
 from yoke_core.domain.qa_evidence_portability import require_servable_review_evidence
 from yoke_core.domain.qa_review_evidence import qa_review_artifact_context
@@ -29,104 +26,6 @@ from yoke_core.domain.schema_common import _table_exists
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-@dataclass(frozen=True)
-class QaReviewWait:
-    """A blocking requirement whose evidence awaits an authorized person."""
-
-    requirement_id: int
-    request_id: int
-    verdict_reason: str
-    authorities: tuple[str, ...]
-
-    @property
-    def detail(self) -> str:
-        reason = f": {self.verdict_reason}" if self.verdict_reason else ""
-        return (
-            f"Requirement #{self.requirement_id} awaits human evidence review "
-            f"in decision request {self.request_id}{reason}"
-        )
-
-    @property
-    def recovery(self) -> str:
-        named = ", ".join(self.authorities) or "a resolver named by the request"
-        return (
-            f"Authorized resolver(s): {named}. Run `yoke decision-requests "
-            f"resolve {self.request_id} approve|reject|waive --note "
-            '"<evidence decision>"`.'
-        )
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "requirement_id": self.requirement_id,
-            "request_id": self.request_id,
-            "verdict_reason": self.verdict_reason,
-            "authorities": list(self.authorities),
-            "detail": self.detail,
-            "recovery": self.recovery,
-        }
-
-
-def requirement_awaits_human_review(
-    conn: Any,
-    requirement_id: int,
-) -> Optional[QaReviewWait]:
-    """Return the live QA-review blocker for one unsatisfied requirement."""
-    required = (
-        "qa_requirements",
-        "qa_runs",
-        "decision_requests",
-        "decision_request_role_authorities",
-        "decision_request_actor_authorities",
-    )
-    if not all(_table_exists(conn, table) for table in required):
-        return None
-    p = _p(conn)
-    requirement = conn.execute(
-        f"SELECT blocking_mode, waived_at FROM qa_requirements WHERE id = {p}",
-        (int(requirement_id),),
-    ).fetchone()
-    if requirement is None:
-        return None
-    blocking_mode = (
-        requirement["blocking_mode"] if hasattr(requirement, "keys") else requirement[0]
-    )
-    waived_at = (
-        requirement["waived_at"] if hasattr(requirement, "keys") else requirement[1]
-    )
-    if str(blocking_mode) != "blocking" or waived_at:
-        return None
-    latest = latest_executions(conn, [requirement_id]).get(int(requirement_id))
-    if latest is None or latest["verdict"] != "undetermined":
-        return None
-    verdict_reason = latest["verdict_reason"]
-    request = next(
-        (
-            row
-            for row in list_subject_requests(
-                conn, "qa_requirement", str(int(requirement_id))
-            )
-            if row["kind"] == "qa_needs_review"
-            and row["status"] == "pending"
-            and int((row.get("subject_context") or {}).get("run_id") or 0)
-            == int(latest["id"])
-        ),
-        None,
-    )
-    if request is None:
-        return None
-    labels = {
-        f"{row['scope_kind']} {str(row['role_name']).replace('_', ' ')}"
-        for row in request.get("role_authorities", [])
-    }
-    labels.update(f"actor {value}" for value in request.get("named_actor_ids", []))
-    return QaReviewWait(
-        requirement_id=int(requirement_id),
-        request_id=int(request["id"]),
-        verdict_reason=str(verdict_reason or "").strip(),
-        authorities=tuple(sorted(labels)),
-    )
 
 
 #: Who answers a QA evidence review when the caller names no one else.
@@ -326,9 +225,7 @@ def apply_qa_review_resolution(
 
 __all__ = [
     "QA_REVIEW_DEFAULT_POLICY",
-    "QaReviewWait",
     "apply_qa_review_resolution",
     "ensure_qa_review_request",
     "maybe_ensure_qa_review_request",
-    "requirement_awaits_human_review",
 ]

@@ -10,10 +10,8 @@ Browser and Terminal inspections are judged by an agent and refuse
 from __future__ import annotations
 
 from runtime.api.domain.qa_review_seed import _seed_undetermined_review
-from yoke_core.domain.qa_review_requests import (
-    maybe_ensure_qa_review_request,
-    requirement_awaits_human_review,
-)
+from yoke_core.domain.qa_review_requests import maybe_ensure_qa_review_request
+from yoke_core.domain.qa_review_waits import requirement_awaits_human_review
 
 
 def test_an_inspection_verdict_reaches_a_person_under_its_own_performer(test_db):
