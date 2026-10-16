@@ -325,12 +325,19 @@ def settle_members(conn: Any, run_id: str) -> Optional[str]:
     still at its release wait — its close-out would refuse, or it was never
     cleared — the run may not succeed and no member closes. A member owing
     only another environment's obligations does not hold the run; it stays
-    open, delivered here, until that target answers it. Returns the
-    refusal that keeps the run settling, or ``None`` once it may succeed.
+    open, delivered here, until that target answers it. Members whose
+    candidate left the frozen lineage — reopened ones included — are
+    released first. Returns the refusal that keeps the run settling, or
+    ``None`` once it may succeed.
     """
     from yoke_core.domain.deployment_run_member_removal import release_replaced_members
+    from yoke_core.domain.deployment_run_reopened_members import reopened_members
 
-    release_replaced_members(conn, run_id, _final_members(conn, run_id, at_wait=True))
+    release_replaced_members(
+        conn,
+        run_id,
+        _final_members(conn, run_id, at_wait=True) + reopened_members(conn, run_id),
+    )
     staged, refusal = _commit_phase(conn, run_id)
     if refusal:
         return refusal

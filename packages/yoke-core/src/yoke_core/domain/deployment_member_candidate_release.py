@@ -14,9 +14,18 @@ CORRECTION_RELEASE_REMOVED_BY = "item QA failure"
 
 
 def candidate_exclusions(
-    conn: Any, run_id: str, members: list[dict[str, Any]], *, include_lane_head: bool
+    conn: Any,
+    run_id: str,
+    members: list[dict[str, Any]],
+    *,
+    include_lane_head: bool,
+    unproven: dict[int, str] | None = None,
 ) -> list[tuple[int, str, str]]:
-    """Resolve containment before locks; return identities to re-check under them."""
+    """Resolve containment before locks; return identities to re-check under them.
+
+    Pass *unproven* to collect, per item, why containment could not be
+    decided; those members are neither excluded nor proven contained.
+    """
     from yoke_core.domain.dash_lane_head_staleness import active_lane_head
     from yoke_core.domain.delivery_evidence_ladder import item_merge_identity
     from yoke_core.domain.deployment_run_candidate_containment import (
@@ -50,9 +59,12 @@ def candidate_exclusions(
         if not merge:
             continue
         if not lineage:
+            why = "has no pinned project source; bind its project source before retrying QA release"
             print(
-                f"member_candidate_containment_unproven: {render_item_ref(conn, item_id)} on {run_id} has no pinned project source; bind its project source before retrying QA release."
+                f"member_candidate_containment_unproven: {render_item_ref(conn, item_id)} on {run_id} {why}."
             )
+            if unproven is not None:
+                unproven[item_id] = why
             continue
         if project_id not in walkers:
             walkers[project_id] = CandidateContainment(
@@ -70,9 +82,12 @@ def candidate_exclusions(
                     commit_sha=sha,
                 )
             if verdict.state == UNDETERMINED:
+                why = f"{verdict.reason}. {verdict.recovery}"
                 print(
-                    f"member_candidate_containment_unproven: {render_item_ref(conn, item_id)} on {run_id}: {verdict.reason}. {verdict.recovery}"
+                    f"member_candidate_containment_unproven: {render_item_ref(conn, item_id)} on {run_id}: {why}"
                 )
+                if unproven is not None:
+                    unproven[item_id] = why
             if verdict.state == NOT_CONTAINED:
                 excluded.append((item_id, merge, head))
                 break

@@ -128,9 +128,12 @@ def deployment_runs_remove_item(args: List[str]) -> int:
             "records its blocker and parks; otherwise the item rides a later release and "
             "the holder re-parks. "
             "Resume a failed run with `yoke watch deploy -- RUN --from-stage item-qa`; every other failed stage refuses removal. "
-            "At settlement, a member whose current candidate is definitely outside "
-            "the frozen lineage is removed automatically for a later release; "
-            "unknown containment still blocks."
+            "A member never needs remove-item to leave a frozen run: resume and "
+            "settlement both release, for a later release, a member whose current "
+            "candidate is definitely outside the frozen lineage, settled QA "
+            "included; this covers a member reopened for rework after the run "
+            "deployed. A reopened member whose candidate is contained stays, and "
+            "unknown containment still blocks by name."
         ),
     )
     parser.add_argument("run_id")
