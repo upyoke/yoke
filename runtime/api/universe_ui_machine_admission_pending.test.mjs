@@ -4,6 +4,7 @@ import { appendApprovingAs, renderPendingMachines, resolveMirroredMachineApprova
 import { renderMachineApproval } from "../../packages/yoke-core/src/yoke_core/ui/static/machine_approval.js";
 import { inboxPresentation } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_inbox.js";
 import { createDecisionResolver } from "../../packages/yoke-core/src/yoke_core/ui/static/inbox_rows.js";
+import { replaceViewAbort } from "../../packages/yoke-core/src/yoke_core/ui/static/mount-options.js";
 import { machineRequestRow, renderInbox } from "./universe_ui_inbox_test_support.mjs";
 import { FakeDocument, allNodes, byClass, settle } from "./universe_ui_dom_test_support.mjs";
 
@@ -237,19 +238,37 @@ for (const rejects of [false, true]) test(`mirror ${rejects ? "network" : "refus
   assert.match(byClass(wrap, "inbox-row-error")[0].textContent, /retry decision/);
 });
 
-test("approving identity reads once per mount and ignores late replies after abort", async () => {
-  const document = new FakeDocument(), controller = new AbortController(), calls = [];
-  let finish;
-  const context = { document, signal: controller.signal, isMounted: () => true,
-    client: { call: (call) => { calls.push(call); return new Promise((resolve) => { finish = resolve; }); } } };
+test("same-context route replacement prevents stale identity updates in retained and detached cards", async () => {
+  const document = new FakeDocument(), calls = [], finishes = [];
+  const context = { document, isMounted: () => true,
+    client: { call: (call) => { calls.push(call); return new Promise((resolve) => finishes.push(resolve)); } } };
+  replaceViewAbort(context);
+  const oldSignal = context.signal;
   const hosts = [document.createElement("div"), document.createElement("div")];
   const reads = hosts.map((host) => appendApprovingAs(context, host)); await settle();
   assert.deepEqual(calls, [{ function: "machine_authorization.pending", payload: {} }]);
-  controller.abort(); finish(ok({ viewer: { name: "Morgan", actor_id: 9 } })); await Promise.all(reads);
+  replaceViewAbort(context);
+  assert.equal(oldSignal.aborted, true); assert.equal(context.signal.aborted, false);
+  hosts[0].isConnected = false; hosts[1].isConnected = true;
+  const current = document.createElement("footer");
+  const remount = appendApprovingAs(context, current); await settle();
+  finishes[0](ok({ viewer: { name: "Morgan", actor_id: 9 } })); await Promise.all(reads);
   for (const host of hosts) assert.match(host.textContent, /Approving as your signed-in account/);
-  const remount = appendApprovingAs({ ...context, signal: new AbortController().signal }, hosts[0]); await settle();
-  finish(ok({ viewer: { name: "Sam", actor_id: 10 } })); await remount;
-  assert.equal(calls.length, 2); assert.match(hosts[0].textContent, /Approving as Sam · actor #10/);
+  assert.match(current.textContent, /Approving as your signed-in account/);
+  finishes[1](ok({ viewer: { name: "Sam", actor_id: 10 } })); await remount;
+  const sibling = document.createElement("footer"); await appendApprovingAs(context, sibling);
+  assert.equal(calls.length, 2);
+  for (const host of [current, sibling]) assert.match(host.textContent, /Approving as Sam · actor #10/);
+  context.abortView();
+});
+
+test("an aborted owning route never starts its deferred identity read", async () => {
+  const document = new FakeDocument(), host = document.createElement("footer"), calls = [];
+  const context = { document, isMounted: () => true, client: { call: (call) => calls.push(call) } };
+  replaceViewAbort(context);
+  const read = appendApprovingAs(context, host); replaceViewAbort(context); await read;
+  assert.equal(calls.length, 0); assert.match(host.textContent, /Approving as your signed-in account/);
+  context.abortView();
 });
 
 for (const reply of [ok({}), fail("function_not_registered"), new Error("network")]) {
