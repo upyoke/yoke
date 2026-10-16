@@ -79,6 +79,9 @@ def apply_release_gap_schema() -> None:
             + EVENTS_SCHEMA
             + PATH_CLAIMS_SCHEMA,
         )
+        conn.execute(
+            "ALTER TABLE harness_sessions ADD COLUMN project_id INTEGER REFERENCES projects(id)"
+        )
         ensure_item_refs_view(conn)
         from yoke_core.domain.workflow_registry import converge_builtin_workflows
         from yoke_core.domain.workflow_schema import ensure_workflow_schema
