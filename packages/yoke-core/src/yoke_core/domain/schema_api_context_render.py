@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import Callable
 
 from yoke_core.domain import schema_api_context_seed as seed
+from yoke_core.domain.db_read_column_hints import table_notes
 from yoke_core.domain.schema_api_context_json_schemas import (
     ACCESS_PATTERN_NOTE,
     JSON_NESTED_SCHEMAS,
@@ -238,7 +239,7 @@ def render_table_block(
     for table in tables:
         cols = resolve_columns(table)
         col_str = ", ".join(name for name, _ in cols)
-        notes = seed.CANONICAL_TABLES[table].get("notes", "")
+        notes = table_notes(table, cols, seed.CANONICAL_TABLES[table].get("notes", ""))
         out.append(f"- **`{table}`** — `{col_str}`")
         if detail == PACKET_DETAIL_FULL and notes:
             out.append(f"  - {notes}")

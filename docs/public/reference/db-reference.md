@@ -1,6 +1,6 @@
 # Yoke DB Reference
 
-Raw item reads join `item_refs r ON r.item_id = items.id` and select `r.public_ref`. The read-only view follows prefix updates; `project_sequence` alone is ambiguous across projects. `yoke db read` warns when the result omits both `public_ref` and `public_item_prefix`.
+Raw item reads join `item_refs r ON r.item_id = items.id` and select `r.public_ref`. The read-only view follows prefix updates; `project_sequence` alone is ambiguous across projects. `yoke db read` warns when a query reads item ids (`items.id` or any `*item_id` column) without joining `item_refs`, and when a returned `project_sequence` lacks both `public_ref` and `public_item_prefix`.
 
 Source of truth: the configured Postgres authority. Agent-facing reads and
 writes route through registered `yoke ...` commands or the Yoke
