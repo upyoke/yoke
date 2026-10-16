@@ -182,6 +182,7 @@ def _run_with_platform_driver(app) -> None:
             try:
                 require_foreground_terminal(sys.__stdin__)
             except SetupTerminalError as exc:
+                self.observe_foreground()
                 lost, startup_error = True, exc
                 self._app.exit()
                 return
@@ -231,7 +232,8 @@ def _run_with_platform_driver(app) -> None:
     if startup_error:
         raise SetupTerminalError(
             "setup_terminal_ownership_lost: ownership changed before the wizard "
-            "started. Return to the foreground shell and run `yoke setup` again."
+            f"started ({_loss_cause(evidence)}). Return to the foreground shell "
+            "and run `yoke setup` again."
         ) from startup_error
     if lost:
         recovery = "Return to the foreground shell and run `yoke setup` again."
