@@ -2,7 +2,7 @@
  "id": "capabilities",
  "title": "Capabilities, settings and secrets",
  "status": "draft-copy",
- "sources": ["docs/public/capabilities.md", "docs/public/reference/db-reference/projects-and-flows.md", "docs/public/agents/rules/delivery.md"],
+ "sources": ["docs/public/capabilities.md", "docs/public/reference/db-reference/projects-and-flows.md", "docs/public/agents/rules/packs.md"],
  "page": "capabilities",
  "position": 5
 }

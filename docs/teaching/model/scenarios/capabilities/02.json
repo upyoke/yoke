@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke projects capability-settings get --project P --cap-type TYPE", "yoke projects capability-settings set --help", "yoke projects capability-settings merge --help", "yoke projects capability secret set --help"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/capabilities.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/projects_capability_settings.py", "docs/public/agents/rules/delivery.md"],
+ "sources": ["docs/public/capabilities.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/projects_capability_settings.py", "docs/public/agents/rules/packs.md"],
  "position": 1
 }
