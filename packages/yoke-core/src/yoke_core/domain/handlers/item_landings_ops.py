@@ -136,6 +136,16 @@ def handle_record_item_landing(request: FunctionCallRequest) -> HandlerOutcome:
                 conn, item_id=item_id, merge_sha=body.merge_sha
             )
             conn.commit()
+            notices, notice_advisory = [], ""
+            if appended:
+                from yoke_core.domain.dependency_satisfied_notice import (
+                    EVENT_MERGED,
+                    notify_after_commit,
+                )
+
+                notices, notice_advisory = notify_after_commit(
+                    conn, blocking_item_id=item_id, event=EVENT_MERGED
+                )
     except Exception as exc:  # noqa: BLE001 - surfaced as an advisory refusal
         return _err("item_landing_record_failed", str(exc))
     return HandlerOutcome(
@@ -144,6 +154,8 @@ def handle_record_item_landing(request: FunctionCallRequest) -> HandlerOutcome:
             "merge_sha": body.merge_sha,
             "appended": appended,
             "migration_territory_released": territory,
+            "dependent_notices": notices,
+            "dependent_notice_advisory": notice_advisory,
         },
         primary_success=True,
     )
