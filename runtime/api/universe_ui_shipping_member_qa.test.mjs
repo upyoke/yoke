@@ -114,6 +114,15 @@ function shippingClient(rows, options = {}) {
           envelope: { success: true, result: { needs_decision: [] } },
         };
       }
+      if (request.function === "items.detail.get") {
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: { item: { title: `${request.target.public_ref} title` } },
+          },
+        };
+      }
       throw new Error(`unexpected function ${request.function}`);
     },
   };
@@ -329,15 +338,21 @@ test("Shipping shows source-only pending requirements before any evidence read c
   assert.equal(byClass(host, "review-shot").length, 0);
 });
 
-test("a stage run with no recorded members does not fetch or invent item QA", async () => {
+test("a stage run with no recorded members shows titles and no item QA", async () => {
   const documentNode = new FakeDocument();
   const host = documentNode.createElement("div");
-  const client = shippingClient([], { derived: true, members: [member(1, "YOK-1")] });
+  const client = shippingClient([], { derived: true, members: [
+    member(1, "YOK-1", { title: "", project_id: null }),
+  ] });
   await loadDelivery(shippingContext(documentNode, client), host, () => ["1"]);
   await settle();
   assert.equal(client.requests.filter((request) => (
     request.function === "qa.activity.list" && request.payload.public_refs
   )).length, 0);
+  assert.equal(client.requests.filter((request) => (
+    request.function === "items.detail.get"
+  )).length, 1);
+  assert.match(host.textContent, /YOK-1 title/);
   assert.doesNotMatch(host.textContent, /item_qa_requirements_unavailable/);
   assert.match(host.textContent, /No item QA owed on this target/);
 });

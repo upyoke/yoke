@@ -3,8 +3,10 @@
 // its checks captured.
 
 import { createDecisionResolver } from "./inbox_rows.js";
+import { loadMissingItemTitles } from "./universe_carried_item_titles.js";
 import { itemQaSubjects } from "./universe_run_removed_members.js";
 import {
+  carriedItems,
   runProjectId,
   shippingRunCard,
 } from "./universe_work_cards.js";
@@ -122,19 +124,38 @@ export async function loadDelivery(context, host, getScope) {
   // including the ones behind "+N more". Fetching only the first three made
   // the rest look unverified: the production run that surfaced this had
   // twenty members and QA lines on exactly the first three in list order.
-  const carried = [];
+  // Derived entries have no item QA, but their payload often omits the title.
+  const qaSubjects = [];
+  const titleOnly = [];
   const result = successfulResult(callResults[0]);
   for (const row of result?.rows || []) {
     const runId = row.id || row.run_id;
     // Derived carried work names no project; it is the run's own.
     const projectId = runProjectId(context, row, "all");
-    for (const item of itemQaSubjects(row)) {
-      carried.push({ ...item, project_id: item.project_id ?? projectId, run_id: runId });
+    const stamp = (item) => ({
+      ...item, project_id: item.project_id ?? projectId, run_id: runId,
+    });
+    const qa = itemQaSubjects(row).map(stamp);
+    const qaRefs = new Set(qa.map((item) => String(
+      item.public_ref ?? item.ref ?? item.item_ref,
+    )));
+    qaSubjects.push(...qa);
+    for (const item of carriedItems(row)) {
+      const ref = String(item.public_ref ?? item.ref ?? item.item_ref);
+      if (!qaRefs.has(ref)) titleOnly.push(stamp(item));
     }
   }
-  loadCarriedItemEvidence(context, carried).then((loaded) => {
+  Promise.all([
+    loadCarriedItemEvidence(context, qaSubjects),
+    loadMissingItemTitles(context, titleOnly),
+  ]).then(([loaded, titles]) => {
     if (!context.isMounted()) return;
     itemFacts = loaded;
+    if (titles.size) {
+      const merged = new Map(loaded.titles);
+      for (const [key, title] of titles) merged.set(key, title);
+      itemFacts = { ...loaded, titles: merged };
+    }
     paint();
   });
   return paint;
