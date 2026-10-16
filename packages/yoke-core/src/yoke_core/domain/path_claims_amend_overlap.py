@@ -1,9 +1,11 @@
 """Dependency-aware widen-overlap helper for path claims.
 
 The amendment surface :func:`yoke_core.domain.path_claims_amend.widen`
-consults this module to decide what to do when the union of declared and
-newly requested coverage overlaps another non-terminal claim on the same
-integration target. The register-time classifier
+consults this module to decide what to do when newly requested coverage
+overlaps another non-terminal claim on the same integration target. Only the
+paths a widen adds are classified: overlap the claim already held is governed
+by the activation and dependency gates, so a dependency edge authored after
+that overlap existed never refuses a widen whose new paths overlap nothing. The register-time classifier
 (:func:`yoke_core.domain.path_claims_overlap.classify_overlap`) tells
 the caller *whether* the overlap is compatible; this helper turns that
 into a structured widen decision: whether the widen may proceed, whether
@@ -28,7 +30,7 @@ The contract preserves three invariants:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.path_claims_overlap import (
@@ -57,7 +59,8 @@ class WidenOverlapDecision:
       widen does not need to wait on anything.
     * ``overlapping_claim_ids`` — every non-terminal claim on the same
       integration target whose declared coverage intersects the
-      candidate's union. Recorded on the amendment payload for audit.
+      candidate's post-widen union. Recorded on the amendment payload
+      for audit only; it never decides the outcome.
     * ``reason`` — actionable rejection text when ``allowed`` is false;
       ``None`` otherwise.
     """
@@ -73,33 +76,39 @@ def classify_widen_overlap(
     conn: Any,
     *,
     claim_id: int,
-    candidate_target_ids: Sequence[int],
+    new_target_ids: Sequence[int],
+    union_target_ids: Sequence[int],
     integration_target: str,
     candidate_item_id: Optional[int],
     current_claim_state: str,
 ) -> WidenOverlapDecision:
-    """Decide widen-overlap outcome for the union of declared + new coverage.
+    """Decide the widen-overlap outcome for the newly added coverage.
 
-    ``candidate_target_ids`` is the union of already-declared target ids
-    and the truly-new target ids about to be inserted. The candidate's
-    item identity (``candidate_item_id``) and claim state (``planned`` /
-    ``blocked`` / ``active``) are needed so the helper can run the
-    active-claim guard and the directional dep-graph walk.
+    ``new_target_ids`` are the target ids about to be inserted; only they
+    are classified. ``union_target_ids`` (declared plus new) feeds the
+    audit-only ``overlapping_claim_ids``. The candidate's item identity
+    and claim state drive the directional dep-graph walk and the
+    active-claim guard.
 
-    The function is read-only — it does not mutate path-claim state or
-    insert any rows. Mutation is the caller's responsibility, gated on
-    ``WidenOverlapDecision.allowed``.
+    The function is read-only; mutation is the caller's responsibility,
+    gated on ``WidenOverlapDecision.allowed``.
     """
     overlapping = _list_overlapping_claim_ids(
         conn,
-        candidate_target_ids=candidate_target_ids,
+        candidate_target_ids=union_target_ids,
+        integration_target=integration_target,
+        exclude_claim_id=claim_id,
+    )
+    new_overlaps = _new_path_overlaps(
+        conn,
+        new_target_ids=new_target_ids,
         integration_target=integration_target,
         exclude_claim_id=claim_id,
     )
 
     classification = classify_overlap(
         conn,
-        target_ids=candidate_target_ids,
+        target_ids=new_target_ids,
         integration_target=integration_target,
         exclude_claim_id=claim_id,
         phase="register",
@@ -113,13 +122,13 @@ def classify_widen_overlap(
             upstream_claim_ids=[],
             overlapping_claim_ids=overlapping,
             reason=(
-                f"widen rejected for claim {claim_id}: union of declared "
-                f"and new coverage overlaps a non-terminal claim on "
-                f"{integration_target!r} with no item_dependencies edge. "
+                f"widen rejected for claim {claim_id}: new coverage overlaps "
+                f"a non-terminal claim on {integration_target!r} with no "
+                f"item_dependencies edge ({_describe(new_overlaps)}). "
                 "Author a depends-on/blocks edge with rationale "
                 "(coordination_only when edits do not conflict semantically; "
                 "activation/integration/closure for serial ordering), or "
-                "narrow the widen."
+                "drop those paths from the widen."
             ),
         )
 
@@ -134,7 +143,7 @@ def classify_widen_overlap(
     upstreams = _serial_upstreams_for(
         conn,
         candidate_item_id=candidate_item_id,
-        overlapping_claim_ids=overlapping,
+        overlapping_claim_ids=sorted(new_overlaps),
     )
 
     if not upstreams:
@@ -153,6 +162,7 @@ def classify_widen_overlap(
         )
 
     if current_claim_state == "active":
+        blocking = {cid: new_overlaps[cid] for cid in upstreams}
         return WidenOverlapDecision(
             allowed=False,
             block_claim=False,
@@ -160,11 +170,12 @@ def classify_widen_overlap(
             overlapping_claim_ids=overlapping,
             reason=(
                 f"widen rejected for claim {claim_id}: claim is "
-                "state='active' but the new coverage overlaps non-terminal "
-                f"upstream claim(s) {upstreams!r}. Active claims cannot be "
-                "silently downgraded to blocked. Narrow the widen, wait "
-                "for the upstream to release, or coordinate the ordering "
-                "with the upstream holder before amending."
+                "state='active' but new coverage overlaps non-terminal "
+                f"upstream claim(s) {upstreams!r} ({_describe(blocking)}). "
+                "Active claims cannot be silently downgraded to blocked. "
+                "Drop those paths from the widen, wait for the upstream to "
+                "release, or coordinate the ordering with the upstream "
+                "holder before amending."
             ),
         )
 
@@ -173,6 +184,41 @@ def classify_widen_overlap(
         block_claim=True,
         upstream_claim_ids=upstreams,
         overlapping_claim_ids=overlapping,
+    )
+
+
+def _new_path_overlaps(
+    conn: Any,
+    *,
+    new_target_ids: Sequence[int],
+    integration_target: str,
+    exclude_claim_id: int,
+) -> Dict[int, List[str]]:
+    """Map each overlapping claim id to the new paths that intersect it."""
+    overlaps: Dict[int, List[str]] = {}
+    for target_id in new_target_ids:
+        claim_ids = _list_overlapping_claim_ids(
+            conn,
+            candidate_target_ids=[target_id],
+            integration_target=integration_target,
+            exclude_claim_id=exclude_claim_id,
+        )
+        if not claim_ids:
+            continue
+        row = conn.execute(
+            f"SELECT path_string FROM path_targets WHERE id = {_p(conn)}",
+            (int(target_id),),
+        ).fetchone()
+        path = str(row[0]) if row else f"target {target_id}"
+        for other_id in claim_ids:
+            overlaps.setdefault(other_id, []).append(path)
+    return overlaps
+
+
+def _describe(overlaps: Dict[int, List[str]]) -> str:
+    return "; ".join(
+        f"claim {cid} <- new path(s) {', '.join(repr(p) for p in paths)}"
+        for cid, paths in sorted(overlaps.items())
     )
 
 
@@ -195,7 +241,7 @@ def _list_overlapping_claim_ids(
     exclude_claim_id: int,
 ) -> List[int]:
     """Find every non-terminal claim on the same integration target whose
-    declared coverage intersects the candidate's union (lineage-aware).
+    declared coverage intersects the given targets (lineage-aware).
     ``exclude_claim_id`` removes the candidate's own claim from the
     result.
     """
