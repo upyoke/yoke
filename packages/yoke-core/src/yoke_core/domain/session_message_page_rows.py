@@ -71,7 +71,7 @@ def page_summaries(
     }
     for row in _rows(
         conn,
-        "SELECT message_id,session_id,project_id,executor_surface,machine_id,"
+        "SELECT message_id,session_id,project_id,org_id,executor_surface,machine_id,"
         "state,created_at,injection_count,last_injected_at,acknowledged_at,"
         "expired_at,cancelled_at,wake_attempt_count "
         "FROM session_message_recipients WHERE message_id IN ({ids}) "

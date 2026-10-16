@@ -97,7 +97,7 @@ def _prepare(conn):
         expires_at=MOMENT + timedelta(hours=1),
         recipients=[recipient],
         actor_recipients=[],
-        wake_after_by_project={1: old},
+        wake_after_by_owner={("project", 1): old},
     )
     assert inserted
     message_id = message["message_id"]

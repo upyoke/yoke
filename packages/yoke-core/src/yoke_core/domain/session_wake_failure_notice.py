@@ -15,6 +15,7 @@ from yoke_contracts.session_control.models import RecipientSelector
 from yoke_contracts.session_control.wake_delivery import delivery_attempt_diagnostic
 from yoke_core.domain.session_item_scope import session_item_scope
 from yoke_core.domain.session_message_recipient_scope import (
+    owner_key,
     recipient_owner,
     recipient_policy,
 )
@@ -129,7 +130,10 @@ def notify_failed_wake(
         actor_reason = "affected_session_actor"
     if sender_session:
         senders = resolve_recipients(
-            conn, RecipientSelector(session_ids=[sender_session]), now=now
+            conn,
+            RecipientSelector(session_ids=[sender_session]),
+            now=now,
+            actor_id=sender_actor,
         )
         recipients = list({r.session_id: r for r in [*recipients, *senders]}.values())
     actors = []
@@ -173,10 +177,7 @@ def notify_failed_wake(
         expires_at=now + timedelta(hours=policy.expiry_hours),
         recipients=recipients,
         actor_recipients=actors,
-        wake_after_by_project={
-            **({project_id: now} if project_id is not None else {}),
-            **{r.project_id: now for r in recipients},
-        },
+        wake_after_by_owner={owner_key(r.routing_snapshot()): now for r in recipients},
     )
     if not created:
         return None

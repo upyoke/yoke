@@ -57,7 +57,7 @@ def _seed(conn):
         expires_at=MOMENT,
         recipients=[recipient],
         actor_recipients=[],
-        wake_after_by_project={1: old},
+        wake_after_by_owner={("project", 1): old},
     )
     assert inserted
     return message["message_id"], machine_id

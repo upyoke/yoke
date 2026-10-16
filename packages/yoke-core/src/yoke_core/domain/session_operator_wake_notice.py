@@ -200,7 +200,7 @@ def notify_operator_to_wake(
                 resolution=[f"operator-of-session:{session_id}"],
             )
         ],
-        wake_after_by_project={},
+        wake_after_by_owner={},
     )
     return str(details["message_id"]) if created else None
 

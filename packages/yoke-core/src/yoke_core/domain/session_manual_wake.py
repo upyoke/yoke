@@ -26,6 +26,7 @@ from yoke_core.domain.session_message_authorization import (
     authorize_recipients,
 )
 from yoke_core.domain.session_message_routing import messageability
+from yoke_core.domain.session_message_recipient_scope import recipient_policy
 from yoke_core.domain.session_staleness import activity_liveness
 from yoke_core.domain.session_message_selectors import resolve_recipients
 from yoke_core.domain.session_message_service import send_message
@@ -91,6 +92,7 @@ def _stopped_route(
         routes,
         machine_id=recipient.machine_id,
         project_id=recipient.project_id,
+        session_actor_id=target.get("actor_id"),
     )
     routing = messageability(
         target,
@@ -222,12 +224,11 @@ def request_session_wake(
     begin_message_mutation(conn)
     try:
         recipient = _one_recipient(
-            resolve_recipients(conn, target_selector, now=current)
+            resolve_recipients(conn, target_selector, now=current, actor_id=actor_id)
         )
-        policy = authorize_recipients(conn, actor_id=actor_id, recipients=[recipient])[
-            recipient.project_id
-        ]
+        authorize_recipients(conn, actor_id=actor_id, recipients=[recipient])
         target = session_control_target(conn, recipient.session_id)
+        policy = recipient_policy(conn, target)
         routing = _stopped_route(conn, recipient, target, now=current)
         exhausted = refuse_exhausted_wake(conn, recipient.session_id, current)
         if exhausted:

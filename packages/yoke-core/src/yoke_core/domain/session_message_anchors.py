@@ -79,10 +79,10 @@ def _resolve_epic_task(conn: Any, raw: str) -> tuple[int, int, int]:
 
 
 def _add_hit(
-    hits: dict[str, list[tuple[str, int]]],
+    hits: dict[str, list[tuple[str, int | None]]],
     session_id: str,
     evidence: str,
-    project_id: int,
+    project_id: int | None,
 ) -> None:
     hits.setdefault(session_id, []).append((evidence, project_id))
 
@@ -94,12 +94,12 @@ def anchor_hits(
     claims: list[dict[str, Any]],
     *,
     steering_target: Mapping[str, Any] | None = None,
-) -> dict[str, list[tuple[str, int]]]:
-    hits: dict[str, list[tuple[str, int]]] = {}
+) -> dict[str, list[tuple[str, int | None]]]:
+    hits: dict[str, list[tuple[str, int | None]]] = {}
     for session_id in selector.session_ids:
         row = sessions.get(session_id)
         if row is not None:
-            _add_hit(hits, session_id, f"session:{session_id}", int(row["project_id"]))
+            _add_hit(hits, session_id, f"session:{session_id}", row["project_id"])
     for raw in selector.public_refs:
         item_id, project_id = _resolve_item_ref(conn, raw)
         for claim in claims:
@@ -124,7 +124,7 @@ def anchor_hits(
                     hits,
                     str(claim["session_id"]),
                     f"process:{process_key}",
-                    int(claim["anchor_project_id"]),
+                    claim["anchor_project_id"],
                 )
     for raw in selector.projects:
         try:
@@ -137,12 +137,12 @@ def anchor_hits(
             ) from exc
         assert identity is not None
         for session_id, row in sessions.items():
-            if int(row["project_id"]) == identity.id:
+            if row["project_id"] == identity.id:
                 _add_hit(hits, session_id, f"project:{identity.slug}", identity.id)
         for claim in claims:
             if (
                 claim["target_kind"] == TARGET_KIND_STEERING
-                and int(claim["anchor_project_id"]) == identity.id
+                and claim["anchor_project_id"] == identity.id
             ):
                 _add_hit(
                     hits,
@@ -152,7 +152,7 @@ def anchor_hits(
                 )
     if selector.universe:
         for session_id, row in sessions.items():
-            _add_hit(hits, session_id, "universe", int(row["project_id"]))
+            _add_hit(hits, session_id, "universe", row["project_id"])
     if selector.steering and steering_target is not None:
         from yoke_core.domain.steering_scope_coverage import (
             PROJECT_KEY,

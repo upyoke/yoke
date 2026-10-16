@@ -12,6 +12,7 @@ from runtime.api.domain.test_session_message_support import (
     message_connection,
     selector,
 )
+from runtime.api.domain.test_session_org_messages import org_world as org_world
 
 
 def test_typed_anchors_union_then_deduplicate_authoritative_claims() -> None:
@@ -170,3 +171,33 @@ def test_cursor_hashed_build_remains_hook_messageable() -> None:
 
     assert recipient.messageability["messageable"] is True
     assert recipient.messageability["hook_injection"] is True
+
+
+def test_universe_selector_includes_authorized_org_session(org_world):
+    w = org_world
+    rows = resolve_recipients(
+        w.conn, selector(universe=True, liveness=["all"]), actor_id=w.owner, now=NOW
+    )
+    ids = {row.session_id for row in rows}
+    assert {"org-sender", "org-target"} <= ids
+    assert "foreign-target" not in ids
+    assert all(not row.authorized_project_ids for row in rows if row.org_id is not None)
+
+
+def test_project_selector_excludes_org_session(org_world):
+    w = org_world
+    slug = w.conn.execute("SELECT slug FROM projects WHERE id=1").fetchone()[0]
+    rows = resolve_recipients(
+        w.conn, selector(projects=[slug], liveness=["all"]), actor_id=w.owner, now=NOW
+    )
+    assert {row.session_id for row in rows} == {"project-sender", "project-target"}
+
+
+def test_direct_org_session_requires_operate_permission(org_world):
+    w = org_world
+    target = selector(session_ids=["org-target"])
+    assert not resolve_recipients(w.conn, target, actor_id=w.reader, now=NOW)
+    for actor in (w.owner, w.operator):
+        row = resolve_recipients(w.conn, target, actor_id=actor, now=NOW)[0]
+        assert row.project_id is None and row.org_id == w.org
+        assert row.authorized_project_ids == set()

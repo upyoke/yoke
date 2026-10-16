@@ -5,8 +5,8 @@ always sees what it sent. An addressed actor and an addressed session always
 see their own mail, and so does the steering seat currently holding a
 role-addressed message -- it was handed that message on acquire and would
 otherwise be unable to read the thing it is expected to answer. Everyone
-else sees a message only when it reached at least one project and they can
-read every project it reached.
+else sees a message only when every session and steering recipient is readable
+through its stored project or organization ownership.
 
 List pages filter with this predicate and a single message read checks it
 for one id, so both surfaces answer from the same rule.
@@ -18,7 +18,7 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_message_recipients import ACTOR_KIND
-from yoke_core.domain.actor_permissions import PERM_ITEMS_READ
+from yoke_core.domain.actor_permissions import PERM_ITEMS_READ, org_permission_decision
 from yoke_core.domain.actor_project_visibility import (
     actor_project_ids_with_permission,
 )
@@ -54,24 +54,56 @@ def visible_clause(
     visible_projects = sorted(
         actor_project_ids_with_permission(conn, actor_id, PERM_ITEMS_READ) or []
     )
-    if visible_projects:
-        slots = ",".join(p for _ in visible_projects)
-        branches.append(
-            "("
-            "(EXISTS (SELECT 1 FROM session_message_recipients vp "
-            "WHERE vp.message_id=m.message_id) OR EXISTS (SELECT 1 FROM "
-            "actor_message_recipients vpt WHERE vpt.message_id=m.message_id "
-            f"AND vpt.recipient_kind={p})) "
-            "AND NOT EXISTS (SELECT 1 FROM session_message_recipients vx "
-            f"WHERE vx.message_id=m.message_id AND vx.project_id NOT IN ({slots})) "
-            "AND NOT EXISTS (SELECT 1 FROM actor_message_recipients vxt "
-            f"WHERE vxt.message_id=m.message_id AND vxt.recipient_kind={p} "
-            f"AND vxt.project_id NOT IN ({slots}))"
-            ")"
-        )
-        params.extend(
-            [STEERING_KIND, *visible_projects, STEERING_KIND, *visible_projects]
-        )
+    orgs = conn.execute(
+        f"SELECT DISTINCT org_id FROM actor_org_roles WHERE actor_id={p}", (actor_id,)
+    ).fetchall()
+    readable_orgs = sorted(
+        row[0]
+        for row in orgs
+        if org_permission_decision(
+            conn, actor_id=actor_id, org_id=row[0], permission_key=PERM_ITEMS_READ
+        ).allowed
+    )
+    false = "FALSE" if db_backend.connection_is_postgres(conn) else "1=0"
+    slots = ",".join(p for _ in visible_projects)
+    project = (
+        f"vx.project_id IS NOT NULL AND vx.project_id IN ({slots})" if slots else false
+    )
+    owner = (
+        "EXISTS (SELECT 1 FROM harness_sessions hs "
+        f"WHERE hs.session_id=vx.session_id AND hs.actor_id={p})"
+    )
+    org = owner
+    org_params = [actor_id]
+    if readable_orgs:
+        org += f" OR vx.org_id IN ({','.join(p for _ in readable_orgs)})"
+        org_params.extend(readable_orgs)
+    steering_hidden = (
+        f"vxt.project_id IS NULL OR vxt.project_id NOT IN ({slots})" if slots else "1=1"
+    )
+    branches.append(
+        "("
+        "(EXISTS (SELECT 1 FROM session_message_recipients vp "
+        "WHERE vp.message_id=m.message_id) OR EXISTS (SELECT 1 FROM "
+        "actor_message_recipients vpt WHERE vpt.message_id=m.message_id "
+        f"AND vpt.recipient_kind={p})) "
+        "AND NOT EXISTS (SELECT 1 FROM session_message_recipients vx "
+        "WHERE vx.message_id=m.message_id AND NOT "
+        f"(({project}) OR (vx.org_id IS NOT NULL AND ({org})))) "
+        "AND NOT EXISTS (SELECT 1 FROM actor_message_recipients vxt "
+        f"WHERE vxt.message_id=m.message_id AND vxt.recipient_kind={p} "
+        f"AND ({steering_hidden}))"
+        ")"
+    )
+    params.extend(
+        [
+            STEERING_KIND,
+            *visible_projects,
+            *org_params,
+            STEERING_KIND,
+            *visible_projects,
+        ]
+    )
     return "(" + " OR ".join(branches) + ")", params
 
 
