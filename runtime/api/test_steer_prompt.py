@@ -144,7 +144,6 @@ class TestSteerSkillContract:
         loop = _words(_read(_STEER_DIR / "loop.md"))
         for finding in (
             "**Available work**",
-            "**Unacked injected (this session)**",
             "**Idle holders**",
             "**Undelivered messages**",
             "**Vendor-stopped sessions**",
