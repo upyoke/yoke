@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain import db_backend
 from yoke_core.domain.auth_schema import create_auth_tables
 from yoke_core.domain.decision_request_schema import create_decision_request_tables
 from yoke_core.domain.events_function_index import ensure_function_index
@@ -53,6 +54,7 @@ from yoke_core.domain.schema_init_actor_path_claim_tables import (
     create_actor_identity_tables,
     create_actor_path_claim_tables,
 )
+from yoke_core.domain.schema_converge_statements import converging_missing_schema
 from yoke_core.domain.schema_init_columns import (
     apply_additive_schema,
     apply_harness_session_columns,
@@ -89,6 +91,21 @@ from yoke_core.domain.workflow_schema import ensure_workflow_schema
 
 
 def converge_additive_schema(conn: Any) -> None:
+    """Create every missing table, index and additive column.
+
+    On Postgres each statement first checks the live catalog and runs only
+    when its object is missing, one table per transaction, so a converged
+    database takes no table locks and a converge never holds two tables'
+    locks at once (:mod:`yoke_core.domain.schema_converge_statements`).
+    """
+    if not db_backend.connection_is_postgres(conn):
+        _create_in_dependency_order(conn)
+        return
+    with converging_missing_schema(conn) as guarded:
+        _create_in_dependency_order(guarded)
+
+
+def _create_in_dependency_order(conn: Any) -> None:
     """Create every table, index and additive column, in FK-dependency order.
 
     Order matters — ``create_external_identity_tables`` FKs into actors,
