@@ -1,5 +1,6 @@
 """Explicit item refresh reaches plan-backed copies without rewriting acceptance."""
 
+import json
 import pytest
 
 from runtime.api.domain.test_deployment_qa_stage_execution import _environment
@@ -188,3 +189,106 @@ def test_plan_copy_identity_does_not_reach_other_members_baselines_or_environmen
         target_env="stage",
     )
     assert admitted_copies_in_flight(test_db, verification["id"]) == []
+
+
+def _snapshots(conn):
+    return tuple(
+        str(conn.execute(sql, (RUN,)).fetchone()[0])
+        for sql in (
+            "SELECT requirement_snapshot FROM deployment_runs WHERE id=%s",
+            "SELECT requirement_snapshot FROM deployment_run_items WHERE run_id=%s",
+        )
+    )
+
+
+@pytest.mark.parametrize("route", ["item", "deployment"])
+def test_refresh_updates_only_existing_member_owner_and_keeps_capture_history(
+    test_db, route
+):
+    plan, source, copy = _seed(test_db)
+    capture = insert_qa_run(test_db, qa_requirement_id=copy, verdict=None)
+    test_db.execute(
+        "UPDATE qa_runs SET case_outcome='needs_review' WHERE id=%s", (capture["id"],)
+    )
+    test_db.commit()
+    before = _snapshots(test_db)
+    original = dict(
+        test_db.execute(
+            "SELECT * FROM qa_runs WHERE id=%s", (capture["id"],)
+        ).fetchone()
+    )
+    _edit(test_db, plan)
+    if route == "item":
+        rematerialize_for_item(test_db, item_id=MEMBER, transition_id="release")
+    else:
+        from yoke_core.domain.qa_plan_rematerialize_deployment import (
+            rematerialize_for_deployment_stage,
+        )
+
+        rematerialize_for_deployment_stage(
+            test_db,
+            deployment_run_id=RUN,
+            deployment_stage=STAGE,
+            deployment_member_item_id=MEMBER,
+        )
+    after = _snapshots(test_db)
+    assert after[0] == before[0]
+    old_member, member = map(json.loads, (before[1], after[1]))
+    old_plan, selected = old_member["plans"][0], member["plans"][0]
+    assert selected["plan"] == old_plan["plan"]
+    assert selected["attachment"] == old_plan["attachment"]
+    assert selected["cases"][0]["instructions"] == _definition(test_db, copy)[0]
+    assert (
+        dict(
+            test_db.execute(
+                "SELECT * FROM qa_runs WHERE id=%s", (capture["id"],)
+            ).fetchone()
+        )
+        == original
+    )
+
+
+@pytest.mark.parametrize(
+    "boundary", ["ambiguous_owner", "missing_owner", "write_failure"]
+)
+def test_snapshot_correction_refusal_and_failure_roll_back_all_rows(
+    test_db,
+    monkeypatch,
+    boundary,
+):
+    from yoke_core.domain import deployment_qa_snapshot_correction as selection
+
+    plan, source, copy = _seed(test_db)
+    if boundary in {"ambiguous_owner", "missing_owner"}:
+        flow, member = map(json.loads, _snapshots(test_db))
+        if boundary == "ambiguous_owner":
+            flow["selections"] = [{**member["plans"][0], "stage": STAGE}]
+        else:
+            test_db.execute(
+                "UPDATE deployment_run_items SET requirement_snapshot=%s WHERE run_id=%s",
+                (json.dumps({**member, "plans": []}), RUN),
+            )
+        test_db.execute(
+            "UPDATE deployment_runs SET requirement_snapshot=%s WHERE id=%s",
+            (json.dumps(flow), RUN),
+        )
+        test_db.commit()
+    else:
+        original = selection.refresh_selected_cases
+
+        def fail_after_write(*args, **kwargs):
+            original(*args, **kwargs)
+            raise QaPlanError("injected snapshot write failure")
+
+        monkeypatch.setattr(selection, "refresh_selected_cases", fail_after_write)
+    before = (
+        _snapshots(test_db),
+        [_definition(test_db, row) for row in (source, copy)],
+    )
+    _edit(test_db, plan)
+    with pytest.raises(QaPlanError, match="ambiguous|injected"):
+        rematerialize_for_item(test_db, item_id=MEMBER, transition_id="release")
+    assert (
+        _snapshots(test_db),
+        [_definition(test_db, row) for row in (source, copy)],
+    ) == before

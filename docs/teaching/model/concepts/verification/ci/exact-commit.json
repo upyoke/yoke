@@ -1,7 +1,10 @@
 {
  "id": "exact-commit",
  "title": "Exact commit",
- "status": "draft-copy",
+ "status": "observed",
+ "text": "An item QA case selects one registered lane under the caller's matching item/task claim. Branch, checkout path and commit come from that same row, including a missing commit. Multiple lanes require an unambiguous selection; CI refuses explicit checkout, branch or SHA disagreement before publication. CI publishes an immutable commit, then stamps it through the existing snapshot authority only when the selected live checkout has the matching branch and clean exact HEAD. Missing or mismatched checkouts never supply a stamp. A stale durable head can be repaired with snapshot sync --head-only after verifying the already-published passing candidate, without rerunning its gate.",
+ "sources": ["docs/public/reference/agent-rules/verification.md", "packages/yoke-core/src/yoke_core/domain/qa_case_source_lane.py", "packages/yoke-core/src/yoke_core/domain/qa_case_ci_source.py", "packages/yoke-core/src/yoke_core/domain/lane_head_record.py", "runtime/api/domain/test_qa_case_source_lane.py", "runtime/api/domain/test_qa_case_ci_source.py", "runtime/api/domain/test_qa_case_ci_publication_head.py"],
+ "commands": ["yoke qa case run", "yoke project snapshot sync"],
  "page": "verification",
  "position": 0
 }

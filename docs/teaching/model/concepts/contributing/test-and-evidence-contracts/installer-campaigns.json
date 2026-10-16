@@ -4,5 +4,6 @@
  "status": "draft-copy",
  "audience": "Maintainers",
  "page": "contributing-guides",
- "position": 5
+ "position": 5,
+ "summary": "Hosted recovery journeys retain fail-fast preparation and emit final capture readiness only after successful installer exit and post-exit assertions, including the real nonempty backup check."
 }

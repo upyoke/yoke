@@ -94,4 +94,28 @@ function before this recovery is available.
 
 ## Command case source
 
+Select an exact worker for an item case when several lanes are registered:
+
+```text
+yoke qa case run --requirement-id N --checkout-path PATH --expected-branch BRANCH --expected-sha FULL_SHA
+```
+
+The server selects one registered lane authorized by the matching item/task
+claim and returns its branch, path and commit together. A missing commit on
+that lane stays missing; another worker's commit never fills it. Ambiguous or
+unclaimed selection refuses with `qa_source_lane_unresolved`. CI checks explicit
+checkout, branch and SHA agreement before preparation and again before any
+publication; `qa_ci_source_mismatch` names the disagreement and recovery. Use
+the selected worker's current identity and rerun the normal gate. Preserve
+existing branches; conflicting remote work needs registered reconciliation.
+
+CI publishes an immutable commit. It records that commit as the lane's durable
+head only after proving the selected live checkout is on the published branch,
+clean, and at that exact commit. A missing lane or another checkout never gets
+stamped. `qa_published_head_unproven` preserves publication but names why the
+stamp was refused. To repair a stale stamp after a passing gate, verify the
+claimed checkout is clean and at the published candidate, then run
+`yoke project snapshot sync PATH --project P --head-only`; no new commit or
+passed-gate rerun is needed. Snapshot ownership and claim checks still apply.
+
 Direct pre-merge Yoke lane checks use `yoke dev run -- <command>`. For post-deploy Command source tests, run `yoke watch pytest -- <test paths>` directly: the runner supplies the candidate cwd and the watcher binds it to source. Candidate-bound commands inherit `YOKE_QA_CANDIDATE_TREE` as JSON with `root` and `head_sha`; source wrappers refuse switching to another root. In candidate-bound Yoke cases, bare `python3` and `yoke` import the candidate packages and the candidate's declared locked .venv through the shared source/environment resolver. Disposable candidate checkouts use the existing test-environment provisioning surface; other checks validate without syncing or rewriting locks. Missing, stale, or incompatible environments refuse with SOURCE-ENVIRONMENT-* and exact checkout-local uv sync --locked recovery. The runner records interpreter identity and origins before and after execution and records `QA-CANDIDATE-IMPORT-ORIGIN` refusal evidence instead of a pass when packages are missing or outside the candidate. Lane cases, external projects, and endpoint-only cases using `--allow-tree-mismatch` keep product imports.
