@@ -76,7 +76,7 @@ def run_host_operation(
         )
         parser.add_argument(
             "--probes-file",
-            help="Optional additional probe document; it must name every standard OS check. Omit to seal the standard checks. See .yoke/docs/reference/qa-platform/prepare-test-machine.md.",
+            help="Optional additional probe document; it must name every standard OS check. Omit to seal the standard checks. See docs/packs/machine-qa/host-provisioning.md, installed by the Machine QA Pack.",
         )
     from yoke_cli.commands._helpers import add_json_arg, add_session_arg
 
