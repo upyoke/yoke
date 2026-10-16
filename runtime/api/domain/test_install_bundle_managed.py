@@ -186,6 +186,9 @@ def test_bundle_ships_universal_docs(conn) -> None:
     bundle = install_bundle.build_bundle(1, conn)
     by_path = {e["path"]: e["content"] for e in bundle["files"]}
     # Authored under docs/public; installed projects receive .yoke/docs/.
+    from yoke_core.domain.yaml_helper import parse_document
+
+    assert set(parse_document(by_path[f"{DOCS_DEST}/nav.yaml"])) == {"root"}
     for rel in (
         "index.md",
         "nav.yaml",
