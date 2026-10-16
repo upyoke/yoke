@@ -60,4 +60,4 @@ worktree is bare PREFIX-{N} for single lane, otherwise PREFIX-{N}-{short-kebab-
 concern}; all tasks in one lane share its value. context_estimate XS/S/M/L,
 never XL. dependencies are comma-separated task ids or none; cross-lane upstream
 ids gate consumer activation until required merge. Smaller coherent tasks are
-safer than oversized multi-concern work; beyond about20 propose epic split.
+safer than oversized multi-concern work; beyond about 20 propose epic split.
