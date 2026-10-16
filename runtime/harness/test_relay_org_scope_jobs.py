@@ -1,6 +1,7 @@
 """Relay execution preserves org workspace identity across supported surfaces."""
 
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -10,6 +11,7 @@ import pytest
 
 from yoke_harness import session_relay_runtime as runtime
 from yoke_harness import session_relay_working_directory as directories
+from yoke_harness.session_relay_environment import native_session_environment
 
 
 def job(workspace=None, project_id=None, surface="codex-cli"):
@@ -66,6 +68,44 @@ def test_org_workspace_does_not_read_project_configuration(tmp_path, monkeypatch
     monkeypatch.setattr(directories, "checkout_for_project", forbidden)
     context = runtime.execution_context(job(tmp_path))
     assert context.project_id is None and context.checkout == tmp_path
+
+
+@pytest.mark.parametrize("executor", ["codex", "claude-code", "cursor"])
+def test_project_then_org_job_does_not_inherit_project_environment(
+    tmp_path, monkeypatch, executor
+):
+    monkeypatch.setenv("YOKE_PROJECT", "previous-project")
+    observed = []
+
+    def adapter(context):
+        child_env = native_session_environment(executor=executor)
+        result = subprocess.run(
+            [sys.executable, "-c", "import os; print(os.getenv('YOKE_PROJECT', ''))"],
+            cwd=context.checkout,
+            env=child_env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        observed.append((context.project_id, result.stdout.strip()))
+        return runtime.RelayAdapterResult("accepted")
+
+    monkeypatch.setattr(runtime, "_ADAPTERS", {"codex-cli": adapter})
+    monkeypatch.setattr(
+        "yoke_harness.session_relay_native_turn_custody.deferral_for_running_native",
+        lambda c: None,
+    )
+    for project_id in (1, None):
+        assert (
+            runtime.run_registered_job(job(tmp_path, project_id=project_id)).result_code
+            == "accepted"
+        )
+        assert os.environ["YOKE_PROJECT"] == "previous-project"
+    assert observed == [(1, ""), (None, "")]
+    explicit = native_session_environment(
+        executor=executor, markers={"YOKE_PROJECT": "explicit-project"}
+    )
+    assert explicit["YOKE_PROJECT"] == "explicit-project"
 
 
 @pytest.mark.parametrize("workspace", [None, "", "   "])
