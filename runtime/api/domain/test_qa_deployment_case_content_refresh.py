@@ -171,6 +171,24 @@ def test_content_digest_ignores_encoding_but_not_content() -> None:
     assert case_content_digest(decoded) != case_content_digest(changed)
 
 
+@pytest.mark.parametrize("number", [0, 180, -45, 1000000])
+def test_content_identity_preserves_numeric_value_across_json_encoding(number):
+    source = {"method_config": {"actions": [{"ready_timeout_seconds": number}]}}
+    copy = {
+        "method_config": json.dumps(
+            {"actions": [{"ready_timeout_seconds": float(number)}]}
+        )
+    }
+    assert case_content_digest(source) == case_content_digest(copy)
+
+
+@pytest.mark.parametrize("changed", [180.5, "180", True, None])
+def test_content_identity_keeps_different_values_and_json_types_distinct(changed):
+    source = {"method_config": {"ready_timeout_seconds": 180}}
+    other = {"method_config": {"ready_timeout_seconds": changed}}
+    assert case_content_digest(source) != case_content_digest(other)
+
+
 def test_stage_picks_up_the_members_attached_plan_without_a_flag(test_db) -> None:
     """The wake needs no --plan choice once the member owns a plan.
 
