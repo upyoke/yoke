@@ -28,6 +28,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "machine_authorization.get": "next-release",
     "machine_authorization.handoff": "next-release",
     "machine_authorization.handoff_poll": "next-release",
+    "machine_authorization.pending": "next-release",
     "machine_authorization.resolve": "next-release",
     "deployment_runs.driver.for_capture": "next-release",
     "deployment_runs.execution.attach_driver": "next-release",

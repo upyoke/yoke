@@ -53,6 +53,7 @@ PRODUCT_AUTHZ_BY_ID = {
     "machine_authorization.handoff": AuthzSpec(ACTOR_SESSION, None),
     "machine_authorization.handoff_poll": AuthzSpec(ACTOR_SESSION, None),
     "machine_authorization.get": AuthzSpec(ACTOR_SESSION, None),
+    "machine_authorization.pending": AuthzSpec(ACTOR_SESSION, None),
     "machine_authorization.resolve": AuthzSpec(ACTOR_SESSION, None),
     "decision_requests.create": AuthzSpec(ACTOR_SESSION, None),
     "decision_requests.get": AuthzSpec(ACTOR_SESSION, None),

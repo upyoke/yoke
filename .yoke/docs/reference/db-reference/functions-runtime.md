@@ -117,6 +117,7 @@ Read [envelope and authority](functions.md) first. `none` means no dispatcher wo
 | `machine_authorization.get` | `none` |
 | `machine_authorization.handoff` | `none` |
 | `machine_authorization.handoff_poll` | `none` |
+| `machine_authorization.pending` | `none` |
 | `machine_authorization.resolve` | `none` |
 | `migration.content_identity.verify` | `none` |
 | `models.diff.run` | `none` |

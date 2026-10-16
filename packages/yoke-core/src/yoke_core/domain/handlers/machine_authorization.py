@@ -11,7 +11,32 @@ from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.machine_authorization_codes import (
     MachineAuthorizationError,
 )
-from yoke_core.domain.machine_authorization_decisions import inspect, resolve
+from yoke_core.domain.machine_authorization_decisions import inspect, pending, resolve
+
+
+class AuthorizationPendingRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class AuthorizationActor(BaseModel):
+    actor_id: int
+    name: str
+
+
+class PendingAuthorization(BaseModel):
+    code: str
+    machine: str
+    machine_id: str
+    platform: str | None
+    expires_at: str
+    requested_by: AuthorizationActor | None
+    state: Literal["pending"]
+
+
+class AuthorizationPendingResponse(BaseModel):
+    viewer: AuthorizationActor
+    requests: list[PendingAuthorization]
+    mode: Literal["local", "self-host", "hosted"]
 
 
 class AuthorizationGetRequest(BaseModel):
@@ -27,7 +52,13 @@ class AuthorizationResponse(BaseModel):
     authorization: dict[str, Any]
 
 
-def _handle(request: FunctionCallRequest, model: Any, operation: Any) -> HandlerOutcome:
+def _handle(
+    request: FunctionCallRequest,
+    model: Any,
+    operation: Any,
+    *,
+    result_key: str | None = "authorization",
+) -> HandlerOutcome:
     try:
         payload = model.model_validate(request.payload or {})
         actor = str(request.actor.actor_id or "")
@@ -38,7 +69,8 @@ def _handle(request: FunctionCallRequest, model: Any, operation: Any) -> Handler
         with db_helpers.connect() as conn:
             result = operation(conn, **payload.model_dump(), actor_id=int(actor))
         return HandlerOutcome(
-            primary_success=True, result_payload={"authorization": result}
+            primary_success=True,
+            result_payload={result_key: result} if result_key else result,
         )
     except MachineAuthorizationError as exc:
         return HandlerOutcome(
@@ -76,3 +108,7 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
 
 def handle_resolve(request: FunctionCallRequest) -> HandlerOutcome:
     return _handle(request, AuthorizationResolveRequest, resolve)
+
+
+def handle_pending(request: FunctionCallRequest) -> HandlerOutcome:
+    return _handle(request, AuthorizationPendingRequest, pending, result_key=None)
