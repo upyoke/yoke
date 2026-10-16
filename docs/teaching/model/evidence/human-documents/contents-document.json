@@ -6,7 +6,7 @@
  "audience": "Humans browsing the whole product and agents locating canonical knowledge",
  "scope": "Global/static, with audience boundaries",
  "trigger": "Full contents link, unfamiliar feature name, or need to find the authoritative topic",
- "current": "nav.yaml lists 27 public pages while additional public pages exist; the new concept tree is a proposal, not existing article coverage.",
+ "current": "Source nav.yaml owns the complete recursive public tree, with derived breadcrumbs and child contents; installed and packaged copies match source. External full-contents publication and release-matched consumer proof remain unverified.",
  "proposed_purpose": "Make every supported subject discoverable with exactly one canonical home.",
  "content": ["The complete agreed chapter/topic/subtopic tree.", "One short category description, where it helps distinguish similar names.", "Links to canonical pages and sideways references for concepts used elsewhere.", "Separate user, administrator and contributor areas.", "Clear current versus historical/proposed status; no link should imply an unwritten proposal is shipped behavior."],
  "authority_and_reuse": "Generate the full contents from the maintained manual navigation/parent metadata. The website sidebar, installed Markdown index/breadcrumbs and this full contents view are projections of that one structure; hand-author only category descriptions and intentional related/next links.",

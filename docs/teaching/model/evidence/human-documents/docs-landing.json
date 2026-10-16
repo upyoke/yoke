@@ -6,7 +6,7 @@
  "audience": "Visitors, new users, returning operators and agents following a docs link",
  "scope": "Global/static; no assumed signed-in account or current project",
  "trigger": "Open /docs or the workbench Docs link",
- "current": "/docs renders docs/public/index.md, currently What Yoke is, beside a flat Start/Operate/Reference sidebar. There is no separate documentation landing/search/version presentation in that shell.",
+ "current": "Source index.md and recursive nav.yaml define the public landing and hierarchy. External /docs delivery and separate search/version chrome remain unproved.",
  "proposed_purpose": "Help a reader choose where to read, without making them read the manual first.",
  "content": ["A brief welcome naming this as the Yoke manual.", "Prominent links: Understand Yoke, Install or connect, Work in an existing project.", "Separate links: Full contents, Command reference, Fix a problem.", "Visible documentation release identity and how to compare it with yoke --version.", "A small route for administrators and contributors, kept accessible without occupying beginner guidance."],
  "authority_and_reuse": "Keep landing copy in the shared public corpus (root index.md is a suitable existing home). Platform supplies navigation/search/version chrome. Derive chapter links and labels from the maintained navigation tree; do not maintain a second website-only contents list.",

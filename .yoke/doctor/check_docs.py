@@ -96,7 +96,8 @@ def hc_doc_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
 
 def hc_doc_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """Public corpus and copies fail closed; contributor links are review notes."""
+    """Validate declared public delivery; retain generic repository link health."""
+    from yoke_contracts.install_binding import is_yoke_source_checkout
     from yoke_core.domain.documentation_links import validate_links
     from yoke_core.domain.documentation_residue import scan_retired_references
     from yoke_core.domain.install_bundle_docs_validation import (
@@ -110,10 +111,16 @@ def hc_doc_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         rec.record("HC-doc-health", "Documentation health audit", "PASS", "")
         return
     repo = Path(repo_root)
-    _emit_hc_progress("HC-doc-health", "validate-complete-public-corpus")
-    failures = validate_public_corpus(repo / "docs/public")
-    failures.extend(validate_published_copies(repo))
-    failures.extend(scan_retired_references(repo))
+    public = repo / "docs/public"
+    # Source identity does not depend on the corpus being complete or present.
+    public_delivery = is_yoke_source_checkout(repo) or public.exists()
+    failures = []
+    if public_delivery:
+        _emit_hc_progress("HC-doc-health", "validate-complete-public-corpus")
+        failures.extend(validate_public_corpus(public))
+        failures.extend(validate_published_copies(repo))
+        failures.extend(scan_retired_references(repo))
+    _emit_hc_progress("HC-doc-health", "check-readme")
     if not (repo / "README.md").is_file():
         failures.append(
             CorpusRefusal(
@@ -123,23 +130,39 @@ def hc_doc_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 "restore the repository README",
             )
         )
-    tracked = _base._run(["git", "-C", str(repo), "ls-files", "--", "docs"], timeout=15)
-    if tracked.returncode:
-        failures.append(
-            CorpusRefusal(
-                "CORPUS_READ_FAILED",
-                "docs",
-                "tracked pages unavailable",
-                "restore readable git metadata and retry",
-            )
+    if public_delivery and (repo / ".git").exists():
+        tracked = _base._run(
+            ["git", "-C", str(repo), "ls-files", "--", "docs"], timeout=15
         )
+        if tracked.returncode:
+            failures.append(
+                CorpusRefusal(
+                    "CORPUS_READ_FAILED",
+                    "docs",
+                    "tracked pages unavailable",
+                    "restore readable git metadata and retry",
+                )
+            )
+        candidates = tracked.stdout.splitlines()
+    else:
+        candidates = [
+            p.relative_to(repo).as_posix()
+            for p in (repo / "docs").rglob("*.md")
+            if p.is_file()
+        ]
     pages = [
         p
-        for p in tracked.stdout.splitlines()
+        for p in candidates
         if p.endswith(".md") and not p.startswith(("docs/public/", "docs/archive/"))
     ]
-    _emit_hc_progress("HC-doc-health", f"validate-contributor-links {len(pages)} pages")
+    _emit_hc_progress("HC-doc-health", f"scan-doc-links 0/{len(pages)}")
     notes = validate_links(repo, pages)
+    if not public_delivery:
+        failures.extend(
+            CorpusRefusal(r.code, r.target, f"broken link: {r.detail}", r.repair)
+            for r in notes
+        )
+        notes = []
     rec.record(
         "HC-doc-health",
         "Documentation health audit",

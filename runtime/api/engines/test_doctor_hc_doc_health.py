@@ -26,6 +26,9 @@ def _seed(root):
     for mirror in (root / ".yoke/docs", root / PACKAGED_TREE_REL / "docs/public"):
         shutil.copytree(source, mirror)
     (root / "README.md").write_text("# Source\n")
+    (root / "pyproject.toml").write_text('[project]\nname = "yoke"\n')
+    (root / "runtime/harness").mkdir(parents=True)
+    (root / "runtime/harness/marker").write_text("source fixture")
     subprocess.run(["git", "init", "-q", str(root)], check=True)
     subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
 
@@ -79,3 +82,29 @@ def test_retired_reference_in_tracked_consumer_fails(tmp_path, monkeypatch):
     result = _run(tmp_path, monkeypatch)
     assert result.result == "FAIL"
     assert "RETIRED_REFERENCE consumer.txt:1" in result.detail
+
+
+def test_missing_public_tree_cannot_downgrade_a_source_checkout(tmp_path, monkeypatch):
+    _seed(tmp_path)
+    shutil.rmtree(tmp_path / "docs/public")
+    result = _run(tmp_path, monkeypatch)
+    assert result.result == "FAIL"
+    assert "NAV_SCHEMA nav.yaml" in result.detail
+
+
+def test_gitless_generic_docs_keep_recursive_link_health(tmp_path, monkeypatch, capsys):
+    (tmp_path / "README.md").write_text("# Repository\n")
+    docs = tmp_path / "docs/nested"
+    docs.mkdir(parents=True)
+    (docs / "guide.md").write_text("[Present](target.md)\n")
+    (docs / "target.md").write_text("# Target\n")
+    assert _run(tmp_path, monkeypatch).result == "PASS"
+    progress = capsys.readouterr().out
+    assert "running HC-doc-health check-readme" in progress
+    assert "running HC-doc-health scan-doc-links 0/2" in progress
+    (docs / "guide.md").write_text("[Missing](missing.md)\n")
+    result = _run(tmp_path, monkeypatch)
+    assert result.result == "FAIL"
+    assert "LINK_TARGET_MISSING" in result.detail
+    assert "broken link" in result.detail
+    assert "Repair:" in result.detail

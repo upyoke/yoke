@@ -117,6 +117,8 @@ def test_advisory_and_portable_examples_do_not_refuse(tmp_path):
         + "machine_id: 00000000-0000-0000-0000-000000000001\n"
         + "Example machine_id: ab12cd34-ef56-7890-ab12-cd34ef567890\n"
     )
+    tree = nav.load_navigation(root)
+    path.write_text(render_page(tree, tree, path.read_text()))
     assert validation.validate_public_corpus(root) == []
 
 
