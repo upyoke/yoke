@@ -46,9 +46,10 @@ function renderRunCards(context, host, rows, scope, cardOptions) {
 export async function loadDelivery(context, host, getScope) {
   const documentNode = context.document;
   const projects = context.projects();
-  const factsPromise = projects.length
-    ? loadRunFacts(context, projects.map((project) => project.id))
-    : Promise.resolve(EMPTY_RUN_FACTS);
+  const loading = el(documentNode, "p", "item-roster-note shipping-loading",
+    "Loading deployment runs and current QA obligations…");
+  loading.setAttribute("role", "status");
+  host.replaceChildren(loading);
   // The authorized universe overview returns each shared release once.
   const { callResults } = await settledScopedCalls(context, [{
     functionId: "deployment_runs.list", payload: { relevance: "overview" },
@@ -106,6 +107,11 @@ export async function loadDelivery(context, host, getScope) {
     }
   };
   paint();
+  // Render authoritative obligations first. Attempt history and flow names
+  // must neither occupy the initial request slots nor delay source-only rows.
+  const factsPromise = projects.length
+    ? loadRunFacts(context, projects.map((project) => project.id))
+    : Promise.resolve(EMPTY_RUN_FACTS);
   factsPromise.then((loaded) => {
     if (!context.isMounted()) return;
     facts = loaded;
