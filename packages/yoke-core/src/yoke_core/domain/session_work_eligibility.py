@@ -59,12 +59,37 @@ def require_session_work_eligibility(conn, session_id, target):
     if session is None:
         raise SessionError("NOT_FOUND", f"Session '{session_id}' not found.")
     project = conn.execute(
-        f"SELECT project_id FROM items WHERE id = {marker}",
+        f"SELECT i.project_id, ir.public_ref, i.title, p.slug FROM items i "
+        f"JOIN projects p ON p.id = i.project_id "
+        f"JOIN item_refs ir ON ir.item_id = i.id WHERE i.id = {marker}",
         (item_id,),
     ).fetchone()
     if project is None:
         raise SessionError("INVALID_CLAIM", "Work target item does not exist.")
     observed = dict(session)
+    if observed.get("project_id") != project[0]:
+        session_project = None
+        if observed.get("project_id") is not None:
+            session_project = conn.execute(
+                f"SELECT slug FROM projects WHERE id = {marker}",
+                (observed["project_id"],),
+            ).fetchone()
+        origin = (
+            f"in project {session_project[0]}"
+            if session_project
+            else "outside any project"
+        )
+        code = (
+            "SESSION_MACHINE_SCOPE_WORK_REFUSED"
+            if observed.get("project_id") is None
+            else "SESSION_PROJECT_MISMATCH"
+        )
+        raise SessionError(
+            code,
+            f"Open a session in the {project[3]} project folder to work on "
+            f"{project[1]} ({project[2]}). This session was started {origin}; "
+            "sessions never switch projects.",
+        )
     require_work_selection(
         conn,
         project_id=project[0],
