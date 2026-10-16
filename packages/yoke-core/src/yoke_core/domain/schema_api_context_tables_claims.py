@@ -92,7 +92,7 @@ CLAIMS_TABLES: dict[str, dict] = {
             "omit its session actor; seed the authenticated fixture actor. "
             "Shared and file-backed relay tests use "
             "session_launch_test_support.relay_connection, which owns this column. "
-            "Registration inserts and duplicate/reactivation projections also require nullable org_id "
+            "Registration inserts and duplicate/reactivation projections, including conflict-row fakes, require nullable org_id "
             "in project-only fixtures. DDL owners: sessions_schema_test_ddl._SESSIONS_AND_CLAIMS_DDL, "
             "test_sessions_lifecycle_reactivation_claims._CREATE_SESSIONS, "
             "test_service_client_sessions_helpers._SESSION_SCHEMA_DDL, sessions_api_test_support.ACTIVE_SESSIONS_SCHEMA and api_items_fixture_schema._SCHEMA_DDL. Identity SELECT fixtures have sixteen fields, ending in nullable org_id."
