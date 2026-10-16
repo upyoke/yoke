@@ -136,6 +136,45 @@ def owner_transfer_authority(conn: Any, *, owner: str) -> Iterator[None]:
     conn.execute(f"RELEASE SAVEPOINT {_OWNER_TRANSFER_SAVEPOINT}")
 
 
+@contextmanager
+def acting_as_serving_owner(conn: Any) -> Iterator[str]:
+    """Run a multi-commit converge as the role that owns the managed tables.
+
+    A table belongs to whoever creates it, so a converge on an admin
+    connection hands every new table to the admin role and the next
+    converge by the serving role cannot alter it. ``SET ROLE`` makes the
+    serving owner the creator. Unlike :func:`owner_transfer_authority`, the
+    role and any borrowed membership are session-scoped and committed,
+    because the converge commits between its steps; both are undone on exit.
+    Yields the owner, or ``""`` when the schema has no tables yet.
+    """
+    owner = inspect(conn).expected_owner
+    if not owner:
+        yield ""
+        return
+    quoted_owner = _quoted_identifier(owner)
+    membership = conn.execute(
+        "SELECT pg_has_role(current_user, %s, 'SET')",
+        (owner,),
+    ).fetchone()
+    borrowed = not (membership is not None and bool(membership[0]))
+    if borrowed:
+        conn.execute(f"GRANT {quoted_owner} TO CURRENT_USER")
+    conn.execute(f"SET ROLE {quoted_owner}")
+    conn.commit()
+    try:
+        yield owner
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+    finally:
+        conn.execute("RESET ROLE")
+        if borrowed:
+            conn.execute(f"REVOKE {quoted_owner} FROM CURRENT_USER")
+        conn.commit()
+
+
 def majority_owner(rows: Sequence[Tuple[str, str]]) -> str:
     counts: Dict[str, int] = {}
     for _table, owner in rows:
@@ -231,6 +270,7 @@ __all__ = [
     "FUNCTION_OWNERSHIP_SQL",
     "OWNERSHIP_SQL",
     "OwnershipReport",
+    "acting_as_serving_owner",
     "current_schema",
     "inspect",
     "majority_owner",
