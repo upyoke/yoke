@@ -39,6 +39,7 @@ def launch_connection() -> sqlite3.Connection:
         CREATE TABLE harness_sessions (
             session_id TEXT PRIMARY KEY,
             project_id INTEGER NOT NULL,
+            org_id INTEGER,
             workspace TEXT NOT NULL DEFAULT '"""
         + SESSION_WORKSPACE
         + """',
