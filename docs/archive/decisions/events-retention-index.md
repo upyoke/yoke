@@ -24,7 +24,7 @@ is needed because no table, column or row is rewritten or removed.
 `events_retention_index.BOOTSTRAP_AUDIT_RECORD` declares the exact arguments.
 
 Boot convergence builds the index after the audit table is committed. The
-permanent ordered entry `0078_events_retention_index` invokes the same helper
+permanent ordered entry `0080_events_retention_index` invokes the same helper
 and verifies readiness before its history membership is recorded; on a
 booted database it only verifies. Production receives the index through the
 serving release's boot.

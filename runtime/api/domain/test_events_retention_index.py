@@ -13,7 +13,7 @@ from yoke_core.domain.events_retention_index import (
 )
 
 migration = importlib.import_module(
-    "yoke_core.domain.migrations.0078_events_retention_index"
+    "yoke_core.domain.migrations.0080_events_retention_index"
 )
 
 
