@@ -64,6 +64,14 @@ including withdrawals. Requirement writes, correction admission, producer
 receipts and source/target identities retain their existing checks and run lock.
 Production proof commands resolve the attaching member's project and pass it
 explicitly as `--project`; wire member identities use the current public ref.
+For a member materialization mission, sample run membership and count only
+`qa_plan_executions` matching its `deployment_run_id`, `deployment_stage`,
+and resolved `deployment_member_item_id` before and after both calls.
+Other members, stages and run-wide campaigns can execute concurrently; their
+counts do not answer whether materializing this member started an execution.
+Record actual population, both timings, admitted IDs and exact target; a second
+call must create no requirements and return the same IDs. Keep failed captures
+when correcting this observation scope, then obtain fresh production evidence.
 
 All concrete blocking cases must pass with evidence attached to the exact
 execution capture, or carry an explicit discharge, before stage acceptance.
