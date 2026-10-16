@@ -1,0 +1,8 @@
+{
+ "id": "unacked-reminder-live-proof",
+ "title": "Prove unacknowledged-message reminders on released harnesses",
+ "status": "observed",
+ "text": "Source tests prove a reminder per backoff on every claude, codex and cursor surface inject event, reminder rendering and settlement, and seat receipts for handed-over steering mail. The batched release still owes live proof that a real Cursor and Claude session receives the reminder and that a re-acquired seat injects parked mail. This is a delivery obligation of the current change, not deferred implementation.",
+ "sources": ["runtime/api/domain/test_session_message_reminders.py", "runtime/harness/test_hook_session_message_reminder_rendering.py", "runtime/api/domain/test_steering_seat_handoff.py"],
+ "position": 60
+}
