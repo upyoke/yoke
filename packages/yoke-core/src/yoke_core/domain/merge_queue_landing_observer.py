@@ -182,12 +182,16 @@ def observe_pending_landings(
         if readback.state_error:
             continue
         state = readback.state
-        if row.get("attempt") and state and state.closed and not state.merged:
+        closed_attempt = bool(
+            row.get("attempt") and state and state.closed and not state.merged
+        )
+        if closed_attempt and not row.get("merge_queue_enqueued_at"):
             # A re-land that closed unmerged leaves the item's current landing
             # as it was; the attempt record keeps the reason. An armed one
-            # still owes its holder the stopped notice below.
+            # stays open until its stopped notice below reaches the holder.
             close_attempt(conn, item_id, pr_number, closed_unmerged_reason(pr_number))
             conn.commit()
+            continue
         observation = classify_pending_landing(readback, target=target)
         if observation.kind not in (LANDED, EJECTED):
             continue
@@ -232,6 +236,10 @@ def observe_pending_landings(
                 # an old acknowledgement cannot settle a fresh ejection.
                 if episode is not None and delivery == "delivered":
                     clear_episode(conn, row, episode)
+                if closed_attempt and delivery == "delivered":
+                    close_attempt(
+                        conn, item_id, pr_number, closed_unmerged_reason(pr_number)
+                    )
                 result["ejected"] += 1
                 conn.commit()
                 continue

@@ -11,7 +11,9 @@ from __future__ import annotations
 from yoke_contracts.timestamps import parse_instant
 from runtime.api.domain.merge_queue_observer_test_helpers import (
     GITHUB_MERGED_AT,
+    INJECTED_AT,
     INJECTED_TEXT,
+    inject,
     MERGED,
     message_body,
     message_id_for,
@@ -159,7 +161,7 @@ def test_an_attempt_closed_unmerged_keeps_the_original_landing():
     assert pending_landing_rows(conn, [1]) == []
 
 
-def test_an_armed_attempt_closed_unmerged_tells_its_holder_once():
+def test_an_armed_attempt_closed_unmerged_closes_once_its_holder_is_told():
     conn = _landed_connection()
     before = _columns(conn)
     point_item_at_pull_request(conn, 101, "43", enqueued_at=INJECTED_TEXT)
@@ -167,13 +169,19 @@ def test_an_armed_attempt_closed_unmerged_tells_its_holder_once():
     def closed(*_):
         return CLOSED_UNMERGED, None
 
-    first = observe(conn, read_state=closed, read_membership=not_queued)
-    again = observe(conn, read_state=closed, read_membership=not_queued)
+    queued = observe(conn, read_state=closed, read_membership=not_queued)
+    message_id = message_id_for_prefix(conn, "merge-queue-ejected:101:43:")
 
-    assert first["ejected"] == 1
-    assert again["checked"] == 0
+    assert queued["ejected"] == 1
+    assert "Landing stopped" in message_body(conn, message_id)
+    assert read_open_attempt(conn, 101)["pr_number"] == "43"
+
+    inject(conn, message_id)
+    observe(conn, now=INJECTED_AT, read_state=closed, read_membership=not_queued)
+
     assert _columns(conn) == before
     assert read_open_attempt(conn, 101) is None
-    assert "Landing stopped" in message_body(
-        conn, message_id_for_prefix(conn, "merge-queue-ejected:101:43:")
+    assert read_latest_attempt(conn, 101)["closed_reason"] == closed_unmerged_reason(
+        "43"
     )
+    assert observe(conn, read_state=closed, read_membership=not_queued)["checked"] == 0
