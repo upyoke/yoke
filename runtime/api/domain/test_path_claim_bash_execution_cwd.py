@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from runtime.api.domain.test_path_claim_bash_guard import _claim_dict, _payload
 from runtime.api.domain.test_path_claim_pre_edit_guard import _record
+from yoke_contracts.hook_runner.session_cwd import client_machine_home_fact
 from yoke_core.domain import path_claim_pre_edit_guard
 from yoke_core.domain.path_claim_bash_guard import evaluate_payload
 from yoke_core.domain.path_claim_bash_parser import extract_mutations
@@ -109,6 +110,15 @@ class TestGuardExecutionDirectory:
             claim=claim,
         )
         assert verdict.outcome == "allow"
+
+    def test_leading_cd_home_uses_client_home_fact(self, tmp_path):
+        main, worktree, claim = self._lanes(tmp_path)
+        payload = _payload(
+            command="cd ~/.worktrees/YOK-1577 && git rm runtime/api/domain/a.py",
+            cwd=str(main),
+        )
+        payload.update(client_machine_home_fact(str(main)))
+        assert evaluate_payload(payload, claim=claim).outcome == "allow"
 
 
 class TestPerTaskLaneFromMain:

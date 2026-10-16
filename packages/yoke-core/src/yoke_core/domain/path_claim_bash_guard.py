@@ -17,7 +17,10 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from yoke_contracts.hook_runner.session_cwd import client_scratch_root
+from yoke_contracts.hook_runner.session_cwd import (
+    client_machine_home,
+    client_scratch_root,
+)
 from yoke_core.domain.command_workdir import command_execution_cwd
 from yoke_core.domain.lint_command_extract import extract_command
 from yoke_core.domain.observe_normalization import (
@@ -180,17 +183,17 @@ def _coerce_record(payload: Any) -> Optional[ToolEventRecord]:
         return payload
     if not isinstance(payload, dict):
         return None
-    command = extract_command(payload)
     return ToolEventRecord(
         tool_kind=TOOL_KIND_BASH,
         changed_paths=[],
-        command=command,
+        command=extract_command(payload),
         patch_body="",
         tool_name=str(payload.get("tool_name") or "Bash"),
         session_id=str(payload.get("session_id") or ""),
         tool_use_id=payload.get("tool_use_id"),
         turn_id=payload.get("turn_id") or payload.get("message_id"),
-        cwd=command_execution_cwd(payload),
+        # The client's home, never this process's: "" leaves ``~`` as written.
+        cwd=command_execution_cwd(payload, machine_home=client_machine_home(payload)),
         project_dir=str(payload.get("cwd") or payload.get("project_dir") or ""),
     )
 
