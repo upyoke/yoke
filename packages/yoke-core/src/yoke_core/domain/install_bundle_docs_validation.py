@@ -86,13 +86,14 @@ def validate_public_corpus(root: Path) -> list[CorpusRefusal]:
     except nav.NavigationError:
         tree = None
     nodes = {n.path: n for n in nav.iter_nodes(tree)} if tree else {}
-    for page in pages:
-        path = root / page
+    for path in public_corpus_files(root):
+        page = path.relative_to(root.resolve()).as_posix()
         try:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeError):
             continue  # The link validator owns the unreadable-page refusal.
-        refusals.extend(_size(path, text))
+        if path.suffix == ".md":
+            refusals.extend(_size(path, text))
         if any(pattern.search(text) for pattern in _PRIVATE[:-1]) or any(
             _PRIVATE[-1].search(line)
             and not re.search(r"\b(example|synthetic|schema)\b", line, re.I)
@@ -126,12 +127,34 @@ def validate_public_corpus(root: Path) -> list[CorpusRefusal]:
     return refusals
 
 
+def public_corpus_files(root: Path) -> list[Path]:
+    """Tracked source payloads and present snapshot payloads share one boundary."""
+    root = root.resolve()
+    repo = root.parent.parent
+    if root == repo / "docs/public" and (repo / ".git").exists():
+        result = _git(repo, "ls-files", "-z", "--", "docs/public")
+        if result.returncode:
+            raise OSError("tracked public files unavailable")
+        return [repo / p for p in result.stdout.decode().split("\0") if p]
+    return sorted(p for p in root.rglob("*") if p.is_file())
+
+
 def validate_published_copies(repo: Path) -> list[CorpusRefusal]:
     """Inspect every copy, including extras and oversized generated pages."""
     source = repo / "docs/public"
-    expected = {
-        p.relative_to(source): p.read_bytes() for p in source.rglob("*") if p.is_file()
-    }
+    try:
+        expected = {
+            p.relative_to(source): p.read_bytes() for p in public_corpus_files(source)
+        }
+    except (OSError, subprocess.SubprocessError) as exc:
+        return [
+            CorpusRefusal(
+                "CORPUS_READ_FAILED",
+                str(source),
+                str(exc),
+                "restore readable source files and git metadata, then retry",
+            )
+        ]
     refusals = []
     for root in (
         repo / ".yoke/docs",
@@ -184,6 +207,8 @@ def _consumer_proof(path: Path | None, commit: str) -> list[CorpusRefusal]:
             return []
     except (OSError, ValueError, TypeError):
         value = "unreadable evidence"
+    value = value.get("source_commit") if isinstance(value, dict) else None
+    value = str(value) if _COMMIT.fullmatch(str(value)) else "malformed evidence"
     return [
         CorpusRefusal(
             "CONSUMER_PROOF_MISSING",

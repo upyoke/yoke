@@ -262,3 +262,19 @@ def test_invalid_complete_corpus_refuses_before_any_write(tmp_path):
         for p in tmp_path.rglob("*")
         if p.is_file()
     }
+
+
+def test_sync_ignores_untracked_source_scratch_pages(tmp_path):
+    import subprocess
+
+    _seed_sources(tmp_path)
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "add", "-A"], check=True)
+    scratch = tmp_path / "docs/public/scratch.md"
+    scratch.write_text("# Scratch\n[Broken](absent.md)\n")
+    sync(target_root=tmp_path)
+    assert not (tmp_path / ".yoke/docs/scratch.md").exists()
+    assert not (
+        tmp_path / sync_mod.PACKAGED_TREE_REL / "docs/public/scratch.md"
+    ).exists()
+    assert detect_drift(target_root=tmp_path) == []

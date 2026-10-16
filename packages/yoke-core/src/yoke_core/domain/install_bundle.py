@@ -253,12 +253,19 @@ def _hooks_block() -> Dict[str, Any]:
 
 def validate_docs_for_bundle(root: Path) -> None:
     """Cache complete validation by root and the corpus's actual content."""
+    from yoke_core.domain.install_bundle_docs_validation import public_corpus_files
+
     source = root / DOCS_SOURCE
     digest = hashlib.sha256()
-    for path in sorted(p for p in source.rglob("*") if p.is_file()):
+    for path in public_corpus_files(source):
         digest.update(path.relative_to(source).as_posix().encode())
         digest.update(b"\0")
-        digest.update(path.read_bytes())
+        try:
+            digest.update(path.read_bytes())
+        except OSError as exc:
+            raise InstallBundleError(
+                f"CORPUS_READ_FAILED {path}: {exc}. Repair: restore readable source files and retry"
+            ) from exc
     _validated_docs(str(source.resolve()), digest.digest())
 
 

@@ -70,6 +70,13 @@ def candidate(tmp_path):
 def test_complete_snapshot_and_tracked_source(candidate, tmp_path):
     root, _, _ = candidate
     assert validation.validate_public_corpus(root / "docs/public") == []
+    from yoke_core.domain.install_bundle_managed import docs_bundle_files
+
+    scratch = root / "docs/public/scratch.md"
+    scratch.write_text("# Untracked scratch\n[Broken](absent.md)\n")
+    assert validation.validate_public_corpus(root / "docs/public") == []
+    assert validation.validate_published_copies(root) == []
+    assert not any(e["path"].endswith("scratch.md") for e in docs_bundle_files(root))
     snapshot = _corpus(tmp_path / "snapshot")
     assert validation.validate_public_corpus(snapshot) == []
     (snapshot / "unlisted.md").write_text("# Unlisted\n")
@@ -299,3 +306,19 @@ def test_retired_scan_false_positives_and_anchored_matches(candidate):
     assert len(scan_retired_references(root)) == 3
     (root / "docs/public/nav.yaml").write_text("sections:\n  pages: []\n")
     assert len(scan_retired_references(root)) == 5
+
+
+def test_private_navigation_metadata_is_not_published(tmp_path):
+    root = _corpus(tmp_path)
+    path = root / "nav.yaml"
+    path.write_text(
+        path.read_text().replace("Corpus", "/" + "Users/alice/private/manual")
+    )
+    refusals = [
+        r
+        for r in validation.validate_public_corpus(root)
+        if r.code == "PRIVATE_CONTENT"
+    ]
+    assert len(refusals) == 1 and refusals[0].target.endswith("nav.yaml")
+    assert refusals[0].repair
+    assert "alice" not in str(refusals[0])

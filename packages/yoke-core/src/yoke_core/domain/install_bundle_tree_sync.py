@@ -27,6 +27,11 @@ from yoke_core.domain.install_bundle import (
     INSTALL_BUNDLE_SOURCE_DIRS,
     is_bundle_junk_path,
 )
+from yoke_core.domain.install_bundle_docs_validation import (
+    public_corpus_files,
+    validate_public_corpus,
+    validate_published_copies,
+)
 from yoke_core.domain.install_bundle_docs_mirror import (
     docs_dest_drift,
     mirror_docs_dest,
@@ -67,7 +72,7 @@ def _relative_files(root: Path) -> List[str]:
         return []
     return sorted(
         p.relative_to(root).as_posix()
-        for p in root.rglob("*")
+        for p in public_corpus_files(root)
         if p.is_file() and not is_bundle_junk_path(p)
     )
 
@@ -140,10 +145,6 @@ def detect_drift(*, target_root: Path) -> List[str]:
     for stray in _stray_packaged_files(packaged):
         drift.append(f"stray packaged file (outside declared source dirs): {stray}")
     drift.extend(docs_dest_drift(repo=repo, relative_files=_relative_files))
-    from yoke_core.domain.install_bundle_docs_validation import (
-        validate_published_copies,
-    )
-
     drift.extend(str(r) for r in validate_published_copies(repo))
     for entry in harness_manifest_files(repo):
         installed = repo / entry["path"]
@@ -178,8 +179,6 @@ def sync(*, target_root: Path, dry_run: bool = False) -> Dict[str, List[str]]:
                 f"install-bundle source file is missing: {repo / rel}"
             )
         source_file_bytes(repo / rel)
-    from yoke_core.domain.install_bundle_docs_validation import validate_public_corpus
-
     refusals = validate_public_corpus(repo / "docs/public")
     if refusals:
         raise InstallBundleTreeError("\n".join(str(r) for r in refusals))
@@ -252,10 +251,7 @@ def sync(*, target_root: Path, dry_run: bool = False) -> Dict[str, List[str]]:
     )
     written.extend(mirror["written"])
     removed.extend(mirror["removed"])
-    prune_empty_dirs(
-        bases=[repo / DOCS_DEST],
-        dry_run=dry_run,
-    )
+    prune_empty_dirs(bases=[repo / DOCS_DEST], dry_run=dry_run)
     return {"written": written, "removed": removed}
 
 
