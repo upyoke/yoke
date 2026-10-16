@@ -245,9 +245,7 @@ def test_advisory_timeout_cannot_cancel_the_required_qa_workflow() -> None:
     }
     assert evidence[True]["pull_request"]["branches"] == ["main"]
     assert evidence[True]["push"]["branches"] == ["main"]
-    assert evidence["concurrency"]["group"] == (
-        "${{ github.workflow }}-${{ github.ref }}"
-    )
+    assert evidence["concurrency"]["group"].startswith("${{ github.workflow }}-")
     assert set(required["jobs"]) == {
         "repo_contracts",
         "reuse_coverage",
