@@ -65,9 +65,6 @@ def create_session_control_tables(conn: Any) -> None:
                 AND cancelled_at IS NULL;
         CREATE INDEX IF NOT EXISTS idx_session_messages_created
             ON session_messages(created_at);
-        CREATE INDEX IF NOT EXISTS idx_session_messages_idempotency_prefix
-            ON session_messages(idempotency_key text_pattern_ops)
-            WHERE idempotency_key IS NOT NULL;
 
         CREATE TABLE IF NOT EXISTS session_message_recipients (
             message_id TEXT NOT NULL REFERENCES session_messages(message_id),

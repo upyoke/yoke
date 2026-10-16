@@ -72,6 +72,9 @@ from yoke_core.domain.schema_init_work_claim_indexes import (
 )
 from yoke_core.domain.schema_ouroboros_columns import apply_ouroboros_columns
 from yoke_core.domain.session_control_schema import create_session_control_tables
+from yoke_core.domain.session_message_indexes import (
+    create_session_message_prefix_index,
+)
 from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL,
     STRATEGY_DOCS_CREATE_TABLE_SQL,
@@ -110,6 +113,7 @@ def converge_additive_schema(conn: Any) -> None:
     create_auth_tables(conn)
     create_external_identity_tables(conn)
     create_session_control_tables(conn)
+    create_session_message_prefix_index(conn)
     create_decision_request_tables(conn)
     create_github_app_tables(conn)
     # QA plans bind to a concrete environment, so site/environment authority
