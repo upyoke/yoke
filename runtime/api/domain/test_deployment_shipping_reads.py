@@ -6,6 +6,8 @@ from unittest.mock import patch
 from collections import Counter
 from time import perf_counter
 
+from yoke_contracts.api.function_call import FunctionCallResponse
+
 from runtime.api.domain.test_deployment_qa_stage_execution import (
     _complete_case,
     _plan,
@@ -140,6 +142,15 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
     # Include recorded carried work and real historical landing containment in
     # the complete-list profile; member QA alone does not describe its cost.
     run_ids = sorted({run for run, _, _ in subjects})
+    bound = {
+        "schema": 1,
+        "projects": [{"project_id": 3, "project": "platform", "commit_sha": "b" * 40}],
+        "inputs": {"consumer_sha": "b" * 40},
+        "preparation_receipt": {
+            "request_id": "shipping-preparation",
+            "payload": "x" * 800000,
+        },
+    }
     for run_id in run_ids:
         members = [member for run, member, _ in subjects if run == run_id]
         snapshot = {
@@ -162,8 +173,9 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
             "commits": [],
         }
         test_db.execute(
-            "UPDATE deployment_runs SET carried_work=%s,candidate_containment=%s WHERE id=%s",
-            (json.dumps(carried), json.dumps(snapshot), run_id),
+            "UPDATE deployment_runs SET carried_work=%s,candidate_containment=%s,"
+            "bound_sources=%s WHERE id=%s",
+            (json.dumps(carried), json.dumps(snapshot), json.dumps(bound), run_id),
         )
     for index in range(148):
         test_db.execute(
@@ -192,6 +204,29 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
     assert sum(len(row["member_items"]) for row in complete) == 194
     assert sum(full.queries.values()) < 60
     assert all(row["carried_work"]["items"] for row in complete)
+    serialized = FunctionCallResponse(
+        function="deployment_runs.list",
+        version="v1",
+        success=True,
+        result=outcome.result_payload,
+    ).model_dump_json()
+    assert len(serialized.encode()) < 1_000_000
+    for row in complete:
+        assert row["bound_sources"] == {
+            key: value for key, value in bound.items() if key != "preparation_receipt"
+        }
+    # Only Shipping's projection omits the bulky frozen receipt. Driver recovery
+    # and detail reads still recover the exact original committed record.
+    from yoke_core.domain.deployment_runs_crud_query import get_run
+
+    with patch(
+        "yoke_core.domain.deployment_runs_crud_query.connect", return_value=full
+    ):
+        stored = get_run(run_ids[0])
+    assert json.loads(stored["bound_sources"]) == bound
+    print(
+        f"Shipping serialized overview bytes={len(serialized.encode())} omitted_receipt_bytes={800000 * len(run_ids)}"
+    )
     print(
         f"Shipping complete handler: local_authority=true approval_records=0 runs=12 members=194 history_runs=148 "
         f"queries={sum(full.queries.values())} dominant_callers={full.callers.most_common(30)}"
