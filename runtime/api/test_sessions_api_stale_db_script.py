@@ -13,6 +13,7 @@ from yoke_core.domain.db_helpers import utc_now
 import pytest
 
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+from runtime.api.fixtures import operating_actor
 from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
 from runtime.api.test_sessions import _REPO_ROOT
 from runtime.api.test_constants import TEST_MODEL_ID
@@ -39,6 +40,7 @@ _STALE_DB_SCHEMA = f"""
             VALUES (99, 1, 99), (9999, 1, 9999);
             CREATE TABLE harness_sessions (
                 project_id INTEGER NOT NULL REFERENCES projects(id),
+                org_id INTEGER,
                 session_id TEXT PRIMARY KEY,
                 executor TEXT NOT NULL,
                 executor_surface TEXT DEFAULT NULL,
@@ -141,6 +143,14 @@ def _apply_stale_db_schema() -> None:
         from runtime.api.fixtures.level_store import create_level_store_tables
 
         create_level_store_tables(conn)
+        from yoke_core.domain.actors import seed_human_actor
+        from yoke_core.domain.schema_init_actor_path_claim_tables import (
+            create_actor_identity_tables,
+        )
+
+        create_actor_identity_tables(conn)
+        operating_actor.seed_fixture_universe_identity(conn)
+        seed_human_actor(conn, "Fixture operator")
         conn.commit()
     finally:
         conn.close()
@@ -160,6 +170,11 @@ class TestSessionsDbScript:
         # readback connections all hit this per-test DB instead of colliding on
         # the shared ambient Postgres DB under ``-n``.
         with init_test_db(tmp_path, apply_schema=_apply_stale_db_schema) as path:
+            conn = connect_test_db(path)
+            operating_actor.record_fixture_operating_actor(
+                conn, conn.execute("SELECT id FROM actors").fetchone()[0]
+            )
+            conn.close()
             yield path
 
     def _run_script(self, db_path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -170,6 +185,8 @@ class TestSessionsDbScript:
         """
         env = os.environ.copy()
         env["YOKE_DB"] = str(db_path)
+        if args and args[0] == "begin":
+            args = (*args, "--reasoning-effort", "medium")
         return subprocess.run(
             [sys.executable, "-m", "yoke_core.hooks.sessions_cli", *args],
             env=env,

@@ -141,6 +141,11 @@ class ArgumentFloor:
 #: ignore them. Payload refusals name this floor; adapters whose writes can be
 #: ignored must also verify the success receipt echoes the requested argument.
 FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] = {
+    "sessions.begin": {
+        "machine_scope": ArgumentFloor(
+            "next-release", "start the agent inside a registered project folder"
+        ),
+    },
     "items.create": {
         "spec": ArgumentFloor(
             "next-release", "the filing form supported by the serving CLI release"

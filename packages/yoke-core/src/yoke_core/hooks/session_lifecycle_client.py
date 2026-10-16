@@ -58,11 +58,6 @@ def register_harness_session(
 
         native_thread_id = detect_native_thread_id(executor, session_id)
     project_id = _project_id_for_root(root)
-    if project_id is None:
-        return (
-            "session registration requires a configured project_id for "
-            "this checkout; run yoke project register CHECKOUT --project-id N and retry."
-        )
     if _local_authority_active():
         from yoke_core.hooks.registration import _register_in_process
 
@@ -74,6 +69,7 @@ def register_harness_session(
             root,
             entrypoint,
             project_id=project_id,
+            machine_scope=project_id is None,
             executor_version=executor_version,
             machine_id=machine_id,
             native_thread_id=native_thread_id,

@@ -18,7 +18,10 @@ from yoke_cli.transport.https import HttpsConnection
 from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
 
 from yoke_contracts.hook_runner.project_scope import resolve_hook_project_scope
-from yoke_contracts.hook_evaluator_protocol import HOOK_MODEL_CONFIRMATION_FIELD
+from yoke_contracts.hook_evaluator_protocol import (
+    HOOK_MACHINE_SCOPE_CAPABILITY,
+    HOOK_MODEL_CONFIRMATION_FIELD,
+)
 from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
 from yoke_contracts.hook_runner.failures import render_failure_warning
 
@@ -186,7 +189,7 @@ def relay_hook_event(
         write_hook_output(
             local.stdout, local.exit_code, executor, event_name=event_name
         )
-        if local.denial_audit and project_scope.project_id is not None:
+        if local.denial_audit:
             relay_denial_audit(connection, local.denial_audit)
         return local.exit_code
 
@@ -197,16 +200,6 @@ def relay_hook_event(
         cursor=is_cursor(executor),
         harness_id=canonical_harness_id(executor),
     )
-
-    if project_scope.project_id is None:
-        # The complete machine guard subset is local; project registration is
-        # neither required nor meaningful for an unrelated workspace.
-        print_execution_provenance()
-        write_hook_output(
-            allow_stdout, local.exit_code, executor, event_name=event_name
-        )
-        settle_projection(allow_stdout, launch_projection)
-        return local.exit_code
 
     denied = deny_unstamped_relay(parse_hook_payload(stdin_data))
     if denied is not None:
@@ -290,11 +283,17 @@ def relay_hook_event(
     if failure_warning:
         sys.stderr.write(failure_warning)
     if outcome == "denied":
-        stdout = annotate_guard_version_skew(
-            stdout,
-            client=body["execution_provenance"],
-            server=server_fp,
-        )
+        if body["project_id"] is None and HOOK_MACHINE_SCOPE_CAPABILITY not in (
+            response.get("capabilities") or ()
+        ):
+            stdout = (
+                "This Yoke server predates sessions outside a project (needs the next "
+                "release). Recovery: start the agent inside a registered project folder."
+            )
+        else:
+            stdout = annotate_guard_version_skew(
+                stdout, client=body["execution_provenance"], server=server_fp
+            )
         write_hook_output(stdout, exit_code, executor, event_name=event_name)
         return exit_code
 
