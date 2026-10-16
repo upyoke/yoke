@@ -285,3 +285,16 @@ def test_connect_notification_teaches_matching_code_and_approval(monkeypatch, ca
     assert "Match code: K7F2" in output
     assert "`yoke machines approve K7F2`" in output
     assert "Machines → Waiting for approval" in output
+
+
+@pytest.mark.parametrize("action", ["approve", "deny"])
+@pytest.mark.parametrize("args", [[], ["--json"]])
+def test_missing_viewer(transport, monkeypatch, capsys, action, args):
+    monkeypatch.delitem(DETAIL, "viewer")
+    assert getattr(commands, f"machines_{action}")(["k7f2", *args]) == 1
+    output = capsys.readouterr()
+    error = json.loads(output.out)["error"] if args else output.err
+    assert "function_version_skew" in str(error)
+    assert "(minimum serving version next-release)" in str(error)
+    assert ADMISSION_FLOOR_RECOVERY in str(error)
+    assert [c.function for c in transport.calls] == ["machine_authorization.get"]

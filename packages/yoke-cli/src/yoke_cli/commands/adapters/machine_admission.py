@@ -13,7 +13,7 @@ from yoke_cli.commands._helpers import (
 from yoke_cli.commands.adapters.admission_floor_recovery import admission_floor_hint
 from yoke_cli.config.local_reachability import LOCAL_REACHABILITY_NOTICE
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
-from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.api.function_call import FunctionError, TargetRef
 
 PENDING_USAGE = "yoke machines pending [--json]"
 APPROVE_USAGE = "yoke machines approve CODE [--json]"
@@ -97,7 +97,28 @@ def _decide(args, action):
     if not detail.success:
         return emit_response(detail, json_mode=parsed.json_mode)
     authorization = detail.result["authorization"]
-    person = _person(authorization["viewer"])
+    viewer = authorization.get("viewer")
+    if (
+        not isinstance(viewer, dict)
+        or not viewer.get("actor_id")
+        or "name" not in viewer
+    ):
+        refusal = detail.model_copy(
+            update={
+                "success": False,
+                "result": None,
+                "error": FunctionError(
+                    code="function_version_skew",
+                    message=(
+                        "machine_authorization.get did not provide the required "
+                        "viewer identity (minimum serving version next-release)."
+                    ),
+                    recovery_hint=admission_floor_hint(detail.function),
+                ),
+            }
+        )
+        return emit_response(refusal, json_mode=parsed.json_mode)
+    person = _person(viewer)
     stream = sys.stderr if parsed.json_mode else sys.stdout
     print(
         f"Deciding as {person}: {authorization['machine']} ({code})",
