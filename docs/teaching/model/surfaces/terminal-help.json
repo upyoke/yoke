@@ -7,10 +7,10 @@
  "encounter": "Explicit help request",
  "location": "yoke help = yoke --help; group detail: yoke <group> --help",
  "basis": "Existing entry · new presentation",
- "note": "The full-catalog route needs a concrete design; no new flag is assumed here. “yoke help TOPIC” currently returns root help.",
+ "note": "The full-catalog route needs a concrete design; no new flag is assumed here. “yoke help TOPIC” currently returns root help. yoke machines --help exposes pending, approve and deny for waiting machines; yoke machine --help manages registered machines.",
  "current": "Observed 2026-10-12: yoke --help prints 1,859 lines / 102,636 characters. Cascade repair is not shipped here.",
  "desired": "Overview → immediate categories → command recipes. Hard 350 lines; smaller budgets are advisory.",
  "plan_notes": ["FIRST-USER 35/P6", "New help layout proposal"],
  "plan_refs": ["FIRST-USER.35"],
- "sources": ["packages/yoke-cli/src/yoke_cli/command_router.py", "packages/yoke-cli/src/yoke_cli/commands/group_help.py", "packages/yoke-cli/src/yoke_cli/commands/registry.py", "docs/public/reference/commands.md"]
+ "sources": ["packages/yoke-cli/src/yoke_cli/command_router.py", "packages/yoke-cli/src/yoke_cli/commands/group_help.py", "packages/yoke-cli/src/yoke_cli/commands/registry.py", "packages/yoke-cli/src/yoke_cli/commands/registry_admission.py", "docs/public/reference/commands.md"]
 }

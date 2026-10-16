@@ -52,7 +52,7 @@ def register(registry) -> None:
             "machine_authorization.resolve",
             authorization.handle_resolve,
             authorization.AuthorizationResolveRequest,
-            ["machine_authorization_approve", "decision_requests_resolve"],
+            ["machine_authorization_codes_update"],
         ),
     ):
         registry.register(
@@ -71,6 +71,22 @@ def register(registry) -> None:
             ambient_session_required=False,
             minimum_serving_version="next-release",
         )
+    registry.register(
+        "machine_authorization.pending",
+        authorization.handle_pending,
+        authorization.AuthorizationPendingRequest,
+        authorization.AuthorizationPendingResponse,
+        stability="stable",
+        owner_module=authorization.__name__,
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["verified_actor", "org_membership"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+        minimum_serving_version="next-release",
+    )
     registry.register(
         "decision_requests.get",
         _get.handle_decision_request_get,

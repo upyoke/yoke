@@ -40,8 +40,10 @@ AUTH_TABLES: dict[str, dict] = {
             ("platform", "TEXT"),
             ("consumed_at", "TIMESTAMPTZ"),
             ("client_key", "TEXT"),
+            ("decision", "TEXT"),
+            ("decided_at", "TIMESTAMPTZ"),
         ],
-        "notes": "Self-host pending personal machine approval. Start requires machine_id, machine_name and platform before polling; direct domain callers also supply platform rather than assuming identity is collected by poll. Omitting platform from a schema birth fixture causes UndefinedColumn, not absent client metadata. Boot adds the nullable platform column. Device secrets are hashed, raw credentials are never stored, and consumption is single-use. client_key hashes trusted transport identity for pending admission. Inspection retains expired/consumed facts; resolve and poll still refuse them.",
+        "notes": "Self-host pending personal machine approval. Start requires machine_id, machine_name and platform before polling; direct domain callers also supply platform rather than assuming identity is collected by poll. Omitting platform from a schema birth fixture causes UndefinedColumn, not absent client metadata. Boot adds nullable platform, decision and decided_at columns. A human member binds actor_id and one approve/deny decision atomically on this row, without an Inbox mirror. Device secrets are hashed, raw credentials are never stored, and consumption is single-use. client_key hashes trusted transport identity for pending admission. Inspection retains expired/consumed facts; resolve and poll still refuse them.",
     },
     "roles": {
         "columns": [

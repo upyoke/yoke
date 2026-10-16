@@ -110,34 +110,7 @@ See [proxy forwarding](self-host-browser-sign-in.md#proxy-forwarding) for header
 
 ## Engineer machines
 
-Each engineer runs the installer, then connects to your server:
-
-```bash
-curl -fsSL https://upyoke.com/install | sh
-yoke connect https://yoke.internal
-yoke status
-```
-
-With company sign-in (OIDC) configured, the CLI displays a one-time code and
-opens the server's workbench approval page. Sign in and approve **your own**
-machine. The CLI polls and receives its machine-bound credential once; no
-server operator needs to mint a token. The setup wizard's **A team server**
-option discovers the same sign-in method after you enter the server URL.
-
-Without company sign-in, a teammate's first machine connects with a pasted API
-token or token file: `yoke connect https://yoke.internal --token-stdin`. Your
-own next machine needs no token: run `yoke connect https://yoke.internal`, then
-approve its printed code from a machine you already connected with
-`yoke machine-authorization resolve CODE --action approve` (or the approval
-page after `yoke ui up`). The new machine receives the approver's identity, so
-approve only your own codes. The first-boot admin token
-remains the bootstrap; an admin can mint other API tokens on the host with
-`docker compose exec --user yoke core python3 -m yoke_core.domain.api_tokens_cli mint --actor <actor-id> --name <engineer-label>`.
-
-Use HTTPS for network servers (numeric loopback HTTP is permitted locally).
-The connection is saved only after `/v1/health` and `/v1/auth/identity` pass.
-See [Machine authorization](public/reference/machine-authorization.md) for
-expiry, retry, and single-use credential delivery.
+See [People and machines](self-host-people.md) to connect engineers and approve your own machines.
 
 ## Restore admin access
 

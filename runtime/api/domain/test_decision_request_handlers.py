@@ -36,6 +36,7 @@ def test_registration_leaf_declares_every_engine_action():
     assert [row[0][0] for row in registry.rows] == [
         "machine_authorization.get",
         "machine_authorization.resolve",
+        "machine_authorization.pending",
         "decision_requests.get",
         "inbox.list",
         "machine_approval.lifecycle.apply",
@@ -44,8 +45,16 @@ def test_registration_leaf_declares_every_engine_action():
         "decision_requests.withdraw",
         "decision_requests.dispose_ended",
     ]
-    assert all(row[1]["adapter_status"] == "live" for row in registry.rows[:3])
-    assert all(row[1]["adapter_status"] == "internal" for row in registry.rows[3:])
+    live_ids = {
+        "machine_authorization.pending",
+        "machine_authorization.get",
+        "machine_authorization.resolve",
+        "decision_requests.get",
+    }
+    for args, metadata in registry.rows:
+        assert metadata["adapter_status"] == (
+            "live" if args[0] in live_ids else "internal"
+        )
     withdraw = next(
         row for row in registry.rows if row[0][0] == "decision_requests.withdraw"
     )
