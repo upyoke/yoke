@@ -89,9 +89,9 @@ class TestLifecycleDoc:
         assert "`workflow_id` / `workflow_version_id` pin" in text
         assert "exact pinned version" in text
 
-    def test_definition_owns_lifecycle_shape(self, text):
+    def test_definition_owns_lifecycle_shape(self, text, transitions):
         assert "Definitions own ordered stages" in text
-        assert "target-stage gate" in text
+        assert "target-stage gate" in transitions
         assert re.search(r"registered\s+skill bindings", text)
         assert "Do not copy a progression" in text
 

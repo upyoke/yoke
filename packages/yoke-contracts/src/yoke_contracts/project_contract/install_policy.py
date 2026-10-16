@@ -17,6 +17,7 @@ YOKE_TREE_IGNORED_NAMES = (
     "BOARD.md.reg_*",
     "backups/",
     "strategy/",
+    "!/docs/strategy/",
     ".github-retry.log",
     ".merge-lock",
     "install-manifest.json",

@@ -44,8 +44,8 @@ def _repo_root() -> Path:
 
 REPO = _repo_root()
 DOCS = REPO / "docs"
-# Reference docs shipped to managed projects live under .yoke/docs/reference.
-YOKE_DOCS = REPO / ".yoke" / "docs" / "reference"
+# Managed workflow guidance lives under .yoke/docs/workflows.
+YOKE_DOCS = REPO / ".yoke" / "docs" / "workflows"
 HARNESS = REPO / "runtime" / "harness"
 
 
@@ -94,8 +94,8 @@ def harness_bootstrap_md() -> str:
 
 
 @pytest.fixture(scope="module")
-def lifecycle_md() -> str:
-    return _read(YOKE_DOCS / "lifecycle.md")
+def transitions_md() -> str:
+    return _read(YOKE_DOCS / "transitions.md")
 
 
 class TestSharedRegistryAdvertisesImplement:
@@ -272,23 +272,23 @@ class TestHarnessBootstrapClassifiesImplement:
 class TestLifecycleDocsAlignWithManifest:
     """Lifecycle docs must derive commands from immutable skill bindings."""
 
-    def test_lifecycle_md_names_registered_skill_resolution(self, lifecycle_md):
-        assert "immutable workflow version" in lifecycle_md
-        assert "skill_bindings" in lifecycle_md
-        assert "/yoke <skill_id>" in lifecycle_md
+    def test_transitions_md_names_registered_skill_resolution(self, transitions_md):
+        assert "immutable workflow version" in transitions_md
+        assert "skill_bindings" in transitions_md
+        assert "/yoke <skill_id>" in transitions_md
 
-    def test_lifecycle_registered_skill_table_includes_implement(self, lifecycle_md):
+    def test_lifecycle_registered_skill_table_includes_implement(self, transitions_md):
         match = re.search(
             r"## Registered Skill Boundaries\b(.*?)(?=\n## )",
-            lifecycle_md,
+            transitions_md,
             re.DOTALL,
         )
         assert match, (
-            ".yoke/docs/workflows/lifecycle.md missing '## Registered Skill Boundaries'"
+            ".yoke/docs/workflows/transitions.md missing '## Registered Skill Boundaries'"
         )
         section = match.group(1)
         assert "`implement`" in section, (
-            "lifecycle.md registered skill table must list implement"
+            "transitions.md registered skill table must list implement"
         )
         assert "from_stage_id <= current_stage < through_stage_id" in section
 

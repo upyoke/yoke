@@ -28,7 +28,7 @@ path the contract excludes:
 * the timestamp must parse in the stored format and must not be in the
   future.
 
-Rationale and the terminal-immutability contract: ``.yoke/docs/workflows/lifecycle.md``.
+Rationale and the terminal-immutability contract: ``.yoke/docs/workflows/transitions.md#terminal-items-are-immutable``.
 """
 
 from __future__ import annotations

@@ -190,7 +190,7 @@ Frontier computation lives in [.yoke/docs/strategy/charge-frontier.md](../strate
 
 ## Related docs
 
-- [Lifecycle & Command Boundaries](../workflows/lifecycle.md) -- canonical human lifecycle guide
+- [Command boundaries](../workflows/transitions.md) -- registered skill boundaries and routing
 - [Charge Frontier](../strategy/charge-frontier.md) -- frontier computation and status-to-adapter map
 
 ## Related

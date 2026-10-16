@@ -39,4 +39,4 @@ def test_message_help_teaches_the_complete_backlog_filter(capsys) -> None:
     assert (
         "defaults to unacknowledged, which includes pending and injected" in normalized
     )
-    assert ".yoke/docs/items/index.md" in rendered
+    assert ".yoke/docs/sessions/inbox.md" in rendered

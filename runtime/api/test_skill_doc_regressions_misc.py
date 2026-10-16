@@ -149,7 +149,7 @@ class TestSameSessionWorktreeScopeDocs:
             "agents": REPO / "AGENTS.md",
             "commands": REPO / ".yoke" / "docs" / "agents" / "commands.md",
             "harness": REPO / "docs" / "harness-substrate.md",
-            "lifecycle": REPO / ".yoke" / "docs" / "reference" / "lifecycle.md",
+            "lifecycle": REPO / ".yoke" / "docs" / "workflows" / "lifecycle.md",
             "implement": SKILLS / "implement" / "SKILL.md",
             "implement_worktree": SKILLS / "implement" / "worktree.md",
             "conduct": SKILLS / "conduct" / "SKILL.md",

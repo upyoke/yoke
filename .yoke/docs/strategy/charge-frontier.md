@@ -1,0 +1,149 @@
+# Charge Frontier
+
+<!-- yoke:breadcrumbs -->
+[Yoke](../index.md) > [Strategy](index.md) > Charge frontier
+<!-- /yoke:breadcrumbs -->
+
+The charge frontier is the computation that determines which backlog items are eligible for work right now, ranks them by priority, and classifies each into a downstream delivery adapter. It powers `/yoke charge` and steering frontier reads.
+
+## Overview
+
+The frontier partitions all charge-relevant items for a project into three buckets:
+
+- **Runnable** -- items with no unsatisfied activation-gate hard-block dependencies, not frozen, ranked by priority.
+- **Blocked** -- items with at least one unsatisfied activation-gate hard-block dependency. Each carries human-readable reasons.
+- **Frozen** -- items with `frozen = 1`, excluded from the active frontier entirely.
+
+A WIP cap limits how many conduct-eligible items are returned, preventing overcommitment.
+
+## Algorithm
+
+The `compute_frontier()` function exported by `yoke_core.domain.frontier` and implemented in `yoke_core.domain.frontier_compute` owns the full computation:
+
+### Step 1: Fetch candidate items
+
+Query the charge-relevant status subset for the target project. The candidate set includes refine, shepherd, conduct, polish, and usher handoff states plus items where `items.blocked = 1`. Only `done`, `cancelled`, `stopped`, and `failed` are excluded from the frontier.
+
+### Step 2: Resolve hard-block dependencies
+
+Query the `item_dependencies` table for all canonical blocker dependencies at `gate_point='activation'`. Evaluate each dependency using its `satisfaction` condition (`status:<stage-id>`, `fact:merged`, or `fact:deployed:<environment-name>`) and build a map from each dependent item to its list of unsatisfied blockers. Use the blocker's pinned workflow stage, normally `status:done` when completion is all the dependent needs. Use `fact:merged` when trunk contains everything the dependent needs. Reserve `fact:deployed:<environment-name>` for a dependent requiring completion plus delivery to that registered environment. It consumes the completed item's persisted run/member/environment/candidate attribution in its delivery stamp. Later sibling failure or run cancellation cannot revoke it. Producer QA, approval and completion gates still apply before done; accepted QA alone is not delivery.
+
+### Step 3: Compute direct activation unblocking value
+
+For each item, count how many other items it blocks at the `activation` gate.
+This remains a useful tiebreaker within the same downstream depth, but
+integration and closure edges do not influence frontier start-order ranking.
+
+### Step 3b: Compute downstream activation depth
+
+Traverse the activation-gate dependency graph and compute each item's maximum
+downstream depth (longest blocker-to-dependent chain). This captures
+critical-path leverage: the head of a deep enabling chain should rank above a
+broader but shallower fan-out when priority is equal.
+
+### Step 4: Count current WIP
+
+Count items in `implementing` or `reviewing-implementation` status for the project (excluding frozen items). These are the statuses that consume implementation WIP. `reviewed-implementation` and `polishing-implementation` are finishing-review states and do not consume conduct WIP slots.
+
+### Step 5: Resolve the registered skill
+
+Each item loads its immutable `workflow_id` / `workflow_version_id` pin. The
+runtime finds the current stage in that definition and resolves the registered
+skill binding for the stage. The frontier adapter remains a coarse ranking
+category; scheduler `next_step` is the skill binding and is the dispatch
+truth.
+
+Items with unsatisfied activation-gate hard-block dependencies are reclassified to `wait` regardless of their status-based adapter. Items with `items.blocked = 1` are also reported in the blocked bucket even when they do not have a hard-block dependency row.
+
+### Step 6: Partition and rank
+
+- **Frozen items** go to the frozen bucket (separate reporting).
+- **Blocked items** (activation-gate hard-block dependencies unsatisfied or `items.blocked = 1`) go to the blocked bucket with their blocker list and human-readable reasons.
+- **Runnable items** are sorted by the deterministic ranking algorithm (see below).
+
+### Step 7: Enforce WIP cap
+
+The WIP cap limits remaining implementation capacity. In practice, scheduler suppression applies to epic `conduct` work; issue `implement` re-entry remains schedulable, but items already in `implementing` or `reviewing-implementation` still contribute to `wip_active`.
+
+
+## Ranking Algorithm
+
+Runnable items are sorted by five criteria in descending priority:
+
+1. **Priority** -- `high` > `medium` > `low`.
+2. **Downstream depth** -- items at the head of longer activation-gate chains rank higher.
+3. **Direct activation unblocking value** -- within the same depth, items that directly unblock more activation-gate dependents rank higher.
+4. **Lifecycle stage** -- items closer to `done` rank higher (prefer finishing over starting).
+5. **Item age** -- older items rank higher (FIFO tiebreaker via ISO 8601 `created_at`).
+
+The sort is stable and deterministic: identical DB state always produces identical ordering.
+
+## Data Models
+
+### FrontierItem
+
+```python
+@dataclass
+class FrontierItem:
+ item_id: int # internal items.id (scheduler-internal currency)
+ title: str
+ status: str # canonical status
+ priority: str # high, medium, low
+ project: str
+ workflow_id: str
+ workflow_version_id: int
+ adapter: AdapterCategory # refine, shepherd, conduct, implement, dash, blitz, polish, usher, wait, skip
+ blocked_by: List[str] # public text refs stored on item_dependencies rows
+ blocked_reasons: List[str] # human-readable reasons
+ unblocks_count: int # direct activation-gate dependents
+ downstream_depth: int # longest downstream activation chain
+ created_at: str # ISO 8601
+```
+
+The in-process dataclass carries the internal ``items.id``. Every serialized
+surface (REST endpoints, service-client JSON, scheduler payloads)
+renders ``item_id`` as the item's TRUE public ref
+(``{projects.public_item_prefix}-{items.project_sequence}`` — the prefix is
+per-project, so the same shape renders ``EXT-12`` in one project and
+``PLAT-12`` in another) — the sequence and prefix may diverge from the
+internal id. A surface rendering one ref calls
+``project_identity.render_item_ref``; a surface rendering a set of them
+resolves the whole set first through ``item_ref_render.render_item_refs``,
+so a frontier projection costs one identity read rather than one per item.
+
+### FrontierResult
+
+```python
+@dataclass
+class FrontierResult:
+ runnable: List[FrontierItem] # ranked by priority
+ blocked: List[FrontierItem] # have unsatisfied hard-blocks
+ frozen: List[FrontierItem] # excluded (frozen=1)
+ wip_cap: int # configured WIP limit
+ wip_active: int # current WIP count
+ conduct_eligible: List[FrontierItem] # runnable conduct items within WIP cap
+```
+
+### AdapterCategory
+
+```python
+class AdapterCategory(str, Enum):
+ REFINE = "refine" # item needs refinement (idea, refining-idea, plan-drafted, refining-plan)
+ SHEPHERD = "shepherd" # item needs maturation (refined-idea epic, planning epic)
+ CONDUCT = "conduct" # item ready for implementation
+ POLISH = "polish" # item reviewed, needs finishing review (reviewed-implementation, polishing-implementation)
+ USHER = "usher" # item ready for deployment
+ WAIT = "wait" # item blocked or exceptional
+ SKIP = "skip" # item terminal, not actionable
+```
+
+## Related Documentation
+
+- [commands.md](../agents/commands.md) -- full command reference
+- `docs/OVERVIEW.md` (yoke source repo) -- architecture overview with frontier-based flow
+- [db-reference.md](../reference/db-reference.md) -- database schema (items, item_dependencies tables)
+
+
+## Related
+
+- [Charge dispatch](charge-dispatch.md)
