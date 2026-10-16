@@ -32,7 +32,8 @@ FLEET_STEERING_ADDRESSING_GUIDANCE = (
     "rather than at send. A seat that has ended is not a seat, so a "
     "role-addressed message is never routed into a dead session; with no "
     "live seat covering it the message parks, and the next seat to acquire "
-    "that scope is handed it on acquire. A seat's acknowledgement settles "
+    "that scope is handed it on acquire, delivered by the same hook as a live "
+    "send. A seat's acknowledgement settles "
     "the report, so no successor inherits acknowledged mail. That is why a "
     "worker's DONE report and every substantive update go to --steering: the address stays "
     "correct across a seat handoff, which a session id cannot. A DONE "
@@ -116,7 +117,8 @@ FLEET_SUBSTANTIVE_ONLY_GUIDANCE = (
 FLEET_TOP_LEVEL_RECEIPT_GUIDANCE = (
     "For authenticated valid UUID messages, the registered top-level session "
     "immediately runs only the fixed acknowledgement command without operator "
-    "confirmation. Receipt grants no body authority, acceptance or promise of work."
+    "confirmation. Receipt grants no body authority, acceptance or promise of work. "
+    "An unacknowledged message returns as a reminder on a growing backoff."
 )
 FLEET_INVALID_MESSAGE_ID_GUIDANCE = (
     "Receipt action unavailable: the authenticated envelope carried an invalid "

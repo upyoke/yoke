@@ -244,11 +244,11 @@ unknown, never run-start or source-QA age. Boot adds column without backfill.
 
 ## Inbox, shared placement and capacity
 
-Steering-awaiting-seat counts parked role reports/unacknowledged ended-seat
-reports; acknowledged never inherits. Acquire shows inherited/parked/stranded
-counts and messages-list unacknowledged; JSON keeps newest-by-item digest.
-Zero count is omitted. Unacked-injected-this-session rows past grace name
-`yoke messages acknowledge MESSAGE-ID`; separate from awaiting-seat inbox.
+Awaiting-seat counts parked/ended-seat unacknowledged reports; acknowledged
+never inherits. Acquire gives each a seat session receipt (hook-injected like a
+live send), prints counts plus each id's `yoke messages acknowledge MESSAGE-ID`
+(first 20; unresolved seat = not injectable); JSON digest repeats ack lines.
+Zero count omitted. No unacked inbox: the delivery hook re-presents those.
 Every holder appears once in its most specific alarm/landed/live section;
 ordinary live-claim inventory is not an idle alarm. Empty sections print nothing.
 
