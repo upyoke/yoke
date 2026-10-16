@@ -16,7 +16,7 @@ from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
 from yoke_core.domain.schema_common import _table_exists
 
 
-ENTRY_NAME = "0078_scrub_admission_secret_receipts"
+ENTRY_NAME = "0079_scrub_admission_secret_receipts"
 ZERO_COUNTS = (
     "admission_secret_receipts ledger_rows_rewritten=0 event_envelopes_rewritten=0\n"
 )
