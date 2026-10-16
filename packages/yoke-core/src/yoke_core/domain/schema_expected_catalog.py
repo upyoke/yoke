@@ -39,7 +39,7 @@ _EXPECTED_SCHEMA_STR = (
     "|actor_visitor_links:visitor_id/TEXT,actor_id/INTEGER,linked_at/TIMESTAMPTZ,refused_actor_id/INTEGER,refused_at/TIMESTAMPTZ"
     "|actors:id/INTEGER,kind/TEXT,system_component/TEXT,name/TEXT,status/TEXT,created_at/TIMESTAMPTZ,attribution/TEXT"
     "|api_token_audit:id/INTEGER,api_token_id/INTEGER,actor_id/INTEGER,project_id/INTEGER,event_type/TEXT,outcome/TEXT,permission_key/TEXT,diagnostic_metadata/TEXT,created_at/TIMESTAMPTZ"
-    "|api_tokens:id/INTEGER,token_hash/TEXT,actor_id/INTEGER,machine_id/TEXT,name/TEXT,status/TEXT,created_at/TIMESTAMPTZ,revoked_at/TIMESTAMPTZ,expires_at/TIMESTAMPTZ,last_used_at/TIMESTAMPTZ,diagnostic_metadata/TEXT"
+    "|api_tokens:id/INTEGER,token_hash/TEXT,actor_id/INTEGER,machine_id/TEXT,name/TEXT,status/TEXT,created_at/TIMESTAMPTZ,revoked_at/TIMESTAMPTZ,expires_at/TIMESTAMPTZ,last_used_at/TIMESTAMPTZ,diagnostic_metadata/TEXT,creation_request_id/TEXT"
     "|applied_migrations:migration_name/TEXT,applied_at/TIMESTAMPTZ,applied_by/TEXT,minimum_serving_version/TEXT,content_sha256/TEXT"
     "|browser_sign_in_links:selector/TEXT,code_hash/TEXT,actor_id/INTEGER,expires_at/TIMESTAMPTZ,consumed_at/TIMESTAMPTZ"
     "|capability_secrets:id/INTEGER,project_id/INTEGER,type/TEXT,key/TEXT,value/TEXT,source/TEXT,created_at/TIMESTAMPTZ"
