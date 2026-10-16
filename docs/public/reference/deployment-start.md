@@ -116,15 +116,23 @@ still owes manual acceptance or post-deploy QA on another named target; that
 requirement stays unmet and the item stays at release until it is accepted.
 Same-target or untargeted acceptance still blocks completion.
 
-A timeout or connection loss is `deployment_outcome_unknown`, not a deployment
-failure. Bound-source preparation commits its exact request receipt beside the
-consumed sources on the run; the driver reads that receipt before proceeding
+A mutation timeout or connection loss is `deployment_outcome_unknown`, not a
+deployment failure. Bound-source preparation commits its exact request receipt
+beside the consumed sources on the run; the driver reads that receipt before proceeding
 after response loss. An absent, mismatched or unreadable receipt leaves the
 attempt pending, with no retry, provider dispatch or failed transition. Inspect
 `yoke deployment-runs get RUN-ID` and the existing driver's capture, and reconcile
 the request or provider attempt before re-driving the same run; never use
 `--fresh` to recover a lost response. The live attachment's phase and capture
 show preparation even while run status remains `created`.
+
+When the bounded scoped-QA wait ends with blockers, the driver returns
+awaiting QA (exit code 5). If the following fresh diagnostic report read fails,
+it explicitly reports that fresh QA details are unavailable and retains the
+last known blocker diagnostic. That read failure does not change the established
+awaiting-QA outcome, supply fresh counts, waive a gate or record success.
+Inspect the existing driver's capture and scoped QA state, resolve the remaining
+obligations, then re-drive the same run.
 
 Whole-run reads project each stored field directly. Shell pipes, newlines and
 quotes in frozen member instructions remain part of the complete receipt;

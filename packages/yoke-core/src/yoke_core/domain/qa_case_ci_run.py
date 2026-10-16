@@ -19,6 +19,7 @@ from yoke_core.domain import (
     qa_case_ci_never_started,
     qa_case_ci_progress,
     qa_case_ci_resume,
+    qa_case_ci_source,
     qa_case_ci_superseded_run,
     verification_tree_binding,
 )
@@ -31,9 +32,7 @@ from yoke_core.domain.qa_case_execution import (
     required_case_command,
 )
 
-#: Runner id recorded on runs this module produces.
 EXECUTOR_ID = "ci_run"
-
 DEFAULT_CI_RUN_TIMEOUT_SECONDS = qa_case_budget.DEFAULT_CI_RUN_TIMEOUT_SECONDS
 
 
@@ -66,6 +65,8 @@ def execute_ci_case(
     checkout_path: Optional[str | Path] = None,
     allow_tree_mismatch: bool = False,
     actor: Optional[ActorContext] = None,
+    expected_branch: Optional[str] = None,
+    expected_sha: Optional[str] = None,
 ) -> dict[str, Any]:
     """Push the lane, reuse or run its CI workflow, and record the verdict."""
     if case.get("standalone_execution_id"):
@@ -77,10 +78,16 @@ def execute_ci_case(
             checkout_path=checkout_path,
             actor=actor,
         )
-    # Refuse an incomplete case before publishing anything.
     required_case_command(case)
     workflow = qa_case_ci_lane.workflow_file(case)
     checkout = _resolve_checkout(case, checkout_path)
+    qa_case_ci_source.require_source_agreement(
+        case,
+        checkout,
+        expected_branch=expected_branch,
+        expected_sha=expected_sha,
+        explicit_checkout=checkout_path is not None,
+    )
     selected_budget = qa_case_budget.resolve_command_case_budget(
         case["method_config"],
         explicit_override=timeout_seconds,
@@ -114,25 +121,19 @@ def execute_ci_case(
         timeout_seconds=budget,
         required_inputs=workflow_inputs,
     )
+    qa_case_ci_source.require_source_agreement(
+        case,
+        checkout,
+        expected_branch=expected_branch,
+        expected_sha=expected_sha,
+        explicit_checkout=checkout_path is not None,
+    )
     entry_run_base = lane.queue_target
     tree = verification_tree_binding.resolve_tree_identity(checkout)
-    if not checked_out_branch:
-        checked_out_branch = branch if tree else "HEAD"
-    source_ref = (
-        "HEAD"
-        if checked_out_branch == branch
-        else str(case.get("lane_commit_sha") or "").strip()
+    tree = qa_case_ci_source.source_tree(
+        case, checkout, branch, checked_out_branch, tree
     )
-    if not source_ref:
-        raise QaCaseExecutionError(
-            f"CI case for {branch!r} has no recorded commit after lane cleanup"
-        )
-    head_sha = (
-        tree.head_sha
-        if source_ref == "HEAD" and tree is not None
-        else qa_case_ci_lane.ref_sha(checkout, source_ref)
-    )
-    tree = verification_tree_binding.TreeIdentity(str(checkout), head_sha)
+    head_sha = tree.head_sha
     target = entry_run_base or qa_case_ci_entry_run.base_branch(project, checkout)
     empty = qa_case_ci_empty_diff.record_pass_if_empty(
         case,
@@ -169,7 +170,7 @@ def execute_ci_case(
     superseded_ci_run_id = ""
     try:
         qa_case_ci_lane.push_lane(
-            checkout, branch, project=project, target=target, source_ref=source_ref
+            checkout, branch, project=project, target=target, source_ref=head_sha
         )
         with qa_case_ci_lane.github_actions_authority():
             covering_run = lane.resumed_run
@@ -246,8 +247,7 @@ def execute_ci_case(
                     source=ci_run_source,
                 )
             if ci_run_source == qa_case_ci_covering_run.ADOPTED:
-                # The run is already over. Nothing is polled and no CI
-                # capacity is spent: its conclusion is the verdict.
+                # Reuse the completed verdict without spending CI capacity twice.
                 known_conclusion = covering_run.conclusion
                 exit_code = 0 if known_conclusion == "success" else 1
                 poll_output = f"adopted completed run: {known_conclusion}"

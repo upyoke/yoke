@@ -30,10 +30,13 @@ PASS/FAIL, write its complete per-AC evidence to a local body file and insert
 with Conduct attribution. A clear text verdict does not enter no-verdict retries:
 
 ```text
-yoke workflow-item epic-task review-insert --epic PREFIX-N --task-num {task_num} --verdict PASS --body-file {REVIEW_FILE}
+yoke workflow-item epic-task review-insert --epic PREFIX-N --task-num {task_num} --verdict PASS --head-sha {REVIEWED_HEAD_SHA} --body-file {REVIEW_FILE}
 ```
 
-Use the actual verdict, not the example's PASS. Require durable row/readback.
+Use the actual verdict, not the example's PASS. PASS names the full commit
+Tester reviewed in the task's registered worker lane; FAIL needs no passing
+candidate. Require durable row/readback before retry work. Preserve a refused
+report, inspect review-get, then repair the named cause before retrying.
 No DB row and no clear verdict enters [retry-budgets.md](retry-budgets.md):
 minimal/default, minimal descriptor escalation, then direct verification only
 after output retries exhaust. Reflections/artifacts/readback run after each

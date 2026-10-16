@@ -107,7 +107,7 @@ def epic_task_review_seed(args: List[str]) -> int:
 
 EPIC_TASK_REVIEW_INSERT_USAGE = (
     "yoke workflow-item epic-task review-insert --epic PREFIX-N --task-num N "
-    "--verdict pass|fail (--body TEXT | --body-file PATH | --stdin) "
+    "--verdict pass|fail (--body TEXT | --body-file PATH | --stdin) [--head-sha SHA] "
     "[--session-id S] [--json]"
 )
 
@@ -116,11 +116,13 @@ def epic_task_review_insert(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-task review-insert",
         description=(
-            "Record a review verdict for one epic task (a passing verdict "
+            "Record a review verdict for one epic task; PASS requires --head-sha "
+            "with the exact reviewed task candidate. Refusals retain their cause; "
+            "inspect review-get before retrying. A passing verdict "
             "auto-advances reviewing-implementation -> "
-            "reviewed-implementation). Example: yoke workflow-item "
+            "reviewed-implementation. Example: yoke workflow-item "
             "epic-task review-insert --epic PREFIX-N --task-num 3 "
-            "--verdict pass --body-file /tmp/yoke-review.3.md"
+            "--verdict pass --head-sha FULL_REVIEWED_COMMIT --body-file /tmp/yoke-review.3.md"
         ),
     )
     _epic_target_flags(parser)
@@ -130,6 +132,10 @@ def epic_task_review_insert(args: List[str]) -> int:
         type=str.lower,
         choices=["pass", "fail"],
         help="Review verdict (case-insensitive).",
+    )
+    parser.add_argument(
+        "--head-sha",
+        help="Full commit reviewed; required for PASS and checked against the exact registered task lane.",
     )
     body_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
@@ -162,7 +168,11 @@ def epic_task_review_insert(args: List[str]) -> int:
     return dispatch_and_emit(
         function_id="workflow_item.epic_task.review_insert",
         target=_epic_task_target(parsed),
-        payload={"verdict": parsed.verdict, "body": body},
+        payload={
+            "verdict": parsed.verdict,
+            "body": body,
+            **({"head_sha": parsed.head_sha} if parsed.head_sha is not None else {}),
+        },
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_message_writer,

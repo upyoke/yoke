@@ -1,7 +1,10 @@
 {
  "id": "exact-commit",
  "title": "Exact commit",
- "status": "draft-copy",
+ "status": "observed",
+ "text": "An item QA case selects one registered lane under the caller's matching item/task claim. Branch, checkout path and commit come from that same row, including a missing commit. Multiple lanes require an unambiguous selection; CI refuses explicit checkout, branch or SHA disagreement before any publication and preserves existing branch history for registered reconciliation.",
+ "sources": ["docs/public/reference/agent-rules/verification.md", "packages/yoke-core/src/yoke_core/domain/qa_case_source_lane.py", "packages/yoke-core/src/yoke_core/domain/qa_case_ci_source.py", "runtime/api/domain/test_qa_case_source_lane.py", "runtime/api/domain/test_qa_case_ci_source.py"],
+ "commands": ["yoke qa case run"],
  "page": "verification",
  "position": 0
 }
