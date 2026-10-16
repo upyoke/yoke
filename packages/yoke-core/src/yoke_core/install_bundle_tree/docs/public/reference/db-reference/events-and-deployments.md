@@ -1,6 +1,6 @@
 # DB Reference — Events and Environment Tracking
 
-Schemas for the unified events log, write-side severity config and registry, and ephemeral / preview environment tracking. Cross-link back from [reference.md](../../databases/reference.md) for entry points, the domain catalog, timestamp discipline, JSON-payload conventions, qa CLI, body write path, and the status lifecycle reference.
+Schemas for the unified events log, write-side severity config and registry, and ephemeral / preview environment tracking. Read [database reference](../../databases/reference.md) for entry points, the domain catalog and JSON-payload conventions; [timestamp discipline](../../databases/migrations.md#timestamp-discipline) for timestamp conventions; [QA CLI and body writes](qa-cli-and-body-write.md) and [status lifecycle](../../workflows/model/statuses.md) for those contracts.
 
 ## Table: events
 
@@ -34,7 +34,7 @@ anomaly_flags TEXT -- → JSONB on Postgres (array shape); today a comma-separat
 tool_use_id TEXT -- target first-class dedup key for tool-call events; current live coverage is still incomplete
 client_timing_id TEXT -- key a hook client minted for its own dispatch, so the wall time it reports afterwards finds this row by index; cleared once that report lands
 envelope TEXT -- → JSONB on Postgres; full JSON envelope for lossless storage
-created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
+created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see timestamp discipline in the introduction
 ```
 
 **Indexes:** `source_type`, `session_id`, `event_name`, `created_at`, `actor_id`, `trace_id`, `project_id`, `tool_name`, `(event_kind, event_type)`, plus the partial dedup index `(tool_use_id, event_name) WHERE tool_use_id IS NOT NULL` and the partial correlation index `(client_timing_id) WHERE client_timing_id IS NOT NULL` on DBs with the full correlation surface. Correlate through an indexed column; matching a substring of `envelope` with LIKE has no index to use and reads every row the other predicates admit.
@@ -58,7 +58,7 @@ id INTEGER PRIMARY KEY
 event_name TEXT NOT NULL DEFAULT '*' -- event name pattern ('*' = wildcard)
 source_type TEXT NOT NULL DEFAULT '*' -- source type pattern ('*' = wildcard)
 min_severity TEXT NOT NULL DEFAULT 'INFO' -- DEBUG | INFO | WARN | ERROR | FATAL
-created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
+created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see timestamp discipline in the introduction
 UNIQUE(event_name, source_type)
 ```
 
@@ -98,7 +98,7 @@ env_name TEXT NOT NULL -- e.g., 'stage', 'sandbox'
 run_id TEXT REFERENCES deployment_runs(id)
 status TEXT NOT NULL DEFAULT 'available' -- available | claimed | stale
 url TEXT
-created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
+created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see timestamp discipline in the introduction
 env_type TEXT NOT NULL DEFAULT 'adhoc' -- shared | adhoc
 UNIQUE(project, env_name)
 ```

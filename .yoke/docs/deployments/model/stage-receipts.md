@@ -56,9 +56,12 @@ pinned, so an invented value refuses the receipt, and a run pinning an artifact
 identity no producer reads back is refused before the stage dispatches. The
 registry's key set *is* the supported-target-kind list.
 
-Release verification and notices — how release-to-done reads both QA
-authorities, who observes a stage receipt, and the verdict and owner
-notices — live in [releases.md](releases.md).
+Release verification — how release-to-done reads both QA authorities and who
+observes a stage receipt — lives in [release authorities](releases.md).
+[Human verdict notices](releases.md#a-human-verdict-reaches-the-agent-that-parked-for-it)
+reach the waiting agent; [settled QA results](release-notices.md#a-settled-qa-stage-result-reaches-its-configured-audience)
+and [owner delivery notices](release-notices.md#done-announces-the-delivery-to-the-items-owner)
+live in release notices.
 
 ## Related
 

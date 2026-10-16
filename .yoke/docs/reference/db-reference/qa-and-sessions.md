@@ -1,6 +1,6 @@
 # DB Reference — QA, Release, and Session Tables
 
-Schemas for the QA platform tables, release entries, merge locks, and harness session / claim tables. Cross-link back from [reference.md](../../databases/reference.md) for entry points, the domain catalog, timestamp discipline, JSON-payload conventions, qa CLI, body write path, and the status lifecycle reference.
+Schemas for the QA platform tables, release entries, merge locks, and harness session / claim tables. Read [database reference](../../databases/reference.md) for entry points, the domain catalog and JSON-payload conventions; [timestamp discipline](../../databases/migrations.md#timestamp-discipline) for timestamp conventions; [QA CLI and body writes](qa-cli-and-body-write.md) and [status lifecycle](../../workflows/model/statuses.md) for those contracts.
 
 ## Table: qa_requirements
 
@@ -128,7 +128,7 @@ category TEXT NOT NULL DEFAULT 'improvements' -- features|improvements|bug_fixes
 title TEXT NOT NULL
 version TEXT NOT NULL
 project_id INTEGER NOT NULL REFERENCES projects(id) -- explicit attribution
-created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
+created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see timestamp discipline in the introduction
 UNIQUE(item_id, version, project_id)
 CHECK(category IN ('features','improvements','bug_fixes','internal'))
 ```
