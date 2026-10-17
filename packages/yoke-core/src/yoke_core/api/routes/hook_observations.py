@@ -23,11 +23,15 @@ from yoke_core.hooks.relayed_session_identity import (
     stamped_identity_refusal,
 )
 from yoke_core.domain.session_scope_identity import authorize_hook_request
-from yoke_core.hooks.observation_batch import persist_observation_batch
+from yoke_core.hooks.observation_batch import persist_observation_batch, request_payload
 
 
 router = APIRouter()
 _BATCH_LIMIT = 64
+_READ_ONLY_RECOVERY = (
+    "only canonical read-only tool chains may use telemetry batching. "
+    "Recovery: send guarded hooks through the ordinary synchronous hook evaluator."
+)
 
 
 class HookObservation(BaseModel):
@@ -99,7 +103,7 @@ def post_hook_observation_batch(
             return _error(
                 400,
                 "HOOK_OBSERVATION_NOT_READ_ONLY",
-                "only canonical read-only tool chains may use telemetry batching",
+                _READ_ONLY_RECOVERY,
             )
         try:
             payload = json.loads(hook_request.stdin or "{}")
@@ -148,6 +152,15 @@ def post_hook_observation_batch(
             machine_id=hook_request.machine_id,
             actor_id=auth.actor_id,
         )
+        _, effective_payload = request_payload(hook_request.model_dump())
+        if not is_read_only_tool_event(
+            hook_request.event_name, json.dumps(effective_payload)
+        ):
+            return _error(
+                400,
+                "HOOK_OBSERVATION_NOT_READ_ONLY",
+                _READ_ONLY_RECOVERY,
+            )
         raw = observation.model_dump()
         raw["hook_request"] = hook_request.model_dump()
         validated.append(raw)
