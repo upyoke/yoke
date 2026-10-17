@@ -4,8 +4,10 @@ A steering pass consumes events, and events only report things that
 happened. These detectors report things that did not: a claim holder
 that went quiet, an in-flight item nobody picked back up, an envelope
 that was never delivered. Each is a *level* condition rather than an
-edge, so each fires once when it starts and clears once when it stops —
+edge, so each fires when it starts and clears once when it stops —
 re-firing every pass is how a report becomes noise the reader skims.
+An idle holder alone repeats on a slow cadence: a wait that stays stuck
+for hours must not scroll out of view after its one line.
 
 The thresholds belong to the steering loop; they are restated here as
 the constants the detectors read.
@@ -27,6 +29,8 @@ from yoke_core.domain.fleet_delta_snapshot import (
 #: liveness label stays ``active`` far past this point, so the age of the
 #: last tool call is the only usable signal.
 IDLE_HOLDER_MINUTES = 20
+#: A still-idle holder's alarm repeats this often until it clears.
+IDLE_HOLDER_REPEAT_MINUTES = 60
 #: A non-terminal item may be momentarily unowned at every lifecycle
 #: segment boundary. Only continuous absence this long is a finding.
 UNOWNED_ITEM_MINUTES = 15
@@ -86,6 +90,8 @@ class DeltaState:
     unowned_since: dict[str, datetime] = field(default_factory=dict)
     #: Last unstaffed-ready emit per item, so a repeat waits out the threshold.
     unstaffed_emitted_at: dict[str, datetime] = field(default_factory=dict)
+    #: Last emit per repeating alarm key, so a repeat waits out its cadence.
+    raised_at: dict[str, datetime] = field(default_factory=dict)
 
 
 def _raise_once(state: DeltaState, key: str, line: str) -> list[str]:
@@ -93,6 +99,18 @@ def _raise_once(state: DeltaState, key: str, line: str) -> list[str]:
     if key in state.active_alarms:
         return []
     state.active_alarms.add(key)
+    return [line]
+
+
+def _raise_repeating(
+    state: DeltaState, key: str, line: str, now: datetime, minutes: int
+) -> list[str]:
+    """Emit *line* when *key* starts alarming and again every *minutes*."""
+    last = state.raised_at.get(key)
+    if key in state.active_alarms and (minutes_since(last, now) or 0) < minutes:
+        return []
+    state.active_alarms.add(key)
+    state.raised_at[key] = now
     return [line]
 
 
@@ -105,15 +123,16 @@ def _clear(state: DeltaState, live_keys: set[str], kind: str) -> list[str]:
     )
     for key in resolved:
         state.active_alarms.discard(key)
+        state.raised_at.pop(key, None)
     return [f"{LINE_PREFIX} CLEAR {kind} {key.split(':', 1)[1]}" for key in resolved]
 
 
 def _holding_sessions(current: FleetSnapshot) -> Iterable[SessionRow]:
-    """Live, unparked sessions holding at least one item claim."""
+    """Live sessions, parked or not, holding at least one item claim."""
     return [
         row
         for _, row in sorted(current.sessions.items())
-        if row.lifecycle == "live" and not row.parked and row.claimed_items
+        if row.lifecycle == "live" and row.claimed_items
     ]
 
 
@@ -128,11 +147,15 @@ def idle_holder_candidates(current: FleetSnapshot) -> list[SessionRow]:
 
 
 def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
-    """Live claim holders silent past the idle threshold.
+    """Live claim holders silent past the idle threshold, parked or not.
 
-    A session that stamped ``parked`` declared its wait and is excluded;
-    a healthy in-flight landing also declares work the queue is driving.
-    Once a landing is recorded as merged, the ordinary idle threshold applies.
+    A park declares a wait but does not prove the wait is still sound: a
+    parked holder whose blocker cleared, whose question went unanswered or
+    whose process exited stays stuck until someone looks. The line carries
+    mode, park reason and process state so the reader can judge the wait,
+    and repeats every :data:`IDLE_HOLDER_REPEAT_MINUTES` while it holds.
+    A healthy in-flight landing declares work the queue is driving and is
+    excluded; once it is recorded as merged, the idle threshold applies.
     """
     lines: list[str] = []
     live: set[str] = set()
@@ -142,15 +165,19 @@ def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
         idle = minutes_since(row.activity_at, current.taken_at)
         key = f"idle-holder:session={identifier(row.session_id)}"
         live.add(key)
+        reason = repr(row.quiet_reason) if row.quiet_reason else "none"
         lines.extend(
-            _raise_once(
+            _raise_repeating(
                 state,
                 key,
                 f"{LINE_PREFIX} ALARM idle-holder "
                 f"session={identifier(row.session_id)} "
                 f"items={','.join(row.claimed_items)} idle={idle}m "
-                f"surface={row.executor_surface} "
+                f"mode={row.mode or 'none'} reason={reason} "
+                f"process={row.process} surface={row.executor_surface} "
                 f"reach={address_recipe(row.session_id, current)!r}",
+                current.taken_at,
+                IDLE_HOLDER_REPEAT_MINUTES,
             )
         )
     return lines + _clear(state, live, "idle-holder")
@@ -281,6 +308,7 @@ __all__ = [
     "BACKLOG_STATUSES",
     "DeltaState",
     "IDLE_HOLDER_MINUTES",
+    "IDLE_HOLDER_REPEAT_MINUTES",
     "LINE_PREFIX",
     "STARVED_ENVELOPE_MINUTES",
     "UNOWNED_ITEM_MINUTES",

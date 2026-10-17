@@ -224,8 +224,8 @@ def _delete_cohort(conn, policy, deadline, rule, rows, custody):
             conn,
             policy,
             deadline,
-            f"DELETE FROM {rule.table} t WHERE {clause} AND ({rule.where})",
-            (*values, *rule.params),
+            f"DELETE FROM {rule.table} t WHERE {clause} AND ({rule.recheck or rule.where})",
+            (*values, *(() if rule.recheck else rule.params)),
         )
         if rule.children and result.rowcount != len(accepted):
             conn.rollback()
@@ -236,27 +236,44 @@ def _delete_cohort(conn, policy, deadline, rule, rows, custody):
     return deleted, protected
 
 
-def _table_pass(conn, policy, deadline, rule, apply):
-    """One cohort: select (row-locking on apply), then delete or preview."""
-    if apply:
-        _hold_cohort(conn, policy, deadline, rule)
+def _cohort_select(conn, rule, apply, limit):
+    """The eligibility read: one ordered scan, or bounded index-range slices.
+
+    Single-scan rules lock their cohort rows (skipping rows a writer holds).
+    Sliced rules cannot lock through UNION ALL; their DELETE rechecks
+    eligibility, which is the custody those append-only rows need.
+    """
     columns = ",".join(f"t.{key}" for key in rule.keys)
-    cohort_limit = (
-        1
-        if rule.table in ("path_snapshots", "path_snapshot_sync_uploads")
-        else policy.batch_rows
-    )
+    if rule.branches:
+        slices = " UNION ALL ".join(
+            f"(SELECT {columns} FROM {rule.table} t WHERE {where} "
+            f"ORDER BY {rule.branch_order} LIMIT %s)"
+            for where, _ in rule.branches
+        )
+        params = tuple(v for _, p in rule.branches for v in (*p, limit))
+        return f"SELECT * FROM ({slices}) t LIMIT %s", (*params, limit)
     lock = (
         " FOR UPDATE OF t SKIP LOCKED"
         if apply and db_backend.connection_is_postgres(conn)
         else ""
     )
-    rows = _execute(
-        conn,
-        policy,
-        deadline,
+    return (
         f"SELECT {columns} FROM {rule.table} t WHERE {rule.where} ORDER BY {columns} LIMIT %s{lock}",
-        (*rule.params, cohort_limit + 1),
+        (*rule.params, limit),
+    )
+
+
+def _table_pass(conn, policy, deadline, rule, apply):
+    """One cohort: select (row-locking on apply), then delete or preview."""
+    if apply:
+        _hold_cohort(conn, policy, deadline, rule)
+    cohort_limit = (
+        1
+        if rule.table in ("path_snapshots", "path_snapshot_sync_uploads")
+        else policy.batch_rows
+    )
+    rows = _execute(
+        conn, policy, deadline, *_cohort_select(conn, rule, apply, cohort_limit + 1)
     ).fetchall()
     partial = len(rows) > cohort_limit
     rows = rows[:cohort_limit]

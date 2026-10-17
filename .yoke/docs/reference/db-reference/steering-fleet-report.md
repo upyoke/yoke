@@ -32,7 +32,7 @@ cancel ends work. No age-inferred holds or staffing.
 
 | Section | Evidence and response |
 |---|---|
-| idle holders | No tool call beyond threshold, excluding proven open queue/armed landing with no failed required checks; merged/dead/unreadable/failed landing returns to ordinary idle rules. Light roster's awaiting-landing fact drives probe; missing fact retains alarm. Full landing details load only when report is due. |
+| idle holders | No tool call beyond threshold, excluding proven open queue/armed landing with no failed required checks; merged/dead/unreadable/failed landing returns to ordinary idle rules. Light roster's awaiting-landing fact drives probe; missing fact retains alarm. Full landing details load only when report is due. The watcher's `fleet ALARM idle-holder` also covers parked holders, names mode, park reason and process (`running`, `exited`, `resuming`; `unknown` from a roster without `native_process_exited_at`), and repeats hourly until `fleet CLEAR`. Each alarm gets a same-turn action or a one-line disposition saying why the wait is sound. |
 | in flight | Quiet running holder inside a budgeted watcher/landing call. Unknown/waiting posture, observed native exit (even clean), denied/closed call, a call overtaken by later activity or one older than 45 minutes cannot excuse silence. Terminal vendor-turn observation survives same-turn tool settlement. |
 | landing readbacks | Current nonmutating `yoke github merge-queue readiness PREFIX-N --json`: one status/checks GraphQL read per PR and shared repository/base queue read per request; no cache across reports. |
 
@@ -57,7 +57,7 @@ Process rows distinguish:
 `yoke sessions terminate` refuses TERMINATION_RESUME_IN_FLIGHT unless
 --allow-resume-in-flight. sessions.list native_process exposes resuming with
 resume_started_at, or gone with resumable_from_transcript. Ended/terminated
-sessions are excluded from holder alarms, not repeatedly called idle.
+sessions are excluded from holder alarms; a live idle holder re-alarms hourly.
 
 ## Undelivered messages
 
