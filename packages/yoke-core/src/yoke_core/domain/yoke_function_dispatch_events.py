@@ -35,9 +35,7 @@ from yoke_contracts.timestamps import temporal_wire
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.api.observability import debug_detail_allowed, service_name
-from yoke_core.domain.admission_result_redaction import (
-    ONE_TIME_SECRET_GUARDRAIL, debug_capture_result,
-)
+from yoke_core.domain.admission_result_redaction import ONE_TIME_SECRET_GUARDRAIL
 from yoke_core.domain.auth_context import auth_context_from_actor
 from yoke_core.domain.events import emit_event
 from yoke_core.domain.function_call_ledger import record_call
@@ -110,8 +108,10 @@ def detailed_capture_context(
     :func:`yoke_core.api.observability.debug_detail_allowed` answers false
     and the routine event keeps the compact shape. Called exactly once
     per dispatch, because a true answer consumes one unit of the
-    campaign's record budget.
+    campaign's record budget. One-time credential results never reach it.
     """
+    if ONE_TIME_SECRET_GUARDRAIL in entry.guardrails:
+        return {}
     if not debug_detail_allowed(
         {
             "function": entry.function_id,
@@ -121,7 +121,7 @@ def detailed_capture_context(
         }
     ):
         return {}
-    return debug_capture_result(entry, response)
+    return {"result": dict(response.result)}
 
 
 def emit_called(
@@ -148,7 +148,7 @@ def emit_called(
     (``session_id``) always uses the bound session.
     """
     # Routine telemetry carries only size and digest. A scoped debug
-    # campaign can capture results, with one-time credentials redacted.
+    # campaign can capture results, never one-time credential results.
     result_bytes, result_hash = serialize_payload(dict(response.result))
     context = {
         "function": entry.function_id,

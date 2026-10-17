@@ -64,6 +64,7 @@ def secret_calls(test_db, monkeypatch, caplog):
     monkeypatch.setattr(api_tokens, "generate_token", lambda: _SECRET)
     emitted = Mock(wraps=events.emit_event)
     monkeypatch.setattr(events, "emit_event", emitted)
+    monkeypatch.setattr(events, "debug_detail_allowed", Mock(wraps=events.debug_detail_allowed))
     monkeypatch.setenv(DEBUG_SCOPE_ENV, f"service:{service_name()}")
     monkeypatch.setenv(
         DEBUG_UNTIL_ENV, (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
@@ -87,11 +88,10 @@ def _assert_receipts_safe(conn, emitted, caplog, request_id, *, count):
     assert len(calls) == count
     for call in calls:
         context = call.kwargs["context"]
-        assert context["result_redacted"] == ONE_TIME_SECRET_GUARDRAIL
-        assert "result" not in context
+        assert not {"result", "result_redacted", "result_keys"} & context.keys()
         assert _SECRET not in json.dumps(call.kwargs, default=str)
     assert _SECRET not in caplog.text
-    return [call.kwargs["context"] for call in calls]
+    events.debug_detail_allowed.assert_not_called()
 
 
 @pytest.mark.parametrize("function", _FUNCTIONS)
@@ -110,8 +110,7 @@ def test_secret_is_returned_once_without_a_ledger_or_debug_copy(
         (request.request_id,),
     ).fetchone()
     assert tuple(row) == (actor, "personal-key", api_tokens.hash_token(_SECRET))
-    contexts = _assert_receipts_safe(test_db, emitted, caplog, request.request_id, count=1)
-    assert contexts[0]["result_keys"] == sorted(response.result)
+    _assert_receipts_safe(test_db, emitted, caplog, request.request_id, count=1)
 
     replay = dispatch(request, ambient_session_id="")
     assert not replay.success
