@@ -26,10 +26,11 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
     "yoke_core.domain.epic_task_scope": {
         "columns": [("reopen_generated_task_scopes", "callable")],
         "notes": (
-            "Task amendment clears epic_tasks.scope_finalized_at and "
-            "items.generated_task_membership_finalized_at. Fixtures omitting "
-            "these current columns cannot model task amendment; a missing "
-            "scope schema is not an empty membership snapshot."
+            "Task amendment clears items.generated_task_membership_finalized_at; "
+            "finalization is item-level only. A task's file scope is its body's "
+            "## Files Touched section, read by "
+            "yoke_core.domain.task_files_touched; epic_tasks has no scope "
+            "columns and there is no epic_task_files table."
         ),
     },
     "yoke_core.domain.session_control_schema": {

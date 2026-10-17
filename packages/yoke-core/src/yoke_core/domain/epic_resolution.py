@@ -62,24 +62,6 @@ def task_get_body(conn, epic_id: str, task_num: int) -> str:
 
 
 # ---------------------------------------------------------------------------
-# File queries
-# ---------------------------------------------------------------------------
-
-
-def file_list(conn, epic_id: str, task_num: int) -> str:
-    """List all files for a task (pipe-delimited)."""
-    rows = query_rows(
-        conn,
-        """SELECT id, epic_id, task_num, file_path, action
-           FROM epic_task_files WHERE epic_id={p} AND task_num={p}""".format(
-            p=_p(conn)
-        ),
-        (int(epic_id), task_num),
-    )
-    return _pipe_rows(rows, ["id", "epic_id", "task_num", "file_path", "action"])
-
-
-# ---------------------------------------------------------------------------
 # Dispatch chain queries
 # ---------------------------------------------------------------------------
 
