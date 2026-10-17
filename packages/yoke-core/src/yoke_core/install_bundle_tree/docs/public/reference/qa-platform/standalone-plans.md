@@ -198,7 +198,8 @@ a live steering seat covering the plan's project; any other caller refuses with
 
 Retirement records `retired_at`, the reason and the acting actor on the plan.
 The plan stays readable: `yoke qa plan get PLAN --project P` shows the
-retirement, and `yoke qa plan list --project P --include-retired` lists retired
+retirement (a plan whose recorded correction history is broken refuses with
+`replacement_graph_invalid` and names the repair, retired or not), and `yoke qa plan list --project P --include-retired` lists retired
 plans beside active ones. Recorded requirements, runs and reviews keep their
 evidence. From then on the plan refuses edits and materialization. There is no
 un-retire; author a corrected plan with `yoke qa plan create`.

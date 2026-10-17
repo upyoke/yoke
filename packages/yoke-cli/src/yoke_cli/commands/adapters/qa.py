@@ -142,7 +142,9 @@ def qa_requirement_waive(args: List[str]) -> int:
             "waivers retain the normal QA subject claim rule. A retracted, superseded "
             "or replaced requirement no longer counts: waiving it refuses with "
             "requirement_not_live and names the live copy of the same case to waive "
-            "instead, or says none is left."
+            "instead, or says none is left. A row whose successor link fails the "
+            "correction-graph check (replacement_graph_invalid) still counts and "
+            "still waives; that waiver is the graph error's named repair."
         ),
     )
     parser.add_argument(
