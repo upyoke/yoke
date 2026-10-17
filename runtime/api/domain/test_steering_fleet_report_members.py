@@ -18,7 +18,10 @@ def test_document_seat_reads_cross_project_item_facts(monkeypatch) -> None:
 
     def facts(rows):
         return SimpleNamespace(
-            **{field: rows for field in ("available", "holders", "landed_open")},
+            **{
+                field: rows
+                for field in ("available", "landing_waits", "holders", "landed_open")
+            },
             **{field: rows for field in ("undelivered", "vendor_errors", "stranded")},
         )
 
@@ -36,6 +39,7 @@ def test_document_seat_reads_cross_project_item_facts(monkeypatch) -> None:
     )
     assert result.project_ids == (1, 2)
     assert result.available == (linked,)
+    assert result.landing_waits == (linked,)
     assert result.holders == (linked,)
     assert result.landed_open == (linked,)
     assert result.undelivered == (linked,)

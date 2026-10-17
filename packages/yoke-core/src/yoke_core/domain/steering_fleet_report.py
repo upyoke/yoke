@@ -5,8 +5,7 @@ The staffing threshold bounds how long runnable work may sit unclaimed,
 allowing the brief claim handoff at lifecycle boundaries.
 
 ``idle_after_seconds`` answers "how long must a claim holder be quiet before
-it is presumed stuck" — a judgment about a worker mid-task, not a queue, and
-legitimately a longer number.
+it is presumed stuck": a judgment about a worker mid-task, legitimately longer.
 
 Quiet is not the same as stuck
 ------------------------------
@@ -16,11 +15,10 @@ call runs, so the quiet threshold alone reads a working merge wait as stuck.
 idle alarm keeps meaning "nobody is driving this". Healthy queue landings
 also exclude idle holders until their completion wake is delivered.
 
-Stale claims remain held until the stale-session sweep releases them, so
-they are never available work. Holders exclude ended and terminated sessions;
-idle uses ``last_tool_call_at``, excluding declared parks and landing waits.
-Linked landings appear under their document seat. A linked item with no live
-document seat appears in the combined report's unattended finding.
+Stale claims stay held until the stale-session sweep releases them, so they
+are never available work. Holders exclude ended and terminated sessions; idle
+uses ``last_tool_call_at``, excluding declared parks and landing waits. Linked
+landings appear under their document seat, or in the unattended finding.
 
 A deliberately held item is the operator's flag to set
 ------------------------------------------------------
@@ -44,7 +42,7 @@ from yoke_core.domain.dependency_cycles import DependencyCycle
 from yoke_core.domain.dependency_cycles_read import seat_cycles
 from yoke_core.domain.session_launch_capacity import MachineCapacity
 from yoke_core.domain.steering_fleet_report_abandoned import AbandonedLaunch
-from yoke_core.domain.steering_fleet_report_available import FrontierEntry
+from yoke_core.domain.steering_fleet_report_available import FrontierEntry, LandingWait
 from yoke_core.domain.steering_fleet_report_capacity import (
     SessionCount,
     SurfaceReadiness,
@@ -146,6 +144,7 @@ class FleetReport:
     session_labels: tuple[tuple[str, str], ...] = ()
     deadlocks: tuple[DependencyCycle, ...] = ()
     waiting_chains: tuple[chains.WaitingChain, ...] = ()
+    landing_waits: tuple[LandingWait, ...] = ()
 
     def waited_too_long(self) -> tuple[FrontierEntry, ...]:
         """Available work past the staffing threshold: the alarm, not the list.
@@ -299,6 +298,7 @@ def compose_report(
         staffing_after_seconds=int(staffing_after_seconds),
         idle_after_seconds=int(idle_after_seconds),
         available=available,
+        landing_waits=members_only(item_facts.landing_waits, members),
         holders=holders,
         idle=idle,
         undelivered=item_facts.undelivered,

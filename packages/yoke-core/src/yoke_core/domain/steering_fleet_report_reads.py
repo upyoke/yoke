@@ -36,7 +36,8 @@ from yoke_core.domain.steering_fleet_report_abandoned import (
 )
 from yoke_core.domain.steering_fleet_report_available import (
     FrontierEntry,
-    scope_candidates,
+    LandingWait,
+    scope_work,
 )
 from yoke_core.domain.steering_fleet_report_capacity import (
     SessionCount,
@@ -98,6 +99,7 @@ class ProjectFleetFacts:
     """One project's report inputs, before any scope narrows them."""
 
     available: tuple[FrontierEntry, ...]
+    landing_waits: tuple[LandingWait, ...]
     holders: tuple[ClaimHolder, ...]
     undelivered: tuple[UndeliveredMessages, ...]
     unregistered_launches: tuple[UnregisteredLaunch, ...]
@@ -151,8 +153,10 @@ def read_project_facts(
     inventory = request.include_inventory
     # One evaluation of the waiting graph feeds both dependency sections.
     live = live_blocking_edges(conn)
+    work = scope_work(conn, project_id=project_id, session_id=session_id)
     return ProjectFleetFacts(
-        available=scope_candidates(conn, project_id=project_id, session_id=session_id),
+        available=work.available,
+        landing_waits=work.landing_waits,
         holders=holders,
         undelivered=undelivered_messages(
             conn, project_id=project_id, now=now, session_id=session_id

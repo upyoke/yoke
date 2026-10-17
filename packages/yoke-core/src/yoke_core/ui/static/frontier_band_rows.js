@@ -76,7 +76,8 @@ export function waitingReason(row, blockedRows = []) {
   }
   if (!blockedRows.length) return null;
   const blockers = [...new Set(blockedRows.map((entry) => entry.blocking_item).filter(Boolean))];
-  const text = blockedRows.map((entry) => entry.why).filter(Boolean).join(" ")
+  // Rows of one landing wait share one sentence; say it once.
+  const text = [...new Set(blockedRows.map((entry) => entry.why).filter(Boolean))].join(" ")
     || "An upstream fact is unsatisfied.";
   // An item saved with only its title waits for its spec, and says so.
   if (blockedRows.some((entry) => entry.needs_spec === true)) {
@@ -175,19 +176,26 @@ export function frontierBandRows({ items, readyRows, blockedRows, sessionRows })
     .map((row) => ({ row, reason: waitingReason(row, blockedByRef.get(reference(row))) }));
   const activeRefs = new Set(active.map(({ row }) => reference(row)));
 
-  // Only what stops an item starting makes it wait. An edge that holds back
-  // its merge or close leaves it free to build, so it stays where its work
-  // is and the graph draws the edge.
+  // Only what keeps an item from being picked up makes it wait. An edge that
+  // holds back its merge or close leaves it free to build, so it stays where
+  // its work is and the graph draws the edge -- unless its work is already
+  // committed, when landing is all that is left and the server marks those
+  // rows holds_pickup. A build without the field falls back to start gates.
   const waiting = live
     .filter((row) => !activeRefs.has(reference(row)))
     .map((row) => {
       const ref = reference(row);
-      const starting = (blockedByRef.get(ref) || []).filter(
-        (entry) => !entry.gate_point || entry.gate_point === "activation",
-      );
+      const starting = (blockedByRef.get(ref) || []).filter((entry) => (
+        typeof entry.holds_pickup === "boolean"
+          ? entry.holds_pickup
+          : !entry.gate_point || entry.gate_point === "activation"
+      ));
       const reason = waitingReason(row, starting)
         || (heldByAnyLiveSession.has(ref) ? UNAVAILABLE_OWNER : null);
-      return { row, reason };
+      // Held only by landing edges: committed work waiting on its blockers.
+      const landing = starting.length > 0
+        && starting.every((entry) => entry.gate_point && entry.gate_point !== "activation");
+      return { row, reason: landing ? { ...reason, landing: true } : reason };
     })
     .filter((entry) => entry.reason)
     .sort((left, right) => (
