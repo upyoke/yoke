@@ -170,6 +170,9 @@ def waive_requirement(
         source=source,
         target_row=row,
     )
+    from yoke_core.domain.deployment_member_close_out_retry import after_record_settled
+
+    after_record_settled(conn, requirement_id=int(req_id))
 
 
 def cmd_requirement_waive(

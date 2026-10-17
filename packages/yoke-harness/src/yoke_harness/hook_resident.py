@@ -172,7 +172,7 @@ class _ResidentServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer
                 self.observations.enqueue(
                     deferred.observation(hook_wait_ms=hook_wait_ms)
                 )
-            elif read_only:
+            elif read_only and self.http_opener.message_probe_ran():
                 self.mark_message_probe(probe_key)
             stdout = capture.stdout
             stderr = capture.stderr + self.observations.diagnostic()

@@ -50,6 +50,8 @@ yoke items dependency add <candidate-ref> <upstream-ref> idea --gate-point activ
 Use the blocker's pinned status (normally status:done) for delivery/closeout,
 fact:merged for trunk and fact:deployed:ENV only for a real live-environment need.
 Always explicit gate-point; defaulting to activation is not classification.
+A `dependency_cycle` refusal names a loop this edge would close; nothing was
+written. Make one named edge coordination_only or route the order to steering.
 Re-register without upstream pin so the resolver walks the authoritative graph.
 Candidate is blocked until the actual condition; multiple overlapping upstream
 holders all must satisfy/release, not just the latest blocked_reason display.

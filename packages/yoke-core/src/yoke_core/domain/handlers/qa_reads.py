@@ -281,6 +281,7 @@ class QaGateSummaryResponse(BaseModel):
     browser_unsatisfied_count: int
     e2e_unsatisfied_count: int
     requirements: List[Dict[str, Any]]
+    unsettled_records: List[Dict[str, str]] = []
 
 
 def handle_qa_gate_summary(request: FunctionCallRequest) -> HandlerOutcome:

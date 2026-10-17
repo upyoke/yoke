@@ -119,6 +119,15 @@ def removed_member_items(
     created = {
         str(run["id"]): parse_timestamp_utc(run.get("created_at")) for run in runs
     }
+    from yoke_core.domain.deployment_qa_run_sharing import cancelled_check_counts
+
+    cancelled = cancelled_check_counts(
+        conn,
+        {
+            run_id: [int(entry["item_id"]) for entry in entries]
+            for run_id, entries in removals.items()
+        },
+    )
     result: dict[str, list[dict[str, Any]]] = {}
     for run_id, entries in removals.items():
         for entry in entries:
@@ -146,6 +155,8 @@ def removed_member_items(
                         else None
                     ),
                     "later_run_id": next_run,
+                    # Removal cancels the member's checks; they are not open QA.
+                    "cancelled_check_count": cancelled.get((run_id, item_id), 0),
                 }
             )
     return result

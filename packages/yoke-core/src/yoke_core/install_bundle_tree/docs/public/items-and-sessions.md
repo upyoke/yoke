@@ -191,13 +191,19 @@ evaluator/client-wall coverage, are labelled incomparable.
   the item. Beneath each carried item, **Item QA** shows that item's checks
   for this run, its screenshots, its earlier attempts, and its own decisions;
   **Run QA** follows every carried item with the run's own checks and
-  decisions only. Both are drawn the same way: each current check reads
+  decisions, plus each QA plan several carried items share, drawn once and
+  labelled with its sharing items (**Installer campaign · Shared by PREFIX-1,
+  PREFIX-2**). A sharing item's Item QA shows its own checks and a pointer
+  (**shares Installer campaign (28) — see Run QA**), or **0 own checks,
+  shares Installer campaign**. Both are drawn the same way: each current check reads
   **<method> · Passed** (or its actual result) with its status mark, linked to
   its QA case, with the screenshots that check captured, each shown once;
   earlier attempts bound to this run sit behind **Earlier checks**. QA from
   other runs and before merge stays on the item. Removed requirements read
-  **Cancelled** with their reason; removed and no-obligation records contribute
-  no pass count. An item with no QA for this run and no decision shows no Item QA; a run with no run checks and no decision has no Run QA. An item's work
+  **Cancelled** with their reason. Every check counts once: cancelled,
+  superseded and no-obligation records sit only in **Earlier checks** and
+  add no passed, queued or open count. A removed member shows as removed
+  with its cancelled check count, never as open QA. An item with no QA for this run and no decision shows no Item QA; a run with no run checks and no decision has no Run QA. An item's work
   approval — pending with **Reject** and **Approve**, or answered — appears
   only in its Item QA, never under Run QA, with any screenshot of the item's
   current release its checks have not already shown, or a note that none was

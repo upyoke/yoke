@@ -83,8 +83,13 @@ def _seed_old(conn, *, run_qa: bool) -> dict[int, int]:
     return cases
 
 
-def _passed_item_qa(monkeypatch) -> None:
-    """PASSED's item QA is accepted; the stage-acceptance walk is tested elsewhere."""
+def _passed_item_qa(monkeypatch, *, closes_mid_run: bool | None = True) -> None:
+    """PASSED's item QA is accepted; the stage-acceptance walk is tested elsewhere.
+
+    ``closes_mid_run`` stands in for the member's own close-out read; ``None``
+    keeps the real reader, which this fixture's member cannot satisfy.
+    """
+    from yoke_core.domain import deployment_member_independent_close_out as closing
     from yoke_core.domain import deployment_qa_run_acceptance as acceptance
 
     def standing(conn, *, run_id, item_id, current_stage, stages=None):
@@ -92,6 +97,12 @@ def _passed_item_qa(monkeypatch) -> None:
         return acceptance.ItemStageQa(stage=current_stage, state=state, blockers=())
 
     monkeypatch.setattr(acceptance, "current_item_qa", standing)
+    if closes_mid_run is not None:
+        monkeypatch.setattr(
+            closing,
+            "member_closes_mid_run",
+            lambda conn, *, item_id, run_id: item_id == PASSED and closes_mid_run,
+        )
 
 
 def _memberless_copy(conn, requirement_id: int, *, stage: str = ITEM_QA_STAGE) -> int:
@@ -125,8 +136,13 @@ def _seed_new(conn, lineage: str = NEW_LINEAGE) -> None:
     conn.commit()
 
 
-def _contains(monkeypatch, state: str = containment.CONTAINED) -> None:
-    _passed_item_qa(monkeypatch)
+def _contains(
+    monkeypatch,
+    state: str = containment.CONTAINED,
+    *,
+    closes_mid_run: bool | None = True,
+) -> None:
+    _passed_item_qa(monkeypatch, closes_mid_run=closes_mid_run)
     monkeypatch.setattr(
         containment,
         "candidate_contains_commit",
@@ -192,6 +208,27 @@ def test_without_run_qa_waiting_members_move_and_passed_members_stay(
         "SELECT retracted_at FROM qa_requirements WHERE id=%s", (cases[PASSED],)
     ).fetchone()
     assert passed["retracted_at"] is None
+    assert _open_memberless(test_db, OLD) == []
+
+
+@pytest.mark.parametrize("closes_mid_run", [False, None])
+def test_a_passed_member_that_cannot_close_mid_run_moves_too(
+    test_db, monkeypatch, closes_mid_run
+):
+    """Passed item QA alone is not enough to stay: the old run may never finish.
+
+    ``False`` is a refused close-out; ``None`` reads the real check, which a
+    member without final delivery intent or landing evidence cannot pass.
+    """
+    _seed_old(test_db, run_qa=False)
+    _seed_new(test_db)
+    _contains(monkeypatch, closes_mid_run=closes_mid_run)
+
+    assert _take_over(test_db) == OLD
+
+    assert _members(test_db, OLD) == set()
+    assert _members(test_db, NEW) == {PASSED, WAITING}
+    assert removed_item_ids(test_db, OLD) == {PASSED, WAITING}
     assert _open_memberless(test_db, OLD) == []
 
 

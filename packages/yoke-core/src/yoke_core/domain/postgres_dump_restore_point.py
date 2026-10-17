@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_contracts import terminal_detached_process
 from yoke_contracts.machine_config.directories import create_private_directory
 
 import os
@@ -40,7 +41,7 @@ def dump_postgres_to_directory(dsn: str, reason: str, backup_dir: Path) -> str:
     try:
         try:
             with output:
-                result = subprocess.run(
+                result = terminal_detached_process.run(
                     [
                         executable,
                         "--no-owner",

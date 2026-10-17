@@ -76,7 +76,7 @@ test("stuck and deadlocked tiles are marked on the tiles themselves", () => {
   assert.equal(ownTextContent(divider), "Deadlocked");
   assert.ok(divider.classList.contains("is-stuck"));
   assert.equal(ownTextContent(byClass(tile("YOK-3860"), "fdv-tile-meta")[0]),
-    "Deadlock — YOK-3861 ⇄ YOK-3860 wait on each other");
+    "Deadlock — YOK-3860 ⇄ YOK-3861 wait on each other");
 });
 
 test("a fan-out stack expands in place", () => {

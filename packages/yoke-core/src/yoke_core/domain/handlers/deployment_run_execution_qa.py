@@ -7,6 +7,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
+from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
 from yoke_core.domain.handlers.deployment_common import run_id
 from yoke_core.domain.handlers.deployment_run_execution import (
     require_run_driver,
@@ -46,27 +47,35 @@ def handle_deployment_execution_qa_pending(
     if isinstance(resolved, HandlerOutcome):
         return resolved
     from yoke_core.domain.db_helpers import connect
+
+    stage_name = str((request.payload or {}).get("stage_name") or "")
+    with connect() as conn:
+        result = _qa_pending(conn, resolved, stage_name)
+    return HandlerOutcome(
+        result_payload=result,
+        primary_success=True,
+    )
+
+
+@presentation_operation
+def _qa_pending(conn, resolved: str, stage_name: str) -> dict:
+    """Both readers share one composition scope, so schema facts are read once."""
     from yoke_core.domain.deployment_run_completion_preconditions import (
         held_stage_report_lines,
         unresolved_blocking_qa,
     )
     from yoke_core.domain.deployment_qa_stage_outstanding import qa_stage_outstanding
 
-    with connect() as conn:
-        unresolved = unresolved_blocking_qa(conn, resolved)
-        result = {"run_id": resolved, "unresolved": unresolved}
-        stage_name = str((request.payload or {}).get("stage_name") or "")
-        if stage_name:
-            scoped = qa_stage_outstanding(conn, run_id=resolved, stage_name=stage_name)
-            details = [*unresolved, *(scoped.lines if scoped else ())]
-            count = len(unresolved) + (scoped.waiting if scoped else 0)
-            result["held_report"] = held_stage_report_lines(
-                resolved, stage_name, details, obligation_count=count
-            )
-    return HandlerOutcome(
-        result_payload=result,
-        primary_success=True,
-    )
+    unresolved = unresolved_blocking_qa(conn, resolved)
+    result = {"run_id": resolved, "unresolved": unresolved}
+    if stage_name:
+        scoped = qa_stage_outstanding(conn, run_id=resolved, stage_name=stage_name)
+        details = [*unresolved, *(scoped.lines if scoped else ())]
+        count = len(unresolved) + (scoped.waiting if scoped else 0)
+        result["held_report"] = held_stage_report_lines(
+            resolved, stage_name, details, obligation_count=count
+        )
+    return result
 
 
 def handle_deployment_execution_ephemeral_qa_ready(

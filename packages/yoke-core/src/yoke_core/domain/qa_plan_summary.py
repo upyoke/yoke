@@ -49,6 +49,7 @@ _PROOF_FIELDS = (
     "host_baseline",
     "target_env",
     "outcome",
+    "replacement_graph_error",
     "happened_at",
 )
 

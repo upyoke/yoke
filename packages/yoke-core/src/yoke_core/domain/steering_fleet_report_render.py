@@ -60,6 +60,7 @@ from yoke_core.domain.steering_fleet_report_sections import (
     unlisted_holders,
 )
 from yoke_core.domain.steering_fleet_report_relay_health import relay_health_lines
+from yoke_core.domain.steering_fleet_report_deadlocks import deadlock_section
 
 
 REPORT_BEGIN = "=== BEGIN YOKE FLEET REPORT ==="
@@ -232,6 +233,7 @@ def _scope_work_lines(report: FleetReport, shared: ProjectRows) -> list[str]:
             vendor_error_lines(report),
         ),
         *_stranded.stranded_section(report),
+        *deadlock_section(report),
         *_section(
             "unregistered launches — launch/session binding absent",
             unregistered_launch_lines(shared.unregistered_launches),

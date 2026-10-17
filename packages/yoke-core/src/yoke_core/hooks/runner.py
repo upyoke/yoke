@@ -289,8 +289,11 @@ def run_event(
     if timed_out and final_outcome == "allow":
         final_outcome = "timeout_allow"
     if controls is not None:
+        from yoke_core.hooks.session_message_delivery import message_probe_ran
+
         controls.timed_out = timed_out
         controls.final_outcome = final_outcome
+        controls.message_probe = message_probe_ran(decisions)
     hook_wait_ms = int((time.monotonic() - started_at) * 1000)
     if controls is not None and not controls.flush_tail:
         # The relay's client-side local-state subset: the server's run owns

@@ -125,21 +125,14 @@ def _read_members(conn: Any, run_id: str) -> CompletionPreview:
         reason = member_readiness_reason(conn, run_id, member, blocking=blocking)
         if not reason:
             from yoke_core.domain.delivery_member_close_steps import (
-                member_close_evidence_refusal,
+                member_close_refusal,
             )
-            from yoke_core.domain.closure_status_gate import evaluate
 
-            reason = member_close_evidence_refusal(
-                conn, item_id=item_id, delivery_pending=True
+            reason = " ".join(
+                member_close_refusal(
+                    conn, item_id=item_id, delivery_pending=True
+                ).splitlines()
             )
-            closure = evaluate(item_id=item_id, conn=conn)
-            if closure:
-                reason = " ".join(
-                    filter(
-                        None,
-                        (reason, closure["error"], closure.get("remediation_hint")),
-                    )
-                )
         targets = [
             f"requirement #{row['id']} ({row['qa_kind']}, phase={row['qa_phase']}, "
             f"target={requirement_target_environment(row.get('target_env'), row.get('execution_target_json')) or 'unspecified'})"

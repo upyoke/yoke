@@ -48,7 +48,8 @@ without status/claim deltas; due cooldown/timer findings are checked without
 deltas too. Urgent `fleet ALARM` lines include unstaffed ready work: an
 available item past the staffing threshold emits one `unstaffed-ready` line
 per waiting episode, and again only after another staffing interval. A launch
-already in flight does not alarm. Fingerprints suppress unchanged reports. Background uses armed
+already in flight does not alarm. A dependency loop among live items emits one
+`deadlock` line naming its edges and stranded work, and clears once broken. Fingerprints suppress unchanged reports. Background uses armed
 native subscription; in-turn surfaces findings in its existing stream.
 Changed reports wake with the whole opening/digest/closing block, never a
 delimiter alone. Pull yoke steering report get without project filter for

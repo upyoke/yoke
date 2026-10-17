@@ -2,8 +2,8 @@
 
 Ready rows carry ranks, routed steps, and readiness reasons. Blocked rows
 cover unsatisfied activation, integration, and closure dependencies, plus
-operator blocks and incomplete bodies. Dependency edges serve the Waiting
-graph (:mod:`frontier_dependency_edges`). Polling does not emit events.
+operator blocks and incomplete bodies. Dependency edges and deadlocks serve
+the Waiting graph (:mod:`frontier_dependency_edges`). Polling emits no events.
 """
 
 from __future__ import annotations
@@ -16,10 +16,11 @@ from yoke_core.domain.dependency_planning import (
     BlockerDetail,
     evaluate_batch_gates,
 )
+from yoke_core.domain.dependency_cycles_read import BLOCKING_GATE_POINTS
 from yoke_core.domain.frontier_dependency_edges import (
-    BLOCKING_GATE_POINTS,
+    FRONTIER_CYCLE_FIELDS,
     FRONTIER_EDGE_FIELDS,
-    frontier_dependency_edges,
+    frontier_dependency_graph,
 )
 from yoke_core.domain.item_ref_resolution import internal_ids_for_refs
 from yoke_core.domain.project_identity import placeholder
@@ -318,12 +319,11 @@ def list_frontier(
                 "ready": list(FRONTIER_READY_FIELDS),
                 "blocked": list(FRONTIER_BLOCKED_FIELDS),
                 "dependency_edges": list(FRONTIER_EDGE_FIELDS),
+                "dependency_cycles": list(FRONTIER_CYCLE_FIELDS),
             },
             "ready_rows": ready_rows,
             "blocked_rows": blocked_rows,
-            "dependency_edges": frontier_dependency_edges(
-                conn, scope, gate_blocks=gate_blocks
-            ),
+            **frontier_dependency_graph(conn, scope, gate_blocks=gate_blocks),
             "frozen_count": len(schedule.frozen_steps),
             "wip_cap": schedule.wip_cap,
             "wip_active": schedule.wip_active,

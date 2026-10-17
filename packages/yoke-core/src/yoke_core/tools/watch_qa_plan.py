@@ -46,7 +46,7 @@ QA_PLAN_SUMMARY_RE = re.compile(
     r"^\{.*\"state\":)",
 )
 QA_PLAN_PROGRESS_RE = re.compile(
-    r"(machine_qa\.operator_gate|"
+    r"(machine_qa\.operator_gate|machine_qa\.heartbeat|"
     r"host_baseline|baseline=|"
     r"requirement=|case_key|"
     r"\"checkpoint\"|frame checkpoint|"

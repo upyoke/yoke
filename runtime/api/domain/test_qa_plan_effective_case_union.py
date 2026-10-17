@@ -9,6 +9,7 @@ from runtime.api.fixtures.qa_declared_replacement_fixture import corrected_case,
 from yoke_core.domain.qa_plan_case_proof import _case_result
 from yoke_core.domain.qa_plan_detail import get_plan
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
+from yoke_core.domain.qa_plan_summary import plan_summary
 
 
 def _cases(conn, plan_id, keys):
@@ -97,12 +98,40 @@ def test_never_materialized_case_still_holds_union_after_replacement_pass(test_d
     }
 
 
-def test_invalid_retirement_graph_refuses_plan_union(test_db):
+def _graph_error_proof(detail, old_id, broken=1):
+    (proof,) = detail["cases"][0]["proofs"]
+    assert proof["requirement_id"] == old_id
+    assert proof["outcome"] == "replacement_graph_invalid"
+    assert detail["union"]["satisfied"] is False
+    assert detail["union"]["counts"]["replacement_graph_invalid"] == broken
+    return proof["replacement_graph_error"]
+
+
+def test_plan_read_names_a_correction_cycle_in_retired_history(test_db):
     plan_id, old_id, successor = _replacement(test_db)
     test_db.execute(
         "UPDATE qa_requirements SET replacement_requirement_id=%s WHERE id=%s",
         (old_id, successor),
     )
     test_db.commit()
-    with pytest.raises(ValueError, match="replacement_graph_invalid: correction cycle"):
-        get_plan(test_db, plan_id=plan_id)
+    # Both rows of the cycle are retired, so each case names it.
+    error = _graph_error_proof(get_plan(test_db, plan_id=plan_id), old_id, 2)
+    assert error.startswith("replacement_graph_invalid: correction cycle")
+
+
+def test_plan_read_names_a_replacement_link_with_a_different_baseline(test_db):
+    plan_id, old_id, successor = _replacement(test_db)
+    record_case_verdict(test_db, successor, "pass", evidence=False)
+    test_db.execute(
+        "UPDATE qa_requirements SET host_baseline='fresh-host' WHERE id=%s",
+        (successor,),
+    )
+    test_db.commit()
+    detail = get_plan(test_db, plan_id=plan_id)
+    error = _graph_error_proof(detail, old_id)
+    assert f"requirement #{old_id} links to #{successor}" in error
+    assert "host baseline differs" in error
+    assert "yoke qa requirement supersede" in error
+    assert "yoke qa requirement waive" in error
+    summary = plan_summary(detail, project="yoke")
+    assert summary["cases"][0]["proofs"][0]["replacement_graph_error"] == error

@@ -115,6 +115,14 @@
 }
 .universe-app-root .run-qa-history[open] > summary { margin-bottom: 6px; }
 .universe-app-root .run-qa-history > .run-qa-check { margin-top: 6px; }
+/* A plan several items share: its checks once, under the items sharing it. */
+.universe-app-root .run-qa-shared-group { width: 100%; }
+.universe-app-root .run-qa-shared-label {
+  margin: 6px 0 2px;
+  color: var(--yoke-ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
 /* The person's decision, after the evidence it rests on. */
 .universe-app-root .run-decision-ask {
   display: flex;

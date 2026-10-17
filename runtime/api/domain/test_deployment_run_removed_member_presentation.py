@@ -26,6 +26,10 @@ class Database:
 
     def execute(self, sql, params):
         self.calls.append((sql, params))
+        if "AS cancelled" in sql:
+            return Rows(
+                [{"deployment_run_id": "run-original", "item_id": 7, "cancelled": 2}]
+            )
         if "FROM items i" in sql:
             return Rows(
                 [
@@ -74,6 +78,8 @@ def test_removed_record_resolves_identity_and_current_newer_custody():
     assert item["ref"] == "ITEM-3"
     assert item["reason"] == "needs correction"
     assert item["later_run_id"] == "run-later"
+    # Removal cancels the member's checks; they are counted, not shown open.
+    assert item["cancelled_check_count"] == 2
     assert "i.project_id IN" in database.calls[0][0]
     assert database.calls[0][1] == (7, 1)
     assert "NOT IN ('failed', 'cancelled')" in database.calls[1][0]
