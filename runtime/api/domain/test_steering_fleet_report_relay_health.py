@@ -235,6 +235,29 @@ def test_incomplete_quarantine_metadata_stays_actionable(fleet) -> None:
     assert report_dict(report)["relay_health"][0]["error_code"] == "report_conflict"
 
 
+def test_non_contract_quarantine_does_not_name_a_wire_mismatch(fleet) -> None:
+    _publish(
+        fleet,
+        {
+            "quarantined_reports": [
+                {
+                    "report_id": "invalid-pending",
+                    "job_kind": "unknown",
+                    "error_code": "pending_report_invalid",
+                    "attempts": 1,
+                    "quarantined_at": NOW,
+                }
+            ]
+        },
+    )
+
+    rendered = report_body(compose(fleet))
+
+    assert "attention required" in rendered
+    assert "restore wire/transport compatibility" not in rendered
+    assert "do not replay server-settled reports" in rendered
+
+
 def test_build_refusal_names_both_revisions_and_deploy_recovery(fleet) -> None:
     _publish(
         fleet,

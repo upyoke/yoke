@@ -186,12 +186,25 @@ def quarantine_report(
     destination = directory / f"{report_id}.json"
     try:
         report_path.replace(destination)
-    except OSError:
-        # A malformed file may disappear between discovery and quarantine;
-        # the metadata still records the condition for the operator.
-        pass
-    if destination.exists():
-        destination.chmod(0o600)
+    except OSError as error:
+        if report_path.exists():
+            _LOGGER.error(
+                "relay report %s was not preserved in quarantine (%s); "
+                "recovery: check permissions on the relay state directory",
+                report_id,
+                type(error).__name__,
+            )
+        else:
+            clear_report_attempt(report_path, state_dir)
+            clear_report_failure_if_drained(state_dir)
+        return {
+            "report_id": report_id,
+            "error_code": str(error_code or "relay_report_rejected")[:128],
+            "attempts": max(1, int(attempts)),
+            "payload_sha256": "",
+            "preserved_path": "",
+        }
+    destination.chmod(0o600)
     try:
         payload_sha256 = sha256(destination.read_bytes()).hexdigest()
     except OSError:
@@ -218,6 +231,14 @@ def quarantine_report(
     return metadata
 
 
+def _preserved_quarantine_record(path: Path) -> dict[str, object] | None:
+    """Return quarantine metadata only when its payload file was preserved."""
+    payload = path.with_name(path.name.removesuffix(".meta.json") + ".json")
+    if not payload.is_file():
+        return None
+    return _load(path)
+
+
 def observe_relay_health(state_dir: Path | None = None) -> dict[str, object]:
     """Read current local health without creating or mutating relay state."""
     try:
@@ -232,11 +253,16 @@ def observe_relay_health(state_dir: Path | None = None) -> dict[str, object]:
     metadata_paths = (
         sorted(quarantine_dir.glob("*.meta.json")) if quarantine_dir.is_dir() else []
     )
+    preserved = [
+        record
+        for path in metadata_paths
+        if (record := _preserved_quarantine_record(path)) is not None
+    ]
     document.update(
         {
             "pending_reports": pending,
-            "quarantine_count": len(metadata_paths),
-            "quarantined_reports": [_load(path) for path in metadata_paths[-20:]],
+            "quarantine_count": len(preserved),
+            "quarantined_reports": preserved[-20:],
         }
     )
     from yoke_harness.session_relay_poll_health import attach_poll_outcome
