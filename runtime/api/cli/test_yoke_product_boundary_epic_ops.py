@@ -22,7 +22,6 @@ def test_epic_ops_wrappers_are_https_relay_product_surfaces() -> None:
     expected = {
         "yoke workflow-item epic-task get": "workflow_item.epic_task.get",
         "yoke workflow-item epic-task simulation-get": "workflow_item.epic_task.simulation_get",
-        "yoke workflow-item epic-task file-add": "workflow_item.epic_task.file_add",
         "yoke workflow-item epic-task history-insert": "workflow_item.epic_task.history_insert",
         "yoke workflow-item epic-dispatch-chain get": "workflow_item.epic_dispatch_chain.get",
         "yoke workflow-item epic-dispatch-chain list": "workflow_item.epic_dispatch_chain.list",
@@ -45,7 +44,7 @@ def test_structured_adapter_inventory_tracks_epic_ops() -> None:
 
     index = adapter_index()
     assert index["workflow_item.epic_task.simulation_get"].read_shape is True
-    assert index["workflow_item.epic_task.file_add"].read_shape is False
+    assert index["workflow_item.epic_task.history_insert"].read_shape is False
     assert (
         index["workflow_item.epic_dispatch_chain.refresh_activation"].cli_invocation
         == "yoke workflow-item epic-dispatch-chain refresh-activation --epic PREFIX-N "

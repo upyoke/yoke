@@ -187,6 +187,7 @@ def test_epic_readiness_reports_only_uncovered_task_paths(test_db, tmp_path):
         seed_target,
         seed_worker_task,
     )
+    from runtime.api.task_files_touched_test_support import declare_task_files
     from yoke_core.domain.path_claim_task_coverage import evaluate_task_coverage
 
     item_id = seed_epic(test_db, item_id=22002)
@@ -202,11 +203,7 @@ def test_epic_readiness_reports_only_uncovered_task_paths(test_db, tmp_path):
             lane_path=tmp_path / str(task_num),
             budget_path=path,
         )
-    test_db.execute(
-        "INSERT INTO epic_task_files (epic_id, task_num, file_path, action) "
-        "VALUES (%s, 1, 'src/partial.py', 'modify')",
-        (item_id,),
-    )
+    declare_task_files(test_db, item_id, 1, ["src/covered.py", "src/partial.py"])
     target = seed_target(test_db, item_id=item_id, path="src/covered.py")
     claim = seed_item_claim(test_db, item_id=item_id, target_ids=(target,))
     bind_claim(test_db, claim_id=claim, item_id=item_id, task_num=1)

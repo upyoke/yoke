@@ -79,12 +79,6 @@ class TestCLI:
                 {"pipeline": False},
             ),
             (
-                ["file-add", "42", "1", "README.md", "modify"],
-                "file_add",
-                (TEST_ITEM_ID, 1, "README.md", "modify"),
-                {},
-            ),
-            (
                 ["history-insert", "42", "1", "planning", "implementing", "note"],
                 "history_insert",
                 (TEST_ITEM_ID, 1, "planning", "implementing", "note"),
@@ -135,7 +129,6 @@ class TestCLI:
                 {},
             ),
             (["orphan-check"], "orphan_check", tuple(), {}),
-            (["migrate-task-files"], "migrate_task_files", tuple(), {}),
         ],
     )
     def test_cli_dispatches_printing_commands(
@@ -161,7 +154,6 @@ class TestCLI:
         ("argv", "handler_name", "expected_args"),
         [
             (["task-list", "42"], "task_list", (TEST_ITEM_ID,)),
-            (["file-list", "42", "1"], "file_list", (TEST_ITEM_ID, 1)),
             (["dispatch-chain-list", "42"], "dispatch_chain_list", (TEST_ITEM_ID,)),
             (
                 ["progress-note-list-unsynced", "42"],
