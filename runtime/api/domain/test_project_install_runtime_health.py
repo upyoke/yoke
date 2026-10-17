@@ -115,8 +115,9 @@ def test_absent_clis_allow_guidance_for_a_later_harness(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("preview", [False, True])
+@pytest.mark.parametrize("oversized", [False, True])
 def test_runtime_health_reaches_install_and_preview_report(
-    tmp_path, monkeypatch, preview, capsys
+    tmp_path, monkeypatch, preview, oversized, capsys
 ):
     _runtimes(monkeypatch, {"codex": ("0.149.1", 0), "cursor-agent": ("2026.10.14", 0)})
     bundle = make_bundle()
@@ -139,6 +140,8 @@ def test_runtime_health_reaches_install_and_preview_report(
     assert codex["status"] == "below_floor"
     from yoke_cli.commands.adapters.install import _run
 
+    if oversized:
+        report["details"] = "\n".join("installed file" for _ in range(400))
     assert _run(lambda: report) == 0
     output = capsys.readouterr().out
     assert "harness health:" in output
