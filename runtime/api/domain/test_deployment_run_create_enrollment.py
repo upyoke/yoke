@@ -15,6 +15,7 @@ from runtime.api.domain.test_deployment_run_target_takeover import (
     OLD,
     PASSED,
     WAITING,
+    _close_passed,
     _contains,
     _members,
     _run,
@@ -67,6 +68,7 @@ def test_an_item_the_takeover_moved_is_enrolled_once(
     test_db, monkeypatch, composition_passes
 ):
     _seed_old(test_db, run_qa=False)
+    _close_passed(test_db)
     _contains(monkeypatch)
 
     assert _compose(test_db, WAITING) == (True, "ok")
@@ -88,6 +90,7 @@ def test_a_failed_enrollment_leaves_no_run_and_no_takeover(
     from yoke_core.domain import deployment_run_item_qa_membership as membership
 
     _seed_old(test_db, run_qa=False)
+    _close_passed(test_db)
     _contains(monkeypatch)
 
     def _refuse(*_a, **_k):
