@@ -230,7 +230,8 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
     assert sum(len(row["member_items"]) for row in complete) == 194
     assert sum(full.queries.values()) < 60
     assert not any(
-        "q.id AS presented_requirement_id,run.*" in sql for sql in full.queries
+        "q.id AS presented_requirement_id,run.*" in sql or "SELECT q.*" in sql
+        for sql in full.queries
     )
     assert not any(
         "SELECT run_id,item_id,requirement_snapshot FROM" in sql for sql in full.queries
