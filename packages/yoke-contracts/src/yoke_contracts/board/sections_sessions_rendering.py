@@ -13,10 +13,7 @@ from yoke_contracts.board.utils import display_width
 from yoke_contracts.coordination_claim_keys import COORDINATION_TARGET_KINDS
 from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_contracts.timestamps import parse_instant, utc_now
-from yoke_contracts.session_level import (
-    UNRESOLVED_EXECUTION_LEVEL,
-    level_is_unresolved,
-)
+from yoke_contracts.session_level import level_is_unresolved
 
 _RENDERED_ITEM_REF_RE = re.compile(r"^[A-Za-z]+-\d")
 
@@ -78,7 +75,8 @@ def _render_level(
     level: Optional[str], presentation: Optional[Dict[str, str]] = None
 ) -> str:
     if level_is_unresolved(level):
-        return f"⚠️ {UNRESOLVED_EXECUTION_LEVEL}"
+        label = (presentation or {}).get("label") or "no level"
+        return f"⚠️ {label}"
     metadata = presentation or {"label": str(level), "glyph": ""}
     label, glyph = metadata["label"], metadata["glyph"]
     return f"{glyph} {label}" if glyph else label

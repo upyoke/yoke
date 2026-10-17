@@ -17,6 +17,7 @@ SESSION_LIST_FIELDS = (
     "execution_level",
     "level_label",
     "level_glyph",
+    "level_reason",
     "mode",
     "quiet_reason",
     "keepalive_until",

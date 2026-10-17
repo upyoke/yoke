@@ -14,7 +14,7 @@ from typing import Optional
 
 from yoke_contracts.session_model_facts import SessionModelFacts
 
-from yoke_core.domain.session_level_resolution import (
+from yoke_contracts.model_level_resolution import (
     routing_effort_of,
     routing_model_of,
 )

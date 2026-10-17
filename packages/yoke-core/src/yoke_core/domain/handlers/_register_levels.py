@@ -79,6 +79,21 @@ def register(registry) -> None:
         adapter_status="live",
         claim_required_kind=None,
     )
+    registry.register(
+        _levels.RESET_FUNCTION_ID,
+        _levels.handle_universe_levels_reset,
+        _levels.UniverseLevelsGetRequest,
+        _levels.UniverseLevelsResetResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.universe_levels",
+        minimum_serving_version="next-release",
+        target_kinds=["global"],
+        side_effects=["universe_settings_delete"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["org_admin"],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
 
 
 __all__ = ["register"]

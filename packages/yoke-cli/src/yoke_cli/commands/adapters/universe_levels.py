@@ -1,4 +1,4 @@
-"""``yoke universe levels get|set`` and ``yoke universe level-capacity get``."""
+"""``yoke universe levels get|set|reset`` and ``yoke universe level-capacity get``."""
 
 from __future__ import annotations
 
@@ -18,10 +18,12 @@ from yoke_contracts.api.function_call import TargetRef, FunctionError
 
 GET_FUNCTION_ID = "universe.levels.get"
 SET_FUNCTION_ID = "universe.levels.set"
+RESET_FUNCTION_ID = "universe.levels.reset"
 CAPACITY_FUNCTION_ID = "universe.level_capacity.get"
 GET_USAGE = "yoke universe levels get [--session-id S] [--json]"
 CAPACITY_USAGE = "yoke universe level-capacity get [--session-id S] [--json]"
 SET_USAGE = "yoke universe levels set --stdin [--session-id S] [--json]"
+RESET_USAGE = "yoke universe levels reset [--session-id S] [--json]"
 
 _SOURCE_LINES = {
     "default": "source: shipped default (no universe levels stored)",
@@ -38,6 +40,23 @@ def write_levels(result: Mapping[str, Any], stdout: TextIO) -> None:
     """Print a levels read: its source, then each level lowest first."""
     source = str(result.get("source") or "")
     stdout.write(_SOURCE_LINES.get(source, f"source: {source or 'unknown'}") + "\n")
+    if "cleared" in result:
+        stdout.write(
+            "cleared the stored universe levels; the universe now follows "
+            "shipped defaults\n"
+            if result["cleared"]
+            else "no universe levels were stored; the universe already "
+            "follows shipped defaults\n"
+        )
+    differ = result.get("shipped_defaults_differ")
+    if source == "universe" and differ is not None:
+        stdout.write(
+            "shipped defaults differ from these stored levels; the universe "
+            "does not follow them. Follow them with `yoke universe levels reset`.\n"
+            if differ
+            else "these stored levels equal today's shipped defaults but will "
+            "not follow future ones; `yoke universe levels reset` follows them.\n"
+        )
     for level in result.get("levels") or []:
         stdout.write(f"{level.get('glyph') or ' '} {level.get('name')}\n")
         for option in level.get("options") or []:
@@ -169,6 +188,9 @@ def universe_levels_set(args: List[str]) -> int:
             "stdin, lowest level first. Each level is "
             '{"name", "glyph", "options": [...]}; each option is '
             '{"model", "min_effort"}. Start from yoke universe levels get --json. '
+            "Storing a document stops the universe following future shipped "
+            "defaults; a document equal to today's shipped defaults stores "
+            "nothing, and `yoke universe levels reset` clears a stored one. "
             "Org admin required."
         ),
     )
@@ -202,10 +224,39 @@ def universe_levels_set(args: List[str]) -> int:
     )
 
 
+def universe_levels_reset(args: List[str]) -> int:
+    """Delete the stored universe levels so the universe follows shipped defaults."""
+    parser = argparse.ArgumentParser(
+        prog="yoke universe levels reset",
+        description=(
+            "Delete the stored universe execution levels so the universe "
+            "reads the defaults its Yoke release ships, including future "
+            "ones. Project overrides stay; clear one by writing that "
+            "project's session-routing settings without levels "
+            "(`yoke projects capability-settings set --cap-type "
+            "session-routing`). Org admin required."
+        ),
+    )
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, RESET_USAGE)
+    if parsed is None:
+        return 2
+    return dispatch_and_emit(
+        function_id=RESET_FUNCTION_ID,
+        target=TargetRef(kind="global"),
+        payload={},
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+        human_writer=_write,
+    )
+
+
 USAGE_BY_FUNCTION_ID = {
     GET_FUNCTION_ID: GET_USAGE,
     CAPACITY_FUNCTION_ID: CAPACITY_USAGE,
     SET_FUNCTION_ID: SET_USAGE,
+    RESET_FUNCTION_ID: RESET_USAGE,
 }
 
 
@@ -213,6 +264,7 @@ __all__ = [
     "USAGE_BY_FUNCTION_ID",
     "universe_levels_capacity",
     "universe_levels_get",
+    "universe_levels_reset",
     "universe_levels_set",
     "write_capacity",
     "write_levels",

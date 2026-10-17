@@ -21,11 +21,7 @@ LEVEL_PROPOSAL_USAGE = "yoke models level-proposal [--stdin] [--levels-only] [--
 
 
 def _option_text(option: Dict[str, Any]) -> str:
-    context = option.get("context_window_tokens") or "default"
-    return (
-        f"{option.get('surface')} {option.get('model')} "
-        f"effort={option.get('reasoning_effort')} context={context}"
-    )
+    return f"{option.get('model')} min_effort={option.get('min_effort')}"
 
 
 def _change_line(change: Dict[str, Any]) -> str:
@@ -41,12 +37,7 @@ def _change_line(change: Dict[str, Any]) -> str:
     elif kind == "retire":
         head = f"retire {_option_text(option)}"
     else:
-        updates = ", ".join(
-            f"{key}={change[key]}"
-            for key in ("reasoning_effort", "context_window_tokens")
-            if key in change
-        )
-        head = f"change {_option_text(option)} -> {updates}"
+        head = f"change {_option_text(option)} -> min_effort={change.get('min_effort')}"
     return f"  {head}  ({change.get('reason') or 'no reason given'})"
 
 
@@ -65,10 +56,14 @@ def _print_level_proposal(response: Any, stdout: TextIO, stderr: TextIO) -> None
     )
     for change in changes:
         print(_change_line(change), file=stdout)
+    for level in result.get("levels") or []:
+        print(f"{level.get('glyph') or ' '} {level.get('name')}", file=stdout)
+        for option in level.get("options") or []:
+            print(f"  {option.get('model')} {option.get('min_effort')}", file=stdout)
     for entry in result.get("unverified") or []:
         print(
-            f"unverified: {entry.get('level')} {entry.get('surface')} "
-            f"{entry.get('model')} — {entry.get('reason')}",
+            f"unverified: {entry.get('level')} {_option_text(entry)} — "
+            f"{entry.get('reason')}",
             file=stdout,
         )
     for entry in result.get("unplaced_models") or []:
@@ -77,10 +72,24 @@ def _print_level_proposal(response: Any, stdout: TextIO, stderr: TextIO) -> None
             "no level launches it; add it with an authored change if it belongs",
             file=stdout,
         )
+    for entry in result.get("unplaceable_models") or []:
+        print(
+            f"unplaceable: {entry.get('model_id')} ({entry.get('provider')}) — "
+            "the catalog publishes no efforts for it, so no level row can name it",
+            file=stdout,
+        )
+    apply_command = str(result.get("apply_command") or "")
+    if result.get("equals_shipped_defaults"):
+        print(
+            "These levels equal the shipped defaults. Approve with "
+            f"`{apply_command}` so the universe keeps following shipped defaults.",
+            file=stdout,
+        )
+        return
     print(
         "Approve: `yoke models level-proposal --levels-only [--stdin < "
-        f"changes.json] > levels.json`, then `{result.get('apply_command')} < "
-        "levels.json`.",
+        f"changes.json] > levels.json`, then `{apply_command} < levels.json`. "
+        "Storing levels stops the universe following future shipped defaults.",
         file=stdout,
     )
 
@@ -99,20 +108,22 @@ def models_level_proposal(args: List[str]) -> int:
         prog="yoke models level-proposal",
         description=(
             "Propose universe level changes from the current model catalog. "
-            "Without --stdin, changes are extrapolated: an option whose model "
-            "the catalog supersedes is replaced in place by its successor, and "
-            "an effort or context window the model does not publish moves to "
-            "the nearest published effort or the default window. With --stdin, "
-            "read a JSON list of authored changes instead, each "
+            'Each level row is {"model", "min_effort"}. Without --stdin, '
+            "changes are extrapolated: a row whose model the catalog supersedes "
+            "is replaced in place by its successor, and a minimum effort the "
+            "model does not publish moves to the nearest published effort "
+            "below it. With --stdin, read a JSON list of authored changes "
+            "instead, each "
             '{"kind": "add", "level", "option", "position"?} | '
             '{"kind": "move", "option", "to_level"} | '
             '{"kind": "retire", "option"} | '
-            '{"kind": "change", "option", "reasoning_effort"?, '
-            '"context_window_tokens"?}, plus "reason"; an option is addressed '
-            "by surface, model, and reasoning_effort. Options whose effort or "
-            "context contradicts the model's published values are refused. "
-            "Nothing is stored: after operator approval, pipe --levels-only "
-            "output to `yoke universe levels set --stdin`."
+            '{"kind": "change", "option", "min_effort"}, plus "reason"; an '
+            'option is {"model", "min_effort"}, addressed exactly as levels get '
+            "lists it. A row whose minimum effort the model does not publish is "
+            "refused. Nothing is stored. After operator approval, a proposal "
+            "equal to the shipped defaults applies with `yoke universe levels "
+            "reset`; any other pipes --levels-only output to `yoke universe "
+            "levels set --stdin`, which stops following future shipped defaults."
         ),
     )
     parser.add_argument(

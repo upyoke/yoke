@@ -2,9 +2,11 @@
 
 from yoke_core.domain.session_level_resolution import (
     resolve_execution_level,
+    session_levels,
+)
+from yoke_contracts.model_level_resolution import (
     routing_effort_of,
     routing_model_of,
-    session_levels,
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_model_catalog import current_model_records

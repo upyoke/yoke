@@ -76,7 +76,7 @@ def _level_should_refresh(
             stored, executor = row[0], row[1]
         if not executor:
             return False
-        from yoke_core.domain.session_level_resolution import (
+        from yoke_contracts.model_level_resolution import (
             routing_effort_of,
             routing_model_of,
         )

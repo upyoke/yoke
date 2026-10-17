@@ -73,7 +73,12 @@ MODELS_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="universe.levels.set",
         cli_invocation="yoke universe levels set --stdin",
-        notes="Replace the universe execution levels; each option is validated against what its surface accepts. Org admin required.",
+        notes="Replace the universe execution levels; a document equal to the shipped defaults stores nothing. Org admin required.",
+    ),
+    _read_entry(
+        function_id="universe.levels.reset",
+        cli_invocation="yoke universe levels reset",
+        notes="Delete the stored universe levels so the universe follows shipped defaults. Org admin required.",
     ),
 ]
 

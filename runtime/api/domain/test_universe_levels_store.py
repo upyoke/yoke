@@ -12,12 +12,18 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_contracts.levels import LevelsError, default_levels, levels_payload
+from yoke_contracts.levels import (
+    LevelsError,
+    default_levels,
+    levels_payload,
+    parse_levels,
+)
 from yoke_contracts.model_reference_data import MODEL_RECORDS
 from yoke_core.domain import universe_levels
 from yoke_core.domain.handlers import projects_level_summary
 from yoke_core.domain.handlers.universe_levels import (
     handle_universe_levels_get,
+    handle_universe_levels_reset,
     handle_universe_levels_set,
 )
 
@@ -33,6 +39,7 @@ CUSTOM = [
         ],
     }
 ]
+OTHER = [{**CUSTOM[0], "name": "OTHER"}]
 PROJECT_ID = 7
 
 
@@ -111,11 +118,38 @@ class TestStore:
     def test_a_write_is_validated_stored_and_replaced(self, conn):
         universe_levels.write_universe_levels(conn, CUSTOM, actor_id=3)
         assert universe_levels.stored_universe_levels(conn) == CUSTOM
-        replacement = levels_payload(default_levels())
+        replacement = json.loads(json.dumps(CUSTOM))
+        replacement[0]["glyph"] = "\U0001f52c"
         universe_levels.write_universe_levels(conn, replacement, actor_id=4)
         assert universe_levels.stored_universe_levels(conn) == replacement
         rows = conn.execute("SELECT key, updated_by_actor_id FROM universe_settings")
         assert rows.fetchall() == [("levels", 4)]
+
+    def test_writing_the_shipped_defaults_stores_nothing(self, conn):
+        universe_levels.write_universe_levels(conn, CUSTOM, actor_id=3)
+        levels, source = universe_levels.write_universe_levels(
+            conn, levels_payload(default_levels()), actor_id=4
+        )
+        assert (levels, source) == (default_levels(), "default")
+        assert universe_levels.stored_universe_levels(conn) is None
+        assert universe_levels.effective_levels(conn, None)[1] == "default"
+
+    def test_clear_returns_the_universe_to_shipped_defaults(self, conn):
+        assert universe_levels.clear_universe_levels(conn) is False
+        universe_levels.write_universe_levels(conn, CUSTOM, actor_id=3)
+        assert universe_levels.clear_universe_levels(conn) is True
+        assert universe_levels.effective_levels(conn, None)[1] == "default"
+
+    def test_shipped_defaults_differ_tracks_the_stored_document(
+        self, conn, monkeypatch
+    ):
+        assert universe_levels.shipped_defaults_differ(conn) is None
+        universe_levels.write_universe_levels(conn, CUSTOM, actor_id=3)
+        assert universe_levels.shipped_defaults_differ(conn) is True
+        monkeypatch.setattr(
+            universe_levels, "default_levels", lambda: parse_levels(CUSTOM)
+        )
+        assert universe_levels.shipped_defaults_differ(conn) is False
 
     def test_an_invalid_write_stores_nothing(self, conn):
         with pytest.raises(LevelsError):
@@ -123,12 +157,10 @@ class TestStore:
         assert universe_levels.stored_universe_levels(conn) is None
 
     def test_a_project_override_wins_over_the_universe(self, conn):
-        universe_levels.write_universe_levels(
-            conn, levels_payload(default_levels()), actor_id=3
-        )
-        _override(conn, {"levels": CUSTOM})
+        universe_levels.write_universe_levels(conn, CUSTOM, actor_id=3)
+        _override(conn, {"levels": OTHER})
         levels, source = universe_levels.effective_levels(conn, PROJECT_ID)
-        assert (source, levels[0].name) == ("project", "ONLY")
+        assert (source, levels[0].name) == ("project", "OTHER")
         assert universe_levels.effective_levels(conn, PROJECT_ID + 1)[1] == "universe"
 
     def test_an_unreadable_stored_document_names_its_repair(self, conn):
@@ -159,7 +191,33 @@ class TestUniverseHandlers:
         )
         assert outcome.primary_success, outcome.error
         read = _call(handle_universe_levels_get, "universe.levels.get", {})
-        assert read.result_payload == {"source": "universe", "levels": CUSTOM}
+        assert read.result_payload == {
+            "source": "universe",
+            "levels": CUSTOM,
+            "shipped_defaults_differ": True,
+        }
+
+    def test_reset_returns_get_to_the_shipped_default(self, handlers):
+        _call(handle_universe_levels_set, "universe.levels.set", {"levels": CUSTOM})
+        reset = _call(handle_universe_levels_reset, "universe.levels.reset", {})
+        assert reset.primary_success, reset.error
+        assert reset.result_payload["cleared"] is True
+        read = _call(handle_universe_levels_get, "universe.levels.get", {})
+        assert read.result_payload["source"] == "default"
+        assert "shipped_defaults_differ" not in read.result_payload
+        again = _call(handle_universe_levels_reset, "universe.levels.reset", {})
+        assert again.result_payload["cleared"] is False
+
+    def test_set_with_the_shipped_defaults_leaves_no_row(self, handlers):
+        outcome = _call(
+            handle_universe_levels_set,
+            "universe.levels.set",
+            {"levels": levels_payload(default_levels())},
+        )
+        assert outcome.primary_success, outcome.error
+        assert outcome.result_payload["source"] == "default"
+        read = _call(handle_universe_levels_get, "universe.levels.get", {})
+        assert read.result_payload["source"] == "default"
 
     def test_set_refuses_by_name_and_points_at_the_field(self, handlers):
         bad = json.loads(json.dumps(CUSTOM))

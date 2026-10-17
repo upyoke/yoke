@@ -138,7 +138,10 @@ def test_authored_changes_replace_the_generated_list(db) -> None:
     assert result["generated"] is False
     senior = [option["model"] for option in result["levels"][2]["options"]]
     assert "claude-sonnet-5-5" in senior
-    assert {"model_id", "provider", "display_name"} <= set(result["unplaced_models"][0])
+    assert result["unplaced_models"] == []
+    assert [row["model_id"] for row in result["unplaceable_models"]] == ["composer-2.5"]
+    assert result["equals_shipped_defaults"] is False
+    assert result["apply_command"] == "yoke universe levels set --stdin"
 
 
 def test_authored_option_with_an_unpublished_effort_is_refused(db):
