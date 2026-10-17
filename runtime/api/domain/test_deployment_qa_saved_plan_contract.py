@@ -178,9 +178,7 @@ def test_takeover_and_manual_removal_read_saved_contract(test_db, published):
     new_run["id"] = "run-successor"
     waiting = _waiting_run(test_db, new_run)
     assert waiting["id"] == RUN
-    assert [m["item_id"] for m in _moving_members(test_db, waiting, False)] == list(
-        MEMBERS
-    )
+    assert [m["item_id"] for m in _moving_members(test_db, waiting)] == list(MEMBERS)
     message = cmd_remove_item(
         RUN, MEMBERS[1], reason="member rides successor", session_id="s", actor_id=1
     )

@@ -305,38 +305,14 @@ def _create_locked(
     if not valid:
         raise CompositionRefused(message)
     timed_preparation("create_commit", conn.commit)
+    from yoke_core.domain.deployment_run_takeover_settlement import (
+        finish_settled_takeover,
+    )
+
     timed_preparation(
-        "create_takeover_settlement", _finish_superseded_run, conn, run_id
+        "create_takeover_settlement", finish_settled_takeover, conn, run_id
     )
     return CreatedRun(run_id, False, basis), message
-
-
-def _finish_superseded_run(conn, run_id: str) -> None:
-    """Let a taken-over run that kept its passed members complete now.
-
-    Its takeover already committed; completion is the run's own ordinary
-    close-out, which reports its own recovery when it cannot finish yet.
-    """
-    from yoke_core.domain.deployment_run_target_takeover import (
-        SUPERSEDES_COLUMN,
-        takeover_available,
-    )
-
-    if not takeover_available(conn):
-        return
-    row = conn.execute(
-        f"SELECT old.id FROM deployment_runs new JOIN deployment_runs old "
-        f"ON old.id = new.{SUPERSEDES_COLUMN} "
-        "WHERE new.id = %s AND old.status = 'executing'",
-        (run_id,),
-    ).fetchone()
-    if row is None:
-        return
-    from yoke_core.domain.deployment_run_auto_completion import (
-        continue_after_settlement,
-    )
-
-    continue_after_settlement(conn, str(row[0]))
 
 
 __all__ = [
