@@ -14,6 +14,12 @@ Ordinary checkouts keep reusing their database. Session settings end with
 their connection; database-scoped `ALTER DATABASE ... SET` changes still need
 a separately disposable database.
 
+Discard writes `reusable database invalidated:` to the captured stderr.
+Its JSON distinguishes `schema` from `planner_statistics`; planner drift
+lists relation and field names only, without values or connection strings.
+Retain that evidence before diagnosing a reuse failure; it does not identify
+whether a statistics change was requested or performed by maintenance.
+
 The shared `test_db` fixture, the default strategy, explicit `schema.cmd_init`
 and `apply_test_schema` use one production schema flavor. The template runs
 `environment_bootstrap.run_init_chain`, including `schema.cmd_init`, then

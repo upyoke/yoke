@@ -34,6 +34,8 @@ from __future__ import annotations
 
 import atexit
 import contextlib
+import json
+import sys
 from typing import Callable, Hashable, Iterator, Optional
 
 import psycopg
@@ -180,10 +182,41 @@ def _reset(state: dict) -> None:
         if (
             schema_fingerprint.fingerprint_kind("postgres", conn)
             != state["fingerprint"]
-            or conn.execute(_PLANNER_STATISTICS_SQL).fetchall()
-            != state["planner_statistics"]
         ):
-            raise SchemaDriftDetected(state["name"])
+            raise SchemaDriftDetected(json.dumps({"reason": "schema"}))
+        statistics = conn.execute(_PLANNER_STATISTICS_SQL).fetchall()
+        if statistics != state["planner_statistics"]:
+            names = dict(conn.execute("SELECT oid, relname FROM pg_class").fetchall())
+            previous = {row[0]: row[1:] for row in state["planner_statistics"]}
+            current = {row[0]: row[1:] for row in statistics}
+            changes = {}
+            for oid in previous.keys() | current.keys():
+                before, after = previous.get(oid), current.get(oid)
+                fields = (
+                    ["relation"]
+                    if before is None or after is None
+                    else [
+                        name
+                        for name, old, new in zip(
+                            (
+                                "reltuples",
+                                "relpages",
+                                "relallvisible",
+                                "column_statistics",
+                            ),
+                            before,
+                            after,
+                        )
+                        if old != new
+                    ]
+                )
+                if fields:
+                    changes[names.get(oid, "unresolved_relation")] = fields
+            raise SchemaDriftDetected(
+                json.dumps(
+                    {"reason": "planner_statistics", "changes": changes}, sort_keys=True
+                )
+            )
         # Replica role skips FK trigger enforcement so the clear/restore
         # order never has to topologically sort the schema.
         conn.execute("SET session_replication_role = replica")
@@ -243,7 +276,8 @@ def checkout(flavor: Hashable, build: Callable[[], str]) -> Iterator[Optional[st
         state["in_use"] = False
         try:
             _reset(state)
-        except SchemaDriftDetected:
+        except SchemaDriftDetected as exc:
+            print(f"reusable database invalidated: {exc}", file=sys.stderr)
             discard(flavor)
         except Exception:
             # A reset that fails for any other reason would silently leak
