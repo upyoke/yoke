@@ -19,7 +19,7 @@ import unittest
 from unittest import mock
 
 from yoke_core.domain import lint_destructive_git as ldg
-from yoke_core.domain import lint_destructive_git_messages as messages
+from yoke_contracts.hook_runner import destructive_git_messages as messages
 
 
 def _payload(command: str, **extra) -> dict:
