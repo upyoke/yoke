@@ -2,7 +2,9 @@
 
 A run whose target API serves the selected HTTPS control plane cannot be
 driven over that connection: the deploy replaces the API that holds the run
-state. Execution refuses such a run, and so does creation, because a run
+state, so it is driven through the paired same-universe database connection.
+Execution refuses such a run over HTTPS. Creation over HTTPS stays allowed
+when this machine has that paired connection, and refuses without it: a run
 created where nobody can drive it occupies its target (and may already have
 taken an older run over) with no driver.
 """
@@ -86,6 +88,8 @@ def _self_deploy_refusal(
     target: Callable[[], Optional[tuple[str, str]]],
     subject: str,
     repair_command: str,
+    *,
+    paired_connection_drives: bool = False,
 ) -> Optional[str]:
     """Refuse when *target*'s API host serves the selected HTTPS connection.
 
@@ -116,6 +120,8 @@ def _self_deploy_refusal(
     if not target_host or _hostname(target_host) != _hostname(connection.api_url):
         return None
     admin_env = _same_universe_admin_env(connection.env)
+    if admin_env and paired_connection_drives:
+        return None
     repair = (
         f"rerun with `yoke --env {admin_env} {repair_command}`"
         if admin_env
@@ -190,13 +196,16 @@ def creation_connection_error(
         return str(resolved_project), str(resolved.get("target_environment_name") or "")
 
     refusal = _self_deploy_refusal(
-        _target, "the run this creates", f"deployment-runs {command}"
+        _target,
+        "the run this creates",
+        f"deployment-runs {command}",
+        paired_connection_drives=True,
     )
     if refusal is None:
         return None
     return (
-        f"{refusal}. A run created here could not be driven by this session, "
-        "so nothing was created. Without that connection, report the landing "
+        f"{refusal}. This machine has no such connection, so a run created "
+        "here could not be driven and nothing was created. Report the landing "
         'to steering instead: printf %s "LANDED <ref> <merge sha>" | '
         "yoke say --stdin --steering"
     )

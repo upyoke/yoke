@@ -121,9 +121,7 @@ def test_creation_refuses_a_run_this_connection_could_not_drive():
             return_value=_https(),
         ),
         mock.patch.object(authority, "_call", side_effect=_creation_calls),
-        mock.patch.object(
-            authority, "_same_universe_admin_env", return_value="prod-db-admin"
-        ),
+        mock.patch.object(authority, "_same_universe_admin_env", return_value=""),
         mock.patch(
             "yoke_cli.commands.pulumi_stack_config_loader."
             "load_project_renderer_settings_snapshot",
@@ -139,9 +137,36 @@ def test_creation_refuses_a_run_this_connection_could_not_drive():
         )
 
     assert refusal is not None
-    assert "yoke --env prod-db-admin deployment-runs start-for-item ITEM-1" in refusal
+    assert "owner-only local-postgres connection" in refusal
     assert "nothing was created" in refusal
     assert "yoke say --stdin --steering" in refusal
+
+
+def test_creation_over_https_is_allowed_with_the_paired_admin_connection():
+    with (
+        mock.patch(
+            "yoke_cli.transport.https.resolve_https_connection",
+            return_value=_https(),
+        ),
+        mock.patch.object(authority, "_call", side_effect=_creation_calls),
+        mock.patch.object(
+            authority, "_same_universe_admin_env", return_value="prod-db-admin"
+        ),
+        mock.patch(
+            "yoke_cli.commands.pulumi_stack_config_loader."
+            "load_project_renderer_settings_snapshot",
+            return_value=_snapshot("control.example"),
+        ),
+    ):
+        assert (
+            authority.creation_connection_error(
+                "create customer to-prod",
+                project="customer",
+                flow="to-prod",
+                environment=None,
+            )
+            is None
+        )
 
 
 def test_creation_leaves_an_unresolvable_target_to_the_server_refusal():
