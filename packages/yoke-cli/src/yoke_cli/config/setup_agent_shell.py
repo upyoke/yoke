@@ -206,6 +206,9 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
             if self._final is None:
                 self._finish_stopped()
         except SetupRefusal as refusal:
+            if refusal.prompt is not None:
+                # The repeated question's printed answer must be the next one accepted.
+                self._answers.wait_at(refusal.prompt.key)
             self._final = responses.refused(
                 refusal.reason, refusal.recovery, refusal.prompt
             )

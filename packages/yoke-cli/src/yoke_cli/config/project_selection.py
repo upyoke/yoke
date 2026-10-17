@@ -11,13 +11,20 @@ from yoke_contracts.project_defaults import (
 )
 
 
-def required_project_context(
+def selected_project_context(
     project: str | None = None, *, directory: Path | None = None
-) -> str:
+) -> str | None:
+    """The explicit, ``YOKE_PROJECT`` or checkout project; ``None`` when none is selected."""
     import os
 
     selected = str(project or os.environ.get("YOKE_PROJECT") or "").strip()
-    selected = selected or default_project_for_directory(directory or Path.cwd())
+    return selected or default_project_for_directory(directory or Path.cwd()) or None
+
+
+def required_project_context(
+    project: str | None = None, *, directory: Path | None = None
+) -> str:
+    selected = selected_project_context(project, directory=directory)
     if selected:
         return selected
     raise MissingProjectError(missing_project_context())

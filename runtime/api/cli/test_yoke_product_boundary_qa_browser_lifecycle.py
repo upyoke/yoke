@@ -53,3 +53,14 @@ def test_qa_browser_setup_dry_run_runs_from_clean_client(
     assert payload["runtime_dir"].endswith("/home/.yoke/browser-runtime")
     assert run.stderr == ""
     _assert_clean_client_boundary(run)
+
+
+def test_qa_browser_setup_dry_run_needs_no_project(tmp_path: Path) -> None:
+    run = _run_product_cli(tmp_path, ["qa", "browser", "setup", "--dry-run", "--json"])
+
+    assert run.returncode == 0, run.stderr
+    payload = json.loads(run.stdout)
+    assert payload["ok"] is True
+    assert payload["readiness"]["profile"]["status"] == "no project selected"
+    assert run.stderr == ""
+    _assert_clean_client_boundary(run)
