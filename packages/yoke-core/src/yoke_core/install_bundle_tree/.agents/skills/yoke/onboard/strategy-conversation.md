@@ -71,7 +71,7 @@ yoke onboard checklist --run-id {run_id} --row-status repo-survey=verified --evi
 ## Review existing guidance
 
 Read the project's own rules: `AGENTS.md` outside the Yoke managed block,
-`CLAUDE.md` and other harness rule files. Sort each rule:
+and each harness's own rule files. Sort each rule:
 
 - **Every turn** (holds in all work): leave it where it is.
 - **Some work only** (one workflow, stage or project, or a moment such as
