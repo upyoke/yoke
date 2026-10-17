@@ -36,9 +36,8 @@ def _connection() -> sqlite3.Connection:
         """
         CREATE TABLE harness_sessions (
             session_id TEXT PRIMARY KEY,
-            project_id INTEGER,
-            executor_surface TEXT,
-            executor_version TEXT,
+            project_id INTEGER, org_id INTEGER, actor_id INTEGER,
+            executor_surface TEXT, executor_version TEXT,
             machine_id TEXT,
             last_heartbeat TEXT,
             last_tool_call_at TEXT,

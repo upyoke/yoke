@@ -36,7 +36,7 @@ _SELECT = (
     "s.execution_level, "
     "s.mode, s.quiet_reason, s.keepalive_until, s.keepalive_reason, "
     f"{holds_work_claim_sql('s')} AS holds_work_claim, "
-    "s.workspace, s.project_id, pr.slug AS project, "
+    "s.workspace, s.project_id, s.org_id, pr.slug AS project, "
     "s.offered_at, s.last_heartbeat, s.last_tool_call_at, "
     "s.episode_started_at, s.turn_posture, s.turn_posture_at, "
     "s.native_process_gone_at, s.native_process_gone_evidence, "
@@ -68,14 +68,14 @@ def build_sessions_query(where: str, *, windowed: bool) -> str:
         return (
             f"SELECT * FROM ({_SELECT}, {_HOLDS_ITEM} AS _holds_item, "
             f"ROW_NUMBER() OVER (PARTITION BY s.project_id "
-            f"ORDER BY {_ACTIVITY} DESC) AS _rn "
+            f"ORDER BY {_ACTIVITY} DESC, s.session_id DESC) AS _rn "
             f"{_JOINS} {where}) ranked "
             "WHERE _rn <= %s OR _holds_item "
             "ORDER BY _holds_item DESC, "
             "GREATEST(last_tool_call_at, "
-            "last_heartbeat) DESC LIMIT %s"
+            "last_heartbeat) DESC, session_id DESC LIMIT %s"
         )
-    return f"{_SELECT} {_JOINS} {where} ORDER BY {_ACTIVITY} DESC LIMIT %s"
+    return f"{_SELECT} {_JOINS} {where} ORDER BY {_ACTIVITY} DESC, s.session_id DESC LIMIT %s"
 
 
 __all__ = ["build_sessions_query"]

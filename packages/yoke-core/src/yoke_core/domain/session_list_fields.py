@@ -25,6 +25,8 @@ SESSION_LIST_FIELDS = (
     "actor_kind",
     "actor_label",
     "project_id",
+    "org_id",
+    "scope_kind",
     "project",
     "executor",
     "executor_surface",
