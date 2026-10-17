@@ -67,6 +67,23 @@ def test_install_failure_preserves_warning_and_download_error(
     assert "retry yoke qa browser setup" in message
 
 
+def test_restricted_userns_without_root_finishes_setup_with_sandbox_off(
+    setup_host, monkeypatch
+):
+    browser, toolchain = setup_host
+    (browser / "node_modules/playwright").mkdir(parents=True)
+
+    def run(argv, **kwargs):
+        return subprocess.CompletedProcess(argv, 0, "ok", "")
+
+    monkeypatch.setattr(browser_setup.subprocess, "run", run)
+    monkeypatch.setattr(
+        browser_setup, "ensure_system_dependencies", lambda *args, **kwargs: False
+    )
+    env = browser_setup.ensure_browser_runtime(browser, toolchain, emit=lambda _: None)
+    assert env["YOKE_BROWSER_CHROMIUM_SANDBOX"] == "0"
+
+
 def test_command_output_is_bounded_per_stream():
     result = subprocess.CompletedProcess(
         [],

@@ -21,8 +21,10 @@ def conn():
         INSERT INTO actor_org_roles VALUES(1,7), (2,7), (3,8);
         CREATE TABLE projects(id INTEGER, slug TEXT);
         INSERT INTO projects VALUES(4,'garden');
-        CREATE TABLE harness_sessions(session_id TEXT, actor_id INTEGER);
-        INSERT INTO harness_sessions VALUES('owned',1), ('stranger',2);
+        CREATE TABLE harness_sessions(session_id TEXT, actor_id INTEGER,
+            project_id INTEGER, org_id INTEGER, machine_id TEXT);
+        INSERT INTO harness_sessions VALUES('owned',1,NULL,7,'machine'),
+            ('stranger',2,NULL,7,'machine');
     """)
     yield db
     db.close()
@@ -186,3 +188,68 @@ def test_hook_request_auth_unavailable(monkeypatch):
     assert decision.denial_code == "HOOK_SCOPE_AUTH_UNAVAILABLE"
     assert "hidden" not in decision.reason
     assert "Recovery:" in decision.reason
+
+
+@pytest.mark.parametrize(
+    "authenticated,machine,code",
+    [
+        (None, "machine", "machine_credential_required"),
+        ("machine", "other", "machine_credential_mismatch"),
+    ],
+)
+def test_hook_registration_requires_authenticated_machine(
+    hook_db, authenticated, machine, code
+):
+    decision = scope.authorize_hook_request(
+        1,
+        None,
+        ["owned"],
+        machine_id=machine,
+        authenticated_machine_id=authenticated,
+        event_name="SessionStart",
+    )
+    assert decision.denial_code == code
+    assert "Recovery: reconnect" in decision.reason
+
+
+def test_hook_registration_membership_is_not_operation_authority(conn, hook_db):
+    conn.execute("DELETE FROM actor_org_roles WHERE actor_id=1")
+    kwargs = dict(machine_id="machine", authenticated_machine_id="machine")
+    for event in ["SessionStart", "UserPromptSubmit", "PreToolUse"]:
+        assert (
+            scope.authorize_hook_request(
+                1,
+                4,
+                ["owned"],
+                event_name=event,
+                **kwargs,
+            ).denial_code
+            == "SESSION_ORG_MEMBERSHIP_REQUIRED"
+        )
+    assert (
+        scope.authorize_hook_request(
+            1,
+            None,
+            ["owned"],
+            event_name="Stop",
+            **kwargs,
+        ).denial_code
+        is None
+    )
+    assert conn.execute(
+        "SELECT project_id,org_id FROM harness_sessions WHERE session_id='owned'"
+    ).fetchone()[:] == (None, 7)
+
+
+def test_hook_retained_authority_mismatch_refuses(conn, hook_db):
+    conn.execute("UPDATE harness_sessions SET org_id=8 WHERE session_id='owned'")
+    decision = scope.authorize_hook_request(
+        1,
+        None,
+        ["owned"],
+        machine_id="machine",
+        authenticated_machine_id="machine",
+        event_name="SessionStart",
+    )
+    assert decision.denial_code == "SESSION_ORG_UNRESOLVED"
+    assert "Recovery:" in decision.reason and "8" not in decision.reason

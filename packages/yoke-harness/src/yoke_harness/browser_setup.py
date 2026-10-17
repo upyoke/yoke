@@ -18,6 +18,7 @@ from yoke_contracts.playwright_cache import (
 )
 from yoke_harness import browser_runtime_home
 from yoke_harness import browser_system_browser
+from yoke_harness.browser_apparmor import SANDBOX_ENV
 from yoke_harness.browser_system_dependencies import ensure_system_dependencies
 
 
@@ -141,9 +142,11 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
         if saved and browser_system_browser.use_installed(
             browser, toolchain, env, emit=_log, saved=saved
         ):
+            env.pop(SANDBOX_ENV, None)
             return env
         if autoinstall == "0":
             if browser_system_browser.use_installed(browser, toolchain, env, emit=_log):
+                env.pop(SANDBOX_ENV, None)
                 return env
             raise RuntimeError(
                 "[browser-auto-bootstrap] BLOCKED: Chromium binary missing"
@@ -158,18 +161,22 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
         )
         if result.returncode != 0:
             if browser_system_browser.use_installed(browser, toolchain, env, emit=_log):
+                env.pop(SANDBOX_ENV, None)
                 return env
             raise browser_system_browser.download_failure(
                 result, _command_output_tail(result)
             )
         _log("[browser-auto-bootstrap] Chromium installed successfully")
-    ensure_system_dependencies(
+    sandbox_enabled = ensure_system_dependencies(
         browser,
         toolchain,
         env=env,
         emit=_log,
         autoinstall=autoinstall != "0",
     )
+    env.pop(SANDBOX_ENV, None)
+    if sandbox_enabled is False:
+        env[SANDBOX_ENV] = "0"
     if saved:
         browser_executable.save(None)
     return env

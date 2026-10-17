@@ -189,6 +189,15 @@ def authorize_remote(parsed) -> int:
             argv.append("--reset")
         if parsed.json_mode:
             argv.append("--json")
+        if parsed.desktop_browser and detail["settings"].get("os") not in {
+            "linux",
+            "macos",
+        }:
+            raise BrowserIdentityError(
+                "desktop_browser_unsupported: choose a Linux Chromium or macOS Safari Test Machine."
+            )
+        if detail["settings"].get("os") in {"linux", "macos"}:
+            argv.append("--include-desktop-browser")
         viewer = _open_sign_in_viewer(project, detail, identity, parsed.json_mode)
         try:
             desktop_password = (

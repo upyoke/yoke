@@ -305,6 +305,8 @@ class TestAdapterTransportRouting:
                 "anthropic",
                 "--requested-model",
                 TEST_MODEL_ID,
+                "--project",
+                "unresolvable",
                 "--workspace",
                 "/unmapped",
             ]

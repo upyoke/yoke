@@ -172,9 +172,12 @@ class TestSteerSkillContract:
         assert "Active work claims protect holders from age-based reclaim" in loop
         assert "no stale TTL countdown releases a live lane" in loop
 
-    def test_a_parked_holder_declared_its_wait(self):
+    def test_every_idle_holder_alarm_gets_an_action_or_a_disposition(self):
         loop = _words(_read(_STEER_DIR / "loop.md"))
-        assert "`--mode parked` declared its wait" in loop
+        assert "`fleet ALARM idle-holder` covers parked holders too" in loop
+        assert "repeats hourly until `fleet CLEAR`" in loop
+        assert "A park declares a wait, not that the wait is sound" in loop
+        assert "write one line saying why the wait is still sound" in loop
 
     def test_dead_wait_rows_separate_no_reply_coming_from_still_open(self):
         loop = _words(_read(_STEER_DIR / "loop.md"))

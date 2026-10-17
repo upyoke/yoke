@@ -224,11 +224,8 @@ def sessions_begin(args: List[str]) -> int:
     if refusal is not None:
         return usage_error(refusal)
     project_id = _resolve_begin_project_id(parsed.project, parsed.workspace)
-    if project_id is None:
-        return usage_error(
-            "Session registration requires a project id. Run Yoke setup for "
-            "this checkout or pass --project."
-        )
+    if parsed.project is not None and project_id is None:
+        return usage_error("--project must be a positive numeric project id.")
     payload: Dict[str, Any] = {
         "executor": parsed.executor,
         "provider": parsed.provider,
@@ -237,6 +234,8 @@ def sessions_begin(args: List[str]) -> int:
         "project_id": project_id,
         "mode": parsed.mode,
     }
+    if project_id is None:
+        payload["machine_scope"] = True
     if parsed.entrypoint is not None:
         payload["entrypoint"] = parsed.entrypoint
     return dispatch_and_emit(

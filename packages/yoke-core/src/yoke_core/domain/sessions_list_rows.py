@@ -195,6 +195,17 @@ def render_session_roster_rows(
                     surface=row.get("executor_surface"),
                     version=row.get("executor_version"),
                 ),
+                # native_process hides a clean exit a declared wait explains;
+                # a reader asking "is anything running?" still needs it.
+                "native_process_exited_at": (
+                    exit_seen["observed_at"]
+                    if (
+                        exit_seen := current_native_process_observation(
+                            row, include_expected_exit=True
+                        )
+                    )
+                    else None
+                ),
                 "ended_at": row.get("ended_at"),
                 "terminated_at": row.get("terminated_at"),
                 "terminated_by_actor_id": row.get("terminated_by_actor_id"),

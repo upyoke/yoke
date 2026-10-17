@@ -104,15 +104,15 @@ def register_session(
     ``model_facts`` carries the requested ask beside whatever a provider
     attested; ``session_model_columns`` owns how each half is written.
 
-    ``driver`` identifies the process and hook that revived this session.
-    Reactivation records it in ``HarnessSessionStarted`` context because the
-    driving and registered surfaces can differ. Fresh registration already
-    identifies its driving surface on the session row.
+    ``driver`` identifies the caller's pid, ppid and hook event, resolved by
+    the hook dispatch tail. Every reactivation records it in the stored
+    ``HarnessSessionStarted`` context because the driving and registered
+    surfaces can differ, as in cross-surface revivals. Fresh registration
+    omits it because the session row already identifies its driving surface.
 
     ``native_thread_id`` is the harness's own thread/session identity
     (Codex's ``CODEX_THREAD_ID``) when the environment or a relayed hook
-    payload carries it — distinct from ``session_id``, which an
-    manually started session may register under a different value. Wake
+    payload carries it — distinct from a manually registered ``session_id``. Wake
     resolves against that column rather than assuming the two agree.
     """
     now = instant_parameter(conn, utc_now())
@@ -129,12 +129,10 @@ def register_session(
     )
     canonical_executor, display_name = _canonicalize_executor(executor, entrypoint)
     p = _p(conn)
-    # episode_started_at marks the current-episode boundary (fresh start
-    # AND reactivation); introspection tolerates minimal fixtures.
+    # Both registration paths begin an episode when the schema supports it.
     has_episode_col = episode_column_present(conn)
     has_thread_col = native_thread_id_column_present(conn)
-    # Populated only on the reactivation branch below; a fresh insert leaves
-    # the event context untouched.
+    # Fresh inserts leave the reactivation event context empty.
     reactivation_driver: Dict[str, Any] = {}
     # Reactivation folds the reading into what the row already proved.
     resolved_facts = model_facts
@@ -220,7 +218,6 @@ def register_session(
             )
 
         resolved_facts = merged_facts(existing, model_facts)
-        resolved_level = execution_level
         driver_version = executor_version
         executor_version = resolve_reactivation_executor_version(
             existing, incoming_surface=display_name, incoming_version=driver_version
@@ -239,7 +236,7 @@ def register_session(
             session_id=session_id,
             provider=provider,
             model_facts=resolved_facts,
-            execution_level=resolved_level,
+            execution_level=execution_level,
             workspace=workspace,
             mode=mode,
             envelope_json=envelope_json,
@@ -264,9 +261,7 @@ def register_session(
             driver_version=driver_version,
             driver=driver,
         )
-        # The wake-attempt evidence row keeps its stamp where an attempt is
-        # in flight, built from the SAME resolved facts as the event context
-        # below — the two records agree rather than reporting separately.
+        # Wake-attempt evidence and event context use the same resolved facts.
         record_reactivation_wake_driver(
             conn,
             session_id=session_id,
@@ -274,8 +269,7 @@ def register_session(
             driver_version=driver_version,
             driver=driver,
         )
-        # Reactivation surfaces prior session-ended claims and conditionally
-        # auto-reacquires targets that have no active conflicting holder.
+        # Reacquire prior claims only when their targets have no conflicting holder.
         try:
             emit_reactivated_with_released_claims(conn, session_id)
         except Exception:
