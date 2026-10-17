@@ -199,6 +199,15 @@ def test_db_path(tmp_path):
                 "VALUES (%s, %s, 1, %s)",
                 (version_id, workflow_id, json.dumps(definition)),
             )
+        from runtime.api.auth_test_helpers import mint_api_auth_context
+        from yoke_core.domain.schema_init_tables_sessions import create_session_tables
+        from yoke_core.domain.schema_harness_session_columns import (
+            apply_harness_session_columns,
+        )
+
+        mint_api_auth_context(conn)
+        create_session_tables(conn)
+        apply_harness_session_columns(conn)
         conn.commit()
         conn.close()
         yield db_path
