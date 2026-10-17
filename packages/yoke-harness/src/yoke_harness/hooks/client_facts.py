@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
+from yoke_contracts.cursor_tool_names import payload_tool_name
 from yoke_contracts.fleet_watcher_observation import (
     FLEET_WATCHER_OBSERVATION_KEY,
     observe_fleet_watcher,
@@ -135,8 +136,7 @@ _COLLECTORS: dict[str, Callable[[Observation], dict]] = {
 def tool_matcher(event_name: str, payload: Mapping[str, object]) -> str | None:
     """Return the chain matcher (tool name) for one hook event."""
     if event_name in {"PreToolUse", "PostToolUse"}:
-        tool_name = payload.get("tool_name")
-        return tool_name if isinstance(tool_name, str) and tool_name else None
+        return payload_tool_name(payload)
     if event_name == "apply_patch":
         return "apply_patch"
     return None
