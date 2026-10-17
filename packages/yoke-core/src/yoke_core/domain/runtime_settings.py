@@ -49,7 +49,12 @@ def read_all(config_path: Path | str | None = None) -> dict[str, str]:
         key = key.strip()
         if not key:
             continue
-        values[key] = _strip_value(raw_value)
+        value = _strip_value(raw_value)
+        spec = MACHINE_SETTING_KEYS.get(key)
+        # A blank number in key=value input denotes an absent scalar.
+        if value == "" and spec is not None and spec.value_type is int:
+            continue
+        values[key] = value
     return values
 
 
