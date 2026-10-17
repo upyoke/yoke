@@ -93,7 +93,7 @@ def _safari(monkeypatch, *, response, observed):
         ]
     )
 
-    def run_script(_run, script):
+    def run_script(_run, script, **_kwargs):
         scripts.append(script)
         return next(results)
 

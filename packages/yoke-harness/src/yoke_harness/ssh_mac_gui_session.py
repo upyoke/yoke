@@ -223,9 +223,33 @@ def run_terminal_app_command(
         close_terminal_app_window(run, window_id=window_id)
 
 
+# Long enough for a granted probe on a loaded host, short enough that a
+# missing grant (which blocks osascript on a consent prompt) fails fast.
+AUTOMATION_PROBE_TIMEOUT_SECONDS = 15
+
+
+def terminal_system_events_automation(run: RunRemote) -> tuple[bool, str]:
+    """Return whether a command inside Terminal.app can drive System Events."""
+    result = run_terminal_app_command(
+        run,
+        argv=(
+            "/usr/bin/osascript",
+            "-e",
+            'tell application "System Events" to count processes',
+        ),
+        timeout=AUTOMATION_PROBE_TIMEOUT_SECONDS,
+    )
+    if result.returncode == 0:
+        return True, ""
+    detail = (result.stderr or result.stdout or "").strip()[:200]
+    return False, f"automation_missing:Terminal->System Events: {detail}"
+
+
 __all__ = [
+    "AUTOMATION_PROBE_TIMEOUT_SECONDS",
     "GUI_SESSION_UNAVAILABLE_REASON",
     "MacosSessionContextFailure",
     "classify_macos_session_context_failure",
     "run_terminal_app_command",
+    "terminal_system_events_automation",
 ]

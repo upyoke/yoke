@@ -46,6 +46,7 @@ from yoke_core.domain.machine_qa_fixture_lifecycle import (
     require_runnable_recipe,
 )
 from yoke_core.domain.machine_qa_mission_scratch import create_mission_scratch
+from yoke_core.domain.machine_qa_phase_heartbeat import heartbeat_during
 from yoke_core.domain.machine_qa_result_safety import (
     redact_machine_qa_value,
 )
@@ -191,15 +192,14 @@ def execute_machine_case_contract(
     machine = contract.settings["resource_name"]
     secret_values = tuple(execution.material.secrets.values())
     started = time.monotonic()
-    reset = (
-        baseline_receipt(
-            contract.baselines[0],
-            execution.reach_baseline,
-            failure_code=STARTING_STATE_RESET_FAILED,
-        )
-        if contract.baselines
-        else None
-    )
+    reset = None
+    if contract.baselines:
+        with heartbeat_during("starting_state_reset", progress_callback):
+            reset = baseline_receipt(
+                contract.baselines[0],
+                execution.reach_baseline,
+                failure_code=STARTING_STATE_RESET_FAILED,
+            )
     try:
         if reset is not None and not reset["ok"]:
             result = _unstarted_reset_failure(case, machine, reset)
@@ -208,16 +208,20 @@ def execute_machine_case_contract(
     except BaseException as exc:
         if communication_unknown(exc):
             raise
-        restore = restore_chain_start(case, execution.reach_baseline, machine=machine)
+        with heartbeat_during(STARTING_STATE_RESTORE, progress_callback):
+            restore = restore_chain_start(
+                case, execution.reach_baseline, machine=machine
+            )
         exc.add_note(restore_summary(restore))
         raise
     evidence = dict(result.evidence)
     if restore_due(
         case, result.case_outcome, error_code=result.error_code, verdict=result.verdict
     ):
-        evidence[STARTING_STATE_RESTORE] = restore_chain_start(
-            case, execution.reach_baseline, machine=machine
-        )
+        with heartbeat_during(STARTING_STATE_RESTORE, progress_callback):
+            evidence[STARTING_STATE_RESTORE] = restore_chain_start(
+                case, execution.reach_baseline, machine=machine
+            )
     evidence, artifacts, artifact_paths = pack_local_artifacts(
         redact_machine_qa_value(evidence, secret_values)
     )
