@@ -51,3 +51,12 @@ def begin_command_host(
     if begun.get("state") != "ready" or not isinstance(begun.get("execution"), dict):
         raise ValueError("declared-host Command admission returned no lease contract")
     return None
+
+
+def command_liveness(requirement, check_in):
+    """Supply plan heartbeats only for Commands declaring host custody."""
+    if requirement.get("runner_id") == "worktree_run" and (
+        requirement.get("method_config") or {}
+    ).get("machine"):
+        return {"liveness": CommandPlanLiveness(check_in)}
+    return {}

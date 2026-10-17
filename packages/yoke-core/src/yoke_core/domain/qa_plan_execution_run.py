@@ -14,6 +14,7 @@ from yoke_core.domain.qa_plan_execution_result_state import (
     plan_order as _plan_order,
 )
 from yoke_core.domain.qa_plan_execution_continuation import continuation_abort_reason
+from yoke_core.domain.qa_plan_command_case import begin_command_host, command_liveness
 from yoke_core.domain.qa_plan_host_free_cases import (
     run_host_free_cases_while_waiting,
     waiting_recovery,
@@ -60,14 +61,6 @@ def execute_begun_plan(
     from yoke_core.domain.qa_case_execution import execute_case_context
 
     def _execute_local(requirement):
-        from yoke_core.domain.qa_plan_command_case import CommandPlanLiveness
-
-        custody = (
-            {"liveness": CommandPlanLiveness(_check_in)}
-            if requirement.get("runner_id") == "worktree_run"
-            and (requirement.get("method_config") or {}).get("machine")
-            else {}
-        )
         return execute_case_context(
             requirement,
             base_url=resolved_base_url,
@@ -77,7 +70,7 @@ def execute_begun_plan(
             checkout_path=checkout_path,
             allow_tree_mismatch=allow_tree_mismatch,
             actor=resolved_actor,
-            **custody,
+            **command_liveness(requirement, _check_in),
         )
 
     def _check_in():
@@ -146,8 +139,6 @@ def execute_begun_plan(
                 if requirement.get("runner_id") == "worktree_run" and (
                     requirement.get("method_config") or {}
                 ).get("machine"):
-                    from yoke_core.domain.qa_plan_command_case import begin_command_host
-
                     result = begin_command_host(
                         requirement,
                         execution_id=execution_id,
