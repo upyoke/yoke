@@ -35,7 +35,8 @@ def _rows(conn: Any, table: str, query: str) -> Iterator[Any]:
         return
     cursor = (
         conn.cursor(name=f"secret_receipts_{table}")
-        if db_backend.connection_is_postgres(conn) else conn.cursor()
+        if db_backend.connection_is_postgres(conn)
+        else conn.cursor()
     )
     try:
         cursor.execute(query)
@@ -47,7 +48,8 @@ def _rows(conn: Any, table: str, query: str) -> Iterator[Any]:
 
 def _ledger_secrets(conn: Any) -> Iterator[Any]:
     for request_id, raw in _rows(
-        conn, "function_call_ledger",
+        conn,
+        "function_call_ledger",
         "SELECT request_id, result FROM function_call_ledger "
         "WHERE function_id = 'profile.token.create'",
     ):
@@ -58,12 +60,16 @@ def _ledger_secrets(conn: Any) -> Iterator[Any]:
 
 def _event_secrets(conn: Any) -> Iterator[Any]:
     for event_id, raw in _rows(
-        conn, "events",
+        conn,
+        "events",
         "SELECT id, envelope FROM events WHERE event_name = 'YokeFunctionCalled'",
     ):
         envelope = _object(raw)
         context = envelope.get("context") if envelope is not None else None
-        if not isinstance(context, dict) or context.get("function") != "profile.token.create":
+        if (
+            not isinstance(context, dict)
+            or context.get("function") != "profile.token.create"
+        ):
             continue
         result = context.get("result")
         if isinstance(result, dict) and "raw_token" in result:
