@@ -10,12 +10,15 @@ from uuid import uuid4
 
 import pytest
 
+from runtime.api import test_api_hooks_evaluate_route_actor as actor_fixtures
 from runtime.api.test_machine_scope_hook_routes import _request
 from runtime.api.test_api_hooks_evaluate_route_actor import _stored_session
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain import db_helpers
 
-pytest_plugins = ("runtime.api.test_api_hooks_evaluate_route_actor",)
+hooks_db = actor_fixtures.hooks_db
+client = actor_fixtures.client
+machine_client = actor_fixtures.machine_client
 
 
 def test_remote_machine_scope_scratch_isolated_per_actor(
