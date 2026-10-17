@@ -10,6 +10,6 @@
  "review": "Route and client tests cover start refusal, one-time swap, older-server delivery refusal and foreign owner; an end-to-end test reconnects a retired computer on a local universe and through a real self-hosted server over HTTP. Hosted proof belongs to the Platform companion.",
  "recipes": ["yoke connect https://SERVER", "yoke machine register", "yoke machine retire --help"],
  "plan_notes": ["outside both"],
- "sources": ["packages/yoke-cli/src/yoke_cli/config/hosted_machine_authorization.py", "packages/yoke-cli/src/yoke_cli/config/machine_registration.py", "packages/yoke-core/src/yoke_core/domain/machine_authorization_codes.py", "docs/public/reference/machine-authorization.md", "runtime/api/test_retired_machine_reconnect_e2e.py"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/hosted_machine_authorization.py", "packages/yoke-cli/src/yoke_cli/config/machine_registration.py", "packages/yoke-core/src/yoke_core/domain/machine_authorization_codes.py", "docs/public/cli/machine-authorization.md", "runtime/api/test_retired_machine_reconnect_e2e.py"],
  "position": 3
 }

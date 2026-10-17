@@ -5,5 +5,6 @@
  "situations": ["A user asks what happened or why something stopped.", "A project needs a health scan.", "Doctor is incomplete or a machine differs from the server."],
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
- "questions": ["Trace live CLI/workbench failure outputs to the precise help/doc targets for each family.", "The large public health article mixes operator use with source implementation detail; audience reorganization is already under review."]
+ "questions": ["Trace live CLI/workbench failure outputs to the precise help/doc targets for each family.", "The large public health article mixes operator use with source implementation detail; audience reorganization is already under review."],
+ "sources": ["docs/public/operations/doctor.md", "docs/public/operations/events.md"]
 }

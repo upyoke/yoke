@@ -31,7 +31,13 @@ def _seed_sources(root: Path) -> None:
     for rel in sync_mod.INSTALL_BUNDLE_SOURCE_DIRS:
         d = root / rel
         d.mkdir(parents=True, exist_ok=True)
-        (d / "content.md").write_text(f"# {rel}\n", encoding="utf-8")
+        if rel == "docs/public":
+            (d / "index.md").write_text("# Root\n", encoding="utf-8")
+            (d / "nav.yaml").write_text(
+                "root: {title: Root, summary: Read, path: index.md}\n"
+            )
+        else:
+            (d / "content.md").write_text(f"# {rel}\n", encoding="utf-8")
     for rel in sync_mod.INSTALL_BUNDLE_SOURCE_FILES:
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
         (root / rel).write_text(
@@ -52,7 +58,7 @@ def test_sync_materializes_a_byte_exact_tree_from_empty(tmp_path) -> None:
     assert len(report["written"]) == (
         len(sync_mod.INSTALL_BUNDLE_SOURCE_DIRS)
         + len(sync_mod.INSTALL_BUNDLE_SOURCE_FILES)
-        + 4
+        + 6
     )
     assert any(w.startswith(".yoke/docs/") for w in report["written"])
     # A second sync is a no-op — idempotent.
@@ -238,3 +244,37 @@ def test_root_source_file_without_shipping_boundary_is_refused(tmp_path) -> None
 
     with pytest.raises(InstallBundleTreeError, match="lacks managed-block boundary"):
         sync(target_root=tmp_path)
+
+
+def test_invalid_complete_corpus_refuses_before_any_write(tmp_path):
+    _seed_sources(tmp_path)
+    sync(target_root=tmp_path)
+    (tmp_path / "docs/public/index.md").write_text("# Root\n\n[Absent](absent.md)\n")
+    before = {
+        p.relative_to(tmp_path): p.read_bytes()
+        for p in tmp_path.rglob("*")
+        if p.is_file()
+    }
+    with pytest.raises(InstallBundleTreeError, match="LINK_TARGET_MISSING"):
+        sync(target_root=tmp_path)
+    assert before == {
+        p.relative_to(tmp_path): p.read_bytes()
+        for p in tmp_path.rglob("*")
+        if p.is_file()
+    }
+
+
+def test_sync_ignores_untracked_source_scratch_pages(tmp_path):
+    import subprocess
+
+    _seed_sources(tmp_path)
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "add", "-A"], check=True)
+    scratch = tmp_path / "docs/public/scratch.md"
+    scratch.write_text("# Scratch\n[Broken](absent.md)\n")
+    sync(target_root=tmp_path)
+    assert not (tmp_path / ".yoke/docs/scratch.md").exists()
+    assert not (
+        tmp_path / sync_mod.PACKAGED_TREE_REL / "docs/public/scratch.md"
+    ).exists()
+    assert detect_drift(target_root=tmp_path) == []

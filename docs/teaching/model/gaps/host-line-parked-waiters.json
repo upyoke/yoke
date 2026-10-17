@@ -3,5 +3,5 @@
  "title": "Decide how the Test Machine line treats parked waiters and holders",
  "status": "candidate",
  "text": "The host waiting line grants turns strictly in queued order to any waiter whose session has not ended. Two operator decisions remain open: whether a parked or otherwise held waiter is skipped when the host is granted, and whether a holder parked at a human gate keeps the host. Until decided, a parked waiter receives its reserved turn and keeps it until it acquires, releases it or its session ends.",
- "sources": ["packages/yoke-core/src/yoke_core/domain/qa_host_turns.py", "docs/public/reference/db-reference/qa-and-sessions.md"]
+ "sources": ["packages/yoke-core/src/yoke_core/domain/qa_host_turns.py", "docs/public/sessions/model/coordination.md"]
 }

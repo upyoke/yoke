@@ -10,6 +10,6 @@
  "review": "Focused pilot and command-order contract tests pass; live deployment proof pending.",
  "recipes": ["yoke universe import --help"],
  "plan_notes": ["FIRST-USER item 9"],
- "sources": ["packages/yoke-cli/src/yoke_cli/commands/local_universe_import_command.py", "docs/public/install.md", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_backup.py", "packages/yoke-cli/src/yoke_cli/config/onboard_backup.py"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/local_universe_import_command.py", "docs/public/start/install.md", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_backup.py", "packages/yoke-cli/src/yoke_cli/config/onboard_backup.py"],
  "position": 1
 }

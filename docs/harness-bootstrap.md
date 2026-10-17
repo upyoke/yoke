@@ -13,7 +13,7 @@ main-checkout identity, including linked worktrees and excluding independent
 nested repositories. Connection presence and DB files are not project proof.
 Remote RunControls carries authorized_project_id independently of stdin and
 payload_extra. Unmapped relay clients complete machine checks locally.
-See [guard scope](public/reference/harness-discovery.md#guard-scope) for the
+See [guard scope](public/agents/harness-discovery.md#guard-scope) for the
 registration, inventory and recovery route.
 
 ## Startup Reads
@@ -127,7 +127,7 @@ and deployment records use their registered owners. Raw service clients,
 db-router mutations or internal helpers are not alternative agent entrypoints.
 Diagnostic SELECTs use `yoke db read`; source-development break-glass retains
 the separate [source-dev doctrine](source-dev-doctrine.md) authority.
-The [function catalog](public/reference/db-reference/functions.md) and command
+The [function catalog](public/functions/index.md) and command
 `--help` provide exact targets, envelopes, claim policy and recovery.
 
 ## Session Identity Expectations
@@ -213,7 +213,7 @@ checkout. OS consent remains conditional on actual protected-content access.
 A local universe instead runs its installed launcher and has no served pin or
 distribution handshake. Missing launcher refuses with repair. Paired
 prod-flagged Postgres administration owns no second relay; the served HTTPS
-connection supplies it. [Linux relay](public/reference/linux-relay.md) owns its
+connection supplies it. [Linux relay](public/sessions/linux-relay.md) owns its
 user-service/login/logout/no-linger procedure and named systemd recovery.
 
 Fresh handshake alone triggers upgrade: install beside the active release,

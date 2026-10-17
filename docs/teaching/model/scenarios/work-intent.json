@@ -4,7 +4,8 @@
  "status": "draft-copy",
  "situations": ["Installation has finished and the user does not know what to ask next.", "The user has one concrete change, existing work to resume, or a plan they want staffed.", "A mature project has open PRs and work already underway.", "The user asks a question that spans several projects."],
  "coverage": "partial",
- "current": "Research trace; requirements and source paths need live proof.",
+ "current": "Research trace; requirements and source paths need live proof. Outside-project global hook orientation, user-level yoke-global appearance and actual global receiving proof remain pending under YOK-3975; project-installed source cannot prove them.",
  "questions": ["No live install or first-work execution was performed; current cue judgments come from inspected skill text.", "Does projectless coordination preserve intent when the user opens the named project folder?", "Command nodes, when present, were checked with installed CLI --help only; this proves parser/help availability, not serving-control-plane capability or successful execution."],
- "related_scenarios": ["workflow-kinds", "strategy", "item-records", "work-progress-continuity"]
+ "related_scenarios": ["workflow-kinds", "strategy", "item-records", "work-progress-continuity"],
+ "sources": ["docs/public/agents/index.md", "docs/public/start/terminal-onboarding.md"]
 }

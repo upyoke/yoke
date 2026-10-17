@@ -80,7 +80,7 @@ class TestCurrentStateCheckpointTeaching:
 
     def test_progress_log_deep_home_is_a_checkpoint(self):
         text = _words(
-            _read("docs/public/reference/agent-rules/item-writes.md")
+            _read("docs/public/agents/rules/item-writes.md")
         )
         assert "current-state checkpoint" in text
         assert "Do not restate full results" in text

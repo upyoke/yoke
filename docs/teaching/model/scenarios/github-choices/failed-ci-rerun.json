@@ -8,6 +8,6 @@
  "disclosure": "current cue",
  "surface": "Verification rules, registered rerun help and dispatch permission boundary",
  "review": "Route and handler regression tests cover candidate-source cancellation recovery with faked GitHub transport; independent carrying-candidate post-deploy Command proof remains required.",
- "sources": ["docs/public/reference/agent-rules/verification.md", "packages/yoke-core/src/yoke_core/domain/function_target_resolution.py", "runtime/api/domain/test_item_target_dispatch_project.py", "packages/yoke-core/src/yoke_core/domain/github_actions_rerun_safety.py", "runtime/api/domain/handlers/test_github_actions_rerun.py"],
+ "sources": ["docs/public/agents/rules/verification.md", "packages/yoke-core/src/yoke_core/domain/function_target_resolution.py", "runtime/api/domain/test_item_target_dispatch_project.py", "packages/yoke-core/src/yoke_core/domain/github_actions_rerun_safety.py", "runtime/api/domain/handlers/test_github_actions_rerun.py"],
  "position": 1
 }

@@ -27,7 +27,7 @@ def _seed(
     skill = root / ".agents/skills/yoke/idea/path-claim-blocking.md"
     skill.parent.mkdir(parents=True)
     skill.write_text("shipped skill\n", encoding="utf-8")
-    doc = root / "docs/public/reference/lifecycle.md"
+    doc = root / "docs/public/workflows/lifecycle.md"
     doc.parent.mkdir(parents=True)
     doc.write_text("shipped doc\n", encoding="utf-8")
     decision = root / "docs/archive/decisions/some-topic.md"
@@ -68,8 +68,8 @@ def test_passes_when_every_cited_path_ships(tmp_path: Path, monkeypatch) -> None
             "- Overlap protocol: "
             "`.agents/skills/yoke/idea/path-claim-blocking.md`.\n"
             "- Lifecycle guide: "
-            "[`.yoke/docs/reference/lifecycle.md`]"
-            "(.yoke/docs/reference/lifecycle.md).\n"
+            "[`.yoke/docs/workflows/lifecycle.md`]"
+            "(.yoke/docs/workflows/lifecycle.md).\n"
             "- Guard config: `.yoke/lint-config`; hooks: `.claude/settings.json`.\n"
         ),
         rules_body="- Full stance lives in `AGENTS.md`.",
@@ -136,11 +136,11 @@ def test_fails_when_a_shipped_destination_has_no_source(
 ) -> None:
     _seed(
         tmp_path,
-        doctrine_body="- Reference: `.yoke/docs/reference/never-authored.md`.",
+        doctrine_body="- Reference: `.yoke/docs/documentation/never-authored.md`.",
     )
     result, detail = _run(tmp_path, monkeypatch)
     assert result == "FAIL"
-    assert "docs/public/reference/never-authored.md" in detail
+    assert "docs/public/documentation/never-authored.md" in detail
 
 
 def test_ignores_placeholders_conventions_and_generated_views(

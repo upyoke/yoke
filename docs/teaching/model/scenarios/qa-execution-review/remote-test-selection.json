@@ -8,5 +8,5 @@
  "disclosure": "before action",
  "surface": "Wrapper help, routing refusal and verification rules",
  "review": "Source and fixture coverage only; post-deploy Command proof must exercise the candidate router with fake dispatch boundaries.",
- "sources": ["docs/testing-verification/full-suite-authority.md", "docs/public/reference/agent-rules/verification.md", "runtime/api/tools/test_pytest_remote_full_scope.py"]
+ "sources": ["docs/testing-verification/full-suite-authority.md", "docs/public/agents/rules/verification.md", "runtime/api/tools/test_pytest_remote_full_scope.py"]
 }

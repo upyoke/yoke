@@ -147,7 +147,7 @@ use their per-prompt channel; Cursor's block/allow prompt channel uses its
 tool-result event selected by `session_orientation_redelivery_event` and the
 manifest's `inject_events`. Repair labels context and emits
 `YOKE_ORIENTATION_REDELIVERED` on stderr. Preserved allow stdout during server
-degradation counts as delivery. See [native discovery](public/reference/harness-discovery.md).
+degradation counts as delivery. See [native discovery](public/agents/harness-discovery.md).
 
 ### Read-only observation batches
 
@@ -236,7 +236,7 @@ Different harnesses/surfaces/revisions/commands/counts, pending delivery or miss
 coverage are incomparable. A phase missing after a limit-filled query is
 incomplete; client-wall completion still in flight is pending, not inferred
 from stderr. Live roster and running-session bucket proxy are separate evidence.
-See [performance diagnostics](public/reference/performance-diagnostics.md).
+See [performance diagnostics](public/operations/performance-diagnostics.md).
 
 ### Captured endpoints and unknowns
 

@@ -97,7 +97,7 @@ accepted verdict. Empty optional QA is honest absence, not a guessed
 command or handwritten run. Independent Browser/mission review remains a
 required continuation of the runner's returned bundle; capture is not a pass.
 
-[Browser placement](../../../../.yoke/docs/reference/browser-scenarios.md#where-a-browser-case-runs)
+[Browser placement](../../../../.yoke/docs/verification/browser-targets.md#where-a-browser-case-runs)
 owns phase/target/transition. Release-bound postdeploy proof runs after
 delivery, not here. A premerge target must serve the committed candidate:
 

@@ -4,7 +4,11 @@
  "status": "observed",
  "surface_refs": ["docs-landing"],
  "scenario_refs": ["install-entry"],
- "sources": ["docs/public/install.md", "packaging/public-installer/install.py", "packages/yoke-cli/src/yoke_cli/config/universe_ui_daemon.py"],
+ "sources": ["docs/public/start/install.md", "packaging/public-installer/install.py", "packages/yoke-cli/src/yoke_cli/config/universe_ui_daemon.py", "packages/yoke-cli/src/yoke_cli/commands/universe_ui.py"],
  "page": "installation",
- "position": 5
+ "position": 5,
+ "summary": "After package installation, restart-running replaces an already running machine dashboard while retaining its environment, host, port and bookmark. It leaves a stopped dashboard stopped and opens no browser; the public installer invokes it. Help and the source daemon own ui_restart_failed and specific stop/start/identity recovery; rerun the installer after recovery.",
+ "recipes": ["yoke ui restart-running --help", "yoke ui restart-running --json"],
+ "verification": "Source/help observation only; no dashboard was restarted, opened or tested live.",
+ "commands": ["yoke ui restart-running"]
 }

@@ -25,6 +25,11 @@ not a way to remove a selected gate.
 
 ## Phase map
 
+Before implementation, read `.yoke/docs/agents/rules/code-and-cli.md` for
+complete scope, portable behavior and durable-state ownership. Carry required
+consumer and teaching changes through the same work; follow
+`.yoke/docs/documentation/index.md` when updating guidance.
+
 | Phase | Read before acting |
 |---|---|
 | Resolve/file/claim | [file-and-claim.md](file-and-claim.md) |
@@ -47,7 +52,7 @@ remains. No children or workflow conversion because the change is large;
 only an actual structural need or operator request routes to escalation.
 Done requires landed identity, result, passing proof, touched files and every
 selected gate. Honor level-change through the
-[worker handoff rule](../../../../.yoke/docs/reference/session-level-routing.md#stage-level-handoff).
+[worker handoff rule](../../../../.yoke/docs/agents/levels.md#stage-level-handoff).
 
 Stamp mode, then resolve/file:
 

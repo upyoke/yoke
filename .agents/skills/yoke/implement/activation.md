@@ -55,7 +55,7 @@ service-client activation or raw SQL mutation.
 
 A refusal stops before lane creation/status mutation. Follow the actual
 dependency direction and attested overlap remediation in the
-[claim rules](../../../../.yoke/docs/reference/agent-rules/lanes-and-claims.md);
+[claim rules](../../../../.yoke/docs/agents/rules/lanes-and-claims.md);
 a coordination-only edge differs from a directional activation dependency.
 When the refusal is an independent path overlap, this session holds the work
 claim: read both specs, run `yoke claims path coordination-decision-build`,

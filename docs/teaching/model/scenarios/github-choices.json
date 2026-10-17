@@ -5,5 +5,6 @@
  "situations": ["No GitHub account or another Git provider", "Existing repository needs access", "New repository may stay local", "User later asks about issue mirroring or CI", "The project uses another source-control provider"],
  "coverage": "traced",
  "current": "Research trace; requirements and source paths need live proof. Source now distinguishes explicit TUI opening from structured agent actions and reuses saved authorization; deployed proof remains pending.",
- "questions": ["Can users distinguish all three choices without extra setup questions?", "Does general GitHub/relay teaching have one public source, with private operations only linking to it?"]
+ "questions": ["Can users distinguish all three choices without extra setup questions?", "Does general GitHub/relay teaching have one public source, with private operations only linking to it?"],
+ "sources": ["docs/public/github/index.md", "docs/public/github/sync.md"]
 }

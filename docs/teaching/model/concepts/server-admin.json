@@ -4,5 +4,7 @@
  "status": "draft-copy",
  "audience": "Administrators",
  "page": "server-admin",
- "position": 38
+ "position": 38,
+ "sources": ["docs/public/start/modes.md", "docs/public/cli/index.md"],
+ "summary": "Self-host administration is introduced in the self-hosted section of Modes; CLI and config owns connection and workbench procedures. These are inspected source homes, not proof of a running server or installed receipt."
 }

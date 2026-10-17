@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke deployment-flows validate --help", "yoke deployment-flows version --help"],
  "plan_notes": ["JOURNEYS row 12"],
- "sources": [".agents/skills/yoke/onboard/hosting-and-environments.md", "docs/public/reference/db-reference/projects-and-flows.md", "packages/yoke-core/src/yoke_core/domain/deployment_flow_target_support.py"],
+ "sources": [".agents/skills/yoke/onboard/hosting-and-environments.md", "docs/public/deployments/model/flows.md", "packages/yoke-core/src/yoke_core/domain/deployment_flow_target_support.py"],
  "position": 1
 }

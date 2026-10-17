@@ -5,6 +5,6 @@
  "form": "Do",
  "verification": "Candidate source and process-level tests; deployed proof remains release-owned.",
  "topics": ["context/hooks/evaluator-lifecycle", "maintenance/updates"],
- "sources": ["docs/hooks.md", "docs/public/install.md", "runtime/api/cli/test_hook_resident_lifecycle.py"],
+ "sources": ["docs/hooks.md", "docs/public/start/install.md", "runtime/api/cli/test_hook_resident_lifecycle.py"],
  "position": 6
 }

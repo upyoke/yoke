@@ -1,16 +1,16 @@
 {
  "id": "manual-contents",
  "title": "Full contents and breadcrumbs",
- "status": "approved",
+ "status": "observed",
  "scope": "Public + authorized private projections",
  "audience": "Human + agent",
  "encounter": "Browse or locate an unfamiliar subject",
- "location": "Generated from the concept tree and canonical page metadata",
- "basis": "New documentation structure",
+ "location": "docs/public/nav.yaml; derived category contents and page breadcrumbs under docs/public and installed .yoke/docs",
+ "basis": "Inspected recursive navigation and derived source pages",
  "note": "This is a generated navigation surface, not evidence that each linked topic has an adequate article. The public projection must omit private material.",
- "current": "Existing source references; delivered content is not yet proved.",
+ "current": "The source tree lists every public page once in recursive nav.yaml. Category pages carry immediate-child contents and non-root pages carry breadcrumbs. Navigation, link and render checks have explicit refusal/recovery contracts. Exact candidate installed/web and private receiving proof remains pending.",
  "desired": "One maintained topic hierarchy; every topic has a home or explicit gap. A parent link does not cover its children.",
  "plan_notes": ["New documentation organization proposal"],
- "sources": ["docs/public/nav.yaml", "docs/public/index.md"],
+ "sources": ["docs/public/nav.yaml", "docs/public/documentation/navigation.md", "docs/public/documentation/verification.md", "docs/public/index.md"],
  "private_sources": ["platform"]
 }

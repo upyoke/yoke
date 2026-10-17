@@ -297,15 +297,15 @@ class TestFunctionDocumentation(_RegistryTestBase):
         register_all_handlers()
         expected = {entry.function_id for entry in list_entries()}
         root = (
-            Path(__file__).resolve().parents[3] / "docs/public/reference/db-reference"
+            Path(__file__).resolve().parents[3] / "docs/public/functions"
         )
         families = (
             "claims items project-configuration qa runtime tasks workflows worktrees"
         ).split()
-        index = (root / "functions.md").read_text()
+        index = (root / "index.md").read_text()
         documented = []
         for family in families:
-            name = f"functions-{family}.md"
+            name = f"{family}.md"
             self.assertIn(f"]({name})", index)
             body = (root / name).read_text()
             owned = re.findall(r"^\| `([a-z_]+(?:\.[a-z_]+)+)` \|", body, re.M)

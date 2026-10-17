@@ -1,7 +1,7 @@
 # Worker launch and settlement
 
 A level_change handoff precedes release wait: use Stage-level handoff in
-.yoke/docs/reference/session-level-routing.md; workers may launch successor.
+.yoke/docs/agents/levels.md; workers may launch successor.
 Read effective level/pin and charge.schedule's rendered `entrypoint`; launch
 mandate uses the same entrypoint mapping. One assigned item/live bound skills,
 never copied workflow chain. Read yoke workflows version get <workflow> <version> --json.
@@ -15,6 +15,13 @@ re-entry nobody could make; the control-plane landing notice is what closes
 that gap for the declared stopped-session path. Follow the selected wait mode.
 
 ## Preview, create, confirm
+
+Before staffing, ensure the worker can reach the operation homes it needs:
+`.yoke/docs/agents/rules/code-and-cli.md` owns portable execution and
+`.yoke/docs/documentation/index.md` owns teaching. Keep private facts scoped;
+the classification and delivery contract is
+`.yoke/docs/projects/execution-instructions.md`. A pointer in the producer's
+source is not evidence that the launched worker received it.
 
 Preview every steering-staffed item or itemless session. Do not create until
 preview returns launchable=true. Only session_control.launch.create: no native

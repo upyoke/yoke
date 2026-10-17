@@ -8,6 +8,6 @@
  "disclosure": "current cue",
  "surface": "Config writer help and CLI/config machine-config home",
  "review": "Candidate subprocess tests cover Claude, Codex and Cursor child environments and preserve the steering configuration; deployed behavior remains unproven.",
- "sources": ["docs/public/cli-and-config.md", "runtime/api/cli/test_worker_machine_config_isolation.py", "runtime/harness/test_session_relay_environment.py"],
+ "sources": ["docs/public/cli/machine-config.md", "runtime/api/cli/test_worker_machine_config_isolation.py", "runtime/harness/test_session_relay_environment.py"],
  "position": 7
 }

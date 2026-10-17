@@ -9,5 +9,5 @@
  "surface": "Conduct task-status command and its refusal; task function catalog",
  "review": "Real handler, updater and verifier regression uses disposable production-schema data without server ambient identity. Deployed proof belongs to the attached Command case.",
  "topics": ["sessions/identity", "agents/skills/implement-and-conduct"],
- "sources": ["docs/public/reference/db-reference/functions-tasks.md", "runtime/api/domain/handlers/test_conduct_task_actor_identity.py"]
+ "sources": ["docs/public/functions/tasks.md", "runtime/api/domain/handlers/test_conduct_task_actor_identity.py"]
 }

@@ -1,7 +1,7 @@
 # Performance implementation evidence
 
 The public usage and measurement contract is in
-[Performance diagnostics](public/reference/performance-diagnostics.md).
+[Performance diagnostics](public/operations/performance-diagnostics.md).
 The page follows the approved prototype's Yoke Events chart only. No private
 infrastructure, billing, cost or junkyard panels are included.
 

@@ -6,6 +6,6 @@
  "sources": [".agents/skills/yoke/conduct/entry-activation-resolution.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/epic_task.py", "packages/yoke-core/src/yoke_core/domain/epic_amend.py"],
  "commands": ["yoke item-worktrees create", "yoke item-worktrees path-record", "yoke workflow-item epic-task reassign"],
  "functions": ["item_worktrees.create", "item_worktrees.path_record", "workflow_item.epic_task.reassign"],
- "page": "coordination",
+ "page": "coordination-lanes",
  "position": 2
 }

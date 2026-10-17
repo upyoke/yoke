@@ -1,0 +1,28 @@
+{
+  "headings": [
+    {"markdown": "# Setup & Run\n# Setup & Run\n# Setup Run-1\n", "expected_ids": ["setup-run", "setup-run-1", "setup-run-1-1"]},
+    {"markdown": "# Use `yoke run`\n# [Link label](setup.md)\n# ![Image alt](picture.png)\n", "expected_ids": ["use-yoke-run", "link-label", "image-alt"]},
+    {"markdown": "# &amp; &#233;\n# Café Ελληνικά 中文\n# A_1 -- ٢\n", "expected_ids": ["é", "café-ελληνικά-中文", "a_1----٢"]},
+    {"markdown": "#\n# !!!\nSetext title\n============\n", "expected_ids": ["section", "section-1", "setext-title"]},
+    {"markdown": "```markdown\n# Fenced\n```\n\n    # Indented\n\n# Visible <em>text</em>\n", "expected_ids": ["visible-text"]},
+    {"markdown": "# name-1\n# name\n# name\n# name-1\n", "expected_ids": ["name-1", "name", "name-2", "name-1-1"]}
+  ],
+  "routes": [
+    {"path": "index.md", "route": "/docs"},
+    {"path": "guide/index.md", "route": "/docs/guide"},
+    {"path": "guide/setup.md", "route": "/docs/guide/setup"}
+  ],
+  "links": [
+    {"page": "guide/setup.md", "target": "../index.md?mode=local#root", "resolved": {"path": "index.md", "query": "mode=local", "fragment": "root", "external": false}},
+    {"page": "guide/setup.md", "target": "./index.md#guide", "resolved": {"path": "guide/index.md", "query": "", "fragment": "guide", "external": false}},
+    {"page": "guide/setup.md", "target": "#caf%C3%A9", "resolved": {"path": "guide/setup.md", "query": "", "fragment": "caf%C3%A9", "external": false}},
+    {"page": "guide/setup.md", "target": "https://example.com/docs?q=1#part", "resolved": {"path": "https://example.com/docs?q=1#part", "query": "", "fragment": "", "external": true}},
+    {"page": "guide/setup.md", "target": "mailto:docs@example.com", "resolved": {"path": "mailto:docs@example.com", "query": "", "fragment": "", "external": true}},
+    {"page": "guide/setup.md", "target": "//example.com/docs#part", "resolved": {"path": "//example.com/docs#part", "query": "", "fragment": "", "external": true}}
+  ],
+  "validation": [
+    {"markdown": "<h2 id=\"custom\">Title</h2>\n", "expected_code": "HTML_HEADING_ID"},
+    {"markdown": "# Café\n[go](#caf%C3%A9)\n", "expected_code": null},
+    {"markdown": "# Café\n[go](#caf%25C3%25A9)\n", "expected_code": "LINK_FRAGMENT_MISSING"}
+  ]
+}

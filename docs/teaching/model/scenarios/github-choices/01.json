@@ -10,6 +10,6 @@
  "gap": "Accepted correction: skipped GitHub makes the token check N/A. Audit exactly which later operations require GitHub and provide alternatives only where supported.",
  "review": "Repository-scope teaching observed in source and regression tests; GitHub documents all repositories selected when repository IDs are omitted. Optional-connection recipe still needs live proof.",
  "plan_notes": ["FIRST-USER 4", "FIRST-USER 5", "FIRST-USER 22", "FIRST-USER E", "JOURNEYS 2"],
- "sources": ["docs/public/github.md", "docs/public/reference/github-sync.md", "packages/yoke-cli/src/yoke_cli/config/github_machine_report.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_github_presentation.py", "runtime/api/cli/test_github_app_machine_report.py"],
+ "sources": ["docs/public/github/index.md", "docs/public/github/sync.md", "packages/yoke-cli/src/yoke_cli/config/github_machine_report.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_github_presentation.py", "runtime/api/cli/test_github_app_machine_report.py"],
  "position": 1
 }

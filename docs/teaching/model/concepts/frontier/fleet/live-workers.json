@@ -5,5 +5,5 @@
  "page": "frontier",
  "position": 2,
  "need": "Fleet report rows name the session, its person and machine; command identities remain unchanged.",
- "sources": ["docs/public/reference/db-reference/steering-fleet-report.md"]
+ "sources": ["docs/public/sessions/steering-report.md"]
 }

@@ -7,7 +7,7 @@ names the first work. Rows: `repo-survey`, `strategy-setup`.
 Strategy owns every later profile/Pack/environment/work proposal.
 DB strategy documents are authority; `.yoke/strategy/` is a gitignored render.
 Read the selected write's `--help`; contract:
-[project configuration](../../../../.yoke/docs/reference/db-reference/functions-project-configuration.md).
+[project configuration](../../../../.yoke/docs/functions/project-configuration.md).
 
 ## Confirm what to scan
 
@@ -92,7 +92,7 @@ yoke workflow execution-instruction resolve --workflow {workflow} --project {pro
 An instruction stays unscoped, and reaches no work, until `set-scope`.
 Resolving stage delivery also needs `--stage-bucket {bucket}`. Delivery
 flags and stage buckets:
-[execution-instruction delivery](../../../../.yoke/docs/reference/execution-instructions.md).
+[execution-instruction delivery](../../../../.yoke/docs/projects/execution-instructions.md).
 
 ## Draft, then decide one thing at a time
 

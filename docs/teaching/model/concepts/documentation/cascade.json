@@ -1,9 +1,11 @@
 {
  "id": "cascade",
  "title": "Manual navigation",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "Documentation authors / maintainers",
  "surface_refs": ["category-summary", "detail-home", "docs-landing", "manual-contents", "manual-overview", "terminal-help"],
  "page": "documentation-structure",
- "position": 3
+ "position": 3,
+ "sources": ["docs/public/documentation/index.md", "docs/public/documentation/navigation.md", "docs/public/nav.yaml"],
+ "summary": "The recursive nav.yaml gives each public page one parent. Category contents list immediate children and summaries; derived breadcrumbs route back to ancestors. Installed .yoke/docs and web publication consume that same tree. Each child still needs its own teaching or explicit gap; navigation alone proves neither completeness nor delivery."
 }

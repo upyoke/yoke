@@ -6,5 +6,5 @@
  "page": "workflows",
  "position": 4,
  "functions": ["items.create"],
- "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/task.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/items_create_policy.py", "docs/public/reference/lifecycle.md"]
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/task.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/items_create_policy.py", "docs/public/workflows/lifecycle.md"]
 }

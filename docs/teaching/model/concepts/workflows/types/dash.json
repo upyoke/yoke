@@ -7,5 +7,5 @@
  "skills": ["dash"],
  "page": "workflows",
  "position": 0,
- "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/dash_file.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/items_create_policy.py", "docs/public/reference/lifecycle.md"]
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/dash_file.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/items_create_policy.py", "docs/public/workflows/lifecycle.md"]
 }

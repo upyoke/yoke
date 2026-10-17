@@ -3,7 +3,7 @@
  "title": "Machine config selection and write ownership",
  "status": "observed",
  "text": "YOKE_MACHINE_HOME selects its config.json before YOKE_MACHINE_CONFIG_FILE. Relay children discard the inherited config-file override; writers refuse machine_config_not_owned for a foreign config or outside an explicit home. Explicit launch environments may select shared configuration deliberately.",
- "sources": ["docs/public/cli-and-config.md", "packages/yoke-contracts/src/yoke_contracts/machine_config/paths.py", "runtime/api/cli/test_worker_machine_config_isolation.py"],
+ "sources": ["docs/public/cli/machine-config.md", "packages/yoke-contracts/src/yoke_contracts/machine_config/paths.py", "runtime/api/cli/test_worker_machine_config_isolation.py"],
  "surface_refs": ["terminal-help"],
  "scenario_refs": ["agent-context"],
  "page": "machines",

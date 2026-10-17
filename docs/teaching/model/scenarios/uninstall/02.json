@@ -11,6 +11,6 @@
  "recipes": ["yoke uninstall --help", "yoke project uninstall --help"],
  "plan_notes": ["FIRST-USER item 1", "FIRST-USER P2/P4", "FIRST-USER D"],
  "gaps": ["global-hook-skill-removal"],
- "sources": ["docs/public/install.md", "packages/yoke-cli/src/yoke_cli/config/machine_uninstall_inventory.py", "packages/yoke-cli/src/yoke_cli/config/machine_uninstall_steps.py", "packages/yoke-cli/src/yoke_cli/project_install/uninstall_commit.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_existing_project_recovery.py", "packages/yoke-contracts/src/yoke_contracts/harness_settings_ledger.py", "packages/yoke-contracts/src/yoke_contracts/harness_settings_revert.py", "packages/yoke-cli/src/yoke_cli/hook_resident_lifecycle.py"],
+ "sources": ["docs/public/start/uninstall.md", "packages/yoke-cli/src/yoke_cli/config/machine_uninstall_inventory.py", "packages/yoke-cli/src/yoke_cli/config/machine_uninstall_steps.py", "packages/yoke-cli/src/yoke_cli/project_install/uninstall_commit.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_existing_project_recovery.py", "packages/yoke-contracts/src/yoke_contracts/harness_settings_ledger.py", "packages/yoke-contracts/src/yoke_contracts/harness_settings_revert.py", "packages/yoke-cli/src/yoke_cli/hook_resident_lifecycle.py"],
  "position": 1
 }

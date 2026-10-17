@@ -2,7 +2,7 @@
  "id": "browser-qa",
  "title": "Browser QA and identities",
  "status": "draft-copy",
- "sources": ["docs/public/reference/browser-scenarios.md", "docs/public/reference/browser-evidence.md", "docs/public/reference/qa-platform/browser-identities.md"],
+ "sources": ["docs/public/verification/browser-scenarios.md", "docs/public/verification/browser-targets.md", "docs/public/verification/browser-evidence.md", "docs/public/verification/browser-identities.md"],
  "page": "browser-qa",
  "position": 4
 }

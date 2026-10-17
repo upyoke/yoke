@@ -5,5 +5,5 @@
  "page": "projects",
  "position": 0,
  "note": "Candidate recipes use the default machine config and allow disabled GitHub adoption with no remote; missing config refuses before creating the checkout. Serving proof is pending.",
- "sources": ["docs/public/projects.md", "runtime/api/cli/test_public_project_recipes.py"]
+ "sources": ["docs/public/projects/index.md", "runtime/api/cli/test_public_project_recipes.py"]
 }

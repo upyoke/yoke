@@ -8,8 +8,8 @@
  "location": "Project hook orientation + authorized reads for relevant live facts",
  "basis": "Existing core · JOURNEYS expansion",
  "note": "Keep offline orientation available; unknown is not missing. Merge-only work, an existing external delivery pipeline and unused QA features are not compulsory setup gaps.",
- "current": "Shared in-process registration treats an already registered session as success, so repeated startup does not teach scheduler invisibility. Other session refusals retain their named code and recovery guidance. Delivered content is not yet proved.",
+ "current": "Source project orientation and session registration remain distinct from installed static rules. Repeated registration treats an already registered session as success; other refusals retain their named cause and recovery. The manual/help pointers now use the nested installed tree. Actual complete unrelated-project main/worker receiving proof and live usefulness remain pending.",
  "desired": "Use existing context for relevant setup facts and the next action; optional capabilities are not admission gates.",
  "plan_notes": ["FIRST-USER C/D/E", "JOURNEYS 9–13/15"],
- "sources": ["packages/yoke-contracts/src/yoke_contracts/hook_runner/chain_registry.py:47", "packages/yoke-core/src/yoke_core/domain/session_orientation.py:196", "packages/yoke-core/src/yoke_core/domain/session_orientation_delivery.py:1", "packages/yoke-core/src/yoke_core/domain/main_agent_packet.py:147"]
+ "sources": ["packages/yoke-core/src/yoke_core/domain/session_orientation.py", "packages/yoke-core/src/yoke_core/domain/session_orientation_delivery.py", "packages/yoke-core/src/yoke_core/domain/main_agent_packet.py", "docs/public/agents/harness-discovery.md"]
 }

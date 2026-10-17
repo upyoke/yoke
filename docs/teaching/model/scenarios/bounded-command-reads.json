@@ -3,5 +3,5 @@
  "title": "Read a catalog without flooding the session",
  "status": "observed",
  "topics": ["context/bounded-command-reads"],
- "sources": ["docs/public/reference/agent-rules/code-and-cli.md", "packages/yoke-cli/src/yoke_cli/transport/output_limit.py"]
+ "sources": ["docs/public/agents/rules/shell-and-cli.md", "packages/yoke-cli/src/yoke_cli/transport/output_limit.py"]
 }

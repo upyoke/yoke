@@ -5,5 +5,5 @@
  "page": "coordination",
  "position": 1,
  "summary": "Item-owned path claims end at recorded landing; the work claim remains through delivery. Rework needs fresh coverage. Holders can release finished coverage or cancel abandoned coverage.",
- "sources": ["docs/public/reference/db-reference/path-claims.md"]
+ "sources": ["docs/public/sessions/model/path-claims.md"]
 }

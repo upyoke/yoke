@@ -1,8 +1,10 @@
 {
  "id": "documentation",
  "title": "Documentation, design and history",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "Documentation authors / maintainers",
  "page": "documentation",
- "position": 12
+ "position": 12,
+ "sources": ["docs/public/documentation/index.md", "docs/public/documentation/navigation.md", "docs/public/documentation/verification.md"],
+ "summary": "The public teaching standard owns the cascade, concise complete instruction, one authority with multiple appearances, receiving-context proof and the 350-line delivery ceiling. Source doctrine and this teaching model remain contributor-only; source observation does not prove installed or web delivery."
 }

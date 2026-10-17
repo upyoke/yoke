@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke qa gate-summary --help"],
  "plan_notes": ["FIRST-USER 32", "JOURNEYS row 13"],
- "sources": ["docs/public/reference/qa-platform/requirement-state-model.md", "docs/public/reference/qa-platform/success-policy-schema.md", "packages/yoke-core/src/yoke_core/domain/qa_requirement_policy_validation.py", "docs/public/reference/qa-platform.md"],
+ "sources": ["docs/public/verification/requirement-state.md", "docs/public/verification/success-policy.md", "packages/yoke-core/src/yoke_core/domain/qa_requirement_policy_validation.py", "docs/public/verification/platform.md"],
  "position": 2
 }

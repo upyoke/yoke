@@ -1,5 +1,5 @@
 {
  "title": "Human-facing documents",
- "scope": "Research evidence read from source on 2026-10-12; each record states what it checked. Revalidate before relying on it as live behavior.",
+ "scope": "Research evidence read from source on 2026-10-12; each record states what it checked. Revalidate before relying on it as live behavior. Nested public/installed source homes were reconciled against the current tree on 2026-10-17; this does not refresh older child observations into live or released proof.",
  "id": "human-documents"
 }

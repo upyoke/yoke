@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke qa gate-summary --help"],
  "plan_notes": ["FIRST-USER 35", "JOURNEYS row 12", "JOURNEYS row 15"],
- "sources": ["docs/testing-verification.md", "docs/public/reference/qa-platform/requirement-state-model.md", ".agents/skills/yoke/usher/finalize.md"],
+ "sources": ["docs/testing-verification.md", "docs/public/verification/requirement-state.md", ".agents/skills/yoke/usher/finalize.md"],
  "position": 1
 }

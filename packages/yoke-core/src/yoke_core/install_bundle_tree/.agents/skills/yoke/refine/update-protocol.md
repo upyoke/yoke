@@ -87,7 +87,7 @@ work declares it; meta governance-only prose supplies state:none with
 reviewed-none rationale. Never scrub/backtick DDL to evade the gate.
 Apply intent requires migration_strategy; pre_merge_readers_writers roles
 are reader/writer only, with schema modules as writers.
-Read the [DB reference](../../../../.yoke/docs/reference/db-reference.md),
+Read the [DB reference](../../../../.yoke/docs/databases/reference.md),
 verify amendment and retry the pinned transition.
 
 ## 10. Release before success

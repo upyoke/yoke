@@ -109,7 +109,7 @@ def hc_instruction_discovery(conn, args, rec) -> None:
         root = project_root(args)
         if (
             not (root / "AGENTS.md").is_file()
-            or not (root / ".yoke/docs/reference/harness-discovery.md").is_file()
+            or not (root / ".yoke/docs/agents/harness-discovery.md").is_file()
         ):
             raise ValueError(
                 "canonical instructions or their discovery pointer are missing"

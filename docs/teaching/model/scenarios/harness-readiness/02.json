@@ -10,6 +10,6 @@
  "gap": "Managed release manifests are published at .yoke/harness/<harness>/manifest.json. Automated install/refresh and byte identity are covered; real receiving-harness proof waits for release.",
  "review": "CLI versions never block installation. Install and preview reports expose harness_health separately from operational warnings. Every supported CLI reports version, floor, status ok/below_floor/probe_failed/absent, effect and next step; human output has its own health section. Runtime-health tests cover admission and both output forms; live receiving proof remains separate.",
  "plan_notes": ["FIRST-USER 18", "FIRST-USER D"],
- "sources": ["docs/public/reference/harness-discovery.md", "runtime/harness/manifest-schema.md", "runtime/api/domain/test_project_install_runtime_health.py"],
+ "sources": ["docs/public/agents/harness-discovery.md", "runtime/harness/manifest-schema.md", "runtime/api/domain/test_project_install_runtime_health.py"],
  "position": 1
 }

@@ -133,7 +133,7 @@ def test_installed_rules_share_manifest_and_registered_context_homes(bundle):
     for path in (
         ".claude/rules/session.md",
         ".agents/skills/yoke/steer/loop.md",
-        ".yoke/docs/reference/agent-rules/lanes-and-claims.md",
+        ".yoke/docs/agents/rules/lanes-and-claims.md",
     ):
         assert ".yoke/harness/<harness-dir>/manifest.json" in files[path]
         assert "runtime/harness/<harness-dir>/manifest.json" not in files[path]
