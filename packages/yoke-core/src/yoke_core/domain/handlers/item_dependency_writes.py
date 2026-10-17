@@ -9,8 +9,8 @@ function ids:
 
 The dependent item is the dispatcher target. The blocking item remains a
 payload ref accepted by the underlying item-dependency domain owner. Add and
-update record the calling session on the edge, and refuse with
-``dependency_cycle`` a write that would close a loop of blocking edges.
+update refuse with ``dependency_cycle`` a write that would close a loop of
+blocking edges among live items.
 """
 
 from __future__ import annotations
@@ -133,11 +133,6 @@ def _domain_error(exc: Exception) -> HandlerOutcome:
     return _err(code, str(exc))
 
 
-def _caller_session(request: FunctionCallRequest) -> str | None:
-    """The calling session, recorded on the edge it writes."""
-    return str(request.actor.session_id or "").strip() or None
-
-
 def handle_item_dependency_add(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
@@ -165,7 +160,6 @@ def handle_item_dependency_add(
             satisfaction=body.satisfaction,
             rationale=body.rationale,
             evidence_json=body.evidence_json,
-            session_id=_caller_session(request),
         )
     except (LookupError, ValueError, RuntimeError) as exc:
         return _domain_error(exc)
@@ -215,7 +209,6 @@ def handle_item_dependency_update(
             rationale=body.rationale,
             source=body.source,
             evidence_json=body.evidence_json,
-            session_id=_caller_session(request),
         )
     except (LookupError, ValueError, RuntimeError) as exc:
         return _domain_error(exc)

@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS item_dependencies (
     gate_point TEXT NOT NULL DEFAULT 'activation',
     satisfaction TEXT NOT NULL DEFAULT 'status:done',
     source TEXT NOT NULL,
-    session_id TEXT,
+    session_id INTEGER,
     rationale TEXT NOT NULL DEFAULT '',
     evidence_json TEXT NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL,

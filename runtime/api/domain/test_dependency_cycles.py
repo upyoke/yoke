@@ -163,23 +163,16 @@ def test_a_stored_loop_is_found_and_breaking_one_edge_clears_it(test_db):
     assert dependency_cycles(test_db) == []
 
 
-def _request(function, item_id, payload, session_id="session-author"):
+def _request(function, item_id, payload):
     return FunctionCallRequest(
         function=function,
-        actor=ActorContext(actor_id="op", session_id=session_id),
+        actor=ActorContext(actor_id="op", session_id="s-1"),
         target=TargetRef(kind="item", item_id=item_id),
         payload=payload,
     )
 
 
-def _session_ids(conn) -> list:
-    rows = conn.execute(
-        "SELECT session_id FROM item_dependencies ORDER BY id"
-    ).fetchall()
-    return [row[0] for row in rows]
-
-
-def test_handlers_record_the_calling_session_and_name_the_refusal(test_db):
+def test_handlers_name_the_refusal_with_its_own_code(test_db):
     _items(test_db, 1, 2)
     added = handle_item_dependency_add(
         _request(
@@ -189,7 +182,6 @@ def test_handlers_record_the_calling_session_and_name_the_refusal(test_db):
         )
     )
     assert added.primary_success, added.error
-    assert _session_ids(test_db) == ["session-author"]
 
     refused = handle_item_dependency_add(
         _request(
@@ -202,16 +194,31 @@ def test_handlers_record_the_calling_session_and_name_the_refusal(test_db):
     assert refused.error.code == "dependency_cycle"
     assert "YOK-2 waits on YOK-1" in refused.error.message
 
-    updated = handle_item_dependency_update(
+    handle_item_dependency_add(
         _request(
-            "items.dependency.update",
-            1,
-            {"blocking_item": "YOK-2", "rationale": "reworded"},
-            session_id="session-editor",
+            "items.dependency.add",
+            2,
+            {
+                "blocking_item": "YOK-1",
+                "source": "refine",
+                "rationale": "independent",
+                "gate_point": "coordination_only",
+            },
         )
     )
-    assert updated.primary_success, updated.error
-    assert _session_ids(test_db) == ["session-editor"]
+    regated = handle_item_dependency_update(
+        _request(
+            "items.dependency.update",
+            2,
+            {
+                "blocking_item": "YOK-1",
+                "match_gate_point": "coordination_only",
+                "gate_point": "activation",
+            },
+        )
+    )
+    assert regated.primary_success is False
+    assert regated.error.code == "dependency_cycle"
 
 
 def test_charge_schedule_serves_loops_narrowed_to_a_seat(test_db):

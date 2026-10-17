@@ -80,13 +80,12 @@ def write_dependency_edge(
     satisfaction: Optional[str],
     rationale: Optional[str],
     evidence_json: Optional[str],
-    session_id: Optional[str],
+    session_id: Optional[int],
     created_at: Any,
 ) -> DependencyWrite:
     """Insert the edge, or update the fields that differ on ``existing``.
 
     ``existing`` is the row ``read_dependency_edge`` returned for this edge.
-    ``session_id`` is stored on a new edge and on any edge this call changes.
     On an existing edge a field passed as ``None`` keeps its stored value; on
     a new edge ``satisfaction`` must be set and the others take their defaults.
     """
@@ -120,13 +119,10 @@ def write_dependency_edge(
             if value is not None and value != getattr(existing, field)
         )
         if changes:
-            # The session behind the latest change is the edge's author.
-            assigned = (*changes, ("session_id", "", session_id))
-            assigned = assigned if session_id is not None else changes
-            assignments = ", ".join(f"{field}={p}" for field, _, _ in assigned)
+            assignments = ", ".join(f"{field}={p}" for field, _, _ in changes)
             conn.execute(
                 f"UPDATE item_dependencies SET {assignments} WHERE id={p}",
-                (*(new for _, _, new in assigned), existing.dependency_id),
+                (*(new for _, _, new in changes), existing.dependency_id),
             )
         action = "updated" if changes else "unchanged"
     stored = read_dependency_edge(conn, dep_id, blk_id, gate_point)

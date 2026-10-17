@@ -197,7 +197,7 @@ blocking_item_id INTEGER NOT NULL REFERENCES items(id)
 gate_point TEXT NOT NULL DEFAULT 'activation' -- activation | integration | closure | coordination_only
 satisfaction TEXT NOT NULL DEFAULT 'status:done' -- status:<stage-id> | fact:merged | fact:deployed:<environment-name>
 source TEXT NOT NULL -- shepherd | conduct | operator | migration | feed | idea | refine | dash
-session_id TEXT -- the session that added or last changed the edge; NULL when unknown
+session_id INTEGER -- nullable contextual session ID
 rationale TEXT NOT NULL DEFAULT '' -- human-readable explanation of the edge
 evidence_json TEXT NOT NULL DEFAULT '{}' -- structured provenance payload
 created_at TIMESTAMPTZ NOT NULL

@@ -55,13 +55,12 @@ def cmd_dependency_add(
     satisfaction: Optional[str] = None,
     rationale: Optional[str] = None,
     evidence_json: Optional[str] = None,
-    session_id: Optional[str] = None,
+    session_id: Optional[int] = None,
 ) -> DependencyWrite:
     """Create the edge, or update the fields that differ on an existing one.
 
     On an existing edge a field left ``None`` keeps its stored value.
-    ``session_id`` records the session that authored a new edge. A write that
-    would close a loop of blocking edges among live items rolls back and
+    A write that would close a loop of blocking edges among live items rolls back and
     raises :class:`DependencyCycleError` naming the loop and its recovery.
     """
     _validate_dependency_fields(source, gate_point)
@@ -121,9 +120,8 @@ def cmd_dependency_update(
     rationale: Optional[str] = None,
     source: Optional[str] = None,
     evidence_json: Optional[str] = None,
-    session_id: Optional[str] = None,
 ) -> str:
-    """Change one edge's fields, recording ``session_id`` as its author.
+    """Change the fields of one edge.
 
     A gate or satisfaction change that would leave the edge closing a loop of
     blocking edges among live items rolls back and raises
@@ -162,7 +160,6 @@ def cmd_dependency_update(
         ("rationale", rationale),
         ("source", source),
         ("evidence_json", evidence_json),
-        ("session_id", session_id),
     ):
         if value:
             set_parts.append(f"{column}={p}")
@@ -271,7 +268,7 @@ def cmd_dependency_remove(
     conn,
     dependent: str,
     blocking: str,
-    session_id: Optional[str] = None,
+    session_id: Optional[int] = None,
 ) -> str:
     dep_id, blk_id = _edge_ids(conn, dependent, blocking)
     if session_id is not None:

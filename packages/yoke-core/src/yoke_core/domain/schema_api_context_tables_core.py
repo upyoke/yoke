@@ -98,7 +98,7 @@ CORE_TABLES: dict[str, dict] = {
             ("gate_point", "TEXT"),
             ("satisfaction", "TEXT"),
             ("source", "TEXT"),
-            ("session_id", "TEXT"),
+            ("session_id", "INTEGER"),
             ("rationale", "TEXT"),
             ("evidence_json", "TEXT"),
             ("created_at", "TIMESTAMPTZ"),
