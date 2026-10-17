@@ -84,6 +84,25 @@ def _qa_waiting(conn: Any, run_id: str, stage_name: str) -> bool:
     return outstanding is None or bool(outstanding.waiting)
 
 
+def _taken_over(conn: Any, run_id: str) -> bool:
+    """A newer run took this one over, so its old driver no longer continues it.
+
+    Takeover answers to the driving session (or steering), which then drives
+    the newer run; a driver still polling here would only race the finish.
+    """
+    from yoke_core.domain.deployment_run_target_takeover import (
+        SUPERSEDED_BY_COLUMN,
+        takeover_available,
+    )
+
+    if not takeover_available(conn):
+        return False
+    row = conn.execute(
+        f"SELECT {SUPERSEDED_BY_COLUMN} FROM deployment_runs WHERE id=%s", (run_id,)
+    ).fetchone()
+    return row is not None and bool(_row_value(row, SUPERSEDED_BY_COLUMN, 0))
+
+
 @composition_operation
 def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
     from yoke_core.domain.deployment_run_completion_preconditions import (
@@ -113,7 +132,11 @@ def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
         return None, f"run status is {status}, not executing"
     current_stage = str(_row_value(row, "current_stage", 2) or "")
     attached = live_attachment_for_run(conn, run_id_value=run_id, now=utc_now())
-    if attached is not None and current_stage != "complete":
+    if (
+        attached is not None
+        and current_stage != "complete"
+        and not _taken_over(conn, run_id)
+    ):
         return None, f"live driver {attached.session_id} is already continuing this run"
     try:
         stages = json.loads(str(_row_value(row, "stages", 5)))
@@ -203,9 +226,10 @@ def finish_ready_run(conn: Any, run_id: str) -> CompletionAttempt:
     """Adopt settled evidence once, using the existing succeeded close-out.
 
     Call after the settlement transaction commits. An attached driver owns
-    its continuation; a detached one is finished here by the serving
-    control plane, and the run's target occupancy still keeps any other
-    run off its servers until it is terminal.
+    its continuation; a detached one, or one whose run a newer run took
+    over, is finished here by the serving control plane, and the run's
+    target occupancy still keeps any other run off its servers until it is
+    terminal.
     """
     from yoke_core.domain.backlog_item_db_writes import _update_item_multi
     from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
