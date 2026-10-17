@@ -32,6 +32,24 @@ SLUG = "harness-unattended-posture"
 TITLE = "Every installed harness runs yoke without approval prompts"
 
 
+def harness_posture(harness_id: str, *, installed: bool) -> tuple[str, str]:
+    """One harness's posture verdict: ``PASS``, ``FAIL`` or ``N/A`` and why.
+
+    A harness with no config file and no CLI on PATH is not set up here, so
+    it has no posture to report; one that is installed but unreadable fails.
+    """
+    path = managed_config_paths()[harness_id]
+    config, reason = read_posture_config(harness_id, path)
+    if config is None:
+        if path.exists() or installed:
+            return "FAIL", f"HARNESS_POSTURE_UNVERIFIED: {harness_id}: {reason}"
+        return "N/A", reason
+    problems = posture_problems(harness_id, config)
+    if problems:
+        return "FAIL", f"{harness_id} ({path}): {'; '.join(problems)}"
+    return "PASS", harness_id
+
+
 def hc_harness_unattended_posture(
     conn,
     args: DoctorArgs,
@@ -47,19 +65,13 @@ def hc_harness_unattended_posture(
         if entry.path
     }
     for harness_id in (CLAUDE_FAMILY, CODEX_FAMILY, CURSOR_FAMILY):
-        path = managed_config_paths()[harness_id]
-        config, reason = read_posture_config(harness_id, path)
-        if config is None:
-            if path.exists() or harness_id in installed:
-                prompting.append(f"HARNESS_POSTURE_UNVERIFIED: {harness_id}: {reason}")
-            else:
-                absent.append(reason)
-            continue
-        problems = posture_problems(harness_id, config)
-        if problems:
-            prompting.append(f"{harness_id} ({path}): {'; '.join(problems)}")
+        verdict, detail = harness_posture(harness_id, installed=harness_id in installed)
+        if verdict == "FAIL":
+            prompting.append(detail)
+        elif verdict == "PASS":
+            unattended.append(detail)
         else:
-            unattended.append(harness_id)
+            absent.append(detail)
     if prompting:
         rec.record(
             SLUG,
@@ -87,4 +99,4 @@ def hc_harness_unattended_posture(
     )
 
 
-__all__ = ["SLUG", "TITLE", "hc_harness_unattended_posture"]
+__all__ = ["SLUG", "TITLE", "harness_posture", "hc_harness_unattended_posture"]
