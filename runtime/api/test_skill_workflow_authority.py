@@ -74,7 +74,7 @@ def test_conduct_dispatch_has_no_unreachable_item_branch_or_retired_teaching() -
         "Caller prerequisite:",
     ):
         assert forbidden not in text
-    assert "Generated task policies and registered lane rows own the batch" in text
+    assert "Generated task policies and registered lane rows own the dispatch" in text
 
 
 def test_skill_tree_uses_registered_lifecycle_transitions() -> None:

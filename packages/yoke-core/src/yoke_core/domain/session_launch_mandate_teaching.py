@@ -145,6 +145,19 @@ STEERING_REWORK_TEACHING = (
 )
 
 
+DEPENDENCY_WAIT_TEACHING = (
+    "A dependency gate is not yours to poll or to have steering watch. When "
+    "an item you depend on merges or reaches done, the control plane sends "
+    "you one notice naming the blocker, the gate of yours it satisfied, and "
+    "any gates still unmet. Before stopping on an unmet gate, checkpoint and "
+    "park with the blocker named: "
+    '`yoke sessions touch --mode parked --reason "awaiting <BLOCKER> <gate>"`. '
+    "When the notice says no gates remain, resume at the live stage; when it "
+    "names gates still unmet, re-park. Do not ask steering to message you "
+    "when a blocker lands."
+)
+
+
 #: Expanded obligations checked against the worker's phase instructions.
 STANDING_TEACHINGS = (
     # First: a successor launched onto an in-flight item must resume from
@@ -160,6 +173,7 @@ STANDING_TEACHINGS = (
     # After the release wait, because that is where steering's vetting
     # reaches a worker that is already parked and holding its item.
     STEERING_REWORK_TEACHING,
+    DEPENDENCY_WAIT_TEACHING,
     HEADLESS_CI_VERIFICATION_WAIT_TEACHING,
     HEADLESS_LANDING_WAIT_TEACHING,
     HEADLESS_TOOL_CONTINUATION_TEACHING,
@@ -169,6 +183,7 @@ STANDING_TEACHINGS = (
 __all__ = [
     "CANDIDATE_REVIEW_TEACHING",
     "COMMITTED_GATE_TEACHING",
+    "DEPENDENCY_WAIT_TEACHING",
     "HEADLESS_CI_VERIFICATION_WAIT_TEACHING",
     "HEADLESS_LANDING_WAIT_TEACHING",
     "HEADLESS_TOOL_CONTINUATION_TEACHING",

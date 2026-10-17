@@ -113,6 +113,7 @@ const FAMILIES = {
   "awaiting review": "warn",
   finalizing: "warn",
   "blocked on precondition": "crit",
+  "replacement graph invalid": "crit",
   installed: "good",
   success: "good",
   waits: "idle",

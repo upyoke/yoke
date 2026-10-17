@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from yoke_contracts import platform_file_lock
+from yoke_contracts import platform_file_sync
+from yoke_contracts import windows_private_directory
 from yoke_contracts.machine_config.directories import create_private_directory
 
 from contextlib import contextmanager
-import fcntl
 import os
 from pathlib import Path
 import shlex
@@ -89,7 +91,7 @@ def exclusive_lock(config_path: str | Path) -> Iterator[None]:
         info = os.fstat(descriptor)
         _assert_owned_regular_file(info, lock_path)
         os.fchmod(descriptor, 0o600)
-        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        platform_file_lock.acquire_exclusive(descriptor)
         locked = True
         _assert_stable_lock(descriptor, lock_path)
         _assert_config_target(selected)
@@ -99,7 +101,7 @@ def exclusive_lock(config_path: str | Path) -> Iterator[None]:
     finally:
         try:
             if locked:
-                fcntl.flock(descriptor, fcntl.LOCK_UN)
+                platform_file_lock.release_exclusive(descriptor)
         finally:
             os.close(descriptor)
 
@@ -125,7 +127,7 @@ def remove_idle_lock_file(lock_path: str | Path) -> bool:
         _assert_owned_regular_file(os.fstat(descriptor), selected)
         os.fchmod(descriptor, 0o600)
         try:
-            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            platform_file_lock.acquire_exclusive_nonblocking(descriptor)
         except BlockingIOError as exc:
             raise MachineConfigFileError(
                 f"machine-state lock is busy: {selected}; wait for the "
@@ -134,7 +136,7 @@ def remove_idle_lock_file(lock_path: str | Path) -> bool:
         locked = True
         _assert_stable_lock(descriptor, selected)
         selected.unlink()
-        _fsync_directory(selected.parent)
+        platform_file_sync.sync_directory(selected.parent)
         return True
     except MachineConfigFileError:
         raise
@@ -147,7 +149,7 @@ def remove_idle_lock_file(lock_path: str | Path) -> bool:
         if descriptor >= 0:
             try:
                 if locked:
-                    fcntl.flock(descriptor, fcntl.LOCK_UN)
+                    platform_file_lock.release_exclusive(descriptor)
             finally:
                 os.close(descriptor)
 
@@ -171,7 +173,7 @@ def atomic_write_text(path: str | Path, content: str) -> None:
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(tmp_path, selected)
-        _fsync_directory(selected.parent)
+        platform_file_sync.sync_directory(selected.parent)
     except OSError as exc:
         raise MachineConfigFileError(
             f"machine config could not be written: {selected}"
@@ -198,7 +200,7 @@ def remove_file(path: str | Path) -> bool:
             f"machine config could not be removed: {selected}"
         ) from exc
     try:
-        _fsync_directory(selected.parent)
+        platform_file_sync.sync_directory(selected.parent)
     except OSError as exc:
         raise MachineConfigFileError(
             f"machine-config removal could not be synced: {selected}"
@@ -216,7 +218,11 @@ def _assert_secure_parent(path: Path) -> None:
         raise MachineConfigFileError(
             f"machine-config parent is not owned by the current user: {path}"
         )
-    if stat.S_IMODE(info.st_mode) & 0o022:
+    if os.name == "nt" and not windows_private_directory.is_private_directory(path):
+        raise MachineConfigFileError(
+            f"machine-config parent Windows permissions are unsafe: {path}"
+        )
+    if os.name != "nt" and stat.S_IMODE(info.st_mode) & 0o022:
         raise MachineConfigFileError(
             f"machine-config parent must not be group- or world-writable: {path}; "
             f"run chmod 700 {shlex.quote(str(path))}, then retry"
@@ -231,6 +237,10 @@ def _assert_owned_regular_file(info: os.stat_result, path: Path) -> None:
     if hasattr(os, "getuid") and info.st_uid != os.getuid():
         raise MachineConfigFileError(
             f"machine-config lock is not owned by the current user: {path}"
+        )
+    if os.name == "nt" and not windows_private_directory.is_private_file(path):
+        raise MachineConfigFileError(
+            f"machine-config lock Windows permissions are unsafe: {path}"
         )
     if info.st_nlink != 1:
         raise MachineConfigFileError(
@@ -258,19 +268,10 @@ def _assert_stable_lock(descriptor: int, path: Path) -> None:
         raise MachineConfigFileError(
             f"machine-config lock changed while being acquired: {path}"
         )
-    if stat.S_IMODE(opened.st_mode) & 0o077:
+    if os.name != "nt" and stat.S_IMODE(opened.st_mode) & 0o077:
         raise MachineConfigFileError(
             f"machine-config lock permissions must be 0600: {path}"
         )
-
-
-def _fsync_directory(path: Path) -> None:
-    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
-    descriptor = os.open(path, flags)
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
 
 
 __all__ = [

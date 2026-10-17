@@ -176,7 +176,8 @@ def widen(
     decision = classify_widen_overlap(
         conn,
         claim_id=claim_id,
-        candidate_target_ids=union,
+        new_target_ids=truly_new,
+        union_target_ids=union,
         integration_target=str(claim["integration_target"]),
         candidate_item_id=int(item_id) if item_id is not None else None,
         current_claim_state=str(claim["state"]),

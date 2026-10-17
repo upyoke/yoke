@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-import fcntl
 import os
 import re
 import subprocess
@@ -11,6 +10,7 @@ from pathlib import Path
 from typing import Iterator
 
 from yoke_cli.config import credentialed_git
+from yoke_contracts import platform_file_lock
 
 
 class DeploymentLineageResolutionError(RuntimeError):
@@ -41,9 +41,7 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
 @contextmanager
 def _ref_update_lock(repo: Path) -> Iterator[None]:
     """Serialize ref updates that share one physical Git repository."""
-    common_dir = Path(
-        _git(repo, "rev-parse", "--git-common-dir").stdout.strip()
-    )
+    common_dir = Path(_git(repo, "rev-parse", "--git-common-dir").stdout.strip())
     if not common_dir.is_absolute():
         common_dir = (repo / common_dir).resolve()
     lock_path = common_dir / "yoke-deployment-lineage-fetch.lock"
@@ -58,11 +56,11 @@ def _ref_update_lock(repo: Path) -> Iterator[None]:
             f"checkout ref lock is unavailable in {common_dir}"
         ) from exc
     try:
-        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        platform_file_lock.acquire_exclusive(descriptor)
         yield
     finally:
         try:
-            fcntl.flock(descriptor, fcntl.LOCK_UN)
+            platform_file_lock.release_exclusive(descriptor)
         finally:
             os.close(descriptor)
 
@@ -80,7 +78,10 @@ def resolve_commit_lineage(repo_path: str, source_ref: str) -> str:
     with _ref_update_lock(candidate):
         _git(candidate, "fetch", "--quiet", "--no-tags", "origin")
     commit = _git(
-        candidate, "rev-parse", "--verify", f"{source_ref}^{{commit}}",
+        candidate,
+        "rev-parse",
+        "--verify",
+        f"{source_ref}^{{commit}}",
     ).stdout.strip()
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise DeploymentLineageResolutionError(

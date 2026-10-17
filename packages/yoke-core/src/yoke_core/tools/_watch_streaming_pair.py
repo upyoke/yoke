@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Optional, Sequence, TextIO
 
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
+from yoke_contracts.harness_wake_capability import wake_capability_for_mechanism
 from yoke_contracts.uv_project import uv_project_root
 from yoke_contracts.watch_cli_forms import cli_form
 from yoke_core.tools._watch_digest import TIER_HELP
@@ -161,6 +162,8 @@ def print_streaming_pair(
         )
         stream.write("# The raw capture retains the complete child output.\n")
     mechanism = wake_mechanism or "the configured idle-wake subscription"
+    capability = wake_capability_for_mechanism(wake_mechanism)
+    limit = capability.idle_wake_subscription_limit_seconds if capability else None
     stream.write(f"# Progress tail — arm {mechanism} ONCE against this capture file.\n")
     stream.write("# Paste the background command above VERBATIM: the two lines are a\n")
     stream.write("# matched pair, and its --raw-capture/--progress-capture flags are\n")
@@ -174,8 +177,26 @@ def print_streaming_pair(
     stream.write(
         f"# {mechanism} is a subscription: matched lines arrive as wake events\n"
     )
-    stream.write("# for the lifetime of the bg command. Do NOT re-arm to 'continue\n")
-    stream.write("# tail' — that is the wake-loop bug and is denied at PreToolUse.\n")
+    if limit and capability is not None:
+        parameter = capability.idle_wake_deadline_parameter
+        stream.write(
+            f"# until it expires. Arm with {parameter}={limit * 1000} (its "
+            f"{limit // 60}-minute cap).\n"
+        )
+        stream.write(
+            "# On the expiry notice, re-arm this same tail against this same\n"
+        )
+        stream.write("# capture; never relaunch the wrapper. Re-arming while the\n")
+        stream.write(
+            "# subscription is live is the wake-loop bug, denied at PreToolUse.\n"
+        )
+    else:
+        stream.write(
+            "# for the lifetime of the bg command. Do NOT re-arm to 'continue\n"
+        )
+        stream.write(
+            "# tail' — that is the wake-loop bug and is denied at PreToolUse.\n"
+        )
     stream.write("# Auto-exits when the wrapper writes its exit sentinel.\n")
     if not outcome_only:
         for tier_line in TIER_HELP.rstrip().splitlines():

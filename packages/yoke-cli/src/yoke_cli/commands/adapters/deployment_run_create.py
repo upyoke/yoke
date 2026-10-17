@@ -8,6 +8,7 @@ regression check against it — stays readable on its own.
 from __future__ import annotations
 
 import argparse
+import shlex
 import sys
 from typing import List
 
@@ -22,6 +23,9 @@ from yoke_cli.commands._helpers import (
 from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
 from yoke_cli.commands.adapters.deployment_run_create_retry import (
     build_timeout_repeat,
+)
+from yoke_cli.commands.adapters.deployment_execution_authority import (
+    creation_connection_error,
 )
 from yoke_cli.commands.adapters.deployment_pin_guard import (
     pin_regression_error,
@@ -207,6 +211,14 @@ def deployment_runs_create(args: List[str]) -> int:
             return 1
     if parsed.environment is not None:
         payload["environment"] = parsed.environment
+    if refusal := creation_connection_error(
+        f"create {shlex.join(args)}",
+        project=parsed.project,
+        flow=parsed.flow,
+        environment=parsed.environment,
+    ):
+        print(f"error: {refusal}", file=sys.stderr)
+        return 2
     target = TargetRef(kind="global")
     return dispatch_and_emit(
         function_id="deployment_runs.create",

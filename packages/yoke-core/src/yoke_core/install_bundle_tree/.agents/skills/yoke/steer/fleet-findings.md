@@ -12,13 +12,24 @@ or plan note. Nothing acknowledged is automatically completed.
   --project P --item PREFIX-N --idempotency-key "steer:P:PREFIX-N" --json`.
   Preview with a judged `--level` before create when the leg is not the stage
   level. A launch in flight does not alarm. Staffing ends the episode.
+- **Dependency deadlocks**: live items wait on each other in a loop of
+  blocking edges, so none can move first and the work they strand waits too.
+  `fleet ALARM deadlock` and the report's deadlock section name the loop, each
+  edge id and gate, and the stranded items. Decide which order the work really
+  needs, then make one edge `coordination_only` with `yoke items dependency
+  update DEPENDENT BLOCKING --match-gate-point GATE --gate-point
+  coordination_only --rationale TEXT`. New writes already refuse to close a loop.
 - **Unattended linked work**: take/arrange exact owning project+document seat
   named by row before staffing; project seat does not cover another doc link.
 - **Steering messages awaiting a seat**: acquire scope for unacknowledged parked
   or ended-seat mail; acknowledged receipts never inherit. Plan unfinished actions.
 - **Idle holders**: process running→message; exited→message resumes transcript;
-  resuming now→let start. `--mode parked` declared its wait; in-flight,
-  vendor-stopped and stranded are separate rows. Read live mode/quiet_reason with
+  resuming now→let start. `fleet ALARM idle-holder` covers parked holders too,
+  names mode, reason and process, and repeats hourly until `fleet CLEAR`. Answer
+  every one in the same turn: act (message, answer its question, clear its
+  blocker, restaff) or write one line saying why the wait is still sound, e.g.
+  its blocker is still open. A park declares a wait, not that the wait is sound;
+  in-flight, vendor-stopped and stranded are separate rows. Read live mode/quiet_reason with
   yoke sessions list --session SESSION-ID --full --json. When actual blocker clears,
   item-address resume and confirm mode leaves parked. Active work claims protect
   holders from age-based reclaim; no stale TTL countdown releases a live lane.

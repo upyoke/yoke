@@ -113,11 +113,18 @@ def test_cursor_entries_carry_explicit_timeout() -> None:
     assert _CURSOR_HOOK_TIMEOUT_S >= 30
 
 
-def test_cursor_pre_post_matchers_cover_every_tool_except_shell() -> None:
-    """Shell stays on before/afterShellExecution; everything else must match."""
+def test_cursor_shell_gates_on_its_own_event_and_completes_on_post_tool_use() -> None:
+    """Shell gates on beforeShellExecution; postToolUse covers every tool.
+
+    postToolUse is the only post-tool event whose reply reaches the model, so
+    Shell completions ride it and the audit-only afterShellExecution stays
+    unwired rather than running the PostToolUse chain a second time.
+    """
     block = render_cursor_hooks_block()["hooks"]
     assert block["preToolUse"][0]["matcher"] == _CURSOR_NON_SHELL_TOOL_MATCHER
-    assert block["postToolUse"][0]["matcher"] == _CURSOR_NON_SHELL_TOOL_MATCHER
+    assert "matcher" not in block["postToolUse"][0]
+    assert "evaluate PostToolUse" in block["postToolUse"][0]["command"]
+    assert "afterShellExecution" not in block
 
 
 def test_cursor_stop_and_session_end_use_lifecycle_command() -> None:

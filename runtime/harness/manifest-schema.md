@@ -27,6 +27,7 @@ The schema below is the only canonical source. Renderers, drift checks, and runt
 | `supports` | object | Yes | Affordance and command-source posture. See [Supports](#supports). |
 | `session_control` | object | Yes | Versioned per-surface facts used to compute session messaging and launch routes. See [Session control](#session-control). |
 | `agent_wake` | object | Yes | Whether the harness can resume an idle model turn, by which primitive, and on what evidence. See [Agent wake](#agent-wake). |
+| `parallel_subagents` | object | Yes | Whether the harness runs several sub-agents at once, by which primitive, and on what evidence. See [Parallel sub-agents](manifest-parallel-subagents.md). |
 | `turn_record` | object | Yes | Whether the harness leaves a readable record of how its last turn ended. See [Turn record](#turn-record). |
 | `session_transcripts` | object | Yes | Where the harness keeps local session transcripts and how one is tied to a checkout. See [Session transcripts](#session-transcripts). |
 | `worktree_hook_enablement` | object | Yes | Operations that make the harness hook chain live and workspace-bound in linked worktree lanes. See [Worktree hook enablement](#worktree-hook-enablement). |
@@ -230,6 +231,8 @@ same resumption the session schedules for itself.
 | `timer_wake_mechanism` | string | Named primitive that performs the timer wake. Empty when the class is not `supported`. |
 | `verified_on_surface` | string | Session surface the probe ran against. Empty when unverified. |
 | `evidence` | string | How the answer was established — what was measured, and what the measurement showed. |
+| `idle_wake_subscription_limit_seconds` | integer \| null | Longest one idle-wake subscription lives before the harness ends it with an expiry notice; `null` when a subscription lasts as long as what it watches. On the notice, re-arm the same tail against the same capture; never relaunch the watcher. |
+| `idle_wake_deadline_parameter` | string | Arming parameter that sets the subscription deadline (for example, `timeout_ms`); empty without a limit. |
 
 `unverified` is a first-class value and the default for an unknown harness id:
 a harness nobody has probed says so rather than inheriting a neighbour's
@@ -343,4 +346,4 @@ The schema in this file is the contract. When new fields are added:
 - Update the manifest source dicts (or note the new field is optional and document the default).
 - Update doctor checks that read the affected field.
 
-All three manifest files are generated artifacts: the substrate renderer (`yoke_core.domain.agents_render`) materializes them from the Python source dicts in `yoke_core.domain.agents_render_manifests` (`CLAUDE_MANIFEST` / `CODEX_MANIFEST` / `CURSOR_MANIFEST`) and stamps each with the `_generated` marker. The `session_control`, `agent_wake`, `turn_record`, and `session_transcripts` objects are composed from `yoke_contracts.session_control`, `yoke_contracts.harness_wake_capability`, `yoke_contracts.harness_turn_record_capability`, and `yoke_contracts.harness_session_transcripts` respectively, so those facts are authored in their contracts rather than in the manifest dicts. Author changes in the source dicts or the contract they read, then re-render via the `agents.render.run` function id (operator adapter: `yoke agents render`); `agents.render.check` surfaces drift between the source and the on-disk files. Hand-edits to the JSON files are overwritten on the next render.
+All three manifest files are generated artifacts: the substrate renderer (`yoke_core.domain.agents_render`) materializes them from the Python source dicts in `yoke_core.domain.agents_render_manifests` (`CLAUDE_MANIFEST` / `CODEX_MANIFEST` / `CURSOR_MANIFEST`) and stamps each with the `_generated` marker. The `session_control`, `agent_wake`, `parallel_subagents`, `turn_record`, and `session_transcripts` objects are composed from `yoke_contracts.session_control`, `yoke_contracts.harness_wake_capability`, `yoke_contracts.harness_subagent_capability`, `yoke_contracts.harness_turn_record_capability`, and `yoke_contracts.harness_session_transcripts` respectively, so those facts are authored in their contracts rather than in the manifest dicts. Author changes in the source dicts or the contract they read, then re-render via the `agents.render.run` function id (operator adapter: `yoke agents render`); `agents.render.check` surfaces drift between the source and the on-disk files. Hand-edits to the JSON files are overwritten on the next render.

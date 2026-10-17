@@ -107,8 +107,20 @@ def _wake_phrase(wake: str, mechanism: str) -> str:
     return wake
 
 
+def _idle_phrase(cap: HarnessWakeCapability) -> str:
+    phrase = _wake_phrase(cap.idle_wake, cap.idle_wake_mechanism)
+    limit = cap.idle_wake_subscription_limit_seconds
+    if limit:
+        phrase += (
+            f", each subscription ending within {limit // 60} minutes "
+            f"(`{cap.idle_wake_deadline_parameter}`); re-arm the same tail "
+            "on the expiry notice"
+        )
+    return phrase
+
+
 def _harness_line(harness_id: str, cap: HarnessWakeCapability) -> str:
-    idle = _wake_phrase(cap.idle_wake, cap.idle_wake_mechanism)
+    idle = _idle_phrase(cap)
     timer = _wake_phrase(cap.timer_wake, cap.timer_wake_mechanism)
     verified = cap.verified_on_surface or "not verified"
     return (
@@ -143,7 +155,7 @@ def build_table_block() -> str:
         "|---|---|---|---|",
     ]
     for harness_id, cap in HARNESS_WAKE_CAPABILITIES.items():
-        idle = _wake_phrase(cap.idle_wake, cap.idle_wake_mechanism)
+        idle = _idle_phrase(cap)
         timer = _wake_phrase(cap.timer_wake, cap.timer_wake_mechanism)
         verified = cap.verified_on_surface or "not verified"
         lines.append(f"| `{harness_id}` | {idle} | {timer} | `{verified}` |")

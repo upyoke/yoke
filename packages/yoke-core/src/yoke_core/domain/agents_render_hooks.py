@@ -257,6 +257,9 @@ _CURSOR_IDENTITY_ENV = (
 # than a preToolUse Shell matcher — wiring both would run the Bash chain
 # twice per command. Every other Cursor tool must reach preToolUse, or a
 # Cursor-only workspace never consults the guardrail chain for it.
+# postToolUse is matcherless: it is the only post-tool event whose reply
+# reaches the model, so Shell completions ride it and pending session
+# messages inject after shell commands too.
 # Subagent lifecycle events stay unwired until the container-mapping guard
 # exists in session dispatch; wiring them first would feed per-subagent
 # session ids into ensure-register.
@@ -269,7 +272,6 @@ _CURSOR_IDENTITY_ENV = (
 _CURSOR_NON_SHELL_TOOL_MATCHER = "^(?!Shell$).+$"
 _CURSOR_MATCHER_BY_NATIVE_EVENT = {
     "preToolUse": _CURSOR_NON_SHELL_TOOL_MATCHER,
-    "postToolUse": _CURSOR_NON_SHELL_TOOL_MATCHER,
 }
 _CURSOR_EVENTS: tuple[tuple[str, str, str | None], ...] = tuple(
     (native_event, runner_event, _CURSOR_MATCHER_BY_NATIVE_EVENT.get(native_event))

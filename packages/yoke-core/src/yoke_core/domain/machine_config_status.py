@@ -16,6 +16,7 @@ from yoke_core.domain.machine_status_diagnostics import (
     _runtime_status,
 )
 from yoke_contracts import install_binding as install_binding_contract
+from yoke_contracts import owner_private_path
 from yoke_contracts.machine_config import schema as contract
 from yoke_contracts.runtime_identity import (
     detect_install,
@@ -87,7 +88,7 @@ def build_status(
     issues.extend(db.pop("issues"))
     env = _ambient_env_status()
     ok = not any(issue["severity"] == "error" for issue in issues)
-    owner_only = selected_path.is_file() and not (selected_path.stat().st_mode & 0o077)
+    owner_only = owner_private_path.is_owner_private_file(selected_path)
     report = _report(ok, selected_path, selected_repo, issues)
     report.update(
         {

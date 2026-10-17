@@ -9,6 +9,7 @@ from yoke_core.domain.db_helpers import instant_parameter, query_one, query_rows
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder, _plan_row
 from yoke_core.domain.qa_plan_case_definition import case_baselines, plan_cases
+from yoke_core.domain.qa_plan_orphaned_rows import require_no_orphaned_item_rows
 from yoke_core.domain.qa_plan_requirement_snapshot import (
     existing_requirement_id,
     insert_requirement,
@@ -222,10 +223,7 @@ def materialize_for_item(
     created: list[int] = []
     existing: list[int] = []
     now = utc_now()
-    # Validate every plan before the first write. A plan that already has rows
-    # is not skipped: a case added after the first materialization still owes
-    # its own row, while an existing row is confirmed rather than rewritten
-    # (``qa.plan.rematerialize`` is what brings an amended row current).
+    # Validate first; a row whose case left the plan refuses (see rematerialize).
     snapshots: list[tuple[int, Any, dict, list[tuple[Any, str | None, dict]]]] = []
     for plan_id, attachment in attachments.items():
         cases = plan_cases(conn, plan_id)
@@ -257,6 +255,9 @@ def materialize_for_item(
                 )
             )
         snapshots.append((plan_id, plan, attachment, variants))
+    require_no_orphaned_item_rows(
+        conn, item_id=item_id, transition_id=transition_id, plan_ids=list(attachments)
+    )
 
     for plan_id, plan, attachment, variants in snapshots:
         for case, target_env, execution_target in variants:

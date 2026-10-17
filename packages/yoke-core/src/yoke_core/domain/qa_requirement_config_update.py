@@ -4,10 +4,11 @@ Frozen deployment-run rows and historical ``qa_runs`` stay immutable. An
 in-place ``method_config`` change records a revision marker; a later green
 satisfies only when it recorded that live executable config at run start.
 
-Two fields need more than a validated write and live in sibling modules:
+Several fields need more than a validated write and live in sibling modules:
 ``target_env`` resolves an environment name into an immutable endpoint
-snapshot, and ``workflow_transition_id`` revalidates the lifecycle binding
-exactly as a fresh attachment would.
+snapshot, ``workflow_transition_id`` revalidates the lifecycle binding
+exactly as a fresh attachment would, and ``starting_state`` rewrites its three
+agreeing columns only while nothing has run the case.
 """
 
 from __future__ import annotations
@@ -32,6 +33,11 @@ from yoke_core.domain.qa_requirement_transition_update import (
 )
 from yoke_core.domain.qa_requirement_method_config_update import (
     _prepare_method_config,
+)
+from yoke_core.domain.qa_requirement_starting_state_update import (
+    STARTING_STATE_FIELD,
+    prepare_starting_state,
+    write_starting_state,
 )
 from yoke_core.domain.qa_requirement_wake_path_update import (
     WAKE_FIELDS,
@@ -68,6 +74,7 @@ UPDATABLE_REQUIREMENT_FIELDS: tuple[str, ...] = (
     "workflow_transition_id",
     METHOD_CONFIG_FIELD,
     *WAKE_FIELDS,
+    STARTING_STATE_FIELD,
 )
 
 
@@ -210,6 +217,19 @@ def apply_requirement_update(
                 field=field,
                 jsonpath="$.payload.value",
             )
+    admitted_copies: tuple[int, ...] = ()
+    if field == STARTING_STATE_FIELD:
+        value, admitted_copies, code, error = prepare_starting_state(
+            conn, int(req_id), value
+        )
+        if error:
+            return _fail(
+                code=code,
+                message=error,
+                req_id=req_id,
+                field=field,
+                jsonpath="$.payload.value",
+            )
     if field == "workflow_transition_id":
         prepared_transition, error = _prepare_workflow_transition(conn, existing, value)
         if error:
@@ -223,8 +243,7 @@ def apply_requirement_update(
         value = prepared_transition
     # Reach this amendment's in-flight admitted copies or refuse by name,
     # before either row is written.
-    admitted_copies: tuple[int, ...] = ()
-    if not existing["deployment_run_id"]:
+    if not existing["deployment_run_id"] and field != STARTING_STATE_FIELD:
         reached, refusal = reconcile_admitted_copies(
             conn, source_requirement_id=int(req_id), field=field, value=value
         )
@@ -267,6 +286,8 @@ def apply_requirement_update(
             {"execution_target_json": target_json, "execution_target_digest": digest},
         )
         value = name
+    elif field == STARTING_STATE_FIELD:
+        write_starting_state(conn, (int(req_id), *admitted_copies), value)
     else:
         conn.execute(
             f"UPDATE qa_requirements SET {field} = {marker} WHERE id = {marker}",

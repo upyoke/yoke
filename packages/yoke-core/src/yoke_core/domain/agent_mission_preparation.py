@@ -14,6 +14,7 @@ from yoke_contracts.machine_qa_failures import (
 )
 from yoke_contracts.qa_mission_scratch import mission_scratch_path
 from yoke_harness.test_machine_temp_state import require_mission_disk_space
+from yoke_core.domain.machine_qa_phase_heartbeat import heartbeat_during
 from yoke_core.domain.machine_qa_result_safety import redact_machine_qa_value
 from yoke_core.domain.machine_qa_submission_artifacts import ensure_secret_free_result
 
@@ -80,7 +81,8 @@ def prepare_mission(
         if baseline_name:
             phase = "baseline"
             outcome["state"] = "started"
-            baseline = execution.reach_baseline(baseline_name)
+            with heartbeat_during("mission_baseline", progress_callback):
+                baseline = execution.reach_baseline(baseline_name)
             outcome["receipt"] = {
                 "baseline": baseline.name,
                 "ok": baseline.ok,

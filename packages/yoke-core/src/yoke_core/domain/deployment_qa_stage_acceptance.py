@@ -33,9 +33,9 @@ from yoke_core.domain.deployment_qa_acceptance_reads import (
 
 def latest_verdict(conn: Any, requirement_id: int) -> str:
     """The newest recorded verdict for one requirement (``""`` when none)."""
-    from yoke_core.domain.qa_latest_execution import latest_executions
+    from yoke_core.domain.qa_latest_execution import latest_verdict_executions
 
-    row = latest_executions(conn, [requirement_id]).get(int(requirement_id))
+    row = latest_verdict_executions(conn, [requirement_id]).get(int(requirement_id))
     if row is None:
         return ""
     return str(row["verdict"] or "")

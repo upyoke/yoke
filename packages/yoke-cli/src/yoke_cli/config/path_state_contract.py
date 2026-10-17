@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Mapping
 
 from yoke_contracts.harness_cli_manifest import harness_cli_executables
@@ -36,11 +36,15 @@ class PathStateContract:
     harness_clis: tuple[str, ...]
     tool_paths: tuple[str, ...]
     yoke_bin: str
+    posix_paths: bool = False
 
     def __post_init__(self) -> None:
-        expected = tuple(str(Path(self.tool_bin_dir) / tool) for tool in self.tools)
+        path_type = PurePosixPath if self.posix_paths else Path
+        expected = tuple(
+            str(path_type(self.tool_bin_dir) / tool) for tool in self.tools
+        )
         if self.tool_paths != expected or self.yoke_bin != str(
-            Path(self.tool_bin_dir) / "yoke"
+            path_type(self.tool_bin_dir) / "yoke"
         ):
             raise ValueError("PATH contract tool paths differ from product authority")
         if self.harness_clis != HARNESS_CLIS:
@@ -122,8 +126,10 @@ def resolve_path_state_contract(
     home: Path | None = None,
 ) -> PathStateContract:
     environ = dict(os.environ if env is None else env)
-    home_path = home or Path(environ.get("HOME") or str(Path.home()))
+    requested_home = environ.get("HOME") or str(Path.home())
+    home_path = home or Path(requested_home)
     environ["HOME"] = str(home_path)
+
     shell = current_shell(environ)
     bindir = tool_bin_dir(environ)
     ssh_startup = default_ssh_startup_file(shell, home_path)
@@ -134,13 +140,16 @@ def resolve_path_state_contract(
         tool_bin_dir=bindir,
         startup_file=str(default_startup_file(shell, home_path)),
         ssh_startup_file=str(ssh_startup) if ssh_startup is not None else None,
-        supported_startup_files=tuple(map(str, supported_startup_files(home_path))),
+        supported_startup_files=tuple(
+            str(path) for path in supported_startup_files(home_path)
+        ),
         managed_begin=MANAGED_BEGIN,
         managed_end=MANAGED_END,
         tools=TOOLS,
         harness_clis=HARNESS_CLIS,
         tool_paths=tuple(str(Path(bindir) / tool) for tool in TOOLS),
         yoke_bin=str(Path(bindir) / "yoke"),
+        posix_paths=False,
     )
 
 

@@ -39,7 +39,9 @@ Safari writes its cookie store when it quits. macOS capture and reset first ask
 a running Safari to quit and wait for it to exit
 (`yoke_harness.ssh_mac_sign_in_apps`); they never force-quit it, and refuse
 `test_machine_sign_in_app_quit_not_proved` before copying or clearing when it
-stays open.
+stays open. Only pgrep's "no match" exit means Safari is not running; any other
+exit, such as an SSH failure, refuses `test_machine_sign_in_app_probe_failed`
+with the probe's exit code, stderr and recovery.
 The archive is private fixture material, not a QA artifact. Whole-home content,
 CLI liveness, persistent OS grants and the actual visible desktop are separate
 proofs: a passing one cannot establish the others.
@@ -128,7 +130,14 @@ Only a diagnosed authentication failure or an unmet baseline setting calls for
 repairing that state; a generic native failure does not establish a login problem.
 
 A reset or capture receipt names what failed. Each check row's `name` and `ok`
-belong to the operation, never to nested evidence. When the server still
+belong to the operation, never to nested evidence. A failed macOS reset keeps
+the first error code: a later failure, such as removing the uploaded reset
+program, never replaces it. Its `failed_calls` evidence lists every failed call
+(`preclean`, `upload`, `mode`, `reset`, `cleanup`) with its exit code and
+bounded stderr, or the exception type and message. Exit 124 is the runner's own
+SSH failure (timed out or could not start), reported as
+`test_mac_reset_transport_failed`; the host may be fine, so check the
+executing machine's SSH access before repairing the host. When the server still
 refuses a receipt, `test_machine_operation_submit_failed` repeats the host's
 own error code, reason and recovery, because the refused receipt is not
 recorded anywhere else.

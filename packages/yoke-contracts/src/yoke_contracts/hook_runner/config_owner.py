@@ -23,7 +23,6 @@ CURSOR_NATIVE_RUNNER_EVENTS: tuple[tuple[str, str], ...] = (
     ("sessionEnd", "SessionEnd"),
     ("beforeSubmitPrompt", "UserPromptSubmit"),
     ("beforeShellExecution", "PreToolUse"),
-    ("afterShellExecution", "PostToolUse"),
     ("preToolUse", "PreToolUse"),
     ("postToolUse", "PostToolUse"),
     ("postToolUseFailure", "PostToolUseFailure"),
@@ -33,11 +32,11 @@ CURSOR_COMPATIBILITY_RUNNER_ALIASES = {"PermissionRequest": "PreToolUse"}
 
 # Native Cursor events whose allow-time JSON reply actually reaches the
 # model (Cursor's own hooks documentation advertises ``additional_context``
-# on ``sessionStart`` and ``postToolUse`` only). ``afterShellExecution`` is
-# an audit-only Shell event with no model-visible reply channel even though
-# it canonicalizes to the same runner ``PostToolUse`` event as
-# ``postToolUse`` above — a caller gating on the canonical name alone
-# cannot tell the two apart.
+# on ``sessionStart`` and ``postToolUse`` only). ``postToolUse`` fires for
+# Shell too, and its reply reaches the model there (measured on
+# cursor-agent 2026.10.16-e3cb207), so Shell completions ride it rather than
+# ``afterShellExecution``: that audit-only event has no model-visible reply
+# channel, and wiring both would run the PostToolUse chain twice per command.
 CURSOR_MODEL_CONTEXT_NATIVE_EVENTS: frozenset[str] = frozenset(
     {"sessionStart", "postToolUse"}
 )
@@ -47,7 +46,7 @@ CURSOR_MODEL_CONTEXT_NATIVE_EVENTS: frozenset[str] = frozenset(
 # invocation is a genuine duplicate of the other. Tool-shaped events are
 # absent on purpose: a workspace carrying both configs routes every tool
 # call through the imported Claude hooks alone, and Cursor's own
-# beforeShellExecution / afterShellExecution / preToolUse / postToolUse
+# beforeShellExecution / preToolUse / postToolUse
 # never fire there. Treating an imported tool hook as a duplicate would
 # therefore discard the only invocation the tool call produces, silently
 # disabling every guard, telemetry write, heartbeat, and message

@@ -91,7 +91,6 @@ AUTHORITY_RELEASE_MACHINERY = (
         "yoke_cli.config.credentialed_git_command:remote_url",
         "yoke_cli.config.github_git_credential_document:_default_machine_home",
         "yoke_cli.config.github_git_credential_document:machine_secrets_dir",
-        "yoke_cli.config.github_git_credential_file:_assert_secure_parent",
         "yoke_cli.config.github_git_credential_file:_assert_stable_lock",
         "yoke_cli.config.github_git_credential_file:exclusive_lock",
         "yoke_cli.config.github_git_credential_file:lock_path",

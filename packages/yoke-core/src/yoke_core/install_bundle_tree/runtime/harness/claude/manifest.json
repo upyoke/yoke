@@ -151,7 +151,16 @@
     "timer_wake": "supported",
     "timer_wake_mechanism": "ScheduleWakeup",
     "verified_on_surface": "claude-cli",
-    "evidence": "Monitor and ScheduleWakeup are first-class model-facing tools. Every stdout line a Monitor filter matches resumes the turn, which is what the main-session long-command rule is built on."
+    "evidence": "Monitor and ScheduleWakeup are first-class model-facing tools. Every stdout line a Monitor filter matches resumes the turn, which is what the main-session long-command rule is built on. A Monitor ends at its timeout_ms deadline (default 5 minutes, capped at 30) with one expiry notice and its watcher killed; re-arming the same tail then continues the watch.",
+    "idle_wake_subscription_limit_seconds": 1800,
+    "idle_wake_deadline_parameter": "timeout_ms"
+  },
+  "parallel_subagents": {
+    "source": "yoke_contracts.harness_subagent_capability.HARNESS_SUBAGENT_CAPABILITIES",
+    "parallel_subagents": "supported",
+    "mechanism": "Agent",
+    "verified_on_surface": "claude-cli",
+    "evidence": "Several Agent tool calls sent in one message run concurrently, and each sub-agent's completion arrives as its own notification, so the parent can act on one result while others still run."
   },
   "turn_record": {
     "source": "yoke_contracts.harness_turn_record_capability.HARNESS_TURN_RECORD_CAPABILITIES",

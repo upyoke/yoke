@@ -26,6 +26,7 @@ from yoke_cli.config.status_machine_registry import attach_machine_registry
 from yoke_cli.config.status_surface_policy import attach_live_marks
 from yoke_contracts.engine_version import ENGINE_DISTRIBUTION_NAME
 from yoke_contracts.install_binding import distribution_version_for_module
+from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_contracts.machine_config import schema as contract
 
 REQUIRED_IMPORTS = (
@@ -111,7 +112,7 @@ def build_status(
     issues.extend(server.pop("issues"))
     env = ambient_env_status()
     ok = not any(issue["severity"] == "error" for issue in issues)
-    owner_only = selected_path.is_file() and not (selected_path.stat().st_mode & 0o077)
+    owner_only = is_owner_private_file(selected_path)
     report = _report(ok, selected_path, selected_repo, issues)
     report.update(
         {

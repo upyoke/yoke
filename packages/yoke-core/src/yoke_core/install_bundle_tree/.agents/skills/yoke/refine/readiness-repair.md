@@ -107,6 +107,10 @@ Choose the blocker's pinned status (normally status:done) for delivery/closeout
 wait; fact:merged for trunk code; fact:deployed:ENV only when live environment
 proof is needed before dependent completion. Rerun readiness after attestation.
 No edge is authored simply because two path strings match.
+A `dependency_cycle` refusal means the upstream already waits on this item
+through the edges it names: nothing was written. Keep the order the work
+really needs by making one named edge coordination_only, or send the loop to
+`yoke say --steering`; never re-add the refused edge.
 
 ## Tentative and symlink coverage
 

@@ -2,10 +2,8 @@
 
 A steering session needs to notice change: an item moved status, a
 session appeared or ended, an envelope is sitting unread. None of that
-has a streaming surface, so the probe polls and compares. This module
-owns the *observation* — registered reads and the normalized
-rows they produce. Comparison lives in
-:mod:`yoke_core.domain.fleet_delta_lines`.
+has a streaming surface, so the probe polls and compares. This module owns
+the *observation*; comparison lives in :mod:`yoke_core.domain.fleet_delta_lines`.
 
 Every read is a registered function id dispatched through the client
 transport, so a local-Postgres universe and an HTTPS control plane both
@@ -27,6 +25,14 @@ SESSIONS_FUNCTION = "sessions.list"
 FRONTIER_FUNCTION = "charge.schedule"
 ENVELOPES_FUNCTION = "session_control.message.list"
 STEERING_REPORT_FUNCTION = "steering.report.get"
+
+#: Every live session with claims, activity, park reason and process facts;
+#: the routine summary page omits them all and so shows no holders.
+SESSIONS_PAYLOAD = {"open": True, "detail": "full"}
+
+PROCESS_RUNNING = "running"
+PROCESS_EXITED = "exited"
+PROCESS_UNKNOWN = "unknown"
 
 #: Envelope rows fetched per pass. Starvation lives at the recent end of
 #: the list, so a bounded page is the whole working set.
@@ -61,6 +67,8 @@ class SessionRow:
     last_tool_call_at: datetime | None = None
     claimed_items: tuple[str, ...] = ()
     landing_waits: tuple[str, ...] = ()
+    quiet_reason: str = ""  # the park reason, or empty
+    process: str = PROCESS_UNKNOWN  # see :func:`process_state`
 
     @property
     def lifecycle(self) -> str:
@@ -124,6 +132,8 @@ class FleetSnapshot:
     items: Mapping[str, ItemRow] = field(default_factory=dict)
     envelopes: Mapping[tuple[str, str], EnvelopeRow] = field(default_factory=dict)
     landing_waits: frozenset[str] = frozenset()
+    #: Served dependency deadlock rows, keyed by their sorted member refs.
+    deadlocks: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
 
 def _result(response: Any, function_id: str) -> dict[str, Any]:
@@ -135,6 +145,21 @@ def _result(response: Any, function_id: str) -> dict[str, Any]:
         )
         raise FleetReadError(function_id, detail)
     return dict(getattr(response, "result", None) or {})
+
+
+def process_state(raw: Mapping[str, Any]) -> str:
+    """``running``/``exited``/``resuming``, or ``unknown`` from an older roster.
+
+    ``native_process`` omits a clean exit that a declared wait explains;
+    ``native_process_exited_at`` carries every unsuperseded exit.
+    """
+    projected = raw.get("native_process")
+    if isinstance(projected, Mapping):
+        state = str(projected.get("state") or "")
+        return state if state == "resuming" else PROCESS_EXITED
+    if "native_process_exited_at" not in raw:
+        return PROCESS_UNKNOWN
+    return PROCESS_EXITED if raw["native_process_exited_at"] else PROCESS_RUNNING
 
 
 def session_rows(result: Mapping[str, Any]) -> dict[str, SessionRow]:
@@ -150,11 +175,12 @@ def session_rows(result: Mapping[str, Any]) -> dict[str, SessionRow]:
         session_id = str(raw.get("session_id") or "")
         if not session_id:
             continue
-        claims = tuple(
-            str(claim.get("target") or claim.get("public_ref") or "")
+        claims = [
+            (ref, claim.get("item_awaiting_landing") is True)
             for claim in raw.get("claims") or []
             if isinstance(claim, Mapping) and claim.get("target_kind") == "item"
-        )
+            if (ref := str(claim.get("target") or claim.get("public_ref") or ""))
+        ]
         rows[session_id] = SessionRow(
             session_id=session_id,
             executor_surface=str(raw.get("executor_surface") or "unknown"),
@@ -164,15 +190,10 @@ def session_rows(result: Mapping[str, Any]) -> dict[str, SessionRow]:
             terminated=bool(raw.get("terminated_at")),
             activity_at=parse_timestamp(raw.get("activity_at")),
             last_tool_call_at=parse_timestamp(raw.get("last_tool_call_at")),
-            claimed_items=tuple(ref for ref in claims if ref),
-            landing_waits=tuple(
-                str(claim.get("target") or claim.get("public_ref") or "")
-                for claim in raw.get("claims") or []
-                if isinstance(claim, Mapping)
-                and claim.get("target_kind") == "item"
-                and claim.get("item_awaiting_landing") is True
-                and (claim.get("target") or claim.get("public_ref"))
-            ),
+            claimed_items=tuple(ref for ref, _ in claims),
+            landing_waits=tuple(ref for ref, landing in claims if landing),
+            quiet_reason=str(raw.get("quiet_reason") or ""),
+            process=process_state(raw),
         )
     return rows
 
@@ -205,6 +226,15 @@ def item_rows(result: Mapping[str, Any]) -> dict[str, ItemRow]:
                 pickable_since=parse_timestamp(raw.get("pickable_since")),
                 staffing_after_seconds=int(raw.get("staffing_after_seconds") or 0),
             )
+    return rows
+
+
+def deadlock_rows(result: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
+    """Served deadlock rows by member key; a build that serves none has none."""
+    rows: dict[str, Mapping[str, Any]] = {}
+    for raw in result.get("dependency_cycles") or []:
+        if isinstance(raw, Mapping) and raw.get("items"):
+            rows[",".join(sorted(str(ref) for ref in raw["items"]))] = raw
     return rows
 
 
@@ -253,27 +283,26 @@ def read_snapshot(
     """
     sessions: dict[str, SessionRow] = {}
     items: dict[str, ItemRow] = {}
+    deadlocks: dict[str, Mapping[str, Any]] = {}
     resolved_workspace = workspace or str(Path.cwd())
     for project in projects:
         sessions.update(
             session_rows(
                 _result(
-                    call(SESSIONS_FUNCTION, {"project": project}),
+                    call(SESSIONS_FUNCTION, {"project": project, **SESSIONS_PAYLOAD}),
                     SESSIONS_FUNCTION,
                 )
             )
         )
-        items.update(
-            item_rows(
-                _result(
-                    call(
-                        FRONTIER_FUNCTION,
-                        {"project": project, "workspace": resolved_workspace},
-                    ),
-                    FRONTIER_FUNCTION,
-                )
-            )
+        frontier = _result(
+            call(
+                FRONTIER_FUNCTION,
+                {"project": project, "workspace": resolved_workspace},
+            ),
+            FRONTIER_FUNCTION,
         )
+        items.update(item_rows(frontier))
+        deadlocks.update(deadlock_rows(frontier))
     envelopes = envelope_rows(
         _result(
             call(ENVELOPES_FUNCTION, {"limit": ENVELOPE_PAGE}),
@@ -286,6 +315,7 @@ def read_snapshot(
         sessions=sessions,
         items=items,
         envelopes=envelopes,
+        deadlocks=deadlocks,
         landing_waits=frozenset(
             ref for row in sessions.values() for ref in row.landing_waits
         ),
@@ -300,11 +330,17 @@ __all__ = [
     "FleetReadError",
     "FleetSnapshot",
     "ItemRow",
+    "PROCESS_EXITED",
+    "PROCESS_RUNNING",
+    "PROCESS_UNKNOWN",
     "SESSIONS_FUNCTION",
+    "SESSIONS_PAYLOAD",
     "SessionRow",
+    "deadlock_rows",
     "envelope_rows",
     "item_rows",
     "parse_timestamp",
+    "process_state",
     "read_snapshot",
     "session_rows",
 ]

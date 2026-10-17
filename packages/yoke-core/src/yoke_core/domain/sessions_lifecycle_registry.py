@@ -1,22 +1,18 @@
 """Session registration, heartbeat, and mode mutations."""
 
 from __future__ import annotations
-from .session_execution_level_write import refresh_session_execution_level
 
 import json
-from yoke_contracts.timestamps import utc_now
-from .db_helpers import instant_parameter
-
 from typing import Any, Dict, List, Optional
 
 from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 from yoke_contracts.session_model_facts import SessionModelFacts
-from . import db_backend
-from . import sessions_analytics as _sa
-from .session_activity_state import (
-    episode_column_present,
-    native_thread_id_column_present,
-)
+from yoke_contracts.timestamps import utc_now
+
+from . import db_backend, sessions_analytics as _sa
+from .db_helpers import instant_parameter
+from .session_execution_level_write import refresh_session_execution_level
+from .session_activity_state import episode_column_present, native_thread_id_column_present
 from .sessions_analytics import EVENT_HARNESS_SESSION_STARTED, SessionError
 from .session_mode import set_session_mode as set_session_mode
 from .sessions_ended_recovery import session_ended_message
@@ -31,6 +27,7 @@ from .sessions_lifecycle_identity import (
     resolve_reactivation_executor_version,
     resolve_session_actor_id,
     resolve_session_project_id,
+    trusted_native_thread_id,
 )
 from .sessions_lifecycle_reactivation import emit_reactivated_with_released_claims
 from .sessions_started_event import session_started_context
@@ -195,6 +192,7 @@ def register_session(
                 executor_version=executor_version,
                 machine_id=machine_id,
                 native_thread_id=native_thread_id if has_thread_col else None,
+                executor=canonical_executor,
             )
             raise SessionError(
                 "SESSION_EXISTS",
@@ -217,11 +215,14 @@ def register_session(
         )
 
         episode_clause = f", episode_started_at = {p}" if has_episode_col else ""
-        thread_clause = (
-            f", native_thread_id = COALESCE({p}, native_thread_id)"
-            if has_thread_col
-            else ""
-        )
+        if has_thread_col:
+            native_thread_id = trusted_native_thread_id(
+                canonical_executor,
+                session_id,
+                existing["native_thread_id"],
+                native_thread_id,
+            )
+        thread_clause = f", native_thread_id = {p}" if has_thread_col else ""
         model_assignments = ", ".join(f"{column} = {p}" for column in MODEL_COLUMNS)
         # fmt: off
         params: List[Any] = [

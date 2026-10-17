@@ -98,14 +98,23 @@ def _format_monitor_duplicate_reason(
     wake-loop bug.
     """
     prior_id = prior_tool_use_id or "<prior-monitor-id>"
+    from yoke_contracts.harness_wake_capability import (
+        wake_capability_for_mechanism,
+    )
+
+    monitor = wake_capability_for_mechanism("Monitor")
+    limit = (monitor.idle_wake_subscription_limit_seconds if monitor else None) or 0
+    deadline = (
+        f"{monitor.idle_wake_deadline_parameter}={limit * 1000}" if monitor else ""
+    )
     raw_capture = _raw_capture_hint(capture_file)
     body = (
-        "Second Monitor arming against a capture file that has already "
-        "been targeted by Monitor in this session.\n\n"
+        "Second Monitor arming against a capture file whose earlier "
+        "Monitor in this session may still be subscribed.\n\n"
         f"Target capture: {capture_file}\n"
         f"Earlier Monitor: {prior_id}\n\n"
-        "Monitor is fire-once-per-capture for the whole session, not "
-        "just while a Monitor is still armed. Monitor's tool_use "
+        "Monitor is armed once per capture for as long as its subscription "
+        f"can live (at most {limit // 60} minutes). Monitor's tool_use "
         "completes within ~0.3s of setup; the underlying watcher "
         "subprocess keeps following the capture file independently. "
         "Re-arming Monitor against the same capture spawns a fresh "
@@ -115,8 +124,8 @@ def _format_monitor_duplicate_reason(
         "commands. A second Monitor against the same capture (identical "
         "filter, different filter, or a fresh tail -f / watch_tail) is "
         "always a wake-loop re-arm.\n\n"
-        "This rule has NO override — re-arming Monitor against a "
-        "previously-targeted capture has no legitimate use case. The "
+        "This rule has NO override — re-arming a live subscription has no "
+        "legitimate use case. The "
         f"`{MONITOR_DUPLICATE_SUPPRESSION_TOKEN}` token is honoured ONLY "
         "as audit evidence; it does NOT unblock this rule.\n\n"
         "Options:\n"
@@ -127,7 +136,11 @@ def _format_monitor_duplicate_reason(
         "in the meantime — that is fine and encouraged\n"
         f"  3. If the bg command has finished, read `tail -80 {raw_capture}` "
         "once for the post-completion inspection; do not arm another "
-        "Monitor against the progress capture"
+        "Monitor against the progress capture\n"
+        "  4. If the earlier Monitor's expiry notice arrived while the bg "
+        "command still runs, re-arm this same tail once that subscription "
+        f"is {limit // 60} minutes old, and arm with {deadline} so expiry "
+        "and re-arm line up; never relaunch the wrapper"
     )
     verb = "DENIED" if mode == "deny" else "POLLING ANTI-PATTERN"
     if suppressed_attempt:

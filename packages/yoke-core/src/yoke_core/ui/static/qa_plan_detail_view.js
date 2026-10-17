@@ -132,7 +132,8 @@ function renderCases(context, plan, proofs, reload, overlayHost) {
         row.last_result.outcome,
         row.last_result.capture_degraded_reason,
         null,
-        reviewExplanation(row.last_result.review),
+        row.last_result.replacement_graph_error
+          || reviewExplanation(row.last_result.review),
       ));
       const count = evidenceCount(row);
       if (count) {

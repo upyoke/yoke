@@ -89,6 +89,13 @@ sends the named failure and recovery to the covering steering seat. The
 original sender is not notified; the message state is their record. Read
 `yoke messages get MESSAGE-ID` for the receipt and attempts.
 Operator-driven hook delivery keeps its own wait without spending that budget.
+A relay wake whose lease expires before the relay reports anything spends
+nothing either, so an explicit wake survives a relay outage: the peer-hook
+broker gets the first retry, then the relay claims it again. After three such
+expiries the receipt keeps the charge and records the `relay_lease_expired`
+escalation; Fleet shows it as `last attempt failed (relay_lease_expired)`.
+Recover with `yoke session-control session wake SESSION-ID` once the relay
+reports again.
 Detached turns keep their capture current while waiting on a command. If the
 relay contains a native, verified custody death reopens pending wakes held by
 that exact process and retires Fleet's old `native_turn_running` label.
@@ -184,13 +191,19 @@ evaluator/client-wall coverage, are labelled incomparable.
   the item. Beneath each carried item, **Item QA** shows that item's checks
   for this run, its screenshots, its earlier attempts, and its own decisions;
   **Run QA** follows every carried item with the run's own checks and
-  decisions only. Both are drawn the same way: each current check reads
+  decisions, plus each QA plan several carried items share, drawn once and
+  labelled with its sharing items (**Installer campaign · Shared by PREFIX-1,
+  PREFIX-2**). A sharing item's Item QA shows its own checks and a pointer
+  (**shares Installer campaign (28) — see Run QA**), or **0 own checks,
+  shares Installer campaign**. Both are drawn the same way: each current check reads
   **<method> · Passed** (or its actual result) with its status mark, linked to
   its QA case, with the screenshots that check captured, each shown once;
   earlier attempts bound to this run sit behind **Earlier checks**. QA from
   other runs and before merge stays on the item. Removed requirements read
-  **Cancelled** with their reason; removed and no-obligation records contribute
-  no pass count. An item with no QA for this run and no decision shows no Item QA; a run with no run checks and no decision has no Run QA. An item's work
+  **Cancelled** with their reason. Every check counts once: cancelled,
+  superseded and no-obligation records sit only in **Earlier checks** and
+  add no passed, queued or open count. A removed member shows as removed
+  with its cancelled check count, never as open QA. An item with no QA for this run and no decision shows no Item QA; a run with no run checks and no decision has no Run QA. An item's work
   approval — pending with **Reject** and **Approve**, or answered — appears
   only in its Item QA, never under Run QA, with any screenshot of the item's
   current release its checks have not already shown, or a note that none was

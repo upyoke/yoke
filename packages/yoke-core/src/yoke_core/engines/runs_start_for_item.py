@@ -1,19 +1,16 @@
 """Composer: deploy-run setup for a single item, behind one entrypoint.
 
-Wraps the four existing primitives operators were running by hand:
-
-    cmd_resolve_target -> cmd_create_run -> cmd_add_item
-    -> cmd_validate_composition
-
-into one call that returns a structured handle. Stops at validation —
-deploy execution remains a separate operator call into
+Resolves the target, then creates the run with the item enrolled and its
+composition validated in one transaction
+(:func:`~yoke_core.domain.deployment_run_create_write.create_item_run`). Stops at
+validation — deploy execution remains a separate operator call into
 ``yoke_core.domain.deploy_pipeline``. The composer never invokes
 ``deploy_pipeline`` directly so the scope boundary holds.
 
-Every failure returns a structured handle rather than raising, and one
-that failed after the run was created carries the ``run_id`` too, so the
-operator can inspect or clean it up through the existing ``runs``
-commands instead of hunting for what was left behind.
+Every failure returns a structured handle rather than raising. A refused
+creation writes nothing: no run, no membership, and no takeover of an older
+run on the same target. An item a takeover already moved onto the new run is
+the membership asked for, not a duplicate.
 """
 
 from __future__ import annotations
@@ -22,9 +19,10 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id as _ref
-from yoke_core.domain.deployment_runs_crud_mutate import (
-    cmd_add_item,
-    cmd_create_run,
+from yoke_core.domain.deployment_run_ci_tested_source import require_tested_lineage
+from yoke_core.domain.deployment_run_create_write import (
+    CompositionRefused,
+    create_item_run,
 )
 from yoke_core.domain.deployment_run_target_resolution import (
     EnvironmentRegistryMigrationRequired,
@@ -33,7 +31,6 @@ from yoke_core.domain.deployment_run_target_resolution import (
 from yoke_core.domain.deployment_run_lineage_rebind import (
     PREPARE_NAMES_NO_LINEAGE,
 )
-from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
 from yoke_core.domain.environment_delivery_record import STAGE_ENV_NAME
 from yoke_core.domain.deployment_item_flow_resolution import (
     describe_missing_flow as _describe_missing_flow,
@@ -50,7 +47,6 @@ from yoke_core.engines.runs_release_lineage import (
 PHASE_RESOLVE = "resolve-target"
 PHASE_VALIDATE_LINEAGE = "validate-release-lineage"
 PHASE_CREATE = "create-run"
-PHASE_ADD_ITEM = "add-item"
 PHASE_VALIDATE = "validate-composition"
 
 
@@ -59,10 +55,8 @@ class StartForItemResult:
     """Structured handle returned by :func:`start_for_item`.
 
     ``ok=True`` means setup succeeded through ``validate-composition``;
-    the caller may now invoke ``deploy_pipeline`` with ``run_id``. On
-    failure, ``run_id`` may be populated when the failure occurred AFTER
-    the run was created — the operator inspects it via existing ``runs``
-    commands.
+    the caller may now invoke ``deploy_pipeline`` with ``run_id``. A failure
+    created nothing, so it carries no ``run_id``.
     """
 
     ok: bool
@@ -233,89 +227,49 @@ def start_for_item(
                 error_phase=PHASE_VALIDATE_LINEAGE,
             )
 
+    handle = {
+        "project": resolved_project,
+        "flow": resolved_flow,
+        "target_tier": target_tier,
+        "target_environment_id": target_environment_id,
+        "target_environment_name": environment_name,
+        "item_ids": [item_id],
+    }
     try:
-        run_id = cmd_create_run(
+        require_tested_lineage(
+            resolved_project, resolved_flow, environment, release_lineage
+        )
+        created, validation_message = create_item_run(
             resolved_project,
             resolved_flow,
+            item_id,
             environment=environment,
             release_lineage=release_lineage,
             created_by=created_by,
             allow_pending_pair_merges=prepare,
             session_id=session_id,
         )
+    except CompositionRefused as exc:
+        return StartForItemResult(
+            **handle,
+            ok=False,
+            validation_message=str(exc),
+            error=f"validate-composition failed: {exc}",
+            error_phase=PHASE_VALIDATE,
+        )
     except Exception as exc:
         return StartForItemResult(
+            **handle,
             ok=False,
-            project=resolved_project,
-            flow=resolved_flow,
-            target_tier=target_tier,
-            target_environment_id=target_environment_id,
-            target_environment_name=environment_name,
-            item_ids=[item_id],
             error=f"create-run failed: {exc}",
+            error_code=getattr(exc, "code", None),
             error_phase=PHASE_CREATE,
         )
-
-    try:
-        cmd_add_item(run_id, item_id)
-    except Exception as exc:
-        return StartForItemResult(
-            ok=False,
-            project=resolved_project,
-            flow=resolved_flow,
-            target_tier=target_tier,
-            target_environment_id=target_environment_id,
-            target_environment_name=environment_name,
-            run_id=run_id,
-            item_ids=[item_id],
-            error=f"add-item failed: {exc}",
-            error_phase=PHASE_ADD_ITEM,
-        )
-
-    try:
-        ok, msg = cmd_validate_composition(
-            run_id,
-            allow_pending_pair_merges=prepare,
-        )
-    except Exception as exc:
-        return StartForItemResult(
-            ok=False,
-            project=resolved_project,
-            flow=resolved_flow,
-            target_tier=target_tier,
-            target_environment_id=target_environment_id,
-            target_environment_name=environment_name,
-            run_id=run_id,
-            item_ids=[item_id],
-            error=f"validate-composition raised: {exc}",
-            error_phase=PHASE_VALIDATE,
-        )
-
-    if not ok:
-        return StartForItemResult(
-            ok=False,
-            project=resolved_project,
-            flow=resolved_flow,
-            target_tier=target_tier,
-            target_environment_id=target_environment_id,
-            target_environment_name=environment_name,
-            run_id=run_id,
-            item_ids=[item_id],
-            validation_message=msg,
-            error=f"validate-composition failed: {msg}",
-            error_phase=PHASE_VALIDATE,
-        )
-
     return StartForItemResult(
+        **handle,
         ok=True,
-        project=resolved_project,
-        flow=resolved_flow,
-        target_tier=target_tier,
-        target_environment_id=target_environment_id,
-        target_environment_name=environment_name,
-        run_id=run_id,
-        item_ids=[item_id],
-        validation_message=msg,
+        run_id=created.run_id,
+        validation_message=validation_message,
     )
 
 
@@ -323,7 +277,6 @@ __all__ = [
     "PHASE_RESOLVE",
     "PHASE_VALIDATE_LINEAGE",
     "PHASE_CREATE",
-    "PHASE_ADD_ITEM",
     "PHASE_VALIDATE",
     "StartForItemResult",
     "start_for_item",

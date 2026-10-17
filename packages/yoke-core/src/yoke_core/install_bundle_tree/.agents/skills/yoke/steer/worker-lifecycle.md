@@ -8,7 +8,9 @@ Intentional external wait stamps parked with concrete reason. Reads, heartbeat,
 ack, failed wake and tool calls do not unpark. Accepted UserPromptSubmit clears
 prior park; later re-park advances turn_posture_at so a delayed earlier prompt
 cannot clear it. Working-mode stamp resumes by choice. Verify mode/reason,
-then resume only after blocker clears. Parked/in-flight/landing quiet is not
+then resume only after blocker clears; a dependency wait clears with the
+blocker's dependency-satisfied notice, so do not relay it by hand.
+Parked/in-flight/landing quiet is not
 grounds to terminate or restaff. Active work claim protects its holder.
 
 Headless process exits between turns normally: running→message it;
@@ -74,7 +76,9 @@ yoke charge schedule --project {_project} --item PREFIX-N --json
 
 One worker owns exactly one item through returned entrypoint/remaining legs.
 Never convert/re-file to fit Dash. Live stage's half-open binding owns next leg.
-Worker cannot create deployment run; steering batches after merge boundary.
+No worker creates or takes over a deployment run while a seat covers the
+project, launched by steering or not; steering batches after merge boundary.
+Takeover by any other session refuses `takeover_reserved_for_steering`.
 
 ## 5. Workers self-end after their DONE report — only terminal
 

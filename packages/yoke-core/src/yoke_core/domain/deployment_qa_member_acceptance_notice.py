@@ -13,11 +13,15 @@ obligations were still open closes the same way once a run on that
 environment accepts them.
 
 The satisfied path reuses the existing merge close-out. A refused close-out
-uses the existing member wake with its reason and recovery. A failed send
-is isolated so it cannot undo the acceptance that just committed.
+uses the existing member wake with its reason and recovery, and is retried
+when the record blocking it settles
+(:mod:`deployment_member_close_out_retry`). A failed send is isolated so it
+cannot undo the acceptance that just committed.
 """
 
 from __future__ import annotations
+
+import hashlib
 
 from yoke_contracts.timestamps import parse_instant, utc_now
 
@@ -46,9 +50,19 @@ ITEM_QA_ACCEPTED_KEY_PREFIX = "release-wait-item-qa-accepted:"
 _SEND_SAVEPOINT = "_yoke_item_qa_accepted_notice"
 
 
-def item_qa_accepted_idempotency_key(item_id: int, run_id: str) -> str:
-    """One notice per member and the run that accepted its item-scoped QA."""
-    return f"{ITEM_QA_ACCEPTED_KEY_PREFIX}{item_id}:{run_id}"
+def item_qa_accepted_idempotency_key(
+    item_id: int, run_id: str, close_out_failure: str = ""
+) -> str:
+    """One notice per member, accepting run, and distinct close-out refusal.
+
+    A retried close-out that refuses for a new reason tells the owner again;
+    the same refusal repeated does not.
+    """
+    key = f"{ITEM_QA_ACCEPTED_KEY_PREFIX}{item_id}:{run_id}"
+    if close_out_failure:
+        digest = hashlib.sha256(close_out_failure.encode()).hexdigest()[:12]
+        key += f":refused-{digest}"
+    return key
 
 
 def item_qa_accepted_message(
@@ -193,7 +207,7 @@ def notify_item_qa_accepted(
                 close_out_failure=close_out_failure,
             ),
             idempotency_key=item_qa_accepted_idempotency_key(
-                int(member["item_id"]), str(run_id)
+                int(member["item_id"]), str(run_id), close_out_failure
             ),
             now=stamp,
         )

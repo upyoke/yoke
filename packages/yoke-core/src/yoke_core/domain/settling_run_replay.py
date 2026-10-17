@@ -42,6 +42,11 @@ def settlement_in_progress() -> Iterator[None]:
         _settling.reset(token)
 
 
+def settlement_active() -> bool:
+    """Whether a run's settlement owns member completion on this call."""
+    return _settling.get()
+
+
 def settling_runs_for_item(conn: Any, *, item_id: int) -> list[str]:
     """Runs that are settling and carry this item as a final member."""
     if not all(
@@ -91,6 +96,7 @@ def replay_settling_runs_for_item(conn: Any, *, item_id: int) -> None:
 
 __all__ = [
     "replay_settling_runs_for_item",
+    "settlement_active",
     "settlement_in_progress",
     "settling_runs_for_item",
 ]

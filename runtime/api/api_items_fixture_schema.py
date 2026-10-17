@@ -66,6 +66,7 @@ CREATE TABLE deployment_runs (
     composition_frozen_at TIMESTAMPTZ, requirement_snapshot TEXT,
     driver_attachment TEXT, settling_at TIMESTAMPTZ, membership_removals TEXT,
     superseded_by_run_id TEXT, supersedes_run_id TEXT,
+    created_by_session_id TEXT,
     create_idempotency_key TEXT, create_request TEXT
 );
 CREATE TABLE deployment_run_items (

@@ -13,7 +13,7 @@ from yoke_core.api.observability_debug import (
     parse_debug_campaign,
 )
 from yoke_core.domain import qa_start_bound_authority as authority
-from yoke_core.domain.qa_gate_summary import _format_run
+from yoke_core.domain.qa_gate_summary_rows import format_run
 from yoke_core.domain.qa_latest_execution import (
     latest_execution_id_sql,
     latest_executions,
@@ -54,7 +54,7 @@ def test_actual_start_order_and_wire_summary_are_timezone_invariant(test_db, zon
     selected = latest_executions(test_db, [requirement["id"]])[requirement["id"]]
     assert selected["id"] == newest["id"]
     assert selected["started_at"] == epoch + timedelta(microseconds=1)
-    assert _format_run(selected)["created_at"] == format_instant(epoch)
+    assert format_run(selected)["created_at"] == format_instant(epoch)
     sql = latest_execution_id_sql("%s")
     assert test_db.execute(sql, (requirement["id"],)).fetchone()[0] == newest["id"]
     equal = insert_qa_run(

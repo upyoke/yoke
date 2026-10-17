@@ -2,10 +2,10 @@
 
 Input _task_ids contains local task numbers; _epic_ref is always the parent.
 One member uses [engineer-tester-dispatch.md](engineer-tester-dispatch.md), then
-[engineer-tester-closeout.md](engineer-tester-closeout.md). For _batch_size > 1,
+[engineer-tester-closeout.md](engineer-tester-closeout.md). For several _task_ids,
 use [dispatch-context-dispatch.md](dispatch-context-dispatch.md) and
-[dispatch-context-prompts.md](dispatch-context-prompts.md): all Engineers in one
-batch, gate each return, then all eligible Testers in one batch.
+[dispatch-context-prompts.md](dispatch-context-prompts.md): Engineers dispatch
+together, and each return runs its own gates, Tester and lane advance at once.
 
 Hydrate each task's _worktree_branch_${_task_id}, _worktree_path_${_task_id},
 TASK_BASELINE_${_task_id}, ATTEMPT_BASELINE_${_task_id}, _attempt_${_task_id},

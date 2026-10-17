@@ -65,7 +65,9 @@ def _claimed_root(
         )
     live = tuple(
         dict.fromkeys(
-            Path(path).resolve() for path in lookup.worktrees if Path(path).is_dir()
+            verification_tree_binding.local_worktree_path(path).resolve()
+            for path in lookup.worktrees
+            if verification_tree_binding.local_worktree_path(path).is_dir()
         )
     )
     if not live:
@@ -79,7 +81,9 @@ def _claimed_root(
     if not source_lanes:
         return _mapped_main_source_root()
     if selected_lane is not None:
-        selected = Path(selected_lane).expanduser().resolve()
+        selected = verification_tree_binding.local_worktree_path(
+            Path(selected_lane).expanduser()
+        ).resolve()
         if selected in source_lanes:
             return selected, None, None
         return (
@@ -190,7 +194,11 @@ def _claimed_target_signature(command: Sequence[str]) -> str | None:
     lookup = verification_tree_binding.resolve_claim_worktrees(session_id)
     if not lookup.reachable:
         return None
-    claimed = {Path(path).resolve() for path in lookup.worktrees if Path(path).is_dir()}
+    claimed = {
+        verification_tree_binding.local_worktree_path(path).resolve()
+        for path in lookup.worktrees
+        if verification_tree_binding.local_worktree_path(path).is_dir()
+    }
     if target not in claimed:
         return None
     return "claimed-target-python-module:install-bundle-sync"

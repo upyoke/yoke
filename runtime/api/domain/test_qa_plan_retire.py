@@ -291,3 +291,34 @@ def test_registration_declares_floor_and_seat_guardrail() -> None:
     kwargs = registry.calls["qa.plan.retire"]
     assert kwargs["minimum_serving_version"] == "next-release"
     assert "steering_seat_required" in kwargs["guardrails"]
+
+
+def test_plan_get_names_a_broken_correction_history(test_db) -> None:
+    """A broken correction history is named on the case, not a failed read."""
+    from runtime.api.domain.test_qa_plan_effective_case_union import _replacement
+    from yoke_core.domain.handlers.qa_catalog_reads import handle_plan_get
+
+    plan_id, old_id, successor = _replacement(test_db)
+    test_db.execute(
+        "UPDATE qa_requirements SET replacement_requirement_id=%s WHERE id=%s",
+        (old_id, successor),
+    )
+    test_db.commit()
+    with _handler_uses(test_db):
+        outcome = handle_plan_get(
+            FunctionCallRequest(
+                function="qa.plan.get",
+                actor=ActorContext(actor_id="2", session_id="reader"),
+                target=TargetRef(kind="global"),
+                payload={"project": "yoke", "plan_id": plan_id, "detail": "full"},
+            )
+        )
+
+    assert outcome.primary_success is True
+    proofs = [
+        proof
+        for case in outcome.result_payload["plan"]["cases"]
+        for proof in case["proofs"]
+    ]
+    assert {proof["outcome"] for proof in proofs} == {"replacement_graph_invalid"}
+    assert "correction cycle" in proofs[0]["replacement_graph_error"]

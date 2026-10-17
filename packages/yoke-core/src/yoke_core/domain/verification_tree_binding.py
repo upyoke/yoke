@@ -33,12 +33,32 @@ class TreeIdentity:
         return {"root": self.root, "head_sha": self.head_sha}
 
 
+def _local_worktree_text(path: str, platform: str) -> str:
+    """Translate a machine-local WSL mount path for native Windows callers."""
+    normalized = str(path).strip().replace("\\", "/")
+    parts = normalized.split("/")
+    if (
+        platform == "nt"
+        and len(parts) >= 4
+        and parts[:2] == ["", "mnt"]
+        and len(parts[2]) == 1
+        and parts[2].isalpha()
+    ):
+        return f"{parts[2].upper()}:/{'/'.join(parts[3:])}"
+    return str(path)
+
+
+def local_worktree_path(path: str | Path) -> Path:
+    """Resolve a recorded machine path in the caller's native path syntax."""
+    return Path(_local_worktree_text(str(path), os.name))
+
+
 def _is_inside(target: str, root: str) -> bool:
     if not target or not root:
         return False
     try:
-        resolved_target = str(Path(target).resolve())
-        resolved_root = str(Path(root).resolve())
+        resolved_target = str(local_worktree_path(target).resolve())
+        resolved_root = str(local_worktree_path(root).resolve())
     except OSError:
         return False
     if resolved_target == resolved_root:
@@ -98,7 +118,11 @@ def evaluate_tree_binding(
     for worktree in worktrees:
         if _is_inside(tree, worktree):
             return None
-    live = [path for path in worktrees if Path(path).is_dir()]
+    live = [
+        str(local_worktree_path(path))
+        for path in worktrees
+        if local_worktree_path(path).is_dir()
+    ]
     if not live:
         return MISSING_LANE_REFUSAL_TEMPLATE.format(
             surface=surface,

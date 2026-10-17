@@ -42,6 +42,7 @@ SESSION_LIST_FIELDS = (
     "workspace",
     "offered_at",
     "native_process",
+    "native_process_exited_at",
     "ended_at",
     "terminated_at",
     "terminated_by_actor_id",

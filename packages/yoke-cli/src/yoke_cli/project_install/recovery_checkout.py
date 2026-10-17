@@ -25,6 +25,21 @@ def state(path: Path) -> str:
     return sha256_text(path.read_bytes().decode("utf-8"))
 
 
+def text_digests(content: str) -> set[str]:
+    """Return exact and CRLF-normalized hashes for installer recovery proof."""
+    return {
+        sha256_text(content),
+        sha256_text(content.replace("\r\n", "\n")),
+    }
+
+
+def states(path: Path) -> set[str]:
+    """Return every safe state that proves the current installer-owned path."""
+    if path.is_symlink() or not path.exists():
+        return {state(path)}
+    return text_digests(path.read_bytes().decode("utf-8"))
+
+
 def plan(
     root: Path, bundle: dict[str, Any], prior: dict[str, Any], preflight: dict[str, Any]
 ) -> dict[str, list[str]]:

@@ -244,6 +244,8 @@ Python service clients are not an agent recipe.
 
 **Enforcement:** `advance.preflight.hard_blocks` exposes the shared `evaluate_blockers` evaluator through `yoke advance preflight hard-blocks PREFIX-N --gate-point activation`. It evaluates on the selected control plane over HTTPS or local Postgres. `implement` / `conduct` / `usher` share it. The authoritative status write runs it for listed `check_hard_blocks` at `activation`, and on every write to `done` at `closure` (not skippable by force or QA bypass). `items.block` refuses a wait a live activation/integration/closure edge already carries — use `yoke items dependency add`. The frontier uses `evaluate_batch_gates()` for activation.
 
+**Loop refusal:** `items.dependency.add` and `items.dependency.update` (when it changes the gate or satisfaction) refuse with `dependency_cycle` a write that would leave unsatisfied activation/integration/closure edges among live items in a loop, because no item in it could move first. The refusal names every edge in the loop with its id, the items it would strand, and the recovery: make one edge `coordination_only` (`yoke items dependency update DEPENDENT BLOCKING --match-gate-point GATE --gate-point coordination_only --rationale TEXT`), or route the ordering decision to steering. Nothing is written. `coordination_only` edges, satisfied edges and terminal dependents never count. `yoke_core.domain.dependency_cycles` is the one detector: `frontier.list` and `charge.schedule` serve its loops as `dependency_cycles`, the fleet watch raises `fleet ALARM deadlock`, and the steering report lists them under dependency deadlocks.
+
 ## Table: ouroboros_entries
 
 ```sql
@@ -312,7 +314,7 @@ UNIQUE(epic_id, item_worktree_id)
 
 ## View: item_progress_view
 
-Read model for item delivery progress. Joins `items`, `deployment_flows`, and (when present) `deployment_runs` / `deployment_run_items` to project a single-row progress summary per item. Schema convergence owns its construction.
+Read model for item delivery progress. Joins `items`, `deployment_flows`, and (when present) `deployment_runs` / `deployment_run_items` to project a single-row progress summary per item. Schema convergence owns its construction: it leaves an unchanged view in place, so the view keeps its identity and a concurrent export never reads a dropped relation, and it drops and recreates a view whose definition changed.
 
 ```sql
 -- Fields returned per item:

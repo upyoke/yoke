@@ -13,7 +13,7 @@ from yoke_core.domain.project_install_test_helpers import make_bundle
 def _file(root, rel, text):
     path = root / rel
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text)
+    path.write_bytes(text.encode("utf-8"))
     return path
 
 
@@ -126,6 +126,30 @@ def test_failed_atomic_write_keeps_prior_manifest(tmp_path, monkeypatch, failure
     assert list(path.parent.iterdir()) == [path]
 
 
+def test_atomic_text_preserves_canonical_lf_bytes(tmp_path):
+    path = tmp_path / "canonical.txt"
+
+    recovery.atomic_text(path, "first\nsecond\n")
+
+    assert path.read_bytes() == b"first\nsecond\n"
+
+
+def test_crlf_only_interrupted_output_is_rewritten_canonically(tmp_path, monkeypatch):
+    monkeypatch.setattr(instruction_discovery.shutil, "which", lambda _: None)
+    _git(tmp_path, "init")
+    _file(tmp_path, "README.md", "project\n")
+    _commit(tmp_path, "Create project")
+    bundle = make_bundle()
+    apply_bundle(tmp_path, bundle, retain_pending=True)
+    skill = tmp_path / bundle["files"][0]["path"]
+    skill.write_bytes(skill.read_bytes().replace(b"\n", b"\r\n"))
+
+    assert recovery.recoverable_checkout(tmp_path)
+    apply_bundle(tmp_path, bundle, retain_pending=True)
+
+    assert b"\r\n" not in skill.read_bytes()
+
+
 def test_dirty_interrupted_checkout_accepts_planned_settings_and_refuses_edits(
     tmp_path, monkeypatch
 ):
@@ -209,13 +233,20 @@ def test_commit_touched_paths_on_non_git_checkout(tmp_path):
 
 def test_apply_retains_recovery_until_commit_and_retry_converges(tmp_path, monkeypatch):
     monkeypatch.setattr(instruction_discovery.shutil, "which", lambda _: None)
-    from yoke_cli.project_install import checkout_gate
+    from yoke_cli.project_install import checkout_gate, recovery_checkout
 
     _git(tmp_path, "init")
     _file(tmp_path, "README.md", "project\n")
     _commit(tmp_path, "Create project")
     report = apply_bundle(tmp_path, make_bundle(), retain_pending=True)
     assert recovery.pending(tmp_path)
+    expected = recovery.pending_record(tmp_path)["checkout"]
+    mismatched = {
+        rel: recovery_checkout.state(tmp_path / rel)
+        for rel, states in expected.items()
+        if recovery_checkout.state(tmp_path / rel) not in states
+    }
+    assert not mismatched
     assert recovery.recoverable_checkout(tmp_path)
     original = checkout_gate.run_git
 

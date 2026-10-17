@@ -238,3 +238,20 @@ class TestSteerContinuity:
         assert "verify the actual authority" in loop
         assert "If a system failure caused the hold, correct the attribution" in loop
         assert "standing plan's live status section" in loop
+
+
+class TestSteerDependencyWait:
+    def test_workers_park_for_the_dependency_notice(self):
+        from yoke_core.domain.session_launch_mandate_teaching import (
+            DEPENDENCY_WAIT_TEACHING,
+            STANDING_TEACHINGS,
+        )
+
+        bundle = (
+            _REPO_ROOT
+            / "packages/yoke-core/src/yoke_core/install_bundle_tree"
+            / ".agents/skills/yoke/steer"
+        )
+        assert DEPENDENCY_WAIT_TEACHING in STANDING_TEACHINGS
+        for steer in (_STEER_DIR, bundle):
+            assert DEPENDENCY_WAIT_TEACHING in _read(steer / "worker-launch.md")

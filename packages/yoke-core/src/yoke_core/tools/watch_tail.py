@@ -20,6 +20,13 @@ picks up where the previous one stopped instead of replaying the whole
 backlog. A wake loop that re-arms every few minutes would otherwise hand
 its reader the same growing transcript on every wake.
 
+Routine progress — digests, stall notices, the run header and the writer
+claim (``_watch_digest.ROUTINE_PROGRESS_RE``) — never wakes the reader on
+its own: it is held and handed over in front of the next forwarded line,
+which is a failure, refusal, decision-needing wait, terminal outcome or the
+exit sentinel. Every kind follows the same rule, so a bare tail needs no
+filter.
+
 Pure Python -- no subprocess fork -- so a Monitor running this leaves
 no child ``tail`` process behind once the wrapper finishes. This is
 the canonical replacement for the bare ``tail -f`` line that
@@ -48,6 +55,7 @@ from yoke_core.tools._watch_capture_binding import (
     writer_alive,
     writer_pid,
 )
+from yoke_core.tools._watch_digest import ROUTINE_PROGRESS_RE
 from yoke_core.tools._watch_terminal_outcome import OUTCOME_ONLY_WATCH_KINDS
 from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN, REPORT_END
 
@@ -149,6 +157,7 @@ class _Delivery:
         self.delivered = _resume_offset(path)
         self.position = 0
         self.report: list[str] = []
+        self.routine: list[str] = []
 
     def forward(self, line: str) -> bool | None:
         """Serve *line*; ``True`` on the sentinel, ``None`` if nobody reads."""
@@ -163,12 +172,19 @@ class _Delivery:
                 self.delivered = self.position
                 _record_delivered(self.path, self.delivered)
             return False
+        if ROUTINE_PROGRESS_RE.match(line) and not self.report:
+            # Routine progress never wakes the reader; it rides in front of
+            # the next line that does. A resumed follower re-reads it.
+            if fresh:
+                self.routine.append(line)
+            return False
         if line.rstrip("\n") == REPORT_BEGIN or self.report:
             self.report.append(line)
             if line.rstrip("\n") != REPORT_END and not sentinel:
                 return False
             line = "".join(self.report)
             self.report = []
+        line, self.routine = "".join([*self.routine, line]), []
         try:
             self.stream.write(line)
             self.stream.flush()

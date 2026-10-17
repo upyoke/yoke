@@ -13,6 +13,7 @@ import { decidedLabel, reviewerLine, runStageDecisionPresentation } from "./revi
 import { deploymentRunHref } from "./universe_navigation.js";
 import { resolvedDecisionRecord } from "./universe_run_gates.js";
 import { appendRunChecks } from "./universe_run_qa_checks.js";
+import { groupRunChecks } from "./run_qa_sharing.js";
 import { relativeTime } from "./universe_time.js";
 import { callFunction, el } from "./universe_view_support.js";
 
@@ -104,14 +105,25 @@ export function runQaReviewCard(context, row, options = {}) {
 
 // Draws a run's checks into its review card: current checks under the
 // person's decision state, replaced attempts folded after them.
-export function fillRunQaReviewChecks(context, card, row, rows) {
+// A shared plan's checks are drawn once under their sharing items' label.
+export function fillRunQaReviewChecks(context, card, row, read) {
   const host = CHECK_HOSTS.get(card);
   if (!host) return;
-  const runRows = (rows || []).filter((check) => check.deployment_member_public_ref == null);
+  const runRows = (read?.rows || []).filter(
+    (check) => check.deployment_member_public_ref == null);
   const current = effectiveRunChecks(runRows);
+  const { own, groups } = groupRunChecks(current, read?.sharing);
   const history = runRows.filter((check) => !current.includes(check));
+  const options = { runId: reviewRunId(row) };
   host.replaceChildren();
-  appendRunChecks(context, host, current, history, { runId: reviewRunId(row) });
+  appendRunChecks(context, host, own, [], options);
+  for (const { label, checks } of groups) {
+    const group = el(context.document, "div", "run-qa-shared-group");
+    group.appendChild(el(context.document, "p", "run-qa-shared-label", label));
+    appendRunChecks(context, group, checks, [], options);
+    host.appendChild(group);
+  }
+  appendRunChecks(context, host, [], history, options);
 }
 
 // One QA activity read per run under review, shared by every card that
@@ -123,10 +135,11 @@ export async function loadRunQaReviewChecks(context, rows) {
     if (!runId || byRun.has(runId)) continue;
     byRun.set(runId, callFunction(context.client, "qa.activity.list", {
       project: String(row.project_id), deployment_run_id: runId, limit: 100,
-    }).then((read) => (
-      read.status === 200 && read.envelope.success
-        ? read.envelope.result?.rows || [] : []
-    ), () => []));
+    }).then((read) => {
+      const result = read.status === 200 && read.envelope.success
+        ? read.envelope.result || {} : {};
+      return { rows: result.rows || [], sharing: result.run_sharing?.[runId] || null };
+    }, () => ({ rows: [], sharing: null })));
   }
   const checks = new Map();
   for (const [runId, pending] of byRun) checks.set(runId, await pending);
