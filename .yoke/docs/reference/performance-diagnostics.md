@@ -88,7 +88,7 @@ canonical selection, including attachment withdrawals and source-currency checks
 Verdict checks read attempt identity, start, completion and outcome fields without
 captured output bodies, using the same actual-attempt ordering and ambiguity checks.
 Full attempt detail remains available separately. Member obligations and acceptance
-share one set of frozen member snapshots within the overview evaluation.
+share one set of frozen member snapshots within the overview evaluation. Sharing labels also reuse those snapshots and live attachments; copy matching reads only identity and executable-content fields. Full case and attempt detail reads remain unchanged.
 
 `events.performance.aggregate` and `events.performance.detail` authorize every
 selected project with `events.read` before reading or serializing observations
