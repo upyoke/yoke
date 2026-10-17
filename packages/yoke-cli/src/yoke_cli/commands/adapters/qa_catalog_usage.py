@@ -119,6 +119,10 @@ Materialization is convergent for added cases: every case the plan has
 gained since the last call gets its row, and every row already there is
 confirmed, never rewritten. A row whose case has since been amended keeps
 its old body here; `yoke qa plan rematerialize` is what brings it current.
+On an item, a live row whose case the plan no longer carries (the case was
+replaced or removed) refuses qa_plan_rows_orphaned before any write, naming
+each row: rematerialize retires it, superseding a replaced post_deploy row
+with its successor or waiving a removed one.
 
 --replaces CASE_KEY=FAILED_REQUIREMENT_ID declares the corrected case the
 replacement of a failed one. A case it names gets no second, automatic
