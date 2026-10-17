@@ -1,4 +1,10 @@
 .universe-app-root .machine-approval-head { max-width: 580px; }
+.universe-app-root .machine-pending { margin-block: 16px; }
+.universe-app-root .machine-pending-card:not(:empty) { margin-top: 18px; }
+.universe-app-root .machine-pending-status:empty { display: none; }
+.universe-app-root .machine-pending .machine-approval-quiet { display: block; }
+.universe-app-root .machine-pending tr[aria-selected="true"] { background: var(--yoke-accent-weak); }
+.universe-app-root .machine-pending td { overflow-wrap: anywhere; }
 .universe-app-root .machine-approval-card {
   display: grid;
   gap: 14px;

@@ -4,6 +4,7 @@ import { callFunction, el } from "./universe_view_support.js";
 import { renderMachinesPanel } from "./universe_machines_panel.js";
 import { fetchRecentUsageRows } from "./universe_machines_usage.js";
 import { appendUsageStats } from "./universe_usage_stats.js";
+import { renderPendingMachines } from "./machine_admission_pending.js";
 import {
   machinesById,
   registeredMachineRelays,
@@ -58,10 +59,12 @@ export function renderMachinesView(context, main, _scope, chromeArg) {
   status.hidden = true;
   status.setAttribute("role", "status");
   const stats = el(documentNode, "section", "machine-roster-stats-host");
+  const pending = el(documentNode, "div", "machine-pending-host");
   const roster = el(documentNode, "section", "machines-section");
   const retired = el(documentNode, "section", "machines-section");
-  main.replaceChildren(status, stats, roster, retired);
+  main.replaceChildren(status, pending, stats, roster, retired);
   chrome.setPageHead?.({ title: "Machines" });
+  renderPendingMachines(context, pending);
 
   const showStatus = (text, retry) => {
     status.hidden = false;
