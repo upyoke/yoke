@@ -39,9 +39,9 @@ def _patches(
     tested = mock.patch.object(composer, "require_tested_lineage", return_value=None)
     create = mock.patch.object(
         composer,
-        "create_run",
+        "create_item_run",
         side_effect=create_raises if create_raises else None,
-        return_value=CreatedRun(run_id, False, None, validation_message),
+        return_value=(CreatedRun(run_id, False, None), validation_message),
     )
     return helpers, resolve, tested, create
 

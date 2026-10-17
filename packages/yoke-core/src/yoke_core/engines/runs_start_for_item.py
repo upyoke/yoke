@@ -2,7 +2,7 @@
 
 Resolves the target, then creates the run with the item enrolled and its
 composition validated in one transaction
-(:func:`~yoke_core.domain.deployment_run_create_write.create_run`). Stops at
+(:func:`~yoke_core.domain.deployment_run_create_write.create_item_run`). Stops at
 validation — deploy execution remains a separate operator call into
 ``yoke_core.domain.deploy_pipeline``. The composer never invokes
 ``deploy_pipeline`` directly so the scope boundary holds.
@@ -22,7 +22,7 @@ from yoke_core.domain.project_identity_item_ref import item_ref_for_id as _ref
 from yoke_core.domain.deployment_run_ci_tested_source import require_tested_lineage
 from yoke_core.domain.deployment_run_create_write import (
     CompositionRefused,
-    create_run,
+    create_item_run,
 )
 from yoke_core.domain.deployment_run_target_resolution import (
     EnvironmentRegistryMigrationRequired,
@@ -239,15 +239,15 @@ def start_for_item(
         require_tested_lineage(
             resolved_project, resolved_flow, environment, release_lineage
         )
-        created = create_run(
+        created, validation_message = create_item_run(
             resolved_project,
             resolved_flow,
+            item_id,
             environment=environment,
             release_lineage=release_lineage,
             created_by=created_by,
             allow_pending_pair_merges=prepare,
             session_id=session_id,
-            enroll_item_id=item_id,
         )
     except CompositionRefused as exc:
         return StartForItemResult(
@@ -269,7 +269,7 @@ def start_for_item(
         **handle,
         ok=True,
         run_id=created.run_id,
-        validation_message=created.validation_message,
+        validation_message=validation_message,
     )
 
 

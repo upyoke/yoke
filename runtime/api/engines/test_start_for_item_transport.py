@@ -185,13 +185,13 @@ def test_start_for_item_trusts_supplied_lineage_with_no_checkout(monkeypatch):
     )
     seen = {}
 
-    def _create(project, flow, **kwargs):
+    def _create(project, flow, item_id, **kwargs):
         seen["release_lineage"] = kwargs["release_lineage"]
         seen["allow_pending_pair_merges"] = kwargs["allow_pending_pair_merges"]
-        return CreatedRun("run-20260730-002", False, None, "ok")
+        return (CreatedRun("run-20260730-002", False, None), "ok")
 
     monkeypatch.setattr(composer, "require_tested_lineage", lambda *_a: None)
-    monkeypatch.setattr(composer, "create_run", _create)
+    monkeypatch.setattr(composer, "create_item_run", _create)
     monkeypatch.setattr(_CHECKOUT_RESOLVER, lambda *_a, **_k: None)
     import yoke_core.domain.deploy_pipeline_gates as gates
 

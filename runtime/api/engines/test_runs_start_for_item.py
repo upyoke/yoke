@@ -46,7 +46,7 @@ def test_success_returns_structured_handle():
     assert result.error is None
     assert result.validation_message == "ok"
     create_m.assert_called_once()
-    assert create_m.call_args.kwargs["enroll_item_id"] == 42
+    assert create_m.call_args.args[2] == 42
 
 
 def test_explicit_kwargs_override_item_row():
@@ -62,8 +62,8 @@ def test_explicit_kwargs_override_item_row():
     )
     create = mock.patch.object(
         composer,
-        "create_run",
-        return_value=CreatedRun("R1", False, None, "ok"),
+        "create_item_run",
+        return_value=(CreatedRun("R1", False, None), "ok"),
     )
     tested = mock.patch.object(composer, "require_tested_lineage")
     with helpers, resolve as resolve_m, tested, create as create_m:
