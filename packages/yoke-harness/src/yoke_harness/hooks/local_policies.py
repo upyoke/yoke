@@ -7,6 +7,7 @@ import os
 import re
 from pathlib import Path
 
+from yoke_contracts.hook_runner import destructive_git_messages, destructive_git_rules
 from yoke_contracts.hook_runner.local_privacy_guard import classify_shell_command
 from yoke_contracts.hook_runner.local_privacy_messages import (
     LIVE_ADVISORY,
@@ -21,7 +22,6 @@ from yoke_harness.hooks.local_policy_common import (
     command_from_payload,
     git,
     git_invocations,
-    porcelain,
     repo_cwd,
     response_text,
     write_fields,
@@ -44,60 +44,25 @@ _GREP_LIKE_RE = re.compile(
 )
 
 
-def _destructive_shape(args: list[str]) -> str:
-    if not args:
-        return ""
-    verb, rest = args[0], args[1:]
-    if verb == "reset" and "--hard" in rest:
-        return "git reset --hard"
-    if verb == "checkout" and "--" in rest:
-        return "git checkout -- <path>"
-    if verb == "checkout" and any(arg in {"-f", "--force"} for arg in rest):
-        return "git checkout -f <branch>"
-    if verb == "restore" and (
-        "--worktree" in rest or any(not a.startswith("-") for a in rest)
-    ):
-        return "git restore --worktree <path>"
-    if verb == "clean" and any(
-        arg == "--force" or (arg.startswith("-") and "f" in arg) for arg in rest
-    ):
-        return "git clean -f"
-    if verb == "stash" and rest and rest[0] in {"drop", "clear"}:
-        return f"git stash {rest[0]}"
-    return ""
-
-
 def lint_destructive_git(payload: dict) -> PolicyResult:
+    """Apply the shared destructive-git rules; ``worktree remove`` is engine-only."""
     command = command_from_payload(payload)
     for args, repo_path in git_invocations(command):
-        shape = _destructive_shape(args)
-        if not shape:
-            continue
         cwd = repo_cwd(payload, repo_path)
-        modified, untracked = porcelain(cwd)
-        threatened = modified if shape != "git clean -f" else untracked
-        if shape.startswith("git stash"):
-            stash = git(cwd, "stash", "list")
-            threatened = (
-                stash.stdout.splitlines() if stash and stash.returncode == 0 else []
-            )
-            heading = "Stashes that would be discarded"
-            remediation = (
-                "Preserve the patch with `git stash show -p <stash>` "
-                "(or `git stash apply` if you still need it), then have the "
-                "operator run the drop or clear."
-            )
-        else:
-            heading = "Files at risk"
-            remediation = "Stash or commit work before retrying."
+        shape = destructive_git_rules.classify_shape(args, cwd)
+        if shape is None or shape == "worktree_remove":
+            continue
+        threatened = destructive_git_rules.threatened_state(shape, cwd, args, git)
         if not threatened:
             continue
-        listed = "\n  ".join(threatened[:10])
         return PolicyResult(
             DENY,
-            "BLOCKED: destructive git command would wipe uncommitted changes.\n\n"
-            f"Shape: {shape}\n{heading}:\n  {listed}\n\n"
-            f"Remediation: {remediation}",
+            destructive_git_messages.format_reason(
+                shape,
+                threatened,
+                destructive_git_messages.SUPPRESSION_TOKEN in command,
+                "deny",
+            ),
         )
     return PolicyResult(NOOP)
 

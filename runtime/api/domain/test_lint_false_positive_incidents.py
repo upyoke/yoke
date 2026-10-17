@@ -126,7 +126,6 @@ def test_destructive_git_denial_names_the_config_file(tmp_path: Path) -> None:
     with (
         mock.patch.object(destructive_git, "_config_note", return_value=note),
         mock.patch.object(destructive_git, "_read_mode", return_value="deny"),
-        mock.patch.object(destructive_git, "_is_git_repo", return_value=True),
         mock.patch.object(destructive_git, "_check_threat", return_value=["a.txt"]),
     ):
         verdict = destructive_git.evaluate_payload(_payload("git reset --hard"))
