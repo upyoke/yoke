@@ -58,7 +58,7 @@ def browser_authorize(args: List[str]) -> int:
     parser.add_argument(
         "--desktop-browser",
         action="store_true",
-        help="With --machine, include its native Chromium or Safari in the same command; without --machine, check only this host's native browser.",
+        help="Check this host's native Chromium or Safari instead of an automation profile. --machine includes both automatically.",
     )
     parser.add_argument(
         "--include-desktop-browser", action="store_true", help=argparse.SUPPRESS
