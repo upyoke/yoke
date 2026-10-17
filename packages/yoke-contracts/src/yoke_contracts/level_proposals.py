@@ -158,7 +158,7 @@ def _level(document, name, field):
             return level
     raise LevelsError(
         "level_change_level_missing",
-        "Name a level from yoke universe levels get.",
+        "Name a level from yoke settings get levels.",
         field=field,
     )
 

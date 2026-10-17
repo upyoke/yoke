@@ -44,20 +44,22 @@ no native effort/speed suffix. Invalid rows name their field and correction.
   With nothing stored, the universe reads the shipped scheme, so a newer
   Yoke release brings its new defaults as soon as the server runs it. A
   stored `universe_settings` row freezes that key at write time, so a later
-  shipped default does not replace it; `levels get` then reports
-  `source: universe` with `shipped_defaults_differ` saying whether today's
-  shipped defaults differ. `yoke universe levels reset` (org admin) deletes
+  shipped default does not replace it; `yoke settings get levels --json` then reports
+  `result.source: stored` with `result.shipped_defaults_differ` saying whether today's
+  shipped defaults differ. `yoke settings unset levels` (org admin) deletes
   the stored levels so the universe follows shipped defaults again, and
   `set` with a document equal to the shipped defaults stores nothing.
   `cursor_quota_order` follows the same freeze rule; delete its row as
   described under the Cursor order below.
 
   ```text
-  yoke universe levels get [--json]
-  yoke universe levels get --json | <edit> | yoke universe levels set --stdin
-  yoke universe levels reset
+  yoke settings get levels [--json]
+  yoke settings get levels --json
+  yoke settings set levels - < /tmp/levels.json
+  yoke settings unset levels
   ```
 
+  Save the edited `result.value` list in `/tmp/levels.json`.
   `universe.levels.set` replaces the whole definition and requires an org
   admin. It also refuses a threshold whose effort its
   model's published catalog values contradict (`level_min_effort_unpublished`). Model refresh proposes
@@ -276,7 +278,7 @@ quoting the code point and offering safe examples such as 🐎 or 🚀:
 
 | Stored glyph | Writer | Correction command |
 |---|---|---|
-| Universe level glyph, `levels[N].glyph` | `universe.levels.set` | `yoke universe levels get --json`, correct the glyph, then `yoke universe levels set --stdin` |
+| Universe level glyph, `levels[N].glyph` | `universe.levels.set` | `yoke settings get levels --json`, correct the glyph, then `yoke settings set levels -` |
 | Project override level glyph, `levels[N].glyph` | `session-routing` capability settings | `yoke projects capability-settings set --project P --cap-type session-routing --settings-json '{"levels": [...]}' --base AS_READ_JSON` |
 | Project emoji, `projects.emoji` (empty clears it) | `projects.create` / `projects.update` | `yoke projects update --slug S --name N --emoji <glyph>` |
 | Workflow stage glyph, `stages[].glyph` | Workflow version publish | Publish an edited definition with `yoke workflows version publish WORKFLOW --definition-file F --expected-current-version N --reason TEXT` (`--keep-current` preserves the global default), then `yoke workflows item migrate ITEM --version V` |
@@ -318,16 +320,16 @@ published for its model), `session_model_unreported`,
 order of exactly two Cursor monthly pools. It is not per machine:
 
 ```text
-yoke universe cursor-quota-order get --json
-yoke universe cursor-quota-order set --pool 'Cursor Models' --pool 'Other Models'
+yoke settings get cursor_quota_order --json
+yoke settings set cursor_quota_order '["Cursor Models", "Other Models"]'
 ```
 
-Repeat `--pool` exactly twice; reverse them to prefer Other Models. Invalid,
+Pass a JSON array containing both pool names once each; reverse them to prefer Other Models. Invalid,
 duplicate or missing scopes refuse `cursor_quota_order_invalid`. The order
 affects consumption preference, never execution-level membership. An absent
 row uses the shipped order (Cursor Models, then Other Models). A stored row
-freezes that order; delete it with a reviewed `yoke operator data-repair`
-to follow the shipped order again.
+freezes that order; `yoke settings unset cursor_quota_order` (org admin)
+restores the shipped order.
 
 ## Stored settings convergence
 

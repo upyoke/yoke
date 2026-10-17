@@ -8,7 +8,7 @@
  "disclosure": "current cue",
  "surface": "Public index Read next and CLI/config -> Maintaining a private fork.",
  "review": "Pending exact recipe proof.",
- "recipes": ["yoke config distribution set --help", "yoke update --help"],
+ "recipes": ["yoke settings set distribution --help", "yoke update --help"],
  "plan_notes": ["outside both"],
  "sources": ["docs/public/index.md", "docs/public/cli-and-config.md", "docs/public/private-forks.md", "packages/yoke-cli/src/yoke_cli/config/distribution.py"],
  "position": 0

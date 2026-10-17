@@ -41,8 +41,8 @@ def local_machine(monkeypatch, tmp_path):
         (("machine", "show"), "machine.show"),
         (("machine", "detail"), "machine.detail"),
         (("machine", "retire"), "machine.retire"),
-        (("machine", "settings", "get"), "machine.settings.get"),
-        (("machine", "settings", "set"), "machine.settings.set"),
+        (("machine", "access", "get"), "machine.access.get"),
+        (("machine", "access", "set"), "machine.access.set"),
     ],
 )
 def test_every_machine_route_names_its_registered_function(route, function_id):
@@ -72,8 +72,8 @@ def test_retire_requires_confirmation_and_sends_the_machine(dispatched, local_ma
 def test_machine_access_help_discloses_that_offers_are_not_enforced(capsys):
     for adapter in (
         machine.machine_show,
-        machine.machine_settings_get,
-        machine.machine_settings_set,
+        machine.machine_access_get,
+        machine.machine_access_set,
     ):
         with pytest.raises(SystemExit) as excinfo:
             adapter(["--help"])
@@ -85,12 +85,11 @@ def test_settings_set_parses_a_json_value_and_accepts_a_bare_word(
     dispatched, local_machine
 ):
     assert (
-        machine.machine_settings_set(["--path", "use.actor_ids", "--value", "[2,3]"])
-        == 0
+        machine.machine_access_set(["--path", "use.actor_ids", "--value", "[2,3]"]) == 0
     )
     assert dispatched[0]["payload"]["value"] == [2, 3]
     assert (
-        machine.machine_settings_set(["--path", "use.mode", "--value", "universe"]) == 0
+        machine.machine_access_set(["--path", "use.mode", "--value", "universe"]) == 0
     )
     assert dispatched[1]["payload"]["value"] == "universe"
 

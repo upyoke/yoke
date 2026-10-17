@@ -61,10 +61,10 @@ next step its `destination` names:
 
 A source checkout refuses `--check`; update it through git. A
 `server_version_unavailable` refusal names the env and its repair.
-Then read `yoke universe levels get --json`. `source: universe` means the
+Then read `yoke settings get levels --json`. `result.source: stored` means the
 universe stores its own levels and does not follow shipped defaults;
-`shipped_defaults_differ: true` means a newer default exists. Offer
-`yoke universe levels reset` (org admin) so the shipped defaults apply. A
+`result.shipped_defaults_differ: true` means a newer default exists. Offer
+`yoke settings unset levels` (org admin) so the shipped defaults apply. A
 project override (`yoke projects level-summary get --project P` shows
 `source: project`) is cleared by rewriting that project's settings without
 `levels`: `yoke projects capability-settings set --cap-type session-routing`.
@@ -130,6 +130,6 @@ close-out. DB-only refresh needs no release; approved level changes share it.
 
 5. Run `yoke models level-proposal`, follow the linked level phase, present
    the complete proposal and obtain approval before applying it with the
-   proposal's `apply_command`: `yoke universe levels reset` when it equals the
-   shipped defaults, otherwise `yoke universe levels set`, which stops the
+   proposal's `apply_command`: `yoke settings unset levels` when it equals the
+   shipped defaults, otherwise `yoke settings set levels`, which stops the
    universe following future defaults. Record revision and approved change.

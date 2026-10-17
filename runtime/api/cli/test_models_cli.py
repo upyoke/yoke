@@ -113,7 +113,7 @@ def test_level_proposal_human_output_names_each_change_and_the_approval() -> Non
         "unplaced_models": [{"model_id": "new", "provider": "p"}],
         "unplaceable_models": [{"model_id": "composer-2.5", "provider": "cursor"}],
         "equals_shipped_defaults": False,
-        "apply_command": "yoke universe levels set --stdin",
+        "apply_command": "yoke settings set levels -",
     }
     response = type("Response", (), {"success": True, "result": result})()
     output = io.StringIO()
@@ -126,7 +126,7 @@ def test_level_proposal_human_output_names_each_change_and_the_approval() -> Non
     assert "unverified: SENIOR m min_effort=high" in text
     assert "unplaced: new" in text
     assert "unplaceable: composer-2.5" in text
-    assert "yoke universe levels set --stdin < levels.json" in text
+    assert "yoke settings set levels - < levels.json" in text
     assert "stops the universe following future shipped defaults" in text
     assert "surface" not in text and "reasoning_effort" not in text
 
@@ -139,11 +139,11 @@ def test_level_proposal_equal_to_shipped_defaults_approves_with_reset() -> None:
         "changes": [],
         "levels": [],
         "equals_shipped_defaults": True,
-        "apply_command": "yoke universe levels reset",
+        "apply_command": "yoke settings unset levels",
     }
     response = type("Response", (), {"success": True, "result": result})()
     output = io.StringIO()
     models_level_proposal._print_level_proposal(response, output, io.StringIO())
     text = output.getvalue()
-    assert "Approve with `yoke universe levels reset`" in text
+    assert "Approve with `yoke settings unset levels`" in text
     assert "--levels-only" not in text

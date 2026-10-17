@@ -121,9 +121,9 @@ def models_level_proposal(args: List[str]) -> int:
             'option is {"model", "min_effort"}, addressed exactly as levels get '
             "lists it. A row whose minimum effort the model does not publish is "
             "refused. Nothing is stored. After operator approval, a proposal "
-            "equal to the shipped defaults applies with `yoke universe levels "
-            "reset`; any other pipes --levels-only output to `yoke universe "
-            "levels set --stdin`, which stops following future shipped defaults."
+            "equal to the shipped defaults applies with `yoke settings unset "
+            "levels`; any other pipes --levels-only output to `yoke settings "
+            "set levels -`, which stops following future shipped defaults."
         ),
     )
     parser.add_argument(

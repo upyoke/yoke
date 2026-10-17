@@ -23,6 +23,14 @@ from __future__ import annotations
 
 
 PYTHON_HELPERS_TABLES: dict[str, dict] = {
+    "yoke_contracts.levels": {
+        "columns": [("default_levels", "callable")],
+        "notes": (
+            "default_levels() returns typed Level records; use Level.payload() for JSON. Level.to_dict() does not exist. "
+            "Wrong guess: yoke_contracts.level_defaults.default_levels does not exist; "
+            "that module exports only DEFAULT_LEVELS data."
+        ),
+    },
     "yoke_core.domain.epic_task_scope": {
         "columns": [("reopen_generated_task_scopes", "callable")],
         "notes": (
@@ -272,7 +280,7 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "returns None when unknown. `model_reference_revisions` stores "
             "effective-dated sourced catalogs; publish via `yoke models publish`. "
             "Records hold model facts only; level changes are proposed with "
-            "`yoke models level-proposal` and stored by `yoke universe levels set`. "
+            "`yoke models level-proposal` and stored by `yoke settings set levels`. "
             "Native availability is independent. CLI: `yoke models lookup MODEL_ID`. "
             "No `operator_preferences` field."
         ),

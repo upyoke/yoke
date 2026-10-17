@@ -29,7 +29,7 @@ For a running item or shift/min/max, amend per help then restaff through rule 9:
 ```text
 yoke workflows item-posture amend PREFIX-N --key level --value '{"max":"SENIOR","reason":"SENIOR is sufficient"}' --reason "steering staffing default"
 yoke projects level-summary get --project {_project}
-yoke universe levels get
+yoke settings get levels
 yoke session-control launch preview --project {_project} --level SENIOR --json
 ```
 

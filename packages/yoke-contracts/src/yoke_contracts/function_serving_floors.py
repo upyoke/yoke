@@ -14,6 +14,8 @@ from typing import Any, Mapping
 
 #: function_id -> minimum serving version. Do not copy already-served ids here.
 FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
+    "machine.access.get": "next-release",
+    "machine.access.set": "next-release",
     "merge.audit.snapshot": "next-release",
     "ouroboros.reflection.capture": "next-release",
     "actors.role.set": "next-release",

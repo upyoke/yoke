@@ -89,8 +89,8 @@ def handle_universe_levels_get(request: FunctionCallRequest) -> HandlerOutcome:
         return _failure(
             getattr(exc, "code", "levels_document_invalid"),
             f"{exc}. Recovery: store a valid document with "
-            "`yoke universe levels set --stdin`, or follow shipped defaults "
-            "with `yoke universe levels reset`.",
+            "`yoke settings set levels -`, or follow shipped defaults "
+            "with `yoke settings unset levels`.",
         )
     result: Dict[str, Any] = {"source": source, "levels": levels_payload(levels)}
     if source == "universe":
@@ -141,8 +141,8 @@ def handle_universe_levels_capacity_get(request: FunctionCallRequest) -> Handler
         return _failure(
             exc.code,
             f"stored levels no longer validate at {exc.field}: {exc.detail} "
-            "Recovery: rewrite the universe levels with `yoke universe levels "
-            "set --stdin`, or the project override with `yoke projects "
+            "Recovery: rewrite the universe levels with `yoke settings "
+            "set levels --stdin`, or the project override with `yoke projects "
             "capability-settings set --cap-type session-routing`.",
         )
     except UniverseLevelsError as exc:

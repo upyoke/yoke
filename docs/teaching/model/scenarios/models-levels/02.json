@@ -1,14 +1,14 @@
 {
  "id": "02",
  "title": "Read effective levels and real capacity",
- "status": "verified-live",
+ "status": "observed",
  "audience": "both",
  "when": "Before choosing a worker level or explaining why staffing is blocked",
  "need": "Project override wins over universe/default levels. Settings Levels shows #, MODEL, MIN EFFORT, NOW and harness chips. Read live native/machine/quota blockers and preview placement. Cursor Models and Other Models have one editable universe-wide consumption order; the earlier pool is preferred before headroom and does not change membership. Unknown meters are not exhausted; no level borrows another level.",
  "disclosure": "current cue",
  "surface": "Settings → Levels → four-column model/effort table and two-row Cursor quota order; CLI level-summary/capacity and launch preview.",
  "review": "Production launch.622 QA run 45473 / artifact 32323 proves the visible rows, columns, chips and quota panel; Levels and quota order reread 2026-10-13. Placement semantics observed in source.",
- "recipes": ["yoke projects level-summary get --project P", "yoke universe levels get", "yoke universe level-capacity get", "yoke session-control launch preview --project P --level SENIOR", "yoke universe cursor-quota-order get --json", "yoke universe cursor-quota-order set --pool 'Cursor Models' --pool 'Other Models'"],
+ "recipes": ["yoke projects level-summary get --project P", "yoke settings get levels", "yoke universe level-capacity get", "yoke session-control launch preview --project P --level SENIOR", "yoke settings get cursor_quota_order --json", "yoke settings set cursor_quota_order '[\"Cursor Models\", \"Other Models\"]'"],
  "plan_notes": ["outside both"],
  "sources": ["docs/public/reference/session-level-routing.md", ".agents/skills/yoke/steer/model-selection.md"],
  "position": 1

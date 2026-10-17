@@ -137,7 +137,7 @@ Upgrade later with `yoke update`: it reruns the official installer with
 onboarding disabled from this machine's recorded distribution origin and
 channel (`settings.distribution` in `~/.yoke/config.json`), then reports the
 verified old and new version or that you're already current. Without that
-record it refuses; select one with `yoke config distribution set --origin URL
+record it refuses; select one with `yoke settings set distribution --origin URL
 --channel NAME`. `--channel NAME` selects and saves another channel;
 `--version VERSION` installs that exact release. `yoke update --check [--json]`
 installs nothing: it reports the CLI, the active server's engine and the
