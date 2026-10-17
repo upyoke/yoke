@@ -15,6 +15,7 @@ pytest.importorskip("textual")
 
 from yoke_cli.config.onboard_plan_labels import friendly_line
 from yoke_contracts import harness_unattended_posture
+from yoke_cli.config import onboard_global_skill  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import onboard_report  # noqa: E402
 from yoke_cli.config import onboard_reuse_feedback  # noqa: E402
@@ -136,6 +137,7 @@ def test_build_plan_reused_existing_project_lists_missing_art_write(
     assert actions == [
         "harness-unattended-posture",
         "register-machine",
+        "install-yoke-global-skill",
         "project-refresh-scaffold",
         "project-install-agent-rules",
         "project-install-tool-permissions",
@@ -145,10 +147,13 @@ def test_build_plan_reused_existing_project_lists_missing_art_write(
         "project-write-board-art",
         "project-setup-publication",
     ]
-    # The posture step is a machine-level write, so it groups beside the
-    # Cursor lifecycle hooks rather than with the project's own writes.
+    # The posture and yoke-global steps are machine-level writes, so they
+    # group beside the Cursor lifecycle hooks, not the project's own writes.
     assert grouped["machine"] == [
         friendly_line(harness_unattended_posture.POSTURE_PLAN_ACTION, "detected"),
+        friendly_line(
+            onboard_global_skill.INSTALL_ACTION, onboard_global_skill.INSTALL_TARGET
+        ),
         CURSOR_USER_LIFECYCLE_LINE,
     ]
     assert grouped["core"] == ["Register this machine in the machine registry"]
