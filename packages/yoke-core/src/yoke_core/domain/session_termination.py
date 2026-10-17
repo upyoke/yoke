@@ -156,11 +156,7 @@ def terminate_session(
     A session a wake is resuming is refused unless ``allow_resume_in_flight``
     says the caller means to kill it anyway.
     """
-    termination_reason = reason.strip()
-    if not termination_reason:
-        raise SessionError(
-            "TERMINATION_REASON_REQUIRED", "Termination reason is required."
-        )
+    termination_reason = _required_reason(reason)
     target = session_control_target(conn, target_session_id)
     require_any_steering_seat(
         conn,
@@ -168,6 +164,63 @@ def terminate_session(
         action="Session termination",
         error_code="TERMINATION_AUTHORITY_REQUIRED",
     )
+    return _terminate(
+        conn,
+        target=target,
+        actor_id=actor_id,
+        caller_session_id=caller_session_id,
+        reason=termination_reason,
+        authority="steering",
+        allow_resume_in_flight=allow_resume_in_flight,
+    )
+
+
+def terminate_cancelled_launch_session(
+    conn: Any,
+    *,
+    target_session_id: str,
+    actor_id: int,
+    caller_session_id: str | None,
+    reason: str,
+) -> dict[str, Any]:
+    """End the session a cancelled launch started before it did any work.
+
+    The launch cancel authority (its requester or a project admin) decides
+    this, not a steering seat: the session exists only because of that
+    launch and has not received its instructions.
+    """
+    return _terminate(
+        conn,
+        target=session_control_target(conn, target_session_id),
+        actor_id=actor_id,
+        caller_session_id=caller_session_id,
+        reason=_required_reason(reason),
+        authority="launch_cancel",
+        allow_resume_in_flight=False,
+    )
+
+
+def _required_reason(reason: str) -> str:
+    termination_reason = reason.strip()
+    if not termination_reason:
+        raise SessionError(
+            "TERMINATION_REASON_REQUIRED", "Termination reason is required."
+        )
+    return termination_reason
+
+
+def _terminate(
+    conn: Any,
+    *,
+    target: dict[str, Any],
+    actor_id: int,
+    caller_session_id: str | None,
+    reason: str,
+    authority: str,
+    allow_resume_in_flight: bool,
+) -> dict[str, Any]:
+    target_session_id = str(target["session_id"])
+    termination_reason = reason
     if target.get("terminated_at"):
         reap = conn.execute(
             f"SELECT state FROM session_termination_reaps WHERE target_session_id="
@@ -232,7 +285,7 @@ def terminate_session(
         context={
             "terminated_by_actor_id": int(actor_id),
             "terminated_by_session_id": caller_session_id,
-            "authority": "steering",
+            "authority": authority,
             "reason": termination_reason,
             "cancelled_recipient_count": cancelled,
             "reap_state": reap_state,
@@ -251,5 +304,6 @@ def terminate_session(
 __all__ = [
     "RESUME_IN_FLIGHT_CODE",
     "RESUME_OVERRIDE_FLAG",
+    "terminate_cancelled_launch_session",
     "terminate_session",
 ]
