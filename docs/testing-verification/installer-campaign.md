@@ -126,7 +126,10 @@ segments, fragments and other origins refuse.
 The helper presses the visible approval control only in an exact validated
 tab, then observes same-origin navigation or the visible "Machine connected"
 confirmation in that same tab. An unchanged page without that confirmation
-is not approval evidence. Full hosted setup still requires the
+is not approval evidence: the gate then fails as
+`machine_browser_approval_not_confirmed` even when the terminal reaches its
+completion text, keeping the helper's own code in
+`browser_automation_error_code` beside `browser_approval` and a recovery. Full hosted setup still requires the
 run-bound case verdict and independent inspection review.
 
 On Linux the gate first starts the fixture desktop and its Chromium with a

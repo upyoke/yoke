@@ -25,6 +25,7 @@ from yoke_core.domain.ssh_mac_terminal_recipe_support import (
 
 
 _HEARTBEAT_SECONDS = 15.0
+BROWSER_APPROVAL_NOT_CONFIRMED = "machine_browser_approval_not_confirmed"
 _DENIAL_MARKERS = (
     "authorization denied in the browser",
     "authorization expired",
@@ -219,11 +220,30 @@ def run_machine_browser_approval_with_io(
         gate_transcript = _current_gate_transcript(transcript, gate_code)
         lowered = gate_transcript.casefold()
         if all(marker in gate_transcript for marker in completion_text):
+            if approval.ok:
+                return OperatorGateResult(
+                    True,
+                    transcript,
+                    browser_evidence=approval.evidence,
+                )
+            # The terminal finishing proves the poll ended, not that this
+            # browser approved the machine. Without the helper's confirmation
+            # the gate has no approval evidence, so it must not pass.
             return OperatorGateResult(
-                True,
+                False,
                 transcript,
-                browser_evidence=approval.evidence,
-                browser_automation_error_code=browser_automation_error_code,
+                BROWSER_APPROVAL_NOT_CONFIRMED,
+                approval.evidence,
+                browser_automation_error_code,
+                step_evidence={
+                    "browser_automation_error_code": browser_automation_error_code,
+                    "recovery": (
+                        "The terminal reached completion, but the browser helper "
+                        "did not confirm the approval in its tab. Read "
+                        "browser_approval for where it stopped, repair that on "
+                        "the test machine, then rerun the case."
+                    ),
+                },
             )
         if any(marker in lowered for marker in _DENIAL_MARKERS):
             return OperatorGateResult(
@@ -269,6 +289,7 @@ def run_machine_browser_approval_with_io(
 
 
 __all__ = [
+    "BROWSER_APPROVAL_NOT_CONFIRMED",
     "OperatorGateResult",
     "run_machine_browser_approval",
     "run_machine_browser_approval_with_io",

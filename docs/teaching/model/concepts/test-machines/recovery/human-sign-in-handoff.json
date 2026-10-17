@@ -2,7 +2,7 @@
  "id": "human-sign-in-handoff",
  "title": "Human sign-in handoff",
  "status": "observed",
- "page": "test-machines",
+ "page": "test-machine-recovery",
  "position": 3,
  "summary": "After the operator completes a sign-in on a test machine, save it with golden-capture, which proves real requests before recapturing. Diagnose native probe failures first: quota waits for provider capacity, transport waits for recovery, and sign-in advice requires actual authentication evidence. Unknown nonzero failures preserve the golden and direct local diagnosis. A changed-store reset refusal preserves the same diagnosed recovery. Store modification time protects newer credential state without proving a human login.",
  "sources": ["docs/testing-verification/test-machine-golden-baseline.md", "packages/yoke-harness/src/yoke_harness/ssh_linux_sign_in_stores.py"]
