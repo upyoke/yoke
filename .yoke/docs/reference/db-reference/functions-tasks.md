@@ -19,7 +19,6 @@ Read [envelope and authority](functions.md) first. `none` means no dispatcher wo
 | `workflow_item.epic_task.add` | `epic` |
 | `workflow_item.epic_task.body_get` | `none` |
 | `workflow_item.epic_task.body_replace` | `epic` |
-| `workflow_item.epic_task.file_add` | `epic` |
 | `workflow_item.epic_task.get` | `none` |
 | `workflow_item.epic_task.history_insert` | `epic` |
 | `workflow_item.epic_task.metadata_update` | `epic` |
@@ -30,7 +29,6 @@ Read [envelope and authority](functions.md) first. `none` means no dispatcher wo
 | `workflow_item.epic_task.review_list` | `none` |
 | `workflow_item.epic_task.review_seed` | `epic` |
 | `workflow_item.epic_task.scope_finalize` | `epic` |
-| `workflow_item.epic_task.scope_no_files` | `epic` |
 | `workflow_item.epic_task.scope_reopen` | `epic` |
 | `workflow_item.epic_task.simulation_get` | `none` |
 | `workflow_item.epic_task.simulation_upsert` | `epic` |

@@ -244,8 +244,12 @@ subprocess environment/cwd, old/new error models and caller guards}
 ## Documentation Requirements
 {new docs and all existing docs to update}
 ## Files Touched
-{exact path, create/modify action, responsibility}
+- {create|modify|delete} `{exact/path}` — {responsibility}
 ````
+
+`## Files Touched` is the task's only file list: coverage, claims and lane
+narrowing parse it. One bullet per file with the path in backticks; a task
+touching no repository file writes exactly `None — no repository files`.
 
 Omit conditional sections when irrelevant. Include functional naming obligation
 where creating/renaming live surfaces. Enabled File Budget names each planned
