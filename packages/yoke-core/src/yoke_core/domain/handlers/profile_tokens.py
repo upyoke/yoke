@@ -53,8 +53,8 @@ def handle_profile_token_create(request: FunctionCallRequest) -> HandlerOutcome:
         return _error(
             "result_unavailable",
             "This request already created a token whose value cannot be shown again; "
-            "revoke it (`yoke tokens list`, `yoke tokens revoke TOKEN-ID`) "
-            "and create a new one",
+            "revoke that token in the API tokens section of the Profile page, "
+            "then create a new one there with New token",
         )
     finally:
         conn.close()

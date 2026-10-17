@@ -116,8 +116,8 @@ def test_secret_is_returned_once_without_a_ledger_or_debug_copy(
     assert not replay.success
     assert replay.result == {}
     assert replay.error.code == "result_unavailable"
-    assert "yoke tokens list" in replay.error.message
-    assert "yoke tokens revoke TOKEN-ID" in replay.error.message
+    assert "API tokens section of the Profile page" in replay.error.message
+    assert "create a new one there with New token" in replay.error.message
     assert _SECRET not in replay.model_dump_json()
     assert test_db.execute(
         "SELECT count(*) FROM api_tokens WHERE creation_request_id = %s", (request.request_id,),
