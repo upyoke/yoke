@@ -161,7 +161,7 @@ Abandoned launch: delivered mandate but no claim/outbound message/completed
 call, native gone; show session/closed age/exit/last line, restaff unstarted work.
 Rows expire after six hours.
 
-## Landed work, dead waits and deadlocks
+## Landed work, dead waits and dependencies
 
 Landed-without-close-out uses item merged_at or merge_queue_landed_at plus
 nonterminal state; control-plane observer records landing even if waiter died.
@@ -190,7 +190,7 @@ Dead waits scan recent outbound conversation for real interrogative/explicit
 reply requests, not confirmations or latest message alone. Reply already received
 wins; ended answerer or terminal answerer's item proves no reply possible.
 Live answerer is unresolved; no question means no row. Steering-role question
-survives seat succession and belongs to awaiting-seat count, not dead waits. Dependency deadlocks list each loop of unsatisfied blocking edges among live items that the backend detector finds (`dependency_cycles`): loop order, every edge with its id and gate, the work it strands, and the recovery — make one edge `coordination_only`, or route the ordering decision to steering. A loop never clears on its own, so any row is actionable.
+survives seat succession and belongs to awaiting-seat count, not dead waits. Dependency deadlocks and waiting chains — loops, the blockers holding the most work, and unstarted blockers stalling work in progress — are described in [steering-report-dependencies.md](steering-report-dependencies.md), with the rule that steering keeps dependencies minimal.
 
 ## Deployment runs
 

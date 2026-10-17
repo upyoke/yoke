@@ -19,6 +19,14 @@ or plan note. Nothing acknowledged is automatically completed.
   needs, then make one edge `coordination_only` with `yoke items dependency
   update DEPENDENT BLOCKING --match-gate-point GATE --gate-point
   coordination_only --rationale TEXT`. New writes already refuse to close a loop.
+- **Waiting chains**: on every report read, check each row; the section names
+  heads holding the most work, how many items each unblocks, chain depth, and
+  `!` on an unstarted, unstaffed blocker with work behind it in progress. Staff
+  a `!` blocker or remove its edge (`yoke items dependency remove DEPENDENT
+  BLOCKING`). Narrow or remove any listed edge heavier than the work needs:
+  `--gate-point coordination_only` or `--satisfaction fact:merged` on `yoke
+  items dependency update DEPENDENT BLOCKING --match-gate-point GATE`, with the
+  reason in `--rationale`.
 - **Unattended linked work**: take/arrange exact owning project+document seat
   named by row before staffing; project seat does not cover another doc link.
 - **Steering messages awaiting a seat**: acquire scope for unacknowledged parked
