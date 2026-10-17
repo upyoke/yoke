@@ -165,7 +165,8 @@ def compose_run(
         run_id,
         allow_pending_pair_merges=allow_pending_pair_merges,
         connection=conn,
-        # Itemless creation precedes add-item; start checks the count.
+        # An itemless create precedes add-item and start checks the count;
+        # an item-bound create enrolled its item above.
         require_item_qa_members=enroll_item_id is not None,
     )
 
