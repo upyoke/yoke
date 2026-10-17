@@ -5,6 +5,5 @@
  "form": "Do",
  "verification": "Candidate scope and refusal tests include unknown QA capture IDs, which retain permission_denied without a project roster; serving release proof is pending.",
  "topics": ["projects/identity", "reference/commands"],
- "plan_refs": ["FIRST-USER.P6"],
  "sources": ["runtime/api/cli/test_projectless_operation_boundaries.py", "packages/yoke-core/src/yoke_core/domain/yoke_function_permissions.py"]
 }

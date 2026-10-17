@@ -2,7 +2,6 @@
  "id": "relay",
  "title": "Machine relay",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.32"],
  "commands": ["yoke relay diagnostic", "yoke relay install", "yoke relay report quarantine", "yoke relay serve", "yoke relay serve-once", "yoke relay status", "yoke relay uninstall"],
  "page": "machines",
  "position": 1

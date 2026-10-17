@@ -5,6 +5,5 @@
  "form": "Link",
  "verification": "No delivery proof attached.",
  "topics": ["databases/setup", "qa-plans/bindings", "test-machines/setup", "deployments/flows"],
- "plan_refs": ["FIRST-USER.P2", "FIRST-USER.P3", "FIRST-USER.29"],
  "position": 3
 }

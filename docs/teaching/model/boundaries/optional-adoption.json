@@ -3,6 +3,5 @@
  "title": "Adopt optional capabilities when useful",
  "status": "approved",
  "text": "Environments, preview, test machines, QA plans, migrations, test registration, Doctor and architecture are not a universal onboarding checklist. Existing rules and selected work still govern.",
- "plan_refs": ["FIRST-USER.24", "FIRST-USER.42", "FIRST-USER.43"],
  "position": 5
 }

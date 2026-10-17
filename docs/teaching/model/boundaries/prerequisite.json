@@ -1,8 +1,7 @@
 {
  "id": "prerequisite",
- "title": "Prototype and upkeep come first",
+ "title": "Teaching upkeep travels with the change",
  "status": "approved",
- "text": "FIRST-USER 0 is linked Issues YOK-3914 and PLAT-220. Check the master into Yoke internal docs, then install and verify both projects’ upkeep rules during blocking post-deploy item QA. Yoke items edit their own source; Platform items file linked Yoke updates. Both Issues precede all remaining work under either plan.",
- "plan_refs": ["FIRST-USER.0", "FIRST-USER.D", "FIRST-USER.B", "FIRST-USER.27"],
+ "text": "Yoke items update the teaching records their change touches, in their own lane. Platform items never edit this map; they file a linked Yoke item naming the exact records, requested change and evidence.",
  "position": 6
 }

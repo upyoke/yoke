@@ -5,6 +5,5 @@
  "situations": ["A feature refuses because its project capability is absent.", "An operator needs to change one setting or add a credential.", "A dashboard inventory appears configured but the underlying service is not ready."],
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
  "questions": ["Which capability refusals already point to their exact setup guide and which only name a capability type?", "How are credential materialization and credential readiness verified for each capability outside Onboard?"]
 }

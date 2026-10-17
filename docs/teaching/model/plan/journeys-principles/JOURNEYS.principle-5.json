@@ -1,9 +1,0 @@
-{
- "id": "JOURNEYS.principle-5",
- "title": "Global and project context across every surface.",
- "status": "deferred",
- "concepts": ["documentation/planning", "context/disclosure", "projects/adoption"],
- "surfaces": ["global-orientation", "project-orientation", "skills-roles", "execution-instructions"],
- "scenarios": ["agent-context", "project-adoption"],
- "position": 9
-}

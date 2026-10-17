@@ -3,6 +3,5 @@
  "title": "Visual verification remains pending",
  "status": "observed",
  "text": "Browser automation refused local-file navigation under its URL policy. Static checks pass; no browser-rendering result is claimed.",
- "plan_refs": ["FIRST-USER.0"],
  "position": 14
 }

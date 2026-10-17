@@ -2,7 +2,6 @@
  "id": "landing",
  "title": "Landing routes",
  "status": "draft-copy",
- "plan_refs": ["JOURNEYS.situation-12"],
  "commands": ["yoke github merge-queue apply", "yoke github merge-queue hold", "yoke github merge-queue readiness", "yoke github pr create"],
  "functions": ["github.merge_queue.apply", "github.merge_queue.hold", "github.merge_queue.readiness", "github.pr.create", "merge_queue.landing.observe", "merge_queue.landing_pending.clear", "merge_queue.landing_pending.mark", "merge_queue.landing_pull_request.record"],
  "page": "merging",

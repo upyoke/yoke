@@ -3,6 +3,5 @@
  "title": "Released piped installation leaves a usable terminal",
  "status": "verified-live",
  "text": "Independent review accepted launch.625 Terminal.app interruption proof on 2026-10-14: visible clean shell and matching persistent terminal settings, with only Darwin PENDIN pending-input state excluded. Passing POSIX pipeline tests cover foreground ownership, interruption, SIGTSTP/fg and mouse-mode restoration. This closes the terminal-proof gap under the operator-approved evidence combination; broader installer campaign obligations remain separate.",
- "plan_refs": ["FIRST-USER.14"],
  "sources": ["tests/installer/test_public_installer_terminal.py"]
 }

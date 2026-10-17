@@ -5,8 +5,6 @@
  "situations": ["First governed schema/data change", "Hosted user has only HTTPS control-plane access", "Release ships migration or uncovered schema", "Fleet copy busy or validation fails"],
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
  "questions": ["No hosted-to-operator rehearsal handoff was live-tested.", "Determine the external-project provisioning recipe for validation bindings; current help explicitly leaves other projects to hydrate their own binding."],
- "related_scenarios": ["governed_database_setup", "environment_flows", "operator-repair"],
- "plan_refs": ["JOURNEYS.situation-17"]
+ "related_scenarios": ["governed_database_setup", "environment_flows", "operator-repair"]
 }

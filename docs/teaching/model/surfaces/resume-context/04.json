@@ -5,6 +5,5 @@
  "form": "Do",
  "verification": "No delivery proof attached.",
  "topics": ["workflows/bindings", "sessions/lifecycle"],
- "plan_refs": ["FIRST-USER.42", "FIRST-USER.43", "FIRST-USER.D"],
  "position": 3
 }

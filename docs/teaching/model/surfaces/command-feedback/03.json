@@ -5,6 +5,5 @@
  "form": "Do",
  "verification": "No delivery proof attached.",
  "topics": ["security/operations", "workflows/gates", "observability/diagnostics"],
- "plan_refs": ["FIRST-USER.13", "FIRST-USER.28", "FIRST-USER.29", "FIRST-USER.35", "FIRST-USER.P6"],
  "position": 2
 }

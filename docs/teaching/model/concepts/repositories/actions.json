@@ -2,7 +2,6 @@
  "id": "actions",
  "title": "GitHub Actions integration",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.32"],
  "page": "repositories",
  "position": 3
 }

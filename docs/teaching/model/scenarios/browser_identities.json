@@ -5,6 +5,5 @@
  "situations": ["First browser QA", "Testing buyer/admin or several accounts", "Personal site session expired", "Browser on an unconnected test host", "Resettable machine must retain live logins"],
  "coverage": "traced",
  "current": "Mission dispatch uses explicit case personas or project identities covering the target origin; each identity carries site checks and account recovery through project declarations. Source tests cover selection; live sign-in proof remains required.",
- "desired": "Reconciled against current plan records.",
  "questions": ["Live identity persistence and individual site probes were not exercised; current docs/CLI contract, not a sign-in guarantee."]
 }

@@ -3,7 +3,6 @@
  "title": "Applying the reviewed operations",
  "status": "observed",
  "surface_refs": ["setup-tui"],
- "plan_refs": ["FIRST-USER.17"],
  "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_apply_steps.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_apply.py", "packages/yoke-cli/src/yoke_cli/config/onboard_relay_supervisor.py", "runtime/api/cli/test_onboard_wizard_applying_summary.py", "runtime/api/cli/test_onboard_relay_supervisor.py"],
  "current": "Apply retains totals and renders each reviewed operation with pending, running, complete, skipped or failed marks. Plain terminals use ASCII marks. The running row scrolls into view; relay paths use the selected connection’s actual instance name.",
  "page": "installation",

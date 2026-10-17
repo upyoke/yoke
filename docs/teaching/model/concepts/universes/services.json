@@ -2,7 +2,6 @@
  "id": "services",
  "title": "Local runtime services",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.15"],
  "commands": ["yoke core logs", "yoke core start", "yoke core status", "yoke core stop", "yoke local-postgres start", "yoke local-postgres status", "yoke local-postgres stop"],
  "page": "universes",
  "position": 3

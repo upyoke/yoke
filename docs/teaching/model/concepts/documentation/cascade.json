@@ -3,7 +3,6 @@
  "title": "Manual navigation",
  "status": "draft-copy",
  "audience": "Documentation authors / maintainers",
- "plan_refs": ["FIRST-USER.35", "FIRST-USER.40"],
  "surface_refs": ["category-summary", "detail-home", "docs-landing", "manual-contents", "manual-overview", "terminal-help"],
  "page": "documentation-structure",
  "position": 3

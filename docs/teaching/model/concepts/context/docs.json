@@ -2,7 +2,6 @@
  "id": "docs",
  "title": "Documentation and help",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.40", "FIRST-USER.41", "JOURNEYS.situation-18"],
  "surface_refs": ["agent-help", "packets-help", "project-hub", "project-native", "skills-roles"],
  "skills": ["help"],
  "page": "context-guidance",

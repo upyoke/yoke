@@ -2,7 +2,6 @@
  "id": "local",
  "title": "Local",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.3", "JOURNEYS.situation-8"],
  "page": "modes",
  "position": 0
 }

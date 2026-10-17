@@ -11,6 +11,5 @@
  "current": "Registered project-structure get help is available; end-to-end Conduct delivery in an external project remains to be proved.",
  "desired": "Reuse project-owned guidance through context_routing; preserve existing docs and settled choices.",
  "plan_notes": ["FIRST-USER 24", "Project-context routing proposal"],
- "plan_refs": ["FIRST-USER.24", "FIRST-USER.41", "FIRST-USER.43"],
  "sources": ["packages/yoke-core/src/yoke_core/domain/project_structure.py:119", ".agents/skills/yoke/implement/implementing/project-context.md:6", "packages/yoke-core/src/yoke_core/domain/install_bundle_managed.py:83", ".agents/skills/yoke/onboard/strategy-conversation.md", "packages/yoke-core/src/yoke_core/ui/static/universe_views_projects.js", "packages/yoke-core/src/yoke_core/ui/static/universe_views_strategy.js", "packages/yoke-core/src/yoke_core/ui/static/universe_onboarding_project.js", "packages/yoke-core/src/yoke_core/domain/session_orientation.py"]
 }

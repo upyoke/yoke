@@ -4,6 +4,5 @@
  "status": "observed",
  "commands": ["yoke items create"],
  "functions": ["items.create"],
- "plan_refs": ["FIRST-USER.13"],
  "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/items_create_text.py", "runtime/api/test_items_create_spec_storage.py"]
 }

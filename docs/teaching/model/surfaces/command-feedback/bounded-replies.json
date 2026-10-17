@@ -4,6 +4,5 @@
  "status": "observed",
  "form": "State",
  "verification": "Candidate response fixtures in runtime/api/cli/test_cli_reply_delivery.py cover registered response boundaries, named refusal causes, complete saved receipts, warnings, workflow instructions, handoffs, 80-column wrapping and explicit JSON. Source owners are packages/yoke-cli/src/yoke_cli/transport/public_ref_display.py and response_evidence.py. Fixture proof does not claim a live transport run.",
- "topics": ["context/disclosure", "reference/commands", "documentation/disclosure/reactive-help"],
- "plan_refs": ["FIRST-USER.35", "FIRST-USER.P6"]
+ "topics": ["context/disclosure", "reference/commands", "documentation/disclosure/reactive-help"]
 }

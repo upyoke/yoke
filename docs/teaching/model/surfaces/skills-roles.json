@@ -11,6 +11,5 @@
  "current": "Existing source references; delivered content is not yet proved.",
  "desired": "Load the bound skill/role and relevant project context; activation ends at first item done under its real obligations.",
  "plan_notes": ["Accepted installed role/help repair", "FIRST-USER P4 boundary"],
- "plan_refs": ["FIRST-USER.24", "FIRST-USER.40", "FIRST-USER.41"],
  "sources": [".agents/skills/yoke/SKILL.md:9", ".agents/skills/yoke/conduct/dispatch-context.md:25", "runtime/agents/engineer.md:1", "packages/yoke-core/src/yoke_core/domain/install_bundle.py:14"]
 }
