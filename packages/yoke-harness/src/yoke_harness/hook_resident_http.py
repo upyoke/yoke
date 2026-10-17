@@ -86,7 +86,8 @@ class ResidentHttpOpener:
             for key, value in request.header_items()
             if key.casefold() not in _HOP_BY_HOP_HEADERS
         }
-        if request.full_url.endswith("/v1/hooks/evaluate"):
+        evaluates_hook = request.full_url.endswith("/v1/hooks/evaluate")
+        if evaluates_hook:
             authorization = next(
                 (
                     value
@@ -121,7 +122,9 @@ class ResidentHttpOpener:
                     chunks.append(chunk)
                 response_body = b"".join(chunks)
                 if response.status_code == 200:
-                    self._record_capabilities(response_body)
+                    payload = self._record_capabilities(response_body)
+                    if evaluates_hook and payload.get("message_probe") is True:
+                        self._request_state.message_probe = True
                 return _ResidentHttpResponse(
                     body=response_body,
                     status=response.status_code,
@@ -135,14 +138,14 @@ class ResidentHttpOpener:
                 f"resident keep-alive request failed ({type(exc).__name__})"
             ) from None
 
-    def _record_capabilities(self, response_body: bytes) -> None:
+    def _record_capabilities(self, response_body: bytes) -> dict[str, Any]:
         try:
             payload = json.loads(response_body)
         except (TypeError, ValueError):
-            return
-        capabilities = (
-            payload.get("capabilities") if isinstance(payload, dict) else None
-        )
+            return {}
+        if not isinstance(payload, dict):
+            return {}
+        capabilities = payload.get("capabilities")
         if (
             isinstance(capabilities, list)
             and HOOK_OBSERVATION_BATCH_CAPABILITY in capabilities
@@ -153,6 +156,7 @@ class ResidentHttpOpener:
             and HOOK_CLIENT_WALL_CAPABILITY in capabilities
         ):
             self._client_wall_supported.set()
+        return payload
 
     def observation_batch_supported(self) -> bool:
         """Whether the active control plane advertised the batch endpoint."""
@@ -160,6 +164,15 @@ class ResidentHttpOpener:
 
     def begin_hook_request(self) -> None:
         self._request_state.client_wall_target = None
+        self._request_state.message_probe = False
+
+    def message_probe_ran(self) -> bool:
+        """Whether this thread's hook evaluation leased its session inbox.
+
+        A server that predates the ``message_probe`` response field never
+        sets it, so its round trips never suppress a later lease.
+        """
+        return bool(getattr(self._request_state, "message_probe", False))
 
     def client_wall_supported(self) -> bool:
         return self._client_wall_supported.is_set()

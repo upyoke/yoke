@@ -10,6 +10,9 @@ destroyer, which is the whole reason the direction was reversed.
 
 from __future__ import annotations
 
+from yoke_harness.ssh_mac_full_reset_path_state import (
+    canonical_posix_path_state_contract,
+)
 from yoke_harness.ssh_mac_preserved_state import PRESERVED_HOME_ENTRIES
 
 from dataclasses import dataclass
@@ -18,7 +21,6 @@ from pathlib import PurePosixPath
 from yoke_cli.config.path_doctor import (
     PathStateContract,
     SUPPORTED_SHELLS,
-    resolve_path_state_contract,
 )
 from yoke_cli.config.session_relay_instance import (
     LAUNCHD_USER_DOMAIN,
@@ -291,10 +293,12 @@ def golden_baseline_clears_home(golden_baseline_path: str, *, home: str) -> bool
     )
 
 
-_REFERENCE_PATH_STATE = resolve_path_state_contract(
-    env={"HOME": "/", "SHELL": "/bin/zsh"}
-)
-_REFERENCE_RESET_PATHS = resolve_full_reset_path_contract(_REFERENCE_PATH_STATE)
+def canonical_full_reset_path_contract() -> FullResetPathContract:
+    """Return the host-independent POSIX contract used to render reset assets."""
+    return resolve_full_reset_path_contract(canonical_posix_path_state_contract())
+
+
+_REFERENCE_RESET_PATHS = canonical_full_reset_path_contract()
 YOKE_ABSENT_RELATIVE_FILES = _REFERENCE_RESET_PATHS.tool_file_suffixes
 STARTUP_FILE_NAMES = _REFERENCE_RESET_PATHS.startup_file_suffixes
 
@@ -337,6 +341,7 @@ __all__ = [
     "YOKE_ABSENT_RELATIVE_DIRECTORIES",
     "YOKE_ABSENT_RELATIVE_FILES",
     "YOKE_ABSENT_TEMP_FILES",
+    "canonical_full_reset_path_contract",
     "golden_baseline_clears_home",
     "resolve_full_reset_path_contract",
 ]

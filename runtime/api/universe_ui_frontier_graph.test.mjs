@@ -126,7 +126,7 @@ test("stuck, broken and deadlocked chains say why on their own tiles", () => {
   assert.equal(stuck("PLAT-221"),
     "prod is not in PLAT-220's delivery flow, so it can never be live there");
   assert.equal(stuck("YOK-3850"), "Blocked — waiting on an AWS quota increase");
-  assert.equal(stuck("YOK-3860"), "Deadlock — YOK-3861 ⇄ YOK-3860 wait on each other");
+  assert.equal(stuck("YOK-3860"), "Deadlock — YOK-3860 ⇄ YOK-3861 wait on each other");
   assert.equal(stuck("YOK-3862"), "Stuck upstream: YOK-3861");
   const cols = columns(model);
   assert.deepEqual(cols[0], {
@@ -173,9 +173,10 @@ test("nothing waiting draws no graph and holds nothing", () => {
   assert.equal(graphCount, 0);
 });
 
-const plain = (nodes, edges) => frontierIndex(
+const plain = (nodes, edges, cycles = []) => frontierIndex(
   new Map(nodes.map(([ref, band, extra = {}]) => [ref, { ref, band, stage: "idea", title: ref, ...extra }])),
   edges.map(([from, to, sat = "fact:merged", env = null]) => ({ from, to, gate: "activation", sat, why: "", env })),
+  cycles,
 );
 
 test("a shortcut across the longest chain is an ordinary line", () => {
@@ -188,11 +189,39 @@ test("a shortcut across the longest chain is an ordinary line", () => {
 });
 
 test("an item that waits on itself is a deadlock of one", () => {
-  const model = plain([["A-1", "waiting"], ["A-2", "waiting"]], [["A-1", "A-1"], ["A-1", "A-2"]]);
+  const model = plain(
+    [["A-1", "waiting"], ["A-2", "waiting"]],
+    [["A-1", "A-1"], ["A-1", "A-2"]],
+    [["A-1"]],
+  );
   assert.equal(model.nodes.get("A-1").stall, "Deadlock — A-1 waits on itself");
   assert.equal(model.nodes.get("A-2").stuck, "Stuck upstream: A-1");
   assert.deepEqual(columns(model)[0].deadlocked, ["A-1"]);
   assert.deepEqual(frontierOutline(model).map((tree) => tree.ref), ["A-1"]);
+});
+
+test("deadlocks are the server's: a loop of edges alone draws none", () => {
+  const nodes = [["A-1", "waiting"], ["A-2", "waiting"]];
+  const loop = [["A-1", "A-2"], ["A-2", "A-1"]];
+  const unserved = plain(nodes, loop);
+  assert.deepEqual(unserved.cycles, []);
+  assert.equal(unserved.nodes.get("A-1").cycle, null);
+  const served = plain(nodes, loop, [["A-1", "A-2"]]);
+  assert.equal(served.nodes.get("A-2").stall, "Deadlock — A-1 ⇄ A-2 wait on each other");
+  assert.deepEqual(columns(served)[0].deadlocked, ["A-1", "A-2"]);
+});
+
+test("a filtered model keeps the served deadlocks it still shows", () => {
+  const model = frontierFilter(
+    plain([["A-1", "waiting"], ["A-2", "waiting"], ["B-1", "waiting"]], [["A-1", "A-2"], ["A-2", "A-1"]], [["A-1", "A-2"]]),
+    (n) => n.ref.startsWith("A-"),
+  );
+  assert.deepEqual(model.cycles, [["A-1", "A-2"]]);
+  const elsewhere = frontierFilter(
+    plain([["A-1", "waiting"], ["A-2", "waiting"], ["B-1", "waiting"]], [["A-1", "A-2"], ["A-2", "A-1"]], [["A-1", "A-2"]]),
+    (n) => n.ref.startsWith("B-"),
+  );
+  assert.deepEqual(elsewhere.cycles, []);
 });
 
 test("a completed blocker still owing a deploy is waiting, not dead", () => {

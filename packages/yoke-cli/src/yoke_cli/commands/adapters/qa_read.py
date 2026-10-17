@@ -273,7 +273,10 @@ Flag matrix:
   --json        no                flag (typed envelope on stdout)
 
 reviewed-implementation scopes to qa_phase=verification; implemented
-covers blocking requirements from every phase. Exit codes: 0 success
+covers blocking requirements from every phase, and for an item also lists
+unsettled_records from the done gate's terminal-settlement check (latest
+executions without a verdict, live host leases, active plan executions);
+any entry makes the summary unsatisfied. Exit codes: 0 success
 (regardless of satisfied state), 1 dispatch failure, 2 usage error.
 """
 

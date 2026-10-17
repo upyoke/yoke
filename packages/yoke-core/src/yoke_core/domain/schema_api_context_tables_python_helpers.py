@@ -277,7 +277,7 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "No `operator_preferences` field."
         ),
     },
-    "yoke_core.domain.steering_fleet_report_deployment_runs": {
+    "yoke_core.domain.steering_fleet_report_run_progress": {
         "columns": [("run_progress", "callable")],
         "notes": (
             "Read live deployment run progress with run_progress(conn, "

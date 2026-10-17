@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain import db_backend
 from yoke_core.domain.auth_schema import create_auth_tables
 from yoke_core.domain.decision_request_schema import create_decision_request_tables
 from yoke_core.domain.events_function_index import ensure_function_index
@@ -53,6 +54,7 @@ from yoke_core.domain.schema_init_actor_path_claim_tables import (
     create_actor_identity_tables,
     create_actor_path_claim_tables,
 )
+from yoke_core.domain.schema_converge_statements import converging_missing_schema
 from yoke_core.domain.schema_init_columns import (
     apply_additive_schema,
     apply_harness_session_columns,
@@ -67,10 +69,14 @@ from yoke_core.domain.schema_init_tables import (
     create_governed_tables,
 )
 from yoke_core.domain.schema_init_work_claim_indexes import (
+    create_item_claim_history_index,
     create_work_claim_active_uniques,
 )
 from yoke_core.domain.schema_ouroboros_columns import apply_ouroboros_columns
 from yoke_core.domain.session_control_schema import create_session_control_tables
+from yoke_core.domain.session_message_indexes import (
+    create_session_message_prefix_index,
+)
 from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL,
     STRATEGY_DOCS_CREATE_TABLE_SQL,
@@ -85,6 +91,21 @@ from yoke_core.domain.workflow_schema import ensure_workflow_schema
 
 
 def converge_additive_schema(conn: Any) -> None:
+    """Create every missing table, index and additive column.
+
+    On Postgres each statement first checks the live catalog and runs only
+    when its object is missing, one table per transaction, so a converged
+    database takes no table locks and a converge never holds two tables'
+    locks at once (:mod:`yoke_core.domain.schema_converge_statements`).
+    """
+    if not db_backend.connection_is_postgres(conn):
+        _create_in_dependency_order(conn)
+        return
+    with converging_missing_schema(conn) as guarded:
+        _create_in_dependency_order(guarded)
+
+
+def _create_in_dependency_order(conn: Any) -> None:
     """Create every table, index and additive column, in FK-dependency order.
 
     Order matters — ``create_external_identity_tables`` FKs into actors,
@@ -100,6 +121,7 @@ def converge_additive_schema(conn: Any) -> None:
     create_ui_preference_tables(conn)
     ensure_event_schema(conn)
     create_work_claim_active_uniques(conn)
+    create_item_claim_history_index(conn)
     apply_harness_session_columns(conn)
     create_governed_tables(conn)
     create_path_registry_tables(conn)
@@ -108,6 +130,7 @@ def converge_additive_schema(conn: Any) -> None:
     create_auth_tables(conn)
     create_external_identity_tables(conn)
     create_session_control_tables(conn)
+    create_session_message_prefix_index(conn)
     create_decision_request_tables(conn)
     create_github_app_tables(conn)
     # QA plans bind to a concrete environment, so site/environment authority

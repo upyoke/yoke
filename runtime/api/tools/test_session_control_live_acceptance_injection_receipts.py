@@ -57,8 +57,11 @@ def test_all_acceptance_surfaces_retain_message_hook_coverage() -> None:
     assert "Stop" in codex["hooks"]
     for surface in ("codex-cli", "codex-desktop", "codex-vscode"):
         assert "Stop" not in capability_for_surface(surface).inject_events
-    after_shell = cursor["hooks"]["afterShellExecution"]
-    assert any("evaluate PostToolUse" in entry["command"] for entry in after_shell)
+    cursor_post = cursor["hooks"]["postToolUse"]
+    assert len(cursor_post) == 1
+    assert "matcher" not in cursor_post[0]
+    assert "evaluate PostToolUse" in cursor_post[0]["command"]
+    assert "afterShellExecution" not in cursor["hooks"]
 
 
 def test_fake_receipt_reads_do_not_simulate_target_hooks() -> None:

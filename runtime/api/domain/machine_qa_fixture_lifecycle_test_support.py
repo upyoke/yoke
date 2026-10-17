@@ -84,6 +84,7 @@ class FakeFixtureRunner:
 
 class FakeExecution:
     baseline = None
+    progress_callback = None
 
     def __init__(
         self,

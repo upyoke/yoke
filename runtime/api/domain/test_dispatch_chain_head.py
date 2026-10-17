@@ -14,6 +14,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain import chain_head_freshness as freshness
 from yoke_core.domain import dispatch_chain_head as heads
+from yoke_core.domain import dispatch_chain_selection as selection
 from yoke_core.domain import epic_dispatch
 from yoke_core.domain.handlers import workflow_item_epic_task_ops as handlers
 from yoke_core.domain.handlers.epic_task_operation_models import ChainReadResponse
@@ -189,6 +190,14 @@ def test_advance_and_diagnostics_share_queue_parser(source, monkeypatch, raw):
     assert heads.read_head_dispatch(source.conn, 42, "caller")[0]["task_num"] == 3
     monkeypatch.setattr(
         epic_dispatch, "query_one", lambda *_a: {"queue": raw, "current_index": 0}
+    )
+    monkeypatch.setattr(
+        selection,
+        "load_epic_tasks",
+        lambda *_a: {
+            3: selection.LaneTask(3, "done", ()),
+            4: selection.LaneTask(4, "planned", (3,)),
+        },
     )
     assert epic_dispatch.dispatch_chain_advance(source.conn, "42", "lane") == "1|4"
     assert parser.call_count == 2

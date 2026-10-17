@@ -123,6 +123,16 @@ A case added on its own (`yoke qa requirement add`) belongs to no plan, so it
 takes `--host-baseline NAME` or `--starting-state as_is
 --starting-state-reason TEXT` and cannot inherit.
 
+Before anything has run a case — no QA run, no plan result, not in a live
+execution's roster — re-declare its starting state with `yoke qa requirement
+update --requirement-id N --field starting_state --value
+'{"starting_state":"as_is","starting_state_reason":"..."}'` (or
+`{"starting_state":"baseline","host_baseline":"fresh-host"}`). It also rewrites
+the row's in-flight admitted copies. Afterwards it refuses
+`starting_state_case_executed` and names the corrected-case route. An item row
+materialized from a plan refuses `starting_state_plan_owned`: edit the plan
+case instead. `inherit` is declared only on a plan case.
+
 A Terminal case (`terminal-check`, `terminal-inspection`) also names
 `entry_surface`, the command the Terminal runs first (for example
 `{yoke_bin} setup --connect https://app.upyoke.com --project-mode

@@ -4,6 +4,6 @@
  "status": "draft-copy",
  "commands": ["yoke test-machine bridge-diagnose"],
  "functions": ["test_machine.bridge_diagnose"],
- "page": "test-machines",
+ "page": "test-machine-recovery",
  "position": 3
 }

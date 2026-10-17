@@ -1,9 +1,9 @@
-"""An item-QA stage wakes waiting owners before closing settled members.
+"""An item-QA stage closes each accepted member as the walk accepts it.
 
-Closing a member with nothing to check runs its whole close-out, GitHub
-sync included. Done inline per member, every owner later in the walk sat
-unwoken behind those close-outs, indistinguishable from a missing wake.
-The stage now sends every owner wake first and closes members after.
+Deferring every close-out until the whole member walk ended left accepted
+members at release wait for the full pass, then closed them one after
+another. Each accepted member now commits its stage result and runs its
+close-out before the walk reads the next member.
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ def _status(conn, *, run_id, stage_name, member_item_id, notify_acceptance=True)
     }
 
 
-def test_owner_wakes_go_out_before_any_member_close_out() -> None:
+def test_an_accepted_member_closes_before_the_walk_moves_on() -> None:
     events: list[tuple[str, int]] = []
     conn = _Conn()
     with (
@@ -104,8 +104,8 @@ def test_owner_wakes_go_out_before_any_member_close_out() -> None:
     )
     assert f"member {member_ref}" in message
     assert f"member {WAITING_MEMBER}" not in message
-    # The settled member sorts first, yet its close-out follows the wake.
-    assert events == [("wake", WAITING_MEMBER), ("close", SETTLED_MEMBER)]
+    # The settled member sorts first and closes before the next is walked.
+    assert events == [("close", SETTLED_MEMBER), ("wake", WAITING_MEMBER)]
     assert conn.commits >= 2
 
 

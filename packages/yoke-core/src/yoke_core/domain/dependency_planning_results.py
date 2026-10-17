@@ -34,6 +34,8 @@ class BlockerDetail:
     satisfaction: str
     rationale: str
     reason: str  # Human-readable evaluation reason from GateResult
+    #: The ``item_dependencies`` row, so a reader can name the edge itself.
+    dependency_id: Optional[int] = None
 
     def to_dict(self) -> dict:
         return {

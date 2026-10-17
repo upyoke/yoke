@@ -75,6 +75,16 @@ class ManualWakeRequirement:
 def _open_rows(
     conn: Any, *, run_id: str, stage_name: str, item_ids: list[int]
 ) -> list[Any]:
+    from yoke_core.domain.deployment_qa_presentation_facts import presented_run_ids
+
+    runs = presented_run_ids(conn, run_id)
+    if runs:
+        wanted = set(item_ids)
+        return [
+            row[2:]
+            for row in _presented_open_rows(conn, runs)
+            if row[0] == run_id and row[1] == stage_name and int(row[3]) in wanted
+        ]
     p = marker(conn)
     return conn.execute(
         "SELECT q.id, q.deployment_member_item_id, COALESCE(q.plan_case_key,''), "
@@ -88,6 +98,33 @@ def _open_rows(
         "ORDER BY q.deployment_member_item_id, q.id",
         (run_id, stage_name, MANUAL, *item_ids),
     ).fetchall()
+
+
+def _presented_open_rows(conn: Any, runs: tuple[str, ...]) -> list[tuple[Any, ...]]:
+    """Every presented run's open manual rows, read once for all of them."""
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
+
+    p = marker(conn)
+
+    def read() -> list[tuple[Any, ...]]:
+        return [
+            tuple(row)
+            for row in conn.execute(
+                "SELECT q.deployment_run_id, q.deployment_stage, q.id, "
+                "q.deployment_member_item_id, COALESCE(q.plan_case_key,''), "
+                "COALESCE(q.wake_evidence,'') FROM qa_requirements q "
+                f"WHERE q.deployment_run_id IN ({','.join([p] * len(runs))}) "
+                f"AND q.wake_path={p} AND q.method_id IS NOT NULL "
+                "AND q.waived_at IS NULL AND q.superseded_at IS NULL "
+                "AND q.retracted_at IS NULL "
+                "AND q.deployment_member_item_id IS NOT NULL "
+                "AND NOT EXISTS (SELECT 1 FROM qa_runs r WHERE r.qa_requirement_id=q.id) "
+                "ORDER BY q.deployment_member_item_id, q.id",
+                (*runs, MANUAL),
+            ).fetchall()
+        ]
+
+    return presentation_read(conn, ("qa_manual_open_rows", runs), read)
 
 
 def member_holds_for_manual_wake(
@@ -104,25 +141,34 @@ def member_holds_for_manual_wake(
     )
 
 
-def _owner(conn: Any, item_id: int) -> tuple[str, str]:
+def _owners(conn: Any, item_ids: list[int]) -> dict[int, tuple[str, str]]:
+    """Each item's live claim holder and its liveness, read in one statement."""
+    if not item_ids:
+        return {}
     p = marker(conn)
     item_scope = scope_int_sql(conn, "wc.scope", "item_id")
-    row = conn.execute(
-        "SELECT hs.session_id, hs.ended_at, hs.terminated_at, hs.last_heartbeat, "
-        "hs.last_tool_call_at, COALESCE(hs.mode,'') FROM work_claims wc "
-        "JOIN harness_sessions hs ON hs.session_id=wc.session_id "
+    rows = conn.execute(
+        f"SELECT {item_scope}, hs.session_id, hs.ended_at, hs.terminated_at, "
+        "hs.last_heartbeat, hs.last_tool_call_at, COALESCE(hs.mode,'') "
+        "FROM work_claims wc JOIN harness_sessions hs ON hs.session_id=wc.session_id "
         "WHERE wc.released_at IS NULL AND hs.terminated_at IS NULL "
-        f"AND wc.target_kind='item' AND {item_scope}={p} "
-        "ORDER BY CASE WHEN hs.ended_at IS NULL THEN 0 ELSE 1 END, wc.id DESC "
-        "LIMIT 1",
-        (int(item_id),),
-    ).fetchone()
-    if row is None:
-        return "", ""
+        f"AND wc.target_kind='item' AND {item_scope} IN ({','.join([p] * len(item_ids))}) "
+        "ORDER BY CASE WHEN hs.ended_at IS NULL THEN 0 ELSE 1 END, wc.id DESC",
+        tuple(item_ids),
+    ).fetchall()
+    owners: dict[int, tuple[str, str]] = {}
     keys = ("ended_at", "terminated_at", "last_heartbeat", "last_tool_call_at")
-    liveness = activity_liveness(dict(zip(keys, tuple(row)[1:5])))
-    mode = str(tuple(row)[5] or "")
-    return str(tuple(row)[0]), f"{liveness}, mode {mode}" if mode else liveness
+    for row in rows:
+        values = tuple(row)
+        if int(values[0]) in owners:
+            continue
+        liveness = activity_liveness(dict(zip(keys, values[2:6])))
+        mode = str(values[6] or "")
+        owners[int(values[0])] = (
+            str(values[1]),
+            f"{liveness}, mode {mode}" if mode else liveness,
+        )
+    return owners
 
 
 def manual_wake_requirements(
@@ -134,26 +180,26 @@ def manual_wake_requirements(
     project_slug: str,
 ) -> tuple[ManualWakeRequirement, ...]:
     """Every open manual-wake requirement of these waiting members."""
-    from yoke_core.domain.project_identity import render_item_ref
+    from yoke_core.domain.item_ref_render import render_item_ref_lookup
 
     members = sorted({int(item_id) for item_id in item_ids})
     if not members:
         return ()
     rows = _open_rows(conn, run_id=run_id, stage_name=stage_name, item_ids=members)
-    owners: dict[int, tuple[str, str]] = {}
+    held = sorted({int(tuple(row)[1]) for row in rows})
+    owners = _owners(conn, held)
+    member_ref = render_item_ref_lookup(conn, held)
     entries = []
     for row in rows:
         requirement_id, member, case_key, evidence = tuple(row)
         member = int(member)
-        if member not in owners:
-            owners[member] = _owner(conn, member)
-        session_id, state = owners[member]
+        session_id, state = owners.get(member, ("", ""))
         entries.append(
             ManualWakeRequirement(
                 run_id=run_id,
                 stage=stage_name,
                 item_id=member,
-                item_ref=render_item_ref(conn, member),
+                item_ref=member_ref(member),
                 project_slug=project_slug,
                 requirement_id=int(requirement_id),
                 case_key=str(case_key),

@@ -7,6 +7,7 @@ import re
 import shlex
 from typing import Protocol
 
+from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 from yoke_cli.config.path_doctor import (
     PathStateContract,
     resolve_path_state_contract,
@@ -29,12 +30,19 @@ from yoke_harness.ssh_mac_full_reset_receipt import (
     unrestored_detail,
 )
 from yoke_harness.ssh_mac_full_reset_script import render_full_reset_script
+from yoke_harness.ssh_test_machine_transport import TRANSPORT_FAILURE_EXIT
 from yoke_harness.test_machine_types import HostActionResult
+
+
+TEST_MAC_RESET_ADAPTER_FAILED = "test_mac_reset_adapter_failed"
+# The runner could not start or finish ssh; the host itself may be fine.
+TEST_MAC_RESET_TRANSPORT_FAILED = "test_mac_reset_transport_failed"
 
 
 class ResetCommandResult(Protocol):
     returncode: int
     stdout: str
+    stderr: str
 
 
 class ResetRunner(Protocol):
@@ -72,6 +80,72 @@ def is_safe_test_mac_home(home: str) -> bool:
 
 def _command(*argv: str) -> str:
     return shlex.join(argv)
+
+
+class _ResetCalls:
+    """Run reset steps, keep the first error code and evidence per failed call."""
+
+    def __init__(self, run_remote: ResetRunner) -> None:
+        self._run_remote = run_remote
+        self.error_code: str | None = None
+        self.failures: list[dict[str, object]] = []
+        self.last_exit_code: int | None = None
+        self.last_stdout = ""
+
+    def fail(self, code: str) -> None:
+        if self.error_code is None:
+            self.error_code = code
+
+    def _raised(self, call: str, error: Exception) -> None:
+        self.last_exit_code = None
+        self.failures.append(
+            {
+                "call": call,
+                "exception_type": type(error).__name__,
+                "exception": bounded_machine_qa_diagnostic(error),
+            }
+        )
+        self.fail(TEST_MAC_RESET_ADAPTER_FAILED)
+
+    def run(
+        self,
+        call: str,
+        command: str,
+        failure_code: str | None,
+        *,
+        timeout: int = 60,
+    ) -> ResetCommandResult | None:
+        """Return the result when the call exited 0, else record why not."""
+        try:
+            result = self._run_remote(command, timeout=timeout)
+            exit_code = int(result.returncode)
+        except Exception as error:
+            self._raised(call, error)
+            return None
+        self.last_exit_code = exit_code
+        self.last_stdout = str(result.stdout)
+        if exit_code == 0:
+            return result
+        self.failures.append(
+            {
+                "call": call,
+                "exit_code": exit_code,
+                "stderr": bounded_machine_qa_diagnostic(result.stderr),
+            }
+        )
+        if exit_code == TRANSPORT_FAILURE_EXIT:
+            self.fail(TEST_MAC_RESET_TRANSPORT_FAILED)
+        elif failure_code is not None:
+            self.fail(failure_code)
+        return None
+
+    def upload(self, upload_text: ResetUploader, path: str, content: str) -> bool:
+        try:
+            upload_text(path, content)
+        except Exception as error:
+            self._raised("upload", error)
+            return False
+        return True
 
 
 def execute_full_test_machine_reset(
@@ -120,63 +194,57 @@ def execute_full_test_machine_reset(
         )
     reset_script = render_full_reset_script(reset_contract)
 
-    reset_ok = False
-    error_code = "test_mac_reset_failed"
+    calls = _ResetCalls(run_remote)
     outcomes: dict[str, str | int | float] | None = None
     parsed_failure: tuple[str, bool, str | None] | None = None
-    try:
-        preclean = run_remote(
-            _command("/bin/rm", "-f", "--", FULL_RESET_REMOTE_PATH),
+    preclean = calls.run(
+        "preclean",
+        _command("/bin/rm", "-f", "--", FULL_RESET_REMOTE_PATH),
+        "test_mac_reset_script_preclean_failed",
+    )
+    if preclean is not None and calls.upload(
+        upload_text, FULL_RESET_REMOTE_PATH, reset_script
+    ):
+        mode = calls.run(
+            "mode",
+            _command("/bin/chmod", "0700", FULL_RESET_REMOTE_PATH),
+            "test_mac_reset_script_mode_failed",
         )
-        if int(preclean.returncode) != 0:
-            error_code = "test_mac_reset_script_preclean_failed"
-        else:
-            upload_text(FULL_RESET_REMOTE_PATH, reset_script)
-            mode = run_remote(
-                _command("/bin/chmod", "0700", FULL_RESET_REMOTE_PATH),
+        if mode is not None:
+            result = calls.run(
+                "reset",
+                _command(FULL_RESET_REMOTE_PATH, home, golden_baseline_path),
+                None,
+                timeout=900,
             )
-            if int(mode.returncode) != 0:
-                error_code = "test_mac_reset_script_mode_failed"
-            else:
-                result = run_remote(
-                    _command(
-                        FULL_RESET_REMOTE_PATH,
-                        home,
-                        golden_baseline_path,
-                    ),
-                    timeout=900,
-                )
-                if int(result.returncode) == 0:
-                    outcomes = closed_outcomes(str(result.stdout))
-                    if outcomes is not None:
-                        reset_ok = True
-                    else:
-                        error_code = "test_mac_reset_output_invalid"
+            if result is not None:
+                outcomes = closed_outcomes(str(result.stdout))
+                if outcomes is None:
+                    calls.fail("test_mac_reset_output_invalid")
+            elif calls.last_exit_code not in {None, TRANSPORT_FAILURE_EXIT}:
+                parsed_failure = failure_outcome(calls.last_stdout)
+                if parsed_failure is None:
+                    calls.fail("test_mac_reset_failed")
                 else:
-                    parsed_failure = failure_outcome(str(result.stdout))
-                    if parsed_failure is not None:
-                        phase, recovery_failed, _reap_detail = parsed_failure
-                        error_code = (
-                            "test_mac_reset_recovery_failed"
-                            if recovery_failed
-                            else f"test_mac_reset_{phase}_failed"
-                        )
-    except Exception:
-        error_code = "test_mac_reset_adapter_failed"
+                    phase, recovery_failed, _reap_detail = parsed_failure
+                    calls.fail(
+                        "test_mac_reset_recovery_failed"
+                        if recovery_failed
+                        else f"test_mac_reset_{phase}_failed"
+                    )
 
-    cleanup_ok = False
-    try:
-        cleanup = run_remote(
+    # Cleanup always runs. Its failure is reported, but never replaces the
+    # first error: that one names why the reset stopped.
+    cleanup_ok = (
+        calls.run(
+            "cleanup",
             _command("/bin/rm", "-f", "--", FULL_RESET_REMOTE_PATH),
+            "test_mac_reset_script_cleanup_failed",
         )
-        cleanup_ok = int(cleanup.returncode) == 0
-    except Exception:
-        cleanup_ok = False
-    if not cleanup_ok:
-        reset_ok = False
-        error_code = "test_mac_reset_script_cleanup_failed"
+        is not None
+    )
 
-    if reset_ok and outcomes is not None:
+    if calls.error_code is None and outcomes is not None:
         return HostActionResult(
             True,
             success_evidence(
@@ -193,7 +261,8 @@ def execute_full_test_machine_reset(
                 "path": FULL_RESET_REMOTE_PATH,
                 "outcome": "removed" if cleanup_ok else "cleanup-failed",
             },
-        ]
+        ],
+        "failed_calls": calls.failures,
     }
     if parsed_failure is not None:
         phase, recovery_failed, detail = parsed_failure
@@ -226,11 +295,13 @@ def execute_full_test_machine_reset(
     return HostActionResult(
         False,
         failure_evidence,
-        error_code,
+        calls.error_code or "test_mac_reset_failed",
     )
 
 
 __all__ = [
+    "TEST_MAC_RESET_ADAPTER_FAILED",
+    "TEST_MAC_RESET_TRANSPORT_FAILED",
     "execute_full_test_machine_reset",
     "is_safe_test_mac_home",
 ]

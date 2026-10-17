@@ -9,7 +9,8 @@
 // Node: [ref, band, stage, title, {held, claim, deploy, envs}]. Edge:
 // [blocker, dependent, gate, satisfaction], defaulting to activation +
 // fact:merged; `why` holds each edge's rationale, keyed "blocker>dependent".
-// A node with no edge renders only in its band.
+// `cycles` lists the deadlocks the server's detector serves, each as its
+// items in loop order. A node with no edge renders only in its band.
 
 import { frontierIndex } from "../../packages/yoke-core/src/yoke_core/ui/static/frontier_dependency_model.js";
 
@@ -197,7 +198,8 @@ export const FRONTIER_STATES=[
    ['YOK-3840','YOK-3841'],['PLAT-220','PLAT-221','activation','fact:deployed:prod'],
    ['YOK-3850','YOK-3851'],['YOK-3850','YOK-3852'],
    ['YOK-3860','YOK-3861'],['YOK-3861','YOK-3860'],['YOK-3861','YOK-3862'],
-   ['BUZ-90','PLAT-225'],['YOK-3880','YOK-3881']]},
+   ['BUZ-90','PLAT-225'],['YOK-3880','YOK-3881']],
+  cycles:[['YOK-3860','YOK-3861']]},
 
  {id:'wide',label:'Wide — big fan-out, many small chains',
   blurb:'One root holds back fourteen items directly, beside six unrelated two-item chains. Tests a tall column and a long list of roots.',
@@ -236,7 +238,7 @@ export function stateModel(state) {
       env: env && { name: env, delivery_state: "not deployed", in_delivery_flow: !envs || envs.includes(env) },
     };
   });
-  return frontierIndex(nodes, edges);
+  return frontierIndex(nodes, edges, state.cycles || []);
 }
 
 export function state(id) {

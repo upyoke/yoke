@@ -11,7 +11,10 @@ from yoke_core.domain.deployment_member_candidate_release import (
 )
 from yoke_core.domain.deployment_qa_case_failure_kinds import RED_VERDICTS
 from yoke_core.domain.deployment_run_driver_notice import push_member_notice
-from yoke_core.domain.deployment_run_member_removal import SETTLEMENT_REMOVED_BY
+from yoke_core.domain.deployment_run_member_removal import (
+    REOPENED_REMOVED_BY,
+    SETTLEMENT_REMOVED_BY,
+)
 from yoke_core.domain.deployment_run_membership_removals import membership_removals
 from yoke_core.domain.deployment_run_target_takeover import TAKEOVER_REMOVED_BY
 from yoke_core.domain.qa_latest_execution import latest_executions
@@ -27,7 +30,12 @@ _REWORK = (
 #: Removals whose member QA continues elsewhere or whose newer candidate
 #: already moved past this run: a red verdict here owes no new rework.
 _NO_REWORK_SOURCES = frozenset(
-    {TAKEOVER_REMOVED_BY, CORRECTION_RELEASE_REMOVED_BY, SETTLEMENT_REMOVED_BY}
+    {
+        TAKEOVER_REMOVED_BY,
+        CORRECTION_RELEASE_REMOVED_BY,
+        SETTLEMENT_REMOVED_BY,
+        REOPENED_REMOVED_BY,
+    }
 )
 
 
@@ -67,6 +75,12 @@ def removal_notice_body(
         return (
             lead + "The member's QA continues on the new run. "
             "Keep the work claim and stay parked."
+        )
+    if removed_by == REOPENED_REMOVED_BY:
+        return (
+            lead + "Continue its rework and re-land it through `yoke merge item`; "
+            "at its release wait a later release delivers it. Keep the work "
+            "claim and do not attempt close-out from this run."
         )
     if red is None:
         return (

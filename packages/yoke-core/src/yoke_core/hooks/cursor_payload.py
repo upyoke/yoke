@@ -6,10 +6,10 @@ normalizes the Cursor-native shape into the canonical payload fields the
 shared runner and policy chains expect:
 
 - ``tool_name``: Cursor's shell tool is named ``Shell``; the universal
-  chains are keyed on ``Bash``. ``beforeShellExecution`` /
-  ``afterShellExecution`` payloads carry no ``tool_name`` at all — they
-  carry a top-level ``command`` — so the parser synthesizes
-  ``tool_name="Bash"`` and ``tool_input={"command": ...}`` for them.
+  chains are keyed on ``Bash``. ``beforeShellExecution`` payloads carry no
+  ``tool_name`` at all — they carry a top-level ``command`` — so the parser
+  synthesizes ``tool_name="Bash"`` and ``tool_input={"command": ...}`` for
+  them. Shell completions arrive on ``postToolUse`` as ``tool_name="Shell"``.
 - Session identity: Cursor exports **no session-id environment variable**.
   Every payload carries ``session_id`` and ``conversation_id`` (equal
   values). Subagent activity arrives under the *subagent's own*
@@ -26,8 +26,9 @@ shared runner and policy chains expect:
 
 Field names below are the measured wire shape of Cursor IDE 3.14.7 and
 cursor-agent 2026.07.23, re-checked against cursor-agent 2026.09.02-c22c1a3
-for shell timing (no ``tool_use_id`` / ``duration_ms`` on shell gates).
-Re-verify against newer builds (the vendor owns the schema).
+for shell timing (no ``tool_use_id`` on the shell gate) and 2026.10.16-e3cb207
+for Shell ``postToolUse``. Re-verify against newer builds (the vendor owns
+the schema).
 """
 
 from __future__ import annotations
@@ -40,6 +41,7 @@ from typing import Any, Dict
 from yoke_cli.config import machine_config
 from yoke_contracts import cursor_session_map
 from yoke_contracts.cursor_remount_expect import REMOUNT_REFUSAL_PAYLOAD_FIELD
+from yoke_contracts.cursor_tool_names import payload_tool_name
 from yoke_contracts.cursor_shell_timing import (
     CURSOR_SHELL_EVENTS,
     annotate_cursor_shell_payload,
@@ -49,14 +51,6 @@ from yoke_contracts.payload_session_fold import (
     fold_conversation_session_id,
     fold_payload_session_id,
 )
-
-
-# Cursor tool vocabulary -> canonical chain matcher vocabulary. Only names
-# that differ are listed; unknown names pass through to PreToolUse ``_default``.
-_TOOL_NAME_CANONICAL: Dict[str, str] = {
-    "Shell": "Bash",
-    "StrReplace": "Edit",
-}
 
 
 def read_stdin() -> str:
@@ -82,14 +76,14 @@ def parse_payload(payload: str) -> Dict[str, Any]:
 
     Returns the original payload dict with these normalizations applied:
 
-    - ``tool_name`` mapped through the canonical vocabulary
-      (``Shell`` -> ``Bash``).
-    - Shell-execution events (`beforeShellExecution`/`afterShellExecution`)
-      gain ``tool_name="Bash"`` and ``tool_input={"command": ...}`` so the
-      Bash chain's matcher resolution and command lints read one shape.
-      ``afterShellExecution`` output lands in ``tool_output``. Native
-      ``tool_use_id`` / ``duration_ms`` copy through when present; otherwise
-      the payload is stamped with the unsupported-timing reason.
+    - ``tool_name`` resolved by
+      :func:`yoke_contracts.cursor_tool_names.payload_tool_name`, the same
+      resolution the client uses to pick the chain whose facts it collects.
+    - The shell gate (`beforeShellExecution`) gains ``tool_name="Bash"`` and
+      ``tool_input={"command": ...}`` so the Bash chain's matcher resolution
+      and command lints read one shape. Native ``tool_use_id`` /
+      ``duration_ms`` copy through when present; otherwise the payload is
+      stamped with the unsupported-timing reason.
     - ``container_session_id`` is populated for every event (see
       :func:`resolve_container_session_id`); ``is_subagent_session`` flags
       payloads whose own ``session_id`` differs from the container.
@@ -103,20 +97,18 @@ def parse_payload(payload: str) -> Dict[str, Any]:
 
     event = str(data.get("hook_event_name", ""))
 
-    tool_name = data.get("tool_name")
-    if isinstance(tool_name, str) and tool_name in _TOOL_NAME_CANONICAL:
-        data["tool_name"] = _TOOL_NAME_CANONICAL[tool_name]
+    synthesized_shell = event in CURSOR_SHELL_EVENTS and "tool_name" not in data
+    tool_name = payload_tool_name(data)
+    if tool_name is not None:
+        data["tool_name"] = tool_name
 
     if event in CURSOR_SHELL_EVENTS:
-        if "tool_name" not in data:
-            data["tool_name"] = "Bash"
+        if synthesized_shell:
             tool_input = data.get("tool_input")
             if not isinstance(tool_input, dict):
                 tool_input = {}
             tool_input.setdefault("command", data.get("command", ""))
             data["tool_input"] = tool_input
-            if event == "afterShellExecution" and "output" in data:
-                data.setdefault("tool_output", data.get("output"))
         annotate_cursor_shell_payload(data)
 
     tool_input = data.get("tool_input")

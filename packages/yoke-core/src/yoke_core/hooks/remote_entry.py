@@ -58,6 +58,9 @@ class RemoteEvaluation:
     wait_ms: int
     outcome: str  # completed | timeout | denied
     denial_audit: dict[str, str]
+    # True only when the run leased the session's inbox at an event that can
+    # inject on the caller's surface.
+    message_probe: bool = False
     # Writes the run's disposable telemetry rows; called after the response
     # with the server's request wall time in milliseconds.
     flush_telemetry: Callable[[int], None] = _no_deferred_telemetry
@@ -150,5 +153,6 @@ def evaluate_remote(
         wait_ms=wait_ms,
         outcome=outcome,
         denial_audit=dict(controls.denial_audit),
+        message_probe=controls.message_probe,
         flush_telemetry=controls.deferred_telemetry or _no_deferred_telemetry,
     )

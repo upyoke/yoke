@@ -9,8 +9,8 @@ yoke status
 Prerequisites: a shell, `curl`, and `uv` (the installer can install `uv` with
 consent). Yoke supports Python 3.11–3.14. When no supported interpreter is
 available, uv downloads a managed one automatically for the installer and
-`yoke update`, without changing your system Python. Native Windows is
-unsupported; WSL follows the Linux path.
+`yoke update`, without changing your system Python. Native Windows is a best-effort
+compatibility path requiring Python 3.12 or newer; WSL follows the Linux path.
 Run installation, onboarding and harness CLIs inside the WSL Linux filesystem
 with systemd enabled. To open a URL in the Windows browser, Yoke tries
 `wslview`, then `explorer.exe` if Python's browser opener fails. Install `wslu`

@@ -122,6 +122,9 @@ def retry_pending_reports(
     for path in sorted(directory.glob("*.json")):
         try:
             safe = delivery._safe_payload(json.loads(path.read_text(encoding="utf-8")))
+        except FileNotFoundError:
+            # Another drain removed the file after this loop listed it.
+            continue
         except (OSError, ValueError):
             safe = None
         if safe is None:

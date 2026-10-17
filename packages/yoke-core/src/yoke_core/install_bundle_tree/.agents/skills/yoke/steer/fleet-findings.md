@@ -12,6 +12,13 @@ or plan note. Nothing acknowledged is automatically completed.
   --project P --item PREFIX-N --idempotency-key "steer:P:PREFIX-N" --json`.
   Preview with a judged `--level` before create when the leg is not the stage
   level. A launch in flight does not alarm. Staffing ends the episode.
+- **Dependency deadlocks**: live items wait on each other in a loop of
+  blocking edges, so none can move first and the work they strand waits too.
+  `fleet ALARM deadlock` and the report's deadlock section name the loop, each
+  edge id and gate, and the stranded items. Decide which order the work really
+  needs, then make one edge `coordination_only` with `yoke items dependency
+  update DEPENDENT BLOCKING --match-gate-point GATE --gate-point
+  coordination_only --rationale TEXT`. New writes already refuse to close a loop.
 - **Unattended linked work**: take/arrange exact owning project+document seat
   named by row before staffing; project seat does not cover another doc link.
 - **Steering messages awaiting a seat**: acquire scope for unacknowledged parked

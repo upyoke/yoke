@@ -23,7 +23,11 @@ SSH_OPTIONS = (
     "ConnectTimeout=10",
     "BatchMode=yes",
 )
+# The runner reports its own failures to start or finish ssh as this exit
+# code, so callers can tell a runner-side stop from a remote command's exit.
+TRANSPORT_FAILURE_EXIT = 124
 SSH_TIMEOUT_DIAGNOSTIC = "host_control subprocess timed out"
+SSH_UNAVAILABLE_DIAGNOSTIC = "host_control subprocess unavailable"
 
 
 def _partial_output(value, secrets):
@@ -92,16 +96,17 @@ class SshTestMachineTransport:
             stderr = _partial_output(exc.stderr, self.secret_values)
             return subprocess.CompletedProcess(
                 argv,
-                returncode=124,
+                returncode=TRANSPORT_FAILURE_EXIT,
                 stdout=_partial_output(exc.stdout, self.secret_values),
                 stderr=SSH_TIMEOUT_DIAGNOSTIC + (f": {stderr}" if stderr else ""),
             )
-        except OSError:
+        except OSError as exc:
             return subprocess.CompletedProcess(
                 argv,
-                returncode=124,
+                returncode=TRANSPORT_FAILURE_EXIT,
                 stdout="",
-                stderr="host_control subprocess unavailable",
+                stderr=f"{SSH_UNAVAILABLE_DIAGNOSTIC}: {type(exc).__name__}: "
+                + _partial_output(str(exc), self.secret_values),
             )
 
     def run_remote_command(

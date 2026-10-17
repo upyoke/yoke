@@ -10,6 +10,7 @@ from yoke_contracts.public_ref import unresolved_item_ref
 import pytest
 
 from yoke_core.domain import (
+    dependency_satisfied_notice,
     item_status_transitions,
     path_claims_dependency_propagation,
     sessions_terminal_chain_checkpoint,
@@ -27,6 +28,11 @@ def _isolate_run_continuation(monkeypatch) -> None:
         settling_run_replay,
         "replay_settling_runs_for_item",
         lambda _conn, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        dependency_satisfied_notice,
+        "notify_after_commit",
+        lambda _conn, **_kwargs: ([], ""),
     )
 
 

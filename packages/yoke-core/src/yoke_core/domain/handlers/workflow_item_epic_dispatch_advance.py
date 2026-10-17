@@ -39,6 +39,7 @@ def handle_dispatch_chain_advance(request: FunctionCallRequest) -> HandlerOutcom
     except Exception as exc:
         return _error("invalid_payload", f"payload invalid: {exc}")
     from yoke_core.domain import db_helpers, epic
+    from yoke_core.domain.dispatch_chain_selection import ChainSelectionRefusal
 
     with db_helpers.connect() as conn:
         try:
@@ -49,7 +50,16 @@ def handle_dispatch_chain_advance(request: FunctionCallRequest) -> HandlerOutcom
             )
         except LookupError as exc:
             return _error("target_not_found", str(exc))
-        except (IndexError, ValueError) as exc:
+        except ChainSelectionRefusal as exc:
+            return HandlerOutcome(
+                primary_success=False,
+                error=FunctionError(
+                    code=exc.code,
+                    message=exc.message,
+                    recovery_hint=exc.recovery,
+                ),
+            )
+        except ValueError as exc:
             return _error("invalid_payload", str(exc))
     current_index, next_task_num = raw.split("|", 1)
     return HandlerOutcome(

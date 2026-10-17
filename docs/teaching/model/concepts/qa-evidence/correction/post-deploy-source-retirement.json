@@ -2,8 +2,10 @@
  "id": "post-deploy-source-retirement",
  "title": "Post-deploy source retirement",
  "status": "observed",
- "commands": ["yoke qa plan rematerialize", "yoke qa requirement supersede"],
- "functions": ["qa.plan.rematerialize", "qa.requirement.supersede"],
+ "summary": "Replacing a case leaves the item's old post_deploy row live until rematerialize retires it: superseded by its one successor, or waived when removed. Plain `yoke qa plan materialize` refuses qa_plan_rows_orphaned before writing, naming each row and the rematerialize that retires it. Superseding a run copy never retires its item source; the receipt's next_admission_notice names that source for a direct copy and, for a plan copy, the member's plan row with the plan correction and rematerialize that retire it.",
+ "commands": ["yoke qa plan materialize", "yoke qa plan rematerialize", "yoke qa requirement supersede"],
+ "functions": ["qa.plan.materialize", "qa.plan.rematerialize", "qa.requirement.supersede"],
+ "sources": ["docs/public/reference/qa-platform.md", "runtime/api/test_qa_plan_rematerialize_post_deploy_successor.py"],
  "page": "qa-evidence",
  "position": 3
 }

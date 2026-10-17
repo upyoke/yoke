@@ -333,7 +333,8 @@ def test_classify_widen_overlap_returns_no_overlap_when_disjoint(conn):
     decision = classify_widen_overlap(
         conn,
         claim_id=candidate_claim,
-        candidate_target_ids=[target_a],
+        new_target_ids=[target_a],
+        union_target_ids=[target_a],
         integration_target="main",
         candidate_item_id=candidate_item,
         current_claim_state="planned",

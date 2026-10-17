@@ -159,32 +159,11 @@ def select_plan_execution(
     row = _row_dict(cursor, cursor.fetchone())
     if row is None:
         raise QaPlanExecutionStateError(f"QA plan execution {execution_id!r} not found")
-    row["cursor_ordinal"] = int(row["cursor_ordinal"])
-    if row.get("item_id") is not None:
-        row["item_id"] = int(row["item_id"])
-    if row.get("machine_lease_id") is not None:
-        row["machine_lease_id"] = int(row["machine_lease_id"])
-    if row.get("deployment_member_item_id") is not None:
-        row["deployment_member_item_id"] = int(row["deployment_member_item_id"])
-    try:
-        roster = json.loads(str(row["roster_json"]))
-    except (TypeError, ValueError) as exc:
-        raise QaPlanExecutionStateError(
-            "QA plan execution contains an invalid roster snapshot"
-        ) from exc
-    if not isinstance(roster, list) or any(
-        not isinstance(value, dict) for value in roster
-    ):
-        raise QaPlanExecutionStateError(
-            "QA plan execution contains an invalid roster snapshot"
-        )
-    row["roster"] = roster
     from yoke_core.domain.qa_plan_execution_target_snapshot import (
-        validate_execution_snapshot,
+        materialized_execution,
     )
 
-    row["execution_target"] = validate_execution_snapshot(row, roster)
-    return row
+    return materialized_execution(row)
 
 
 def lock_plan_execution(conn: Any, execution_id: str) -> dict[str, Any]:

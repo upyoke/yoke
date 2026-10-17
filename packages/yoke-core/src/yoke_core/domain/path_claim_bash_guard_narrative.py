@@ -101,7 +101,7 @@ def format_narrative(
         effective_worktree_path=failure.effective_worktree_path,
     ):
         return _current_item_worktree_narrative(mut=mut, ctx=ctx, failure=failure)
-    return _out_of_claim_narrative(mut=mut, ctx=ctx)
+    return _out_of_claim_narrative(mut=mut, ctx=ctx, failure=failure)
 
 
 def worktree_unresolved_narrative(
@@ -163,7 +163,7 @@ def _wrong_cwd_narrative(
     template = widen_template(
         claim_id=ctx.claim_id,
         item_id=ctx.item_id,
-        target_path=mut.target_path,
+        target_path=failure.repo_path or mut.target_path,
         public_ref=ctx.public_ref,
     )
     expected_wt = failure.effective_worktree_path or ctx.worktree_path
@@ -200,7 +200,7 @@ def _current_item_worktree_narrative(
     template = widen_template(
         claim_id=ctx.claim_id,
         item_id=ctx.item_id,
-        target_path=mut.target_path,
+        target_path=failure.repo_path or mut.target_path,
         public_ref=ctx.public_ref,
     )
     preflight = worktree_preflight_template(int(ctx.item_id or 0), ctx.public_ref)
@@ -224,11 +224,13 @@ def _current_item_worktree_narrative(
     )
 
 
-def _out_of_claim_narrative(*, mut: Mutation, ctx: ClaimContext) -> str:
+def _out_of_claim_narrative(
+    *, mut: Mutation, ctx: ClaimContext, failure: Failure
+) -> str:
     template = widen_template(
         claim_id=ctx.claim_id,
         item_id=ctx.item_id,
-        target_path=mut.target_path,
+        target_path=failure.repo_path or mut.target_path,
         public_ref=ctx.public_ref,
     )
     covered_preview = ", ".join(ctx.covered_paths[:3]) or "(no coverage)"

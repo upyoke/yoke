@@ -1,0 +1,16 @@
+{
+ "id": "04",
+ "title": "Break a dependency loop",
+ "status": "observed",
+ "audience": "agent",
+ "when": "When adding or re-gating a dependency is refused with dependency_cycle, or a fleet deadlock alarm names a loop.",
+ "need": "A loop of blocking edges means no item in it can move first. The refusal or alarm names every edge with its id, the work it strands and the recovery. Nothing was written on a refusal. Keep the order the work really needs and make one named edge coordination_only, or route the ordering decision to steering.",
+ "disclosure": "current cue",
+ "surface": "dependency_cycle refusal from items.dependency.add and items.dependency.update; fleet ALARM deadlock; steering report dependency deadlocks; Frontier Deadlocked divider",
+ "gap": "Seen in source and tests only; a live refusal and a live alarm on a real loop are not yet recorded as evidence.",
+ "review": "Pending live proof of a refused loop and a broken loop clearing its alarm.",
+ "recipes": ["yoke items dependency update --help", "yoke items dependency list --help"],
+ "plan_notes": ["JOURNEYS row 11", "JOURNEYS row 14"],
+ "sources": ["docs/public/reference/db-reference/items-and-epics.md", ".agents/skills/yoke/refine/readiness-repair.md", ".agents/skills/yoke/idea/path-claim-blocking.md", ".agents/skills/yoke/steer/fleet-findings.md"],
+ "position": 3
+}

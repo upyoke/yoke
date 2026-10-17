@@ -60,8 +60,8 @@ def hc_schema_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
     try:
         # BASE TABLE only. Without the filter Postgres returns views too, and
-        # the code-owned item_progress_view -- recreated by every boot converge
-        # -- would be reported as an unknown table forever.
+        # the code-owned item_progress_view -- owned by every boot converge --
+        # would be reported as an unknown table forever.
         rows = conn.execute(
             "SELECT table_name FROM information_schema.tables "
             "WHERE table_schema = current_schema() "
@@ -75,7 +75,9 @@ def hc_schema_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     issues: List[str] = []
     for tbl in sorted(actual_tables):
         if tbl not in expected:
-            issues.append(f"- Unknown table: {tbl} (exists in DB but not in expected schema)")
+            issues.append(
+                f"- Unknown table: {tbl} (exists in DB but not in expected schema)"
+            )
 
     for tbl_name in sorted(expected.keys()):
         if tbl_name not in actual_tables:
@@ -85,10 +87,14 @@ def hc_schema_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
         for cname, ctype in expected[tbl_name].items():
             if cname not in actual_cols:
-                issues.append(f"- {tbl_name}: missing column '{cname}' (expected type {ctype})")
+                issues.append(
+                    f"- {tbl_name}: missing column '{cname}' (expected type {ctype})"
+                )
         for cname in actual_cols:
             if cname not in expected[tbl_name]:
-                issues.append(f"- {tbl_name}: extra column '{cname}' (exists in DB but not in expected schema)")
+                issues.append(
+                    f"- {tbl_name}: extra column '{cname}' (exists in DB but not in expected schema)"
+                )
 
     if issues:
         # FAIL, not WARN. A live schema that differs from what the code
@@ -97,7 +103,9 @@ def hc_schema_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         # so anything left here is a change that bypassed them entirely. That
         # is the class of drift this whole mechanism exists to make visible,
         # and a warning is how it stayed invisible.
-        rec.record("HC-schema-drift", "Schema drift detection", "FAIL", "\n".join(issues))
+        rec.record(
+            "HC-schema-drift", "Schema drift detection", "FAIL", "\n".join(issues)
+        )
     else:
         rec.record("HC-schema-drift", "Schema drift detection", "PASS", "")
 
@@ -115,7 +123,8 @@ def hc_migration_audit(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     # Check 1: audit table exists
     if not _schema_table_exists(conn, "migration_audit"):
         rec.record(
-            "HC-migration-audit", "Migration audit evidence",
+            "HC-migration-audit",
+            "Migration audit evidence",
             "WARN",
             "migration_audit table missing — run "
             "python3 -m yoke_core.domain.schema init to create it",
@@ -129,9 +138,7 @@ def hc_migration_audit(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     # failure row for audit history; the HC only flags terminal,
     # un-superseded failures.
     p = _p(conn)
-    failure_state_placeholders = ", ".join(
-        p for _ in _MIGRATION_AUDIT_FAILURE_STATES
-    )
+    failure_state_placeholders = ", ".join(p for _ in _MIGRATION_AUDIT_FAILURE_STATES)
     bad_rows = query_rows(
         conn,
         "SELECT id, migration_name, state, failure_reason, started_at "
@@ -161,9 +168,16 @@ def hc_migration_audit(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     )
     if baseline_row:
         import json as _json
+
         try:
             baseline = _json.loads(baseline_row[0]["post_row_counts"])
-            critical = ("items", "epic_tasks", "events", "epic_progress_notes", "qa_runs")
+            critical = (
+                "items",
+                "epic_tasks",
+                "events",
+                "epic_progress_notes",
+                "qa_runs",
+            )
             for tbl in critical:
                 base_count = baseline.get(tbl, 0)
                 if base_count <= 0:
@@ -187,8 +201,7 @@ def hc_migration_audit(conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
     if issues:
         rec.record(
-            "HC-migration-audit", "Migration audit evidence",
-            "WARN", "\n".join(issues)
+            "HC-migration-audit", "Migration audit evidence", "WARN", "\n".join(issues)
         )
     else:
         rec.record("HC-migration-audit", "Migration audit evidence", "PASS", "")

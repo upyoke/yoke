@@ -96,6 +96,25 @@ def tail_subscriber_live(session_id: str, cmdlines: Sequence[str]) -> bool:
     )
 
 
+def lapsed_tail_capture(session_id: str, cmdlines: Sequence[str]) -> str:
+    """The running wrapper's progress capture when no tail subscribes to it.
+
+    A subscription that expired leaves its wrapper running; the recovery
+    is a fresh tail on this same capture, never a second wrapper.
+    """
+    if not wrapper_live(session_id, cmdlines) or tail_subscriber_live(
+        session_id, cmdlines
+    ):
+        return ""
+    for line in _session_lines(session_id, cmdlines):
+        words = line.split()
+        if not _is_tail(line) and "--progress-capture" in words[:-1]:
+            capture = words[words.index("--progress-capture") + 1]
+            if PROGRESS_CAPTURE_PREFIX in capture:
+                return capture
+    return ""
+
+
 def fleet_watcher_live(
     session_id: str,
     harness_id: str,
@@ -138,12 +157,23 @@ def observe_fleet_watcher(
     listed = list_process_cmdlines() if cmdlines is None else tuple(cmdlines)
     if not listed:
         return {}
-    return {
-        FLEET_WATCHER_OBSERVATION_KEY: {
-            "session_id": session_id,
-            "live": fleet_watcher_live(session_id, harness_id, listed),
-        }
-    }
+    live = fleet_watcher_live(session_id, harness_id, listed)
+    observation: dict[str, Any] = {"session_id": session_id, "live": live}
+    if not live and (capture := lapsed_tail_capture(session_id, listed)):
+        observation["lapsed_tail_capture"] = capture
+    return {FLEET_WATCHER_OBSERVATION_KEY: observation}
+
+
+def observed_lapsed_tail(payload: Mapping[str, Any], session_id: str) -> str:
+    """The progress capture to re-tail, when the client saw only the tail lapse.
+
+    Absent from an older client's observation, which then keeps the
+    relaunch recipe.
+    """
+    observation = payload.get(FLEET_WATCHER_OBSERVATION_KEY)
+    if not observed_absent(payload, session_id) or not isinstance(observation, Mapping):
+        return ""
+    return str(observation.get("lapsed_tail_capture") or "")
 
 
 def observed_absent(payload: Mapping[str, Any], session_id: str) -> bool:
@@ -165,9 +195,11 @@ __all__ = [
     "TAIL_MODULE",
     "WRAPPER_MODULE",
     "fleet_watcher_live",
+    "lapsed_tail_capture",
     "list_process_cmdlines",
     "observe_fleet_watcher",
     "observed_absent",
+    "observed_lapsed_tail",
     "tail_subscriber_live",
     "wrapper_live",
 ]

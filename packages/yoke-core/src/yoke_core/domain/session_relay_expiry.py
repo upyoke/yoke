@@ -22,9 +22,12 @@ from yoke_core.domain.session_relay_storage import (
     clear_relay_batch_when_drained,
     marker,
 )
+from yoke_core.domain.session_wake_lease_refund import (
+    LEASE_EXPIRED_RESULT as _LEASE_EXPIRED_CODE,
+    refund_unreported_wake,
+    unreported_expiring_wakes,
+)
 
-
-_LEASE_EXPIRED_CODE = "relay_lease_expired"
 RELAY_EXPIRY_ADAPTER_REVISION = "session-relay-expiry-v1"
 
 
@@ -54,9 +57,16 @@ def settle_expired_relay_leases(conn: Any, *, now: datetime | str) -> int:
 
 
 def _settle_wakes(conn: Any, *, now: datetime | str) -> int:
-    """Expire unreported wakes independently; reported natives keep custody."""
+    """Expire unreported wakes independently; reported natives keep custody.
+
+    A relay wake that expires without any report gives its retry back.
+    """
     p = marker(conn)
     unverified = tuple(sorted(WAKE_DELIVERY_UNVERIFIED_RESULTS))
+    cutoff = instant_parameter(
+        conn, parse_instant(now) - timedelta(seconds=WAKE_LEASE_SECONDS)
+    )
+    unreported = unreported_expiring_wakes(conn, cutoff=cutoff)
     cursor = conn.execute(
         "UPDATE session_message_attempts SET completed_at="
         + p
@@ -76,12 +86,12 @@ def _settle_wakes(conn: Any, *, now: datetime | str) -> int:
             _LEASE_EXPIRED_CODE,
             RELAY_EXPIRY_ADAPTER_REVISION,
             redacted_evidence({"result_code": _LEASE_EXPIRED_CODE}),
-            instant_parameter(
-                conn, parse_instant(now) - timedelta(seconds=WAKE_LEASE_SECONDS)
-            ),
+            cutoff,
             *unverified,
         ),
     )
+    for attempt_id in unreported:
+        refund_unreported_wake(conn, attempt_id=attempt_id)
     return max(0, cursor.rowcount)
 
 

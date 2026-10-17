@@ -19,10 +19,15 @@ release's own code against it before that release has booted. Before its
 first in-process call it applies boot's creation phase — tables, indexes and
 additive columns, never the ordered migration history — so a release that
 adds a column can start. It runs as the role that owns the database's tables,
-so a table it creates stays convergeable by the serving build. Each statement waits at most the run-lock timeout;
-a busy table refuses as `release_start_schema_lock_unavailable` and any other
-failure as `release_start_schema_convergence_failed`, each naming the re-drive
-step, before anything about the run changes. A driver relaying through HTTPS
+so a table it creates stays convergeable by the serving build. The phase
+reads the catalog first and runs only the statements whose object is missing,
+so a release with no schema change takes no table locks; it commits one table
+at a time, so it never holds one table's lock while waiting on another's.
+Each statement waits at most the run-lock timeout; a busy table is retried
+with backoff and then refuses as `release_start_schema_lock_unavailable`,
+naming the table, and any other failure refuses as
+`release_start_schema_convergence_failed`, each naming the re-drive step,
+before anything about the run changes. A driver relaying through HTTPS
 skips this step, because the serving build answers every call.
 
 A normal driver start builds its execution context once. Composition completes
@@ -178,8 +183,9 @@ Connections opened under a bound copy still physically close.
 Every timing line stays in the driver raw capture, which is where preparation
 is identified before any provider dispatch. Outcome-only watchers do not
 forward each line on its own: ordinary lines join the progress digest, at
-most one digest line per flush window, and a line whose outcome is failed is
-urgent and is forwarded immediately. Other watchers still emit timing lines
+most one digest line per flush window, which `yoke watch tail` holds until the
+next urgent line or sentinel rather than waking on it; a line whose outcome is
+failed is urgent and is forwarded immediately. Other watchers still emit timing lines
 as they arrive. They carry run/source identity when supplied and no DSNs.
 A missing end marker is unfinished evidence, never a successful receipt.
 

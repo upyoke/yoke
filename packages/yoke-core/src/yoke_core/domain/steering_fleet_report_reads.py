@@ -24,6 +24,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping
 
+from yoke_core.domain.dependency_cycles import DependencyCycle
+from yoke_core.domain.dependency_cycles_read import dependency_cycles
 from yoke_core.domain.steering_fleet_report_test_machines import read_test_machines
 from yoke_core.domain.machine_registry import machine_names
 from yoke_core.domain.merge_queue_read_reuse import MergeQueueReads
@@ -46,8 +48,8 @@ from yoke_core.domain.steering_fleet_report_capacity import (
 )
 from yoke_core.domain.steering_fleet_report_deployment_runs import (
     DeploymentRunProgress,
-    run_progress,
 )
+from yoke_core.domain.steering_fleet_report_run_progress import run_progress
 from yoke_core.domain.steering_fleet_report_detectors import (
     UnregisteredLaunch,
     unregistered_launches,
@@ -112,6 +114,7 @@ class ProjectFleetFacts:
     machine_names: Mapping[str, str]
     test_machines: tuple[tuple[str, str], ...] = ()
     levels: LevelReadout | None = None
+    deadlocks: tuple[DependencyCycle, ...] = ()
 
 
 def read_project_facts(
@@ -154,6 +157,7 @@ def read_project_facts(
         landed_open=landed_without_closeout(
             conn, project_id=project_id, now=now, holders=holders
         ),
+        deadlocks=tuple(dependency_cycles(conn, [project_id])),
         deployment_runs=run_progress(conn, project_id=project_id, now=now),
         vendor_errors=vendor_error_sessions(conn, project_id=project_id, now=now),
         stranded=stranded_sessions(

@@ -213,3 +213,121 @@ def test_case_environment_overrides_share_reads_and_refresh_next_request(test_db
     test_db.execute("UPDATE qa_methods SET runner_id='host_control' WHERE id='command'")
     with pytest.raises(QaPlanError, match="starting state|starting_state"):
         read(conn, subjects)
+
+
+def test_shared_copy_ownership_selects_each_member_once_and_refreshes(test_db):
+    from unittest.mock import patch
+    from yoke_core.domain import deployment_qa_shared_plans as shared
+
+    plan = _plan(test_db, "shared-copy-ownership")
+    stages = _stages(plan)
+    stages[1].pop("cases")
+    run = "shared-copy-read"
+    members = (34001, 34002)
+    _seed_run(test_db, run_id=run, stages=stages, members=members)
+    for member in members:
+        _attach(test_db, member, plan)
+    subjects = [(run, member, "item-qa") for member in members]
+
+    def scalar():
+        return [
+            shared.member_group_digests(test_db, run, stage, member)
+            for run, member, stage in subjects
+        ]
+
+    @presentation_operation
+    @member_presentation
+    def repeated(conn, subjects):
+        answers = []
+        for run, member, stage in subjects:
+            values = [
+                shared.member_group_digests(conn, run, stage, member) for _ in range(28)
+            ]
+            assert all(value == values[0] for value in values)
+            answers.append(values[0].copy())
+            values[0].clear()
+            assert shared.member_group_digests(conn, run, stage, member) == answers[-1]
+        return answers
+
+    expected = scalar()
+    assert all(expected)
+    with patch.object(
+        shared, "member_plan_subjects", wraps=shared.member_plan_subjects
+    ) as select:
+        assert repeated(test_db, subjects) == expected
+        assert select.call_count == len(members)
+    test_db.execute(
+        "UPDATE qa_plan_item_attachments SET retracted_at=%s WHERE item_id=%s",
+        ("2026-09-15T00:00:00Z", members[0]),
+    )
+    assert scalar() == [set(), set()]
+    with patch.object(
+        shared, "member_plan_subjects", wraps=shared.member_plan_subjects
+    ) as select:
+        assert repeated(test_db, subjects) == scalar()
+        assert select.call_count == 2 * len(members)
+
+
+def test_verdict_projection_keeps_full_attempt_detail_independent(test_db):
+    from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
+    from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
+    from yoke_core.domain.qa_latest_execution import (
+        latest_executions,
+        latest_verdict_executions,
+    )
+
+    plan = _plan(test_db, "verdict-display")
+    run = "verdict-display-read"
+    _seed_run(test_db, run_id=run, stages=_stages(plan), members=(35001,))
+    materialize_deployment_qa_stage(
+        test_db,
+        deployment_run_id=run,
+        deployment_stage="item-qa",
+        deployment_member_item_id=35001,
+    )
+    execution = begin_plan_execution(
+        test_db,
+        deployment_run_id=run,
+        deployment_stage="item-qa",
+        deployment_member_item_id=35001,
+        actor_id="2",
+        session_id="verdict-read",
+    )
+    requirement = _complete_case(test_db, execution)
+    payload = "captured output " * 30000
+    test_db.execute(
+        "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,raw_result,"
+        "started_at,completed_at,created_at) SELECT qa_requirement_id,performed_by,"
+        "qa_kind,verdict,%s,started_at+INTERVAL '1 second',completed_at,created_at "
+        "FROM qa_runs WHERE qa_requirement_id=%s ORDER BY id DESC LIMIT 1",
+        (payload, requirement),
+    )
+    expected = latest_executions(test_db, [requirement])[requirement]
+    conn = CountedConnection(test_db)
+
+    @presentation_operation
+    @member_presentation
+    def read(connection, subjects):
+        summary = latest_verdict_executions(connection, [requirement])[requirement]
+        full = latest_executions(connection, [requirement])[requirement]
+        return summary, full
+
+    summary, full = read(conn, [(run, 35001, "item-qa")])
+    assert summary == {key: expected[key] for key in summary}
+    assert set(summary) == {
+        "id",
+        "qa_requirement_id",
+        "verdict",
+        "started_at",
+        "completed_at",
+        "case_outcome",
+    }
+    assert full == expected
+    assert full["raw_result"] == payload
+    verdict_queries = [
+        sql
+        for sql in conn.queries
+        if "q.id AS presented_requirement_id" in sql and "run.*" not in sql
+    ]
+    assert len(verdict_queries) == 1
+    assert "raw_result" not in verdict_queries[0]

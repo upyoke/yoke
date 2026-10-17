@@ -11,7 +11,7 @@ from typing import Any, List, Optional
 
 from yoke_core.domain.db_helpers import query_rows, query_scalar
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
-from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
+from yoke_core.domain.qa_requirement_pass_currency import current_passing_requirements
 from yoke_core.domain.schema_common import _table_exists
 
 #: Leads the pipeline report when stages delivered but blocking QA has not
@@ -36,7 +36,8 @@ def _unresolved_plan_cases(conn: Any, run_id: str) -> List[str]:
 
     "Still owed" is the shared settlement rule, so a row a passing
     replacement superseded reads the same here as it does at the stage that
-    accepted the supersession in the first place.
+    accepted the supersession in the first place. Pass currency and review
+    waits are each read once for the whole set, never per row.
     """
     if not (_table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")):
         return []
@@ -51,20 +52,19 @@ def _unresolved_plan_cases(conn: Any, run_id: str) -> List[str]:
         """,
         (run_id,),
     )
-    rows = [row for row in rows if not has_current_passing_run(conn, int(row["id"]))]
+    passing = current_passing_requirements(conn, (int(row["id"]) for row in rows))
+    rows = [row for row in rows if int(row["id"]) not in passing]
     if not rows:
         return []
-    from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
+    from yoke_core.domain.qa_review_waits import requirements_awaiting_human_review
 
-    described = []
-    for row in rows:
-        waiting = requirement_awaits_human_review(conn, int(row["id"]))
-        described.append(
-            waiting.detail
-            if waiting
-            else f"requirement #{row['id']} ({row['qa_kind']}): no passing run"
-        )
-    return described
+    waits = requirements_awaiting_human_review(conn, (int(row["id"]) for row in rows))
+    return [
+        waits[int(row["id"])].detail
+        if int(row["id"]) in waits
+        else f"requirement #{row['id']} ({row['qa_kind']}): no passing run"
+        for row in rows
+    ]
 
 
 def blocking_obligation_total(conn: Any, run_id: str) -> int:

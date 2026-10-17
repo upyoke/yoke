@@ -27,19 +27,21 @@ comparison with a 404 rather than a verdict.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
-from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
-from yoke_core.domain.deployment_qa_case_failure_kinds import RED_VERDICTS
 from yoke_core.domain.deployment_run_candidate_containment import (
     NOT_CONTAINED,
     UNDETERMINED,
     CandidateContainment,
 )
 from yoke_core.domain.deployment_run_project_sources import run_source_sha
+from yoke_core.domain.deployment_run_red_requirements import (
+    RedRequirement,
+    red_blocking_requirements,
+)
 from yoke_core.domain.release_delivery_summary import recorded_merge_shas_for_items
-from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_message_types import row_dict
 
 
@@ -124,22 +126,52 @@ def diagnose_unpassable_blocking_qa(
     containment_cls: Optional[type] = None,
 ) -> PinQaDiagnosis:
     """Return the pin-vs-remediation facts for ``run_id``'s red blocking QA."""
-    if not (
-        _table_exists(conn, "deployment_runs")
-        and _table_exists(conn, "qa_requirements")
-        and _table_exists(conn, "qa_runs")
-    ):
+    if not _table_exists(conn, "deployment_runs"):
         return PinQaDiagnosis()
     run_project_id = _run_project_id(conn, run_id)
     if run_project_id is None:
         return PinQaDiagnosis()
-    red = _red_members(conn, run_id)
-    if not red:
-        return PinQaDiagnosis()
-    item_ids = tuple(row.item_id for row in red if row.item_id is not None)
-    merges = recorded_merge_shas_for_items(conn, item_ids)
-    if not any(merges.get(item_id) for item_id in item_ids):
-        return PinQaDiagnosis()
+    return diagnose_red_runs(
+        conn,
+        run_project_id=run_project_id,
+        red_by_run=red_blocking_requirements(conn, (run_id,)),
+        containment_cls=containment_cls,
+    ).get(run_id, PinQaDiagnosis())
+
+
+def diagnose_red_runs(
+    conn: Any,
+    *,
+    run_project_id: int,
+    red_by_run: Mapping[str, tuple[RedRequirement, ...]],
+    containment_cls: Optional[type] = None,
+) -> dict[str, PinQaDiagnosis]:
+    """Diagnose already-read red requirements of one project's runs together.
+
+    Every member's recorded merges are read once for the whole set; each
+    run still compares them against its own pin.
+    """
+    item_ids = tuple(
+        {red.item_id for reds in red_by_run.values() for red in reds if red.item_id}
+    )
+    merges = recorded_merge_shas_for_items(conn, item_ids) if item_ids else {}
+    return {
+        run_id: _diagnose_run(
+            conn, run_id, run_project_id, reds, merges, containment_cls
+        )
+        for run_id, reds in red_by_run.items()
+        if any(merges.get(red.item_id) for red in reds if red.item_id is not None)
+    }
+
+
+def _diagnose_run(
+    conn: Any,
+    run_id: str,
+    run_project_id: int,
+    red: tuple[RedRequirement, ...],
+    merges: Mapping[int, tuple[str, ...]],
+    containment_cls: Optional[type],
+) -> PinQaDiagnosis:
     walkers: dict[Optional[int], tuple[str, Any]] = {}
     unpassable: list[UnpassablePinQa] = []
     unproven: list[UnprovenPinQa] = []
@@ -193,14 +225,6 @@ def diagnose_unpassable_blocking_qa(
     return PinQaDiagnosis(unpassable=tuple(unpassable), unproven=tuple(unproven))
 
 
-@dataclass(frozen=True)
-class _RedMember:
-    requirement_id: int
-    item_id: Optional[int]
-    project_id: Optional[int]
-    member_ref: str
-
-
 def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
@@ -237,54 +261,10 @@ def _project_walker(
     return pin, walker
 
 
-def _red_members(conn: Any, run_id: str) -> tuple[_RedMember, ...]:
-    if not _column_exists(conn, "qa_requirements", "deployment_member_item_id"):
-        return ()
-    p = _placeholder(conn)
-    from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
-    from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
-
-    rows = conn.execute(
-        f"""SELECT r.id,
-                   r.deployment_member_item_id,
-                   (SELECT qr.verdict FROM qa_runs qr
-                     WHERE qr.id=({latest_execution_id_sql("r.id")})) AS verdict,
-                   i.project_id, p.slug, p.public_item_prefix, i.project_sequence
-              FROM qa_requirements r
-              LEFT JOIN items i ON i.id = r.deployment_member_item_id
-              LEFT JOIN projects p ON p.id = i.project_id
-             WHERE r.deployment_run_id = {p}
-               AND r.blocking_mode = 'blocking'
-               AND NOT {settled_obligation_sql(conn, "r")}
-             ORDER BY r.id""",
-        (run_id,),
-    ).fetchall()
-    found = []
-    for raw in rows:
-        record = row_dict(raw)
-        if str(record["verdict"] or "") not in RED_VERDICTS:
-            continue
-        item_id = record.get("deployment_member_item_id")
-        project_id = record.get("project_id")
-        ref = ""
-        if record.get("project_sequence") is not None:
-            ref = format_item_ref(
-                record["slug"], record["public_item_prefix"], record["project_sequence"]
-            )
-        found.append(
-            _RedMember(
-                requirement_id=int(record["id"]),
-                item_id=int(item_id) if item_id is not None else None,
-                project_id=int(project_id) if project_id is not None else None,
-                member_ref=ref,
-            )
-        )
-    return tuple(found)
-
-
 __all__ = [
     "PinQaDiagnosis",
     "UnpassablePinQa",
     "UnprovenPinQa",
+    "diagnose_red_runs",
     "diagnose_unpassable_blocking_qa",
 ]

@@ -196,9 +196,7 @@ def run_post_commit_update_effects(
         return
     item_id, old_status, new_status, source = receipt.status_event
     if new_status == "done":
-        from yoke_core.domain.settling_run_replay import (
-            replay_settling_runs_for_item,
-        )
+        from yoke_core.domain.settling_run_replay import replay_settling_runs_for_item
 
         try:
             replay_settling_runs_for_item(conn, item_id=item_id)
@@ -254,10 +252,16 @@ def run_post_commit_update_effects(
                 f"claim {claim_id}: {exc}",
                 file=out,
             )
-    try:
-        from yoke_core.domain.item_status_transitions import (
-            emit_item_status_change,
+    if new_status == "done":
+        from yoke_core.domain import dependency_satisfied_notice as notice
+
+        _, advisory = notice.notify_after_commit(
+            conn, blocking_item_id=item_id, event=notice.EVENT_DONE
         )
+        if advisory:
+            print(f"Advisory: {advisory}", file=out)
+    try:
+        from yoke_core.domain.item_status_transitions import emit_item_status_change
 
         emit_item_status_change(
             item_id=item_id,
@@ -267,10 +271,7 @@ def run_post_commit_update_effects(
             out=out,
         )
     except Exception as exc:  # noqa: BLE001 - committed transition telemetry
-        print(
-            f"Advisory: status-change telemetry deferred: {exc}",
-            file=out,
-        )
+        print(f"Advisory: status-change telemetry deferred: {exc}", file=out)
 
 
 def _is_delivery_release_redirect(target_status: str) -> bool:
@@ -279,10 +280,8 @@ def _is_delivery_release_redirect(target_status: str) -> bool:
     The done-transition redirect (status source ``done-transition``) and the
     deploy pipeline (``deploy-pipeline:`` claim bypass) move an item to the
     non-terminal ``release`` stage yet still release its non-terminal path
-    claims. Reads the request-scoped override first (the done-transition status
-    relay posts it on a ContextVar) then the env vars, so the env-driven deploy
-    pipeline is unchanged and the former ``os.environ`` release behavior is
-    preserved byte-for-byte.
+    claims. The request-scoped override (posted on a ContextVar by the
+    done-transition status relay) wins over the env vars.
     """
     if target_status != "release":
         return False

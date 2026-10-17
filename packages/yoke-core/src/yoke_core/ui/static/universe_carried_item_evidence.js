@@ -16,6 +16,10 @@ import {
   runHumanDecision,
 } from "./universe_run_qa_checks.js";
 import { el, settledScopedCalls } from "./universe_view_support.js";
+import {
+  appendRemovedItemQa, appendSharedOnlyItemQa, appendSharedPlanPointers,
+  collectRunSharing, memberSharedPlans, sharingFor,
+} from "./run_qa_sharing.js";
 
 // How many checks one item may contribute, and how many items share a call.
 // The read bounds `limit` PER ITEM for a `public_refs` request, so a busy
@@ -34,6 +38,7 @@ export const EMPTY_CARRIED_ITEM_FACTS = Object.freeze({
   truncatedGroups: new Set(),
   perGroupLimit: CHECKS_PER_ITEM,
   titles: new Map(),
+  sharing: new Map(),
   failed: null,
   loading: true,
 });
@@ -97,10 +102,12 @@ export async function loadCarriedItemEvidence(context, items) {
   ]);
   const byItem = new Map();
   const truncatedGroups = new Set();
+  const sharing = new Map();
   for (const callResult of callResults) {
     const result = callResult.status === 200 && callResult.envelope?.success
       ? callResult.envelope.result || {}
       : null;
+    collectRunSharing(sharing, result?.run_sharing);
     for (const row of result?.rows || []) {
       // The same rule the read partitions on, so what it bounded per item
       // and what this groups per item are the same set.
@@ -122,6 +129,7 @@ export async function loadCarriedItemEvidence(context, items) {
     truncatedGroups,
     perGroupLimit: CHECKS_PER_ITEM,
     titles,
+    sharing,
     failed: failed
       ? failed.envelope?.error?.message
         || "Item QA evidence could not be loaded."
@@ -241,6 +249,10 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   const { item, runId, facts, onDecide } = options;
   const itemId = carriedItemRef(item);
   if (itemId === null) return null;
+  const sharing = sharingFor(facts, runId);
+  const removed = appendRemovedItemQa(context.document, host, sharing, itemId);
+  if (removed) return removed;
+  const sharedPlans = memberSharedPlans(sharing, itemId);
   const { checks } = carriedItemEvidence(facts, itemId, runId);
   const projection = item.qa_obligations;
   const projected = projection?.current || [];
@@ -260,9 +272,13 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
       + "Reload; if it persists, ask the operator to serve a release with carried-item QA projections."
     : null);
 
+  const documentNode = context.document;
+  // A failed read cannot claim the item owns no checks.
+  if (!hasQa && !gates.length && !readError && sharedPlans.length) {
+    return appendSharedOnlyItemQa(documentNode, host, sharedPlans);
+  }
   if (!projection && !options.requireProjection && !hasQa && !noObligation
     && !gates.length && !readError) return null;
-  const documentNode = context.document;
   if (!hasQa && !noObligation && !gates.length) {
     const note = el(documentNode, "p", "carried-item-qa-diagnostic",
       `Item QA: ${readError || (facts?.loading ? "Loading earlier item QA and decisions…"
@@ -304,6 +320,7 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
     head.appendChild(el(documentNode, "span", "run-verdict is-approved", "No obligation"));
     section.appendChild(el(documentNode, "p", "run-qa-check-reason", memberState.detail));
   }
+  appendSharedPlanPointers(documentNode, section, sharedPlans);
   if (facts?.loading) section.appendChild(el(documentNode, "p",
     "carried-item-evidence-note", "Loading earlier item QA and decisions…"));
   if (readError) section.appendChild(el(documentNode, "p", "error", readError));

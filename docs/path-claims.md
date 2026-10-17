@@ -38,7 +38,7 @@ Break-glass activation, amendment, release, and override surfaces remain command
 | `yoke path-claims conflicts list [--integration-target T]` | Cross-claim conflict listing across the open frontier. |
 | Break-glass boundary adapter (`path-claims boundary <claim-id> --repo-path <worktree>`) | Run the committed-git boundary check ad hoc. |
 | Break-glass activation adapter (`path-claims activate <claim-id> [--base-snapshot-id N] [--upstream-claim-id N]`) | Acquire the door lock before opening a write surface. Without `--base-snapshot-id`, derives the snapshot from the claim's integration target and the item's project repo. |
-| `yoke claims path widen --claim-id N --add-paths a,b --reason R --item YOK-N` | Add new declared coverage. Re-runs overlap classification across the union. |
+| `yoke claims path widen --claim-id N --add-paths a,b --reason R --item YOK-N` | Add new declared coverage. Classifies overlap for the newly added paths only; overlap the claim already holds stays governed by activation and dependency gates. A refusal names each new path and the claim it overlaps. |
 | Break-glass amendment adapter (`path-claims narrow <claim-id> (--drop-paths a \| --keep-paths a) --reason R --repo-path <worktree>`) | Drop coverage. `--drop-paths` removes the listed paths; `--keep-paths` keeps the listed paths and removes everything else currently on the claim. The flag pair is mutually exclusive at parse time. Runs the boundary check against the proposed new coverage first. |
 | Break-glass amendment adapter (`path-claims cancel-amendment <claim-id> --amendment-id N --reason R`) | Append a `cancel` record naming a previous amendment id and reverse its coverage mutation when possible. |
 | Break-glass release adapter (`path-claims release <claim-id> --reason R`) | Mark the claim as released — work merged or lineage ended peacefully. |
@@ -71,8 +71,10 @@ that matches reality:
 | different cadence / reviewer / risk profile | **Split** into a new work item |
 
 * **Widen:** `yoke claims path widen --claim-id <claim-id> --add-paths a,b --reason R --item YOK-N`.
-  Re-runs overlap classification on the union; rejects with
-  `IncompatibleOverlap` if the union conflicts.
+  Classifies overlap for the newly added paths only; rejects with
+  `IncompatibleOverlap`, naming each new path and the claim it overlaps,
+  when one of them conflicts. A serial edge authored after the claim's
+  existing overlap does not refuse a widen whose new paths overlap nothing.
 * **Revert:** `git -C <worktree> revert <commit-sha>`; re-run the
   boundary check.
 * **Split:** file a new work item via `/yoke idea`, cherry-pick or
@@ -179,8 +181,10 @@ an artifact of in-flight work, not a narrowing signal.
 
 `widen` runs two distinct safety checks on the truly-new subset:
 
-1. **Overlap classification** — does the union conflict with another
-   non-terminal claim? Failure: `IncompatibleOverlap`.
+1. **Overlap classification** — does a newly requested path conflict
+   with another non-terminal claim? Failure: `IncompatibleOverlap`.
+   The amendment payload's `overlapping_claim_ids` still records every
+   claim the post-widen union touches, for audit only.
 2. **Stale-base-on-new-claim** — has `integration_target` changed
    any newly requested path between the claim's recorded
    `base_commit_sha` and current HEAD? Failure:

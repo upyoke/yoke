@@ -129,10 +129,17 @@ the recovery: once the lane is resolved, run
 `yoke watch doctor -- --only HC-worktree-health --fix` on the machine holding
 it. A preserved lane never holds the run.
 
+`max_active_worktrees` counts the lanes doing work: unmerged item lanes and
+deploy-run driver trees. An item lane that committed work its base branch
+already carries is only its worker's directory until release close-out retires
+it, so it holds no slot. A lane that has not committed yet is starting work and
+counts; its branch reflog shows it never moved past the commit it was created
+at.
+
 A hosted control plane settles runs where no lane lives, so lane creation is
-the boundary that always reaches them: when a new lane would exceed
-`max_active_worktrees`, creation first runs the same merged-lane sweep against
-the lane's base branch, then counts again and refuses only for what remains.
+the boundary that always reaches them: when a new lane would exceed the cap,
+creation first runs the same merged-lane sweep against the lane's base branch,
+then counts again and refuses only for what remains.
 
 Unregistered directories, ambiguous owners, dirty or ignored content,
 unavailable claim/DB state, non-ancestor branches, and removal refusals are
@@ -189,7 +196,8 @@ every lane.
 
 A lane directory is disposable only when everything git reports in it is a
 cache the shared residue policy can name — build output, virtualenvs, tool
-caches, the operating-layer state Yoke renders into every checkout — or a path
+caches such as `.hypothesis`, the operating-layer state Yoke renders into every
+checkout — or a path
 the owning project declared through its `project-policy` capability's
 `disposable_generated_paths`. Ignored is not disposable on its own: a local
 database, a credential file, and scratch notes are all ignored and none of them
@@ -198,9 +206,13 @@ and is reported as unknown residue.
 
 That is why a product surface which renders a gitignored view into every
 checkout must be declared. In this repository the Atlas renderer writes
-`docs/atlas.md` into every lane, so the `yoke` project declares it; without
-that declaration every landed lane refused retirement on it, and both the
-worktree and the merged remote branch survived. Read the live declaration with
+`docs/atlas.md` and the teaching build writes `docs/teaching/views/` and
+`docs/teaching/live/` into every lane, so the `yoke` project declares all
+three; without a declaration every landed lane refused retirement on it, and
+both the worktree and the merged remote branch survived. Add a missing render
+with `yoke projects capability-settings merge --project <slug> --cap-type
+project-policy --set 'disposable_generated_paths=[...]'`, repeating the
+entries already declared. Read the live declaration with
 `yoke projects capability-settings get --project <slug> --cap-type
 project-policy`.
 
@@ -234,27 +246,31 @@ caches (a driver that executed there left `__pycache__` behind) and prove
 nothing else remains, then the resumable tombstone removal. Force is never
 used.
 
-When the cap still refuses after that sweep, it sorts the slots by what frees
-them, because merging is the recovery only for an item lane that has not landed:
+When the cap still refuses after that sweep, it sorts the counted slots by
+what frees them and names how many landed lanes it left out:
 
 - unmerged item lanes: merge them;
-- item lanes whose branch the target already carries: retire them with the
-  doctor repair once their items are closed;
 - driver trees whose run is not open: retire the finished ones with the doctor
   repair;
 - driver trees of an open run: in use by that run's driver, and freed when the
   run finishes. They are never offered for retirement.
 
 ```text
-max_active_worktrees limit reached (80 active + 1 pending > 80). Merge
-existing worktrees before creating more. Item lanes: .... 52 item lane(s)
-already landed on origin/main, so no merge frees them — run `yoke watch doctor
--- --only HC-worktree-health --fix` to retire those whose items are closed; the
-rest free when their items close out. Landed lanes: .... 3 slot(s) are held by
+max_active_worktrees limit reached (80 active + 1 pending > 80; 52 landed
+lane(s) not counted). Merge existing worktrees before creating more. Item
+lanes: .... 3 slot(s) are held by
 deploy-run driver trees, which no merge retires — run `yoke watch doctor --
 --only HC-worktree-health --fix` to retire the finished ones. Deploy-run
 lanes: .... 1 slot(s) are in use by open deploy runs' drivers and free when
 those runs finish. In-use deploy-run lanes: ...
+```
+
+`HC-worktree-health` lists the landed lanes of open items on their own line,
+apart from its findings, so its report shows which lanes the cap leaves out:
+
+```text
+- 52 landed lane(s) await release close-out and are not counted against
+max_active_worktrees: ...
 ```
 
 ## Keep Non-Ancestor Evidence Branches

@@ -161,7 +161,7 @@ Abandoned launch: delivered mandate but no claim/outbound message/completed
 call, native gone; show session/closed age/exit/last line, restaff unstarted work.
 Rows expire after six hours.
 
-## Landed work and dead waits
+## Landed work, dead waits and deadlocks
 
 Landed-without-close-out uses item merged_at or merge_queue_landed_at plus
 nonterminal state; control-plane observer records landing even if waiter died.
@@ -190,7 +190,7 @@ Dead waits scan recent outbound conversation for real interrogative/explicit
 reply requests, not confirmations or latest message alone. Reply already received
 wins; ended answerer or terminal answerer's item proves no reply possible.
 Live answerer is unresolved; no question means no row. Steering-role question
-survives seat succession and belongs to awaiting-seat count, not dead waits.
+survives seat succession and belongs to awaiting-seat count, not dead waits. Dependency deadlocks list each loop of unsatisfied blocking edges among live items that the backend detector finds (`dependency_cycles`): loop order, every edge with its id and gate, the work it strands, and the recovery — make one edge `coordination_only`, or route the ordering decision to steering. A loop never clears on its own, so any row is actionable.
 
 ## Deployment runs
 
@@ -335,10 +335,10 @@ up; yoke status lists marks. No auto-trip/probing/counters.
 Watcher SIGHUP/SIGINT/SIGTERM reaps child groups and writes interruption/sentinel.
 Missing dead-writer sentinel is interrupted; watch tail diagnoses, raw capture
 precedes retry. Evidence get FETCH JOB STATE succeeded means file fetched,
-not native alive. Unchanged reports stay silent; heartbeat/stall diagnostics
-remain raw. Drain complete ready lines before waiting, forward whole report
-in one write. Parked release holder awaiting newer candidate remains expected
-even after removal from earlier release.
+not native alive. A report's wake carries only rows new or changed apart from
+ages/instants, under their parent lines; raw keeps every report and stall line
+whole. Drain ready lines before waiting; forward the report in one write.
+Parked release holder awaiting newer candidate stays expected after removal.
 
 Watcher remembers printed holder/landing/run rows, project facts under stable
 lexically-first held descriptor despite actionable reorder. Removed row emits

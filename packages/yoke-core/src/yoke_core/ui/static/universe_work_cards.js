@@ -20,6 +20,7 @@ import { runGateStatus } from "./universe_run_gates.js";
 import { appendCarriedItemEvidence } from "./universe_carried_item_evidence.js";
 import { runEvidence, runFlowName } from "./universe_run_evidence.js";
 import { runQaSection } from "./universe_run_qa.js";
+import { sharingFor } from "./run_qa_sharing.js";
 import { navIcon } from "./universe_nav_sidebar.js";
 import {
   appendMoreDisclosure,
@@ -283,7 +284,10 @@ export function shippingRunCard(context, row, scope, options = {}) {
   }
   const qa = runQaSection(context, row,
     runEvidence(options.facts, row.id || row.run_id).checks,
-    options.onGateAction, { drawnRequestIds: carried.requestIds });
+    options.onGateAction, {
+      drawnRequestIds: carried.requestIds,
+      sharing: sharingFor(options.itemFacts, row.id || row.run_id),
+    });
   if (qa) card.appendChild(qa);
   return card;
 }

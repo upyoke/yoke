@@ -2,8 +2,8 @@
  "id": "pure-additive-convergence",
  "title": "Pure additive convergence",
  "status": "observed",
- "current": "Net-new tables, indexes and additive columns need no governed migration. Boot's creation phase applies them on every server boot, before the ordered history. A deploy driver connected straight to its database rather than over HTTPS applies the same phase before its run's first in-process call, as the role that owns the tables, so a release never meets a column only its own boot would add. A busy table refuses as release_start_schema_lock_unavailable after the short run-lock timeout, and nothing about the run starts. An HTTPS driver converges nothing: the serving build answers every call.",
- "sources": ["docs/public/reference/agent-rules/databases.md", "docs/public/reference/deployment-start.md", "packages/yoke-core/src/yoke_core/domain/schema_creation.py", "packages/yoke-core/src/yoke_core/domain/release_start_schema.py"],
+ "current": "Net-new tables, indexes and additive columns need no governed migration. Boot's creation phase applies them on every server boot, before the ordered history. A deploy driver connected straight to its database rather than over HTTPS applies the same phase before its run's first in-process call, as the role that owns the tables, so a release never meets a column only its own boot would add. Both run only the statements whose object the catalog lacks, one table per transaction, so a database with no schema change takes no table locks and the phase never holds one table while waiting on another. A busy table is retried with backoff, then refuses as release_start_schema_lock_unavailable naming the table, and nothing about the run starts. An HTTPS driver converges nothing: the serving build answers every call.",
+ "sources": ["docs/public/reference/agent-rules/databases.md", "docs/public/reference/deployment-start.md", "packages/yoke-core/src/yoke_core/domain/schema_creation.py", "packages/yoke-core/src/yoke_core/domain/release_start_schema.py", "packages/yoke-core/src/yoke_core/domain/schema_converge_statements.py"],
  "page": "databases",
  "position": 0
 }

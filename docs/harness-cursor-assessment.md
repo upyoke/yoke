@@ -58,8 +58,8 @@ entries pin an explicit generous value.
 | `SessionStart` | `SessionStart` | `SessionStart` (matcher `startup\|resume`) | `sessionStart` | fired | fired |
 | `SessionEnd` | `SessionEnd` | *(not wired)* | `sessionEnd` (`reason`, `final_status`, `duration_ms`) | fired | not fired while chat stays open |
 | `UserPromptSubmit` | `UserPromptSubmit` | `UserPromptSubmit` | `beforeSubmitPrompt` (`prompt`, `attachments` incl. applied rule files) | **absent** | fired |
-| `PreToolUse` | `PreToolUse` × matcher | `PreToolUse` (+ `PermissionRequest` collapse) | `preToolUse` (`tool_name`, `tool_input`, `tool_use_id`); shell also gets dedicated `beforeShellExecution` (`command`, `sandbox`; no `tool_use_id`/`duration_ms`) | fired | fired |
-| `PostToolUse` | `PostToolUse` | `PostToolUse` | `postToolUse` (+ `afterShellExecution` with `output`) | fired | fired |
+| `PreToolUse` | `PreToolUse` × matcher | `PreToolUse` (+ `PermissionRequest` collapse) | `preToolUse` (`tool_name`, `tool_input`, `tool_use_id`); shell also gets dedicated `beforeShellExecution` (`command`, `sandbox`; `tool_use_id` from 2026.10.16, never `duration_ms`) | fired | fired |
+| `PostToolUse` | `PostToolUse` | `PostToolUse` | `postToolUse`, Shell included (`tool_output` JSON with `output` and `exitCode`; its `additional_context` reaches the model, measured on CLI 2026.10.16). The audit-only `afterShellExecution` is not wired. | fired | fired |
 | `PostToolUseFailure` | `PostToolUseFailure` | *(reconstructed from transcripts)* | `postToolUseFailure` (`failure_type`, `error_message`) | fired | fired |
 | `Stop` | `Stop` | `Stop` (stdout must be `{}`) | `stop` (token counts, `loop_count`, `status`) | **absent** | fired |
 | Subagent lifecycle | `SubagentStop` (rendered into subagent adapters) | in-process, same session | `subagentStart` / `subagentStop` (`subagent_type`, `subagent_id`, `parent_conversation_id`) | **absent** (despite four `Task` dispatches) | fired |
@@ -265,8 +265,8 @@ existing registration deadline remain authoritative.
   registration-candidate lookup; the registration deadline remains the bound.
 - Revalidate hook coverage on later builds; manifest floors are current
   authority, while these measured builds are single data points.
-- `beforeShellExecution` vs `preToolUse(Shell)`: run the Bash chain on one,
-  both, or split gate/advisory roles between them?
+- Whether Cursor IDE delivers Shell `postToolUse` `additional_context` to the
+  model as the CLI does (measured on CLI 2026.10.16 only).
 - Whether `updated_input` rewriting and `beforeReadFile` gating open
   enforcement options Yoke has no chain vocabulary for yet.
 - MCP and `preCompact` events (unexercised), and `Write`-tool coverage of

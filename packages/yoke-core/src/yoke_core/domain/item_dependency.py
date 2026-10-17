@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import sys
-from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
 from yoke_contracts.dependency_values import VALID_GATE_POINTS, VALID_SOURCES
 
 from yoke_core.domain.db_helpers import instant_parameter, query_scalar
+from yoke_core.domain.dependency_cycles_read import refuse_cycles_through
 from yoke_core.domain.dependency_satisfaction import require_authorable_satisfaction
 from yoke_core.domain.item_dependency_upsert import (
     DependencyWrite,
@@ -20,7 +19,7 @@ from yoke_core.domain.item_ref_resolution import resolve_item_ref
 from yoke_core.domain.path_claims_blocked_reason_refresh import (
     refresh_blocked_reason_for_edge_change,
 )
-from yoke_core.domain.shepherd_records import now_iso, read_stdin_safe
+from yoke_core.domain.shepherd_records import now_iso
 
 
 def _edge_ids(conn, dependent: str, blocking: str) -> tuple[int, int]:
@@ -61,6 +60,8 @@ def cmd_dependency_add(
     """Create the edge, or update the fields that differ on an existing one.
 
     On an existing edge a field left ``None`` keeps its stored value.
+    A write that would close a loop of blocking edges among live items rolls back and
+    raises :class:`DependencyCycleError` naming the loop and its recovery.
     """
     _validate_dependency_fields(source, gate_point)
     dep_id, blk_id = _edge_ids(conn, dependent, blocking)
@@ -89,6 +90,11 @@ def cmd_dependency_add(
         session_id=session_id,
         created_at=created_at,
     )
+    refuse_cycles_through(
+        conn,
+        [write.edge.dependency_id],
+        f"adding {dependent} waiting on {blocking} at {gate_point}",
+    )
     conn.commit()
     _refresh_blocked_reasons(conn, dep_id, blk_id)
     return write
@@ -115,6 +121,12 @@ def cmd_dependency_update(
     source: Optional[str] = None,
     evidence_json: Optional[str] = None,
 ) -> str:
+    """Change the fields of one edge.
+
+    A gate or satisfaction change that would leave the edge closing a loop of
+    blocking edges among live items rolls back and raises
+    :class:`DependencyCycleError`.
+    """
     dep_id, blk_id = _edge_ids(conn, dependent, blocking)
     _validate_dependency_update_inputs(
         match_gate_point, gate_point, satisfaction, rationale, source, evidence_json
@@ -153,10 +165,23 @@ def cmd_dependency_update(
             set_parts.append(f"{column}={p}")
             set_params.append(value)
 
+    edge_ids = [
+        int(row[0])
+        for row in conn.execute(
+            f"SELECT id FROM item_dependencies WHERE {where}", tuple(params)
+        ).fetchall()
+    ]
     conn.execute(
         f"UPDATE item_dependencies SET {', '.join(set_parts)} WHERE {where}",
         tuple(set_params + params),
     )
+    if gate_point or satisfaction:
+        refuse_cycles_through(
+            conn,
+            edge_ids,
+            f"updating {dependent} waiting on {blocking}"
+            + (f" to {gate_point}" if gate_point else ""),
+        )
     conn.commit()
     _refresh_blocked_reasons(conn, dep_id, blk_id)
     return "OK"
@@ -237,82 +262,6 @@ def _ensure_gate_point_update_is_available(
         raise ValueError(
             f"cannot change gate_point to {gate_point} — edge already exists"
         )
-
-
-def cmd_dependency_reconcile(
-    conn,
-    source: str,
-    scope_item: str,
-    gate_point_filter: Optional[str] = None,
-    stdin_lines: Optional[List[str]] = None,
-) -> str:
-    if source not in VALID_SOURCES:
-        raise ValueError(f"source must be {', '.join(sorted(VALID_SOURCES))}")
-    scope_id = resolve_item_ref(conn, scope_item)
-    if gate_point_filter and gate_point_filter not in VALID_GATE_POINTS:
-        raise ValueError(f"invalid gate_point: {gate_point_filter}")
-
-    delete_params: list = [source, scope_id]
-    p = placeholder(conn)
-    delete_where = f"source={p} AND dependent_item_id={p}"
-    if gate_point_filter:
-        delete_where += f" AND gate_point={p}"
-        delete_params.append(gate_point_filter)
-
-    if stdin_lines is None:
-        raw = read_stdin_safe() or sys.stdin.read()
-        stdin_lines = [line for line in raw.strip().split("\n") if line.strip()]
-
-    edges = []
-    ts = now_iso()
-    clock_parameter = instant_parameter(conn, ts)
-    for line in stdin_lines:
-        edge = _parse_dependency_edge(conn, line, source, ts)
-        if edge is not None:
-            edges.append(edge)
-    prior_pairs = {
-        (int(row[0]), int(row[1]))
-        for row in conn.execute(
-            f"SELECT dependent_item_id, blocking_item_id "
-            f"FROM item_dependencies WHERE {delete_where}",
-            tuple(delete_params),
-        ).fetchall()
-    }
-    conn.execute("BEGIN")
-    conn.execute(
-        f"DELETE FROM item_dependencies WHERE {delete_where}", tuple(delete_params)
-    )
-    for edge in edges:
-        conn.execute(
-            "INSERT INTO item_dependencies "
-            "(dependent_item_id, blocking_item_id, gate_point, satisfaction, source, "
-            f"rationale, evidence_json, created_at) VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
-            "ON CONFLICT(dependent_item_id, blocking_item_id, gate_point) DO NOTHING",
-            (*edge[:-1], clock_parameter),
-        )
-    conn.execute("COMMIT")
-    refreshed_pairs = prior_pairs | {(int(edge[0]), int(edge[1])) for edge in edges}
-    for dependent, blocking in sorted(refreshed_pairs):
-        _refresh_blocked_reasons(conn, dependent, blocking)
-    return "OK"
-
-
-def _parse_dependency_edge(conn, line: str, source: str, ts: datetime) -> tuple | None:
-    parts = line.split()
-    if len(parts) < 4:
-        return None
-    dependent, blocking = _edge_ids(conn, parts[0], parts[1])
-    gate_point = parts[2]
-    satisfaction = parts[3]
-    rationale = " ".join(parts[4:]) if len(parts) > 4 else ""
-    if gate_point not in VALID_GATE_POINTS:
-        raise ValueError(f"invalid gate_point in stdin: {gate_point}")
-    require_authorable_satisfaction(
-        conn,
-        blocking_item_id=blocking,
-        satisfaction=satisfaction,
-    )
-    return (dependent, blocking, gate_point, satisfaction, source, rationale, "{}", ts)
 
 
 def cmd_dependency_remove(

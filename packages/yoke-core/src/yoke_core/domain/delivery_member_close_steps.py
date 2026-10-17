@@ -139,6 +139,39 @@ def member_close_evidence_refusal(
     )
 
 
+def member_close_refusal(
+    conn: Any, *, item_id: int, delivery_pending: bool = False
+) -> str:
+    """Why closing this member now would refuse, read without writing.
+
+    The landing evidence, then the done write's own terminal-settlement and
+    closure checks, on this connection. Listed workflow gates prepare QA
+    and approvals, so they stay the status write's; this read never commits.
+    Returns ``""`` when nothing read here refuses.
+    """
+    from yoke_core.domain.closure_status_gate import evaluate as evaluate_closure
+    from yoke_core.domain.qa_terminal_settlement import terminal_transition_result
+
+    if _item_status(conn, int(item_id)) == CLOSED_OUT_STATUS:
+        return ""
+    reasons = [
+        member_close_evidence_refusal(
+            conn, item_id=int(item_id), delivery_pending=delivery_pending
+        )
+    ]
+    terminal = terminal_transition_result(
+        conn,
+        int(item_id),
+        CLOSED_OUT_STATUS,
+        load_item_workflow_runtime(conn, int(item_id)),
+    )
+    closure = evaluate_closure(item_id=int(item_id), conn=conn)
+    for failure in (terminal, closure):
+        if failure:
+            reasons.extend((failure["error"], failure.get("remediation_hint") or ""))
+    return "\n".join(reason for reason in reasons if reason)
+
+
 def stage_member_close(
     conn: Any, *, item_id: int, public_ref: str
 ) -> StagedMemberClose:
@@ -186,5 +219,6 @@ __all__ = [
     "StagedMemberClose",
     "prepare_member_close",
     "member_close_evidence_refusal",
+    "member_close_refusal",
     "stage_member_close",
 ]

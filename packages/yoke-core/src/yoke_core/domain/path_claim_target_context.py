@@ -67,6 +67,8 @@ class Failure:
     target_path: str
     resolved_parent: str = ""
     effective_worktree_path: str = ""
+    # Repo-relative form of ``target_path``; ``yoke claims path widen`` takes it.
+    repo_path: str = ""
 
 
 def _coerce_int(value: Any) -> Optional[int]:

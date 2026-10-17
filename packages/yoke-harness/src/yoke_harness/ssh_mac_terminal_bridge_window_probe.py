@@ -25,10 +25,10 @@ from yoke_harness.ssh_mac_display_frame import (
     window_layout,
 )
 from yoke_harness.ssh_mac_terminal_app import (
-    close_terminal_app_window,
     open_terminal_app_window,
     send_terminal_app_keys,
 )
+from yoke_harness.ssh_mac_terminal_window_close import close_terminal_app_window
 from yoke_harness.ssh_mac_terminal_bridge_check import (
     READY_BANNER,
     classify_capture_failure,
@@ -43,12 +43,12 @@ from yoke_harness.ssh_mac_terminal_timing import (
 )
 
 
-DISPLAY_FRAME_CHECK = TERMINAL_BRIDGE_CHECKS[5]
-WINDOW_LAUNCH_CHECK = TERMINAL_BRIDGE_CHECKS[6]
-WINDOW_FOCUS_CHECK = TERMINAL_BRIDGE_CHECKS[7]
-KEYSTROKE_CHECK = TERMINAL_BRIDGE_CHECKS[8]
-TRANSCRIPT_CHECK = TERMINAL_BRIDGE_CHECKS[9]
-SCREEN_CAPTURE_CHECK = TERMINAL_BRIDGE_CHECKS[10]
+DISPLAY_FRAME_CHECK = TERMINAL_BRIDGE_CHECKS[6]
+WINDOW_LAUNCH_CHECK = TERMINAL_BRIDGE_CHECKS[7]
+WINDOW_FOCUS_CHECK = TERMINAL_BRIDGE_CHECKS[8]
+KEYSTROKE_CHECK = TERMINAL_BRIDGE_CHECKS[9]
+TRANSCRIPT_CHECK = TERMINAL_BRIDGE_CHECKS[10]
+SCREEN_CAPTURE_CHECK = TERMINAL_BRIDGE_CHECKS[11]
 
 
 def probe_driven_window(report: BridgeDiagnosisReport, run: RunRemote) -> None:
@@ -200,7 +200,10 @@ def probe_driven_window(report: BridgeDiagnosisReport, run: RunRemote) -> None:
                 keys=("C-c",),
                 load_average=load_average,
             )
-            close_terminal_app_window(run, window_id=window_id)
+            report.record_window_close(
+                WINDOW_LAUNCH_CHECK,
+                closed=close_terminal_app_window(run, window_id=window_id),
+            )
 
 
 __all__ = ["probe_driven_window"]

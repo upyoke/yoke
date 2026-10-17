@@ -124,6 +124,8 @@ class FleetSnapshot:
     items: Mapping[str, ItemRow] = field(default_factory=dict)
     envelopes: Mapping[tuple[str, str], EnvelopeRow] = field(default_factory=dict)
     landing_waits: frozenset[str] = frozenset()
+    #: Served dependency deadlock rows, keyed by their sorted member refs.
+    deadlocks: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
 
 def _result(response: Any, function_id: str) -> dict[str, Any]:
@@ -208,6 +210,15 @@ def item_rows(result: Mapping[str, Any]) -> dict[str, ItemRow]:
     return rows
 
 
+def deadlock_rows(result: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
+    """Served deadlock rows by member key; a build that serves none has none."""
+    rows: dict[str, Mapping[str, Any]] = {}
+    for raw in result.get("dependency_cycles") or []:
+        if isinstance(raw, Mapping) and raw.get("items"):
+            rows[",".join(sorted(str(ref) for ref in raw["items"]))] = raw
+    return rows
+
+
 def envelope_rows(
     result: Mapping[str, Any],
 ) -> dict[tuple[str, str], EnvelopeRow]:
@@ -253,6 +264,7 @@ def read_snapshot(
     """
     sessions: dict[str, SessionRow] = {}
     items: dict[str, ItemRow] = {}
+    deadlocks: dict[str, Mapping[str, Any]] = {}
     resolved_workspace = workspace or str(Path.cwd())
     for project in projects:
         sessions.update(
@@ -263,17 +275,15 @@ def read_snapshot(
                 )
             )
         )
-        items.update(
-            item_rows(
-                _result(
-                    call(
-                        FRONTIER_FUNCTION,
-                        {"project": project, "workspace": resolved_workspace},
-                    ),
-                    FRONTIER_FUNCTION,
-                )
-            )
+        frontier = _result(
+            call(
+                FRONTIER_FUNCTION,
+                {"project": project, "workspace": resolved_workspace},
+            ),
+            FRONTIER_FUNCTION,
         )
+        items.update(item_rows(frontier))
+        deadlocks.update(deadlock_rows(frontier))
     envelopes = envelope_rows(
         _result(
             call(ENVELOPES_FUNCTION, {"limit": ENVELOPE_PAGE}),
@@ -286,6 +296,7 @@ def read_snapshot(
         sessions=sessions,
         items=items,
         envelopes=envelopes,
+        deadlocks=deadlocks,
         landing_waits=frozenset(
             ref for row in sessions.values() for ref in row.landing_waits
         ),
@@ -302,6 +313,7 @@ __all__ = [
     "ItemRow",
     "SESSIONS_FUNCTION",
     "SessionRow",
+    "deadlock_rows",
     "envelope_rows",
     "item_rows",
     "parse_timestamp",

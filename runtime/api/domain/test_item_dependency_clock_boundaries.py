@@ -28,23 +28,17 @@ def isolated_edge_resolution(monkeypatch):
         dependencies, "require_authorable_satisfaction", lambda *_a, **_k: None
     )
     monkeypatch.setattr(dependencies, "_refresh_blocked_reasons", lambda *_: None)
+    monkeypatch.setattr(dependencies, "refuse_cycles_through", lambda *_a: None)
 
 
-@pytest.fixture(params=["add", "reconcile"])
-def edge_writer(request):
+@pytest.fixture
+def edge_writer():
     def write(conn):
-        if request.param == "add":
-            write = dependencies.cmd_dependency_add(
-                conn, "dependent", "blocking", "operator"
-            )
-            assert write.action == "created"
-            return "OK"
-        return dependencies.cmd_dependency_reconcile(
-            conn,
-            "operator",
-            "dependent",
-            stdin_lines=["dependent blocking activation status:done reason"],
+        write = dependencies.cmd_dependency_add(
+            conn, "dependent", "blocking", "operator"
         )
+        assert write.action == "created"
+        return "OK"
 
     return write
 
@@ -84,24 +78,3 @@ def test_dependency_clock_refuses_non_native_producer_before_storage(
     with pytest.raises(InvalidInstant, match="invalid_instant"):
         edge_writer(conn)
     assert conn.execute("SELECT count(*) FROM item_dependencies").fetchone()[0] == 0
-
-
-@pytest.mark.parametrize("bad", [datetime(2026, 1, 1), "2026-01-01T00:00:00Z"])
-def test_reconcile_invalid_clock_keeps_previous_dependency_bytes(
-    clock_connection, isolated_edge_resolution, monkeypatch, bad
-):
-    conn = clock_connection
-    original = datetime(1969, 12, 31, 23, 59, 59, 123456, tzinfo=timezone.utc)
-    monkeypatch.setattr(dependencies, "now_iso", lambda: original)
-    dependencies.cmd_dependency_add(conn, "dependent", "blocking", "operator")
-    before = tuple(conn.execute("SELECT * FROM item_dependencies").fetchone())
-    monkeypatch.setattr(dependencies, "now_iso", lambda: bad)
-    with pytest.raises(InvalidInstant, match="invalid_instant"):
-        dependencies.cmd_dependency_reconcile(
-            conn,
-            "operator",
-            "dependent",
-            stdin_lines=["dependent blocking activation status:done replacement"],
-        )
-    after = tuple(conn.execute("SELECT * FROM item_dependencies").fetchone())
-    assert after == before
