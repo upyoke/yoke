@@ -226,8 +226,34 @@ def test_inaccessible_target_refused_no_disclosure(world, target):
     )
     result = check_dispatch_permission(world.conn, _entry(request.function), request)
     assert result.error is not None
-    assert "private-project" not in result.error.error.message
-    assert "Private organization" not in result.error.error.message
+    assert result.error.error.code == "permission_denied"
+    response = result.error.model_dump_json()
+    assert result.error.result == {}
+    assert "private-project" not in response
+    assert "Private project" not in response
+    assert "Private organization" not in response
+
+
+def test_readable_target_keeps_permission_denial_teaching(world):
+    from runtime.api.domain.test_function_authz_scope_routing import (
+        _entry,
+        _payload_request,
+    )
+    from yoke_core.domain.actor_permissions import grant_actor_project_role
+    from yoke_core.domain.yoke_function_permissions import check_dispatch_permission
+    from yoke_contracts.api.function_call import TargetRef
+
+    grant_actor_project_role(
+        world.conn, actor_id=world.stranger, project_id=1, role_name="viewer"
+    )
+    request = _payload_request(
+        world.stranger, "claims.steering.acquire", {}
+    ).model_copy(update={"target": TargetRef(kind="global", project_id="1")})
+    result = check_dispatch_permission(world.conn, _entry(request.function), request)
+    assert result.error is not None and result.project_id == 1
+    assert result.project_slug == "yoke"
+    assert "claims.acquire" in result.error.error.message
+    assert "yoke" in result.error.error.message
 
 
 def test_group_visibility_uses_session_authority_and_role_recipient_target(world):
