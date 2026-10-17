@@ -138,21 +138,19 @@ existing executable does not prove that the host supports a new installation.
 
 ## 7. Effective privacy and terminal control
 
-In Privacy & Security (Security & Privacy on Monterey), grant every pair.
-The Remote Login controller is `/usr/libexec/sshd-keygen-wrapper`.
+In Privacy & Security (Security & Privacy on Monterey), grant every pair:
 
 | Grant | Client | Target |
 |---|---|---|
-| Automation | Remote Login controller | System Events, Terminal, Safari |
-| Automation | Terminal.app | System Events, Safari |
-| Accessibility | Remote Login controller and Terminal.app | — |
-| Screen Recording | Terminal.app | — |
+| Automation | `/usr/libexec/sshd-keygen-wrapper` | System Events, Terminal, Safari |
+| Automation | Terminal | System Events |
+| Accessibility | `/usr/libexec/sshd-keygen-wrapper` and Terminal | — |
+| Screen Recording | Terminal | — |
 
-SSH `osascript` browser approval uses the Remote Login controller. GUI-session
-commands (Safari approval helper and `--gui-session`) need Terminal → System
-Events. Older macOS opens System Preferences instead of a consent dialog:
-tick Terminal's Automation row by hand. Follow
-[setup responsibilities](setup-responsibilities.md) for OS privacy/TCC consent.
+Terminal → System Events is what GUI-session commands (the Safari approval
+helper, `--gui-session` walker commands) need. Older macOS opens System
+Preferences instead of a consent dialog, so tick the Terminal row under
+Automation by hand. Follow [setup responsibilities](setup-responsibilities.md) for OS privacy/TCC consent dialogs.
 
 Disable Terminal → Secure Keyboard Entry. Prove control through the registered
 operation that needs it, not a permission-row inventory:
@@ -167,9 +165,15 @@ Terminal window and checks transport, console/lock, AppleEvents, secure entry,
 display geometry, launch/focus, input, transcript and real capture in order.
 Unreached checks are not run. Screen Recording proof requires window content,
 not wallpaper; two captures around an authorized window change should differ.
-Before probing GUI-session commands, read the mandatory
-[macOS automation diagnostics](browser-identities.md#macos-automation-diagnostics)
-for denial, timeout and Terminal-window recovery.
+`-25211` names Accessibility; `-1743` names Automation. Diagnosis and every
+Terminal case start probe Terminal → System Events and refuse by cause:
+`terminal_system_events_automation_missing` on `-1743` (repair the grant through
+the UI and rerun), `terminal_system_events_automation_timeout` on a timeout
+without a denial, and `terminal_window_accumulation` on a timeout while
+Terminal shows more than 10 windows (reset quits them). Diagnosis reports
+Terminal's visible window count and fails `terminal_window_close_failed` when
+its own window stays open. An active Screen Sharing curtain must be disconnected
+or reconnected without curtain. A home restore cannot recreate these grants.
 
 ## 8. Operator sign-in and acceptance set
 
@@ -274,10 +278,11 @@ Read their `--help`. Verify reaches both baselines and ends `shell-preconfigured
 with the current Yoke launcher installed. Reset reaches one baseline;
 `fresh-host` returns the clean signed-in home, not a blank user. The operation
 retains live SSH, privacy and harness-login state, stops owned services/writers,
-clears product residue, restores content/modes and runs sealed probes. It quits
-Terminal, killing it and its window processes if a sheet blocks the quit.
-After restore it relaunches Terminal without saved windows to avoid probe stalls.
-The restore merges each captured directory into place with `ditto`, so a macOS
+clears product residue, restores content/modes, and runs sealed probes. It first
+quits Terminal, killing its window processes and Terminal when a sheet holds
+the quit, and relaunches it without saved windows after the restore, so windows
+earlier runs left cannot stall the probes. The
+restore merges each captured directory into place with `ditto`, so a macOS
 daemon recreating its directory mid-restore does not fail it. Restoring a home
 cannot restore an external grant. A login that expires on the live host is
 fixed by signing in again in the GUI; the kept-live login survives the next
@@ -295,16 +300,39 @@ proof; an old receipt or a successful capture alone cannot replace it.
 
 ## 11. Live browser identities
 
-Required authorization behavior:
+A test machine keeps each project identity signed in live, outside the
+clean-home golden.
 
-Run yoke browser authorize to check automation identities and Test Machine
-desktop browser sign-ins. It opens tabs only for expired sites and names the
-account to use. Desktop browser sign-ins stay live through reset and are
-excluded from golden snapshots.
+1. As the test user, create the live identity store once:
+   `mkdir -m 700 ~/.yoke-browser-identities`. Never place it inside `~/.yoke`.
+   A full reset keeps it the way it keeps harness logins, and golden capture
+   never includes it, because a restored copy of a session is the cookies the
+   site has since rotated.
+2. Agents use the registered test user and leased product operations to install
+   the candidate and prepare its Chromium runtime and real headed desktop.
+   Declare the project's identities and each identity's per-site sign-in
+   checks in its `browser-control` capability settings; see
+   [browser identities](browser-identities.md).
+3. For each identity, agents run `yoke browser authorize --project P
+   --identity NAME` as the test user in the real headed desktop; read
+   `--help`. It checks every declared site first and opens a window only for
+   the expired ones, naming the identity, the site and the account; no
+   automated browser runs while it is open. The user supplies personal
+   credentials. Follow the existing [test-account approval rule](https://github.com/upyoke/yoke/blob/main/docs/testing-verification/test-machine-golden-baseline.md#yoke-application-sign-ins)
+   for the agent/user split, including native harness login from this saved
+   session. Keep profile data on the host.
+4. The user closes every authorization window; the command checks each site
+   again and fails naming any still signed out. The identity's profile path
+   links into the store, so the sign-in already lives there: nothing is
+   captured, sealed or restored.
+5. A reset removes `~/.yoke` and keeps the store. Once a walk installs the
+   candidate, `yoke browser verify --project P --identity NAME` proves each
+   site still signed in, and sessions a site refreshes during the walk persist
+   in the store whether the walk passes, fails or is aborted.
+6. Agents perform application steps that do not need the user. An expired site
+   is a precise `HUMAN_GATE` naming the machine, identity, site, account and
+   resume state; the resume is `yoke browser authorize --identity NAME` on that
+   host. Runtime and inventory failures retain their named diagnostics.
 
-The remote `--machine NAME` command includes both checks by default; there
-is no desktop opt-out. Confirm release-matched help and operation receipts
-before relying on an installed release. Before running it, read the complete
-[desktop browser checks](browser-identities.md#desktop-browser-checks) procedure.
-
-Before sign-in, follow the complete [macOS sign-in procedure](browser-identities.md#macos-sign-in-procedure).
+Use the logged-in, unlocked test-user desktop through Screen Sharing and the
+GUI Terminal context; the login keychain remains that user's.

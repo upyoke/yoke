@@ -1,8 +1,8 @@
 # Provisioning and saving a Linux Test Machine
 
 For stored-password setup commands on macOS and Linux, follow [administrator commands](administrator-commands.md).
-
 Follow [setup responsibilities](setup-responsibilities.md) for every step.
+[Codex on Linux](codex-on-linux.md) covers scoped posture and helper recovery.
 
 Follow this ordered procedure as a dedicated non-root test user, from a bare
 Ubuntu 24.04 host through a verified saved state. Infrastructure, account,

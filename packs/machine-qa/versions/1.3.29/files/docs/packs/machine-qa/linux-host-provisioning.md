@@ -3,6 +3,7 @@
 For stored-password setup commands on macOS and Linux, follow [administrator commands](administrator-commands.md).
 
 Follow [setup responsibilities](setup-responsibilities.md) for every step.
+[Codex on Linux](codex-on-linux.md) covers scoped posture and helper recovery.
 
 Follow this ordered procedure as a dedicated non-root test user, from a bare
 Ubuntu 24.04 host through a verified saved state. Infrastructure, account,
@@ -39,50 +40,6 @@ Require a nonzero `id -u`, Ubuntu24.04 in `/etc/os-release`, and working
 `git --version`, `tmux -V`, `python3 --version`, `docker info`, `sudo -n true`
 as the user. System packages, services and sudo policy are outside the home
 golden. Do not record QA package changes as the permanent machine baseline.
-
-### Codex sandbox namespace access
-
-Ubuntu24.04 restricts unprivileged user namespaces by default. Keep
-`kernel.apparmor_restrict_unprivileged_userns=1`. If a harmless command in the
-human-opened Codex session fails before execution with
-`bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`, inspect fresh
-kernel audit events as administrator:
-
-```text
-sudo journalctl -k --since '10 minutes ago' --no-pager -g 'apparmor.*(bwrap|userns|codex)'
-```
-
-Read the bwrap executable path from the denied userns/capability event. Do
-not infer it from PATH or the npm launcher: Codex may use its app-server
-daemon. Install bubblewrap only if the actual required helper is missing.
-Preserve existing profiles; grant userns only to the exact audited executable.
-For an app-server helper, create `/etc/apparmor.d/codex-bwrap` with:
-
-```text
-abi <abi/4.0>,
-include <tunables/global>
-profile codex_bwrap "/home/TESTUSER/.codex/packages/app-server-daemon/releases/INSTALLED_RELEASE/codex-resources/bwrap" flags=(unconfined) {
-  userns,
-  include if exists <local/codex-bwrap>
-}
-```
-
-Replace the entire quoted path with the actual audited absolute executable;
-TESTUSER and INSTALLED_RELEASE are placeholders, never a copied version.
-Load with `sudo apparmor_parser -r /etc/apparmor.d/codex-bwrap`, then check:
-
-```text
-sysctl kernel.apparmor_restrict_unprivileged_userns
-sudo aa-status
-```
-
-Require the global sysctl still1 and `codex_bwrap` loaded. In the SAME human-opened Codex
-session, request a harmless normal sandboxed pwd/printf command. Require
-actual exit0 and output, then inspect fresh audit events for renewed
-namespace/capability denial. Do not escalate the probe, change Codex
-permissions, disable the global sysctl, reset the host, or accept model text
-as execution proof. Re-audit the helper path after Codex updates. A new
-denial or unavailable helper is a provisioning blocker; stop and report it.
 
 ## 2. SSH, capability and desktop access
 
@@ -157,13 +114,10 @@ in the dedicated test context; require `skipDangerousModePermissionPrompt=true`
 before saving. It is signed-in home state restored from the golden, not a
 permission to bypass unrelated product safeguards.
 
-Save every completed harness sign-in at once with
-`yoke test-machine golden-capture` (step 6): it proves each harness's real
-request and recaptures the baseline. Desktop Chromium sign-ins must stay live
-outside the golden. Chromium quits to flush its state before preservation;
-its existing `~/snap/chromium/common/chromium` store is preserved only when
-present and must never be restored from an older golden. Require the separate
-reset and browser sign-in proof in the [baseline procedure](linux-baseline-recovery.md).
+Save every completed sign-in at once with `yoke test-machine golden-capture`
+(step 6): it proves each harness's real request, quits desktop Chromium so its
+cookie store is on disk, and recaptures the baseline, so no later reset can
+roll the sign-in back.
 
 ## 4. Durable desktop and unattended sessions
 
@@ -227,18 +181,6 @@ capture of the same display. Reset performs fixture desktop logout itself.
 
 ## 5. Optional live browser identities
 
-Required authorization behavior:
-
-Run yoke browser authorize to check automation identities and Test Machine
-desktop browser sign-ins. It opens tabs only for expired sites and names the
-account to use. Desktop browser sign-ins stay live through reset and are
-excluded from golden snapshots.
-
-The remote `--machine NAME` command includes both checks by default; there
-is no desktop opt-out. Confirm release-matched help and operation receipts
-before relying on an installed release. Before running it, read the complete
-[desktop browser checks](browser-identities.md#desktop-browser-checks) procedure.
-
 A test machine keeps each project identity signed in live, outside the
 clean-home golden.
 
@@ -257,9 +199,9 @@ clean-home golden.
    `--help`. It checks every declared site first and opens a window only for
    the expired ones, naming the identity, the site and the account; no
    automated browser runs while it is open. The user supplies personal
-   credentials and completes personal approval prompts. Agents prepare the
-   desktop and run the declared checks; use project-approved test accounts
-   and follow project-owned sign-in policy. Keep profile data on the host.
+   credentials. Follow the existing [test-account approval rule](https://github.com/upyoke/yoke/blob/main/docs/testing-verification/test-machine-golden-baseline.md#yoke-application-sign-ins)
+   for the agent/user split, including native harness login from this saved
+   session. Keep profile data on the host.
 4. The user closes every authorization window; the command checks each site
    again and fails naming any still signed out. The identity's profile path
    links into the store, so the sign-in already lives there: nothing is
@@ -290,10 +232,8 @@ so its approval link opens there. The gate then
 presses **Approve machine** only in the exact installer-opened tab on the
 declared origin with the displayed code, revalidates the tab first, accepts
 only a same-origin navigation away from it, and attaches a desktop screenshot
-to the step. The operator signs in to the app once in this Chromium. Keep
-that browser sign-in live outside the golden and prove it survives reset
-through the [baseline procedure](linux-baseline-recovery.md); golden capture
-saves the remaining fixture state, never the desktop browser sign-in store.
+to the step. The operator signs in to the app once in this Chromium, then
+saves the sign-in with `yoke test-machine golden-capture` (step 6).
 
 While the gate's Chromium runs, any process of a local user can reach its
 loopback DevTools port, so keep the host dedicated to the fixture user.
@@ -306,9 +246,104 @@ loopback DevTools port, so keep the host dedicated to the fixture user.
 | `linux_desktop_chromium_devtools_unavailable` | Close Chromium on the desktop and rerun; use the provisioned Chromium snap |
 | `linux_desktop_chromium_quit_not_proved` | Close every Chromium window, answering its prompts, then rerun; it is never force-killed |
 
-## 6. Capture, reset and recovery
+## 6. Clean home, standard checks and capture
 
-Continue with [Linux baseline capture and recovery](linux-baseline-recovery.md).
-Complete its standard probes, save/reset roundtrip and final clean signed-in
-baseline before reporting the host ready. Its recovery table preserves the
-named refusal and sealed-state repair for a failed operation.
+If a current golden exists, reset to it before refreshing signed-in fixture
+state. If step5 temporarily installed Yoke, return to the clean existing
+baseline after sealing the separate profile. For a first bare home, keep Yoke
+absent before saving; registering/capture runs from the QA workstation.
+Do not manually capture a partially cleared home or bake Yoke/uv state into it.
+
+Acceptance requires steps1–4 plus all native harness real requests, Claude
+bypass acceptance, and a startable desktop/input tools when desktop coverage
+is configured. Golden capture selects standard per-OS probes without a file;
+a custom probes JSON must include every standard check. Read the command's
+served `--help` for argv rules. Standard names are `Claude real request`,
+`Codex real request`, `Cursor real request`, `Claude bypass accepted`, and
+`Linux desktop input available` (headless hosts pass without xdotool).
+Missing names refuse as `baseline_standard_probes_missing`. Capture runs and
+seals canonical standard programs plus extras, without implicitly carrying an
+older sidecar forward. Extra probes use absolute argv and
+positive expectations; an exit-zero `agent status` is not authenticated proof.
+Named harness probes are executed as tiny real requests without tool calls.
+
+Capture into a new absolute directory outside the test home:
+
+```text
+yoke test-machine golden-capture --project P --machine NAME --destination /var/lib/yoke-golden/TESTUSER/home-DATE
+```
+
+The default is a new dated sibling of the current golden. Failure never
+replaces the registered baseline. The directory contains private `home.tar.gz`
+and `manifest.json` binding archive digest, UID and home; sealed probe state
+travels beside the golden. Capture omits sockets and links to sockets/outside
+the home, retaining regular `.sock` files and safe persistent CLI links.
+Live `.ssh` and the browser identity store `.yoke-browser-identities` are
+never captured and are preserved on restore. No archive or auth material enters QA
+artifacts, settings or source control.
+
+## 7. Prove the save/reset roundtrip
+
+Golden capture restores the new archive and re-runs its sealed probes before
+registration. It then uses the existing xrdp login to start the fixture desktop,
+captures a non-blank first frame, and ends the desktop session. A failure names
+`reset_roundtrip`, `restored_probes`, `desktop_frame`, or `desktop_end` and refuses
+to register the capture; repair that step and capture to a new destination.
+Reset ends an open fixture desktop rather than requiring manual logout.
+
+These are destructive provisioning commands, not read-only reachability checks:
+
+```text
+yoke test-machine verify --project P --machine NAME
+yoke test-machine reset --project P --machine NAME --baseline fresh-host
+yoke test-machine get --project P --machine NAME
+```
+
+Read `--help`. Verify reaches both baselines and leaves `shell-preconfigured`
+with the current launcher installed. The final reset reaches only the clean,
+signed-in `fresh-host`. Require passing receipts bound to the new golden,
+standard request checks, desktop startup and input tools after restore.
+Browser UI proof requires the separate restoration in step5.
+
+Reset validates archive identity/digest/entries before clearing, removes owned
+product services and home writers, restores files/modes and proves Yoke absent
+on login and SSH shells. It preserves live SSH and terminal preference while
+restoring settings/history from the golden.
+
+Capture and reset first ask a running desktop Chromium to quit (SIGTERM, which
+saves its cookies) and wait up to 30 seconds; it is never force-killed. One
+that stays open refuses `test_machine_sign_in_app_quit_not_proved` before
+anything is copied or cleared, so a running browser never writes its state
+over a restored home.
+
+Harness sign-ins are never rolled back. Before clearing, reset runs the sealed
+`Claude real request`, `Codex real request` and `Cursor real request` probes
+against the live home. Each verified login (`~/.claude/.credentials.json`,
+`~/.codex/auth.json`, `~/.config/cursor/auth.json`) is carried forward over the
+restore with its own mode; the receipt lists it in `preserved_entries`. A login
+that fails its request is restored from the golden only when it has not changed
+since the golden was sealed. If it changed after the seal, reset refuses
+`test_machine_sign_in_newer_than_baseline` before clearing anything. OS package
+fixture journals outside the home are separate and may reverse mission changes;
+permanent desktop tools must remain baseline.
+
+## 8. Recovery without changing the seal
+
+| Refusal | Required recovery |
+| --- | --- |
+| `linux_desktop_stop_not_proved` | Repair termination of the named fixture desktop, then retry; other users are excluded |
+| `test_machine_sign_in_newer_than_baseline` | The named login changed after the seal and fails its request. Follow `probe_reason`: quota needs provider capacity, auth needs sign-in. Retry proof after recovery; a verified login can be carried forward, then saved with `yoke test-machine golden-capture` |
+| `test_machine_sign_in_app_quit_not_proved` | Close every Chromium window on the fixture desktop, answering its prompts, then retry; `reason` names the helper's own refusal |
+| `linux_sign_in_store_unsafe` | Make the named login path a regular file owned by the test user, or recapture a golden whose copy of it is a regular file |
+| `linux_home_writers_stop_not_proved` | Stop the named test-home writer through its owner, then retry the sealed baseline |
+| `linux_golden_home_clear_failed` | Read refused entry, resolve writer/ownership, retry; never seal the mixed home |
+| `baseline_probe_failed` | Read cause/reason/recovery and sanitized native exit diagnostics. Quota waits for capacity; transport retries after recovery; only diagnosed auth calls for sign-in. Preserve the golden and failed capture; never reset credentials to clear quota |
+| `linux_golden_operation_timeout` | Capture/restore allows20minutes; disconnect does not prove remote exit. Stop or wait for that process before retrying |
+
+A timeout may leave unregistered archive/manifest or a partly restored home.
+Inspect only the named destination/capture temporary paths after remote exit;
+use a new capture destination or retry the existing sealed restore. Never use
+an unsealed archive or edit its manifest to force acceptance. Expired sign-in
+requires operator login, then `yoke test-machine golden-capture`, which proves
+the real request and seals a new clean golden. A successful save alone is not a
+proved roundtrip.
