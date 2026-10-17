@@ -189,6 +189,8 @@ def authorize_remote(parsed) -> int:
             argv.append("--reset")
         if parsed.json_mode:
             argv.append("--json")
+        if detail["settings"].get("os") in {"linux", "macos"}:
+            argv.append("--include-desktop-browser")
         viewer = _open_sign_in_viewer(project, detail, identity, parsed.json_mode)
         try:
             desktop_password = (
