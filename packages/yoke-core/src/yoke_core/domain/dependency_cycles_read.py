@@ -176,7 +176,9 @@ def seat_cycles(
     ]
 
 
-def refuse_cycles_through(conn: Any, dependency_ids: Iterable[int], change: str) -> None:
+def refuse_cycles_through(
+    conn: Any, dependency_ids: Iterable[int], change: str
+) -> None:
     """Roll back and refuse when a just-written edge closes a deadlock.
 
     Called inside the write's own transaction, before commit, so the kernel

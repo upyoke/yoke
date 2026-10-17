@@ -9,15 +9,11 @@ two questions for any requested ``gate_point``:
    eligible, which are blocked, and what topological order the eligible
    items should follow.
 
-Consumers: ``frontier.py`` / ``scheduler.py`` (activation view, start
-order); usher / merge / deploy (integration view, landing order);
-``closure`` is reserved as the future closeout gate.
-
-This module owns planning logic (evaluation + ordering). Orchestration
-(WIP caps, ranking heuristics, claim management) lives in the consuming
-modules. Result dataclasses live in
-``yoke_core.domain.dependency_planning_results`` and are re-exported
-here for stability.
+Consumers: the frontier and scheduler (activation, start order); usher,
+merge and deploy (integration, landing order); closeout (closure). Ordering
+belongs here; WIP caps, ranking and claims belong to the consumers. Result
+dataclasses live in :mod:`dependency_planning_results`; loops of waiting
+items are found by :mod:`dependency_cycles`.
 """
 
 from __future__ import annotations
@@ -40,6 +36,7 @@ from .item_worktree_resolution import primary_item_worktree_branch_sql
 
 
 # --- SQL queries ---
+
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -142,14 +139,16 @@ def evaluate_item_gate(
         )
 
         if not result.satisfied:
-            unsatisfied.append(BlockerDetail(
-                blocking_item=render_column_item_ref(conn, blk_item),
-                blocking_status=blk_status,
-                gate_point=gp,
-                satisfaction=sat,
-                rationale=rationale or "",
-                reason=result.reason,
-            ))
+            unsatisfied.append(
+                BlockerDetail(
+                    blocking_item=render_column_item_ref(conn, blk_item),
+                    blocking_status=blk_status,
+                    gate_point=gp,
+                    satisfaction=sat,
+                    rationale=rationale or "",
+                    reason=result.reason,
+                )
+            )
 
     return ItemGateEvaluation(
         item_id=item_id,
@@ -317,11 +316,13 @@ def plan_candidate_set(
     for item_id in candidate_ids:
         blockers = all_blocks.get(item_id, [])
         if blockers:
-            blocked.append(CandidateItem(
-                item_id=item_id,
-                is_eligible=False,
-                blockers=blockers,
-            ))
+            blocked.append(
+                CandidateItem(
+                    item_id=item_id,
+                    is_eligible=False,
+                    blockers=blockers,
+                )
+            )
         else:
             eligible.append(item_id)
 

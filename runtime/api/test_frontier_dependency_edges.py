@@ -305,7 +305,7 @@ def test_a_scoped_read_draws_a_loop_that_holds_or_strands_its_work(test_db):
         graph = frontier_dependency_graph(test_db, scope)
         [cycle] = graph["dependency_cycles"]
         assert cycle["stranded"] == ["YOK-1"]
-        assert {
-            (e["blocking_item"], e["dependent_item"]) for e in cycle["edges"]
-        } <= {(e["blocking_item"], e["dependent_item"]) for e in graph["dependency_edges"]}
+        assert {(e["blocking_item"], e["dependent_item"]) for e in cycle["edges"]} <= {
+            (e["blocking_item"], e["dependent_item"]) for e in graph["dependency_edges"]
+        }
     assert frontier_dependency_graph(test_db, [third_id])["dependency_cycles"] == []

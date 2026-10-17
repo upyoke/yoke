@@ -33,8 +33,7 @@ def deadlock_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
             _raise_once(
                 state,
                 alarm_key,
-                f"{LINE_PREFIX} ALARM {KIND} {cycle.describe()}; "
-                f"recovery: {RECOVERY}",
+                f"{LINE_PREFIX} ALARM {KIND} {cycle.describe()}; recovery: {RECOVERY}",
             )
         )
     return lines + _clear(state, live, KIND)

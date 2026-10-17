@@ -197,7 +197,7 @@ blocking_item_id INTEGER NOT NULL REFERENCES items(id)
 gate_point TEXT NOT NULL DEFAULT 'activation' -- activation | integration | closure | coordination_only
 satisfaction TEXT NOT NULL DEFAULT 'status:done' -- status:<stage-id> | fact:merged | fact:deployed:<environment-name>
 source TEXT NOT NULL -- shepherd | conduct | operator | migration | feed | idea | refine | dash
-session_id INTEGER -- nullable contextual session ID
+session_id TEXT -- the session that added or last changed the edge; NULL when unknown
 rationale TEXT NOT NULL DEFAULT '' -- human-readable explanation of the edge
 evidence_json TEXT NOT NULL DEFAULT '{}' -- structured provenance payload
 created_at TIMESTAMPTZ NOT NULL
@@ -243,6 +243,8 @@ candidate planning. Registered readers return structured blockers; internal
 Python service clients are not an agent recipe.
 
 **Enforcement:** `advance.preflight.hard_blocks` exposes the shared `evaluate_blockers` evaluator through `yoke advance preflight hard-blocks PREFIX-N --gate-point activation`. It evaluates on the selected control plane over HTTPS or local Postgres. `implement` / `conduct` / `usher` share it. The authoritative status write runs it for listed `check_hard_blocks` at `activation`, and on every write to `done` at `closure` (not skippable by force or QA bypass). `items.block` refuses a wait a live activation/integration/closure edge already carries — use `yoke items dependency add`. The frontier uses `evaluate_batch_gates()` for activation.
+
+**Loop refusal:** `items.dependency.add` and `items.dependency.update` (when it changes the gate or satisfaction) refuse with `dependency_cycle` a write that would leave unsatisfied activation/integration/closure edges among live items in a loop, because no item in it could move first. The refusal names every edge in the loop with its id, the items it would strand, and the recovery: make one edge `coordination_only` (`yoke items dependency update DEPENDENT BLOCKING --match-gate-point GATE --gate-point coordination_only --rationale TEXT`), or route the ordering decision to steering. Nothing is written. `coordination_only` edges, satisfied edges and terminal dependents never count. `yoke_core.domain.dependency_cycles` is the one detector: `frontier.list` and `charge.schedule` serve its loops as `dependency_cycles`, the fleet watch raises `fleet ALARM deadlock`, and the steering report lists them under dependency deadlocks.
 
 ## Table: ouroboros_entries
 

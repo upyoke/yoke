@@ -128,9 +128,7 @@ def frontier_dependency_graph(
                 "blocking_project_sequence": blocker["project_sequence"],
                 "dependent_project_id": dependent["project_id"],
                 "dependent_project_sequence": dependent["project_sequence"],
-                "environment": environments.get(
-                    (edge.blocker_id, detail.satisfaction)
-                )
+                "environment": environments.get((edge.blocker_id, detail.satisfaction))
                 if edge.blocker_id is not None
                 else None,
             }

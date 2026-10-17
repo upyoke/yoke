@@ -34,7 +34,9 @@ def isolated_edge_resolution(monkeypatch):
 @pytest.fixture
 def edge_writer():
     def write(conn):
-        write = dependencies.cmd_dependency_add(conn, "dependent", "blocking", "operator")
+        write = dependencies.cmd_dependency_add(
+            conn, "dependent", "blocking", "operator"
+        )
         assert write.action == "created"
         return "OK"
 

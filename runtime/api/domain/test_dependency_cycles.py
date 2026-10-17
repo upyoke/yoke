@@ -159,9 +159,7 @@ def test_a_stored_loop_is_found_and_breaking_one_edge_clears_it(test_db):
     [cycle] = dependency_cycles(test_db)
     assert cycle.items == ("YOK-1", "YOK-2")
 
-    cmd_dependency_update(
-        test_db, "YOK-2", "YOK-1", gate_point="coordination_only"
-    )
+    cmd_dependency_update(test_db, "YOK-2", "YOK-1", gate_point="coordination_only")
     assert dependency_cycles(test_db) == []
 
 
@@ -214,3 +212,24 @@ def test_handlers_record_the_calling_session_and_name_the_refusal(test_db):
     )
     assert updated.primary_success, updated.error
     assert _session_ids(test_db) == ["session-editor"]
+
+
+def test_charge_schedule_serves_loops_narrowed_to_a_seat(test_db):
+    from yoke_core.domain.handlers.sessions_charge_schedule import _dependency_cycles
+
+    _items(test_db, 1, 2, 3)
+    cmd_dependency_add(test_db, "YOK-1", "YOK-2", "operator")
+    test_db.execute(
+        "INSERT INTO item_dependencies (dependent_item_id, blocking_item_id, "
+        "gate_point, satisfaction, source, rationale, created_at) "
+        "VALUES (2, 1, 'activation', 'status:done', 'operator', '', now())"
+    )
+    test_db.commit()
+    project = int(
+        test_db.execute("SELECT project_id FROM items WHERE id = 1").fetchone()[0]
+    )
+
+    [row] = _dependency_cycles(test_db, [project], None)
+    assert row["items"] == ["YOK-1", "YOK-2"]
+    assert _dependency_cycles(test_db, [project], {2})[0]["items"] == row["items"]
+    assert _dependency_cycles(test_db, [project], {3}) == []
