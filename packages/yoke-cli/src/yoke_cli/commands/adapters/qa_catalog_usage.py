@@ -142,8 +142,8 @@ has gained, and retires cases it has lost. It reaches every executable column,
 instructions and expected_outcome included -- which `yoke qa requirement
 update` cannot write at all -- because it rewrites the derivation whole rather
 than one allowlisted field. It also carries that body onto every admitted
-deployment-stage copy frozen from a refreshed row that can still be reached,
-reported as corrected_admitted_copy_ids -- otherwise the copy would keep the
+deployment-stage copy frozen from a refreshed or newly created row that can
+still be reached, reported as corrected_admitted_copy_ids -- otherwise the copy would keep the
 old body and its stage would refuse the case as superseded.
 
 An item transition whose plan a delivery already answered still has its
@@ -176,6 +176,11 @@ its identity labels are stale, is not rematerialize's job:
 live facts and keeps the recorded verdict. A live item requirement
 cannot be superseded.
 
+With --member, --plan selects by owner. A shared plan the member attaches
+refreshes that shared group's run-wide rows. The member's own plan refreshes
+only that member's rows, so a live run-wide walk of a shared plan does not
+block it.
+
 Where it refuses instead
 ------------------------
 It will not move a row something else has already frozen a copy of, and it
@@ -185,6 +190,9 @@ exactly as it was.
 plan_execution_in_flight: a live QA plan execution is walking a roster built
 from these rows. The refusal names the execution and the full
 `yoke qa plan abort` invocation that reopens the refresh.
+
+shared_plan_refresh_selection: --member with a --plan that is neither a
+shared plan the member attaches nor one of its own materialized plans.
 
 admitted_copy_in_flight: an admitted deployment-stage copy of a row is on a
 run that is still executing and cannot be corrected. The refusal names the
