@@ -16,17 +16,17 @@ inputs load in sets before classification.
 ## Scope and available work
 
 Document seats follow item_strategy_docs membership, including execution in
-other projects. Available work, holders, landing/dead-wait rows and mail to
-those holders follow that membership. Project seats cover unlinked items and
-CURRENT-PLAN members. Other-document work with no live seat appears as
-unattended linked work with owning project/acquire command. Machines, delivery
-and unbound launches remain project-wide/shared facts.
+other projects; available work, holders, landing/dead-wait rows and mail to
+those holders follow it. Project seats cover unlinked items and CURRENT-PLAN
+members. Other-document work with no live seat appears as unattended linked
+work with owning project/acquire command. Machines, delivery and unbound
+launches remain project-wide/shared facts.
 
 Available work leads: scheduler-runnable unheld rows, ranked, `new` or `stopped`
-by prior claim release, `!` after staffing threshold. Quiet holders still own
-their items: idle never makes work available. Release/completion/cancellation/
-authorized termination changes custody; freeze/block are deliberate holds,
-cancel ends work. No age-inferred holds or staffing.
+by prior claim release, `!` after staffing threshold; committed work waiting
+only to land prints under `waiting to land` instead. Idle holders still own
+their items. Release/completion/cancellation/authorized termination changes
+custody; freeze/block hold deliberately; age infers no hold or staffing.
 
 ## Holder and landing detectors
 
@@ -190,7 +190,7 @@ Dead waits scan recent outbound conversation for real interrogative/explicit
 reply requests, not confirmations or latest message alone. Reply already received
 wins; ended answerer or terminal answerer's item proves no reply possible.
 Live answerer is unresolved; no question means no row. Steering-role question
-survives seat succession and belongs to awaiting-seat count, not dead waits. Dependency deadlocks and waiting chains — loops, the blockers holding the most work, and unstarted blockers stalling work in progress — are described in [steering-report-dependencies.md](steering-report-dependencies.md), with the rule that steering keeps dependencies minimal.
+survives seat succession and belongs to awaiting-seat count, not dead waits. Dependency deadlocks, waiting chains and waiting to land — loops, the blockers holding the most work, unstarted blockers stalling work in progress, and committed work held until its blockers land — are described in [steering-report-dependencies.md](steering-report-dependencies.md), with the rule that steering keeps dependencies minimal.
 
 ## Deployment runs
 

@@ -310,3 +310,24 @@ test("committed work waiting only for its blockers to land waits, saying so once
   // A merge edge on work still free to build holds nothing back.
   assert.deepEqual(bands([landing("YOK-7", false)]).waiting, []);
 });
+
+test("a committed item waiting on a landing waits in the graph with the shared sentence", async (t) => {
+  const sentence = "Waiting on BET-3 to merge";
+  const { band, count } = await mount(t, "/frontier?project=1", {
+    ready_rows: [],
+    blocked_rows: [{
+      public_ref: "YOK-12", project_id: 1, project: "yoke", blocking_item: "BET-3",
+      gate_point: "integration", satisfaction: "fact:merged", holds_pickup: true, why: sentence,
+    }],
+    dependency_edges: [edge("BET-3", "YOK-12", {
+      gate_point: "integration", satisfaction: "fact:merged",
+      blocking_project_id: 2, blocking_project_sequence: 3,
+    })],
+  });
+  assert.equal(count("ready"), "0");
+  const tile = byClass(band("waiting"), "fdv-tile").find(
+    (node) => node.getAttribute("data-fdv-ref") === "YOK-12",
+  );
+  assert.equal(tile.getAttribute("data-band"), "waiting");
+  assert.equal(ownTextContent(byClass(tile, "fdv-tile-meta")[0]), sentence);
+});

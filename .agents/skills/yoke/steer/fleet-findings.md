@@ -19,6 +19,9 @@ or plan note. Nothing acknowledged is automatically completed.
   needs, then make one edge `coordination_only` with `yoke items dependency
   update DEPENDENT BLOCKING --match-gate-point GATE --gate-point
   coordination_only --rationale TEXT`. New writes already refuse to close a loop.
+- **Waiting to land**: unclaimed committed work held only until each named
+  blocker lands. Do not staff it; it returns to available when they land. If
+  the wait is longer than the work needs, narrow the edge as below.
 - **Waiting chains**: on every report read, check each row; the section names
   heads holding the most work, how many items each unblocks, chain depth, and
   `!` on an unstarted, unstaffed blocker with work behind it in progress. Staff

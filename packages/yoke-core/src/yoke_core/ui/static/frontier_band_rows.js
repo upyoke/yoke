@@ -192,7 +192,10 @@ export function frontierBandRows({ items, readyRows, blockedRows, sessionRows })
       ));
       const reason = waitingReason(row, starting)
         || (heldByAnyLiveSession.has(ref) ? UNAVAILABLE_OWNER : null);
-      return { row, reason };
+      // Held only by landing edges: committed work waiting on its blockers.
+      const landing = starting.length > 0
+        && starting.every((entry) => entry.gate_point && entry.gate_point !== "activation");
+      return { row, reason: landing ? { ...reason, landing: true } : reason };
     })
     .filter((entry) => entry.reason)
     .sort((left, right) => (
