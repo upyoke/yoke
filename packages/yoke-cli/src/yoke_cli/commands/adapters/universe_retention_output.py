@@ -6,7 +6,9 @@ import sys
 import time
 
 # A table that hits its statement/lock limit with a full pass budget is tried
-# again on later cycles, at most this many times per invocation.
+# again on later cycles; it stops after this many limit hits in a row. A
+# cohort that deletes rows resets the count, so a busy table still drains,
+# and the total stays bounded because every reset needs a deletion.
 TABLE_SKIP_LIMIT = 3
 PROGRESS_SECONDS = 10
 
@@ -43,6 +45,8 @@ class PruneRun:
             self.deleted.update(row["deleted"])
             self.cycle_deleted += sum(row["deleted"].values())
             self.unfinished.pop(table, None)
+            if any(row["deleted"].values()):
+                self.skips.pop(table, None)
             if row["eligible"] == 0:
                 self.finished.add(table)
         for skip in result.get("skipped", []):
