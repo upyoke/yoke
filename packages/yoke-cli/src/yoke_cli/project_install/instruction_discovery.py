@@ -132,7 +132,7 @@ def _loading_refusal(detail: str, fix: str) -> None:
     )
 
 
-def preflight(root: Path) -> list[str]:
+def preflight(root: Path) -> list[dict[str, Any]]:
     if (root / "AGENTS.override.md").is_file():
         raise ProjectInstallError(
             "canonical_instructions_not_loaded: AGENTS.override.md suppresses "
@@ -140,21 +140,25 @@ def preflight(root: Path) -> list[str]:
             "AGENTS.md outside the Yoke block, then move the override outside "
             "native instruction discovery and rerun refresh."
         )
-    warnings: list[str] = []
-    supported: set[str] = set()
+    health: list[dict[str, Any]] = []
     for manifest in HARNESS_CLI_MANIFESTS:
         executable = shutil.which(manifest.executable)
-        if executable is None:
-            continue
+        observed = ()
         try:
-            probe = terminal_detached_process.run(
-                [executable, *manifest.version_args],
-                capture_output=True,
-                text=True,
-                timeout=10,
-                check=False,
+            probe = (
+                terminal_detached_process.run(
+                    [executable, *manifest.version_args],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    check=False,
+                )
+                if executable
+                else None
             )
-            match = re.search(r"\b(\d+)\.(\d+)\.(\d+)\b", probe.stdout)
+            match = (
+                re.search(r"\b(\d+)\.(\d+)\.(\d+)\b", probe.stdout) if probe else None
+            )
             observed = (
                 tuple(map(int, match.groups()))
                 if match and probe.returncode == 0
@@ -163,28 +167,44 @@ def preflight(root: Path) -> list[str]:
         except (OSError, subprocess.TimeoutExpired):
             observed = ()
         required = tuple(map(int, manifest.minimum_engine_version.split(".")))
+        label = harness_display_name(manifest.harness_id)
         if observed >= required:
-            supported.add(manifest.harness_id)
+            status = "ok"
+            effect = "Native instruction and skill discovery is supported."
+            next_step = "Start a new session after project refresh."
         else:
-            version = ".".join(map(str, observed)) or "unknown (version probe failed)"
-            label = harness_display_name(manifest.harness_id)
-            warnings.append(
-                f"instruction_runtime_unsupported: {manifest.executable} version "
-                f"{version}; required >={manifest.minimum_engine_version}. "
-                f"{label} sessions in this project won't load AGENTS.md/skills "
-                "until upgraded. Upgrade its native CLI or embedded desktop "
+            status = (
+                "absent"
+                if not executable
+                else "below_floor"
+                if observed
+                else "probe_failed"
+            )
+            effect = (
+                f"{label} sessions cannot be verified to load AGENTS.md/skills."
+                if status == "probe_failed"
+                else f"{label} sessions won't load AGENTS.md/skills until installed or upgraded."
+            )
+            next_step = (
+                f"Install or upgrade {manifest.executable} or its embedded desktop "
                 f"engine to >={manifest.minimum_engine_version}, start a new "
                 "session, and rerun yoke project refresh."
             )
-    if not supported:
-        warnings.append(
-            "instruction_runtime_unavailable: no supported agent CLI detected. "
-            "No detected harness can load this project's AGENTS.md/skills yet. "
-            "Install or upgrade a supported agent CLI, start a new session, "
-            "and rerun yoke project refresh."
+        health.append(
+            {
+                "harness": manifest.harness_id,
+                "cli": manifest.executable,
+                "detected_version": ".".join(map(str, observed)) or None,
+                "floor": manifest.minimum_engine_version,
+                "status": status,
+                "effect": effect,
+                "next_step": next_step,
+            }
         )
-    if "claude-code" not in supported:
-        return warnings
+    if not any(
+        row["harness"] == "claude-code" and row["status"] == "ok" for row in health
+    ):
+        return health
     config_dir = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
     settings = _settings(config_dir / "settings.json")
     # Native plugin enablement and exclusions may come from project/local
@@ -220,4 +240,4 @@ def preflight(root: Path) -> list[str]:
         }
     )
     assert_claude_loading(root, settings=settings)
-    return warnings
+    return health

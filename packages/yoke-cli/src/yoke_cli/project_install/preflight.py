@@ -35,7 +35,6 @@ def preflight_apply(
         files_layer.validate_manifest(old_manifest, source="prior install manifest")
     skill_discovery.validate_links(bundle.get("skill_discovery_links"))
     skill_discovery.preflight(repo_root)
-    instruction_warnings = instruction_discovery.preflight(repo_root)
     files_layer.validate_manifest(
         {"manifest_schema": files_layer.MANIFEST_SCHEMA, "files": preserved_files},
         source="preserved manifest files",
@@ -108,6 +107,7 @@ def preflight_apply(
         git_hook_specs,
         owned_git_hook_hashes,
     )
+    harness_health = instruction_discovery.preflight(repo_root)
     managed_markdown_preview = managed_markdown_layer.preview_managed_markdown(
         repo_root,
         managed_markdown,
@@ -124,7 +124,7 @@ def preflight_apply(
     )
     worktrees_ignore = project_worktrees_ignore.report(repo_root, apply=False)
     result = {
-        "instruction_warnings": instruction_warnings,
+        "harness_health": harness_health,
         "install_recovery": recovery,
         "hook_plans": hook_plans,
         "git_hook_specs": git_hook_specs,

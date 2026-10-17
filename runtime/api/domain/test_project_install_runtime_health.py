@@ -1,4 +1,4 @@
-"""Native runtime admission and install-health warning delivery."""
+"""Native runtime health and install report delivery."""
 
 from types import SimpleNamespace
 import subprocess
@@ -40,24 +40,21 @@ def _runtimes(monkeypatch, versions):
     monkeypatch.setattr(instructions.terminal_detached_process, "run", probe)
 
 
-def test_unused_old_codex_warns_when_cursor_is_supported(tmp_path, monkeypatch):
+def test_unused_old_codex_health_with_supported_cursor(tmp_path, monkeypatch):
     _runtimes(
         monkeypatch,
         {"codex": ("codex-cli 0.149.1", 0), "cursor-agent": ("2026.10.14-build", 0)},
     )
-    warnings = instructions.preflight(tmp_path)
-    assert len(warnings) == 1
-    warning = warnings[0]
-    for expected in (
-        "codex",
-        "0.149.1",
-        "0.161.0",
-        "Codex sessions",
-        "won't load AGENTS.md/skills",
-        "Upgrade",
-        "new session",
-    ):
-        assert expected in warning
+    health = instructions.preflight(tmp_path)
+    assert len(health) == 3
+    codex = next(row for row in health if row["cli"] == "codex")
+    assert codex["detected_version"] == "0.149.1"
+    assert codex["floor"] == "0.161.0"
+    assert codex["status"] == "below_floor"
+    assert "Codex sessions won't load AGENTS.md/skills" in codex["effect"]
+    assert "Install or upgrade" in codex["next_step"]
+    assert "new session" in codex["next_step"]
+    assert next(row for row in health if row["cli"] == "cursor-agent")["status"] == "ok"
     assert list(tmp_path.iterdir()) == []
 
 
@@ -69,12 +66,14 @@ def test_unused_old_codex_warns_when_cursor_is_supported(tmp_path, monkeypatch):
         {"codex": ("0.161.0", 1)},
     ],
 )
-def test_no_passing_runtime_warns_without_writing(tmp_path, monkeypatch, versions):
+def test_no_passing_runtime_reports_health_without_writing(
+    tmp_path, monkeypatch, versions
+):
     _runtimes(monkeypatch, versions)
-    warnings = instructions.preflight(tmp_path)
-    assert "no supported agent CLI detected" in warnings[-1]
-    assert "AGENTS.md/skills" in warnings[-1]
-    assert "Install or upgrade" in warnings[-1]
+    health = instructions.preflight(tmp_path)
+    assert all(row["status"] != "ok" for row in health)
+    assert all("AGENTS.md/skills" in row["effect"] for row in health)
+    assert all("Install or upgrade" in row["next_step"] for row in health)
     assert list(tmp_path.iterdir()) == []
 
 
@@ -87,29 +86,37 @@ def test_no_passing_runtime_warns_without_writing(tmp_path, monkeypatch, version
         subprocess.TimeoutExpired("codex", 10),
     ],
 )
-def test_broken_probe_warns_with_supported_cursor(tmp_path, monkeypatch, broken):
+def test_broken_probe_health_with_supported_cursor(tmp_path, monkeypatch, broken):
     _runtimes(monkeypatch, {"codex": broken, "cursor-agent": ("2026.10.14", 0)})
-    warnings = instructions.preflight(tmp_path)
-    assert len(warnings) == 1
-    assert "unknown (version probe failed)" in warnings[0]
-    assert "required >=0.161.0" in warnings[0]
+    codex = next(
+        row for row in instructions.preflight(tmp_path) if row["cli"] == "codex"
+    )
+    assert codex["status"] == "probe_failed"
+    assert codex["detected_version"] is None
+    assert codex["floor"] == "0.161.0"
+    assert "cannot be verified" in codex["effect"]
 
 
-def test_supported_floor_needs_no_warning(tmp_path, monkeypatch):
+def test_supported_floor_reports_ok(tmp_path, monkeypatch):
     _runtimes(monkeypatch, {"codex": ("codex-cli 0.161.0", 0)})
-    assert instructions.preflight(tmp_path) == []
+    codex = next(
+        row for row in instructions.preflight(tmp_path) if row["cli"] == "codex"
+    )
+    assert codex["status"] == "ok"
+    assert codex["detected_version"] == "0.161.0"
 
 
 def test_absent_clis_allow_guidance_for_a_later_harness(tmp_path, monkeypatch):
     _runtimes(monkeypatch, {})
-    warnings = instructions.preflight(tmp_path)
-    assert len(warnings) == 1
-    assert "instruction_runtime_unavailable" in warnings[0]
+    health = instructions.preflight(tmp_path)
+    assert len(health) == 3
+    assert all(row["status"] == "absent" for row in health)
+    assert all(row["detected_version"] is None for row in health)
 
 
 @pytest.mark.parametrize("preview", [False, True])
-def test_runtime_warning_reaches_install_and_preview_report(
-    tmp_path, monkeypatch, preview
+def test_runtime_health_reaches_install_and_preview_report(
+    tmp_path, monkeypatch, preview, capsys
 ):
     _runtimes(monkeypatch, {"codex": ("0.149.1", 0), "cursor-agent": ("2026.10.14", 0)})
     bundle = make_bundle()
@@ -127,4 +134,14 @@ def test_runtime_warning_reaches_install_and_preview_report(
     else:
         report = apply_bundle(tmp_path, bundle, source="test")
         assert (tmp_path / ".yoke/install-manifest.json").is_file()
-    assert any("codex version 0.149.1" in warning for warning in report["warnings"])
+    assert report["warnings"] == []
+    codex = next(row for row in report["harness_health"] if row["cli"] == "codex")
+    assert codex["status"] == "below_floor"
+    from yoke_cli.commands.adapters.install import _run
+
+    assert _run(lambda: report) == 0
+    output = capsys.readouterr().out
+    assert "harness health:" in output
+    assert "below_floor" in output
+    assert "0.149.1" in output
+    assert "Install or upgrade codex" in output

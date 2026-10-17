@@ -114,9 +114,10 @@ def test_native_claude_runtime_floor_warns_for_older_engine(tmp_path, monkeypatc
         "run",
         lambda *a, **k: SimpleNamespace(stdout="2.1.280", returncode=0),
     )
-    warnings = instructions.preflight(tmp_path)
-    assert "instruction_runtime_unsupported" in warnings[0]
-    assert "2.1.281" in warnings[0]
+    health = instructions.preflight(tmp_path)
+    claude = next(row for row in health if row["harness"] == "claude-code")
+    assert claude["status"] == "below_floor"
+    assert claude["floor"] == "2.1.281"
 
 
 def test_user_owned_canonical_instruction_symlink_is_preserved(tmp_path):

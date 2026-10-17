@@ -141,11 +141,12 @@ Official sources checked 2026-10-08:
 
 Codex and Cursor Agent floors name the native releases verified for this layout;
 the installer probes detected CLIs before writing project guidance. An older
-engine or failed version probe produces an install-health warning naming its
-observed version, required floor, unavailable instruction/skill loading and
-upgrade step. Other supported harnesses can still use the installation.
-CLI versions never block installation. If no supported CLI is detected,
-install health warns that native instructions and skills are not usable yet.
+engine or failed version probe appears in the install and preview report's
+`harness_health` section. Each supported CLI has its detected version, floor,
+status (`ok`, `below_floor`, `probe_failed` or `absent`), loading effect and next
+step. Operational `warnings` remain separate. Other supported harnesses can
+still use the installation. CLI versions never block installation; absent
+CLIs appear in health so installation can precede native harness setup.
 Install or upgrade a supported native CLI or embedded desktop engine, start
 a new session, and rerun project refresh. Desktop users verify
 their embedded engine separately; the outer app version proves no capability.
