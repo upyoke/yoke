@@ -44,8 +44,7 @@ def handle_sessions_steering_groups_list(
                 message=(
                     "sessions.steering_groups.list takes no inputs: it answers "
                     "which steering groups are live for the calling actor; "
-                    "remove "
-                    + ", ".join(sorted(str(key) for key in payload))
+                    "remove " + ", ".join(sorted(str(key) for key in payload))
                 ),
                 jsonpath="$.payload",
             ),
@@ -65,6 +64,7 @@ def handle_sessions_steering_groups_list(
         actor = request.actor.actor_id if request.actor else None
         session_ids = live_steering_group_session_ids(
             conn,
+            actor_id=numeric_actor_id(actor),
             visible_project_ids=actor_visible_project_ids(
                 conn, numeric_actor_id(actor)
             ),
@@ -74,8 +74,7 @@ def handle_sessions_steering_groups_list(
     return HandlerOutcome(
         result_payload={
             "rows": [
-                {"steering_group_session_id": session_id}
-                for session_id in session_ids
+                {"steering_group_session_id": session_id} for session_id in session_ids
             ]
         },
         primary_success=True,

@@ -35,6 +35,7 @@ from .sessions_render_end_chain_pending import chain_pending_state
 from .sessions_render import reclaim_stale_session
 from .scratch_auto_prune import ScratchPruneResult, auto_prune_stale_scratch
 from .session_cleanup_receipt import sweep_receipt
+from .sessions_render_end_if_empty import deployment_driver_holds
 
 
 def clean_stale_harness_sessions(
@@ -107,11 +108,14 @@ def clean_stale_harness_sessions(
     )
     holdings = active_holding_sessions(conn)
     claims = active_work_claim_sessions(conn)
+    deploy_drivers = None
     for raw in all_active:
         row = dict(raw)
         sid = row["session_id"]
         signals = read_activity_signals(conn, sid)
-        row["holds_work_claim"] = sid in claims
+        if sid not in claims and deploy_drivers is None:
+            deploy_drivers = deployment_driver_holds(conn)
+        row["holds_work_claim"] = sid in claims or sid in (deploy_drivers or {})
         row["has_active_holdings"] = sid in holdings
         row["last_heartbeat"] = signals.activity_at
         # A protected holder needs no open-call query interpretation. Its
@@ -162,7 +166,9 @@ def clean_stale_harness_sessions(
         lock_session_rows_for_claim_lifecycle(conn, (sid,))
         row = reclaim_facts(conn, [{"session_id": sid}])[0]
         has_active_holdings = row["has_active_holdings"]
-        row["holds_work_claim"] = session_has_active_work_claim(conn, sid)
+        row["holds_work_claim"] = session_has_active_work_claim(
+            conn, sid
+        ) or sid in deployment_driver_holds(conn)
         if row["holds_work_claim"]:
             recheck = automatic_reclaim(row, **options)
         else:
