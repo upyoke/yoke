@@ -207,6 +207,22 @@ def _withdrawn(row):
     return bool(row.get("retracted_at") or row.get("superseded_by_requirement_id"))
 
 
+def member_snapshot_rows(conn, run_ids):
+    """One frozen snapshot set for obligations and acceptance of these runs."""
+    markers = ",".join("%s" for _ in run_ids)
+    rows = query_rows(
+        conn,
+        "SELECT dri.run_id,dri.item_id,dri.requirement_snapshot,i.project_id "
+        "FROM deployment_run_items dri JOIN items i ON i.id=dri.item_id "
+        f"WHERE dri.run_id IN ({markers})",
+        run_ids,
+    )
+    by_run = defaultdict(dict)
+    for row in rows:
+        by_run[str(row["run_id"])][int(row["item_id"])] = row
+    return by_run
+
+
 def _environments(conn, members):
     projects = sorted(
         {int(m["project_id"]) for values in members.values() for m in values}

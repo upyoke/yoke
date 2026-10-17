@@ -66,23 +66,13 @@ def run_member_rows(conn, run_id):
     if scope is None or scope[0] is not conn or run_id not in scope[2]:
         return None
 
-    def read():
-        markers = ",".join("%s" for _ in scope[2])
-        rows = query_rows(
-            conn,
-            "SELECT dri.run_id,dri.item_id,dri.requirement_snapshot,i.project_id "
-            "FROM deployment_run_items dri JOIN items i ON i.id=dri.item_id "
-            f"WHERE dri.run_id IN ({markers})",
-            scope[2],
-        )
-        by_run = defaultdict(dict)
-        for row in rows:
-            by_run[str(row["run_id"])][int(row["item_id"])] = row
-        return by_run
+    from yoke_core.domain.deployment_member_qa_projection import member_snapshot_rows
 
-    return presentation_read(conn, ("qa_presented_members", scope[2]), read).get(
-        run_id, {}
-    )
+    return presentation_read(
+        conn,
+        ("qa_presented_members", scope[2]),
+        lambda: member_snapshot_rows(conn, scope[2]),
+    ).get(run_id, {})
 
 
 def withdrawn_requirement_ids(conn, requested):
