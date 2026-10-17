@@ -90,6 +90,49 @@ def test_checkout_reuses_database_and_resets_to_baseline(flavor):
             conn.close()
 
 
+def test_analyze_drift_rebuilds_without_retaining_session_settings(flavor):
+    with pg_reusable_db.checkout(flavor, _build_small_db) as first:
+        conn = _connect(first)
+        try:
+            table_oid, baseline = conn.execute(
+                "SELECT oid,reltuples FROM pg_class WHERE oid='parent_rows'::regclass"
+            ).fetchone()
+            bitmapscan = conn.execute("SHOW enable_bitmapscan").fetchone()[0]
+            conn.execute("ANALYZE parent_rows")
+            conn.execute("SET enable_bitmapscan = off")
+            conn.commit()
+            assert (
+                conn.execute(
+                    "SELECT reltuples FROM pg_class WHERE oid='parent_rows'::regclass"
+                ).fetchone()[0]
+                != baseline
+            )
+        finally:
+            conn.close()
+
+    with pg_reusable_db.checkout(flavor, _build_small_db) as second:
+        conn = _connect(second)
+        try:
+            restored_oid, estimate = conn.execute(
+                "SELECT oid,reltuples FROM pg_class WHERE oid='parent_rows'::regclass"
+            ).fetchone()
+            assert estimate == baseline
+            assert restored_oid != table_oid
+            assert conn.execute("SHOW enable_bitmapscan").fetchone()[0] == bitmapscan
+            assert conn.execute("SELECT label FROM parent_rows").fetchall() == [
+                ("seed",)
+            ]
+            assert (
+                conn.execute(
+                    "INSERT INTO parent_rows (label) VALUES ('probe') RETURNING id"
+                ).fetchone()[0]
+                == 2
+            )
+            conn.rollback()
+        finally:
+            conn.close()
+
+
 def test_ddl_drift_discards_and_rebuilds(flavor):
     with pg_reusable_db.checkout(flavor, _build_small_db) as first:
         conn = _connect(first)

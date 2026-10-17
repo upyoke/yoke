@@ -10,17 +10,17 @@ create/drop cost once per worker process instead of once per test:
 
 - :func:`checkout` lazily builds ONE database per (process, flavor) via
   the caller's ``build`` callable, captures its baseline (schema
-  fingerprint, seeded rows, sequence positions), and yields the database
-  name for the test to use.
+  fingerprint, planner statistics, seeded rows, sequence positions), and
+  yields the database name for the test to use.
 - On checkout exit the database is reset to the captured baseline:
   connections leaked into it are terminated (matching the
   ``DROP DATABASE ... WITH (FORCE)`` semantics of the clone path), every
   user table is cleared server-side without relfilenode churn, seeded
   rows are re-inserted, and sequences are restored.
-- A checkout that changed the schema is detected by the fingerprint
-  check; the reusable database is discarded and rebuilt on the next
-  checkout, so DDL never leaks between tests — schema-mutating tests
-  simply keep paying the old one-clone cost.
+- Schema or planner-statistics drift invalidates the baseline: the reusable
+  database is discarded and rebuilt on the next checkout, so DDL and
+  analyzed estimates never leak between tests. Only those checkouts pay
+  the old one-clone cost.
 - Nested checkout of an already-checked-out flavor yields ``None`` so
   the caller uses an independent template clone.
 
@@ -44,7 +44,7 @@ _STATES: dict[Hashable, dict] = {}
 
 
 class SchemaDriftDetected(Exception):
-    """The checked-out database's schema no longer matches its baseline."""
+    """The database's schema or planner statistics differ from its baseline."""
 
 
 _USER_TABLES_SQL = """
@@ -74,6 +74,17 @@ _SEQUENCES_SQL = """
      WHERE c.relkind = 'S'
        AND n.nspname = current_schema()
      ORDER BY 1
+"""
+
+_PLANNER_STATISTICS_SQL = """
+    SELECT c.oid, c.reltuples, c.relpages, c.relallvisible,
+           (SELECT array_agg(s::text ORDER BY s.staattnum, s.stainherit)
+              FROM pg_statistic s WHERE s.starelid = c.oid)
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE c.relkind IN ('r', 'p', 'm', 'i', 'I')
+       AND n.nspname = current_schema()
+     ORDER BY c.oid
 """
 
 # DELETE (not TRUNCATE) keeps each table's relfilenode: TRUNCATE assigns a
@@ -124,6 +135,7 @@ def _capture_baseline(name: str) -> dict:
     conn = _connect(name)
     try:
         fingerprint = schema_fingerprint.fingerprint_kind("postgres", conn)
+        planner_statistics = conn.execute(_PLANNER_STATISTICS_SQL).fetchall()
         identity_tables = {
             row[0] for row in conn.execute(_IDENTITY_TABLES_SQL).fetchall()
         }
@@ -151,6 +163,7 @@ def _capture_baseline(name: str) -> dict:
         return {
             "name": name,
             "fingerprint": fingerprint,
+            "planner_statistics": planner_statistics,
             "rows": rows,
             "sequences": sequences,
             "in_use": False,
@@ -167,6 +180,8 @@ def _reset(state: dict) -> None:
         if (
             schema_fingerprint.fingerprint_kind("postgres", conn)
             != state["fingerprint"]
+            or conn.execute(_PLANNER_STATISTICS_SQL).fetchall()
+            != state["planner_statistics"]
         ):
             raise SchemaDriftDetected(state["name"])
         # Replica role skips FK trigger enforcement so the clear/restore
@@ -204,8 +219,8 @@ def checkout(flavor: Hashable, build: Callable[[], str]) -> Iterator[Optional[st
 
     ``build`` returns the name of a freshly built database for the flavor
     (schema and seed data fully applied, no connections left open). It runs
-    at most once per process per flavor unless a checkout drifts the schema
-    or a reset fails, in which case the database is discarded and ``build``
+    at most once per process per flavor unless schema or planner statistics
+    drift or a reset fails, in which case the database is discarded and ``build``
     runs again on the next checkout.
 
     A ``None`` yield means the flavor is already checked out (nested use in
