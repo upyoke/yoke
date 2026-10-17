@@ -12,6 +12,7 @@ import {
   machineMetaLine,
   machineNameOf,
 } from "./universe_onboarding_copy.js";
+import { addProjectCue } from "./add_project_cue.js";
 import { renderHarnessTargets } from "./universe_onboarding_health.js";
 import { preciseAge } from "./universe_time.js";
 
@@ -62,9 +63,14 @@ function machineRow(documentNode, machine) {
 
 // The module's in-progress copy leads only when no machine is listed yet;
 // once machines exist, each row says what it is waiting on.
+// With no project there is no directory to name: the agent adds one first.
 export function harnessBody(documentNode, module, body) {
   const machines = module.machines || [];
   if (module.state === "in_progress" && !machines.length) {
+    if (!(module.projects || []).length) {
+      body.appendChild(addProjectCue(documentNode));
+      return;
+    }
     body.appendChild(el(
       documentNode, "p", "activation-copy", MODULE_COPY.connect_harness.in_progress,
     ));

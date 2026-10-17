@@ -136,8 +136,8 @@ function wizardBody(documentNode, module, mode, body) {
       " — ";
     webFirst.appendChild(el(documentNode, "code", null, INSTALL_COMMAND));
     webFirst.appendChild(documentNode.createElement("span")).textContent =
-      " — the wizard connects this machine, then GitHub · Project · " +
-      "Hosting fold in here.";
+      " — the wizard connects this machine, then GitHub · Hosting " +
+      "fold in here.";
     body.appendChild(webFirst);
   }
   body.appendChild(wizardChecklist(documentNode, module, mode));

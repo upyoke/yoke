@@ -1,3 +1,4 @@
+import { addProjectCue } from "./add_project_cue.js";
 import { draftAutosave, itemDraftStorage } from "./item_draft_storage.js";
 import { callFunction, el, renderError } from "./universe_view_support.js";
 import { itemIntakeField, loadVerificationCatalog, webWorkflowSteer } from "./item_intake_controls.js";
@@ -124,7 +125,10 @@ export function renderNewItemView(context, main, initialProjectId) {
         selector.appendChild(option);
       }
       if (!projects.length) {
-        main.textContent = "You cannot create items in any project. Ask a project owner for access.";
+        // No visible project at all is a missing project, not missing access.
+        main.replaceChildren(context.projects().length
+          ? el(documentNode, "p", "empty", "You cannot create items in any project. Ask a project owner for access.")
+          : addProjectCue(documentNode));
         return;
       }
       projectId = saved?.projectId || (projects.some((row) => String(row.id) === String(initialProjectId)) ? String(initialProjectId)

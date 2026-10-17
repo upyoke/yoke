@@ -77,7 +77,7 @@ def test_day_zero_reports_first_module_in_progress_rest_locked(test_db):
     assert all(m["activated_at"] is None for m in modules)
     assert all(m["dismissed"] is False for m in modules)
     wizard = modules[0]
-    assert [s["done"] for s in wizard["submodules"]] == [False] * 4
+    assert [s["done"] for s in wizard["submodules"]] == [False] * 3
     assert wizard["fully_complete"] is False
     assert result["dismiss_available"] is False
     count = test_db.execute(
@@ -94,16 +94,30 @@ def test_absent_host_facts_leaves_machine_pending_never_done(test_db):
     assert machine["done"] is False
     assert machine["machines"] == []
     assert machine["detail"] == "no host machine fact supplied"
-    # Projects exist in the fixture, but the required pair is not complete.
+    # Projects exist in the fixture, but the required machine row is not done.
     assert wizard["state"] == "in_progress"
 
 
-def test_machine_fact_plus_project_activates_and_latches_wizard(test_db):
+def test_machine_without_any_project_activates_wizard(test_db):
+    # Installation ends at the machine: the agent adds the first project.
+    test_db.execute("TRUNCATE projects CASCADE")
+    test_db.commit()
+    result = _get(payload={"host_facts": {"machine_connected": True}})
+    wizard = _modules_by_key(result)["finish_installation_wizard"]
+    assert wizard["state"] == "activated"
+    assert [s["key"] for s in wizard["submodules"]] == [
+        "machine_universe",
+        "github",
+        "hosting",
+    ]
+
+
+def test_machine_fact_activates_and_latches_wizard(test_db):
     result = _get(payload={"host_facts": {"machine_connected": True}})
     wizard = _modules_by_key(result)["finish_installation_wizard"]
     assert wizard["state"] == "activated"
     assert wizard["activated_at"]
-    # The required pair activates without the recommended tail.
+    # The required machine row activates without the recommended tail.
     assert wizard["fully_complete"] is False
     # The next module unlocks in order.
     assert _modules_by_key(result)["connect_harness"]["state"] == "in_progress"

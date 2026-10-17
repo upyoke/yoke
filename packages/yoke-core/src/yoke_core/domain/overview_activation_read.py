@@ -8,8 +8,9 @@ calling actor's dismissal preferences.
 Module signals (all engine-owned reads; the one host-supplied fact is the
 viewer's own hosted machine connection, forwarded verbatim in ``host_facts``):
 
-* ``finish_installation_wizard`` — required pair is a connected machine
-  plus a first ``projects`` row. The machine row answers for the viewer:
+* ``finish_installation_wizard`` — required row is a connected machine;
+  a project is not part of installation (the viewer's agent adds one
+  later). The machine row answers for the viewer:
   it is connected when the viewer has a registered machine
   (:mod:`yoke_core.domain.overview_machine_activation`, actor-scoped; an
   unscoped local universe lists every machine) or the host says the
@@ -126,7 +127,6 @@ def read_signals(conn: Any, actor_id: Optional[int] = None) -> Dict[str, Any]:
         ).fetchall()
     ]
     return {
-        "projects_exist": bool(directories),
         "github_connected": _guarded_exists(
             conn,
             "project_github_repo_bindings",
@@ -222,12 +222,6 @@ def _wizard_submodules(
             "detail": None,
         },
         {
-            "key": "first_project",
-            "label_key": "first_project",
-            "done": signals["projects_exist"],
-            "detail": None,
-        },
-        {
             "key": "hosting",
             "label_key": "hosting",
             "done": signals["hosting_declared"],
@@ -266,9 +260,7 @@ def compute_activation(
     signals = read_signals(conn, actor_id)
     submodules = _wizard_submodules(signals, machine_connected)
     satisfied = {
-        MODULE_FINISH_INSTALLATION_WIZARD: (
-            submodules[0]["done"] and signals["projects_exist"]
-        ),
+        MODULE_FINISH_INSTALLATION_WIZARD: submodules[0]["done"],
         MODULE_RUN_ONBOARD: run_is_complete(signals["onboard_progress"]),
     }
     latched = latch_activations(conn, satisfied)
