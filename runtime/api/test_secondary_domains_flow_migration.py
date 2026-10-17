@@ -235,3 +235,15 @@ class TestItemProgressViewRefresh:
         cols = self._view_columns(test_db)
         assert "pipeline_blocked_reason" in cols
         assert "blocked_reason" not in cols
+
+    def test_converging_twice_keeps_view_oid(self, test_db):
+        from yoke_core.domain.flow import cmd_init
+        from yoke_core.domain.schema_init import converge_core_schema
+
+        _insert_projects(test_db)
+        cmd_init(test_db)
+        oid_sql = "SELECT to_regclass('item_progress_view')::oid"
+        first = test_db.execute(oid_sql).fetchone()[0]
+        converge_core_schema(test_db)
+        converge_core_schema(test_db)
+        assert test_db.execute(oid_sql).fetchone()[0] == first

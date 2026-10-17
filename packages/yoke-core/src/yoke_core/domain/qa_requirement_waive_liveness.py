@@ -66,6 +66,21 @@ def _current_copy(conn: Any, row: dict[str, Any]) -> Optional[int]:
     return int(copy["id"]) if copy is not None else None
 
 
+def _invalid_successor_link(conn: Any, row: dict[str, Any]) -> bool:
+    """Whether the row's successor link fails the correction-graph check."""
+    if not (row["superseded_by_requirement_id"] or row["replacement_requirement_id"]):
+        return False
+    from yoke_core.domain.qa_obligation_settlement import effective_requirement
+
+    try:
+        effective_requirement(conn, int(row["id"]))
+    except ValueError as exc:
+        if str(exc).startswith("replacement_graph_invalid:"):
+            return True
+        raise
+    return False
+
+
 def require_live_for_waiver(conn: Any, req_id: int) -> None:
     """Refuse a waiver on a row that no longer counts, naming its current copy."""
     settlement = ", ".join(
@@ -86,6 +101,10 @@ def require_live_for_waiver(conn: Any, req_id: int) -> None:
     row = dict(row)
     if row["retracted_at"] is not None:
         state = f"was retracted ({row['retraction_rationale'] or 'no rationale'})"
+    elif _invalid_successor_link(conn, row):
+        # A link that no longer answers for the same obligation settles
+        # nothing; the row still counts, and waiver is its named repair.
+        return
     elif row["superseded_by_requirement_id"] or row["superseded_at"] is not None:
         state = "was superseded"
     elif row["replacement_requirement_id"]:

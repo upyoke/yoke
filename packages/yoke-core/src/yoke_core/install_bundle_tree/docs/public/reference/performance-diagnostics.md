@@ -82,6 +82,9 @@ within one evaluation. The next request reads current QA and withdrawals again.
 Completed execution rows are read together for the displayed runs, then each
 selected execution uses the same roster and target validator as a detail read.
 Older unselected rows are not validated or allowed to change the current answer.
+Shared-copy ownership resolves each run/stage/member's selected group targets
+once per presentation, rather than once per matching copy. Later requests repeat
+canonical selection, including attachment withdrawals and source-currency checks.
 
 `events.performance.aggregate` and `events.performance.detail` authorize every
 selected project with `events.read` before reading or serializing observations

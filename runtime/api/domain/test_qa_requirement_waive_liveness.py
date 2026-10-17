@@ -41,8 +41,12 @@ def _requirement(conn, *, item_id: int, slug: str) -> int:
     return int(created["created_requirement_ids"][0])
 
 
-def _copy(conn, requirement_id: int) -> int:
-    """A later live copy of the same case, as the next materialization makes."""
+def _copy(conn, requirement_id: int, *, same_transition: bool = False) -> int:
+    """A later live copy of the same case, as the next materialization makes.
+
+    The one-copy-per-transition identity keeps it distinct by a later
+    transition, or, for a same-scope successor, by a corrected case key.
+    """
     columns = [
         row["column_name"]
         for row in conn.execute(
@@ -52,11 +56,10 @@ def _copy(conn, requirement_id: int) -> int:
         ).fetchall()
     ]
     names = ", ".join(columns)
-    # The next materialization belongs to a later transition, which is what
-    # keeps it distinct under the one-copy-per-transition identity.
+    changed = "plan_case_key" if same_transition else "workflow_transition_id"
     selected = ", ".join(
-        "'release-again'"
-        if name == "workflow_transition_id"
+        f"{name} || '-corrected'"
+        if name == changed
         else "NULL"
         if name.startswith("retract")
         else name
@@ -100,7 +103,7 @@ def test_waiving_a_retracted_requirement_names_its_live_copy(test_db) -> None:
 
 def test_waiving_a_superseded_requirement_names_its_successor(test_db) -> None:
     requirement_id = _requirement(test_db, item_id=9872, slug="waive-superseded")
-    successor = _copy(test_db, requirement_id)
+    successor = _copy(test_db, requirement_id, same_transition=True)
     test_db.execute(
         "UPDATE qa_requirements SET superseded_by_requirement_id=%s, "
         "superseded_at=now() WHERE id=%s",
@@ -112,6 +115,29 @@ def test_waiving_a_superseded_requirement_names_its_successor(test_db) -> None:
         _waive(test_db, requirement_id)
 
     assert f"--requirement-id {successor}" in str(refused.value)
+
+
+def test_invalid_successor_link_still_waives(test_db) -> None:
+    """A link to a different obligation settles nothing; waiver is its repair."""
+    requirement_id = _requirement(test_db, item_id=9875, slug="waive-bad-link")
+    successor = _copy(test_db, requirement_id, same_transition=True)
+    test_db.execute(
+        "UPDATE qa_requirements SET host_baseline='fresh-host' WHERE id=%s",
+        (successor,),
+    )
+    test_db.execute(
+        "UPDATE qa_requirements SET superseded_by_requirement_id=%s, "
+        "replacement_requirement_id=%s WHERE id=%s",
+        (successor, successor, requirement_id),
+    )
+    test_db.commit()
+
+    _waive(test_db, requirement_id)
+
+    row = test_db.execute(
+        "SELECT waived_at FROM qa_requirements WHERE id=%s", (requirement_id,)
+    ).fetchone()
+    assert row["waived_at"] is not None
 
 
 def test_retracted_requirement_without_a_copy_says_nothing_is_left(test_db) -> None:

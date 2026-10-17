@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+import time
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain.deployment_start_timing import emit_records
@@ -33,17 +35,42 @@ _READ_ONLY = frozenset(
 )
 
 
+#: The serving read-deadline code, and the pauses before each re-read of a
+#: read-only call that hit it. A busy control plane or a slow link can push one
+#: read past its deadline; the read changes nothing, so asking again is safe.
+READ_DEADLINE_CODE = "read_deadline_exceeded"
+_READ_DEADLINE_BACKOFF_SECONDS = (2.0, 5.0)
+
+
 def _call(function_id: str, run_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-    response = call_dispatcher(
-        function_id=function_id,
-        target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
-        payload=payload,
-    )
+    retries = _READ_DEADLINE_BACKOFF_SECONDS if function_id in _READ_ONLY else ()
+    for delay in (*retries, None):
+        response = call_dispatcher(
+            function_id=function_id,
+            target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
+            payload=payload,
+        )
+        error = None if response.success else response.error
+        if delay is None or error is None or error.code != READ_DEADLINE_CODE:
+            break
+        print(
+            f"{function_id} exceeded its read deadline; reading again in {delay:g}s",
+            file=sys.stderr,
+        )
+        time.sleep(delay)
     emit_records((response.result or {}).get("start_timings"))
     if not response.success:
         error = response.error
         message = error.message if error else "request failed"
-        if error and error.recovery_hint:
+        if error and error.code == READ_DEADLINE_CODE:
+            # The server's hint asks for a narrower read; the driver's read
+            # is already one run, so name the driver's own recovery instead.
+            message = (
+                f"{message} Every one of {len(retries) + 1} attempts expired; "
+                f"nothing was written. Recovery: rerun `yoke watch deploy -- "
+                f"{run_id}` once `yoke env list` shows the control plane responsive."
+            )
+        elif error and error.recovery_hint:
             message = f"{message} Recovery: {error.recovery_hint}"
         if error and error.code in UNKNOWN_CODES and function_id not in _READ_ONLY:
             raise DeploymentOutcomeUnknown(
@@ -220,6 +247,7 @@ def project_field(project: str, field: str) -> str:
 
 __all__ = [
     "DeploymentControlPlaneError",
+    "READ_DEADLINE_CODE",
     "allocate_stage_receipt",
     "complete_stage_receipt",
     "execution_context",

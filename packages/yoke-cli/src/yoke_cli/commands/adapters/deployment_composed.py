@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import shlex
 import sys
 from typing import List
 
@@ -14,6 +15,9 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     run_id_receipt,
     usage_error,
+)
+from yoke_cli.commands.adapters.deployment_execution_authority import (
+    creation_connection_error,
 )
 from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
 from yoke_contracts.api.function_call import TargetRef
@@ -144,8 +148,15 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
         prog="yoke deployment-runs start-for-item",
         description=(
             "Open a delivery run for one named item on the selected "
-            "control-plane transport. Creation composes candidate membership "
-            "and start revalidates it before dispatch."
+            "control-plane transport. Creation, any takeover of an older run "
+            "on the target, the item's enrollment and composition validation "
+            "commit together or not at all; start revalidates before "
+            "dispatch. While a live steering seat covers the project only "
+            "its holder, or an older run's creator, may take that run over "
+            "(takeover_reserved_for_steering); other sessions report the "
+            "landing to steering. A self-deploy target needs this machine's "
+            "paired database connection to drive it, so creation refuses "
+            "without one."
         ),
     )
     parser.add_argument("item")
@@ -162,6 +173,15 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
         DEPLOYMENT_RUNS_START_FOR_ITEM_USAGE,
     )
     if parsed is None:
+        return 2
+    if refusal := creation_connection_error(
+        f"start-for-item {shlex.join(args)}",
+        project=parsed.project,
+        flow=parsed.flow,
+        environment=parsed.environment,
+        item=parsed.item,
+    ):
+        print(f"error: {refusal}", file=sys.stderr)
         return 2
     payload = {
         key: value
