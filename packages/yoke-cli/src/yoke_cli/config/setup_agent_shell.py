@@ -39,6 +39,11 @@ class AgentShell(AnswerFlow):
 
     opens_browser = False
 
+    def _start_front(self) -> None:
+        _progress("Checking install…")
+        self._checking = self._checking_blocks_quit = True
+        self._finish_install(*self._check_install())
+
     def _start_connect(self) -> None:
         # Approval saves machine credentials before Apply. Resume the chosen
         # destination instead of inserting a new saved-connection question
@@ -212,6 +217,8 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
             self._final = responses.refused(
                 refusal.reason, refusal.recovery, refusal.prompt
             )
+        except KeyboardInterrupt:
+            self._final = responses.interrupted(report_path=self.report_path)
         except Exception as exc:  # noqa: BLE001 - agent mode never prints a traceback
             self._final = self._step_failed(exc, current)
         responses.emit(self._final)
