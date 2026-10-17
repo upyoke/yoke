@@ -11,6 +11,5 @@
  "current": "The manual root explains Yoke, human direction, agents and deterministic work; it summarizes work from capture through recorded delivery and lists each top-level category. start/concepts.md owns narrower definitions and start/modes.md owns reachability. Installed/web delivery remains unproved here.",
  "desired": "Keep a concise canonical overview and meaningful immediate-category summaries; route definitions and complete procedures to their maintained homes.",
  "plan_notes": ["FIRST-USER 8/24", "JOURNEYS operating model", "New documentation proposal"],
- "plan_refs": ["FIRST-USER.40"],
  "sources": ["docs/public/index.md", "docs/public/start/concepts.md", "docs/public/start/modes.md"]
 }

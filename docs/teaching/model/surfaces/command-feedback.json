@@ -11,6 +11,5 @@
  "current": "Candidate source labels ordinary values and empty results, preserves named refusal causes, saves complete redacted oversized evidence and retains immediate recovery, warnings and workflow handoffs. Public cli/help.md teaches the same contracts; bounded-replies and project-selection retain their scoped fixture evidence. Live receiving proof remains pending.",
  "desired": "State actual result or refusal plus supported recovery; preserve data contracts and required facts.",
  "plan_notes": ["FIRST-USER 35/P6", "JOURNEYS exact recovery links"],
- "plan_refs": ["FIRST-USER.13", "FIRST-USER.28", "FIRST-USER.29", "FIRST-USER.35", "FIRST-USER.P6"],
  "sources": ["docs/public/cli/help.md", "packages/yoke-cli/src/yoke_cli/transport/public_ref_display.py", "packages/yoke-cli/src/yoke_cli/transport/response_evidence.py", "runtime/api/cli/test_cli_reply_delivery.py"]
 }

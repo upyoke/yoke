@@ -5,6 +5,5 @@
  "form": "Teach",
  "verification": "No delivery proof attached.",
  "topics": ["context/packets", "reference/schemas"],
- "plan_refs": ["FIRST-USER.35", "FIRST-USER.41", "FIRST-USER.43"],
  "position": 1
 }

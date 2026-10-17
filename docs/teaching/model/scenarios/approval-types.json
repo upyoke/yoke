@@ -5,9 +5,7 @@
  "situations": ["The user asks to approve a change before it finishes.", "A QA reviewer cannot determine the result from captured evidence.", "A release reaches a configured sign-off stage.", "A team wants any one approver or every named approver to decide."],
  "coverage": "traced",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
  "questions": ["Inspected policy/docs and lifecycle review code; no live approval, authority check or Inbox card was exercised.", "Harness tool permission and machine-connection approval are separate security/access concepts owned by other map families.", "Command nodes, when present, were checked with installed CLI --help only; this proves parser/help availability, not serving-control-plane capability or successful execution."],
  "related_scenarios": ["environment_flows", "qa-execution-review", "people-access"],
- "plan_refs": ["JOURNEYS.situation-12"],
  "sources": ["docs/public/workflows/gates.md", "docs/public/sessions/inbox.md"]
 }

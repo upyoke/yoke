@@ -2,7 +2,6 @@
  "id": "entrypoints",
  "title": "Staffing entry points",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.24", "JOURNEYS.situation-11"],
  "surface_refs": ["project-orientation", "setup-agent", "skills-roles"],
  "commands": ["yoke charge schedule"],
  "functions": ["charge.schedule"],

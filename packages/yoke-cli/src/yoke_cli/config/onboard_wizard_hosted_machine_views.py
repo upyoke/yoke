@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_contracts.api_urls import HOSTED_STAGE_PLATFORM_URL
+from yoke_contracts.machine_authorization import retired_identity_notice
 
 from yoke_cli.config import hosted_machine_authorization
 from yoke_cli.config import onboard_wizard_steps as steps
@@ -42,8 +43,14 @@ class HostedMachineApprovalViews:
             if pending.platform_url == HOSTED_STAGE_PLATFORM_URL
             else []
         )
+        retired = (
+            [retired_identity_notice(pending.retired_machine_id)]
+            if pending.retired_machine_id
+            else []
+        )
         return [
             *stage_warning,
+            *retired,
             f"One-time code: {pending.user_code}",
             f"Open: {pending.verification_uri_complete}",
             browser_line,
@@ -60,8 +67,10 @@ class HostedMachineApprovalViews:
         )
 
     def _approval_human(self, pending: Pending) -> SetupHuman:
-        action = "approve this machine" if pending.self_host else (
-            "sign in, choose an organization, and approve this machine"
+        action = (
+            "approve this machine"
+            if pending.self_host
+            else ("sign in, choose an organization, and approve this machine")
         )
         return SetupHuman(
             instructions=(
@@ -74,7 +83,9 @@ class HostedMachineApprovalViews:
             poll_interval_seconds=float(pending.interval),
         )
 
-    def _goto_hosted_machine_approval(self: Any, pending: Pending, browser_line: str) -> None:
+    def _goto_hosted_machine_approval(
+        self: Any, pending: Pending, browser_line: str
+    ) -> None:
         self._goto(
             _View(
                 SetupPrompt(

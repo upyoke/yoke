@@ -1,0 +1,12 @@
+{
+ "id": "waiting-chains",
+ "title": "Waiting chains and minimal dependencies",
+ "status": "observed",
+ "current": "The steering report, short and full, prints a waiting chains section from the same live blocking edges the Frontier draws, loops excluded. A head that waits on nothing live prints when it holds more than one item, with how many items it unblocks and the chain depth. A blocker still before implementation with no live work claim, while an item behind it is in progress, prints flagged with ! whether it is a head or mid-chain. Each row names the edges it holds with gate, condition and id. Steering guidance keeps dependencies minimal: add an edge only when the dependent needs the blocker's merged code, prefer coordination_only, fact:merged and a specific task, and on every report read staff a flagged blocker or narrow or remove an edge heavier than needed.",
+ "commands": ["yoke steering report get", "yoke items dependency update", "yoke items dependency remove"],
+ "functions": ["steering.report.get", "items.dependency.update", "items.dependency.remove"],
+ "sources": [".agents/skills/yoke/steer/fleet-findings.md", ".agents/skills/yoke/steer/worker-lifecycle.md", "docs/public/functions/steering-report-dependencies.md"],
+ "skills": ["steer"],
+ "page": "strategy",
+ "position": 6
+}

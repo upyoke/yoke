@@ -11,6 +11,5 @@
  "current": "Candidate source replaces the earlier monolithic root catalog with root/category/command disclosure. command-tree and config-selection records name fixture evidence. cli/help.md documents help from any directory, complete saved evidence, 350 wrapped lines and deliberate machine contracts. These are source/fixture observations, not a serving release or live terminal proof.",
  "desired": "Overview → immediate categories → command recipes. Hard 350 lines; smaller budgets are advisory.",
  "plan_notes": ["FIRST-USER 35/P6", "New help layout proposal"],
- "plan_refs": ["FIRST-USER.35"],
  "sources": ["docs/public/cli/help.md", "packages/yoke-cli/src/yoke_cli/command_router.py", "packages/yoke-cli/src/yoke_cli/commands/group_help.py", "runtime/api/cli/test_cli_help_tree.py"]
 }

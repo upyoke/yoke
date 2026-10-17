@@ -3,7 +3,6 @@
  "title": "Pack, package and other Markdown are not graphed",
  "status": "observed",
  "text": "The live docs graph on 2026-10-17 has no tracked Markdown page outside an area or an explicitly ungraphed pattern. docs/public/* already includes the nested public corpus, so docs-graph.json needs no change. Pack, package-internal, learning, brand, event and packaging Markdown remain explicitly ungraphed with reasons; do not infer topic completeness, installed delivery or live usefulness from area membership. JOURNEYS owns deeper topic coverage only after each remaining need has a direct home or its own evidenced gap.",
- "plan_refs": ["FIRST-USER.40"],
  "position": 15,
  "owner": "JOURNEYS documentation depth; each Pack owns its guidance",
  "sources": ["docs/teaching/model/docs-graph.json", "docs/teaching/tools/render_live.py", "docs/teaching/README.md"]

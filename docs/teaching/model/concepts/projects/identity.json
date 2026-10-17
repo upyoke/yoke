@@ -2,7 +2,6 @@
  "id": "identity",
  "title": "Project identity and binding",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.P4", "FIRST-USER.P6", "FIRST-USER.P7", "JOURNEYS.situation-14", "JOURNEYS.situation-7"],
  "surface_refs": ["global-orientation", "project-native", "project-orientation"],
  "commands": ["yoke project register", "yoke projects resolve-by-github-repo"],
  "functions": ["project.register.run", "projects.resolve_by_github_repo"],

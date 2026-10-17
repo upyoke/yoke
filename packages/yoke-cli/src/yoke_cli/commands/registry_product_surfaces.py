@@ -248,6 +248,10 @@ UNIVERSE_SUBCOMMAND_REGISTRY = {
         "universe.levels.set",
         universe_levels.universe_levels_set,
     ),
+    ("universe", "levels", "reset"): (
+        "universe.levels.reset",
+        universe_levels.universe_levels_reset,
+    ),
 }
 
 MACHINE_SUBCOMMAND_REGISTRY = {

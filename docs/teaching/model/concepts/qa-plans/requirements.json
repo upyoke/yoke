@@ -2,7 +2,6 @@
  "id": "requirements",
  "title": "Materialized requirements",
  "status": "draft-copy",
- "plan_refs": ["JOURNEYS.situation-12"],
  "commands": ["yoke qa requirement add", "yoke qa requirement add-batch", "yoke qa requirement get", "yoke qa requirement list", "yoke qa requirement rebind-target", "yoke qa requirement update"],
  "functions": ["qa.requirement.add", "qa.requirement.add_batch", "qa.requirement.get", "qa.requirement.list", "qa.requirement.rebind_target", "qa.requirement.update"],
  "page": "qa-plans",

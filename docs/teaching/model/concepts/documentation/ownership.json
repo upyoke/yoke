@@ -3,7 +3,6 @@
  "title": "Documentation ownership",
  "status": "observed",
  "audience": "Documentation authors / maintainers",
- "plan_refs": ["FIRST-USER.40"],
  "surface_refs": ["agent-help", "category-summary", "detail-home", "docs-landing", "execution-instructions", "manual-contents", "project-native"],
  "page": "documentation",
  "position": 2,

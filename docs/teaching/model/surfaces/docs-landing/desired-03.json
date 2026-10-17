@@ -5,6 +5,5 @@
  "form": "Do",
  "verification": "Operator decision recorded. Source navigation defines nested routes, breadcrumbs and heading links and retires old public URLs without redirects; delivery remains unverified until exact candidate evidence exists.",
  "topics": ["documentation/cascade", "reference/docs"],
- "plan_refs": ["FIRST-USER.40", "FIRST-USER.B"],
  "position": 7
 }

@@ -93,19 +93,27 @@ def machine_register(args: List[str]) -> int:
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        response_recovery=_store_rotated_machine_credential,
+        response_recovery=lambda response, actor: _store_rotated_machine_credential(
+            response, actor, payload
+        ),
     )
 
 
-def _store_rotated_machine_credential(response, _actor):
+def _store_rotated_machine_credential(response, _actor, payload):
+    from yoke_cli.config.machine_registration import (
+        _persist_credential,
+        retry_if_retired,
+    )
+
+    response, retired = retry_if_retired(response, payload)
     if not getattr(response, "success", False):
         return response
-    from yoke_cli.config.machine_registration import _persist_credential
-
     failure = _persist_credential(getattr(response, "result", None) or {}, None)
     if failure is None:
         result = dict(getattr(response, "result", None) or {})
         result["credential"] = {"status": "stored"}
+        if retired is not None:
+            result["retired_machine_id"] = retired
         return response.model_copy(update={"result": result})
     from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
 
@@ -186,7 +194,9 @@ def machine_retire(args: List[str]) -> int:
         prog="yoke machine retire",
         description=(
             "Retire a machine, revoke only its bound bearer, and preserve history. "
-            "Reconnect later by running the installer for a new machine identity."
+            "Reconnecting that computer with `yoke connect` (`yoke machine "
+            "register` on a local universe) gives it a new machine identity "
+            "automatically."
         ),
     )
     parser.add_argument("machine_id", nargs="?", default=None)

@@ -135,4 +135,5 @@ See [DB reference](../databases/reference.md) for domain contracts and the CLI e
 - [Worktrees](worktrees.md) — Read lane preparation, landing, merge and close-out contracts.
 - [Models](models.md) — Read effective-dated model catalog and publication functions.
 - [Landing attempts](merge-queue-landing-attempts.md) — Read durable evidence for a new landing of an item that already landed.
+- [Steering dependencies](steering-report-dependencies.md) — Read dependency deadlocks, waiting chains and minimal-edge recovery.
 <!-- /yoke:contents -->

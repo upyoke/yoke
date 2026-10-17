@@ -48,6 +48,8 @@ session's live execution remains owned by that session; continue its watcher
 and retry afterward. `shared_plan_execution_busy` names a different group
 already using the stage's ordered cursor. Refresh and declared corrections
 also use an attaching member and keep the failed group's target identity.
+A member refresh with `--plan` naming the member's own plan refreshes only that
+member's rows, so a live run-wide walk of a shared plan does not block it.
 Removing one member or withdrawing its attachment preserves shared evidence for
 the members still attached. Removing the last attaching member with
 `yoke deployment-runs remove-item` retracts the group's unsettled rows, so an

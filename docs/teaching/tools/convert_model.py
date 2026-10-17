@@ -78,15 +78,18 @@ def convert(root: Path) -> int:
             for position, record in enumerate(data.get(part, [])):
                 add(root / kind / owner["id"], record, position)
 
-    for kind, part in [("plan", "rows"), ("evidence", "records")]:
-        for path in sorted((root / kind).glob("*.json")):
-            data = json.loads(path.read_text())
-            if part not in data:
-                continue
-            sources.append(path)
-            add(root / kind, {k: v for k, v in data.items() if k != part}, id=path.stem)
-            for position, record in enumerate(data[part]):
-                add(root / kind / path.stem, record, position)
+    for path in sorted((root / "evidence").glob("*.json")):
+        data = json.loads(path.read_text())
+        if "records" not in data:
+            continue
+        sources.append(path)
+        add(
+            root / "evidence",
+            {k: v for k, v in data.items() if k != "records"},
+            id=path.stem,
+        )
+        for position, record in enumerate(data["records"]):
+            add(root / "evidence" / path.stem, record, position)
 
     for kind in ["boundaries", "gaps"]:
         path = root / f"{kind}.json"

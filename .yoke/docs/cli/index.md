@@ -89,7 +89,9 @@ publication source note for the review trail. No source edit or release is
 needed for a normal refresh. Records hold facts only — prices, published
 `reasoning_efforts` and `context_window_tokens`, successors. `yoke models
 level-proposal` then proposes the level changes those facts imply; after
-operator approval, `yoke universe levels set` stores them.
+operator approval, `yoke universe levels reset` applies a proposal equal to the
+shipped defaults and `yoke universe levels set` stores any other, which stops
+the universe following future shipped defaults.
 
 Session usage tokens remain stored in `harness_sessions.usage_totals`; its
 observation clock uses fixed-six UTC or null. Dollar

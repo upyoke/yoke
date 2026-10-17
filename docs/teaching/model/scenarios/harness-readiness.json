@@ -2,12 +2,10 @@
  "id": "harness-readiness",
  "title": "When the agent actually gains Yoke context",
  "status": "draft-copy",
- "situations": ["Yoke is installed during a live agent conversation", "Human opens a harness after terminal setup", "Another supported harness is installed later", "Hooks, permissions or sign-in are incomplete"],
+ "situations": ["Yoke is installed during a live agent conversation", "Human opens a harness after terminal setup", "Another supported harness is installed later", "Hooks, permissions or sign-in are incomplete", "Installation ends and the agent must confirm Yoke is live in this session"],
  "coverage": "traced",
  "current": "Observed campaign baseline verifies native harness requests as preparation. Current source adds complete approval-URI/code validation, late-harness configuration checks and a real receiving-context mission. Configuration and preparation remain distinct from live hook/orientation delivery proof. Outside-project global hook orientation, user-level yoke-global appearance and actual global receiving proof remain pending under YOK-3975; project-installed source cannot prove them.",
- "desired": "Reconciled against current plan records.",
  "questions": ["Which native files load at startup, on first tool use and after installation for each harness?", "Are installation success, session registration and usable agent context separately proved?", "Does each real supported surface load instructions and skill metadata mid-session versus only on restart?", "Which otherwise supported feature refusals include the installed-release capability pointer?"],
  "related_scenarios": ["agent-context", "crossplatform-runtime", "updates"],
- "plan_refs": ["FIRST-USER.6", "FIRST-USER.18", "FIRST-USER.23", "FIRST-USER.C", "FIRST-USER.D", "FIRST-USER.E", "FIRST-USER.P2", "JOURNEYS.situation-3"],
  "sources": ["docs/testing-verification/installer-campaign.md", "docs/public/agents/harness-discovery.md", "docs/public/start/agent-setup.md"]
 }

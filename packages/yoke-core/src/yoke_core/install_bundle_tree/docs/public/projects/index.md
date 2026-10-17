@@ -102,7 +102,10 @@ The `/yoke onboard` harness skill starts from what already exists: open
 issues, pull requests and local session transcripts, plus anything you add.
 It drafts strategy and CURRENT-PLAN, walks the decisions with you one at a
 time, configures only what the first work needs, then hands off to
-`/yoke steer`. Onboarding is done when that first item reaches done under its
+`/yoke steer`. It also reviews the project's own rules: one that applies only
+to some work is proposed as a scoped
+[execution instruction](execution-instructions.md), and only
+approved ones are created; every-turn rules stay where they are. Onboarding is done when that first item reaches done under its
 own completion obligations. Distinct from machine `yoke setup`.
 
 ## Packs

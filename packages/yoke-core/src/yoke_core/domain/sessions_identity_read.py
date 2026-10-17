@@ -101,9 +101,11 @@ def resolve_session_identity(conn: Any, session_id: str) -> SessionIdentity:
     derived = resolve_harness_capabilities(_text(row[0]), _text(row[7]))
     from yoke_core.domain.session_level_resolution import (
         resolve_execution_level,
+        session_levels,
+    )
+    from yoke_contracts.model_level_resolution import (
         routing_effort_of,
         routing_model_of,
-        session_levels,
     )
     from yoke_core.domain.session_model_catalog import current_model_records
 

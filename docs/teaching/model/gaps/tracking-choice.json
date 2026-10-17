@@ -3,9 +3,9 @@
  "title": "Keep suggestion tracking undecided",
  "status": "observed",
  "text": "The explicit open JOURNEYS question is whether once-per-session and do-not-ask-again tracking is wanted or agent judgment replaces it. Reusable execution instructions are a different existing mechanism; they do not establish a general reminder-memory store. No tracker or dismissal behavior is shipped or certified by this record.",
- "plan_refs": ["JOURNEYS.question-1"],
  "position": 13,
  "owner": "JOURNEYS",
  "topics": ["context/disclosure", "workbench/onboarding", "documentation/planning"],
- "sources": ["docs/teaching/model/plan/journeys-questions/JOURNEYS.question-1.json", "docs/teaching/model/scenarios/execution-instructions/01.json"]
+ "sources": ["docs/teaching/model/scenarios/execution-instructions/01.json"],
+ "plan_notes": ["JOURNEYS question 1: Is the once-per-session and \"don't ask again\" tracking (former G) still wanted, or does agent judgment under principle 3 replace it?"]
 }

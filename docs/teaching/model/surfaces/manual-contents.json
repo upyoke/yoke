@@ -11,7 +11,6 @@
  "current": "The source tree lists every public page once in recursive nav.yaml. Category pages carry immediate-child contents and non-root pages carry breadcrumbs. Navigation, link and render checks have explicit refusal/recovery contracts. Exact candidate installed/web and private receiving proof remains pending.",
  "desired": "One maintained topic hierarchy; every topic has a home or explicit gap. A parent link does not cover its children.",
  "plan_notes": ["New documentation organization proposal"],
- "plan_refs": ["FIRST-USER.40"],
  "sources": ["docs/public/nav.yaml", "docs/public/documentation/navigation.md", "docs/public/documentation/verification.md", "docs/public/index.md"],
  "private_sources": ["platform"]
 }

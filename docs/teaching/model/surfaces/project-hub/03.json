@@ -5,6 +5,5 @@
  "form": "Link",
  "verification": "No delivery proof attached.",
  "topics": ["context/packets", "architecture/structure"],
- "plan_refs": ["FIRST-USER.24", "FIRST-USER.41", "FIRST-USER.43"],
  "position": 2
 }

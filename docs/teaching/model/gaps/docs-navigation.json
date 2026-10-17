@@ -3,7 +3,6 @@
  "title": "Prove the nested public, installed and web cascade",
  "status": "observed",
  "text": "The source tree now uses recursive nav.yaml, meaningful nested homes, immediate-child summaries and generated breadcrumbs. The navigation contract defines CommonMark heading links and retires old public URLs without redirects. Source navigation is observed, not verified-live. Exact candidate installed/public bytes, the real Platform consumer build, coupled release pin, released attribution and authorized private receiving/rollback evidence remain pending; source structure alone closes none of those proof requirements.",
- "plan_refs": ["FIRST-USER.40", "FIRST-USER.41"],
  "position": 4,
  "owner": "Yoke candidate verification and Platform consumer delivery",
  "sources": ["docs/public/nav.yaml", "docs/public/documentation/navigation.md", "docs/public/documentation/verification.md"],

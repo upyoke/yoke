@@ -11,6 +11,5 @@
  "current": "Source project orientation and session registration remain distinct from installed static rules. Repeated registration treats an already registered session as success; other refusals retain their named cause and recovery. The manual/help pointers now use the nested installed tree. Actual complete unrelated-project main/worker receiving proof and live usefulness remain pending.",
  "desired": "Use existing context for relevant setup facts and the next action; optional capabilities are not admission gates.",
  "plan_notes": ["FIRST-USER C/D/E", "JOURNEYS 9–13/15"],
- "plan_refs": ["FIRST-USER.24", "FIRST-USER.42", "FIRST-USER.43"],
  "sources": ["packages/yoke-core/src/yoke_core/domain/session_orientation.py", "packages/yoke-core/src/yoke_core/domain/session_orientation_delivery.py", "packages/yoke-core/src/yoke_core/domain/main_agent_packet.py", "docs/public/agents/harness-discovery.md"]
 }

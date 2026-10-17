@@ -42,6 +42,9 @@ def no_candidate_review(monkeypatch):
     item that does not select the posture answers exactly this.
     """
     monkeypatch.setattr(selection_mod, "candidate_review_refusal", lambda **_kw: "")
+    monkeypatch.setattr(
+        selection_mod, "integration_dependency_refusal", lambda **_kw: ""
+    )
 
 
 def _declared(monkeypatch) -> None:

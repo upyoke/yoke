@@ -5,7 +5,6 @@
  "situations": ["The user asks which workflow to use.", "A change is large but needs one lane; another requires real parallel decomposition.", "An existing item is resumed after its workflow has been updated."],
  "coverage": "traced",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
  "questions": ["Traced through current intake/routing instructions and catalog contracts, not runtime end-to-end tests.", "Verify custom workflows and old immutable pins use the same discovery wording as built-ins.", "Command nodes, when present, were checked with installed CLI --help only; this proves parser/help availability, not serving-control-plane capability or successful execution."],
  "related_scenarios": ["workflow-policy", "task-graph-planning", "qa-methods"],
  "sources": ["docs/public/workflows/index.md", "docs/public/workflows/lifecycle.md"]

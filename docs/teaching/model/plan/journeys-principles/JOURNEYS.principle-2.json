@@ -1,9 +1,0 @@
-{
- "id": "JOURNEYS.principle-2",
- "title": "One shared standard.",
- "status": "deferred",
- "concepts": ["documentation/planning", "context/disclosure", "projects/adoption"],
- "surfaces": ["global-orientation", "project-orientation", "skills-roles", "execution-instructions"],
- "scenarios": ["agent-context", "project-adoption"],
- "position": 6
-}

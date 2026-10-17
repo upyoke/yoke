@@ -3,7 +3,6 @@
  "title": "yoke-global does not yet carry intent into /yoke onboard",
  "status": "observed",
  "text": "The onboard skill expects yoke-global to pick or add the project, carry known intent and name the folder to open. yoke-global does not exist yet; until it ships, a session outside a project gets no route to onboarding.",
- "plan_refs": ["FIRST-USER.24", "FIRST-USER.P4"],
  "work_items": ["YOK-3975"],
  "sources": [".agents/skills/yoke/onboard/SKILL.md"],
  "position": 35

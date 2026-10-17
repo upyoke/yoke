@@ -2,7 +2,6 @@
  "id": "configuration",
  "title": "Project test contract",
  "status": "draft-copy",
- "plan_refs": ["JOURNEYS.also-owned-here"],
  "surface_refs": ["project-hub", "project-native"],
  "commands": ["yoke qa registered-command set"],
  "functions": ["qa.registered_command.set"],

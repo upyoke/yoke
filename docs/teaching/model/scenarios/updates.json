@@ -5,9 +5,7 @@
  "situations": ["A newer Yoke version is available.", "CLI, relay, dashboard and project teaching disagree.", "Update cannot find the machine distribution or would replace a source checkout."],
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
  "questions": ["How are users first notified of version availability across each mode?", "Are component refresh receipts and the source-versus-installed layer version discoverable from one support entry?"],
  "related_scenarios": ["harness-readiness", "project-lifecycle", "private-forks"],
- "plan_refs": ["FIRST-USER.6", "FIRST-USER.15"],
  "sources": ["docs/public/start/install.md", "docs/public/projects/private-forks.md"]
 }

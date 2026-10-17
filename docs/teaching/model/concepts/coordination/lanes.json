@@ -2,7 +2,6 @@
  "id": "lanes",
  "title": "Worktree lanes",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.P3"],
  "surface_refs": ["project-hooks", "project-native"],
  "commands": ["yoke direct-workflow worktree prepare", "yoke item-worktrees create", "yoke item-worktrees get", "yoke item-worktrees inventory", "yoke item-worktrees list", "yoke item-worktrees path-record", "yoke item-worktrees release"],
  "functions": ["item_worktrees.create", "item_worktrees.get", "item_worktrees.inventory", "item_worktrees.list", "item_worktrees.path_record", "item_worktrees.release", "item_worktrees.release_merged_lane"],

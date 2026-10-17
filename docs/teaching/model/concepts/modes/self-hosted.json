@@ -2,7 +2,6 @@
  "id": "self-hosted",
  "title": "Self-hosted",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.3", "FIRST-USER.31", "JOURNEYS.situation-8"],
  "commands": ["yoke self-host init"],
  "page": "modes",
  "position": 2

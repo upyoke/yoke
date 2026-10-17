@@ -5,7 +5,6 @@
  "situations": ["A user wants the same acceptance checks on many changes.", "One change needs a one-off case.", "A saved plan is edited after an item has already started."],
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
  "questions": ["Plan, attachment and snapshot documentation was inspected; detailed materialize/rematerialize behavior needs implementation-specific reconciliation before publication.", "Verify current docs agree on newly added cases, frozen admitted copies and plan currency; do not infer mutation semantics from a simplified diagram.", "Command nodes, when present, were checked with installed CLI --help only; this proves parser/help availability, not serving-control-plane capability or successful execution."],
  "related_scenarios": ["qa-subjects-targets", "qa-execution-review", "qa-correction"],
  "sources": ["docs/public/verification/case-attachment.md", "docs/public/functions/qa.md"]

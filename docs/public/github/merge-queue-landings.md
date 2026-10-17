@@ -9,6 +9,15 @@ request. A headless worker receives `landing_pending=true` and waits for the
 control plane's landing notice. Re-enter the same merge command when that
 notice arrives, retaining its result and verification evidence.
 
+Before it selects a route, the command asks the item's integration dependency
+gate (`merge.preflight.dependency_gate`). Queue admission only sees
+predecessors that are queue members, so this gate is what keeps an item from
+enqueuing while a predecessor is still being implemented. A blocked gate
+refuses with `integration_dependency_blocked`, naming each predecessor and its
+status; nothing is armed or enqueued. Wait for the predecessor's landing
+notice, then re-run the same command. A gate that cannot be read refuses with
+`integration_dependency_gate_unavailable` rather than landing.
+
 The existing landing observer reads the registered pull request during relay
 upkeep. A waiting worker's `merge_queue.landing.observe` call returns the
 stored landing record without reading GitHub while that record is newer than

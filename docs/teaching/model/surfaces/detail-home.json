@@ -11,7 +11,6 @@
  "current": "Public topic homes now live in meaningful branches such as verification, projects, sessions and agents/rules. The navigation contract owns parentage, routes and heading fragments; verification owns exact candidate publication proof. Private operations retain their own authorized owner. Mapping a parent never proves child teaching.",
  "desired": "One owner per rule or recipe, meaningful nesting and breadcrumbs, valid release-matched pointers.",
  "plan_notes": ["New documentation organization proposal"],
- "plan_refs": ["FIRST-USER.32", "FIRST-USER.40", "FIRST-USER.41"],
  "sources": ["docs/public/nav.yaml", "docs/public/documentation/navigation.md", "docs/public/documentation/verification.md", "docs/public/projects/shared-files.md", "docs/public/verification/browser-identities.md"],
  "private_sources": ["platform"]
 }

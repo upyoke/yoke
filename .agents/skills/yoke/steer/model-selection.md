@@ -67,8 +67,9 @@ yoke relay probe-models --surface cursor-cli
 
 Native publication observes new models immediately; missing research never
 gates launch. Catalog research (models get/lookup) is facts, not level mutation.
-Only operator-approved level-proposal followed by universe levels set changes
-options. No catalog-driven silent preference shift.
+Only operator-approved level-proposal followed by its apply command
+(`universe levels reset` or `set`) changes options. No catalog-driven silent
+preference shift.
 
 ## Restaff ladder
 

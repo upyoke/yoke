@@ -2,13 +2,11 @@
  "id": "project-adoption",
  "title": "No project, a new project or an established project",
  "status": "draft-copy",
- "situations": ["Finish machine setup without a project", "Start an empty project or a folder without Git", "Clone a remote repository", "Adopt a mature app or reconnect an existing Yoke project"],
+ "situations": ["Finish machine setup without a project", "Start an empty project or a folder without Git", "Clone a remote repository", "Adopt a mature app or reconnect an existing Yoke project", "A Git repository opened in a session is not yet in Yoke", "A project is installed but not onboarded", "An adopted project resumes or gains a new setup need"],
  "coverage": "traced",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
  "review": "Older research may describe heavier onboarding. Apply minimum activation and optional-adoption boundaries first.",
- "questions": ["Can already-onboarded projects enter current work without restarting Onboard?", "Does the handoff reach one useful outcome, including mature-project and no-project branches?"],
+ "questions": ["Can already-onboarded projects enter current work without restarting Onboard?", "Does the handoff reach one useful outcome, including mature-project and no-project branches?", "How do the dashboard Setup pill and onboarding modal agree with the agent's situation teaching?"],
  "related_scenarios": ["agent-context", "work-intent", "architecture-project-structure", "packs"],
- "plan_refs": ["FIRST-USER.24", "FIRST-USER.D", "FIRST-USER.P4", "FIRST-USER.P5", "FIRST-USER.P6", "FIRST-USER.42", "FIRST-USER.43", "JOURNEYS.execution-boundary", "JOURNEYS.locked-principles", "JOURNEYS.principle-1", "JOURNEYS.principle-2", "JOURNEYS.principle-3", "JOURNEYS.principle-4", "JOURNEYS.principle-5", "JOURNEYS.principle-6", "JOURNEYS.principle-7", "JOURNEYS.principle-8", "JOURNEYS.principle-9", "JOURNEYS.situation-4", "JOURNEYS.situation-5", "JOURNEYS.situation-6", "JOURNEYS.situation-9", "JOURNEYS.situation-19", "JOURNEYS.moved-from-first-user-former-dash-g"],
  "sources": ["docs/public/projects/index.md", "docs/public/start/terminal-onboarding.md"]
 }

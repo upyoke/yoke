@@ -5,6 +5,5 @@
  "form": "Rule",
  "verification": "Source and runtime/api/cli/test_onboard_wizard_resize_redraw.py replay setup's real terminal output through screen changes and resizes; no live-terminal capture yet.",
  "topics": ["installation/entry"],
- "plan_refs": ["FIRST-USER.7"],
  "position": 6
 }

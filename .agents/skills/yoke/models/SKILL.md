@@ -35,8 +35,39 @@ thresholds strictly increase within each model as levels rise.
 
 | Phase | Read before acting |
 |---|---|
+| Check for a newer Yoke | Step 0 below |
 | Read or refresh facts | Entry and refresh steps below |
 | Propose/update levels | [level-proposals.md](level-proposals.md) |
+
+## Step 0: is this Yoke current?
+
+Shipped level defaults and the bundled catalog live in the Yoke server, so a
+universe gets new defaults when its server runs the new release. Check first:
+
+```sh
+yoke update --check --json
+```
+
+It reports `cli_version`, `server_engine_version`, the channel's
+`latest_version`, the `destination` and `behind: cli|server|none`. Give the
+next step its `destination` names:
+
+- `local`: offer `yoke update`; it updates the CLI and local server together,
+  and new defaults apply right away.
+- `server` (self-hosted team server): `yoke update` updates only this CLI;
+  the server admin must upgrade the team server.
+- `hosted`: releases deploy to hosted servers right away; confirm the server
+  is current, or say the defaults arrive with the hosted release.
+
+A source checkout refuses `--check`; update it through git. A
+`server_version_unavailable` refusal names the env and its repair.
+Then read `yoke universe levels get --json`. `source: universe` means the
+universe stores its own levels and does not follow shipped defaults;
+`shipped_defaults_differ: true` means a newer default exists. Offer
+`yoke universe levels reset` (org admin) so the shipped defaults apply. A
+project override (`yoke projects level-summary get --project P` shows
+`source: project`) is cleared by rewriting that project's settings without
+`levels`: `yoke projects capability-settings set --cap-type session-routing`.
 
 ## Entry
 
@@ -98,5 +129,7 @@ close-out. DB-only refresh needs no release; approved level changes share it.
    ```
 
 5. Run `yoke models level-proposal`, follow the linked level phase, present
-   the complete proposal and obtain approval before `yoke universe levels set`.
-   Record both revision and approved level change.
+   the complete proposal and obtain approval before applying it with the
+   proposal's `apply_command`: `yoke universe levels reset` when it equals the
+   shipped defaults, otherwise `yoke universe levels set`, which stops the
+   universe following future defaults. Record revision and approved change.

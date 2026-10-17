@@ -1,9 +1,0 @@
-{
- "id": "JOURNEYS.question-4",
- "title": "Which specific events and commands should surface each remaining setup gap? Required teaching precedes the affected action; refusals name the supported recovery.",
- "status": "deferred",
- "concepts": ["context/disclosure", "workbench/onboarding", "documentation/planning"],
- "surfaces": ["global-orientation", "project-orientation", "workbench-cues"],
- "scenarios": ["agent-context"],
- "position": 4
-}

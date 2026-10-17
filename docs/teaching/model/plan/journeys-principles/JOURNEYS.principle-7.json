@@ -1,9 +1,0 @@
-{
- "id": "JOURNEYS.principle-7",
- "title": "Narration and instruction have different jobs.",
- "status": "deferred",
- "concepts": ["documentation/planning", "context/disclosure", "projects/adoption"],
- "surfaces": ["global-orientation", "project-orientation", "skills-roles", "execution-instructions"],
- "scenarios": ["agent-context", "project-adoption"],
- "position": 11
-}

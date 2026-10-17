@@ -2,7 +2,6 @@
  "id": "identity",
  "title": "Runtime identity",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.16", "FIRST-USER.31"],
  "surface_refs": ["workbench-cues"],
  "page": "workbench",
  "position": 4

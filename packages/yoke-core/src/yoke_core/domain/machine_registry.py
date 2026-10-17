@@ -18,6 +18,7 @@ from yoke_contracts.machine_config.machine_access import (
     normalize_access,
     validate_access,
 )
+from yoke_contracts.machine_authorization import RETIRED_MACHINE_RECOVERY
 from yoke_contracts.timestamps import parse_instant, temporal_wire
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend, json_helper
@@ -201,16 +202,15 @@ def register_machine(
     if existing is not None and existing.retired_at is not None:
         raise MachineRegistryError(
             "machine_retired",
-            f"machine {canonical} is retired. Recovery: run the installer again "
-            "to reconnect this computer with a new machine identity.",
+            f"machine {canonical} is retired. Recovery: {RETIRED_MACHINE_RECOVERY}",
         )
     if existing is not None and int(existing.owner_actor_id) != int(actor_id):
         if not is_admin:
             raise MachineRegistryError(
                 "machine_owner_mismatch",
                 f"machine {canonical} is registered to another actor. Recovery: "
-                "ask its owner or an administrator to re-register it, or clear "
-                "this host's copied machine id and register a fresh one.",
+                "its owner or an administrator retires this machine, then run "
+                "`yoke connect` again on this computer.",
             )
     document = normalize_access(
         access

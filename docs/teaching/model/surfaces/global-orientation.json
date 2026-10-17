@@ -11,7 +11,6 @@
  "current": "The current tree does not establish the required outside-project global hook orientation or user-level yoke-global appearance. CLI --help and public documentation work as separate discovery routes; they do not prove the missing global delivery. YOK-3975 owns global implementation, combined-delivery sizing and actual local/hosted/self-hosted receiving proof. Its blocking proof remains outstanding.",
  "desired": "One bounded orientation plus yoke-global; select/add a project, then open a session in its folder.",
  "plan_notes": ["FIRST-USER P1–P4", "JOURNEYS 4–8/14"],
- "plan_refs": ["FIRST-USER.P1", "FIRST-USER.P2", "FIRST-USER.P4", "FIRST-USER.43"],
  "sources": ["docs/public/cli/help.md", "packages/yoke-core/src/yoke_core/domain/session_orientation.py", ".agents/skills/yoke/SKILL.md"],
  "work_items": ["YOK-3975"]
 }

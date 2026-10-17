@@ -5,6 +5,5 @@
  "form": "Do",
  "verification": "Managed manifest byte identity, HTTPS transport install/refresh, skew refusal and shared recipe checked in runtime/api/domain/test_installed_project_context.py; no live harness transcript claimed.",
  "topics": ["agents/harnesses", "context/docs", "architecture/structure"],
- "plan_refs": ["FIRST-USER.35", "FIRST-USER.41", "FIRST-USER.43"],
  "position": 6
 }

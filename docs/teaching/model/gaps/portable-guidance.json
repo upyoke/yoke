@@ -3,7 +3,6 @@
  "title": "Prove portable guidance without copying private operations",
  "status": "observed",
  "text": "Public product teaching now has nested canonical homes under docs/public, including agent operation rules, machine authorization, GitHub scope, shared files and verification. The source-only teaching model stays outside the install bundle. Private topology, operator state, fresh private pointer inventory and rollback evidence remain private and unproved here. Global hook orientation, user-level yoke-global appearance, combined global sizing and actual global receiving captures moved to YOK-3975 and remain required there. No private source absence or ownership transfer counts as successful delivery.",
- "plan_refs": ["FIRST-USER.40"],
  "position": 6,
  "owner": "Yoke public guidance; private operations owner; YOK-3975 global delivery",
  "sources": ["docs/public/documentation/index.md", "docs/public/agents/rules/code-and-cli.md", "docs/public/projects/shared-files.md", "docs/source-dev-doctrine.md"],

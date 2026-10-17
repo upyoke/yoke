@@ -20,6 +20,6 @@ The permanent ordered migration `0070_native_domain_instants` owns historical
 storage conversion. Keep it and its migration tests. Fleet rehearsal converges
 each restored copy through `migration_fleet_preflight.rehearse` and exercises
 product readers on the result; reader refusals fail the gate. The
-[fleet contract](public/reference/db-reference/migration-model-fleet.md) owns
+[fleet contract](public/databases/migration-fleet.md) owns
 copy custody. The instant census is read-only diagnostic evidence and does not
 earn a release receipt.

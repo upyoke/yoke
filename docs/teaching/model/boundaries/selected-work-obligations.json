@@ -1,0 +1,7 @@
+{
+ "id": "selected-work-obligations",
+ "title": "Resolve obligations for the selected work",
+ "status": "approved",
+ "text": "Before the affected action, establish the selected work's landing, approval, done meaning and QA target. Merge-only removes neither approval nor QA and supplies no deployment or post-deploy proof. Required human approval cannot be bypassed.",
+ "position": 13
+}

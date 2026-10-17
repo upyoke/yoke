@@ -5,6 +5,5 @@
  "form": "Do",
  "verification": "Candidate route checks cover interpreter selection, shared preflight and reuse; deployed Command proof is pending.",
  "topics": ["agents/skills/implement-and-conduct", "coordination/lanes/prepare-from-verified-upstream", "contributing/source/worktree-source-authority"],
- "plan_refs": ["FIRST-USER.24"],
  "sources": [".agents/skills/yoke/conduct/entry-activation-resolution.md", "docs/public/functions/worktrees.md", "runtime/api/cli/test_worktree_preparation_runtime.py"]
 }

@@ -11,7 +11,6 @@
  "current": "Public category indexes now expose nav-derived immediate children and one-line summaries; verification/index.md routes methods, plan execution and evidence to narrower homes. This source observation does not prove receiving-context usefulness or private publication.",
  "desired": "Explain every immediate child concisely and route to the narrower home. One topic need not mean one file.",
  "plan_notes": ["New documentation organization proposal"],
- "plan_refs": ["FIRST-USER.40"],
  "sources": ["docs/public/nav.yaml", "docs/public/documentation/navigation.md", "docs/public/documentation/verification.md", "docs/public/verification/index.md", "docs/public/verification/platform.md"],
  "private_sources": ["platform"]
 }

@@ -3,7 +3,6 @@
  "title": "Prove released installed guidance reaches the receiving agent",
  "status": "observed",
  "text": "Source and automated transport/fixture tests cover installed manual help, managed release identity, refresh recovery and native permission replies. The nested source corpus and installed pointers are reconciled; this does not prove the actual combined context received. Earlier receiving QA failed because complete context was unobservable, outside-project deeper help was absent and Cursor shell calls returned blank refusals; preserve that failure evidence. YOK-3965 still owes exact candidate unrelated-project main/worker receiving proof. YOK-3975 owns the missing outside-project global hook orientation, user-level yoke-global appearance, global combined sizing and actual local/hosted/self-hosted global captures; blocking requirements 49400 and 49397 remain outstanding. Fixture output, installed files and diagnostic turns do not satisfy either proof.",
- "plan_refs": ["FIRST-USER.41"],
  "sources": ["runtime/api/domain/test_installed_project_context.py", "runtime/api/test_container_install_bundle.py", "Dockerfile", ".agents/skills/yoke/conduct/dispatch-context-project.md", "docs/public/cli/help.md"],
  "work_items": ["YOK-3966", "YOK-3965", "YOK-3975"],
  "position": 20,

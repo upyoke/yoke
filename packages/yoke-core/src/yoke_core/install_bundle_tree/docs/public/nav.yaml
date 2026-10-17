@@ -277,6 +277,7 @@ root:
           summary: Read effective-dated model catalog and publication functions.
           path: functions/models.md
         - {title: "Landing attempts", summary: "Read durable evidence for a new landing of an item that already landed.", path: "functions/merge-queue-landing-attempts.md"}
+        - {title: "Steering dependencies", summary: "Read dependency deadlocks, waiting chains and minimal-edge recovery.", path: "functions/steering-report-dependencies.md"}
     - title: Verification
       summary: Define cases, execute project plans and inspect evidence for workflow gates.
       path: verification/index.md

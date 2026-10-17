@@ -5,7 +5,7 @@
  "current": "The backend dependency cycle detector finds every loop of unsatisfied activation, integration or closure edges among live items. The fleet watcher emits one fleet ALARM deadlock line per loop, naming the loop, each edge with its id and gate, the items it strands and the recovery, and one fleet CLEAR deadlock line once the loop is broken. The steering report lists the same loops under dependency deadlocks and counts them as actionable. The Frontier draws the loops the server serves rather than computing its own. Recovery makes one edge coordination_only, or steering decides the order.",
  "commands": ["yoke watch fleet", "yoke steering report get", "yoke items dependency update"],
  "functions": ["charge.schedule", "frontier.list", "steering.report.get", "items.dependency.update"],
- "sources": [".agents/skills/yoke/steer/fleet-findings.md", ".agents/skills/yoke/steer/watching.md", "docs/public/sessions/steering-report.md", "docs/public/strategy/frontier.md"],
+ "sources": [".agents/skills/yoke/steer/fleet-findings.md", ".agents/skills/yoke/steer/watching.md", "docs/public/sessions/steering-report.md", "docs/public/strategy/frontier.md", "docs/public/functions/steering-report-dependencies.md"],
  "skills": ["steer"],
  "page": "strategy",
  "position": 5

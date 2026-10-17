@@ -5,6 +5,5 @@
  "form": "Do",
  "verification": "Source and page tests show the shared GitHub page; live delivery still needs proof.",
  "topics": ["repositories/github", "repositories/github/workbench-github-page"],
- "plan_refs": ["FIRST-USER.P5", "FIRST-USER.P7", "FIRST-USER.4", "FIRST-USER.12", "FIRST-USER.27"],
  "position": 6
 }

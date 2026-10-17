@@ -43,22 +43,18 @@ def test_standalone_model_tools(script, args, expected):
     assert expected in result.stdout
 
 
-def test_validate_names_dangling_references_and_unmapped_plan_rows(tools):
+def test_validate_names_dangling_references_and_retired_plan_refs(tools):
     model, *_ = tools
     loaded = model.Model()
     loaded.concepts["a"] = {
         "id": "a",
         "title": "A",
         "status": "draft-copy",
-        "plan_refs": ["PLAN.missing"],
+        "gaps": ["missing"],
+        "plan_refs": ["PLAN.1"],
         "commands": ["yoke nope"],
         "sources": ["no/such/file.md"],
         "file": "c.json",
-    }
-    loaded.plan_rows["PLAN.1"] = {
-        "id": "PLAN.1",
-        "status": "approved",
-        "file": "p.json",
     }
     loaded.gaps["g"] = {"id": "g", "status": "open", "file": "gaps/g.json"}
     live = {"commands": {"yoke real"}, "functions": set(), "skills": set()}
@@ -68,7 +64,7 @@ def test_validate_names_dangling_references_and_unmapped_plan_rows(tools):
         "DANGLING_REFERENCE",
         "DANGLING_REFERENCE",
         "DANGLING_SOURCE",
-        "PLAN_ROW_UNMAPPED",
+        "RETIRED_PLAN_MIRROR",
         "UNKNOWN_STATUS",
     ]
 
@@ -76,9 +72,10 @@ def test_validate_names_dangling_references_and_unmapped_plan_rows(tools):
 def test_coverage_counts_only_direct_mappings(tools):
     model, *_ = tools
     loaded = model.Model()
-    loaded.concepts["parent"] = {"plan_refs": ["PLAN.1"]}
+    loaded.concepts["parent"] = {}
     loaded.concepts["parent/child"] = {}
-    assert model.coverage(loaded) == {"parent": ["PLAN.1"], "parent/child": []}
+    loaded.teaching["entry/lesson"] = {"topics": ["parent"]}
+    assert model.coverage(loaded) == {"parent": ["entry/lesson"], "parent/child": []}
 
 
 def test_overview_survives_independent_model_additions(tools):
@@ -97,7 +94,6 @@ def test_overview_survives_independent_model_additions(tools):
         "concepts.html",
         "surfaces.html",
         "scenarios.html",
-        "plan-coverage.html",
         "boundaries.html",
         "gaps.html",
         "evidence.html",
@@ -123,42 +119,6 @@ def test_privacy_patterns_allow_repository_paths(tools):
     _, _, privacy, _ = tools
     line = "docs/teaching/model/gaps/example.json and packages/yoke-core/src"
     assert not any(pattern.search(line) for _, pattern in privacy.PATTERNS)
-
-
-def test_strategy_entries_lists_every_required_row(tools, tmp_path):
-    _, inventory, _, _ = tools
-    content = "\n".join(
-        [
-            "# JOURNEYS",
-            "## Locked principles",
-            "1. **One.**",
-            "## Situations catalog",
-            "| # | Situation |",
-            "| 1 | Install |",
-            "## Also owned here",
-            "- **Work.**",
-            "## Open questions",
-            "1. Why?",
-        ]
-    )
-    saved = tmp_path / "journeys.json"
-    saved.write_text(
-        json.dumps(
-            {"result": {"slug": "JOURNEYS", "content": content, "updated_at": "now"}}
-        )
-    )
-    slug, updated_at, ids = inventory.strategy_entries(saved)
-    assert (slug, updated_at) == ("JOURNEYS", "now")
-    assert ids == [
-        "JOURNEYS.locked-principles",
-        "JOURNEYS.principle-1",
-        "JOURNEYS.situations-catalog",
-        "JOURNEYS.situation-1",
-        "JOURNEYS.also-owned-here",
-        "JOURNEYS.owned-1",
-        "JOURNEYS.open-questions",
-        "JOURNEYS.question-1",
-    ]
 
 
 def test_wrapped_line_count_uses_eighty_columns(tools):
@@ -253,11 +213,6 @@ def test_conversion_preserves_records_and_is_repeatable(tools, monkeypatch, tmp_
             "scenario": {"id": "work"},
             "lessons": [{"id": "lesson"}],
         },
-        "plan/direction.json": {
-            "plan": "DIRECTION",
-            "title": "Direction",
-            "rows": [{"id": "DIRECTION.a"}],
-        },
         "evidence/research.json": {"title": "Research", "records": [{"id": "a"}]},
         "gaps.json": {"records": [{"id": "missing"}]},
         "boundaries.json": {"records": [{"id": "rule"}]},
@@ -267,7 +222,7 @@ def test_conversion_preserves_records_and_is_repeatable(tools, monkeypatch, tmp_
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(model.dump(value))
-    assert convert_model.convert(root) == 14
+    assert convert_model.convert(root) == 12
     snapshot = {p.relative_to(root): p.read_bytes() for p in root.rglob("*.json")}
     assert convert_model.convert(root) == 0
     assert snapshot == {
@@ -281,7 +236,6 @@ def test_conversion_preserves_records_and_is_repeatable(tools, monkeypatch, tmp_
     assert loaded.concepts["topic"]["children"] == ["topic/child", "topic/additional"]
     assert loaded.surfaces["entry"]["parts"] == ["entry/second", "entry/first"]
     assert loaded.lessons["work/lesson"]["owner"] == "work"
-    assert loaded.plan_rows["DIRECTION.a"]["page"] == "direction"
     assert loaded.evidence["research/a"]["id"] == "a"
     assert set(loaded.gaps) == {"missing"}
     assert set(loaded.boundaries) == {"rule"}
@@ -309,6 +263,18 @@ def test_loader_reports_filename_mismatch(tools, monkeypatch, tmp_path):
     loaded = model.load()
     assert [p.code for p in loaded.problems] == ["MODEL_RECORD_ID"]
     assert "filename" in loaded.problems[0].message
+
+
+def test_loader_refuses_a_strategy_plan_mirror(tools, monkeypatch, tmp_path):
+    model, *_ = tools
+    root = tmp_path / "docs/teaching/model"
+    (root / "plan").mkdir(parents=True)
+    (root / "docs-graph.json").write_text("{}\n")
+    monkeypatch.setattr(model, "MODEL_ROOT", root)
+    monkeypatch.setattr(model, "TEACHING_ROOT", root.parent)
+    loaded = model.load()
+    assert [p.code for p in loaded.problems] == ["RETIRED_PLAN_MIRROR"]
+    assert "scenario, surface, boundary or gap" in loaded.problems[0].message
 
 
 def test_independent_additions_merge_without_shared_file_edits(tmp_path):

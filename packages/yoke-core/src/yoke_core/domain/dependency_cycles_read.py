@@ -53,7 +53,8 @@ class LiveEdge:
 
 
 def item_facts(conn: Any, item_ids: Set[int]) -> Dict[int, Dict[str, Any]]:
-    """Stage, title, project placement, terminal-ness and abandonment, by id."""
+    """Stage, title, project placement, terminal-ness, abandonment, and
+    whether the item is still before its implementation segment, by id."""
     ids = sorted(item_ids)
     if not ids:
         return {}
@@ -84,6 +85,8 @@ def item_facts(conn: Any, item_ids: Set[int]) -> Dict[int, Dict[str, Any]]:
             "title": str(row["title"] or ""),
             "terminal": runtime is not None and status in terminal_stage_ids(runtime),
             "abandoned": status in ENGINE_TERMINAL_STAGE_IDS,
+            "unstarted": runtime is not None
+            and runtime.is_before_implementation(status),
         }
     return facts
 

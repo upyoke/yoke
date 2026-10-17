@@ -208,7 +208,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | `packs/` | Immutable reusable capability bundles. |
 | `packaging/` | Pre-runtime installer and distribution metadata. |
 | `docs/`, `.yoke/` | Public/source references and project policy/generated views. |
-| `docs/teaching/` | [Teaching prototype](teaching/README.md): what Yoke teaches, where and when, with plan coverage and gaps. |
+| `docs/teaching/` | [Teaching prototype](teaching/README.md): what Yoke teaches, where and when, with evidence and gaps. |
 | `.github/workflows/` | CI and hosted release execution. |
 
 Project code conventions and naming come from `AGENTS.md` and its operation

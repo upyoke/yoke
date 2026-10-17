@@ -22,6 +22,9 @@ from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.capability_undeclare_remedy import undeclare_remedy
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
+from yoke_core.domain.integration_dependency_refusal import (
+    integration_dependency_refusal,
+)
 from yoke_core.domain.merge_candidate_review_admission import (
     candidate_review_refusal,
 )
@@ -154,7 +157,25 @@ def route_standalone_landing(
     before either route: arming a merge-when-ready pull request, enqueuing
     one, and merging locally are all landings, so the review holds them all
     from the one place that selects between them.
+
+    The integration dependency gate is asked here for the same reason: queue
+    admission only sees predecessors that are queue members, so a predecessor
+    still implementing would otherwise let the item enqueue.
     """
+    dependency_refusal = integration_dependency_refusal(
+        item_id=item_id,
+        public_ref=public_ref,
+        resume_command=resume_command,
+        dispatch=dispatch,
+    )
+    if dependency_refusal:
+        return StandaloneMergeOutcome(
+            ok=False,
+            exit_code=1,
+            already_merged=False,
+            commit_sha=str(commit_sha or ""),
+            error=dependency_refusal,
+        )
     # The head a review would be about, resolved before the route is chosen
     # because the clearance is bound to it. The receipt fallback the queue
     # route uses is deliberately not consulted: a receipt answers for a

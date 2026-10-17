@@ -45,23 +45,30 @@ no native effort/speed suffix. Invalid rows name their field and correction.
 ## Where levels live
 
 - **Universe levels** — one definition per universe, in universe settings.
-  With nothing stored, the universe reads the shipped scheme. A stored
-  `universe_settings` row freezes that key at write time, so a later shipped
-  default does not replace it. Delete the row with a reviewed
-  `yoke operator data-repair` to follow shipped defaults again. Writing
-  today's shipped document stores a new freeze. `levels` and
-  `cursor_quota_order` follow this rule.
+  With nothing stored, the universe reads the shipped scheme, so a newer
+  Yoke release brings its new defaults as soon as the server runs it. A
+  stored `universe_settings` row freezes that key at write time, so a later
+  shipped default does not replace it; `levels get` then reports
+  `source: universe` with `shipped_defaults_differ` saying whether today's
+  shipped defaults differ. `yoke universe levels reset` (org admin) deletes
+  the stored levels so the universe follows shipped defaults again, and
+  `set` with a document equal to the shipped defaults stores nothing.
+  `cursor_quota_order` follows the same freeze rule; delete its row as
+  described under the Cursor order below.
 
   ```text
   yoke universe levels get [--json]
   yoke universe levels get --json | <edit> | yoke universe levels set --stdin
+  yoke universe levels reset
   ```
 
   `universe.levels.set` replaces the whole definition and requires an org
   admin. It also refuses a threshold whose effort its
   model's published catalog values contradict (`level_min_effort_unpublished`). Model refresh proposes
   level changes with `yoke models level-proposal`; the operator approves
-  before the proposed document is stored here.
+  before the proposed document is applied, with `reset` when it equals the
+  shipped defaults and `set` otherwise. `yoke update --check` says whether
+  the CLI or the server is behind the channel's latest release.
 - **Project override** — a project may carry its own levels in its
   `session-routing` capability, set only through the CLI. The document holds
   exactly one key, `levels`:

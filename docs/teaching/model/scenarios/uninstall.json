@@ -5,9 +5,7 @@
  "situations": ["Stop using Yoke on one machine.", "Remove Yoke from selected repositories.", "Cleanup encounters unreachable old state."],
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
  "questions": ["Verify preservation/cleanup across modified managed files and later-installed harnesses; machine-wide light hooks and the global skill have no removal yet."],
  "related_scenarios": ["portability", "project-lifecycle", "machine-access"],
- "plan_refs": ["FIRST-USER.1"],
  "sources": ["docs/public/start/uninstall.md"]
 }

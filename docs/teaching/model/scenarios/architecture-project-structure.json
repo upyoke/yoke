@@ -5,9 +5,7 @@
  "situations": ["A change adds a component or crosses an existing boundary.", "A monorepo has several test roots, sites or deployment targets.", "Doctor reports architecture drift or an uncertain impact blocks readiness."],
  "coverage": "catalogued",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
  "review": "Older research may describe heavier onboarding. Apply minimum activation and optional-adoption boundaries first.",
  "questions": ["Which project-structure facts are user-authored, inferred proposals or live observations?", "Do external projects receive enough explanation to resolve uncertain impact and model-doc drift?"],
- "plan_refs": ["JOURNEYS.situation-18", "JOURNEYS.also-owned-here"],
  "sources": ["docs/public/agents/rules/architecture-model.md", "docs/public/functions/project-configuration.md"]
 }

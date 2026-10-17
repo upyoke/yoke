@@ -80,7 +80,8 @@ manifest/bootstrap substrate facts. See the [agent guide](../agents/index.md).
 - [merge-queue-landing-attempts.md](../functions/merge-queue-landing-attempts.md) — `merge_queue_landing_attempts`: a pull request opened for an item that already landed, tracked apart from the item's current landing until it merges or closes with its reason.
 
 - [Items](../items/model/items.md), [dependencies](../items/model/dependencies.md), [tasks](../items/model/tasks.md) and [landings](../items/model/landings.md) describe work records and their history.
-- [Session path claims](../sessions/model/path-claims.md) describe physical-path coverage; [steering reports](../sessions/steering-report.md) and [delivery](../sessions/steering-report-delivery.md) describe coordination projections, including dependency deadlocks.
+- [Session path claims](../sessions/model/path-claims.md) describe physical-path coverage; [steering reports](../sessions/steering-report.md) and [delivery](../sessions/steering-report-delivery.md) describe coordination projections, including dependency deadlocks and waiting chains.
+- [Steering dependency sections](../functions/steering-report-dependencies.md) describe the shared live blocking graph and minimal dependency rules.
 - [Workflow statuses](../workflows/model/statuses.md) describe immutable workflow pins and independent generated-task progression.
 - [Deployment runs](../deployments/model/runs.md), [stage receipts](../deployments/model/stage-receipts.md) and [members and QA](../deployments/model/run-members.md) describe execution and release custody.
 - [Release authorities](../deployments/model/releases.md) and [notices](../deployments/model/release-notices.md) describe verification, verdicts and delivery announcements.

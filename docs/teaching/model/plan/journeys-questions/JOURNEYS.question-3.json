@@ -1,9 +1,0 @@
-{
- "id": "JOURNEYS.question-3",
- "title": "Which project-orientation facts are cheap enough to compute at every session start (rows 9–12, 15)?",
- "status": "deferred",
- "concepts": ["context/disclosure", "workbench/onboarding", "documentation/planning"],
- "surfaces": ["global-orientation", "project-orientation", "workbench-cues"],
- "scenarios": ["agent-context"],
- "position": 3
-}

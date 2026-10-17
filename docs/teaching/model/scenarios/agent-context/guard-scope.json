@@ -9,7 +9,6 @@
  "surface": "Shared client-local and server hook dispatch",
  "gap": "Candidate scope is covered by regression tests; deployed installed-harness delivery is unproved. See guard-scope-live-delivery.",
  "review": "Source and candidate tests; no live delivery claim.",
- "plan_refs": ["FIRST-USER.P3"],
  "sources": ["docs/public/agents/harness-discovery.md", "packages/yoke-core/src/yoke_core/hooks/runner.py", "packages/yoke-harness/src/yoke_harness/hooks/relay.py"],
  "position": 6
 }

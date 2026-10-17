@@ -11,7 +11,6 @@
  "current": "No universal unconditional native startup publisher is established. The required global hook orientation and user-level yoke-global appearance are also not proved by project-native rules or public docs; YOK-3975 owns that delivery and its actual receiving evidence.",
  "desired": "P4 explicitly adds no unconditional native startup publisher.",
  "plan_notes": ["FIRST-USER P4/D", "New delivery proposal"],
- "plan_refs": ["FIRST-USER.P4"],
  "sources": ["docs/public/agents/harness-discovery.md", "docs/public/cli/help.md", ".agents/skills/yoke/SKILL.md"],
  "work_items": ["YOK-3975"]
 }

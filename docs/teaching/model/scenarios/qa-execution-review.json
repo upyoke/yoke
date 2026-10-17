@@ -5,7 +5,6 @@
  "situations": ["A plan has started but is awaiting review.", "A user sees screenshots or green historical attempts and assumes completion.", "A plan execution is interrupted and must resume."],
  "coverage": "traced",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
  "questions": ["Method/policy validation and documented continuations inspected; no case execution or review performed.", "Verify UI labels separate deployment run, plan execution and QA attempt without forcing humans to learn database terms.", "Command nodes, when present, were checked with installed CLI --help only; this proves parser/help availability, not serving-control-plane capability or successful execution."],
  "related_scenarios": ["approval-types", "qa-correction", "work-progress-continuity"],
  "sources": ["docs/public/verification/standalone-plans.md", "docs/public/verification/exploration-evidence.md", "docs/public/verification/requirement-state.md"]

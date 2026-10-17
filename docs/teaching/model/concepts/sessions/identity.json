@@ -2,7 +2,6 @@
  "id": "identity",
  "title": "Session identity",
  "status": "observed",
- "plan_refs": ["FIRST-USER.23", "FIRST-USER.C", "FIRST-USER.P1", "JOURNEYS.situation-3"],
  "surface_refs": ["global-orientation", "project-orientation", "resume-context"],
  "commands": ["yoke sessions identity"],
  "functions": ["sessions.identity"],

@@ -23,6 +23,13 @@ Arguments: --project P or mapped `yoke projects checkout-context --field slug`;
 Read `yoke onboard checklist get --project P`; initialize only when it reports
 no saved run. A second machine reuses project choices and checks local prerequisites.
 
+First, check this session is ready: `yoke doctor run --session --project P`.
+Skip it only when this conversation just ran it and every check passed (agent
+setup ends with it). It checks this session's registration, its harness CLI
+sign-in and its unattended permissions; other installed harnesses never block
+it. Give the person each failed check's one next step (a new session, a
+restart, a sign-in or a hook approval), then rerun it; continue only when all pass.
+
 This session belongs to one project folder and never switches projects.
 Outside a project folder, `yoke-global` picks or adds the project, carries
 what the user wants and names the folder to open; start `/yoke onboard` in a

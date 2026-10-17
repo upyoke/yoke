@@ -5,8 +5,6 @@
  "situations": ["First installation", "A local user mentions another computer", "Joining an existing team or hosted organization"],
  "coverage": "traced",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
  "questions": ["Do prompts distinguish connection reachability, membership and machine permission?", "Do server, hosted and local branches each name the next reachable action?"],
- "plan_refs": ["FIRST-USER.3", "FIRST-USER.9", "FIRST-USER.31", "JOURNEYS.situation-8"],
  "sources": ["docs/public/start/modes.md"]
 }

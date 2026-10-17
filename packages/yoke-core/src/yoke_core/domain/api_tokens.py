@@ -14,6 +14,7 @@ from yoke_contracts.self_host_bootstrap_output import (
     TOKEN_PREFIX,
 )
 
+from yoke_contracts.machine_authorization import RETIRED_MACHINE_RECOVERY
 from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain import db_backend
 from yoke_core.domain.api_token_audit import _metadata_json
@@ -198,7 +199,7 @@ def verify_token(
             )
             raise TokenMachineRetired(
                 "Machine credential belongs to a retired machine. Recovery: "
-                "run the installer again to reconnect with a new machine identity."
+                f"{RETIRED_MACHINE_RECOVERY}"
             )
     if status != TOKEN_STATUS_ACTIVE:
         record_token_audit(

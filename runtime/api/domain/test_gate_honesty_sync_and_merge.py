@@ -252,6 +252,11 @@ def test_a_failed_merge_queue_probe_refusal_offers_undeclaring(monkeypatch):
         "project_declares_merge_queue",
         lambda project, dispatch=None: (False, "control plane unreachable"),
     )
+    monkeypatch.setattr(
+        merge_queue_route_selection,
+        "integration_dependency_refusal",
+        lambda **_kw: "",
+    )
     outcome = merge_queue_route_selection.route_standalone_landing(
         item_id="ITEM-7",
         branch="YOK-7",

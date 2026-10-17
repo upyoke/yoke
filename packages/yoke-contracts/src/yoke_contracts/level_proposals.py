@@ -114,7 +114,7 @@ def generate_level_changes(levels, records):
     return changes
 
 
-def unplaced_models(levels, records):
+def _unplaced(levels, records):
     placed = {
         _record(entry.model, records).model_id
         for level in levels
@@ -122,13 +122,33 @@ def unplaced_models(levels, records):
         if _record(entry.model, records)
     }
     return [
-        {
-            "model_id": record.model_id,
-            "provider": record.provider,
-            "display_name": record.display_name,
-        }
+        record
         for record in records
         if record.model_id not in placed and not record.replacement_model_id
+    ]
+
+
+def _model_row(record):
+    return {
+        "model_id": record.model_id,
+        "provider": record.provider,
+        "display_name": record.display_name,
+    }
+
+
+def unplaced_models(levels, records):
+    """Current models no level places that a level row could place.
+
+    A row needs a published minimum effort, so a model publishing no efforts
+    is listed by :func:`unplaceable_models` instead.
+    """
+    return [_model_row(r) for r in _unplaced(levels, records) if r.reasoning_efforts]
+
+
+def unplaceable_models(levels, records):
+    """Current unplaced models that publish no efforts, so no row can name them."""
+    return [
+        _model_row(r) for r in _unplaced(levels, records) if not r.reasoning_efforts
     ]
 
 
@@ -202,5 +222,6 @@ __all__ = [
     "generate_level_changes",
     "published_capability_conflicts",
     "refuse_capability_conflicts",
+    "unplaceable_models",
     "unplaced_models",
 ]

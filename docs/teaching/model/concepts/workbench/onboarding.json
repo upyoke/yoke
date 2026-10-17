@@ -2,7 +2,6 @@
  "id": "onboarding",
  "title": "Onboarding panel",
  "status": "observed",
- "plan_refs": ["FIRST-USER.25", "FIRST-USER.27", "FIRST-USER.P5", "JOURNEYS.open-questions", "JOURNEYS.question-1", "JOURNEYS.question-2", "JOURNEYS.question-3", "JOURNEYS.question-4", "JOURNEYS.question-5", "JOURNEYS.question-6"],
  "surface_refs": ["workbench-cues"],
  "page": "workbench",
  "position": 3,

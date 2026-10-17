@@ -11,7 +11,6 @@
  "current": "docs/public/index.md is the manual overview with immediate-category contents from nav.yaml. Source defines nested web routes, generated breadcrumbs and CommonMark heading fragments; retired public URLs have no redirects. Platform must build and prove the exact Yoke candidate before web delivery can be credited.",
  "desired": "Publish the approved nested manual with breadcrumbs, heading links, visible exact source/release identity and retired old public URLs without redirects.",
  "plan_notes": ["New documentation organization proposal"],
- "plan_refs": ["FIRST-USER.40", "FIRST-USER.B"],
  "sources": ["docs/public/index.md", "docs/public/nav.yaml", "docs/public/documentation/navigation.md", "docs/public/documentation/verification.md"],
  "private_sources": ["platform"]
 }
