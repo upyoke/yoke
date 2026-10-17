@@ -30,6 +30,7 @@ _SESSIONS_AND_CLAIMS_DDL = f"""
             executor_version TEXT, machine_id TEXT,
             workspace TEXT NOT NULL,
             project_id INTEGER NOT NULL DEFAULT 1 REFERENCES projects(id),
+            org_id INTEGER,
             mode TEXT DEFAULT 'wait',
             quiet_reason TEXT DEFAULT NULL,
             keepalive_until TIMESTAMPTZ DEFAULT NULL,

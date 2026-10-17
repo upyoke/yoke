@@ -84,3 +84,86 @@ def test_launch_guard_exempts_only_itemless_steering(
             storage.resolve_work_launch_selection(None, request=request, relay=relay)
             is selected
         )
+
+
+@pytest.fixture
+def work_conn():
+    import sqlite3
+
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.executescript("""
+        CREATE TABLE projects(id INTEGER, slug TEXT);
+        INSERT INTO projects VALUES(1, 'garden'), (2, 'office');
+        CREATE TABLE items(id INTEGER, title TEXT, project_id INTEGER);
+        INSERT INTO items VALUES(3, 'Plant trees', 1);
+        CREATE TABLE item_refs(item_id INTEGER, public_ref TEXT);
+        INSERT INTO item_refs VALUES(3, 'GAR-3');
+        CREATE TABLE harness_sessions(session_id TEXT, project_id INTEGER,
+            executor TEXT, model TEXT, current_item_id INTEGER, ended_at TEXT);
+        INSERT INTO harness_sessions VALUES('session', 1, 'cursor', 'grok-4.7-high-fast', NULL, NULL);
+        CREATE TABLE work_claims(id INTEGER);
+    """)
+    yield conn
+    conn.close()
+
+
+def _target(epic=False):
+    from yoke_core.domain.work_claim_targets import (
+        make_item_target,
+        make_epic_task_target,
+    )
+
+    return make_epic_task_target(3, 1) if epic else make_item_target(3)
+
+
+@pytest.mark.parametrize("epic", [False, True])
+@pytest.mark.parametrize(
+    "project,code",
+    [(None, "SESSION_MACHINE_SCOPE_WORK_REFUSED"), (2, "SESSION_PROJECT_MISMATCH")],
+)
+def test_project_scope_refused_without_claim(work_conn, epic, project, code):
+    work_conn.execute("UPDATE harness_sessions SET project_id=?", (project,))
+    with pytest.raises(SessionError) as refusal:
+        from yoke_core.domain.sessions_lifecycle_claim import claim_work
+
+        claim_work(work_conn, session_id="session", target=_target(epic))
+    assert refusal.value.code == code
+    assert "GAR-3 (Plant trees)" in str(refusal.value)
+    assert "garden project folder" in str(refusal.value)
+    assert "sessions never switch projects" in str(refusal.value)
+    assert work_conn.execute("SELECT COUNT(*) FROM work_claims").fetchone()[0] == 0
+    assert (
+        work_conn.execute("SELECT current_item_id FROM harness_sessions").fetchone()[0]
+        is None
+    )
+
+
+def test_matching_project_session_admitted(work_conn, configured):
+    admission.require_session_work_eligibility(work_conn, "session", _target())
+
+
+def test_recheck_after_lock_refuses(work_conn, configured, monkeypatch):
+    from yoke_core.domain import sessions_lifecycle_claim as claims
+
+    def lock(conn, ids):
+        conn.execute("UPDATE harness_sessions SET project_id=2")
+        return {"session": None}
+
+    monkeypatch.setattr(claims, "lock_session_rows_for_claim_lifecycle", lock)
+    monkeypatch.setattr(
+        claims.binding_lock, "lock_work_claim_target_workflow_binding", lambda *a: None
+    )
+    # The empty conflict table lets the real acquisition reach its post-lock check.
+    work_conn.execute("DROP TABLE work_claims")
+    work_conn.execute(
+        "CREATE TABLE work_claims(target_kind TEXT, scope TEXT, session_id TEXT, released_at TEXT, claim_type TEXT)"
+    )
+    with pytest.raises(SessionError) as refusal:
+        claims.claim_work(work_conn, session_id="session", target=_target())
+    assert refusal.value.code == "SESSION_PROJECT_MISMATCH"
+    assert work_conn.execute("SELECT COUNT(*) FROM work_claims").fetchone()[0] == 0
+    assert (
+        work_conn.execute("SELECT current_item_id FROM harness_sessions").fetchone()[0]
+        is None
+    )

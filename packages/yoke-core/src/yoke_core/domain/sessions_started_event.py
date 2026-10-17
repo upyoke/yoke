@@ -27,13 +27,13 @@ def session_started_context(
     mode: str,
     executor_version: Optional[str],
     machine_id: Optional[str],
-    project_id: int,
+    project_id: int | None,
     entrypoint: Optional[str],
     reactivation_driver: Dict[str, Any],
 ) -> Dict[str, Any]:
     """Build the started-event context from the row as it now stands."""
     stored = conn.execute(
-        "SELECT executor, executor_surface FROM harness_sessions "
+        "SELECT executor, executor_surface, project_id, org_id FROM harness_sessions "
         f"WHERE session_id = {placeholder}",
         (session_id,),
     ).fetchone()
@@ -53,7 +53,9 @@ def session_started_context(
         context["executor_version"] = executor_version
     if machine_id:
         context["machine_id"] = machine_id
-    context["project_id"] = project_id
+    context["project_id"] = stored["project_id"] if stored is not None else project_id
+    context["org_id"] = stored["org_id"] if stored is not None else None
+    context["scope_kind"] = "project" if context["project_id"] is not None else "org"
     if entrypoint:
         context["entrypoint"] = entrypoint
     context.update(reactivation_driver)

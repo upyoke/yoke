@@ -49,7 +49,6 @@ def stamp(moment: datetime) -> str:
 def worker_connection():
     """A codex worker on this machine whose turn ended on the vendor."""
     conn = relay_connection()
-    conn.execute("ALTER TABLE harness_sessions ADD COLUMN actor_id INTEGER DEFAULT 1")
     conn.execute(
         "CREATE TABLE events ("
         "event_id TEXT PRIMARY KEY,event_name TEXT,event_kind TEXT,"

@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-
 import pytest
 
 from yoke_cli.config.machine_config import ConfiguredProject
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_harness import session_relay_runtime as runtime
+from yoke_harness import session_relay_working_directory as directories
 from yoke_harness.session_relay_claude import run_claude_cli_adapter
 from yoke_harness.session_relay_native_spawn import SupervisedNative
 
@@ -48,7 +48,7 @@ def _control_plane_job(**updates: object) -> dict[str, object]:
 @pytest.fixture
 def relay_context(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setattr(
-        runtime.machine_config,
+        directories.machine_config,
         "configured_projects",
         lambda **_kwargs: [ConfiguredProject(tmp_path, 10, {})],
     )

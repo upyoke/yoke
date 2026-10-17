@@ -25,6 +25,10 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
+from yoke_cli.commands.adapters.claims_work_folder_guard import (
+    refuse_caller_folder,
+    folder_response_recovery,
+)
 from yoke_cli.commands.adapters.claims_path_change import (
     CLAIM_PATH_AMEND_USAGE,
     CLAIM_PATH_WIDEN_USAGE,
@@ -122,6 +126,9 @@ def claims_work_acquire(args: List[str]) -> int:
     else:
         return usage_error("one of --item / --epic+--task-num / --process is required")
 
+    work_ref = parsed.item or (parsed.epic if parsed.task_num is not None else None)
+    if work_ref and refuse_caller_folder(work_ref):
+        return 1
     payload: Dict[str, Any] = {"target": target_spec}
     if parsed.reason:
         payload["reason"] = parsed.reason
@@ -132,6 +139,7 @@ def claims_work_acquire(args: List[str]) -> int:
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=write_transition_instructions,
+        response_recovery=folder_response_recovery(work_ref),
     )
 
 

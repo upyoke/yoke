@@ -48,6 +48,8 @@ class IdentityResponse(BaseModel):
     execution_level: Optional[str] = None
     workspace: Optional[str] = None
     project_id: Optional[int] = None
+    org_id: Optional[int] = None
+    scope_kind: str
     project_slug: Optional[str] = None
     actor_id: Optional[int] = None
     actor_label: Optional[str] = None
@@ -123,6 +125,8 @@ def handle_identity(request: FunctionCallRequest) -> HandlerOutcome:
             "execution_level": identity.execution_level,
             "workspace": identity.workspace,
             "project_id": identity.project_id,
+            "org_id": identity.org_id,
+            "scope_kind": identity.scope_kind,
             "project_slug": _project_slug(conn, identity.project_id),
             "actor_id": identity.actor_id,
             "actor_label": _actor_label(conn, identity.actor_id),

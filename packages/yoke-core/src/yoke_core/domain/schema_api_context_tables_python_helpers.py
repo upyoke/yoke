@@ -44,7 +44,19 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "enough leaves session_launches absent during delivery checks. Current "
             "launch reads also require workspace, offered_at and episode_started_at; "
             "isolated SQLite roster fixtures must model those columns and launch tables. "
-            "Wake attempt fixtures also seed their message and recipient foreign-key parents."
+            "Wake attempt fixtures also seed their message and recipient foreign-key parents. "
+            "session_message_recipients uses composite key (message_id, session_id), "
+            "wake_after, and required resolution_evidence/routing_snapshot. Wrong guesses: "
+            "recipient_id and available_at; neither column exists. The recipient DDL owner "
+            "is session_message_recipient_schema.create_session_message_recipient_table. "
+            "connected_relay_routes selects session_relays.actor_id; wrong guess: a "
+            "project-only roster fixture can omit the relay actor column. Preserve the "
+            "relay actor seed when modeling installed versions. "
+            "Org selectors call resolve_recipients with the authenticated actor_id. "
+            "Recipients store the exclusive recipient_owner pair; owner_key tags project "
+            "and org identities for insert_message's wake_after_by_owner map. Wrong "
+            "guess: omit the actor for org selection or index scheduling by a nullable "
+            "project id. Reuse recipient_policy for the stored recipient scope."
         ),
     },
     "runtime.api.domain.test_session_native_turn_end": {

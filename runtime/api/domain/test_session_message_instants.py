@@ -51,7 +51,7 @@ def test_native_message_write_and_cursor_keep_microseconds(test_db, zone):
         expires_at=instant + timedelta(hours=1),
         recipients=[],
         actor_recipients=[],
-        wake_after_by_project={},
+        wake_after_by_owner={},
     )
     assert inserted
     actual, kind = test_db.execute(
