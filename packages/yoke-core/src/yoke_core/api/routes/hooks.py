@@ -28,6 +28,7 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 
 from yoke_contracts.session_model_facts import facts_from_mapping
+from yoke_contracts.hook_evaluator_protocol import HOOK_EVALUATOR_CAPABILITIES
 from yoke_core.api.http_auth import HttpAuthContext, require_auth_context
 from yoke_core.api.observability import (
     now_ms,
@@ -75,13 +76,14 @@ def post_hooks_evaluate(
         return JSONResponse(
             status_code=400,
             content={
+                "capabilities": HOOK_EVALUATOR_CAPABILITIES,
                 "error": {
                     "code": "UNSUPPORTED_HOOK_SCHEMA",
                     "message": (
                         f"hook_schema {request.hook_schema} is not supported "
                         f"(server speaks {HOOK_WIRE_SCHEMA})"
                     ),
-                }
+                },
             },
         )
     deadline_ms = (
@@ -223,6 +225,7 @@ def _emit_route_denial(
     *,
     hook: str = "yoke_core.api.routes.hooks",
     guard_version_skew: str = "",
+    close_tool_call: bool = True,
 ) -> None:
     """Record a route refusal or annotate a chain denial during skew.
 
@@ -252,6 +255,7 @@ def _emit_route_denial(
             client_revision=str(client_revision),
             server_revision=str(server_revision),
             guard_version_skew=guard_version_skew,
+            close_tool_call=close_tool_call,
         )
     except Exception:
         pass
@@ -267,7 +271,9 @@ def _refuse_conversation_shaped(request: HookEvaluateRequest) -> JSONResponse | 
     if reason_key is None:
         return None
     reason = f"Yoke hook relay refused: {refusal_text(reason_key)}."
-    _emit_route_denial("conversation_shaped_session", reason, request)
+    _emit_route_denial(
+        "conversation_shaped_session", reason, request, close_tool_call=False
+    )
     return JSONResponse(
         content=_with_provenance(
             HookEvaluateResponse(
@@ -296,8 +302,11 @@ def _authorize_scope(
     if decision.denial_code is None:
         return decision, None
     reason = f"{decision.denial_code}: {decision.reason}"
-    _emit_route_denial(decision.denial_code, reason, request)
+    _emit_route_denial(decision.denial_code, reason, request, close_tool_call=False)
     return decision, JSONResponse(
+        status_code=503
+        if decision.denial_code == "HOOK_SCOPE_AUTH_UNAVAILABLE"
+        else 200,
         content=HookEvaluateResponse(
             stdout=f"{reason}\n",
             exit_code=1,

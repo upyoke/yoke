@@ -14,14 +14,15 @@ from pydantic import BaseModel, Field, ValidationError
 from yoke_contracts.hook_evaluator_protocol import (
     HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD,
     HOOK_CLIENT_WALL_BATCH_FIELD,
+    HOOK_EVALUATOR_CAPABILITIES,
 )
 from yoke_contracts.hook_resident_routing import is_read_only_tool_event
 from yoke_core.api.http_auth import require_auth_context
 from yoke_core.hooks.relayed_session_identity import (
     refusal_text,
-    session_ownership_refusal,
     stamped_identity_refusal,
 )
+from yoke_core.domain.session_scope_identity import authorize_hook_request
 from yoke_core.hooks.observation_batch import persist_observation_batch
 
 
@@ -56,7 +57,10 @@ class HookClientWallBatchRequest(BaseModel):
 def _error(status: int, code: str, message: str) -> JSONResponse:
     return JSONResponse(
         status_code=status,
-        content={"error": {"code": code, "message": message}},
+        content={
+            "error": {"code": code, "message": message},
+            "capabilities": HOOK_EVALUATOR_CAPABILITIES,
+        },
     )
 
 
@@ -76,8 +80,6 @@ def post_hook_observation_batch(
     from yoke_core.api.routes.hooks import HookEvaluateRequest, HOOK_WIRE_SCHEMA
 
     validated: list[dict[str, Any]] = []
-    project_ids: set[int] = set()
-    session_ids: set[str] = set()
     for observation in batch.observations:
         try:
             hook_request = HookEvaluateRequest.model_validate(observation.hook_request)
@@ -119,50 +121,37 @@ def post_hook_observation_batch(
                 "HOOK_OBSERVATION_SESSION_INVALID",
                 f"batched hook payload {refusal_text(reason_key)}",
             )
-        session_ids.add(str(payload["session_id"]).strip())
-        if hook_request.project_id is None:
-            return _error(
-                403,
-                "HOOK_OBSERVATION_PROJECT_REQUIRED",
-                "batched hook payload has no project id",
-            )
-        project_ids.add(int(hook_request.project_id))
+        session_id = str(payload["session_id"]).strip()
+        decision = authorize_hook_request(
+            auth.actor_id,
+            hook_request.project_id,
+            [session_id],
+            machine_id=hook_request.machine_id,
+            authenticated_machine_id=auth.machine_id,
+            event_name=hook_request.event_name,
+        )
+        if decision.denial_code is not None:
+            unavailable = decision.denial_code == "HOOK_SCOPE_AUTH_UNAVAILABLE"
+            code = {
+                "HOOK_SCOPE_AUTH_UNAVAILABLE": "HOOK_OBSERVATION_AUTH_UNAVAILABLE",
+                "HOOK_SESSION_DENIED": "HOOK_OBSERVATION_SESSION_DENIED",
+                "HOOK_PROJECT_DENIED": "HOOK_OBSERVATION_PROJECT_DENIED",
+            }.get(decision.denial_code, decision.denial_code)
+            return _error(503 if unavailable else 403, code, decision.reason)
+        # Persistence merges extras into stdin. Bind every identity field after
+        # untrusted extras, including an authorized absent project.
+        hook_request.project_id = decision.project_id
+        hook_request.payload_extra.update(
+            session_id=session_id,
+            identity_stamped=True,
+            project_id=decision.project_id,
+            machine_id=hook_request.machine_id,
+            actor_id=auth.actor_id,
+        )
         raw = observation.model_dump()
         raw["hook_request"] = hook_request.model_dump()
         validated.append(raw)
 
-    try:
-        from yoke_core.domain import db_helpers
-        from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
-
-        with db_helpers.connect() as conn:
-            visible = actor_visible_project_ids(conn, auth.actor_id) or set()
-            owner_refusal = next(
-                (
-                    refusal
-                    for session_id in sorted(session_ids)
-                    if (
-                        refusal := session_ownership_refusal(
-                            conn, session_id, auth.actor_id
-                        )
-                    )
-                ),
-                None,
-            )
-    except Exception:
-        return _error(
-            503,
-            "HOOK_OBSERVATION_AUTH_UNAVAILABLE",
-            "project authorization could not be checked; retry the batch",
-        )
-    if owner_refusal is not None:
-        return _error(403, "HOOK_OBSERVATION_SESSION_DENIED", owner_refusal)
-    if not project_ids.issubset({int(value) for value in visible}):
-        return _error(
-            403,
-            "HOOK_OBSERVATION_PROJECT_DENIED",
-            "actor cannot access every project in the observation batch",
-        )
     try:
         accepted, model_confirmations = persist_observation_batch(
             validated, actor_id=auth.actor_id
@@ -173,7 +162,11 @@ def post_hook_observation_batch(
             "YOKE_HOOK_OBSERVATION_BATCH_FAILED",
             f"observation batch was retained for retry ({type(exc).__name__})",
         )
-    response: dict[str, Any] = {"hook_schema": 1, "accepted": accepted}
+    response: dict[str, Any] = {
+        "hook_schema": 1,
+        "accepted": accepted,
+        "capabilities": HOOK_EVALUATOR_CAPABILITIES,
+    }
     if model_confirmations:
         response[HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD] = model_confirmations
     return JSONResponse(content=response)
@@ -217,6 +210,7 @@ def post_hook_client_wall(
             "hook_schema": 1,
             "accepted": accepted,
             "field": HOOK_CLIENT_WALL_BATCH_FIELD,
+            "capabilities": HOOK_EVALUATOR_CAPABILITIES,
         }
     )
 
