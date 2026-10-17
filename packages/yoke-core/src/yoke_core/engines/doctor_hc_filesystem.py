@@ -109,6 +109,7 @@ def _settings_key_issues(settings: dict) -> List[str]:
     shape — nothing reads it at all.
     """
     from yoke_contracts.machine_config.settings_keys import (
+        MACHINE_SETTING_KEYS,
         db_owned_settings,
         unrecognized_settings,
     )
@@ -121,10 +122,13 @@ def _settings_key_issues(settings: dict) -> List[str]:
             "machine copy — remove the key and set it on the capability"
         )
     for key in unrecognized_settings(settings):
-        issues.append(
-            f"- settings.{key} has no reader — remove it, or register it in "
-            "yoke_contracts.machine_config.settings_keys when a reader lands"
-        )
+        issues.append(f"- settings.{key} is unknown. Recovery: yoke settings list")
+    for key, spec in MACHINE_SETTING_KEYS.items():
+        if key in settings:
+            try:
+                spec.stored_value(key, settings[key])
+            except ValueError as exc:
+                issues.append(f"- {exc}; Recovery: yoke settings unset {key}")
     return issues
 
 

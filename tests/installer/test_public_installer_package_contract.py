@@ -103,7 +103,7 @@ class _InstallPyRunner:
             return subprocess.CompletedProcess(command, 0, f"{self.version}\n", "")
         if command[1:] == ["--help"]:
             return subprocess.CompletedProcess(command, 0, "usage: yoke\n", "")
-        if command[1:4] == ["config", "distribution", "set"]:
+        if command[1:4] == ["settings", "set", "distribution"]:
             return subprocess.CompletedProcess(command, 0, "", "")
         if command[1:] == ["wsl", "setup"]:
             return subprocess.CompletedProcess(command, 0, "", "")

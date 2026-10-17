@@ -45,7 +45,7 @@ test("machine access shows only relevant labeled fields and resolves names to ac
   actor.dispatchEvent(new Event("change"));
   find(card, "BUTTON", "Save access").dispatchEvent(new Event("click"));
   await settle();
-  assert.deepEqual(requests.filter((request) => request.function === "machine.settings.set").map((request) => request.payload), [
+  assert.deepEqual(requests.filter((request) => request.function === "machine.access.set").map((request) => request.payload), [
     { machine_id: "machine-a", path: "use", value: { mode: "actors", actor_ids: [8] } },
   ]);
   assert.equal(reloads(), 1);

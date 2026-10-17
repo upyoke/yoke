@@ -673,13 +673,12 @@ class Installer:
     def _record_distribution(self, yoke_bin: str) -> None:
         argv = [
             yoke_bin,
-            "config",
-            "distribution",
+            "settings",
             "set",
-            "--origin",
-            self.options.base_url,
-            "--channel",
-            self.options.channel,
+            "distribution",
+            json.dumps(
+                {"origin": self.options.base_url, "channel": self.options.channel}
+            ),
         ]
         result = self.capture_runner(argv)
         if result.returncode != 0:

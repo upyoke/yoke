@@ -6,7 +6,7 @@ absent row means the universe reads the shipped scheme
 (:data:`yoke_contracts.level_defaults.DEFAULT_LEVELS`), so a shipped change
 reaches every universe that never stored the key. A stored row freezes that
 document at write time and stops the universe following later shipped
-defaults. ``yoke universe levels reset`` deletes the row so the universe
+defaults. ``yoke settings unset levels`` deletes the row so the universe
 follows shipped defaults again, and writing a document equal to today's shipped
 defaults stores nothing, so it keeps following them.
 The same explicit-write rule applies to ``cursor_quota_order``. Retention's
@@ -84,7 +84,7 @@ def stored_universe_levels(conn: Any) -> Any:
     return _loads(
         row[0],
         where="the stored universe levels",
-        repair="store a valid document with `yoke universe levels set`.",
+        repair="store a valid document with `yoke settings set levels`.",
     )
 
 

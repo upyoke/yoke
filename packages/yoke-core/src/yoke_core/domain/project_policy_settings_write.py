@@ -14,6 +14,11 @@ from yoke_contracts.project_contract.disposable_generated_paths_policy import (
 from yoke_contracts.title_policy import title_max_length_setting_error
 
 from yoke_core.domain import json_helper
+from yoke_contracts.project_contract.project_keys import (
+    RECOGNIZED_PROJECT_KEYS,
+    DB_PROJECT_POLICY_KEYS,
+)
+from yoke_contracts.settings_catalog import resolve_setting
 
 
 def validate_json_string(raw_json: str) -> str:
@@ -21,6 +26,15 @@ def validate_json_string(raw_json: str) -> str:
     payload = json_helper.loads_text(raw_json)
     if not isinstance(payload, dict):
         raise ValueError("project-policy settings must be a JSON object")
+    for key, value in payload.items():
+        if key == "board":  # Structured board preferences retain their own owner.
+            continue
+        if key not in DB_PROJECT_POLICY_KEYS:
+            resolve_setting(key)  # supplies the closest-key recovery for unknown keys
+            raise ValueError(
+                f"setting_scope_invalid: {key} is not project policy. Recovery: yoke settings list --scope project"
+            )
+        RECOGNIZED_PROJECT_KEYS[key].validate(key, value)
     if "title_max_length" in payload:
         error = title_max_length_setting_error(payload["title_max_length"])
         if error:
