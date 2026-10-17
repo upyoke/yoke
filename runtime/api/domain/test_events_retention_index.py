@@ -6,7 +6,6 @@ import pytest
 
 from yoke_contracts.schema_authority import serving_build_authority
 from yoke_core.domain.events_retention_index import (
-    BOOTSTRAP_AUDIT_RECORD,
     RETENTION_INDEX_NAME,
     ensure_retention_index,
     verify_retention_index,
@@ -17,14 +16,7 @@ migration = importlib.import_module(
 )
 
 
-def _receipts(conn):
-    return conn.execute(
-        "SELECT COUNT(*) FROM migration_audit WHERE migration_name=%s",
-        (BOOTSTRAP_AUDIT_RECORD["name"],),
-    ).fetchone()[0]
-
-
-def test_born_schema_carries_index_and_migration_rebuilds_it_once(test_db):
+def test_born_schema_carries_index_and_migration_rebuilds_it(test_db):
     verify_retention_index(test_db)
     test_db.execute(f"DROP INDEX {RETENTION_INDEX_NAME}")
     test_db.commit()
@@ -36,7 +28,6 @@ def test_born_schema_carries_index_and_migration_rebuilds_it_once(test_db):
         migration.apply(test_db)
         ensure_retention_index(test_db)
     migration.invariants(test_db)
-    assert _receipts(test_db) == 1
 
 
 def test_differently_defined_index_refuses_rebuild(test_db):

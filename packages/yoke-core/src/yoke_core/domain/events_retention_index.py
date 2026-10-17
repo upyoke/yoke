@@ -1,8 +1,13 @@
-"""Nonblocking, auditable boot convergence of the event retention index.
+"""Nonblocking boot convergence of the event retention index.
 
 Universe prune reads each severity's expired events as one index range
 (``severity = S AND created_at < cutoff ORDER BY created_at``). Without this
 index a nearly clean, large events table is scanned whole for its last rows.
+
+The build follows ``events_function_index``: concurrent DDL on a separate
+autocommit connection, serialized by an advisory lock, so event writers keep
+inserting. The governed entry 0080_events_retention_index records it in the
+migration ledger; the catalog check is its proof, so no audit receipt is kept.
 """
 
 from __future__ import annotations
@@ -11,22 +16,11 @@ from typing import Any
 
 from psycopg.conninfo import make_conninfo
 
-from yoke_contracts.control_plane_locality import local_authority_exempt
 from yoke_contracts.schema_authority import refuse_without_serving_build_authority
 from yoke_core.domain import administered_postgres, db_backend
-from yoke_core.domain.migration_harness_audit import record_audit_fingerprint
 
 RETENTION_INDEX_NAME = "idx_events_severity_created"
 RETENTION_INDEX_COLUMNS = ("severity", "created_at")
-BOOTSTRAP_AUDIT_RECORD = {
-    "name": "events-retention-index",
-    "description": f"Concurrent additive index validated: {RETENTION_INDEX_NAME}",
-    "exception_reason": "events-retention-index: additive catalog only; no rows rewritten",
-    "tables": [],
-    "pre_counts": {},
-    "post_counts": {},
-    "backup_reason": None,
-}
 
 
 def _index_state(conn: Any):
@@ -104,17 +98,6 @@ def ensure_retention_index(conn: Any) -> None:
                     f"({', '.join(RETENTION_INDEX_COLUMNS)})"
                 )
             verify_retention_index(index_conn)
-            recorded = index_conn.execute(
-                "SELECT 1 FROM migration_audit WHERE migration_name=%s "
-                "AND state='completed' LIMIT 1",
-                (BOOTSTRAP_AUDIT_RECORD["name"],),
-            ).fetchone()
-            if recorded is None:
-                with db_backend.bound_pg_dsn(dsn), local_authority_exempt():
-                    record_audit_fingerprint(
-                        db_path=dsn,
-                        **BOOTSTRAP_AUDIT_RECORD,
-                    )
         finally:
             index_conn.execute(
                 "SELECT pg_advisory_unlock(hashtext(%s))", (RETENTION_INDEX_NAME,)
