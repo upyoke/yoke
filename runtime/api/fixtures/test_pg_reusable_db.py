@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 
 import psycopg
@@ -90,7 +91,7 @@ def test_checkout_reuses_database_and_resets_to_baseline(flavor):
             conn.close()
 
 
-def test_analyze_drift_rebuilds_without_retaining_session_settings(flavor):
+def test_analyze_drift_rebuilds_without_retaining_session_settings(flavor, capsys):
     with pg_reusable_db.checkout(flavor, _build_small_db) as first:
         conn = _connect(first)
         try:
@@ -109,6 +110,19 @@ def test_analyze_drift_rebuilds_without_retaining_session_settings(flavor):
             )
         finally:
             conn.close()
+
+    evidence = capsys.readouterr().err
+    assert "reusable database invalidated: " in evidence
+    details = json.loads(evidence.split("reusable database invalidated: ", 1)[1])
+    assert set(details) == {"reason", "changes"}
+    assert details["reason"] == "planner_statistics"
+    assert "reltuples" in details["changes"]["parent_rows"]
+    assert all(
+        set(fields) <= {"reltuples", "relpages", "relallvisible", "column_statistics"}
+        for fields in details["changes"].values()
+    )
+    assert "seed" not in evidence
+    assert "host=" not in evidence and "dbname=" not in evidence
 
     with pg_reusable_db.checkout(flavor, _build_small_db) as second:
         conn = _connect(second)
@@ -133,7 +147,7 @@ def test_analyze_drift_rebuilds_without_retaining_session_settings(flavor):
             conn.close()
 
 
-def test_ddl_drift_discards_and_rebuilds(flavor):
+def test_ddl_drift_discards_and_rebuilds(flavor, capsys):
     with pg_reusable_db.checkout(flavor, _build_small_db) as first:
         conn = _connect(first)
         try:
@@ -141,6 +155,12 @@ def test_ddl_drift_discards_and_rebuilds(flavor):
             conn.commit()
         finally:
             conn.close()
+
+    evidence = capsys.readouterr().err
+    assert "reusable database invalidated: " in evidence
+    assert json.loads(evidence.split("reusable database invalidated: ", 1)[1]) == {
+        "reason": "schema"
+    }
 
     # The drifted database is discarded and the flavor rebuilt from
     # scratch. Whether the discarded database is destroyed or recycled as
