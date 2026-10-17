@@ -12,12 +12,12 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 MODELS_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="universe.cursor_quota_order.get",
-        cli_invocation="yoke universe cursor-quota-order get",
+        cli_invocation="yoke settings get cursor_quota_order",
         notes="Cursor monthly pool consumption order.",
     ),
     _read_entry(
         function_id="universe.cursor_quota_order.set",
-        cli_invocation="yoke universe cursor-quota-order set --pool P --pool P",
+        cli_invocation="yoke settings set cursor_quota_order JSON_ARRAY",
         notes="Set Cursor Models and Other Models in consumption order. Org admin required.",
     ),
     _read_entry(
@@ -62,7 +62,7 @@ MODELS_ADAPTERS: List[AdapterEntry] = [
     ),
     _read_entry(
         function_id="universe.levels.get",
-        cli_invocation="yoke universe levels get",
+        cli_invocation="yoke settings get levels",
         notes="Read the universe execution levels, lowest first, and whether they are stored or the shipped default.",
     ),
     _read_entry(
@@ -72,12 +72,12 @@ MODELS_ADAPTERS: List[AdapterEntry] = [
     ),
     _read_entry(
         function_id="universe.levels.set",
-        cli_invocation="yoke universe levels set --stdin",
+        cli_invocation="yoke settings set levels -",
         notes="Replace the universe execution levels; a document equal to the shipped defaults stores nothing. Org admin required.",
     ),
     _read_entry(
         function_id="universe.levels.reset",
-        cli_invocation="yoke universe levels reset",
+        cli_invocation="yoke settings unset levels",
         notes="Delete the stored universe levels so the universe follows shipped defaults. Org admin required.",
     ),
 ]

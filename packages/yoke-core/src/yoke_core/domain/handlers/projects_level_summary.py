@@ -69,7 +69,7 @@ def handle_level_summary_get(request: FunctionCallRequest) -> HandlerOutcome:
             f"the stored levels no longer validate at {exc.field}: {exc.detail} "
             "Recovery: rewrite the project override with `yoke projects "
             "capability-settings set --cap-type session-routing`, or the "
-            "universe levels with `yoke universe levels set --stdin`.",
+            "universe levels with `yoke settings set levels -`.",
             "$.payload.project",
         )
     except (UniverseLevelsError, ValueError) as exc:

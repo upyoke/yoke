@@ -42,8 +42,8 @@ HARNESS_TABLES: dict[str, dict] = {
             "session_control.relay.list — a checkout is a launch prerequisite, "
             "not a condition of being seen. "
             f"{OFFERS_ENFORCEMENT_NOTE} Read via machine.list / machine.show / "
-            "machine.detail / machine.settings.get; write via machine.register, "
-            "machine.retire, and machine.settings.set — never raw SQL. Retirement "
+            "machine.detail / machine.access.get; write via machine.register, "
+            "machine.retire, and machine.access.set — never raw SQL. Retirement "
             "revokes only machine-bound tokens and preserves machine, session, "
             "and launch history; a retired id never reconnects."
         ),
@@ -113,7 +113,7 @@ HARNESS_TABLES: dict[str, dict] = {
             "execution levels JSON list (lowest first); no row means the "
             "shipped INTERN < JUNIOR < SENIOR < PRINCIPAL scheme. A project's "
             'session-routing capability may override it with {"levels": '
-            "[...]}. Read with `yoke universe levels get`, write with `yoke "
+            "[...]}. Read with `yoke settings get levels`, write with `yoke "
             "universe levels set --stdin`; never update rows directly."
         ),
     },

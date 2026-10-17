@@ -43,7 +43,7 @@ READ_FUNCTION_IDS = frozenset(
         "items.deployment_flow.claim_default items.detail.get items.get.run "
         "items.list.run items.overview.list items.progress_log.get "
         "items.search.run items.section.get lint.config.show machine.detail "
-        "machine.list machine.settings.get machine.show machine_authorization.get "
+        "machine.list machine.access.get machine.show machine_authorization.get "
         "merge.audit.snapshot merge.preflight.blocked_gate "
         "merge.preflight.dependency_gate merge.preflight.epic_task_statuses "
         "merge.prune.authority_verdict merge.prune.authority_verdicts "

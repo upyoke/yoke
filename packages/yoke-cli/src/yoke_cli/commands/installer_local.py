@@ -28,10 +28,7 @@ from yoke_cli.commands.adapters.github_credential_helper import (
 )
 from yoke_cli.commands.adapters.self_update import UPDATE_USAGE, update
 from yoke_cli.commands.adapters.machine_uninstall import UNINSTALL_USAGE, uninstall
-from yoke_cli.commands.adapters.distribution import (
-    DISTRIBUTION_SET_USAGE,
-    distribution_set,
-)
+from yoke_cli.commands.adapters import settings
 from yoke_cli.commands.adapters.path_doctor import (
     path_check,
     path_fix,
@@ -63,7 +60,10 @@ from yoke_cli.commands.flag_adapters import (
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("hook", "resident"): resident_lifecycle,
     ("wsl", "setup"): wsl_setup,
-    ("config", "distribution", "set"): distribution_set,
+    ("settings", "list"): settings.list_settings,
+    ("settings", "get"): settings.get,
+    ("settings", "set"): settings.set_value,
+    ("settings", "unset"): settings.unset,
     ("aws", "admin-link"): aws_admin_link,
     ("aws", "admin-status"): aws_admin_status,
     ("aws", "exec"): aws_exec,
@@ -96,7 +96,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
 TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke hook resident": LIFECYCLE_USAGE,
     "yoke wsl setup": WSL_SETUP_USAGE,
-    "yoke config distribution set": DISTRIBUTION_SET_USAGE,
+    **{f"yoke settings {verb}": usage for verb, usage in settings.USAGES.items()},
     "yoke aws admin-link": "yoke aws admin-link [--project PROJECT] [--region REGION]",
     "yoke aws admin-status": "yoke aws admin-status [--project PROJECT] [--json]",
     "yoke aws exec": "yoke aws exec [--project PROJECT] [--region REGION] -- <aws-args>",

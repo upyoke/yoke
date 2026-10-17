@@ -14,7 +14,13 @@ project-file policy owned by
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
+from typing import Dict
+
+from yoke_contracts.setting_spec import SettingSpec
+from yoke_contracts.project_contract.disposable_generated_paths_policy import (
+    DISPOSABLE_GENERATED_PATHS_DEFAULT,
+)
+
 
 from yoke_contracts.title_policy import (
     DEFAULT_TITLE_MAX_LENGTH,
@@ -27,52 +33,64 @@ from yoke_contracts.title_policy import (
 PROJECT_POLICY_CAPABILITY = "project-policy"
 SESSION_ROUTING_CAPABILITY = "session-routing"
 
-RECOGNIZED_PROJECT_KEYS: Dict[str, Tuple[str, str]] = {
-    "title_max_length": (
-        str(DEFAULT_TITLE_MAX_LENGTH),
+RECOGNIZED_PROJECT_KEYS: Dict[str, SettingSpec] = {
+    "title_max_length": SettingSpec(
+        DEFAULT_TITLE_MAX_LENGTH,
+        int,
         "title character limit enforced on item/epic-task creation and "
         f"title edits (minimum {TITLE_MAX_LENGTH_MINIMUM})",
+        minimum=TITLE_MAX_LENGTH_MINIMUM,
     ),
-    "base_branch": (
-        "main",
-        "trunk branch worktrees branch from and merges land on",
+    "base_branch": SettingSpec(
+        "main", str, "trunk branch worktrees branch from and merges land on"
     ),
-    "wip_cap": (
-        "30",
-        "scheduler WIP cap for conduct-eligible items",
+    "wip_cap": SettingSpec(
+        30, int, "scheduler WIP cap for conduct-eligible items", minimum=0
     ),
-    "worktrees_dir": (
-        ".worktrees",
-        "checkout-relative directory holding linked worktrees",
-    ),
-    "default_priority": (
+    "default_priority": SettingSpec(
         "medium",
+        str,
         "priority assigned to new backlog items when none is given",
+        allowed_values=("low", "medium", "high", "critical"),
     ),
-    "merge_conflict_threshold": (
-        "2",
+    "merge_conflict_threshold": SettingSpec(
+        2,
+        int,
         "rebase auto-resolve passes allowed before falling back to merge",
+        minimum=0,
     ),
-    "max_attempts": (
-        "5",
-        "dispatch attempts per epic task before the chain halts",
+    "max_attempts": SettingSpec(
+        5, int, "dispatch attempts per epic task before the chain halts", minimum=0
     ),
-    "steering_report_staffing_minutes": (
-        "5",
+    "steering_report_staffing_minutes": SettingSpec(
+        5,
+        int,
         "how long runnable unclaimed work may sit before the steering report "
         "marks it overdue rather than merely available",
+        minimum=0,
     ),
-    "steering_report_idle_minutes": (
-        "20",
+    "steering_report_idle_minutes": SettingSpec(
+        20,
+        int,
         "how long a claim holder stays quiet before the steering report "
         "presumes it stuck",
+        minimum=0,
     ),
-    "steering_report_interval_minutes": (
-        "2",
+    "steering_report_interval_minutes": SettingSpec(
+        2,
+        int,
         "shortest gap between fleet reports appended to one steering "
         "session's messages",
+        minimum=0,
     ),
 }
+
+
+RECOGNIZED_PROJECT_KEYS["disposable_generated_paths"] = SettingSpec(
+    list(DISPOSABLE_GENERATED_PATHS_DEFAULT),
+    list,
+    "generated paths safe to retire with a landed worktree",
+)
 
 #: Keys this contract used to recognize, and the reason each one went. The
 #: stored capability documents are converged against this set so a retired
@@ -94,17 +112,17 @@ RETIRED_PROJECT_KEYS: Dict[str, str] = {
 
 # Typed int form of the ``wip_cap`` source default — import this instead of
 # restating the numeric literal at call sites and response-model defaults.
-DEFAULT_WIP_CAP = int(RECOGNIZED_PROJECT_KEYS["wip_cap"][0])
+DEFAULT_WIP_CAP = int(RECOGNIZED_PROJECT_KEYS["wip_cap"].default)
 
 # Typed int forms of the steering-report defaults, for the same reason.
 DEFAULT_STEERING_REPORT_STAFFING_MINUTES = int(
-    RECOGNIZED_PROJECT_KEYS["steering_report_staffing_minutes"][0]
+    RECOGNIZED_PROJECT_KEYS["steering_report_staffing_minutes"].default
 )
 DEFAULT_STEERING_REPORT_IDLE_MINUTES = int(
-    RECOGNIZED_PROJECT_KEYS["steering_report_idle_minutes"][0]
+    RECOGNIZED_PROJECT_KEYS["steering_report_idle_minutes"].default
 )
 DEFAULT_STEERING_REPORT_INTERVAL_MINUTES = int(
-    RECOGNIZED_PROJECT_KEYS["steering_report_interval_minutes"][0]
+    RECOGNIZED_PROJECT_KEYS["steering_report_interval_minutes"].default
 )
 
 LOCAL_PROJECT_KEYS = frozenset({"worktrees_dir"})

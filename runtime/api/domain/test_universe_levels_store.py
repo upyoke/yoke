@@ -170,7 +170,7 @@ class TestStore:
         with pytest.raises(universe_levels.UniverseLevelsError) as caught:
             universe_levels.effective_levels(conn, None)
         assert caught.value.code == "levels_document_unreadable"
-        assert "yoke universe levels set" in str(caught.value)
+        assert "yoke settings set levels" in str(caught.value)
 
 
 class TestUniverseHandlers:

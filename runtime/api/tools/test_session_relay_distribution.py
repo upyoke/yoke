@@ -114,7 +114,7 @@ def test_undeclared_or_invalid_distribution_refuses_before_install(
     assert raised.value.code == RELAY_RELEASE_FETCH_FAILED
     assert reason in message
     assert "requires a declared install distribution" in message
-    assert "yoke config distribution set --origin URL --channel NAME" in message
+    assert "yoke settings set distribution" in message
     assert "yoke update --version VERSION" in message
     assert "official installer" in message
     assert "yoke --env prod relay status" in message

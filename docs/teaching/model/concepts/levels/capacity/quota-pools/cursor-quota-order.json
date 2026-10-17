@@ -1,11 +1,11 @@
 {
  "id": "cursor-quota-order",
  "title": "Cursor monthly pool order",
- "status": "verified-live",
+ "status": "observed",
  "text": "Cursor Models precedes Other Models in the shipped order. An absent universe_settings row reads that order. A stored row freezes it at write time; delete the row with a reviewed yoke operator data-repair to follow the shipped order again. Admins can reverse the two rows in Settings or replace the whole order with the registered CLI. This is universe-wide, not per machine; available Cursor candidates prefer the earlier pool before headroom.",
- "commands": ["yoke universe cursor-quota-order get", "yoke universe cursor-quota-order set"],
+ "commands": ["yoke settings get", "yoke settings set"],
  "functions": ["universe.cursor_quota_order.get", "universe.cursor_quota_order.set"],
- "recipes": ["yoke universe cursor-quota-order get --json", "yoke universe cursor-quota-order set --pool 'Cursor Models' --pool 'Other Models'"],
+ "recipes": ["yoke settings get cursor_quota_order --json", "yoke settings set cursor_quota_order '[\"Cursor Models\", \"Other Models\"]'"],
  "evidence": "Production QA run 45473 / artifact 32323 proves two rows and move controls; universe.cursor_quota_order.get reread 2026-10-13. Mutation and placement mechanics observed in source.",
  "page": "levels",
  "position": 0

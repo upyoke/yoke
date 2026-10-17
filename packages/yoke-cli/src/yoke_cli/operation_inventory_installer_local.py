@@ -17,7 +17,10 @@ from yoke_cli.operation_inventory_model import (
 PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke hook resident", "hook", REASON_TOOL_SHAPED),
     _p("yoke wsl setup", "wsl", REASON_TOOL_SHAPED),
-    _p("yoke config distribution set", "config", REASON_TOOL_SHAPED),
+    _p("yoke settings list", "settings", REASON_TOOL_SHAPED),
+    _p("yoke settings get", "settings", REASON_TOOL_SHAPED),
+    _p("yoke settings set", "settings", REASON_TOOL_SHAPED),
+    _p("yoke settings unset", "settings", REASON_TOOL_SHAPED),
     _p("yoke aws admin-link", "aws", REASON_TOOL_SHAPED),
     _p("yoke aws admin-status", "aws", REASON_TOOL_SHAPED),
     _p("yoke aws exec", "aws", REASON_TOOL_SHAPED),
