@@ -78,12 +78,29 @@ def _case_result(
             f"SELECT q.id FROM qa_requirements q WHERE q.plan_id={marker} "
             f"AND q.plan_case_key={marker} AND COALESCE(q.host_baseline,'')={marker} "
             f"AND NOT ({unretracted_requirement_sql(conn, 'q')} "
-            f"AND {unanswered_attempt_sql(conn, 'q')}) {deployment_filter} ",
+            f"AND {unanswered_attempt_sql(conn, 'q')}) {deployment_filter} "
+            "ORDER BY q.id DESC",
             params,
         )
-        if retired:
-            for requirement in retired:
+        for requirement in retired:
+            try:
                 effective_requirement(conn, int(requirement["id"]))
+            except ValueError as exc:
+                if not str(exc).startswith("replacement_graph_invalid:"):
+                    raise
+                # A broken link settles nothing; name it instead of failing the read.
+                return {
+                    "requirement_id": int(requirement["id"]),
+                    "run_id": None,
+                    "deployment_run_id": deployment_run_id,
+                    "host_baseline": host_baseline,
+                    "target_env": target_env,
+                    "outcome": "replacement_graph_invalid",
+                    "replacement_graph_error": str(exc),
+                    "output_tail": None,
+                    "evidence": [],
+                }
+        if retired:
             # A declared retirement is history, unlike a case never set up.
             return None
         return {
