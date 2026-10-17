@@ -8,9 +8,10 @@
  "location": "Existing Projects, Strategy, Frontier, Sessions, Inbox and Shipping surfaces",
  "basis": "Existing surfaces · JOURNEYS cues",
  "note": "Reuse the existing screens and live state owners. A new all-purpose Overview dashboard is not assumed.",
- "current": "Existing source references; delivered content is not yet proved.",
+ "current": "Machines and the approval route share pending requests and personal decisions; Team holds people, roles and invites; Profile shows personal tokens once. Local notices explain reachability. These source behaviors do not prove hosted consumer adoption or deployment.",
  "desired": "Teach scope, project selection, actual readiness and useful next action; detailed dashboard adoption design remains open.",
  "plan_notes": ["FIRST-USER P5", "JOURNEYS 9–15"],
- "plan_refs": ["FIRST-USER.P5", "FIRST-USER.P7", "FIRST-USER.4", "FIRST-USER.12", "FIRST-USER.27"],
+ "plan_refs": ["FIRST-USER.P5", "FIRST-USER.P7", "FIRST-USER.4", "FIRST-USER.12", "FIRST-USER.27", "FIRST-USER.33"],
+ "gaps": ["admission-journeys-delivery-proof"],
  "sources": ["packages/yoke-core/src/yoke_core/domain/session_orientation.py", "packages/yoke-core/src/yoke_core/ui/static/universe_views_frontier.js", "packages/yoke-core/src/yoke_core/ui/static/universe_views_sessions.js", "packages/yoke-core/src/yoke_core/ui/static/universe_views_inbox.js", "packages/yoke-core/src/yoke_core/ui/static/universe_views_shipping.js", "packages/yoke-core/src/yoke_core/ui/static/universe_onboarding_control.js", ".agents/skills/yoke/steer/SKILL.md", ".agents/skills/yoke/wrapup/SKILL.md", ".agents/skills/yoke/onboard/strategy-conversation.md", "packages/yoke-core/src/yoke_core/ui/static/universe_views_projects.js", "packages/yoke-core/src/yoke_core/ui/static/universe_views_strategy.js", "packages/yoke-core/src/yoke_core/ui/static/universe_onboarding_project.js", "packages/yoke-core/src/yoke_core/ui/static/universe_views_github.js"]
 }

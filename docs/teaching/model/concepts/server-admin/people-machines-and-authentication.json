@@ -1,8 +1,9 @@
 {
  "id": "people-machines-and-authentication",
  "title": "People, machines and authentication",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "Administrators",
+ "text": "Use Team for people, roles and invites. Without company sign-in, invite a separate person by name and send the code privately; otherwise invite their email. Reissue keeps that person. Own-machine approval grants the approver's identity. Local sharing requires a team server.",
  "sources": ["docs/self-host-browser-sign-in.md", "docs/machine-registry.md", "docs/public/reference/machine-authorization.md"],
  "page": "server-admin",
  "position": 1
