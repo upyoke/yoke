@@ -118,7 +118,7 @@ MACHINE_SETTING_KEYS: Dict[str, SettingSpec] = {
         minimum=0,
     ),
     "test_timeout": SettingSpec(
-        300, int, "seconds one project test command may run during merge", minimum=0
+        1200, int, "seconds one project test command may run during merge", minimum=1
     ),
     "git_command_timeout": SettingSpec(
         120,

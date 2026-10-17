@@ -122,7 +122,7 @@ def _settings_key_issues(settings: dict) -> List[str]:
             "machine copy — remove the key and set it on the capability"
         )
     for key in unrecognized_settings(settings):
-        issues.append(f"- settings.{key} is unknown. Recovery: yoke settings list")
+        issues.append(f"- settings.{key} has no reader. Recovery: yoke settings list")
     for key, spec in MACHINE_SETTING_KEYS.items():
         if key in settings:
             try:
