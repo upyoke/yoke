@@ -152,6 +152,7 @@ DEPENDENCY_WAIT_TEACHING = (
     "any gates still unmet. Before stopping on an unmet gate, checkpoint and "
     "park with the blocker named: "
     '`yoke sessions touch --mode parked --reason "awaiting <BLOCKER> <gate>"`. '
+    "Keep your work claim and lane; do not release or end the session; the notice wakes you as holder. "
     "When the notice says no gates remain, resume at the live stage; when it "
     "names gates still unmet, re-park. Do not ask steering to message you "
     "when a blocker lands."
