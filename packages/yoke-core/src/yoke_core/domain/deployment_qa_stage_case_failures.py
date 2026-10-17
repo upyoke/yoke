@@ -114,9 +114,9 @@ def _latest_verdicts(
     """Each case's accepted run id and verdict, in one statement for the set."""
     if not requirement_ids:
         return {}
-    from yoke_core.domain.qa_latest_execution import latest_executions
+    from yoke_core.domain.qa_latest_execution import latest_verdict_executions
 
-    rows = latest_executions(conn, requirement_ids).values()
+    rows = latest_verdict_executions(conn, requirement_ids).values()
     return {
         int(row["qa_requirement_id"]): (
             int(row["id"]),
