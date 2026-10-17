@@ -59,6 +59,36 @@ or `yoke claims path cancel` with `--item`, `--claim-id`, and `--reason`; see
 - **One work item = one project.** The `project` field = where code deploys (`project=external-webapp` → External webapp repo, `project=yoke` → Yoke repo); scope is defined by where changes land, not where the idea came from. Never mix deploy targets in one item or its generated task graph. All work items live in the Yoke backlog regardless of target.
 - **Cross-project work → linked companion items, one per project.** Ambiguous target → ask; never silently default to `yoke` for work targeting an external system. Work that mandates changes in a second project gets a companion item filed in THAT project, linked to the first by an `item_dependencies` edge; one session may claim both items and execute both lanes together, because work claims and lane authority are already project-agnostic. There is no second-repo lane on a single item: worktree preparation resolves each item's own project checkout from the machine mapping (`yoke project register <checkout> --project-id <id>` adds a missing one) and refuses rather than borrowing the session's repo, so a lane always lives in its item's project; repair a wrong-repo lane with `yoke item-worktrees path-record`. Path claims stay single-project — `path_targets` rows are project-scoped, so one claim never spans repos. **A change to a contract another project consumes is cross-project by definition.** The companion item is mandatory in the consuming project, and an instruction that excludes redesigning that consumer never waives adapting it to the new contract. Delivery evidence must show the real consumer built against the exact candidate revision; a producer-only green run proves the producer and nothing else.
 
+## Session scope and folder admission
+
+A session's scope is fixed when it registers: the registered project whose
+folder it started in, or its authority's organization when it started outside
+any project. Retries, reactivation, reinstallation and later folder changes
+keep that scope; a session never switches projects. A session that walks into
+a project folder stays outside the project, and a project session that moves
+away keeps its project but loses work admission there.
+
+Item and epic-task claims are work. The server admits them only from a session
+registered in the item's project, and `yoke claims work acquire` first checks
+that the caller's folder maps to that project on this machine. Process,
+steering and coordination claims keep their own target authorization and are
+not folder-bound. Each refusal writes no claim or current item and names one
+recovery:
+
+| Refusal | Cause | Recovery |
+|---|---|---|
+| `CLAIM_FOLDER_MISMATCH` | The caller's folder is not the item's mapped checkout | Open a session in the named checkout; with none mapped, run `yoke project register CHECKOUT --project-id N` first |
+| `SESSION_MACHINE_SCOPE_WORK_REFUSED` | The session started outside any project | Open a session in the named project folder |
+| `SESSION_PROJECT_MISMATCH` | The session started in another project | Open a session in the named project folder |
+| `SESSION_SCOPE_IMMUTABLE` | A re-registration named a different project | Open a new session in that folder |
+| `SESSION_SCOPE_AMBIGUOUS` | Registration named both a project and machine scope | Open a new session in a registered project folder, or request machine scope |
+| `SESSION_ORG_UNRESOLVED`, `SESSION_ORG_MEMBERSHIP_REQUIRED` | The authority cannot resolve the organization, or the actor is not its member | Reconnect with `yoke connection set`, or ask an org admin for membership |
+
+Steering from outside a project launches background CLI workers in each target
+project's registered folder on an authorized machine. Launched workers always
+register in that project; the launching session keeps its own scope, and no
+interactive window opens.
+
 ## Lifecycle and routing
 
 - Canonical human guide: `.yoke/docs/reference/lifecycle.md`. Each item pins immutable `workflow_id` / `workflow_version_id`; that definition owns ordered stages, transitions, target-stage gates, policies, entry surfaces, and registered skill bindings.
