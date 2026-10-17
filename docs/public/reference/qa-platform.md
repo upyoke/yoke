@@ -252,7 +252,10 @@ worker keeps item custody; re-drive that run. Another run's driver or an unrelat
 item grants nothing. Agent waivers keep normal QA subject-claim authority.
 A retracted, superseded or replaced requirement no longer counts, so waiving it
 refuses with `requirement_not_live` and names the live copy of the same case to
-waive instead (or says none is left). Read `yoke qa requirement waive --help`.
+waive instead (or says none is left). A row whose successor link fails the
+correction-graph check (`replacement_graph_invalid`) still counts, so it still
+waives: that waiver is the graph error's named repair. Read
+`yoke qa requirement waive --help`.
 
 **Supersession:** corrected blocking case needs same run/stage/member/target
 (item: same item/transition/phase/target) and its own qualifying pass. History

@@ -226,6 +226,13 @@ def handle_plan_get(request: FunctionCallRequest) -> HandlerOutcome:
             )
     except LookupError as exc:
         return _error("not_found", str(exc), "$.payload.plan_id")
+    except ValueError as exc:
+        # The detail refuses a broken correction history by name, and the
+        # message carries the repair; it is not an internal fault.
+        code = str(exc).split(":", 1)[0]
+        if code != "replacement_graph_invalid":
+            raise
+        return _error(code, str(exc), "$.payload.plan_id")
     project_refs = {str(plan["project"])}
     if plan.get("project_id") is not None:
         project_refs.add(str(plan["project_id"]))
