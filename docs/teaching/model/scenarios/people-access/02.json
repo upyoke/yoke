@@ -1,15 +1,15 @@
 {
  "id": "02",
  "title": "Understand revocation and recovery",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "both",
  "when": "Before disabling an actor or changing the last admin",
- "need": "Disabling revokes keys and browser sessions; enabling does not restore keys. Last active admin and protected service identities have restrictions. Recover through the named authorized operation, then sign in/reconnect where necessary.",
+ "need": "Disabling revokes keys and browser sessions; enabling does not restore keys. Last active admin and protected service identities have restrictions. Revoke stops a pending invite. Reissue replaces a code for the same person; email resend requires revoke then invite. A lost one-time code needs Reissue, never replay recovery.",
  "disclosure": "current cue",
- "surface": "Actors confirmation/role refusal documented in public guide; actor CLI help.",
- "review": "Pending exact recipe proof.",
+ "surface": "Team confirmation/role refusal documented in public guide; actor CLI help.",
+ "review": "Inline invite confirmations and source refusal recovery are tested; production proof remains pending.",
  "recipes": ["yoke actors state set --help", "yoke actors role set --help"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/actors-members-billing.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/actors.py"],
+ "sources": ["docs/public/actors-members-billing.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/actors.py", "runtime/api/universe_ui_actor_invites.test.mjs"],
  "position": 1
 }

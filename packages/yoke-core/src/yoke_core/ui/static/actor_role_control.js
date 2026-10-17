@@ -1,4 +1,4 @@
-// A person's one org role, changed by an org admin from the Actors roster.
+// A person's one org role, changed by an org admin from the Team roster.
 
 import { callFunction, el } from "./universe_view_support.js";
 

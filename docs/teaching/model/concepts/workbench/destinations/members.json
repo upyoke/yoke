@@ -2,9 +2,10 @@
  "id": "members",
  "title": "Members",
  "status": "observed",
+ "summary": "Cloud Members is the Platform-fed seats destination. People, roles, and invites live on Team; Billing holds the plan and payments.",
  "related": "identity/accounts",
  "page": "workbench-destinations",
  "position": 12,
  "text": "Hosted Members keeps seats and billing. Its role editor and invite controls remain until the materialized Team contract declares the people destination; that same contract predicate retires the old site controls and routes people management to Team. Hosted email invitations behind Team still use Platform identity.invite.create, identity.invite.list and identity.invite.revoke. Conditional consumer source is observed; Team availability and deployed behavior require separate proof.",
- "sources": ["docs/public/reference/machine-authorization.md"]
+ "sources": ["docs/public/actors-members-billing.md", "docs/public/reference/machine-authorization.md"]
 }

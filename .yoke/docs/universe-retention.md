@@ -103,7 +103,10 @@ Snapshots retain each project's latest header and latest content-bearing
 inventory, the latest path generations' last sightings, active lane heads,
 nonterminal claim bases, and running/open-failure integrity references.
 Protected inventories remain whole. Other history has no age or count floor.
-Pruning never locks whole message or reference tables. Each cohort locks
+Events are read in slices: each event-name override and each severity is
+one range ordered by creation time, so finding the last expired rows of a
+large events table stays an index read. Pruning never locks whole message or
+reference tables. Each cohort locks
 only its own rows, skipping rows another writer holds, and the `DELETE`
 rechecks protection before committing child-first deletion; a graph whose
 parent stopped qualifying rolls back whole. Inventory snapshots keep one
@@ -127,9 +130,10 @@ unknown and unrelated tables are left alone without blocking cleanup.
 ## Failures and storage
 
 A table that keeps reaching its statement or lock limit appears under
-"Not finished" with `retention_table_limit`, its reason and recovery: rerun
-when the table is quieter, and ask the universe administrator to inspect its
-indexes and locks if it repeats. Another database refusal stops the command
+"Not finished" with `retention_table_limit`. The reason names the limit: a
+lock timeout means readers held the table, so rerun when it is quieter; a
+statement timeout means its eligibility read is too slow, so ask the universe
+administrator to inspect the table's indexes and size if it repeats. Another database refusal stops the command
 with `retention_table_failed` and the affected table; the failed transaction
 rolls back and earlier committed counts remain. Restore the named connection
 or table condition and rerun. The command never performs an unbounded scan to

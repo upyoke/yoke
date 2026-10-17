@@ -1,4 +1,4 @@
-// One Actors roster table: people or machine accounts, with sortable headers.
+// One Team roster table: people or machine accounts, with sortable headers.
 
 import { ACTOR_SORT_COLUMNS, actorGrants, projectAccess } from "./actor_roster_sort.js";
 import { roleControl } from "./actor_role_control.js";

@@ -76,7 +76,7 @@ test("an explicit deep link changes the destination without saving its scope", a
 });
 
 test("invalid saved locations silently fall back to the current default page", async (t) => {
-  for (const saved of ["/removed", "/items/%ZZ?project=1", "/actors/unknown"]) {
+  for (const saved of ["/removed", "/items/%ZZ?project=1", "/team/unknown"]) {
     const client = preferenceClient({ views: {}, last_location: saved });
     const mounted = await mountAt(t, "", client);
     assert.equal(mounted.windowNode.location.href, "/strategy?project=all");
@@ -110,7 +110,7 @@ test("a saved detail resolves through the accessible resource authority", async 
 });
 
 test("a restored global page that lost access silently opens the default", async (t) => {
-  const client = preferenceClient({ views: {}, last_location: "/actors?project=all" });
+  const client = preferenceClient({ views: {}, last_location: "/team?project=all" });
   const baseCall = client.call.bind(client);
   client.call = async (request) => request.function === "actors.roster"
     ? { status: 403, envelope: { success: false, error: { code: "permission_denied" } } }
@@ -268,7 +268,7 @@ test("hosted navigation saves path-only locations and restores them on a bare vi
 });
 
 test("hosted bare entry retains restored access-loss fallback after remembering", async (t) => {
-  const client = preferenceClient({ views: {}, last_location: "/actors?project=all" });
+  const client = preferenceClient({ views: {}, last_location: "/team?project=all" });
   const baseCall = client.call.bind(client);
   client.call = async (request) => request.function === "actors.roster"
     ? { status: 403, envelope: { success: false, error: { code: "permission_denied" } } }

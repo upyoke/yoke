@@ -64,6 +64,12 @@ def test_unknown_asset_is_404(ui_client):
     assert response.status_code == 404
 
 
+@pytest.mark.parametrize(("destination", "status"), [("team", 200), ("actors", 404)])
+def test_team_route_replaces_the_removed_destination(ui_client, destination, status):
+    response = ui_client.get(f"/{destination}?token={TOKEN}")
+    assert response.status_code == status
+
+
 def test_static_assets_ship_as_package_resources():
     static_root = files("yoke_core.ui").joinpath("static")
     for asset_name in ui_server.ASSET_CONTENT_TYPES:

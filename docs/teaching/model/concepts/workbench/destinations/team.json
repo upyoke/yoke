@@ -1,0 +1,10 @@
+{
+ "id": "team",
+ "title": "Team",
+ "status": "observed",
+ "summary": "Open Team in Settings for people, machine accounts, and org roles. The actor roster keeps its saved sort and Show disabled control.",
+ "sources": ["docs/public/actors-members-billing.md", "packages/yoke-core/src/yoke_core/ui/static/universe_views_team.js"],
+ "related": "identity/actors",
+ "page": "workbench-destinations",
+ "position": 11
+}

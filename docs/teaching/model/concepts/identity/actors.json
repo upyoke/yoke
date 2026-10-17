@@ -1,7 +1,9 @@
 {
  "id": "actors",
  "title": "Actors and identities",
- "status": "draft-copy",
+ "status": "observed",
+ "summary": "Team in Settings lists people and machine accounts. Org admins manage each person's org role and active state there; actor remains the identity domain term.",
+ "sources": ["docs/public/actors-members-billing.md", "packages/yoke-core/src/yoke_core/ui/static/universe_views_team.js"],
  "plan_refs": ["FIRST-USER.33"],
  "commands": ["yoke actors state set", "yoke config bind-actor", "yoke identity link set"],
  "functions": ["actors.roster", "actors.state.set", "identity.link.set"],
