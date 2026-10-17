@@ -48,17 +48,19 @@ class CheckingFlow:
         token = self._checking_token
         if replace_current and self._history:
             self._history.pop()
-        self._goto(_View(
-            SetupPrompt(
-                key=f"check.{group}",
-                step=step,
-                title=title,
-                message=message,
-                detail_lines=tuple(detail_lines or ()),
-                human=human,
-            ),
-            copy_targets=copy_targets,
-        ))
+        self._goto(
+            _View(
+                SetupPrompt(
+                    key=f"check.{group}",
+                    step=step,
+                    title=title,
+                    message=message,
+                    detail_lines=tuple(detail_lines or ()),
+                    human=human,
+                ),
+                copy_targets=copy_targets,
+            )
+        )
         self.run_worker(
             lambda: self._checking_worker(token, work, on_success, on_error),
             thread=True,
@@ -122,6 +124,10 @@ class CheckingFlow:
         result: Any,
         exc: BaseException | None,
     ) -> None:
+        # Shutdown removes the shell before queued completions finish draining.
+        # Drop the result before changing flow state or routing a new view.
+        if not self.is_running:
+            return
         if not self._checking or token != self._checking_token:
             return
         self._checking = False
