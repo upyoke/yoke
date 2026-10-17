@@ -138,11 +138,12 @@ existing executable does not prove that the host supports a new installation.
 
 ## 7. Effective privacy and terminal control
 
-In Privacy & Security (Security & Privacy on Monterey), grant:
-Accessibility and Automation for Terminal/System Events to the Remote Login
-controller `/usr/libexec/sshd-keygen-wrapper`; Screen Recording to Terminal.app
-for GUI-bridge capture. Give Terminal other grants only when its own probe
-needs them. Follow [setup responsibilities](setup-responsibilities.md) for OS privacy/TCC consent dialogs.
+In Privacy & Security (Security & Privacy on Monterey), grant Accessibility
+to the Remote Login controller `/usr/libexec/sshd-keygen-wrapper` and Automation
+for Terminal, System Events and Safari (SSH `osascript` browser approval).
+Grant Terminal.app Automation → Safari for GUI Terminal flows and Screen
+Recording for GUI-bridge capture. Give Terminal other grants only when its own
+probe needs them. Follow [setup responsibilities](setup-responsibilities.md) for OS privacy/TCC consent dialogs.
 
 Disable Terminal → Secure Keyboard Entry. Prove control through the registered
 operation that needs it, not a permission-row inventory:
@@ -157,9 +158,11 @@ Terminal window and checks transport, console/lock, AppleEvents, secure entry,
 display geometry, launch/focus, input, transcript and real capture in order.
 Unreached checks are not run. Screen Recording proof requires window content,
 not wallpaper; two captures around an authorized window change should differ.
-`-25211` names Accessibility; `-1743` names Automation. Repair the named grant
-through the UI and rerun. An active Screen Sharing curtain must be disconnected
-or reconnected without curtain. A home restore cannot recreate these grants.
+`-25211` names Accessibility; `-1743` names Automation, including Safari.
+Repair the named grant through the UI and rerun; for Safari, enable Automation →
+Safari for the failing Remote Login or Terminal controller. An active Screen
+Sharing curtain must be disconnected or reconnected without curtain. A home
+restore cannot recreate these grants.
 
 ## 8. Operator sign-in and acceptance set
 
