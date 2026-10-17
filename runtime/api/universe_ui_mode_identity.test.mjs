@@ -5,7 +5,7 @@ import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/stat
 import { FakeDocument, byClass, response, settle } from "./universe_ui_dom_test_support.mjs";
 
 for (const [mode, footer, actor] of [
-  ["local", "local universe", "local actor"],
+  ["local", "local: reachable here only", "local actor"],
   ["self-host", "self-hosted universe", "actor unavailable"],
   ["hosted", "hosted universe", null],
 ]) {

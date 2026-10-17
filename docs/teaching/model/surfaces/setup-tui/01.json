@@ -1,10 +1,12 @@
 {
  "id": "01",
  "title": "At the mode choice: this computer only, your server or Yoke Cloud; explain practical reachability.",
- "status": "draft-copy",
+ "status": "observed",
  "form": "Teach",
- "verification": "No delivery proof attached.",
+ "verification": "Source rows read: This machine \"reachable here only\"; A team server \"connect to your own Yoke server\"; Host a server here \"for a team or multiple computers · needs Docker\"; upyoke.com \"hosted by Yoke · private beta (requires beta code)\". The local summary says \"Reachable here only — other computers cannot connect to it.\" Wizard goldens and destination tests cover the rows; no installed-release capture yet.",
  "topics": ["modes/local", "modes/self-hosted", "modes/cloud"],
- "plan_refs": ["FIRST-USER.1", "FIRST-USER.7", "FIRST-USER.10", "FIRST-USER.17", "FIRST-USER.26", "FIRST-USER.37", "FIRST-USER.38", "FIRST-USER.39"],
- "position": 1
+ "plan_refs": ["FIRST-USER.3", "FIRST-USER.1", "FIRST-USER.7", "FIRST-USER.10", "FIRST-USER.17", "FIRST-USER.26", "FIRST-USER.37", "FIRST-USER.38", "FIRST-USER.39"],
+ "position": 1,
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_destination_rows.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_destination.py", "runtime/api/cli/__snapshots__/connect_destination_picker.svg", "runtime/api/cli/__snapshots__/connect_local_universe.svg"],
+ "gaps": ["local-reach-delivery-proof"]
 }

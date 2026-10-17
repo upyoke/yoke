@@ -17,7 +17,7 @@ and a landing AWS org with SCPs. They evaluate Yoke Cloud vs a team server.
 
 Linux + uv present. Wizard.
 
-Account: **upyoke.com** (`hosted by Yoke · private beta`), an existing team
+Account: **upyoke.com** (`hosted by Yoke · private beta (requires beta code)`), an existing team
 server, or guided self-host first boot on the intended Linux host. The guided
 route previews the loopback-only server and leaves VPN/LAN/TLS to the operator;
 security can use the manual `yoke self-host init` reference instead.

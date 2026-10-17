@@ -45,7 +45,7 @@ SERVED_BUILD_PATH = "/served-build"
 SERVED_BUILD_DIRTY_SUFFIX = "-dirty"
 
 _DEFAULT_ENVIRONMENT_LABELS = {
-    PORTABILITY_LOCAL: "local universe",
+    PORTABILITY_LOCAL: "local: reachable here only",
     PORTABILITY_SELFHOST: "self-hosted universe",
     PORTABILITY_HOSTED: "hosted universe",
 }
@@ -61,9 +61,7 @@ def build_runtime_identity(
     module_file: Union[str, Path, None] = None,
 ) -> dict[str, Any]:
     """Return the compact packet describing the running product setup."""
-    install_info = (
-        dict(install) if install is not None else detect_install(module_file)
-    )
+    install_info = dict(install) if install is not None else detect_install(module_file)
     resolved_version = version
     if resolved_version is None:
         # Prefer install metadata, then the client distribution (never probe
@@ -85,7 +83,9 @@ def build_runtime_identity(
         "build": str(resolved_build or ""),
         "environment_label": (
             environment_label
-            or _DEFAULT_ENVIRONMENT_LABELS.get(mode, "local universe")
+            or _DEFAULT_ENVIRONMENT_LABELS.get(
+                mode, _DEFAULT_ENVIRONMENT_LABELS[PORTABILITY_LOCAL]
+            )
         ),
         "portability_mode": mode,
     }
@@ -109,13 +109,12 @@ def detect_install(
     resolved = Path(module_file)
     checkout_root = source_checkout_root(resolved)
     return {
-        "kind": (
-            KIND_SOURCE_CHECKOUT if checkout_root else KIND_PACKAGED_WHEEL
-        ),
+        "kind": (KIND_SOURCE_CHECKOUT if checkout_root else KIND_PACKAGED_WHEEL),
         "checkout_root": str(checkout_root) if checkout_root else None,
         "module_origin": str(resolved),
         "version": distribution_version_for_module(
-            ENGINE_DISTRIBUTION_NAME, resolved,
+            ENGINE_DISTRIBUTION_NAME,
+            resolved,
         ),
     }
 
@@ -129,9 +128,7 @@ def mount_fields(packet: Mapping[str, Any]) -> dict[str, Any]:
             packet.get("environment_label")
             or _DEFAULT_ENVIRONMENT_LABELS[PORTABILITY_LOCAL]
         ),
-        "portabilityMode": str(
-            packet.get("portability_mode") or PORTABILITY_LOCAL
-        ),
+        "portabilityMode": str(packet.get("portability_mode") or PORTABILITY_LOCAL),
     }
     build = str(packet.get("build") or "")
     if build:
@@ -164,6 +161,7 @@ def human_identity_line(report: Mapping[str, Any]) -> str:
         f"build={build} "
         f"mode={identity.get('portability_mode') or '<missing>'}"
     )
+
 
 __all__ = [
     "INSTALL_KIND_HOSTED_PIN",

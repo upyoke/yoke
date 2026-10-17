@@ -54,11 +54,16 @@ def serving_connection() -> Tuple[str, Optional[str]]:
 def environment_display_label(environment: str) -> Optional[str]:
     """The label naming which universe answered, for the served page.
 
-    ``None`` leaves the runtime-identity packet on its own default: with
+    The page binds loopback only, so the label says it is reachable here
+    only; an env other than ``local`` is named beside that. ``None`` leaves the runtime-identity packet on its own default: with
     no binding there is no env name to show, and inventing one would be
     the same unfounded claim the label exists to retire.
     """
-    return f"local universe: {environment}" if environment else None
+    if not environment:
+        return None
+    if environment == "local":
+        return "local: reachable here only"
+    return f"local ({environment}): reachable here only"
 
 
 __all__ = [

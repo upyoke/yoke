@@ -12,6 +12,20 @@ from yoke_contracts.machine_config import schema as contract
 from yoke_contracts.runtime_identity import human_identity_line
 
 
+#: A local install's engine and workbench answer on this machine alone.
+LOCAL_REACH_LINE = (
+    "  local: reachable here only — other computers cannot connect; "
+    "to share it, run `yoke setup` and pick Host a server here or upyoke.com"
+)
+
+
+def _is_machine_local_universe(connection: Mapping[str, Any]) -> bool:
+    """A Postgres connection with no remote authority is this machine's own."""
+    return connection.get(
+        "transport"
+    ) in contract.POSTGRES_TRANSPORTS and not connection.get("authority_kind")
+
+
 def render_human(report: Mapping[str, Any]) -> str:
     lines = [
         "Yoke status",
@@ -63,14 +77,19 @@ def render_human(report: Mapping[str, Any]) -> str:
             f"credential={connection.get('credential_source', {}).get('kind') or '<missing>'} "
             f"envs={','.join(connection.get('envs') or []) or '<none>'}"
         )
+        if _is_machine_local_universe(connection):
+            lines.append(LOCAL_REACH_LINE)
     project = report.get("project") or {}
     if isinstance(project, Mapping):
-        lines.append(
-            "  project: "
-            f"id={project.get('project_id') or '<missing>'} "
-            f"scope={project.get('board_scope') or '<missing>'} "
-            f"board={project.get('board_render_path') or '<missing>'}"
-        )
+        if project.get("project_id"):
+            lines.append(
+                "  project: "
+                f"id={project.get('project_id')} "
+                f"scope={project.get('board_scope') or '<missing>'} "
+                f"board={project.get('board_render_path') or '<missing>'}"
+            )
+        else:
+            lines.append("  project: no project here")
     runtime = report.get("runtime") or {}
     if isinstance(runtime, Mapping):
         lines.append(
