@@ -106,7 +106,7 @@ def test_replay_refuses_changes_and_never_echoes_failure_payloads(
     assert SECRET not in failure + output.out + output.err
 
 
-@pytest.mark.parametrize("context", (None, "0078_project_optional_sessions"))
+@pytest.mark.parametrize("context", (None, "0081_project_optional_sessions"))
 @pytest.mark.parametrize("failed_check", (None, "replay", "readers", "release"))
 def test_fleet_callback_preserves_order_and_refusals(monkeypatch, failed_check, context):
     from runtime.api.tools import migration_rehearsal_readers
@@ -188,8 +188,9 @@ def test_entrypoint_binds_exact_copy_and_rolls_back_failed_proof(
 
 
 @pytest.mark.parametrize("context", (
-    None, "", " ", "0079", replay.ENTRY_NAME + " ", "unexpected_module", SECRET,
-    "0078_project_optional_sessions",
+    None, "", " ", "0082", replay.ENTRY_NAME + " ", "unexpected_module", SECRET,
+    "0081_project_optional_sessions",
+    "0078_project_optional_sessions", "0079_scrub_admission_secret_receipts",
 ))
 def test_entrypoint_context_refuses_or_skips_before_connection(monkeypatch, capsys, context):
     if context is None:
@@ -199,7 +200,7 @@ def test_entrypoint_context_refuses_or_skips_before_connection(monkeypatch, caps
     connect, verify = Mock(), Mock()
     monkeypatch.setattr(replay.db_backend, "connect_psycopg", connect)
     monkeypatch.setattr(replay, "verify_secret_receipt_replay", verify)
-    skip = context == "0078_project_optional_sessions"
+    skip = context == "0081_project_optional_sessions"
     assert replay.main() == (0 if skip else 1)
     connect.assert_not_called()
     verify.assert_not_called()

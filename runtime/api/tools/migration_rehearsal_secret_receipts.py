@@ -17,7 +17,7 @@ from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
 from yoke_core.domain.schema_common import _table_exists
 
 
-ENTRY_NAME = "0079_scrub_admission_secret_receipts"
+ENTRY_NAME = "0082_scrub_admission_secret_receipts"
 ZERO_COUNTS = (
     "admission_secret_receipts ledger_rows_rewritten=0 event_envelopes_rewritten=0\n"
 )
@@ -83,7 +83,7 @@ def verify_secret_receipt_replay(conn) -> str | None:
 def main() -> int:
     """Consume only the explicit target and restore point bound by rehearsal."""
     module_identifier = os.environ.get(REHEARSAL_MODULE_ENV)
-    if module_identifier == "0078_project_optional_sessions":
+    if module_identifier == "0081_project_optional_sessions":
         print("admission_secret_receipts_replay status=not_applicable")
         return 0
     if module_identifier != ENTRY_NAME:
