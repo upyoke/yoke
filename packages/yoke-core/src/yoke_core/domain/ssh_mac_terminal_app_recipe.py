@@ -19,7 +19,6 @@ from yoke_core.domain.qa_artifact_handle import local_handle
 from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_BRIDGE_RECOVERY,
     TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE,
-    TERMINAL_SYSTEM_EVENTS_AUTOMATION_MISSING_ERROR_CODE as AUTOMATION_MISSING,
 )
 from yoke_harness.ssh_mac_gui_session import terminal_system_events_automation
 from yoke_harness.ssh_mac_host_session_state import read_load_average
@@ -110,14 +109,14 @@ def run_terminal_app_recipe(
         )
     # Without Terminal -> System Events, the approval helper and GUI-session
     # commands block on a consent prompt until their own timeout; refuse now.
-    automation_ok, automation_detail = terminal_system_events_automation(run)
-    if not automation_ok:
+    automation = terminal_system_events_automation(run)
+    if automation.error_code is not None:
         return _failure(
-            AUTOMATION_MISSING,
+            automation.error_code,
             captures=captures,
             staged_files=staged,
-            automation_detail=automation_detail,
-            recovery=TERMINAL_BRIDGE_RECOVERY[AUTOMATION_MISSING],
+            automation_detail=automation.detail,
+            recovery=TERMINAL_BRIDGE_RECOVERY[automation.error_code],
         )
     try:
         launch = open_terminal_app_window(
