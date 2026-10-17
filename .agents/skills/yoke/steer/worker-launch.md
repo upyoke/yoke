@@ -137,3 +137,5 @@ never ordinary plan rerun resetting the host.
 One registered staffing path for every runnable/report/itemless launch.
 Classified vendor signature uses manual surface-policy disable/rebalance;
 unclassified escalates. Successful canary alone re-enables per close-out.
+
+Keep each entry body at or below 4,096 UTF-8 bytes; write only what changed and the next step, and move evidence to artifacts or field-notes.

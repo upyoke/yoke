@@ -96,7 +96,9 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "notes": (
             "Write PATH with the entry body first. Dispatches "
             "items.progress_log.append, which read-merge-writes the "
-            "Progress Log section atomically and stamps the timestamp."
+            "Progress Log section atomically and stamps the timestamp. Entry bodies "
+            "are limited to 4,096 UTF-8 bytes: write only what changed and the "
+            "next step; move evidence to artifacts or field-notes."
         ),
     },
     {

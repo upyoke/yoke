@@ -53,6 +53,12 @@ Blocked successors stay visible; independent chains continue. All tasks reviewed
 done goes to [simulation-gate.md](simulation-gate.md). No-chain prints remaining
 task and goes to cleanup with SUCCESS for this leg, not parent completion.
 
+A reviewed task stays reviewed when its lane needs to catch up to main.
+Catch up at landing under the existing claim, including forced fixes such as
+renumbering unshipped migrations, regenerating files or updating consumer paths.
+Only a review FAIL or a real change to item scope or acceptance criteria moves
+a reviewed task back to implementing; lane freshness alone does not.
+
 FAIL below the configured attempt limit retains feedback, increments attempt,
 then uses pipeline status/chain counter writes and refreshes attempt baseline:
 
