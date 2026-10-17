@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { FakeDocument, byClass } from "./universe_ui_dom_test_support.mjs";
@@ -101,6 +102,18 @@ test("items point at the shared plan, keep a tile when shared-only, and show rem
   assert.deepEqual(verdicts, ["0 own checks, shares Installer campaign", "1 of 1 passed"]);
   assert.deepEqual(byClass(host, "carried-item-removed").map(text),
     ["Removed from this release · 13 checks cancelled"]);
+  const sharedOnly = byClass(host, "item-qa-section").find((section) =>
+    byClass(section, "run-verdict").some((node) =>
+      text(node) === "0 own checks, shares Installer campaign"));
+  const css = readFileSync(new URL(
+    "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.css",
+    import.meta.url,
+  ), "utf8");
+  for (const node of [sharedOnly, ...byClass(host, "carried-item-removed")]) {
+    assert.equal(node.classList.contains("carried-item-qa-diagnostic"), true);
+  }
+  assert.match(css, /\.carried-item-qa-diagnostic\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/);
+  assert.match(css, /\.carried-item-qa-diagnostic\s*\{[^}]*overflow-wrap:\s*anywhere/);
 });
 
 test("the Removed block names the checks its removal cancelled", () => {
