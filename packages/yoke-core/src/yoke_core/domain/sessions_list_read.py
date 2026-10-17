@@ -138,6 +138,9 @@ def list_sessions(
     project it covers, so running the whole pipeline once per project would
     re-ask every enrichment the answer shares.
 
+    When both are given, ``project`` resolves only within ``project_ids``.
+    ``None`` retains local authority; an empty set never permits batch reuse.
+
     ``session_id`` selects exactly one session through the same row renderer
     and enrichment pipeline.
     """
@@ -181,10 +184,10 @@ def list_sessions(
         batch is not None
         and normalized_session_id
         and session_ids is None
+        and project_ids is None
         and not any(
             (
                 project,
-                project_ids,
                 liveness,
                 ended_cause,
                 offset,
@@ -204,7 +207,9 @@ def list_sessions(
         where_params: List[Any] = []
         scoped_ids: tuple[int, ...] = ()
         if project:
-            scoped_ids = (resolve_project_id(conn, project),)
+            scoped_ids = (
+                resolve_project_id(conn, project, visible_project_ids=project_ids),
+            )
         elif project_ids:
             scoped_ids = tuple(dict.fromkeys(int(value) for value in project_ids))
         if scoped_ids:

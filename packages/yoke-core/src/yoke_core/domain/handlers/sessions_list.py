@@ -296,9 +296,7 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
             with db_helpers.connect() as conn:
                 visible = actor_visible_project_ids(conn, actor)
             rows = list_sessions(
-                project_ids=sorted(visible)
-                if visible is not None and not project
-                else None,
+                project_ids=sorted(visible) if visible is not None else None,
                 org_session_actor_id=actor if not project else None,
                 project=project,
                 liveness=liveness,
