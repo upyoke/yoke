@@ -127,8 +127,10 @@ def register_for_task(
             budget = task_budget_paths(conn, int(item_id), int(task_num))
             if budget:
                 raise PathClaimTaskBindingError(
-                    f"Epic task {item_id}/{task_num} has a persisted file "
-                    "budget and cannot use a no-path exception"
+                    f"Epic task {item_id}/{task_num} lists paths in its "
+                    "## Files Touched section, so it cannot use a no-path "
+                    "exception; register those paths, or change the section "
+                    "to `None — no repository files` first"
                 )
             existing = _matching_exception(
                 conn,
