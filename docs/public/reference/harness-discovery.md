@@ -140,9 +140,15 @@ Official sources checked 2026-10-08:
 - [Claude skill directories](https://code.claude.com/docs/en/skills)
 
 Codex and Cursor Agent floors name the native releases verified for this layout;
-older engines receive `instruction_runtime_unsupported`. The installer probes
-installed CLIs. Desktop users must verify their embedded engine separately;
-the outer app version does not prove its discovery capabilities.
+the installer probes detected CLIs before writing project guidance. An older
+engine or failed version probe produces an install-health warning naming its
+observed version, required floor, unavailable instruction/skill loading and
+upgrade step. Other supported harnesses can still use the installation.
+CLI versions never block installation. If no supported CLI is detected,
+install health warns that native instructions and skills are not usable yet.
+Install or upgrade a supported native CLI or embedded desktop engine, start
+a new session, and rerun project refresh. Desktop users verify
+their embedded engine separately; the outer app version proves no capability.
 
 ## Guard scope
 

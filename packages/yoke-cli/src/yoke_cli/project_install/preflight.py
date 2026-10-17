@@ -35,7 +35,7 @@ def preflight_apply(
         files_layer.validate_manifest(old_manifest, source="prior install manifest")
     skill_discovery.validate_links(bundle.get("skill_discovery_links"))
     skill_discovery.preflight(repo_root)
-    instruction_discovery.preflight(repo_root)
+    instruction_warnings = instruction_discovery.preflight(repo_root)
     files_layer.validate_manifest(
         {"manifest_schema": files_layer.MANIFEST_SCHEMA, "files": preserved_files},
         source="preserved manifest files",
@@ -124,6 +124,7 @@ def preflight_apply(
     )
     worktrees_ignore = project_worktrees_ignore.report(repo_root, apply=False)
     result = {
+        "instruction_warnings": instruction_warnings,
         "install_recovery": recovery,
         "hook_plans": hook_plans,
         "git_hook_specs": git_hook_specs,

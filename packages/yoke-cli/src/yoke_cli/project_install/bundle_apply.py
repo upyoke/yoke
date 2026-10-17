@@ -109,6 +109,7 @@ def apply_bundle(
         preflight["install_recovery"]["prior_files"],
         hashes,
     )
+    warnings.extend(preflight["instruction_warnings"])
     discovery_written = skill_discovery.apply(repo_root)
     contract_map, contract_written, contract_existing, contract_adopted = (
         files_layer.apply_contract_files(

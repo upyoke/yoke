@@ -19,6 +19,7 @@ from yoke_contracts.harness_cli_manifest import (
     HARNESS_CLI_MANIFESTS,
 )
 from yoke_contracts import terminal_detached_process
+from yoke_contracts.executor_labels import harness_display_name
 
 
 def _settings(path: Path) -> dict[str, Any]:
@@ -131,7 +132,7 @@ def _loading_refusal(detail: str, fix: str) -> None:
     )
 
 
-def preflight(root: Path) -> None:
+def preflight(root: Path) -> list[str]:
     if (root / "AGENTS.override.md").is_file():
         raise ProjectInstallError(
             "canonical_instructions_not_loaded: AGENTS.override.md suppresses "
@@ -139,6 +140,8 @@ def preflight(root: Path) -> None:
             "AGENTS.md outside the Yoke block, then move the override outside "
             "native instruction discovery and rerun refresh."
         )
+    warnings: list[str] = []
+    supported: set[str] = set()
     for manifest in HARNESS_CLI_MANIFESTS:
         executable = shutil.which(manifest.executable)
         if executable is None:
@@ -160,14 +163,28 @@ def preflight(root: Path) -> None:
         except (OSError, subprocess.TimeoutExpired):
             observed = ()
         required = tuple(map(int, manifest.minimum_engine_version.split(".")))
-        if observed < required:
-            raise ProjectInstallError(
-                f"instruction_runtime_unsupported: {manifest.executable} must be "
-                f">={manifest.minimum_engine_version}; upgrade the native CLI or "
-                "embedded desktop engine, start a new session, and rerun refresh"
+        if observed >= required:
+            supported.add(manifest.harness_id)
+        else:
+            version = ".".join(map(str, observed)) or "unknown (version probe failed)"
+            label = harness_display_name(manifest.harness_id)
+            warnings.append(
+                f"instruction_runtime_unsupported: {manifest.executable} version "
+                f"{version}; required >={manifest.minimum_engine_version}. "
+                f"{label} sessions in this project won't load AGENTS.md/skills "
+                "until upgraded. Upgrade its native CLI or embedded desktop "
+                f"engine to >={manifest.minimum_engine_version}, start a new "
+                "session, and rerun yoke project refresh."
             )
-    if shutil.which("claude") is None:
-        return
+    if not supported:
+        warnings.append(
+            "instruction_runtime_unavailable: no supported agent CLI detected. "
+            "No detected harness can load this project's AGENTS.md/skills yet. "
+            "Install or upgrade a supported agent CLI, start a new session, "
+            "and rerun yoke project refresh."
+        )
+    if "claude-code" not in supported:
+        return warnings
     config_dir = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
     settings = _settings(config_dir / "settings.json")
     # Native plugin enablement and exclusions may come from project/local
@@ -203,3 +220,4 @@ def preflight(root: Path) -> None:
         }
     )
     assert_claude_loading(root, settings=settings)
+    return warnings
