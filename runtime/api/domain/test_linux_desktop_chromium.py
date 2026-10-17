@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shlex
 import socket
 import struct
@@ -175,10 +176,72 @@ def test_missing_tab_is_reported_without_pressing(monkeypatch):
 
 def test_prepare_refuses_when_the_default_browser_is_not_chromium(monkeypatch):
     monkeypatch.setattr(host, "_default_browser", lambda: "firefox.desktop")
+    monkeypatch.setattr(host, "_desktop_env", lambda: dict(os.environ))
     with pytest.raises(host.ChromiumRefusal) as refusal:
         host.prepare()
     assert refusal.value.reason == "linux_desktop_default_browser_not_chromium"
     assert "provision_linux_desktop.py" in refusal.value.recovery
+
+
+def _sensible_desktop(tmp_path, monkeypatch):
+    applications = tmp_path / "applications"
+    applications.mkdir()
+    (applications / "debian-sensible-browser.desktop").write_text(
+        "[Desktop Entry]\nExec=sensible-browser %u\n"
+    )
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("XDG_DATA_DIRS", str(tmp_path))
+    monkeypatch.setattr(
+        host, "_default_browser", lambda: "debian-sensible-browser.desktop"
+    )
+
+
+def test_prepare_follows_debian_sensible_browser_to_chromium(monkeypatch, tmp_path):
+    _sensible_desktop(tmp_path, monkeypatch)
+    chromium = tmp_path / "chromium"
+    chromium.write_text("")
+    launched = []
+    ports = iter([None, 9222])
+
+    def which(name, path=None):
+        if name == "sensible-browser":
+            return "/usr/bin/sensible-browser"
+        if name == "x-www-browser":
+            return str(chromium)
+        return None
+
+    monkeypatch.setattr(host.shutil, "which", which)
+    monkeypatch.setattr(host, "devtools_port", lambda: next(ports))
+    monkeypatch.setattr(host, "quit_chromium", lambda: False)
+    monkeypatch.setattr(host, "user_data_dirs", lambda: (tmp_path,))
+    monkeypatch.setattr(host, "_desktop_env", lambda: {"DISPLAY": ":11"})
+    monkeypatch.setattr(
+        host.subprocess, "Popen", lambda argv, **kw: launched.append((argv, kw.get("env")))
+    )
+    monkeypatch.setattr(host.time, "sleep", lambda _s: None)
+    assert host.prepare() == {"chromium": "started"}
+    assert launched == [
+        ([str(chromium.resolve()), "--remote-debugging-port=0"], {"DISPLAY": ":11"})
+    ]
+
+
+def test_prepare_refuses_a_dispatcher_that_does_not_launch_chromium(monkeypatch, tmp_path):
+    _sensible_desktop(tmp_path, monkeypatch)
+    firefox = tmp_path / "firefox"
+    firefox.write_text("")
+
+    def which(name, path=None):
+        if name == "sensible-browser":
+            return "/usr/bin/sensible-browser"
+        if name == "x-www-browser":
+            return str(firefox)
+        return None
+
+    monkeypatch.setattr(host.shutil, "which", which)
+    with pytest.raises(host.ChromiumRefusal) as refusal:
+        host.prepare()
+    assert refusal.value.reason == "linux_desktop_default_browser_not_chromium"
+    assert "debian-sensible-browser.desktop" in refusal.value.recovery
 
 
 def test_prepare_restarts_a_running_chromium_with_a_devtools_port(
