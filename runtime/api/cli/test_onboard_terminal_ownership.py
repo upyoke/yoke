@@ -70,6 +70,20 @@ def test_interactive_login_probe_keeps_the_wizard_terminal(shell, tmp_path):
     assert "setup_terminal_" not in output
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX controlling-terminal job control")
+def test_loss_is_named_before_a_running_worker_finishes(tmp_path):
+    """Apply runs in a worker thread; its loss must not wait for that thread."""
+    from runtime.api.cli.onboard_terminal_pty_support import run_pty
+
+    output, result = run_pty("worker-loss", tmp_path)
+    assert result["exit_code"] == 2, output
+    notice = output.find("setup_terminal_ownership_lost: setup is stopping")
+    assert 0 <= notice < output.find("WORKER-DONE"), output[-2000:]
+    assert "terminal foreground process group" in output[notice:]
+    assert "keep this terminal open" in output
+    assert output.rfind("setup stopped (") > output.find("WORKER-DONE")
+
+
 def test_windows_uses_its_native_console_without_posix_calls(monkeypatch):
     monkeypatch.setattr(terminal.os, "name", "nt")
     terminal.require_foreground_terminal(SimpleNamespace())

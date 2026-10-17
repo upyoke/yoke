@@ -99,7 +99,10 @@ input and mouse modes and exits with `setup_terminal_ownership_lost`. The
 message names what setup observed: the job-control signal (`SIGTTIN` or
 `SIGTTOU`), the terminal's foreground process group with its command when that
 process still runs, and the error number when the terminal check failed.
-Return to the foreground shell and run `yoke setup` again. Completed setup
+Setup prints that notice as soon as it restores the screen; work already
+running, such as Apply, finishes before setup exits, so keep the terminal open
+until it does. Return to the foreground shell and run `yoke setup` again.
+Completed setup
 changes remain; the diagnostic does not imply rollback. If restoration fails,
 the diagnostic names the failure and asks you to run `stty sane` before
 retrying. Suspension by `SIGTSTP` and foreground resumption by `SIGCONT`
