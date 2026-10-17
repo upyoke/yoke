@@ -86,7 +86,10 @@ def _seed_recent_claim_denial_state(
         conn.close()
 
 
-def test_hooks_evaluate_runs_claim_ownership_guard_server_side(client) -> None:
+@pytest.mark.parametrize("wire_project", [1, None])
+def test_hooks_evaluate_runs_claim_ownership_guard_server_side(
+    client, wire_project
+) -> None:
     session_id = "server-claim-guard-client"
     holder = "server-claim-guard-holder"
     item_id = 42
@@ -95,8 +98,20 @@ def test_hooks_evaluate_runs_claim_ownership_guard_server_side(client) -> None:
         holder_session_id=holder,
         item_id=item_id,
     )
+    if wire_project is None:
+        registered = client.post(
+            "/v1/hooks/evaluate",
+            json=_request_body(
+                event_name="SessionStart",
+                stdin=json.dumps(
+                    {"session_id": session_id, "project_id": 1, "cwd": "/client/repo"}
+                ),
+            ),
+        )
+        assert registered.json()["outcome"] == "completed"
 
     body = _request_body(
+        project_id=wire_project,
         event_name="PreToolUse",
         executor="claude",
         stdin=json.dumps(

@@ -219,6 +219,7 @@ def test_stored_org_scope_and_authenticated_identity_dominate_payload(
         client.post("/v1/hooks/evaluate", json=request).json()["outcome"] == "completed"
     )
     request["project_id"] = 1
+    request["event_name"] = "PreToolUse"
     request["payload_extra"] = {
         "session_id": forged,
         "project_id": 1,
