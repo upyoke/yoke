@@ -33,6 +33,9 @@ class ChargeScheduleResponse(BaseModel):
     frozen_steps: List[Dict[str, Any]]
     runnable_elsewhere: List[Dict[str, Any]] = []
     workspace_home_project: Optional[str] = None
+    #: Live dependency deadlocks touching the scope, as ``{items, edges,
+    #: stranded}`` rows; the fleet watch raises its ``deadlock`` alarm here.
+    dependency_cycles: List[Dict[str, Any]] = []
 
 
 def _err(code: str, message: str) -> HandlerOutcome:
@@ -222,6 +225,16 @@ def _narrow_to_seats(result: Any, members: set[int] | None) -> Any:
     return result
 
 
+def _dependency_cycles(
+    conn: Any, project_scope: List[int], members: set[int] | None
+) -> List[Dict[str, Any]]:
+    """Deadlocks touching the scope, narrowed like the step lists."""
+    from yoke_core.domain.dependency_cycles_read import dependency_cycles, seat_cycles
+
+    cycles = dependency_cycles(conn, project_scope)
+    return [cycle.to_dict() for cycle in seat_cycles(conn, cycles, members)]
+
+
 def handle_charge_schedule(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         body = ChargeScheduleRequest.model_validate(request.payload or {})
@@ -275,6 +288,7 @@ def handle_charge_schedule(request: FunctionCallRequest) -> HandlerOutcome:
         payload = enrich_elsewhere_checkout_paths(
             scheduler_result_to_dict(result, conn, staffing_clocks=True)
         )
+        payload["dependency_cycles"] = _dependency_cycles(conn, project_scope, members)
     return HandlerOutcome(result_payload=payload)
 
 

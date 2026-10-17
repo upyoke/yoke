@@ -229,6 +229,12 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
     assert {row["id"] for row in complete} == set(run_ids)
     assert sum(len(row["member_items"]) for row in complete) == 194
     assert sum(full.queries.values()) < 60
+    assert not any(
+        "q.id AS presented_requirement_id,run.*" in sql for sql in full.queries
+    )
+    assert not any(
+        "SELECT run_id,item_id,requirement_snapshot FROM" in sql for sql in full.queries
+    )
     assert all(row["carried_work"]["items"] for row in complete)
     serialized = FunctionCallResponse(
         function="deployment_runs.list",
@@ -321,6 +327,11 @@ def test_combined_overview_preserves_each_project_window_and_shared_members(test
     assert len({row["id"] for row in all_rows}) == 21
     shared = next(row for row in all_rows if row["id"] == "quiet-active")
     assert {member["id"] for member in shared["member_items"]} == {30001, 30002}
+    assert all(
+        "item_qa_requirements_read_failed"
+        not in member["qa_obligations"].get("error", "")
+        for member in shared["member_items"]
+    )
     assert {row["id"] for row in own_rows} == {"quiet-active"}
     with (
         patch("yoke_core.domain.deployment_run_list_read.connect", return_value=conn),

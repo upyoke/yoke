@@ -8,7 +8,9 @@ function ids:
 * ``items.dependency.remove``
 
 The dependent item is the dispatcher target. The blocking item remains a
-payload ref accepted by the underlying item-dependency domain owner.
+payload ref accepted by the underlying item-dependency domain owner. Add and
+update refuse with ``dependency_cycle`` a write that would close a loop of
+blocking edges among live items.
 """
 
 from __future__ import annotations
@@ -120,9 +122,14 @@ def _run_with_conn(fn, *args, **kwargs) -> str:
 
 
 def _domain_error(exc: Exception) -> HandlerOutcome:
-    code = (
-        "dependency_not_found" if isinstance(exc, LookupError) else "dependency_failed"
-    )
+    from yoke_core.domain.dependency_cycles import DependencyCycleError
+
+    if isinstance(exc, DependencyCycleError):
+        code = DependencyCycleError.code
+    elif isinstance(exc, LookupError):
+        code = "dependency_not_found"
+    else:
+        code = "dependency_failed"
     return _err(code, str(exc))
 
 
