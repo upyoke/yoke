@@ -328,7 +328,7 @@ class TestBoardDataOverHttpBoundary:
         )
         body = response.json()
         if case != "owner" or key:
-            assert not body.get("result"), body["result"]["sessions"]["active"]
+            assert not body.get("result"), response.text
             assert not body["success"]
             expected = {
                 "owner": "downstream_failure",
