@@ -54,7 +54,7 @@ def setup(tmp_path, monkeypatch):
     monkeypatch.setattr(aa.subprocess, "run", run)
 
     def ensure(**kwargs):
-        aa.ensure_chromium_apparmor(
+        return aa.ensure_chromium_apparmor(
             tmp_path / "browser",
             SimpleNamespace(node="/node"),
             env={"PATH": "/test"},
@@ -150,16 +150,23 @@ def test_parser_success_requires_loaded_kernel_profiles(setup, monkeypatch):
         setup.ensure()
 
 
-def test_missing_authority_has_one_named_refusal(setup, monkeypatch):
+def test_interactive_sudo_does_not_prompt_and_launches_unsandboxed(setup, monkeypatch):
+    monkeypatch.setattr(aa, "command_authority", lambda reason: (["sudo", "--"], True))
+    assert setup.ensure() is False
+    assert not any(command[:2] == ["sudo", "--"] for command, _ in setup.commands)
+    assert any("sandbox off" in log for log in setup.logs)
+
+
+def test_restricted_userns_without_root_completes_with_sandbox_off(setup, monkeypatch):
     def refuse(reason):
         raise RuntimeError(reason)
 
     monkeypatch.setattr(aa, "command_authority", refuse)
-    with pytest.raises(
-        RuntimeError, match="AppArmor restricts Chromium user namespaces"
-    ):
-        setup.ensure()
+    assert setup.ensure() is False
     assert len(setup.commands) == 1
+    assert list(setup.directory.iterdir()) == []
+    assert any("launching with the sandbox off" in log for log in setup.logs)
+    assert any("retry yoke qa browser setup" in log for log in setup.logs)
 
 
 def test_autoinstall_disabled_refuses_required_profile(setup):

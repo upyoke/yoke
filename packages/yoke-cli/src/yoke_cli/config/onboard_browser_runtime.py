@@ -31,7 +31,7 @@ OPEN_CHROMIUM_JS = r"""
 const { chromium } = require('playwright');
 const { launchOptions } = require('./src/browser-executable');
 (async () => {
-  const browser = await chromium.launch({ ...launchOptions(), headless: false, chromiumSandbox: true });
+  const browser = await chromium.launch({ ...launchOptions(), headless: false });
   browser.on('disconnected', () => process.exit(0));
   try {
     const page = await browser.newPage();
@@ -80,7 +80,11 @@ def default_browser_command(env: Mapping[str, str]) -> list[str] | None:
     ]
     names = [name]
     if not any((root / "applications" / name).is_file() for root in roots):
-        names = ["chromium.desktop", "chromium-browser.desktop", "chromium_chromium.desktop"]
+        names = [
+            "chromium.desktop",
+            "chromium-browser.desktop",
+            "chromium_chromium.desktop",
+        ]
     for candidate in names:
         for root in roots:
             entry = root / "applications" / candidate
@@ -92,7 +96,9 @@ def default_browser_command(env: Mapping[str, str]) -> list[str] | None:
             if section.getboolean("Hidden", fallback=False):
                 return None
             command = shlex.split(section.get("Exec", ""))
-            executable = shutil.which(command[0], path=env.get("PATH")) if command else None
+            executable = (
+                shutil.which(command[0], path=env.get("PATH")) if command else None
+            )
             if not executable or Path(executable).resolve().name in DESKTOP_LAUNCHERS:
                 return _browser_alternative(env)
             # Desktop field codes are launch metadata, not literal browser args.

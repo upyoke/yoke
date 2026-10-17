@@ -91,7 +91,11 @@ class AnswerStore:
         """The stored answer for ``key`` and for each of its form fields."""
         prefix = f"{key}."
         names = {*self.answers, *self._staged} - self._dropped
-        found = {name: self.value(name) for name in names if name == key or name.startswith(prefix)}
+        found = {
+            name: self.value(name)
+            for name in names
+            if name == key or name.startswith(prefix)
+        }
         return {name: value for name, value in found.items() if value is not None}
 
     # ── writing ─────────────────────────────────────────────
@@ -124,8 +128,18 @@ class AnswerStore:
             "waiting_key": waiting_key,
             "apply_failure": self.apply_failure,
         }
-        _write_private(store_path(), json.dumps(record, indent=2, sort_keys=True) + "\n")
+        _write_private(
+            store_path(), json.dumps(record, indent=2, sort_keys=True) + "\n"
+        )
         self.existed = True
+
+    def wait_at(self, key: str) -> None:
+        """Wait at the question a refusal repeats; saved answers stay as they were."""
+        if not self.existed or key == self.waiting_key:
+            return
+        self._staged = {}
+        self._dropped = set()
+        self.flush(waiting_key=key)
 
     def release(self) -> None:
         if self._lock_fd is not None:
