@@ -38,6 +38,41 @@ including machine keys. Enabling restores role access but does not restore
 those keys: the person must sign in again and reconnect affected machines.
 A local universe with one human actor says you are the only actor.
 
+Org admins use **Invite** in the Team page head. The server selects the form:
+
+| Universe | Invite field | How the teammate joins |
+|---|---|---|
+| Local | No Invite action | This universe is reachable on this computer only. Set up a team server with `yoke self-host init` to share it. |
+| Self-hosted without company sign-in | Name and org role | Send the one-time invite code privately. The teammate runs `yoke connect <server>` and chooses **Enter invite code**. |
+| Self-hosted with company sign-in | Email and org role | The teammate signs in with their own company identity. |
+| Cloud | Email and org role | The teammate signs in with their own Yoke account. |
+
+The role defaults to `operator`; its description comes from the roster.
+A matching name warns that another person will be created. A code invite
+creates an active person immediately and stays pending until redemption.
+Its code appears once, expires in 24 hours and works once. Send it only to
+that person through a private channel. **Done** or leaving Team removes the
+code; Yoke keeps only its hash. An email invitation shows a sent confirmation
+without a code.
+
+The **Invites** panel shows each person, invite kind, role, state, expiry and
+inviter. Pending, expired, revoked and joined rows are grouped in that order,
+with newest creation time first within a group. **Show used** reveals joined
+rows. An explicit empty role grant is shown as **No role grant**. Older servers
+with incomplete fields show unavailable/upgrade information, never inferred
+roles, creation times or inviter identities.
+
+An admin can **Revoke…** a pending invite or **Reissue** a pending, expired or
+revoked code invite after confirmation. Reissue creates a new code for the
+same person and invalidates the old code. To resend an email invitation,
+revoke it, then invite again. A lost code or an unavailable replay result
+also needs Reissue. These actions refresh the roster and invites while
+keeping the visibility toggles and any displayed result until Done.
+Other members see the list without invite actions. A failed invite read
+leaves the roster usable; **Try again** repeats the read. Registry/version
+refusals request a server upgrade, and a company sign-in configuration refusal
+names the server operator recovery. See [teammate invitations](reference/teammate-invitations.md).
+
 Each person holds exactly one org role, and the engine owns it in every mode —
 local, self-hosted, and Cloud alike:
 
@@ -117,5 +152,6 @@ Organization / universe level: export/import portability, founding new orgs
 |---|---|---|---|
 | Workbench | `yoke ui up` | `yoke ui up`: company sign-in or a single-use token link | app.upyoke.com |
 | Members / Billing | N/A | N/A | Platform sections |
-| Machine approval | N/A (you are the machine) | Company sign-in → approve your own machine at `/machine-approval`; API token when OIDC is absent | Machines page / connect |
+| Team invitations | Unavailable; reachability notice | Name/code or company email, as reported by the server | Email invitation |
+| Machine approval | N/A (you are the machine) | Connect, then approve your own machine from the printed link or Machines | Machines page / connect |
 | Universe export | Yes | Yes | Yes (portability) |

@@ -117,6 +117,17 @@ test("local roster omits Member email and names a sole human actor", async () =>
   mounted.unmount();
 });
 
+test("the actual app exposes Invite and restores its head focus on Escape", async () => {
+  const { root, mounted } = await mountTeam(() => ok(adminRoster), "hosted");
+  const invite = button(root, "Invite");
+  await click(invite);
+  assert.equal(invite.disabled, true);
+  nodes(root, "FORM")[0].dispatchEvent(Object.assign(new Event("keydown"), { key: "Escape" }));
+  assert.equal(invite.disabled, false);
+  assert.equal(root.ownerDocument.activeElement, invite);
+  mounted.unmount();
+});
+
 const nodes = (root, tag) => allNodes(root).filter((node) => node.tagName === tag);
 const button = (root, text) => nodes(root, "BUTTON").find((node) => node.textContent === text);
 const click = async (node) => { assert.ok(node); node.dispatchEvent(new Event("click")); await settle(); };
@@ -234,6 +245,18 @@ test("email fact merges identity rows and returns its nested result without a co
   assert.match(f.main.textContent, /Hosted inviter/);
   assert.equal(byClass(f.main, "profile-token-reveal").length, 0);
   assert.equal(f.requests.filter((request) => request.function === "identity.invite.list").length, 2);
+});
+
+test("actor role and enable actions reload invites and preserve visibility choices", async () => {
+  const f = await direct((request) => request.function === "actors.roster" ? ok(adminRoster)
+    : request.function === "teammate_invites.list" ? ok({ invite_form: "code", invites: [{ ...inviteRow, state: "consumed" }] }) : ok({}));
+  for (const toggle of nodes(f.main, "INPUT")) { toggle.checked = true; toggle.dispatchEvent(new Event("change")); }
+  await click(button(f.main, "Enable"));
+  const role = nodes(f.main, "SELECT")[0]; role.value = "viewer"; role.dispatchEvent(new Event("change")); await settle();
+  for (const id of ["actors.roster", "teammate_invites.list"]) assert.equal(f.requests.filter((request) => request.function === id).length, 3);
+  assert.ok(nodes(f.main, "INPUT").every((node) => node.checked));
+  assert.ok(f.requests.some((request) => request.function === "actors.state.set"));
+  assert.ok(f.requests.some((request) => request.function === "actors.role.set"));
 });
 
 test("empty, loading and refused reads retain a meaningful Team screen", async () => {
