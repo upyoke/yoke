@@ -223,6 +223,12 @@ def test_reset_quits_safari_before_the_clear_and_stops_if_it_will_not(monkeypatc
         "execute_full_test_machine_reset",
         lambda **kw: order.append("reset") or HostActionResult(True, {"restored": 1}),
     )
+    for terminal_step in ("quit_terminal_app", "relaunch_terminal_app"):
+        monkeypatch.setattr(
+            ssh_mac_transport,
+            terminal_step,
+            lambda *_a, **_k: HostActionResult(True, {}),
+        )
     host = SimpleNamespace(
         _run=None,
         _user="tester",
