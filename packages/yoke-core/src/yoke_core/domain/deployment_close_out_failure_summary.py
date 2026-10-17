@@ -15,8 +15,8 @@ _MISSING_LANDING_EVIDENCE = re.compile(
     r"\blanding evidence is missing ([a-z_]+(?:, [a-z_]+)*)\.", re.IGNORECASE
 )
 _RECORD_LINE = re.compile(r"^\s*- (.+)$")
-_LINE_CHARS = 280
-_MAX_RECORDS = 6
+_LINE_CHARS = 200
+_MAX_RECORDS = 5
 
 
 def _bounded(text: str) -> str:
