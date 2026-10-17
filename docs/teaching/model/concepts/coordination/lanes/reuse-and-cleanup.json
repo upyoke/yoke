@@ -6,5 +6,7 @@
  "sources": ["docs/source-dev-worktree-cleanup.md", "packages/yoke-core/src/yoke_core/domain/worktree_capacity.py", "packages/yoke-core/src/yoke_core/domain/delivery_member_close_steps.py", "packages/yoke-core/src/yoke_core/domain/deployment_run_collective_finalization.py", "packages/yoke-core/src/yoke_core/engines/cancelled_lane_discard.py"],
  "commands": ["yoke direct-workflow worktree prepare", "yoke items cancel"],
  "page": "coordination",
- "position": 4
+ "position": 4,
+ "verification": "Before cancellation cleanup deletes a lane, its local/remote heads and dirty-path count are recorded through item_worktrees.cancelled_lanes.record in the owning item's Progress Log. Retain partial/not-deleted warnings; the function is the cleanup receipt, not independent deletion authority. This mapping exercises no cleanup.",
+ "functions": ["item_worktrees.cancelled_lanes.record"]
 }

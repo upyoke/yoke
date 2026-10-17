@@ -2,7 +2,10 @@
  "id": "qa-adoption",
  "title": "Connect QA concepts to their disclosure moments",
  "status": "observed",
- "text": "Differentiate method, plan, case, requirement, execution, verdict, item/run subject, target and machine; preserve local tests/review paths.",
+ "text": "The public verification home already introduces methods, plans, activity, the verdict-producing case run and the first-work registered command binding. Keep those existing first-use instructions current. JOURNEYS owns deeper worked examples that connect method/case/plan/requirement, item-versus-run subjects, targets, machines and review at the actual disclosure moment. Individual lessons retain research questions and pending exact recipe proof; they do not prove live adoption or waive current-work requirements.",
  "plan_refs": ["JOURNEYS.situation-13"],
- "position": 8
+ "position": 8,
+ "owner": "JOURNEYS",
+ "topics": ["qa-methods/model", "qa-plans/plans", "qa-plans/cases", "qa-plans/requirements", "qa-evidence/runs"],
+ "sources": ["docs/public/verification/index.md", "docs/teaching/model/scenarios/qa-methods/01.json", "docs/teaching/model/scenarios/qa-plans-cases/01.json", "docs/teaching/model/scenarios/qa-subjects-targets/01.json"]
 }

@@ -1,0 +1,13 @@
+{
+ "id": "shared-files",
+ "title": "Upload and share project files",
+ "status": "observed",
+ "page": "shared-files",
+ "position": 6,
+ "commands": ["yoke files upload"],
+ "functions": ["files.upload"],
+ "summary": "Select a project with --project P or its checkout mapping and hold items.write before uploading. --path names the project-relative address; uploading there again replaces the bytes. The returned URL opens for a signed-in reader with items.read or a script using its connection token. Local links require that universe to be serving. The guide owns path rules, size limits and named refusal recovery.",
+ "recipes": ["yoke files upload --help", "yoke files upload ./review.html --path plans/review.html --project P"],
+ "sources": ["docs/public/projects/shared-files.md", "docs/public/functions/project-configuration.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/files_cli.py"],
+ "verification": "Source/help inspection only; no upload or live receipt. Retention remains unresolved: the public guide says no expiry while CLI help says hosted files expire after 365 days. Both claims predate this source relocation; this map certifies no file lifetime."
+}

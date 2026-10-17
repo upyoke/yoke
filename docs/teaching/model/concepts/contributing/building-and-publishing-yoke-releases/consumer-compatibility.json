@@ -7,5 +7,8 @@
  "position": 4,
  "summary": "Every upstream PR, main push and manual candidate receives an independent advisory. Identical product trees at the same observed Platform commit reuse the durable original dispatch and its run, including after a rebase. Merge-queue groups do not dispatch advisories. Release publication still requires the exact product/consumer commit pair. The advisory reads its dispatch receipt on the consumer project's run-read permission, which the release identity's deployment_ci role carries; an engine serving below that grant reports NOT CHECKED with dispatch_receipt_unauthorized and never asks for project admin.",
  "sources": [".github/workflows/consumer-compatibility-advisory.yml", "runtime/api/tools/consumer_compatibility_advisory.py", "docs/source-dev-doctrine.md", "packages/yoke-core/src/yoke_core/domain/function_authz_scope_release_ci.py"],
- "functions": ["github_actions.dispatch_receipt.get"]
+ "functions": ["github_actions.dispatch_receipt.get"],
+ "recipes": ["yoke github-actions dispatch-receipt get REQUEST-ID --project P --json"],
+ "verification": "Read the durable original request before rejoining. Reuse its original inputs; a changed payload under the same request ID refuses, and an absent record returns found=false. Source help was inspected; no dispatch, real consumer build or release proof is claimed.",
+ "commands": ["yoke github-actions dispatch-receipt get"]
 }

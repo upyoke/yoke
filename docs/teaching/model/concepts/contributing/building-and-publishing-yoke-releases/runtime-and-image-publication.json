@@ -3,9 +3,13 @@
  "title": "Runtime and image publication",
  "status": "observed",
  "audience": "Maintainers",
- "page": "contributing-guides",
+ "page": "release-publication",
  "position": 1,
  "current": "Source defines github.release.create_commit_tag with a serving floor and BASE.YYYYMMDDHHMM from the UTC committer clock. Repeated calls recover an identical annotated tag; minute collisions refuse. The bridge and factories still use launch tags.",
  "desired": "After the API is served, activate commit tags and exact main-push wheel and image promotion together. Prove the real consumer and measure release duration before claiming live improvement.",
- "sources": ["docs/releases/README.md", "packages/yoke-core/src/yoke_core/domain/handlers/github_commit_release_tag.py"]
+ "sources": ["docs/releases/README.md", "packages/yoke-core/src/yoke_core/domain/handlers/github_commit_release_tag.py"],
+ "recipes": ["yoke github release create-commit-tag --help", "yoke github release create-commit-tag OWNER/REPO SOURCE-SHA --summary TEXT --project P"],
+ "verification": "Use a full source commit and the project capability owning the repository binding only after the carrying API is served. Source help confirms the immutable commit-clock tag and replay/minute-collision contract; no tag, release or serving-floor proof was produced here.",
+ "commands": ["yoke github release create-commit-tag"],
+ "functions": ["github.release.create_commit_tag"]
 }
