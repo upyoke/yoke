@@ -101,6 +101,7 @@ def _candidate_sessions(
     *,
     machine_id: str | None,
     projects: Sequence[int],
+    relay_actor_id: int | None = None,
 ) -> List[Dict[str, Any]]:
     """Live sessions in scope that have a turn end worth examining.
 
@@ -116,11 +117,17 @@ def _candidate_sessions(
     microseconds; a missing last tool call is explicit SQL null.
     """
     marker = _p(conn)
-    project_slots = ",".join(marker for _ in projects)
+    scopes = (
+        [f"hs.project_id IN ({','.join(marker for _ in projects)})"] if projects else []
+    )
+    if relay_actor_id is not None:
+        scopes.append(
+            f"(hs.org_id IS NOT NULL AND hs.actor_id={marker} AND hs.machine_id={marker})"
+        )
     open_call = open_tool_call_select(conn, session_alias="hs")
     on_machine = f"hs.machine_id={marker} AND " if machine_id else ""
     rows = conn.execute(
-        "SELECT hs.session_id,hs.project_id,hs.machine_id,hs.executor_surface,"
+        "SELECT hs.session_id,hs.project_id,hs.org_id,hs.machine_id,hs.executor_surface,"
         "hs.executor_version,hs.model,hs.actor_id,hs.execution_level,hs.last_tool_call_at,hs.turn_posture,"
         "hs.native_turn_end_recorded_at,hs.native_turn_end_observation,"
         "hs.vendor_resume_episode_key,hs.vendor_resume_attempts"
@@ -128,13 +135,14 @@ def _candidate_sessions(
         "FROM harness_sessions hs "
         f"WHERE {on_machine}hs.ended_at IS NULL "
         "AND hs.terminated_at IS NULL "
-        f"AND hs.project_id IN ({project_slots}) "
+        f"AND ({' OR '.join(scopes) or '1=0'}) "
         "AND hs.native_turn_end_recorded_at IS NOT NULL "
         "AND (hs.last_tool_call_at IS NULL OR hs.native_turn_end_recorded_at>hs.last_tool_call_at) "
         "ORDER BY hs.session_id",
         (
             *((machine_id,) if machine_id else ()),
             *projects,
+            *((relay_actor_id, machine_id) if relay_actor_id is not None else ()),
         ),
     ).fetchall()
     return [row_dict(raw) for raw in rows]
@@ -175,6 +183,7 @@ def _decision(
         # budget belongs to.
         "episode_key": resume_episode_key(row.get("last_tool_call_at")),
         "project_id": row.get("project_id"),
+        "org_id": row.get("org_id"),
         "machine_id": str(row.get("machine_id") or ""),
         "executor_surface": str(row.get("executor_surface") or ""),
         "executor_version": str(row.get("executor_version") or ""),
@@ -229,6 +238,7 @@ def vendor_error_states(
     *,
     authorized_projects: Iterable[int],
     machine_id: str | None = None,
+    relay_actor_id: int | None = None,
     now: datetime | None = None,
 ) -> List[Dict[str, Any]]:
     """Every live session in scope whose last turn the model provider ended.
@@ -246,10 +256,12 @@ def vendor_error_states(
     """
     current = as_utc(now) if now is not None else utc_now()
     projects = tuple(sorted({int(value) for value in authorized_projects}))
-    if not projects:
+    if not projects and relay_actor_id is None:
         return []
     states: List[Dict[str, Any]] = []
-    for row in _candidate_sessions(conn, machine_id=machine_id, projects=projects):
+    for row in _candidate_sessions(
+        conn, machine_id=machine_id, projects=projects, relay_actor_id=relay_actor_id
+    ):
         observation = native_turn_end(row)
         if not observation:
             continue

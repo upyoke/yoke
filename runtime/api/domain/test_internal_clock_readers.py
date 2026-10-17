@@ -66,6 +66,7 @@ def test_identity_and_release_readers_return_native_optional_instants(
         clock,
         None,
         None,
+        None,
     )
     result = identity.resolve_session_identity(Connection(row), "sample")
     expected = None if clock is None else INSTANT
@@ -88,7 +89,7 @@ def test_invalid_stored_reader_clock_refuses(monkeypatch, clock):
     )
     with pytest.raises(InvalidInstant):
         identity.resolve_session_identity(
-            Connection(("sample",) * 12 + (clock, None, None)), "sample"
+            Connection(("sample",) * 12 + (clock, None, None, None)), "sample"
         )
     with pytest.raises(InvalidInstant):
         checkpoint.last_released_at(Connection({"released_at": clock}), "sample")

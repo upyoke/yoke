@@ -24,6 +24,7 @@ def test_public_export_surface_is_complete() -> None:
         "mint_watcher_capture_pair",
         "resolve_active_project",
         "scratch_project",
+        "scratch_machine_owner",
         "scratch_root",
         "scratch_subdir",
         "storage_dir",
@@ -48,10 +49,14 @@ def _patch_checkout_project(
         "yoke_core.domain.project_scratch_identity.resolve_project_namespace",
         lambda ref: {"yoke": "1", "externalwebapp": "2"}.get(ref, ref),
     )
-    monkeypatch.setattr(
-        "yoke_core.domain.project_selection.default_project_for_directory",
-        lambda _root: str(project_id) if project_id is not None else None,
-    )
+    for module in (
+        "yoke_core.domain.project_selection",
+        "yoke_contracts.project_defaults",
+    ):
+        monkeypatch.setattr(
+            f"{module}.default_project_for_directory",
+            lambda _root: str(project_id) if project_id is not None else None,
+        )
 
 
 def _set_identity(
@@ -75,7 +80,6 @@ def test_resolve_active_project_prefers_explicit_then_env(
 ) -> None:
     _patch_checkout_project(monkeypatch)
     monkeypatch.setenv("YOKE_PROJECT", "externalwebapp")
-
     assert scratch.resolve_active_project("yoke") == "1"
     assert scratch.resolve_active_project() == "2"
 
@@ -98,8 +102,7 @@ def test_accessors_return_expected_absolute_shapes(
         / "test-run"
         / "dispatch-inputs"
     )
-    # Hook markers and the harness runtime cache are cross-process
-    # coordination surfaces: no session/run segments.
+    # Coordination paths omit session/run segments.
     assert scratch.hook_marker_path("done") == (
         tmp_path / "root" / "1" / "hook-markers" / "done"
     )
@@ -149,8 +152,7 @@ def test_accessors_return_expected_absolute_shapes(
 def test_coordination_paths_are_stable_across_session_and_run_identity(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Fire-once markers and the runtime cache must resolve identically from
-    every hook process of a session, whatever ambient identity says."""
+    """Coordination paths stay stable across ambient session identity."""
     _patch_checkout_project(monkeypatch)
     _set_identity(monkeypatch)
     monkeypatch.delenv("YOKE_PROJECT", raising=False)
@@ -292,9 +294,7 @@ def test_resolution_error_only_when_tmpdir_fallback_unwritable(
     _patch_checkout_project(monkeypatch)
     _set_identity(monkeypatch)
     monkeypatch.delenv(scratch.ENV_KEY, raising=False)
-    # No configured override (env + machine temp_root both absent) isolates the
-    # pure tmpdir-fallback path this test asserts, without the override-root
-    # "falling back" warning a configured machine temp_root would otherwise emit.
+    # No configured roots isolates the unwritable OS-temp fallback.
     monkeypatch.setattr(
         roots, "scratch_root_candidates", lambda: (tmp_path / "yoke-scratch",)
     )

@@ -120,6 +120,7 @@ function metricFacts(rows, matched) {
 export function renderSessionRows(
   documentNode, host, rows, cardFor, filtered = false, historySummary = "",
   matchedTotal = 0, usage = null,
+  emptyMessage = null,
 ) {
   const restoreId = holdingsDisclosureFocusId(documentNode, host);
   const stats = el(documentNode, "div", "stat-row sessions-stats");
@@ -142,7 +143,7 @@ export function renderSessionRows(
   if (!rows.length) {
     host.appendChild(el(
       documentNode, "p", "sessions-empty",
-      filtered ? "No sessions match the current filters." : "No sessions in this scope.",
+      emptyMessage || (filtered ? "No sessions match the current filters." : "No sessions in this scope."),
     ));
     return;
   }
@@ -274,6 +275,7 @@ export function sessionsHistoryLoader(context, scope, filters, onChange) {
   };
 
   const visibleOpenRows = () => filters.apply(openRows);
+  const visibleHistoryRows = () => filters.applyHistory(historyRows);
   return {
     loadOpen,
     loadMore: () => loadHistory(historyLoaded),
@@ -281,19 +283,24 @@ export function sessionsHistoryLoader(context, scope, filters, onChange) {
     rows() {
       const state = filters.state();
       if (state === "active") return visibleOpenRows();
-      if (state === "ended") return historyRows;
-      return [...visibleOpenRows(), ...historyRows];
+      if (state === "ended") return visibleHistoryRows();
+      return [...visibleOpenRows(), ...visibleHistoryRows()];
     },
-    // How many sessions the current filter matches, against which the rows
-    // on screen are a page. Ended matches are counted by the server across
-    // the whole history, open ones by the roster the client holds, and the
-    // unfiltered state answers for both so its page count means the same
-    // thing as either single-state one.
+    // The server counts ordinary ended matches across the whole history.
+    // Outside-project history is filtered locally, so only loaded matches
+    // count there. Open matches always come from the roster the client holds.
     matchedTotal() {
       const state = filters.state();
+      const historyMatches = filters.outsideProjectOnly()
+        ? visibleHistoryRows().length : matchedCount;
       if (state === "active") return visibleOpenRows().length;
-      if (state === "ended") return matchedCount;
-      return visibleOpenRows().length + matchedCount;
+      if (state === "ended") return historyMatches;
+      return visibleOpenRows().length + historyMatches;
+    },
+    historyEmptyMessage() {
+      if (!filters.outsideProjectOnly() || !historyVisible()) return null;
+      return "No outside-project sessions in the loaded history."
+        + (nextCursor ? " Load more to continue." : "");
     },
     openRows: () => openRows,
     bulkRows: () => filters.applyOpen(openRows),

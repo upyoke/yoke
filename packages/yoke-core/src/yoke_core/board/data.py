@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from yoke_contracts.board.data import BOARD_DATA_VERSION, BoardDataError, _encode_value
-from yoke_contracts.board.project_scope import project_filter, scoped_project_visibility
+from yoke_contracts.board.sections_sessions_scope import scoped_org_sessions
+from yoke_contracts.board.project_scope import (
+    project_filter,
+    scope_project_id,
+    scoped_project_visibility,
+)
 from yoke_contracts.board.sections import (
     classify_items,
     frontier_counts,
@@ -28,6 +33,7 @@ def collect_board_data(
     vision_entries=(),
     vision_project=None,
     visible_project_ids=None,
+    actor_id: int | None = None,
 ) -> dict:
     """Read authorized facts once; no board rendering or SQL enters the payload."""
     visible = (
@@ -37,7 +43,32 @@ def collect_board_data(
     )
     db._activity_day_counts_cache = {}
     db._board_model_catalogs = {}
-    with scoped_project_visibility(visible):
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.actor_permissions import PERM_ITEMS_READ
+    from yoke_core.domain.session_scope_identity import (
+        SessionScope,
+        actor_may_operate_session,
+    )
+
+    authorized_org_sessions = []
+    if actor_id is not None:
+        with db_helpers.connect() as conn:
+            for row in conn.execute(
+                "SELECT session_id,org_id,actor_id FROM harness_sessions "
+                "WHERE project_id IS NULL AND org_id IS NOT NULL"
+            ).fetchall():
+                if actor_may_operate_session(
+                    conn,
+                    actor_id=actor_id,
+                    scope=SessionScope(None, row["org_id"]),
+                    session_actor_id=row["actor_id"],
+                    permission_key=PERM_ITEMS_READ,
+                ):
+                    authorized_org_sessions.append(str(row["session_id"]))
+    with (
+        scoped_project_visibility(visible),
+        scoped_org_sessions(authorized_org_sessions),
+    ):
         stats = precompute_epic_stats(db, scope)
         buckets = classify_items(db, scope, epic_stats=stats)
         task_counts = {eid: stat.task_count for eid, stat in stats.items()}
@@ -48,6 +79,8 @@ def collect_board_data(
         pf, params = project_filter(scope)
         max_id = db.scalar("SELECT MAX(id) FROM items WHERE 1=1" + pf, params)
         sessions_scope = config.dashboard_sessions_scope or scope
+        if sessions_scope and sessions_scope != "all":
+            scope_project_id(db, sessions_scope)
         prefetch_session_occupancy(db, scope)
         timeline = []
         if _zen_check_visibility(
@@ -56,10 +89,13 @@ def collect_board_data(
             counts["pipeline"],
             counts["backlog"],
         ):
+            timeline_scope = config.timeline_scope or scope
+            if timeline_scope and timeline_scope != "all":
+                scope_project_id(db, timeline_scope)
             timeline = collect_timeline_rows(
                 db,
                 config,
-                config.timeline_scope or scope,
+                timeline_scope,
                 vision_count=len(list(vision_entries)),
                 vision_project=vision_project,
             )

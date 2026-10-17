@@ -172,6 +172,8 @@ def render_session_roster_rows(
                     else None
                 ),
                 "project_id": row.get("project_id"),
+                "org_id": row.get("org_id"),
+                "scope_kind": "org" if row.get("org_id") is not None else "project",
                 "project": row.get("project"),
                 "executor": row.get("executor"),
                 "executor_surface": row.get("executor_surface"),

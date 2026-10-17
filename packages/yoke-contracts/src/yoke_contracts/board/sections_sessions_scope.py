@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from typing import Any, List, Tuple
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.project_scope import (
@@ -22,6 +24,21 @@ from yoke_contracts.session_control.liveness import (
 )
 
 _COORDINATION_KINDS_SQL = ", ".join(f"'{kind}'" for kind in COORDINATION_TARGET_KINDS)
+
+
+_ORG_SESSION_IDS: ContextVar[tuple[str, ...]] = ContextVar(
+    "board_org_session_ids", default=()
+)
+
+
+@contextmanager
+def scoped_org_sessions(session_ids):
+    """Bind exactly the authorized org sessions, with empty meaning none."""
+    token = _ORG_SESSION_IDS.set(tuple(session_ids))
+    try:
+        yield
+    finally:
+        _ORG_SESSION_IDS.reset(token)
 
 
 def session_rows(
@@ -84,6 +101,8 @@ def session_project_label(
     project_id: Any,
 ) -> str:
     """Render the project label for a session's stamped project id."""
+    if project_id is None:
+        return "Outside any project"
     try:
         normalized_project_id = int(project_id)
     except (TypeError, ValueError):
@@ -113,14 +132,25 @@ def _scope_filter(
 ) -> tuple[str, tuple[Any, ...]]:
     if not scope or scope == "all":
         ids = visible_project_ids()
-        if ids is not None:
-            return _multi_project_scope_filter(ids, active_only=active_only)
-        return "", ()
+        org_ids = _ORG_SESSION_IDS.get()
+        org_sql = "1=0"
+        if org_ids:
+            org_sql = "hs.session_id IN (" + ", ".join("%s" for _ in org_ids) + ")"
+        if ids is None:
+            return f"AND (hs.project_id IS NOT NULL OR {org_sql})", org_ids
+        project_sql, params = _multi_project_scope_filter(ids, active_only=active_only)
+        project_sql = project_sql.strip().removeprefix("AND ")
+        return (
+            f"AND ((hs.project_id IS NOT NULL AND ({project_sql})) OR {org_sql})",
+            (*params, *org_ids),
+        )
+    if visible_project_ids() == ():
+        return "AND 1=0", ()
     project_id = scope_project_id(db, scope)
     claim_sql, claim_params = _claim_scope_filter(project_id, active_only=active_only)
     return (
         f"""
-        AND (
+        AND hs.project_id IS NOT NULL AND (
             hs.project_id = %s
             OR hs.session_id IN ({claim_sql})
         )

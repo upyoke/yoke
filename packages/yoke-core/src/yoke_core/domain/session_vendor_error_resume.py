@@ -101,6 +101,7 @@ def _installed_version(
         connected_relay_routes(conn, now=now),
         machine_id=machine_id,
         project_id=state.get("project_id"),
+        session_actor_id=state.get("actor_id"),
     )
     return str(versions.get(str(state.get("executor_surface") or "")) or "")
 
@@ -151,6 +152,7 @@ def resume_vendor_error_sessions(
         conn,
         machine_id=machine_id,
         authorized_projects=authorized_projects,
+        relay_actor_id=actor_id,
         now=current,
     )
     due = [state for state in states if state["status"] in {"due", "relaunch_due"}]

@@ -248,6 +248,10 @@ HARNESS_SESSION_NOTES = (
     "entrypoint input helps canonicalize executor identity during "
     "registration; it is not stored in an `entrypoint` column, and "
     "harness_sessions has no such column."
+    " Canonical disposable fixtures call schema_init_tables_sessions.create_session_tables, "
+    "then schema_harness_session_columns.apply_harness_session_columns. "
+    "Wrong guess: create_session_tables alone supplies harness_sessions.actor_id; "
+    "actor attribution belongs to the additive session-column owner before scoped reads."
 )
 
 
