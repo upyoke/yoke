@@ -40,6 +40,50 @@ Require a nonzero `id -u`, Ubuntu24.04 in `/etc/os-release`, and working
 as the user. System packages, services and sudo policy are outside the home
 golden. Do not record QA package changes as the permanent machine baseline.
 
+### Codex sandbox namespace access
+
+Ubuntu24.04 restricts unprivileged user namespaces by default. Keep
+`kernel.apparmor_restrict_unprivileged_userns=1`. If a harmless command in the
+human-opened Codex session fails before execution with
+`bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`, inspect fresh
+kernel audit events as administrator:
+
+```text
+sudo journalctl -k --since '10 minutes ago' --no-pager -g 'apparmor.*(bwrap|userns|codex)'
+```
+
+Read the bwrap executable path from the denied userns/capability event. Do
+not infer it from PATH or the npm launcher: Codex may use its app-server
+daemon. Install bubblewrap only if the actual required helper is missing.
+Preserve existing profiles; grant userns only to the exact audited executable.
+For an app-server helper, create `/etc/apparmor.d/codex-bwrap` with:
+
+```text
+abi <abi/4.0>,
+include <tunables/global>
+profile codex_bwrap "/home/TESTUSER/.codex/packages/app-server-daemon/releases/INSTALLED_RELEASE/codex-resources/bwrap" flags=(unconfined) {
+  userns,
+  include if exists <local/codex-bwrap>
+}
+```
+
+Replace the entire quoted path with the actual audited absolute executable;
+TESTUSER and INSTALLED_RELEASE are placeholders, never a copied version.
+Load with `sudo apparmor_parser -r /etc/apparmor.d/codex-bwrap`, then check:
+
+```text
+sysctl kernel.apparmor_restrict_unprivileged_userns
+sudo aa-status
+```
+
+Require the global sysctl still1 and `codex_bwrap` loaded. In the SAME human-opened Codex
+session, request a harmless normal sandboxed pwd/printf command. Require
+actual exit0 and output, then inspect fresh audit events for renewed
+namespace/capability denial. Do not escalate the probe, change Codex
+permissions, disable the global sysctl, reset the host, or accept model text
+as execution proof. Re-audit the helper path after Codex updates. A new
+denial or unavailable helper is a provisioning blocker; stop and report it.
+
 ## 2. SSH, capability and desktop access
 
 Authorize the project's shared public SSH key in the test account's
@@ -183,6 +227,17 @@ capture of the same display. Reset performs fixture desktop logout itself.
 
 ## 5. Optional live browser identities
 
+Required authorization behavior:
+
+Run yoke browser authorize to check automation identities and Test Machine
+desktop browser sign-ins. It opens tabs only for expired sites and names the
+account to use. Desktop browser sign-ins stay live through reset and are
+excluded from golden snapshots.
+
+The desktop-browser check is a required extension. Confirm release-matched
+command help and operation receipts prove it before relying on that check;
+this procedure does not establish its availability in an installed release.
+
 A test machine keeps each project identity signed in live, outside the
 clean-home golden.
 
@@ -234,8 +289,10 @@ so its approval link opens there. The gate then
 presses **Approve machine** only in the exact installer-opened tab on the
 declared origin with the displayed code, revalidates the tab first, accepts
 only a same-origin navigation away from it, and attaches a desktop screenshot
-to the step. The operator signs in to the app once in this Chromium, then
-saves the sign-in with `yoke test-machine golden-capture` (step 6).
+to the step. The operator signs in to the app once in this Chromium. Keep
+that browser sign-in live outside the golden and prove it survives reset
+through the [baseline procedure](linux-baseline-recovery.md); golden capture
+saves the remaining fixture state, never the desktop browser sign-in store.
 
 While the gate's Chromium runs, any process of a local user can reach its
 loopback DevTools port, so keep the host dedicated to the fixture user.

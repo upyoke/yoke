@@ -283,39 +283,15 @@ proof; an old receipt or a successful capture alone cannot replace it.
 
 ## 11. Live browser identities
 
-A test machine keeps each project identity signed in live, outside the
-clean-home golden.
+Required authorization behavior:
 
-1. As the test user, create the live identity store once:
-   `mkdir -m 700 ~/.yoke-browser-identities`. Never place it inside `~/.yoke`.
-   A full reset keeps it the way it keeps harness logins, and golden capture
-   never includes it, because a restored copy of a session is the cookies the
-   site has since rotated.
-2. Agents use the registered test user and leased product operations to install
-   the candidate and prepare its Chromium runtime and real headed desktop.
-   Declare the project's identities and each identity's per-site sign-in
-   checks in its `browser-control` capability settings; see
-   [browser identities](browser-identities.md).
-3. For each identity, agents run `yoke browser authorize --project P
-   --identity NAME` as the test user in the real headed desktop; read
-   `--help`. It checks every declared site first and opens a window only for
-   the expired ones, naming the identity, the site and the account; no
-   automated browser runs while it is open. The user supplies personal
-   credentials and completes personal approval prompts. Agents prepare the
-   desktop and run the declared checks; use project-approved test accounts
-   and follow project-owned sign-in policy. Keep profile data on the host.
-4. The user closes every authorization window; the command checks each site
-   again and fails naming any still signed out. The identity's profile path
-   links into the store, so the sign-in already lives there: nothing is
-   captured, sealed or restored.
-5. A reset removes `~/.yoke` and keeps the store. Once a walk installs the
-   candidate, `yoke browser verify --project P --identity NAME` proves each
-   site still signed in, and sessions a site refreshes during the walk persist
-   in the store whether the walk passes, fails or is aborted.
-6. Agents perform application steps that do not need the user. An expired site
-   is a precise `HUMAN_GATE` naming the machine, identity, site, account and
-   resume state; the resume is `yoke browser authorize --identity NAME` on that
-   host. Runtime and inventory failures retain their named diagnostics.
+Run yoke browser authorize to check automation identities and Test Machine
+desktop browser sign-ins. It opens tabs only for expired sites and names the
+account to use. Desktop browser sign-ins stay live through reset and are
+excluded from golden snapshots.
 
-Use the logged-in, unlocked test-user desktop through Screen Sharing and the
-GUI Terminal context; the login keychain remains that user's.
+The desktop-browser check is a required extension. Confirm release-matched
+command help and operation receipts prove it before relying on that check;
+this procedure does not establish its availability in an installed release.
+
+Before sign-in, follow the complete [macOS sign-in procedure](browser-identities.md#macos-sign-in-procedure).
