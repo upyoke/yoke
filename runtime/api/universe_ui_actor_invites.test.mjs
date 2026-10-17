@@ -156,7 +156,8 @@ test("late create response cannot display a secret after navigation", async () =
 test("mixed invite rows use fixed state/time order, catalog roles and authoritative inviter names", () => {
   const f = fixture();
   const rows = [row(3, "revoked"), row(2), row(4, "consumed"), row(1), row(5, "expired"),
-    row(6, "pending", { kind: "email", email: "email@example.test", role: null, invited_by_user_id: 2, invited_by_name: "Platform inviter" })];
+    { id: 6, kind: "email", email: "email@example.test", role: null, status: "pending", created_at: "2026-10-06T12:00:00Z",
+      invited_by_user_id: 2, invited_by_name: "Platform inviter" }];
   renderInvitesTable(f.context, f.slot, rows, { showUsed: true, roleDescriptions: { viewer: "Read only" } });
   const rendered = tags(f.slot, "TBODY")[0].children;
   assert.deepEqual(rendered.map((tr) => tr.children[0].textContent), ["email@example.test", "Person 2actor #12", "Person 1actor #11", "Person 5actor #15", "Person 3actor #13", "Person 4actor #14"]);

@@ -51,9 +51,9 @@ function createBrowserManager(options = {}) {
     if (profileDir) {
       // A persistent context owns its own browser process; Playwright returns
       // no Browser handle for it, so `context` is the lifecycle authority.
-      context = await chromium.launchPersistentContext(profileDir, { ...launchOptions(), headless, chromiumSandbox: true });
+      context = await chromium.launchPersistentContext(profileDir, { ...launchOptions(), headless });
     } else {
-      browser = await chromium.launch({ ...launchOptions(), headless, chromiumSandbox: true });
+      browser = await chromium.launch({ ...launchOptions(), headless });
       context = await browser.newContext();
     }
     try {

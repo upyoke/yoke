@@ -45,7 +45,7 @@ function client(answer, inviteAnswer = () => ok({ ...nameFact, invites: [] })) {
       }
       if (request.function === "projects.list") return ok({ rows: [] });
       if (request.function === "actors.roster") return answer();
-      if (request.function.startsWith("teammate_invites.")) return inviteAnswer(request);
+      if (/^(teammate_invites|identity\.invite)\./.test(request.function)) return inviteAnswer(request);
       throw new Error(`unexpected function ${request.function}`);
     },
   };
@@ -230,26 +230,43 @@ test("the actual app accepts the name fact for create/reissue/revoke, rereads an
   const count = (id) => reads.requests.filter((request) => request.function === id).length;
   assert.equal(count("actors.roster"), 5); assert.equal(count("teammate_invites.list"), 5);
   for (const action of ["create", "reissue", "revoke"]) assert.equal(count(`teammate_invites.${action}`), 1);
+  for (const action of ["reissue", "revoke"]) assert.deepEqual(
+    reads.requests.find((request) => request.function === `teammate_invites.${action}`).payload, { invite_id: inviteRow.invite_id });
   mounted.unmount();
 });
 
-test("email fact merges identity rows and returns its nested result without a code reveal", async () => {
-  let sent = false;
-  const f = await direct((request) => {
-    if (request.function === "actors.roster") return ok(adminRoster);
-    if (request.function === "teammate_invites.list") return ok({ invite_form: "email", sign_in_method: "company_sign_in", invites: [inviteRow] });
-    if (request.function === "identity.invite.list") return ok({ invites: sent ? [{ invite_id: 8, email: "a@example.test", role: "viewer", status: "pending", created_at: inviteRow.created_at, invited_by_user_id: 2, invited_by_name: "Hosted inviter" }] : [] });
+for (const mode of ["hosted", "self-host"]) test(`the actual ${mode} app creates email invites and revokes their producer identifier`, async () => {
+  let sent = false, status = "pending", codeState = "pending";
+  const email = { ...(mode === "hosted" ? { id: 8, invited_by_user_id: 2 } : { invite_id: 8, invited_by_actor_id: 2 }),
+    email: "a@example.test", role: "viewer", created_at: inviteRow.created_at, invited_by_name: "Authoritative inviter" };
+  const { root, reads, mounted } = await mountTeam(() => ok(adminRoster), mode, (request) => {
+    if (request.function === "teammate_invites.list") return ok({ invite_form: "email", sign_in_method: mode === "hosted" ? "yoke_account" : "company_sign_in", invites: [{ ...inviteRow, state: codeState }] });
+    if (request.function === "identity.invite.list") return ok({ invites: sent ? [{ ...email, status }] : [] });
+    if (request.function === "teammate_invites.revoke") { codeState = "revoked"; return ok({ invite: { ...inviteRow, state: codeState } }); }
+    if (request.function === "identity.invite.revoke") { status = "revoked"; return ok({ invite: { ...email, status } }); }
     assert.equal(request.function, "identity.invite.create"); sent = true;
-    return ok({ invite: { email: "a@example.test" } });
-  }, "hosted");
-  await click(button(f.head, "Invite"));
-  assert.match(f.main.textContent, /company sign-in/);
-  nodes(byClass(f.main, "actors-invite-slot")[0], "INPUT")[0].value = "a@example.test";
-  nodes(f.main, "FORM")[0].dispatchEvent(new Event("submit")); await settle();
-  assert.match(f.main.textContent, /Invite sent to a@example.test/);
-  assert.match(f.main.textContent, /Hosted inviter/);
-  assert.equal(byClass(f.main, "profile-token-reveal").length, 0);
-  assert.equal(f.requests.filter((request) => request.function === "identity.invite.list").length, 2);
+    return ok({ invite: email });
+  });
+  await click(button(root, "Invite"));
+  assert.match(root.textContent, mode === "hosted" ? /their Yoke account/ : /company sign-in/);
+  nodes(byClass(root, "actors-invite-slot")[0], "INPUT")[0].value = email.email;
+  nodes(root, "FORM")[0].dispatchEvent(new Event("submit")); await settle();
+  assert.match(root.textContent, /Invite sent to a@example.test/);
+  assert.match(root.textContent, /Authoritative inviter/);
+  assert.equal(byClass(root, "profile-token-reveal").length, 0);
+  assert.equal(reads.requests.filter((request) => request.function === "identity.invite.list").length, 2);
+  await click(button(root, "Done"));
+  assert.equal(byClass(root, "actors-invite-slot")[0].textContent, "");
+  const emailRow = nodes(root, "TR").find((row) => row.children[0]?.textContent === email.email);
+  assert.equal(button(emailRow, "Reissue"), undefined);
+  await click(button(emailRow, "Revoke…")); await click(button(emailRow, "Revoke invite"));
+  assert.deepEqual(reads.requests.filter((request) => request.function === "identity.invite.revoke").map((request) => request.payload), [{ invite_id: 8 }]);
+  assert.match(nodes(root, "TR").find((row) => row.children[0]?.textContent === email.email).textContent, /revoked/);
+  for (const id of ["actors.roster", "teammate_invites.list", "identity.invite.list"]) assert.equal(reads.requests.filter((request) => request.function === id).length, 4);
+  await click(button(root, "Revoke…")); await click(button(root, "Revoke invite"));
+  assert.deepEqual(reads.requests.filter((request) => request.function === "teammate_invites.revoke").map((request) => request.payload), [{ invite_id: inviteRow.invite_id }]);
+  assert.match(nodes(root, "TR").find((row) => row.children[0]?.textContent.startsWith(inviteRow.name)).textContent, /revoked/);
+  mounted.unmount();
 });
 
 test("actor role and enable actions reload invites and preserve visibility choices", async () => {
