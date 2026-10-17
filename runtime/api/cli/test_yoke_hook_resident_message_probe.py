@@ -22,6 +22,7 @@ from yoke_contracts.hook_evaluator_protocol import (
     HOOK_OBSERVATION_BATCH_CAPABILITY,
     HookEvaluatorRequest,
 )
+from yoke_contracts.hook_resident_routing import is_read_only_tool_event
 from yoke_core.api.routes.hooks import HookEvaluateResponse
 from yoke_core.hooks import session_message_delivery as delivery
 from yoke_harness.hook_resident import _ResidentServer
@@ -100,8 +101,10 @@ def _resident(control_plane: _ControlPlane) -> _ResidentServer:
     return server
 
 
-def _tool_event(server: _ResidentServer, event_name: str, tmp_path) -> None:
-    stdin = json.dumps({"tool_name": "Read", "session_id": "session-top"})
+def _tool_event(
+    server: _ResidentServer, event_name: str, tmp_path, tool_name: str = "Read"
+) -> None:
+    stdin = json.dumps({"tool_name": tool_name, "session_id": "session-top"})
     response, _target = server.evaluate(
         HookEvaluatorRequest(
             revision="unknown",
@@ -173,3 +176,28 @@ def test_a_server_without_the_probe_field_never_opens_the_window(
 
     assert control_plane.evaluated == ["PreToolUse", "PostToolUse"]
     assert not server.should_evaluate_locally("session-top")
+
+
+@pytest.mark.parametrize("tool_name", ["Shell", "StrReplace"])
+def test_cursor_native_names_of_guarded_tools_are_never_read_only(
+    tool_name: str,
+) -> None:
+    """The resident reads the raw payload, before Cursor's parser renames
+    ``Shell`` to ``Bash``; the guarded chain must still be found."""
+    payload = json.dumps({"tool_name": tool_name, "session_id": "s1"})
+    for event_name in ("PreToolUse", "PostToolUse"):
+        assert not is_read_only_tool_event(event_name, payload)
+
+
+def test_a_cursor_shell_post_tool_use_inside_the_window_still_leases(
+    port: FakePort, tmp_path
+) -> None:
+    control_plane = _ControlPlane("cursor-cli")
+    server = _resident(control_plane)
+
+    _tool_event(server, "PostToolUse", tmp_path)
+    assert server.should_evaluate_locally("session-top")
+    _tool_event(server, "PostToolUse", tmp_path, tool_name="Shell")
+
+    assert control_plane.evaluated == ["PostToolUse", "PostToolUse"]
+    assert port.leased == [("session-top", "PostToolUse", 10)] * 2
