@@ -11,6 +11,7 @@ from yoke_harness.machine_browser_approval import (
     approval_outcome,
     approval_tab_urls,
     approval_url,
+    missing_approval_tab,
 )
 from yoke_harness.ssh_mac_terminal_app import RunRemote, run_osascript
 
@@ -166,6 +167,13 @@ def approve_machine_in_safari(
     state, starting_url, result_url, elapsed, last_error = fields + [""] * (
         5 - len(fields)
     )
+    if state == "browser_tab_missing":
+        return missing_approval_tab(
+            browser="Safari",
+            expected_origin=expected_origin,
+            user_code=user_code,
+            observed=tabs.stdout.splitlines(),
+        )
     outcome = approval_outcome(
         browser="Safari",
         state=state,

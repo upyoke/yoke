@@ -26,6 +26,7 @@ from yoke_harness.machine_browser_approval import (
     approval_outcome,
     approval_tab_urls,
     approval_url,
+    missing_approval_tab,
 )
 from yoke_harness.ssh_mac_sign_in_apps import SIGN_IN_APP_QUIT_NOT_PROVED
 from yoke_harness.test_machine_types import HostActionResult
@@ -170,10 +171,11 @@ def approve_machine_in_desktop_chromium(
         expected_origin=expected_origin,
     )
     if outcome.get("state") == "browser_tab_missing":
-        result.evidence["recovery"] = (
-            "The exact one-time approval tab did not appear in desktop Chromium "
-            "within the tab wait. Check that the installer opens links in that "
-            "same signed-in browser profile, then rerun with a fresh request."
+        return missing_approval_tab(
+            browser=BROWSER,
+            expected_origin=expected_origin,
+            user_code=user_code,
+            observed=tabs["urls"],
         )
     return result
 

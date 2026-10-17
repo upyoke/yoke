@@ -5,5 +5,5 @@
  "sources": ["packages/yoke-harness/src/yoke_harness/ssh_linux_browser_approval.py", "runtime/api/domain/test_linux_browser_tab_readiness.py"],
  "page": "test-machines",
  "position": 6,
- "summary": "Linux browser approval waits for the current request's exact URL or its same-origin exact-code organization route before pressing Approve machine. An older tab on the same origin does not establish readiness. The bounded wait uses the shared canonical matcher, and still revalidates the tab before pressing. If the exact tab never appears, machine_browser_tab_missing tells the operator to check the installer's browser profile and rerun with a fresh request. Host preparation refusals are preserved rather than retried as a missing tab."
+ "summary": "Linux waits for the exact request URL or its canonical same-code organization route before approving; older tabs do not establish readiness. Linux and Safari report machine_browser_sign_in_required for missing approval tabs when same-origin tabs show /auth/sign-in, /beta or /orgs/new. Evidence records paths with codes redacted and queries/fragments omitted. Recovery asks the operator to sign the Test Machine browser in and recapture golden; it grants no agent authority. Absent and foreign-origin tabs retain machine_browser_tab_missing. Host preparation refusals remain unchanged."
 }
