@@ -192,12 +192,70 @@ def test_zero_exit_login_status_is_not_a_native_request_response(program):
             {"type": "assistant", "message": {"content": [{"type": "tool_use"}]}},
         ),
         ("codex", {"type": "item.started", "item": {"type": "command_execution"}}),
-        ("cursor-agent", {"type": "tool_call", "subtype": "started"}),
+        (
+            "cursor-agent",
+            {
+                "type": "tool_call",
+                "subtype": "started",
+                "tool_call": {"shellToolCall": {"args": {"command": "ls"}}},
+            },
+        ),
     ],
 )
 def test_a_request_that_uses_tools_cannot_pass(program, trace):
     control = _Control(program, stdout=_events(trace) + "\n" + _response(program))
-    assert not prove_linux_probes(control, control.document).ok
+    result = prove_linux_probes(control, control.document)
+    assert not result.ok
+    if program == "cursor-agent":
+        record = result.evidence["probes"][0]["reply_rejection"]
+        assert record["rejection"] == "tool_call_event"
+        assert record["tool_use"] is True
+        assert record["exact_ok_reply"] is True
+
+
+def test_cursor_read_only_tool_calls_with_exact_ok_pass():
+    stdout = _events(
+        {
+            "type": "tool_call",
+            "subtype": "started",
+            "tool_call": {"readToolCall": {"args": {"path": "README.md"}}},
+        },
+        {
+            "type": "tool_call",
+            "subtype": "completed",
+            "tool_call": {"grepToolCall": {"args": {"pattern": "OK"}}},
+        },
+        {
+            "type": "tool_call",
+            "subtype": "completed",
+            "tool_call": {"globToolCall": {"args": {"globPattern": "*.md"}}},
+        },
+        {"type": "result", "subtype": "success", "is_error": False, "result": "OK"},
+    )
+    control = _Control("cursor-agent", stdout=stdout)
+    assert prove_linux_probes(control, control.document).ok
+
+
+@pytest.mark.parametrize(
+    "tool_call",
+    [
+        {"writeToolCall": {"args": {"path": "out.txt", "fileText": "x"}}},
+        {"editToolCall": {"args": {"path": "out.txt"}}},
+        {"shellToolCall": {"args": {"command": "rm out.txt"}}},
+        {"readToolCall": {"args": {"path": "a"}}, "shellToolCall": {"args": {}}},
+    ],
+)
+def test_cursor_write_or_shell_tool_calls_are_rejected(tool_call):
+    stdout = _events(
+        {"type": "tool_call", "subtype": "started", "tool_call": tool_call},
+        {"type": "result", "subtype": "success", "is_error": False, "result": "OK"},
+    )
+    control = _Control("cursor-agent", stdout=stdout)
+    result = prove_linux_probes(control, control.document)
+    assert not result.ok
+    record = result.evidence["probes"][0]["reply_rejection"]
+    assert record["rejection"] == "tool_call_event"
+    assert record["tool_use"] is True
 
 
 @pytest.mark.parametrize(
