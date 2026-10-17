@@ -104,7 +104,7 @@ def _needs_corrected_row(
         return True
     if carried_by_declared_replacement(conn, group):
         return False
-    digest = plan_case_content_digest(case)
+    digest = plan_case_content_digest(conn, case)
     if any(case_content_digest(row) == digest for row in group):
         return False
     return all(
@@ -286,7 +286,7 @@ def rematerialize_for_deployment_stage(
                     continue
                 key = str(case["case_key"])
                 if group:
-                    key = refreshed_case_key(key, plan_case_content_digest(case))
+                    key = refreshed_case_key(key, plan_case_content_digest(conn, case))
                 created.append(
                     _insert_case(
                         conn,

@@ -101,9 +101,11 @@ def test_a_plan_case_stored_by_an_older_build_matches_its_normalized_copy():
     stored = _command_case("  true  ")
     copy = {**stored, "method_config": json.dumps({"command": "true"})}
     assert case_content_digest(stored) != case_content_digest(copy)
-    assert plan_case_content_digest(stored) == case_content_digest(copy)
+    assert plan_case_content_digest(None, stored) == case_content_digest(copy)
 
 
 def test_a_changed_plan_case_still_reads_as_changed_content():
     copy = {**_command_case("true"), "method_config": {"command": "true"}}
-    assert plan_case_content_digest(_command_case("false")) != case_content_digest(copy)
+    assert plan_case_content_digest(
+        None, _command_case("false")
+    ) != case_content_digest(copy)
