@@ -22,7 +22,7 @@ def _engine_notice(conn, key):
         expires_at=NOW + timedelta(hours=1),
         recipients=[],
         actor_recipients=[],
-        wake_after_by_project={},
+        wake_after_by_owner={},
     )
 
 

@@ -21,6 +21,30 @@ from yoke_contracts.fleet_policy import WAKE_ACK_GRACE_SECONDS
 from yoke_core.domain.work_claim_target_sql import LIVENESS_BOUND_SQL
 
 
+def deployment_driver_holds(conn: Any) -> dict[str, str]:
+    """Read live deployment custody without creating a coordination claim."""
+    from .db_optional_queries import fetch_optional_rows
+    from .deployment_run_driver_attachment import parse_attachment, is_live
+    from .runs import TERMINAL_RUN_STATUSES
+
+    rows = fetch_optional_rows(
+        conn,
+        "SELECT id,status,driver_attachment FROM deployment_runs "
+        "WHERE driver_attachment IS NOT NULL AND driver_attachment <> ''",
+        (),
+        savepoint="_yoke_idle_deployment_drivers",
+    )
+    now = utc_now()
+    holds = {}
+    for row in rows:
+        if row["status"] in TERMINAL_RUN_STATUSES:
+            continue
+        driver = parse_attachment(str(row["id"]), row["driver_attachment"])
+        if driver is not None and is_live(driver, now=now):
+            holds[driver.session_id] = str(row["id"])
+    return holds
+
+
 def _document_lock_count(conn: Any, session_id: str) -> int:
     """Count the strategy documents this session still holds directly."""
     from .schema_common import _table_exists
@@ -187,6 +211,17 @@ def end_session_if_empty(
             **end_session_blocker_facts(active_claim_count=int(claim_count)),
         }
 
+    deploy_run = deployment_driver_holds(conn).get(session_id)
+    if deploy_run is not None:
+        conn.commit()
+        return {
+            "session_id": session_id,
+            "ended": False,
+            "status": "has_deployment_driver",
+            "active_claim_count": 0,
+            "deployment_run_id": deploy_run,
+        }
+
     lock_count = _document_lock_count(conn, session_id)
     if lock_count:
         conn.commit()
@@ -223,6 +258,27 @@ def end_session_if_empty(
             "session_id": session_id,
             "ended": False,
             **end_session_blocker_facts(wake_delivery=wake_delivery),
+        }
+
+    from .db_optional_queries import fetch_optional_rows
+
+    pending = fetch_optional_rows(
+        conn,
+        "SELECT r.message_id FROM session_message_recipients r "
+        "JOIN session_messages m ON m.message_id=r.message_id "
+        "WHERE r.session_id=%s AND r.state IN ('pending','injected') "
+        "AND r.last_wake_at IS NULL "
+        "AND m.cancelled_at IS NULL AND m.expires_at>%s LIMIT 1",
+        (session_id, instant_parameter(conn, utc_now())),
+        savepoint="_yoke_pending_end_delivery",
+    )
+    if pending:
+        conn.commit()
+        return {
+            "session_id": session_id,
+            "ended": False,
+            "status": "has_pending_messages",
+            "active_claim_count": 0,
         }
 
     clear_current_item(conn, session_id, commit=False)

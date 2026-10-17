@@ -24,6 +24,7 @@ from yoke_core.domain.session_launch_types import (
     SessionLaunchError,
 )
 from yoke_core.domain.session_recovery_facts import resume_episode_key
+from yoke_core.domain.session_scope_identity import session_scope_of
 from yoke_core.domain.work_claim_target_sql import scope_int_sql
 
 
@@ -154,13 +155,20 @@ def relaunch_capacity_worker(
     from yoke_core.domain.session_launch_requests import create_launch
 
     p = placeholder(conn)
-    scope = scope_int_sql(conn, "scope", "item_id")
-    claims = conn.execute(
-        f"SELECT id,target_kind,{scope} AS item_id FROM work_claims "
-        f"WHERE session_id={p} AND released_at IS NULL ORDER BY id",
-        (state["session_id"],),
-    ).fetchall()
+    claim_item_id = scope_int_sql(conn, "scope", "item_id")
     try:
+        scope = session_scope_of(state)
+        if scope.project_id is None:
+            raise SessionLaunchError(
+                "capacity_recovery_project_required",
+                "Item capacity recovery requires a project session. Recovery: "
+                "open a session in the project folder.",
+            )
+        claims = conn.execute(
+            f"SELECT id,target_kind,{claim_item_id} AS item_id FROM work_claims "
+            f"WHERE session_id={p} AND released_at IS NULL ORDER BY id",
+            (state["session_id"],),
+        ).fetchall()
         if len(claims) != 1 or claims[0][1] != "item":
             raise SessionLaunchError(
                 "capacity_recovery_claim_scope",
@@ -186,14 +194,14 @@ def relaunch_capacity_worker(
         auth = launch_authorization(
             conn,
             actor_id=int(state["actor_id"]),
-            project_id=int(state["project_id"]),
+            project_id=scope.project_id,
             session_id=None,
         )
         existing = get_launch_by_dedupe(conn, auth.actor_id, recovery_key(state))
         if existing is not None:
             return {"session_id": state["session_id"], "launch_id": existing.launch_id}
         parsed = LaunchCreateRequest(
-            project=str(state["project_id"]),
+            project=str(scope.project_id),
             item=ref,
             compose_mandate=True,
             idempotency_key=recovery_key(state),
@@ -208,7 +216,7 @@ def relaunch_capacity_worker(
         request = launch_request_for_create(
             conn,
             parsed,
-            project_id=int(state["project_id"]),
+            project_id=scope.project_id,
             deadline_seconds=DEFAULT_LAUNCH_DEADLINE_SECONDS,
             actor_id=auth.actor_id,
         )
