@@ -106,6 +106,7 @@ def _run_with_platform_driver(app) -> None:
 
     lost = False
     evidence: dict = {}
+    cause = None
     startup_error = None
     restore_error = None
     job_signals = {signal.SIGTTIN, signal.SIGTTOU}
@@ -220,6 +221,23 @@ def _run_with_platform_driver(app) -> None:
                 if self._mouse_pixels:
                     self.write("\x1b[?1016l")
                 super().stop_application_mode()
+                if lost:
+                    announce_loss()
+
+    def announce_loss():
+        # Textual waits for running workers such as Apply before run()
+        # returns; name the loss now, on the restored screen, not after.
+        nonlocal cause
+        cause = _loss_cause(evidence)
+        notice = (
+            f"setup_terminal_ownership_lost: setup is stopping ({cause}). "
+            "Work already running, such as Apply, finishes first; keep this "
+            "terminal open until setup exits.\n"
+        )
+        try:
+            os.write(sys.__stderr__.fileno(), notice.encode())
+        except (AttributeError, OSError, ValueError):
+            pass  # the final error below still names the loss
 
     original_driver = app.driver_class
     app.driver_class = SetupDriver
@@ -241,5 +259,5 @@ def _run_with_platform_driver(app) -> None:
             recovery = f"Terminal restoration failed ({restore_error}); run `stty sane`, then `yoke setup`."
         raise SetupTerminalError(
             f"setup_terminal_ownership_lost: setup stopped "
-            f"({_loss_cause(evidence)}). {recovery}"
+            f"({cause or _loss_cause(evidence)}). {recovery}"
         )
