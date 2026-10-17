@@ -20,6 +20,7 @@ REGISTERED_SETUP_OPERATION_IDS = frozenset(
         "fixture.apply-resume-report-prepare",
         "fixture.git-checkout-prepare",
         "fixture.git-remote-prepare",
+        "fixture.machine-admission-prepare",
         "fixture.project-registrations-prepare",
         "fixture.source-dev-checkout-prepare",
         "fixture.source-dev-remote-prepare",
@@ -39,6 +40,7 @@ REGISTERED_SETUP_OPERATION_IDS = frozenset(
 )
 REGISTERED_POST_STATE_ASSERTION_IDS = frozenset(
     {
+        "fixture.machine-admission-state-assert",
         "source-dev.checkout-state-assert",
     }
 )

@@ -156,6 +156,28 @@ always attaches a desktop screenshot. A host without a desktop refuses
 [Linux browser approval gates](../../packs/machine-qa/versions/1.3.25/files/docs/packs/machine-qa/linux-host-provisioning.md#browser-approval-gates)
 list every refusal and its recovery.
 
+## Real machine admission fixture
+
+`fixture.machine-admission-prepare` runs the installed candidate's own
+`python -m yoke_core.domain.machine_qa_admission_host start MODE` on the test
+machine, so the exact candidate serves the journey. `self-hosted` (port 19121)
+and `self-hosted-company-sign-in` (port 19122) boot the unchanged self-host
+server entrypoint on loopback against a disposable embedded Postgres under
+`/tmp/yoke-machine-qa-fixtures/machine-admission/MODE`. Its real first boot
+creates the owner (`Fixture Owner`) and the owner's token, saved owner-only
+with an approver config: run owner commands with
+`YOKE_MACHINE_HOME=…/MODE/approver`. Company sign-in adds a disposable stub
+provider whose only identity is the teammate, and the owner invites that
+email first. `local` runs the real `yoke init --local` in `…/local/home`.
+The fixture never approves, invites a machine or redeems anything.
+
+`fixture.machine-admission-state-assert` compares the universe's people,
+machines, active credentials and linked identities with the baseline recorded
+at start: `owner-admitted`, `teammate-admitted` or `nothing-admitted`.
+A mismatch fails as `machine_admission_state_mismatch` with the changed rows;
+start, birth and cleanup failures name their reason and recovery in the
+operation row. Cleanup stops the server, removes the cluster and the root.
+
 ## Local universe birth
 
 State checks inherit directly from the journey that creates their subject:
