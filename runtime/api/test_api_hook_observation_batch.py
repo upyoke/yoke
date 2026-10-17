@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from uuid import uuid4
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -12,7 +13,10 @@ from runtime.api.api_items_test_helpers import (
     make_test_db_fixture,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
-from yoke_contracts.hook_evaluator_protocol import attach_evaluator_metadata
+from yoke_contracts.hook_evaluator_protocol import (
+    HOOK_EVALUATOR_CAPABILITIES,
+    attach_evaluator_metadata,
+)
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.schema_harness_session_columns import (
     apply_harness_session_columns,
@@ -154,7 +158,11 @@ def test_batch_persists_ordered_events_activity_and_evaluator(
     response = client.post("/v1/hooks/telemetry/batch", json=_batch())
 
     assert response.status_code == 200, response.text
-    assert response.json() == {"hook_schema": 1, "accepted": 2}
+    assert response.json() == {
+        "hook_schema": 1,
+        "accepted": 2,
+        "capabilities": list(HOOK_EVALUATOR_CAPABILITIES),
+    }
     tool_events, dispatches, session = _stored_state(observation_db)
     assert [row["event_name"] for row in tool_events] == [
         "HarnessToolCallStarted",
@@ -284,7 +292,9 @@ def test_client_wall_completion_updates_the_matching_dispatch(
     )
 
 
-def test_batch_rejects_guarded_tools_and_invisible_projects(client) -> None:
+def test_batch_rejects_guarded_tools_and_invisible_projects(
+    client, observation_db
+) -> None:
     guarded = client.post(
         "/v1/hooks/telemetry/batch",
         json=_batch(tool_name="Bash"),
@@ -292,9 +302,13 @@ def test_batch_rejects_guarded_tools_and_invisible_projects(client) -> None:
     assert guarded.status_code == 400
     assert guarded.json()["error"]["code"] == "HOOK_OBSERVATION_NOT_READ_ONLY"
 
-    denied = client.post(
-        "/v1/hooks/telemetry/batch",
-        json=_batch(project_id=999),
-    )
+    denied_batch = _batch(project_id=999)
+    for entry in denied_batch["observations"]:
+        payload = json.loads(entry["hook_request"]["stdin"])
+        payload["session_id"] = str(uuid4())
+        entry["hook_request"]["stdin"] = json.dumps(payload)
+    before = _stored_state(observation_db)
+    denied = client.post("/v1/hooks/telemetry/batch", json=denied_batch)
     assert denied.status_code == 403
     assert denied.json()["error"]["code"] == "HOOK_OBSERVATION_PROJECT_DENIED"
+    assert _stored_state(observation_db) == before

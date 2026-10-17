@@ -10,12 +10,23 @@ from __future__ import annotations
 import json
 
 from yoke_contracts.timestamps import utc_now
+from yoke_contracts.session_model_facts import (
+    SessionModelFacts,
+    normalize_reasoning_effort,
+)
 from typing import Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter, query_one
 from yoke_core.domain.sessions import SessionError, end_session
 from yoke_core.domain.sessions_lifecycle_canonicalize import canonicalize_executor
+from yoke_core.domain.session_scope_identity import resolve_registration_scope
+from yoke_core.domain.sessions_lifecycle_identity import resolve_session_actor_id
+from yoke_core.domain.sessions_registration_write import insert_registration
+from yoke_core.domain.session_activity_state import (
+    episode_column_present,
+    native_thread_id_column_present,
+)
 
 from yoke_core.hooks.sessions_event_emit import _emit_event
 from yoke_core.hooks.sessions_focus import (
@@ -40,33 +51,40 @@ def cmd_begin(
     executor_version: Optional[str] = None,
     machine_id: Optional[str] = None,
     *,
-    project_id: int,
+    project_id: int | None,
+    reasoning_effort: str | None = None,
 ) -> str:
-    """Begin a session bound to an explicitly resolved project."""
+    """Begin a session with an authenticated actor and exclusive stored scope."""
     now = instant_parameter(conn, utc_now())
     p = _placeholder(conn)
     canonical_executor, display_name = canonicalize_executor(executor, None)
-    conn.execute(
-        "INSERT INTO harness_sessions "
-        "(project_id, session_id, executor, executor_surface, executor_version, machine_id, "
-        "provider, model, execution_level, workspace, mode, offered_at, "
-        "last_heartbeat) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})",
-        (
-            int(project_id),
-            session_id,
-            canonical_executor,
-            display_name,
-            executor_version,
-            machine_id,
-            provider,
-            model,
-            level,
-            workspace,
-            mode,
-            now,
-            now,
-        ),
+    effort = normalize_reasoning_effort(reasoning_effort)
+    if reasoning_effort is not None and effort is None:
+        raise ValueError("Unknown reasoning effort; use a supported harness effort.")
+    actor_id = resolve_session_actor_id(conn, None)
+    scope = resolve_registration_scope(
+        conn, actor_id=actor_id, project_id=project_id, machine_scope=project_id is None
+    )
+    insert_registration(
+        conn,
+        placeholder=p,
+        session_id=session_id,
+        executor=canonical_executor,
+        surface=display_name,
+        executor_version=executor_version,
+        machine_id=machine_id,
+        provider=provider,
+        model_facts=SessionModelFacts(model=model, reasoning_effort=effort),
+        execution_level=level,
+        workspace=workspace,
+        mode=mode,
+        now=now,
+        envelope_json=None,
+        actor_id=actor_id,
+        scope=scope,
+        native_thread_id=None,
+        has_native_thread=native_thread_id_column_present(conn),
+        has_episode=episode_column_present(conn),
     )
     conn.commit()
     event_payload = {

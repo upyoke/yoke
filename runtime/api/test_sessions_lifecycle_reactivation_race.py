@@ -36,6 +36,7 @@ class _RaceConn:
                     "actor_id": None,
                     "execution_level": "primary",
                     "project_id": 1,
+                    "org_id": None,
                 }
             )
         if "UPDATE harness_sessions" in sql and "ended_at IS NOT NULL" in sql:

@@ -25,6 +25,7 @@ from yoke_core.domain.session_message_authorization import (
 )
 from yoke_core.domain.session_item_scope import SessionItemScope
 from yoke_core.domain.session_message_liveness import applied_liveness
+from yoke_core.domain.session_message_recipient_scope import owner_key, recipient_policy
 from yoke_core.domain.session_message_selectors import (
     confirmation_token,
     resolve_recipients,
@@ -52,6 +53,7 @@ from yoke_core.domain.session_message_terminal import (
     resolve_terminal_report_item,
 )
 from yoke_core.domain.session_message_zero_recipients import require_recipients
+from yoke_core.hooks.relayed_session_identity import session_ownership_refusal
 from yoke_core.domain.steering_recipient_projection import (
     previewed_steering_recipient,
     stored_steering_recipient,
@@ -66,6 +68,20 @@ def _public_actor_recipients(
     recipients: list[ResolvedActorRecipient],
 ) -> list[dict[str, Any]]:
     return [recipient.public() for recipient in recipients]
+
+
+def _recipient_policies(conn, *, actor_id, recipients, additional_project_ids=()):
+    policies = authorize_recipients(
+        conn,
+        actor_id=actor_id,
+        recipients=recipients,
+        additional_project_ids=additional_project_ids,
+    )
+    owned = {("project", pid): policy for pid, policy in policies.items()}
+    for recipient in recipients:
+        row = recipient.routing_snapshot()
+        owned[owner_key(row)] = recipient_policy(conn, row)
+    return owned
 
 
 def _selector_snapshot(selector: RecipientSelector) -> dict[str, Any]:
@@ -107,6 +123,7 @@ def preview_message(
         conn,
         selector,
         now=now,
+        actor_id=actor_id,
         steering_target=address.coverage_target() if address else None,
     )
     actor_recipients = resolve_actor_recipients(
@@ -114,7 +131,7 @@ def preview_message(
     )
     if address is None:
         require_recipients(recipients, selector, actor_recipients=actor_recipients)
-    policies = authorize_recipients(
+    policies = _recipient_policies(
         conn,
         actor_id=actor_id,
         recipients=recipients,
@@ -171,6 +188,10 @@ def send_message(
 ) -> dict[str, Any]:
     now = parse_instant(utc_now() if now is None else now)
     current = now
+    if actor_id is not None and sender_session_id:
+        refusal = session_ownership_refusal(conn, sender_session_id, actor_id)
+        if refusal:
+            raise SessionMessageError("sender_session_forbidden", refusal)
     begin_message_mutation(conn)
     try:
         reported_item = resolve_terminal_report_item(
@@ -181,6 +202,7 @@ def send_message(
             conn,
             selector,
             now=current,
+            actor_id=actor_id,
             steering_target=address.coverage_target() if address else None,
         )
         actor_recipients = resolve_actor_recipients(
@@ -188,7 +210,7 @@ def send_message(
         )
         if address is None:
             require_recipients(recipients, selector, actor_recipients=actor_recipients)
-        policies = authorize_recipients(
+        policies = _recipient_policies(
             conn,
             actor_id=actor_id,
             recipients=recipients,
@@ -239,7 +261,7 @@ def send_message(
         )
         expiry_hours = min(expiry_limits)
         expires_at = current + timedelta(hours=expiry_hours)
-        wake_after_by_project = {pid: current for pid in policies}
+        wake_after_by_owner = {scope: current for scope in policies}
         details, created = insert_message(
             conn,
             message_id=message_id,
@@ -259,7 +281,7 @@ def send_message(
             expires_at=expires_at,
             recipients=recipients,
             actor_recipients=actor_recipients,
-            wake_after_by_project=wake_after_by_project,
+            wake_after_by_owner=wake_after_by_owner,
         )
         if address is not None and created:
             _record_steering_row(conn, address, details, current)

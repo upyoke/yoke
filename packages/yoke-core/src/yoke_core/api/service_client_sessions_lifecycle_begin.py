@@ -51,7 +51,8 @@ def begin_session(
     provider: str,
     model_facts: SessionModelFacts,
     workspace: str,
-    project_id: int,
+    project_id: int | None,
+    machine_scope: bool = False,
     mode: str = "wait",
     entrypoint: str | None = None,
     executor_version: str | None = None,
@@ -108,6 +109,7 @@ def begin_session(
             model_facts=model_facts,
             workspace=workspace,
             project_id=project_id,
+            machine_scope=machine_scope,
             mode=mode,
             execution_level=resolved_level,
             entrypoint=entrypoint,
@@ -177,12 +179,8 @@ def cmd_session_begin(args: list[str]) -> int:
         return 2
 
     resolved_project_id = _project_id_from_args(parsed.project_id, parsed.workspace)
-    if resolved_project_id is None:
-        print(
-            "Session registration requires a project id. Run Yoke setup "
-            "for this checkout or pass --project-id.",
-            file=sys.stderr,
-        )
+    if parsed.project_id is not None and resolved_project_id is None:
+        print("--project-id must be a positive numeric project id.", file=sys.stderr)
         return 2
 
     conn = _get_db_readwrite()
@@ -198,6 +196,7 @@ def cmd_session_begin(args: list[str]) -> int:
                 model_facts=facts_from_mapping(vars(parsed)),
                 workspace=parsed.workspace,
                 project_id=resolved_project_id,
+                machine_scope=resolved_project_id is None,
                 mode=parsed.mode,
                 entrypoint=parsed.entrypoint,
                 executor_version=parsed.executor_version,
