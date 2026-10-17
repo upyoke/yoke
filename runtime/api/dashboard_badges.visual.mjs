@@ -66,7 +66,7 @@ let requests=[{code:"K7F2",machine:"New laptop",platform:"macOS",machine_id:"4f2
  requested_by:null,expires_at:new Date(Date.now()+300000).toISOString(),state:"pending"},
  {code:"D4N6",machine:"Expired request",requested_by:null,expires_at:new Date(Date.now()-1000).toISOString(),state:"expired"}];
 const viewer={name:"Morgan",actor_id:9}, authorizations=[...requests];
-let teamState="code";
+let teamState="name";
 const invite={invite_id:1,actor_id:8,name:"Alexandra Long-Name",kind:"code",role:"operator",state:"pending",
  created_at:"2026-10-17T10:00:00Z",expires_at:"2026-10-18T10:00:00Z",invited_by_name:"Deployment reviewer"};
 const invitations=[invite,{...invite,invite_id:2,name:"Expired teammate",state:"expired"},
@@ -84,7 +84,7 @@ const context={document,isMounted:()=>true,projects:()=>[project],capabilities:{
  if(request.function==="organizations.get")return ok({name:"Example team"});
  if(request.function==="teammate_invites.list")return teamState==="error"
   ? {status:503,envelope:{success:false,error:{code:"oidc_misconfigured",message:"Company sign-in is unavailable; ask the server operator to correct company sign-in settings"}}}
-  : ok({invite_form:teamState==="email"?"email":"code",sign_in_method:"oidc",invites:invitations});
+  : ok({invite_form:teamState==="email"?"email":"name",sign_in_method:teamState==="email"?"company_sign_in":"invite_code",invites:invitations});
  if(request.function==="identity.invite.list")return ok({invites:[{...invite,kind:"email",email:"alexandra.long.address@example.test",invited_by_name:"Hosted administrator"}]});
  if(request.function==="identity.invite.create")return ok({invite:{email:request.payload.email}});
  if(["teammate_invites.create","teammate_invites.reissue"].includes(request.function))return ok({invite:{...invite,name:request.payload.name||invite.name},code:"fixture-only-one-time-invite-code-with-a-long-selectable-value",expires_at:invite.expires_at});
@@ -102,7 +102,7 @@ window.teamProof=async(state)=>{
  await renderTeamView({...context,capabilities:{data:{portability:{mode:state==="local"?"local":"self-host"}}}},teamHost,null,null,
   {setPageHead:({title,actions=[]})=>{const heading=document.createElement("h1");heading.textContent=title;teamHead.replaceChildren(heading,...actions);}});
 };
-await window.teamProof("code");
+await window.teamProof("name");
 renderMachinesView(context,document.querySelector("#machines"));
 window.approvalRoute=code=>renderMachineApproval(context,document.querySelector("#machines"),null,code);
 document.querySelector("#workflows").append(renderMechanics(document,{id:"dash",name:"Dash",

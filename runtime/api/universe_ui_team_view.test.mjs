@@ -8,6 +8,7 @@ import {
 } from "./universe_ui_dom_test_support.mjs";
 
 const ok = (result) => ({ status: 200, envelope: { success: true, result } });
+const nameFact = { invite_form: "name", sign_in_method: "invite_code" };
 
 const roster = {
   current_actor_id: 2,
@@ -33,7 +34,7 @@ const roster = {
   ],
 };
 
-function client(answer) {
+function client(answer, inviteAnswer = () => ok({ ...nameFact, invites: [] })) {
   const requests = [];
   return {
     requests,
@@ -44,17 +45,17 @@ function client(answer) {
       }
       if (request.function === "projects.list") return ok({ rows: [] });
       if (request.function === "actors.roster") return answer();
-      if (request.function === "teammate_invites.list") return ok({ invite_form: "code", invites: [] });
+      if (request.function.startsWith("teammate_invites.")) return inviteAnswer(request);
       throw new Error(`unexpected function ${request.function}`);
     },
   };
 }
 
-async function mountTeam(answer, mode = "local") {
+async function mountTeam(answer, mode = "local", inviteAnswer) {
   const documentNode = new FakeDocument();
   documentNode.defaultView.location.href = "/team";
   const root = documentNode.createElement("div");
-  const reads = client(answer);
+  const reads = client(answer, inviteAnswer);
   const mounted = mountUniverseApp(root, {
     client: reads,
     capabilities: { data: { portability: { mode } } },
@@ -117,10 +118,11 @@ test("local roster omits Member email and names a sole human actor", async () =>
   mounted.unmount();
 });
 
-test("the actual app exposes Invite and restores its head focus on Escape", async () => {
-  const { root, mounted } = await mountTeam(() => ok(adminRoster), "hosted");
+test("the actual app exposes the name form and restores Invite focus on Escape", async () => {
+  const { root, mounted } = await mountTeam(() => ok(adminRoster), "self-host");
   const invite = button(root, "Invite");
   await click(invite);
+  assert.match(byClass(root, "actors-invite-slot")[0].textContent, /Name/);
   assert.equal(invite.disabled, true);
   nodes(root, "FORM")[0].dispatchEvent(Object.assign(new Event("keydown"), { key: "Escape" }));
   assert.equal(invite.disabled, false);
@@ -162,14 +164,14 @@ test("both registry-skew refusals and OIDC failure hide Invite but retain the us
 test("nonadmins get read-only invites or the permission line alone; older roles prevent Invite", async () => {
   for (const denied of [false, true]) {
     const f = await direct((request) => request.function === "actors.roster" ? ok({ ...adminRoster, can_manage_actors: false })
-      : denied ? { status: 403, envelope: { success: false } } : ok({ invite_form: "code", invites: [inviteRow] }));
+      : denied ? { status: 403, envelope: { success: false } } : ok({ ...nameFact, invites: [inviteRow] }));
     const panel = byClass(f.main, "actors-invites")[0];
     assert.match(panel.textContent, /Only org admins can invite people\./);
     assert.equal(nodes(panel, "BUTTON").length, 0);
     assert.equal(button(f.head, "Invite"), undefined);
     if (denied) assert.equal(byClass(panel, "panel-body")[0].textContent, "Only org admins can invite people.");
   }
-  const f = await direct((request) => request.function === "actors.roster" ? ok({ ...adminRoster, person_org_roles: undefined }) : ok({ invite_form: "code", invites: [inviteRow] }));
+  const f = await direct((request) => request.function === "actors.roster" ? ok({ ...adminRoster, person_org_roles: undefined }) : ok({ ...nameFact, invites: [inviteRow] }));
   assert.equal(nodes(f.main, "SELECT").length, 0);
   assert.equal(button(f.head, "Invite"), undefined);
   assert.match(f.main.textContent, /Invite roles are unavailable/);
@@ -189,50 +191,53 @@ test("roster and invite reads start together; a pending invite read does not hid
   assert.deepEqual(f.requests.map((request) => request.function), ["actors.roster", "teammate_invites.list"]);
   assert.match(f.main.textContent, /Ben/);
   assert.match(f.main.textContent, /Loading invites/);
-  release(ok({ invite_form: "code", invites: [] }));
+  release(ok({ ...nameFact, invites: [] }));
   await f.pending;
   assert.ok(button(f.head, "Invite"));
 });
 
-test("code create/reissue/revoke reread both lists, preserve toggles and hold the code until Done", async () => {
+test("the actual app accepts the name fact for create/reissue/revoke, rereads and keeps toggles and code", async () => {
   let added = false, state = "pending", serial = 0;
   const used = { ...inviteRow, invite_id: 2, state: "consumed", name: "Joined" };
-  const f = await direct((request) => {
-    if (request.function === "actors.roster") return ok({ ...adminRoster, rows: [...adminRoster.rows, ...(added ? [{ id: 9, name: "Ana", kind: "human", status: "active", roles: { org: [] } }] : [])] });
-    if (request.function === "teammate_invites.list") return ok({ invite_form: "code", invites: [used, ...(added ? [{ ...inviteRow, state }] : [])] });
+  const { root, reads, mounted } = await mountTeam(() => ok({ ...adminRoster,
+    rows: [...adminRoster.rows, ...(added ? [{ id: 9, name: "Ana", kind: "human", status: "active", roles: { org: [] } }] : [])] }), "self-host", (request) => {
+    if (request.function === "teammate_invites.list") return ok({ ...nameFact, invites: [used, ...(added ? [{ ...inviteRow, state }] : [])] });
     if (request.function === "teammate_invites.revoke") { state = "revoked"; return ok({ invite: { ...inviteRow, state } }); }
+    assert.ok(["teammate_invites.create", "teammate_invites.reissue"].includes(request.function));
     added = true; state = "pending";
     return ok({ invite: inviteRow, code: `private-code-${++serial}`, expires_at: inviteRow.expires_at });
   });
-  for (const toggle of nodes(f.main, "INPUT")) { toggle.checked = true; toggle.dispatchEvent(new Event("change")); }
-  await click(button(f.head, "Invite"));
-  assert.equal(button(f.head, "Invite").disabled, true);
-  const input = nodes(byClass(f.main, "actors-invite-slot")[0], "INPUT")[0];
+  for (const toggle of nodes(root, "INPUT")) { toggle.checked = true; toggle.dispatchEvent(new Event("change")); }
+  await click(button(root, "Invite"));
+  assert.equal(button(root, "Invite").disabled, true);
+  const input = nodes(byClass(root, "actors-invite-slot")[0], "INPUT")[0];
   input.value = "Ana";
-  nodes(f.main, "FORM")[0].dispatchEvent(new Event("submit"));
+  nodes(root, "FORM")[0].dispatchEvent(new Event("submit"));
   await settle();
-  assert.equal(byClass(f.main, "profile-token-value")[0].textContent, "private-code-1");
-  assert.ok(nodes(f.main, "INPUT").every((node) => node.checked));
-  assert.equal(byClass(f.main, "actors-name").filter((node) => node.textContent === "Ana").length, 1);
-  assert.match(byClass(f.main, "actors-invites")[0].textContent, /pending/);
-  await click(button(f.main, "Reissue")); await click(button(f.main, "Reissue invite"));
-  assert.equal(byClass(f.main, "profile-token-value")[0].textContent, "private-code-2");
-  assert.equal(byClass(f.main, "actors-name").filter((node) => node.textContent === "Ana").length, 1);
-  await click(button(f.main, "Revoke…")); await click(button(f.main, "Revoke invite"));
-  assert.match(byClass(f.main, "actors-invites")[0].textContent, /revoked/);
-  assert.equal(byClass(f.main, "profile-token-value")[0].textContent, "private-code-2");
-  await click(button(f.main, "Done"));
-  assert.equal(byClass(f.main, "profile-token-value").length, 0);
-  assert.equal(f.document.activeElement, button(f.head, "Invite"));
-  const reads = (id) => f.requests.filter((request) => request.function === id).length;
-  assert.equal(reads("actors.roster"), 5); assert.equal(reads("teammate_invites.list"), 5);
+  assert.equal(byClass(root, "profile-token-value")[0].textContent, "private-code-1");
+  assert.ok(nodes(root, "INPUT").every((node) => node.checked));
+  assert.equal(byClass(root, "actors-name").filter((node) => node.textContent === "Ana").length, 1);
+  assert.match(byClass(root, "actors-invites")[0].textContent, /pending/);
+  await click(button(root, "Reissue")); await click(button(root, "Reissue invite"));
+  assert.equal(byClass(root, "profile-token-value")[0].textContent, "private-code-2");
+  assert.equal(byClass(root, "actors-name").filter((node) => node.textContent === "Ana").length, 1);
+  await click(button(root, "Revoke…")); await click(button(root, "Revoke invite"));
+  assert.match(byClass(root, "actors-invites")[0].textContent, /revoked/);
+  assert.equal(byClass(root, "profile-token-value")[0].textContent, "private-code-2");
+  await click(button(root, "Done"));
+  assert.equal(byClass(root, "profile-token-value").length, 0);
+  assert.equal(root.ownerDocument.activeElement, button(root, "Invite"));
+  const count = (id) => reads.requests.filter((request) => request.function === id).length;
+  assert.equal(count("actors.roster"), 5); assert.equal(count("teammate_invites.list"), 5);
+  for (const action of ["create", "reissue", "revoke"]) assert.equal(count(`teammate_invites.${action}`), 1);
+  mounted.unmount();
 });
 
 test("email fact merges identity rows and returns its nested result without a code reveal", async () => {
   let sent = false;
   const f = await direct((request) => {
     if (request.function === "actors.roster") return ok(adminRoster);
-    if (request.function === "teammate_invites.list") return ok({ invite_form: "email", sign_in_method: "oidc", invites: [inviteRow] });
+    if (request.function === "teammate_invites.list") return ok({ invite_form: "email", sign_in_method: "company_sign_in", invites: [inviteRow] });
     if (request.function === "identity.invite.list") return ok({ invites: sent ? [{ invite_id: 8, email: "a@example.test", role: "viewer", status: "pending", created_at: inviteRow.created_at, invited_by_user_id: 2, invited_by_name: "Hosted inviter" }] : [] });
     assert.equal(request.function, "identity.invite.create"); sent = true;
     return ok({ invite: { email: "a@example.test" } });
@@ -249,7 +254,7 @@ test("email fact merges identity rows and returns its nested result without a co
 
 test("actor role and enable actions reload invites and preserve visibility choices", async () => {
   const f = await direct((request) => request.function === "actors.roster" ? ok(adminRoster)
-    : request.function === "teammate_invites.list" ? ok({ invite_form: "code", invites: [{ ...inviteRow, state: "consumed" }] }) : ok({}));
+    : request.function === "teammate_invites.list" ? ok({ ...nameFact, invites: [{ ...inviteRow, state: "consumed" }] }) : ok({}));
   for (const toggle of nodes(f.main, "INPUT")) { toggle.checked = true; toggle.dispatchEvent(new Event("change")); }
   await click(button(f.main, "Enable"));
   const role = nodes(f.main, "SELECT")[0]; role.value = "viewer"; role.dispatchEvent(new Event("change")); await settle();

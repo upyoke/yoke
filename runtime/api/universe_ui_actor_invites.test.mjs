@@ -14,7 +14,7 @@ const row = (invite_id, state = "pending", extra = {}) => ({
   created_at: `2026-10-${String(invite_id).padStart(2, "0")}T12:00:00Z`,
   expires_at: "2026-10-30T12:00:00Z", invited_by_name: "Actual inviter", ...extra,
 });
-function fixture(call = async () => ok({}), fact = { invite_form: "code" }) {
+function fixture(call = async () => ok({}), fact = { invite_form: "name", sign_in_method: "invite_code" }) {
   const document = new FakeDocument();
   document.defaultView.location.origin = "https://team.example.test";
   const slot = document.createElement("div");

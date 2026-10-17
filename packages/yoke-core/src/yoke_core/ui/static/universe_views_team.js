@@ -84,7 +84,7 @@ export function renderTeamView(context, main, _scope, _detail, chrome = {}) {
   invite.type = "button";
   const canInvite = () => mode !== "local" && roster.can_manage_actors
     && Array.isArray(roster.person_org_roles) && roster.person_org_roles.length
-    && success(inviteRead) && ["code", "email"].includes(fact?.invite_form);
+    && success(inviteRead) && ["name", "email"].includes(fact?.invite_form);
   const head = () => {
     invite.disabled = formOpen;
     chrome.setPageHead?.({ title: "Team", actions: canInvite() ? [invite] : [] });
