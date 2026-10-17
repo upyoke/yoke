@@ -241,3 +241,27 @@ execution. Source sync prepares future definitions; it never starts a fresh run
 or grants execution authority. Preserve existing approval and readiness holds;
 credit this candidate only through its own legitimately admitted execution.
 Retain missing fixture or approval as unproven.
+
+## Sessions outside a project
+
+Three scripted cases use the isolated local setup and the installed candidate.
+`outside-project-sessions` registers one session per declared harness (Claude
+Code, Codex, Cursor) from a folder outside any project and requires
+organization scope in `yoke sessions identity`, the active roster and ended
+history. `outside-project-reinstall` reinstalls without setup and requires the
+same session to keep its organization scope through re-registration.
+`outside-project-first-work` creates an isolated project and task item: the
+outside claim must refuse `CLAIM_FOLDER_MISMATCH` with the
+`yoke project register` recovery, the outside session stays refused
+(`SESSION_MACHINE_SCOPE_WORK_REFUSED`) in the registered folder, and a session
+opened there passes folder admission.
+
+Release QA for the same candidate also owes, in local, self-host and hosted
+modes: Command proof of `yoke sessions list` and ended history, outside-project
+registration on each harness over HTTPS and local, and the claim refusal; and
+the Browser scenario "org-scoped session in roster and detail": the
+**Outside any project** label in the Workbench roster row and session detail,
+no console error, and the session hidden from a signed-in stranger. Model
+admission, real hook delivery and first item done stay with the installer
+exploration. Keep failure and rerun evidence; this proof creates no deployment
+run.
