@@ -26,12 +26,12 @@ requested, announced personal sign-in handoff, never a test acceptance check.
 
 ## Desktop browser checks
 
-The combined authorization contract checks the selected automation identity
-first, then the Test Machine's snap Chromium on Linux or Safari on macOS in
-the same remote GUI process. Explicitly opt in to desktop checks:
+With `--machine`, authorization checks the selected automation identity first,
+then the Test Machine's snap Chromium on Linux or Safari on macOS in the same
+remote GUI process. Both checks are included by default:
 
 ```text
-yoke browser authorize --project PROJECT --identity IDENTITY --machine NAME --desktop-browser
+yoke browser authorize --project PROJECT --identity IDENTITY --machine NAME
 ```
 
 Declare that identity's sites, signed-in probes and account names in
@@ -43,13 +43,13 @@ Allow the executing terminal to read the native cookie store and unlock the
 user's keyring. Unreadable cookies or unreachable probes refuse before tabs
 open: repair the named access or network condition, then retry.
 
-Without `--desktop-browser`, `--machine NAME` retains the existing remote
-automation-only contract. The desktop flag opts into combined checks, not a
-native-only operation. Do not use `--reset` for desktop sign-ins: they stay
-live outside goldens. Automation identity profiles retain their existing
-behavior. This corrected contract awaits a committed, verified successor;
-require release-matched help and operation receipts before relying on installed
-support. Real-host sign-in and reset proof remain separate from source checks.
+Without `--machine`, existing local automation identity behavior is unchanged.
+Standalone `--desktop-browser` checks only this host's native browser; it
+requires declared sites and refuses `--reset`. Remote `--reset` resets only
+the automation identity, never desktop sign-ins. Desktop sign-ins stay live
+outside goldens; there is no remote desktop opt-out. Require release-matched
+help and operation receipts before relying on installed support. Real-host
+sign-in and reset proof remain separate from merged source and CI evidence.
 
 ## macOS sign-in procedure
 

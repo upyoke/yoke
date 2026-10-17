@@ -234,10 +234,9 @@ desktop browser sign-ins. It opens tabs only for expired sites and names the
 account to use. Desktop browser sign-ins stay live through reset and are
 excluded from golden snapshots.
 
-Combined checks require `--machine NAME --desktop-browser`; without the
-desktop flag, the remote command retains automation-only behavior. Confirm
-release-matched help and operation receipts before relying on an installed
-release. Before running it, read the complete
+The remote `--machine NAME` command includes both checks by default; there
+is no desktop opt-out. Confirm release-matched help and operation receipts
+before relying on an installed release. Before running it, read the complete
 [desktop browser checks](browser-identities.md#desktop-browser-checks) procedure.
 
 A test machine keeps each project identity signed in live, outside the
