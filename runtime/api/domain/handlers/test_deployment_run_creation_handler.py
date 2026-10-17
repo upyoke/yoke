@@ -13,6 +13,9 @@ from unittest.mock import patch
 from runtime.api.domain.handlers.deployment_handler_test_support import (
     deployment_request as _request,
 )
+from yoke_core.domain.deployment_run_carried_work_source import (
+    CarriedWorkSourceUnavailable,
+)
 from yoke_core.domain.deployment_run_create_write import CreatedRun
 from yoke_core.domain.handlers import deployment_runs
 
@@ -88,6 +91,27 @@ class TestDeploymentRunCreation(unittest.TestCase):
             )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "run_create_rejected")
+
+    def test_run_create_names_an_unavailable_source_and_its_recovery(self):
+        refusal = CarriedWorkSourceUnavailable(
+            "repository_provider_comparison_incomplete",
+            "the comparison declares 24 commit(s); retry once the provider is healthy.",
+        )
+        with patch(
+            "yoke_core.domain.deployment_runs_crud_mutate.create_run",
+            side_effect=refusal,
+        ):
+            outcome = deployment_runs.handle_deployment_run_create(
+                _request(
+                    function="deployment_runs.create",
+                    payload={"project": "yoke", "flow": "yoke-hosted-prod"},
+                ),
+            )
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(
+            outcome.error.code, "repository_provider_comparison_incomplete"
+        )
+        self.assertIn("retry once the provider is healthy", outcome.error.message)
 
     def test_run_create_reuses_the_retry_source_lineage(self):
         source = {

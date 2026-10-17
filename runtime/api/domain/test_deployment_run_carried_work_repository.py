@@ -112,7 +112,9 @@ def test_the_first_parent_range_is_walked_out_of_the_compared_graph(
     assert commits == (MERGE, TIP)
     assert source.commit_author(TIP) == "A contributor"
     assert source.commit_time(TIP) == parse_instant("2026-09-15T00:00:00Z")
-    assert source._graph[TIP]["committed_at"] == "2026-09-15T00:00:00Z"
+    assert source._graphs[(BASE, TIP)].commits[TIP]["committed_at"] == (
+        "2026-09-15T00:00:00Z"
+    )
     assert source.commit_time("e" * 40) is None
 
 
