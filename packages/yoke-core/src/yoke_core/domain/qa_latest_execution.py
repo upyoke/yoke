@@ -62,18 +62,28 @@ def latest_executions(
     conn: Any, requirement_ids: Iterable[int]
 ) -> dict[int, dict[str, Any]]:
     """The current actual attempt for each requirement, including pending rows."""
+    return _latest_executions(conn, requirement_ids, "run.*")
+
+
+def latest_verdict_executions(conn, requirement_ids):
+    """Current verdict authority without transferring captured output bodies."""
+    columns = "id,qa_requirement_id,verdict,started_at,completed_at,case_outcome"
+    return _latest_executions(
+        conn, requirement_ids, ",".join("run." + name for name in columns.split(","))
+    )
+
+
+def _latest_executions(conn, requirement_ids, columns):
     ids = tuple(sorted(set(int(value) for value in requirement_ids)))
     if not ids:
         return {}
-    from yoke_core.domain.deployment_qa_presentation_facts import execution_rows
-
-    batch = execution_rows(conn, ids)
+    batch = _presented_executions(conn, ids, columns)
     if batch is not None:
         return select_latest_executions(batch)
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = query_rows(
         conn,
-        "SELECT run.* FROM qa_runs run WHERE run.qa_requirement_id IN ("
+        f"SELECT {columns} FROM qa_runs run WHERE run.qa_requirement_id IN ("
         + ",".join(marker for _ in ids)
         + f") AND {actual_execution_sql('run')}",
         ids,
@@ -121,3 +131,41 @@ def current_first_run_history(
         key=lambda row: (row["id"] == current_id, int(row["id"])),
         reverse=True,
     )
+
+
+def _presented_executions(conn, requested, columns):
+    """Capture actual attempts together; canonical ordering grades only requested IDs."""
+    from collections import defaultdict
+    from yoke_core.domain.deployment_qa_presentation_facts import presented_run_ids
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
+
+    runs = presented_run_ids(conn)
+    if not runs:
+        return None
+
+    def read():
+        markers = ",".join("%s" for _ in runs)
+        rows = query_rows(
+            conn,
+            f"SELECT q.id AS presented_requirement_id,{columns} FROM qa_requirements q "
+            "LEFT JOIN qa_runs run ON run.qa_requirement_id=q.id "
+            f"AND {actual_execution_sql('run')} "
+            f"WHERE q.deployment_run_id IN ({markers})",
+            runs,
+        )
+        by_requirement = defaultdict(list)
+        for row in rows:
+            requirement_id = int(row["presented_requirement_id"])
+            by_requirement.setdefault(requirement_id, [])
+            if row["id"] is not None:
+                value = dict(row)
+                value.pop("presented_requirement_id")
+                by_requirement[requirement_id].append(value)
+        return by_requirement
+
+    by_requirement = presentation_read(
+        conn, ("qa_presented_executions", runs, columns), read
+    )
+    if not set(requested) <= by_requirement.keys():
+        return None
+    return [row for requirement in requested for row in by_requirement[requirement]]
