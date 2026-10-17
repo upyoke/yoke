@@ -78,7 +78,11 @@ def _member_qa_obligations(conn, runs, members):
     environments = _environments(conn, members)
     copies = query_rows(
         conn,
-        "SELECT q.* FROM qa_requirements q "
+        "SELECT q.id,q.deployment_run_id,q.deployment_stage,q.deployment_member_item_id,"
+        "q.plan_id,q.plan_case_key,q.host_baseline,q.target_env,q.execution_target_json,"
+        "q.execution_target_digest,q.waived_at,q.retracted_at,q.superseded_by_requirement_id,"
+        "q.replacement_requirement_id,q.method_id,q.method_config,q.instructions,"
+        "q.expected_outcome FROM qa_requirements q "
         f"WHERE q.deployment_run_id IN ({markers}) "
         "AND q.qa_phase='post_deploy' AND q.qa_kind<>'deployment_stage_acceptance' "
         "ORDER BY q.id DESC",
@@ -212,8 +216,9 @@ def member_snapshot_rows(conn, run_ids):
     markers = ",".join("%s" for _ in run_ids)
     rows = query_rows(
         conn,
-        "SELECT dri.run_id,dri.item_id,dri.requirement_snapshot,i.project_id "
+        "SELECT dri.run_id,dri.item_id,dri.requirement_snapshot,i.project_id,dr.status "
         "FROM deployment_run_items dri JOIN items i ON i.id=dri.item_id "
+        "JOIN deployment_runs dr ON dr.id=dri.run_id "
         f"WHERE dri.run_id IN ({markers})",
         run_ids,
     )

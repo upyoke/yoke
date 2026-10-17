@@ -47,6 +47,21 @@ def _live_attachments(conn: Any, item_ids: set[int]) -> dict[int, set[int]]:
 
     if not item_ids:
         return {}
+    from yoke_core.domain.deployment_qa_presentation_facts import (
+        attachment_rows,
+        presented_member_ids,
+    )
+
+    members = presented_member_ids(conn)
+    if members is not None and item_ids <= set(members):
+        return {
+            item: {
+                int(row["plan_id"])
+                for row in attachment_rows(conn, item)
+                if row["live"]
+            }
+            for item in item_ids
+        }
     items = tuple(sorted(item_ids))
     attached: dict[int, set[int]] = defaultdict(set)
     for row in query_rows(
@@ -151,6 +166,25 @@ def removed_members(conn: Any, run_ids: tuple[str, ...]) -> dict:
     }
 
 
+def _sharing_members(conn, runs):
+    """Reuse the presentation's frozen rows and status; scalar reads keep their set."""
+    from yoke_core.domain.deployment_qa_presentation_facts import run_member_rows
+
+    batches = [run_member_rows(conn, run) for run in runs]
+    if all(batch is not None for batch in batches):
+        return sorted(
+            (row for batch in batches for row in batch.values()),
+            key=lambda row: int(row["item_id"]),
+        )
+    return query_rows(
+        conn,
+        "SELECT dri.run_id,dri.item_id,dri.requirement_snapshot,dr.status "
+        "FROM deployment_run_items dri JOIN deployment_runs dr ON dr.id=dri.run_id "
+        f"WHERE dri.run_id IN ({_markers(runs)}) ORDER BY dri.item_id",
+        runs,
+    )
+
+
 def run_qa_sharing(conn: Any, run_ids: Iterable[str]) -> dict[str, dict]:
     """Per run: ``shared_plans`` with their sharing members, ``removed_members``."""
     runs = tuple(sorted({str(run) for run in run_ids if run}))
@@ -160,13 +194,7 @@ def run_qa_sharing(conn: Any, run_ids: Iterable[str]) -> dict[str, dict]:
     sharing: dict = defaultdict(lambda: defaultdict(list))
     if counts:
         live = tuple(sorted(counts))
-        members = query_rows(
-            conn,
-            "SELECT dri.run_id,dri.item_id,dri.requirement_snapshot,dr.status "
-            "FROM deployment_run_items dri JOIN deployment_runs dr ON dr.id=dri.run_id "
-            f"WHERE dri.run_id IN ({_markers(live)}) ORDER BY dri.item_id",
-            live,
-        )
+        members = _sharing_members(conn, live)
         attached = _live_attachments(
             conn,
             {

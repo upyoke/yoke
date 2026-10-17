@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from runtime.api.domain.test_deployment_member_qa_copies import read
 from runtime.api.domain.test_deployment_qa_shared_plans import (
     MEMBERS,
@@ -128,3 +130,34 @@ def test_superseded_shared_copy_leaves_the_group_count(test_db):
     # Still shared, so the superseded copy never falls back into a member.
     projected = read(test_db, RUN, MEMBERS)
     assert all(projected[(RUN, member)]["current"] == [] for member in MEMBERS)
+
+
+@pytest.mark.parametrize("status", ["executing", "succeeded"])
+def test_sharing_reuses_member_snapshot_and_attachment_sets(test_db, status):
+    from runtime.api.domain.test_deployment_shipping_reads import CountedConnection
+    from yoke_core.domain.deployment_qa_presentation_facts import member_presentation
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
+
+    _seed(test_db)
+    _materialize(test_db, MEMBERS[0])
+    _materialize(test_db, MEMBERS[1])
+    test_db.execute("UPDATE deployment_runs SET status=%s WHERE id=%s", (status, RUN))
+    test_db.commit()
+    expected = run_qa_sharing(test_db, [RUN])
+    conn = CountedConnection(test_db)
+
+    @presentation_operation
+    @member_presentation
+    def read_shared(connection, subjects):
+        return run_qa_sharing(connection, [RUN])
+
+    subjects = [(RUN, member, "item-qa") for member in MEMBERS]
+    assert read_shared(conn, subjects) == expected
+    assert (
+        sum(n for sql, n in conn.queries.items() if "requirement_snapshot" in sql) == 1
+    )
+    assert not any("ORDER BY dri.item_id" in sql for sql in conn.queries)
+    assert not any("SELECT a.item_id,a.plan_id FROM" in sql for sql in conn.queries)
+    # The next presentation observes changed live attachments and membership.
+    _remove(test_db, MEMBERS[1])
+    assert read_shared(conn, subjects) == run_qa_sharing(test_db, [RUN])
