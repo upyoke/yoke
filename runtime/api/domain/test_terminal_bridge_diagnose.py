@@ -21,6 +21,7 @@ from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_SECURE_KEYBOARD_ENTRY_ON_ERROR_CODE,
     TERMINAL_SYSTEM_EVENTS_UNAVAILABLE_ERROR_CODE,
     TERMINAL_WINDOW_ACCUMULATION_ERROR_CODE,
+    TERMINAL_WINDOW_CLOSE_FAILED_ERROR_CODE,
     TERMINAL_WINDOW_FOCUS_TIMEOUT_ERROR_CODE,
 )
 from yoke_harness import ssh_mac_terminal_app, ssh_mac_terminal_bridge_check
@@ -61,7 +62,25 @@ def test_a_healthy_host_reports_every_capability_in_order(
     assert result.evidence["host"]["console_user"] == "yoke-test"
     assert result.evidence["host"]["display_locked"] is False
     assert result.evidence["first_failed_check"] is None
-    assert result.evidence["host"]["terminal_window_count"] == 2
+    rows = _rows(result)
+    assert rows["terminal_app_control"]["observed"]["terminal_window_count"] == 2
+    assert rows["window_launch"]["observed"]["window_closed"] is True
+
+
+def test_a_driven_window_left_open_fails_by_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result = _diagnose(FakeMac(window_closes=False), monkeypatch)
+
+    assert result.error_code == TERMINAL_WINDOW_CLOSE_FAILED_ERROR_CODE
+    launch = _rows(result)["window_launch"]
+    assert launch["ok"] is False
+    assert launch["observed"]["window_closed"] is False
+    assert "yoke test-machine reset" in launch["recovery"]
+    assert result.evidence["first_failed_check"] == "window_launch"
+    assert [row["name"] for row in result.evidence["checks"]] == list(
+        TERMINAL_BRIDGE_CHECKS
+    )
 
 
 def test_accumulated_windows_are_named_when_direct_terminal_control_works(

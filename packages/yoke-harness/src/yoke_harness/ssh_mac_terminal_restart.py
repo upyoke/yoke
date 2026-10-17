@@ -18,7 +18,10 @@ from typing import Callable
 
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 
-from yoke_harness.ssh_mac_host_session_state import read_terminal_window_count
+from yoke_harness.ssh_mac_host_session_state import (
+    TERMINAL_VISIBLE_WINDOW_COUNT,
+    read_terminal_window_count,
+)
 from yoke_harness.ssh_mac_terminal_app import run_osascript
 from yoke_harness.test_machine_types import HostActionResult
 
@@ -59,7 +62,7 @@ def _force_kill(running: str) -> str:
 
 
 def _wait_for_window() -> str:
-    count = shlex.quote('tell application "Terminal" to count windows')
+    count = shlex.quote(TERMINAL_VISIBLE_WINDOW_COUNT)
     return (
         f"i=0; n=; while [ $i -lt {RELAUNCH_WAIT_SECONDS} ]; do "
         f"n=$(/usr/bin/osascript -e {count} 2>/dev/null); "

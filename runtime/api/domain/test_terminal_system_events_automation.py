@@ -19,7 +19,7 @@ from yoke_contracts.machine_qa_terminal_bridge import (
 from yoke_core.domain.ssh_mac_terminal_recipe import execute_terminal_recipe
 from yoke_harness import ssh_mac_gui_session
 from yoke_harness.ssh_mac_gui_session import TerminalAutomationProbe
-from yoke_harness.ssh_mac_terminal_app import close_terminal_app_window
+from yoke_harness.ssh_mac_terminal_window_close import close_terminal_app_window
 
 
 def _completed(returncode: int, stderr: str = "") -> subprocess.CompletedProcess:
@@ -79,18 +79,34 @@ def test_terminal_case_refuses_before_opening_its_window(
     assert not any("/tmp/yoke-qa-" in c for c in host.commands)
 
 
-def test_window_close_kills_its_tty_processes_before_closing() -> None:
+@pytest.mark.parametrize(
+    ("answer", "closed"),
+    [("closed\n", True), ("open\n", False), ("", False)],
+)
+def test_window_close_kills_its_tty_processes_and_reports_the_outcome(
+    answer: str, closed: bool
+) -> None:
     commands: list[str] = []
 
     def run(command: str, **_kwargs) -> subprocess.CompletedProcess:
         commands.append(command)
-        return _completed(0)
+        return subprocess.CompletedProcess(command, 0, answer, "")
 
-    close_terminal_app_window(run, window_id=445)
+    assert close_terminal_app_window(run, window_id=445) is closed
 
     script = commands[0]
     assert script.index("pkill -KILL -t") < script.index("close window id 445")
-    assert "tty of every tab of window id 445" in script
+    # The tty list is read inside the Terminal block and coerced outside it: a
+    # tab reference does not coerce to text, and that error (-1700) aborted
+    # the script before the close on every command.
+    assert "set ttyPaths to tty of every tab of window id 445" in script
+    assert "(ttyPath as text)" in script
+    assert script.index("end tell") < script.index("do shell script")
+    assert "if visible of window id 445" in script
+
+
+def test_window_close_without_a_window_has_nothing_to_close() -> None:
+    assert close_terminal_app_window(lambda *_a, **_k: None, window_id=None)
 
 
 def _probe(

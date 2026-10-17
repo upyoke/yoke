@@ -68,6 +68,9 @@ TERMINAL_WINDOW_FOCUS_TIMEOUT_ERROR_CODE = "terminal_window_focus_timeout"
 TERMINAL_KEYSTROKE_UNDELIVERED_ERROR_CODE = "terminal_keystroke_undelivered"
 # Keys were delivered and the expected text never appeared in the window.
 TERMINAL_TRANSCRIPT_TIMEOUT_ERROR_CODE = "terminal_transcript_timeout"
+# The driven window was still on screen after its processes were killed and
+# Terminal was told to close it; every such window adds to the accumulation.
+TERMINAL_WINDOW_CLOSE_FAILED_ERROR_CODE = "terminal_window_close_failed"
 
 TERMINAL_BRIDGE_RECOVERY = {
     TERMINAL_APP_CONTROL_UNAVAILABLE_ERROR_CODE: (
@@ -159,6 +162,12 @@ TERMINAL_BRIDGE_RECOVERY = {
         "the Accessibility grant for /usr/libexec/sshd-keygen-wrapper and "
         "that Secure Keyboard Entry is off in Terminal"
     ),
+    TERMINAL_WINDOW_CLOSE_FAILED_ERROR_CODE: (
+        "the driven Terminal window stayed on screen after the bridge closed "
+        "it; close it at the host console, run `yoke test-machine reset` to "
+        "clear windows earlier runs left, then re-run "
+        "`yoke test-machine bridge-diagnose`"
+    ),
     TERMINAL_TRANSCRIPT_TIMEOUT_ERROR_CODE: (
         "the keystrokes were delivered and the window never showed them "
         "inside the transcript wait; the check evidence records the load "
@@ -213,6 +222,7 @@ __all__ = [
     "TERMINAL_TRANSCRIPT_TIMEOUT_ERROR_CODE",
     "TERMINAL_WINDOW_ACCUMULATION_ERROR_CODE",
     "TERMINAL_WINDOW_ACCUMULATION_THRESHOLD",
+    "TERMINAL_WINDOW_CLOSE_FAILED_ERROR_CODE",
     "TERMINAL_WINDOW_FOCUS_TIMEOUT_ERROR_CODE",
     "TERMINAL_WINDOW_OFF_SCREEN_ERROR_CODE",
     "terminal_bridge_recovery",

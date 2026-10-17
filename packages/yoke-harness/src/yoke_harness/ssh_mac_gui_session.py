@@ -20,9 +20,9 @@ from yoke_contracts.machine_qa_terminal_bridge import (
 from yoke_harness.ssh_mac_host_session_state import read_terminal_window_count
 from yoke_harness.ssh_mac_terminal_app import (
     RunRemote,
-    close_terminal_app_window,
     open_terminal_app_window,
 )
+from yoke_harness.ssh_mac_terminal_window_close import close_terminal_app_window
 
 
 _BRIDGE_POLL_SECONDS = 0.1

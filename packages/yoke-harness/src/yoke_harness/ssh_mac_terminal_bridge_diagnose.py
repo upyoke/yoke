@@ -98,17 +98,21 @@ def _probe_control_surfaces(
         return False
 
     terminal_ok, terminal_detail = terminal_app_reachable(run)
+    # Every GUI-session command opens a window; a count far above one means
+    # earlier runs left theirs behind, which stalls the commands that follow.
+    terminal_observed = {
+        "detail": terminal_detail,
+        "terminal_window_count": (
+            read_terminal_window_count(run) if terminal_ok else None
+        ),
+    }
     if not report.record(
         TERMINAL_CONTROL_CHECK,
         ok=terminal_ok,
-        observed={"detail": terminal_detail},
+        observed=terminal_observed,
         error_code=TERMINAL_AUTOMATION_UNAVAILABLE_ERROR_CODE,
     ):
         return False
-
-    # Every GUI-session command opens a window; a count far above one means
-    # earlier runs left theirs behind, which stalls the commands that follow.
-    report.host["terminal_window_count"] = read_terminal_window_count(run)
 
     secure_entry = read_secure_keyboard_entry(run)
     report.host["secure_keyboard_entry"] = secure_entry

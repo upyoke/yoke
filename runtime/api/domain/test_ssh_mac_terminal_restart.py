@@ -49,7 +49,7 @@ class TerminalHost:
             # A window still running a command answers quit with a sheet.
             self.running = not self.quits
             return _done(0 if self.quits else 1, stderr="AppleEvent timed out")
-        if "count windows" in command:
+        if "whose visible is true" in command:
             return _done(0, f"{self.windows}\n")
         if "while" in command:
             return _done(1 if self.running else 0)
@@ -117,7 +117,7 @@ def test_relaunch_skips_saved_windows_and_waits_for_the_first_window() -> None:
 
     def run(command: str, *, timeout: int = 60) -> SimpleNamespace:
         commands.append(command)
-        return _done(0, "1\n" if "count windows" in command else "")
+        return _done(0, "1\n" if "whose visible is true" in command else "")
 
     result = relaunch_terminal_app(run)
 
