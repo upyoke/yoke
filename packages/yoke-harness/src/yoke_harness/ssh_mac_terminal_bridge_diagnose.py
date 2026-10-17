@@ -21,9 +21,11 @@ from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_DISPLAY_LOCKED_ERROR_CODE,
     TERMINAL_SECURE_KEYBOARD_ENTRY_ON_ERROR_CODE,
     TERMINAL_SSH_UNAVAILABLE_ERROR_CODE,
+    TERMINAL_SYSTEM_EVENTS_AUTOMATION_MISSING_ERROR_CODE,
     TERMINAL_SYSTEM_EVENTS_UNAVAILABLE_ERROR_CODE,
 )
 from yoke_harness.ssh_mac_display_frame import RunRemote
+from yoke_harness.ssh_mac_gui_session import terminal_system_events_automation
 from yoke_harness.ssh_mac_host_session_state import (
     display_lock_recovery,
     probe_host_display_context,
@@ -42,6 +44,7 @@ CONSOLE_SESSION_CHECK = TERMINAL_BRIDGE_CHECKS[1]
 SYSTEM_EVENTS_CHECK = TERMINAL_BRIDGE_CHECKS[2]
 TERMINAL_CONTROL_CHECK = TERMINAL_BRIDGE_CHECKS[3]
 SECURE_KEYBOARD_ENTRY_CHECK = TERMINAL_BRIDGE_CHECKS[4]
+TERMINAL_SYSTEM_EVENTS_CHECK = TERMINAL_BRIDGE_CHECKS[5]
 
 
 def _probe_control_surfaces(
@@ -105,11 +108,20 @@ def _probe_control_surfaces(
 
     secure_entry = read_secure_keyboard_entry(run)
     report.host["secure_keyboard_entry"] = secure_entry
-    return report.record(
+    if not report.record(
         SECURE_KEYBOARD_ENTRY_CHECK,
         ok=not secure_entry,
         observed={"secure_keyboard_entry": secure_entry},
         error_code=TERMINAL_SECURE_KEYBOARD_ENTRY_ON_ERROR_CODE,
+    ):
+        return False
+
+    automation_ok, automation_detail = terminal_system_events_automation(run)
+    return report.record(
+        TERMINAL_SYSTEM_EVENTS_CHECK,
+        ok=automation_ok,
+        observed={"detail": automation_detail},
+        error_code=TERMINAL_SYSTEM_EVENTS_AUTOMATION_MISSING_ERROR_CODE,
     )
 
 

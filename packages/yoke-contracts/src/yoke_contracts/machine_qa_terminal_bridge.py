@@ -38,6 +38,12 @@ TERMINAL_SSH_UNAVAILABLE_ERROR_CODE = "terminal_ssh_unavailable"
 TERMINAL_SYSTEM_EVENTS_UNAVAILABLE_ERROR_CODE = "terminal_system_events_unavailable"
 TERMINAL_AUTOMATION_UNAVAILABLE_ERROR_CODE = "terminal_automation_unavailable"
 TERMINAL_SECURE_KEYBOARD_ENTRY_ON_ERROR_CODE = "terminal_secure_keyboard_entry_on"
+# A command run inside Terminal.app could not drive System Events: Terminal
+# lacks that Automation grant, so the Safari approval helper and GUI-session
+# commands would block on consent until their own timeout.
+TERMINAL_SYSTEM_EVENTS_AUTOMATION_MISSING_ERROR_CODE = (
+    "terminal_system_events_automation_missing"
+)
 # The window opened but never became the frontmost one inside the wait, so the
 # keys that follow would land in whatever window is frontmost instead.
 TERMINAL_WINDOW_FOCUS_TIMEOUT_ERROR_CODE = "terminal_window_focus_timeout"
@@ -95,6 +101,14 @@ TERMINAL_BRIDGE_RECOVERY = {
         "Automation for Terminal under System Settings > Privacy & Security "
         "on the host; -1743 names that grant"
     ),
+    TERMINAL_SYSTEM_EVENTS_AUTOMATION_MISSING_ERROR_CODE: (
+        "automation_missing:Terminal->System Events: tick Terminal's System "
+        "Events row under Privacy & Security > Automation on the host (older "
+        "macOS opens System Preferences instead of asking); if Terminal has no "
+        'row there, run `osascript -e \'tell application "System Events" to '
+        "count processes'` in Terminal at the console and allow the prompt, "
+        "then re-run `yoke test-machine bridge-diagnose`"
+    ),
     TERMINAL_SECURE_KEYBOARD_ENTRY_ON_ERROR_CODE: (
         "turn Secure Keyboard Entry off in Terminal's menu on the host; while "
         "it is on macOS discards every synthetic keystroke the bridge sends"
@@ -126,6 +140,7 @@ TERMINAL_BRIDGE_CHECKS = (
     "system_events_control",
     "terminal_app_control",
     "secure_keyboard_entry",
+    "terminal_system_events_automation",
     "display_frame",
     "window_launch",
     "window_focus",
@@ -156,6 +171,7 @@ __all__ = [
     "TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE",
     "TERMINAL_SECURE_KEYBOARD_ENTRY_ON_ERROR_CODE",
     "TERMINAL_SSH_UNAVAILABLE_ERROR_CODE",
+    "TERMINAL_SYSTEM_EVENTS_AUTOMATION_MISSING_ERROR_CODE",
     "TERMINAL_SYSTEM_EVENTS_UNAVAILABLE_ERROR_CODE",
     "TERMINAL_TRANSCRIPT_TIMEOUT_ERROR_CODE",
     "TERMINAL_WINDOW_FOCUS_TIMEOUT_ERROR_CODE",

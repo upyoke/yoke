@@ -24,6 +24,7 @@ from yoke_core.domain.machine_qa_execution_contract import (
 from yoke_core.domain.machine_qa_fixture_operations import (
     MachineQaFixtureOperationRunner,
 )
+from yoke_core.domain.machine_qa_phase_heartbeat import heartbeat_during
 from yoke_core.domain.machine_qa_method_contracts import (
     MachineQaExecutionError,
     validate_machine_method_config,
@@ -261,7 +262,8 @@ def execute_case_with_fixture_lifecycle(
                     )
     finally:
         if not communication_unknown(primary_error):
-            cleanup_attempts = _close_with_retry(fixture)
+            with heartbeat_during("fixture_cleanup", execution.progress_callback):
+                cleanup_attempts = _close_with_retry(fixture)
 
     lifecycle = _lifecycle_evidence(
         setup=setup,
