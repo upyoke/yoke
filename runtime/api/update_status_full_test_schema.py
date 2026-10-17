@@ -46,7 +46,8 @@ CREATE TABLE IF NOT EXISTS items (
     owner TEXT,
     project_id INTEGER NOT NULL DEFAULT 1,
     project_sequence INTEGER NOT NULL,
-    workflow_posture TEXT NOT NULL DEFAULT '{}'
+    workflow_posture TEXT NOT NULL DEFAULT '{}',
+    generated_task_membership_finalized_at TIMESTAMPTZ
 );
 CREATE TABLE IF NOT EXISTS item_worktrees (
     id INTEGER PRIMARY KEY,
@@ -75,8 +76,6 @@ CREATE TABLE IF NOT EXISTS epic_tasks (
     max_attempts INTEGER DEFAULT 5,
     agent_id TEXT,
     last_heartbeat TIMESTAMPTZ,
-    scope_state TEXT NOT NULL DEFAULT 'pending',
-    scope_finalized_at TIMESTAMPTZ,
     UNIQUE(epic_id, task_num),
     FOREIGN KEY (item_worktree_id) REFERENCES item_worktrees(id)
 );
@@ -148,14 +147,6 @@ SELECT id,
 FROM events WHERE event_type = 'task_status_change';
 """
     + f"""\
-CREATE TABLE IF NOT EXISTS epic_task_files (
-    id INTEGER PRIMARY KEY,
-    epic_id INTEGER NOT NULL,
-    task_num INTEGER NOT NULL,
-    file_path TEXT NOT NULL,
-    action TEXT,
-    FOREIGN KEY (epic_id, task_num) REFERENCES epic_tasks(epic_id, task_num)
-);
 CREATE TABLE IF NOT EXISTS harness_sessions (
     session_id TEXT PRIMARY KEY,
     executor TEXT NOT NULL,

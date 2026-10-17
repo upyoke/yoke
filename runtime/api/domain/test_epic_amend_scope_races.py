@@ -11,7 +11,9 @@ import pytest
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.backlog_inserts import insert_epic_task, insert_item
+from runtime.api.task_files_touched_test_support import files_touched_body
 from yoke_core.domain import epic_amend, epic_task_crud
+from yoke_core.domain.epic_task_membership import membership_is_finalized
 from yoke_core.domain.epic_task_scope import finalize_generated_task_scopes
 
 
@@ -105,7 +107,7 @@ def test_postgres_amendment_serializes_after_finalization(
             epic_id=item_id,
             task_num=task_num,
             status="planned",
-            scope_state="no_files",
+            body=files_touched_body([]),
         )
     test_db.commit()
     database_name = test_db.info.dbname
@@ -118,12 +120,11 @@ def test_postgres_amendment_serializes_after_finalization(
 
     assert outcomes == {}
     rows = test_db.execute(
-        "SELECT task_num, scope_finalized_at FROM epic_tasks "
-        "WHERE epic_id=%s ORDER BY task_num",
+        "SELECT task_num FROM epic_tasks WHERE epic_id=%s ORDER BY task_num",
         (item_id,),
     ).fetchall()
     assert [row["task_num"] for row in rows] == _EXPECTED_TASKS[operation]
-    assert all(row["scope_finalized_at"] is None for row in rows)
+    assert not membership_is_finalized(test_db, item_id)
 
 
 def _create_sqlite_database(database_path: Path, item_id: int) -> None:
@@ -146,24 +147,17 @@ def _create_sqlite_database(database_path: Path, item_id: int) -> None:
           status TEXT DEFAULT 'planning',
           body TEXT DEFAULT '',
           dispatch_attempts INTEGER DEFAULT 0,
-          scope_state TEXT NOT NULL DEFAULT 'pending',
-          scope_finalized_at TEXT,
           UNIQUE(epic_id, task_num)
         );
-        CREATE TABLE epic_task_files (
-          id INTEGER PRIMARY KEY,
-          epic_id INTEGER NOT NULL,
-          task_num INTEGER NOT NULL,
-          file_path TEXT NOT NULL,
-          action TEXT
-        );
         INSERT INTO items (id, project_id) VALUES ({item_id}, 1);
-        INSERT INTO epic_tasks
-          (epic_id, task_num, title, scope_state)
-          VALUES
-          ({item_id}, 1, 'first', 'no_files'),
-          ({item_id}, 2, 'second', 'no_files');
         """
+    )
+    conn.executemany(
+        "INSERT INTO epic_tasks (epic_id, task_num, title, body) VALUES (?, ?, ?, ?)",
+        [
+            (item_id, 1, "first", files_touched_body([])),
+            (item_id, 2, "second", files_touched_body([])),
+        ],
     )
     conn.commit()
     conn.close()
@@ -197,10 +191,8 @@ def test_sqlite_amendment_serializes_after_finalization(
 
     assert outcomes == {}
     conn = sqlite3.connect(database_path)
-    rows = conn.execute(
-        "SELECT task_num, scope_finalized_at FROM epic_tasks "
-        "ORDER BY task_num"
-    ).fetchall()
+    rows = conn.execute("SELECT task_num FROM epic_tasks ORDER BY task_num").fetchall()
+    finalized = membership_is_finalized(conn, item_id)
     conn.close()
     assert [row[0] for row in rows] == _EXPECTED_TASKS[operation]
-    assert all(row[1] is None for row in rows)
+    assert not finalized

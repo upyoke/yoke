@@ -8,6 +8,7 @@ import pytest
 
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
+from runtime.api.task_files_touched_test_support import files_touched_body
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.work_claim_targets import (
     make_epic_task_target,
@@ -29,10 +30,7 @@ _LIVE_DDL = (
     "PRIMARY KEY(claim_id,epic_id,task_num));"
     "CREATE TABLE epic_tasks(id INTEGER PRIMARY KEY AUTOINCREMENT,"
     "epic_id INTEGER NOT NULL,task_num INTEGER NOT NULL,status TEXT,"
-    "item_worktree_id INTEGER,UNIQUE(epic_id,task_num));"
-    "CREATE TABLE epic_task_files(id INTEGER PRIMARY KEY AUTOINCREMENT,"
-    "epic_id INTEGER NOT NULL,task_num INTEGER NOT NULL,file_path TEXT NOT NULL,"
-    "UNIQUE(epic_id,task_num,file_path));"
+    "item_worktree_id INTEGER,body TEXT,UNIQUE(epic_id,task_num));"
     "CREATE TABLE work_claims(id INTEGER PRIMARY KEY AUTOINCREMENT,"
     "session_id TEXT NOT NULL,target_kind TEXT NOT NULL,scope TEXT NOT NULL,"
     "released_at TIMESTAMPTZ,claimed_at TIMESTAMPTZ,"
@@ -163,18 +161,18 @@ def live_db(tmp_path):
                     (kw["item_id"], lane_id),
                 )
                 task_num = index + 1
-                conn.execute(
-                    "INSERT INTO epic_tasks"
-                    "(epic_id,task_num,status,item_worktree_id) "
-                    f"VALUES({p},{p},'implementing',{p})",
-                    (kw["item_id"], task_num, lane_id),
-                )
                 budget_root = str(kw["covered_paths"][0]).rstrip("/")
                 budget_path = f"{budget_root}/{chr(ord('a') + index)}.py"
                 conn.execute(
-                    "INSERT INTO epic_task_files"
-                    f"(epic_id,task_num,file_path) VALUES({p},{p},{p})",
-                    (kw["item_id"], task_num, budget_path),
+                    "INSERT INTO epic_tasks"
+                    "(epic_id,task_num,status,item_worktree_id,body) "
+                    f"VALUES({p},{p},'implementing',{p},{p})",
+                    (
+                        kw["item_id"],
+                        task_num,
+                        lane_id,
+                        files_touched_body([budget_path]),
+                    ),
                 )
                 conn.execute(
                     "INSERT INTO path_claim_task_bindings"
