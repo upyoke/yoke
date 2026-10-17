@@ -117,6 +117,12 @@ def test_concurrent_reap_and_hook_no_premature_end(world, monkeypatch):
     assert not end_session_if_empty(world.conn, "registration")["ended"]
 
 
+def test_org_session_ends_after_expired_wake_grace(world):
+    register(world)
+    _message(world, last_wake=utc_now() - timedelta(seconds=301))
+    assert end_session_if_empty(world.conn, "registration")["ended"]
+
+
 def test_steer_multiple_projects_one_seat_each(world):
     from runtime.api.domain.steering_claim_test_support import seed_project
     from yoke_core.domain.steering_claims import acquire

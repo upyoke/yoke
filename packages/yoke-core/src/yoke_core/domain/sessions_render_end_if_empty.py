@@ -267,6 +267,7 @@ def end_session_if_empty(
         "SELECT r.message_id FROM session_message_recipients r "
         "JOIN session_messages m ON m.message_id=r.message_id "
         "WHERE r.session_id=%s AND r.state IN ('pending','injected') "
+        "AND r.last_wake_at IS NULL "
         "AND m.cancelled_at IS NULL AND m.expires_at>%s LIMIT 1",
         (session_id, instant_parameter(conn, utc_now())),
         savepoint="_yoke_pending_end_delivery",
