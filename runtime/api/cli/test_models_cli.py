@@ -71,7 +71,7 @@ def test_level_proposal_sends_authored_changes_from_stdin(monkeypatch) -> None:
         "dispatch_and_emit",
         lambda **kwargs: captured.update(kwargs) or 0,
     )
-    changes = [{"kind": "retire", "option": {"surface": "codex-cli"}}]
+    changes = [{"kind": "retire", "option": {"model": "m", "min_effort": "low"}}]
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(changes)))
 
     assert models_level_proposal.models_level_proposal(["--stdin"]) == 0
@@ -89,7 +89,7 @@ def test_level_proposal_levels_only_prints_the_approval_document() -> None:
 
 
 def test_level_proposal_human_output_names_each_change_and_the_approval() -> None:
-    option = {"surface": "claude-cli", "model": "m", "reasoning_effort": "high"}
+    option = {"model": "m", "min_effort": "high"}
     result = {
         "revision_id": "rev",
         "base_source": "universe",
@@ -97,25 +97,53 @@ def test_level_proposal_human_output_names_each_change_and_the_approval() -> Non
         "changes": [
             {"kind": "retire", "option": option, "reason": "superseded"},
             {"kind": "add", "level": "SENIOR", "position": 0, "option": option},
-            {"kind": "change", "option": option, "reasoning_effort": "low"},
+            {"kind": "change", "option": option, "min_effort": "low"},
+        ],
+        "levels": [
+            {"name": "SENIOR", "glyph": "\U0001f989", "options": [option]},
         ],
         "unverified": [
             {
                 "level": "SENIOR",
-                "surface": "claude-cli",
                 "model": "m",
-                "reason": "model not in catalog",
+                "min_effort": "high",
+                "reason": "model or published efforts missing from catalog",
             }
         ],
         "unplaced_models": [{"model_id": "new", "provider": "p"}],
+        "unplaceable_models": [{"model_id": "composer-2.5", "provider": "cursor"}],
+        "equals_shipped_defaults": False,
         "apply_command": "yoke universe levels set --stdin",
     }
     response = type("Response", (), {"success": True, "result": result})()
     output = io.StringIO()
     models_level_proposal._print_level_proposal(response, output, io.StringIO())
     text = output.getvalue()
-    assert "retire claude-cli m effort=high" in text
+    assert "retire m min_effort=high" in text
     assert "to SENIOR at 0" in text
-    assert "-> reasoning_effort=low" in text
+    assert "-> min_effort=low" in text
+    assert "  m high" in text
+    assert "unverified: SENIOR m min_effort=high" in text
     assert "unplaced: new" in text
-    assert "yoke universe levels set --stdin" in text
+    assert "unplaceable: composer-2.5" in text
+    assert "yoke universe levels set --stdin < levels.json" in text
+    assert "stops the universe following future shipped defaults" in text
+    assert "surface" not in text and "reasoning_effort" not in text
+
+
+def test_level_proposal_equal_to_shipped_defaults_approves_with_reset() -> None:
+    result = {
+        "revision_id": "rev",
+        "base_source": "universe",
+        "generated": True,
+        "changes": [],
+        "levels": [],
+        "equals_shipped_defaults": True,
+        "apply_command": "yoke universe levels reset",
+    }
+    response = type("Response", (), {"success": True, "result": result})()
+    output = io.StringIO()
+    models_level_proposal._print_level_proposal(response, output, io.StringIO())
+    text = output.getvalue()
+    assert "Approve with `yoke universe levels reset`" in text
+    assert "--levels-only" not in text

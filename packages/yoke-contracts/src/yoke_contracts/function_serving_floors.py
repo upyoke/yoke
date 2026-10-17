@@ -114,6 +114,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "test_machine.verify": "next-release",
     "universe.level_capacity.get": "next-release",
     "universe.levels.get": "next-release",
+    "universe.levels.reset": "next-release",
     "universe.levels.set": "next-release",
     "universe.retention.get": "next-release",
     "universe.prune.run": "next-release",

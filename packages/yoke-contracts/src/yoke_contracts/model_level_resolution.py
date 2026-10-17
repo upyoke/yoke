@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from yoke_contracts.model_reference import lookup_model_reference
 from yoke_contracts.session_control.native_model_parsers import cursor_token_effort
+from yoke_contracts.session_model_facts import CLAUDE_CONTEXT_TIER_SUFFIX
 
 EFFORT_ORDER = ("none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra")
 MODEL_CLASSES = {
@@ -30,6 +31,39 @@ def model_class(record):
         ),
         None,
     )
+
+
+def routing_model_of(
+    served_model: str | None, requested_model: str | None
+) -> str | None:
+    """Return the model an option is matched against.
+
+    A provider-attested model wins. Most sessions have none at registration,
+    so the ask is the fallback, with its context-tier suffix removed because
+    that suffix names a context window rather than a different model.
+    """
+    if served_model and served_model.strip():
+        return served_model.strip()
+    asked = (requested_model or "").strip()
+    if asked.lower().endswith(CLAUDE_CONTEXT_TIER_SUFFIX):
+        asked = asked[: -len(CLAUDE_CONTEXT_TIER_SUFFIX)]
+    return asked or None
+
+
+def routing_effort_of(
+    served_effort: str | None,
+    requested_effort: str | None,
+    served_model: str | None = None,
+) -> str | None:
+    """Return the effort an option is matched against, attested first."""
+    for value in (
+        served_effort,
+        cursor_token_effort(served_model or ""),
+        requested_effort,
+    ):
+        if value and value.strip():
+            return value.strip().lower()
+    return None
 
 
 @dataclass(frozen=True)

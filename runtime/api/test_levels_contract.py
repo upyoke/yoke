@@ -3,6 +3,10 @@
 import copy
 import pytest
 from yoke_contracts.level_defaults import DEFAULT_LEVELS
+from yoke_contracts.level_proposals import (
+    published_capability_conflicts,
+    unplaced_models,
+)
 from yoke_contracts.levels import (
     LevelsError,
     default_levels,
@@ -10,7 +14,9 @@ from yoke_contracts.levels import (
     parse_levels,
     resolve_effective_levels,
     level_presentation,
+    unresolved_level_reason,
 )
+from yoke_contracts.model_reference_data import MODEL_RECORDS
 
 
 def document(model="gpt-6.1-sol", effort="medium"):
@@ -125,7 +131,50 @@ def test_unresolved_presentation_never_prints_primary(level):
     assert level_presentation(default_levels(), level) == {
         "label": "no level",
         "glyph": "",
+        "reason": "",
     }
+
+
+@pytest.mark.parametrize(
+    "model,effort,reason,label",
+    [
+        ("no-such-model", "high", "session_model_unknown", "model not in the catalog"),
+        (
+            "claude-opus-5-5",
+            "turbo",
+            "session_effort_unpublished",
+            "effort not published for its model",
+        ),
+        ("", "high", "session_model_unreported", "model not reported yet"),
+    ],
+)
+def test_unresolved_presentation_names_its_reason(model, effort, reason, label):
+    levels = default_levels()
+    found = unresolved_level_reason(
+        levels, model=model, effort=effort, records=MODEL_RECORDS
+    )
+    assert found == reason
+    assert level_presentation(levels, "primary", reason=found) == {
+        "label": f"no level: {label}",
+        "glyph": "",
+        "reason": reason,
+    }
+
+
+def _shipped_default_gaps(records):
+    conflicts, unverified = published_capability_conflicts(default_levels(), records)
+    return conflicts + unverified
+
+
+def test_every_shipped_default_row_resolves_in_the_shipped_catalog():
+    assert _shipped_default_gaps(MODEL_RECORDS) == []
+    assert unplaced_models(default_levels(), MODEL_RECORDS) == []
+
+
+def test_shipped_default_check_catches_a_model_missing_from_the_catalog():
+    without = tuple(r for r in MODEL_RECORDS if r.model_id != "claude-opus-5-5")
+    gaps = _shipped_default_gaps(without)
+    assert {gap["model"] for gap in gaps} == {"claude-opus-5-5"}
 
 
 def test_unsafe_glyph_refuses():

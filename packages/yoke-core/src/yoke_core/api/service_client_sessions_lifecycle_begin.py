@@ -17,9 +17,11 @@ from yoke_contracts.session_model_facts import (
 
 from yoke_core.domain.session_level_resolution import (
     resolve_execution_level,
+    session_levels,
+)
+from yoke_contracts.model_level_resolution import (
     routing_effort_of,
     routing_model_of,
-    session_levels,
 )
 from yoke_core.api.service_client_shared import (
     SESSION_REQUIRED_ERROR,

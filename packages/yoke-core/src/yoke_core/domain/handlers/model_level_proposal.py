@@ -4,8 +4,11 @@ Model refresh researches and publishes catalog facts first, then asks this
 function what those facts mean for the universe levels. With no ``changes``
 it extrapolates them from the catalog; with ``changes`` it applies the
 author's list instead. Either way it returns the resulting levels document
-and refuses an row whose minimum effort the model's provider does not publish. Nothing is written: approval stores the returned document
-with ``yoke universe levels set``.
+and refuses a row whose minimum effort the model's provider does not publish.
+Nothing is written. Approval of a document equal to the shipped defaults
+applies with ``yoke universe levels reset`` so the universe keeps following
+shipped defaults; any other document applies with ``yoke universe levels set``,
+which stops the universe following future shipped defaults.
 """
 
 from __future__ import annotations
@@ -24,14 +27,16 @@ from yoke_contracts.level_proposals import (
     generate_level_changes,
     published_capability_conflicts,
     refuse_capability_conflicts,
+    unplaceable_models,
     unplaced_models,
 )
-from yoke_contracts.levels import LevelsError, levels_payload
+from yoke_contracts.levels import LevelsError, default_levels, levels_payload
 from yoke_contracts.model_reference_records import ModelReferenceError
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 
 FUNCTION_ID = "models.level_proposal.run"
 APPLY_COMMAND = "yoke universe levels set --stdin"
+RESET_COMMAND = "yoke universe levels reset"
 
 
 class ModelsLevelProposalRequest(BaseModel):
@@ -47,6 +52,8 @@ class ModelsLevelProposalResponse(BaseModel):
     levels: List[Dict[str, Any]]
     unverified: List[Dict[str, Any]]
     unplaced_models: List[Dict[str, Any]]
+    unplaceable_models: List[Dict[str, Any]]
+    equals_shipped_defaults: bool
     apply_command: str
 
 
@@ -96,6 +103,7 @@ def handle_models_level_proposal(request: FunctionCallRequest) -> HandlerOutcome
         return _failure(
             exc.code, f"{exc.field}: {exc.detail}", f"$.payload.{exc.field}"
         )
+    equals_defaults = levels == default_levels()
     return HandlerOutcome(
         result_payload={
             "revision_id": revision["revision_id"],
@@ -105,7 +113,9 @@ def handle_models_level_proposal(request: FunctionCallRequest) -> HandlerOutcome
             "levels": levels_payload(levels),
             "unverified": unverified,
             "unplaced_models": unplaced_models(levels, records),
-            "apply_command": APPLY_COMMAND,
+            "unplaceable_models": unplaceable_models(levels, records),
+            "equals_shipped_defaults": equals_defaults,
+            "apply_command": RESET_COMMAND if equals_defaults else APPLY_COMMAND,
         }
     )
 
@@ -113,6 +123,7 @@ def handle_models_level_proposal(request: FunctionCallRequest) -> HandlerOutcome
 __all__ = [
     "APPLY_COMMAND",
     "FUNCTION_ID",
+    "RESET_COMMAND",
     "ModelsLevelProposalRequest",
     "ModelsLevelProposalResponse",
     "handle_models_level_proposal",
