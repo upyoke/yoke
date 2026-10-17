@@ -50,12 +50,25 @@ def test_exhausted_overload_relaunches_different_same_level_model_once(monkeypat
     assert conn.execute("SELECT COUNT(*) FROM session_launches").fetchone()[0] == 1
 
 
-def test_model_capacity_relaunches_without_waiting_for_retry_budget(monkeypatch):
+def test_model_capacity_waits_for_wake_budget_before_relaunch(monkeypatch):
+    from yoke_core.domain.session_recovery_facts import (
+        reserve_resume_attempt,
+        resume_episode_key,
+    )
+
     conn, _ = capacity_connection(
         monkeypatch,
         error="Selected model is at capacity. Please try a different model.",
         attempts=0,
     )
+    assert state(conn)["status"] == "due"
+    assert conn.execute("SELECT COUNT(*) FROM session_launches").fetchone()[0] == 0
+    for attempt in range(3):
+        reserve_resume_attempt(
+            conn, PREDECESSOR, episode_key=resume_episode_key(None), budget=3
+        )
+        if attempt < 2:
+            assert state(conn)["status"] == "waiting_backoff"
     assert state(conn)["status"] == "relaunch_due"
     result = relaunch_capacity_worker(conn, state=state(conn), now=CURRENT)
     assert "launch_id" in result

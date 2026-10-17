@@ -185,3 +185,29 @@ def test_transition_to_done_tells_the_dependent(test_db: Any) -> None:
 
     [body] = _bodies(test_db, _key("closure"))
     assert " reached done; your closure gate status:done " in body
+
+
+@pytest.mark.parametrize("gate_point", ["activation", "integration", "closure"])
+def test_unheld_notice_checks_remaining_activation_before_staffing(test_db, gate_point):
+    _items(test_db)
+    _edge(test_db, BLOCKER, "integration", "fact:merged")
+    _edge(test_db, OTHER_BLOCKER, gate_point, "status:done")
+    remaining = notice._remaining_gates(test_db, DEPENDENT, BLOCKER)
+    body = notice.satisfied_message(
+        "steering",
+        blocker_ref=render_item_ref(test_db, BLOCKER),
+        dependent_ref=render_item_ref(test_db, DEPENDENT),
+        event=notice.EVENT_MERGED,
+        gate_point="integration",
+        satisfaction="fact:merged",
+        remaining=remaining,
+    )
+    if gate_point == "activation":
+        assert (
+            f"still waits on {render_item_ref(test_db, OTHER_BLOCKER)} activation gate; do not staff it yet"
+            in body
+        )
+        assert "Route normal staffing" not in body
+    else:
+        assert "Route normal staffing" in body
+    assert f"{gate_point} gate status:done" in body
