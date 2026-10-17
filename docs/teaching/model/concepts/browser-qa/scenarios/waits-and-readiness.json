@@ -5,5 +5,5 @@
  "page": "browser-qa",
  "position": 3,
  "text": "Action budgets are shared by harness and core transports; response timeout leaves outcome uncertain. Arm timing and captures before one-shot mutation; missing intermediate evidence stays unknown.",
- "sources": ["docs/public/reference/browser-action-evidence.md"]
+ "sources": ["docs/public/verification/browser-action-evidence.md"]
 }

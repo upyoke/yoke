@@ -195,7 +195,7 @@ Also observed: `Grep` as a distinct tool name. MCP tools surface as
   (manifest, hooks.json, adapter, agents, smoke-test runbook), a
   materialized `.cursor/hooks.json` copy kept byte-identical to the canonical
   runtime file (Cursor rejects symlinked project hook configs), a root
-  `docs/public/guides/cursor-harness.md` reference guide, entries in the
+  `docs/public/agents/cursor.md` reference guide, entries in the
   project-install hook-key/merge-target/bundle-validation constants and
   `INSTALL_BUNDLE_SOURCE_DIRS`, and managed install behavior for native skill discovery.
 - `.cursor/cli.json` schema is strict: `permissions.allow` is **required**
@@ -209,7 +209,7 @@ Also observed: `Grep` as a distinct tool name. MCP tools surface as
   config at install time because a server-built bundle cannot know which
   control plane the installing machine talks to.
 - Approval/execution mode is machine-level and unreachable from a project
-  repo, so it is taught rather than installed (`docs/public/guides/cursor-harness.md`) and reported by
+  repo, so it is taught rather than installed (`docs/public/agents/cursor.md`) and reported by
   `HC-cursor-approval-posture`. An explicit `full_network` request counts as
   an escalation and prompts even for allowed hosts — the correct move once
   the origins are allowed is to retry inside the sandbox.

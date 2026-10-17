@@ -7,5 +7,6 @@
  "current": "Research trace; requirements and source paths need live proof.",
  "desired": "Reconciled against current plan records.",
  "questions": ["Does machine retirement explain effects on running sessions and outstanding custody?", "Where is capacity sharing taught before users encounter a placement refusal?"],
- "plan_refs": ["FIRST-USER.27", "FIRST-USER.33"]
+ "plan_refs": ["FIRST-USER.27", "FIRST-USER.33"],
+ "sources": ["docs/public/cli/machine-authorization.md", "docs/public/projects/actors-members-billing.md"]
 }

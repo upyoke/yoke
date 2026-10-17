@@ -119,7 +119,7 @@ yoke merge item ITEM --skip-status --json
 
 Delivery must use the selected item-bound project flow for returned merge_sha,
 with a run succeeded before completion.
-Read [delivery authority](../../../../.yoke/docs/reference/agent-rules/delivery.md)
+Read [delivery authority](../../../../.yoke/docs/agents/rules/delivery.md)
 first; runs take no claim and occupy their target servers until QA settles.
 A steering-batched worker follows its mandate and retains release wait; it
 does not start an independent run. An authorized driver uses:
@@ -135,7 +135,7 @@ Next: [close-out.md](close-out.md).
 
 The observer atomically saves current PR identity with landing stamps before
 notifying the holder. Worker closeout still records results and verification
-and enriches that same receipt; see [landing ownership](../../../../.yoke/docs/reference/merge-queue-landings.md).
+and enriches that same receipt; see [landing ownership](../../../../.yoke/docs/github/merge-queue-landings.md).
 During worker closeout, the merge boundary fetches the remote default
 branch and requires it to contain the exact candidate commit. The recorded
 merge SHA is the item's own PR merge on that fetched branch's first-parent

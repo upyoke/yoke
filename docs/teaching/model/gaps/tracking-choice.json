@@ -2,7 +2,10 @@
  "id": "tracking-choice",
  "title": "Keep suggestion tracking undecided",
  "status": "observed",
- "text": "Once-per-session and do-not-ask-again tracking remain an open JOURNEYS question; agent judgment is not a shipped tracker.",
+ "text": "The explicit open JOURNEYS question is whether once-per-session and do-not-ask-again tracking is wanted or agent judgment replaces it. Reusable execution instructions are a different existing mechanism; they do not establish a general reminder-memory store. No tracker or dismissal behavior is shipped or certified by this record.",
  "plan_refs": ["JOURNEYS.question-1"],
- "position": 13
+ "position": 13,
+ "owner": "JOURNEYS",
+ "topics": ["context/disclosure", "workbench/onboarding", "documentation/planning"],
+ "sources": ["docs/teaching/model/plan/journeys-questions/JOURNEYS.question-1.json", "docs/teaching/model/scenarios/execution-instructions/01.json"]
 }

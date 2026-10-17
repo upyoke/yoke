@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 import os
+import re
 import stat
 import tempfile
 from pathlib import Path
 from typing import Any, Callable, Optional, TypeVar
 
 import tomllib
+from filelock import FileLock, Timeout
 
 
 TRUSTED_HASH_KEY = "trusted_hash"
+CONFIG_LOCK_TIMEOUT_SECONDS = 10
 _TABLE_MARKER = "__yoke_hook_trust_table_marker__"
 _Result = TypeVar("_Result")
 
@@ -24,8 +27,24 @@ def read_config(path: Path) -> tuple[str, dict[str, Any]]:
     try:
         text = path.read_text(encoding="utf-8") if path.is_file() else ""
         document = tomllib.loads(text) if text.strip() else {}
-    except (OSError, UnicodeError, ValueError) as exc:
-        raise CodexHookTrustStoreError(f"{path}: {exc}") from exc
+    except OSError as exc:
+        raise CodexHookTrustStoreError(
+            f"could not read Codex config {path}: {exc}. "
+            "Recovery: check the file permissions, then retry."
+        ) from exc
+    except UnicodeError as exc:
+        raise CodexHookTrustStoreError(
+            f"Codex config {path} is not UTF-8. "
+            "Recovery: repair the file encoding, then retry."
+        ) from exc
+    except ValueError as exc:
+        location = re.search(
+            r"\(at (?:line \d+, column \d+|end of document)\)$", str(exc)
+        )
+        detail = f" {location.group()}" if location else ""
+        raise CodexHookTrustStoreError(
+            f"{path} is not valid TOML{detail}. Recovery: repair the file, then retry."
+        ) from exc
     return text, dict(document)
 
 
@@ -128,32 +147,58 @@ def mutate(
     path: Path,
     planner: Callable[[str, dict[str, Any]], tuple[str, _Result]],
 ) -> _Result:
-    """Plan against parsed TOML, then atomically replace the selected file."""
+    """Serialize read, plan and atomic publication for one physical config."""
+    target = path
+    try:
+        target = path.resolve(strict=False)
+        lock_path = target.with_name(f".{target.name}.yoke.lock")
+        with FileLock(str(lock_path), timeout=CONFIG_LOCK_TIMEOUT_SECONDS, mode=0o600):
+            return _mutate_locked(target, planner)
+    except Timeout as exc:
+        raise CodexHookTrustStoreError(
+            f"Codex config is busy: {target}. Recovery: wait for the other "
+            "configuration update to finish, then retry."
+        ) from exc
+    except OSError as exc:
+        raise CodexHookTrustStoreError(
+            f"could not update {target}: {exc}. Recovery: check the directory "
+            "permissions and available space, then retry."
+        ) from exc
+
+
+def _mutate_locked(
+    path: Path,
+    planner: Callable[[str, dict[str, Any]], tuple[str, _Result]],
+) -> _Result:
     text, document = read_config(path)
     updated, result = planner(text, document)
     if updated == text:
         return result
-    target = path.resolve(strict=False) if path.is_symlink() else path
     try:
-        mode = stat.S_IMODE(target.stat().st_mode) if target.exists() else 0o600
-        descriptor, temporary = tempfile.mkstemp(
-            prefix=f".{target.name}.yoke-", dir=target.parent
-        )
+        tomllib.loads(updated)
+    except ValueError as exc:
+        raise CodexHookTrustStoreError(
+            f"refusing invalid Codex config update for {path}. Recovery: keep "
+            "the original file and report the writer failure."
+        ) from exc
+    target = path
+    mode = stat.S_IMODE(target.stat().st_mode) if target.exists() else 0o600
+    descriptor, temporary = tempfile.mkstemp(
+        prefix=f".{target.name}.yoke-", dir=target.parent
+    )
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(updated)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(temporary, mode)
+        os.replace(temporary, target)
+    except BaseException:
         try:
-            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-                handle.write(updated)
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.chmod(temporary, mode)
-            os.replace(temporary, target)
-        except BaseException:
-            try:
-                os.unlink(temporary)
-            except OSError:
-                pass
-            raise
-    except OSError as exc:
-        raise CodexHookTrustStoreError(f"could not update {path}: {exc}") from exc
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
     return result
 
 

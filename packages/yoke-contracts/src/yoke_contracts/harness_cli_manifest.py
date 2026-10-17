@@ -43,7 +43,7 @@ class HarnessCliManifest:
                     else ".agents/skills/yoke"
                 ),
                 "minimum_engine_version": self.minimum_engine_version,
-                "recovery_doc": ".yoke/docs/reference/harness-discovery.md",
+                "recovery_doc": ".yoke/docs/agents/harness-discovery.md",
             },
         }
 

@@ -1,10 +1,12 @@
 {
  "id": "ownership",
  "title": "Documentation ownership",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "Documentation authors / maintainers",
  "plan_refs": ["FIRST-USER.40"],
  "surface_refs": ["agent-help", "category-summary", "detail-home", "docs-landing", "execution-instructions", "manual-contents", "project-native"],
  "page": "documentation",
- "position": 2
+ "position": 2,
+ "sources": ["docs/public/documentation/index.md", "docs/public/documentation/navigation.md", "docs/public/documentation/verification.md", "docs/source-dev-doctrine.md", "docs/teaching/README.md"],
+ "summary": "Public product guidance is authored under docs/public and derived into installed .yoke/docs and the packaged corpus; web delivery consumes the exact candidate. Project policy, live facts and private operations retain their own owners. docs/teaching is source-contributor material and never installs. Global hook orientation, user-level yoke-global appearance and actual global receiving proof remain owned by YOK-3975; their absence is not delivery success."
 }

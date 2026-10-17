@@ -9,6 +9,6 @@
  "surface": "Public GitHub access-change guidance; private operations link to it.",
  "review": "Source and recipe reviewed; installed and web delivery proof remains pending release.",
  "plan_refs": ["FIRST-USER.32"],
- "sources": ["docs/public/github.md", "docs/github-app-operations.md"],
+ "sources": ["docs/public/github/index.md", "docs/github-app-operations.md"],
  "position": 5
 }

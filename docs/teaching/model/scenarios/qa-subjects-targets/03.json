@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke qa requirement list --help", "yoke qa gate-summary --help"],
  "plan_notes": ["FIRST-USER 35", "JOURNEYS row 12", "JOURNEYS row 13"],
- "sources": [".agents/skills/yoke/idea/delivery-requirements.md", "docs/public/reference/qa-platform/case-attachment.md", "docs/public/reference/qa-platform/standalone-plans.md"],
+ "sources": [".agents/skills/yoke/idea/delivery-requirements.md", "docs/public/verification/case-attachment.md", "docs/public/verification/standalone-plans.md"],
  "position": 2
 }

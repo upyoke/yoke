@@ -3,7 +3,7 @@
  "title": "Linux supervision and linger",
  "status": "observed",
  "text": "The systemd user relay stops after the last logout. Linger is refused as relay_linger_enabled; disable it with loginctl disable-linger, then retry yoke relay install.",
- "sources": ["docs/public/reference/linux-relay.md", "packages/yoke-core/src/yoke_core/tools/session_relay_systemd.py"],
+ "sources": ["docs/public/sessions/linux-relay.md", "packages/yoke-core/src/yoke_core/tools/session_relay_systemd.py"],
  "surface_refs": ["detail-home"],
  "plan_refs": ["FIRST-USER.32"],
  "page": "machines",

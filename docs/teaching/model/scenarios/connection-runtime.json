@@ -8,5 +8,6 @@
  "desired": "Reconciled against current plan records.",
  "questions": ["Verify core build/start/upgrade audience rather than inferring it from a command namespace.", "Trace self-host sign-in, service upgrade/teardown and auth removal without treating them as everyday first-use steps."],
  "related_scenarios": ["universe-choice", "machine-access", "updates"],
- "plan_refs": ["FIRST-USER.15", "FIRST-USER.32"]
+ "plan_refs": ["FIRST-USER.15", "FIRST-USER.32"],
+ "sources": ["docs/public/cli/https-connection-diagnostics.md", "docs/public/sessions/linux-relay.md"]
 }

@@ -2,16 +2,64 @@
 
 from __future__ import annotations
 
+import subprocess
+from pathlib import Path
 from typing import Any, Dict, List
 
+from yoke_contracts.install_binding import is_yoke_source_checkout
 from yoke_contracts.project_contract.install_bundle import (
     BUNDLE_SCHEMA,
     SKILL_DISCOVERY_LINKS,
 )
 from yoke_contracts.project_contract.installed_layer import (
+    FULL_COMMIT_PATTERN,
     installed_layer_receipt_entry,
 )
 from yoke_core.domain import install_bundle as bundle_sources
+
+
+class CandidateIdentityError(ValueError):
+    """The candidate's installed-layer sources differ from its commit."""
+
+    def __init__(self, paths: tuple[str, ...]) -> None:
+        self.paths = paths
+        super().__init__(
+            f"CANDIDATE_TREE_DIRTY {', '.join(paths)}: commit or discard the listed "
+            "changes and rebuild from the declared full candidate commit"
+        )
+
+
+def proven_source_build(root: Path, *, require_clean: bool = False) -> str:
+    """Resolve a source checkout's commit, optionally requiring clean teaching."""
+    if not is_yoke_source_checkout(root):
+        return ""
+
+    def git(*args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["git", "-C", str(root), *args],
+            capture_output=True, text=True, timeout=10, check=False,
+        )
+
+    try:
+        resolved = git("rev-parse", "HEAD")
+        commit = resolved.stdout.strip()
+        if resolved.returncode or not FULL_COMMIT_PATTERN.fullmatch(commit):
+            return ""
+        if git("cat-file", "-e", f"{commit}^{{commit}}").returncode:
+            return ""
+        if require_clean:
+            status = git(
+                "status", "--porcelain", "--", "docs/public",
+                ".agents/skills/yoke", "runtime/harness", "AGENTS.md",
+            )
+            if status.returncode:
+                return ""
+            paths = tuple(line[3:] for line in status.stdout.splitlines() if line)
+            if paths:
+                raise CandidateIdentityError(paths)
+        return commit
+    except (OSError, subprocess.SubprocessError):
+        return ""
 
 
 def _project_row(project_id: int, conn: Any) -> tuple[str, str, str]:
@@ -80,7 +128,9 @@ def build_project_bundle(project_id: int, conn: Any) -> Dict[str, Any]:
     from yoke_core.domain.install_bundle_sources import harness_manifest_files
 
     files.extend(harness_manifest_files(root))
-    files.append(installed_layer_receipt_entry(source_engine_release))
+    files.append(installed_layer_receipt_entry(
+        source_engine_release, source_build=proven_source_build(root),
+    ))
     files.sort(key=lambda entry: entry["path"])
     return {
         "bundle_schema": BUNDLE_SCHEMA,
@@ -98,4 +148,4 @@ def build_project_bundle(project_id: int, conn: Any) -> Dict[str, Any]:
     }
 
 
-__all__ = ["build_project_bundle"]
+__all__ = ["CandidateIdentityError", "build_project_bundle", "proven_source_build"]

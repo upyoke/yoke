@@ -316,7 +316,7 @@ def test_a_shipped_prose_edit_still_selects_its_neutrality_check(
     nothing in between paired the prose with the check that reads it.
     """
     changed = tuple(
-        f"{prefix}databases-and-migrations.md"
+        f"{prefix}databases/index.md"
         for prefix in prefix_families.INSTALL_BUNDLE_SHIPPED_SURFACE_PREFIXES
     )
     for path in changed:

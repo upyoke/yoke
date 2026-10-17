@@ -8,5 +8,6 @@
  "desired": "Reconciled against current plan records.",
  "questions": ["Trace actual redaction at each UI/CLI/packet boundary separately; doc assertions do not prove it.", "Where should the human-facing privacy/support explanation be linked before a guard fires?"],
  "related_scenarios": ["capabilities", "browser_identities", "people-access"],
- "plan_refs": ["FIRST-USER.16", "FIRST-USER.34", "FIRST-USER.P3"]
+ "plan_refs": ["FIRST-USER.16", "FIRST-USER.34", "FIRST-USER.P3"],
+ "sources": ["docs/public/projects/capabilities.md", "docs/public/operations/events.md"]
 }

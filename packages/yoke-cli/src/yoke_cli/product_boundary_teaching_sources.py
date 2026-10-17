@@ -19,8 +19,8 @@ TEACHING_GLOBS: Tuple[str, ...] = (
     "packages/yoke-core/src/yoke_core/engines/doctor_hc*.py",
     "runtime/api/domain/lint_*.py",
     "AGENTS.md",
-    "docs/public/guides/codex-harness.md",
-    "docs/public/guides/cursor-harness.md",
+    "docs/public/agents/codex.md",
+    "docs/public/agents/cursor.md",
     ".yoke/docs/**/*.md",
     "docs/**/*.md",
 )

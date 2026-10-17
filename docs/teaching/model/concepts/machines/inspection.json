@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "plan_refs": ["FIRST-USER.42", "JOURNEYS.situation-19"],
  "surface_refs": ["global-orientation", "project-orientation", "resume-context"],
- "sources": ["docs/public/guides/terminal-onboarding.md"],
+ "sources": ["docs/public/start/terminal-onboarding.md"],
  "commands": ["yoke onboard checklist get"],
  "functions": ["onboard.checklist.get"],
  "page": "machines",

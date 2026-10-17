@@ -21,7 +21,7 @@ from yoke_cli.config.db_admin_control_plane import _relay_control_plane_read
 from yoke_cli.config.db_admin_setup_errors import DbAdminSetupError, _safe_label
 
 MIGRATION_MODEL_CAPABILITY = "migration_model"
-DECLARATION_DOC = "docs/public/reference/db-reference/migration-model-capabilities.md"
+DECLARATION_DOC = "docs/public/databases/migration-model.md"
 
 
 @dataclass(frozen=True)

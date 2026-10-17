@@ -3,7 +3,7 @@
  "title": "Control-plane internals",
  "status": "draft-copy",
  "audience": "Maintainers",
- "sources": ["docs/OVERVIEW.md", "docs/public/reference/db-reference/functions.md", "docs/public/reference/db-reference.md", "docs/source-dev-doctrine.md"],
+ "sources": ["docs/OVERVIEW.md", "docs/public/functions/index.md", "docs/public/databases/reference.md", "docs/source-dev-doctrine.md"],
  "page": "runtime",
  "position": 36
 }

@@ -4,6 +4,6 @@
  "status": "draft-copy",
  "commands": ["yoke deployment-runs failure-trace", "yoke deployment-runs terminalize"],
  "functions": ["deployment_runs.failure_trace", "deployment_runs.terminalize"],
- "page": "deployments",
+ "page": "deployment-recovery",
  "position": 4
 }

@@ -6,6 +6,6 @@
  "verification": "Source and focused pilot/contract tests; deployed restore proof remains pending.",
  "topics": ["maintenance/portability", "modes/switching", "projects/adoption"],
  "plan_refs": ["FIRST-USER.9"],
- "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_backup.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_restored_projects.py", "docs/public/install.md"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_backup.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_restored_projects.py", "docs/public/start/install.md"],
  "position": 16
 }

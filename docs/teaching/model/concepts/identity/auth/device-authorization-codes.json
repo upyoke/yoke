@@ -3,5 +3,7 @@
  "title": "Device authorization codes",
  "status": "draft-copy",
  "page": "identity",
- "position": 4
+ "position": 4,
+ "sources": ["docs/public/cli/machine-authorization.md"],
+ "functions": ["machine_authorization.handoff", "machine_authorization.handoff_poll"]
 }

@@ -3,7 +3,7 @@
  "title": "Doctor",
  "status": "draft-copy",
  "current": "Doctor reports operational health through the registered engine and project checks. Contributors remain responsible for immediately purging retired code, terms and data; repository vocabulary scanners and per-item stale-copy audit gates are removed.",
- "sources": ["packages/yoke-core/src/yoke_core/engines/doctor_registry.py", "docs/public/reference/agent-rules/code-and-cli.md", ".agents/skills/yoke/implement/implementing/test-and-record.md"],
+ "sources": ["packages/yoke-core/src/yoke_core/engines/doctor_registry.py", "docs/public/agents/rules/code-and-cli.md", ".agents/skills/yoke/implement/implementing/test-and-record.md"],
  "plan_refs": ["FIRST-USER.E", "JOURNEYS.also-owned-here"],
  "surface_refs": ["project-hub"],
  "commands": ["yoke doctor last-run get", "yoke doctor run"],

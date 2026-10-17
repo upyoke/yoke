@@ -41,5 +41,5 @@ investigation driven by body text.
 | Continuity/handoff | [finalize.md](finalize.md) |
 
 Start with entry. A level_change handoff outranks release wait: follow the
-[stage-level rule](../../../../.yoke/docs/reference/session-level-routing.md);
+[stage-level rule](../../../../.yoke/docs/agents/levels.md);
 workers may launch their successor. No jump across a binding.

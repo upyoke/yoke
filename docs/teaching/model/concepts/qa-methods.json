@@ -2,7 +2,7 @@
  "id": "qa-methods",
  "title": "QA methods",
  "status": "draft-copy",
- "sources": ["packages/yoke-core/src/yoke_core/domain/qa_method_definitions.py", "docs/public/reference/qa-platform.md", "docs/public/reference/exploratory-qa.md", "packs/machine-qa/pack.json"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/qa_method_definitions.py", "docs/public/verification/platform.md", "docs/public/verification/browser-targets.md", "docs/public/verification/exploration.md", "packs/machine-qa/pack.json"],
  "surface_refs": ["manual-overview"],
  "commands": ["yoke qa method get", "yoke qa method list", "yoke qa methods get", "yoke qa methods list"],
  "functions": ["qa.method.get", "qa.method.list"],

@@ -35,7 +35,7 @@ SML_SLUGS="MISSION LANDSCAPE VISION MASTER-PLAN CURRENT-PLAN"
 
 `--model MODEL` overrides; empty means session default.
 Before strategy writes read selected command help; exact envelopes live in
-`.yoke/docs/reference/db-reference/functions-project-configuration.md`.
+`.yoke/docs/functions/project-configuration.md`.
 
 ## Phase map — read when reached
 

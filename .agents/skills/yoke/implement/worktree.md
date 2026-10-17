@@ -67,7 +67,7 @@ another tree.
 
 Surface the narrative verbatim; do not advance status or force/widen past it.
 Coordinate with a named work holder, or follow actual dependency direction for
-blocked paths using the [claim rules](../../../../.yoke/docs/reference/agent-rules/lanes-and-claims.md).
+blocked paths using the [claim rules](../../../../.yoke/docs/agents/rules/lanes-and-claims.md).
 Only real dependents wait. Ask a dirty-main holder to preserve changes by
 commit or correctly named stash; never discard another holder's files.
 Restore remote readability for `upstream-unverified`. Diverged commits need

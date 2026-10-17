@@ -6,5 +6,5 @@
  "verification": "Candidate source tests prove title/spec file and stdin handling, atomic storage and older-server refusal. Deployed proof is pending.",
  "topics": ["items/creation/spec-input", "items/content/spec"],
  "plan_refs": ["FIRST-USER.13"],
- "sources": ["docs/public/reference/db-reference/functions-items.md", "runtime/api/cli/test_items_create_spec_sources.py", "runtime/api/test_items_create_spec_storage.py"]
+ "sources": ["docs/public/functions/items.md", "runtime/api/cli/test_items_create_spec_sources.py", "runtime/api/test_items_create_spec_storage.py"]
 }

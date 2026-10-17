@@ -31,7 +31,7 @@ new session there. Settled choices from that conversation are reused, not re-ask
 Wire-up belongs to `yoke setup`: missing machine/account/GitHub/project binding
 stops with that recovery. The person runs `yoke setup` in a terminal, or this
 session runs `yoke setup --agent` and relays each question
-(`.yoke/docs/guides/agent-setup.md`). Harness connection is detect-only;
+(`.yoke/docs/start/agent-setup.md`). Harness connection is detect-only;
 never install one. The web views and steers; it never invokes.
 No web button runs this skill.
 

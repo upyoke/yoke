@@ -2,7 +2,7 @@
  "id": "strategy",
  "title": "Strategy and plans",
  "status": "draft-copy",
- "sources": ["docs/public/strategy.md", ".agents/skills/yoke/strategize/SKILL.md", ".agents/skills/yoke/steer/SKILL.md"],
+ "sources": ["docs/public/strategy/index.md", ".agents/skills/yoke/strategize/SKILL.md", ".agents/skills/yoke/steer/SKILL.md"],
  "commands": ["yoke strategy master-plan-check"],
  "functions": ["strategy.master_plan_check.run"],
  "page": "strategy",

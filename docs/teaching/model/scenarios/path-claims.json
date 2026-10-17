@@ -8,5 +8,6 @@
  "desired": "Reconciled against current plan records.",
  "questions": ["Overlap procedure and current override source were inspected, but collision/authorization scenarios were not executed.", "Verify each scope expansion/refusal routes to current registered commands and never recommends dropping required work.", "Command nodes, when present, were checked with installed CLI --help only; this proves parser/help availability, not serving-control-plane capability or successful execution."],
  "related_scenarios": ["dependencies", "shared-coordination", "task-graph-planning"],
- "plan_refs": ["FIRST-USER.P3"]
+ "plan_refs": ["FIRST-USER.P3"],
+ "sources": ["docs/public/sessions/model/path-claims.md", "docs/public/agents/rules/lanes-and-claims.md"]
 }

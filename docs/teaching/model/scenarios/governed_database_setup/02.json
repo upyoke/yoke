@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke projects capability-settings get --help"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/reference/db-reference/migration-model-capabilities.md", "packages/yoke-core/src/yoke_core/domain/migration_model_capability_validation.py"],
+ "sources": ["docs/public/databases/migration-model.md", "packages/yoke-core/src/yoke_core/domain/migration_model_capability_validation.py"],
  "position": 1
 }

@@ -8,5 +8,6 @@
  "desired": "Reconciled against current plan records.",
  "questions": ["Traced intake and displayed graph semantics; multi-project runtime and exact candidate verification are not independently revalidated here.", "How should the human discover an existing related project without authorizing unrelated writes?", "Command nodes, when present, were checked with installed CLI --help only; this proves parser/help availability, not serving-control-plane capability or successful execution."],
  "related_scenarios": ["linked_project_delivery", "path-claims"],
- "plan_refs": ["JOURNEYS.situation-14"]
+ "plan_refs": ["JOURNEYS.situation-14"],
+ "sources": ["docs/public/workflows/gates.md", "docs/public/strategy/frontier.md"]
 }

@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke projects capability-settings get --project P --cap-type migration_fleet --json"],
  "plan_notes": ["JOURNEYS row 12", "JOURNEYS slimming onboard", "outside both"],
- "sources": [".agents/skills/yoke/onboard/governed-database.md", "docs/public/reference/db-reference/migration-model-fleet.md", "packages/yoke-core/src/yoke_core/domain/migration_model_fleet.py"],
+ "sources": [".agents/skills/yoke/onboard/governed-database.md", "docs/public/databases/migration-fleet.md", "packages/yoke-core/src/yoke_core/domain/migration_model_fleet.py"],
  "position": 2
 }

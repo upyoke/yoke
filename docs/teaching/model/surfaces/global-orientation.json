@@ -1,16 +1,17 @@
 {
  "id": "global-orientation",
  "title": "Global orientation",
- "status": "approved",
+ "status": "observed",
  "scope": "Global",
  "audience": "Agent → human when useful",
  "encounter": "First supported context event",
  "location": "Global hooks + planned yoke-global guidance",
- "basis": "FIRST-USER planned",
+ "basis": "Inspected source absence; approved global delivery remains pending",
  "note": "No compulsory GitHub connection or repeated onboarding pitch. The same global baseline remains applicable inside a project, without duplicate delivery.",
- "current": "Existing source references; delivered content is not yet proved.",
+ "current": "The current tree does not establish the required outside-project global hook orientation or user-level yoke-global appearance. CLI --help and public documentation work as separate discovery routes; they do not prove the missing global delivery. YOK-3975 owns global implementation, combined-delivery sizing and actual local/hosted/self-hosted receiving proof. Its blocking proof remains outstanding.",
  "desired": "One bounded orientation plus yoke-global; select/add a project, then open a session in its folder.",
  "plan_notes": ["FIRST-USER P1–P4", "JOURNEYS 4–8/14"],
  "plan_refs": ["FIRST-USER.P1", "FIRST-USER.P2", "FIRST-USER.P4", "FIRST-USER.43"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/session_orientation.py:268", "packages/yoke-harness/src/yoke_harness/hooks/cursor_lifecycle_hooks.py:34", "packages/yoke-cli/src/yoke_cli/commands/adapters/hook_config_dedup.py:139", "packages/yoke-core/src/yoke_core/domain/main_agent_packet.py", "packages/yoke-contracts/src/yoke_contracts/connection_authority_teaching.py", "packages/yoke-contracts/src/yoke_contracts/session_control/teaching.py"]
+ "sources": ["docs/public/cli/help.md", "packages/yoke-core/src/yoke_core/domain/session_orientation.py", ".agents/skills/yoke/SKILL.md"],
+ "work_items": ["YOK-3975"]
 }

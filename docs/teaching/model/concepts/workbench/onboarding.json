@@ -7,5 +7,5 @@
  "page": "workbench",
  "position": 3,
  "text": "A first org connection shows four setup steps, with Connect machine active and all four complete after approval in the same visit. Later requests omit the bar.",
- "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_approval.js", "docs/public/reference/machine-authorization.md"]
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_approval.js", "docs/public/cli/machine-authorization.md"]
 }

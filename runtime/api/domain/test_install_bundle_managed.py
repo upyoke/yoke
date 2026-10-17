@@ -186,14 +186,17 @@ def test_bundle_ships_universal_docs(conn) -> None:
     bundle = install_bundle.build_bundle(1, conn)
     by_path = {e["path"]: e["content"] for e in bundle["files"]}
     # Authored under docs/public; installed projects receive .yoke/docs/.
+    from yoke_core.domain.yaml_helper import parse_document
+
+    assert set(parse_document(by_path[f"{DOCS_DEST}/nav.yaml"])) == {"root"}
     for rel in (
         "index.md",
         "nav.yaml",
-        "reference/commands.md",
-        "reference/lifecycle.md",
-        "reference/db-reference.md",
-        "reference/db-reference/functions.md",
-        "reference/qa-platform/success-policy-schema.md",
+        "agents/commands.md",
+        "workflows/lifecycle.md",
+        "databases/reference.md",
+        "functions/index.md",
+        "verification/success-policy.md",
     ):
         path = f"{DOCS_DEST}/{rel}"
         assert path in by_path, f"bundle missing shipped doc {path}"
@@ -204,3 +207,18 @@ def test_bundle_ships_universal_docs(conn) -> None:
         if path.startswith(f"{DOCS_DEST}/"):
             rel = path[len(DOCS_DEST) + 1 :]
             assert content == (root / DOCS_SOURCE / rel).read_text("utf-8")
+
+
+def test_gitless_packaged_corpus_is_validated_before_delivery(tmp_path):
+    import shutil
+    from yoke_core.domain.install_bundle_managed import docs_bundle_files
+
+    snapshot = tmp_path / "wheel"
+    shutil.copytree(PACKAGED_ROOT, snapshot)
+    assert not (snapshot / ".git").exists()
+    entries = docs_bundle_files(snapshot)
+    assert any(e["path"] == ".yoke/docs/index.md" for e in entries)
+    page = snapshot / "docs/public/index.md"
+    page.write_text(page.read_text() + "\n[Absent](absent.md)\n")
+    with pytest.raises(install_bundle.InstallBundleError, match="LINK_TARGET_MISSING"):
+        docs_bundle_files(snapshot)

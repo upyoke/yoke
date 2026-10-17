@@ -11,6 +11,6 @@
  "review": "Pending live proof of a refused loop and a broken loop clearing its alarm.",
  "recipes": ["yoke items dependency update --help", "yoke items dependency list --help"],
  "plan_notes": ["JOURNEYS row 11", "JOURNEYS row 14"],
- "sources": ["docs/public/reference/db-reference/items-and-epics.md", ".agents/skills/yoke/refine/readiness-repair.md", ".agents/skills/yoke/idea/path-claim-blocking.md", ".agents/skills/yoke/steer/fleet-findings.md"],
+ "sources": ["docs/public/items/model/items.md", ".agents/skills/yoke/refine/readiness-repair.md", ".agents/skills/yoke/idea/path-claim-blocking.md", ".agents/skills/yoke/steer/fleet-findings.md"],
  "position": 3
 }

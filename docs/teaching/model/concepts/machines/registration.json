@@ -9,5 +9,5 @@
  "page": "machines",
  "position": 0,
  "text": "The engine owns machine decisions and one-time credentials. Hosted routing hands a preissued code into the selected organization through service-only handoff and polling. Source adoption is observed; production delivery remains unverified.",
- "sources": ["docs/public/reference/machine-authorization.md"]
+ "sources": ["docs/public/cli/machine-authorization.md"]
 }

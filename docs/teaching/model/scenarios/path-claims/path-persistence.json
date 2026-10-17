@@ -8,6 +8,6 @@
  "disclosure": "current cue",
  "surface": "Worktrees function catalog and path-record refusal",
  "review": "Candidate registered-handler round trips and CLI-to-handler recovery use isolated database and physical Git fixtures on POSIX. Deployed-server and real Windows execution are not established by these checks.",
- "sources": ["docs/public/reference/db-reference/functions-worktrees.md", "runtime/api/cli/test_item_worktree_path_recovery.py", "runtime/api/domain/handlers/test_item_worktree_paths_handler.py"],
+ "sources": ["docs/public/functions/worktrees.md", "runtime/api/cli/test_item_worktree_path_recovery.py", "runtime/api/domain/handlers/test_item_worktree_paths_handler.py"],
  "position": 1
 }

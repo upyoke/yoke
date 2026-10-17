@@ -4,5 +4,5 @@
  "status": "observed",
  "text": "Consumer source adoption of explicit-org machine_authorization.handoff and handoff_poll has been observed against the merged public producer contract. This does not prove deployed hosted routing, personal approval, terminal pending-to-consumed behavior or one-time credential delivery. The hosted consumer owns exact-candidate integration and production captures, including same-org replay, other-org refusal with fresh-connection recovery and below-floor operator rollout recovery. Its Members controls retire only when the materialized Team contract declares the people destination; production evidence must prove the same predicate on both UI and old site controls. Keep this gap open until those deployed proofs exist; engine tests and source review alone do not close it.",
  "plan_refs": ["FIRST-USER.33"],
- "sources": ["docs/public/reference/machine-authorization.md", "runtime/api/domain/test_machine_authorization_handoff.py"]
+ "sources": ["docs/public/cli/machine-authorization.md", "runtime/api/domain/test_machine_authorization_handoff.py"]
 }

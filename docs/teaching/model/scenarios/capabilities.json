@@ -6,5 +6,6 @@
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
  "desired": "Reconciled against current plan records.",
- "questions": ["Which capability refusals already point to their exact setup guide and which only name a capability type?", "How are credential materialization and credential readiness verified for each capability outside Onboard?"]
+ "questions": ["Which capability refusals already point to their exact setup guide and which only name a capability type?", "How are credential materialization and credential readiness verified for each capability outside Onboard?"],
+ "sources": ["docs/public/projects/capabilities.md"]
 }

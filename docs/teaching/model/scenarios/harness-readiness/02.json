@@ -10,6 +10,6 @@
  "gap": "Managed release manifests are published at .yoke/harness/<harness>/manifest.json. Automated install/refresh and byte identity are covered; real receiving-harness proof waits for release.",
  "review": "runtime/api/domain/test_installed_project_context.py proves external HTTPS transport install and manifest recovery; capability declarations and live pickup remain separate.",
  "plan_notes": ["FIRST-USER 18", "FIRST-USER D"],
- "sources": ["docs/public/reference/harness-discovery.md", "runtime/harness/manifest-schema.md"],
+ "sources": ["docs/public/agents/harness-discovery.md", "runtime/harness/manifest-schema.md"],
  "position": 1
 }

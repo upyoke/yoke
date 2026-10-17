@@ -12,5 +12,5 @@
  "desired": "Same setup engine with structured resumable answers; relevant GitHub explanation; readiness then project-bound minimal onboard.",
  "plan_notes": ["FIRST-USER A/B/C/D/24/P1–P4", "JOURNEYS 1–14"],
  "plan_refs": ["FIRST-USER.A", "FIRST-USER.C", "FIRST-USER.24", "FIRST-USER.26", "FIRST-USER.42", "FIRST-USER.D"],
- "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/onboard.py", "docs/public/guides/agent-setup.md", ".agents/skills/yoke/onboard/SKILL.md", ".agents/skills/yoke/onboard/strategy-conversation.md", "packages/yoke-core/src/yoke_core/domain/session_orientation.py:268", "packages/yoke-harness/src/yoke_harness/hooks/cursor_lifecycle_hooks.py:34", "packages/yoke-cli/src/yoke_cli/commands/adapters/hook_config_dedup.py:139", "docs/testing-verification/installer-campaign.md"]
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/onboard.py", "docs/public/start/agent-setup.md", ".agents/skills/yoke/onboard/SKILL.md", ".agents/skills/yoke/onboard/strategy-conversation.md", "packages/yoke-core/src/yoke_core/domain/session_orientation.py:268", "packages/yoke-harness/src/yoke_harness/hooks/cursor_lifecycle_hooks.py:34", "packages/yoke-cli/src/yoke_cli/commands/adapters/hook_config_dedup.py:139", "docs/testing-verification/installer-campaign.md"]
 }

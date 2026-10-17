@@ -38,7 +38,8 @@ def test_cursor_effort_suffix_hits_the_canonical_grok_record() -> None:
 _TEACHING_FILES = (
     ".agents/skills/yoke/models/SKILL.md",
     ".agents/skills/yoke/steer/model-selection.md",
-    "docs/public/cli-and-config.md",
+    "docs/public/cli/index.md",
+    "docs/public/cli/machine-config.md",
 )
 _FENCED_BLOCK_RE = re.compile(r"^```.*?^```", re.MULTILINE | re.DOTALL)
 _TIER_CLAIM_RE = re.compile(r"tier\s?-?[12]\b|\bexcluded\b", re.IGNORECASE)

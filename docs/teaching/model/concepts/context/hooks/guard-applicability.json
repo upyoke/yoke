@@ -5,7 +5,7 @@
  "plan_refs": ["FIRST-USER.P3"],
  "surface_refs": ["global-hooks", "project-hooks"],
  "note": "Candidate dispatch shares explicit guard scope and registered-checkout membership; machine connection presence is not project membership. Source/unit evidence is not deployed harness proof.",
- "sources": ["packages/yoke-core/src/yoke_core/hooks/runner.py", "packages/yoke-harness/src/yoke_harness/hooks/local_subset.py", "docs/public/reference/harness-discovery.md"],
+ "sources": ["packages/yoke-core/src/yoke_core/hooks/runner.py", "packages/yoke-harness/src/yoke_harness/hooks/local_subset.py", "docs/public/agents/harness-discovery.md"],
  "page": "context",
  "position": 5
 }

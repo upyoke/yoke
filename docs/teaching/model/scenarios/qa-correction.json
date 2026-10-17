@@ -6,5 +6,6 @@
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
  "desired": "Reconciled against current plan records.",
- "questions": ["Recovery reference reviewed; authorization and edge-case mutation semantics require targeted implementation validation, not this map.", "Command nodes, when present, were checked with installed CLI --help only; this proves parser/help availability, not serving-control-plane capability or successful execution."]
+ "questions": ["Recovery reference reviewed; authorization and edge-case mutation semantics require targeted implementation validation, not this map.", "Command nodes, when present, were checked with installed CLI --help only; this proves parser/help availability, not serving-control-plane capability or successful execution."],
+ "sources": ["docs/public/verification/requirement-state.md"]
 }

@@ -11,6 +11,6 @@
  "review": "Source tests pass; no installed campaign proof is claimed.",
  "recipes": ["yoke onboard checklist get --project SLUG --json"],
  "plan_refs": ["FIRST-USER.42"],
- "sources": ["docs/public/guides/terminal-onboarding.md", ".agents/skills/yoke/onboard/run-and-rows.md"],
+ "sources": ["docs/public/start/terminal-onboarding.md", ".agents/skills/yoke/onboard/run-and-rows.md"],
  "position": 3
 }

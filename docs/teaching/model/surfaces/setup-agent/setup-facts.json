@@ -6,6 +6,6 @@
  "verification": "Source tests cover project scope, saved profiles, changed settings and independent machine observations. Installed campaign proof remains pending.",
  "topics": ["projects/onboarding", "projects/settings", "machines/inspection"],
  "plan_refs": ["FIRST-USER.42"],
- "sources": ["docs/public/guides/terminal-onboarding.md", "runtime/api/domain/handlers/test_onboard_checklist.py", "runtime/api/domain/test_project_onboarding_facts.py"],
+ "sources": ["docs/public/start/terminal-onboarding.md", "runtime/api/domain/handlers/test_onboard_checklist.py", "runtime/api/domain/test_project_onboarding_facts.py"],
  "position": 13
 }

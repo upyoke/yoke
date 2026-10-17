@@ -6,11 +6,11 @@
  "audience": "Agent",
  "encounter": "Skill entry, phase change or dispatch",
  "location": "Read installed skill/role publications for the active harness; authoring sources: .agents/skills/yoke and runtime/agents",
- "basis": "Existing mechanism · access repairs proposed",
+ "basis": "Inspected installed publication sources and dispatch guidance",
  "note": "Read the phase when reached. A child cannot be assumed to inherit the parent’s conversation; skill catalog metadata is not the skill body.",
- "current": "Existing source references; delivered content is not yet proved.",
+ "current": "Source skills route product rules to installed .yoke/docs/agents/rules and role publications are authored under runtime/agents. Conduct dispatch names the assigned lane, project and exact task context, keeping optional GitHub issues distinct from local readiness. Candidate installation tests cover publication mechanics; complete unrelated-project main/worker receipt remains pending.",
  "desired": "Load the bound skill/role and relevant project context; activation ends at first item done under its real obligations.",
  "plan_notes": ["Accepted installed role/help repair", "FIRST-USER P4 boundary"],
  "plan_refs": ["FIRST-USER.24", "FIRST-USER.40", "FIRST-USER.41"],
- "sources": [".agents/skills/yoke/SKILL.md:9", ".agents/skills/yoke/conduct/dispatch-context.md:25", "runtime/agents/engineer.md:1", "packages/yoke-core/src/yoke_core/domain/install_bundle.py:14"]
+ "sources": [".agents/skills/yoke/SKILL.md", ".agents/skills/yoke/conduct/dispatch-context.md", "runtime/agents/engineer.md", "docs/public/agents/commands.md", "docs/public/agents/harness-discovery.md"]
 }

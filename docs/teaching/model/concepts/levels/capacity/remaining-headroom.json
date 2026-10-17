@@ -5,5 +5,5 @@
  "page": "levels",
  "position": 1,
  "summary": "A pool's headroom is one worker's remaining full-rate runway divided by the time to its reset. Level placement splits it among the live workers and unregistered launches on the same machine whose model the pool covers, plus the new launch, and ranks options by that per-worker share. Level launches place one at a time, so a burst spreads across pools instead of piling onto the one that looked emptiest before it started.",
- "sources": ["packages/yoke-core/src/yoke_core/domain/session_launch_level_pools.py", "packages/yoke-core/src/yoke_core/domain/session_launch_level_placement.py", "runtime/api/domain/test_session_launch_level_pool_sharing.py", "docs/public/reference/session-level-routing.md"]
+ "sources": ["packages/yoke-core/src/yoke_core/domain/session_launch_level_pools.py", "packages/yoke-core/src/yoke_core/domain/session_launch_level_placement.py", "runtime/api/domain/test_session_launch_level_pool_sharing.py", "docs/public/agents/level-launches.md"]
 }

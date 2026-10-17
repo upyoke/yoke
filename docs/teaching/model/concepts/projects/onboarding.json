@@ -7,7 +7,7 @@
  "commands": ["yoke onboard checklist", "yoke onboard checklist init", "yoke onboard project", "yoke onboard checklist get", "yoke github open-work list"],
  "functions": ["onboard.checklist.init", "onboard.checklist.run", "onboard.checklist.get", "github.open_work.list"],
  "skills": ["onboard"],
- "sources": ["docs/public/guides/terminal-onboarding.md", ".agents/skills/yoke/onboard/SKILL.md", ".agents/skills/yoke/onboard/strategy-conversation.md", ".agents/skills/yoke/onboard/first-work.md", "packages/yoke-core/src/yoke_core/domain/project_onboarding_configuration.py"],
+ "sources": ["docs/public/start/terminal-onboarding.md", ".agents/skills/yoke/onboard/SKILL.md", ".agents/skills/yoke/onboard/strategy-conversation.md", ".agents/skills/yoke/onboard/first-work.md", "packages/yoke-core/src/yoke_core/domain/project_onboarding_configuration.py"],
  "page": "projects",
  "position": 2,
  "text": "/yoke onboard scans open issues, pull requests and local session transcripts, settles strategy and CURRENT-PLAN one decision at a time, configures only what the first work needs and hands off to /yoke steer. The checklist's lifecycle-readiness row verifies itself when the first item reaches done."

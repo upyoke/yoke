@@ -2,7 +2,7 @@
  "id": "frontier",
  "title": "Frontier and staffing",
  "status": "draft-copy",
- "sources": ["docs/public/frontier.md", "docs/public/reference/charge-frontier.md", "docs/public/reference/db-reference/steering-fleet-report.md"],
+ "sources": ["docs/public/strategy/frontier.md", "docs/public/strategy/charge-frontier.md", "docs/public/sessions/steering-report.md"],
  "page": "frontier",
  "position": 14
 }

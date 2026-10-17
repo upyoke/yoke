@@ -11,6 +11,6 @@
  "review": "Pending live proof on a parked dependent.",
  "recipes": ["yoke items dependency list --help", "yoke sessions touch --help"],
  "plan_notes": ["JOURNEYS row 11"],
- "sources": [".agents/skills/yoke/steer/worker-launch.md", ".agents/skills/yoke/idea/path-claim-blocking.md", "docs/public/reference/agent-rules/lanes-and-claims.md"],
+ "sources": [".agents/skills/yoke/steer/worker-launch.md", ".agents/skills/yoke/idea/path-claim-blocking.md", "docs/public/agents/rules/lanes-and-claims.md"],
  "position": 2
 }

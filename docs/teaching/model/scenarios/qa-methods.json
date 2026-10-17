@@ -8,5 +8,6 @@
  "desired": "Reconciled against current plan records.",
  "questions": ["Built-in method definitions and current skill/doc consumers were read; Pack methods and live registry availability are delegated to the QA-machine owner.", "Command nodes, when present, were checked with installed CLI --help only; this proves parser/help availability, not serving-control-plane capability or successful execution."],
  "related_scenarios": ["qa-plans-cases", "qa_machine_setup", "browser_identities"],
- "plan_refs": ["JOURNEYS.situation-13"]
+ "plan_refs": ["JOURNEYS.situation-13"],
+ "sources": ["docs/public/verification/exploration.md", "docs/public/verification/browser-scenarios.md"]
 }

@@ -85,7 +85,7 @@ def test_source_receipt_compares_its_recorded_build(
     _write_receipt(
         project,
         "source-content-digest",
-        source_build="installed-head",
+        source_build="a" * 40,
     )
     monkeypatch.setattr(drift, "source_checkout_root", lambda module: tmp_path)
     seen = {}
@@ -109,7 +109,7 @@ def test_source_receipt_compares_its_recorded_build(
 
     assert comparison is not None
     assert comparison.layer_is_behind
-    assert seen == {"root": str(tmp_path), "build": "installed-head"}
+    assert seen == {"root": str(tmp_path), "build": "a" * 40}
 
 
 def test_source_receipt_detects_content_change_at_same_commit(
@@ -135,7 +135,7 @@ def test_source_receipt_detects_content_change_at_same_commit(
         "source-old-content",
         running_version="source-running",
         running_module_file="/checkout/yoke_cli/__init__.py",
-        reference_source_build="installed-head",
+        reference_source_build="a" * 40,
     )
 
     assert comparison.relationship == drift.RUNNING_AHEAD

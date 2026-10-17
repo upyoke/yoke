@@ -9,6 +9,6 @@
  "surface": "Shipping carried-item row and deployment run detail",
  "review": "Component and database tests prove projection semantics; deployed browser review must inspect both pages.",
  "topics": ["deployments/shipping/member-progress", "qa-evidence/gates/member-obligations"],
- "sources": ["docs/public/qa.md", "packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.js"],
+ "sources": ["docs/public/verification/index.md", "packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.js"],
  "position": 3
 }

@@ -2,7 +2,7 @@
  "id": "identity",
  "title": "People, authentication and permissions",
  "status": "draft-copy",
- "sources": ["docs/public/actors-members-billing.md", "docs/public/reference/hosted-org-admin.md", "docs/public/reference/machine-authorization.md", "docs/self-host-browser-sign-in.md"],
+ "sources": ["docs/public/projects/actors-members-billing.md", "docs/public/projects/hosted-org-admin.md", "docs/public/cli/machine-authorization.md", "docs/self-host-browser-sign-in.md"],
  "page": "identity",
  "position": 15
 }
