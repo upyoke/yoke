@@ -167,3 +167,14 @@ def test_command_lost_reply_keeps_acknowledged_counts_and_does_not_retry(
     assert result["result"]["deleted"] == {"events": 5}
     assert result["error"]["code"] == "retention_pass_outcome_unknown"
     assert len(calls) == 2 and all(c["max_attempts"] == 1 for c in calls)
+
+
+def test_progress_resets_the_consecutive_limit_count():
+    run = PruneRun(True)
+    for _ in range(2):
+        run.record(_pass([], skipped=[SKIP]).result)
+    run.record(_pass([("session_messages", 4, True)]).result)
+    run.record(_pass([], skipped=[SKIP]).result)
+    assert run.skips["session_messages"] == 1
+    assert run.skip_tables == []
+    assert run.unfinished["session_messages"]["attempts"] == 1
