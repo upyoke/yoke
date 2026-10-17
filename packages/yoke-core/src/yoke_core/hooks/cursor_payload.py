@@ -6,10 +6,10 @@ normalizes the Cursor-native shape into the canonical payload fields the
 shared runner and policy chains expect:
 
 - ``tool_name``: Cursor's shell tool is named ``Shell``; the universal
-  chains are keyed on ``Bash``. ``beforeShellExecution`` /
-  ``afterShellExecution`` payloads carry no ``tool_name`` at all — they
-  carry a top-level ``command`` — so the parser synthesizes
-  ``tool_name="Bash"`` and ``tool_input={"command": ...}`` for them.
+  chains are keyed on ``Bash``. ``beforeShellExecution`` payloads carry no
+  ``tool_name`` at all — they carry a top-level ``command`` — so the parser
+  synthesizes ``tool_name="Bash"`` and ``tool_input={"command": ...}`` for
+  them. Shell completions arrive on ``postToolUse`` as ``tool_name="Shell"``.
 - Session identity: Cursor exports **no session-id environment variable**.
   Every payload carries ``session_id`` and ``conversation_id`` (equal
   values). Subagent activity arrives under the *subagent's own*
@@ -26,8 +26,9 @@ shared runner and policy chains expect:
 
 Field names below are the measured wire shape of Cursor IDE 3.14.7 and
 cursor-agent 2026.07.23, re-checked against cursor-agent 2026.09.02-c22c1a3
-for shell timing (no ``tool_use_id`` / ``duration_ms`` on shell gates).
-Re-verify against newer builds (the vendor owns the schema).
+for shell timing (no ``tool_use_id`` on the shell gate) and 2026.10.16-e3cb207
+for Shell ``postToolUse``. Re-verify against newer builds (the vendor owns
+the schema).
 """
 
 from __future__ import annotations
@@ -84,12 +85,11 @@ def parse_payload(payload: str) -> Dict[str, Any]:
 
     - ``tool_name`` mapped through the canonical vocabulary
       (``Shell`` -> ``Bash``).
-    - Shell-execution events (`beforeShellExecution`/`afterShellExecution`)
-      gain ``tool_name="Bash"`` and ``tool_input={"command": ...}`` so the
-      Bash chain's matcher resolution and command lints read one shape.
-      ``afterShellExecution`` output lands in ``tool_output``. Native
-      ``tool_use_id`` / ``duration_ms`` copy through when present; otherwise
-      the payload is stamped with the unsupported-timing reason.
+    - The shell gate (`beforeShellExecution`) gains ``tool_name="Bash"`` and
+      ``tool_input={"command": ...}`` so the Bash chain's matcher resolution
+      and command lints read one shape. Native ``tool_use_id`` /
+      ``duration_ms`` copy through when present; otherwise the payload is
+      stamped with the unsupported-timing reason.
     - ``container_session_id`` is populated for every event (see
       :func:`resolve_container_session_id`); ``is_subagent_session`` flags
       payloads whose own ``session_id`` differs from the container.
@@ -115,8 +115,6 @@ def parse_payload(payload: str) -> Dict[str, Any]:
                 tool_input = {}
             tool_input.setdefault("command", data.get("command", ""))
             data["tool_input"] = tool_input
-            if event == "afterShellExecution" and "output" in data:
-                data.setdefault("tool_output", data.get("output"))
         annotate_cursor_shell_payload(data)
 
     tool_input = data.get("tool_input")

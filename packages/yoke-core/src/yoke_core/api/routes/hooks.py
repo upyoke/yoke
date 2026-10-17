@@ -146,6 +146,7 @@ def post_hooks_evaluate(
                 wait_ms=result.wait_ms,
                 degraded=list(result.degraded),
                 outcome=result.outcome,
+                message_probe=result.message_probe,
                 model_confirmation=confirmed_served_model(
                     _stdin_payload(request).get("session_id"), request.model
                 ),

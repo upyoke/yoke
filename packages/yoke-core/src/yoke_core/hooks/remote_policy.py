@@ -64,6 +64,7 @@ class RunControls:
     ``final_outcome`` are write-backs populated during the run, as is a
     remote run's ``deferred_telemetry``: the flush its caller runs after
     responding, given the server's request wall time in milliseconds.
+    ``message_probe`` records whether the run leased the session's inbox.
     """
 
     budget_ms: Optional[int] = None
@@ -78,4 +79,5 @@ class RunControls:
     denial_audit: dict[str, str] = field(default_factory=dict)
     timed_out: bool = False
     final_outcome: str = ""
+    message_probe: bool = False
     deferred_telemetry: Optional[Callable[[int], None]] = None
