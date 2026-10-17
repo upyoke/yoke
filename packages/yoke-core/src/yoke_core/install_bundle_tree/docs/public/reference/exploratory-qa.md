@@ -195,10 +195,11 @@ yoke --env <connection> qa mission host-command --item PREFIX-N \
 This command revalidates subject ownership, the parked execution, immutable
 case snapshot, and retained lease before resolving client-local Test Machine
 credentials. It accepts bounded argv rather than shell text and returns
-redacted output. Every path in that argv names the **Test Machine's**
-filesystem, never the calling machine's, so the session-cwd write-authority
-guard exempts it from local write classification — a shell redirect written
-after the argv still runs locally and stays enforced.
+redacted output. Argv paths name the **Test Machine's** filesystem, so the
+session-cwd write-authority guard exempts them; a shell redirect after the
+argv still runs locally and stays enforced. At `--timeout-seconds` (default
+60, at most 900) a `--gui-session` command's whole process tree is stopped; a
+Yoke `setup`, `connect` or `onboard` that may wait on approval needs 600+.
 
 Missions are walked one at a time, in bundle order, because they share the
 plan's one Test Machine. The walker dispatch carries the scratch path and two

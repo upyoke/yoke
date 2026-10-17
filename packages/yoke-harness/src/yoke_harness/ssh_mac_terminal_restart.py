@@ -18,6 +18,7 @@ from typing import Callable
 
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 
+from yoke_harness.ssh_mac_process_tree import PROCESS_TREE_FUNCTION
 from yoke_harness.ssh_mac_host_session_state import (
     TERMINAL_VISIBLE_WINDOW_COUNT,
     read_terminal_window_count,
@@ -55,9 +56,8 @@ def _wait_exited(running: str) -> str:
 def _force_kill(running: str) -> str:
     """Kill every process under each Terminal, deepest first, then Terminal."""
     return (
-        'kill_tree() { for c in $(/usr/bin/pgrep -P "$1"); do kill_tree "$c"; '
-        'done; /bin/kill -KILL "$1" 2>/dev/null; }; '
-        f'for p in $({running}); do kill_tree "$p"; done; exit 0'
+        f"{PROCESS_TREE_FUNCTION}; for p in $({running}); do "
+        '/bin/kill -KILL $(process_tree "$p") 2>/dev/null; done; exit 0'
     )
 
 

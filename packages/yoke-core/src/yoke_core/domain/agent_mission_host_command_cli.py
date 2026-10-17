@@ -13,6 +13,34 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 PROG = "yoke qa mission host-command"
+# Yoke commands that can sit in a browser approval for its full lifetime.
+_APPROVAL_WAITING_COMMANDS = frozenset({"setup", "connect", "onboard"})
+_YOKE_EXECUTABLES = frozenset({"yoke", "{yoke_bin}"})
+
+
+def approval_wait_warning(command: list[str], timeout_seconds: int) -> str | None:
+    """Name a timeout that would stop a Yoke command mid browser approval.
+
+    The command is stopped when the timeout passes, so an approval the human
+    has not finished yet is abandoned along with it.
+    """
+    from yoke_contracts.machine_authorization import CODE_TTL_SECONDS
+
+    if timeout_seconds >= CODE_TTL_SECONDS:
+        return None
+    for index, value in enumerate(command[:-1]):
+        if (
+            value.rsplit("/", 1)[-1] in _YOKE_EXECUTABLES
+            and command[index + 1] in _APPROVAL_WAITING_COMMANDS
+        ):
+            return (
+                f"{PROG}: warning: host_command_timeout_below_approval_wait: "
+                f"`{command[index + 1]}` can wait up to {CODE_TTL_SECONDS}s for a "
+                f"browser approval, but --timeout-seconds is {timeout_seconds}; "
+                "the command is stopped at the timeout. Pass --timeout-seconds "
+                f"{CODE_TTL_SECONDS} or more (at most 900) when it may wait."
+            )
+    return None
 
 
 def _target(parsed: argparse.Namespace) -> TargetRef:
@@ -103,7 +131,16 @@ def run(args: list[str]) -> int:
     )
     add_mission_subject_arguments(parser)
     parser.add_argument("--gui-session", action="store_true")
-    parser.add_argument("--timeout-seconds", type=int, default=60)
+    parser.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=60,
+        help=(
+            "Seconds before the command and every process under it are stopped "
+            "(1..900, default 60). A Yoke setup, connect or onboard call that may "
+            "wait on browser approval needs 600 or more."
+        ),
+    )
     parser.add_argument("command", nargs=argparse.REMAINDER)
     parsed = parser.parse_args(args)
     command = list(parsed.command)
@@ -118,6 +155,9 @@ def run(args: list[str]) -> int:
     if not 1 <= parsed.timeout_seconds <= 900:
         parser.error("--timeout-seconds must be between 1 and 900")
 
+    warning = approval_wait_warning(command, parsed.timeout_seconds)
+    if warning is not None:
+        print(warning, file=sys.stderr)
     contract = resolve_mission_contract(parsed, prog=PROG)
     if contract is None:
         return 2
@@ -158,6 +198,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
 __all__ = [
     "add_mission_subject_arguments",
+    "approval_wait_warning",
     "main",
     "resolve_mission_contract",
     "run",
