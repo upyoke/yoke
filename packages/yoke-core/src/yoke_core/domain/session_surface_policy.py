@@ -255,7 +255,11 @@ def launch_refusal_message(conn: Any, preview: LaunchPreview) -> str:
             f"{surface} declares create=none. Recovery: choose a surface "
             "whose session-control create capability is supported and retry.",
         )
-        return f"{prefix}: {reason}"
+        return (
+            f"{prefix}: {reason} Background session-control create capability is "
+            "unavailable. Recovery: launch from a supported harness or open a "
+            "session in the project folder."
+        )
     if preview.outcome == MACHINE_AT_CAPACITY:
         return f"{prefix}: {capacity_refusal(preview.machine_capacity)}"
     manual_recovery = preview.outcome == "no_eligible_relay" or (
