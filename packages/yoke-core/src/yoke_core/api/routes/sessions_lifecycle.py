@@ -30,9 +30,11 @@ from yoke_core.domain.sessions import (
 )
 from yoke_core.domain.session_level_resolution import (
     resolve_execution_level,
+    session_levels,
+)
+from yoke_contracts.model_level_resolution import (
     routing_effort_of,
     routing_model_of,
-    session_levels,
 )
 
 router = APIRouter()

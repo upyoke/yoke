@@ -3,6 +3,5 @@
  "title": "Facts belong to the right scope",
  "status": "approved",
  "text": "Shared project/universe choices persist; readiness is checked on each machine. Configured, deferred, not needed and unknown remain distinct.",
- "plan_refs": ["FIRST-USER.42", "FIRST-USER.43"],
  "position": 8
 }

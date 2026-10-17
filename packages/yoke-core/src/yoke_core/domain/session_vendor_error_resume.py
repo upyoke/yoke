@@ -8,8 +8,9 @@ it did — including which client build the resumed turn runs on, because
 the incident this exists for was cured by a client update mid-outage and
 "which binary served the retry" is the first thing an operator asks.
 
-Capacity failures also launch a same-level successor, excluding the refused
-model and retaining custody until exact registration. A resume the wake path refuses is
+Capacity failures exhaust the normal 60/300/900-second wake backoff before
+launching a same-level successor, excluding the refused model and retaining
+custody until exact registration. A resume the wake path refuses is
 named and left for the next poll rather than retried here, and it does not
 consume an attempt, because nothing reached the session.
 """
@@ -121,7 +122,8 @@ def _resume_notice(state: Mapping[str, Any]) -> str:
         "check `git log` and `git status` in your lane, re-read the item's "
         "Progress Log for where you were, and carry on. If the same failure "
         f"repeats, this resume is attempt {int(state.get('attempts') or 0) + 1} "
-        f"of {state.get('budget')}; exhausted model-capacity failures move to another "
+        f"of {state.get('budget')}; after all wake attempts, exhausted "
+        "model-capacity failures move to another "
         "same-level model, and other exhausted failures ask steering to step in."
     )
 

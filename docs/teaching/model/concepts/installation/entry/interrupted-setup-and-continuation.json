@@ -5,6 +5,5 @@
  "page": "installation",
  "position": 3,
  "sources": ["packaging/public-installer/install", "packages/yoke-cli/src/yoke_cli/config/onboard_terminal_driver.py", "tests/installer/test_public_installer_terminal.py"],
- "plan_refs": ["FIRST-USER.14"],
  "surface_refs": ["setup-tui"]
 }

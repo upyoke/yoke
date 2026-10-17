@@ -113,11 +113,15 @@ def route_shared_refresh(refresh):
                 "AND deployment_member_item_id=%s AND plan_id IS NOT NULL LIMIT 1",
                 (subject["id"], subject["stage"]["name"], member),
             ).fetchone()
-            if own and selected is None:
+            # A named plan no shared group answers is this member's own: its
+            # refresh narrows to that plan and checks only this member's walks.
+            if own and (selected is None or not results):
                 results.append(refresh(conn, **{**kwargs, "commit": False}))
             if not results:
                 raise QaPlanError(
-                    "shared_plan_refresh_selection: selected plan is not attached here; inspect this member's plans"
+                    "shared_plan_refresh_selection: selected plan is neither a shared plan "
+                    "this member attaches nor one of its own materialized plans; "
+                    "inspect this member's plans"
                 )
             if kwargs.get("commit", True):
                 conn.commit()

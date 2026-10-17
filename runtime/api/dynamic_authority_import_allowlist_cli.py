@@ -18,6 +18,13 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_install.py",
+        "yoke_core.engines.doctor_session",
+    ): (
+        "client_local_diagnostics",
+        "focused session selection reads the packaged canonical check roster",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_install.py",
         "yoke_core.engines.doctor_https_compose",
     ): (
         "client_local_diagnostics",

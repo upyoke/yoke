@@ -67,7 +67,11 @@ export function frontierGraphModel(bandRows, edgeRows, deploy, cycleRows = []) {
   const nodes = new Map();
   const put = (node) => { if (!nodes.has(node.ref)) nodes.set(node.ref, node); };
   for (const { row, reason } of bandRows.waiting) {
-    put(rowNode(row, "waiting", { age: age("filed", row.created_at), held: heldReason(row, reason) }));
+    put(rowNode(row, "waiting", {
+      age: age("filed", row.created_at),
+      held: heldReason(row, reason),
+      landing: reason.landing ? reason.flag.text : "",
+    }));
   }
   for (const { row } of bandRows.active) {
     put(rowNode(row, "active", { age: age("updated", row.updated_at) }));

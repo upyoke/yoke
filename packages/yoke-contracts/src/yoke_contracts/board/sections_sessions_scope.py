@@ -11,8 +11,12 @@ from yoke_contracts.board.project_scope import (
     scope_project_id,
     visible_project_ids,
 )
-from yoke_contracts.board.sections_sessions_levels import board_levels
+from yoke_contracts.board.sections_sessions_levels import (
+    board_levels,
+    board_unresolved_reason,
+)
 from yoke_contracts.levels import level_presentation
+from yoke_contracts.session_level import level_is_unresolved
 from yoke_contracts.session_queue_posture import session_pause_mode_sql
 from yoke_contracts.coordination_claim_keys import (
     COORDINATION_TARGET_KINDS,
@@ -115,13 +119,23 @@ def session_level_presentation(
     db: BoardDBLike,
     project_id: Any,
     level: Any,
+    session_id: str | None = None,
 ) -> dict[str, str]:
-    """Read one level's label and glyph from the levels its project reads."""
+    """Read one level's label and glyph from the levels its project reads.
+
+    An unresolved level names why, from *session_id*'s model facts.
+    """
     try:
         normalized_project_id: int | None = int(project_id)
     except (TypeError, ValueError):
         normalized_project_id = None
-    return level_presentation(board_levels(db, normalized_project_id), level)
+    levels = board_levels(db, normalized_project_id)
+    reason = (
+        board_unresolved_reason(db, session_id, levels)
+        if session_id and level_is_unresolved(level)
+        else None
+    )
+    return level_presentation(levels, level, reason=reason)
 
 
 def _scope_filter(

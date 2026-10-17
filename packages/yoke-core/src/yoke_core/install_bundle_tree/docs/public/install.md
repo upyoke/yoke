@@ -133,17 +133,17 @@ Sign-in links are never printed, including in JSON. If a browser cannot open
 or an agent runs the command, run `yoke ui up` from your own terminal on a
 machine with a display.
 
-Upgrade later with `yoke update` — it reruns the official installer with
-onboarding disabled, honors this machine's already-configured distribution
-origin and channel, and reports the verified old and new version (or that
-you're already current). The installer saves its origin and channel in
-`settings.distribution` in `~/.yoke/config.json`, so a fresh shell uses the
-same distribution. An install without that record refuses updates; explicitly
-select one with `yoke config distribution set --origin URL --channel NAME`
-before retrying. `yoke update --channel NAME` selects another channel at the
-recorded origin; a successful reinstall saves that channel for later updates.
-`yoke update --version VERSION` installs that exact release from the recorded
-origin instead of the channel's current one.
+Upgrade later with `yoke update`: it reruns the official installer with
+onboarding disabled from this machine's recorded distribution origin and
+channel (`settings.distribution` in `~/.yoke/config.json`), then reports the
+verified old and new version or that you're already current. Without that
+record it refuses; select one with `yoke settings set distribution --origin URL
+--channel NAME`. `--channel NAME` selects and saves another channel;
+`--version VERSION` installs that exact release. `yoke update --check [--json]`
+installs nothing: it reports the CLI, the active server's engine and the
+channel's latest, with `behind: cli|server|none` and the next step. On the
+local universe `yoke update` updates the CLI and local server together; a team
+server's admin upgrades it; hosted servers update with each hosted release.
 
 Install, reinstall and upgrade restart the machine's hook evaluator and check
 that it answers before reporting readiness. If that check fails, inspect the
@@ -324,13 +324,13 @@ the existing project uninstall.
 
 ## Related
 
-For one checkout, run `yoke project uninstall /path/to/checkout`.
-It removes the installed layer and only proven installer-owned, exclusive
-checkout registration and exact folder trust. Shared roots, Git worktrees,
-edited entries and unknown ownership are preserved with named reasons.
-A partial cleanup exits nonzero and retains its manifest: resolve the named
-ownership or sharing issue, then rerun the same command. Credentials, other
-projects, shared tools and server history stay intact; source checkouts refuse.
+For one checkout, run `yoke project uninstall /path/to/checkout`. It removes
+the installed layer and only proven installer-owned, exclusive checkout
+registration and exact folder trust; entries that grant no trust stay as they
+are. Shared roots, Git worktrees, edited entries and unknown ownership stay
+with named reasons. A partial cleanup exits nonzero and keeps its manifest:
+resolve the named ownership or sharing issue, then rerun it. Credentials,
+other projects, shared tools and server history stay; source checkouts refuse.
 
 - [Maintaining a private fork](private-forks.md)
 - [Modes](modes.md)

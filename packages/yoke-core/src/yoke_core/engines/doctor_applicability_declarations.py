@@ -214,6 +214,8 @@ _SHAPES = (
             "harness-cli-auth",
             "dashboard-current-build",
             "session-hook-registration",
+            "session-harness-cli-auth",
+            "session-harness-unattended-posture",
             "install-residue",
             "installed-guidance",
             "instruction-discovery",

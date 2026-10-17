@@ -110,8 +110,8 @@ Read [envelope and authority](functions.md) first. `none` means no dispatcher wo
 | `machine.list` | `none` |
 | `machine.register` | `none` |
 | `machine.retire` | `none` |
-| `machine.settings.get` | `none` |
-| `machine.settings.set` | `none` |
+| `machine.access.get` | `none` |
+| `machine.access.set` | `none` |
 | `machine.show` | `none` |
 | `machine_approval.lifecycle.apply` | `none` |
 | `machine_authorization.get` | `none` |

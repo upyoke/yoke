@@ -2,7 +2,6 @@
  "id": "bindings",
  "title": "When QA applies",
  "status": "draft-copy",
- "plan_refs": ["JOURNEYS.situation-13", "JOURNEYS.situation-16"],
  "commands": ["yoke workflows testing-default set"],
  "functions": ["workflows.testing_default.set"],
  "page": "qa-plans",

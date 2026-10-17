@@ -47,19 +47,19 @@ class MachineShowRequest(BaseModel):
     machine_id: str
 
 
-class MachineSettingsGetRequest(BaseModel):
+class MachineAccessGetRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     machine_id: str
     path: Optional[str] = None
 
 
-class MachineSettingsGetResponse(OffersDisclosureResponse):
+class MachineAccessGetResponse(OffersDisclosureResponse):
     machine_id: str
     path: str
     value: Any
 
 
-class MachineSettingsSetRequest(BaseModel):
+class MachineAccessSetRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     machine_id: str
     path: str
@@ -125,7 +125,7 @@ def _project(document: Any, path: str) -> Any:
             raise MachineRegistryError(
                 "machine_settings_path_unknown",
                 f"access document has no {path!r}. Recovery: read the whole "
-                "document with `yoke machine settings get MACHINE-ID`.",
+                "document with `yoke machine access get MACHINE-ID`.",
             )
         cursor = cursor[segment]
     return cursor
@@ -210,8 +210,8 @@ def handle_machine_show(request: FunctionCallRequest) -> HandlerOutcome:
         conn.close()
 
 
-def handle_machine_settings_get(request: FunctionCallRequest) -> HandlerOutcome:
-    parsed = _parse(MachineSettingsGetRequest, request)
+def handle_machine_access_get(request: FunctionCallRequest) -> HandlerOutcome:
+    parsed = _parse(MachineAccessGetRequest, request)
     if isinstance(parsed, HandlerOutcome):
         return parsed
     conn = _open()
@@ -234,8 +234,8 @@ def handle_machine_settings_get(request: FunctionCallRequest) -> HandlerOutcome:
         conn.close()
 
 
-def handle_machine_settings_set(request: FunctionCallRequest) -> HandlerOutcome:
-    parsed = _parse(MachineSettingsSetRequest, request)
+def handle_machine_access_set(request: FunctionCallRequest) -> HandlerOutcome:
+    parsed = _parse(MachineAccessSetRequest, request)
     if isinstance(parsed, HandlerOutcome):
         return parsed
     conn = _open()
@@ -264,12 +264,12 @@ __all__ = [
     "MachineListResponse",
     "MachineRecordResponse",
     "OffersDisclosureResponse",
-    "MachineSettingsGetRequest",
-    "MachineSettingsGetResponse",
-    "MachineSettingsSetRequest",
+    "MachineAccessGetRequest",
+    "MachineAccessGetResponse",
+    "MachineAccessSetRequest",
     "MachineShowRequest",
     "handle_machine_list",
-    "handle_machine_settings_get",
-    "handle_machine_settings_set",
+    "handle_machine_access_get",
+    "handle_machine_access_set",
     "handle_machine_show",
 ]

@@ -52,7 +52,9 @@ function levelChip(documentNode, row) {
   );
   attachTooltip(
     documentNode, chip,
-    "execution level — capability from model rank, speed, and reasoning effort",
+    row.level_reason
+      ? `no execution level (${row.level_reason}) — see yoke models`
+      : "execution level — the highest level whose model minimum effort this session meets",
   );
   return chip;
 }

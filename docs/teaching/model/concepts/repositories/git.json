@@ -2,7 +2,6 @@
  "id": "git",
  "title": "Repository basics",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.11", "JOURNEYS.situation-4", "JOURNEYS.situation-5"],
  "commands": ["yoke github branch head", "yoke project git bootstrap"],
  "functions": ["github.branch.head", "project.git.bootstrap"],
  "page": "repositories",

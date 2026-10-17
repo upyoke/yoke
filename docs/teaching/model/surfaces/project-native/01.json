@@ -5,6 +5,5 @@
  "form": "Rule",
  "verification": "No delivery proof attached.",
  "topics": ["basics/boundaries", "coordination/lanes", "coordination/work-claims"],
- "plan_refs": ["FIRST-USER.8", "FIRST-USER.40", "FIRST-USER.41"],
  "position": 0
 }

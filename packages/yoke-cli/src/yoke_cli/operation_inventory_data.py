@@ -200,8 +200,6 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke projects checkout-context", "projects"),
     _w("yoke organizations create", "organizations"),
     _w("yoke organizations get", "organizations"),
-    _w("yoke organizations settings get", "organizations.settings"),
-    _w("yoke organizations settings merge", "organizations.settings"),
     _w("yoke organizations domain set", "organizations.domain"),
     # Sign-in admission admin: invites and identity links.
     _w("yoke identity invite create", "identity.invite"),

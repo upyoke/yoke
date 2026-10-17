@@ -3,6 +3,5 @@
  "title": "Pack, package and other Markdown are not graphed",
  "status": "observed",
  "text": "The docs graph covers documentation, agent skills and references, harness rules and root files. Pack guidance, package-internal Markdown and other trees are listed as ungraphed areas with their reasons; their teaching coverage is unknown until they are graphed.",
- "plan_refs": ["FIRST-USER.40"],
  "position": 15
 }

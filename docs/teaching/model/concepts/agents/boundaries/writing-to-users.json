@@ -2,7 +2,6 @@
  "id": "writing-to-users",
  "title": "Writing to users",
  "status": "observed",
- "plan_refs": ["FIRST-USER.8"],
  "surface_refs": ["project-native"],
  "sources": ["AGENTS.md"],
  "page": "agents",

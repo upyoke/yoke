@@ -2,7 +2,6 @@
  "id": "installed",
  "title": "What Yoke installs",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.39"],
  "page": "installation",
  "position": 2
 }

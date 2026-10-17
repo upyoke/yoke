@@ -26,10 +26,10 @@ _READS = (
         _lifecycle.MachineDetailResponse,
     ),
     (
-        "machine.settings.get",
-        _machines.handle_machine_settings_get,
-        _machines.MachineSettingsGetRequest,
-        _machines.MachineSettingsGetResponse,
+        "machine.access.get",
+        _machines.handle_machine_access_get,
+        _machines.MachineAccessGetRequest,
+        _machines.MachineAccessGetResponse,
     ),
 )
 
@@ -48,6 +48,11 @@ def _register(
         handler,
         request_model,
         response_model,
+        **(
+            {"minimum_serving_version": "next-release"}
+            if function_id.startswith("machine.access.")
+            else {}
+        ),
         stability="stable",
         owner_module=_machines.__name__,
         target_kinds=["global"],
@@ -88,9 +93,9 @@ def register(registry) -> None:
     )
     _register(
         registry,
-        "machine.settings.set",
-        _machines.handle_machine_settings_set,
-        _machines.MachineSettingsSetRequest,
+        "machine.access.set",
+        _machines.handle_machine_access_set,
+        _machines.MachineAccessSetRequest,
         _machines.MachineRecordResponse,
         side_effects=["machines_update"],
     )

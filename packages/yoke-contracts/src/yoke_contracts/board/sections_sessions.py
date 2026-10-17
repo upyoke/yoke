@@ -52,7 +52,7 @@ def collect_session_rows(
         )
         facts.update(
             level=_render_level(
-                level, session_level_presentation(db, project_id, level)
+                level, session_level_presentation(db, project_id, level, sid)
             ),
             mode=mode,
             offered_at=offered_at,

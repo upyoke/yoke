@@ -17,9 +17,11 @@ from yoke_contracts.session_level import (
 )
 from yoke_core.domain.session_level_resolution import (
     resolve_execution_level,
+    session_levels,
+)
+from yoke_contracts.model_level_resolution import (
     routing_effort_of,
     routing_model_of,
-    session_levels,
 )
 from yoke_core.hooks.registration_identity import project_level_for_session
 from runtime.api.fixtures.level_store import levels_doc, option

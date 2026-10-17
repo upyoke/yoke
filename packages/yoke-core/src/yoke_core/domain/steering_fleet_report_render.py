@@ -42,6 +42,7 @@ from yoke_core.domain.steering_fleet_report_render_text import (
 from yoke_core.domain.steering_fleet_report_render_available import (
     available_heading,
     available_lines,
+    landing_wait_section,
 )
 from yoke_core.domain.steering_fleet_report_render_vendor_errors import (
     vendor_error_lines,
@@ -61,6 +62,7 @@ from yoke_core.domain.steering_fleet_report_sections import (
 )
 from yoke_core.domain.steering_fleet_report_relay_health import relay_health_lines
 from yoke_core.domain.steering_fleet_report_deadlocks import deadlock_section
+from yoke_core.domain.steering_fleet_report_waiting_chains import waiting_chain_section
 
 
 REPORT_BEGIN = "=== BEGIN YOKE FLEET REPORT ==="
@@ -195,6 +197,7 @@ def _scope_work_lines(report: FleetReport, shared: ProjectRows) -> list[str]:
             else ["available: none"]
         ),
         "",
+        *landing_wait_section(report),
         *_section(
             f"idle holders — claim held, no tool call in over {idle}; process-gone "
             "holders included even when parked; live landing waits excluded",
@@ -234,6 +237,7 @@ def _scope_work_lines(report: FleetReport, shared: ProjectRows) -> list[str]:
         ),
         *_stranded.stranded_section(report),
         *deadlock_section(report),
+        *waiting_chain_section(report),
         *_section(
             "unregistered launches — launch/session binding absent",
             unregistered_launch_lines(shared.unregistered_launches),

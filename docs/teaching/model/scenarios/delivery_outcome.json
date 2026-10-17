@@ -2,12 +2,10 @@
  "id": "delivery_outcome",
  "title": "What counts as delivered",
  "status": "draft-copy",
- "situations": ["New project without hosting", "Existing project with externally owned hosting", "Work can ship by merge alone", "Delivery decision is intentionally deferred"],
+ "situations": ["New project without hosting", "Existing project with externally owned hosting", "Work can ship by merge alone", "Delivery decision is intentionally deferred", "First work is selected before its landing, approval and QA are known"],
  "coverage": "traced",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
  "review": "Older research may describe heavier onboarding. Apply minimum activation and optional-adoption boundaries first.",
  "questions": ["Decide how the future nudge treats intentionally deferred delivery without nagging or falsely reporting readiness."],
- "related_scenarios": ["hosting_providers", "environment_flows", "merge-integration"],
- "plan_refs": ["FIRST-USER.24", "FIRST-USER.D", "JOURNEYS.situation-12"]
+ "related_scenarios": ["hosting_providers", "environment_flows", "merge-integration"]
 }

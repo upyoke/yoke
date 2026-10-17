@@ -24,6 +24,15 @@ Query the charge-relevant status subset for the target project. The candidate se
 
 Query the `item_dependencies` table for all canonical blocker dependencies at `gate_point='activation'`. Evaluate each dependency using its `satisfaction` condition (`status:<stage-id>`, `fact:merged`, or `fact:deployed:<environment-name>`) and build a map from each dependent item to its list of unsatisfied blockers. Use the blocker's pinned workflow stage, normally `status:done` when completion is all the dependent needs. Use `fact:merged` when trunk contains everything the dependent needs. Reserve `fact:deployed:<environment-name>` for a dependent requiring completion plus delivery to that registered environment. It consumes the completed item's persisted run/member/environment/candidate attribution in its delivery stamp. Later sibling failure or run cancellation cannot revoke it. Producer QA, approval and completion gates still apply before done; accepted QA alone is not delivery.
 
+### Step 2b: Hold committed work waiting only to land
+
+An item with no unsatisfied activation blocker, whose active implementation
+lane has a recorded commit (`item_worktrees.commit_sha`), and whose only unmet
+edges are at `integration`, waits instead of being runnable: building is done
+and landing is what those edges hold back. Its reason is one sentence naming
+each blocker by condition, for example `Waiting on PREFIX-1, PREFIX-2 to
+merge` (`frontier_landing_wait`).
+
 ### Step 3: Compute direct activation unblocking value
 
 For each item, count how many other items it blocks at the `activation` gate.
@@ -179,7 +188,10 @@ GET /v1/charge/frontier?project=yoke&wip_cap=30
 `frontier.list` serves the ranked frontier: `ready_rows`, `blocked_rows`,
 and `dependency_edges`, every unsatisfied edge at the `activation`,
 `integration` and `closure` gates whose dependent is not terminal, evaluated by
-the shared dependency kernel. Each edge carries the blocker and dependent
+the shared dependency kernel. Each blocked row carries `holds_pickup`: true
+when the row is why the item is not offered (its activation blockers, a
+non-edge hold, or the integration edges of committed work waiting to land),
+false for a merge or close edge on an item still free to build. Each edge carries the blocker and dependent
 refs, `gate_point`, `satisfaction`, `rationale`, the blocker's stage and title,
 `blocking_terminal`, and `blocking_abandoned` (cancelled or stopped rather
 than completed: only an abandoned blocker's edge can never clear). A blocker

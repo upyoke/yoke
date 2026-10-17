@@ -2,7 +2,6 @@
  "id": "startup",
  "title": "Startup context",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.P4"],
  "surface_refs": ["global-orientation", "resume-context"],
  "commands": ["yoke packets startup-delivery get"],
  "functions": ["packets.startup_delivery.get"],

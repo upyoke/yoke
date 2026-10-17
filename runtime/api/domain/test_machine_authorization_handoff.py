@@ -163,6 +163,22 @@ def test_invalid_handoff_creates_no_request(conn, updates, reason):
     )
 
 
+def test_handoff_refuses_a_retired_machine_before_storing_a_code(conn):
+    from yoke_core.domain import machine_registry
+
+    machine_registry.register_machine(
+        conn, machine_id=MACHINE_ID, name="Laptop", actor_id=1, now=utc_now()
+    )
+    machine_registry.retire_machine(
+        conn, machine_id=MACHINE_ID, actor_id=1, now=utc_now()
+    )
+    with pytest.raises(codes.MachineAuthorizationError) as error:
+        handoff(conn, **payload(), actor_id=6)
+    assert (error.value.code, error.value.status) == ("machine_retired", 409)
+    count = conn.execute("SELECT count(*) FROM machine_authorization_codes")
+    assert count.fetchone()[0] == 0
+
+
 @pytest.mark.parametrize("actor_id", [1, 5])
 def test_member_and_admin_cannot_handoff(conn, actor_id):
     with pytest.raises(codes.MachineAuthorizationError, match="permission_denied"):

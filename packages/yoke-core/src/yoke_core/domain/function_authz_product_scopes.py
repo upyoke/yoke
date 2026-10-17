@@ -36,6 +36,7 @@ PRODUCT_AUTHZ_BY_ID = {
     "universe.prune.run": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "universe.level_capacity.get": AuthzSpec(ACTOR_SESSION, None),
     "universe.levels.set": AuthzSpec(ORG, PERM_ORG_ADMIN),
+    "universe.levels.reset": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "universe.cursor_quota_order.get": AuthzSpec(ACTOR_SESSION, None),
     "universe.cursor_quota_order.set": AuthzSpec(ORG, PERM_ORG_ADMIN),
     # Actor-visible lists and personal decision/preference surfaces.

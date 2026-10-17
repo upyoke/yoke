@@ -47,6 +47,11 @@ def test_landing_compares_candidate_declaration_before_arming(
         lambda **kwargs: "",
     )
     monkeypatch.setattr(
+        selection_mod,
+        "integration_dependency_refusal",
+        lambda **kwargs: "",
+    )
+    monkeypatch.setattr(
         route_mod,
         "read_queue_members",
         lambda *_args, **_kwargs: (None, "queue lookup after comparison"),

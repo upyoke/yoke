@@ -47,9 +47,11 @@ yoke machine register [--name NAME]
 
 Registration is idempotent, which is what lets both paths run it every time.
 A machine already registered to another actor is refused as
-`machine_owner_mismatch`; the recovery is to ask its owner or an administrator
-to re-register it, or to clear the copied `machine_id` from
-`~/.yoke/config.json` and register that host as its own machine.
+`machine_owner_mismatch`; the recovery is that its owner or an administrator
+retires the machine, then you run `yoke connect` again on this computer.
+A retired machine id is refused as `machine_retired`; registration then gives
+this computer a new machine UUID and registers once more (see
+[Retirement and recovery](#retirement-and-recovery)).
 
 `HC-machine-registry` checks the same fact locally, so an unregistered machine
 is something doctor tells you before a refused launch does.
@@ -85,8 +87,8 @@ enforced or consulted today for placement, deploys, or QA host selection.
 Read and change it with:
 
 ```bash
-yoke machine settings get [MACHINE-ID] [--path use.mode]
-yoke machine settings set [MACHINE-ID] --path use.mode --value universe
+yoke machine access get [MACHINE-ID] [--path use.mode]
+yoke machine access set [MACHINE-ID] --path use.mode --value universe
 ```
 
 Only the machine's owner or an administrator may set it.
@@ -101,7 +103,7 @@ universe**. Only fields relevant to the selected mode appear.
 
 **Save access** requires at least one selected actor, or an available project
 and a nonempty role, as appropriate. It submits the complete `use` policy in
-one `machine.settings.set` call with `path: "use"`, preserving the policy's
+one `machine.access.set` call with `path: "use"`, preserving the policy's
 other existing fields. A project-and-role change therefore has no intermediate
 grant using the old role on the new project. Server validation remains the
 authority for the complete policy.
@@ -116,6 +118,13 @@ Retired machines show access as read-only.
 **Retire** is available from the machine roster and machine detail. Its
 confirmation names the machine. Retirement revokes that machine's bearer;
 account access, sessions, and launch history remain available.
+
+Reconnecting a retired computer needs no reinstall. `yoke connect` (and
+`yoke machine register` or setup on a local universe) sees `machine_retired`,
+writes a new machine UUID to `~/.yoke/config.json`, and connects once more as
+a new machine; the retired row stays in the roster with its history. A server
+refuses a retired id when the connection code is requested, so the browser
+never shows a code that cannot finish.
 
 While the request is pending, the button reads **Retiring…** and repeated
 clicks cannot submit another retirement. A failed request displays an error

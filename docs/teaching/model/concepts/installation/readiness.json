@@ -2,7 +2,6 @@
  "id": "readiness",
  "title": "Readiness and repair",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.18", "FIRST-USER.C", "FIRST-USER.D", "FIRST-USER.E", "JOURNEYS.situation-3"],
  "surface_refs": ["global-orientation", "setup-agent", "setup-tui"],
  "commands": ["yoke local demo seed", "yoke path check", "yoke path fix", "yoke path verify"],
  "page": "installation",

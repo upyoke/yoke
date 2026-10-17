@@ -250,7 +250,7 @@ def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:
 
     _print("")
     _print("Running tests...")
-    generic_test_timeout = runtime_settings.get_seconds("test_timeout", 1200)
+    generic_test_timeout = runtime_settings.get_int("test_timeout")
     cwd = ctx.worktree_path
 
     try:

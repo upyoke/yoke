@@ -2,7 +2,6 @@
  "id": "project-structure-context-routing",
  "title": "Project Structure context routing",
  "status": "observed",
- "plan_refs": ["FIRST-USER.41"],
  "surface_refs": ["packets-help"],
  "commands": ["yoke project-structure get"],
  "functions": ["project_structure.get"],

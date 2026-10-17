@@ -14,12 +14,17 @@ import json
 import pytest
 
 from yoke_contracts.board.sections_sessions_rendering import _render_level
-from yoke_contracts.board.sections_sessions_levels import _PROJECT_SQL, _UNIVERSE_SQL
+from yoke_contracts.board.sections_sessions_levels import (
+    _CATALOG_SQL,
+    _PROJECT_SQL,
+    _SESSION_FACTS_SQL,
+    _UNIVERSE_SQL,
+)
 from yoke_contracts.board.sections_sessions_scope import session_level_presentation
 from yoke_contracts.level_defaults import DEFAULT_LEVELS
 from yoke_contracts.levels import LEVELS_KEY, default_levels, level_presentation
+from yoke_contracts.model_reference_data import MODEL_RECORDS
 from yoke_contracts.project_contract.project_keys import SESSION_ROUTING_CAPABILITY
-from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 
 _MARKER = "⚠️"
 
@@ -53,8 +58,9 @@ def _stores(*, universe=None, project=None, project_id: int = 1):
 @pytest.mark.parametrize("level", [None, "", "   ", "primary", "PRIMARY"])
 def test_unresolved_level_is_marked(level) -> None:
     rendered = _render_level(level)
-    assert rendered.startswith(_MARKER)
-    assert UNRESOLVED_EXECUTION_LEVEL in rendered
+    assert rendered == f"{_MARKER} no level"
+    reason = _render_level(level, {"label": "no level: model not in the catalog"})
+    assert reason == f"{_MARKER} no level: model not in the catalog"
 
 
 @pytest.mark.parametrize("level", ["INTERN", "PRINCIPAL"])
@@ -187,3 +193,32 @@ def test_every_custom_level_renders_at_the_same_width() -> None:
             display_width(_render_level("LEVEL", level_presentation(levels, "LEVEL")))
         )
     assert len(widths) == 1
+
+
+def _session_db(model: str, effort: str, catalog: list | None):
+    class DB:
+        def query_quiet(self, sql, params):
+            if sql == _SESSION_FACTS_SQL:
+                assert params == ("s-1",)
+                return [(model, None, effort, None)]
+            if sql == _CATALOG_SQL:
+                return [] if catalog is None else [(json.dumps(catalog),)]
+            return []
+
+    return DB()
+
+
+@pytest.mark.parametrize(
+    "model,effort,label",
+    [
+        ("no-such-model", "high", "no level: model not in the catalog"),
+        ("claude-opus-5-5", "turbo", "no level: effort not published for its model"),
+    ],
+)
+def test_board_names_why_a_session_has_no_level(model, effort, label) -> None:
+    catalog = [record.to_dict() for record in MODEL_RECORDS]
+    presentation = session_level_presentation(
+        _session_db(model, effort, catalog), None, "primary", "s-1"
+    )
+    assert presentation["label"] == label
+    assert _render_level("primary", presentation) == f"{_MARKER} {label}"

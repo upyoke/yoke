@@ -213,8 +213,6 @@ def _decision(
         }
     if signature.signature_id == "server_overloaded" and (
         attempts >= len(RESUME_BACKOFF_SECONDS)
-        or "at capacity" in error_message.lower()
-        or "different model" in error_message.lower()
     ):
         refusal = observation.get("capacity_recovery_refusal") or {}
         if refusal.get("episode_key") == state["episode_key"]:

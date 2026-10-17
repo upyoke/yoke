@@ -44,13 +44,10 @@ def test_explicit_selection_preserves_other_machine_settings(config_file, capsys
     )
     resolved = resolve_tool_shaped(
         [
-            "config",
-            "distribution",
+            "settings",
             "set",
-            "--origin",
-            "https://fork.example/",
-            "--channel",
-            "preview",
+            "distribution",
+            '{"origin":"https://fork.example/","channel":"preview"}',
             "--json",
         ]
     )
@@ -58,8 +55,8 @@ def test_explicit_selection_preserves_other_machine_settings(config_file, capsys
     adapter, remaining = resolved
     assert adapter(remaining) == 0
     result = json.loads(capsys.readouterr().out)
-    assert result["ok"] is True
-    assert result["origin"] == "https://fork.example"
+    assert result["success"] is True
+    assert result["result"]["value"]["origin"] == "https://fork.example"
     assert machine_config.load_config()["settings"] == {
         "another_setting": "kept",
         "distribution": {"origin": "https://fork.example", "channel": "preview"},

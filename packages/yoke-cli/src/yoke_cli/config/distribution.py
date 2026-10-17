@@ -8,7 +8,7 @@ from yoke_cli.config import machine_config, machine_config_mutation as mutation
 from yoke_cli.self_host import release_target
 
 DISTRIBUTION_KEY = "distribution"
-SELECT_COMMAND = "yoke config distribution set --origin URL --channel NAME"
+SELECT_COMMAND = "yoke settings set distribution '<JSON with origin and channel>'"
 
 
 class DistributionError(RuntimeError):

@@ -32,6 +32,14 @@ yoke items dependency list PREFIX-N --json
 Title-only related claimable batch without attestation refuses; don't launch
 work frontier should not offer.
 
+Keep dependencies minimal: every edge holds real work back. Before adding one,
+confirm the dependent truly needs the blocker's merged code; shared files alone
+call for `coordination_only`. Prefer the narrowest gate and condition:
+`coordination_only` over `integration` over `activation`, `fact:merged` over
+`status:done`, a specific task over a whole epic. The report's waiting-chains
+section is where heavy edges show; act on it per
+[fleet-findings.md](fleet-findings.md).
+
 ## 2. Keep the frontier maxed out
 
 Staff every runnable unclaimed scoped item promptly, including work just filed

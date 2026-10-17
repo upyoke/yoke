@@ -170,9 +170,35 @@ def level_for_session(levels, *, executor, model, reasoning_effort=None, records
     ).level
 
 
-def level_presentation(levels, level):
+#: Why a session holds no level, as the board and session reads print it.
+UNRESOLVED_LEVEL_REASONS = {
+    "session_model_unreported": "model not reported yet",
+    "session_model_unknown": "model not in the catalog",
+    "session_effort_unpublished": "effort not published for its model",
+    "session_older_model_bottom_class": "superseded model with no lower class",
+    "session_demotion_target_unavailable": "no single lower-class model placed",
+    "session_below_minimum_effort": "below every level's minimum effort",
+}
+
+
+def unresolved_level_reason(levels, *, model, effort, records):
+    """The reason code a session with these facts resolves to no level."""
+    if not str(model or "").strip():
+        return "session_model_unreported"
+    return resolve_model_level(
+        levels, model=model, effort=effort, records=records
+    ).reason
+
+
+def level_presentation(levels, level, *, reason=None):
+    """Label and glyph for a stored level; an unresolved one names its reason."""
     if level_is_unresolved(level):
-        return {"label": "no level", "glyph": ""}
+        text = UNRESOLVED_LEVEL_REASONS.get(str(reason or ""), "")
+        return {
+            "label": f"no level: {text}" if text else "no level",
+            "glyph": "",
+            "reason": str(reason or ""),
+        }
     name = str(level or "")
     return {
         "label": name,
@@ -188,6 +214,7 @@ __all__ = [
     "Level",
     "LevelEntry",
     "LevelsError",
+    "UNRESOLVED_LEVEL_REASONS",
     "default_levels",
     "level_for_session",
     "level_name_error",
@@ -195,4 +222,5 @@ __all__ = [
     "levels_payload",
     "parse_levels",
     "resolve_effective_levels",
+    "unresolved_level_reason",
 ]

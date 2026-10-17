@@ -88,12 +88,15 @@ def _hosted_case(position, key, prefix, *, instructions, outcome, after_installe
         instructions=instructions,
         expected_outcome=outcome,
         entry_surface=(
-            f"set -eu; {prefix}; printf '%s\\n' {shlex.quote(key + '-prepared')}; "
+            "( set -eu; "
+            + (f"{prefix}; " if prefix else "")
+            + f"printf '%s\\n' {shlex.quote(key + '-prepared')}; "
             + PUBLIC_INSTALL
             + f"; {after_installer}; printf '%s\\n' "
             + shlex.quote(key + "-prepared")
             + " "
             + shlex.quote(key + "-ready")
+            + " )"
         ),
         required_completion="complete-onboarding",
         host_baselines=[FRESH_HOST],
@@ -182,7 +185,7 @@ LOCAL_HOSTED_NO_BACKUP = _hosted_case(
 SECOND_MACHINE_JOIN = _hosted_case(
     14,
     "second-machine-join",
-    'test ! -e "$HOME/.yoke/config.json"',
+    "",
     instructions=(
         "Run on a second registered physical Test Machine after the first machine has joined the "
         "same organization. Pin that second machine through the saved case's machine constraint. "

@@ -117,22 +117,6 @@ def repo_cwd(payload: dict, repo_path: str = "") -> str:
     return os.path.abspath(repo_path) if repo_path else cwd_from_payload(payload)
 
 
-def porcelain(cwd: str) -> tuple[list[str], list[str]]:
-    result = git(cwd, "status", "--porcelain", "--untracked-files=all")
-    if not result or result.returncode != 0:
-        return [], []
-    modified: list[str] = []
-    untracked: list[str] = []
-    for line in result.stdout.splitlines():
-        if len(line) < 4:
-            continue
-        if line[:2] == "??":
-            untracked.append(line[3:])
-        else:
-            modified.append(line[3:].split(" -> ")[-1])
-    return modified, untracked
-
-
 __all__ = [
     "ADVISORY",
     "DENY",
@@ -142,7 +126,6 @@ __all__ = [
     "cwd_from_payload",
     "git",
     "git_invocations",
-    "porcelain",
     "repo_cwd",
     "response_text",
     "statements",

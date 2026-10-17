@@ -168,14 +168,15 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
 
 def _require_active_machine(conn, *, machine_id: str, actor_id: int) -> None:
     """Bind an in-process relay to the same durable machine as HTTP auth."""
+    from yoke_contracts.machine_authorization import RETIRED_MACHINE_RECOVERY
     from yoke_core.domain.machine_registry import MachineRegistryError, require_machine
 
     record = require_machine(conn, machine_id)
     if record.retired_at is not None:
         raise MachineRegistryError(
             "machine_retired",
-            f"machine {record.machine_id} is retired. Recovery: run the installer "
-            "again to reconnect this computer with a new machine identity.",
+            f"machine {record.machine_id} is retired. Recovery: "
+            f"{RETIRED_MACHINE_RECOVERY}",
         )
     if record.owner_actor_id != actor_id:
         raise MachineRegistryError(

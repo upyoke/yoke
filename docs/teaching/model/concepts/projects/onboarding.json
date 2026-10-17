@@ -2,7 +2,6 @@
  "id": "onboarding",
  "title": "Onboarding: existing work to first item done",
  "status": "observed",
- "plan_refs": ["FIRST-USER.24", "FIRST-USER.42", "FIRST-USER.43", "JOURNEYS.situation-19", "JOURNEYS.situation-9"],
  "surface_refs": ["packets-help", "project-orientation", "resume-context", "setup-agent", "setup-tui", "skills-roles"],
  "commands": ["yoke onboard checklist", "yoke onboard checklist init", "yoke onboard project", "yoke onboard checklist get", "yoke github open-work list"],
  "functions": ["onboard.checklist.init", "onboard.checklist.run", "onboard.checklist.get", "github.open_work.list"],

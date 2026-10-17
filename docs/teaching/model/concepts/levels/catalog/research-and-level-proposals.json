@@ -1,7 +1,12 @@
 {
  "id": "research-and-level-proposals",
  "title": "Research and level proposals",
- "status": "draft-copy",
+ "status": "observed",
+ "current": "/yoke models step 0 runs yoke update --check, which reports the installed CLI, the active server engine and the channel latest with behind cli|server|none and a destination-specific next step: local updates CLI and server together with yoke update, a self-hosted server is upgraded by its admin, hosted servers update with each hosted release. It then offers yoke settings unset levels when the universe or a project stores its own levels. yoke models level-proposal prints each level as model min_effort rows, lists placeable unplaced models separately from unplaceable ones that publish no efforts, and names reset as the apply command when the proposal equals the shipped defaults; any other approved document is stored with set, which stops following future shipped defaults.",
+ "commands": ["yoke update", "yoke models level-proposal", "yoke settings unset", "yoke settings set"],
+ "functions": ["models.level_proposal.run", "universe.levels.reset", "universe.levels.set"],
+ "skills": ["models"],
+ "sources": [".agents/skills/yoke/models/SKILL.md", ".agents/skills/yoke/models/level-proposals.md", "packages/yoke-cli/src/yoke_cli/config/update_check.py", "packages/yoke-contracts/src/yoke_contracts/level_proposals.py"],
  "page": "levels",
  "position": 4
 }

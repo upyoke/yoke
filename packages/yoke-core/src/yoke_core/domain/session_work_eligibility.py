@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from yoke_contracts.levels import LevelsError, level_for_session
 from yoke_contracts.model_level_resolution import resolve_model_level
-from yoke_core.domain.session_level_resolution import (
+from yoke_contracts.model_level_resolution import (
     routing_effort_of,
     routing_model_of,
 )

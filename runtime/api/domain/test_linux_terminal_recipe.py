@@ -149,7 +149,6 @@ def test_operator_gate_approves_through_desktop_chromium(monkeypatch, capsys):
         allowed_operator_urls=(ORIGIN,),
     )
     assert result.ok, result.evidence
-    # The installer runs on the desktop so its link opens in that Chromium.
     assert events[0] == ("open", "yoke setup", (120, 40), DESKTOP)
     assert host_calls == ["prepare", "tabs", "approve"]
     gate = result.evidence["steps"][0]
@@ -161,8 +160,9 @@ def test_operator_gate_approves_through_desktop_chromium(monkeypatch, capsys):
     }
     assert gate["artifact_handle"] == "frame-1"
     assert gate["browser_automation_error_code"] is None
-    event = json.loads(capsys.readouterr().out.splitlines()[0])
-    assert event["approval_automation"] == "self_approving_visible_chromium"
+    assert json.loads(capsys.readouterr().out.splitlines()[0])[
+        "approval_automation"
+    ] == ("self_approving_visible_chromium")
 
 
 def test_operator_gate_without_a_desktop_refuses_with_a_named_reason(monkeypatch):
@@ -242,6 +242,93 @@ def test_step_whose_ready_text_never_appears_fails_by_name(monkeypatch):
     assert result.evidence["step"] == "uv-consent"
     assert result.evidence["waiting_for"] == ["Install uv now?"]
     assert not any(event[0] == "keys" for event in events if isinstance(event, tuple))
+
+
+@pytest.mark.parametrize("failure", ["session", "launch", "xdotool", "desktop"])
+def test_terminal_window_failure_keeps_named_diagnostics(monkeypatch, failure):
+    from yoke_harness.ssh_linux_terminal import LinuxTerminal, LinuxTerminalWindowError
+
+    calls = []
+
+    def result(code=0, stderr=""):
+        return SimpleNamespace(returncode=code, stderr=stderr)
+
+    terminal = LinuxTerminal(SimpleNamespace())
+    monkeypatch.setattr(
+        terminal,
+        "command",
+        lambda *args: result(
+            1 if failure == "session" else 0,
+            "missing session" if failure == "session" else "",
+        ),
+    )
+
+    def desktop(control, argv, **kwargs):
+        calls.append(argv)
+        if failure == "desktop":
+            raise RuntimeError("linux_desktop_session_required: unlock XFCE")
+        name = "xdotool" if argv[0] == "xdotool" else "launch"
+        return result(7 if failure == name else 0, name + " diagnostic")
+
+    monkeypatch.setattr("yoke_harness.linux_desktop_session.desktop_command", desktop)
+    with pytest.raises(LinuxTerminalWindowError) as caught:
+        terminal.show()
+    error = caught.value
+    assert error.code == (
+        "linux_tmux_session_exited"
+        if failure == "session"
+        else "linux_terminal_window_unavailable"
+    )
+    assert error.evidence["recovery"]
+    if failure == "session":
+        assert not calls
+        assert (
+            error.evidence["commands"]["tmux_has_session"]["stderr"]
+            == "missing session"
+        )
+    elif failure == "desktop":
+        assert "unlock XFCE" in error.evidence["desktop_error"]
+    else:
+        assert error.evidence["commands"][failure] == {
+            "returncode": 7,
+            "stderr": failure + " diagnostic",
+        }
+
+
+def test_window_diagnostics_survive_recipe_boundary_and_redaction(monkeypatch):
+    from yoke_harness.ssh_linux_terminal import LinuxTerminalWindowError
+
+    events = []
+    _terminal(monkeypatch, events, "")
+
+    def show(self):
+        command = {"returncode": 1, "stderr": "opaque-credential session exited"}
+        raise LinuxTerminalWindowError(
+            "linux_tmux_session_exited",
+            {
+                "commands": {"tmux_has_session": command},
+                "recovery": "Restart the case command.",
+            },
+        )
+
+    monkeypatch.setattr(
+        "yoke_core.domain.ssh_linux_terminal_recipe.LinuxTerminal.show",
+        show,
+        raising=False,
+    )
+    config = _ready_recipe()
+    config["capture_checkpoints"] = ["done"]
+    result = execute_linux_recipe(
+        _control(),
+        entry_surface="/usr/bin/true",
+        required_completion="done",
+        config=config,
+        size=(120, 40),
+    )
+    assert result.error_code == "linux_tmux_session_exited"
+    assert result.evidence["commands"]["tmux_has_session"]["returncode"] == 1
+    assert "opaque-credential" not in str(result.evidence)
+    assert events[-1] == "closed"
 
 
 def test_setup_exit_before_its_prompt_reports_that_exit(monkeypatch):

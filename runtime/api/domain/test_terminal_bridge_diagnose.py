@@ -25,7 +25,7 @@ from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_WINDOW_FOCUS_TIMEOUT_ERROR_CODE,
 )
 from yoke_harness import ssh_mac_terminal_app, ssh_mac_terminal_bridge_check
-from yoke_harness.ssh_mac_gui_session import TerminalAutomationProbe
+from yoke_harness.ssh_mac_terminal_automation_probe import TerminalAutomationProbe
 from yoke_harness.ssh_mac_terminal_bridge_diagnose import (
     diagnose_terminal_app_control,
 )

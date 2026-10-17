@@ -2,7 +2,6 @@
  "id": "connections",
  "title": "Named connections",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.3"],
  "commands": ["yoke connection remove", "yoke connection set", "yoke env list", "yoke env use"],
  "functions": ["connection.remove.run", "connection.set.run", "env.list.run", "env.use.run"],
  "page": "universes",

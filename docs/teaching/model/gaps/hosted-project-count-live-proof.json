@@ -3,7 +3,6 @@
  "title": "Prove hosted project counts and unavailable recovery after deployment",
  "status": "observed",
  "text": "The count implementation is landed, but its deployed proof is pending. Compare the hosted switcher and Billing with each organization’s member-visible active Projects inventory at desktop and 390px; include backlog-only and locally adopted projects, retired exclusion, separate organizations and member permissions. Exercise engine_project_count_unavailable, unknown instead of zero, retry and organization-admin connection recovery, and continued universe switching. PLAT-227 owns the internal deployed proof and acceptance; linking that item does not complete teaching or live verification. workbench-cues/desired-01 remains candidate with exact recipe and live delivery unproved.",
- "plan_refs": ["FIRST-USER.P7"],
  "work_items": ["PLAT-227"],
  "position": 21
 }

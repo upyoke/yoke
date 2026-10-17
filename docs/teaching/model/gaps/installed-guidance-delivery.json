@@ -3,7 +3,6 @@
  "title": "Prove released installed guidance reaches the receiving agent",
  "status": "observed",
  "text": "Source and automated HTTPS transport tests cover installed help, managed release manifests and refresh recovery. The production image correction stages canonical inputs and builds a real project bundle. Receiving QA failed: complete received context was unobservable, no-project deeper help was absent, and Cursor shell calls returned blank refusals. A diagnostic replay proved the local permission hook returned exit zero with empty stdout; same-item rework supplies native permission replies and corrects the shared context recipe to the live entries list. Native acceptance, complete combined delivery count and fixture cleanup remain unproven; file delivery and tiny diagnostic turns do not satisfy them.",
- "plan_refs": ["FIRST-USER.41"],
  "sources": ["runtime/api/domain/test_installed_project_context.py", "runtime/api/test_container_install_bundle.py", "Dockerfile", ".agents/skills/yoke/conduct/dispatch-context-project.md"],
  "work_items": ["YOK-3966"],
  "position": 20

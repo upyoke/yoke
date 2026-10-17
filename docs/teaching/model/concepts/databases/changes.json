@@ -2,7 +2,6 @@
  "id": "changes",
  "title": "Database changes",
  "status": "draft-copy",
- "plan_refs": ["JOURNEYS.situation-17"],
  "page": "databases",
  "position": 2
 }

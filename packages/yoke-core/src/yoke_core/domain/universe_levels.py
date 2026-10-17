@@ -5,8 +5,10 @@ key: one row per universe, written only by an explicit operator command. An
 absent row means the universe reads the shipped scheme
 (:data:`yoke_contracts.level_defaults.DEFAULT_LEVELS`), so a shipped change
 reaches every universe that never stored the key. A stored row freezes that
-document at write time. Delete it with a reviewed ``yoke operator data-repair``
-to follow shipped defaults again; writing today's document stores a new freeze.
+document at write time and stops the universe following later shipped
+defaults. ``yoke settings unset levels`` deletes the row so the universe
+follows shipped defaults again, and writing a document equal to today's shipped
+defaults stores nothing, so it keeps following them.
 The same explicit-write rule applies to ``cursor_quota_order``. Retention's
 own policy seeds defaults during normal initialization and preserves stored
 values; its reads never seed. A project may
@@ -23,6 +25,7 @@ from typing import Any, Optional
 from yoke_contracts.levels import (
     LEVELS_KEY,
     Level,
+    default_levels,
     levels_payload,
     parse_levels,
     resolve_effective_levels,
@@ -81,7 +84,7 @@ def stored_universe_levels(conn: Any) -> Any:
     return _loads(
         row[0],
         where="the stored universe levels",
-        repair="store a valid document with `yoke universe levels set`.",
+        repair="store a valid document with `yoke settings set levels`.",
     )
 
 
@@ -120,11 +123,36 @@ def effective_levels(
     )
 
 
+def shipped_defaults_differ(conn: Any) -> Optional[bool]:
+    """Whether a stored universe document differs from today's shipped defaults.
+
+    ``None`` when no document is stored: the universe reads the defaults.
+    """
+    stored = stored_universe_levels(conn)
+    if not stored:
+        return None
+    return parse_levels(stored) != default_levels()
+
+
+def clear_universe_levels(conn: Any) -> bool:
+    """Delete the stored universe document; return whether one was stored."""
+    cursor = conn.execute(f"DELETE FROM {TABLE} WHERE key = {_p(conn)}", (LEVELS_KEY,))
+    conn.commit()
+    return bool(cursor.rowcount)
+
+
 def write_universe_levels(
     conn: Any, raw: Any, *, actor_id: Optional[int]
-) -> tuple[Level, ...]:
-    """Validate and store the universe levels document, replacing any prior one."""
+) -> tuple[tuple[Level, ...], str]:
+    """Validate and store the universe levels document; return it and its source.
+
+    A document equal to the shipped defaults clears any stored row instead, so
+    the universe keeps following shipped defaults (source ``default``).
+    """
     levels = parse_levels(raw)
+    if levels == default_levels():
+        clear_universe_levels(conn)
+        return levels, "default"
     marker = _p(conn)
     now = instant_parameter(conn, utc_now())
     conn.execute(
@@ -136,15 +164,17 @@ def write_universe_levels(
         (LEVELS_KEY, json_helper.dumps_compact(levels_payload(levels)), now, actor_id),
     )
     conn.commit()
-    return levels
+    return levels, "universe"
 
 
 __all__ = [
     "TABLE",
     "UniverseLevelsError",
+    "clear_universe_levels",
     "create_universe_settings_table",
     "effective_levels",
     "project_routing_settings",
+    "shipped_defaults_differ",
     "stored_universe_levels",
     "write_universe_levels",
 ]

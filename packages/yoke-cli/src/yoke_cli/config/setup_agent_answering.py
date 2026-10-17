@@ -9,10 +9,12 @@ inputs never accept an answer. A rejected answer raises
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from yoke_cli.config import onboard_wizard_apply_prompts as apply_prompts
 from yoke_cli.config.onboard_wizard_state import _View
+from yoke_cli.config.setup_agent_response import yoke_executable
 from yoke_cli.config.setup_prompt import (
     SetupPrompt,
     check_choice,
@@ -24,11 +26,13 @@ REVIEW_KEY = "review.confirm"
 APPLY_CHOICE = "apply"
 # Answers that run or redirect Apply count only in the invocation that gives
 # them, so replaying stored answers never starts Apply on its own.
-INVOCATION_ONLY_KEYS = frozenset({
-    REVIEW_KEY,
-    apply_prompts.APPLY_FAILED_KEY,
-    apply_prompts.APPLY_DIFFERENT_FOLDER_KEY,
-})
+INVOCATION_ONLY_KEYS = frozenset(
+    {
+        REVIEW_KEY,
+        apply_prompts.APPLY_FAILED_KEY,
+        apply_prompts.APPLY_DIFFERENT_FOLDER_KEY,
+    }
+)
 
 
 class SetupRefusal(Exception):
@@ -55,7 +59,9 @@ class AnswerFlow:
             self._answer(view, given)
             return True
         # A form's mode switch redraws it, so a stored answer counts once per mode.
-        marker = prompt.key if prompt.selected is None else f"{prompt.key}@{prompt.selected}"
+        marker = (
+            prompt.key if prompt.selected is None else f"{prompt.key}@{prompt.selected}"
+        )
         if marker in self._auto_answered or prompt.key in INVOCATION_ONLY_KEYS:
             return self._answer_preset(view)
         stored = self._answers.values_for(prompt.key)
@@ -152,7 +158,9 @@ class AnswerFlow:
         self._accept(prompt, staged, used=[prompt.key, *staged])
         view.on_form(submitted)
 
-    def _accept(self, prompt: SetupPrompt, staged: dict[str, str], *, used: list[str]) -> None:
+    def _accept(
+        self, prompt: SetupPrompt, staged: dict[str, str], *, used: list[str]
+    ) -> None:
         for name in used:
             self._cli.pop(name, None)
         if prompt.key == apply_prompts.APPLY_FAILED_KEY:
@@ -172,9 +180,23 @@ class AnswerFlow:
                 "Open a new terminal so the changed shell files take effect: "
                 + ", ".join(changed)
             )
-        if checkout:
+        readiness = f"{yoke_executable()} doctor run --session"
+        in_checkout = bool(checkout) and _inside(Path.cwd(), Path(checkout))
+        if in_checkout:
+            next_steps.append(
+                f"Check this session is ready: run `{readiness}` and give each "
+                "failed check's next step to the person, then rerun it."
+            )
+            next_steps.append(
+                "When every check passes, ask the person once whether to start "
+                "/yoke onboard, then run it in this session."
+            )
+        elif checkout:
             next_steps.append(f"Open Claude Code, Codex or Cursor in {checkout}.")
-            next_steps.append("Run /yoke onboard in that session.")
+            next_steps.append(
+                "Run /yoke onboard in that session; it checks the session is "
+                "ready first."
+            )
         else:
             next_steps.append(
                 "To add a project later, run `yoke setup --agent` again and "
@@ -189,9 +211,16 @@ class AnswerFlow:
             "guidance": (
                 "Tell the person setup is done, show the install health result in "
                 "full, and give them the next steps in order. Yoke never opens "
-                "that session for them."
+                "a new session for them."
             ),
         }
+
+
+def _inside(path: Path, folder: Path) -> bool:
+    try:
+        return path.resolve().is_relative_to(folder.resolve())
+    except OSError:
+        return False
 
 
 def _secret(prompt: SetupPrompt) -> SetupRefusal:
@@ -211,4 +240,10 @@ def _not_current(prompt: SetupPrompt) -> SetupRefusal:
     )
 
 
-__all__ = ["APPLY_CHOICE", "AnswerFlow", "INVOCATION_ONLY_KEYS", "REVIEW_KEY", "SetupRefusal"]
+__all__ = [
+    "APPLY_CHOICE",
+    "AnswerFlow",
+    "INVOCATION_ONLY_KEYS",
+    "REVIEW_KEY",
+    "SetupRefusal",
+]

@@ -3,6 +3,5 @@
  "title": "Prove delivered context, not file presence",
  "status": "observed",
  "text": "D/E/41 must verify external and global paths on real supported harnesses, including mid-session install, resume and required budgets.",
- "plan_refs": ["FIRST-USER.D", "FIRST-USER.E", "FIRST-USER.41"],
  "position": 9
 }

@@ -2,7 +2,6 @@
  "id": "adoption",
  "title": "Project starting points",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.24", "FIRST-USER.P5", "JOURNEYS.execution-boundary", "JOURNEYS.locked-principles", "JOURNEYS.moved-from-first-user-former-dash-g", "JOURNEYS.principle-1", "JOURNEYS.principle-2", "JOURNEYS.principle-3", "JOURNEYS.principle-4", "JOURNEYS.principle-5", "JOURNEYS.principle-6", "JOURNEYS.principle-7", "JOURNEYS.principle-8", "JOURNEYS.principle-9", "JOURNEYS.situation-4", "JOURNEYS.situation-5", "JOURNEYS.situation-6"],
  "surface_refs": ["agent-help", "global-orientation", "setup-agent", "workbench-cues"],
  "commands": ["yoke project create", "yoke project import", "yoke projects create"],
  "functions": ["projects.create"],

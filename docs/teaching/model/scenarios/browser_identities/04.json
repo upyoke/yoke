@@ -10,6 +10,5 @@
  "review": "Source and command regression coverage; deployment proof remains separate.",
  "recipes": ["yoke ui up --help"],
  "sources": ["packages/yoke-cli/src/yoke_cli/commands/universe_ui.py", "runtime/api/cli/test_yoke_universe_ui_output.py", "docs/self-host-browser-sign-in.md", "runtime/api/tools/serve_workbench_for_review.py", "runtime/api/tools/test_review_browser_admission.py"],
- "plan_refs": ["FIRST-USER.16"],
  "position": 3
 }

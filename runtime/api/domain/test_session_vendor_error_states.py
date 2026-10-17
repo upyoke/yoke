@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pytest
+
 from runtime.api.domain.session_vendor_error_test_support import (
     MACHINE_ID,
     PROJECT_ID,
@@ -242,3 +244,25 @@ def test_an_unclosed_call_from_a_vendor_ended_turn_does_not_block_recovery():
     )
     conn.commit()
     assert one_state(conn, now=TURN_ENDED_AT + timedelta(minutes=30))["status"] == "due"
+
+
+@pytest.mark.parametrize(
+    "error", ["Selected model is at capacity", "Try a different model"]
+)
+def test_capacity_messages_use_every_wake_backoff_before_relaunch(error):
+    conn = worker_connection()
+    observe_turn_end(conn, error_message=error, vendor_code="server_overloaded")
+    died_at = TURN_ENDED_AT
+    for index, delay in enumerate(RESUME_BACKOFF_SECONDS):
+        due_at = died_at + timedelta(seconds=delay)
+        assert (
+            one_state(conn, now=due_at - timedelta(seconds=1))["status"]
+            == "waiting_backoff"
+        )
+        assert one_state(conn, now=due_at)["status"] == "due"
+        record_resume(conn, at=due_at)
+        died_at = due_at
+        observe_turn_end(
+            conn, at=died_at, error_message=error, vendor_code="server_overloaded"
+        )
+    assert one_state(conn, now=died_at + timedelta(hours=1))["status"] == "relaunch_due"

@@ -11,6 +11,5 @@
  "current": "Existing source references; delivered content is not yet proved.",
  "desired": "Broad concise introduction with immediate children; final article structure and copy remain to be designed.",
  "plan_notes": ["FIRST-USER 8/24", "JOURNEYS operating model", "New documentation proposal"],
- "plan_refs": ["FIRST-USER.40"],
  "sources": ["docs/public/index.md", "docs/public/concepts.md", "docs/public/operating-with-agents.md", ".agents/skills/yoke/steer/SKILL.md", ".agents/skills/yoke/onboard/strategy-conversation.md"]
 }
