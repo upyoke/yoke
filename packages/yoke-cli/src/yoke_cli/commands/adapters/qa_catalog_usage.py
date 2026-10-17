@@ -176,6 +176,10 @@ its identity labels are stale, is not rematerialize's job:
 live facts and keeps the recorded verdict. A live item requirement
 cannot be superseded.
 
+An item refresh considers shared copies only on runs it still belongs to.
+Removed members leave shared rows and live walks to the remaining members.
+--plan is a deployment-only filter; with --item, remove --plan and retry.
+
 With --member, --plan selects by owner. A shared plan the member attaches
 refreshes that shared group's run-wide rows. The member's own plan refreshes
 only that member's rows, so a live run-wide walk of a shared plan does not
