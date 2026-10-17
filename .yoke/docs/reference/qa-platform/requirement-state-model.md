@@ -197,7 +197,10 @@ link into or out of the row. The refusal names each broken link and the repair.
 A change to the scope rule itself can still leave a stored link that was valid
 when written. The done gate then refuses with the `replacement_graph_invalid`
 error, naming both rows, the differing scope and the repair, rather than
-reporting missing proof. Repair the predecessor with the reconciliation above,
+reporting missing proof. A plan read (`yoke qa plan get`) reports the same error
+on the affected case instead of failing: that proof's outcome is
+`replacement_graph_invalid`, its `replacement_graph_error` names the rows,
+reason and repair, and the plan stays unsatisfied. Repair the predecessor with the reconciliation above,
 naming a passing same-scope case. Reconciliation replaces a direct link that no
 longer answers for the obligation rather than following it. Waive the
 predecessor when no passing same-scope case exists. Links held by a waived or
