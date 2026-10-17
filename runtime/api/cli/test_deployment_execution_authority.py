@@ -11,9 +11,7 @@ from yoke_cli.transport.https import HttpsConnection, TransportError
 def _snapshot(host: str) -> dict:
     return {
         "renderer_settings": {
-            "environments": [
-                {"name": "prod", "settings": {"hosts": {"api": host}}}
-            ]
+            "environments": [{"name": "prod", "settings": {"hosts": {"api": host}}}]
         }
     }
 
@@ -102,3 +100,61 @@ def test_broken_https_connection_reports_its_actual_failure():
 
     assert refusal is not None
     assert "token missing" in refusal
+
+
+def _creation_calls(function_id, target, payload):
+    if function_id == "items.detail.get":
+        return {
+            "item": {
+                "project": {"slug": "customer"},
+                "deployment_flow": {"value": "to-prod"},
+            }
+        }
+    assert payload == {"project": "customer", "flow": "to-prod"}
+    return {"target_environment_name": "prod"}
+
+
+def test_creation_refuses_a_run_this_connection_could_not_drive():
+    with (
+        mock.patch(
+            "yoke_cli.transport.https.resolve_https_connection",
+            return_value=_https(),
+        ),
+        mock.patch.object(authority, "_call", side_effect=_creation_calls),
+        mock.patch.object(
+            authority, "_same_universe_admin_env", return_value="prod-db-admin"
+        ),
+        mock.patch(
+            "yoke_cli.commands.pulumi_stack_config_loader."
+            "load_project_renderer_settings_snapshot",
+            return_value=_snapshot("control.example"),
+        ),
+    ):
+        refusal = authority.creation_connection_error(
+            "start-for-item ITEM-1",
+            project=None,
+            flow=None,
+            environment=None,
+            item="ITEM-1",
+        )
+
+    assert refusal is not None
+    assert "yoke --env prod-db-admin deployment-runs start-for-item ITEM-1" in refusal
+    assert "nothing was created" in refusal
+    assert "yoke say --stdin --steering" in refusal
+
+
+def test_creation_leaves_an_unresolvable_target_to_the_server_refusal():
+    with (
+        mock.patch(
+            "yoke_cli.transport.https.resolve_https_connection",
+            return_value=_https(),
+        ),
+        mock.patch.object(authority, "_call", side_effect=RuntimeError("unknown flow")),
+    ):
+        assert (
+            authority.creation_connection_error(
+                "create", project="customer", flow="missing", environment=None
+            )
+            is None
+        )

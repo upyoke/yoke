@@ -60,6 +60,8 @@ class CreatedRun(NamedTuple):
     replayed: bool
     #: ``None`` unkeyed; otherwise an ``idempotency.BASIS_*`` value.
     idempotency_basis: Optional[str]
+    #: The composition validator's message for a newly created run.
+    validation_message: str = ""
 
 
 def cmd_next_id(db_path: Optional[str] = None) -> str:
@@ -141,6 +143,7 @@ def create_run(
     allow_pending_pair_merges: bool = False,
     session_id: Optional[str] = None,
     actor_id: Optional[int] = None,
+    enroll_item_id: Optional[int] = None,
 ) -> CreatedRun:
     """Create a new deployment run, or return the one a keyed repeat names.
 
@@ -165,7 +168,12 @@ def create_run(
     An executing run on the same flow and target that waits only on item QA
     is taken over in this same transaction
     (:mod:`~yoke_core.domain.deployment_run_target_takeover`); *session_id*
-    and *actor_id* are the creator, audited on that run's removals.
+    and *actor_id* are the creator, audited on that run's removals, and
+    *session_id* is recorded as the run's creating session.
+
+    ``enroll_item_id`` enrolls that item in the same transaction, before
+    composition is validated with its item QA members; a refusal anywhere
+    leaves no run, membership or takeover behind.
     """
     run = {
         "flow": flow,
@@ -176,6 +184,7 @@ def create_run(
         "allow_pending_pair_merges": allow_pending_pair_merges,
         "session_id": session_id,
         "actor_id": actor_id,
+        "enroll_item_id": enroll_item_id,
     }
     request = {
         "environment": environment,
@@ -268,7 +277,7 @@ def _create_locked(
     timed_preparation(
         "create_takeover_settlement", _finish_superseded_run, conn, run_id
     )
-    return CreatedRun(run_id, False, basis)
+    return CreatedRun(run_id, False, basis, message)
 
 
 def _finish_superseded_run(conn, run_id: str) -> None:

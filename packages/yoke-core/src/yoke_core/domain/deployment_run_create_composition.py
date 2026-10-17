@@ -66,6 +66,27 @@ def run_target(
     return target_tier, target_environment_id
 
 
+def enroll_creating_item(conn: Any, run_id: str, item_id: int) -> None:
+    """Enroll the item a run is created for, inside the creation transaction.
+
+    A takeover in the same transaction may already have moved this item onto
+    the new run; that is the membership asked for, so it is not added twice.
+    """
+    from yoke_core.domain.deployment_run_carried_membership import admit_run_item
+    from yoke_core.domain.deployment_run_item_qa_membership import (
+        require_item_qa_membership_possible,
+    )
+
+    enrolled = conn.execute(
+        "SELECT 1 FROM deployment_run_items WHERE run_id = %s AND item_id = %s",
+        (run_id, int(item_id)),
+    ).fetchone()
+    if enrolled is not None:
+        return
+    require_item_qa_membership_possible(conn, run_id)
+    admit_run_item(conn, run_id=run_id, item_id=int(item_id), delivery_intent=None)
+
+
 def compose_run(
     conn: Any,
     run_id: str,
@@ -83,13 +104,22 @@ def compose_run(
     create_request: Optional[str] = None,
     session_id: Optional[str] = None,
     actor_id: Optional[int] = None,
+    enroll_item_id: Optional[int] = None,
 ) -> tuple[bool, str]:
     """Insert the run row, take over a run waiting on item QA on its target,
-    copy a retry's membership, and validate composition."""
+    copy a retry's membership, enroll *enroll_item_id*, and validate
+    composition. Everything shares the caller's transaction, so a refusal at
+    any step leaves no run, membership or takeover behind."""
     from yoke_core.domain.deployment_run_target_takeover import take_over_waiting_run
     from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
     from yoke_core.domain.deployment_start_timing import timed_preparation
+    from yoke_core.domain.workflow_item_binding_lock import (
+        lock_item_workflow_bindings,
+    )
 
+    if enroll_item_id is not None:
+        # Item bindings lock before any run row, the order add-item uses.
+        lock_item_workflow_bindings(conn, (int(enroll_item_id),))
     inserted = insert_run(
         conn,
         run_id=run_id,
@@ -103,6 +133,7 @@ def compose_run(
         artifact_identity=artifact_identity,
         create_idempotency_key=create_idempotency_key,
         create_request=create_request,
+        created_by_session_id=session_id,
     )
     if inserted is None:
         raise RuntimeError(f"deployment run ID {run_id} was claimed concurrently")
@@ -122,6 +153,8 @@ def compose_run(
         actor_id=actor_id,
         apply=not run_id.startswith(UNLOCKED_RUN_PREFIX),
     )
+    if enroll_item_id is not None:
+        enroll_creating_item(conn, run_id, int(enroll_item_id))
     # The row and any inherited members are provisional until the same
     # validator used by the explicit command has checked the pinned
     # sources, carried work, member flows, and dependencies. A refusal
@@ -133,7 +166,7 @@ def compose_run(
         allow_pending_pair_merges=allow_pending_pair_merges,
         connection=conn,
         # Itemless creation precedes add-item; start checks the count.
-        require_item_qa_members=False,
+        require_item_qa_members=enroll_item_id is not None,
     )
 
 
@@ -184,6 +217,7 @@ def validate_before_lock(
 __all__ = [
     "UNLOCKED_RUN_PREFIX",
     "compose_run",
+    "enroll_creating_item",
     "refuse_run_that_cannot_execute",
     "run_target",
     "validate_before_lock",

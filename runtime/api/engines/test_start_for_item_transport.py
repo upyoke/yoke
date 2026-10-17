@@ -29,6 +29,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
 )
+from yoke_core.domain.deployment_run_create_write import CreatedRun
 from yoke_core.engines import runs_start_for_item as composer
 from yoke_core.engines.runs_release_lineage import (
     NO_LOCAL_CHECKOUT,
@@ -184,27 +185,13 @@ def test_start_for_item_trusts_supplied_lineage_with_no_checkout(monkeypatch):
     )
     seen = {}
 
-    def _create(
-        project,
-        flow,
-        *,
-        environment,
-        release_lineage,
-        created_by,
-        allow_pending_pair_merges,
-        session_id,
-    ):
-        seen["release_lineage"] = release_lineage
-        seen["allow_pending_pair_merges"] = allow_pending_pair_merges
-        return "run-20260730-002"
+    def _create(project, flow, **kwargs):
+        seen["release_lineage"] = kwargs["release_lineage"]
+        seen["allow_pending_pair_merges"] = kwargs["allow_pending_pair_merges"]
+        return CreatedRun("run-20260730-002", False, None, "ok")
 
-    monkeypatch.setattr(composer, "cmd_create_run", _create)
-    monkeypatch.setattr(composer, "cmd_add_item", lambda *_a, **_k: "OK")
-    monkeypatch.setattr(
-        composer,
-        "cmd_validate_composition",
-        lambda *_a, **_k: (True, "ok"),
-    )
+    monkeypatch.setattr(composer, "require_tested_lineage", lambda *_a: None)
+    monkeypatch.setattr(composer, "create_run", _create)
     monkeypatch.setattr(_CHECKOUT_RESOLVER, lambda *_a, **_k: None)
     import yoke_core.domain.deploy_pipeline_gates as gates
 

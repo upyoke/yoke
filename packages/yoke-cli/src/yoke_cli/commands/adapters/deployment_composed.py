@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import shlex
 import sys
 from typing import List
 
@@ -14,6 +15,9 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     run_id_receipt,
     usage_error,
+)
+from yoke_cli.commands.adapters.deployment_execution_authority import (
+    creation_connection_error,
 )
 from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
 from yoke_contracts.api.function_call import TargetRef
@@ -162,6 +166,15 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
         DEPLOYMENT_RUNS_START_FOR_ITEM_USAGE,
     )
     if parsed is None:
+        return 2
+    if refusal := creation_connection_error(
+        f"start-for-item {shlex.join(args)}",
+        project=parsed.project,
+        flow=parsed.flow,
+        environment=parsed.environment,
+        item=parsed.item,
+    ):
+        print(f"error: {refusal}", file=sys.stderr)
         return 2
     payload = {
         key: value

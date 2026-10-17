@@ -127,6 +127,7 @@ def _ensure_flow_schema(conn) -> None:
             "membership_removals",
             "superseded_by_run_id",
             "supersedes_run_id",
+            "created_by_session_id",
             KEY_COLUMN,
             REQUEST_COLUMN,
         ):
