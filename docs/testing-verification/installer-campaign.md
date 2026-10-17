@@ -90,8 +90,24 @@ answers; the recipe contract refuses a keyed step without it when the case is
 saved and again before execution. A step never types into a screen on a timer.
 When the installer stops showing a prompt, remove that step from the source
 cases and sync the saved plan; do not keep a step that waits for nothing. The
-browser-approval gate is the one exception: it waits for its own `Open:` and
-`Match code:` context.
+browser-approval gate is the one keyed exception: it waits for its own `Open:`
+and `Match code:` context.
+
+A step only the person may do uses `operator_gate: human_action` with a
+`human_purpose` of `machine_approval`, `private_invite_entry` or
+`company_sign_in`. The gate never approves, types or carries a secret: the
+contract refuses `keys`, `ready_text` and `wait_seconds` on it, so the
+preceding step waits for the screen. It prints one `machine_qa.operator_gate`
+line (`kind: human_action`, `self_approving: false`) naming the purpose, where
+to act and what to do, then waits up to `gate_timeout_seconds` (1..1800) for
+`completion_text`. A machine approval names the displayed code and
+`yoke machine-authorization resolve CODE --action approve` for the person's
+already-connected machine; an invite is typed privately into the named
+terminal and never reaches the run. Failures are `human_action_context_missing`,
+`human_action_rejected`, `human_action_timed_out`,
+`human_action_heartbeat_failed` or `terminal_setup_exited`, each with a
+recovery. On Linux only browser approval and company sign-in start the desktop
+Chromium.
 
 A prompt that never appears fails its step as `terminal_action_not_ready`,
 with the evidence naming `step` and `waiting_for`. When the command under the

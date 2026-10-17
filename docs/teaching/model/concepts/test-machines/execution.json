@@ -3,6 +3,6 @@
  "title": "Remote QA execution",
  "status": "draft-copy",
  "commands": ["yoke test-machine exec"],
- "page": "test-machines",
+ "page": "test-machine-execution",
  "position": 2
 }

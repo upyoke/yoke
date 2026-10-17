@@ -10,6 +10,7 @@ from yoke_core.domain.machine_qa_action_readiness_contract import (
     registered_terminal_post_check,
 )
 from yoke_core.domain.machine_qa_operator_gate_contract import (
+    OPERATOR_GATE_FIELDS,
     normalize_operator_gate,
 )
 
@@ -146,13 +147,10 @@ def _actions(raw: Any) -> list[dict[str, Any]]:
     for action in raw:
         if not isinstance(action, Mapping):
             raise MachineQaRecipeError("actions must be objects")
-        allowed = {
+        allowed = OPERATOR_GATE_FIELDS | {
             "step",
             "keys",
             "capture",
-            "completion_text",
-            "gate_timeout_seconds",
-            "operator_gate",
             "ready_text",
             "ready_timeout_seconds",
             "target_environment",

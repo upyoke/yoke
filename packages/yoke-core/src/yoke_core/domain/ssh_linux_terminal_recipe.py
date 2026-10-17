@@ -17,7 +17,10 @@ from yoke_core.domain.ssh_mac_terminal_recipe_support import (
     stage_recipe_files,
 )
 from yoke_core.domain.ssh_mac_terminal_recipe_cleanup import with_staged_cleanup
-from yoke_core.domain.ssh_linux_browser_gate import checkpoint, run_browser_gate
+from yoke_core.domain.machine_qa_operator_gate_contract import (
+    gate_needs_desktop_browser,
+)
+from yoke_core.domain.ssh_linux_operator_gate import checkpoint, run_operator_gate
 from yoke_harness.ssh_linux_browser_approval import prepare_desktop_chromium
 from yoke_harness.ssh_linux_terminal import (
     LinuxTerminal,
@@ -58,7 +61,7 @@ def _interactive(
     result = HostActionResult(False, {}, "linux_terminal_recipe_failed")
     try:
         environment = None
-        if any(action.get("operator_gate") for action in config["actions"]):
+        if any(gate_needs_desktop_browser(action) for action in config["actions"]):
             prepared = prepare_desktop_chromium(control)
             if not prepared.ok:
                 return prepared
@@ -98,7 +101,7 @@ def _interactive(
                     "terminal_recipe_timed_out",
                 )
             if action.get("operator_gate"):
-                failed = run_browser_gate(
+                failed = run_operator_gate(
                     control,
                     terminal,
                     action,
@@ -106,8 +109,11 @@ def _interactive(
                     allowed_operator_urls,
                     progress_callback,
                 )
-                if failed is None:
-                    # The approval leaves visual proof whether or not it is a checkpoint.
+                if failed is None and (
+                    gate_needs_desktop_browser(action)
+                    or str(action["step"]) in config["capture_checkpoints"]
+                ):
+                    # A browser step leaves visual proof whether or not it is a checkpoint.
                     failed = checkpoint(control, rows)
                 if failed is not None:
                     return failed

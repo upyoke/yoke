@@ -36,7 +36,7 @@ def _terminal(monkeypatch, events, transcript, *, close_ok=True):
     monkeypatch.setattr(
         "yoke_core.domain.ssh_linux_terminal_recipe.LinuxTerminal", Terminal
     )
-    for module in ("ssh_linux_terminal_recipe", "ssh_linux_browser_gate"):
+    for module in ("ssh_linux_terminal_recipe", "ssh_linux_operator_gate"):
         monkeypatch.setattr(
             f"yoke_core.domain.{module}.send_recipe_keys",
             lambda *a, **kw: events.append(("keys", kw["keys"])) or True,

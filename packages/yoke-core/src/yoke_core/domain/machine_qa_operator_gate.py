@@ -19,18 +19,11 @@ from yoke_core.domain.machine_qa_phase_heartbeat import (
     emit_heartbeat_line,
 )
 from yoke_core.domain.machine_qa_setup_exit import step_failure
-from yoke_core.domain.ssh_mac_terminal_capture import RunRemote
 from yoke_harness.machine_browser_approval import BrowserApprovalResult
-from yoke_harness.ssh_mac_browser_approval import approve_machine_in_safari
-from yoke_core.domain.ssh_mac_terminal_recipe_support import (
-    capture_recipe_transcript,
-    read_recipe_exit_code,
-    send_recipe_keys,
-)
 
 
 BROWSER_APPROVAL_NOT_CONFIRMED = "machine_browser_approval_not_confirmed"
-_DENIAL_MARKERS = (
+DENIAL_MARKERS = (
     "authorization denied in the browser",
     "authorization expired",
     "hosted authorization expired",
@@ -50,7 +43,7 @@ class OperatorGateResult:
     step_evidence: dict[str, Any] | None = None
 
 
-def _labeled_value(transcript: str, label: str) -> str | None:
+def labeled_value(transcript: str, label: str) -> str | None:
     for line in transcript.splitlines():
         stripped = line.strip().lstrip("-•*").lstrip()
         if stripped.startswith(label):
@@ -67,7 +60,7 @@ def _approved_origin(origin: str, allowed_base_urls: tuple[str, ...]) -> bool:
     )
 
 
-def _current_gate_transcript(transcript: str, code: str) -> str:
+def current_gate_transcript(transcript: str, code: str) -> str:
     """Exclude retained output from machine approvals that preceded this code."""
 
     code_index = transcript.rfind(code)
@@ -91,7 +84,7 @@ def _emit_browser_approval(url: str, code: str, browser: str) -> None:
     )
 
 
-def _exited(
+def gate_exit_result(
     action: Mapping[str, Any],
     transcript: str,
     read_exit_code: Callable[[str], int | None],
@@ -115,44 +108,6 @@ def _exited(
     )
 
 
-def run_machine_browser_approval(
-    run: RunRemote,
-    *,
-    backend: str,
-    session: str,
-    status_path: str,
-    action: Mapping[str, Any],
-    progress_callback: Callable[[], None] | None,
-    allowed_base_urls: tuple[str, ...],
-) -> OperatorGateResult:
-    """Emit the live approval coordinates, start polling, and retain authority."""
-    return run_machine_browser_approval_with_io(
-        read_transcript=lambda: capture_recipe_transcript(
-            run,
-            backend=backend,
-            session=session,
-        ),
-        send_keys=lambda keys: send_recipe_keys(
-            run,
-            backend=backend,
-            session=session,
-            keys=keys,
-        ),
-        read_exit_code=lambda _transcript: read_recipe_exit_code(
-            run, status_path=status_path
-        ),
-        action=action,
-        progress_callback=progress_callback,
-        allowed_base_urls=allowed_base_urls,
-        browser="Safari",
-        approve_browser=lambda url, code: approve_machine_in_safari(
-            run,
-            verification_url=url,
-            user_code=code,
-        ),
-    )
-
-
 def run_machine_browser_approval_with_io(
     *,
     read_transcript: Callable[[], str],
@@ -170,10 +125,10 @@ def run_machine_browser_approval_with_io(
     setup that stopped before or during approval is named by its own exit.
     """
     transcript = read_transcript()
-    url = _labeled_value(transcript, "Open:")
-    code = _labeled_value(transcript, MATCH_CODE_LABEL)
+    url = labeled_value(transcript, "Open:")
+    code = labeled_value(transcript, MATCH_CODE_LABEL)
     if url is None or code is None:
-        exited = _exited(action, transcript, read_exit_code)
+        exited = gate_exit_result(action, transcript, read_exit_code)
         if exited is not None:
             return exited
         return OperatorGateResult(
@@ -230,14 +185,14 @@ def run_machine_browser_approval_with_io(
         )
     timeout_seconds = float(action["gate_timeout_seconds"])
     completion_text = tuple(action["completion_text"])
-    gate_code = _labeled_value(transcript, MATCH_CODE_LABEL)
+    gate_code = labeled_value(transcript, MATCH_CODE_LABEL)
     assert gate_code is not None
     started = time.monotonic()
     deadline = started + timeout_seconds
     next_heartbeat = 0.0
     while True:
         transcript = read_transcript()
-        gate_transcript = _current_gate_transcript(transcript, gate_code)
+        gate_transcript = current_gate_transcript(transcript, gate_code)
         lowered = gate_transcript.casefold()
         if all(marker in gate_transcript for marker in completion_text):
             return OperatorGateResult(
@@ -245,14 +200,16 @@ def run_machine_browser_approval_with_io(
                 transcript,
                 browser_evidence=approval.evidence,
             )
-        if any(marker in lowered for marker in _DENIAL_MARKERS):
+        if any(marker in lowered for marker in DENIAL_MARKERS):
             return OperatorGateResult(
                 False,
                 transcript,
                 "machine_browser_approval_rejected",
                 approval.evidence,
             )
-        exited = _exited(action, gate_transcript, read_exit_code, approval.evidence)
+        exited = gate_exit_result(
+            action, gate_transcript, read_exit_code, approval.evidence
+        )
         if exited is not None:
             return exited
         now = time.monotonic()
@@ -294,7 +251,10 @@ def run_machine_browser_approval_with_io(
 
 __all__ = [
     "BROWSER_APPROVAL_NOT_CONFIRMED",
+    "DENIAL_MARKERS",
     "OperatorGateResult",
-    "run_machine_browser_approval",
+    "current_gate_transcript",
+    "gate_exit_result",
+    "labeled_value",
     "run_machine_browser_approval_with_io",
 ]
