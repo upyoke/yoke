@@ -9,6 +9,7 @@ from typing import Any
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_message_types import ResolvedRecipient
+from yoke_core.domain.session_message_recipient_scope import recipient_owner
 
 
 def insert_session_receipt(
@@ -29,9 +30,9 @@ def insert_session_receipt(
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     conn.execute(
         "INSERT INTO session_message_recipients (message_id, session_id, "
-        "project_id, resolution_evidence, routing_snapshot, executor_surface, "
+        "project_id, org_id, resolution_evidence, routing_snapshot, executor_surface, "
         "executor_version, machine_id, state, created_at, wake_after) "
-        f"VALUES ({', '.join(marker for _ in range(11))}) "
+        f"VALUES ({', '.join(marker for _ in range(12))}) "
         "ON CONFLICT(message_id, session_id) DO UPDATE SET state='pending', "
         "wake_after=excluded.wake_after, injection_lease_id=NULL, "
         "injection_leased_at=NULL, injection_lease_expires_at=NULL, "
@@ -40,7 +41,7 @@ def insert_session_receipt(
         (
             message_id,
             recipient.session_id,
-            recipient.project_id,
+            *recipient_owner(recipient.routing_snapshot()),
             json.dumps(sorted(set(recipient.resolution))),
             json.dumps(recipient.routing_snapshot(), sort_keys=True),
             recipient.executor_surface,

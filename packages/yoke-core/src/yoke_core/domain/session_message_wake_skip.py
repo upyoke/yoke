@@ -32,7 +32,7 @@ from yoke_core.domain.session_surface_policy import (
     WAKE_SKIP_SURFACE_DISABLED,
     live_mark,
 )
-from yoke_core.domain.session_message_authorization import project_policy
+from yoke_core.domain.session_message_recipient_scope import recipient_policy
 from yoke_core.domain.session_message_types import parse_timestamp
 from yoke_core.domain.session_wake_failure_notice import notify_failed_wake
 
@@ -97,7 +97,7 @@ def record_wake_skip(
         row, operation, relay_versions, conn=conn
     )
     operator_route = reason == "surface_wake_operator_driven"
-    policy = project_policy(conn, int(row["project_id"]))
+    policy = recipient_policy(conn, row)
     previous = parse_timestamp(row.get("last_wake_at"))
     if not operator_route and previous is not None:
         if previous + timedelta(seconds=policy.wake_after_idle_seconds) > now:

@@ -28,8 +28,8 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def create_org_tables(conn: Any) -> None:
-    """Create org tables + ``projects.org_id`` FK, idempotently."""
+def create_organization_table(conn: Any) -> None:
+    """Create org identity before session scope or role grants reference it."""
     execute_schema_script(
         conn,
         """
@@ -41,7 +41,16 @@ def create_org_tables(conn: Any) -> None:
             settings TEXT NOT NULL DEFAULT '{}',
             created_at TIMESTAMPTZ NOT NULL
         );
+        """,
+    )
 
+
+def create_org_tables(conn: Any) -> None:
+    """Create org tables + ``projects.org_id`` FK, idempotently."""
+    create_organization_table(conn)
+    execute_schema_script(
+        conn,
+        """
         CREATE TABLE IF NOT EXISTS actor_org_roles (
             actor_id INTEGER NOT NULL REFERENCES actors(id),
             org_id INTEGER NOT NULL REFERENCES organizations(id),
@@ -193,6 +202,7 @@ __all__ = [
     "DEFAULT_ORG_SLUG",
     "DEFAULT_ORG_NAME",
     "create_org_tables",
+    "create_organization_table",
     "ensure_org_identity_card",
     "ensure_project_slug_org_scope",
     "org_id_by_slug",
