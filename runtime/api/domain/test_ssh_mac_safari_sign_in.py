@@ -20,6 +20,7 @@ from yoke_harness.ssh_mac_preserved_state import (
     SAFARI_COOKIE_HOME_ENTRY as COOKIES,
 )
 from yoke_harness.ssh_mac_sign_in_apps import (
+    SIGN_IN_APP_PROBE_FAILED,
     SIGN_IN_APP_QUIT_NOT_PROVED,
     quit_sign_in_apps,
 )
@@ -141,6 +142,33 @@ def test_safari_that_will_not_quit_refuses_without_force():
     assert not result.ok and result.error_code == SIGN_IN_APP_QUIT_NOT_PROVED
     assert "Quit Safari on the test machine" in result.evidence["recovery"]
     assert not any("kill" in c for c in host.commands)
+
+
+def test_a_failed_running_probe_is_not_read_as_safari_not_running():
+    def run(command: str, *, timeout: int = 60):
+        return SimpleNamespace(
+            returncode=124, stdout="", stderr="host_control subprocess unavailable"
+        )
+
+    result = quit_sign_in_apps(run, "tester")
+    assert not result.ok and result.error_code == SIGN_IN_APP_PROBE_FAILED
+    assert result.evidence["probe"] == "running"
+    assert result.evidence["exit_code"] == 124
+    assert result.evidence["stderr"] == "host_control subprocess unavailable"
+    assert "retry" in result.evidence["recovery"]
+
+
+def test_a_failed_exit_probe_is_not_read_as_safari_gone():
+    host = SafariHost(running=True, exits=True)
+
+    def run(command: str, *, timeout: int = 60):
+        if "while" in command:
+            return SimpleNamespace(returncode=255, stdout="", stderr="ssh: closed")
+        return host.run(command, timeout=timeout)
+
+    result = quit_sign_in_apps(run, "tester")
+    assert not result.ok and result.error_code == SIGN_IN_APP_PROBE_FAILED
+    assert result.evidence["probe"] == "exited"
 
 
 def test_capture_quits_safari_after_proving_probes_and_before_copying(monkeypatch):
