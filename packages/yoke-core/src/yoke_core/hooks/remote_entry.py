@@ -20,13 +20,14 @@ passes it in, and runs the returned ``flush_telemetry`` after responding.
 from __future__ import annotations
 
 import time
+import json
 from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Callable, Optional
 
 from yoke_contracts.session_model_facts import MODEL_FACT_FIELDS, SessionModelFacts
 from yoke_core.domain.session_usage_observation import USAGE_COLUMN
-from yoke_core.domain.project_scratch_dir import scratch_project
+from yoke_core.domain.project_scratch_dir import scratch_project, scratch_machine_owner
 
 from yoke_core.hooks.capability_resolve import resolve_capability
 from yoke_core.domain.hook_runner_deadline import resolve_total_timeout_ms
@@ -113,12 +114,19 @@ def evaluate_remote(
         controls.payload_extra[USAGE_COLUMN] = usage_totals.strip()
     if execution_level and execution_level.strip():
         controls.payload_extra["execution_level"] = execution_level.strip()
-    if project_id is not None:
-        controls.payload_extra["project_id"] = int(project_id)
+    controls.payload_extra["project_id"] = project_id
+    # The route authorizes stdin identity, never a replacement in payload_extra.
+    try:
+        identity = json.loads(stdin_data)
+    except (ValueError, TypeError):
+        identity = {}
+    for field in ("session_id", "identity_stamped"):
+        controls.payload_extra[field] = (
+            identity.get(field) if isinstance(identity, dict) else None
+        )
     if executor_version and executor_version.strip():
         controls.payload_extra["executor_version"] = executor_version.strip()
-    if machine_id and machine_id.strip():
-        controls.payload_extra["machine_id"] = machine_id.strip()
+    controls.payload_extra["machine_id"] = machine_id
     if native_thread_id and native_thread_id.strip():
         controls.payload_extra["native_thread_id"] = native_thread_id.strip()
     capability = resolve_capability(executor)
@@ -127,7 +135,13 @@ def evaluate_remote(
     # The authorized wire project owns every project-scoped path during this
     # run, including dedup before dispatch and lifecycle work in the tail.
     # Never mutate process-wide YOKE_PROJECT in a concurrent server.
-    scope = scratch_project(project_slug) if project_slug else nullcontext()
+    scope = (
+        scratch_project(project_slug)
+        if project_slug
+        else scratch_machine_owner(actor_id)
+        if actor_id is not None
+        else nullcontext()
+    )
     with scope:
         stdout, exit_code = run_event(
             event_name,

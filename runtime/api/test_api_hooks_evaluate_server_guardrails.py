@@ -219,11 +219,11 @@ def test_lifecycle_uses_wire_project_without_server_checkout(
 @pytest.mark.parametrize(
     "event_name", ["SessionStart", "UserPromptSubmit", "Stop", "SessionEnd"]
 )
-def test_missing_wire_project_never_reaches_remote_entry(
+def test_unbound_machine_request_never_reaches_remote_entry(
     client, monkeypatch, executor, event_name
 ):
     def unexpected_evaluation(**kwargs):
-        pytest.fail("missing wire project must be refused before remote_entry")
+        pytest.fail("unbound machine credential must be refused before remote_entry")
 
     monkeypatch.setattr(
         "yoke_core.api.routes.hooks.evaluate_remote", unexpected_evaluation
@@ -234,4 +234,4 @@ def test_missing_wire_project_never_reaches_remote_entry(
     )
     assert response.status_code == 200
     assert response.json()["outcome"] == "denied"
-    assert "no configured project id" in response.json()["stdout"]
+    assert "machine_credential_required" in response.json()["stdout"]

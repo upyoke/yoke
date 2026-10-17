@@ -133,19 +133,61 @@ class HookScopeDecision:
     project_slug: str = ""
     denial_code: str | None = None
     reason: str = ""
+    project_id: int | None = None
 
 
 def authorize_hook_request(
-    actor_id: int | None, project_id: int | None, session_ids: Collection[str]
+    actor_id: int | None,
+    project_id: int | None,
+    session_ids: Collection[str],
+    *,
+    machine_id: str | None = None,
+    authenticated_machine_id: str | None = None,
+    event_name: str | None = None,
 ) -> HookScopeDecision:
+    """Authorize stored scope; event context additionally admits real registration.
+
+    Machine identity comes from verified HTTP auth, never the request alone.
+    Callers pass the returned project id/slug to evaluation and registration.
+    ``machine_id`` is claimed, ``authenticated_machine_id`` is credential-bound.
+    ``event_name=None`` checks scope only; an event also checks registration
+    admission, with terminal events retaining owner-operation authority.
+    """
     try:
         with db_helpers.connect() as conn:
+            marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+            scopes = set()
+            rows = []
+            for session_id in session_ids:
+                if session_ownership_refusal(conn, session_id, actor_id):
+                    return HookScopeDecision(
+                        denial_code="HOOK_SESSION_DENIED",
+                        reason="Hook session ownership denied. Recovery: relay through the connection whose actor owns the session.",
+                    )
+                row = conn.execute(
+                    "SELECT project_id,org_id,machine_id FROM harness_sessions "
+                    f"WHERE session_id={marker}",
+                    (session_id,),
+                ).fetchone()
+                if row is not None:
+                    rows.append(row)
+                    stored = session_scope_of(dict(row))
+                    scopes.add(stored.project_id)
+            if len(scopes) > 1:
+                return HookScopeDecision(
+                    denial_code="HOOK_SESSION_DENIED",
+                    reason="Hook sessions have incompatible scopes. Recovery: send each session with its own scope.",
+                )
+            if scopes:
+                project_id = scopes.pop()
             if project_id is not None:
                 visible = actor_visible_project_ids(conn, actor_id) or set()
                 if project_id in visible:
                     slug = resolve_project_slug(conn, project_id)
                     if slug:
-                        return HookScopeDecision(project_slug=slug)
+                        return HookScopeDecision(
+                            project_slug=slug, project_id=project_id
+                        )
                 return HookScopeDecision(
                     denial_code="HOOK_PROJECT_DENIED",
                     reason="Hook project access denied. Recovery: use a connection with project membership.",
@@ -155,13 +197,37 @@ def authorize_hook_request(
                     denial_code="HOOK_SESSION_DENIED",
                     reason="Hook actor authentication is required. Recovery: reconnect with `yoke connection set`.",
                 )
-            for session_id in session_ids:
-                if session_ownership_refusal(conn, session_id, actor_id):
+            if event_name:
+                if not authenticated_machine_id:
                     return HookScopeDecision(
-                        denial_code="HOOK_SESSION_DENIED",
-                        reason="Hook session ownership denied. Recovery: relay through the connection whose actor owns the session.",
+                        denial_code="machine_credential_required",
+                        reason="Hook registration requires a machine-bound credential. Recovery: reconnect this machine with the installer.",
                     )
+                if machine_id != authenticated_machine_id:
+                    return HookScopeDecision(
+                        denial_code="machine_credential_mismatch",
+                        reason="Hook machine does not match its authenticated credential. Recovery: reconnect this machine with the installer.",
+                    )
+                if any(row["machine_id"] != authenticated_machine_id for row in rows):
+                    return HookScopeDecision(
+                        denial_code="machine_credential_mismatch",
+                        reason="Hook machine identity differs from the session. Recovery: reconnect this machine with the installer.",
+                    )
+                if event_name not in {"Stop", "SessionEnd", "SubagentStop"}:
+                    retained = resolve_registration_scope(
+                        conn,
+                        actor_id=actor_id,
+                        project_id=None,
+                        machine_scope=True,
+                    )
+                    if any(row["org_id"] != retained.org_id for row in rows):
+                        raise SessionError(
+                            "SESSION_ORG_UNRESOLVED",
+                            "Session authority differs. Recovery: reconnect with `yoke connection set`.",
+                        )
             return HookScopeDecision()
+    except SessionError as exc:
+        return HookScopeDecision(denial_code=exc.code, reason=str(exc))
     except Exception:
         return HookScopeDecision(
             denial_code="HOOK_SCOPE_AUTH_UNAVAILABLE",

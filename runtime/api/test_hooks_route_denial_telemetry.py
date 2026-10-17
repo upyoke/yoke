@@ -1,6 +1,6 @@
 """Coverage for the pre-dispatch hooks-evaluate route refusals' denial telemetry.
 
-``_refuse_conversation_shaped`` and ``_authorize_project`` return
+``_refuse_conversation_shaped`` and ``_authorize_scope`` return
 ``outcome="denied"`` before ``evaluate_remote``/``run_event`` ever runs, so
 no guard module gets a chance to call ``emit_denial_event`` — these two
 refusal shapes used to leave no durable ``HarnessToolCallDenied`` row.
@@ -10,12 +10,11 @@ from __future__ import annotations
 
 from fastapi import BackgroundTasks
 import json
-from types import SimpleNamespace
 from unittest import mock
 
 from yoke_core.api.routes.hooks import (
     HookEvaluateRequest,
-    _authorize_project,
+    _authorize_scope,
     _guard_revision_skew_reason,
     _refuse_conversation_shaped,
     post_hooks_evaluate,
@@ -26,6 +25,8 @@ from yoke_core.api.routes.hooks_denial_audit import (
 )
 from yoke_core.hooks.denial import build_denial_payload
 from yoke_core.hooks.remote_entry import RemoteEvaluation
+from yoke_core.api.http_auth import HttpAuthContext
+from yoke_core.domain.session_scope_identity import HookScopeDecision
 
 
 def _request(stdin: dict, **overrides) -> HookEvaluateRequest:
@@ -92,38 +93,46 @@ def test_a_stamp_without_an_identity_still_denies() -> None:
     canonical.assert_called_once()
 
 
-def test_missing_project_id_denies_and_emits() -> None:
+def test_unbound_machine_credential_denies_and_emits() -> None:
     request = _request({"session_id": "sid-1"}, project_id=None)
-    with mock.patch("yoke_core.hooks.denial.emit_denial_event") as canonical:
-        project_slug, response = _authorize_project(1, request)
+    decision = HookScopeDecision(
+        denial_code="machine_credential_required",
+        reason="A machine-bound credential is required. Recovery: reconnect this machine with the installer.",
+    )
+    with (
+        mock.patch("yoke_core.hooks.denial.emit_denial_event") as canonical,
+        mock.patch(
+            "yoke_core.api.routes.hooks.authorize_hook_request", return_value=decision
+        ),
+    ):
+        authorized, response = _authorize_scope(HttpAuthContext(1, 1, "test"), request)
     assert response is not None
-    assert project_slug == ""
+    assert authorized == decision
     canonical.assert_called_once()
     kwargs = canonical.call_args.kwargs
-    assert kwargs["check_id"] == "project_authorization"
+    assert kwargs["check_id"] == "machine_credential_required"
     assert kwargs["client_revision"] == "clientsha1234"
-    # The denial teaches the isolated-config alternative at the point of
-    # confusion, so a scratch/canary checkout is never registered into the
-    # shared machine config to clear it.
-    assert "YOKE_MACHINE_CONFIG_FILE" in kwargs["reason"]
+    assert decision.reason in kwargs["reason"]
+    assert "Recovery: reconnect" in kwargs["reason"]
 
 
 def test_actor_without_project_visibility_denies_and_emits() -> None:
     request = _request({"session_id": "sid-1"}, project_id=7)
     with (
         mock.patch(
-            "yoke_core.domain.actor_project_visibility.actor_visible_project_ids",
+            "yoke_core.domain.session_scope_identity.actor_visible_project_ids",
             return_value={1, 2},
         ),
-        mock.patch("yoke_core.domain.db_helpers.connect"),
+        mock.patch("yoke_core.domain.db_helpers.connect") as connect,
         mock.patch("yoke_core.hooks.denial.emit_denial_event") as canonical,
     ):
-        project_slug, response = _authorize_project(1, request)
+        connect.return_value.__enter__.return_value.execute.return_value.fetchone.return_value = None
+        authorized, response = _authorize_scope(HttpAuthContext(1, 1, "test"), request)
     assert response is not None
-    assert project_slug == ""
+    assert authorized.project_slug == ""
     canonical.assert_called_once()
     kwargs = canonical.call_args.kwargs
-    assert kwargs["check_id"] == "project_authorization"
+    assert kwargs["check_id"] == "HOOK_PROJECT_DENIED"
     assert kwargs["mode"] == "deny"
 
 
@@ -168,11 +177,14 @@ def test_skew_annotation_preserves_the_actual_denying_check() -> None:
     with (
         mock.patch(
             "yoke_core.api.routes.hooks.require_auth_context",
-            return_value=SimpleNamespace(actor_id=1),
+            return_value=HttpAuthContext(1, 1, "test"),
         ),
         mock.patch(
-            "yoke_core.api.routes.hooks._authorize_project",
-            return_value=("example", None),
+            "yoke_core.api.routes.hooks._authorize_scope",
+            return_value=(
+                HookScopeDecision(project_id=1, project_slug="example"),
+                None,
+            ),
         ),
         mock.patch("yoke_core.api.routes.hooks.evaluate_remote", return_value=denial),
         mock.patch(

@@ -3,8 +3,8 @@
  "title": "Start and attach",
  "status": "draft-copy",
  "text": "A session registers in its mapped project, or in its authority's organization outside a project. Its scope stays fixed across retries and reinstallation. Calls below the machine-scope serving floor refuse with the required release and recovery: start the agent inside a registered project folder.",
- "verification": "Source registration and transport regressions cover this contract; deployed harness proof remains pending.",
- "sources": ["packages/yoke-core/src/yoke_core/hooks/sessions_lifecycle.py", "packages/yoke-core/src/yoke_core/hooks/sessions_cli.py", "runtime/api/test_secondary_domains_harness_sessions.py"],
+ "verification": "Source regressions verify real machine-bound HTTP hooks persist org-owned sessions across Claude, Codex and Cursor. An unbound or mismatched credential refuses with reconnect-machine recovery. Deployed harness proof remains pending.",
+ "sources": ["packages/yoke-core/src/yoke_core/hooks/sessions_lifecycle.py", "packages/yoke-core/src/yoke_core/hooks/sessions_cli.py", "packages/yoke-core/src/yoke_core/api/routes/hooks.py", "runtime/api/test_api_hooks_evaluate_route_actor.py"],
  "page": "sessions",
  "position": 0
 }

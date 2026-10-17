@@ -27,9 +27,8 @@ from fastapi import BackgroundTasks, Request
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 
-from yoke_contracts.machine_config import runtime as machine_config_runtime
 from yoke_contracts.session_model_facts import facts_from_mapping
-from yoke_core.api.http_auth import require_auth_context
+from yoke_core.api.http_auth import HttpAuthContext, require_auth_context
 from yoke_core.api.observability import (
     now_ms,
     record_counter,
@@ -37,6 +36,10 @@ from yoke_core.api.observability import (
     request_phases,
 )
 from yoke_core.domain.execution_provenance import collect_execution_provenance
+from yoke_core.domain.session_scope_identity import (
+    HookScopeDecision,
+    authorize_hook_request,
+)
 from yoke_core.domain.hook_runner_deadline import resolve_total_timeout_ms
 from yoke_core.hooks.relayed_session_identity import (
     refusal_text,
@@ -88,7 +91,7 @@ def post_hooks_evaluate(
     )
     auth = require_auth_context(http_request)
     observed_at = datetime.now(timezone.utc)
-    project_slug, auth_error = _authorize_project(auth.actor_id, request)
+    scope, auth_error = _authorize_scope(auth, request)
     if auth_error is not None:
         from yoke_core.hooks.session_turn_posture_tail import (
             persist_authorization_denied_turn_end,
@@ -115,8 +118,8 @@ def post_hooks_evaluate(
         model_facts=facts_from_mapping(request.model_dump()),
         usage_totals=request.usage_totals,
         execution_level=request.execution_level,
-        project_id=request.project_id,
-        project_slug=project_slug,
+        project_id=scope.project_id,
+        project_slug=scope.project_slug,
         executor_version=request.executor_version,
         machine_id=request.machine_id,
         native_thread_id=request.native_thread_id,
@@ -278,50 +281,23 @@ def _refuse_conversation_shaped(request: HookEvaluateRequest) -> JSONResponse | 
     )
 
 
-def _authorize_project(
-    actor_id: int,
+def _authorize_scope(
+    auth: HttpAuthContext,
     request: HookEvaluateRequest,
-) -> tuple[str, JSONResponse | None]:
-    """Return the authorized project's slug, or the denial to send instead."""
-    project_id = request.project_id
-    if project_id is None:
-        reason = (
-            "Yoke hook registration denied: this checkout has no "
-            "configured project id. Run Yoke setup for this checkout if it "
-            "is a real project. For an isolated scratch/canary checkout, do "
-            "not register it in the shared machine config — set "
-            f"{machine_config_runtime.CONFIG_FILE_ENV} to a throwaway config "
-            "file for this process tree and register the checkout there "
-            "instead, so shared checkout routing for the real project is "
-            "never touched."
-        )
-        return "", _project_denial(reason, request)
-    try:
-        from yoke_core.domain import db_helpers
-        from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
-        from yoke_core.domain.project_identity import resolve_project_slug
-
-        with db_helpers.connect() as conn:
-            visible = actor_visible_project_ids(conn, actor_id) or set()
-            project_slug = (
-                resolve_project_slug(conn, int(project_id))
-                if int(project_id) in visible
-                else ""
-            )
-    except Exception:
-        reason = "Yoke hook registration denied: project auth unavailable."
-        return "", _project_denial(reason, request)
-    if project_slug:
-        return project_slug, None
-    reason = (
-        f"Yoke hook registration denied: actor cannot access project {int(project_id)}."
+) -> tuple[HookScopeDecision, JSONResponse | None]:
+    decision = authorize_hook_request(
+        auth.actor_id,
+        request.project_id,
+        [str(_stdin_payload(request).get("session_id") or "")],
+        machine_id=request.machine_id,
+        authenticated_machine_id=auth.machine_id,
+        event_name=request.event_name,
     )
-    return "", _project_denial(reason, request)
-
-
-def _project_denial(reason: str, request: HookEvaluateRequest) -> JSONResponse:
-    _emit_route_denial("project_authorization", reason, request)
-    return JSONResponse(
+    if decision.denial_code is None:
+        return decision, None
+    reason = f"{decision.denial_code}: {decision.reason}"
+    _emit_route_denial(decision.denial_code, reason, request)
+    return decision, JSONResponse(
         content=HookEvaluateResponse(
             stdout=f"{reason}\n",
             exit_code=1,
