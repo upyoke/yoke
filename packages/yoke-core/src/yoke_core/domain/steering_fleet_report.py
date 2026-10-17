@@ -1,9 +1,8 @@
 """What the steering seat cannot see from inside its own turn.
 
 Composes only the requested report view; it decides and launches nothing.
-
-The staffing threshold bounds how long runnable work may sit unclaimed.
-It allows the brief claim handoff at lifecycle boundaries.
+The staffing threshold bounds how long runnable work may sit unclaimed,
+allowing the brief claim handoff at lifecycle boundaries.
 
 ``idle_after_seconds`` answers "how long must a claim holder be quiet before
 it is presumed stuck" — a judgment about a worker mid-task, not a queue, and
@@ -35,12 +34,11 @@ freeze. Inferring a hold from age would hide real unstaffed work.
 
 from __future__ import annotations
 
-from yoke_contracts.timestamps import parse_instant
-
-from datetime import datetime
-
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Mapping
+
+from yoke_contracts.timestamps import parse_instant
 
 from yoke_core.domain.dependency_cycles import DependencyCycle
 from yoke_core.domain.dependency_cycles_read import seat_cycles
@@ -90,6 +88,7 @@ from yoke_core.domain.steering_fleet_report_stranded import StrandedSession
 from yoke_core.domain.steering_fleet_report_undelivered import UndeliveredMessages
 from yoke_core.domain.steering_fleet_report_vendor_errors import VendorErrorSession
 from yoke_core.domain.steering_message_recipients import awaiting_seat_count
+from yoke_core.domain import steering_fleet_report_waiting_chains as chains
 
 
 @dataclass(frozen=True)
@@ -146,6 +145,7 @@ class FleetReport:
     level_overrides: tuple[tuple[str, str], ...] = ()
     session_labels: tuple[tuple[str, str], ...] = ()
     deadlocks: tuple[DependencyCycle, ...] = ()
+    waiting_chains: tuple[chains.WaitingChain, ...] = ()
 
     def waited_too_long(self) -> tuple[FrontierEntry, ...]:
         """Available work past the staffing threshold: the alarm, not the list.
@@ -326,6 +326,7 @@ def compose_report(
         test_machines=facts.test_machines,
         relay_health=facts.relay_health,
         deadlocks=tuple(seat_cycles(conn, facts.deadlocks, members)),
+        waiting_chains=chains.seat_chains(facts.waiting_chains, members),
         levels=facts.levels,
         level_overrides=read_level_overrides(conn, refs)
         if request.include_inventory

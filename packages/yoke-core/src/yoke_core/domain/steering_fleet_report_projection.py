@@ -331,6 +331,7 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
                 ],
                 "messages_awaiting_seat": report.messages_awaiting_seat,
                 "deadlocks": [cycle.to_dict() for cycle in report.deadlocks],
+                "waiting_chains": [c.to_dict() for c in report.waiting_chains],
             }
         ),
         report.session_labels,
