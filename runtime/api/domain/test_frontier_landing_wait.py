@@ -7,6 +7,8 @@ the Frontier computation, ``frontier.list`` (the web Frontier and
 
 from __future__ import annotations
 
+from itertools import permutations
+
 from runtime.api.fixtures.backlog import insert_item, insert_item_worktree
 from yoke_core.domain.frontier_landing_wait import landing_wait_reason
 from yoke_core.domain.frontier_list_read import list_frontier
@@ -59,8 +61,8 @@ def test_the_sentence_names_each_blocker_once_per_condition():
             ("YOK-9", "fact:deployed:prod"),
         ]
     ) == (
-        "Waiting on YOK-31, YOK-35 to merge and PLAT-2 to be done "
-        "and YOK-9 to be live on prod"
+        "Waiting on PLAT-2 to be done and YOK-9 to be live on prod "
+        "and YOK-31, YOK-35 to merge"
     )
 
 
@@ -115,3 +117,19 @@ def test_the_fleet_report_lists_it_as_waiting_to_land_not_available(test_db):
     assert f"{LANDING_WAIT_HEADING}:" in body
     assert f"  YOK-33  {SENTENCE}  built 33" in body
     assert report_dict(report)["landing_waits"][0]["reason"] == SENTENCE
+
+
+def test_blocker_order_never_changes_the_landing_wait_sentence():
+    blockers = [
+        ("PLAT-10", "fact:merged"),
+        ("YOK-10", "status:done"),
+        ("PLAT-2", "fact:merged"),
+        ("YOK-2", "status:done"),
+        ("YOK-2", "fact:deployed:prod"),
+    ]
+    expected = (
+        "Waiting on PLAT-2, PLAT-10 to merge and YOK-2 to be live on prod "
+        "and YOK-2, YOK-10 to be done"
+    )
+    for ordering in permutations(blockers):
+        assert landing_wait_reason(iter(ordering)) == expected

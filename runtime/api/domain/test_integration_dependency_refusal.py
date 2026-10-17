@@ -58,6 +58,14 @@ def test_blocked_gate_names_each_blocker_and_the_recovery():
         _gate({"is_blocked": True, "unsatisfied_blockers": [_BLOCKER]}),
         resume_command="yoke merge item YOK-200 --json",
     )
+    assert (
+        "Keep your work claim and lane; do not release or end the session; the notice wakes you as holder."
+        in refusal
+    )
+    assert (
+        'yoke sessions touch --mode parked --reason "awaiting <BLOCKER> integration"'
+        in refusal
+    )
     assert refusal.startswith("integration_dependency_blocked: YOK-200")
     assert "YOK-100 (implementing): needs the new column" in refusal
     assert "re-run `yoke merge item YOK-200 --json`" in refusal
