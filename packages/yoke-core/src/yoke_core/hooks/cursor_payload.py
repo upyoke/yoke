@@ -41,6 +41,7 @@ from typing import Any, Dict
 from yoke_cli.config import machine_config
 from yoke_contracts import cursor_session_map
 from yoke_contracts.cursor_remount_expect import REMOUNT_REFUSAL_PAYLOAD_FIELD
+from yoke_contracts.cursor_tool_names import CURSOR_TOOL_NAME_CANONICAL
 from yoke_contracts.cursor_shell_timing import (
     CURSOR_SHELL_EVENTS,
     annotate_cursor_shell_payload,
@@ -50,14 +51,6 @@ from yoke_contracts.payload_session_fold import (
     fold_conversation_session_id,
     fold_payload_session_id,
 )
-
-
-# Cursor tool vocabulary -> canonical chain matcher vocabulary. Only names
-# that differ are listed; unknown names pass through to PreToolUse ``_default``.
-_TOOL_NAME_CANONICAL: Dict[str, str] = {
-    "Shell": "Bash",
-    "StrReplace": "Edit",
-}
 
 
 def read_stdin() -> str:
@@ -104,8 +97,8 @@ def parse_payload(payload: str) -> Dict[str, Any]:
     event = str(data.get("hook_event_name", ""))
 
     tool_name = data.get("tool_name")
-    if isinstance(tool_name, str) and tool_name in _TOOL_NAME_CANONICAL:
-        data["tool_name"] = _TOOL_NAME_CANONICAL[tool_name]
+    if isinstance(tool_name, str) and tool_name in CURSOR_TOOL_NAME_CANONICAL:
+        data["tool_name"] = CURSOR_TOOL_NAME_CANONICAL[tool_name]
 
     if event in CURSOR_SHELL_EVENTS:
         if "tool_name" not in data:
