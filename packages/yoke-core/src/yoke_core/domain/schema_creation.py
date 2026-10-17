@@ -23,6 +23,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.auth_schema import create_auth_tables
 from yoke_core.domain.decision_request_schema import create_decision_request_tables
 from yoke_core.domain.events_function_index import ensure_function_index
+from yoke_core.domain.events_retention_index import ensure_retention_index
 from yoke_core.domain.events_schema import ensure_event_schema
 from yoke_core.domain.external_identity_schema import create_external_identity_tables
 from yoke_core.domain.field_note_dash_promotion import (
@@ -158,6 +159,7 @@ def _create_in_dependency_order(conn: Any) -> None:
     ensure_ouroboros_entry_corrections_schema(conn)
     conn.commit()
     ensure_function_index(conn)
+    ensure_retention_index(conn)
     # Strategy authority landed on prod via a since-retired governed
     # migration; fresh envs get the table from the same DDL constant
     # the strategy domain owns.

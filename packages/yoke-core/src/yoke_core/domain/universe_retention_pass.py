@@ -55,12 +55,24 @@ def _table_failure(rule, exc):
     }
 
 
-def _skipped(rule):
+LIMIT_REASONS = {
+    "57014": "a query hit its statement timeout",
+    "55P03": "a lock wait hit its lock timeout",
+}
+
+
+def _skipped(rule, exc):
+    limit = LIMIT_REASONS.get(getattr(exc, "sqlstate", ""), "the pass budget ran out")
+    recovery = (
+        "Other tables continued. Rerun universe prune when readers of this table are quieter."
+        if getattr(exc, "sqlstate", "") == "55P03"
+        else "Other tables continued. If it repeats, ask the universe administrator to inspect this table's indexes and size."
+    )
     return {
         "table": rule.table,
         "code": "retention_table_limit",
-        "reason": "a statement or lock limit was reached with the full pass budget",
-        "recovery": "Other tables continued. Rerun universe prune when the table is quieter; if it repeats, ask the universe administrator to inspect this table's indexes and locks.",
+        "reason": f"{limit} while the pass had its full budget",
+        "recovery": recovery,
     }
 
 
@@ -112,7 +124,7 @@ def prune_pass(conn, request):
             if not full_budget:
                 # The deadline clipped this cohort: resume here next pass.
                 return result
-            result["skipped"].append(_skipped(rule))
+            result["skipped"].append(_skipped(rule, exc))
             full_budget = False
             index += 1
             continue
