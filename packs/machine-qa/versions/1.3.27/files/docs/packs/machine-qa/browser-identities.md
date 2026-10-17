@@ -26,11 +26,12 @@ requested, announced personal sign-in handoff, never a test acceptance check.
 
 ## Desktop browser checks
 
-Candidate source checks the selected automation identity first, then the Test
-Machine's snap Chromium on Linux or Safari on macOS in one remote GUI command:
+The combined authorization contract checks the selected automation identity
+first, then the Test Machine's snap Chromium on Linux or Safari on macOS in
+the same remote GUI process. Explicitly opt in to desktop checks:
 
 ```text
-yoke browser authorize --project P --identity NAME --machine MACHINE
+yoke browser authorize --project PROJECT --identity IDENTITY --machine NAME --desktop-browser
 ```
 
 Declare that identity's sites, signed-in probes and account names in
@@ -42,13 +43,13 @@ Allow the executing terminal to read the native cookie store and unlock the
 user's keyring. Unreadable cookies or unreachable probes refuse before tabs
 open: repair the named access or network condition, then retry.
 
-On the Test Machine, `yoke browser authorize --project P --identity NAME
---desktop-browser` checks only its native browser. Do not use `--reset`:
-desktop-only reset refuses; desktop sign-ins stay live outside goldens.
-Automation identity profiles retain their existing behavior. This is an
-unmerged source candidate; require release-matched help and operation receipts
-before relying on installed support. Real-host sign-in and reset proof remain
-separate from source checks.
+Without `--desktop-browser`, `--machine NAME` retains the existing remote
+automation-only contract. The desktop flag opts into combined checks, not a
+native-only operation. Do not use `--reset` for desktop sign-ins: they stay
+live outside goldens. Automation identity profiles retain their existing
+behavior. This corrected contract awaits a committed, verified successor;
+require release-matched help and operation receipts before relying on installed
+support. Real-host sign-in and reset proof remain separate from source checks.
 
 ## macOS sign-in procedure
 
