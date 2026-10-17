@@ -2,7 +2,7 @@
 
 A workspace carrying both `.cursor/hooks.json` and `.claude/settings.json`
 routes every Cursor tool call through the imported Claude hooks alone —
-Cursor stops firing its own beforeShellExecution / afterShellExecution /
+Cursor stops firing its own beforeShellExecution /
 preToolUse / postToolUse there. Discarding that invocation as a duplicate
 leaves the session with no tool-shaped hook at all: no guards, no
 telemetry, no heartbeat, and no inbound message injection.
@@ -64,7 +64,6 @@ def _write_cursor_owner(
             ("beforeShellExecution", "preToolUse"),
             "PreToolUse",
         ),
-        ("PostToolUse", ("afterShellExecution", "postToolUse"), "PostToolUse"),
         ("PostToolUse", "postToolUse", "PostToolUse"),
         ("PostToolUseFailure", "postToolUseFailure", "PostToolUseFailure"),
     ),
@@ -77,7 +76,7 @@ def test_imported_claude_tool_hook_is_never_a_duplicate(
 ) -> None:
     """A tool call fires the imported Claude hook and nothing else.
 
-    Cursor stops firing its own beforeShellExecution / afterShellExecution /
+    Cursor stops firing its own beforeShellExecution /
     preToolUse / postToolUse once a workspace carries `.claude/settings.json`,
     so a native owner entry for the same verb proves nothing about a second
     invocation — skipping here drops the tool call's only hook.
@@ -100,7 +99,7 @@ def test_imported_claude_tool_hook_is_never_a_duplicate(
     ("runner_event", "native_events"),
     (
         ("PreToolUse", ("beforeShellExecution", "preToolUse")),
-        ("PostToolUse", ("afterShellExecution", "postToolUse")),
+        ("PostToolUse", ("postToolUse",)),
     ),
 )
 def test_imported_claude_tool_hook_reaches_transport(

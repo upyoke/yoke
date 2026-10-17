@@ -57,9 +57,13 @@ def _delivery_port() -> SessionMessageDeliveryPort:
 
 
 def _cursor_native_event_visible(context: HookContext) -> bool:
-    """Refuse Cursor's audit-only ``afterShellExecution``, which
-    canonicalizes to the same runner ``PostToolUse`` event as the real
-    ``postToolUse`` but has no model-visible reply channel."""
+    """Refuse a Cursor native event with no model-visible reply channel.
+
+    Generated config never wires one to an injecting runner event, but a
+    config written by another installed release may: its audit-only
+    ``afterShellExecution`` canonicalizes to the same runner ``PostToolUse``
+    as ``postToolUse``. Leasing there would settle the message as injected
+    into a reply the model never reads."""
     if context.executor_family != "cursor":
         return True
     native_event = str(context.payload.get("hook_event_name") or "")
