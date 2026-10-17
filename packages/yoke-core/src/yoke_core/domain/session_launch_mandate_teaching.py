@@ -25,7 +25,9 @@ PROGRESS_CHECKPOINT_TEACHING = (
     "live stage, what is committed, what is still uncommitted in the lane, "
     "and the next concrete step: "
     '`yoke items progress-log append PREFIX-N --headline "<checkpoint>" '
-    "--stdin`. When the item you claim is already past its first stage, you "
+    "--stdin`. Keep the entry body within 4,096 UTF-8 bytes; write only what "
+    "changed and the next step, and move evidence to artifacts or field-notes. "
+    "When the item you claim is already past its first stage, you "
     "are that successor: before acting, read "
     "`yoke items section get PREFIX-N --section 'Progress Log'` and the "
     "lane's `git status` and `git log`, keep the uncommitted work you find, "

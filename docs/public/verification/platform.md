@@ -120,6 +120,12 @@ a live item row whose case left the plan refuses `qa_plan_rows_orphaned`
 before writing and names the rematerialize that retires it.
 rematerialize refreshes amended rows, retires removed cases, and reports all
 plan_ids reached, including already-answered plans (refresh without new rows).
+Item refresh skips shared copies on runs the item no longer belongs to;
+remaining members retain their shared rows and live executions. `--plan`
+filters deployment refresh only; remove it when using `--item`. A lookup
+failure refuses `qa_refresh_subject_unavailable`: inspect the item attachments
+or run membership, correct the selected subject, then retry. Recovery for
+a stale removed-member row names no unreachable refresh command.
 On an item, a removed post_deploy case replaced by exactly one created row
 (same item/transition/phase/environment/baseline) is superseded by it
 (superseded_requirement_ids), so the corrected case's run copies close the

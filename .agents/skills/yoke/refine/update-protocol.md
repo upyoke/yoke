@@ -112,3 +112,5 @@ fields, every write read back, target reached, claim released and report shown.
 Blitz additionally needs exactly one linked/readback execution document.
 DB read failure stops; an operator question is a checkpoint—answer before
 continuing. Failed work cannot advance.
+
+Keep each entry body at or below 4,096 UTF-8 bytes; write only what changed and the next step, and move evidence to artifacts or field-notes.

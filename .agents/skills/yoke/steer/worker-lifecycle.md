@@ -189,3 +189,5 @@ yoke claims work holder-get PREFIX-N
    steps rather than replay. item_has_live_worker means finish termination first.
 4. By live deadline_at require succeeded registration and holder-get names
    successor. New worker reports its own leg; predecessor sends no further mail.
+
+Keep each entry body at or below 4,096 UTF-8 bytes; write only what changed and the next step, and move evidence to artifacts or field-notes.

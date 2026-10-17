@@ -4,12 +4,12 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "When a landing notice reports a stopped queue, failed check or unavailable automatic wake.",
- "need": "Identify the actual check/protection/ownership problem and the supported same-item recovery; a green check is not itself a merge receipt. Standalone close-out waits only for push-owned checks. A cancelled push follows a proven descendant with replacement push workflows, reports the superseding SHA and retains the original deadline. Merge receipts keep the item's own landing identity when another target push arrives before close-out.",
+ "need": "Identify the actual check/protection/ownership problem and the supported same-item recovery; a green check is not itself a merge receipt. Standalone close-out waits only for push-owned checks. A cancelled push follows a proven descendant with replacement push workflows, reports the superseding SHA and retains the original deadline. Merge receipts keep the item's own landing identity when another target push arrives before close-out. Reviewed tasks keep their status when catching up to main and fixing resulting migration numbering, generated files or consumer paths at landing under the existing claim. Only review FAIL or a real scope or acceptance-criteria change reopens implementation.",
  "disclosure": "audit needed",
  "surface": "Landing notice, holder/steering recovery and governed merge re-entry",
  "gap": "A recovery guide exists. Review question: do each harness notice and FIRST-USER 35 output link the correct recovery without implying universal automatic desktop wake?",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["FIRST-USER 35", "JOURNEYS row 12"],
- "sources": ["docs/public/github/merge-queue-landings.md", "docs/public/github/sync.md", "packages/yoke-core/src/yoke_core/domain/standalone_post_push_ci.py", ".agents/skills/yoke/usher/merge.md", ".agents/skills/yoke/usher/finalize.md", "packages/yoke-core/src/yoke_core/domain/merge_landing_proof.py"],
+ "sources": ["docs/public/github/merge-queue-landings.md", "docs/public/github/sync.md", "packages/yoke-core/src/yoke_core/domain/standalone_post_push_ci.py", ".agents/skills/yoke/usher/merge.md", ".agents/skills/yoke/usher/finalize.md", "packages/yoke-core/src/yoke_core/domain/merge_landing_proof.py", ".agents/skills/yoke/conduct/engineer-tester-closeout.md", ".agents/skills/yoke/usher/merge-lanes.md"],
  "position": 1
 }

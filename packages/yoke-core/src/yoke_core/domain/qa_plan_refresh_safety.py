@@ -69,11 +69,26 @@ def refresh_invocation(conn: Any, row: Any) -> str:
                     group_members,
                 )
 
-                group = requirement_subject(conn, int(row["id"]), require_active=False)
+                try:
+                    group = requirement_subject(
+                        conn, int(row["id"]), require_active=False
+                    )
+                except ValueError:
+                    return ""
                 members = group_members(conn, group, target)
                 if not members:
                     return ""
                 member = members[0]
+        if (
+            member is not None
+            and query_one(
+                conn,
+                "SELECT 1 FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
+                (row["deployment_run_id"], member),
+            )
+            is None
+        ):
+            return ""
         member_arg = f" --member {render_item_ref(conn, int(member))}" if member else ""
         return (
             "yoke qa plan rematerialize --deployment-run-id "
@@ -95,8 +110,10 @@ def refresh_recovery(conn: Any, row: Any) -> str:
     if invocation:
         return f"Refresh it from the plan with `{invocation}`."
     return (
-        "This row names neither an item nor a deployment run, so no refresh "
-        "subject reaches it; supersede it with `yoke qa requirement supersede` "
+        "No current refresh subject reaches this row (it may have lost its "
+        "run membership or shared-plan owners); inspect its subject with "
+        "`yoke qa requirement list`, then supersede it with "
+        "`yoke qa requirement supersede` "
         "or waive it through the registered waiver surface."
     )
 
