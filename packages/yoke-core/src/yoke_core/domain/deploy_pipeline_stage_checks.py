@@ -4,13 +4,16 @@ Split out of ``deploy_pipeline`` so that module stays under the authored-file
 line budget. Each check owns one boundary of ``run_pipeline`` and returns the
 exit code the caller should use, or ``None`` when the pipeline may proceed.
 Exit codes are passed in rather than duplicated here, since the caller
-already owns their one authoritative definition.
+already owns their one authoritative definition; the stage-failed code is
+imported from :mod:`deploy_pipeline_failure`, which owns it.
 """
 
 from __future__ import annotations
 
 import sys
 from typing import Any, Optional
+
+from yoke_core.domain.deploy_pipeline_failure import EXIT_STAGE_FAILED
 
 
 def check_resume_qa_gate(
@@ -77,13 +80,28 @@ def check_unresolved_qa(
     try:
         unresolved_qa = control_plane.unresolved_qa(run_id)
     except control_plane.DeploymentControlPlaneError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return usage_exit
+        return _qa_read_failed(exc, usage_exit=usage_exit)
     if unresolved_qa:
         for line in awaiting_qa_report_lines(run_id, unresolved_qa):
             print(line, file=sys.stderr)
         return awaiting_qa_exit
     return None
+
+
+def _qa_read_failed(exc: Any, *, usage_exit: int) -> int:
+    """Report a blocking-QA read the control plane did not answer.
+
+    A read that kept expiring is an unanswered question, not a malformed
+    request: it ends as a stage failure the operator re-drives, never as the
+    usage exit that says the invocation itself was wrong.
+    """
+    from yoke_core.domain.deploy_pipeline_control_plane import READ_DEADLINE_CODE
+
+    if getattr(exc, "code", "") == READ_DEADLINE_CODE:
+        print(f"Error: could not evaluate blocking QA: {exc}", file=sys.stderr)
+        return EXIT_STAGE_FAILED
+    print(f"Error: {exc}", file=sys.stderr)
+    return usage_exit
 
 
 def stage_completes_run(stage: dict[str, Any], stages: list[dict[str, Any]]) -> bool:
@@ -127,8 +145,7 @@ def check_completion_stage_qa(
             else []
         )
     except control_plane.DeploymentControlPlaneError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return usage_exit
+        return _qa_read_failed(exc, usage_exit=usage_exit)
     if not unresolved_qa:
         return None
     for line in lines:

@@ -14,7 +14,7 @@ the older runner wrote neither snapshot; corrections still invalidate them.
 from __future__ import annotations
 
 import json
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_plan_execution_store import canonical
@@ -204,38 +204,61 @@ def _live_execution_target_digest(conn: Any, requirement_id: int) -> str:
 
 def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
     """True when a pass still proves the live method_config and target."""
-    from yoke_core.domain.db_helpers import query_one
+    return int(requirement_id) in current_passing_requirements(conn, [requirement_id])
+
+
+def current_passing_requirements(conn: Any, requirement_ids: Iterable[int]) -> set[int]:
+    """The named requirements whose latest pass still proves live config and target.
+
+    One latest-execution read and one requirement read answer the whole set.
+    """
+    from yoke_core.domain.db_helpers import query_rows
     from yoke_core.domain.qa_latest_execution import latest_executions
 
-    marker = _marker(conn)
-    run = latest_executions(conn, [requirement_id]).get(int(requirement_id))
-    if (
-        run is None
-        or run["verdict"] != "pass"
-        or run["completed_at"] is None
-        or run.get("case_outcome") in {"running", "waiting"}
-    ):
-        return False
-    if not _column_exists(conn, "qa_requirements", "method_config"):
-        return True
+    ids = tuple(sorted({int(value) for value in requirement_ids}))
+    passing = {
+        requirement_id: run
+        for requirement_id, run in latest_executions(conn, ids).items()
+        if run["verdict"] == "pass"
+        and run["completed_at"] is not None
+        and run.get("case_outcome") not in {"running", "waiting"}
+    }
+    if not passing or not _column_exists(conn, "qa_requirements", "method_config"):
+        return set(passing)
     digest_sql = ""
     rebind_sql = ""
     if _column_exists(conn, "qa_requirements", EXECUTION_TARGET_DIGEST_FIELD):
         digest_sql = ", execution_target_digest"
         if _column_exists(conn, "qa_requirements", "rebound_from_digest"):
             rebind_sql = ", rebound_from_digest, rebound_at"
-    row = query_one(
+    holes = ", ".join(_marker(conn) for _ in passing)
+    rows = query_rows(
         conn,
-        f"SELECT method_config{digest_sql}{rebind_sql} FROM qa_requirements WHERE id={marker}",
-        (int(requirement_id),),
+        f"SELECT id, method_config{digest_sql}{rebind_sql} FROM qa_requirements "
+        f"WHERE id IN ({holes})",
+        tuple(sorted(passing)),
     )
-    if row is None:
-        return False
+    return {
+        int(row["id"])
+        for row in rows
+        if _pass_proves_requirement(
+            conn,
+            row,
+            passing[int(row["id"])],
+            digest=bool(digest_sql),
+            rebind=bool(rebind_sql),
+        )
+    }
+
+
+def _pass_proves_requirement(
+    conn: Any, row: Any, run: dict[str, Any], *, digest: bool, rebind: bool
+) -> bool:
     current = canonical_method_config(row["method_config"])
     corrected = method_config_was_corrected(row["method_config"])
-    live_digest = str(row["execution_target_digest"] or "") if digest_sql else ""
+    live_digest = str(row["execution_target_digest"] or "") if digest else ""
     proving_digests = {live_digest} if live_digest else set()
-    if rebind_sql:
+    if rebind:
         rebound_from = str(row["rebound_from_digest"] or "")
         if row["rebound_at"] is not None and rebound_from:
             proving_digests.add(rebound_from)
@@ -253,7 +276,7 @@ def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
             landed_receipt_proves_unchanged_requirement,
         )
 
-        return landed_receipt_proves_unchanged_requirement(conn, requirement_id, run)
+        return landed_receipt_proves_unchanged_requirement(conn, int(row["id"]), run)
     if recorded is not None:
         return True
     return not corrected and not executable_method_config(row["method_config"])
@@ -269,6 +292,7 @@ __all__ = [
     "attach_method_config_snapshot",
     "bind_correction_identity",
     "canonical_method_config",
+    "current_passing_requirements",
     "executable_method_config",
     "has_current_passing_run",
     "method_config_was_corrected",
