@@ -124,6 +124,9 @@ def materialize_and_gate_deployment_qa_stage(
     Server-side implementation: the caller already holds a connection to
     the database that serves this control plane.
     """
+    from yoke_core.domain.deployment_qa_member_acceptance_notice import (
+        notify_item_qa_accepted,
+    )
     from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
     from yoke_core.domain.deployment_qa_stage_materialization import (
         QaCasesNotSelectedError,
@@ -145,9 +148,6 @@ def materialize_and_gate_deployment_qa_stage(
     else:
         members = [None]
     waiting: list[str] = []
-    # Owner wakes go out before any accepted member's close-out, which can
-    # sync GitHub per member: a waiting owner learns within seconds.
-    accepted_members: list[int] = []
     failure = ""
     for member in members:
         try:
@@ -213,7 +213,7 @@ def materialize_and_gate_deployment_qa_stage(
             # Every other refusal is a real stage failure: an invalid
             # pinned plan, an unresolvable target identity, a permission
             # denial. None of those becomes truer by waiting. Members
-            # already accepted on this pass still close out below.
+            # accepted earlier on this pass have already closed out.
             failure = str(exc)
             break
         label = (
@@ -232,10 +232,14 @@ def materialize_and_gate_deployment_qa_stage(
                 target_digest=str(status.get("target_digest") or ""),
             )
         if status["accepted"]:
-            if member is not None:
-                accepted_members.append(member)
             for reason in status["reasons"]:
                 print(f"Run {run_id!r} stage {stage['name']!r} {label}: {reason}")
+            if member is not None:
+                # Close each accepted member now: a member later in the walk
+                # must not hold this one's close-out for the whole pass.
+                conn.commit()
+                notify_item_qa_accepted(conn, run_id=run_id, item_id=member)
+                conn.commit()
         if not status["accepted"]:
             if project_id is not None:
                 if member is not None and status.get("outcome") == "blocked":
@@ -280,14 +284,6 @@ def materialize_and_gate_deployment_qa_stage(
                         label=label,
                     )
             waiting.extend(f"{label}: {reason}" for reason in status["reasons"])
-    if accepted_members:
-        from yoke_core.domain.deployment_qa_member_acceptance_notice import (
-            notify_item_qa_accepted,
-        )
-
-        for member in accepted_members:
-            notify_item_qa_accepted(conn, run_id=run_id, item_id=member)
-        conn.commit()
     if failure:
         return 1, failure
     if waiting:

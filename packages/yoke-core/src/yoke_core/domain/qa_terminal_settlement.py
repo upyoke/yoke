@@ -23,6 +23,7 @@ from yoke_core.domain.qa_terminal_requirement_errors import (
 from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
 from yoke_core.domain.qa_terminal_records import (
     _blocking_requirement_rows,
+    answered_by_run_copy,
     live_qa_leases,
 )
 from yoke_core.domain.schema_common import _table_exists
@@ -88,6 +89,8 @@ def _issue_for_requirement(
             error,
             "Reconcile the durable correction chain through registered correction surfaces",
         )
+    if requirement.get("post_deploy_consumed"):
+        return None
     review = requirement.get("human_review")
     if review:
         return BlockingRequirementIssue(
@@ -98,8 +101,6 @@ def _issue_for_requirement(
         )
     recovery = _recovery_instruction(requirement)
     if "post_deploy_consumed" in requirement:
-        if requirement["post_deploy_consumed"]:
-            return None
         return BlockingRequirementIssue(
             requirement_id,
             "post-deploy-unaccepted",
@@ -214,12 +215,20 @@ def find_unsettled_records(conn: Any, *, item_id: int) -> list[UnsettledQaRecord
         return []
     placeholder = _placeholder(conn)
     requirements = conn.execute(
-        f"SELECT q.id FROM qa_requirements q WHERE q.item_id={placeholder} "
-        f"AND NOT {settled_obligation_sql(conn, 'q')}",
+        "SELECT q.id,q.qa_phase,q.deployment_run_id FROM qa_requirements q "
+        f"WHERE q.item_id={placeholder} AND NOT {settled_obligation_sql(conn, 'q')}",
         (int(item_id),),
     ).fetchall()
     attempts = latest_executions(conn, [int(row[0]) for row in requirements])
-    run_rows = [row for row in attempts.values() if row["verdict"] is None]
+    sources = {
+        int(row[0]) for row in requirements if row[1] == "post_deploy" and not row[2]
+    }
+    run_rows = [
+        row
+        for row in attempts.values()
+        if row["verdict"] is None
+        and not answered_by_run_copy(conn, item_id, row["qa_requirement_id"], sources)
+    ]
     unsettled = [
         UnsettledQaRecord(
             kind="run",
