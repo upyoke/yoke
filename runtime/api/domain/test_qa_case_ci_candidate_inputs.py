@@ -1,11 +1,6 @@
 """Candidate inputs travel with every dispatch and are never assumed.
 
-A CI proof for an unpublished producer candidate carries two facts: the
-commit CI checked out, and the candidate the run built against. The second
-one rides ``method_config.ci_workflow_inputs``, so these cases follow it
-through the three places a run is started — the gate's first dispatch, its
-never-started redispatch, and the merge boundary — and pin the reuse rule
-that keeps a run built against some other candidate from standing in.
+These tests isolate input propagation and reuse from publication admission.
 """
 
 from __future__ import annotations
@@ -46,6 +41,14 @@ STALL = (
     "stalled_dispatch waiting_on=pending_zero_jobs_stall "
     f"failure_reason={CI_RUN_NEVER_STARTED_REASON} status=pending jobs=0"
 )
+
+
+@pytest.fixture(autouse=True)
+def published_producer(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_case_ci_product_publication.require_published_product",
+        lambda *a: None,
+    )
 
 
 @pytest.fixture()
