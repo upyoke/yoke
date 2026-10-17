@@ -91,8 +91,9 @@ choice returns `done` with `"cancelled": true` and deletes the saved answers.
 
 Exit 0 means the last line is `question`, `browser` or `done`; 1 means
 `failed`; 2 means `refused`. Every refusal and failure carries `reason` and
-`recovery`. A refusal changes nothing and repeats the waiting question when
-there is one.
+`recovery`. A refusal saves no answer. It repeats the question setup waits at
+now, which can be an earlier one when machine state changed, and that
+question's printed `answer_command` is the next answer accepted.
 
 | reason | what to do |
 |---|---|

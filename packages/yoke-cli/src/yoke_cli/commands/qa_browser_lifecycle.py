@@ -10,9 +10,13 @@ from typing import Callable, List
 
 from yoke_contracts.browser_identity import DEFAULT_IDENTITY, BrowserIdentityError
 from yoke_contracts.project_defaults import MissingProjectError
-from yoke_cli.config.project_selection import required_project_context
+from yoke_cli.config.project_selection import (
+    required_project_context,
+    selected_project_context,
+)
 from yoke_cli import browser_node_toolchain
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
+from yoke_cli.commands import qa_browser_machine_runtime
 from yoke_cli.commands.qa_browser_stop import qa_browser_stop
 
 
@@ -130,7 +134,8 @@ def qa_browser_setup(args: List[str]) -> int:
         return 2
 
     try:
-        parsed.project = required_project_context(parsed.project)
+        # No project yet (first-user setup): prepare the machine runtime only.
+        parsed.project = selected_project_context(parsed.project)
         identity = _declared_identity(parsed.project, parsed.identity)
         runtime_dir = browser_runtime_home.ensure_materialized()
         prerequisite_actions: list[dict[str, str]] = []
@@ -152,6 +157,10 @@ def qa_browser_setup(args: List[str]) -> int:
                 "daemon": readiness["daemon"],
                 "readiness": readiness,
             }
+        elif parsed.project is None:
+            result = qa_browser_machine_runtime.prepare(
+                runtime_dir, prerequisite_actions
+            )
         else:
             result = {
                 "ok": True,
@@ -184,11 +193,11 @@ def qa_browser_setup(args: List[str]) -> int:
         print(json.dumps(result))
     else:
         daemon = result.get("daemon") or result.get("readiness", {}).get("daemon", {})
-        print(daemon.get("status", "ready"))
+        print(daemon.get("detail") or daemon.get("status", "ready"))
     return 0
 
 
-def _declared_identity(project: str, identity: str | None) -> str:
+def _declared_identity(project: str | None, identity: str | None) -> str:
     """The identity setup opens; reading no declarations keeps hosts offline-safe."""
     from yoke_contracts.browser_identity import validate_identity_name
 
@@ -198,6 +207,9 @@ def _declared_identity(project: str, identity: str | None) -> str:
 def _profile_dir_arg(project: str | None, identity: str) -> str | None:
     """The authorized profile the daemon should launch, or ``None`` for clean."""
     from yoke_cli.config.browser_profile import authorized_profile_dir
+
+    if project is None:
+        return None
 
     authorized = authorized_profile_dir(project, identity=identity)
     return str(authorized) if authorized is not None else None
@@ -214,6 +226,8 @@ def _profile_readiness(project: str | None, identity: str) -> dict[str, object]:
     from yoke_cli.config import browser_profile
     from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 
+    if project is None:
+        return dict(qa_browser_machine_runtime.NO_PROJECT_PROFILE, identity=identity)
     try:
         directory = browser_profile.profile_dir(project, identity=identity)
         key = browser_profile.profile_project_key(project)
