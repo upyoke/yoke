@@ -18,7 +18,6 @@ from yoke_core.domain.handlers.epic_task_operation_models import (
     operation_registration,
     EmptyRequest as EmptyRequest,
     PhaseRequest as PhaseRequest,
-    FileAddRequest as FileAddRequest,
     HistoryInsertRequest as HistoryInsertRequest,
     ChainWorktreeRequest as ChainWorktreeRequest,
     ChainUpdateRequest as ChainUpdateRequest,
@@ -113,32 +112,6 @@ def handle_simulation_get(request: FunctionCallRequest) -> HandlerOutcome:
             return _not_found(str(exc))
     return HandlerOutcome(
         result_payload=BodyResponse(epic_id=epic_id, body=body).model_dump(),
-        primary_success=True,
-    )
-
-
-def handle_file_add(request: FunctionCallRequest) -> HandlerOutcome:
-    ids = _task_target(request)
-    if ids is None:
-        return _bad("target must carry public_ref + task_num")
-    payload, err = _validate(FileAddRequest, request.payload)
-    if err:
-        return err
-    epic_id, task_num = ids
-    with _open_connection() as conn:
-        message = epic.file_add(
-            conn,
-            str(epic_id),
-            task_num,
-            payload.file_path,
-            payload.action,
-        )
-    return HandlerOutcome(
-        result_payload=MessageResponse(
-            epic_id=epic_id,
-            task_num=task_num,
-            message=message,
-        ).model_dump(),
         primary_success=True,
     )
 
@@ -293,14 +266,6 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         BodyResponse,
         [],
         None,
-    ),
-    _entry(
-        "workflow_item.epic_task.file_add",
-        handle_file_add,
-        FileAddRequest,
-        MessageResponse,
-        ["epic_task_files_write"],
-        "epic",
     ),
     _entry(
         "workflow_item.epic_task.history_insert",

@@ -81,7 +81,6 @@ def _db_router_epic_reads() -> List[AdapterEntry]:
     subs = (
         ("task-get-body", "epic_task_get_body"),
         ("review-get", "epic_review_get"),
-        ("file-list", "epic_file_list"),
         ("submission-receipt-get", "epic_submission_receipt_get"),
         ("progress-note-list-unsynced", "epic_progress_note_list_unsynced"),
     )
