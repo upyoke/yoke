@@ -3,6 +3,7 @@
 import { appendCarriedItemHeading } from "./universe_carried_item_titles.js";
 import { deploymentRunHref } from "./universe_navigation.js";
 import { el } from "./universe_view_support.js";
+import { cancelledLabel } from "./run_qa_sharing.js";
 
 export function carriedRunItems(row) {
   const removed = new Set((row.removed_member_items || []).map((item) => String(item.public_ref ?? item.ref ?? item.item_ref)));
@@ -35,8 +36,11 @@ export function appendRemovedMembers(context, host, row, projectId) {
     const member = el(documentNode, "div", "release-removed-item");
     appendCarriedItemHeading(documentNode, member, item, projectId);
     const reason = String(item.reason || "").trim();
+    // Removal cancels the member's checks; they are not open QA.
+    const cancelled = item.cancelled_check_count == null ? ""
+      : `${cancelledLabel(item.cancelled_check_count)} — `;
     const note = el(documentNode, "span", "release-removed-note",
-      `${reason ? `${reason} — ` : ""}rides `);
+      `${cancelled}${reason ? `${reason} — ` : ""}rides `);
     if (item.later_run_id) {
       const link = el(documentNode, "a", "overview-card-link", item.later_run_id);
       link.href = deploymentRunHref(projectId, item.later_run_id);

@@ -13,12 +13,18 @@ from yoke_core.domain.deployment_member_qa_sources import (
 from yoke_core.domain.qa_activity_reads import _list_activity
 from yoke_core.domain.qa_execution_environment_target import target_digest
 from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
+from yoke_core.domain.deployment_qa_run_sharing import (
+    member_shared_plan_ids,
+    run_qa_sharing,
+)
 
 
 def _copy_matches(conn, row, member, run, *, historical):
-    """A same-title or former-target result cannot answer this release."""
-    from yoke_core.domain.deployment_qa_shared_copy_reads import member_owns_shared_copy
-    from yoke_core.domain.deployment_qa_shared_plans import shared_target_identity
+    """A same-title or former-target result cannot answer this release.
+
+    A shared copy has no owner and is drawn once under Run QA, never inside
+    any one member's section.
+    """
     from yoke_core.domain.deployment_qa_stage_contract import (
         deployment_qa_stage_subject,
     )
@@ -27,15 +33,7 @@ def _copy_matches(conn, row, member, run, *, historical):
     )
 
     owner = row.get("deployment_member_item_id")
-    if owner is None:
-        if not shared_target_identity(row.get("execution_target_json")):
-            return False
-        if historical:
-            # The frozen member selection, tested by the caller's identity join,
-            # owns history even when a later attachment is withdrawn.
-            return True
-        return member_owns_shared_copy(conn, row, member)
-    if int(owner) != member:
+    if owner is None or int(owner) != member:
         return False
     if historical:
         return True
@@ -76,6 +74,7 @@ def _member_qa_obligations(conn, runs, members):
         }
     )
     sources, plans = current_sources(conn, active_ids)
+    sharing = run_qa_sharing(conn, run_ids)
     environments = _environments(conn, members)
     copies = query_rows(
         conn,
@@ -112,8 +111,11 @@ def _member_qa_obligations(conn, runs, members):
                     environment_names=names,
                     dynamic=dynamic,
                 )
+                shared = member_shared_plan_ids(sharing, run_id, key[1])
                 current, history, used = [], [], set()
                 for definition_key, definition in selected.items():
+                    if definition.get("plan_id") in shared:
+                        continue
                     candidates = [
                         row
                         for row in by_run[run_id]
@@ -123,8 +125,7 @@ def _member_qa_obligations(conn, runs, members):
                     live = [
                         row
                         for row in candidates
-                        if not row.get("retracted_at")
-                        and not row.get("superseded_by_requirement_id")
+                        if not _withdrawn(row)
                         and (historical or _same_content(row, definition))
                     ]
                     chosen = live[0] if live else None
@@ -132,7 +133,9 @@ def _member_qa_obligations(conn, runs, members):
                         current.append({"requirement_id": int(chosen["id"])})
                         used.add(int(chosen["id"]))
                         evidence_ids.add(int(chosen["id"]))
-                    else:
+                    elif not candidates or any(
+                        not _withdrawn(row) for row in candidates
+                    ):
                         current.append(_pending(definition, run_id, member))
                     for row in candidates:
                         if int(row["id"]) not in used:
@@ -162,8 +165,7 @@ def _member_qa_obligations(conn, runs, members):
                         continue
                     field = (
                         history
-                        if row.get("retracted_at")
-                        or row.get("superseded_by_requirement_id")
+                        if _withdrawn(row) or row.get("replacement_requirement_id")
                         else current
                     )
                     field.append({"requirement_id": row_id})
@@ -198,6 +200,11 @@ def _member_qa_obligations(conn, runs, members):
                 for row in projection[field]
             ]
     return result
+
+
+def _withdrawn(row):
+    """Retracted and superseded checks leave every count; history keeps them."""
+    return bool(row.get("retracted_at") or row.get("superseded_by_requirement_id"))
 
 
 def _environments(conn, members):

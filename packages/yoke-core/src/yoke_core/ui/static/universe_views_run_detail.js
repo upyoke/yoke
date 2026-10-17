@@ -15,6 +15,7 @@ import { createDecisionResolver } from "./inbox_rows.js";
 import { deploymentRunsHref } from "./universe_navigation.js";
 import { appendSteps } from "./universe_run_verification.js";
 import { runQaSection } from "./universe_run_qa.js";
+import { collectRunSharing, sharingFor } from "./run_qa_sharing.js";
 import { itemQaSubjects } from "./universe_run_removed_members.js";
 import { carriedItems } from "./universe_work_cards.js";
 import {
@@ -138,6 +139,7 @@ function decisionCard(context, row, project, checks, onAct, itemFacts, onItemDec
   }
   const qa = runQaSection(context, row, checks, onAct, {
     drawnRequestIds: drawnRequests,
+    sharing: sharingFor(itemFacts, row.id || row.run_id),
   });
   appendOutsideCommits(documentNode, card, row);
   if (qa) card.appendChild(qa);
@@ -206,15 +208,18 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
     } catch (error) {
       activity = { status: 0, envelope: { success: false, error: { message: String(error) } } };
     }
-    if (activity.status === 200 && activity.envelope.success) {
-      checks = activity.envelope.result?.rows || [];
-    }
     const [loaded, titles] = await carried;
     itemFacts = loaded;
+    if (activity.status === 200 && activity.envelope.success) {
+      checks = activity.envelope.result?.rows || [];
+      // The run's own read names its shared plans even when no member QA was read.
+      itemFacts = { ...loaded, sharing: collectRunSharing(
+        new Map(loaded.sharing), activity.envelope.result?.run_sharing) };
+    }
     if (titles.size) {
-      const merged = new Map(loaded.titles);
+      const merged = new Map(itemFacts.titles);
       for (const [key, title] of titles) merged.set(key, title);
-      itemFacts = { ...loaded, titles: merged };
+      itemFacts = { ...itemFacts, titles: merged };
     }
   }
   if (!context.isMounted()) return;

@@ -86,6 +86,9 @@ class ActivityListResponse(RowsResponse):
     summary: ActivitySummaryResponse
     #: Present only for an ``item_ids`` read, whose bounding is per item.
     item_selection: Optional[ActivityItemSelection] = None
+    #: Present only for a run-scoped read: per run, the plans its members
+    #: share (drawn once under Run QA) and its removed members.
+    run_sharing: Optional[Dict[str, Any]] = None
 
 
 class MethodGetResponse(BaseModel):
