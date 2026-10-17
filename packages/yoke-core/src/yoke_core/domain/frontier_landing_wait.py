@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable, Set
 
+from yoke_contracts.public_ref import parse_public_item_ref
 from yoke_core.domain import db_backend
 
 
@@ -41,7 +42,10 @@ def landing_wait_reason(blockers: Iterable[tuple[str, str]]) -> str:
     ``blockers`` is each unmet edge's (blocking item, satisfaction) pair.
     """
     grouped: dict[str, list[str]] = {}
-    for blocking_item, satisfaction in blockers:
+    ordered = sorted(
+        blockers, key=lambda pair: (parse_public_item_ref(pair[0]), pair[1])
+    )
+    for blocking_item, satisfaction in ordered:
         refs = grouped.setdefault(_condition_verb(str(satisfaction)), [])
         if blocking_item not in refs:
             refs.append(str(blocking_item))
