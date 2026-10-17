@@ -192,8 +192,8 @@ evaluator/client-wall coverage, are labelled incomparable.
   for this run, its screenshots, its earlier attempts, and its own decisions;
   **Run QA** follows every carried item with the run's own checks and
   decisions, plus each QA plan several carried items share, drawn once and
-  labelled with its sharing items (**Installer campaign · Shared by YOK-1,
-  YOK-2**). A sharing item's Item QA shows its own checks and a pointer
+  labelled with its sharing items (**Installer campaign · Shared by PREFIX-1,
+  PREFIX-2**). A sharing item's Item QA shows its own checks and a pointer
   (**shares Installer campaign (28) — see Run QA**), or **0 own checks,
   shares Installer campaign**. Both are drawn the same way: each current check reads
   **<method> · Passed** (or its actual result) with its status mark, linked to
