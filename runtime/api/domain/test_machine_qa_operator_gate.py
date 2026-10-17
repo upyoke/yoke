@@ -89,7 +89,14 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
     assert result.error_code is None
     assert heartbeats == [True]
     assert any(" -X stuff " in command for command in commands)
-    event = json.loads(capsys.readouterr().out)
+    event, heartbeat = map(json.loads, capsys.readouterr().out.splitlines())
+    assert heartbeat == {
+        "elapsed_seconds": 0,
+        "event": "machine_qa.heartbeat",
+        "phase": "operator_gate",
+        "step": "operator-browser-approval",
+        "timeout_seconds": 60,
+    }
     assert event == {
         "approval_automation": "self_approving_visible_safari",
         "code": "AB12-CD34",
@@ -149,16 +156,26 @@ def test_browser_gate_ignores_stale_outcomes_before_current_code(
     assert result.error_code is None
     assert result.transcript.endswith("Yoke token connected.\n")
     assert result.browser_evidence == {"browser": "Safari"}
-    assert json.loads(capsys.readouterr().out)["code"] == "EF56-GH78"
+    printed = capsys.readouterr().out.splitlines()
+    assert json.loads(printed[0])["code"] == "EF56-GH78"
 
 
-def test_browser_gate_fails_completion_the_browser_did_not_confirm() -> None:
+def test_browser_gate_fails_fast_when_the_browser_helper_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     browser_evidence = {"browser": "Safari", "state": "browser_tab_missing"}
     transcripts = iter(
         (
             "One-time code: AB12-CD34\nOpen: https://app.stage.upyoke.com/connect\n",
-            "One-time code: AB12-CD34\nYoke token connected.\n",
+            "One-time code: AB12-CD34\nWaiting for browser approval\n",
         )
+    )
+
+    def no_waiting(_seconds: float) -> None:
+        raise AssertionError("the gate waited after the browser helper failed")
+
+    monkeypatch.setattr(
+        "yoke_core.domain.machine_qa_operator_gate.time.sleep", no_waiting
     )
 
     result = run_machine_browser_approval_with_io(
@@ -176,8 +193,8 @@ def test_browser_gate_fails_completion_the_browser_did_not_confirm() -> None:
         ),
     )
 
-    # Completion markers prove the poll ended, not that this browser approved.
     assert result.ok is False
+    assert result.transcript.endswith("Waiting for browser approval\n")
     assert result.error_code == BROWSER_APPROVAL_NOT_CONFIRMED
     assert result.browser_evidence == browser_evidence
     assert result.browser_automation_error_code == "machine_browser_tab_missing"
