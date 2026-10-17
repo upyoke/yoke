@@ -62,8 +62,7 @@ def rows(w, payload=None, actor=None):
 
 
 def test_roster_shows_org_session_to_owner(roster):
-    result = rows(roster)
-    row = result["org-owner"]
+    row = rows(roster)["org-owner"]
     assert (row["project_id"], row["org_id"], row["scope_kind"]) == (
         None,
         roster.org,
@@ -80,10 +79,8 @@ def test_roster_hides_org_session_from_stranger(roster):
 def test_sessions_list_returns_org_id(roster, detail):
     result = handle_sessions_list(request(roster, {"detail": detail})).result_payload
     assert {"org_id", "scope_kind"} <= set(result["fields"])
-    assert (
-        next(r for r in result["rows"] if r["session_id"] == "org-owner")["org_id"]
-        == roster.org
-    )
+    row = next(r for r in result["rows"] if r["session_id"] == "org-owner")
+    assert row["org_id"] == roster.org
 
 
 def test_sessions_list_project_filter_excludes_org(roster):
