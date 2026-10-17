@@ -2,7 +2,6 @@
  "id": "packets",
  "title": "Context packets",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.41", "FIRST-USER.43"],
  "surface_refs": ["packets-help"],
  "commands": ["yoke packets budget get", "yoke packets check", "yoke packets render"],
  "functions": ["packets.budget.get", "packets.check.run", "packets.render.run"],

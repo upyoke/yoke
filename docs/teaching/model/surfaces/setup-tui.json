@@ -11,6 +11,5 @@
  "current": "Existing source references; delivered content is not yet proved. Source now distinguishes explicit TUI opening from structured agent actions and reuses saved authorization; deployed proof remains pending.",
  "desired": "Fewer steps; issue sync silently off. Show real progress, one-screen Back and truthful repair instructions.",
  "plan_notes": ["FIRST-USER 3/8/9/10/19/24/25/26/37–39", "FIRST-USER C/E/P4"],
- "plan_refs": ["FIRST-USER.1", "FIRST-USER.7", "FIRST-USER.10", "FIRST-USER.17", "FIRST-USER.26", "FIRST-USER.37", "FIRST-USER.38", "FIRST-USER.39"],
  "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/onboard.py", "packages/yoke-cli/src/yoke_cli/config/onboard_terminal_driver.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_redraw.py", "packages/yoke-cli/src/yoke_cli/config/onboard_destination_rows.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_app.py", "runtime/api/cli/test_yoke_operations_cli_onboard_wizard_nav.py", "runtime/api/cli/test_onboard_wizard_git_recovery_navigation.py"]
 }

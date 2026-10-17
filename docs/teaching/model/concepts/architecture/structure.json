@@ -2,7 +2,6 @@
  "id": "structure",
  "title": "Project Structure",
  "status": "draft-copy",
- "plan_refs": ["JOURNEYS.situation-18"],
  "surface_refs": ["packets-help", "project-hub"],
  "commands": ["yoke project snapshot sync", "yoke project-structure get", "yoke project-structure patch apply"],
  "functions": ["project.snapshot.ensure_at", "project.snapshot.sync", "project_structure.get", "project_structure.patch.apply"],

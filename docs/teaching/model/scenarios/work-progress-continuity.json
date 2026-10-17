@@ -5,7 +5,5 @@
  "situations": ["Work is running and the user wants a small status update.", "A worker is quiet or blocked and the operator does not know why.", "A conversation ends or work resumes on another session.", "The user wants to pause, park or abandon work."],
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
- "questions": ["Current teaching and checkpoint contracts inspected; no live quiet-worker, pause or cross-session recovery exercised.", "Existing dashboard wake limitations vary by harness; defer to manifest-owned capabilities rather than promise automatic desktop resume.", "Command nodes, when present, were checked with installed CLI --help only; this proves parser/help availability, not serving-control-plane capability or successful execution."],
- "plan_refs": ["FIRST-USER.42", "JOURNEYS.situation-19"]
+ "questions": ["Current teaching and checkpoint contracts inspected; no live quiet-worker, pause or cross-session recovery exercised.", "Existing dashboard wake limitations vary by harness; defer to manifest-owned capabilities rather than promise automatic desktop resume.", "Command nodes, when present, were checked with installed CLI --help only; this proves parser/help availability, not serving-control-plane capability or successful execution."]
 }

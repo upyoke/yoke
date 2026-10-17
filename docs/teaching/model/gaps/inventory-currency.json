@@ -3,6 +3,5 @@
  "title": "Revalidate changed inventory sources",
  "status": "observed",
  "text": "Research inventories retain exact IDs and hashes. Changed source files need a fresh Atlas/registry census; unchanged files still need recipe quality proof.",
- "plan_refs": ["FIRST-USER.35", "FIRST-USER.40"],
  "position": 5
 }

@@ -5,7 +5,6 @@
  "text": "The hosted universe switcher and Billing read projects.list from each organization’s own Yoke install through the signed-in member’s existing relay. Count active projects visible to that member, including backlog-only and locally adopted projects; exclude retired projects. GitHub webhook bindings are routing records, not project inventory. engine_project_count_unavailable means the inventory is unknown, not zero. Retry once the universe serves; ask an organization administrator to recover the organization’s Yoke connection if needed. Failed count reads do not prevent switching universes.",
  "verification": "Companion Platform item PLAT-227 records landed implementation and passing internal QA; authorized maintainers can read it through internal access. Deployed desktop and 390px comparison remains pending; this is observed implementation, not verified-live.",
  "functions": ["projects.list"],
- "plan_refs": ["FIRST-USER.P7"],
  "surface_refs": ["workbench-cues"],
  "work_items": ["PLAT-227"],
  "page": "cloud-operations",

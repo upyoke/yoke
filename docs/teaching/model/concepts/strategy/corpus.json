@@ -2,7 +2,6 @@
  "id": "corpus",
  "title": "Strategy corpus",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.24", "JOURNEYS.situation-10", "JOURNEYS.situation-9"],
  "surface_refs": ["project-hub", "project-orientation", "setup-agent", "skills-roles"],
  "commands": ["yoke strategy seed-defaults", "yoke strategy surface get", "yoke strategy surface list"],
  "functions": ["strategy.seed_defaults.run", "strategy.surface.get", "strategy.surface.list"],

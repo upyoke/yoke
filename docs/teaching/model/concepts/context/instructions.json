@@ -2,7 +2,6 @@
  "id": "instructions",
  "title": "Execution instructions",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.0", "JOURNEYS.also-owned-here", "JOURNEYS.situation-18"],
  "surface_refs": ["execution-instructions", "project-native", "project-orientation", "skills-roles"],
  "commands": ["yoke workflow execution-instruction create", "yoke workflow execution-instruction delete", "yoke workflow execution-instruction list", "yoke workflow execution-instruction resolve", "yoke workflow execution-instruction set-scope", "yoke workflow execution-instruction update"],
  "functions": ["workflow.execution_instruction.create", "workflow.execution_instruction.delete", "workflow.execution_instruction.list", "workflow.execution_instruction.resolve", "workflow.execution_instruction.set_scope", "workflow.execution_instruction.update"],

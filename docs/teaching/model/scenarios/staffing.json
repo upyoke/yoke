@@ -5,7 +5,5 @@
  "situations": ["A strategy document should turn into staffed work.", "A worker needs to be launched on another machine.", "A worker fails, parks or needs a different level."],
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
- "questions": ["Is capacity-sharing setup discoverable from a no-eligible-machine launch refusal?", "Does a global projectless steering session receive all necessary routes after P1-P4?"],
- "plan_refs": ["FIRST-USER.28", "JOURNEYS.situation-11"]
+ "questions": ["Is capacity-sharing setup discoverable from a no-eligible-machine launch refusal?", "Does a global projectless steering session receive all necessary routes after P1-P4?"]
 }

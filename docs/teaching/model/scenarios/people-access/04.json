@@ -8,7 +8,6 @@
  "disclosure": "current cue",
  "surface": "Hosted universe switcher and Billing; organization-admin connection recovery.",
  "review": "Companion Platform item PLAT-227 records landed implementation and passing internal QA; authorized maintainers can read it through internal access. Deployed desktop and 390px comparison remains pending; this is observed implementation, not verified-live.",
- "plan_refs": ["FIRST-USER.P7"],
  "work_items": ["PLAT-227"],
  "position": 3
 }

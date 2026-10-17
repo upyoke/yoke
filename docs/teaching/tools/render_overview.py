@@ -7,8 +7,8 @@ STATUS_MEANING = {
     "observed": "seen in source or a capture; scope stated, behavior unproven",
     "verified-live": "proven against running Yoke with recorded evidence",
     "candidate": "reviewed proposal, not approved scope",
-    "approved": "approved FIRST-USER scope or a locked boundary",
-    "deferred": "approved direction whose execution waits (JOURNEYS)",
+    "approved": "approved scope or a locked boundary",
+    "deferred": "approved direction whose execution waits",
     "draft-copy": "research outline or draft wording; not a shipped recipe",
     "superseded": "replaced proposal kept for provenance",
 }
@@ -19,7 +19,6 @@ def index_page(views, intro):
         ("Concepts", "concepts.html"),
         ("Teaching surfaces and rows", "surfaces.html"),
         ("Scenarios and lessons", "scenarios.html"),
-        ("Plan coverage", "plan-coverage.html"),
         ("Locked boundaries", "boundaries.html"),
         ("Gaps", "gaps.html"),
         ("Evidence", "evidence.html"),

@@ -2,7 +2,6 @@
  "id": "actors",
  "title": "Actors and identities",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.33"],
  "commands": ["yoke actors state set", "yoke config bind-actor", "yoke identity link set"],
  "functions": ["actors.roster", "actors.state.set", "identity.link.set"],
  "page": "identity",

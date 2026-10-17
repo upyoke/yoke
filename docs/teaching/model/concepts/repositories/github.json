@@ -2,7 +2,6 @@
  "id": "github",
  "title": "GitHub access",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.22", "FIRST-USER.26", "FIRST-USER.32", "FIRST-USER.4", "FIRST-USER.5", "FIRST-USER.A", "JOURNEYS.moved-from-first-user-former-dash-g", "JOURNEYS.situation-2"],
  "surface_refs": ["setup-agent", "setup-tui", "workbench-cues"],
  "commands": ["yoke github connect", "yoke github credential-helper refresh", "yoke github disconnect", "yoke github status", "yoke projects github-binding bind", "yoke projects github-binding check", "yoke projects github-binding status", "yoke projects github-binding unbind"],
  "functions": ["projects.github_binding.bind", "projects.github_binding.check", "projects.github_binding.lifecycle", "projects.github_binding.status", "projects.github_binding.unbind"],

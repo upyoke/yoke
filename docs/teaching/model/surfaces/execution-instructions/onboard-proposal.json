@@ -5,7 +5,6 @@
  "form": "Do",
  "verification": "Skill recipe flags parse against the live CLI adapters in a focused regression test; an onboarding run that moves a real project's rule is not yet proved.",
  "topics": ["context/instructions", "context/disclosure", "projects/onboarding"],
- "plan_refs": ["FIRST-USER.44", "FIRST-USER.24"],
  "sources": [".agents/skills/yoke/onboard/strategy-conversation.md", "docs/public/projects.md", "runtime/api/test_skill_doc_regressions_onboard_execution_instructions.py"],
  "position": 7
 }

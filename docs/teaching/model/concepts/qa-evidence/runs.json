@@ -2,7 +2,6 @@
  "id": "runs",
  "title": "Executions and attempts",
  "status": "draft-copy",
- "plan_refs": ["JOURNEYS.also-owned-here", "JOURNEYS.situation-13"],
  "commands": ["yoke qa activity list", "yoke qa case run", "yoke qa plan abort", "yoke qa run add", "yoke qa run get", "yoke qa run list"],
  "functions": ["qa.activity.list", "qa.case.waive", "qa.case_execution.begin", "qa.run.add", "qa.run.get", "qa.run.list"],
  "page": "qa-evidence",

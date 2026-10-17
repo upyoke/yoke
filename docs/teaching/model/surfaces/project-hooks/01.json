@@ -5,6 +5,5 @@
  "form": "Rule",
  "verification": "No delivery proof attached.",
  "topics": ["coordination/work-claims", "coordination/path-claims", "workflows/gates"],
- "plan_refs": ["FIRST-USER.P2", "FIRST-USER.P3", "FIRST-USER.29"],
  "position": 0
 }

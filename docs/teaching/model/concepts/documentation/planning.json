@@ -3,7 +3,6 @@
  "title": "Current planning work",
  "status": "draft-copy",
  "audience": "Documentation authors / maintainers",
- "plan_refs": ["FIRST-USER.0", "FIRST-USER.cold-start-context", "FIRST-USER.decisions-and-non-goals", "FIRST-USER.filing-rules", "FIRST-USER.moved-to-journeys", "FIRST-USER.open-verifications", "FIRST-USER.operator-intent", "FIRST-USER.order-and-dependencies", "FIRST-USER.planning-research-artifacts", "FIRST-USER.shared-teaching-standard", "FIRST-USER.state-16-chars-max", "FIRST-USER.summary-60-chars-max", "FIRST-USER.unfiled-ideas", "JOURNEYS.execution-boundary", "JOURNEYS.locked-principles", "JOURNEYS.open-questions", "JOURNEYS.operator-intent", "JOURNEYS.planning-research-artifacts", "JOURNEYS.principle-1", "JOURNEYS.principle-2", "JOURNEYS.principle-3", "JOURNEYS.principle-4", "JOURNEYS.principle-5", "JOURNEYS.principle-6", "JOURNEYS.principle-7", "JOURNEYS.principle-8", "JOURNEYS.principle-9", "JOURNEYS.question-1", "JOURNEYS.question-2", "JOURNEYS.question-3", "JOURNEYS.question-4", "JOURNEYS.question-5", "JOURNEYS.question-6", "JOURNEYS.situations-catalog", "JOURNEYS.state-16-chars-max", "JOURNEYS.summary-60-chars-max"],
  "surface_refs": ["execution-instructions"],
  "page": "documentation-structure",
  "position": 5

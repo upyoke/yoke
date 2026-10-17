@@ -5,7 +5,5 @@
  "situations": ["The user describes a large effort without a durable plan.", "The existing CURRENT-PLAN is stale or contains accepted standing decisions.", "Most linked work is done and the user wants to finish the initiative."],
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
- "questions": ["Current skill/doc semantics were read; strategy mutation and archive behavior were not exercised.", "Should a completed Blitz receive the same scope/evidence audit before its existing automatic archive?", "Command nodes, when present, were checked with installed CLI --help only; this proves parser/help availability, not serving-control-plane capability or successful execution."],
- "plan_refs": ["JOURNEYS.situation-9", "JOURNEYS.situation-10", "JOURNEYS.situation-11", "JOURNEYS.situation-15", "JOURNEYS.also-owned-here"]
+ "questions": ["Current skill/doc semantics were read; strategy mutation and archive behavior were not exercised.", "Should a completed Blitz receive the same scope/evidence audit before its existing automatic archive?", "Command nodes, when present, were checked with installed CLI --help only; this proves parser/help availability, not serving-control-plane capability or successful execution."]
 }

@@ -5,6 +5,5 @@
  "form": "Link",
  "verification": "No delivery proof attached.",
  "topics": ["agents/skills", "context/instructions", "context/docs"],
- "plan_refs": ["FIRST-USER.42", "FIRST-USER.43", "FIRST-USER.D"],
  "position": 1
 }

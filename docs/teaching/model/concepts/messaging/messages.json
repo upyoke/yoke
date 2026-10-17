@@ -2,7 +2,6 @@
  "id": "messages",
  "title": "Fleet messages",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.P1"],
  "surface_refs": ["global-hooks", "global-orientation", "project-hooks"],
  "commands": ["yoke messages ack", "yoke messages acknowledge", "yoke messages cancel", "yoke messages get", "yoke messages list", "yoke messages send", "yoke messages status", "yoke session-control message acknowledge", "yoke session-control message cancel", "yoke session-control message get", "yoke session-control message list", "yoke session-control message preview", "yoke session-control message send"],
  "functions": ["session_control.message.acknowledge", "session_control.message.cancel", "session_control.message.get", "session_control.message.lease", "session_control.message.list", "session_control.message.preview", "session_control.message.send"],
