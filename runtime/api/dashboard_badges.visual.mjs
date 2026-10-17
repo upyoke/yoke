@@ -278,9 +278,11 @@ try{
   const proof=page.locator("#team-proof");
   const capture=async(state)=>{
    const values=await proof.evaluate(n=>({width:n.clientWidth,scroll:n.scrollWidth,
-    tables:[...n.querySelectorAll("table")].map(t=>({width:t.clientWidth,scroll:t.scrollWidth}))}));
+    tables:[...n.querySelectorAll("table")].map(t=>({width:t.clientWidth,scroll:t.scrollWidth})),
+    roleLines:[...n.querySelectorAll(".actors-invites .actors-role")].map(r=>r.getClientRects().length)}));
    assert(values.scroll<=values.width+1,"Team overflows its container");
    assert(values.tables.every(t=>t.scroll<=t.width+1),"Team table content overflows");
+   assert(values.roleLines.every(lines=>lines===1),"Invite role chips must stay on one line");
    const file="team-"+state+"-"+width+"-"+theme+".png";
    await proof.screenshot({path:path.join(output,file)});teamCaptures.push({state,width,theme,file,...values});
   };

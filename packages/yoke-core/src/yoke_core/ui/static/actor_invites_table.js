@@ -91,7 +91,7 @@ export function renderInvitesTable(context, host, rows, options) {
   }
   const wrap = el(doc, "div", "table-wrap");
   const table = el(doc, "table", "items actors-table table-stacks-narrow");
-  table.appendChild(el(doc, "caption", "sr-only", "Invites"));
+  table.appendChild(el(doc, "caption", "shell-visually-hidden", "Invites"));
   const head = el(doc, "thead");
   const headings = el(doc, "tr");
   for (const label of COLUMNS) headings.appendChild(el(doc, "th", null, label));
