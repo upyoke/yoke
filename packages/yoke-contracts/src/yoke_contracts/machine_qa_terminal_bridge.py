@@ -44,6 +44,24 @@ TERMINAL_SECURE_KEYBOARD_ENTRY_ON_ERROR_CODE = "terminal_secure_keyboard_entry_o
 TERMINAL_SYSTEM_EVENTS_AUTOMATION_MISSING_ERROR_CODE = (
     "terminal_system_events_automation_missing"
 )
+# The same probe ran out of time without a denial. A timeout is not evidence of
+# a missing grant: a consent prompt nobody answered and a Terminal too loaded to
+# start the command both look like this, so it carries its own name.
+TERMINAL_SYSTEM_EVENTS_AUTOMATION_TIMEOUT_ERROR_CODE = (
+    "terminal_system_events_automation_timeout"
+)
+# The probe timed out while Terminal held more windows than any run leaves
+# behind. Every GUI-session command opens a window; once hundreds accumulate,
+# each new command stalls behind them, whatever the grants say.
+TERMINAL_WINDOW_ACCUMULATION_ERROR_CODE = "terminal_window_accumulation"
+# The probe failed with neither a denial nor a timeout.
+TERMINAL_SYSTEM_EVENTS_AUTOMATION_FAILED_ERROR_CODE = (
+    "terminal_system_events_automation_failed"
+)
+# A probe that times out while Terminal holds more windows than this is named
+# an accumulation. A healthy host holds the one window Terminal opens at launch
+# plus one per bridge command in flight.
+TERMINAL_WINDOW_ACCUMULATION_THRESHOLD = 10
 # The window opened but never became the frontmost one inside the wait, so the
 # keys that follow would land in whatever window is frontmost instead.
 TERMINAL_WINDOW_FOCUS_TIMEOUT_ERROR_CODE = "terminal_window_focus_timeout"
@@ -109,6 +127,23 @@ TERMINAL_BRIDGE_RECOVERY = {
         "count processes'` in Terminal at the console and allow the prompt, "
         "then re-run `yoke test-machine bridge-diagnose`"
     ),
+    TERMINAL_SYSTEM_EVENTS_AUTOMATION_TIMEOUT_ERROR_CODE: (
+        "a command inside Terminal did not finish inside the probe wait and "
+        "macOS did not deny it; at the host console, answer any Terminal "
+        "consent prompt or terminate-processes sheet, read the recorded load "
+        "average, then re-run `yoke test-machine bridge-diagnose`"
+    ),
+    TERMINAL_WINDOW_ACCUMULATION_ERROR_CODE: (
+        "Terminal holds the windows earlier runs left open, and commands "
+        "inside it stall behind them; run `yoke test-machine reset`, which "
+        "quits and relaunches Terminal, or quit Terminal at the host console, "
+        "then re-run `yoke test-machine bridge-diagnose`"
+    ),
+    TERMINAL_SYSTEM_EVENTS_AUTOMATION_FAILED_ERROR_CODE: (
+        "read the recorded osascript output in the check evidence and clear "
+        "the condition it names on the host, then re-run "
+        "`yoke test-machine bridge-diagnose`"
+    ),
     TERMINAL_SECURE_KEYBOARD_ENTRY_ON_ERROR_CODE: (
         "turn Secure Keyboard Entry off in Terminal's menu on the host; while "
         "it is on macOS discards every synthetic keystroke the bridge sends"
@@ -171,9 +206,13 @@ __all__ = [
     "TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE",
     "TERMINAL_SECURE_KEYBOARD_ENTRY_ON_ERROR_CODE",
     "TERMINAL_SSH_UNAVAILABLE_ERROR_CODE",
+    "TERMINAL_SYSTEM_EVENTS_AUTOMATION_FAILED_ERROR_CODE",
     "TERMINAL_SYSTEM_EVENTS_AUTOMATION_MISSING_ERROR_CODE",
+    "TERMINAL_SYSTEM_EVENTS_AUTOMATION_TIMEOUT_ERROR_CODE",
     "TERMINAL_SYSTEM_EVENTS_UNAVAILABLE_ERROR_CODE",
     "TERMINAL_TRANSCRIPT_TIMEOUT_ERROR_CODE",
+    "TERMINAL_WINDOW_ACCUMULATION_ERROR_CODE",
+    "TERMINAL_WINDOW_ACCUMULATION_THRESHOLD",
     "TERMINAL_WINDOW_FOCUS_TIMEOUT_ERROR_CODE",
     "TERMINAL_WINDOW_OFF_SCREEN_ERROR_CODE",
     "terminal_bridge_recovery",

@@ -21,7 +21,6 @@ from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_DISPLAY_LOCKED_ERROR_CODE,
     TERMINAL_SECURE_KEYBOARD_ENTRY_ON_ERROR_CODE,
     TERMINAL_SSH_UNAVAILABLE_ERROR_CODE,
-    TERMINAL_SYSTEM_EVENTS_AUTOMATION_MISSING_ERROR_CODE,
     TERMINAL_SYSTEM_EVENTS_UNAVAILABLE_ERROR_CODE,
 )
 from yoke_harness.ssh_mac_display_frame import RunRemote
@@ -31,6 +30,7 @@ from yoke_harness.ssh_mac_host_session_state import (
     probe_host_display_context,
     read_load_average,
     read_secure_keyboard_entry,
+    read_terminal_window_count,
     system_events_reachable,
     terminal_app_reachable,
 )
@@ -106,6 +106,10 @@ def _probe_control_surfaces(
     ):
         return False
 
+    # Every GUI-session command opens a window; a count far above one means
+    # earlier runs left theirs behind, which stalls the commands that follow.
+    report.host["terminal_window_count"] = read_terminal_window_count(run)
+
     secure_entry = read_secure_keyboard_entry(run)
     report.host["secure_keyboard_entry"] = secure_entry
     if not report.record(
@@ -116,12 +120,15 @@ def _probe_control_surfaces(
     ):
         return False
 
-    automation_ok, automation_detail = terminal_system_events_automation(run)
+    automation = terminal_system_events_automation(run)
     return report.record(
         TERMINAL_SYSTEM_EVENTS_CHECK,
-        ok=automation_ok,
-        observed={"detail": automation_detail},
-        error_code=TERMINAL_SYSTEM_EVENTS_AUTOMATION_MISSING_ERROR_CODE,
+        ok=automation.ok,
+        observed={
+            "detail": automation.detail,
+            "terminal_window_count": automation.terminal_windows,
+        },
+        error_code=automation.error_code,
     )
 
 

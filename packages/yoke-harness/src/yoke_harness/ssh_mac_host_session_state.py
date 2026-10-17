@@ -167,6 +167,17 @@ def terminal_app_reachable(run: RunRemote) -> tuple[bool, str]:
     )
 
 
+def read_terminal_window_count(run: RunRemote) -> int | None:
+    """Return how many windows Terminal holds, or None when it cannot say."""
+    result = run_osascript(
+        run,
+        ['tell application "Terminal" to count windows'],
+        timeout=10,
+    )
+    count = (result.stdout or "").strip()
+    return int(count) if result.returncode == 0 and count.isdigit() else None
+
+
 def probe_host_display_context(
     run: RunRemote, *, expected_console_user: str | None = None
 ) -> dict[str, Any]:
@@ -198,6 +209,7 @@ __all__ = [
     "read_secure_keyboard_entry",
     "read_screen_sharing_active",
     "read_screen_saver_idle_seconds",
+    "read_terminal_window_count",
     "screen_saver_recovery",
     "system_events_reachable",
     "terminal_app_reachable",
