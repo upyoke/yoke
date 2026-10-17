@@ -225,6 +225,26 @@ def end_session_if_empty(
             **end_session_blocker_facts(wake_delivery=wake_delivery),
         }
 
+    from .db_optional_queries import fetch_optional_rows
+
+    pending = fetch_optional_rows(
+        conn,
+        "SELECT r.message_id FROM session_message_recipients r "
+        "JOIN session_messages m ON m.message_id=r.message_id "
+        "WHERE r.session_id=%s AND r.state IN ('pending','injected') "
+        "AND m.cancelled_at IS NULL AND m.expires_at>%s LIMIT 1",
+        (session_id, instant_parameter(conn, utc_now())),
+        savepoint="_yoke_pending_end_delivery",
+    )
+    if pending:
+        conn.commit()
+        return {
+            "session_id": session_id,
+            "ended": False,
+            "status": "has_pending_messages",
+            "active_claim_count": 0,
+        }
+
     clear_current_item(conn, session_id, commit=False)
     cancel_host_waits(conn, session_id=session_id)
     conn.execute(
