@@ -23,3 +23,19 @@ def test_merge_preflight_reuses_registered_epic_task_rows() -> None:
     assert "SELECT task_num, title, status FROM epic_tasks" not in text
     assert "SELECT DISTINCT worktree FROM epic_tasks" not in text
     assert "epic_id={epic-id}'" not in text
+
+
+def test_reviewed_lane_catch_up_stays_at_landing_under_existing_claim() -> None:
+    for path in (
+        SKILLS / "conduct" / "engineer-tester-closeout.md",
+        SKILLS / "usher" / "merge-lanes.md",
+    ):
+        text = _read(path)
+        assert "reviewed task stays reviewed" in text
+        assert "existing claim" in text
+        assert (
+            "review FAIL or a real change to item scope or acceptance criteria" in text
+        )
+        assert "unshipped migrations" in text
+        assert "consumer path" in text
+        assert "lane freshness alone does not" in text
