@@ -1,4 +1,5 @@
 import { el } from "./universe_view_support.js";
+import { sessionScopeLabel } from "./universe_session_detail.js";
 import { clearWorkflowDialog } from "./workflow_accessibility.js";
 import { workflowDialogShell } from "./workflow_dialog_shell.js";
 import {
@@ -65,7 +66,7 @@ function renderRecipients(documentNode, host, recipients) {
       documentNode,
       "li",
       null,
-      `${recipient.session_id} · ${recipient.project} · ${harness} · ${recipient.liveness}${route}`,
+      `${recipient.session_id} · ${sessionScopeLabel(recipient)} · ${harness} · ${recipient.liveness}${route}`,
     ));
   }
   host.appendChild(list);

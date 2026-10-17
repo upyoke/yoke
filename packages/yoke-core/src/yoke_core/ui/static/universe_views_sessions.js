@@ -1,4 +1,5 @@
 import { exactSessionAudience, openSessionMessageCompose } from "./session_message_compose_dialog.js";
+import { sessionScopeLabel } from "./universe_session_detail.js";
 import {
   presentSessionControlFailure,
   renderSessionControlFailure,
@@ -125,6 +126,9 @@ export function sessionCard(
   card.appendChild(top);
 
   const body = el(documentNode, "div", "session-card-body");
+  body.appendChild(el(
+    documentNode, "div", "session-scope", sessionScopeLabel(row),
+  ));
   const state = el(documentNode, "div", "session-state-line");
   appendSessionPrimaryStatus(documentNode, state, row);
   appendModel(documentNode, state, row);
@@ -221,7 +225,7 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
         documentNode, row, openMessage, context.projects(), groupColors,
       ),
       filters.isRestrictive(), historySummary, loader?.matchedTotal() || 0,
-      usage,
+      usage, loader?.historyEmptyMessage(),
     );
     const bulkRows = loader?.bulkRows() || [];
     messageAll.disabled = bulkRows.length === 0;
