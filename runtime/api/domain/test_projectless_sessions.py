@@ -11,19 +11,19 @@ from yoke_core.domain.scratch_auto_prune import ScratchPruneResult
 from yoke_core.domain.sessions_render_end_if_empty import end_session_if_empty
 
 
-def _message(w, *, last_wake=None):
+def _message(w, *, last_wake=None, message_id="delivery"):
     now = utc_now()
     w.conn.execute(
         "INSERT INTO session_messages(message_id,sender_actor_id,body,body_sha256,"
         "selector_snapshot,created_at,expires_at) VALUES "
-        "('delivery',%s,'work','digest','{}',%s,%s)",
-        (w.owner, now, now + timedelta(hours=1)),
+        "(%s,%s,'work','digest','{}',%s,%s)",
+        (message_id, w.owner, now, now + timedelta(hours=1)),
     )
     w.conn.execute(
         "INSERT INTO session_message_recipients(message_id,session_id,org_id,"
         "resolution_evidence,routing_snapshot,created_at,wake_after,last_wake_at) "
-        "VALUES ('delivery','registration',%s,'{}','{}',%s,%s,%s)",
-        (w.org, now, now, last_wake),
+        "VALUES (%s,'registration',%s,'{}','{}',%s,%s,%s)",
+        (message_id, w.org, now, now, last_wake),
     )
     w.conn.commit()
 
@@ -89,6 +89,47 @@ def test_universe_cleanup_reaps_org_rows_releases_holds(world, monkeypatch):
         ).fetchone()[0]
         == "cancelled"
     )
+
+
+def test_cleanup_preserves_delivery_after_reclaim_reactivation(world, monkeypatch):
+    _stale(world, monkeypatch)
+    _message(world)
+    original = cleanup.reclaim_stale_session
+
+    def reactivate_after_commit(conn, session_id):
+        result = original(conn, session_id)
+        assert (
+            conn.execute(
+                "SELECT ended_at FROM harness_sessions WHERE session_id=%s",
+                (session_id,),
+            ).fetchone()[0]
+            is not None
+        )
+        assert (
+            conn.execute(
+                "SELECT state FROM session_message_recipients WHERE message_id='delivery'"
+            ).fetchone()[0]
+            == "cancelled"
+        )
+        register(world)
+        _message(world, message_id="fresh-delivery")
+        return result
+
+    monkeypatch.setattr(cleanup, "reclaim_stale_session", reactivate_after_commit)
+    assert cleanup.clean_stale_harness_sessions(world.conn)["total_reclaimed"] == 1
+    assert (
+        world.conn.execute(
+            "SELECT ended_at FROM harness_sessions WHERE session_id='registration'"
+        ).fetchone()[0]
+        is None
+    )
+    receipts = dict(
+        world.conn.execute(
+            "SELECT message_id,state FROM session_message_recipients "
+            "WHERE session_id='registration'"
+        ).fetchall()
+    )
+    assert receipts == {"delivery": "cancelled", "fresh-delivery": "pending"}
 
 
 @pytest.mark.parametrize("wake", [False, True])

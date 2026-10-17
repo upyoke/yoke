@@ -227,12 +227,6 @@ def clean_stale_harness_sessions(
                 }
             )
             continue
-        from .session_message_store import cancel_open_recipients
-
-        cancel_open_recipients(
-            conn, session_id=sid, cancelled_at=now, result_code="session_reclaimed"
-        )
-        conn.commit()
         total_reclaimed += 1
         org_scoped_reclaimed += int(entry["org_id"] is not None)
 
