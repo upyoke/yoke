@@ -59,14 +59,18 @@ def _probe(browser, toolchain, env):
 
 def ensure_system_dependencies(
     browser: Path, toolchain, *, env, emit, autoinstall=True
-):
+) -> bool:
+    """Return whether Chromium launches with its sandbox enabled."""
     if not sys.platform.startswith("linux"):
-        return
+        return True
     _ensure_linux_libraries(
         browser, toolchain, env=env, emit=emit, autoinstall=autoinstall
     )
-    ensure_chromium_apparmor(
-        browser, toolchain, env=env, emit=emit, autoinstall=autoinstall
+    return (
+        ensure_chromium_apparmor(
+            browser, toolchain, env=env, emit=emit, autoinstall=autoinstall
+        )
+        is not False
     )
 
 
