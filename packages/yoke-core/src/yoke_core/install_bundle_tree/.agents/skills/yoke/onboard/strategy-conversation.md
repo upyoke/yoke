@@ -68,6 +68,32 @@ Non-Actions CI keeps the local `command` runner.
 yoke onboard checklist --run-id {run_id} --row-status repo-survey=verified --evidence repo-survey="{sources scanned with counts: issues, PRs, transcripts per harness, user additions}; {manifests/docs/build/test/runtime facts}; {each workflow=purpose; other CI or none}"
 ```
 
+## Review existing guidance
+
+Read the project's own rules: `AGENTS.md` outside the Yoke managed block,
+`CLAUDE.md` and other harness rule files. Sort each rule:
+
+- **Every turn** (holds in all work): leave it where it is.
+- **Some work only** (one workflow, stage or project, or a moment such as
+  before creating an item or on entering a stage): propose it as an
+  execution instruction, naming its scope and delivery point.
+
+Propose one rule at a time among the decisions below. For each approved rule
+only: create it (creation defaults to Before creation + On every read; pass
+the delivery flags the rule needs), scope it to its workflows and this
+project, confirm it resolves, then delete the moved text from its source file:
+
+```bash
+yoke workflow execution-instruction create --stdin --json
+yoke workflow execution-instruction set-scope {instruction_id} --workflow {workflow} --project-id {project_id}
+yoke workflow execution-instruction resolve --workflow {workflow} --project {project} --delivery-point {delivery_point} --full
+```
+
+An instruction stays unscoped, and reaches no work, until `set-scope`.
+Resolving stage delivery also needs `--stage-bucket {bucket}`. Delivery
+flags and stage buckets:
+[execution-instruction delivery](../../../../.yoke/docs/reference/execution-instructions.md).
+
 ## Draft, then decide one thing at a time
 
 Draft from the scan and the repository; ask only what neither answers.
@@ -81,7 +107,8 @@ is the floor: carry open work forward rather than restarting it.
 Show the drafts, then walk the open decisions one at a time, most important
 first, each with your recommendation. The last decision is the first work:
 the CURRENT-PLAN outcome that steering files first. Existing checks,
-approvals and project rules stay as they are unless the user changes them.
+approvals and project rules stay as they are unless the user changes them;
+a rule moves only through an approved guidance proposal.
 
 ## Write accepted changes under the strategy claim
 
