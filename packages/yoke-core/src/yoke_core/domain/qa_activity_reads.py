@@ -313,9 +313,17 @@ def read_activity(
         deployment_run_ids=deployment_run_ids,
         limit=limit,
     )
+    from yoke_core.domain.deployment_qa_run_sharing import run_qa_sharing
+
+    runs = [
+        *([deployment_run_id] if deployment_run_id else []),
+        *(deployment_run_ids or []),
+    ]
     return {
         "rows": rows,
         "item_selection": selection,
+        # Shared plans and removed members of exactly the runs asked for.
+        "run_sharing": run_qa_sharing(conn, runs) if runs else None,
         "summary": _activity_summary(
             conn,
             identity=identity,

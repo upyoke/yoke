@@ -4,15 +4,14 @@ A run occupies its target until its QA settles
 (:mod:`yoke_core.domain.deploy_target_occupancy`). Once its deploy stages are
 done, the only thing still holding the target is item QA — which can be slow,
 and which a newer candidate that contains this one can answer just as well.
-Releasing such a run by hand took one ``remove-item`` per waiting member plus
-a waiver for every shared-plan copy those removals left open.
 
 So creating a run for the same flow and target takes the older run over,
 inside the creation transaction:
 
-* **No run-level QA or approval in the flow.** Members whose item QA already
-  passed stay and close normally in the older run. Every still-waiting member
-  is removed through the audited removal path and enrolled in the new run.
+* **No run-level QA or approval in the flow.** A member stays only when its
+  item QA passed and it closes mid-run (:func:`member_closes_mid_run`). Every
+  other member — waiting, carried without final intent, or refused at
+  close-out — moves through the audited removal path into the new run.
 * **Run-level QA or approval in the flow.** The shared gates hold every
   member, so every unclosed member moves and the older run is cancelled as
   superseded. Nothing is recorded as passed; the new run seeds its run-level
@@ -38,6 +37,7 @@ from yoke_core.domain.domain_refusal import DomainRefusal
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
+from yoke_core.domain import deployment_member_independent_close_out as independent
 
 SUPERSEDED_BY_COLUMN = "superseded_by_run_id"
 SUPERSEDES_COLUMN = "supersedes_run_id"
@@ -149,8 +149,13 @@ def _moving_members(conn: Any, old: Mapping[str, Any], shared: bool) -> list[dic
     for member in _members(conn, str(old["id"])):
         if member["status"] in _CLOSED_ITEM_STATUSES:
             continue
-        if shared or not _item_qa_passed(
-            conn, str(old["id"]), int(member["item_id"]), old["stages"]
+        item_id = int(member["item_id"])
+        if (
+            shared
+            or not _item_qa_passed(conn, str(old["id"]), item_id, old["stages"])
+            or not independent.member_closes_mid_run(
+                conn, item_id=item_id, run_id=str(old["id"])
+            )
         ):
             moving.append(member)
     return moving

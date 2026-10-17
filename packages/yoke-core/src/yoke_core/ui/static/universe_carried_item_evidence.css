@@ -70,3 +70,11 @@
   grid-column: 1 / -1;
   overflow-wrap: anywhere;
 }
+
+/* An item points at the shared plans drawn under Run QA, never repeats them. */
+.universe-app-root .item-qa-shared-pointer,
+.universe-app-root .carried-item-removed {
+  margin: 4px 0 0;
+  color: var(--yoke-muted);
+  font-size: 12px;
+}

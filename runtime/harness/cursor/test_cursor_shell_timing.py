@@ -60,13 +60,12 @@ def test_shell_gate_stamps_unsupported_timing_without_inventing_ids(
     assert second["cursor_shell_timing"] == CURSOR_SHELL_TIMING_UNSUPPORTED_REASON
 
 
-def test_after_shell_copies_native_duration_and_call_id(container_env: None) -> None:
+def test_shell_gate_copies_native_duration_and_call_id(container_env: None) -> None:
     data = parse_payload(
         json.dumps(
             {
-                "hook_event_name": "afterShellExecution",
+                "hook_event_name": "beforeShellExecution",
                 "command": "ls",
-                "output": "ok",
                 "call_id": "call-9",
                 "duration_ms": 40,
                 "session_id": MAIN,
@@ -78,22 +77,34 @@ def test_after_shell_copies_native_duration_and_call_id(container_env: None) -> 
     assert data["cursor_shell_timing"] == CURSOR_SHELL_TIMING_MEASURED
 
 
-def test_failed_shell_completion_stays_unsupported_without_id(
-    container_env: None,
-) -> None:
-    data = parse_payload(
+def test_shell_completion_keeps_the_gate_call_id(container_env: None) -> None:
+    """cursor-agent 2026.10.16 reports one ``tool_use_id`` on the gate and on
+    the Shell ``postToolUse``, so the completion closes the start it opened."""
+    gate = parse_payload(
         json.dumps(
             {
-                "hook_event_name": "afterShellExecution",
-                "command": "false",
-                "output": "boom",
-                "error": "exit 1",
+                "hook_event_name": "beforeShellExecution",
+                "command": "echo hi",
+                "tool_use_id": "shell-1",
                 "session_id": MAIN,
             }
         )
     )
-    assert data.get("tool_use_id") is None
-    assert data["cursor_shell_timing"] == CURSOR_SHELL_TIMING_UNSUPPORTED_REASON
+    completion = parse_payload(
+        json.dumps(
+            {
+                "hook_event_name": "postToolUse",
+                "tool_name": "Shell",
+                "tool_input": {"command": "echo hi"},
+                "tool_output": '{"output":"hi\\n","exitCode":0}',
+                "tool_use_id": "shell-1",
+                "session_id": MAIN,
+            }
+        )
+    )
+    assert gate["tool_use_id"] == completion["tool_use_id"] == "shell-1"
+    assert completion["tool_name"] == "Bash"
+    assert "cursor_shell_timing" not in completion
 
 
 def test_subagent_shell_folds_session_without_inventing_id(

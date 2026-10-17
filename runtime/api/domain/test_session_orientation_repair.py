@@ -145,7 +145,7 @@ def test_cursor_repairs_on_its_tool_result_event(project: Path) -> None:
     )
     repeat = so.orientation_for_hook(
         "PostToolUse",
-        _cursor_payload(project, event="afterShellExecution"),
+        _cursor_payload(project, event="postToolUse"),
         cursor=True,
     )
 
@@ -159,7 +159,7 @@ def test_cursor_stays_silent_once_its_startup_block_landed(project: Path) -> Non
     so.confirm_orientation_delivery()
     repeat = so.orientation_for_hook(
         "PostToolUse",
-        _cursor_payload(project, event="afterShellExecution"),
+        _cursor_payload(project, event="postToolUse"),
         cursor=True,
     )
 
