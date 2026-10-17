@@ -57,7 +57,7 @@ printed command without --view. A machine leased by another session refuses
 until released. Without --machine, this host keeps local behavior. Without a
 remote route, --declarations-json still supplies settings locally.
 
-On Linux and macOS Test Machines, --machine also checks the installer's
+On Linux and macOS Test Machines, --machine --desktop-browser also checks the installer's
 desktop browser: snap Chromium or Safari, using the same identity's declared
 sites and account names. It reads that browser's own cookies headless and
 opens native tabs only for expired sites. Close the desktop browser windows

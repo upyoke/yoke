@@ -116,6 +116,19 @@ def test_still_signed_out_is_failure(desktop, capsys):
     assert "sign_in_incomplete" in json.loads(capsys.readouterr().out)["error"]
 
 
+def test_native_process_failure_has_named_recovery_without_private_details(
+    desktop, monkeypatch, capsys
+):
+    def failed(*args, **kwargs):
+        raise FileNotFoundError("private-cookie-store-path")
+
+    monkeypatch.setattr(native, "check_desktop", failed)
+    assert run() == 1
+    error = json.loads(capsys.readouterr().out)["error"]
+    assert "desktop_browser_operation_failed" in error
+    assert "retry" in error and "private-cookie-store-path" not in error
+
+
 def test_combined_remote_command_keeps_automation_reset_and_never_resets_desktop(
     monkeypatch, capsys
 ):
@@ -144,3 +157,49 @@ def test_combined_remote_command_keeps_automation_reset_and_never_resets_desktop
     )
     assert calls == [["--json", "--reset"], False]
     assert json.loads(capsys.readouterr().out)["desktop_browser"]["browser"] == "Safari"
+
+
+def test_machine_desktop_flag_selects_combined_command(monkeypatch, tmp_path, capsys):
+    import subprocess
+    from yoke_cli.commands import browser_authorize, browser_authorize_remote as remote
+    from yoke_harness import test_machine_gui_command as gui
+
+    argv = []
+    monkeypatch.setattr(remote.browser_profile, "profile_project_key", lambda _: "acme")
+    monkeypatch.setattr(remote.machine_config, "yoke_home", lambda: tmp_path)
+    monkeypatch.setattr(remote, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(
+        remote, "build_actor", lambda: SimpleNamespace(session_id="own")
+    )
+    monkeypatch.setattr(remote, "_open_sign_in_viewer", lambda *args: None)
+    monkeypatch.setattr(
+        remote,
+        "call_dispatcher",
+        lambda **kw: SimpleNamespace(
+            success=True,
+            error=None,
+            result={
+                "machine": "fixture",
+                "settings": {"os": "macos"},
+                "active_lease": None,
+            }
+            if kw["function_id"] == "test_machine.get"
+            else {"settings_json": "{}"},
+        ),
+    )
+
+    def execute(**kwargs):
+        argv.append(kwargs["argv"])
+        return subprocess.CompletedProcess(
+            [], 0, '{"ok":true,"desktop_browser":{"ok":true}}', ""
+        )
+
+    monkeypatch.setattr(gui, "run_gui_command", execute)
+    assert (
+        browser_authorize.browser_authorize(
+            ["--project", "acme", "--machine", "fixture", "--desktop-browser", "--json"]
+        )
+        == 0
+    )
+    assert len(argv) == 1 and "--include-desktop-browser" in argv[0]
+    assert json.loads(capsys.readouterr().out)["desktop_browser"]["ok"]

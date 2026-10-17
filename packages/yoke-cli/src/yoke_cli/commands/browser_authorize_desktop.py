@@ -108,5 +108,11 @@ def authorize_desktop(parsed) -> int:
                 f"{kind} desktop sign-in verified; kept live through reset and excluded from golden capture."
             )
         return 0
-    except (RuntimeError, ValueError, OSError, subprocess.SubprocessError) as exc:
+    except (OSError, subprocess.SubprocessError):
+        return _fail(
+            parsed.json_mode,
+            "desktop_browser_operation_failed: repair the native browser, desktop session or headless runtime, then retry; the browser profile was not reset.",
+            code=1,
+        )
+    except (RuntimeError, ValueError) as exc:
         return _fail(parsed.json_mode, str(exc), code=1)
