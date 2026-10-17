@@ -307,8 +307,8 @@ is no desktop opt-out. Confirm release-matched help and operation receipts
 before relying on an installed release. Before running it, read the complete
 [desktop browser checks](browser-identities.md#desktop-browser-checks) procedure.
 
-Before sign-in, follow the complete [macOS sign-in
-procedure](browser-identities.md#macos-sign-in-procedure):
-
 1. Apply the project-owned sign-in policy. The human enters personal
    credentials and completes personal approval prompts.
+
+Before sign-in, follow the complete [macOS sign-in
+procedure](browser-identities.md#macos-sign-in-procedure).
