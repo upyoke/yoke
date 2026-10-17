@@ -42,6 +42,7 @@ from yoke_core.domain.steering_fleet_report_render_text import (
 from yoke_core.domain.steering_fleet_report_render_available import (
     available_heading,
     available_lines,
+    landing_wait_section,
 )
 from yoke_core.domain.steering_fleet_report_render_vendor_errors import (
     vendor_error_lines,
@@ -196,6 +197,7 @@ def _scope_work_lines(report: FleetReport, shared: ProjectRows) -> list[str]:
             else ["available: none"]
         ),
         "",
+        *landing_wait_section(report),
         *_section(
             f"idle holders — claim held, no tool call in over {idle}; process-gone "
             "holders included even when parked; live landing waits excluded",

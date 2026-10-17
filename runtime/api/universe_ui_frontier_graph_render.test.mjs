@@ -7,6 +7,7 @@ import test from "node:test";
 
 import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
 import { frontierGraphSection } from "../../packages/yoke-core/src/yoke_core/ui/static/frontier_graph.js";
+import { frontierBandRows } from "../../packages/yoke-core/src/yoke_core/ui/static/frontier_band_rows.js";
 import { DEPENDENCY_GRAPH_FLOOR_MESSAGE } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_frontier_bands.js";
 import {
   FakeDocument,
@@ -290,4 +291,22 @@ test("a blocker that no longer resolves draws as a ghost its dependent waits on"
   );
   assert.ok(ghost.classList.contains("is-ghost"));
   assert.equal(ownTextContent(byClass(ghost, "fdv-tile-stage")[0]), "not on this Frontier");
+});
+
+test("committed work waiting only for its blockers to land waits, saying so once", () => {
+  const landing = (blocker, holds) => ({
+    public_ref: "YOK-12", project_id: 1, project: "yoke", blocking_item: blocker,
+    gate_point: "integration", satisfaction: "fact:merged", holds_pickup: holds,
+    why: "Waiting on YOK-7, YOK-8 to merge",
+  });
+  const items = [row("YOK-12", 1), row("YOK-7", 1), row("YOK-8", 1)];
+  const bands = (blockedRows) => frontierBandRows({
+    items, readyRows: [], blockedRows, sessionRows: [],
+  });
+  const [waiting] = bands([landing("YOK-7", true), landing("YOK-8", true)]).waiting;
+  assert.equal(waiting.row.public_ref, "YOK-12");
+  assert.equal(waiting.reason.flag.label, "Waiting for 2 items");
+  assert.equal(waiting.reason.flag.text, "Waiting on YOK-7, YOK-8 to merge");
+  // A merge edge on work still free to build holds nothing back.
+  assert.deepEqual(bands([landing("YOK-7", false)]).waiting, []);
 });
