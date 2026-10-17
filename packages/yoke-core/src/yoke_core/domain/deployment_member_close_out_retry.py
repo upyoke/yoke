@@ -76,9 +76,9 @@ def retry_member_close_out(conn: Any, *, item_id: int) -> list[str]:
                 continue
             result = notify_item_qa_accepted(conn, run_id=run_id, item_id=int(item_id))
         except Exception as exc:  # noqa: BLE001 - never reverse a settled record
-            conn.rollback()
             result = f"failed: {exc}"
         if result.startswith("failed:"):
+            conn.rollback()  # leave the caller a usable connection
             print(
                 f"Close-out retry for {render_item_ref(conn, int(item_id))} on run "
                 f"{run_id} did not finish ({result}). Its settled record stays "

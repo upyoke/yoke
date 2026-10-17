@@ -43,7 +43,7 @@ def _blocked_member(conn: Any) -> tuple[int, int]:
     """MEMBER_A's QA is accepted, but its own capture still owes a verdict."""
     _seed_final_run(conn, RUN_ID, shared_qa=False)
     requirement_id = _row_id(
-        insert_qa_requirement(conn, item_id=MEMBER_A, blocking_mode="advisory")
+        insert_qa_requirement(conn, item_id=MEMBER_A, blocking_mode="non_blocking")
     )
     capture_id = _row_id(
         insert_qa_run(

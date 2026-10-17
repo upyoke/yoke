@@ -89,4 +89,5 @@ def test_accepted_copy_settles_the_capture_for_gate_and_summary(test_db, monkeyp
     )
     summary = _summary(test_db, item_id)
     assert summary["unsettled_records"] == []
-    assert summary["satisfied"] is True
+    [source] = [row for row in summary["requirements"] if row["id"] == source_id]
+    assert source["satisfied"] is True
