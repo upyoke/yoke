@@ -31,14 +31,17 @@ def _fingerprint(conn, table, identity):
     # Server cursors bound memory even when a copied telemetry table is large.
     cursor = (
         conn.cursor(name=f"secret_receipt_{table}")
-        if db_backend.connection_is_postgres(conn) else conn.cursor()
+        if db_backend.connection_is_postgres(conn)
+        else conn.cursor()
     )
     try:
         cursor.execute(f"SELECT * FROM {table} ORDER BY {identity}")
         while rows := cursor.fetchmany(500):
             for row in rows:
                 encoded = json.dumps(
-                    temporal_wire(list(row)), sort_keys=True, separators=(",", ":"),
+                    temporal_wire(list(row)),
+                    sort_keys=True,
+                    separators=(",", ":"),
                 ).encode()
                 digest.update(len(encoded).to_bytes(8, "big"))
                 digest.update(encoded)
@@ -75,7 +78,8 @@ def verify_secret_receipt_replay(conn) -> str | None:
     print(
         "admission_secret_receipts_replay ledger_rows_rewritten=0 "
         f"event_envelopes_rewritten=0 ledger_rows_checked={after[0][0]} "
-        f"event_envelopes_checked={after[1][0]}", flush=True,
+        f"event_envelopes_checked={after[1][0]}",
+        flush=True,
     )
     return None
 
@@ -92,10 +96,15 @@ def main() -> int:
     target = os.environ.get("YOKE_DB", "")
     archive = os.environ.get(RESTORE_POINT_ENV, "")
     if (
-        not target or target != os.environ.get("YOKE_PG_DSN")
-        or not archive or not Path(archive).is_file() or Path(archive).stat().st_size == 0
+        not target
+        or target != os.environ.get("YOKE_PG_DSN")
+        or not archive
+        or not Path(archive).is_file()
+        or Path(archive).stat().st_size == 0
     ):
-        print("secret_receipt_replay_refused: matching validation bindings and archive required")
+        print(
+            "secret_receipt_replay_refused: matching validation bindings and archive required"
+        )
         return 1
     try:
         with db_backend.connect_psycopg(target) as conn:

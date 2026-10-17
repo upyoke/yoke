@@ -13,9 +13,14 @@ from yoke_contracts.api.function_call import FunctionCallRequest
 from yoke_core.domain import events, function_call_ledger as ledger
 from yoke_core.domain.admission_result_redaction import ONE_TIME_SECRET_GUARDRAIL
 from yoke_core.domain.events_insert_sql import _INSERT_SQL
-from yoke_core.domain.events_write_conn import event_insert_params, write_event_row_on_conn
+from yoke_core.domain.events_write_conn import (
+    event_insert_params,
+    write_event_row_on_conn,
+)
 from yoke_core.domain.migration_serving_version import NEXT_RELEASE, declared_minimum
-from yoke_core.domain.yoke_function_idempotency_scope import idempotency_payload_checksum
+from yoke_core.domain.yoke_function_idempotency_scope import (
+    idempotency_payload_checksum,
+)
 
 
 ENTRY_NAME = "0082_scrub_admission_secret_receipts"
@@ -31,17 +36,24 @@ def _entry():
 
 def _request_checksum():
     request = FunctionCallRequest(
-        function=FUNCTION, actor={"session_id": "receipt-session"},
-        target={"kind": "global"}, payload={"name": "automation"},
-        preconditions={"expected_version": 1}, request_id="secret-receipt",
+        function=FUNCTION,
+        actor={"session_id": "receipt-session"},
+        target={"kind": "global"},
+        payload={"name": "automation"},
+        preconditions={"expected_version": 1},
+        request_id="secret-receipt",
     )
-    canonical_request = json.dumps({
-        "version": request.version,
-        "target": request.target.model_dump(exclude_none=True),
-        "payload": dict(request.payload),
-        "preconditions": dict(request.preconditions),
-        "intent": request.intent,
-    }, sort_keys=True, separators=(",", ":"))
+    canonical_request = json.dumps(
+        {
+            "version": request.version,
+            "target": request.target.model_dump(exclude_none=True),
+            "payload": dict(request.payload),
+            "preconditions": dict(request.preconditions),
+            "intent": request.intent,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
     checksum = idempotency_payload_checksum(request)
     assert checksum == hashlib.sha256(canonical_request.encode()).hexdigest()
     return checksum
@@ -49,18 +61,33 @@ def _request_checksum():
 
 def _ledger_row(conn, request_id, result, *, function=FUNCTION):
     ledger.record_call(
-        request_id, function, result, actor_id="receipt-actor",
-        authorization_scope="project:1", payload_checksum=_request_checksum(),
-        created_at=STAMP, conn=conn,
+        request_id,
+        function,
+        result,
+        actor_id="receipt-actor",
+        authorization_scope="project:1",
+        payload_checksum=_request_checksum(),
+        created_at=STAMP,
+        conn=conn,
     )
 
 
 def _event_row(conn, result, *, function=FUNCTION, name="YokeFunctionCalled"):
     envelope = events.build_envelope(
-        name, event_kind="domain", event_type="function", source_type="backend",
-        session_id="receipt-session", request_id="secret-receipt", created_at=STAMP,
-        context={"function": function, "result": result, "payload_checksum": "request-hash",
-                 "result_checksum": "original-result-hash", "detail": "preserve\x00this"},
+        name,
+        event_kind="domain",
+        event_type="function",
+        source_type="backend",
+        session_id="receipt-session",
+        request_id="secret-receipt",
+        created_at=STAMP,
+        context={
+            "function": function,
+            "result": result,
+            "payload_checksum": "request-hash",
+            "result_checksum": "original-result-hash",
+            "detail": "preserve\x00this",
+        },
     )
     params = event_insert_params(envelope, None)
     write_event_row_on_conn(conn, _INSERT_SQL, params)
@@ -76,7 +103,8 @@ def _snapshot(conn, table):
 def test_floor_and_born_universe_are_safe(test_db, capsys):
     assert declared_minimum(_entry()) == NEXT_RELEASE
     assert test_db.execute(
-        "SELECT 1 FROM applied_migrations WHERE migration_name = %s", (ENTRY_NAME,),
+        "SELECT 1 FROM applied_migrations WHERE migration_name = %s",
+        (ENTRY_NAME,),
     ).fetchone()
     capsys.readouterr()
     _entry().apply(test_db)
@@ -87,7 +115,9 @@ def test_floor_and_born_universe_are_safe(test_db, capsys):
 
 
 def test_existing_receipts_preserve_identity_bytes_and_request_checksum(
-    test_db, capsys, caplog,
+    test_db,
+    capsys,
+    caplog,
 ):
     _ledger_row(test_db, "secret-receipt", {"raw_token": SECRET, "token_id": 41})
     envelope = _event_row(test_db, {"raw_token": SECRET, "token_id": 41})
@@ -120,7 +150,9 @@ def test_existing_receipts_preserve_identity_bytes_and_request_checksum(
     before_events = _snapshot(test_db, "events")
     capsys.readouterr()
 
-    with pytest.raises(AssertionError, match="ledger_rows=1, event_envelopes=1") as error:
+    with pytest.raises(
+        AssertionError, match="ledger_rows=1, event_envelopes=1"
+    ) as error:
         _entry().invariants(test_db)
     assert SECRET not in str(error.value)
     _entry().apply(test_db)
@@ -137,7 +169,10 @@ def test_existing_receipts_preserve_identity_bytes_and_request_checksum(
     assert _snapshot(test_db, "events") == before_events
     receipt = before_ledger["secret-receipt"]
     assert receipt["payload_checksum"] == _request_checksum()
-    assert receipt["payload_checksum"] != hashlib.sha256(receipt["result"].encode()).hexdigest()
+    assert (
+        receipt["payload_checksum"]
+        != hashlib.sha256(receipt["result"].encode()).hexdigest()
+    )
     assert capsys.readouterr().out == (
         "admission_secret_receipts ledger_rows_rewritten=1 event_envelopes_rewritten=1\n"
     )
@@ -166,12 +201,23 @@ def test_absent_tables_and_caller_rollback(table, capsys):
                 ("receipt", FUNCTION, ledger.serialize_result({"raw_token": SECRET})),
             )
         elif table == "events":
-            conn.execute("CREATE TABLE events (id INTEGER, event_name TEXT, envelope TEXT)")
+            conn.execute(
+                "CREATE TABLE events (id INTEGER, event_name TEXT, envelope TEXT)"
+            )
             conn.execute(
                 "INSERT INTO events VALUES (?, ?, ?)",
-                (1, "YokeFunctionCalled", json.dumps({"context": {
-                    "function": FUNCTION, "result": {"raw_token": SECRET},
-                }})),
+                (
+                    1,
+                    "YokeFunctionCalled",
+                    json.dumps(
+                        {
+                            "context": {
+                                "function": FUNCTION,
+                                "result": {"raw_token": SECRET},
+                            }
+                        }
+                    ),
+                ),
             )
             conn.execute(
                 "INSERT INTO events VALUES (?, ?, ?)",

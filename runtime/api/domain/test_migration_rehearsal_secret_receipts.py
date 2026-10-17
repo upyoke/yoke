@@ -64,8 +64,12 @@ def test_replay_uses_same_connection_and_only_emits_counts(copy, monkeypatch, ca
 
 def test_postgres_cursor_covers_native_receipt_values(test_db, capsys):
     record_call(
-        "rehearsal-receipt", "profile.token.create", {"raw_token": SECRET},
-        actor_id="fixture", authorization_scope="global", payload_checksum="request",
+        "rehearsal-receipt",
+        "profile.token.create",
+        {"raw_token": SECRET},
+        actor_id="fixture",
+        authorization_scope="global",
+        payload_checksum="request",
         conn=test_db,
     )
     _entry().apply(test_db)
@@ -77,14 +81,19 @@ def test_postgres_cursor_covers_native_receipt_values(test_db, capsys):
 def test_unscrubbed_copy_refuses_before_replay(copy, monkeypatch, capsys):
     apply = Mock()
     monkeypatch.setattr(_entry(), "apply", apply)
-    assert replay.verify_secret_receipt_replay(copy).startswith("secret_receipt_replay_failed")
+    assert replay.verify_secret_receipt_replay(copy).startswith(
+        "secret_receipt_replay_failed"
+    )
     apply.assert_not_called()
     assert SECRET not in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("damage", ("bytes", "identity", "count", "exception"))
 def test_replay_refuses_changes_and_never_echoes_failure_payloads(
-    copy, monkeypatch, capsys, damage,
+    copy,
+    monkeypatch,
+    capsys,
+    damage,
 ):
     _entry().apply(copy)
     capsys.readouterr()
@@ -97,7 +106,12 @@ def test_replay_refuses_changes_and_never_echoes_failure_payloads(
             conn.execute("UPDATE events SET envelope = ?", (SECRET,))
         elif damage == "identity":
             conn.execute("UPDATE events SET id = 2")
-        print(replay.ZERO_COUNTS.replace("=0", "=1") if damage == "count" else replay.ZERO_COUNTS, end="")
+        print(
+            replay.ZERO_COUNTS.replace("=0", "=1")
+            if damage == "count"
+            else replay.ZERO_COUNTS,
+            end="",
+        )
 
     monkeypatch.setattr(_entry(), "apply", apply)
     failure = replay.verify_secret_receipt_replay(copy)
@@ -108,7 +122,9 @@ def test_replay_refuses_changes_and_never_echoes_failure_payloads(
 
 @pytest.mark.parametrize("context", (None, "0081_project_optional_sessions"))
 @pytest.mark.parametrize("failed_check", (None, "replay", "readers", "release"))
-def test_fleet_callback_preserves_order_and_refusals(monkeypatch, failed_check, context):
+def test_fleet_callback_preserves_order_and_refusals(
+    monkeypatch, failed_check, context
+):
     from runtime.api.tools import migration_rehearsal_readers
 
     if context is None:
@@ -124,20 +140,29 @@ def test_fleet_callback_preserves_order_and_refusals(monkeypatch, failed_check, 
             assert args == (() if name == "replay" else (dsn,))
             seen.append(name)
             return "refused" if name == failed_check else None
+
         return run
 
     monkeypatch.setattr(replay, "verify_secret_receipt_replay", check("replay"))
-    monkeypatch.setattr(migration_rehearsal_readers, "verify_migrated_readers", check("readers"))
+    monkeypatch.setattr(
+        migration_rehearsal_readers, "verify_migrated_readers", check("readers")
+    )
     monkeypatch.setattr(fleet, "verify_migrated_release_surfaces", check("release"))
     assert fleet.rehearsal_plan().post_converge_validator is fleet.verify_migrated_copy
-    assert fleet.verify_migrated_copy(conn, dsn) == ("refused" if failed_check else None)
+    assert fleet.verify_migrated_copy(conn, dsn) == (
+        "refused" if failed_check else None
+    )
     checks = ["replay", "readers", "release"]
-    expected = checks[:checks.index(failed_check) + 1] if failed_check else checks
+    expected = checks[: checks.index(failed_check) + 1] if failed_check else checks
     assert seen == expected
 
 
-@pytest.mark.parametrize("binding", ("missing", "mismatch", "archive-missing", "archive-empty"))
-def test_entrypoint_requires_verified_bindings_and_archive(monkeypatch, tmp_path, binding, capsys):
+@pytest.mark.parametrize(
+    "binding", ("missing", "mismatch", "archive-missing", "archive-empty")
+)
+def test_entrypoint_requires_verified_bindings_and_archive(
+    monkeypatch, tmp_path, binding, capsys
+):
     monkeypatch.setenv(replay.REHEARSAL_MODULE_ENV, replay.ENTRY_NAME)
     archive = tmp_path / "validation.sql"
     archive.write_text("baseline")
@@ -161,7 +186,10 @@ def test_entrypoint_requires_verified_bindings_and_archive(monkeypatch, tmp_path
 
 @pytest.mark.parametrize("failure", (False, True))
 def test_entrypoint_binds_exact_copy_and_rolls_back_failed_proof(
-    copy, monkeypatch, tmp_path, failure,
+    copy,
+    monkeypatch,
+    tmp_path,
+    failure,
 ):
     monkeypatch.setenv(replay.REHEARSAL_MODULE_ENV, replay.ENTRY_NAME)
     archive = tmp_path / "validation.sql"
@@ -171,7 +199,9 @@ def test_entrypoint_binds_exact_copy_and_rolls_back_failed_proof(
     monkeypatch.setenv(RESTORE_POINT_ENV, str(archive))
     targets = []
     monkeypatch.setattr(
-        replay.db_backend, "connect_psycopg", lambda target: targets.append(target) or copy,
+        replay.db_backend,
+        "connect_psycopg",
+        lambda target: targets.append(target) or copy,
     )
 
     def verify(conn):
@@ -187,12 +217,24 @@ def test_entrypoint_binds_exact_copy_and_rolls_back_failed_proof(
     )
 
 
-@pytest.mark.parametrize("context", (
-    None, "", " ", "0082", replay.ENTRY_NAME + " ", "unexpected_module", SECRET,
-    "0081_project_optional_sessions",
-    "0078_project_optional_sessions", "0079_scrub_admission_secret_receipts",
-))
-def test_entrypoint_context_refuses_or_skips_before_connection(monkeypatch, capsys, context):
+@pytest.mark.parametrize(
+    "context",
+    (
+        None,
+        "",
+        " ",
+        "0082",
+        replay.ENTRY_NAME + " ",
+        "unexpected_module",
+        SECRET,
+        "0081_project_optional_sessions",
+        "0078_project_optional_sessions",
+        "0079_scrub_admission_secret_receipts",
+    ),
+)
+def test_entrypoint_context_refuses_or_skips_before_connection(
+    monkeypatch, capsys, context
+):
     if context is None:
         monkeypatch.delenv(replay.REHEARSAL_MODULE_ENV, raising=False)
     else:
@@ -206,8 +248,9 @@ def test_entrypoint_context_refuses_or_skips_before_connection(monkeypatch, caps
     verify.assert_not_called()
     output = capsys.readouterr()
     assert output.out == (
-        "admission_secret_receipts_replay status=not_applicable\n" if skip else
-        "secret_receipt_replay_refused: expected exact rehearsal module context\n"
+        "admission_secret_receipts_replay status=not_applicable\n"
+        if skip
+        else "secret_receipt_replay_refused: expected exact rehearsal module context\n"
     )
     assert output.err == ""
 

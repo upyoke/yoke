@@ -185,7 +185,9 @@ def test_additive_boot_precedes_governed_history(scoped_rows):
     entry.invariants(conn)
 
 
-@pytest.mark.parametrize("entry_name", (ENTRY_NAME, "0082_scrub_admission_secret_receipts"))
+@pytest.mark.parametrize(
+    "entry_name", (ENTRY_NAME, "0082_scrub_admission_secret_receipts")
+)
 def test_minimum_serving_version_is_next_release(entry_name):
     module = importlib.import_module(f"yoke_core.domain.migrations.{entry_name}")
     assert declared_minimum(module) == NEXT_RELEASE
