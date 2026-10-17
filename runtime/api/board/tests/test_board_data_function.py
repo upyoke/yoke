@@ -221,19 +221,15 @@ class TestBoardDataOverHttpBoundary:
         from runtime.api.auth_test_helpers import mint_api_auth_context
         from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 
-        with mock.patch.dict(os.environ, {"YOKE_DB": populated_db}, clear=False):
+        with (
+            mock.patch.dict(os.environ, {"YOKE_DB": populated_db}, clear=False),
+            mock.patch.object(events_module, "emit_event"),
+            mock.patch.object(
+                dispatch_module, "_idempotency_lookup", return_value=None
+            ),
+        ):
             reset_registry_for_tests()
             register_all_handlers()
-            patches = [
-                mock.patch.object(events_module, "emit_event"),
-                mock.patch.object(
-                    dispatch_module,
-                    "_idempotency_lookup",
-                    return_value=None,
-                ),
-            ]
-            for p in patches:
-                p.start()
             conn = connect_test_db(populated_db)
             try:
                 # The roster section reads these columns whether or not any
@@ -265,8 +261,6 @@ class TestBoardDataOverHttpBoundary:
             try:
                 yield
             finally:
-                for p in patches:
-                    p.stop()
                 reset_registry_for_tests()
 
     def test_board_data_get_over_https_route(self) -> None:
@@ -294,7 +288,8 @@ class TestBoardDataOverHttpBoundary:
     @pytest.mark.parametrize(
         "case", ["owner", "stranger", "project", "disabled", "missing"]
     )
-    def test_public_org_session_admission(self, case):
+    @pytest.mark.parametrize("key", ["", "dashboard_sessions_scope", "timeline_scope"])
+    def test_public_org_session_admission(self, case, key):
         owner, org_id = self.auth.actor_id, self.auth.org_id
         with connect_test_db(self.db_path) as conn:
             stranger, other = seed_human_actor(conn), seed_human_actor(conn)
@@ -324,14 +319,19 @@ class TestBoardDataOverHttpBoundary:
         elif case == "stranger":
             self.client.headers.update({"Authorization": f"Bearer {token}"})
         scope = "yoke" if case == "project" else "all"
+        values = {key: "1"} if key else {}
         response = self.client.post(
             "/v1/functions/call",
-            json=_request({"scope": scope}).model_dump(mode="json"),
+            json=_request({"scope": scope, "config_values": values}).model_dump(
+                mode="json"
+            ),
         )
         body = response.json()
-        if case != "owner":
+        if case != "owner" or key:
+            assert not body.get("result"), body["result"]["sessions"]["active"]
             assert not body["success"]
             expected = {
+                "owner": "downstream_failure",
                 "disabled": "actor_disabled",
                 "missing": "authentication_required",
             }
