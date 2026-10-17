@@ -66,23 +66,13 @@ def run_member_rows(conn, run_id):
     if scope is None or scope[0] is not conn or run_id not in scope[2]:
         return None
 
-    def read():
-        markers = ",".join("%s" for _ in scope[2])
-        rows = query_rows(
-            conn,
-            "SELECT dri.run_id,dri.item_id,dri.requirement_snapshot,i.project_id "
-            "FROM deployment_run_items dri JOIN items i ON i.id=dri.item_id "
-            f"WHERE dri.run_id IN ({markers})",
-            scope[2],
-        )
-        by_run = defaultdict(dict)
-        for row in rows:
-            by_run[str(row["run_id"])][int(row["item_id"])] = row
-        return by_run
+    from yoke_core.domain.deployment_member_qa_projection import member_snapshot_rows
 
-    return presentation_read(conn, ("qa_presented_members", scope[2]), read).get(
-        run_id, {}
-    )
+    return presentation_read(
+        conn,
+        ("qa_presented_members", scope[2]),
+        lambda: member_snapshot_rows(conn, scope[2]),
+    ).get(run_id, {})
 
 
 def withdrawn_requirement_ids(conn, requested):
@@ -200,40 +190,6 @@ def run_facts(conn, run_id):
         }
 
     return presentation_read(conn, ("qa_presented_runs", runs), read).get(run_id)
-
-
-def execution_rows(conn, requested):
-    """Capture actual attempts together; canonical ordering grades only requested IDs."""
-    runs = presented_run_ids(conn)
-    if not runs:
-        return None
-
-    def read():
-        from yoke_core.domain.qa_latest_execution import actual_execution_sql
-
-        markers = ",".join("%s" for _ in runs)
-        rows = query_rows(
-            conn,
-            "SELECT q.id AS presented_requirement_id,run.* FROM qa_requirements q "
-            "LEFT JOIN qa_runs run ON run.qa_requirement_id=q.id "
-            f"AND {actual_execution_sql('run')} "
-            f"WHERE q.deployment_run_id IN ({markers})",
-            runs,
-        )
-        by_requirement = defaultdict(list)
-        for row in rows:
-            requirement_id = int(row["presented_requirement_id"])
-            by_requirement.setdefault(requirement_id, [])
-            if row["id"] is not None:
-                value = dict(row)
-                value.pop("presented_requirement_id")
-                by_requirement[requirement_id].append(value)
-        return by_requirement
-
-    by_requirement = presentation_read(conn, ("qa_presented_executions", runs), read)
-    if not set(requested) <= by_requirement.keys():
-        return None
-    return [row for requirement in requested for row in by_requirement[requirement]]
 
 
 def _requirements_by_stage(conn, runs):
