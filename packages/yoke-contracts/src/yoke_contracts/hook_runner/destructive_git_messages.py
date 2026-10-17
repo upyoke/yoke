@@ -1,10 +1,8 @@
-"""Operator-facing narrative for the destructive-git guard.
+"""Operator-facing narrative for the destructive-git guards.
 
-Split from ``lint_destructive_git`` so that module keeps detection logic
-only and stays inside the authored-file line budget. This module owns the
-wording an operator reads when a destructive git shape is refused: the
-shape label, the threatened-state summary, the remediation, and the
-provenance line naming which ``.yoke/lint-config`` decided the mode.
+The engine guard and the client-local guard render the same refusal from
+here: the shape label, the threatened-state summary, the remediation, and
+the provenance line naming which ``.yoke/lint-config`` decided the mode.
 """
 
 from __future__ import annotations
@@ -35,7 +33,8 @@ SHAPES = {
         "Inspect the exact damage with `git diff -- <path>`, then use "
         "`apply_patch` to reverse only the corrupted hunks. Stash or commit "
         "before a whole-file restore; `git restore --staged <path>` remains "
-        "safe when the intent is only to unstage.",
+        "safe when the intent is only to unstage. Name only the paths you "
+        "mean to restore: only modified paths the pathspec covers count.",
     ),
     "clean_force": (
         "git clean -f",
