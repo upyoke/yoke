@@ -1,0 +1,8 @@
+{
+ "id": "projectless-session-scope",
+ "title": "Prove sessions outside any project in a serving release",
+ "status": "observed",
+ "text": "Source and focused tests cover organization-scoped registration through Claude, Codex and Cursor hooks, immutable scope, folder admission refusals, organization-owned messages, relay jobs, background worker launches from a home steering seat, and roster, history, board and machine visibility. The release still owes the scripted installer-campaign cases for an agent outside a project on each declared harness, reinstallation, and first project-work refusal and recovery, plus the Command and Browser scenarios, against the exact candidate in local, self-host and hosted modes. This is a delivery obligation of the current change, not deferred implementation.",
+ "sources": ["docs/testing-verification/installer-campaign.md", "runtime/api/domain/test_session_registration_scope.py", "runtime/api/domain/test_machine_scope_roster.py", "runtime/api/domain/test_machine_scope_launch.py", "runtime/api/universe_ui_sessions_scope.test.mjs"],
+ "position": 61
+}
