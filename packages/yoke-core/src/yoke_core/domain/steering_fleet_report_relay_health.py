@@ -11,6 +11,7 @@ import json
 from typing import Any
 
 from yoke_contracts.session_control.relay_health import (
+    CONTRACT_RELAY_REPORT_CODES,
     RELAY_NEWER_THAN_SERVER,
     SETTLED_RELAY_REPORT_CODES,
     fleet_relay_error_code,
@@ -168,11 +169,16 @@ def _recovery_clause(entry: RelayHealthCondition) -> str:
     if entry.refusal_reason == RELAY_NEWER_THAN_SERVER:
         return f"{status}; recovery: {entry.recovery}"
     if entry.state == "quarantined":
-        return (
-            f"{status}; restore wire/transport compatibility for contract "
-            "rejections; do not replay server-settled reports "
+        settled = (
+            "do not replay server-settled reports "
             f"({', '.join(sorted(SETTLED_RELAY_REPORT_CODES))})"
         )
+        if entry.error_code in CONTRACT_RELAY_REPORT_CODES:
+            return (
+                f"{status}; restore wire/transport compatibility for contract "
+                f"rejections; {settled}"
+            )
+        return f"{status}; {settled}"
     return f"{status}; restore control-plane transport, then leave the relay running"
 
 

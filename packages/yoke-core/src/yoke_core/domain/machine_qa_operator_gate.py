@@ -13,6 +13,10 @@ from urllib.parse import urlsplit
 
 from yoke_contracts.machine_approval_coordinates import machine_approval_coordinates
 
+from yoke_core.domain.machine_qa_phase_heartbeat import (
+    HEARTBEAT_SECONDS,
+    emit_heartbeat_line,
+)
 from yoke_core.domain.machine_qa_setup_exit import step_failure
 from yoke_core.domain.ssh_mac_terminal_capture import RunRemote
 from yoke_harness.machine_browser_approval import BrowserApprovalResult
@@ -24,7 +28,6 @@ from yoke_core.domain.ssh_mac_terminal_recipe_support import (
 )
 
 
-_HEARTBEAT_SECONDS = 15.0
 BROWSER_APPROVAL_NOT_CONFIRMED = "machine_browser_approval_not_confirmed"
 _DENIAL_MARKERS = (
     "authorization denied in the browser",
@@ -92,7 +95,6 @@ def _exited(
     transcript: str,
     read_exit_code: Callable[[str], int | None],
     browser_evidence: dict[str, Any] | None = None,
-    browser_automation_error_code: str | None = None,
 ) -> OperatorGateResult | None:
     exit_code = read_exit_code(transcript)
     if exit_code is None:
@@ -108,7 +110,6 @@ def _exited(
         transcript,
         error_code,
         browser_evidence,
-        browser_automation_error_code,
         step_evidence=evidence,
     )
 
@@ -204,46 +205,44 @@ def run_machine_browser_approval_with_io(
             "machine_browser_approval_input_failed",
         )
     approval = approve_browser(url, code)
-    browser_automation_error_code = (
-        None
-        if approval.ok
-        else approval.error_code or "machine_browser_approval_failed"
-    )
+    if not approval.ok:
+        # The helper could not confirm the approval in its tab, so nothing can
+        # finish this gate: the terminal would only poll until it timed out.
+        browser_automation_error_code = (
+            approval.error_code or "machine_browser_approval_failed"
+        )
+        return OperatorGateResult(
+            False,
+            read_transcript(),
+            BROWSER_APPROVAL_NOT_CONFIRMED,
+            approval.evidence,
+            browser_automation_error_code,
+            step_evidence={
+                "browser_automation_error_code": browser_automation_error_code,
+                "recovery": (
+                    "The browser helper did not confirm the approval in its "
+                    "tab, so the gate stopped without waiting out its timeout. "
+                    "Read browser_approval for where it stopped, repair that "
+                    "on the test machine, then rerun the case."
+                ),
+            },
+        )
     timeout_seconds = float(action["gate_timeout_seconds"])
     completion_text = tuple(action["completion_text"])
     gate_code = _labeled_value(transcript, "One-time code:")
     assert gate_code is not None
-    deadline = time.monotonic() + timeout_seconds
+    started = time.monotonic()
+    deadline = started + timeout_seconds
     next_heartbeat = 0.0
     while True:
         transcript = read_transcript()
         gate_transcript = _current_gate_transcript(transcript, gate_code)
         lowered = gate_transcript.casefold()
         if all(marker in gate_transcript for marker in completion_text):
-            if approval.ok:
-                return OperatorGateResult(
-                    True,
-                    transcript,
-                    browser_evidence=approval.evidence,
-                )
-            # The terminal finishing proves the poll ended, not that this
-            # browser approved the machine. Without the helper's confirmation
-            # the gate has no approval evidence, so it must not pass.
             return OperatorGateResult(
-                False,
+                True,
                 transcript,
-                BROWSER_APPROVAL_NOT_CONFIRMED,
-                approval.evidence,
-                browser_automation_error_code,
-                step_evidence={
-                    "browser_automation_error_code": browser_automation_error_code,
-                    "recovery": (
-                        "The terminal reached completion, but the browser helper "
-                        "did not confirm the approval in its tab. Read "
-                        "browser_approval for where it stopped, repair that on "
-                        "the test machine, then rerun the case."
-                    ),
-                },
+                browser_evidence=approval.evidence,
             )
         if any(marker in lowered for marker in _DENIAL_MARKERS):
             return OperatorGateResult(
@@ -251,15 +250,8 @@ def run_machine_browser_approval_with_io(
                 transcript,
                 "machine_browser_approval_rejected",
                 approval.evidence,
-                browser_automation_error_code,
             )
-        exited = _exited(
-            action,
-            gate_transcript,
-            read_exit_code,
-            approval.evidence,
-            browser_automation_error_code,
-        )
+        exited = _exited(action, gate_transcript, read_exit_code, approval.evidence)
         if exited is not None:
             return exited
         now = time.monotonic()
@@ -269,22 +261,27 @@ def run_machine_browser_approval_with_io(
                 transcript,
                 "machine_browser_approval_timed_out",
                 approval.evidence,
-                browser_automation_error_code,
             )
-        if progress_callback is not None and now >= next_heartbeat:
-            try:
-                progress_callback()
-            except Exception as error:
-                if communication_unknown(error):
-                    raise
-                return OperatorGateResult(
-                    False,
-                    transcript,
-                    "machine_browser_approval_heartbeat_failed",
-                    approval.evidence,
-                    browser_automation_error_code,
-                )
-            next_heartbeat = now + _HEARTBEAT_SECONDS
+        if now >= next_heartbeat:
+            emit_heartbeat_line(
+                "operator_gate",
+                now - started,
+                step=str(action["step"]),
+                timeout_seconds=int(timeout_seconds),
+            )
+            if progress_callback is not None:
+                try:
+                    progress_callback()
+                except Exception as error:
+                    if communication_unknown(error):
+                        raise
+                    return OperatorGateResult(
+                        False,
+                        transcript,
+                        "machine_browser_approval_heartbeat_failed",
+                        approval.evidence,
+                    )
+            next_heartbeat = now + HEARTBEAT_SECONDS
         time.sleep(1.0)
 
 

@@ -85,12 +85,19 @@ def _notify_qa_review(
         notify_deployment_qa_verdict,
     )
 
-    return notify_deployment_qa_verdict(
+    from yoke_core.domain.deployment_member_close_out_retry import (
+        after_record_settled,
+    )
+
+    delivery = notify_deployment_qa_verdict(
         conn,
         requirement_id=int(request["subject_key"]),
         action=action,
         note=note or "",
     )
+    conn.commit()
+    after_record_settled(conn, requirement_id=int(request["subject_key"]))
+    return delivery
 
 
 def _deployment_stage_label(request: dict[str, Any]) -> str:

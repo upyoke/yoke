@@ -294,7 +294,7 @@ def test_registration_declares_floor_and_seat_guardrail() -> None:
 
 
 def test_plan_get_names_a_broken_correction_history(test_db) -> None:
-    """A retired plan stays readable, or refuses by name with the repair."""
+    """A broken correction history is named on the case, not a failed read."""
     from runtime.api.domain.test_qa_plan_effective_case_union import _replacement
     from yoke_core.domain.handlers.qa_catalog_reads import handle_plan_get
 
@@ -314,6 +314,11 @@ def test_plan_get_names_a_broken_correction_history(test_db) -> None:
             )
         )
 
-    assert outcome.primary_success is False
-    assert outcome.error.code == "replacement_graph_invalid"
-    assert "correction cycle" in outcome.error.message
+    assert outcome.primary_success is True
+    proofs = [
+        proof
+        for case in outcome.result_payload["plan"]["cases"]
+        for proof in case["proofs"]
+    ]
+    assert {proof["outcome"] for proof in proofs} == {"replacement_graph_invalid"}
+    assert "correction cycle" in proofs[0]["replacement_graph_error"]

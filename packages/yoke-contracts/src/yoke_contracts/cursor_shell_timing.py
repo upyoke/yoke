@@ -1,13 +1,14 @@
 """Cursor shell-event timing: consume native primitives or name the gap.
 
-``beforeShellExecution`` / ``afterShellExecution`` are Cursor's shell
-gates. Cursor CLI 2026.09.02-c22c1a3 delivers ``command`` and ``sandbox``
-on those events, and does not deliver ``tool_use_id`` or ``duration_ms``.
-Yoke's observe-pre path requires ``tool_use_id`` to open rolling tool-call
-state, so ID-less starts are dropped and the matching completions have no
-duration. That is an unsupported surface, not a failed measurement, and not
-a delayed start that later repairs ``session_tool_calls``. Reports keep
-this gap in the coverage denominator as unsupported timing.
+``beforeShellExecution`` is Cursor's shell gate; Shell completions arrive
+on the generic ``postToolUse`` with ``tool_name="Shell"``. Cursor CLI
+2026.09.02-c22c1a3 delivered ``command`` and ``sandbox`` on the gate without
+``tool_use_id``; 2026.10.16-e3cb207 adds a ``tool_use_id`` matching the
+completion's. Yoke's observe-pre path requires ``tool_use_id`` to open
+rolling tool-call state, so an ID-less start is dropped and its completion
+has no duration. That is an unsupported surface, not a failed measurement,
+and not a delayed start that later repairs ``session_tool_calls``. Reports
+keep this gap in the coverage denominator as unsupported timing.
 
 When a later Cursor build adds a native correlation id or duration, copy
 those fields through. Never invent an id, pair concurrent shells by
@@ -21,15 +22,15 @@ from typing import Any, Mapping
 
 from yoke_contracts.harness_family_identity import CURSOR_FAMILY
 
-CURSOR_SHELL_EVENTS = frozenset({"beforeShellExecution", "afterShellExecution"})
+CURSOR_SHELL_EVENTS = frozenset({"beforeShellExecution"})
 CURSOR_SHELL_TIMING_MEASURED = "measured"
 # Same token as the shared elapsed-measurement status for a completion
 # with no correlation id (observe_timing.TIMING_UNKNOWN_NO_CALL_IDENTITY).
 CURSOR_SHELL_TIMING_UNSUPPORTED_REASON = "unknown_no_call_identity"
 CURSOR_SHELL_TIMING_EVIDENCE = (
-    "cursor-agent 2026.09.02-c22c1a3 beforeShellExecution/afterShellExecution "
-    "payloads carry command and sandbox; they omit tool_use_id and duration_ms. "
-    "Live Bash completions in that CLI have null id and null duration."
+    "cursor-agent 2026.09.02-c22c1a3 beforeShellExecution payloads carry "
+    "command and sandbox and omit tool_use_id. Live Bash completions in that "
+    "CLI have null id and null duration."
 )
 _NATIVE_ID_FIELDS = ("tool_use_id", "call_id")
 

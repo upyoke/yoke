@@ -160,6 +160,11 @@ def commit_settled_verdict(conn: Any, run_id: int) -> None:
         conn.rollback()
         raise
     conn.commit()
+    from yoke_core.domain.deployment_member_close_out_retry import (
+        after_verdict_recorded,
+    )
+
+    after_verdict_recorded(conn, run_id)
 
 
 def commit_settled_verdict_or_exit(conn: Any, run_id: int) -> None:

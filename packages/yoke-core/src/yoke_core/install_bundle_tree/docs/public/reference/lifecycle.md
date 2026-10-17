@@ -228,7 +228,7 @@ repair happens while the claim is still held. Prefer that shape whenever a
 value must be right before an item freezes: gate the transition, do not
 reopen the record.
 
-Terminal settlement and code-identity checks count each requirement once, using its newest execution. Older attempts never block; browser reviews use the capture's verdict and identity, excluding detached agent verdict rows. A latest closed, verdict-less execution on a superseded requirement stops blocking only after its successor passes or is discharged; post-deploy proof needs accepted completion-member copies. Refusals name unsettled successors. Latest live executions and active plans still block, and history remains unchanged.
+Terminal settlement and code-identity checks count each requirement once, using its newest execution. Older attempts never block; browser reviews use the capture's verdict and identity, excluding detached agent verdict rows. A latest closed, verdict-less execution on a superseded requirement stops blocking only after its successor passes or is discharged; post-deploy proof needs accepted completion-member copies. An item's own verdictless capture on a post-deploy source stops blocking once the completion run accepts that source's copies. Refusals name unsettled successors. Latest live executions and active plans still block, and history remains unchanged.
 
 Ad hoc write SQL against the authoritative DB is not an escape hatch here;
 it is banned by the governed-mutation contract.

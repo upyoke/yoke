@@ -2,7 +2,7 @@
 
 The adapter is data-only: it points at the Cursor payload parser (which
 canonicalizes ``Shell`` -> ``Bash`` and synthesizes the Bash tool shape for
-``beforeShellExecution``/``afterShellExecution`` payloads) and the
+``beforeShellExecution`` payloads) and the
 Cursor-shaped decision renderer.
 
 No chain omissions are declared: Cursor runs the same universal chains

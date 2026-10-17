@@ -28,8 +28,11 @@ build now · lands after …", "Can't close until … is live on prod" — and i
 hover lists each edge's rationale. A tile that cannot move on its own is red
 with its reason: a frozen or blocked root others wait on, a cancelled
 blocker, an environment no delivery flow of the blocker reaches, or a
-deadlock (two items waiting on each other). Everything downstream reads
-`Stuck upstream: <item>`. Selecting a tile opens every blocker with its
+deadlock (items waiting on each other in a loop). Deadlocks come from the
+server's one cycle detector, which `frontier.list` serves beside the edges as
+`dependency_cycles`; the page draws them rather than computing its own.
+Dependency writes refuse to close a loop, so one appears only when items move
+into it. Everything downstream reads `Stuck upstream: <item>`. Selecting a tile opens every blocker with its
 gate, condition, where it is now and its rationale, every dependent, and the
 item's full card. On a phone the graph is an outline of each chain.
 
