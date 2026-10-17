@@ -123,16 +123,14 @@ def mint_token(
         replay_sql, (creation_request_id,),
     ).fetchone():
         raise TokenCreationReplayed("Token creation result is no longer available")
+    columns = "token_hash, actor_id, name, status, created_at, expires_at, diagnostic_metadata"
+    params = (token_hash, actor_id, name, TOKEN_STATUS_ACTIVE, instant_parameter(conn, _now()),
+              instant_parameter(conn, expiry), _metadata_json(diagnostic_metadata))
+    if creation_request_id is not None:  # only request-bound creation stores a replay key
+        columns, params = f"{columns}, creation_request_id", (*params, creation_request_id)
+    insert_sql = f"INSERT INTO api_tokens ({columns}) VALUES ({', '.join([p] * len(params))})"
     try:
-        row = conn.execute(
-            "INSERT INTO api_tokens "
-            "(token_hash, actor_id, name, status, created_at, expires_at, "
-            "diagnostic_metadata, creation_request_id) "
-            f"VALUES ({p}, {p}, {p}, 'active', {p}, {p}, {p}, {p}) RETURNING id",
-            (token_hash, actor_id, name, instant_parameter(conn, _now()),
-             instant_parameter(conn, expiry), _metadata_json(diagnostic_metadata),
-             creation_request_id),
-        ).fetchone()
+        row = conn.execute(f"{insert_sql} RETURNING id", params).fetchone()
     except db_backend.integrity_error_types(conn):
         if creation_request_id is None:
             raise
