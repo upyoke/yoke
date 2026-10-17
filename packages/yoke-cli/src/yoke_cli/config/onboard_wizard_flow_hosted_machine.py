@@ -88,8 +88,16 @@ class HostedMachineConnectFlow(HostedMachineApprovalViews):
 
             self._run_checking(
                 step=STEP_CONNECT,
-                title="Opening your browser…",
-                message="Checking for a browser; preparing Yoke's browser runtime if needed.",
+                title=(
+                    "Opening your browser…"
+                    if getattr(self, "opens_browser", True)
+                    else "Waiting for browser approval…"
+                ),
+                message=(
+                    "Checking for a browser; preparing Yoke's browser runtime if needed."
+                    if getattr(self, "opens_browser", True)
+                    else "Open the approval link in your browser."
+                ),
                 detail_lines=self._approval_detail_lines(
                     pending, "You can also open this link on any device."
                 ),
@@ -257,7 +265,11 @@ class HostedMachineConnectFlow(HostedMachineApprovalViews):
                     step=STEP_CONNECT,
                     title="Browser sign-in did not finish.",
                     message=message,
-                    detail_lines=tuple(["Check your network, then start a fresh one-time authorization."]),
+                    detail_lines=tuple(
+                        [
+                            "Check your network, then start a fresh one-time authorization."
+                        ]
+                    ),
                     choices=tuple(steps.HOSTED_MACHINE_RETRY_ROWS),
                     tone=TONE_ERROR,
                 ),

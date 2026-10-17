@@ -39,13 +39,25 @@ or one orientation. Keep unresolved readiness checks unresolved; another
 harness's settings do not establish Codex readiness. Verify the actual CLI
 build against installed discovery requirements, separately from its daemon.
 
+An existing conversation can retain its earlier sandbox after setup changes
+the persisted settings. Resume that same conversation with the already
+approved posture, then verify its next actual turn context:
+
+```text
+codex resume --ask-for-approval never --sandbox danger-full-access SESSION_ID
+```
+
+Preserve the conversation, profile and sign-in. These flags require the same
+fixture approval as the setup pass; they do not grant permission elsewhere.
+
 ## Embedded helper and AppArmor
 
 If a harmless native sandbox command fails with a `bwrap` user-namespace or
 loopback permission denial, inspect the kernel audit before changing policy.
 Codex can run an embedded helper under
 `~/.codex/packages/app-server-daemon/releases/BUILD/codex-resources/bwrap`;
-the frontend version or a system `bwrap` path does not identify that helper.
+an npm frontend can use its package's embedded helper instead. The frontend
+version or a system `bwrap` path does not identify the executed helper.
 
 For an operator-approved fixture repair, preserve the existing AppArmor file
 and add an attachment only for the exact executable named by the audit.
