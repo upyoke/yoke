@@ -16,6 +16,9 @@ FOCUS_PROBE_MARKER = "set frontApp to name of first application process"
 RAISE_WINDOW_MARKER = "set index of targetWindow to 1"
 LOAD_AVERAGE_COMMAND = "/usr/sbin/sysctl -n vm.loadavg"
 SECURE_KEYBOARD_ENTRY_COMMAND = "/usr/bin/defaults read com.apple.Terminal"
+#: The visible-window count and the force-close script.
+VISIBLE_WINDOW_COUNT_MARKER = "every window whose visible is true"
+WINDOW_CLOSE_MARKER = "set ttyPaths to tty of every tab"
 REACHABILITY_PROBES = {
     "system_events": 'tell application "System Events" to count processes',
     "terminal": 'tell application "Terminal" to count windows',
@@ -45,6 +48,8 @@ class ScriptedMacHost:
         secure_keyboard_entry: bool = False,
         system_events_reachable: bool = True,
         terminal_app_reachable: bool = True,
+        terminal_windows: int = 2,
+        window_closes: bool = True,
     ) -> None:
         self.visible_frame = visible_frame
         self.display = display
@@ -58,6 +63,8 @@ class ScriptedMacHost:
         self.secure_keyboard_entry = secure_keyboard_entry
         self.system_events_reachable = system_events_reachable
         self.terminal_app_reachable = terminal_app_reachable
+        self.terminal_windows = terminal_windows
+        self.window_closes = window_closes
         self.commands: list[str] = []
         self.window_ids: list[int] = []
         self.requested_bounds: list[tuple[int, int, int, int]] = []
@@ -138,6 +145,10 @@ class ScriptedMacHost:
             return f"{{ {self.load_average:.2f} 0.40 0.30 }}"
         if command.startswith(SECURE_KEYBOARD_ENTRY_COMMAND):
             return "1" if self.secure_keyboard_entry else "0"
+        if VISIBLE_WINDOW_COUNT_MARKER in command:
+            return f"{self.terminal_windows}\n"
+        if WINDOW_CLOSE_MARKER in command:
+            return "closed\n" if self.window_closes else "open\n"
         answer = self.reply(command)
         return "" if answer is None else answer
 
@@ -212,4 +223,6 @@ __all__ = [
     "RAISE_WINDOW_MARKER",
     "SECURE_KEYBOARD_ENTRY_COMMAND",
     "ScriptedMacHost",
+    "VISIBLE_WINDOW_COUNT_MARKER",
+    "WINDOW_CLOSE_MARKER",
 ]
