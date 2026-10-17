@@ -203,34 +203,6 @@ def open_terminal_app_window(
     )
 
 
-def close_terminal_app_window(
-    run: RunRemote,
-    *,
-    window_id: int | None,
-) -> None:
-    """Force-close one Terminal.app window, killing what still runs in it.
-
-    A plain close of a still-running window (osascript blocked on consent)
-    leaves a "terminate running processes" sheet up; kill its ttys first."""
-    if window_id is None:
-        return
-    run_osascript(
-        run,
-        [
-            'tell application "Terminal"',
-            f"if exists window id {window_id} then",
-            f"repeat with ttyPath in (tty of every tab of window id {window_id})",
-            'do shell script "/usr/bin/pkill -KILL -t " & quoted form of '
-            '(text 6 thru -1 of ttyPath) & " || true"',
-            "end repeat",
-            "delay 0.5",
-            "end if",
-            f"if exists window id {window_id} then close window id {window_id}",
-            "end tell",
-        ],
-    )
-
-
 def capture_terminal_app_transcript(
     run: RunRemote,
     *,
@@ -339,7 +311,6 @@ __all__ = [
     "RunRemote",
     "TerminalWindowLaunch",
     "capture_terminal_app_transcript",
-    "close_terminal_app_window",
     "open_terminal_app_window",
     "run_osascript",
     "set_terminal_app_window_bounds",
