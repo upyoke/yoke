@@ -324,13 +324,13 @@ the existing project uninstall.
 
 ## Related
 
-For one checkout, run `yoke project uninstall /path/to/checkout`.
-It removes the installed layer and only proven installer-owned, exclusive
-checkout registration and exact folder trust. Shared roots, Git worktrees,
-edited entries and unknown ownership are preserved with named reasons.
-A partial cleanup exits nonzero and retains its manifest: resolve the named
-ownership or sharing issue, then rerun the same command. Credentials, other
-projects, shared tools and server history stay intact; source checkouts refuse.
+For one checkout, run `yoke project uninstall /path/to/checkout`. It removes
+the installed layer and only proven installer-owned, exclusive checkout
+registration and exact folder trust; entries that grant no trust stay as they
+are. Shared roots, Git worktrees, edited entries and unknown ownership stay
+with named reasons. A partial cleanup exits nonzero and keeps its manifest:
+resolve the named ownership or sharing issue, then rerun it. Credentials,
+other projects, shared tools and server history stay; source checkouts refuse.
 
 - [Maintaining a private fork](private-forks.md)
 - [Modes](modes.md)
