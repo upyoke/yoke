@@ -21,6 +21,20 @@ from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.work_claim_targets import TARGET_KIND_QA_ADMISSION
 
 
+def answered_by_run_copy(
+    conn: Any, item_id: int, requirement_id: int, sources: set[int]
+) -> bool:
+    """A post-deploy source whose accepted run copies already answer it.
+
+    The item's own capture on that source owes no verdict once the completion
+    run accepts the copies: the copies' acceptance is the source's settlement,
+    which is the same reading the terminal verdict gate applies.
+    """
+    return int(requirement_id) in sources and source_obligation_consumed(
+        conn, item_id=int(item_id), source_requirement_id=int(requirement_id)
+    )
+
+
 def live_qa_leases(conn: Any, item_id: int) -> list[tuple[int, str]]:
     """Find durable plan and submitted-case lease owners, including old attempts."""
     if not _table_exists(conn, "work_claims"):

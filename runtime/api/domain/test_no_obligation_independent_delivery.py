@@ -187,7 +187,14 @@ def test_close_out_refusal_sends_named_recovery_notice(
         test_db, run_id=run_id, stage_name="item-qa", member_item_id=MEMBER_A
     )["accepted"]
     assert _status(test_db, MEMBER_A) == "release"
-    [body] = _bodies(test_db, item_qa_accepted_idempotency_key(MEMBER_A, run_id))
+    assert _bodies(test_db, item_qa_accepted_idempotency_key(MEMBER_A, run_id)) == []
+    [body] = [
+        row["body"]
+        for row in test_db.execute(
+            "SELECT body FROM session_messages WHERE idempotency_key LIKE %s",
+            (item_qa_accepted_idempotency_key(MEMBER_A, run_id) + ":refused-%",),
+        ).fetchall()
+    ]
     assert "Automatic close-out failed" in body
     assert "result_summary" in body
     assert "yoke merge item" in body

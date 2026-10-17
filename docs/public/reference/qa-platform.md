@@ -85,6 +85,12 @@ In the implemented summary a post_deploy item source also reads satisfied once
 the run answering its environment accepted its admitted copy -- the reading
 done uses. A supplemental QA run (another environment of the same release)
 answers as soon as its final item QA is accepted, before either run settles.
+The implemented summary of an item also lists `unsettled_records` from the
+done gate's own terminal-settlement check (a latest execution without a
+verdict, a live host lease, an active plan execution); any entry makes it
+unsatisfied, so the summary never reads satisfied while done refuses. An
+item's own verdictless capture on a post_deploy source stops counting once
+the completion run accepts that source's copies: the copies settle it.
 
 Done settles blocking item and run-member requirements of any phase. A
 run-bound supersession needs the same run/stage/member/target and accepted
