@@ -86,6 +86,8 @@ CLAIMS_TABLES: dict[str, dict] = {
             "Relay report/probe and vendor recovery readers select nullable org_id and "
             "actor_id. Wrong guess: a project-only launch/message fixture can omit org_id; "
             "include the nullable column even when every seeded session has project_id. "
+            "Org-session fixtures still declare harness_sessions.project_id and store NULL. "
+            "Wrong guess: a session outside any project lets a fixture omit the column. "
             "Project sessions set org_id NULL; org sessions set project_id NULL and retain "
             "their authenticated actor_id. Wake eligibility also selects "
             "harness_sessions.actor_id. Wrong guess: a project-only relay fixture may "

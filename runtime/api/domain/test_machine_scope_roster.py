@@ -298,3 +298,34 @@ def test_local_board_uses_proven_binding_or_named_refusal(roster, monkeypatch, b
         result = renderer.render_board(None, "all", None)
         assert result["actor_id"] == roster.owner
         assert result["visible_project_ids"] is not None
+
+
+def test_machine_detail_lists_readable_org_sessions(world):
+    from yoke_core.domain.machine_detail import machine_detail
+    from yoke_core.domain.machine_registry import register_machine
+
+    machine = str(uuid4())
+    record, _ = register_machine(
+        world.conn,
+        machine_id=machine,
+        name="Shared host",
+        actor_id=world.owner,
+        now=utc_now(),
+    )
+    register(world, sid="machine-org", machine_id=machine)
+    register(
+        world,
+        sid="machine-project",
+        project_id=1,
+        machine_scope=False,
+        machine_id=machine,
+    )
+    owner_view = machine_detail(world.conn, record=record, actor_id=world.owner)
+    scopes = {
+        row["session_id"]: (row["project_id"], row["org_id"])
+        for row in owner_view["recent_sessions"]
+    }
+    assert scopes == {"machine-org": (None, world.org), "machine-project": (1, None)}
+    assert [project["id"] for project in owner_view["projects"]] == [1]
+    stranger_view = machine_detail(world.conn, record=record, actor_id=world.stranger)
+    assert stranger_view["recent_sessions"] == []

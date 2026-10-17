@@ -20,6 +20,10 @@ from yoke_core.domain.machine_registry import register_machine
 from yoke_core.domain.session_launch_origin import derived_launch_origin
 from yoke_core.domain.session_launch_store import get_launch
 from yoke_core.domain.session_launch_registration import prepare_launch_registration
+from yoke_core.domain.session_launch_registered_session_binding import (
+    require_exact_launch_session,
+    require_registered_session_facts,
+)
 from yoke_core.domain.session_relay_launch_lease import claim_next_launch
 from yoke_core.domain.session_relay_types import RelayHeartbeat
 from yoke_harness.session_relay_runtime import execution_context
@@ -72,6 +76,22 @@ def test_missing_capability_explicit_deferral(home, surface):
         in str(caught.value)
     )
     assert conn.execute("SELECT COUNT(*) FROM session_launches").fetchone()[0] == before
+
+
+def test_machine_scope_session_refuses_project_launch_binding_by_name(home):
+    facts = require_registered_session_facts(home.w.conn, home.session)
+    assert facts["project_id"] is None
+    launch = SimpleNamespace(
+        project_id=1,
+        selected_surface=facts["surface"],
+        assigned_machine_id=None,
+        native_session_id=home.session,
+    )
+    with pytest.raises(SessionLaunchError) as caught:
+        require_exact_launch_session(launch, home.session, facts)
+    assert caught.value.code == "project_mismatch"
+    assert "started outside any project" in str(caught.value)
+    assert "yoke project register CHECKOUT --project-id 1" in str(caught.value)
 
 
 @pytest.fixture(params=["claude-cli", "codex-cli", "cursor-cli"])
