@@ -19,6 +19,10 @@
   margin-bottom: 14px;
 }
 
+.universe-app-root .actors-invites { margin-top: 14px; }
+.universe-app-root .actors-invite-slot:not(:empty) { margin-bottom: 14px; }
+.universe-app-root .actors-invites td { overflow-wrap: anywhere; }
+
 .universe-app-root .actors-local-notice[hidden] {
   display: none;
 }

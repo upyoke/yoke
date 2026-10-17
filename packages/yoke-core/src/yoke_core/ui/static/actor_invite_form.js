@@ -16,9 +16,19 @@ function refusal(result, name) {
   return `${error.message || "Could not create the invite. Check the list below before trying again."}${error.code ? ` (${error.code})` : ""} ${hint}`.trim();
 }
 
+function clearSlot(slot) {
+  const clear = (node) => {
+    for (const child of [...node.children]) clear(child);
+    if (node.classList?.contains("profile-token-value")) node.textContent = "";
+  };
+  clear(slot);
+  slot.replaceChildren();
+}
+
 export function renderInviteResult(context, slot, result, { onDone }) {
   const doc = context.document;
-  const notice = el(doc, "div", "profile-token-reveal");
+  clearSlot(slot);
+  const notice = el(doc, "div", result.code ? "profile-token-reveal" : "actors-invite-result");
   const name = result.invite?.name;
   if (result.code) {
     notice.setAttribute("data-invite-code", "true");
@@ -43,15 +53,13 @@ export function renderInviteResult(context, slot, result, { onDone }) {
       el(doc, "p", null, `Lost it? Use Reissue on ${name}'s invite below. Yoke keeps only a hash, so this code can't be shown again.`),
     ]) notice.appendChild(node);
   } else {
-    const status = el(doc, "p", null, `Invite sent to ${result.email}. They join when they sign in.`);
+    const status = el(doc, "p", null, `Invite sent to ${result.invite?.email || result.email}. They join when they sign in.`);
     status.setAttribute("role", "status");
     notice.appendChild(status);
   }
   const done = button(doc, "Done");
   done.addEventListener("click", () => {
-    // Clear the detached card too: no stale button or node keeps the secret.
-    notice.replaceChildren();
-    slot.replaceChildren();
+    clearSlot(slot);
     onDone();
   });
   notice.appendChild(done);
@@ -70,8 +78,7 @@ export function openInviteForm(context, slot, options) {
     const keep = button(doc, "Keep");
     const cancel = () => { slot.removeChild(confirm); onCancel(false); };
     close.addEventListener("click", () => {
-      reveal.replaceChildren();
-      slot.replaceChildren();
+      clearSlot(slot);
       openInviteForm(context, slot, options);
     });
     keep.addEventListener("click", cancel);
@@ -142,7 +149,8 @@ export function openInviteForm(context, slot, options) {
     if (busy) return;
     const value = input.value.trim();
     if (!value || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) || (!email && value.length > 80)) {
-      validation.textContent = email ? "Enter an email address, like ana@example.com." : "Enter the teammate's name (up to 80 characters).";
+      validation.textContent = email ? "Enter an email address, like ana@example.com."
+        : value ? "Use 80 characters or fewer." : "Enter the teammate's name.";
       input.setAttribute("aria-invalid", "true");
       input.setAttribute("aria-describedby", validation.id);
       input.focus();
