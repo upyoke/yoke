@@ -87,8 +87,8 @@ enforced or consulted today for placement, deploys, or QA host selection.
 Read and change it with:
 
 ```bash
-yoke machine settings get [MACHINE-ID] [--path use.mode]
-yoke machine settings set [MACHINE-ID] --path use.mode --value universe
+yoke machine access get [MACHINE-ID] [--path use.mode]
+yoke machine access set [MACHINE-ID] --path use.mode --value universe
 ```
 
 Only the machine's owner or an administrator may set it.
@@ -103,7 +103,7 @@ universe**. Only fields relevant to the selected mode appear.
 
 **Save access** requires at least one selected actor, or an available project
 and a nonempty role, as appropriate. It submits the complete `use` policy in
-one `machine.settings.set` call with `path: "use"`, preserving the policy's
+one `machine.access.set` call with `path: "use"`, preserving the policy's
 other existing fields. A project-and-role change therefore has no intermediate
 grant using the old role on the new project. Server validation remains the
 authority for the complete policy.

@@ -7,7 +7,7 @@ the flags are the same on every machine; the second is observed, because it
 depends on the provider account behind the surface.
 
 Which model a launch *should* use is not answered here. Level options decide
-that (``yoke universe levels get``); an explicit ``--model`` overrides them.
+that (``yoke settings get levels``); an explicit ``--model`` overrides them.
 """
 
 from __future__ import annotations
@@ -78,7 +78,7 @@ def render_launch_models(report: Mapping[str, Any], *, json_mode: bool) -> str:
     if json_mode:
         return json.dumps(report, indent=2) + "\n"
     lines = [
-        "Launch models are chosen by level options (`yoke universe levels get`); "
+        "Launch models are chosen by level options (`yoke settings get levels`); "
         "--model overrides them for one launch."
     ]
     for surface, accepted in (report.get("accepted") or {}).items():

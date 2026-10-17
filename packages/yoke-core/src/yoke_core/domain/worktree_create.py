@@ -224,7 +224,6 @@ def create_worktree(
     # --- All-worktree preflight (no side effects yet) ---
     max_wt = runtime_settings.get_int(
         "max_active_worktrees",
-        5,
         config_path=config_path,
     )
 

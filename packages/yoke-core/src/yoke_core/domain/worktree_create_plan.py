@@ -173,7 +173,8 @@ def preflight_worktree_plan(
         plan.error = (
             f"max_active_worktrees limit reached ({counted} active "
             f"+ {needed} pending > {max_active_worktrees}{uncounted}). "
-            f"{capacity_recovery(repo_root, active_names, landed)}"
+            f"{capacity_recovery(repo_root, active_names, landed)}; "
+            "or raise the limit: yoke settings set max_active_worktrees N"
         )
         plan.capacity_refused = True
         return plan

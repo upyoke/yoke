@@ -38,8 +38,9 @@ at twenty seconds, each statement at ten seconds or its remaining budget, and
 locks at one second. When a pass reaches its budget, the next pass resumes
 the same table; that is never a failure. A table that reaches its own
 statement or lock limit with a full pass budget is skipped while the other
-tables continue; it is retried up to three times per invocation and then
-listed as not finished.
+tables continue. It is retried on later cycles and listed as not finished
+after three limit hits in a row; any batch it deletes resets that count, so
+a busy table still drains.
 
 Output stays short. About every 10 seconds the command prints one progress
 line: rows deleted so far, the largest table still being pruned, and elapsed

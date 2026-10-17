@@ -23,14 +23,14 @@ and Levels set refuse published-effort contradictions as
 `level_min_effort_unpublished`. Present the complete proposal and obtain
 operator approval before changing stored Levels.
 
-When `equals_shipped_defaults` is true, approve with `yoke universe levels
-reset`: the universe stores nothing and keeps following shipped defaults.
+When `equals_shipped_defaults` is true, approve with `yoke settings unset
+levels`: the universe stores nothing and keeps following shipped defaults.
 Otherwise store the document, and tell the operator that a stored document
-stops following future shipped defaults until `yoke universe levels reset`:
+stops following future shipped defaults until `yoke settings unset levels`:
 
 ```sh
 yoke models level-proposal --levels-only --stdin < changes.json > /tmp/levels.json
-yoke universe levels set --stdin < /tmp/levels.json
+yoke settings set levels - < /tmp/levels.json
 ```
 
 `set` with a document equal to the shipped defaults also stores nothing.

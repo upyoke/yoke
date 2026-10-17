@@ -9,7 +9,7 @@
  "surface": "Machine register/settings help and source contract expose the policy; natural discovery from the dashboard or launch blocker was not traced.",
  "gap": "This is an implemented contract with an untraced human/agent entry cue, not absent support.",
  "review": "Pending exact recipe proof.",
- "recipes": ["yoke machine list", "yoke machine detail MACHINE-ID", "yoke machine settings get --help"],
+ "recipes": ["yoke machine list", "yoke machine detail MACHINE-ID", "yoke machine access get --help"],
  "plan_notes": ["outside both"],
  "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/machine.py", "packages/yoke-contracts/src/yoke_contracts/machine_config/machine_access.py"],
  "position": 1

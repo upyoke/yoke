@@ -6,8 +6,8 @@ it extrapolates them from the catalog; with ``changes`` it applies the
 author's list instead. Either way it returns the resulting levels document
 and refuses a row whose minimum effort the model's provider does not publish.
 Nothing is written. Approval of a document equal to the shipped defaults
-applies with ``yoke universe levels reset`` so the universe keeps following
-shipped defaults; any other document applies with ``yoke universe levels set``,
+applies with ``yoke settings unset levels`` so the universe keeps following
+shipped defaults; any other document applies with ``yoke settings set levels``,
 which stops the universe following future shipped defaults.
 """
 
@@ -35,8 +35,8 @@ from yoke_contracts.model_reference_records import ModelReferenceError
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 
 FUNCTION_ID = "models.level_proposal.run"
-APPLY_COMMAND = "yoke universe levels set --stdin"
-RESET_COMMAND = "yoke universe levels reset"
+APPLY_COMMAND = "yoke settings set levels -"
+RESET_COMMAND = "yoke settings unset levels"
 
 
 class ModelsLevelProposalRequest(BaseModel):
@@ -87,7 +87,7 @@ def handle_models_level_proposal(request: FunctionCallRequest) -> HandlerOutcome
         return _failure(
             getattr(exc, "code", "levels_document_invalid"),
             f"{exc}. Recovery: store a valid document with "
-            "`yoke universe levels set --stdin`.",
+            "`yoke settings set levels -`.",
         )
     records = revision["records"]
     generated = spec.changes is None

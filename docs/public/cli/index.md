@@ -89,8 +89,8 @@ publication source note for the review trail. No source edit or release is
 needed for a normal refresh. Records hold facts only — prices, published
 `reasoning_efforts` and `context_window_tokens`, successors. `yoke models
 level-proposal` then proposes the level changes those facts imply; after
-operator approval, `yoke universe levels reset` applies a proposal equal to the
-shipped defaults and `yoke universe levels set` stores any other, which stops
+operator approval, `yoke settings unset levels` applies a proposal equal to the
+shipped defaults and `yoke settings set levels` stores any other, which stops
 the universe following future shipped defaults.
 
 Session usage tokens remain stored in `harness_sessions.usage_totals`; its
@@ -103,7 +103,36 @@ the surface API; which model a launch uses comes from the level options.
 
 ## Execution levels
 
-`yoke universe levels get|set` reads and replaces the universe levels, and `yoke universe level-capacity get` reads what each can launch now and why ([execution levels](../agents/levels.md)).
+`yoke settings get|set levels` reads and replaces the universe levels, and `yoke universe level-capacity get` reads what each can launch now and why ([execution levels](../agents/levels.md)).
+
+## Key-value settings
+
+`yoke settings list` shows each registered key's scope, value, source and meaning.
+Use `--scope machine|project|org|universe` to narrow the list. Keys have unique
+names across scopes; the key selects its authority. Project scope defaults to
+the checkout; use `--project P` to select another project.
+
+```text
+yoke settings list --scope machine
+yoke settings get max_active_worktrees
+yoke settings set max_active_worktrees 12
+yoke settings unset max_active_worktrees
+yoke settings set levels - < /tmp/levels.json
+```
+
+Values use the declared type: strings are literal, integers and booleans use
+JSON scalar syntax, and lists/objects use JSON. A value of `-` reads stdin.
+Unknown keys name the closest match; invalid values name the type or range
+and leave storage unchanged. Unset removes the override and follows defaults.
+JSON reads carry the value in `result.value` (list rows in `result.settings`).
+
+Machine settings stay in this computer's locked `settings` document. Project
+writes require project admin; organization and universe writes require org
+admin. `yoke machine access get|set` manages the registered machine's access
+document. Structured capability documents, environment settings, surface policy,
+execution instructions, UI preferences, connections and secrets retain their
+own commands. Retention editing and project overrides of machine keys are
+outside this catalog.
 
 ## Connections
 

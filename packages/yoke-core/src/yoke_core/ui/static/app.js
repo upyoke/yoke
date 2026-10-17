@@ -56,6 +56,7 @@ import { createLocationPreference } from "./universe_location_preference.js";
 import { purgeObsoleteItemDrafts } from "./item_draft_storage.js";
 import { mountBuildUpdate } from "./universe_build_update.js";
 import { mountWorkbenchTelemetry } from "./workbench_telemetry.js";
+import { prefetchShippingOverview } from "./universe_shipping_runs.js";
 export { withProjectSelection } from "./universe_selection_routes.js";
 // A host owns its slot DOM, so it cannot inherit the app's own dismissal —
 // and should not write a second one. Contract: `contracts/universe-app.ts`.
@@ -118,7 +119,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     // portability capabilities; the topbar carries no capability controls.
     capabilities, screenPreferences: scopeSelections,
   };
-
+  const disposeShippingRead = prefetchShippingOverview(context, windowNode, navigation);
   const {
     brand, disposeChrome, header, main, navLinks, orgContext, scopeHost,
     setScopeVisible, shell,
@@ -143,7 +144,6 @@ export function mountUniverseApp(rootNode, options = {}) {
   loadWordmark(brand, WORDMARK_ASSET_URL, () => mounted);
 
   loadOrganizationName(client, orgContext, () => mounted);
-
   // Host sections share route scope and cancel their prior render.
   const {
     append: appendViewSection,
@@ -336,6 +336,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     mounted = false;
     disposeHostSection();
     disposeTelemetry(); disposeSelectionRefresh();
+    disposeShippingRead();
     disposeBuildUpdate();
     if (typeof context.abortView === "function") context.abortView();
     navigation.dispose();

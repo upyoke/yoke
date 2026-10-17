@@ -36,7 +36,7 @@ the recorded origin and saves it after a successful update.
 For an install missing the record, explicitly select your distribution:
 
 ```bash
-yoke config distribution set --origin https://packages.example.com --channel private
+yoke settings set distribution '{"origin":"https://packages.example.com","channel":"private"}'
 ```
 
 Run the command's `--help` for its flags. This selection changes the install
@@ -78,7 +78,7 @@ no valid distribution record, relay installation refuses with
 `relay_release_fetch_failed` and a `distribution_origin_missing` or other
 distribution validation reason. The refusal records recovery instructions
 in relay status and preserves any prior release. Repair the record with
-`yoke config distribution set`, then retry the named relay install command.
+`yoke settings set distribution`, then retry the named relay install command.
 For an older installer that cannot
 fetch an already-published release, follow the
 [release fetch recovery](../sessions/linux-relay.md#recover-a-release-fetch-failure)

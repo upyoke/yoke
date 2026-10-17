@@ -137,7 +137,7 @@ Shared project behavior lives in the Yoke DB, not checkout files:
   nested `board` appearance and scope settings. The authored-file line limit
   is not among them: it must hold in a fresh clone with no DB reachable, so it
   is checked-in project-file policy.
-- Execution levels are universe settings (`yoke universe levels get|set`);
+- Execution levels are universe settings (`yoke settings get|set levels`);
   a project's `session-routing` capability may carry a `levels` override.
   Read what a project uses with
   `yoke projects level-summary get --project <slug>`; write an override with

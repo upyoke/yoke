@@ -56,7 +56,7 @@ The config supports only this list shape and these two entry fields.
 The installer records `settings.distribution` as `{"origin": "https://api.upyoke.com",
 "channel": "stable"}` using the actual install selection. `yoke update` requires
 that record and uses it in a fresh shell. Select or repair it explicitly with
-`yoke config distribution set --origin URL --channel NAME`; run that command's
+`yoke settings set distribution '{"origin":"URL","channel":"NAME"}'`; run that command's
 `--help` for flags. This does not change the active control-plane connection.
 Relays connected to a private API host also require this record and install
 from `origin/simple/`; they do not infer an index from the API host. See
