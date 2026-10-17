@@ -14,6 +14,13 @@ Ordinary checkouts keep reusing their database. Session settings end with
 their connection; database-scoped `ALTER DATABASE ... SET` changes still need
 a separately disposable database.
 
+Before first baseline capture, construction stops other connections to the
+newly owned reusable clone, disables ordinary automatic maintenance on its
+user tables, and commits that policy. Source templates, ambient databases,
+independent disposable databases and global settings stay unchanged.
+Wraparound protection remains active, and explicit `ANALYZE` still causes
+baseline invalidation. Drift field names do not identify the initiating process.
+
 Discard writes `reusable database invalidated:` to the captured stderr.
 Its JSON distinguishes `schema` from `planner_statistics`; planner drift
 lists relation and field names only, without values or connection strings.

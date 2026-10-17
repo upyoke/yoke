@@ -54,6 +54,28 @@ def flavor():
     pg_reusable_db.discard(key)
 
 
+def test_maintenance_policy_is_confined_to_reusable_clone(flavor):
+    control = _build_small_db()
+    try:
+        with pg_reusable_db.checkout(flavor, _build_small_db) as reusable:
+            for name, disabled in ((reusable, True), (control, False)):
+                conn = _connect(name)
+                try:
+                    options = conn.execute(
+                        "SELECT reloptions FROM pg_class WHERE relkind='r' "
+                        "AND relnamespace=current_schema()::regnamespace"
+                    ).fetchall()
+                    assert len(options) == 2
+                    assert all(
+                        ("autovacuum_enabled=false" in (row[0] or ())) == disabled
+                        for row in options
+                    )
+                finally:
+                    conn.close()
+    finally:
+        pg_testdb.drop_test_database(control)
+
+
 def test_checkout_reuses_database_and_resets_to_baseline(flavor):
     with pg_reusable_db.checkout(flavor, _build_small_db) as first:
         assert first is not None
