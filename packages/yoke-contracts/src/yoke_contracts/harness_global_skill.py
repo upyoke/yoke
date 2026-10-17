@@ -14,9 +14,10 @@ entry into ``runtime/harness/<harness_id>/manifest.json`` under
 ``global_skill`` (documented in ``runtime/harness/manifest-global-skill.md``)
 and :mod:`yoke_contracts.global_skill_install` installs from it.
 
-Observed on claude-cli, codex-cli 0.161.0 and cursor-agent 2026.10.16:
-Cursor also reads ``~/.claude/skills`` and ``~/.codex/skills`` when its
-third-party skill import is on; the Claude link resolves to the same folder.
+``verified_on_surface`` names a surface only where a live session listed the
+installed skill; ``evidence`` says what was observed. Cursor also reads
+``~/.claude/skills`` and ``~/.codex/skills`` when its third-party skill import
+is on; the Claude link resolves to the same folder.
 """
 
 from __future__ import annotations
@@ -43,6 +44,7 @@ class HarnessGlobalSkill:
     user_skills_dir: str
     placement: Placement
     verified_on_surface: str
+    evidence: str
 
     def to_json(self) -> dict[str, object]:
         return {
@@ -52,6 +54,7 @@ class HarnessGlobalSkill:
             "placement": self.placement,
             "shared_skill_dir": f"~/{SHARED_SKILLS_DIR}/{GLOBAL_SKILL_NAME}",
             "verified_on_surface": self.verified_on_surface,
+            "evidence": self.evidence,
         }
 
 
@@ -60,19 +63,33 @@ HARNESS_GLOBAL_SKILLS: dict[str, HarnessGlobalSkill] = {
         harness_home="~/.claude",
         user_skills_dir="~/.claude/skills",
         placement="link",
-        verified_on_surface="claude-cli",
+        verified_on_surface="",
+        evidence=(
+            "Claude Code reads user skills from ~/.claude/skills and follows a "
+            "symlinked skill folder, as every project's .claude/skills/yoke "
+            "link shows. No live session has listed the user-level link yet."
+        ),
     ),
     "codex": HarnessGlobalSkill(
         harness_home="$CODEX_HOME or ~/.codex",
         user_skills_dir=f"~/{SHARED_SKILLS_DIR}",
         placement="shared",
         verified_on_surface="codex-cli",
+        evidence=(
+            "Observed 2026-10-17: codex-cli 0.161.0 started outside every "
+            "project listed yoke-global installed in $HOME/.agents/skills."
+        ),
     ),
     "cursor": HarnessGlobalSkill(
         harness_home="~/.cursor",
         user_skills_dir=f"~/{SHARED_SKILLS_DIR}",
         placement="shared",
-        verified_on_surface="cursor-cli",
+        verified_on_surface="",
+        evidence=(
+            "cursor-agent 2026.10.16 resolves user skill folders ~/.cursor/skills "
+            "and ~/.agents/skills (read from its shipped bundle). No live "
+            "session has listed the installed skill yet."
+        ),
     ),
 }
 

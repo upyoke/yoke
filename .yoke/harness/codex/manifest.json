@@ -175,7 +175,8 @@
     "user_skills_dir": "~/.agents/skills",
     "placement": "shared",
     "shared_skill_dir": "~/.agents/skills/yoke-global",
-    "verified_on_surface": "codex-cli"
+    "verified_on_surface": "codex-cli",
+    "evidence": "Observed 2026-10-17: codex-cli 0.161.0 started outside every project listed yoke-global installed in $HOME/.agents/skills."
   },
   "turn_record": {
     "source": "yoke_contracts.harness_turn_record_capability.HARNESS_TURN_RECORD_CAPABILITIES",

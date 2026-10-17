@@ -21,7 +21,8 @@ exists, and record each folder and link in the harness settings ledger so
 | `user_skills_dir` | string | User-level folder the harness reads skills from. |
 | `placement` | string | `shared`: the harness reads the shared folder natively. `link`: Yoke adds a symlink in `user_skills_dir` to the shared folder. |
 | `shared_skill_dir` | string | The one installed copy of the skill. |
-| `verified_on_surface` | string | Session surface where discovery was observed. |
+| `verified_on_surface` | string | Session surface where a live session listed the installed skill. Empty until observed. |
+| `evidence` | string | What was observed, and when. |
 
 A folder or link already at either path that Yoke did not record is never
 overwritten: install reports `global_skill_path_not_owned` with the path and

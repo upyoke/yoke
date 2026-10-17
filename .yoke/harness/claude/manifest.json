@@ -169,7 +169,8 @@
     "user_skills_dir": "~/.claude/skills",
     "placement": "link",
     "shared_skill_dir": "~/.agents/skills/yoke-global",
-    "verified_on_surface": "claude-cli"
+    "verified_on_surface": "",
+    "evidence": "Claude Code reads user skills from ~/.claude/skills and follows a symlinked skill folder, as every project's .claude/skills/yoke link shows. No live session has listed the user-level link yet."
   },
   "turn_record": {
     "source": "yoke_contracts.harness_turn_record_capability.HARNESS_TURN_RECORD_CAPABILITIES",
