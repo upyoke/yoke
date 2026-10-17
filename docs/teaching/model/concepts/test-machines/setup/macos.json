@@ -2,6 +2,10 @@
  "id": "macos",
  "title": "macOS",
  "status": "draft-copy",
+ "sources": ["packs/machine-qa/versions/1.3.27/files/docs/packs/machine-qa/macos-host-provisioning.md"],
+ "commands": ["yoke test-machine bridge-diagnose"],
+ "functions": ["test_machine.bridge_diagnose"],
  "page": "test-machines",
- "position": 0
+ "position": 0,
+ "summary": "A macOS test machine needs every privacy pair the bridge drives: Automation from /usr/libexec/sshd-keygen-wrapper to System Events, Terminal and Safari; Automation from Terminal to System Events; Accessibility for the helper and Terminal; Screen Recording for Terminal. Older macOS opens System Preferences instead of a consent dialog, so the Terminal to System Events row is ticked by hand. bridge-diagnose and every Terminal case start run a short probe inside Terminal and refuse terminal_system_events_automation_missing (automation_missing:Terminal->System Events) on -1743 or a timeout, before any window waits on consent. Terminal windows are force-closed by killing their tty processes, so cleanup never leaves a terminate-processes sheet."
 }

@@ -208,7 +208,10 @@ def close_terminal_app_window(
     *,
     window_id: int | None,
 ) -> None:
-    """Best-effort cleanup for one Terminal.app window."""
+    """Force-close one Terminal.app window, killing what still runs in it.
+
+    A plain close of a still-running window (osascript blocked on consent)
+    leaves a "terminate running processes" sheet up; kill its ttys first."""
     if window_id is None:
         return
     run_osascript(
@@ -216,8 +219,13 @@ def close_terminal_app_window(
         [
             'tell application "Terminal"',
             f"if exists window id {window_id} then",
-            f"close window id {window_id}",
+            f"repeat with ttyPath in (tty of every tab of window id {window_id})",
+            'do shell script "/usr/bin/pkill -KILL -t " & quoted form of '
+            '(text 6 thru -1 of ttyPath) & " || true"',
+            "end repeat",
+            "delay 0.5",
             "end if",
+            f"if exists window id {window_id} then close window id {window_id}",
             "end tell",
         ],
     )
