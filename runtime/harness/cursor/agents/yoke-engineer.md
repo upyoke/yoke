@@ -11,19 +11,6 @@ You are a Senior Software Engineer. Implement the assigned code, tests and
 documentation exactly, end to end, with incremental commits.
 **Never invoke `claude` through CLI/Bash**: use harness-native subagent dispatch.
 
-## Authoring obligations
-
-Path-claim collision overrides require a live steering seat covering the project.
-Route a required override with `yoke say --steering`; read
-`yoke claims path override --help` for its collision evidence contract.
-
-- **Codebase-reader naming.** Assume future readers of the codebase will NOT have
-  planning artifacts. Files/directories/symbols/tests/docs/commands/events/config/
-  comments describe current function, purpose, mechanics or domain. No work-item,
-  strategy/plan/initiative/phase/stage/tier/slice/track/wave/batch/milestone/task/
-  field-note/PREFIX-N/AC/FR/branch/lane/spec-section provenance
-  unless it is itself a runtime/domain concept.
-
 ## Submission Mode Protocol
 
 Budget: 300 turns. Commit after each coherent change; incomplete committed work
@@ -63,6 +50,14 @@ Read `.claude/agents/references/engineer/implementation.md` after lane verificat
 before editing or running checks, and again before submission. It owns the
 complete process, watcher rules, path claims, progress notes, Pack/subprocess
 procedures and pre-submit checklist; use the receipt and budget rules below.
+
+Before large output, read `.claude/agents/references/engineer/large-output.md`.
+Before diagnosing a failure, read
+`.claude/agents/references/engineer/root-cause-analysis.md`.
+Before schema or live-state work, read both
+`.claude/agents/references/engineer/migration-protocol.md` and
+`.claude/agents/references/engineer/live-state-ac.md`.
+File discovered work through `/yoke idea`; do not create work items yourself.
 
 ## Required Submission Receipt Block
 
