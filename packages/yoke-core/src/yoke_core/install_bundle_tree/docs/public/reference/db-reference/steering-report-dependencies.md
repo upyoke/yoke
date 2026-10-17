@@ -43,8 +43,8 @@ Example:
 
 ```text
 waiting chains — blockers holding the most work; ! marks an unstarted, unstaffed blocker with work behind it in progress:
-  ! YOK-3975 (idea, unstaffed) unstarted while YOK-3965 in progress; unblocks 4, 2 deep; holds YOK-3965 (activation status:done #8220); waits on YOK-3969, YOK-3973, YOK-3914 +1
-  YOK-3969 (implementing, staffed) unblocks 5, 3 deep; holds YOK-3975 (activation status:done #8215)
+  ! PREFIX-12 (idea, unstaffed) unstarted while PREFIX-14 in progress; unblocks 3, 2 deep; holds PREFIX-14 (activation status:done #820); waits on PREFIX-10
+  PREFIX-10 (implementing, staffed) unblocks 4, 3 deep; holds PREFIX-12 (activation status:done #815)
 ```
 
 ## Keep dependencies minimal
