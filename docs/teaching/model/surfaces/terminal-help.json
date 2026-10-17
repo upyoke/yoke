@@ -6,11 +6,11 @@
  "audience": "Human + agent",
  "encounter": "Explicit help request",
  "location": "yoke help = yoke --help; group detail: yoke <group> --help",
- "basis": "Existing entry · new presentation",
- "note": "The full-catalog route needs a concrete design; no new flag is assumed here. “yoke help TOPIC” currently returns root help.",
- "current": "Observed 2026-10-12: yoke --help prints 1,859 lines / 102,636 characters. Cascade repair is not shipped here.",
+ "basis": "Inspected delivered candidate help tree source",
+ "note": "Root help is the overview; group help lists immediate children and command help owns the narrow recipe. The generated skill registry remains the full skill reference; no speculative full-catalog flag is assumed.",
+ "current": "Candidate source replaces the earlier monolithic root catalog with root/category/command disclosure. command-tree and config-selection records name fixture evidence. cli/help.md documents help from any directory, complete saved evidence, 350 wrapped lines and deliberate machine contracts. These are source/fixture observations, not a serving release or live terminal proof.",
  "desired": "Overview → immediate categories → command recipes. Hard 350 lines; smaller budgets are advisory.",
  "plan_notes": ["FIRST-USER 35/P6", "New help layout proposal"],
  "plan_refs": ["FIRST-USER.35"],
- "sources": ["packages/yoke-cli/src/yoke_cli/command_router.py", "packages/yoke-cli/src/yoke_cli/commands/group_help.py", "packages/yoke-cli/src/yoke_cli/commands/registry.py", "docs/public/agents/commands.md"]
+ "sources": ["docs/public/cli/help.md", "packages/yoke-cli/src/yoke_cli/command_router.py", "packages/yoke-cli/src/yoke_cli/commands/group_help.py", "runtime/api/cli/test_cli_help_tree.py"]
 }

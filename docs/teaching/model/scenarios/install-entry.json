@@ -8,5 +8,6 @@
  "desired": "Reconciled against current plan records.",
  "questions": ["Can an agent with no Yoke-specific context complete the exact public entry path?", "Does every failure preserve enough context to resume without guessing?"],
  "related_scenarios": ["universe-choice", "github-choices", "project-adoption", "harness-readiness"],
- "plan_refs": ["FIRST-USER.1", "FIRST-USER.7", "FIRST-USER.14", "FIRST-USER.17", "FIRST-USER.19", "FIRST-USER.26", "FIRST-USER.37", "FIRST-USER.38", "FIRST-USER.39", "FIRST-USER.A", "FIRST-USER.B", "FIRST-USER.D", "JOURNEYS.situation-1", "FIRST-USER.15"]
+ "plan_refs": ["FIRST-USER.1", "FIRST-USER.7", "FIRST-USER.14", "FIRST-USER.17", "FIRST-USER.19", "FIRST-USER.26", "FIRST-USER.37", "FIRST-USER.38", "FIRST-USER.39", "FIRST-USER.A", "FIRST-USER.B", "FIRST-USER.D", "JOURNEYS.situation-1", "FIRST-USER.15"],
+ "sources": ["docs/public/start/install.md", "docs/public/start/agent-setup.md"]
 }

@@ -6,5 +6,6 @@
  "coverage": "catalogued",
  "current": "Research trace; requirements and source paths need live proof.",
  "desired": "Reconciled against current plan records.",
- "questions": ["Which rename/move/rebind operations are actually supported and which must refuse?", "Trace preservation and reconciliation rules before teaching a one-command repair."]
+ "questions": ["Which rename/move/rebind operations are actually supported and which must refuse?", "Trace preservation and reconciliation rules before teaching a one-command repair."],
+ "sources": ["docs/public/projects/index.md", "docs/public/functions/project-configuration.md"]
 }

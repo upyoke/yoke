@@ -1,8 +1,10 @@
 {
  "id": "deep-topic-coverage",
- "title": "Map the remaining concept leaves",
+ "title": "Reconcile direct topic homes and remaining journey depth",
  "status": "observed",
- "text": "A category or command mapping is not proof each child has teaching. Unmapped leaves stay visible as gaps.",
+ "text": "Nested source navigation and the documentation cascade now have explicit homes. The live command crosswalk on 2026-10-17 reports seven unmapped commands, eight unmapped functions and zero unmapped skills; they require direct mappings, not parent credit. Draft concept leaves and scenario questions still name unproved depth. Treat FIRST-USER and COREWORK needs as current work; only demonstrated JOURNEYS-only depth may defer to JOURNEYS. This record is an audit boundary, not a substitute for per-topic homes or individual gap records. Remaining exact mappings and required gap paths need scope reconciliation before completion.",
  "plan_refs": ["FIRST-USER.40", "JOURNEYS.also-owned-here"],
- "position": 3
+ "position": 3,
+ "owner": "Current source reconciliation; JOURNEYS only for separately evidenced journey depth",
+ "sources": ["docs/teaching/README.md", "docs/teaching/tools/render_live.py", "docs/teaching/tools/model.py", "docs/public/documentation/index.md"]
 }

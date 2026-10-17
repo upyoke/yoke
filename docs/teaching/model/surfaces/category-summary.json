@@ -1,17 +1,17 @@
 {
  "id": "category-summary",
  "title": "Each category’s first page",
- "status": "approved",
+ "status": "observed",
  "scope": "Public or private, according to its owner",
  "audience": "Human + agent",
  "encounter": "Enter a concept category",
- "location": "Category index page + generated children/breadcrumbs",
- "basis": "New documentation shape",
+ "location": "docs/public/<category>/index.md and meaningful nested index pages; installed .yoke/docs equivalents",
+ "basis": "Inspected nested category pages",
  "note": "Use real concept names as titles. Nest when children form a meaningful group; avoid empty levels and giant catalogs inside every summary.",
- "current": "Existing source references; delivered content is not yet proved.",
+ "current": "Public category indexes now expose nav-derived immediate children and one-line summaries; verification/index.md routes methods, plan execution and evidence to narrower homes. This source observation does not prove receiving-context usefulness or private publication.",
  "desired": "Explain every immediate child concisely and route to the narrower home. One topic need not mean one file.",
  "plan_notes": ["New documentation organization proposal"],
  "plan_refs": ["FIRST-USER.40"],
- "sources": ["docs/public/nav.yaml", "docs/public/verification/index.md", "docs/public/verification/platform.md"],
+ "sources": ["docs/public/nav.yaml", "docs/public/documentation/navigation.md", "docs/public/documentation/verification.md", "docs/public/verification/index.md", "docs/public/verification/platform.md"],
  "private_sources": ["platform"]
 }

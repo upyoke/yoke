@@ -7,5 +7,6 @@
  "current": "Research trace; requirements and source paths need live proof.",
  "desired": "Reconciled against current plan records.",
  "questions": ["Can a user read each full Pack contract before installing it through a supported external-project route?", "Does the workbench teach stale report versus newer version rather than one undifferentiated stale state?"],
- "related_scenarios": ["capabilities", "qa_machine_setup", "hosting_providers", "preview_environments"]
+ "related_scenarios": ["capabilities", "qa_machine_setup", "hosting_providers", "preview_environments"],
+ "sources": ["docs/public/agents/rules/packs.md", "docs/public/projects/index.md"]
 }

@@ -6,5 +6,6 @@
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
  "desired": "Reconciled against current plan records.",
- "questions": ["Does a projectless session have a valid supported field-note ownership/recovery path after P1?", "Has the note-to-full-evidence link been checked on installed/workbench surfaces?"]
+ "questions": ["Does a projectless session have a valid supported field-note ownership/recovery path after P1?", "Has the note-to-full-evidence link been checked on installed/workbench surfaces?"],
+ "sources": ["docs/public/operations/ouroboros.md"]
 }

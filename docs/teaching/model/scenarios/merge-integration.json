@@ -7,5 +7,6 @@
  "current": "Research trace; requirements and source paths need live proof.",
  "desired": "Reconciled against current plan records.",
  "questions": ["Audit merge candidate review, human review and queue CI reuse as distinct contracts; current map mentions approvals/QA but does not trace this complete landing family."],
- "plan_refs": ["FIRST-USER.11", "JOURNEYS.situation-12"]
+ "plan_refs": ["FIRST-USER.11", "JOURNEYS.situation-12"],
+ "sources": ["docs/public/github/merge-queue-landings.md", "docs/public/items/model/landings.md"]
 }
