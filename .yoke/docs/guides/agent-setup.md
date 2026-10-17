@@ -29,6 +29,8 @@ it with a command.
    `install_health` in full and the `next` steps in order.
 
 Answers are saved by question key, so every call resumes where setup stopped.
+Browser approval keeps the chosen destination; follow the next printed
+`answer_command` without choosing the newly saved connection again.
 A bare `yoke setup --agent` repeats the waiting question. Human progress and
 wait notices go to stderr; stdout carries only the JSON lines.
 

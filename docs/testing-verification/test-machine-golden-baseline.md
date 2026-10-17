@@ -175,7 +175,11 @@ It holds the rejection branch,
 the stream's event types in order, the final event's shape, the booleans
 `exact_ok_reply`, `tool_use` and `degraded_context` (lines that were not JSON
 events), and the harness exit code. It never holds reply text, account output
-or a transcript. The failed probe row keeps the record, so an operator-run
+or a transcript. Cursor ask mode cannot disable tools. A Cursor `tool_call`
+whose payload is only a read, grep, list, or glob inspection does not reject
+when the final result is success and the reply is exactly OK. Write, shell,
+and any other tool call still reject. `tool_use` stays true on a rejection
+record whenever a tool call was present. The failed probe row keeps the record, so an operator-run
 reset or verify returns it in its result. A QA run whose baseline rejected a
 reply stores each record as a `probe_reply_rejection` JSON artifact and names
 the branch, diagnosed reason and recovery in its verdict reason. A golden sealed

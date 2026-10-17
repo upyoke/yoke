@@ -22,12 +22,15 @@ Ubuntu 23.10+). It installs and loads an AppArmor `userns` allowance attached
 only to Yoke's current Chromium and headless-shell executable paths. Updates
 replace those attachments when Playwright changes its browser paths.
 Authorization and browser QA invoke this setup before launching Chromium.
-The sign-in window and browser QA run with Chromium's sandbox enabled; the
-host restriction stays enabled. Missing system authority or AppArmor tooling,
-or a profile that cannot load, stops browser setup with
-`browser_apparmor_setup_failed` and the recovery step. Retry
-`yoke qa browser setup` in a terminal with sudo access after repairing the
-named cause; Yoke handles the system command and password prompt itself.
+When the profile is already loaded, or the process is root or has passwordless
+sudo, the sign-in window and browser QA run with Chromium's sandbox enabled
+and the host restriction stays enabled. When the sandbox is not available and
+cannot be enabled without an interactive root password, setup finishes and
+Chromium launches with its sandbox off. A missing AppArmor parser, a profile that cannot load, or a
+sandboxed launch that still fails after the profile loads stops browser setup
+with `browser_apparmor_setup_failed` and the recovery step. Retry
+`yoke qa browser setup` after repairing the named cause; Yoke handles the
+system command and password prompt itself.
 
 Chromium setup, authorization, and browser QA share Yoke's cache at
 `~/.yoke/playwright-cache/yoke`, regardless of `XDG_CACHE_HOME` or an inherited

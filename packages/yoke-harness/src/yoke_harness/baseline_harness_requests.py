@@ -15,6 +15,11 @@ PROBE_REPLY = "OK"
 PROBE_PROMPT = f"Reply exactly {PROBE_REPLY}. Do not use any tools."
 REQUEST_WORKSPACE = "/tmp"
 REJECTION_EVENT_TYPE_LIMIT = 40
+#: Cursor ask mode has no flag that disables tools. These inspection calls
+#: may precede an exact OK reply; write and shell calls still reject.
+_CURSOR_READ_ONLY_TOOL_CALLS = frozenset(
+    {"readToolCall", "grepToolCall", "lsToolCall", "globToolCall"}
+)
 _TOKEN = re.compile(r"[A-Za-z][A-Za-z0-9_.:-]{0,63}")
 _FINAL_EVENT_FIELDS = {"type", "subtype", "is_error", "answer_type", "answer_length"}
 #: A rejected reply's sanitized record; the probe adds the harness exit code.
@@ -60,10 +65,13 @@ class HarnessRequest:
     def reply_rejection(
         self, stdout: str, *, exit_code: int = 0
     ) -> dict[str, Any] | None:
-        """Accept a successful native reply with no tool calls, or describe why not.
+        """Accept an exact OK reply, or describe why the stream was rejected.
 
-        The returned record is sanitized: event types, the final event's shape
-        and booleans, never reply text, account output or a transcript.
+        Cursor may call read-only tools before that reply. Write, shell, and
+        any other tool call still reject, and ``tool_use`` stays true on the
+        record whenever a tool call was present. The record is sanitized:
+        event types, the final event's shape and booleans, never reply text,
+        account output or a transcript.
         """
         lines = [line for line in stdout.splitlines() if line.strip()]
         types: list[str] = []
@@ -88,9 +96,12 @@ class HarnessRequest:
                 continue
             kind = event.get("type")
             types.append(_token(kind))
-            if kind in {"tool_call", "error", "turn.failed"}:
-                tool_use = tool_use or kind == "tool_call"
+            if kind in {"error", "turn.failed"}:
                 reject(kind.replace(".", "_") + "_event")
+            if kind == "tool_call":
+                tool_use = True
+                if self.name != "Cursor" or not _cursor_tool_call_is_read_only(event):
+                    reject("tool_call_event")
             if kind in {"item.started", "item.completed"}:
                 item = event.get("item", {})
                 if not isinstance(item, dict):
@@ -151,6 +162,14 @@ class HarnessRequest:
             # Lines that were not JSON event objects: the stream itself was damaged.
             "degraded_context": degraded,
         }
+
+
+def _cursor_tool_call_is_read_only(event: dict) -> bool:
+    """True only when every payload key is a known Cursor inspection tool."""
+    payload = event.get("tool_call")
+    if not isinstance(payload, dict) or not payload:
+        return False
+    return set(payload) <= _CURSOR_READ_ONLY_TOOL_CALLS
 
 
 def _token(value: object) -> str | None:
