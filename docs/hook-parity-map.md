@@ -63,7 +63,10 @@ with provider derived from payload. Claude Write/Edit and Codex `apply_patch`
 are distinct native tools feeding shared write-side authority.
 
 Cursor's Bash chain uses `beforeShellExecution`, avoiding a second Shell
-pre-tool chain. Allow-time context is available at `sessionStart` and
+pre-tool chain. That gate carries no `tool_name`; the client, the resident and
+the server all resolve it to `Bash` through
+`yoke_contracts.cursor_tool_names.payload_tool_name`, so the client collects
+every fact the Bash chain's server-run policies read. Allow-time context is available at `sessionStart` and
 `postToolUse`; advisory-only pre-tool hints are explicitly omitted where
 there is no channel. Native event coverage differs between IDE and print-mode
 CLI. The [dated Cursor assessment](harness-cursor-assessment.md) retains the

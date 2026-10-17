@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Mapping
 
-from yoke_contracts.cursor_tool_names import canonical_tool_name
+from yoke_contracts.cursor_tool_names import payload_tool_name
 from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
 
 
@@ -37,8 +37,7 @@ def parse_hook_payload(stdin_data: str) -> dict[str, Any]:
 def _tool_name(payload: Mapping[str, Any]) -> str:
     """The chain-vocabulary tool name; the resident reads the raw payload,
     before any harness parser has canonicalized it."""
-    value = payload.get("tool_name")
-    return canonical_tool_name(value) if isinstance(value, str) else ""
+    return payload_tool_name(payload) or ""
 
 
 def _chain_is_async_safe(event_name: str, tool_name: str) -> bool:
