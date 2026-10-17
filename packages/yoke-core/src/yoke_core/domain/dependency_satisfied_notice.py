@@ -18,7 +18,7 @@ from typing import Any
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain import db_backend
 from yoke_core.domain.dependency_satisfaction import evaluate_persisted_satisfaction
-from yoke_core.domain.dependency_types import GateResult
+from yoke_core.domain.dependency_types import GateResult, is_activation_gate
 from yoke_core.domain.merge_queue_landing_notice import HOLDER, push_notice
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.schema_common import _table_exists
@@ -84,7 +84,9 @@ def _ordering_edges(
     return [(int(r[0]), int(r[1]), str(r[2]), str(r[3]).strip()) for r in rows]
 
 
-def _remaining_gates(conn: Any, dependent_id: int, blocker_id: int) -> list[str]:
+def _remaining_gates(
+    conn: Any, dependent_id: int, blocker_id: int
+) -> list[dict[str, str]]:
     """Every other unmet gate on the dependent, named for its reader."""
     remaining = []
     for _, other, gate_point, satisfaction in _ordering_edges(
@@ -94,7 +96,11 @@ def _remaining_gates(conn: Any, dependent_id: int, blocker_id: int) -> list[str]
             continue
         if not _blocker_verdict(conn, other, satisfaction).satisfied:
             remaining.append(
-                f"{render_item_ref(conn, other)} {gate_point} gate {satisfaction}"
+                {
+                    "blocker_ref": render_item_ref(conn, other),
+                    "gate_point": gate_point,
+                    "satisfaction": satisfaction,
+                }
             )
     return remaining
 
@@ -107,11 +113,15 @@ def satisfied_message(
     event: str,
     gate_point: str,
     satisfaction: str,
-    remaining: list[str],
+    remaining: list[dict[str, str]],
 ) -> str:
     """Name what the blocker proved, which gate it cleared and what is left."""
+    descriptions = [
+        f"{gate['blocker_ref']} {gate['gate_point']} gate {gate['satisfaction']}"
+        for gate in remaining
+    ]
     still = (
-        f" Still unmet: {'; '.join(remaining)} — keep waiting on those; "
+        f" Still unmet: {'; '.join(descriptions)} — keep waiting on those; "
         "another notice follows when each clears."
         if remaining
         else " No other gates remain."
@@ -123,10 +133,21 @@ def satisfied_message(
         )
         action = " — resume." if not remaining else "."
         return lead + action + still
+    activation = [
+        gate["blocker_ref"]
+        for gate in remaining
+        if is_activation_gate(gate["gate_point"])
+    ]
+    action = (
+        f"{dependent_ref} still waits on {'; '.join(activation)} activation gate; "
+        "do not staff it yet."
+        if activation
+        else "Route normal staffing so its work resumes."
+    )
     return (
         f"{blocker_ref} {event}; {dependent_ref}'s {gate_point} gate "
         f"{satisfaction} is satisfied, but {dependent_ref} has no live claim "
-        "holder. Route normal staffing so its work resumes." + still
+        f"holder. {action}" + still
     )
 
 

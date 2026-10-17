@@ -2,7 +2,7 @@
  "id": "fallback",
  "title": "No cross-level fallback",
  "status": "observed",
- "text": "There is no exhausted-pool cross-level fallback. Cursor Opus medium is SENIOR and cannot escape JUNIOR exhaustion. No usable selection refuses level_no_capacity with each candidate reason and recovery; capacity-stopped workers use same-level recovery excluding the refused model.",
+ "text": "There is no exhausted-pool cross-level fallback. Cursor Opus medium is SENIOR and cannot escape JUNIOR exhaustion. No usable selection refuses level_no_capacity with each candidate reason and recovery; capacity-stopped workers use same-level recovery excluding the refused model. Provider-capacity stops use the normal 60/300/900-second wake backoff before same-level successor placement; message wording never bypasses the wake budget.",
  "sources": ["docs/public/agents/levels.md", "docs/public/agents/capacity-recovery.md"],
  "page": "levels",
  "position": 4

@@ -4,10 +4,9 @@
 [Yoke](../index.md) > [Agents](index.md) > Capacity recovery
 <!-- /yoke:breadcrumbs -->
 
-The relay's ordinary poll recovers vendor-stopped item workers. An explicit
-model-capacity refusal starts a successor immediately. Other overload errors
-retain the existing one-, five-, and fifteen-minute retries; exhausting those
-retries starts the same recovery. Authentication, quota and client-build errors
+The relay's ordinary poll recovers vendor-stopped item workers. Model-capacity
+refusals and other overload errors first use the one-, five-, and fifteen-minute
+wake retries; only exhausting those retries starts a successor. Authentication, quota and client-build errors
 retain their own named handling.
 
 The successor uses the worker's current execution level, actor and machine. Placement
