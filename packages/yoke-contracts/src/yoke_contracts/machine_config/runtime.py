@@ -95,6 +95,15 @@ def ensure_machine_id(path: str | Path | None = None) -> str:
     current = machine_id(path)
     if current is not None:
         return current
+    return _assign_machine_id(path, replacing=None)
+
+
+def replace_retired_machine_id(retired: str, path: str | Path | None = None) -> str:
+    """Swap a retired machine UUID for a new one; an earlier swap is kept."""
+    return _assign_machine_id(path, replacing=retired)
+
+
+def _assign_machine_id(path: str | Path | None, *, replacing: str | None) -> str:
     selected = config_path(path)
     try:
         assert_write_owned(selected)
@@ -110,7 +119,7 @@ def ensure_machine_id(path: str | Path | None = None) -> str:
     try:
         platform_file_lock.acquire_exclusive(lock_fd)
         current = machine_id(path)
-        if current is not None:
+        if current is not None and current != replacing:
             return current
         payload = load_config(path)
         generated = str(uuid.uuid4())

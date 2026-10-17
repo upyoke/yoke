@@ -81,21 +81,19 @@ def ensure_local_machine_identity(*, path: str | Path | None = None) -> str:
         raise MachineConfigWriteError(str(exc)) from exc
 
 
-@serialized_mutation
 def replace_retired_machine_identity(
     retired_machine_id: str, *, path: str | Path | None = None
 ) -> str:
     """Give this computer a new machine UUID after its old one was retired.
 
-    Compare-and-replace under the config lock: only the retired id is swapped,
-    so a concurrent connect that already replaced it keeps that replacement.
-    The retired row and its history stay in the registry untouched.
+    Only the retired id is swapped, under the identity owner's lock, so a
+    concurrent connect that already replaced it keeps that replacement. The
+    retired row and its history stay in the registry untouched.
     """
-    payload, cfg_path = load_payload(path)
-    if payload.get(contract.MACHINE_ID_KEY) == retired_machine_id:
-        payload[contract.MACHINE_ID_KEY] = str(uuid.uuid4())
-        write_payload(payload, cfg_path, allow_unconfigured=True)
-    return str(payload[contract.MACHINE_ID_KEY])
+    try:
+        return machine_runtime.replace_retired_machine_id(retired_machine_id, path)
+    except machine_runtime.MachineConfigError as exc:
+        raise MachineConfigWriteError(str(exc)) from exc
 
 
 def write_payload(
