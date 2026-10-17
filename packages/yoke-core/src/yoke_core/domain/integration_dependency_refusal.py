@@ -57,6 +57,9 @@ def integration_dependency_refusal(
             f"{blocker.get('rationale') or 'no rationale'}"
         )
     lines.append(
+        "Keep your work claim and lane; do not release or end the session; the notice wakes you as holder. "
+        'Park with `yoke sessions touch --mode parked --reason "awaiting '
+        '<BLOCKER> integration"`. '
         "Recovery: wait for each blocker to merge (the control plane sends "
         f"a notice when it does), then re-run `{rerun}`. If the dependency "
         "is wrong, correct it first with `yoke items dependency update` or "
