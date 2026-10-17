@@ -7,6 +7,7 @@ from yoke_cli.config.onboard_path_plan import shell_change_lines
 from typing import Any, Dict
 
 from yoke_cli.config import (
+    onboard_global_skill,
     onboard_machine_registry,
     onboard_project,
     onboard_reuse_feedback,
@@ -54,7 +55,7 @@ def render_human(report: Dict[str, Any]) -> str:
         lines.extend(["", f"Machine GitHub: {machine_github.get('choice')}"])
     registry_lines = onboard_machine_registry.summary_lines(
         report.get("machine_registry")
-    )
+    ) + onboard_global_skill.summary_lines(report.get("global_skill"))
     if registry_lines:
         lines.append("")
         lines.extend(f"  {line}" for line in registry_lines)

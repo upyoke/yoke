@@ -6,10 +6,10 @@
  "when": "Every message to the user",
  "need": "Keep each message to one or two short, literal sentences unless the user asks for more. Describe every number or ID, explain an unfamiliar name once, and ask one decision at a time with a recommendation. Required instructions and recipes stay complete.",
  "disclosure": "current cue",
- "surface": "AGENTS.md managed block (Writing to users)",
- "gap": "Sessions outside any Yoke project do not receive the rule yet; see gap user-writing-outside-projects.",
+ "surface": "AGENTS.md managed block (Writing to users); outside a project, the yoke-global skill and global orientation, all rendered from yoke_contracts.user_writing_rules",
+ "gap": "Outside a project the rules reach a session only once machine-wide hooks deliver global orientation; see gap onboard-global-entry.",
  "review": "Pending real-session proof.",
  "plan_notes": ["FIRST-USER 8"],
- "sources": ["AGENTS.md"],
+ "sources": ["AGENTS.md", "packages/yoke-contracts/src/yoke_contracts/user_writing_rules.py", "packages/yoke-contracts/src/yoke_contracts/global_skill/SKILL.md", "packages/yoke-core/src/yoke_core/domain/global_orientation.py"],
  "position": 5
 }

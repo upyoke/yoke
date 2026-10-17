@@ -213,6 +213,7 @@ FAMILY_MODULES: tuple[str, ...] = (
     "yoke_core.tools.render_field_note_inline",
     "yoke_core.tools.render_read_recipe_inline",
     "yoke_core.tools.render_skill_registry_inline",
+    "yoke_core.tools.render_user_writing_inline",
 )
 
 

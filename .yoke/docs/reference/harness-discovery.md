@@ -144,6 +144,19 @@ older engines receive `instruction_runtime_unsupported`. The installer probes
 installed CLIs. Desktop users must verify their embedded engine separately;
 the outer app version does not prove its discovery capabilities.
 
+## Outside a project: yoke-global
+
+Full Yoke skills stay per-project. The one user-level skill is `yoke-global`,
+for a session opened outside every Yoke project: it checks the machine, picks
+or adds the project and names the folder where a new session does the work.
+Its startup orientation names the skill as the next action. Setup and project
+install or refresh place it once in `~/.agents/skills/yoke-global`, which Codex
+and Cursor read natively, and link `~/.claude/skills/yoke-global` to it for
+Claude Code. A harness whose home folder is absent is skipped. Each manifest's
+`global_skill` field states its placement. `yoke uninstall` removes both
+paths. An existing path Yoke did not create refuses as
+`global_skill_path_not_owned`; move it aside, then run `yoke setup` again.
+
 ## Guard scope
 
 Register a managed checkout with `yoke project register <checkout> --project-id <id>`.

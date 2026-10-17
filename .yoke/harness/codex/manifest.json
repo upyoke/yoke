@@ -168,6 +168,15 @@
     "verified_on_surface": "codex-cli",
     "evidence": "Observed 2026-10-16: a codex-cli Conduct session ran an epic's task Engineers concurrently across lanes."
   },
+  "global_skill": {
+    "source": "yoke_contracts.harness_global_skill.HARNESS_GLOBAL_SKILLS",
+    "name": "yoke-global",
+    "harness_home": "$CODEX_HOME or ~/.codex",
+    "user_skills_dir": "~/.agents/skills",
+    "placement": "shared",
+    "shared_skill_dir": "~/.agents/skills/yoke-global",
+    "verified_on_surface": "codex-cli"
+  },
   "turn_record": {
     "source": "yoke_contracts.harness_turn_record_capability.HARNESS_TURN_RECORD_CAPABILITIES",
     "turn_record": "readable",

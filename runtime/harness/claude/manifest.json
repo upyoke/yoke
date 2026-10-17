@@ -162,6 +162,15 @@
     "verified_on_surface": "claude-cli",
     "evidence": "Several Agent tool calls sent in one message run concurrently, and each sub-agent's completion arrives as its own notification, so the parent can act on one result while others still run."
   },
+  "global_skill": {
+    "source": "yoke_contracts.harness_global_skill.HARNESS_GLOBAL_SKILLS",
+    "name": "yoke-global",
+    "harness_home": "~/.claude",
+    "user_skills_dir": "~/.claude/skills",
+    "placement": "link",
+    "shared_skill_dir": "~/.agents/skills/yoke-global",
+    "verified_on_surface": "claude-cli"
+  },
   "turn_record": {
     "source": "yoke_contracts.harness_turn_record_capability.HARNESS_TURN_RECORD_CAPABILITIES",
     "turn_record": "none",

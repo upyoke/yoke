@@ -235,6 +235,17 @@ def _isolate_harness_settings_ledger(tmp_path, monkeypatch: pytest.MonkeyPatch):
     )
 
 
+@pytest.fixture(autouse=True)
+def _isolate_global_skill_home(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    """Keep project-install and setup tests from installing ``yoke-global``
+    into the developer's real ``~/.agents`` and ``~/.claude`` folders."""
+    from yoke_contracts import global_skill_install
+
+    monkeypatch.setattr(
+        global_skill_install, "user_home", lambda: tmp_path / "global-skill-home"
+    )
+
+
 @pytest.fixture(scope="session")
 def product_wheelhouse(tmp_path_factory, pytestconfig: pytest.Config) -> Path:
     """Build the client product wheels once per pytest run."""

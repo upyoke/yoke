@@ -1,10 +1,10 @@
 {
  "id": "onboard-global-entry",
- "title": "yoke-global does not yet carry intent into /yoke onboard",
+ "title": "yoke-global reaches outside-project sessions only once machine-wide hooks ship",
  "status": "observed",
- "text": "The onboard skill expects yoke-global to pick or add the project, carry known intent and name the folder to open. yoke-global does not exist yet; until it ships, a session outside a project gets no route to onboarding.",
+ "text": "yoke-global now picks or adds the project, carries the user's request and names the folder where a new session runs /yoke onboard, and outside-project orientation names it as the next action. Setup installs it in ~/.agents/skills/yoke-global with a Claude link. The orientation reaches a session only through the machine-wide hooks; until they ship and a released candidate proves receipt on every harness, a session outside a project still starts without it.",
  "plan_refs": ["FIRST-USER.24", "FIRST-USER.P4"],
- "work_items": ["YOK-3975"],
- "sources": [".agents/skills/yoke/onboard/SKILL.md"],
+ "work_items": ["YOK-3973", "YOK-3975"],
+ "sources": [".agents/skills/yoke/onboard/SKILL.md", "packages/yoke-contracts/src/yoke_contracts/global_skill/SKILL.md", "packages/yoke-core/src/yoke_core/domain/global_orientation.py"],
  "position": 35
 }

@@ -17,6 +17,7 @@ from yoke_cli.config import onboard_path_plan
 from yoke_cli.config.onboard_machine_setup import BROWSER_SETUP_ACTION
 from yoke_contracts import harness_unattended_posture
 from yoke_contracts import hosting_posture
+from yoke_cli.config import onboard_global_skill
 from yoke_cli.config import onboard_machine_registry
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_publication
@@ -62,6 +63,7 @@ _MACHINE_ACTIONS = {
     "create-runtime-dir",
     "project-checkout-register",
     "install-cursor-user-lifecycle-hooks",
+    onboard_global_skill.INSTALL_ACTION,
     onboard_relay_supervisor.UNIT_INSTALL_ACTION,
     onboard_relay_supervisor.UNIT_ENABLE_ACTION,
     "install-session-relay-plist",

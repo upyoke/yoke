@@ -17,6 +17,7 @@ from yoke_cli.project_install.files import (
     MODE_SOURCE_LINK,
     ProjectInstallError,
 )
+from yoke_contracts.global_skill_install import ensure_global_skill
 from yoke_contracts.install_binding import (
     is_yoke_source_checkout as _contract_is_yoke_source_checkout,
 )
@@ -43,7 +44,9 @@ def resolve_mode(root: Path, explicit: Optional[str]) -> Tuple[str, str]:
 
 
 def install_source_link(
-    repo_root: Path, *, operation: str = "install",
+    repo_root: Path,
+    *,
+    operation: str = "install",
 ) -> Dict[str, Any]:
     """Delegate source-link repair to core when available."""
     try:
@@ -64,6 +67,7 @@ def install_source_link(
     )
 
     ensure_user_lifecycle_hooks()
+    report["global_skill"] = ensure_global_skill().to_json()
     return report
 
 

@@ -4,10 +4,10 @@
  "status": "observed",
  "scope": "machine / projectless session",
  "moment": "First supported context-bearing event; retry only if delivery was missed",
- "current": "Current orientation requires a .yoke project root. Cursor already has user-level Stop/SessionEnd backstops; these are not a global startup orientation.",
+ "current": "Outside every project, orientation renders a compact block: session id, Yoke installed, this folder outside every project, next action through yoke-global, yoke status / yoke --help / https://upyoke.com/docs, the writing rules, and optional project folders that give way first under the smallest inline budget. Setup and project install place yoke-global in ~/.agents/skills (Codex, Cursor) with a ~/.claude/skills link (Claude), recorded for uninstall. Cursor still has only user-level Stop/SessionEnd backstops until machine-wide hooks ship.",
  "planned": "P1 makes session project optional; P2 installs/deduplicates user hooks; P3 scopes guards; P4 installs global orientation and yoke-global.",
  "proposed_content": ["Identity and machine/connection readiness, no-project/registered-project context, one relevant next step, optional short cross-project status, and a yoke-global pointer.", "Use yoke --help and https://upyoke.com/docs outside projects; do not point at cwd .yoke/docs.", "Select/add projects globally, then carry intent into a session started in the selected project folder for /yoke onboard or item work.", "Do not require a GitHub connection or sync as the price of continuing; preserve TUI sync silently off and later change."],
  "plan_notes": ["FIRST-USER P1/P2/P3/P4", "accepted item 24 routing correction", "accepted item 10 sync choice", "JOURNEYS rows 4-8/14"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/session_orientation.py:268", "packages/yoke-harness/src/yoke_harness/hooks/cursor_lifecycle_hooks.py:34", "packages/yoke-cli/src/yoke_cli/commands/adapters/hook_config_dedup.py:139"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/global_orientation.py", "packages/yoke-core/src/yoke_core/domain/session_orientation.py", "packages/yoke-contracts/src/yoke_contracts/global_skill_install.py", "packages/yoke-harness/src/yoke_harness/hooks/cursor_lifecycle_hooks.py:34", "packages/yoke-cli/src/yoke_cli/commands/adapters/hook_config_dedup.py:139"],
  "position": 1
 }

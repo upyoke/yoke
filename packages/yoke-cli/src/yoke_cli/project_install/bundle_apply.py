@@ -31,6 +31,7 @@ from yoke_cli.project_install.files import (
 )
 from yoke_cli.project_install.preflight import preflight_apply
 from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
+from yoke_contracts.global_skill_install import ensure_global_skill
 from yoke_cli.project_install import hook_trust_report
 from yoke_cli.project_install.validate import _validate_bundle
 
@@ -276,7 +277,9 @@ def apply_bundle(
         ensure_user_lifecycle_hooks()
     except Exception:  # noqa: BLE001 — install must not fail open on home hooks
         pass
+    global_skill = ensure_global_skill().to_json()
     return {
+        "global_skill": global_skill,
         "operation": operation,
         MODE_KEY: MODE_COPY,
         "repo_root": str(repo_root),
