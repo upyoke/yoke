@@ -107,7 +107,12 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
     const graphServed = Array.isArray(edgeRows);
     const deploy = (row) => (deploymentsSettled ? deliverySummary(row, deployments) : "");
     const model = frontierFilter(
-      frontierGraphModel(rows, graphServed ? edgeRows : [], deploy),
+      frontierGraphModel(
+        rows,
+        graphServed ? edgeRows : [],
+        deploy,
+        graphServed ? frontierResult.dependency_cycles : [],
+      ),
       inScope(scope, projects),
     );
     const kept = (row) => model.nodes.has(reference(row));

@@ -69,7 +69,7 @@ SELECT d.dependent_item_id, d.blocking_item_id, d.gate_point, d.satisfaction,
        {primary_item_worktree_branch_sql("bi.id")} AS blocking_worktree,
        bi.merged_at AS blocking_merged_at,
        bi.workflow_id, bi.workflow_version_id, wv.version,
-       wv.definition_json, wv.definition_digest
+       wv.definition_json, wv.definition_digest, d.id
 FROM item_dependencies d
 LEFT JOIN items bi ON bi.id = d.blocking_item_id
 LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
@@ -202,6 +202,7 @@ def evaluate_batch_gates(
             workflow_version,
             definition_json,
             definition_digest,
+            dependency_id,
         ) = row
 
         merge_fact = True if blk_merged_at else None
@@ -223,6 +224,7 @@ def evaluate_batch_gates(
 
         if not result.satisfied:
             detail = BlockerDetail(
+                dependency_id=int(dependency_id),
                 blocking_item=render_column_item_ref(conn, blk_item),
                 blocking_status=blk_status,
                 gate_point=gp,

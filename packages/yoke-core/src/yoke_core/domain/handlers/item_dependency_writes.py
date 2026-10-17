@@ -8,7 +8,9 @@ function ids:
 * ``items.dependency.remove``
 
 The dependent item is the dispatcher target. The blocking item remains a
-payload ref accepted by the underlying item-dependency domain owner.
+payload ref accepted by the underlying item-dependency domain owner. Add and
+update record the calling session on the edge, and refuse with
+``dependency_cycle`` a write that would close a loop of blocking edges.
 """
 
 from __future__ import annotations
@@ -120,10 +122,20 @@ def _run_with_conn(fn, *args, **kwargs) -> str:
 
 
 def _domain_error(exc: Exception) -> HandlerOutcome:
-    code = (
-        "dependency_not_found" if isinstance(exc, LookupError) else "dependency_failed"
-    )
+    from yoke_core.domain.dependency_cycles import DependencyCycleError
+
+    if isinstance(exc, DependencyCycleError):
+        code = DependencyCycleError.code
+    elif isinstance(exc, LookupError):
+        code = "dependency_not_found"
+    else:
+        code = "dependency_failed"
     return _err(code, str(exc))
+
+
+def _caller_session(request: FunctionCallRequest) -> str | None:
+    """The calling session, recorded on the edge it writes."""
+    return str(request.actor.session_id or "").strip() or None
 
 
 def handle_item_dependency_add(
@@ -153,6 +165,7 @@ def handle_item_dependency_add(
             satisfaction=body.satisfaction,
             rationale=body.rationale,
             evidence_json=body.evidence_json,
+            session_id=_caller_session(request),
         )
     except (LookupError, ValueError, RuntimeError) as exc:
         return _domain_error(exc)
@@ -202,6 +215,7 @@ def handle_item_dependency_update(
             rationale=body.rationale,
             source=body.source,
             evidence_json=body.evidence_json,
+            session_id=_caller_session(request),
         )
     except (LookupError, ValueError, RuntimeError) as exc:
         return _domain_error(exc)
