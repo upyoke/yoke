@@ -76,7 +76,9 @@ yoke charge schedule --project {_project} --item PREFIX-N --json
 
 One worker owns exactly one item through returned entrypoint/remaining legs.
 Never convert/re-file to fit Dash. Live stage's half-open binding owns next leg.
-Worker cannot create deployment run; steering batches after merge boundary.
+No worker creates or takes over a deployment run while a seat covers the
+project, launched by steering or not; steering batches after merge boundary.
+Takeover by any other session refuses `takeover_reserved_for_steering`.
 
 ## 5. Workers self-end after their DONE report — only terminal
 

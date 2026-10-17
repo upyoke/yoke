@@ -22,8 +22,10 @@ Either way no memberless obligation stays open on the older run: shared-plan
 copies and run-level requirements without a pass are retracted, and the new
 run materializes its own when its members still attach those plans. The
 takeover is refused, naming the members to release by hand, unless the new
-candidate contains the older one, and refused while another session drives
-the older run. Both runs record which superseded which.
+candidate contains the older one, and refused unless the creating session may
+take the older run over
+(:mod:`~yoke_core.domain.deployment_run_takeover_authority`). Both runs record
+which superseded which.
 """
 
 from __future__ import annotations
@@ -31,7 +33,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Optional
 
-from yoke_core.domain.db_helpers import query_one, query_rows, utc_now
+from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.domain_refusal import DomainRefusal
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.schema_common import _column_exists
@@ -41,7 +43,6 @@ SUPERSEDED_BY_COLUMN = "superseded_by_run_id"
 SUPERSEDES_COLUMN = "supersedes_run_id"
 TAKEOVER_REMOVED_BY = "run takeover"
 NOT_CONTAINED_CODE = "takeover_candidate_not_contained"
-DRIVEN_ELSEWHERE_CODE = "takeover_run_driven_elsewhere"
 
 _CLOSED_ITEM_STATUSES = frozenset({"done", "cancelled", "stopped"})
 _GATE_RUNNERS = frozenset({"qa", "human-approval"})
@@ -49,6 +50,10 @@ _GATE_RUNNERS = frozenset({"qa", "human-approval"})
 
 class TakeoverRefused(DomainRefusal, ValueError):
     """An older run waits on this target, and this creation may not take it."""
+
+    def __init__(self, code: str, message: str) -> None:
+        self.code = code
+        super().__init__(f"{code}: {message}")
 
 
 def takeover_available(conn: Any) -> bool:
@@ -158,7 +163,7 @@ def _not_contained_refusal(
     detail = f" ({verdict.reason}: {verdict.recovery})" if verdict.reason else ""
     refs = [render_item_ref(conn, int(m["item_id"])) for m in moving]
     lines = [
-        f"{NOT_CONTAINED_CODE}: run {old_id} on this flow and target is waiting "
+        f"run {old_id} on this flow and target is waiting "
         f"only on item QA, and this candidate ({new_lineage or 'unpinned'}) is "
         f"not known to contain its candidate ({old['release_lineage'] or 'unpinned'})"
         f"{detail}. Taking it over would replace a build whose members this "
@@ -197,23 +202,8 @@ def _require_containment(
     )
     if not verdict.contained:
         raise TakeoverRefused(
-            _not_contained_refusal(conn, old, new_lineage, verdict, moving)
-        )
-
-
-def _require_driver(conn: Any, old_id: str, session_id: Optional[str]) -> None:
-    from yoke_core.domain.deployment_run_driver_attachment import (
-        format_refusal,
-        live_attachment_for_run,
-    )
-
-    driver = live_attachment_for_run(conn, run_id_value=old_id, now=utc_now())
-    if driver is not None and driver.session_id != str(session_id or "").strip():
-        raise TakeoverRefused(
-            f"{DRIVEN_ELSEWHERE_CODE}: run {old_id} waits only on item QA on this "
-            "target, but another session drives it, and a run with a live driver "
-            "answers only to that session. Create this run from that session, or "
-            "let its driver finish or stop first. " + format_refusal(old_id, driver)
+            NOT_CONTAINED_CODE,
+            _not_contained_refusal(conn, old, new_lineage, verdict, moving),
         )
 
 
@@ -254,6 +244,9 @@ def take_over_waiting_run(
     """
     from yoke_core.domain.deployment_run_carried_membership import admit_run_item
     from yoke_core.domain.deployment_run_member_removal import remove_member_on
+    from yoke_core.domain.deployment_run_takeover_authority import (
+        require_takeover_authority,
+    )
     from yoke_core.domain.deployment_run_terminalization import terminalize_run_on
     from yoke_core.domain.deployment_runs_lock import lock_run_with_stable_membership
 
@@ -285,7 +278,7 @@ def take_over_waiting_run(
     if status != "executing":
         return None
     moving = _moving_members(conn, old, shared)
-    _require_driver(conn, old_id, session_id)
+    require_takeover_authority(conn, old_id, int(new_run["project_id"]), session_id)
     _require_containment(conn, new_run, old, moving)
 
     reason = (
@@ -332,7 +325,6 @@ def take_over_waiting_run(
 
 
 __all__ = [
-    "DRIVEN_ELSEWHERE_CODE",
     "NOT_CONTAINED_CODE",
     "SUPERSEDED_BY_COLUMN",
     "SUPERSEDES_COLUMN",

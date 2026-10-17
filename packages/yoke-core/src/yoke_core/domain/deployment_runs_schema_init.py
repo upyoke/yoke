@@ -58,6 +58,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 membership_removals TEXT,
                 superseded_by_run_id TEXT,
                 supersedes_run_id TEXT,
+                created_by_session_id TEXT,
                 CONSTRAINT deployment_runs_target_tier_vocabulary
                     CHECK (target_tier IS NULL
                            OR target_tier IN ('persistent','ephemeral')),
@@ -122,6 +123,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
             "membership_removals",
             "superseded_by_run_id",
             "supersedes_run_id",
+            "created_by_session_id",
             KEY_COLUMN,
             REQUEST_COLUMN,
         ):

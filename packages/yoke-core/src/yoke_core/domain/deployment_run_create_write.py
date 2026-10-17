@@ -165,7 +165,8 @@ def create_run(
     An executing run on the same flow and target that waits only on item QA
     is taken over in this same transaction
     (:mod:`~yoke_core.domain.deployment_run_target_takeover`); *session_id*
-    and *actor_id* are the creator, audited on that run's removals.
+    and *actor_id* are the creator, audited on that run's removals, and
+    *session_id* is recorded as the run's creating session.
     """
     run = {
         "flow": flow,
@@ -176,12 +177,51 @@ def create_run(
         "allow_pending_pair_merges": allow_pending_pair_merges,
         "session_id": session_id,
         "actor_id": actor_id,
+        "enroll_item_id": None,
     }
     request = {
         "environment": environment,
         "idempotency_key": idempotency_key,
         "create_request": create_request,
     }
+    return _create(project, db_path, request, run)[0]
+
+
+def create_item_run(
+    project: str,
+    flow: str,
+    item_id: int,
+    *,
+    environment: Optional[str] = None,
+    release_lineage: Optional[str] = None,
+    created_by: str = "operator",
+    allow_pending_pair_merges: bool = False,
+    session_id: Optional[str] = None,
+) -> tuple[CreatedRun, str]:
+    """Create a run with *item_id* enrolled, returning the validator's message.
+
+    Creation, any takeover, the item's enrollment and composition validation
+    with its item QA members share one transaction, so a refusal anywhere
+    leaves no run, membership or takeover behind.
+    """
+    run = dict(
+        flow=flow,
+        release_lineage=release_lineage,
+        created_by=created_by,
+        artifact_identity=None,
+        inherit_members_from=None,
+        allow_pending_pair_merges=allow_pending_pair_merges,
+        session_id=session_id,
+        actor_id=None,
+        enroll_item_id=int(item_id),
+    )
+    request = dict(environment=environment, idempotency_key=None, create_request=None)
+    return _create(project, None, request, run)
+
+
+def _create(
+    project: str, db_path: Optional[str], request: dict, run: dict
+) -> tuple[CreatedRun, str]:
     conn = connect(db_path)
     try:
         with composition_reads():
@@ -224,7 +264,7 @@ def _create_locked(
     idempotency_key: Optional[str],
     create_request: Optional[str],
     **run,
-) -> CreatedRun:
+) -> tuple[CreatedRun, str]:
     """Replay, or allocate and insert, while holding the creation lock.
 
     Validation repeats here on the real row. Inside the caller's read scope
@@ -239,7 +279,7 @@ def _create_locked(
         )
         if existing is not None:
             conn.rollback()
-            return CreatedRun(existing, True, basis)
+            return CreatedRun(existing, True, basis), ""
     target = run_target(conn, run["flow"], project_id, environment)
 
     refuse_run_that_cannot_execute(conn, run["flow"], run["release_lineage"])
@@ -268,7 +308,7 @@ def _create_locked(
     timed_preparation(
         "create_takeover_settlement", _finish_superseded_run, conn, run_id
     )
-    return CreatedRun(run_id, False, basis)
+    return CreatedRun(run_id, False, basis), message
 
 
 def _finish_superseded_run(conn, run_id: str) -> None:
@@ -304,5 +344,6 @@ __all__ = [
     "CreatedRun",
     "cmd_create_run",
     "cmd_next_id",
+    "create_item_run",
     "create_run",
 ]
