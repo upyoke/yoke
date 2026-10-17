@@ -24,7 +24,9 @@ from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_SYSTEM_EVENTS_UNAVAILABLE_ERROR_CODE,
 )
 from yoke_harness.ssh_mac_display_frame import RunRemote
-from yoke_harness.ssh_mac_gui_session import terminal_system_events_automation
+from yoke_harness.ssh_mac_terminal_automation_probe import (
+    terminal_system_events_automation,
+)
 from yoke_harness.ssh_mac_host_session_state import (
     display_lock_recovery,
     probe_host_display_context,
