@@ -148,8 +148,15 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
         prog="yoke deployment-runs start-for-item",
         description=(
             "Open a delivery run for one named item on the selected "
-            "control-plane transport. Creation composes candidate membership "
-            "and start revalidates it before dispatch."
+            "control-plane transport. Creation, any takeover of an older run "
+            "on the target, the item's enrollment and composition validation "
+            "commit together or not at all; start revalidates before "
+            "dispatch. While a live steering seat covers the project only "
+            "its holder, or an older run's creator, may take that run over "
+            "(takeover_reserved_for_steering); other sessions report the "
+            "landing to steering. A self-deploy target needs this machine's "
+            "paired database connection to drive it, so creation refuses "
+            "without one."
         ),
     )
     parser.add_argument("item")
