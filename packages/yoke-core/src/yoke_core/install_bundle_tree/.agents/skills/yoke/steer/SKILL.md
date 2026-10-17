@@ -17,7 +17,7 @@ Itemless autonomous steering of a claimed strategy document, defaulting to
 CURRENT-PLAN. Read its intent, reconcile live frontier/reports, staff executors,
 and write current plan state. The coordinator never implements.
 
-Encode sequencing as item dependency edges. Before announcing live, confirm the run carried the commit. Check infra is used before taking work on it.
+Encode sequencing as item dependency edges, each the narrowest the work needs ([keep dependencies minimal](worker-lifecycle.md#1-encode-dependency-edges-before-availability)). Before announcing live, confirm the run carried the commit. Check infra is used before taking work on it.
 
 ## Phase map
 
