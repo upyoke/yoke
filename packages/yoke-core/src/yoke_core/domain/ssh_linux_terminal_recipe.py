@@ -21,6 +21,7 @@ from yoke_core.domain.ssh_linux_browser_gate import checkpoint, run_browser_gate
 from yoke_harness.ssh_linux_browser_approval import prepare_desktop_chromium
 from yoke_harness.ssh_linux_terminal import (
     LinuxTerminal,
+    LinuxTerminalWindowError,
 )
 from yoke_harness.test_machine_types import HostActionResult
 
@@ -208,6 +209,8 @@ def _interactive(
             "terminal_recipe_assertion_failed" if failures else None,
         )
         return result
+    except LinuxTerminalWindowError as exc:
+        return HostActionResult(False, exc.evidence, exc.code)
     finally:
         if not communication_unknown(sys.exception()) and not terminal.close():
             return HostActionResult(

@@ -10,6 +10,12 @@ from typing import Any, Mapping, Sequence
 from yoke_harness.test_machine_types import HostActionResult
 
 
+class LinuxTerminalWindowError(RuntimeError):
+    def __init__(self, code, evidence):
+        self.code, self.evidence = code, evidence
+        super().__init__(f"{code}: {evidence}")
+
+
 class LinuxTerminal:
     """One disposable tmux session inside a persistent, leased test host."""
 
@@ -70,26 +76,51 @@ class LinuxTerminal:
     def show(self) -> bool:
         from yoke_harness.linux_desktop_session import desktop_command
 
-        launch = (
-            shlex.join(
-                [
-                    "xfce4-terminal",
-                    "--disable-server",
-                    "--title",
-                    self.session,
-                    "--execute",
-                    "tmux",
-                    "attach-session",
-                    "-t",
-                    self.session,
-                ]
+        evidence = {"session": self.session, "commands": {}}
+
+        def record(name, result):
+            evidence["commands"][name] = {
+                "returncode": result.returncode,
+                "stderr": result.stderr,
+            }
+            return result.returncode == 0
+
+        present = self.command("has-session", "-t", self.session)
+        if not record("tmux_has_session", present):
+            evidence["recovery"] = (
+                "Inspect the case command and its exit; restart the recipe with a "
+                "live tmux session before requesting a terminal window."
             )
-            + " >/dev/null 2>&1 &"
+            raise LinuxTerminalWindowError("linux_tmux_session_exited", evidence)
+        launch = shlex.join(
+            [
+                "xfce4-terminal",
+                "--disable-server",
+                "--title",
+                self.session,
+                "--execute",
+                "tmux",
+                "attach-session",
+                "-t",
+                self.session,
+            ]
+        )
+        # The window outlives this command; retain early launch errors without
+        # leaving its inherited SSH pipes open.
+        program = (
+            "import shlex,subprocess,sys,tempfile,time; "
+            "f=tempfile.TemporaryFile(); "
+            "p=subprocess.Popen(shlex.split(sys.argv[1]), "
+            "stdout=subprocess.DEVNULL,stderr=f,start_new_session=True); "
+            "time.sleep(0.3); code=p.poll(); f.seek(0); "
+            "sys.stderr.write(f.read().decode(errors='replace')); "
+            "sys.exit(code if code is not None else 0)"
         )
         try:
             launched = desktop_command(
-                self.control, ["/bin/sh", "-c", launch], timeout=10
+                self.control, ["python3", "-c", program, launch], timeout=10
             )
+            launch_ok = record("launch", launched)
             visible = desktop_command(
                 self.control,
                 [
@@ -102,9 +133,16 @@ class LinuxTerminal:
                 ],
                 timeout=10,
             )
-            return launched.returncode == 0 and visible.returncode == 0
-        except RuntimeError:
-            return False
+            visible_ok = record("xdotool", visible)
+            if launch_ok and visible_ok:
+                return True
+        except RuntimeError as exc:
+            evidence["desktop_error"] = str(exc)
+        evidence["recovery"] = (
+            "Provision and unlock the dedicated XFCE desktop; inspect launch and "
+            "xdotool diagnostics, install xfce4-terminal and xdotool, then rerun."
+        )
+        raise LinuxTerminalWindowError("linux_terminal_window_unavailable", evidence)
 
     def wait_for(
         self, text: str, deadline: float, progress_callback=None
@@ -201,6 +239,8 @@ def run_linux_terminal_case(
             },
             None if completed else "terminal_completion_not_proved",
         )
+    except LinuxTerminalWindowError as exc:
+        return HostActionResult(False, exc.evidence, exc.code)
     finally:
         if not terminal.close():
             return HostActionResult(
