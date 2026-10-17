@@ -6,6 +6,14 @@ a reusable clone whose schema, rows and sequences reset after each checkout.
 The template never receives test writes. Nested contexts and replacements
 after schema changes clone the template instead of replaying initialization.
 
+Planner statistics belong to that baseline too. An `ANALYZE` or automatic
+statistics update can change index choices even after rows are restored.
+When relation estimates or column statistics drift, the existing reusable
+clone is discarded and the next checkout rebuilds from the unchanged template.
+Ordinary checkouts keep reusing their database. Session settings end with
+their connection; database-scoped `ALTER DATABASE ... SET` changes still need
+a separately disposable database.
+
 The shared `test_db` fixture, the default strategy, explicit `schema.cmd_init`
 and `apply_test_schema` use one production schema flavor. The template runs
 `environment_bootstrap.run_init_chain`, including `schema.cmd_init`, then
