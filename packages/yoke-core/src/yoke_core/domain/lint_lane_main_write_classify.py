@@ -229,7 +229,7 @@ def _client_target(
     if os.path.isabs(target) or not fallback_cwd.strip():
         return client or (os.path.normpath(target), False)
     target = os.path.normpath(os.path.join(fallback_cwd, target))
-    if client is not None and client[0] in {target, os.path.realpath(target)}:
+    if client is not None and client[0] == target:
         return client
     return target, False
 
