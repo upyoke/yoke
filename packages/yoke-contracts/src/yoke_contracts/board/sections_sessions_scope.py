@@ -139,8 +139,9 @@ def _scope_filter(
         if ids is None:
             return f"AND (hs.project_id IS NOT NULL OR {org_sql})", org_ids
         project_sql, params = _multi_project_scope_filter(ids, active_only=active_only)
+        project_sql = project_sql.strip().removeprefix("AND ")
         return (
-            f"AND ((hs.project_id IS NOT NULL AND ({project_sql[4:]})) OR {org_sql})",
+            f"AND ((hs.project_id IS NOT NULL AND ({project_sql})) OR {org_sql})",
             (*params, *org_ids),
         )
     project_id = scope_project_id(db, scope)
