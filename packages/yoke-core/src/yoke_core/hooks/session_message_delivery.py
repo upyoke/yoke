@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Iterable
 
 from yoke_contracts.hook_context_compose import (
@@ -43,6 +44,10 @@ from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 DELIVERY_AUDIT_FIELD = "session_message_delivery"
+# Marks a decision whose evaluation reached the server's inbox lease. Only
+# such an evaluation counts as a message probe: the resident evaluator may
+# then run the session's next read-only tool events locally without leasing.
+MESSAGE_PROBE_AUDIT_FIELD = "session_message_probe"
 DEFAULT_LEASE_LIMIT = 10
 _STDOUT_EVENTS = SESSION_OPENING_STDOUT_EVENTS | frozenset({"Stop"})
 
@@ -225,6 +230,19 @@ def evaluate(context: HookContext) -> HookDecision:
             PROBE_LEASE_FAILED,
             detail=type(error).__name__,
         )
+    decision = _decision_for_lease(port, context, session_id, lease)
+    return replace(
+        decision,
+        audit_fields={**decision.audit_fields, MESSAGE_PROBE_AUDIT_FIELD: True},
+    )
+
+
+def _decision_for_lease(
+    port: SessionMessageDeliveryPort,
+    context: HookContext,
+    session_id: str,
+    lease: SessionMessageLease | None,
+) -> HookDecision:
     if lease is None:
         return _declined(port, context, session_id, PROBE_SESSION_NOT_DELIVERABLE)
     if not lease.messages:
@@ -248,6 +266,14 @@ def evaluate(context: HookContext) -> HookDecision:
             )
         return _declined(port, context, session_id, PROBE_NO_LEASABLE_RECEIPT)
     return _decision_for_event(lease, context)
+
+
+def message_probe_ran(decisions: Iterable[HookDecision]) -> bool:
+    """Whether this run leased the session's inbox at an injecting event."""
+    return any(
+        decision.audit_fields.get(MESSAGE_PROBE_AUDIT_FIELD) is True
+        for decision in decisions
+    )
 
 
 def settle_after_render(
@@ -302,7 +328,9 @@ def settle_after_render(
 
 __all__ = [
     "DELIVERY_AUDIT_FIELD",
+    "MESSAGE_PROBE_AUDIT_FIELD",
     "evaluate",
+    "message_probe_ran",
     "settle_after_render",
     "wake_eligible",
 ]

@@ -65,6 +65,9 @@ class HookEvaluateResponse(BaseModel):
     wait_ms: int
     degraded: List[str]
     outcome: str
+    # Whether this evaluation leased the session's inbox. The resident
+    # evaluator counts only such a round trip as a message probe.
+    message_probe: bool = False
     model_confirmation: Optional[str] = None
     capabilities: tuple[str, ...] = HOOK_EVALUATOR_CAPABILITIES
 
