@@ -97,7 +97,7 @@ def test_picker_opens_account_step_with_local_preselected() -> None:
                 "Keep the engine and database on your machine, or use a server "
                 "for team collab."
             ) in text
-            assert "free · best for solo dev" in text
+            assert "reachable here only" in text
             assert app.query_one(SelectionList).selected_value == (DESTINATION_LOCAL)
 
     asyncio.run(scenario())

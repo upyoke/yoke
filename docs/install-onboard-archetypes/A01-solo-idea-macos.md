@@ -68,17 +68,17 @@ confirmation. **See exactly what changes** remains optional.
 ```
 Where should this Yoke universe live?
 Keep the engine and database on your machine, or use a server for team collab.
-  This machine                                   free · best for solo dev
-  A team server                    the URL of your team's self-hosted Yoke server
-  Set this machine up as a self-hosting server   Docker Compose · guided first boot
-  upyoke.com                                          hosted by Yoke · private beta
+  This machine                                                reachable here only
+  A team server                                  connect to your own Yoke server
+  Host a server here              for a team or multiple computers · needs Docker
+  upyoke.com                     hosted by Yoke · private beta (requires beta code)
 ```
 
 **User:** This machine.
 
 ```
 Your Yoke lives on this machine.
-Free, no account — everything stays on this computer.
+Reachable here only — other computers cannot connect to it.
   • Apply creates a private local universe under ~/.yoke
     (embedded Postgres, the full Yoke schema).
   Continue

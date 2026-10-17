@@ -29,7 +29,7 @@ Account — two honest lanes:
 
 **Lane A (this machine):** This machine → local universe Continue.
 
-**Lane B (cloud for the team):** `upyoke.com` / `hosted by Yoke · private beta`.
+**Lane B (cloud for the team):** `upyoke.com` / `hosted by Yoke · private beta (requires beta code)`.
 Browser approval (`onboard_wizard_flow_hosted_machine`). No token paste
 ("Yoke never asks you to paste a GitHub secret" is GitHub; hosted machine
 approval is browser). Private beta may block if he has no code.

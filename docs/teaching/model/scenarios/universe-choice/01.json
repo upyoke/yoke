@@ -1,16 +1,16 @@
 {
  "id": "01",
  "title": "Local, team server or hosted",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "both",
  "when": "Choosing a destination; later mentions of another machine",
  "need": "Local means reachable on this machine only. Shared access requires an appropriate server/hosted setup; a second checkout is not a second connection.",
- "disclosure": "planned cue",
- "surface": "Installer choice, yoke status and modes guide",
- "gap": "The modes exist. FIRST-USER 3 adds the missing explanation and recovery; JOURNEYS extends when it is raised.",
- "review": "Pending exact recipe proof.",
+ "disclosure": "shipped cue",
+ "surface": "Installer choice and local summary, yoke status, local dashboard footer, team-server connection errors and modes guide",
+ "gap": "Source now says \"reachable here only\" at the choice, the local summary, `yoke status` and the local dashboard; team-server connection errors name the failure and point to `yoke status` on the server's machine. Installed-release proof is owed (gap local-reach-delivery-proof); JOURNEYS extends when another computer is raised later.",
+ "review": "Focused source tests cover the rows, status lines, dashboard label and named connection failures.",
  "recipes": ["yoke status"],
  "plan_notes": ["FIRST-USER 3", "FIRST-USER 31", "JOURNEYS 8"],
- "sources": ["docs/public/modes.md", "docs/public/install.md"],
+ "sources": ["docs/public/modes.md", "docs/public/install.md", "packages/yoke-cli/src/yoke_cli/config/status_render.py", "packages/yoke-cli/src/yoke_cli/transport/server_reach_failure.py"],
  "position": 0
 }

@@ -186,7 +186,7 @@ class TestThePageNamesTheUniverseThatAnswered:
 
         # The footer renders this field, so the env reaches the frame a
         # screenshot captures rather than only a log the image omits.
-        assert "local universe: local-dev" in shell
+        assert "local (local-dev): reachable here only" in shell
 
     def test_an_unnamed_environment_claims_nothing(self):
         """With no binding there is no env to show. Inventing one would

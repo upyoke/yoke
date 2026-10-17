@@ -22,7 +22,7 @@ function environmentLabel(options) {
   const mode = options.capabilities?.data?.portability?.mode;
   if (mode === "hosted") return "hosted universe";
   if (mode === "self-host") return "self-hosted universe";
-  return "local universe";
+  return "local: reachable here only";
 }
 
 function versionLabel(options) {

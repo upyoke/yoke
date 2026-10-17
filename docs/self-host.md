@@ -142,8 +142,7 @@ expiry, retry, and single-use credential delivery.
 ## Restore admin access
 
 The host stays connected after setup. If this machine loses its connection,
-rerun `yoke setup` on the host and choose **Set this machine up as a
-self-hosting server**: it finds the existing bundle, restarts it, and
+rerun `yoke setup` on the host and choose **Host a server here**: it finds the existing bundle, restarts it, and
 reconnects with `secrets/first-boot-admin-token` without asking anything new.
 
 ## Workbench and browser sign-in

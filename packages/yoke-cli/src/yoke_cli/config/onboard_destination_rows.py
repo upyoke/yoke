@@ -32,18 +32,22 @@ HOSTED_ROW_ENVS = {
 }
 
 DESTINATION_ROWS = [
-    SelectionRow(DESTINATION_LOCAL, "This machine", "free · best for solo dev"),
+    SelectionRow(DESTINATION_LOCAL, "This machine", "reachable here only"),
     SelectionRow(
         DESTINATION_SERVER,
         "A team server",
-        "the URL of your team's self-hosted Yoke server",
+        "connect to your own Yoke server",
     ),
     SelectionRow(
         SELF_HOST_SERVER_ROW,
-        "Set this machine up as a self-hosting server",
-        "Docker Compose · guided first boot",
+        "Host a server here",
+        "for a team or multiple computers · needs Docker",
     ),
-    SelectionRow(DESTINATION_HOSTED, "upyoke.com", "hosted by Yoke · private beta"),
+    SelectionRow(
+        DESTINATION_HOSTED,
+        "upyoke.com",
+        "hosted by Yoke · private beta (requires beta code)",
+    ),
 ]
 
 DEFAULT_DESTINATION_INDEX = next(
