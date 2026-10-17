@@ -80,15 +80,17 @@ def stub_receipts(monkeypatch: Any) -> None:
 
 
 def stub_candidate_review(monkeypatch: Any) -> None:
-    """Answer the candidate review the way an unselected posture does.
+    """Answer the landing gates the way a clear item does.
 
-    The gate asks the control plane about the exact head before either
-    landing route; an item that selects no review is what these cases are
-    about, and the gate has its own suites.
+    The candidate review and the integration dependency gate ask the control
+    plane before either landing route; an item with no selected review and no
+    unmerged predecessor is what these cases are about, and each gate has its
+    own suites.
     """
     from yoke_core.domain import merge_queue_route_selection as selection
 
     monkeypatch.setattr(selection, "candidate_review_refusal", lambda **_kw: "")
+    monkeypatch.setattr(selection, "integration_dependency_refusal", lambda **_kw: "")
 
 
 __all__ = [
