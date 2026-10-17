@@ -42,6 +42,8 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from yoke_core.domain.dependency_cycles import DependencyCycle
+from yoke_core.domain.dependency_cycles_read import seat_cycles
 from yoke_core.domain.session_launch_capacity import MachineCapacity
 from yoke_core.domain.steering_fleet_report_abandoned import AbandonedLaunch
 from yoke_core.domain.steering_fleet_report_available import FrontierEntry
@@ -143,6 +145,7 @@ class FleetReport:
     levels: LevelReadout | None = None
     level_overrides: tuple[tuple[str, str], ...] = ()
     session_labels: tuple[tuple[str, str], ...] = ()
+    deadlocks: tuple[DependencyCycle, ...] = ()
 
     def waited_too_long(self) -> tuple[FrontierEntry, ...]:
         """Available work past the staffing threshold: the alarm, not the list.
@@ -212,6 +215,7 @@ class FleetReport:
             or self.runs_needing_action()
             or self.relay_health
             or self.messages_awaiting_seat
+            or self.deadlocks
         )
 
     def fingerprint(self) -> str:
@@ -321,6 +325,7 @@ def compose_report(
         machine_names=tuple(sorted(facts.machine_names.items())),
         test_machines=facts.test_machines,
         relay_health=facts.relay_health,
+        deadlocks=tuple(seat_cycles(conn, facts.deadlocks, members)),
         levels=facts.levels,
         level_overrides=read_level_overrides(conn, refs)
         if request.include_inventory

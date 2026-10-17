@@ -30,6 +30,7 @@ import hashlib
 import json
 from typing import TYPE_CHECKING, Any
 
+from yoke_core.domain.steering_fleet_report_deadlocks import deadlock_fingerprint
 from yoke_core.domain.steering_fleet_report_project_rows import ProjectRows
 
 if TYPE_CHECKING:  # pragma: no cover - annotation only, no import cycle
@@ -77,6 +78,7 @@ def seat_payload(report: "FleetReport") -> dict[str, Any]:
             for entry in report.dead_waits
         ),
         "messages_awaiting_seat": report.messages_awaiting_seat,
+        "deadlocks": deadlock_fingerprint(report),
     }
 
 
