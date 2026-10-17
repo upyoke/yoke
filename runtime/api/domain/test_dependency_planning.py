@@ -28,7 +28,10 @@ from runtime.api.frontier_test_helpers import (
 
 
 @pytest.fixture
-def conn() -> Iterator[Any]:
+def conn(monkeypatch) -> Iterator[Any]:
+    # This minimal schema has no workflow tables; loop refusal has its own
+    # coverage in test_dependency_cycles.py.
+    monkeypatch.setattr(item_dependency, "refuse_cycles_through", lambda *_a: None)
     name = pg_testdb.create_test_database()
     c = pg_testdb.connect_test_database(name)
     try:
@@ -39,7 +42,7 @@ def conn() -> Iterator[Any]:
             "blocking_item_id INTEGER NOT NULL, "
             "gate_point TEXT NOT NULL DEFAULT 'activation', "
             "satisfaction TEXT NOT NULL DEFAULT 'status:done', "
-            "source TEXT NOT NULL, session_id INTEGER, "
+            "source TEXT NOT NULL, session_id TEXT, "
             "rationale TEXT NOT NULL DEFAULT '', "
             "evidence_json TEXT NOT NULL DEFAULT '{}', "
             "created_at TIMESTAMPTZ NOT NULL, "
