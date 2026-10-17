@@ -11,7 +11,9 @@ from uuid import UUID
 from yoke_contracts.machine_authorization import (
     APPROVAL_PAGE_PATH,
     CODE_TTL_SECONDS,
+    MACHINE_RETIRED,
     POLL_INTERVAL_SECONDS,
+    RETIRED_MACHINE_RECOVERY,
 )
 from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
 from yoke_core.domain.db_helpers import instant_parameter
@@ -24,6 +26,7 @@ from yoke_core.domain.machine_approval_requests import (
 )
 from yoke_core.domain.decision_request_resolution import resolve_decision_request
 from yoke_core.domain.machine_credentials import register_with_credential
+from yoke_core.domain.machine_registry import get_machine
 from yoke_core.domain.machine_authorization_limits import (
     CLIENT_PENDING_CODES,
     SERVER_PENDING_CODES,
@@ -64,6 +67,14 @@ def start(
             "machine_identity_required",
             "restore this machine's configured UUID, then reconnect",
         ) from None
+    known = get_machine(conn, machine_id)
+    if known is not None and known.retired_at is not None:
+        # Refuse before a code exists, so nobody approves one delivery must refuse.
+        raise MachineAuthorizationError(
+            MACHINE_RETIRED,
+            f"machine {machine_id} is retired; {RETIRED_MACHINE_RECOVERY}",
+            409,
+        )
     now, p = _now(), _p(conn)
     if db_backend.connection_is_postgres(conn):
         conn.execute(
