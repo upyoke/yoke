@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-import fcntl
 import os
 from pathlib import Path
 import stat
@@ -14,6 +13,7 @@ from yoke_cli.config.project_git_process import (
     NetworkGitBoundaryError,
     run_network_git,
 )
+from yoke_contracts import platform_file_lock
 
 
 REPO_CONFIG_TIMEOUT_SECONDS = 5.0
@@ -33,7 +33,11 @@ def values(root: Path, key: str) -> list[str]:
 
 def helper_keys(root: Path) -> list[str]:
     result = _run(
-        root, "config", "--local", "--name-only", "--get-regexp",
+        root,
+        "config",
+        "--local",
+        "--name-only",
+        "--get-regexp",
         r"^credential\..*\.helper$",
     )
     if result.returncode not in (0, 1):
@@ -43,7 +47,11 @@ def helper_keys(root: Path) -> list[str]:
 
 def matching_remote_urls(root: Path) -> list[str]:
     result = _run(
-        root, "config", "--local", "--get-regexp", r"^remote\..*\.url$",
+        root,
+        "config",
+        "--local",
+        "--get-regexp",
+        r"^remote\..*\.url$",
     )
     if result.returncode not in (0, 1):
         raise GitHubRepoConfigError("repo-local remote config could not be read")
@@ -100,7 +108,9 @@ def _write_values(root: Path, key: str, selected: list[str]) -> None:
 def _run(root: Path, *args: str):
     try:
         return run_network_git(
-            ["git", *args], cwd=root, env=git_config_env(()),
+            ["git", *args],
+            cwd=root,
+            env=git_config_env(()),
             timeout_seconds=REPO_CONFIG_TIMEOUT_SECONDS,
             maximum_output_bytes=REPO_CONFIG_OUTPUT_MAX_BYTES,
         )
@@ -133,11 +143,11 @@ def _repo_lock(root: Path) -> Iterator[None]:
         if not stat.S_ISREG(opened.st_mode):
             raise GitHubRepoConfigError("checkout helper lock is unsafe")
         os.fchmod(descriptor, 0o600)
-        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        platform_file_lock.acquire_exclusive(descriptor)
         yield
     finally:
         try:
-            fcntl.flock(descriptor, fcntl.LOCK_UN)
+            platform_file_lock.release_exclusive(descriptor)
         finally:
             os.close(descriptor)
 

@@ -124,14 +124,13 @@ def test_status_json_validates_machine_and_project_config(
     assert report["connection"]["transport"] == "https"
     assert report["connection"]["prod"] is True
     assert report["connection"]["envs"] == ["prod"]
-    assert report["project"]["project_id"] == 1
-    assert report["project"]["board_scope"] == "1"
-    assert (
-        report["project"]["board_settings_authority"] == "project-policy.settings.board"
-    )
-    assert report["project"]["board_render_path"].endswith(".yoke/BOARD.md")
-    assert report["project"]["board_ts_path"].endswith(".yoke/BOARD.md.ts")
-    assert report["project"]["board_art_path"].endswith(".yoke/board-art")
+    project = report["project"]
+    assert project["project_id"] == 1
+    assert project["board_scope"] == "1"
+    assert project["board_settings_authority"] == "project-policy.settings.board"
+    assert Path(project["board_render_path"]).parts[-2:] == (".yoke", "BOARD.md")
+    assert Path(project["board_ts_path"]).parts[-2:] == (".yoke", "BOARD.md.ts")
+    assert Path(project["board_art_path"]).parts[-2:] == (".yoke", "board-art")
     assert report["paths"]["temp_root"]["writable"] is True
     assert report["paths"]["cache_dir"]["writable"] is True
 
@@ -257,7 +256,8 @@ def test_status_json_reports_install_binding(
     # The test process imports yoke_cli from a source tree, never a wheel.
     assert report["install"]["kind"] == install_binding.KIND_SOURCE_CHECKOUT
     assert report["install"]["checkout_root"]
-    assert report["install"]["module_origin"].endswith("yoke_cli/__init__.py")
+    origin = Path(report["install"]["module_origin"])
+    assert origin.parts[-2:] == ("yoke_cli", "__init__.py")
     assert report["install"]["version"] == ""
     assert set(report["runtime"]["package_versions"].values()) == {""}
 

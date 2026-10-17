@@ -38,10 +38,18 @@ def test_none_when_unset():
 def test_relay_identity_payload_carries_native_thread_id():
     with mock.patch.dict(os.environ, {"CODEX_THREAD_ID": "thread-42"}, clear=True):
         payload = relay_identity_payload(
-            "SessionStart", {"session_id": "s1"}, "codex-desktop", project_id=None
+            "SessionStart",
+            {"session_id": "thread-42"},
+            "codex-desktop",
+            project_id=None,
         )
 
     assert payload["native_thread_id"] == "thread-42"
+
+
+def test_codex_relay_rejects_a_different_chats_native_thread_id():
+    with mock.patch.dict(os.environ, {"CODEX_THREAD_ID": "sender"}, clear=True):
+        assert client_native_thread_id("codex-desktop", "destination") is None
 
 
 def test_cursor_uses_the_hook_written_conversation_map(

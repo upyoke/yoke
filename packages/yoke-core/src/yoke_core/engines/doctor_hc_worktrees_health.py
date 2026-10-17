@@ -13,7 +13,8 @@ batched authority read and, under ``--fix``, retired one at a time as each is
 proved, so a run the budget cuts short keeps what it already retired.
 
 Detached self-deploy driver trees are checked against their run status and
-retired under ``--fix`` once the run is over.
+retired under ``--fix`` once the run is over. Open items' landed lanes are
+listed apart: they hold no ``max_active_worktrees`` slot.
 """
 
 from __future__ import annotations
@@ -21,9 +22,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List
 
-from yoke_core.engines.deploy_run_worktree_naming import (
-    run_id_for_driver_worktree,
-)
+from yoke_core.domain.worktree_capacity import landed_lanes_note
+from yoke_core.engines.deploy_run_worktree_naming import run_id_for_driver_worktree
 from yoke_core.engines.deploy_run_worktree_retirement import (
     assess_deploy_run_worktrees,
     retire_terminal_deploy_run_worktrees,
@@ -337,10 +337,14 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
     if stranded:
         issues.insert(0, stranded_summary(stranded))
-    if issues:
-        detail = [*fixed, *issues]
-        rec.record("HC-worktree-health", "Worktree health", "WARN", "\n".join(detail))
-    elif fixed:
-        rec.record("HC-worktree-health", "Worktree health", "PASS", "\n".join(fixed))
-    else:
-        rec.record("HC-worktree-health", "Worktree health", "PASS", "")
+    open_lanes = [
+        (Path(e["path"]).name, e.get("branch", ""), owner.target_branch)
+        for e in lane_entries
+        for owner in by_branch.get(e.get("branch", ""), [])[:1]
+        if owner.status not in _TERMINAL
+    ]
+    checkout = str(repo_root or "")
+    note = landed_lanes_note(_git_for_repo(checkout), checkout, open_lanes)
+    detail = "\n".join(line for line in (*fixed, *issues, note) if line)
+    status = "WARN" if issues else "PASS"
+    rec.record("HC-worktree-health", "Worktree health", status, detail)

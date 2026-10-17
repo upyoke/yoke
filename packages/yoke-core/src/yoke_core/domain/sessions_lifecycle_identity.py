@@ -205,6 +205,7 @@ def refresh_active_duplicate_identity(
     executor_surface: Optional[str],
     executor_version: Optional[str],
     machine_id: Optional[str],
+    executor: str,
     native_thread_id: Optional[str] = None,
 ) -> None:
     """Upgrade mutable identity fields on an active duplicate registration.
@@ -255,9 +256,16 @@ def refresh_active_duplicate_identity(
     if machine_id and not _stored_value(existing, "machine_id"):
         observed_updates.append(f"machine_id = {placeholder}")
         observed_values.append(machine_id)
-    if native_thread_id and not _stored_value(existing, "native_thread_id"):
+    stored_native_thread_id = _stored_value(existing, "native_thread_id") or None
+    resolved_native_thread_id = trusted_native_thread_id(
+        executor,
+        session_id,
+        stored_native_thread_id,
+        native_thread_id,
+    )
+    if resolved_native_thread_id != stored_native_thread_id:
         observed_updates.append(f"native_thread_id = {placeholder}")
-        observed_values.append(native_thread_id)
+        observed_values.append(resolved_native_thread_id)
     if observed_updates:
         conn.execute(
             "UPDATE harness_sessions SET "
@@ -268,6 +276,22 @@ def refresh_active_duplicate_identity(
         conn.commit()
 
 
+def trusted_native_thread_id(
+    executor: str,
+    session_id: str,
+    stored_native_thread_id: Optional[str],
+    incoming_native_thread_id: Optional[str],
+) -> Optional[str]:
+    """Apply Codex's anti-delegation rule without freezing other harness ids."""
+    stored = str(stored_native_thread_id or "").strip() or None
+    incoming = str(incoming_native_thread_id or "").strip() or None
+    if incoming is None:
+        return stored
+    if executor != "codex" or stored is None or incoming == session_id:
+        return incoming
+    return stored
+
+
 __all__ = [
     "existing_registration_row",
     "normalize_observed_identity",
@@ -275,4 +299,5 @@ __all__ = [
     "resolve_session_actor_id",
     "resolve_session_project_id",
     "resolve_reactivation_executor_version",
+    "trusted_native_thread_id",
 ]

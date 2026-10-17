@@ -34,8 +34,13 @@ def test_contract_detects_checkout_module_origin(tmp_path: Path) -> None:
 
 def test_contract_rejects_site_packages_origin(tmp_path: Path) -> None:
     module_file = (
-        tmp_path / "venv" / "lib" / "python3.13" / "site-packages"
-        / "yoke_core" / "__init__.py"
+        tmp_path
+        / "venv"
+        / "lib"
+        / "python3.13"
+        / "site-packages"
+        / "yoke_core"
+        / "__init__.py"
     )
     module_file.parent.mkdir(parents=True)
     module_file.write_text("")
@@ -53,7 +58,8 @@ class _Distribution:
 
 
 def test_distribution_version_requires_matching_packaged_origin(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path,
+    monkeypatch,
 ) -> None:
     site_packages = tmp_path / "venv" / "site-packages"
     module_file = site_packages / "yoke_cli" / "__init__.py"
@@ -70,13 +76,17 @@ def test_distribution_version_requires_matching_packaged_origin(
     )
 
     assert contract.distribution_version_for_module("yoke-cli", module_file) == "7.8.9"
-    assert contract.distribution_version_for_module(
-        "yoke-cli", tmp_path / "other" / "yoke_cli" / "__init__.py"
-    ) == ""
+    assert (
+        contract.distribution_version_for_module(
+            "yoke-cli", tmp_path / "other" / "yoke_cli" / "__init__.py"
+        )
+        == ""
+    )
 
 
 def test_distribution_version_ignores_stale_metadata_for_source(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path,
+    monkeypatch,
 ) -> None:
     root = _synthetic_checkout(tmp_path)
     module_file = root / "packages" / "yoke-core" / "src" / "yoke_core" / "__init__.py"
@@ -87,9 +97,12 @@ def test_distribution_version_ignores_stale_metadata_for_source(
     )
 
     assert contract.distribution_version_for_module("yoke-core", module_file) == ""
-    assert contract.distribution_version_for_module(
-        "yoke-core", module_file, source_value="source"
-    ) == "source"
+    assert (
+        contract.distribution_version_for_module(
+            "yoke-core", module_file, source_value="source"
+        )
+        == "source"
+    )
 
 
 def test_twin_report_carries_install_binding(tmp_path: Path) -> None:
@@ -100,9 +113,10 @@ def test_twin_report_carries_install_binding(tmp_path: Path) -> None:
     )
     install = report["install"]
     assert install["kind"] in (
-        contract.KIND_PACKAGED_WHEEL, contract.KIND_SOURCE_CHECKOUT,
+        contract.KIND_PACKAGED_WHEEL,
+        contract.KIND_SOURCE_CHECKOUT,
     )
-    assert install["module_origin"].endswith("yoke_core/__init__.py")
+    assert Path(install["module_origin"]).parts[-2:] == ("yoke_core", "__init__.py")
     if install["kind"] == contract.KIND_SOURCE_CHECKOUT:
         assert install["checkout_root"]
         assert install["version"] == ""

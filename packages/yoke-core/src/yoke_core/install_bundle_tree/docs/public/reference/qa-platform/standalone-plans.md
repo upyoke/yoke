@@ -43,7 +43,11 @@ build without this field refuses before writing and names the required release.
 Frozen deployment snapshots retain source provenance. A stage materializes its
 frozen definitions even after the saved plan changes; a selected or refreshed
 source not carried by the run's candidate refuses `qa_plan_source_candidate_mismatch`.
-Sync definitions from that candidate or an ancestor, or deliver the newer source.
+Release a candidate carrying the newer source, or use a run-bound correction.
+A sync moves only forward: its revision must equal or descend from the plan's
+recorded revision. An older revision refuses `qa_plan_source_revision_regression`
+and an unprovable recorded revision refuses `qa_plan_source_ancestry_unverified`;
+both name the two revisions and write nothing. Export from current main and sync again.
 
 Standalone project QA uses `qa.plan_execution.begin` with a project-scoped
 `global` target and payload `plan`, optional `source_revision`, `source_ref`,

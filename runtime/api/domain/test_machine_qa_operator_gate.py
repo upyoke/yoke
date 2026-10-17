@@ -9,6 +9,7 @@ import pytest
 
 from runtime.api.domain.machine_qa_terminal_recipe_test_support import completed
 from yoke_core.domain.machine_qa_operator_gate import (
+    BROWSER_APPROVAL_NOT_CONFIRMED,
     run_machine_browser_approval,
     run_machine_browser_approval_with_io,
 )
@@ -151,7 +152,7 @@ def test_browser_gate_ignores_stale_outcomes_before_current_code(
     assert json.loads(capsys.readouterr().out)["code"] == "EF56-GH78"
 
 
-def test_browser_gate_accepts_completion_after_browser_automation_failure() -> None:
+def test_browser_gate_fails_completion_the_browser_did_not_confirm() -> None:
     browser_evidence = {"browser": "Safari", "state": "browser_tab_missing"}
     transcripts = iter(
         (
@@ -175,10 +176,16 @@ def test_browser_gate_accepts_completion_after_browser_automation_failure() -> N
         ),
     )
 
-    assert result.ok is True
-    assert result.error_code is None
+    # Completion markers prove the poll ended, not that this browser approved.
+    assert result.ok is False
+    assert result.error_code == BROWSER_APPROVAL_NOT_CONFIRMED
     assert result.browser_evidence == browser_evidence
     assert result.browser_automation_error_code == "machine_browser_tab_missing"
+    assert result.step_evidence is not None
+    assert result.step_evidence["browser_automation_error_code"] == (
+        "machine_browser_tab_missing"
+    )
+    assert "rerun the case" in result.step_evidence["recovery"]
 
 
 def test_browser_gate_rejects_a_non_entry_path_before_automation() -> None:

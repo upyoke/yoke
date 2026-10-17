@@ -14,8 +14,8 @@ binding, strict decoding and relevance filtering for release evidence.
 - **Lane and deploy-run worktree retirement is one contract:** what makes a
   directory disposable, why a project must declare its rendered gitignored
   views, how a self-deploy run's detached driver tree is retired from its run
-  status, and what the `max_active_worktrees` refusal tells you to do about
-  each kind. [`docs/source-dev-worktree-cleanup.md`](source-dev-worktree-cleanup.md).
+  status, which lanes `max_active_worktrees` counts (landed lanes do not), and
+  what its refusal tells you to do about each kind. [`docs/source-dev-worktree-cleanup.md`](source-dev-worktree-cleanup.md).
 
 ## CLA signatures branch — Hard Rule
 - **`origin/cla-signatures` is permanent governance state, not a leftover lane.** Both CLA workflow jobs run only in `upyoke/yoke`; forks and other copies skip upstream's CLA. The CLA Assistant workflow appends signatures there and the required `signature-check` status reads them. Never delete, force-push, reset, or prune it during cleanup — divergence from `main` with no merge-base is expected — and leave it unprotected so the workflow can write.

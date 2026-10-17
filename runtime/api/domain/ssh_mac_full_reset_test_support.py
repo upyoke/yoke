@@ -46,13 +46,20 @@ class FakeResetTransport:
             return SimpleNamespace(
                 returncode=self.reset_returncode,
                 stdout=self.stdout,
+                stderr="",
             )
         if argv[:3] == ["/bin/rm", "-f", "--"]:
-            return SimpleNamespace(
-                returncode=self.cleanup_returncode,
-                stdout="",
+            # The first rm is the preclean; only the final cleanup can fail.
+            is_cleanup = any(
+                shlex.split(run)[0] == FULL_RESET_REMOTE_PATH
+                for run, _timeout in self.commands
             )
-        return SimpleNamespace(returncode=0, stdout="")
+            return SimpleNamespace(
+                returncode=self.cleanup_returncode if is_cleanup else 0,
+                stdout="",
+                stderr="",
+            )
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
 
 
 def closed_reset_stdout(

@@ -79,6 +79,9 @@ Keep the query read-only and scoped. Execution time excludes transport, row
 decoding, Python work and rendering; also count repeated executions. Shipping
 shares attachment environment/case reads and decoded copy/source identities only
 within one evaluation. The next request reads current QA and withdrawals again.
+Completed execution rows are read together for the displayed runs, then each
+selected execution uses the same roster and target validator as a detail read.
+Older unselected rows are not validated or allowed to change the current answer.
 
 `events.performance.aggregate` and `events.performance.detail` authorize every
 selected project with `events.read` before reading or serializing observations

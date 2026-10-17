@@ -89,6 +89,13 @@ sends the named failure and recovery to the covering steering seat. The
 original sender is not notified; the message state is their record. Read
 `yoke messages get MESSAGE-ID` for the receipt and attempts.
 Operator-driven hook delivery keeps its own wait without spending that budget.
+A relay wake whose lease expires before the relay reports anything spends
+nothing either, so an explicit wake survives a relay outage: the peer-hook
+broker gets the first retry, then the relay claims it again. After three such
+expiries the receipt keeps the charge and records the `relay_lease_expired`
+escalation; Fleet shows it as `last attempt failed (relay_lease_expired)`.
+Recover with `yoke session-control session wake SESSION-ID` once the relay
+reports again.
 Detached turns keep their capture current while waiting on a command. If the
 relay contains a native, verified custody death reopens pending wakes held by
 that exact process and retires Fleet's old `native_turn_running` label.
