@@ -9,6 +9,18 @@ Linux provisioning at `docs/packs/machine-qa/linux-host-provisioning.md` (instal
 It installs at `docs/packs/machine-qa/linux-host-provisioning.md` with the
 Machine QA Pack. Its audit distinguishes live evidence from unverified steps.
 
+## Required desktop browser state
+
+Desktop Chromium browser sign-ins are kept live through Linux reset and are
+never captured into golden snapshots. The existing snap Chromium sign-in store
+under ~/snap/chromium/common/chromium is preserved only when present; reset
+must not restore stale sign-in state from an older golden. Chromium is stopped
+before preservation so its on-disk state is flushed.
+
+Require a reset receipt and real browser sign-in proof against the selected
+release before relying on this contract. This procedure alone does not prove
+that a candidate or installed release implements it.
+
 Linux reset gives systemd user service mutations the relay's shared 180-second
 operation budget; inventory queries retain their 30-second limit. A
 `linux_yoke_service_command_timeout` names the command and budget. Its job may
