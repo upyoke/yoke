@@ -21,7 +21,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 NO_SERVER_GUIDANCE = (
     "No server yet? Paste the install one-liner on the box you want to host on "
-    "and pick Set this machine up as a self-hosting server."
+    "and pick Host a server here."
 )
 SLEEP_WARNING = "If this machine sleeps, the team's Yoke pauses."
 
@@ -89,7 +89,7 @@ def goto_self_host_server(shell: _Shell) -> None:
             SetupPrompt(
                 key="connect.self_host_server",
                 step=STEP_CONNECT,
-                title="Set up this machine as a self-hosting server?",
+                title="Host a Yoke server on this machine?",
                 message="Review the local server plan before Yoke changes anything.",
                 detail_lines=tuple(images.preview_lines(setup)),
                 choices=tuple(PREVIEW_ROWS),

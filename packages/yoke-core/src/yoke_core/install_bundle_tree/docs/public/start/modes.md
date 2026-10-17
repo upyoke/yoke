@@ -14,7 +14,13 @@ PostgreSQL build, on both Apple Silicon and Intel. Older systems refuse
 before download or initialization; upgrade macOS or connect to a remote core.
 See [installation requirements](install.md).
 
-- Wizard: pick **This machine** (it asks your name: you become the universe's
+A local install is reachable here only: the engine and its workbench answer
+on this machine alone, so no other computer can connect to it. `yoke status`
+says `local: reachable here only`. To work from more than one computer, or
+with a team, pick **Host a server here** (self-hosted) or **upyoke.com**
+instead, then move this universe across with export/import.
+
+- Wizard: pick **This machine** (`reachable here only`; it asks your name: you become the universe's
   first admin), or run `yoke init --local --admin-name "Your Name"`
 - Data under `~/.yoke/`
 - The machine relay is installed here too, so the workbench sees which harnesses
@@ -43,7 +49,7 @@ dispatch.
 
 Hosted core at upyoke.com. Collaborate from the web dashboard.
 
-- Wizard: pick **upyoke.com**
+- Wizard: pick **upyoke.com** (private beta; it requires a beta code)
 - Sign-in, beta-code redemption, org founding, and machine approval happen in
   the connect step
 - Private beta: seats and tenant attached to the code; bring your own workers
@@ -68,7 +74,7 @@ Sign-in links are never printed, including in JSON. If a browser cannot open
 or an agent runs the command, run `yoke ui up` from your own terminal on a
 machine with a display.
 
-- Wizard on the host: pick **Set this machine up as a self-hosting server** to
+- Wizard on the host: pick **Host a server here** to
   preview the loopback URL, bundle directory, port, Docker requirement, and
   networking responsibility before any write. Start asks your name, creates/starts
   the Compose bundle so first boot makes you the first admin, captures the
@@ -80,7 +86,11 @@ machine with a display.
   one-time code so you approve your own machine. Otherwise provide a pasted
   API token or token-file path; your own next machine can instead run
   `yoke connect URL` and approve its code from a machine you already connected. The guided host screen teaches the handoff without configuring
-  VPN/tailnet, LAN, port-forwarding, or TLS for you.
+  VPN/tailnet, LAN, port-forwarding, or TLS for you. When the URL cannot be
+  reached, the error names the failure (`server_name_unresolved`,
+  `server_timed_out`, `server_refused`, `server_https_failed` or
+  `server_not_yoke`); run `yoke status` on the server machine to see what it
+  serves. A local install answers `local: reachable here only` there.
 - Manual/operator path: `yoke self-host init --admin-name "Your Name" --start` writes and starts the same Compose
   bundle through the private host secret handoff. Restart with
   `yoke self-host init --dir PATH --protect-existing --start`; [`docs/self-host.md`](https://github.com/upyoke/yoke/blob/main/docs/self-host.md)

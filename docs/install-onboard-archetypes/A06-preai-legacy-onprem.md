@@ -29,13 +29,12 @@ PATH Continue. Account:
 ```
 Where should this Yoke universe live?
   This machine
-  A team server                    the URL of your team's self-hosted Yoke server
-  Set this machine up as a self-hosting server   Docker Compose · guided first boot
+  A team server                                  connect to your own Yoke server
+  Host a server here              for a team or multiple computers · needs Docker
   upyoke.com
 ```
 
-On the intended Linux host, IT can pick **Set this machine up as a
-self-hosting server**. The wizard previews `./yoke-server`,
+On the intended Linux host, IT can pick **Host a server here**. The wizard previews `./yoke-server`,
 `http://127.0.0.1:8765`, Docker/Compose, and the fact that IT owns reachable
 networking and TLS. Start creates and launches the bundle, reads the reusable administrator
 token from its owner-only file without printing it, and activates the host's

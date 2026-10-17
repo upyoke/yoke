@@ -111,7 +111,7 @@ def test_picker_preview_is_exact_and_does_not_mutate_before_start(
         async with app.run_test() as pilot:
             await _open_preview(pilot)
             text = _body_text(app)
-            assert "Set up this machine as a self-hosting server?" in text
+            assert "Host a Yoke server on this machine?" in text
             assert str(tmp_path.parent) not in text  # no synthetic test path copy
             assert "yoke-server" in text
             assert server.LOCAL_SERVER_URL in text

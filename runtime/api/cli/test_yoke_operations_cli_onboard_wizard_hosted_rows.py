@@ -85,7 +85,7 @@ def test_the_picker_offers_only_the_production_hosted_service(monkeypatch) -> No
             assert [row.label for row in rows] == [
                 "This machine",
                 "A team server",
-                "Set this machine up as a self-hosting server",
+                "Host a server here",
                 "upyoke.com",
             ]
             await pilot.press("up")  # wrap local -> upyoke.com

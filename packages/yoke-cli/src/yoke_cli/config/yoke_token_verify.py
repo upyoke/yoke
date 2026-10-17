@@ -14,6 +14,7 @@ from yoke_cli.api_urls import (
     join_api_url,
 )
 from yoke_cli.config import secrets as machine_secrets
+from yoke_cli.transport import server_reach_failure
 from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
@@ -195,6 +196,9 @@ def _request_json(
             _http_error_message(exc.status, exc.payload, url)
         ) from None
     except BoundedJsonHttpError as exc:
+        failure = server_reach_failure.describe(exc, url, check_server_machine=False)
+        if failure is not None:
+            raise YokeTokenVerificationError(failure) from None
         raise YokeTokenVerificationError(
             "Yoke token check failed against "
             f"{safe_diagnostic_text(url, sensitive_values=(token,))}: {exc}"

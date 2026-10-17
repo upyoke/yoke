@@ -30,7 +30,7 @@ def test_build_runtime_identity_uses_install_and_honest_source_fallback(
     assert packet["version"] == SOURCE_VERSION_LABEL
     assert packet["install_kind"] == KIND_SOURCE_CHECKOUT
     assert packet["build"] == ""
-    assert packet["environment_label"] == "local universe"
+    assert packet["environment_label"] == "local: reachable here only"
     assert packet["portability_mode"] == PORTABILITY_LOCAL
 
 
