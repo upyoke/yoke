@@ -6,16 +6,21 @@ done, the only thing still holding the target is item QA — which can be slow,
 and which a newer candidate that contains this one can answer just as well.
 
 So creating a run for the same flow and target takes the older run over,
-inside the creation transaction:
+inside the creation transaction, and settles it there too: the older run is
+never left executing without a driver.
 
-* **No run-level QA or approval in the flow.** A member stays only when its
-  item QA passed and it closes mid-run (:func:`member_closes_mid_run`). Every
-  other member — waiting, carried without final intent, or refused at
-  close-out — moves through the audited removal path into the new run.
+* **No run-level QA or approval in the flow.** Only a member the older run
+  already closed stays: its own passed item QA closed it there. Every
+  unclosed member — waiting, passed but not closed, carried without final
+  intent — moves through the audited removal path into the new run. The
+  older run then reads succeeded when it delivered at least one member
+  (:mod:`~yoke_core.domain.deployment_run_takeover_settlement`), and is
+  cancelled otherwise.
 * **Run-level QA or approval in the flow.** The shared gates hold every
   member, so every unclosed member moves and the older run is cancelled as
-  superseded. Nothing is recorded as passed; the new run seeds its run-level
-  QA from the flow definition, so the gates keep their order.
+  superseded. Nothing is recorded as passed, and no approval is skipped; the
+  new run seeds its run-level QA from the flow definition, so the gates keep
+  their order.
 
 Either way no memberless obligation stays open on the older run: shared-plan
 copies and run-level requirements without a pass are retracted, and the new
@@ -36,8 +41,6 @@ from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.domain_refusal import DomainRefusal
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.schema_common import _column_exists
-from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
-from yoke_core.domain import deployment_member_independent_close_out as independent
 
 SUPERSEDED_BY_COLUMN = "superseded_by_run_id"
 SUPERSEDES_COLUMN = "supersedes_run_id"
@@ -126,39 +129,17 @@ def _members(conn: Any, run_id: str) -> list[dict[str, Any]]:
     )
 
 
-def _item_qa_passed(conn: Any, run_id: str, item_id: int, stages: list) -> bool:
-    """Every item-scoped QA stage of the run accepted this member."""
-    from yoke_core.domain.deployment_qa_run_acceptance import current_item_qa
-
-    for stage in (stage for stage in stages if _is_item_qa(stage)):
-        answer = current_item_qa(
-            conn,
-            run_id=run_id,
-            item_id=item_id,
-            current_stage=str(stage["name"]),
-            stages=stages,
-        )
-        if answer is None or not answer.accepted:
-            return False
-    return True
+def _moving_members(conn: Any, old: Mapping[str, Any]) -> list[dict]:
+    """Every member the older run has not closed; only a closed one stays."""
+    return [
+        member
+        for member in _members(conn, str(old["id"]))
+        if member["status"] not in _CLOSED_ITEM_STATUSES
+    ]
 
 
-@presentation_operation
-def _moving_members(conn: Any, old: Mapping[str, Any], shared: bool) -> list[dict]:
-    moving = []
-    for member in _members(conn, str(old["id"])):
-        if member["status"] in _CLOSED_ITEM_STATUSES:
-            continue
-        item_id = int(member["item_id"])
-        if (
-            shared
-            or not _item_qa_passed(conn, str(old["id"]), item_id, old["stages"])
-            or not independent.member_closes_mid_run(
-                conn, item_id=item_id, run_id=str(old["id"])
-            )
-        ):
-            moving.append(member)
-    return moving
+def _delivered_any(conn: Any, old_id: str) -> bool:
+    return any(member["status"] == "done" for member in _members(conn, old_id))
 
 
 def _not_contained_refusal(
@@ -252,6 +233,9 @@ def take_over_waiting_run(
     from yoke_core.domain.deployment_run_takeover_authority import (
         require_takeover_authority,
     )
+    from yoke_core.domain.deployment_run_takeover_settlement import (
+        succeed_taken_over_run,
+    )
     from yoke_core.domain.deployment_run_terminalization import terminalize_run_on
     from yoke_core.domain.deployment_runs_lock import lock_run_with_stable_membership
 
@@ -277,12 +261,12 @@ def take_over_waiting_run(
     old_id = str(old["id"])
     shared = has_shared_gates(old["stages"])
     if not apply:
-        _require_containment(conn, new_run, old, _moving_members(conn, old, shared))
+        _require_containment(conn, new_run, old, _moving_members(conn, old))
         return old_id
     status, _held = lock_run_with_stable_membership(conn, old_id)
     if status != "executing":
         return None
-    moving = _moving_members(conn, old, shared)
+    moving = _moving_members(conn, old)
     require_takeover_authority(conn, old_id, int(new_run["project_id"]), session_id)
     _require_containment(conn, new_run, old, moving)
 
@@ -307,7 +291,7 @@ def take_over_waiting_run(
             item_id=int(member["item_id"]),
             delivery_intent=member["delivery_intent"],
         )
-    if shared or not _members(conn, old_id):
+    if shared or not _delivered_any(conn, old_id):
         terminalize_run_on(
             conn,
             old_id,
@@ -318,6 +302,7 @@ def take_over_waiting_run(
         )
     else:
         _retract_memberless(conn, old_id, reason)
+        succeed_taken_over_run(conn, old_id, new_run_id, old["stages"])
     conn.execute(
         f"UPDATE deployment_runs SET {SUPERSEDED_BY_COLUMN}=%s WHERE id=%s",
         (new_run_id, old_id),

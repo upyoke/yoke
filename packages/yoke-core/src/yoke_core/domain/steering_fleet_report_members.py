@@ -13,6 +13,7 @@ from yoke_core.domain.steering_scope_membership import member_project_ids
 class SeatItemFacts:
     project_ids: tuple[int, ...]
     available: tuple[Any, ...]
+    landing_waits: tuple[Any, ...]
     holders: tuple[Any, ...]
     undelivered: tuple[Any, ...]
     landed_open: tuple[Any, ...]
@@ -65,6 +66,7 @@ def read_seat_items(
     return SeatItemFacts(
         project_ids=tuple(sorted(project_ids)),
         available=item_rows("available"),
+        landing_waits=item_rows("landing_waits"),
         holders=holders,
         undelivered=tuple(
             row

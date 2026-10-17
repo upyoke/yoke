@@ -326,6 +326,7 @@ def apply_bundle(
         "manifest": str(manifest_file),
         "machine_config_newly_registered": False,
         "warnings": warnings,
+        "harness_health": preflight["harness_health"],
     }
 
 

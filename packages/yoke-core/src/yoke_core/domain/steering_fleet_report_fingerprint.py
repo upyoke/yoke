@@ -57,6 +57,7 @@ def seat_payload(report: "FleetReport") -> dict[str, Any]:
     """The age-blind material of the sections one seat renders itself."""
     return {
         "available": sorted(entry.item_id for entry in report.available),
+        "landing_waits": sorted(wait.item_id for wait in report.landing_waits),
         "idle": _holder_rows(report.idle),
         "suspected_orphaned_waiters": _holder_rows(report.suspected_orphaned_waiters),
         "vendor_errors": sorted(

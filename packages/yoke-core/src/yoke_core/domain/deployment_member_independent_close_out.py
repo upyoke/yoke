@@ -39,20 +39,6 @@ def independent_member_delivery_ready(conn: Any, *, item_id: int, run_id: str) -
     return final_item_qa_accepted(conn, item_id=int(item_id), run_id=str(run_id))
 
 
-def member_closes_mid_run(conn: Any, *, item_id: int, run_id: str) -> bool:
-    """Whether this member closes in its executing run without the run finishing.
-
-    Its final production QA is accepted and the done write's own read-only
-    checks find nothing to refuse. A member that cannot close here waits on
-    the run's success, so anything replacing the run must carry it.
-    """
-    from yoke_core.domain.delivery_member_close_steps import member_close_refusal
-
-    return independent_member_delivery_ready(
-        conn, item_id=int(item_id), run_id=str(run_id)
-    ) and not member_close_refusal(conn, item_id=int(item_id), delivery_pending=True)
-
-
 def member_qa_answer_ready(conn: Any, *, item_id: int, run_id: str) -> bool:
     """Whether an executing member run's item QA answers its sources now.
 
@@ -125,6 +111,5 @@ def final_item_qa_accepted(conn: Any, *, item_id: int, run_id: str) -> bool:
 __all__ = [
     "final_item_qa_accepted",
     "independent_member_delivery_ready",
-    "member_closes_mid_run",
     "member_qa_answer_ready",
 ]

@@ -101,19 +101,23 @@ def test_disabled_or_excluded_native_instructions_refuse(tmp_path, settings):
         instructions.assert_claude_loading(tmp_path, settings=settings)
 
 
-def test_native_claude_runtime_floor_refuses_older_engine(tmp_path, monkeypatch):
+def test_native_claude_runtime_floor_warns_for_older_engine(tmp_path, monkeypatch):
     from types import SimpleNamespace
 
-    monkeypatch.setattr(instructions.shutil, "which", lambda _: "/native/claude")
+    monkeypatch.setattr(
+        instructions.shutil,
+        "which",
+        lambda name: "/native/claude" if name == "claude" else None,
+    )
     monkeypatch.setattr(
         instructions.subprocess,
         "run",
         lambda *a, **k: SimpleNamespace(stdout="2.1.280", returncode=0),
     )
-    with pytest.raises(
-        ProjectInstallError, match="instruction_runtime_unsupported.*2.1.281"
-    ):
-        instructions.preflight(tmp_path)
+    health = instructions.preflight(tmp_path)
+    claude = next(row for row in health if row["harness"] == "claude-code")
+    assert claude["status"] == "below_floor"
+    assert claude["floor"] == "2.1.281"
 
 
 def test_user_owned_canonical_instruction_symlink_is_preserved(tmp_path):

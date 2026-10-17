@@ -170,12 +170,11 @@ def test_reviewed_images_keep_whole_run_contract_and_acceptance_read_only(preser
     stages = json.loads(capture_rows("original-flow-definition.json")[0]["stages"])
     compositions = []
     for run in capture_rows("run-protected-before.json"):
-        moving = _moving_members(conn, {**run, "stages": stages}, False)
+        moving = _moving_members(conn, {**run, "stages": stages})
         expected = {
             answer["item_id"]
             for answer in answers
             if answer["run_id"] == run["id"]
-            and not answer["accepted"]
             and next(
                 member["status"]
                 for member in members

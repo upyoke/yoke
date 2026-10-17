@@ -144,9 +144,16 @@ Official sources checked 2026-10-08:
 - [Claude skill directories](https://code.claude.com/docs/en/skills)
 
 Codex and Cursor Agent floors name the native releases verified for this layout;
-older engines receive `instruction_runtime_unsupported`. The installer probes
-installed CLIs. Desktop users must verify their embedded engine separately;
-the outer app version does not prove its discovery capabilities.
+the installer probes detected CLIs before writing project guidance. An older
+engine or failed version probe appears in the install and preview report's
+`harness_health` section. Each supported CLI has its detected version, floor,
+status (`ok`, `below_floor`, `probe_failed` or `absent`), loading effect and next
+step. Operational `warnings` remain separate. Other supported harnesses can
+still use the installation. CLI versions never block installation; absent
+CLIs appear in health so installation can precede native harness setup.
+Install or upgrade a supported native CLI or embedded desktop engine, start
+a new session, and rerun project refresh. Desktop users verify
+their embedded engine separately; the outer app version proves no capability.
 
 ## Guard scope
 

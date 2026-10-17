@@ -51,6 +51,28 @@ waiting chains — blockers holding the most work; ! marks an unstarted, unstaff
   PREFIX-10 (implementing, staffed) unblocks 4, 3 deep; holds PREFIX-12 (activation status:done #815)
 ```
 
+## Waiting to land
+
+An `integration` edge holds back a merge, not a start, so an item behind one
+is normally free to build and reads as ready. Once its active implementation
+lane has a recorded commit (`item_worktrees.commit_sha`), building is done and
+landing is all that is left. If its only unmet edges are `integration` edges,
+the Frontier computation holds it as waiting, with one sentence naming each
+blocker and what it still has to do:
+
+```text
+waiting to land — committed, unclaimed, held only until each named blocker lands; not available:
+  PREFIX-20  Waiting on PREFIX-14, PREFIX-15 to merge  Ship the report section
+```
+
+The same rule and sentence reach every surface that says what is ready: the
+report lists unclaimed such items here instead of under available work
+(`landing_waits` in the JSON), and `frontier.list` (`yoke frontier list` and
+the web Frontier) marks their blocked rows `holds_pickup` with that sentence,
+so the item sits in Waiting rather than Ready. Any unmet `activation` edge
+keeps its own wait reason instead. When the blockers land the item is ready
+again for whoever lands it.
+
 ## Keep dependencies minimal
 
 Every edge holds real work back, so steering adds the lightest edge the work

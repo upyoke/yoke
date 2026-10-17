@@ -35,7 +35,7 @@ Dead waits scan recent outbound conversation for real interrogative/explicit
 reply requests, not confirmations or latest message alone. Reply already received
 wins; ended answerer or terminal answerer's item proves no reply possible.
 Live answerer is unresolved; no question means no row. Steering-role question
-survives seat succession and belongs to awaiting-seat count, not dead waits. Dependency deadlocks and waiting chains — loops, the blockers holding the most work, and unstarted blockers stalling work in progress — are described in [steering-report-dependencies.md](../functions/steering-report-dependencies.md), with the rule that steering keeps dependencies minimal.
+survives seat succession and belongs to awaiting-seat count, not dead waits. Dependency deadlocks, waiting chains and waiting to land — loops, the blockers holding the most work, unstarted blockers stalling work in progress, and committed work held until its blockers land — are described in [steering-report-dependencies.md](../functions/steering-report-dependencies.md), with the rule that steering keeps dependencies minimal.
 
 ## Deployment runs
 

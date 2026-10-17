@@ -52,7 +52,10 @@ GET /v1/charge/frontier?project=yoke&wip_cap=30
 `frontier.list` serves the ranked frontier: `ready_rows`, `blocked_rows`,
 and `dependency_edges`, every unsatisfied edge at the `activation`,
 `integration` and `closure` gates whose dependent is not terminal, evaluated by
-the shared dependency kernel. Each edge carries the blocker and dependent
+the shared dependency kernel. Each blocked row carries `holds_pickup`: true
+when the row is why the item is not offered (its activation blockers, a
+non-edge hold, or the integration edges of committed work waiting to land),
+false for a merge or close edge on an item still free to build. Each edge carries the blocker and dependent
 refs, `gate_point`, `satisfaction`, `rationale`, the blocker's stage and title,
 `blocking_terminal`, and `blocking_abandoned` (cancelled or stopped rather
 than completed: only an abandoned blocker's edge can never clear). A blocker
