@@ -191,62 +191,58 @@ def _sensible_desktop(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "home"))
     monkeypatch.setenv("XDG_DATA_DIRS", str(tmp_path))
-    monkeypatch.setattr(
-        host, "_default_browser", lambda: "debian-sensible-browser.desktop"
-    )
+    monkeypatch.setattr(host, "_default_browser", lambda: "debian-sensible-browser.desktop")
+
+
+def _launch(monkeypatch, which):
+    launched = []
+    ports = iter([None, 9222])
+    monkeypatch.setattr(host.shutil, "which", which)
+    monkeypatch.setattr(host, "devtools_port", lambda: next(ports))
+    monkeypatch.setattr(host, "quit_chromium", lambda: False)
+    monkeypatch.setattr(host, "_desktop_env", lambda: {"DISPLAY": ":11"})
+    monkeypatch.setattr(host.subprocess, "Popen", lambda argv, **kw: launched.append(argv))
+    monkeypatch.setattr(host.time, "sleep", lambda _s: None)
+    return launched
 
 
 def test_prepare_follows_debian_sensible_browser_to_chromium(monkeypatch, tmp_path):
     _sensible_desktop(tmp_path, monkeypatch)
     chromium = tmp_path / "chromium"
     chromium.write_text("")
-    launched = []
-    ports = iter([None, 9222])
-
-    def which(name, path=None):
-        if name == "sensible-browser":
-            return "/usr/bin/sensible-browser"
-        if name == "x-www-browser":
-            return str(chromium)
-        return None
-
-    monkeypatch.setattr(host.shutil, "which", which)
-    monkeypatch.setattr(host, "devtools_port", lambda: next(ports))
-    monkeypatch.setattr(host, "quit_chromium", lambda: False)
-    monkeypatch.setattr(host, "user_data_dirs", lambda: (tmp_path,))
-    monkeypatch.setattr(host, "_desktop_env", lambda: {"DISPLAY": ":11"})
-    monkeypatch.setattr(
-        host.subprocess, "Popen", lambda argv, **kw: launched.append((argv, kw.get("env")))
+    launched = _launch(
+        monkeypatch,
+        lambda name, path=None: str(chromium) if name == "x-www-browser" else "/usr/bin/sensible-browser" if name == "sensible-browser" else None,
     )
-    monkeypatch.setattr(host.time, "sleep", lambda _s: None)
     assert host.prepare() == {"chromium": "started"}
-    assert launched == [
-        ([str(chromium.resolve()), "--remote-debugging-port=0"], {"DISPLAY": ":11"})
-    ]
+    assert launched == [[str(chromium), "--remote-debugging-port=0"]]
+
+
+def test_prepare_uses_the_snap_desktop_entry_when_the_named_file_is_absent(monkeypatch, tmp_path):
+    apps = tmp_path / "applications"
+    apps.mkdir()
+    (apps / "chromium_chromium.desktop").write_text("[Desktop Entry]\nExec=/snap/bin/chromium %U\n")
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("XDG_DATA_DIRS", str(tmp_path))
+    monkeypatch.setattr(host, "_default_browser", lambda: "debian-sensible-browser.desktop")
+    launched = _launch(monkeypatch, lambda name, path=None: "/snap/bin/chromium" if name == "/snap/bin/chromium" else None)
+    monkeypatch.setattr(host, "_desktop_env", lambda: dict(os.environ))
+    assert host.prepare() == {"chromium": "started"}
+    assert launched == [["/snap/bin/chromium", "--remote-debugging-port=0"]]
 
 
 def test_prepare_refuses_a_dispatcher_that_does_not_launch_chromium(monkeypatch, tmp_path):
     _sensible_desktop(tmp_path, monkeypatch)
     firefox = tmp_path / "firefox"
     firefox.write_text("")
-
-    def which(name, path=None):
-        if name == "sensible-browser":
-            return "/usr/bin/sensible-browser"
-        if name == "x-www-browser":
-            return str(firefox)
-        return None
-
-    monkeypatch.setattr(host.shutil, "which", which)
+    monkeypatch.setattr(host.shutil, "which", lambda name, path=None: "/usr/bin/sensible-browser" if name == "sensible-browser" else str(firefox) if name == "x-www-browser" else None)
     with pytest.raises(host.ChromiumRefusal) as refusal:
         host.prepare()
     assert refusal.value.reason == "linux_desktop_default_browser_not_chromium"
     assert "debian-sensible-browser.desktop" in refusal.value.recovery
 
 
-def test_prepare_restarts_a_running_chromium_with_a_devtools_port(
-    monkeypatch, tmp_path
-):
+def test_prepare_restarts_a_running_chromium_with_a_devtools_port(monkeypatch, tmp_path):
     ports = iter([None, None, 9222])
     launched = []
     monkeypatch.setattr(host, "_default_browser", lambda: "chromium.desktop")

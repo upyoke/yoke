@@ -206,6 +206,29 @@ def test_xfce_browser_launcher_is_not_an_installed_browser(monkeypatch, tmp_path
     assert runtime.default_browser_command({"XDG_DATA_HOME": str(tmp_path)}) is None
 
 
+def test_missing_desktop_entry_uses_the_snap_chromium_entry(monkeypatch, tmp_path):
+    apps = tmp_path / "applications"
+    apps.mkdir()
+    (apps / "chromium_chromium.desktop").write_text(
+        "[Desktop Entry]\nExec=/snap/bin/chromium %U\n"
+    )
+    monkeypatch.setattr(
+        runtime.subprocess,
+        "run",
+        lambda *a, **k: subprocess.CompletedProcess(
+            a, 0, "debian-sensible-browser.desktop\n", ""
+        ),
+    )
+    monkeypatch.setattr(
+        runtime.shutil,
+        "which",
+        lambda name, **k: name if name in {"xdg-settings", "/snap/bin/chromium"} else None,
+    )
+    assert runtime.default_browser_command({"XDG_DATA_HOME": str(tmp_path)}) == [
+        "/snap/bin/chromium"
+    ]
+
+
 def test_system_browser_start_failure_is_not_reported_open(monkeypatch):
     monkeypatch.setattr(
         runtime.subprocess,

@@ -148,7 +148,7 @@ def _default_browser():
 def _desktop_exec(name, env):
     if not name or Path(name).name != name:
         return None
-    roots = [Path(env.get("XDG_DATA_HOME") or Path.home() / ".local/share")]
+    roots = [Path(env.get("XDG_DATA_HOME") or Path.home() / ".local/share"), Path("/var/lib/snapd/desktop")]
     roots += [Path(part) for part in env.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share").split(":") if part]
     for root in roots:
         entry = root / "applications" / name
@@ -162,31 +162,35 @@ def _desktop_exec(name, env):
     return None
 
 
+def _chromium_launcher(found):
+    return found if found and Path(found).name in {"chromium", "chromium-browser"} else None
+
+
 def _chromium_from(command, env):
     if not command:
         return None
-    found = shutil.which(command[0], path=env.get("PATH"))
-    resolved = Path(found).resolve() if found else None
-    if resolved and resolved.name in {"chromium", "chromium-browser"}:
-        return str(resolved)
-    if not resolved or {Path(command[0]).name, resolved.name}.isdisjoint(_DISPATCHERS):
+    path = env.get("PATH")
+    found = shutil.which(command[0], path=path)
+    launched = _chromium_launcher(found)
+    if launched:
+        return launched
+    names = {Path(command[0]).name, Path(found).name} if found else {Path(command[0]).name}
+    if names.isdisjoint(_DISPATCHERS):
         return None
-    alternative = shutil.which("x-www-browser", path=env.get("PATH"))
-    if alternative and Path(alternative).resolve().name in {"chromium", "chromium-browser"}:
-        return str(Path(alternative).resolve())
-    return None
+    return _chromium_launcher(shutil.which("x-www-browser", path=path))
 
 
 def _session_chromium(default):
     if default in CHROMIUM_DESKTOP_ENTRIES:
         return next(filter(None, map(shutil.which, CHROMIUM_EXECUTABLES)), None)
-    command = _desktop_exec(default, os.environ)
     env = os.environ
+    command = _desktop_exec(default, env)
     if command is None:
         env = _desktop_env()
         command = _desktop_exec(default, env)
+    if not command:
+        command = next((hit for name in CHROMIUM_DESKTOP_ENTRIES if (hit := _desktop_exec(name, env))), None)
     return _chromium_from(command, env)
-
 
 def prepare():
     default = _default_browser()
