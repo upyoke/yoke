@@ -51,19 +51,19 @@ def _copy_matches(conn, row, member, run, *, historical):
 @presentation_operation
 def _member_qa_obligations(conn, runs, members):
     """Bound all reads to authorized carried members and displayed releases."""
-    item_ids = sorted({int(m["id"]) for values in members.values() for m in values})
+    item_ids = {int(m["id"]) for values in members.values() for m in values}
     if not item_ids:
         return {}
     run_ids = tuple(str(run["id"]) for run in runs)
     markers = ",".join("%s" for _ in run_ids)
-    frozen = query_rows(
-        conn,
-        "SELECT run_id,item_id,requirement_snapshot FROM deployment_run_items "
-        f"WHERE run_id IN ({markers}) AND item_id IN ({','.join('%s' for _ in item_ids)})",
-        (*run_ids, *item_ids),
-    )
+    from yoke_core.domain.deployment_qa_presentation_facts import run_member_rows
+
     snapshots = {
-        (str(r["run_id"]), int(r["item_id"])): r["requirement_snapshot"] for r in frozen
+        (run_id, member): row["requirement_snapshot"]
+        for run_id in run_ids
+        if members.get(run_id)
+        for member, row in run_member_rows(conn, run_id).items()
+        if member in item_ids
     }
     active_ids = sorted(
         {

@@ -85,6 +85,10 @@ Older unselected rows are not validated or allowed to change the current answer.
 Shared-copy ownership resolves each run/stage/member's selected group targets
 once per presentation, rather than once per matching copy. Later requests repeat
 canonical selection, including attachment withdrawals and source-currency checks.
+Verdict checks read attempt identity, start, completion and outcome fields without
+captured output bodies, using the same actual-attempt ordering and ambiguity checks.
+Full attempt detail remains available separately. Member obligations and acceptance
+share one set of frozen member snapshots within the overview evaluation.
 
 `events.performance.aggregate` and `events.performance.detail` authorize every
 selected project with `events.read` before reading or serializing observations

@@ -202,40 +202,6 @@ def run_facts(conn, run_id):
     return presentation_read(conn, ("qa_presented_runs", runs), read).get(run_id)
 
 
-def execution_rows(conn, requested):
-    """Capture actual attempts together; canonical ordering grades only requested IDs."""
-    runs = presented_run_ids(conn)
-    if not runs:
-        return None
-
-    def read():
-        from yoke_core.domain.qa_latest_execution import actual_execution_sql
-
-        markers = ",".join("%s" for _ in runs)
-        rows = query_rows(
-            conn,
-            "SELECT q.id AS presented_requirement_id,run.* FROM qa_requirements q "
-            "LEFT JOIN qa_runs run ON run.qa_requirement_id=q.id "
-            f"AND {actual_execution_sql('run')} "
-            f"WHERE q.deployment_run_id IN ({markers})",
-            runs,
-        )
-        by_requirement = defaultdict(list)
-        for row in rows:
-            requirement_id = int(row["presented_requirement_id"])
-            by_requirement.setdefault(requirement_id, [])
-            if row["id"] is not None:
-                value = dict(row)
-                value.pop("presented_requirement_id")
-                by_requirement[requirement_id].append(value)
-        return by_requirement
-
-    by_requirement = presentation_read(conn, ("qa_presented_executions", runs), read)
-    if not set(requested) <= by_requirement.keys():
-        return None
-    return [row for requirement in requested for row in by_requirement[requirement]]
-
-
 def _requirements_by_stage(conn, runs):
     def read():
         from yoke_core.domain.qa_obligation_settlement import (
