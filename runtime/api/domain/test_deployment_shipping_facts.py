@@ -213,3 +213,56 @@ def test_case_environment_overrides_share_reads_and_refresh_next_request(test_db
     test_db.execute("UPDATE qa_methods SET runner_id='host_control' WHERE id='command'")
     with pytest.raises(QaPlanError, match="starting state|starting_state"):
         read(conn, subjects)
+
+
+def test_shared_copy_ownership_selects_each_member_once_and_refreshes(test_db):
+    from unittest.mock import patch
+    from yoke_core.domain import deployment_qa_shared_plans as shared
+
+    plan = _plan(test_db, "shared-copy-ownership")
+    stages = _stages(plan)
+    stages[1].pop("cases")
+    run = "shared-copy-read"
+    members = (34001, 34002)
+    _seed_run(test_db, run_id=run, stages=stages, members=members)
+    for member in members:
+        _attach(test_db, member, plan)
+    subjects = [(run, member, "item-qa") for member in members]
+
+    def scalar():
+        return [
+            shared.member_group_digests(test_db, run, stage, member)
+            for run, member, stage in subjects
+        ]
+
+    @presentation_operation
+    @member_presentation
+    def repeated(conn, subjects):
+        answers = []
+        for run, member, stage in subjects:
+            values = [
+                shared.member_group_digests(conn, run, stage, member) for _ in range(28)
+            ]
+            assert all(value == values[0] for value in values)
+            answers.append(values[0].copy())
+            values[0].clear()
+            assert shared.member_group_digests(conn, run, stage, member) == answers[-1]
+        return answers
+
+    expected = scalar()
+    assert all(expected)
+    with patch.object(
+        shared, "member_plan_subjects", wraps=shared.member_plan_subjects
+    ) as select:
+        assert repeated(test_db, subjects) == expected
+        assert select.call_count == len(members)
+    test_db.execute(
+        "UPDATE qa_plan_item_attachments SET retracted_at=%s WHERE item_id=%s",
+        ("2026-09-15T00:00:00Z", members[0]),
+    )
+    assert scalar() == [set(), set()]
+    with patch.object(
+        shared, "member_plan_subjects", wraps=shared.member_plan_subjects
+    ) as select:
+        assert repeated(test_db, subjects) == scalar()
+        assert select.call_count == 2 * len(members)
