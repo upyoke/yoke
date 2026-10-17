@@ -152,7 +152,7 @@ def test_fleet_callback_preserves_order_and_refusals(
     assert fleet.verify_migrated_copy(conn, dsn) == (
         "refused" if failed_check else None
     )
-    checks = ["replay", "readers", "release"]
+    checks = ["readers", "replay", "release"]
     expected = checks[: checks.index(failed_check) + 1] if failed_check else checks
     assert seen == expected
 
