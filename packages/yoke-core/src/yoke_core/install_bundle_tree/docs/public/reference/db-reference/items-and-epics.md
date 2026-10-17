@@ -312,7 +312,7 @@ UNIQUE(epic_id, item_worktree_id)
 
 ## View: item_progress_view
 
-Read model for item delivery progress. Joins `items`, `deployment_flows`, and (when present) `deployment_runs` / `deployment_run_items` to project a single-row progress summary per item. Schema convergence owns its construction.
+Read model for item delivery progress. Joins `items`, `deployment_flows`, and (when present) `deployment_runs` / `deployment_run_items` to project a single-row progress summary per item. Schema convergence owns its construction: it leaves an unchanged view in place, so the view keeps its identity and a concurrent export never reads a dropped relation, and it drops and recreates a view whose definition changed.
 
 ```sql
 -- Fields returned per item:
