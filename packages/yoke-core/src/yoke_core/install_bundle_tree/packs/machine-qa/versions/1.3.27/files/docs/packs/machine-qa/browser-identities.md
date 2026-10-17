@@ -24,6 +24,32 @@ entered by the user, and only for the sites the check reports expired. Profile
 data stays on the host. Tests use agent captures; human viewing serves only a
 requested, announced personal sign-in handoff, never a test acceptance check.
 
+## Desktop browser checks
+
+Candidate source checks the selected automation identity first, then the Test
+Machine's snap Chromium on Linux or Safari on macOS in one remote GUI command:
+
+```text
+yoke browser authorize --project P --identity NAME --machine MACHINE
+```
+
+Declare that identity's sites, signed-in probes and account names in
+`browser-control` first. The native check reads its own browser cookies
+headless; Chromium uses the last-used profile selected in Local State.
+It opens native tabs only for expired sites and names the account to use.
+Close all native browser windows after sign-in so the command can recheck.
+Allow the executing terminal to read the native cookie store and unlock the
+user's keyring. Unreadable cookies or unreachable probes refuse before tabs
+open: repair the named access or network condition, then retry.
+
+On the Test Machine, `yoke browser authorize --project P --identity NAME
+--desktop-browser` checks only its native browser. Do not use `--reset`:
+desktop-only reset refuses; desktop sign-ins stay live outside goldens.
+Automation identity profiles retain their existing behavior. This is an
+unmerged source candidate; require release-matched help and operation receipts
+before relying on installed support. Real-host sign-in and reset proof remain
+separate from source checks.
+
 ## macOS sign-in procedure
 
 A test machine keeps each project identity signed in live, outside the

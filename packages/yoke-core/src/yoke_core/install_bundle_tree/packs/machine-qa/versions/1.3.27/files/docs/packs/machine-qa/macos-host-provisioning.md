@@ -290,8 +290,9 @@ desktop browser sign-ins. It opens tabs only for expired sites and names the
 account to use. Desktop browser sign-ins stay live through reset and are
 excluded from golden snapshots.
 
-The desktop-browser check is a required extension. Confirm release-matched
-command help and operation receipts prove it before relying on that check;
-this procedure does not establish its availability in an installed release.
+Candidate source implements both checks with `--machine NAME`. Confirm
+release-matched command help and operation receipts before relying on an
+installed release. Before running it, read the complete
+[desktop browser checks](browser-identities.md#desktop-browser-checks) procedure.
 
 Before sign-in, follow the complete [macOS sign-in procedure](browser-identities.md#macos-sign-in-procedure).
