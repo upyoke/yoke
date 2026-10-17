@@ -143,6 +143,7 @@ def test_frozen_history_does_not_read_later_source_definitions(monkeypatch):
         "current_sources",
         lambda conn, ids: (defaultdict(list), defaultdict(list)) if not ids else 1 / 0,
     )
+    monkeypatch.setattr(projection, "run_qa_sharing", lambda conn, runs: {})
     result = projection.member_qa_obligations(
         object(), [run_row(status="succeeded")], {"run-pending": [member()]}
     )

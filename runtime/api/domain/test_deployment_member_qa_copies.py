@@ -104,25 +104,28 @@ def test_completed_release_preserves_definition_after_source_retraction(test_db)
     assert after["outcome"] == "passed"
 
 
-def test_shared_plan_copy_is_associated_only_with_its_carriers(test_db):
+def test_shared_plan_copy_is_drawn_once_under_run_qa_not_per_carrier(test_db):
     from runtime.api.domain.test_deployment_qa_shared_admitted_plans import (
         _seed,
         _materialize,
         MEMBERS,
         RUN,
     )
+    from yoke_core.domain.deployment_qa_run_sharing import run_qa_sharing
 
-    _seed(test_db, MEMBERS[:2])
+    plan_id = _seed(test_db, MEMBERS[:2])
     copy = _materialize(test_db, MEMBERS[0])["created_requirement_ids"][0]
     _materialize(test_db, MEMBERS[1])
     insert_qa_run(test_db, qa_requirement_id=copy, verdict="pass")
     results = read(test_db, RUN, MEMBERS)
-    for member in MEMBERS[:2]:
+    for member in MEMBERS:
         assert "error" not in results[(RUN, member)], results[(RUN, member)]
-        assert [row["requirement_id"] for row in results[(RUN, member)]["current"]] == [
-            copy
-        ]
-    assert results[(RUN, MEMBERS[2])]["current"] == []
+        assert results[(RUN, member)]["current"] == []
+        assert results[(RUN, member)]["history"] == []
+    shared = run_qa_sharing(test_db, [RUN])[RUN]["shared_plans"]
+    assert [(p["plan_id"], p["case_count"], p["sharing_item_ids"]) for p in shared] == [
+        (plan_id, 1, list(MEMBERS[:2]))
+    ]
 
 
 def test_active_source_edit_does_not_borrow_the_old_copy_pass(test_db):

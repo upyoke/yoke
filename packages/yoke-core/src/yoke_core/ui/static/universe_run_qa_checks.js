@@ -224,24 +224,40 @@ export function drawnCheckArtifactIds(checks) {
   ).map((artifact) => String(artifact.id))));
 }
 
+// A shared plan's checks under their own label, drawn like any other check.
+function appendSharedGroups(context, host, groups, options) {
+  const documentNode = context.document;
+  for (const { label, checks } of groups) {
+    const group = el(documentNode, "div", "run-qa-shared-group");
+    group.appendChild(el(documentNode, "p", "run-qa-shared-label", label));
+    for (const check of checks) group.appendChild(runCheckLine(context, check, options));
+    host.appendChild(group);
+  }
+}
+
 // One QA scope — "Run QA" or "Item QA" — with its heading, verdict, current
-// checks and folded history. The caller appends the scope's decisions.
+// checks and folded history. `groups` ({label, checks}) are shared plans'
+// current checks: drawn once under their label and counted once in the
+// tally. The caller appends the scope's decisions.
 export function qaScopeSection(context, { heading, headingTag, current, history,
-  decision, runId, project, className }) {
+  decision, runId, project, className, groups = [] }) {
   const documentNode = context.document;
   const section = el(documentNode, "section",
     `run-qa-section${className ? ` ${className}` : ""}`);
   const head = el(documentNode, "div", "run-qa-head");
   head.appendChild(el(documentNode, headingTag || "h3", null, heading));
+  const counted = [...current, ...groups.flatMap((group) => group.checks)];
   // A scope with no checks has no tally; only a decision still owed or
   // refused heads it, and an approval is its own record below.
-  if (current.length || (decision && decision !== "approved")) {
-    const verdict = runQaVerdict(current, decision);
+  if (counted.length || (decision && decision !== "approved")) {
+    const verdict = runQaVerdict(counted, decision);
     if (verdict.text) head.appendChild(el(
       documentNode, "span", `run-verdict ${verdict.tone}`, verdict.text));
   }
   section.appendChild(head);
-  appendRunChecks(context, section, current, history, { runId, project });
+  appendRunChecks(context, section, current, [], { runId, project });
+  appendSharedGroups(context, section, groups, { runId, project });
+  appendRunChecks(context, section, [], history, { runId, project });
   return section;
 }
 
