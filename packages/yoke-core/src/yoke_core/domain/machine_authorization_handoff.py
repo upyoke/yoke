@@ -17,6 +17,7 @@ from yoke_core.domain.machine_authorization_codes import (
     SERVER_PENDING_CODES,
     _now,
     _p,
+    refuse_retired_machine,
 )
 from yoke_core.domain.machine_approval_requests import machine_approval_decision
 
@@ -72,6 +73,7 @@ def handoff(
             "authorization_handoff_invalid",
             "send the documented SHA-256 digest, four-character match code and machine UUID/name/platform",
         ) from None
+    refuse_retired_machine(conn, machine_id)
     try:
         expires = parse_instant(expires_at)
     except (ValueError, TypeError):

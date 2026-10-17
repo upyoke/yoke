@@ -51,6 +51,17 @@ def _hash(code: str) -> str:
     return hashlib.sha256(code.encode()).hexdigest()
 
 
+def refuse_retired_machine(conn: Any, machine_id: str) -> None:
+    """Refuse a retired id before a code exists, so nobody approves a dead code."""
+    known = get_machine(conn, machine_id)
+    if known is not None and known.retired_at is not None:
+        raise MachineAuthorizationError(
+            MACHINE_RETIRED,
+            f"machine {machine_id} is retired; {RETIRED_MACHINE_RECOVERY}",
+            409,
+        )
+
+
 def start(
     conn: Any,
     *,
@@ -67,14 +78,7 @@ def start(
             "machine_identity_required",
             "restore this machine's configured UUID, then reconnect",
         ) from None
-    known = get_machine(conn, machine_id)
-    if known is not None and known.retired_at is not None:
-        # Refuse before a code exists, so nobody approves one delivery must refuse.
-        raise MachineAuthorizationError(
-            MACHINE_RETIRED,
-            f"machine {machine_id} is retired; {RETIRED_MACHINE_RECOVERY}",
-            409,
-        )
+    refuse_retired_machine(conn, machine_id)
     now, p = _now(), _p(conn)
     if db_backend.connection_is_postgres(conn):
         conn.execute(

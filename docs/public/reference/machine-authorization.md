@@ -94,7 +94,8 @@ functions only with the workbench's existing same-origin CSRF protection.
 
 Start refuses a `machine_id` the registry retired with HTTP 409
 `machine_retired`, before any code exists, so nobody approves a code that
-delivery would refuse. On that refusal `yoke connect` and the setup wizard
+delivery would refuse. Hosted `machine_authorization.handoff` refuses the same
+id with the same code before storing the hosted code. On that refusal `yoke connect` and the setup wizard
 replace this computer's configured UUID with a new one in
 `~/.yoke/config.json` and request a fresh code once, on every harness, so no
 reinstall is needed. Both say which retired id they replaced; the retired
