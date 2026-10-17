@@ -284,6 +284,19 @@ def group_members(conn: Any, subject: Mapping, target: Mapping) -> list[int]:
 
 
 def member_group_digests(conn: Any, run_id: str, stage: str, member: int) -> set[str]:
+    """Resolve ownership once per member during a read-only presentation."""
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
+
+    return set(
+        presentation_read(
+            conn,
+            ("qa_member_group_digests", run_id, stage, member),
+            lambda: _read_member_group_digests(conn, run_id, stage, member),
+        )
+    )
+
+
+def _read_member_group_digests(conn, run_id, stage, member):
     from yoke_core.domain.deployment_qa_stage_contract import (
         deployment_qa_stage_subject,
     )
