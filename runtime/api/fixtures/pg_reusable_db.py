@@ -12,6 +12,8 @@ create/drop cost once per worker process instead of once per test:
   the caller's ``build`` callable, captures its baseline (schema
   fingerprint, planner statistics, seeded rows, sequence positions), and
   yields the database name for the test to use.
+- Initial capture stops other connections and disables ordinary automatic
+  maintenance on the owned clone's tables, retaining manual drift checks.
 - On checkout exit the database is reset to the captured baseline:
   connections leaked into it are terminated (matching the
   ``DROP DATABASE ... WITH (FORCE)`` semantics of the clone path), every
@@ -133,9 +135,13 @@ def _drop_quietly(name: str) -> None:
 
 
 def _capture_baseline(name: str) -> dict:
-    """Record everything needed to restore *name* to its just-built state."""
+    """Quiesce the new owned clone, then record its initial baseline once."""
     conn = _connect(name)
     try:
+        conn.execute(_TERMINATE_OTHER_BACKENDS_SQL)
+        for (table,) in conn.execute(_USER_TABLES_SQL).fetchall():
+            conn.execute(f"ALTER TABLE {table} SET (autovacuum_enabled = false)")
+        conn.commit()
         fingerprint = schema_fingerprint.fingerprint_kind("postgres", conn)
         planner_statistics = conn.execute(_PLANNER_STATISTICS_SQL).fetchall()
         identity_tables = {
