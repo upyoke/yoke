@@ -28,7 +28,11 @@ def test_roster_keeps_execution_and_observed_presentation_independent():
         records=RECORDS,
     )
 
-    assert (result["level_label"], result["level_glyph"]) == ("no level", "")
+    assert (result["level_label"], result["level_glyph"]) == (
+        "no level: model not reported yet",
+        "",
+    )
+    assert result["level_reason"] == "session_model_unreported"
 
     assert result["presentation_surface"] == "remote-control"
     assert result["presentation_state"] == "attached"
