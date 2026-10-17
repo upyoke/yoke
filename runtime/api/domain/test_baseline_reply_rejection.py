@@ -85,6 +85,31 @@ def test_a_rejected_reply_names_its_branch_without_reply_text(stdout, branch, fl
     assert "sk-live" not in json.dumps(record)
 
 
+def test_cursor_read_only_tools_keep_tool_use_when_the_reply_is_not_ok():
+    stdout = _events(
+        {
+            "type": "tool_call",
+            "subtype": "completed",
+            "tool_call": {"lsToolCall": {"args": {"path": "/tmp"}}},
+        },
+        {"type": "result", "subtype": "success", "result": "Hello"},
+    )
+    record = harness_request(["/bin/agent"]).reply_rejection(stdout)
+    assert record["rejection"] == "reply_not_exact"
+    assert record["tool_use"] is True
+    assert record["exact_ok_reply"] is False
+
+
+def test_a_bare_cursor_tool_call_still_rejects():
+    stdout = _events(
+        {"type": "tool_call", "subtype": "started"},
+        {"type": "result", "subtype": "success", "result": "OK"},
+    )
+    record = harness_request(["/bin/cursor-agent"]).reply_rejection(stdout)
+    assert record["rejection"] == "tool_call_event"
+    assert record["tool_use"] is True
+
+
 def test_a_declared_harness_probe_keeps_its_rejection_on_the_failed_row():
     stdout = _events(
         {"type": "result", "subtype": "success", "result": "Hello " + _SECRET}
