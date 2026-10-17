@@ -42,22 +42,15 @@ def register_this_machine(
             "registered": False,
             "reason": "machine config has no canonical machine id",
         }
+    payload = {"machine_id": machine, "name": machine_display_name()}
     try:
-        from yoke_cli.transport.dispatcher import call_dispatcher
-        from yoke_contracts.api.function_call import TargetRef
-
-        response = call_dispatcher(
-            function_id="machine.register",
-            target=TargetRef(kind="global"),
-            payload={
-                "machine_id": machine,
-                "name": machine_display_name(),
-            },
-            timeout_s=REGISTER_TIMEOUT_S,
-            max_attempts=REGISTER_ATTEMPTS,
+        response, retired = retry_if_retired(
+            _call_register(payload), payload, config_path=config_path
         )
     except Exception as exc:  # noqa: BLE001 - reported, never raised
         return {"machine_id": machine, "registered": False, "reason": str(exc)}
+    if retired is not None:
+        machine = read_machine_id(config_path)
     if not getattr(response, "success", False):
         return {
             "machine_id": machine,
@@ -75,7 +68,61 @@ def register_this_machine(
         "name": record.get("name"),
         "owner_actor_id": record.get("owner_actor_id"),
         "access": record.get("access"),
+        **({"retired_machine_id": retired} if retired is not None else {}),
     }
+
+
+def retry_if_retired(
+    response: Any,
+    payload: Mapping[str, Any],
+    *,
+    config_path: str | Path | None = None,
+) -> tuple[Any, str | None]:
+    """Register once more under a new machine id when the old one is retired.
+
+    Returns the final response and the retired id it replaced, if any. The
+    retired row and its history stay in the registry.
+    """
+    from yoke_cli.config import machine_config_mutation
+    from yoke_contracts.machine_authorization import MACHINE_RETIRED
+
+    error = getattr(response, "error", None)
+    code = (
+        error.get("code")
+        if isinstance(error, Mapping)
+        else getattr(error, "code", None)
+    )
+    if code != MACHINE_RETIRED:
+        return response, None
+    retired = str(payload["machine_id"])
+    try:
+        replacement = machine_config_mutation.replace_retired_machine_identity(
+            retired, path=config_path
+        )
+    except machine_config_mutation.MachineConfigWriteError as exc:
+        from yoke_contracts.api.function_call import FunctionError
+
+        failure = FunctionError(
+            code=MACHINE_RETIRED,
+            message=f"machine {retired} is retired and this computer's new "
+            f"machine identity could not be saved: {exc}. Recovery: repair "
+            f"~/.yoke/config.json, then run `{REGISTER_RECOVERY_COMMAND}` again.",
+        )
+        return response.model_copy(update={"error": failure}), retired
+    return _call_register({**payload, "machine_id": replacement}), retired
+
+
+def _call_register(payload: Mapping[str, Any]) -> Any:
+    from yoke_cli.transport.dispatcher import call_dispatcher
+    from yoke_contracts.api.function_call import TargetRef
+
+    return call_dispatcher(
+        function_id="machine.register",
+        target=TargetRef(kind="global"),
+        payload=dict(payload),
+        timeout_s=REGISTER_TIMEOUT_S,
+        max_attempts=REGISTER_ATTEMPTS,
+    )
 
 
 def show_this_machine(config_path: str | Path | None = None) -> dict[str, Any]:
@@ -158,5 +205,6 @@ __all__ = [
     "REGISTER_TIMEOUT_S",
     "error_text",
     "register_this_machine",
+    "retry_if_retired",
     "show_this_machine",
 ]
