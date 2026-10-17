@@ -5,6 +5,6 @@
  "page": "machines",
  "position": 2,
  "commands": ["yoke machines pending", "yoke machines approve", "yoke machines deny"],
- "text": "Approve personally only when the four-character code matches your terminal and the machine and organization are yours. yoke machines approve CODE shows the deciding identity and machine; yoke machines deny CODE refuses the request. Approval grants the approving person's identity; service routing grants no approval authority. Success has a separate Return to your terminal callout. Denial and expiry authorize nothing; unavailable codes offer entry again. Expiry does not renew a code.",
+ "text": "Approve personally only when the four-character code matches your terminal and the machine and organization are yours. yoke machines approve CODE shows the deciding identity and machine; yoke machines deny CODE refuses the request. Approval grants the approving person's identity; service routing grants no approval authority. Success has a separate Return to your terminal callout. Denial and expiry authorize nothing; unavailable codes show waiting machines. Expiry does not renew a code.",
  "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_approval.js", "docs/public/reference/machine-authorization.md"]
 }
