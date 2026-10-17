@@ -12,7 +12,10 @@ from yoke_contracts.timestamps import utc_now
 from . import db_backend, sessions_analytics as _sa
 from .db_helpers import instant_parameter
 from .session_execution_level_write import refresh_session_execution_level
-from .session_activity_state import episode_column_present, native_thread_id_column_present
+from .session_activity_state import (
+    episode_column_present,
+    native_thread_id_column_present,
+)
 from .sessions_analytics import EVENT_HARNESS_SESSION_STARTED, SessionError
 from .session_mode import set_session_mode as set_session_mode
 from .sessions_ended_recovery import session_ended_message
@@ -102,20 +105,14 @@ def register_session(
     ``model_facts`` carries the requested ask beside whatever a provider
     attested; ``session_model_columns`` owns how each half is written.
 
-    ``driver`` is the process that drove this call — pid, ppid, and the hook
-    event behind it — resolved by the hook dispatch tail. A reactivation
-    stamps it on its ``HarnessSessionStarted`` context unconditionally, so
-    "which process revived this session, and what hook event drove it" is
-    answerable from stored rows for every reactivation. It is deliberately
-    not stamped on a fresh registration: there the driving surface and the
-    registered surface are the same row, whereas a reactivation can be driven
-    across surfaces (a CLI hook reviving a desktop session) and the two facts
-    genuinely differ.
+    ``driver`` identifies the caller's pid, ppid and hook event, resolved by
+    the hook dispatch tail. Every reactivation records it in the stored
+    ``HarnessSessionStarted`` context, including cross-surface revivals.
+    Fresh registration omits it because caller and registered surface agree.
 
     ``native_thread_id`` is the harness's own thread/session identity
     (Codex's ``CODEX_THREAD_ID``) when the environment or a relayed hook
-    payload carries it — distinct from ``session_id``, which an
-    manually started session may register under a different value. Wake
+    payload carries it — distinct from a manually registered ``session_id``. Wake
     resolves against that column rather than assuming the two agree.
     """
     now = instant_parameter(conn, utc_now())
@@ -230,7 +227,10 @@ def register_session(
         )
         if has_thread_col:
             native_thread_id = trusted_native_thread_id(
-                canonical_executor, session_id, existing["native_thread_id"], native_thread_id
+                canonical_executor,
+                session_id,
+                existing["native_thread_id"],
+                native_thread_id,
             )
         # Registration/reactivation is a probe, not session activity.
         cursor = reactivate_registration(

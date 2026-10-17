@@ -2,7 +2,7 @@
  "id": "start-and-attach",
  "title": "Start and attach",
  "status": "draft-copy",
- "text": "A session registers in its mapped project, or in its authority's organization outside a project. Its scope stays fixed across retries and reinstallation. Older servers require starting inside a registered project folder until upgraded.",
+ "text": "A session registers in its mapped project, or in its authority's organization outside a project. Its scope stays fixed across retries and reinstallation. Calls below the machine-scope serving floor refuse with the required release and recovery: start the agent inside a registered project folder.",
  "verification": "Source registration and transport regressions cover this contract; deployed harness proof remains pending.",
  "sources": ["packages/yoke-core/src/yoke_core/hooks/sessions_lifecycle.py", "packages/yoke-core/src/yoke_core/hooks/sessions_cli.py", "runtime/api/test_secondary_domains_harness_sessions.py"],
  "page": "sessions",

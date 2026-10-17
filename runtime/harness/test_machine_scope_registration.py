@@ -10,6 +10,7 @@ import pytest
 from runtime.api.fixtures.backlog import test_db  # noqa: F401
 from runtime.api.cli.test_yoke_operations_cli_hooks import _FakeResponse
 from yoke_cli.transport.https import HttpsConnection
+from yoke_contracts.hook_diagnostics import format_hook_diagnostic
 from yoke_contracts.hook_evaluator_protocol import (
     HOOK_EVALUATOR_CAPABILITIES,
     HOOK_MACHINE_SCOPE_CAPABILITY,
@@ -193,25 +194,35 @@ def test_outside_project_relays_hook_over_https(remote):
     assert remote.requests[0]["hook_schema"] == 1
 
 
-def test_relay_translates_denial_without_machine_scope_capability(remote, capsys):
-    remote.response.update(outcome="denied", stdout="project required", exit_code=1)
-    remote.response.pop("capabilities")
-    assert remote.run() == 1
+@pytest.mark.parametrize("exit_code", [1, 2])
+def test_relay_passes_standard_refusal_text_and_status_unchanged(
+    remote, capsys, exit_code, harness
+):
+    refusal = (
+        "function_argument_version_skew: sessions.begin machine_scope needs next-release. "
+        "Recovery: start the agent inside a registered project folder."
+    )
+    remote.response.update(outcome="denied", stdout=refusal, exit_code=exit_code)
+    assert remote.run() == exit_code
     out = capsys.readouterr()
-    assert "predates sessions outside a project" in out.out
-    assert "start the agent inside a registered project folder" in out.out
-    assert not out.err
+    if harness == "claude-code" and exit_code == 2:
+        assert not out.out
+        assert out.err == format_hook_diagnostic("UserPromptSubmit", refusal) + "\n"
+    else:
+        assert out.out == refusal and not out.err
 
 
-def test_translated_denial_is_non_blocking_per_harness(remote, capsys):
+@pytest.mark.parametrize("metadata", [{}, {"capabilities": []}])
+def test_relay_does_not_translate_refusal_when_capabilities_are_absent(
+    remote, capsys, metadata
+):
+    remote.response.pop("capabilities")
     remote.response.update(
-        outcome="denied", stdout="old server", exit_code=1, capabilities=[]
+        outcome="denied", stdout="server refusal", exit_code=1, **metadata
     )
     assert remote.run() == 1
     out = capsys.readouterr()
-    assert out.out.startswith("This Yoke server") and not out.err
-    with pytest.raises(json.JSONDecodeError):
-        json.loads(out.out)
+    assert out.out == "server refusal" and not out.err
 
 
 def test_relay_passes_guard_denial_on_projectless_request_unchanged(remote, capsys):
@@ -276,23 +287,10 @@ def test_operator_begin_infers_machine_scope(registration, harness, monkeypatch)
     sid = str(uuid4())
     monkeypatch.setattr(client, "_project_id_from_args", lambda *a: None)
     monkeypatch.setattr(client, "_get_db_readwrite", db_helpers.connect)
-    assert (
-        client.cmd_session_begin(
-            [
-                "--session-id",
-                sid,
-                "--executor",
-                harness,
-                "--provider",
-                "test",
-                "--workspace",
-                "/tmp/unmapped",
-                "--machine-id",
-                str(uuid4()),
-            ]
-        )
-        == 0
-    )
+    args = ["--session-id", sid, "--executor", harness]
+    args += ["--provider", "test", "--workspace", "/tmp/unmapped"]
+    args += ["--machine-id", str(uuid4())]
+    assert client.cmd_session_begin(args) == 0
     row = registration.execute(
         "SELECT project_id, org_id, actor_id FROM harness_sessions WHERE session_id=%s",
         (sid,),
