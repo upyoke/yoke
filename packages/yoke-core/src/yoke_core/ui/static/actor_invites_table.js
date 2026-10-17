@@ -5,6 +5,10 @@ const COLUMNS = ["Person", "Kind", "Role", "State", "Expires", "Invited by", "Ac
 const STATES = ["pending", "expired", "revoked", "consumed"];
 const TONES = { pending: "run", expired: "warn", revoked: "idle", consumed: "good" };
 const instant = (value) => typeof value === "string" ? Date.parse(value) : NaN;
+// Date keeps milliseconds; native wire timestamps also carry microseconds.
+const fraction = (value) => (value.match(/\.(\d+)/)?.[1] || "").padEnd(9, "0");
+const newest = (a, b) => instant(b.created_at) - instant(a.created_at)
+  || fraction(b.created_at).localeCompare(fraction(a.created_at));
 const stateOf = (row) => row.state || (row.status === "accepted" ? "consumed" : row.status);
 
 function actions(context, row, { canManage, onRevoke, onReissue }) {
@@ -79,7 +83,7 @@ export function renderInvitesTable(context, host, rows, options) {
   const ordered = groups.flatMap((state) => {
     const group = visible.filter((row) => stateOf(row) === state);
     return group.every((row) => Number.isFinite(instant(row.created_at)))
-      ? group.sort((a, b) => instant(b.created_at) - instant(a.created_at)) : group;
+      ? group.sort(newest) : group;
   });
   if (visible.some((row) => !Number.isFinite(instant(row.created_at)))) {
     host.appendChild(el(doc, "p", "actors-muted",

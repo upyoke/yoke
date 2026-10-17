@@ -182,6 +182,13 @@ test("older rows expose missing fields without guessed roles, time or cross-doma
   assert.equal(f.slot.textContent, "No invites yet.");
 });
 
+test("creation ordering preserves stored fractional precision within one millisecond", () => {
+  const f = fixture();
+  renderInvitesTable(f.context, f.slot, [row(1, "pending", { created_at: "2026-10-17T12:00:00.123001Z" }),
+    row(2, "pending", { created_at: "2026-10-17T12:00:00.123002Z" })], {});
+  assert.equal(tags(f.slot, "TBODY")[0].children[0].children[0].textContent, "Person 2actor #12");
+});
+
 test("kind/state actions confirm inline, cancel with Escape, and preserve refusals", async () => {
   const f = fixture();
   const calls = [];
