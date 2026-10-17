@@ -43,7 +43,22 @@ async function main() {
   } finally {
     delete process.env.YOKE_BROWSER_EXECUTABLE_PATH;
   }
-  console.log('PASS: persistent and throwaway QA browsers require Chromium sandboxing');
+  calls.length = 0;
+  process.env.YOKE_BROWSER_CHROMIUM_SANDBOX = '0';
+  try {
+    for (const options of [{}, { profileDir: '/profile', headless: false }]) {
+      const manager = createBrowserManager(options);
+      await manager.launch();
+      await manager.closeBrowser();
+    }
+    assert.deepEqual(calls, [
+      { headless: true, chromiumSandbox: false },
+      { directory: '/profile', headless: false, chromiumSandbox: false },
+    ]);
+  } finally {
+    delete process.env.YOKE_BROWSER_CHROMIUM_SANDBOX;
+  }
+  console.log('PASS: QA browsers sandbox unless setup turned the sandbox off');
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });
