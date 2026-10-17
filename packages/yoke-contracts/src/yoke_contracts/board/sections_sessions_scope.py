@@ -144,6 +144,8 @@ def _scope_filter(
             f"AND ((hs.project_id IS NOT NULL AND ({project_sql})) OR {org_sql})",
             (*params, *org_ids),
         )
+    if visible_project_ids() == ():
+        return "AND 1=0", ()
     project_id = scope_project_id(db, scope)
     claim_sql, claim_params = _claim_scope_filter(project_id, active_only=active_only)
     return (
