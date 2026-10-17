@@ -293,9 +293,11 @@ def run_terminal_app_command(
             bounds=bounds,
         )
     finally:
+        # Closing first kills the wrapper shell, which would otherwise write
+        # the exit status of a stopped command after the files were removed.
+        closed = close_terminal_app_window(run, window_id=window.window_id)
         if not window.keep_paths:
             run("/bin/rm -f " + shlex.join(window.paths), timeout=10)
-        closed = close_terminal_app_window(run, window_id=window.window_id)
     if closed:
         return result
     # The command's own answer stands; the leaked window is named beside it

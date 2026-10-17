@@ -88,7 +88,10 @@ def test_a_timed_out_command_is_stopped_before_its_output_is_removed() -> None:
     )
     assert "process_tree 4242" in host.commands[stop]
     remove = host.commands.index(host.removed()[0])
-    assert stop < remove
+    close = next(i for i, c in enumerate(host.commands) if "set ttyPaths to tty" in c)
+    # The wrapper shell dies with the window before the files go, so it cannot
+    # write the stopped command's exit status after the cleanup.
+    assert stop < close < remove
 
 
 @pytest.mark.parametrize(
