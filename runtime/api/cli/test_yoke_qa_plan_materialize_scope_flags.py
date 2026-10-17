@@ -65,3 +65,26 @@ def test_a_stage_without_a_deployment_run_is_refused() -> None:
     args = ["--item", "PREFIX-7", "--transition", "release", "--stage", "item-qa"]
 
     assert qa_plan_materialize_for_item(args) == 2
+
+
+def test_item_rematerialize_refuses_plan_filter(capsys) -> None:
+    from yoke_cli.commands.adapters.qa_execution_subjects import qa_plan_rematerialize
+
+    with patch(
+        "yoke_cli.commands.adapters.qa_execution_subjects.dispatch_and_emit"
+    ) as dispatch:
+        assert (
+            qa_plan_rematerialize(
+                [
+                    "--item",
+                    "PREFIX-7",
+                    "--transition",
+                    "release",
+                    "--plan",
+                    "smoke",
+                ]
+            )
+            == 2
+        )
+    dispatch.assert_not_called()
+    assert "item_plan_filter_unsupported" in capsys.readouterr().err

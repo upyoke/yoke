@@ -210,6 +210,12 @@ def handle_rematerialize(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
     if request.target.kind == "item" and request.target.item_id is not None:
+        if payload.plan is not None:
+            return _error(
+                "item_plan_filter_unsupported",
+                "Item refresh uses attached plans. Remove plan and retry with the item transition.",
+                "$.payload.plan",
+            )
         if not payload.transition_id:
             return _error(
                 "payload_invalid",
@@ -266,6 +272,15 @@ def handle_rematerialize(request: FunctionCallRequest) -> HandlerOutcome:
                 )
     except QaPlanError as exc:
         return _error("incompatible", str(exc), "$.payload")
+    except (ValueError, LookupError) as exc:
+        return _error(
+            "qa_refresh_subject_unavailable",
+            f"QA refresh could not resolve its subject: {exc}. "
+            "Inspect the item attachments or run membership with "
+            "`yoke items detail get ITEM` or `yoke deployment-runs get RUN-ID`, "
+            "correct the selected subject, then retry rematerialization.",
+            "$.target",
+        )
     return HandlerOutcome(result_payload={"result": result}, primary_success=True)
 
 
