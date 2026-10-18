@@ -38,6 +38,11 @@ CLI adapter: `yoke items progress-log append PREFIX-N --headline TEXT --content 
 
 Why this surface: `shepherd_log`/`shepherd_caveats` are epic architect verdicts; `spec`/`technical_plan`/`worktree_plan` are intent fields, not execution state; `epic_progress_notes` is the equivalent for epic *tasks* keyed `(epic_id, task_num)`; the rendered body is virtual and picks up section writes automatically.
 
+Checkpoint unfinished work while its work claim is held, before a wait,
+handoff or release. Read live status after automatic completion: a terminal
+item already records its result and evidence, so skip the final Progress Log
+append. Do not reacquire a claim solely to write a completion checkpoint.
+
 Convention:
 
 - Section name is **exactly** `Progress Log` (case-sensitive, two words).
