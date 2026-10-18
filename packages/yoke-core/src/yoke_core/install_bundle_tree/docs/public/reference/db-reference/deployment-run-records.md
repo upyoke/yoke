@@ -101,15 +101,15 @@ Release wrap-up prints each member stamp and close-out step, then confirms the `
 
 Release phase timings: the start/end `Deployment start timing: ` records each
 run-scoped driver timing scope stores through `deployment_runs.timings.record`
-when it closes. Read them with `yoke deployment-runs timings RUN-ID`. They are
+at each pipeline stage and when it closes. Read them with `yoke deployment-runs timings RUN-ID`. They are
 diagnostics; nothing operational reads them, and a refused write never fails
 the run (see [deployment start](../deployment-start.md)).
 
 ```sql
 id INTEGER PRIMARY KEY
 run_id TEXT NOT NULL REFERENCES deployment_runs(id)
-batch_id TEXT NOT NULL -- one closing scope; replaying a batch inserts nothing
-sequence INTEGER NOT NULL -- record order within the batch
+batch_id TEXT NOT NULL -- one driver timing scope
+sequence INTEGER NOT NULL -- record order within the scope; a retried flush inserts nothing twice
 step TEXT NOT NULL
 phase TEXT NOT NULL -- start | end
 recorded_at TIMESTAMPTZ NOT NULL -- the driver clock's record timestamp

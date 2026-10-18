@@ -1,8 +1,9 @@
 """Flushed deployment-start diagnostics, carried with responses on HTTPS.
 
 A driver-side scope opened with ``persist=True`` also stores its run's
-start/end records through ``deployment_runs.timings.record`` when it closes,
-so ``yoke deployment-runs timings RUN-ID`` answers from any machine.
+start/end records through ``deployment_runs.timings.record`` at each pipeline
+stage and when it closes, so ``yoke deployment-runs timings RUN-ID`` answers
+from any machine.
 """
 
 from contextlib import contextmanager
@@ -41,34 +42,51 @@ def timing_scope(run_id, *, collect=False, capture=None, persist=False):
         "records": records,
         "collect": collect,
         "capture": capture,
+        "persist": persist,
+        "batch_id": uuid4().hex,
+        "sent": 0,
     }
     token = _SCOPE.set(state)
     try:
         yield records
     finally:
         _SCOPE.reset(token)
-        if persist:
-            persist_records(state["run_id"], records)
+        _persist(state)
 
 
-def persist_records(run_id, records):
-    """Store a closed scope's records; a refusal is reported, never raised.
+def flush_timings():
+    """Store the open scope's unsent records now; the pipeline calls this per stage."""
+    state = _SCOPE.get()
+    if state is not None:
+        _persist(state)
+
+
+def _persist(state):
+    """Send unsent start/end records; a refusal is reported, never raised.
 
     Timings are diagnostics: the deployment's outcome must not depend on
-    whether its measurements could be written.
+    whether its measurements could be written. Each record keeps its scope
+    batch and sequence, so a later flush retries a refused batch without
+    duplicating one that landed.
     """
+    run_id = state["run_id"]
+    if not state["persist"] or not run_id:
+        return
     from yoke_core.domain.deployment_run_timings import (
         MAX_BATCH_RECORDS,
         persistable,
     )
 
-    stored = [r for r in persistable(records) if run_id and r.get("run_id") == run_id]
-    for start in range(0, len(stored), MAX_BATCH_RECORDS):
-        reason = _record_batch(run_id, stored[start : start + MAX_BATCH_RECORDS])
+    stored = [r for r in persistable(state["records"]) if r.get("run_id") == run_id]
+    while state["sent"] < len(stored):
+        first = state["sent"]
+        batch = stored[first : first + MAX_BATCH_RECORDS]
+        reason = _record_batch(run_id, state["batch_id"], first, batch)
         if reason:
             print(
                 f"{REFUSAL_PREFIX}run {run_id}: {reason}. The run is unaffected; "
-                "its `Deployment start timing:` lines remain in this capture. "
+                "its `Deployment start timing:` lines remain in this capture and "
+                "the next stage retries them. "
                 f"Recovery: confirm `yoke deployment-runs timings {run_id}` is "
                 "served (`yoke env list` names the control plane), then attach "
                 "this capture to the evidence that needed the timings.",
@@ -76,9 +94,10 @@ def persist_records(run_id, records):
                 flush=True,
             )
             return
+        state["sent"] += len(batch)
 
 
-def _record_batch(run_id, batch):
+def _record_batch(run_id, batch_id, first_sequence, batch):
     from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
@@ -86,7 +105,11 @@ def _record_batch(run_id, batch):
         response = call_dispatcher(
             function_id=RECORD_FUNCTION_ID,
             target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
-            payload={"batch_id": uuid4().hex, "records": batch},
+            payload={
+                "batch_id": batch_id,
+                "first_sequence": first_sequence,
+                "records": batch,
+            },
         )
     except Exception as exc:  # diagnostics never change the run's outcome
         return f"{type(exc).__name__}: {exc}"

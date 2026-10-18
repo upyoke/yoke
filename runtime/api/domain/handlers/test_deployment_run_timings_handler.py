@@ -40,11 +40,15 @@ def _record(step, phase, second, **extra):
     return record
 
 
-def _store(batch_id, records):
+def _store(batch_id, records, first_sequence=0):
     return handle_deployment_run_timings_record(
         _request(
             "deployment_runs.timings.record",
-            {"batch_id": batch_id, "records": records},
+            {
+                "batch_id": batch_id,
+                "first_sequence": first_sequence,
+                "records": records,
+            },
         )
     )
 
@@ -163,3 +167,44 @@ def test_refused_timing_write_is_reported_without_failing_the_run(
     err = capsys.readouterr().err
     assert timing.REFUSAL_PREFIX + "run run-refused: function_not_served" in err
     assert "yoke deployment-runs timings run-refused" in err
+
+
+def test_stage_flush_retries_a_refused_batch_without_duplicates(
+    test_db, monkeypatch, capsys
+) -> None:
+    insert_deployment_run(test_db, id="run-flush", status="executing")
+    test_db.commit()
+    sent = []
+    refuse = [True]
+
+    def dispatch(**kwargs):
+        sent.append(kwargs["payload"])
+        if refuse[0]:
+            error = SimpleNamespace(code="busy", message="later", recovery_hint="")
+            return SimpleNamespace(success=False, error=error, result=None)
+        outcome = handle_deployment_run_timings_record(
+            _request(kwargs["function_id"], kwargs["payload"], run="run-flush")
+        )
+        return SimpleNamespace(success=outcome.primary_success, error=outcome.error)
+
+    monkeypatch.setattr(
+        "yoke_core.api.service_client_structured_api_adapter.call_dispatcher", dispatch
+    )
+    with timing.timing_scope("run-flush", persist=True):
+        with timing.start_step("deploy"):
+            pass
+        timing.flush_timings()
+        refuse[0] = False
+        timing.flush_timings()
+        timing.flush_timings()
+        with timing.start_step("item_qa"):
+            pass
+
+    assert "busy: later" in capsys.readouterr().err
+    assert [(p["first_sequence"], len(p["records"])) for p in sent] == [
+        (0, 2),
+        (0, 2),
+        (2, 2),
+    ]
+    steps = [r["step"] for r in _read("run-flush").result_payload["records"]]
+    assert steps == ["deploy", "deploy", "item_qa", "item_qa"]

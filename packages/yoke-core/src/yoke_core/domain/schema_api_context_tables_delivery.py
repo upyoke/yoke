@@ -259,7 +259,8 @@ DELIVERY_TABLES: dict[str, dict] = {
         "notes": (
             "Release phase timings: the start/end `Deployment start timing` "
             "records each run-scoped driver timing scope sends through "
-            "`deployment_runs.timings.record` when it closes; `record` is the "
+            "`deployment_runs.timings.record` at each pipeline stage and when "
+            "it closes; `record` is the "
             "full JSON record. Read with `yoke deployment-runs timings RUN-ID`. "
             "Diagnostics only: nothing operational reads these rows."
         ),

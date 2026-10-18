@@ -16,6 +16,7 @@ READ_FUNCTION_ID = "deployment_runs.timings"
 
 class DeploymentRunTimingsRecordRequest(BaseModel):
     batch_id: str
+    first_sequence: int = 0
     records: List[Dict[str, Any]]
 
 
@@ -64,6 +65,7 @@ def handle_deployment_run_timings_record(
                 conn,
                 run_id=resolved,
                 batch_id=str(payload.get("batch_id") or ""),
+                first_sequence=payload.get("first_sequence", 0),
                 records=records,
             )
     except LookupError as exc:

@@ -100,7 +100,9 @@ and are never operational authority.
 
 Each run-scoped driver scope (preflight, watched child, pinned re-exec, pipeline)
 also stores its start/end records in `deployment_run_timings` through
-`deployment_runs.timings.record` when it closes, so any machine can read them:
+`deployment_runs.timings.record` when it closes; the pipeline also flushes at
+each stage, so a running run's earlier steps are readable. Any machine can read
+them:
 
 ```text
 yoke deployment-runs timings RUN-ID [--json]
@@ -109,7 +111,8 @@ yoke deployment-runs timings RUN-ID [--json]
 It prints per-step elapsed totals, then every record; `--json` returns each
 record as the driver wrote it. A write that cannot land never fails the run: the
 driver prints `Deployment timing record refused: ` with the run, the named error
-and the recovery, and the capture still holds the lines. An empty answer names
+and the recovery, the capture still holds the lines, and the next flush retries
+them without duplicating any that landed. An empty answer names
 that no timings were recorded.
 
 For a start-gap measurement, subtract the earliest preflight-start timestamp

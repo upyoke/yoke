@@ -1,7 +1,8 @@
 """Durable per-run release phase timings, written from the driver's own records.
 
 Every timing scope that names a run (driver preflight, the watched child, the
-pipeline, the pinned re-exec) sends its start/end records here when it closes.
+pipeline, the pinned re-exec) sends its start/end records here when it closes;
+the pipeline also flushes at each stage, so a running run reads back too.
 The rows are diagnostics for `yoke deployment-runs timings`; nothing
 operational reads them, and a refused write never fails the deployment.
 """
@@ -89,11 +90,20 @@ def _validated(run_id: str, index: int, record: Any) -> tuple[Any, ...]:
 
 
 def record_timings(
-    conn: Any, *, run_id: str, batch_id: str, records: Sequence[Any]
+    conn: Any,
+    *,
+    run_id: str,
+    batch_id: str,
+    first_sequence: int,
+    records: Sequence[Any],
 ) -> dict[str, int]:
-    """Store one scope's batch; a replayed batch inserts nothing new."""
+    """Store a scope's records from ``first_sequence``; a replay inserts nothing."""
     if not batch_id.strip():
         raise TimingRecordInvalid("batch_id must be non-empty")
+    if isinstance(first_sequence, bool) or not isinstance(first_sequence, int):
+        raise TimingRecordInvalid("first_sequence must be an integer")
+    if first_sequence < 0:
+        raise TimingRecordInvalid("first_sequence must not be negative")
     if len(records) > MAX_BATCH_RECORDS:
         raise TimingRecordInvalid(
             f"records holds {len(records)} entries; the limit is {MAX_BATCH_RECORDS}"
@@ -108,7 +118,9 @@ def record_timings(
     ):
         raise LookupError(f"deployment run {run_id!r} not found")
     recorded = 0
-    for sequence, (step, phase, at, elapsed, outcome, raw) in enumerate(rows):
+    for sequence, (step, phase, at, elapsed, outcome, raw) in enumerate(
+        rows, start=first_sequence
+    ):
         cursor = conn.execute(
             "INSERT INTO deployment_run_timings "
             "(run_id,batch_id,sequence,step,phase,recorded_at,elapsed_ms,outcome,record) "
