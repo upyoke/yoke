@@ -161,13 +161,11 @@ is still older than the release the active connection serves, commands sent to
 it print one warning naming `yoke update --version VERSION`; they never update
 or refuse on their own. A local universe needs none of this: its server is the
 installed CLI.
-The installer itself repairs the git credential
-helper a reinstall wipes from site-packages during every
-successful run — so re-running the curl installer directly still resolves
-the same channel version for every Yoke product package and still repairs
-the helper, just without the version-change report. Prior-runtime bundles
-are verified against their own launcher's declared files and content hash,
-so adding helper modules in a release does not invalidate an older bundle.
+The installer builds each CLI release in its own uv tool directory and swaps
+one launcher pointer atomically. Running commands keep their original modules;
+new commands use the published release. Old environments retire after their
+commands finish; cleanup failures name the reason and the update to retry.
+The installer repairs git credential-helper references for the new release.
 
 Every successful install or reinstall restarts a running machine-local
 dashboard with the newly installed executable. It keeps the same environment,
@@ -299,8 +297,8 @@ local self-host stacks including their universe volumes, and deletes the machine
 (`~/.yoke` or `YOKE_MACHINE_HOME`). A harness setting you changed after Yoke
 wrote it is left in place and reported. Docker is only checked when this
 machine runs a self-host install. No further confirmation is required. Finally a detached
-worker removes the CLI with `uv tool uninstall yoke-cli` after the uninstall
-process exits. Its result log is printed by the command.
+worker removes the immutable CLI releases and launcher after commands release
+their environments. Its result log is printed by the command.
 
 Each step reports done, skipped with a reason, or failed with a named recovery.
 Independent cleanup continues after a failure; the machine home and CLI stay

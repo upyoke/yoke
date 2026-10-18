@@ -141,7 +141,7 @@ else:
 
 def _probe(mode):
     return (
-        '"$(uv tool dir)/yoke-cli/bin/python3" -c '
+        '"$(uv tool dir)/yoke-cli-releases/current/tools/yoke-cli/bin/python3" -c '
         + shlex.quote(SESSION_SCOPE_SCRIPT)
         + f" {YOKE_BIN} {mode}"
     )

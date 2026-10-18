@@ -38,7 +38,7 @@ def issue_sync_cases(command_case, local_setup):
         25,
         "issue-sync-default",
         local_setup
-        + '; "$(uv tool dir)/yoke-cli/bin/python3" -c '
+        + '; "$(uv tool dir)/yoke-cli-releases/current/tools/yoke-cli/bin/python3" -c '
         + shlex.quote(ISSUE_SYNC_DEFAULT_SCRIPT)
         + f" {YOKE_BIN}",
         execution_mode="terminal",
