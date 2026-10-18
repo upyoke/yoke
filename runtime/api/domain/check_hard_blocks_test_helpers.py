@@ -36,7 +36,8 @@ CREATE TABLE workflow_versions (
 CREATE TABLE item_dependencies (
     id INTEGER PRIMARY KEY, dependent_item_id INTEGER NOT NULL,
     blocking_item_id INTEGER NOT NULL, gate_point TEXT NOT NULL,
-    satisfaction TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL
+    satisfaction TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT '2026-01-02T00:00:00Z'
 );
 CREATE TABLE projects (
     id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE,

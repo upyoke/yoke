@@ -118,10 +118,14 @@ class TestItemDependencyList:
             satisfaction=None if gate_point == "coordination_only" else "fact:merged",
             rationale="independent edits" if gate_point == "coordination_only" else "",
         )
+        test_db.execute(
+            "UPDATE item_dependencies SET created_at=%s WHERE dependent_item_id=%s",
+            ("2026-01-01T00:00:00Z", other if reverse else subject),
+        )
         if merged:
             test_db.execute(
                 "UPDATE items SET merged_at = %s WHERE id = %s",
-                ("2026-01-01T00:00:00Z", other),
+                ("2026-01-02T00:00:00Z", other),
             )
         test_db.commit()
         outcome = item_dependency_reads.handle_item_dependency_list(

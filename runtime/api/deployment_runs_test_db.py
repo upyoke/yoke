@@ -97,7 +97,8 @@ _MINIMAL_SCHEMA_DDL = """
         id INTEGER PRIMARY KEY,
         dependent_item_id INTEGER NOT NULL,
         blocking_item_id INTEGER NOT NULL,
-        satisfaction TEXT DEFAULT 'status:done'
+        satisfaction TEXT DEFAULT 'status:done',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT '2026-01-01T00:00:00Z'
     );
 """
 
