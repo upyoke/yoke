@@ -249,6 +249,9 @@ def hook_evaluate(args: List[str]) -> int:
             executor,
             f"hook_infrastructure_unavailable: {type(exc).__name__}",
         )
+        if code == 2 and not executor.startswith(("codex", "cursor")):
+            sys.stderr.write(format_hook_diagnostic(event, text) + "\n")
+            text = ""
     else:
         text = stdout.getvalue()
         if event in LIFECYCLE_EVENTS and any(
@@ -269,10 +272,7 @@ def hook_evaluate(args: List[str]) -> int:
             sys.stderr.write(stderr.getvalue())
     text, code = protect_stop(event, payload, text, code, executor)
     if text:
-        if code == 2 and not executor.startswith(("codex", "cursor")):
-            sys.stderr.write(format_hook_diagnostic(event, text) + "\n")
-        else:
-            sys.stdout.write(text)
+        sys.stdout.write(text)
     return code
 
 
