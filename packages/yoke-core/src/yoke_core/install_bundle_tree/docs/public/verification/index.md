@@ -105,10 +105,14 @@ integration gate has nothing to run and a queued pull request never merges.
 
 ## Proving an exact producer candidate
 
-A CI run normally proves one fact: the commit it checked out. Verifying an
-unpublished producer candidate — a consumer built against a revision no
-release carries yet — needs a second one, and it rides the case's own
-`method_config.ci_workflow_inputs`:
+Run the producer gate first. Hand the consumer only the full commit the gate
+actually pushed to the producer remote. Resolve that commit after the gate
+rebases and publishes; an earlier local commit may never reach the remote.
+Consumer proof must name the exact pushed candidate.
+
+A CI run normally proves one fact: the commit it checked out. Verifying a
+pushed producer candidate before release needs a second one, and it rides
+the case's own `method_config.ci_workflow_inputs`:
 
 ```bash
 yoke qa requirement add --item PREFIX-N --method-id command-ci \
@@ -117,6 +121,16 @@ yoke qa requirement add --item PREFIX-N --method-id command-ci \
     "ci_workflow_inputs":{"product_ref":"<40-hex candidate>"}}' \
   --instructions "..." --expected-outcome "..."
 ```
+
+When inputs carry `product_ref`, QA checks the full 40-hex commit on the
+producer remote before preparing a dispatch. The workflow's existing
+`product_repo` input takes precedence; otherwise the consumer item must have
+one upstream cross-project companion project with a GitHub repository binding.
+Missing or ambiguous repositories refuse by name. `product_ref_unpublished`
+means the producer must finish its publishing gate and send the pushed commit;
+update the consumer requirement and retry. An unreadable repository refuses
+`product_ref_unverified`; restore GitHub read access before retrying. Cases
+without `product_ref` skip this check.
 
 Values must be non-empty strings, and the reserved `yoke_dispatch_id`
 correlation input is refused — dispatch sets that one itself. Every dispatch

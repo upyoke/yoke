@@ -19,7 +19,7 @@ Each message to the user is one or two sentences unless they ask for more. Write
 
 ## Project Scoping
 
-One item has one project. Cross-project changes require linked companion items; a changed contract requires its consumer companion and evidence the real consumer built against the exact candidate. Ask when the target is ambiguous.
+One item has one project. Cross-project changes require linked companion items; a changed contract requires its consumer companion and evidence the real consumer built against the exact pushed candidate. Ask when the target is ambiguous.
 
 ## Worktree Discipline
 

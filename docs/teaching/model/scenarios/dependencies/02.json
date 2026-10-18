@@ -4,13 +4,13 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "When the requested outcome touches multiple project repositories or changes a reusable producer contract.",
- "need": "Each project retains its own item and lane; companion items express a real cross-project dependency and exact consumer proof. Related does not automatically mean shared deployment.",
+ "need": "Each project retains its own item and lane; companion items express a real cross-project dependency and consumer proof against the exact pushed producer candidate. Related does not automatically mean shared deployment. Run the producer gate before consumer handoff. Send the full commit the gate actually pushed, resolving it again after any rebase; a local pre-gate SHA may never be published.",
  "disclosure": "current cue",
  "surface": "Intake cross-project handling; project/document steering scope",
  "gap": "JOURNEYS 14 says link them but lacks a beginner procedure. Review question: should its guide distinguish shared context, dependent work and shared delivery as separate needs?",
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke items dependency list --help"],
  "plan_notes": ["JOURNEYS row 7", "JOURNEYS row 14"],
- "sources": [".agents/skills/yoke/idea/infer-and-create.md", ".agents/skills/yoke/steer/scope-and-authority.md", "docs/public/strategy/index.md"],
+ "sources": [".agents/skills/yoke/idea/infer-and-create.md", ".agents/skills/yoke/steer/scope-and-authority.md", "docs/public/strategy/index.md", "docs/public/verification/index.md", ".agents/skills/yoke/conduct/dispatch-context-verify.md"],
  "position": 1
 }

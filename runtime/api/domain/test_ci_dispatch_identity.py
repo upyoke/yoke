@@ -137,6 +137,10 @@ def test_initial_qa_keeps_requirement_and_consumer_when_producer_is_corrected(
     tmp_path,
     monkeypatch,
 ):
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_case_ci_product_publication.require_published_product",
+        lambda *a: None,
+    )
     checkout, recorder, _ = wire_ci_case(tmp_path, monkeypatch)
     monkeypatch.setattr(qa_case_ci_lane, "await_workflow", lambda **k: (0, "success"))
     case = ci_case()
