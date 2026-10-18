@@ -41,7 +41,10 @@ refuses with `qa_current_run_identity_unavailable` and names the serving-respons
 floor; the control-plane operator must serve the release carrying the field.
 Merge proof hydration resolves item detail's selected `run_id` exactly, preserving
 native start/id selection even if history order changes. Missing selected proof
-refuses as `qa_run_identity_unavailable`; refresh item detail and retry merge. A missing or ambiguous start
+stays unbound and enters the existing commit-bound recovery: re-run the Command
+case or re-record methodless hand acceptance against the candidate. Substrate
+methods retain their runner authority and teach their own re-run command.
+A missing or ambiguous start
 refuses the case read with the same named ordering reason as native grading.
 Native `qa.run.list` and `qa.run.get` project each run's `case_outcome` through
 the shared judged-outcome model. A final review of a `needs_review` capture

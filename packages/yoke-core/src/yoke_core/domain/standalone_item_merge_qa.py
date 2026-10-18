@@ -99,12 +99,9 @@ def _hydrate_run_identity(requirement: dict[str, Any]) -> str:
     run_id = int(requirement["run_id"])
     latest = next((row for row in rows if int(row["id"]) == run_id), None)
     if latest is None:
-        return (
-            f"qa_run_identity_unavailable: requirement {requirement_id} selected "
-            f"run {run_id}, absent from run history with no recorded SHA proof; "
-            "refresh item detail and retry "
-            "merge before grading this requirement"
-        )
+        # Keep missing SHA proof on the normal commit-bound recovery path.
+        # Another run's evidence cannot bind this selected attempt.
+        return ""
     requirement.update(
         run_id=latest.get("id"),
         verdict=latest.get("verdict"),

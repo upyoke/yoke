@@ -78,10 +78,14 @@ def test_current_failed_or_pending_attempt_cannot_borrow_an_old_pass(
 
 
 @pytest.mark.parametrize("rows", [[], [_run(89, "pass", "passed")]])
-def test_missing_selected_run_names_identity_failure_and_recovery(monkeypatch, rows):
+def test_missing_selected_run_refuses_without_borrowing_other_proof(
+    tmp_path, monkeypatch, rows
+):
     requirement = _requirement(verdict="pass", sha="")
     _history(monkeypatch, rows)
-    error = merge_qa._hydrate_run_identity(requirement)
-    assert "qa_run_identity_unavailable" in error
-    assert "run 88" in error
-    assert "refresh item detail and retry merge" in error
+    _, error = merge_qa.preflight(
+        _item(requirement), public_ref="YOK-10", repo_root=tmp_path, branch="YOK-10"
+    )
+    assert "recorded SHA" in error
+    assert requirement["run_id"] == 88
+    assert not requirement["recorded_head_sha"]
