@@ -258,10 +258,12 @@ def test_operator_sleep_is_rejected_by_the_recipe_contract() -> None:
         )
 
 
-def test_standalone_gate_accepts_the_current_complete_verification_uri():
-    uri = "https://example.invalid/connect?user_code=AB12-CD34"
+@pytest.mark.parametrize("code", ["AB12-CD34", "AB23", "AB123-CD456"])
+@pytest.mark.parametrize("browser", ["Safari", "Chromium"])
+def test_standalone_gate_accepts_the_current_complete_verification_uri(code, browser):
+    uri = "https://example.invalid/connect?user_code=" + code
     transcripts = iter(
-        (f"One-time code: AB12-CD34\nOpen: {uri}\n", "Yoke token connected.")
+        (f"One-time code: {code}\nOpen: {uri}\n", "Yoke token connected.")
     )
     requests = []
     result = run_machine_browser_approval_with_io(
@@ -271,13 +273,13 @@ def test_standalone_gate_accepts_the_current_complete_verification_uri():
         action=_gate_action(),
         progress_callback=None,
         allowed_base_urls=("https://example.invalid",),
-        browser="Safari",
+        browser=browser,
         approve_browser=lambda url, code: (
             requests.append((url, code)) or BrowserApprovalResult(True, {})
         ),
     )
     assert result.ok
-    assert requests == [(uri, "AB12-CD34")]
+    assert requests == [(uri, code)]
 
 
 def test_complete_uri_on_an_undeclared_origin_is_refused_before_approval():

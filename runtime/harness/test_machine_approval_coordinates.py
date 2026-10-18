@@ -12,13 +12,20 @@ from yoke_harness.machine_browser_approval import approval_tab_urls, approval_ur
 
 
 @pytest.mark.parametrize("path", ["/connect", "/machine"])
-def test_base_and_complete_uris_resolve_to_the_same_exact_request(path):
+@pytest.mark.parametrize("code", ["AB12-CD34", "AB23", "AB123-CD456"])
+def test_base_and_complete_uris_resolve_to_the_same_exact_request(path, code):
     base = "https://example.invalid" + path
-    complete = base + "?user_code=AB12-CD34"
-    assert machine_approval_coordinates(
-        base, "AB12-CD34"
-    ) == machine_approval_coordinates(complete, "AB12-CD34")
-    assert approval_url(complete, "AB12-CD34") == (complete, "https://example.invalid")
+    complete = base + "?user_code=" + code
+    assert machine_approval_coordinates(base, code) == machine_approval_coordinates(
+        complete, code
+    )
+    assert approval_url(complete, code) == (complete, "https://example.invalid")
+
+
+@pytest.mark.parametrize("code", ["A123", "AB2", "AB234", "AB23-CD456", "GH123-CD456"])
+def test_invalid_code_shapes_are_refused(code):
+    with pytest.raises(ValueError, match="invalid shape"):
+        machine_approval_coordinates("https://example.invalid/connect", code)
 
 
 def test_self_hosted_code_path_is_preserved_for_the_wizard_opened_tab():
