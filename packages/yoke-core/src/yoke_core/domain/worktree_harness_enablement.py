@@ -7,12 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from yoke_core.domain.worktree_claude_approval import seed_directory_approval
-
 
 VERIFY_HOOK_CONFIG = "verify_hook_config"
-MIRROR_HOOK_TRUST = "mirror_hook_trust"
-SEED_DIRECTORY_APPROVAL = "seed_directory_approval"
 VERIFY_ENVIRONMENT_EXPORT = "verify_environment_export"
 
 
@@ -149,26 +145,6 @@ def _run_operation(
             report.actions.append("verified hook config")
         return
 
-    if operation == MIRROR_HOOK_TRUST:
-        from yoke_core.domain.worktree_codex_hook_trust import mirror_hook_trust
-
-        result = mirror_hook_trust(str(source), str(worktree))
-        if result.mirrored:
-            report.actions.append(f"mirrored {len(result.mirrored)} hook trust entries")
-        elif result.blocked_reason and result.source_trusted:
-            report.warnings.append(result.blocked_reason)
-        return
-
-    if operation == SEED_DIRECTORY_APPROVAL:
-        result = seed_directory_approval(str(source), str(worktree))
-        if result.seeded:
-            report.actions.append("seeded Claude directory approval")
-        elif result.blocked_reason and target_config.exists():
-            report.warnings.append(result.blocked_reason)
-        elif result.write_error:
-            report.warnings.append(result.write_error)
-        return
-
     if operation == VERIFY_ENVIRONMENT_EXPORT:
         try:
             config_text = target_config.read_text(encoding="utf-8")
@@ -199,8 +175,6 @@ def _default_adapter_root() -> Path:
 __all__ = [
     "HookEnablementContribution",
     "HarnessEnablementReport",
-    "MIRROR_HOOK_TRUST",
-    "SEED_DIRECTORY_APPROVAL",
     "VERIFY_ENVIRONMENT_EXPORT",
     "VERIFY_HOOK_CONFIG",
     "load_hook_enablement_contributions",

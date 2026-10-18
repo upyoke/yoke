@@ -106,10 +106,29 @@ Local edits use the refresh refusal's recovery.
 
 ## Hook diagnostics
 
+Hook infrastructure failures never hold `Stop`, `SessionStart` or
+`SessionEnd`. They return allow with one short warning naming the failure
+and its recovery. Repair machine configuration or connectivity before
+resuming work. Tool and prompt hooks still refuse when scope or authority
+cannot be resolved; identical failures show their full diagnosis once per
+five minutes, then a short reference. Policy denials remain enforced.
+
+The shared client boundary protects every supported harness and surface,
+including resident and in-process evaluation. `stop_hook_active` on Claude
+and Codex, or a positive Cursor `loop_count`, prevents another Stop hold.
+Without that native signal, at most three consecutive identical Stop blocks
+are allowed in five minutes; the next attempt allows Stop with
+`hook_stop_block_limit`. A changed reason or expired window starts a new
+count. Counters live in private machine-local `hook-safety/counters.json`,
+independent of machine config and server telemetry. Unavailable counters
+allow Stop with `hook_stop_safety_unavailable`; they never relax tool guards.
+Cursor's declared Stop contract still returns `{}` without a follow-up;
+its SessionEnd cannot continue the turn.
+
 Human diagnostics inside Git and harness tools begin with “yoke (<hook>): ”,
 for example “yoke (pre-commit): ERROR: file-line-limit gate blocked this commit.”
-Follow the repair in that diagnostic. Successful checks and identity-only
-post-commit snapshot scans stay quiet. Required orientation, instructions,
+Follow the repair in that diagnostic. Successful checks and the identity-only
+lane-head recordings after commits, merges, rebases and checkouts stay quiet. Required orientation, instructions,
 continuations, handoffs and recovery still arrive through their normal owner.
 JSON replies, delivery markers and machine identifiers retain their wire form;
 the shared context composer budgets the combined delivery for each harness.
@@ -151,19 +170,38 @@ Install or upgrade a supported native CLI or embedded desktop engine, start
 a new session, and rerun project refresh. Desktop users verify
 their embedded engine separately; the outer app version proves no capability.
 
+## Harness setup and later installs
+
+Run `yoke doctor run --only harness-setup --fix` to repair folder trust,
+Codex hook trust, unattended permissions, machine-wide hooks and the
+`yoke-global` skill together.
+Setup, project install/refresh, source launcher install and lane preparation
+call the same idempotent reconcile. The relay detects a newly present harness
+home and reconciles every registered checkout and its Git-registered lanes.
+It never creates an absent harness home; CLI presence alone is not installation.
+Lane hook trust is mirrored only from identical trusted checkout content.
+Malformed or unwritable files are preserved and named with recovery while
+other facets continue. Read without `--fix` to inspect without writing.
+The relay's `harness-setup-reconcile.json` records successful fingerprints and
+failed rows; failures retry after 15 minutes or immediately on another change.
+Doctor includes that durable failure and reports a Codex home without a CLI
+or desktop app, with instructions to remove an unintended home or open Codex.
+
 ## Outside a project: yoke-global
 
 Full Yoke skills stay per-project. The one user-level skill is `yoke-global`,
 for a session opened outside every Yoke project: it checks the machine, picks
 or adds the project and names the folder where a new session does the work.
-Its startup orientation names the skill as the next action. Setup and project
-install or refresh place it once in `~/.agents/skills/yoke-global`, which Codex
-and Cursor read natively, and link `~/.claude/skills/yoke-global` to it for
-Claude Code. A harness whose home folder is absent is skipped. Each manifest's
+Its startup orientation names the skill as the next action. Setup places it
+once in `~/.agents/skills/yoke-global`, which Codex and Cursor read natively,
+and links `~/.claude/skills/yoke-global` to it for Claude Code; the harness
+setup reconcile above keeps it current. A harness whose home folder is absent
+is skipped. Each manifest's
 `global_skill` field states its placement. `yoke uninstall` removes both
 paths, and any parent folder setup created for them once it is empty. An
 existing path Yoke did not create refuses as
-`global_skill_path_not_owned`; move it aside, then run `yoke setup` again.
+`global_skill_path_not_owned`; move it aside, then run
+`yoke doctor run --only harness-setup --fix`.
 
 ## Guard scope
 

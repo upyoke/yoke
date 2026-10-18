@@ -294,7 +294,7 @@ it does not contain a harness-specific branch for each adapter.
 | Key | Type | Description |
 |-----|------|-------------|
 | `config_path` | string | Repo-relative native hook configuration path that the worktree must expose. |
-| `operations` | list[string] | Ordered enablement operations. Supported values are `verify_hook_config`, `mirror_hook_trust`, `seed_directory_approval`, and `verify_environment_export`. |
+| `operations` | list[string] | Ordered enablement operations: `verify_hook_config` and `verify_environment_export`. |
 | `environment` | object | Workspace export used by hook subprocesses. |
 | `command_byte_restrictions` | object | Optional. Byte sequences the harness's own hook-config loader mishandles inside a rendered command. |
 
@@ -305,10 +305,10 @@ The `environment` object has two required string keys:
 | `root_variable` | Environment variable containing the lane's workspace root (`YOKE_ROOT`). |
 | `root_expression` | Shell expression used to resolve that root from the harness payload or current directory. |
 
-An operation may be omitted when the harness does not need that local
-affordance. For example, Codex mirrors user-granted path trust while Claude
-seeds its existing per-directory approval; both still verify the native hook
-configuration and workspace export.
+Trust and permissions belong to the shared harness setup reconcile, called by
+setup, install/refresh, lane preparation, relay harness detection and doctor.
+Run `yoke doctor run --only harness-setup --fix` to repair all setup facets;
+the reconcile preserves absent homes and refuses modified lane hook content.
 
 `command_byte_restrictions` is present only for a harness whose hook-config
 loader corrupts its own file over particular byte sequences, and carries the

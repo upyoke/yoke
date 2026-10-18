@@ -70,6 +70,9 @@ def load_config(path: str | Path | None = None) -> dict[str, Any]:
         raise MachineConfigError(f"{cfg_path} is not valid JSON: {exc}") from exc
     if not isinstance(payload, dict):
         raise MachineConfigError(f"{cfg_path} must contain a JSON object")
+    from yoke_contracts.machine_config.unknown_keys import warn_unknown_keys
+
+    warn_unknown_keys(payload, cfg_path)
     return payload
 
 
@@ -227,7 +230,7 @@ def project_entry(
 ) -> dict[str, Any]:
     """Return the machine-config entry for a checkout, or ``{}``.
 
-    Checkout resolution is independent of connection routing.
+    Checkout resolution uses the selected connection.
     """
 
     cfg = load_config(path)
@@ -247,16 +250,16 @@ def project_id(repo_root: str | Path, path: str | Path | None = None) -> int | N
 
 
 def installed_project_ids(path: str | Path | None = None) -> set[int]:
-    """Return the distinct project ids installed on this machine.
+    """Return installed project ids for the selected connection.
 
-    Sourced from the machine-local ``projects`` checkout list.
+    Sourced from the selected ``connection_projects`` checkout list.
     Used to disambiguate a bare item number when there is no explicit/cwd
-    project context. Every connection uses the same project checkout entries.
+    project context. Only the selected connection supplies project ids.
     """
 
     cfg = load_config(path)
     ids: set[int] = set()
-    for entry in contract.normalize_projects(cfg.get("projects")):
+    for entry in contract.projects_for_connection(cfg):
         pid = entry["project_id"]
         if pid is not None:
             ids.add(pid)

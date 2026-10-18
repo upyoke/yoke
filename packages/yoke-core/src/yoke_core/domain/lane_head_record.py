@@ -2,15 +2,19 @@
 
 ``item_worktrees.commit_sha`` is what every later question about "which
 commit is this lane offering" reads -- the merge boundary's accepted-sha
-comparison above all. The git post-commit hook keeps it current for work
-that arrives as commits, which is almost all of it.
+comparison above all. The managed git hooks keep it current on every HEAD
+move git announces: post-commit for commits, post-merge for merges and
+pulls (fast-forward or not), post-rewrite for rebases, post-checkout for
+branch switches and fast-forward rebases. A ``git reset`` announces nothing,
+so it still needs ``rerecord_command``.
 
-Almost. A rebase advances HEAD without committing anything, so the hook
-never fires and the row silently keeps a commit the lane has moved off. The
-gate then records its CI run against the new head while the merge boundary
-still compares the old one, and the two never meet again: the merge refuses
-with a stale candidate, and the retry rebases once more. Whatever moves a
-lane's HEAD without a commit therefore records it here.
+The hooks are not enough on their own. They exist only where ``yoke project
+install`` wrote them, run under a hook's short deadline, and are skipped
+during gate-owned rebase replay. A row left on a commit the lane moved off
+makes the gate record its CI run against the new head while the merge
+boundary still compares the old one, and the two never meet again: the
+merge refuses with a stale candidate, and the retry rebases once more. So
+whatever Yoke itself does to move a lane's HEAD also records it here.
 
 The write goes through the registered ``project.snapshot.sync`` surface the
 post-commit hook itself drives, rather than touching the row directly. That

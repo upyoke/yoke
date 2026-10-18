@@ -230,7 +230,6 @@
     "config_path": ".codex/hooks.json",
     "operations": [
       "verify_hook_config",
-      "mirror_hook_trust",
       "verify_environment_export"
     ],
     "environment": {

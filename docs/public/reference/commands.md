@@ -73,7 +73,8 @@ These are operator CLI helpers, distinct from lifecycle slash commands:
 | `yoke dash TITLE SPEC` / `yoke task TITLE SPEC` | File direct work after resolving execution instructions; Dash owns a lane; Task is laneless and merge-free, and refuses projects with a code repository (code project work -> `yoke dash`) |
 | `yoke board art variant create` | Create and preview board-art variants |
 | `yoke project snapshot sync [CHECKOUT]` | Sync committed path inventory |
-| `yoke git pre-commit` / `yoke git post-commit` | Installed verification/snapshot hooks |
+| `yoke git pre-commit` | Installed commit gate hook |
+| `yoke git post-commit` / `post-merge` / `post-rewrite` / `post-checkout` | Installed hooks that record the lane head after every HEAD move |
 | `yoke dev path-snapshot-prewarm` | Source-dev/admin inventory prewarm |
 
 Read each operation's `--help` for payload and authority before acting.

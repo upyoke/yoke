@@ -1,6 +1,6 @@
 """Hook-mode chunked HTTPS tests for project snapshot sync.
 
-The git post-commit hook sends HEAD identity only, which settles at begin.
+The git lane-head hooks send HEAD identity only, which settles at begin.
 Claim writes sync contents in hook mode: a cold full inventory that needs
 more than one chunk is deferred off the write path, while a delta over a
 base the server holds always uploads.
@@ -109,6 +109,7 @@ def test_hook_mode_identity_only_settles_at_begin(tmp_path: Path) -> None:
             "demo",
             "--head-only",
             "--hook",
+            "post-commit",
             responses=[begin_identity_only],
         )
     assert rc == 0

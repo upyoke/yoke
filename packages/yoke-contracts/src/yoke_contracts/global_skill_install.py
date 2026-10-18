@@ -114,6 +114,22 @@ def ensure_global_skill(
     return result
 
 
+def global_skill_ready(
+    harness_id: str, environ: Optional[Mapping[str, str]] = None
+) -> tuple[bool, str]:
+    """Whether *harness_id* discovers the current skill; detail names the gap."""
+    home = user_home(environ)
+    shared = shared_skill_dir(home)
+    target = shared / SKILL_FILE
+    if not target.is_file() or target.read_text(encoding="utf-8") != skill_text():
+        return False, f"global_skill_missing: {target}"
+    if HARNESS_GLOBAL_SKILLS[harness_id].placement == "link":
+        link = link_path(harness_id, home)
+        if not link.is_symlink() or link.resolve() != shared.resolve():
+            return False, f"global_skill_link_missing: {link}"
+    return True, ""
+
+
 def _install_shared(shared: Path, owned: set, result: GlobalSkillResult) -> bool:
     text = skill_text()
     target = shared / SKILL_FILE
@@ -169,7 +185,7 @@ def _refuse(path: Path, result: GlobalSkillResult) -> bool:
     result.reason = NOT_OWNED
     result.recovery = (
         f"{path} already exists and Yoke did not create it. Move it aside, "
-        "then run `yoke setup` again."
+        "then run `yoke doctor run --only harness-setup --fix`."
     )
     result.lines.append(result.warning)
     return False
@@ -188,5 +204,6 @@ __all__ = [
     "NOT_OWNED",
     "NO_HARNESS",
     "ensure_global_skill",
+    "global_skill_ready",
     "skill_text",
 ]

@@ -226,7 +226,6 @@
     "config_path": ".claude/settings.json",
     "operations": [
       "verify_hook_config",
-      "seed_directory_approval",
       "verify_environment_export"
     ],
     "environment": {

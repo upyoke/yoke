@@ -60,7 +60,6 @@ def test_removal_ignores_other_alias_external_credential(
         for alias, entry in before["connections"].items()
         if alias != "retiring"
     }
-    expected["projects"] = before.get("projects", [])
     assert _config(machine_home) == expected
     assert external.exists() is external_exists
     if external_exists:
@@ -113,11 +112,13 @@ def test_removal_retains_owned_secret_shared_with_remaining_alias(
     assert external.read_text() == "external-token\n"
 
 
-def test_connection_removal_preserves_shared_project_checkouts(machine_home, tmp_path):
+def test_connection_removal_preserves_connection_project_checkouts(
+    machine_home, tmp_path
+):
     checkout = tmp_path / "checkout"
     checkout.mkdir()
     writer.register_project(checkout, 7)
-    before = _config(machine_home)["projects"]
+    before = _config(machine_home)["connection_projects"]
     report = writer.remove_connection("retiring")
     assert report["project_mappings_removed"] == 0
-    assert _config(machine_home)["projects"] == before
+    assert _config(machine_home)["connection_projects"] == before

@@ -1,13 +1,13 @@
 """Keep a candidate on the CI run that already covers it.
 
-The gate rebases the lane before it asks GitHub what has already happened
-to the tree. That order is right the first time through: the rebase is what
+The gate updates the lane against its base before it asks GitHub what has already happened
+to the tree. That order is right the first time through: the base update is what
 makes the published candidate the tree the train will build, and nothing is
 lost by moving a commit no run has examined.
 
 It is wrong on re-entry. A second invocation over an unchanged lane — the
 first was moved to the background by its harness, killed mid-poll, or
-re-run from the recovery line the runner itself prints — rebases onto a
+re-run from the recovery line the runner itself prints — updates against a
 base branch that has since advanced. That moves the candidate to a new
 commit, so :mod:`yoke_core.domain.qa_case_ci_superseded_run` force-cancels
 the still-running run as superseded and the gate pays thirteen minutes for
@@ -18,9 +18,9 @@ lane's current head, that run is this gate's own earlier invocation and the
 source candidate is unchanged: the lane stays where it is, and the ordinary
 adoption and attachment path downstream resumes the run instead of
 replacing it. Queue admission continues on the pull request that run
-belongs to. Only an unexamined candidate is rebased, which is the
-first-invocation case the rebase exists for, and a changed source or a
-genuine integration requirement still reaches the rebase because no run
+belongs to. Only an unexamined candidate is updated against the base, which is the
+first-invocation case the update exists for, and a changed source or a
+genuine integration requirement still reaches the base update because no run
 covers the commit it arrives at.
 """
 
@@ -47,8 +47,8 @@ class PreparedLane:
     or ``None`` for a project on the dispatch path. ``resumed_run`` is the
     run that already covers the candidate, so the caller reuses the lookup
     made here instead of asking GitHub the same question again; ``None``
-    means the lane was rebased and the caller does its own lookup for the
-    commit the rebase produced.
+    means the lane was updated and the caller does its own lookup for the
+    commit the update produced.
     """
 
     queue_target: Optional[str]

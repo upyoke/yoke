@@ -36,7 +36,7 @@ def deployment_runs_execute(args: List[str]) -> int:
             "stays, and undetermined containment refuses naming the member and "
             "its recovery. The project "
             "checkout is resolved from the machine-config projects mapping "
-            "independent of connection; a stale mapping fails the lineage preflight "
+            "scoped to the selected connection; a stale mapping fails the lineage preflight "
             "with the resolved path named.\n\n"
             "--product-repo-path applies only to an ITEMLESS environment "
             "deploy and requires --image-tag, which is why the two are shown "

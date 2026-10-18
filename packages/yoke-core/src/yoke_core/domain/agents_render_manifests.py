@@ -158,7 +158,6 @@ CLAUDE_MANIFEST: dict = {
         "config_path": ".claude/settings.json",
         "operations": [
             "verify_hook_config",
-            "seed_directory_approval",
             "verify_environment_export",
         ],
         "environment": {
@@ -227,7 +226,6 @@ CODEX_MANIFEST: dict = {
         "config_path": ".codex/hooks.json",
         "operations": [
             "verify_hook_config",
-            "mirror_hook_trust",
             "verify_environment_export",
         ],
         "environment": {

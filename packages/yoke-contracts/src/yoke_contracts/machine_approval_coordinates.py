@@ -3,10 +3,11 @@
 from dataclasses import dataclass
 import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from yoke_contracts.machine_authorization import MATCH_CODE_PATTERN
 
 
 _ENTRY_PATHS = frozenset({"/connect", "/machine"})
-_CODE_PATTERN = re.compile(r"[A-Z0-9]{4}-[A-Z0-9]{4}")
+_CODE_PATTERN = re.compile(MATCH_CODE_PATTERN)
 
 
 @dataclass(frozen=True)
@@ -16,7 +17,9 @@ class MachineApprovalCoordinates:
     user_code: str
 
 
-def machine_approval_coordinates(uri: str, user_code: str) -> MachineApprovalCoordinates:
+def machine_approval_coordinates(
+    uri: str, user_code: str
+) -> MachineApprovalCoordinates:
     """Validate base and complete verification URIs without granting approval."""
     parsed = urlsplit(uri)
     code = user_code.strip().upper()
@@ -29,7 +32,9 @@ def machine_approval_coordinates(uri: str, user_code: str) -> MachineApprovalCoo
         or parsed.password is not None
         or parsed.fragment
     ):
-        raise ValueError("machine approval needs an HTTPS entry without credentials or a fragment")
+        raise ValueError(
+            "machine approval needs an HTTPS entry without credentials or a fragment"
+        )
     origin = f"{parsed.scheme}://{parsed.netloc}"
     if parsed.path == f"/machine/{code}" and not parsed.query:
         return MachineApprovalCoordinates(uri, origin, code)
@@ -41,7 +46,9 @@ def machine_approval_coordinates(uri: str, user_code: str) -> MachineApprovalCoo
         except ValueError:
             raise ValueError("machine approval query is malformed") from None
         if query != [("user_code", code)]:
-            raise ValueError("machine approval URL must contain only the displayed user_code")
+            raise ValueError(
+                "machine approval URL must contain only the displayed user_code"
+            )
     complete = urlunsplit(
         (parsed.scheme, parsed.netloc, parsed.path, urlencode({"user_code": code}), "")
     )

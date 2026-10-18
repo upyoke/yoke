@@ -10,6 +10,9 @@ from __future__ import annotations
 
 from unittest import mock
 
+import pytest
+from contextlib import nullcontext
+
 # Import the module-local fixtures before the route module so they build
 # ``yoke_core.api.main`` in production order without globally registering the
 # helper module's generic fixture names.
@@ -22,12 +25,26 @@ from yoke_core.domain.migration_content_identity import (
 )
 
 
+@pytest.fixture(autouse=True)
+def manual_refresh(monkeypatch):
+    """Control refresh timing independently of requests in probe unit tests."""
+    monkeypatch.setattr(
+        "yoke_core.api.health_refresh.health_refresh_lifespan", nullcontext
+    )
+
+
+def refreshed_health(client):
+    items_health.initialize_health_metadata()
+    items_health.refresh_health_snapshot()
+    return client.get("/v1/health")
+
+
 class TestHealthSchemaReady:
     def test_ready_when_probe_finds_all_tables(self, client, test_db):
         with mock.patch.object(
             items_health, "missing_readiness_tables", return_value=[]
         ):
-            resp = client.get("/v1/health")
+            resp = refreshed_health(client)
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
@@ -40,7 +57,7 @@ class TestHealthSchemaReady:
             "missing_readiness_tables",
             return_value=["strategy_docs"],
         ):
-            resp = client.get("/v1/health")
+            resp = refreshed_health(client)
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
@@ -53,7 +70,7 @@ class TestHealthSchemaReady:
             "get_db_readonly",
             side_effect=OSError("connection refused"),
         ):
-            resp = client.get("/v1/health")
+            resp = refreshed_health(client)
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
@@ -63,15 +80,13 @@ class TestHealthSchemaReady:
     def test_fixture_db_probe_runs_live(self, client, test_db):
         """No mocks: the probe's SQL executes against the fixture DB and the
         payload carries both readiness fields."""
-        data = client.get("/v1/health").json()
+        data = refreshed_health(client).json()
         assert isinstance(data["schema_ready"], bool)
         assert isinstance(data["schema_missing_tables"], list)
 
 
 class TestHealthProbeConnectionCost:
-    """Container liveness polls this route every few seconds. Each probe that
-    opens a connection resets a serverless database's idle-pause timer, so a
-    ready process must stop probing."""
+    """HTTP reads reuse the last answer; background refresh owns convergence."""
 
     def test_repeated_calls_open_one_connection_once_ready(self, client, test_db):
         with mock.patch.object(
@@ -82,7 +97,7 @@ class TestHealthProbeConnectionCost:
                 "get_db_readonly",
                 wraps=items_health._main.get_db_readonly,
             ) as get_db:
-                first = client.get("/v1/health").json()
+                first = refreshed_health(client).json()
                 for _ in range(9):
                     client.get("/v1/health")
 
@@ -93,23 +108,23 @@ class TestHealthProbeConnectionCost:
         with mock.patch.object(
             items_health, "missing_readiness_tables", return_value=[]
         ):
-            first = client.get("/v1/health").json()
-            second = client.get("/v1/health").json()
+            first = refreshed_health(client).json()
+            second = refreshed_health(client).json()
 
         assert first["schema_ready"] is second["schema_ready"] is True
         assert first["schema_missing_tables"] == second["schema_missing_tables"] == []
 
     def test_not_ready_process_keeps_probing_until_it_converges(self, client, test_db):
-        """A container that starts ahead of its schema must not cache the
-        negative answer, or it would report not-ready forever."""
+        """Background refresh must replace negative answers after schema
+        convergence without depending on a request."""
         with mock.patch.object(
             items_health,
             "missing_readiness_tables",
             side_effect=[["strategy_docs"], ["strategy_docs"], []],
         ) as probe:
-            assert client.get("/v1/health").json()["schema_ready"] is False
-            assert client.get("/v1/health").json()["schema_ready"] is False
-            assert client.get("/v1/health").json()["schema_ready"] is True
+            assert refreshed_health(client).json()["schema_ready"] is False
+            assert refreshed_health(client).json()["schema_ready"] is False
+            assert refreshed_health(client).json()["schema_ready"] is True
 
         assert probe.call_count == 3
 
@@ -121,8 +136,8 @@ class TestHealthProbeConnectionCost:
             "get_db_readonly",
             side_effect=OSError("connection refused"),
         ) as get_db:
-            assert client.get("/v1/health").json()["schema_ready"] is False
-            assert client.get("/v1/health").json()["schema_ready"] is False
+            assert refreshed_health(client).json()["schema_ready"] is False
+            assert refreshed_health(client).json()["schema_ready"] is False
 
         assert get_db.call_count == 2
 
@@ -141,7 +156,7 @@ class TestHealthVersionHandshake:
             "advertised_engine_version",
             lambda *, build="": "3.2.1",
         )
-        data = client.get("/v1/health").json()
+        data = refreshed_health(client).json()
         assert data["version"] == items_health.API_CONTRACT_VERSION == "v1"
         assert data["engine_version"] == "3.2.1"
 
@@ -158,7 +173,7 @@ class TestHealthVersionHandshake:
             "advertised_engine_version",
             lambda *, build="": "",
         )
-        data = client.get("/v1/health").json()
+        data = refreshed_health(client).json()
         assert data["engine_version"] == ""
         assert data["status"] == "ok"
         assert data["version"] == "v1"
@@ -179,7 +194,7 @@ class TestHealthVersionHandshake:
             "installed_engine_version",
             lambda: ev.UNRESOLVED_SCM_FALLBACK_VERSION,
         )
-        data = client.get("/v1/health").json()
+        data = refreshed_health(client).json()
         assert data["engine_version"] == ""
         assert data["build"] == "abc123def456"
 
@@ -221,7 +236,7 @@ class TestHealthMigrationContentIdentity:
                 return_value=True,
             ),
         ):
-            data = client.get("/v1/health").json()
+            data = refreshed_health(client).json()
 
         assert data["migration_content_matches"] is True
         assert data["migration_content_adoption_required"] == ["0001_existing"]
@@ -235,25 +250,25 @@ class TestHealthMigrationContentIdentity:
             "migration_content_identity_status",
             return_value=self._status(mismatches=(mismatch,)),
         ):
-            data = client.get("/v1/health").json()
+            data = refreshed_health(client).json()
 
         assert data["migration_content_matches"] is False
         assert data["migration_content_adoption_required"] == []
         assert "0001_existing" in data["migration_content_mismatches"][0]
         assert data["can_serve_this_database"] is False
 
-    def test_content_probe_shares_ttl_and_reset_reprobes(self, client, test_db):
+    def test_content_probe_runs_on_refresh_only_and_reset_clears(self, client, test_db):
         with mock.patch.object(
             items_health,
             "migration_content_identity_status",
             return_value=self._status(),
         ) as probe:
-            client.get("/v1/health")
+            refreshed_health(client)
             client.get("/v1/health")
             assert probe.call_count == 1
 
             items_health.reset_schema_readiness_cache()
-            client.get("/v1/health")
+            refreshed_health(client)
 
         assert probe.call_count == 2
 
@@ -263,7 +278,7 @@ class TestHealthMigrationContentIdentity:
             "migration_content_identity_status",
             side_effect=OSError("ledger read failed"),
         ):
-            data = client.get("/v1/health").json()
+            data = refreshed_health(client).json()
 
         assert data["migration_content_matches"] is False
         assert data["can_serve_this_database"] is False
@@ -291,7 +306,7 @@ class TestHealthMigrationContentIdentity:
         finally:
             conn.close()
 
-        data = client.get("/v1/health").json()
+        data = refreshed_health(client).json()
 
         assert data["migration_content_matches"] is True
         assert data["migration_content_evidence_ready"] is False

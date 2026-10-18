@@ -57,8 +57,8 @@ LEVEL_HANDOFF_TEACHING = (
 
 
 COMMITTED_GATE_TEACHING = (
-    "Commit; the verification gate rebases onto the base branch, pushes "
-    "once, and runs CI. Workers do not push the lane by hand."
+    "Commit; the verification gate merges the base into merge-shaped lanes, "
+    "rebases linear lanes, pushes once, and runs CI. Workers do not push the lane by hand."
 )
 
 
@@ -148,16 +148,21 @@ STEERING_REWORK_TEACHING = (
 
 
 DEPENDENCY_WAIT_TEACHING = (
-    "A dependency gate is not yours to poll or to have steering watch. When "
-    "an item you depend on merges or reaches done, the control plane sends "
-    "you one notice naming the blocker, the gate of yours it satisfied, and "
-    "any gates still unmet. Before stopping on an unmet gate, checkpoint and "
-    "park with the blocker named: "
-    '`yoke sessions touch --mode parked --reason "awaiting <BLOCKER> <gate>"`. '
-    "Keep your work claim and lane; do not release or end the session; the notice wakes you as holder. "
-    "When the notice says no gates remain, resume at the live stage; when it "
-    "names gates still unmet, re-park. Do not ask steering to message you "
-    "when a blocker lands."
+    "A dependency gate is not yours to poll or to have steering watch. When an item you "
+    "depend on merges or reaches done, the control plane sends you one notice naming the "
+    "blocker, the gate of yours it satisfied, and any gates still unmet. Before a new wait on "
+    "another item, record its edge: `yoke items dependency add <ITEM> <BLOCKER> <SOURCE> "
+    '--gate-point integration --satisfaction fact:merged --rationale "needs blocker merged"` '
+    "(SOURCE is your active skill). For delivery use closure and fact:deployed:<environment>, "
+    "with the blocker's registered environment. Reuse an existing edge only if it records "
+    "that actual wait. Only after the edge succeeds, checkpoint and park with the blocker "
+    'named: `yoke sessions touch --mode parked --reason "awaiting <BLOCKER> <gate>"`. Keep '
+    "your work claim and lane; do not release or end the session; the notice wakes you as "
+    "holder. When the notice says no gates remain, resume at the live stage; when it names "
+    "gates still unmet, re-park. Do not ask steering to message you when a blocker lands. A "
+    "dependency_cycle refusal names both waits and recovery; resolve the order with steering "
+    "before parking. Your own item's release wait needs no self-edge. See delivery.md under "
+    "agent-rules for the recipe."
 )
 
 

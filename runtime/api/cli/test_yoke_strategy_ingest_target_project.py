@@ -37,7 +37,9 @@ def _stub(result_by_function: dict):
     def _dispatch(request: FunctionCallRequest) -> FunctionCallResponse:
         _CAPTURED_REQUESTS.append(request)
         return FunctionCallResponse(
-            success=True, function=request.function, version=request.version,
+            success=True,
+            function=request.function,
+            version=request.version,
             request_id=request.request_id,
             result=result_by_function.get(request.function, {}),
         )
@@ -46,7 +48,8 @@ def _stub(result_by_function: dict):
 
 
 def test_known_mismatched_checkout_refuses_before_any_dispatch(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
     monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
@@ -58,7 +61,12 @@ def test_known_mismatched_checkout_refuses_before_any_dispatch(
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(
         json.dumps(
-            {"projects": [{"checkout": str(other_checkout), "project_id": 2}]}
+            {
+                "active_env": "local",
+                "connection_projects": {
+                    "local": [{"checkout": str(other_checkout), "project_id": 2}]
+                },
+            }
         ),
         encoding="utf-8",
     )
@@ -68,7 +76,8 @@ def test_known_mismatched_checkout_refuses_before_any_dispatch(
     docs_dir = other_checkout / ".yoke" / "strategy"
     docs_dir.mkdir(parents=True)
     (docs_dir / "MISSION.md").write_text(
-        "<!-- h -->\n# Wrong-project content\n", encoding="utf-8",
+        "<!-- h -->\n# Wrong-project content\n",
+        encoding="utf-8",
     )
 
     results = {"strategy.doc.list": {"project_id": 1, "project_slug": "yoke"}}
@@ -80,10 +89,15 @@ def test_known_mismatched_checkout_refuses_before_any_dispatch(
         ):
             with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
                 with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-                    rc = cli_main([
-                        "strategy", "ingest", "MISSION",
-                        "--target-root", str(other_checkout),
-                    ])
+                    rc = cli_main(
+                        [
+                            "strategy",
+                            "ingest",
+                            "MISSION",
+                            "--target-root",
+                            str(other_checkout),
+                        ]
+                    )
 
     assert rc == 2
     # Only the identity read happened — zero strategy.ingest.run calls,

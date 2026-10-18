@@ -101,6 +101,7 @@ from yoke_core.engines.doctor_hc_session_relay_orphans import (
     TITLE as RELAY_ORPHANS_TITLE,
     hc_session_relay_orphans,
 )
+from yoke_core.engines.doctor_hc_harness_setup import hc_harness_setup
 from yoke_core.engines.doctor_registry_types import HealthCheck
 from yoke_core.engines.doctor_install import INSTALL_HEALTH_CHECKS
 from yoke_core.engines.doctor_session import SESSION_HEALTH_CHECKS
@@ -164,6 +165,9 @@ HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
         UNATTENDED_POSTURE_SLUG,
         UNATTENDED_POSTURE_TITLE,
         hc_harness_unattended_posture,
+    ),
+    HealthCheck(
+        "harness-setup", "Registered checkout and lane harness setup", hc_harness_setup
     ),
     HealthCheck(HOOK_RESIDENT_SLUG, HOOK_RESIDENT_TITLE, hc_hook_resident),
     HealthCheck(

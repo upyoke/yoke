@@ -6,24 +6,34 @@ import pytest
 from subprocess import CompletedProcess
 
 from yoke_contracts.machine_approval_coordinates import machine_approval_coordinates
+from yoke_contracts.machine_authorization import MATCH_CODE_ALPHABET, MATCH_CODE_LENGTH
 from yoke_harness import ssh_linux_browser_approval as chromium
 from yoke_harness import ssh_mac_browser_approval as safari
 from yoke_harness.machine_browser_approval import approval_tab_urls, approval_url
 
 
 @pytest.mark.parametrize("path", ["/connect", "/machine"])
-def test_base_and_complete_uris_resolve_to_the_same_exact_request(path):
+@pytest.mark.parametrize("code", ["K7F2", MATCH_CODE_ALPHABET[:MATCH_CODE_LENGTH]])
+def test_base_and_complete_uris_resolve_to_the_same_exact_request(path, code):
     base = "https://example.invalid" + path
-    complete = base + "?user_code=AB12-CD34"
-    assert machine_approval_coordinates(
-        base, "AB12-CD34"
-    ) == machine_approval_coordinates(complete, "AB12-CD34")
-    assert approval_url(complete, "AB12-CD34") == (complete, "https://example.invalid")
+    complete = base + "?user_code=" + code
+    assert machine_approval_coordinates(base, code) == machine_approval_coordinates(
+        complete, code
+    )
+    assert approval_url(complete, code) == (complete, "https://example.invalid")
+
+
+@pytest.mark.parametrize(
+    "code", ["A123", "AB2", "AB234", "AB23-CD45", "AB123-CD456", "ABIO"]
+)
+def test_invalid_code_shapes_are_refused(code):
+    with pytest.raises(ValueError, match="invalid shape"):
+        machine_approval_coordinates("https://example.invalid/connect", code)
 
 
 def test_self_hosted_code_path_is_preserved_for_the_wizard_opened_tab():
-    complete = "https://example.invalid/machine/AB12-CD34"
-    assert approval_url(complete, "AB12-CD34")[0] == complete
+    complete = "https://example.invalid/machine/K7F2"
+    assert approval_url(complete, "K7F2")[0] == complete
 
 
 @pytest.mark.parametrize(
@@ -33,26 +43,26 @@ def test_self_hosted_code_path_is_preserved_for_the_wizard_opened_tab():
         "https://user:password@example.invalid/connect",
         "https://example.invalid/anything",
         "https://example.invalid/connect#fragment",
-        "https://example.invalid/connect?user_code=EF56-GH78",
-        "https://example.invalid/connect?user_code=AB12-CD34&user_code=AB12-CD34",
-        "https://example.invalid/connect?other=AB12-CD34",
-        "https://example.invalid/connect?user_code=AB12-CD34&other=value",
+        "https://example.invalid/connect?user_code=M8G3",
+        "https://example.invalid/connect?user_code=K7F2&user_code=K7F2",
+        "https://example.invalid/connect?other=K7F2",
+        "https://example.invalid/connect?user_code=K7F2&other=value",
         "https://example.invalid/connect?user_code",
-        "https://example.invalid/machine/EF56-GH78",
+        "https://example.invalid/machine/M8G3",
     ],
 )
 def test_unrelated_or_ambiguous_coordinates_cannot_be_approved(uri):
     with pytest.raises(ValueError):
-        machine_approval_coordinates(uri, "AB12-CD34")
+        machine_approval_coordinates(uri, "K7F2")
 
 
-ENTRY = "https://example.invalid/connect?user_code=AB12-CD34"
-REDIRECT = "https://example.invalid/orgs/example/machine-approval/AB12-CD34"
+ENTRY = "https://example.invalid/connect?user_code=K7F2"
+REDIRECT = "https://example.invalid/orgs/example/machine-approval/K7F2"
 DESTINATION = "https://example.invalid/orgs/example/strategy?status=approved"
 
 
 def test_redirect_keeps_the_exact_origin_code_and_single_organization_segment():
-    assert approval_tab_urls(ENTRY, "AB12-CD34", [REDIRECT, REDIRECT]) == [
+    assert approval_tab_urls(ENTRY, "K7F2", [REDIRECT, REDIRECT]) == [
         ENTRY,
         REDIRECT,
     ]
@@ -61,27 +71,27 @@ def test_redirect_keeps_the_exact_origin_code_and_single_organization_segment():
 @pytest.mark.parametrize(
     "url",
     [
-        "https://other.invalid/orgs/example/machine-approval/AB12-CD34",
-        "http://example.invalid/orgs/example/machine-approval/AB12-CD34",
-        "https://user@example.invalid/orgs/example/machine-approval/AB12-CD34",
-        "https://example.invalid/orgs/example/machine-approval/EF56-GH78",
-        "https://example.invalid/orgs//machine-approval/AB12-CD34",
-        "https://example.invalid/orgs/../machine-approval/AB12-CD34",
-        "https://example.invalid/orgs/%2e%2e/machine-approval/AB12-CD34",
-        "https://example.invalid/orgs/example/other/machine-approval/AB12-CD34",
+        "https://other.invalid/orgs/example/machine-approval/K7F2",
+        "http://example.invalid/orgs/example/machine-approval/K7F2",
+        "https://user@example.invalid/orgs/example/machine-approval/K7F2",
+        "https://example.invalid/orgs/example/machine-approval/M8G3",
+        "https://example.invalid/orgs//machine-approval/K7F2",
+        "https://example.invalid/orgs/../machine-approval/K7F2",
+        "https://example.invalid/orgs/%2e%2e/machine-approval/K7F2",
+        "https://example.invalid/orgs/example/other/machine-approval/K7F2",
         REDIRECT + "/",
-        REDIRECT + "?user_code=AB12-CD34",
+        REDIRECT + "?user_code=K7F2",
         REDIRECT + "#fragment",
         "https://[invalid",
     ],
 )
 def test_redirect_tab_rejects_ambiguous_or_unrelated_requests(url):
-    assert approval_tab_urls(ENTRY, "AB12-CD34", [url]) == [ENTRY]
+    assert approval_tab_urls(ENTRY, "K7F2", [url]) == [ENTRY]
 
 
 def test_machine_entry_does_not_authorize_the_hosted_redirect_route():
-    entry = "https://example.invalid/machine/AB12-CD34"
-    assert approval_tab_urls(entry, "AB12-CD34", [REDIRECT]) == [entry]
+    entry = "https://example.invalid/machine/K7F2"
+    assert approval_tab_urls(entry, "K7F2", [REDIRECT]) == [entry]
 
 
 def _safari(monkeypatch, *, response, observed):
@@ -101,7 +111,7 @@ def _safari(monkeypatch, *, response, observed):
     outcome = safari.approve_machine_in_safari(
         lambda *_args, **_kwargs: None,
         verification_url=ENTRY,
-        user_code="AB12-CD34",
+        user_code="K7F2",
     )
     return outcome, scripts
 
@@ -124,7 +134,7 @@ def _chromium(monkeypatch, *, response, observed):
 
     monkeypatch.setattr(chromium, "_host", host)
     outcome = chromium.approve_machine_in_desktop_chromium(
-        object(), verification_url=ENTRY, user_code="AB12-CD34"
+        object(), verification_url=ENTRY, user_code="K7F2"
     )
     return outcome, calls
 
@@ -195,7 +205,7 @@ def test_chromium_presses_only_in_the_allowed_tabs(monkeypatch):
         f"approved|{REDIRECT}|{REDIRECT}",
         f"approved|{ENTRY}|{ENTRY}",
         f"approved|https://other.invalid/connect|{DESTINATION}",
-        f"approved|{REDIRECT.replace('AB12-CD34', 'EF56-GH78')}|{DESTINATION}",
+        f"approved|{REDIRECT.replace('K7F2', 'M8G3')}|{DESTINATION}",
         f"approved|{DESTINATION}",
         "browser_tab_changed",
     ],
@@ -233,9 +243,9 @@ def test_clicked_approval_still_rejects_foreign_or_refused_destinations(
 @pytest.mark.parametrize(
     ("verification_url", "user_code"),
     (
-        ("http://example.invalid/connect", "AB12-CD34"),
-        ("https://example.invalid/anything", "AB12-CD34"),
-        ("https://example.invalid/connect?other=1", "AB12-CD34"),
+        ("http://example.invalid/connect", "K7F2"),
+        ("https://example.invalid/anything", "K7F2"),
+        ("https://example.invalid/connect?other=1", "K7F2"),
         ("https://example.invalid/connect", "bad-code"),
     ),
 )

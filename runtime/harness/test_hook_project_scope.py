@@ -1,4 +1,4 @@
-"""Project membership remains independent of a machine connection."""
+"""Project membership is resolved on the selected machine connection."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from yoke_core.hooks import codex_payload, target
 def project_map(tmp_path, monkeypatch):
     config_file = tmp_path / "config.json"
     config_file.write_text("{}")
-    config = {"projects": []}
+    config = {"active_env": "local", "connection_projects": {"local": []}}
     monkeypatch.setattr(
         project_scope.machine_config, "config_path", lambda: config_file
     )
@@ -45,7 +45,9 @@ def test_registered_folder_and_subdirectory_share_membership(tmp_path, project_m
     root = tmp_path / "folder"
     child = root / "child"
     child.mkdir(parents=True)
-    project_map["projects"] = [{"checkout": str(root), "project_id": 7}]
+    project_map["connection_projects"]["local"] = [
+        {"checkout": str(root), "project_id": 7}
+    ]
     assert project_scope.project_id_for_root(root) == 7
     assert project_scope.project_id_for_root(child) == 7
     assert target.is_yoke_target(str(child), "") is True
@@ -69,7 +71,9 @@ def test_git_worktree_is_managed_but_nested_independent_repo_is_not(
         "-m",
         "initialize",
     )
-    project_map["projects"] = [{"checkout": str(root), "project_id": 7}]
+    project_map["connection_projects"]["local"] = [
+        {"checkout": str(root), "project_id": 7}
+    ]
     lane = tmp_path / "lane"
     _git(root, "worktree", "add", "-b", "feature", str(lane))
     child = lane / "child"
@@ -102,7 +106,9 @@ def test_lane_and_main_checkout_share_membership_with_one_git_lookup(
     )
     lane = tmp_path / "lane"
     _git(root, "worktree", "add", "-b", "feature", str(lane))
-    project_map["projects"] = [{"checkout": str(root), "project_id": 7}]
+    project_map["connection_projects"]["local"] = [
+        {"checkout": str(root), "project_id": 7}
+    ]
     lookups: list[list[str]] = []
     real_run = checkout.subprocess.run
 
@@ -125,7 +131,9 @@ def test_lane_and_main_checkout_share_membership_with_one_git_lookup(
 def test_harness_workspace_facts_share_the_project_resolver(tmp_path, project_map, key):
     root = tmp_path / "managed"
     root.mkdir()
-    project_map["projects"] = [{"checkout": str(root), "project_id": 7}]
+    project_map["connection_projects"]["local"] = [
+        {"checkout": str(root), "project_id": 7}
+    ]
     value = [str(root)] if key == "workspace_roots" else str(root)
     assert project_scope.project_id_for_payload({key: value}) == 7
 
@@ -135,7 +143,9 @@ def test_actual_command_workdir_wins_over_managed_session(tmp_path, project_map)
     unrelated = tmp_path / "other"
     managed.mkdir()
     unrelated.mkdir()
-    project_map["projects"] = [{"checkout": str(managed), "project_id": 7}]
+    project_map["connection_projects"]["local"] = [
+        {"checkout": str(managed), "project_id": 7}
+    ]
     payload = {"cwd": str(managed), "tool_input": {"workdir": str(unrelated)}}
     assert project_scope.project_id_for_payload(payload) is None
     assert project_scope.project_id_for_payload(payload) is None

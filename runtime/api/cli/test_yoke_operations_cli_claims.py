@@ -7,7 +7,6 @@ fan-out depends on. Item-form dispatch lives in
 from __future__ import annotations
 
 import io
-import json
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
@@ -16,6 +15,7 @@ import pytest
 from runtime.api.engines._doctor_native_sql_test_helpers import (
     connect_disposable_test_db,
 )
+from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from yoke_cli.main import main as cli_main
 from yoke_contracts.machine_config import paths
 from yoke_contracts.api.function_call import (
@@ -48,11 +48,8 @@ def _stub_ok(request: FunctionCallRequest) -> FunctionCallResponse:
 @pytest.fixture(autouse=True)
 def _reset_captured(tmp_path, monkeypatch) -> None:
     _CAPTURED.clear()
-    config = tmp_path / "config.json"
-    config.write_text(
-        json.dumps({"projects": [{"project_id": 1, "checkout": str(tmp_path)}]})
-    )
-    monkeypatch.delenv(paths.HOME_ENV, raising=False)
+    config = register_machine_checkout(tmp_path / "machine", tmp_path, 1)
+    monkeypatch.setenv(paths.HOME_ENV, str(config.parent))
     monkeypatch.setenv(paths.CONFIG_FILE_ENV, str(config))
     monkeypatch.chdir(tmp_path)
 

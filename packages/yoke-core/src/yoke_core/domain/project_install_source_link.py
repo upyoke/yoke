@@ -21,7 +21,7 @@ path keep them byte-identical to their canonical runtime files.
    runs, unioning Yoke's command approvals and control-plane network
    origins into ``.cursor/cli.json`` and ``.cursor/sandbox.json``
    without disturbing operator entries.
-3. Git hooks — the pre-commit + post-commit shims via
+3. Git hooks — every managed shim (``GIT_HOOK_NAMES``) via
    :mod:`project_install_git_hooks` (same refuse/refresh/create
    semantics as copy mode; linked worktrees skip gracefully).
 4. Contract seeding — the same seed-if-missing pass copy-mode uses

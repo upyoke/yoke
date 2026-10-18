@@ -147,7 +147,10 @@ actor, rationale and filed refs. Events remain disposable telemetry. This
 extends the existing adjudication audit instead
 of introducing a new table or approval framework. It does not manufacture a
 pass or change the failed report. A newer actual attempt invalidates that
-discharge, and summaries expose triage separately from pass and waiver.
+discharge. Verification, done and gate summary use the shared requirement
+settlement predicate: a current triage discharge settles the simulation
+without a passing run or waiver. Summaries expose triage separately from pass
+and waiver; a failed simulation without that discharge still blocks done.
 The authenticated PROCEED owner requires the acting session's epic claim.
 Its item-owned receipt retains the claim, actor, exact raw report, digest,
 and capture start and completion instants. Both SQL and Python invalidate it

@@ -31,7 +31,6 @@ from yoke_cli.project_install.files import (
 )
 from yoke_cli.project_install.preflight import preflight_apply
 from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
-from yoke_contracts.global_skill_install import ensure_global_skill
 from yoke_cli.project_install import hook_trust_report
 from yoke_cli.project_install.validate import _validate_bundle
 
@@ -267,16 +266,7 @@ def apply_bundle(
     )
     manifest_file = files_layer.write_manifest(repo_root, manifest)
     install_recovery.finish(repo_root, hashes, clear_pending=not retain_pending)
-    # Install and refresh converge the same machine-wide hooks setup writes.
-    from yoke_harness.hooks.machine_hooks import ensure_machine_hooks_reported
-
-    machine_hooks, machine_hook_failures = ensure_machine_hooks_reported()
-    warnings.extend(machine_hook_failures)
-    global_skill = ensure_global_skill()
-    if global_skill.refused:
-        warnings.append(global_skill.warning)
     return {
-        "global_skill": global_skill.to_json(),
         "operation": operation,
         MODE_KEY: MODE_COPY,
         "repo_root": str(repo_root),
@@ -314,7 +304,6 @@ def apply_bundle(
         "hooks_added": hooks_added,
         "hooks_removed": hooks_removed,
         hook_trust_report.REPORT_KEY: hook_trust,
-        "machine_hooks": machine_hooks,
         "git_hooks_installed_or_updated": (git_hooks.installed + git_hooks.updated),
         "git_hook_actions": git_hooks.actions,
         "worktrees_ignore": worktrees_ignore,

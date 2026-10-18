@@ -32,6 +32,7 @@ _ENGINE_CONFIG_SLUGS = (
     "session-relay",
     "session-relay-orphans",
     "harness-unattended-posture",
+    "harness-setup",
     "hook-resident",
     "project-hook-config-validity",
     "machine-hooks",
@@ -119,6 +120,7 @@ def test_bundle_holds_session_then_audit_checks_in_order():
         + list(_ENGINE_LEDGER_AUDIT_SLUGS)
         + list(_ENGINE_REFLECTION_SLUGS)
         + [
+            "connections",
             "harness-cli-auth",
             "dashboard-current-build",
             "session-hook-registration",

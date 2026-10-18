@@ -40,7 +40,7 @@ DELETED = "deleted"
 ABSENT = "absent"
 MALFORMED = "machine_hooks_config_malformed"
 TRUST_FAILED = "machine_hooks_trust_failed"
-MACHINE_HOOKS_NOT_WRITTEN = "machine_hooks_not_written"
+
 
 def not_installed(spec: HarnessMachineHooks) -> str:
     return f"{spec.harness_id.removesuffix('-code')}_not_installed"
@@ -103,7 +103,9 @@ def _without_machine_entries(
 ) -> dict[str, list]:
     kept: dict[str, list] = {}
     for event, entries in hooks.items():
-        remaining = [entry for entry in entries if not is_machine_hook_entry(entry, spec)]
+        remaining = [
+            entry for entry in entries if not is_machine_hook_entry(entry, spec)
+        ]
         if remaining or not entries:
             kept[event] = remaining
     return kept
@@ -140,7 +142,9 @@ def _text(document: Mapping[str, Any]) -> str:
 
 
 def _write(path: Path, text: str) -> None:
-    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.yoke-", dir=path.parent)
+    descriptor, temporary = tempfile.mkstemp(
+        prefix=f".{path.name}.yoke-", dir=path.parent
+    )
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             handle.write(text)
@@ -156,7 +160,9 @@ def owned_command_check(spec: HarnessMachineHooks):
     return lambda command: is_machine_hook_entry({"command": command}, spec)
 
 
-def _trust(spec: HarnessMachineHooks, environ: Optional[Mapping[str, str]], *, prune: bool) -> str:
+def _trust(
+    spec: HarnessMachineHooks, environ: Optional[Mapping[str, str]], *, prune: bool
+) -> str:
     """Bring Codex trust in line with the user file; return a failure detail."""
     if spec.trust != "codex_trusted_hash":
         return ""
@@ -172,7 +178,9 @@ def _trust(spec: HarnessMachineHooks, environ: Optional[Mapping[str, str]], *, p
         if prune:
             prune_user_hook_trust(hooks_path, config_path)
         else:
-            mint_user_hook_trust(hooks_path, config_path, is_owned=owned_command_check(spec))
+            mint_user_hook_trust(
+                hooks_path, config_path, is_owned=owned_command_check(spec)
+            )
     except CodexHookTrustStoreError as exc:
         return (
             f"Codex hook trust was not written: {exc}. Recovery: fix "
@@ -214,24 +222,6 @@ def ensure_machine_hooks(
     return [ensure_harness(spec, environ) for spec in specs_for(harnesses)]
 
 
-def ensure_machine_hooks_reported(
-    harnesses: Optional[Iterable[str]] = None,
-) -> tuple[list[str], list[str]]:
-    """Install for setup and project install: ``(result lines, failures)``.
-
-    Never raises: a refusal becomes a named failure line with its recovery.
-    """
-    try:
-        results = ensure_machine_hooks(harnesses)
-    except Exception as exc:  # noqa: BLE001 — reported, never fatal
-        message = (
-            f"{MACHINE_HOOKS_NOT_WRITTEN}: {exc}. Recovery: fix the named file, "
-            "then run `yoke setup` again"
-        )
-        return [message], [message]
-    return [r.line() for r in results], [r.line() for r in results if r.failed]
-
-
 def ensure_machine_hooks_for_executor(executor: str, *, hook: str) -> None:
     """Per-hook self-heal: never blocks the hook, names any refusal."""
     try:
@@ -264,7 +254,10 @@ def remove_machine_hooks(
         if document is None:
             results.append(
                 MachineHookResult(
-                    spec.harness_id, str(path), MALFORMED, malformed_detail(path, reason)
+                    spec.harness_id,
+                    str(path),
+                    MALFORMED,
+                    malformed_detail(path, reason),
                 )
             )
             continue
@@ -273,7 +266,11 @@ def remove_machine_hooks(
         if kept == hooks:
             results.append(MachineHookResult(spec.harness_id, str(path), ABSENT))
             continue
-        remaining = {key: value for key, value in document.items() if key not in ("hooks", "version")}
+        remaining = {
+            key: value
+            for key, value in document.items()
+            if key not in ("hooks", "version")
+        }
         if not any(kept.values()) and not remaining:
             path.unlink()
             outcome = DELETED
@@ -283,7 +280,10 @@ def remove_machine_hooks(
         failure = _trust(spec, environ, prune=True)
         results.append(
             MachineHookResult(
-                spec.harness_id, str(path), TRUST_FAILED if failure else outcome, failure
+                spec.harness_id,
+                str(path),
+                TRUST_FAILED if failure else outcome,
+                failure,
             )
         )
     return results
@@ -295,7 +295,6 @@ __all__ = [
     "ensure_harness",
     "ensure_machine_hooks",
     "ensure_machine_hooks_for_executor",
-    "ensure_machine_hooks_reported",
     "is_current",
     "load_user_config",
     "malformed_detail",

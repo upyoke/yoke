@@ -17,7 +17,6 @@ from yoke_cli.project_install.files import (
     MODE_SOURCE_LINK,
     ProjectInstallError,
 )
-from yoke_contracts.global_skill_install import ensure_global_skill
 from yoke_contracts.install_binding import (
     is_yoke_source_checkout as _contract_is_yoke_source_checkout,
 )
@@ -59,16 +58,6 @@ def install_source_link(
             "Yoke source checkout."
         ) from exc
     report = module.install_source_link(repo_root, operation=operation)
-    # The same machine-wide hooks copy-mode install converges.
-    from yoke_harness.hooks.machine_hooks import ensure_machine_hooks_reported
-
-    report["machine_hooks"], failures = ensure_machine_hooks_reported()
-    global_skill = ensure_global_skill()
-    report["global_skill"] = global_skill.to_json()
-    if global_skill.refused:
-        failures = [*failures, global_skill.warning]
-    if failures:
-        report.setdefault("warnings", []).extend(failures)
     return report
 
 

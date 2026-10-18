@@ -160,7 +160,7 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
             "hooks run instead; keeps your other hooks)"
         )
     if action == "project-install-git-hooks":
-        return "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)"
+        return "Install Git hooks that guard commits and track your current commit"
     if action == "project-write-board-art":
         return "Add a progress map and three art headers, rebuild BOARD.md, and commit the art"
     if action == onboard_publication.PLAN_ACTION:

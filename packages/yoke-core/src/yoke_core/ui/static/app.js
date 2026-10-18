@@ -120,6 +120,8 @@ export function mountUniverseApp(rootNode, options = {}) {
     capabilities, screenPreferences: scopeSelections,
   };
   const disposeShippingRead = prefetchShippingOverview(context, windowNode, navigation);
+  const initialRoute = parseUniverseRoute(navigation.current(), navigation.basePath);
+  if (initialRoute.view === "shipping" && !initialRoute.detail) VIEW_RENDERERS.shipping.preload();
   const {
     brand, disposeChrome, header, main, navLinks, orgContext, scopeHost,
     setScopeVisible, shell,
@@ -138,7 +140,6 @@ export function mountUniverseApp(rootNode, options = {}) {
   const disposeBuildUpdate = mountBuildUpdate(main, windowNode, options);
   const disposeTelemetry = mountWorkbenchTelemetry(windowNode, options);
   main.replaceChildren(routeLoadingLine(documentNode));
-
   // The mark uses currentColor, so it must live in the DOM (an <img src>
   // would not inherit color); the brand container's ink flips in dark mode.
   loadWordmark(brand, WORDMARK_ASSET_URL, () => mounted);

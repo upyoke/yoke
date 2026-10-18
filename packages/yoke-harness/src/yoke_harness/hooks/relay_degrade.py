@@ -20,6 +20,10 @@ from yoke_contracts.hook_context_compose import (
 
 from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
 from yoke_contracts.hook_runner.cursor_response import cursor_allow_stdout
+from yoke_contracts.hook_runner.safety import (
+    failure_message,
+    allow_stdout,
+)
 
 from yoke_harness.hooks.identity import detect_executor, is_cursor
 from yoke_harness.hooks.relay_identity_guard import print_execution_provenance
@@ -62,19 +66,26 @@ def _cursor_degradation_stdout(
     return json.dumps({"additional_context": body})
 
 
-def degrade_to_noop(event_name: str, detail: str, *, preserved_stdout: str = "") -> int:
+def degrade_to_noop(
+    event_name: str,
+    detail: str,
+    *,
+    preserved_stdout: str = "",
+    payload: dict | None = None,
+) -> int:
     """Fail open for hook transport/local harness failures."""
     sys.stderr.write(
         format_hook_diagnostic(
             event_name,
             (
-                f"WARNING: {DEGRADED_MARKER}: yoke hook evaluate {event_name}: "
-                "https transport degraded "
-                f"to no-op allow ({detail}); restore the connection, then retry.\n"
+                f"WARNING: {failure_message(event_name, payload or {}, f'{DEGRADED_MARKER}: https transport degraded to no-op allow ({detail})')}\n"
             ),
         )
     )
     print_execution_provenance(fallback_local=True)
+    if event_name in {"Stop", "SessionEnd"}:
+        sys.stdout.write(allow_stdout(detect_executor()))
+        return 0
     visible_stdout = _cursor_degradation_stdout(
         event_name,
         detail,

@@ -28,12 +28,13 @@ def apply(
     onboard_machine_setup.setup_directories(config_path, reuse=reuse, progress=progress)
     onboard_machine_setup.setup_wsl(report, error_cls=error_cls)
     onboard_machine_setup.setup_browser(progress, report, error_cls=error_cls)
-    if harness_posture:
-        step = (harness_unattended_posture.POSTURE_PLAN_ACTION, "detected")
-        onboard_apply_progress.emit(progress, *step, "running")
-        report["harness_unattended_posture"] = harness_posture_install.apply_reported()
-        onboard_apply_progress.emit(progress, *step, "done")
-    harness_posture_install.apply_machine_hooks(progress, report)
+    step = (harness_unattended_posture.POSTURE_PLAN_ACTION, "detected")
+    onboard_apply_progress.emit(progress, *step, "running")
+    setup = harness_posture_install.apply_reported(
+        include_posture=harness_posture, progress=progress
+    )
+    report["harness_setup"] = setup.payload()
+    onboard_apply_progress.emit(progress, *step, "failed" if setup.failed else "done")
     onboard_session_relay.apply(
         progress,
         report,

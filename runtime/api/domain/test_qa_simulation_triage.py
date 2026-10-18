@@ -12,6 +12,9 @@ from runtime.api.fixtures.session_holdings import insert_item_claim
 from yoke_core.domain import actors
 from yoke_core.domain.events_acting_identity import acting_event_identity
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+from yoke_core.domain.qa_gate_definitions import GateTarget
+from yoke_core.domain.qa_gate_summary import render_gate_summary
+from yoke_core.domain.qa_gates import check_done_gate, check_verification_gate
 from yoke_core.domain.qa_simulation_gate import check_epic_simulation_gate
 from yoke_core.domain.qa_simulation_triage import (
     current_simulation_triage,
@@ -204,3 +207,46 @@ def test_discharge_survives_missing_telemetry():
             f"SELECT {settled_obligation_sql(conn, 'q')} FROM qa_requirements q WHERE id=%s",
             (requirement_id,),
         ).fetchone()[0]
+
+
+@pytest.mark.parametrize("discharged", [False, True])
+def test_done_verification_and_summary_agree_on_simulation_triage(discharged):
+    with test_database() as conn:
+        item_id, requirement_id, attempt, ref, actor = _seed(conn)
+        if discharged:
+            with acting_event_identity(session_id="simulation-owner", actor_id=actor):
+                _record(conn, item_id, [ref])
+        target = GateTarget(item_id=item_id)
+        db_path = str(conn.info.dsn)
+        assert check_done_gate(target, db_path).passed is discharged
+        assert check_verification_gate(target, db_path).passed is discharged
+        for transition in ("implemented", "reviewed-implementation"):
+            summary = render_gate_summary(target, db_path, transition_name=transition)
+            assert summary["satisfied"] is discharged
+            assert summary["blocking_unsatisfied_count"] == (0 if discharged else 1)
+            assert bool(summary["requirements"][0]["triage_discharge"]) is discharged
+        retained = conn.execute(
+            "SELECT verdict FROM qa_runs WHERE id=%s", (attempt["id"],)
+        ).fetchone()
+        assert retained["verdict"] == "fail"
+        assert (
+            conn.execute(
+                "SELECT waived_at FROM qa_requirements WHERE id=%s", (requirement_id,)
+            ).fetchone()["waived_at"]
+            is None
+        )
+        if discharged:
+            insert_qa_run(
+                conn,
+                qa_requirement_id=requirement_id,
+                qa_kind="simulation",
+                verdict="fail",
+                started_at="2026-10-01T00:00:02Z",
+                completed_at="2026-10-01T00:00:03Z",
+                raw_result="{}",
+            )
+            conn.commit()
+            assert not check_done_gate(target, db_path).passed
+            assert not render_gate_summary(
+                target, db_path, transition_name="implemented"
+            )["satisfied"]

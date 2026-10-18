@@ -38,6 +38,7 @@ from yoke_cli.commands._helpers import (
     ensure_handlers_loaded,
     parse_or_usage_error,
 )
+from yoke_cli.commands.adapters.doctor_install import connection_failure
 from yoke_cli.commands.adapters.doctor_output import (
     emit_doctor_response,
     stream_progress_to_stderr,
@@ -150,6 +151,11 @@ def doctor_run(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, DOCTOR_RUN_USAGE)
     if parsed is None:
         return 2
+    failure = connection_failure()
+    if failure is not None:
+        return emit_doctor_response(
+            failure, json_mode=parsed.json_mode, report_file=parsed.file
+        )
     try:
         project = required_project_context(parsed.project)
     except MissingProjectError as exc:

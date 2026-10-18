@@ -6,7 +6,9 @@ After install, `yoke` is on PATH and runs the installed product. A source-checko
 installation has its own launcher binding; changing directories does not select
 a linked worktree's build. For pre-merge source development, use
 `yoke dev run -- <command>` to resolve the claimed checkout and verify its
-locked environment before running candidate code.
+locked environment before running candidate code. Source runs use a disposable
+machine-home snapshot before import probes; `--allow-real-machine-home` explicitly
+permits real machine-home writes. Installed commands keep their normal home.
 
 Common operators:
 
@@ -118,20 +120,35 @@ child processes inherit that environment. An explicit launcher environment
 may select a shared config; set its machine home consistently. An isolated
 worker never uses a steering machine's config-file override implicitly.
 
-The `projects` list stores one checkout per project on this machine:
+`connection_projects` stores one checkout per project on each named connection:
 
 ```json
-{"projects": [{"checkout": "/work/my-project", "project_id": 7}]}
+{"active_env": "hosted", "connection_projects": {
+  "hosted": [{"checkout": "/work/hosted-project", "project_id": 7}],
+  "self-hosted": [{"checkout": "/work/private-project", "project_id": 7}]
+}}
 ```
 
-Register it once with `yoke project register /work/my-project --project-id 7`.
-Checkout lookup does not depend on `--env`, `YOKE_ENV`, or `active_env`;
-Every configured connection uses the same entry.
-Removing a connection keeps project checkouts. Moving an occupied project's
+Register with `yoke --env hosted project register /work/hosted-project --project-id 7`.
+Checkout lookup follows `--env`, then `YOKE_ENV`, then `active_env`.
+Numeric project IDs belong to that connection's universe; the same ID on another
+connection has its own checkout. A paired HTTPS connection and its database-admin
+connection share the HTTPS connection's map. An unmapped checkout reports the
+registration command for the selected connection; it never borrows another map.
+Removing a connection keeps checkout records. Moving an occupied project's
 checkout requires `--reassign` from a session holding that project's live
-steering seat; the CLI confirms it with `yoke claims steering verify`.
-The config supports only this list shape and these two entry fields.
+steering seat on the selected connection; the CLI checks that authority.
 
+Reading config never rewrites it. On the first explicit `project register`, an
+older flat `projects` list imports once under the configured `active_env`, even
+when the command selects another connection. Set that default to the connection
+that owns those old IDs before registering. The retained flat list is an inert
+snapshot for an already installed older reader; new routing never falls back to
+it, and later registrations update only `connection_projects`.
+
+Unknown keys warn once per file/key as `machine_config_key_unknown` and are ignored.
+Remove the key or use a release that supports it. Invalid known values still refuse;
+extra settings do not disable commands or harness hooks.
 
 The installer records `settings.distribution` as `{"origin": "https://api.upyoke.com",
 "channel": "stable"}` using the actual install selection. `yoke update` requires

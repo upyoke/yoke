@@ -3,8 +3,9 @@
 ``yoke init --local`` births (or verifies) the embedded local universe and
 records it in machine config: a ``local`` connection entry (transport
 ``local-postgres``, DSN stored as a Yoke-owned machine secret file) plus
-``active_env=local``. The engine half — binaries, cluster, schema
-bootstrap, org card, human actor — is owned by
+``active_env=local`` only when no connection is active or activation is requested.
+The engine half — binaries, cluster, schema bootstrap, org card, human actor —
+is owned by
 ``yoke_core.domain.local_universe``; this module only orchestrates it and
 writes machine-local config. ``yoke universe export`` rides the same lane:
 the dump mechanics and DSN-possession authority check are owned by
@@ -19,24 +20,24 @@ this module, never ambient.
 from __future__ import annotations
 
 import importlib
+from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from yoke_cli.config import machine_config
 from yoke_cli.config import machine_config_file
-from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.config import writer
+from yoke_cli.config.local_universe_connection import (
+    LOCAL_ENV,
+    LocalUniverseSetupError,
+    ensure_local_connection,
+    stored_dsn,
+)
 from yoke_contracts.control_plane_locality import RemoteControlPlaneConnectionError
 from yoke_contracts.machine_config import schema as contract
 
-#: The machine-config env label local mode owns.
-LOCAL_ENV = "local"
 LOCAL_UNIVERSE_CREATE = "create"
 LOCAL_UNIVERSE_VERIFY = "verify"
 LOCAL_UNIVERSE_UNAVAILABLE = "unavailable"
-
-
-class LocalUniverseSetupError(RuntimeError):
-    """The local universe could not be initialized, exported, or recorded."""
 
 
 #: What every client-side engine seam says when the engine half of the
@@ -74,6 +75,7 @@ def run_local_init(
     org_name: Optional[str] = None,
     admin_name: Optional[str] = None,
     force: bool = False,
+    activate: bool = False,
     config_path: Optional[str] = None,
     emit: Callable[[str], None] = lambda _line: None,
 ) -> Dict[str, Any]:
@@ -82,8 +84,9 @@ def run_local_init(
     Idempotent: a second run detects the live universe, reports, and
     leaves an existing matching ``local`` connection untouched. A socket-only
     DSN relocation reported by the engine is updated automatically because it
-    still addresses the same durable cluster. Any other conflicting local
-    connection is never clobbered without ``force``. ``admin_name`` is the
+    still addresses the same durable cluster. Missing credential files and stale
+    actor bindings are repaired automatically. Other conflicting connections
+    require ``force``; activation is independent. ``admin_name`` is the
     installer's name; a new universe's first admin is created as that person,
     and creating one without it refuses by name.
     """
@@ -103,19 +106,42 @@ def run_local_init(
         ) from exc
     except RuntimeError as exc:  # binaries, cluster, bootstrap
         raise LocalUniverseSetupError(str(exc)) from exc
-    connection = _ensure_local_connection(
+    binding = _inspect_operating_actor(report["dsn"], config_path)
+    connection = ensure_local_connection(
         report["dsn"],
         force=force,
         config_path=config_path,
         equivalent_dsns=tuple(report.get("socket_dsn_aliases") or ()),
+        actor_universe_mismatch=binding == "SESSION_ACTOR_UNIVERSE_MISMATCH",
     )
     report["connection"] = connection
-    if connection["written"] or not _active_env(config_path):
+    if activate or not _active_env(config_path):
         writer.set_active_env(LOCAL_ENV, path=config_path)
     _record_operating_actor(report, config_path)
+    report["operating_actor_repaired"] = bool(binding)
+    repairs = list(connection.get("repairs") or ())
+    if binding and not any("operating actor" in reason for reason in repairs):
+        repairs.append("stale operating actor binding")
+    for reason in repairs:
+        emit(f"  [local-universe] repaired connections.local: {reason}")
     report["active_env"] = _active_env(config_path)
     report["ok"] = True
     return report
+
+
+def _inspect_operating_actor(dsn, config_path):
+    payload = machine_config.load_config(config_path)
+    entry = (payload.get("connections") or {}).get(LOCAL_ENV) or {}
+    if not entry.get("operating_actor"):
+        return ""
+    binding = importlib.import_module("yoke_core.domain.local_universe_operating_actor")
+    try:
+        return binding.inspect_operating_actor(dsn=dsn, config_path=config_path)
+    except Exception as exc:
+        raise LocalUniverseSetupError(
+            "local_actor_inspection_failed: could not verify the owned local "
+            "universe; retry `yoke init --local` after checking local Postgres"
+        ) from exc
 
 
 def _record_operating_actor(report, config_path):
@@ -174,7 +200,12 @@ def inspect_local_state(config_path: Optional[str] = None) -> Dict[str, Any]:
             "active": active,
             "reason": f"connections.{LOCAL_ENV} is marked prod",
         }
-    if _stored_dsn(entry):
+    source = entry.get("credential_source") or {}
+    if stored_dsn(entry) or (
+        source.get("kind") == contract.CREDENTIAL_KIND_DSN_FILE
+        and source.get("path")
+        and not Path(source["path"]).expanduser().exists()
+    ):
         return {
             "state": LOCAL_UNIVERSE_VERIFY,
             "connection": True,
@@ -250,66 +281,6 @@ def universe_import(*, archive: str) -> Dict[str, Any]:
         return dict(engine.import_universe(archive))
     except RuntimeError as exc:
         raise LocalUniverseSetupError(str(exc)) from exc
-
-
-def _ensure_local_connection(
-    dsn: str,
-    *,
-    force: bool,
-    config_path: Optional[str],
-    equivalent_dsns: tuple[str, ...] = (),
-) -> Dict[str, Any]:
-    """Record the local DSN under ``connections.local`` without clobbering."""
-    payload = machine_config.load_config(config_path)
-    connections = payload.get("connections")
-    entry = connections.get(LOCAL_ENV) if isinstance(connections, dict) else None
-    if isinstance(entry, dict):
-        transport = str(entry.get("transport") or "").strip()
-        existing_dsn = _stored_dsn(entry)
-        if transport == contract.DEFAULT_TRANSPORT and existing_dsn == dsn:
-            return {"env": LOCAL_ENV, "connection": dict(entry), "written": False}
-        same_cluster_relocation = (
-            transport == contract.DEFAULT_TRANSPORT
-            and not contract.connection_is_prod(entry)
-            and existing_dsn in equivalent_dsns
-        )
-        if not force and not same_cluster_relocation:
-            raise LocalUniverseSetupError(
-                f"machine config already has a {LOCAL_ENV!r} connection that "
-                f"does not match the local universe (transport "
-                f"{transport or 'unset'!s}); rerun with --force to replace it"
-            )
-    try:
-        # replace=True: a conflicting entry being overwritten under --force
-        # must not leak stray keys (e.g. an https entry's api_url) into the
-        # rewritten local connection.
-        result = writer.set_connection(
-            LOCAL_ENV,
-            transport=contract.DEFAULT_TRANSPORT,
-            dsn=dsn,
-            prod=False,
-            replace=True,
-            path=config_path,
-        )
-    except writer.MachineConfigWriteError as exc:
-        raise LocalUniverseSetupError(str(exc)) from exc
-    result["written"] = True
-    return result
-
-
-def _stored_dsn(entry: Dict[str, Any]) -> Optional[str]:
-    source = entry.get("credential_source")
-    if not isinstance(source, dict):
-        return None
-    if source.get("kind") != contract.CREDENTIAL_KIND_DSN_FILE:
-        return None
-    dsn_path = source.get("path")
-    if not dsn_path:
-        return None
-    try:
-        return machine_secrets.read_secret_file(dsn_path, "DSN")
-    except machine_secrets.MachineSecretError:
-        return None
 
 
 def _active_env(config_path: Optional[str]) -> str:

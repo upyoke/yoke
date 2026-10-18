@@ -62,14 +62,14 @@ def _serve_once(
 ) -> Any:
     from yoke_harness.session_relay import serve_once
     from yoke_harness.session_relay_inventory import collect_cached_inventory
-    from yoke_harness.session_relay_surface_probe_cache import (
-        refresh_surface_probe_cache,
+    from yoke_harness.session_relay_harness_reconcile import (
+        refresh_harness_inventory,
     )
 
     _contain_stranded_natives()
     return serve_once(
         inventory_provider=collect_cached_inventory,
-        inventory_refresher=(None if broker_only else refresh_surface_probe_cache),
+        inventory_refresher=(None if broker_only else refresh_harness_inventory),
         broker_only=broker_only,
         broker_lease_id=broker_lease_id,
     )

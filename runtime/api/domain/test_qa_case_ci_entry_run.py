@@ -13,7 +13,7 @@ import pytest
 
 from runtime.api.domain.qa_case_ci_test_helpers import LANE_HEAD, completed_run
 
-from yoke_contracts.git_hook_markers import POST_COMMIT_SNAPSHOT_SKIP_ENV
+from yoke_contracts.git_hook_markers import HEAD_RECORDING_SKIP_ENV
 from yoke_core.domain import qa_case_ci_covering_run
 from yoke_core.domain import qa_case_ci_entry_run as entry_run
 from yoke_core.domain import qa_case_ci_lane
@@ -151,7 +151,8 @@ def test_a_lane_behind_the_base_is_fetched_then_rebased(monkeypatch):
         "origin/main",
         "HEAD",
     )
-    assert calls[2] == ("rebase", "origin/main")
+    assert calls[2] == ("rev-list", "--merges", "origin/main..HEAD")
+    assert calls[3] == ("rebase", "origin/main")
 
 
 def test_gate_rebase_marks_replayed_commits_to_skip_snapshot_sync(monkeypatch):
@@ -165,7 +166,7 @@ def test_gate_rebase_marks_replayed_commits_to_skip_snapshot_sync(monkeypatch):
 
     entry_run._git("/tmp/tree", "rebase", "origin/main", timeout=600)
 
-    assert observed["env"][POST_COMMIT_SNAPSHOT_SKIP_ENV] == "1"
+    assert observed["env"][HEAD_RECORDING_SKIP_ENV] == "1"
 
 
 def test_a_lane_containing_the_base_keeps_its_merge_topology(monkeypatch):

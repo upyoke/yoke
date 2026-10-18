@@ -3,6 +3,7 @@ import test from "node:test";
 import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
 import { loadDelivery } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_shipping_runs.js";
 import { prefetchShippingOverview } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_shipping_prefetch.js";
+import { VIEW_RENDERERS } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views.js";
 import { FakeDocument, byClass, response, settle } from "./universe_ui_dom_test_support.mjs";
 
 const ok = (result) => ({ status: 200, envelope: { success: true, result } });
@@ -30,6 +31,7 @@ function mountedShipping(t, client) {
 }
 
 test("Shipping starts during bootstrap and paints once using saved scope", async (t) => {
+  const preload = t.mock.method(VIEW_RENDERERS.shipping, "preload");
   const roster = deferred(), preferences = deferred(), overview = deferred();
   const calls = [];
   const client = { call(request) {
@@ -41,6 +43,7 @@ test("Shipping starts during bootstrap and paints once using saved scope", async
   } };
   const { root, app, windowNode } = mountedShipping(t, client);
   await settle();
+  assert.equal(preload.mock.callCount(), 1);
   assert.equal(calls.filter((call) => call.function === "deployment_runs.list").length, 1);
   assert.deepEqual(calls.find((call) => call.function === "deployment_runs.list").payload,
     { relevance: "overview" });

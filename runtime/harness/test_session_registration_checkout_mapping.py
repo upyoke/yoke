@@ -1,4 +1,4 @@
-"""Every harness registers with the project's shared machine checkout."""
+"""Every harness registers with the selected connection's machine checkout."""
 
 import pytest
 from yoke_contracts.session_model_facts import SessionModelFacts
@@ -11,7 +11,7 @@ from yoke_core.hooks import session_lifecycle_client
     [("claude-code", "anthropic"), ("codex", "openai"), ("cursor", "cursor")],
 )
 @pytest.mark.parametrize("selected", ["local", "prod", "prod-db-admin", "stage"])
-def test_registration_uses_mapping_across_connections(
+def test_registration_uses_selected_connection_mapping(
     tmp_path, monkeypatch, executor, provider, selected
 ):
     home = tmp_path / "home"
@@ -21,7 +21,10 @@ def test_registration_uses_mapping_across_connections(
     token = tmp_path / "token"
     token.write_text("test")
     machine_config_writer.set_connection(
-        "local", transport="https", api_url="https://api.example", token_file=str(token)
+        selected,
+        transport="https",
+        api_url=f"https://{selected}.example.test",
+        token_file=str(token),
     )
     checkout = tmp_path / "checkout"
     checkout.mkdir()

@@ -46,12 +46,15 @@ def platform_checkout(tmp_path, monkeypatch):
         project_checkout_locations.machine_config,
         "load_config",
         lambda *args: {
-            "projects": [
-                {
-                    "project_id": 23,
-                    "checkout": str(checkout),
-                }
-            ]
+            "active_env": "local",
+            "connection_projects": {
+                "local": [
+                    {
+                        "project_id": 23,
+                        "checkout": str(checkout),
+                    }
+                ]
+            },
         },
     )
     # A Platform-only session has no source-dev execution authority. The read

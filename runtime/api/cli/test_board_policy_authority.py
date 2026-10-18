@@ -25,7 +25,10 @@ def test_cli_machine_config_ignores_retired_board_entry(
     config.write_text(
         json.dumps(
             {
-                "projects": [{"checkout": str(checkout), "project_id": 7}],
+                "active_env": "local",
+                "connection_projects": {
+                    "local": [{"checkout": str(checkout), "project_id": 7}]
+                },
             }
         ),
         encoding="utf-8",

@@ -95,6 +95,7 @@ def test_hook_mode_reports_failure_but_exits_zero(tmp_path: Path) -> None:
         "demo",
         "--head-only",
         "--hook",
+        "post-commit",
         response=response,
     )
     assert rc == 0
@@ -122,6 +123,7 @@ def test_hook_mode_timeout_does_not_prescribe_full_sync(tmp_path: Path) -> None:
         "demo",
         "--head-only",
         "--hook",
+        "post-commit",
         response=response,
     )
     assert rc == 0
@@ -155,6 +157,7 @@ def test_hook_mode_deferral_reads_as_calm_note(tmp_path: Path) -> None:
         "demo",
         "--head-only",
         "--hook",
+        "post-commit",
         response=response,
     )
     assert rc == 0

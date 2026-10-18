@@ -30,7 +30,19 @@ def main_checkout(root: str | Path) -> Path:
     return primary
 
 
+def registered_worktree_paths(root: str | Path) -> list[Path]:
+    """Read Git-registered, existing non-bare checkout paths."""
+    root = Path(root).expanduser().resolve()
+    if not (root / ".git").exists():
+        return [root]
+    return [path for path in _git_worktrees(root) if path.is_dir()]
+
+
 def _git_main_checkout(root: Path) -> Path:
+    return _git_worktrees(root)[0]
+
+
+def _git_worktrees(root: Path) -> list[Path]:
     try:
         result = terminal_detached_process.run(
             ["git", "-C", str(root), "worktree", "list", "--porcelain", "-z"],
@@ -42,9 +54,17 @@ def _git_main_checkout(root: Path) -> Path:
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise _identity_refusal(root) from exc
     if result.returncode == 0:
-        first = result.stdout.split("\0\0", 1)[0].split("\0")
-        if first and first[0].startswith("worktree ") and "bare" not in first:
-            return Path(first[0][9:]).resolve()
+        paths = []
+        blocks = result.stdout.split("\0\0")
+        if "bare" in blocks[0].split("\0"):
+            raise _identity_refusal(root)
+        for block in blocks:
+            fields = block.split("\0")
+            if fields[0].startswith("worktree ") and "bare" not in fields:
+                path = Path(fields[0][9:]).resolve()
+                paths.append(path)
+        if paths:
+            return paths
     raise _identity_refusal(root)
 
 

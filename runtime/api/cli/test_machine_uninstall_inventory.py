@@ -56,10 +56,13 @@ def test_only_registered_installed_checkouts_are_listed(machine, tmp_path):
     (machine / "config.json").write_text(
         json.dumps(
             {
-                "projects": [
-                    {"checkout": str(project), "project_id": 1},
-                    {"checkout": str(other), "project_id": 2},
-                ],
+                "active_env": "local",
+                "connection_projects": {
+                    "local": [
+                        {"checkout": str(project), "project_id": 1},
+                        {"checkout": str(other), "project_id": 2},
+                    ]
+                },
                 "connections": {
                     "one": {"transport": "https"},
                     "admin": {"transport": "local-postgres", "prod": True},

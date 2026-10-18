@@ -2,8 +2,8 @@
 
 Each harness a person opens reads its own persisted config to decide whether
 to stop and ask before running a command, and each ships defaults that do.
-The launcher install writes the unattended posture into all three, but a
-machine installed before that pass existed, or one whose harness config has
+The shared harness setup reconcile writes the unattended posture, but a
+machine installed before reconciliation, or one whose harness config has
 since been rewritten, still asks — and the symptom is a stranger approving
 every ``yoke`` call by hand, including the recovery commands Yoke tells them
 to run when something breaks.
