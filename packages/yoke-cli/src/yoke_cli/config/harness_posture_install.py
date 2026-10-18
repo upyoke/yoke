@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from yoke_harness.harness_setup_reconcile import reconcile_harness_setup
+from yoke_harness.harness_setup_reconcile import (
+    HarnessSetupResult,
+    reconcile_harness_setup,
+)
 from yoke_cli.config import onboard_apply_progress
 from yoke_contracts.harness_machine_hooks import (
     MACHINE_HOOKS_PLAN_ACTION,
@@ -10,7 +13,9 @@ from yoke_contracts.harness_machine_hooks import (
 )
 
 
-def apply_reported(*, include_posture: bool = True, progress=None) -> list[str]:
+def apply_reported(
+    *, include_posture: bool = True, progress=None
+) -> HarnessSetupResult:
     """Reconcile all registered targets and name every outcome and recovery."""
     specs = installed_machine_hooks()
     for spec in specs:
@@ -31,7 +36,7 @@ def apply_reported(*, include_posture: bool = True, progress=None) -> list[str]:
             spec.display_path(),
             "failed" if failed else "done",
         )
-    return result.lines()
+    return result
 
 
 __all__ = ["apply_reported"]

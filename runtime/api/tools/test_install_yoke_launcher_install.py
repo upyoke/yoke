@@ -65,8 +65,8 @@ def test_install_skip_harness_permissions_propagates(tmp_path: Path, install_env
     install_env.setattr(isl, "LAUNCHER_SOURCE", _fake_source(repo))
     called = []
 
-    def spy(*, checkout=None, stream=None):
-        called.append(checkout)
+    def spy(*, stream=None):
+        called.append(True)
         return []
 
     install_env.setattr(isl, "reconcile_harness_setup", spy)
@@ -81,13 +81,13 @@ def test_install_skip_harness_permissions_propagates(tmp_path: Path, install_env
 
 
 def test_install_default_configures_every_harness(tmp_path: Path, install_env):
-    """The install writes the posture, and names the checkout it trusts."""
+    """The install reconciles every registered checkout through its shared owner."""
     repo = _fake_repo(tmp_path)
     install_env.setattr(isl, "LAUNCHER_SOURCE", _fake_source(repo))
     called = []
 
-    def spy(*, checkout=None, stream=None):
-        called.append(checkout)
+    def spy(*, stream=None):
+        called.append(True)
         return []
 
     install_env.setattr(isl, "reconcile_harness_setup", spy)
@@ -97,7 +97,7 @@ def test_install_default_configures_every_harness(tmp_path: Path, install_env):
         target_dir=str(tmp_path / "bin"),
         stream=io.StringIO(),
     )
-    assert called == [repo.resolve()]
+    assert called == [True]
 
 
 def test_install_happy_path_writes_launcher(tmp_path: Path, install_env):

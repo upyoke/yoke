@@ -29,13 +29,11 @@ def apply(
     onboard_machine_setup.setup_browser(progress, report, error_cls=error_cls)
     step = (harness_unattended_posture.POSTURE_PLAN_ACTION, "detected")
     onboard_apply_progress.emit(progress, *step, "running")
-    report["harness_setup"] = harness_posture_install.apply_reported(
+    setup = harness_posture_install.apply_reported(
         include_posture=harness_posture, progress=progress
     )
-    failed = any(
-        " refused " in line or " failed " in line for line in report["harness_setup"]
-    )
-    onboard_apply_progress.emit(progress, *step, "failed" if failed else "done")
+    report["harness_setup"] = setup.payload()
+    onboard_apply_progress.emit(progress, *step, "failed" if setup.failed else "done")
     onboard_session_relay.apply(
         progress,
         report,

@@ -118,13 +118,10 @@ def _append_project_handoff(lines: list[str], project_report: dict[str, Any]) ->
 
 
 def _append_harness_setup(lines: list[str], report: dict[str, Any]) -> None:
-    setup = report.get("harness_setup")
-    if isinstance(setup, dict):
-        from yoke_harness.harness_setup_reconcile import HarnessSetupRow
+    from yoke_harness.harness_setup_reconcile import HarnessSetupRow
 
-        rows = [HarnessSetupRow(**row).line() for row in setup.get("rows", [])]
-    else:
-        rows = setup or []
+    setup = report.get("harness_setup") or {}
+    rows = [HarnessSetupRow(**row).line() for row in setup.get("rows", [])]
     if rows:
         lines.extend(["", "Harness setup:", *(f"  {row}" for row in rows)])
 
