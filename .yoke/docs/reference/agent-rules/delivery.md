@@ -324,11 +324,11 @@ restriction; deployment QA uses the run receipt to authorize its deployed target
 
 ## Wait on another item's merge or delivery
 
-Record the wait before parking; SOURCE is the item skill, or `operator` for steering:
+Record the wait before parking; replace `dash` with the item skill, or `operator` for steering:
 
 ```text
 yoke items dependency list ITEM
-yoke items dependency add ITEM BLOCKER SOURCE --gate-point integration --satisfaction fact:merged --rationale "needs blocker merged"
+yoke items dependency add ITEM BLOCKER dash --gate-point integration --satisfaction fact:merged --rationale "needs blocker merged"
 yoke sessions touch --mode parked --reason "awaiting BLOCKER merge"
 ```
 
