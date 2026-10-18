@@ -67,7 +67,7 @@ def items(project_rows, actor):
     result = []
     for position in range(17):
         project = project_rows[position % 2]
-        title = f"Shipping review member {position + 1:02d}"
+        title = f"Shipping review example {position + 1:02d}"
         with connect() as conn:
             existing = conn.execute(
                 "SELECT id,status FROM items WHERE project_id=%s AND title=%s",

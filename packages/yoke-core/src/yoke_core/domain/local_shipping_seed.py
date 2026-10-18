@@ -50,15 +50,20 @@ def _reader(project_id, actor):
 
 def seed_shipping():
     require_render_proof()
-    # Boot owns schema and permanent history before any fixture writer runs.
-    from yoke_core.api.server_entrypoint import ensure_core_schema
-    from yoke_contracts.control_plane_locality import local_authority_exempt
+    # The registered review boot owns permanent history before this writer.
+    from yoke_core.domain.schema_common import _table_exists
+    from yoke_core.domain.deployment_runs_schema import cmd_init
 
-    with local_authority_exempt():
-        ensure_core_schema()
-        from yoke_core.domain.deployment_runs_schema import cmd_init
-
-        cmd_init()
+    with connect() as conn:
+        if not all(
+            _table_exists(conn, name)
+            for name in ("items", "organizations", "deployment_flows")
+        ):
+            raise RuntimeError(
+                "shipping_seed_database_unprepared: run the existing render-proof "
+                "review server with --prepare-only, then retry this seed"
+            )
+    cmd_init()
     actor = _local_human_actor_id()
     from yoke_core.domain.org_schema import seed_default_org
     from yoke_core.domain.actor_permissions import seed_roles_and_permissions
