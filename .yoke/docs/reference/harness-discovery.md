@@ -161,7 +161,8 @@ install or refresh place it once in `~/.agents/skills/yoke-global`, which Codex
 and Cursor read natively, and link `~/.claude/skills/yoke-global` to it for
 Claude Code. A harness whose home folder is absent is skipped. Each manifest's
 `global_skill` field states its placement. `yoke uninstall` removes both
-paths. An existing path Yoke did not create refuses as
+paths, and any parent folder setup created for them once it is empty. An
+existing path Yoke did not create refuses as
 `global_skill_path_not_owned`; move it aside, then run `yoke setup` again.
 
 ## Guard scope

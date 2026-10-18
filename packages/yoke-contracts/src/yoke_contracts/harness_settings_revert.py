@@ -59,6 +59,8 @@ def revert_entry(entry: Dict[str, Any]) -> str:
         return f"removed {target}"
     if kind == "created_dir":
         return _revert_created_dir(target)
+    if kind == "created_parent_dir":
+        return _revert_parent_dir(target)
     if not target.is_file():
         return ""
     if kind == "json":
@@ -80,6 +82,16 @@ def _revert_created_dir(target: Path) -> str:
     else:
         return ""
     return f"removed {target}"
+
+
+def _revert_parent_dir(target: Path) -> str:
+    """Remove a folder Yoke made to hold its entries, but only once empty."""
+    if target.is_symlink() or not target.is_dir():
+        return ""
+    if any(target.iterdir()):
+        return f"kept {target}: it holds files Yoke did not put there"
+    target.rmdir()
+    return f"removed empty {target}"
 
 
 def _revert_json(target: Path, keys: List[str], value: Any, existing: int) -> str:

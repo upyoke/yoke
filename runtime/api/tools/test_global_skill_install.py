@@ -42,9 +42,13 @@ def test_install_places_one_copy_and_a_claude_link(home: Path) -> None:
     assert skill.read_text().startswith("---\nname: yoke-global\n")
     link = home / ".claude" / "skills" / "yoke-global"
     assert link.is_symlink() and link.resolve() == _shared(home).resolve()
-    assert sorted(e["file"] for e in ledger.read()) == sorted(
-        [str(_shared(home)), str(link)]
-    )
+    assert [(e["kind"], e["file"]) for e in ledger.read()] == [
+        ("created_dir", str(_shared(home))),
+        ("created_parent_dir", str(home / ".agents" / "skills")),
+        ("created_parent_dir", str(home / ".agents")),
+        ("created_dir", str(link)),
+        ("created_parent_dir", str(home / ".claude" / "skills")),
+    ]
     assert any(line.startswith("codex: reads") for line in result.lines)
 
 
@@ -55,16 +59,37 @@ def test_second_install_is_a_no_op(home: Path) -> None:
     assert not result.reason and ledger.read() == before
 
 
-def test_uninstall_removes_both_paths(home: Path) -> None:
+def test_uninstall_removes_both_paths_and_the_empty_parents(home: Path) -> None:
     install.ensure_global_skill({"HOME": str(home)})
     lines, failures = revert_recorded()
 
     assert failures == []
-    assert not _shared(home).exists()
-    assert not (home / ".claude" / "skills" / "yoke-global").is_symlink()
+    assert not (home / ".agents").exists()
+    assert not (home / ".claude" / "skills").exists()
     assert (home / ".claude").is_dir()
-    assert len(lines) == 2
+    assert len(lines) == 5
     assert revert_recorded() == ([], [])
+
+
+def test_uninstall_keeps_a_parent_that_gained_other_skills(home: Path) -> None:
+    install.ensure_global_skill({"HOME": str(home)})
+    other = home / ".agents" / "skills" / "someone-else"
+    other.mkdir()
+
+    lines, failures = revert_recorded()
+
+    assert failures == []
+    assert not _shared(home).exists() and other.is_dir()
+    assert any(line.startswith("kept ") for line in lines)
+
+
+def test_existing_parents_are_not_recorded(home: Path) -> None:
+    (home / ".agents" / "skills").mkdir(parents=True)
+    (home / ".claude" / "skills").mkdir()
+
+    install.ensure_global_skill({"HOME": str(home)})
+
+    assert {e["kind"] for e in ledger.read()} == {"created_dir"}
 
 
 def test_absent_harness_home_is_skipped_never_created(

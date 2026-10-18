@@ -7,7 +7,9 @@ absent is not installed; the installer names it and never creates its home.
 
 Every folder or link Yoke creates is recorded in the harness settings ledger
 (:mod:`yoke_contracts.harness_settings_ledger`) as a ``created_dir`` entry, so
-``yoke uninstall`` removes it. A folder or link already present that Yoke did
+``yoke uninstall`` removes it. Parent folders the install had to create
+(``~/.agents``, ``~/.agents/skills``, ``~/.claude/skills``) are recorded as
+``created_parent_dir`` and removed only while empty. A folder or link already present that Yoke did
 not record is never overwritten: install refuses with
 ``global_skill_path_not_owned``, the path and the recovery step.
 """
@@ -18,7 +20,7 @@ import os
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
-from typing import List, Mapping, Optional
+from typing import List, Mapping, Optional, Sequence
 
 from yoke_contracts import harness_settings_ledger as ledger
 from yoke_contracts.harness_global_skill import (
@@ -119,9 +121,10 @@ def _install_shared(shared: Path, owned: set, result: GlobalSkillResult) -> bool
         return _record(shared, result)
     if (shared.exists() or shared.is_symlink()) and str(shared) not in owned:
         return _refuse(shared, result)
+    parents = _missing_parents(shared)
     shared.mkdir(parents=True, exist_ok=True)
     target.write_text(text, encoding="utf-8")
-    return _record(shared, result)
+    return _record(shared, result, parents)
 
 
 def _install_link(
@@ -133,15 +136,32 @@ def _install_link(
         if str(link) not in owned:
             return _refuse(link, result)
         link.unlink()
+    parents = _missing_parents(link)
     link.parent.mkdir(parents=True, exist_ok=True)
     link.symlink_to(shared, target_is_directory=True)
-    return _record(link, result)
+    return _record(link, result, parents)
 
 
-def _record(path: Path, result: GlobalSkillResult) -> bool:
-    problem = ledger.record(ledger.created_dir_entry(path))
-    if problem:
-        result.lines.append(problem)
+def _missing_parents(path: Path) -> List[Path]:
+    """Folders above *path* that do not exist yet, deepest first."""
+    missing: List[Path] = []
+    for parent in path.parents:
+        if parent.exists() or parent.is_symlink():
+            break
+        missing.append(parent)
+    return missing
+
+
+def _record(
+    path: Path, result: GlobalSkillResult, parents: Sequence[Path] = ()
+) -> bool:
+    """Record *path*, then the parents created for it, deepest first."""
+    entries = [ledger.created_dir_entry(path)]
+    entries += [ledger.created_parent_dir_entry(parent) for parent in parents]
+    for entry in entries:
+        problem = ledger.record(entry)
+        if problem:
+            result.lines.append(problem)
     return True
 
 
