@@ -43,7 +43,9 @@ disposable machine-home snapshot. It copies machine settings, secrets, and refer
 files under that home, rebases machine-home paths, and supplies private default
 cache and temp paths. It does not clone caches, runtimes or live relay state.
 Source config writes affect only the snapshot, which is removed after the
-command finishes or refuses. The caller's connected-environment selection
+command finishes or refuses. Watcher captures use the printed separate
+`source evidence root` through `YOKE_SCRATCH_ROOT`, so proof survives snapshot
+cleanup; empty evidence roots are removed. The caller's connected-environment selection
 and project mappings remain available; isolation does not change which
 control plane or database the command uses. Put an explicit selection on
 the outer command so the lane-sourced child inherits it:

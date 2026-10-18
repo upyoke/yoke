@@ -15,7 +15,9 @@ from yoke_contracts.machine_config.paths import CONFIG_FILE_ENV, HOME_ENV
 
 
 def _home(env: Mapping[str, str]) -> Path:
-    return Path(env.get(HOME_ENV) or Path.home() / ".yoke").expanduser().resolve()
+    return Path(
+        os.path.abspath(Path(env.get(HOME_ENV) or Path.home() / ".yoke").expanduser())
+    )
 
 
 def _snapshot(source: Path, destination: Path, selected: Path) -> None:
@@ -33,7 +35,10 @@ def _snapshot(source: Path, destination: Path, selected: Path) -> None:
 
     def rebase(value):
         if isinstance(value, dict):
-            return {key: rebase(child) for key, child in value.items()}
+            return {
+                key: child if key == "checkout" else rebase(child)
+                for key, child in value.items()
+            }
         if isinstance(value, list):
             return [rebase(child) for child in value]
         if not isinstance(value, str):
@@ -42,7 +47,7 @@ def _snapshot(source: Path, destination: Path, selected: Path) -> None:
         if not candidate.is_absolute():
             return value
         candidate = Path(os.path.abspath(candidate))
-        for origin in (source, Path.home() / ".yoke"):
+        for origin in (source, source.resolve(), Path.home() / ".yoke"):
             try:
                 relative = candidate.relative_to(origin)
                 break
@@ -109,5 +114,15 @@ def isolated_machine_home(
             identity = resolve_ambient_session_id()
             if identity:
                 resolved["YOKE_SESSION_ID"] = identity
+        evidence = Path(tempfile.mkdtemp(prefix="yoke-source-evidence-"))
+        resolved["YOKE_SCRATCH_ROOT"] = str(evidence)
         print(f"source machine home: disposable {destination}", file=sys.stderr)
-        yield resolved
+        print(f"source evidence root: {evidence}", file=sys.stderr)
+        try:
+            yield resolved
+        finally:
+            # Watcher captures must outlive the disposable settings they prove.
+            try:
+                evidence.rmdir()
+            except OSError:
+                pass

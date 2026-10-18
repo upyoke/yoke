@@ -24,6 +24,7 @@ def _seed(home):
         json.dumps(
             {
                 "settings": {"configured": "yes"},
+                "projects": [{"checkout": str(home / "source"), "project_id": 7}],
                 "credential": str(token),
                 "temp_root": str(home / "tmp"),
                 "cache_dir": str(home / "cache"),
@@ -125,3 +126,40 @@ def test_snapshot_failure_is_named_and_does_not_launch_child(
         source_dev_run.run(["python3", "-c", "raise AssertionError('launched')"]) == 1
     )
     assert "source_machine_home_unavailable" in capsys.readouterr().err
+
+
+def test_symlinked_machine_home_rebases_both_aliases(tmp_path):
+    config, original, token = _seed(tmp_path / "machine")
+    alias = tmp_path / "alias"
+    alias.symlink_to(config.parent, target_is_directory=True)
+    payload = json.loads(config.read_text())
+    payload["credential"] = str(alias / "secrets" / token.name)
+    config.write_text(json.dumps(payload))
+    original = config.read_bytes()
+    with isolated_machine_home(
+        {"YOKE_MACHINE_HOME": str(alias), "YOKE_SESSION_ID": "fixture"}
+    ) as child:
+        target = Path(child["YOKE_MACHINE_HOME"])
+        copied = json.loads((target / "config.json").read_text())
+        assert copied["credential"] == str(target / "secrets" / token.name)
+        assert copied["cache_dir"] == str(target / "cache")
+        Path(copied["credential"]).write_text("private-write")
+    assert config.read_bytes() == original
+    assert token.read_text() == "fixture-token"
+
+
+def test_watcher_evidence_outlives_disposable_machine_settings(tmp_path):
+    config, original, _ = _seed(tmp_path / "machine")
+    with isolated_machine_home(
+        {"YOKE_MACHINE_HOME": str(config.parent), "YOKE_SESSION_ID": "fixture"}
+    ) as child:
+        home = Path(child["YOKE_MACHINE_HOME"])
+        evidence = Path(child["YOKE_SCRATCH_ROOT"])
+        assert not evidence.is_relative_to(home)
+        capture = evidence / "capture.log"
+        capture.write_text("fixture proof")
+    assert not home.exists()
+    assert capture.read_text() == "fixture proof"
+    assert config.read_bytes() == original
+    capture.unlink()
+    evidence.rmdir()
