@@ -30,23 +30,19 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import zipfile
 from pathlib import Path
 
-import pytest
-
 from runtime.api.fixtures import pg_testdb
 from yoke_core.api.health_payload_contract import migration_readiness_problem
-from yoke_core.api.repo_root import find_repo_root
 from yoke_contracts.first_admin_name import ADMIN_NAME_ENV
 from yoke_core.domain import db_backend
 
 #: The distribution that carries the engine, named as the release build names
 #: it — this test is only meaningful against the artifact a release publishes.
-ENGINE_PACKAGE = "yoke-core"
+ENGINE_WHEEL_PATTERN = "yoke_core-*.whl"
 
 #: Birth the universe exactly as a container boot does, then ask the running
 #: build what it can serve. Runs from the unpacked wheel, so it may import
@@ -86,8 +82,9 @@ report.write_text(
 
 def test_a_published_engine_artifact_births_a_universe_that_can_serve(
     tmp_path: Path,
+    product_wheelhouse: Path,
 ) -> None:
-    engine = _installed_engine(tmp_path)
+    engine = _installed_engine(tmp_path, product_wheelhouse)
     database = pg_testdb.create_test_database()
     try:
         report = _birth_universe(
@@ -108,10 +105,13 @@ def test_a_published_engine_artifact_births_a_universe_that_can_serve(
     assert migration_readiness_problem(health, require_current=True) == ""
 
 
-def _installed_engine(root: Path) -> Path:
-    """Publish the engine wheel and unpack it where a consumer keeps one."""
-    wheelhouse = _build_engine_wheelhouse(root / "wheelhouse")
-    wheels = sorted(wheelhouse.glob("*.whl"))
+def _installed_engine(root: Path, wheelhouse: Path) -> Path:
+    """Unpack the shared release build where a consumer keeps its engine.
+
+    The fixture serializes setuptools' in-tree build across xdist workers;
+    another build here can overwrite its shared build/ and egg-info metadata.
+    """
+    wheels = sorted(wheelhouse.glob(ENGINE_WHEEL_PATTERN))
     assert len(wheels) == 1, [wheel.name for wheel in wheels]
     site_packages = _consumer_checkout(root / "consumer") / ".venv" / "site-packages"
     site_packages.mkdir(parents=True)
@@ -120,26 +120,18 @@ def _installed_engine(root: Path) -> Path:
     return site_packages
 
 
-def _build_engine_wheelhouse(wheelhouse: Path) -> Path:
-    """Build the engine wheel the way the release build does."""
-    uv = os.environ.get("YOKE_UV") or shutil.which("uv")
-    if not uv:
-        pytest.skip("uv builds the engine wheel; install uv or set YOKE_UV")
-    _run(
-        [
-            uv,
-            "build",
-            "--wheel",
-            "--package",
-            ENGINE_PACKAGE,
-            "--out-dir",
-            str(wheelhouse),
-            "--directory",
-            str(find_repo_root(Path(__file__))),
-            "--no-progress",
-        ]
-    )
-    return wheelhouse
+def test_installed_engine_uses_only_the_supplied_core_wheel(tmp_path: Path) -> None:
+    wheelhouse = tmp_path / "wheelhouse"
+    wheelhouse.mkdir()
+    for package in ("yoke_core", "yoke_cli", "yoke_contracts"):
+        with zipfile.ZipFile(
+            wheelhouse / f"{package}-1.0-py3-none-any.whl", "w"
+        ) as wheel:
+            wheel.writestr(f"{package}/identity", package)
+    engine = _installed_engine(tmp_path, wheelhouse)
+    assert (engine / "yoke_core" / "identity").read_text() == "yoke_core"
+    assert not (engine / "yoke_cli").exists()
+    assert not (engine / "yoke_contracts").exists()
 
 
 def _consumer_checkout(root: Path) -> Path:
