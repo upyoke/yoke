@@ -128,7 +128,7 @@ def test_more_dead_sessions_than_one_request_holds_are_sent_as_accepted_batches(
     # the final custody recheck too, including its conservative unknown case.
     monkeypatch.setattr(
         "yoke_harness.session_relay_process_liveness.custody_state",
-        lambda record: custody,
+        lambda record, *, start_time_of: custody,
     )
     anchors = tmp_path / ANCHORS_DIR_NAME
     anchors.mkdir(parents=True, exist_ok=True)
@@ -163,7 +163,7 @@ def test_a_refused_session_batch_keeps_its_records_and_the_ones_behind_it(
     """The undelivered tail is read again next poll rather than spent here."""
     monkeypatch.setattr(
         "yoke_harness.session_relay_process_liveness.custody_state",
-        lambda record: custody,
+        lambda record, *, start_time_of: custody,
     )
     anchors = tmp_path / ANCHORS_DIR_NAME
     anchors.mkdir(parents=True, exist_ok=True)
