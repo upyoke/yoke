@@ -142,6 +142,15 @@ def _delivered_any(conn: Any, old_id: str) -> bool:
     return any(member["status"] == "done" for member in _members(conn, old_id))
 
 
+def takeover_will_succeed(conn: Any, old_id: str) -> bool:
+    """Project settlement for unlocked preparation; locked takeover rechecks."""
+    from yoke_core.domain.deployment_qa_run_acceptance import pinned_stages
+
+    return not has_shared_gates(pinned_stages(conn, old_id)) and _delivered_any(
+        conn, old_id
+    )
+
+
 def _not_contained_refusal(
     conn: Any, old: Mapping[str, Any], new_lineage: str, verdict: Any, moving: list
 ) -> str:

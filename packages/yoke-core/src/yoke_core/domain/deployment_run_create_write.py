@@ -266,7 +266,13 @@ def _create_committed(
             try:
                 with (
                     bounded_run_write(conn, "new release"),
-                    prepared_sources_only(),
+                    prepared_sources_only(
+                        recovery=(
+                            "Repeat the same deployment-runs create or start-for-item "
+                            "command with its original arguments and idempotency key, "
+                            "if supplied, to prepare current source facts."
+                        )
+                    ),
                 ):
                     timed_preparation("create_lock", conn.execute, _CREATE_LOCK_SQL)
                     return _create_locked(conn, project, **request, **run)
