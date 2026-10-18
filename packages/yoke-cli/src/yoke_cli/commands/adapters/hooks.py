@@ -22,6 +22,7 @@ from yoke_cli.commands.adapters.hook_config_dedup import (
 )
 from yoke_contracts.hook_runner.config_owner import CONFIG_OWNER_ENV_VAR
 from yoke_contracts.hook_runner.cursor_response import cursor_allow_stdout
+from yoke_contracts.hook_diagnostics import format_hook_diagnostic
 
 
 __all__ = ["HOOK_EVALUATE_USAGE", "hook_evaluate"]
@@ -92,7 +93,7 @@ def _evaluate_inprocess(
     return exit_code
 
 
-def hook_evaluate(args: List[str]) -> int:
+def _dispatch_hook(args: List[str], stdin_data: str | None = None) -> int:
     from yoke_cli.hook_client_wall import HookClientWall
 
     client_timing = HookClientWall.start()
@@ -118,7 +119,9 @@ def hook_evaluate(args: List[str]) -> int:
         print(f"Usage: {HOOK_EVALUATE_USAGE}", file=sys.stderr)
         return 2
 
-    stdin_data = "" if parsed.dry_run else _read_stdin()
+    stdin_data = (
+        "" if parsed.dry_run else (_read_stdin() if stdin_data is None else stdin_data)
+    )
     cursor_invocation = is_cursor_config_invocation(os.environ, stdin_data)
     if (
         not parsed.dry_run
@@ -198,6 +201,79 @@ def hook_evaluate(args: List[str]) -> int:
         fallback_reason="",
     )
     return result.exit_code
+
+
+def hook_evaluate(args: List[str]) -> int:
+    """Apply lifecycle safety outside both resident and in-process evaluation."""
+    if not args or any(flag in args for flag in ("--dry-run", "--help", "-h")):
+        return _dispatch_hook(args)
+    from yoke_contracts.hook_runner.safety import (
+        LIFECYCLE_EVENTS,
+        infrastructure_reply,
+        parse_payload,
+        protect_stop,
+    )
+    from yoke_contracts.hook_runner.project_scope import HookProjectScopeUnavailable
+    from yoke_contracts.machine_config.paths import MachineConfigOwnershipError
+    from yoke_contracts.machine_config.runtime import MachineConfigError
+    from yoke_contracts.machine_config.schema_connections import (
+        MachineConfigContractError,
+    )
+
+    raw = _read_stdin()
+    payload = parse_payload(raw)
+    event = args[0]
+    stdout, stderr = io.StringIO(), io.StringIO()
+    executor = os.environ.get("YOKE_EXECUTOR") or (
+        "codex" if os.environ.get("CODEX_THREAD_ID") else "claude-code"
+    )
+    if is_cursor_config_invocation(os.environ, raw):
+        executor = "cursor"
+    try:
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            code = _dispatch_hook(args, raw)
+    except (
+        OSError,
+        ValueError,
+        ImportError,
+        MachineConfigError,
+        MachineConfigContractError,
+        MachineConfigOwnershipError,
+        HookProjectScopeUnavailable,
+    ) as exc:
+        # No exception, config loader or resident may turn a lifecycle
+        # infrastructure failure into the harness's continuation signal.
+        text, code, _denied = infrastructure_reply(
+            event,
+            payload,
+            executor,
+            f"hook_infrastructure_unavailable: {type(exc).__name__}",
+        )
+        if code == 2 and not executor.startswith(("codex", "cursor")):
+            sys.stderr.write(format_hook_diagnostic(event, text) + "\n")
+            text = ""
+    else:
+        text = stdout.getvalue()
+        if event in LIFECYCLE_EVENTS and any(
+            reason in text
+            for reason in (
+                "hook_scope_unavailable:",
+                "hook_authority_unavailable:",
+                "hook_infrastructure_unavailable:",
+            )
+        ):
+            text, code, _denied = infrastructure_reply(
+                event,
+                payload,
+                executor,
+                "hook_evaluation_failed: evaluator returned an infrastructure error",
+            )
+        elif stderr.getvalue():
+            sys.stderr.write(stderr.getvalue())
+    text, code = protect_stop(event, payload, text, code, executor)
+    if text:
+        sys.stdout.write(text)
+    return code
 
 
 def _report_phase_timing(

@@ -1,4 +1,4 @@
-"""Tool-shaped ``yoke git pre-commit`` / ``yoke git post-commit``.
+"""Tool-shaped ``yoke git`` hook subcommands.
 
 The ``.git/hooks/`` shims installed by ``yoke project install``
 exec these subcommands through the machine-installed ``yoke`` launcher,
@@ -14,10 +14,14 @@ Transport honesty:
   checkout it also spawns the optional Atlas currency refresher as a
   subprocess (never imports ``yoke_core``) so the ignored local
   ``docs/atlas.md`` view exists and stays current. Exit 1 blocks the commit.
-* ``git post-commit`` never takes local DB authority. It delegates to the
-  product-safe ``yoke project snapshot sync --hook --head-only``
-  scanner/dispatcher path and preserves the exit-0 degrade shape so a
-  completed commit is never blocked by snapshot sync trouble.
+* ``git post-commit``, ``git post-merge``, ``git post-rewrite`` and
+  ``git post-checkout`` record this checkout's HEAD as its lane head.
+  Together they fire on every git operation that moves HEAD: a commit,
+  a merge or pull (fast-forward or not), the end of a rebase, and a
+  branch checkout (which is how a fast-forward rebase lands). None takes
+  local DB authority: each delegates to the product-safe
+  ``yoke project snapshot sync --hook HOOK --head-only`` path and exits 0
+  however recording fares, so a finished git operation is never failed.
 """
 
 from __future__ import annotations
@@ -29,7 +33,7 @@ import sys
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands.adapters.project_snapshot import project_snapshot_sync
-from yoke_contracts.git_hook_markers import POST_COMMIT_SNAPSHOT_SKIP_ENV
+from yoke_contracts.git_hook_markers import HEAD_RECORDING_SKIP_ENV
 from yoke_contracts.hook_diagnostics import format_hook_diagnostic
 
 AdapterFn = Callable[[List[str]], int]
@@ -51,22 +55,37 @@ accepted and ignored. Product-safe checks: yoke_harness.git_hooks.pre_commit;
 Atlas refresh runs as `python3 -m yoke_core.tools.atlas_pre_commit_refresh`
 when the source module is present."""
 
-_POST_COMMIT_HELP = """\
-usage: yoke git post-commit
+_HEAD_RECORDING_HELP = """\
+usage: yoke git {hook}
 
-Sync committed git tree state for the current checkout through
-`yoke project snapshot sync --hook --head-only`. The hook records HEAD
-identity only and stores no path snapshot, so a routine commit stays
-inside common tool timeouts; file contents reach the path registry through
-a full `yoke project snapshot sync`, which path-claim registration also
-runs. Routine success stays quiet; diagnostics on stderr start with
-`yoke (post-commit): `. Exits 0 even when sync needs
-manual repair; a completed commit is never blocked.
-Gate-owned rebase replay skips this per-commit sync because the gate binds
-the final lane head after the replay completes.
+Record this checkout's HEAD as its lane head through
+`yoke project snapshot sync --hook {hook} --head-only`. {fires}
+The hook records HEAD identity only and stores no path snapshot, so it
+stays inside common tool timeouts; file contents reach the path registry
+through a full `yoke project snapshot sync`, which path-claim registration
+also runs. Routine success stays quiet; diagnostics on stderr start with
+`yoke ({hook}): `. Exits 0 even when recording needs manual repair; a
+finished git operation is never failed.
+Gate-owned rebase replay skips recording because the gate binds the
+final lane head after the replay completes.
 
-Invoked by the `.git/hooks/post-commit` shim that `yoke project
-install` writes. Extra arguments from git are accepted and ignored."""
+Invoked by the `.git/hooks/{hook}` shim that `yoke project
+install` writes. Arguments from git are accepted."""
+
+# What moves HEAD under each hook, and which invocations move nothing.
+_FIRES = {
+    "post-commit": "Fires after every commit, amend and rebase pick.",
+    "post-merge": "Fires after every merge and pull, fast-forward or not.",
+    "post-rewrite": (
+        "Fires at the end of a rebase; an amend is skipped because "
+        "post-commit already recorded it."
+    ),
+    "post-checkout": (
+        "Fires after a branch checkout, which is how a fast-forward rebase "
+        "lands; a file checkout or a checkout that leaves HEAD in place is "
+        "skipped."
+    ),
+}
 
 
 def _wants_help(args: List[str]) -> bool:
@@ -156,37 +175,64 @@ def git_pre_commit(args: List[str]) -> int:
     return int(run())
 
 
-def _sync_warning(reason: str) -> int:
+def _sync_warning(hook_name: str, reason: str) -> int:
     sys.stderr.write(
         format_hook_diagnostic(
-            "post-commit",
-            f"snapshot sync skipped ({reason}); "
-            "repair with `yoke project snapshot sync`.\n",
+            hook_name,
+            f"lane head not recorded ({reason}); record it with "
+            "`yoke project snapshot sync --head-only`.\n",
         )
     )
     return 0
 
 
-def git_post_commit(args: List[str]) -> int:
-    """Never error a completed commit; snapshot writes dispatch server-side."""
+def _moves_nothing(hook_name: str, args: List[str]) -> bool:
+    """True for invocations whose HEAD move another hook already recorded."""
+    if hook_name == "post-rewrite":
+        return args[:1] == ["amend"]
+    if hook_name == "post-checkout":
+        # git passes: previous HEAD, new HEAD, 1 for a branch checkout.
+        return len(args) < 3 or args[2] != "1" or args[0] == args[1]
+    return False
+
+
+def _record_head(hook_name: str, args: List[str]) -> int:
+    """Never error a finished git operation; the write dispatches server-side."""
     if _wants_help(args):
-        print(_POST_COMMIT_HELP)
+        print(_HEAD_RECORDING_HELP.format(hook=hook_name, fires=_FIRES[hook_name]))
         return 0
-    if os.environ.get(POST_COMMIT_SNAPSHOT_SKIP_ENV):
+    if os.environ.get(HEAD_RECORDING_SKIP_ENV) or _moves_nothing(hook_name, args):
         return 0
-    sync_args = ["--hook", "--head-only"]
+    sync_args = ["--hook", hook_name, "--head-only"]
     legacy_project = os.environ.get(PROJECT_ID_ENV)
     if legacy_project:
         sync_args.extend(["--project", legacy_project])
     try:
         rc = int(project_snapshot_sync(sync_args))
-    except Exception as exc:  # never block or error a completed commit
-        return _sync_warning(str(exc) or type(exc).__name__)
+    except Exception as exc:  # never block or error a finished git operation
+        return _sync_warning(hook_name, str(exc) or type(exc).__name__)
     if rc != 0:
         return _sync_warning(
-            f"`yoke project snapshot sync --hook --head-only` exited {rc}"
+            hook_name,
+            f"`yoke project snapshot sync --hook {hook_name} --head-only` exited {rc}",
         )
     return 0
+
+
+def git_post_commit(args: List[str]) -> int:
+    return _record_head("post-commit", args)
+
+
+def git_post_merge(args: List[str]) -> int:
+    return _record_head("post-merge", args)
+
+
+def git_post_rewrite(args: List[str]) -> int:
+    return _record_head("post-rewrite", args)
+
+
+def git_post_checkout(args: List[str]) -> int:
+    return _record_head("post-checkout", args)
 
 
 # This module's contribution to the launcher's tool-shaped table; the
@@ -194,7 +240,16 @@ def git_post_commit(args: List[str]) -> int:
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("git", "pre-commit"): git_pre_commit,
     ("git", "post-commit"): git_post_commit,
+    ("git", "post-merge"): git_post_merge,
+    ("git", "post-rewrite"): git_post_rewrite,
+    ("git", "post-checkout"): git_post_checkout,
 }
+
+_HEAD_RECORDING_USAGE = (
+    "Lane-head recording after {event}; delegates to "
+    "`yoke project snapshot sync --hook {hook} --head-only` and never fails "
+    "the git operation."
+)
 
 # cli form -> one-line usage for `yoke --help`.
 TOOL_SHAPED_USAGE: Dict[str, str] = {
@@ -202,10 +257,17 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
         "Pre-commit gate (diverged-files, file-line limit, Atlas refresh); "
         "installed .git/hooks shims exec this."
     ),
-    "yoke git post-commit": (
-        "Post-commit path snapshot sync; delegates to "
-        "`yoke project snapshot sync --hook --head-only` and never blocks "
-        "the commit."
+    "yoke git post-commit": _HEAD_RECORDING_USAGE.format(
+        event="a commit", hook="post-commit"
+    ),
+    "yoke git post-merge": _HEAD_RECORDING_USAGE.format(
+        event="a merge or pull", hook="post-merge"
+    ),
+    "yoke git post-rewrite": _HEAD_RECORDING_USAGE.format(
+        event="a rebase", hook="post-rewrite"
+    ),
+    "yoke git post-checkout": _HEAD_RECORDING_USAGE.format(
+        event="a branch checkout", hook="post-checkout"
     ),
 }
 
@@ -215,6 +277,9 @@ __all__ = [
     "PROJECT_ID_ENV",
     "TOOL_SHAPED_SUBCOMMANDS",
     "TOOL_SHAPED_USAGE",
+    "git_post_checkout",
     "git_post_commit",
+    "git_post_merge",
+    "git_post_rewrite",
     "git_pre_commit",
 ]

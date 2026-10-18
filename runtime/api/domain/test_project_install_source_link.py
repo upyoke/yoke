@@ -159,23 +159,16 @@ class TestSourceLinkGitHooks:
     def test_skips_hooks_without_git_dir(self, checkout):
         report = source_link.install_source_link(checkout)
         skips = [a for a in report["actions"] if "Skipped: .git/hooks/" in a]
-        assert len(skips) == 3
+        assert len(skips) == len(git_hooks.GIT_HOOK_NAMES)
         assert any("linked worktree" in a for a in skips)
         assert report["hooks_installed_or_updated"] == 0
 
     def test_installs_all_hooks_in_git_repo(self, checkout):
         _git_init(checkout)
         report = source_link.install_source_link(checkout)
-        assert report["hooks_installed_or_updated"] == 3
-        for name, marker, shim in (
-            ("pre-commit", git_hooks.PRE_COMMIT_MARKER, git_hooks.PRE_COMMIT_SHIM),
-            (
-                "pre-merge-commit",
-                git_hooks.PRE_MERGE_COMMIT_MARKER,
-                git_hooks.PRE_MERGE_COMMIT_SHIM,
-            ),
-            ("post-commit", git_hooks.POST_COMMIT_MARKER, git_hooks.POST_COMMIT_SHIM),
-        ):
+        assert report["hooks_installed_or_updated"] == len(git_hooks.GIT_HOOK_NAMES)
+        for spec in git_hooks.managed_git_hook_specs():
+            name, marker, shim = spec["name"], spec["marker"], spec["content"]
             hook = checkout / ".git" / "hooks" / name
             assert hook.is_file(), f"{name} hook must exist"
             assert os.access(hook, os.X_OK), f"{name} hook must be executable"
@@ -244,6 +237,9 @@ class TestSourceLinkContractAndManifest:
             "pre-commit",
             "post-commit",
             "pre-merge-commit",
+            "post-merge",
+            "post-rewrite",
+            "post-checkout",
         ]
         assert manifest["manifest_schema"] == MANIFEST_SCHEMA
         assert report[MODE_KEY] == MODE_SOURCE_LINK

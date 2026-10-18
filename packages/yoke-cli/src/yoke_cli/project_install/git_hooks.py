@@ -2,13 +2,13 @@
 
 Owns the ``.git/hooks/pre-commit`` shim (product-safe local file-line
 gate), the ``pre-merge-commit`` shim (same staged-file gate for merge
-commits, which never fire ``pre-commit``), and the ``post-commit`` shim
-(product-safe committed-tree snapshot sync through ``yoke project
-snapshot sync --hook --head-only``). The shims exec the machine-installed
-``yoke`` launcher — ``yoke git pre-commit`` / ``yoke git
-post-commit`` (:mod:`yoke_cli.commands.git_hook`) — so
-hooked commits work without a Yoke checkout importable by the
-ambient ``python3``. ``.git/hooks/`` is per-clone and never
+commits, which never fire ``pre-commit``), and the four lane-head shims —
+``post-commit``, ``post-merge``, ``post-rewrite`` and ``post-checkout`` —
+which together record HEAD after every git operation that moves it,
+through ``yoke project snapshot sync --hook HOOK --head-only``. The shims
+exec the machine-installed ``yoke`` launcher — ``yoke git <hook>``
+(:mod:`yoke_cli.commands.git_hook`) — so hooked git operations work
+without a Yoke checkout importable by the ambient ``python3``. ``.git/hooks/`` is per-clone and never
 tracked, so the installer is the primary install surface for both
 hooks in every checkout — external project repos (copy strategy) and
 the Yoke source checkout (source-link strategy) alike.
@@ -46,12 +46,12 @@ from yoke_cli.project_install.managed_git_hooks import (
     validate_git_hook_specs,
 )
 
-# The full managed set (pre-commit, post-commit, pre-merge-commit), its
+# The full managed set (see GIT_HOOK_NAMES), its
 # ownership recognizer, and the bundle-spec selector all live in
 # :mod:`managed_git_hooks` — the single source of truth. This module used to
 # shadow them with a pre/post-commit-only pair, which silently dropped the
 # pre-merge-commit shim from every install; it now re-exports the canonical
-# functions so all three hooks land and the manifest count is truthful.
+# functions so every managed hook lands and the manifest count is truthful.
 
 
 @dataclass
@@ -155,7 +155,7 @@ def install_git_hooks(
     specs: List[dict[str, str]] | None = None,
     owned_hashes: dict[str, str] | None = None,
 ) -> None:
-    """Install both Yoke git hook shims (shared by both strategies)."""
+    """Install every managed Yoke git hook shim (shared by both strategies)."""
     selected = managed_git_hook_specs() if specs is None else specs
     try:
         selected = validate_git_hook_specs(selected)

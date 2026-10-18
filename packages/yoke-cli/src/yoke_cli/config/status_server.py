@@ -11,7 +11,7 @@ from yoke_cli.config import server_connect
 from yoke_cli.transport import https as https_transport
 from yoke_contracts.machine_config import schema as contract
 
-SERVER_HEALTH_TIMEOUT_S = 3.0
+SERVER_HEALTH_TIMEOUT_S = 10.0
 SERVER_IDENTITY_TIMEOUT_S = 3.0
 
 
@@ -24,12 +24,15 @@ def fetch_server_health(
     import urllib.request
 
     url = join_api_url(api_url, HEALTH_PATH)
-    try:
-        with urllib.request.urlopen(url, timeout=timeout_s) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-    except Exception:  # noqa: BLE001 - status degrades instead of raising
-        return None
-    return payload if isinstance(payload, dict) else None
+    for _ in range(2):
+        try:
+            with urllib.request.urlopen(url, timeout=timeout_s) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            if isinstance(payload, dict):
+                return payload
+        except Exception:  # noqa: BLE001 - status degrades after one retry
+            continue
+    return None
 
 
 def server_status(
@@ -60,7 +63,7 @@ def server_status(
                 _issue(
                     "error",
                     "server_unreachable",
-                    f"health probe failed against {api_url}",
+                    f"health probe failed after two attempts against {api_url}",
                     "This machine has no working control plane: every relayed "
                     "command will fail until the server answers. Start it "
                     "(`yoke self-host init --dir <bundle> --protect-existing --start`), or select a "

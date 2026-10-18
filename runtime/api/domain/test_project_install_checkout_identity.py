@@ -62,7 +62,12 @@ def test_git_lane_resolves_main_and_accepts_parent_canonical_link(
     nested = lane / "subdirectory"
     nested.mkdir()
     assert main_checkout(nested) == checkout
-    payload = {"projects": [{"checkout": str(checkout), "project_id": 7}]}
+    payload = {
+        "active_env": "local",
+        "connection_projects": {
+            "local": [{"checkout": str(checkout), "project_id": 7}]
+        },
+    }
     assert project_entry_for_checkout(payload, nested) == {
         "project_id": 7,
     }
@@ -118,7 +123,7 @@ def _config(tmp_path, monkeypatch, entries):
                         },
                     }
                 },
-                "projects": entries,
+                "connection_projects": {"prod": entries},
             }
         )
     )
@@ -147,7 +152,7 @@ def test_first_install_from_external_lane_registers_main(
     _git(checkout, "worktree", "add", "-b", "lane", str(lane))
     cfg = _config(tmp_path, monkeypatch, [])
     assert runner._register_in_machine_config(lane, 7, cfg, True)
-    assert json.loads(cfg.read_text())["projects"] == [
+    assert json.loads(cfg.read_text())["connection_projects"]["prod"] == [
         {"checkout": str(checkout), "project_id": 7}
     ]
 

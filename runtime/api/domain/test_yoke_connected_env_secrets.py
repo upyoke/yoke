@@ -47,7 +47,11 @@ def test_aws_secret_source_uses_declared_authority(
                         },
                     },
                 },
-                "projects": [{"checkout": str(repo.resolve()), "project_id": 1}],
+                "connection_projects": {
+                    "prod-db-admin": [
+                        {"checkout": str(repo.resolve()), "project_id": 1}
+                    ]
+                },
             }
         ),
         encoding="utf-8",
@@ -140,7 +144,11 @@ def test_direct_aws_secret_source_refreshes_without_database_metadata(
                         },
                     },
                 },
-                "projects": [{"checkout": str(repo.resolve()), "project_id": 1}],
+                "connection_projects": {
+                    "prod-db-admin": [
+                        {"checkout": str(repo.resolve()), "project_id": 1}
+                    ]
+                },
             }
         ),
         encoding="utf-8",

@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from yoke_cli.project_install.managed_git_hooks import GIT_HOOK_NAMES
 from yoke_cli.main import main as cli_main
 from yoke_cli.project_install import git_hooks as git_hooks_layer
 
@@ -49,7 +50,7 @@ def test_preview_reports_changes_without_target_writes(
     assert report["server_state_writes"] is False
     assert report["snapshot_sync"]["status"] == "skipped"
     assert report["files_would_write"]
-    assert report["git_hooks_would_install_or_update"] == 3
+    assert report["git_hooks_would_install_or_update"] == len(GIT_HOOK_NAMES)
     assert report["worktrees_ignore"]["would_add"] is True
     assert _project_tree(target) == before
     assert not (target / ".yoke/install-manifest.json").exists()

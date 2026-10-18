@@ -162,8 +162,16 @@ def test_missing_instruction_pointer_fails_even_with_configured_hooks(
 @pytest.mark.parametrize(
     "config",
     [
-        {"projects": [{"checkout": "/tmp/install-test", "project_id": 42}]},
-        {"projects": {"/tmp/install-test": {"project_id": 42}}},
+        {
+            "active_env": "local",
+            "connection_projects": {
+                "local": [{"checkout": "/tmp/install-test", "project_id": 42}]
+            },
+        },
+        {
+            "active_env": "local",
+            "connection_projects": {"local": {"/tmp/install-test": {"project_id": 42}}},
+        },
     ],
 )
 def test_residue_detects_foreign_project_binding_for_supported_mapping_shapes(
@@ -180,7 +188,7 @@ def test_residue_detects_foreign_project_binding_for_supported_mapping_shapes(
     assert result.result == "FAIL"
     assert (
         "another project's binding"
-        if isinstance(config["projects"], list)
+        if isinstance(config["connection_projects"]["local"], list)
         else "projects_invalid"
     ) in result.detail
 

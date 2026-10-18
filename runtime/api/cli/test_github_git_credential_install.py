@@ -131,7 +131,7 @@ def test_disconnect_removes_url_reset_and_restores_ambient_helper(
                     },
                 },
             },
-            "projects": [{"checkout": str(repo), "project_id": 1}],
+            "connection_projects": {"prod": [{"checkout": str(repo), "project_id": 1}]},
         }
     )
     config.write_text(json.dumps(payload), encoding="utf-8")
@@ -175,7 +175,9 @@ def test_helper_cleanup_retains_and_reports_lookalike_user_command(
 ) -> None:
     repo, config, _credential = _configured_repo(tmp_path, monkeypatch)
     payload = json.loads(config.read_text(encoding="utf-8"))
-    payload["projects"] = [{"checkout": str(repo), "project_id": 1}]
+    payload["connection_projects"] = {
+        "local": [{"checkout": str(repo), "project_id": 1}]
+    }
     config.write_text(json.dumps(payload), encoding="utf-8")
     key = github_git_credentials.GITHUB_CREDENTIAL_HELPER_KEY
     lookalike = (
@@ -222,10 +224,12 @@ def test_disconnect_removes_helpers_from_all_registered_checkouts(
                 }
                 for env in ("prod", "stage")
             },
-            "projects": [
-                {"checkout": str(first), "project_id": 1},
-                {"checkout": str(second), "project_id": 2},
-            ],
+            "connection_projects": {
+                "prod": [
+                    {"checkout": str(first), "project_id": 1},
+                    {"checkout": str(second), "project_id": 2},
+                ]
+            },
         }
     )
     config.write_text(json.dumps(payload), encoding="utf-8")
@@ -263,10 +267,13 @@ def test_all_registered_checkouts_filters_missing_paths(tmp_path: Path) -> None:
     config.write_text(
         json.dumps(
             {
-                "projects": [
-                    {"checkout": str(checkout), "project_id": 1},
-                    {"checkout": str(tmp_path / "missing"), "project_id": 2},
-                ]
+                "active_env": "local",
+                "connection_projects": {
+                    "local": [
+                        {"checkout": str(checkout), "project_id": 1},
+                        {"checkout": str(tmp_path / "missing"), "project_id": 2},
+                    ]
+                },
             }
         )
     )
@@ -279,7 +286,14 @@ def test_all_registered_checkouts_refuses_invalid_config(tmp_path: Path) -> None
     import pytest
 
     config = tmp_path / "config.json"
-    config.write_text(json.dumps({"projects": [{"checkout": "", "project_id": 1}]}))
+    config.write_text(
+        json.dumps(
+            {
+                "active_env": "local",
+                "connection_projects": {"local": [{"checkout": "", "project_id": 1}]},
+            }
+        )
+    )
     with pytest.raises(
         contract.MachineConfigContractError,
         match="project_checkout_invalid.*repair projects",

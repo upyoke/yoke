@@ -1,7 +1,9 @@
 {
  "id": "multiple-universes",
  "title": "Multiple universes",
- "status": "draft-copy",
+ "status": "observed",
  "page": "universes",
- "position": 4
+ "position": 4,
+ "note": "Candidate machine config separates checkout registrations by named connection. --env, YOKE_ENV and active_env choose the namespace in that order; paired HTTPS/admin connections share the HTTPS map. Source regressions cover colliding project IDs, explicit registration and cross-connection preservation; no live multi-universe proof is claimed.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/machine_config/schema_projects.py", "runtime/api/domain/test_machine_config_project_mapping.py", "runtime/api/cli/test_yoke_operations_cli_config_write_projects.py"]
 }

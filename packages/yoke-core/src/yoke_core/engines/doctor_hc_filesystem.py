@@ -9,7 +9,11 @@ from typing import List
 from yoke_core.domain.strategy_docs_paths import strategy_view_path
 
 from yoke_core.domain import machine_config
-from yoke_contracts.machine_config.schema_project_validation import validate_projects
+from yoke_contracts.machine_config.schema_project_validation import (
+    validate_connection_projects,
+    validate_projects,
+)
+from yoke_contracts.machine_config.schema_connections import MachineConfigContractError
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.scratch_auto_prune import prune_stale_scratch
 
@@ -150,11 +154,28 @@ def hc_config_validation(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 issues.append("- machine config settings must be an object")
             elif isinstance(settings, dict):
                 issues.extend(_settings_key_issues(settings))
-            projects = payload.get("projects", [])
-            issues.extend(
-                f"- {issue.code}: {issue.message}; repair projects in machine config"
-                for issue in validate_projects(projects)
+            from yoke_contracts.machine_config.schema_projects import (
+                projects_for_connection,
             )
+
+            project_issues = validate_projects(payload.get("projects"))
+            project_issues.extend(
+                validate_connection_projects(payload.get("connection_projects"))
+            )
+            issues.extend(
+                f"- {issue.code}: {issue.message} ({issue.path}); "
+                "repair the named checkout mapping in machine config"
+                for issue in project_issues
+            )
+            try:
+                projects = (
+                    projects_for_connection(payload)
+                    if not any(issue.severity == "error" for issue in project_issues)
+                    else []
+                )
+            except MachineConfigContractError as exc:
+                issues.append(f"- machine config invalid: {exc}")
+                projects = []
             # Deploy preflights resolve project checkouts from these entries,
             # so a dead path (for example a since-removed worktree) silently
             # breaks every run that consults the project repository.

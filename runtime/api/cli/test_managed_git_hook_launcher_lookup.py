@@ -13,7 +13,10 @@ from pathlib import Path
 import pytest
 
 from yoke_cli.project_install.managed_git_hooks import (
+    POST_CHECKOUT_SHIM,
     POST_COMMIT_SHIM,
+    POST_MERGE_SHIM,
+    POST_REWRITE_SHIM,
     PRE_COMMIT_SHIM,
     PRE_MERGE_COMMIT_SHIM,
 )
@@ -22,6 +25,9 @@ SHIMS = {
     "pre-commit": (PRE_COMMIT_SHIM, "git pre-commit"),
     "post-commit": (POST_COMMIT_SHIM, "git post-commit"),
     "pre-merge-commit": (PRE_MERGE_COMMIT_SHIM, "git pre-commit"),
+    "post-merge": (POST_MERGE_SHIM, "git post-merge"),
+    "post-rewrite": (POST_REWRITE_SHIM, "git post-rewrite"),
+    "post-checkout": (POST_CHECKOUT_SHIM, "git post-checkout"),
 }
 SYSTEM_PATH = "/usr/bin:/bin"
 

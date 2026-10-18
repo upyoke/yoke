@@ -29,7 +29,7 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
-from yoke_contracts.git_hook_markers import POST_COMMIT_SNAPSHOT_SKIP_ENV
+from yoke_contracts.git_hook_markers import HEAD_RECORDING_SKIP_ENV
 from yoke_cli.config import credentialed_git
 from yoke_core.domain import process_group_reaping
 from yoke_core.domain import (
@@ -82,7 +82,7 @@ def _git(checkout: Path, *args: str, timeout: int = 120) -> subprocess.Completed
     with the reaping runner; only the environment is delegated.
     """
     argv = ["-C", str(checkout), *args]
-    skip = {POST_COMMIT_SNAPSHOT_SKIP_ENV: "1"} if args[:1] == ("rebase",) else {}
+    skip = {HEAD_RECORDING_SKIP_ENV: "1"} if args[:1] == ("rebase",) else {}
     with credentialed_git.git_environment(argv, cwd=str(checkout)) as base:
         return process_group_reaping.run_in_process_group(
             ["git", *argv],

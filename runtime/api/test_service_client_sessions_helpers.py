@@ -255,8 +255,11 @@ def _map_session_workspace_home(
         payload = {}
         if config_file.is_file():
             payload = json.loads(config_file.read_text(encoding="utf-8"))
-        payload["projects"] = upsert_project_entry(
-            payload.get("projects"),
+        payload.setdefault("active_env", "local")
+        groups = payload.setdefault("connection_projects", {})
+        env = payload["active_env"]
+        groups[env] = upsert_project_entry(
+            groups.get(env),
             checkout=home,
             project_id=project_id,
         )

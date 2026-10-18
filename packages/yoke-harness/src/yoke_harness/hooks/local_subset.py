@@ -24,6 +24,7 @@ from yoke_contracts.hook_runner.project_scope import (
     resolve_hook_project_scope,
 )
 from yoke_contracts.hook_runner.shell_guard_repairs import RIPGREP_REPLACE_CHECK_ID
+from yoke_contracts.hook_runner.safety import infrastructure_reply
 
 from yoke_harness.hooks.client_facts import (
     collect_client_facts,
@@ -166,10 +167,11 @@ def evaluate_local_subset(
     try:
         chain = event_chain(event_name, payload, project_scope)
     except (ValueError, OSError, RuntimeError) as exc:
-        reason = f"hook_scope_unavailable: {exc}; repair the machine project mapping and retry"
-        stdout, exit_code = deny_stdout(reason, event_name, executor)
+        stdout, exit_code, denied = infrastructure_reply(
+            event_name, payload, executor, f"hook_scope_unavailable: {exc}"
+        )
         return LocalSubsetEvaluation(
-            stdout, exit_code, True, payload_extra=payload_extra
+            stdout, exit_code, denied, payload_extra=payload_extra
         )
     if collect_facts:
         payload_extra.update(collect_client_facts(event_name, payload, executor, chain))
@@ -181,7 +183,22 @@ def evaluate_local_subset(
                 result = session_lifecycle(event_name, payload, executor)
             else:
                 result = _POLICY_EVALUATORS[module_id](payload)
-        except Exception as exc:  # fail open, but make the degradation visible
+        except Exception as exc:
+            if event_name in {
+                "PreToolUse",
+                "PermissionRequest",
+                "apply_patch",
+                "UserPromptSubmit",
+            } and module_id.rsplit(".", 1)[-1].startswith(("lint_", "path_claim_")):
+                stdout, code, denied = infrastructure_reply(
+                    event_name,
+                    payload,
+                    executor,
+                    f"hook_guard_unavailable: {module_id}: {type(exc).__name__}",
+                )
+                return LocalSubsetEvaluation(
+                    stdout, code, denied, payload_extra=payload_extra
+                )
             contexts.append(
                 f"product-local hook policy {module_id} degraded open: {exc}"
             )

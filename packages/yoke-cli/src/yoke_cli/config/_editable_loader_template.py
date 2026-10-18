@@ -78,21 +78,26 @@ def _default_config_path(environ) -> Path:
     return base / CONFIG_FILE_NAME
 
 
-def _root_from_config(config_path: Path):
+def _root_from_config(config_path: Path, environ):
     try:
         data = json.loads(Path(config_path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    projects = data.get("projects") if isinstance(data, dict) else None
-    # projects is a flat list of {checkout, ...} entries; the legacy
-    # checkout-keyed object is still tolerated. Standalone shim — no yoke
-    # imports available, so both shapes are unpacked inline.
-    if isinstance(projects, list):
-        checkouts = [e.get("checkout") for e in projects if isinstance(e, dict)]
-    elif isinstance(projects, dict):
-        checkouts = list(projects.keys())
-    else:
+    if not isinstance(data, dict):
         return None
+    env = environ.get("YOKE_ENV") or data.get("active_env")
+    connections = data.get("connections") or {}
+    if isinstance(env, str) and env.endswith("-db-admin"):
+        base = env[: -len("-db-admin")]
+        if connections.get(base, {}).get("transport") == "https":
+            env = base
+    groups = data.get("connection_projects") or {}
+    if not isinstance(groups, dict):
+        return None
+    projects = groups.get(env)
+    if not isinstance(projects, list):
+        return None
+    checkouts = [e.get("checkout") for e in projects if isinstance(e, dict)]
     # Sorted for deterministic selection when more than one checkout qualifies.
     for key in sorted(c for c in checkouts if isinstance(c, str) and c.strip()):
         candidate = Path(str(key)).expanduser()
@@ -127,7 +132,8 @@ def resolve_repo_root(environ=None, config_path=None):
         if _is_yoke_checkout(candidate):
             return candidate
     resolved = _root_from_config(
-        Path(config_path) if config_path is not None else _default_config_path(environ)
+        Path(config_path) if config_path is not None else _default_config_path(environ),
+        environ,
     )
     if resolved is not None:
         return resolved

@@ -1,13 +1,12 @@
 """Product-boundary inventory for the installable ``yoke`` CLI.
 
-The engine (yoke-core) is present on every machine; the active connection
-decides whether it runs. Https connections relay every call to the server
-and keep the engine inert; a non-prod local-postgres connection is a local
-universe whose in-process dispatch is the product path; prod-flagged
-postgres connections stay operator-only. Each row states the expected
-behavior of a command/helper in a product install where the client packages
-hold no static import authority over the engine and dispatch is
-connection-gated.
+The engine (yoke-core) is on every machine; the active connection decides
+whether it runs. Https connections relay every call to the server and keep
+the engine inert; a non-prod local-postgres connection is a local universe
+whose in-process dispatch is the product path; prod-flagged postgres
+connections stay operator-only. Each row states the expected behavior of a
+command/helper in a product install where the client packages hold no
+static import authority over the engine and dispatch is connection-gated.
 """
 
 from __future__ import annotations
@@ -61,7 +60,9 @@ _PROJECT_INSTALL = _commands(
 _SOURCE_DEV = _commands(
     "agents render|agents render check|aws exec|board rebuild|dev setup|dev db-admin exec|dev db-admin setup|dev path-snapshot-prewarm|github-actions runners status|merge audit|packets budget get|packets check|packets render|packets startup-delivery get|resync|runner-fleet exec|schema converge|scratch dispatch-inputs|source-authority export|source-authority quiesce|usher reconcile-github"
 )
-_HOOKS = _commands("git post-commit|git pre-commit|hook evaluate")
+_HOOKS = _commands("hook evaluate") | {
+    "yoke " + " ".join(key) for key in TOOL_SHAPED_SUBCOMMANDS if key[0] == "git"
+}
 _HOOK_HELPERS = frozenset(
     {
         "helper yoke_cli.commands.adapters.hook_inprocess",

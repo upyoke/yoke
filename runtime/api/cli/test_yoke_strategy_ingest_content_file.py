@@ -29,28 +29,39 @@ def test_lane_handoff_content_file_is_shipped_for_one_slug(
     rendered = "<!-- rendered header -->\n# Fleet communications\n"
     handoff.write_text(rendered, encoding="utf-8")
 
-    with patch.object(strategy_render._helpers, "ensure_handlers_loaded"), \
-            patch.object(strategy_render, "build_actor", return_value=object()), \
-            patch.object(strategy_render, "strategy_target", return_value=object()), \
-            patch.object(
-                strategy_render,
-                "resolve_target_root_for_cli",
-                return_value=tmp_path,
-            ), \
-            patch.object(
-                strategy_render, "call_dispatcher", return_value=_response(),
-            ) as dispatch:
-        rc = strategy_render.strategy_ingest([
-            "FLEET-COMMS", "--content-file", str(handoff), "--json",
-        ])
+    with (
+        patch.object(strategy_render._helpers, "ensure_handlers_loaded"),
+        patch.object(strategy_render, "build_actor", return_value=object()),
+        patch.object(strategy_render, "strategy_target", return_value=object()),
+        patch.object(
+            strategy_render,
+            "resolve_target_root_for_cli",
+            return_value=tmp_path,
+        ),
+        patch.object(
+            strategy_render,
+            "call_dispatcher",
+            return_value=_response(),
+        ) as dispatch,
+    ):
+        rc = strategy_render.strategy_ingest(
+            [
+                "FLEET-COMMS",
+                "--content-file",
+                str(handoff),
+                "--json",
+            ]
+        )
 
     assert rc == 0
     payload = dispatch.call_args.kwargs["payload"]
-    assert payload["files"] == [{
-        "slug": "FLEET-COMMS",
-        "path": str(handoff.resolve()),
-        "text": rendered,
-    }]
+    assert payload["files"] == [
+        {
+            "slug": "FLEET-COMMS",
+            "path": str(handoff.resolve()),
+            "text": rendered,
+        }
+    ]
 
 
 @pytest.mark.parametrize("slugs", [[], ["MISSION", "VISION"]])
@@ -61,25 +72,32 @@ def test_content_file_requires_exactly_one_explicit_slug(
     handoff = tmp_path / "handoff.md"
     handoff.write_text("rendered\n", encoding="utf-8")
 
-    with patch.object(strategy_render._helpers, "ensure_handlers_loaded"), \
-            patch.object(strategy_render, "build_actor", return_value=object()), \
-            patch.object(strategy_render, "strategy_target", return_value=object()), \
-            patch.object(
-                strategy_render,
-                "resolve_target_root_for_cli",
-                return_value=tmp_path,
-            ), \
-            patch.object(strategy_render, "call_dispatcher") as dispatch:
-        rc = strategy_render.strategy_ingest([
-            *slugs, "--content-file", str(handoff),
-        ])
+    with (
+        patch.object(strategy_render._helpers, "ensure_handlers_loaded"),
+        patch.object(strategy_render, "build_actor", return_value=object()),
+        patch.object(strategy_render, "strategy_target", return_value=object()),
+        patch.object(
+            strategy_render,
+            "resolve_target_root_for_cli",
+            return_value=tmp_path,
+        ),
+        patch.object(strategy_render, "call_dispatcher") as dispatch,
+    ):
+        rc = strategy_render.strategy_ingest(
+            [
+                *slugs,
+                "--content-file",
+                str(handoff),
+            ]
+        )
 
     assert rc == 2
     dispatch.assert_not_called()
 
 
 def test_write_back_skips_target_root_registered_to_another_project(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # The written docs already landed in the DB (this response models
     # that success), so the command still succeeds — only the local
@@ -97,7 +115,12 @@ def test_write_back_skips_target_root_registered_to_another_project(
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(
         json.dumps(
-            {"projects": [{"checkout": str(other_checkout), "project_id": 2}]}
+            {
+                "active_env": "local",
+                "connection_projects": {
+                    "local": [{"checkout": str(other_checkout), "project_id": 2}]
+                },
+            }
         ),
         encoding="utf-8",
     )
@@ -105,29 +128,46 @@ def test_write_back_skips_target_root_registered_to_another_project(
     handoff = other_checkout / "FLEET-COMMS.md"
     handoff.write_text("<!-- h -->\n# Fleet communications\n", encoding="utf-8")
     written_response = FunctionCallResponse(
-        success=True, function="strategy.ingest.run", version="v1",
+        success=True,
+        function="strategy.ingest.run",
+        version="v1",
         request_id="mismatch-test",
         result={
-            "project_id": 1, "project_slug": "yoke",
-            "docs": [{
-                "slug": "FLEET-COMMS", "status": "written",
-                "old_lines": 1, "new_lines": 2, "line_delta": 1,
-                "file_text": "<!-- h2 -->\n# Fleet communications\n",
-                "archived": False,
-            }],
+            "project_id": 1,
+            "project_slug": "yoke",
+            "docs": [
+                {
+                    "slug": "FLEET-COMMS",
+                    "status": "written",
+                    "old_lines": 1,
+                    "new_lines": 2,
+                    "line_delta": 1,
+                    "file_text": "<!-- h2 -->\n# Fleet communications\n",
+                    "archived": False,
+                }
+            ],
         },
     )
 
-    with patch.object(strategy_render._helpers, "ensure_handlers_loaded"), \
-            patch.object(strategy_render, "build_actor", return_value=object()), \
-            patch.object(strategy_render, "strategy_target", return_value=object()), \
-            patch.object(
-                strategy_render, "call_dispatcher", return_value=written_response,
-            ):
-        rc = strategy_render.strategy_ingest([
-            "FLEET-COMMS", "--content-file", str(handoff),
-            "--target-root", str(other_checkout),
-        ])
+    with (
+        patch.object(strategy_render._helpers, "ensure_handlers_loaded"),
+        patch.object(strategy_render, "build_actor", return_value=object()),
+        patch.object(strategy_render, "strategy_target", return_value=object()),
+        patch.object(
+            strategy_render,
+            "call_dispatcher",
+            return_value=written_response,
+        ),
+    ):
+        rc = strategy_render.strategy_ingest(
+            [
+                "FLEET-COMMS",
+                "--content-file",
+                str(handoff),
+                "--target-root",
+                str(other_checkout),
+            ]
+        )
 
     assert rc == 0
     # The write-back is skipped: no header-advanced file lands under the

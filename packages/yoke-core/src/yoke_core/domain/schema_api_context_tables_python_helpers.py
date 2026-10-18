@@ -23,6 +23,16 @@ from __future__ import annotations
 
 
 PYTHON_HELPERS_TABLES: dict[str, dict] = {
+    "yoke_harness.hooks.machine_hooks": {
+        "columns": [("ensure_machine_hooks_for_executor", "callable")],
+        "notes": (
+            "Machine-wide hook setup uses ensure_machine_hooks_for_executor"
+            "(executor, hook=event_name). Wrong guess: importing "
+            "cursor_lifecycle_hooks.ensure_user_lifecycle_hooks_for_executor "
+            "after global ownership moved to machine_hooks. That module is "
+            "retired; source tests patch the shared machine_hooks owner."
+        ),
+    },
     "yoke_contracts.levels": {
         "columns": [("default_levels", "callable")],
         "notes": (

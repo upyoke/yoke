@@ -14,6 +14,9 @@ APPROVAL_PAGE_PATH = "/machine-approval"
 CODE_TTL_SECONDS = 600
 POLL_INTERVAL_SECONDS = 2
 APPROVAL_RETURN_COOKIE = "yoke_machine_approval_return"
+MATCH_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+MATCH_CODE_LENGTH = 4
+MATCH_CODE_PATTERN = rf"[{MATCH_CODE_ALPHABET}]{{{MATCH_CODE_LENGTH}}}"
 # Refusal code for a machine id the registry retired, and the one recovery
 # every surface teaches: connecting again swaps in a new identity by itself.
 MACHINE_RETIRED = "machine_retired"

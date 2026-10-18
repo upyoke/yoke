@@ -34,7 +34,7 @@ def project_register(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke project register",
         description=(
-            "Map one machine-local checkout to a project id, shared by all connections.\n"
+            "Map one machine-local checkout to a project id, scoped to the selected connection.\n"
             "Moving a project id already routed elsewhere needs --reassign."
         ),
     )

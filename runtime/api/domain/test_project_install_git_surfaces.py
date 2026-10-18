@@ -66,12 +66,9 @@ def test_copy_install_writes_git_hook_shims(repo) -> None:
 
     report = apply_bundle(repo, make_bundle(), source="test")
 
-    assert report["git_hooks_installed_or_updated"] == 3
-    for name, marker in (
-        ("pre-commit", git_hooks.PRE_COMMIT_MARKER),
-        ("pre-merge-commit", git_hooks.PRE_MERGE_COMMIT_MARKER),
-        ("post-commit", git_hooks.POST_COMMIT_MARKER),
-    ):
+    assert report["git_hooks_installed_or_updated"] == len(git_hooks.GIT_HOOK_NAMES)
+    for spec in git_hooks.managed_git_hook_specs():
+        name, marker = spec["name"], spec["marker"]
         hook = repo / ".git" / "hooks" / name
         assert hook.is_file(), f"{name} shim must be installed in copy mode"
         assert marker in hook.read_text(encoding="utf-8")
@@ -98,7 +95,13 @@ def test_copy_uninstall_removes_yoke_hooks_preserves_foreign(repo) -> None:
 
     report = project_install.uninstall(repo)
 
-    assert report["git_hooks_removed"] == ["pre-commit", "pre-merge-commit"]
+    assert report["git_hooks_removed"] == [
+        "pre-commit",
+        "pre-merge-commit",
+        "post-merge",
+        "post-rewrite",
+        "post-checkout",
+    ]
     assert not (repo / ".git" / "hooks" / "pre-commit").exists()
     assert foreign.read_text(encoding="utf-8") == ("#!/bin/sh\nexec /custom/notify\n")
 
@@ -122,7 +125,13 @@ def test_git_hook_marker_mention_is_never_treated_as_ownership(repo) -> None:
     checkout_gate.commit_touched_paths(repo, report)
     uninstall_report = project_install.uninstall(repo)
     assert ambiguous.read_text(encoding="utf-8") == content
-    assert uninstall_report["git_hooks_removed"] == ["post-commit", "pre-merge-commit"]
+    assert uninstall_report["git_hooks_removed"] == [
+        "post-commit",
+        "pre-merge-commit",
+        "post-merge",
+        "post-rewrite",
+        "post-checkout",
+    ]
 
 
 def test_worktrees_ignore_owned_line_round_trips_without_foreign_loss(repo) -> None:

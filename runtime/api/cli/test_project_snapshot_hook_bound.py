@@ -5,6 +5,8 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
+import pytest
+
 from yoke_cli.commands.adapters.project_snapshot import HOOK_WRITE_TIMEOUT_S
 from yoke_cli.project_snapshot import identity_sync_payload, plan_sync, scanner
 from yoke_cli.project_snapshot.scan_progress import ScanProgress
@@ -70,6 +72,7 @@ def test_hook_cli_records_identity_without_reading_file_contents(
         "demo",
         "--head-only",
         "--hook",
+        "post-commit",
         responses=[begin],
     )
     assert rc == 0
@@ -83,7 +86,10 @@ def test_hook_cli_records_identity_without_reading_file_contents(
     assert CALLS[0]["timeout_s"] == HOOK_WRITE_TIMEOUT_S
 
 
-def test_hook_cli_reports_an_unsettled_identity_begin(tmp_path: Path) -> None:
+@pytest.mark.parametrize("hook", ["post-commit", "post-merge", "post-checkout"])
+def test_hook_cli_reports_an_unsettled_identity_begin(
+    tmp_path: Path, hook: str
+) -> None:
     repo = make_repo(tmp_path)
     begin = FunctionCallResponse(
         success=True,
@@ -100,11 +106,12 @@ def test_hook_cli_reports_an_unsettled_identity_begin(tmp_path: Path) -> None:
         "demo",
         "--head-only",
         "--hook",
+        hook,
         responses=[begin],
     )
     assert rc == 0
     assert out == ""
-    assert err.startswith("yoke (post-commit): ")
+    assert err.startswith(f"yoke ({hook}): ")
     assert "was not settled at begin" in err
 
 

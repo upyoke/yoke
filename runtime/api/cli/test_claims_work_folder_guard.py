@@ -18,7 +18,12 @@ def item(monkeypatch):
     monkeypatch.setattr(
         guard,
         "load_config",
-        lambda: {"projects": [{"project_id": 4, "checkout": "/local/garden"}]},
+        lambda: {
+            "active_env": "local",
+            "connection_projects": {
+                "local": [{"project_id": 4, "checkout": "/local/garden"}]
+            },
+        },
     )
     return value
 
@@ -47,7 +52,14 @@ def test_lane_worktree_maps_to_parent_project(tmp_path, monkeypatch, item):
     lane.mkdir(parents=True)
     config = tmp_path / "config.json"
     config.write_text(
-        json.dumps({"projects": [{"project_id": 4, "checkout": str(checkout)}]})
+        json.dumps(
+            {
+                "active_env": "local",
+                "connection_projects": {
+                    "local": [{"project_id": 4, "checkout": str(checkout)}]
+                },
+            }
+        )
     )
     monkeypatch.delenv(paths.HOME_ENV, raising=False)
     monkeypatch.setenv(paths.CONFIG_FILE_ENV, str(config))
@@ -57,10 +69,14 @@ def test_lane_worktree_maps_to_parent_project(tmp_path, monkeypatch, item):
 
 
 def test_unmapped_project_names_registration(item, monkeypatch):
-    monkeypatch.setattr(guard, "load_config", lambda: {"projects": []})
+    monkeypatch.setattr(
+        guard,
+        "load_config",
+        lambda: {"active_env": "local", "connection_projects": {"local": []}},
+    )
     line = guard.render_folder_line(4, "garden", "GAR-3", "Plant trees")
     assert "No local checkout" in line
-    assert "yoke project register CHECKOUT --project-id 4" in line
+    assert "yoke --env local project register CHECKOUT --project-id 4" in line
     assert "/local/garden" not in line
 
 

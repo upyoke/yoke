@@ -29,7 +29,9 @@ def test_packaged_cli_gets_and_updates_customized_pack_over_https(
     with PackApi() as api:
         config = write_https_config(tmp_path, "product-token", api.url)
         payload = json.loads(config.read_text(encoding="utf-8"))
-        payload["projects"] = [{"checkout": str(project.resolve()), "project_id": 41}]
+        payload["connection_projects"] = {
+            "prod": [{"checkout": str(project.resolve()), "project_id": 41}]
+        }
         config.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
         preview_get = _pack_command(
