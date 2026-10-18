@@ -33,7 +33,7 @@ CREATED = "2026-01-02T00:00:00Z"
 def test_merge_fact_requires_a_strictly_later_landing(landing, expected):
     verdict = evaluate_satisfaction(
         "fact:merged",
-        "done",
+        "implementing",
         blocking_worktree="already-on-trunk",
         blocking_merged=True,
         blocking_merged_at=landing,
@@ -57,7 +57,10 @@ def test_missing_edge_clock_cannot_infer_a_landing():
     assert "merge_landing_unverified" in verdict.reason
 
 
-def test_prior_landing_waits_until_relanding_in_all_readers(test_db):
+@pytest.mark.parametrize("blocker_status", ["release", "done"])
+def test_prior_landing_waits_until_relanding_or_done_in_all_readers(
+    test_db, blocker_status
+):
     blocker, dependent = 9811, 9812
     for item in (blocker, dependent):
         insert_item(
@@ -65,7 +68,7 @@ def test_prior_landing_waits_until_relanding_in_all_readers(test_db):
             id=item,
             project_sequence=item,
             workflow_id="dash",
-            status="release",
+            status=blocker_status if item == blocker else "release",
         )
     test_db.execute(
         "UPDATE items SET merged_at=%s WHERE id=%s",
@@ -81,7 +84,7 @@ def test_prior_landing_waits_until_relanding_in_all_readers(test_db):
 
     dependent_ref = render_item_ref(test_db, dependent)
     for landing, blocked in [
-        ("2026-01-01T00:00:00Z", True),
+        ("2026-01-01T00:00:00Z", blocker_status != "done"),
         ("2026-01-03T00:00:00Z", False),
     ]:
         test_db.execute("UPDATE items SET merged_at=%s WHERE id=%s", (landing, blocker))
@@ -117,3 +120,22 @@ def test_prior_landing_waits_until_relanding_in_all_readers(test_db):
             _blocker_verdict(test_db, blocker, "fact:merged", CREATED).satisfied
             is not blocked
         )
+
+
+@pytest.mark.parametrize(
+    "landing", ["2026-01-01T00:00:00Z", "2026-01-03T00:00:00Z", CREATED, None]
+)
+def test_done_satisfies_merge_edge_regardless_of_landing_or_edge_age(landing):
+    verdict = evaluate_satisfaction(
+        "fact:merged",
+        "done",
+        blocking_merged_at=landing,
+        dependency_created_at=CREATED,
+        workflow=builtin_workflow_runtime("dash"),
+    )
+    assert verdict.satisfied
+    assert "done" in verdict.reason
+
+
+def test_done_satisfies_merge_edge_without_clock_or_workflow_evidence():
+    assert evaluate_satisfaction("fact:merged", "done").satisfied

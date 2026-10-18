@@ -162,7 +162,8 @@ yoke items dependency add ITEM BLOCKER dash --gate-point integration --satisfact
 yoke sessions touch --mode parked --reason "awaiting BLOCKER merge"
 ```
 
-`fact:merged` requires the blocker's recorded landing to be strictly after the
+A blocker at `done` always satisfies `fact:merged`, regardless of edge age.
+For an unfinished blocker, its recorded landing must be strictly after the
 edge's creation. Add the edge before the landing you need; an earlier merge,
 branch ancestry or release status cannot satisfy it. For a re-landing, reuse
 an edge only when its creation follows the earlier landing; otherwise remove
