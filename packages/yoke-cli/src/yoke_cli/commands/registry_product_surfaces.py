@@ -29,6 +29,7 @@ from yoke_cli.commands.registry_direct_workflows import (
     DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY,
 )
 from yoke_cli.commands.adapters.files_cli import files_upload
+from yoke_cli.commands.adapters.classify_dirty import classify_dirty
 from yoke_cli.commands.adapters.qa_artifact_metadata import qa_artifact_get
 from yoke_cli.commands.adapters.items_section import items_progress_log_get
 from yoke_cli.commands.registry_item_pages import ITEM_PAGE_SUBCOMMAND_REGISTRY
@@ -274,6 +275,7 @@ OVERVIEW_SUBCOMMAND_REGISTRY = {
 }
 
 PRODUCT_SURFACE_SUBCOMMAND_REGISTRY = {
+    ("worktree", "classify-dirty"): ("worktree.classify_dirty", classify_dirty),
     ("files", "upload"): ("files.upload", files_upload),
     ("operator", "data-repair"): (
         "operator.data_repair.run",

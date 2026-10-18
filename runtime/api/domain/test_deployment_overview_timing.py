@@ -140,3 +140,14 @@ def test_registered_overview_measures_real_composition(test_db, capsys):
     assert end["component_calls"]["qa_acceptance"] == 1
     assert end["run_count"] == len(outcome.result_payload["rows"])
     assert "start_timings" not in outcome.result_payload
+
+
+def test_missing_function_request_id_stays_absent(capsys):
+    @timing.timed_overview
+    def handler(request):
+        return SimpleNamespace(result_payload={"rows": []})
+
+    request = _request()
+    request.request_id = None
+    handler(request)
+    assert "request_id" not in _records(capsys)[-1]
