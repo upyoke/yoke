@@ -137,6 +137,7 @@ def acquire_test_machine_admission(
     machine: str | None,
     select_any: bool,
     healthy_only: bool = False,
+    cases: tuple[dict[str, Any], ...] = (),
 ) -> TestMachineAdmission:
     """Acquire a named host, or the healthiest free host then stable name.
 
@@ -157,6 +158,9 @@ def acquire_test_machine_admission(
             raise TestMachineCapabilityError(
                 f"project {project!r} has no test-machine capability"
             )
+    from yoke_core.domain.machine_qa_case_platform import matching_platform_hosts
+
+    candidates = matching_platform_hosts(candidates, cases)
     verification = _verification_by_machine(conn, candidates)
     candidates.sort(
         key=lambda candidate: (

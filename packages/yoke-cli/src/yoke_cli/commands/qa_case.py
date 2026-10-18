@@ -83,7 +83,8 @@ def qa_plan_run(args: List[str]) -> int:
     if show_delegate_help(
         args,
         QA_PLAN_RUN_USAGE,
-        "Requires the named immutable QA case or execution; item cases require the item work claim.",
+        "Requires the named immutable QA case or execution; item cases require the item work claim. "
+        "Host selection respects the case OS. Resume and correction commands keep --machine NAME.",
     ):
         return 0
     return _run_execution_module(

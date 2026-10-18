@@ -188,7 +188,8 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                             "delivery": "failed",
                             "recovery": f"Correction is durable but holder wake failed: {exc}. "
                             f"Run the corrected case for {run_id} stage "
-                            f"{payload.deployment_stage} and inspect the run.",
+                            f"{payload.deployment_stage} with --machine NAME from the failed "
+                            "attempt's QA run evidence, and inspect the run.",
                         }
     except QaPlanError as exc:
         return _error("incompatible", str(exc), "$.payload")
