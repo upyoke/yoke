@@ -161,3 +161,21 @@ def test_failed_record_stops_before_cleanup(monkeypatch):
     monkeypatch.setattr(landing, "close_out_lane", lambda **kw: (None, "unavailable"))
     assert mw._post_merge_cleanup(ctx, no_changes=False) == 5
     assert calls == [["rev-parse", "integration"]]
+
+
+def test_retry_refuses_local_only_ancestry_in_pr_mode(monkeypatch):
+    from unittest.mock import Mock
+    from yoke_core.domain.merge_landing_proof import LandingUnverified
+
+    ctx = MergeContext(args=MergeArgs(branch="integration"), epic_id=1)
+    record = Mock()
+    monkeypatch.setattr(landing, "record_worktree_landing", record)
+    proof = Mock(
+        side_effect=LandingUnverified("merge_candidate_not_landed: publish and retry")
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.merge_landing_proof.verified_target_sha", proof
+    )
+    assert landing.record_existing_landing(ctx, "a" * 40, "main") == 1
+    proof.assert_called_once_with(ctx.repo_root, "main", "a" * 40)
+    record.assert_not_called()

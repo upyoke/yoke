@@ -50,18 +50,33 @@ def record_existing_landing(ctx: MergeContext, candidate_sha: str, target: str) 
         return 0
     from yoke_core.engines import merge_worktree as mw
 
-    tip = mw._run_git(["rev-parse", target], cwd=ctx.repo_root, capture=True)
-    if tip.returncode:
-        mw._print(
-            "item_landing_target_unreadable: cannot resolve the proven target; "
-            "restore the target ref and retry merge-worktree. Preserve the lane.",
-            err=True,
+    if ctx.args.local_merge:
+        tip = mw._run_git(["rev-parse", target], cwd=ctx.repo_root, capture=True)
+        if tip.returncode:
+            mw._print(
+                "item_landing_target_unreadable: cannot resolve the proven target; "
+                "restore the target ref and retry merge-worktree. Preserve the lane.",
+                err=True,
+            )
+            return 5
+        target_sha = tip.stdout.strip()
+    else:
+        from yoke_core.domain.merge_landing_proof import (
+            LandingUnverified,
+            verified_target_sha,
         )
-        return 5
+
+        try:
+            target_sha = verified_target_sha(
+                ctx.repo_root, ctx.args.target, candidate_sha
+            )
+        except LandingUnverified as exc:
+            mw._print(str(exc), err=True)
+            return 1
     return (
         0
         if record_worktree_landing(
-            ctx, candidate_sha=candidate_sha, target_sha=tip.stdout.strip()
+            ctx, candidate_sha=candidate_sha, target_sha=target_sha
         )
         else 5
     )
