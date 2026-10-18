@@ -50,6 +50,9 @@ def load_config(path: str | Path | None = None) -> dict[str, Any]:
         raise MachineConfigError(f"{selected} is not valid JSON: {exc}") from exc
     if not isinstance(payload, dict):
         raise MachineConfigError(f"{selected} must contain a JSON object")
+    from yoke_contracts.machine_config.unknown_keys import warn_unknown_keys
+
+    warn_unknown_keys(payload, selected)
     return payload
 
 
@@ -103,7 +106,7 @@ def project_entry(
 ) -> dict[str, Any]:
     """Return the machine-config entry for a checkout, or ``{}``.
 
-    Checkout resolution is independent of connection routing.
+    Checkout resolution uses the selected connection.
     """
 
     cfg = load_config(path)
@@ -121,12 +124,12 @@ def configured_projects(
 ) -> list[ConfiguredProject]:
     """Return project checkout mappings recorded in machine config.
 
-    Every project has one checkout, shared by all connections.
+    Every project has one checkout per connection.
     """
 
     payload = load_config(path)
     out: list[ConfiguredProject] = []
-    for entry in contract.normalize_projects(payload.get("projects")):
+    for entry in contract.projects_for_connection(payload):
         project_id = entry["project_id"]
         if project_id is None:
             continue
@@ -157,7 +160,11 @@ def all_registered_checkouts(
     payload = load_config(path)
     out: list[Path] = []
     seen: set[str] = set()
-    for entry in contract.normalize_projects(payload.get("projects")):
+    for entry in [
+        entry
+        for entries in contract.connection_project_maps(payload).values()
+        for entry in contract.normalize_projects(entries)
+    ]:
         try:
             checkout = Path(entry["checkout"]).expanduser()
             canonical = checkout.resolve(strict=False)

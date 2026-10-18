@@ -6,20 +6,12 @@ overrides.  Missing leaves resolve to the defaults below, so an unknown key can 
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from yoke_contracts.setting_spec import SettingSpec
 from typing import Any, Mapping
 
 
-@dataclass(frozen=True)
-class FleetKeySpec:
-    default: Any
-    value_type: type
-    meaning: str
-    minimum: int | None = None
-
-
-FLEET_KEY_SPECS: dict[str, FleetKeySpec] = {
-    "membership.auto_join_domain_verified": FleetKeySpec(
+FLEET_KEY_SPECS: dict[str, SettingSpec] = {
+    "membership.auto_join_domain_verified": SettingSpec(
         False,
         bool,
         "Admit verified email under the organization's identity domain.",
@@ -121,8 +113,13 @@ def merge_fleet_settings(
     merged = _deep_copy(document)
     flattened = _flatten(changes)
     for path, value in flattened.items():
-        _validate_value(path, value)
-        _assign(merged, path, value)
+        if value is None:
+            if path not in FLEET_KEY_SPECS:
+                raise FleetSettingsError(f"unknown organization setting {path!r}")
+            _remove(merged, path)
+        else:
+            _validate_value(path, value)
+            _assign(merged, path, value)
     return merged, sorted(flattened)
 
 
@@ -135,10 +132,20 @@ def _deep_copy(value: Mapping[str, Any]) -> dict[str, Any]:
 
 __all__ = [
     "FLEET_KEY_SPECS",
-    "FleetKeySpec",
+    "SettingSpec",
     "FleetSettingsError",
     "default_fleet_settings",
     "get_fleet_setting",
     "merge_fleet_settings",
     "validate_fleet_settings",
 ]
+
+
+def _remove(document: dict[str, Any], path: str) -> None:
+    head, dot, tail = path.partition(".")
+    if not dot:
+        document.pop(head, None)
+    elif isinstance(document.get(head), dict):
+        _remove(document[head], tail)
+        if not document[head]:
+            document.pop(head)

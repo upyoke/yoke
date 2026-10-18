@@ -1,4 +1,4 @@
-"""Project membership remains independent of a machine connection."""
+"""Project membership is resolved on the selected machine connection."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from yoke_core.hooks import codex_payload, target
 def project_map(tmp_path, monkeypatch):
     config_file = tmp_path / "config.json"
     config_file.write_text("{}")
-    config = {"projects": []}
+    config = {"active_env": "local", "connection_projects": {"local": []}}
     monkeypatch.setattr(
         project_scope.machine_config, "config_path", lambda: config_file
     )
@@ -45,7 +45,9 @@ def test_registered_folder_and_subdirectory_share_membership(tmp_path, project_m
     root = tmp_path / "folder"
     child = root / "child"
     child.mkdir(parents=True)
-    project_map["projects"] = [{"checkout": str(root), "project_id": 7}]
+    project_map["connection_projects"]["local"] = [
+        {"checkout": str(root), "project_id": 7}
+    ]
     assert project_scope.project_id_for_root(root) == 7
     assert project_scope.project_id_for_root(child) == 7
     assert target.is_yoke_target(str(child), "") is True
@@ -69,7 +71,9 @@ def test_git_worktree_is_managed_but_nested_independent_repo_is_not(
         "-m",
         "initialize",
     )
-    project_map["projects"] = [{"checkout": str(root), "project_id": 7}]
+    project_map["connection_projects"]["local"] = [
+        {"checkout": str(root), "project_id": 7}
+    ]
     lane = tmp_path / "lane"
     _git(root, "worktree", "add", "-b", "feature", str(lane))
     child = lane / "child"
@@ -102,7 +106,9 @@ def test_lane_and_main_checkout_share_membership_with_one_git_lookup(
     )
     lane = tmp_path / "lane"
     _git(root, "worktree", "add", "-b", "feature", str(lane))
-    project_map["projects"] = [{"checkout": str(root), "project_id": 7}]
+    project_map["connection_projects"]["local"] = [
+        {"checkout": str(root), "project_id": 7}
+    ]
     lookups: list[list[str]] = []
     real_run = checkout.subprocess.run
 
@@ -125,7 +131,9 @@ def test_lane_and_main_checkout_share_membership_with_one_git_lookup(
 def test_harness_workspace_facts_share_the_project_resolver(tmp_path, project_map, key):
     root = tmp_path / "managed"
     root.mkdir()
-    project_map["projects"] = [{"checkout": str(root), "project_id": 7}]
+    project_map["connection_projects"]["local"] = [
+        {"checkout": str(root), "project_id": 7}
+    ]
     value = [str(root)] if key == "workspace_roots" else str(root)
     assert project_scope.project_id_for_payload({key: value}) == 7
 
@@ -135,7 +143,9 @@ def test_actual_command_workdir_wins_over_managed_session(tmp_path, project_map)
     unrelated = tmp_path / "other"
     managed.mkdir()
     unrelated.mkdir()
-    project_map["projects"] = [{"checkout": str(managed), "project_id": 7}]
+    project_map["connection_projects"]["local"] = [
+        {"checkout": str(managed), "project_id": 7}
+    ]
     payload = {"cwd": str(managed), "tool_input": {"workdir": str(unrelated)}}
     assert project_scope.project_id_for_payload(payload) is None
     assert project_scope.project_id_for_payload(payload) is None
@@ -176,7 +186,7 @@ def test_empty_workspace_cannot_inherit_machine_project(project_map):
         ("cat ./missing/*.py", True),
     ],
 )
-def test_unmapped_https_hook_finishes_locally_without_posting(
+def test_unmapped_https_hook_relays_scope_and_preserves_local_guards(
     tmp_path,
     project_map,
     monkeypatch,
@@ -185,8 +195,9 @@ def test_unmapped_https_hook_finishes_locally_without_posting(
     denied,
 ):
     import json
+    from runtime.api.cli.test_yoke_operations_cli_hooks import _FakeResponse
     from yoke_cli.transport.https import HttpsConnection
-    from yoke_harness.hooks import relay, cursor_lifecycle_hooks, local_subset
+    from yoke_harness.hooks import relay, machine_hooks, local_subset
 
     root = tmp_path / "unrelated"
     root.mkdir()
@@ -198,6 +209,8 @@ def test_unmapped_https_hook_finishes_locally_without_posting(
         relay, "resolve_hook_project_scope", project_scope.resolve_hook_project_scope
     )
     payload = {
+        "session_id": "scope-session",
+        "identity_stamped": True,
         "cwd": str(root),
         "tool_name": "Bash",
         "shell": "zsh",
@@ -207,15 +220,20 @@ def test_unmapped_https_hook_finishes_locally_without_posting(
     monkeypatch.setattr(relay, "detect_executor", lambda: "codex")
     monkeypatch.setattr(relay, "_codex_capture", lambda *_a: None)
     monkeypatch.setattr(
-        cursor_lifecycle_hooks,
-        "ensure_user_lifecycle_hooks_for_executor",
-        lambda *_a: None,
+        machine_hooks,
+        "ensure_machine_hooks_for_executor",
+        lambda *_a, **_k: None,
     )
 
-    def unexpected_http(*_a, **_kwargs):
-        pytest.fail("unmapped hook attempted a project-scoped HTTPS request")
+    posts, audits = [], []
 
-    monkeypatch.setattr(relay, "relay_denial_audit", unexpected_http)
+    def capture_http(request, **kwargs):
+        posts.append(json.loads(request.data))
+        return _FakeResponse(b'{"stdout": "", "exit_code": 0, "outcome": "completed"}')
+
+    monkeypatch.setattr(
+        relay, "relay_denial_audit", lambda _connection, audit: audits.append(audit)
+    )
     resolutions: list[dict] = []
     real_resolve = project_scope.project_id_for_payload
     monkeypatch.setattr(
@@ -227,7 +245,7 @@ def test_unmapped_https_hook_finishes_locally_without_posting(
         "PreToolUse",
         HttpsConnection("https://example.invalid", "test-token"),
         stdin_data=json.dumps(payload),
-        opener=unexpected_http,
+        opener=capture_http,
     )
     assert result == 0
     output = capsys.readouterr().out
@@ -235,3 +253,7 @@ def test_unmapped_https_hook_finishes_locally_without_posting(
     # One request resolves its project once, for the local subset and the
     # relay decision alike.
     assert len(resolutions) == 1
+    assert len(posts) == (0 if denied else 1)
+    assert len(audits) == (1 if denied else 0)
+    if posts:
+        assert posts[0]["project_id"] is None

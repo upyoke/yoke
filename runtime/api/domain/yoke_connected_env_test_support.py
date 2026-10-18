@@ -34,7 +34,11 @@ def _binding(root: Path, dsn_file: Path, *, prod: bool | None = None) -> Path:
                 "connections": {
                     "prod-db-admin": connection,
                 },
-                "projects": [{"checkout": str(root.resolve()), "project_id": 7}],
+                "connection_projects": {
+                    "prod-db-admin": [
+                        {"checkout": str(root.resolve()), "project_id": 7}
+                    ]
+                },
             }
         ),
         encoding="utf-8",

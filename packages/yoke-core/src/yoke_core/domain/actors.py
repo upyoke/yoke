@@ -105,7 +105,7 @@ def seed_system_actor(
 
 
 def seed_human_actor(
-    conn: Any, name: str = "", *, attribution: dict | None = None
+    conn: Any, name: str = "", *, attribution: dict | None = None, commit: bool = True
 ) -> int:
     """Insert a new human actor row and return its id.
 
@@ -132,7 +132,8 @@ def seed_human_actor(
         f"INSERT INTO actors ({columns}) VALUES ({values}) RETURNING id", params
     )
     actor_id = int(cur.fetchone()[0])
-    conn.commit()
+    if commit:
+        conn.commit()
     return actor_id
 
 

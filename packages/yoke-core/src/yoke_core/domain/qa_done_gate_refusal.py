@@ -44,7 +44,7 @@ def done_gate_refusal_errors(conn: Any, rows: Sequence[Any], *, name: str) -> li
     errors = [
         f"Error: Cannot transition {name} to 'done' -- {len(rows)} blocking "
         "QA requirement(s) unsatisfied.",
-        "  All blocking requirements must have a passing run or be waived.",
+        "  All blocking requirements need current passing proof or a valid recorded discharge.",
         "  Satisfy each requirement or use the registered waiver "
         "surface with explicit authorization.",
     ]

@@ -6,7 +6,9 @@ After install, `yoke` is on PATH and runs the installed product. A source-checko
 installation has its own launcher binding; changing directories does not select
 a linked worktree's build. For pre-merge source development, use
 `yoke dev run -- <command>` to resolve the claimed checkout and verify its
-locked environment before running candidate code.
+locked environment before running candidate code. Source runs use a disposable
+machine-home snapshot before import probes; `--allow-real-machine-home` explicitly
+permits real machine-home writes. Installed commands keep their normal home.
 
 Common operators:
 
@@ -71,7 +73,9 @@ publication source note for the review trail. No source edit or release is
 needed for a normal refresh. Records hold facts only — prices, published
 `reasoning_efforts` and `context_window_tokens`, successors. `yoke models
 level-proposal` then proposes the level changes those facts imply; after
-operator approval, `yoke universe levels set` stores them.
+operator approval, `yoke settings unset levels` applies a proposal equal to the
+shipped defaults and `yoke settings set levels` stores any other, which stops
+the universe following future shipped defaults.
 
 Session usage tokens remain stored in `harness_sessions.usage_totals`; its
 observation clock uses fixed-six UTC or null. Dollar
@@ -83,7 +87,7 @@ the surface API; which model a launch uses comes from the level options.
 
 ## Execution levels
 
-`yoke universe levels get|set` reads and replaces the universe levels, and `yoke universe level-capacity get` reads what each can launch now and why ([execution levels](reference/session-level-routing.md)).
+`yoke settings get|set levels` reads and replaces the universe levels, and `yoke universe level-capacity get` reads what each can launch now and why ([execution levels](reference/session-level-routing.md)).
 
 ## Machine config
 
@@ -116,25 +120,40 @@ child processes inherit that environment. An explicit launcher environment
 may select a shared config; set its machine home consistently. An isolated
 worker never uses a steering machine's config-file override implicitly.
 
-The `projects` list stores one checkout per project on this machine:
+`connection_projects` stores one checkout per project on each named connection:
 
 ```json
-{"projects": [{"checkout": "/work/my-project", "project_id": 7}]}
+{"active_env": "hosted", "connection_projects": {
+  "hosted": [{"checkout": "/work/hosted-project", "project_id": 7}],
+  "self-hosted": [{"checkout": "/work/private-project", "project_id": 7}]
+}}
 ```
 
-Register it once with `yoke project register /work/my-project --project-id 7`.
-Checkout lookup does not depend on `--env`, `YOKE_ENV`, or `active_env`;
-Every configured connection uses the same entry.
-Removing a connection keeps project checkouts. Moving an occupied project's
+Register with `yoke --env hosted project register /work/hosted-project --project-id 7`.
+Checkout lookup follows `--env`, then `YOKE_ENV`, then `active_env`.
+Numeric project IDs belong to that connection's universe; the same ID on another
+connection has its own checkout. A paired HTTPS connection and its database-admin
+connection share the HTTPS connection's map. An unmapped checkout reports the
+registration command for the selected connection; it never borrows another map.
+Removing a connection keeps checkout records. Moving an occupied project's
 checkout requires `--reassign` from a session holding that project's live
-steering seat; the CLI confirms it with `yoke claims steering verify`.
-The config supports only this list shape and these two entry fields.
+steering seat on the selected connection; the CLI checks that authority.
 
+Reading config never rewrites it. On the first explicit `project register`, an
+older flat `projects` list imports once under the configured `active_env`, even
+when the command selects another connection. Set that default to the connection
+that owns those old IDs before registering. The retained flat list is an inert
+snapshot for an already installed older reader; new routing never falls back to
+it, and later registrations update only `connection_projects`.
+
+Unknown keys warn once per file/key as `machine_config_key_unknown` and are ignored.
+Remove the key or use a release that supports it. Invalid known values still refuse;
+extra settings do not disable commands or harness hooks.
 
 The installer records `settings.distribution` as `{"origin": "https://api.upyoke.com",
 "channel": "stable"}` using the actual install selection. `yoke update` requires
 that record and uses it in a fresh shell. Select or repair it explicitly with
-`yoke config distribution set --origin URL --channel NAME`; run that command's
+`yoke settings set distribution '{"origin":"URL","channel":"NAME"}'`; run that command's
 `--help` for flags. This does not change the active control-plane connection.
 Relays connected to a private API host also require this record and install
 from `origin/simple/`; they do not infer an index from the API host. See
@@ -327,3 +346,5 @@ refusals retain their actual reasons. Board rebuild requires a registered
 checkout, even when only one is registered; pass `--repo-root PATH` from
 elsewhere. Doctor's last report uses your checkout or `--project P`.
 An unmapped folder is a `project_mapping_missing` warning in status.
+
+Read and change non-sensitive keys through [key-value settings](settings.md).

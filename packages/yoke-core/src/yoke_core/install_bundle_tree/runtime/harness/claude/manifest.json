@@ -162,6 +162,16 @@
     "verified_on_surface": "claude-cli",
     "evidence": "Several Agent tool calls sent in one message run concurrently, and each sub-agent's completion arrives as its own notification, so the parent can act on one result while others still run."
   },
+  "global_skill": {
+    "source": "yoke_contracts.harness_global_skill.HARNESS_GLOBAL_SKILLS",
+    "name": "yoke-global",
+    "harness_home": "~/.claude",
+    "user_skills_dir": "~/.claude/skills",
+    "placement": "link",
+    "shared_skill_dir": "~/.agents/skills/yoke-global",
+    "verified_on_surface": "claude-cli",
+    "evidence": "Observed 2026-10-18: claude-cli 2.1.288 started outside every project listed yoke-global through the ~/.claude/skills link to $HOME/.agents/skills/yoke-global and invoked it."
+  },
   "turn_record": {
     "source": "yoke_contracts.harness_turn_record_capability.HARNESS_TURN_RECORD_CAPABILITIES",
     "turn_record": "none",
@@ -176,11 +186,46 @@
     "project_match": "<checkout-key> is the absolute checkout path with every '/' replaced by '-'; one directory per checkout",
     "evidence": "yoke_harness.session_relay_claude_transcript derives the same key for stopped-session wake; read on claude-cli."
   },
+  "machine_hooks": {
+    "source": "yoke_contracts.harness_machine_hooks.HARNESS_MACHINE_HOOKS",
+    "user_config_path": "~/.claude/settings.json",
+    "home_env": null,
+    "config_owner": "claude-user",
+    "project_configs": [
+      ".claude/settings.json",
+      ".claude/settings.local.json"
+    ],
+    "project_config_in_ancestors": false,
+    "events": [
+      {
+        "native_event": "SessionStart",
+        "verb": "SessionStart"
+      },
+      {
+        "native_event": "UserPromptSubmit",
+        "verb": "UserPromptSubmit"
+      },
+      {
+        "native_event": "PreToolUse",
+        "verb": "PreToolUse",
+        "matcher": "Bash"
+      },
+      {
+        "native_event": "Stop",
+        "verb": "Stop"
+      },
+      {
+        "native_event": "SessionEnd",
+        "verb": "SessionEnd"
+      }
+    ],
+    "trust": "none",
+    "deferrals": []
+  },
   "worktree_hook_enablement": {
     "config_path": ".claude/settings.json",
     "operations": [
       "verify_hook_config",
-      "seed_directory_approval",
       "verify_environment_export"
     ],
     "environment": {

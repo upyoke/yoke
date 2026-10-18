@@ -9,7 +9,11 @@ from typing import List
 from yoke_core.domain.strategy_docs_paths import strategy_view_path
 
 from yoke_core.domain import machine_config
-from yoke_contracts.machine_config.schema_project_validation import validate_projects
+from yoke_contracts.machine_config.schema_project_validation import (
+    validate_connection_projects,
+    validate_projects,
+)
+from yoke_contracts.machine_config.schema_connections import MachineConfigContractError
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.scratch_auto_prune import prune_stale_scratch
 
@@ -109,6 +113,7 @@ def _settings_key_issues(settings: dict) -> List[str]:
     shape — nothing reads it at all.
     """
     from yoke_contracts.machine_config.settings_keys import (
+        MACHINE_SETTING_KEYS,
         db_owned_settings,
         unrecognized_settings,
     )
@@ -121,10 +126,13 @@ def _settings_key_issues(settings: dict) -> List[str]:
             "machine copy — remove the key and set it on the capability"
         )
     for key in unrecognized_settings(settings):
-        issues.append(
-            f"- settings.{key} has no reader — remove it, or register it in "
-            "yoke_contracts.machine_config.settings_keys when a reader lands"
-        )
+        issues.append(f"- settings.{key} has no reader. Recovery: yoke settings list")
+    for key, spec in MACHINE_SETTING_KEYS.items():
+        if key in settings:
+            try:
+                spec.stored_value(key, settings[key])
+            except ValueError as exc:
+                issues.append(f"- {exc}; Recovery: yoke settings unset {key}")
     return issues
 
 
@@ -146,11 +154,28 @@ def hc_config_validation(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 issues.append("- machine config settings must be an object")
             elif isinstance(settings, dict):
                 issues.extend(_settings_key_issues(settings))
-            projects = payload.get("projects", [])
-            issues.extend(
-                f"- {issue.code}: {issue.message}; repair projects in machine config"
-                for issue in validate_projects(projects)
+            from yoke_contracts.machine_config.schema_projects import (
+                projects_for_connection,
             )
+
+            project_issues = validate_projects(payload.get("projects"))
+            project_issues.extend(
+                validate_connection_projects(payload.get("connection_projects"))
+            )
+            issues.extend(
+                f"- {issue.code}: {issue.message} ({issue.path}); "
+                "repair the named checkout mapping in machine config"
+                for issue in project_issues
+            )
+            try:
+                projects = (
+                    projects_for_connection(payload)
+                    if not any(issue.severity == "error" for issue in project_issues)
+                    else []
+                )
+            except MachineConfigContractError as exc:
+                issues.append(f"- machine config invalid: {exc}")
+                projects = []
             # Deploy preflights resolve project checkouts from these entries,
             # so a dead path (for example a since-removed worktree) silently
             # breaks every run that consults the project repository.

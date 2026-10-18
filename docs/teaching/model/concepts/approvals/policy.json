@@ -2,7 +2,6 @@
  "id": "policy",
  "title": "Approval policy",
  "status": "draft-copy",
- "plan_refs": ["JOURNEYS.situation-12"],
  "surface_refs": ["skills-roles"],
  "commands": ["yoke workflows approval-defaults publish"],
  "functions": ["workflows.approval_defaults.publish"],

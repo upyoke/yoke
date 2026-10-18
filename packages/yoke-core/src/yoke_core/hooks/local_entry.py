@@ -17,9 +17,7 @@ from yoke_core.hooks.capability_resolve import resolve_capability
 from yoke_core.hooks.remote_policy import RunControls
 from yoke_core.hooks.runner import run_event
 from yoke_core.hooks.session_model_attestation_write import confirmed_served_model
-from yoke_harness.hooks.cursor_lifecycle_hooks import (
-    ensure_user_lifecycle_hooks_for_executor,
-)
+from yoke_harness.hooks.machine_hooks import ensure_machine_hooks_for_executor
 from yoke_contracts.executor_labels import canonical_harness_id
 from yoke_harness.hooks.client_facts import collect_client_facts, event_chain
 from yoke_harness.hooks.decision_render import merge_allow_stdout, write_hook_output
@@ -52,7 +50,7 @@ def evaluate_local_hook(
     stdin_data, launch_projection = stamp_hook_input(
         payload, stdin_data, executor, event_name
     )
-    ensure_user_lifecycle_hooks_for_executor(executor)
+    ensure_machine_hooks_for_executor(executor, hook=event_name)
     capture_codex_session(event_name, original_stdin, executor)
 
     project_scope = resolve_hook_project_scope(payload)

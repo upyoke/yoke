@@ -9,7 +9,7 @@ from yoke_harness import ssh_mac_browser_approval as mac
 from yoke_harness.machine_browser_approval import missing_approval_tab
 
 ORIGIN = "https://app.example"
-CODE = "AB12-CD34"
+CODE = "K7F2"
 ENTRY = f"{ORIGIN}/connect?user_code={CODE}"
 
 
@@ -23,7 +23,7 @@ def test_app_sign_in_routes_name_prerequisite_and_strip_parameters(path):
     )
     assert result.error_code == "machine_browser_sign_in_required"
     assert result.evidence["observed_tab_paths"] == [path]
-    assert "recapture golden" in result.evidence["recovery"]
+    assert "Keep it live through reset" in result.evidence["recovery"]
     assert CODE not in str(result.evidence)
     assert "private" not in str(result.evidence)
 
@@ -37,6 +37,25 @@ def test_external_tab_stays_missing_and_redacts_path_code():
     )
     assert result.error_code == "machine_browser_tab_missing"
     assert result.evidence["observed_tab_paths"] == ["/auth/[REDACTED]"]
+    assert "private" not in str(result.evidence)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://accounts.google.com/v3/signin/accountchooser",
+        "https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize",
+    ],
+)
+def test_identity_provider_sign_in_names_human_prerequisite(url):
+    result = missing_approval_tab(
+        browser="Chromium",
+        expected_origin=ORIGIN,
+        user_code=CODE,
+        observed=[url + "?code=private"],
+    )
+    assert result.error_code == "machine_browser_sign_in_required"
+    assert "operator completes" in result.evidence["recovery"]
     assert "private" not in str(result.evidence)
 
 
@@ -96,7 +115,7 @@ def test_observed_other_request_codes_are_redacted():
         browser="Chromium",
         expected_origin=ORIGIN,
         user_code=CODE,
-        observed=[ORIGIN + "/orgs/acme/machine-approval/ZZ99-AA11?selection=all"],
+        observed=[ORIGIN + "/orgs/acme/machine-approval/Z9A2?selection=all"],
     )
     assert result.evidence["observed_tab_paths"] == [
         "/orgs/acme/machine-approval/[REDACTED]"

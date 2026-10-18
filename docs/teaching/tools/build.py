@@ -9,9 +9,6 @@ Run from a Yoke source checkout:
 Generated views are untracked and depend only on the model. ``--live`` also
 writes the command crosswalk and documentation graph, which read the live registries and git
 tree, into the untracked ``docs/teaching/live/`` directory.
-
-``--strategy FILE`` (repeatable) also reconciles plan rows against a saved
-``yoke strategy doc get SLUG --project yoke --json`` read.
 """
 
 from __future__ import annotations
@@ -42,10 +39,10 @@ from render_overview import index_page
 VIEWS_ROOT = TEACHING_ROOT / "views"
 LIVE_ROOT = TEACHING_ROOT / "live"
 INTRO = (
-    "The maintained map of what Yoke teaches: concepts, the surfaces that "
-    "carry teaching, the scenarios that need it, FIRST-USER and JOURNEYS "
-    "coverage, evidence and gaps. Mapped means a direct plan or teaching "
-    "link; it never proves the teaching works."
+    "The maintained catalog of what Yoke teaches agents and people, up front "
+    "and in each situation: concepts, the surfaces that carry teaching, the "
+    "scenarios that need it, boundaries, evidence and gaps. Mapped means a "
+    "direct teaching link; it never proves the teaching works."
 )
 _HREF = re.compile(r'href="([^"]*)"')
 _ID = re.compile(r'id="([^"]*)"')
@@ -62,13 +59,6 @@ def main(argv: list[str] | None = None) -> int:
         "--live",
         action="store_true",
         help="also write the live command and docs-graph pages",
-    )
-    parser.add_argument(
-        "--strategy",
-        action="append",
-        default=[],
-        type=Path,
-        help="saved strategy doc JSON to reconcile plan rows against",
     )
     args = parser.parse_args(argv)
 
@@ -91,7 +81,6 @@ def main(argv: list[str] | None = None) -> int:
         views, "surfaces", model.surfaces, model.teaching, "Teaching surfaces"
     )
     pages.owned_pages(views, "scenarios", model.scenarios, model.lessons, "Scenarios")
-    pages.plan_pages(views)
     pages.evidence_pages(views)
     pages.record_page(views, "boundaries.html", "Locked boundaries", model.boundaries)
     pages.record_page(views, "gaps.html", "Gaps", model.gaps)
@@ -104,8 +93,6 @@ def main(argv: list[str] | None = None) -> int:
         if path.startswith(LIVE)
     }
     check_links(model, views, set(files))
-    for source in args.strategy:
-        reconcile(model, source)
 
     canonical = {
         path: dump(json.loads(path.read_text(encoding="utf-8")))
@@ -161,26 +148,6 @@ def check_links(model, views: dict[str, str], repo_files: set[str]) -> None:
 
 def _resolve(base: PurePosixPath, target: str) -> str:
     return inventory._normalize(base / target)
-
-
-def reconcile(model, source: Path) -> None:
-    slug, updated_at, expected = inventory.strategy_entries(source)
-    for row_id in expected:
-        if row_id not in model.plan_rows:
-            model.problem(
-                "PLAN_ENTRY_MISSING",
-                f"{slug}:{row_id}",
-                "add a plan row mapping it or naming an explicit gap",
-            )
-    for group in model.plan_files:
-        if group.get("plan") == slug and group.get("reconciled_at") != updated_at:
-            model.problem(
-                "PLAN_RECONCILIATION_STALE",
-                f"model/plan/{group['stem']}.json",
-                f"reconciled_at {group.get('reconciled_at')!r} differs from the "
-                f"strategy document's {updated_at!r}; review changed rows, "
-                "then record the new timestamp",
-            )
 
 
 def check_canonical_model(model, canonical: dict) -> None:

@@ -5,6 +5,5 @@
  "form": "Link",
  "verification": "No delivery proof attached.",
  "topics": ["strategy/operation", "frontier/entrypoints", "deployments/flows", "test-machines/setup"],
- "plan_refs": ["FIRST-USER.24", "FIRST-USER.42", "FIRST-USER.43"],
  "position": 3
 }

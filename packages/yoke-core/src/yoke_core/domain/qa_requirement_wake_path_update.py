@@ -1,7 +1,7 @@
 """Validate an in-place ``wake_path`` or ``wake_evidence`` requirement write.
 
 The two fields travel together: a ``manual`` case needs evidence naming what
-must exist before steering wakes its owner. A requirement write carries one
+must exist before its owner runs it. A requirement write carries one
 field at a time, so the order is evidence first, then the path; clearing goes
 the other way. Each refusal names the write that comes first.
 

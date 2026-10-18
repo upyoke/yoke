@@ -8,6 +8,7 @@ import pytest
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.domain import deployment_run_carried_work_sources as sources
 from yoke_core.domain.deployment_run_carried_work_source import LocalCheckoutSource
+from yoke_core.domain.deployment_run_compare_graph import CompareGraph
 from yoke_core.domain.deployment_run_carried_work_repository import (
     RepositoryProviderSource,
 )
@@ -107,10 +108,12 @@ def test_source_commit_clock_is_native_without_changing_raw_evidence(
             "message": "opaque clock 1969-12-31",
             "author": "author",
         }
-        source._graph["a"] = original.copy()
+        graph = CompareGraph()
+        graph.add({"a": original.copy()})
+        source._graphs[("base", "head")] = graph
 
         def retained():
-            return source._graph["a"]
+            return graph.commits["a"]
 
     assert source.commit_time("a") == expected
     assert retained() == original

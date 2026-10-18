@@ -197,3 +197,54 @@ def test_restore_loader_streams_a_row_larger_than_one_chunk():
         max_sql_bytes=len(row) + 4096,
     )
     assert conn.copy_sink.body == row
+
+
+class _RetiredStagingConn(_RestoreConn):
+    """A target whose catalog gains each table the staging DDL creates."""
+
+    def __init__(self):
+        super().__init__()
+        self.catalog = [("epic_tasks", "id"), ("epic_tasks", "body")]
+        self.ddl = []
+
+    def execute(self, statement, params=None):
+        rendered = str(statement)
+        if "pg_catalog.pg_class" in rendered:
+            return _Rows(list(self.catalog))
+        if "pg_catalog.pg_sequences" in rendered:
+            return _Rows([])
+        if rendered.startswith(("CREATE TABLE", "ALTER TABLE")):
+            self.ddl.append(rendered)
+            if rendered.startswith("CREATE TABLE epic_task_files"):
+                self.catalog.append(("epic_task_files", "id"))
+            return _Rows([])
+        return super().execute(statement, params)
+
+
+def test_restore_stages_a_retired_table_an_older_archive_still_carries():
+    from yoke_core.domain.universe_portability_restore_stream import (
+        stage_retired_archive_tables,
+    )
+
+    conn = _RetiredStagingConn()
+    stage_retired_archive_tables(conn, {"epic_tasks", "epic_task_files"})
+
+    assert conn.ddl[0].startswith("CREATE TABLE epic_task_files")
+    assert conn.ddl[1:] == [
+        "ALTER TABLE epic_tasks ADD COLUMN scope_state TEXT",
+        "ALTER TABLE epic_tasks ADD COLUMN scope_finalized_at TIMESTAMPTZ",
+    ]
+
+    stage_retired_archive_tables(conn, {"epic_tasks", "epic_task_files"})
+    assert len(conn.ddl) == 3
+
+
+def test_restore_stages_nothing_for_an_archive_without_retired_tables():
+    from yoke_core.domain.universe_portability_restore_stream import (
+        stage_retired_archive_tables,
+    )
+
+    conn = _RetiredStagingConn()
+    stage_retired_archive_tables(conn, {"epic_tasks"})
+
+    assert conn.ddl == []

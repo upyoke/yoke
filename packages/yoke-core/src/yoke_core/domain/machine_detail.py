@@ -21,16 +21,28 @@ from yoke_core.domain.session_relay_read import list_visible_relays
 from yoke_core.domain.session_surface_policy import list_marks
 
 
-def _sessions(conn: Any, machine_id: str, visible: set[int]) -> list[dict[str, Any]]:
+def _sessions(
+    conn: Any, machine_id: str, visible: set[int], actor_id: int
+) -> list[dict[str, Any]]:
+    """Visible project sessions plus the org sessions this actor may read."""
     if not _table_exists(conn, "harness_sessions"):
         return []
+    from yoke_core.domain.sessions_visible_roster import org_session_clause
+
     p = marker(conn)
+    projects = sorted(visible)
+    project_clause = (
+        f"s.project_id IN ({','.join(p for _ in projects)})" if projects else "1 = 0"
+    )
+    org_clause, org_params = org_session_clause(conn, actor_id)
     rows = conn.execute(
-        "SELECT session_id,executor,executor_surface,executor_version,model,mode,"
-        "workspace,project_id,offered_at,last_heartbeat,ended_at,episode_started_at,"
-        "last_tool_call_at FROM harness_sessions "
-        f"WHERE machine_id={p} ORDER BY offered_at DESC LIMIT 100",
-        (machine_id,),
+        "SELECT s.session_id,s.executor,s.executor_surface,s.executor_version,"
+        "s.model,s.mode,s.workspace,s.project_id,s.offered_at,s.last_heartbeat,"
+        "s.ended_at,s.episode_started_at,s.last_tool_call_at,s.org_id "
+        f"FROM harness_sessions s WHERE s.machine_id={p} "
+        f"AND ({project_clause} OR {org_clause}) "
+        "ORDER BY s.offered_at DESC LIMIT 100",
+        (machine_id, *projects, *org_params),
     ).fetchall()
     return [
         {
@@ -41,7 +53,8 @@ def _sessions(conn: Any, machine_id: str, visible: set[int]) -> list[dict[str, A
             "model": row[4],
             "mode": row[5],
             "workspace": str(row[6]),
-            "project_id": int(row[7]),
+            "project_id": row[7],
+            "org_id": row[13],
             "offered_at": row[8],
             "last_seen_at": row[9],
             "ended_at": row[10],
@@ -49,7 +62,6 @@ def _sessions(conn: Any, machine_id: str, visible: set[int]) -> list[dict[str, A
             "last_tool_call_at": row[12],
         }
         for row in rows
-        if int(row[7]) in visible
     ]
 
 
@@ -200,7 +212,7 @@ def machine_detail(
         if row["machine_id"] == record.machine_id
     ]
     relay = relays[0] if relays else None
-    sessions = _sessions(conn, record.machine_id, visible)
+    sessions = _sessions(conn, record.machine_id, visible, actor_id)
     launches = _launches(conn, record.machine_id, visible)
     reports = [
         row
@@ -218,7 +230,11 @@ def machine_detail(
         )
         for row in sessions
     )
-    project_ids = {row["project_id"] for row in sessions + launches}
+    project_ids = {
+        row["project_id"]
+        for row in sessions + launches
+        if row["project_id"] is not None
+    }
     if relay:
         project_ids.update(relay.get("project_ids") or [])
     host_names = {

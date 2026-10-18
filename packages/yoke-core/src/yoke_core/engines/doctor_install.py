@@ -9,7 +9,9 @@ import urllib.request
 
 from yoke_contracts.engine_version import ENGINE_VERSION_HEADER, local_handshake_version
 from yoke_contracts.execution_provenance import collect_execution_provenance
+from yoke_contracts.executor_labels import harness_display_name
 from yoke_contracts.harness_cli_manifest import HARNESS_CLI_MANIFESTS
+from yoke_contracts.harness_hook_approval import HARNESS_HOOK_APPROVAL
 from yoke_contracts.runtime_identity import SERVED_BUILD_PATH
 from yoke_cli.config import universe_ui_daemon_state
 from yoke_cli.config.path_harness_clis import resolve_harness_clis
@@ -28,11 +30,19 @@ from yoke_core.engines.doctor_install_guidance import (
 )
 
 
+from yoke_core.engines.doctor_hc_connections import (
+    active_connection_failure as active_connection_failure,
+    hc_connections,
+)
+
+
 INSTALL_SLUGS = (
+    "connections",
     "machine-registry",
     "session-relay",
     "hook-resident",
     "harness-unattended-posture",
+    "harness-setup",
     "project-gh-auth",
     "harness-cli-auth",
     "dashboard-current-build",
@@ -43,38 +53,49 @@ INSTALL_SLUGS = (
 )
 
 
-def hc_harness_cli_auth(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    found = False
-    available = {
+def harness_auth(manifest, executable: str) -> tuple[bool, str]:
+    """Whether one harness CLI is signed in, and the line that says so."""
+    probe = _run([executable, *manifest.auth_args], timeout=5)
+    signed_in = probe.returncode == 0
+    if manifest.auth_signed_in_key:
+        try:
+            document = json.loads(probe.stdout)
+            signed_in = signed_in and document.get(manifest.auth_signed_in_key) is True
+        except (ValueError, AttributeError):
+            signed_in = False
+    # Native auth documents contain private account data. Keep only the verdict.
+    if signed_in:
+        return True, f"{manifest.executable} is signed in."
+    login = shlex.join((manifest.executable, *manifest.login_args))
+    return False, (
+        f"HARNESS_AUTH_UNVERIFIED: {manifest.executable} sign-in could not be "
+        f"verified. Run `{login}`."
+    )
+
+
+def installed_harness_clis() -> dict[str, str]:
+    """Harness id -> CLI path for every supported harness CLI on PATH."""
+    return {
         entry.harness_id: entry.path
         for entry in resolve_harness_clis(os.environ.get("PATH"))
+        if entry.path
     }
+
+
+def hc_harness_cli_auth(conn, args: DoctorArgs, rec: RecordCollector) -> None:
+    available = installed_harness_clis()
     for manifest in HARNESS_CLI_MANIFESTS:
         executable = available.get(manifest.harness_id)
         if executable is None:
             continue
-        found = True
-        probe = _run([executable, *manifest.auth_args], timeout=5)
-        signed_in = probe.returncode == 0
-        if manifest.auth_signed_in_key:
-            try:
-                document = json.loads(probe.stdout)
-                signed_in = (
-                    signed_in and document.get(manifest.auth_signed_in_key) is True
-                )
-            except (ValueError, AttributeError):
-                signed_in = False
-        # Native auth documents contain private account data. Keep only the verdict.
-        login = shlex.join((manifest.executable, *manifest.login_args))
+        signed_in, detail = harness_auth(manifest, executable)
         rec.record(
             "harness-cli-auth",
             "Harness CLI sign-in",
             "PASS" if signed_in else "FAIL",
-            f"{manifest.executable} is signed in."
-            if signed_in
-            else f"HARNESS_AUTH_UNVERIFIED: {manifest.executable} sign-in could not be verified. Run `{login}`.",
+            detail,
         )
-    if not found:
+    if not available:
         rec.record(
             "harness-cli-auth",
             "Harness CLI sign-in",
@@ -125,6 +146,21 @@ def hc_dashboard_current_build(conn, args: DoctorArgs, rec: RecordCollector) -> 
     )
 
 
+def session_hook_recovery() -> str:
+    """The unproven-registration line: what happened and the one next step."""
+    approvals = "".join(
+        f" In {harness_display_name(harness_id)}, first approve this project's "
+        f"hooks in {gate['trust_surface']}."
+        for harness_id, gate in HARNESS_HOOK_APPROVAL.items()
+    )
+    return (
+        "SESSION_HOOK_UNOBSERVED: registration and hook delivery for this "
+        "session are not both proven. Start a new harness session in the "
+        "installed project (quit and reopen the harness app if it stays open), "
+        "then rerun the same `yoke doctor run` command." + approvals
+    )
+
+
 def hc_session_hook_registration(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     try:
         session_id = build_actor().session_id
@@ -154,7 +190,7 @@ def hc_session_hook_registration(conn, args: DoctorArgs, rec: RecordCollector) -
             "session-hook-registration",
             "This session received a registering hook",
             "FAIL",
-            "SESSION_HOOK_UNOBSERVED: registration and hook delivery for this session are not both proven. Start a new harness session in the installed project and rerun `yoke doctor run --install`.",
+            session_hook_recovery(),
         )
         return
     rec.record(
@@ -166,6 +202,9 @@ def hc_session_hook_registration(conn, args: DoctorArgs, rec: RecordCollector) -
 
 
 INSTALL_HEALTH_CHECKS = [
+    HealthCheck(
+        "connections", "Connection credentials and operating actors", hc_connections
+    ),
     HealthCheck("harness-cli-auth", "Harness CLI sign-in", hc_harness_cli_auth),
     HealthCheck(
         "dashboard-current-build",

@@ -170,7 +170,7 @@ def _provisioned_project(monkeypatch, tmp_path, **create_kwargs) -> list[str]:
     )
     monkeypatch.setattr(
         worktree_create_provisioning,
-        "provision_worktree_folder_trust",
+        "provision_worktree_harness_setup",
         lambda *_a: None,
     )
     monkeypatch.setattr(

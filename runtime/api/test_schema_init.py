@@ -61,7 +61,6 @@ class TestCmdInit:
             "ouroboros_entries",
             "release_entries",
             "epic_tasks",
-            "epic_task_files",
             "epic_dispatch_chains",
             "epic_progress_notes",
             "qa_requirements",

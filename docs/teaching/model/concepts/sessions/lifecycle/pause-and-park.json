@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "sessions",
  "position": 2,
- "summary": "Mode parked or turn posture waiting declares intentional pause. A paused work-claim holder remains parked as activity ages; silence alone never declares pause.",
- "sources": ["docs/public/items-and-sessions.md", "packages/yoke-core/src/yoke_core/domain/session_automatic_reclaim.py", "packages/yoke-core/src/yoke_core/domain/session_staleness.py"]
+ "summary": "Mode parked or turn posture waiting declares intentional pause. A paused work-claim holder remains parked as activity ages; silence alone never declares pause. Before parking on another item, record the merge or delivery wait through items.dependency.add; a dependency_cycle refusal must be resolved before parking. The held item’s own release wait needs no self-edge.",
+ "sources": ["docs/public/items-and-sessions.md", "packages/yoke-core/src/yoke_core/domain/session_automatic_reclaim.py", "packages/yoke-core/src/yoke_core/domain/session_staleness.py", "docs/public/reference/agent-rules/delivery.md"]
 }

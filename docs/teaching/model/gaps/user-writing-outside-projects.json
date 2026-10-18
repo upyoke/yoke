@@ -1,8 +1,0 @@
-{
- "id": "user-writing-outside-projects",
- "title": "Writing rules reach only project sessions",
- "status": "observed",
- "text": "The user-facing writing rules ship in the AGENTS.md managed block, which every supported harness loads inside a Yoke project. A session outside any project gets no Yoke standing rules, so it does not receive them. Global orientation and yoke-global must carry the same rules from the same authority when they ship.",
- "plan_refs": ["FIRST-USER.8", "FIRST-USER.P4", "FIRST-USER.43"],
- "position": 17
-}

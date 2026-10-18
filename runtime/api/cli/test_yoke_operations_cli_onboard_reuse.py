@@ -104,9 +104,11 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
                     },
                     "temp_root": str(temp_root),
                     "cache_dir": str(cache_dir),
-                    "projects": [
-                        {"checkout": str(checkout.resolve()), "project_id": 44}
-                    ],
+                    "connection_projects": {
+                        "prod": [
+                            {"checkout": str(checkout.resolve()), "project_id": 44}
+                        ]
+                    },
                 },
                 indent=2,
             )
@@ -150,12 +152,12 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
         "hosting-posture",
         "harness-unattended-posture",
         "register-machine",
+        "install-yoke-global-skill",
         "project-refresh-scaffold",
         "project-install-agent-rules",
         "project-install-tool-permissions",
         "project-install-harness-hooks",
         "project-install-git-hooks",
-        "install-cursor-user-lifecycle-hooks",
         "project-write-board-art",
         "project-setup-publication",
         "project-github-auth-choice",

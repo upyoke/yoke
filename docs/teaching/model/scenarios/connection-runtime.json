@@ -5,8 +5,6 @@
  "situations": ["A user changes the selected Yoke connection or loses access to its server.", "The local core, local PostgreSQL, relay or dashboard is stopped or stale.", "Logging out or shutting down a machine interrupts background work.", "An operator maintains a self-hosted server after initial setup."],
  "coverage": "catalogued",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
  "questions": ["Verify core build/start/upgrade audience rather than inferring it from a command namespace.", "Trace self-host sign-in, service upgrade/teardown and auth removal without treating them as everyday first-use steps."],
- "related_scenarios": ["universe-choice", "machine-access", "updates"],
- "plan_refs": ["FIRST-USER.15", "FIRST-USER.32"]
+ "related_scenarios": ["universe-choice", "machine-access", "updates"]
 }

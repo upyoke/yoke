@@ -106,3 +106,29 @@ export spans.
 | `YOKE_API_DEBUG_SCOPE` | `function:` / `session:` / `request:` / `service:` campaign |
 | `YOKE_API_DEBUG_UNTIL` | Required ISO-8601 end; past or missing disables capture |
 | `YOKE_API_DEBUG_MAX_RECORDS` | Capture cap (default 200, hard cap 2000) |
+
+## Shipping overview component timing
+
+Authorized overview reads emit two bounded `Deployment start timing: ` records
+with step `shipping_overview` through the existing timing emitter to stderr.
+The end record carries the function request id and current trace id when present,
+actual displayed run/member counts, `component_ms` and `component_calls`.
+An absent function request id stays absent; use the trace id to join HTTP logs.
+Components are `db_execute`, `db_fetch`, `qa_obligations`, `qa_acceptance`,
+`repository_open`, `repository_resolve` and `ancestry_compare`; an unused
+component is absent. These wall times overlap: QA composition includes its DB
+and repository work. Do not add overlapping component totals or equate these
+server measurements with browser selection-to-card or HTTP elapsed time.
+Records contain no SQL, parameters, credentials, row values or full responses.
+Non-overview reads do not enable this measurement. Run-card presentation reads
+recorded exact-target QA without repository-provider ancestry requests. It still
+reads current attachments, withdrawals, executable content and target identities.
+Admission, materialization and release gates continue to require source ancestry;
+a card read never authorizes execution or settles a gate. Candidate resolution
+reuse remains scoped to one evaluation on those validating paths.
+
+Use the existing registered log read above with the request or trace id, then
+inspect `shipping_overview` records alongside `HttpRequestCompleted` and the
+handler event. Missing records are unknown, never a performance pass. Hosted
+EMF totals alone cannot allocate component cost; the tenant role cannot read
+the private database statement-statistics view.

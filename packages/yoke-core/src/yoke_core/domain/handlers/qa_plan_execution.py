@@ -102,7 +102,6 @@ def handle_plan_execution_begin(
                     parsed.plan,
                     parsed.source_revision,
                     parsed.source_ref,
-                    parsed.checkout_path,
                 )
             ):
                 raise QaPlanExecutionStateError(
@@ -115,6 +114,8 @@ def handle_plan_execution_begin(
                 transition_id=parsed.transition_id,
                 deployment_stage=parsed.deployment_stage,
                 deployment_member_item_id=member_item_id,
+                checkout_path=parsed.checkout_path,
+                expected_branch=parsed.expected_branch,
                 machine=parsed.machine,
                 continue_mission=parsed.continue_mission,
                 actor_id=request.actor.actor_id,

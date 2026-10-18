@@ -28,7 +28,9 @@ def test_build_machine_config_uses_code_owned_example(tmp_path: Path) -> None:
         "kind": "dsn_file",
         "path": str(dsn),
     }
-    assert payload["projects"] == [{"checkout": str(clone.resolve()), "project_id": 1}]
+    assert payload["connection_projects"]["prod"] == [
+        {"checkout": str(clone.resolve()), "project_id": 1}
+    ]
 
 
 def test_write_machine_files_owner_only(tmp_path: Path) -> None:

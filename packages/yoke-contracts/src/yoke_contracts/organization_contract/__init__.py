@@ -2,7 +2,7 @@
 
 from yoke_contracts.organization_contract.fleet_keys import (
     FLEET_KEY_SPECS,
-    FleetKeySpec,
+    SettingSpec,
     FleetSettingsError,
     default_fleet_settings,
     get_fleet_setting,
@@ -12,7 +12,7 @@ from yoke_contracts.organization_contract.fleet_keys import (
 
 __all__ = [
     "FLEET_KEY_SPECS",
-    "FleetKeySpec",
+    "SettingSpec",
     "FleetSettingsError",
     "default_fleet_settings",
     "get_fleet_setting",

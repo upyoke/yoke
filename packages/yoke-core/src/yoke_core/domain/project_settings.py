@@ -180,7 +180,14 @@ def _default_for_key(key: str, override: str | None) -> str:
     if override is not None:
         return str(override)
     try:
-        return RECOGNIZED_PROJECT_KEYS[key][0]
+        from yoke_contracts.machine_config.settings_keys import MACHINE_SETTING_KEYS
+
+        specs = (
+            MACHINE_SETTING_KEYS
+            if key in LOCAL_PROJECT_KEYS
+            else RECOGNIZED_PROJECT_KEYS
+        )
+        return str(specs[key].default)
     except KeyError as exc:
         raise KeyError(key) from exc
 

@@ -21,6 +21,8 @@ from yoke_core.domain.handlers.profile import (
     handle_profile_get,
     handle_profile_onboarding_reset,
     handle_profile_preference_set,
+)
+from yoke_core.domain.handlers.profile_tokens import (
     handle_profile_token_create,
     handle_profile_token_revoke,
 )

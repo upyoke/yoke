@@ -7,6 +7,5 @@
  "current": "The hosted candidate removes title eyebrows and the no-invite diagnostic while keeping named invitation failures. Settled URL and Subscription rows are grouped; creation shows one indicator and a quiet line that changes after 45 seconds to explain resumability.",
  "desired": "Accept the standalone hosted screens against their exact deployed build and real timed founding journey. Verify shared machine approval separately, including its machine identity, local expiry and human approval outcome. These standalone screens do not apply to local or self-hosted setup.",
  "topics": ["identity/auth", "identity/accounts/beta-access-and-organization-creation", "machines/registration", "workbench/onboarding"],
- "plan_refs": ["FIRST-USER.P5", "FIRST-USER.P7", "FIRST-USER.4", "FIRST-USER.12", "FIRST-USER.27"],
  "position": 7
 }

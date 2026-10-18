@@ -17,6 +17,17 @@ id, checkpoint and wait; no retry loop. Any later commit needs new clearance.
 `yoke merge-review candidate evaluate ITEM --commit SHA` is read-only.
 Only an authorized independent reviewer resolves the named request.
 
+## Integration dependencies
+
+`yoke merge item` asks the integration dependency gate before it arms,
+enqueues or merges, on both the direct and merge-queue routes.
+`integration_dependency_blocked` names each predecessor that has not merged;
+verify the existing dependency edge records that merge wait, checkpoint,
+park naming the blocker, and re-run the same command after its landing notice.
+For a new wait, first use [the dependency recipe](../../../../.yoke/docs/reference/agent-rules/delivery.md#wait-on-another-items-merge-or-delivery). `integration_dependency_gate_unavailable` means the gate could
+not be read; restore control-plane access and re-run. Never hold or enqueue by
+hand around it.
+
 The merge may itself dispatch/adopt postrebase CI with a durable wait.
 Continue its native handle to exit. If interrupted, rerun the same command to
 adopt the exact-commit run, not another suite. A failed wait registration names

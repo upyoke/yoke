@@ -302,9 +302,10 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
                 run_id, phase=PHASE_FREEZING_SOURCE, progress_capture=capture
             ).running():
                 pinned_env = prepare_driver(run_id, raw_path, child_environment)
-        except DeployPinnedSourceError as exc:
+        except (DeployPinnedSourceError, DeploymentControlPlaneError) as exc:
+            reason = getattr(exc, "code", "") or type(exc).__name__
             return _report_preflight_failure(
-                f"watch_deploy: {exc}", raw_path, progress_path
+                f"watch_deploy: {reason}: {exc}", raw_path, progress_path
             )
         try:
             _hold_driver(run_id, phase=PHASE_EXECUTING, progress_capture=capture)

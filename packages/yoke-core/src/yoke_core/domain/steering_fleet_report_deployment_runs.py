@@ -110,8 +110,8 @@ class DeploymentRunProgress:
     #: ``yoke deployment-runs stages RUN``.
     member_lines: tuple[str, ...] = ()
     completion: CompletionPreview = CompletionPreview()
-    #: Open manual-wake requirements of waiting members: steering, not the
-    #: stage, wakes their owners once the named evidence exists.
+    #: Open manual-wake requirements of waiting members: the stage driver
+    #: woke each owner to check the named evidence before running the case.
     manual_wakes: tuple[ManualWakeRequirement, ...] = ()
 
     @property

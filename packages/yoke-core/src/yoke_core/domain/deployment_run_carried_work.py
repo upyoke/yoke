@@ -21,6 +21,8 @@ replaces a recorded answer whose comparison could not run.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -40,6 +42,7 @@ from yoke_core.domain.deployment_source_reads import SourcePreparationChanged
 
 
 CARRIED_WORK_FIELD = "carried_work"
+_PROSPECTIVE_RELEASE = ContextVar("prospective_previous_release", default=None)
 
 #: Unknown answers that are facts about the run's own record, so deriving
 #: again cannot change them. Any other unknown — a fetch, provider, network,
@@ -73,8 +76,25 @@ def _cell(row: Any, key: str, index: int) -> Any:
     return row[key] if hasattr(row, "keys") else row[index]
 
 
+@contextmanager
+def prospective_previous_release(conn: Any, run_id: str, previous_run_id: str | None):
+    """Prepare against the release a takeover will settle, without writing it."""
+    token = _PROSPECTIVE_RELEASE.set((conn, run_id, previous_run_id))
+    try:
+        yield
+    finally:
+        _PROSPECTIVE_RELEASE.reset(token)
+
+
 def previous_release_run(conn: Any, run_id: str, project_id: int, environment_id: Any):
-    """The newest other succeeded run for this project and target environment."""
+    """The prospective takeover base, else the newest other succeeded release."""
+    projected = _PROSPECTIVE_RELEASE.get()
+    if projected and projected[:2] == (conn, run_id) and projected[2]:
+        return conn.execute(
+            f"SELECT id,project_id,release_lineage,{BOUND_SOURCES_FIELD},completed_at "
+            "FROM deployment_runs WHERE id=%s",
+            (projected[2],),
+        ).fetchone()
     return conn.execute(
         f"SELECT id,project_id,release_lineage,{BOUND_SOURCES_FIELD},"
         "completed_at "
@@ -312,6 +332,7 @@ __all__ = [
     "derive_carried_work_safely",
     "parse_carried_work",
     "previous_release_run",
+    "prospective_previous_release",
     "require_bound_project_coverage",
     "record_carried_work",
 ]

@@ -5,6 +5,5 @@
  "form": "Teach",
  "verification": "No delivery proof attached.",
  "topics": ["modes/local", "modes/cloud", "modes/self-hosted"],
- "plan_refs": ["FIRST-USER.P1", "FIRST-USER.P2", "FIRST-USER.P4", "FIRST-USER.43"],
  "position": 3
 }

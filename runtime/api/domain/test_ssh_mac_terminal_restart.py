@@ -42,7 +42,7 @@ class TerminalHost:
 
     def __call__(self, command: str, *, timeout: int = 60) -> SimpleNamespace:
         self.commands.append(command)
-        if command.startswith("kill_tree()"):
+        if command.startswith("process_tree()"):
             self.running = not self.dies_when_killed
             return _done(0)
         if "to quit" in command:
@@ -78,7 +78,7 @@ def test_terminal_that_quits_is_not_killed() -> None:
         "windows_before_quit": 241,
         "quit": "graceful",
     }
-    assert not any(c.startswith("kill_tree()") for c in host.commands)
+    assert not any(c.startswith("process_tree()") for c in host.commands)
 
 
 def test_a_quit_held_by_a_sheet_kills_the_window_processes_then_terminal() -> None:
@@ -88,7 +88,7 @@ def test_a_quit_held_by_a_sheet_kills_the_window_processes_then_terminal() -> No
 
     assert result.ok
     assert result.evidence["terminal_quit"]["quit"] == "forced"
-    kill = next(c for c in host.commands if c.startswith("kill_tree()"))
+    kill = next(c for c in host.commands if c.startswith("process_tree()"))
     assert "/usr/bin/pgrep -P" in kill
     assert "/bin/kill -KILL" in kill
     assert "/usr/bin/pgrep -x -u tester Terminal" in kill

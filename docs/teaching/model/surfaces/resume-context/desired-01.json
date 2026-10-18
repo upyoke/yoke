@@ -1,10 +1,9 @@
 {
  "id": "desired-01",
- "title": "Re-read live session/project, item stage, claim/lane and the current progress checkpoint.",
+ "title": "Re-read live session scope (project or organization), item stage, claim/lane and the current progress checkpoint.",
  "status": "candidate",
  "form": "Do",
  "verification": "Desired outline; exact recipe and live delivery still need proof.",
- "topics": ["sessions/continuity", "sessions/identity", "coordination/work-claims"],
- "plan_refs": ["FIRST-USER.42", "FIRST-USER.43", "FIRST-USER.D"],
+ "topics": ["sessions/continuity", "sessions/identity", "sessions/ownership", "coordination/work-claims"],
  "position": 4
 }

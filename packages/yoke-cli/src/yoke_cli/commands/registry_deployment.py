@@ -22,6 +22,9 @@ from yoke_cli.commands.adapters import deployment_inspection as _inspection
 from yoke_cli.commands.adapters.deployment_run_projection import (
     deployment_runs_project_snapshot,
 )
+from yoke_cli.commands.adapters.deployment_run_timings import (
+    deployment_runs_timings,
+)
 from yoke_cli.commands.adapters.deployment_run_terminalize import (
     deployment_runs_terminalize,
 )
@@ -145,6 +148,10 @@ DEPLOYMENT_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("deployment-runs", "stages"): (
         "deployment_runs.stages",
         _inspection.deployment_runs_stages,
+    ),
+    ("deployment-runs", "timings"): (
+        "deployment_runs.timings",
+        deployment_runs_timings,
     ),
     ("deployment-runs", "update"): (
         "deployment_runs.update",

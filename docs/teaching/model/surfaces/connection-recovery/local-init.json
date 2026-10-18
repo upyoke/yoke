@@ -1,0 +1,10 @@
+{
+ "id": "local-init",
+ "title": "Repair stale references and choose activation explicitly",
+ "status": "observed",
+ "form": "Recipe and diagnosis",
+ "verification": "Candidate regression tests cover missing files, stale actors, force replacement, explicit activation, and diagnostics before a broken active connection can dispatch. Deployed proof remains pending.",
+ "topics": ["universes/connections/active-connection", "universes/diagnostics/wrong-universe-or-stale-connection"],
+ "sources": ["runtime/api/cli/test_local_connection_repair.py", "runtime/api/engines/test_doctor_connections.py"],
+ "position": 0
+}

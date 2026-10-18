@@ -7,6 +7,7 @@ must declare ``minimum_serving_version`` at registration.
 from __future__ import annotations
 
 # fmt: off
+# sessions.begin remains served; its machine_scope argument has its own floor.
 ALREADY_SERVED_FUNCTION_IDS: frozenset[str] = frozenset((
     'advance.preflight.file_budget', 'advance.preflight.hard_blocks', 'advance.preflight.spec_coverage',
     'agents.render.check', 'agents.render.run', 'agents.render_relationships.record', 'auth.set.run',
@@ -58,7 +59,7 @@ ALREADY_SERVED_FUNCTION_IDS: frozenset[str] = frozenset((
     'items.structured_field.section_append', 'items.structured_field.section_upsert', 'items.thaw.run', 'items.unblock.run',
     'lifecycle.repair_status.execute', 'lifecycle.skip.record_recoverable_substrate', 'lifecycle.transition.execute', 'lint.config.show',
     'machine.detail', 'machine.list', 'machine.register', 'machine.retire',
-    'machine.settings.get', 'machine.settings.set', 'machine.show', 'machine_approval.lifecycle.apply',
+    'machine.access.get', 'machine.access.set', 'machine.show', 'machine_approval.lifecycle.apply',
     'merge.lock.acquire', 'merge.lock.list', 'merge.lock.release', 'merge.preflight.blocked_gate',
     'merge.preflight.dependency_gate', 'merge.preflight.epic_task_statuses', 'merge.prune.authority_verdict', 'merge.tests.post_rebase_requirement',
     'merge.tests.record_post_rebase_ci_run', 'merge.tests.recorded_queue_receipt', 'merge_queue.landing.observe', 'merge_queue.landing_pending.clear',
@@ -128,10 +129,10 @@ ALREADY_SERVED_FUNCTION_IDS: frozenset[str] = frozenset((
     'workflow.execution_instruction.list', 'workflow.execution_instruction.resolve', 'workflow.execution_instruction.set_scope', 'workflow.execution_instruction.update',
     'workflow_item.epic_dispatch_chain.advance', 'workflow_item.epic_dispatch_chain.get', 'workflow_item.epic_dispatch_chain.list', 'workflow_item.epic_dispatch_chain.refresh_activation',
     'workflow_item.epic_dispatch_chain.update', 'workflow_item.epic_progress_note.append', 'workflow_item.epic_progress_note.list', 'workflow_item.epic_task.add',
-    'workflow_item.epic_task.body_get', 'workflow_item.epic_task.body_replace', 'workflow_item.epic_task.file_add', 'workflow_item.epic_task.get',
+    'workflow_item.epic_task.body_get', 'workflow_item.epic_task.body_replace', 'workflow_item.epic_task.get',
     'workflow_item.epic_task.history_insert', 'workflow_item.epic_task.metadata_update', 'workflow_item.epic_task.reassign', 'workflow_item.epic_task.remove',
     'workflow_item.epic_task.review_get', 'workflow_item.epic_task.review_insert', 'workflow_item.epic_task.review_list', 'workflow_item.epic_task.review_seed',
-    'workflow_item.epic_task.scope_finalize', 'workflow_item.epic_task.scope_no_files', 'workflow_item.epic_task.scope_reopen',
+    'workflow_item.epic_task.scope_finalize', 'workflow_item.epic_task.scope_reopen',
     'workflow_item.epic_task.simulation_get', 'workflow_item.epic_task.simulation_upsert', 'workflow_item.epic_task.split', 'workflow_item.epic_task.submission_receipt_get',
     'workflow_item.epic_task.update_status', 'workflows.approval_defaults.publish', 'workflows.canon.get', 'workflows.canon_follow.set',
     'workflows.canon_update.apply', 'workflows.canon_update.apply_all', 'workflows.canon_update.preview', 'workflows.current.set',

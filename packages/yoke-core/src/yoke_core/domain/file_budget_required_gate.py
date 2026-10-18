@@ -11,7 +11,7 @@ from yoke_core.domain.path_claim_task_coverage import (
     eligible_task_status_clause,
 )
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.task_files_touched import parse_files_touched
 from yoke_core.domain.workflow_effective_policies import (
     load_item_effective_workflow_policies,
 )
@@ -43,28 +43,14 @@ def _required_task_budgets(
     *,
     require_finalized: bool = True,
 ) -> dict[str, object]:
-    public_ref = render_item_ref(conn, int(item_id))
-    if not all(
-        _table_exists(conn, table) for table in ("epic_tasks", "epic_task_files")
-    ):
-        return {
-            "verdict": GATE_BLOCK,
-            "reason": "task-scoped File Budget schema is incomplete",
-            "missing_tasks": [],
-        }
-    from yoke_core.domain.epic_task_scope import (
-        task_scope_issues,
-    )
+    from yoke_core.domain.epic_task_scope import task_scope_issues
 
+    public_ref = render_item_ref(conn, int(item_id))
     marker = _p(conn)
     rows = conn.execute(
-        "SELECT t.task_num, COUNT(CASE WHEN "
-        "TRIM(COALESCE(f.file_path, '')) <> '' THEN 1 END) AS file_count "
-        "FROM epic_tasks t LEFT JOIN epic_task_files f "
-        "ON f.epic_id = t.epic_id AND f.task_num = t.task_num "
-        f"WHERE t.epic_id = {marker} "
-        f"AND {eligible_task_status_clause('t.status')} "
-        "GROUP BY t.task_num ORDER BY t.task_num",
+        "SELECT task_num, COALESCE(body, '') AS body FROM epic_tasks "
+        f"WHERE epic_id = {marker} AND {eligible_task_status_clause()} "
+        "ORDER BY task_num",
         (int(item_id),),
     ).fetchall()
     if not rows:
@@ -85,7 +71,9 @@ def _required_task_budgets(
         missing = [
             int(row["task_num"] if hasattr(row, "keys") else row[0])
             for row in rows
-            if int(row["file_count"] if hasattr(row, "keys") else row[1]) == 0
+            if not parse_files_touched(
+                row["body"] if hasattr(row, "keys") else row[1]
+            ).declared
         ]
         return {
             "verdict": GATE_BLOCK,
@@ -98,7 +86,7 @@ def _required_task_budgets(
     return {
         "verdict": GATE_PASS,
         "reason": (
-            f"item {public_ref} has finalized explicit scope for every generated task"
+            f"item {public_ref} declares Files Touched for every generated task"
         ),
         "missing_tasks": [],
     }

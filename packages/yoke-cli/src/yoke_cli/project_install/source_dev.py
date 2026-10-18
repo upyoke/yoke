@@ -43,7 +43,9 @@ def resolve_mode(root: Path, explicit: Optional[str]) -> Tuple[str, str]:
 
 
 def install_source_link(
-    repo_root: Path, *, operation: str = "install",
+    repo_root: Path,
+    *,
+    operation: str = "install",
 ) -> Dict[str, Any]:
     """Delegate source-link repair to core when available."""
     try:
@@ -56,14 +58,6 @@ def install_source_link(
             "Yoke source checkout."
         ) from exc
     report = module.install_source_link(repo_root, operation=operation)
-    # Same machine-home backstop copy-mode apply_bundle installs: Cursor
-    # stop must survive a deleted worktree project root even on the Yoke
-    # source checkout path.
-    from yoke_harness.hooks.cursor_lifecycle_hooks import (
-        ensure_user_lifecycle_hooks,
-    )
-
-    ensure_user_lifecycle_hooks()
     return report
 
 

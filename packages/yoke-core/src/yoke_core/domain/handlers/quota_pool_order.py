@@ -21,11 +21,12 @@ class GetRequest(BaseModel):
 
 class SetRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    pools: list[str]
+    pools: list[str] | None
 
 
 class OrderResponse(BaseModel):
     pools: list[str]
+    source: str | None = None
 
 
 def _failure(code, message):
@@ -39,7 +40,18 @@ def handle_get(request):
         GetRequest.model_validate(request.payload or {})
         with connect() as conn:
             ordered = read_pool_order(conn)
-        return HandlerOutcome(result_payload={"pools": list(ordered)})
+            from yoke_core.domain.machine_registry import marker
+
+            stored = conn.execute(
+                f"SELECT 1 FROM universe_settings WHERE key={marker(conn)}",
+                ("cursor_quota_order",),
+            ).fetchone()
+        return HandlerOutcome(
+            result_payload={
+                "pools": list(ordered),
+                "source": "stored" if stored else "default",
+            }
+        )
     except ValidationError as exc:
         return _failure("payload_invalid", safe_validation_message(exc))
     except QuotaPoolOrderError as exc:

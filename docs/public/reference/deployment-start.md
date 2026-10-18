@@ -95,24 +95,42 @@ Pin reading, worktree retirement/ensure, child launch, context substeps, branch
 verification, QA seed, containment attestation, freeze, and executing stamp are
 named separately. HTTPS returns server substeps with its response for the driver
 to flush; local execution collects them through the same contract. The watcher
-preserves preflight lines when it appends child output. Records carry no secrets,
-require no telemetry table, and are never operational authority.
+preserves preflight lines when it appends child output. Records carry no secrets
+and are never operational authority.
+
+Each run-scoped driver scope (preflight, watched child, pinned re-exec, pipeline)
+also stores its start/end records in `deployment_run_timings` through
+`deployment_runs.timings.record` when it closes; the pipeline also flushes at
+each stage, so a running run's earlier steps are readable. Any machine can read
+them:
+
+```text
+yoke deployment-runs timings RUN-ID [--json]
+```
+
+It prints per-step elapsed totals, then every record; `--json` returns each
+record as the driver wrote it. A write that cannot land never fails the run: the
+driver prints `Deployment timing record refused: ` with the run, the named error
+and the recovery, the capture still holds the lines, and the next flush retries
+them without duplicating any that landed. An empty answer names
+that no timings were recorded.
 
 For a start-gap measurement, subtract the earliest preflight-start timestamp
-from the successful executing-transition end (both on the driver’s clock) in that same run’s raw capture. Report
-the sum of context elapsed time, freeze elapsed time, and any refresh attempts
-alongside the total. Compare matched source/transport/member-count conditions;
-missing markers are incomplete evidence, never a zero-time result.
+from the successful executing-transition end (both on the driver’s clock) in
+that same run’s records. Report the sum of context elapsed time, freeze elapsed
+time, and any refresh attempts alongside the total. Compare matched
+source/transport/member-count conditions; missing markers are incomplete
+evidence, never a zero-time result.
 
-The read-only report can locate the run’s raw capture on its driver machine:
+The read-only report computes it from the recorded timings:
 
 ```text
 python3 -m yoke_core.tools.deployment_start_report --run-id RUN-ID --baseline-seconds SECONDS
 ```
 
-Pass `--capture PATH` for an exported raw capture. The report refuses incomplete
-markers or more than one context build, and prints the measured total and every
-step’s elapsed time; a slower start still reports its measured difference.
+The report refuses incomplete markers or more than one context build, and prints
+the measured total and every step’s elapsed time; a slower start still reports
+its measured difference.
 
 
 Source/provider and containment preparation precede item/run locks. The short
@@ -124,7 +142,18 @@ open lanes during preparation ask no new question. A changed source question
 only that question with every lock released (timing step `start_source_refresh`)
 and retries the commit phase, up to eight preparations. After that the start
 refuses as `deployment_source_preparation_changed`, naming the exact source
-key; nothing was dispatched, so re-drive the same run. QA occupancy
+key; nothing was dispatched, so re-drive the same run.
+
+Creation prepares
+against the waiting run when its takeover would settle that run succeeded;
+a cancelled takeover keeps the preceding succeeded release as its base. This
+unlocked prediction changes no waiting-run state, and the locked pass rechecks
+it. If creation exhausts source preparation, repeat the original
+`yoke deployment-runs create` or `yoke deployment-runs start-for-item` command
+with the same arguments and idempotency key, if supplied; no new run was
+created.
+
+QA occupancy
 uses the first real blocker and shares peer-plan facts within that evaluation;
 full diagnostic reads still report all blockers. Item/run/target lock contention
 refuses as `deployment_start_lock_busy` after two seconds and names same-run

@@ -43,57 +43,25 @@ def test_registry_maps_organization_commands() -> None:
     from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
 
     assert SUBCOMMAND_REGISTRY[("organizations", "get")][0] == ("organizations.get")
-    assert SUBCOMMAND_REGISTRY[("organizations", "settings", "get")][0] == (
-        "organizations.settings.get"
-    )
-    assert SUBCOMMAND_REGISTRY[("organizations", "settings", "merge")][0] == (
-        "organizations.settings.merge"
-    )
     assert SUBCOMMAND_REGISTRY[("organizations", "domain", "set")][0] == (
         "organizations.domain.set"
     )
 
 
-def test_settings_get_and_merge_dispatch_scalar_paths() -> None:
-    assert (
-        _run(
-            "organizations",
-            "settings",
-            "get",
-            "--path",
-            "messages.delivery_lease_seconds",
-            "--org",
-            "default",
-        )
-        == 0
-    )
-    request = _CAPTURED[-1]
-    assert request.function == "organizations.settings.get"
-    assert request.payload == {
-        "path": "messages.delivery_lease_seconds",
-        "org": "default",
-    }
+def test_org_settings_route_to_existing_authority(monkeypatch):
+    from yoke_cli.commands.adapters.settings_store import SettingsStore
 
-    assert (
-        _run(
-            "organizations",
-            "settings",
-            "merge",
-            "--set",
-            "messages.delivery_lease_seconds=45",
-            "--set",
-            "membership.auto_join_domain_verified=true",
-        )
-        == 0
+    calls = []
+    monkeypatch.setattr(
+        SettingsStore, "call", lambda self, fn, payload: calls.append((fn, payload))
     )
-    request = _CAPTURED[-1]
-    assert request.function == "organizations.settings.merge"
-    assert request.payload == {
-        "assignments": {
-            "messages.delivery_lease_seconds": 45,
-            "membership.auto_join_domain_verified": True,
-        },
-    }
+    SettingsStore().write("membership.auto_join_domain_verified", True)
+    assert calls == [
+        (
+            "organizations.settings.merge",
+            {"assignments": {"membership.auto_join_domain_verified": True}},
+        )
+    ]
 
 
 def test_domain_set_and_clear_are_exclusive() -> None:

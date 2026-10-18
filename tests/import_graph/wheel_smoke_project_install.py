@@ -184,6 +184,9 @@ def smoke(
             "pre-commit",
             "post-commit",
             "pre-merge-commit",
+            "post-merge",
+            "post-rewrite",
+            "post-checkout",
         ]
         assert not (checkout / ".yoke/install-manifest.json").exists()
         assert not (checkout / ".codex/hooks.json").exists()

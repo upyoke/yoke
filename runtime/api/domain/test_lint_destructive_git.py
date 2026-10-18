@@ -33,10 +33,21 @@ def _record_for(payload: dict) -> "ldg.HookContext":
 
 
 def _git_run(repo: str, *args: str) -> subprocess.CompletedProcess:
-    env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@x",
-        "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@x"}
-    return subprocess.run(["git", "-C", repo, *args],
-        capture_output=True, text=True, check=False, env=env, timeout=10)
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@x",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@x",
+    }
+    return subprocess.run(
+        ["git", "-C", repo, *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+        timeout=10,
+    )
 
 
 def _make_repo(initial_files: dict[str, str] | None = None) -> str:
@@ -62,12 +73,16 @@ def _modify(repo: str, rel: str, content: str) -> None:
 
 class TestParseGitInvocations(unittest.TestCase):
     def test_simple(self):
-        self.assertEqual(ldg._parse_git_invocations("git reset --hard HEAD~1"),
-            [(["reset", "--hard", "HEAD~1"], "")])
+        self.assertEqual(
+            ldg._parse_git_invocations("git reset --hard HEAD~1"),
+            [(["reset", "--hard", "HEAD~1"], "")],
+        )
 
     def test_dash_C(self):
-        self.assertEqual(ldg._parse_git_invocations("git -C /tmp/x reset --hard"),
-            [(["reset", "--hard"], "/tmp/x")])
+        self.assertEqual(
+            ldg._parse_git_invocations("git -C /tmp/x reset --hard"),
+            [(["reset", "--hard"], "/tmp/x")],
+        )
 
     def test_chained(self):
         out = ldg._parse_git_invocations("git status && git reset --hard")
@@ -84,87 +99,13 @@ class TestParseGitInvocations(unittest.TestCase):
         self.assertEqual(out[1][0], ["stash", "drop"])
 
     def test_env_prefix(self):
-        self.assertEqual(ldg._parse_git_invocations("FOO=bar git reset --hard"),
-            [(["reset", "--hard"], "")])
+        self.assertEqual(
+            ldg._parse_git_invocations("FOO=bar git reset --hard"),
+            [(["reset", "--hard"], "")],
+        )
 
     def test_non_git(self):
         self.assertEqual(ldg._parse_git_invocations("ls -la"), [])
-
-
-class TestClassifyShape(unittest.TestCase):
-    def test_reset_hard(self):
-        self.assertEqual(ldg._classify_shape(["reset", "--hard"]), "reset_hard")
-
-    def test_reset_soft(self):
-        self.assertIsNone(ldg._classify_shape(["reset", "--soft", "HEAD~1"]))
-
-    def test_reset_mixed_default(self):
-        self.assertIsNone(ldg._classify_shape(["reset", "HEAD"]))
-
-    def test_clean_force(self):
-        self.assertEqual(ldg._classify_shape(["clean", "-f"]), "clean_force")
-        self.assertEqual(ldg._classify_shape(["clean", "-fd"]), "clean_force")
-        self.assertEqual(ldg._classify_shape(["clean", "-fdx"]), "clean_force")
-        self.assertEqual(ldg._classify_shape(["clean", "--force"]), "clean_force")
-
-    def test_clean_dry_run(self):
-        self.assertIsNone(ldg._classify_shape(["clean", "-n"]))
-        self.assertIsNone(ldg._classify_shape(["clean", "-nf"]))
-
-    def test_stash_drop_clear(self):
-        self.assertEqual(ldg._classify_shape(["stash", "drop"]), "stash_drop")
-        self.assertEqual(ldg._classify_shape(["stash", "clear"]), "stash_clear")
-
-    def test_stash_safe(self):
-        self.assertIsNone(ldg._classify_shape(["stash"]))
-        self.assertIsNone(ldg._classify_shape(["stash", "push", "-u"]))
-        self.assertIsNone(ldg._classify_shape(["stash", "list"]))
-        self.assertIsNone(ldg._classify_shape(["stash", "pop"]))
-
-    def test_checkout_path_form(self):
-        self.assertEqual(ldg._classify_shape(["checkout", "--", "foo.txt"]), "checkout_path_discard")
-
-    def test_checkout_force_branch(self):
-        self.assertEqual(ldg._classify_shape(["checkout", "-f", "main"]), "checkout_force_branch")
-
-    def test_checkout_clean_branch(self):
-        self.assertIsNone(ldg._classify_shape(["checkout", "main"]))
-
-    def test_checkout_dot_pathspec(self):
-        self.assertEqual(ldg._classify_shape(["checkout", "."]), "checkout_path_discard")
-        self.assertEqual(ldg._classify_shape(["checkout", "HEAD", "."]), "checkout_path_discard")
-        self.assertEqual(ldg._classify_shape(["checkout", "./sub/"]), "checkout_path_discard")
-
-    def test_restore_worktree(self):
-        self.assertEqual(ldg._classify_shape(["restore", "--worktree", "foo.txt"]), "restore_worktree_path")
-        self.assertEqual(ldg._classify_shape(["restore", "foo.txt"]), "restore_worktree_path")
-
-    def test_restore_staged_only(self):
-        self.assertIsNone(ldg._classify_shape(["restore", "--staged", "foo.txt"]))
-        self.assertIsNone(ldg._classify_shape(["restore", "-S", "foo.txt"]))
-
-    def test_restore_staged_and_worktree(self):
-        self.assertEqual(
-            ldg._classify_shape(["restore", "-S", "-W", "foo.txt"]),
-            "restore_worktree_path",
-        )
-
-    def test_worktree_remove(self):
-        self.assertEqual(
-            ldg._classify_shape(["worktree", "remove", ".worktrees/a"]),
-            "worktree_remove",
-        )
-
-
-class TestPathArgs(unittest.TestCase):
-    def test_staged_short_flag_takes_no_value(self):
-        self.assertEqual(ldg._path_args(["restore", "-S", "a.txt"]), ["a.txt"])
-
-    def test_source_flags_consume_value(self):
-        self.assertEqual(
-            ldg._path_args(["restore", "-s", "HEAD~1", "a.txt"]), ["a.txt"])
-        self.assertEqual(
-            ldg._path_args(["restore", "--source", "HEAD~1", "a.txt"]), ["a.txt"])
 
 
 class TestEvaluatePayload(unittest.TestCase):
@@ -190,13 +131,17 @@ class TestEvaluatePayload(unittest.TestCase):
 
     def _eval(self, command: str) -> tuple[str, str, str] | None:
         # Force deny mode regardless of project config (tests stay deterministic).
-        with mock.patch.object(ldg, "_read_mode", return_value="deny"), \
-             mock.patch.object(ldg, "_claimed_worktree_threats", return_value=[]):
+        with (
+            mock.patch.object(ldg, "_read_mode", return_value="deny"),
+            mock.patch.object(ldg, "_claimed_worktree_threats", return_value=[]),
+        ):
             return ldg.evaluate_payload(_payload(command))
 
     def _eval_with_payload(self, payload: dict) -> tuple[str, str, str] | None:
-        with mock.patch.object(ldg, "_read_mode", return_value="deny"), \
-             mock.patch.object(ldg, "_claimed_worktree_threats", return_value=[]):
+        with (
+            mock.patch.object(ldg, "_read_mode", return_value="deny"),
+            mock.patch.object(ldg, "_claimed_worktree_threats", return_value=[]),
+        ):
             return ldg.evaluate_payload(payload)
 
     def _linked_worktree(self, repo: str, branch: str = "cleanup-test") -> str:
@@ -282,8 +227,11 @@ class TestEvaluatePayload(unittest.TestCase):
     def test_AC4_clean_force_with_untracked_blocks(self):
         repo = self._repo(initial_files={"a.txt": "v1\n"})
         _modify(repo, "junk.tmp", "x")  # untracked
-        for cmd in (f"git -C {repo} clean -f", f"git -C {repo} clean -fd",
-                f"git -C {repo} clean -fdx"):
+        for cmd in (
+            f"git -C {repo} clean -f",
+            f"git -C {repo} clean -fd",
+            f"git -C {repo} clean -fdx",
+        ):
             result = self._eval(cmd)
             self.assertIsNotNone(result, f"clean variant should block: {cmd}")
             self.assertIn("junk.tmp", result[1])
@@ -407,8 +355,10 @@ class TestEvaluatePayload(unittest.TestCase):
         wt = self._linked_worktree(repo)
         threat = f"{wt} active claim session=sess item=42"
 
-        with mock.patch.object(ldg, "_read_mode", return_value="deny"), \
-             mock.patch.object(ldg, "_claimed_worktree_threats", return_value=[threat]):
+        with (
+            mock.patch.object(ldg, "_read_mode", return_value="deny"),
+            mock.patch.object(ldg, "_claimed_worktree_threats", return_value=[threat]),
+        ):
             result = ldg.evaluate_payload(
                 _payload("rm -rf .worktrees/cleanup-test", cwd=repo)
             )
@@ -428,7 +378,9 @@ class TestModePinAndSuppression(unittest.TestCase):
         shutil.rmtree(self.repo, ignore_errors=True)
 
     def test_AC8_token_records_attempt_still_denies(self):
-        cmd = f"git -C {self.repo} reset --hard HEAD~1  # lint:no-uncommitted-wipe-check"
+        cmd = (
+            f"git -C {self.repo} reset --hard HEAD~1  # lint:no-uncommitted-wipe-check"
+        )
         with mock.patch.object(ldg, "_read_mode", return_value="deny"):
             result = ldg.evaluate_payload(_payload(cmd))
         self.assertIsNotNone(result)
@@ -439,9 +391,13 @@ class TestModePinAndSuppression(unittest.TestCase):
 
     def test_AC8_evaluate_token_still_denies_with_attempted_outcome(self):
         # AC-T3: suppression-token is audit-only; evaluate(record) still denies.
-        cmd = f"git -C {self.repo} reset --hard HEAD~1  # lint:no-uncommitted-wipe-check"
-        with mock.patch.object(ldg, "_read_mode", return_value="deny"), \
-             mock.patch.object(ldg, "_emit_audit_event") as emit_mock:
+        cmd = (
+            f"git -C {self.repo} reset --hard HEAD~1  # lint:no-uncommitted-wipe-check"
+        )
+        with (
+            mock.patch.object(ldg, "_read_mode", return_value="deny"),
+            mock.patch.object(ldg, "_emit_audit_event") as emit_mock,
+        ):
             decision = ldg.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
@@ -449,27 +405,34 @@ class TestModePinAndSuppression(unittest.TestCase):
         self.assertEqual(emit_mock.call_args.args[3], "suppression_attempted")
 
     def test_AC9_warn_mode_returns_warn_no_deny_envelope(self):
-        with mock.patch.object(ldg, "_read_mode", return_value="warn"), \
-             mock.patch.object(ldg, "_emit_audit_event"):
-            decision = ldg.evaluate(_record_for(
-                _payload(f"git -C {self.repo} reset --hard HEAD~1")))
+        with (
+            mock.patch.object(ldg, "_read_mode", return_value="warn"),
+            mock.patch.object(ldg, "_emit_audit_event"),
+        ):
+            decision = ldg.evaluate(
+                _record_for(_payload(f"git -C {self.repo} reset --hard HEAD~1"))
+            )
         self.assertIs(decision.outcome, Outcome.WARN)
         self.assertEqual(decision.message, "")
         self.assertFalse(decision.block)
         self.assertIs(decision.next, Next.CONTINUE)
 
     def test_AC9_deny_mode_emits_envelope(self):
-        with mock.patch.object(ldg, "_read_mode", return_value="deny"), \
-             mock.patch.object(ldg, "_emit_audit_event"):
-            decision = ldg.evaluate(_record_for(
-                _payload(f"git -C {self.repo} reset --hard HEAD~1")))
+        with (
+            mock.patch.object(ldg, "_read_mode", return_value="deny"),
+            mock.patch.object(ldg, "_emit_audit_event"),
+        ):
+            decision = ldg.evaluate(
+                _record_for(_payload(f"git -C {self.repo} reset --hard HEAD~1"))
+            )
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
         envelope = json.loads(decision.message)
-        self.assertEqual(
-            envelope["hookSpecificOutput"]["permissionDecision"], "deny")
-        self.assertIn("BLOCKED", envelope["hookSpecificOutput"]["permissionDecisionReason"])
+        self.assertEqual(envelope["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertIn(
+            "BLOCKED", envelope["hookSpecificOutput"]["permissionDecisionReason"]
+        )
 
 
 class TestFailOpen(unittest.TestCase):
@@ -480,8 +443,9 @@ class TestFailOpen(unittest.TestCase):
         self.assertFalse(decision.block)
 
     def test_non_bash_tool_no_deny(self):
-        result = ldg.evaluate_payload({"tool_name": "Read",
-            "tool_input": {"command": "git reset --hard"}})
+        result = ldg.evaluate_payload(
+            {"tool_name": "Read", "tool_input": {"command": "git reset --hard"}}
+        )
         self.assertIsNone(result)
 
     def test_non_git_repo_no_deny(self):

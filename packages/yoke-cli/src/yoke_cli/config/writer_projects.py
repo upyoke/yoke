@@ -7,6 +7,7 @@ re-exported there so existing imports are unaffected.
 from __future__ import annotations
 
 from pathlib import Path
+import shlex
 from typing import Any, Optional
 
 from yoke_cli.config.machine_config_mutation import (
@@ -28,10 +29,10 @@ def register_project(
     reassign: bool = False,
     path: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Map a local checkout path to its DB project id.
+    """Map a checkout to a project id on the selected connection.
 
     Re-pointing an already-claimed ``project_id`` slot at a different
-    checkout moves shared routing every other reader resolves against —
+    checkout moves routing within that connection's map —
     worktree preparation included — so it requires ``reassign=True`` from an
     operator using ``yoke project register --reassign``. Registering a slot with no
     existing checkout, or re-registering the same checkout, is ordinary
@@ -53,30 +54,51 @@ def register_project(
     if normalized is None:
         raise MachineConfigWriteError("--project-id must be a positive integer")
     payload, cfg_path = _load_payload(path)
+    from yoke_contracts.machine_config.project_mapping_upgrade import (
+        import_project_connections,
+    )
+
+    try:
+        import_project_connections(payload)
+        connection = contract.project_connection(payload)
+        projects = contract.projects_for_connection(payload)
+    except contract.MachineConfigContractError as exc:
+        raise MachineConfigWriteError(str(exc)) from exc
     displaced = contract.existing_checkout_for_slot(
-        payload.get("projects"),
+        projects,
         checkout=str(root),
         project_id=normalized,
     )
     if displaced is not None and not reassign:
         raise MachineConfigWriteError(
             f"project {normalized} is already routed to "
-            f"{displaced!r}; registering {root} would move shared checkout "
-            "routing. To move it deliberately, run yoke project register "
-            "--reassign from a session holding the project's steering seat "
-            f"(yoke claims steering acquire --project {normalized})."
+            f"{displaced!r} on connection {connection!r}; registering {root} "
+            "would move that connection's checkout routing. To move it deliberately, "
+            f"acquire its steering seat with `yoke --env {shlex.quote(connection)} "
+            f"claims steering acquire --project {normalized}`, then run "
+            f"`yoke --env {shlex.quote(connection)} project register --reassign "
+            f"--project-id {normalized} {shlex.quote(str(root))}`."
         )
-    payload["projects"] = contract.upsert_project_entry(
-        payload.get("projects"),
+    payload["connection_projects"][connection] = contract.upsert_project_entry(
+        projects,
         checkout=str(root),
         project_id=normalized,
     )
     _write_payload(payload, cfg_path)
     written = next(
-        (e for e in payload["projects"] if e.get("checkout") == str(root)),
+        (
+            e
+            for e in payload["connection_projects"][connection]
+            if e.get("checkout") == str(root)
+        ),
         {},
     )
-    return {"checkout": str(root), "entry": written, "config": str(cfg_path)}
+    return {
+        "connection": connection,
+        "checkout": str(root),
+        "entry": written,
+        "config": str(cfg_path),
+    }
 
 
 __all__ = ["register_project"]

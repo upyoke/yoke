@@ -58,8 +58,8 @@ metadata plus the complete ordered case set. The document carries every case
 field, including `target_envs` and `stage_reason` (required when a case targets
 an environment without `role.production: true`; see
 [case environment obligations](public/reference/qa-platform/standalone-plans.md#case-environment-obligations)),
-and `wake_path`/`wake_evidence` (`manual` for a case steering starts once real
-traffic exists; see
+and `wake_path`/`wake_evidence` (`manual` for a case whose owner checks real-traffic
+evidence before running it; see
 [cases that wait for real traffic](public/reference/qa-platform/standalone-plans.md#cases-that-wait-for-real-traffic)).
 Invalid JSON, an editor failure, a concurrent
 edit, or a save that would reset a stored case field the document left out
@@ -181,7 +181,8 @@ The [provisioning index](../packs/machine-qa/versions/1.3.7/files/docs/packs/mac
 as `docs/packs/machine-qa/host-provisioning.md`. Use that installed copy for a
 customized project. [Operation contracts](testing-verification/test-machine-operations.md)
 explain leases and receipts; [baseline semantics](testing-verification/test-machine-golden-baseline.md)
-explain what the evidence establishes.
+explain what the evidence establishes. For a case that needs a real
+self-hosted server, use the [temporary self-hosted server fixture](testing-verification/self-host-fixture.md).
 
 Secret values never belong in settings, workflow definitions, item bodies,
 prompts, logs, captures or artifacts. Capability-owned machine-local secrets

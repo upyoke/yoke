@@ -5,7 +5,6 @@
  "form": "State",
  "verification": "Source uses automatic text heights and wraps full choice labels and hints. Offline layout tests cover narrow widths and resize; deployed terminal proof is pending.",
  "topics": ["installation/entry"],
- "plan_refs": ["FIRST-USER.37"],
  "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard.tcss", "runtime/api/cli/test_onboard_wizard_text_wrapping.py"],
  "position": 0
 }

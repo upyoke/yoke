@@ -74,7 +74,6 @@ def evaluate_inprocess(
         )
     try:
         from yoke_harness.hooks.relay import (
-            degrade_to_noop,
             evaluate_hook_event,
             relay_hook_event,
         )
@@ -105,7 +104,20 @@ def evaluate_inprocess(
     try:
         connection = resolve_https_connection()
     except TransportError as exc:
-        return degrade_to_noop(event_name, str(exc))
+        from yoke_contracts.hook_runner.safety import (
+            infrastructure_reply,
+            parse_payload,
+        )
+
+        text, code, _denied = infrastructure_reply(
+            event_name,
+            parse_payload(stdin_data),
+            detect_executor(),
+            f"hook_authority_unavailable: {exc}",
+        )
+        if text:
+            sys.stdout.write(text)
+        return code
 
     extra_context = _session_orientation(
         event_name,

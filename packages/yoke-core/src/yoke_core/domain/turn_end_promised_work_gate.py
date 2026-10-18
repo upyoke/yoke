@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from yoke_contracts.timestamps import as_utc, parse_instant
+from yoke_contracts.hook_runner.safety import stop_reentry
 from typing import Any, Optional
 
 from yoke_contracts.turn_end_evidence import (
@@ -221,6 +222,8 @@ def _surface(record: HookContext) -> Optional[str]:
 
 def evaluate(record: HookContext) -> HookDecision:
     """Hold an eligible Stop; allow every documented escape hatch."""
+    if record.event_name == "Stop" and stop_reentry(record.payload or {}):
+        return _allow()
     if record.event_name not in turn_end_events(
         record.executor_family, _surface(record)
     ):

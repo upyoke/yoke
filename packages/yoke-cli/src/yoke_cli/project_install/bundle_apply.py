@@ -266,16 +266,6 @@ def apply_bundle(
     )
     manifest_file = files_layer.write_manifest(repo_root, manifest)
     install_recovery.finish(repo_root, hashes, clear_pending=not retain_pending)
-    # Machine-local Cursor stop/sessionEnd backstop: project hooks cannot
-    # spawn when Cursor's project cwd is a deleted linked worktree.
-    try:
-        from yoke_harness.hooks.cursor_lifecycle_hooks import (
-            ensure_user_lifecycle_hooks,
-        )
-
-        ensure_user_lifecycle_hooks()
-    except Exception:  # noqa: BLE001 — install must not fail open on home hooks
-        pass
     return {
         "operation": operation,
         MODE_KEY: MODE_COPY,
@@ -326,6 +316,7 @@ def apply_bundle(
         "manifest": str(manifest_file),
         "machine_config_newly_registered": False,
         "warnings": warnings,
+        "harness_health": preflight["harness_health"],
     }
 
 

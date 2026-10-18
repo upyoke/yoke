@@ -24,9 +24,12 @@ REGISTRATION_KEY = "local_registration"
 def scope_reason(root: Path, manifest: dict, config_path) -> str:
     """Check shared Git-hook scope before any installed files are removed."""
     try:
-        projects = normalize_projects(
-            machine_config.load_config(config_path).get("projects")
-        )
+        payload = machine_config.load_config(config_path)
+        projects = [
+            entry
+            for entries in contract.connection_project_maps(payload).values()
+            for entry in normalize_projects(entries)
+        ]
         return _config_reason(
             manifest, machine_config.config_path(config_path)
         ) or _shared_reason(root, projects, manifest.get("project_id"))
@@ -39,6 +42,9 @@ def record_registration(root: Path, project_id: int, config_path) -> None:
     manifest = files.load_manifest(root)
     manifest[REGISTRATION_KEY] = {
         "config": str(machine_config.config_path(config_path).resolve()),
+        "connection": contract.project_connection(
+            machine_config.load_config(config_path)
+        ),
         "entry": {"checkout": str(main_checkout(root)), "project_id": project_id},
     }
     files.write_manifest(root, manifest)
@@ -65,15 +71,34 @@ def cleanup(root: Path, manifest: dict, config_path) -> dict:
 @serialized_mutation
 def _cleanup(root: Path, manifest: dict, *, path=None) -> dict:
     payload, cfg = load_payload(path)
-    projects = normalize_projects(payload.get("projects"))
-    reason = _config_reason(manifest, cfg) or _shared_reason(
-        root, projects, manifest.get("project_id")
+    projects = contract.projects_for_connection(payload)
+    groups = contract.connection_project_maps(payload)
+    connection = contract.project_connection(payload) if groups else ""
+    all_projects = [
+        entry for entries in groups.values() for entry in normalize_projects(entries)
+    ]
+    shared_connection = any(
+        key != connection
+        and any(
+            Path(entry["checkout"]).expanduser().resolve() == root
+            for entry in normalize_projects(entries)
+        )
+        for key, entries in groups.items()
+    )
+    reason = (
+        ("checkout_shared_with_other_connection" if shared_connection else "")
+        or _config_reason(manifest, cfg)
+        or _shared_reason(root, all_projects, manifest.get("project_id"))
     )
     trust = revert_folder_trust(root, exclusive_reason=reason)
     record = manifest.get(REGISTRATION_KEY)
     exact = [
         entry
-        for entry, normalized in zip(payload.get("projects", []), projects, strict=True)
+        for entry, normalized in zip(
+            groups.get(connection, []),
+            projects,
+            strict=True,
+        )
         if Path(normalized["checkout"]).expanduser().resolve() == root
     ]
     if reason:
@@ -84,6 +109,7 @@ def _cleanup(root: Path, manifest: dict, *, path=None) -> dict:
         registration = _result("preserved", "registration_ownership_unknown")
     elif (
         len(exact) != 1
+        or record.get("connection") != connection
         or exact[0] != record.get("entry")
         or exact[0].get("project_id") != manifest.get("project_id")
     ):
@@ -91,7 +117,7 @@ def _cleanup(root: Path, manifest: dict, *, path=None) -> dict:
     elif any(row["status"] in {"failed", "preserved"} for row in trust):
         registration = _result("preserved", "trust_cleanup_unresolved")
     else:
-        payload["projects"].remove(exact[0])
+        groups[connection].remove(exact[0])
         try:
             errors = [
                 issue.code

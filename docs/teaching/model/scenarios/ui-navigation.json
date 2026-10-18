@@ -5,7 +5,5 @@
  "situations": ["A terminal user wants to open the correct dashboard.", "A new user is overwhelmed by pages and raw status.", "A user sees no projects, cannot find an action or follows a stale deep link."],
  "coverage": "catalogued",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
- "questions": ["Avoid duplicating work-progress lessons; this family owns opening/orientation/routing only.", "Board art is an optional customization exposed in help, not a readiness gate; FIRST-USER 25 already skips its setup step."],
- "plan_refs": ["FIRST-USER.4", "FIRST-USER.12", "FIRST-USER.16", "FIRST-USER.25", "FIRST-USER.P5", "FIRST-USER.P7"]
+ "questions": ["Avoid duplicating work-progress lessons; this family owns opening/orientation/routing only.", "Board art is an optional customization exposed in help, not a readiness gate; FIRST-USER 25 already skips its setup step."]
 }

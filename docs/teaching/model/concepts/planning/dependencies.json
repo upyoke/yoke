@@ -2,10 +2,9 @@
  "id": "dependencies",
  "title": "Item dependencies",
  "status": "draft-copy",
- "plan_refs": ["JOURNEYS.situation-14"],
  "commands": ["yoke items dependency add", "yoke items dependency list", "yoke items dependency remove", "yoke items dependency update", "yoke advance preflight hard-blocks"],
  "functions": ["items.dependency.add", "items.dependency.list", "items.dependency.remove", "items.dependency.update", "advance.preflight.hard_blocks"],
  "page": "planning",
  "position": 2,
- "note": "The registered gate evaluates every persisted satisfaction condition on the selected control plane. A dependency list does not replace it. Activation, integration and closure filters retain their shared evaluator; clear exits zero and blocked exits one. Adding an edge that already exists updates it in place (source, rationale, satisfaction, evidence) and the reply names the dependency number and each changed field, or says unchanged; update also changes source and evidence. Add, and an update that changes the gate or satisfaction, refuse with dependency_cycle a write that would leave unsatisfied activation, integration or closure edges among live items in a loop; the refusal names each edge in the loop with its id, the work it would strand, and the recovery (make one edge coordination_only or route the order to steering), and nothing is written."
+ "note": "The registered gate evaluates every persisted satisfaction condition on the selected control plane. A dependency list does not replace it. Activation, integration and closure filters retain their shared evaluator; clear exits zero and blocked exits one. Adding an edge that already exists updates it in place (source, rationale, satisfaction, evidence) and the reply names the dependency number and each changed field, or says unchanged; update also changes source and evidence. Add, and an update that changes the gate or satisfaction, refuse with dependency_cycle a write that would leave unsatisfied activation, integration or closure edges among live items in a loop; the refusal names each edge in the loop with its id, the work it would strand, and the recovery (make one edge coordination_only or route the order to steering), and nothing is written. Add and update record the calling session on each edge they create or change, as the session that added or last changed it."
 }

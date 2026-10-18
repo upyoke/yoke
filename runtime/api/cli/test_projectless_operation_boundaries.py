@@ -41,6 +41,9 @@ def test_status_without_project_never_reads_a_foreign_doctor_receipt(monkeypatch
     )
     report = status_doctor.attach_doctor({"server": {"reachable": True}})
     assert report["doctor"]["summary"].startswith("health unverified")
+    # Doctor refuses without a project, so the hint names a form that works.
+    assert "--project P" in report["doctor"]["summary"]
+    assert "yoke projects list" in report["doctor"]["summary"]
 
 
 def test_export_defaults_stay_outside_cwd(tmp_path, monkeypatch):

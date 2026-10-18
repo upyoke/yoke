@@ -2,7 +2,6 @@
  "id": "outcomes",
  "title": "Delivery outcomes",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.24", "FIRST-USER.D", "JOURNEYS.situation-12"],
  "surface_refs": ["project-orientation", "skills-roles"],
  "commands": ["yoke project-structure deploy-defaults get", "yoke workflows delivery-default set"],
  "functions": ["project_structure.deploy_defaults.get", "workflows.delivery_default.set"],

@@ -81,3 +81,5 @@ yoke items progress-log append ITEM --headline "<checkpoint>" --stdin
 ```
 
 Next: [survey-and-isolate.md](survey-and-isolate.md).
+
+Keep each entry body at or below 4,096 UTF-8 bytes; write only what changed and the next step, and move evidence to artifacts or field-notes.

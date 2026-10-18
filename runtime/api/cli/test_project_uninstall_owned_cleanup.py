@@ -3,7 +3,6 @@
 import json
 import os
 from pathlib import Path
-import subprocess
 
 import pytest
 
@@ -16,15 +15,7 @@ from yoke_cli.project_install import files, owned_cleanup, uninstall_commit
 from yoke_cli.project_install.bundle_apply import apply_bundle
 from yoke_cli.project_install.uninstall import uninstall
 from yoke_core.domain.project_install_test_helpers import make_bundle
-
-
-def git(root, *args):
-    return subprocess.run(
-        ["git", "-c", "core.hooksPath=/dev/null", "-C", str(root), *args],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.strip()
+from runtime.api.cli.project_uninstall_test_support import git, read_json
 
 
 @pytest.fixture
@@ -72,10 +63,6 @@ def installed(tmp_path, monkeypatch):
     return roots[0], roots[1], config
 
 
-def read_json(path):
-    return json.loads(path.read_text())
-
-
 def test_uninstall_only_exact_owned_entries_and_preserves_shared_state(installed):
     root, other, config = installed
     other_files = {p: p.read_bytes() for p in other.rglob("*") if p.is_file()}
@@ -86,7 +73,8 @@ def test_uninstall_only_exact_owned_entries_and_preserves_shared_state(installed
     assert report["manifest_removed"]
     assert read_json(config) == {
         **config_before,
-        "projects": [{"checkout": str(other), "project_id": 8}],
+        "active_env": "local",
+        "connection_projects": {"local": [{"checkout": str(other), "project_id": 8}]},
     }
     assert read_json(trust.claude_state_path()) == {
         "projects": {str(other): {"hasTrustDialogAccepted": True}},
@@ -145,7 +133,7 @@ def test_unproven_registration_stays(installed, evidence):
         del manifest[owned_cleanup.REGISTRATION_KEY]
     elif evidence == "edited":
         payload = read_json(config)
-        payload["projects"][0]["checkout"] += " "
+        payload["connection_projects"]["local"][0]["checkout"] += " "
         config.write_text(json.dumps(payload))
     else:
         manifest[owned_cleanup.REGISTRATION_KEY]["config"] += ".other"
@@ -335,7 +323,7 @@ def test_different_empty_config_does_not_hide_the_recorded_registration(installe
     root, _, config = installed
     other_config = config.with_name("other.json")
     payload = read_json(config)
-    payload["projects"] = []
+    payload["connection_projects"] = {}
     other_config.write_text(json.dumps(payload))
     before = config.read_bytes(), trust.claude_state_path().read_bytes()
     report = uninstall(root, config_path=other_config)

@@ -140,3 +140,19 @@ def test_ambiguous_slug_uses_authorized_project_context(claim_db, options):
         acquired.result_payload["scope"]["conflict_group"]
         == "strategy-control-plane:yoke"
     )
+
+
+@pytest.mark.parametrize(
+    "code", ["SESSION_MACHINE_SCOPE_WORK_REFUSED", "SESSION_PROJECT_MISMATCH"]
+)
+def test_folder_admission_refusal_keeps_its_code(claim_db, monkeypatch, code):
+    from yoke_core.domain import sessions_lifecycle_claim
+
+    def refuse(conn, **kwargs):
+        raise sessions_lifecycle_claim.SessionError(code, "Open a session.")
+
+    monkeypatch.setattr(sessions_lifecycle_claim, "claim_work", refuse)
+    refused = _acquire("yoke")
+    assert not refused.primary_success
+    assert refused.error.code == code
+    assert refused.error.message == f"{code}: Open a session."

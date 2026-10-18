@@ -1,4 +1,4 @@
-"""Tests for yoke_core.domain.epic — task CRUD, status, body, files, history."""
+"""Tests for yoke_core.domain.epic — task CRUD, status, body, history."""
 
 from __future__ import annotations
 
@@ -31,7 +31,9 @@ def db_with_task(db):
         workflow_id="epic",
         status="planned",
     )
-    insert_epic_task(db, epic_id=TEST_ITEM_ID, task_num=1, title="First task", status="planning")
+    insert_epic_task(
+        db, epic_id=TEST_ITEM_ID, task_num=1, title="First task", status="planning"
+    )
     return db
 
 
@@ -40,7 +42,9 @@ class TestTaskUpsert:
         result = epic.task_upsert(db, "42", 1, "My task", TEST_ITEM_REF, "M", "")
         assert "Upserted task 42/1" in result
 
-        row = db.execute("SELECT * FROM epic_tasks WHERE epic_id='42' AND task_num=1").fetchone()
+        row = db.execute(
+            "SELECT * FROM epic_tasks WHERE epic_id='42' AND task_num=1"
+        ).fetchone()
         assert row is not None
         assert row["title"] == "My task"
         assert row["status"] == "planning"
@@ -54,21 +58,23 @@ class TestTaskUpsert:
 
         # Upsert should preserve status
         epic.task_upsert(db_with_task, "42", 1, "Updated title", "", "L", "001")
-        row = db_with_task.execute("SELECT * FROM epic_tasks WHERE epic_id='42' AND task_num=1").fetchone()
+        row = db_with_task.execute(
+            "SELECT * FROM epic_tasks WHERE epic_id='42' AND task_num=1"
+        ).fetchone()
         assert row["status"] == "implementing"
         assert row["title"] == "Updated title"
 
     def test_upsert_leaves_lane_unassigned_when_parent_item_is_absent(self, db):
         epic.task_upsert(db, "42", 1, "Task", TEST_ITEM_REF, "", "")
         epic.task_upsert(db, "42", 1, "Task updated", "", "", "")
-        row = db.execute("SELECT item_worktree_id FROM epic_tasks WHERE epic_id='42' AND task_num=1").fetchone()
+        row = db.execute(
+            "SELECT item_worktree_id FROM epic_tasks WHERE epic_id='42' AND task_num=1"
+        ).fetchone()
         assert row["item_worktree_id"] is None
 
     def test_title_length_limit(self, db):
         over = "x" * (title_max_length() + 1)
-        with pytest.raises(
-            ValueError, match=f"{title_max_length()} characters"
-        ):
+        with pytest.raises(ValueError, match=f"{title_max_length()} characters"):
             epic.task_upsert(db, "42", 1, over, "", "", "")
 
     def test_empty_title_raises(self, db):
@@ -111,7 +117,9 @@ class TestTaskUpdateStatus:
             db_with_task, "42", 1, "implementing", pipeline=True
         )
         assert "implementing" in result
-        row = db_with_task.execute("SELECT status FROM epic_tasks WHERE epic_id='42' AND task_num=1").fetchone()
+        row = db_with_task.execute(
+            "SELECT status FROM epic_tasks WHERE epic_id='42' AND task_num=1"
+        ).fetchone()
         assert row["status"] == "implementing"
 
     def test_invalid_status_raises(self, db_with_task):
@@ -131,14 +139,18 @@ class TestTaskUpdateStatus:
             epic.task_update_status(db, "42", 99, "implementing")
 
     def test_status_sync_uses_python_owner(self, db_with_task):
-        with patch("yoke_core.domain.epic.epic_task_sync.sync_task_label", return_value=0) as sync:
+        with patch(
+            "yoke_core.domain.epic.epic_task_sync.sync_task_label", return_value=0
+        ) as sync:
             epic.task_update_status(db_with_task, "42", 1, "implementing")
 
         sync.assert_called_once()
         assert sync.call_args.args == ("42", 1, "implementing")
 
     def test_pipeline_status_skips_python_sync(self, db_with_task):
-        with patch("yoke_core.domain.epic.epic_task_sync.sync_task_label", return_value=0) as sync:
+        with patch(
+            "yoke_core.domain.epic.epic_task_sync.sync_task_label", return_value=0
+        ) as sync:
             epic.task_update_status(db_with_task, "42", 1, "implemented", pipeline=True)
 
         sync.assert_not_called()
@@ -163,7 +175,9 @@ class TestTaskBody:
         assert result == ""
 
     def test_update_body_uses_python_sync_owner(self, db_with_task):
-        with patch("yoke_core.domain.epic.epic_task_sync.sync_task_body", return_value=0) as sync:
+        with patch(
+            "yoke_core.domain.epic.epic_task_sync.sync_task_body", return_value=0
+        ) as sync:
             epic.task_update_body(db_with_task, "42", 1, "Hello world")
 
         sync.assert_called_once()
@@ -181,26 +195,9 @@ class TestTaskUpdateField:
             epic.task_update_field(db_with_task, "42", 1, "status", "done")
 
 
-class TestFiles:
-    def test_add_and_list(self, db_with_task):
-        epic.file_add(db_with_task, "42", 1, "src/main.py", "create")
-        epic.file_add(db_with_task, "42", 1, "tests/test.py", "modify")
-        result = epic.file_list(db_with_task, "42", 1)
-        lines = result.strip().split("\n")
-        assert len(lines) == 2
-        assert "src/main.py" in result
-        assert "tests/test.py" in result
-
-    def test_upsert_semantics(self, db_with_task):
-        epic.file_add(db_with_task, "42", 1, "src/main.py", "create")
-        epic.file_add(db_with_task, "42", 1, "src/main.py", "modify")
-        result = epic.file_list(db_with_task, "42", 1)
-        lines = result.strip().split("\n")
-        assert len(lines) == 1
-        assert "modify" in result
-
-
 class TestHistoryInsert:
     def test_basic(self, db_with_task):
-        result = epic.history_insert(db_with_task, "42", 1, "planning", "implementing", "test note")
+        result = epic.history_insert(
+            db_with_task, "42", 1, "planning", "implementing", "test note"
+        )
         assert "planning -> implementing" in result

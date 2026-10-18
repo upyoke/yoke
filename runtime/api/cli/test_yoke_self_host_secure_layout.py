@@ -176,3 +176,26 @@ def test_existing_validation_rechecks_bundle_owner_control(tmp_path, monkeypatch
             public_names=("docker-compose.yml", ".env"),
             secret_names=("db-password", "dsn"),
         )
+
+
+def test_init_creates_owner_controlled_bundle_under_group_writable_umask(
+    tmp_path, capsys
+):
+    target = tmp_path / "bundle"
+    previous = secure_layout.os.umask(0o002)
+    try:
+        assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
+    finally:
+        secure_layout.os.umask(previous)
+    assert target.stat().st_mode & 0o777 == 0o755
+
+
+def test_group_writable_bundle_refusal_names_recovery(tmp_path, capsys):
+    target = tmp_path / "bundle"
+    target.mkdir()
+    target.chmod(0o775)
+
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 1
+    error = capsys.readouterr().err
+    assert "not group/world writable" in error
+    assert f"chmod go-w {target}" in error

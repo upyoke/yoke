@@ -2,6 +2,8 @@
 
 from unittest.mock import patch
 
+import pytest
+
 from yoke_core.domain.deployment_run_list_read import (
     _member_items,
     _stage_rows,
@@ -229,3 +231,26 @@ def test_executing_memberless_run_exposes_current_carried_work_in_both_views():
             assert rows[0]["carried_work"]["items"] == carried["items"]
             assert rows[0]["member_items"] == []
     assert base[0]["carried_work"] is None
+
+
+@pytest.mark.parametrize("relevance", ["all", "overview"])
+def test_run_lists_exclude_driver_receipt_at_query_time(relevance):
+    from yoke_core.domain.deployment_runs_schema import _run_named_columns
+
+    queries = []
+
+    class RecordingRows(_RunRows):
+        def execute(self, sql, params):
+            queries.append(sql)
+            return super().execute(sql, params)
+
+    with patch(
+        "yoke_core.domain.deployment_run_list_read.connect",
+        return_value=RecordingRows(),
+    ):
+        list_deployment_runs(project=None, status=None, limit=20, relevance=relevance)
+    select = next(sql for sql in queries if "FROM deployment_runs dr" in sql)
+    assert "- 'preparation_receipt'" in select
+    # Detail/recovery keeps the full stored binding through the default projection.
+    detail_columns, _ = _run_named_columns()
+    assert "- 'preparation_receipt'" not in detail_columns

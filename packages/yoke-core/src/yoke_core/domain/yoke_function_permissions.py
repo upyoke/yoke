@@ -9,6 +9,7 @@ from yoke_core.domain.actor_state import actor_is_active
 from yoke_core.domain.actor_permissions import (
     PERM_ITEMS_READ,
     PermissionDenied,
+    permission_decision,
     require_org_permission,
     require_permission,
 )
@@ -226,11 +227,25 @@ def check_dispatch_permission(
             permission_key=spec.permission_key,
         )
     except PermissionDenied as exc:
+        readable = permission_decision(
+            conn,
+            actor_id=actor_id,
+            project_id=project_id,
+            permission_key=PERM_ITEMS_READ,
+        ).allowed
+        message = (
+            str(exc)
+            if readable
+            else (
+                "The target project is unavailable or not accessible. "
+                "Recovery: choose a project you may read or ask its administrator for access."
+            )
+        )
         return DispatchPermission(
             spec.permission_key,
             project_id,
             project_slug,
-            error=_error_response(request, entry, "permission_denied", str(exc)),
+            error=_error_response(request, entry, "permission_denied", message),
         )
     return DispatchPermission(spec.permission_key, project_id, project_slug)
 

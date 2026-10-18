@@ -7,6 +7,7 @@ from yoke_contracts.level_proposals import (
     generate_level_changes,
     published_capability_conflicts,
     refuse_capability_conflicts,
+    unplaceable_models,
     unplaced_models,
 )
 from yoke_contracts.levels import default_levels, levels_payload, LevelsError
@@ -111,5 +112,11 @@ def test_unplaced_models_report_unplaced_facts_without_guessing_rows():
     names = {
         record["model_id"] for record in unplaced_models(default_levels(), RECORDS)
     }
-    assert "composer-2.5" in names
+    assert "composer-2.5" not in names
     assert "cursor-grok-4.7" not in names
+
+
+def test_models_publishing_no_efforts_are_listed_as_unplaceable():
+    unplaceable = unplaceable_models(default_levels(), RECORDS)
+    assert {record["model_id"] for record in unplaceable} == {"composer-2.5"}
+    assert {"model_id", "provider", "display_name"} <= set(unplaceable[0])

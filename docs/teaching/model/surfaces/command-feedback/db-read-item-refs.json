@@ -7,6 +7,5 @@
  "topics": ["runtime/storage"],
  "commands": ["yoke db read"],
  "functions": ["db.read.run"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/db_read_column_hints.py", "packages/yoke-core/src/yoke_core/domain/handlers/db_read.py", "packages/yoke-core/src/yoke_core/domain/schema_api_context_render.py", "docs/public/reference/db-reference.md"],
- "plan_refs": ["FIRST-USER.35"]
+ "sources": ["packages/yoke-core/src/yoke_core/domain/db_read_column_hints.py", "packages/yoke-core/src/yoke_core/domain/handlers/db_read.py", "packages/yoke-core/src/yoke_core/domain/schema_api_context_render.py", "docs/public/reference/db-reference.md"]
 }

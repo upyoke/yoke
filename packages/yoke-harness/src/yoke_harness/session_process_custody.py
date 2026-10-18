@@ -63,13 +63,26 @@ def capture_group(pid: int, started: str) -> dict[str, Any]:
     return {"process_group_id": group, "group_members": members}
 
 
-def custody_state(record: Mapping[str, Any]) -> str:
-    """Return live, gone, or unresolved without signalling anything."""
+def custody_state(
+    record: Mapping[str, Any],
+    *,
+    start_time_of: Callable[[int], str | None] | None = None,
+) -> str:
+    """Return live, gone, or unresolved without signalling anything.
+
+    A supplied identity observer is authoritative for ungrouped records:
+    None means the recorded native is gone, including an exited zombie.
+    Grouped records still require a custody observation of every survivor.
+    """
     group = record.get("process_group_id")
     pid = record.get("pid") or record.get("anchor_pid")
     started = record.get("process_start_time") or record.get("anchor_start_time")
     try:
         if not isinstance(group, int):
+            if start_time_of is not None:
+                if not isinstance(pid, int) or pid <= 0 or not started:
+                    return "unresolved"
+                return "live" if start_time_of(pid) == started else "gone"
             if process_start_time(pid) == started:
                 return "live"
             # A reused pid must never be signalled. A missing identity probe

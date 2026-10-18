@@ -162,6 +162,7 @@ def register(registry) -> None:
     )
     registry.register(
         "sessions.begin",
+        # Existing project requests stay served; machine_scope is argument-floored.
         _sb.handle_begin,
         _sb.BeginRequest,
         _sb.BeginResponse,

@@ -40,7 +40,10 @@ from yoke_core.domain.actor_message_recipients import (
     ResolvedActorRecipient,
 )
 from yoke_core.domain.actor_render import render_actor_name
-from yoke_core.domain.session_message_authorization import project_policy
+from yoke_core.domain.session_message_recipient_scope import (
+    recipient_owner,
+    recipient_policy,
+)
 from yoke_core.domain.session_message_starvation import (
     awaiting_injection,
     hook_ran_since_send,
@@ -132,14 +135,16 @@ def _hook_already_attempted(conn: Any, *, envelope_id: str, session_id: str) -> 
     return row is not None
 
 
-def _notice_body(*, session_id: str, surface: str, envelope_id: str) -> str:
+def _notice_body(
+    *, session_id: str, surface: str, envelope_id: str, scope_name: str
+) -> str:
     return (
         f"A message is waiting in your {surface} session {session_id} and "
         "Yoke will not open it for you: resuming a desktop conversation "
         "programmatically forks the transcript you are reading, so the wake "
         "is yours. Open that chat and type anything — the next turn's hook "
         f"delivers the pending message ({envelope_id}). Nothing is lost "
-        "while it waits; it expires on the project's message expiry."
+        f"while it waits; it expires on the {scope_name}'s message expiry."
     )
 
 
@@ -155,9 +160,9 @@ def notify_operator_to_wake(
     Returns the notice's message id when this call created it, and ``None``
     when no notice is owed or one already stands for the same envelope.
     """
-    project_id = int(row["project_id"])
+    project_id, _ = recipient_owner(row)
     if grace_seconds is None:
-        grace_seconds = project_policy(conn, project_id).wake_ack_grace_seconds
+        grace_seconds = recipient_policy(conn, row).wake_ack_grace_seconds
     if not operator_wake_notice_due(row, grace_seconds=grace_seconds, now=now):
         return None
     session_id = str(row["session_id"])
@@ -167,7 +172,7 @@ def notify_operator_to_wake(
     actor_id = _operator_actor_id(conn, session_id)
     if actor_id is None:
         return None
-    policy = project_policy(conn, project_id)
+    policy = recipient_policy(conn, row)
     details, created = insert_message(
         conn,
         sender_actor_id=None,
@@ -177,6 +182,7 @@ def notify_operator_to_wake(
             session_id=session_id,
             surface=str(row.get("executor_surface") or "desktop"),
             envelope_id=envelope_id,
+            scope_name="project" if project_id is not None else "org",
         ),
         selector_snapshot={"actors": [str(actor_id)]},
         idempotency_key=notice_idempotency_key(
@@ -190,11 +196,11 @@ def notify_operator_to_wake(
             ResolvedActorRecipient(
                 actor_id=actor_id,
                 label=render_actor_name(conn, actor_id),
-                shared_org_ids=set(),
+                shared_org_ids={policy.org_id} if project_id is None else set(),
                 resolution=[f"operator-of-session:{session_id}"],
             )
         ],
-        wake_after_by_project={},
+        wake_after_by_owner={},
     )
     return str(details["message_id"]) if created else None
 

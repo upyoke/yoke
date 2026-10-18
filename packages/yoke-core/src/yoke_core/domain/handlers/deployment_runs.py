@@ -1,6 +1,7 @@
 """Deployment run read/update handlers."""
 
 from __future__ import annotations
+from yoke_core.domain.deployment_overview_timing import timed_overview
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -18,64 +19,7 @@ from yoke_core.domain.handlers.deployment_run_creation import (
 )
 
 
-def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
-    resolved_run_id = run_id(request, "deployment_runs.get")
-    if isinstance(resolved_run_id, HandlerOutcome):
-        return resolved_run_id
-    payload = request.payload or {}
-    field = payload.get("field")
-    if field is not None and not isinstance(field, str):
-        return error(
-            "payload_invalid",
-            "field must be a string when present",
-            jsonpath="$.payload.field",
-        )
-
-    from yoke_core.domain.deployment_runs_crud_query import cmd_get, get_run
-    from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
-
-    try:
-        raw = (
-            cmd_get(resolved_run_id, field=field) if field else get_run(resolved_run_id)
-        )
-    except ValueError as exc:
-        return error("invalid_field", str(exc), jsonpath="$.payload.field")
-    if raw is None:
-        return error(
-            "not_found",
-            f"deployment run '{resolved_run_id}' not found",
-            jsonpath="$.target.workflow_run_id",
-        )
-    if field:
-        return HandlerOutcome(
-            result_payload={
-                "run_id": resolved_run_id,
-                "field": field,
-                "value": raw,
-            },
-            primary_success=True,
-        )
-    parsed = raw
-    from yoke_core.domain.deployment_run_carried_work import parse_carried_work
-    from yoke_core.domain.release_delivery_attestation import attestation_warnings
-
-    from yoke_core.domain.deployment_run_completion_preview import (
-        run_completion_diagnostics,
-    )
-
-    parsed["carried_work"] = parse_carried_work(parsed.get("carried_work"))
-    return HandlerOutcome(
-        result_payload={
-            "run_id": resolved_run_id,
-            "fields": list(RUN_FIELDS),
-            "run": parsed,
-            "attestation_warnings": attestation_warnings(parsed.get("carried_work")),
-            "member_closure": run_completion_diagnostics(resolved_run_id),
-        },
-        primary_success=True,
-    )
-
-
+@timed_overview
 def handle_deployment_run_list(request: FunctionCallRequest) -> HandlerOutcome:
     invalid = require_global(request, "deployment_runs.list")
     if invalid is not None:
@@ -340,7 +284,6 @@ def handle_deployment_run_resolve_target(
 __all__ = [
     "handle_deployment_run_approve",
     "handle_deployment_run_create",
-    "handle_deployment_run_get",
     "handle_deployment_run_list",
     "handle_deployment_run_update",
     "handle_deployment_run_resolve_target",

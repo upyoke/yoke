@@ -62,7 +62,10 @@ def scope_repos(tmp_path, monkeypatch):
         project_scope.machine_config,
         "load_config",
         lambda *_args, **_kwargs: {
-            "projects": [{"checkout": str(managed), "project_id": 7}],
+            "active_env": "local",
+            "connection_projects": {
+                "local": [{"checkout": str(managed), "project_id": 7}]
+            },
         },
     )
     return managed, other

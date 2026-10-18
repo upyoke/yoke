@@ -161,7 +161,19 @@ def resolve_run_qa_subject(
         and execution_id
         and member_id in removed_item_ids(conn, run_id)
     )
-    if removed_abort:
+    from yoke_core.domain.agent_mission_cleanup import cleanup_request
+    from yoke_core.domain.qa_plan_execution_abort_reason import member_removed
+
+    removed_cleanup = False
+    if execution_id and cleanup_request(request):
+        from yoke_core.domain.qa_plan_execution_store import select_plan_execution
+
+        removed_cleanup = member_removed(
+            select_plan_execution(conn, execution_id, lock=False)
+        )
+    if removed_cleanup:
+        project_id, slug = _checkin_project(conn, execution_id, member_id)
+    elif removed_abort:
         # The persisted cursor and audited removal retain the subject after
         # membership ends. Claim verification still requires this item's
         # holder, and the handler still checks execution ownership.
@@ -180,10 +192,13 @@ def resolve_run_qa_subject(
         "qa.plan_execution.pause",
         "qa.plan_execution.resume",
     }:
-        if member_id is not None and not conn.execute(
-            "SELECT 1 FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
-            (run_id, member_id),
-        ).fetchone():
+        if (
+            member_id is not None
+            and not conn.execute(
+                "SELECT 1 FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
+                (run_id, member_id),
+            ).fetchone()
+        ):
             raise QaSubjectProjectError(
                 f"{render_item_ref(conn, member_id)} is not an attached member of run {run_id!r}"
             )

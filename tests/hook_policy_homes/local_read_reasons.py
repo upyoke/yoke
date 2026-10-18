@@ -120,7 +120,7 @@ EVALUATING_PROCESS_TELEMETRY = (
     (
         "yoke_contracts.execution_provenance:_collect_execution_provenance",
         "yoke_contracts.execution_provenance:_git_sha",
-        "yoke_contracts.machine_config.checkout:_git_main_checkout",
+        "yoke_contracts.machine_config.checkout:_git_worktrees",
         "yoke_contracts.machine_config.checkout:main_checkout",
         "yoke_contracts.machine_config.schema_projects:_path_key",
         "yoke_contracts.machine_config.schema_projects:checkout_path_candidates",

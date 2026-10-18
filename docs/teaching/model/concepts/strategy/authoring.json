@@ -2,7 +2,6 @@
  "id": "authoring",
  "title": "Strategy authoring",
  "status": "draft-copy",
- "plan_refs": ["JOURNEYS.situation-10"],
  "commands": ["yoke strategy doc archive", "yoke strategy doc create", "yoke strategy doc get", "yoke strategy doc list", "yoke strategy doc replace", "yoke strategy doc section-replace", "yoke strategy doc unarchive", "yoke strategy ingest", "yoke strategy render", "yoke strategy revision diff", "yoke strategy revision restore"],
  "functions": ["strategy.doc.archive", "strategy.doc.create", "strategy.doc.get", "strategy.doc.list", "strategy.doc.replace", "strategy.doc.section_replace", "strategy.doc.unarchive", "strategy.ingest.run", "strategy.render.run", "strategy.revision.diff", "strategy.revision.restore"],
  "page": "strategy",

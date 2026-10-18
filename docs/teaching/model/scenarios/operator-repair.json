@@ -5,6 +5,5 @@
  "situations": ["A supported domain command cannot repair a bounded malformed record.", "A human administrator receives a repair proposal with a simulation to review."],
  "coverage": "catalogued",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
  "questions": ["Guide was read; command availability and serving authority were not executed or proven.", "Keep repair separate from schema migration, raw SQL write recipes, backups and ordinary setup."]
 }

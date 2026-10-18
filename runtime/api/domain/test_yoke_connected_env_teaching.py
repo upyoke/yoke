@@ -45,7 +45,9 @@ def _https_active_binding(tmp_path: Path, *, with_local_env: bool = True) -> Pat
                 "schema_version": 1,
                 "active_env": "prod",
                 "connections": connections,
-                "projects": [{"checkout": str(tmp_path.resolve()), "project_id": 1}],
+                "connection_projects": {
+                    "prod": [{"checkout": str(tmp_path.resolve()), "project_id": 1}]
+                },
             }
         ),
         encoding="utf-8",

@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from yoke_cli.config import onboard_apply_progress
+from yoke_contracts.machine_authorization import retired_identity_notice
 from yoke_cli.config.machine_registration import (
     REGISTER_RECOVERY_COMMAND,
     register_this_machine,
@@ -52,9 +53,12 @@ def apply(
 
 
 def summary_lines(fragment: Any) -> tuple[str, ...]:
-    """The Apply-summary lines a refusal owes the operator; empty when registered."""
-    if not isinstance(fragment, Mapping) or fragment.get("registered"):
+    """The Apply-summary lines a refusal or identity swap owes the operator."""
+    if not isinstance(fragment, Mapping):
         return ()
+    if fragment.get("registered"):
+        retired = fragment.get("retired_machine_id")
+        return (retired_identity_notice(str(retired)),) if retired else ()
     reason = str(fragment.get("reason") or "the registry refused this machine")
     return (
         f"This machine is not in the machine registry: {reason}",

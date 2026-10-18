@@ -5,6 +5,5 @@
  "form": "State",
  "verification": "Expanded installer mission requires this observation; template and configuration do not establish live proof.",
  "topics": ["installation/readiness", "agents/harnesses", "context/hooks"],
- "plan_refs": ["FIRST-USER.A", "FIRST-USER.C", "FIRST-USER.24", "FIRST-USER.26", "FIRST-USER.42"],
  "position": 4
 }

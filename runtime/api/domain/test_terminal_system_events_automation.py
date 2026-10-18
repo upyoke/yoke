@@ -17,8 +17,8 @@ from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_WINDOW_ACCUMULATION_ERROR_CODE as ACCUMULATION,
 )
 from yoke_core.domain.ssh_mac_terminal_recipe import execute_terminal_recipe
-from yoke_harness import ssh_mac_gui_session
-from yoke_harness.ssh_mac_gui_session import TerminalAutomationProbe
+from yoke_harness import ssh_mac_terminal_automation_probe as automation_probe
+from yoke_harness.ssh_mac_terminal_automation_probe import TerminalAutomationProbe
 from yoke_harness.ssh_mac_terminal_window_close import close_terminal_app_window
 
 
@@ -35,15 +35,15 @@ def test_probe_runs_inside_terminal_with_a_short_timeout(
         calls.append(kwargs)
         return _completed(1, "execution error: Not authorised (-1743)")
 
-    monkeypatch.setattr(ssh_mac_gui_session, "run_terminal_app_command", fake_command)
+    monkeypatch.setattr(automation_probe, "run_terminal_app_command", fake_command)
 
-    probe = ssh_mac_gui_session.terminal_system_events_automation(object())
+    probe = automation_probe.terminal_system_events_automation(object())
 
     assert not probe.ok
     assert probe.error_code == MISSING
     assert probe.detail.startswith("automation_missing:Terminal->System Events: ")
     assert "-1743" in probe.detail
-    assert calls[0]["timeout"] == ssh_mac_gui_session.AUTOMATION_PROBE_TIMEOUT_SECONDS
+    assert calls[0]["timeout"] == automation_probe.AUTOMATION_PROBE_TIMEOUT_SECONDS
     assert calls[0]["argv"][-1] == (
         'tell application "System Events" to count processes'
     )
@@ -115,12 +115,12 @@ def _probe(
     windows: int | None,
 ) -> TerminalAutomationProbe:
     monkeypatch.setattr(
-        ssh_mac_gui_session, "run_terminal_app_command", lambda _run, **_kw: result
+        automation_probe, "run_terminal_app_command", lambda _run, **_kw: result
     )
     monkeypatch.setattr(
-        ssh_mac_gui_session, "read_terminal_window_count", lambda _run: windows
+        automation_probe, "read_terminal_window_count", lambda _run: windows
     )
-    return ssh_mac_gui_session.terminal_system_events_automation(object())
+    return automation_probe.terminal_system_events_automation(object())
 
 
 def test_a_timeout_among_accumulated_windows_is_named_as_accumulation(

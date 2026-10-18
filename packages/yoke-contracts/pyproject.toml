@@ -50,4 +50,6 @@ where = ["src"]
     # Exact compiled UI contract bytes, importable by standalone Node consumers.
     "timestamps.mjs",
     "time_sql.mjs",
+    # The user-level yoke-global skill body, installed by global_skill_install.
+    "global_skill/SKILL.md",
 ]

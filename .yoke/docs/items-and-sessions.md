@@ -103,8 +103,8 @@ that exact process and retires Fleet's old `native_turn_running` label.
 Sessions own work claims. Implementation lanes require an active claim and a
 registered worktree. A persisted active work claim keeps its session live
 through stale, idle, parked, process-gone, and startup sweeps. This includes
-release waits; parking records the delivery wait for wake routing and does
-not determine retention. Claim release, completion, cancellation, and
+release waits. Parking records delivery wake routing; claims own retention.
+Before parking on another item, [record its dependency](reference/agent-rules/delivery.md#wait-on-another-items-merge-or-delivery). Claim release, completion, cancellation, and
 authorized operator termination free ownership. Any session holding a live
 steering seat on any project may terminate a session on any project, and
 termination releases every claim the target holds, steering seats and their
@@ -154,8 +154,10 @@ another project owns the item. These views derive from existing
 claims, document locks, launch provenance, and message-recipient receipts;
 they do not create separate state.
 
-Ambient session identity comes from the harness (env / process anchor /
-conversation mapping) — operators should not invent session IDs.
+A session belongs to the project whose registered folder it started in, else to
+its organization (shown as **Outside any project**), and keeps that scope. Its ID
+comes from the harness; never invent one. Item work needs a session started in
+the item's project folder ([refusals](reference/agent-rules/lanes-and-claims.md#session-scope-and-folder-admission)).
 
 `yoke sessions hook-overhead [--hours N]` summarizes hourly PreToolUse and
 PostToolUse client wall time, evaluator time, and their remainder, then shows

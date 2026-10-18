@@ -65,7 +65,6 @@ def _parent():
 
 def run(args: MergeArgs) -> int:
     """Execute the full merge workflow. Returns exit code."""
-    # Import here to avoid circular imports at module level
     from yoke_core.domain import merge_lock
 
     mw = _parent()
@@ -93,14 +92,12 @@ def run(args: MergeArgs) -> int:
         _print(err, err=True)
         return 1
 
-    # Resolve context first so the GitHub auth precondition has the project on hand.
     try:
         ctx = resolve_context(args)
     except RuntimeError as e:
         _print(str(e), err=True)
         return 1
 
-    # Admit the route before any landing work.
     authority = classify_merge_authority(local_merge=args.local_merge)
     try:
         reaches_github = merge_reaches_github(
@@ -134,6 +131,8 @@ def run(args: MergeArgs) -> int:
 
     source_ref = args.source_sha or args.branch
 
+    from yoke_core.engines.merge_worktree_landing import record_existing_landing
+
     # Already-merged guard
     already = _run_git(
         ["merge-base", "--is-ancestor", source_ref, args.target],
@@ -143,7 +142,7 @@ def run(args: MergeArgs) -> int:
     if already.returncode == 0:
         _print(_already_merged_message(args.branch, args.target, ctx.repo_root))
         _print(f"YOKE_REPO_ROOT={ctx.yoke_repo_root}")
-        return 0
+        return record_existing_landing(ctx, verify.stdout.strip(), args.target)
 
     # A local-only checkout has nothing to fetch.
     if has_remote(ctx.repo_root):
@@ -156,7 +155,9 @@ def run(args: MergeArgs) -> int:
     if already_origin.returncode == 0:
         _print(_already_merged_message(args.branch, args.target, ctx.repo_root))
         _print(f"YOKE_REPO_ROOT={ctx.yoke_repo_root}")
-        return 0
+        return record_existing_landing(
+            ctx, verify.stdout.strip(), f"origin/{args.target}"
+        )
 
     from yoke_core.engines.merge_worktree_recorded_source import (
         bind_recorded_source,
@@ -166,7 +167,6 @@ def run(args: MergeArgs) -> int:
         _print(f"Error: {source_error}.", err=True)
         return 1
 
-    # Branch mismatch correction
     if ctx.worktree_path != ctx.repo_root:
         actual = _run_git(
             ["branch", "--show-current"], cwd=ctx.worktree_path, capture=True
@@ -185,9 +185,6 @@ def run(args: MergeArgs) -> int:
     try:
         if args.force_lock:
             merge_lock.force_clear()
-        # A merge contends only with merges landing on the same branch of the
-        # same project. ctx.project is None for the Yoke control repo itself,
-        # which is that project's own slug.
         scope = merge_lock.LockScope(
             project_slug=ctx.project or "",
             target_branch=args.target,
@@ -245,9 +242,11 @@ def run(args: MergeArgs) -> int:
             )
 
         # Pre-merge main integration
-        _pre_merge_integration(ctx)
+        integration_result = _pre_merge_integration(ctx)
+        if integration_result:
+            exit_code = integration_result[0]
+            return exit_code
 
-        # PR validation and landing must agree on the pushed target.
         if not args.local_merge:
             push_target_exit = _ensure_target_pushed(ctx)
             if push_target_exit is not None:
@@ -260,7 +259,6 @@ def run(args: MergeArgs) -> int:
             exit_code = stash_result[0]
             return exit_code
 
-        # Compute branch-changed files (for doc conflict resolution)
         mb = _run_git(
             ["merge-base", "HEAD", target_ref(ctx)],
             cwd=ctx.worktree_path,
@@ -291,7 +289,6 @@ def run(args: MergeArgs) -> int:
             exit_code = merge_result[0]
             return exit_code
 
-        # Persist the advanced HEAD before push/CI can be interrupted.
         from yoke_core.engines.merge_worktree_recorded_source import (
             record_lane_head_after_merge,
         )
@@ -319,7 +316,6 @@ def run(args: MergeArgs) -> int:
             except Exception:
                 pass
 
-        # Final engine-level telemetry -- success or failure.
         if exit_code == 0:
             _emit_merge_event(
                 "MergeEngineSucceeded",

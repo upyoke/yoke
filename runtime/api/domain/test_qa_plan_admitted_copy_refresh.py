@@ -292,3 +292,19 @@ def test_snapshot_correction_refusal_and_failure_roll_back_all_rows(
         _snapshots(test_db),
         [_definition(test_db, row) for row in (source, copy)],
     ) == before
+
+
+def test_newly_created_item_row_corrects_the_copy_already_admitted(test_db):
+    plan, source, copy = _seed(test_db)
+    # The run admitted this plan case from another transition's row, so this
+    # transition's refresh creates its row instead of updating one.
+    test_db.execute(
+        "UPDATE qa_requirements SET workflow_transition_id='implementing' WHERE id=%s",
+        (source,),
+    )
+    _edit(test_db, plan)
+    result = rematerialize_for_item(test_db, item_id=MEMBER, transition_id="release")
+    (created,) = result["created_requirement_ids"]
+    assert result["corrected_admitted_copy_ids"] == [copy]
+    assert _definition(test_db, created)[0] == "Run the corrected command."
+    assert _definition(test_db, copy)[0] == "Run the corrected command."

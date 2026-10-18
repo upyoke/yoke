@@ -2,7 +2,6 @@
  "id": "hooks",
  "title": "Hooks",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.23", "FIRST-USER.29", "FIRST-USER.34", "FIRST-USER.6", "FIRST-USER.P2", "FIRST-USER.P3"],
  "surface_refs": ["global-hooks", "project-hooks"],
  "commands": ["yoke hook evaluate", "yoke hook status-line"],
  "functions": ["hook.evaluate.run"],

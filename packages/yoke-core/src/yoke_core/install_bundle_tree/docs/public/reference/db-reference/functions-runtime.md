@@ -60,6 +60,8 @@ Read [envelope and authority](functions.md) first. `none` means no dispatcher wo
 | `deployment_runs.stages` | `none` |
 | `deployment_runs.start_for_item` | `item` |
 | `deployment_runs.terminalize` | `none` |
+| `deployment_runs.timings` | `none` |
+| `deployment_runs.timings.record` | `none` |
 | `deployment_runs.update` | `none` |
 | `deployment_runs.validate_composition` | `none` |
 | `doctor.last_run.get` | `none` |
@@ -110,8 +112,8 @@ Read [envelope and authority](functions.md) first. `none` means no dispatcher wo
 | `machine.list` | `none` |
 | `machine.register` | `none` |
 | `machine.retire` | `none` |
-| `machine.settings.get` | `none` |
-| `machine.settings.set` | `none` |
+| `machine.access.get` | `none` |
+| `machine.access.set` | `none` |
 | `machine.show` | `none` |
 | `machine_approval.lifecycle.apply` | `none` |
 | `machine_authorization.get` | `none` |
@@ -200,6 +202,10 @@ Read [envelope and authority](functions.md) first. `none` means no dispatcher wo
 | `sessions.steering_groups.list` | `none` |
 | `sessions.touch` | `none` |
 | `steering.report.get` | `none` |
+| `teammate_invites.create` | `none` |
+| `teammate_invites.list` | `none` |
+| `teammate_invites.reissue` | `none` |
+| `teammate_invites.revoke` | `none` |
 | `universe.retention.get` | `none` |
 | `universe.prune.run` | `none` |
 | `ui_preferences.nav_group.list` | `none` |

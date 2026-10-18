@@ -45,6 +45,8 @@ def test_terminal_app_command_returns_output_and_exit_code(
             return _completed(command, stdout="445")
         if command.startswith("if /bin/test -f "):
             return _completed(command, stdout="7\n")
+        if "set ttyPaths to tty of every tab" in command:
+            return _completed(command, stdout="closed\n")
         if command.startswith("/usr/bin/base64 < "):
             value = "visible output\n" if command.endswith(".stdout") else "warning\n"
             return _completed(

@@ -2,7 +2,6 @@
  "id": "updates",
  "title": "Updating Yoke",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.15", "FIRST-USER.6"],
  "commands": ["yoke core upgrade", "yoke self-host upgrade", "yoke update"],
  "page": "maintenance",
  "position": 0

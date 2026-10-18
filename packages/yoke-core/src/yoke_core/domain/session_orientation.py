@@ -203,9 +203,10 @@ def orientation_for_hook(
 
     The single entry point the hook adapter calls. Returns ``None`` — never
     raises — for every case that is not a startup event worth orienting:
-    the wrong event, an unparseable payload, a non-project cwd, a session
-    already oriented, or any unexpected failure. Hook delivery must not
-    break the calling agent, so orientation degrades to silence.
+    the wrong event, an unparseable payload, a session already oriented, or
+    any unexpected failure. Hook delivery must not break the calling agent,
+    so orientation degrades to silence. A cwd outside every project gets
+    :mod:`yoke_core.domain.global_orientation` instead of the project block.
     """
     try:
         return _orientation_for_hook(
@@ -261,12 +262,15 @@ def _orientation_for_hook(
     if not cwd:
         return None
     root = _project_root(Path(cwd))
-    if root is None:
-        return None
     if orientation_delivered(session_id):
         return None
     lost_earlier = record_orientation_attempt(session_id)
-    block = render_orientation(payload, root)
+    if root is None:
+        from yoke_core.domain.global_orientation import render_global_orientation
+
+        block = render_global_orientation(session_id, Path(cwd))
+    else:
+        block = render_orientation(payload, root)
     if not block:
         return None
     if event_name == startup_event and not lost_earlier:

@@ -45,7 +45,7 @@ def steps(monkeypatch: pytest.MonkeyPatch) -> list[str]:
         provisioning, "provision_worktree_harness_enablement", _step("harness")
     )
     monkeypatch.setattr(
-        provisioning, "provision_worktree_folder_trust", _step("trust")
+        provisioning, "provision_worktree_harness_setup", _step("trust")
     )
     monkeypatch.setattr(
         provisioning,
@@ -89,9 +89,7 @@ def test_the_recorded_row_carries_the_lane_path(
 
     _provision(plan, tmp_path)
 
-    assert recorded == [
-        (11, [(3, "YOK-1", str(tmp_path / "lane"), "implementation")])
-    ]
+    assert recorded == [(11, [(3, "YOK-1", str(tmp_path / "lane"), "implementation")])]
 
 
 def test_a_failing_dependency_install_still_leaves_a_recorded_lane(

@@ -6,7 +6,7 @@ from yoke_contracts.machine_config import schema as contract
 
 
 @pytest.mark.parametrize("retired_field", ["scopes", "permissions"])
-def test_authorization_rejects_retired_token_permission_fields(
+def test_authorization_warns_for_ignored_token_permission_fields(
     retired_field: str,
 ) -> None:
     payload = {
@@ -25,10 +25,11 @@ def test_authorization_rejects_retired_token_permission_fields(
         },
     }
 
-    issues = contract.validate_github_config(payload)
+    issues = contract.validate_payload(payload)
 
     assert any(
-        item.code == "github_authorization_key_invalid"
+        item.code == "machine_config_key_unknown"
+        and item.severity == "warning"
         and item.path == f"github.authorization.{retired_field}"
         for item in issues
     )

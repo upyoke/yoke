@@ -17,9 +17,6 @@ class Cleanup:
     # nearly clean table never walks its whole heap to find the last rows.
     branches: tuple[tuple[str, tuple], ...] = ()
     branch_order: str = ""
-    # The predicate the DELETE rechecks; defaults to ``where``. A rule may
-    # narrow it to the parts concurrent writers can change under its locks.
-    recheck: str = ""
 
 
 def policies(policy, cutoff):

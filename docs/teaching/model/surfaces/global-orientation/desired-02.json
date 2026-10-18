@@ -3,8 +3,7 @@
  "title": "Use yoke-global to choose or add a project; open a session in its actual folder for item work.",
  "status": "candidate",
  "form": "Do",
- "verification": "Desired outline; exact recipe and live delivery still need proof.",
+ "verification": "Recipe shipped in the yoke-global skill and named by global orientation; live delivery outside a project still needs released receiving proof.",
  "topics": ["projects/adoption", "agents/skills"],
- "plan_refs": ["FIRST-USER.P1", "FIRST-USER.P2", "FIRST-USER.P4", "FIRST-USER.43"],
  "position": 7
 }

@@ -22,7 +22,7 @@ def local_universe_summary_lines(state: dict[str, Any]) -> list[str]:
         reason = str(state.get("reason") or "the saved local connection is incomplete")
         lines = [
             f"Yoke found a local connection record, but it is not usable: {reason}.",
-            "Apply will not replace that record without an explicit force repair.",
+            "Apply cannot use that record; inspect the named connection first.",
             "Back up first, then run `yoke init --local --force` if this machine "
             "should point at a different local universe.",
         ]

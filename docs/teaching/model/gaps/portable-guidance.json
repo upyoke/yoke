@@ -3,6 +3,5 @@
  "title": "Extract portable private procedures",
  "status": "observed",
  "text": "Compare execution instructions and CURRENT-PLAN rules with public homes; keep private topology and operator state private.",
- "plan_refs": ["FIRST-USER.40"],
  "position": 6
 }

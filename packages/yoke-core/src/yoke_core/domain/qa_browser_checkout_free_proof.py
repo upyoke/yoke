@@ -167,6 +167,7 @@ def checkout_bound_proof_findings(
     where: str,
     params: tuple,
     qa_phase: Optional[str],
+    for_completion: bool = False,
 ) -> list[tuple[int, str, str]]:
     """Blocking Browser requirements whose proof needs a project checkout.
 
@@ -177,9 +178,16 @@ def checkout_bound_proof_findings(
     """
     findings: list[tuple[int, str, str]] = []
     revisions = recorded_item_revisions(conn, item_id)
-    for row in _latest_qualifying_captures(
+    captures = _latest_qualifying_captures(
         conn, where=where, params=params, qa_phase=qa_phase
-    ):
+    )
+    if captures and for_completion and item_id is not None:
+        from yoke_core.domain.qa_gate_helpers import _completion_code_ref
+
+        delivered = _completion_code_ref(conn, item_id)
+        if delivered.sha:
+            revisions = (delivered.sha,)
+    for row in captures:
         reason = _checkout_bound_reason(conn, row, revisions)
         if reason:
             findings.append(

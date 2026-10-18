@@ -14,6 +14,7 @@ from yoke_contracts.self_host_bootstrap_output import (
     TOKEN_PREFIX,
 )
 
+from yoke_contracts.machine_authorization import RETIRED_MACHINE_RECOVERY
 from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain import db_backend
 from yoke_core.domain.api_token_audit import _metadata_json
@@ -37,6 +38,10 @@ _TOKEN_BODY_ALPHABET = string.ascii_letters + string.digits
 
 class TokenError(Exception):
     """Base class for token verification failures."""
+
+
+class TokenCreationReplayed(TokenError):
+    """This creation request already issued its one-time token."""
 
 
 class TokenNotFound(TokenError):
@@ -105,6 +110,7 @@ def mint_token(
     raw_token: str | None = None,
     expires_at: datetime | str | None = None,
     diagnostic_metadata: dict[str, Any] | None = None,
+    creation_request_id: str | None = None,
 ) -> CreatedToken:
     """Create an active actor-bound token and return its raw value once."""
     raw = raw_token or generate_token()
@@ -112,20 +118,26 @@ def mint_token(
     expiry = parse_instant(expires_at) if expires_at is not None else None
     p = _p(conn)
     require_actor_active(conn, actor_id, lock=True)
-    row = conn.execute(
-        "INSERT INTO api_tokens "
-        "(token_hash, actor_id, name, status, created_at, expires_at, diagnostic_metadata) "
-        f"VALUES ({p}, {p}, {p}, 'active', {p}, {p}, {p}) "
-        "RETURNING id",
-        (
-            token_hash,
-            actor_id,
-            name,
-            instant_parameter(conn, _now()),
-            instant_parameter(conn, expiry),
-            _metadata_json(diagnostic_metadata),
-        ),
-    ).fetchone()
+    replay_sql = f"SELECT 1 FROM api_tokens WHERE creation_request_id = {p}"
+    if creation_request_id is not None and conn.execute(
+        replay_sql, (creation_request_id,),
+    ).fetchone():
+        raise TokenCreationReplayed("Token creation result is no longer available")
+    columns = "token_hash, actor_id, name, status, created_at, expires_at, diagnostic_metadata"
+    params = (token_hash, actor_id, name, TOKEN_STATUS_ACTIVE, instant_parameter(conn, _now()),
+              instant_parameter(conn, expiry), _metadata_json(diagnostic_metadata))
+    if creation_request_id is not None:  # only request-bound creation stores a replay key
+        columns, params = f"{columns}, creation_request_id", (*params, creation_request_id)
+    insert_sql = f"INSERT INTO api_tokens ({columns}) VALUES ({', '.join([p] * len(params))})"
+    try:
+        row = conn.execute(f"{insert_sql} RETURNING id", params).fetchone()
+    except db_backend.integrity_error_types(conn):
+        if creation_request_id is None:
+            raise
+        conn.rollback()
+        if conn.execute(replay_sql, (creation_request_id,)).fetchone():
+            raise TokenCreationReplayed("Token creation result is no longer available") from None
+        raise
     conn.commit()
     token_id = int(row[0])
     record_token_audit(
@@ -198,7 +210,7 @@ def verify_token(
             )
             raise TokenMachineRetired(
                 "Machine credential belongs to a retired machine. Recovery: "
-                "run the installer again to reconnect with a new machine identity."
+                f"{RETIRED_MACHINE_RECOVERY}"
             )
     if status != TOKEN_STATUS_ACTIVE:
         record_token_audit(

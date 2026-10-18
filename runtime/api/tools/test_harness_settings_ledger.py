@@ -16,11 +16,7 @@ from yoke_contracts.claude_posture_install import configure_claude_cli_permissio
 from yoke_contracts.codex_posture_install import configure_codex_unattended_posture
 from yoke_contracts.cursor_posture_install import configure_cursor_unattended_posture
 from yoke_contracts.harness_folder_trust_grant import grant_folder_trust
-from yoke_contracts.harness_settings_revert import (
-    remove_cursor_user_hooks,
-    revert_recorded,
-)
-from yoke_harness.hooks.cursor_lifecycle_hooks import ensure_user_lifecycle_hooks
+from yoke_contracts.harness_settings_revert import revert_recorded
 
 OPERATOR_CODEX = '# mine\nmodel = "o5"\n\n[profiles.fast]\nmodel = "o5-mini"\n'
 
@@ -102,24 +98,3 @@ def test_record_is_deduplicated_and_reports_an_unwritable_home(tmp_path, monkeyp
     monkeypatch.setattr(ledger, "ledger_path", lambda: blocked / "ledger.json")
     report = ledger.record(entry)
     assert report and "yoke uninstall will not revert" in report
-
-
-def test_cursor_user_hook_removal_keeps_operator_hooks(tmp_path: Path) -> None:
-    path = tmp_path / ".cursor" / "hooks.json"
-    path.parent.mkdir(parents=True)
-    operator = {"command": "echo mine"}
-    path.write_text(json.dumps({"version": 1, "hooks": {"stop": [operator]}}))
-    ensure_user_lifecycle_hooks(hooks_path=path)
-
-    assert remove_cursor_user_hooks(hooks_path=path).startswith("removed 2")
-    assert json.loads(path.read_text()) == {"version": 1, "hooks": {"stop": [operator]}}
-    assert remove_cursor_user_hooks(hooks_path=path) == f"no Yoke hooks in {path}"
-
-
-def test_cursor_user_hook_removal_deletes_the_file_yoke_created(tmp_path: Path) -> None:
-    path = tmp_path / ".cursor" / "hooks.json"
-    ensure_user_lifecycle_hooks(hooks_path=path)
-
-    assert remove_cursor_user_hooks(hooks_path=path) == f"deleted {path}"
-    assert not path.exists()
-    assert remove_cursor_user_hooks(hooks_path=path) == f"no {path}"

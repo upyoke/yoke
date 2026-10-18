@@ -32,6 +32,7 @@ from typing import List, Optional
 
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.yok_n_parser import parse_item_argument
+from yoke_core.domain.sessions_analytics import SessionError
 
 # Re-export public command surface — direct from the canonical owner of
 # each name (no two-hop indirection sim-gap rule).
@@ -58,7 +59,7 @@ _USAGE = """\
 Usage: harness-sessions <subcmd> [args...]
 
 Subcommands:
-  begin <session-id> <executor> <provider> <model> <workspace> [level] [mode]
+  begin <session-id> <executor> <provider> <model> <workspace> [level] [mode] [--reasoning-effort E]
   touch <session-id> [--mode M]
   end <session-id> [--force]
   claim <session-id> --target-kind {item|epic_task|process}
@@ -141,6 +142,15 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     try:
         if subcmd == "begin":
+            effort = None
+            if "--reasoning-effort" in rest:
+                index = rest.index("--reasoning-effort")
+                if index + 1 >= len(rest):
+                    _cli_usage_error(
+                        "--reasoning-effort requires a supported harness effort"
+                    )
+                effort = rest[index + 1]
+                rest = rest[:index] + rest[index + 2 :]
             if len(rest) < 5:
                 _cli_usage_error(
                     "Usage: harness-sessions begin <sid> <executor> <provider> "
@@ -152,10 +162,6 @@ def main(argv: Optional[List[str]] = None) -> None:
             from yoke_core.domain.project_identity import resolve_project_id
 
             project = default_project_for_directory(rest[4])
-            if project is None:
-                _cli_usage_error(
-                    "project_required: map the workspace checkout to a project first"
-                )
             print(
                 cmd_begin(
                     conn,
@@ -166,7 +172,8 @@ def main(argv: Optional[List[str]] = None) -> None:
                     rest[4],
                     level,
                     mode,
-                    project_id=resolve_project_id(conn, project),
+                    project_id=(resolve_project_id(conn, project) if project else None),
+                    reasoning_effort=effort,
                 )
             )
 
@@ -308,6 +315,8 @@ def main(argv: Optional[List[str]] = None) -> None:
         else:
             _cli_usage_error(_USAGE)
 
+    except SessionError as e:
+        _cli_error(f"{e.code}: {e.message}", 1)
     except LookupError as e:
         _cli_error(f"Error: {e}", 1)
     except PermissionError as e:

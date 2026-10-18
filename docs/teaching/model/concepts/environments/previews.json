@@ -2,7 +2,6 @@
  "id": "previews",
  "title": "Preview environments",
  "status": "draft-copy",
- "plan_refs": ["JOURNEYS.also-owned-here", "JOURNEYS.situation-16"],
  "commands": ["yoke ephemeral-env create", "yoke ephemeral-env get", "yoke ephemeral-env update"],
  "functions": ["ephemeral_env.create", "ephemeral_env.get", "ephemeral_env.update"],
  "page": "environments",

@@ -40,13 +40,14 @@ def project_id_for_root(root: str | Path) -> int | None:
     primary = main_checkout(path)
     if any((parent / ".git").exists() for parent in (path, *path.parents)):
         # A nested independent repository must not inherit the outer mapping.
-        config = {
-            "projects": [
-                {"checkout": checkout, "project_id": project_id}
+        return next(
+            (
+                project_id
                 for checkout, project_id in mapped_checkouts(config)
                 if Path(checkout).expanduser().resolve() == primary
-            ]
-        }
+            ),
+            None,
+        )
     return project_entry_for_checkout(config, primary).get("project_id")
 
 

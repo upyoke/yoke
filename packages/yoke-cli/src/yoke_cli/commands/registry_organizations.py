@@ -18,14 +18,6 @@ ORGANIZATION_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] =
         "organizations.get",
         _adapters.organizations_get,
     ),
-    ("organizations", "settings", "get"): (
-        "organizations.settings.get",
-        _adapters.organizations_settings_get,
-    ),
-    ("organizations", "settings", "merge"): (
-        "organizations.settings.merge",
-        _adapters.organizations_settings_merge,
-    ),
     ("organizations", "domain", "set"): (
         "organizations.domain.set",
         _adapters.organizations_domain_set,

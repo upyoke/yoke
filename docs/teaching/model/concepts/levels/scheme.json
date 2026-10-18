@@ -1,8 +1,8 @@
 {
  "id": "scheme",
  "title": "Execution levels",
- "status": "verified-live",
- "commands": ["yoke models level-proposal", "yoke projects level-summary get", "yoke universe levels get", "yoke universe levels set"],
+ "status": "observed",
+ "commands": ["yoke models level-proposal", "yoke projects level-summary get", "yoke settings get", "yoke settings set"],
  "functions": ["models.level_proposal.run", "projects.level_summary.get", "universe.levels.get", "universe.levels.set"],
  "text": "Ordered base-model/min_effort thresholds determine the highest matching session level. Production has 18 approved rows across INTERN, JUNIOR, SENIOR and PRINCIPAL; no model rank table participates.",
  "evidence": "Production launch.622: QA run 45473 / artifact 32323; universe.levels.get reread 2026-10-13. Session resolution mechanics checked in the routing guide.",

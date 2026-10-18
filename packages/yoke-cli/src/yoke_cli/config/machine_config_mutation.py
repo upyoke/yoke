@@ -81,6 +81,21 @@ def ensure_local_machine_identity(*, path: str | Path | None = None) -> str:
         raise MachineConfigWriteError(str(exc)) from exc
 
 
+def replace_retired_machine_identity(
+    retired_machine_id: str, *, path: str | Path | None = None
+) -> str:
+    """Give this computer a new machine UUID after its old one was retired.
+
+    Only the retired id is swapped, under the identity owner's lock, so a
+    concurrent connect that already replaced it keeps that replacement. The
+    retired row and its history stay in the registry untouched.
+    """
+    try:
+        return machine_runtime.replace_retired_machine_id(retired_machine_id, path)
+    except machine_runtime.MachineConfigError as exc:
+        raise MachineConfigWriteError(str(exc)) from exc
+
+
 def write_payload(
     payload: dict[str, Any],
     cfg_path: Path,
@@ -131,6 +146,7 @@ __all__ = [
     "MachineConfigWriteError",
     "ensure_local_machine_identity",
     "load_payload",
+    "replace_retired_machine_identity",
     "serialized_mutation",
     "write_payload",
 ]

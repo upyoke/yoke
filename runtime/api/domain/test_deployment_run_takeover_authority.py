@@ -10,6 +10,7 @@ from runtime.api.domain.test_deployment_run_target_takeover import (
     OLD,
     PASSED,
     WAITING,
+    _close_passed,
     _contains,
     _members,
     _seed_new,
@@ -35,6 +36,7 @@ WORKER = "unmandated-worker"
 
 def _driverless_older_run(conn, monkeypatch, *, seat: bool) -> None:
     _seed_old(conn, run_qa=False)
+    _close_passed(conn)
     release_seeded_driver(conn, OLD)
     row = conn.execute(
         "UPDATE deployment_runs SET created_by_session_id=%s WHERE id=%s "

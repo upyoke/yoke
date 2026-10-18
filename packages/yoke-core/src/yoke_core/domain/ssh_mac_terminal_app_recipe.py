@@ -20,7 +20,9 @@ from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_BRIDGE_RECOVERY,
     TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE,
 )
-from yoke_harness.ssh_mac_gui_session import terminal_system_events_automation
+from yoke_harness.ssh_mac_terminal_automation_probe import (
+    terminal_system_events_automation,
+)
 from yoke_harness.ssh_mac_host_session_state import read_load_average
 from yoke_core.domain.ssh_mac_terminal_app import (
     DisplayFrameUnavailable,

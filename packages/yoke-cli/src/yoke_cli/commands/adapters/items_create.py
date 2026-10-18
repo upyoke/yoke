@@ -46,8 +46,9 @@ def items_create(args: list[str], *, shortcut: str | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog=command,
         description=usage + "\n\n"
-        "task  Laneless, merge-free work.\n"
-        "dash  Focused repository work with a lane or selected gates.\n"
+        "task  Laneless, merge-free work in projects without a code repository.\n"
+        "dash  Focused repository work with a lane or selected gates;\n"
+        "      code project work -> yoke dash (Task refuses there).\n"
         "idea  Use /yoke idea for planned intake and scaffolding.\n"
         "Every item is created with its spec: the agreed outcome.\n"
         "First: yoke workflow execution-instruction resolve --workflow W --project P --full\n"

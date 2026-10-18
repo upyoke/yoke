@@ -1,4 +1,4 @@
-"""Shared install selection and final agent setup readiness report."""
+"""Shared install and session selection and final agent setup readiness report."""
 
 from __future__ import annotations
 
@@ -8,8 +8,19 @@ import io
 import json
 
 
+def connection_failure():
+    """Read machine-local preflight through Doctor's classified engine seam."""
+    return importlib.import_module(
+        "yoke_core.engines.doctor_install"
+    ).active_connection_failure()
+
+
 def install_slugs() -> tuple[str, ...]:
     return importlib.import_module("yoke_core.engines.doctor_install").INSTALL_SLUGS
+
+
+def session_slugs() -> tuple[str, ...]:
+    return importlib.import_module("yoke_core.engines.doctor_session").SESSION_SLUGS
 
 
 def setup_readiness(report: dict, kwargs: dict) -> dict:

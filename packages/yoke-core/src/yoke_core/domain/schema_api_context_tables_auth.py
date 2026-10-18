@@ -11,6 +11,31 @@ from __future__ import annotations
 
 
 AUTH_TABLES: dict[str, dict] = {
+    "teammate_invite_codes": {
+        "columns": [
+            ("id", "INTEGER"),
+            ("actor_id", "INTEGER"),
+            ("org_id", "INTEGER"),
+            ("role", "TEXT"),
+            ("code_hash", "TEXT"),
+            ("request_id", "TEXT"),
+            ("invited_by_actor_id", "INTEGER"),
+            ("created_at", "TIMESTAMPTZ"),
+            ("expires_at", "TIMESTAMPTZ"),
+            ("consumed_at", "TIMESTAMPTZ"),
+            ("consumed_machine_id", "TEXT"),
+            ("revoked_at", "TIMESTAMPTZ"),
+            ("replaced_at", "TIMESTAMPTZ"),
+        ],
+        "notes": (
+            "Single-use teammate machine admission. Only the SHA-256 code hash "
+            "is stored; request_id is unique for one-time result replay refusal. "
+            "Actor, person's org role and invite are created atomically. Codes "
+            "expire after 24 hours; reissue keeps the actor and replaces earlier "
+            "unconsumed codes. Consumption and machine credential issuance "
+            "commit together. No outcome depends on telemetry."
+        ),
+    },
     "frontend_event_rate_limits": {
         "columns": [
             ("client_key", "TEXT"),
@@ -141,7 +166,11 @@ AUTH_TABLES: dict[str, dict] = {
             "project scope: an org admin grant on a project's owning org implies "
             "every permission on every project in that org; a project grant "
             "applies to that one project; allowed if either scope carries it. "
-            "Composite PK (actor_id, org_id, role_id)."
+            "Composite PK (actor_id, org_id, role_id). "
+            "Public permission APIs are actor_permissions.permission_decision and "
+            "actor_permissions.org_permission_decision. Wrong guess: importing "
+            "actor_permission_checks first; it imports actor_permissions, whose "
+            "decision reexports require the public owner to initialize first."
         ),
     },
 }

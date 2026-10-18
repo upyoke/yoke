@@ -1,13 +1,13 @@
 """Keep a candidate on the CI run that already covers it.
 
-The gate rebases the lane before it asks GitHub what has already happened
-to the tree. That order is right the first time through: the rebase is what
+The gate updates the lane against its base before it asks GitHub what has already happened
+to the tree. That order is right the first time through: the base update is what
 makes the published candidate the tree the train will build, and nothing is
 lost by moving a commit no run has examined.
 
 It is wrong on re-entry. A second invocation over an unchanged lane — the
 first was moved to the background by its harness, killed mid-poll, or
-re-run from the recovery line the runner itself prints — rebases onto a
+re-run from the recovery line the runner itself prints — updates against a
 base branch that has since advanced. That moves the candidate to a new
 commit, so :mod:`yoke_core.domain.qa_case_ci_superseded_run` force-cancels
 the still-running run as superseded and the gate pays thirteen minutes for
@@ -18,9 +18,9 @@ lane's current head, that run is this gate's own earlier invocation and the
 source candidate is unchanged: the lane stays where it is, and the ordinary
 adoption and attachment path downstream resumes the run instead of
 replacing it. Queue admission continues on the pull request that run
-belongs to. Only an unexamined candidate is rebased, which is the
-first-invocation case the rebase exists for, and a changed source or a
-genuine integration requirement still reaches the rebase because no run
+belongs to. Only an unexamined candidate is updated against the base, which is the
+first-invocation case the update exists for, and a changed source or a
+genuine integration requirement still reaches the base update because no run
 covers the commit it arrives at.
 """
 
@@ -47,8 +47,8 @@ class PreparedLane:
     or ``None`` for a project on the dispatch path. ``resumed_run`` is the
     run that already covers the candidate, so the caller reuses the lookup
     made here instead of asking GitHub the same question again; ``None``
-    means the lane was rebased and the caller does its own lookup for the
-    commit the rebase produced.
+    means the lane was updated and the caller does its own lookup for the
+    commit the update produced.
     """
 
     queue_target: Optional[str]
@@ -86,11 +86,61 @@ def _covering_run(
             event="pull_request" if queue_routed else "",
         )
     source = qa_case_ci_covering_run.classify(
-        run, head_sha=head_sha, required_inputs=required_inputs,
+        run,
+        head_sha=head_sha,
+        required_inputs=required_inputs,
     )
     if source == qa_case_ci_covering_run.DISPATCHED:
         return None
     return run
+
+
+def refuse_conflicting_pull_request(
+    checkout: Path, *, project: str, branch: str
+) -> None:
+    """Diagnose a missing entry run before attempting to replay the lane."""
+    from yoke_core.domain.qa_case_ci_authority import machine_github_user_authority
+    from yoke_core.engines.merge_worktree_pr_discovery import list_branch_pull_requests
+    from yoke_core.engines.merge_worktree_pr_queue import read_pr_landing_state
+
+    target = qa_case_ci_entry_run.base_branch(project, checkout)
+    ctx = qa_case_ci_entry_run._merge_context(
+        checkout,
+        branch=branch,
+        target=target,
+        project=project,
+    )
+    with machine_github_user_authority():
+        listing = list_branch_pull_requests(
+            ctx, query={"state": "open", "base": target}
+        )
+        if not listing.readable:
+            raise QaCaseExecutionError(
+                f"qa_ci_pull_request_unavailable: {listing.error}. "
+                "Restore GitHub access and rerun the CI case before moving the lane."
+            )
+        for row in listing.rows:
+            number = str(row["number"])
+            state, error = read_pr_landing_state(ctx, number)
+            if state is None:
+                raise QaCaseExecutionError(
+                    f"qa_ci_pull_request_unavailable: pull request #{number}: {error}. "
+                    "Restore GitHub access and rerun the CI case before moving the lane."
+                )
+            # A locally repaired head must reach the normal publication path;
+            # the old remote pull request still reports its earlier conflict.
+            if state.head_sha != qa_case_ci_lane.ref_sha(checkout, "HEAD"):
+                continue
+            if state.merge_state_status.upper() in {"DIRTY", "CONFLICTING"}:
+                raise QaCaseExecutionError(
+                    f"qa_ci_pull_request_conflicting: pull request #{number} is "
+                    f"{state.merge_state_status.upper()} and has no covering CI run; "
+                    "GitHub cannot create its pull_request merge ref. "
+                    f"Merge origin/{target} into lane {branch!r}, resolve the conflicts, "
+                    "commit, publish through the normal gate, and rerun the CI case. "
+                    f"Start with git -C {checkout} fetch origin {target}, then "
+                    f"git -C {checkout} merge origin/{target}."
+                )
 
 
 def prepare_lane_preserving_covering_run(
@@ -132,7 +182,8 @@ def prepare_lane_preserving_covering_run(
             )
         except QaCaseExecutionError as exc:
             qa_case_ci_progress.announce_resume_probe_failed(
-                requirement_id, detail=str(exc),
+                requirement_id,
+                detail=str(exc),
             )
             resumed = None
         if resumed is not None:
@@ -151,6 +202,8 @@ def prepare_lane_preserving_covering_run(
                 ),
                 resumed_run=resumed,
             )
+        if queue_routed:
+            refuse_conflicting_pull_request(checkout, project=project, branch=branch)
     return PreparedLane(
         queue_target=qa_case_ci_entry_run.prepare_ci_lane(
             checkout,

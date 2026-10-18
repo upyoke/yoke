@@ -197,6 +197,8 @@ export function frontierFilter(model, selected) {
 // One line under a tile's title: what holds it, or how it is shipping.
 export function frontierTileMeta(node) {
   if (node.stuck) return node.stuck;
+  // Committed work waiting on landings reads the server's one sentence.
+  if (node.landing) return node.landing;
   const open = node.blockers;
   if (open.length === 1) return frontierGatePhrase(open[0]);
   if (open.length > 1) return `Waits on ${open.length} items`;

@@ -30,18 +30,26 @@ its default sandbox denies every outbound socket, which is what a local
 Postgres control plane listens on, so an unconfigured machine cannot reach
 Yoke at all and cannot run the field-note command it is told to fall back to.
 
-The launcher install (`python3 -m yoke_core.tools.install_yoke_launcher`,
-first run and `--repair`) writes what Codex needs into that file:
+The shared harness reconcile writes what Codex needs into that file:
 `approval_policy` and `sandbox_mode` from the same declaration the launch
 plane already passes launched workers, plus a `[projects."<checkout>"]` trust
 entry so Codex does not ask about the directory either. It only writes a key
 that is absent, reports rather than overwrites a value you set yourself, and
-leaves your model choices and hook trust untouched.
+leaves your model choices in place. It mints checkout hook trust and mirrors
+that trust only to lanes with identical hook content.
 
 If a `yoke` command is refused with `Operation not permitted`, that is this
 posture missing, not a broken database: the CLI says so and names the repair.
 `HC-harness-unattended-posture` reports the standing posture for every
-harness on the machine.
+harness on the machine. Repair all setup facets with
+`yoke doctor run --only harness-setup --fix`.
+
+Setup, project install/refresh and lane preparation use the same reconcile.
+The relay runs it when a harness home appears, covering registered checkouts
+and their lanes without reinstalling projects. Absent harness homes are never
+created. A failed facet names its reason and recovery while other facets run;
+the relay records failures and retries after 15 minutes, or immediately when
+the installed-harness list changes again.
 
 **Never wrap `yoke` in a shell loop or command substitution.** An operator
 who allows commands starting with `yoke` is allowing a first word, so

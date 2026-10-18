@@ -202,6 +202,22 @@ def do_local_merge(ctx: MergeContext) -> int:
         _run_git(["merge", "--abort"], cwd=ctx.repo_root, capture=True)
         return 1
 
+    if not ctx.args.standalone and ctx.epic_id:
+        from yoke_core.engines.merge_worktree_landing import record_existing_landing
+
+        candidate = _run_git(
+            ["rev-parse", ctx.args.branch], cwd=ctx.repo_root, capture=True
+        )
+        if candidate.returncode:
+            _print(
+                "item_landing_candidate_unreadable: local merge landed but its "
+                "candidate cannot be read. Preserve the lane, restore the branch "
+                "ref and retry merge-worktree.",
+                err=True,
+            )
+            return 5
+        if record_existing_landing(ctx, candidate.stdout.strip(), ctx.args.target):
+            return 5
     _print(f"Merged {ctx.args.branch} into {ctx.args.target} successfully.")
 
     # Defense-in-depth: sync the path-snapshot cache for the new HEAD on

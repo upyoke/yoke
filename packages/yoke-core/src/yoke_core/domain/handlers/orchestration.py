@@ -130,6 +130,9 @@ def handle_board_data_get(request: FunctionCallRequest) -> HandlerOutcome:
                 vision_entries=vision_entries,
                 vision_project=vision_project,
                 visible_project_ids=visible_project_ids,
+                actor_id=int(request.actor.actor_id)
+                if request.actor and request.actor.actor_id
+                else None,
             )
     except BoardDataError as exc:
         return HandlerOutcome(

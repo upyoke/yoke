@@ -1,0 +1,10 @@
+{
+ "id": "onboard-proposal",
+ "title": "During onboarding, propose each work-scoped rule from existing guidance as a scoped instruction; keep every-turn rules in place; create only approved ones.",
+ "status": "observed",
+ "form": "Do",
+ "verification": "Skill recipe flags parse against the live CLI adapters in a focused regression test; an onboarding run that moves a real project's rule is not yet proved.",
+ "topics": ["context/instructions", "context/disclosure", "projects/onboarding"],
+ "sources": [".agents/skills/yoke/onboard/strategy-conversation.md", "docs/public/projects.md", "runtime/api/test_skill_doc_regressions_onboard_execution_instructions.py"],
+ "position": 7
+}

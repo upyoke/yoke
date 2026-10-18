@@ -81,3 +81,36 @@ def test_prune_and_message_expiry_do_not_deadlock(test_db):
     assert test_db.execute(
         "SELECT state FROM session_message_recipients WHERE message_id='due'"
     ).fetchone() == ("expired",)
+
+
+def test_snapshot_cohort_deletes_beside_an_open_reader(test_db):
+    import time
+
+    from yoke_core.domain.universe_retention import _table_pass, read_policy
+    from yoke_core.domain.universe_retention_snapshots import snapshot_policy
+
+    old = utc_now() - timedelta(days=500)
+    ids = [
+        test_db.execute(
+            "INSERT INTO path_snapshots (project_id,commit_sha,built_at) "
+            "VALUES (1,%s,%s) RETURNING id",
+            (str(index) * 40, old),
+        ).fetchone()[0]
+        for index in range(2)
+    ]
+    test_db.commit()
+    with connect_test_database(test_db.info.dbname) as reader:
+        reader.execute("SET lock_timeout='1s'")
+        assert reader.execute("SELECT COUNT(*) FROM path_snapshots").fetchone()[0] == 2
+        row = _table_pass(
+            test_db,
+            read_policy(test_db)[0],
+            time.monotonic() + 8,
+            snapshot_policy(),
+            True,
+        )
+        assert row["deleted"]["path_snapshots"] == 1
+        # The open reader is neither blocked nor shown a partial inventory.
+        reader.execute("SELECT COUNT(*) FROM path_snapshot_entries").fetchone()
+        reader.rollback()
+    assert [r[0] for r in test_db.execute("SELECT id FROM path_snapshots")] == [ids[1]]

@@ -128,7 +128,12 @@ refuse another owner's claim. A released or cancelled claim cannot reopen.
 
 Recording the merge landing releases every open item-owned path claim with
 reason `landed`, on the landing's transaction, and unblocks downstream claims.
-The work claim stays held through delivery. Landed items in a pinned stage
+Integration-lane merges use the same `item_landings.record` writer as item
+merges, releasing both path coverage and migration territory before cleanup.
+If recording fails, `item_landing_record_failed` preserves the lane: restore
+control-plane access and retry the same merge command, even if Git already
+contains the branch. The work claim stays held through delivery.
+Landed items in a pinned stage
 that implies merge need no open path coverage; released coverage remains
 evidence for the merge boundary. Snapshot materialization writes all observed
 planned targets together and emits one summary event, whose loss changes no fact.

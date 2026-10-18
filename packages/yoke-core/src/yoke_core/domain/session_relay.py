@@ -31,6 +31,7 @@ from yoke_core.domain.session_relay_launch_lease import claim_next_launch
 from yoke_core.domain.session_relay_policy import relay_policy
 from yoke_core.domain.session_wake_drain_cadence import (
     RELAY_DRAIN_POLL_SECONDS,
+    wake_work_pending,
 )
 from yoke_core.domain.session_relay_storage import (
     heartbeat_relay,
@@ -70,11 +71,7 @@ def claim_relay_job(
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> RelayClaimOutcome:
-    """Heartbeat and lease independent control work alongside assigned launches.
-
-    A pending wake does not monopolize launch admission. Every launch in the
-    batch is checked against live machine headroom immediately before spawn.
-    """
+    """Lease independent control work and launches with live headroom checks."""
     heartbeat = validate_heartbeat(heartbeat)
     if broker_only != bool(broker_lease_id):
         raise SessionRelayError(
@@ -154,8 +151,6 @@ def claim_relay_job(
         live_batch = relay_has_live_batch(
             conn, relay_id=heartbeat.relay_id, now=current
         )
-        # One admission per control kind per poll gives both queues service,
-        # even while an unrelated native or diagnostic read is still running.
         jobs: tuple[Any, ...] = ()
         wake = claim_wake_job(
             conn,
@@ -172,10 +167,8 @@ def claim_relay_job(
                 job = claim(conn, heartbeat, now=current)
                 if job is not None:
                     jobs += (job,)
-        if not broker_only:
             jobs += tuple(claim_next_launch(conn, heartbeat, now=current))
         if jobs:
-            # Return promptly for further independent admissions.
             next_poll = (
                 RELAY_DRAIN_POLL_SECONDS if not broker_only else policy.poll_seconds
             )
@@ -194,8 +187,7 @@ def claim_relay_job(
                 next_poll_seconds=next_poll,
                 jobs=jobs,
             )
-        # Never hold a read transaction open across the long-poll sleep. A
-        # live batch keeps polling: a launch assigned meanwhile joins it.
+        # End the read transaction before sleeping; live batches keep polling.
         conn.commit()
         elapsed = monotonic() - started
         if elapsed >= wait_seconds:
@@ -213,7 +205,16 @@ def claim_relay_job(
         surface_operation_supported(surface, version, "create")
         for surface, version in heartbeat.surface_versions.items()
     )
-    if live_batch and not broker_only:
+    if not broker_only and (
+        live_batch
+        or wake_work_pending(
+            conn,
+            machine_id=heartbeat.machine_id,
+            project_ids=heartbeat.project_ids,
+            relay_actor_id=heartbeat.actor_id,
+            now=current,
+        )
+    ):
         next_poll = RELAY_DRAIN_POLL_SECONDS
     elif idle and not launch_capable:
         next_poll = policy.idle_poll_seconds

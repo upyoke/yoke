@@ -2,6 +2,7 @@ import { magnifier } from "./universe_search_overlay.js";
 import { sessionIsLive } from "./universe_session_diagnostics.js";
 import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
+import { sessionScopeLabel } from "./universe_session_detail.js";
 
 function input(documentNode, label, kind = "text") {
   const wrapper = el(documentNode, "label", "session-roster-filter");
@@ -26,6 +27,7 @@ function includes(value, query) {
 }
 
 const DEFAULT_STATE = "active";
+const OUTSIDE_PROJECT = "outside-project";
 
 function setOptions(documentNode, control, defaultLabel, values) {
   setOptionEntries(documentNode, control, defaultLabel, values.map(
@@ -111,19 +113,23 @@ export function sessionRosterFilters(documentNode, onChange) {
   const actions = el(documentNode, "span", "session-filter-actions");
   actions.appendChild(clear);
   host.appendChild(actions);
-  const applyRows = (rows, includeState) => {
+  const applyRows = (rows, includeState, outsideOnly = false) => {
     const query = String(controls.search.value || "").toLowerCase();
     const harness = String(controls.harness.value || "").toLowerCase();
     const project = String(controls.project.value || "").toLowerCase();
     const machine = String(controls.machine.value || "").toLowerCase();
     return rows.filter((row) => {
+      const outside = row.project_id == null
+        && (row.org_id != null || row.scope_kind === "org");
+      if (outsideOnly) return outside;
       const searchable = [
-        row.session_id, row.project, row.focus, row.actor_label,
+        row.session_id, sessionScopeLabel(row), row.focus, row.actor_label,
         row.current_item_title, row.model, row.requested_model,
       ].join(" ").toLowerCase();
       return (!query || searchable.includes(query))
-        && (!project || String(row.project_id || "").toLowerCase() === project
-          || String(row.project || "").toLowerCase() === project)
+        && (!project || (project === OUTSIDE_PROJECT ? outside : !outside
+          && (String(row.project_id || "").toLowerCase() === project
+            || String(row.project || "").toLowerCase() === project)))
         && (!harness || includes(row.executor, harness)
           || includes(row.executor_surface, harness)
           || includes(row.presentation_surface, harness))
@@ -136,9 +142,10 @@ export function sessionRosterFilters(documentNode, onChange) {
     host,
     setFacets(facets = {}) {
       setOptionEntries(documentNode, controls.project, "Any",
-        (facets.projects || []).map((entry) => ({
-          value: String(entry.id), label: String(entry.slug || entry.id),
-        })));
+        [{ value: OUTSIDE_PROJECT, label: "Outside any project" },
+          ...(facets.projects || []).map((entry) => ({
+            value: String(entry.id), label: String(entry.slug || entry.id),
+          }))]);
       setOptions(documentNode, controls.harness, "Any", facets.harnesses || []);
       setOptionEntries(documentNode, controls.machine, "Any",
         (facets.machines || []).map((entry) => ({
@@ -149,11 +156,15 @@ export function sessionRosterFilters(documentNode, onChange) {
     state() {
       return String(controls.state.value || "");
     },
+    outsideProjectOnly() {
+      return controls.project.value === OUTSIDE_PROJECT;
+    },
     historyCriteria(scopeProjects = []) {
       const selectedProject = String(controls.project.value || "").trim();
       return {
         search: String(controls.search.value || "").trim(),
-        projects: selectedProject ? [selectedProject] : scopeProjects,
+        projects: selectedProject && selectedProject !== OUTSIDE_PROJECT
+          ? [selectedProject] : scopeProjects,
         harnesses: String(controls.harness.value || "").trim()
           ? [String(controls.harness.value)] : [],
         machines: String(controls.machine.value || "").trim()
@@ -176,7 +187,8 @@ export function sessionRosterFilters(documentNode, onChange) {
         ["harness", "Harness"], ["machine", "Machine"],
       ]) {
         const value = String(controls[key].value || "").trim();
-        if (value) values.push(`${label}: ${value}`);
+        if (value) values.push(`${label}: ${key === "project"
+          && value === OUTSIDE_PROJECT ? "Outside any project" : value}`);
       }
       return values;
     },
@@ -185,6 +197,10 @@ export function sessionRosterFilters(documentNode, onChange) {
     },
     applyOpen(rows) {
       return applyRows(rows, false);
+    },
+    applyHistory(rows) {
+      return controls.project.value === OUTSIDE_PROJECT
+        ? applyRows(rows, false, true) : rows;
     },
   };
 }

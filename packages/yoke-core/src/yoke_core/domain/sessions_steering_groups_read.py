@@ -13,10 +13,9 @@ same identity on every row as ``steering_group_session_id``, but reaching
 it that way costs a complete roster — claims, holdings, liveness,
 delivery, presentation — to read one repeated field.
 
-Visibility matches what the roster would have shown, which is deliberately
-an OR: a seat is visible when the project it steers is visible, or when the
-session holding it lives in a visible project. A session steers a project
-it did not start in, and either half alone would drop a real seat.
+Project seats follow visible target or home projects. Org-scoped holders
+require the calling actor's session-operation authority, independently of
+the projects they steer.
 """
 
 from __future__ import annotations
@@ -34,24 +33,24 @@ def _scope_project_id(claim: Any) -> Optional[int]:
         return None
 
 
-def _home_project_ids(conn: Any, session_ids: tuple[str, ...]) -> dict[str, int]:
-    """Home project of each holding session, asked once for all of them."""
+def _home_sessions(conn: Any, session_ids: tuple[str, ...]) -> dict[str, dict]:
+    """Scope and actor of each holding session, asked once for all of them."""
     from yoke_core.domain import db_backend
 
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = conn.execute(
-        "SELECT session_id, project_id FROM harness_sessions WHERE session_id IN ("
-        + ",".join(marker for _ in session_ids)
-        + ") AND project_id IS NOT NULL",
+        "SELECT session_id, project_id, org_id, actor_id FROM harness_sessions "
+        "WHERE session_id IN (" + ",".join(marker for _ in session_ids) + ")",
         session_ids,
     ).fetchall()
-    return {str(dict(row)["session_id"]): int(dict(row)["project_id"]) for row in rows}
+    return {str(dict(row)["session_id"]): dict(row) for row in rows}
 
 
 def live_steering_group_session_ids(
     conn: Any,
     *,
     visible_project_ids: Optional[Set[int]] = None,
+    actor_id: int | None = None,
 ) -> list[str]:
     """Return every live steering seat's session id, sorted.
 
@@ -66,15 +65,33 @@ def live_steering_group_session_ids(
         return []
     if visible_project_ids is None:
         return sorted({str(claim["session_id"]) for claim in claims})
-    home_projects = _home_project_ids(
+    from yoke_core.domain.session_scope_identity import (
+        actor_may_operate_session,
+        session_scope_of,
+    )
+
+    homes = _home_sessions(
         conn, tuple(dict.fromkeys(str(claim["session_id"]) for claim in claims))
     )
     visible: set[str] = set()
     for claim in claims:
         session_id = str(claim["session_id"])
         steered = _scope_project_id(claim)
-        home = home_projects.get(session_id)
-        if steered in visible_project_ids or home in visible_project_ids:
+        home = homes.get(session_id)
+        if home is None:
+            continue
+        if home["org_id"] is not None:
+            if actor_may_operate_session(
+                conn,
+                actor_id=actor_id,
+                scope=session_scope_of(home),
+                session_actor_id=home["actor_id"],
+                permission_key="sessions.read",
+            ):
+                visible.add(session_id)
+        elif (
+            steered in visible_project_ids or home["project_id"] in visible_project_ids
+        ):
             visible.add(session_id)
     return sorted(visible)
 

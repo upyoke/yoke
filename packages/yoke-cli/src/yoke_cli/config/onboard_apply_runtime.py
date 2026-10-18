@@ -7,6 +7,7 @@ from typing import Any, Mapping
 
 from yoke_contracts import harness_unattended_posture
 from yoke_cli.config import harness_posture_install
+from yoke_cli.config import onboard_global_skill
 from yoke_cli.config import onboard_machine_setup
 from yoke_cli.config import onboard_apply_progress
 from yoke_cli.config import onboard_machine_registry
@@ -27,11 +28,13 @@ def apply(
     onboard_machine_setup.setup_directories(config_path, reuse=reuse, progress=progress)
     onboard_machine_setup.setup_wsl(report, error_cls=error_cls)
     onboard_machine_setup.setup_browser(progress, report, error_cls=error_cls)
-    if harness_posture:
-        step = (harness_unattended_posture.POSTURE_PLAN_ACTION, "detected")
-        onboard_apply_progress.emit(progress, *step, "running")
-        report["harness_unattended_posture"] = harness_posture_install.apply_reported()
-        onboard_apply_progress.emit(progress, *step, "done")
+    step = (harness_unattended_posture.POSTURE_PLAN_ACTION, "detected")
+    onboard_apply_progress.emit(progress, *step, "running")
+    setup = harness_posture_install.apply_reported(
+        include_posture=harness_posture, progress=progress
+    )
+    report["harness_setup"] = setup.payload()
+    onboard_apply_progress.emit(progress, *step, "failed" if setup.failed else "done")
     onboard_session_relay.apply(
         progress,
         report,
@@ -40,6 +43,7 @@ def apply(
         environment=environment,
     )
     onboard_machine_registry.apply(config_path, progress=progress, report=report)
+    onboard_global_skill.apply(progress=progress, report=report)
 
 
 __all__ = ["apply"]

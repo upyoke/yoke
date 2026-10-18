@@ -18,7 +18,6 @@ NAV = (
     ("concepts.html", "Concepts"),
     ("surfaces.html", "Surfaces"),
     ("scenarios.html", "Scenarios"),
-    ("plan-coverage.html", "Plan coverage"),
     ("evidence.html", "Evidence"),
     ("boundaries.html", "Boundaries"),
     ("gaps.html", "Gaps"),

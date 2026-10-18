@@ -19,7 +19,9 @@ import {
   successfulResult,
 } from "./universe_band_primitives.js";
 import { EMPTY_RUN_FACTS, loadRunFacts } from "./universe_run_evidence.js";
-import { el, settledScopedCalls } from "./universe_view_support.js";
+import { el } from "./universe_view_support.js";
+import { readShippingOverview } from "./universe_shipping_prefetch.js";
+
 
 function selectedProjects(projects, scope) {
   if (scope === "all") return projects;
@@ -52,10 +54,9 @@ export async function loadDelivery(context, host, getScope) {
     "Loading deployment runs and current QA obligations…");
   loading.setAttribute("role", "status");
   host.replaceChildren(loading);
-  // The authorized universe overview returns each shared release once.
-  const { callResults } = await settledScopedCalls(context, [{
-    functionId: "deployment_runs.list", payload: { relevance: "overview" },
-  }]);
+  // deployment_runs.list is shared with the lightweight prefetch owner;
+  // its authorized universe overview returns each shared release once.
+  const { callResults } = await (context.takeShippingOverview?.() || readShippingOverview(context));
   let facts = EMPTY_RUN_FACTS;
   let factsPending = projects.length > 0;
   if (!context.isMounted()) return null;

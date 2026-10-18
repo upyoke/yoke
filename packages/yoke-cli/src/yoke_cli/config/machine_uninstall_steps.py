@@ -1,8 +1,9 @@
 """Reuse existing teardown commands and retain recovery state on failure.
 
 Beside the per-project layers, uninstall removes what Yoke wrote into each
-harness's user-level config: its Cursor user hooks, and every approval-posture
-and folder-trust setting :mod:`yoke_contracts.harness_settings_ledger` records.
+harness's user-level config: its machine-wide hooks with their Codex trust,
+and every approval-posture and folder-trust setting
+:mod:`yoke_contracts.harness_settings_ledger` records.
 """
 
 from __future__ import annotations
@@ -52,6 +53,17 @@ def command(args: list[str]) -> None:
         report = json.loads(result.stdout)
         for warning in report.get("warnings", []):
             print(f"project uninstall: {warning}")
+
+
+def _remove_machine_hooks(emit: Callable[[str], None]) -> None:
+    """Strip every harness's machine-wide hooks, naming each outcome."""
+    from yoke_harness.hooks.machine_hooks import MachineHooksError, remove_machine_hooks
+
+    results = remove_machine_hooks()
+    emit("machine-wide hooks: " + "; ".join(result.line() for result in results))
+    failed = [result.detail for result in results if result.failed]
+    if failed:
+        raise MachineHooksError("; ".join(failed))
 
 
 def back_up(inventory: Inventory, emit: Callable[[str], None]) -> None:
@@ -145,12 +157,7 @@ def remove(
         )
     else:
         skipped("GitHub", github_skip)
-    attempt(
-        "Cursor user hooks",
-        lambda: emit(
-            f"Cursor user hooks: {harness_settings_revert.remove_cursor_user_hooks()}"
-        ),
-    )
+    attempt("machine-wide hooks", lambda: _remove_machine_hooks(emit))
     # The record of what Yoke wrote lives in the machine home, so this runs
     # before the home is deleted and a failure keeps both for the retry.
     if harness_settings_ledger.ledger_path().is_file():

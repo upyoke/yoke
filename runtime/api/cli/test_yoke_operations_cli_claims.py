@@ -15,7 +15,9 @@ import pytest
 from runtime.api.engines._doctor_native_sql_test_helpers import (
     connect_disposable_test_db,
 )
+from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from yoke_cli.main import main as cli_main
+from yoke_contracts.machine_config import paths
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
@@ -32,13 +34,24 @@ def _stub_ok(request: FunctionCallRequest) -> FunctionCallResponse:
         function=request.function,
         version=request.version,
         request_id=request.request_id,
-        result={"echo": True},
+        result=(
+            {
+                "public_ref": request.target.public_ref,
+                "fields": {"project_id": 1, "title": "Claim target"},
+            }
+            if request.function == "items.get.run"
+            else {"echo": True}
+        ),
     )
 
 
 @pytest.fixture(autouse=True)
-def _reset_captured() -> None:
+def _reset_captured(tmp_path, monkeypatch) -> None:
     _CAPTURED.clear()
+    config = register_machine_checkout(tmp_path / "machine", tmp_path, 1)
+    monkeypatch.setenv(paths.HOME_ENV, str(config.parent))
+    monkeypatch.setenv(paths.CONFIG_FILE_ENV, str(config))
+    monkeypatch.chdir(tmp_path)
 
 
 def _run(*argv: str, session_id: str = "test-session"):
@@ -104,8 +117,6 @@ def _run_db(claims_conn, *argv: str, session_id: str = "test-session"):
 # ---------------------------------------------------------------------------
 # Acquire — epic_task target
 # ---------------------------------------------------------------------------
-
-
 class TestAcquireEpicTask:
     def test_acquire_epic_task_dispatches_typed_target(self) -> None:
         rc, _o, _e = _run(
@@ -174,8 +185,6 @@ class TestAcquireEpicTask:
 # ---------------------------------------------------------------------------
 # Release — epic_task selector
 # ---------------------------------------------------------------------------
-
-
 class TestReleaseEpicTask:
     """Relay contract: the adapter ships the typed epic_task target and
     the dispatcher's self_only verification resolves the session's own

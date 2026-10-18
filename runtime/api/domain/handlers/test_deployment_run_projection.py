@@ -20,7 +20,7 @@ from yoke_core.domain import deployment_runs_crud_query as reads
 from yoke_core.domain.deployment_run_bound_sources import (
     BOUND_SOURCES_PREPARE_FUNCTION_ID,
 )
-from yoke_core.domain.handlers.deployment_runs import handle_deployment_run_get
+from yoke_core.domain.handlers.deployment_run_get import handle_deployment_run_get
 
 
 def test_shell_pipeline_receipt_round_trip_recovers_exact_committed_request(

@@ -68,7 +68,9 @@ def _configured_repo_with_wiped_bundle(
         "prod": False,
         "credential_source": {"kind": "dsn_file", "path": str(home / "fixture.dsn")},
     }
-    payload["projects"] = [{"checkout": str(repo), "project_id": 1}]
+    payload["connection_projects"] = {
+        "local": [{"checkout": str(repo), "project_id": 1}]
+    }
     config.write_text(json.dumps(payload), encoding="utf-8")
     monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(config))
     distribution.save(origin=DISTRIBUTION_PROD_URL, channel="stable", path=config)
@@ -148,10 +150,10 @@ def _in_process_repair_runner(config: Path, yoke_bin: str):
         if cmd == [yoke_bin, "github", "credential-helper", "refresh", "--json"]:
             result = github_repo_helper_reconnect.restore_missing_bundle(config)
             return subprocess.CompletedProcess(cmd, 0, json.dumps(result), "")
-        if cmd[:4] == [yoke_bin, "config", "distribution", "set"]:
+        if cmd[:4] == [yoke_bin, "settings", "set", "distribution"]:
             result = distribution.save(
-                origin=cmd[cmd.index("--origin") + 1],
-                channel=cmd[cmd.index("--channel") + 1],
+                origin=json.loads(cmd[4])["origin"],
+                channel=json.loads(cmd[4])["channel"],
                 path=config,
             )
             return subprocess.CompletedProcess(cmd, 0, json.dumps(result), "")

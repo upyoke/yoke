@@ -24,18 +24,21 @@ from yoke_contracts.harness_command_workdir import command_workdir_source
 from yoke_contracts.harness_session_transcripts import (
     session_transcripts_for_harness,
 )
+from yoke_contracts.harness_global_skill import global_skill_for_harness
 from yoke_contracts.harness_subagent_capability import (
     subagent_capability_for_harness,
 )
 from yoke_contracts.harness_turn_record_capability import (
     turn_record_capability_for_harness,
 )
+from yoke_contracts.harness_machine_hooks import machine_hooks_for_harness
 from yoke_contracts.harness_wake_capability import wake_capability_for_harness
 from yoke_contracts.hook_inline_context import inline_context_bytes_for_harness
 from yoke_contracts.session_control import capabilities_for_harness
 from yoke_contracts.session_control.model_selection_manifest import (
     launch_model_selection_manifest,
 )
+from yoke_harness.hooks.machine_hooks_render import HOOK_ROOT_EXPRESSIONS
 
 
 def _session_control(harness_id: str) -> dict:
@@ -67,6 +70,14 @@ def _parallel_subagents(harness_id: str) -> dict:
     return payload
 
 
+def _global_skill(harness_id: str) -> dict:
+    payload: dict = {
+        "source": "yoke_contracts.harness_global_skill.HARNESS_GLOBAL_SKILLS",
+    }
+    payload.update(global_skill_for_harness(harness_id).to_json())
+    return payload
+
+
 def _turn_record(harness_id: str) -> dict:
     payload: dict = {
         "source": (
@@ -85,6 +96,14 @@ def _session_transcripts(harness_id: str) -> dict:
         ),
     }
     payload.update(session_transcripts_for_harness(harness_id).to_json())
+    return payload
+
+
+def _machine_hooks(harness_id: str) -> dict:
+    payload: dict = {
+        "source": "yoke_contracts.harness_machine_hooks.HARNESS_MACHINE_HOOKS"
+    }
+    payload.update(machine_hooks_for_harness(harness_id).to_json())
     return payload
 
 
@@ -131,18 +150,19 @@ CLAUDE_MANIFEST: dict = {
     "session_control": _session_control(_CLAUDE_CLI.harness_id),
     "agent_wake": _agent_wake(_CLAUDE_CLI.harness_id),
     "parallel_subagents": _parallel_subagents(_CLAUDE_CLI.harness_id),
+    "global_skill": _global_skill(_CLAUDE_CLI.harness_id),
     "turn_record": _turn_record(_CLAUDE_CLI.harness_id),
     "session_transcripts": _session_transcripts(_CLAUDE_CLI.harness_id),
+    "machine_hooks": _machine_hooks(_CLAUDE_CLI.harness_id),
     "worktree_hook_enablement": {
         "config_path": ".claude/settings.json",
         "operations": [
             "verify_hook_config",
-            "seed_directory_approval",
             "verify_environment_export",
         ],
         "environment": {
             "root_variable": "YOKE_ROOT",
-            "root_expression": "${CLAUDE_PROJECT_DIR:-$PWD}",
+            "root_expression": HOOK_ROOT_EXPRESSIONS["claude-code"],
         },
     },
     "telemetry": {
@@ -198,18 +218,19 @@ CODEX_MANIFEST: dict = {
     "session_control": _session_control(_CODEX_CLI.harness_id),
     "agent_wake": _agent_wake(_CODEX_CLI.harness_id),
     "parallel_subagents": _parallel_subagents(_CODEX_CLI.harness_id),
+    "global_skill": _global_skill(_CODEX_CLI.harness_id),
     "turn_record": _turn_record(_CODEX_CLI.harness_id),
     "session_transcripts": _session_transcripts(_CODEX_CLI.harness_id),
+    "machine_hooks": _machine_hooks(_CODEX_CLI.harness_id),
     "worktree_hook_enablement": {
         "config_path": ".codex/hooks.json",
         "operations": [
             "verify_hook_config",
-            "mirror_hook_trust",
             "verify_environment_export",
         ],
         "environment": {
             "root_variable": "YOKE_ROOT",
-            "root_expression": "${YOKE_ROOT:-$PWD}",
+            "root_expression": HOOK_ROOT_EXPRESSIONS["codex"],
         },
     },
     "telemetry": {
@@ -272,8 +293,10 @@ CURSOR_MANIFEST: dict = {
     "session_control": _session_control(_CURSOR_CLI.harness_id),
     "agent_wake": _agent_wake(_CURSOR_CLI.harness_id),
     "parallel_subagents": _parallel_subagents(_CURSOR_CLI.harness_id),
+    "global_skill": _global_skill(_CURSOR_CLI.harness_id),
     "turn_record": _turn_record(_CURSOR_CLI.harness_id),
     "session_transcripts": _session_transcripts(_CURSOR_CLI.harness_id),
+    "machine_hooks": _machine_hooks(_CURSOR_CLI.harness_id),
     "worktree_hook_enablement": {
         "config_path": ".cursor/hooks.json",
         "operations": [
@@ -282,7 +305,7 @@ CURSOR_MANIFEST: dict = {
         ],
         "environment": {
             "root_variable": "YOKE_ROOT",
-            "root_expression": "${CURSOR_PROJECT_DIR:-$PWD}",
+            "root_expression": HOOK_ROOT_EXPRESSIONS["cursor"],
         },
         "command_byte_restrictions": {
             "source": (

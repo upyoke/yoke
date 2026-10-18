@@ -42,6 +42,7 @@ from __future__ import annotations
 from yoke_core.domain.schema_api_context_commands_claims import (
     CLAIMS_COMMANDS,
 )
+from yoke_core.domain.schema_api_context_commands_migrations import MIGRATION_COMMANDS
 from yoke_core.domain.schema_api_context_commands_core import (
     CORE_COMMANDS,
 )
@@ -70,6 +71,7 @@ for _row in (
     + QA_PLAN_RETIRE_COMMANDS
     + PROJECT_COMMANDS
     + WATCHERS_COMMANDS
+    + MIGRATION_COMMANDS
 ):
     if str(_row.get("recipe", "")).startswith("yoke qa plan materialize"):
         _retract = QA_ITEM_PLAN_COMMANDS[0]

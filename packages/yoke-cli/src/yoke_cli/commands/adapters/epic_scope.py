@@ -56,10 +56,6 @@ def _run(
     )
 
 
-EPIC_TASK_SCOPE_NO_FILES_USAGE = (
-    "yoke workflow-item epic-task scope-no-files --epic PREFIX-N --task-num N "
-    "[--session-id S] [--json]"
-)
 EPIC_TASK_SCOPE_FINALIZE_USAGE = (
     "yoke workflow-item epic-task scope-finalize --epic PREFIX-N "
     "[--session-id S] [--json]"
@@ -68,16 +64,6 @@ EPIC_TASK_SCOPE_REOPEN_USAGE = (
     "yoke workflow-item epic-task scope-reopen --epic PREFIX-N "
     "[--session-id S] [--json]"
 )
-
-
-def epic_task_scope_no_files(args: List[str]) -> int:
-    return _run(
-        args,
-        name="scope-no-files",
-        function_id="workflow_item.epic_task.scope_no_files",
-        usage=EPIC_TASK_SCOPE_NO_FILES_USAGE,
-        task=True,
-    )
 
 
 def epic_task_scope_finalize(args: List[str]) -> int:
@@ -100,9 +86,7 @@ def epic_task_scope_reopen(args: List[str]) -> int:
 
 __all__ = [
     "EPIC_TASK_SCOPE_FINALIZE_USAGE",
-    "EPIC_TASK_SCOPE_NO_FILES_USAGE",
     "EPIC_TASK_SCOPE_REOPEN_USAGE",
     "epic_task_scope_finalize",
-    "epic_task_scope_no_files",
     "epic_task_scope_reopen",
 ]

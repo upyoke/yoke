@@ -1,7 +1,8 @@
 {
  "id": "active-harness-readiness",
  "title": "Active harness readiness",
- "status": "draft-copy",
+ "status": "observed",
  "page": "installation",
- "position": 1
+ "position": 1,
+ "commands": ["yoke doctor run", "yoke sessions identity"]
 }

@@ -54,15 +54,6 @@ EPIC_ADAPTERS: List[AdapterEntry] = [
         notes="Full conduct status pipeline; unlike workflow_item.epic_task.update_status, this route runs update_status side effects.",
     ),
     AdapterEntry(
-        "workflow_item.epic_task.file_add",
-        "yoke workflow-item epic-task file-add --epic PREFIX-N --task-num N --file-path PATH [--action ACTION]",
-    ),
-    AdapterEntry(
-        "workflow_item.epic_task.scope_no_files",
-        "yoke workflow-item epic-task scope-no-files --epic PREFIX-N --task-num N "
-        "[--session-id S] [--json]",
-    ),
-    AdapterEntry(
         "workflow_item.epic_task.scope_finalize",
         "yoke workflow-item epic-task scope-finalize --epic PREFIX-N "
         "[--session-id S] [--json]",

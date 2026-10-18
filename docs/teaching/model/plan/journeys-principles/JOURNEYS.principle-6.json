@@ -1,9 +1,0 @@
-{
- "id": "JOURNEYS.principle-6",
- "title": "`/yoke onboard` is project-bound.",
- "status": "deferred",
- "concepts": ["documentation/planning", "context/disclosure", "projects/adoption"],
- "surfaces": ["global-orientation", "project-orientation", "skills-roles", "execution-instructions"],
- "scenarios": ["agent-context", "project-adoption"],
- "position": 10
-}

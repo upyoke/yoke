@@ -14,6 +14,8 @@ Owns the additive tables behind self-host browser sign-in:
   that actor instead of creating a new one. At most one pending invite
   per case-folded email per org (partial unique index).
 * ``browser_sign_in_links`` — hashed single-use API-token admission links.
+* ``teammate_invite_codes`` — hashed single-use machine admission for an
+  invited actor, retained after expiry, revocation, replacement or consumption.
 * ``actor_visitor_links`` — anonymous analytics visitor ids linked to the
   actor that signed in from that browser
   (:mod:`yoke_core.domain.actor_visitor_links`).
@@ -38,6 +40,7 @@ REQUIRED_EXTERNAL_IDENTITY_TABLES = (
     "web_sessions",
     "browser_sign_in_links",
     "machine_authorization_codes",
+    "teammate_invite_codes",
     "machine_authorization_rate_limits",
     "actor_visitor_links",
 )
@@ -108,6 +111,11 @@ def create_external_identity_tables(conn: Any) -> None:
     )
 
     create_machine_authorization_table(conn)
+    from yoke_core.domain.schema_teammate_invite_codes import (
+        create_teammate_invite_codes_table,
+    )
+
+    create_teammate_invite_codes_table(conn)
     from yoke_core.domain.actor_visitor_links import create_actor_visitor_links_table
 
     create_actor_visitor_links_table(conn)

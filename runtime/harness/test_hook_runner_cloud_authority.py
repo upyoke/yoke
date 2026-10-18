@@ -16,7 +16,9 @@ def _binding(root: Path) -> Path:
         json.dumps(
             {
                 "schema_version": 1,
-                "projects": [{"checkout": str(root), "project_id": 1}],
+                "connection_projects": {
+                    "prod-db-admin": [{"checkout": str(root), "project_id": 1}]
+                },
                 "active_env": "prod-db-admin",
                 "connections": {
                     "prod-db-admin": {

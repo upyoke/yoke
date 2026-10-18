@@ -33,7 +33,7 @@ One row per request. It is the rendezvous between the seat that asked and the ma
 | Column | Meaning |
 |---|---|
 | `fetch_id` | The request's identity. |
-| `target_session_id`, `project_id`, `machine_id` | Whose files, whose authority, and which relay may lease it. `machine_id` comes from the target session's own row. |
+| `target_session_id`, `project_id`, `org_id`, `machine_id` | Whose files, whose authority, and which relay may lease it. Exactly one of `project_id` and `org_id` is set: the target session's project, or its org when it started outside any project. `machine_id` comes from the target session's own row. |
 | `kind`, `file_name`, `diagnostic_ref`, `tail_lines` | The exact bounded question. |
 | `state` | `pending` → `leased` → `succeeded` / `failed`, or `expired`. |
 | `requested_at`, `requested_by_actor_id`, `requested_by_session_id` | Who asked and when. |

@@ -17,7 +17,7 @@ import {
 } from "./universe_run_qa_checks.js";
 import { el, settledScopedCalls } from "./universe_view_support.js";
 import {
-  appendRemovedItemQa, appendSharedOnlyItemQa, appendSharedPlanPointers,
+  appendSharedOnlyItemQa, appendSharedPlanPointers,
   collectRunSharing, memberSharedPlans, sharingFor,
 } from "./run_qa_sharing.js";
 
@@ -250,8 +250,6 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   const itemId = carriedItemRef(item);
   if (itemId === null) return null;
   const sharing = sharingFor(facts, runId);
-  const removed = appendRemovedItemQa(context.document, host, sharing, itemId);
-  if (removed) return removed;
   const sharedPlans = memberSharedPlans(sharing, itemId);
   const { checks } = carriedItemEvidence(facts, itemId, runId);
   const projection = item.qa_obligations;

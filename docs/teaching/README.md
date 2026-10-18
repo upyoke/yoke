@@ -1,10 +1,14 @@
 # Yoke teaching prototype
 
-The maintained map of what Yoke teaches and where: the concept tree, the
-surfaces that carry teaching, the scenarios that need it, FIRST-USER and
-JOURNEYS plan coverage, evidence, locked boundaries and gaps. It is internal
-contributor material: it lives only in the Yoke source repository and never
-ships in the install bundle.
+The catalog of every kind of context Yoke gives agents and people, up front
+and in each situation, so the right things are taught in the right places.
+It holds only lasting teaching facts: the concept tree, the surfaces that
+carry teaching, the scenarios (situations an agent or person is in), locked
+boundaries, evidence and gaps. It never copies or reconciles against a
+strategy document; plans change outside any item, so a lasting fact a plan
+names belongs in one of these records instead. It is internal contributor
+material: it lives only in the Yoke source repository and never ships in the
+install bundle.
 
 Build the local views with `yoke dev run -- python3 docs/teaching/tools/build.py`,
 then open `docs/teaching/views/index.html` in a browser from that checkout.
@@ -24,9 +28,7 @@ reads this directory from a Yoke checkout, or from the public repository at an
 exact commit: `https://github.com/upyoke/yoke/tree/<commit>/docs/teaching`.
 No shared-drive copy is a source. Private research stays outside this public
 repository: no private operator state, user or session ids, recordings or
-machine paths. Public strategy text is allowed (operator decision,
-2026-10-13); screen it for private material before committing. The check
-refuses private paths and identifiers.
+machine paths. The check refuses private paths and identifiers.
 
 ## Layout
 
@@ -35,7 +37,6 @@ refuses private paths and identifiers.
 | `model/concepts/` | One concept per file; child concepts in matching directories |
 | `model/surfaces/` | Surface record plus one teaching record per child file |
 | `model/scenarios/` | Scenario record plus one lesson per child file |
-| `model/plan/` | Collection metadata plus one plan row per child file |
 | `model/evidence/` | Collection metadata plus one evidence record per child file |
 | `model/boundaries/`, `model/gaps/` | One locked rule or open gap per file |
 | `model/docs-graph.json` | Documentation areas for the live docs graph |
@@ -51,8 +52,8 @@ their owner (`setup-agent/desired-01`), stored at
 record's local `id`. Add a record by creating its file; claim that concrete
 path without changing or claiming its parent record. Optional `position`
 sets display order (then filename); concept `page` keeps large branches on
-separate generated pages. Plan and evidence collection metadata lives at
-`model/<kind>/<collection>.json`, with records in the matching directory.
+separate generated pages. Evidence collection metadata lives at
+`model/evidence/<collection>.json`, with records in the matching directory.
 `docs-graph.json` remains the documentation graph configuration.
 
 To reapply the mechanical conversion after taking upstream array files:
@@ -79,12 +80,13 @@ alone and are also untracked. The stylesheet source lives in `tools/style.css`.
 | `observed` | Seen in source or a capture; scope stated, behavior unproven |
 | `verified-live` | Proven against running Yoke with recorded evidence |
 | `candidate` | Reviewed proposal, not approved scope |
-| `approved` | Approved FIRST-USER scope or a locked boundary |
-| `deferred` | Approved direction whose execution waits (JOURNEYS) |
+| `approved` | Approved scope or a locked boundary |
+| `deferred` | Approved direction whose execution waits |
 | `draft-copy` | Research outline or draft wording; not a shipped recipe |
 | `superseded` | Replaced proposal kept for provenance |
 
-Coverage counts direct mappings only. A mapped parent never covers its
+Coverage counts direct teaching mappings only: a concept is mapped when a
+teaching record names it in `topics`. A mapped parent never covers its
 children, and a mapping never proves that the teaching works. Unmapped
 concepts stay visible as gaps.
 
@@ -93,7 +95,7 @@ concepts stay visible as gaps.
 Do this while planning and finishing any Yoke item that changes what Yoke
 teaches. Review only the topics the work touches.
 
-1. Find the concept, surface, scenario or plan row in the views.
+1. Find the concept, surface, scenario or boundary in the views.
 2. Edit its record under `model/`. Keep its `id`.
 3. Add missing topics or surfaces beside their peers and link them. Keep
    current state and desired state distinct through `status`. Record
@@ -113,24 +115,6 @@ teaches. Review only the topics the work touches.
 prototype change, file a linked Yoke item (`/yoke idea` in the yoke project)
 that names the exact node ids, the requested change, the evidence and the
 producer/consumer relationship.
-
-## Reconcile with the strategy documents
-
-FIRST-USER and JOURNEYS are authoritative in the strategy store. When either
-changes, save both and check plan coverage against them:
-
-```text
-yoke strategy doc get FIRST-USER --project yoke --json > first-user.json
-yoke strategy doc get JOURNEYS --project yoke --json > journeys.json
-yoke dev run -- python3 docs/teaching/tools/build.py --check \
-  --strategy first-user.json --strategy journeys.json
-```
-
-Review the changed entries, update their rows, set each plan file's
-`reconciled_at` in the collection metadata to the document's `updated_at`,
-and rebuild. Delete the saved
-files afterwards when they are temporary reconciliation inputs. Public
-strategy text may be committed after checking it for private material.
 
 ## Live pages
 
@@ -154,8 +138,7 @@ Fix the named records, rebuild, then run `--check`:
 | `DUPLICATE_ID`, `DANGLING_PARENT` | Make ids unique; add the missing parent record |
 | `DANGLING_REFERENCE` | Fix each named field's id or add its missing record; remove retired registry names |
 | `DANGLING_SOURCE` | Cite a tracked repository-relative path |
-| `PLAN_ROW_UNMAPPED` | Map the row, or name an explicit gap |
-| `PLAN_ENTRY_MISSING`, `PLAN_RECONCILIATION_STALE` | Reconcile as above |
+| `RETIRED_PLAN_MIRROR` | Delete `model/plan/` or the record's `plan_refs`; move any lasting fact into a scenario, surface, boundary or gap |
 | `DANGLING_ANCHOR`, `DANGLING_LINK` | Fix the target id or path, then rebuild |
 | `MODEL_NOT_CANONICAL` | Format the named JSON record to match its peers, then check again |
 | `MODEL_RECORD_ID` | Store one record with an `id` matching its filename |

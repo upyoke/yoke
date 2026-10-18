@@ -1,4 +1,4 @@
-"""Tests for the tool-shaped ``yoke git pre-commit`` / ``git post-commit``.
+"""Tests for the tool-shaped ``yoke git`` hook subcommands.
 
 The installed ``.git/hooks`` shims exec these launcher
 subcommands so hooked commits work in external repos with no Yoke
@@ -8,8 +8,8 @@ checkout importable by the ambient python3. Covers:
   tokens still exit 2)
 * ``git pre-commit`` runs the harness-owned local gate (pass + file-line block)
 * ``git post-commit`` delegates to
-  ``yoke project snapshot sync --hook --head-only`` and exits 0 even
-  when sync needs repair — never errors a completed commit
+  ``yoke project snapshot sync --hook post-commit --head-only`` and exits 0
+  even when recording needs repair — never errors a completed commit
 * operation-inventory rows (status=permanent, tool_shaped)
 * shim text and routed tokens agree
 """
@@ -22,6 +22,7 @@ from pathlib import Path
 import pytest
 
 from yoke_cli.commands import git_hook as mod
+from yoke_contracts.git_hook_markers import HEAD_RECORDING_GIT_HOOKS
 from yoke_cli.main import main as cli_main
 from yoke_core.domain.project_install_git_hooks import (
     PRE_COMMIT_SHIM,
@@ -85,10 +86,16 @@ class TestTokenRouting:
         assert cli_main(["git", "pre-commit", "--help"]) == 0
         assert "pre-commit gate" in capsys.readouterr().out.lower()
 
+    @pytest.mark.parametrize("hook", HEAD_RECORDING_GIT_HOOKS)
+    def test_head_recording_help_names_its_hook(self, hook, capsys):
+        assert cli_main(["git", hook, "--help"]) == 0
+        out = capsys.readouterr().out
+        assert f"yoke project snapshot sync --hook {hook} --head-only" in out
+
     def test_post_commit_help_names_snapshot_sync(self, capsys):
         assert cli_main(["git", "post-commit", "--help"]) == 0
         out = capsys.readouterr().out
-        assert "yoke project snapshot sync --hook --head-only" in out
+        assert "yoke project snapshot sync --hook post-commit --head-only" in out
 
 
 class TestPreCommitGateExecution:
@@ -131,7 +138,7 @@ class TestPostCommitSnapshotSync:
         captured = capsys.readouterr()
         assert captured.out == ""
         assert captured.err == ""
-        assert calls == [["--hook", "--head-only"]]
+        assert calls == [["--hook", "post-commit", "--head-only"]]
 
     def test_gate_rebase_replay_skips_the_per_commit_sync(
         self,
@@ -140,7 +147,7 @@ class TestPostCommitSnapshotSync:
     ):
         calls = []
         monkeypatch.setattr(mod, "project_snapshot_sync", calls.append)
-        monkeypatch.setenv(mod.POST_COMMIT_SNAPSHOT_SKIP_ENV, "1")
+        monkeypatch.setenv(mod.HEAD_RECORDING_SKIP_ENV, "1")
 
         assert cli_main(["git", "post-commit"]) == 0
 
@@ -161,15 +168,17 @@ class TestPostCommitSnapshotSync:
         captured = capsys.readouterr()
         assert captured.out == ""
         assert captured.err == ""
-        assert calls == [["--hook", "--head-only", "--project", "externalwebapp"]]
+        assert calls == [
+            ["--hook", "post-commit", "--head-only", "--project", "externalwebapp"]
+        ]
 
     def test_nonzero_snapshot_sync_still_exits_zero(self, monkeypatch, capsys):
         monkeypatch.setattr(mod, "project_snapshot_sync", lambda _args: 7)
         rc = cli_main(["git", "post-commit"])
         assert rc == 0
         err = capsys.readouterr().err
-        assert "snapshot sync skipped" in err
-        assert "yoke project snapshot sync --hook --head-only" in err
+        assert err.startswith("yoke (post-commit): lane head not recorded")
+        assert "yoke project snapshot sync --hook post-commit --head-only" in err
 
     def test_snapshot_sync_exception_still_exits_zero(self, monkeypatch, capsys):
         def fake_sync(_args):
@@ -178,7 +187,7 @@ class TestPostCommitSnapshotSync:
         monkeypatch.setattr(mod, "project_snapshot_sync", fake_sync)
         assert cli_main(["git", "post-commit"]) == 0
         err = capsys.readouterr().err
-        assert "snapshot sync skipped" in err
+        assert "lane head not recorded" in err
         assert "transport offline" in err
 
 
@@ -186,7 +195,13 @@ class TestOperationInventory:
     def test_rows_are_permanent_tool_shaped(self):
         from yoke_cli import operation_inventory as inv
 
-        for shell_form in ("yoke git pre-commit", "yoke git post-commit"):
+        for shell_form in (
+            "yoke git pre-commit",
+            "yoke git post-commit",
+            "yoke git post-merge",
+            "yoke git post-rewrite",
+            "yoke git post-checkout",
+        ):
             entry = inv.lookup(shell_form)
             assert entry is not None, f"{shell_form!r} missing from inventory"
             assert entry.status == inv.PERMANENT
@@ -197,8 +212,17 @@ class TestShimCliCoupling:
     """The installed shim text and the routed CLI tokens move together."""
 
     def test_shims_exec_the_routed_tokens(self):
+        from yoke_cli.commands.tool_shaped import TOOL_SHAPED_SUBCOMMANDS
+        from yoke_cli.project_install.managed_git_hooks import (
+            managed_git_hook_specs,
+        )
+
         assert 'exec "$yoke_bin" git pre-commit' in PRE_COMMIT_SHIM
         assert 'exec "$yoke_bin" git post-commit' in POST_COMMIT_SHIM
+        for hook in HEAD_RECORDING_GIT_HOOKS:
+            shim = {s["name"]: s["content"] for s in managed_git_hook_specs()}[hook]
+            assert f'exec "$yoke_bin" git {hook} "$@"' in shim
+            assert ("git", hook) in TOOL_SHAPED_SUBCOMMANDS
 
     def test_shims_route_through_the_machine_launcher(self):
         # Behavior without a launcher is exercised end to end in

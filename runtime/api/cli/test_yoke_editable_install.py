@@ -31,8 +31,13 @@ def _make_checkout(root: Path) -> Path:
 
 
 def _write_config(path: Path, *checkouts: Path) -> Path:
-    projects = {str(c): {"project_id": 1 + i} for i, c in enumerate(checkouts)}
-    path.write_text(json.dumps({"projects": projects}), encoding="utf-8")
+    projects = [
+        {"checkout": str(c), "project_id": 1 + i} for i, c in enumerate(checkouts)
+    ]
+    path.write_text(
+        json.dumps({"active_env": "local", "connection_projects": {"local": projects}}),
+        encoding="utf-8",
+    )
     return path
 
 

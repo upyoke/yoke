@@ -23,7 +23,8 @@ and retry `yoke wsl setup`. Preview does not write WSL configuration.
 Follow the printed `wsl --shutdown`
 restart step when setup changes it; afterward terminals can close while the
 relay and background work continue. After a deliberate distro shutdown, run
-`yoke init --local` to restart its Postgres authority.
+`yoke init --local` to restart its Postgres authority; it preserves your active
+connection. See [local connection repair](reference/local-connection-repair.md).
 See [Yoke on Windows (WSL)](windows-wsl.md) for filesystem, systemd, and agent setup.
 
 Linux requires glibc (for example Ubuntu, Debian, or Fedora); musl hosts such as Alpine are refused before installation.
@@ -133,22 +134,23 @@ Sign-in links are never printed, including in JSON. If a browser cannot open
 or an agent runs the command, run `yoke ui up` from your own terminal on a
 machine with a display.
 
-Upgrade later with `yoke update` — it reruns the official installer with
-onboarding disabled, honors this machine's already-configured distribution
-origin and channel, and reports the verified old and new version (or that
-you're already current). The installer saves its origin and channel in
-`settings.distribution` in `~/.yoke/config.json`, so a fresh shell uses the
-same distribution. An install without that record refuses updates; explicitly
-select one with `yoke config distribution set --origin URL --channel NAME`
-before retrying. `yoke update --channel NAME` selects another channel at the
-recorded origin; a successful reinstall saves that channel for later updates.
-`yoke update --version VERSION` installs that exact release from the recorded
-origin instead of the channel's current one.
+Upgrade later with `yoke update`: it reruns the official installer with
+onboarding disabled from this machine's recorded distribution origin and
+channel (`settings.distribution` in `~/.yoke/config.json`), then reports the
+verified old and new version or that you're already current. Without that
+record it refuses; select one with `yoke settings set distribution --origin URL
+--channel NAME`. `--channel NAME` selects and saves another channel;
+`--version VERSION` installs that exact release. `yoke update --check [--json]`
+installs nothing: it reports the CLI, the active server's engine and the
+channel's latest, with `behind: cli|server|none` and the next step. On the
+local universe `yoke update` updates the CLI and local server together; a team
+server's admin upgrades it; hosted servers update with each hosted release.
 
 Install, reinstall and upgrade restart the machine's hook evaluator and check
-that it answers before reporting readiness. If that check fails, inspect the
-named log and run `yoke hook resident restart`, then retry the installer.
-Hook timing details stay in the diagnostics log, outside harness chat.
+that it answers; on failure, read the named log, run `yoke hook resident
+restart` and retry. Hook timing stays in the diagnostics log. Setup also
+writes Yoke's machine-wide hooks into each installed harness's user config,
+so sessions outside a project register; inside one, the project's hooks run.
 
 The installed CLI follows your active connection (`active_env`, set by
 `yoke env use`) automatically, whether that is upyoke.com, a self-hosted server
@@ -161,13 +163,11 @@ is still older than the release the active connection serves, commands sent to
 it print one warning naming `yoke update --version VERSION`; they never update
 or refuse on their own. A local universe needs none of this: its server is the
 installed CLI.
-The installer itself repairs the git credential
-helper a reinstall wipes from site-packages during every
-successful run — so re-running the curl installer directly still resolves
-the same channel version for every Yoke product package and still repairs
-the helper, just without the version-change report. Prior-runtime bundles
-are verified against their own launcher's declared files and content hash,
-so adding helper modules in a release does not invalidate an older bundle.
+The installer builds each CLI release in its own uv tool directory and swaps
+one launcher pointer atomically. Running commands keep their original modules;
+new commands use the published release. Old environments retire after their
+commands finish; cleanup failures name the reason and the update to retry.
+The installer repairs git credential-helper references for the new release.
 
 Every successful install or reinstall restarts a running machine-local
 dashboard with the newly installed executable. It keeps the same environment,
@@ -290,17 +290,16 @@ A Git checkout must be on the project's default branch before its layer is
 removed. When the Yoke install that owns a project no longer answers, its layer
 is still removed and committed on the current branch, with a warning to merge
 that commit into the default branch.
-It then removes the relay and stops its workers, removes the selected project
-layers, disconnects Yoke's GitHub credentials and checkout helpers, removes
-Yoke's entries from your Cursor user hooks (`~/.cursor/hooks.json`), reverts the
-approval and folder-trust settings Yoke wrote into Claude Code, Codex, and
-Cursor, stops the hook evaluator, local UI and embedded Postgres, tears down
-local self-host stacks including their universe volumes, and deletes the machine home
-(`~/.yoke` or `YOKE_MACHINE_HOME`). A harness setting you changed after Yoke
+It then removes the relay and its workers, the selected project layers, Yoke's
+GitHub credentials and checkout helpers, its machine-wide hooks and their Codex
+trust, and the approval and folder-trust settings it wrote into Claude Code,
+Codex and Cursor; stops the hook evaluator, local UI and embedded Postgres,
+tears down local self-host stacks and their universe volumes, and deletes the
+machine home (`~/.yoke` or `YOKE_MACHINE_HOME`). A harness setting you changed after Yoke
 wrote it is left in place and reported. Docker is only checked when this
 machine runs a self-host install. No further confirmation is required. Finally a detached
-worker removes the CLI with `uv tool uninstall yoke-cli` after the uninstall
-process exits. Its result log is printed by the command.
+worker removes the immutable CLI releases and launcher after commands release
+their environments. Its result log is printed by the command.
 
 Each step reports done, skipped with a reason, or failed with a named recovery.
 Independent cleanup continues after a failure; the machine home and CLI stay
@@ -324,13 +323,13 @@ the existing project uninstall.
 
 ## Related
 
-For one checkout, run `yoke project uninstall /path/to/checkout`.
-It removes the installed layer and only proven installer-owned, exclusive
-checkout registration and exact folder trust. Shared roots, Git worktrees,
-edited entries and unknown ownership are preserved with named reasons.
-A partial cleanup exits nonzero and retains its manifest: resolve the named
-ownership or sharing issue, then rerun the same command. Credentials, other
-projects, shared tools and server history stay intact; source checkouts refuse.
+For one checkout, run `yoke project uninstall /path/to/checkout`. It removes
+the installed layer and only proven installer-owned, exclusive checkout
+registration and exact folder trust; entries that grant no trust stay as they
+are. Shared roots, Git worktrees, edited entries and unknown ownership stay
+with named reasons. A partial cleanup exits nonzero and keeps its manifest:
+resolve the named ownership or sharing issue, then rerun it. Credentials,
+other projects, shared tools and server history stay; source checkouts refuse.
 
 - [Maintaining a private fork](private-forks.md)
 - [Modes](modes.md)

@@ -19,6 +19,7 @@ from runtime.api.domain.test_session_native_turn_end import (
     _pending,
 )
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
+from yoke_core.api.http_auth import HttpAuthContext
 
 
 @pytest.mark.parametrize(
@@ -39,12 +40,12 @@ def test_project_denied_turn_end_stamps_owned_session_and_preserves_refusal(
     conn = _codex_connection()
     monkeypatch.setattr("yoke_core.domain.db_helpers.connect", lambda: conn)
     monkeypatch.setattr(
-        "yoke_core.domain.actor_project_visibility.actor_visible_project_ids",
+        "yoke_core.domain.session_scope_identity.actor_visible_project_ids",
         lambda *_: set(),
     )
     monkeypatch.setattr(
         "yoke_core.api.routes.hooks.require_auth_context",
-        lambda _: SimpleNamespace(actor_id=10),
+        lambda _: HttpAuthContext(1, 10, "test"),
     )
     monkeypatch.setattr(
         "yoke_core.api.routes.hooks._emit_route_denial", lambda *a, **k: None
@@ -67,9 +68,7 @@ def test_project_denied_turn_end_stamps_owned_session_and_preserves_refusal(
     )
     assert body["outcome"] == "denied"
     assert body["exit_code"] == 1
-    assert (
-        "no configured project id" if project is None else "cannot access project 7"
-    ) in body["stdout"]
+    assert "HOOK_PROJECT_DENIED" in body["stdout"]
     assert body["degraded"] == []
     assert _posture(conn) == "waiting"
     _send(conn)
@@ -121,8 +120,12 @@ def test_project_refusal_does_not_grant_foreign_session_or_prompt_authority(
     conn = _codex_connection()
     monkeypatch.setattr("yoke_core.domain.db_helpers.connect", lambda: conn)
     monkeypatch.setattr(
+        "yoke_core.domain.session_scope_identity.actor_visible_project_ids",
+        lambda *_: set(),
+    )
+    monkeypatch.setattr(
         "yoke_core.api.routes.hooks.require_auth_context",
-        lambda _: SimpleNamespace(actor_id=actor),
+        lambda _: HttpAuthContext(1, actor, "test"),
     )
     monkeypatch.setattr(
         "yoke_core.api.routes.hooks._emit_route_denial", lambda *a, **k: None
@@ -148,7 +151,7 @@ def test_posture_database_failure_keeps_project_refusal_and_teaches_recovery(
     monkeypatch.setattr("yoke_core.domain.db_helpers.connect", unavailable)
     monkeypatch.setattr(
         "yoke_core.api.routes.hooks.require_auth_context",
-        lambda _: SimpleNamespace(actor_id=10),
+        lambda _: HttpAuthContext(1, 10, "test"),
     )
     monkeypatch.setattr(
         "yoke_core.api.routes.hooks._emit_route_denial", lambda *a, **k: None
@@ -160,6 +163,6 @@ def test_posture_database_failure_keeps_project_refusal_and_teaches_recovery(
         post_hooks_evaluate(SimpleNamespace(), request, BackgroundTasks()).body
     )
     assert body["outcome"] == "denied"
-    assert "no configured project id" in body["stdout"]
+    assert "HOOK_SCOPE_AUTH_UNAVAILABLE" in body["stdout"]
     assert "turn_posture_unavailable" in body["stdout"]
     assert "yoke hook evaluate" in body["stdout"]

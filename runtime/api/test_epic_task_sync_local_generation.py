@@ -130,13 +130,14 @@ def test_disabled_item_sync_reentry_materializes_chains_without_remote_auth(db):
 def test_implicit_scope_refuses_before_any_chain_or_remote_write(db, mode):
     _seed(db, mode)
     db.execute(
-        "UPDATE epic_tasks SET scope_state='pending', scope_finalized_at=NULL WHERE epic_id=10 AND task_num=2"
+        "UPDATE epic_tasks SET body='Task body without a file list' "
+        "WHERE epic_id=10 AND task_num=2"
     )
     db.commit()
     err = io.StringIO()
     with patch("yoke_core.domain.github_rest.create_issue") as remote:
         assert epic_task_sync.sync_epic_tasks(10, conn=db, stderr=err) == 1
-        assert "task 2 has no explicit scope" in err.getvalue()
+        assert "task 2 has no ## Files Touched section" in err.getvalue()
         assert _facts(db) == []
         remote.assert_not_called()
 

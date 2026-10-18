@@ -13,7 +13,11 @@ revert. Each entry is one of:
   leaf at ``keys``;
 - ``{"kind": "codex_key", "file", "key", "value"}`` — a top-level Codex key;
 - ``{"kind": "codex_trust", "file", "trust_key"}`` — a Codex trust table;
-- ``{"kind": "created_file", "file"}`` — a file Yoke created whole.
+- ``{"kind": "created_file", "file"}`` — a file Yoke created whole;
+- ``{"kind": "created_dir", "file"}`` — a folder or symlink Yoke created whole;
+- ``{"kind": "created_parent_dir", "file"}`` — a folder Yoke created only to
+  hold one of its own entries; uninstall removes it only while it is empty.
+  Installs record it after the entry it holds, so revert empties it first.
 """
 
 from __future__ import annotations
@@ -106,6 +110,14 @@ def created_file_entry(file: Path) -> Dict[str, Any]:
     return {"kind": "created_file", "file": str(file)}
 
 
+def created_dir_entry(path: Path) -> Dict[str, Any]:
+    return {"kind": "created_dir", "file": str(path)}
+
+
+def created_parent_dir_entry(path: Path) -> Dict[str, Any]:
+    return {"kind": "created_parent_dir", "file": str(path)}
+
+
 @contextmanager
 def mutation():
     """Serialize ledger read, selective consumption and atomic replacement."""
@@ -126,7 +138,9 @@ __all__ = [
     "LEDGER_NAME",
     "codex_key_entry",
     "codex_trust_entry",
+    "created_dir_entry",
     "created_file_entry",
+    "created_parent_dir_entry",
     "existing_depth",
     "json_entry",
     "ledger_path",

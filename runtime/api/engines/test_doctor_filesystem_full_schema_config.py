@@ -57,7 +57,15 @@ class TestSchemaAndConfigChecks:
         assert "Could not read items table columns" in rec.results[0].detail
 
     def test_schema_script_sync_passes_when_python_surface_exists(self, tmp_path):
-        module = tmp_path / "runtime" / "api" / "domain" / "items.py"
+        module = (
+            tmp_path
+            / "packages"
+            / "yoke-core"
+            / "src"
+            / "yoke_core"
+            / "domain"
+            / "items.py"
+        )
         module.parent.mkdir(parents=True)
         module.write_text("SELECT id, status FROM items;\n")
         with patch(
@@ -135,7 +143,10 @@ class TestSchemaAndConfigChecks:
             json.dumps(
                 {
                     "settings": {},
-                    "projects": [{"checkout": str(gone), "project_id": 3}],
+                    "active_env": "local",
+                    "connection_projects": {
+                        "local": [{"checkout": str(gone), "project_id": 3}]
+                    },
                 }
             )
         )
@@ -156,7 +167,10 @@ class TestSchemaAndConfigChecks:
             json.dumps(
                 {
                     "settings": {},
-                    "projects": [{"checkout": str(checkout), "project_id": 1}],
+                    "active_env": "local",
+                    "connection_projects": {
+                        "local": [{"checkout": str(checkout), "project_id": 1}]
+                    },
                 }
             )
         )

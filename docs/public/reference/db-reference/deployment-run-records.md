@@ -97,6 +97,28 @@ Creation pins bound sources and checks every shipped project; start revalidates 
 
 Release wrap-up prints each member stamp and close-out step, then confirms the `succeeded` write; output before a slow operation does not assert completion. Composition warns for carried items merged into the candidate but not at release yet: wait for them or `add-item` once they reach release; it never auto-enrolls them early. Removal queues a holder notice saying outstanding run-bound QA was cancelled, not passed, and not to attempt close-out because this run succeeds. When a cancelled requirement's latest verdict is fail or error, the notice names those requirements and keeps the failure handoff: classify the failure; a fixable failure is reworked and re-landed through `yoke merge item`, parking only after landing, while an external failure records its blocker; keep the claim either way; removal never changes item status. Without a red verdict, the item rides a later release: keep the claim and re-park. Settlement and failed-QA releases whose newer candidate already moved past the run send the later-release text. A takeover sends that notice only when it aborts the owner's running QA execution; the text then says the member's QA continues on the new run, and to keep the claim and stay parked. A takeover that aborts nothing sends no owner notice: the new run's item-QA wake names the new run. Delivery-run cards show only QA bound to their own run; a run without item QA shows no item-QA count. Retracted requirements appear as cancelled with their removal reason and are excluded from pass counts, as are no-obligation records. Retracted run requirements are ignored by the done QA gate, while standing obligations and the item's delivery gate remain in force. Stage age reads only the durable `current_stage_entered_at` clock, including `complete`; repeated stage writes preserve it, older runs show unknown age, and snapshots without a source clock clear the prior stage's age when their stage changes.
 
+## Table: deployment_run_timings
+
+Release phase timings: the start/end `Deployment start timing: ` records each
+run-scoped driver timing scope stores through `deployment_runs.timings.record`
+at each pipeline stage and when it closes. Read them with `yoke deployment-runs timings RUN-ID`. They are
+diagnostics; nothing operational reads them, and a refused write never fails
+the run (see [deployment start](../deployment-start.md)).
+
+```sql
+id INTEGER PRIMARY KEY
+run_id TEXT NOT NULL REFERENCES deployment_runs(id)
+batch_id TEXT NOT NULL -- one driver timing scope
+sequence INTEGER NOT NULL -- record order within the scope; a retried flush inserts nothing twice
+step TEXT NOT NULL
+phase TEXT NOT NULL -- start | end
+recorded_at TIMESTAMPTZ NOT NULL -- the driver clock's record timestamp
+elapsed_ms DOUBLE PRECISION -- end records only
+outcome TEXT -- end records only: ok | failed
+record TEXT NOT NULL -- the full JSON record as the driver wrote it
+UNIQUE(batch_id, sequence)
+```
+
 ## Table: deployment_stage_receipts
 
 Durable executor observations for non-QA deployment-stage attempts. Events do
@@ -153,8 +175,11 @@ notices — live in [release-delivery.md](release-delivery.md).
 
 ## Member completion diagnostics
 
-`yoke deployment-runs get RUN` includes `member_closure` beside the run fields.
-During settlement it reads current canonical member prerequisites, requirement
+`yoke deployment-runs get RUN --include-member-closure` explicitly requests
+`member_closure` beside the run fields. Ordinary full and field reads skip this
+expensive diagnostic, so driver pinning reads only `project` and
+`release_lineage`. During settlement the diagnostic reads current canonical
+member prerequisites, requirement
 ids, phases and declared targets, independently blocked members, atomic siblings,
 and other-target deferrals. Its `blocked` flag describes member settlement,
 not the count of run-bound QA. An empty run-bound case set proves nothing about
@@ -196,7 +221,7 @@ and the aborted execution stays terminal. Cancelled runs cannot restart.
 Creating a run (`deployment_runs.create`, `deployment_runs.start_for_item`) and executing one take no claim. Creation serializes against other creation under a transaction-scoped advisory lock that covers only the database re-check and insert (composition's repository reads finish before it is taken), and what used to need a project-wide hold is answered by the run itself:
 
 - **Occupancy.** A run occupies the origin (`scheme://host[:port]`, lowercased) of every environment it targets — the run's own target environment plus every environment a flow stage targets — from the moment it is marked `executing` until every QA stage of its flow has settled (`deployment_qa_stage_outstanding` reports nothing outstanding) or it is terminal. A run whose flow has no QA stage holds its origins until it is terminal. The start (`status -> executing`) takes a transaction-scoped advisory lock per origin and refuses with `target_occupied` when another executing run still holds one, naming the origin, the holding run, its project and stage, and its open QA lines, with the recovery: re-run the start once the holder's QA settles, or terminalize a holder nobody will finish (`yoke deployment-runs terminalize RUN --disposition cancelled --reason R`). Environment records that resolve to one origin — two projects' stage environments on one host — are one occupancy unit with no configuration, and production origins are occupied exactly like stage ones, which keeps a later release from overtaking an earlier one on the same server. A run with no registered environment url (a frozen preview, which occupies its own slug instead) holds no origin. Owner: `deploy_target_occupancy`.
-- **Takeover.** Creating a run for the flow and target of an executing run that waits only on item QA (deploy stages done, cursor on an item-scoped QA stage, only QA or approval stages left, QA still open) takes that run over in the creation transaction, when the new pinned candidate contains the older run's `release_lineage`. Without run-level QA or approval, members whose every item-scoped QA stage accepted them stay; every other unclosed member is removed with the audited member removal (`membership_removals`, reason naming the new run) and admitted to the new run. With run-level QA or approval, every unclosed member moves and the older run is terminalized `cancelled`, which retracts its unpassed run-bound requirements. An older run left with no members is cancelled the same way; one that kept passed members has its open memberless requirements retracted and completes through its ordinary close-out. The new run records `supersedes_run_id` and the older one `superseded_by_run_id`. Refusals: `takeover_candidate_not_contained` (lists the members to release by hand), `takeover_run_driven_elsewhere`, and `takeover_reserved_for_steering`: while a live steering seat covers the project, only the seat holder or the older run's creating session (`created_by_session_id`, recorded at creation) may take it over, live driver or not. Owners: `deployment_run_target_takeover`, `deployment_run_takeover_authority`.
+- **Takeover.** Creating a run for the flow and target of an executing run that waits only on item QA (deploy stages done, cursor on an item-scoped QA stage, only QA or approval stages left, QA still open) takes that run over in the creation transaction, when the new pinned candidate contains the older run's `release_lineage`. Without run-level QA or approval, only members the older run already closed stay; every unclosed member is removed with the audited member removal (`membership_removals`, reason naming the new run) and admitted to the new run. With run-level QA or approval, every unclosed member moves and the older run is terminalized `cancelled`, which retracts its unpassed run-bound requirements. An older run that delivered no member is cancelled the same way; one that kept a closed member has its open memberless requirements retracted and is marked `succeeded` in the same transaction (cursor `complete`, environment and delivery records stamped), with its carried-work record and delivery notices after the commit (`deployment_run_takeover_settlement`). A refused succeeded gate refuses the takeover with `takeover_settlement_refused`. The new run records `supersedes_run_id` and the older one `superseded_by_run_id`. Refusals: `takeover_candidate_not_contained` (lists the members to release by hand), `takeover_settlement_refused`, `takeover_run_driven_elsewhere`, and `takeover_reserved_for_steering`: while a live steering seat covers the project, only the seat holder or the older run's creating session (`created_by_session_id`, recorded at creation) may take it over, live driver or not. Owners: `deployment_run_target_takeover`, `deployment_run_takeover_authority`, `deployment_run_takeover_settlement`.
 - **Who drives.** A run's live driver attachment (`deployment_runs.driver_attachment`, heartbeat within ten minutes) is the session driving it. Execution, membership and containment calls from any other session refuse with `run_driven_elsewhere` naming that driver; a run with no live driver may be driven by any authorized session, and a driver whose heartbeat lapses frees the run by itself — nothing needs a human release. Run-scoped notices, prepared-run hand-offs, automatic completion and operator QA-waiver authority read the same attachment and fall back to the project's steering seat.
 - **Identity at QA start.** `qa.plan_execution.begin` for a deployment stage returns `deployment_start_identity`: the stage's persistent target, its served-revision path, and the commit the run delivered for that project. Before any host reset or human gate the runner asks the target what it serves; a different build refuses with `deployment_target_drifted`, aborts the begun execution and names both builds. A target that cannot be asked is reported as unverified and the per-case checks still apply.
 

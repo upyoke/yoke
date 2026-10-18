@@ -13,11 +13,11 @@ ORGANIZATION_ADAPTERS = [
     ),
     read_entry(
         function_id="organizations.settings.get",
-        cli_invocation="yoke organizations settings get --path KEY.PATH",
+        cli_invocation="yoke settings get membership.auto_join_domain_verified",
     ),
     AdapterEntry(
         function_id="organizations.settings.merge",
-        cli_invocation="yoke organizations settings merge --set KEY.PATH=VALUE",
+        cli_invocation="yoke settings set membership.auto_join_domain_verified true",
     ),
     AdapterEntry(
         function_id="organizations.create",

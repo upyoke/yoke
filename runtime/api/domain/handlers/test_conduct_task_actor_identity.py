@@ -13,10 +13,9 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain import update_status, verify_claim
-from yoke_core.domain.epic_task_scope import (
-    finalize_generated_task_scopes,
-    set_no_files_scope,
-)
+from runtime.api.task_files_touched_test_support import declare_task_files
+from yoke_core.domain.epic_task_membership import clear_membership_finalized
+from yoke_core.domain.epic_task_scope import finalize_generated_task_scopes
 from yoke_core.domain.handlers import conduct_epic_pipeline
 from yoke_core.domain.work_claim_targets import make_epic_task_target, make_item_target
 
@@ -50,7 +49,7 @@ def task(test_db, monkeypatch):
         monkeypatch.delenv(key, raising=False)
     insert_item(test_db, id=EPIC_ID, workflow_id="epic", status="implementing")
     insert_epic_task(test_db, epic_id=EPIC_ID, task_num=1, status="planned")
-    set_no_files_scope(test_db, EPIC_ID, 1)
+    declare_task_files(test_db, EPIC_ID, 1, [])
     finalize_generated_task_scopes(test_db, EPIC_ID)
     return test_db
 
@@ -157,12 +156,10 @@ def test_task_claim_cannot_authorize_parent_write(task):
 
 def test_authenticated_claim_does_not_skip_scope_gate(task):
     _claim(task, WORKER, make_epic_task_target(EPIC_ID, 1))
-    task.execute(
-        "UPDATE epic_tasks SET scope_finalized_at=NULL WHERE epic_id=%s", (EPIC_ID,)
-    )
+    clear_membership_finalized(task, EPIC_ID)
     task.commit()
     before = _state(task)
     outcome = _start()
     assert not outcome.primary_success
-    assert "scope is not finalized" in outcome.error.message
+    assert "task membership is not finalized" in outcome.error.message
     assert _state(task) == before

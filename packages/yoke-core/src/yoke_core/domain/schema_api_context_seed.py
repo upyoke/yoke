@@ -137,6 +137,9 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
         "event_registry",
         "ouroboros_entries",
         "item_sections",
+        "applied_migrations",
+        "migration_audit",
+        "migration_content_adoptions",
         # The satisfier-ladder substrate: how a gate obligation was
         # actually discharged for an item, and the derived project
         # facts that pick the rung.
@@ -157,6 +160,7 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
     "claims": (
         "harness_sessions",
         "yoke_core.domain.session_control_schema",
+        "yoke_harness.hooks.machine_hooks",
         "runtime.api.domain.test_session_native_turn_end",
         "session_tool_calls",
         "work_claims",

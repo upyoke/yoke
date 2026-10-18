@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from fastapi import BackgroundTasks
 import json
-from types import SimpleNamespace
 
 from yoke_core.api.routes import hooks as routes
 from yoke_core.hooks import remote_entry
 from yoke_core.hooks.remote_entry import RemoteEvaluation
+from yoke_core.api.http_auth import HttpAuthContext
+from yoke_core.domain.session_scope_identity import HookScopeDecision
 
 
 def test_route_preserves_native_thread_id(monkeypatch) -> None:
@@ -16,9 +17,13 @@ def test_route_preserves_native_thread_id(monkeypatch) -> None:
     monkeypatch.setattr(
         routes,
         "require_auth_context",
-        lambda _request: SimpleNamespace(actor_id=2),
+        lambda _request: HttpAuthContext(1, 2, "test"),
     )
-    monkeypatch.setattr(routes, "_authorize_project", lambda *_args: ("example", None))
+    monkeypatch.setattr(
+        routes,
+        "_authorize_scope",
+        lambda *_: (HookScopeDecision(project_id=1, project_slug="example"), None),
+    )
     monkeypatch.setattr(
         routes,
         "evaluate_remote",

@@ -163,7 +163,7 @@ def test_project_create_new_repo_binds_identity_and_installs(
     assert no_remote.returncode != 0
     assert (checkout / ".yoke/install-manifest.json").is_file()
     config_payload = json.loads(config.read_text(encoding="utf-8"))
-    assert config_payload["projects"] == [
+    assert config_payload["connection_projects"]["prod"] == [
         {"checkout": str(checkout.resolve()), "project_id": 41}
     ]
 

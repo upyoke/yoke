@@ -10,6 +10,7 @@ from typing import Optional, Tuple
 
 from yoke_core.engines.merge_worktree_conflicts import auto_resolve_conflicts
 from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.engines.merge_worktree_prepare_state import _integration_refused
 
 
 def _parent():
@@ -36,21 +37,16 @@ def do_rebase_or_merge(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         "merge_conflict_threshold",
     )
 
-    # Check for merge commits
-    merge_base = _run_git(["merge-base", "HEAD", base], cwd=cwd, capture=True)
-    original_merge_count = 0
-    if merge_base.returncode == 0 and merge_base.stdout.strip():
-        mc_result = _run_git(
-            ["log", "--oneline", "--merges", f"{merge_base.stdout.strip()}..HEAD"],
-            cwd=cwd,
-            capture=True,
+    topology = _run_git(
+        ["rev-list", "--merges", f"{base}..HEAD"], cwd=cwd, capture=True
+    )
+    if topology.returncode:
+        return (
+            1,
+            "lane_topology_unavailable: repair Git refs and retry landing: "
+            + (topology.stderr or topology.stdout).strip(),
         )
-        if mc_result.returncode == 0:
-            original_merge_count = (
-                len(mc_result.stdout.strip().splitlines())
-                if mc_result.stdout.strip()
-                else 0
-            )
+    original_merge_count = len(topology.stdout.splitlines())
 
     rebase_succeeded = False
 
@@ -134,15 +130,39 @@ def do_rebase_or_merge(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         merge_result = _run_git(["merge", base, "--no-edit"], cwd=cwd, capture=True)
 
         if merge_result.returncode != 0:
+            if original_merge_count:
+                conflicts = _run_git(
+                    ["diff", "--name-only", "--diff-filter=U"], cwd=cwd, capture=True
+                )
+                detail = (
+                    ", ".join(conflicts.stdout.splitlines())
+                    or (merge_result.stderr or merge_result.stdout).strip()
+                )
+                aborted = _run_git(["merge", "--abort"], cwd=cwd, capture=True)
+                cleanup = (
+                    f" Cleanup failed; run git -C {cwd} merge --abort first."
+                    if aborted.returncode
+                    else ""
+                )
+                return (
+                    3,
+                    f"lane_merge_conflict: lane is merge-shaped; {detail}."
+                    f"{cleanup} Merge {base} on the lane, resolve and commit, "
+                    "then re-run the gate and landing.",
+                )
             rc, infos = auto_resolve_conflicts(ctx)
             if rc == 0:
                 _print("All merge-commit conflicts auto-resolved.")
-                _run_git(["commit", "--no-edit"], cwd=cwd, capture=True)
+                committed = _run_git(["commit", "--no-edit"], cwd=cwd, capture=True)
+                if committed.returncode:
+                    return _integration_refused(ctx, committed)
             elif rc == 2:
                 _print(
                     "Merge reported failure but no conflict markers found \u2014 committing."
                 )
-                _run_git(["commit", "--no-edit"], cwd=cwd, capture=True)
+                committed = _run_git(["commit", "--no-edit"], cwd=cwd, capture=True)
+                if committed.returncode:
+                    return _integration_refused(ctx, committed)
             else:
                 # Emit structured conflict output
                 _print("", err=True)

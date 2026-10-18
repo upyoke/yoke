@@ -144,6 +144,16 @@
     "verified_on_surface": "",
     "evidence": "Cursor dispatches named sub-agents through its Task tool, but no session has been observed running several at once. Conduct dispatches one sub-agent at a time here and records that deferral until a probe adds a measured entry."
   },
+  "global_skill": {
+    "source": "yoke_contracts.harness_global_skill.HARNESS_GLOBAL_SKILLS",
+    "name": "yoke-global",
+    "harness_home": "~/.cursor",
+    "user_skills_dir": "~/.agents/skills",
+    "placement": "shared",
+    "shared_skill_dir": "~/.agents/skills/yoke-global",
+    "verified_on_surface": "cursor-cli",
+    "evidence": "Observed 2026-10-18: cursor-agent 2026.10.14 started outside every project listed yoke-global from $HOME/.agents/skills with the ~/.claude/skills link moved aside, and through the link otherwise."
+  },
   "turn_record": {
     "source": "yoke_contracts.harness_turn_record_capability.HARNESS_TURN_RECORD_CAPABILITIES",
     "turn_record": "none",
@@ -157,6 +167,40 @@
     "location": "~/.cursor/projects/<checkout-slug>/agent-transcripts/<id>/<id>.jsonl",
     "project_match": "<checkout-slug> is yoke_contracts.harness_folder_trust.cursor_project_slug(checkout): the absolute path with dots dropped and each non-alphanumeric run collapsed to '-'",
     "evidence": "yoke_contracts.cursor_session_map parses this layout and harness_folder_trust reproduces the slug, verified against entries Cursor wrote."
+  },
+  "machine_hooks": {
+    "source": "yoke_contracts.harness_machine_hooks.HARNESS_MACHINE_HOOKS",
+    "user_config_path": "~/.cursor/hooks.json",
+    "home_env": null,
+    "config_owner": "cursor-user",
+    "project_configs": [
+      ".cursor/hooks.json"
+    ],
+    "project_config_in_ancestors": false,
+    "events": [
+      {
+        "native_event": "sessionStart",
+        "verb": "SessionStart"
+      },
+      {
+        "native_event": "beforeSubmitPrompt",
+        "verb": "UserPromptSubmit"
+      },
+      {
+        "native_event": "beforeShellExecution",
+        "verb": "PreToolUse"
+      },
+      {
+        "native_event": "stop",
+        "verb": "Stop"
+      },
+      {
+        "native_event": "sessionEnd",
+        "verb": "SessionEnd"
+      }
+    ],
+    "trust": "none",
+    "deferrals": []
   },
   "worktree_hook_enablement": {
     "config_path": ".cursor/hooks.json",

@@ -2,12 +2,10 @@
  "id": "governed_database_setup",
  "title": "Deciding and setting up database governance",
  "status": "draft-copy",
- "situations": ["New SQLite app", "Existing Postgres app", "Existing external migration framework/schema owner", "Unsupported database", "Database coordinates not ready"],
+ "situations": ["New SQLite app", "Existing Postgres app", "Existing external migration framework/schema owner", "Unsupported database", "Database coordinates not ready", "Selected work is about to change a schema"],
  "coverage": "traced",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
  "review": "Older research may describe heavier onboarding. Apply minimum activation and optional-adoption boundaries first.",
  "questions": ["Decide the first-use explanation of adopting Yoke Python migration modules versus retaining an existing migration owner; no universal migration adapter was demonstrated."],
- "related_scenarios": ["database_change_and_release", "capabilities", "hosting_providers"],
- "plan_refs": ["JOURNEYS.situation-17", "JOURNEYS.also-owned-here"]
+ "related_scenarios": ["database_change_and_release", "capabilities", "hosting_providers"]
 }

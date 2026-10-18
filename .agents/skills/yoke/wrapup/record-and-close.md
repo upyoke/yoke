@@ -64,3 +64,5 @@ State that continuity is in item Progress Logs and field-notes.
 Commit any authored wrapup artifacts; the report is session output and needs
 no generated file. Stage only intended paths, then commit when staged changes
 exist. Preserve active work and release waits under their owning skill.
+
+Keep each entry body at or below 4,096 UTF-8 bytes; write only what changed and the next step, and move evidence to artifacts or field-notes.

@@ -26,7 +26,7 @@ def test_canonical_example_is_valid_machine_config() -> None:
     assert authority["location"]["database_name"] == "app_prod"
     assert payload["connections"]["stage"]["transport"] == "https"
     assert payload["connections"]["stage"][contract.PROD_FLAG_KEY] is False
-    entry = payload["projects"][0]
+    entry = payload["connection_projects"]["prod"][0]
     assert entry["checkout"] and set(entry) == {"checkout", "project_id"}
     assert "board" not in entry
     assert contract.validate_payload(payload) == []

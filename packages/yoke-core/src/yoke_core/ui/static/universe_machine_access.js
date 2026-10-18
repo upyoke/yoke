@@ -123,7 +123,7 @@ export function machineAccessCard(context, result, reload) {
     update();
     status.textContent = "Saving access…";
     try {
-      const response = await callFunction(context.client, "machine.settings.set", {
+      const response = await callFunction(context.client, "machine.access.set", {
         machine_id: result.machine.machine_id, path: "use", value: policy,
       });
       if (response.status !== 200 || !response.envelope?.success) throw response;

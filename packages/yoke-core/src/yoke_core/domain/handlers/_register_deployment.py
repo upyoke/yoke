@@ -12,8 +12,10 @@ from yoke_core.domain.handlers import (
     deployment_run_creation as _run_creation,
     deployment_run_release_output as _release_output,
     deployment_run_membership as _run_membership,
+    deployment_run_get as _run_get,
     deployment_run_projection as _run_projection,
     deployment_run_terminalization as _run_terminalization,
+    deployment_run_timings as _run_timings,
     deployment_stage_approval as _stage_approval,
     deployment_runs as _runs,
     deployment_runs_composed as _runs_composed,
@@ -24,13 +26,14 @@ def register(registry) -> None:
     """Register deployment flow/run wrappers via the given registry."""
     _flow_configuration.register(registry)
     _bound_sources_current.register(registry)
+    _run_timings.register(registry)
     registry.register(
         "deployment_runs.get",
-        _runs.handle_deployment_run_get,
-        _models.DeploymentRunGetRequest,
-        _models.DeploymentRunGetResponse,
+        _run_get.handle_deployment_run_get,
+        _run_get.DeploymentRunGetRequest,
+        _run_get.DeploymentRunGetResponse,
         stability="stable",
-        owner_module="yoke_core.domain.handlers.deployment_runs",
+        owner_module="yoke_core.domain.handlers.deployment_run_get",
         target_kinds=["workflow_run"],
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],

@@ -1,12 +1,15 @@
 """Operation-scoped repository facts, with current attribution read separately."""
 
 from yoke_core.domain.deployment_source_reads import source_read
-from yoke_core.domain.deployment_run_carried_work_source import open_carried_work_source
+from yoke_core.domain.deployment_run_carried_work_source import (
+    CarriedWorkSourceUnavailable,
+    open_carried_work_source,
+)
 
 
 def prepared_carried_work_source(conn, project_id, repo_root=None):
     key = ("carried_source", int(project_id), str(repo_root or ""))
-    return source_read(
+    return _answer(
         conn,
         key,
         lambda: PreparedSource(
@@ -21,6 +24,27 @@ def prepared_carried_work_source(conn, project_id, repo_root=None):
     )
 
 
+def _answer(conn, key, reader):
+    """Answer one repository question, refusals included.
+
+    A source refusal is the answer to its exact question, so it is kept like
+    any other answer. Preparation outside the locks then records it rather
+    than escaping, and the caller that asked receives it where it already
+    handles an unavailable source.
+    """
+
+    def read():
+        try:
+            return reader()
+        except CarriedWorkSourceUnavailable as exc:
+            return exc
+
+    answer = source_read(conn, key, read)
+    if isinstance(answer, CarriedWorkSourceUnavailable):
+        raise answer
+    return answer
+
+
 class PreparedSource:
     """Cache repository reads, never item/workflow/membership/evidence answers."""
 
@@ -30,7 +54,7 @@ class PreparedSource:
 
     def _read(self, method, *args, **kwargs):
         key = (*self.key, method, args, tuple(sorted(kwargs.items())))
-        return source_read(
+        return _answer(
             self.conn,
             key,
             lambda: getattr(self.source, method)(*args, **kwargs),

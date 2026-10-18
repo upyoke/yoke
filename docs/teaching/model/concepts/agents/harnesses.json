@@ -1,8 +1,8 @@
 {
  "id": "harnesses",
  "title": "Harnesses",
- "status": "draft-copy",
- "plan_refs": ["FIRST-USER.18", "FIRST-USER.41", "FIRST-USER.C", "FIRST-USER.P2"],
+ "status": "observed",
+ "review": "One machine-local reconcile composes folder trust, Codex checkout/lane hook trust, unattended posture and machine hooks. Setup, install/refresh, lane preparation and doctor reuse it. Relay home-list changes trigger all registered checkout and lane targets without creating absent harness homes; facet refusals preserve files and teach recovery. Source tests prove late installation, byte-idempotence and backoff; receiving-harness proof remains a release check.",
  "surface_refs": ["packets-help", "resume-context"],
  "commands": ["yoke codex hook-trust sweep", "yoke relay probe-surface", "yoke session-control qualification open", "yoke session-control surface-policy disable", "yoke session-control surface-policy enable", "yoke session-control surface-policy list"],
  "functions": ["session_control.qualification.open", "session_control.surface_policy.disable", "session_control.surface_policy.enable", "session_control.surface_policy.list"],

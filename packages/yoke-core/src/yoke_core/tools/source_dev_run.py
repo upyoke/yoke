@@ -19,6 +19,7 @@ from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
 from yoke_core.domain import verification_tree_binding
 from yoke_core.domain import source_python_environment
 from yoke_core.tools import _source_pythonpath, source_dev_candidate_binding
+from yoke_core.tools.source_machine_home import isolated_machine_home
 
 from yoke_core.tools.source_dev_main_audit import (
     MAIN_CHECKOUT_FALLBACK_EVENT as MAIN_CHECKOUT_FALLBACK_EVENT,
@@ -109,14 +110,7 @@ def _claimed_root(
 def claimed_lane_root(
     selected_lane: Path | str | None = None,
 ) -> tuple[Path | None, str | None]:
-    """Return the session's claimed Yoke source lane, or why there is none.
-
-    Callers that lint or test a *branch diff* need the lane itself, so
-    the mapped-main fallback is reported as a failure here rather than
-    returned: a diff of main against main is empty, and a command that
-    silently accepted main would report a clean result for a branch it
-    never looked at.
-    """
+    """Return a claimed lane; mapped main cannot prove a branch diff."""
     root, error, fallback_project_id = _claimed_root(selected_lane)
     if error or root is None:
         return None, error
@@ -217,6 +211,7 @@ def run(
     command: Sequence[str],
     *,
     lane: Path | str | None = None,
+    allow_real_machine_home: bool = False,
 ) -> int:
     args = list(command)
     if args[:1] == ["--"]:
@@ -245,7 +240,21 @@ def run(
                 file=sys.stderr,
             )
             return 1
-    env = dict(os.environ)
+    try:
+        with isolated_machine_home(
+            dict(os.environ), allow_real=allow_real_machine_home
+        ) as env:
+            return _run_bound(args, root, fallback_project_id, authority_signature, env)
+    except OSError as exc:
+        print(
+            f"source_machine_home_unavailable: {exc}; repair machine-home read "
+            "permissions and temporary storage, then retry.",
+            file=sys.stderr,
+        )
+        return 1
+
+
+def _run_bound(args, root, fallback_project_id, authority_signature, env) -> int:
     try:
         binding = source_python_environment.resolve(root, env)
     except source_python_environment.SourceEnvironmentRefusal as exc:
@@ -300,7 +309,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         prog="yoke dev run",
         description=(
             "Run a command from the current session's claimed Yoke source "
-            "lane, or a registered scanner or claimed-target maintenance "
+            "lane with disposable machine settings, or registered maintenance "
             "operation from its mapped main checkout when no Yoke lane "
             "exists, and report every checkout-owned import origin. A "
             "nested `yoke` or `python3` command uses the checkout's declared "
@@ -316,9 +325,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         metavar="PATH",
         help="Select one live claimed Yoke source lane when several exist.",
     )
+    parser.add_argument(
+        "--allow-real-machine-home",
+        action="store_true",
+        help="Explicitly allow source code to write the real machine home.",
+    )
     parser.add_argument("command", nargs=argparse.REMAINDER)
     parsed = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
-    return run(parsed.command, lane=parsed.lane)
+    return run(
+        parsed.command,
+        lane=parsed.lane,
+        allow_real_machine_home=parsed.allow_real_machine_home,
+    )
 
 
 __all__ = ["claimed_lane_root", "main", "run"]

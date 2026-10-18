@@ -6,6 +6,9 @@ import json
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from yoke_core.domain.qa_requirement_policy_validation import (
+    decode_success_policy,
+)
 
 PLAN_FIELDS = (
     "id",
@@ -114,9 +117,17 @@ PLAN_CASE_COLUMNS = (
 
 
 def semantic_row(row: Mapping[str, Any], fields: Iterable[str]) -> dict[str, Any]:
-    """Return only configured acceptance fields with decoded JSON values."""
+    """Return only configured acceptance fields with decoded JSON values.
+
+    ``success_policy`` decodes through its own reader, which names the
+    requirement and its correction when the stored text is not JSON.
+    """
     result = {field: row.get(field) for field in fields}
-    for field in JSON_FIELDS & result.keys():
+    if "success_policy" in result:
+        result["success_policy"] = decode_success_policy(
+            result["success_policy"], requirement_id=row.get("id")
+        )
+    for field in (JSON_FIELDS - {"success_policy"}) & result.keys():
         value = result[field]
         if value not in (None, "") and not isinstance(value, (dict, list)):
             result[field] = json.loads(str(value))

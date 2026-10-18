@@ -42,7 +42,11 @@ from yoke_core.domain.qa_plan_attachments import _attached_plans
 from yoke_core.domain.qa_plan_execution_target_snapshot import (
     rebind_unresolvable_targets,
 )
-from yoke_core.domain.qa_plan_case_definition import case_baselines, plan_cases
+from yoke_core.domain.qa_plan_case_definition import (
+    case_baselines,
+    materialized_definition,
+    plan_cases,
+)
 from yoke_core.domain.qa_obligation_settlement import obligation_settled
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder, _plan_row
 from yoke_core.domain.qa_plan_refresh_safety import (
@@ -182,6 +186,25 @@ def rematerialize_for_item(
                     )
                     if requirement_id is not None:
                         created_requirement_ids.append(requirement_id)
+                        # A run may already hold a copy answering this plan
+                        # case; it needs the body just written, as a
+                        # refreshed row's copies do.
+                        corrected_admitted_copy_ids.extend(
+                            correct_admitted_copies(
+                                conn,
+                                source_requirement_id=requirement_id,
+                                definition=materialized_definition(
+                                    plan=plan,
+                                    case=case,
+                                    qa_phase=str(attachment["qa_phase"]),
+                                    baseline=baseline,
+                                    baseline_position=baseline_position,
+                                    transition_id=transition_id,
+                                    execution_target=execution_target,
+                                    target_env=target_env,
+                                ),
+                            )
+                        )
                     else:
                         requirement_id = existing_requirement_id(
                             conn,

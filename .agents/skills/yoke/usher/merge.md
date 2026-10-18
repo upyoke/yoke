@@ -136,9 +136,9 @@ receipt before rollback; never undo recorded landed state.
 |---|---|
 | 0 | landing_pending follows queue wait above; otherwise verified landing proceeds to delivery. |
 | 3 | Inspect structured conflict classifications, resolve confidently in actual lane, stage/commit or continue same Git operation, then rerun same merge. Uncertain intent requires operator decision. |
-| 1 | Unlanded push/PR/CI/freshness/verification failure: permitted rollback, release usher-halt-merge-failure, halt. |
+| 1 | Unlanded push/PR/CI/freshness/verification failure: permitted rollback, release usher-halt-merge-failure, halt. For merge_integration_refused, preserve the engine integration, fix the named Git/hook refusal and complete any pending merge commit before retrying; never treat it as user dirt. |
 | 4 | Preserve user files/stash; permitted unlanded rollback, release usher-halt-merge-failure, halt for dirty-state recovery. Read stash list/apply; never discard. |
-| 5 | Merge committed, cleanup failed: no rollback. Leave release stage, release usher-halt-merge-failure, halt; report exact view-regen recovery. Query MergeEngineFailed for phase=post_merge_cleanup/merge_committed diagnostic; durable receipt owns landing. Resume skips merge. |
+| 5 | Merge committed, cleanup failed: no rollback. Leave release stage, release usher-halt-merge-failure, halt; report exact view-regen recovery. Query MergeEngineFailed for phase=post_merge_cleanup/merge_committed diagnostic; durable receipt owns landing. Resume skips merge. For item_landing_record_failed, preserve the lane, restore control-plane access and retry the same merge-worktree command to record the already-landed work and release its claims. |
 | 6 | Merge never began; retry budget exhausted on held lock. Keep stage, release handoff-to-usher, halt batch and retry after holder/TTL/orphan recovery. Not a failure-class rollback. |
 | 9 | Queue coordination above; preserve receipt/stage and follow named requeue/wait recovery, not catch-all. |
 | Other nonzero | Distinguish landed receipt first; unlanded permitted rollback then release usher-halt-unexpected and halt with exact code. No fake done or raw substitute. |

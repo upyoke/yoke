@@ -1,9 +1,0 @@
-{
- "id": "JOURNEYS.question-5",
- "title": "Do any pointer targets lack enough depth to take a user from zero? For example test machines (row 13) and linking related projects (row 14). If so, fill those gaps as their own items.",
- "status": "deferred",
- "concepts": ["context/disclosure", "workbench/onboarding", "documentation/planning"],
- "surfaces": ["global-orientation", "project-orientation", "workbench-cues"],
- "scenarios": ["agent-context"],
- "position": 5
-}

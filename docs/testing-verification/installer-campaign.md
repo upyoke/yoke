@@ -241,3 +241,31 @@ execution. Source sync prepares future definitions; it never starts a fresh run
 or grants execution authority. Preserve existing approval and readiness holds;
 credit this candidate only through its own legitimately admitted execution.
 Retain missing fixture or approval as unproven.
+
+## Sessions outside a project
+
+Three scripted cases use the isolated local setup and the installed candidate.
+`outside-project-sessions` registers one session per declared harness (Claude
+Code, Codex, Cursor) from a folder outside any project and requires
+organization scope in `yoke sessions identity`, the active roster and ended
+history. It ends the sessions only after the startup-probe window, because
+every session read hides a session that ends inside that window without a
+tool call. `outside-project-reinstall` reinstalls without setup and requires the
+same session to keep its organization scope through re-registration.
+`outside-project-first-work` creates an isolated project and task item. The
+outside session must read organization scope with no project; its claim outside
+must refuse `CLAIM_FOLDER_MISMATCH` naming the item and the
+`yoke project register` recovery; from the registered folder it must refuse
+`SESSION_MACHINE_SCOPE_WORK_REFUSED` naming the item and that folder. A session
+opened there must read project scope and either claim the item or refuse only
+with a named non-scope reason such as model admission.
+
+Release QA for the same candidate also owes, in local, self-host and hosted
+modes: Command proof of `yoke sessions list` and ended history, outside-project
+registration on each harness over HTTPS and local, and the claim refusal; and
+the Browser scenario "org-scoped session in roster and detail": the
+**Outside any project** label in the Workbench roster row and session detail,
+no console error, and the session hidden from a signed-in stranger. Model
+admission, real hook delivery and first item done stay with the installer
+exploration. Keep failure and rerun evidence; this proof creates no deployment
+run.

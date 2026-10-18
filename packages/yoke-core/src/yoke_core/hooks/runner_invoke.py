@@ -11,10 +11,12 @@ from __future__ import annotations
 import time
 from typing import Optional
 
+from yoke_contracts.hook_runner.safety import failure_message
+from yoke_contracts.hook_runner.guard_scope import guard_scope
 from yoke_core.hooks.adapter_capability import AdapterCapability
 from yoke_core.hooks.subprocess_policy import run_subprocess_policy
 from yoke_core.hooks.typed_dispatch import audit_only_synthetic, dispatch_typed
-from yoke_core.hooks.types import HookContext, HookDecision
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 __all__ = ["invoke_module"]
@@ -80,8 +82,25 @@ def invoke_module(
         "duration_ms": duration_ms,
     }
     if failure is not None:
+        decision = audit_only_synthetic()
+        if (
+            context.event_name
+            in {"PreToolUse", "PermissionRequest", "apply_patch", "UserPromptSubmit"}
+            and guard_scope(module_id) is not None
+            and module_id.rsplit(".", 1)[-1].startswith(("lint_", "path_claim_"))
+        ):
+            decision = HookDecision(
+                outcome=Outcome.DENY,
+                next=Next.STOP,
+                block=True,
+                message=failure_message(
+                    context.event_name,
+                    context.payload or {},
+                    f"hook_guard_unavailable: {module_id}: {failure}",
+                ),
+            )
         return (
-            audit_only_synthetic(),
+            decision,
             captured,
             failure,
             (

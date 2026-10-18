@@ -5,7 +5,6 @@
  "current": "The standalone hosted setup candidate uses plain titles, retains named invitation failures, and groups settled URL and Subscription facts. Candidate page and hydrated-form screenshots are fixture proof; existing production captures remain the serving baseline.",
  "desired": "During organization creation, show one indicator and one quiet wait line. After 45 seconds the same line teaches that reopening Create organization resumes the work. Accept only exact deployed screen proof and a timed real stage founding journey before marking this verified-live.",
  "note": "These beta and organization-creation screens are hosted-only. Shared machine approval is a separate page and proof obligation; local and self-hosted setup do not acquire these screens.",
- "plan_refs": ["FIRST-USER.27"],
  "surface_refs": ["workbench-cues"],
  "related_scenarios": ["universe-choice"],
  "sources": ["docs/public/actors-members-billing.md", "docs/public/modes.md"],

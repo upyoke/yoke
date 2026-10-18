@@ -11,7 +11,6 @@
  "current": "Existing source references; delivered content is not yet proved.",
  "desired": "Publish a concept cascade with nested navigation, breadcrumbs, stable links and visible release identity.",
  "plan_notes": ["New documentation organization proposal"],
- "plan_refs": ["FIRST-USER.40", "FIRST-USER.B"],
  "sources": ["docs/public/index.md", "docs/public/nav.yaml", "packages/yoke-core/src/yoke_core/domain/install_bundle_tree_sync.py"],
  "private_sources": ["platform"]
 }

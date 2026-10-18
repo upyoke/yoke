@@ -25,6 +25,7 @@ from yoke_core.domain.deployment_run_create_idempotency import (
 from yoke_core.domain.deployment_runs_schema_init import (
     DELIVERY_INTENT_COLUMN_SQL,
 )
+from yoke_core.domain.deployment_run_timings import DEPLOYMENT_RUN_TIMINGS_SQL
 from yoke_core.domain.deployment_stage_receipts import (
     ensure_deployment_stage_receipt_schema,
 )
@@ -158,6 +159,7 @@ def _ensure_flow_schema(conn) -> None:
 
     if _table_exists(conn, "deployment_runs"):
         ensure_deployment_stage_receipt_schema(conn)
+        conn.execute(DEPLOYMENT_RUN_TIMINGS_SQL)
 
     # Add deployment_flow / deploy_stage to items (idempotent).
     # NOTE: SQLite silently drops the inline `REFERENCES` clause on

@@ -54,7 +54,9 @@ from yoke_core.domain.workflow_item_versioning import inspect_item_workflow_pin
     ],
 )
 def test_optional_axes_resolve_all_four_compositions(
-    posture, file_budget, path_claims,
+    posture,
+    file_budget,
+    path_claims,
 ):
     effective = resolve_effective_workflow_policies(
         builtin_workflow_runtime("dash"),
@@ -70,9 +72,7 @@ def test_optional_axes_resolve_all_four_compositions(
 
 def test_builtin_file_budget_defaults_match_workflow_shape():
     policies = {
-        workflow_id: builtin_workflow_definition(workflow_id)[
-            "definition"
-        ]["policies"]
+        workflow_id: builtin_workflow_definition(workflow_id)["definition"]["policies"]
         for workflow_id in ("issue", "epic", "blitz", "dash", "task")
     }
 
@@ -86,9 +86,7 @@ def test_builtin_file_budget_defaults_match_workflow_shape():
 
 
 def test_schema_two_requires_file_budget_while_history_remains_schema_one():
-    definition = deepcopy(
-        builtin_workflow_definition("dash")["definition"]
-    )
+    definition = deepcopy(builtin_workflow_definition("dash")["definition"])
     definition["policies"].pop("file_budget")
 
     with pytest.raises(WorkflowDefinitionError, match="file_budget"):
@@ -96,9 +94,7 @@ def test_schema_two_requires_file_budget_while_history_remains_schema_one():
 
 
 def test_schema_one_rejects_file_budget_posture_allowlist():
-    definition = deepcopy(
-        builtin_workflow_definition("dash")["definition"]
-    )
+    definition = deepcopy(builtin_workflow_definition("dash")["definition"])
     definition["schema_version"] = 1
     definition["policies"].pop("file_budget")
 
@@ -108,9 +104,7 @@ def test_schema_one_rejects_file_budget_posture_allowlist():
 
 @pytest.mark.parametrize("axis", ("file_budget", "path_claims"))
 def test_task_scoped_axis_requires_generated_tasks(axis):
-    definition = deepcopy(
-        builtin_workflow_definition("dash")["definition"]
-    )
+    definition = deepcopy(builtin_workflow_definition("dash")["definition"])
     definition["policies"][axis] = "required_per_task"
     if axis == "file_budget":
         definition["policies"]["item_posture_allowlist"].remove("file_budget")
@@ -122,9 +116,7 @@ def test_task_scoped_axis_requires_generated_tasks(axis):
 
 
 def test_file_budget_posture_rejects_redundant_tightening():
-    definition = deepcopy(
-        builtin_workflow_definition("dash")["definition"]
-    )
+    definition = deepcopy(builtin_workflow_definition("dash")["definition"])
     definition["policies"]["file_budget"] = "required"
 
     validate_workflow_definition(definition)
@@ -255,8 +247,7 @@ def test_explicit_parity_evaluator_remains_available_when_policy_opts_out(
 
     assert verify_effective_file_budget_claim_consistency(test_db, 3319) == []
     assert [
-        issue.code
-        for issue in verify_file_budget_claim_consistency(test_db, 3319)
+        issue.code for issue in verify_file_budget_claim_consistency(test_db, 3319)
     ] == ["FILE_BUDGET_NOT_IN_CLAIM"]
 
 
@@ -322,11 +313,11 @@ def test_epic_requires_a_persisted_budget_for_each_generated_task(test_db):
 
 def test_epic_ignores_whitespace_only_task_budget_path(test_db):
     insert_item(test_db, id=3392, workflow_id="epic")
-    insert_epic_task(test_db, epic_id=3392, task_num=1)
-    test_db.execute(
-        "INSERT INTO epic_task_files "
-        "(epic_id, task_num, file_path, action) VALUES (%s, %s, %s, %s)",
-        (3392, 1, "   ", "modify"),
+    insert_epic_task(
+        test_db,
+        epic_id=3392,
+        task_num=1,
+        body="## Files Touched\n\n- modify `   `\n",
     )
     test_db.commit()
 

@@ -100,7 +100,7 @@ def test_onboard_yes_writes_machine_config_and_project_handoff(
     assert checklist_call["payload"]["checkout_path"] == str(checkout.resolve())
     written = json.loads(config.read_text(encoding="utf-8"))
     assert written["active_env"] == "prod"
-    assert written["projects"] == [
+    assert written["connection_projects"]["prod"] == [
         {"checkout": str(checkout.resolve()), "project_id": 44}
     ]
     assert (checkout / ".yoke/install-manifest.json").is_file()
