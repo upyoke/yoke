@@ -64,7 +64,19 @@ becomes a re-land attempt in
 [`merge_queue_landing_attempts`](../functions/merge-queue-landing-attempts.md)
 and the item's `merge_queue_*` columns stay on the previous landing. One
 attempt is open per item; a newer pull request closes the older attempt as
-superseded.
+superseded. Opening a never-armed attempt preserves the prior landed
+observation; closing that attempt unmerged leaves it available. Arming a new
+attempt starts a new observation episode.
+
+When a lane adds no content to its target, re-run `yoke merge item PREFIX-N`
+with `--result` and `--verification`. Close-out verifies the newest completed
+Merge Receipt against the fetched target and uses the pull request that
+carried that merge. A newer merge carrying the lane candidate still uses its
+own landing observation instead of an older receipt. A later open, unarmed pull request needs no landing
+observation and is not armed again. `merge_recorded_landing_missing` means
+no completed identity can be read: preserve the lane and ask the control-plane
+operator to restore its recorded landing, then retry. An ancestry or carrier
+read refusal names the checkout or provider access to repair.
 
 The observer reads the open attempt instead of the delivered landing. When
 the attempt merges, the observer moves the item's columns onto it, stamps

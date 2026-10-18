@@ -173,16 +173,15 @@ def find_entry(
     *,
     branch: str,
     target: str = "",
+    landed_only: bool = False,
 ) -> Optional[dict[str, Any]]:
-    """The newest entry for ``branch``, narrowed to ``target`` when given.
-
-    Lane retirement knows the branch a lane recorded but not the target it
-    landed on, so an empty ``target`` matches any target for that branch.
-    """
+    """Newest branch entry; optional target and completed-landing filters."""
     for entry in newest_first(read_entries(conn, item_id)):
         if str(entry.get("branch") or "") != branch:
             continue
         if target and str(entry.get("target") or "") != target:
+            continue
+        if landed_only and not entry.get("merge_sha"):
             continue
         return entry
     return None

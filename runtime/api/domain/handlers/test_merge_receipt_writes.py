@@ -233,3 +233,30 @@ class TestRegistration:
         # and the item claim is enforced upstream by the merge boundary.
         assert entry.ambient_session_required is False
         assert entry.claim_required_kind is None
+
+
+def test_landed_only_returns_completed_history_behind_a_pending_attempt(db):
+    item_id = 9606
+    _seed_item(db, item_id)
+    base = {"branch": BRANCH, "target": TARGET}
+    for identity in (
+        {"commit_sha": "a" * 40, "merge_sha": "b" * 40},
+        {"commit_sha": "c" * 40},
+    ):
+        assert writes.handle_record_merge_receipt(
+            _envelope(
+                "merge_receipt.record",
+                item_id=item_id,
+                payload={**base, **identity},
+            )
+        ).primary_success
+    outcome = writes.handle_get_merge_receipt(
+        _envelope(
+            "merge_receipt.get",
+            item_id=item_id,
+            payload={**base, "landed_only": True},
+        )
+    )
+    assert outcome.primary_success
+    assert outcome.result_payload["entry"]["commit_sha"] == "a" * 40
+    assert outcome.result_payload["entry"]["merge_sha"] == "b" * 40

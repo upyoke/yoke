@@ -71,11 +71,15 @@ advance that item's pinned workflow by its unique forward edge with
 `yoke lifecycle transition`. This command names that route and does not
 guess a stage or transition. An absent worktree alone does not attest
 no_changes. A missing or ambiguous forward edge stays a named refusal
-(`workflow_next_stage_ambiguous`).
+(`workflow_next_stage_ambiguous`). A lane that adds nothing converges on its
+newest completed Merge Receipt after proving the merge is on the target.
+A later unarmed PR needs no observation. Missing recorded identity refuses
+with `merge_recorded_landing_missing`; preserve the lane and ask the
+control-plane operator to restore that landing, then retry.
 
 Queue landing
 -------------
-A relay-launched session always arms the landing and returns
+When work remains to land, a relay-launched session arms the landing and returns
 `landing_pending=true` with the pull request named. That is the handoff, not a
 failure: stop, and re-run this same command when the landing notice arrives.
 It rejoins by exact commit rather than dispatching a second suite.

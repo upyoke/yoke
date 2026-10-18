@@ -26,3 +26,6 @@ per item. Rows are kept after closing so the reason stays readable through
 `yoke items detail get` under `merge_queue.attempt`.
 
 The table is additive and converges on boot; it needs no governed migration.
+
+An unarmed attempt retains the prior landed observation. Arming replaces that
+observation episode; a never-armed attempt closed unmerged leaves it intact.

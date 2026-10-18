@@ -142,13 +142,19 @@ def record_settlement(item_id: int, *, branch: str, target: str) -> str:
     )
 
 
-def load(item_id: int, branch: str, target: str) -> Optional[MergeReceipt]:
+def load(
+    item_id: int, branch: str, target: str, *, landed_only: bool = False
+) -> Optional[MergeReceipt]:
     """The receipt this item recorded for ``branch``/``target``."""
     try:
         response = _call(
             GET_FUNCTION_ID,
             item_id,
-            {"branch": branch, "target": target},
+            {
+                "branch": branch,
+                "target": target,
+                **({"landed_only": True} if landed_only else {}),
+            },
         )
     except Exception:  # noqa: BLE001 - an unreachable store is "no receipt"
         return None
