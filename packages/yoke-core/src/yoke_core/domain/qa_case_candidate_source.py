@@ -64,7 +64,9 @@ def candidate_source(
         return
     root = root.resolve()
     # Each runner reads its own declaration; an enclosing case cannot supply it.
-    incoming = dict(env)
+    from yoke_core.tools.source_postgres_environment import shared_postgres_environment
+
+    incoming = shared_postgres_environment(env)
     incoming.pop(source_python_environment.QA_SOURCE_ENVIRONMENT_ENV, None)
     try:
         environment = source_python_environment.resolve(root, incoming)

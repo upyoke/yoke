@@ -43,9 +43,7 @@ def product_command_environment(env: Mapping[str, str]) -> dict[str, str]:
     Do not ``Path.resolve()`` the executable: a venv ``python`` is often a
     symlink onto the base interpreter, and that base has no product packages.
     """
-    from yoke_core.tools.source_postgres_environment import shared_postgres_environment
-
-    out = shared_postgres_environment(env)
+    out = dict(env)
     python_bin = str(Path(sys.executable).parent)
     existing = out.get("PATH", "")
     out["PATH"] = python_bin + ((os.pathsep + existing) if existing else "")

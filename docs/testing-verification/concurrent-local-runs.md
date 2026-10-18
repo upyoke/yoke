@@ -102,7 +102,8 @@ is reachable. It is a throughput guard, not a correctness gate.
 
 Before replacing `HOME` or `YOKE_MACHINE_HOME`, retain the shared test
 resource environment: `YOKE_PG_CLUSTER_ROOT` and `YOKE_PG_BIN_DIR`.
-`yoke dev run`, the pytest runner and Command QA supply these before home
+`yoke dev run`, the pytest runner and candidate-bound Yoke Command QA supply
+these before home
 isolation. The cluster root stays independent of each run's evidence root;
 `YOKE_PG_BIN_DIR` points at the machine's pinned embedded PostgreSQL binaries,
 so an empty home does not select a different PostgreSQL major from PATH.

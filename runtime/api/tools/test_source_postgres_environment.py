@@ -37,14 +37,32 @@ def test_repeated_source_homes_keep_cluster_and_binary_identity(tmp_path, monkey
     assert identities[0][1] == str(machine / "postgres/17.10.0/bin")
 
 
-def test_qa_environment_preserves_cluster_when_home_is_replaced(tmp_path):
+def test_qa_environment_preserves_cluster_when_home_is_replaced(tmp_path, monkeypatch):
     selected = tmp_path / "chosen-cluster"
     binaries = tmp_path / ".yoke/postgres/17.10.0/bin"
     binaries.mkdir(parents=True)
     (binaries / "initdb").touch()
-    env = qa_case_command_stream.product_command_environment(
+    import sys
+    from yoke_core.domain import qa_case_candidate_source as candidate
+    from yoke_core.domain.source_python_environment import SourcePythonEnvironment
+
+    monkeypatch.setattr(candidate.source, "is_yoke_shaped_tree", lambda root: True)
+    monkeypatch.setattr(
+        candidate.source, "with_source_pythonpath", lambda env, root: dict(env)
+    )
+    monkeypatch.setattr(candidate.source, "import_origins", lambda *a, **kw: ({}, None))
+    monkeypatch.setattr(
+        candidate.source_python_environment,
+        "resolve",
+        lambda root, env: SourcePythonEnvironment(
+            sys.executable, dict(env), {"declaration": {}}
+        ),
+    )
+    incoming = qa_case_command_stream.product_command_environment(
         {"HOME": str(tmp_path), "YOKE_PG_CLUSTER_ROOT": str(selected)}
     )
+    with candidate.candidate_source(tmp_path, incoming) as binding:
+        env = dict(binding.env)
     env.update(HOME="/disposable", YOKE_MACHINE_HOME="/disposable/.yoke")
     assert shared_postgres_environment(env)["YOKE_PG_CLUSTER_ROOT"] == str(selected)
     assert env["YOKE_PG_BIN_DIR"] == str(tmp_path / ".yoke/postgres/17.10.0/bin")
@@ -252,3 +270,11 @@ def test_postmaster_inventory_preserves_spaces_in_owned_paths(monkeypatch):
     assert reclaim._postmasters() == [
         (12, Path("/tmp/evidence/private cluster"), Path("/embedded engine/bin"))
     ]
+
+
+def test_ordinary_command_qa_does_not_inject_test_cluster_resources(tmp_path):
+    env = qa_case_command_stream.product_command_environment(
+        {"HOME": str(tmp_path), "PATH": "/system/bin"}
+    )
+    assert "YOKE_PG_CLUSTER_ROOT" not in env
+    assert "YOKE_PG_BIN_DIR" not in env
