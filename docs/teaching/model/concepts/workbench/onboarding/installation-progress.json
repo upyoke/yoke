@@ -1,7 +1,9 @@
 {
  "id": "installation-progress",
  "title": "Installation progress",
- "status": "draft-copy",
+ "status": "observed",
  "page": "workbench",
- "position": 0
+ "position": 0,
+ "text": "Finish the installation wizard activates once the viewer's machine is connected. GitHub and hosting are recommended rows; a project is not part of installation, because the person's agent adds one afterwards.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/overview_activation_read.py", "packages/yoke-core/src/yoke_core/ui/static/universe_onboarding_copy.js"]
 }

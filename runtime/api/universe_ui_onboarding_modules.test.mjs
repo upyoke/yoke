@@ -103,24 +103,22 @@ test("the wizard checklist renders ✓/○ rows with tail allowances", async (t)
 
   const rows = byClass(root, "activation-check");
   assert.deepEqual(rows.map((row) => row.attributes.get("data-sub")), [
-    "machine_universe", "github", "first_project", "hosting",
+    "machine_universe", "github", "hosting",
   ]);
   assert.deepEqual(
     rows.map((row) => byClass(row, "activation-check-mark")[0].textContent),
-    ["✓", "○", "○", "✓"],
+    ["✓", "○", "✓"],
   );
   assert.deepEqual(
     rows.map((row) => byClass(row, "activation-check-label")[0].textContent),
     [
-      "Local universe created", "GitHub connected", "First project created",
-      "Hosting connected",
+      "Local universe created", "GitHub connected", "Hosting connected",
     ],
   );
-  // The pending recommended tail row is the only one allowed to wait;
-  // the pending REQUIRED row carries no such allowance.
+  // Only the pending recommended tail row is allowed to wait.
   assert.deepEqual(
     rows.map((row) => byClass(row, "activation-check-optional").length),
-    [0, 1, 0, 0],
+    [0, 1, 0],
   );
   assert.equal(
     byClass(rows[1], "activation-check-optional")[0].textContent,
@@ -148,7 +146,7 @@ test("hosted with the machine pending reads the web-first copy", async (t) => {
     states: { finish_installation_wizard: "in_progress" },
     extras: {
       finish_installation_wizard: {
-        submodules: wizardSubmodules({ project: true }),
+        submodules: wizardSubmodules(),
       },
     },
   });
@@ -164,8 +162,8 @@ test("hosted with the machine pending reads the web-first copy", async (t) => {
   const code = allNodes(webFirst).find((node) => node.tagName === "CODE");
   assert.equal(code.textContent, "curl -fsSL https://upyoke.com/install | sh");
   assert.ok(textOf(webFirst).includes(
-    " — the wizard connects this machine, then GitHub · Project · " +
-    "Hosting fold in here.",
+    " — the wizard connects this machine, then GitHub · Hosting " +
+    "fold in here.",
   ));
   // The hosted machine row wears its hosted label.
   assert.equal(

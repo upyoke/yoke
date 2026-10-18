@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createProjectSelection } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_project_selection.js";
 import { scopeForRoute, SCOPE_MULTI, SCOPE_NONE } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_destinations.js";
+import { ADD_PROJECT_CUE } from "../../packages/yoke-core/src/yoke_core/ui/static/add_project_cue.js";
 
 import {
   buildUniverseRoute,
@@ -302,7 +303,7 @@ test("a multi view still reads an empty universe, unfiltered", async (t) => {
   await settle();
 
   // An unfiltered read over an empty universe is honest: the view renders
-  // its own empty table rather than a "no projects" panel.
+  // its own empty table beneath the add-project route.
   assert.ok(requests.some(
     (request) => request.function === "items.overview.list" &&
       !("project" in request.payload),
@@ -310,6 +311,6 @@ test("a multi view still reads an empty universe, unfiltered", async (t) => {
   const text = allNodes(root)
     .map((node) => node.textContent || "").join(" ");
   assert.ok(text.includes("No items match this view."));
-  assert.ok(!text.includes("no projects yet"));
+  assert.ok(text.includes(ADD_PROJECT_CUE));
   mounted.unmount();
 });

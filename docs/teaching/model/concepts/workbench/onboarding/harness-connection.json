@@ -1,7 +1,9 @@
 {
  "id": "harness-connection",
  "title": "Harness connection",
- "status": "draft-copy",
+ "status": "observed",
  "page": "workbench",
- "position": 1
+ "position": 1,
+ "text": "Before any machine reports a harness, the module names each project's directory to open. With no project yet it shows the add-project cue instead, since there is no directory to name.",
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/universe_onboarding_machines.js", "packages/yoke-core/src/yoke_core/ui/static/add_project_cue.js"]
 }
