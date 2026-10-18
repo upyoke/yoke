@@ -20,6 +20,12 @@ from a machine you already connected with
 machine receives the approver's identity, so approve only your own codes; the
 wizard therefore keeps a teammate without company sign-in on API-token entry.
 
+A person running `yoke connect` in a terminal sees an opening notice before
+Yoke opens the approval link in the default browser. Approve there, then return
+to the terminal. Agent, non-TTY and `--json` runs print the link for the person
+to open; `--json` sends approval instructions on stderr. If the browser cannot
+open, use the printed link yourself.
+
 ## Wire
 
 - `POST /api/machine/authorizations` returns `device_code`, `user_code`,
