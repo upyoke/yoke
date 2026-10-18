@@ -64,6 +64,9 @@ that owns those old IDs before registering. The retained flat list is an inert
 snapshot for an already installed older reader; new routing never falls back to
 it, and later registrations update only `connection_projects`.
 
+Unknown keys warn once per file/key as `machine_config_key_unknown` and are ignored.
+Remove the key or use a release that supports it. Invalid known values still refuse;
+extra settings do not disable commands or harness hooks.
 
 The installer records `settings.distribution` as `{"origin": "https://api.upyoke.com",
 "channel": "stable"}` using the actual install selection. `yoke update` requires

@@ -14,8 +14,8 @@ def _source_runner():
 def source_dev_run(args: List[str]) -> int:
     if show_delegate_help(
         args,
-        "yoke dev run [--lane PATH] -- COMMAND [ARG ...]",
-        "Uses a claimed source lane and its locked environment. Registered scanners and claimed-target maintenance may use the mapped main checkout when no lane exists.",
+        "yoke dev run [--lane PATH] [--allow-real-machine-home] -- COMMAND [ARG ...]",
+        "Uses a claimed source lane, its locked environment, and a disposable machine-home snapshot. --allow-real-machine-home explicitly permits real machine writes. Registered scanners and claimed-target maintenance may use the mapped main checkout when no lane exists.",
     ):
         return 0
     return _source_runner().main(args)

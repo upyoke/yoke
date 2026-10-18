@@ -38,14 +38,34 @@ the declaration lookup, so disposable checkouts need no machine checkout
 mapping or manual ambient project export. Select it with `--project P` on
 the QA command; an absent selection and mapping still produce a named refusal.
 
-The child receives the caller's connected-environment selection and machine
-config unchanged. `dev run` changes where source resolves; it does not change
-which control plane or database the command uses. Put an explicit selection on
+Before any source import probe or child starts, `dev run` creates a private,
+disposable machine-home snapshot. It copies machine settings, secrets, and referenced
+files under that home, rebases machine-home paths, and supplies private default
+cache and temp paths. It does not clone caches, runtimes or live relay state.
+Source config writes affect only the snapshot, which is removed after the
+command finishes or refuses. Watcher captures use the printed separate
+`source evidence root` through `YOKE_SCRATCH_ROOT`, so proof survives snapshot
+cleanup; empty evidence roots are removed. The caller's connected-environment selection
+and project mappings remain available; isolation does not change which
+control plane or database the command uses. Put an explicit selection on
 the outer command so the lane-sourced child inherits it:
 
 ```bash
 yoke --env <name> dev run -- <command>
 ```
+
+When a source command must deliberately change the selected real machine home,
+use the named opt-in on the outer runner:
+
+```bash
+yoke dev run --allow-real-machine-home -- <command>
+```
+
+This flag permits real writes and is printed in the execution evidence. The
+installed-release CLI keeps its ordinary machine-home behavior. A snapshot
+failure refuses as `source_machine_home_unavailable`; repair the named config's
+JSON/read permissions or temporary storage, then retry. This is environment
+isolation for cooperative source commands, not an operating-system sandbox.
 
 Prod-flagged schema and administered-cluster guards still judge that selected
 connection inside the child. Pytest is different: `yoke watch pytest` and the

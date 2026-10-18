@@ -4,10 +4,10 @@
  "status": "observed",
  "audience": "agent",
  "when": "A launched worker initializes local state or changes connections",
- "need": "Select YOKE_MACHINE_HOME before configuration commands. It owns config.json and wins over a stale config-file override. Relay launches strip inherited YOKE_MACHINE_CONFIG_FILE; foreign writes refuse machine_config_not_owned with a recovery step, even when no home override is set.",
+ "need": "Select YOKE_MACHINE_HOME before configuration commands. It owns config.json and wins over a stale config-file override. Relay launches strip inherited YOKE_MACHINE_CONFIG_FILE; foreign writes refuse machine_config_not_owned with a recovery step, even when no home override is set. Use dev run for source commands: it snapshots settings before source imports and removes the private home after exit. Only --allow-real-machine-home permits deliberate real writes. Unknown config keys warn and do not block hooks.",
  "disclosure": "current cue",
  "surface": "Config writer help and CLI/config machine-config home",
  "review": "Candidate subprocess tests cover Claude, Codex and Cursor child environments and preserve the steering configuration; deployed behavior remains unproven.",
- "sources": ["docs/public/cli/machine-config.md", "runtime/api/cli/test_worker_machine_config_isolation.py", "runtime/harness/test_session_relay_environment.py"],
+ "sources": ["docs/public/cli/machine-config.md", "runtime/api/cli/test_worker_machine_config_isolation.py", "runtime/harness/test_session_relay_environment.py", "runtime/api/tools/test_source_machine_home.py", "runtime/api/cli/test_machine_config_unknown_keys.py"],
  "position": 7
 }

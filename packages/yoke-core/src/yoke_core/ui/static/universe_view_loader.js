@@ -2,13 +2,18 @@
 import { el } from "./universe_view_support.js";
 
 export function deferredRenderer(load, name) {
-  return (context, host, ...args) => {
+  let pending;
+  const loadModule = () => pending ||= Promise.resolve().then(load).catch((error) => {
+    pending = null;
+    throw error;
+  });
+  const render = (context, host, ...args) => {
     const signal = context.signal;
     const current = () => context.isMounted() && !signal?.aborted;
     const loading = el(context.document, "p", "item-roster-note", "Loading screen…");
     loading.setAttribute("role", "status");
     host.appendChild(loading);
-    return Promise.resolve().then(load).then((module) => {
+    return loadModule().then((module) => {
       if (!current()) return null;
       loading.parentNode?.removeChild(loading);
       return module[name](context, host, ...args);
@@ -18,4 +23,8 @@ export function deferredRenderer(load, name) {
       return null;
     });
   };
+  // Warming imports no data and renders nothing. A failed warm-up leaves the
+  // real render free to retry and report its normal recovery if it fails too.
+  render.preload = () => loadModule().catch(() => null);
+  return render;
 }
