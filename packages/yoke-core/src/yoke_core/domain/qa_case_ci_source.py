@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Optional
 
 from yoke_core.domain import qa_case_ci_lane, verification_tree_binding
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
@@ -84,3 +85,24 @@ def require_source_agreement(
             "or use its sanctioned source-dev/admin authority. Preserve existing "
             "branches; conflicting remote work needs registered reconciliation."
         )
+
+
+def resolve_checkout(case: dict, checkout_path: Optional[str | Path]) -> Path:
+    if case.get("deployment_run_id"):
+        raise QaCaseExecutionError(
+            "deployment_ci_candidate_unverified: command-ci verifies an item "
+            f"lane, not deployment run {case['deployment_run_id']!r}. No action was "
+            "produced. Replace this post-deploy case with the command method "
+            "and run the same stage/member QA plan; without --checkout-path "
+            "that runner checks out the run's pinned candidate."
+        )
+    from yoke_core.domain.qa_case_execution import _execution_checkout
+
+    checkout = (
+        Path(checkout_path).resolve()
+        if checkout_path is not None
+        else _execution_checkout(case)
+    )
+    if not checkout.is_dir():
+        raise QaCaseExecutionError(f"CI execution checkout does not exist: {checkout}")
+    return checkout

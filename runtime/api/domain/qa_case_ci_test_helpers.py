@@ -13,6 +13,7 @@ path exactly as it did before that path had an alternative.
 from __future__ import annotations
 
 import base64
+from contextlib import nullcontext
 from pathlib import Path
 
 from yoke_core.domain import (
@@ -105,6 +106,16 @@ def wire_ci_case(tmp_path, monkeypatch) -> tuple[Path, Recorder, Path]:
     """Stub every boundary the runner crosses; return its wiring."""
     checkout = tmp_path / "checkout"
     checkout.mkdir()
+    from yoke_core.engines.merge_worktree_pr_discovery import BranchListing
+
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_case_ci_authority.machine_github_user_authority",
+        nullcontext,
+    )
+    monkeypatch.setattr(
+        "yoke_core.engines.merge_worktree_pr_discovery.list_branch_pull_requests",
+        lambda *a, **k: BranchListing(),
+    )
     artifact = tmp_path / "ci-run-output.txt"
     recorder = Recorder(artifact)
     monkeypatch.setattr(qa_case_execution, "_dispatch", recorder)
