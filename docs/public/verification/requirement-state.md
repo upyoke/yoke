@@ -236,7 +236,8 @@ new walk; manual retractions and terminal execution histories remain intact.
 Removing a member (`yoke deployment-runs remove-item`) aborts that member's
 live executions with reason `deployment-member-removed`. A case already running
 must stop and prove restoration before host custody releases; removal can
-refuse with `qa_abort_restore_pending` while that cleanup finishes.
+refuse with `qa_abort_restore_required`: request cancellation through plan
+abort, keep the runner connected through cleanup, then retry removal.
 The runner's abort response returns the execution's `release_reason`. When it
 names the removal, `yoke qa plan run` reports the case as `case_outcome:
 removed` with plan state `removed` and exit status 1, not as a host-control

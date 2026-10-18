@@ -56,9 +56,10 @@ Coordination-only and satisfied edges do not delay composition.
 
 Removing a release member aborts its live run/member QA executions, releases
 their host turns and leases, and retracts every unsettled run copy of its QA,
-with [in-flight host cancellation](deployment-plan-execution.md#stop-host-work-safely)
-waiting for restore proof before releasing custody,
-even one passed before a later failure; history and item plans remain. To clean
+even one passed before a later failure; history and item plans remain.
+[In-flight host cancellation](deployment-plan-execution.md#stop-host-work-safely)
+refuses as `qa_abort_restore_required`: abort through the plan command, wait
+for restore proof, then retry removal. To clean
 an older removal's residue, a holder runs `yoke qa plan abort --deployment-run-id
 RUN --execution-id ID --reason TEXT --project P` (read its `--help` first). The
 audited removal keeps abort authority under the member's item claim and

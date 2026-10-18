@@ -132,7 +132,7 @@ def finish_plan_execution(
     if state in {"aborted", "error"}:
         from yoke_core.domain.qa_plan_execution_abort_state import require_host_restored
 
-        require_host_restored(conn, execution, reason=reason)
+        require_host_restored(conn, execution, reason=reason, commit=commit)
     if state == "completed" and int(execution["cursor_ordinal"]) != len(
         execution["roster"]
     ):

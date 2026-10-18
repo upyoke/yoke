@@ -22,7 +22,7 @@ def abort_request(execution):
     return checkpoint.get("abort")
 
 
-def require_host_restored(conn, execution, *, reason):
+def require_host_restored(conn, execution, *, reason, commit):
     """Persist cancellation before refusing an unproven host release."""
     from yoke_core.domain.qa_plan_execution_reentry import (
         PAUSE_REASON,
@@ -52,6 +52,14 @@ def require_host_restored(conn, execution, *, reason):
     )
     if host_restored(conn, execution, ordinal):
         return
+    if not commit:
+        raise QaPlanExecutionStateError(
+            "qa_abort_restore_required: in-flight host work must stop and prove "
+            "restoration before this operation can settle it. Run `yoke qa plan "
+            "abort` for this execution's item, deployment run or standalone "
+            "project, keep its runner connected through cleanup, then retry "
+            "this operation. No caller changes were committed."
+        )
     checkpoint = json.loads(inflight_checkpoint(execution)[len(PAUSE_REASON) :])
     checkpoint["abort"] = request or {"reason": reason, "ordinal": ordinal}
     encoded = PAUSE_REASON + canonical(checkpoint)

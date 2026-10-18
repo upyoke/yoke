@@ -121,6 +121,26 @@ def test_server_retains_lease_until_submitted_restore_proof(
     )
     assert ready.primary_success, ready.error
     execution = lock_plan_execution(test_db, execution["id"])
+    original_title = test_db.execute(
+        "SELECT title FROM items WHERE id=%s", (item_id,)
+    ).fetchone()[0]
+    test_db.execute(
+        "UPDATE items SET title=%s WHERE id=%s", ("uncommitted caller change", item_id)
+    )
+    with pytest.raises(QaPlanExecutionStateError, match="qa_abort_restore_required"):
+        finish_plan_execution(
+            test_db,
+            execution,
+            state="aborted",
+            reason="nested cancellation",
+            commit=False,
+        )
+    test_db.rollback()
+    assert (
+        test_db.execute("SELECT title FROM items WHERE id=%s", (item_id,)).fetchone()[0]
+        == original_title
+    )
+    execution = lock_plan_execution(test_db, execution["id"])
     with pytest.raises(QaPlanExecutionStateError, match="qa_abort_restore_pending"):
         finish_plan_execution(
             test_db, execution, state="aborted", reason="operator cancelled"
