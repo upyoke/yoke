@@ -24,6 +24,7 @@ from typing import List, Optional
 def configure_harness_unattended_posture(
     *,
     checkout: Optional[Path] = None,
+    harnesses: tuple[str, ...] = ("claude-code", "codex", "cursor"),
     stream=None,
 ) -> List[str]:
     """Apply the posture to every detected harness; return what changed.
@@ -47,12 +48,22 @@ def configure_harness_unattended_posture(
     # Claude's module prints its own multi-line notice (relaunch instructions
     # the other two have no equivalent of), so it reports and this adds the
     # one-line summary; the other two report only, and are printed here.
-    if configure_claude_app_bypass_permissions(stream=out):
+    if "claude-code" in harnesses and configure_claude_app_bypass_permissions(
+        stream=out
+    ):
         actions.append("claude-code: enabled bypass permissions in Claude desktop")
     reported = (
-        list(configure_claude_cli_permission_mode(stream=out))
-        + list(configure_codex_unattended_posture(checkout=checkout))
-        + list(configure_cursor_unattended_posture())
+        (
+            list(configure_claude_cli_permission_mode(stream=out))
+            if "claude-code" in harnesses
+            else []
+        )
+        + (
+            list(configure_codex_unattended_posture(checkout=checkout))
+            if "codex" in harnesses
+            else []
+        )
+        + (list(configure_cursor_unattended_posture()) if "cursor" in harnesses else [])
     )
     for line in reported:
         out.write(f"{line}\n")

@@ -170,6 +170,22 @@ Install or upgrade a supported native CLI or embedded desktop engine, start
 a new session, and rerun project refresh. Desktop users verify
 their embedded engine separately; the outer app version proves no capability.
 
+## Harness setup and later installs
+
+Run `yoke doctor run --only harness-setup --fix` to repair folder trust,
+Codex hook trust, unattended permissions and machine-wide hooks together.
+Setup, project install/refresh, source launcher install and lane preparation
+call the same idempotent reconcile. The relay detects a newly present harness
+home and reconciles every registered checkout and its Git-registered lanes.
+It never creates an absent harness home; CLI presence alone is not installation.
+Lane hook trust is mirrored only from identical trusted checkout content.
+Malformed or unwritable files are preserved and named with recovery while
+other facets continue. Read without `--fix` to inspect without writing.
+The relay's `harness-setup-reconcile.json` records successful fingerprints and
+failed rows; failures retry after 15 minutes or immediately on another change.
+Doctor includes that durable failure and reports a Codex home without a CLI
+or desktop app, with instructions to remove an unintended home or open Codex.
+
 ## Guard scope
 
 Register a managed checkout with `yoke project register <checkout> --project-id <id>`.

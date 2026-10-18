@@ -32,6 +32,7 @@ _ENGINE_CONFIG_SLUGS = (
     "session-relay",
     "session-relay-orphans",
     "harness-unattended-posture",
+    "harness-setup",
     "hook-resident",
     "project-hook-config-validity",
     "machine-hooks",

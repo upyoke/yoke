@@ -43,7 +43,9 @@ def resolve_mode(root: Path, explicit: Optional[str]) -> Tuple[str, str]:
 
 
 def install_source_link(
-    repo_root: Path, *, operation: str = "install",
+    repo_root: Path,
+    *,
+    operation: str = "install",
 ) -> Dict[str, Any]:
     """Delegate source-link repair to core when available."""
     try:
@@ -56,12 +58,6 @@ def install_source_link(
             "Yoke source checkout."
         ) from exc
     report = module.install_source_link(repo_root, operation=operation)
-    # The same machine-wide hooks copy-mode install converges.
-    from yoke_harness.hooks.machine_hooks import ensure_machine_hooks_reported
-
-    report["machine_hooks"], failures = ensure_machine_hooks_reported()
-    if failures:
-        report.setdefault("warnings", []).extend(failures)
     return report
 
 

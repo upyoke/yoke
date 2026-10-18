@@ -211,6 +211,7 @@ _SHAPES = (
             "connections",
             "administered-scratch-databases",
             "harness-unattended-posture",
+            "harness-setup",
             "machine-hooks",
             "hook-resident",
             "harness-cli-auth",
