@@ -47,6 +47,8 @@ def _postmasters() -> list[tuple[int, Path, Path]]:
 
 
 def _spec(pid: int, root: Path, binaries: Path) -> tuple[ClusterSpec, float]:
+    from yoke_core.tools.pg_testcluster import PGUSER
+
     if root.is_symlink() or root.stat().st_uid != os.getuid():
         raise ValueError("cluster root is not an owned real directory")
     data = root / "data"
@@ -57,7 +59,7 @@ def _spec(pid: int, root: Path, binaries: Path) -> tuple[ClusterSpec, float]:
         raise ValueError("postmaster identity changed")
     return ClusterSpec(
         root=root,
-        superuser="yoketest",
+        superuser=PGUSER,
         bin_dir=binaries,
         socket_dir=Path(lines[4]),
         stop_mode="immediate",
@@ -71,7 +73,7 @@ def _idle(spec: ClusterSpec) -> bool:
             "-d",
             postgres_cluster.dsn(spec),
             "-Atc",
-            "SELECT current_user = 'yoketest' AND NOT EXISTS "
+            f"SELECT current_user = '{spec.superuser}' AND NOT EXISTS "
             "(SELECT 1 FROM pg_stat_activity WHERE backend_type = 'client backend' "
             "AND pid <> pg_backend_pid())",
         ],
