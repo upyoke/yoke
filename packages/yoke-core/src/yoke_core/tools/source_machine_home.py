@@ -114,7 +114,8 @@ def isolated_machine_home(
             identity = resolve_ambient_session_id()
             if identity:
                 resolved["YOKE_SESSION_ID"] = identity
-        evidence = Path(tempfile.mkdtemp(prefix="yoke-source-evidence-"))
+        # macOS TMPDIR can exceed PostgreSQL's Unix socket path limit.
+        evidence = Path(tempfile.mkdtemp(prefix="yoke-source-evidence-", dir="/tmp"))
         resolved["YOKE_SCRATCH_ROOT"] = str(evidence)
         print(f"source machine home: disposable {destination}", file=sys.stderr)
         print(f"source evidence root: {evidence}", file=sys.stderr)

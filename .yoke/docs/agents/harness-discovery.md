@@ -177,7 +177,8 @@ their embedded engine separately; the outer app version proves no capability.
 ## Harness setup and later installs
 
 Run `yoke doctor run --only harness-setup --fix` to repair folder trust,
-Codex hook trust, unattended permissions and machine-wide hooks together.
+Codex hook trust, unattended permissions, machine-wide hooks and the
+`yoke-global` skill together.
 Setup, project install/refresh, source launcher install and lane preparation
 call the same idempotent reconcile. The relay detects a newly present harness
 home and reconciles every registered checkout and its Git-registered lanes.
@@ -189,6 +190,22 @@ The relay's `harness-setup-reconcile.json` records successful fingerprints and
 failed rows; failures retry after 15 minutes or immediately on another change.
 Doctor includes that durable failure and reports a Codex home without a CLI
 or desktop app, with instructions to remove an unintended home or open Codex.
+
+## Outside a project: yoke-global
+
+Full Yoke skills stay per-project. The one user-level skill is `yoke-global`,
+for a session opened outside every Yoke project: it checks the machine, picks
+or adds the project and names the folder where a new session does the work.
+Its startup orientation names the skill as the next action. Setup places it
+once in `~/.agents/skills/yoke-global`, which Codex and Cursor read natively,
+and links `~/.claude/skills/yoke-global` to it for Claude Code; the harness
+setup reconcile above keeps it current. A harness whose home folder is absent
+is skipped. Each manifest's
+`global_skill` field states its placement. `yoke uninstall` removes both
+paths, and any parent folder setup created for them once it is empty. An
+existing path Yoke did not create refuses as
+`global_skill_path_not_owned`; move it aside, then run
+`yoke doctor run --only harness-setup --fix`.
 
 ## Guard scope
 

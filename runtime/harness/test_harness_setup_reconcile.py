@@ -184,3 +184,29 @@ def test_machine_inventory_reconciles_every_registered_checkout(
     ]
     assert {r.target_path for r in rows} == {str(root), str(other)}
     assert all(r.outcome == "written" for r in rows)
+
+
+def test_global_skill_converges_for_each_installed_harness(machine, monkeypatch):
+    home, _root, _lanes = machine
+    from yoke_contracts import global_skill_install
+
+    monkeypatch.setattr(global_skill_install, "user_home", lambda environ=None: home)
+    (home / ".claude").mkdir()
+
+    first = setup.reconcile_harness_setup(paths=[])
+    outcomes = {
+        r.harness_id: r.outcome for r in first.rows if r.facet == "global_skill"
+    }
+
+    assert outcomes == {
+        "claude-code": "written",
+        "codex": "skipped_not_installed",
+        "cursor": "skipped_not_installed",
+    }
+    assert (home / ".claude/skills/yoke-global/SKILL.md").is_file()
+    again = setup.inspect_harness_setup(paths=[])
+    assert [
+        r.outcome
+        for r in again.rows
+        if r.facet == "global_skill" and r.harness_id == "claude-code"
+    ] == ["already_set"]

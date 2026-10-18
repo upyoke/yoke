@@ -16,6 +16,7 @@ pytest.importorskip("textual")
 
 from yoke_cli.config.onboard_plan_labels import friendly_line
 from yoke_contracts import harness_machine_hooks, harness_unattended_posture
+from yoke_cli.config import onboard_global_skill  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import onboard_report  # noqa: E402
 from yoke_cli.config import onboard_reuse_feedback  # noqa: E402
@@ -82,7 +83,9 @@ def test_build_plan_reused_existing_project_lists_missing_art_write(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    (tmp_path / "harness-home" / ".cursor").mkdir(parents=True)  # conftest-isolated home
+    (tmp_path / "harness-home" / ".cursor").mkdir(
+        parents=True
+    )  # conftest-isolated home
     monkeypatch.setattr(
         "yoke_cli.config.onboard_session_relay.is_supported", lambda **kw: False
     )
@@ -139,6 +142,7 @@ def test_build_plan_reused_existing_project_lists_missing_art_write(
         "harness-unattended-posture",
         harness_machine_hooks.MACHINE_HOOKS_PLAN_ACTION,
         "register-machine",
+        "install-yoke-global-skill",
         "project-refresh-scaffold",
         "project-install-agent-rules",
         "project-install-tool-permissions",
@@ -147,12 +151,15 @@ def test_build_plan_reused_existing_project_lists_missing_art_write(
         "project-write-board-art",
         "project-setup-publication",
     ]
-    # The posture and machine-wide hooks are machine-level writes, so they
-    # group together rather than with the project's own writes.
+    # The posture, machine-wide hooks and yoke-global steps are machine-level
+    # writes, so they group together rather than with the project's own writes.
     assert grouped["machine"] == [
         friendly_line(harness_unattended_posture.POSTURE_PLAN_ACTION, "detected"),
         friendly_line(
             harness_machine_hooks.MACHINE_HOOKS_PLAN_ACTION, "~/.cursor/hooks.json"
+        ),
+        friendly_line(
+            onboard_global_skill.INSTALL_ACTION, onboard_global_skill.INSTALL_TARGET
         ),
     ]
     assert grouped["core"] == ["Register this machine in the machine registry"]

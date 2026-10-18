@@ -62,6 +62,13 @@ requirement has passed or been waived. Capture success alone is not a visual
 quality verdict: inspection checks both visible defects and consistency with
 the expected outcome.
 
+Browser passes must record an observed build at or carrying the revision
+under verification. Before delivery, new lane commits require fresh evidence.
+At member close-out, the selected completion run's delivered project commit
+is the authority, including while the run settles its members. Synchronizing
+the lane with the base branch after delivery does not stale that proof.
+Re-run a stale case with `yoke qa case run --requirement-id <id>`.
+
 ## Related
 
 - [Verification](index.md)

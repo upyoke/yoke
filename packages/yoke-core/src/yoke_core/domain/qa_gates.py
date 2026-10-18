@@ -44,15 +44,14 @@ from yoke_core.domain.qa_obligation_settlement import (
     unretracted_requirement_sql,
 )
 from yoke_core.domain.qa_gate_helpers import (  # noqa: F401
+    BrowserCompletionIdentityUnavailable,
     _browser_freshness_errors,
     _browser_run_is_fresh,
     _collect_stale_browser_requirements,
     _extract_code_identity,
     _latest_browser_run,
     _resolve_latest_code_ref,
-    _resolve_latest_commit_ts,
     _resolve_repo_root,
-    _resolve_target_branch_project,
 )
 
 
@@ -150,7 +149,6 @@ def check_verification_gate(
         if disk_result is not None:
             return disk_result
 
-        # (4) Browser-freshness — prefer explicit SHA, fall back to timestamp.
         latest_code = _resolve_latest_code_ref(
             target,
             db_path,
@@ -268,12 +266,16 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
         if disk_result is not None:
             return disk_result
 
-        # (3) Browser-freshness
-        latest_code = _resolve_latest_code_ref(
-            target,
-            db_path,
-            repo_root=repo_root,
-        )
+        # Completion checks the frozen delivered revision even after lane sync.
+        try:
+            latest_code = _resolve_latest_code_ref(
+                target,
+                db_path,
+                repo_root=repo_root,
+                for_completion=True,
+            )
+        except BrowserCompletionIdentityUnavailable as exc:
+            return GateResult(passed=False, errors=[str(exc)])
         if latest_code.sha or latest_code.timestamp:
             stale_rows = _collect_stale_browser_requirements(
                 conn,
@@ -291,7 +293,6 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
                         transition_name="done",
                         latest_code=latest_code,
                         stale_rows=stale_rows,
-                        bypass_hint=None,
                     ),
                 )
 

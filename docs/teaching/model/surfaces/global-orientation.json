@@ -1,16 +1,16 @@
 {
  "id": "global-orientation",
  "title": "Global orientation",
- "status": "observed",
+ "status": "approved",
  "scope": "Global",
  "audience": "Agent → human when useful",
  "encounter": "First supported context event",
- "location": "Global hooks + planned yoke-global guidance",
- "basis": "Inspected source hook routing; approved global receiving proof remains pending",
+ "location": "Global hooks + user-level yoke-global skill",
+ "basis": "Inspected source hook routing and premerge CLI receiving; approved released global receiving proof remains pending",
  "note": "No compulsory GitHub connection or repeated onboarding pitch. The same global baseline remains applicable inside a project, without duplicate delivery.",
- "current": "Machine-wide hooks now carry SessionStart and prompt delivery outside a project and step aside inside one, so the same baseline is delivered once; the delivered orientation content itself is not yet proved. This source behavior does not prove required user-level yoke-global appearance or actual receiving delivery. CLI --help and public documentation remain separate discovery routes. YOK-3975 owns global implementation, combined-delivery sizing and actual local/hosted/self-hosted receiving proof. Its blocking proof remains outstanding.",
+ "current": "Machine-wide hooks carry SessionStart and prompt delivery outside a project and step aside inside one, so the baseline is delivered once. Outside a project they deliver the rendered orientation (scope, yoke-global next action, status/help pointers, writing rules, optional project folders), and setup installs yoke-global; a premerge candidate walk proved receipt on claude-cli, codex-cli and cursor-cli; receipt on a released build is not yet proved. CLI --help and public documentation remain separate discovery routes. YOK-3975 owns global implementation, combined-delivery sizing and actual local/hosted/self-hosted receiving proof; its released blocking proof remains outstanding.",
  "desired": "One bounded orientation plus yoke-global; select/add a project, then open a session in its folder.",
  "plan_notes": ["FIRST-USER P1–P4", "JOURNEYS 4–8/14"],
- "sources": ["docs/public/cli/help.md", "packages/yoke-core/src/yoke_core/domain/session_orientation.py", ".agents/skills/yoke/SKILL.md", "packages/yoke-core/src/yoke_core/domain/session_orientation.py:268", "packages/yoke-harness/src/yoke_harness/hooks/machine_hooks.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/hook_config_dedup.py", "packages/yoke-core/src/yoke_core/domain/main_agent_packet.py", "packages/yoke-contracts/src/yoke_contracts/connection_authority_teaching.py", "packages/yoke-contracts/src/yoke_contracts/session_control/teaching.py"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/global_orientation.py", "packages/yoke-core/src/yoke_core/domain/session_orientation.py", "packages/yoke-harness/src/yoke_harness/hooks/machine_hooks.py", "packages/yoke-contracts/src/yoke_contracts/global_skill/SKILL.md", "packages/yoke-contracts/src/yoke_contracts/harness_global_skill.py", "packages/yoke-contracts/src/yoke_contracts/global_skill_install.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/hook_config_dedup.py", "packages/yoke-core/src/yoke_core/domain/main_agent_packet.py", "packages/yoke-contracts/src/yoke_contracts/connection_authority_teaching.py", "packages/yoke-contracts/src/yoke_contracts/session_control/teaching.py", "docs/public/cli/help.md", ".agents/skills/yoke/SKILL.md", "packages/yoke-core/src/yoke_core/domain/session_orientation.py:268"],
  "work_items": ["YOK-3975"]
 }

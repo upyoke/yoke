@@ -24,6 +24,7 @@ from yoke_contracts.harness_command_workdir import command_workdir_source
 from yoke_contracts.harness_session_transcripts import (
     session_transcripts_for_harness,
 )
+from yoke_contracts.harness_global_skill import global_skill_for_harness
 from yoke_contracts.harness_subagent_capability import (
     subagent_capability_for_harness,
 )
@@ -66,6 +67,14 @@ def _parallel_subagents(harness_id: str) -> dict:
         ),
     }
     payload.update(subagent_capability_for_harness(harness_id).to_json())
+    return payload
+
+
+def _global_skill(harness_id: str) -> dict:
+    payload: dict = {
+        "source": "yoke_contracts.harness_global_skill.HARNESS_GLOBAL_SKILLS",
+    }
+    payload.update(global_skill_for_harness(harness_id).to_json())
     return payload
 
 
@@ -141,6 +150,7 @@ CLAUDE_MANIFEST: dict = {
     "session_control": _session_control(_CLAUDE_CLI.harness_id),
     "agent_wake": _agent_wake(_CLAUDE_CLI.harness_id),
     "parallel_subagents": _parallel_subagents(_CLAUDE_CLI.harness_id),
+    "global_skill": _global_skill(_CLAUDE_CLI.harness_id),
     "turn_record": _turn_record(_CLAUDE_CLI.harness_id),
     "session_transcripts": _session_transcripts(_CLAUDE_CLI.harness_id),
     "machine_hooks": _machine_hooks(_CLAUDE_CLI.harness_id),
@@ -208,6 +218,7 @@ CODEX_MANIFEST: dict = {
     "session_control": _session_control(_CODEX_CLI.harness_id),
     "agent_wake": _agent_wake(_CODEX_CLI.harness_id),
     "parallel_subagents": _parallel_subagents(_CODEX_CLI.harness_id),
+    "global_skill": _global_skill(_CODEX_CLI.harness_id),
     "turn_record": _turn_record(_CODEX_CLI.harness_id),
     "session_transcripts": _session_transcripts(_CODEX_CLI.harness_id),
     "machine_hooks": _machine_hooks(_CODEX_CLI.harness_id),
@@ -282,6 +293,7 @@ CURSOR_MANIFEST: dict = {
     "session_control": _session_control(_CURSOR_CLI.harness_id),
     "agent_wake": _agent_wake(_CURSOR_CLI.harness_id),
     "parallel_subagents": _parallel_subagents(_CURSOR_CLI.harness_id),
+    "global_skill": _global_skill(_CURSOR_CLI.harness_id),
     "turn_record": _turn_record(_CURSOR_CLI.harness_id),
     "session_transcripts": _session_transcripts(_CURSOR_CLI.harness_id),
     "machine_hooks": _machine_hooks(_CURSOR_CLI.harness_id),

@@ -144,6 +144,16 @@
     "verified_on_surface": "",
     "evidence": "Cursor dispatches named sub-agents through its Task tool, but no session has been observed running several at once. Conduct dispatches one sub-agent at a time here and records that deferral until a probe adds a measured entry."
   },
+  "global_skill": {
+    "source": "yoke_contracts.harness_global_skill.HARNESS_GLOBAL_SKILLS",
+    "name": "yoke-global",
+    "harness_home": "~/.cursor",
+    "user_skills_dir": "~/.agents/skills",
+    "placement": "shared",
+    "shared_skill_dir": "~/.agents/skills/yoke-global",
+    "verified_on_surface": "cursor-cli",
+    "evidence": "Observed 2026-10-18: cursor-agent 2026.10.14 started outside every project listed yoke-global from $HOME/.agents/skills with the ~/.claude/skills link moved aside, and through the link otherwise."
+  },
   "turn_record": {
     "source": "yoke_contracts.harness_turn_record_capability.HARNESS_TURN_RECORD_CAPABILITIES",
     "turn_record": "none",
