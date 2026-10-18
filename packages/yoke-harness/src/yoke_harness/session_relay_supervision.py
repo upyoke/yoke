@@ -72,6 +72,7 @@ class RelayStopRequested(BaseException):
 
 class Supervisor:
     def __init__(self, max_workers: int, failures: FailureReporter, stop):
+        self.max_workers = max_workers
         self.pool = SettlementPool(max_workers)
         self.failures = failures
         self.stop = stop
@@ -79,20 +80,29 @@ class Supervisor:
         self.lock = threading.Lock()
         self.settled = 0
 
-    def dispatch(self, settle):
-        if self.stop.is_set():
-            return
-        future = self.pool.submit(self._guarded, settle)
+    def dispatch(self, settle, release):
         with self.lock:
             self.pending = [f for f in self.pending if not f.done()]
-            self.pending.append(future)
+            reason = (
+                "relay_stopping"
+                if self.stop.is_set()
+                else "relay_workers_busy"
+                if len(self.pending) >= self.max_workers
+                else None
+            )
+            if reason is None:
+                self.pending.append(self.pool.submit(self._guarded, settle, release))
+                return
+        self._guarded(lambda: release(reason), release)
 
-    def _guarded(self, settle):
-        if self.stop.reason.startswith("signal:"):
-            return None
+    def _guarded(self, settle, release):
         try:
             try:
-                outcome = settle()
+                outcome = (
+                    release("relay_stopping")
+                    if self.stop.reason.startswith("signal:")
+                    else settle()
+                )
             except Exception as exc:  # noqa: BLE001 — isolate a leased job
                 self.failures.failed("job settlement", f"{type(exc).__name__}: {exc}")
                 return None

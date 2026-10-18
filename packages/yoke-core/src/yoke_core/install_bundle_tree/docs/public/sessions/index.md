@@ -63,6 +63,13 @@ Detached turns keep their capture current while waiting on a command. If the
 relay contains a native, verified custody death reopens pending wakes held by
 that exact process and retires Fleet's old `native_turn_running` label.
 
+The relay releases an unstarted job when stopping or when all settlement
+workers are busy. Its report records `relay_stopping` or `relay_workers_busy`;
+the job becomes eligible for the next poll without waiting for lease expiry.
+A failed release report stays in the machine's pending reports and retries
+before new claims. Launch closure evidence calls claim time
+`attempt_claimed_at`; `native_started_at` records an observed native spawn.
+
 Sessions own work claims. Implementation lanes require an active claim and a
 registered worktree. A persisted active work claim keeps its session live
 through stale, idle, parked, process-gone, and startup sweeps. This includes
