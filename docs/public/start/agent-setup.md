@@ -157,7 +157,8 @@ Read `run.next_action.command` and `run.next_action.home` for the next required
 repair or first-work action. `run.setup_readiness` describes current prerequisites;
 optional deferred, not-needed and unknown capabilities do not force setup.
 The human reply leads with Next and Setup; install, refresh, register and checklist
-init reuse the summary. JSON keeps `next_action` structured.
+init reuse the summary. JSON keeps `next_action` structured; `setup_summary`
+retains setup diagnostics in install, refresh and register replies.
 
 Orientation shows this machine's facts alongside shared project choices once per
 session, then suppresses settled setup after the first item reaches done. Outside

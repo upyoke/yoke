@@ -45,6 +45,7 @@ def test_install_refresh_summary_is_structured_or_human(
     out = capsys.readouterr().out
     if json_mode:
         assert json.loads(out)["next_action"] == ACTION
+        assert json.loads(out)["setup_summary"] == SUMMARY["lines"]
     else:
         assert out.endswith("Setup: unknown strategy-setup\nNext: /yoke onboard\n")
     assert len(calls) == 1 and calls[0][1]["config_path"] == "/machine.json"
@@ -68,6 +69,7 @@ def test_register_summary_preserves_machine_config_selection(
     out = capsys.readouterr().out
     if json_mode:
         assert json.loads(out)["next_action"] == ACTION
+        assert json.loads(out)["setup_summary"] == SUMMARY["lines"]
     else:
         assert "Next: /yoke onboard" in out
 
@@ -122,3 +124,32 @@ def test_setup_done_keeps_readiness_before_shared_project_action(monkeypatch, tm
     assert "doctor run --session" in result["next"][0]
     assert "/yoke onboard" in result["next"][1]
     assert result["next_action"] == ACTION
+
+
+@pytest.mark.parametrize("command", ["install", "register"])
+def test_json_reply_keeps_failed_setup_read_diagnosis(monkeypatch, capsys, command):
+    failure = {
+        "next_action": None,
+        "lines": [
+            "Setup: response_timeout; repair the connection and retry.",
+        ],
+    }
+    monkeypatch.setattr(setup_facts_summary, "read_project", lambda *a, **kw: failure)
+    if command == "install":
+        result = install._run(
+            lambda: {"operation": "install", "repo_root": "/external", "project_id": 9},
+            json_mode=True,
+        )
+    else:
+        monkeypatch.setattr(
+            config_write_project.writer,
+            "register_project",
+            lambda *a, **kw: {"project_id": 9},
+        )
+        result = config_write_project.project_register(
+            ["/external", "--project-id", "9", "--json"]
+        )
+    assert result == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["next_action"] is None
+    assert report["setup_summary"] == failure["lines"]

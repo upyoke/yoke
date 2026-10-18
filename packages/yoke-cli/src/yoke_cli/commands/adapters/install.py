@@ -242,6 +242,8 @@ def _run(operation, *, json_mode: bool = False, config_path=None) -> int:
         )
         result["next_action"] = setup["next_action"]
     if json_mode:
+        if setup is not None:
+            result["setup_summary"] = setup["lines"]
         print(json.dumps(result, indent=2))
     else:
         write_local(result, sys.stdout, essential_writer=_write_harness_health)

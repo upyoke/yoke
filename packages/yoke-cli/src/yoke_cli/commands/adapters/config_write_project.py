@@ -85,6 +85,7 @@ def project_register(args: List[str]) -> int:
             parsed.repo_root, project=parsed.project_id, config_path=parsed.config_path
         )
         result["next_action"] = setup["next_action"]
+        result["setup_summary"] = setup["lines"]
         print(json.dumps(result))
         return 0
     result_code = run(_register)
