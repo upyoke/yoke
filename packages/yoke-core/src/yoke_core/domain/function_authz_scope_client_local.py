@@ -11,6 +11,7 @@ from __future__ import annotations
 from yoke_core.domain.function_authz_types import AuthzSpec, CLIENT_LOCAL
 
 CLIENT_LOCAL_BY_ID: dict[str, AuthzSpec] = {
+    "worktree.classify_dirty": AuthzSpec(CLIENT_LOCAL, None),
     # Machine-local config / repo writes — gated by machine possession.
     "auth.set.run": AuthzSpec(CLIENT_LOCAL, None),
     "connection.set.run": AuthzSpec(CLIENT_LOCAL, None),

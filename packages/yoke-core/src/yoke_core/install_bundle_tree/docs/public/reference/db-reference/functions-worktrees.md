@@ -53,6 +53,18 @@ Read [envelope and authority](functions.md) first. `none` means no dispatcher wo
 | `merge_receipt.record` | `none` |
 | `merge_review.candidate.evaluate` | `none` |
 | `release_pin.record` | `none` |
+| `worktree.classify_dirty` | `none` |
+
+## Inspect a mapped checkout
+
+```text
+yoke worktree classify-dirty --project PROJECT --exclude-worktrees --json
+```
+
+This read runs on the caller's machine without a source-development lane.
+Read `result.yoke_managed` and `result.user_authored` before landing; preserve
+user-authored changes. A missing mapping or unreadable Git checkout refuses
+with its recovery step; neither is evidence of a clean checkout.
 
 ## Lane authority and transport
 
