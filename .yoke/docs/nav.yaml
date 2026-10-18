@@ -295,7 +295,6 @@ root:
         - {title: "Deployment plan execution", summary: "Run frozen cases across members, machines and shared host turns.", path: "verification/deployment-plan-execution.md"}
         - {title: "Browser targets", summary: "Select Browser targets, methods, identities and viewport configuration.", path: "verification/browser-targets.md"}
         - {title: "Browser scenarios", summary: "Author actions and assertions, then execute the Browser case.", path: "verification/browser-scenarios.md"}
-        - {title: "Browser request interception", summary: "Hold and reject named function requests, inspect counts and isolate mission caches.", path: "verification/browser-request-interception.md"}
         - {title: "Browser evidence", summary: "Read captures and distinguish execution from inspected verdicts.", path: "verification/browser-evidence.md"}
         - {title: "Browser identities", summary: "Declare personas, sign in and use isolated browser profiles.", path: "verification/browser-identities.md"}
         - {title: "Exploratory missions", summary: "Define discovery territory and follow execution, review and human gates.", path: "verification/exploration.md"}

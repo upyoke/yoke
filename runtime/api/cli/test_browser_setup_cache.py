@@ -16,7 +16,6 @@ from yoke_harness import browser_setup
 @pytest.fixture
 def setup_host(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.delenv("YOKE_MACHINE_HOME", raising=False)
     monkeypatch.setenv("YOKE_BROWSER_AUTOINSTALL", "1")
     browser = tmp_path / "browser"
     browser.mkdir()
@@ -198,89 +197,3 @@ def test_cache_writability_refuses_before_install(setup_host, monkeypatch, failu
     assert cache in str(failure.value)
     assert "make this directory and its parents writable" in str(failure.value)
     assert "retry yoke qa browser setup" in str(failure.value)
-
-
-def test_mission_setup_and_status_share_scratch_cache(
-    setup_host, tmp_path, monkeypatch
-):
-    browser, toolchain = setup_host
-    scratch = tmp_path / "mission" / "machine-home"
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(scratch))
-    monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", str(tmp_path / "foreign-cache"))
-    (browser / "node_modules/playwright").mkdir(parents=True)
-    observed = []
-
-    def run(argv, **kwargs):
-        observed.append(kwargs["env"]["PLAYWRIGHT_BROWSERS_PATH"])
-        return subprocess.CompletedProcess(argv, 0, "ok", "")
-
-    monkeypatch.setattr(browser_setup.subprocess, "run", run)
-
-    def dependencies(*args, **kwargs):
-        assert kwargs["autoinstall"] is False
-        return True
-
-    monkeypatch.setattr(browser_setup, "ensure_system_dependencies", dependencies)
-    env = browser_setup.ensure_browser_runtime(browser, toolchain, emit=lambda _: None)
-    assert browser_setup.chromium_status(browser, toolchain) == "ready"
-    cache = scratch / "playwright-cache" / "yoke"
-    assert env["PLAYWRIGHT_BROWSERS_PATH"] == str(cache)
-    assert observed == [str(cache), str(cache)]
-    assert cache.is_dir()
-    assert not (tmp_path / ".yoke").exists()
-    assert not (tmp_path / "foreign-cache").exists()
-
-
-def test_isolated_setup_names_missing_os_prerequisite(
-    setup_host, tmp_path, monkeypatch
-):
-    browser, toolchain = setup_host
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "mission"))
-    (browser / "node_modules/playwright").mkdir(parents=True)
-    monkeypatch.setattr(
-        browser_setup.subprocess,
-        "run",
-        lambda *a, **k: subprocess.CompletedProcess([], 0, "ok", ""),
-    )
-
-    def missing(*args, **kwargs):
-        assert kwargs["autoinstall"] is False
-        raise RuntimeError("browser_system_libraries_missing: fixture library")
-
-    monkeypatch.setattr(browser_setup, "ensure_system_dependencies", missing)
-    with pytest.raises(
-        RuntimeError, match="browser_isolated_system_setup_required"
-    ) as failure:
-        browser_setup.ensure_browser_runtime(browser, toolchain, emit=lambda _: None)
-    assert "prerequisites already prepared" in str(failure.value)
-
-
-@pytest.mark.parametrize("escape", ["cache_symlink", "home_symlink", "parent_path"])
-def test_mission_cache_escape_refuses_before_setup(
-    setup_host, tmp_path, monkeypatch, escape
-):
-    browser, toolchain = setup_host
-    ordinary = tmp_path / ".yoke"
-    ordinary.mkdir()
-    scratch = tmp_path / "mission"
-    scratch.mkdir()
-    project = "yoke"
-    if escape == "home_symlink":
-        (scratch / "home").symlink_to(ordinary, target_is_directory=True)
-        scratch = scratch / "home"
-    elif escape == "cache_symlink":
-        (scratch / "playwright-cache").symlink_to(ordinary, target_is_directory=True)
-    else:
-        project = "../../foreign"
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(scratch))
-    monkeypatch.setattr(
-        browser_setup,
-        "_ensure_browser_runtime",
-        lambda *a, **k: pytest.fail("setup ran"),
-    )
-    with pytest.raises(RuntimeError, match="browser_cache_not_isolated"):
-        if escape == "parent_path":
-            resolve_playwright_cache(project, None)
-        else:
-            browser_setup.ensure_browser_runtime(browser, toolchain)
-    assert list(ordinary.iterdir()) == []

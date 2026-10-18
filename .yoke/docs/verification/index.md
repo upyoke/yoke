@@ -286,7 +286,6 @@ project operator to repair the named definition or target if it persists.
 - [Deployment plan execution](deployment-plan-execution.md) — Run frozen cases across members, machines and shared host turns.
 - [Browser targets](browser-targets.md) — Select Browser targets, methods, identities and viewport configuration.
 - [Browser scenarios](browser-scenarios.md) — Author actions and assertions, then execute the Browser case.
-- [Browser request interception](browser-request-interception.md) — Hold and reject named function requests, inspect counts and isolate mission caches.
 - [Browser evidence](browser-evidence.md) — Read captures and distinguish execution from inspected verdicts.
 - [Browser identities](browser-identities.md) — Declare personas, sign in and use isolated browser profiles.
 - [Exploratory missions](exploration.md) — Define discovery territory and follow execution, review and human gates.

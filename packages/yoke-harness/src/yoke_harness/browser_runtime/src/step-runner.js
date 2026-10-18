@@ -10,8 +10,7 @@
  *   resolveUrl(route, baseUrl) -> string
  *
  * Supported actions: navigate, click, fill_form, wait_for, ready, delay,
- *   assert, screenshot, scroll, hover, type, select, grant_clipboard,
- *   request_interception
+ *   assert, screenshot, scroll, hover, type, select, grant_clipboard
  */
 
 const { buildRefMap } = require('./snapshot');
@@ -20,7 +19,6 @@ const inter = require('./step-actions/interaction');
 const assertions = require('./step-actions/assertion');
 const capture = require('./step-actions/capture');
 const permissions = require('./step-actions/permissions');
-const { executeRequestInterception } = require('./step-actions/request-interception');
 const { refuseStep } = require('./step-schema');
 const {
   authenticationWallError,
@@ -176,9 +174,6 @@ async function executeStep(page, step, options) {
       case 'grant_clipboard':
         result = await permissions.executeGrantClipboard(page, step, options);
         break;
-      case 'request_interception':
-        result = await executeRequestInterception(page, step, options);
-        break;
       default:
         throw new Error(`Unknown action: ${step.action}`);
     }
@@ -192,7 +187,6 @@ async function executeStep(page, step, options) {
       duration_ms,
       ...observedState(page),
       ...(result.artifacts ? { artifacts: result.artifacts } : {}),
-      ...(result.interception ? { interception: result.interception } : {}),
       // An assertion that passed without observing anything says so here.
       // Every action-specific fact has to be forwarded by name, which is
       // why nothing the assertion handler knew could reach its caller

@@ -37,16 +37,10 @@ with `browser_apparmor_setup_failed` and the recovery step. Retry
 system command and password prompt itself.
 
 Chromium setup, authorization, and browser QA share Yoke's cache at
-`$YOKE_MACHINE_HOME/playwright-cache/yoke` when set, otherwise
 `~/.yoke/playwright-cache/yoke`, regardless of `XDG_CACHE_HOME` or an inherited
 `PLAYWRIGHT_BROWSERS_PATH`. Setup checks that it can create and write the cache
 before running installation commands. `browser_cache_not_writable` names the
 path to make writable by the current user; then retry `yoke qa browser setup`.
-An escaping isolated cache refuses as `browser_cache_not_isolated`; select
-mission scratch and repair cache symlinks before retrying. See
-[mission isolation](../verification/browser-request-interception.md#mission-cache-isolation).
-Isolated setup never installs OS libraries or AppArmor profiles; missing host
-prerequisites refuse as `browser_isolated_system_setup_required`.
 Failed npm or Chromium installs report labeled tails of both stdout and stderr
 (up to 20 lines and 4000 characters each), so a warning cannot hide the download
 error. Repair the reported network or permissions cause and retry the same command.
