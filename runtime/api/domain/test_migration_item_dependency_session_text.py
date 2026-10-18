@@ -14,7 +14,7 @@ import pytest
 from runtime.api.conftest import insert_item
 from yoke_core.domain.schema_api_context_tables_core import CORE_TABLES
 
-ENTRY_NAME = "0081_item_dependency_session_text"
+ENTRY_NAME = "0083_item_dependency_session_text"
 
 
 def _entry():
