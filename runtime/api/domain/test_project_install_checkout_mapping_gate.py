@@ -89,6 +89,7 @@ def test_matching_explicit_project_id_still_installs(
     _seed_envs(cfg, tmp_path)
     machine_config_writer.register_project(repo, 7, path=cfg)
     monkeypatch.setenv("YOKE_ENV", "stage")
+    machine_config_writer.register_project(repo, 7, path=cfg)
     monkeypatch.setattr(
         project_install,
         "_resolve_bundle",

@@ -163,9 +163,9 @@ def ensure_pinned_worktree(checkout: str, run_id: str, revision: str) -> Path:
 def self_release_checkout(project: str) -> Path | None:
     """This machine's Yoke checkout for *project*; None drives with the installed engine.
 
-    Reads each ``projects`` entry's ``checkout`` and ``project_id`` from the
-    raw machine config and nothing else, so a release that changes the rest
-    of the machine-config contract is still located by the release before it.
+    Reads the selected ``connection_projects`` list's checkout and project id
+    without validating future entry keys, so a release can locate its source
+    while the installed reader still uses an older entry contract.
     """
     project_id = project_id_for_slug(project)
     if project_id is None:
@@ -174,12 +174,19 @@ def self_release_checkout(project: str) -> Path | None:
             "confirm the selected connection serves it and re-drive the run"
         )
     try:
-        from yoke_contracts.machine_config.schema_projects import (
-            projects_for_connection,
+        from yoke_contracts.machine_config.schema_connections import (
+            MachineConfigContractError,
         )
+        from yoke_contracts.machine_config.schema_projects import project_connection
 
-        entries = projects_for_connection(machine_config.load_config())
-    except machine_config.MachineConfigError as exc:
+        config = machine_config.load_config()
+        groups = config.get("connection_projects") or {}
+        entries = (
+            groups.get(project_connection(config))
+            if isinstance(groups, dict) and groups
+            else []
+        )
+    except (machine_config.MachineConfigError, MachineConfigContractError) as exc:
         raise DeployPinnedSourceError(
             f"machine config is unreadable ({exc}); repair ~/.yoke/config.json "
             "and re-drive the run"

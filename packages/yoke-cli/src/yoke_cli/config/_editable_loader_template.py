@@ -78,14 +78,14 @@ def _default_config_path(environ) -> Path:
     return base / CONFIG_FILE_NAME
 
 
-def _root_from_config(config_path: Path):
+def _root_from_config(config_path: Path, environ):
     try:
         data = json.loads(Path(config_path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
     if not isinstance(data, dict):
         return None
-    env = os.environ.get("YOKE_ENV") or data.get("active_env")
+    env = environ.get("YOKE_ENV") or data.get("active_env")
     connections = data.get("connections") or {}
     if isinstance(env, str) and env.endswith("-db-admin"):
         base = env[: -len("-db-admin")]
@@ -129,7 +129,8 @@ def resolve_repo_root(environ=None, config_path=None):
         if _is_yoke_checkout(candidate):
             return candidate
     resolved = _root_from_config(
-        Path(config_path) if config_path is not None else _default_config_path(environ)
+        Path(config_path) if config_path is not None else _default_config_path(environ),
+        environ,
     )
     if resolved is not None:
         return resolved

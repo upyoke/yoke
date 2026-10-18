@@ -18,7 +18,10 @@ def _yoke_checkout(root: Path) -> Path:
 
 def _config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, projects) -> None:
     path = tmp_path / "config.json"
-    path.write_text(json.dumps({"projects": projects}), encoding="utf-8")
+    path.write_text(
+        json.dumps({"active_env": "local", "connection_projects": {"local": projects}}),
+        encoding="utf-8",
+    )
     monkeypatch.setattr(
         pinned.machine_config, "load_config", lambda: json.loads(path.read_text())
     )

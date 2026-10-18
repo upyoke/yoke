@@ -25,6 +25,10 @@ def test_readers_isolate_colliding_project_ids(tmp_path, monkeypatch, env, conne
         repo.mkdir()
     payload = contract.canonical_example_payload()
     payload["connections"]["prod-db-admin"] = {"transport": "local-postgres"}
+    payload["connections"]["self-hosted"] = {
+        **payload["connections"]["prod"],
+        "api_url": "https://self-hosted.example.test",
+    }
     payload["connection_projects"] = {
         name: [{"checkout": str(repo), "project_id": 7}] for name, repo in repos.items()
     }
@@ -55,7 +59,10 @@ def test_register_preserves_another_universe_and_reassigns_only_selected_slot(
 ):
     config = tmp_path / "config.json"
     payload = contract.canonical_example_payload()
-    payload["connections"]["other"] = payload["connections"]["prod"]
+    payload["connections"]["other"] = {
+        **payload["connections"]["prod"],
+        "api_url": "https://other.example.test",
+    }
     payload["connection_projects"] = {}
     config.write_text(json.dumps(payload))
     select_machine_config_file(monkeypatch, config)
@@ -93,7 +100,10 @@ def test_reads_never_write_and_explicit_registration_imports_legacy_once(
     assert config.read_bytes() == original
     other = tmp_path / "other"
     other.mkdir()
-    payload["connections"]["other"] = payload["connections"]["prod"]
+    payload["connections"]["other"] = {
+        **payload["connections"]["prod"],
+        "api_url": "https://other.example.test",
+    }
     config.write_text(json.dumps(payload))
     writer.register_project(other, 1, path=config)
     upgraded = json.loads(config.read_text())

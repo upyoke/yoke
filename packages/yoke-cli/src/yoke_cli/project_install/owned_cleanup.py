@@ -72,8 +72,8 @@ def cleanup(root: Path, manifest: dict, config_path) -> dict:
 def _cleanup(root: Path, manifest: dict, *, path=None) -> dict:
     payload, cfg = load_payload(path)
     projects = contract.projects_for_connection(payload)
-    connection = contract.project_connection(payload)
     groups = payload.get("connection_projects", {})
+    connection = contract.project_connection(payload) if groups else ""
     all_projects = [
         entry for entries in groups.values() for entry in normalize_projects(entries)
     ]

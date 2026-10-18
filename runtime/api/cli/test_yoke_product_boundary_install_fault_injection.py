@@ -230,7 +230,7 @@ def test_https_bundle_identity_failure_precedes_registration_and_repo_writes(
     assert (checkout / "README.md").read_text(encoding="utf-8") == "# unchanged\n"
     assert sorted(path.name for path in checkout.iterdir()) == ["README.md"]
     config = json.loads((tmp_path / "home/.yoke/config.json").read_text())
-    assert not config.get("projects")
+    assert not config.get("connection_projects")
 
 
 def _bundle() -> dict[str, Any]:
@@ -325,7 +325,7 @@ def _assert_https_only_machine_config(config_path: Path, *, checkout: Path) -> N
     assert config["connections"]["product"]["transport"] == "https"
     assert "postgres" not in config["connections"]["product"]
     assert "github" not in config
-    assert config["projects"] == [
+    assert config["connection_projects"]["product"] == [
         {"checkout": str(checkout.resolve()), "project_id": PROJECT_ID}
     ]
 

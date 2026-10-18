@@ -57,9 +57,12 @@ def register_project(
         import_project_connections,
     )
 
-    import_project_connections(payload)
-    connection = contract.project_connection(payload)
-    projects = contract.projects_for_connection(payload)
+    try:
+        import_project_connections(payload)
+        connection = contract.project_connection(payload)
+        projects = contract.projects_for_connection(payload)
+    except contract.MachineConfigContractError as exc:
+        raise MachineConfigWriteError(str(exc)) from exc
     displaced = contract.existing_checkout_for_slot(
         projects,
         checkout=str(root),
