@@ -46,6 +46,11 @@ Otherwise it opens one window with a tab per expired site, naming the identity,
 the site and the account, and checks again after the window closes. A site
 whose check cannot be reached fails by name: no sign-in fixes it.
 
+If `default` declares no sites while other identities do, omitting `--identity`
+refuses with `browser_identity_required` and names the choices before any window
+opens. Choose the declared identity; site, origin and account instructions print
+on the workstation before its viewer opens.
+
 While a sign-in window is open no automated browser runs on the machine: every
 browser daemon is stopped first, and a daemon start is refused with
 `browser_human_gate_active` until the window closes.
@@ -71,6 +76,14 @@ that printed command without `--view`. The Test Machine needs an installed
 Yoke browser runtime, but no control-plane connection or pasted settings.
 Read `yoke browser authorize --help` for reset, starting URL, JSON output
 and window bounds.
+
+On Linux and macOS, `--machine NAME` checks both automation and native desktop
+browser sign-ins. Add `--desktop-browser` to check only that machine's native
+Chromium or Safari. Native sign-ins stay live through resets and are never saved
+into golden snapshots or wiped by authorization. A second Linux viewer refuses
+`linux_desktop_viewer_connected`; close the open `Yoke desktop: NAME` viewer or
+let its authorization finish, then retry. Linux authorization uses `xdotool`
+to detect closure of the spawned Chromium PID's windows before verification.
 
 The workstation needs an ssh-agent with a key the host accepts. macOS uses its
 logged-in Terminal.app session; Linux and Windows WSL use the registered user's

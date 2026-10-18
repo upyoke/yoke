@@ -169,7 +169,6 @@ def owned_desktop():
 
 
 def human_desktop_exists(home, owned=None):
-    """Shared startup/reset admission, including a human adopting our desktop."""
     redirected = str(Path(home) / "thinclient_drives")
     if os.path.ismount(redirected):
         return True
@@ -241,6 +240,10 @@ def ensure_desktop(password, port=RDP_PORT, *, rdp_access=False):
     import pwd
 
     with ownership_file() as stream:
+        if rdp_access and rdp_connected(port):
+            raise RuntimeError(
+                "linux_desktop_viewer_connected: close the open 'Yoke desktop: <machine>' viewer (or let browser authorize finish), then retry"
+            )
         sessions = desktop_sessions()
         restarted = False
         if len(sessions) == 1 and rdp_access:
@@ -252,10 +255,8 @@ def ensure_desktop(password, port=RDP_PORT, *, rdp_access=False):
             if restarted:
                 sessions = []
         if len(sessions) == 1:
-            return {
-                "environment": sessions[0]["environment"],
-                "desktop_session": "reused",
-            }
+            environment = sessions[0]["environment"]
+            return {"environment": environment, "desktop_session": "reused"}
         if sessions or human_desktop_exists(Path.home()) or rdp_connected(port):
             raise RuntimeError(
                 "linux_desktop_session_ambiguous: a desktop session or RDP client already exists; "

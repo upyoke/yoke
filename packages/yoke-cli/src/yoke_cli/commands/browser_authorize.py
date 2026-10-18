@@ -25,7 +25,7 @@ from yoke_cli.commands.browser_sign_in import (
     IDENTITY_FLAG_HELP,
     check_sign_in,
     prepare_browser_runtime,
-    resolve_identity_target,
+    resolve_authorization_target as resolve_identity_target,
 )
 from yoke_cli.config.browser_profile_cookies import (
     SIGN_IN_COOKIE_LIFETIME_DAYS,
@@ -121,7 +121,9 @@ def browser_authorize(args: List[str]) -> int:
     except (ProjectSlugLookupError, BrowserIdentityError, RuntimeError) as exc:
         return _fail(parsed.json_mode, str(exc), code=2)
     label = f"project {project_key} identity {identity.name}"
-    say = (lambda line: None) if parsed.json_mode else print
+
+    def say(line):
+        print(line, file=sys.stderr if parsed.json_mode else sys.stdout, flush=True)
 
     expired = list(identity.sites)
     if identity.sites and not parsed.reset:
@@ -197,6 +199,7 @@ def browser_authorize(args: List[str]) -> int:
     except (RuntimeError, BrowserIdentityError) as exc:
         return _fail(parsed.json_mode, str(exc), code=1)
 
+    say("Verifying sign-in after the authorization window closed.")
     sites = []
     if identity.sites:
         try:
