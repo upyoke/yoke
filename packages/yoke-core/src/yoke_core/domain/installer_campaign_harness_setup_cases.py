@@ -12,6 +12,7 @@ def harness_setup_cases(command_case):
             + shlex.quote(
                 "from yoke_core.domain.installer_campaign_harness_setup_cases import run_probe; run_probe()"
             ),
+            execution_mode="terminal",
             instructions=(
                 "Run the installed candidate against an isolated home and a real Git checkout "
                 "with two registered worktrees. Inject only the checkout registry mapping. "
