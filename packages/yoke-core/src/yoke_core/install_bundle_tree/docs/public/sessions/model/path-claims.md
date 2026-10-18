@@ -60,6 +60,24 @@ Three outcomes:
 | Shared paths mix render targets with hand-authored paths | existing semantics (falls through) |
 | Shared paths all hand-authored | existing semantics (unchanged) |
 
+## Shell heredoc inputs
+
+Use a quoted delimiter for literal prose or Python input:
+
+```bash
+cat > path/to/claimed-file <<'EOF'
+It's literal input: apostrophes, regex | operators and $(examples).
+EOF
+```
+
+The Bash path-claim guard checks the output path against the active coverage.
+It removes quoted input bodies before shell mutation parsing, retaining output
+redirects, `tee` destinations and commands after the closing delimiter.
+Single-quoted, double-quoted and tab-stripped quoted delimiters follow this
+rule. Unquoted heredocs retain conservative parsing because the shell expands
+their bodies. Other guards still inspect executable Python or shell payloads
+under their own rules.
+
 ## Task coverage
 
 With effective `path_claims=required_per_task`, readiness and claim gates share

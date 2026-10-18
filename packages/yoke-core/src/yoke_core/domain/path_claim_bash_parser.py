@@ -25,6 +25,7 @@ from yoke_core.domain.path_claim_bash_temp_vars import (
     is_temp_file_var_ref,
     temp_file_vars,
 )
+from yoke_core.domain.shell_expansion_scan import strip_literal_heredocs
 
 
 SUPPRESSION_TOKEN = "# lint:no-worktree-path-check"
@@ -335,7 +336,7 @@ def extract_mutations(command: str, cwd: str = "") -> List[Mutation]:
 
     tmp_vars = temp_file_vars(command)
     out: List[Mutation] = []
-    for segment in _split_pipeline(command):
+    for segment in _split_pipeline(strip_literal_heredocs(command)):
         out.extend(_classify_segment(segment, cwd))
     return [mut for mut in out if not is_temp_file_var_ref(mut.target_path, tmp_vars)]
 

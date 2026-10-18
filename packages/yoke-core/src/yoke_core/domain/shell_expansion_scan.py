@@ -27,6 +27,10 @@ class Heredoc:
     delimiter: str
     expands: bool
     body: str
+    source_operator_start: int
+    source_operator_end: int
+    source_body_start: int
+    source_body_end: int
 
 
 @dataclass(frozen=True)
@@ -48,7 +52,7 @@ def scan(command: str) -> ScannedCommand:
     chunks: list[str] = []
     code_length = 0
     heredocs: list[Heredoc] = []
-    pending: list[tuple[int, str, bool, bool]] = []
+    pending: list[tuple[int, str, bool, bool, int, int]] = []
     index = 0
     in_single = False
     in_double = False
@@ -64,6 +68,14 @@ def scan(command: str) -> ScannedCommand:
         elif char == '"' and not in_single:
             in_double = not in_double
         elif not in_single and not in_double:
+            if char == "#" and (index == 0 or command[index - 1].isspace()):
+                end = command.find("\n", index)
+                if end == -1:
+                    end = len(command)
+                chunks.append(command[index:end])
+                code_length += end - index
+                index = end
+                continue
             if command.startswith("<<<", index):
                 chunks.append("<<<")
                 code_length += 3
@@ -78,7 +90,14 @@ def scan(command: str) -> ScannedCommand:
                 quoted = match.group(2) is not None or match.group(3) is not None
                 delimiter = match.group(2) or match.group(3) or match.group(4) or ""
                 pending.append(
-                    (code_length, delimiter, not quoted, match.group(1) == "-")
+                    (
+                        code_length,
+                        delimiter,
+                        not quoted,
+                        match.group(1) == "-",
+                        index,
+                        match.end(),
+                    )
                 )
                 chunks.append(match.group(0))
                 code_length += len(match.group(0))
@@ -88,17 +107,48 @@ def scan(command: str) -> ScannedCommand:
                 chunks.append("\n")
                 code_length += 1
                 index += 1
-                for offset, delimiter, expands, strip_tabs in pending:
-                    body, index = _consume_body(
-                        command, index, delimiter, strip_tabs
+                for offset, delimiter, expands, strip_tabs, start, end in pending:
+                    body_start = index
+                    body, index = _consume_body(command, index, delimiter, strip_tabs)
+                    heredocs.append(
+                        Heredoc(
+                            offset,
+                            delimiter,
+                            expands,
+                            body,
+                            start,
+                            end,
+                            body_start,
+                            index,
+                        )
                     )
-                    heredocs.append(Heredoc(offset, delimiter, expands, body))
                 pending = []
                 continue
         chunks.append(char)
         code_length += 1
         index += 1
     return ScannedCommand("".join(chunks), tuple(heredocs))
+
+
+def strip_literal_heredocs(command: str) -> str:
+    """Remove quoted heredoc inputs, retaining redirects and real commands.
+
+    Quoted bodies are literal input, including apostrophes, operators and
+    substitution spellings. Expanding heredocs retain their original source
+    for the caller's conservative analysis.
+    """
+    spans = []
+    for heredoc in scan(command).heredocs:
+        if not heredoc.expands:
+            spans.extend(
+                (
+                    (heredoc.source_operator_start, heredoc.source_operator_end),
+                    (heredoc.source_body_start, heredoc.source_body_end),
+                )
+            )
+    for start, end in sorted(spans, reverse=True):
+        command = command[:start] + " " + command[end:]
+    return command
 
 
 def _consume_body(
