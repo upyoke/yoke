@@ -80,14 +80,15 @@ refuses it; a read-only check targets production instead.
 Manual wake
 -----------
 `wake_path` is "automatic" (default: the case starts when its stage begins) or
-"manual" (it starts only when steering wakes its owner). "manual" needs
+"manual" (its owner is woken to check the evidence first). "manual" needs
 `wake_evidence`: one line naming the real-traffic evidence a registered read
 can confirm before the case can run, for example "a deployment run with at
 least 44 members exists after this release". Missing evidence refuses
 wake_evidence_required; evidence on an automatic case refuses
 wake_evidence_without_manual_wake. Method, runner and verdict path are
-unchanged. Steering lists these cases in the fleet report under "waiting on
-manual wake" with the command that wakes the owner.
+unchanged. The stage driver wakes the owner once per open manual case to
+check its evidence: run the case if it exists, otherwise ask the operator for a
+waiver. The fleet report lists open cases under "waiting on manual wake".
 
 What a Command case's shell is handed
 -------------------------------------

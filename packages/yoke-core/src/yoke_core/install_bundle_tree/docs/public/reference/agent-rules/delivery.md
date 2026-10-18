@@ -104,8 +104,8 @@ on production alone.
 
 A case that can only be judged after real production traffic sets
 `wake_path: manual` with a one-line `wake_evidence` a registered read can
-confirm. Its stage does not wake the owner; steering does, once the evidence
-exists ([cases that wait for real traffic](../qa-platform/standalone-plans.md#cases-that-wait-for-real-traffic)).
+confirm. Its stage wakes the owner to check that evidence first: run the case
+if it exists, otherwise ask the operator for a waiver ([cases that wait for real traffic](../qa-platform/standalone-plans.md#cases-that-wait-for-real-traffic)).
 
 A release pair can admit the same item to both target runs. A supplemental
 persistent-environment run enrolls only members with explicit post-deploy
