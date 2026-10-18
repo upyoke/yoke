@@ -141,6 +141,14 @@ authorization likewise prove through that paired HTTPS plane.
 
 ### Source execution and release rules
 
+`yoke dev run -- <command>` creates a disposable copy of machine settings, secrets and
+referenced machine-home files before source probes or commands execute. Source
+writes stay in that private home; it is removed when the run exits. The named
+`--allow-real-machine-home` flag explicitly permits real machine-home writes.
+Installed-release commands retain their normal machine home. The
+[source command guide](testing-verification/source-development.md) owns snapshot
+contents, connected-environment selection and failure recovery.
+
 Ordinary run creation, composition validation and takeover use HTTPS `prod`,
 including production-targeted runs. Only the production `watch deploy`/execute
 driver needs paired `prod-db-admin` when it replaces the API serving its own

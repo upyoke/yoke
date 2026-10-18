@@ -42,7 +42,7 @@ def test_github_github_auth_machine_config_is_rejected() -> None:
 
     codes = {issue.code for issue in contract.validate_payload(payload)}
 
-    assert "github_key_invalid" in codes
+    assert "machine_config_key_unknown" in codes
     assert "github_authorization_required" in codes
 
 
@@ -55,7 +55,9 @@ def test_github_github_auth_machine_config_is_rejected() -> None:
     ],
 )
 def test_github_app_config_rejects_unsafe_endpoints(
-    key: str, value: str, code: str,
+    key: str,
+    value: str,
+    code: str,
 ) -> None:
     payload = contract.canonical_example_payload()
     payload["github"][key] = value
@@ -77,7 +79,9 @@ def test_github_app_config_rejects_unsafe_endpoints(
     ],
 )
 def test_github_app_config_rejects_boolean_ids(
-    section: str, key: str, code: str,
+    section: str,
+    key: str,
+    code: str,
 ) -> None:
     github = {
         "api_url": contract.DEFAULT_GITHUB_API_URL,
@@ -92,14 +96,21 @@ def test_github_app_config_rejects_boolean_ids(
             "status": "authorized",
             "github_user_id": 1,
         },
-        "installations": [{
-            "installation_id": 2, "account_id": 3,
-            "account_login": "octo-org", "repository_selection": "selected",
-        }],
-        "repositories": [{
-            "repository_id": 4, "installation_id": 2,
-            "full_name": "octo-org/app",
-        }],
+        "installations": [
+            {
+                "installation_id": 2,
+                "account_id": 3,
+                "account_login": "octo-org",
+                "repository_selection": "selected",
+            }
+        ],
+        "repositories": [
+            {
+                "repository_id": 4,
+                "installation_id": 2,
+                "full_name": "octo-org/app",
+            }
+        ],
     }
     targets = {
         "github": github,
@@ -110,9 +121,13 @@ def test_github_app_config_rejects_boolean_ids(
     targets[section][key] = True
 
     codes = {
-        issue.code for issue in contract.validate_payload({
-            "schema_version": 1, "github": github,
-        })
+        issue.code
+        for issue in contract.validate_payload(
+            {
+                "schema_version": 1,
+                "github": github,
+            }
+        )
     }
 
     assert code in codes
