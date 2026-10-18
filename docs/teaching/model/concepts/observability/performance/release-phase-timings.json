@@ -1,0 +1,10 @@
+{
+ "id": "release-phase-timings",
+ "title": "Release phase timings",
+ "status": "observed",
+ "commands": ["yoke deployment-runs timings"],
+ "functions": ["deployment_runs.timings", "deployment_runs.timings.record"],
+ "sources": ["docs/public/reference/deployment-start.md", "docs/public/reference/db-reference/deployment-run-records.md"],
+ "page": "observability",
+ "position": 5
+}
