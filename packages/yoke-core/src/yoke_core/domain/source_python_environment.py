@@ -16,7 +16,13 @@ from pathlib import Path
 from typing import Mapping
 
 from yoke_contracts.uv_project import UV_EXECUTABLE, is_uv_project
-from yoke_core.domain.qa_environment_declaration import load_declaration
+from yoke_contracts.qa_case_environment import COMMAND_CASE_CANDIDATE_TREE_ENV
+from yoke_core.domain.qa_environment_declaration import (
+    TestEnvironmentDeclaration,
+    load_declaration,
+)
+
+QA_SOURCE_ENVIRONMENT_ENV = "YOKE_QA_SOURCE_ENVIRONMENT"
 
 
 class SourceEnvironmentRefusal(ValueError):
@@ -30,13 +36,58 @@ class SourcePythonEnvironment:
     evidence: dict
 
 
+def _declaration(root: Path, env: Mapping[str, str]) -> TestEnvironmentDeclaration:
+    snapshot = env.get(QA_SOURCE_ENVIRONMENT_ENV)
+    candidate = env.get(COMMAND_CASE_CANDIDATE_TREE_ENV)
+    if not snapshot or not candidate:
+        return load_declaration(
+            project=env.get("YOKE_PROJECT"), checkout=root, strict=True
+        )
+    try:
+        tree = json.loads(candidate)
+        receipt = json.loads(snapshot)
+        if (
+            not isinstance(tree, dict)
+            or not isinstance(receipt, dict)
+            or tree.get("root") != str(root)
+            or receipt.get("root") != str(root)
+        ):
+            raise ValueError("declaration does not belong to the selected candidate")
+        raw = receipt["declaration"]
+        if (
+            not isinstance(raw, dict)
+            or set(raw) != {"project", "uv_project", "extras", "groups"}
+            or not isinstance(raw["project"], str)
+            or not raw["project"]
+            or not isinstance(raw["uv_project"], str)
+            or any(
+                not isinstance(raw[key], list)
+                or any(not isinstance(value, str) or not value for value in raw[key])
+                for key in ("extras", "groups")
+            )
+        ):
+            raise ValueError("invalid runner declaration")
+        return TestEnvironmentDeclaration(
+            project=raw["project"],
+            uv_project=raw["uv_project"],
+            extras=tuple(raw["extras"]),
+            groups=tuple(raw["groups"]),
+        )
+    except (ValueError, KeyError, TypeError) as exc:
+        raise SourceEnvironmentRefusal(
+            "SOURCE-ENVIRONMENT-QA-DECLARATION: invalid candidate environment "
+            "handoff. Rerun the same QA case through its candidate-bound runner "
+            "to regenerate the declaration; preserve its candidate environment variables."
+        ) from exc
+
+
 def resolve(root: Path, env: Mapping[str, str]) -> SourcePythonEnvironment:
     """Check the declared lock, environment, and interpreter; never sync."""
     root = root.resolve()
     try:
-        declaration = load_declaration(
-            project=env.get("YOKE_PROJECT"), checkout=root, strict=True
-        )
+        declaration = _declaration(root, env)
+    except SourceEnvironmentRefusal:
+        raise
     except Exception as exc:
         raise SourceEnvironmentRefusal(
             f"SOURCE-ENVIRONMENT-DECLARATION: could not read the checkout's QA "
@@ -156,6 +207,12 @@ def resolve(root: Path, env: Mapping[str, str]) -> SourcePythonEnvironment:
         clean,
         {
             "root": str(root),
+            "declaration": {
+                "project": declaration.project,
+                "uv_project": declaration.uv_project,
+                "extras": list(declaration.extras),
+                "groups": list(declaration.groups),
+            },
             "project": str(project),
             **facts,
             "extras": list(declaration.extras),
