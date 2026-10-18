@@ -57,7 +57,7 @@ def emit_records(records, *, stream=None):
         print(PREFIX + json.dumps(record, sort_keys=True), file=stream, flush=True)
 
 
-def _emit(step, phase, elapsed_ms=None, outcome=None, **facts):
+def _emit(step, phase, elapsed_ms=None, outcome=None, *, stream=None, **facts):
     state = _SCOPE.get()
     if state is None:
         return
@@ -76,7 +76,7 @@ def _emit(step, phase, elapsed_ms=None, outcome=None, **facts):
             with Path(state["capture"]).open("a", encoding="utf-8") as stream:
                 print(line, file=stream, flush=True)
         else:
-            print(line, flush=True)
+            print(line, file=stream, flush=True)
 
 
 @contextmanager
@@ -91,6 +91,10 @@ def start_step(step, *, heartbeat=False, record_count=None):
     stopped = Event()
     pulse = None
     if heartbeat and _SCOPE.get() is not None:
+        # The pulse thread writes to the step's own stream: a redirect the step
+        # body installs later (a replay proof capturing its entry's output) is
+        # process-wide and must not swallow or be polluted by these lines.
+        step_stream = sys.stdout
 
         def report_running():
             while not stopped.wait(30):
@@ -99,6 +103,7 @@ def start_step(step, *, heartbeat=False, record_count=None):
                     "running",
                     round((monotonic() - started) * 1000, 3),
                     "pending",
+                    stream=step_stream,
                     **progress,
                 )
 

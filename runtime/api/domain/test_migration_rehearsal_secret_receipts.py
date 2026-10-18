@@ -88,6 +88,52 @@ def test_unscrubbed_copy_refuses_before_replay(copy, monkeypatch, capsys):
     assert SECRET not in capsys.readouterr().out
 
 
+def test_driver_heartbeat_during_replay_stays_on_driver_stream(copy, monkeypatch, capsys):
+    import threading
+
+    from yoke_core.domain import deployment_start_timing as timing
+
+    _entry().apply(copy)
+    capsys.readouterr()
+    inside, pulsed = threading.Event(), threading.Event()
+
+    class PulseEvent:
+        def __init__(self):
+            self.calls, self.stopped = 0, threading.Event()
+
+        def wait(self, seconds):
+            # First pulse fires only once the replay is capturing output.
+            self.calls += 1
+            if self.calls == 1:
+                return not inside.wait(1)
+            return self.stopped.wait(1)
+
+        def set(self):
+            self.stopped.set()
+
+    def apply(conn, original=_entry().apply):
+        inside.set()
+        assert pulsed.wait(1)
+        original(conn)
+
+    emit = timing._emit
+
+    def record(*args, **kwargs):
+        emit(*args, **kwargs)
+        if args[1] == "running":
+            pulsed.set()
+
+    monkeypatch.setattr(timing, "Event", PulseEvent)
+    monkeypatch.setattr(timing, "_transport", lambda: "local-postgres")
+    monkeypatch.setattr(timing, "_emit", record)
+    monkeypatch.setattr(_entry(), "apply", apply)
+    with timing.timing_scope("run-replay"):
+        with timing.start_step("fleet_post_boot:copy", heartbeat=True):
+            assert replay.verify_secret_receipt_replay(copy) is None
+    out = capsys.readouterr().out
+    assert '"phase": "running"' in out and "ledger_rows_rewritten=0" in out
+
+
 @pytest.mark.parametrize("damage", ("bytes", "identity", "count", "exception"))
 def test_replay_refuses_changes_and_never_echoes_failure_payloads(
     copy,
