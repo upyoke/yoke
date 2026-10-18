@@ -16,10 +16,13 @@ wrote to.
 from __future__ import annotations
 
 import ast
+import posixpath
 import shlex
 from dataclasses import dataclass
 from pathlib import PurePath
 from typing import List, Optional, Tuple
+
+from yoke_contracts.free_paths import STATIC_FREE_PATH_PREFIXES
 
 from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     extract_heredoc_sections,
@@ -40,6 +43,7 @@ class PythonWriteAnalysis:
     targets: Tuple[str, ...]
     detected: bool
     unresolved_writes: Tuple[str, ...] = ()
+    free_writes: bool = False
 
 
 def analyze_python_heredoc_writes(command: str) -> PythonWriteAnalysis:
@@ -47,6 +51,7 @@ def analyze_python_heredoc_writes(command: str) -> PythonWriteAnalysis:
     targets: List[str] = []
     unresolved: List[str] = []
     detected = False
+    free_writes = False
     for source in _python_sources(command):
         try:
             tree = ast.parse(source)
@@ -57,8 +62,12 @@ def analyze_python_heredoc_writes(command: str) -> PythonWriteAnalysis:
         targets.extend(visitor.targets)
         unresolved.extend(visitor.unresolved_writes)
         detected = detected or visitor.detected
+        free_writes = free_writes or visitor.free_writes
     return PythonWriteAnalysis(
-        _dedupe(targets), detected, _dedupe(unresolved),
+        _dedupe(targets),
+        detected,
+        _dedupe(unresolved),
+        free_writes,
     )
 
 
@@ -84,28 +93,142 @@ class _PythonWriteVisitor(ast.NodeVisitor):
         self.targets: List[str] = []
         self.unresolved_writes: List[str] = []
         self.detected = False
+        self.free_writes = False
+        self.free_bindings: set[str] = set()
+        self.tempfile_modules: set[str] = set()
+        self.tempfile_factories: dict[str, str] = {}
+
+    def visit_Import(self, node: ast.Import) -> None:
+        for alias in node.names:
+            if alias.name == "tempfile":
+                self.tempfile_modules.add(alias.asname or alias.name)
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        if node.module == "tempfile":
+            for alias in node.names:
+                if alias.name in {
+                    "TemporaryDirectory",
+                    "mkdtemp",
+                    "NamedTemporaryFile",
+                }:
+                    self.tempfile_factories[alias.asname or alias.name] = alias.name
+
+    def _tempfile_directory(self, node: ast.Call) -> ast.AST | None:
+        func = node.func
+        name = (
+            self.tempfile_factories.get(func.id)
+            if isinstance(func, ast.Name)
+            else func.attr
+        )
+        index = 6 if name == "NamedTemporaryFile" else 2
+        positional = node.args[index] if len(node.args) > index else None
+        directory = next(
+            (kw.value for kw in node.keywords if kw.arg == "dir"), positional
+        )
+        return (
+            None
+            if isinstance(directory, ast.Constant) and directory.value is None
+            else directory
+        )
+
+    def _is_tempfile_factory(self, node: ast.AST) -> bool:
+        if not isinstance(node, ast.Call):
+            return False
+        func = node.func
+        return (
+            isinstance(func, ast.Name)
+            and func.id in self.tempfile_factories
+            or isinstance(func, ast.Attribute)
+            and isinstance(func.value, ast.Name)
+            and func.value.id in self.tempfile_modules
+            and func.attr in {"TemporaryDirectory", "mkdtemp", "NamedTemporaryFile"}
+        )
+
+    def _is_free_path(self, node: ast.AST) -> bool:
+        path = self._path_value(node)
+        if path is not None:
+            normalized = posixpath.normpath(path)
+            return any(
+                normalized == p or normalized.startswith(p + "/")
+                for p in STATIC_FREE_PATH_PREFIXES
+            )
+        if isinstance(node, ast.Name):
+            return node.id in self.free_bindings
+        if self._is_tempfile_factory(node):
+            directory = self._tempfile_directory(node)
+            # Default tempfile storage is scratch; explicit destinations must
+            # independently name a free root, never an arbitrary checkout.
+            return directory is None or self._is_free_path(directory)
+        if isinstance(node, ast.Attribute) and node.attr == "name":
+            return self._is_free_path(node.value)
+        if isinstance(node, ast.Call) and node.args:
+            func = node.func
+            if (
+                isinstance(func, ast.Name)
+                and func.id == "Path"
+                or isinstance(func, ast.Attribute)
+                and func.attr == "Path"
+            ):
+                return self._is_free_path(node.args[0])
+        if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Div, ast.Add)):
+            right = self._path_value(node.right)
+            if right is not None and ".." in PurePath(right).parts:
+                return False
+            if (
+                isinstance(node.op, ast.Div)
+                and right is not None
+                and PurePath(right).is_absolute()
+            ):
+                return False
+            return self._is_free_path(node.left)
+        return False
+
+    def _bind(self, target: ast.AST, value: ast.AST) -> None:
+        if isinstance(target, ast.Name):
+            path = self._path_value(value)
+            free = self._is_free_path(value)
+            self.bindings.pop(target.id, None)
+            self.free_bindings.discard(target.id)
+            if path is not None:
+                self.bindings[target.id] = path
+            elif free:
+                self.free_bindings.add(target.id)
 
     def visit_Assign(self, node: ast.Assign) -> None:
-        path = self._path_value(node.value)
-        if path is not None:
-            for target in node.targets:
-                if isinstance(target, ast.Name):
-                    self.bindings[target.id] = path
+        for target in node.targets:
+            self._bind(target, node.value)
+        self.generic_visit(node)
+
+    def visit_With(self, node: ast.With) -> None:
+        for item in node.items:
+            if item.optional_vars is not None:
+                self._bind(item.optional_vars, item.context_expr)
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
         func = node.func
         if isinstance(func, ast.Attribute) and func.attr in _PATH_WRITE_METHODS:
             self.detected = True
-            self._record_write(self._path_value(func.value), node)
+            self._record_write(self._path_value(func.value), node, func.value)
         elif self._is_write_open(node):
             self.detected = True
-            if isinstance(func, ast.Attribute):
-                bound_path = self._path_value(func.value)
-                target = bound_path if bound_path is not None else self._first_arg(node)
+            operand = (
+                func.value
+                if isinstance(func, ast.Attribute)
+                and (
+                    self._path_value(func.value) is not None
+                    or self._is_free_path(func.value)
+                )
+                else (node.args[0] if node.args else node)
+            )
+            self._record_write(self._path_value(operand), node, operand)
+        elif self._is_tempfile_factory(node):
+            self.detected = True
+            directory = self._tempfile_directory(node)
+            if directory is None:
+                self.free_writes = True
             else:
-                target = self._first_arg(node)
-            self._record_write(target, node)
+                self._record_write(self._path_value(directory), node, directory)
         self.generic_visit(node)
 
     def _is_write_open(self, node: ast.Call) -> bool:
@@ -113,7 +236,12 @@ class _PythonWriteVisitor(ast.NodeVisitor):
         if isinstance(func, ast.Name) and func.id == "open":
             return self._mode_writes(node, 1)
         if isinstance(func, ast.Attribute) and func.attr == "open":
-            mode_index = 0 if self._path_value(func.value) is not None else 1
+            mode_index = (
+                0
+                if self._path_value(func.value) is not None
+                or self._is_free_path(func.value)
+                else 1
+            )
             return self._mode_writes(node, mode_index)
         return False
 
@@ -129,9 +257,6 @@ class _PythonWriteVisitor(ast.NodeVisitor):
             and any(flag in mode.value for flag in "wax+")
         )
 
-    def _first_arg(self, node: ast.Call) -> Optional[str]:
-        return self._path_value(node.args[0]) if node.args else None
-
     def _path_value(self, node: ast.AST) -> Optional[str]:
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
             return node.value
@@ -140,8 +265,10 @@ class _PythonWriteVisitor(ast.NodeVisitor):
         if isinstance(node, ast.Call) and node.args:
             func = node.func
             is_path = (
-                isinstance(func, ast.Name) and func.id == "Path"
-                or isinstance(func, ast.Attribute) and func.attr == "Path"
+                isinstance(func, ast.Name)
+                and func.id == "Path"
+                or isinstance(func, ast.Attribute)
+                and func.attr == "Path"
             )
             if is_path:
                 return self._path_value(node.args[0])
@@ -150,12 +277,21 @@ class _PythonWriteVisitor(ast.NodeVisitor):
             right = self._path_value(node.right)
             if left is not None and right is not None:
                 return str(PurePath(left).joinpath(right))
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            left, right = self._path_value(node.left), self._path_value(node.right)
+            if left is not None and right is not None:
+                return left + right
         return None
 
-    def _record_write(self, path: Optional[str], node: ast.Call) -> None:
+    def _record_write(
+        self, path: Optional[str], node: ast.Call, operand: ast.AST
+    ) -> None:
         """Keep a resolved destination, or name the one that stayed unread."""
         if path:
             self.targets += [path]
+            return
+        if self._is_free_path(operand):
+            self.free_writes = True
             return
         self.unresolved_writes += [_describe_write(node)]
 

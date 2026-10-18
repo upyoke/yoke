@@ -9,6 +9,7 @@ and any leading ``cd``; the same bodies run on main still refuse.
 from __future__ import annotations
 
 import re
+import json
 from pathlib import Path
 from unittest import mock
 
@@ -24,6 +25,7 @@ from yoke_contracts.hook_runner.client_facts import WRITE_TARGETS_KEY, client_fa
 from yoke_core.domain import lint_lane_main_write
 from yoke_core.domain.command_workdir import command_execution_cwd
 from yoke_harness.hooks.client_write_targets import execution_cwd
+from yoke_harness.hooks.command_workdir_stamp import stamp_command_workdir
 
 SESSION = "sid-command-workdir"
 ITEM_ID = 2729
@@ -215,3 +217,49 @@ def test_client_walks_a_leading_cd_across_every_separator(tmp_path, separator):
         "tool_input": {"command": f"cd {tmp_path}{separator}{RELATIVE_HEREDOC}"},
     }
     assert execution_cwd(payload) == str(tmp_path.resolve())
+
+
+def test_real_codex_rollout_workdir_reaches_the_guard(lane_repo, tmp_path):
+    repo, lane = lane_repo
+    transcript = tmp_path / "rollout.jsonl"
+    transcript.write_text(
+        json.dumps(
+            {
+                "payload": {
+                    "type": "function_call",
+                    "name": "exec_command",
+                    "call_id": "call-command",
+                    "arguments": json.dumps(
+                        {"cmd": COMPUTED_EDIT, "workdir": str(lane)}
+                    ),
+                }
+            }
+        )
+        + "\n"
+    )
+    original = {
+        "cwd": str(repo),
+        "tool_input": {"command": COMPUTED_EDIT},
+        "transcript_path": str(transcript),
+        "tool_use_id": "call-command",
+    }
+    stamped = json.loads(stamp_command_workdir(json.dumps(original), "codex"))
+    assert _evaluate(COMPUTED_EDIT, cwd=repo, tool_input=stamped["tool_input"]).allow
+    assert not _evaluate(COMPUTED_EDIT, cwd=repo).allow
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "import tempfile\nfrom pathlib import Path\nwith tempfile.TemporaryDirectory() as root:\n (Path(root) / 'result').write_text('x')",
+        "import tempfile\nfrom pathlib import Path\nroot=tempfile.mkdtemp()\n(Path(root) / 'result').write_text('x')",
+        "from pathlib import Path\nprefix='/tmp/capture-'\nPath(prefix + filename).write_text('x')",
+    ],
+)
+def test_temporary_computed_write_from_main_allows(lane_repo, body):
+    repo, _lane = lane_repo
+    command = f"python3 - <<'PY'\n{body}\nPY"
+    assert _evaluate(command, cwd=repo).allow
+    main_write = f"\nPath({str(repo / 'source.py')!r}).write_text('x')"
+    mixed = f"python3 - <<'PY'\n{body}{main_write}\nPY"
+    assert not _evaluate(mixed, cwd=repo).allow

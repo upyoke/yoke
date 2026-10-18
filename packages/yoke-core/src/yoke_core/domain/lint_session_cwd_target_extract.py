@@ -74,7 +74,12 @@ def glued_file_redirect_target(token: str) -> str | None:
 
 
 def _tool_input(payload: Mapping[str, Any]) -> Mapping[str, Any]:
-    value = payload.get("tool_input") or payload.get("toolInput") or {}
+    value = (
+        payload.get("tool_input")
+        or payload.get("toolInput")
+        or payload.get("input")
+        or {}
+    )
     return value if isinstance(value, Mapping) else {}
 
 
@@ -210,7 +215,8 @@ def analyze_payload_write_targets(
     out.extend(python_writes.targets)
     return PayloadWriteTargets(
         _dedupe_paths(out),
-        unresolved,
+        unresolved
+        or (python_writes.free_writes and not python_writes.unresolved_writes),
         python_writes.unresolved_writes,
     )
 
