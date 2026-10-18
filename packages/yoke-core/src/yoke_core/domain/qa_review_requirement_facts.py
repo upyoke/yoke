@@ -174,6 +174,7 @@ def review_subject(requirement: dict[str, Any]) -> dict[str, Any]:
     are different decisions with the same shape, and a surface that cannot
     tell them apart offers to block a release that already shipped.
     """
+    item_id = requirement.get("item_id") or requirement.get("epic_id")
     if requirement.get("deployment_run_id"):
         kind = "deployment_run"
     elif requirement.get("item_id") or requirement.get("epic_id"):
@@ -182,11 +183,7 @@ def review_subject(requirement: dict[str, Any]) -> dict[str, Any]:
         kind = "plan"
     return {
         "kind": kind,
-        "item_id": (
-            int(requirement["item_id"])
-            if requirement.get("item_id") is not None
-            else None
-        ),
+        "item_id": int(item_id) if item_id is not None else None,
         #: The item a run-scoped check was recorded for. A reader that must
         #: address this review by item cannot recover it from ``item_id``,
         #: which the schema keeps null for anything run scoped.
