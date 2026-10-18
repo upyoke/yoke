@@ -4,7 +4,8 @@ Frontend of the shared cluster-lifecycle core
 (:mod:`yoke_core.domain.postgres_cluster`): already-installed embedded binaries
 with a system ``PATH`` fallback,
 a throwaway data directory under the shared scratch root, and durability
-turned off. This is the *local* equivalent of CI's GitHub Actions
+turned off. An overlong cluster root keeps its data in place and puts the
+Unix socket in a short temp directory. This is the *local* equivalent of CI's GitHub Actions
 ``postgres`` service — it lets a developer run the suite against Postgres
 without a system Postgres install touching any real database. The durable
 sibling frontend is :mod:`yoke_core.domain.local_universe`.
@@ -82,12 +83,14 @@ def _root() -> Path:
 
 
 def _spec() -> ClusterSpec:
+    root = _root()
     return ClusterSpec(
-        root=_root(),
+        root=root,
         superuser=PGUSER,
         server_settings=DISPOSABLE_SERVER_SETTINGS,
         bin_dir=postgres_binaries.installed_bin_dir(),
         stop_mode="immediate",  # throwaway data: skip the shutdown checkpoint
+        socket_dir=postgres_cluster.socket_dir_for_root(root),
     )
 
 
