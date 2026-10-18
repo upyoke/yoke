@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 _HEREDOC_RE = re.compile(
     r"<<(-?)[ \t]*(?:'([^']*)'|\"([^\"]*)\"|([A-Za-z_][A-Za-z0-9_]*))"
+    r"(?=$|[ \t\r\n;|&<>])"
 )
 _SEPARATORS = ";|&\n"
 

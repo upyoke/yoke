@@ -74,6 +74,12 @@ def test_literal_heredoc_spelling_inside_argv_is_unchanged():
     assert strip_literal_heredocs(command) == command
 
 
+@pytest.mark.parametrize("marker", ["'E'OF", '"E"OF', "E'OF'"])
+def test_partial_delimiter_match_does_not_consume_following_commands(marker):
+    command = f"cat <<{marker}\ninput\nEOF\nrm owned.txt"
+    assert strip_literal_heredocs(command) == command
+
+
 def test_unterminated_literal_body_stays_input():
     assert extract_mutations("cat <<'EOF' > owned.txt\nIt's | prose") == [
         Mutation("redirect", "owned.txt")
