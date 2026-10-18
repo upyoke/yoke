@@ -28,7 +28,7 @@ def handle_deployment_run_list(request: FunctionCallRequest) -> HandlerOutcome:
     if "page" in payload:
         incompatible = [
             key
-            for key in ("project", "status", "limit", "relevance")
+            for key in ("project", "status", "limit", "relevance", "summary", "cursor")
             if payload.get(key) is not None
         ]
         if incompatible:
@@ -86,6 +86,33 @@ def handle_deployment_run_list(request: FunctionCallRequest) -> HandlerOutcome:
             jsonpath="$.payload.limit",
         )
     actor_id = request.actor.actor_id
+    if payload.get("summary"):
+        if relevance is not None or (
+            payload.get("cursor") is not None and not isinstance(payload["cursor"], str)
+        ):
+            return error(
+                "payload_invalid",
+                "summary requires no relevance and a string cursor; remove incompatible inputs",
+            )
+        from yoke_core.domain.deployment_run_summary_read import list_run_summaries
+
+        try:
+            result = list_run_summaries(
+                project=project,
+                status=status,
+                limit=resolved_limit,
+                cursor=payload.get("cursor"),
+                actor_id=int(actor_id)
+                if actor_id is not None and str(actor_id).isdigit()
+                else None,
+            )
+        except ValueError as exc:
+            return error("summary_page_invalid", str(exc))
+        return HandlerOutcome(result_payload=result, primary_success=True)
+    if payload.get("cursor") is not None:
+        return error(
+            "payload_invalid", "cursor requires summary=true; request a summary page"
+        )
     rows = list_deployment_runs(
         project=project,
         status=status,

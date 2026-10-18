@@ -23,6 +23,12 @@ from yoke_contracts.deployment_itemless_teaching import (
     RESOLVE_TARGET_DESCRIPTION,
 )
 from yoke_contracts.deployment_release_roles_teaching import RELEASE_ROLE_RECIPE
+from yoke_cli.commands.adapters.deployment_reads import (
+    DEPLOYMENT_RUNS_GET_USAGE,
+    DEPLOYMENT_RUNS_LIST_USAGE,
+    deployment_runs_get,
+    deployment_runs_list,
+)
 
 DEPLOYMENT_FLOWS_GET_USAGE = (
     "yoke deployment-flows get FLOW-ID [FIELD] [--session-id S] [--json]"
@@ -32,11 +38,6 @@ DEPLOYMENT_FLOWS_STAGES_USAGE = (
 )
 DEPLOYMENT_FLOWS_SET_STATUS_USAGE = (
     "yoke deployment-flows set-status FLOW-ID active|disabled [--session-id S] [--json]"
-)
-DEPLOYMENT_RUNS_GET_USAGE = "yoke deployment-runs get RUN-ID [FIELD] [--include-member-closure] [--session-id S] [--json]"
-DEPLOYMENT_RUNS_LIST_USAGE = (
-    "yoke deployment-runs list [--project P] [--status STATUS] "
-    "[--relevance overview] [--limit N] [--session-id S] [--json]"
 )
 DEPLOYMENT_RUNS_UPDATE_USAGE = (
     "yoke deployment-runs update RUN-ID FIELD VALUE [--force] [--session-id S] [--json]"
@@ -129,91 +130,6 @@ def deployment_flows_set_status(args: List[str]) -> int:
         function_id="deployment_flows.set_status",
         target=TargetRef(kind="global"),
         payload={"flow_id": parsed.flow_id, "status": parsed.status},
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-        human_writer=_human_writer,
-    )
-
-
-def deployment_runs_get(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke deployment-runs get",
-        description=DEPLOYMENT_RUNS_GET_USAGE,
-    )
-    parser.add_argument("run_id")
-    parser.add_argument("field", nargs="?", default=None)
-    parser.add_argument(
-        "--include-member-closure",
-        action="store_true",
-        help="Read expensive per-member settlement diagnostics explicitly.",
-    )
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_GET_USAGE)
-    if parsed is None:
-        return 2
-
-    def _human_writer(response, stdout, stderr) -> None:
-        write_human(response.result, stdout)
-
-    return dispatch_and_emit(
-        function_id="deployment_runs.get",
-        target=_run_target(parsed.run_id),
-        payload={
-            "field": parsed.field,
-            **(
-                {"include_member_closure": True}
-                if parsed.include_member_closure
-                else {}
-            ),
-        },
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-        human_writer=_human_writer,
-    )
-
-
-def deployment_runs_list(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke deployment-runs list",
-        description=DEPLOYMENT_RUNS_LIST_USAGE,
-    )
-    parser.add_argument("--project", default=None)
-    parser.add_argument("--status", default=None)
-    parser.add_argument(
-        "--relevance",
-        choices=["overview"],
-        default=None,
-        help="Shipping's live/recent runs with member QA and delivery facts.",
-    )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-        help="Maximum number of recent runs to return.",
-    )
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_LIST_USAGE)
-    if parsed is None:
-        return 2
-
-    def _human_writer(response, stdout, stderr) -> None:
-        write_human(response.result or {}, stdout)
-
-    payload = {}
-    if parsed.project is not None:
-        payload["project"] = parsed.project
-    if parsed.status is not None:
-        payload["status"] = parsed.status
-    if parsed.relevance is not None:
-        payload["relevance"] = parsed.relevance
-    if parsed.limit is not None:
-        payload["limit"] = parsed.limit
-    return dispatch_and_emit(
-        function_id="deployment_runs.list",
-        target=TargetRef(kind="global"),
-        payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_human_writer,

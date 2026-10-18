@@ -133,3 +133,29 @@ yoke dev run -- python3 -m yoke_core.ui.build_chart_dependency --target-root <ch
 
 Use uPlot's [API documentation](https://github.com/leeoniya/uPlot/blob/master/docs/README.md)
 and the pinned dependency's `dist/uPlot.d.ts` when changing chart interaction.
+
+## Read runs
+
+```text
+yoke deployment-runs list --project PROJECT
+yoke deployment-runs list --project PROJECT --cursor NEXT_CURSOR
+yoke deployment-runs get RUN-ID status current_stage release_lineage
+```
+
+The CLI list returns up to 20 summary rows, bounded by encoded page bytes before
+transport. Keep the same project/status filters when passing `next_cursor` to
+`--cursor`; a null cursor means the page is complete. `--limit N` sets the row
+ceiling, and a byte bound may return fewer whole rows. Summary rows omit large
+carried-work, source receipts, member and QA records; the result names the detail
+recipe. `get RUN-ID FIELD ...` returns only the requested row fields in one read;
+a single field keeps its scalar answer. With no fields, `get` reads the full row.
+`--include-member-closure` explicitly adds settlement diagnostics to that full
+read. `list --relevance overview` requests Shipping's member QA and delivery facts.
+
+Registered callers use `deployment_runs.list` with `summary=true` and optional
+`cursor`, or `deployment_runs.get` with a nonempty `fields` list. Do not combine
+`fields` with `field` or member closure. Older serving releases refuse the new
+CLI contract as `deployment_run_read_projection_unavailable`; ask the
+control-plane operator to install a release with field selection and summary
+pagination, and read individual fields meanwhile. An oversized summary row
+refuses with its run-specific detail recipe; no row is silently shortened.

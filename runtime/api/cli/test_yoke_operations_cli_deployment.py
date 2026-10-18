@@ -124,6 +124,7 @@ def test_deployment_runs_list_prints_pipe_rows() -> None:
             version=request.version,
             request_id=request.request_id,
             result={
+                "detail_recipe": "yoke deployment-runs get RUN-ID FIELD ...",
                 "fields": ["id", "project", "status"],
                 "rows": [
                     {
@@ -149,7 +150,7 @@ def test_deployment_runs_list_prints_pipe_rows() -> None:
     assert "run-20260616-001 | yoke | created" in out
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "deployment_runs.list"
-    assert req.payload == {"project": "yoke", "limit": 7}
+    assert req.payload == {"summary": True, "project": "yoke", "limit": 7}
 
 
 def test_deployment_runs_overview_uses_the_shipping_read() -> None:
