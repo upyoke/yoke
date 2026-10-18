@@ -12,7 +12,9 @@ One Codex ``exec`` call may run several ``exec_command`` invocations with
 different workdirs. The stamped workdir belongs to the invocation whose
 ``cmd`` is this hook's command; when that cannot be told apart, nothing is
 stamped and the guards resolve against the session cwd, never a neighbour's
-directory.
+directory. The call is found by its ``call_id``; a code-mode hook whose id is
+the inner item id falls back to the newest recorded ``exec`` that ran this
+exact command.
 """
 
 from __future__ import annotations
@@ -125,10 +127,10 @@ def workdir_for_command(source: str, command: str) -> str:
     return workdirs.pop().strip() if len(workdirs) == 1 else ""
 
 
-def rollout_call_source(transcript_path: str, tool_use_id: str) -> str:
-    """Return the recorded input of the rollout call ``tool_use_id``."""
-    if not transcript_path or not tool_use_id:
-        return ""
+def _rollout_tail(transcript_path: str) -> bytes:
+    """Return the capped tail of the local rollout, or ``b""``."""
+    if not transcript_path:
+        return b""
     try:
         file_path = Path(transcript_path)
         size = file_path.stat().st_size
@@ -136,25 +138,62 @@ def rollout_call_source(transcript_path: str, tool_use_id: str) -> str:
             if size > _TRANSCRIPT_TAIL_BYTES:
                 handle.seek(size - _TRANSCRIPT_TAIL_BYTES)
                 handle.readline()
-            chunk = handle.read()
+            return handle.read()
     except OSError:
-        return ""
-    found = ""
+        return b""
+
+
+def _payloads(chunk: bytes, needle: str) -> list[dict[str, Any]]:
+    """Decode each rollout line containing ``needle`` into its payload."""
+    found: list[dict[str, Any]] = []
     for raw in chunk.splitlines():
-        if tool_use_id.encode() not in raw:
+        if needle.encode() not in raw:
             continue
         try:
             payload = json.loads(raw).get("payload")
         except (ValueError, AttributeError, UnicodeDecodeError):
             continue
-        if not isinstance(payload, dict):
-            continue
+        if isinstance(payload, dict):
+            found.append(payload)
+    return found
+
+
+def rollout_call_source(transcript_path: str, tool_use_id: str) -> str:
+    """Return the recorded input of the rollout call ``tool_use_id``."""
+    if not tool_use_id:
+        return ""
+    found = ""
+    for payload in _payloads(_rollout_tail(transcript_path), tool_use_id):
         if (payload.get("call_id") or payload.get("tool_use_id")) != tool_use_id:
             continue
         source = payload.get("input") or payload.get("arguments")
         if isinstance(source, str) and source:
             found = source
     return found
+
+
+def recent_command_workdir(transcript_path: str, command: str) -> str:
+    """Return the workdir of the latest recorded call running exactly ``command``.
+
+    A code-mode ``exec`` hook carries the inner item id, not the outer
+    ``custom_tool_call`` call id, so the id lookup finds nothing. The newest
+    ``exec`` input whose own ``exec_command`` names this exact ``cmd`` is the
+    call this hook belongs to; a neighbour's command never matches.
+    """
+    for payload in reversed(_payloads(_rollout_tail(transcript_path), "exec_command")):
+        if payload.get("type") != "custom_tool_call":
+            continue
+        source = payload.get("input")
+        if not isinstance(source, str):
+            continue
+        workdirs = {
+            (call["workdir"] or "").strip()
+            for call in exec_command_calls(source)
+            if call["cmd"] == command
+        }
+        if workdirs:
+            return workdirs.pop() if len(workdirs) == 1 else ""
+    return ""
 
 
 def _declares_workdir(
@@ -196,7 +235,12 @@ def stamp_command_workdir(stdin_data: str, executor: str) -> str:
         str(payload.get("transcript_path") or ""),
         str(payload.get("tool_use_id") or ""),
     )
-    workdir = workdir_for_command(call_source, command) if call_source else ""
+    if call_source:
+        workdir = workdir_for_command(call_source, command)
+    else:
+        workdir = recent_command_workdir(
+            str(payload.get("transcript_path") or ""), command
+        )
     if not workdir:
         return stdin_data
     tool_input["workdir"] = workdir
@@ -205,6 +249,7 @@ def stamp_command_workdir(stdin_data: str, executor: str) -> str:
 
 __all__ = [
     "exec_command_calls",
+    "recent_command_workdir",
     "rollout_call_source",
     "stamp_command_workdir",
     "workdir_for_command",

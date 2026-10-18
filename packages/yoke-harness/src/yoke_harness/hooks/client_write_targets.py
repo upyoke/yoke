@@ -62,11 +62,19 @@ def _operands(payload: Mapping[str, object]) -> list[str]:
 _CD_OPTIONS = frozenset({"-L", "-P", "-e", "-@", "--"})
 
 
+def _shell_tokens(command: str) -> list[str]:
+    """Split ``command`` keeping ``&&``, ``;`` and newlines as separators."""
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|\n")
+    lexer.whitespace = " \t\r"
+    lexer.whitespace_split = True
+    return list(lexer)
+
+
 def execution_cwd(payload: Mapping[str, object]) -> str:
     """The directory the payload's command runs in, as the write guard sees it.
 
     The declared call workdir, else the session cwd, then each leading plain
-    ``cd DIR`` segment, stopping at the first segment that is not one or at
+    ``cd DIR`` segment joined by ``&&``, ``;`` or a newline, stopping at the first segment that is not one or at
     an operand this machine cannot resolve without running the shell.
     """
     data = tool_input(dict(payload))
@@ -78,12 +86,12 @@ def execution_cwd(payload: Mapping[str, object]) -> str:
     )
     cwd = os.path.realpath(os.path.expanduser(cwd))
     try:
-        tokens = shlex.split(command_from_payload(dict(payload)) or "", posix=True)
+        tokens = _shell_tokens(command_from_payload(dict(payload)) or "")
     except ValueError:
         return cwd
     segment: list[str] = []
     for token in [*tokens, "&&"]:
-        if token not in {"&&", ";"}:
+        if token.strip("\n") not in {"&&", ";", ""}:
             segment.append(token)
             continue
         operands = [t for t in segment[1:] if t not in _CD_OPTIONS]
