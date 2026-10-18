@@ -59,7 +59,9 @@ def claim(ref, session, folder):
     if not named:
         found = re.search(r'(?m)^([A-Z][A-Z_]+):', result.stderr)
         named = found.group(1) if found else ''
-    return result.returncode, result.stdout + result.stderr, named
+    text = result.stdout + result.stderr
+    print('claim ' + ref + ' exit ' + str(result.returncode) + ':\n' + text, flush=True)
+    return result.returncode, text, named
 outside = tempfile.mkdtemp(prefix='outside-project-')
 if mode == 'harnesses':
     started = []
@@ -113,12 +115,12 @@ elif mode == 'first-work':
         sys.exit('first_work_fixture_item_failed: retain the item create output and repair item creation before retrying')
     ref = found.group(0)
     code, text, named = claim(ref, session, outside)
-    registration = re.search(r'yoke project register CHECKOUT --project-id ([0-9]+)', text)
+    registration = re.search(r'yoke --env (\S+) project register CHECKOUT --project-id ([0-9]+)', text)
     if not code or named != 'CLAIM_FOLDER_MISMATCH' or ref not in text or registration is None:
         sys.exit('first_work_refusal_missing: retain the claim output; outside a project the claim must refuse CLAIM_FOLDER_MISMATCH naming the item and the registration recovery')
-    project_id = registration.group(1)
+    connection, project_id = registration.groups()
     checkout = os.path.realpath(tempfile.mkdtemp(prefix='scope-proof-'))
-    result, _ = call(['project', 'register', checkout, '--project-id', project_id], session, outside, as_json=False)
+    result, _ = call(['--env', connection, 'project', 'register', checkout, '--project-id', project_id], session, outside, as_json=False)
     if result.returncode:
         sys.exit('first_work_register_failed: retain the registration output and repair project register before retrying')
     code, text, named = claim(ref, session, checkout)
