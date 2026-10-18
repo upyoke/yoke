@@ -104,20 +104,6 @@ class DeploymentFlowCreateResponse(BaseModel):
     message: str
 
 
-class DeploymentRunGetRequest(BaseModel):
-    field: Optional[str] = None
-    run_id: Optional[str] = None
-
-
-class DeploymentRunGetResponse(BaseModel):
-    run_id: str
-    field: Optional[str] = None
-    value: Optional[str] = None
-    fields: Optional[List[str]] = None
-    run: Optional[Dict[str, Any]] = None
-    attestation_warnings: Optional[List[Dict[str, str]]] = None
-
-
 class DeploymentRunStartForItemRequest(BaseModel):
     project: Optional[str] = None
     flow: Optional[str] = None
@@ -327,8 +313,6 @@ __all__ = [
     "DeploymentFlowCreateResponse",
     "DeploymentFlowDescribeRequest",
     "DeploymentFlowDescribeResponse",
-    "DeploymentRunGetRequest",
-    "DeploymentRunGetResponse",
     "DeploymentRunContinueForItemRequest",
     "DeploymentRunContinueForItemResponse",
     "DeploymentRunStartForItemRequest",

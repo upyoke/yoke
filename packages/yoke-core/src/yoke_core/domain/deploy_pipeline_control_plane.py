@@ -63,12 +63,16 @@ def _call(function_id: str, run_id: str, payload: Dict[str, Any]) -> Dict[str, A
         error = response.error
         message = error.message if error else "request failed"
         if error and error.code == READ_DEADLINE_CODE:
-            # The server's hint asks for a narrower read; the driver's read
-            # is already one run, so name the driver's own recovery instead.
             message = (
                 f"{message} Every one of {len(retries) + 1} attempts expired; "
-                f"nothing was written. Recovery: rerun `yoke watch deploy -- "
-                f"{run_id}` once `yoke env list` shows the control plane responsive."
+                f"The slow composition was {function_id} with fields {payload}. "
+                "Nothing was written by this read. Recovery: inspect this run "
+                "with `yoke deployment-runs get "
+                f"{run_id} release_lineage` and `yoke deployment-runs get "
+                f"{run_id} project` field reads; "
+                "omit member_closure diagnostics. If these narrow reads also "
+                "expire, ask the control-plane operator to diagnose that reader "
+                "before rerunning the driver."
             )
         elif error and error.recovery_hint:
             message = f"{message} Recovery: {error.recovery_hint}"
@@ -107,13 +111,11 @@ def run_pin(run_id: str) -> Dict[str, str]:
     minutes of git before the child exists. The pin itself is already on
     the run row.
     """
-    result = _call("deployment_runs.get", run_id, {})
-    run = result.get("run") or {}
-    if not isinstance(run, dict):
-        run = {}
     return {
-        "project": str(run.get("project") or ""),
-        "release_lineage": str(run.get("release_lineage") or ""),
+        field: str(
+            _call("deployment_runs.get", run_id, {"field": field}).get("value") or ""
+        )
+        for field in ("project", "release_lineage")
     }
 
 
