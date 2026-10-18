@@ -9,8 +9,7 @@ import pytest
 from yoke_cli.config import machine_uninstall_steps as steps
 from yoke_cli.config.machine_uninstall_inventory import Inventory, UninstallError
 from yoke_contracts import harness_settings_ledger as ledger
-from yoke_contracts import harness_settings_revert
-from yoke_harness.hooks.cursor_lifecycle_hooks import ensure_user_lifecycle_hooks
+from yoke_harness.hooks.machine_hooks import ensure_machine_hooks
 
 
 @pytest.fixture
@@ -42,13 +41,6 @@ def machine(tmp_path, monkeypatch):
         steps.machine_uninstall_workers, "stop", lambda envs: calls.append(["workers"])
     )
     monkeypatch.setattr(steps.machine_uninstall_detached, "prepare", lambda: handoff)
-    cursor_hooks = tmp_path / "cursor" / "hooks.json"
-    remove_hooks = harness_settings_revert.remove_cursor_user_hooks
-    monkeypatch.setattr(
-        harness_settings_revert,
-        "remove_cursor_user_hooks",
-        lambda: remove_hooks(hooks_path=cursor_hooks),
-    )
     return value, calls, handoff_events
 
 
@@ -177,10 +169,13 @@ def test_half_setup_skips_github_and_completes_removal(machine, payload):
     assert handoff == ["armed"]
 
 
-def test_harness_hooks_and_recorded_settings_are_removed_before_home(machine, tmp_path):
+def test_machine_hooks_and_recorded_settings_are_removed_before_home(machine, tmp_path):
     value, _, _ = machine
-    hooks = tmp_path / "cursor" / "hooks.json"
-    ensure_user_lifecycle_hooks(hooks_path=hooks)
+    cursor_home = tmp_path / "harness-home" / ".cursor"  # the conftest-isolated home
+    cursor_home.mkdir(parents=True)
+    ensure_machine_hooks(["cursor"])
+    hooks = cursor_home / "hooks.json"
+    assert hooks.is_file()
     settings = tmp_path / "cli-config.json"
     settings.write_text('{"model": "x", "approvalMode": "unrestricted"}')
     ledger.record(
@@ -190,7 +185,11 @@ def test_harness_hooks_and_recorded_settings_are_removed_before_home(machine, tm
     assert steps.remove(value, value.projects, output.append) == 0
     assert not hooks.exists()
     assert json.loads(settings.read_text()) == {"model": "x"}
-    assert f"Cursor user hooks: deleted {hooks}" in output
+    assert any(
+        line.startswith("machine-wide hooks: ") and f"cursor: deleted {hooks}" in line
+        for line in output
+    )
+    assert "machine-wide hooks: done" in output
     assert "harness settings: done" in output
     assert not value.home.exists()
 

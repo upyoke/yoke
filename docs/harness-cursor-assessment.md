@@ -46,7 +46,8 @@ Read those owners before changing an integration boundary.
 ## Hook events: mapping and measured coverage
 
 Cursor config: project `.cursor/hooks.json` (`{"version": 1, "hooks": {…}}`),
-user `~/.cursor/hooks.json`; watched and hot-reloaded; matchers are
+user `~/.cursor/hooks.json` (Yoke's machine-wide hooks; see
+`runtime/harness/manifest-machine-hooks.md`); watched and hot-reloaded; matchers are
 JavaScript regexes over tool type, shell command, or subagent type. Exit 0 +
 JSON output, or exit 2 to block; `failClosed` opts a hook into
 deny-on-crash; per-entry `timeout` (seconds) bounds execution — unset
@@ -125,7 +126,7 @@ started it (`yoke_harness.cursor_native_result_usage`).
 | Allow-time advisory | `hookSpecificOutput.additionalContext` | same | `postToolUse.additional_context`; no allow-time channel on `preToolUse` — advisory-only chain output needs rerouting or omission via `AdapterCapability.pretool_omissions` |
 | Rewrite tool input | — | — | `preToolUse.updated_input` |
 | Orientation injection | `UserPromptSubmit` additionalContext | `SessionStart` | `sessionStart.additional_context` (measured working; only channel in `-p` mode, where `beforeSubmitPrompt` never fires) |
-| Stop discipline | empty allow; hold is `{"decision":"block","reason":...}` | allow `{}` from session dispatch, short-circuit on `stop_hook_active`; hold is `{"decision":"block","reason":...}` | allow-path `{}`; hold uses `followup_message` for same-session self-continuation only; stop/sessionEnd commands peel a missing `.worktrees/<lane>` `YOKE_ROOT` and a `~/.cursor/hooks.json` backstop covers deleted project cwd |
+| Stop discipline | empty allow; hold is `{"decision":"block","reason":...}` | allow `{}` from session dispatch, short-circuit on `stop_hook_active`; hold is `{"decision":"block","reason":...}` | allow-path `{}`; hold uses `followup_message` for same-session self-continuation only; stop/sessionEnd commands peel a missing `.worktrees/<lane>` `YOKE_ROOT` and Yoke's machine-wide `~/.cursor/hooks.json` entries (which step aside while the project config owns the event) cover a deleted project cwd |
 
 ## Session identity, process shape, container model
 
