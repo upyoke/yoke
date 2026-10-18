@@ -1,4 +1,4 @@
-"""An idle holder's row says which process state it is in and what to do.
+"""An idle holder's row says when a message reaches its turn.
 
 A headless worker's process exits between turns and the next message resumes
 it from its transcript, so none of the resumable states may read as a reason
@@ -32,6 +32,11 @@ EXITED_AT = "2026-08-26T11:30:00.000000Z"
 def steering_scope(test_db):
     conn = seed_steering_scope(test_db)
     claim_work(conn, session_id=WORKER_SESSION, target=make_item_target(1))
+    conn.execute(
+        "UPDATE harness_sessions SET turn_posture='running' WHERE session_id=%s",
+        (WORKER_SESSION,),
+    )
+    conn.commit()
     return conn
 
 
@@ -52,12 +57,12 @@ def _holder_line(report) -> str:
     )
 
 
-def test_live_idle_holder_reads_process_running_and_message_it(steering_scope):
+def test_mid_turn_holder_says_the_message_waits(steering_scope):
     report = _compose(steering_scope)
 
     assert any(row.session_id == WORKER_SESSION for row in report.idle)
     line = _holder_line(report)
-    assert "idle, process running — message it" in line
+    assert "mid-turn — message waits until the turn ends" in line
     assert "yoke say --item YOK-1 --stdin" in line
     assert "terminate" not in line
 
@@ -73,7 +78,7 @@ def test_exited_holder_on_a_resumable_surface_is_messaged_not_terminated(
     assert holder.native_process_gone is True
     assert holder.resumable_from_transcript is True
     line = _holder_line(report)
-    assert "idle, process exited — message it to resume from transcript" in line
+    assert "between turns — message wakes it" in line
     assert "yoke say --item YOK-1 --stdin" in line
     assert "terminate" not in line
 
@@ -104,7 +109,7 @@ def test_exited_holder_a_wake_is_resuming_reads_resuming_now(steering_scope):
     assert holder.native_process_gone is False
     assert holder.requires_immediate_alarm is False
     line = _holder_line(report)
-    assert f"resuming now (wake started {JUST_NOW}" in line
+    assert "message wake in flight — let the turn start" in line
     assert "terminate" not in line
 
 
@@ -137,12 +142,69 @@ def test_a_wake_from_before_the_exit_does_not_read_as_resuming(steering_scope):
     assert holder.native_process_gone is True
 
 
-def test_exit_on_a_surface_no_message_can_resume_keeps_terminate_wording(
+def test_exit_on_a_surface_no_message_can_resume_names_operator_input(
     steering_scope,
 ):
     _record_exit(steering_scope, version=None)
 
     line = _holder_line(_compose(steering_scope))
 
-    assert "this surface cannot resume by message" in line
-    assert "terminate deliberately if dead" in line
+    assert "between turns — message needs operator input on this surface" in line
+
+
+@pytest.mark.parametrize("exited", [False, True])
+def test_expected_park_describes_its_wait_with_or_without_a_native(
+    exited, steering_scope
+):
+    if exited:
+        _record_exit(steering_scope)
+    steering_scope.execute(
+        "UPDATE harness_sessions SET mode='parked', quiet_reason='waiting on release', "
+        "native_process_gone_evidence=%s WHERE session_id=%s",
+        ('{"exit_code":0}', WORKER_SESSION),
+    )
+    steering_scope.commit()
+    line = _holder_line(_compose(steering_scope))
+    assert "parked waiting on release" in line
+    assert "process running" not in line
+
+
+def test_containment_with_zero_exit_code_still_alarms_under_a_park(steering_scope):
+    _record_exit(steering_scope)
+    steering_scope.execute(
+        "UPDATE harness_sessions SET mode='parked', native_process_gone_evidence=%s "
+        "WHERE session_id=%s",
+        ('{"exit_code":0,"containment_reason":"inactivity"}', WORKER_SESSION),
+    )
+    steering_scope.commit()
+    report = _compose(steering_scope)
+    holder = next(row for row in report.idle if row.session_id == WORKER_SESSION)
+    assert holder.native_process_gone and holder.contained_by_sweep
+    assert (
+        "contained by sweep: inactivity, claims held; parked waiting"
+        in _holder_line(report)
+    )
+
+
+@pytest.mark.parametrize("posture", ["running", "waiting"])
+def test_roster_and_holder_share_delivery_state(steering_scope, posture):
+    from yoke_core.domain.sessions_list_read import list_sessions
+
+    steering_scope.execute(
+        "UPDATE harness_sessions SET turn_posture=%s, executor_version=%s "
+        "WHERE session_id=%s",
+        (posture, RESUMABLE_VERSION, WORKER_SESSION),
+    )
+    steering_scope.commit()
+    report = _compose(steering_scope)
+    holder = next(row for row in report.holders if row.session_id == WORKER_SESSION)
+    from yoke_core.domain.steering_fleet_report_projection import report_dict
+
+    assert (
+        report_dict(report)["holders"][0]["message_delivery"] == holder.message_delivery
+    )
+    [roster] = list_sessions(session_id=WORKER_SESSION)
+    assert roster["message_delivery"] == holder.message_delivery
+    assert (
+        "mid-turn" if posture == "running" else "between turns"
+    ) in holder.message_delivery

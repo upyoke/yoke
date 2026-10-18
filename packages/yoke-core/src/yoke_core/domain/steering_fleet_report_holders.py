@@ -8,14 +8,16 @@ module decides only who the holders are.
 
 from __future__ import annotations
 
-from yoke_contracts.timestamps import format_instant
-
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
+from yoke_core.domain.session_message_reachability import (
+    DELIVERY_UNKNOWN,
+    message_reachability,
+)
 from yoke_core.domain.session_mode import session_is_parked
 from yoke_core.domain.session_tool_call_projections import (
     OPEN_TOOL_CALL_COLUMN,
@@ -51,6 +53,7 @@ class ClaimHolder:
     last_activity_at: datetime | None
     idle_seconds: int
     quiet_reason: str = ""
+    message_delivery: str = DELIVERY_UNKNOWN
     native_process_gone_at: datetime | None = None
     hand_started: bool = False
     #: Why this machine's containment sweep ended the native, when it did.
@@ -82,33 +85,6 @@ class ClaimHolder:
     @property
     def resuming(self) -> bool:
         return bool(self.resume_started_at)
-
-    def process_phrase(self) -> str:
-        """What the holder's process is doing and what a seat does about it.
-
-        Empty for a live process; the caller decides whether quiet makes
-        that worth a line. None of these states is evidence for terminating
-        a worker that a message would bring back.
-        """
-        if self.resuming:
-            return (
-                f"resuming now (wake started {format_instant(self.resume_started_at)}, after "
-                "its recorded exit) — not dead; let it start"
-            )
-        if self.contained_by_sweep:
-            # Not a worker that went quiet: its own machine ended it.
-            return f"contained by sweep: {self.contained_reason}, claims held"
-        if not self.native_process_gone:
-            return ""
-        if self.resumable_from_transcript:
-            return (
-                "idle, process exited — message it to resume from transcript "
-                f"`yoke say --item {self.public_ref} --stdin`"
-            )
-        return (
-            "process gone, claims held — this surface cannot resume by "
-            "message; terminate deliberately if dead"
-        )
 
 
 def _contained_reason(process: dict[str, Any]) -> str:
@@ -234,6 +210,7 @@ def claim_holders(
                 last_activity_at=last_activity,
                 idle_seconds=age_seconds(last_activity, now) or 0,
                 quiet_reason=str(row.get("quiet_reason") or ""),
+                message_delivery=message_reachability(row, resuming=resume is not None),
                 native_process_gone_at=parse_stamp(process.get("observed_at")),
                 contained_reason=_contained_reason(process),
                 hand_started=not bool(row.get("launch_recorded")),
