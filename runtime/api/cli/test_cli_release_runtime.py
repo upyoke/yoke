@@ -240,3 +240,16 @@ def test_standalone_bootstrap_activates_wheel_without_runtime_module(tmp_path):
         subprocess.check_output([str(bin_dir / "yoke"), "--version"], text=True).strip()
         == "1.0"
     )
+
+
+def test_symlinked_tool_root_retains_current_and_uninstalls(tmp_path):
+    root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
+    active = candidate(root, "1.0")
+    alias = tmp_path / "tool-link"
+    alias.symlink_to(root, target_is_directory=True)
+    runtime.activate(alias, alias / "releases/1.0", bin_dir, "1.0")
+    with runtime.locked(root / "publication.lock"):
+        runtime.collect(alias)
+    assert active.exists()
+    runtime.uninstall(alias, bin_dir)
+    assert not root.exists()

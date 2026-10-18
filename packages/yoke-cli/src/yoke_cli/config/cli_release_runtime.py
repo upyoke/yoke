@@ -112,6 +112,7 @@ def collect(root: Path, *, legacy: bool = False, pending_safe: bool = False) -> 
     Process inspection also protects direct interpreter children and the original
     uv environment, whose commands started before release leases existed.
     """
+    root = root.resolve()
     current = _generation(root)
     commands = _process_commands()
     for candidate in (root / "releases").iterdir():
@@ -252,6 +253,7 @@ def uninstall(root: Path, bin_dir: Path) -> None:
     """Remove only this install's launcher and released environments."""
     from contextlib import ExitStack
 
+    root = root.resolve()
     with ExitStack() as stack:
         stack.enter_context(locked(root / "publication.lock", nonblocking=True))
         _generation(root)
