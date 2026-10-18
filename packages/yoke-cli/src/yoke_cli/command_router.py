@@ -154,11 +154,6 @@ def _extract_global_env(argv: List[str]) -> tuple[List[str], Optional[str], bool
     selected: Optional[str] = None
     i = 0
     while i < len(argv):
-        # This local setup command names the connection it writes. A leading
-        # global override still selects authority; its own --env must survive.
-        if out == ["dev", "setup"]:
-            out.extend(argv[i:])
-            break
         token = argv[i]
         if token == "--":
             out.extend(argv[i:])

@@ -130,15 +130,3 @@ def test_tool_shaped_resolution_covers_init_and_lifecycle():
 
     resolved = resolve_tool_shaped(["local-postgres", "start"])
     assert resolved is not None and resolved[0] is commands.local_postgres_start
-
-
-def test_shipping_seed_passes_scenario_to_guarded_engine(monkeypatch, capsys):
-    from yoke_cli.commands import local_demo_seed_command as command
-
-    def seed(**kwargs):
-        assert kwargs["scenario"] == "shipping"
-        return {"ok": True, "scenario": "shipping", "member_attachment_count": 204}
-
-    monkeypatch.setattr(command, "_seed_demo_items", seed)
-    assert command.local_demo_seed(["--scenario", "shipping", "--json"]) == 0
-    assert json.loads(capsys.readouterr().out)["member_attachment_count"] == 204

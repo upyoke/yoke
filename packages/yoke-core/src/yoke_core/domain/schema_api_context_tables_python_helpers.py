@@ -23,24 +23,6 @@ from __future__ import annotations
 
 
 PYTHON_HELPERS_TABLES: dict[str, dict] = {
-    "yoke_core.domain.deployment_runs_schema": {
-        "columns": [("cmd_init", "callable")],
-        "notes": (
-            "The lazy deployment-run storage owner is cmd_init. Wrong guess: "
-            "a fresh API-boot-converged review universe already has deployment_runs. "
-            "Call the owner after the authorized local boot before seeding runs."
-        ),
-    },
-    "yoke_core.domain.backlog_create_op": {
-        "columns": [("execute_create", "callable")],
-        "notes": (
-            "execute_create accepts deployment_flow as a registered flow id, "
-            "and resolves its owning project itself. Wrong guess: passing "
-            "flow_project as a keyword. Each item binds its own project's "
-            "active flow; cross-project run membership follows the run's "
-            "bound source projects through deployment_runs_crud_mutate.cmd_add_item."
-        ),
-    },
     "yoke_harness.hooks.machine_hooks": {
         "columns": [("ensure_machine_hooks_for_executor", "callable")],
         "notes": (
