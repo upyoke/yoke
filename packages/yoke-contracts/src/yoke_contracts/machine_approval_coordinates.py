@@ -6,9 +6,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 
 _ENTRY_PATHS = frozenset({"/connect", "/machine"})
-_CODE_PATTERN = re.compile(
-    r"(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{4}|[0-9A-F]{5}-[0-9A-F]{5}|[A-Z0-9]{4}-[A-Z0-9]{4})"
-)
+_CODE_PATTERN = re.compile(r"[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{4}")
 
 
 @dataclass(frozen=True)

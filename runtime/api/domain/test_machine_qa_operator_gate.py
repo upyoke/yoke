@@ -40,7 +40,7 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
     transcripts = iter(
         (
             "Approve this machine.\n"
-            f"  {detail_marker} One-time code: AB12-CD34\n"
+            f"  {detail_marker} One-time code: K7F2\n"
             f"  {detail_marker} Open: https://app.stage.upyoke.com/connect\n",
             "Waiting for browser approval",
             "Yoke token connected.",
@@ -57,9 +57,9 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
             return completed(
                 command,
                 stdout=(
-                    "https://app.stage.upyoke.com/connect?user_code=AB12-CD34\n"
+                    "https://app.stage.upyoke.com/connect?user_code=K7F2\n"
                     if "return tabURLs" in command
-                    else "approved|https://app.stage.upyoke.com/connect?user_code=AB12-CD34|"
+                    else "approved|https://app.stage.upyoke.com/connect?user_code=K7F2|"
                     "https://app.stage.upyoke.com/orgs/acme/frontier\n"
                 ),
             )
@@ -99,11 +99,11 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
     }
     assert event == {
         "approval_automation": "self_approving_visible_safari",
-        "code": "AB12-CD34",
+        "code": "K7F2",
         "event": "machine_qa.operator_gate",
         "kind": "machine_browser_approval",
         "self_approving": True,
-        "url": "https://app.stage.upyoke.com/connect?user_code=AB12-CD34",
+        "url": "https://app.stage.upyoke.com/connect?user_code=K7F2",
     }
     assert result.browser_evidence == {
         "approval_entry": "/connect",
@@ -117,9 +117,7 @@ def test_browser_gate_ignores_stale_outcomes_before_current_code(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    current_gate = (
-        "One-time code: EF56-GH78\nOpen: https://app.stage.upyoke.com/machine\n"
-    )
+    current_gate = "One-time code: M8G3\nOpen: https://app.stage.upyoke.com/machine\n"
     retained_history = "Yoke token connected.\nauthorization expired\n"
     transcripts = iter(
         (
@@ -157,7 +155,7 @@ def test_browser_gate_ignores_stale_outcomes_before_current_code(
     assert result.transcript.endswith("Yoke token connected.\n")
     assert result.browser_evidence == {"browser": "Safari"}
     printed = capsys.readouterr().out.splitlines()
-    assert json.loads(printed[0])["code"] == "EF56-GH78"
+    assert json.loads(printed[0])["code"] == "M8G3"
 
 
 def test_browser_gate_fails_fast_when_the_browser_helper_fails(
@@ -166,8 +164,8 @@ def test_browser_gate_fails_fast_when_the_browser_helper_fails(
     browser_evidence = {"browser": "Safari", "state": "browser_tab_missing"}
     transcripts = iter(
         (
-            "One-time code: AB12-CD34\nOpen: https://app.stage.upyoke.com/connect\n",
-            "One-time code: AB12-CD34\nWaiting for browser approval\n",
+            "One-time code: K7F2\nOpen: https://app.stage.upyoke.com/connect\n",
+            "One-time code: K7F2\nWaiting for browser approval\n",
         )
     )
 
@@ -209,7 +207,7 @@ def test_browser_gate_rejects_a_non_entry_path_before_automation() -> None:
     called: list[bool] = []
     result = run_machine_browser_approval_with_io(
         read_transcript=lambda: (
-            "One-time code: AB12-CD34\nOpen: https://app.stage.upyoke.com/anything\n"
+            "One-time code: K7F2\nOpen: https://app.stage.upyoke.com/anything\n"
         ),
         send_keys=lambda _keys: True,
         read_exit_code=lambda _transcript: None,
@@ -258,7 +256,7 @@ def test_operator_sleep_is_rejected_by_the_recipe_contract() -> None:
         )
 
 
-@pytest.mark.parametrize("code", ["AB12-CD34", "AB23", "AB123-CD456"])
+@pytest.mark.parametrize("code", ["K7F2", "AB23"])
 @pytest.mark.parametrize("browser", ["Safari", "Chromium"])
 def test_standalone_gate_accepts_the_current_complete_verification_uri(code, browser):
     uri = "https://example.invalid/connect?user_code=" + code
@@ -286,7 +284,7 @@ def test_complete_uri_on_an_undeclared_origin_is_refused_before_approval():
     requests = []
     result = run_machine_browser_approval_with_io(
         read_transcript=lambda: (
-            "One-time code: AB12-CD34\nOpen: https://other.invalid/connect?user_code=AB12-CD34\n"
+            "One-time code: K7F2\nOpen: https://other.invalid/connect?user_code=K7F2\n"
         ),
         send_keys=lambda keys: True,
         read_exit_code=lambda _transcript: None,
@@ -333,9 +331,9 @@ def test_setup_exit_before_the_approval_prompt_reports_that_exit() -> None:
 
 
 def test_setup_exit_during_approval_is_named_instead_of_waiting() -> None:
-    prompt = "One-time code: AB12-CD34\nOpen: https://app.upyoke.com/connect\n"
+    prompt = "One-time code: K7F2\nOpen: https://app.upyoke.com/connect\n"
     result, approvals = _exiting_gate([prompt, prompt + "exit"], 2)
 
     assert result.error_code == "terminal_setup_exited"
     assert result.step_evidence["setup_exit"]["exit_code"] == 2
-    assert approvals == ["AB12-CD34"]
+    assert approvals == ["K7F2"]
