@@ -6,6 +6,15 @@
 
 Use the registered QA commands to author requirements, execute cases and record evidence. The [database reference](../databases/reference.md) owns the domain catalog and shared payload conventions.
 
+## Source-backed CI gates
+
+A CI gate that updates the source lane it runs from continues in a fresh
+interpreter before publication. The authorized case, prepared lane and original
+source identity travel together; it does not authorize or update the lane twice.
+Installed gates updating another project's checkout continue in their leased
+CLI release. A failed restart names `qa_ci_source_restart_failed`; keep the
+updated lane and rerun the same case to rejoin any existing CI run.
+
 ## qa domain CLI
 
 Python owner: `yoke_core.domain.qa`. Public command examples use the installed

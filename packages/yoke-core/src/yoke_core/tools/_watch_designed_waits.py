@@ -16,6 +16,13 @@ continuation rather than re-deriving either.
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_run_completion_preconditions import (
+    AWAITING_QA_PREFIX,
+    HELD_STAGE_PREFIX,
+    redrive_recovery,
+)
+from yoke_core.domain.deploy_pipeline import EXIT_AWAITING_QA
+
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -46,12 +53,6 @@ def _compact(line: str) -> str:
 
 def _scoped_qa_hold(raw_capture: Path) -> DesignedWait | None:
     """The run's scoped-QA hold report, when the capture carries one."""
-    from yoke_core.domain.deployment_run_completion_preconditions import (
-        AWAITING_QA_PREFIX,
-        HELD_STAGE_PREFIX,
-        redrive_recovery,
-    )
-
     prefixes = (AWAITING_QA_PREFIX, HELD_STAGE_PREFIX)
     cause: str | None = None
     with raw_capture.open(encoding="utf-8", errors="replace") as capture:
@@ -80,8 +81,6 @@ def designed_wait(
     the hold's own report in the capture, so a resume the pipeline refused
     for trying to skip QA still renders as the failure it is.
     """
-    from yoke_core.domain.deploy_pipeline import EXIT_AWAITING_QA
-
     if kind != DEPLOY_WATCH_KIND or exit_code != EXIT_AWAITING_QA:
         return None
     return _scoped_qa_hold(raw_capture)
