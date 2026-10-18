@@ -133,6 +133,14 @@ def finish_plan_execution(
         from yoke_core.domain.qa_plan_execution_abort_state import require_host_restored
 
         require_host_restored(conn, execution, reason=reason, commit=commit)
+    if state == "completed":
+        from yoke_core.domain.qa_plan_execution_abort_state import abort_request
+
+        if abort_request(execution):
+            raise QaPlanExecutionStateError(
+                "qa_abort_requested: completion is refused; keep the runner connected "
+                "through cleanup and finish cancellation with yoke qa plan abort"
+            )
     if state == "completed" and int(execution["cursor_ordinal"]) != len(
         execution["roster"]
     ):

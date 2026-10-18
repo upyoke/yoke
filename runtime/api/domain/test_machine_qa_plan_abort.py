@@ -164,6 +164,8 @@ def test_server_retains_lease_until_submitted_restore_proof(
     resume_execution(test_db, current)
     heartbeat_plan_execution(test_db, current)
     assert checkin_view(current)["abort_requested"]
+    with pytest.raises(QaPlanExecutionStateError, match="qa_abort_requested"):
+        finish_plan_execution(test_db, current, state="completed", reason="complete")
     issued = ready.result_payload["execution"]
     evidence = {
         "runner_id": "host_control",
