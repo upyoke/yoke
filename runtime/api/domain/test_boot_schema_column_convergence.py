@@ -101,8 +101,12 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # An ordered history entry retires the born-with task file table
 # (epic_task_files) and epic_tasks' scope_state and scope_finalized_at: each
 # task body's Files Touched section is now its only file list.
+# The release phase timing table (deployment_run_timings) is net-new; its run,
+# scope batch and sequence, step, phase, clock and record are born with it.
+# Teammate invite codes introduce a net-new hash-only table; its actor, role,
+# request identity and lifecycle clocks are all born with that table.
 _BORN_WITH_COLUMN_DIGEST = (
-    "3847f5fd92c1485a1525b835ee5610e59b87f33ed64ca8b1d9045702a3e8851c"
+    "ce51b94efb751b47861e996fa8060d8f303d38e77231597f2ca61baa50ad59bd"
 )
 
 

@@ -301,10 +301,11 @@ silently repoint an unrelated remote bundle.
 ## Take it back off
 
 For full machine removal, use [`yoke uninstall`](public/start/uninstall.md#uninstall). `yoke self-host teardown` removes the server install. It always stops and removes the
-stack; everything further is opt-in and named for what it destroys:
+stack; everything further is opt-in and named for what it destroys. Run it
+from the directory that holds `yoke-server/`, or name the bundle with
+`--dir PATH` from anywhere:
 
 ```bash
-cd yoke-server
 yoke self-host teardown                       # stop the stack; keep the data
 yoke self-host teardown --remove-images \
   --remove-bundle --destroy-universe          # remove everything, prompts first

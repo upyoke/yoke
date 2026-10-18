@@ -181,7 +181,8 @@ The [provisioning index](../packs/machine-qa/versions/1.3.7/files/docs/packs/mac
 as `docs/packs/machine-qa/host-provisioning.md`. Use that installed copy for a
 customized project. [Operation contracts](testing-verification/test-machine-operations.md)
 explain leases and receipts; [baseline semantics](testing-verification/test-machine-golden-baseline.md)
-explain what the evidence establishes.
+explain what the evidence establishes. For a case that needs a real
+self-hosted server, use the [temporary self-hosted server fixture](testing-verification/self-host-fixture.md).
 
 Secret values never belong in settings, workflow definitions, item bodies,
 prompts, logs, captures or artifacts. Capability-owned machine-local secrets

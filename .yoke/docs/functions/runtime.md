@@ -64,6 +64,8 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `deployment_runs.stages` | `none` |
 | `deployment_runs.start_for_item` | `item` |
 | `deployment_runs.terminalize` | `none` |
+| `deployment_runs.timings` | `none` |
+| `deployment_runs.timings.record` | `none` |
 | `deployment_runs.update` | `none` |
 | `deployment_runs.validate_composition` | `none` |
 | `doctor.last_run.get` | `none` |
@@ -204,6 +206,10 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `sessions.steering_groups.list` | `none` |
 | `sessions.touch` | `none` |
 | `steering.report.get` | `none` |
+| `teammate_invites.create` | `none` |
+| `teammate_invites.list` | `none` |
+| `teammate_invites.reissue` | `none` |
+| `teammate_invites.revoke` | `none` |
 | `universe.retention.get` | `none` |
 | `universe.prune.run` | `none` |
 | `ui_preferences.nav_group.list` | `none` |

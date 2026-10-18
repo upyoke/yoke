@@ -25,6 +25,10 @@ from yoke_core.domain.qa_method_capabilities import (
     QaMethodCapabilityError,
     encoded_capability_kinds,
 )
+from yoke_core.domain.qa_requirement_policy_validation import (
+    canonical_success_policy,
+    validate_success_policy,
+)
 from yoke_core.domain.qa_requirement_target_env_update import (
     _prepare_target_env,
 )
@@ -159,6 +163,16 @@ def apply_requirement_update(
                 jsonpath="$.payload.value",
             )
         value = normalized
+    if field == "success_policy":
+        if policy_errors := validate_success_policy("", value):
+            return _fail(
+                code="payload_invalid",
+                message="; ".join(policy_errors),
+                req_id=req_id,
+                field=field,
+                jsonpath="$.payload.value",
+            )
+        value = canonical_success_policy(value)
     if field == "capability_requirements":
         try:
             value = encoded_capability_kinds(value, subject="QA requirement")

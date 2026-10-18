@@ -63,6 +63,28 @@ reach the waiting agent; [settled QA results](release-notices.md#a-settled-qa-st
 and [owner delivery notices](release-notices.md#done-announces-the-delivery-to-the-items-owner)
 live in release notices.
 
+## Table: deployment_run_timings
+
+Release phase timings: the start/end `Deployment start timing: ` records each
+run-scoped driver timing scope stores through `deployment_runs.timings.record`
+at each pipeline stage and when it closes. Read them with `yoke deployment-runs timings RUN-ID`. They are
+diagnostics; nothing operational reads them, and a refused write never fails
+the run (see [deployment start](../start-diagnostics.md)).
+
+```sql
+id INTEGER PRIMARY KEY
+run_id TEXT NOT NULL REFERENCES deployment_runs(id)
+batch_id TEXT NOT NULL -- one driver timing scope
+sequence INTEGER NOT NULL -- record order within the scope; a retried flush inserts nothing twice
+step TEXT NOT NULL
+phase TEXT NOT NULL -- start | end
+recorded_at TIMESTAMPTZ NOT NULL -- the driver clock's record timestamp
+elapsed_ms DOUBLE PRECISION -- end records only
+outcome TEXT -- end records only: ok | failed
+record TEXT NOT NULL -- the full JSON record as the driver wrote it
+UNIQUE(batch_id, sequence)
+```
+
 ## Related
 
 - [Runs](runs.md)

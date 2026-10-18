@@ -2,17 +2,10 @@
 
 Reruns the official public installer (onboarding disabled) against this
 machine's already-configured distribution origin and channel, then verifies
-the installed version. Reinstalling the git credential helper is the public
-installer's own job (``packaging/public-installer/install.py``, run in-process
-by ``curl | sh`` and here alike): it repairs the bundle every reinstall wipes
-from site-packages, and enforces that repair as part of its own readiness --
-a repair failure fails the installer itself, surfacing here as the existing
-non-zero installer exit code. This module never repeats that repair for a
-reinstall; it has no independent repair signal of its own to report once the
-installer has succeeded. The one exception is the already-current fast path
-below, which skips rerunning the installer entirely (to avoid the reinstall
-cost) and so repairs in-process instead, since there is no installer run to
-own that step here.
+the installed version. The installer creates an immutable release environment and atomically publishes
+its launcher. Running commands retain a lease on the previous environment.
+The installer repairs credential-helper references; an already-current update
+repairs them directly because it skips installation.
 """
 
 from __future__ import annotations
@@ -71,10 +64,8 @@ def run_update(
     target = resolve_target(channel=channel, version=version)
 
     if target.version == old_version:
-        # `uv tool install --reinstall --force` wipes and rebuilds the tool
-        # venv even when the version is unchanged, so skip that cost here —
-        # this process's own site-packages is untouched, and repairing the
-        # credential helper in place is cheap and always safe to retry.
+        # An already-current update skips creating a release environment.
+        # Repair credential-helper references directly on this fast path.
         repair = github_repo_helper_reconnect.restore_missing_bundle(None)
         return _with_project_refresh(
             yoke_bin, _result(old_version, old_version, target, repair)

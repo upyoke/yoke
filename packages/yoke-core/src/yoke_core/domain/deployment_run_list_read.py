@@ -31,7 +31,10 @@ from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
 from yoke_core.domain.workflows_definition_read import _stage_names
 from yoke_core.domain.schema_read_scope import composition_operation
-from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
+from yoke_core.domain.deployment_qa_presentation_reads import (
+    presentation_operation,
+    recorded_source_presentation,
+)
 
 
 OVERVIEW_RUN_WINDOW = timedelta(hours=24)
@@ -319,14 +322,15 @@ def list_deployment_runs(
             tuple(query_params),
         ).fetchall()
         base = [dict(row) for row in rows]
-        return present_deployment_runs(
-            conn,
-            base,
-            actor_id=actor_id,
-            visible_project_ids=None,
-            include_carried_work=True,
-            include_item_delivery=relevance == "overview",
-        )
+        with recorded_source_presentation(enabled=relevance == "overview"):
+            return present_deployment_runs(
+                conn,
+                base,
+                actor_id=actor_id,
+                visible_project_ids=None,
+                include_carried_work=True,
+                include_item_delivery=relevance == "overview",
+            )
     finally:
         conn.close()
 

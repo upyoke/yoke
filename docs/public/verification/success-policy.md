@@ -20,6 +20,12 @@ Plan cases use the registered policy shape:
 {"id":"all-pass","params":{}}
 ```
 
+Requirement writes accept the bare name `all-pass` and store it as that
+object, so every reader decodes the stored value as JSON. A stored value that
+is not JSON refuses release admission as `qa_success_policy_unreadable`,
+naming the requirement and its correction:
+`yoke qa requirement update --requirement-id ID --field success_policy --value all-pass`.
+
 Aggregate requirement metadata may declare `{"kind":"all_pass"}`. Other
 aggregation kinds refuse as `qa_success_policy_invalid`. Policies that require
 multiple attempts, pass-rate voting or an older high-confidence pass are

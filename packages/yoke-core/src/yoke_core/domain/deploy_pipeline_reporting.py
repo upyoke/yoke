@@ -206,8 +206,12 @@ def _set_deploy_stage(
     complete public refs. They run first so a missed item write cannot leave
     the run ahead of the items. A failed stamp raises
     :class:`yoke_core.domain.deployment_item_stamp.DeploymentItemStampError`.
+    Each stage first flushes the run's recorded timings so far.
     """
     from yoke_core.domain.deployment_item_stamp import stamp_item_field
+    from yoke_core.domain.deployment_start_timing import flush_timings
+
+    flush_timings()
 
     for raw in member_items:
         stamp_item_field(raw, "deploy_stage", stage)

@@ -37,8 +37,8 @@ local self-host stacks including their universe volumes, and deletes the machine
 (`~/.yoke` or `YOKE_MACHINE_HOME`). A harness setting you changed after Yoke
 wrote it is left in place and reported. Docker is only checked when this
 machine runs a self-host install. No further confirmation is required. Finally a detached
-worker removes the CLI with `uv tool uninstall yoke-cli` after the uninstall
-process exits. Its result log is printed by the command.
+worker removes the immutable CLI releases and launcher after commands release
+their environments. Its result log is printed by the command.
 
 Each step reports done, skipped with a reason, or failed with a named recovery.
 Independent cleanup continues after a failure; the machine home and CLI stay

@@ -93,6 +93,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke agents render", "agents.render", REASON_TOOL_SHAPED),
     _p("yoke agents render check", "agents.render", REASON_TOOL_SHAPED),
     _p("yoke lint config show", "lint.config", REASON_TOOL_SHAPED),
+    _p("yoke worktree classify-dirty", "worktree", REASON_TOOL_SHAPED),
     _p("yoke packets render", "packets", REASON_TOOL_SHAPED),
     _p("yoke packets check", "packets", REASON_TOOL_SHAPED),
     _p("yoke packets budget get", "packets", REASON_TOOL_SHAPED),

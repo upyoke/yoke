@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from typing import Optional, Sequence
+from collections.abc import Mapping
+from typing import Any, Optional, Sequence
 
 from yoke_core.domain.qa_constants import (
     VALID_REQUIREMENT_SOURCES,
@@ -63,6 +64,39 @@ def validate_success_policy(
             f"{prefix}qa_success_policy_invalid: {exc}. Use all-pass; configure measured thresholds on the single executing method."
         ]
     return []
+
+
+#: The one stored form of the all-pass policy. The bare name ``all-pass`` is
+#: accepted on write and stored as this object, so every reader decodes JSON.
+ALL_PASS_POLICY = '{"id":"all-pass","params":{}}'
+
+
+def canonical_success_policy(success_policy: Any) -> Optional[str]:
+    """Return the stored form of a validated policy, or ``None`` for no policy."""
+    if success_policy in (None, ""):
+        return None
+    if success_policy == "all-pass":
+        return ALL_PASS_POLICY
+    if isinstance(success_policy, Mapping):
+        return json.dumps(dict(success_policy), separators=(",", ":"))
+    return str(success_policy)
+
+
+def decode_success_policy(success_policy: Any, *, requirement_id: Any = None) -> Any:
+    """Decode a stored policy, naming the correction when it is not JSON."""
+    if success_policy in (None, "") or isinstance(success_policy, (dict, list)):
+        return success_policy
+    text = str(success_policy)
+    try:
+        return json.loads(text)
+    except ValueError:
+        target = requirement_id if requirement_id is not None else "ID"
+        raise ValueError(
+            f"qa_success_policy_unreadable: QA requirement {target} stores "
+            f"success_policy {text[:80]!r}, which is not JSON; set it with "
+            f"`yoke qa requirement update --requirement-id {target} "
+            "--field success_policy --value all-pass`"
+        ) from None
 
 
 def validate_requirement_source(source: str, *, label: str = "") -> list[str]:

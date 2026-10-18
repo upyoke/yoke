@@ -1,0 +1,9 @@
+{
+ "id": "stored-success-policy",
+ "title": "Stored success policy",
+ "status": "observed",
+ "page": "qa-plans",
+ "position": 7,
+ "summary": "A requirement stores success_policy as JSON. Writes store the bare all-pass name as {\"id\":\"all-pass\",\"params\":{}}; requirement update validates the policy before storing it. A stored value that is not JSON refuses release admission as qa_success_policy_unreadable, naming the requirement and its update command.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/qa_requirement_policy_validation.py", "packages/yoke-core/src/yoke_core/domain/migrations/0085_qa_success_policy_named_form.py", "docs/public/verification/success-policy.md"]
+}

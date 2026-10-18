@@ -11,6 +11,9 @@ from __future__ import annotations
 from datetime import datetime
 from yoke_contracts.timestamps import as_utc
 from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.qa_requirement_policy_validation import (
+    canonical_success_policy,
+)
 
 from dataclasses import dataclass
 import json
@@ -85,7 +88,7 @@ def insert_params(
         row.get("execution_target_digest"),
         str(row.get("blocking_mode") or "blocking"),
         str(row.get("requirement_source") or "explicit"),
-        row.get("success_policy"),
+        canonical_success_policy(row.get("success_policy")),
         row.get("capability_requirements"),
         row.get("suite_id"),
         row.get("method_id"),

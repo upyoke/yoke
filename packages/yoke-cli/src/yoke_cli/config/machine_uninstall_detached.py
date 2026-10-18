@@ -88,29 +88,41 @@ def finish(parent: int, started: str, uv: str, arm_file: Path, ready_file: Path)
     if not arm_file.is_file():
         print("CLI: skipped (main uninstall did not complete cleanup)", flush=True)
         return 1
+    from yoke_cli.config.cli_release_runtime import uninstall
+
     try:
-        result = subprocess.run(
-            [uv, "tool", "uninstall", "yoke-cli"],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
+        directories = []
+        for arguments in (["tool", "dir"], ["tool", "dir", "--bin"]):
+            result = subprocess.run(
+                [uv, *arguments], check=True, capture_output=True, text=True, timeout=10
+            )
+            directory = Path(result.stdout.strip())
+            if not directory.is_absolute():
+                raise RuntimeError("uv returned no absolute tool directory")
+            directories.append(directory)
+        root = directories[0] / "yoke-cli-releases"
         print(
-            f"CLI: failed (uninstall_cli_failed: {type(exc).__name__}; run uv tool uninstall yoke-cli)",
+            "Waiting by design: CLI commands must release their environments; checking file locks; gives up after 10 seconds.",
+            flush=True,
+        )
+        deadline = time.monotonic() + 10
+        while True:
+            try:
+                uninstall(root, directories[1])
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise RuntimeError(
+                        "cli_release_in_use: let running CLI commands finish, then retry uninstall"
+                    ) from None
+                time.sleep(0.1)
+    except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
+        print(
+            f"CLI: failed (uninstall_cli_failed: {exc}; repair uv and retry yoke uninstall)",
             flush=True,
         )
         return 1
-    if result.returncode:
-        print(
-            "CLI: failed (uninstall_cli_failed: uv tool uninstall yoke-cli "
-            f"exited {result.returncode}; repair uv and rerun that command)",
-            flush=True,
-        )
-        print(result.stderr or result.stdout, flush=True)
-        return 1
-    print("CLI: done (uv tool uninstall yoke-cli)", flush=True)
+    print("CLI: done (removed immutable CLI releases and launcher)", flush=True)
     return 0
 
 

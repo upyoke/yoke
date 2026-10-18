@@ -9,6 +9,9 @@ import stat
 
 SECRETS_DIR_NAME = "secrets"
 SECRETS_DIRECTORY_MODE = 0o700
+# Explicit, so a group-writable umask (Ubuntu's default 0002) cannot leave a
+# new bundle directory failing the owner-controlled check below.
+BUNDLE_DIRECTORY_MODE = 0o755
 
 
 class SecureLayoutError(RuntimeError):
@@ -24,7 +27,7 @@ def prepare_bundle_layout(target: Path, *, create: bool) -> None:
         )
     if create:
         try:
-            target.mkdir(parents=True, exist_ok=True)
+            target.mkdir(mode=BUNDLE_DIRECTORY_MODE, parents=True, exist_ok=True)
         except OSError as exc:
             raise SecureLayoutError(
                 f"could not create self-host bundle directory {target}: {exc}"
@@ -142,7 +145,9 @@ def _assert_owner_controlled_bundle(descriptor: int, path: Path) -> None:
     if info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) & 0o022:
         raise SecureLayoutError(
             "self-host bundle directory must be owned by the current user "
-            f"and not group/world writable: {path}"
+            f"and not group/world writable: {path}. Recovery: run "
+            f"`chmod go-w {path}` as its owner, or pass --dir with a "
+            "directory you own, then retry."
         )
 
 

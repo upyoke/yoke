@@ -14,8 +14,13 @@ from typing import Any, Mapping
 
 #: function_id -> minimum serving version. Do not copy already-served ids here.
 FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
+    "worktree.classify_dirty": "next-release",
     "machine.access.get": "next-release",
     "machine.access.set": "next-release",
+    "teammate_invites.create": "next-release",
+    "teammate_invites.list": "next-release",
+    "teammate_invites.revoke": "next-release",
+    "teammate_invites.reissue": "next-release",
     "merge.audit.snapshot": "next-release",
     "ouroboros.reflection.capture": "next-release",
     "actors.role.set": "next-release",
@@ -38,6 +43,8 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "deployment_runs.execution.containment_basis": "next-release",
     "deployment_runs.execution.release_driver": "next-release",
     "deployment_runs.remove_item": "next-release",
+    "deployment_runs.timings": "next-release",
+    "deployment_runs.timings.record": "next-release",
     "github.branch.head": "next-release",
     "github.open_work.list": "next-release",
     "github.release.create_commit_tag": "next-release",

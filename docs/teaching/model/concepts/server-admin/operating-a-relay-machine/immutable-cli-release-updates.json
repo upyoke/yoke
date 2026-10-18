@@ -1,0 +1,10 @@
+{
+ "id": "immutable-cli-release-updates",
+ "title": "Immutable CLI release updates",
+ "status": "observed",
+ "audience": "Administrators",
+ "page": "server-admin",
+ "description": "The active connection relay and manual update reuse the public installer. It builds a private uv tool environment for each release, verifies the candidate and atomically publishes a launcher pointer. Commands hold file leases and keep importing their original release while the next command uses the new one. Retired environments are removed after leases and process inspection show no remaining users. A failed candidate preserves the active release; cleanup refusal names the recovery. Source launcher and uninstall use the same owner.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/cli_release_runtime.py", "packaging/public-installer/source/distribution.py.inc", "runtime/api/cli/test_cli_release_runtime.py", "docs/public/start/install.md"],
+ "position": 3
+}
