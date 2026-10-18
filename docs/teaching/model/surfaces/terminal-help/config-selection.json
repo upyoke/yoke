@@ -1,22 +1,10 @@
 {
-  "id": "config-selection",
-  "title": "Select the machine config and recover a foreign-write refusal",
-  "status": "observed",
-  "form": "Do",
-  "verification": "Config writer help names file selection and write ownership. Project register help and folder recovery name selected-connection checkout routing; candidate regressions prove global --env selection, colliding IDs and complete recovery commands. Evidence is source/test scoped. Source runner help names disposable snapshots and --allow-real-machine-home; unknown-key warnings name the file, ignored key and recovery.",
-  "topics": [
-    "machines/operations/config-isolation",
-    "projects/identity/checkout-and-workspace-home",
-    "universes/connections/multiple-universes"
-  ],
-  "sources": [
-    "packages/yoke-cli/src/yoke_cli/commands/adapters/config_write.py",
-    "packages/yoke-cli/src/yoke_cli/commands/adapters/config_write_project.py",
-    "packages/yoke-cli/src/yoke_cli/commands/adapters/claims_work_folder_guard.py",
-    "runtime/api/cli/test_worker_machine_config_isolation.py",
-    "runtime/api/domain/test_machine_config_project_mapping.py",
-    "packages/yoke-cli/src/yoke_cli/commands/adapters/source_dev_run.py",
-    "runtime/api/cli/test_machine_config_unknown_keys.py"
-  ],
-  "position": 8
+ "id": "config-selection",
+ "title": "Select the machine config and recover a foreign-write refusal",
+ "status": "observed",
+ "form": "Do",
+ "verification": "Config writer help names file selection and write ownership. Project register help and folder recovery name selected-connection checkout routing; candidate regressions prove global --env selection, colliding IDs and complete recovery commands. Evidence is source/test scoped. Source runner help names disposable snapshots and --allow-real-machine-home; unknown-key warnings name the file, ignored key and recovery.",
+ "topics": ["machines/operations/config-isolation", "projects/identity/checkout-and-workspace-home", "universes/connections/multiple-universes"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/config_write.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/config_write_project.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/claims_work_folder_guard.py", "runtime/api/cli/test_worker_machine_config_isolation.py", "runtime/api/domain/test_machine_config_project_mapping.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/source_dev_run.py", "runtime/api/cli/test_machine_config_unknown_keys.py"],
+ "position": 8
 }

@@ -17,6 +17,7 @@ _ROOT_KEYS = frozenset(
         "temp_root",
         "cache_dir",
         "projects",
+        "connection_projects",
         "settings",
         "github",
     }
@@ -53,10 +54,16 @@ def unknown_key_issues(payload: Mapping[str, Any]) -> list[ValidationIssue]:
             )
 
     check(payload, _ROOT_KEYS | RETIRED_MACHINE_CONFIG_KEYS.keys(), "")
-    projects = payload.get("projects")
-    if isinstance(projects, list):
-        for index, entry in enumerate(projects):
-            check(entry, {"checkout", "project_id"}, f"projects[{index}]")
+    def check_projects(projects, prefix):
+        if isinstance(projects, list):
+            for index, entry in enumerate(projects):
+                check(entry, {"checkout", "project_id"}, f"{prefix}[{index}]")
+
+    check_projects(payload.get("projects"), "projects")
+    groups = payload.get("connection_projects")
+    if isinstance(groups, Mapping):
+        for connection, projects in groups.items():
+            check_projects(projects, f"connection_projects.{connection}")
     github = payload.get("github")
     check(github, GITHUB_ALLOWED_KEYS, "github")
     if isinstance(github, Mapping):
