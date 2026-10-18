@@ -103,8 +103,10 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # task body's Files Touched section is now its only file list.
 # The release phase timing table (deployment_run_timings) is net-new; its run,
 # scope batch and sequence, step, phase, clock and record are born with it.
+# Teammate invite codes introduce a net-new hash-only table; its actor, role,
+# request identity and lifecycle clocks are all born with that table.
 _BORN_WITH_COLUMN_DIGEST = (
-    "3990ecfaedd4a6765f162a1a01310664d81eeb1ba9f0548c871068d4dc7f0c4f"
+    "ce51b94efb751b47861e996fa8060d8f303d38e77231597f2ca61baa50ad59bd"
 )
 
 
