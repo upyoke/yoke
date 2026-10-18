@@ -38,6 +38,17 @@ def test_literal_tee_preserves_its_real_target():
     assert [(m.verb, m.target_path) for m in mutations] == [("tee", "owned.txt")]
 
 
+@pytest.mark.parametrize("operator", [">", ">>"])
+def test_attached_redirect_and_quoted_target_remain_visible(operator):
+    command = f"cat {operator}\"owned file.txt\" <<'EOF'\nIt's | input\nEOF"
+    assert extract_mutations(command) == [Mutation("redirect", "owned file.txt")]
+
+
+def test_descriptor_redirect_is_not_a_file_target():
+    command = "cat >owned.txt 2>&1 <<'EOF'\nIt's | input\nEOF"
+    assert extract_mutations(command) == [Mutation("redirect", "owned.txt")]
+
+
 def test_commands_before_on_opener_and_after_literal_body_remain_visible():
     command = (
         "touch before.txt\ncat <<'EOF' > owned.txt; touch inline.txt\n"
