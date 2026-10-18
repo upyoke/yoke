@@ -29,7 +29,10 @@ def _spec(root):
     )
 
 
-@pytest.mark.parametrize("name", ["yoke-pgtest-cluster", "private-cluster"])
+@pytest.mark.parametrize(
+    "name",
+    ["yoke-pgtest-cluster", "private-cluster", pytest.param("", id="evidence-root")],
+)
 def test_interrupt_destroys_real_evidence_postmaster(tmp_path, name):
     env = {
         **os.environ,
@@ -40,16 +43,24 @@ def test_interrupt_destroys_real_evidence_postmaster(tmp_path, name):
     try:
         with pytest.raises(KeyboardInterrupt):
             with isolated_machine_home(env) as child:
-                root = Path(child["YOKE_SCRATCH_ROOT"]) / name
+                evidence = Path(child["YOKE_SCRATCH_ROOT"])
+                capture = evidence / "proof.log"
+                capture.write_text("retained proof")
+                root = evidence / name
                 spec = _spec(root)
                 assert postgres_cluster.ensure_started(spec) == 0
                 assert postgres_cluster.is_ready(spec)
                 raise KeyboardInterrupt()
-        assert not root.exists()
+        assert not spec.data_dir.exists()
+        assert capture.read_text() == "retained proof"
+        if name:
+            assert not root.exists()
         assert not postgres_cluster.is_ready(spec)
     finally:
-        if root is not None and root.exists():
-            postgres_cluster.destroy(_spec(root))
+        if root is not None:
+            if spec.data_dir.exists():
+                postgres_cluster.destroy(spec)
+            shutil.rmtree(evidence, ignore_errors=True)
 
 
 def test_real_prune_keeps_clients_then_reaps_idle_orphan(monkeypatch):

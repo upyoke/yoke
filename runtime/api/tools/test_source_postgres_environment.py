@@ -141,6 +141,9 @@ def test_cleanup_reclaims_only_its_own_evidence_cluster(tmp_path, monkeypatch):
     evidence = tmp_path / "evidence"
     inside = evidence / "yoke-pgtest-cluster"
     outside = tmp_path / "other/yoke-pgtest-cluster"
+    (inside / "data").mkdir(parents=True)
+    (inside / "data/PG_VERSION").write_text("17")
+    (inside / "data/postmaster.pid").write_text("1")
     monkeypatch.setattr(
         reclaim, "_postmasters", lambda: [(1, inside, tmp_path), (2, outside, tmp_path)]
     )
@@ -214,3 +217,10 @@ def test_prune_does_not_touch_durable_cluster_names(tmp_path, monkeypatch):
         reclaim, "_spec", lambda *args: pytest.fail("inspected durable cluster")
     )
     assert reclaim.prune_clusters(tmp_path / "shared") == 0
+
+
+def test_empty_evidence_never_inspects_processes(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        reclaim, "_postmasters", lambda: pytest.fail("no cluster needs inspection")
+    )
+    reclaim.destroy_evidence_clusters(tmp_path)

@@ -161,8 +161,17 @@ def prune_clusters(shared_root: Path) -> int:
 
 def destroy_evidence_clusters(evidence: Path) -> None:
     """A source command owns every disposable cluster inside its evidence root."""
-    failed = _reclaim(None, evidence)
-    for marker in evidence.glob("**/data/PG_VERSION"):
+    markers = list(evidence.glob("**/data/PG_VERSION"))
+    if not markers:
+        return
+    failed = (
+        _reclaim(None, evidence)
+        if any((marker.parent / "postmaster.pid").exists() for marker in markers)
+        else 0
+    )
+    for marker in markers:
+        if not marker.is_file():
+            continue
         root = marker.parent.parent
         if root.is_symlink() or marker.parent.is_symlink():
             continue
