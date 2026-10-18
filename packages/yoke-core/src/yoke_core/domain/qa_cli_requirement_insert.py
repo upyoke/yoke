@@ -6,6 +6,9 @@ from datetime import datetime
 from typing import Any
 
 from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.qa_requirement_policy_validation import (
+    canonical_success_policy,
+)
 
 
 INSERT_SQL = """
@@ -48,7 +51,7 @@ def insert_params(
         row.get("target_env"),
         row.get("blocking_mode", "blocking"),
         row.get("requirement_source", "explicit"),
-        row.get("success_policy"),
+        canonical_success_policy(row.get("success_policy")),
         row.get("capability_requirements"),
         row.get("suite_id"),
         row.get("workflow_transition_id"),
