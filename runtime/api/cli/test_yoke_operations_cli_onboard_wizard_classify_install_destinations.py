@@ -83,7 +83,9 @@ def test_build_plan_reused_existing_project_lists_missing_art_write(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    (tmp_path / "harness-home" / ".cursor").mkdir(parents=True)  # conftest-isolated home
+    (tmp_path / "harness-home" / ".cursor").mkdir(
+        parents=True
+    )  # conftest-isolated home
     monkeypatch.setattr(
         "yoke_cli.config.onboard_session_relay.is_supported", lambda **kw: False
     )

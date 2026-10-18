@@ -100,7 +100,9 @@ def _session_transcripts(harness_id: str) -> dict:
 
 
 def _machine_hooks(harness_id: str) -> dict:
-    payload: dict = {"source": "yoke_contracts.harness_machine_hooks.HARNESS_MACHINE_HOOKS"}
+    payload: dict = {
+        "source": "yoke_contracts.harness_machine_hooks.HARNESS_MACHINE_HOOKS"
+    }
     payload.update(machine_hooks_for_harness(harness_id).to_json())
     return payload
 

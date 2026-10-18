@@ -254,7 +254,9 @@ def _isolate_harness_homes(tmp_path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         HarnessMachineHooks,
         "home_path",
-        lambda self, environ=None: resolve(self, isolated if environ is None else environ),
+        lambda self, environ=None: resolve(
+            self, isolated if environ is None else environ
+        ),
     )
     user_home = global_skill_install.user_home
     monkeypatch.setattr(
