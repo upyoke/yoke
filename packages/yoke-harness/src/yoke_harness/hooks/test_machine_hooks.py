@@ -12,9 +12,9 @@ from yoke_harness.hooks import machine_hooks
 from yoke_harness.hooks.machine_hooks import (
     ensure_machine_hooks,
     ensure_machine_hooks_for_executor,
-    inspect_machine_hooks,
     remove_machine_hooks,
 )
+from yoke_harness.hooks.machine_hooks_inspect import inspect_machine_hooks
 
 HARNESSES = tuple(HARNESS_MACHINE_HOOKS)
 

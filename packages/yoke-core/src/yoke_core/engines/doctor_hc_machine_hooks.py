@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
-from yoke_harness.hooks.machine_hooks import (
+from yoke_harness.hooks.machine_hooks_inspect import (
     STATE_INSTALLED,
     STATE_MALFORMED,
     inspect_machine_hooks,

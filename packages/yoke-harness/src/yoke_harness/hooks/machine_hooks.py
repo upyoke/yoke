@@ -3,7 +3,8 @@
 One owner for every harness: it reads the per-harness facts from
 :mod:`yoke_contracts.harness_machine_hooks` and the entry shapes from
 :mod:`yoke_harness.hooks.machine_hooks_render`. Setup, project install and
-refresh, the per-hook self-heal, uninstall and doctor all call it.
+refresh, the per-hook self-heal and uninstall call it; doctor reads through
+:mod:`yoke_harness.hooks.machine_hooks_inspect`.
 
 It never creates a harness home (a missing home means the harness is not
 installed here), never overwrites a config it cannot parse, and keeps every
@@ -41,14 +42,6 @@ MALFORMED = "machine_hooks_config_malformed"
 TRUST_FAILED = "machine_hooks_trust_failed"
 MACHINE_HOOKS_NOT_WRITTEN = "machine_hooks_not_written"
 
-# Inspection states doctor reports.
-STATE_INSTALLED = "installed"
-STATE_MISSING = "missing"
-STATE_STALE = "stale"
-STATE_MALFORMED = "malformed"
-STATE_UNTRUSTED = "untrusted"
-
-
 def not_installed(spec: HarnessMachineHooks) -> str:
     return f"{spec.harness_id.removesuffix('-code')}_not_installed"
 
@@ -75,19 +68,19 @@ class MachineHooksError(RuntimeError):
     """A user config could not be changed; the message names the recovery."""
 
 
-def _specs(harnesses: Optional[Iterable[str]]) -> list[HarnessMachineHooks]:
+def specs_for(harnesses: Optional[Iterable[str]]) -> list[HarnessMachineHooks]:
     ids = list(HARNESS_MACHINE_HOOKS) if harnesses is None else list(harnesses)
     return [HARNESS_MACHINE_HOOKS[harness_id] for harness_id in ids]
 
 
-def _malformed_detail(path: Path, reason: str) -> str:
+def malformed_detail(path: Path, reason: str) -> str:
     return (
         f"{path} is not a hook config Yoke can edit: {reason}. Recovery: fix or "
         "move the file, then run `yoke setup` again"
     )
 
 
-def _load(path: Path) -> tuple[Optional[dict[str, Any]], str]:
+def load_user_config(path: Path) -> tuple[Optional[dict[str, Any]], str]:
     """Return ``(document, malformed_reason)``; a missing file is ``({}, "")``."""
     if not path.exists():
         return {}, ""
@@ -127,7 +120,7 @@ def _render(spec: HarnessMachineHooks, document: dict[str, Any]) -> dict[str, An
     return updated
 
 
-def _is_current(spec: HarnessMachineHooks, document: Mapping[str, Any]) -> bool:
+def is_current(spec: HarnessMachineHooks, document: Mapping[str, Any]) -> bool:
     """Yoke's entries match the rendered set, wherever they sit in each list.
 
     Formatting and a person's own entries are not Yoke's to normalize, so a
@@ -159,7 +152,7 @@ def _write(path: Path, text: str) -> None:
         raise
 
 
-def _is_owned(spec: HarnessMachineHooks):
+def owned_command_check(spec: HarnessMachineHooks):
     return lambda command: is_machine_hook_entry({"command": command}, spec)
 
 
@@ -179,7 +172,7 @@ def _trust(spec: HarnessMachineHooks, environ: Optional[Mapping[str, str]], *, p
         if prune:
             prune_user_hook_trust(hooks_path, config_path)
         else:
-            mint_user_hook_trust(hooks_path, config_path, is_owned=_is_owned(spec))
+            mint_user_hook_trust(hooks_path, config_path, is_owned=owned_command_check(spec))
     except CodexHookTrustStoreError as exc:
         return (
             f"Codex hook trust was not written: {exc}. Recovery: fix "
@@ -198,12 +191,12 @@ def ensure_harness(
     path = spec.user_config_path(environ)
     if not spec.home_path(environ).is_dir():
         return MachineHookResult(spec.harness_id, str(path), not_installed(spec))
-    document, reason = _load(path)
+    document, reason = load_user_config(path)
     if document is None:
         return MachineHookResult(
-            spec.harness_id, str(path), MALFORMED, _malformed_detail(path, reason)
+            spec.harness_id, str(path), MALFORMED, malformed_detail(path, reason)
         )
-    outcome = UNCHANGED if path.is_file() and _is_current(spec, document) else INSTALLED
+    outcome = UNCHANGED if path.is_file() and is_current(spec, document) else INSTALLED
     if outcome == INSTALLED:
         _write(path, _text(_render(spec, document)))
     if outcome == INSTALLED or trust_when_unchanged:
@@ -218,7 +211,7 @@ def ensure_machine_hooks(
     environ: Optional[Mapping[str, str]] = None,
 ) -> list[MachineHookResult]:
     """Install the machine-wide hooks for every installed harness."""
-    return [ensure_harness(spec, environ) for spec in _specs(harnesses)]
+    return [ensure_harness(spec, environ) for spec in specs_for(harnesses)]
 
 
 def ensure_machine_hooks_reported(
@@ -262,16 +255,16 @@ def remove_machine_hooks(
 ) -> list[MachineHookResult]:
     """Strip Yoke's entries from every user config; delete a file left empty."""
     results: list[MachineHookResult] = []
-    for spec in _specs(None):
+    for spec in specs_for(None):
         path = spec.user_config_path(environ)
-        document, reason = _load(path) if path.is_file() else (None, "")
+        document, reason = load_user_config(path) if path.is_file() else (None, "")
         if document is None and not reason:
             results.append(MachineHookResult(spec.harness_id, str(path), ABSENT))
             continue
         if document is None:
             results.append(
                 MachineHookResult(
-                    spec.harness_id, str(path), MALFORMED, _malformed_detail(path, reason)
+                    spec.harness_id, str(path), MALFORMED, malformed_detail(path, reason)
                 )
             )
             continue
@@ -296,47 +289,6 @@ def remove_machine_hooks(
     return results
 
 
-def inspect_machine_hooks(
-    environ: Optional[Mapping[str, str]] = None,
-) -> list[MachineHookResult]:
-    """Per installed harness: installed, missing, stale, malformed or untrusted."""
-    results: list[MachineHookResult] = []
-    for spec in _specs(None):
-        path = spec.user_config_path(environ)
-        if not spec.home_path(environ).is_dir():
-            continue
-        document, reason = _load(path)
-        if document is None:
-            state, detail = STATE_MALFORMED, _malformed_detail(path, reason)
-        elif not any(
-            is_machine_hook_entry(entry, spec)
-            for entries in document.get("hooks", {}).values()
-            for entry in entries
-        ):
-            state, detail = STATE_MISSING, "run `yoke setup` to install them"
-        elif not _is_current(spec, document):
-            state, detail = STATE_STALE, "run `yoke setup` to refresh them"
-        elif spec.trust == "codex_trusted_hash" and not _codex_trusted(spec, environ):
-            state, detail = STATE_UNTRUSTED, "run `yoke setup` to trust them"
-        else:
-            state, detail = STATE_INSTALLED, ""
-        results.append(MachineHookResult(spec.harness_id, str(path), state, detail))
-    return results
-
-
-def _codex_trusted(spec: HarnessMachineHooks, environ: Optional[Mapping[str, str]]) -> bool:
-    from yoke_contracts.codex_hook_trust_store import inspect_hook_file_trust
-    from yoke_contracts.codex_user_hook_trust import owned_handler_suffixes
-
-    hooks_path = spec.user_config_path(environ)
-    standing = inspect_hook_file_trust(
-        hooks_path, config_path=spec.home_path(environ) / "config.toml"
-    )
-    document, _ = _load(hooks_path)
-    owned = owned_handler_suffixes(document or {}, _is_owned(spec))
-    return bool(owned) and owned <= set(standing.trusted)
-
-
 __all__ = [
     "MachineHookResult",
     "MachineHooksError",
@@ -344,7 +296,11 @@ __all__ = [
     "ensure_machine_hooks",
     "ensure_machine_hooks_for_executor",
     "ensure_machine_hooks_reported",
-    "inspect_machine_hooks",
+    "is_current",
+    "load_user_config",
+    "malformed_detail",
     "not_installed",
+    "owned_command_check",
     "remove_machine_hooks",
+    "specs_for",
 ]
