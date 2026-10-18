@@ -35,8 +35,10 @@ def test_golden_debug_and_journal_preserve_original_result(
             [], 1, "sshd event SECRET", "sudo denied SECRET"
         )
 
+    control = object.__new__(SshTestMachineTransport)
+    control._run, control.secret_values = run, ("SECRET",)
     result, evidence = run_golden_command(
-        SimpleNamespace(_run=run, secret_values=("SECRET",)),
+        control,
         "archive",
         input_text="input",
         timeout=1200,
@@ -58,6 +60,20 @@ def test_golden_debug_and_journal_preserve_original_result(
         )
     assert "Connection closed" in Path(evidence["ssh_client_log"]).read_text()
     assert "SECRET" not in json.dumps(evidence)
+
+
+def test_non_ssh_archive_control_keeps_its_existing_call_contract():
+    calls = []
+
+    def run(command, input_text=None, timeout=None):
+        calls.append((command, input_text, timeout))
+        return subprocess.CompletedProcess([], 0, "receipt", "")
+
+    result, evidence = run_golden_command(
+        SimpleNamespace(_run=run), "archive", input_text="input", timeout=1200
+    )
+    assert calls == [("archive", "input", 1200)]
+    assert result.stdout == "receipt" and evidence["status"] == "not_ssh_transport"
 
 
 def test_existing_transport_directs_debug_to_private_file(tmp_path, monkeypatch):

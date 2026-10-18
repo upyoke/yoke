@@ -8,6 +8,7 @@ import tempfile
 
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 from yoke_harness.test_machine_types import HostActionResult
+from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 
 
 def _sanitize(text, secrets):
@@ -35,6 +36,10 @@ def _sanitize(text, secrets):
 
 def run_golden_command(control, command, *, input_text, timeout):
     """Run once through the existing SSH transport; journal failure is evidence."""
+    if not isinstance(control, SshTestMachineTransport):
+        return control._run(command, input_text=input_text, timeout=timeout), {
+            "status": "not_ssh_transport"
+        }
     directory = Path(tempfile.mkdtemp(prefix="yoke-linux-golden-diagnostics-"))
     client_log = directory / "ssh-client.log"
     client_log.touch(mode=0o600)
