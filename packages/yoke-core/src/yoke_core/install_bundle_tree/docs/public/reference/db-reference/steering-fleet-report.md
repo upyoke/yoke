@@ -216,7 +216,7 @@ not-woken reason (expired/failed/cancelled, no holder/seat, gone/stale driver).
 One notice + at most two addressability reads per run; detailed requirement
 reasons stay on `yoke deployment-runs stages RUN`. Wakes precede empty-member
 close-out; missing wake is a defect, not instruction to message owners manually.
-A member holding an open `wake_path: manual` requirement (no run recorded, not waived/superseded/retracted) is never woken at stage entry; its line reads `held for manual wake`. Section "waiting on manual wake" lists run, item, requirement, case, `wake_evidence`, claim-holder session and liveness, and the `yoke say --item` wake carrying the member's `yoke qa plan run`. Rows enter the fingerprint (requirement, owner) but never `actionable`: evidence can take days.
+A member holding an open `wake_path: manual` requirement (no run recorded, not waived/superseded/retracted) gets one wake per open requirement asking its owner to check `wake_evidence`, run the case if it exists, else ask for a waiver; its line shows that wake's state. Section "waiting on manual wake" lists run, item, requirement, case, `wake_evidence`, claim-holder session and liveness, and the member's `yoke qa plan run`. Rows enter the fingerprint (requirement, owner) but never `actionable`: evidence can take days.
 
 Waiting-only-to-be-driven means created with no live driver. created + live
 driver may be silent phase; executing does not call for duplicate drive even

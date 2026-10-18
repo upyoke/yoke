@@ -12,13 +12,14 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.project_identity import render_item_ref, resolve_project_slug
 from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
 from yoke_core.domain import deployment_run_item_qa_membership as item_qa
 
 from yoke_core.domain.deployment_qa_result_notice import report_stage_result
 from yoke_core.domain.deployment_qa_manual_wake import (
-    member_holds_for_manual_wake,
+    manual_wake_requirements,
+    wake_manual_requirement_owners,
 )
 from yoke_core.domain.deployment_qa_stage_wake import (
     notify_item_scoped_qa_wait,
@@ -258,16 +259,19 @@ def materialize_and_gate_deployment_qa_stage(
                         continue
                     if handoff.startswith(("failed:", "unaddressed:")):
                         print(f"Run {run_id} stage {stage['name']!r}: {handoff}")
-                elif member is not None and member_holds_for_manual_wake(
-                    conn,
-                    run_id=run_id,
-                    stage_name=str(stage["name"]),
-                    member_item_id=member,
-                ):
-                    print(
-                        f"Run {run_id} stage {stage['name']!r} {label}: holding "
-                        "for manual wake; steering wakes its owner"
+                elif member is not None and (
+                    manual := manual_wake_requirements(
+                        conn,
+                        run_id=run_id,
+                        stage_name=str(stage["name"]),
+                        item_ids=(member,),
+                        project_slug=resolve_project_slug(conn, project_id),
                     )
+                ):
+                    for miss in wake_manual_requirement_owners(
+                        conn, manual, project_id=project_id
+                    ):
+                        print(f"Run {run_id} stage {stage['name']!r} {label}: {miss}")
                 else:
                     _notify_stage_wait(
                         conn,
