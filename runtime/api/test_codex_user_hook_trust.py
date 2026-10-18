@@ -84,3 +84,17 @@ def test_codex_absent_writes_no_trust(tmp_path):
     [result] = ensure_machine_hooks(["codex"], {"HOME": str(tmp_path)})
     assert result.outcome == "codex_not_installed"
     assert not (tmp_path / ".codex").exists()
+
+
+def test_symlinked_codex_home_keys_trust_by_the_resolved_path(tmp_path):
+    real = tmp_path / "real-codex"
+    real.mkdir()
+    (tmp_path / "link").mkdir()
+    linked = tmp_path / "link" / "codex"
+    linked.symlink_to(real)
+    env = {"HOME": str(tmp_path), "CODEX_HOME": str(linked)}
+
+    ensure_machine_hooks(["codex"], env)
+    config = real / "config.toml"
+    assert _trusted(config, real.resolve() / "hooks.json")
+    assert _trusted(config, linked / "hooks.json") == {}

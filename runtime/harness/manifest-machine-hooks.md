@@ -44,6 +44,8 @@ on both configs.
 
 Codex trust covers only the handlers Yoke wrote; a person's own handlers keep
 their trust standing, and Yoke's entries go last so those positions never
-move. A user config that is not valid hook JSON is never overwritten: setup
+move. Trust is keyed by the hooks file under its resolved folder, because
+Codex resolves a symlinked home before matching it (codex-cli 0.161.0).
+Codex runs hooks only with `[features] hooks = true` in its `config.toml`. A user config that is not valid hook JSON is never overwritten: setup
 and doctor name `machine_hooks_config_malformed`, the path, and the recovery
 (fix or move the file, then run `yoke setup` again).

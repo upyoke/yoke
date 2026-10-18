@@ -93,6 +93,16 @@ class HarnessMachineHooks:
     def user_config_path(self, environ: Optional[Mapping[str, str]] = None) -> Path:
         return self.home_path(environ) / self.user_config
 
+    def trust_config_path(self, environ: Optional[Mapping[str, str]] = None) -> Path:
+        """The user config under its resolved folder, as Codex keys trust.
+
+        Codex resolves a symlinked home before matching ``trusted_hash``
+        entries (measured on codex-cli 0.161.0 with a /tmp home), so trust
+        minted under the literal path would never match.
+        """
+        path = self.user_config_path(environ)
+        return path.parent.resolve() / path.name
+
     def display_path(self) -> str:
         """The user config path as written to a person."""
         return f"{self.home}/{self.user_config}"

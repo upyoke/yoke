@@ -166,7 +166,7 @@ def _trust(spec: HarnessMachineHooks, environ: Optional[Mapping[str, str]], *, p
         prune_user_hook_trust,
     )
 
-    hooks_path = spec.user_config_path(environ)
+    hooks_path = spec.trust_config_path(environ)
     config_path = spec.home_path(environ) / "config.toml"
     try:
         if prune:

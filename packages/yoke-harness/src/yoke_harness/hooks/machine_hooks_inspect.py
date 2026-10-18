@@ -61,7 +61,7 @@ def _codex_trusted(
     from yoke_contracts.codex_hook_trust_store import inspect_hook_file_trust
     from yoke_contracts.codex_user_hook_trust import owned_handler_suffixes
 
-    hooks_path = spec.user_config_path(environ)
+    hooks_path = spec.trust_config_path(environ)
     standing = inspect_hook_file_trust(
         hooks_path, config_path=spec.home_path(environ) / "config.toml"
     )
