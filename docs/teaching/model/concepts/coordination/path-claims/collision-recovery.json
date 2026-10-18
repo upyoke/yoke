@@ -5,5 +5,5 @@
  "page": "coordination",
  "position": 5,
  "sources": [".agents/skills/yoke/dash/survey-and-isolate.md", "packages/yoke-core/src/yoke_core/domain/path_claim_register.py", "docs/public/agents/rules/lanes-and-claims.md"],
- "description": "A path-claim overlap denial tells the live work-claim holder to record coordination_only with its own skill as source. Ordered edits wait for proven landing. When no live holder exists, the denial routes to Refine."
+ "description": "A path-claim overlap denial names each conflicting claim id, its holder item, and the shared paths. It tells the live work-claim holder to record coordination_only with its own skill as source. Ordered edits wait for proven landing. When no live holder exists, the denial routes to Refine."
 }
