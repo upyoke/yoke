@@ -14,7 +14,7 @@ Missing target checkout is setup recovery, not permission to borrow one.
 
 Known shape: literal every file, one responsibility, today's verified count,
 remaining headroom350-current (negative retained), at-or-over-limit true
-when count>=350. New files start0:
+when count>=350. New files start 0:
 ```markdown
 ## File Budget
 
