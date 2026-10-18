@@ -69,4 +69,21 @@ def record_operating_actor(actor_id, *, dsn, env, config_path=None):
             conn.close()
 
 
+def inspect_operating_actor(*, dsn, config_path=None):
+    """Read the local binding against the owned cluster before replacing it."""
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.local_universe import pinned_authority
+    from yoke_core.domain.session_actor_binding import resolve_operating_actor
+
+    with pinned_authority(dsn):
+        conn = db_helpers.connect()
+        try:
+            binding = resolve_operating_actor(
+                conn, env="local", config_path=config_path
+            )
+            return "" if binding.bound else binding.code
+        finally:
+            conn.close()
+
+
 __all__ = ["_ensure_human_actor", "record_operating_actor", "require_admin_name"]

@@ -119,6 +119,7 @@ def test_bundle_holds_session_then_audit_checks_in_order():
         + list(_ENGINE_LEDGER_AUDIT_SLUGS)
         + list(_ENGINE_REFLECTION_SLUGS)
         + [
+            "connections",
             "harness-cli-auth",
             "dashboard-current-build",
             "session-hook-registration",

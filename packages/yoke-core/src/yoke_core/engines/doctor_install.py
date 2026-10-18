@@ -30,7 +30,14 @@ from yoke_core.engines.doctor_install_guidance import (
 )
 
 
+from yoke_core.engines.doctor_hc_connections import (
+    active_connection_failure as active_connection_failure,
+    hc_connections,
+)
+
+
 INSTALL_SLUGS = (
+    "connections",
     "machine-registry",
     "session-relay",
     "hook-resident",
@@ -194,6 +201,9 @@ def hc_session_hook_registration(conn, args: DoctorArgs, rec: RecordCollector) -
 
 
 INSTALL_HEALTH_CHECKS = [
+    HealthCheck(
+        "connections", "Connection credentials and operating actors", hc_connections
+    ),
     HealthCheck("harness-cli-auth", "Harness CLI sign-in", hc_harness_cli_auth),
     HealthCheck(
         "dashboard-current-build",
