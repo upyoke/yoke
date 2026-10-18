@@ -24,6 +24,7 @@ from typing import Any, Optional
 
 from yoke_contracts.hook_runner.chain_registry import chain_for
 from yoke_contracts.hook_runner.failures import FAILURE_PREFIX
+from yoke_contracts.hook_runner.safety import infrastructure_reply, stop_reentry
 from yoke_contracts.hook_runner.hook_ordering import matchers_for
 from yoke_core.domain.lint_session_cwd_target_extract import extract_payload_command
 from yoke_core.domain.hook_runner_deadline import (
@@ -168,27 +169,21 @@ def run_event(
             project_id = resolve_hook_project_scope(payload).require_project_id()
         chain = applicable_chain(chain, project_id)
     except (ValueError, OSError, RuntimeError) as exc:
-        reason = (
-            f"hook_scope_unavailable: {exc}; repair the machine project mapping "
-            "or declared guard scope and retry"
+        text, code, denied = infrastructure_reply(
+            event_name, payload, capability.family, f"hook_scope_unavailable: {exc}"
         )
         if controls is not None:
-            controls.final_outcome = "deny"
-            controls.denial_audit = {
-                "hook": "hook_scope",
-                "check_id": "hook_scope_unavailable",
-                "reason": reason,
-            }
-        return capability.decision_renderer(
-            [
-                HookDecision(
-                    outcome=Outcome.DENY,
-                    next=Next.STOP,
-                    message=reason,
-                )
-            ],
-            event_name,
-        )
+            controls.final_outcome = "deny" if denied else "allow"
+            controls.denial_audit = (
+                {
+                    "hook": "hook_scope",
+                    "check_id": "hook_scope_unavailable",
+                    "reason": text,
+                }
+                if denied
+                else {}
+            )
+        return text, code
     if deduplicated_dispatch(
         event_name,
         context=context,
@@ -198,6 +193,10 @@ def run_event(
         # The harness delivered this lifecycle event twice; the first
         # dispatch already ran the chain. Render the empty (allow) decision
         # so the duplicate changes nothing.
+        return capability.decision_renderer([], event_name)
+    if event_name == "Stop" and stop_reentry(payload):
+        if controls is not None:
+            controls.final_outcome = "allow"
         return capability.decision_renderer([], event_name)
     from yoke_core.hooks.run_tail import preflight_remote_registration
 
