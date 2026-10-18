@@ -81,10 +81,14 @@ def heartbeat_during(
                     emit_heartbeat_line(
                         phase,
                         time.monotonic() - started,
-                        error_code="machine_qa_heartbeat_failed",
+                        error_code="qa_host_abort_requested"
+                        if isinstance(error, MachineQaAborted)
+                        else "machine_qa_heartbeat_failed",
                         diagnostic=f"{type(error).__name__}: {error}",
                         recovery=(
-                            "The plan execution may lose its host lease; "
+                            "Keep the runner connected through cleanup and restore proof; retry yoke qa plan abort afterward."
+                            if isinstance(error, MachineQaAborted)
+                            else "The plan execution may lose its host lease; "
                             "check the control-plane connection, then rerun "
                             "the plan with `yoke qa plan run`."
                         ),

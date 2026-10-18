@@ -53,7 +53,7 @@ def test_abort_stops_before_the_next_host_step_and_records_restore(monkeypatch):
     assert row["evidence"]["starting_state_restore"]["restored"]
 
 
-def test_abort_signal_crosses_heartbeat_boundary_after_safe_phase():
+def test_abort_signal_crosses_heartbeat_boundary_after_safe_phase(capsys):
     finished = []
     with pytest.raises(MachineQaAborted):
         with heartbeat_during(
@@ -61,6 +61,11 @@ def test_abort_signal_crosses_heartbeat_boundary_after_safe_phase():
         ):
             finished.append(True)
     assert finished == [True]
+    import json
+
+    diagnostic = json.loads(capsys.readouterr().out.splitlines()[-1])
+    assert diagnostic["error_code"] == "qa_host_abort_requested"
+    assert "cleanup and restore proof" in diagnostic["recovery"]
 
 
 def test_cleanup_finishes_despite_abort_signal():
