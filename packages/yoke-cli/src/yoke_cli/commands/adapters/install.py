@@ -230,7 +230,11 @@ def _run(operation, *, json_mode: bool = False, config_path=None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     setup = None
-    if result.get("project_id") and result.get("operation") in ("install", "refresh"):
+    if (
+        not result.get("preview")
+        and result.get("project_id")
+        and result.get("operation") in ("install", "refresh")
+    ):
         from yoke_cli.config.setup_facts_summary import read_project
 
         setup = read_project(

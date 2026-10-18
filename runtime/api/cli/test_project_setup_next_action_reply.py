@@ -90,6 +90,28 @@ def test_checklist_init_uses_response_next_action():
     assert "Next:\n  - yoke setup" not in stream.getvalue()
 
 
+def test_refresh_preview_never_reads_live_setup(monkeypatch, capsys):
+    def unexpected(*args, **kwargs):
+        raise AssertionError("A source preview must remain a local read.")
+
+    monkeypatch.setattr(setup_facts_summary, "read_project", unexpected)
+    assert (
+        install._run(
+            lambda: {
+                "operation": "refresh",
+                "preview": True,
+                "repo_root": "/external",
+                "project_id": 9,
+            },
+            json_mode=True,
+        )
+        == 0
+    )
+    result = json.loads(capsys.readouterr().out)
+    assert result["preview"] is True
+    assert "next_action" not in result
+
+
 def test_setup_done_keeps_readiness_before_shared_project_action(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(setup_facts_summary, "read_project", lambda *a, **kw: SUMMARY)
