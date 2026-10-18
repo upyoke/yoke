@@ -34,7 +34,7 @@ def _postmasters() -> list[tuple[int, Path, Path]]:
             if not args or Path(args[0]).name not in {"postgres", "postmaster"}:
                 continue
             data = Path(args[args.index("-D") + 1])
-            if data.name != "data" or data.parent.name != "yoke-pgtest-cluster":
+            if data.name != "data":
                 continue
             binary = Path(args[0])
             if not binary.is_absolute():
@@ -79,7 +79,7 @@ def _idle(spec: ClusterSpec) -> bool:
     return result.returncode == 0 and result.stdout.strip() == "t"
 
 
-def _destroy(pid: int, spec: ClusterSpec) -> None:
+def _stop(pid: int, spec: ClusterSpec) -> None:
     # Revalidate immediately before stopping; never unlink a live data directory.
     _spec(pid, spec.root, spec.bin_dir)
     result = postgres_cluster._run(
@@ -98,6 +98,10 @@ def _destroy(pid: int, spec: ClusterSpec) -> None:
     )
     if result.returncode != 0 or (spec.data_dir / "postmaster.pid").exists():
         raise OSError(f"stop failed: {result.stderr.strip()}")
+
+
+def _destroy(pid: int, spec: ClusterSpec) -> None:
+    _stop(pid, spec)
     shutil.rmtree(spec.root)
     if not spec.sock_dir.is_relative_to(spec.root):
         try:
@@ -118,6 +122,8 @@ def _reclaim(shared_root: Path | None, evidence: Path | None) -> int:
         return 1
     for pid, root, binaries in candidates:
         canonical = root.resolve()
+        if evidence is None and root.name != "yoke-pgtest-cluster":
+            continue
         if shared_root is not None and canonical == shared_root.resolve():
             continue
         if evidence is not None and not canonical.is_relative_to(evidence.resolve()):
@@ -128,7 +134,15 @@ def _reclaim(shared_root: Path | None, evidence: Path | None) -> int:
                 time.time() - started < MIN_IDLE_AGE_SECONDS or not _idle(spec)
             ):
                 continue
-            _destroy(pid, spec)
+            if evidence is not None and canonical == evidence.resolve():
+                _stop(pid, spec)
+                shutil.rmtree(spec.data_dir)
+                try:
+                    spec.sock_dir.rmdir()
+                except OSError:
+                    pass
+            else:
+                _destroy(pid, spec)
             print(f"pgtest cluster reclaimed: {root}", file=sys.stderr)
         except (OSError, ValueError, IndexError, subprocess.SubprocessError) as exc:
             failures += 1
@@ -148,12 +162,12 @@ def prune_clusters(shared_root: Path) -> int:
 def destroy_evidence_clusters(evidence: Path) -> None:
     """A source command owns every disposable cluster inside its evidence root."""
     failed = _reclaim(None, evidence)
-    for marker in evidence.glob("**/yoke-pgtest-cluster/data/PG_VERSION"):
+    for marker in evidence.glob("**/data/PG_VERSION"):
         root = marker.parent.parent
         if root.is_symlink() or marker.parent.is_symlink():
             continue
         if not (marker.parent / "postmaster.pid").exists():
-            shutil.rmtree(root)
+            shutil.rmtree(marker.parent if root == evidence else root)
     if failed:
         raise OSError(
             f"pgtest_evidence_cleanup_failed: {evidence}; inspect the refusal above "

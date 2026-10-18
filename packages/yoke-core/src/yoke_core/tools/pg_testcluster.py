@@ -36,12 +36,15 @@ Typical local proof flow::
 
     eval "$(yoke dev run -- python3 -m yoke_core.tools.pg_testcluster start)"
     yoke watch pytest -- runtime/api/
-    yoke dev run -- python3 -m yoke_core.tools.pg_testcluster destroy
+
+Keep the shared cluster running between invocations. Use an explicit private
+``YOKE_PG_CLUSTER_ROOT`` when a proof needs to stop or destroy its own cluster.
 """
 
 from __future__ import annotations
 
 import os
+import shlex
 import sys
 from pathlib import Path
 
@@ -88,14 +91,7 @@ def bin_dir() -> Path | None:
     override = os.environ.get("YOKE_PG_BIN_DIR")
     if not override:
         return postgres_binaries.installed_bin_dir()
-    candidate = Path(override)
-    if not (candidate / "initdb").is_file():
-        raise postgres_binaries.PostgresBinariesError(
-            f"postgres_binaries_unavailable: YOKE_PG_BIN_DIR={candidate} has no initdb; "
-            "install embedded binaries with YOKE_PG_CLUSTER_ROOT and YOKE_PG_BIN_DIR "
-            "unset using yoke local-postgres start, then retry with their bin directory"
-        )
-    return candidate
+    return Path(override)
 
 
 def _spec() -> ClusterSpec:
@@ -155,6 +151,14 @@ def ensure_started() -> int:
     changed underneath it) is recreated for the same reason.
     """
     spec = _spec()
+    candidate = spec.bin_dir
+    if candidate is not None and not (candidate / "initdb").is_file():
+        sys.stderr.write(
+            f"postgres_binaries_unavailable: YOKE_PG_BIN_DIR={candidate} has no initdb; "
+            "install embedded binaries with YOKE_PG_CLUSTER_ROOT and YOKE_PG_BIN_DIR "
+            "unset using yoke local-postgres start, then retry with their bin directory\n"
+        )
+        return 1
     mismatch = postgres_cluster.data_dir_major_mismatch(spec)
     if mismatch:
         sys.stderr.write(f"recreating disposable test cluster: {mismatch}\n")
@@ -216,11 +220,12 @@ def destroy() -> int:
 
 
 def env_block() -> str:
+    values = {"YOKE_PG_CLUSTER_ROOT": str(_root()), "YOKE_PG_DSN": dsn()}
+    binaries = bin_dir()
+    if binaries is not None:
+        values["YOKE_PG_BIN_DIR"] = str(binaries)
     return "\n".join(
-        [
-            f'export YOKE_PG_CLUSTER_ROOT="{_root()}"',
-            f'export YOKE_PG_DSN="{dsn()}"',
-        ]
+        f"export {key}={shlex.quote(value)}" for key, value in values.items()
     )
 
 

@@ -233,7 +233,7 @@ def _refuse_test_cluster_override() -> None:
     import os
 
     root = os.environ.get("YOKE_PG_CLUSTER_ROOT")
-    if root:
+    if root is not None:
         raise LocalUniverseSetupError(
             f"local_postgres_test_cluster_override: YOKE_PG_CLUSTER_ROOT={root}; "
             "use yoke_core.tools.pg_testcluster start/stop for that test cluster, "

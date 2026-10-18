@@ -106,9 +106,18 @@ resource environment: `YOKE_PG_CLUSTER_ROOT` and `YOKE_PG_BIN_DIR`.
 isolation. The cluster root stays independent of each run's evidence root;
 `YOKE_PG_BIN_DIR` points at the machine's pinned embedded PostgreSQL binaries,
 so an empty home does not select a different PostgreSQL major from PATH.
-When deliberately constructing a standalone disposable home, first obtain
-these two values from a source command in the original home and pass them
-through unchanged. Preserve the candidate QA variables too, as described in
+If that cache is missing, startup refuses as `postgres_binaries_unavailable`;
+install with `env -u YOKE_PG_CLUSTER_ROOT -u YOKE_PG_BIN_DIR yoke local-postgres start`
+in the original home, then retry. CI with an explicit service DSN needs no
+local cluster or embedded cache.
+For a standalone disposable home, obtain the exports in the original home:
+
+```bash
+yoke dev run -- python3 -m yoke_core.tools.pg_testcluster env
+```
+
+The output includes the root, maintenance DSN and pinned binary directory.
+Apply those exports before replacing the home and pass them through unchanged. Preserve the candidate QA variables too, as described in
 [source-development commands](source-development.md).
 
 `dev run` destroys test clusters created inside its own evidence root when

@@ -29,7 +29,8 @@ def _spec(root):
     )
 
 
-def test_interrupt_destroys_real_evidence_postmaster(tmp_path):
+@pytest.mark.parametrize("name", ["yoke-pgtest-cluster", "private-cluster"])
+def test_interrupt_destroys_real_evidence_postmaster(tmp_path, name):
     env = {
         **os.environ,
         "YOKE_MACHINE_HOME": str(tmp_path),
@@ -39,7 +40,7 @@ def test_interrupt_destroys_real_evidence_postmaster(tmp_path):
     try:
         with pytest.raises(KeyboardInterrupt):
             with isolated_machine_home(env) as child:
-                root = Path(child["YOKE_SCRATCH_ROOT"]) / "yoke-pgtest-cluster"
+                root = Path(child["YOKE_SCRATCH_ROOT"]) / name
                 spec = _spec(root)
                 assert postgres_cluster.ensure_started(spec) == 0
                 assert postgres_cluster.is_ready(spec)

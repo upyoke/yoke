@@ -50,7 +50,7 @@ def test_qa_environment_preserves_cluster_when_home_is_replaced(tmp_path):
     assert env["YOKE_PG_BIN_DIR"] == str(tmp_path / ".yoke/postgres/17.10.0/bin")
 
 
-def test_disposable_cluster_uses_pinned_binaries(tmp_path, monkeypatch):
+def test_disposable_cluster_uses_pinned_binaries(tmp_path, monkeypatch, capsys):
     binary = tmp_path / "bin"
     binary.mkdir()
     (binary / "initdb").touch()
@@ -58,10 +58,10 @@ def test_disposable_cluster_uses_pinned_binaries(tmp_path, monkeypatch):
     monkeypatch.setenv("YOKE_PG_BIN_DIR", str(binary))
     assert pg_testcluster._spec().bin_dir == binary
     (binary / "initdb").unlink()
-    with pytest.raises(
-        RuntimeError, match="postgres_binaries_unavailable.*install embedded"
-    ):
-        pg_testcluster._spec()
+    assert pg_testcluster.ensure_started() == 1
+    error = capsys.readouterr().err
+    assert "postgres_binaries_unavailable" in error
+    assert "install embedded binaries" in error
 
 
 @pytest.mark.parametrize("interruption", [KeyboardInterrupt, SystemExit])
@@ -91,12 +91,15 @@ def test_sigterm_unwinds_and_restores_handler(tmp_path, monkeypatch):
     assert signal.getsignal(signal.SIGTERM) == previous
 
 
+@pytest.mark.parametrize("root", ["/private-test-cluster", ""])
 @pytest.mark.parametrize(
     "operation",
     [local_universe_setup.postgres_start, local_universe_setup.postgres_stop],
 )
-def test_local_postgres_refuses_test_root_before_loading_engine(monkeypatch, operation):
-    monkeypatch.setenv("YOKE_PG_CLUSTER_ROOT", "/private-test-cluster")
+def test_local_postgres_refuses_test_root_before_loading_engine(
+    monkeypatch, operation, root
+):
+    monkeypatch.setenv("YOKE_PG_CLUSTER_ROOT", root)
     monkeypatch.setattr(
         local_universe_setup, "_engine", lambda: pytest.fail("touched local universe")
     )
@@ -172,7 +175,9 @@ def test_failed_stop_never_removes_live_data(tmp_path, monkeypatch):
     assert marker.exists()
 
 
-def test_prune_process_inventory_excludes_foreign_and_durable_clusters(monkeypatch):
+def test_postmaster_inventory_excludes_foreign_users_and_background_workers(
+    monkeypatch,
+):
     listing = f"{os.getuid()} 12 /pg/bin/postgres -D /tmp/old/yoke-pgtest-cluster/data\n{os.getuid()} 13 /pg/bin/postgres -D /home/local-universe/data\n{os.getuid() + 1} 14 /pg/bin/postgres -D /tmp/foreign/yoke-pgtest-cluster/data\n{os.getuid()} 15 postgres: checkpointer\n"
     monkeypatch.setattr(
         reclaim.subprocess,
@@ -180,14 +185,32 @@ def test_prune_process_inventory_excludes_foreign_and_durable_clusters(monkeypat
         lambda *args, **kwargs: reclaim.subprocess.CompletedProcess([], 0, listing, ""),
     )
     assert reclaim._postmasters() == [
-        (12, Path("/tmp/old/yoke-pgtest-cluster"), Path("/pg/bin"))
+        (12, Path("/tmp/old/yoke-pgtest-cluster"), Path("/pg/bin")),
+        (13, Path("/home/local-universe"), Path("/pg/bin")),
     ]
 
 
-def test_evidence_cleanup_removes_stopped_cluster_data(tmp_path, monkeypatch):
+@pytest.mark.parametrize("name", ["yoke-pgtest-cluster", "custom-cluster", ""])
+def test_evidence_cleanup_removes_stopped_cluster_data(tmp_path, monkeypatch, name):
     monkeypatch.setattr(reclaim, "_postmasters", lambda: [])
-    data = tmp_path / "yoke-pgtest-cluster/data"
+    data = tmp_path / name / "data"
     data.mkdir(parents=True)
     (data / "PG_VERSION").write_text("17")
     reclaim.destroy_evidence_clusters(tmp_path)
-    assert not data.parent.exists()
+    assert not data.exists()
+    assert tmp_path.exists()
+
+
+def test_missing_embedded_cache_remains_pinned_in_disposable_home(tmp_path):
+    env = shared_postgres_environment({"YOKE_MACHINE_HOME": str(tmp_path)})
+    assert env["YOKE_PG_BIN_DIR"] == str(tmp_path / "postgres/17.10.0/bin")
+
+
+def test_prune_does_not_touch_durable_cluster_names(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        reclaim, "_postmasters", lambda: [(1, tmp_path / "local-universe", tmp_path)]
+    )
+    monkeypatch.setattr(
+        reclaim, "_spec", lambda *args: pytest.fail("inspected durable cluster")
+    )
+    assert reclaim.prune_clusters(tmp_path / "shared") == 0
