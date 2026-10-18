@@ -178,7 +178,7 @@ def relay_hook_event(
         lint_config_snapshot=policy_snapshot,
         project_scope=project_scope,
     )
-    if local.denied:
+    if local.denied or project_scope.failure:
         write_hook_output(
             local.stdout, local.exit_code, executor, event_name=event_name
         )

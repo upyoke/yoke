@@ -277,3 +277,56 @@ def test_shared_safety_guard_crash_refuses_tool(monkeypatch):
     assert decision.outcome is Outcome.DENY
     assert decision.next is Next.STOP
     assert "hook_guard_unavailable" in decision.message
+
+
+@pytest.mark.parametrize("executor", ["claude-code", "codex", "cursor"])
+def test_broken_scope_never_reaches_server_stop_policies(executor, monkeypatch, capsys):
+    from yoke_cli.transport.https import HttpsConnection
+    from yoke_harness.hooks import relay, local_subset, cursor_lifecycle_hooks
+
+    monkeypatch.setattr(relay, "detect_executor", lambda: executor)
+    monkeypatch.setattr(
+        relay,
+        "resolve_hook_project_scope",
+        lambda _p: HookProjectScope(failure="project_key_invalid"),
+    )
+    monkeypatch.setattr(relay, "lint_config_snapshot", lambda _p: {})
+    monkeypatch.setattr(
+        relay, "evaluate_local_subset", local_subset.evaluate_local_subset
+    )
+    monkeypatch.setattr(relay, "stamp_hook_input", lambda _p, raw, *_a: (raw, None))
+    monkeypatch.setattr(relay, "_record_client_anchor", lambda *_a, **_kw: None)
+    monkeypatch.setattr(relay, "_codex_capture", lambda *_a: None)
+    monkeypatch.setattr(
+        cursor_lifecycle_hooks,
+        "ensure_user_lifecycle_hooks_for_executor",
+        lambda *_a: None,
+    )
+
+    def unexpected_server(*_a, **_kw):
+        raise AssertionError("scope failure must not reach server policies")
+
+    code = relay.relay_hook_event(
+        "Stop",
+        HttpsConnection("https://example.invalid", "test-token"),
+        stdin_data='{"session_id":"scope-failure"}',
+        opener=unexpected_server,
+    )
+    captured = capsys.readouterr()
+    assert code == 0
+    assert captured.out == safety.allow_stdout(executor)
+    assert captured.err.count("hook_scope_unavailable") == 1
+
+
+def test_full_counter_store_allows_stop_without_evicting_active_brakes(monkeypatch):
+    monkeypatch.setattr(safety, "MAX_SESSIONS", 1)
+    text = '{"decision":"block","reason":"pending"}'
+    first = {"session_id": "first"}
+    assert safety.protect_stop("Stop", first, text, 0, "codex")[0] == text
+    assert safety.protect_stop("Stop", {"session_id": "second"}, text, 0, "codex") == (
+        "{}",
+        0,
+    )
+    for _ in range(safety.BLOCK_LIMIT - 1):
+        assert safety.protect_stop("Stop", first, text, 0, "codex")[0] == text
+    assert safety.protect_stop("Stop", first, text, 0, "codex") == ("{}", 0)

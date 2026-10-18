@@ -66,15 +66,11 @@ def _update(payload: dict, event: str, update: Callable[[dict, float], bool]) ->
                 for k, v in state.items()
                 if isinstance(v, dict) and 0 <= now - v.get("at", 0) < WINDOW_SECONDS
             }
+            if key not in state and len(state) >= MAX_SESSIONS:
+                raise OSError("hook safety counter capacity exhausted")
             entry = state.setdefault(key, {})
             result = update(entry, now)
             entry["at"] = now
-            if len(state) > MAX_SESSIONS:
-                state = dict(
-                    sorted(state.items(), key=lambda pair: pair[1]["at"])[
-                        -MAX_SESSIONS:
-                    ]
-                )
             handle.seek(0)
             json.dump(state, handle)
             handle.truncate()
@@ -101,7 +97,7 @@ def failure_message(event: str, payload: dict, reason: str) -> str:
     except (OSError, ValueError, TypeError):
         first = True
     if first:
-        return f"{reason}; repair Yoke configuration or connectivity, then retry."
+        return f"{reason} [failure {fingerprint[:12]}]; repair Yoke configuration or connectivity, then retry."
     return f"hook_infrastructure_unavailable: repeated failure {fingerprint[:12]}; follow the earlier recovery."
 
 
