@@ -252,7 +252,7 @@ def collect_main_write_targets(
     if not is_write_operation(tool_name, payload):
         return []
 
-    analysis = analyze_payload_write_targets(payload)
+    analysis = analyze_payload_write_targets(payload, protected_roots=tuple(repo_roots))
     raw_targets = list(analysis.targets)
     fell_back_to_cwd = False
     if (

@@ -12,6 +12,8 @@ Each call has fresh variables/exports. Claude may retain cwd within declared
 roots; parallel calls share that cwd. Use absolute paths, `git -C ABSOLUTE_PATH`
 and an explicit declared workdir/leading `cd` for relative or computed writes.
 The client stamps workdir from the manifest's `identity.command_workdir_source`.
+Codex reads the matching direct `exec_command` or nested `exec` call in its
+local rollout; only an exact command match can supply that directory.
 
 Active work claims authorize claimed lanes, main control-plane paths excluding
 worktrees, and free paths `/tmp` or `/var/folders/...`. Launcher cwd grants no
@@ -20,6 +22,11 @@ documents; dot-prefixed home components remain on curated installed-read rules.
 Direct main source writes while holding a live lane refuse; registered adapters
 and ignored generated renders are distinct from direct source writes. Missing/
 stranded lane is advisory; `2>&1` names no file and is not a write target.
+Computed Python writes rooted in OS scratch paths, including
+`tempfile.TemporaryDirectory()` and `tempfile.mkdtemp()`, do not substitute
+main cwd for an unresolved scratch destination. Explicit source targets and
+unresolved non-scratch writes still receive the usual checks. Registered
+checkouts and their lanes retain protection even when stored under a temp root.
 `# lint:no-worktree-path-check` is audit-only; deliberate main-write exceptions
 use the documented `# lint:allow-lane-main-write` authority. Read
 [lane rules](lanes-and-claims.md) before resolving an overlap or exception.

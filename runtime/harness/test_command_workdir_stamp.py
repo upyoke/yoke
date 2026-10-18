@@ -134,3 +134,57 @@ def test_code_mode_fallback_never_borrows_a_neighbour_workdir(tmp_path):
     stdin["tool_use_id"] = "item_inner_exec_command_1"
     raw = json.dumps(stdin)
     assert stamp_command_workdir(raw, "codex") == raw
+
+
+@pytest.mark.parametrize("inner_id", [CALL_ID, "inner-command"])
+def test_direct_exec_command_rollout_carries_workdir(tmp_path, inner_id):
+    transcript = tmp_path / "direct.jsonl"
+    transcript.write_text(
+        json.dumps(
+            {
+                "payload": {
+                    "type": "function_call",
+                    "name": "functions.exec_command",
+                    "call_id": CALL_ID,
+                    "arguments": json.dumps({"cmd": EDIT_COMMAND, "workdir": LANE}),
+                }
+            }
+        )
+        + "\n"
+    )
+    payload = json.loads(_stdin(str(transcript), EDIT_COMMAND))
+    payload["tool_use_id"] = inner_id
+    stamped = json.loads(stamp_command_workdir(json.dumps(payload), "codex"))
+    assert stamped["tool_input"]["workdir"] == LANE
+
+
+def test_single_other_command_cannot_supply_workdir():
+    assert (
+        workdir_for_command('tools.exec_command({cmd:"ls",workdir:"/lane"})', "touch x")
+        == ""
+    )
+
+
+def test_latest_direct_call_without_workdir_does_not_borrow_older_lane(tmp_path):
+    transcript = tmp_path / "direct.jsonl"
+    rows = [
+        {
+            "payload": {
+                "type": "function_call",
+                "name": "exec_command",
+                "call_id": str(index),
+                "arguments": json.dumps(arguments),
+            }
+        }
+        for index, arguments in enumerate(
+            [
+                {"cmd": EDIT_COMMAND, "workdir": LANE},
+                {"cmd": EDIT_COMMAND},
+            ]
+        )
+    ]
+    transcript.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    payload = json.loads(_stdin(str(transcript), EDIT_COMMAND))
+    payload["tool_use_id"] = "inner-command"
+    raw = json.dumps(payload)
+    assert stamp_command_workdir(raw, "codex") == raw
