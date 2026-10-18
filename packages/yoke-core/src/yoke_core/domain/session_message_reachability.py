@@ -20,9 +20,9 @@ def message_reachability(row: Mapping[str, Any], *, resuming: bool = False) -> s
     park explains the wait; containment remains visible even with exit code zero.
     Surface capabilities decide whether a message can wake a stopped turn.
     """
-    if resuming:
-        return "message wake in flight — let the turn start"
     process = current_native_process_observation(row, include_expected_exit=True)
+    if resuming and process:
+        return "message wake in flight — let the turn start"
     evidence = process.get("evidence", {}) if process else {}
     contained = str(evidence.get("containment_reason") or "").strip()
     prefix = f"contained by sweep: {contained}, claims held; " if contained else ""

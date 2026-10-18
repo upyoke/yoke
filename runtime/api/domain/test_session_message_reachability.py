@@ -81,3 +81,15 @@ def test_operator_surfaces_do_not_promise_an_automatic_wake(surface, version):
         )
         == "between turns — message needs operator input on this surface"
     )
+
+
+def test_activity_after_the_exit_retires_the_wake_in_flight_description():
+    row = {
+        "turn_posture": "running",
+        "native_process_gone_at": "2026-09-09T12:00:00Z",
+        "last_tool_call_at": "2026-09-09T12:01:00Z",
+    }
+    assert (
+        message_reachability(row, resuming=True)
+        == "mid-turn — message waits until the turn ends"
+    )
