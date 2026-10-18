@@ -10,6 +10,7 @@ from typing import Optional, Tuple
 
 from yoke_core.engines.merge_worktree_conflicts import auto_resolve_conflicts
 from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.engines.merge_worktree_prepare_state import _integration_refused
 
 
 def _parent():
@@ -137,12 +138,16 @@ def do_rebase_or_merge(ctx: MergeContext) -> Optional[Tuple[int, str]]:
             rc, infos = auto_resolve_conflicts(ctx)
             if rc == 0:
                 _print("All merge-commit conflicts auto-resolved.")
-                _run_git(["commit", "--no-edit"], cwd=cwd, capture=True)
+                committed = _run_git(["commit", "--no-edit"], cwd=cwd, capture=True)
+                if committed.returncode:
+                    return _integration_refused(ctx, committed)
             elif rc == 2:
                 _print(
                     "Merge reported failure but no conflict markers found \u2014 committing."
                 )
-                _run_git(["commit", "--no-edit"], cwd=cwd, capture=True)
+                committed = _run_git(["commit", "--no-edit"], cwd=cwd, capture=True)
+                if committed.returncode:
+                    return _integration_refused(ctx, committed)
             else:
                 # Emit structured conflict output
                 _print("", err=True)

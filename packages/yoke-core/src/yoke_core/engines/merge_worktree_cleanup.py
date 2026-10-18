@@ -95,6 +95,12 @@ def _post_merge_cleanup(
             "pr_num": pr_num,
         },
     )
+    from yoke_core.engines.merge_worktree_landing import record_worktree_landing
+
+    if not record_worktree_landing(
+        ctx, candidate_sha=candidate_sha, target_sha=remote_sha, pr_num=pr_num
+    ):
+        return 5
     _print(f"Successfully merged {ctx.args.branch} → {ctx.args.target}")
     if ctx.args.standalone:
         if not _sync_local_target(ctx):
