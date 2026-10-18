@@ -18,7 +18,8 @@ yoke status
 
 It names the connection, signed-in actor and any repair to make first.
 Outside a project it also warns `project_mapping_missing`; that is expected
-here. Do not register this folder as a project.
+here. Do not register this folder as a project. Doctor checks run against
+one project: `yoke doctor run --quick --project P`.
 
 ## 2. Pick the project
 

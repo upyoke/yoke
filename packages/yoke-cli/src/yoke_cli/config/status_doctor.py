@@ -2,7 +2,9 @@
 
 Reads ``doctor.last_run.get`` when a control plane is already reachable.
 Never runs Doctor inline. A missing receipt is ``health unverified`` and
-does not flip ``ok``.
+does not flip ``ok``. Doctor runs against one project, so outside every
+project the line names the ``--project`` form and where project names come
+from rather than a command that would refuse there.
 
 The summary names the receipt's own scope and warning count, so a narrow
 ``--only`` run is never read as whole-machine health, and a receipt that
@@ -18,6 +20,10 @@ from yoke_cli.config.status_surface_policy import _control_plane_ready
 from yoke_contracts.timestamps import InvalidInstant, parse_instant, utc_now
 
 _UNVERIFIED = "health unverified — run yoke doctor run --quick"
+_OUTSIDE_PROJECT = (
+    "health unverified — outside a project, run "
+    "yoke doctor run --quick --project P (yoke projects list names P)"
+)
 _TIMEOUT_S = 8.0
 _SCOPE_UNRECORDED = "scope not recorded (coverage unknown)"
 _SCOPE_LABELS = {
@@ -29,9 +35,12 @@ _SCOPE_LABELS = {
 
 def attach_doctor(report: dict[str, Any]) -> dict[str, Any]:
     """Attach the latest doctor receipt summary without failing status."""
-    summary = _UNVERIFIED
-    if _control_plane_ready(report):
+    if _project_id(report) is None:
+        summary = _OUTSIDE_PROJECT
+    elif _control_plane_ready(report):
         summary = _summarize(_fetch_last_run(report))
+    else:
+        summary = _UNVERIFIED
     report["doctor"] = {"summary": summary}
     return report
 
@@ -41,11 +50,7 @@ def _fetch_last_run(report: Mapping[str, Any]) -> Mapping[str, Any] | None:
         from yoke_cli.transport.dispatcher import call_dispatcher
         from yoke_contracts.api.function_call import TargetRef
 
-        project = report.get("project") or {}
-        project_id = project.get("project_id") if isinstance(project, Mapping) else None
-        if project_id is None:
-            return None
-        payload: dict[str, Any] = {"project": str(project_id)}
+        payload: dict[str, Any] = {"project": str(_project_id(report))}
         response = call_dispatcher(
             function_id="doctor.last_run.get",
             target=TargetRef(kind="global"),
@@ -56,6 +61,11 @@ def _fetch_last_run(report: Mapping[str, Any]) -> Mapping[str, Any] | None:
         return result if isinstance(result, Mapping) else None
     except Exception:
         return None
+
+
+def _project_id(report: Mapping[str, Any]) -> Any:
+    project = report.get("project") or {}
+    return project.get("project_id") if isinstance(project, Mapping) else None
 
 
 def _summarize(last_run: Mapping[str, Any] | None) -> str:
