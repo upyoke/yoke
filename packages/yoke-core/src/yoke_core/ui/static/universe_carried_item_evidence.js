@@ -181,7 +181,7 @@ function reviewsByItem(pendingByRequirement) {
   return byItem;
 }
 
-// The item's waiting reviews come from the request index; the run's own
+// Run-bound waiting reviews come from the request index; the run's own
 // gates also carry resolved member reviews with their frozen evidence, and
 // the item's own lifecycle approvals, pending or answered. Each is the
 // item's decision, so it is drawn with the item and never under Run QA. A
@@ -191,7 +191,7 @@ export function carriedItemReviews(facts, itemId, runId, checks) {
   const wanted = String(runId || "");
   for (const request of facts?.pendingByItem?.get(String(itemId)) || []) {
     const recorded = String(request.subject_context?.subject?.deployment_run_id || "");
-    if (recorded && recorded !== wanted) continue;
+    if (!recorded || recorded !== wanted) continue;
     requests.set(String(request.id), request);
   }
   for (const check of checks) {

@@ -19,6 +19,8 @@ QA_PLAN_TABLES = {
             ("retired_by_actor_id", "INTEGER"),
         ],
         "notes": (
+            "Plans belong to project_id (integer projects.id), not a project "
+            "column or slug; use qa.plan.list for project-scoped catalog reads. "
             "source_revision is the full merged case-export commit, recorded "
             "atomically by qa.plan_cases.sync. Frozen plan snapshots keep "
             "this provenance; deployment materialization/refresh refuses "

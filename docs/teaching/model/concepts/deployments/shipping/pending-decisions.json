@@ -1,7 +1,9 @@
 {
  "id": "pending-decisions",
  "title": "Pending decisions",
- "status": "draft-copy",
+ "status": "observed",
  "page": "deployments",
- "position": 2
+ "position": 2,
+ "summary": "Shipping cards show member QA reviews only for requirements bound to that exact deployment run. Item-bound verification reviews stay on their item and never appear on historical run cards.",
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.js", "runtime/api/universe_ui_shipping_review_scope.test.mjs"]
 }

@@ -141,6 +141,12 @@ def finish_plan_execution(
         from yoke_core.domain.qa_plan_review import begin_plan_review
 
         cancel_host_waits(conn, execution_ids=[str(execution["id"])])
+        if state in {"aborted", "error"}:
+            from yoke_core.domain.qa_mission_stop_settlement import (
+                settle_stopped_mission_dockets,
+            )
+
+            settle_stopped_mission_dockets(conn, execution, reason=reason)
         if state in {"aborted", "error"} and any(
             case.get("verdict_path") == "agent"
             for case in execution.get("roster") or []

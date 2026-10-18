@@ -160,6 +160,9 @@ def _chain_blocked(
 
 def _public_bundle(conn: Any, stored: Mapping[str, Any]) -> dict[str, Any]:
     payload = _json_object(stored["bundle_json"])
+    from yoke_core.domain.qa_mission_stop_settlement import mission_review_cases
+
+    payload["cases"] = mission_review_cases(conn, payload.get("cases") or [])
     result = {
         **payload,
         "bundle_id": str(stored["id"]),
@@ -202,7 +205,8 @@ def begin_plan_review(
         (str(execution["id"]),),
     )
     if existing is not None:
-        return _public_bundle(conn, existing)
+        bundle = _public_bundle(conn, existing)
+        return bundle if bundle["cases"] else None
     from yoke_core.domain.qa_plan_execution_store import result_rows
 
     recorded = {
