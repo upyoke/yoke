@@ -49,9 +49,7 @@ class EmptyModel(BaseModel):
 @pytest.fixture
 def conn():
     name = pg_testdb.create_test_database()
-    c = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    c = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
     create_core_tables(c)
     seed_project_identities(c)
     create_path_registry_tables(c)
@@ -90,7 +88,9 @@ def _entry(function_id: str, *, side_effects: bool = True) -> RegistryEntry:
     )
 
 
-def _request(actor_id, function_id: str, payload: dict | None = None) -> FunctionCallRequest:
+def _request(
+    actor_id, function_id: str, payload: dict | None = None
+) -> FunctionCallRequest:
     return FunctionCallRequest(
         function=function_id,
         actor=ActorContext(actor_id=str(actor_id), session_id="s-1"),
@@ -111,6 +111,10 @@ def _default_org(conn) -> int:
         ("identity.invite.create", True),
         ("identity.invite.list", False),
         ("identity.invite.revoke", True),
+        ("teammate_invites.create", True),
+        ("teammate_invites.list", False),
+        ("teammate_invites.revoke", True),
+        ("teammate_invites.reissue", True),
         ("identity.link.set", True),
         ("organizations.settings.merge", True),
         ("organizations.domain.set", True),
@@ -120,8 +124,11 @@ def test_org_administration_requires_org_admin(conn, function_id, side_effects):
     org_id = _default_org(conn)
     admin = _new_actor(conn)
     grant_actor_org_role(
-        conn, actor_id=admin, org_id=org_id,
-        role_name=ROLE_ADMIN, granted_by_actor_id=admin,
+        conn,
+        actor_id=admin,
+        org_id=org_id,
+        role_name=ROLE_ADMIN,
+        granted_by_actor_id=admin,
     )
     outsider = _new_actor(conn)
     entry = _entry(function_id, side_effects=side_effects)
@@ -138,12 +145,17 @@ def test_project_owner_is_not_enough_for_identity_admin(conn):
     yoke = resolve_project_id(conn, "yoke")
     owner = _new_actor(conn)
     grant_actor_project_role(
-        conn, actor_id=owner, project_id=yoke,
-        role_name=ROLE_OWNER, granted_by_actor_id=owner,
+        conn,
+        actor_id=owner,
+        project_id=yoke,
+        role_name=ROLE_OWNER,
+        granted_by_actor_id=owner,
     )
     entry = _entry("identity.invite.create")
     denied = check_dispatch_permission(
-        conn, entry, _request(owner, "identity.invite.create"),
+        conn,
+        entry,
+        _request(owner, "identity.invite.create"),
     )
     assert denied.error is not None
 
@@ -161,11 +173,14 @@ def test_machine_lifecycle_allows_a_bound_member_to_create_pending(conn):
     member = _new_actor(conn)
     entry = _entry("machine_approval.lifecycle.apply")
 
-    assert check_dispatch_permission(
-        conn,
-        entry,
-        _request(admin, "machine_approval.lifecycle.apply"),
-    ).error is None
+    assert (
+        check_dispatch_permission(
+            conn,
+            entry,
+            _request(admin, "machine_approval.lifecycle.apply"),
+        ).error
+        is None
+    )
     allowed = check_dispatch_permission(
         conn,
         entry,
@@ -186,8 +201,11 @@ def test_org_context_falls_back_to_identity_card_org_without_yoke_project(conn):
     org_id = _default_org(conn)
     admin = _new_actor(conn)
     grant_actor_org_role(
-        conn, actor_id=admin, org_id=org_id,
-        role_name=ROLE_ADMIN, granted_by_actor_id=admin,
+        conn,
+        actor_id=admin,
+        org_id=org_id,
+        role_name=ROLE_ADMIN,
+        granted_by_actor_id=admin,
     )
     request = _request(admin, "identity.invite.create", {"email": "a@b.co"})
     assert resolve_org_context(conn, request) == org_id
@@ -195,6 +213,8 @@ def test_org_context_falls_back_to_identity_card_org_without_yoke_project(conn):
     assert check_dispatch_permission(conn, entry, request).error is None
     # An explicit project ref that cannot resolve still refuses.
     explicit = _request(
-        admin, "identity.invite.create", {"project": "no-such-project"},
+        admin,
+        "identity.invite.create",
+        {"project": "no-such-project"},
     )
     assert resolve_org_context(conn, explicit) is None

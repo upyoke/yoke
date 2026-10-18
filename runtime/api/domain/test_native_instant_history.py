@@ -5,6 +5,7 @@ import json
 
 import pytest
 
+from runtime.api.fixtures.native_instant_database import BORN_NATIVE_AFTER_HISTORY
 from yoke_contracts.schema_authority import SchemaAuthorityRefused
 from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.migrations import _native_instant_documents as documents
@@ -83,15 +84,6 @@ def blank():
 
     with blank_database() as conn:
         yield conn
-
-
-#: Instant columns born native after the cutover: still in the live roster.
-BORN_NATIVE_AFTER_HISTORY = frozenset(
-    {("qa_host_waits", "queued_at"), ("qa_host_waits", "settled_at")}
-    | {("merge_queue_landing_attempts", c) for c in ("enqueued_at", "opened_at")}
-    | {("merge_queue_landing_attempts", "closed_at")}
-    | {("deployment_run_timings", "recorded_at")}
-)
 
 
 def test_history_freezes_complete_roster_and_serving_floor():
