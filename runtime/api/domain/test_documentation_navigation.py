@@ -4,6 +4,7 @@ from dataclasses import FrozenInstanceError
 import json
 from pathlib import Path
 import shutil
+import shlex
 import subprocess
 
 import pytest
@@ -182,8 +183,15 @@ def test_tracked_source_pages_and_symlink_escape(tmp_path):
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     (root / "index.md").write_text("# Root\n")
     _document(root, {"root": _node("index.md")})
-    assert "NAV_PATH_MISSING" in _codes(root)
-    subprocess.run(["git", "-C", str(repo), "add", "docs/public"], check=True)
+    refusal = nav.validate_navigation(root, complete=False)[0]
+    assert refusal.code == "NAV_PATH_MISSING"
+    assert refusal.detail == "page is untracked"
+    assert f"untracked: stage it with git add -- {root / 'index.md'}" == refusal.repair
+    subprocess.run(
+        shlex.split(refusal.repair.removeprefix("untracked: stage it with ")),
+        cwd=repo,
+        check=True,
+    )
     assert nav.validate_navigation(root, complete=True) == []
     (root / "untracked.md").write_text("# Untracked\n")
     assert nav.validate_navigation(root, complete=True) == []
