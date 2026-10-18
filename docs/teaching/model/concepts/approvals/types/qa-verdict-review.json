@@ -4,5 +4,7 @@
  "status": "draft-copy",
  "related": "qa-evidence/verdicts",
  "page": "approvals",
+ "summary": "A resolved QA review tells the current item claim holder its outcome, reviewer note and next action. An unheld item routes to steering; pending session notices remain visible there. Deployment requirements retain run/stage routing.",
+ "sources": ["docs/public/verification/requirement-state.md", "packages/yoke-core/src/yoke_core/domain/qa_verdict_notice.py"],
  "position": 2
 }
