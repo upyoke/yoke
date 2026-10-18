@@ -35,7 +35,7 @@ import {
   createWorkbenchChrome,
   drillInProject,
   el,
-  emptyUniversePanel,
+  noProjectCue,
 } from "./universe_app_chrome.js";
 import {
   createHeldScopeController,
@@ -262,7 +262,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     }
     if (scope === null) {
       const emptyHost = el(documentNode, "div", "view-host");
-      emptyHost.appendChild(emptyUniversePanel(documentNode));
+      emptyHost.replaceChildren(...noProjectCue(documentNode, projects));
       appendViewSection(entry, emptyHost);
       main.replaceChildren(createPageHead(documentNode, entry), emptyHost);
       return;
@@ -290,7 +290,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     const viewHost = el(documentNode, "div", "view-host"), aboveScope = el(documentNode, "div", "view-above-scope");
     const pageHead = createPageHead(documentNode, entry);
     main.replaceChildren(
-      pageHead, ...beforeScopeSections(entry), aboveScope, viewHost,
+      pageHead, ...beforeScopeSections(entry), ...noProjectCue(documentNode, projects), aboveScope, viewHost,
     );
     const handle = renderer(context, viewHost, scope, { aboveScope,
       tab: route.tab,

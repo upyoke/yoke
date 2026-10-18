@@ -28,7 +28,6 @@ export const WIZARD_MACHINE_ROWS = {
 };
 export const WIZARD_ROWS = {
   github: "GitHub connected",
-  first_project: "First project created",
   hosting: "Hosting connected",
 };
 export const WIZARD_TAIL_KEYS = new Set(["github", "hosting"]);

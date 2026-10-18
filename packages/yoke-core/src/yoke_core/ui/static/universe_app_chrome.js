@@ -1,5 +1,6 @@
 // Shared DOM primitives and workbench chrome for the mounted universe app.
 
+import { addProjectPanel } from "./add_project_cue.js";
 import { appendSlot } from "./mount-options.js";
 import { createActorMenu } from "./universe_actor_menu.js";
 import { createOnboardingControl } from "./universe_onboarding_control.js";
@@ -8,7 +9,6 @@ import { buildSidebarNavigation } from "./universe_nav_sidebar.js";
 import { attachNavigationDrawer } from "./universe_navigation_drawer.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { createShellControls } from "./universe_shell_controls.js";
-import { section } from "./universe_views.js";
 
 export function el(documentNode, tag, className, text) {
   const node = documentNode.createElement(tag);
@@ -111,17 +111,10 @@ export function drillInProject(scope, projects) {
   return scope;
 }
 
-export function emptyUniversePanel(documentNode) {
-  const panel = section(documentNode, "Universe");
-  panel.renderEnvelope(
-    { status: 200, envelope: { success: true, result: {} } },
-    (body) => {
-      body.appendChild(el(
-        documentNode, "p", "empty", "no projects yet",
-      ));
-    },
-  );
-  return panel;
+// A project-scoped page over a universe with no visible project leads
+// with the add-project route; an unfiltered read beneath it stays honest.
+export function noProjectCue(documentNode, projects) {
+  return projects.length ? [] : [addProjectPanel(documentNode)];
 }
 
 // The remembered open/closed state for every collapsible nav group, read
