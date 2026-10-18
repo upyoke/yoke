@@ -168,9 +168,19 @@ def browser_checkout_free_proof_result(
         checkout_bound_proof_findings,
     )
 
-    findings = checkout_bound_proof_findings(
-        conn, item_id=item_id, where=where, params=params, qa_phase=qa_phase
-    )
+    from yoke_core.domain.qa_gate_helpers import BrowserCompletionIdentityUnavailable
+
+    try:
+        findings = checkout_bound_proof_findings(
+            conn,
+            item_id=item_id,
+            where=where,
+            params=params,
+            qa_phase=qa_phase,
+            for_completion=transition_name == "done",
+        )
+    except BrowserCompletionIdentityUnavailable as exc:
+        return GateResult(passed=False, errors=[str(exc)])
     if not findings:
         return None
     errors = [

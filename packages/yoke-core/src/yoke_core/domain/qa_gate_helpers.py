@@ -95,11 +95,18 @@ def _resolve_target_branch_project(
 
 
 def _resolve_latest_code_ref(
-    target: GateTarget, db_path: str, *, repo_root: Optional[str] = None
+    target: GateTarget,
+    db_path: str,
+    *,
+    repo_root: Optional[str] = None,
+    for_completion: bool = False,
 ) -> LatestCodeRef:
     """Resolve the revision a browser run must have been captured against.
 
-    A checkout answers this, because the branch itself is the truth. A
+    Completion uses the delivered project commit of the selected closing run,
+    including a run still settling its members. Lane synchronization cannot
+    change that frozen identity. Before delivery, a checkout answers from
+    the branch so new item commits still require fresh evidence. A
     control plane serving a customer project has none, and silently skipping
     the comparison there would accept a capture of any age, so the revisions
     this control plane records for the item answer instead.
@@ -114,10 +121,41 @@ def _resolve_latest_code_ref(
         recorded_latest_code_ref,
     )
 
+    if for_completion and target.item_id is not None:
+        conn = connect(db_path)
+        try:
+            delivered = _completion_code_ref(conn, target.item_id)
+        finally:
+            conn.close()
+        if delivered.sha:
+            return delivered
+
     resolved = _git_latest_code_ref(target, db_path)
     if repo_root or resolved.sha or resolved.timestamp:
         return resolved
     return recorded_latest_code_ref(target, db_path, branch=resolved.branch)
+
+
+class BrowserCompletionIdentityUnavailable(ValueError):
+    """A delivered member has no recorded project revision to verify."""
+
+
+def _completion_code_ref(conn, item_id: int) -> LatestCodeRef:
+    """The selected completion run's delivered commit, independent of lane sync."""
+    from yoke_core.domain.deployment_qa_source_obligation import latest_completion_run
+    from yoke_core.domain.deployment_run_project_sources import run_delivered_sha
+
+    run = latest_completion_run(conn, item_id)
+    if run is None or run["status"] != "succeeded":
+        return LatestCodeRef()
+    sha = run_delivered_sha(conn, run["id"], run["project_id"])
+    if not sha:
+        raise BrowserCompletionIdentityUnavailable(
+            "browser_completion_identity_missing: the completion run records "
+            "no delivered project commit; recover its release output before "
+            "retrying member close-out"
+        )
+    return LatestCodeRef(sha=sha)
 
 
 def _git_latest_code_ref(target: GateTarget, db_path: str) -> LatestCodeRef:
