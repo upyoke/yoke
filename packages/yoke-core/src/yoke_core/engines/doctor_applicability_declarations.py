@@ -208,6 +208,7 @@ _SHAPES = (
     (
         _LOCAL,
         (
+            "connections",
             "administered-scratch-databases",
             "harness-unattended-posture",
             "machine-hooks",

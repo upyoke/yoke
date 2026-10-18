@@ -17,6 +17,7 @@ checks.
 from __future__ import annotations
 
 import argparse
+import importlib
 import sys
 from typing import Any, Dict, List
 
@@ -150,6 +151,12 @@ def doctor_run(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, DOCTOR_RUN_USAGE)
     if parsed is None:
         return 2
+    connections = importlib.import_module("yoke_core.engines.doctor_hc_connections")
+    failure = connections.active_connection_failure()
+    if failure is not None:
+        return emit_doctor_response(
+            failure, json_mode=parsed.json_mode, report_file=parsed.file
+        )
     try:
         project = required_project_context(parsed.project)
     except MissingProjectError as exc:

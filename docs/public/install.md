@@ -23,7 +23,8 @@ and retry `yoke wsl setup`. Preview does not write WSL configuration.
 Follow the printed `wsl --shutdown`
 restart step when setup changes it; afterward terminals can close while the
 relay and background work continue. After a deliberate distro shutdown, run
-`yoke init --local` to restart its Postgres authority.
+`yoke init --local` to restart its Postgres authority; it preserves your active
+connection. See [local connection repair](reference/local-connection-repair.md).
 See [Yoke on Windows (WSL)](windows-wsl.md) for filesystem, systemd, and agent setup.
 
 Linux requires glibc (for example Ubuntu, Debian, or Fedora); musl hosts such as Alpine are refused before installation.
