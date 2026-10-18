@@ -95,6 +95,17 @@ deletes the exact remote ref (or proves it already absent) via the shared
 removed, followed by normal `git branch -d`. Incomplete remote cleanup
 preserves the local worktree and branch for a later safe retry.
 
+Each successfully removed lane also retires its `item_worktrees` row through
+`item_worktrees.release_merged_lane`, including a registered lane whose folder
+is already absent. A finished worker can retire while its parent item stays
+open; released rows cannot compete with the surviving lane as a merge source.
+The authority verdict supplies the owner's public `item_ref`. If an older
+server omits it, `prune_owner_identity_unavailable` preserves the lane: update
+the serving control plane, then retry the sweep. A failed row release prints
+the stranded branch and cause; restore control-plane access and ask the
+control-plane operator to retry `item_worktrees.release_merged_lane` for that
+item and branch. Preserved folders retain their active rows.
+
 Removal is resumable, because `git worktree remove` deletes files one by one
 and drops git's record last: killed midway, it stranded a registered,
 half-deleted tree. Every removal path instead renames the worktree to a

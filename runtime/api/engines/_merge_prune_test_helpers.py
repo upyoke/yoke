@@ -10,6 +10,7 @@ suite can prove the sweep and the landing agree about the same lane.
 from __future__ import annotations
 
 import subprocess
+from types import SimpleNamespace
 from pathlib import Path
 
 from yoke_contracts.api.function_call import (
@@ -61,6 +62,8 @@ class _Conn:
         return False
 
     def execute(self, sql, params=()):
+        if "p.public_item_prefix AS public_item_prefix" in sql:
+            return _Rows([(1, "example", "EX", 41)])
         if "FROM item_worktrees iw JOIN items i" in sql:
             if params and params[0] == self.branch:
                 if self.mixed_owner:
@@ -162,4 +165,8 @@ def _install(monkeypatch, repo: Path, conn: _Conn):
     git_io = dict(run_git=run_git, emit=lambda line, **_kwargs: lines.append(line))
     monkeypatch.setattr(_ops, "_connect_rw", lambda: conn)
     monkeypatch.setattr(_safe_prune, "call_dispatcher", _fake_dispatcher(conn))
+    monkeypatch.setattr(
+        "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
+        lambda **_kwargs: SimpleNamespace(success=True),
+    )
     return git_io, lines
