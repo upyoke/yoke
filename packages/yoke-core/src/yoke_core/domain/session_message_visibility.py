@@ -22,7 +22,7 @@ from yoke_core.domain.actor_permissions import PERM_ITEMS_READ
 from yoke_core.domain.actor_project_visibility import (
     actor_project_ids_with_permission,
 )
-from yoke_core.domain.session_scope_identity import readable_org_ids
+from yoke_core.domain.session_scope_identity import org_ids_with_permission
 from yoke_core.domain.steering_message_recipients import STEERING_KIND
 
 
@@ -55,7 +55,7 @@ def visible_clause(
     visible_projects = sorted(
         actor_project_ids_with_permission(conn, actor_id, PERM_ITEMS_READ) or []
     )
-    readable_orgs = readable_org_ids(conn, actor_id, PERM_ITEMS_READ)
+    readable_orgs = org_ids_with_permission(conn, actor_id, PERM_ITEMS_READ)
     false = "FALSE" if db_backend.connection_is_postgres(conn) else "1=0"
     slots = ",".join(p for _ in visible_projects)
     project = (

@@ -44,12 +44,12 @@ def org_session_clause(
     """
     from yoke_core.domain.actor_permissions import PERM_ITEMS_READ
     from yoke_core.domain.project_identity import placeholder
-    from yoke_core.domain.session_scope_identity import readable_org_ids
+    from yoke_core.domain.session_scope_identity import org_ids_with_permission
 
     if actor_id is None:
         return "1 = 0", []
     marker = placeholder(conn)
-    orgs = readable_org_ids(conn, actor_id, permission_key or PERM_ITEMS_READ)
+    orgs = org_ids_with_permission(conn, actor_id, permission_key or PERM_ITEMS_READ)
     allowed = f"s.actor_id={marker}"
     if orgs:
         allowed += f" OR s.org_id IN ({', '.join(marker for _ in orgs)})"

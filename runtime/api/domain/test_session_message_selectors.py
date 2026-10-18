@@ -189,6 +189,26 @@ def test_universe_selector_includes_authorized_org_session(org_world):
     assert all(not row.authorized_project_ids for row in rows if row.org_id is not None)
 
 
+def test_universe_selector_decides_each_org_once(org_world, monkeypatch):
+    from yoke_core.domain import actor_permissions
+
+    w = org_world
+    decide = actor_permissions.org_permission_decision
+    decided = []
+
+    def counted(conn, **kwargs):
+        decided.append(kwargs["org_id"])
+        return decide(conn, **kwargs)
+
+    monkeypatch.setattr(actor_permissions, "org_permission_decision", counted)
+    rows = resolve_recipients(
+        w.conn, selector(universe=True, liveness=["all"]), actor_id=w.operator, now=NOW
+    )
+    ids = {row.session_id for row in rows}
+    assert {"org-sender", "org-target", "foreign-target"} <= ids
+    assert decided == [w.org]
+
+
 def test_project_selector_excludes_org_session(org_world):
     w = org_world
     slug = w.conn.execute("SELECT slug FROM projects WHERE id=1").fetchone()[0]

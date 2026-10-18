@@ -108,7 +108,7 @@ def actor_may_operate_session(
     )
 
 
-def readable_org_ids(conn: Any, actor_id: int, permission_key: str) -> list[int]:
+def org_ids_with_permission(conn: Any, actor_id: int, permission_key: str) -> list[int]:
     """Organizations granting the actor ``permission_key``, decided once each."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = conn.execute(

@@ -157,6 +157,24 @@ def _passes_filters(
     return True
 
 
+def _operable(
+    conn: Any, row: Mapping[str, Any], *, actor_id: int | None, decided: dict
+) -> bool:
+    """An org session's own actor, else one permission decision per scope."""
+    scope = session_scope_of(row)
+    if scope.org_id is not None and actor_id is not None and row["actor_id"] == actor_id:
+        return True
+    if scope not in decided:
+        decided[scope] = actor_may_operate_session(
+            conn,
+            actor_id=actor_id,
+            scope=scope,
+            session_actor_id=None,
+            permission_key=PERM_ITEMS_WRITE,
+        )
+    return decided[scope]
+
+
 def resolve_recipients(
     conn: Any,
     selector: RecipientSelector,
@@ -191,6 +209,7 @@ def resolve_recipients(
     relay_routes = connected_relay_routes(conn, now=current)
     excluded = set(selector.exclude_session_ids)
     resolved: list[ResolvedRecipient] = []
+    operable_scopes: dict[Any, bool] = {}
     for session_id in sorted(hits):
         if session_id in excluded or session_id not in sessions:
             continue
@@ -204,12 +223,8 @@ def resolve_recipients(
             if projects
             else None
         )
-        if primary_project is None and not actor_may_operate_session(
-            conn,
-            actor_id=actor_id,
-            scope=session_scope_of(row),
-            session_actor_id=row["actor_id"],
-            permission_key=PERM_ITEMS_WRITE,
+        if primary_project is None and not _operable(
+            conn, row, actor_id=actor_id, decided=operable_scopes
         ):
             continue
         liveness = session_liveness(row, now=current)
