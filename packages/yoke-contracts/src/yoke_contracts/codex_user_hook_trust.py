@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from yoke_contracts.codex_hook_trust import (
+    HOOK_EVENT_LABELS,
     CodexHookIdentityError,
     codex_hook_hashes_from_document,
 )
@@ -29,17 +30,6 @@ from yoke_contracts.codex_hook_trust_toml import (
 )
 
 CODEX_NOT_INSTALLED = "codex_not_installed"
-
-# Codex trust labels per native event, in the hash suffix ``label:group:handler``.
-_LABELS = {
-    "SessionStart": "session_start",
-    "UserPromptSubmit": "user_prompt_submit",
-    "PreToolUse": "pre_tool_use",
-    "PermissionRequest": "permission_request",
-    "PostToolUse": "post_tool_use",
-    "Stop": "stop",
-    "SessionEnd": "session_end",
-}
 
 
 def _hooks_document(hooks_path: Path) -> Optional[dict[str, Any]]:
@@ -60,7 +50,7 @@ def owned_handler_suffixes(document: dict[str, Any], is_owned: Callable[[str], b
     hooks = document.get("hooks")
     if not isinstance(hooks, dict):
         return owned
-    for event, label in _LABELS.items():
+    for event, label in HOOK_EVENT_LABELS:
         groups = hooks.get(event)
         for group_index, group in enumerate(groups if isinstance(groups, list) else []):
             handlers = group.get("hooks") if isinstance(group, dict) else None
