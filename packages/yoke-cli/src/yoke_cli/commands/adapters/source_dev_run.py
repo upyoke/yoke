@@ -30,10 +30,11 @@ def _run_check(module: str, args: List[str]) -> int:
     selector.add_argument("--lane", dest="selected_lane", metavar="PATH")
     selector.add_argument("--workdir", dest="selected_lane", metavar="PATH")
     parsed, command_args = parser.parse_known_args(args)
-    return _source_runner().run(
-        ["python3", "-m", f"yoke_core.tools.{module}", *command_args],
-        lane=parsed.selected_lane,
-    )
+    command = ["python3", "-m", f"yoke_core.tools.{module}", *command_args]
+    runner = _source_runner()
+    if parsed.selected_lane is None:
+        return runner.run(command)
+    return runner.run(command, lane=parsed.selected_lane)
 
 
 def ruff_changed(args: List[str]) -> int:
