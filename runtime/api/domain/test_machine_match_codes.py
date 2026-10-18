@@ -1,5 +1,6 @@
 """Match codes keep their alphabet, expiry and bounded collision admission."""
 
+import re
 from datetime import timedelta
 from unittest.mock import Mock
 
@@ -9,26 +10,63 @@ from runtime.api.domain.test_machine_authorization_codes import (
     conn as _conn_fixture,
     pending,
 )
+from yoke_contracts.machine_authorization import (
+    MATCH_CODE_ALPHABET,
+    MATCH_CODE_LENGTH,
+    MATCH_CODE_PATTERN,
+)
 from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
 from yoke_core.domain import machine_authorization_codes as codes
+from yoke_core.domain import machine_authorization_decisions as decisions
 from yoke_core.domain import machine_match_codes as matches
 
 conn = _conn_fixture
 
 
 def test_ten_thousand_draws_are_short_and_unambiguous():
-    alphabet = set(matches.MATCH_CODE_ALPHABET)
+    alphabet = set(MATCH_CODE_ALPHABET)
     assert len(alphabet) == 32
     assert alphabet.isdisjoint("0O1I")
     for _ in range(10_000):
         code = matches.generate_match_code()
-        assert len(code) == matches.MATCH_CODE_LENGTH == 4
+        assert len(code) == MATCH_CODE_LENGTH == 4
         assert set(code) <= alphabet
+        assert re.fullmatch(MATCH_CODE_PATTERN, code)
 
 
 @pytest.mark.parametrize("value", ["K7F2", " k7f2 ", "\tk7f2\n"])
 def test_normalization_accepts_case_and_surrounding_space(value):
     assert matches.normalize_match_code(value) == "K7F2"
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["", "K7F", "K7F22", "0O1I", "K7 F2", "ABCD-EFGH", "ABCDE-12345", "ABCD-2345"],
+)
+def test_normalization_refuses_other_formats_with_reconnection_recovery(value):
+    with pytest.raises(codes.MachineAuthorizationError, match="yoke connect") as error:
+        matches.normalize_match_code(value)
+    assert error.value.code == "authorization_code_invalid"
+    assert error.value.status == 400
+
+
+@pytest.mark.parametrize("code", ["ABCDE-F1234", "ABCDEF1234"])
+@pytest.mark.parametrize("operation", ["inspect", "resolve"])
+def test_long_code_rows_cannot_be_inspected_or_decided(conn, code, operation):
+    pending(conn)
+    conn.execute("UPDATE machine_authorization_codes SET user_code=?", (code,))
+    before = tuple(conn.execute("SELECT * FROM machine_authorization_codes").fetchone())
+    with pytest.raises(
+        codes.MachineAuthorizationError, match="authorization_code_invalid"
+    ):
+        if operation == "inspect":
+            decisions.inspect(conn, code=code, actor_id=1)
+        else:
+            decisions.resolve(conn, code=code, actor_id=1, action="approve")
+    assert (
+        tuple(conn.execute("SELECT * FROM machine_authorization_codes").fetchone())
+        == before
+    )
 
 
 def test_allocation_retries_collisions_then_inserts_a_free_code(conn, monkeypatch):

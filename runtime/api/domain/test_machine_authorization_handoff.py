@@ -151,6 +151,10 @@ def test_collisions_refuse_without_replacing_original(conn, updates, reason):
         ({"expires_at": "2000-01-01T00:00:00Z"}, "authorization_expired"),
         ({"expires_at": "2026-01-01"}, "authorization_expiry_invalid"),
         ({"machine_id": "invalid"}, "authorization_handoff_invalid"),
+        ({"user_code": "ABCDE-12345"}, "authorization_handoff_invalid"),
+        ({"user_code": "ABCDEF1234"}, "authorization_handoff_invalid"),
+        ({"user_code": "K7F"}, "authorization_handoff_invalid"),
+        ({"user_code": "0O1I"}, "authorization_handoff_invalid"),
         ({"org_id": 999}, "authorization_org_unknown"),
     ],
 )

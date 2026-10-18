@@ -253,6 +253,9 @@ Handoff takes `{device_code_sha256, user_code, machine_id, machine_name,
 platform, expires_at, org_id}`. The digest is lowercase hex SHA-256 of the
 original device secret; never send the raw secret to handoff. `user_code` is
 four characters from `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`, such as `K7F2`.
+Inspect and resolve trim surrounding whitespace and accept lowercase input.
+Other formats refuse `authorization_code_invalid` without changing the request;
+run `yoke connect` on the connecting machine for a new code.
 Machine ID is a UUID; name and platform are nonempty, at most 150 and 80
 characters. Expiry is qualified RFC3339, after now and within the engine's
 ten-minute code TTL. Org ID is the positive **engine** organization ID,

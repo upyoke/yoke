@@ -7,7 +7,7 @@ from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
-from yoke_contracts.machine_authorization import CODE_TTL_SECONDS
+from yoke_contracts.machine_authorization import CODE_TTL_SECONDS, MATCH_CODE_PATTERN
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter
@@ -20,8 +20,6 @@ from yoke_core.domain.machine_authorization_codes import (
     refuse_retired_machine,
 )
 from yoke_core.domain.machine_approval_requests import machine_approval_decision
-
-MATCH_CODE_PATTERN = r"[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{4}"
 
 
 def require_service_org(conn: Any, actor_id: int, org_id: int) -> None:

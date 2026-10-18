@@ -215,10 +215,11 @@ def test_inspection_retains_approved_facts_after_delivery(conn):
         decisions.inspect(conn, code=authorization["user_code"], actor_id=1)["decision"]
         == "approve"
     )
+    missing_code = "G8P3" if authorization["user_code"] == "K7F2" else "K7F2"
     with pytest.raises(
         codes.MachineAuthorizationError, match="authorization_unavailable"
     ):
-        decisions.inspect(conn, code="UNKNOWN", actor_id=1)
+        decisions.inspect(conn, code=missing_code, actor_id=1)
 
 
 @pytest.mark.parametrize("action,opposite", [("approve", "deny"), ("deny", "approve")])
@@ -274,15 +275,6 @@ def test_only_active_human_members_can_resolve(conn, kind, status, error):
             "SELECT actor_id,decision,decided_at FROM machine_authorization_codes"
         ).fetchone()
     ) == (None, None, None)
-
-
-@pytest.mark.parametrize("code", ["ABCDE-F1234", "ABCDEF1234"])
-def test_in_flight_long_codes_still_resolve(conn, code):
-    authorization = pending(conn)
-    conn.execute("UPDATE machine_authorization_codes SET user_code=?", (code,))
-    assert decisions.inspect(conn, code=code, actor_id=1)["code"] == code
-    decisions.resolve(conn, code=code, actor_id=1, action="approve")
-    assert poll(conn, authorization)["token"]
 
 
 def test_concurrent_opposite_decisions_have_one_winner(tmp_path):

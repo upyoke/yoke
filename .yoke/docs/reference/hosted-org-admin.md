@@ -53,6 +53,9 @@ The first decision binds the code to its approver. Refusals include
 and `authorization_expired` (start a fresh connection). If the server lacks these
 commands, connect with `yoke connect <server> --token-stdin` or ask its operator to upgrade.
 
+Other code formats refuse `authorization_code_invalid` without changing the
+request. Run `yoke connect` on the connecting machine to obtain a new code.
+
 ## Every surface refuses with its recovery
 
 An org whose plan is not active refuses every call as `org_not_operable`. On a

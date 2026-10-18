@@ -1,11 +1,15 @@
 """Short-code connection delivers one credential through the public wire."""
 
 from runtime.api import test_self_host_workbench as workbench
-from yoke_contracts.machine_authorization import POLL_PATH, START_PATH
+from yoke_contracts.machine_authorization import (
+    MATCH_CODE_ALPHABET,
+    MATCH_CODE_LENGTH,
+    POLL_PATH,
+    START_PATH,
+)
 from yoke_core.domain.actor_role_grants import grant_actor_org_role
 from yoke_core.domain.external_identities import default_org_id
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
-from yoke_core.domain.machine_match_codes import MATCH_CODE_ALPHABET
 
 _no_oidc = workbench._no_oidc
 db_conn = workbench.db_conn
@@ -27,7 +31,7 @@ def test_start_approve_poll_binds_credential_to_signed_in_member(
     started = browser.post(START_PATH, json={**IDENTITY, "platform": "Linux"})
     assert started.status_code == 200, started.text
     authorization = started.json()
-    assert len(authorization["user_code"]) == 4
+    assert len(authorization["user_code"]) == MATCH_CODE_LENGTH == 4
     assert set(authorization["user_code"]) <= set(MATCH_CODE_ALPHABET)
     assert authorization["expires_in"] == 600
     poll_body = {"device_code": authorization["device_code"], **IDENTITY}

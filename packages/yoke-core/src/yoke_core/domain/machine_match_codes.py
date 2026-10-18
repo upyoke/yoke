@@ -1,15 +1,19 @@
 """Short, unambiguous match codes for pending machine connections."""
 
+import re
 import secrets
 from typing import Any
 
+from yoke_contracts.machine_authorization import (
+    MATCH_CODE_ALPHABET,
+    MATCH_CODE_LENGTH,
+    MATCH_CODE_PATTERN,
+)
 from yoke_core.domain.machine_authorization_codes import (
     MachineAuthorizationError,
     _p,
 )
 
-MATCH_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
-MATCH_CODE_LENGTH = 4
 MATCH_CODE_ATTEMPTS = 8
 
 
@@ -20,7 +24,13 @@ def generate_match_code() -> str:
 
 
 def normalize_match_code(value: str) -> str:
-    return value.strip().upper()
+    code = value.strip().upper()
+    if not re.fullmatch(MATCH_CODE_PATTERN, code):
+        raise MachineAuthorizationError(
+            "authorization_code_invalid",
+            "use the four-character match code; run `yoke connect` for a new code",
+        )
+    return code
 
 
 def allocate_match_code(conn: Any, *, attempts: int = MATCH_CODE_ATTEMPTS) -> str:
