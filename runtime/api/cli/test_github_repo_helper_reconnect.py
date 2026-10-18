@@ -37,7 +37,9 @@ def _register_checkout(config: Path, repo: Path, tmp_path: Path) -> None:
                     },
                 }
             },
-            "projects": [{"checkout": str(repo), "project_id": 1}],
+            "connection_projects": {
+                "stage": [{"checkout": str(repo), "project_id": 1}]
+            },
         }
     )
     config.write_text(json.dumps(payload), encoding="utf-8")

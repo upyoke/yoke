@@ -63,7 +63,9 @@ def _write_binding(
                 "postgres": connection,
             },
         },
-        "projects": [{"checkout": str(tmp_path.resolve()), "project_id": 1}],
+        "connection_projects": {
+            "cloud-test": [{"checkout": str(tmp_path.resolve()), "project_id": 1}]
+        },
     }
     path = tmp_path / ".yoke" / "config.json"
     path.parent.mkdir(parents=True, exist_ok=True)

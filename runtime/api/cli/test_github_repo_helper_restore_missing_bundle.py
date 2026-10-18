@@ -77,7 +77,10 @@ def test_restore_missing_bundle_is_a_legitimate_no_op_when_unconfigured(
         json.dumps(
             {
                 "schema_version": 1,
-                "projects": [{"checkout": str(repo), "project_id": 1}],
+                "active_env": "local",
+                "connection_projects": {
+                    "local": [{"checkout": str(repo), "project_id": 1}]
+                },
             }
         ),
         encoding="utf-8",
@@ -138,7 +141,10 @@ def test_restore_missing_bundle_refuses_an_unverifiable_moved_runtime_reference(
         json.dumps(
             {
                 "schema_version": 1,
-                "projects": [{"checkout": str(repo), "project_id": 1}],
+                "active_env": "local",
+                "connection_projects": {
+                    "local": [{"checkout": str(repo), "project_id": 1}]
+                },
             }
         ),
         encoding="utf-8",
@@ -187,7 +193,10 @@ def test_restore_missing_bundle_reports_unreadable_git_config_distinctly(
         json.dumps(
             {
                 "schema_version": 1,
-                "projects": [{"checkout": str(repo), "project_id": 1}],
+                "active_env": "local",
+                "connection_projects": {
+                    "local": [{"checkout": str(repo), "project_id": 1}]
+                },
             }
         ),
         encoding="utf-8",

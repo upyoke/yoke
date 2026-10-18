@@ -88,12 +88,14 @@ def canonical_example_payload() -> dict[str, Any]:
                     "status": "authorized",
                 },
             },
-            "projects": [
-                {
-                    "checkout": "/Users/example/yoke",
-                    "project_id": 1,
-                },
-            ],
+            "connection_projects": {
+                "prod": [
+                    {
+                        "checkout": "/Users/example/yoke",
+                        "project_id": 1,
+                    },
+                ]
+            },
             "settings": {},
         }
     )

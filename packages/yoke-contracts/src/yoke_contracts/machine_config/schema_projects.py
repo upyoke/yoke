@@ -1,6 +1,6 @@
 """Project-entry contract + shared issue primitives.
 
-Each project has one machine-local checkout, independent of connection routing.
+Each connection has one machine-local checkout per project.
 """
 
 from __future__ import annotations
@@ -37,20 +37,50 @@ def project_entry_for_checkout(
     payload: Mapping[str, Any],
     repo_root: str | Path,
 ) -> dict[str, Any]:
-    """Return this checkout's project id, independently of the connection."""
+    """Return this checkout's project id on the selected connection."""
     candidates = {_path_key(p) for p in checkout_path_candidates(repo_root)}
-    for entry in normalize_projects(payload.get("projects")):
+    for entry in projects_for_connection(payload):
         if _path_key(Path(entry["checkout"]).expanduser()) in candidates:
             return {"project_id": entry["project_id"]}
     return {}
 
 
 def mapped_checkouts(payload: Mapping[str, Any]) -> list[tuple[str, int]]:
-    """Return all machine-local checkout and project id pairs."""
+    """Return checkout and project id pairs on the selected connection."""
     return [
         (entry["checkout"], entry["project_id"])
-        for entry in normalize_projects(payload.get("projects"))
+        for entry in projects_for_connection(payload)
     ]
+
+
+def project_connection(payload: Mapping[str, Any]) -> str:
+    """Use the existing admin/HTTPS pairing as one universe's mapping key."""
+    from yoke_contracts.machine_config.schema_connections import (
+        selected_env,
+        same_universe_https_env,
+    )
+
+    env = selected_env(payload)
+    return same_universe_https_env(payload, env) or env
+
+
+def projects_for_connection(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Filter before interpreting a universe-local numeric project id."""
+    groups = payload.get("connection_projects")
+    if groups is None:
+        if payload.get("projects"):
+            raise MachineConfigContractError(
+                "project_connection_upgrade_required: run yoke project register "
+                "CHECKOUT --project-id ID to import the configured default connection's "
+                "checkout map, then register other connections separately"
+            )
+        return []
+    if not isinstance(groups, Mapping):
+        raise MachineConfigContractError(
+            "connection_projects_invalid: set connection_projects to an object "
+            "mapping connection labels to checkout entries, then retry"
+        )
+    return normalize_projects(groups.get(project_connection(payload)))
 
 
 def normalize_projects(projects: Any) -> list[dict[str, Any]]:

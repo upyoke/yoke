@@ -10,7 +10,10 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_cli.config.project_slug_lookup import resolve_project_slug
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_contracts.machine_config.runtime import load_config
-from yoke_contracts.machine_config.schema_projects import normalize_projects
+from yoke_contracts.machine_config.schema_projects import (
+    projects_for_connection,
+    project_connection,
+)
 from yoke_contracts.project_defaults import default_project_for_directory
 
 
@@ -19,7 +22,7 @@ class FolderGuardError(RuntimeError):
 
 
 def local_checkout_for_project(project_id: int) -> str | None:
-    for entry in normalize_projects(load_config().get("projects")):
+    for entry in projects_for_connection(load_config()):
         if entry["project_id"] == project_id:
             return entry["checkout"]
     return None
@@ -31,7 +34,7 @@ def render_folder_line(project_id: int, slug: str, ref: str, title: str) -> str:
     if checkout is None:
         return (
             f"No local checkout is mapped to project {slug} for {subject}. "
-            f"Recovery: run `yoke project register CHECKOUT --project-id {project_id}`, "
+            f"Recovery: run `yoke --env {project_connection(load_config())} project register CHECKOUT --project-id {project_id}`, "
             "then open a session there; sessions never switch projects."
         )
     return (

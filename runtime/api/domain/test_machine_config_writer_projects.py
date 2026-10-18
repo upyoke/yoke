@@ -37,7 +37,11 @@ def _seed_https(home: Path, tmp_path: Path, env: str = "stage") -> Path:
 
 
 def _rows(config: dict, checkout: str) -> list[dict]:
-    return [e for e in config["projects"] if e["checkout"] == checkout]
+    return [
+        e
+        for e in config["connection_projects"][config["active_env"]]
+        if e["checkout"] == checkout
+    ]
 
 
 def _row(config: dict, checkout: str, env: str | None = None) -> dict:
@@ -73,7 +77,7 @@ class TestRegisterProject:
                 board_render_path=".yoke/BOARD-ALL.md",
             )
 
-    def test_registration_is_independent_of_selected_connection(
+    def test_registration_has_distinct_selected_connection_slots(
         self, home, tmp_path, monkeypatch
     ):
         _seed_https(home, tmp_path)
@@ -82,9 +86,10 @@ class TestRegisterProject:
         writer.register_project(repo, 7)
         monkeypatch.setenv("YOKE_ENV", "prod-db-admin")
         writer.register_project(repo, 7)
-        assert _config(home)["projects"] == [
-            {"checkout": str(repo.resolve()), "project_id": 7}
-        ]
+        assert _config(home)["connection_projects"] == {
+            "stage": [{"checkout": str(repo.resolve()), "project_id": 7}],
+            "prod-db-admin": [{"checkout": str(repo.resolve()), "project_id": 7}],
+        }
 
     def test_missing_directory_is_refused(self, home, tmp_path):
         _seed_https(home, tmp_path)

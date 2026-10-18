@@ -62,7 +62,12 @@ def test_git_lane_resolves_main_and_accepts_parent_canonical_link(
     nested = lane / "subdirectory"
     nested.mkdir()
     assert main_checkout(nested) == checkout
-    payload = {"projects": [{"checkout": str(checkout), "project_id": 7}]}
+    payload = {
+        "active_env": "local",
+        "connection_projects": {
+            "local": [{"checkout": str(checkout), "project_id": 7}]
+        },
+    }
     assert project_entry_for_checkout(payload, nested) == {
         "project_id": 7,
     }

@@ -17,6 +17,8 @@ from yoke_contracts.machine_config.schema_projects import (
     mapped_checkouts as mapped_checkouts,
     normalize_project_id as normalize_project_id,
     normalize_projects as normalize_projects,
+    project_connection as project_connection,
+    projects_for_connection as projects_for_connection,
     project_entry_for_checkout as project_entry_for_checkout,
     upsert_project_entry as upsert_project_entry,
     _error,
@@ -99,15 +101,12 @@ def normalize_payload(payload: Mapping[str, Any] | None) -> dict[str, Any]:
     normalized.setdefault("schema_version", SCHEMA_VERSION)
     normalized["temp_root"] = _nonempty_str(raw.get("temp_root"), DEFAULT_TEMP_ROOT)
     normalized["cache_dir"] = _nonempty_str(raw.get("cache_dir"), DEFAULT_CACHE_ROOT)
-    projects = raw.get("projects")
+    groups = raw.get("connection_projects")
+    if isinstance(groups, Mapping):
+        normalized["connection_projects"] = dict(groups)
+
     settings = raw.get("settings")
     connections = raw.get("connections")
-    if isinstance(projects, list):
-        normalized["projects"] = list(projects)
-    elif isinstance(projects, Mapping):
-        normalized["projects"] = dict(projects)
-    else:
-        normalized["projects"] = []
     normalized["settings"] = dict(settings) if isinstance(settings, Mapping) else {}
     normalize_github_payload(raw, normalized)
     if isinstance(connections, Mapping):
@@ -202,7 +201,29 @@ def validate_payload(
             issues.append(
                 _error(f"{key}_invalid", f"{key} must be a non-empty string", path=key)
             )
+    # The old flat snapshot remains readable by already-installed releases.
     issues.extend(validate_projects(raw.get("projects")))
+    groups = raw.get("connection_projects", {})
+    if not isinstance(groups, Mapping):
+        issues.append(
+            _error(
+                "connection_projects_invalid",
+                "connection_projects must map connection labels to checkout lists",
+                path="connection_projects",
+                hint="Run yoke config example and repair the named map.",
+            )
+        )
+    else:
+        for connection, projects in groups.items():
+            if not _is_nonempty_str(connection):
+                issues.append(
+                    _error(
+                        "project_connection_required",
+                        "connection label must be non-empty",
+                        path="connection_projects",
+                    )
+                )
+            issues.extend(validate_projects(projects))
     machine_id = raw.get(MACHINE_ID_KEY)
     if machine_id is not None:
         try:

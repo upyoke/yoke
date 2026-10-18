@@ -64,7 +64,9 @@ def _write_https_default_binding(tmp_path: Path) -> Path:
                 },
             },
         },
-        "projects": [{"checkout": str(tmp_path.resolve()), "project_id": 1}],
+        "connection_projects": {
+            "prod": [{"checkout": str(tmp_path.resolve()), "project_id": 1}]
+        },
     }
     path = tmp_path / ".yoke" / "config.json"
     path.parent.mkdir(parents=True, exist_ok=True)

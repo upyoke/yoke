@@ -84,8 +84,11 @@ def register_machine_checkout(
         payload: dict[str, Any] = json.loads(config_path.read_text())
     else:
         payload = {}
-    payload["projects"] = contract.upsert_project_entry(
-        payload.get("projects"),
+    payload.setdefault("active_env", "local")
+    connection = contract.project_connection(payload)
+    groups = payload.setdefault("connection_projects", {})
+    groups[connection] = contract.upsert_project_entry(
+        groups.get(connection),
         checkout=str(checkout),
         project_id=int(project_id),
     )
@@ -109,8 +112,10 @@ def clear_machine_checkout(project_id: int) -> None:
     config_path = Path(raw_path)
     if config_path.is_file():
         payload: dict[str, Any] = json.loads(config_path.read_text())
-        entries = contract.normalize_projects(payload.get("projects"))
-        payload["projects"] = [
+        connection = contract.project_connection(payload)
+        groups = payload.setdefault("connection_projects", {})
+        entries = contract.normalize_projects(groups.get(connection))
+        groups[connection] = [
             entry for entry in entries if entry["project_id"] != int(project_id)
         ]
         config_path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")

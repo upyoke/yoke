@@ -201,12 +201,14 @@ def build_machine_config(
     payload["connections"] = {env_name: base}
     payload["temp_root"] = str(temp_root)
     payload["cache_dir"] = str(cache_dir)
-    payload["projects"] = [
-        {
-            "checkout": str(clone_root.resolve()),
-            "project_id": project_id,
-        }
-    ]
+    payload["connection_projects"] = {
+        env_name: [
+            {
+                "checkout": str(clone_root.resolve()),
+                "project_id": project_id,
+            }
+        ]
+    }
     payload.setdefault("settings", {})
     return payload
 

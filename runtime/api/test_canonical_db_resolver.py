@@ -98,7 +98,11 @@ class TestExportCanonicalYokeDb:
                             },
                         },
                     },
-                    "projects": [{"checkout": str(repo.resolve()), "project_id": 1}],
+                    "connection_projects": {
+                        "prod-db-admin": [
+                            {"checkout": str(repo.resolve()), "project_id": 1}
+                        ]
+                    },
                 }
             ),
             encoding="utf-8",
@@ -146,7 +150,11 @@ class TestExportCanonicalYokeDb:
                             },
                         },
                     },
-                    "projects": [{"checkout": str(repo.resolve()), "project_id": 1}],
+                    "connection_projects": {
+                        "prod-db-admin": [
+                            {"checkout": str(repo.resolve()), "project_id": 1}
+                        ]
+                    },
                 }
             ),
             encoding="utf-8",

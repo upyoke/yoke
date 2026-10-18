@@ -143,7 +143,10 @@ class TestSchemaAndConfigChecks:
             json.dumps(
                 {
                     "settings": {},
-                    "projects": [{"checkout": str(gone), "project_id": 3}],
+                    "active_env": "local",
+                    "connection_projects": {
+                        "local": [{"checkout": str(gone), "project_id": 3}]
+                    },
                 }
             )
         )
@@ -164,7 +167,10 @@ class TestSchemaAndConfigChecks:
             json.dumps(
                 {
                     "settings": {},
-                    "projects": [{"checkout": str(checkout), "project_id": 1}],
+                    "active_env": "local",
+                    "connection_projects": {
+                        "local": [{"checkout": str(checkout), "project_id": 1}]
+                    },
                 }
             )
         )

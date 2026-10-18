@@ -174,7 +174,11 @@ def self_release_checkout(project: str) -> Path | None:
             "confirm the selected connection serves it and re-drive the run"
         )
     try:
-        entries = machine_config.load_config().get("projects")
+        from yoke_contracts.machine_config.schema_projects import (
+            projects_for_connection,
+        )
+
+        entries = projects_for_connection(machine_config.load_config())
     except machine_config.MachineConfigError as exc:
         raise DeployPinnedSourceError(
             f"machine config is unreadable ({exc}); repair ~/.yoke/config.json "

@@ -24,7 +24,7 @@ def checkout_for_project_id(
 ) -> Optional[Path]:
     """Return this machine's checkout path for a project id, if configured.
 
-    The machine stores one checkout for each project, shared by all connections.
+    The selected connection supplies the project checkout mapping.
     """
 
     if project_id is None:

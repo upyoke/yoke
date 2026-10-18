@@ -150,7 +150,11 @@ def hc_config_validation(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 issues.append("- machine config settings must be an object")
             elif isinstance(settings, dict):
                 issues.extend(_settings_key_issues(settings))
-            projects = payload.get("projects", [])
+            from yoke_contracts.machine_config.schema_projects import (
+                projects_for_connection,
+            )
+
+            projects = projects_for_connection(payload)
             issues.extend(
                 f"- {issue.code}: {issue.message}; repair projects in machine config"
                 for issue in validate_projects(projects)

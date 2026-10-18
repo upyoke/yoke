@@ -162,7 +162,12 @@ def test_missing_instruction_pointer_fails_even_with_configured_hooks(
 @pytest.mark.parametrize(
     "config",
     [
-        {"projects": [{"checkout": "/tmp/install-test", "project_id": 42}]},
+        {
+            "active_env": "local",
+            "connection_projects": {
+                "local": [{"checkout": "/tmp/install-test", "project_id": 42}]
+            },
+        },
         {"projects": {"/tmp/install-test": {"project_id": 42}}},
     ],
 )

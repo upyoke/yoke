@@ -1,4 +1,4 @@
-"""Validate the machine-local, connection-independent project checkout list."""
+"""Validate the machine-local, connection-scoped project checkout list."""
 
 from typing import Any, Mapping
 
@@ -59,7 +59,7 @@ def validate_projects(projects: Any) -> list[ValidationIssue]:
             issues.append(
                 _error(
                     "project_checkout_duplicate",
-                    "a checkout may map to only one project",
+                    "a checkout may map to only one project per connection",
                     path=prefix,
                 )
             )
@@ -77,7 +77,7 @@ def validate_projects(projects: Any) -> list[ValidationIssue]:
             issues.append(
                 _error(
                     "project_id_duplicate",
-                    "a project must have exactly one checkout",
+                    "a project must have exactly one checkout per connection",
                     path=prefix,
                 )
             )

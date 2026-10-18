@@ -103,7 +103,7 @@ def project_entry(
 ) -> dict[str, Any]:
     """Return the machine-config entry for a checkout, or ``{}``.
 
-    Checkout resolution is independent of connection routing.
+    Checkout resolution uses the selected connection.
     """
 
     cfg = load_config(path)
@@ -121,12 +121,12 @@ def configured_projects(
 ) -> list[ConfiguredProject]:
     """Return project checkout mappings recorded in machine config.
 
-    Every project has one checkout, shared by all connections.
+    Every project has one checkout per connection.
     """
 
     payload = load_config(path)
     out: list[ConfiguredProject] = []
-    for entry in contract.normalize_projects(payload.get("projects")):
+    for entry in contract.projects_for_connection(payload):
         project_id = entry["project_id"]
         if project_id is None:
             continue
@@ -157,7 +157,11 @@ def all_registered_checkouts(
     payload = load_config(path)
     out: list[Path] = []
     seen: set[str] = set()
-    for entry in contract.normalize_projects(payload.get("projects")):
+    for entry in [
+        entry
+        for entries in payload.get("connection_projects", {}).values()
+        for entry in contract.normalize_projects(entries)
+    ]:
         try:
             checkout = Path(entry["checkout"]).expanduser()
             canonical = checkout.resolve(strict=False)

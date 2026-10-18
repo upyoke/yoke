@@ -53,8 +53,15 @@ def register_project(
     if normalized is None:
         raise MachineConfigWriteError("--project-id must be a positive integer")
     payload, cfg_path = _load_payload(path)
+    from yoke_contracts.machine_config.project_mapping_upgrade import (
+        import_project_connections,
+    )
+
+    import_project_connections(payload)
+    connection = contract.project_connection(payload)
+    projects = payload["connection_projects"].get(connection)
     displaced = contract.existing_checkout_for_slot(
-        payload.get("projects"),
+        projects,
         checkout=str(root),
         project_id=normalized,
     )
@@ -66,14 +73,18 @@ def register_project(
             "--reassign from a session holding the project's steering seat "
             f"(yoke claims steering acquire --project {normalized})."
         )
-    payload["projects"] = contract.upsert_project_entry(
-        payload.get("projects"),
+    payload["connection_projects"][connection] = contract.upsert_project_entry(
+        projects,
         checkout=str(root),
         project_id=normalized,
     )
     _write_payload(payload, cfg_path)
     written = next(
-        (e for e in payload["projects"] if e.get("checkout") == str(root)),
+        (
+            e
+            for e in payload["connection_projects"][connection]
+            if e.get("checkout") == str(root)
+        ),
         {},
     )
     return {"checkout": str(root), "entry": written, "config": str(cfg_path)}
