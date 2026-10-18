@@ -159,7 +159,10 @@ def test_combined_remote_command_keeps_automation_reset_and_never_resets_desktop
     assert json.loads(capsys.readouterr().out)["desktop_browser"]["browser"] == "Safari"
 
 
-def test_machine_desktop_flag_selects_combined_command(monkeypatch, tmp_path, capsys):
+@pytest.mark.parametrize("native_only", [False, True])
+def test_machine_desktop_flag_selects_requested_browser(
+    monkeypatch, tmp_path, capsys, native_only
+):
     import subprocess
     from yoke_cli.commands import browser_authorize, browser_authorize_remote as remote
     from yoke_harness import test_machine_gui_command as gui
@@ -197,9 +200,12 @@ def test_machine_desktop_flag_selects_combined_command(monkeypatch, tmp_path, ca
     monkeypatch.setattr(gui, "run_gui_command", execute)
     assert (
         browser_authorize.browser_authorize(
-            ["--project", "acme", "--machine", "fixture", "--desktop-browser", "--json"]
+            ["--project", "acme", "--machine", "fixture", "--json"]
+            + (["--desktop-browser"] if native_only else [])
         )
         == 0
     )
-    assert len(argv) == 1 and "--include-desktop-browser" in argv[0]
+    assert len(argv) == 1
+    assert ("--desktop-browser" in argv[0]) == native_only
+    assert ("--include-desktop-browser" in argv[0]) != native_only
     assert json.loads(capsys.readouterr().out)["desktop_browser"]["ok"]

@@ -17,7 +17,11 @@ from urllib.parse import urlsplit, urlunsplit
 from typing import Any
 
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
-from yoke_harness import linux_desktop_chromium, linux_devtools_page
+from yoke_harness import (
+    linux_chromium_processes,
+    linux_desktop_chromium,
+    linux_devtools_page,
+)
 from yoke_harness.linux_desktop_session import desktop_command, ensure_desktop
 from yoke_harness.machine_browser_approval import (
     APPROVE_CONTROL_LABEL,
@@ -50,11 +54,17 @@ def _host(control: Any, *arguments: str, desktop: bool = True) -> dict[str, Any]
     program = "\n".join(
         [
             Path(linux_devtools_page.__file__).read_text(),
+            Path(linux_chromium_processes.__file__).read_text(),
             f"CONNECTED_CONFIRMATION = {json.dumps(CONNECTED_CONFIRMATION)}",
             Path(linux_desktop_chromium.__file__)
             .read_text()
             .replace(_DEVTOOLS_IMPORT, "")
-            .replace(_CONFIRMATION_IMPORT, ""),
+            .replace(_CONFIRMATION_IMPORT, "")
+            .replace(
+                "from yoke_harness import linux_chromium_processes as native_processes",
+                "",
+            )
+            .replace("native_processes.", ""),
             "main()\n",
         ]
     )

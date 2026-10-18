@@ -66,7 +66,16 @@ tabs; allow native cookie-store access and unlock the user's keyring first.
 Desktop sign-ins stay live through resets and are never captured into golden
 snapshots. Automation identity profiles keep their existing behavior.
 Use --desktop-browser without --machine to check only this host's native
-browser. Declare sites for that identity first; --reset never wipes desktop
+browser, or combine both flags to check only the Test Machine's native browser.
+If default has no sites but other identities do, an omitted --identity refuses
+with browser_identity_required and names the choices before opening any window.
+Site, origin and account instructions print on the workstation before its viewer.
+Linux remote progress streams while authorization runs, including verification;
+--json reserves stdout for the final receipt and sends progress to stderr.
+A connected Linux viewer refuses linux_desktop_viewer_connected: close the open
+"Yoke desktop: MACHINE" viewer or let browser authorize finish, then retry.
+Linux window-close detection requires xdotool and checks only the spawned PID.
+Declare sites for that identity first; --reset never wipes desktop
 browser state and is refused for a desktop-only invocation.
 
 Each identity's profile is kept with the project's machine-local capability

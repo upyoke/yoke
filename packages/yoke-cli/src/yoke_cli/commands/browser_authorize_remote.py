@@ -9,9 +9,9 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.browser_identity import (
     BrowserIdentityError,
     parse_identity_declarations,
-    select_identity,
 )
 from yoke_cli.commands._helpers import ensure_handlers_loaded
+from yoke_cli.commands.browser_sign_in import select_authorization_identity
 from yoke_cli.config import browser_profile, machine_config
 from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 from yoke_cli.config.capability_secrets import read_machine_capability_secret
@@ -169,7 +169,7 @@ def authorize_remote(parsed) -> int:
                 + ". Repair `yoke projects capability-settings set --project P "
                 "--cap-type browser-control`, then retry."
             ) from None
-        identity = select_identity(
+        identity = select_authorization_identity(
             parse_identity_declarations(declarations), parsed.identity
         )
         argv = [
@@ -196,8 +196,20 @@ def authorize_remote(parsed) -> int:
             raise BrowserIdentityError(
                 "desktop_browser_unsupported: choose a Linux Chromium or macOS Safari Test Machine."
             )
-        if detail["settings"].get("os") in {"linux", "macos"}:
+        if parsed.desktop_browser:
+            argv.append("--desktop-browser")
+        elif detail["settings"].get("os") in {"linux", "macos"}:
             argv.append("--include-desktop-browser")
+        from yoke_harness.browser_identity_check import sign_in_request
+
+        for line in sign_in_request(
+            identity.name,
+            [
+                {"site": site.site, "origin": site.origin, "account": site.account}
+                for site in identity.sites
+            ],
+        ):
+            _tell(line, parsed.json_mode)
         viewer = _open_sign_in_viewer(project, detail, identity, parsed.json_mode)
         try:
             desktop_password = (
@@ -214,6 +226,8 @@ def authorize_remote(parsed) -> int:
                 argv=argv,
                 yoke_home=machine_config.yoke_home(),
                 desktop_password=desktop_password,
+                stream_output=True,
+                json_mode=parsed.json_mode,
             )
         finally:
             if viewer is not None:
@@ -238,8 +252,9 @@ def authorize_remote(parsed) -> int:
             payload["machine"] = detail["machine"]
             print(json.dumps(payload))
         else:
-            print(result.stdout, end="")
-            print(result.stderr, end="", file=sys.stderr)
+            if not getattr(result, "output_streamed", False):
+                print(result.stdout, end="")
+                print(result.stderr, end="", file=sys.stderr)
             if result.returncode:
                 print(
                     f"browser_authorize_remote_failed: machine {detail['machine']} "

@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 from yoke_cli.commands.browser_sign_in import (
     prepare_browser_runtime,
-    resolve_identity_target,
+    resolve_authorization_target as resolve_identity_target,
 )
 
 
@@ -81,6 +81,7 @@ def authorize_desktop(parsed) -> int:
                 identity="desktop-" + kind.lower(),
             ):
                 desktop.sign_in_window(kind, [site["origin"] for site in expired])
+            say("Verifying desktop sign-in after the authorization window closed.")
             sites = desktop.check_desktop(identity, runtime, kind=kind)
             say(checks.summarize(kind, sites))
         incomplete = [
