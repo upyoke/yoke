@@ -72,5 +72,11 @@ identified Chromium profile preserved its cookie digest. Restoring Claude and
 Codex live stashes, while keeping the old sealed copies privately, changed both
 real requests from expired OAuth failures to passes; Cursor also passed.
 The reset process had exited before recovery, and no credential contents were
-printed. Installation-preserving reset proof remains unverified until its own
-successful registered receipt; these recovery observations do not claim it.
+printed. The completed installation-preserving `fresh-host` reset passed all
+five sealed checks, including the three real requests, at 04:07 UTC. Its
+receipt listed all live installations, sign-ins and Chromium as preserved,
+including Codex helper packages; Yoke and uv were absent in both shell contexts.
+Live installation roots and Chromium retained their original inodes.
+The earlier SSH exit code 255 had no retained causal diagnostic in kernel,
+SSH or session logs; the same host-key warning occurred on successful checks.
+Preserve that uncertainty rather than treating the warning as a cause.

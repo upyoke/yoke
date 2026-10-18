@@ -1,7 +1,7 @@
 {
  "id": "declared-baseline",
  "title": "Declared baselines keep native harness installations and sign-ins live",
- "status": "draft-copy",
+ "status": "observed",
  "page": "test-machines",
  "position": 0
 }
