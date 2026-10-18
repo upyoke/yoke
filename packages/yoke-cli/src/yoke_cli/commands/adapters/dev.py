@@ -30,7 +30,7 @@ from yoke_cli.commands.adapters.dev_setup_flags import (
 )
 
 DEV_SETUP_USAGE = (
-    "yoke dev setup [CHECKOUT] [DSN] [--config PATH] [--env ENV] "
+    "yoke dev setup [CHECKOUT] [DSN] [--config PATH] [--admin-env ENV] "
     "[--dsn DSN | --dsn-file PATH | --dsn-stdin] [--set-active-env] "
     "[--editable-install] [--with-test-postgres] "
     "[--postgres-host HOST] [--postgres-port PORT] "
@@ -68,7 +68,7 @@ def dev_setup(args: List[str]) -> int:
     parser.add_argument("dsn_value", nargs="?", default=None)
     parser.add_argument("--config", dest="config_path", default=None)
     parser.add_argument(
-        "--env", dest="env_name", default=dev_setup_config.DEFAULT_ADMIN_ENV
+        "--admin-env", dest="env_name", default=dev_setup_config.DEFAULT_ADMIN_ENV
     )
     _add_secret_args(parser)
     parser.add_argument("--set-active-env", action="store_true")
