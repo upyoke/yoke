@@ -6,7 +6,6 @@
  "verification": "Rendered component tests cover single-project and multi-project pages over an empty universe, the Projects page with and without rows, New item with no visible project versus no creatable project, and the zero-project harness module. Served browser proof remains a deployment obligation.",
  "text": "Every project-scoped page with no visible project, the Projects page and the zero-project harness module show: Ask Claude Code, Codex, or Cursor to add a project to Yoke. The names are generated from the harness registry. New item keeps 'Ask a project owner for access' only when projects are visible but none accept new items.",
  "topics": ["projects/adoption", "workbench/onboarding"],
- "plan_refs": ["FIRST-USER.P5"],
  "sources": ["packages/yoke-core/src/yoke_core/ui/static/add_project_cue.js", "packages/yoke-core/src/yoke_core/ui/static/harness_names.js", "packages/yoke-core/src/yoke_core/ui/harness_names_module.py", "runtime/api/universe_ui_add_project_cue.test.mjs"],
  "position": 10
 }
