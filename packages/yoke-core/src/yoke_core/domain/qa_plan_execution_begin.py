@@ -61,6 +61,8 @@ def begin_plan_execution(
     deployment_run_id: str | None = None,
     deployment_stage: str | None = None,
     deployment_member_item_id: int | None = None,
+    checkout_path: str | None = None,
+    expected_branch: str | None = None,
     machine: str | None = None,
     continue_mission: bool = False,
     actor_id: str | None,
@@ -149,6 +151,9 @@ def begin_plan_execution(
         deployment_member_item_id=deployment_member_item_id,
         execution_target_digest=expected_deployment_target_digest,
         host_capability_kinds=host_capabilities,
+        checkout_path=checkout_path,
+        expected_branch=expected_branch,
+        session_id=session_id,
     )
     if reprint := without_settled(roster):
         return reprint
@@ -231,6 +236,9 @@ def begin_plan_execution(
                 deployment_member_item_id=deployment_member_item_id,
                 execution_target_digest=expected_deployment_target_digest,
                 host_capability_kinds=host_capabilities,
+                checkout_path=checkout_path,
+                expected_branch=expected_branch,
+                session_id=session_id,
             )
             if reprint := without_settled(roster):
                 return reprint

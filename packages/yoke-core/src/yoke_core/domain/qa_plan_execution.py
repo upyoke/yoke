@@ -62,11 +62,14 @@ def execute_plan(
         project=project,
     )
     resolved_actor = execution_actor(actor)
+    begin_payload.update(
+        checkout_path=str(checkout_path) if checkout_path else None,
+        expected_branch=expected_branch,
+    )
     if target.kind == "global":
         begin_payload.update(
             source_revision=expected_sha,
             source_ref=expected_branch,
-            checkout_path=str(checkout_path) if checkout_path else None,
         )
     if deployment_run_id and not resume_execution_id:
         materialize_payload = {"plan": plan, "project": project}
