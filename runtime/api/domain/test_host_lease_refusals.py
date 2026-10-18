@@ -13,8 +13,8 @@ from yoke_core.domain import machine_qa_execution_protocol as protocol
         ("missing", "no lease was issued"),
         ("unbound", "does not name a machine"),
         ("target", "different target"),
-        ("session", "another session owns it"),
-        ("actor", "another actor owns it"),
+        ("session", "a different session owns it"),
+        ("actor", "a different actor owns it"),
         ("expired", "no longer active"),
     ],
 )

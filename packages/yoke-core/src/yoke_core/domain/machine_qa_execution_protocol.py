@@ -256,13 +256,13 @@ def _validate_lease_owner(
         )
     if lease.session_id != str(session_id or ""):
         raise MachineQaProtocolError(
-            conflicting_lease(lease, resource_name, "another session owns it")
+            conflicting_lease(lease, resource_name, "a different session owns it")
         )
     expected_actor = str(lease.actor_id) if lease.actor_id is not None else None
     submitted_actor = str(actor_id) if actor_id is not None else None
     if expected_actor != submitted_actor:
         raise MachineQaProtocolError(
-            conflicting_lease(lease, resource_name, "another actor owns it")
+            conflicting_lease(lease, resource_name, "a different actor owns it")
         )
     if not lease.is_active and not allow_released:
         raise MachineQaProtocolError(
