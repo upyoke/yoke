@@ -30,7 +30,10 @@ from yoke_core.engines.doctor_install_guidance import (
 )
 
 
-from yoke_core.engines.doctor_hc_connections import hc_connections
+from yoke_core.engines.doctor_hc_connections import (
+    active_connection_failure as active_connection_failure,
+    hc_connections,
+)
 
 
 INSTALL_SLUGS = (
