@@ -18,7 +18,11 @@ def mission_review_cases(
     p = marker(conn)
     for case in cases:
         stopped = None
-        if case.get("capture_runner") == "agent_mission":
+        if (
+            case.get("capture_runner") == "agent_mission"
+            and case.get("capture_run_id") is not None
+            and case.get("requirement_id") is not None
+        ):
             stopped = query_one(
                 conn,
                 f"SELECT capture_degraded_reason FROM qa_runs WHERE id={p} AND qa_requirement_id={p} "
@@ -37,6 +41,8 @@ def settle_stopped_mission_dockets(
     conn: Any, execution: dict[str, Any], *, reason: str
 ) -> None:
     """Keep diagnostics, but never offer a setup-only docket for judgment."""
+    if not reason.startswith("blocked_on_precondition:"):
+        return
     missions = {
         int(case["requirement_id"])
         for case in execution.get("roster") or []
