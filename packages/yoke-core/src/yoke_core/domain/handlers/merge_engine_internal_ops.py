@@ -56,6 +56,7 @@ class PruneAuthorityRequest(BaseModel):
 class PruneAuthorityResponse(BaseModel):
     prunable: bool
     reason: str
+    item_ref: Optional[str] = None
     # Set when the owner is a cancelled item: its lane is deleted outright.
     cancelled_item_ref: Optional[str] = None
 
@@ -162,15 +163,10 @@ def _connect_rw() -> Any:
 def handle_prune_authority_verdict(request: FunctionCallRequest) -> HandlerOutcome:
     """Return the fail-closed prune verdict for a branch / worktree identity.
 
-    ``prunable`` is True only when a unique terminal DB owner exists AND no
-    active authority holds it — exactly the two-gate decision the engine
-    computed inline. ``reason`` is ``no_terminal_owner`` (keep silently),
-    ``active_authority`` (keep with a "Preserving actively claimed"
-    narrative in loop-one), or ``prunable``. A prunable lane whose owner is
-    a cancelled item also names it as ``cancelled_item_ref``: the caller
-    deletes that lane without the landing and cleanliness proofs. The
-    terminal-success set and every git check (clean / merged / removal) stay
-    engine-owned; this read reports only the DB authority verdict.
+    A unique finished owner with no active authority permits pruning and
+    supplies item_ref for row retirement. Cancelled owners instead supply
+    cancelled_item_ref for unconditional discard. Landing, cleanliness and
+    removal remain engine-owned.
     """
     try:
         body = PruneAuthorityRequest.model_validate(request.payload)
@@ -228,7 +224,11 @@ def _prune_verdict(conn: Any, lane: PruneAuthorityRequest) -> dict[str, Any]:
             "reason": "prunable",
             "cancelled_item_ref": render_item_ref(conn, cancelled.item_id),
         }
-    return {"prunable": True, "reason": "prunable"}
+    return {
+        "prunable": True,
+        "reason": "prunable",
+        "item_ref": render_item_ref(conn, owner.item_id, required=True),
+    }
 
 
 def handle_post_rebase_requirement(request: FunctionCallRequest) -> HandlerOutcome:
