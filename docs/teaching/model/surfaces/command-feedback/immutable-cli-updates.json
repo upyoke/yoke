@@ -5,15 +5,7 @@
  "audience": "both",
  "when": "Installing or updating the CLI, previewing an installer plan, or recovering a failed update",
  "need": "The installer dry-run shows private UV_TOOL_DIR and UV_TOOL_BIN_DIR locations and verification before atomic launcher publication. Running commands retain their release through leases. Candidate refusals preserve the current release; cleanup diagnostics name the cause and the update to retry. Manual update and the active connection relay use this same path.",
- "topics": [
-  "server-admin/operating-a-relay-machine/immutable-cli-release-updates"
- ],
- "sources": [
-  "docs/public/install.md",
-  "packaging/public-installer/source/installation.py.inc",
-  "packages/yoke-cli/src/yoke_cli/config/cli_release_runtime.py"
- ],
- "recipes": [
-  "yoke update --help"
- ]
+ "topics": ["server-admin/operating-a-relay-machine/immutable-cli-release-updates"],
+ "sources": ["docs/public/install.md", "packaging/public-installer/source/installation.py.inc", "packages/yoke-cli/src/yoke_cli/config/cli_release_runtime.py"],
+ "recipes": ["yoke update --help"]
 }
