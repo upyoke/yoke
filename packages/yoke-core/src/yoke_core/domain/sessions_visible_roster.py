@@ -34,8 +34,14 @@ def resolve_project_ids(
     return project_ids
 
 
-def org_session_clause(conn: Any, actor_id: int | None) -> tuple[str, list[Any]]:
-    """SQL visibility matching the canonical org session read permission."""
+def org_session_clause(
+    conn: Any, actor_id: int | None, permission_key: str | None = None
+) -> tuple[str, list[Any]]:
+    """SQL visibility matching the canonical org session read permission.
+
+    The permission is decided once per organization the actor belongs to, so
+    the cost never grows with the number of outside-project sessions.
+    """
     from yoke_core.domain.actor_permissions import PERM_ITEMS_READ
     from yoke_core.domain.project_identity import placeholder
     from yoke_core.domain.session_scope_identity import (
@@ -57,7 +63,7 @@ def org_session_clause(conn: Any, actor_id: int | None) -> tuple[str, list[Any]]
             actor_id=actor_id,
             scope=SessionScope(None, int(row[0])),
             session_actor_id=None,
-            permission_key=PERM_ITEMS_READ,
+            permission_key=permission_key or PERM_ITEMS_READ,
         )
     ]
     allowed = f"s.actor_id={marker}"

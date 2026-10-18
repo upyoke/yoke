@@ -44,27 +44,19 @@ def collect_board_data(
     db._activity_day_counts_cache = {}
     db._board_model_catalogs = {}
     from yoke_core.domain import db_helpers
-    from yoke_core.domain.actor_permissions import PERM_ITEMS_READ
-    from yoke_core.domain.session_scope_identity import (
-        SessionScope,
-        actor_may_operate_session,
-    )
+    from yoke_core.domain.sessions_visible_roster import org_session_clause
 
     authorized_org_sessions = []
     if actor_id is not None:
         with db_helpers.connect() as conn:
-            for row in conn.execute(
-                "SELECT session_id,org_id,actor_id FROM harness_sessions "
-                "WHERE project_id IS NULL AND org_id IS NOT NULL"
-            ).fetchall():
-                if actor_may_operate_session(
-                    conn,
-                    actor_id=actor_id,
-                    scope=SessionScope(None, row["org_id"]),
-                    session_actor_id=row["actor_id"],
-                    permission_key=PERM_ITEMS_READ,
-                ):
-                    authorized_org_sessions.append(str(row["session_id"]))
+            clause, params = org_session_clause(conn, actor_id)
+            authorized_org_sessions = [
+                str(row[0])
+                for row in conn.execute(
+                    f"SELECT s.session_id FROM harness_sessions s WHERE {clause}",
+                    params,
+                ).fetchall()
+            ]
     with (
         scoped_project_visibility(visible),
         scoped_org_sessions(authorized_org_sessions),

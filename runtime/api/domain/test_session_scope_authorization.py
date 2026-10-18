@@ -123,6 +123,37 @@ def test_operate_session_org_rules(conn, monkeypatch):
     )
 
 
+def test_board_outside_project_access_decides_once_per_org(conn, monkeypatch):
+    from yoke_core.domain import yoke_function_permissions_by_function as board
+
+    decided = []
+
+    def decision(*_args, **kw):
+        decided.append(kw["org_id"])
+        return SimpleNamespace(allowed=kw["actor_id"] == 2)
+
+    monkeypatch.setattr(scope.actor_permissions, "org_permission_decision", decision)
+    monkeypatch.setattr(board, "actor_project_ids_with_permission", lambda *a: set())
+    conn.executemany(
+        "INSERT INTO harness_sessions VALUES(?,1,NULL,7,'machine')",
+        [(f"outside-{n}",) for n in range(50)],
+    )
+    request = SimpleNamespace(payload={"scope": "all"}, request_id="board-read")
+    entry = SimpleNamespace(function_id="board.data.get", version="v1")
+
+    def refusal(actor):
+        decided.clear()
+        return board.board_data_get_dispatch_permission(
+            conn, entry, request, actor, "items.read"
+        ).error
+
+    assert refusal(1) is None and decided == [7]
+    assert refusal(2) is None and decided == [7]
+    denied = refusal(3)
+    assert denied.error.code == "permission_denied" and decided == [8]
+    assert "operable outside-project session" in denied.error.message
+
+
 @pytest.mark.parametrize(
     "project,org,machine,actor,relay_actor,expected",
     [

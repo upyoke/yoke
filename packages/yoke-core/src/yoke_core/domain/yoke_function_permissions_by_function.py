@@ -28,10 +28,7 @@ from yoke_core.domain.function_unresolved_project import (
     unresolved_project_response,
 )
 from yoke_core.domain.project_identity import AmbiguousProjectRefError
-from yoke_core.domain.session_scope_identity import (
-    SessionScope,
-    actor_may_operate_session,
-)
+from yoke_core.domain.sessions_visible_roster import org_session_clause
 from yoke_contracts.api.function_call import FunctionCallRequest
 from yoke_core.domain.yoke_function_permission_types import DispatchPermission
 from yoke_core.domain.yoke_function_registry import RegistryEntry
@@ -52,22 +49,9 @@ def board_data_get_dispatch_permission(
     ordered_visible = tuple(sorted(visible_ids or ()))
     scope = str((request.payload or {}).get("scope") or "all").strip() or "all"
     if scope == "all":
-        org_session_allowed = False
-        if not ordered_visible:
-            org_session_allowed = any(
-                actor_may_operate_session(
-                    conn,
-                    actor_id=actor_id,
-                    scope=SessionScope(None, row["org_id"]),
-                    session_actor_id=row["actor_id"],
-                    permission_key=permission_key,
-                )
-                for row in conn.execute(
-                    "SELECT * FROM harness_sessions "
-                    "WHERE project_id IS NULL AND org_id IS NOT NULL"
-                )
-            )
-        if not ordered_visible and not org_session_allowed:
+        if not ordered_visible and not _reads_outside_project_session(
+            conn, actor_id, permission_key
+        ):
             return DispatchPermission(
                 permission_key,
                 None,
@@ -133,6 +117,26 @@ def board_data_get_dispatch_permission(
         project_id,
         project_slug,
         visible_project_ids=ordered_visible,
+    )
+
+
+def _reads_outside_project_session(
+    conn: Any, actor_id: int, permission_key: str
+) -> bool:
+    if (
+        conn.execute(
+            "SELECT 1 FROM harness_sessions "
+            "WHERE project_id IS NULL AND org_id IS NOT NULL LIMIT 1"
+        ).fetchone()
+        is None
+    ):
+        return False
+    clause, params = org_session_clause(conn, actor_id, permission_key)
+    return (
+        conn.execute(
+            f"SELECT 1 FROM harness_sessions s WHERE {clause} LIMIT 1", params
+        ).fetchone()
+        is not None
     )
 
 
