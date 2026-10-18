@@ -52,7 +52,7 @@ ITEMS_TABLE: dict[str, dict] = {
             "Progress Log is not an items.get column. "
             "Read it with `yoke items progress-log get PREFIX-N`. "
             "Append with items.progress_log.append. "
-            "Wrong guess: `yoke items get PREFIX-N progress_log`, or a body section. "
+            "Wrong guess: passing progress_log to items.get, or reading a body section. "
             "Conflict Survey touch_paths are section data read via items.get body; "
             "touch_paths is not an items.get column. "
             "`item_id` is a foreign-key column on OTHER tables. "
