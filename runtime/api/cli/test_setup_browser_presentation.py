@@ -56,7 +56,7 @@ def test_agent_device_flow_never_opens_native_browser(monkeypatch):
 
 def test_agent_machine_sign_in_preserves_complete_prefilled_url(monkeypatch):
     pending = SimpleNamespace(
-        verification_uri_complete="https://app.upyoke.com/connect?user_code=ABCD-EFGH"
+        verification_uri_complete="https://app.upyoke.com/connect?user_code=K7F2"
     )
     monkeypatch.setattr(hosted_machine_authorization, "start", lambda *a, **k: pending)
     monkeypatch.setattr(
@@ -73,7 +73,7 @@ def test_agent_machine_sign_in_preserves_complete_prefilled_url(monkeypatch):
         )
         == "approved"
     )
-    assert events[0][0].verification_uri_complete.endswith("user_code=ABCD-EFGH")
+    assert events[0][0].verification_uri_complete.endswith("user_code=K7F2")
     assert events[0][1].attempted is False
 
 

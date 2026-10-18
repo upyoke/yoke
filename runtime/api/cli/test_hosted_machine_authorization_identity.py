@@ -32,9 +32,9 @@ def _pending() -> auth.PendingMachineAuthorization:
     return auth.PendingMachineAuthorization(
         platform_url="https://app.upyoke.com",
         device_code="device-secret",
-        user_code="ABCD-2345",
+        user_code="K7F2",
         verification_uri="https://app.upyoke.com/connect",
-        verification_uri_complete="https://app.upyoke.com/connect?user_code=ABCD-2345",
+        verification_uri_complete="https://app.upyoke.com/connect?user_code=K7F2",
         expires_in=60,
         interval=1,
     )

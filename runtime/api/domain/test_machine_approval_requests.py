@@ -31,7 +31,7 @@ def test_machine_approval_is_idempotent_org_admin_request(monkeypatch) -> None:
         object(),
         auth_request_id="machine-request-abc",
         org_id=42,
-        context={"code": "ABCD-EFGH", "machine": "test-mac"},
+        context={"code": "K7F2", "machine": "test-mac"},
         originator_actor_id=9,
         session_id="session-1",
     )

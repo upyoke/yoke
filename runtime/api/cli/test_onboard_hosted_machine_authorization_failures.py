@@ -41,11 +41,9 @@ def _pending(path: str):
     return hosted_machine_authorization.PendingMachineAuthorization(
         platform_url="https://app.upyoke.com",
         device_code="device-secret",
-        user_code="ABCD-2345",
+        user_code="K7F2",
         verification_uri=f"https://app.upyoke.com/{path}",
-        verification_uri_complete=(
-            f"https://app.upyoke.com/{path}?user_code=ABCD-2345"
-        ),
+        verification_uri_complete=(f"https://app.upyoke.com/{path}?user_code=K7F2"),
         expires_in=600,
         interval=2,
     )

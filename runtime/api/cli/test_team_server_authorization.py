@@ -27,11 +27,11 @@ def test_shared_client_sends_identity_and_accepts_self_host_authority(monkeypatc
     responses = [
         {
             "device_code": "secret",
-            "user_code": "ABCDE-12345",
+            "user_code": "K7F2",
             "expires_in": 600,
             "interval": 2,
             "verification_uri": ORIGIN + APPROVAL_PAGE_PATH,
-            "verification_uri_complete": ORIGIN + APPROVAL_PAGE_PATH + "/ABCDE-12345",
+            "verification_uri_complete": ORIGIN + APPROVAL_PAGE_PATH + "/K7F2",
         },
         {"api_url": ORIGIN, "org": "team", "token": "machine-token"},
     ]
