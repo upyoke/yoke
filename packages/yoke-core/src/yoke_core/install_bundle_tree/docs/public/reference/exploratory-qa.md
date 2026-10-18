@@ -200,7 +200,6 @@ session-cwd write-authority guard exempts them; a shell redirect after the
 argv still runs locally and stays enforced. At `--timeout-seconds` (default
 60, at most 900) a `--gui-session` command's whole process tree is stopped; a
 Yoke `setup`, `connect` or `onboard` that may wait on approval needs 600+.
-
 Missions are walked one at a time, in bundle order, because they share the
 plan's one Test Machine. The walker dispatch carries the scratch path and two
 commands. `walk-start` runs before any other host command: it re-reaches the
@@ -222,12 +221,14 @@ naming `mission_scratch_not_removed`, `starting_state_restore_failed` (with the
 `yoke test-machine reset` recovery) or `starting_state_restore_unrecorded`.
 `yoke qa plan review-submit` refuses with `mission_walk_unfinished` while any
 mission's scratch is still on the host. Both delete a stale owner marker.
-
+After member removal, its original session can still run `walk-end`: acquire
+the recorded host for teardown, then release it even after local failure.
+The execution stays aborted; `walk-start` and `host-command` remain refused.
+A busy host stays with its holder: resolve the blocker, then retry `walk-end`.
 The lease holder owns every Yoke project it creates: it appends each slug to
 the item's Progress Log as created, so a replacement can finish the cleanup,
 and before returning retires each with its own control-plane CLI (`yoke
 projects retire --project SLUG --reason ...`), never Yoke on the Test Machine.
-
 On macOS, append `--gui-session` when a command needs the login keychain or
 window server. Three apparently different failures share one diagnosis:
 
@@ -235,7 +236,6 @@ window server. Three apparently different failures share one diagnosis:
 - switching to the audit session is not permitted;
 - a keychain-backed CLI reports OAuth expired and unrefreshable while its
   credential file is unchanged and the console session works.
-
 They mean the command ran in the wrong session. Retry through the Terminal
 GUI-session bridge before diagnosing broken credentials or privacy settings.
 

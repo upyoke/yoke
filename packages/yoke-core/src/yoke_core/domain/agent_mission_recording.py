@@ -173,6 +173,12 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
     if isinstance(parsed, HandlerOutcome):
         return parsed
     assert isinstance(parsed, AgentMissionAccessRequest)
+    if parsed.cleanup is not None:
+        from yoke_core.domain.agent_mission_cleanup import handle_cleanup
+
+        outcome = handle_cleanup(request, parsed)
+        if outcome is not None:
+            return outcome
 
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
@@ -203,6 +209,14 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
             session_id=request.actor.session_id,
         )
         if execution["state"] != "awaiting_agent_review":
+            from yoke_core.domain.qa_plan_execution_abort_reason import member_removed
+
+            if member_removed(execution):
+                raise ValueError(
+                    "mission_member_removed: this walk cannot resume; its original "
+                    "session must run the dispatched yoke qa mission walk-end "
+                    "command to remove staged secrets and restore starting state"
+                )
             raise ValueError(mission_access_refusal(conn, execution))
         matches = [
             (ordinal, case)
@@ -275,7 +289,13 @@ def register(registry: Any) -> None:
             owner_module=__name__,
             target_kinds=["item", "deployment_run", "global"],
             minimum_serving_version="next-release",
-            side_effects=["qa_plan_execution_write", "coordination_claim_heartbeat"],
+            side_effects=[
+                "qa_plan_execution_write",
+                "coordination_claim_heartbeat",
+                "coordination_claim_acquire",
+                "coordination_claim_release",
+                "qa_artifacts_insert",
+            ],
             emitted_event_names=events,
             guardrails=[
                 "qa_subject_authority",
