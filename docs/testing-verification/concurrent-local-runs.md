@@ -97,3 +97,36 @@ The budget is arbitrated the way the admission slot is — session-scoped
 advisory locks on the shared test cluster, one per worker — so a crashed
 run's workers return with its connection, and it fails open when no cluster
 is reachable. It is a throughput guard, not a correctness gate.
+
+## Disposable homes and orphan clusters
+
+Before replacing `HOME` or `YOKE_MACHINE_HOME`, retain the shared test
+resource environment: `YOKE_PG_CLUSTER_ROOT` and `YOKE_PG_BIN_DIR`.
+`yoke dev run`, the pytest runner and Command QA supply these before home
+isolation. The cluster root stays independent of each run's evidence root;
+`YOKE_PG_BIN_DIR` points at the machine's pinned embedded PostgreSQL binaries,
+so an empty home does not select a different PostgreSQL major from PATH.
+When deliberately constructing a standalone disposable home, first obtain
+these two values from a source command in the original home and pass them
+through unchanged. Preserve the candidate QA variables too, as described in
+[source-development commands](source-development.md).
+
+`dev run` destroys test clusters created inside its own evidence root when
+the command exits, including KeyboardInterrupt and SIGTERM; captures survive.
+SIGKILL cannot run exit cleanup. To reclaim clusters from older interrupted
+runs without touching the shared cluster, run:
+
+```bash
+yoke dev run -- python3 -m yoke_core.tools.pg_testcluster prune-clusters
+```
+
+This inventories only this user's test postmasters, verifies their pid/data
+identity, and keeps the selected shared root, clusters younger than fifteen
+minutes, and any cluster with a connected client. A refusal names the root
+and recovery; it never removes a data directory after a failed stop.
+`prune` continues to reclaim databases within the shared cluster.
+
+`yoke local-postgres start` and `stop` manage the durable local universe.
+With `YOKE_PG_CLUSTER_ROOT` set they refuse as
+`local_postgres_test_cluster_override`: use the test-cluster `start`/`stop`
+subcommands, or unset the variable to operate the local universe deliberately.

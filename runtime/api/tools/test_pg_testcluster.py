@@ -13,8 +13,15 @@ import stat
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from yoke_core.domain import postgres_cluster
 from yoke_core.tools import pg_testcluster
+
+
+@pytest.fixture(autouse=True)
+def _binary_environment(monkeypatch):
+    monkeypatch.delenv("YOKE_PG_BIN_DIR", raising=False)
 
 
 def _completed(stdout: str = "", returncode: int = 0):

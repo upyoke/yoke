@@ -90,7 +90,8 @@ function before this recovery is available.
 
 Candidate-bound source cases that isolate `HOME` and `YOKE_MACHINE_HOME` still
 run `yoke watch pytest -- <test paths>`. Keep `YOKE_QA_CANDIDATE_TREE` and the
-runner-provided `YOKE_QA_SOURCE_ENVIRONMENT`: the watcher reuses the recorded
+runner-provided `YOKE_QA_SOURCE_ENVIRONMENT`, plus `YOKE_PG_CLUSTER_ROOT` and
+`YOKE_PG_BIN_DIR` for the shared test cluster and pinned binaries: the watcher reuses the recorded
 declaration without reading a connection from the empty home. Lock and Python
 checks still run. `SOURCE-ENVIRONMENT-QA-DECLARATION` names an invalid handoff;
 rerun the same candidate-bound case to regenerate it. Outside candidate QA,

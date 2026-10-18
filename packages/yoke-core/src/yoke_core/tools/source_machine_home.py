@@ -7,6 +7,8 @@ import json
 import os
 from pathlib import Path
 import shutil
+import signal
+import threading
 import sys
 import tempfile
 from typing import Iterator, Mapping
@@ -75,6 +77,10 @@ def _snapshot(source: Path, destination: Path, selected: Path) -> None:
     target.chmod(0o600)
 
 
+def _terminate(signum, _frame):
+    raise SystemExit(128 + signum)
+
+
 @contextmanager
 def isolated_machine_home(
     env: Mapping[str, str], *, allow_real: bool = False
@@ -88,6 +94,9 @@ def isolated_machine_home(
         )
         yield resolved
         return
+    from yoke_core.tools.source_postgres_environment import shared_postgres_environment
+
+    resolved = shared_postgres_environment(env)
     source = _home(env)
     selected = source / "config.json"
     if not env.get(HOME_ENV) and env.get(CONFIG_FILE_ENV):
@@ -119,9 +128,18 @@ def isolated_machine_home(
         resolved["YOKE_SCRATCH_ROOT"] = str(evidence)
         print(f"source machine home: disposable {destination}", file=sys.stderr)
         print(f"source evidence root: {evidence}", file=sys.stderr)
+        previous = None
+        if threading.current_thread() is threading.main_thread():
+            previous = signal.getsignal(signal.SIGTERM)
+            signal.signal(signal.SIGTERM, _terminate)
         try:
             yield resolved
         finally:
+            if previous is not None:
+                signal.signal(signal.SIGTERM, previous)
+            from yoke_core.tools.pg_testcluster_reclaim import destroy_evidence_clusters
+
+            destroy_evidence_clusters(evidence)
             # Watcher captures must outlive the disposable settings they prove.
             try:
                 evidence.rmdir()
