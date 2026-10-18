@@ -131,7 +131,7 @@ except (OSError, ValueError, KeyError):
     sys.exit('stale_release_lookup_failed: verify the declared distribution channel and wheel index before rerunning')
 """
 _STALE_PREPARE = (
-    '_campaign_python="$(uv tool dir)/yoke-cli/bin/python3"; '
+    '_campaign_python="$(uv tool dir)/yoke-cli-releases/current/tools/yoke-cli/bin/python3"; '
     '_campaign_selection=$("$_campaign_python" -c '
     + shlex.quote(_STALE_RELEASE_SCRIPT)
     + " {{installer_base_url}} {{release_channel}}); "
@@ -270,7 +270,7 @@ if changed(record) or record['conflicts']:
 LATE_HARNESS = _command_case(
     16,
     "late-harness-discovery",
-    '"$(uv tool dir)/yoke-cli/bin/python3" -c '
+    '"$(uv tool dir)/yoke-cli-releases/current/tools/yoke-cli/bin/python3" -c '
     + shlex.quote(_LATE_HARNESS_SCRIPT)
     + " "
     + shlex.quote(_LOCAL_SETUP)
