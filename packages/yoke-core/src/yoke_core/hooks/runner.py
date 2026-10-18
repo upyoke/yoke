@@ -122,7 +122,7 @@ def run_event(
     dry_run: bool = False,
     controls: Optional[RunControls] = None,
 ) -> tuple[str, int]:
-    """Dispatch one hook event. Never raises; failures degrade to audit-only.
+    """Dispatch one event; lifecycle failures allow, safety guard failures refuse.
 
     ``controls`` (relay-split evaluation) injects the caller's remaining
     budget, skips the classifier-excluded policies into ``controls.degraded``,
