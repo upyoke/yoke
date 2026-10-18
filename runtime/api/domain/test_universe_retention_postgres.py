@@ -81,3 +81,29 @@ def test_prune_and_message_expiry_do_not_deadlock(test_db):
     assert test_db.execute(
         "SELECT state FROM session_message_recipients WHERE message_id='due'"
     ).fetchone() == ("expired",)
+
+
+def test_snapshot_lock_waits_for_a_reader_gap_without_queueing(test_db):
+    import threading
+    import time
+
+    import psycopg
+    import pytest
+    from yoke_contracts.universe_retention import RetentionPolicy
+    from yoke_core.domain.universe_retention import _lock_snapshot_tables
+
+    policy = RetentionPolicy(lock_seconds=0.2)
+    with connect_test_database(test_db.info.dbname) as reader:
+        reader.execute("SELECT COUNT(*) FROM path_snapshots").fetchone()
+        threading.Timer(0.5, reader.rollback).start()
+        started = time.monotonic()
+        _lock_snapshot_tables(test_db, policy, started + 8)
+        assert time.monotonic() - started >= 0.4
+        test_db.rollback()
+        reader.execute("SELECT COUNT(*) FROM path_snapshots").fetchone()
+        with pytest.raises(psycopg.errors.LockNotAvailable):
+            _lock_snapshot_tables(test_db, policy, time.monotonic() + 1)
+        # A refused attempt never queued, so the reader was never blocked.
+        reader.execute("SELECT COUNT(*) FROM path_snapshot_entries").fetchone()
+        reader.rollback()
+    test_db.rollback()

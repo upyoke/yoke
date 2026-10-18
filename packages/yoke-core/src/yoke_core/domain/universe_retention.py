@@ -106,6 +106,36 @@ def _hold_policy(conn, policy, deadline):
         )
 
 
+SNAPSHOT_TABLES = "path_snapshots,path_snapshot_entries,path_snapshot_symlink_facts"
+LOCK_RETRY_SECONDS = 0.1
+
+
+def _lock_snapshot_tables(conn, policy, deadline):
+    """Take the inventory lock in a gap between readers, never in their queue.
+
+    A queued ACCESS EXCLUSIVE request stalls every new reader behind it, so it
+    may wait only briefly. NOWAIT attempts never queue; repeating them across
+    the pass budget (keeping one lock allowance for the cohort's own work)
+    finds a gap on a busy table without delaying its readers.
+    """
+    while True:
+        try:
+            _execute(
+                conn,
+                policy,
+                deadline,
+                f"LOCK TABLE {SNAPSHOT_TABLES} IN ACCESS EXCLUSIVE MODE NOWAIT",
+            )
+            return
+        except Exception as exc:
+            if getattr(exc, "sqlstate", "") != "55P03":
+                raise
+            conn.rollback()
+            if deadline - time.monotonic() <= policy.lock_seconds + LOCK_RETRY_SECONDS:
+                raise
+            time.sleep(LOCK_RETRY_SECONDS)
+
+
 def _hold_cohort(conn, policy, deadline, rule):
     """Lock only what this cohort needs; never whole message tables.
 
@@ -114,14 +144,9 @@ def _hold_cohort(conn, policy, deadline, rule):
     message writers' row order. Snapshot inventories keep one table lock:
     native readers take it, and no message writer touches these tables.
     """
-    _hold_policy(conn, policy, deadline)
     if rule.table == "path_snapshots" and db_backend.connection_is_postgres(conn):
-        _execute(
-            conn,
-            policy,
-            deadline,
-            "LOCK TABLE path_snapshots,path_snapshot_entries,path_snapshot_symlink_facts IN ACCESS EXCLUSIVE MODE",
-        )
+        _lock_snapshot_tables(conn, policy, deadline)
+    _hold_policy(conn, policy, deadline)
 
 
 def _key_where(keys, rows):

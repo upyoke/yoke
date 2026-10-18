@@ -111,7 +111,9 @@ reference tables. Each cohort locks
 only its own rows, skipping rows another writer holds, and the `DELETE`
 rechecks protection before committing child-first deletion; a graph whose
 parent stopped qualifying rolls back whole. Inventory snapshots keep one
-table lock on the snapshot tables, which message writers never touch. Each
+table lock on the snapshot tables, which message writers never touch. Prune
+takes it only in a gap between readers, retrying without joining their
+queue, so snapshot readers are never stalled behind it. Each
 eligible inventory is deleted in one atomic transaction under the same time
 and lock bounds. Other graphs exceeding
 the physical row cap stay protected with their reason; no graph is partially thinned.
