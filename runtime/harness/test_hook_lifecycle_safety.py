@@ -90,7 +90,9 @@ def test_cli_config_crash_is_lifecycle_allow_and_tool_refusal(
         assert "hook_infrastructure_unavailable" in captured.err
     else:
         assert code == (0 if executor in {"codex", "cursor"} else 2)
-        assert "hook_infrastructure_unavailable" in captured.out
+        assert "hook_infrastructure_unavailable" in (
+            captured.out if executor in {"codex", "cursor"} else captured.err
+        )
 
 
 @pytest.mark.parametrize(

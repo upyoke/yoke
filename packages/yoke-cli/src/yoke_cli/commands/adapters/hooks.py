@@ -22,6 +22,7 @@ from yoke_cli.commands.adapters.hook_config_dedup import (
 )
 from yoke_contracts.hook_runner.config_owner import CONFIG_OWNER_ENV_VAR
 from yoke_contracts.hook_runner.cursor_response import cursor_allow_stdout
+from yoke_contracts.hook_diagnostics import format_hook_diagnostic
 
 
 __all__ = ["HOOK_EVALUATE_USAGE", "hook_evaluate"]
@@ -257,7 +258,10 @@ def hook_evaluate(args: List[str]) -> int:
             sys.stderr.write(stderr.getvalue())
     text, code = protect_stop(event, payload, text, code, executor)
     if text:
-        sys.stdout.write(text)
+        if code == 2 and not executor.startswith(("codex", "cursor")):
+            sys.stderr.write(format_hook_diagnostic(event, text) + "\n")
+        else:
+            sys.stdout.write(text)
     return code
 
 
