@@ -70,16 +70,22 @@ def build_failed_job_report(
         else ""
     )
     if not failures.failed:
-        lead = (
-            f"No failed jobs yet in run {run_id} — {run_url}"
-            if unfinished
-            else (
+        if unfinished:
+            lead = f"No failed jobs yet in run {run_id} — {run_url}"
+        elif failures.conclusion == "success":
+            lead = f"Run {run_id}: run concluded success; no failed jobs — {run_url}"
+        elif failures.conclusion in ("", "cancelled", CI_JOB_NOT_STARTED):
+            lead = (
                 f"No failed jobs in run {run_id}: nothing it ran reported a "
                 "failure, so the run reached no verdict (cancelled, or "
                 f"{CI_JOB_NOT_STARTED} when its jobs never started). "
                 f"Re-dispatch: re-run the command that started it — open {run_url}."
             )
-        )
+        else:
+            lead = (
+                f"Run {run_id} concluded {failures.conclusion}; no failed job logs "
+                f"were found. Open {run_url} to inspect the run and its annotations."
+            )
         return FailedJobReport(
             output="\n".join(line for line in (lead, still_running) if line),
             truncated=False,
