@@ -43,12 +43,18 @@ def _fired(harness_id: str, native_event: str, *, in_project: bool) -> list[str]
             "cursor": lambda: render_cursor_hooks_block()["hooks"],
         }[harness_id]()
         configs.append(project)
-    return [
+    fired = [
         command
         for config in configs
         for entry in config.get(native_event, [])[:1]  # one per config; matchers differ
         for command in entry_commands(entry)
     ]
+    if harness_id == "cursor":
+        # Cursor also fires the imported user-level ~/.claude/settings.json.
+        verb = next(e.verb for e in HARNESS_MACHINE_HOOKS["cursor"].events if e.native_event == native_event)
+        claude = render_user_hook_entries(HARNESS_MACHINE_HOOKS["claude-code"])
+        fired += [c for entry in claude.get(verb, [])[:1] for c in entry_commands(entry)]
+    return fired
 
 
 def _environment(harness_id: str, root: Path, owner: str) -> dict[str, str]:
@@ -69,7 +75,14 @@ def _write_project(root: Path, harness_id: str) -> None:
 
 
 def _evaluations(harness_id: str, native_event: str, root: Path, *, in_project: bool) -> int:
-    payload = json.dumps({"session_id": "s-1", "cwd": str(root)})
+    payload = {"session_id": "s-1", "cwd": str(root)}
+    if harness_id == "cursor":
+        payload["conversation_id"] = "s-1"  # Cursor payload provenance
+        user = root / "home" / ".cursor" / "hooks.json"  # as install writes it
+        user.parent.mkdir(parents=True, exist_ok=True)
+        entries = render_user_hook_entries(HARNESS_MACHINE_HOOKS["cursor"])
+        user.write_text(json.dumps({"version": 1, "hooks": entries}), encoding="utf-8")
+    payload = json.dumps(payload)
     count = 0
     for command in _fired(harness_id, native_event, in_project=in_project):
         owner = _OWNER.search(command)

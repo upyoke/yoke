@@ -10,10 +10,11 @@ any evaluation or server call:
   event through any ``yoke hook evaluate <Verb>`` command that is not itself
   a machine-wide entry, so older project renders without an owner marker
   still count.
-* Cursor also imports Claude hook configs. An imported Claude hook steps
-  aside on the events Cursor fires on both configs when Cursor's own project
-  or user config owns the event. Tool-shaped events fire on the imported
-  Claude config alone, so those never step aside.
+* Cursor also imports Claude hook configs. The imported user-level Claude
+  hook steps aside on any event Cursor's own project or user config owns,
+  tool events included, because Cursor fires both. An imported project-level
+  Claude hook steps aside only on the events Cursor fires on both configs;
+  for tool events the imported project config can be the only one fired.
 
 A config the harness would reject does not own anything: skipping in its
 favour would drop the only invocation the event produces.
@@ -188,11 +189,12 @@ def should_skip_config_duplicate(
     if harness_id is not None:
         if project_config_owns(HARNESS_MACHINE_HOOKS[harness_id], verb, folder):
             return True
-        # Cursor also fires an imported user-level Claude config.
+        # Cursor also fires an imported user-level Claude config, and fires it
+        # beside its own entries for tool events too (measured on cursor-agent
+        # 2026.10.16-e3cb207: a projectless shell call ran both PreToolUse hooks).
         return (
             harness_id == "claude-code"
             and under_cursor
-            and verb in CURSOR_DUAL_CONFIG_RUNNER_EVENTS
             and _cursor_owns(verb, environment, folder)
         )
     if owner == CLAUDE_CONFIG_OWNER and is_cursor_imported_claude_hook(environment, payload):

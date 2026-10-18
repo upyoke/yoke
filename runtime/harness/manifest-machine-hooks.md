@@ -33,10 +33,12 @@ invocation exits as a no-op, for tool events too. Exactly one Yoke evaluation
 then runs per native event, so composed context is delivered once. A project
 file the harness would reject owns nothing.
 
-Cursor also fires imported Claude hook configs. An imported Claude hook,
-project or user level, steps aside on the events Cursor fires on both configs
-when Cursor's own project or user config owns the event; tool events fire on
-the imported config alone and never step aside.
+Cursor also fires imported Claude hook configs, including the user-level
+`~/.claude/settings.json`. The imported user-level Claude hook steps aside on
+any event Cursor's own project or user config owns, tool events included,
+because Cursor fires both (measured on cursor-agent 2026.10.16-e3cb207). An
+imported project-level Claude hook steps aside only on the events Cursor fires
+on both configs.
 
 ## Trust and failures
 

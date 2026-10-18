@@ -116,18 +116,23 @@ def test_a_project_file_the_harness_rejects_owns_nothing(tmp_path):
 def test_cursor_imported_user_claude_hook_steps_aside_for_cursor_owner(tmp_path):
     home = tmp_path / "home"
     (home / ".cursor").mkdir(parents=True)
-    owned = "env YOKE_HOOK_CONFIG_OWNER=cursor-user yoke hook evaluate SessionStart"
-    (home / ".cursor/hooks.json").write_text(
-        json.dumps({"version": 1, "hooks": {"sessionStart": [{"command": owned}]}})
-    )
+    owned = "env YOKE_HOOK_CONFIG_OWNER=cursor-user yoke hook evaluate"
+    hooks = {
+        "sessionStart": [{"command": f"{owned} SessionStart"}],
+        "beforeShellExecution": [{"command": f"{owned} PreToolUse"}],
+    }
+    (home / ".cursor/hooks.json").write_text(json.dumps({"version": 1, "hooks": hooks}))
     env = {
         "YOKE_HOOK_CONFIG_OWNER": "claude-user",
         "CURSOR_PROJECT_DIR": str(tmp_path / "workspace"),
         "HOME": str(home),
     }
     assert should_skip_config_duplicate("SessionStart", env, CURSOR_PAYLOAD)
-    # Tool events fire on the imported Claude config alone: never skip them.
-    assert not should_skip_config_duplicate("PreToolUse", env, CURSOR_PAYLOAD)
+    # Cursor fires the imported user-level Claude hook beside its own shell
+    # hook (measured on cursor-agent 2026.10.16-e3cb207), so it steps aside.
+    assert should_skip_config_duplicate("PreToolUse", env, CURSOR_PAYLOAD)
+    # An event Cursor's own config does not own still runs once.
+    assert not should_skip_config_duplicate("Stop", env, CURSOR_PAYLOAD)
 
 
 def test_skipped_claude_user_hook_prints_nothing_and_never_evaluates(
