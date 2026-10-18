@@ -152,7 +152,8 @@ def test_real_installer_runner_isolates_uv_and_activates_candidate(
     assert generation.parent == tmp_path / "tools/yoke-cli-releases/releases"
     assert environment["UV_TOOL_BIN_DIR"] == str(generation / "bin")
     activation, _ = calls[-1]
-    assert activation[1:4] == ["-I", "-m", "yoke_cli.config.cli_release_runtime"]
+    assert activation[1:3] == ["-I", str(generation / "runtime.py")]
+    assert (generation / "runtime.py").read_text() == Path(runtime.__file__).read_text()
     assert activation[-3:] == [str(generation), str(tmp_path / "bin"), "1.0"]
 
 
@@ -212,3 +213,30 @@ def test_publication_failure_preserves_prior_release_and_pending_helper_files(
     runtime.activate(root, new, bin_dir, "2.0")
     assert not old.exists()
     assert not (new / "pending").exists()
+
+
+def test_standalone_bootstrap_activates_wheel_without_runtime_module(tmp_path):
+    root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
+    generation = candidate(root, "1.0")
+    script = generation / "runtime.py"
+    script.write_text(Path(runtime.__file__).read_text())
+    python = generation / "tools/yoke-cli/bin/python3"
+    result = subprocess.run(
+        [
+            str(python),
+            "-I",
+            str(script),
+            str(root),
+            str(generation),
+            str(bin_dir),
+            "1.0",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == 0, result.stderr
+    assert (
+        subprocess.check_output([str(bin_dir / "yoke"), "--version"], text=True).strip()
+        == "1.0"
+    )

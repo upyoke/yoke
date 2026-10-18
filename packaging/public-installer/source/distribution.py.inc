@@ -149,8 +149,10 @@ def _install_candidate(command: list[str], env: dict[str, str], root: Path, gene
     if not Path(bin_dir).is_absolute():
         raise InstallError("cli_launcher_directory_unavailable: repair uv tool dir --bin and retry")
     python = generation / "tools" / "yoke-cli" / "bin" / "python3"
+    runtime_script = generation / "runtime.py"
+    runtime_script.write_text(CLI_RUNTIME_SOURCE, encoding="utf-8")
     activation = subprocess.run(
-        [str(python), "-I", "-m", "yoke_cli.config.cli_release_runtime", str(root), str(generation), bin_dir, version],
+        [str(python), "-I", str(runtime_script), str(root), str(generation), bin_dir, version],
         env=env, capture_output=True, text=True, check=False,
     )
     return subprocess.CompletedProcess(command, activation.returncode, result.stdout + activation.stdout, result.stderr + activation.stderr)
