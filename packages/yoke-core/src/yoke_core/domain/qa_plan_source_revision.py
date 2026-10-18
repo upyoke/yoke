@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_overview_timing import overview_call
+
 import re
 import subprocess
 from collections.abc import Mapping
@@ -180,13 +182,23 @@ def require_candidate_plan(conn: Any, plan: Mapping[str, Any], run_id: str) -> N
         source = presentation_read(
             conn,
             ("qa_candidate_repository", project_id),
-            lambda: open_carried_work_source(conn, project_id),
+            lambda: overview_call(
+                "repository_open", open_carried_work_source, conn, project_id
+            ),
         )
-        candidate = source.resolve_commit(candidate)
+        candidate = presentation_read(
+            conn,
+            ("qa_candidate_resolved", project_id, candidate),
+            lambda: overview_call(
+                "repository_resolve", source.resolve_commit, candidate
+            ),
+        )
         carried = candidate and presentation_read(
             conn,
             ("qa_candidate_ancestry", project_id, candidate, str(revision)),
-            lambda: source.contains_commit(candidate, str(revision)),
+            lambda: overview_call(
+                "ancestry_compare", source.contains_commit, candidate, str(revision)
+            ),
         )
         if carried is not True:
             raise ValueError(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from yoke_core.domain.deployment_overview_timing import overview_connection
 from yoke_contracts.timestamps import format_instant, utc_now
 from typing import Any, Optional
 
@@ -257,7 +258,7 @@ def list_deployment_runs(
 
     Overview bounds live/recent runs per project, then presents shared runs once.
     """
-    conn = connect()
+    conn = overview_connection(connect())
     try:
         clauses: list[str] = []
         params: list[Any] = []

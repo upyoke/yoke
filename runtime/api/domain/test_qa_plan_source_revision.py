@@ -281,6 +281,7 @@ def test_presentation_shares_repository_and_exact_ancestry_only(monkeypatch):
 
     read()
     assert opened.call_count == 2  # Project identity separates repositories.
+    assert source.resolve_commit.call_count == 3  # Same candidate resolves once.
     assert (
         source.contains_commit.call_count == 4
     )  # Candidate and source separate proof.
