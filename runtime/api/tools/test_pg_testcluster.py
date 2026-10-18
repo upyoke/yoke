@@ -13,8 +13,15 @@ import stat
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from yoke_core.domain import postgres_cluster
 from yoke_core.tools import pg_testcluster
+
+
+@pytest.fixture(autouse=True)
+def _binary_environment(monkeypatch):
+    monkeypatch.delenv("YOKE_PG_BIN_DIR", raising=False)
 
 
 def _completed(stdout: str = "", returncode: int = 0):
@@ -77,7 +84,7 @@ def test_env_block_exports_cluster_root_and_dsn(monkeypatch):
 
     block = pg_testcluster.env_block()
 
-    assert f'export YOKE_PG_CLUSTER_ROOT="{root}"' in block
+    assert f"export YOKE_PG_CLUSTER_ROOT={root}" in block
     assert f"host={root}/sock user=yoketest dbname=postgres" in block
 
 
@@ -153,3 +160,15 @@ def test_long_root_starts_cluster_on_short_socket(monkeypatch):
         assert str(spec.sock_dir) in start[0][start[0].index("-o") + 1]
     finally:
         pg_testcluster.destroy()
+
+
+def test_env_block_exports_pinned_binaries_for_disposable_homes(monkeypatch):
+    from pathlib import Path
+    import shlex
+
+    binaries = Path("/embedded engine/bin")
+    monkeypatch.setattr(
+        pg_testcluster.postgres_binaries, "installed_bin_dir", lambda: binaries
+    )
+    exports = [shlex.split(line)[1] for line in pg_testcluster.env_block().splitlines()]
+    assert f"YOKE_PG_BIN_DIR={binaries}" in exports

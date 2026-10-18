@@ -229,7 +229,20 @@ def local_cluster_initialized() -> bool:
     return (engine.cluster_spec().data_dir / "PG_VERSION").is_file()
 
 
+def _refuse_test_cluster_override() -> None:
+    import os
+
+    root = os.environ.get("YOKE_PG_CLUSTER_ROOT")
+    if root is not None:
+        raise LocalUniverseSetupError(
+            f"local_postgres_test_cluster_override: YOKE_PG_CLUSTER_ROOT={root}; "
+            "use yoke_core.tools.pg_testcluster start/stop for that test cluster, "
+            "or unset YOKE_PG_CLUSTER_ROOT to operate the local universe"
+        )
+
+
 def postgres_start(emit: Callable[[str], None] = lambda _line: None) -> Dict[str, Any]:
+    _refuse_test_cluster_override()
     engine = _engine()
     try:
         return engine.start(emit=emit)
@@ -238,6 +251,7 @@ def postgres_start(emit: Callable[[str], None] = lambda _line: None) -> Dict[str
 
 
 def postgres_stop() -> Dict[str, Any]:
+    _refuse_test_cluster_override()
     engine = _engine()
     try:
         return engine.stop()

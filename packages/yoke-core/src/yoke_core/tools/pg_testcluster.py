@@ -20,6 +20,7 @@ Subcommands::
     yoke dev run -- python3 -m yoke_core.tools.pg_testcluster env
     yoke dev run -- python3 -m yoke_core.tools.pg_testcluster status
     yoke dev run -- python3 -m yoke_core.tools.pg_testcluster prune
+    yoke dev run -- python3 -m yoke_core.tools.pg_testcluster prune-clusters
     yoke dev run -- python3 -m yoke_core.tools.pg_testcluster stop
     yoke dev run -- python3 -m yoke_core.tools.pg_testcluster destroy
 
@@ -35,12 +36,15 @@ Typical local proof flow::
 
     eval "$(yoke dev run -- python3 -m yoke_core.tools.pg_testcluster start)"
     yoke watch pytest -- runtime/api/
-    yoke dev run -- python3 -m yoke_core.tools.pg_testcluster destroy
+
+Keep the shared cluster running between invocations. Use an explicit private
+``YOKE_PG_CLUSTER_ROOT`` when a proof needs to stop or destroy its own cluster.
 """
 
 from __future__ import annotations
 
 import os
+import shlex
 import sys
 from pathlib import Path
 
@@ -82,13 +86,21 @@ def _root() -> Path:
     return global_scratch_root() / "yoke-pgtest-cluster"
 
 
+def bin_dir() -> Path | None:
+    """Keep the pinned binaries available when tests replace their home."""
+    override = os.environ.get("YOKE_PG_BIN_DIR")
+    if not override:
+        return postgres_binaries.installed_bin_dir()
+    return Path(override)
+
+
 def _spec() -> ClusterSpec:
     root = _root()
     return ClusterSpec(
         root=root,
         superuser=PGUSER,
         server_settings=DISPOSABLE_SERVER_SETTINGS,
-        bin_dir=postgres_binaries.installed_bin_dir(),
+        bin_dir=bin_dir(),
         stop_mode="immediate",  # throwaway data: skip the shutdown checkpoint
         socket_dir=postgres_cluster.socket_dir_for_root(root),
     )
@@ -139,6 +151,14 @@ def ensure_started() -> int:
     changed underneath it) is recreated for the same reason.
     """
     spec = _spec()
+    candidate = spec.bin_dir
+    if candidate is not None and not (candidate / "initdb").is_file():
+        sys.stderr.write(
+            f"postgres_binaries_unavailable: YOKE_PG_BIN_DIR={candidate} has no initdb; "
+            "install embedded binaries with YOKE_PG_CLUSTER_ROOT and YOKE_PG_BIN_DIR "
+            "unset using yoke local-postgres start, then retry with their bin directory\n"
+        )
+        return 1
     mismatch = postgres_cluster.data_dir_major_mismatch(spec)
     if mismatch:
         sys.stderr.write(f"recreating disposable test cluster: {mismatch}\n")
@@ -200,11 +220,12 @@ def destroy() -> int:
 
 
 def env_block() -> str:
+    values = {"YOKE_PG_CLUSTER_ROOT": str(_root()), "YOKE_PG_DSN": dsn()}
+    binaries = bin_dir()
+    if binaries is not None:
+        values["YOKE_PG_BIN_DIR"] = str(binaries)
     return "\n".join(
-        [
-            f'export YOKE_PG_CLUSTER_ROOT="{_root()}"',
-            f'export YOKE_PG_DSN="{dsn()}"',
-        ]
+        f"export {key}={shlex.quote(value)}" for key, value in values.items()
     )
 
 
@@ -215,6 +236,24 @@ def status() -> int:
     return 0 if ready else 1
 
 
+def prune_clusters() -> int:
+    """Reap idle abandoned test clusters outside the selected shared root."""
+    from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
+    from yoke_core.tools.pg_testcluster_reclaim import prune_clusters as reclaim
+
+    if os.environ.get(SOURCE_DEV_RUN_ROOT_ENV) and not os.environ.get(
+        "YOKE_PG_CLUSTER_ROOT"
+    ):
+        sys.stderr.write(
+            "pgtest_shared_root_unbound: this source runner did not supply "
+            "YOKE_PG_CLUSTER_ROOT; set it explicitly to the shared root used by "
+            "your other test runs, then retry prune-clusters. The source runner "
+            "must be upgraded before it can supply this handoff automatically.\n"
+        )
+        return 1
+    return reclaim(_root())
+
+
 def main(argv=None) -> int:
     args = list(argv if argv is not None else sys.argv[1:])
     cmd = args[0] if args else "status"
@@ -223,6 +262,7 @@ def main(argv=None) -> int:
         "stop": stop,
         "destroy": destroy,
         "prune": sweep_orphaned_test_databases,
+        "prune-clusters": prune_clusters,
         "prepare": prepare_for_pytest,
         "status": status,
         "env": lambda: print(env_block()) or 0,
@@ -231,7 +271,18 @@ def main(argv=None) -> int:
     if handler is None:
         sys.stderr.write(f"unknown subcommand {cmd!r}\n")
         return 2
-    return handler()
+    try:
+        return handler()
+    except (
+        postgres_binaries.PostgresBinariesError,
+        postgres_cluster.PostgresClusterError,
+        OSError,
+    ) as exc:
+        sys.stderr.write(
+            f"pgtest_operation_failed: {cmd}: {exc}; repair the named test resource "
+            "and retry this pg_testcluster subcommand\n"
+        )
+        return 1
 
 
 if __name__ == "__main__":

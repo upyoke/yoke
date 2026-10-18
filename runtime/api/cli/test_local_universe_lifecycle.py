@@ -13,6 +13,7 @@ from runtime.api.cli.local_universe_cli_test_support import (
 
 
 def test_local_postgres_lifecycle_routes_to_engine(monkeypatch, machine_home, capsys):
+    monkeypatch.delenv("YOKE_PG_CLUSTER_ROOT", raising=False)
     monkeypatch.setattr(setup, "_engine", _stub_engine)
 
     assert commands.local_postgres_status(["--json"]) == 0

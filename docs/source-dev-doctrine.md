@@ -256,6 +256,7 @@ ordinary virtual-environment activation receives no exemption.
 
 Isolated-home candidate Command cases also use `yoke watch pytest -- <test paths>`.
 Preserve `YOKE_QA_CANDIDATE_TREE` and the runner's `YOKE_QA_SOURCE_ENVIRONMENT`
+and the shared test-resource paths `YOKE_PG_CLUSTER_ROOT` and `YOKE_PG_BIN_DIR`
 when replacing `HOME` and `YOKE_MACHINE_HOME`: the watcher reuses the recorded
 declaration without a connection, while still checking the candidate lock,
 interpreter and imports. The [source command guide](testing-verification/source-development.md)

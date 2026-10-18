@@ -4,10 +4,10 @@
  "status": "observed",
  "audience": "agent",
  "when": "A candidate-bound Command case empties HOME and YOKE_MACHINE_HOME to test machine-home isolation.",
- "need": "Run yoke watch pytest directly. Preserve YOKE_QA_CANDIDATE_TREE and YOKE_QA_SOURCE_ENVIRONMENT so the watcher uses the runner's recorded declaration without a control-plane connection; locked environment and import checks still apply. Invalid handoffs refuse with SOURCE-ENVIRONMENT-QA-DECLARATION and a same-case rerun recovery. Outside candidate QA the connected declaration remains required.",
+ "need": "Run yoke watch pytest directly. Preserve YOKE_QA_CANDIDATE_TREE and YOKE_QA_SOURCE_ENVIRONMENT so the watcher uses the runner's recorded declaration without a control-plane connection; locked environment and import checks still apply. Invalid handoffs refuse with SOURCE-ENVIRONMENT-QA-DECLARATION and a same-case rerun recovery. Outside candidate QA the connected declaration remains required. Preserve YOKE_PG_CLUSTER_ROOT and YOKE_PG_BIN_DIR supplied before home isolation so repeated cases share one test cluster and the pinned embedded binaries. Only Yoke candidate-source cases receive these test-resource defaults; ordinary Command QA preserves its caller environment.",
  "disclosure": "current cue",
  "surface": "Command case source guidance and source-development doctrine",
  "review": "Source and regression coverage; deployed behavior is not yet proven.",
- "sources": ["docs/source-dev-doctrine.md", "docs/testing-verification/source-development.md", "docs/public/agents/rules/verification.md", "runtime/api/domain/test_qa_candidate_isolated_watcher.py"],
+ "sources": ["docs/source-dev-doctrine.md", "docs/testing-verification/source-development.md", "docs/public/agents/rules/verification.md", "runtime/api/domain/test_qa_candidate_isolated_watcher.py", "packages/yoke-core/src/yoke_core/domain/qa_case_candidate_source.py"],
  "position": 4
 }
