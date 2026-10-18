@@ -273,6 +273,7 @@ named Item QA read error includes its recovery: reload the page, then ask the
 project operator to repair the named definition or target if it persists.
 
 <!-- yoke:contents -->
+- [Local connection repair](local-connection-repair.md) — Repair local credentials and actor references while preserving the selected connection.
 - [Server health readiness](health-readiness.md) — Read cached server readiness, startup probes and named recovery.
 - [Browser action evidence](browser-action-evidence.md) — Budget browser actions and retain original failure and timing evidence.
 - [QA platform](platform.md) — Read obligation dimensions, materialization and evidence gates.

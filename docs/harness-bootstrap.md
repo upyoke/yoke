@@ -278,8 +278,18 @@ retain existing-file and explicit-false behavior. Write only absent keys,
 preserve operator values and unrelated settings, and report each write or
 conflict. Inventory/Doctor report actual posture; config presence is not proof.
 
-Folder trust is separate and path-specific. Project install/lane creation write
-the exact checkout's declared trust; do not assume a parent covers a worktree.
+Folder trust is separate and path-specific. The shared
+`yoke_harness.harness_setup_reconcile` owns setup orchestration: folder trust,
+Codex hook trust, posture and machine-wide hooks through existing writers.
+Setup, project install/refresh, source launcher install and lane preparation
+call it; lane preparation scopes folder work to that lane. The relay detects
+installed-harness home changes and covers registered checkouts and Git lanes.
+Absent homes stay absent; malformed files are preserved and failures carry
+recovery while other facets continue. Repeated runs leave ready files intact.
+Run `yoke doctor run --only harness-setup --fix` for repair; omit `--fix` to
+inspect. The relay records failures in `harness-setup-reconcile.json`, retries
+after 15 minutes, and retries immediately on another harness-list change.
+Do not assume a parent covers a worktree.
 Command-prefix allowances cannot admit an enclosing shell loop/substitution.
 Repeat authorized calls plainly; do not weaken a gate to hide a prompt.
 

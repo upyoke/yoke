@@ -21,6 +21,9 @@ Private on your machine. No signup. One human, as many agents as you want.
 - Open the workbench with `yoke ui up` (detached; `yoke ui` reports it, `yoke ui down` stops it)
 - Members and Billing tabs do not apply (Cloud-only platform features)
 
+Init preserves an existing active connection. Use `yoke init --local --activate`
+to select local explicitly; see [connection repair](../verification/local-connection-repair.md).
+
 Portable: `yoke universe export` dumps the universe into the machine Yoke
 home exports folder (normally `~/.yoke/exports/`). Pass `--out PATH` to choose
 a file or folder. Import the archive later into

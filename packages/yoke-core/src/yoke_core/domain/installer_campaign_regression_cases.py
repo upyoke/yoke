@@ -10,6 +10,7 @@ from yoke_core.domain.installer_campaign_session_scope_cases import (
 from yoke_core.domain.installer_campaign_install_health_cases import (
     install_health_cases,
 )
+from yoke_core.domain.installer_campaign_harness_setup_cases import harness_setup_cases
 from yoke_core.domain.installer_campaign_current_text_cases import (
     CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES,
 )
@@ -300,6 +301,7 @@ INSTALLER_RECOVERY_CASES = (
     + install_health_cases(_command_case)
     + issue_sync_cases(_command_case, _LOCAL_SETUP)
     + session_scope_cases(_command_case, _LOCAL_SETUP, _INSTALL_ONLY)
+    + harness_setup_cases(_command_case)
 )
 
 

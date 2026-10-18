@@ -91,7 +91,9 @@ def _session_transcripts(harness_id: str) -> dict:
 
 
 def _machine_hooks(harness_id: str) -> dict:
-    payload: dict = {"source": "yoke_contracts.harness_machine_hooks.HARNESS_MACHINE_HOOKS"}
+    payload: dict = {
+        "source": "yoke_contracts.harness_machine_hooks.HARNESS_MACHINE_HOOKS"
+    }
     payload.update(machine_hooks_for_harness(harness_id).to_json())
     return payload
 
@@ -146,7 +148,6 @@ CLAUDE_MANIFEST: dict = {
         "config_path": ".claude/settings.json",
         "operations": [
             "verify_hook_config",
-            "seed_directory_approval",
             "verify_environment_export",
         ],
         "environment": {
@@ -214,7 +215,6 @@ CODEX_MANIFEST: dict = {
         "config_path": ".codex/hooks.json",
         "operations": [
             "verify_hook_config",
-            "mirror_hook_trust",
             "verify_environment_export",
         ],
         "environment": {

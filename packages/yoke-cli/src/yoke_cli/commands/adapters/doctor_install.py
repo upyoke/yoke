@@ -8,6 +8,13 @@ import io
 import json
 
 
+def connection_failure():
+    """Read machine-local preflight through Doctor's classified engine seam."""
+    return importlib.import_module(
+        "yoke_core.engines.doctor_install"
+    ).active_connection_failure()
+
+
 def install_slugs() -> tuple[str, ...]:
     return importlib.import_module("yoke_core.engines.doctor_install").INSTALL_SLUGS
 

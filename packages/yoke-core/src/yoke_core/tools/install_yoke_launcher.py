@@ -98,17 +98,16 @@ def write_launcher(
     _core.write_launcher(target_path, source=launcher_source, default_home=default_home)
 
 
-def configure_harness_unattended_posture(
-    *,
-    checkout: Optional[Path] = None,
-    stream=None,
-) -> list:
-    from yoke_contracts.harness_posture_install import (
-        configure_harness_unattended_posture as _configure,
+def reconcile_harness_setup(*, stream=None) -> list:
+    from yoke_harness.harness_setup_reconcile import (
+        reconcile_harness_setup as reconcile,
     )
 
     _claude.CLAUDE_APP_CONFIG_PATH = CLAUDE_APP_CONFIG_PATH
-    return _configure(checkout=checkout, stream=stream)
+    lines = reconcile().lines()
+    for line in lines:
+        (stream or sys.stdout).write(f"{line}\n")
+    return lines
 
 
 def configure_claude_app_bypass_permissions(
@@ -265,7 +264,7 @@ def install(
         home = home or Path(os.environ.get("YOKE_HOME") or os.path.expanduser("~/yoke"))
         report = converge_machine(cwd, home=home, force=force, stream=out)
         if not skip_harness_permissions:
-            configure_harness_unattended_posture(checkout=cwd, stream=out)
+            reconcile_harness_setup(stream=out)
         configure_session_relay(stream=out)
         return TargetChoice(report.canonical.parent, "canonical_user_local")
     if not skip_pip:
@@ -288,7 +287,7 @@ def install(
     if not skip_verify:
         run_verification(verify_env=verify_env, stream=out)
     if not skip_harness_permissions:
-        configure_harness_unattended_posture(checkout=cwd, stream=out)
+        reconcile_harness_setup(stream=out)
     if not skip_macos_path_fix:
         configure_macos_path_for_homebrew(stream=out)
     if write_canonical and not repair:

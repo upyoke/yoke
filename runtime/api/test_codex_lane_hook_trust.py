@@ -21,14 +21,13 @@ from yoke_core.domain.codex_hook_trust_identity import (
     codex_hook_hashes,
     codex_hook_hashes_from_document,
 )
-from yoke_core.domain.worktree_codex_hook_trust import (
+from yoke_contracts.codex_lane_hook_trust import (
     REASON_CONTENT_DIFFERS,
     REASON_SOURCE_UNTRUSTED,
     codex_config_path,
     inspect_hook_trust,
     mirror_hook_trust,
 )
-from yoke_core.domain.worktree_provision import provision_worktree_hook_trust
 
 
 START_COMMAND = "yoke hook evaluate SessionStart"
@@ -257,41 +256,3 @@ def test_codex_home_selects_the_config_that_is_read(monkeypatch, tmp_path: Path)
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))
 
     assert codex_config_path() == tmp_path / "codex" / "config.toml"
-
-
-def _provision(monkeypatch, config_home: Path, source: Path, worktree: Path):
-    monkeypatch.setenv("CODEX_HOME", str(config_home))
-    provision_worktree_hook_trust(str(source), str(worktree))
-
-
-def test_provisioning_mirrors_trust_onto_a_prepared_lane(
-    monkeypatch,
-    capsys,
-    lanes,
-):
-    source, worktree, config = lanes
-    config_home = config.parent / "codex"
-    config_home.mkdir()
-    config.rename(config_home / "config.toml")
-
-    _provision(monkeypatch, config_home, source, worktree)
-
-    assert "hook trust mirrored" in capsys.readouterr().err
-    result = inspect_hook_trust(
-        str(source),
-        str(worktree),
-        config_path=config_home / "config.toml",
-    )
-    assert result.hooks_fire is True
-
-
-def test_provisioning_says_nothing_when_codex_is_unconfigured(
-    monkeypatch,
-    capsys,
-    lanes,
-):
-    source, worktree, _ = lanes
-
-    _provision(monkeypatch, Path("/nonexistent-codex-home"), source, worktree)
-
-    assert capsys.readouterr().err == ""

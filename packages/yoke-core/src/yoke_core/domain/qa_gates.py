@@ -40,6 +40,7 @@ from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_ru
 from yoke_core.domain.qa_done_gate_refusal import done_gate_refusal_errors
 from yoke_core.domain.qa_obligation_settlement import (
     item_supersession_open_sql,
+    settled_obligation_sql,
     unretracted_requirement_sql,
 )
 from yoke_core.domain.qa_gate_helpers import (  # noqa: F401
@@ -221,7 +222,7 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
             FROM qa_requirements r
             WHERE {where}
               AND r.blocking_mode = 'blocking'
-              AND r.waived_at IS NULL AND {unretracted_requirement_sql(conn, "r")} AND {item_supersession_open_sql(conn, "r")}
+              AND NOT {settled_obligation_sql(conn, "r")}
             """,
             params,
         )

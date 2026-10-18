@@ -282,6 +282,7 @@ root:
       summary: Define cases, execute project plans and inspect evidence for workflow gates.
       path: verification/index.md
       children:
+        - {title: "Local connection repair", summary: "Repair local credentials and actor references while preserving the selected connection.", path: "verification/local-connection-repair.md"}
         - {title: "Server health readiness", summary: "Read cached server readiness, startup probes and named recovery.", path: "verification/health-readiness.md"}
         - {title: "Browser action evidence", summary: "Budget browser actions and retain original failure and timing evidence.", path: "verification/browser-action-evidence.md"}
         - {title: "QA platform", summary: "Read obligation dimensions, materialization and evidence gates.", path: "verification/platform.md"}

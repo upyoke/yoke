@@ -131,15 +131,6 @@ def test_posture_reads_only_the_session_harness(tmp_path, monkeypatch):
     assert "codex" in result.detail
 
 
-def test_a_prompting_session_harness_names_the_repair(tmp_path, monkeypatch):
-    registered_as(monkeypatch, "codex")
-    configs(tmp_path, monkeypatch, codex='approval_policy = "on-request"\n')
-    result = run(checks.hc_session_harness_unattended_posture)
-    assert result.result == "FAIL"
-    assert "approval_policy" in result.detail
-    assert "install_yoke_launcher --repair" in result.detail
-
-
 def test_a_session_harness_without_config_fails(tmp_path, monkeypatch):
     registered_as(monkeypatch, "cursor")
     configs(tmp_path, monkeypatch)

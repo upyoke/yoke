@@ -1,10 +1,9 @@
 """Answer every harness's folder-trust prompt for one checkout or lane.
 
-Approval posture is machine-wide and written once by the launcher install;
-folder trust is per path, so it is written wherever Yoke starts working in a
-new one — the checkout at project install, each linked worktree at lane
-creation. Path-keyed with no inheritance in any of the three harnesses, so a
-lane gets its own entry rather than relying on the checkout's.
+The shared harness setup reconcile composes machine-wide posture and these
+per-path trust grants during setup, install/refresh, lane preparation, doctor
+repair and relay detection of later-installed harnesses. Trust has no path
+inheritance in any of the three harnesses, so each lane gets its own entry.
 
 Each grant is idempotent and additive: an existing entry is left alone, an
 unrelated key is never touched, and a harness that is not set up on this
@@ -38,6 +37,7 @@ from yoke_contracts.session_control.launch_permission_bypass import (
 def grant_folder_trust(
     checkout: str | Path,
     *,
+    harnesses: tuple[str, ...] = ("claude-code", "codex", "cursor"),
     claude_state: Optional[Path] = None,
     codex_config: Optional[Path] = None,
     cursor_file: Optional[Path] = None,
@@ -49,18 +49,25 @@ def grant_folder_trust(
     """
     path = trust_key(checkout)
     granted: List[str] = []
-    granted.extend(_grant_claude(path, claude_state))
-    granted.extend(_grant_codex(path, codex_config))
-    granted.extend(_grant_cursor(path, cursor_file))
+    if "claude-code" in harnesses:
+        granted.extend(_grant_claude(path, claude_state))
+    if "codex" in harnesses:
+        granted.extend(_grant_codex(path, codex_config))
+    if "cursor" in harnesses:
+        granted.extend(_grant_cursor(path, cursor_file))
     return granted
 
 
 def _grant_claude(path: str, state_path: Optional[Path]) -> List[str]:
     target = state_path if state_path is not None else claude_state_path()
-    if not target.is_file():
+    if not target.is_file() and (
+        state_path is not None or not (Path.home() / ".claude").is_dir()
+    ):
         return []
     try:
-        payload = json.loads(target.read_text(encoding="utf-8"))
+        payload = (
+            json.loads(target.read_text(encoding="utf-8")) if target.exists() else {}
+        )
     except (OSError, ValueError) as exc:
         return [f"claude-code: {target} could not be read ({exc})"]
     if not isinstance(payload, dict):
@@ -130,7 +137,7 @@ def _grant_codex(path: str, config_path: Optional[Path]) -> List[str]:
 
 def _grant_cursor(path: str, trust_file: Optional[Path]) -> List[str]:
     target = trust_file if trust_file is not None else cursor_trust_file(path)
-    if not target.parent.parent.is_dir():
+    if not target.parent.parent.parent.is_dir():
         return []
     if target.is_file():
         return []

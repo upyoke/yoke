@@ -89,8 +89,8 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
     from yoke_harness.session_relay_daemon import serve_forever
     from yoke_harness.session_relay_inventory import collect_cached_inventory
     from yoke_harness.session_relay_process_restart import exec_relay_release
-    from yoke_harness.session_relay_surface_probe_cache import (
-        refresh_surface_probe_cache,
+    from yoke_harness.session_relay_harness_reconcile import (
+        refresh_harness_inventory,
     )
 
     release = importlib.import_module("yoke_core.tools.session_relay_release")
@@ -104,7 +104,7 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
         return serve_forever(
             state_dir=instance.state_dir,
             inventory_provider=collect_cached_inventory,
-            inventory_refresher=refresh_surface_probe_cache,
+            inventory_refresher=refresh_harness_inventory,
             cycle_maintenance=cycle_maintenance,
         )
     installed = release.relay_release_status(instance=instance, refresh_served=False)
@@ -167,7 +167,7 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
     return serve_forever(
         state_dir=instance.state_dir,
         inventory_provider=collect_cached_inventory,
-        inventory_refresher=refresh_surface_probe_cache,
+        inventory_refresher=refresh_harness_inventory,
         cycle_maintenance=cycle_maintenance,
         pinned_release=installed.pinned_release,
         pin_served_release=repin,

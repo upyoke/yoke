@@ -6,8 +6,8 @@ import pytest
 
 from yoke_harness import ssh_linux_browser_approval as driver
 
-START = "https://app.example/connect?user_code=AB12-CD34"
-ROUTE = "https://app.example/orgs/acme/machine-approval/AB12-CD34"
+START = "https://app.example/connect?user_code=K7F2"
+ROUTE = "https://app.example/orgs/acme/machine-approval/K7F2"
 
 
 def _clock(monkeypatch):
@@ -39,7 +39,7 @@ def test_waits_for_exact_request_after_an_existing_origin_tab(monkeypatch, targe
 
     monkeypatch.setattr(driver, "_host", host)
     result = driver.approve_machine_in_desktop_chromium(
-        object(), verification_url=START, user_code="AB12-CD34"
+        object(), verification_url=START, user_code="K7F2"
     )
     assert result.ok
     assert calls == ["tabs", "tabs", "approve"]
@@ -53,12 +53,12 @@ def test_unrelated_or_wrong_code_tabs_time_out_without_pressing(monkeypatch):
         assert command == "tabs"
         return {
             "ok": True,
-            "urls": ["https://app.example/", ROUTE.replace("AB12", "ZZ99")],
+            "urls": ["https://app.example/", ROUTE.replace("K7F2", "Z9A2")],
         }
 
     monkeypatch.setattr(driver, "_host", host)
     result = driver.approve_machine_in_desktop_chromium(
-        object(), verification_url=START, user_code="AB12-CD34"
+        object(), verification_url=START, user_code="K7F2"
     )
     assert not result.ok
     assert result.error_code == "machine_browser_tab_missing"
@@ -80,7 +80,7 @@ def test_tab_reader_refusal_is_preserved_without_retry(monkeypatch):
 
     monkeypatch.setattr(driver, "_host", host)
     result = driver.approve_machine_in_desktop_chromium(
-        object(), verification_url=START, user_code="AB12-CD34"
+        object(), verification_url=START, user_code="K7F2"
     )
     assert not result.ok
     assert result.evidence["reason"] == "devtools_unavailable"

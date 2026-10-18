@@ -9,7 +9,7 @@ silence is indistinguishable from a quiet session.
 
 Project install mints trust for the main checkout, and worktree preparation
 mirrors that trust (see
-``yoke_core.domain.worktree_codex_hook_trust``). This check is the backstop
+``yoke_contracts.codex_lane_hook_trust``). This check is the backstop
 for an untrusted main checkout, lanes created before mirroring ran, persisted
 hashes that no longer match Codex's normalized identity, and trust paths left
 behind after checkout removal.
@@ -29,7 +29,7 @@ from yoke_contracts.codex_hook_trust_store import (
     retrust_recovery,
     stale_trust_scan,
 )
-from yoke_core.domain.worktree_codex_hook_trust import (
+from yoke_contracts.codex_lane_hook_trust import (
     codex_config_path,
     inspect_hook_trust,
 )

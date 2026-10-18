@@ -9,7 +9,7 @@ from yoke_harness import ssh_mac_browser_approval as mac
 from yoke_harness.machine_browser_approval import missing_approval_tab
 
 ORIGIN = "https://app.example"
-CODE = "AB12-CD34"
+CODE = "K7F2"
 ENTRY = f"{ORIGIN}/connect?user_code={CODE}"
 
 
@@ -115,7 +115,7 @@ def test_observed_other_request_codes_are_redacted():
         browser="Chromium",
         expected_origin=ORIGIN,
         user_code=CODE,
-        observed=[ORIGIN + "/orgs/acme/machine-approval/ZZ99-AA11?selection=all"],
+        observed=[ORIGIN + "/orgs/acme/machine-approval/Z9A2?selection=all"],
     )
     assert result.evidence["observed_tab_paths"] == [
         "/orgs/acme/machine-approval/[REDACTED]"

@@ -20,8 +20,8 @@ from yoke_contracts.codex_hook_trust import (
     codex_hooks_are_approved,
     normalized_codex_hook_hashes,
 )
-from yoke_core.domain.worktree_claude_approval import claude_config_path
-from yoke_core.domain.worktree_codex_hook_trust import (
+from yoke_contracts.harness_folder_trust import claude_state_path
+from yoke_contracts.codex_lane_hook_trust import (
     hooks_file_for,
     trust_entries_for,
 )
@@ -84,7 +84,7 @@ def _codex_report(checkout: Path) -> Optional[dict[str, Any]]:
 
 
 def _claude_ran_here(checkout: Path) -> bool:
-    payload, malformed = _json_object(claude_config_path())
+    payload, malformed = _json_object(claude_state_path())
     if malformed or not payload:
         return False
     projects = payload.get("projects")
@@ -99,7 +99,7 @@ def _claude_ran_here(checkout: Path) -> bool:
 
 
 def _claude_report(checkout: Path) -> Optional[dict[str, Any]]:
-    config_path = claude_config_path()
+    config_path = claude_state_path()
     config_present = _exists(config_path) or _dir_present(config_path.parent)
     glue = checkout / ".claude" / "settings.json"
     payload, malformed = _json_object(glue)
