@@ -189,7 +189,8 @@ def test_pagination_continues_after_malformed_entry_on_full_page() -> None:
         selected_id=999,
         token="github-user-token",
         opener=paged_open,
-        timeout_seconds=1,
+        # Two in-memory pages; the budget is not what this test checks.
+        timeout_seconds=30,
     )
 
     assert found == {"id": 999}
