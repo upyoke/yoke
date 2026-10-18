@@ -84,10 +84,14 @@ recovery:
 | `SESSION_SCOPE_AMBIGUOUS` | Registration named both a project and machine scope | Open a new session in a registered project folder, or request machine scope |
 | `SESSION_ORG_UNRESOLVED`, `SESSION_ORG_MEMBERSHIP_REQUIRED` | The authority cannot resolve the organization, or the actor is not its member | Reconnect with `yoke connection set`, or ask an org admin for membership |
 
-Steering from outside a project launches background CLI workers in each target
+A session outside any project still reads, messages and steers wherever its
+actor is authorized. Its steering launches background CLI workers in each target
 project's registered folder on an authorized machine. Launched workers always
 register in that project; the launching session keeps its own scope, and no
-interactive window opens.
+interactive window opens. The Workbench roster and session detail, ended
+history, `yoke sessions list` and the board show such a session as **Outside any
+project** to its owner and organization readers. Machine pages list it; a
+project filter excludes it.
 
 ## Lifecycle and routing
 

@@ -154,9 +154,10 @@ another project owns the item. These views derive from existing
 claims, document locks, launch provenance, and message-recipient receipts;
 they do not create separate state.
 
-A session belongs to the registered project whose folder it started in, or, when started anywhere else, to its authority's organization. That scope never changes: retries, reactivation, reinstallation and later folder changes keep it. Session identity comes from the harness (env, process anchor or conversation mapping); never invent session IDs.
-Item work needs a session started in that item's project folder. Elsewhere `yoke claims work acquire` refuses before writing anything and names the folder to open: `CLAIM_FOLDER_MISMATCH: Open a session in CHECKOUT (project P) to work on PREFIX-N (TITLE); sessions never switch projects.` With no checkout mapped on this machine it names `yoke project register CHECKOUT --project-id N` first. [Session scope and folder admission](reference/agent-rules/lanes-and-claims.md#session-scope-and-folder-admission) lists every scope refusal.
-A session outside any project still reads, messages and steers wherever its actor is authorized; its steering launches background CLI workers in each target project's registered folder and never opens an interactive window. The Workbench roster and session detail, ended history, `yoke sessions list` and the board show it as **Outside any project** to its owner and organization readers, and machine pages list it; a project filter excludes it.
+A session belongs to the project whose registered folder it started in, else to
+its organization (shown as **Outside any project**), and keeps that scope. Its ID
+comes from the harness; never invent one. Item work needs a session started in
+the item's project folder ([refusals](reference/agent-rules/lanes-and-claims.md#session-scope-and-folder-admission)).
 
 `yoke sessions hook-overhead [--hours N]` summarizes hourly PreToolUse and
 PostToolUse client wall time, evaluator time, and their remainder, then shows
