@@ -198,10 +198,6 @@ def run_event(
         # dispatch already ran the chain. Render the empty (allow) decision
         # so the duplicate changes nothing.
         return capability.decision_renderer([], event_name)
-    if event_name == "Stop" and stop_reentry(payload):
-        if controls is not None:
-            controls.final_outcome = "allow"
-        return capability.decision_renderer([], event_name)
     from yoke_core.hooks.run_tail import preflight_remote_registration
 
     registration_preflight = preflight_remote_registration(
@@ -238,6 +234,12 @@ def run_event(
         )
         # Apply registered policy mode and denial identity before STOP.
         decision = _mode_gate.apply_mode(decision, module_id, context=context)
+        if (
+            event_name == "Stop"
+            and stop_reentry(payload)
+            and decision.outcome is Outcome.DENY
+        ):
+            decision = HookDecision(outcome=Outcome.ALLOW)
         decision = _guard_denial_identity.bind(
             decision,
             module_id,
@@ -281,6 +283,10 @@ def run_event(
     if skipped_guards:
         record_skipped_guards(skipped_guards, controls)
 
+    if event_name == "Stop" and stop_reentry(payload):
+        extra_stdout_parts = []
+        if controls is not None:
+            controls.denial_audit = {}
     rendered_text, exit_code = capability.decision_renderer(decisions, event_name)
     if extra_stdout_parts:
         joined = "".join(extra_stdout_parts)
