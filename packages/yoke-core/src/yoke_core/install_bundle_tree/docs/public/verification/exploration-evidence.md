@@ -125,6 +125,15 @@ interaction. If the case never ran or produced no artifact, record the failed
 or `blocked_on_precondition` execution outcome instead; that asks no person and
 returns failure to the scheduler. Do not map either condition to pass.
 
+When setup stops a mission before product proof, finish `walk-end`, then use
+`yoke qa plan abort --item PREFIX-N --execution-id <execution-id> --reason
+"blocked_on_precondition: <named prerequisite and recovery>"`. The docket
+settles as `capture_failed`, `blocked_on_precondition`, verdict `error`, with
+`mission_setup_blocked` and the stop reason. Diagnostics and starting-state
+restore receipts remain attached; neither counts as product proof or asks a
+human for approval. Resolve the prerequisite before starting a fresh mission.
+Completed product captures in a partial walk retain their review authority.
+
 ## Decision Disposition
 
 An `undetermined` verdict raises a `qa_needs_review` decision request against
