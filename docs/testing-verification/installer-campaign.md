@@ -250,11 +250,13 @@ Code, Codex, Cursor) from a folder outside any project and requires
 organization scope in `yoke sessions identity`, the active roster and ended
 history. `outside-project-reinstall` reinstalls without setup and requires the
 same session to keep its organization scope through re-registration.
-`outside-project-first-work` creates an isolated project and task item: the
-outside claim must refuse `CLAIM_FOLDER_MISMATCH` with the
-`yoke project register` recovery, the outside session stays refused
-(`SESSION_MACHINE_SCOPE_WORK_REFUSED`) in the registered folder, and a session
-opened there passes folder admission.
+`outside-project-first-work` creates an isolated project and task item. The
+outside session must read organization scope with no project; its claim outside
+must refuse `CLAIM_FOLDER_MISMATCH` naming the item and the
+`yoke project register` recovery; from the registered folder it must refuse
+`SESSION_MACHINE_SCOPE_WORK_REFUSED` naming the item and that folder. A session
+opened there must read project scope and either claim the item or refuse only
+with a named non-scope reason such as model admission.
 
 Release QA for the same candidate also owes, in local, self-host and hosted
 modes: Command proof of `yoke sessions list` and ended history, outside-project

@@ -46,14 +46,18 @@ def scope(session, folder):
     found = payload.get('result') or dict()
     if result.returncode or not found:
         sys.exit('session_scope_identity_unreadable: retain the identity read and repair session identity before retrying')
-    return found.get('project_id'), found.get('org_id')
+    return found.get('project_id'), found.get('org_id'), found.get('scope_kind')
 def require_org(session, folder, label):
-    project, org = scope(session, folder)
-    if project is not None or org is None:
-        sys.exit('session_scope_not_org: ' + label + ' kept project ' + str(project) + '; retain the identity read and repair scope resolution before retrying')
+    project, org, kind = scope(session, folder)
+    if project is not None or org is None or kind != 'org':
+        sys.exit('session_scope_not_org: ' + label + ' has project ' + str(project) + ', org ' + str(org) + ' and scope ' + str(kind) + '; retain the identity read and repair scope resolution before retrying')
 def claim(ref, session, folder):
-    result, _ = call(['claims', 'work', 'acquire', '--item', ref, '--reason', 'session-scope-proof'], session, folder)
-    return result.returncode, result.stdout + result.stderr
+    result, payload = call(['claims', 'work', 'acquire', '--item', ref, '--reason', 'session-scope-proof'], session, folder)
+    named = (payload.get('error') or dict()).get('code') or ''
+    if not named:
+        found = re.search(r'(?m)^([A-Z][A-Z_]+):', result.stderr)
+        named = found.group(1) if found else ''
+    return result.returncode, result.stdout + result.stderr, named
 outside = tempfile.mkdtemp(prefix='outside-project-')
 if mode == 'harnesses':
     for harness in harnesses:
@@ -88,6 +92,7 @@ elif mode == 'reinstall-after':
 elif mode == 'first-work':
     session = str(uuid.uuid4())
     begin(harnesses[0], session, outside)
+    require_org(session, outside, 'the outside-project session')
     result, payload = call(['projects', 'create', '--slug', 'scope-proof', '--name', 'Scope proof', '--public-item-prefix', 'SCP'], session, outside)
     if result.returncode or not payload.get('success'):
         sys.exit('first_work_fixture_create_failed: restore the declared baseline and inspect projects create before retrying')
@@ -99,28 +104,28 @@ elif mode == 'first-work':
     if result.returncode or found is None:
         sys.exit('first_work_fixture_item_failed: retain the item create output and repair item creation before retrying')
     ref = found.group(0)
-    code, text = claim(ref, session, outside)
+    code, text, named = claim(ref, session, outside)
     registration = re.search(r'yoke project register CHECKOUT --project-id ([0-9]+)', text)
-    if not code or 'CLAIM_FOLDER_MISMATCH' not in text or registration is None:
-        sys.exit('first_work_refusal_missing: retain the claim output; outside a project the claim must name the folder and registration recovery')
+    if not code or named != 'CLAIM_FOLDER_MISMATCH' or ref not in text or registration is None:
+        sys.exit('first_work_refusal_missing: retain the claim output; outside a project the claim must refuse CLAIM_FOLDER_MISMATCH naming the item and the registration recovery')
     project_id = registration.group(1)
-    checkout = tempfile.mkdtemp(prefix='scope-proof-')
+    checkout = os.path.realpath(tempfile.mkdtemp(prefix='scope-proof-'))
     result, _ = call(['project', 'register', checkout, '--project-id', project_id], session, outside, as_json=False)
     if result.returncode:
         sys.exit('first_work_register_failed: retain the registration output and repair project register before retrying')
-    code, text = claim(ref, session, checkout)
-    if not code or 'SESSION_MACHINE_SCOPE_WORK_REFUSED' not in text:
-        sys.exit('first_work_scope_refusal_missing: retain the claim output; a session started outside the project stays refused in its folder')
+    code, text, named = claim(ref, session, checkout)
+    if not code or named != 'SESSION_MACHINE_SCOPE_WORK_REFUSED' or ref not in text or checkout not in text:
+        sys.exit('first_work_scope_refusal_missing: retain the claim output; in the registered folder the outside session must refuse SESSION_MACHINE_SCOPE_WORK_REFUSED naming the item and that folder')
     worker = str(uuid.uuid4())
     begin(harnesses[0], worker, checkout)
-    project, org = scope(worker, checkout)
-    if str(project) != project_id or org is not None:
+    project, org, kind = scope(worker, checkout)
+    if str(project) != project_id or org is not None or kind != 'project':
         sys.exit('first_work_project_scope_missing: retain the identity read; a session opened in the registered folder belongs to that project')
-    code, text = claim(ref, worker, checkout)
-    for refusal in scope_codes:
-        if refusal in text:
-            sys.exit('first_work_recovery_failed: ' + refusal + ' after opening a session in the registered folder; retain the claim output')
-    print('first project work refused outside its folder and passed folder admission after the named recovery')
+    code, text, named = claim(ref, worker, checkout)
+    if code and (not named or named in scope_codes):
+        sys.exit('first_work_recovery_failed: ' + (named or 'an unnamed refusal') + ' after opening a session in the registered folder; retain the claim output')
+    outcome = 'claimed the item' if not code else 'refused only by ' + named
+    print('first project work refused outside its folder; the session opened in the registered folder passed folder admission and ' + outcome)
 else:
     sys.exit('session_scope_mode_unknown: name harnesses, reinstall-before, reinstall-after or first-work')
 """
@@ -164,11 +169,13 @@ def session_scope_cases(command_case, local_setup, install_only):
             f"{local_setup}; {_probe('first-work')}",
             "Create an isolated local project and task item, claim it from a session "
             "outside any project, register a checkout, retry from that folder, then "
-            "open a new session there. Model admission and done state belong to the "
-            "installer exploration. Restore the declared baseline afterward.",
-            "The outside claim refuses CLAIM_FOLDER_MISMATCH with the registration "
-            "recovery, the outside session stays refused in the folder, and a session "
-            "opened there passes folder admission.",
+            "open a new session there and claim again. Model admission and done state "
+            "belong to the installer exploration. Restore the declared baseline afterward.",
+            "The outside session has organization scope with no project. Its claim "
+            "outside refuses CLAIM_FOLDER_MISMATCH with the registration recovery; in "
+            "the registered folder it refuses SESSION_MACHINE_SCOPE_WORK_REFUSED naming "
+            "the item and that folder. A session opened there has project scope and "
+            "claims the item or refuses only with a named non-scope reason.",
         ),
     )
     cases = []

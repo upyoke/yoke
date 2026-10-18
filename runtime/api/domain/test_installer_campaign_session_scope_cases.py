@@ -2,6 +2,7 @@
 
 import itertools
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -49,19 +50,28 @@ def test_campaign_exports_the_session_scope_cases_in_order():
 class FakeCli:
     """The installed CLI's session, claim and project answers for one host."""
 
-    def __init__(self, tmp_path, *, outside_claim_refuses=True):
+    def __init__(
+        self,
+        tmp_path,
+        *,
+        outside_claim_refuses=True,
+        folder_refusal_names_folder=True,
+        worker_claim=(0, ""),
+    ):
         self.folders = itertools.count()
         self.tmp_path = tmp_path
         self.scopes = {}
         self.checkout = None
         self.outside_claim_refuses = outside_claim_refuses
+        self.folder_refusal_names_folder = folder_refusal_names_folder
+        self.worker_claim = worker_claim
         self.calls = []
 
     def mkdtemp(self, prefix=""):
         folder = self.tmp_path / f"{prefix}{next(self.folders)}"
         folder.mkdir()
         if prefix.startswith("scope-proof"):
-            self.checkout = str(folder)
+            self.checkout = os.path.realpath(folder)
         return str(folder)
 
     def run(self, argv, *, cwd, env, **_kwargs):
@@ -74,7 +84,8 @@ class FakeCli:
             return self._ok({})
         if command[:2] == ["sessions", "identity"]:
             project, org = self.scopes[session]
-            return self._ok({"project_id": project, "org_id": org})
+            kind = "project" if project is not None else "org"
+            return self._ok({"project_id": project, "org_id": org, "scope_kind": kind})
         if command[:2] == ["sessions", "list"]:
             return self._ok({"sessions": [{"session_id": sid} for sid in self.scopes]})
         if command[:2] in (
@@ -87,15 +98,24 @@ class FakeCli:
             return self._ok({"public_ref": "SCP-1"})
         assert command == ["claims", "work", "acquire"]
         if self.scopes[session][0] == 7:
-            return self._ok({})
+            code, refusal = self.worker_claim
+            return self._refused(argv, refusal) if code else self._ok({})
         if str(cwd) != self.checkout:
             if not self.outside_claim_refuses:
                 return self._ok({})
             return CompletedProcess(argv, 1, stdout="", stderr=FOLDER_REFUSAL)
-        error = {"code": "SESSION_MACHINE_SCOPE_WORK_REFUSED", "message": "refused"}
-        return CompletedProcess(
-            argv, 1, stdout=json.dumps({"success": False, "error": error}), stderr=""
+        folder = self.checkout if self.folder_refusal_names_folder else "elsewhere"
+        return self._refused(
+            argv,
+            "SESSION_MACHINE_SCOPE_WORK_REFUSED",
+            f"Open a session in {folder} (project scope-proof) to work on "
+            "SCP-1 (Scope proof); sessions never switch projects.",
         )
+
+    @staticmethod
+    def _refused(argv, code, message="refused"):
+        body = {"success": False, "error": {"code": code, "message": message}}
+        return CompletedProcess(argv, 1, stdout=json.dumps(body), stderr="")
 
     @staticmethod
     def _ok(result):
@@ -145,11 +165,49 @@ def test_first_work_refuses_outside_then_admits_a_folder_session(
     _probe(monkeypatch, "first-work")
     assert fake.calls.count(["claims", "work", "acquire"]) == 3
     assert sorted(fake.scopes.values(), key=str) == [(7, None), (None, 1)]
-    assert "after the named recovery" in capsys.readouterr().out
+    assert "admission and claimed the item" in capsys.readouterr().out
 
 
-def test_first_work_fails_closed_when_the_outside_claim_is_admitted(cli, monkeypatch):
-    cli(outside_claim_refuses=False)
+def test_first_work_accepts_a_named_model_admission_refusal(cli, monkeypatch, capsys):
+    cli(worker_claim=(1, "SESSION_BELOW_INTERN"))
+    _probe(monkeypatch, "first-work")
+    assert "refused only by SESSION_BELOW_INTERN" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("options", "reason"),
+    [
+        ({"outside_claim_refuses": False}, "first_work_refusal_missing:"),
+        ({"folder_refusal_names_folder": False}, "first_work_scope_refusal_missing:"),
+        ({"worker_claim": (1, "")}, "first_work_recovery_failed: an unnamed"),
+        (
+            {"worker_claim": (1, "SESSION_PROJECT_MISMATCH")},
+            "first_work_recovery_failed: SESSION_PROJECT_MISMATCH",
+        ),
+    ],
+)
+def test_first_work_fails_closed_without_each_positive_fact(
+    cli, monkeypatch, options, reason
+):
+    cli(**options)
     with pytest.raises(SystemExit) as caught:
         _probe(monkeypatch, "first-work")
-    assert str(caught.value).startswith("first_work_refusal_missing:")
+    assert str(caught.value).startswith(reason)
+
+
+def test_outside_session_without_org_scope_kind_fails_closed(cli, monkeypatch):
+    fake = cli()
+    real_run = fake.run
+
+    def project_scope_identity(argv, **kwargs):
+        result = real_run(argv, **kwargs)
+        if argv[1:3] == ["sessions", "identity"]:
+            body = json.loads(result.stdout)
+            body["result"]["scope_kind"] = "project"
+            result.stdout = json.dumps(body)
+        return result
+
+    monkeypatch.setattr(subprocess, "run", project_scope_identity)
+    with pytest.raises(SystemExit) as caught:
+        _probe(monkeypatch, "first-work")
+    assert str(caught.value).startswith("session_scope_not_org:")
