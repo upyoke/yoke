@@ -130,6 +130,11 @@ runs without touching the shared cluster, run:
 yoke dev run -- python3 -m yoke_core.tools.pg_testcluster prune-clusters
 ```
 
+An older source runner that omits the shared-root handoff refuses as
+`pgtest_shared_root_unbound`. Set `YOKE_PG_CLUSTER_ROOT` explicitly to the same
+shared root your other test runs use, then retry; upgrade the source runner
+before relying on automatic handoff.
+
 This inventories only this user's test postmasters, verifies their pid/data
 identity, and keeps the selected shared root, clusters younger than fifteen
 minutes, and any cluster with a connected client. A refusal names the root

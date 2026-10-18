@@ -238,8 +238,19 @@ def status() -> int:
 
 def prune_clusters() -> int:
     """Reap idle abandoned test clusters outside the selected shared root."""
+    from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
     from yoke_core.tools.pg_testcluster_reclaim import prune_clusters as reclaim
 
+    if os.environ.get(SOURCE_DEV_RUN_ROOT_ENV) and not os.environ.get(
+        "YOKE_PG_CLUSTER_ROOT"
+    ):
+        sys.stderr.write(
+            "pgtest_shared_root_unbound: this source runner did not supply "
+            "YOKE_PG_CLUSTER_ROOT; set it explicitly to the shared root used by "
+            "your other test runs, then retry prune-clusters. The source runner "
+            "must be upgraded before it can supply this handoff automatically.\n"
+        )
+        return 1
     return reclaim(_root())
 
 

@@ -278,3 +278,15 @@ def test_ordinary_command_qa_does_not_inject_test_cluster_resources(tmp_path):
     )
     assert "YOKE_PG_CLUSTER_ROOT" not in env
     assert "YOKE_PG_BIN_DIR" not in env
+
+
+def test_prune_refuses_an_older_source_runner_without_shared_root(monkeypatch, capsys):
+    from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
+
+    monkeypatch.setenv(SOURCE_DEV_RUN_ROOT_ENV, "/claimed-source")
+    monkeypatch.delenv("YOKE_PG_CLUSTER_ROOT", raising=False)
+    monkeypatch.setattr(
+        pg_testcluster, "_root", lambda: pytest.fail("ambiguous shared root")
+    )
+    assert pg_testcluster.prune_clusters() == 1
+    assert "pgtest_shared_root_unbound" in capsys.readouterr().err
