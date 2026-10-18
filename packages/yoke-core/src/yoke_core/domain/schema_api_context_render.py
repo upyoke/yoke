@@ -13,6 +13,7 @@ or seed-only column resolution as needed.
 
 from __future__ import annotations
 
+from difflib import SequenceMatcher
 from typing import Callable
 
 from yoke_core.domain import schema_api_context_seed as seed
@@ -52,6 +53,24 @@ def _validate_detail(detail: str) -> str:
             f"{', '.join(PACKET_DETAILS)}"
         )
     return detail
+
+
+def unknown_topic_message(topic: str, *, role: str) -> str:
+    """Refuse an unknown topic, listing every valid one closest-first."""
+    folded = topic.casefold()
+    ranked = sorted(
+        seed.TOPICS,
+        key=lambda name: (
+            -SequenceMatcher(None, folded, name.casefold()).ratio(),
+            name,
+        ),
+    )
+    closest = ranked[0]
+    return (
+        f"unknown topic: {topic}; valid topics (closest first): "
+        f"{', '.join(ranked)}. "
+        f"Retry: yoke packets render --role {role} --topic {closest}"
+    )
 
 
 def render_invariant_block() -> list[str]:
