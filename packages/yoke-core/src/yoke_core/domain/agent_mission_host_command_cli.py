@@ -95,6 +95,11 @@ def resolve_mission_contract(
         payload={
             "execution_id": parsed.execution_id,
             "requirement_id": parsed.requirement_id,
+            **(
+                {"cleanup": "begin", "run_id": parsed.run_id}
+                if prog == "yoke qa mission walk-end"
+                else {}
+            ),
         },
         actor=build_actor(session_id=parsed.session_id),
     )
@@ -103,6 +108,7 @@ def resolve_mission_contract(
         message = response.error.message if response.error else ""
         print(f"{prog}: {code}: {message}", file=sys.stderr)
         return None
+    parsed.cleanup_lease = bool((response.result or {}).get("cleanup_lease"))
     contract = (response.result or {}).get("execution")
     if not isinstance(contract, dict):
         print(f"{prog}: no execution contract", file=sys.stderr)

@@ -114,6 +114,10 @@ def qa_subject_claim_verdict(
     seat covering the item, or the live driver of the requirement's run,
     through the same helper.
     """
+    from yoke_core.domain.agent_mission_cleanup import cleanup_claim_authority
+
+    if cleanup_claim_authority(request):
+        return True, None, None
     target = request.target
     payload = request.payload
     actor_session = request.actor.session_id
