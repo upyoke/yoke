@@ -34,8 +34,6 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke epic-tasks list", "epic_tasks"),
     _w("yoke workflow-item epic-task get", "workflow_item.epic_task"),
     _w("yoke workflow-item epic-task simulation-get", "workflow_item.epic_task"),
-    _w("yoke workflow-item epic-task file-add", "workflow_item.epic_task"),
-    _w("yoke workflow-item epic-task scope-no-files", "workflow_item.epic_task"),
     _w("yoke workflow-item epic-task scope-finalize", "workflow_item.epic_task"),
     _w("yoke workflow-item epic-task scope-reopen", "workflow_item.epic_task"),
     _w("yoke workflow-item epic-task history-insert", "workflow_item.epic_task"),

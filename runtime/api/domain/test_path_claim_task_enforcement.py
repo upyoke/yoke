@@ -171,7 +171,7 @@ def test_nonempty_task_cannot_register_no_path_exception(
         budget_path="src/change.py",
     )
 
-    with pytest.raises(PathClaimTaskBindingError, match="persisted file budget"):
+    with pytest.raises(PathClaimTaskBindingError, match="lists paths in its"):
         register_for_task(
             test_db,
             item_id=item_id,

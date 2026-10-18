@@ -8,10 +8,10 @@ exception-to-exit-code mapping, and connection lifecycle.
 
 Subcommand handlers live in two responsibility-named siblings:
 
-- :mod:`yoke_core.domain.epic_cli_handlers_task` — task CRUD, file-add,
-  history, dispatch-chain handlers.
+- :mod:`yoke_core.domain.epic_cli_handlers_task` — task CRUD, history,
+  dispatch-chain handlers.
 - :mod:`yoke_core.domain.epic_cli_handlers_review` — review, progress notes,
-  simulation, proceed-triage-handoff, cascade, orphan-check, migrate-task-files.
+  simulation, proceed-triage-handoff, cascade, orphan-check.
 
 Domain functions are accessed via the parent ``epic`` module object so that
 test patches on ``yoke_core.domain.epic.*`` continue to intercept calls
@@ -39,8 +39,6 @@ Subcommands:
   task-update-body <epic-id> <task_num> [--body-file <path>]  (reads body from stdin when the flag is omitted)
   task-get-body <epic-id> <task_num>
   task-update-field <epic-id> <task_num> <field> <value>
-  file-add <epic-id> <task_num> <file_path> <action>
-  file-list <epic-id> <task_num>
   history-insert <epic-id> <task_num> <from_status> <to_status> [note | --body-file <path>]
   dispatch-chain-upsert <epic-id> <worktree>  (reads JSON from stdin)
   dispatch-chain-get <epic-id> <worktree>
@@ -62,7 +60,6 @@ Subcommands:
                               [--filed-items T1,T2] [--session-id SID]
   cascade-task-status <epic-id> <from-parent-status> <to-parent-status>
   orphan-check
-  migrate-task-files                  Add UNIQUE constraint to epic_task_files (idempotent)
 """
 
 _TASK_UPDATE_BODY_USAGE = (
@@ -109,8 +106,6 @@ def main(argv: Optional[List[str]] = None) -> None:
         "task-update-body",
         "task-get-body",
         "task-update-field",
-        "file-add",
-        "file-list",
         "history-insert",
         "dispatch-chain-upsert",
         "dispatch-chain-get",
@@ -151,8 +146,6 @@ def main(argv: Optional[List[str]] = None) -> None:
         "task-update-body",
         "task-get-body",
         "task-update-field",
-        "file-add",
-        "file-list",
         "history-insert",
         "review-seed",
         "review-insert",
