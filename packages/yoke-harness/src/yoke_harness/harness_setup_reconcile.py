@@ -180,7 +180,7 @@ def _facet(
             name,
             "failed",
             f"harness_state_unwritable_or_malformed: {exc}",
-            recovery,
+            RECOVERY,
         )
 
 

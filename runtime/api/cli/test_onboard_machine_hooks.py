@@ -67,3 +67,19 @@ def test_no_installed_harness_writes_nothing(tmp_path):
     )
     assert events == [] and all("skipped_not_installed" in line for line in lines)
     assert not _home(tmp_path).exists()
+
+
+def test_human_setup_shows_facet_failure_and_recovery():
+    from yoke_cli.config.onboard_report_render import render_human
+
+    refusal = "codex: hook_trust failed config invalid TOML; repair config; yoke doctor run --only harness-setup --fix"
+    report = {
+        "mode": "hosted",
+        "config_path": "config",
+        "applied": True,
+        "plan": {"steps": []},
+        "identity": {},
+        "next_steps": [],
+        "harness_setup": [refusal],
+    }
+    assert refusal in render_human(report)

@@ -114,6 +114,11 @@ def test_malformed_file_preserved_and_other_harnesses_continue(machine):
     assert config.read_text() == "[invalid"
     assert any(r.harness_id == "cursor" and r.outcome == "written" for r in result.rows)
     assert all(r.recovery for r in result.rows if r.outcome in setup.FAILURES)
+    assert all(
+        "doctor run --only harness-setup --fix" in r.recovery
+        for r in result.rows
+        if r.outcome == "failed"
+    )
 
 
 def test_inspection_never_writes_and_scoped_call_targets_only_lane(machine):
