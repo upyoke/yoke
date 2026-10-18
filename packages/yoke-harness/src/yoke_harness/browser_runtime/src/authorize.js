@@ -74,6 +74,19 @@ function macWindowCount(pid) {
   });
 }
 
+function linuxWindowCount(pid) {
+  return new Promise((resolve, reject) => {
+    execFile('xdotool', ['search', '--pid', String(pid)], { timeout: 5000 },
+      (error, stdout, stderr) => {
+        if (error && error.code !== 1) {
+          reject(new Error(`linux_authorization_window_check_failed: ${stderr.trim() || error.message}; install xdotool and check DISPLAY`));
+          return;
+        }
+        resolve(stdout.trim() ? stdout.trim().split(/\s+/).length : 0);
+      });
+  });
+}
+
 /** Command-line flags for a plain, human-driven browser window. */
 function buildLaunchArgs({ profileDir, urls = [] }) {
   const args = [
@@ -137,11 +150,12 @@ function openSignInWindow(
   { profileDir, urls },
   {
     spawnProcess = spawn, executablePath = resolveExecutablePath,
-    platform = process.platform, windowCount = macWindowCount,
+    platform = process.platform, windowCount,
     pollMs = WINDOW_POLL_MS, startMs = WINDOW_START_MS,
     limitMs = AUTHORIZATION_LIMIT_MS, shutdownMs = SHUTDOWN_MS,
   } = {},
 ) {
+  windowCount ??= platform === 'linux' ? linuxWindowCount : macWindowCount;
   const binary = executablePath();
   const child = spawnProcess(binary, buildLaunchArgs({ profileDir, urls }), {
     stdio: ['ignore', 'ignore', 'pipe'],
@@ -187,7 +201,7 @@ function openSignInWindow(
         stop(`authorization exceeded ${limitMs / 60000} minutes with Chromium still running`);
         return;
       }
-      if (platform === 'darwin') {
+      if (platform === 'darwin' || platform === 'linux') {
         try {
           const count = await windowCount(child.pid);
           if (finished || stopping) return;
@@ -203,7 +217,7 @@ function openSignInWindow(
             return;
           }
         } catch (error) {
-          stop(`${error.message}. Close Chromium and check macOS window access`);
+          stop(`${error.message}. Close Chromium and check ${platform} window access`);
           return;
         }
       }
@@ -234,7 +248,7 @@ async function main() {
   const args = parseArgs(process.argv);
   console.log('Sign in to whatever sites you need, then close the window.');
   await openSignInWindow(args);
-  console.log('Authorization window closed; Chromium exited.');
+  console.log('Authorization window closed; verifying sign-in.');
 }
 
 if (require.main === module) {

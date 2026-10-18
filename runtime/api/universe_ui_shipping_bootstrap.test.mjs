@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
-import { loadDelivery, prefetchShippingOverview } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_shipping_runs.js";
+import { loadDelivery } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_shipping_runs.js";
+import { prefetchShippingOverview } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_shipping_prefetch.js";
 import { FakeDocument, byClass, response, settle } from "./universe_ui_dom_test_support.mjs";
 
 const ok = (result) => ({ status: 200, envelope: { success: true, result } });

@@ -125,13 +125,20 @@ def test_handler_ignores_unknown_config_field(populated_db):
     assert outcome.result_payload["scope"] == "yoke"
 
 
-def test_handler_vision_count_shapes_zen_plan(populated_db):
-    """VISION count shapes the owning project's timeline width."""
+def test_handler_vision_count_shapes_zen_plan(populated_db, monkeypatch):
+    """VISION count shapes the owning project's timeline width.
+
+    Done items sit just after a UTC midnight and sessions run west of UTC, so
+    the window boundary must compare as an instant, not a session-local date.
+    """
     from yoke_contracts.board.config import config_from_values
 
+    monkeypatch.setenv("PGTZ", "America/Los_Angeles")
     with connect_test_db(populated_db) as conn:
         conn.execute(
-            "UPDATE items SET created_at=now() - interval '2 days', updated_at=now() WHERE status='done'"
+            "UPDATE items SET created_at=date_trunc('day', now() AT TIME ZONE 'UTC') "
+            "AT TIME ZONE 'UTC' - interval '2 days' + interval '30 minutes', "
+            "updated_at=now() WHERE status='done'"
         )
 
     config_values = {"timeline_widget": "always"}
@@ -285,9 +292,7 @@ class TestBoardDataOverHttpBoundary:
         )
         assert "First item" in markdown
 
-    @pytest.mark.parametrize(
-        "case", ["owner", "stranger", "project", "disabled", "missing"]
-    )
+    @pytest.mark.parametrize("case", "owner stranger project disabled missing".split())
     @pytest.mark.parametrize("key", ["", "dashboard_sessions_scope", "timeline_scope"])
     def test_public_org_session_admission(self, case, key):
         owner, org_id = self.auth.actor_id, self.auth.org_id
@@ -310,21 +315,16 @@ class TestBoardDataOverHttpBoundary:
                 )
             token = mint_token(conn, actor_id=stranger, name="stranger").raw_token
             if case == "disabled":
-                conn.execute(
-                    "UPDATE actors SET status='disabled' WHERE id=%s", (owner,)
-                )
+                conn.execute("UPDATE actors SET status='disabled' WHERE id=%s", (owner,))
             conn.commit()
         if case == "missing":
             self.client.headers.clear()
         elif case == "stranger":
             self.client.headers.update({"Authorization": f"Bearer {token}"})
         scope = "yoke" if case == "project" else "all"
-        values = {key: "1"} if key else {}
+        payload = {"scope": scope, "config_values": {key: "1"} if key else {}}
         response = self.client.post(
-            "/v1/functions/call",
-            json=_request({"scope": scope, "config_values": values}).model_dump(
-                mode="json"
-            ),
+            "/v1/functions/call", json=_request(payload).model_dump(mode="json")
         )
         body = response.json()
         if case != "owner" or key:

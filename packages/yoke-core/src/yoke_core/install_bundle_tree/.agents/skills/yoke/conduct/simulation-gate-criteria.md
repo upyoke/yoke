@@ -53,6 +53,34 @@ If no file named, say
 `commit evidence unavailable: no affected file named`. Parent evidence is
 allowed; do not run git log or git blame yourself in Simulator.
 
+## Migration Composition Evidence
+
+Every standard, compressed and retry integration packet that renumbers or
+composes permanent migrations includes this evidence, supplied by Conduct
+before dispatch (not left for Simulator's bounded file reads):
+- Old-to-final module names/ordinals, full candidate commit, content digests
+  and the updated spec rollout/worktree-plan sections from the composition
+  step in [Tester closeout](engineer-tester-closeout.md).
+- applied_migrations rows for ALL old and final names on each declared
+  authoritative database, with source database/environment and read time.
+  Preserve an explicit empty result for a name absent from the ledger.
+- migration_audit rehearsal rows from the item's control plane for those
+  names: id, migration_name, project_id, model_name, state, source_commit,
+  source_fingerprint, rehearsed_at and failure_reason. Name which accepted
+  ids cover the final modules; a receipt for an old name alone is insufficient.
+- migration_content_adoptions rows for those names, or explicit empty
+  results. Adoption records establish content provenance, not permission to
+  rename an applied migration. Applied names stay permanent; an old name
+  already applied or unreadable evidence halts composition for governed
+  recovery. Never rewrite a ledger to make a renumbering look safe.
+
+Read recipes and exact schema: `yoke packets render --role simulator_agent
+--topic core --detail full`. These are Yoke ledger names; for another
+project use its declared migration_model ledger/evidence contract. A missing
+source, read or final receipt is missing evidence: halt dispatch, name the
+access/rehearsal recovery and supply the corrected packet. When no permanent
+migration is composed, explicitly record that this block is not applicable.
+
 Phase A uses ONLY prompt evidence, no tools: preliminary verdict and at most3
 candidate gaps. Phase B optionally verifies via at most5 named file reads and
 specific-file diffs. No broad branch diff, ls/find/glob enumeration, unnamed

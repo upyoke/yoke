@@ -53,8 +53,22 @@ def missing_approval_tab(
                 continue
             path = unquote(parsed.path or "/")
             sign_in_required |= (
-                f"{parsed.scheme}://{parsed.netloc}" == expected_origin
-                and path.rstrip("/") in {"/auth/sign-in", "/beta", "/orgs/new"}
+                (
+                    f"{parsed.scheme}://{parsed.netloc}" == expected_origin
+                    and path.rstrip("/") in {"/auth/sign-in", "/beta", "/orgs/new"}
+                )
+                or (
+                    parsed.scheme == "https"
+                    and parsed.hostname == "accounts.google.com"
+                    and path.startswith(("/v3/signin/", "/signin/", "/ServiceLogin"))
+                )
+                or (
+                    parsed.scheme == "https"
+                    and parsed.hostname == "login.microsoftonline.com"
+                    and path.endswith(
+                        ("/oauth2/authorize", "/oauth2/v2.0/authorize", "/login")
+                    )
+                )
             )
         except ValueError:
             continue
@@ -69,7 +83,9 @@ def missing_approval_tab(
             "state": "sign_in_required" if sign_in_required else "browser_tab_missing",
             "observed_tab_paths": paths,
             "recovery": (
-                "Sign the Test Machine browser in to the app and recapture golden."
+                "Run browser authorize with the declared identity and --desktop-browser "
+                "on the Test Machine; the operator completes the identity-provider "
+                "sign-in. Keep it live through reset; never golden-capture or wipe it."
                 if sign_in_required
                 else "The exact approval tab is absent. Check that the installer opens "
                 "links in the same signed-in browser profile, then rerun with a fresh request."

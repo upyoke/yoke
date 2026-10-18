@@ -11,6 +11,7 @@ in ``conftest.py``.
 from __future__ import annotations
 
 import textwrap
+from datetime import datetime, timezone
 
 from yoke_contracts.board.config import BoardConfig
 from yoke_core.board.db import BoardDB
@@ -30,6 +31,7 @@ from runtime.api.board.tests.conftest import insert_zen_items
 
 
 # -- visibility tests ----------------------------------------------------------
+
 
 class TestVisibility:
     def test_always_shows(self):
@@ -56,6 +58,7 @@ class TestVisibility:
 
 
 # -- zone computation tests ----------------------------------------------------
+
 
 class TestZoneComputation:
     def test_no_future_zones(self):
@@ -96,6 +99,7 @@ class TestZoneComputation:
 
 # -- dot positions tests -------------------------------------------------------
 
+
 class TestDotPositions:
     def test_minimum_gap(self, zen_db):
         items = [
@@ -116,11 +120,13 @@ class TestDotPositions:
 
 # -- VISION.md parsing tests ---------------------------------------------------
 
+
 class TestVisionExtraction:
     def test_parses_sections(self, tmp_path):
         (tmp_path / ".yoke" / "strategy").mkdir(parents=True)
         vision = tmp_path / ".yoke" / "strategy" / "VISION.md"
-        vision.write_text(textwrap.dedent("""\
+        vision.write_text(
+            textwrap.dedent("""\
             # Vision
 
             ### 1 Month
@@ -135,7 +141,8 @@ class TestVisionExtraction:
 
             ### 5 Years
             - Sentient systems
-        """))
+        """)
+        )
         results = _zen_extract_vision(str(tmp_path))
         assert len(results) == 4
         keys = [r[0] for r in results]
@@ -153,44 +160,57 @@ class TestVisionExtraction:
 
 # -- query tests ---------------------------------------------------------------
 
+
 class TestQueries:
     def test_query_projects(self, zen_db):
-        insert_zen_items(zen_db, [
-            (1, "Done item", "yoke", "done", "2025-01-15"),
-            (2, "Active item", "externalwebapp", "implementing", "2025-01-15"),
-        ])
+        insert_zen_items(
+            zen_db,
+            [
+                (1, "Done item", "yoke", "done", "2025-01-15"),
+                (2, "Active item", "externalwebapp", "implementing", "2025-01-15"),
+            ],
+        )
         with BoardDB(zen_db) as db:
             projects = _zen_query_projects(db)
         assert len(projects) == 1
         assert projects[0][0] == "yoke"
 
     def test_query_projects_honors_scope(self, zen_db):
-        insert_zen_items(zen_db, [
-            (1, "Yoke done", "yoke", "done", "2025-01-15"),
-            (2, "ExternalWebapp done", "externalwebapp", "done", "2025-01-15"),
-        ])
+        insert_zen_items(
+            zen_db,
+            [
+                (1, "Yoke done", "yoke", "done", "2025-01-15"),
+                (2, "ExternalWebapp done", "externalwebapp", "done", "2025-01-15"),
+            ],
+        )
         with BoardDB(zen_db) as db:
             projects = _zen_query_projects(db, "externalwebapp")
         assert projects == [("externalwebapp", "\U0001f9e9")]
 
     def test_queued_count(self, zen_db):
-        insert_zen_items(zen_db, [
-            (1, "Idea", "yoke", "idea", "2025-01-15"),
-            (2, "Planned", "yoke", "planned", "2025-01-15"),
-            (3, "Done", "yoke", "done", "2025-01-15"),
-        ])
+        insert_zen_items(
+            zen_db,
+            [
+                (1, "Idea", "yoke", "idea", "2025-01-15"),
+                (2, "Planned", "yoke", "planned", "2025-01-15"),
+                (3, "Done", "yoke", "done", "2025-01-15"),
+            ],
+        )
         with BoardDB(zen_db) as db:
             count = _zen_queued_count(db, "yoke")
         assert count == 2
 
     def test_queued_count_excludes_frozen_terminal(self, zen_db):
-        insert_zen_items(zen_db, [
-            (1, "Frozen idea", "yoke", "idea", "2025-01-15"),
-            (2, "Frozen cancelled", "yoke", "cancelled", "2025-01-15"),
-            (3, "Frozen stopped", "yoke", "stopped", "2025-01-15"),
-            (4, "Frozen failed", "yoke", "failed", "2025-01-15"),
-            (5, "Frozen done", "yoke", "done", "2025-01-15"),
-        ])
+        insert_zen_items(
+            zen_db,
+            [
+                (1, "Frozen idea", "yoke", "idea", "2025-01-15"),
+                (2, "Frozen cancelled", "yoke", "cancelled", "2025-01-15"),
+                (3, "Frozen stopped", "yoke", "stopped", "2025-01-15"),
+                (4, "Frozen failed", "yoke", "failed", "2025-01-15"),
+                (5, "Frozen done", "yoke", "done", "2025-01-15"),
+            ],
+        )
         conn = connect_test_db(zen_db)
         conn.execute("UPDATE items SET frozen = 1")
         conn.commit()
@@ -200,16 +220,20 @@ class TestQueries:
         assert count == 1
 
     def test_compute_window(self, zen_db):
-        insert_zen_items(zen_db, [
-            (1, "First", "yoke", "done", "2025-03-10 12:00:00"),
-            (2, "Second", "yoke", "done", "2025-06-01 08:00:00"),
-        ])
+        insert_zen_items(
+            zen_db,
+            [
+                (1, "First", "yoke", "done", "2025-03-10 12:00:00"),
+                (2, "Second", "yoke", "done", "2025-06-01 08:00:00"),
+            ],
+        )
         with BoardDB(zen_db) as db:
             window = _zen_compute_window(db, "yoke")
-        assert window == "2025-03-10"
+        assert window == datetime(2025, 3, 10, tzinfo=timezone.utc)
 
 
 # -- integration test ----------------------------------------------------------
+
 
 class TestRenderZenWidget:
     def test_hidden_when_never(self, zen_db):
@@ -219,20 +243,26 @@ class TestRenderZenWidget:
         assert lines == []
 
     def test_hidden_when_idle_with_active(self, zen_db):
-        insert_zen_items(zen_db, [
-            (1, "Done item", "yoke", "done", "2025-01-15"),
-        ])
+        insert_zen_items(
+            zen_db,
+            [
+                (1, "Done item", "yoke", "done", "2025-01-15"),
+            ],
+        )
         cfg = BoardConfig(timeline_widget="idle")
         with BoardDB(zen_db) as db:
             lines = render_zen_widget(db, cfg, "", 1, 0, 0)
         assert lines == []
 
     def test_renders_with_done_items(self, zen_db):
-        insert_zen_items(zen_db, [
-            (1, "Board renderer", "yoke", "done", "2025-01-15"),
-            (2, "Config parser", "yoke", "done", "2025-02-01"),
-            (3, "Deploy script", "yoke", "done", "2025-03-01"),
-        ])
+        insert_zen_items(
+            zen_db,
+            [
+                (1, "Board renderer", "yoke", "done", "2025-01-15"),
+                (2, "Config parser", "yoke", "done", "2025-02-01"),
+                (3, "Deploy script", "yoke", "done", "2025-03-01"),
+            ],
+        )
         cfg = BoardConfig(timeline_widget="always")
         with BoardDB(zen_db) as db:
             lines = render_zen_widget(db, cfg, "", 5, 3, 10)
@@ -241,10 +271,13 @@ class TestRenderZenWidget:
         assert "●" in combined or "━" in combined
 
     def test_render_honors_project_scope(self, zen_db):
-        insert_zen_items(zen_db, [
-            (1, "Yoke done", "yoke", "done", "2025-01-15"),
-            (2, "ExternalWebapp done", "externalwebapp", "done", "2025-01-15"),
-        ])
+        insert_zen_items(
+            zen_db,
+            [
+                (1, "Yoke done", "yoke", "done", "2025-01-15"),
+                (2, "ExternalWebapp done", "externalwebapp", "done", "2025-01-15"),
+            ],
+        )
         cfg = BoardConfig(timeline_widget="always")
         with BoardDB(zen_db) as db:
             lines = render_zen_widget(db, cfg, "externalwebapp", 0, 0, 0)
