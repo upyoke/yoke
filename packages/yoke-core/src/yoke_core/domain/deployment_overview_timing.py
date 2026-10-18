@@ -49,7 +49,9 @@ def timed_overview(function):
         try:
             with timing_scope("", collect=True) as records:
                 with start_step("shipping_overview") as facts:
-                    facts.update(request_id=str(request.request_id), **trace_context())
+                    facts.update(**trace_context())
+                    if request.request_id is not None:
+                        facts["request_id"] = str(request.request_id)
                     try:
                         outcome = function(request)
                         rows = outcome.result_payload.get("rows") or []
