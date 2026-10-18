@@ -174,6 +174,10 @@ def run_event(
         )
         if controls is not None:
             controls.final_outcome = "deny" if denied else "allow"
+            if controls.remote and not denied:
+                controls.degraded.append(
+                    f"{FAILURE_PREFIX}hook_scope_unavailable:{exc}; repair the declared guard scope and retry"
+                )
             controls.denial_audit = (
                 {
                     "hook": "hook_scope",

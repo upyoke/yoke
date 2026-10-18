@@ -38,8 +38,9 @@ def test_broken_scope_local_subset_allows_lifecycle(executor, event, capsys):
 
 @pytest.mark.parametrize("executor", ["claude-code", "codex", "cursor"])
 @pytest.mark.parametrize("event", ["Stop", "SessionStart", "SessionEnd"])
+@pytest.mark.parametrize("remote", [False, True])
 def test_broken_scope_shared_runner_allows_lifecycle(
-    executor, event, monkeypatch, capsys
+    executor, event, remote, monkeypatch, capsys
 ):
     from yoke_core.hooks import runner
     from yoke_core.hooks.capability_resolve import resolve_capability
@@ -49,6 +50,13 @@ def test_broken_scope_shared_runner_allows_lifecycle(
     controls = RunControls(
         project_scope=HookProjectScope(failure="project_key_invalid")
     )
+    controls.remote = remote
+    if remote:
+        monkeypatch.setattr(
+            runner,
+            "chain_for",
+            lambda *_a: ["yoke_core.domain.lint_missing_guard_scope"],
+        )
     text, code = runner.run_event(
         event,
         capability=resolve_capability(executor),
@@ -61,6 +69,7 @@ def test_broken_scope_shared_runner_allows_lifecycle(
     )
     assert controls.final_outcome == "allow"
     assert controls.denial_audit == {}
+    assert bool(controls.degraded) is remote
     assert "repair" in capsys.readouterr().err
 
 
