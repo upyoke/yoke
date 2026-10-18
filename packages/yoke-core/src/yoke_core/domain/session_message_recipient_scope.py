@@ -1,18 +1,13 @@
-"""Stored recipient ownership, policy lookup and actor read permission."""
+"""Stored recipient ownership and the policy that owner supplies."""
 
 from collections.abc import Mapping
 from typing import Any
 
-from yoke_core.domain.actor_permissions import PERM_ITEMS_READ
 from yoke_core.domain.session_message_authorization import (
     MessageScopePolicy,
-    can_read_project,
     scope_policy,
 )
-from yoke_core.domain.session_scope_identity import (
-    actor_may_operate_session,
-    session_scope_of,
-)
+from yoke_core.domain.session_scope_identity import session_scope_of
 
 
 def recipient_owner(session_row: Mapping[str, Any]) -> tuple[int | None, int | None]:
@@ -32,17 +27,3 @@ def owner_key(row: Mapping[str, Any]) -> tuple[str, int]:
 def recipient_policy(conn: Any, row: Mapping[str, Any]) -> MessageScopePolicy:
     project_id, org_id = recipient_owner(row)
     return scope_policy(conn, project_id=project_id, org_id=org_id)
-
-
-def actor_reads_recipient(conn: Any, *, actor_id: int, row: Mapping[str, Any]) -> bool:
-    """Apply target project permission or org ownership/read permission."""
-    scope = session_scope_of(row)
-    if scope.project_id is not None:
-        return can_read_project(conn, actor_id=actor_id, project_id=scope.project_id)
-    return actor_may_operate_session(
-        conn,
-        actor_id=actor_id,
-        scope=scope,
-        session_actor_id=dict(row).get("actor_id"),
-        permission_key=PERM_ITEMS_READ,
-    )

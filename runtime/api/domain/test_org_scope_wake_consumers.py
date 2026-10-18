@@ -26,11 +26,9 @@ from yoke_core.domain import session_wake_deferral as deferral
 from yoke_core.domain import session_wake_reconciliation as reconciliation
 from yoke_core.domain import session_operator_wake_notice as operator
 from yoke_core.domain import session_wake_failure_notice as failure
-from yoke_core.domain import actor_permissions, db_helpers
-from yoke_core.domain.actors import seed_human_actor
+from yoke_core.domain import db_helpers
 from yoke_core.domain.session_message_authorization import scope_policy
 from yoke_core.domain.session_message_recipient_scope import (
-    actor_reads_recipient,
     owner_key,
     recipient_owner,
     recipient_policy,
@@ -81,22 +79,12 @@ def test_scope_policy_rejects_both_and_neither(world, scope):
         scope_policy(world[0], **scope)
 
 
-def test_actor_reads_org_recipient_owner_and_org_operator_only(world):
-    conn, owner, foreign = world
+def test_org_recipient_owner_keeps_a_distinct_policy_key(world):
+    conn, _, _ = world
     row = dict(
         conn.execute("SELECT * FROM harness_sessions WHERE session_id='own'").fetchone()
     )
     assert recipient_owner(row) == (None, row["org_id"])
-    assert actor_reads_recipient(conn, actor_id=owner, row=row)
-    assert not actor_reads_recipient(conn, actor_id=foreign, row=row)
-    reader = seed_human_actor(conn, "Org reader")
-    actor_permissions.grant_actor_org_role(
-        conn,
-        actor_id=reader,
-        org_id=row["org_id"],
-        role_name=actor_permissions.ROLE_OPERATOR,
-    )
-    assert actor_reads_recipient(conn, actor_id=reader, row=row)
     assert owner_key(row) != owner_key({"project_id": row["org_id"], "org_id": None})
 
 
