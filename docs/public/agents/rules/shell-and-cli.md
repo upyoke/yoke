@@ -25,7 +25,8 @@ stranded lane is advisory; `2>&1` names no file and is not a write target.
 Computed Python writes rooted in OS scratch paths, including
 `tempfile.TemporaryDirectory()` and `tempfile.mkdtemp()`, do not substitute
 main cwd for an unresolved scratch destination. Explicit source targets and
-unresolved non-scratch writes still receive the usual checks.
+unresolved non-scratch writes still receive the usual checks. Registered
+checkouts and their lanes retain protection even when stored under a temp root.
 `# lint:no-worktree-path-check` is audit-only; deliberate main-write exceptions
 use the documented `# lint:allow-lane-main-write` authority. Read
 [lane rules](lanes-and-claims.md) before resolving an overlap or exception.

@@ -46,7 +46,9 @@ class PythonWriteAnalysis:
     free_writes: bool = False
 
 
-def analyze_python_heredoc_writes(command: str) -> PythonWriteAnalysis:
+def analyze_python_heredoc_writes(
+    command: str, *, protected_roots: Tuple[str, ...] = ()
+) -> PythonWriteAnalysis:
     """Parse executable Python heredoc bodies and return literal destinations."""
     targets: List[str] = []
     unresolved: List[str] = []
@@ -57,7 +59,7 @@ def analyze_python_heredoc_writes(command: str) -> PythonWriteAnalysis:
             tree = ast.parse(source)
         except (SyntaxError, ValueError):
             continue
-        visitor = _PythonWriteVisitor()
+        visitor = _PythonWriteVisitor(protected_roots)
         visitor.visit(tree)
         targets.extend(visitor.targets)
         unresolved.extend(visitor.unresolved_writes)
@@ -88,7 +90,8 @@ def _dedupe(paths: List[str]) -> Tuple[str, ...]:
 
 
 class _PythonWriteVisitor(ast.NodeVisitor):
-    def __init__(self) -> None:
+    def __init__(self, protected_roots: Tuple[str, ...]) -> None:
+        self.protected_roots = tuple(posixpath.normpath(p) for p in protected_roots)
         self.bindings: dict[str, str] = {}
         self.targets: List[str] = []
         self.unresolved_writes: List[str] = []
@@ -148,6 +151,12 @@ class _PythonWriteVisitor(ast.NodeVisitor):
         path = self._path_value(node)
         if path is not None:
             normalized = posixpath.normpath(path)
+            # A managed checkout may itself live under an OS temp root.
+            if any(
+                normalized == p or normalized.startswith(p + "/")
+                for p in self.protected_roots
+            ):
+                return False
             return any(
                 normalized == p or normalized.startswith(p + "/")
                 for p in STATIC_FREE_PATH_PREFIXES

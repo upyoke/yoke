@@ -191,6 +191,8 @@ class PayloadWriteTargets:
 
 def analyze_payload_write_targets(
     payload: Mapping[str, Any],
+    *,
+    protected_roots: Tuple[str, ...] = (),
 ) -> PayloadWriteTargets:
     """Return write-position paths for a payload with resolution detail."""
     if not isinstance(payload, Mapping):
@@ -211,7 +213,9 @@ def analyze_payload_write_targets(
 
     shell_targets, unresolved = _extract_shell_write_targets(command)
     out.extend(shell_targets)
-    python_writes = analyze_python_heredoc_writes(command)
+    python_writes = analyze_python_heredoc_writes(
+        command, protected_roots=protected_roots
+    )
     out.extend(python_writes.targets)
     return PayloadWriteTargets(
         _dedupe_paths(out),

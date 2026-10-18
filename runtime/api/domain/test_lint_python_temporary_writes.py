@@ -86,3 +86,17 @@ def test_dynamic_child_of_temporary_directory_is_scratch():
 def test_positional_tempfile_checkout_directory_is_checked():
     result = analyze("import tempfile\nroot=tempfile.mkdtemp('', 'capture-', '/repo')")
     assert result.targets == ["/repo"]
+
+
+def test_registered_checkout_under_temp_is_not_scratch():
+    result = analyze_payload_write_targets(
+        {
+            "tool_name": "Bash",
+            "tool_input": {
+                "command": "python3 - <<'PY'\nfrom pathlib import Path\nroot=Path('/tmp/checkout/.worktrees/lane')\n(root / filename).write_text('x')\nPY"
+            },
+        },
+        protected_roots=("/tmp/checkout",),
+    )
+    assert not result.unresolved_variable
+    assert result.unresolved_writes == ("(root / filename).write_text(...)",)
