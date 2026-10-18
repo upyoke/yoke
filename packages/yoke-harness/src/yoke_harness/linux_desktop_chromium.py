@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import shlex
 import shutil
-import signal
+import signal as signal
 import subprocess
 import sys
 import time
@@ -14,9 +14,14 @@ from urllib.request import urlopen
 
 from yoke_harness.linux_devtools_page import DevToolsPage  # host: prepended source
 from yoke_harness.machine_browser_approval import CONNECTED_CONFIRMATION
+from yoke_harness import linux_chromium_processes as native_processes
 
 CHROMIUM_EXECUTABLES = ("chromium", "chromium-browser", "/snap/bin/chromium")
-CHROMIUM_DESKTOP_ENTRIES = ("chromium.desktop", "chromium-browser.desktop", "chromium_chromium.desktop")
+CHROMIUM_DESKTOP_ENTRIES = (
+    "chromium.desktop",
+    "chromium-browser.desktop",
+    "chromium_chromium.desktop",
+)
 DEVTOOLS_READY_SECONDS = 20
 QUIT_WAIT_SECONDS = 30
 TAB_WAIT_SECONDS = 15
@@ -26,34 +31,13 @@ POLL_SECONDS = 0.25
 PROVISION = "Provision the desktop with the Machine QA Pack's ops/machine-qa/provision_linux_desktop.py (linux-host-provisioning.md section 4); it installs Chromium and makes it the default browser. Then rerun."
 
 
-class ChromiumRefusal(RuntimeError):
-    def __init__(self, reason, recovery):
-        super().__init__(reason)
-        self.reason = reason
-        self.recovery = recovery
+ChromiumRefusal = native_processes.ChromiumRefusal
+browser_pids = native_processes.browser_pids
 
 
 def user_data_dirs():
     config = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
     return (config / "chromium", Path.home() / "snap/chromium/common/chromium")
-
-
-def browser_pids():
-    pids = []
-    for process in Path("/proc").iterdir():
-        if not process.name.isdigit():
-            continue
-        try:
-            if process.stat().st_uid != os.getuid():
-                continue
-            if "chromium" not in os.readlink(process / "exe"):
-                continue
-            argv = (process / "cmdline").read_bytes().split(b"\0")
-        except OSError:
-            continue
-        if not any(arg.startswith(b"--type=") for arg in argv):
-            pids.append(int(process.name))
-    return pids
 
 
 def _get_json(port, path):
@@ -73,21 +57,9 @@ def devtools_port():
 
 
 def quit_chromium():
-    pids = browser_pids()
-    for pid in pids:
-        try:
-            os.kill(pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-    deadline = time.monotonic() + QUIT_WAIT_SECONDS
-    while browser_pids():
-        if time.monotonic() >= deadline:
-            raise ChromiumRefusal(
-                "linux_desktop_chromium_quit_not_proved",
-                "Close every Chromium window on the test machine's desktop, answering any prompt it shows, then retry. Chromium was asked to quit and was not force-killed, so its unsaved sign-ins are still in memory.",
-            )
-        time.sleep(POLL_SECONDS)
-    return bool(pids)
+    return native_processes.quit_processes(
+        browser_pids, QUIT_WAIT_SECONDS, POLL_SECONDS
+    )
 
 
 _DESKTOP_XDG_MARK = "YOKE_DESKTOP_XDG:"
@@ -148,8 +120,15 @@ def _default_browser():
 def _desktop_exec(name, env):
     if not name or Path(name).name != name:
         return None
-    roots = [Path(env.get("XDG_DATA_HOME") or Path.home() / ".local/share"), Path("/var/lib/snapd/desktop")]
-    roots += [Path(part) for part in env.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share").split(":") if part]
+    roots = [
+        Path(env.get("XDG_DATA_HOME") or Path.home() / ".local/share"),
+        Path("/var/lib/snapd/desktop"),
+    ]
+    roots += [
+        Path(part)
+        for part in env.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share").split(":")
+        if part
+    ]
     for root in roots:
         entry = root / "applications" / name
         if not entry.is_file():
@@ -157,13 +136,27 @@ def _desktop_exec(name, env):
         lines = entry.read_text(errors="replace").splitlines()
         if any(line.strip().lower() == "hidden=true" for line in lines):
             return []
-        exec_line = next((line.strip()[5:] for line in lines if line.strip().startswith("Exec=")), "")
-        return [part for part in shlex.split(exec_line) if part and not part.startswith("%")] if exec_line else []
+        exec_line = next(
+            (line.strip()[5:] for line in lines if line.strip().startswith("Exec=")), ""
+        )
+        return (
+            [
+                part
+                for part in shlex.split(exec_line)
+                if part and not part.startswith("%")
+            ]
+            if exec_line
+            else []
+        )
     return None
 
 
 def _chromium_launcher(found):
-    return found if found and Path(found).name in {"chromium", "chromium-browser"} else None
+    return (
+        found
+        if found and Path(found).name in {"chromium", "chromium-browser"}
+        else None
+    )
 
 
 def _chromium_from(command, env):
@@ -174,7 +167,9 @@ def _chromium_from(command, env):
     launched = _chromium_launcher(found)
     if launched:
         return launched
-    names = {Path(command[0]).name, Path(found).name} if found else {Path(command[0]).name}
+    names = (
+        {Path(command[0]).name, Path(found).name} if found else {Path(command[0]).name}
+    )
     if names.isdisjoint(_DISPATCHERS):
         return None
     return _chromium_launcher(shutil.which("x-www-browser", path=path))
@@ -189,14 +184,25 @@ def _session_chromium(default):
         env = _desktop_env()
         command = _desktop_exec(default, env)
     if not command:
-        command = next((hit for name in CHROMIUM_DESKTOP_ENTRIES if (hit := _desktop_exec(name, env))), None)
+        command = next(
+            (
+                hit
+                for name in CHROMIUM_DESKTOP_ENTRIES
+                if (hit := _desktop_exec(name, env))
+            ),
+            None,
+        )
     return _chromium_from(command, env)
+
 
 def prepare():
     default = _default_browser()
     executable = _session_chromium(default)
     if executable is None and default not in CHROMIUM_DESKTOP_ENTRIES:
-        raise ChromiumRefusal("linux_desktop_default_browser_not_chromium", f"The installer opens approval links in the desktop's default browser, which is {default or 'unset'}. {PROVISION}")
+        raise ChromiumRefusal(
+            "linux_desktop_default_browser_not_chromium",
+            f"The installer opens approval links in the desktop's default browser, which is {default or 'unset'}. {PROVISION}",
+        )
     if devtools_port() is not None:
         return {"chromium": "reused"}
     if executable is None:
@@ -224,9 +230,7 @@ def prepare():
 
 
 def _pages(port):
-    return [
-        page for page in _get_json(port, "/json/list") if page.get("type") == "page"
-    ]
+    return [p for p in _get_json(port, "/json/list") if p.get("type") == "page"]
 
 
 def _port():
@@ -314,6 +318,11 @@ def approve(allowed_urls, label):
     return {"state": "approval_navigation_missing"}
 
 
+def _refuse(reason, recovery):
+    print(json.dumps({"ok": False, "reason": reason, "recovery": recovery}))
+    raise SystemExit(69)
+
+
 def main():
     command, arguments = sys.argv[1], sys.argv[2:]
     try:
@@ -330,21 +339,10 @@ def main():
                 "linux_desktop_chromium_command_unknown", "Use a registered command."
             )
     except ChromiumRefusal as refusal:
-        print(
-            json.dumps(
-                {"ok": False, "reason": refusal.reason, "recovery": refusal.recovery}
-            )
-        )
-        raise SystemExit(69)
+        _refuse(refusal.reason, refusal.recovery)
     except (OSError, ValueError) as exc:
-        print(
-            json.dumps(
-                {
-                    "ok": False,
-                    "reason": "linux_desktop_chromium_devtools_failed",
-                    "recovery": f"DevTools failed: {exc}. Confirm desktop Chromium is running and responsive, then rerun.",
-                }
-            )
+        _refuse(
+            "linux_desktop_chromium_devtools_failed",
+            f"DevTools failed: {exc}. Confirm desktop Chromium is running and responsive, then rerun.",
         )
-        raise SystemExit(69)
     print(json.dumps({"ok": True, **result}))
