@@ -171,3 +171,31 @@ def test_self_heal_rewrites_only_on_difference_and_never_raises(tmp_path, monkey
     monkeypatch.setattr(machine_hooks, "ensure_harness", lambda *_a, **_k: 1 / 0)
     ensure_machine_hooks_for_executor("claude-code", hook="Stop")
     assert "machine-wide hooks were not checked" in capsys.readouterr().err
+
+
+def test_cursor_user_commands_avoid_the_bytes_its_hook_loader_mishandles():
+    from yoke_contracts.cursor_hook_command_bytes import (
+        CURSOR_HOOK_COMMAND_FORBIDDEN_SEQUENCES,
+    )
+    from yoke_harness.hooks.machine_hooks_render import render_user_hook_entries
+
+    rendered = render_user_hook_entries(HARNESS_MACHINE_HOOKS["cursor"])
+    for entries in rendered.values():
+        for entry in entries:
+            for sequence in CURSOR_HOOK_COMMAND_FORBIDDEN_SEQUENCES:
+                assert sequence not in entry["command"], (sequence, entry["command"])
+
+
+def test_current_entries_are_never_reformatted_or_reordered(tmp_path):
+    env = _env(tmp_path, ".codex")
+    path = _config(tmp_path, "codex")
+    ensure_machine_hooks(["codex"], env)
+    document = json.loads(path.read_text())
+    document["hooks"]["Stop"].append({"hooks": [{"type": "command", "command": "echo later"}]})
+    path.write_text(json.dumps(document, separators=(",", ":")))  # a harness's own formatting
+    text = path.read_text()
+
+    [result] = ensure_machine_hooks(["codex"], env)
+    assert result.outcome == "unchanged"
+    assert path.read_text() == text
+    assert [r.outcome for r in inspect_machine_hooks(env)] == ["installed"]

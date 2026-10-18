@@ -127,8 +127,23 @@ def _render(spec: HarnessMachineHooks, document: dict[str, Any]) -> dict[str, An
     return updated
 
 
+def _is_current(spec: HarnessMachineHooks, document: Mapping[str, Any]) -> bool:
+    """Yoke's entries match the rendered set, wherever they sit in each list.
+
+    Formatting and a person's own entries are not Yoke's to normalize, so a
+    file that already holds exactly the rendered entries is never rewritten.
+    """
+    rendered = render_user_hook_entries(spec)
+    hooks = document.get("hooks", {})
+    for event in {*hooks, *rendered}:
+        mine = [e for e in hooks.get(event, []) if is_machine_hook_entry(e, spec)]
+        if mine != rendered.get(event, []):
+            return False
+    return spec.harness_id != "cursor" or document.get("version") == 1
+
+
 def _text(document: Mapping[str, Any]) -> str:
-    return json.dumps(document, indent=2) + "\n"
+    return json.dumps(document, indent=2, ensure_ascii=False) + "\n"
 
 
 def _write(path: Path, text: str) -> None:
@@ -188,11 +203,9 @@ def ensure_harness(
         return MachineHookResult(
             spec.harness_id, str(path), MALFORMED, _malformed_detail(path, reason)
         )
-    text = _text(_render(spec, document))
-    current = path.read_text(encoding="utf-8") if path.is_file() else ""
-    outcome = UNCHANGED if text == current else INSTALLED
+    outcome = UNCHANGED if path.is_file() and _is_current(spec, document) else INSTALLED
     if outcome == INSTALLED:
-        _write(path, text)
+        _write(path, _text(_render(spec, document)))
     if outcome == INSTALLED or trust_when_unchanged:
         failure = _trust(spec, environ, prune=False)
         if failure:
@@ -301,7 +314,7 @@ def inspect_machine_hooks(
             for entry in entries
         ):
             state, detail = STATE_MISSING, "run `yoke setup` to install them"
-        elif _text(_render(spec, document)) != path.read_text(encoding="utf-8"):
+        elif not _is_current(spec, document):
             state, detail = STATE_STALE, "run `yoke setup` to refresh them"
         elif spec.trust == "codex_trusted_hash" and not _codex_trusted(spec, environ):
             state, detail = STATE_UNTRUSTED, "run `yoke setup` to trust them"
@@ -330,6 +343,7 @@ __all__ = [
     "ensure_harness",
     "ensure_machine_hooks",
     "ensure_machine_hooks_for_executor",
+    "ensure_machine_hooks_reported",
     "inspect_machine_hooks",
     "not_installed",
     "remove_machine_hooks",
