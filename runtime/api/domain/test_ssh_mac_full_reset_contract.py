@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from yoke_harness.ssh_mac_preserved_state import OS_MANAGED_HOME_ENTRIES
 
-from pathlib import Path
-
 from runtime.api.domain.ssh_mac_full_reset_test_support import (
     run_zsh_syntax_if_available,
 )
@@ -17,6 +15,7 @@ from yoke_core.domain.ssh_mac_full_reset_contract import (
     STARTUP_FILE_NAMES,
     YOKE_ABSENT_RELATIVE_DIRECTORIES,
     YOKE_ABSENT_TEMP_FILES,
+    canonical_full_reset_path_contract,
     golden_baseline_clears_home,
     resolve_full_reset_path_contract,
 )
@@ -29,9 +28,16 @@ from yoke_harness.ssh_mac_full_reset_script import (
 
 
 def test_rendered_program_restores_a_baseline_rather_than_enumerating_residue() -> None:
-    assert STARTUP_FILE_NAMES == tuple(
-        str(path.relative_to("/"))
-        for path in path_doctor.supported_startup_files(Path("/"))
+    assert STARTUP_FILE_NAMES == (
+        ".zprofile",
+        ".zshenv",
+        ".zshrc",
+        ".zlogin",
+        ".bashrc",
+        ".bash_profile",
+        ".bash_login",
+        ".profile",
+        ".config/fish/config.fish",
     )
     assert FULL_DISK_ACCESS_PROBE_PATH in FULL_RESET_SCRIPT
     assert "assert_full_disk_access" in FULL_RESET_SCRIPT
@@ -58,6 +64,15 @@ def test_rendered_program_restores_a_baseline_rather_than_enumerating_residue() 
     assert run_zsh_syntax_if_available(FULL_RESET_SCRIPT) in (None,) or (
         run_zsh_syntax_if_available(FULL_RESET_SCRIPT).returncode == 0
     )
+
+
+def test_reference_reset_contract_is_host_independent_posix_state() -> None:
+    contract = canonical_full_reset_path_contract()
+    assert contract.home == "/"
+    assert contract.shell_path == "/bin/zsh"
+    assert contract.launcher_path == "/.local/bin/yoke"
+    assert all("\\" not in path for path in contract.tool_file_suffixes)
+    assert all("\\" not in path for path in contract.startup_file_suffixes)
 
 
 def test_preserved_levels_descend_exactly_as_far_as_a_protected_ancestor() -> None:

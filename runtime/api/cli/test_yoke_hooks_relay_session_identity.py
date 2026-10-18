@@ -26,7 +26,7 @@ from yoke_core.domain.lint_session_cwd_identity import (
     FAILURE_CLASS as IDENTITY_FAILURE_CLASS,
 )
 from yoke_core.domain.session_ambient_identity import AMBIENT_ENV_VARS
-from yoke_harness.hooks import cursor_lifecycle_hooks, relay
+from yoke_harness.hooks import machine_hooks, relay
 from yoke_harness.hooks.local_subset import LocalSubsetEvaluation
 from yoke_contracts.hook_runner.project_scope import HookProjectScope
 
@@ -48,7 +48,7 @@ def relay_capture(monkeypatch):
     monkeypatch.setattr(
         relay, "resolve_hook_project_scope", lambda _payload: HookProjectScope(1)
     )
-    monkeypatch.setattr(relay, "_client_lint_config_snapshot", lambda _payload: {})
+    monkeypatch.setattr(relay, "lint_config_snapshot", lambda _payload: {})
     monkeypatch.setattr(relay, "_record_client_anchor", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
         relay,
@@ -70,9 +70,9 @@ def relay_capture(monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        cursor_lifecycle_hooks,
-        "ensure_user_lifecycle_hooks_for_executor",
-        lambda _executor: None,
+        machine_hooks,
+        "ensure_machine_hooks_for_executor",
+        lambda *_a, **_k: None,
     )
 
     def request_json(request, **_kwargs):

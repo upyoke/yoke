@@ -16,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+from yoke_contracts import terminal_detached_process
 
 # Cap the on-disk cache horizon. Large enough to cover most project
 # ages; entries older than this fall off.
@@ -50,14 +51,14 @@ def _load_cache_file(cache_path: Path) -> Tuple[Dict[str, Dict], Dict[str, Dict]
     meta_raw = raw.pop(_META_KEY, {})
     meta = meta_raw if isinstance(meta_raw, dict) else {}
     cache = {
-        str(h): e for h, e in raw.items()
-        if isinstance(e, dict) and isinstance(h, str)
+        str(h): e for h, e in raw.items() if isinstance(e, dict) and isinstance(h, str)
     }
     return cache, meta
 
 
 def _cache_file_payload(
-    cache: Dict[str, Dict], meta: Dict[str, Dict],
+    cache: Dict[str, Dict],
+    meta: Dict[str, Dict],
 ) -> Dict[str, Dict]:
     payload: Dict[str, Dict] = dict(cache)
     payload[_META_KEY] = meta
@@ -102,8 +103,9 @@ def get_commit_data(repos: List[str]) -> Dict[str, Dict]:
         repo: any(e.get("repo") == repo for e in cache.values()) for repo in repos
     }
     now = time.time()
-    if all(repo_has_existing.get(repo) and _repo_fresh(repo, meta, now)
-           for repo in repos):
+    if all(
+        repo_has_existing.get(repo) and _repo_fresh(repo, meta, now) for repo in repos
+    ):
         _memo[key] = cache
         return cache
 
@@ -115,10 +117,19 @@ def get_commit_data(repos: List[str]) -> Dict[str, Dict]:
             h: e for h, e in cache.items() if e.get("repo") == repo
         }
         try:
-            listing = subprocess.run(
-                ["git", "-C", repo, "log", "--all",
-                 f"--since={since_date}", "--format=%H"],
-                capture_output=True, text=True, timeout=_LIST_TIMEOUT_SECONDS,
+            listing = terminal_detached_process.run(
+                [
+                    "git",
+                    "-C",
+                    repo,
+                    "log",
+                    "--all",
+                    f"--since={since_date}",
+                    "--format=%H",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=_LIST_TIMEOUT_SECONDS,
             )
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             return slice_cache
@@ -161,17 +172,29 @@ def get_commit_data(repos: List[str]) -> Dict[str, Dict]:
 
 
 def _populate_specific(
-    repo: str, hashes: List[str], cache: Dict[str, Dict],
+    repo: str,
+    hashes: List[str],
+    cache: Dict[str, Dict],
 ) -> None:
     """Populate *cache* with exactly the given *hashes* via ``--no-walk``."""
     if not hashes:
         return
     try:
-        result = subprocess.run(
-            ["git", "-C", repo, "log", "--no-walk",
-             "--format=COMMIT %H %ad", "--date=short", "--numstat",
-             *hashes],
-            capture_output=True, text=True, timeout=_POPULATE_TIMEOUT_SECONDS,
+        result = terminal_detached_process.run(
+            [
+                "git",
+                "-C",
+                repo,
+                "log",
+                "--no-walk",
+                "--format=COMMIT %H %ad",
+                "--date=short",
+                "--numstat",
+                *hashes,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=_POPULATE_TIMEOUT_SECONDS,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         return
@@ -183,10 +206,20 @@ def _populate_specific(
 def _bulk_populate(repo: str, since_date: str, cache: Dict[str, Dict]) -> None:
     """Populate *cache* with all *repo* commits since *since_date*."""
     try:
-        result = subprocess.run(
-            ["git", "-C", repo, "log", "--all", f"--since={since_date}",
-             "--format=COMMIT %H %ad", "--date=short", "--numstat"],
-            capture_output=True, text=True,
+        result = terminal_detached_process.run(
+            [
+                "git",
+                "-C",
+                repo,
+                "log",
+                "--all",
+                f"--since={since_date}",
+                "--format=COMMIT %H %ad",
+                "--date=short",
+                "--numstat",
+            ],
+            capture_output=True,
+            text=True,
             timeout=_BULK_POPULATE_TIMEOUT_SECONDS,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
@@ -229,7 +262,9 @@ def _ingest_numstat(repo: str, stdout: str, cache: Dict[str, Dict]) -> None:
 
 
 def _per_day(
-    repos: List[str], days: int, field: Optional[str],
+    repos: List[str],
+    days: int,
+    field: Optional[str],
 ) -> Dict[str, int]:
     """Bucket cache entries by day, summing *field* (or 1 if None)."""
     cache = get_commit_data(repos)

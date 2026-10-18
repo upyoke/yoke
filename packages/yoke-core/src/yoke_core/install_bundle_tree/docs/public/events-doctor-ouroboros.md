@@ -251,6 +251,17 @@ N/A; absent or unknown evidence is not a pass. Guidance checks prove installed
 configuration, while the session check requires both registration and confirmed
 hook delivery. Full-corpus audits remain in the full Doctor selection.
 
+Before onboarding, check only the session you are in:
+
+```bash
+yoke doctor run --session
+```
+
+This checks that the session is registered with confirmed hook delivery, and
+that its own harness CLI is signed in and runs `yoke` without approval
+prompts. Other installed harnesses do not block it. Agent setup ends with this
+check and `/yoke onboard` runs it first.
+
 ## Ouroboros
 
 Self-improvement loop: field-notes and observations → curate → doctor →

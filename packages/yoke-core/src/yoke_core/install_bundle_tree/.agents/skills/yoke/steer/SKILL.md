@@ -17,7 +17,7 @@ Itemless autonomous steering of a claimed strategy document, defaulting to
 CURRENT-PLAN. Read its intent, reconcile live frontier/reports, staff executors,
 and write current plan state. The coordinator never implements.
 
-Encode sequencing as item dependency edges. Before announcing live, confirm the run carried the commit. Check infra is used before taking work on it.
+Encode sequencing as item dependency edges, each the narrowest the work needs ([keep dependencies minimal](worker-lifecycle.md#1-encode-dependency-edges-before-availability)). Before announcing live, confirm the run carried the commit. Check infra is used before taking work on it.
 
 ## Phase map
 
@@ -47,7 +47,8 @@ Standing invariants:
 - Each item keeps its pinned workflow and routed next_step. Never convert or
   re-file it to fit a remembered workflow. Verify pin/full command before
   claiming a capability absent or filing replacement work.
-- New filing defaults to Dash; genuinely laneless/merge-free Task, required
+- New filing defaults to Dash; code project work is always Dash (Task
+  refuses projects with a code repository). Genuinely laneless Task, required
   Issue/Epic/Blitz structure, or operator direction are exceptions. Name
   --strategy-doc SLUG at intake. Workers merge; the steerer batches delivery
   at one verified source. Mandates prohibit worker deployment-run creation.
@@ -61,4 +62,6 @@ Standing invariants:
   document writes. Ask only at its explicit missing-document creation or
   reserved operator-decision gate.
 
-Start with scope-and-authority; follow one current phase at a time.
+Start with scope-and-authority. After both seat halves are held, read handoff
+mail, attach the fleet watcher ([watching.md](watching.md)), then begin
+[loop.md](loop.md). Follow one current phase at a time.

@@ -206,7 +206,7 @@ def test_page_counts_a_parked_steering_message_as_actionable() -> None:
 
 
 def test_page_counts_a_row_delivered_by_drain_as_actionable() -> None:
-    """``hand_to_seat`` never writes a session recipient for the new seat."""
+    """A drained row stays actionable until the seat acknowledges it."""
     conn = message_connection()
     sent = _say_steering(conn)
     _seat(conn, claim_id=11, session_id="s4")

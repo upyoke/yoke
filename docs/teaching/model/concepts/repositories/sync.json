@@ -2,7 +2,6 @@
  "id": "sync",
  "title": "Optional issue sync",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.10", "FIRST-USER.2"],
  "surface_refs": ["setup-agent", "setup-tui"],
  "commands": ["yoke items github-link", "yoke items github-sync", "yoke projects github-sync-mode repair", "yoke resync"],
  "functions": ["items.github_link", "items.github_sync", "projects.github_sync_mode.repair", "resync.compare_prefetch", "resync.epic_task_body", "resync.epic_task_github_issue_set", "resync.epic_task_repair_read", "resync.item_lookup", "resync.linkage_roster", "resync.linkage_rows"],

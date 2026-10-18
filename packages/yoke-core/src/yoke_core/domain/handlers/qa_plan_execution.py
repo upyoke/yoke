@@ -102,7 +102,6 @@ def handle_plan_execution_begin(
                     parsed.plan,
                     parsed.source_revision,
                     parsed.source_ref,
-                    parsed.checkout_path,
                 )
             ):
                 raise QaPlanExecutionStateError(
@@ -115,12 +114,16 @@ def handle_plan_execution_begin(
                 transition_id=parsed.transition_id,
                 deployment_stage=parsed.deployment_stage,
                 deployment_member_item_id=member_item_id,
+                checkout_path=parsed.checkout_path,
+                expected_branch=parsed.expected_branch,
                 machine=parsed.machine,
                 continue_mission=parsed.continue_mission,
                 actor_id=request.actor.actor_id,
                 session_id=request.actor.session_id,
             )
         result = plan_execution_view(conn, execution)
+        if execution.get("settled_review"):
+            result["settled_review"] = execution["settled_review"]
         if deployment_run_id is not None and parsed.deployment_stage:
             from yoke_core.domain.deployment_qa_start_identity import (
                 START_IDENTITY_FIELD,
@@ -309,6 +312,7 @@ def _finish_execution(
             reason=reason,
         )
         result = plan_execution_view(conn, execution)
+        result["release_reason"] = execution.get("release_reason")
     except ValueError as exc:
         conn.rollback()
         return _error("plan_execution_finish_failed", str(exc), "$.payload")

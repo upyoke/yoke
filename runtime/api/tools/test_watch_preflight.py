@@ -18,6 +18,15 @@ from yoke_core.tools.watch_entrypoints import WRAPPER_MAINS
     ("line", "expected"),
     [
         ('Deployment start timing: {"phase":"running"}', LineClass.METADATA),
+        (
+            'Deployment start timing: {"outcome": "pending", "step": "copy"}',
+            LineClass.METADATA,
+        ),
+        (
+            'Deployment start timing: {"outcome": "failed", "step": "copy"}',
+            LineClass.URGENT,
+        ),
+        ("Deployment start timing: not-json", LineClass.METADATA),
         ("engine artifact: wheel yoke_core.whl sha256:abc", LineClass.PROGRESS),
         ("COPY/CONVERGE yoke_alpha: starting rehearsal", LineClass.PROGRESS),
         ("converging yoke_alpha", LineClass.PROGRESS),

@@ -5,6 +5,5 @@
  "form": "State",
  "verification": "Source and fixed-fixture checks cover text/JSON bounds, page summaries and explicit full reads; deployed delivery is not yet proved.",
  "topics": ["items/authoring", "context/instructions", "context/bounded-command-reads"],
- "plan_refs": ["FIRST-USER.13", "FIRST-USER.28", "FIRST-USER.29", "FIRST-USER.35", "FIRST-USER.P6"],
  "position": 1
 }

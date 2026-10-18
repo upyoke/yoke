@@ -36,54 +36,24 @@ named as unproven rather than asserted.
 
 from __future__ import annotations
 
-from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
 
 from datetime import datetime
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Optional
 
-from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.deployment_qa_stage_outstanding import (
-    QaStageOutstanding,
-    qa_stage_outstanding,
+from yoke_core.domain.deployment_qa_manual_wake import (
+    ManualWakeRequirement,
 )
-from yoke_core.domain.deployment_qa_stage_wake_state import member_wake_states
 from yoke_core.domain.deployment_run_completion_preconditions import redrive_recovery
-from yoke_core.domain.deployment_run_driver_attachment import (
-    is_live,
-    parse_attachment,
-)
+from yoke_core.domain.deployment_run_red_requirements import RedRequirement
 from yoke_core.domain.deployment_run_unpassable_blocking_qa import (
     PinQaDiagnosis,
-    diagnose_unpassable_blocking_qa,
 )
 from yoke_core.domain.deployment_run_completion_preview import (
     CompletionPreview,
-    completion_preview,
 )
 from yoke_core.domain.runs import RunStatus
-from yoke_core.domain.schema_read_scope import composition_operation
-from yoke_core.domain.steering_fleet_report_deployment_run_facts import (
-    live_deployment_runs,
-    load_live_run_facts,
-    probe_report_tables,
-)
-from yoke_core.domain.steering_fleet_report_detectors import age_seconds
-
-
-@dataclass(frozen=True)
-class RedRequirement:
-    """One blocking requirement whose latest verdict is a determinate failure."""
-
-    requirement_id: int
-    verdict: str
-    #: The run member this requirement was scoped to, empty for a run-wide one.
-    member_ref: str = ""
-
-    def describe(self) -> str:
-        subject = self.member_ref or "run-wide"
-        return f"{subject} #{self.requirement_id} {self.verdict}"
 
 
 @dataclass(frozen=True)
@@ -140,6 +110,9 @@ class DeploymentRunProgress:
     #: ``yoke deployment-runs stages RUN``.
     member_lines: tuple[str, ...] = ()
     completion: CompletionPreview = CompletionPreview()
+    #: Open manual-wake requirements of waiting members: the stage driver
+    #: woke each owner to check the named evidence before running the case.
+    manual_wakes: tuple[ManualWakeRequirement, ...] = ()
 
     @property
     def needs_action(self) -> bool:
@@ -182,136 +155,7 @@ class DeploymentRunProgress:
         return redrive_recovery(self.run_id, unresolved=self.outstanding)
 
 
-def _answered(
-    raw: Optional[dict[str, Any]], *, now: datetime
-) -> Optional[AnsweredDecision]:
-    if raw is None:
-        return None
-    resolved_at = parse_stamp(raw.get("resolved_at"))
-    return AnsweredDecision(
-        request_id=int(raw["request_id"]),
-        action=str(raw.get("action") or ""),
-        resolved_at=resolved_at,
-        resolved_seconds=age_seconds(resolved_at, now),
-    )
-
-
-def _stage_lines(
-    conn: Any, qa: QaStageOutstanding, wakes: dict[int, str]
-) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """Run-subject wait lines verbatim; one counted line per waiting member."""
-    run_lines: list[str] = []
-    member_lines: list[str] = []
-    offset = 0
-    for member, count in zip(qa.waiting_members, qa.blocker_counts):
-        chunk = qa.lines[offset : offset + count]
-        offset += count
-        if member is None:
-            run_lines.extend(chunk)
-            continue
-        line = f"member {render_item_ref(conn, member)}: {count} blocker{'' if count == 1 else 's'}"
-        if wake := wakes.get(member):
-            line += f" — {wake}"
-        member_lines.append(line)
-    run_lines.extend(qa.lines[offset:])
-    return tuple(run_lines), tuple(member_lines)
-
-
-@composition_operation
-def run_progress(
-    conn: Any,
-    *,
-    project_id: int,
-    now: datetime,
-) -> tuple[DeploymentRunProgress, ...]:
-    """Every non-terminal run in the project, with what is holding it."""
-    tables = probe_report_tables(conn)
-    if not tables.has("deployment_runs"):
-        return ()
-    live = live_deployment_runs(conn, project_id=project_id)
-    if not live:
-        return ()
-    facts = load_live_run_facts(conn, runs=live, tables=tables)
-    rows = []
-    for run in live:
-        run_id = str(run["id"])
-        stage = str(run["current_stage"])
-        qa = (
-            qa_stage_outstanding(conn, run_id=run_id, stage_name=stage)
-            if run_id in facts.qa_stage_run_ids
-            else None
-        )
-        if qa is None:
-            unresolved = facts.unresolved.get(run_id, ())
-            outstanding = len(unresolved)
-            total_blocking = facts.totals.get(run_id, 0)
-        else:
-            outstanding = qa.waiting
-            total_blocking = qa.subjects
-        entered = facts.entered_at.get(run_id)
-        red = tuple(
-            RedRequirement(
-                requirement_id=int(item["requirement_id"]),
-                verdict=str(item["verdict"]),
-                member_ref=str(item.get("member_ref") or ""),
-            )
-            for item in facts.red.get(run_id, ())
-        )
-        attached = parse_attachment(run_id, run.get("driver_attachment"))
-        driver_phase = (
-            attached.phase
-            if attached is not None and is_live(attached, now=now)
-            else ""
-        )
-        waiting = [
-            member
-            for member in (qa.waiting_members if qa is not None else ())
-            if member is not None
-        ]
-        wakes = (
-            member_wake_states(
-                conn,
-                run_id=run_id,
-                stage_name=stage,
-                item_ids=waiting,
-                project_id=project_id,
-                driver_live=bool(driver_phase),
-            )
-            if waiting
-            else {}
-        )
-        member_lines: tuple[str, ...] = ()
-        if qa is not None:
-            unresolved, member_lines = _stage_lines(conn, qa, wakes)
-        rows.append(
-            DeploymentRunProgress(
-                run_id=run_id,
-                flow=str(run["flow"] or ""),
-                status=str(run["status"] or ""),
-                stage=stage or "unstarted",
-                stage_seconds=age_seconds(entered, now),
-                outstanding=outstanding,
-                total_blocking=total_blocking,
-                unresolved=unresolved,
-                no_obligation_lines=qa.no_obligation_lines if qa is not None else (),
-                red=red,
-                answered_decision=_answered(facts.decisions.get(run_id), now=now),
-                pin_qa=(
-                    diagnose_unpassable_blocking_qa(conn, run_id=run_id)
-                    if red
-                    else PinQaDiagnosis()
-                ),
-                driver_phase=driver_phase,
-                member_lines=member_lines,
-                completion=completion_preview(conn, run_id, run=run),
-            )
-        )
-    return tuple(rows)
-
-
 __all__ = [
     "AnsweredDecision",
     "DeploymentRunProgress",
-    "RedRequirement",
-    "run_progress",
 ]

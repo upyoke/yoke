@@ -23,6 +23,16 @@ from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.schema_read_scope import composition_operation
 from yoke_core.domain.workflow_item_binding_lock import lock_item_workflow_bindings
 
+#: Removal source for a member whose current candidate moved outside the
+#: frozen lineage at settlement; its newer work rides a later release.
+SETTLEMENT_REMOVED_BY = "settlement"
+REPLACED_REASON = "current candidate is not contained in this run's frozen lineage; awaiting a later release"
+
+#: Removal source for a member that left delivery readiness after the run
+#: froze and whose current candidate is outside the frozen lineage.
+REOPENED_REMOVED_BY = "reopened for rework"
+REOPENED_REASON = "left delivery readiness after this run froze and its current candidate is not contained in the frozen lineage; awaiting a later release"
+
 
 def _require_removable(conn: Any, run_id: str, item_id: int) -> str:
     """Keep ordinary composition mutable; narrow frozen edits to owed item QA."""
@@ -169,8 +179,8 @@ def remove_member_on(
         retract_orphaned_shared_copies,
     )
 
-    abort_removed_member_executions(conn, run_id=run_id, item_id=item_id)
-    retract_member_copies(conn, run_id, item_id=item_id, reason=reason)
+    aborted = abort_removed_member_executions(conn, run_id=run_id, item_id=item_id)
+    cancelled = retract_member_copies(conn, run_id, item_id=item_id, reason=reason)
     retract_orphaned_shared_copies(conn, run_id=run_id, reason=reason)
     from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
         withdraw_deployment_qa_wait_wakes,
@@ -188,6 +198,8 @@ def remove_member_on(
         public_ref=ref,
         reason=reason,
         removed_by=removed_by,
+        execution_aborted=aborted > 0,
+        cancelled_requirement_ids=cancelled,
     )
     return ref
 
@@ -274,13 +286,23 @@ def cmd_remove_item(
 
 
 def release_replaced_members(
-    conn: Any, run_id: str, members: list[dict[str, Any]]
-) -> None:
-    """At settlement, release only definite exclusions from the frozen candidate.
+    conn: Any,
+    run_id: str,
+    members: list[dict[str, Any]],
+    *,
+    unproven: dict[int, str] | None = None,
+) -> list[str]:
+    """Release only definite exclusions from the frozen candidate; name each.
 
-    Resolve repository comparisons before taking the run row; re-check identities
-    under the workflow-binding locks so a concurrent landing cannot be removed on
-    an answer about a different commit. Unknown containment remains a blocker.
+    Settlement passes members at their release wait; settlement and resume
+    both pass members marked ``reopened`` that left delivery readiness after
+    the run froze. Either is released when its recorded merge or active lane
+    head is outside the run's frozen lineage, bypassing the settled-QA guard
+    because the candidate this run carries is no longer the item's. Resolve
+    repository comparisons before taking the run row; re-check identities
+    under the workflow-binding locks so a concurrent landing cannot be removed
+    on an answer about a different commit. Unknown containment remains a
+    blocker and is collected in *unproven*.
     """
     from yoke_core.domain.dash_lane_head_staleness import active_lane_head
     from yoke_core.domain.delivery_evidence_ladder import item_merge_identity
@@ -288,12 +310,17 @@ def release_replaced_members(
         candidate_exclusions,
     )
 
-    excluded = candidate_exclusions(conn, run_id, members, include_lane_head=True)
+    excluded = candidate_exclusions(
+        conn, run_id, members, include_lane_head=True, unproven=unproven
+    )
     if not excluded:
-        return
+        return []
+    reopened = {int(m["item_id"]) for m in members if m.get("reopened")}
     status, held = lock_run_with_stable_membership(conn, run_id)
-    if status != "executing":
-        return
+    if status not in {"created", "executing", "failed"}:
+        conn.commit()
+        return []
+    released: list[str] = []
     for item_id, merge, head in excluded:
         if (
             item_id not in held
@@ -301,9 +328,15 @@ def release_replaced_members(
             or active_lane_head(conn, item_id) != head
         ):
             continue
-        reason = "current candidate is not contained in this run's frozen lineage; awaiting a later release"
-        ref = remove_member_on(
-            conn, run_id, item_id, reason=reason, removed_by="settlement"
+        removed_by, reason = (
+            (REOPENED_REMOVED_BY, REOPENED_REASON)
+            if item_id in reopened
+            else (SETTLEMENT_REMOVED_BY, REPLACED_REASON)
         )
-        print(f"Released {ref} from settling run {run_id}: {reason}.")
+        ref = remove_member_on(
+            conn, run_id, item_id, reason=reason, removed_by=removed_by
+        )
+        print(f"Released {ref} from run {run_id}: {reason}.")
+        released.append(ref)
     conn.commit()
+    return released

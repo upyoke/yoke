@@ -44,6 +44,9 @@ def build_execution_roster(
     deployment_member_item_id: int | None = None,
     execution_target_digest: str | None = None,
     host_capability_kinds: Any | None = None,
+    checkout_path: str | None = None,
+    expected_branch: str | None = None,
+    session_id: str = "",
 ) -> list[dict[str, Any]]:
     """Capture the complete immutable execution context in server order."""
     from yoke_core.domain.qa_case_execution_context import (
@@ -71,6 +74,9 @@ def build_execution_roster(
             conn,
             requirement_id=int(order["requirement_id"]),
             host_capability_kinds=host_capability_kinds,
+            checkout_path=checkout_path,
+            expected_branch=expected_branch,
+            session_id=session_id,
         )
         roster.append(
             {
@@ -159,32 +165,11 @@ def select_plan_execution(
     row = _row_dict(cursor, cursor.fetchone())
     if row is None:
         raise QaPlanExecutionStateError(f"QA plan execution {execution_id!r} not found")
-    row["cursor_ordinal"] = int(row["cursor_ordinal"])
-    if row.get("item_id") is not None:
-        row["item_id"] = int(row["item_id"])
-    if row.get("machine_lease_id") is not None:
-        row["machine_lease_id"] = int(row["machine_lease_id"])
-    if row.get("deployment_member_item_id") is not None:
-        row["deployment_member_item_id"] = int(row["deployment_member_item_id"])
-    try:
-        roster = json.loads(str(row["roster_json"]))
-    except (TypeError, ValueError) as exc:
-        raise QaPlanExecutionStateError(
-            "QA plan execution contains an invalid roster snapshot"
-        ) from exc
-    if not isinstance(roster, list) or any(
-        not isinstance(value, dict) for value in roster
-    ):
-        raise QaPlanExecutionStateError(
-            "QA plan execution contains an invalid roster snapshot"
-        )
-    row["roster"] = roster
     from yoke_core.domain.qa_plan_execution_target_snapshot import (
-        validate_execution_snapshot,
+        materialized_execution,
     )
 
-    row["execution_target"] = validate_execution_snapshot(row, roster)
-    return row
+    return materialized_execution(row)
 
 
 def lock_plan_execution(conn: Any, execution_id: str) -> dict[str, Any]:
@@ -329,6 +314,7 @@ def plan_execution_view(
         "remaining_requirement_count": execution.get("remaining_requirement_count"),
         "requirements": list(execution["roster"]),
         "results": result_rows(conn, str(execution["id"])),
+        "host_free_cases_ahead": True,  # recorded ahead while a host queues
     }
 
 

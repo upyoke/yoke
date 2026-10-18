@@ -1,4 +1,24 @@
-"""Deduplicate hook configs that Cursor loads from multiple owners."""
+"""Run exactly one Yoke hook when several configs fire the same event.
+
+Two cases produce duplicates, and one rule-reading pass handles both before
+any evaluation or server call:
+
+* A machine-wide hook (owner ``<harness>-user``, from the harness's user
+  config) steps aside when that harness's project config for the session
+  folder holds a Yoke entry for the same native event. This holds for every
+  harness and every event, tool events included. A project file "owns" an
+  event through any ``yoke hook evaluate <Verb>`` command that is not itself
+  a machine-wide entry, so older project renders without an owner marker
+  still count.
+* Cursor also imports Claude hook configs. The imported user-level Claude
+  hook steps aside on any event Cursor's own project or user config owns,
+  tool events included, because Cursor fires both. An imported project-level
+  Claude hook steps aside only on the events Cursor fires on both configs;
+  for tool events the imported project config can be the only one fired.
+
+A config the harness would reject does not own anything: skipping in its
+favour would drop the only invocation the event produces.
+"""
 
 from __future__ import annotations
 
@@ -6,31 +26,30 @@ import json
 import re
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
+from yoke_contracts.harness_machine_hooks import (
+    HARNESS_BY_USER_OWNER,
+    HARNESS_MACHINE_HOOKS,
+    HarnessMachineHooks,
+    entry_commands,
+)
 from yoke_contracts.hook_runner.config_owner import (
+    CLAUDE_CONFIG_OWNER,
     CONFIG_OWNER_ENV_VAR,
     CURSOR_COMPATIBILITY_RUNNER_ALIASES,
     CURSOR_DUAL_CONFIG_RUNNER_EVENTS,
     CURSOR_EXECUTOR_ID,
-    CURSOR_LIFECYCLE_COMMAND_MARKERS,
-    CURSOR_NATIVE_RUNNER_EVENTS,
-    CURSOR_PROJECT_CONFIG_OWNER,
-    CURSOR_USER_LIFECYCLE_OWNER,
     EXECUTOR_ENV_VAR,
     is_cursor_hook_payload,
     is_cursor_imported_claude_hook,
 )
 
-
-_CURSOR_EVENTS_BY_RUNNER_EVENT = {
-    runner_event: tuple(
-        native_event
-        for native_event, candidate in CURSOR_NATIVE_RUNNER_EVENTS
-        if candidate == runner_event
-    )
-    for runner_event in {candidate for _, candidate in CURSOR_NATIVE_RUNNER_EVENTS}
-}
+_USER_OWNER_PATTERN = re.compile(
+    rf"(?<![\w-]){re.escape(CONFIG_OWNER_ENV_VAR)}="
+    rf"(?:{'|'.join(re.escape(owner) for owner in HARNESS_BY_USER_OWNER)})(?![\w-])"
+)
+_FOLDER_ENV_VARS = ("CLAUDE_PROJECT_DIR", "CURSOR_PROJECT_DIR")
 
 
 def _payload(stdin_data: str) -> dict[str, Any]:
@@ -41,101 +60,117 @@ def _payload(stdin_data: str) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
-def _cursor_config_owns_event(
-    root: Path,
-    event_name: str,
-    owner: str,
-    *,
-    accepted_markers: tuple[str, ...] = (),
-) -> bool:
-    native_verb = CURSOR_COMPATIBILITY_RUNNER_ALIASES.get(
-        event_name,
-        event_name,
-    )
-    native_events = _CURSOR_EVENTS_BY_RUNNER_EVENT.get(native_verb)
-    if not native_events:
-        return False
-    # Every hook process imports this module; only Cursor invocations read
-    # a config file, so only they pay for the installer's schema validator.
+def _evaluate_pattern(verb: str) -> re.Pattern[str]:
+    return re.compile(rf"(?<![\w-])yoke\s+hook\s+evaluate\s+{re.escape(verb)}(?![\w-])")
+
+
+def _hooks_block(path: Path, harness_id: str) -> Optional[dict[str, Any]]:
+    """The file's hook map, or None when the harness would not load it."""
+    if not path.is_file():
+        return None  # Outside a project this is the whole cost of the rule.
+    # Only a present config pays for the installer's schema validator.
     from yoke_cli.filesystem_safety import first_symlink_component
     from yoke_cli.project_install.files import ProjectInstallError
     from yoke_cli.project_install.hook_schema import (
         HOOK_FORMAT_CURSOR,
+        HOOK_FORMAT_NESTED,
         validate_hooks_subtree,
     )
 
-    relative = Path(".cursor/hooks.json")
-    config_path = root / relative
-    if (
-        first_symlink_component(root, config_path, include_leaf=True)
-        or not config_path.is_file()
+    if harness_id == "cursor" and first_symlink_component(
+        path.parent.parent, path, include_leaf=True
     ):
-        return False
+        return None  # Cursor refuses a hook config reached through a symlink.
     try:
-        document = json.loads(config_path.read_text(encoding="utf-8"))
-        if not isinstance(document, dict) or document.get("version") != 1:
-            return False
+        document = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(document, dict):
+            return None
+        if harness_id == "cursor" and document.get("version") != 1:
+            return None
         hooks = document.get("hooks")
         validate_hooks_subtree(
             hooks,
-            label=f"{config_path} hooks",
-            entry_format=HOOK_FORMAT_CURSOR,
+            label=f"{path} hooks",
+            entry_format=HOOK_FORMAT_CURSOR if harness_id == "cursor" else HOOK_FORMAT_NESTED,
         )
-        if not isinstance(hooks, dict):
-            return False
     except (OSError, UnicodeError, ValueError, ProjectInstallError):
+        return None
+    return hooks if isinstance(hooks, dict) else None
+
+
+def _config_owns(
+    path: Path,
+    spec: HarnessMachineHooks,
+    verb: str,
+    *,
+    owner: Optional[str] = None,
+) -> bool:
+    """Whether *path* holds a Yoke entry for every native event of *verb*.
+
+    With *owner*, the entry must carry that owner; without it, any Yoke entry
+    that is not a machine-wide one counts.
+    """
+    native_events = spec.native_events_for(verb)
+    hooks = _hooks_block(path, spec.harness_id) if native_events else None
+    if hooks is None:
         return False
-    owner_marker = f"{CONFIG_OWNER_ENV_VAR}={owner}"
-    marker_pattern = re.compile(rf"(?<![\w=-]){re.escape(owner_marker)}(?![\w=-])")
-    evaluate_pattern = re.compile(
-        rf"(?<![\w-])yoke\s+hook\s+evaluate\s+"
-        rf"{re.escape(native_verb)}(?![\w-])"
-    )
+    evaluate = _evaluate_pattern(verb)
+    marker = f"{CONFIG_OWNER_ENV_VAR}={owner}" if owner else ""
+
+    def counts(command: str) -> bool:
+        if not evaluate.search(command):
+            return False
+        return marker in command if marker else not _USER_OWNER_PATTERN.search(command)
+
     return all(
-        any(
-            isinstance(entry, dict)
-            and isinstance(entry.get("command"), str)
-            and marker_pattern.search(entry["command"])
-            and evaluate_pattern.search(entry["command"])
-            and (
-                not accepted_markers
-                or any(marker in entry["command"] for marker in accepted_markers)
-            )
-            for entry in hooks.get(native_event, [])
-        )
-        for native_event in native_events
+        any(counts(command) for entry in hooks.get(native, []) for command in entry_commands(entry))
+        for native in native_events
     )
 
 
-def _project_cursor_config_owns_event(
-    event_name: str,
-    environment: Mapping[str, str],
-    payload: Mapping[str, Any],
+def _session_folder(environment: Mapping[str, str], payload: Mapping[str, Any]) -> Optional[Path]:
+    candidates: list[object] = [environment.get(key) for key in _FOLDER_ENV_VARS]
+    candidates.append(payload.get("cwd"))
+    roots = payload.get("workspace_roots")
+    if isinstance(roots, list) and roots:
+        candidates.append(roots[0])
+    candidates.append(environment.get("YOKE_ROOT"))
+    for value in candidates:
+        if isinstance(value, str) and value:
+            return Path(value)
+    return None
+
+
+def _search_dirs(spec: HarnessMachineHooks, folder: Path) -> list[Path]:
+    if not spec.project_config_in_ancestors:
+        return [folder]
+    dirs: list[Path] = []
+    for candidate in (folder, *folder.parents):
+        dirs.append(candidate)
+        if (candidate / ".git").exists():
+            return dirs
+    return [folder]
+
+
+def project_config_owns(
+    spec: HarnessMachineHooks, verb: str, folder: Optional[Path]
 ) -> bool:
-    project_dir = environment.get("CURSOR_PROJECT_DIR") or payload.get("cwd")
-    if not isinstance(project_dir, str) or not project_dir:
+    """Whether the harness's project config for *folder* owns *verb*."""
+    if folder is None:
         return False
-    return _cursor_config_owns_event(
-        Path(project_dir),
-        event_name,
-        CURSOR_PROJECT_CONFIG_OWNER,
+    return any(
+        _config_owns(directory / relative, spec, verb)
+        for directory in _search_dirs(spec, folder)
+        for relative in spec.project_configs
     )
 
 
-def _user_cursor_config_owns_lifecycle_event(
-    event_name: str,
-    environment: Mapping[str, str],
-) -> bool:
-    if event_name not in {"Stop", "SessionEnd"}:
-        return False
-    home = environment.get("HOME")
-    if not home:
-        return False
-    return _cursor_config_owns_event(
-        Path(home),
-        event_name,
-        CURSOR_USER_LIFECYCLE_OWNER,
-        accepted_markers=CURSOR_LIFECYCLE_COMMAND_MARKERS,
+def _cursor_owns(verb: str, environment: Mapping[str, str], folder: Optional[Path]) -> bool:
+    cursor = HARNESS_MACHINE_HOOKS["cursor"]
+    if project_config_owns(cursor, verb, folder):
+        return True
+    return _config_owns(
+        cursor.user_config_path(environment), cursor, verb, owner=cursor.config_owner
     )
 
 
@@ -144,27 +179,29 @@ def should_skip_config_duplicate(
     environment: Mapping[str, str],
     stdin_data: str,
 ) -> bool:
-    """Return whether another active Cursor config owns this invocation."""
+    """Return whether another config owns this invocation of *event_name*."""
     payload = _payload(stdin_data)
-    if is_cursor_imported_claude_hook(environment, payload):
-        # Only the events Cursor fires on both configs can be duplicates.
-        # A tool-shaped event fires on the imported Claude config alone, so
-        # skipping it would drop the tool call's only hook invocation.
-        if event_name not in CURSOR_DUAL_CONFIG_RUNNER_EVENTS:
-            return False
-        return _project_cursor_config_owns_event(
-            event_name,
-            environment,
-            payload,
-        ) or _user_cursor_config_owns_lifecycle_event(
-            event_name,
-            environment,
+    verb = CURSOR_COMPATIBILITY_RUNNER_ALIASES.get(event_name, event_name)
+    folder = _session_folder(environment, payload)
+    under_cursor = is_cursor_hook_payload(environment, payload)
+    owner = environment.get(CONFIG_OWNER_ENV_VAR, "")
+    harness_id = HARNESS_BY_USER_OWNER.get(owner)
+    if harness_id is not None:
+        if project_config_owns(HARNESS_MACHINE_HOOKS[harness_id], verb, folder):
+            return True
+        # Cursor also fires an imported user-level Claude config, and fires it
+        # beside its own entries for tool events too (measured on cursor-agent
+        # 2026.10.16-e3cb207: a projectless shell call ran both PreToolUse hooks).
+        return (
+            harness_id == "claude-code"
+            and under_cursor
+            and _cursor_owns(verb, environment, folder)
         )
-    return (
-        environment.get(CONFIG_OWNER_ENV_VAR) == CURSOR_USER_LIFECYCLE_OWNER
-        and is_cursor_hook_payload(environment, payload)
-        and _project_cursor_config_owns_event(event_name, environment, payload)
-    )
+    if owner == CLAUDE_CONFIG_OWNER and is_cursor_imported_claude_hook(environment, payload):
+        return verb in CURSOR_DUAL_CONFIG_RUNNER_EVENTS and _cursor_owns(
+            verb, environment, folder
+        )
+    return False
 
 
 def is_cursor_config_invocation(
@@ -177,4 +214,8 @@ def is_cursor_config_invocation(
     ) == CURSOR_EXECUTOR_ID or is_cursor_hook_payload(environment, _payload(stdin_data))
 
 
-__all__ = ["is_cursor_config_invocation", "should_skip_config_duplicate"]
+__all__ = [
+    "is_cursor_config_invocation",
+    "project_config_owns",
+    "should_skip_config_duplicate",
+]

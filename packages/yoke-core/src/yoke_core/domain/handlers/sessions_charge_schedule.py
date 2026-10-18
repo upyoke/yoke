@@ -33,6 +33,9 @@ class ChargeScheduleResponse(BaseModel):
     frozen_steps: List[Dict[str, Any]]
     runnable_elsewhere: List[Dict[str, Any]] = []
     workspace_home_project: Optional[str] = None
+    #: Live dependency deadlocks touching the scope, as ``{items, edges,
+    #: stranded}`` rows; the fleet watch raises its ``deadlock`` alarm here.
+    dependency_cycles: List[Dict[str, Any]] = []
 
 
 def _err(code: str, message: str) -> HandlerOutcome:
@@ -54,7 +57,31 @@ def _resolve_default_wip_cap(project_scope: List[int]) -> int:
     return resolve_default_wip_cap(project_scope)
 
 
-def _scheduled_step_to_dict(step: Any, conn: Any = None) -> Dict[str, Any]:
+def _ranked_staffing_clocks(conn: Any, steps: List[Any]) -> Dict[int, Any]:
+    """Report clocks for ranked steps, keyed by internal item id."""
+    from yoke_core.domain.project_identity import resolve_project_id
+    from yoke_core.domain.steering_fleet_report_available import staffing_clocks
+
+    grouped: Dict[str, List[int]] = {}
+    for step in steps:
+        slug = str(getattr(step, "project", "") or "").strip()
+        if slug:
+            grouped.setdefault(slug, []).append(int(step.item_id))
+    clocks: Dict[int, Any] = {}
+    for slug, item_ids in grouped.items():
+        clocks.update(
+            staffing_clocks(
+                conn,
+                project_id=resolve_project_id(conn, slug),
+                item_ids=item_ids,
+            )
+        )
+    return clocks
+
+
+def _scheduled_step_to_dict(
+    step: Any, conn: Any = None, clocks: Optional[Dict[int, Any]] = None
+) -> Dict[str, Any]:
     from yoke_core.domain.session_launch_mandate import item_entrypoint
     from yoke_core.domain.sessions_queries_base import display_claim_item_id
 
@@ -64,7 +91,7 @@ def _scheduled_step_to_dict(step: Any, conn: Any = None) -> Dict[str, Any]:
         if hasattr(step.next_step, "value")
         else str(step.next_step)
     )
-    return {
+    row = {
         "item_id": public_ref,
         "entrypoint": item_entrypoint(next_step, public_ref),
         "workflow_id": step.workflow_id,
@@ -101,18 +128,35 @@ def _scheduled_step_to_dict(step: Any, conn: Any = None) -> Dict[str, Any]:
         "downstream_depth": step.downstream_depth,
         "created_at": step.created_at,
     }
+    clock = (clocks or {}).get(int(step.item_id))
+    if clock is not None:
+        from yoke_contracts.timestamps import temporal_wire
+
+        row["pickable_since"] = temporal_wire(clock.pickable_since)
+        row["launch_state"] = clock.launch_state
+        row["staffing_after_seconds"] = clock.staffing_after_seconds
+    return row
 
 
-def scheduler_result_to_dict(result: Any, conn: Any = None) -> Dict[str, Any]:
+def scheduler_result_to_dict(
+    result: Any, conn: Any = None, *, staffing_clocks: bool = False
+) -> Dict[str, Any]:
+    clocks = (
+        _ranked_staffing_clocks(conn, result.ranked_steps)
+        if staffing_clocks and conn is not None and result.ranked_steps
+        else {}
+    )
     return {
         "project_scope": list(result.project_scope),
         "sml_state": {"coherent": result.sml_state.coherent},
         "selected_step": (
-            _scheduled_step_to_dict(result.selected_step, conn)
+            _scheduled_step_to_dict(result.selected_step, conn, clocks)
             if result.selected_step
             else None
         ),
-        "ranked_steps": [_scheduled_step_to_dict(s, conn) for s in result.ranked_steps],
+        "ranked_steps": [
+            _scheduled_step_to_dict(s, conn, clocks) for s in result.ranked_steps
+        ],
         "blocked_steps": [
             _scheduled_step_to_dict(s, conn) for s in result.blocked_steps
         ],
@@ -181,6 +225,16 @@ def _narrow_to_seats(result: Any, members: set[int] | None) -> Any:
     return result
 
 
+def _dependency_cycles(
+    conn: Any, project_scope: List[int], members: set[int] | None
+) -> List[Dict[str, Any]]:
+    """Deadlocks touching the scope, narrowed like the step lists."""
+    from yoke_core.domain.dependency_cycles_read import dependency_cycles, seat_cycles
+
+    cycles = dependency_cycles(conn, project_scope)
+    return [cycle.to_dict() for cycle in seat_cycles(conn, cycles, members)]
+
+
 def handle_charge_schedule(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         body = ChargeScheduleRequest.model_validate(request.payload or {})
@@ -232,8 +286,9 @@ def handle_charge_schedule(request: FunctionCallRequest) -> HandlerOutcome:
             )
         result = _narrow_to_seats(result, members)
         payload = enrich_elsewhere_checkout_paths(
-            scheduler_result_to_dict(result, conn)
+            scheduler_result_to_dict(result, conn, staffing_clocks=True)
         )
+        payload["dependency_cycles"] = _dependency_cycles(conn, project_scope, members)
     return HandlerOutcome(result_payload=payload)
 
 

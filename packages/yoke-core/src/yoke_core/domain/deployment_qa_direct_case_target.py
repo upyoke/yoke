@@ -171,7 +171,9 @@ def bind_authored_deployment_requirement(
                 )
             project_id = _run_project_id(conn, run_id)
             if project_id is None:
-                return "requirement has no project to resolve an execution target against"
+                return (
+                    "requirement has no project to resolve an execution target against"
+                )
             try:
                 apply_named_target_to_requirement_row(
                     conn, project_id=int(project_id), row=row
@@ -199,9 +201,7 @@ def bind_authored_deployment_requirement(
     if project_id is None:
         return "requirement has no project to resolve an execution target against"
     try:
-        apply_named_target_to_requirement_row(
-            conn, project_id=int(project_id), row=row
-        )
+        apply_named_target_to_requirement_row(conn, project_id=int(project_id), row=row)
     except QaExecutionTargetError as exc:
         return str(exc)
     if not row.get("execution_target_digest"):
@@ -221,6 +221,13 @@ def list_direct_deployment_method_cases(
     member_item_id: int | None,
 ) -> list[dict[str, Any]]:
     """Plan-less method cases on this stage subject, excluding admitted copies."""
+    from yoke_core.domain.deployment_qa_presentation_facts import (
+        subject_direct_method_cases,
+    )
+
+    batch = subject_direct_method_cases(conn, str(run_id), str(stage), member_item_id)
+    if batch is not None:
+        return batch
     return query_rows(
         conn,
         "SELECT id,execution_target_json,execution_target_digest,plan_case_key,"

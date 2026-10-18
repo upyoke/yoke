@@ -1,8 +1,8 @@
 """``yoke doctor run`` and ``yoke doctor last-run get`` flag adapters.
 
 ``yoke doctor run`` is the Doctor surface for every transport and the
-command ``yoke watch doctor`` wraps. Exactly one scope flag (``--install`` | ``--quick``
-| ``--full`` | ``--only NAMES``) is required; the explicit-scope rule
+command ``yoke watch doctor`` wraps. Exactly one scope flag (``--install`` | ``--session``
+| ``--quick`` | ``--full`` | ``--only NAMES``) is required; the explicit-scope rule
 mirrors the engine entrypoint and is enforced server-side.
 
 Both transports stream the same per-check progress lines while they
@@ -59,7 +59,7 @@ DOCTOR_RUN_READ_TIMEOUT_S = CHUNK_BUDGET_S
 DOCTOR_CHUNK_MAX_CHECKS = 1
 
 DOCTOR_RUN_USAGE = (
-    "yoke doctor run (--install | --quick | --full | --only NAMES) [--fix] "
+    "yoke doctor run (--install | --session | --quick | --full | --only NAMES) [--fix] "
     "[--project NAME] [--file PATH] [--db-path PATH] [--session-id S] [--json]"
 )
 
@@ -110,6 +110,14 @@ def doctor_run(args: List[str]) -> int:
         help="Install readiness: machine, harness, dashboard and installed guidance.",
     )
     scope.add_argument(
+        "--session",
+        action="store_true",
+        help=(
+            "Session readiness: this session is registered, and its own harness "
+            "CLI is signed in and runs yoke without approval prompts."
+        ),
+    )
+    scope.add_argument(
         "--quick", action="store_true", help="Quick scope: sampled critical HCs."
     )
     scope.add_argument(
@@ -158,6 +166,10 @@ def doctor_run(args: List[str]) -> int:
         from yoke_cli.commands.adapters.doctor_install import install_slugs
 
         payload["only"] = ",".join(install_slugs())
+    elif parsed.session:
+        from yoke_cli.commands.adapters.doctor_install import session_slugs
+
+        payload["only"] = ",".join(session_slugs())
     elif parsed.only:
         payload["only"] = parsed.only
     if parsed.db_path:

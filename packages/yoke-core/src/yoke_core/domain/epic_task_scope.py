@@ -1,4 +1,11 @@
-"""Explicit generated-task repository scope and finalization."""
+"""Generated-task scope: membership locking, finalization and body checks.
+
+A task's repository scope is its body's ``## Files Touched`` section
+(:mod:`task_files_touched`). This module serializes membership changes,
+finalizes the whole task set on the item (``items.
+generated_task_membership_finalized_at``), and reports every task whose
+section does not yet declare its files.
+"""
 
 from __future__ import annotations
 
@@ -11,13 +18,10 @@ from yoke_core.domain.epic_task_membership import (
     stamp_membership_finalized,
 )
 from yoke_core.domain.project_identity import render_item_ref
-
-
-SCOPE_PENDING = "pending"
-SCOPE_PATHS = "paths"
-SCOPE_NO_FILES = "no_files"
-SCOPE_LEGACY_DEFERRED = "legacy_deferred"
-SCOPE_STATES = (SCOPE_PENDING, SCOPE_PATHS, SCOPE_NO_FILES, SCOPE_LEGACY_DEFERRED)
+from yoke_core.domain.task_files_touched import (
+    FILES_TOUCHED_RECIPE,
+    item_task_files,
+)
 
 
 class TaskScopeIncomplete(RuntimeError):
@@ -76,50 +80,22 @@ def reopen_generated_task_scopes(
     ):
         return 0
     lock_task_membership(conn, int(item_id))
-    cursor = conn.execute(
-        "UPDATE epic_tasks SET scope_finalized_at=NULL "
-        f"WHERE epic_id={marker} AND scope_finalized_at IS NOT NULL",
-        (int(item_id),),
-    )
-    changed = max(int(cursor.rowcount or 0), 0)
-    changed = max(changed, clear_membership_finalized(conn, int(item_id)))
+    changed = clear_membership_finalized(conn, int(item_id))
     if commit:
         conn.commit()
     return changed
 
 
-def _rows(conn: Any, item_id: int | None = None) -> list[dict[str, Any]]:
-    marker = _p(conn)
-    where = f"WHERE t.epic_id={marker} " if item_id is not None else ""
-    params = (int(item_id),) if item_id is not None else ()
-    state_expr = "COALESCE(t.scope_state, 'pending')"
-    finalized_expr = "t.scope_finalized_at"
-    rows = conn.execute(
-        "SELECT t.epic_id, t.task_num, "
-        f"{state_expr} AS scope_state, "
-        f"{finalized_expr} AS scope_finalized_at, "
-        "COUNT(CASE WHEN TRIM(COALESCE(f.file_path, '')) <> '' "
-        "THEN 1 END) AS file_count "
-        "FROM epic_tasks t LEFT JOIN epic_task_files f "
-        "ON f.epic_id=t.epic_id AND f.task_num=t.task_num "
-        f"{where}"
-        "GROUP BY t.epic_id, t.task_num, "
-        f"{state_expr}, {finalized_expr} "
-        "ORDER BY t.epic_id, t.task_num",
-        params,
-    ).fetchall()
-    return [
-        {
-            "item_id": int(row["epic_id"] if hasattr(row, "keys") else row[0]),
-            "task_num": int(row["task_num"] if hasattr(row, "keys") else row[1]),
-            "state": str(row["scope_state"] if hasattr(row, "keys") else row[2]),
-            "finalized_at": (
-                row["scope_finalized_at"] if hasattr(row, "keys") else row[3]
-            ),
-            "file_count": int(row["file_count"] if hasattr(row, "keys") else row[4]),
-        }
-        for row in rows
+def _section_issues(conn: Any, item_id: int) -> list[str]:
+    public_ref = render_item_ref(conn, int(item_id))
+    issues = [
+        f"{public_ref} task {task_num} {files.problem()}"
+        for task_num, files in item_task_files(conn, int(item_id)).items()
+        if not files.declared
     ]
+    if issues:
+        issues.append(f"recovery: {FILES_TOUCHED_RECIPE}")
+    return issues
 
 
 def task_scope_issues(
@@ -129,52 +105,18 @@ def task_scope_issues(
     require_finalized: bool = True,
 ) -> list[str]:
     """Return deterministic task diagnostics without mutating scope."""
-    issues: list[str] = []
-    public_ref = render_item_ref(conn, int(item_id))
-    for row in _rows(conn, int(item_id)):
-        label = f"{public_ref} task {row['task_num']}"
-        state = row["state"]
-        count = row["file_count"]
-        if state not in SCOPE_STATES:
-            issues.append(f"{label} has invalid scope state {state!r}")
-        elif state == SCOPE_PENDING:
-            issues.append(f"{label} scope is pending")
-        elif state == SCOPE_PATHS and count == 0:
-            issues.append(f"{label} declares paths but has no file budget")
-        elif state == SCOPE_NO_FILES and count:
-            issues.append(f"{label} declares no_files but has {count} path(s)")
-        elif state == SCOPE_LEGACY_DEFERRED:
-            issues.append(f"{label} has deferred legacy scope")
-        elif require_finalized and not row["finalized_at"]:
-            issues.append(f"{label} scope is not finalized")
+    issues = _section_issues(conn, int(item_id))
+    if (
+        require_finalized
+        and not issues
+        and item_task_files(conn, int(item_id))
+        and not membership_is_finalized(conn, int(item_id))
+    ):
+        issues.append(
+            f"{render_item_ref(conn, int(item_id))} task membership is not "
+            "finalized; recovery: `yoke workflow-item epic-task scope-finalize`"
+        )
     return issues
-
-
-def set_no_files_scope(conn: Any, item_id: int, task_num: int) -> None:
-    """Explicitly declare that one generated task touches no repository files."""
-    lock_task_membership(conn, int(item_id))
-    marker = _p(conn)
-    has_paths = conn.execute(
-        "SELECT 1 FROM epic_task_files "
-        f"WHERE epic_id={marker} AND task_num={marker} "
-        "AND TRIM(COALESCE(file_path, '')) <> '' LIMIT 1",
-        (int(item_id), int(task_num)),
-    ).fetchone()
-    if has_paths is not None:
-        raise TaskScopeIncomplete(
-            f"{render_item_ref(conn, int(item_id))} task {task_num} already has a file budget"
-        )
-    cursor = conn.execute(
-        "UPDATE epic_tasks SET scope_state='no_files', "
-        "scope_finalized_at=NULL "
-        f"WHERE epic_id={marker} AND task_num={marker}",
-        (int(item_id), int(task_num)),
-    )
-    if cursor.rowcount == 0:
-        raise LookupError(
-            f"{render_item_ref(conn, int(item_id))} task {task_num} not found"
-        )
-    conn.commit()
 
 
 def finalize_generated_task_scopes(
@@ -183,27 +125,12 @@ def finalize_generated_task_scopes(
     *,
     after_membership_read: Callable[[], None] | None = None,
 ) -> None:
-    """Atomically finalize every task scope or leave every task unpublished."""
+    """Finalize the task set only when every task declares its files."""
     public_ref = render_item_ref(conn, int(item_id))
-    marker = _p(conn)
     conn.execute("SAVEPOINT finalize_generated_task_scopes")
     try:
         lock_task_membership(conn, int(item_id))
-        rows = _rows(conn, int(item_id))
-        issues: list[str] = []
-        for row in rows:
-            state = row["state"]
-            count = row["file_count"]
-            if state == SCOPE_PENDING and count == 0:
-                issues.append(f"task {row['task_num']} has no explicit scope")
-            elif state == SCOPE_PATHS and count == 0:
-                issues.append(f"task {row['task_num']} declares empty paths")
-            elif state == SCOPE_NO_FILES and count:
-                issues.append(f"task {row['task_num']} declares no_files with paths")
-            elif state == SCOPE_LEGACY_DEFERRED:
-                issues.append(f"task {row['task_num']} has deferred legacy scope")
-            elif state not in SCOPE_STATES:
-                issues.append(f"task {row['task_num']} has invalid state {state!r}")
+        issues = _section_issues(conn, int(item_id))
         if issues:
             raise TaskScopeIncomplete(
                 f"{public_ref} generated task scope cannot finalize: "
@@ -211,26 +138,10 @@ def finalize_generated_task_scopes(
             )
         if after_membership_read is not None:
             after_membership_read()
-        if not rows and not stamp_membership_finalized(conn, int(item_id)):
+        if not stamp_membership_finalized(conn, int(item_id)):
             raise TaskScopeIncomplete(
-                f"{public_ref} empty task membership snapshot could not be finalized"
+                f"{public_ref} task membership snapshot could not be finalized"
             )
-        conn.execute(
-            "UPDATE epic_tasks SET scope_state='paths' "
-            f"WHERE epic_id={marker} AND scope_state='pending' "
-            "AND EXISTS (SELECT 1 FROM epic_task_files f "
-            "WHERE f.epic_id=epic_tasks.epic_id "
-            "AND f.task_num=epic_tasks.task_num "
-            "AND TRIM(COALESCE(f.file_path, '')) <> '')",
-            (int(item_id),),
-        )
-        conn.execute(
-            "UPDATE epic_tasks SET scope_finalized_at=CURRENT_TIMESTAMP "
-            f"WHERE epic_id={marker}",
-            (int(item_id),),
-        )
-        if rows:
-            stamp_membership_finalized(conn, int(item_id))
         conn.execute("RELEASE SAVEPOINT finalize_generated_task_scopes")
         conn.commit()
     except Exception:
@@ -240,16 +151,10 @@ def finalize_generated_task_scopes(
 
 
 __all__ = [
-    "SCOPE_LEGACY_DEFERRED",
-    "SCOPE_NO_FILES",
-    "SCOPE_PATHS",
-    "SCOPE_PENDING",
-    "SCOPE_STATES",
     "TaskScopeIncomplete",
     "finalize_generated_task_scopes",
     "ensure_new_task_membership_allowed",
     "lock_task_membership",
     "reopen_generated_task_scopes",
-    "set_no_files_scope",
     "task_scope_issues",
 ]

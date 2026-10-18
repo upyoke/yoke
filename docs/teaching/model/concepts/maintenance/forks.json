@@ -2,7 +2,7 @@
  "id": "forks",
  "title": "Private distributions",
  "status": "draft-copy",
- "commands": ["yoke config distribution set"],
+ "commands": ["yoke settings set"],
  "page": "maintenance",
  "position": 3
 }

@@ -1,350 +1,302 @@
-"""Unit coverage for the yoke-ci same-tree reuse probe."""
+"""Unit coverage for the yoke-ci identical-tree coverage reuse probe."""
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
+import io
 import json
 from pathlib import Path
 import subprocess
 from typing import Any
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
+from urllib.parse import parse_qs, urlsplit
+import zipfile
 
 import pytest
 
+from yoke_core.tools import yoke_ci_coverage_evidence as evidence_lib
 from yoke_core.tools import yoke_ci_tree_reuse as probe
 
 
+NOW = datetime(2026, 8, 7, 18, 0, tzinfo=timezone.utc)
+COVERAGE = {"python": {"3.11": "interpreter", "3.14": "all"}, "shards": 8}
+STORAGE = "https://storage.test/blob"
+
+
 def _git(cwd: Path, *args: str) -> str:
-    return subprocess.check_output(
-        ["git", "-C", str(cwd), *args],
-        text=True,
-    ).strip()
+    return subprocess.check_output(["git", "-C", str(cwd), *args], text=True).strip()
 
 
-def _init_repo(tmp_path: Path) -> Path:
+def _commit(repo: Path, name: str, body: str) -> None:
+    (repo / name).write_text(body, encoding="utf-8")
+    _git(repo, "add", name)
+    _git(repo, "commit", "-m", name)
+
+
+@pytest.fixture
+def repo(tmp_path: Path) -> Path:
+    """A main line plus two pull request branches cut from the same base."""
     repo = tmp_path / "repo"
     repo.mkdir()
     _git(repo, "init")
     _git(repo, "config", "user.email", "ci@yoke.local")
     _git(repo, "config", "user.name", "Yoke CI")
-    # Older git still defaults to `master`; normalize so later checkouts work.
     _git(repo, "checkout", "-B", "main")
-    (repo / "a.txt").write_text("one\n", encoding="utf-8")
-    _git(repo, "add", "a.txt")
-    _git(repo, "commit", "-m", "first")
+    _commit(repo, "a.txt", "one\n")
+    for branch in ("pr-one", "pr-two"):
+        _git(repo, "checkout", "-b", branch, "main")
+        _commit(repo, f"{branch}.txt", f"{branch}\n")
+    _git(repo, "checkout", "main")
     return repo
 
 
-class _FakeResponse:
-    def __init__(self, payload: Any) -> None:
-        self._body = json.dumps(payload).encode("utf-8")
+def _merge(repo: Path, branch: str, *, onto: str, message: str) -> str:
+    """Check out a merge commit the way a PR or queue run would."""
+    _git(repo, "checkout", "--detach", onto)
+    _git(repo, "merge", "--no-ff", branch, "-m", message)
+    return _git(repo, "rev-parse", "HEAD")
+
+
+class _Response:
+    def __init__(self, body: bytes) -> None:
+        self._body = body
 
     def read(self) -> bytes:
         return self._body
 
-    def __enter__(self) -> "_FakeResponse":
+    def __enter__(self) -> "_Response":
         return self
 
     def __exit__(self, *args: object) -> None:
         return None
 
 
-def test_decide_reuse_skips_when_dispatch_run_shares_tree(tmp_path: Path) -> None:
-    repo = _init_repo(tmp_path)
-    head = _git(repo, "rev-parse", "HEAD")
+def _zip(payload: Any) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as bundle:
+        bundle.writestr(evidence_lib.EVIDENCE_FILE, json.dumps(payload))
+    return buffer.getvalue()
+
+
+class FakeGitHub:
+    """Artifacts keyed by exact name, one archive, one run attempt."""
+
+    def __init__(self, *, tree: str, commit: str, **overrides: Any) -> None:
+        self.evidence = {
+            "schema": 1,
+            "commit": commit,
+            "tree": tree,
+            "run_id": 100,
+            "run_attempt": 2,
+            "coverage": COVERAGE,
+        }
+        self.evidence.update(overrides.pop("evidence", {}))
+        self.artifact = {
+            "id": 7,
+            "expired": False,
+            "created_at": "2026-08-07T17:00:00Z",
+            "archive_download_url": "https://api.test/repos/o/r/actions/artifacts/7/zip",
+            "workflow_run": {"id": 100, "repository_id": 1, "head_repository_id": 1},
+        }
+        self.artifact.update(overrides.pop("artifact", {}))
+        self.run = {
+            "path": ".github/workflows/yoke-ci.yml",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://example.test/runs/100",
+        }
+        self.run.update(overrides.pop("run", {}))
+        self.names = {evidence_lib.artifact_name(tree)}
+        self.calls: list[tuple[str, Any]] = []
+
+    def __call__(self, request: Any, timeout: float = 0) -> _Response:
+        url = request.full_url
+        self.calls.append((url, request.get_header("Authorization")))
+        if "/actions/artifacts?" in url:
+            name = parse_qs(urlsplit(url).query)["name"][0]
+            found = [self.artifact] if name in self.names else []
+            return _Response(json.dumps({"artifacts": found}).encode())
+        if url.endswith("/zip"):
+            raise HTTPError(url, 302, "Found", {"Location": STORAGE}, None)  # type: ignore[arg-type]
+        if url == STORAGE:
+            return _Response(_zip(self.evidence))
+        assert url.endswith("/actions/runs/100/attempts/2"), url
+        return _Response(json.dumps(self.run).encode())
+
+
+def _decide(repo: Path, github: FakeGitHub, **kwargs: Any) -> probe.ReuseDecision:
+    return probe.decide_reuse(
+        worktree=repo,
+        api_url="https://api.test",
+        repository="o/r",
+        token="token",
+        current_run_id=999,
+        now=NOW,
+        opener=github,
+        required=COVERAGE,
+        **kwargs,
+    )
+
+
+def test_queue_entry_on_unchanged_base_reuses_the_pr_checkout_proof(repo: Path) -> None:
+    """The PR run head is not what it tested; the evidence names the checkout."""
+    pr_head = _git(repo, "rev-parse", "pr-one")
+    tested = _merge(repo, "pr-one", onto="main", message="Merge PR into main")
     tree = _git(repo, "rev-parse", "HEAD^{tree}")
-    now = datetime(2026, 8, 7, 18, 0, tzinfo=timezone.utc)
-    runs = {
-        "workflow_runs": [
-            {
-                "id": 100,
-                "event": "workflow_dispatch",
-                "head_sha": head,
-                "created_at": "2026-08-07T17:00:00Z",
-                "html_url": "https://example.test/runs/100",
-            }
-        ]
-    }
+    queue_commit = _merge(repo, "pr-one", onto="main", message="Merge group entry")
+    assert queue_commit != tested and _git(repo, "rev-parse", "HEAD^{tree}") == tree
+    github = FakeGitHub(tree=tree, commit=tested)
 
-    def opener(request: Any, timeout: float = 0) -> _FakeResponse:
-        assert "actions/workflows/yoke-ci.yml/runs" in request.full_url
-        return _FakeResponse(runs)
-
-    decision = probe.decide_reuse(
-        worktree=repo,
-        api_url="https://api.github.com",
-        repository="upyoke/yoke",
-        token="token",
-        current_run_id=999,
-        window_hours=24,
-        now=now,
-        opener=opener,
-    )
+    decision = _decide(repo, github)
 
     assert decision.skip_suite is True
-    assert decision.candidate_tree == tree
-    assert decision.covering_run_id == 100
-    assert decision.covering_head_sha == head
-    assert decision.reason == "identical_tree"
+    assert decision.reason == "identical_tree_coverage"
+    assert (decision.covering_run_id, decision.covering_run_attempt) == (100, 2)
+    assert decision.covering_commit == tested != pr_head
+    assert decision.proven_at == "2026-08-07T17:00:00Z"
+    storage = [auth for url, auth in github.calls if url == STORAGE]
+    assert storage == [None]  # the redirected download never carries the token
 
 
-def test_decide_reuse_runs_suite_for_distinct_merge_tree(tmp_path: Path) -> None:
-    repo = _init_repo(tmp_path)
-    covered = _git(repo, "rev-parse", "HEAD")
-    _git(repo, "checkout", "-b", "feature")
-    (repo / "b.txt").write_text("two\n", encoding="utf-8")
-    _git(repo, "add", "b.txt")
-    _git(repo, "commit", "-m", "feature")
+def test_changed_base_and_multi_entry_compositions_run_the_suite(repo: Path) -> None:
+    tested = _merge(repo, "pr-one", onto="main", message="PR run")
+    github = FakeGitHub(tree=_git(repo, "rev-parse", "HEAD^{tree}"), commit=tested)
+
     _git(repo, "checkout", "main")
-    (repo / "c.txt").write_text("mainline\n", encoding="utf-8")
-    _git(repo, "add", "c.txt")
-    _git(repo, "commit", "-m", "mainline")
-    _git(repo, "merge", "--no-ff", "feature", "-m", "merge feature")
-    merge_tree = _git(repo, "rev-parse", "HEAD^{tree}")
-    covered_tree = probe.tree_object_id(repo, covered)
-    assert covered_tree is not None
-    assert covered_tree != merge_tree
+    _commit(repo, "moved.txt", "base moved\n")
+    _merge(repo, "pr-one", onto="main", message="entry on moved base")
+    moved = _decide(repo, github)
 
-    now = datetime(2026, 8, 7, 18, 0, tzinfo=timezone.utc)
-    runs = {
-        "workflow_runs": [
-            {
-                "id": 100,
-                "event": "workflow_dispatch",
-                "head_sha": covered,
-                "created_at": "2026-08-07T17:00:00Z",
-                "html_url": "https://example.test/runs/100",
-            }
-        ]
-    }
+    _git(repo, "checkout", "--detach", tested)
+    _git(repo, "merge", "--no-ff", "pr-two", "-m", "second queue entry")
+    combined = _decide(repo, github)
 
-    decision = probe.decide_reuse(
-        worktree=repo,
-        api_url="https://api.github.com",
-        repository="upyoke/yoke",
-        token="token",
-        current_run_id=999,
-        window_hours=24,
-        now=now,
-        opener=lambda request, timeout=0: _FakeResponse(runs),
-    )
-
-    assert decision.skip_suite is False
-    assert decision.candidate_tree == merge_tree
-    assert decision.reason == "no_matching_tree"
-
-
-def test_decide_reuse_fails_open_on_api_errors(tmp_path: Path) -> None:
-    repo = _init_repo(tmp_path)
-
-    decision = probe.decide_reuse(
-        worktree=repo,
-        api_url="https://api.github.com",
-        repository="upyoke/yoke",
-        token="token",
-        current_run_id=1,
-        opener=lambda request, timeout=0: (_ for _ in ()).throw(URLError("boom")),
-    )
-
-    assert decision.skip_suite is False
-    assert decision.reason == "no_successful_runs"
-
-
-def test_decide_reuse_ignores_runs_outside_window(tmp_path: Path) -> None:
-    repo = _init_repo(tmp_path)
-    head = _git(repo, "rev-parse", "HEAD")
-    now = datetime(2026, 8, 7, 18, 0, tzinfo=timezone.utc)
-    stale = (now - timedelta(hours=25)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    runs = {
-        "workflow_runs": [
-            {
-                "id": 100,
-                "event": "push",
-                "head_sha": head,
-                "created_at": stale,
-                "html_url": "https://example.test/runs/100",
-            }
-        ]
-    }
-
-    decision = probe.decide_reuse(
-        worktree=repo,
-        api_url="https://api.github.com",
-        repository="upyoke/yoke",
-        token="token",
-        current_run_id=999,
-        window_hours=24,
-        now=now,
-        opener=lambda request, timeout=0: _FakeResponse(runs),
-    )
-
-    assert decision.skip_suite is False
-    assert decision.reason == "no_matching_tree"
-
-
-def test_main_writes_github_output(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    repo = _init_repo(tmp_path)
-    head = _git(repo, "rev-parse", "HEAD")
-    output = tmp_path / "github_output"
-    summary = tmp_path / "summary.md"
-    output.write_text("", encoding="utf-8")
-    summary.write_text("", encoding="utf-8")
-    monkeypatch.setenv("GITHUB_TOKEN", "token")
-    monkeypatch.setenv("GITHUB_REPOSITORY", "upyoke/yoke")
-    monkeypatch.setenv("GITHUB_RUN_ID", "9")
-    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
-    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
-
-    def fake_decide(**kwargs: Any) -> probe.ReuseDecision:
-        return probe.ReuseDecision(
-            skip_suite=True,
-            candidate_tree="abc",
-            covering_run_id=44,
-            covering_head_sha=head,
-            covering_html_url="https://example.test/runs/44",
-            reason="identical_tree",
-        )
-
-    monkeypatch.setattr(probe, "decide_reuse", fake_decide)
-    assert probe.main(["--worktree", str(repo), "--write-github-output"]) == 0
-    text = output.read_text(encoding="utf-8")
-    assert "skip_suite=true" in text
-    assert "covering_run_id=44" in text
-    assert "identical_tree" in summary.read_text(encoding="utf-8")
-
-
-def test_merge_group_candidate_reuses_its_entry_run(tmp_path: Path) -> None:
-    """A solo train rebased onto the base builds the entry run's own tree."""
-    repo = _init_repo(tmp_path)
-    _git(repo, "checkout", "-b", "PRJ-9")
-    (repo / "b.txt").write_text("two\n", encoding="utf-8")
-    _git(repo, "add", "b.txt")
-    _git(repo, "commit", "-m", "lane")
-    lane_head = _git(repo, "rev-parse", "HEAD")
-    # The queue builds its candidate by merging the lane into the base it is
-    # already sitting on, which fast-forwards to the very same tree.
-    _git(repo, "checkout", "main")
-    _git(repo, "merge", "--ff-only", "PRJ-9")
-    candidate_tree = _git(repo, "rev-parse", "HEAD^{tree}")
-    now = datetime(2026, 8, 7, 18, 0, tzinfo=timezone.utc)
-    runs = {
-        "workflow_runs": [
-            {
-                "id": 1077,
-                "event": "pull_request",
-                "head_sha": lane_head,
-                "created_at": "2026-08-07T17:50:00Z",
-                "html_url": "https://example.test/runs/1077",
-            }
-        ]
-    }
-
-    decision = probe.decide_reuse(
-        worktree=repo,
-        api_url="https://api.github.com",
-        repository="upyoke/yoke",
-        token="token",
-        current_run_id=1078,
-        window_hours=24,
-        now=now,
-        opener=lambda request, timeout=0: _FakeResponse(runs),
-    )
-
-    assert decision.skip_suite is True
-    assert decision.candidate_tree == candidate_tree
-    assert decision.covering_run_id == 1077
-    assert decision.reason == "identical_tree"
-
-
-def test_a_batch_train_tree_no_run_covers_runs_the_suite(tmp_path: Path) -> None:
-    """Two lanes combine into a tree neither entry run ever tested."""
-    repo = _init_repo(tmp_path)
-    base = _git(repo, "rev-parse", "HEAD")
-    heads = []
-    for name, filename in (("PRJ-9", "b.txt"), ("PRJ-10", "c.txt")):
-        _git(repo, "checkout", "-b", name, base)
-        (repo / filename).write_text(name, encoding="utf-8")
-        _git(repo, "add", filename)
-        _git(repo, "commit", "-m", name)
-        heads.append(_git(repo, "rev-parse", "HEAD"))
-    _git(repo, "checkout", "main")
-    _git(repo, "merge", "--no-ff", "PRJ-9", "PRJ-10", "-m", "train")
-    now = datetime(2026, 8, 7, 18, 0, tzinfo=timezone.utc)
-    runs = {
-        "workflow_runs": [
-            {
-                "id": 1100 + index,
-                "event": "pull_request",
-                "head_sha": head,
-                "created_at": "2026-08-07T17:50:00Z",
-                "html_url": f"https://example.test/runs/{1100 + index}",
-            }
-            for index, head in enumerate(heads)
-        ]
-    }
-
-    decision = probe.decide_reuse(
-        worktree=repo,
-        api_url="https://api.github.com",
-        repository="upyoke/yoke",
-        token="token",
-        current_run_id=1200,
-        window_hours=24,
-        now=now,
-        opener=lambda request, timeout=0: _FakeResponse(runs),
-    )
-
-    assert decision.skip_suite is False
-    assert decision.reason == "no_matching_tree"
-
-
-def test_commit_tree_via_api_reads_tree_sha() -> None:
-    payload = {"tree": {"sha": "deadbeef" * 5}}
-
-    assert (
-        probe.commit_tree_via_api(
-            api_url="https://api.github.com",
-            repository="upyoke/yoke",
-            token="token",
-            commit_sha="abc123",
-            opener=lambda request, timeout=0: _FakeResponse(payload),
-        )
-        == "deadbeef" * 5
-    )
+    for decision in (moved, combined):
+        assert decision.skip_suite is False
+        assert decision.reason == "no_coverage_evidence"
 
 
 @pytest.mark.parametrize(
-    "current_event,reused", [("pull_request", True), ("merge_group", False)]
-)
-def test_queue_reuse_requires_a_run_that_covered_both_interpreters(
-    tmp_path: Path, current_event, reused
-) -> None:
-    repo = _init_repo(tmp_path)
-    head = _git(repo, "rev-parse", "HEAD")
-    now = datetime(2026, 8, 7, 18, 0, tzinfo=timezone.utc)
-    runs = {
-        "workflow_runs": [
+    ("overrides", "refusal"),
+    [
+        (
+            {"evidence": {"coverage": {"python": {"3.14": "all"}, "shards": 8}}},
+            "incomplete_coverage",
+        ),
+        ({"evidence": {"coverage": {**COVERAGE, "shards": 4}}}, "incomplete_coverage"),
+        ({"artifact": {"expired": True}}, "expired_artifact"),
+        (
+            {"artifact": {"created_at": "2026-08-06T17:59:59Z"}},
+            "proof_older_than_window",
+        ),
+        ({"artifact": {"created_at": "2026-08-07T18:00:01Z"}}, "proof_from_future"),
+        ({"artifact": {"created_at": "yesterday"}}, "unreadable_proof_time"),
+        (
             {
-                "id": 100,
-                "event": "schedule",
-                "head_sha": head,
-                "created_at": "2026-08-07T17:00:00Z",
-                "html_url": "https://example.test/runs/100",
-            }
-        ]
-    }
+                "artifact": {
+                    "workflow_run": {
+                        "id": 999,
+                        "repository_id": 1,
+                        "head_repository_id": 1,
+                    }
+                }
+            },
+            "current_run",
+        ),
+        (
+            {
+                "artifact": {
+                    "workflow_run": {
+                        "id": 100,
+                        "repository_id": 1,
+                        "head_repository_id": 2,
+                    }
+                }
+            },
+            "fork_run",
+        ),
+        ({"run": {"conclusion": "cancelled"}}, "run_cancelled"),
+        ({"run": {"conclusion": "failure"}}, "run_failure"),
+        ({"run": {"status": "in_progress", "conclusion": None}}, "run_not_completed"),
+        ({"run": {"path": ".github/workflows/other.yml"}}, "other_workflow"),
+        ({"evidence": {"run_id": 101}}, "evidence_run_mismatch"),
+        ({"evidence": {"run_attempt": 0}}, "evidence_attempt_missing"),
+        ({"evidence": {"schema": 2}}, "unreadable_evidence"),
+    ],
+)
+def test_ineligible_evidence_runs_the_suite_and_names_why(
+    repo: Path, overrides: dict[str, Any], refusal: str
+) -> None:
+    tested = _merge(repo, "pr-one", onto="main", message="PR run")
+    tree = _git(repo, "rev-parse", "HEAD^{tree}")
+
+    decision = _decide(repo, FakeGitHub(tree=tree, commit=tested, **overrides))
+
+    assert decision.skip_suite is False
+    assert decision.reason == "no_eligible_evidence"
+    run_id = 999 if refusal == "current_run" else 100
+    assert decision.rejected == (f"artifact 7 (run {run_id}): {refusal}",)
+
+
+def test_unreadable_archive_and_api_failure_run_the_suite(repo: Path) -> None:
+    tree = _git(repo, "rev-parse", "HEAD^{tree}")
+    github = FakeGitHub(tree=tree, commit="c")
+    github.evidence = "not json"  # type: ignore[assignment]
+    assert _decide(repo, github).rejected == (
+        "artifact 7 (run 100): unreadable_evidence",
+    )
+
+    def offline(request: Any, timeout: float = 0) -> _Response:
+        raise URLError("offline")
+
     decision = probe.decide_reuse(
         worktree=repo,
-        api_url="https://api.github.com",
-        repository="upyoke/yoke",
-        token="token",
-        current_run_id=999,
-        current_event=current_event,
-        window_hours=24,
-        now=now,
-        opener=lambda request, timeout=0: _FakeResponse(runs),
+        api_url="https://api.test",
+        repository="o/r",
+        token="t",
+        current_run_id=1,
+        now=NOW,
+        opener=offline,
+        required=COVERAGE,
     )
-    assert decision.skip_suite is reused
+    assert (decision.skip_suite, decision.reason) == (False, "artifact_list_unreadable")
+
+
+def test_main_reports_the_decision_and_summary(
+    repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    output, summary = tmp_path / "out", tmp_path / "summary"
+    for key, value in {
+        "GITHUB_TOKEN": "t",
+        "GITHUB_REPOSITORY": "o/r",
+        "GITHUB_RUN_ID": "5",
+        "GITHUB_OUTPUT": str(output),
+        "GITHUB_STEP_SUMMARY": str(summary),
+    }.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setattr(
+        probe,
+        "decide_reuse",
+        lambda **_: probe.ReuseDecision(
+            False,
+            "tree",
+            "no_eligible_evidence",
+            rejected=("artifact 7 (run 1): run_failure",),
+        ),
+    )
+
+    assert probe.main(["--worktree", str(repo), "--write-github-output"]) == 0
+
+    assert "skip_suite=false\n" in output.read_text()
+    assert "reason=no_eligible_evidence\n" in output.read_text()
+    assert "- artifact 7 (run 1): run_failure" in summary.read_text()
+    assert "rejected: artifact 7 (run 1): run_failure" in capsys.readouterr().out
+
+
+def test_main_runs_the_suite_without_github_credentials(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    for key in ("GITHUB_TOKEN", "GH_TOKEN", "GITHUB_REPOSITORY", "GH_REPOSITORY"):
+        monkeypatch.delenv(key, raising=False)
+    assert probe.main([]) == 0
+    assert "reason=missing_github_env" in capsys.readouterr().out

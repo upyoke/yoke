@@ -16,6 +16,8 @@ from yoke_harness.ssh_mac_gui_session import (
     classify_macos_session_context_failure,
 )
 from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
+from yoke_contracts.machine_qa_failures import SSH_UNAVAILABLE, HostControlLocalError
+from yoke_core.domain.machine_qa_host_unreachable import unreachable_submission
 from yoke_contracts.qa_mission_scratch import mission_scratch_path
 
 from yoke_core.domain.agent_mission_preparation import (
@@ -41,8 +43,10 @@ from yoke_core.domain.machine_qa_chain_restore import (
 )
 from yoke_core.domain.machine_qa_fixture_lifecycle import (
     execute_case_with_fixture_lifecycle,
+    require_runnable_recipe,
 )
 from yoke_core.domain.machine_qa_mission_scratch import create_mission_scratch
+from yoke_core.domain.machine_qa_phase_heartbeat import heartbeat_during
 from yoke_core.domain.machine_qa_result_safety import (
     redact_machine_qa_value,
 )
@@ -167,28 +171,35 @@ def execute_machine_case_contract(
     chain's starting state is restored after the case when it ends its chain
     or its capture failed, including when local execution raises. Successful
     captures awaiting independent review preserve intermediate chain state.
+    A plan case whose host SSH cannot reach is reported unstarted so the
+    authority marks the host unhealthy and queues the plan on its line.
     """
     contract = HostControlExecutionContract.model_validate(raw_contract)
     if contract.operation not in {"case", "plan_case"}:
         raise ValueError("expected a Machine QA case contract")
-    execution = (
-        _execution(contract)
-        if progress_callback is None
-        else _execution(contract, progress_callback=progress_callback)
-    )
+    require_runnable_recipe(contract.cases[0])
+    try:
+        execution = (
+            _execution(contract)
+            if progress_callback is None
+            else _execution(contract, progress_callback=progress_callback)
+        )
+    except HostControlLocalError as exc:
+        if exc.code != SSH_UNAVAILABLE or contract.operation != "plan_case":
+            raise
+        return unreachable_submission(contract, exc)
     case = contract.cases[0]
     machine = contract.settings["resource_name"]
     secret_values = tuple(execution.material.secrets.values())
     started = time.monotonic()
-    reset = (
-        baseline_receipt(
-            contract.baselines[0],
-            execution.reach_baseline,
-            failure_code=STARTING_STATE_RESET_FAILED,
-        )
-        if contract.baselines
-        else None
-    )
+    reset = None
+    if contract.baselines:
+        with heartbeat_during("starting_state_reset", progress_callback):
+            reset = baseline_receipt(
+                contract.baselines[0],
+                execution.reach_baseline,
+                failure_code=STARTING_STATE_RESET_FAILED,
+            )
     try:
         if reset is not None and not reset["ok"]:
             result = _unstarted_reset_failure(case, machine, reset)
@@ -197,16 +208,20 @@ def execute_machine_case_contract(
     except BaseException as exc:
         if communication_unknown(exc):
             raise
-        restore = restore_chain_start(case, execution.reach_baseline, machine=machine)
+        with heartbeat_during(STARTING_STATE_RESTORE, progress_callback):
+            restore = restore_chain_start(
+                case, execution.reach_baseline, machine=machine
+            )
         exc.add_note(restore_summary(restore))
         raise
     evidence = dict(result.evidence)
     if restore_due(
         case, result.case_outcome, error_code=result.error_code, verdict=result.verdict
     ):
-        evidence[STARTING_STATE_RESTORE] = restore_chain_start(
-            case, execution.reach_baseline, machine=machine
-        )
+        with heartbeat_during(STARTING_STATE_RESTORE, progress_callback):
+            evidence[STARTING_STATE_RESTORE] = restore_chain_start(
+                case, execution.reach_baseline, machine=machine
+            )
     evidence, artifacts, artifact_paths = pack_local_artifacts(
         redact_machine_qa_value(evidence, secret_values)
     )

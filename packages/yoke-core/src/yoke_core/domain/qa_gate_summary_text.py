@@ -22,6 +22,17 @@ def _format_text(summary: Dict[str, Any]) -> str:
     lines.append(f"  Blocking unsatisfied: {summary['blocking_unsatisfied_count']}")
     lines.append(f"  Browser unsatisfied:  {summary['browser_unsatisfied_count']}")
     lines.append(f"  E2E unsatisfied:      {summary['e2e_unsatisfied_count']}")
+    records = summary.get("unsettled_records") or []
+    if records:
+        lines.append(
+            f"  Unsettled QA records: {len(records)} (the done gate refuses until "
+            "each latest execution is finished or aborted, has a verdict, or its "
+            "requirement is waived while the item claim is held)"
+        )
+        lines.extend(
+            f"    - {record['kind']} #{record['record_id']}: {record['detail']}"
+            for record in records
+        )
     lines.append("  Requirements:")
     for req in summary["requirements"]:
         marker = (

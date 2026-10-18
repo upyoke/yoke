@@ -13,6 +13,10 @@ from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 
 from yoke_core.domain import db_backend, project_settings
+from yoke_core.domain.dispatch_chain_selection import (
+    dependency_depths,
+    parse_task_dependencies,
+)
 from yoke_core.domain.epic_task_sync import _placeholder
 from yoke_core.domain.worktree_naming import worktree_name_for_item
 from yoke_core.domain.item_worktrees import record_worker_item_worktree
@@ -150,6 +154,12 @@ def prepare_dispatch_chains(
             )
         worktree_map.append((branch, f"{task_num:03d}"))
     try:
+        depths = dependency_depths(
+            {int(row[2]): parse_task_dependencies(int(row[2]), row[6]) for row in rows}
+        )
+        # Dependencies first, so a lane's queue never lists a task ahead of
+        # the work it waits on.
+        worktree_map.sort(key=lambda entry: (depths[int(entry[1])], int(entry[1])))
         _generate_dispatch_chains(
             epic_name=epic_name,
             worktree_map=worktree_map,

@@ -21,6 +21,13 @@ from yoke_contracts.api.function_call import (
 )
 
 
+class HandedOverMessage(BaseModel):
+    """One inherited message; ``receipt`` false means it cannot be injected."""
+
+    message_id: str
+    receipt: bool
+
+
 class SteeringMessageHandoff(BaseModel):
     """What the acquiring seat inherited from its scope's unattended mail."""
 
@@ -28,6 +35,7 @@ class SteeringMessageHandoff(BaseModel):
     parked_count: int = 0
     stranded_count: int = 0
     digest: str = ""
+    messages: List[HandedOverMessage] = Field(default_factory=list)
 
 
 class SteeringClaimRow(BaseModel):
@@ -272,6 +280,7 @@ __all__ = [
     "ReleaseRequest",
     "ReleaseResponse",
     "SteeringClaimRow",
+    "HandedOverMessage",
     "SteeringMessageHandoff",
     "VerifyRequest",
     "VerifyResponse",

@@ -216,6 +216,10 @@ _Schema and operation depth:_ `yoke packets render --role qa_walker_agent --topi
 
 ### DB Quick Reference — qa (requirements, runs, gate preview)
 
+**Wrapper commands (prefer over raw SQL):**
+
+- _Retire a project QA plan nothing depends on any more_
+  - `yoke qa plan retire PLAN --project P --reason "why"`
 
 
 _Schema and operation depth:_ `yoke packets render --role qa_walker_agent --topic qa --detail full`.

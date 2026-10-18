@@ -23,12 +23,12 @@ from yoke_core.domain.qa_plan_execution_begin_validation import (
 from yoke_core.domain.qa_plan_execution_target import build_plan_execution_target
 from yoke_core.domain.qa_plan_execution_roster import ordered_plan_requirements
 
-from yoke_core.domain.qa_member_plan_execution import execute_member_partitions
+from yoke_core.domain.qa_member_plan_execution import execute_serial_partitions
 
 _call_plan_function = call_plan_function
 
 
-@execute_member_partitions
+@execute_serial_partitions
 def execute_plan(
     *,
     public_ref: Optional[str] = None,
@@ -62,11 +62,14 @@ def execute_plan(
         project=project,
     )
     resolved_actor = execution_actor(actor)
+    begin_payload.update(
+        checkout_path=str(checkout_path) if checkout_path else None,
+        expected_branch=expected_branch,
+    )
     if target.kind == "global":
         begin_payload.update(
             source_revision=expected_sha,
             source_ref=expected_branch,
-            checkout_path=str(checkout_path) if checkout_path else None,
         )
     if deployment_run_id and not resume_execution_id:
         materialize_payload = {"plan": plan, "project": project}
@@ -118,6 +121,10 @@ def execute_plan(
             raise
         print(f"yoke qa plan run: {discharged['message']}", file=sys.stderr)
         return discharged
+    if execution.get("settled_review"):
+        from yoke_core.domain.qa_plan_settled_review import settled_review_run_result
+
+        return settled_review_run_result(execution)
     if (
         execution.get("state") == "completed"
         and execution.get("remaining_requirement_count") == 0

@@ -197,13 +197,16 @@ def test_native_probe_timeout_names_recovery_after_restoration(monkeypatch, tmp_
     assert executable.exists()
 
 
-def test_configured_permissions_without_trusted_hooks_do_not_pass(
+def test_machine_only_late_discovery_accepts_permissions_without_project_hooks(
     monkeypatch, tmp_path
 ):
     executable = _late_fixture(monkeypatch, tmp_path, 0)
-    with pytest.raises(SystemExit, match="late_harness_hooks_unready"):
-        exec(compile(_LATE_HARNESS_SCRIPT, "late_fixture", "exec"), {})
+    exec(compile(_LATE_HARNESS_SCRIPT, "late_fixture", "exec"), {})
     assert executable.exists()
+    fixture_home = tmp_path / "late-codex"
+    assert (fixture_home / "config.toml").is_file()
+    assert not (fixture_home / "hooks.json").exists()
+    assert not executable.with_name("codex.installer-qa-saved").exists()
 
 
 @pytest.mark.parametrize(
@@ -321,3 +324,27 @@ def test_hosted_ready_marker_follows_successful_exit_and_real_backup_check(
     assert case["method_config"]["actions"][-1]["ready_text"] == [
         "backup-journey-ready"
     ]
+
+
+@pytest.mark.parametrize("installer_status", [0, 7])
+def test_second_machine_accepts_metadata_and_keeps_parent_shell(
+    tmp_path, installer_status
+):
+    from yoke_core.domain import installer_campaign_regression_cases as recipes
+
+    config = tmp_path / ".yoke" / "config.json"
+    config.parent.mkdir()
+    config.write_text('{"distribution": {}}')
+    entry = recipes.SECOND_MACHINE_JOIN["entry_surface"].replace(
+        recipes.PUBLIC_INSTALL, f"/bin/sh -c 'exit {installer_status}'"
+    )
+    result = subprocess.run(
+        ["/bin/bash", "-c", entry + "; printf '%s\\n' parent-shell-alive"],
+        env={"HOME": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    assert result.returncode == 0
+    assert "parent-shell-alive" in result.stdout
+    assert ("second-machine-join-ready" in result.stdout) == (installer_status == 0)

@@ -56,3 +56,27 @@ def check_budget():
             remaining_seconds(CHECK_BUDGET_S)
         finally:
             _deadline.reset(token)
+
+
+@contextmanager
+def pause_check_budget():
+    """Keep this block off the check clock.
+
+    A removal runs to completion once started and can outlast the seconds the
+    check had left. Those seconds stay available for the verdicts after it.
+    The check deadline still bounds every other read.
+    """
+    deadline = _deadline.get()
+    if deadline is None:
+        yield
+        return
+    started = time.monotonic()
+    token = _deadline.set(None)
+    try:
+        yield
+    finally:
+        elapsed = time.monotonic() - started
+        _deadline.reset(token)
+        restored = _deadline.get()
+        if restored is not None:
+            _deadline.set(restored + elapsed)

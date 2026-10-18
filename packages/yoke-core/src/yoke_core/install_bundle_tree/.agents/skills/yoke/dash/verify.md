@@ -108,8 +108,8 @@ yoke qa case run --requirement-id <requirement-id> --base-url <candidate-url> --
 The pair is checked at served-build. Start the project-specific candidate
 server after commit; dirty SHA fails closed. Static preview/no identity refuses
 identity_proof_unavailable and records nothing. A missing expected pair leaves
-a missing commit and merge refuses it. Yoke's source-dev doctrine owns its lane
-review server. Use the runner's required review submission; an independent
+a missing commit and merge refuses it. Optional UI self-check, never a merge or QA requirement (Yoke source repo only): the render-proof review server in `docs/source-dev-doctrine.md` serves this lane against a disposable local universe and refuses prod and remote connections. Formal Browser QA runs post-deploy on production.
+Use the runner's required review submission; an independent
 review bundle cannot be replaced with the owner's ad-hoc verdict.
 For an ordinary capture whose method explicitly permits in-place agent review,
 record-verdict resolves that existing capture instead of creating another run.

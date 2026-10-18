@@ -185,9 +185,14 @@ def handle_populate_merged_at(request: FunctionCallRequest) -> HandlerOutcome:
     recorded. A queue merge commit is created when the queue forms its group
     and merged minutes later, so its committer time is genuinely earlier than
     the landing, while the observer holds GitHub's own merge moment. The
-    column is safe to prefer because ``point_item_at_pull_request`` clears it
-    whenever the recorded pull request changes, so it never survives from a
-    landing this item has already superseded. An item with no queue landing
+    column is safe to prefer because it always belongs to the item's current
+    landing pull request: a re-land opens a separate attempt record and
+    leaves the columns alone, and the observer moves the columns onto that
+    pull request with an empty landing stamp only once it merges, then
+    stamps the new merge moment. While an attempt is still open the column
+    holds the previous landing, so a close-out that reaches here before the
+    observer promotes the attempt takes the resolved commit time instead.
+    An item with no queue landing
     -- every standalone merge -- has nothing there and takes the resolved
     commit time, which for that boundary IS the landing time.
     """
@@ -202,17 +207,20 @@ def handle_populate_merged_at(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         with _connect_rw() as conn:
             p = _placeholder(conn)
-            assignment = (
-                f"COALESCE(merge_queue_landed_at, {p})"
-                if body.supersedes_prior_landing
-                else f"COALESCE(merged_at, {p})"
-            )
+            clock = instant_parameter(conn, parse_instant(body.merged_at))
+            if body.supersedes_prior_landing:
+                assignment = (
+                    f"CASE WHEN EXISTS (SELECT 1 FROM merge_queue_landing_attempts "
+                    f"WHERE item_id = {p} AND closed_at IS NULL) THEN {p} "
+                    f"ELSE COALESCE(merge_queue_landed_at, {p}) END"
+                )
+                params: tuple = (item_id, clock, clock, item_id)
+            else:
+                assignment = f"COALESCE(merged_at, {p})"
+                params = (clock, item_id)
             conn.execute(
                 f"UPDATE items SET merged_at = {assignment} WHERE id = {p}",
-                (
-                    instant_parameter(conn, parse_instant(body.merged_at)),
-                    item_id,
-                ),
+                params,
             )
             row = conn.execute(
                 f"SELECT merged_at FROM items WHERE id = {p}",

@@ -30,6 +30,10 @@ import hashlib
 import json
 from typing import TYPE_CHECKING, Any
 
+from yoke_core.domain.steering_fleet_report_deadlocks import deadlock_fingerprint
+from yoke_core.domain.steering_fleet_report_waiting_chains import (
+    waiting_chain_fingerprint,
+)
 from yoke_core.domain.steering_fleet_report_project_rows import ProjectRows
 
 if TYPE_CHECKING:  # pragma: no cover - annotation only, no import cycle
@@ -53,6 +57,7 @@ def seat_payload(report: "FleetReport") -> dict[str, Any]:
     """The age-blind material of the sections one seat renders itself."""
     return {
         "available": sorted(entry.item_id for entry in report.available),
+        "landing_waits": sorted(wait.item_id for wait in report.landing_waits),
         "idle": _holder_rows(report.idle),
         "suspected_orphaned_waiters": _holder_rows(report.suspected_orphaned_waiters),
         "vendor_errors": sorted(
@@ -77,6 +82,8 @@ def seat_payload(report: "FleetReport") -> dict[str, Any]:
             for entry in report.dead_waits
         ),
         "messages_awaiting_seat": report.messages_awaiting_seat,
+        "deadlocks": deadlock_fingerprint(report),
+        "waiting_chains": waiting_chain_fingerprint(report),
     }
 
 
@@ -126,6 +133,12 @@ def project_payload(rows: ProjectRows) -> dict[str, Any]:
                 tuple(sorted(red.requirement_id for red in entry.red)),
                 tuple(sorted(item.requirement_id for item in entry.pin_qa.unpassable)),
                 tuple(sorted(item.requirement_id for item in entry.pin_qa.unproven)),
+                tuple(
+                    sorted(
+                        (wake.requirement_id, wake.owner_session_id)
+                        for wake in entry.manual_wakes
+                    )
+                ),
                 (
                     (
                         entry.answered_decision.request_id,

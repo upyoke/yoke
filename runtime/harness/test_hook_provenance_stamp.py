@@ -68,12 +68,12 @@ def test_hook_provenance_is_printed_only_on_allow(path, denied, monkeypatch, cap
     monkeypatch.setattr(
         relay, "resolve_hook_project_scope", lambda _payload: HookProjectScope(1)
     )
-    monkeypatch.setattr(relay, "_client_lint_config_snapshot", lambda _p: {})
+    monkeypatch.setattr(relay, "lint_config_snapshot", lambda _p: {})
     monkeypatch.setattr(relay, "stamp_hook_input", lambda *a: ("{}", None))
     monkeypatch.setattr(relay, "settle_projection", lambda *a: None)
     monkeypatch.setattr(
-        "yoke_harness.hooks.cursor_lifecycle_hooks.ensure_user_lifecycle_hooks_for_executor",
-        lambda _e: None,
+        "yoke_harness.hooks.machine_hooks.ensure_machine_hooks_for_executor",
+        lambda *_a, **_k: None,
     )
     local_denied = denied and path != "relay_server"
     monkeypatch.setattr(

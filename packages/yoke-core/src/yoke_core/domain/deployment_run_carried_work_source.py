@@ -66,6 +66,9 @@ class CarriedWorkSource(Protocol):
     def resolve_commit(self, ref: str) -> str:
         """Return the full commit sha for ``ref``, or ``""`` when unresolvable."""
 
+    def resolve_commits(self, refs: Sequence[str]) -> dict[str, str]:
+        """Answer :meth:`resolve_commit` for every ref in ``refs`` at once."""
+
     def lineage_relation(self, base: str, head: str) -> str:
         """Return whether ``head`` carries ``base``, without listing commits."""
 
@@ -127,22 +130,19 @@ class LocalCheckoutSource:
         self._facts: dict[str, tuple[str, str, str]] = {}
 
     def resolve_commit(self, ref: str) -> str:
-        resolved = self._rev_parse(ref)
-        if resolved:
-            return resolved
+        return self.resolve_commits((ref,))[ref]
+
+    def resolve_commits(self, refs: Sequence[str]) -> dict[str, str]:
+        answers = checkout_ancestry.resolve_commits(self._repo_root, refs)
+        missed = [ref for ref, sha in answers.items() if ref and not sha]
         # A checkout holds only the commits it has already fetched, so a pin
         # recorded after its last fetch is indistinguishable from a commit
         # that never existed. Ask the remote once before answering that it is
         # unreachable; a run whose pins are already present never gets here,
         # so the comparison that can answer still costs no network at all.
-        if self._fetch():
-            return self._rev_parse(ref)
-        return ""
-
-    def _rev_parse(self, ref: str) -> str:
-        return git.git_out(
-            self._repo_root, "rev-parse", "--verify", f"{ref}^{{commit}}"
-        )
+        if missed and self._fetch():
+            answers.update(checkout_ancestry.resolve_commits(self._repo_root, missed))
+        return answers
 
     def _fetch(self) -> bool:
         """Refresh this checkout's remote-tracking refs, at most once.

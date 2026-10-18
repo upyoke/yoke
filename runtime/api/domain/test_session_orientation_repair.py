@@ -145,7 +145,7 @@ def test_cursor_repairs_on_its_tool_result_event(project: Path) -> None:
     )
     repeat = so.orientation_for_hook(
         "PostToolUse",
-        _cursor_payload(project, event="afterShellExecution"),
+        _cursor_payload(project, event="postToolUse"),
         cursor=True,
     )
 
@@ -159,7 +159,7 @@ def test_cursor_stays_silent_once_its_startup_block_landed(project: Path) -> Non
     so.confirm_orientation_delivery()
     repeat = so.orientation_for_hook(
         "PostToolUse",
-        _cursor_payload(project, event="afterShellExecution"),
+        _cursor_payload(project, event="postToolUse"),
         cursor=True,
     )
 
@@ -188,3 +188,21 @@ def test_every_harness_has_a_repeating_repair_channel(cursor: bool) -> None:
     repair = session_orientation_redelivery_event(cursor=cursor)
 
     assert repair == ("PostToolUse" if cursor else startup)
+
+
+@pytest.mark.parametrize("cursor", [False, True])
+def test_a_session_registered_midway_is_oriented_exactly_once(
+    project: Path, cursor: bool
+) -> None:
+    # Hooks installed during a live conversation never see its startup
+    # event; the next prompt (or Cursor's next tool result) orients it once.
+    event = session_orientation_redelivery_event(cursor=cursor)
+    payload = (
+        _cursor_payload(project, event="postToolUse") if cursor else _payload(project)
+    )
+    first = so.orientation_for_hook(event, payload, cursor=cursor)
+    so.confirm_orientation_delivery()
+    second = so.orientation_for_hook(event, payload, cursor=cursor)
+
+    assert first is not None and so.ORIENTATION_HEADING in first
+    assert second is None

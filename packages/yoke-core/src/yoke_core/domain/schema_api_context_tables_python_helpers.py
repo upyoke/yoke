@@ -23,13 +23,22 @@ from __future__ import annotations
 
 
 PYTHON_HELPERS_TABLES: dict[str, dict] = {
+    "yoke_contracts.levels": {
+        "columns": [("default_levels", "callable")],
+        "notes": (
+            "default_levels() returns typed Level records; use Level.payload() for JSON. Level.to_dict() does not exist. "
+            "Wrong guess: yoke_contracts.level_defaults.default_levels does not exist; "
+            "that module exports only DEFAULT_LEVELS data."
+        ),
+    },
     "yoke_core.domain.epic_task_scope": {
         "columns": [("reopen_generated_task_scopes", "callable")],
         "notes": (
-            "Task amendment clears epic_tasks.scope_finalized_at and "
-            "items.generated_task_membership_finalized_at. Fixtures omitting "
-            "these current columns cannot model task amendment; a missing "
-            "scope schema is not an empty membership snapshot."
+            "Task amendment clears items.generated_task_membership_finalized_at; "
+            "finalization is item-level only. A task's file scope is its body's "
+            "## Files Touched section, read by "
+            "yoke_core.domain.task_files_touched; epic_tasks has no scope "
+            "columns and there is no epic_task_files table."
         ),
     },
     "yoke_core.domain.session_control_schema": {
@@ -44,7 +53,19 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "enough leaves session_launches absent during delivery checks. Current "
             "launch reads also require workspace, offered_at and episode_started_at; "
             "isolated SQLite roster fixtures must model those columns and launch tables. "
-            "Wake attempt fixtures also seed their message and recipient foreign-key parents."
+            "Wake attempt fixtures also seed their message and recipient foreign-key parents. "
+            "session_message_recipients uses composite key (message_id, session_id), "
+            "wake_after, and required resolution_evidence/routing_snapshot. Wrong guesses: "
+            "recipient_id and available_at; neither column exists. The recipient DDL owner "
+            "is session_message_recipient_schema.create_session_message_recipient_table. "
+            "connected_relay_routes selects session_relays.actor_id; wrong guess: a "
+            "project-only roster fixture can omit the relay actor column. Preserve the "
+            "relay actor seed when modeling installed versions. "
+            "Org selectors call resolve_recipients with the authenticated actor_id. "
+            "Recipients store the exclusive recipient_owner pair; owner_key tags project "
+            "and org identities for insert_message's wake_after_by_owner map. Wrong "
+            "guess: omit the actor for org selection or index scheduling by a nullable "
+            "project id. Reuse recipient_policy for the stored recipient scope."
         ),
     },
     "runtime.api.domain.test_session_native_turn_end": {
@@ -95,8 +116,8 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
     "yoke_core.domain.merge_queue_landing_record_schema": {
         "columns": [("ensure_merge_queue_landing_record_schema", "callable")],
         "notes": (
-            "This production schema owner creates merge_queue_landing_records "
-            "and merge_queue_landing_refreshes. Wrong guess: the relaxed test_db "
+            "This production schema owner creates merge_queue_landing_records, "
+            "merge_queue_landing_attempts and merge_queue_landing_refreshes. Wrong guess: the relaxed test_db "
             "fixture already contains these landing tables. "
             "Call this owner before converting those landing clocks in a test; "
             "do not invent replacement table DDL or apply schema to a live database."
@@ -272,12 +293,12 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "returns None when unknown. `model_reference_revisions` stores "
             "effective-dated sourced catalogs; publish via `yoke models publish`. "
             "Records hold model facts only; level changes are proposed with "
-            "`yoke models level-proposal` and stored by `yoke universe levels set`. "
+            "`yoke models level-proposal` and stored by `yoke settings set levels`. "
             "Native availability is independent. CLI: `yoke models lookup MODEL_ID`. "
             "No `operator_preferences` field."
         ),
     },
-    "yoke_core.domain.steering_fleet_report_deployment_runs": {
+    "yoke_core.domain.steering_fleet_report_run_progress": {
         "columns": [("run_progress", "callable")],
         "notes": (
             "Read live deployment run progress with run_progress(conn, "

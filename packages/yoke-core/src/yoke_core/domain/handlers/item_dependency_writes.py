@@ -8,7 +8,10 @@ function ids:
 * ``items.dependency.remove``
 
 The dependent item is the dispatcher target. The blocking item remains a
-payload ref accepted by the underlying item-dependency domain owner.
+payload ref accepted by the underlying item-dependency domain owner. Add and
+update refuse with ``dependency_cycle`` a write that would close a loop of
+blocking edges among live items, and record the calling session on each edge
+they create or change.
 """
 
 from __future__ import annotations
@@ -30,15 +33,21 @@ class ItemDependencyAddRequest(BaseModel):
     gate_point: str = "activation"
     satisfaction: Optional[str] = None
     rationale: str = Field(..., min_length=1)
-    evidence_json: str = "{}"
+    evidence_json: Optional[str] = None
 
 
 class ItemDependencyAddResponse(BaseModel):
+    """The stored edge after the write, never the request echo."""
+
     dependent_item: str
     blocking_item: str
+    dependency_id: int
+    action: str
     gate_point: str
-    satisfaction: Optional[str] = None
+    satisfaction: str
     source: str
+    rationale: str
+    evidence_json: str
     result: str
 
 
@@ -48,6 +57,8 @@ class ItemDependencyUpdateRequest(BaseModel):
     gate_point: Optional[str] = None
     satisfaction: Optional[str] = None
     rationale: Optional[str] = None
+    source: Optional[str] = None
+    evidence_json: Optional[str] = None
 
 
 class ItemDependencyUpdateResponse(BaseModel):
@@ -112,9 +123,14 @@ def _run_with_conn(fn, *args, **kwargs) -> str:
 
 
 def _domain_error(exc: Exception) -> HandlerOutcome:
-    code = (
-        "dependency_not_found" if isinstance(exc, LookupError) else "dependency_failed"
-    )
+    from yoke_core.domain.dependency_cycles import DependencyCycleError
+
+    if isinstance(exc, DependencyCycleError):
+        code = DependencyCycleError.code
+    elif isinstance(exc, LookupError):
+        code = "dependency_not_found"
+    else:
+        code = "dependency_failed"
     return _err(code, str(exc))
 
 
@@ -136,7 +152,7 @@ def handle_item_dependency_add(
     from yoke_core.domain.item_dependency import cmd_dependency_add
 
     try:
-        result = _run_with_conn(
+        write = _run_with_conn(
             cmd_dependency_add,
             dependent,
             body.blocking_item,
@@ -145,17 +161,23 @@ def handle_item_dependency_add(
             satisfaction=body.satisfaction,
             rationale=body.rationale,
             evidence_json=body.evidence_json,
+            session_id=request.actor.session_id or None,
         )
     except (LookupError, ValueError, RuntimeError) as exc:
         return _domain_error(exc)
+    edge = write.edge
     return HandlerOutcome(
         result_payload={
             "dependent_item": dependent,
             "blocking_item": body.blocking_item,
-            "gate_point": body.gate_point,
-            "satisfaction": body.satisfaction,
-            "source": body.source,
-            "result": result,
+            "dependency_id": edge.dependency_id,
+            "action": write.action,
+            "gate_point": edge.gate_point,
+            "satisfaction": edge.satisfaction,
+            "source": edge.source,
+            "rationale": edge.rationale,
+            "evidence_json": edge.evidence_json,
+            "result": write.message,
         },
         primary_success=True,
     )
@@ -187,6 +209,9 @@ def handle_item_dependency_update(
             gate_point=body.gate_point,
             satisfaction=body.satisfaction,
             rationale=body.rationale,
+            source=body.source,
+            evidence_json=body.evidence_json,
+            session_id=request.actor.session_id or None,
         )
     except (LookupError, ValueError, RuntimeError) as exc:
         return _domain_error(exc)

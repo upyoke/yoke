@@ -81,18 +81,19 @@ def test_shell_gate_synthesizes_bash_tool_shape(container_env: None) -> None:
     assert data["is_subagent_session"] is False
 
 
-def test_after_shell_maps_output_to_tool_output(container_env: None) -> None:
+def test_shell_post_tool_use_reads_as_a_bash_completion(container_env: None) -> None:
     payload = json.dumps(
         {
-            "hook_event_name": "afterShellExecution",
-            "command": "ls",
-            "output": "file1",
+            "hook_event_name": "postToolUse",
+            "tool_name": "Shell",
+            "tool_input": {"command": "ls"},
+            "tool_output": '{"output":"file1","exitCode":0}',
             "session_id": MAIN,
         }
     )
     data = parse_payload(payload)
     assert data["tool_name"] == "Bash"
-    assert data["tool_output"] == "file1"
+    assert data["tool_input"]["command"] == "ls"
 
 
 def test_shell_tool_name_canonicalizes_to_bash(container_env: None) -> None:

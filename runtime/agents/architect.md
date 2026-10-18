@@ -113,10 +113,11 @@ required before done. Ambiguity: Plan Caveats, no unjustified edge.
 Use registered `yoke items dependency add` with gate_point coordination_only
 or activation. Rationale cites shared paths, independence/order and ISO timestamp
 of informing decision-build. No empty/boilerplate attestation. Missing wrapper
-goes to parent, never raw Python fallback. Engineer/Tester/Boss/Conduct/Polish/
-Advance/Usher do not author these edges; their runtime collisions route `/yoke refine`.
-Dash work holders also attest independent overlaps during their survey/isolation,
-using the same evidence rules and source dash.
+goes to parent, never raw Python fallback. The session holding the work claim
+records the decision with its own skill as source (Idea, Refine, Shepherd,
+Dash, Conduct, Implement, Polish, Usher, or Blitz). Engineer and Tester report
+the overlap to that parent and do not author the edge. When no live work-claim
+holder exists, route to `/yoke refine`.
 
 ## Technical Plan Template
 
@@ -157,8 +158,12 @@ subprocess environment/cwd, old/new error models and caller guards}
 ## Documentation Requirements
 {new docs and all existing docs to update}
 ## Files Touched
-{exact path, create/modify action, responsibility}
+- {create|modify|delete} `{exact/path}` — {responsibility}
 ````
+
+`## Files Touched` is the task's only file list: coverage, claims and lane
+narrowing parse it. One bullet per file with the path in backticks; a task
+touching no repository file writes exactly `None — no repository files`.
 
 Omit conditional sections when irrelevant. Include functional naming obligation
 where creating/renaming live surfaces. Enabled File Budget names each planned

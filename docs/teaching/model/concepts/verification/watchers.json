@@ -4,5 +4,7 @@
  "status": "draft-copy",
  "commands": ["yoke watch ci-run", "yoke watch deploy", "yoke watch doctor", "yoke watch fleet", "yoke watch merge", "yoke watch preflight", "yoke watch pytest", "yoke watch qa-case", "yoke watch qa-plan", "yoke watch tail"],
  "page": "verification",
- "position": 3
+ "position": 3,
+ "summary": "A wrapper keeps every line in its raw capture and writes wake-worthy lines to its progress capture. yoke watch tail wakes its reader only on failures, refusals, decision-needing waits, terminal outcomes and the exit sentinel; routine digests and stall notices ride in front of the next such line, so a bare tail needs no filter.",
+ "sources": ["packages/yoke-core/src/yoke_core/tools/_watch_digest.py", "packages/yoke-core/src/yoke_core/tools/watch_tail.py"]
 }

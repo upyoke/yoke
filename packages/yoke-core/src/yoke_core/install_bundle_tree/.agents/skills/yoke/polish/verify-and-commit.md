@@ -69,7 +69,10 @@ hand-fetched pytest banner.
 **Current-item failures belong here.** Future/planned item ownership or a
 planned path claim is not a waiver. Widen required scope with
 `claims.path.widen` (operator/debug alias `path-claim-widen`) and use
-dependency or claim reconciliation before retrying.
+dependency or claim reconciliation before retrying. An independent path
+overlap is recorded by this session, which holds the work claim: run
+`yoke claims path coordination-decision-build` and `yoke items dependency add`
+with source `polish`. Ordered edits wait for the holder's landing proof.
 Do not use `path-claim-override` for a planned future claim when reconciliation
 works; override is last resort for irreducible live collisions and needs
 explicit operator approval. Do not leave the worktree in a failing state.

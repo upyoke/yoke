@@ -13,7 +13,6 @@ from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_obligation_settlement import (
-    obligation_settled,
     requirement_retracted_at_select,
 )
 from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
@@ -94,6 +93,7 @@ def _read_attached_member_plan_ids(
     environment its flow deploys to.
     """
     from yoke_core.domain.deployment_qa_presentation_facts import attachment_rows
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
 
     rows = attachment_rows(conn, int(member_item_id))
     if rows is not None:
@@ -122,14 +122,41 @@ def _read_attached_member_plan_ids(
             from yoke_core.domain.qa_plan_case_definition import plan_cases
             from yoke_core.domain.qa_plan_case_targets import case_target_envs
 
-            environment = conn.execute(
-                "SELECT name FROM environments WHERE id=%s", (environment_id,)
-            ).fetchone()
+            environment = presentation_read(
+                conn,
+                ("qa_attachment_environment", environment_id),
+                lambda: conn.execute(
+                    "SELECT name FROM environments WHERE id=%s", (environment_id,)
+                ).fetchone(),
+            )
             name = str(environment[0]) if environment else ""
-            if not any(
-                name in case_target_envs(case)
-                for case in plan_cases(conn, int(row["plan_id"]))
-            ):
+            plan_id = int(row["plan_id"])
+
+            def read_cases():
+                from yoke_core.domain.deployment_qa_shared_plan_reads import (
+                    presented_plan_rows,
+                )
+                from yoke_core.domain.qa_plan_case_definition import (
+                    materialized_plan_cases,
+                )
+
+                batch = presented_plan_rows(conn, plan_id)
+                if batch is None:
+                    return plan_cases(conn, plan_id)
+                return materialized_plan_cases(
+                    [
+                        {"plan_slug": batch[0]["slug"], **dict(case)}
+                        for case in batch[1]
+                    ],
+                    plan_id,
+                )
+
+            cases = presentation_read(
+                conn,
+                ("qa_attachment_cases", plan_id),
+                read_cases,
+            )
+            if not any(name in case_target_envs(case) for case in cases):
                 continue
         selected.append(int(row["plan_id"]))
     return selected
@@ -151,8 +178,11 @@ def delivery_answered_plan_ids(
     avoid creating that copy, not to decide any verdict.
 
     A plan qualifies only when a run admitted at least one of its cases for
-    this member and every admitted case is answered; a partly-answered plan
-    still owes what it owes.
+    this member and every case variant has a copy that passed or was waived;
+    a partly-answered plan still owes what it owes. A retracted copy (one
+    withdrawn from its run, as when the member left it) and a superseded
+    copy (its successor answers instead) answer nothing themselves, so a
+    plan whose only copies were retracted stays owed and materializes again.
     """
     wanted = tuple(dict.fromkeys(int(plan_id) for plan_id in plan_ids))
     if not wanted:
@@ -185,8 +215,10 @@ def delivery_answered_plan_ids(
                 shared_digests[key] = member_group_digests(conn, *key, member_item_id)
             if row["execution_target_digest"] not in shared_digests[key]:
                 continue
+        if row["retracted_at"] or row["superseded_by_requirement_id"]:
+            continue
         plan_id = int(row["plan_id"])
-        settled = obligation_settled(row) or _latest_verdict(conn, row["id"]) == "pass"
+        settled = bool(row["waived_at"]) or _latest_verdict(conn, row["id"]) == "pass"
         answered[plan_id] = answered.get(plan_id, True) and settled
         key = (plan_id, row["plan_case_key"], row["host_baseline"], row["target_env"])
         targeted[key] = targeted.get(key, True) and settled

@@ -13,6 +13,7 @@ from .dependency_planning import evaluate_batch_gates
 from .dependency_explanation import dependency_wait_summary
 from .frontier_classify import classify_next_action
 from .frontier_depth import _compute_downstream_depths
+from .frontier_landing_wait import committed_lane_item_ids, landing_wait_reason
 from .frontier_rank import rank_frontier
 from .frontier_recent_owner import routed_ownership_exclusions
 from .frontier_sql import (
@@ -107,6 +108,23 @@ def compute_frontier(
             for dep_item, details in activation_blocks.items()
         },
     )
+
+    # Committed work whose only unmet edges hold back its landing waits too.
+    integration_blocks = evaluate_batch_gates(
+        conn,
+        gate_point="integration",
+        session_id=session_id,
+        project=_canonical_project_label(conn, project_scope),
+        emit_events=emit_events,
+    )
+    landing_details: Dict[int, List[Dict[str, Any]]] = remap_ref_keys_to_internal(
+        conn,
+        {
+            dep_item: [d.to_dict() for d in details]
+            for dep_item, details in integration_blocks.items()
+        },
+    )
+    committed_lanes = committed_lane_item_ids(conn, landing_details)
 
     cursor.execute(UNBLOCKS_COUNT_SQL)
     unblocks_map: Dict[int, int] = {
@@ -205,13 +223,28 @@ def compute_frontier(
                 for detail in fi.blocker_details
             )
 
+        landing = (
+            landing_details.get(internal_item_id, [])
+            if not blockers and internal_item_id in committed_lanes
+            else []
+        )
+        if landing:
+            fi.blocked_by = [detail["blocking_item"] for detail in landing]
+            fi.blocker_details = landing
+            fi.blocked_reasons.append(
+                landing_wait_reason(
+                    (detail["blocking_item"], detail["satisfaction"])
+                    for detail in landing
+                )
+            )
+
         fi.needs_spec = status == workflow.stage_ids[0] and item_needs_spec(item)
         if fi.needs_spec:
             fi.blocked_reasons.append(
                 needs_spec_reason(render_item_ref(conn, internal_item_id))
             )
 
-        if flag_blocked or blockers or fi.needs_spec:
+        if flag_blocked or blockers or landing or fi.needs_spec:
             fi.adapter = AdapterCategory.WAIT
             blocked.append(fi)
         elif internal_item_id in defended_items:

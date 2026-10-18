@@ -317,7 +317,7 @@ def merge_allow_stdout(
     The https relay split renders each half's decisions separately; this
     rejoins them for the harness. When both halves are single
     ``additionalContext`` envelopes, their bodies are composed (delivery
-    first, then hints, then report, under the harness inline cap) into
+    first, then alerts, hints, and report, under the harness inline cap) into
     ONE envelope. Any other non-empty pair concatenates raw, exactly like
     ``run_event``'s own rendered-text + extra-subprocess-stdout join.
     """

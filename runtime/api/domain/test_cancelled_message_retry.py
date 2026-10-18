@@ -35,7 +35,7 @@ def test_cancelled_message_does_not_dedupe_but_uncancelled_retry_does(engine):
                 expires_at=NOW + timedelta(hours=1),
                 recipients=[],
                 actor_recipients=[],
-                wake_after_by_project={},
+                wake_after_by_owner={},
             )
             conn.commit()
             return details["message_id"], not created

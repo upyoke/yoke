@@ -7,6 +7,7 @@ import test from "node:test";
 
 import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
 import { frontierGraphSection } from "../../packages/yoke-core/src/yoke_core/ui/static/frontier_graph.js";
+import { frontierBandRows } from "../../packages/yoke-core/src/yoke_core/ui/static/frontier_band_rows.js";
 import { DEPENDENCY_GRAPH_FLOOR_MESSAGE } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_frontier_bands.js";
 import {
   FakeDocument,
@@ -76,7 +77,7 @@ test("stuck and deadlocked tiles are marked on the tiles themselves", () => {
   assert.equal(ownTextContent(divider), "Deadlocked");
   assert.ok(divider.classList.contains("is-stuck"));
   assert.equal(ownTextContent(byClass(tile("YOK-3860"), "fdv-tile-meta")[0]),
-    "Deadlock — YOK-3861 ⇄ YOK-3860 wait on each other");
+    "Deadlock — YOK-3860 ⇄ YOK-3861 wait on each other");
 });
 
 test("a fan-out stack expands in place", () => {
@@ -290,4 +291,43 @@ test("a blocker that no longer resolves draws as a ghost its dependent waits on"
   );
   assert.ok(ghost.classList.contains("is-ghost"));
   assert.equal(ownTextContent(byClass(ghost, "fdv-tile-stage")[0]), "not on this Frontier");
+});
+
+test("committed work waiting only for its blockers to land waits, saying so once", () => {
+  const landing = (blocker, holds) => ({
+    public_ref: "YOK-12", project_id: 1, project: "yoke", blocking_item: blocker,
+    gate_point: "integration", satisfaction: "fact:merged", holds_pickup: holds,
+    why: "Waiting on YOK-7, YOK-8 to merge",
+  });
+  const items = [row("YOK-12", 1), row("YOK-7", 1), row("YOK-8", 1)];
+  const bands = (blockedRows) => frontierBandRows({
+    items, readyRows: [], blockedRows, sessionRows: [],
+  });
+  const [waiting] = bands([landing("YOK-7", true), landing("YOK-8", true)]).waiting;
+  assert.equal(waiting.row.public_ref, "YOK-12");
+  assert.equal(waiting.reason.flag.label, "Waiting for 2 items");
+  assert.equal(waiting.reason.flag.text, "Waiting on YOK-7, YOK-8 to merge");
+  // A merge edge on work still free to build holds nothing back.
+  assert.deepEqual(bands([landing("YOK-7", false)]).waiting, []);
+});
+
+test("a committed item waiting on a landing waits in the graph with the shared sentence", async (t) => {
+  const sentence = "Waiting on BET-3 to merge";
+  const { band, count } = await mount(t, "/frontier?project=1", {
+    ready_rows: [],
+    blocked_rows: [{
+      public_ref: "YOK-12", project_id: 1, project: "yoke", blocking_item: "BET-3",
+      gate_point: "integration", satisfaction: "fact:merged", holds_pickup: true, why: sentence,
+    }],
+    dependency_edges: [edge("BET-3", "YOK-12", {
+      gate_point: "integration", satisfaction: "fact:merged",
+      blocking_project_id: 2, blocking_project_sequence: 3,
+    })],
+  });
+  assert.equal(count("ready"), "0");
+  const tile = byClass(band("waiting"), "fdv-tile").find(
+    (node) => node.getAttribute("data-fdv-ref") === "YOK-12",
+  );
+  assert.equal(tile.getAttribute("data-band"), "waiting");
+  assert.equal(ownTextContent(byClass(tile, "fdv-tile-meta")[0]), sentence);
 });

@@ -1,0 +1,10 @@
+{
+ "id": "live-deployment-runs",
+ "title": "Live deployment runs in the report",
+ "status": "observed",
+ "page": "frontier",
+ "position": 6,
+ "summary": "Each live run row names its stage age, outstanding blocking QA and red requirements. Red means an unsettled blocking obligation whose latest actual attempt failed: a waived, superseded, replaced, triage-discharged or retracted requirement (including every requirement of a member removed with remove-item) is history, so the count matches what the run still grades. The section reads runs, members and requirements as sets, so a larger release costs the same statements.",
+ "commands": ["yoke deployment-runs remove-item", "yoke steering report get"],
+ "sources": ["docs/public/reference/db-reference/steering-fleet-report.md", "packages/yoke-core/src/yoke_core/domain/deployment_run_red_requirements.py", "packages/yoke-core/src/yoke_core/domain/steering_fleet_report_run_progress.py"]
+}

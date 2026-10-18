@@ -113,3 +113,109 @@ def test_approval_refuses_noncanonical_or_unrelated_tabs(starting_url) -> None:
     )
     assert result.error_code == "machine_browser_tab_missing"
     assert starting_url not in commands[1]
+
+
+@pytest.mark.parametrize("result_url", [ENTRY_URL, REDIRECT_URL])
+def test_visible_connected_confirmation_accepts_only_the_same_allowed_tab(result_url):
+    from yoke_harness.machine_browser_approval import approval_outcome
+
+    result = approval_outcome(
+        browser="Safari",
+        state="approved_in_place",
+        starting_url=ENTRY_URL,
+        result_url=result_url,
+        allowed_urls=[ENTRY_URL, REDIRECT_URL],
+        expected_origin="https://app.stage.upyoke.com",
+    )
+    assert result.ok is (result_url == ENTRY_URL)
+    if result.ok:
+        assert result.evidence["visible_confirmation"] == "Machine connected"
+
+
+def test_safari_waits_for_visible_confirmation_after_pressing_the_control():
+    from yoke_harness.ssh_mac_browser_approval import _script
+
+    script = "\n".join(_script(allowed_urls=[ENTRY_URL]))
+    assert script.index("AXPress") < script.index("Machine connected")
+    assert '"AXHeading", "AXStaticText"' in script
+    assert script.count("entire contents of front window") == 2
+    assert 'set confirmed to "approved_in_place|"' in script
+
+
+@pytest.mark.parametrize("confirmed", [False, True])
+def test_chromium_confirms_the_heading_on_the_exact_clicked_page(
+    monkeypatch, confirmed
+):
+    from contextlib import nullcontext
+    from yoke_harness import linux_desktop_chromium as browser
+
+    expressions = []
+
+    class Page:
+        def __init__(self, _url):
+            pass
+
+        def call(self, _method, **kwargs):
+            expressions.append(kwargs["expression"])
+            return {
+                "result": {"value": "pressed" if len(expressions) == 1 else confirmed}
+            }
+
+    monkeypatch.setattr(browser, "_port", lambda: 1234)
+    monkeypatch.setattr(
+        browser,
+        "_pages",
+        lambda _port: [
+            {"id": "bound", "url": ENTRY_URL, "webSocketDebuggerUrl": "fixture"}
+        ],
+    )
+    monkeypatch.setattr(browser, "urlopen", lambda *a, **k: nullcontext())
+    monkeypatch.setattr(browser, "DevToolsPage", Page)
+    monkeypatch.setattr(browser, "NAVIGATION_ATTEMPTS", 1)
+    monkeypatch.setattr(browser.time, "sleep", lambda _seconds: None)
+    result = browser.approve([ENTRY_URL], "Approve machine")
+    assert result["state"] == (
+        "approved_in_place" if confirmed else "approval_navigation_missing"
+    )
+    assert "location.href === " in expressions[1]
+    assert ENTRY_URL in expressions[1]
+    assert "getClientRects().length" in expressions[1]
+
+
+def test_confirmation_walks_the_window_once_per_poll_and_matches_title():
+    from yoke_harness.ssh_mac_browser_approval import _script
+
+    script = "\n".join(_script(allowed_urls=[ENTRY_URL]))
+    confirm = script[script.index("approval_control_missing") :]
+    assert confirm.count("entire contents") == 1
+    assert "set pageElements to entire contents of front window" in confirm
+    for prop in ("value", "name", "title"):
+        assert f'({prop} of candidate as text) is "Machine connected"' in confirm
+    assert "set lastError to errText" in confirm
+
+
+def test_missing_confirmation_records_where_the_poll_stopped():
+    timeouts: list[object] = []
+
+    def run(command: str, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        if "return tabURLs" in command:
+            return _completed(command, stdout=ENTRY_URL + "\n")
+        timeouts.append(kwargs.get("timeout"))
+        return _completed(
+            command,
+            stdout=f"approval_navigation_missing|{ENTRY_URL}|{ENTRY_URL}|14|"
+            "System Events got an error: Can't get window 1 | of process\n",
+        )
+
+    result = approve_machine_in_safari(
+        run,
+        verification_url="https://app.stage.upyoke.com/connect",
+        user_code="AB12-CD34",
+    )
+
+    assert result.error_code == "machine_browser_approval_navigation_missing"
+    assert result.evidence["observed_url"] == ENTRY_URL
+    assert result.evidence["confirmation_wait_seconds"] == 14
+    assert result.evidence["last_error"].startswith("System Events got an error")
+    assert "| of process" in result.evidence["last_error"]
+    assert timeouts == [90]

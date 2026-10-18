@@ -34,8 +34,8 @@ _EPIC_TASKS_DDL = (
     "epic_id INTEGER, task_num INTEGER, title TEXT, item_worktree_id INTEGER, "
     "context_estimate TEXT, dependencies TEXT, status TEXT, "
     "dispatch_attempts INTEGER DEFAULT 0, github_issue TEXT, "
-    "last_heartbeat TIMESTAMPTZ, scope_state TEXT DEFAULT 'no_files', "
-    "scope_finalized_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)"
+    "last_heartbeat TIMESTAMPTZ, "
+    "body TEXT DEFAULT '## Files Touched\n\nNone — no repository files\n')"
 )
 # The repo-resolution join reads projects; without the table the swallowed
 # lookup failure would poison the Postgres transaction for later statements.
@@ -52,10 +52,6 @@ def _disposable_conn(*ddl: str) -> Any:
     )
     for statement in ddl:
         conn.execute(statement)
-    if _EPIC_TASKS_DDL in ddl:
-        conn.execute(
-            "CREATE TABLE epic_task_files (epic_id INTEGER, task_num INTEGER, file_path TEXT)"
-        )
     if _ITEMS_DDL in ddl:
         from yoke_core.domain.workflow_registry import converge_builtin_workflows
         from yoke_core.domain.workflow_schema import ensure_workflow_schema

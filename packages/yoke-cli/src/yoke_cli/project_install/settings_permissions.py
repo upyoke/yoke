@@ -56,7 +56,9 @@ def _load(target: Path) -> Optional[Dict[str, Any]]:
 
 def _write(target: Path, payload: Dict[str, Any]) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    target.write_text(
+        json.dumps(payload, indent=2) + "\n", encoding="utf-8", newline=""
+    )
 
 
 def _validate(managed: Any) -> Tuple[List[str], Optional[bool]]:

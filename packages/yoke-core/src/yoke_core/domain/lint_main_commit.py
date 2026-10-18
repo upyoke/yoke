@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from typing import Iterable, Optional
 
@@ -18,7 +17,6 @@ from yoke_core.domain.lint_main_commit_client_facts import (
     client_facts,
     client_list,
 )
-from yoke_core.domain.lint_staged_union import effective_staged_set
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
@@ -35,38 +33,6 @@ def _extract_tool_input(payload: dict) -> dict:
 def is_bookkeeping(filepath: str) -> bool:
     """Classify *filepath* as a bookkeeping file allowed on main."""
     return _contract_is_bookkeeping(filepath)
-
-
-def _current_branch() -> Optional[str]:
-    """Return the current git branch name, or ``None`` on failure."""
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except Exception:
-        return None
-    if result.returncode != 0:
-        return None
-    return result.stdout.strip()
-
-
-def _staged_files() -> Optional[list[str]]:
-    """Return the list of staged file paths, or ``None`` on failure."""
-    try:
-        result = subprocess.run(
-            ["git", "diff", "--cached", "--name-only"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except Exception:
-        return None
-    if result.returncode != 0:
-        return None
-    return [line for line in result.stdout.strip().split("\n") if line]
 
 
 def _active_worktree_items() -> Optional[list[str]]:
@@ -136,19 +102,12 @@ def evaluate_payload(payload: dict) -> Optional[str]:
     if not is_actual_git_commit(command):
         return None
 
+    # The checkout is on the client machine, which reports its branch and
+    # effective staged set; without that report nothing is provably on main.
     facts = client_facts(payload)
-    branch = facts.get("branch") if facts is not None else _current_branch()
-    if branch is None or branch not in ("main", "master"):
+    if facts is None or facts.get("branch") not in ("main", "master"):
         return None
-
-    if facts is not None:
-        staged = client_list(facts, "staged_paths")
-    else:
-        effective = effective_staged_set(command, _staged_files())
-        if effective is None or not effective.paths:
-            return None
-        staged = effective.paths
-
+    staged = client_list(facts, "staged_paths")
     if not staged:
         return None
 

@@ -13,7 +13,8 @@ batched authority read and, under ``--fix``, retired one at a time as each is
 proved, so a run the budget cuts short keeps what it already retired.
 
 Detached self-deploy driver trees are checked against their run status and
-retired under ``--fix`` once the run is over.
+retired under ``--fix`` once the run is over. Open items' landed lanes are
+listed apart: they hold no ``max_active_worktrees`` slot.
 """
 
 from __future__ import annotations
@@ -21,14 +22,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List
 
-from yoke_core.engines.deploy_run_worktree_naming import (
-    run_id_for_driver_worktree,
-)
+from yoke_core.domain.worktree_capacity import landed_lanes_note
+from yoke_core.engines.deploy_run_worktree_naming import run_id_for_driver_worktree
 from yoke_core.engines.deploy_run_worktree_retirement import (
     assess_deploy_run_worktrees,
     retire_terminal_deploy_run_worktrees,
 )
 from yoke_core.engines.doctor_worktree_lane_authority import LaneRow, lane_inventory
+from yoke_core.engines.git_worktree_registry import (
+    detached_head,
+    parse_worktree_porcelain,
+)
 from yoke_core.engines.doctor_worktree_terminal_lanes import (
     DEPLOY_RUN_CATEGORY,
     TerminalLaneRetirer,
@@ -63,21 +67,17 @@ def _git_for_repo(repo_root: str):
 
 
 def _worktree_entries(porcelain: str) -> List[dict]:
-    """Registered worktrees with their branch and git's lock note, if any."""
+    """Registered worktrees with their branch and git's lock note, if any.
+
+    A detached checkout is ``detached@<commit>`` from the shared porcelain
+    reader. An empty branch means the record named neither, not a detached HEAD.
+    """
     entries: List[dict] = []
-    current: dict = {}
-    for line in [*porcelain.splitlines(), ""]:
-        if line.startswith("worktree "):
-            current = {"path": line[len("worktree ") :]}
-        elif line.startswith("branch "):
-            current["branch"] = line[len("branch ") :].removeprefix("refs/heads/")
-        elif line == "locked" or line.startswith("locked "):
-            current["locked"] = (
-                line.removeprefix("locked").strip() or "no reason recorded"
-            )
-        elif line == "" and current:
-            entries.append(current)
-            current = {}
+    for parsed in parse_worktree_porcelain(porcelain):
+        entry = {"path": parsed.path, "branch": parsed.branch}
+        if parsed.lock_reason is not None:
+            entry["locked"] = parsed.lock_reason or "no reason recorded"
+        entries.append(entry)
     return entries
 
 
@@ -158,6 +158,15 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
         and lane.branch in local_branches
         and lane.branch not in live_branches
     ]
+    roots = declared_disposable_roots(repo_root) if repo_root else None
+    paths = [e["path"] for e in lane_entries if Path(e["path"]).is_dir()]
+
+    def read_residue(path):
+        root = root_for(path)
+        lane_roots = roots if roots is not None else declared_disposable_roots(root)
+        return assess_lane_residue(_git_for_repo(root), path, lane_roots)
+
+    residues = dict(zip(paths, bounded_read_map(read_residue, paths)))
     retirer = TerminalLaneRetirer(
         [
             *(
@@ -169,6 +178,8 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
         ],
         fix=args.fix,
         git_for_repo=_git_for_repo,
+        residues=residues,
+        checkouts=entries,
     )
     if retirer.authority_failure:
         issues.append(
@@ -177,16 +188,6 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
             "is preserved; rerun this check with --fix once the control plane "
             "answers it"
         )
-
-    roots = declared_disposable_roots(repo_root) if repo_root else None
-    paths = [e["path"] for e in lane_entries if Path(e["path"]).is_dir()]
-
-    def read_residue(path):
-        root = root_for(path)
-        lane_roots = roots if roots is not None else declared_disposable_roots(root)
-        return assess_lane_residue(_git_for_repo(root), path, lane_roots)
-
-    residues = dict(zip(paths, bounded_read_map(read_residue, paths)))
 
     for entry in lane_entries:
         wt_path = entry["path"]
@@ -224,6 +225,7 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
                     target=owner.target_branch,
                     item_id=public_ref,
                     assessment=assessment,
+                    release_branch=owner.branch if detached_head(branch) else "",
                 )
                 if not preserved:
                     fixed.append(
@@ -335,10 +337,14 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
     if stranded:
         issues.insert(0, stranded_summary(stranded))
-    if issues:
-        detail = [*fixed, *issues]
-        rec.record("HC-worktree-health", "Worktree health", "WARN", "\n".join(detail))
-    elif fixed:
-        rec.record("HC-worktree-health", "Worktree health", "PASS", "\n".join(fixed))
-    else:
-        rec.record("HC-worktree-health", "Worktree health", "PASS", "")
+    open_lanes = [
+        (Path(e["path"]).name, e.get("branch", ""), owner.target_branch)
+        for e in lane_entries
+        for owner in by_branch.get(e.get("branch", ""), [])[:1]
+        if owner.status not in _TERMINAL
+    ]
+    checkout = str(repo_root or "")
+    note = landed_lanes_note(_git_for_repo(checkout), checkout, open_lanes)
+    detail = "\n".join(line for line in (*fixed, *issues, note) if line)
+    status = "WARN" if issues else "PASS"
+    rec.record("HC-worktree-health", "Worktree health", status, detail)

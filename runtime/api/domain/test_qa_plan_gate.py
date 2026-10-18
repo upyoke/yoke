@@ -11,7 +11,7 @@ import pytest
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_plan_gate import check_plan_simulation_satisfied
-from yoke_core.domain.qa_review_requests import QaReviewWait
+from yoke_core.domain.qa_review_waits import QaReviewWait
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 

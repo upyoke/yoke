@@ -69,10 +69,13 @@ export function qaCaseLink(context, row, text, className = null) {
   return link;
 }
 
-// What ran, never the case key: `current-release-review-state` is an
-// internal handle, and the method is what a reader recognises.
+// Method alone repeats across a member's copies. The case and host baseline
+// are what make one Terminal check a different row from the next.
 export function checkName(check) {
-  return String(check?.method_name || check?.method_id || "Check");
+  const method = String(check?.method_name || check?.method_id || "Check");
+  const caseKey = String(check?.plan_case_key || check?.case_key || "").trim();
+  const baseline = String(check?.host_baseline || "").trim();
+  return [method, caseKey, baseline].filter(Boolean).join(" · ");
 }
 
 function outcomeState(check) {
@@ -124,12 +127,15 @@ export function runQaVerdict(checks, decision) {
   if (!checks.length) return { text: "", tone: "" };
   const passed = checks.filter((check) => outcomeState(check) === "passed").length;
   const pending = checks.filter((check) => check.pending_obligation).length;
+  const queued = checks.filter((check) => !check.pending_obligation
+    && outcomeState(check) !== "passed" && outcomeState(check) !== "failed").length;
   if (pending === checks.length) return { text: "Not started", tone: "is-awaiting" };
-  if (pending) return { text: `${passed} of ${checks.length} passed · ${pending} pending`,
-    tone: "is-awaiting" };
+  const open = [pending ? `${pending} pending` : "", queued ? `${queued} queued` : ""]
+    .filter(Boolean).join(" · ");
+  const failed = checks.some((check) => outcomeState(check) === "failed");
   return {
-    text: `${passed} of ${checks.length} passed`,
-    tone: passed === checks.length ? "is-approved" : "is-rejected",
+    text: open ? `${passed} of ${checks.length} passed · ${open}` : `${passed} of ${checks.length} passed`,
+    tone: open && !failed ? "is-awaiting" : (passed === checks.length ? "is-approved" : "is-rejected"),
   };
 }
 
@@ -180,13 +186,13 @@ export function runCheckLine(context, check, options = {}) {
   // failures and unresolved checks, where the reason helps the reader act.
   const reason = check.retracted_at
     ? classifyQaRow(check)?.detail : check.verdict_reason;
-  if (reason && state !== "passed") {
-    line.appendChild(el(
-      documentNode, "p", "run-qa-check-reason", String(reason),
-    ));
+  const shownReason = reason && state !== "passed" ? String(reason) : "";
+  if (shownReason) {
+    line.appendChild(el(documentNode, "p", "run-qa-check-reason", shownReason));
   }
-  if (check.pending_obligation && check.instructions) {
-    line.appendChild(el(documentNode, "p", "run-qa-check-reason", String(check.instructions)));
+  const description = String(check.instructions || "").trim();
+  if (description && description !== shownReason) {
+    line.appendChild(el(documentNode, "p", "run-qa-check-reason", description));
   }
   const strip = evidenceStrip(context, ownArtifacts(check), CHECK_STRIP);
   if (strip) line.appendChild(strip);
@@ -218,24 +224,40 @@ export function drawnCheckArtifactIds(checks) {
   ).map((artifact) => String(artifact.id))));
 }
 
+// A shared plan's checks under their own label, drawn like any other check.
+function appendSharedGroups(context, host, groups, options) {
+  const documentNode = context.document;
+  for (const { label, checks } of groups) {
+    const group = el(documentNode, "div", "run-qa-shared-group");
+    group.appendChild(el(documentNode, "p", "run-qa-shared-label", label));
+    for (const check of checks) group.appendChild(runCheckLine(context, check, options));
+    host.appendChild(group);
+  }
+}
+
 // One QA scope — "Run QA" or "Item QA" — with its heading, verdict, current
-// checks and folded history. The caller appends the scope's decisions.
+// checks and folded history. `groups` ({label, checks}) are shared plans'
+// current checks: drawn once under their label and counted once in the
+// tally. The caller appends the scope's decisions.
 export function qaScopeSection(context, { heading, headingTag, current, history,
-  decision, runId, project, className }) {
+  decision, runId, project, className, groups = [] }) {
   const documentNode = context.document;
   const section = el(documentNode, "section",
     `run-qa-section${className ? ` ${className}` : ""}`);
   const head = el(documentNode, "div", "run-qa-head");
   head.appendChild(el(documentNode, headingTag || "h3", null, heading));
+  const counted = [...current, ...groups.flatMap((group) => group.checks)];
   // A scope with no checks has no tally; only a decision still owed or
   // refused heads it, and an approval is its own record below.
-  if (current.length || (decision && decision !== "approved")) {
-    const verdict = runQaVerdict(current, decision);
+  if (counted.length || (decision && decision !== "approved")) {
+    const verdict = runQaVerdict(counted, decision);
     if (verdict.text) head.appendChild(el(
       documentNode, "span", `run-verdict ${verdict.tone}`, verdict.text));
   }
   section.appendChild(head);
-  appendRunChecks(context, section, current, history, { runId, project });
+  appendRunChecks(context, section, current, [], { runId, project });
+  appendSharedGroups(context, section, groups, { runId, project });
+  appendRunChecks(context, section, [], history, { runId, project });
   return section;
 }
 

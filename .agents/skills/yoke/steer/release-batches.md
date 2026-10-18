@@ -87,13 +87,33 @@ yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage STAGE --member PREFIX
 ```
 
 Broadcast this form, not unscoped qa plan or requirement-only qa case: those
-cannot credit stage/member. Add --plan PLAN only if stage names no cases.
+cannot credit stage/member. A busy or unhealthy Test Machine queues the member
+in its host line and wakes it on its turn; never notify a waiter by hand, and
+tell an owner holding free-text instead to run this command and park. Add --plan PLAN only if stage names no cases.
 Correction-only plan may name --replaces CASE_KEY=FAILED_REQUIREMENT_ID even
 for admitted cases; supersession occurs when reviewed correction passes,
 never manual replacement. System-owned missing wake is a defect to repair.
 Accepted scoped QA opens configured review; settled/red/continuation failure
 notifies driver, individual member while others owe stays in report. Re-drive
 same pinned run after notice without replaying passing stages.
+
+### Manual-wake member QA
+
+For each open `wake_path: manual` requirement the stage driver wakes the
+member's owner (or, with no live holder, this steering seat) with a notice
+naming its `wake_evidence`: check it with registered reads (`yoke
+deployment-runs get`, `yoke qa requirement list`, `yoke db read`), run the
+member's cases if it exists, otherwise ask the operator to waive or remove the
+case. Each release/QA loop pass, read the report's "waiting on manual wake"
+section; the member's line shows its wake state.
+
+1. A notice that reached you: do the owner's check yourself, or staff the
+   item. Never run the case on time passed or a guess.
+2. This run cannot produce the evidence: ask the operator one decision,
+   waive or remove the case, with the run, requirement and evidence named.
+   Never waive it yourself.
+
+The row leaves the section once the owner's run is recorded.
 
 Driver owns run-scoped visual inspection (or explicitly assigned capable QA):
 

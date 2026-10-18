@@ -5,6 +5,5 @@
  "form": "State",
  "verification": "No delivery proof attached.",
  "topics": ["sessions/identity", "machines/registration", "universes/diagnostics"],
- "plan_refs": ["FIRST-USER.P2", "FIRST-USER.P3", "FIRST-USER.29"],
  "position": 0
 }

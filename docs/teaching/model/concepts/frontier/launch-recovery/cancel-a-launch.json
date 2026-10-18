@@ -1,7 +1,11 @@
 {
  "id": "cancel-a-launch",
  "title": "Cancel a launch",
- "status": "draft-copy",
+ "status": "observed",
+ "commands": ["yoke session-control launch cancel", "yoke sessions terminate"],
+ "functions": ["session_control.launch.cancel", "session_control.session.terminate"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/session_launch_cancellation.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/session_control_launch_descriptions.py", "runtime/api/domain/test_session_launch_cancellation.py"],
+ "text": "Cancel ends a launch and, when its session has registered but not yet received its instructions, ends that session in the same transaction: terminated, claims released and one native-process reap queued. A launch whose instructions were delivered is refused as launch_session_working, naming `yoke sessions terminate SESSION-ID --reason` for a deliberate kill. A native process that never registered moves the launch to outcome_unknown for reconciliation. A cancelled launch is final; reconcile refuses it. Observed in source and tests; deployed proof is pending.",
  "page": "frontier",
  "position": 3
 }

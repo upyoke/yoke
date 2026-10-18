@@ -9,6 +9,7 @@ import pytest
 
 from runtime.api.domain.machine_qa_terminal_recipe_test_support import completed
 from yoke_core.domain.machine_qa_operator_gate import (
+    BROWSER_APPROVAL_NOT_CONFIRMED,
     run_machine_browser_approval,
     run_machine_browser_approval_with_io,
 )
@@ -78,6 +79,7 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
         run,
         backend="screen",
         session="approval-session",
+        status_path="/tmp/approval-session.exit",
         action=_gate_action(),
         progress_callback=lambda: heartbeats.append(True),
         allowed_base_urls=("https://app.stage.upyoke.com",),
@@ -87,7 +89,14 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
     assert result.error_code is None
     assert heartbeats == [True]
     assert any(" -X stuff " in command for command in commands)
-    event = json.loads(capsys.readouterr().out)
+    event, heartbeat = map(json.loads, capsys.readouterr().out.splitlines())
+    assert heartbeat == {
+        "elapsed_seconds": 0,
+        "event": "machine_qa.heartbeat",
+        "phase": "operator_gate",
+        "step": "operator-browser-approval",
+        "timeout_seconds": 60,
+    }
     assert event == {
         "approval_automation": "self_approving_visible_safari",
         "code": "AB12-CD34",
@@ -132,6 +141,7 @@ def test_browser_gate_ignores_stale_outcomes_before_current_code(
     result = run_machine_browser_approval_with_io(
         read_transcript=lambda: next(transcripts),
         send_keys=lambda _keys: True,
+        read_exit_code=lambda _transcript: None,
         action=_gate_action(),
         progress_callback=None,
         allowed_base_urls=("https://app.stage.upyoke.com",),
@@ -146,21 +156,32 @@ def test_browser_gate_ignores_stale_outcomes_before_current_code(
     assert result.error_code is None
     assert result.transcript.endswith("Yoke token connected.\n")
     assert result.browser_evidence == {"browser": "Safari"}
-    assert json.loads(capsys.readouterr().out)["code"] == "EF56-GH78"
+    printed = capsys.readouterr().out.splitlines()
+    assert json.loads(printed[0])["code"] == "EF56-GH78"
 
 
-def test_browser_gate_accepts_completion_after_browser_automation_failure() -> None:
+def test_browser_gate_fails_fast_when_the_browser_helper_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     browser_evidence = {"browser": "Safari", "state": "browser_tab_missing"}
     transcripts = iter(
         (
             "One-time code: AB12-CD34\nOpen: https://app.stage.upyoke.com/connect\n",
-            "One-time code: AB12-CD34\nYoke token connected.\n",
+            "One-time code: AB12-CD34\nWaiting for browser approval\n",
         )
+    )
+
+    def no_waiting(_seconds: float) -> None:
+        raise AssertionError("the gate waited after the browser helper failed")
+
+    monkeypatch.setattr(
+        "yoke_core.domain.machine_qa_operator_gate.time.sleep", no_waiting
     )
 
     result = run_machine_browser_approval_with_io(
         read_transcript=lambda: next(transcripts),
         send_keys=lambda _keys: True,
+        read_exit_code=lambda _transcript: None,
         action=_gate_action(),
         progress_callback=None,
         allowed_base_urls=("https://app.stage.upyoke.com",),
@@ -172,10 +193,16 @@ def test_browser_gate_accepts_completion_after_browser_automation_failure() -> N
         ),
     )
 
-    assert result.ok is True
-    assert result.error_code is None
+    assert result.ok is False
+    assert result.transcript.endswith("Waiting for browser approval\n")
+    assert result.error_code == BROWSER_APPROVAL_NOT_CONFIRMED
     assert result.browser_evidence == browser_evidence
     assert result.browser_automation_error_code == "machine_browser_tab_missing"
+    assert result.step_evidence is not None
+    assert result.step_evidence["browser_automation_error_code"] == (
+        "machine_browser_tab_missing"
+    )
+    assert "rerun the case" in result.step_evidence["recovery"]
 
 
 def test_browser_gate_rejects_a_non_entry_path_before_automation() -> None:
@@ -185,6 +212,7 @@ def test_browser_gate_rejects_a_non_entry_path_before_automation() -> None:
             "One-time code: AB12-CD34\nOpen: https://app.stage.upyoke.com/anything\n"
         ),
         send_keys=lambda _keys: True,
+        read_exit_code=lambda _transcript: None,
         action=_gate_action(),
         progress_callback=None,
         allowed_base_urls=("https://app.stage.upyoke.com",),
@@ -239,6 +267,7 @@ def test_standalone_gate_accepts_the_current_complete_verification_uri():
     result = run_machine_browser_approval_with_io(
         read_transcript=lambda: next(transcripts),
         send_keys=lambda keys: True,
+        read_exit_code=lambda _transcript: None,
         action=_gate_action(),
         progress_callback=None,
         allowed_base_urls=("https://example.invalid",),
@@ -258,6 +287,7 @@ def test_complete_uri_on_an_undeclared_origin_is_refused_before_approval():
             "One-time code: AB12-CD34\nOpen: https://other.invalid/connect?user_code=AB12-CD34\n"
         ),
         send_keys=lambda keys: True,
+        read_exit_code=lambda _transcript: None,
         action=_gate_action(),
         progress_callback=None,
         allowed_base_urls=("https://example.invalid",),
@@ -269,3 +299,41 @@ def test_complete_uri_on_an_undeclared_origin_is_refused_before_approval():
     assert result.error_code == "machine_browser_approval_context_invalid"
     assert result.browser_evidence["recovery"]
     assert not requests
+
+
+def _exiting_gate(transcripts: list[str], exit_code: int | None):
+    readings = iter(transcripts)
+    approvals: list[str] = []
+    result = run_machine_browser_approval_with_io(
+        read_transcript=lambda: next(readings),
+        send_keys=lambda _keys: True,
+        read_exit_code=lambda transcript: exit_code if "exit" in transcript else None,
+        action=_gate_action(),
+        progress_callback=None,
+        allowed_base_urls=("https://app.upyoke.com",),
+        browser="Chromium",
+        approve_browser=lambda url, code: (
+            approvals.append(code) or BrowserApprovalResult(True, {})
+        ),
+    )
+    return result, approvals
+
+
+def test_setup_exit_before_the_approval_prompt_reports_that_exit() -> None:
+    refusal = "setup_terminal_ownership_lost: setup stopped. Run `yoke setup` again."
+    result, approvals = _exiting_gate([f"Starting Yoke setup\n{refusal}\nexit"], 1)
+
+    assert not result.ok
+    assert result.error_code == "terminal_setup_exited"
+    assert result.step_evidence["step"] == "operator-browser-approval"
+    assert result.step_evidence["setup_exit"] == {"exit_code": 1, "refusal": refusal}
+    assert approvals == []
+
+
+def test_setup_exit_during_approval_is_named_instead_of_waiting() -> None:
+    prompt = "One-time code: AB12-CD34\nOpen: https://app.upyoke.com/connect\n"
+    result, approvals = _exiting_gate([prompt, prompt + "exit"], 2)
+
+    assert result.error_code == "terminal_setup_exited"
+    assert result.step_evidence["setup_exit"]["exit_code"] == 2
+    assert approvals == ["AB12-CD34"]

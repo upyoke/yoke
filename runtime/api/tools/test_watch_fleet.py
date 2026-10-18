@@ -81,7 +81,9 @@ def test_a_report_block_is_one_wake_when_it_closes() -> None:
     assert classify(REPORT_BEGIN).cls is LineClass.NOISE
     assert classify.flush_held() is None
     assert classify("composed now · 1 held scopes · hook digest").cls is LineClass.NOISE
-    assert classify("how much plan headroom each surface has left").cls is LineClass.NOISE
+    assert (
+        classify("how much plan headroom each surface has left").cls is LineClass.NOISE
+    )
     assert classify(REPORT_END).cls is LineClass.NOISE
     held = classify.flush_held()
     assert held is not None
@@ -130,9 +132,7 @@ def test_the_follower_receives_the_whole_report_in_one_wake(
     assert REPORT_END in report_writes[0]
     progress_text = (tmp_path / "progress.log").read_text(encoding="utf-8")
     assert "idea -> implementing" not in progress_text
-    assert "idea -> implementing" in (tmp_path / "raw.log").read_text(
-        encoding="utf-8"
-    )
+    assert "idea -> implementing" in (tmp_path / "raw.log").read_text(encoding="utf-8")
 
 
 def test_a_delayed_report_body_arrives_in_the_same_wake_as_its_header(
@@ -261,7 +261,7 @@ def test_the_wrapper_writes_the_exit_sentinel_a_follower_can_exit_on(
     tmp_path: Path,
 ) -> None:
     """`watch_tail` exits only on this footer; a missing one hangs a Monitor."""
-    from yoke_core.tools.watch_tail import EXIT_SENTINEL
+    from yoke_contracts.watch_capture import EXIT_SENTINEL
 
     raw = tmp_path / "raw.log"
     progress = tmp_path / "progress.log"

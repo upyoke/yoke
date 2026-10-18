@@ -66,6 +66,7 @@ CREATE TABLE deployment_runs (
     composition_frozen_at TIMESTAMPTZ, requirement_snapshot TEXT,
     driver_attachment TEXT, settling_at TIMESTAMPTZ, membership_removals TEXT,
     superseded_by_run_id TEXT, supersedes_run_id TEXT,
+    created_by_session_id TEXT,
     create_idempotency_key TEXT, create_request TEXT
 );
 CREATE TABLE deployment_run_items (
@@ -100,7 +101,8 @@ CREATE TABLE item_sections (
 );
 CREATE TABLE harness_sessions (
     session_id TEXT PRIMARY KEY, actor_id INTEGER,
-    project_id INTEGER NOT NULL DEFAULT 1,
+    project_id INTEGER DEFAULT 1,
+    org_id INTEGER,
     executor TEXT, executor_surface TEXT, provider TEXT, model TEXT,
     reasoning_effort TEXT DEFAULT NULL, context_window_tokens INTEGER DEFAULT NULL, requested_model TEXT DEFAULT NULL, requested_reasoning_effort TEXT DEFAULT NULL, requested_context_window_tokens INTEGER DEFAULT NULL,
     execution_level TEXT, executor_version TEXT, machine_id TEXT, workspace TEXT, mode TEXT,

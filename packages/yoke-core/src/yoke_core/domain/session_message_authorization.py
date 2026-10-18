@@ -30,8 +30,8 @@ from yoke_core.domain.session_message_types import (
 
 
 @dataclass(frozen=True)
-class MessageProjectPolicy:
-    project_id: int
+class MessageScopePolicy:
+    project_id: int | None
     org_id: int
     expiry_hours: int
     wake_after_idle_seconds: int
@@ -62,10 +62,27 @@ def _sqlite(conn: Any) -> bool:
     return not db_backend.connection_is_postgres(conn)
 
 
-def project_policy(conn: Any, project_id: int) -> MessageProjectPolicy:
-    org_id = _org_id(conn, project_id)
+def scope_policy(
+    conn: Any, *, project_id: int | None = None, org_id: int | None = None
+) -> MessageScopePolicy:
+    if (project_id is None) == (org_id is None):
+        raise ValueError("Message policy requires exactly one project or org scope")
+    if project_id is not None:
+        org_id = _org_id(conn, project_id)
+    elif (
+        conn.execute(
+            "SELECT 1 FROM organizations WHERE id=?"
+            if _sqlite(conn)
+            else "SELECT 1 FROM organizations WHERE id=%s",
+            (org_id,),
+        ).fetchone()
+        is None
+    ):
+        raise SessionMessageError(
+            "org_not_found", f"organization id {org_id} does not exist"
+        )
 
-    return MessageProjectPolicy(
+    return MessageScopePolicy(
         project_id=project_id,
         org_id=org_id,
         expiry_hours=MESSAGE_EXPIRY_HOURS,
@@ -85,7 +102,7 @@ def authorize_recipients(
     recipients: Iterable[ResolvedRecipient],
     permission_key: str = PERM_ITEMS_WRITE,
     additional_project_ids: Iterable[int] = (),
-) -> dict[int, MessageProjectPolicy]:
+) -> dict[int, MessageScopePolicy]:
     """Authorize every project a message reaches, and return their policies.
 
     ``additional_project_ids`` covers a message that is addressed to a
@@ -107,7 +124,7 @@ def authorize_recipients(
         }
         | {int(project_id) for project_id in additional_project_ids}
     )
-    policies: dict[int, MessageProjectPolicy] = {}
+    policies: dict[int, MessageScopePolicy] = {}
     refusals: list[str] = []
     for project_id in project_ids:
         if permission_key == PERM_ITEMS_WRITE:
@@ -130,7 +147,7 @@ def authorize_recipients(
             )
         if not allowed:
             refusals.append(refusal)
-        policies[project_id] = project_policy(conn, project_id)
+        policies[project_id] = scope_policy(conn, project_id=project_id)
     if refusals:
         raise SessionMessageError("unauthorized_target", " ".join(refusals))
     return policies
@@ -140,7 +157,7 @@ def authorize_universe(
     conn: Any,
     *,
     actor_id: int,
-    policies: Iterable[MessageProjectPolicy],
+    policies: Iterable[MessageScopePolicy],
 ) -> None:
     for org_id in sorted({policy.org_id for policy in policies}):
         try:
@@ -164,9 +181,9 @@ def can_read_project(conn: Any, *, actor_id: int, project_id: int) -> bool:
 
 
 __all__ = [
-    "MessageProjectPolicy",
+    "MessageScopePolicy",
     "authorize_recipients",
     "authorize_universe",
     "can_read_project",
-    "project_policy",
+    "scope_policy",
 ]

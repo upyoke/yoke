@@ -12,10 +12,8 @@ import pytest
 from yoke_core.hooks import remote_entry
 from yoke_core.hooks import runner as runner_module
 from yoke_core.hooks.remote_entry import evaluate_remote
-from yoke_core.hooks.remote_policy import (
-    DEADLINE_EXHAUSTED_MARKER,
-    LOCAL_STATE_POLICIES,
-)
+from yoke_contracts.hook_runner.policy_home import CLIENT_POLICIES
+from yoke_core.hooks.remote_policy import DEADLINE_EXHAUSTED_MARKER
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
@@ -143,12 +141,12 @@ def test_real_subagent_lint_denies_remotely_via_request_agent_type(
     assert as_main.outcome == "completed"
 
 
-def test_local_state_policies_self_skip_with_degraded_markers(
+def test_client_policies_self_skip_with_degraded_markers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     invoked = {"local": 0, "safe": 0}
     local_id = "yoke_core.domain.lint_destructive_git"
-    assert local_id in LOCAL_STATE_POLICIES
+    assert local_id in CLIENT_POLICIES
 
     def local_eval(ctx: HookContext) -> HookDecision:  # pragma: no cover — must skip
         invoked["local"] += 1

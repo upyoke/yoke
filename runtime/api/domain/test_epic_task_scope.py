@@ -1,4 +1,4 @@
-"""Explicit generated-task scope finalization and runtime gates."""
+"""Generated-task Files Touched finalization and runtime gates."""
 
 from __future__ import annotations
 
@@ -8,13 +8,14 @@ import threading
 import pytest
 from runtime.api.fixtures.backlog_inserts import insert_epic_task, insert_item
 from runtime.api.fixtures import pg_testdb
-from yoke_core.domain import epic
+from runtime.api.task_files_touched_test_support import files_touched_body
 from yoke_core.domain.epic_dispatch import dispatch_chain_upsert
 from yoke_core.domain.epic_task_crud import task_upsert
+from yoke_core.domain.epic_task_membership import membership_is_finalized
 from yoke_core.domain.epic_task_scope import (
     TaskScopeIncomplete,
     finalize_generated_task_scopes,
-    set_no_files_scope,
+    task_scope_issues,
 )
 from yoke_core.domain.file_budget_required_gate import evaluate as budget_gate
 from yoke_core.domain.update_status import update_task_status
@@ -24,112 +25,104 @@ from yoke_core.engines.doctor_hc_meta_epic_tasks import (
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
-def test_plan_finalization_is_atomic_when_one_task_scope_is_missing(test_db):
+def test_plan_finalization_is_atomic_when_one_task_section_is_missing(test_db):
     insert_item(test_db, id=1700, workflow_id="epic", status="planned")
-    insert_epic_task(test_db, epic_id=1700, task_num=1, status="planned")
+    insert_epic_task(
+        test_db,
+        epic_id=1700,
+        task_num=1,
+        status="planned",
+        body=files_touched_body(["src/owned.py"]),
+    )
     insert_epic_task(test_db, epic_id=1700, task_num=2, status="planned")
-    epic.file_add(test_db, "1700", 1, "src/owned.py", "modify")
 
-    with pytest.raises(TaskScopeIncomplete, match="task 2 has no explicit scope"):
+    with pytest.raises(
+        TaskScopeIncomplete, match="task 2 has no ## Files Touched section"
+    ) as refused:
         finalize_generated_task_scopes(test_db, 1700)
 
-    rows = test_db.execute(
-        "SELECT task_num, scope_state, scope_finalized_at FROM epic_tasks "
-        "WHERE epic_id=1700 ORDER BY task_num"
-    ).fetchall()
-    assert [(row["scope_state"], row["scope_finalized_at"]) for row in rows] == [
-        ("paths", None),
-        ("pending", None),
-    ]
+    assert "body-replace" in str(refused.value)
+    assert not membership_is_finalized(test_db, 1700)
 
 
 def test_paths_and_explicit_no_files_finalize_and_pass_activation(test_db):
     insert_item(test_db, id=1701, workflow_id="epic", status="planned")
-    insert_epic_task(test_db, epic_id=1701, task_num=1, status="planned")
-    insert_epic_task(test_db, epic_id=1701, task_num=2, status="planned")
-    epic.file_add(test_db, "1701", 1, "src/owned.py", "modify")
-    set_no_files_scope(test_db, 1701, 2)
+    insert_epic_task(
+        test_db,
+        epic_id=1701,
+        task_num=1,
+        status="planned",
+        body=files_touched_body(["src/owned.py"]),
+    )
+    insert_epic_task(
+        test_db,
+        epic_id=1701,
+        task_num=2,
+        status="planned",
+        body=files_touched_body([]),
+    )
+    assert task_scope_issues(test_db, 1701) == [
+        "YOK-1701 task membership is not finalized; recovery: "
+        "`yoke workflow-item epic-task scope-finalize`"
+    ]
 
     finalize_generated_task_scopes(test_db, 1701)
 
     assert budget_gate(test_db, 1701)["verdict"] == "pass"
-    states = test_db.execute(
-        "SELECT task_num, scope_state, scope_finalized_at FROM epic_tasks "
-        "WHERE epic_id=1701 ORDER BY task_num"
-    ).fetchall()
-    assert [row["scope_state"] for row in states] == ["paths", "no_files"]
-    assert all(row["scope_finalized_at"] for row in states)
+    assert task_scope_issues(test_db, 1701) == []
+    assert membership_is_finalized(test_db, 1701)
 
 
-def test_health_check_reports_deferred_scope_while_plan_is_dormant(test_db):
-    insert_item(
-        test_db,
-        id=1702,
-        workflow_id="epic",
-        status="planned",
-    )
+def test_section_naming_no_path_is_unparseable(test_db):
+    insert_item(test_db, id=1702, workflow_id="epic", status="planned")
     insert_epic_task(
         test_db,
         epic_id=1702,
         task_num=1,
         status="planned",
-        scope_state="legacy_deferred",
-        scope_finalized_at="2026-07-29T00:00:00Z",
+        body="## Files Touched\n\n- the scheduler module\n",
     )
+
+    issues = task_scope_issues(test_db, 1702)
+
+    assert issues[0] == (
+        "YOK-1702 task 1 has a ## Files Touched section that names no path "
+        "and is not `None — no repository files`"
+    )
+    assert issues[1].startswith("recovery: write the task body's")
+
+
+def test_health_check_reports_live_tasks_without_declared_files(test_db):
+    insert_item(test_db, id=1705, workflow_id="epic", status="implementing")
+    insert_epic_task(test_db, epic_id=1705, task_num=1, status="planned")
+    insert_epic_task(
+        test_db,
+        epic_id=1705,
+        task_num=2,
+        status="planned",
+        body="## Files Touched\n\nTBD\n",
+    )
+    insert_epic_task(
+        test_db,
+        epic_id=1705,
+        task_num=3,
+        status="planned",
+        body=files_touched_body(["src/declared.py"]),
+    )
+    insert_item(test_db, id=1708, workflow_id="epic", status="planning")
+    insert_epic_task(test_db, epic_id=1708, task_num=1, status="planned")
     rec = RecordCollector()
 
     hc_epic_task_scope_state(test_db, DoctorArgs(), rec)
 
     assert rec.results[0].check_id == "HC-epic-task-scope-state"
     assert rec.results[0].result == "WARN"
-    assert "YOK-1702 task 1" in rec.results[0].detail
-
-
-def test_health_check_reports_null_and_unknown_scope_states(test_db):
-    insert_item(test_db, id=1705, workflow_id="epic", status="planned")
-    insert_epic_task(test_db, epic_id=1705, task_num=1, status="planned")
-    insert_epic_task(test_db, epic_id=1705, task_num=2, status="planned")
-    insert_epic_task(
-        test_db,
-        epic_id=1705,
-        task_num=3,
-        status="planned",
-        scope_state="paths",
-        scope_finalized_at="2026-07-29T00:00:00Z",
-    )
-    insert_epic_task(
-        test_db,
-        epic_id=1705,
-        task_num=4,
-        status="planned",
-        scope_state="no_files",
-        scope_finalized_at="2026-07-29T00:00:00Z",
-    )
-    test_db.execute(
-        "INSERT INTO epic_task_files "
-        "(epic_id, task_num, file_path, action) "
-        "VALUES (1705, 4, 'src/contradiction.py', 'modify')"
-    )
-    test_db.execute(
-        "ALTER TABLE epic_tasks DROP CONSTRAINT epic_tasks_scope_state_check"
-    )
-    test_db.execute("ALTER TABLE epic_tasks ALTER COLUMN scope_state DROP NOT NULL")
-    test_db.execute(
-        "UPDATE epic_tasks SET scope_state=NULL WHERE epic_id=1705 AND task_num=1"
-    )
-    test_db.execute(
-        "UPDATE epic_tasks SET scope_state='mystery' WHERE epic_id=1705 AND task_num=2"
-    )
-    test_db.commit()
-    rec = RecordCollector()
-
-    hc_epic_task_scope_state(test_db, DoctorArgs(), rec)
-
-    assert rec.results[0].result == "WARN"
-    assert "YOK-1705 task 1" in rec.results[0].detail
-    assert "YOK-1705 task 2" in rec.results[0].detail
-    assert "YOK-1705 task 3" in rec.results[0].detail
-    assert "YOK-1705 task 4" in rec.results[0].detail
+    detail = rec.results[0].detail
+    assert "YOK-1705 task 1 has no ## Files Touched section" in detail
+    assert "YOK-1705 task 2 has a ## Files Touched section" in detail
+    assert "YOK-1705 task 3" not in detail
+    assert "YOK-1708" not in detail
+    assert "recovery:" in detail
 
 
 def test_task_activation_refuses_implicit_scope(test_db):
@@ -155,7 +148,7 @@ def test_dispatch_chain_refuses_implicit_scope(test_db):
     insert_item(test_db, id=1704, workflow_id="epic", status="planned")
     insert_epic_task(test_db, epic_id=1704, task_num=1, status="planned")
 
-    with pytest.raises(TaskScopeIncomplete, match="no explicit scope"):
+    with pytest.raises(TaskScopeIncomplete, match="no ## Files Touched section"):
         dispatch_chain_upsert(
             test_db,
             "1704",
@@ -171,8 +164,13 @@ def test_dispatch_chain_refuses_implicit_scope(test_db):
 
 def test_concurrent_task_insert_cannot_cross_plan_finalization(test_db):
     insert_item(test_db, id=1706, workflow_id="epic", status="planned")
-    insert_epic_task(test_db, epic_id=1706, task_num=1, status="planned")
-    set_no_files_scope(test_db, 1706, 1)
+    insert_epic_task(
+        test_db,
+        epic_id=1706,
+        task_num=1,
+        status="planned",
+        body=files_touched_body([]),
+    )
     membership_read = threading.Event()
     allow_finalize = threading.Event()
     insert_attempted = threading.Event()
@@ -224,12 +222,10 @@ def test_concurrent_task_insert_cannot_cross_plan_finalization(test_db):
     assert isinstance(outcomes.get("insert_error"), TaskScopeIncomplete)
     assert "task membership is finalized" in str(outcomes["insert_error"])
     tasks = test_db.execute(
-        "SELECT task_num, scope_state, scope_finalized_at FROM epic_tasks "
-        "WHERE epic_id=1706 ORDER BY task_num"
+        "SELECT task_num FROM epic_tasks WHERE epic_id=1706 ORDER BY task_num"
     ).fetchall()
     assert len(tasks) == 1
-    assert tasks[0]["scope_state"] == "no_files"
-    assert tasks[0]["scope_finalized_at"] is not None
+    assert membership_is_finalized(test_db, 1706)
 
 
 def test_sqlite_serializes_task_insert_against_finalization(tmp_path):
@@ -251,22 +247,15 @@ def test_sqlite_serializes_task_insert_against_finalization(tmp_path):
           dependencies TEXT,
           status TEXT DEFAULT 'planning',
           dispatch_attempts INTEGER DEFAULT 0,
-          scope_state TEXT NOT NULL DEFAULT 'pending',
-          scope_finalized_at TEXT,
+          body TEXT,
           UNIQUE(epic_id, task_num)
         );
-        CREATE TABLE epic_task_files (
-          id INTEGER PRIMARY KEY,
-          epic_id INTEGER NOT NULL,
-          task_num INTEGER NOT NULL,
-          file_path TEXT NOT NULL,
-          action TEXT
-        );
         INSERT INTO items (id) VALUES (1707);
-        INSERT INTO epic_tasks
-          (epic_id, task_num, scope_state)
-          VALUES (1707, 1, 'no_files');
         """
+    )
+    setup.execute(
+        "INSERT INTO epic_tasks (epic_id, task_num, body) VALUES (1707, 1, ?)",
+        (files_touched_body([]),),
     )
     setup.commit()
     setup.close()
@@ -315,11 +304,10 @@ def test_sqlite_serializes_task_insert_against_finalization(tmp_path):
     assert "finalize_error" not in outcomes
     assert isinstance(outcomes.get("insert_error"), TaskScopeIncomplete)
     check = sqlite3.connect(database_path)
-    rows = check.execute(
-        "SELECT task_num, scope_state, scope_finalized_at "
-        "FROM epic_tasks ORDER BY task_num"
-    ).fetchall()
+    rows = check.execute("SELECT task_num FROM epic_tasks ORDER BY task_num").fetchall()
+    finalized = check.execute(
+        "SELECT generated_task_membership_finalized_at FROM items WHERE id=1707"
+    ).fetchone()
     check.close()
     assert len(rows) == 1
-    assert rows[0][1] == "no_files"
-    assert rows[0][2] is not None
+    assert finalized[0] is not None

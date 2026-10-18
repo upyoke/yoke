@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "deployments",
  "position": 2,
- "summary": "Required consumer proof currently dispatches main and refuses a verdict naming a different consumer commit. Immutable consumer-tag binding remains disabled until the control plane serves session-optional dispatch-tag creation.",
- "sources": ["runtime/api/tools/require_platform_consumer_compatibility.py", "packages/yoke-core/src/yoke_core/domain/handlers/github_actions_dispatch_tag.py"]
+ "summary": "Required and early main-push exact-pair consumer proofs dispatch platform-release-pin-check.yml at the immutable tag yoke-deploy/consumer-<consumer-sha>, created sessionlessly on the dispatch permission, so a moved consumer main cannot change the workflow source. The consumer records the dispatched commit as the proof identity in its run-name, \"platform-release-pin-check <product> on <dispatched sha> [yoke-dispatch:<id>]\"; its optional consumer_sha input only asserts that commit and fails on a mismatch. The Platform release route reuses only a successful dispatched run whose head commit is the consumer its title names, and a verdict naming a different consumer commit still refuses. A refused or unverified tag names its recovery and dispatches nothing.",
+ "sources": ["runtime/api/tools/require_platform_consumer_compatibility.py", "runtime/api/tools/platform_consumer_dispatch_ref.py", "packages/yoke-core/src/yoke_core/domain/handlers/github_actions_dispatch_tag.py"]
 }

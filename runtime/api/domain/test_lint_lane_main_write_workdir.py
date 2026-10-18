@@ -20,8 +20,10 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
 )
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
+from yoke_contracts.hook_runner.client_facts import WRITE_TARGETS_KEY, client_fact
 from yoke_core.domain import lint_lane_main_write
 from yoke_core.domain.command_workdir import command_execution_cwd
+from yoke_harness.hooks.client_write_targets import execution_cwd
 
 SESSION = "sid-command-workdir"
 ITEM_ID = 2729
@@ -178,3 +180,38 @@ def test_resolver_ignores_a_cd_after_the_first_command(tmp_path):
         "tool_input": {"command": "touch x && cd /elsewhere"},
     }
     assert command_execution_cwd(payload) == str(tmp_path.resolve())
+
+
+RELATIVE_TARGET = "runtime/api/dashboard_wrapping_rows.visual.mjs"
+
+
+def test_client_answer_from_the_wrong_directory_cannot_move_a_lane_write(lane_repo):
+    """A client that missed the newline ``cd`` named main; the server's cwd wins."""
+    repo, lane = lane_repo
+    stale = client_fact(
+        WRITE_TARGETS_KEY,
+        {
+            "paths": {RELATIVE_TARGET: {"path": str(repo / RELATIVE_TARGET)}},
+            "worktrees": [str(lane)],
+        },
+    )
+    verdict = _evaluate(f"cd {lane}\n{RELATIVE_HEREDOC}", cwd=repo, **stale)
+    assert verdict.allow is True, verdict.reason
+
+
+def test_client_answer_that_agrees_still_refuses_on_main(lane_repo):
+    repo, _lane = lane_repo
+    agreeing = client_fact(
+        WRITE_TARGETS_KEY,
+        {"paths": {RELATIVE_TARGET: {"path": str(repo.resolve() / RELATIVE_TARGET)}}},
+    )
+    assert _evaluate(RELATIVE_HEREDOC, cwd=repo, **agreeing).allow is False
+
+
+@pytest.mark.parametrize("separator", ["\n", " && ", "; ", " &&\n"])
+def test_client_walks_a_leading_cd_across_every_separator(tmp_path, separator):
+    payload = {
+        "cwd": "/session",
+        "tool_input": {"command": f"cd {tmp_path}{separator}{RELATIVE_HEREDOC}"},
+    }
+    assert execution_cwd(payload) == str(tmp_path.resolve())

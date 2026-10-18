@@ -6,20 +6,26 @@ import json
 
 from yoke_harness.machine_browser_approval import (
     APPROVE_CONTROL_LABEL,
+    CONNECTED_CONFIRMATION,
     BrowserApprovalResult,
     approval_outcome,
     approval_tab_urls,
     approval_url,
+    missing_approval_tab,
 )
 from yoke_harness.ssh_mac_terminal_app import RunRemote, run_osascript
 
 
 _RESULT_SEPARATOR = "|"
+# Press (up to 20 polls) plus confirmation (40 polls, one window walk each);
+# a walk takes seconds on an older Mac, so the shared 20 s bound is too short.
+_APPROVAL_TIMEOUT_SECONDS = 90
 
 
 def _script(*, allowed_urls: list[str]) -> list[str]:
     allowed = "{" + ", ".join(json.dumps(url) for url in allowed_urls) + "}"
     label = json.dumps(APPROVE_CONTROL_LABEL)
+    confirmation = json.dumps(CONNECTED_CONFIRMATION)
     return [
         f"set allowedURLs to {allowed}",
         f"set buttonLabel to {label}",
@@ -69,16 +75,52 @@ def _script(*, allowed_urls: list[str]) -> list[str]:
         "end tell",
         "end tell",
         'if not pressedApproval then return "approval_control_missing"',
+        # The approval page redraws in place, so its heading is the only
+        # confirmation. Walk the window once per poll: re-reading `entire
+        # contents` per element is too slow on an older Mac to finish in time.
+        "set resultURL to matchedStartingURL",
+        'set confirmed to "approved_in_place|" & matchedStartingURL & "|" & matchedStartingURL',
+        'set lastError to ""',
+        "set startedAt to current date",
         'tell application "Safari"',
         "repeat 40 times",
         "delay 0.25",
         "try",
         "set resultURL to URL of matchedTab as text",
         'if resultURL is not matchedStartingURL then return "approved|" & matchedStartingURL & "|" & resultURL',
+        "set current tab of matchedWindow to matchedTab",
+        "set index of matchedWindow to 1",
+        "on error errText",
+        "set lastError to errText",
+        "end try",
+        'tell application "System Events"',
+        'tell process "Safari"',
+        "try",
+        "set pageElements to entire contents of front window",
+        "repeat with candidate in pageElements",
+        "try",
+        'if (role of candidate as text) is in {"AXHeading", "AXStaticText"} then',
+        "try",
+        f"if (value of candidate as text) is {confirmation} then return confirmed",
+        "end try",
+        "try",
+        f"if (name of candidate as text) is {confirmation} then return confirmed",
+        "end try",
+        "try",
+        f"if (title of candidate as text) is {confirmation} then return confirmed",
+        "end try",
+        "end if",
         "end try",
         "end repeat",
+        "on error errText",
+        "set lastError to errText",
+        "end try",
         "end tell",
-        'return "approval_navigation_missing"',
+        "end tell",
+        "end repeat",
+        "end tell",
+        'return "approval_navigation_missing|" & matchedStartingURL & "|" & '
+        'resultURL & "|" & (((current date) - startedAt) as text) & "|" & lastError',
     ]
 
 
@@ -112,22 +154,46 @@ def approve_machine_in_safari(
             False, {"browser": "Safari"}, "machine_browser_automation_unavailable"
         )
     allowed_urls = approval_tab_urls(expected_url, user_code, tabs.stdout.splitlines())
-    result = run_osascript(run, _script(allowed_urls=allowed_urls))
+    result = run_osascript(
+        run, _script(allowed_urls=allowed_urls), timeout=_APPROVAL_TIMEOUT_SECONDS
+    )
     if result.returncode:
         return BrowserApprovalResult(
             False,
             {"browser": "Safari"},
             "machine_browser_automation_unavailable",
         )
-    state, _, navigation = result.stdout.strip().partition(_RESULT_SEPARATOR)
-    starting_url, _, result_url = navigation.partition(_RESULT_SEPARATOR)
-    return approval_outcome(
+    fields = result.stdout.strip().split(_RESULT_SEPARATOR, 4)
+    state, starting_url, result_url, elapsed, last_error = fields + [""] * (
+        5 - len(fields)
+    )
+    if state == "browser_tab_missing":
+        return missing_approval_tab(
+            browser="Safari",
+            expected_origin=expected_origin,
+            user_code=user_code,
+            observed=tabs.stdout.splitlines(),
+        )
+    outcome = approval_outcome(
         browser="Safari",
         state=state,
         starting_url=starting_url,
         result_url=result_url,
         allowed_urls=allowed_urls,
         expected_origin=expected_origin,
+    )
+    if state != "approval_navigation_missing":
+        return outcome
+    # Where the confirmation poll stopped, so a false failure is diagnosable.
+    return BrowserApprovalResult(
+        False,
+        {
+            **outcome.evidence,
+            "observed_url": result_url,
+            "confirmation_wait_seconds": int(elapsed) if elapsed.isdigit() else None,
+            "last_error": last_error[:300] or None,
+        },
+        outcome.error_code,
     )
 
 

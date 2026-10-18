@@ -40,8 +40,31 @@ def scratch_root_candidates(path: str | Path | None = None) -> tuple[Path, ...]:
     return (Path(effective_temp_root(path)), fallback_scratch_root())
 
 
+def scratch_path_roots(path: str | Path | None = None) -> list[str]:
+    """Return every absolute root a Yoke scratch file may live under.
+
+    The scratch candidates first, then the OS temp roots that still hold
+    live writers (``/tmp``, the platform temp dir), each with its macOS
+    ``/private`` canonical twin. A reader matching a path some writer on
+    this machine produced has to accept all of them.
+    """
+    roots: list[str] = []
+    candidates = [str(c) for c in scratch_root_candidates(path)]
+    candidates += ["/tmp", tempfile.gettempdir()]
+    for raw in candidates:
+        root = raw.rstrip("/")
+        for value in (
+            root,
+            "/private" + root if root.startswith(("/tmp", "/var/")) else "",
+        ):
+            if value and value not in roots:
+                roots.append(value)
+    return roots
+
+
 __all__ = [
     "SCRATCH_DIR_NAME",
     "fallback_scratch_root",
+    "scratch_path_roots",
     "scratch_root_candidates",
 ]

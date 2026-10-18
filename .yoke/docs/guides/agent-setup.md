@@ -29,6 +29,8 @@ it with a command.
    `install_health` in full and the `next` steps in order.
 
 Answers are saved by question key, so every call resumes where setup stopped.
+Browser approval keeps the chosen destination; follow the next printed
+`answer_command` without choosing the newly saved connection again.
 A bare `yoke setup --agent` repeats the waiting question. Human progress and
 wait notices go to stderr; stdout carries only the JSON lines.
 
@@ -89,8 +91,9 @@ choice returns `done` with `"cancelled": true` and deletes the saved answers.
 
 Exit 0 means the last line is `question`, `browser` or `done`; 1 means
 `failed`; 2 means `refused`. Every refusal and failure carries `reason` and
-`recovery`. A refusal changes nothing and repeats the waiting question when
-there is one.
+`recovery`. A refusal saves no answer. It repeats the question setup waits at
+now, which can be an earlier one when machine state changed, and that
+question's printed `answer_command` is the next answer accepted.
 
 | reason | what to do |
 |---|---|
@@ -117,9 +120,24 @@ question or ask this during machine-only or no-GitHub setup.
 
 ## After setup
 
-`done` lists the next steps: open a new terminal when shell files changed,
-then open Claude Code, Codex or Cursor in the project folder and run
-`/yoke onboard` there. Yoke never opens that session for the person. A
+`done` lists the next steps. When shell files changed, the first one opens a
+new terminal. When this session already runs in the project folder, the last
+step is a readiness check here:
+
+```text
+yoke doctor run --session
+```
+
+It checks three things about this session only: it is registered, its harness
+CLI is signed in, and its harness runs `yoke` without approval prompts. Other
+installed harnesses do not block it. Each failed check names one next step: a
+new session, a restart, a sign-in such as `claude auth login`, or a hook
+approval. Give the person that step, then rerun the check. When every check
+passes, ask the person once, then start `/yoke onboard` in this session.
+
+When this session runs elsewhere, `done` says to open Claude Code, Codex or
+Cursor in the project folder and run `/yoke onboard` there; onboarding runs the
+same check first. Yoke never opens a new session for the person. A
 machine-only setup adds a project later through another `yoke setup --agent`.
 
 `yoke connect --json` and `yoke github connect --json` stay available as

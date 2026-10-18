@@ -14,6 +14,9 @@ from typing import Any, Mapping
 
 #: function_id -> minimum serving version. Do not copy already-served ids here.
 FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
+    "worktree.classify_dirty": "next-release",
+    "machine.access.get": "next-release",
+    "machine.access.set": "next-release",
     "teammate_invites.create": "next-release",
     "teammate_invites.list": "next-release",
     "teammate_invites.revoke": "next-release",
@@ -41,6 +44,8 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "deployment_runs.execution.containment_basis": "next-release",
     "deployment_runs.execution.release_driver": "next-release",
     "deployment_runs.remove_item": "next-release",
+    "deployment_runs.timings": "next-release",
+    "deployment_runs.timings.record": "next-release",
     "github.branch.head": "next-release",
     "github.open_work.list": "next-release",
     "github.release.create_commit_tag": "next-release",
@@ -73,6 +78,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "qa.plan_execution.pause": "next-release",
     "qa.plan_execution.resume": "next-release",
     "qa.item_plan.retract": "next-release",
+    "qa.plan.retire": "next-release",
     "qa.browser_context.get": "next-release",
     "qa.case_execution.begin": "next-release",
     "qa.requirement.get": "next-release",
@@ -118,6 +124,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "test_machine.verify": "next-release",
     "universe.level_capacity.get": "next-release",
     "universe.levels.get": "next-release",
+    "universe.levels.reset": "next-release",
     "universe.levels.set": "next-release",
     "universe.retention.get": "next-release",
     "universe.prune.run": "next-release",
@@ -145,6 +152,11 @@ class ArgumentFloor:
 #: ignore them. Payload refusals name this floor; adapters whose writes can be
 #: ignored must also verify the success receipt echoes the requested argument.
 FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] = {
+    "sessions.begin": {
+        "machine_scope": ArgumentFloor(
+            "next-release", "start the agent inside a registered project folder"
+        ),
+    },
     "items.create": {
         "spec": ArgumentFloor(
             "next-release", "the filing form supported by the serving CLI release"

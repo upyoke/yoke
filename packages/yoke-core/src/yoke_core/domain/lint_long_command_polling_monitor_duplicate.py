@@ -21,15 +21,17 @@ Detection model:
 2. ``session_tool_calls`` is queried for every Monitor row in this
    session. Capture files are extracted from ``command_summary``
    (recorded by the observe pipeline at Started time).
-3. When ANY prior Monitor in this session targeted the candidate's
-   capture file — regardless of whether that Monitor is still armed
-   or has already completed — the verdict fires. Operational data
-   showed that the dominant failure mode is post-completion re-arms
-   in a wake loop: Monitor's tool_use completes within ~0.3s of
-   setup, the agent re-arms, each re-arm spawns a fresh ``watch_tail``
-   subprocess against the same capture file, and dozens accumulate
-   over a multi-minute background command. The fire-once-per-capture
-   contract now spans the whole session for each capture path.
+3. When a prior Monitor in this session targeted the candidate's
+   capture file and could still be subscribed — it started within the
+   harness's idle-wake subscription limit
+   (:mod:`yoke_contracts.harness_wake_capability`) — the verdict fires,
+   whether or not its tool call has completed. Operational data showed
+   that the dominant failure mode is post-completion re-arms in a wake
+   loop: Monitor's tool_use completes within ~0.3s of setup, the agent
+   re-arms, each re-arm spawns a fresh ``watch_tail`` subprocess against
+   the same capture file, and dozens accumulate over a multi-minute
+   background command. A subscription past its limit has expired and its
+   watcher was killed, so re-arming the same tail then is the recovery.
 """
 
 from __future__ import annotations
@@ -37,8 +39,10 @@ from __future__ import annotations
 from datetime import timedelta
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
-from typing import Optional
+from typing import Optional, Sequence
 
+from yoke_contracts.harness_wake_capability import wake_capability_for_mechanism
+from yoke_contracts.hook_runner.client_facts import capture_roots
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.lint_long_command_polling_config import _read_lint_mode
 from yoke_core.domain.lint_long_command_polling_constants import (
@@ -73,6 +77,7 @@ def _db_available() -> bool:
 def _captures_targeted_in_session(
     db_path: str,
     session_id: str,
+    roots: Sequence[str],
     lookback_seconds: int = RECENT_EVENT_LOOKBACK_SECONDS,
 ) -> list[tuple[str, str]]:
     """Return ``(tool_use_id, capture_file)`` for every Monitor in session.
@@ -121,13 +126,27 @@ def _captures_targeted_in_session(
     for tool_use_id, command in rows:
         if not tool_use_id or not isinstance(command, str) or not command:
             continue
-        capture_file = _extract_monitor_capture_file(command)
+        capture_file = _extract_monitor_capture_file(command, roots)
         if not capture_file:
             continue
         # First-seen wins on tool_use_id collisions; preserves "earliest
         # Monitor against this capture" semantics for the reason text.
         targeted.setdefault(tool_use_id, capture_file)
     return list(targeted.items())
+
+
+#: Slack for when the harness started the clock versus when the tool call
+#: was recorded, so a re-arm on the expiry notice is never refused.
+EXPIRY_MARGIN_SECONDS = 60
+
+
+def _live_window_seconds(tool_name: str) -> int:
+    """How far back an earlier arm can still be a live subscription."""
+    capability = wake_capability_for_mechanism(tool_name)
+    limit = capability.idle_wake_subscription_limit_seconds if capability else None
+    if not limit:
+        return RECENT_EVENT_LOOKBACK_SECONDS
+    return max(limit - EXPIRY_MARGIN_SECONDS, 1)
 
 
 def evaluate_duplicate_monitor(
@@ -151,13 +170,16 @@ def evaluate_duplicate_monitor(
     command = _extract_command(payload)
     if not command:
         return None
-    candidate_capture = _extract_monitor_capture_file(command)
+    roots = capture_roots(payload)
+    candidate_capture = _extract_monitor_capture_file(command, roots)
     if not candidate_capture:
         return None
     session_id = payload.get("session_id") or ""
     if not session_id or not _db_available():
         return None
-    targeted = _captures_targeted_in_session("", session_id)
+    targeted = _captures_targeted_in_session(
+        "", session_id, roots, lookback_seconds=_live_window_seconds(tool_name)
+    )
     prior_tool_use_id = ""
     for tool_use_id, capture_file in targeted:
         if capture_file == candidate_capture:

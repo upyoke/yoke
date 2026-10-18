@@ -31,11 +31,11 @@ yoke lifecycle transition PREFIX-N --from {LIVE_STAGE} --to {IMPLEMENTING_STAGE}
 
 ## Epic Fan-Out Enumeration
 
-Read every chain/current task. Completed done/reviewed-implementation heads
-advance; planned is a candidate; blocked reports its reason. For implementing/
-reviewing-implementation, require that task's result.head_dispatch row from
-the registered chain get/list, including task_num, decision, reason and
-holder_session_id. No absent-field or local-import fallback:
+Read every chain. A chain whose current task is implementing or
+reviewing-implementation is in flight: require that task's
+result.head_dispatch row from the registered chain get/list, including
+task_num, decision, reason and holder_session_id. No absent-field or
+local-import fallback:
 
 | decision | Action |
 |---|---|
@@ -48,18 +48,37 @@ The read does not reclaim/advance; exact task acquire remains the final gate.
 Never age-reclaim a protected live claim holder. Required producer unavailable
 is a deployment/control-plane recovery, not permission to reconstruct a decision.
 
-Per candidate, exclude only when another task on the same branch is implementing
-or reviewing-implementation, or a dependency is not done/reviewed-implementation.
-Check each Expects provider and its named files/exports. Independent chains
-continue. Surviving local task numbers form _task_ids; retain each
-_worktree_branch_${_task_id} and _worktree_path_${_task_id}. Primary aliases point
-only at the first candidate. Empty list reports complete/busy/blocked/mixed
-accurately; all tasks complete means fresh parent handoff, never parent done.
+Every other chain is idle. Select its next task; do not judge only the queue
+head:
+
+```text
+yoke workflow-item epic-dispatch-chain advance --epic PREFIX-N --worktree {BRANCH}
+```
+
+Advance picks the lane's first queued planned task whose dependencies are all
+done/reviewed-implementation, so a waiting head never holds back a ready task
+behind it. The returned next_task_num is the candidate. Refusals are named:
+chain_waiting lists each remaining task and what it waits on (report it; the
+lane refills when a dependency completes), chain_complete ends that lane,
+chain_busy means a task is running there (read its head_dispatch), and
+chain_queue_inconsistent or task_dependency_* halts for its stated repair.
+Check each candidate's Expects provider and its named files/exports.
+Independent chains continue. Surviving local task numbers form _task_ids;
+retain each _worktree_branch_${_task_id} and _worktree_path_${_task_id}.
+Primary aliases point only at the first candidate. Empty list reports
+complete/busy/waiting/mixed accurately; all tasks complete means fresh parent
+handoff, never parent done.
 
 ## Activate before dispatch
 
 Activate planned path claims only when the effective claims axis requires them.
-These are path-claim states, not item lifecycle statuses. Registered preparation
+These are path-claim states, not item lifecycle statuses. A refused overlap
+with independent edits is recorded by this session, which holds the work
+claim: read both specs, run `yoke claims path coordination-decision-build`,
+and record the decision with `yoke items dependency add` using source
+`conduct`. Ordered edits wait for the holder's landing proof and a fresh
+survey. Engineer and Tester report the overlap here and do not author the
+edge. Registered preparation
 activates required claims and provisions every project-routed lane on Yoke's installed interpreter, before a lane exists:
 
 ```text
@@ -71,9 +90,11 @@ idempotent on correct existing branches. Upstream-unverified/stale,
 dirty main, capacity or wrong lane stops with exact recovery; no reset/rebase,
 borrowed project or guessed path. Complete this before each task baseline.
 
-For every _task_id, hydrate only its suffixed branch/path. Read its task body
-and registered lane; if chain path is empty, find the matching item_worktrees
-row. Missing row stops for path-record/operator repair, never string assembly.
+For every _task_id, hydrate only its suffixed branch and path. Read its task
+body and registered lane. An empty chain path is the matching item_worktrees
+row from the list below. Register a missing worker lane with
+`yoke item-worktrees create`, bind the task with reassign, then store the
+checkout path with `yoke item-worktrees path-record`.
 
 ```text
 yoke workflow-item epic-task body-get --epic PREFIX-N --task-num {task_num}
@@ -84,7 +105,9 @@ git -C "${MAIN_ROOT}" rev-parse "${_worktree_branch}"
 Store TASK_BASELINE_${_task_id} once and retain it across retries. Before the
 task claim, branch-ref reads through MAIN_ROOT avoid unauthorized lane access.
 Read worktree_plan's Cross-Task Merge Plan; each predecessor must be reviewed
-or done. Delegated claimed-lane merge always runs, including idempotent reentry:
+or done, and must also be one of the task's dependencies, because advance
+waits only on real dependencies. A predecessor named only in the plan halts
+with task_dependency_missing for pinned authoring repair. Delegated claimed-lane merge always runs, including idempotent reentry:
 
 ```text
 git -C {WORKTREE_PATH} merge {PREDECESSOR_BRANCH} --no-edit
@@ -95,12 +118,15 @@ skip that step. Do not mutate a lane before its exact task claim permits it.
 
 ```text
 yoke conduct epic-task update-status --epic PREFIX-N --task-num {task_num} --status implementing --note "Dispatched by conduct (task fan-out)"
-yoke workflow-item epic-task metadata-update --epic PREFIX-N --task-num {task_num} --fields-json '{"worktree":"BRANCH","branch":"BRANCH","worktree_path":"ABS_PATH"}'
+yoke item-worktrees create PREFIX-N --lane-role worker --branch {BRANCH}
+yoke workflow-item epic-task reassign --epic PREFIX-N --task-num {task_num} --new-worktree {BRANCH}
+yoke item-worktrees path-record PREFIX-N --worktree-id {ID} --branch {BRANCH} --path {ABS_PATH}
 yoke workflow-item epic-dispatch-chain refresh-activation --epic PREFIX-N --worktree {BRANCH} --task-num {task_num}
 ```
 
 Pipeline update owns attempts/history/derive; the generic status writer is not
-equivalent. Preserve all three resolved metadata fields and architect lanes.
+equivalent. Create runs only when that branch has no active lane. Reassign
+binds the task, then path-record stores the checkout path. Keep architect lanes.
 Refresh current_task/current_attempt/last_updated. Re-read each task: require
 implementing/reviewing-implementation before Engineer; planned stops for this
 activation repair. Continue this session, no relaunch or parent stop.

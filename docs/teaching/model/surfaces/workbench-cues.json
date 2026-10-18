@@ -11,6 +11,5 @@
  "current": "Existing source references; delivered content is not yet proved.",
  "desired": "Teach scope, project selection, actual readiness and useful next action; detailed dashboard adoption design remains open.",
  "plan_notes": ["FIRST-USER P5", "JOURNEYS 9–15"],
- "plan_refs": ["FIRST-USER.P5", "FIRST-USER.P7", "FIRST-USER.4", "FIRST-USER.12", "FIRST-USER.27"],
  "sources": ["packages/yoke-core/src/yoke_core/domain/session_orientation.py", "packages/yoke-core/src/yoke_core/ui/static/universe_views_frontier.js", "packages/yoke-core/src/yoke_core/ui/static/universe_views_sessions.js", "packages/yoke-core/src/yoke_core/ui/static/universe_views_inbox.js", "packages/yoke-core/src/yoke_core/ui/static/universe_views_shipping.js", "packages/yoke-core/src/yoke_core/ui/static/universe_onboarding_control.js", ".agents/skills/yoke/steer/SKILL.md", ".agents/skills/yoke/wrapup/SKILL.md", ".agents/skills/yoke/onboard/strategy-conversation.md", "packages/yoke-core/src/yoke_core/ui/static/universe_views_projects.js", "packages/yoke-core/src/yoke_core/ui/static/universe_views_strategy.js", "packages/yoke-core/src/yoke_core/ui/static/universe_onboarding_project.js", "packages/yoke-core/src/yoke_core/ui/static/universe_views_github.js"]
 }

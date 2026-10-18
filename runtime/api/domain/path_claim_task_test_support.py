@@ -11,6 +11,7 @@ from runtime.api.fixtures.backlog_inserts import (
     insert_item_worktree,
 )
 from runtime.api.domain._path_claims_test_helpers import local_human
+from runtime.api.task_files_touched_test_support import declare_task_files
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.work_claim_targets import make_epic_task_target, make_item_target
 
@@ -53,12 +54,7 @@ def seed_worker_task(
         item_worktree_id=int(lane["id"]),
     )
     if budget_path is not None:
-        conn.execute(
-            "INSERT INTO epic_task_files "
-            "(epic_id, task_num, file_path, action) "
-            "VALUES (%s, %s, %s, 'modify')",
-            (item_id, task_num, budget_path),
-        )
+        declare_task_files(conn, item_id, task_num, [budget_path])
         conn.commit()
     return int(lane["id"])
 

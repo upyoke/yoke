@@ -50,10 +50,8 @@ def deploy_run_worktree_paths(
 ) -> list[Path] | None:
     """Every driver worktree git registers here, or ``None`` when it cannot say.
 
-    Read straight from ``git worktree list`` rather than through the
-    branch-bearing registry in ``git_worktree_registry``, because a driver
-    worktree is detached by design and that registry drops it — which is why
-    the lane-retirement paths built on it never saw one.
+    Read straight from ``git worktree list``. Driver identity is the
+    directory name, not the detached commit marker item lanes use.
     """
     root = Path(repo_root).resolve()
     result = run_git(["worktree", "list", "--porcelain"], cwd=str(root), capture=True)

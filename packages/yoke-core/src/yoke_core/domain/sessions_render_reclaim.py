@@ -16,6 +16,7 @@ from .sessions_analytics import (
     SessionError,
 )
 from .session_launch_abandonment import settle_and_notify
+from .session_message_store import cancel_open_recipients
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_lifecycle_registry import _get_claim, _get_session
 from .sessions_queries import _row_to_dict, clear_chain_checkpoint
@@ -143,6 +144,9 @@ def reclaim_stale_session(
     conn.execute(
         "UPDATE harness_sessions SET ended_at = %s WHERE session_id = %s",
         (instant_parameter(conn, now), session_id),
+    )
+    cancel_open_recipients(
+        conn, session_id=session_id, cancelled_at=now, result_code="session_reclaimed"
     )
     conn.commit()
 

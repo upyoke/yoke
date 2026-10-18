@@ -21,7 +21,11 @@ Select an item, deployment run, or manual project plan.
   --item PREFIX-N --transition TRANSITION
       An item's own attached plans, for a lifecycle transition's QA gate.
       Requires --transition; does not accept --plan, because an item uses the
-      plans already attached to it.
+      plans already attached to it. For multiple active lanes, hold the matching
+      item/task claim and select its exact registered --checkout-path PATH
+      --expected-branch BRANCH --expected-sha FULL_SHA. Cases whose newest
+      run passed at the lane's recorded head are skipped; the rest run one
+      execution target at a time, each after the previous one passed.
 
   --deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN]
       --project PROJECT
@@ -76,8 +80,11 @@ For a deployment member whose cases require several Test Machines, the scoped
 command automatically executes one immutable roster per machine. Each roster
 holds its own lease and participates in that host's FIFO. It keeps the same
 run, stage and frozen private-member or shared-plan target.
-A waiting host or independent review stops the command; after the wait or
-review settles, rerun the same scoped command to continue the remaining hosts.
+A waiting host or independent review stops the command. Re-enter the same
+scoped command while review is pending to reprint that bundle without
+recapturing. Once a verdict batch is recorded, the same command reprints
+those verdicts and does not capture the settled requirements; a new capture
+uses --replaces. After review settles, rerun to continue any remaining hosts.
 Completed scoped cases with passing evidence are retained. The member is
 accepted only when every required case passes. Omit --machine for this
 multi-machine form: a single host pin cannot satisfy conflicting constraints.

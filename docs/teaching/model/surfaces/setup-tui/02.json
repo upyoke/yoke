@@ -5,6 +5,5 @@
  "form": "Teach",
  "verification": "No delivery proof attached.",
  "topics": ["identity/auth", "machines/registration"],
- "plan_refs": ["FIRST-USER.1", "FIRST-USER.7", "FIRST-USER.10", "FIRST-USER.17", "FIRST-USER.26", "FIRST-USER.37", "FIRST-USER.38", "FIRST-USER.39"],
  "position": 2
 }

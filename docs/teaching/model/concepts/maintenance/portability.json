@@ -2,7 +2,6 @@
  "id": "portability",
  "title": "Backup and portability",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.9", "FIRST-USER.P6"],
  "surface_refs": ["setup-tui"],
  "commands": ["yoke self-host import", "yoke universe export", "yoke universe import", "yoke universe validate"],
  "page": "maintenance",

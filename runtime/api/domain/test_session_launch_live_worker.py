@@ -80,8 +80,11 @@ def test_live_worker_refuses_different_key_with_or_without_claim(
         _claim(conn)
     message = _refused(conn, item, launch_id)
     assert "worker" in message
-    assert "Wake or message" in message
-    assert "yoke sessions terminate worker" in message
+    # Resume comes first; terminate is the last resort after a failed resume.
+    wake = message.index("yoke session-control session wake worker")
+    assert wake < message.index("yoke sessions terminate worker")
+    assert "even when its process has exited" in message
+    assert "transcript gone" in message
 
 
 @pytest.mark.parametrize("composed", [True, False])

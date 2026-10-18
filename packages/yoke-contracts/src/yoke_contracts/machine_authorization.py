@@ -14,6 +14,22 @@ APPROVAL_PAGE_PATH = "/machine-approval"
 CODE_TTL_SECONDS = 600
 POLL_INTERVAL_SECONDS = 2
 APPROVAL_RETURN_COOKIE = "yoke_machine_approval_return"
+# Refusal code for a machine id the registry retired, and the one recovery
+# every surface teaches: connecting again swaps in a new identity by itself.
+MACHINE_RETIRED = "machine_retired"
+RETIRED_MACHINE_RECOVERY = (
+    "run `yoke connect` again on this computer (`yoke machine register` on a "
+    "local universe); it gives this computer a new machine identity automatically."
+)
+
+
+def retired_identity_notice(retired_machine_id: str) -> str:
+    """The line a connect surface shows after replacing a retired machine id."""
+    return (
+        f"Machine {retired_machine_id} was retired, so this computer now connects "
+        "with a new machine identity. The retired machine keeps its history on "
+        "the Machines page."
+    )
 
 
 class HostedMachineAuthorizationError(RuntimeError):
@@ -43,6 +59,8 @@ class PendingMachineAuthorization:
     expires_in: int
     interval: int
     self_host: bool = False
+    # Set when start replaced this computer's retired machine id.
+    retired_machine_id: str | None = None
 
 
 @dataclass(frozen=True)

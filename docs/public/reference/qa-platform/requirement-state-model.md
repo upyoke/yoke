@@ -197,7 +197,10 @@ link into or out of the row. The refusal names each broken link and the repair.
 A change to the scope rule itself can still leave a stored link that was valid
 when written. The done gate then refuses with the `replacement_graph_invalid`
 error, naming both rows, the differing scope and the repair, rather than
-reporting missing proof. Repair the predecessor with the reconciliation above,
+reporting missing proof. A plan read (`yoke qa plan get`) reports the same error
+on the affected case instead of failing: that proof's outcome is
+`replacement_graph_invalid`, its `replacement_graph_error` names the rows,
+reason and repair, and the plan stays unsatisfied. Repair the predecessor with the reconciliation above,
 naming a passing same-scope case. Reconciliation replaces a direct link that no
 longer answers for the obligation rather than following it. Waive the
 predecessor when no passing same-scope case exists. Links held by a waived or
@@ -211,6 +214,15 @@ evidence and standing item plans remain; a later release materializes fresh
 copies. Retraction records the run and reason; it grants no passing verdict.
 Retrying a failed run restores only its automatic retractions and requires a
 new walk; manual retractions and terminal execution histories remain intact.
+
+Removing a member (`yoke deployment-runs remove-item`) aborts that member's
+live executions with reason `deployment-member-removed`. A case already running
+then fails locally, because its heartbeat or submit meets a terminal execution.
+The runner's abort response returns the execution's `release_reason`. When it
+names the removal, `yoke qa plan run` reports the case as `case_outcome:
+removed` with plan state `removed` and exit status 1, not as a host-control
+error. QA was cancelled, not passed, and no host needs repair. The item owes
+its QA in its next release.
 
 An aborted or errored execution retains a typed review bundle for its completed
 captures. Its owner retrieves that bundle through `qa.plan_review.begin`:

@@ -28,7 +28,10 @@ from runtime.api.frontier_test_helpers import (
 
 
 @pytest.fixture
-def conn() -> Iterator[Any]:
+def conn(monkeypatch) -> Iterator[Any]:
+    # This minimal schema has no workflow tables; loop refusal has its own
+    # coverage in test_dependency_cycles.py.
+    monkeypatch.setattr(item_dependency, "refuse_cycles_through", lambda *_a: None)
     name = pg_testdb.create_test_database()
     c = pg_testdb.connect_test_database(name)
     try:
@@ -39,7 +42,7 @@ def conn() -> Iterator[Any]:
             "blocking_item_id INTEGER NOT NULL, "
             "gate_point TEXT NOT NULL DEFAULT 'activation', "
             "satisfaction TEXT NOT NULL DEFAULT 'status:done', "
-            "source TEXT NOT NULL, session_id INTEGER, "
+            "source TEXT NOT NULL, session_id TEXT, "
             "rationale TEXT NOT NULL DEFAULT '', "
             "evidence_json TEXT NOT NULL DEFAULT '{}', "
             "created_at TIMESTAMPTZ NOT NULL, "
@@ -114,8 +117,8 @@ def test_valid_sources_include_idea_and_refine_authoring_paths(
                 "YOK-99",
                 source,
                 gate_point="coordination_only",
-            )
-            == "OK"
+            ).action
+            == "created"
         )
 
 
@@ -131,7 +134,7 @@ def test_dependency_add_accepts_coordination_only(conn: Any) -> None:
         "shepherd",
         gate_point="coordination_only",
     )
-    assert result == "OK"
+    assert result.action == "created"
 
     rows = conn.execute(
         "SELECT dependent_item_id, blocking_item_id, gate_point, satisfaction "
@@ -292,33 +295,6 @@ class TestRefreshHookWiring:
 
         cmd_dependency_remove(conn, "YOK-1705", "YOK-1706")
         assert (1705, 1706) in calls
-
-    def test_cmd_dependency_reconcile_triggers_refresh_for_deleted_and_inserted(
-        self,
-        monkeypatch,
-        conn: Any,
-    ) -> None:
-        calls = self._install_spy(monkeypatch)
-        cmd_dependency_add(
-            conn,
-            "YOK-1707",
-            "YOK-1708",
-            "refine",
-            gate_point="activation",
-        )
-        calls.clear()
-        from yoke_core.domain.item_dependency import cmd_dependency_reconcile
-
-        cmd_dependency_reconcile(
-            conn,
-            "refine",
-            "YOK-1707",
-            stdin_lines=[
-                "YOK-1707 YOK-1709 coordination_only fact:merged refreshed",
-            ],
-        )
-        assert (1707, 1708) in calls
-        assert (1707, 1709) in calls
 
 
 def test_frontier_unblocks_count_ignores_coordination_only() -> None:

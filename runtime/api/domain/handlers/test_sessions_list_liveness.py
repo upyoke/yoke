@@ -106,6 +106,29 @@ class TestLivenessDerivation:
         test_db.commit()
         assert list_sessions()[0]["native_process"] is None
 
+    def test_a_clean_exit_behind_a_park_still_reports_its_exit(self, test_db):
+        observed = _iso()
+        _insert_session(
+            test_db, "s-parked", last_heartbeat=_iso(_LONG_AGO_MINUTES), mode="parked"
+        )
+        test_db.execute(
+            "UPDATE harness_sessions SET native_process_gone_at=%s, "
+            "native_process_gone_evidence=%s WHERE session_id=%s",
+            (observed, '{"exit_code":0}', "s-parked"),
+        )
+        test_db.commit()
+
+        row = list_sessions()[0]
+        assert row["native_process"] is None
+        assert row["native_process_exited_at"] == observed
+
+        test_db.execute(
+            "UPDATE harness_sessions SET last_heartbeat=%s WHERE session_id=%s",
+            (_iso(-1), "s-parked"),
+        )
+        test_db.commit()
+        assert list_sessions()[0]["native_process_exited_at"] is None
+
     def test_a_wake_answering_the_exit_projects_resuming(self, test_db):
         exited = _iso(10)
         woken = _iso(1)

@@ -3,6 +3,5 @@
  "title": "Root help omits resolvable commands",
  "status": "observed",
  "text": "The original root-help omission of `yoke dash` and `yoke task` is repaired in the candidate. The registry-derived command tree and side-effect-free help fixtures verify both routes and every immediate child. This evidence covers the source candidate; release proof comes from the delivery workflow.",
- "plan_refs": ["FIRST-USER.35"],
  "position": 16
 }

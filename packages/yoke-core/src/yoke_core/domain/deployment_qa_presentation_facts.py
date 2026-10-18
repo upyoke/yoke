@@ -13,15 +13,16 @@ _MEMBERS = ContextVar("qa_presentation_members", default=None)
 
 
 def member_presentation(function):
+    """Read the members of ``subjects`` as one set; an enclosing set covering them stays."""
+
     @wraps(function)
     def run(conn, subjects):
-        token = _MEMBERS.set(
-            (
-                conn,
-                tuple(sorted({item for _, item, _ in subjects})),
-                tuple(sorted({run for run, _, _ in subjects})),
-            )
-        )
+        items = tuple(sorted({item for _, item, _ in subjects}))
+        runs = tuple(sorted({run for run, _, _ in subjects}))
+        outer = _MEMBERS.get()
+        if outer and outer[0] is conn and {*items, *runs} <= {*outer[1], *outer[2]}:
+            return function(conn, subjects)
+        token = _MEMBERS.set((conn, items, runs))
         try:
             return function(conn, subjects)
         finally:
@@ -65,23 +66,13 @@ def run_member_rows(conn, run_id):
     if scope is None or scope[0] is not conn or run_id not in scope[2]:
         return None
 
-    def read():
-        markers = ",".join("%s" for _ in scope[2])
-        rows = query_rows(
-            conn,
-            "SELECT dri.run_id,dri.item_id,dri.requirement_snapshot,i.project_id "
-            "FROM deployment_run_items dri JOIN items i ON i.id=dri.item_id "
-            f"WHERE dri.run_id IN ({markers})",
-            scope[2],
-        )
-        by_run = defaultdict(dict)
-        for row in rows:
-            by_run[str(row["run_id"])][int(row["item_id"])] = row
-        return by_run
+    from yoke_core.domain.deployment_member_qa_projection import member_snapshot_rows
 
-    return presentation_read(conn, ("qa_presented_members", scope[2]), read).get(
-        run_id, {}
-    )
+    return presentation_read(
+        conn,
+        ("qa_presented_members", scope[2]),
+        lambda: member_snapshot_rows(conn, scope[2]),
+    ).get(run_id, {})
 
 
 def withdrawn_requirement_ids(conn, requested):
@@ -172,6 +163,8 @@ def run_facts(conn, run_id):
         return None
 
     def read():
+        from yoke_core.domain.deployment_runs_schema import bound_sources_column
+
         markers = ",".join("%s" for _ in runs)
         rows = query_rows(
             conn,
@@ -179,50 +172,24 @@ def run_facts(conn, run_id):
             "o.id AS tenant_id,o.slug AS tenant_slug,o.name AS tenant_name,"
             "dr.flow,dr.status,dr.current_stage,dr.release_lineage,"
             "dr.artifact_identity,dr.composition_frozen_at,dr.requirement_snapshot,"
-            "dr.bound_sources,"
+            f"{bound_sources_column('dr', include_preparation_receipt=False)},"
             "df.definition_schema_version,df.stages "
             "FROM deployment_runs dr JOIN deployment_flows df ON df.id=dr.flow "
             "JOIN projects p ON p.id=dr.project_id JOIN organizations o ON o.id=p.org_id "
             f"WHERE dr.id IN ({markers})",
             runs,
         )
-        return {str(row["id"]): dict(row) for row in rows}
+        from yoke_core.domain.deployment_run_bound_sources import parse_bound_sources
+
+        return {
+            str(row["id"]): {
+                **dict(row),
+                "bound_sources": parse_bound_sources(row["bound_sources"]),
+            }
+            for row in rows
+        }
 
     return presentation_read(conn, ("qa_presented_runs", runs), read).get(run_id)
-
-
-def execution_rows(conn, requested):
-    """Capture actual attempts together; canonical ordering grades only requested IDs."""
-    runs = presented_run_ids(conn)
-    if not runs:
-        return None
-
-    def read():
-        from yoke_core.domain.qa_latest_execution import actual_execution_sql
-
-        markers = ",".join("%s" for _ in runs)
-        rows = query_rows(
-            conn,
-            "SELECT q.id AS presented_requirement_id,run.* FROM qa_requirements q "
-            "LEFT JOIN qa_runs run ON run.qa_requirement_id=q.id "
-            f"AND {actual_execution_sql('run')} "
-            f"WHERE q.deployment_run_id IN ({markers})",
-            runs,
-        )
-        by_requirement = defaultdict(list)
-        for row in rows:
-            requirement_id = int(row["presented_requirement_id"])
-            by_requirement.setdefault(requirement_id, [])
-            if row["id"] is not None:
-                value = dict(row)
-                value.pop("presented_requirement_id")
-                by_requirement[requirement_id].append(value)
-        return by_requirement
-
-    by_requirement = presentation_read(conn, ("qa_presented_executions", runs), read)
-    if not set(requested) <= by_requirement.keys():
-        return None
-    return [row for requirement in requested for row in by_requirement[requirement]]
 
 
 def _requirements_by_stage(conn, runs):
@@ -238,7 +205,7 @@ def _requirements_by_stage(conn, runs):
             conn,
             "SELECT id,deployment_run_id,deployment_stage,deployment_member_item_id,"
             "plan_id,method_id,qa_kind,execution_target_json,execution_target_digest,"
-            "plan_case_key,case_position,baseline_position,host_baseline,"
+            "plan_case_key,target_env,case_position,baseline_position,host_baseline,"
             "blocking_mode,waived_at,superseded_by_requirement_id,"
             f"replacement_requirement_id,{requirement_retracted_at_select(conn)},"
             f"{unretracted_requirement_sql(conn)} AS unretracted,"
@@ -274,6 +241,25 @@ def subject_requirement_rows(conn, run_id, stage, member):
         ),
         key=lambda row: int(row["id"]),
     )
+
+
+def subject_direct_method_cases(conn, run_id, stage, member):
+    """Plan-less method cases of one subject, without admitted copies."""
+    from yoke_core.domain.deployment_qa_admission_materialization import (
+        ADMITTED_REQUIREMENT_CASE_PREFIX as ADMITTED,
+    )
+
+    rows = subject_requirement_rows(conn, run_id, stage, member)
+    if rows is None:
+        return None
+    return [
+        row
+        for row in rows
+        if row["plan_id"] is None
+        and row["method_id"] is not None
+        and row["waived_at"] is None
+        and not str(row["plan_case_key"] or "").startswith(ADMITTED)
+    ]
 
 
 def requirement_row(conn, requirement_id):

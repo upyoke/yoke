@@ -73,7 +73,8 @@ function shippingClient(rows, options = {}) {
                 target_environment: "prod",
                 release_lineage: DEPLOYED_SHA,
                 created_at: "2026-09-20T05:49:22Z",
-                member_items: roster,
+                member_items: options.derived ? [] : roster,
+                carried_work: options.derived ? { items: roster } : undefined,
                 gates: [],
               }],
             },
@@ -305,11 +306,38 @@ test("Shipping shows source-only pending requirements before any evidence read c
     qa_obligations: { current: [pending], history: [] },
   });
   const client = shippingClient([], { members: [carried] });
-  await loadDelivery({ document, client, projects: () => [{ id: 1, slug: "yoke" }],
+  let releaseOverview;
+  const overview = new Promise((resolve) => { releaseOverview = resolve; });
+  const requests = [];
+  const delayedClient = { call(request) {
+    requests.push(request.function);
+    return request.function === "deployment_runs.list" ? overview : new Promise(() => {});
+  } };
+  const delivery = loadDelivery({ document, client: delayedClient,
+    projects: () => [{ id: 1, slug: "yoke" }],
     isMounted: () => true }, host, () => "all");
+  assert.match(host.textContent, /Loading deployment runs and current QA obligations/);
+  assert.deepEqual(requests, ["deployment_runs.list"]);
+  assert.equal(byClass(host, "is-pending-obligation").length, 0);
+  releaseOverview(await client.call({ function: "deployment_runs.list" }));
+  await delivery;
+  assert.equal(byClass(host, "shipping-loading").length, 0);
   assert.equal(byClass(host, "is-pending-obligation").length, 1);
   assert.match(host.textContent, /Item QA.*Not started.*Browser inspection/);
   await settle();
   assert.equal(byClass(host, "is-pending-obligation").length, 1);
   assert.equal(byClass(host, "review-shot").length, 0);
+});
+
+test("a stage run with no recorded members does not fetch or invent item QA", async () => {
+  const documentNode = new FakeDocument();
+  const host = documentNode.createElement("div");
+  const client = shippingClient([], { derived: true, members: [member(1, "YOK-1")] });
+  await loadDelivery(shippingContext(documentNode, client), host, () => ["1"]);
+  await settle();
+  assert.equal(client.requests.filter((request) => (
+    request.function === "qa.activity.list" && request.payload.public_refs
+  )).length, 0);
+  assert.doesNotMatch(host.textContent, /item_qa_requirements_unavailable/);
+  assert.match(host.textContent, /No item QA owed on this target/);
 });

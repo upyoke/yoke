@@ -3,7 +3,6 @@
  "title": "Prove onboarding reaches the first item done",
  "status": "observed",
  "text": "Source tests cover the scan recipe, deferred setup rows, the steering handoff and the live lifecycle-readiness fact. Re-run the installer campaign against the released candidate and walk one adoption to its first item done before claiming installed proof.",
- "plan_refs": ["FIRST-USER.24", "FIRST-USER.D"],
  "work_items": ["YOK-3935"],
  "sources": [".agents/skills/yoke/onboard/first-work.md", "runtime/api/domain/test_project_onboarding_first_item.py"],
  "position": 34

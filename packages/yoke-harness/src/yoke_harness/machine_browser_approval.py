@@ -2,8 +2,8 @@
 
 A driver lists the browser's open tab URLs, then presses the visible
 "Approve machine" control only in a tab whose URL this contract allows, after
-revalidating that the tab still shows it, and reports the URL the tab
-navigated to. This module owns which tabs qualify and which outcomes count as
+revalidating that the tab still shows it, and observes navigation or the visible
+connected confirmation in that same tab. This module owns which tabs qualify and which outcomes count as
 an approval; drivers own only how they talk to their browser.
 """
 
@@ -12,12 +12,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 from typing import Any
-from urllib.parse import parse_qs, urlsplit, urlunsplit
+from urllib.parse import parse_qs, unquote, urlsplit, urlunsplit
 
 from yoke_contracts.machine_approval_coordinates import machine_approval_coordinates
 
 
 APPROVE_CONTROL_LABEL = "Approve machine"
+CONNECTED_CONFIRMATION = "Machine connected"
 _REFUSED_STATUSES = frozenset(
     {"denied", "expired", "missing", "not_admin", "not_member", "used"}
 )
@@ -37,6 +38,63 @@ class BrowserApprovalResult:
     ok: bool
     evidence: dict[str, Any]
     error_code: str | None = None
+
+
+def missing_approval_tab(
+    *, browser: str, expected_origin: str, user_code: str, observed: list[str]
+) -> BrowserApprovalResult:
+    """Explain a missing exact tab without exposing codes or URL parameters."""
+    paths = []
+    sign_in_required = False
+    for value in observed:
+        try:
+            parsed = urlsplit(value)
+            if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+                continue
+            path = unquote(parsed.path or "/")
+            sign_in_required |= (
+                (
+                    f"{parsed.scheme}://{parsed.netloc}" == expected_origin
+                    and path.rstrip("/") in {"/auth/sign-in", "/beta", "/orgs/new"}
+                )
+                or (
+                    parsed.scheme == "https"
+                    and parsed.hostname == "accounts.google.com"
+                    and path.startswith(("/v3/signin/", "/signin/", "/ServiceLogin"))
+                )
+                or (
+                    parsed.scheme == "https"
+                    and parsed.hostname == "login.microsoftonline.com"
+                    and path.endswith(
+                        ("/oauth2/authorize", "/oauth2/v2.0/authorize", "/login")
+                    )
+                )
+            )
+        except ValueError:
+            continue
+        path = re.sub(re.escape(user_code), "[REDACTED]", path, flags=re.IGNORECASE)
+        path = re.sub(r"(?i)(/machine-approval/)[^/]+", r"\1[REDACTED]", path)
+        if path not in paths:
+            paths.append(path)
+    return BrowserApprovalResult(
+        False,
+        {
+            "browser": browser,
+            "state": "sign_in_required" if sign_in_required else "browser_tab_missing",
+            "observed_tab_paths": paths,
+            "recovery": (
+                "Run browser authorize with the declared identity and --desktop-browser "
+                "on the Test Machine; the operator completes the identity-provider "
+                "sign-in. Keep it live through reset; never golden-capture or wipe it."
+                if sign_in_required
+                else "The exact approval tab is absent. Check that the installer opens "
+                "links in the same signed-in browser profile, then rerun with a fresh request."
+            ),
+        },
+        "machine_browser_sign_in_required"
+        if sign_in_required
+        else "machine_browser_tab_missing",
+    )
 
 
 def approval_url(verification_url: str, user_code: str) -> tuple[str, str]:
@@ -105,14 +163,19 @@ def approval_outcome(
     allowed_urls: list[str],
     expected_origin: str,
 ) -> BrowserApprovalResult:
-    """Judge one driver report: only a same-origin, unrefused navigation counts."""
-    if state != "approved":
+    """Validate navigation or visible confirmation in the exact approved tab."""
+    if state not in {"approved", "approved_in_place"}:
         return BrowserApprovalResult(
             False,
             {"browser": browser, "state": state or "empty"},
             STATE_ERRORS.get(state, "machine_browser_approval_failed"),
         )
-    if starting_url not in allowed_urls or not result_url or result_url == starting_url:
+    in_place = state == "approved_in_place"
+    if (
+        starting_url not in allowed_urls
+        or not result_url
+        or (result_url == starting_url) != in_place
+    ):
         return BrowserApprovalResult(
             False, {"browser": browser}, "machine_browser_approval_navigation_missing"
         )
@@ -130,15 +193,18 @@ def approval_outcome(
             "approval_entry": urlsplit(starting_url).path,
             "result_url": safe_url,
             "visible_control": APPROVE_CONTROL_LABEL,
+            **({"visible_confirmation": CONNECTED_CONFIRMATION} if in_place else {}),
         },
     )
 
 
 __all__ = [
     "APPROVE_CONTROL_LABEL",
+    "CONNECTED_CONFIRMATION",
     "BrowserApprovalResult",
     "STATE_ERRORS",
     "approval_outcome",
     "approval_tab_urls",
     "approval_url",
+    "missing_approval_tab",
 ]

@@ -17,12 +17,12 @@ from yoke_cli.transport.bounded_json_http import (
 from yoke_cli.transport.https import HttpsConnection
 from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
 
-from yoke_contracts.hook_runner import lint_policy
 from yoke_contracts.hook_runner.project_scope import resolve_hook_project_scope
 from yoke_contracts.hook_evaluator_protocol import HOOK_MODEL_CONFIRMATION_FIELD
 from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
 from yoke_contracts.hook_runner.failures import render_failure_warning
 
+from yoke_harness.hooks.client_facts import lint_config_snapshot
 from yoke_harness.hooks.deadline import start_hook_deadline
 from yoke_harness.hooks.decision_render import (
     merge_allow_stdout,
@@ -59,15 +59,6 @@ _record_client_anchor, _codex_capture = record_client_anchor, capture_codex_sess
 
 HOOKS_EVALUATE_PATH = "/v1/hooks/evaluate"
 AGENT_TYPE_ENV_VAR = "YOKE_HOOK_AGENT_TYPE"
-
-
-def _client_lint_config_snapshot(payload: dict) -> dict[str, dict[str, object]]:
-    cwd = payload.get("cwd")
-    start = cwd if isinstance(cwd, str) and cwd else None
-    try:
-        return lint_policy.snapshot_from_workspace(start=start)
-    except Exception:
-        return {}
 
 
 def _with_extra_context(
@@ -110,17 +101,15 @@ def evaluate_hook_event(
         return 0
     deadline = start_hook_deadline()
     payload = parse_hook_payload(stdin_data)
-    policy_snapshot = _client_lint_config_snapshot(payload)
+    policy_snapshot = lint_config_snapshot(payload)
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
     stdin_data, launch_projection = stamp_hook_input(
         payload, stdin_data, executor, event_name
     )
-    from yoke_harness.hooks.cursor_lifecycle_hooks import (
-        ensure_user_lifecycle_hooks_for_executor,
-    )
+    from yoke_harness.hooks.machine_hooks import ensure_machine_hooks_for_executor
 
-    ensure_user_lifecycle_hooks_for_executor(executor)
+    ensure_machine_hooks_for_executor(executor, hook=event_name)
     local = evaluate_local_subset(
         event_name,
         stdin_data,
@@ -162,7 +151,7 @@ def relay_hook_event(
     # facts all read this one answer instead of re-asking Git each time.
     project_scope = resolve_hook_project_scope(payload)
     anchor_from_payload = isinstance(payload.get("session_id"), str)
-    policy_snapshot = _client_lint_config_snapshot(payload)
+    policy_snapshot = lint_config_snapshot(payload)
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
     original_stdin = stdin_data if capture_stdin_data is None else capture_stdin_data
@@ -174,11 +163,9 @@ def relay_hook_event(
     stdin_data, launch_projection = stamp_hook_input(
         payload, stdin_data, executor, event_name
     )
-    from yoke_harness.hooks.cursor_lifecycle_hooks import (
-        ensure_user_lifecycle_hooks_for_executor,
-    )
+    from yoke_harness.hooks.machine_hooks import ensure_machine_hooks_for_executor
 
-    ensure_user_lifecycle_hooks_for_executor(executor)
+    ensure_machine_hooks_for_executor(executor, hook=event_name)
     _codex_capture(event_name, original_stdin, executor)
 
     local = evaluate_local_subset(
@@ -187,7 +174,7 @@ def relay_hook_event(
         executor,
         agent_type or None,
         deadline,
-        defer_main_commit=True,
+        collect_facts=True,
         lint_config_snapshot=policy_snapshot,
         project_scope=project_scope,
     )
@@ -195,7 +182,7 @@ def relay_hook_event(
         write_hook_output(
             local.stdout, local.exit_code, executor, event_name=event_name
         )
-        if local.denial_audit and project_scope.project_id is not None:
+        if local.denial_audit:
             relay_denial_audit(connection, local.denial_audit)
         return local.exit_code
 
@@ -207,16 +194,6 @@ def relay_hook_event(
         harness_id=canonical_harness_id(executor),
     )
 
-    if project_scope.project_id is None:
-        # The complete machine guard subset is local; project registration is
-        # neither required nor meaningful for an unrelated workspace.
-        print_execution_provenance()
-        write_hook_output(
-            allow_stdout, local.exit_code, executor, event_name=event_name
-        )
-        settle_projection(allow_stdout, launch_projection)
-        return local.exit_code
-
     denied = deny_unstamped_relay(parse_hook_payload(stdin_data))
     if denied is not None:
         return denied
@@ -224,8 +201,6 @@ def relay_hook_event(
         event_name, payload, executor, project_id=project_scope.project_id
     )
     payload_extra = dict(local.payload_extra or {})
-    if policy_snapshot:
-        payload_extra[lint_policy.SNAPSHOT_PAYLOAD_KEY] = policy_snapshot
     from yoke_contracts.execution_provenance import collect_execution_provenance
 
     body = {
@@ -302,9 +277,7 @@ def relay_hook_event(
         sys.stderr.write(failure_warning)
     if outcome == "denied":
         stdout = annotate_guard_version_skew(
-            stdout,
-            client=body["execution_provenance"],
-            server=server_fp,
+            stdout, client=body["execution_provenance"], server=server_fp
         )
         write_hook_output(stdout, exit_code, executor, event_name=event_name)
         return exit_code

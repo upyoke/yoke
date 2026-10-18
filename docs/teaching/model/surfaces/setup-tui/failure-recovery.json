@@ -5,7 +5,6 @@
  "form": "Do",
  "verification": "Source trace and scripted regression cover network failure, project permission denial and repository collision through the durable report, failure screen and terminal exit; deployed delivery remains unproved.",
  "topics": ["installation/readiness"],
- "plan_refs": ["FIRST-USER.19"],
  "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/onboard_apply.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_apply.py", "runtime/api/cli/test_setup_failure_reason.py"],
  "position": 12
 }

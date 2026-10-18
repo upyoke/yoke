@@ -32,6 +32,8 @@ class TestMachinePlanCaseBeginResponse(BaseModel):
     #: inherits a predecessor that did not pass in this plan run.
     result: dict[str, Any] | None = None
     lease_context: dict[str, Any] | None = None
+    #: A ``waiting`` case's place in its host's line; the next turn wakes it.
+    host_wait: dict[str, Any] | None = None
     selection_new: bool = False
 
 
@@ -74,12 +76,17 @@ class AgentMissionAccessRequest(BaseModel):
 
     execution_id: str = Field(min_length=1)
     requirement_id: int = Field(ge=1)
+    cleanup: Literal["begin", "finish"] | None = None
+    lease_id: int | None = Field(default=None, ge=1)
+    run_id: int | None = Field(default=None, ge=1)
+    restore: dict[str, Any] | None = None
 
 
 class AgentMissionAccessResponse(BaseModel):
     execution_id: str
     requirement_id: int
-    execution: HostControlExecutionContract
+    execution: HostControlExecutionContract | None = None
+    cleanup_lease: bool = False
 
 
 __all__ = [

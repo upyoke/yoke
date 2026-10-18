@@ -53,7 +53,7 @@ from yoke_core.domain.session_claimed_worktrees import (
     ClaimedWorktree,
     claimed_worktrees,
 )
-from yoke_core.domain.lint_shell_path_use import PathUse, is_capacity_target
+from yoke_core.domain.lint_shell_path_use import PathRole, PathUse, is_capacity_target
 from yoke_core.domain.lint_payload_path_use import UNRESOLVED_HOME_PATH
 from yoke_core.domain.lint_session_cwd_item_lookup import (
     lookup_item_status,
@@ -98,6 +98,7 @@ def validate_targets(
     command: str = "",
     tool_name: str = "",
     path_uses: tuple[PathUse, ...] = (),
+    yoke_root: str = "",
 ) -> ValidationVerdict:
     """Validate every target path against the session's claim authority.
 
@@ -108,7 +109,7 @@ def validate_targets(
     the no-target case to allow unconditionally (Edit/Read/Write always
     carry an explicit file_path target).
     Client-evidenced roots override local filesystem context on relayed calls.
-    ``read_only`` admits explicitly sanctioned installed harness/tool paths.
+    A sanctioned path is admitted when the call is read-only or that target is not a write.
     ``command`` is the Bash body, which decides the lane-inspection case.
     ``tool_name`` is the tool the call declared, which decides whether it has
     claimed to be a read at all.
@@ -202,7 +203,9 @@ def validate_targets(
             claude_job_tmp_root=claude_job_tmp_root,
             machine_home=machine_home,
             read_only=read_only,
+            path_uses=path_uses,
             external_reads_allowed=external_reads_allowed,
+            yoke_root=yoke_root,
         ):
             continue
         return ValidationVerdict(
@@ -249,7 +252,9 @@ def _is_target_authorised(
     claude_job_tmp_root: str,
     machine_home: str | None,
     read_only: bool,
+    path_uses: tuple[PathUse, ...] = (),
     external_reads_allowed: bool = False,
+    yoke_root: str = "",
 ) -> bool:
     if _is_free_path(
         target,
@@ -261,9 +266,9 @@ def _is_target_authorised(
         return True
     if _is_under_tool_dir(target):
         return True
-    if read_only and is_sanctioned_installed_read_path(
-        target,
-        machine_home=machine_home,
+    roles = {use.role for use in path_uses if use.path == target}
+    if is_sanctioned_installed_read_path(target, machine_home=machine_home) and (
+        read_only or (roles and PathRole.WRITE not in roles)
     ):
         return True
     if external_reads_allowed and is_external_reference_path(
@@ -284,9 +289,7 @@ def _is_target_authorised(
     # worktree claim it currently holds. Sibling-branch worktrees stay
     # claim-gated through ``_is_inside_control_plane``'s `.worktrees`
     # exclusion.
-    if is_under_yoke_control_plane(target):
-        return True
-    return False
+    return is_under_yoke_control_plane(target, yoke_root)
 
 
 def _is_free_path(
@@ -307,9 +310,10 @@ def _is_free_path(
         return True
     if claude_job_tmp_root and _is_inside(target, claude_job_tmp_root):
         return True
+    own = not watcher_capture_root and machine_home is None  # in-process caller
     return is_yoke_watcher_capture_path(
         target,
-        scratch_root=watcher_capture_root or None,
+        scratch_root=None if own else watcher_capture_root,
         session_id=session_id,
     )
 

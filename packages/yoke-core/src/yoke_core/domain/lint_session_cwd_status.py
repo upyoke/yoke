@@ -8,22 +8,26 @@ even though the lifecycle never crossed into ``implementing``. The set
 of pre-implementing statuses is the canonical
 the item's pinned workflow skill bindings.
 
-Mode is pinned by the machine config key ``lint_session_cwd_status_mode``
-(``warn`` records audit only; ``deny`` blocks). Suppression token
+Mode is pinned by the machine setting ``lint_session_cwd_status_mode``
+(``warn`` records audit only; ``deny`` blocks), read from the session's
+client machine through its machine-settings fact. Suppression token
 ``# lint:no-pre-implementing-status-check`` on a Bash command body is
 recorded as audit evidence only — it does NOT unblock.
 """
 
 from __future__ import annotations
 
-import os
-import subprocess
-from typing import Optional
+from typing import Any, Mapping, Optional
+
+from yoke_contracts.hook_runner.client_facts import (
+    SESSION_CWD_STATUS_MODE_SETTING,
+    machine_setting,
+)
 
 from yoke_core.domain.workflow_runtime import WorkflowRuntime
 
 
-CONFIG_KEY_MODE = "lint_session_cwd_status_mode"
+CONFIG_KEY_MODE = SESSION_CWD_STATUS_MODE_SETTING
 DEFAULT_MODE = "deny"
 VALID_MODES = ("warn", "deny")
 SUPPRESSION_TOKEN = "# lint:no-pre-implementing-status-check"
@@ -44,51 +48,15 @@ def is_pre_implementing_status(
     return workflow.is_before_implementation(status)
 
 
-def _toplevel() -> str:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except Exception:
-        return ""
-    if result.returncode != 0:
-        return ""
-    return result.stdout.strip()
+def read_mode(payload: Mapping[str, Any]) -> str:
+    """Return the client machine's configured mode for this gate.
 
-
-def read_mode() -> str:
-    """Return the configured mode from machine config.
-
-    Looks up ``CLAUDE_PROJECT_DIR`` / ``CODEX_PROJECT_DIR`` / ``git
-    rev-parse`` in order to locate the workspace. Any failure (missing
-    workspace, missing file, malformed line) returns :data:`DEFAULT_MODE`
-    so the gate remains active in the default-secure deny posture.
+    The mode is a machine setting on the machine running the session,
+    reported as a client fact. A missing or unrecognised value keeps the
+    gate in the default-secure deny posture.
     """
-    workspace = (
-        os.environ.get("CLAUDE_PROJECT_DIR")
-        or os.environ.get("CODEX_PROJECT_DIR")
-        or _toplevel()
-    )
-    if not workspace:
-        return DEFAULT_MODE
-    path = os.path.join(workspace, "data", "config")
-    try:
-        with open(path, encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                key, sep, value = line.partition("=")
-                if sep and key.strip() == CONFIG_KEY_MODE:
-                    cand = value.strip()
-                    if cand in VALID_MODES:
-                        return cand
-    except Exception:
-        return DEFAULT_MODE
-    return DEFAULT_MODE
+    mode = machine_setting(payload, CONFIG_KEY_MODE)
+    return mode if mode in VALID_MODES else DEFAULT_MODE
 
 
 def command_has_suppression_token(command_text: str) -> bool:

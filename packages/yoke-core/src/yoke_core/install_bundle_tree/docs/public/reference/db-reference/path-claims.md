@@ -100,12 +100,13 @@ some overlaps that would have required `coordination_only` edges now
 resolve silently.
 
 
-Dash work holders use the same evidence packet during survey/isolation and
-record an independent overlap with `yoke items dependency add ITEM HOLDER dash
---gate-point coordination_only --rationale "<shared paths and disjoint edits>"`.
-Ordered edits wait for proven landing; uncertain independence goes through
-`yoke say --steering`. Read dependency-add help for serving capability. Dash
-claim selection can be restored to its pinned default with `yoke workflows
+The session holding the work claim uses the same evidence packet and records
+an independent overlap with `yoke items dependency add ITEM HOLDER SOURCE
+--gate-point coordination_only --rationale "<shared paths and disjoint edits>"`,
+where SOURCE is that session's skill. Ordered edits wait for proven landing;
+when no live holder exists, route to `/yoke refine`. Uncertain independence
+goes through `yoke say --steering`. Read dependency-add help for serving
+capability. Dash claim selection can be restored to its pinned default with `yoke workflows
 item-posture amend ITEM --key path_claims --clear --reason "<why>"`; live
 coverage must first be released by its holder. Read amendment help for authority
 and release recovery. [Lanes and claims](../agent-rules/lanes-and-claims.md)
@@ -127,7 +128,12 @@ refuse another owner's claim. A released or cancelled claim cannot reopen.
 
 Recording the merge landing releases every open item-owned path claim with
 reason `landed`, on the landing's transaction, and unblocks downstream claims.
-The work claim stays held through delivery. Landed items in a pinned stage
+Integration-lane merges use the same `item_landings.record` writer as item
+merges, releasing both path coverage and migration territory before cleanup.
+If recording fails, `item_landing_record_failed` preserves the lane: restore
+control-plane access and retry the same merge command, even if Git already
+contains the branch. The work claim stays held through delivery.
+Landed items in a pinned stage
 that implies merge need no open path coverage; released coverage remains
 evidence for the merge boundary. Snapshot materialization writes all observed
 planned targets together and emits one summary event, whose loss changes no fact.

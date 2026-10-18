@@ -112,6 +112,31 @@ class TestRunCompletingStageHold:
         assert exit_code == STAGE_FAILED_EXIT
         assert "no route to control plane" in capsys.readouterr().err
 
+    @pytest.mark.parametrize("check", ["completion_stage", "finalization"])
+    def test_an_expired_qa_read_is_a_stage_failure_not_a_usage_error(
+        self, monkeypatch, capsys, check
+    ):
+        """A read that kept expiring leaves QA unanswered, not the call wrong."""
+        from yoke_core.domain import deploy_pipeline_control_plane as cp
+        from yoke_core.domain.deploy_pipeline_failure import EXIT_STAGE_FAILED
+
+        def _expired(run_id):
+            raise cp.DeploymentControlPlaneError(
+                "qa_pending failed: deadline", code=cp.READ_DEADLINE_CODE
+            )
+
+        monkeypatch.setattr(cp, "unresolved_qa", _expired)
+        exits = {"usage_exit": STAGE_FAILED_EXIT, "awaiting_qa_exit": AWAITING_QA_EXIT}
+        if check == "finalization":
+            exit_code = stage_checks.check_unresolved_qa(RUN, **exits)
+        else:
+            exit_code = stage_checks.check_completion_stage_qa(
+                self.STAGES[-1], self.STAGES, RUN, **exits
+            )
+
+        assert exit_code == EXIT_STAGE_FAILED != STAGE_FAILED_EXIT
+        assert "could not evaluate blocking QA" in capsys.readouterr().err
+
     def test_the_last_declared_stage_is_the_boundary_whatever_its_name(self):
         stages = [{"name": "deploy"}, {"name": "hosted-release"}]
 

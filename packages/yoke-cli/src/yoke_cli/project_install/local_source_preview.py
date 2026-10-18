@@ -129,6 +129,7 @@ def preview_report(
         },
         "machine_config_newly_registered": False,
         "warnings": git_hook_preview.warnings,
+        "harness_health": preflight["harness_health"],
     }
 
 

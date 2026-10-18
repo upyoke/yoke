@@ -270,6 +270,11 @@ def submit_plan_review(
                 validated,
             )
         )
+        from yoke_core.domain.qa_plan_settled_review import (
+            withdraw_settled_agent_review_wakes,
+        )
+
+        withdraw_settled_agent_review_wakes(conn, execution_id=str(execution["id"]))
         conn.commit()
     except Exception:
         conn.rollback()
@@ -293,6 +298,12 @@ def submit_plan_review(
         from yoke_core.domain.deployment_qa_stage_settlement import settle_execution
 
         settle_execution(conn, execution)
+    elif execution.get("item_id") is not None:
+        from yoke_core.domain.deployment_member_close_out_retry import (
+            after_record_settled,
+        )
+
+        after_record_settled(conn, item_id=int(execution["item_id"]))
     return {
         "execution_id": str(execution["id"]),
         "bundle_id": bundle_id,

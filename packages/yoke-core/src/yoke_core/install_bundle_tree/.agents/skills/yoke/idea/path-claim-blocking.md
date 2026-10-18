@@ -2,10 +2,11 @@
 
 A draft cannot leave intake with an unrepresented coverage/overlap conflict.
 The [claims catalog](../../../../.yoke/docs/reference/db-reference/functions.md)
-owns schemas; this phase owns decision order. Idea, Refine and the planning
-Architect attest coordination. Runtime Engineer/Tester/Boss/Conduct/Polish/Usher
-route collisions back to authoring through the pin/shared handoff, never author
-their own compatibility edge.
+owns schemas; this phase owns decision order. Idea, Refine, the planning
+Architect, and any session holding the item's work claim attest coordination,
+using that skill as `source`. Engineer and Tester report a collision to their
+parent skill and do not author the edge. When no live work-claim holder
+exists, route to `/yoke refine`.
 
 ## 0. Renderer-only shortcut
 
@@ -49,10 +50,13 @@ yoke items dependency add <candidate-ref> <upstream-ref> idea --gate-point activ
 Use the blocker's pinned status (normally status:done) for delivery/closeout,
 fact:merged for trunk and fact:deployed:ENV only for a real live-environment need.
 Always explicit gate-point; defaulting to activation is not classification.
+A `dependency_cycle` refusal names a loop this edge would close; nothing was
+written. Make one named edge coordination_only or route the order to steering.
 Re-register without upstream pin so the resolver walks the authoritative graph.
 Candidate is blocked until the actual condition; multiple overlapping upstream
 holders all must satisfy/release, not just the latest blocked_reason display.
-Only the dependent waits. Rationale/doctor review detects missing/stale or
+Only the dependent waits; the blocker's landing or done transition notifies
+it when its gate clears. Rationale/doctor review detects missing/stale or
 unjustified path-only hard blocks.
 
 ## 4. Explicit upstream claim pin, secondary

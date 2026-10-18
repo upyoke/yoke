@@ -9,7 +9,11 @@ from pathlib import Path
 from yoke_contracts import harness_folder_trust as trust
 from yoke_contracts import harness_settings_ledger as ledger
 from yoke_contracts.harness_settings_revert import revert_entry
-from yoke_contracts.harness_unattended_posture import codex_config_path
+from yoke_contracts.harness_unattended_posture import (
+    CODEX_TRUST_LEVEL,
+    CODEX_TRUST_LEVEL_KEY,
+    codex_config_path,
+)
 from yoke_contracts.codex_config_posture import parse_config
 
 
@@ -114,7 +118,11 @@ def _scope(entry: dict) -> tuple[str, str] | None:
 
 
 def _current(root: str):
-    """Detect unowned exact and broader entries without rewriting user state."""
+    """Detect unowned exact and broader trust without rewriting user state.
+
+    Harnesses keep metadata for folders they have only seen; an entry counts
+    only when it carries the trust value the grant side writes.
+    """
     targets = {
         "claude-code": trust.claude_state_path(),
         "codex": codex_config_path(),
@@ -137,14 +145,24 @@ def _current(root: str):
             raise ValueError(
                 f"{target}: projects is not an object; repair the harness config and retry"
             )
-        for owner in projects:
-            if Path(owner).is_absolute() and Path(root).is_relative_to(
-                Path(owner).resolve()
+        for owner, entry in projects.items():
+            if (
+                _grants_trust(family, entry)
+                and Path(owner).is_absolute()
+                and Path(root).is_relative_to(Path(owner).resolve())
             ):
                 yield family, owner, target
     for parent in Path(root).parents:
         if trust.cursor_trust_file(parent).is_file():
             yield "cursor", str(parent), trust.cursor_trust_file(parent)
+
+
+def _grants_trust(family: str, entry: object) -> bool:
+    if not isinstance(entry, dict):
+        return False
+    if family == "codex":
+        return entry.get(CODEX_TRUST_LEVEL_KEY) == CODEX_TRUST_LEVEL
+    return entry.get(trust.CLAUDE_TRUST_KEY) is True
 
 
 def _result(

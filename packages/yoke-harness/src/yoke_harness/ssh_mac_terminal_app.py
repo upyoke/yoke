@@ -34,13 +34,13 @@ _CONTROL_KEY_CODES = {
 
 
 def run_osascript(
-    run: RunRemote, lines: Sequence[str]
+    run: RunRemote, lines: Sequence[str], *, timeout: int = 20
 ) -> subprocess.CompletedProcess[str]:
     """Execute one bounded AppleScript through the controlled Mac transport."""
     apple = "\n".join(lines)
     return run(
         "/usr/bin/osascript -e " + shlex.quote(apple),
-        timeout=20,
+        timeout=timeout,
     )
 
 
@@ -203,26 +203,6 @@ def open_terminal_app_window(
     )
 
 
-def close_terminal_app_window(
-    run: RunRemote,
-    *,
-    window_id: int | None,
-) -> None:
-    """Best-effort cleanup for one Terminal.app window."""
-    if window_id is None:
-        return
-    run_osascript(
-        run,
-        [
-            'tell application "Terminal"',
-            f"if exists window id {window_id} then",
-            f"close window id {window_id}",
-            "end if",
-            "end tell",
-        ],
-    )
-
-
 def capture_terminal_app_transcript(
     run: RunRemote,
     *,
@@ -331,7 +311,6 @@ __all__ = [
     "RunRemote",
     "TerminalWindowLaunch",
     "capture_terminal_app_transcript",
-    "close_terminal_app_window",
     "open_terminal_app_window",
     "run_osascript",
     "set_terminal_app_window_bounds",

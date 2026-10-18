@@ -130,9 +130,16 @@ def refuse_held_assigned_item(
         holder_id if live_holder else str(launch[2] or "no live registered session")
     )
     state = str(launch[1]) if launch else "active work claim"
+    # A worker whose process exited still owns a resumable transcript, so
+    # resuming it keeps its identity, claims and lane; terminating loses them.
     recovery = (
-        f"Wake or message session {session_id}; if a fresh worker is required, "
-        f"terminate it first with `yoke sessions terminate {session_id} --reason R`"
+        f"Resume or message session {session_id}: "
+        f"`yoke session-control session wake {session_id}` resumes the same "
+        "session even when its process has exited (a desktop session refuses "
+        f"the wake; send `yoke say --session {session_id} --stdin` instead). "
+        "Terminate only when that wake reports the transcript gone or the "
+        "resume gets no answer, then launch a fresh worker: "
+        f"`yoke sessions terminate {session_id} --reason R`"
         if session_id != "no live registered session"
         else f"Wait for launch {launch_id} to register; cancel an unstarted launch "
         f"or run `yoke session-control launch reconcile {launch_id}` "

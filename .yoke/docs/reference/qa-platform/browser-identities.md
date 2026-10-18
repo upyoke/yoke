@@ -46,6 +46,13 @@ Otherwise it opens one window with a tab per expired site, naming the identity,
 the site and the account, and checks again after the window closes. A site
 whose check cannot be reached fails by name: no sign-in fixes it.
 
+If `default` declares no sites while other identities do, omitting `--identity`
+refuses with `browser_identity_required` and names the choices before any window
+opens. Choose the declared identity; site, origin and account instructions print
+on the workstation before its viewer opens.
+Linux remote authorization streams progress as it runs. JSON mode keeps stdout
+for the final receipt and sends progress to stderr.
+
 While a sign-in window is open no automated browser runs on the machine: every
 browser daemon is stopped first, and a daemon start is refused with
 `browser_human_gate_active` until the window closes.
@@ -59,11 +66,30 @@ yoke browser authorize --project P --identity buyer --machine NAME
 ```
 
 Yoke reads the browser-control declarations here and runs authorization in the
-registered Test Machine's GUI session over its SSH route. Sign in on that
-desktop, then close the browser window; the command checks the identity again
-there before returning. The Test Machine needs an installed Yoke browser runtime,
-but no control-plane connection or pasted settings. Read `yoke browser authorize
---help` for reset, starting URL, JSON output and window bounds.
+registered Test Machine's GUI session over its SSH route. A Linux or Windows
+WSL machine with a registered RDP desktop opens in the same FreeRDP viewer as
+`yoke test-machine desktop-access --view` (fixture password on stdin, SSH
+forward closed with the viewer). A window titled `Yoke desktop: NAME` appears.
+Sign in with the identity's declared account. Close the browser window when
+done; the viewer closes when verification finishes. If no viewer route or
+FreeRDP client is available, the command prints the exact `desktop-access`
+command and recovery and still waits for sign-in. macOS Screen Sharing uses
+that printed command without `--view`. The Test Machine needs an installed
+Yoke browser runtime, but no control-plane connection or pasted settings.
+Read `yoke browser authorize --help` for reset, starting URL, JSON output
+and window bounds.
+
+On Linux and macOS, `--machine NAME` checks both automation and native desktop
+browser sign-ins. Add `--desktop-browser` to check only that machine's native
+Chromium or Safari. Native sign-ins stay live through resets and are never saved
+into golden snapshots or wiped by authorization. A second Linux viewer refuses
+`linux_desktop_viewer_connected`; close the open `Yoke desktop: NAME` viewer or
+let its authorization finish, then retry. Linux authorization uses `xdotool`
+to detect closure of the spawned Chromium PID's windows before verification.
+If an approval walk finds a Google or Microsoft sign-in page instead of its exact
+request tab, it names `machine_browser_sign_in_required`. The operator completes
+the declared identity's native sign-in before retrying; approval automation never
+enters credentials or clicks an unrelated request.
 
 The workstation needs an ssh-agent with a key the host accepts. macOS uses its
 logged-in Terminal.app session; Linux and Windows WSL use the registered user's
@@ -71,7 +97,8 @@ XFCE desktop. For a desktop that needs to start, its registered `desktop_passwor
 secret must be stored on this workstation. A machine leased by another session
 refuses: wait for that lease to release or ask its holder to authorize the
 identity, because signing in stops every automated browser on that host.
-Use [desktop access](../test-machine-desktop.md) to view the remote desktop.
+Read [desktop access](../test-machine-desktop.md) for the viewer route,
+FreeRDP client and macOS Screen Sharing recovery.
 
 ## Using an identity
 

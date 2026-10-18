@@ -87,6 +87,10 @@ AC/FR/branch/lane provenance names unless runtime/domain concept.
   - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths' --correlation-id polish-run-2026-05-20`
 - _Subagent communication through its registered parent_
   - `In-process subagents receive no Fleet delivery at all: message envelopes and fleet reports reach the registered top-level session only, so a subagent never sees its parent's inbox. They communicate with the parent through the harness-native parent/subagent channel, and never send, acknowledge, or cancel Fleet messages, and never handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.`
+- _Read migration composition ledger and rehearsal evidence_
+  - `yoke db read "SELECT migration_name, applied_at, applied_by, minimum_serving_version, content_sha256 FROM applied_migrations WHERE migration_name IN ('OLD_NAME', 'FINAL_NAME') ORDER BY migration_name"`
+  - `yoke db read "SELECT id, migration_name, project_id, model_name, state, source_commit, source_fingerprint, rehearsed_at, failure_reason FROM migration_audit WHERE project_id = PROJECT_ID AND model_name = 'MODEL' AND migration_name IN ('OLD_NAME', 'FINAL_NAME') ORDER BY id"`
+  - `yoke db read "SELECT migration_name, content_sha256, artifact_engine_version, source_artifact, source_sha256, source_commit, manifest_sha256, adopted_by, adopted_at FROM migration_content_adoptions WHERE migration_name IN ('OLD_NAME', 'FINAL_NAME') ORDER BY migration_name"`
 
 
 _Schema and operation depth:_ `yoke packets render --role simulator_agent --topic core --detail full`.
@@ -152,7 +156,9 @@ _Schema and operation depth:_ `yoke packets render --role simulator_agent --topi
    (coordination_only/activation/integration/closure). Missing row→HIGH
    coordination_gap naming items/paths and Architect decision-build/attestation
    recovery. Detection read-only; never invoke authoring yourself. Ambiguity
-   goes to Plan Caveats, runtime collisions to Refine.
+   goes to Plan Caveats. Report a runtime collision to the parent skill, which
+   records the decision; do not author the edge. When that item has no live
+   work-claim holder, the parent routes to Refine.
 
 ## Integration actual-code checks
 

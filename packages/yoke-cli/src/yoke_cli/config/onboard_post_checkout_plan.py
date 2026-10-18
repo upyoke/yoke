@@ -61,9 +61,6 @@ def post_checkout_steps(
       ``.claude/settings.json`` / ``.codex/hooks.json`` / ``.cursor/hooks.json``,
       and installs the git commit-guard hooks, so the review names each file
       operation instead of hiding it behind the scaffold line.
-    * ``install-cursor-user-lifecycle-hooks`` — machine-local
-      ``~/.cursor/hooks.json`` stop/sessionEnd backstop so Cursor session-end
-      cleanup still runs when a project worktree folder is gone.
     * ``project-remove-installed-layer`` — a checkout the operator inspected
       and chose to strip, which happens after the clone's remote choreography
       and before anything is installed into the folder.
@@ -107,12 +104,6 @@ def post_checkout_steps(
         steps.append({"action": "project-install-tool-permissions", "target": ""})
         steps.append({"action": "project-install-harness-hooks", "target": ""})
         steps.append({"action": "project-install-git-hooks", "target": ""})
-        steps.append(
-            {
-                "action": "install-cursor-user-lifecycle-hooks",
-                "target": "~/.cursor/hooks.json",
-            }
-        )
         if _needs_board_art(project_inputs):
             steps.append({"action": "project-write-board-art", "target": ""})
     return steps

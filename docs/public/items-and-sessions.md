@@ -85,9 +85,17 @@ the card explains that hook delivery can proceed and automatic wake waits
 for the relay to reconnect. Active sessions keep their normal hook delivery.
 
 Native wake routes that refuse delivery spend a bounded retry budget. Exhaustion
-sends the named failure and recovery to the original sender and the covering
-steering seat; read `yoke messages get MESSAGE-ID` for the receipt and attempts.
+sends the named failure and recovery to the covering steering seat. The
+original sender is not notified; the message state is their record. Read
+`yoke messages get MESSAGE-ID` for the receipt and attempts.
 Operator-driven hook delivery keeps its own wait without spending that budget.
+A relay wake whose lease expires before the relay reports anything spends
+nothing either, so an explicit wake survives a relay outage: the peer-hook
+broker gets the first retry, then the relay claims it again. After three such
+expiries the receipt keeps the charge and records the `relay_lease_expired`
+escalation; Fleet shows it as `last attempt failed (relay_lease_expired)`.
+Recover with `yoke session-control session wake SESSION-ID` once the relay
+reports again.
 Detached turns keep their capture current while waiting on a command. If the
 relay contains a native, verified custody death reopens pending wakes held by
 that exact process and retires Fleet's old `native_turn_running` label.
@@ -137,15 +145,19 @@ a recipient whether or not a seat is live, so sending, previewing, reading, and 
 that recipient's own state: `awaiting_seat` with the scope it is queued for,
 `delivered` naming the seat holding it, or `acknowledged`. A queued report is
 therefore never a message that went nowhere. The next seat covering the
-sender's item takes queued reports when it is acquired, and the fleet report's
+sender's item takes queued reports when it is acquired: each gets that seat's
+ordinary session receipt and injects through the same hook as a live send, and
+acquire prints each message id with its acknowledge command. The fleet report's
 awaiting-seat count reads the same coverage. A document seat covers every item
 linked to its document, so it takes and counts those items' reports even when
 another project owns the item. These views derive from existing
 claims, document locks, launch provenance, and message-recipient receipts;
 they do not create separate state.
 
-Ambient session identity comes from the harness (env / process anchor /
-conversation mapping) — operators should not invent session IDs.
+A session belongs to the project whose registered folder it started in, else to
+its organization (shown as **Outside any project**), and keeps that scope. Its ID
+comes from the harness; never invent one. Item work needs a session started in
+the item's project folder ([refusals](reference/agent-rules/lanes-and-claims.md#session-scope-and-folder-admission)).
 
 `yoke sessions hook-overhead [--hours N]` summarizes hourly PreToolUse and
 PostToolUse client wall time, evaluator time, and their remainder, then shows
@@ -181,13 +193,19 @@ evaluator/client-wall coverage, are labelled incomparable.
   the item. Beneath each carried item, **Item QA** shows that item's checks
   for this run, its screenshots, its earlier attempts, and its own decisions;
   **Run QA** follows every carried item with the run's own checks and
-  decisions only. Both are drawn the same way: each current check reads
+  decisions, plus each QA plan several carried items share, drawn once and
+  labelled with its sharing items (**Installer campaign · Shared by PREFIX-1,
+  PREFIX-2**). A sharing item's Item QA shows its own checks and a pointer
+  (**shares Installer campaign (28) — see Run QA**), or **0 own checks,
+  shares Installer campaign**. Both are drawn the same way: each current check reads
   **<method> · Passed** (or its actual result) with its status mark, linked to
   its QA case, with the screenshots that check captured, each shown once;
   earlier attempts bound to this run sit behind **Earlier checks**. QA from
   other runs and before merge stays on the item. Removed requirements read
-  **Cancelled** with their reason; removed and no-obligation records contribute
-  no pass count. An item with no QA for this run and no decision shows no Item QA; a run with no run checks and no decision has no Run QA. An item's work
+  **Cancelled** with their reason. Every check counts once: cancelled,
+  superseded and no-obligation records sit only in **Earlier checks** and
+  add no passed, queued or open count. A removed member shows as removed
+  with its cancelled check count, never as open QA. An item with no QA for this run and no decision shows no Item QA; a run with no run checks and no decision has no Run QA. An item's work
   approval — pending with **Reject** and **Approve**, or answered — appears
   only in its Item QA, never under Run QA, with any screenshot of the item's
   current release its checks have not already shown, or a note that none was
@@ -310,7 +328,9 @@ yoke messages cancel MESSAGE-ID
 
 Address workers by their held item and people by their actor id or registered label. Use a whole listed session id when no claim addresses the recipient. Anchor selectors add recipients; filters narrow them. Preview and inspect the recipient count before sending. A peer request also addresses steering; reply to the exact requesting session and steering. A sender without applicable held work uses `--steering-scope '{"project_id": N}'` with the peer anchor.
 
-Address steering as a role with `--steering`, resolved at delivery from work you hold or last held. Without a live covering seat, the message parks for its successor. Acknowledgement settles it. Send a `DONE PREFIX-N` report before releasing a claim you still hold, only after that item's terminal stage. A resumed completion is its own leg. If send says `Collapsed into an earlier message`, read the earlier message: the new body was discarded. Keep an unfinished lane held.
+Address steering as a role with `--steering`, resolved at delivery from work you hold or last held. Without a live covering seat, the message parks for its successor. Acknowledgement settles it.
+
+Injection shows a message; only `yoke messages acknowledge MESSAGE-ID` settles it. A message still unacknowledged after the acknowledgement grace (five minutes) comes back at the next injecting hook as a reminder: a short body excerpt, the full-body read command and the acknowledge command. Each later reminder waits twice as long, up to one hour, until you acknowledge it. Every harness gets reminders on the hook events its manifest lists under `inject_events`. Send a `DONE PREFIX-N` report before releasing a claim you still hold, only after that item's terminal stage. A resumed completion is its own leg. If send says `Collapsed into an earlier message`, read the earlier message: the new body was discarded. Keep an unfinished lane held.
 
 A reworded retry of the same completion owes no additional report. If a resumed
 completion collapsed because it did not cross a session end, report that fact

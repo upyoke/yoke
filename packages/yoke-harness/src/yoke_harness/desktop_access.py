@@ -128,21 +128,61 @@ def _prepare_desktop(settings, key_path, password):
     return receipt, run
 
 
-def open_desktop_access(
-    *, project: str, machine: str, settings: Mapping[str, str], view: bool = False
-) -> dict[str, str]:
-    """Return only the connectable address, desktop user and private file path."""
+def _ready_desktop_view(project, machine, settings):
     route = validate_desktop_settings(settings)
     if not route:
         raise DesktopAccessError(
             "desktop_route_missing: declare the desktop route with yoke test-machine settings-replace"
         )
-    if view and (
+    if (
         settings.get("os") not in {"linux", "windows"}
         or route["desktop_protocol"] != "rdp"
     ):
         raise DesktopAccessError(
             "desktop_view_requires_xfce_rdp: use the declared RDP route on Linux or Windows WSL"
+        )
+    cap_type = test_machine_capability_type(machine)
+    password = read_machine_capability_secret(project, cap_type, DESKTOP_PASSWORD_KEY)
+    if password is None:
+        raise DesktopAccessError(
+            "desktop_password_missing: import a private password file with "
+            f"yoke projects capability secret set --project {project} --cap-type {cap_type} "
+            "--key desktop_password --value-file FILE"
+        )
+    if "\n" in password or "\r" in password:
+        raise DesktopAccessError("desktop_password_invalid: import one password line")
+    key_path = machine_capability_secret_path(
+        project, TEST_MACHINE_CAPABILITY, "ssh_private_key"
+    )
+    if not key_path.is_file():
+        raise DesktopAccessError(
+            "desktop_ssh_key_missing: store test-machine.ssh_private_key on this executing machine"
+        )
+    receipt, run = _prepare_desktop(settings, key_path, password)
+    return password, receipt, run
+
+
+def begin_desktop_view(*, project: str, machine: str, settings: Mapping[str, str]):
+    """Start the desktop-access --view owner and leave it open until close()."""
+    password, receipt, run = _ready_desktop_view(project, machine, settings)
+    from yoke_harness.rdp_desktop_client import DesktopView
+
+    return DesktopView.open(project, machine, settings, password, receipt, run)
+
+
+def open_desktop_access(
+    *, project: str, machine: str, settings: Mapping[str, str], view: bool = False
+) -> dict[str, str]:
+    """Return only the connectable address, desktop user and private file path."""
+    if view:
+        password, receipt, run = _ready_desktop_view(project, machine, settings)
+        from yoke_harness.rdp_desktop_client import view_desktop
+
+        return view_desktop(project, machine, settings, password, receipt, run)
+    route = validate_desktop_settings(settings)
+    if not route:
+        raise DesktopAccessError(
+            "desktop_route_missing: declare the desktop route with yoke test-machine settings-replace"
         )
     cap_type = test_machine_capability_type(machine)
     password = read_machine_capability_secret(project, cap_type, DESKTOP_PASSWORD_KEY)
@@ -169,10 +209,6 @@ def open_desktop_access(
             )
         receipt, run = _prepare_desktop(settings, key_path, password)
         session_evidence = {"desktop_session": receipt["desktop_session"]}
-    if view:
-        from yoke_harness.rdp_desktop_client import view_desktop
-
-        return view_desktop(project, machine, settings, password, receipt, run)
     descriptor, name = tempfile.mkstemp(
         prefix="yoke-desktop-", suffix=".password", dir="/tmp"
     )

@@ -49,7 +49,10 @@ def test_machine_only_setup_finishes_with_answers_only(agent):
     code, line = _last(drive("review.confirm=apply"))
 
     assert (code, line["state"]) == (0, "done"), line
-    assert line["install_health"] == {"ok": True, "checks": [{"name": "yoke", "ok": True}]}
+    assert line["install_health"] == {
+        "ok": True,
+        "checks": [{"name": "yoke", "ok": True}],
+    }
     assert line["report"]["path"] == "/tmp/report.json"
     assert line["next"]
     assert fake.options == [{"install_health": True}]
@@ -113,7 +116,9 @@ def test_local_checkout_setup_answers_the_details_form_by_field(agent, tmp_path:
     fields = {field["key"]: field["default"] for field in line["fields"]}
     assert fields["project.details.slug"] == "demo"
 
-    code, line = _last(drive("project.details.name=Demo App", "project.details=continue"))
+    code, line = _last(
+        drive("project.details.name=Demo App", "project.details=continue")
+    )
     assert line["key"] == "project.publish"
     for answer in ("project.publish=keep-local", "hosting.provider=skip"):
         code, line = _last(drive(answer))
@@ -141,7 +146,12 @@ def test_review_is_never_answered_from_a_stored_answer(agent):
 
 DEVICE_CODE = "device-code-never-shown"
 TOKEN = "token-never-shown"
-VERIFIED = {"ok": True, "actor": {"label": "Test Person"}, "orgs": [{"name": "Acme"}], "projects": []}
+VERIFIED = {
+    "ok": True,
+    "actor": {"label": "Test Person"},
+    "orgs": [{"name": "Acme"}],
+    "projects": [],
+}
 
 
 @pytest.fixture
@@ -163,19 +173,18 @@ def hosted_approval(monkeypatch):
     credential = HostedMachineCredential(
         api_url="https://app.upyoke.com/api/orgs/acme", org="acme", token=TOKEN
     )
-    monkeypatch.setattr(hosted_machine_authorization, "start", lambda *_a, **_k: pending)
-    monkeypatch.setattr(hosted_machine_authorization, "complete", lambda *_a, **_k: credential)
+    monkeypatch.setattr(
+        hosted_machine_authorization, "start", lambda *_a, **_k: pending
+    )
+    monkeypatch.setattr(
+        hosted_machine_authorization, "complete", lambda *_a, **_k: credential
+    )
     monkeypatch.setattr(
         hosted_machine_authorization,
         "open_browser",
         lambda *_a: pytest.fail("agent mode never opens a browser"),
     )
     monkeypatch.setattr(yoke_token_verify, "verify", lambda *_a, **_k: VERIFIED)
-    monkeypatch.setattr(
-        writer,
-        "set_connection",
-        lambda *_a, **_k: {"connection": {"credential_source": {"path": "/tmp/token-file"}}},
-    )
     return pending
 
 
@@ -192,6 +201,8 @@ def test_hosted_sign_in_prints_one_browser_line_then_continues(agent, hosted_app
     assert browser["human"]["user_code"] == "ABCD-EFGH"
     assert "ABCD-EFGH" in browser["human"]["instructions"]
     assert browser["wait"]["max_seconds"] == 600
+    assert "Opening your browser" not in drive.stderr
+    assert "Waiting for browser approval" in drive.stderr
     assert question["key"] == "github.machine"
     stored = setup_agent_answers.store_path().read_text(encoding="utf-8")
     for secret in (DEVICE_CODE, TOKEN):
@@ -199,16 +210,30 @@ def test_hosted_sign_in_prints_one_browser_line_then_continues(agent, hosted_app
         assert secret not in drive.stderr
         assert secret not in stored
 
+    # Browser approval saves the connection before the next agent invocation.
+    assert _last(drive())[1]["key"] == question["key"]
+    code, question = _last(drive("github.machine=skip"))
+    assert (code, question["key"]) == (0, "project.mode"), question
+    code, question = _last(drive("project.mode=machine-only"))
+    assert (code, question["key"]) == (0, "review.confirm"), question
+
 
 def test_saved_github_authorization_skips_the_github_question(agent, monkeypatch):
     drive, _ = agent
     monkeypatch.setattr(
-        machine_config, "github_config", lambda *_a, **_k: {"authorization": {"status": "authorized"}}
+        machine_config,
+        "github_config",
+        lambda *_a, **_k: {"authorization": {"status": "authorized"}},
     )
     monkeypatch.setattr(
         github_machine,
         "status",
-        lambda **_k: {"ok": True, "ready": True, "configured": True, "api_url": "https://api.github.com"},
+        lambda **_k: {
+            "ok": True,
+            "ready": True,
+            "configured": True,
+            "api_url": "https://api.github.com",
+        },
     )
 
     code, lines = drive.walk(MACHINE_ONLY_ANSWERS[:3])
@@ -241,7 +266,9 @@ def test_saved_yoke_sign_in_is_reused_without_a_browser_step(agent, monkeypatch)
 def resumable(monkeypatch):
     monkeypatch.setattr(flow_apply, "_can_resume_run", lambda _run: True)
     monkeypatch.setattr(flow_apply, "_apply_report_run_id", lambda _path: "run-1")
-    monkeypatch.setattr(onboard_apply_resume, "load_payload", lambda _run: {"saved": True})
+    monkeypatch.setattr(
+        onboard_apply_resume, "load_payload", lambda _run: {"saved": True}
+    )
     monkeypatch.setattr(onboard_apply_resume, "load_snapshot", lambda _run: {})
 
 
@@ -257,7 +284,10 @@ def test_apply_failure_returns_failed_and_resume_continues_the_run(agent, resuma
 
     code, line = _last(drive("review.confirm=apply"))
     assert (code, line["state"], line["reason"]) == (1, "failed", "setup_apply_failed")
-    assert (line["report_path"], line["key"]) == ("/tmp/run-1.json", "review.apply_failed")
+    assert (line["report_path"], line["key"]) == (
+        "/tmp/run-1.json",
+        "review.apply_failed",
+    )
     assert "resume" in {row["value"] for row in line["answers"]}
 
     assert _last(drive()) == (code, line)

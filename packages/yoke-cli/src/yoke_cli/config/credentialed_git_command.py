@@ -12,13 +12,21 @@ from __future__ import annotations
 
 import subprocess
 from typing import Sequence
+from yoke_contracts import terminal_detached_process
 
 NETWORK_SUBCOMMANDS = frozenset({"clone", "fetch", "ls-remote", "pull", "push"})
 NETWORK_REMOTE_ACTIONS = frozenset({"update", "prune"})
-_GLOBAL_OPTIONS_WITH_VALUE = frozenset({
-    "-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix",
-    "--config-env",
-})
+_GLOBAL_OPTIONS_WITH_VALUE = frozenset(
+    {
+        "-C",
+        "-c",
+        "--git-dir",
+        "--work-tree",
+        "--namespace",
+        "--super-prefix",
+        "--config-env",
+    }
+)
 
 
 def split_git_args(args: Sequence[str]) -> tuple[list[str], str, list[str]]:
@@ -30,7 +38,7 @@ def split_git_args(args: Sequence[str]) -> tuple[list[str], str, list[str]]:
     while index < len(argv):
         token = argv[index]
         if not token.startswith("-"):
-            return argv[:index], token, argv[index + 1:]
+            return argv[:index], token, argv[index + 1 :]
         if token in _GLOBAL_OPTIONS_WITH_VALUE:
             index += 2
             continue
@@ -81,7 +89,9 @@ def remote_url(repo: str | None, remote: str) -> str:
         argv += ["-C", str(repo)]
     argv += ["remote", "get-url", remote]
     try:
-        result = subprocess.run(argv, capture_output=True, text=True, timeout=30)
+        result = terminal_detached_process.run(
+            argv, capture_output=True, text=True, timeout=30
+        )
     except (OSError, subprocess.SubprocessError):
         return ""
     return result.stdout.strip() if result.returncode == 0 else ""

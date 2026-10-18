@@ -9,6 +9,5 @@
  "surface": "Conduct entry and registered worktree preparation",
  "gap": "Independent deployed Command proof remains pending.",
  "review": "Candidate route and shared creator regression checks.",
- "plan_refs": ["FIRST-USER.24"],
  "sources": [".agents/skills/yoke/conduct/entry-activation.md", ".agents/skills/yoke/conduct/entry-activation-resolution.md", "packages/yoke-cli/src/yoke_cli/commands/direct_workflow_worktree.py", "packages/yoke-core/src/yoke_core/domain/worktree_preflight.py"]
 }

@@ -5,6 +5,7 @@ import json
 
 import pytest
 
+from runtime.api.fixtures.native_instant_database import BORN_NATIVE_AFTER_HISTORY
 from yoke_contracts.schema_authority import SchemaAuthorityRefused
 from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.migrations import _native_instant_documents as documents
@@ -85,19 +86,12 @@ def blank():
         yield conn
 
 
-#: Instant columns born native TIMESTAMPTZ after the cutover; the frozen
-#: history never converts them, but the live roster still declares them.
-BORN_NATIVE_AFTER_HISTORY = frozenset(
-    {("qa_host_waits", "queued_at"), ("qa_host_waits", "settled_at")}
-)
-
-
 def test_history_freezes_complete_roster_and_serving_floor():
     assert len(history.COLUMNS) == len(set(history.COLUMNS)) == 267
     assert len({table for table, _ in history.COLUMNS}) == 126
     assert set(history.COLUMNS) == set(STORED_INSTANT_COLUMNS) - (
         BORN_NATIVE_AFTER_HISTORY
-    )
+    ) | {("epic_tasks", "scope_finalized_at")}  # converted here, dropped by 0084
     assert history.MINIMUM_SERVING_VERSION == "next-release"
 
 

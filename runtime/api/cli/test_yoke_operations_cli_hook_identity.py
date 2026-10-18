@@ -47,7 +47,7 @@ def local_subset(monkeypatch) -> None:
         lambda *_a, **_k: LocalSubsetEvaluation(stdout="", exit_code=0, denied=False),
     )
     monkeypatch.setattr(
-        "yoke_harness.hooks.relay._client_lint_config_snapshot",
+        "yoke_harness.hooks.relay.lint_config_snapshot",
         lambda _payload: {},
     )
 

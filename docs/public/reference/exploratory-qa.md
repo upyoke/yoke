@@ -68,7 +68,7 @@ materialization refuse one that does not. A mission names `host_baselines`
 (`fresh-host` or `shell-preconfigured`), or sets `"starting_state":"as_is"`
 with a `starting_state_reason` to walk the machine as found — that mission must
 also tell its walker to leave the home untouched. A mission cannot `inherit`: it is walked after the plan's other cases, so no case runs right before it.
-Baseline cleanup preserves live scratch and requires 1 GiB free before mission staging; [temporary-state and disk recovery](test-machine-desktop.md) names receipts and live-lease refusals.
+Baseline cleanup preserves live scratch and requires 1 GiB free before mission staging; [temporary-state and disk recovery](test-machine-desktop.md) names receipts and live-lease refusals. A mission that can only be judged after real production traffic, such as a real failed wake that a relay then claimed, sets `wake_path: manual` with a one-line `wake_evidence`; its owner is woken to confirm that evidence before running it ([cases that wait for real traffic](qa-platform/standalone-plans.md#cases-that-wait-for-real-traffic)).
 
 Do not turn likely landmarks into steps. The worked Machine QA Pack case
 `installer-exploration` deliberately replaces the territory of the ten-case
@@ -145,8 +145,8 @@ covering seat, so send `--steering` and read the receipt. `awaiting_seat` is
 not delivery — cancel it, then `yoke say --preview --actor` and `--actor` for
 the numeric human `items.owner`. A non-numeric, nonhuman, or refused owner is
 a named recovery. `--item` returns the answer to the holder. Acknowledgement
-is not proof. Dispatch a fresh walker, continuing when the held host must
-keep its state.
+is not proof. Dispatch a fresh walker, continuing when the held host must keep its state.
+A mission that needs a session a person opens (a sign-in, approval or permission that must survive) declares `"starting_state":"as_is"` with a reason, so no reset erases it, and requests that human action only while it holds the host lease: released, the host's next turn may reset it first. Re-declare an unrun case with `yoke qa requirement update --field starting_state` ([case attachment](qa-platform/case-attachment.md#machine-case-starting-state)).
 
 ## Holding a Walk, and Continuing a Settled One
 
@@ -195,11 +195,11 @@ yoke --env <connection> qa mission host-command --item PREFIX-N \
 This command revalidates subject ownership, the parked execution, immutable
 case snapshot, and retained lease before resolving client-local Test Machine
 credentials. It accepts bounded argv rather than shell text and returns
-redacted output. Every path in that argv names the **Test Machine's**
-filesystem, never the calling machine's, so the session-cwd write-authority
-guard exempts it from local write classification — a shell redirect written
-after the argv still runs locally and stays enforced.
-
+redacted output. Argv paths name the **Test Machine's** filesystem, so the
+session-cwd write-authority guard exempts them; a shell redirect after the
+argv still runs locally and stays enforced. At `--timeout-seconds` (default
+60, at most 900) a `--gui-session` command's whole process tree is stopped; a
+Yoke `setup`, `connect` or `onboard` that may wait on approval needs 600+.
 Missions are walked one at a time, in bundle order, because they share the
 plan's one Test Machine. The walker dispatch carries the scratch path and two
 commands. `walk-start` runs before any other host command: it re-reaches the
@@ -221,12 +221,14 @@ naming `mission_scratch_not_removed`, `starting_state_restore_failed` (with the
 `yoke test-machine reset` recovery) or `starting_state_restore_unrecorded`.
 `yoke qa plan review-submit` refuses with `mission_walk_unfinished` while any
 mission's scratch is still on the host. Both delete a stale owner marker.
-
+After member removal, its original session can still run `walk-end`: acquire
+the recorded host for teardown, then release it even after local failure.
+The execution stays aborted; `walk-start` and `host-command` remain refused.
+A busy host stays with its holder: resolve the blocker, then retry `walk-end`.
 The lease holder owns every Yoke project it creates: it appends each slug to
 the item's Progress Log as created, so a replacement can finish the cleanup,
 and before returning retires each with its own control-plane CLI (`yoke
 projects retire --project SLUG --reason ...`), never Yoke on the Test Machine.
-
 On macOS, append `--gui-session` when a command needs the login keychain or
 window server. Three apparently different failures share one diagnosis:
 
@@ -234,7 +236,6 @@ window server. Three apparently different failures share one diagnosis:
 - switching to the audit session is not permitted;
 - a keychain-backed CLI reports OAuth expired and unrefreshable while its
   credential file is unchanged and the console session works.
-
 They mean the command ran in the wrong session. Retry through the Terminal
 GUI-session bridge before diagnosing broken credentials or privacy settings.
 

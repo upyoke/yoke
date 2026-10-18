@@ -65,8 +65,10 @@ def _meters(
     lowest: dict[tuple[str, str], tuple[float, str]] = {}
     matched: dict[tuple[str, str], tuple[float, str]] = {}
     windows: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    surfaces: dict[tuple[str, str], Any] = {}
     for row in load_plan_limits(conn, project_id=project_id, now=now):
         key = (row.machine_id, row.surface)
+        surfaces.setdefault(key, row)
         windows.setdefault(key, []).append(
             {
                 "scope": row.scope,
@@ -89,7 +91,14 @@ def _meters(
                 target[key] = reading
     lowest.update(matched)
     pools = {
-        key: pool_exhaustion(key[1], model, rows).to_dict()
+        key: pool_exhaustion(
+            key[1],
+            model,
+            rows,
+            extra_usage=surfaces[key].extra_usage,
+            observed_at=surfaces[key].observed_at,
+            now=now,
+        ).to_dict()
         for key, rows in windows.items()
     }
     return lowest, pools

@@ -2,7 +2,6 @@
  "id": "model",
  "title": "Architecture model",
  "status": "draft-copy",
- "plan_refs": ["JOURNEYS.also-owned-here"],
  "surface_refs": ["project-hub", "project-native"],
  "page": "architecture",
  "position": 1

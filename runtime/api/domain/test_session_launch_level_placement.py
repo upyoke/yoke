@@ -26,7 +26,8 @@ from runtime.api.domain.session_launch_level_test_support import (
     FIVE_HOUR_RESET,
     LEVEL,
     MONTH_RESET,
-    add_surface,
+    EXTRA_OFF,
+    add_surface as _add_surface,
     level_connection,
     pin_live_workers,
     unreadable,
@@ -34,6 +35,11 @@ from runtime.api.domain.session_launch_level_test_support import (
     window,
 )
 from runtime.api.domain.session_launch_test_support import NOW, authorization
+
+
+def add_surface(conn, machine_id, surface, windows=None):
+    """These accounts bill no paid extra usage, so an empty pool blocks."""
+    _add_surface(conn, machine_id, surface, windows, EXTRA_OFF)
 
 
 @pytest.fixture(autouse=True)

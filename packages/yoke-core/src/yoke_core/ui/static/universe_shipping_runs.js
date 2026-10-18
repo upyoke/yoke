@@ -3,6 +3,8 @@
 // its checks captured.
 
 import { createDecisionResolver } from "./inbox_rows.js";
+import { loadMissingItemTitles } from "./universe_carried_item_titles.js";
+import { itemQaSubjects } from "./universe_run_removed_members.js";
 import {
   carriedItems,
   runProjectId,
@@ -17,7 +19,9 @@ import {
   successfulResult,
 } from "./universe_band_primitives.js";
 import { EMPTY_RUN_FACTS, loadRunFacts } from "./universe_run_evidence.js";
-import { el, settledScopedCalls } from "./universe_view_support.js";
+import { el } from "./universe_view_support.js";
+import { readShippingOverview } from "./universe_shipping_prefetch.js";
+
 
 function selectedProjects(projects, scope) {
   if (scope === "all") return projects;
@@ -46,13 +50,13 @@ function renderRunCards(context, host, rows, scope, cardOptions) {
 export async function loadDelivery(context, host, getScope) {
   const documentNode = context.document;
   const projects = context.projects();
-  const factsPromise = projects.length
-    ? loadRunFacts(context, projects.map((project) => project.id))
-    : Promise.resolve(EMPTY_RUN_FACTS);
-  // The authorized universe overview returns each shared release once.
-  const { callResults } = await settledScopedCalls(context, [{
-    functionId: "deployment_runs.list", payload: { relevance: "overview" },
-  }]);
+  const loading = el(documentNode, "p", "item-roster-note shipping-loading",
+    "Loading deployment runs and current QA obligations…");
+  loading.setAttribute("role", "status");
+  host.replaceChildren(loading);
+  // deployment_runs.list is shared with the lightweight prefetch owner;
+  // its authorized universe overview returns each shared release once.
+  const { callResults } = await (context.takeShippingOverview?.() || readShippingOverview(context));
   let facts = EMPTY_RUN_FACTS;
   let factsPending = projects.length > 0;
   if (!context.isMounted()) return null;
@@ -106,6 +110,11 @@ export async function loadDelivery(context, host, getScope) {
     }
   };
   paint();
+  // Render authoritative obligations first. Attempt history and flow names
+  // must neither occupy the initial request slots nor delay source-only rows.
+  const factsPromise = projects.length
+    ? loadRunFacts(context, projects.map((project) => project.id))
+    : Promise.resolve(EMPTY_RUN_FACTS);
   factsPromise.then((loaded) => {
     if (!context.isMounted()) return;
     facts = loaded;
@@ -116,19 +125,38 @@ export async function loadDelivery(context, host, getScope) {
   // including the ones behind "+N more". Fetching only the first three made
   // the rest look unverified: the production run that surfaced this had
   // twenty members and QA lines on exactly the first three in list order.
-  const carried = [];
+  // Derived entries have no item QA, but their payload often omits the title.
+  const qaSubjects = [];
+  const titleOnly = [];
   const result = successfulResult(callResults[0]);
   for (const row of result?.rows || []) {
     const runId = row.id || row.run_id;
     // Derived carried work names no project; it is the run's own.
     const projectId = runProjectId(context, row, "all");
+    const stamp = (item) => ({
+      ...item, project_id: item.project_id ?? projectId, run_id: runId,
+    });
+    const qa = itemQaSubjects(row).map(stamp);
+    const qaRefs = new Set(qa.map((item) => String(
+      item.public_ref ?? item.ref ?? item.item_ref,
+    )));
+    qaSubjects.push(...qa);
     for (const item of carriedItems(row)) {
-      carried.push({ ...item, project_id: item.project_id ?? projectId, run_id: runId });
+      const ref = String(item.public_ref ?? item.ref ?? item.item_ref);
+      if (!qaRefs.has(ref)) titleOnly.push(stamp(item));
     }
   }
-  loadCarriedItemEvidence(context, carried).then((loaded) => {
+  Promise.all([
+    loadCarriedItemEvidence(context, qaSubjects),
+    loadMissingItemTitles(context, titleOnly),
+  ]).then(([loaded, titles]) => {
     if (!context.isMounted()) return;
     itemFacts = loaded;
+    if (titles.size) {
+      const merged = new Map(loaded.titles);
+      for (const [key, title] of titles) merged.set(key, title);
+      itemFacts = { ...loaded, titles: merged };
+    }
     paint();
   });
   return paint;

@@ -4,6 +4,12 @@ from __future__ import annotations
 
 from typing import Any, List, Optional, Tuple
 
+from yoke_contracts.merge_queue_status import (
+    LABEL_ATTEMPT_JOIN,
+    LABEL_ENQUEUED_AT_SQL,
+    LABEL_LANDED_AT_SQL,
+)
+
 
 def _items_sql(
     project_filter: str,
@@ -15,9 +21,9 @@ def _items_sql(
         (SELECT stage->>'board_bucket'
          FROM jsonb_array_elements(wv.definition_json::jsonb->'stages') stage
          WHERE stage->>'id'=COALESCE(i.status, 'idea') LIMIT 1),"""
-    queue_columns = """
-        i.merge_queue_enqueued_at,
-        i.merge_queue_landed_at,"""
+    queue_columns = f"""
+        {LABEL_ENQUEUED_AT_SQL},
+        {LABEL_LANDED_AT_SQL},"""
     return f"""
     SELECT
         i.id,
@@ -39,6 +45,7 @@ def _items_sql(
     FROM items i
     LEFT JOIN projects p ON p.id = i.project_id
     LEFT JOIN workflow_versions wv ON wv.id = i.workflow_version_id
+    {LABEL_ATTEMPT_JOIN}
     WHERE 1=1{project_filter}
     ORDER BY i.id
     """

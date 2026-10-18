@@ -13,6 +13,7 @@ class PlanExecutionBeginRequest(BaseModel):
     source_revision: str | None = None
     source_ref: str | None = None
     checkout_path: str | None = None
+    expected_branch: str | None = None
     deployment_stage: str | None = Field(default=None, min_length=1)
     deployment_member: str | None = Field(default=None, min_length=1)
     machine: str | None = Field(default=None, min_length=1)
@@ -57,6 +58,8 @@ class PlanExecutionStateResponse(BaseModel):
     remaining_requirement_count: int | None = None
     requirements: list[dict[str, Any]]
     results: list[dict[str, Any]]
+    #: Absent from servers that only accept results at the cursor.
+    host_free_cases_ahead: bool = False
 
 
 class PlanExecutionCheckinResponse(BaseModel):

@@ -28,6 +28,7 @@ Read [envelope and authority](functions.md) first. `none` means no dispatcher wo
 | `qa.plan.list` | `none` |
 | `qa.plan.materialize` | `qa_subject` |
 | `qa.plan.rematerialize` | `qa_subject` |
+| `qa.plan.retire` | `none` |
 | `qa.plan_cases.replace` | `none` |
 | `qa.plan_cases.sync` | `none` |
 | `qa.plan_execution.abort` | `qa_subject` |

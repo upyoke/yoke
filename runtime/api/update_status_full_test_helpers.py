@@ -33,6 +33,7 @@ from runtime.api.update_status_environment_test_config import (
 )
 from runtime.api.update_status_schema_test_helpers import _apply_update_status_schema
 from runtime.api.update_status_github_auth_test_support import seed_github_app_auth
+from runtime.api.task_files_touched_test_support import files_touched_body
 from yoke_core.domain import db_backend
 from yoke_contracts.machine_config import schema as machine_config_contract
 
@@ -210,11 +211,10 @@ class UpdateStatusEnv:
             INSERT INTO epic_tasks
                 (epic_id, task_num, title, item_worktree_id, status, github_issue,
                  context_estimate,
-                 dispatch_attempts, max_attempts, dependencies,
-                 scope_state, scope_finalized_at)
+                 dispatch_attempts, max_attempts, dependencies, body)
             VALUES
                 ({p}, {p}, {p}, {p}, {p}, {p}, 'S',
-                 {p}, 5, {p}, 'no_files', CURRENT_TIMESTAMP)
+                 {p}, 5, {p}, {p})
             ON CONFLICT (epic_id, task_num) DO UPDATE SET {_EPIC_TASK_UPSERT_SET}
         """,
             (
@@ -226,7 +226,13 @@ class UpdateStatusEnv:
                 github_issue,
                 dispatch_attempts,
                 dependencies,
+                files_touched_body([]),
             ),
+        )
+        conn.execute(
+            "UPDATE items SET generated_task_membership_finalized_at="
+            f"CURRENT_TIMESTAMP WHERE id={p}",
+            (epic_id,),
         )
         conn.commit()
         conn.close()

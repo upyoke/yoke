@@ -1,10 +1,10 @@
 """FIFO turns on one physical Test Machine, kept in the ``qa_host_waits`` line.
 
-A session refused a ``QA_HOST:<machine>`` claim joins the line; the host's
-next release reserves it for the oldest live waiter and wakes that session,
-and the waiter's next acquire consumes the reservation. Scoped QA plan
-executions and manual acquires share one line, ordered by when each session
-first queued.
+A session refused a ``QA_HOST:<machine>`` claim, or a scoped QA plan whose
+host is leased or unhealthy, joins the line; the host's next release reserves
+it for the oldest live waiter and wakes that session, and the waiter's next
+acquire consumes the reservation. Scoped QA plan executions and manual
+acquires share one line, ordered by when each session first queued.
 """
 
 from __future__ import annotations
@@ -125,12 +125,20 @@ def join_host_line(
 
 
 def reserve_host_turn(conn: Any, target: Any) -> None:
-    """Reserve a free host for the oldest live waiter before outsiders acquire."""
+    """Reserve a free, healthy host for the oldest live waiter.
+
+    An unhealthy host keeps its line waiting and stays free for the operator
+    verify or golden capture that heals it; that operation's release serves
+    the line.
+    """
     if not target.machine_id:
         return
     from yoke_core.domain.coordination_claims import active_claim, acquire
+    from yoke_core.domain.qa_host_health import host_unhealthy
 
     if active_claim(conn, target) is not None:
+        return
+    if host_unhealthy(conn, target.machine_id) is not None:
         return
     line = host_line(conn, target.machine_id)
     if not line:

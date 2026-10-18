@@ -16,7 +16,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 
-_EVENTS = (
+#: Native event -> trust label used in each handler's ``label:group:handler`` suffix.
+HOOK_EVENT_LABELS = (
     ("PreToolUse", "pre_tool_use"),
     ("PermissionRequest", "permission_request"),
     ("PostToolUse", "post_tool_use"),
@@ -205,7 +206,7 @@ def normalized_codex_hook_hashes(payload: Any) -> Optional[Dict[str, str]]:
         if not isinstance(hooks, Mapping):
             raise _MalformedHooks("hooks must be an object")
         hashes: Dict[str, str] = {}
-        for event, label in _EVENTS:
+        for event, label in HOOK_EVENT_LABELS:
             groups = hooks.get(event, [])
             if not isinstance(groups, list):
                 raise _MalformedHooks(f"{event} must be a list")
@@ -240,6 +241,7 @@ def codex_hooks_are_approved(payload: Any, trusted: Mapping[str, str]) -> bool:
 
 __all__ = [
     "CodexHookIdentityError",
+    "HOOK_EVENT_LABELS",
     "codex_hook_hashes",
     "codex_hook_hashes_from_document",
     "codex_hooks_are_approved",

@@ -18,6 +18,7 @@ Topic-scoped siblings (added 2026-05-14 to keep this module under the
 - :mod:`schema_api_context_commands_qa` — QA requirement / run reads,
   verdict recording, gate preview / summary, events read.
 - :mod:`schema_api_context_commands_qa_item_plan` — item plan retraction.
+- :mod:`schema_api_context_commands_qa_plan_retire` — QA plan retirement.
 - :mod:`schema_api_context_commands_project` — project test-command
   read / list helpers.
 - :mod:`schema_api_context_commands_watchers` — watcher / Monitor /
@@ -41,6 +42,7 @@ from __future__ import annotations
 from yoke_core.domain.schema_api_context_commands_claims import (
     CLAIMS_COMMANDS,
 )
+from yoke_core.domain.schema_api_context_commands_migrations import MIGRATION_COMMANDS
 from yoke_core.domain.schema_api_context_commands_core import (
     CORE_COMMANDS,
 )
@@ -53,6 +55,9 @@ from yoke_core.domain.schema_api_context_commands_qa import (
 from yoke_core.domain.schema_api_context_commands_qa_item_plan import (
     QA_ITEM_PLAN_COMMANDS,
 )
+from yoke_core.domain.schema_api_context_commands_qa_plan_retire import (
+    QA_PLAN_RETIRE_COMMANDS,
+)
 from yoke_core.domain.schema_api_context_commands_watchers import (
     WATCHERS_COMMANDS,
 )
@@ -63,8 +68,10 @@ for _row in (
     CORE_COMMANDS
     + CLAIMS_COMMANDS
     + QA_COMMANDS
+    + QA_PLAN_RETIRE_COMMANDS
     + PROJECT_COMMANDS
     + WATCHERS_COMMANDS
+    + MIGRATION_COMMANDS
 ):
     if str(_row.get("recipe", "")).startswith("yoke qa plan materialize"):
         _retract = QA_ITEM_PLAN_COMMANDS[0]

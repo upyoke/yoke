@@ -23,9 +23,10 @@ auto-widens/narrows applicable unambiguous claims. Mixed widen+narrow,
 zero/multiple exclusive claims and nonrecoverable mixes return refused_paths,
 which remain critique work. Pure stale repair refusal is terminal, not bypassed.
 
-For effective `path_claims=required_per_task`, readiness uses the same
-persisted task budgets and bound claim coverage as the required and spec
-coverage gates. Before generated tasks exist, claim parity is deferred;
+For effective `path_claims=required_per_task`, readiness uses the same task
+paths, parsed from each task body's `## Files Touched` section, and bound
+claim coverage as the required and spec coverage gates. Before generated
+tasks exist, claim parity is deferred;
 once they exist, readiness names only uncovered task paths. Register or widen
 the owning task's claim, then rerun readiness:
 ```text
@@ -107,6 +108,10 @@ Choose the blocker's pinned status (normally status:done) for delivery/closeout
 wait; fact:merged for trunk code; fact:deployed:ENV only when live environment
 proof is needed before dependent completion. Rerun readiness after attestation.
 No edge is authored simply because two path strings match.
+A `dependency_cycle` refusal means the upstream already waits on this item
+through the edges it names: nothing was written. Keep the order the work
+really needs by making one named edge coordination_only, or send the loop to
+`yoke say --steering`; never re-add the refused edge.
 
 ## Tentative and symlink coverage
 

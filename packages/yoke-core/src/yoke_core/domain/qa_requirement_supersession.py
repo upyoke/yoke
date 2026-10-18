@@ -1,10 +1,8 @@
 """Discharge a broken frozen QA case with a corrected one that passed.
 
-A deployment-run requirement row is an immutable acceptance snapshot: once
-it exists it cannot be corrected in place. Before this module the only exit
-for a row that was defective when it froze was an operator waiver, which
-records "we chose not to require this" -- a claim nobody wants attached to
-a case that a corrected sibling actually proved.
+A deployment-run requirement row is an immutable acceptance snapshot that
+cannot be corrected in place, and a waiver records "we chose not to require
+this" -- not a claim to attach to a case a corrected sibling proved.
 
 Supersession is the honest alternative. A second case bound to the same
 obligation -- the same run, stage, member and execution target for a
@@ -316,6 +314,9 @@ def supersede_requirement(
     )
     conn.commit()
     emit_supersession_event(conn, receipt, broken, db_path=db_path)
+    from yoke_core.domain.deployment_member_close_out_retry import after_record_settled
+
+    after_record_settled(conn, requirement_id=int(requirement_id))
     return receipt
 
 

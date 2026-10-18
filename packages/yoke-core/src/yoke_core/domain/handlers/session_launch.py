@@ -231,7 +231,7 @@ def _mutate(request: FunctionCallRequest, model: Any, operation: str) -> Handler
     try:
         launch_record, auth = _launch_and_auth(conn, request, parsed.launch_id)
         if operation == "cancel":
-            from yoke_core.domain.session_launch_requests import cancel_launch
+            from yoke_core.domain.session_launch_cancellation import cancel_launch
 
             launch = cancel_launch(conn, launch_id=parsed.launch_id, auth=auth)
         elif operation == "retry":

@@ -22,7 +22,8 @@ from runtime.api.domain.session_launch_level_test_support import (
     CLAUDE_OPUS,
     CODEX_SOL,
     LEVEL,
-    add_surface,
+    EXTRA_OFF,
+    add_surface as _add_surface,
     level_connection,
     pin_live_workers,
     weekly,
@@ -32,6 +33,11 @@ from runtime.api.domain.session_launch_test_support import NOW, authorization
 PROJECT = (10, "launch-project")
 CODEX_WORKER = ("m-codex", "codex-cli", "gpt-6.1-sol")
 CLAUDE_WORKER = ("m-claude", "claude-cli", "claude-opus-5-5")
+
+
+def add_surface(conn, machine_id, surface, windows=None):
+    """These accounts bill no paid extra usage, so an empty pool blocks."""
+    _add_surface(conn, machine_id, surface, windows, EXTRA_OFF)
 
 
 @pytest.fixture(autouse=True)

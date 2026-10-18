@@ -133,7 +133,7 @@ test("the run page reads the run by id and draws it in the page's shape", async 
     }],
   }), [{
     requirement_id: 9, deployment_run_id: "run-20260726-001", plan_id: 7,
-    plan: "release-readiness", project: "yoke", case_key: "smoke",
+    plan: "release-readiness", project: "yoke", case_key: "smoke", host_baseline: "fresh-host",
     method_name: "Browser check", outcome: "passed", evidence_count: 1,
     happened_at: "2026-07-26T10:05:00Z",
     artifacts: [{ id: 41, artifact_type: "screenshot", content_type: "image/png" }],
@@ -192,8 +192,8 @@ test("the run page reads the run by id and draws it in the page's shape", async 
   assert.equal(identityValues[3], "prod · https://upyoke.com");
   const qa = byClass(root, "run-qa-section").find((node) => !node.classList.contains("item-qa-section"));
   assert.equal(byClass(qa, "run-verdict")[0].textContent, "1 of 1 passed");
-  // A check is named for its method, never its case key.
-  assert.equal(byClass(qa, "run-qa-check-name")[0].textContent, "Browser check");
+  // A check names its method, case, and host baseline.
+  assert.equal(byClass(qa, "run-qa-check-name")[0].textContent, "Browser check · smoke · fresh-host");
   assert.equal(byClass(qa, "review-shot").length, 1);
   // The decision: what the run carries, and the request folded in.
   const decision = byClass(root, "run-work")[0];

@@ -8,7 +8,6 @@ layer above reports contention as retryable instead.
 
 from __future__ import annotations
 
-import fcntl
 import os
 from pathlib import Path
 import urllib.error
@@ -21,6 +20,7 @@ from yoke_cli.config import github_local_user_access
 from yoke_cli.config import github_machine_operation
 from yoke_cli.config import github_merge_path_binding as merge_path_binding
 from yoke_cli.config import github_user_tokens
+from yoke_contracts import platform_file_lock
 from yoke_contracts.github_auth_transience import is_transient_auth_failure
 
 
@@ -29,7 +29,7 @@ def _held_lock(target: Path) -> int:
 
     lock_path = target.with_name(target.name + ".lock")
     descriptor = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
-    fcntl.flock(descriptor, fcntl.LOCK_EX)
+    platform_file_lock.acquire_exclusive_nonblocking(descriptor)
     return descriptor
 
 

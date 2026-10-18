@@ -42,6 +42,10 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
+from yoke_core.engines.prune_authority_batch import (
+    PruneBatchInvalid,
+    verdicts_for_lanes,
+)
 
 
 class PruneAuthorityRequest(BaseModel):
@@ -183,20 +187,20 @@ def handle_prune_authority_verdict(request: FunctionCallRequest) -> HandlerOutco
 
 
 def handle_prune_authority_verdicts(request: FunctionCallRequest) -> HandlerOutcome:
-    """Return the fail-closed prune verdict for many lanes in one read.
+    """One verdict per lane. An invalid lane is reported; the rest are judged."""
 
-    A caller sweeping every lane on a machine pays one round trip and one
-    connection instead of one each. ``verdicts`` answers ``lanes`` in order,
-    with the same per-lane meaning as ``merge.prune.authority_verdict``.
-    """
-    try:
-        body = PruneAuthorityBatchRequest.model_validate(request.payload)
-    except Exception as exc:  # noqa: BLE001 - surface a structured payload error
-        return _err("payload_invalid", f"prune authority payload invalid: {exc}")
-
-    try:
+    def judge_all(lanes: list[PruneAuthorityRequest]) -> list[dict[str, Any]]:
         with _connect_rw() as conn:
-            verdicts = [_prune_verdict(conn, lane) for lane in body.lanes]
+            return [_prune_verdict(conn, lane) for lane in lanes]
+
+    try:
+        verdicts = verdicts_for_lanes(
+            request.payload,
+            validate=PruneAuthorityRequest.model_validate,
+            judge_all=judge_all,
+        )
+    except PruneBatchInvalid as exc:
+        return _err("payload_invalid", str(exc))
     except Exception as exc:  # noqa: BLE001 - connect failure == authority unavailable
         return _err("prune_authority_read_failed", str(exc))
 

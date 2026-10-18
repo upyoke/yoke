@@ -2,8 +2,9 @@
 
 ## Engineer prompt
 
-Dispatch ALL Engineers in parallel when the batch permits; one descriptor per
-local task, parent identity unchanged. Render DispatchDescriptor(role="engineer")
+Dispatch every eligible Engineer together when the manifest's
+`parallel_subagents` permits ([dispatch-context-dispatch.md](dispatch-context-dispatch.md));
+one descriptor per local task, parent identity unchanged. Render DispatchDescriptor(role="engineer")
 through the harness descriptor owner; no isolation or independently chosen model.
 
 ```text
@@ -19,6 +20,7 @@ roster and quick/full/E2E/smoke commands, Browser URL/branch/SHA, task baseline,
 dependency interfaces/downstream bodies, current coverage and prior attempts.
 Retries include exact feedback and attempt/budget. First work uses this lane;
 commit incrementally and verify through registered project commands, not guesses.
+Optional UI self-check, never a merge or QA requirement (Yoke source repo only): the render-proof review server in `docs/source-dev-doctrine.md` serves this lane against a disposable local universe and refuses prod and remote connections. Formal Browser QA runs post-deploy on production.
 
 Anticipated path coverage (pre-authorized) fills _anticipated_paths_block_{_task_id}
 only from persisted ## Anticipated Paths in task body. Absent block omits heading;
@@ -62,7 +64,7 @@ Render [the shared Tester template](../shared/tester-dispatch-template.md) only:
 exact task identity, parent/task specs, lane, QA/project commands, interfaces,
 downstream bodies, same read-only coverage, full/task/retry diff slots and durable
 review-insert. No local Tester prompt or substituted task-derived public ref.
-Dispatch eligible Testers in parallel, continue immediately on each return,
+Dispatch each Tester as soon as its task is eligible, continue on each return,
 capture reflections/artifacts and persist verdict. Retain feedback only for FAIL;
 cleanup only this dispatch's known captures after analysis.
 

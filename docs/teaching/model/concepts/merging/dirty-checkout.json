@@ -1,0 +1,10 @@
+{
+ "id": "dirty-checkout",
+ "title": "Inspect the target checkout before landing",
+ "status": "observed",
+ "commands": ["yoke worktree classify-dirty"],
+ "text": "Usher reads the target project's mapped checkout on the caller's machine through a registered read. Separate managed bookkeeping from user-authored changes; preserve user-authored changes before merging. A missing mapping or unreadable Git checkout refuses with a recovery step. No Yoke source lane is required.",
+ "sources": [".agents/skills/yoke/usher/collect.md", "packages/yoke-core/src/yoke_core/domain/handlers/worktree_dirty.py"],
+ "page": "merging",
+ "position": 4
+}

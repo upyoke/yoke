@@ -176,7 +176,7 @@ def test_empty_workspace_cannot_inherit_machine_project(project_map):
         ("cat ./missing/*.py", True),
     ],
 )
-def test_unmapped_https_hook_finishes_locally_without_posting(
+def test_unmapped_https_hook_relays_scope_and_preserves_local_guards(
     tmp_path,
     project_map,
     monkeypatch,
@@ -185,8 +185,9 @@ def test_unmapped_https_hook_finishes_locally_without_posting(
     denied,
 ):
     import json
+    from runtime.api.cli.test_yoke_operations_cli_hooks import _FakeResponse
     from yoke_cli.transport.https import HttpsConnection
-    from yoke_harness.hooks import relay, cursor_lifecycle_hooks, local_subset
+    from yoke_harness.hooks import relay, machine_hooks, local_subset
 
     root = tmp_path / "unrelated"
     root.mkdir()
@@ -198,6 +199,8 @@ def test_unmapped_https_hook_finishes_locally_without_posting(
         relay, "resolve_hook_project_scope", project_scope.resolve_hook_project_scope
     )
     payload = {
+        "session_id": "scope-session",
+        "identity_stamped": True,
         "cwd": str(root),
         "tool_name": "Bash",
         "shell": "zsh",
@@ -207,15 +210,20 @@ def test_unmapped_https_hook_finishes_locally_without_posting(
     monkeypatch.setattr(relay, "detect_executor", lambda: "codex")
     monkeypatch.setattr(relay, "_codex_capture", lambda *_a: None)
     monkeypatch.setattr(
-        cursor_lifecycle_hooks,
-        "ensure_user_lifecycle_hooks_for_executor",
-        lambda *_a: None,
+        machine_hooks,
+        "ensure_machine_hooks_for_executor",
+        lambda *_a, **_k: None,
     )
 
-    def unexpected_http(*_a, **_kwargs):
-        pytest.fail("unmapped hook attempted a project-scoped HTTPS request")
+    posts, audits = [], []
 
-    monkeypatch.setattr(relay, "relay_denial_audit", unexpected_http)
+    def capture_http(request, **kwargs):
+        posts.append(json.loads(request.data))
+        return _FakeResponse(b'{"stdout": "", "exit_code": 0, "outcome": "completed"}')
+
+    monkeypatch.setattr(
+        relay, "relay_denial_audit", lambda _connection, audit: audits.append(audit)
+    )
     resolutions: list[dict] = []
     real_resolve = project_scope.project_id_for_payload
     monkeypatch.setattr(
@@ -227,7 +235,7 @@ def test_unmapped_https_hook_finishes_locally_without_posting(
         "PreToolUse",
         HttpsConnection("https://example.invalid", "test-token"),
         stdin_data=json.dumps(payload),
-        opener=unexpected_http,
+        opener=capture_http,
     )
     assert result == 0
     output = capsys.readouterr().out
@@ -235,3 +243,7 @@ def test_unmapped_https_hook_finishes_locally_without_posting(
     # One request resolves its project once, for the local subset and the
     # relay decision alike.
     assert len(resolutions) == 1
+    assert len(posts) == (0 if denied else 1)
+    assert len(audits) == (1 if denied else 0)
+    if posts:
+        assert posts[0]["project_id"] is None

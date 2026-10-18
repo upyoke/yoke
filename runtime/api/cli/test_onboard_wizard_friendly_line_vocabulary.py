@@ -78,9 +78,9 @@ def test_friendly_line_covers_full_action_vocabulary() -> None:
             "",
         ): "Install harness hooks in .claude/settings.json, .codex/hooks.json, and .cursor/hooks.json",
         (
-            "install-cursor-user-lifecycle-hooks",
-            "~/.cursor/hooks.json",
-        ): "Install Cursor stop/sessionEnd backstop in ~/.cursor/hooks.json (survives a deleted project folder)",
+            "install-machine-hooks",
+            "~/.claude/settings.json",
+        ): "Install Yoke's machine-wide hooks in ~/.claude/settings.json (sessions outside a project register and run machine guards; inside a project its own hooks run instead; keeps your other hooks)",
         (
             "project-install-git-hooks",
             "",

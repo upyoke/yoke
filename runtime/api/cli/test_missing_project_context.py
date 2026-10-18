@@ -89,7 +89,6 @@ def test_dash_forwards_the_callers_selection(
             ["--base-url", "https://example.test", "--step-json", "{}"],
         ),
         ("qa_browser_status", ["--json"]),
-        ("qa_browser_setup", ["--dry-run", "--json"]),
     ],
 )
 def test_browser_commands_refuse_before_daemon_work(

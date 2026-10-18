@@ -1,0 +1,16 @@
+{
+ "id": "03",
+ "title": "Wait for the dependency notice",
+ "status": "observed",
+ "audience": "agent",
+ "when": "When a worker's item has an unmet activation, integration or closure gate on another item.",
+ "need": "The worker checkpoints and parks with the blocker named. When the blocker lands or reaches done, the control plane sends one notice per satisfied gate to the dependent's claim holder, else the project's steering seat, naming the blocker, the gate and any gates still unmet. Coordination-only edges send nothing. Nobody asks steering to relay the wake. Keep your work claim and lane; do not release or end the session; the notice wakes you as holder. A no-holder notice forbids staffing while any activation gate remains unmet.",
+ "disclosure": "current cue",
+ "surface": "Dependency-satisfied session message; worker launch dependency-wait teaching",
+ "gap": "Seen in source and tests only; a live parked worker receiving the notice after a real landing is not yet recorded as evidence.",
+ "review": "Pending live proof on a parked dependent.",
+ "recipes": ["yoke items dependency list --help", "yoke sessions touch --help"],
+ "plan_notes": ["JOURNEYS row 11"],
+ "sources": [".agents/skills/yoke/steer/worker-launch.md", ".agents/skills/yoke/idea/path-claim-blocking.md", "docs/public/reference/agent-rules/lanes-and-claims.md"],
+ "position": 2
+}

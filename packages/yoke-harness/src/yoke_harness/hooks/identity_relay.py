@@ -81,6 +81,8 @@ def client_native_thread_id(
     """Return the mapped harness-native identity for a Yoke session."""
     if is_codex(executor):
         value = os.environ.get("CODEX_THREAD_ID", "").strip()
+        if yoke_session_id and value and value != yoke_session_id:
+            return None
         return value or None
     if is_cursor(executor):
         source = payload or {}

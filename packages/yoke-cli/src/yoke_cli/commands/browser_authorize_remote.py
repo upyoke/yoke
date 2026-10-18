@@ -9,9 +9,9 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.browser_identity import (
     BrowserIdentityError,
     parse_identity_declarations,
-    select_identity,
 )
 from yoke_cli.commands._helpers import ensure_handlers_loaded
+from yoke_cli.commands.browser_sign_in import select_authorization_identity
 from yoke_cli.config import browser_profile, machine_config
 from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 from yoke_cli.config.capability_secrets import read_machine_capability_secret
@@ -46,6 +46,79 @@ def _read(function, payload, actor):
             or "Check `yoke env list` and `yoke test-machine list --project P`, then retry."
         )
     )
+
+
+def _sign_in_accounts(identity) -> str:
+    accounts = []
+    for site in identity.sites:
+        if site.account and site.account not in accounts:
+            accounts.append(site.account)
+    return ", ".join(accounts) if accounts else identity.name
+
+
+def _desktop_command(project, machine, settings) -> str:
+    from yoke_contracts.machine_config.desktop_access import validate_desktop_settings
+
+    viewable = False
+    try:
+        route = validate_desktop_settings(settings)
+    except TestMachineCapabilityError:
+        route = {}
+    if (
+        route
+        and settings.get("os") in {"linux", "windows"}
+        and route.get("desktop_protocol") == "rdp"
+    ):
+        viewable = True
+    flag = " --view" if viewable else ""
+    return (
+        f"yoke test-machine desktop-access --project {project} "
+        f"--machine {machine}{flag}"
+    )
+
+
+def _tell(message, json_mode) -> None:
+    print(message, file=sys.stderr if json_mode else sys.stdout, flush=True)
+
+
+def _open_sign_in_viewer(project, detail, identity, json_mode):
+    from yoke_harness.desktop_access import DesktopAccessError, begin_desktop_view
+
+    settings = detail["settings"]
+    machine = detail["machine"]
+    try:
+        viewer = begin_desktop_view(project=project, machine=machine, settings=settings)
+    except (DesktopAccessError, TestMachineCapabilityError) as exc:
+        command = _desktop_command(project, machine, settings)
+        _tell(
+            f"{exc}\nRun `{command}`.\n"
+            "Sign in on its desktop, then close the browser window; "
+            "the command verifies there before returning.",
+            json_mode,
+        )
+        return None
+    _tell(
+        f"Opening the desktop of machine {machine}. A window titled "
+        f'"Yoke desktop: {machine}" will appear.\n'
+        f"Sign in with {_sign_in_accounts(identity)}.\n"
+        "Close the browser window when done; the viewer closes when "
+        "verification finishes.",
+        json_mode,
+    )
+    return viewer
+
+
+def _close_sign_in_viewer(viewer, machine) -> None:
+    from yoke_harness.desktop_access import DesktopAccessError
+
+    try:
+        viewer.close()
+    except DesktopAccessError as exc:
+        print(
+            f"Close the desktop viewer for machine {machine} yourself: {exc}",
+            file=sys.stderr,
+            flush=True,
+        )
 
 
 def authorize_remote(parsed) -> int:
@@ -96,7 +169,7 @@ def authorize_remote(parsed) -> int:
                 + ". Repair `yoke projects capability-settings set --project P "
                 "--cap-type browser-control`, then retry."
             ) from None
-        identity = select_identity(
+        identity = select_authorization_identity(
             parse_identity_declarations(declarations), parsed.identity
         )
         argv = [
@@ -116,28 +189,49 @@ def authorize_remote(parsed) -> int:
             argv.append("--reset")
         if parsed.json_mode:
             argv.append("--json")
-        if not parsed.json_mode:
-            print(
-                f"Authorizing project {project} identity {identity.name} on "
-                f"machine {detail['machine']}. Sign in on its desktop, then close "
-                "the browser window; the command verifies there before returning.",
-                flush=True,
+        if parsed.desktop_browser and detail["settings"].get("os") not in {
+            "linux",
+            "macos",
+        }:
+            raise BrowserIdentityError(
+                "desktop_browser_unsupported: choose a Linux Chromium or macOS Safari Test Machine."
             )
-        desktop_password = (
-            read_machine_capability_secret(
-                project,
-                test_machine_capability_type(detail["machine"]),
-                "desktop_password",
+        if parsed.desktop_browser:
+            argv.append("--desktop-browser")
+        elif detail["settings"].get("os") in {"linux", "macos"}:
+            argv.append("--include-desktop-browser")
+        from yoke_harness.browser_identity_check import sign_in_request
+
+        for line in sign_in_request(
+            identity.name,
+            [
+                {"site": site.site, "origin": site.origin, "account": site.account}
+                for site in identity.sites
+            ],
+        ):
+            _tell(line, parsed.json_mode)
+        viewer = _open_sign_in_viewer(project, detail, identity, parsed.json_mode)
+        try:
+            desktop_password = (
+                read_machine_capability_secret(
+                    project,
+                    test_machine_capability_type(detail["machine"]),
+                    "desktop_password",
+                )
+                if detail["settings"].get("os") in {"linux", "windows"}
+                else None
             )
-            if detail["settings"].get("os") in {"linux", "windows"}
-            else None
-        )
-        result = run_gui_command(
-            settings=detail["settings"],
-            argv=argv,
-            yoke_home=machine_config.yoke_home(),
-            desktop_password=desktop_password,
-        )
+            result = run_gui_command(
+                settings=detail["settings"],
+                argv=argv,
+                yoke_home=machine_config.yoke_home(),
+                desktop_password=desktop_password,
+                stream_output=True,
+                json_mode=parsed.json_mode,
+            )
+        finally:
+            if viewer is not None:
+                _close_sign_in_viewer(viewer, detail["machine"])
         if parsed.json_mode:
             try:
                 payload = json.loads(result.stdout)
@@ -158,8 +252,9 @@ def authorize_remote(parsed) -> int:
             payload["machine"] = detail["machine"]
             print(json.dumps(payload))
         else:
-            print(result.stdout, end="")
-            print(result.stderr, end="", file=sys.stderr)
+            if not getattr(result, "output_streamed", False):
+                print(result.stdout, end="")
+                print(result.stderr, end="", file=sys.stderr)
             if result.returncode:
                 print(
                     f"browser_authorize_remote_failed: machine {detail['machine']} "

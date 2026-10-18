@@ -25,7 +25,7 @@ def test_dispatch_progress_cascade_and_sections_keep_native_microseconds(
 ):
     from runtime.api.fixtures.backlog_inserts import insert_epic_task, insert_item
     from runtime.api.test_epic_submission_receipt import RECEIPT
-    from yoke_core.domain.epic_task_scope import set_no_files_scope
+    from runtime.api.task_files_touched_test_support import declare_task_files
     from yoke_core.domain.project_identity import render_item_ref
 
     test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
@@ -39,7 +39,8 @@ def test_dispatch_progress_cascade_and_sections_keep_native_microseconds(
             title="Native clock",
             status="planning",
         )
-        set_no_files_scope(test_db, 42, number)
+        declare_task_files(test_db, 42, number, [])
+    test_db.commit()
     monkeypatch.setattr(epic_dispatch, "utc_now", lambda: anchor)
     epic_dispatch.dispatch_chain_upsert(
         test_db,
@@ -67,7 +68,12 @@ def test_dispatch_progress_cascade_and_sections_keep_native_microseconds(
     assert dispatch_chain_get(test_db, "42", "native-clock").split("|")[-2] == ""
     next_clock = anchor + timedelta(microseconds=1)
     monkeypatch.setattr(epic_dispatch, "utc_now", lambda: next_clock)
+    test_db.execute(
+        "UPDATE epic_tasks SET status=CASE task_num WHEN 1 THEN 'done' "
+        "ELSE 'planned' END WHERE epic_id=42"
+    )
     assert epic_dispatch.dispatch_chain_advance(test_db, "42", "native-clock") == "1|2"
+    test_db.execute("UPDATE epic_tasks SET status='planning' WHERE epic_id=42")
     row = test_db.execute(
         "SELECT started_at,last_updated,current_attempt FROM epic_dispatch_chains WHERE epic_id=42"
     ).fetchone()

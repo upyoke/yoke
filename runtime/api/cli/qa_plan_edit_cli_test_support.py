@@ -43,6 +43,8 @@ PLAN = {
             "stage_reason": "creates_or_destroys_data",
             "entry_surface": None,
             "required_completion": None,
+            "wake_path": "automatic",
+            "wake_evidence": None,
         }
     ],
 }

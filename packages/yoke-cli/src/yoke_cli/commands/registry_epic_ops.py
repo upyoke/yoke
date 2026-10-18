@@ -84,14 +84,6 @@ EPIC_OPS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "workflow_item.epic_task.simulation_get",
         _ops.epic_task_simulation_get,
     ),
-    ("workflow-item", "epic-task", "file-add"): (
-        "workflow_item.epic_task.file_add",
-        _ops.epic_task_file_add,
-    ),
-    ("workflow-item", "epic-task", "scope-no-files"): (
-        "workflow_item.epic_task.scope_no_files",
-        _scope.epic_task_scope_no_files,
-    ),
     ("workflow-item", "epic-task", "scope-finalize"): (
         "workflow_item.epic_task.scope_finalize",
         _scope.epic_task_scope_finalize,

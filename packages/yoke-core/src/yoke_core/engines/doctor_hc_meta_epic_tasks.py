@@ -4,7 +4,8 @@ Cluster: HC checks operating on the ``epic_tasks`` table — universal lane
 linkage and orphan parent reconciliation.
 
 HC functions: HC-epic-task-worktree, HC-empty-task-worktree,
-HC-orphan-epic-tasks, HC-epic-task-worktree-backfill
+HC-orphan-epic-tasks, HC-epic-task-worktree-backfill,
+HC-epic-task-scope-state
 """
 
 from __future__ import annotations
@@ -13,7 +14,10 @@ from typing import List
 
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.schema_common import _column_exists
+from yoke_core.domain.task_files_touched import (
+    FILES_TOUCHED_RECIPE,
+    parse_files_touched,
+)
 
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
@@ -40,10 +44,11 @@ def hc_epic_task_worktree(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             f"{len(rows)} epic_tasks row(s) without a lane link on active epics "
             f"(epic IDs: {','.join(epic_ids)})"
         )
-        rec.record("HC-epic-task-worktree", "Epic task worktree backfill", "WARN", detail)
+        rec.record(
+            "HC-epic-task-worktree", "Epic task worktree backfill", "WARN", detail
+        )
     else:
         rec.record("HC-epic-task-worktree", "Epic task worktree backfill", "PASS", "")
-
 
 
 def hc_empty_task_worktree(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -65,11 +70,19 @@ def hc_empty_task_worktree(conn, args: DoctorArgs, rec: RecordCollector) -> None
     ]
 
     if issues:
-        rec.record("HC-empty-task-worktree", "Epic tasks with empty worktree fields", "WARN",
-                    "\n".join(issues))
+        rec.record(
+            "HC-empty-task-worktree",
+            "Epic tasks with empty worktree fields",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
-        rec.record("HC-empty-task-worktree", "Epic tasks with empty worktree fields", "PASS", "")
-
+        rec.record(
+            "HC-empty-task-worktree",
+            "Epic tasks with empty worktree fields",
+            "PASS",
+            "",
+        )
 
 
 def hc_orphan_epic_tasks(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -80,16 +93,22 @@ def hc_orphan_epic_tasks(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         "WHERE NOT EXISTS (SELECT 1 FROM items i WHERE i.id = et.epic_id) "
         "ORDER BY et.epic_id, et.task_num",
     )
-    issues = [f"- {render_item_ref(conn, r['epic_id'])} task {r['task_num']}: parent item does not exist" for r in rows]
+    issues = [
+        f"- {render_item_ref(conn, r['epic_id'])} task {r['task_num']}: parent item does not exist"
+        for r in rows
+    ]
 
     if issues:
-        rec.record("HC-orphan-epic-tasks", "Orphan epic tasks", "WARN", "\n".join(issues))
+        rec.record(
+            "HC-orphan-epic-tasks", "Orphan epic tasks", "WARN", "\n".join(issues)
+        )
     else:
         rec.record("HC-orphan-epic-tasks", "Orphan epic tasks", "PASS", "")
 
 
-
-def hc_epic_task_worktree_backfill(conn, args: DoctorArgs, rec: RecordCollector) -> None:
+def hc_epic_task_worktree_backfill(
+    conn, args: DoctorArgs, rec: RecordCollector
+) -> None:
     """HC-epic-task-worktree-backfill: Epic tasks missing universal lane links."""
     issues: List[str] = []
 
@@ -111,67 +130,42 @@ def hc_epic_task_worktree_backfill(conn, args: DoctorArgs, rec: RecordCollector)
         )
 
     if issues:
-        rec.record("HC-epic-task-worktree-backfill",
-                    "Epic tasks with empty worktree fields", "WARN",
-                    "\n".join(issues))
+        rec.record(
+            "HC-epic-task-worktree-backfill",
+            "Epic tasks with empty worktree fields",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
-        rec.record("HC-epic-task-worktree-backfill",
-                    "Epic tasks with empty worktree fields", "PASS", "")
+        rec.record(
+            "HC-epic-task-worktree-backfill",
+            "Epic tasks with empty worktree fields",
+            "PASS",
+            "",
+        )
 
 
 def hc_epic_task_scope_state(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """HC-epic-task-scope-state: generated-task scope is explicit and coherent."""
-    title = "Generated task scope state"
-    if not all(
-        _column_exists(conn, "epic_tasks", column)
-        for column in ("scope_state", "scope_finalized_at")
-    ):
-        rec.record(
-            "HC-epic-task-scope-state",
-            title,
-            "WARN",
-            "epic task scope migration has not installed both columns",
-        )
-        return
+    """HC-epic-task-scope-state: live generated tasks declare Files Touched."""
+    title = "Generated task Files Touched"
     rows = query_rows(
         conn,
-        "SELECT et.epic_id, et.task_num, et.scope_state, i.status, "
-        "COUNT(CASE WHEN TRIM(COALESCE(f.file_path, '')) <> '' "
-        "THEN 1 END) AS file_count "
-        "FROM epic_tasks et JOIN items i ON i.id=et.epic_id "
-        "LEFT JOIN epic_task_files f ON f.epic_id=et.epic_id "
-        "AND f.task_num=et.task_num "
-        "GROUP BY et.epic_id, et.task_num, et.scope_state, "
-        "et.scope_finalized_at, i.status "
-        "HAVING et.scope_state IS NULL "
-        "OR et.scope_state NOT IN "
-        "('pending','paths','no_files','legacy_deferred') "
-        "OR (et.scope_state='paths' AND "
-        "COUNT(CASE WHEN TRIM(COALESCE(f.file_path, '')) <> '' "
-        "THEN 1 END)=0) "
-        "OR (et.scope_state='no_files' AND "
-        "COUNT(CASE WHEN TRIM(COALESCE(f.file_path, '')) <> '' "
-        "THEN 1 END)>0) "
-        "OR (et.scope_state='legacy_deferred' "
-        "AND i.status NOT IN ('done','cancelled','failed','stopped')) "
-        "OR ((et.scope_state='pending' "
-        "OR et.scope_finalized_at IS NULL) "
-        "AND i.status NOT IN ('idea','refining-idea','refined-idea',"
-        "'planning','plan-drafted','done','cancelled','failed','stopped')) "
+        "SELECT et.epic_id, et.task_num, COALESCE(et.body, '') AS body, "
+        "i.status FROM epic_tasks et JOIN items i ON i.id=et.epic_id "
+        "WHERE i.status NOT IN ('idea','refining-idea','refined-idea',"
+        "'planning','plan-drafted','done','cancelled','failed','stopped') "
         "ORDER BY et.epic_id, et.task_num",
     )
-    if rows:
-        details = [
-            f"- {render_item_ref(conn, int(row['epic_id']))} task {row['task_num']}: "
-            f"scope={row['scope_state']} files={row['file_count']} "
-            f"item_status={row['status']}"
-            for row in rows
-        ]
-        rec.record(
-            "HC-epic-task-scope-state",
-            title,
-            "WARN",
-            "\n".join(details),
-        )
+    details = []
+    for row in rows:
+        problem = parse_files_touched(row["body"]).problem()
+        if problem:
+            details.append(
+                f"- {render_item_ref(conn, int(row['epic_id']))} task "
+                f"{row['task_num']} {problem} (item_status={row['status']})"
+            )
+    if details:
+        details.append(f"recovery: {FILES_TOUCHED_RECIPE}")
+        rec.record("HC-epic-task-scope-state", title, "WARN", "\n".join(details))
     else:
         rec.record("HC-epic-task-scope-state", title, "PASS", "")

@@ -13,6 +13,7 @@ import selectors
 import signal
 import subprocess
 import sys
+import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -109,6 +110,8 @@ def _wizard(scenario: str, ready: int, config: Path, continue_read: int):
                     os.write(ready, b"ready")
                     os.read(continue_read, 1)
             else:
+                if scenario == "worker-loss":
+                    self.run_worker(self.slow_apply, thread=True)
                 os.write(ready, b"ready")
             if scenario in {"copy", "copy-loss"}:
                 onboard_clipboard.remote_session = lambda: True
@@ -118,6 +121,29 @@ def _wizard(scenario: str, ready: int, config: Path, continue_read: int):
                 self.call_later(self.suspend_and_finish)
             elif scenario in {"foreground", "cancel"}:
                 self.set_timer(0.15, self.exit)
+            elif scenario.startswith("login-probe-"):
+                shell = scenario.removeprefix("login-probe-")
+                threading.Thread(target=self.probe_login_shell, args=(shell,)).start()
+
+        def slow_apply(self):
+            # Like Apply: a thread worker the app must wait for after a loss.
+            # Blocked SIGTTOU lets this background write reach the terminal.
+            signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTTOU})
+            time.sleep(1.5)
+            os.write(2, b"WORKER-DONE\n")
+
+        def probe_login_shell(self, shell):
+            # The real fresh-login probe runs an interactive `SHELL -lic`, which
+            # enables job control; its startup file outlasts ownership checks.
+            from yoke_cli.config import path_doctor
+
+            home = config.parent / "home"
+            home.mkdir(exist_ok=True)
+            for startup in (".bash_profile", ".zprofile"):
+                (home / startup).write_text("sleep 0.5\n")
+            env = {"HOME": str(home), "PATH": os.environ["PATH"], "SHELL": shell}
+            path_doctor.verify_fresh_login(Path(shell).name, env=env)
+            self.call_from_thread(self.exit)
 
         def copy_and_finish(self):
             self.action_copy_target()
@@ -131,8 +157,12 @@ def _wizard(scenario: str, ready: int, config: Path, continue_read: int):
                 yield
 
         def suspend_and_finish(self):
-            # The real Textual SIGTSTP/SIGCONT lifecycle is driven by controller.
-            os.kill(os.getpid(), signal.SIGTSTP)
+            # Reproduce SIGTSTP interrupting a write's non-reentrant queue
+            # lock. Signal handlers must defer cleanup until this releases.
+            with self._driver._writer_thread._queue.mutex:
+                os.kill(os.getpid(), signal.SIGTSTP)
+                os.write(ready, b"stop")
+                os.read(continue_read, 1)
             self.set_timer(0.15, self.exit)
 
     run_wizard_app(TerminalApp())
@@ -224,7 +254,7 @@ def _controller(slave: int, scenario: str, evidence: Path) -> None:
     try:
         os.tcsetpgrp(slave, os.getpgrp() if scenario == "background" else worker)
         os.write(start_write, b"x")
-        if scenario in {"loss", "loss-read", "copy-loss"}:
+        if scenario in {"loss", "loss-read", "copy-loss", "worker-loss", "suspend"}:
             readiness = selectors.DefaultSelector()
             readiness.register(ready_read, selectors.EVENT_READ)
             assert readiness.select(8), "wizard did not reach mount"
@@ -232,8 +262,15 @@ def _controller(slave: int, scenario: str, evidence: Path) -> None:
             if scenario == "copy-loss":
                 assert readiness.select(8), "wizard did not reach copy suspension"
                 assert os.read(ready_read, 4) == b"copy"
+            if scenario == "suspend":
+                assert readiness.select(8), "wizard did not receive SIGTSTP"
+                assert os.read(ready_read, 4) == b"stop"
             readiness.close()
             os.tcsetpgrp(slave, os.getpgrp())
+            if scenario == "suspend":
+                # Like a pipeline's shell: return tty ownership before the
+                # wizard's deferred suspend runs, then foreground it on resume.
+                os.write(start_write, b"x")
             if scenario == "loss-read":
                 os.kill(worker, signal.SIGTTIN)
                 os.write(start_write, b"x")

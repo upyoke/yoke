@@ -31,6 +31,7 @@ def _reading(provider, epoch):
         {"planName": "ultra"},
         {"planUsage": {"autoPercentUsed": 25}, "billingCycleEnd": epoch},
         observed_at=OBSERVED,
+        hard_limit={},
     )
 
 

@@ -13,11 +13,15 @@ from __future__ import annotations
 from yoke_core.domain.events_project_identity import working_project_for_event
 
 import json
-import os
 import sys
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.hook_runner.session_cwd import (
+    client_machine_home,
+    client_scratch_root,
+)
+from yoke_core.domain.command_workdir import command_execution_cwd
 from yoke_core.domain.lint_command_extract import extract_command
 from yoke_core.domain.observe_normalization import (
     TOOL_KIND_BASH,
@@ -35,6 +39,7 @@ from yoke_core.domain.path_claim_bash_parser import (
     SUPPRESSION_TOKEN,
     extract_mutations,
 )
+from yoke_core.domain.path_claim_bash_client_home import expand_client_home
 from yoke_core.domain.path_claim_bash_parser_planning_phase import (
     drop_planning_scratch_mutations,
 )
@@ -65,12 +70,9 @@ class BashGuardVerdict:
     extra: Dict[str, Any] = field(default_factory=dict)
 
 
-def _resolve_cwd(record: ToolEventRecord) -> tuple[str, bool]:
-    """Return ``(cwd, fell_back_to_os_getcwd)``."""
-    cwd = (record.cwd or "").strip()
-    if cwd:
-        return cwd, False
-    return os.getcwd(), True
+def _resolve_cwd(record: ToolEventRecord) -> str:
+    """Return the command's execution cwd; never the evaluator's own cwd."""
+    return (record.cwd or "").strip()
 
 
 def evaluate_payload(
@@ -94,7 +96,7 @@ def evaluate_payload(
     if not command.strip():
         return BashGuardVerdict(outcome="allow")
 
-    mutations: List[Mutation] = extract_mutations(command)
+    mutations: List[Mutation] = extract_mutations(command, _resolve_cwd(record))
     if not mutations:
         return BashGuardVerdict(outcome="allow")
 
@@ -104,11 +106,13 @@ def evaluate_payload(
     # below depends on.
     mutations = drop_planning_scratch_mutations(
         mutations,
-        session_id=record.session_id,
+        session_id=record.session_id or "",
+        scratch_root=client_scratch_root(payload) if isinstance(payload, dict) else "",
         conn=conn,
     )
     if not mutations:
         return BashGuardVerdict(outcome="allow")
+    mutations = expand_client_home(mutations, payload)
 
     # Suppression token short-circuits — we record audit evidence
     # (``outcome=suppression_attempted``) and allow. The first mutation
@@ -126,7 +130,7 @@ def evaluate_payload(
         _emit_denial(record=record, verdict=verdict, conn=conn, suppression=True)
         return verdict
 
-    cwd, _ = _resolve_cwd(record)
+    cwd = _resolve_cwd(record)
 
     for mut in mutations:
         current_claim = resolve_claim_scope_for_target(
@@ -179,21 +183,17 @@ def _coerce_record(payload: Any) -> Optional[ToolEventRecord]:
         return payload
     if not isinstance(payload, dict):
         return None
-    tool_input = payload.get("tool_input") or payload.get("toolInput") or {}
-    command = extract_command(payload)
-    cwd = str(payload.get("cwd") or "") or (
-        str(tool_input.get("cwd") or "") if isinstance(tool_input, dict) else ""
-    )
     return ToolEventRecord(
         tool_kind=TOOL_KIND_BASH,
         changed_paths=[],
-        command=command,
+        command=extract_command(payload),
         patch_body="",
         tool_name=str(payload.get("tool_name") or "Bash"),
         session_id=str(payload.get("session_id") or ""),
         tool_use_id=payload.get("tool_use_id"),
         turn_id=payload.get("turn_id") or payload.get("message_id"),
-        cwd=cwd,
+        # The client's home, never this process's: "" leaves ``~`` as written.
+        cwd=command_execution_cwd(payload, machine_home=client_machine_home(payload)),
         project_dir=str(payload.get("cwd") or payload.get("project_dir") or ""),
     )
 
@@ -238,7 +238,7 @@ def _emit_denial(
             project=working_project_for_event(
                 conn=conn,
                 session_id=record.session_id,
-                directory=_resolve_cwd(record)[0] if conn is None else None,
+                directory=_resolve_cwd(record) if conn is None else None,
             ),
             context={
                 "bash_verb": verdict.bash_verb,

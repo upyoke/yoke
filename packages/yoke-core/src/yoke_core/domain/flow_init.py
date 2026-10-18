@@ -7,8 +7,11 @@ deployment runs, and QA status into a single operator-facing projection.
 
 from __future__ import annotations
 
+from pglast import parse_sql
+
 from yoke_core.domain.stored_instant_columns import STORED_INSTANT_COLUMNS
 
+from yoke_core.domain.schema_converge_catalog import statement_is_satisfied
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
     _table_exists,
@@ -22,6 +25,7 @@ from yoke_core.domain.deployment_run_create_idempotency import (
 from yoke_core.domain.deployment_runs_schema_init import (
     DELIVERY_INTENT_COLUMN_SQL,
 )
+from yoke_core.domain.deployment_run_timings import DEPLOYMENT_RUN_TIMINGS_SQL
 from yoke_core.domain.deployment_stage_receipts import (
     ensure_deployment_stage_receipt_schema,
 )
@@ -127,6 +131,7 @@ def _ensure_flow_schema(conn) -> None:
             "membership_removals",
             "superseded_by_run_id",
             "supersedes_run_id",
+            "created_by_session_id",
             KEY_COLUMN,
             REQUEST_COLUMN,
         ):
@@ -154,6 +159,7 @@ def _ensure_flow_schema(conn) -> None:
 
     if _table_exists(conn, "deployment_runs"):
         ensure_deployment_stage_receipt_schema(conn)
+        conn.execute(DEPLOYMENT_RUN_TIMINGS_SQL)
 
     # Add deployment_flow / deploy_stage to items (idempotent).
     # NOTE: SQLite silently drops the inline `REFERENCES` clause on
@@ -191,8 +197,11 @@ def cmd_init(conn) -> str:
 def create_or_replace_item_progress_view(conn, *, commit: bool = True) -> None:
     """Create or replace ``item_progress_view``.
 
-    Drops and recreates the view from the canonical fresh-schema
-    definition so existing installs converge on the same column shape
+    An unchanged view is left alone, so it keeps its OID across converges
+    and a concurrent ``pg_dump`` never reads a dropped relation. A changed
+    view is dropped and recreated from the canonical fresh-schema
+    definition: ``CREATE OR REPLACE VIEW`` refuses renamed or removed
+    columns, and existing installs must converge on the same column shape
     as new initializations.
     """
     has_runs = _table_exists(conn, "deployment_runs")
@@ -200,8 +209,6 @@ def create_or_replace_item_progress_view(conn, *, commit: bool = True) -> None:
     # Minimal fixture databases carry flows without the environment
     # registry; the resolved-name projection degrades to the tier label.
     has_envs = _table_exists(conn, "environments")
-
-    conn.execute("DROP VIEW IF EXISTS item_progress_view")
 
     target_expr = "COALESCE(te.name, df.target_tier)" if has_envs else "df.target_tier"
     flow_env_join = (
@@ -237,8 +244,8 @@ def create_or_replace_item_progress_view(conn, *, commit: bool = True) -> None:
             if has_qa_reqs
             else "NULL AS smoke_qa_status"
         )
-        conn.execute(f"""\
-            CREATE VIEW item_progress_view AS
+        view_sql = f"""\
+            CREATE OR REPLACE VIEW item_progress_view AS
             SELECT
                 i.id AS item_id, i.status,
                 df.name AS flow_name, dr.id AS run_id, dr.current_stage,
@@ -270,10 +277,10 @@ def create_or_replace_item_progress_view(conn, *, commit: bool = True) -> None:
             LEFT JOIN deployment_runs dr ON dr.id = dri.run_id
                 AND dr.status IN ('created', 'executing')
             {env_join}
-        """)
+        """
     else:
-        conn.execute(f"""\
-            CREATE VIEW item_progress_view AS
+        view_sql = f"""\
+            CREATE OR REPLACE VIEW item_progress_view AS
             SELECT
                 i.id AS item_id, i.status,
                 df.name AS flow_name,
@@ -285,7 +292,10 @@ def create_or_replace_item_progress_view(conn, *, commit: bool = True) -> None:
             FROM items i
             LEFT JOIN deployment_flows df ON df.id = i.deployment_flow
             {flow_env_join}
-        """)
+        """
 
+    if not statement_is_satisfied(conn, parse_sql(view_sql)[0].stmt):
+        conn.execute("DROP VIEW IF EXISTS item_progress_view")
+        conn.execute(view_sql)
     if commit:
         conn.commit()

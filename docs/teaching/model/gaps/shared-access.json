@@ -5,7 +5,6 @@
  "text": "The maintained source is checked into the public Yoke repository. Workers read docs/teaching from a checkout or the public repository at an exact commit. Yoke items update affected records while planning and finishing; Platform items request linked Yoke updates.",
  "detail": "Source publication and the access recipe are present in docs/teaching/README.md, and build.py loads the repository model. This source review proves the Yoke checkout access path, but does not prove actual Platform worker access across machines. Keep that worker-access proof open; local HTML and repository publication alone do not establish it.",
  "sources": ["docs/teaching/README.md", "docs/teaching/tools/build.py", "docs/teaching/tools/model.py", "docs/teaching/model/evidence/superseded-research/09.json"],
- "plan_refs": ["FIRST-USER.0"],
  "work_items": ["YOK-3914", "PLAT-220"],
  "position": 11
 }

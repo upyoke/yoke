@@ -102,12 +102,20 @@ def question_fields(prompt: SetupPrompt) -> dict[str, Any]:
         "question": plain(prompt.title),
         "detail": [plain(text) for text in detail],
         "answers": [
-            {"value": row.value, "label": plain(row.label), "description": plain(row.hint)}
+            {
+                "value": row.value,
+                "label": plain(row.label),
+                "description": plain(row.hint),
+            }
             for row in prompt.choices
         ],
-        "input": None if spec is None else {
+        "input": None
+        if spec is None
+        else {
             "placeholder": spec.placeholder,
-            "default": spec.placeholder if spec.allow_placeholder else spec.initial_value or None,
+            "default": spec.placeholder
+            if spec.allow_placeholder
+            else spec.initial_value or None,
         },
         "fields": [
             {
@@ -161,6 +169,15 @@ def refused(reason: str, recovery: str, prompt: SetupPrompt | None) -> dict[str,
 
 def failed(reason: str, recovery: str, **fields: Any) -> dict[str, Any]:
     return response(STATE_FAILED, reason=reason, recovery=recovery, **fields)
+
+
+def interrupted(**fields: Any) -> dict[str, Any]:
+    return failed(
+        "setup_interrupted",
+        "Setup was interrupted; completed changes and saved answers remain. "
+        "Run `yoke setup --agent` again to continue from the last answered question.",
+        **fields,
+    )
 
 
 def emit(payload: dict[str, Any], stream: TextIO | None = None) -> None:

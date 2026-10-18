@@ -2,9 +2,8 @@
  "id": "plans",
  "title": "Reusable QA plans",
  "status": "draft-copy",
- "plan_refs": ["JOURNEYS.also-owned-here"],
- "commands": ["yoke qa item-plan attach", "yoke qa item-plan retract", "yoke qa plan create", "yoke qa plan edit", "yoke qa plan get", "yoke qa plan list", "yoke qa plan materialize", "yoke qa plan rematerialize"],
- "functions": ["qa.item_plan.attach", "qa.item_plan.retract", "qa.plan.create", "qa.plan.edit", "qa.plan.get", "qa.plan.list", "qa.plan.materialize", "qa.plan.rematerialize"],
+ "commands": ["yoke qa item-plan attach", "yoke qa item-plan retract", "yoke qa plan create", "yoke qa plan edit", "yoke qa plan get", "yoke qa plan list", "yoke qa plan materialize", "yoke qa plan rematerialize", "yoke qa plan retire"],
+ "functions": ["qa.item_plan.attach", "qa.item_plan.retract", "qa.plan.create", "qa.plan.edit", "qa.plan.get", "qa.plan.list", "qa.plan.materialize", "qa.plan.rematerialize", "qa.plan.retire"],
  "page": "qa-plans",
  "position": 0
 }

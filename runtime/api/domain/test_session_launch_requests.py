@@ -7,8 +7,8 @@ import pytest
 from yoke_contracts.timestamps import parse_instant
 
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
+from yoke_core.domain.session_launch_cancellation import cancel_launch
 from yoke_core.domain.session_launch_requests import (
-    cancel_launch,
     create_launch,
     preview_launch,
 )

@@ -2,7 +2,6 @@
  "id": "boundaries",
  "title": "Trust boundaries",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.34", "FIRST-USER.P3"],
  "surface_refs": ["command-feedback", "global-hooks", "project-hooks", "project-native"],
  "page": "security",
  "position": 0

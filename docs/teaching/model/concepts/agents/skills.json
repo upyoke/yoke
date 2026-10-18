@@ -2,7 +2,6 @@
  "id": "skills",
  "title": "Skills",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.P4"],
  "surface_refs": ["agent-help", "global-orientation", "skills-roles"],
  "skills": ["conduct", "implement", "implementing"],
  "page": "agents",

@@ -18,6 +18,10 @@ one foreground invocation while incoming work is handled.
 Use the declared `Monitor` background command/subscription. In-turn stays
 Bash foreground at its documented long timeout. Keep ScheduleWakeup fallback
 at least 1200 seconds only if the manifest declares that timer available.
+The watcher counts as live only while its `yoke watch tail` subscriber runs.
+A Monitor expires at its deadline: arm it at the manifest's
+`idle_wake_deadline_parameter` maximum, and on the expiry notice re-arm the
+same tail against the same capture. Never relaunch the wrapper.
 <!-- YOKE:HARNESS end -->
 
 <!-- YOKE:HARNESS cursor start -->
@@ -41,7 +45,14 @@ the watcher or authorize a final answer abandoning it.
 
 Approximately minute cadence checks dependency-cleared availability even
 without status/claim deltas; due cooldown/timer findings are checked without
-deltas too. Fingerprints suppress unchanged reports. Background uses armed
+deltas too. Urgent `fleet ALARM` lines include unstaffed ready work: an
+available item past the staffing threshold emits one `unstaffed-ready` line
+per waiting episode, and again only after another staffing interval. A launch
+already in flight does not alarm. A dependency loop among live items emits one
+`deadlock` line naming its edges and stranded work, and clears once broken. A
+claim holder silent past the idle threshold, parked or not, emits
+`idle-holder` with mode, park reason and process state, and again hourly until
+it clears; each gets an action or a one-line disposition that turn. Fingerprints suppress unchanged reports. Background uses armed
 native subscription; in-turn surfaces findings in its existing stream.
 Changed reports wake with the whole opening/digest/closing block, never a
 delimiter alone. Pull yoke steering report get without project filter for
@@ -51,6 +62,8 @@ and name the narrower recipe or --full opt-in.
 
 After compaction, resume, watcher exit or subscription loss, verify live mode
 and existing process. Reattach its stream/subscription; rearm only if absent.
+A hook `FLEET WATCHER ALERT` block means this machine's process list shows no
+live watcher for an active seat; run the re-arm command it names.
 Read failed capture's named reason/recovery before retry. Successful bounded
 exit is not the end of continuous steering.
 

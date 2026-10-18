@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from yoke_core.domain.deployment_overview_timing import overview_connection
 from yoke_contracts.timestamps import format_instant, utc_now
 from typing import Any, Optional
 
@@ -30,7 +31,10 @@ from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
 from yoke_core.domain.workflows_definition_read import _stage_names
 from yoke_core.domain.schema_read_scope import composition_operation
-from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
+from yoke_core.domain.deployment_qa_presentation_reads import (
+    presentation_operation,
+    recorded_source_presentation,
+)
 
 
 OVERVIEW_RUN_WINDOW = timedelta(hours=24)
@@ -257,7 +261,7 @@ def list_deployment_runs(
 
     Overview bounds live/recent runs per project, then presents shared runs once.
     """
-    conn = connect()
+    conn = overview_connection(connect())
     try:
         clauses: list[str] = []
         params: list[Any] = []
@@ -286,7 +290,7 @@ def list_deployment_runs(
         if relevance == "overview":
             append_overview_run_window(clauses, params, conn=conn)
         where = f"WHERE {' AND '.join(clauses)} " if clauses else ""
-        run_columns, env_join = _run_named_columns()
+        run_columns, env_join = _run_named_columns(include_preparation_receipt=False)
         priority_order = ""
         if relevance == "overview":
             quoted = ", ".join(f"'{status}'" for status in TERMINAL_RUN_STATUSES)
@@ -318,14 +322,15 @@ def list_deployment_runs(
             tuple(query_params),
         ).fetchall()
         base = [dict(row) for row in rows]
-        return present_deployment_runs(
-            conn,
-            base,
-            actor_id=actor_id,
-            visible_project_ids=None,
-            include_carried_work=True,
-            include_item_delivery=relevance == "overview",
-        )
+        with recorded_source_presentation(enabled=relevance == "overview"):
+            return present_deployment_runs(
+                conn,
+                base,
+                actor_id=actor_id,
+                visible_project_ids=None,
+                include_carried_work=True,
+                include_item_delivery=relevance == "overview",
+            )
     finally:
         conn.close()
 

@@ -224,7 +224,7 @@ def apply_managed_markdown(
         if action == "unchanged":
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(new_text, encoding="utf-8")
+        target.write_text(new_text, encoding="utf-8", newline="")
         written.append(rel)
     return records, {
         "actions": actions,
@@ -297,7 +297,7 @@ def remove_managed_markdown(
             remove_empty_parents(repo_root, rel)
             removed_files.append(rel)
         else:
-            target.write_text(new_text or "", encoding="utf-8")
+            target.write_text(new_text or "", encoding="utf-8", newline="")
             stripped_blocks.append(rel)
     return {
         "removed_files": removed_files,

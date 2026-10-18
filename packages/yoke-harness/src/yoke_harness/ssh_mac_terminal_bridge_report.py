@@ -14,6 +14,7 @@ from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_APP_CONTROL_UNAVAILABLE_ERROR_CODE,
     TERMINAL_BRIDGE_CHECKS,
     TERMINAL_BRIDGE_RECOVERY,
+    TERMINAL_WINDOW_CLOSE_FAILED_ERROR_CODE,
 )
 
 
@@ -44,6 +45,23 @@ class BridgeDiagnosisReport:
             self.blocked_by = self.blocked_by or name
         self.rows.append(row)
         return ok
+
+    def record_window_close(self, launch_check: str, *, closed: bool) -> None:
+        """Attach the driven window's close to the row that opened it.
+
+        A window the close left behind is how Terminal accumulates hundreds of
+        them. The check list is fixed, so the launch row carries the outcome,
+        and fails by name when nothing earlier already explains the run.
+        """
+        row = next((row for row in self.rows if row["name"] == launch_check), None)
+        if row is None:
+            return
+        row["observed"]["window_closed"] = closed
+        if closed or self.blocked_by is not None:
+            return
+        code = TERMINAL_WINDOW_CLOSE_FAILED_ERROR_CODE
+        row.update(ok=False, error_reason=code, recovery=TERMINAL_BRIDGE_RECOVERY[code])
+        self.blocked_by = launch_check
 
     def close_unreached(self) -> None:
         """Mark every capability the run never got to, naming what stopped it."""

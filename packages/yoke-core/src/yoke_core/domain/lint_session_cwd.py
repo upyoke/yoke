@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Sequence
@@ -11,7 +10,6 @@ from typing import Any, Mapping, Optional, Sequence
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_lane_main_write_classify import is_write_operation
 from yoke_core.domain.lint_session_cwd_control_plane import (
-    ORIENTATION_HEADING,
     SCOPE_MISMATCH_TEMPLATE as SCOPE_MISMATCH_TEMPLATE,
     build_scope_mismatch_block,
     resolve_authority_cwd,
@@ -46,20 +44,15 @@ from yoke_core.domain.lint_session_cwd_validate import (
     ValidationVerdict,
     validate_targets,
 )
-from yoke_core.domain.session_ambient_identity import (
-    resolve_ambient_session_id,
-    session_id_from_hook_payload,
-)
+from yoke_core.domain.session_ambient_identity import session_id_from_hook_payload
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
+from yoke_contracts.hook_runner.client_facts import yoke_source_root
 from yoke_contracts.hook_runner.session_cwd import (
     client_claude_job_tmp,
     client_machine_home,
     client_scratch_root,
 )
-
-
-_ORIENTATION_EVENTS = frozenset({"SessionStart", "UserPromptSubmit"})
 
 
 @dataclass(frozen=True)
@@ -79,14 +72,6 @@ class Verdict:
     suppression_attempted: bool = False
     occupant: Optional[LaneOccupant] = None
     authority_reason: str = ""
-
-
-@dataclass(frozen=True)
-class OrientationBlock:
-    """Markdown block surfaced at the top of the orientation render."""
-
-    heading: str
-    body: str
 
 
 def _open_conn():
@@ -117,6 +102,7 @@ def evaluate_pre_tool_use(
             ),
             failure_class=IDENTITY_FAILURE_CLASS,
         )
+    yoke_root = yoke_source_root(payload)
     path_uses = extract_payload_path_uses(payload, machine_home=machine_home)
     targets = [use.path for use in path_uses if use.role != PathRole.REMOTE]
     command = extract_payload_command(payload)
@@ -136,6 +122,7 @@ def evaluate_pre_tool_use(
                 command=command,
                 tool_name=tool_name,
                 path_uses=path_uses,
+                yoke_root=yoke_root,
             )
     except Exception as exc:
         emit_fail_open(
@@ -179,6 +166,7 @@ def evaluate_pre_tool_use(
         command=command,
         read_only=not write_operation,
         machine_home=machine_home,
+        yoke_root=yoke_root,
     )
     return Verdict(
         allow=False,
@@ -193,43 +181,6 @@ def evaluate_pre_tool_use(
     )
 
 
-def evaluate_orientation(
-    session: Optional[Mapping[str, Any]] = None,
-    item: Optional[Mapping[str, Any]] = None,
-    *,
-    cwd: Optional[str] = None,
-) -> Optional[OrientationBlock]:
-    """Warn when the orientation cwd is outside the session's claims."""
-    actual_cwd = cwd if cwd is not None else os.getcwd()
-    session_id = ""
-    if session is not None:
-        raw = session.get("session_id")
-        if isinstance(raw, str):
-            session_id = raw
-    if not session_id:
-        session_id = resolve_ambient_session_id() or ""
-    if not session_id:
-        return None
-    try:
-        with _open_conn() as conn:
-            outcome = validate_targets(
-                conn,
-                session_id=session_id,
-                targets=(),
-                fallback_cwd=actual_cwd,
-            )
-    except Exception:
-        return None
-    if outcome.allow:
-        return None
-    body = build_scope_mismatch_block(
-        offending_target=outcome.offending_target,
-        claims=outcome.claims,
-        repo_roots=outcome.repo_roots,
-    )
-    return OrientationBlock(heading=ORIENTATION_HEADING, body=body)
-
-
 def _build_deny_response(reason: str) -> dict:
     return {
         "hookSpecificOutput": {
@@ -241,17 +192,15 @@ def _build_deny_response(reason: str) -> dict:
 
 
 def evaluate(record: HookContext) -> HookDecision:
+    """Typed entry; every machine-local root comes from a client fact."""
     payload = record.payload if isinstance(record.payload, dict) else {}
-    job_dir = "" if record.remote else os.environ.get("CLAUDE_JOB_DIR", "")
     if record.event_name == "PreToolUse":
         try:
             verdict = evaluate_pre_tool_use(
                 payload,
-                watcher_capture_root=(
-                    client_scratch_root(payload) if record.remote else ""
-                ),
-                claude_job_tmp_root=client_claude_job_tmp(payload, job_dir=job_dir),
-                machine_home=client_machine_home(payload) if record.remote else None,
+                watcher_capture_root=client_scratch_root(payload),
+                claude_job_tmp_root=client_claude_job_tmp(payload),
+                machine_home=client_machine_home(payload),
             )
         except Exception as exc:
             emit_fail_open(
@@ -270,19 +219,6 @@ def evaluate(record: HookContext) -> HookDecision:
             block=True,
             next=Next.STOP,
             audit_fields=audit_fields,
-        )
-    if record.event_name in _ORIENTATION_EVENTS:
-        try:
-            block = evaluate_orientation(cwd=record.cwd)
-        except Exception:
-            return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-        if block is None:
-            return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-        return HookDecision(
-            outcome=Outcome.WARN,
-            message=block.body,
-            audit_fields={"heading": block.heading},
-            next=Next.CONTINUE,
         )
     return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
 
@@ -316,13 +252,10 @@ def main() -> int:
 
 
 __all__ = [
-    "ORIENTATION_HEADING",
-    "OrientationBlock",
     "SCOPE_MISMATCH_TEMPLATE",
     "Verdict",
     "build_scope_mismatch_block",
     "evaluate",
-    "evaluate_orientation",
     "evaluate_pre_tool_use",
     "main",
 ]

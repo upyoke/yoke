@@ -2,7 +2,6 @@
  "id": "frontier",
  "title": "Reading the frontier",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.28"],
  "commands": ["yoke board", "yoke board data get", "yoke board rebuild", "yoke frontier list", "yoke overview activation get"],
  "functions": ["board.data.get", "board.rebuild.run", "frontier.list", "overview.activation.get", "overview.module.dismiss", "overview.module.restore", "overview.vitals.get"],
  "page": "frontier",

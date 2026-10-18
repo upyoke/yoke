@@ -24,6 +24,7 @@ from yoke_core.domain.deployment_run_driver_notice import (
     push_run_scoped_notice,
 )
 from yoke_core.domain.merge_queue_landing_notice import HOLDER, push_notice
+from yoke_core.domain.qa_host_health import HOST_WAIT_TEACHING
 
 #: Identity every item-scoped and run-scoped QA wait notice shares, so a
 #: later reader can find every still-pending wait without parsing bodies.
@@ -134,8 +135,8 @@ def stage_wait_message(
         "Omitting them materializes requirements this stage never counts, so "
         "the verdict would discharge nothing. The stage binds the run's own "
         "deployed target, so a plan authored before this release still "
-        f"verifies it. Check 'yoke deployment-runs get {run_id}' for the "
-        "current state."
+        f"verifies it. {HOST_WAIT_TEACHING} Check 'yoke deployment-runs get "
+        f"{run_id}' for the current state."
     )
 
 
@@ -165,7 +166,8 @@ def run_stage_wait_message(
         "the stage, which is what this stage credits: 'yoke watch qa-plan -- "
         f"--deployment-run-id {run_id} --stage {stage_name}"
         f"{_plan_selection(names_cases)} "
-        f"--project PROJECT'. Then re-drive the same run. Check "
+        f"--project PROJECT'. {HOST_WAIT_TEACHING} Then re-drive the same "
+        "run. Check "
         f"'yoke deployment-runs get {run_id}' for the current state."
     )
 

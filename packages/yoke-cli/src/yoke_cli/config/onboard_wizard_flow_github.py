@@ -108,6 +108,8 @@ class MachineGithubFlow:
                 "Refreshing the saved authorization."
                 if reuse
                 else "Opening your browser… Copy the one-time code with Ctrl-Y."
+                if getattr(self, "opens_browser", True)
+                else "Preparing a browser approval link for the person."
             ),
             detail_lines=[
                 "Authorization happens in GitHub; Yoke never asks you to paste a GitHub secret."
@@ -169,10 +171,13 @@ class MachineGithubFlow:
     def _machine_github_success_view(self: _Shell):
         from yoke_cli.config.onboard_wizard_state import _View
 
-        return _View(_success_prompt(
-            getattr(self, "_github_success_report", {}),
-            show_details=getattr(self, "_github_success_details", False),
-        ), self._on_machine_github_success)
+        return _View(
+            _success_prompt(
+                getattr(self, "_github_success_report", {}),
+                show_details=getattr(self, "_github_success_details", False),
+            ),
+            self._on_machine_github_success,
+        )
 
     def _on_machine_github_success(self: _Shell, choice: str) -> None:
         if choice == "details":
@@ -213,11 +218,11 @@ class MachineGithubFlow:
                     key="github.machine_github_pending",
                     step=STEP_GITHUB,
                     title="GitHub App access needs repair."
-                        if repair
-                        else "GitHub authorization is waiting for App access.",
+                    if repair
+                    else "GitHub authorization is waiting for App access.",
                     message="The authorization is saved, but every App installation is suspended or missing required permissions."
-                        if repair
-                        else "The GitHub user is authorized, but no usable App installation is ready yet.",
+                    if repair
+                    else "The GitHub user is authorized, but no usable App installation is ready yet.",
                     detail_lines=tuple(details),
                     choices=tuple(steps.GITHUB_APP_PENDING_ROWS),
                     tone=TONE_ERROR,
@@ -250,10 +255,12 @@ class MachineGithubFlow:
                     step=STEP_GITHUB,
                     title="GitHub authorization was saved.",
                     message=issue,
-                    detail_lines=tuple([
-                        "Choose Check access to retry without repeating browser authorization.",
-                        "Reconnect only if GitHub reports that authorization was revoked.",
-                    ]),
+                    detail_lines=tuple(
+                        [
+                            "Choose Check access to retry without repeating browser authorization.",
+                            "Reconnect only if GitHub reports that authorization was revoked.",
+                        ]
+                    ),
                     choices=tuple(steps.GITHUB_APP_PENDING_ROWS),
                     tone=TONE_ERROR,
                 ),

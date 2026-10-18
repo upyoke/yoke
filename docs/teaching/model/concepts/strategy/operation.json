@@ -2,7 +2,6 @@
  "id": "operation",
  "title": "Strategy operation",
  "status": "draft-copy",
- "plan_refs": ["JOURNEYS.also-owned-here", "JOURNEYS.situation-11", "JOURNEYS.situation-15"],
  "surface_refs": ["project-hub"],
  "commands": ["yoke strategy checkpoint latest", "yoke strategy checkpoint record", "yoke strategy execution get", "yoke strategy execution link"],
  "functions": ["strategy.checkpoint.latest", "strategy.checkpoint.record", "strategy.execution.get", "strategy.execution.link"],

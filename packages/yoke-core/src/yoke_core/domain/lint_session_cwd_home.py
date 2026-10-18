@@ -20,6 +20,7 @@ _SANCTIONED_READ_DIR_SUFFIXES = (
     ".codex/skills",
     ".claude/plugins",
     ".yoke/browser-runtime",
+    ".yoke/playwright-cache",
     ".yoke/relay-instances",
     ".local/bin",
 )

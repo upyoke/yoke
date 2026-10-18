@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from runtime.api.turn_end_promised_work_test_support import _Conn
 from yoke_contracts.turn_end_evidence import TurnEndEvidence, UNAVAILABLE
 from yoke_core.domain import turn_end_promised_work_gate as gate
@@ -137,28 +139,28 @@ def test_unavailable_evidence_fails_open(monkeypatch) -> None:
     assert emitted == ["sess-1"]
 
 
-def test_remote_uses_payload_facts_only(monkeypatch) -> None:
-    seen: list[bool] = []
-
-    def _fake_read(path: str) -> str:
-        seen.append(True)
-        return path
-
-    monkeypatch.setattr(gate, "read_transcript_tail", _fake_read)
-    ctx = _ctx(
-        remote=True,
+@pytest.mark.parametrize("remote", [False, True])
+def test_evidence_comes_only_from_the_payload_fact(tmp_path, remote) -> None:
+    """The transcript lives on the client; the gate never reads it itself."""
+    transcript = tmp_path / "turn.jsonl"
+    transcript.write_text(
+        '{"role":"assistant","content":"Should I continue?"}\n', encoding="utf-8"
+    )
+    with_fact = _ctx(
+        remote=remote,
         payload={
-            "transcript_path": "/tmp/should-not-read.jsonl",
+            "transcript_path": str(transcript),
             "turn_end_evidence": {
                 "available": True,
                 "present": True,
-                "question": True,
+                "question": False,
             },
         },
     )
-    evidence = gate._evidence_for(ctx)
-    assert evidence.question is True
-    assert seen == []
+    assert gate._evidence_for(with_fact).question is False
+
+    without_fact = _ctx(remote=remote, payload={"transcript_path": str(transcript)})
+    assert gate._evidence_for(without_fact).available is False
 
 
 def test_emit_deferred_consumes_chain_pending_state(monkeypatch) -> None:

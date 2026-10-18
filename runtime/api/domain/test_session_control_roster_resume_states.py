@@ -42,7 +42,7 @@ def _conn() -> sqlite3.Connection:
             connected_until TEXT,
             state TEXT,
             surface_versions TEXT,
-            project_checkouts TEXT
+            project_checkouts TEXT, actor_id INTEGER
         );
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY,

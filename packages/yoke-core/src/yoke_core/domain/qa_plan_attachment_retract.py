@@ -170,6 +170,12 @@ def retract_plan_from_item(
             rationale=reason,
             source=source,
         )
+    if commit and retired:
+        from yoke_core.domain.deployment_member_close_out_retry import (
+            after_record_settled,
+        )
+
+        after_record_settled(conn, item_id=int(item_id))
     return {
         "retracted": True,
         "already_retracted": already_retracted,

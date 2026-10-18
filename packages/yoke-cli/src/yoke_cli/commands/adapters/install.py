@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 
 import argparse
-from yoke_cli.transport.human_values import write_local
+from yoke_cli.transport.human_values import write_human, write_local
 from typing import List
 
 from yoke_cli.commands._helpers import (
@@ -228,12 +228,17 @@ def _run(operation, *, json_mode: bool = False) -> int:
     if json_mode:
         print(json.dumps(result, indent=2))
     else:
-        write_local(result, sys.stdout)
+        write_local(result, sys.stdout, essential_writer=_write_harness_health)
     if publication_outcome.is_publication_pending(result):
         return PUBLICATION_PENDING_EXIT
     if result.get("outcome") == "partial":
         return 1
     return 0
+
+
+def _write_harness_health(result, stream) -> None:
+    if "harness_health" in result:
+        write_human({"harness_health": result["harness_health"]}, stream)
 
 
 def _project_install_domain():

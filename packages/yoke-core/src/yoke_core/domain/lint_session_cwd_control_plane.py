@@ -2,10 +2,10 @@
 
 Centralizes:
 
-* Resolution of the Yoke main repo root (the install location of the
-  Python module tree running this hook), so the lint can recognise its
-  own control plane without relying on the calling cwd or the claimed
-  project's repo path.
+* The Yoke control-plane carve-out for the Yoke source checkout the
+  client's own Yoke code runs from — reported by the client as
+  :data:`~yoke_contracts.hook_runner.client_facts.SOURCE_ROOT_KEY`, never
+  derived from the evaluating process, which may be another machine.
 * The bounded carve-out predicate that authorises reads under the
   Yoke control plane while keeping sibling-branch worktrees
   (``<yoke-root>/.worktrees/<other-branch>/...``) claim-gated.
@@ -26,10 +26,10 @@ from __future__ import annotations
 
 import os
 import shlex
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, List, Mapping, Optional, Sequence, Tuple
 
+from yoke_contracts.hook_runner.client_facts import yoke_source_root
 from yoke_core.domain.lint_session_cwd_host_command import (
     host_command_exemption_note,
 )
@@ -46,51 +46,7 @@ _YOKE_INTERNAL_MODULE_PREFIXES: Tuple[str, ...] = (
 )
 
 
-def yoke_main_root() -> Optional[str]:
-    """Return the Yoke main repo root, or ``None`` on resolution failure.
-
-    The location is derived from this module's own ``__file__`` so the
-    answer is independent of harness cwd, ``CLAUDE_PROJECT_DIR`` and
-    ``YOKE_ROOT``. A worktree-installed copy of the file is stripped
-    back to the main repo root via
-    :func:`yoke_core.domain.worktree_paths._strip_worktree_path`.
-    The result is cached for the process lifetime — the install root
-    cannot change while the interpreter runs.
-    """
-    return _cached_yoke_main_root()
-
-
-@lru_cache(maxsize=1)
-def _cached_yoke_main_root() -> Optional[str]:
-    try:
-        from yoke_core.domain.worktree_paths import _strip_worktree_path
-    except ImportError:
-        return None
-    try:
-        here = Path(__file__).resolve()
-    except OSError:
-        return None
-    try:
-        from yoke_core.api.repo_root import find_repo_root
-    except ImportError:
-        return None
-    try:
-        candidate = str(find_repo_root(here))
-    except Exception:
-        return None
-    try:
-        stripped = _strip_worktree_path(candidate)
-    except Exception:
-        return None
-    if not stripped:
-        return None
-    try:
-        return str(Path(stripped).resolve())
-    except OSError:
-        return stripped
-
-
-def is_under_yoke_control_plane(target: str) -> bool:
+def is_under_yoke_control_plane(target: str, yoke_root: str) -> bool:
     """Return ``True`` when ``target`` is under the Yoke main repo
     root AND not under that repo's ``.worktrees/`` subtree.
 
@@ -98,14 +54,10 @@ def is_under_yoke_control_plane(target: str) -> bool:
     own control-plane content (``runtime/``, ``data/``, ``docs/``,
     ``.agents/`` and the repo root files) qualifies.
     """
-    root = yoke_main_root()
-    if not root or not target:
+    if not yoke_root or not target:
         return False
-    try:
-        t = str(Path(target).resolve())
-        r = str(Path(root).resolve())
-    except OSError:
-        return False
+    t = os.path.normpath(target)
+    r = os.path.normpath(yoke_root)
     if t != r and not t.startswith(r + os.sep):
         return False
     worktrees_dir = str(Path(r) / ".worktrees")
@@ -114,7 +66,7 @@ def is_under_yoke_control_plane(target: str) -> bool:
     return True
 
 
-def extract_pythonpath_yoke_cwd_override(command: str) -> Optional[str]:
+def extract_pythonpath_yoke_cwd_override(command: str, yoke_root: str) -> Optional[str]:
     """Return the Yoke main root when ``command`` is a Yoke-internal
     Python invocation guarded by ``PYTHONPATH=<yoke-main-root>``.
 
@@ -131,11 +83,9 @@ def extract_pythonpath_yoke_cwd_override(command: str) -> Optional[str]:
     preserves the worktree-isolation invariant: arbitrary commands do
     not gain Yoke authority just because they prefix an env var.
     """
-    if not command:
+    if not command or not yoke_root:
         return None
-    root = yoke_main_root()
-    if not root:
-        return None
+    root = yoke_root
     try:
         tokens = shlex.split(command)
     except ValueError:
@@ -195,18 +145,12 @@ def _pythonpath_matches_yoke(value: str, yoke_root: str) -> bool:
     to the Yoke main root (or a subdirectory of it)."""
     if not value:
         return False
-    try:
-        resolved_root = str(Path(yoke_root).resolve())
-    except OSError:
-        return False
+    resolved_root = os.path.normpath(yoke_root)
     for entry in value.split(":"):
         candidate = entry.strip()
         if not candidate:
             continue
-        try:
-            resolved = str(Path(candidate).resolve())
-        except OSError:
-            continue
+        resolved = os.path.normpath(candidate)
         if resolved == resolved_root:
             return True
         if resolved.startswith(resolved_root + os.sep):
@@ -251,29 +195,26 @@ SCOPE_MISMATCH_TEMPLATE = (
 )
 
 
-ORIENTATION_HEADING = "## ⚠ session-claim-target-mismatch"
-
-
 def build_scope_mismatch_block(
     *,
     offending_target: str,
     claims: Sequence[ClaimedWorktree],
     repo_roots: Sequence[str],
     command: str = "",
+    yoke_root: str = "",
 ) -> str:
-    """Render the BLOCKED message body shared by deny + orientation.
+    """Render the BLOCKED message body for a scope-mismatch refusal.
 
     ``command`` is the Bash body the deny came from, when there is one.
     A refused ``yoke qa mission host-command`` call gets a closing
     clause naming the remote-argv exemption, so a caller whose remote
     paths were already exempted can see that the target above came from
-    the locally-running part of the call. The orientation path has no
-    command and renders the body unchanged.
+    the locally-running part of the call.
     """
     body = SCOPE_MISMATCH_TEMPLATE.format(
         target=offending_target,
         claims_block=render_claims_block(claims),
-        allowed_block=render_allowed_block(repo_roots),
+        allowed_block=render_allowed_block(repo_roots, yoke_root=yoke_root),
     )
     return body + host_command_exemption_note(command)
 
@@ -291,7 +232,7 @@ def render_claims_block(claims: Sequence[ClaimedWorktree]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_allowed_block(repo_roots: Sequence[str]) -> str:
+def render_allowed_block(repo_roots: Sequence[str], *, yoke_root: str = "") -> str:
     """Render the allowed-targets listing.
 
     Names every recorded **project** control plane (any checkout's repo
@@ -303,9 +244,8 @@ def render_allowed_block(repo_roots: Sequence[str]) -> str:
     if repo_roots:
         joined = ", ".join(repo_roots)
         lines.append(f"  - Any project control plane: {joined} (excluding .worktrees/)")
-    root = yoke_main_root()
-    if root and root not in repo_roots:
-        lines.append(f"  - Yoke control plane: {root} (excluding .worktrees/)")
+    if yoke_root and yoke_root not in repo_roots:
+        lines.append(f"  - Yoke control plane: {yoke_root} (excluding .worktrees/)")
     lines.append("  - Free paths: /tmp, /var/folders/...")
     return "\n".join(lines) + "\n"
 
@@ -327,14 +267,15 @@ def resolve_authority_cwd(payload: Mapping[str, Any]) -> str:
 
     command = extract_payload_command(payload) if isinstance(payload, Mapping) else ""
     if command:
-        override = extract_pythonpath_yoke_cwd_override(command)
+        override = extract_pythonpath_yoke_cwd_override(
+            command, yoke_source_root(payload)
+        )
         if override:
             return override
-    return resolve_payload_cwd(payload, fallback=os.getcwd())
+    return resolve_payload_cwd(payload)
 
 
 __all__ = [
-    "ORIENTATION_HEADING",
     "SCOPE_MISMATCH_TEMPLATE",
     "build_scope_mismatch_block",
     "extract_pythonpath_yoke_cwd_override",
@@ -342,5 +283,4 @@ __all__ = [
     "render_allowed_block",
     "render_claims_block",
     "resolve_authority_cwd",
-    "yoke_main_root",
 ]

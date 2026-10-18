@@ -60,6 +60,17 @@ class TestMachineFleetBusy(TestMachineCapabilityError):
         self.busy = tuple(busy)
 
 
+class TestMachineHostUnhealthy(TestMachineCapabilityError):
+    """Every eligible free machine last failed verification; plans queue."""
+
+    def __init__(self, health: dict[str, Any]) -> None:
+        from yoke_core.domain.qa_host_health import unhealthy_rationale
+
+        super().__init__(unhealthy_rationale(health))
+        self.machine = str(health["machine"])
+        self.health = health
+
+
 def _verification_by_machine(
     conn: Any,
     candidates: list[TestMachineContract],
@@ -125,8 +136,16 @@ def acquire_test_machine_admission(
     session_id: str,
     machine: str | None,
     select_any: bool,
+    healthy_only: bool = False,
 ) -> TestMachineAdmission:
-    """Acquire a named host, or the healthiest free host then stable name."""
+    """Acquire a named host, or the healthiest free host then stable name.
+
+    *healthy_only* is a scoped plan's admission: an unhealthy host is skipped
+    so its waiters stay queued until a verify or golden capture heals it.
+    Operator operations admit it, because they are what heals it.
+    """
+    from yoke_core.domain.qa_host_health import host_unhealthy
+
     automatic = machine is None and select_any
     if machine is not None or not select_any:
         candidates = [
@@ -146,9 +165,14 @@ def acquire_test_machine_admission(
         )
     )
     busy: list[BusyTestMachine] = []
+    unhealthy: list[dict[str, Any]] = []
     for candidate in candidates:
         name = candidate.settings["resource_name"]
         target = host_claim_target(name)
+        health = host_unhealthy(conn, name) if healthy_only else None
+        if health is not None:
+            unhealthy.append(health)
+            continue
         try:
             lease = acquire(
                 conn,
@@ -173,7 +197,9 @@ def acquire_test_machine_admission(
                 automatic=automatic,
             ),
         )
-    raise TestMachineFleetBusy(busy)
+    if busy or not unhealthy:
+        raise TestMachineFleetBusy(busy)
+    raise TestMachineHostUnhealthy(unhealthy[0])
 
 
 def acquire_test_machine(
@@ -199,6 +225,7 @@ __all__ = [
     "BusyTestMachine",
     "TestMachineAdmission",
     "TestMachineFleetBusy",
+    "TestMachineHostUnhealthy",
     "acquire_test_machine",
     "acquire_test_machine_admission",
 ]

@@ -119,7 +119,11 @@ def test_changed_custody_refuses_without_transferring(monkeypatch, change):
 
 
 def test_successor_capacity_does_not_return_to_prior_overloaded_model(monkeypatch):
-    from yoke_core.domain.session_recovery_facts import record_native_turn_end
+    from yoke_core.domain.session_recovery_facts import (
+        record_native_turn_end,
+        reserve_resume_attempt,
+        resume_episode_key,
+    )
 
     conn, launch = _successor(monkeypatch)
     transfer_capacity_claim(conn, launch=launch, session_id="successor", now=CURRENT)
@@ -137,6 +141,10 @@ def test_successor_capacity_does_not_return_to_prior_overloaded_model(monkeypatc
         },
         recorded_at=CURRENT,
     )
+    for _ in range(3):
+        reserve_resume_attempt(
+            conn, "successor", episode_key=resume_episode_key(None), budget=3
+        )
     conn.commit()
     result = relaunch_capacity_worker(conn, state=state(conn), now=CURRENT)
     assert result["status"] == "capacity_recovery_refused"

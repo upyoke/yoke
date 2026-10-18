@@ -34,7 +34,7 @@ def connected_relay_routes(
     """
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = conn.execute(
-        "SELECT machine_id,surface_versions,project_checkouts FROM session_relays "
+        "SELECT machine_id,actor_id,surface_versions,project_checkouts FROM session_relays "
         f"WHERE state IN ('active','idle') AND connected_until>{marker}",
         (instant_parameter(conn, utc_now() if now is None else as_utc(now)),),
     ).fetchall()
@@ -42,6 +42,7 @@ def connected_relay_routes(
     for row in rows:
         relays.setdefault(str(row["machine_id"]), []).append(
             {
+                "actor_id": row["actor_id"],
                 "surface_versions": _document(row["surface_versions"], {}),
                 "project_checkouts": _document(row["project_checkouts"], []),
             }
@@ -53,14 +54,18 @@ def surface_versions_for(
     routes: tuple[dict[str, Any], ...] | None,
     *,
     project_id: Any,
+    session_actor_id: int | None = None,
 ) -> dict[str, str]:
-    """Merge installed versions reported by relays serving this session's project."""
+    """Merge installed versions reported by relays serving this session's scope."""
     versions: dict[str, str] = {}
-    if project_id is None or not routes:
+    if not routes:
         return versions
     for route in routes:
         projects = route.get("project_checkouts")
-        if not isinstance(projects, list) or str(project_id) not in {
+        if project_id is None:
+            if session_actor_id is None or route.get("actor_id") != session_actor_id:
+                continue
+        elif not isinstance(projects, list) or str(project_id) not in {
             str(value) for value in projects
         }:
             continue
@@ -75,11 +80,13 @@ def machine_surface_versions(
     *,
     machine_id: Any,
     project_id: Any,
+    session_actor_id: int | None = None,
 ) -> dict[str, str]:
-    """Return the versions one session's machine reports for its own project."""
+    """Return the versions one session's machine reports for its own scope."""
     return surface_versions_for(
         routes.get(str(machine_id or "")),
         project_id=project_id,
+        session_actor_id=session_actor_id,
     )
 
 

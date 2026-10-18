@@ -5,6 +5,5 @@
  "form": "Do",
  "verification": "Desired outline; exact recipe and live delivery still need proof.",
  "topics": ["context/instructions", "agents/roles"],
- "plan_refs": ["FIRST-USER.0", "FIRST-USER.40", "FIRST-USER.43"],
  "position": 4
 }

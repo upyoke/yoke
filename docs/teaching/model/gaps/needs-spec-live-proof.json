@@ -3,7 +3,6 @@
  "title": "Verify deployed spec-required creation and Needs a spec",
  "status": "observed",
  "text": "Candidate source tests prove every create path refuses a missing or title-only spec with spec_required, the frontier holds title-only leftovers with needs_spec, the board labels them Needs a spec and doctor HC-items-needing-spec lists them. Release-bound proof must confirm the serving create refuses title-only filing and a live leftover shows Needs a spec on the board.",
- "plan_refs": ["FIRST-USER.28"],
  "work_items": ["YOK-3956"],
  "sources": ["runtime/api/test_item_spec_required.py", "runtime/api/universe_ui_item_status_pill.test.mjs"]
 }

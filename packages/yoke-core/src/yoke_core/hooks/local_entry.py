@@ -17,10 +17,9 @@ from yoke_core.hooks.capability_resolve import resolve_capability
 from yoke_core.hooks.remote_policy import RunControls
 from yoke_core.hooks.runner import run_event
 from yoke_core.hooks.session_model_attestation_write import confirmed_served_model
-from yoke_harness.hooks.cursor_lifecycle_hooks import (
-    ensure_user_lifecycle_hooks_for_executor,
-)
+from yoke_harness.hooks.machine_hooks import ensure_machine_hooks_for_executor
 from yoke_contracts.executor_labels import canonical_harness_id
+from yoke_harness.hooks.client_facts import collect_client_facts, event_chain
 from yoke_harness.hooks.decision_render import merge_allow_stdout, write_hook_output
 from yoke_harness.hooks.identity import detect_executor, is_cursor
 from yoke_harness.hooks.identity_relay import (
@@ -51,7 +50,7 @@ def evaluate_local_hook(
     stdin_data, launch_projection = stamp_hook_input(
         payload, stdin_data, executor, event_name
     )
-    ensure_user_lifecycle_hooks_for_executor(executor)
+    ensure_machine_hooks_for_executor(executor, hook=event_name)
     capture_codex_session(event_name, original_stdin, executor)
 
     project_scope = resolve_hook_project_scope(payload)
@@ -62,6 +61,14 @@ def evaluate_local_hook(
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     if agent_type:
         payload_extra["agent_type"] = agent_type
+    # The same client facts an HTTPS relay ships in its request, so every
+    # fact-fed policy decides from identical evidence in both modes.
+    stamped = parse_hook_payload(stdin_data)
+    try:
+        chain = event_chain(event_name, stamped, project_scope)
+    except (ValueError, OSError, RuntimeError):
+        chain = []  # run_event refuses the unresolvable scope by name
+    payload_extra.update(collect_client_facts(event_name, stamped, executor, chain))
     if extra_context:
         from yoke_core.domain.session_orientation import (
             CLIENT_ORIENTATION_PRESENT_KEY,

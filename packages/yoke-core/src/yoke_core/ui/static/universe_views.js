@@ -1,63 +1,48 @@
+import { deferredRenderer } from "./universe_view_loader.js";
 // Read-only function-backed workbench views; the app shell owns routing and
 // universe_view_support.js owns presentation primitives.
 
-import {
-  renderArchitectureView,
-} from "./universe_views_architecture.js";
-import {
-  renderCapabilitiesView,
-  renderCapabilityDetail,
-} from "./universe_views_capabilities.js";
-import { renderDeploymentsView } from "./universe_views_delivery.js";
-import { renderFrontierView } from "./universe_views_frontier.js";
-import { renderShippingView } from "./universe_views_shipping.js";
-import {
-  renderDeliveryDatabasesView,
-  renderDeliveryEnvironmentsView,
-} from "./universe_views_delivery_inventory.js";
-import { renderDoctorView } from "./universe_views_doctor.js";
-import { renderEventsView } from "./universe_views_events.js";
-import { renderPerformanceView } from "./universe_views_performance.js";
-import { renderGithubView } from "./universe_views_github.js";
-import { renderInboxView } from "./universe_views_inbox.js";
-import { renderRunDetailView } from "./universe_views_run_detail.js";
-import {
-  renderItemDetailView,
-  renderItemsView,
-} from "./universe_views_items.js";
-import { renderOrganizationView } from "./universe_views_organization.js";
-import { renderLevelsView } from "./universe_views_levels.js";
-import { renderTeamView } from "./universe_views_team.js";
-import { renderProfileView } from "./universe_views_profile.js";
-import {
-  renderOuroborosEntryDetailView,
-  renderOuroborosView,
-} from "./universe_views_ouroboros.js";
-import { renderPacksView } from "./universe_views_packs.js";
-import {
-  renderProjectsView,
-  renderProjectView,
-} from "./universe_views_projects.js";
-import {
-  renderQaActivity,
-  renderQaCaseDetail,
-  renderQaMethodDetail,
-  renderQaMethods,
-  renderQaPlanDetail,
-  renderQaPlans,
-} from "./universe_views_qa.js";
-import { renderSessionsView } from "./universe_views_sessions.js";
-import { renderSessionMessagesView } from "./universe_session_messages.js";
-import { renderRegisteredSessionDetail } from "./universe_session_detail.js";
-import { renderMachineApproval } from "./machine_approval.js";
-import { renderMachinesView } from "./universe_views_machines.js";
-import { renderSessionLaunchesView } from "./universe_session_launches.js";
-import { renderMachineDetail } from "./universe_machine_detail.js";
-import {
-  renderStrategyDocDetailView,
-  renderStrategyView,
-} from "./universe_views_strategy.js";
-import { renderWorkflowsView } from "./universe_views_workflows.js";
+const renderArchitectureView = deferredRenderer(() => import("./universe_views_architecture.js"), "renderArchitectureView");
+const renderCapabilitiesView = deferredRenderer(() => import("./universe_views_capabilities.js"), "renderCapabilitiesView");
+const renderCapabilityDetail = deferredRenderer(() => import("./universe_views_capabilities.js"), "renderCapabilityDetail");
+const renderDeploymentsView = deferredRenderer(() => import("./universe_views_delivery.js"), "renderDeploymentsView");
+const renderFrontierView = deferredRenderer(() => import("./universe_views_frontier.js"), "renderFrontierView");
+const renderShippingView = deferredRenderer(() => import("./universe_views_shipping.js"), "renderShippingView");
+const renderDeliveryDatabasesView = deferredRenderer(() => import("./universe_views_delivery_inventory.js"), "renderDeliveryDatabasesView");
+const renderDeliveryEnvironmentsView = deferredRenderer(() => import("./universe_views_delivery_inventory.js"), "renderDeliveryEnvironmentsView");
+const renderDoctorView = deferredRenderer(() => import("./universe_views_doctor.js"), "renderDoctorView");
+const renderEventsView = deferredRenderer(() => import("./universe_views_events.js"), "renderEventsView");
+const renderPerformanceView = deferredRenderer(() => import("./universe_views_performance.js"), "renderPerformanceView");
+const renderGithubView = deferredRenderer(() => import("./universe_views_github.js"), "renderGithubView");
+const renderInboxView = deferredRenderer(() => import("./universe_views_inbox.js"), "renderInboxView");
+const renderRunDetailView = deferredRenderer(() => import("./universe_views_run_detail.js"), "renderRunDetailView");
+const renderItemDetailView = deferredRenderer(() => import("./universe_views_items.js"), "renderItemDetailView");
+const renderItemsView = deferredRenderer(() => import("./universe_views_items.js"), "renderItemsView");
+const renderOrganizationView = deferredRenderer(() => import("./universe_views_organization.js"), "renderOrganizationView");
+const renderLevelsView = deferredRenderer(() => import("./universe_views_levels.js"), "renderLevelsView");
+const renderTeamView = deferredRenderer(() => import("./universe_views_team.js"), "renderTeamView");
+const renderProfileView = deferredRenderer(() => import("./universe_views_profile.js"), "renderProfileView");
+const renderOuroborosEntryDetailView = deferredRenderer(() => import("./universe_views_ouroboros.js"), "renderOuroborosEntryDetailView");
+const renderOuroborosView = deferredRenderer(() => import("./universe_views_ouroboros.js"), "renderOuroborosView");
+const renderPacksView = deferredRenderer(() => import("./universe_views_packs.js"), "renderPacksView");
+const renderProjectsView = deferredRenderer(() => import("./universe_views_projects.js"), "renderProjectsView");
+const renderProjectView = deferredRenderer(() => import("./universe_views_projects.js"), "renderProjectView");
+const renderQaActivity = deferredRenderer(() => import("./universe_views_qa.js"), "renderQaActivity");
+const renderQaCaseDetail = deferredRenderer(() => import("./universe_views_qa.js"), "renderQaCaseDetail");
+const renderQaMethodDetail = deferredRenderer(() => import("./universe_views_qa.js"), "renderQaMethodDetail");
+const renderQaMethods = deferredRenderer(() => import("./universe_views_qa.js"), "renderQaMethods");
+const renderQaPlanDetail = deferredRenderer(() => import("./universe_views_qa.js"), "renderQaPlanDetail");
+const renderQaPlans = deferredRenderer(() => import("./universe_views_qa.js"), "renderQaPlans");
+const renderSessionsView = deferredRenderer(() => import("./universe_views_sessions.js"), "renderSessionsView");
+const renderSessionMessagesView = deferredRenderer(() => import("./universe_session_messages.js"), "renderSessionMessagesView");
+const renderRegisteredSessionDetail = deferredRenderer(() => import("./universe_session_detail.js"), "renderRegisteredSessionDetail");
+const renderMachineApproval = deferredRenderer(() => import("./machine_approval.js"), "renderMachineApproval");
+const renderMachinesView = deferredRenderer(() => import("./universe_views_machines.js"), "renderMachinesView");
+const renderSessionLaunchesView = deferredRenderer(() => import("./universe_session_launches.js"), "renderSessionLaunchesView");
+const renderMachineDetail = deferredRenderer(() => import("./universe_machine_detail.js"), "renderMachineDetail");
+const renderStrategyDocDetailView = deferredRenderer(() => import("./universe_views_strategy.js"), "renderStrategyDocDetailView");
+const renderStrategyView = deferredRenderer(() => import("./universe_views_strategy.js"), "renderStrategyView");
+const renderWorkflowsView = deferredRenderer(() => import("./universe_views_workflows.js"), "renderWorkflowsView");
 
 export { section } from "./universe_view_support.js";
 

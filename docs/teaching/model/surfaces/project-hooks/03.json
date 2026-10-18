@@ -5,6 +5,5 @@
  "form": "State",
  "verification": "No delivery proof attached.",
  "topics": ["planning/dependencies", "sessions/ownership", "messaging/messages", "approvals/requests"],
- "plan_refs": ["FIRST-USER.P2", "FIRST-USER.P3", "FIRST-USER.29"],
  "position": 2
 }

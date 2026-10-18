@@ -20,12 +20,12 @@ from __future__ import annotations
 
 import json
 import os
-import fcntl
 from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional
 
+from yoke_contracts import platform_file_lock
 from yoke_contracts.machine_config.runtime import yoke_home
 
 LEDGER_NAME = "harness-settings-written.json"
@@ -112,7 +112,7 @@ def mutation():
     path = ledger_path()
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     with path.with_suffix(".lock").open("a") as lock:
-        fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        platform_file_lock.acquire_exclusive_nonblocking(lock.fileno())
         entries = read()
         before = deepcopy(entries)
         yield entries

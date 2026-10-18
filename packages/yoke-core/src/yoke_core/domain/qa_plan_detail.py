@@ -6,6 +6,7 @@ from typing import Any
 from yoke_contracts.timestamps import format_instant
 
 from yoke_contracts.qa_case_starting_state import stored_fan_out
+from yoke_contracts.qa_case_wake_path import stored_wake_path
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.qa_catalog_reads import (
     PLAN_WITH_TARGET_ENVIRONMENT_SELECT,
@@ -128,6 +129,8 @@ def get_plan(
             "stage_reason": case.get("stage_reason"),
             "entry_surface": case["entry_surface"],
             "required_completion": case["required_completion"],
+            "wake_path": stored_wake_path(case.get("wake_path")),
+            "wake_evidence": case.get("wake_evidence"),
             "proofs": case_proofs,
         }
         if fan_out == [None] and len(case_proofs) == 1:
@@ -160,6 +163,8 @@ def get_plan(
         "retired_at": format_instant(row["retired_at"])
         if row["retired_at"] is not None
         else None,
+        "retirement_reason": row.get("retirement_reason"),
+        "retired_by_actor_id": row.get("retired_by_actor_id"),
         "deployment_run_id": deployment_run_id,
         "target_environment": row["target_environment"],
         "execution_target": execution_target,

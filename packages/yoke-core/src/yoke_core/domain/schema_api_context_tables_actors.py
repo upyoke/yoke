@@ -15,6 +15,9 @@ ACTOR_TABLES: dict[str, dict] = {
             ("attribution", "TEXT"),
         ],
         "notes": (
+            "Fixture setup calls schema_init_actor_path_claim_tables."
+            "create_actor_identity_tables before auth_schema.create_auth_tables; "
+            "auth tables alone do not create actors (wrong assumption). "
             "Actor identity referenced by work_claims.actor_id, "
             "attribution stores verified attribution-cookie visitor_id, first_touch "
             "and last_touch JSON on actor creation; never from events or later sign-ins. "

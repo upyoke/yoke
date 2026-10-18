@@ -43,7 +43,11 @@ build without this field refuses before writing and names the required release.
 Frozen deployment snapshots retain source provenance. A stage materializes its
 frozen definitions even after the saved plan changes; a selected or refreshed
 source not carried by the run's candidate refuses `qa_plan_source_candidate_mismatch`.
-Sync definitions from that candidate or an ancestor, or deliver the newer source.
+Release a candidate carrying the newer source, or use a run-bound correction.
+A sync moves only forward: its revision must equal or descend from the plan's
+recorded revision. An older revision refuses `qa_plan_source_revision_regression`
+and an unprovable recorded revision refuses `qa_plan_source_ancestry_unverified`;
+both name the two revisions and write nothing. Export from current main and sync again.
 
 Standalone project QA uses `qa.plan_execution.begin` with a project-scoped
 `global` target and payload `plan`, optional `source_revision`, `source_ref`,
@@ -106,6 +110,50 @@ cases. Use each item requirement or matching deployment QA stage to collect
 those separate proofs; a standalone plan run never completes an item gate.
 
 
+## Cases that wait for real traffic
+
+Some checks can only be judged once real production traffic has happened after
+a deploy, such as "a real failed direct wake that a relay then claimed". Run at
+stage entry, they fail or prove nothing. Give such a case
+`"wake_path": "manual"` and a one-line `wake_evidence`:
+
+```json
+{"case_key": "relay-claim-observation", "method_id": "exploratory-mission", "wake_path": "manual", "wake_evidence": "a session wake that failed directly and a relay then claimed exists after this release"}
+```
+
+| `wake_path` | Starts |
+|---|---|
+| `automatic` (default) | When its stage begins: the stage driver wakes the member's owner |
+| `manual` | Once its owner confirms `wake_evidence`: the stage driver wakes the owner to check it |
+
+Write `wake_evidence` as the evidence itself, as something a registered read
+can confirm (`yoke deployment-runs get`, `yoke db read`, `yoke qa requirement
+list`), not as a time or a hope. Method, runner and verdict path are
+unchanged, and the case stays blocking until it is settled, waived or removed.
+`manual` without evidence refuses `wake_evidence_required`; evidence on an
+automatic case refuses `wake_evidence_without_manual_wake`; an unknown path
+refuses `wake_path_invalid`; more than one line or 300 characters refuses
+`wake_evidence_not_one_line`.
+
+While one of a member's manual cases is open, the stage driver sends its
+owner one notice per open manual case instead of the ordinary stage wake,
+because one stage execution runs the member's whole roster. The notice names
+the evidence: check it with a registered read, run the member's cases if it
+exists, otherwise ask the operator through `yoke say --steering` to waive or
+remove the case. A parked holder is woken; a member with no live holder
+reaches the project's steering seat. The steering fleet report lists each open
+one under "waiting on manual wake" with its run, item, requirement, case,
+evidence, owner and run command. To mark an already materialized requirement,
+set the evidence first, then the path:
+
+```text
+yoke qa requirement update --requirement-id N --field wake_evidence --value '<evidence>'
+yoke qa requirement update --requirement-id N --field wake_path --value manual
+```
+
+The write reaches only that row. Correct the plan case as well, so later
+materializations carry it.
+
 ## Recover a lost check-in response
 
 ```text
@@ -140,3 +188,45 @@ Pause/resume needs a serving release carrying `qa.plan_execution.pause` and
 `qa.plan_execution.resume`; a serving-floor refusal names the control-plane
 operator who must supply it. Older heartbeat responses may contain a full
 resume contract; the client needs only the accepted check-in receipt.
+
+## Retire a plan
+
+```text
+yoke qa plan retire PLAN --project P --reason "why the plan is retired"
+```
+
+Retire a plan when it should stop answering new work: its cases are wrong or
+unrunnable and no item still needs it. Run the command from a session holding
+a live steering seat covering the plan's project; any other caller refuses with
+`steering_seat_required` and the seat recipe. `PLAN` is the slug or numeric id.
+
+Retirement records `retired_at`, the reason and the acting actor on the plan.
+The plan stays readable: `yoke qa plan get PLAN --project P` shows the
+retirement (a case whose recorded correction history is broken shows outcome
+`replacement_graph_invalid` with its named repair, retired or not), and
+`yoke qa plan list --project P --include-retired` lists retired
+plans beside active ones. Recorded requirements, runs and reviews keep their
+evidence. From then on the plan refuses edits and materialization. There is no
+un-retire; author a corrected plan with `yoke qa plan create`.
+
+While anything still depends on the plan, retirement refuses with
+`qa_plan_retire_dependents` and names each dependent with the command that
+settles it:
+
+| Dependent | Settle it with |
+|---|---|
+| Unsettled item requirement, not yet executed | `yoke qa item-plan retract` |
+| Unsettled requirement with a failed or missing latest attempt | `yoke qa requirement waive` or `supersede` |
+| In-flight execution whose roster reaches the plan | let it finish, or `yoke qa plan abort` |
+| Project default that attaches the plan to new items | `yoke qa project-default unset` |
+
+A requirement whose newest attempt passed does not hold the plan, and neither
+does a copy on a finished item: nothing can run it again, and a finished item
+cannot be claimed to retract it. Retirement retracts those unexecuted copies,
+and the attachment behind them, in the same transaction with the rationale
+`QA plan retired: <reason>`, and returns their ids in
+`retracted_requirement_ids`. Executed copies stay as recorded history. Repeating
+retirement on a retired plan returns the recorded retirement unchanged with
+`already_retired: true`, so a retry after a lost reply is safe. The command
+needs a serving release carrying `qa.plan.retire`; an older server refuses with
+the serving floor named.

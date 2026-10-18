@@ -58,22 +58,29 @@ def wake_work_pending(
     machine_id: str,
     project_ids: Sequence[int],
     now: datetime | str,
+    relay_actor_id: int | None = None,
 ) -> bool:
     """True when this machine still has a wake-eligible receipt waiting.
 
     ``project_ids`` is the polling relay's own declared set, so a machine is
-    only ever pulled back for work it is allowed to execute. An empty set can
-    have nothing waiting for it and answers ``False`` without a query.
+    only pulled back for advertised projects or its own actor's org sessions
+    on this machine. Without projects or an actor there is no eligible scope.
     """
     projects = tuple(sorted({int(value) for value in project_ids}))
-    if not projects or not str(machine_id or "").strip():
+    if (not projects and relay_actor_id is None) or not str(machine_id or "").strip():
         return False
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     placeholders = ",".join(marker for _ in projects)
+    scopes = [f"r.project_id IN ({placeholders})"] if projects else []
+    scope_params: list[Any] = list(projects)
+    if relay_actor_id is not None:
+        scopes.append(f"(r.org_id IS NOT NULL AND hs.actor_id={marker})")
+        scope_params.append(relay_actor_id)
     row = conn.execute(
         "SELECT 1 FROM session_message_recipients r "
         "JOIN session_messages m ON m.message_id=r.message_id "
-        f"WHERE r.machine_id={marker} AND r.project_id IN ({placeholders}) "
+        "JOIN harness_sessions hs ON hs.session_id=r.session_id "
+        f"WHERE r.machine_id={marker} AND ({' OR '.join(scopes)}) "
         "AND r.state='pending' AND m.cancelled_at IS NULL "
         f"AND r.wake_after<={marker} AND m.expires_at>{marker} "
         "AND (r.injection_lease_id IS NULL OR ("
@@ -86,7 +93,7 @@ def wake_work_pending(
         "AND a.completed_at IS NULL) LIMIT 1",
         (
             machine_id,
-            *projects,
+            *scope_params,
             instant_parameter(conn, parse_instant(now)),
             instant_parameter(conn, parse_instant(now)),
             instant_parameter(conn, parse_instant(now)),

@@ -12,6 +12,7 @@ from yoke_core.domain.deployment_run_create_idempotency import (
     KEY_INDEX_SQL,
     REQUEST_COLUMN,
 )
+from yoke_core.domain.deployment_run_timings import DEPLOYMENT_RUN_TIMINGS_SQL
 from yoke_core.domain.deployment_stage_receipts import (
     DEPLOYMENT_STAGE_RECEIPTS_SQL,
 )
@@ -58,6 +59,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 membership_removals TEXT,
                 superseded_by_run_id TEXT,
                 supersedes_run_id TEXT,
+                created_by_session_id TEXT,
                 CONSTRAINT deployment_runs_target_tier_vocabulary
                     CHECK (target_tier IS NULL
                            OR target_tier IN ('persistent','ephemeral')),
@@ -108,6 +110,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
             )
             """,
             DEPLOYMENT_STAGE_RECEIPTS_SQL,
+            DEPLOYMENT_RUN_TIMINGS_SQL,
         ):
             conn.execute(statement)
         for column in (
@@ -122,6 +125,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
             "membership_removals",
             "superseded_by_run_id",
             "supersedes_run_id",
+            "created_by_session_id",
             KEY_COLUMN,
             REQUEST_COLUMN,
         ):

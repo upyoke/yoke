@@ -5,6 +5,5 @@
  "form": "Do",
  "verification": "Expanded installer mission requires this observation; template and configuration do not establish live proof.",
  "topics": ["projects/adoption", "projects/onboarding", "strategy/corpus", "sessions/identity"],
- "plan_refs": ["FIRST-USER.A", "FIRST-USER.C", "FIRST-USER.24", "FIRST-USER.26", "FIRST-USER.42"],
  "position": 5
 }

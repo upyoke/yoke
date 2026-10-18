@@ -10,7 +10,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 from yoke_contracts.hook_runner.command_extract import extract_command
-from yoke_contracts.hook_runner.main_commit import git_invocations as parse_git_invocations
+from yoke_contracts.hook_runner.main_commit import (
+    git_invocations as parse_git_invocations,
+)
 
 
 DENY = "deny"
@@ -115,48 +117,17 @@ def repo_cwd(payload: dict, repo_path: str = "") -> str:
     return os.path.abspath(repo_path) if repo_path else cwd_from_payload(payload)
 
 
-def branch(cwd: str) -> str:
-    result = git(cwd, "rev-parse", "--abbrev-ref", "HEAD")
-    return result.stdout.strip() if result and result.returncode == 0 else ""
-
-
-def staged(cwd: str) -> list[str]:
-    result = git(cwd, "diff", "--cached", "--name-only")
-    if not result or result.returncode != 0:
-        return []
-    return [line for line in result.stdout.splitlines() if line.strip()]
-
-
-def porcelain(cwd: str) -> tuple[list[str], list[str]]:
-    result = git(cwd, "status", "--porcelain", "--untracked-files=all")
-    if not result or result.returncode != 0:
-        return [], []
-    modified: list[str] = []
-    untracked: list[str] = []
-    for line in result.stdout.splitlines():
-        if len(line) < 4:
-            continue
-        if line[:2] == "??":
-            untracked.append(line[3:])
-        else:
-            modified.append(line[3:].split(" -> ")[-1])
-    return modified, untracked
-
-
 __all__ = [
     "ADVISORY",
     "DENY",
     "NOOP",
     "PolicyResult",
-    "branch",
     "command_from_payload",
     "cwd_from_payload",
     "git",
     "git_invocations",
-    "porcelain",
     "repo_cwd",
     "response_text",
-    "staged",
     "statements",
     "tool_name",
     "write_fields",

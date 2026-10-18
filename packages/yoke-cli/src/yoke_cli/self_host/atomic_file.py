@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import fcntl
 import os
 from pathlib import Path
 import stat
 import tempfile
+
+from yoke_contracts import platform_file_lock
 
 
 TEMPORARY_SUFFIX = ".tmp"
@@ -32,7 +33,7 @@ def atomic_replace_bytes(target: Path, payload: bytes, *, mode: int) -> Path:
             target,
             directory_descriptor=directory_descriptor,
         )
-        fcntl.flock(lock_descriptor, fcntl.LOCK_EX)
+        platform_file_lock.acquire_exclusive(lock_descriptor)
         _cleanup_orphaned_temporaries(
             target,
             directory_descriptor=directory_descriptor,

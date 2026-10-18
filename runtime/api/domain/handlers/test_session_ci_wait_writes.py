@@ -81,9 +81,7 @@ def test_resolve_marks_the_calling_session_wait_notified(
     waiting_connection,  # noqa: F811 - pytest fixture reuse of imported name
     monkeypatch,
 ) -> None:
-    monkeypatch.setattr(
-        writes, "_connect_rw", lambda: _ConnCM(waiting_connection)
-    )
+    monkeypatch.setattr(writes, "_connect_rw", lambda: _ConnCM(waiting_connection))
 
     outcome = writes.handle_resolve_ci_wait(_request())
 
@@ -92,3 +90,41 @@ def test_resolve_marks_the_calling_session_wait_notified(
     row = _wait_row(waiting_connection)
     assert row["conclusion"] == "success"
     assert row["notified_at"]
+
+
+def _record_request(session_id: str) -> FunctionCallRequest:
+    return FunctionCallRequest(
+        function="session_ci_wait.record",
+        actor=ActorContext(session_id=session_id),
+        target=TargetRef(kind="global"),
+        payload={"repo": "acme/widgets", "run_id": RUN_ID, "kind": "selection"},
+    )
+
+
+@pytest.mark.parametrize(
+    ("session_id", "code", "recovery"),
+    [
+        ("org-session", "session_outside_project", "opened in the project folder"),
+        ("missing-session", "session_not_found", "registered harness session"),
+    ],
+)
+def test_record_names_why_a_session_cannot_hold_a_ci_wait(
+    monkeypatch, session_id, code, recovery
+) -> None:
+    import sqlite3
+
+    conn = sqlite3.connect(":memory:")
+    conn.execute(
+        "CREATE TABLE harness_sessions (session_id TEXT PRIMARY KEY, "
+        "project_id INTEGER, org_id INTEGER)"
+    )
+    conn.execute("INSERT INTO harness_sessions VALUES ('org-session', NULL, 1)")
+    monkeypatch.setattr(writes, "_connect_rw", lambda: _ConnCM(conn))
+
+    outcome = writes.handle_record_ci_wait(_record_request(session_id))
+
+    assert outcome.primary_success is False
+    assert outcome.error is not None
+    assert outcome.error.code == code
+    assert recovery in outcome.error.message
+    assert "re-register" not in outcome.error.message

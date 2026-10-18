@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from yoke_cli.config import machine_config
+from yoke_contracts import owner_private_path
 from yoke_contracts.machine_config import schema as contract
 
 SECRET_ENV_KEYS = {"YOKE_PG_DSN"}
@@ -25,18 +26,23 @@ AMBIENT_ENV_KEYS = (
 def permission_issues(path: Path) -> list[dict[str, str]]:
     if not path.is_file():
         return []
-    stat = path.stat()
+    path_stat = path.stat()
     issues: list[dict[str, str]] = []
-    if stat.st_mode & 0o077:
+    if not owner_private_path.is_owner_private_file(path):
+        message = f"{path} must be owner-only"
+        hint = "Repair the file permissions so only your Windows account and administrators have access."
+        if os.name != "nt":
+            message += " (0600)"
+            hint = f"Run `chmod 600 {path}`."
         issues.append(
             {
                 "severity": "error",
                 "code": "config_permissions",
-                "message": f"{path} must be owner-only (0600)",
-                "hint": f"Run `chmod 600 {path}`.",
+                "message": message,
+                "hint": hint,
             }
         )
-    if hasattr(os, "getuid") and stat.st_uid != os.getuid():
+    if hasattr(os, "getuid") and path_stat.st_uid != os.getuid():
         issues.append(
             {
                 "severity": "error",

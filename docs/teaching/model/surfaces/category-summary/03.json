@@ -5,6 +5,5 @@
  "form": "Teach",
  "verification": "No delivery proof attached.",
  "topics": ["qa-methods/model", "qa-plans/plans", "qa-plans/cases", "qa-plans/requirements", "qa-evidence/runs"],
- "plan_refs": ["FIRST-USER.40"],
  "position": 2
 }

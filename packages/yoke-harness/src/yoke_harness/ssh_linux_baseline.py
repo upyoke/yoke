@@ -15,8 +15,13 @@ from yoke_harness.ssh_linux_reset_preconditions import (
     archive_admission,
 )
 from yoke_harness.ssh_linux_sign_in_stores import SIGN_IN_PROGRAM
+from yoke_harness.ssh_linux_preserved_entries import PRESERVED_HOME_PROGRAM
 from yoke_harness.ssh_linux_reset_services import YOKE_SERVICE_PATTERNS
 from yoke_harness.ssh_test_machine_transport import SSH_TIMEOUT_DIAGNOSTIC
+from yoke_harness.ssh_linux_golden_diagnostics import (
+    golden_timeout_result,
+    run_golden_command,
+)
 from yoke_harness.ssh_mac_baseline_probes import (
     parse_baseline_probes,
     run_baseline_probes,
@@ -51,8 +56,6 @@ stashes = []
 home = pathlib.Path(os.environ["HOME"])
 baseline = pathlib.Path(golden)
 absent = json.loads(sys.stdin.read())
-# Kept live through a reset and never captured: SSH access, and the live
-# browser identity store, whose restored copy would be rotated stale cookies.
 kept_live = (".ssh", __LIVE_IDENTITY_STORE__)
 def stream_sha256(stream):
     digest = hashlib.sha256()
@@ -65,6 +68,7 @@ def file_sha256(path):
 def refuse(reason, entry=None, recovery=None, **details):
     print(json.dumps({"ok": False, "reason": reason, "refused_entry": entry, **details, **({"recovery": recovery} if recovery else {})})); sys.exit(64)
 # RESET_PRECONDITION_FUNCTIONS
+# BROWSER_SIGN_IN_FUNCTIONS
 terminal_preferences_path = pathlib.Path(".config/xfce4/helpers.rc")
 def terminal_preference_lines():
     path = home
@@ -85,7 +89,7 @@ if not baseline.is_absolute() or baseline == home or home in baseline.parents:
 if baseline.is_symlink() or baseline.resolve() != baseline:
     refuse("golden_baseline_symlink_refused")
 def validate_archive(archive):
-    members = archive.getmembers()
+    members = [member for member in archive.getmembers() if not preserved_home_entry(member.name)]
     links = {pathlib.PurePosixPath(member.name) for member in members if member.issym()}
     for member in members:
         path = pathlib.PurePosixPath(member.name)
@@ -116,6 +120,7 @@ if operation == "capture":
     temporary = pathlib.Path(tempfile.mkdtemp(prefix=".yoke-golden-", dir=baseline.parent))
     try:
         def persistent_entry(member):
+            if preserved_home_entry(member.name): return None
             source = home / member.name
             if stat.S_ISSOCK(source.lstat().st_mode): return None
             if member.issym():
@@ -130,6 +135,7 @@ if operation == "capture":
             for entry in sorted(home.iterdir()):
                 if entry.name in kept_live: continue
                 for directory, subdirs, files in os.walk(entry, followlinks=False):
+                    subdirs[:] = [name for name in subdirs if not preserved_home_entry(str((pathlib.Path(directory) / name).relative_to(home)))]
                     for value in [directory, *[str(pathlib.Path(directory) / name) for name in subdirs + files]]:
                         if pathlib.Path(value).lstat().st_uid != os.getuid():
                             refuse("golden_capture_foreign_owner")
@@ -156,6 +162,7 @@ else:
         terminal_selection = [line for line in terminal_preference_lines() if selects_terminal(line)]
         stashes = stash_sign_ins(sign_in_plan)
         try:
+            stash_live_home_entries()
             try:
                 stop_desktop()
             except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
@@ -168,7 +175,7 @@ else:
                     else: entry.unlink()
                 except OSError:
                     refuse("linux_golden_home_clear_failed", entry.name)
-            archive.extractall(home, filter="fully_trusted")
+            archive.extractall(home, members=members, filter="fully_trusted")
             for member in members:
                 restored = home / member.name
                 if member.isfile():
@@ -180,6 +187,7 @@ else:
         except (OSError, tarfile.TarError):
             refuse("linux_golden_restore_failed", recovery="Repair the sealed archive or destination permissions, then retry; never capture the mixed home.")
         finally:
+            restore_live_home_entries()
             restore_sign_ins(stashes)
     if terminal_selection:
         lines = [line for line in terminal_preference_lines() if not selects_terminal(line)]
@@ -192,12 +200,13 @@ else:
     for value in absent:
         if (home / value).exists() or (home / value).is_symlink(): refuse("reset_absence_not_proved")
 print(json.dumps({"ok":True, "operation":operation, "golden_baseline_path":str(baseline),
-                  "preserved_entries":[".ssh"] + [stash[0] for stash in stashes] + [name for name in kept_live[1:] if (home / name).is_dir()], "absent_paths":absent if operation == "reset" else [],
+                  "preserved_entries":[".ssh"] + [stash[0] for stash in stashes] + [name for name in (*kept_live[1:], *live_home_entries) if (home / name).exists()], "absent_paths":absent if operation == "reset" else [],
                   "desktop_terminal_preference_preserved":bool(locals().get("terminal_selection")),
                   "service_cleanup": locals().get("service_cleanup")}))
 """.replace("__YOKE_SERVICE_PATTERNS__", repr(YOKE_SERVICE_PATTERNS))
     .replace("__LIVE_IDENTITY_STORE__", repr(LIVE_IDENTITY_STORE_HOME_ENTRY))
     .replace("# RESET_PRECONDITION_FUNCTIONS", DESKTOP_PROGRAM + SIGN_IN_PROGRAM)
+    .replace("# BROWSER_SIGN_IN_FUNCTIONS", PRESERVED_HOME_PROGRAM)
     .replace("# LINUX_CAPTURE_SPACE_CHECK", LINUX_CAPTURE_SPACE_CHECK)
 )
 
@@ -241,39 +250,22 @@ def archive_operation(
         ]
     )
     started = time.monotonic()
-    result = control._run(
+    result, diagnostics = run_golden_command(
+        control,
         command,
         input_text=json.dumps(ABSENT_HOME_PATHS),
         timeout=GOLDEN_ARCHIVE_TIMEOUT_SECONDS,
     )
     if result.returncode == 124 and result.stderr.startswith(SSH_TIMEOUT_DIAGNOSTIC):
         elapsed = round(time.monotonic() - started, 3)
-        return HostActionResult(
-            False,
-            {
-                "reason": "linux_golden_operation_timeout",
-                "operation": operation,
-                "elapsed_seconds": elapsed,
-                "timeout_seconds": GOLDEN_ARCHIVE_TIMEOUT_SECONDS,
-                "golden_baseline_path": destination,
-                "exit_code": result.returncode,
-                "stdout": bounded_machine_qa_diagnostic(
-                    result.stdout, getattr(control, "secret_values", ())
-                ),
-                "stderr": bounded_machine_qa_diagnostic(
-                    result.stderr, getattr(control, "secret_values", ())
-                ),
-                "detail": f"Linux golden {operation} timed out after {elapsed} seconds.",
-                "recovery": (
-                    f"The remote archive process may still be running. Stop or wait for the {operation} targeting {destination} before retrying. "
-                    + (
-                        f"Capture was not registered or sealed with probes; inspect {destination}/home.tar.gz and {destination}/manifest.json, and sibling .yoke-golden-* temporary directories. Remove only this capture's unregistered output after the process stops, or choose a new literal destination outside the home."
-                        if operation == "capture"
-                        else "The home may be partly restored; retry the existing sealed baseline after the process stops. Never capture a mixed home."
-                    )
-                ),
-            },
-            "linux_golden_operation_timeout",
+        return golden_timeout_result(
+            control,
+            result,
+            diagnostics,
+            operation,
+            destination,
+            elapsed,
+            GOLDEN_ARCHIVE_TIMEOUT_SECONDS,
         )
     try:
         evidence = json.loads(result.stdout.splitlines()[-1])
@@ -281,6 +273,7 @@ def archive_operation(
         evidence = {"reason": "linux_golden_operation_failed"}
     if not isinstance(evidence, dict):
         evidence = {"reason": "linux_golden_receipt_invalid"}
+    evidence["transport_diagnostics"] = diagnostics
     # The program's own flag becomes the verdict, never a row field.
     ok = result.returncode == 0 and evidence.pop("ok", None) is True
     if not ok:

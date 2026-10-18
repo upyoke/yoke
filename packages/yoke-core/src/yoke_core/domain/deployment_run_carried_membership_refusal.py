@@ -26,6 +26,9 @@ from yoke_core.domain.deployment_run_carried_membership import (
 from yoke_core.domain.deployment_run_carried_work import (
     carried_work_for_enrollment,
 )
+from yoke_core.domain.deployment_run_enrollment_error import (
+    CarriedEnrollmentError,
+)
 from yoke_core.domain.deployment_run_composition_freeze import (
     inherited_frozen_membership,
     item_requires_release_membership,
@@ -71,11 +74,14 @@ def carried_membership_refusal(
     *,
     carried_work: Mapping[str, Any] | None = None,
     custody: CustodyResolution | None = None,
+    enrollment_error: CarriedEnrollmentError | None = None,
 ) -> str | None:
     """Return an actionable refusal for unresolved or omitted deliverable code.
 
     Pass *custody* to reuse a resolution the caller already walked; omitting it
-    walks the run's candidate custody again.
+    walks the run's candidate custody again. Pass *enrollment_error* when this
+    run's enrollment stopped at an item it could not admit, so the omission
+    names that item and cause instead of a reason that did not happen.
     """
     if not requires_release_admission(conn, run_id):
         return None
@@ -141,7 +147,9 @@ def carried_membership_refusal(
         return None
     labels = ", ".join(render_item_ref(conn, int(item_id)) for item_id in omitted)
     why = carried_enrollment_blocked(conn, run_id) or (
-        "they became deliverable after this run composed its membership"
+        enrollment_error.omission_reason()
+        if enrollment_error is not None
+        else "they became deliverable after this run composed its membership"
     )
     return (
         f"deployment run {run_id!r} omits delivery-ready carried work: {labels}; "

@@ -108,7 +108,7 @@ def test_live_newer_source_refuses_before_deployment_refresh_writes(
 ):
     pid, rid, old, new, original = bound_plan
     with pytest.raises(
-        QaPlanError, match="qa_plan_source_candidate_mismatch.*Sync definitions"
+        QaPlanError, match="qa_plan_source_candidate_mismatch.*Release a candidate"
     ):
         rematerialize_for_deployment_stage(
             test_db,
@@ -136,14 +136,62 @@ def test_source_binding_cannot_be_removed_by_raw_replacement(test_db, bound_plan
     )
 
 
-def test_resyncing_candidate_source_reopens_live_materialization(test_db, bound_plan):
+def _recorded_source(test_db, pid):
+    return test_db.execute(
+        "SELECT source_revision FROM qa_plans WHERE id=%s", (pid,)
+    ).fetchone()[0]
+
+
+def test_sync_from_an_ancestor_of_the_recorded_source_refuses(test_db, bound_plan):
     pid, rid, old, new, original = bound_plan
-    replace_plan_cases(test_db, plan_id=pid, cases=original, source_revision=old)
-    source_binding.require_candidate_plan(
-        test_db,
-        {"id": pid, "project_id": 1, "source_revision": old},
-        "run-source-proof",
+    with pytest.raises(
+        QaPlanError,
+        match=f"qa_plan_source_revision_regression: source {old} does not "
+        f"descend from the plan's recorded source {new}.*current main",
+    ):
+        replace_plan_cases(test_db, plan_id=pid, cases=original, source_revision=old)
+    test_db.rollback()
+    assert _recorded_source(test_db, pid) == new
+
+
+def test_sync_from_the_recorded_source_or_a_descendant_proceeds(
+    test_db, bound_plan, source_checkout
+):
+    pid, rid, old, new, original = bound_plan
+    root, git = source_checkout
+    replace_plan_cases(test_db, plan_id=pid, cases=original, source_revision=new)
+    assert _recorded_source(test_db, pid) == new
+    (root / "cases.json").write_text('["newest behavior"]\n')
+    assert git(root, "commit", "-am", "Change source again").returncode == 0
+    newest = git(root, "rev-parse", "HEAD").stdout.strip()
+    assert git(root, "push", "origin", "stable").returncode == 0
+    replace_plan_cases(test_db, plan_id=pid, cases=original, source_revision=newest)
+    assert _recorded_source(test_db, pid) == newest
+
+
+def test_unknown_commit_refuses_by_name(test_db, bound_plan):
+    pid, rid, old, new, original = bound_plan
+    missing = "0" * 40
+    with pytest.raises(
+        QaPlanError, match=f"qa_plan_source_unmerged_or_unverified: .*{missing}"
+    ):
+        replace_plan_cases(
+            test_db, plan_id=pid, cases=original, source_revision=missing
+        )
+    test_db.rollback()
+    assert _recorded_source(test_db, pid) == new
+    test_db.execute(
+        "UPDATE qa_plans SET source_revision=%s WHERE id=%s", (missing, pid)
     )
+    test_db.commit()
+    with pytest.raises(
+        QaPlanError,
+        match=f"qa_plan_source_ancestry_unverified: the plan's recorded source "
+        f"{missing} is not in the project repository",
+    ):
+        replace_plan_cases(test_db, plan_id=pid, cases=original, source_revision=new)
+    test_db.rollback()
+    assert _recorded_source(test_db, pid) == missing
 
 
 def test_old_serving_response_refuses_source_sync_before_write(tmp_path, monkeypatch):
@@ -203,3 +251,99 @@ def test_source_document_uses_version_admitted_sync_endpoint(tmp_path, monkeypat
     dispatched.reset_mock()
     assert qa_catalog.qa_plan_cases_replace(args) == 2
     dispatched.assert_not_called()
+
+
+def test_presentation_shares_repository_and_exact_ancestry_only(monkeypatch):
+    from unittest.mock import Mock
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
+
+    conn = object()
+    source = Mock()
+    source.resolve_commit.side_effect = lambda value: value
+    source.contains_commit.return_value = True
+    opened = Mock(return_value=source)
+    monkeypatch.setattr(source_binding, "open_carried_work_source", opened)
+    candidates = {"first": "a" * 40, "same": "a" * 40, "later": "b" * 40}
+    monkeypatch.setattr(
+        source_binding, "run_delivered_sha", lambda conn, run, project: candidates[run]
+    )
+    plan = {"id": 1, "project_id": 1, "source_revision": "c" * 40}
+
+    @presentation_operation
+    def read():
+        source_binding.require_candidate_plan(conn, plan, "first")
+        source_binding.require_candidate_plan(conn, {**plan, "id": 2}, "same")
+        source_binding.require_candidate_plan(conn, plan, "later")
+        source_binding.require_candidate_plan(
+            conn, {**plan, "source_revision": "d" * 40}, "later"
+        )
+        source_binding.require_candidate_plan(conn, {**plan, "project_id": 2}, "first")
+
+    read()
+    assert opened.call_count == 2  # Project identity separates repositories.
+    assert source.resolve_commit.call_count == 3  # Same candidate resolves once.
+    assert (
+        source.contains_commit.call_count == 4
+    )  # Candidate and source separate proof.
+    read()
+    assert opened.call_count == 4
+    assert source.contains_commit.call_count == 8
+    source.contains_commit.return_value = False
+    with pytest.raises(QaPlanError, match="qa_plan_source_candidate_mismatch"):
+        read()  # A previous presentation cannot lend its pass to this one.
+    source.contains_commit.side_effect = OSError("repository unavailable")
+    with pytest.raises(QaPlanError, match="Restore project repository read access"):
+        read()
+
+
+def test_overview_uses_recorded_qa_while_admission_still_requires_source(
+    test_db, bound_plan, monkeypatch
+):
+    from unittest.mock import Mock, patch
+    from yoke_core.domain.deployment_run_list_read import list_deployment_runs
+    from yoke_core.domain.deployment_run_carried_work_source import (
+        CarriedWorkSourceUnavailable,
+    )
+    from runtime.api.domain.test_deployment_shipping_reads import CountedConnection
+
+    unavailable = Mock(
+        side_effect=CarriedWorkSourceUnavailable("offline", "Restore repository access")
+    )
+    monkeypatch.setattr(source_binding, "open_carried_work_source", unavailable)
+    with patch(
+        "yoke_core.domain.deployment_run_list_read.connect",
+        return_value=CountedConnection(test_db),
+    ):
+        rows = list_deployment_runs(
+            project=None, status=None, limit=20, relevance="overview"
+        )
+    run = next(row for row in rows if row["id"] == "run-source-proof")
+    assert run["member_items"]
+    assert all(
+        member["item_qa"]["state"] != "unreadable" for member in run["member_items"]
+    )
+    unavailable.assert_not_called()
+    # The display scope expires; an actual admission still refuses this source.
+    with pytest.raises(QaPlanError, match="qa_plan_source_candidate_mismatch.*Restore"):
+        materialize_deployment_qa_stage(
+            test_db,
+            deployment_run_id="run-source-proof",
+            deployment_stage=ITEM_QA_STAGE,
+            deployment_member_item_id=9811,
+        )
+    assert unavailable.called
+    from yoke_core.domain.deployment_qa_presentation_reads import (
+        recorded_source_presentation,
+    )
+
+    # Even inside display composition, a locking admission cannot borrow it.
+    with (
+        recorded_source_presentation(),
+        pytest.raises(QaPlanError, match="qa_plan_source_candidate_mismatch"),
+    ):
+        materialize_deployment_qa_stage(
+            test_db,
+            deployment_run_id="run-source-proof",
+            deployment_stage=ITEM_QA_STAGE,
+            deployment_member_item_id=9811,
+        )

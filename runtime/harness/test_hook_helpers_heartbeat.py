@@ -1,7 +1,7 @@
 """Coverage for the PreToolUse heartbeat refresh hook.
 
 The hook lives at :mod:`yoke_core.hooks.heartbeat`. Per
-the FR-3 Option B contract it is telemetry-style: never blocks tool
+its contract it is telemetry-style: never blocks tool
 execution, swallows every failure, and returns
 ``HookDecision(outcome=NOOP, next=CONTINUE)`` unconditionally.
 
@@ -35,19 +35,6 @@ from yoke_core.hooks.types import (
 )
 
 
-@pytest.fixture(autouse=True)
-def _pin_local_transport(monkeypatch):
-    # The heartbeat DB-write tests assume the local transport is the
-    # authority; pin the gate so the machine's real https connection (if
-    # any) does not divert _heartbeat_session to its remote-only early
-    # return. The https-skip behavior is asserted explicitly below.
-    from yoke_core.hooks import heartbeat as hook_helpers_heartbeat
-
-    monkeypatch.setattr(
-        hook_helpers_heartbeat, "_relay_owns_session_authority", lambda: False,
-    )
-
-
 @pytest.fixture()
 def base_context():
     return HookContext(
@@ -66,6 +53,7 @@ def base_context():
 
 def _evaluate(record: HookContext) -> HookDecision:
     from yoke_core.hooks import heartbeat as hook_helpers_heartbeat
+
     return hook_helpers_heartbeat.evaluate(record)
 
 
@@ -73,9 +61,7 @@ def test_evaluate_unknown_session_no_db_touch(base_context):
     ctx = HookContext(
         **{**base_context.__dict__, "session_id": "unknown"},
     )
-    with mock.patch(
-        "yoke_core.hooks.heartbeat._heartbeat_session"
-    ) as hb:
+    with mock.patch("yoke_core.hooks.heartbeat._heartbeat_session") as hb:
         decision = _evaluate(ctx)
     assert decision.outcome is Outcome.NOOP
     assert decision.next is Next.CONTINUE
@@ -87,9 +73,7 @@ def test_evaluate_empty_session_no_db_touch(base_context):
     ctx = HookContext(
         **{**base_context.__dict__, "session_id": ""},
     )
-    with mock.patch(
-        "yoke_core.hooks.heartbeat._heartbeat_session"
-    ) as hb:
+    with mock.patch("yoke_core.hooks.heartbeat._heartbeat_session") as hb:
         decision = _evaluate(ctx)
     assert decision.outcome is Outcome.NOOP
     hb.assert_not_called()
@@ -99,13 +83,11 @@ def test_evaluate_known_session_calls_heartbeat(base_context):
     ctx = HookContext(
         **{**base_context.__dict__, "session_id": "abc-123"},
     )
-    with mock.patch(
-        "yoke_core.hooks.heartbeat._heartbeat_session"
-    ) as hb:
+    with mock.patch("yoke_core.hooks.heartbeat._heartbeat_session") as hb:
         decision = _evaluate(ctx)
     assert decision.outcome is Outcome.NOOP
     assert decision.next is Next.CONTINUE
-    hb.assert_called_once_with("abc-123", ctx)
+    hb.assert_called_once_with("abc-123")
 
 
 def test_evaluate_heartbeat_exception_collapses_to_noop(base_context):
@@ -119,7 +101,7 @@ def test_evaluate_heartbeat_exception_collapses_to_noop(base_context):
     ) as hb:
         decision = _evaluate(ctx)
     assert decision.outcome is Outcome.NOOP
-    hb.assert_called_once_with("abc-123", ctx)
+    hb.assert_called_once_with("abc-123")
 
 
 def test_heartbeat_session_session_error_swallowed():
@@ -127,15 +109,16 @@ def test_heartbeat_session_session_error_swallowed():
     from yoke_core.domain.sessions import SessionError
     from yoke_core.hooks import heartbeat as hook_helpers_heartbeat
 
-    with mock.patch(
-        "yoke_core.domain.db_backend.connect"
-    ) as conn_factory, mock.patch(
-        "yoke_core.domain.sessions_lifecycle_registry.heartbeat",
-        side_effect=SessionError("NOT_FOUND", "no such session"),
-    ), mock.patch.object(hook_helpers_heartbeat, "_backfill_session"):
+    with (
+        mock.patch("yoke_core.domain.db_backend.connect") as conn_factory,
+        mock.patch(
+            "yoke_core.domain.sessions_lifecycle_registry.heartbeat",
+            side_effect=SessionError("NOT_FOUND", "no such session"),
+        ),
+    ):
         conn = mock.MagicMock()
         conn_factory.return_value = conn
-        hook_helpers_heartbeat._heartbeat_session("dead-session", mock.MagicMock())
+        hook_helpers_heartbeat._heartbeat_session("dead-session")
         conn_factory.assert_called_once()
         conn.close.assert_called_once()
 
@@ -146,138 +129,38 @@ def test_heartbeat_session_uses_backend_factory():
 
     with mock.patch("yoke_core.domain.db_backend.connect") as conn_factory:
         conn_factory.side_effect = RuntimeError("no authority")
-        hook_helpers_heartbeat._heartbeat_session("abc-123", mock.MagicMock())
+        hook_helpers_heartbeat._heartbeat_session("abc-123")
     conn_factory.assert_called_once()
 
 
-def test_heartbeat_session_skips_local_write_on_https(monkeypatch):
-    """On https the session row is server-side; a client-side in-process
-    call must not open a local DB connection."""
-    from yoke_core.hooks import heartbeat as hook_helpers_heartbeat
+@pytest.mark.parametrize("code", ["NOT_FOUND", "SESSION_ENDED"])
+def test_missing_or_ended_row_is_left_to_the_dispatch_tail(code):
+    """The heartbeat only refreshes a live row; it never registers one.
 
-    monkeypatch.setattr(
-        hook_helpers_heartbeat, "_relay_owns_session_authority", lambda: True,
-    )
-    with mock.patch("yoke_core.domain.db_backend.connect") as conn_factory:
-        hook_helpers_heartbeat._heartbeat_session("abc-123", mock.MagicMock())
-    conn_factory.assert_not_called()
-
-
-def test_heartbeat_session_backfills_missing_session(base_context):
-    """A missed SessionStart still becomes board-visible on tool activity."""
+    Registration and revival belong to the dispatch tail's
+    register-on-first-sight, so a missing or ended row is swallowed here
+    without any registration call.
+    """
     from yoke_core.domain.sessions import SessionError
     from yoke_core.hooks import heartbeat as hook_helpers_heartbeat
 
     conn = mock.MagicMock()
-    with mock.patch(
-        "yoke_core.domain.db_backend.connect",
-        return_value=conn,
-    ), mock.patch(
-        "yoke_core.domain.sessions_lifecycle_registry.heartbeat",
-        side_effect=SessionError("NOT_FOUND", "no such session"),
-    ), mock.patch(
-        "yoke_core.hooks.session_lifecycle_client.register_harness_session",
-    ) as register, mock.patch(
-        "yoke_core.hooks.helpers_identity.detect_provider",
-        return_value="anthropic",
-    ), mock.patch(
-        # Pinned like detect_provider above: the backfill re-detects the
-        # entrypoint from ambient env, so an unpinned run inside a desktop
-        # harness session would recompose executor as claude-desktop.
-        "yoke_core.hooks.helpers_identity.detect_entrypoint",
-        return_value=None,
+    with (
+        mock.patch(
+            "yoke_core.domain.db_backend.connect",
+            return_value=conn,
+        ),
+        mock.patch(
+            "yoke_core.domain.sessions_lifecycle_registry.heartbeat",
+            side_effect=SessionError(code, "no live row"),
+        ),
+        mock.patch(
+            "yoke_core.hooks.session_lifecycle_client.register_harness_session",
+        ) as register,
     ):
-        hook_helpers_heartbeat._heartbeat_session("missing-sid", base_context)
-
-    register.assert_called_once()
-    kwargs = register.call_args.kwargs
-    assert kwargs["session_id"] == "missing-sid"
-    assert kwargs["executor"] == "claude-code"
-    assert kwargs["provider"] == "anthropic"
-    # The backfill resolves facts the same way registration does; with no
-    # artifact and no launch env it attests and requests nothing.
-    assert kwargs["model_facts"].model is None
-    assert kwargs["root"] == "/tmp"
-    assert kwargs["entrypoint"] is None
+        hook_helpers_heartbeat._heartbeat_session("sid-x")
+    register.assert_not_called()
     conn.close.assert_called_once()
-
-
-_TERMINAL_READ_CTX = {
-    "executor_family": "cursor",
-    "executor_surface": "cursor-desktop",
-    "tool_name": "Read",
-    "payload": {
-        "hook_event_name": "PreToolUse",
-        "tool_name": "Read",
-        "tool_input": {
-            "file_path": (
-                "/Users/x/.cursor/projects/Users-x/terminals/1.txt"
-            ),
-        },
-    },
-}
-
-
-def test_heartbeat_skips_ended_cursor_terminal_read(base_context):
-    """An empty closeout must not come back for leftover terminal Reads."""
-    from yoke_core.domain.sessions import SessionError
-    from yoke_core.hooks import heartbeat as hook_helpers_heartbeat
-
-    ctx = HookContext(
-        **{**base_context.__dict__, "session_id": "ended-sid", **_TERMINAL_READ_CTX},
-    )
-    with mock.patch(
-        "yoke_core.domain.db_backend.connect",
-        return_value=mock.MagicMock(),
-    ), mock.patch(
-        "yoke_core.domain.sessions_lifecycle_registry.heartbeat",
-        side_effect=SessionError("SESSION_ENDED", "ended"),
-    ), mock.patch.object(
-        hook_helpers_heartbeat, "_backfill_session",
-    ) as backfill:
-        hook_helpers_heartbeat._heartbeat_session("ended-sid", ctx)
-    backfill.assert_not_called()
-
-
-def test_heartbeat_backfills_ended_row_for_other_tools(base_context):
-    from yoke_core.domain.sessions import SessionError
-    from yoke_core.hooks import heartbeat as hook_helpers_heartbeat
-
-    ctx = HookContext(
-        **{**base_context.__dict__, "session_id": "ended-sid"},
-    )
-    with mock.patch(
-        "yoke_core.domain.db_backend.connect",
-        return_value=mock.MagicMock(),
-    ), mock.patch(
-        "yoke_core.domain.sessions_lifecycle_registry.heartbeat",
-        side_effect=SessionError("SESSION_ENDED", "ended"),
-    ), mock.patch.object(
-        hook_helpers_heartbeat, "_backfill_session",
-    ) as backfill:
-        hook_helpers_heartbeat._heartbeat_session("ended-sid", ctx)
-    backfill.assert_called_once()
-
-
-def test_heartbeat_still_backfills_missing_row_for_terminal_read(base_context):
-    """A never-registered session is not this isolation."""
-    from yoke_core.domain.sessions import SessionError
-    from yoke_core.hooks import heartbeat as hook_helpers_heartbeat
-
-    ctx = HookContext(
-        **{**base_context.__dict__, "session_id": "missing-sid", **_TERMINAL_READ_CTX},
-    )
-    with mock.patch(
-        "yoke_core.domain.db_backend.connect",
-        return_value=mock.MagicMock(),
-    ), mock.patch(
-        "yoke_core.domain.sessions_lifecycle_registry.heartbeat",
-        side_effect=SessionError("NOT_FOUND", "no such session"),
-    ), mock.patch.object(
-        hook_helpers_heartbeat, "_backfill_session",
-    ) as backfill:
-        hook_helpers_heartbeat._heartbeat_session("missing-sid", ctx)
-    backfill.assert_called_once()
 
 
 def test_evaluate_decision_shape(base_context):
@@ -285,9 +168,7 @@ def test_evaluate_decision_shape(base_context):
     ctx = HookContext(
         **{**base_context.__dict__, "session_id": "abc"},
     )
-    with mock.patch(
-        "yoke_core.hooks.heartbeat._heartbeat_session"
-    ):
+    with mock.patch("yoke_core.hooks.heartbeat._heartbeat_session"):
         decision = _evaluate(ctx)
     assert decision.outcome is Outcome.NOOP
     assert decision.next is Next.CONTINUE
@@ -305,6 +186,7 @@ _HEARTBEAT_MODULE = "yoke_core.hooks.heartbeat"
 
 def test_pretool_bash_chain_includes_heartbeat():
     from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
+
     chain = ordered_pipeline_for("PreToolUse", "Bash")
     assert _HEARTBEAT_MODULE in chain
     # Heartbeat must run after every deny-class lint so a refused tool
@@ -325,16 +207,16 @@ def test_pretool_bash_chain_includes_heartbeat():
 @pytest.mark.parametrize("matcher", ["Edit", "Write", "Read", "apply_patch"])
 def test_pretool_edit_write_read_chains_include_heartbeat(matcher: str):
     from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
+
     chain = ordered_pipeline_for("PreToolUse", matcher)
     assert _HEARTBEAT_MODULE in chain
-    assert chain.index("yoke_core.domain.observe_pre") > chain.index(
-        _HEARTBEAT_MODULE
-    )
+    assert chain.index("yoke_core.domain.observe_pre") > chain.index(_HEARTBEAT_MODULE)
 
 
 @pytest.mark.parametrize("matcher", ["Bash", "Agent", "_default", "Read", "Edit"])
 def test_posttool_chains_include_heartbeat_before_telemetry(matcher: str):
     from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
+
     chain = ordered_pipeline_for("PostToolUse", matcher)
     assert _HEARTBEAT_MODULE in chain
     assert chain.index("yoke_core.domain.observe") > chain.index(_HEARTBEAT_MODULE)
@@ -343,5 +225,6 @@ def test_posttool_chains_include_heartbeat_before_telemetry(matcher: str):
 def test_pretool_monitor_does_not_include_heartbeat():
     """Monitor is wake-driven; activity is the underlying Bash, not the wake."""
     from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
+
     chain = ordered_pipeline_for("PreToolUse", "Monitor")
     assert _HEARTBEAT_MODULE not in chain

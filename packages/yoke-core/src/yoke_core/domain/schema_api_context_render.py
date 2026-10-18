@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import Callable
 
 from yoke_core.domain import schema_api_context_seed as seed
+from yoke_core.domain.db_read_column_hints import table_notes
 from yoke_core.domain.schema_api_context_json_schemas import (
     ACCESS_PATTERN_NOTE,
     JSON_NESTED_SCHEMAS,
@@ -98,7 +99,9 @@ def render_item_entry_surface_block() -> list[str]:
         "`promotion`). The selected immutable workflow version must allow "
         "that surface. File through `/yoke idea` (the skill-owned "
         "`harness_skill` path), `yoke items create TITLE WORKFLOW --spec-file PATH`, or the "
-        "thin `yoke dash TITLE SPEC` / `yoke task TITLE SPEC` shortcuts. "
+        "thin `yoke dash TITLE SPEC` / `yoke task TITLE SPEC` shortcuts; "
+        "code project work -> `yoke dash`, because Task refuses projects "
+        "with a code repository. "
         "`--stdin` reads spec and `--title-file` reads title. Planned intake refuses a live harness session that is not "
         "in idea mode — the entry-surface token is caller-asserted and "
         "skips skill-side scaffolding. Operator/debug, `--dry-run`, and "
@@ -238,7 +241,7 @@ def render_table_block(
     for table in tables:
         cols = resolve_columns(table)
         col_str = ", ".join(name for name, _ in cols)
-        notes = seed.CANONICAL_TABLES[table].get("notes", "")
+        notes = table_notes(table, cols, seed.CANONICAL_TABLES[table].get("notes", ""))
         out.append(f"- **`{table}`** — `{col_str}`")
         if detail == PACKET_DETAIL_FULL and notes:
             out.append(f"  - {notes}")

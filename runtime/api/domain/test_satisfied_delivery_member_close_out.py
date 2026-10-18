@@ -219,3 +219,64 @@ def test_satisfied_member_close_out_refusal_sends_recovery_notice(
         "SELECT status FROM deployment_runs WHERE id=%s", (run_id,)
     ).fetchone()["status"]
     assert run_status == "succeeded"
+
+
+@pytest.mark.parametrize("resolution", ["pending", "pass", "fail", "waive"])
+def test_member_with_only_owned_shared_checks_settles_after_resolution(
+    test_db, resolution
+):
+    from runtime.api.domain.test_deployment_qa_shared_plans import (
+        MEMBERS,
+        RUN,
+        _begin,
+        _fail,
+        _materialize,
+        _seed,
+    )
+    from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
+
+    _seed(test_db)
+    requirement_id = _materialize(test_db, MEMBERS[0])["created_requirement_ids"][0]
+    row = test_db.execute(
+        "SELECT deployment_member_item_id FROM qa_requirements WHERE id=%s",
+        (requirement_id,),
+    ).fetchone()
+    assert row[0] is None
+    if resolution in {"pass", "fail"}:
+        _complete_case(test_db, _begin(test_db, MEMBERS[0]))
+        if resolution == "fail":
+            _fail(test_db, requirement_id)
+    elif resolution == "waive":
+        test_db.execute(
+            "UPDATE qa_requirements SET waived_at=NOW(),waiver_rationale='accepted',"
+            "waiver_source='owner' WHERE id=%s",
+            (requirement_id,),
+        )
+    for member in MEMBERS:
+        assert satisfied_delivery_member(test_db, item_id=member, run_id=RUN) is (
+            resolution in {"pass", "waive"}
+        )
+
+
+def test_unowned_shared_check_does_not_hold_member_settlement(test_db):
+    from runtime.api.domain.test_deployment_qa_shared_plans import (
+        MEMBERS,
+        RUN,
+        _attach,
+        _begin,
+        _materialize,
+        _seed,
+    )
+    from runtime.api.domain.test_deployment_qa_stage_execution import (
+        _complete_case,
+        _plan,
+    )
+
+    _seed(test_db)
+    _materialize(test_db, MEMBERS[0])
+    _complete_case(test_db, _begin(test_db, MEMBERS[0]))
+    other_plan = _plan(test_db, "other-settlement-plan")
+    _attach(test_db, MEMBERS[1], other_plan)
+    _materialize(test_db, MEMBERS[1])
+    assert satisfied_delivery_member(test_db, item_id=MEMBERS[0], run_id=RUN)
+    assert not satisfied_delivery_member(test_db, item_id=MEMBERS[1], run_id=RUN)

@@ -3,7 +3,6 @@
  "title": "Verify deployed spec intake",
  "status": "observed",
  "text": "Candidate source tests prove independent title/spec inputs, atomic spec storage, web draft continuity and no real write against an older create contract. Release-bound proof must confirm the serving CLI/API accepts spec and the web form teaches Spec.",
- "plan_refs": ["FIRST-USER.13"],
  "work_items": ["YOK-3946"],
  "sources": ["runtime/api/cli/test_items_create_serving_floor.py", "runtime/api/test_items_create_spec_storage.py", "runtime/api/universe_ui_item_drafts.test.mjs"]
 }

@@ -1,8 +1,11 @@
 {
  "id": "resume-end-and-custody",
  "title": "Resume, end and custody",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "Maintainers",
  "page": "runtime-execution",
- "position": 4
+ "position": 4,
+ "description": "Relay cleanup rechecks an ungrouped record with the same process-identity observer used by its dead-session report. A missing or reused identity permits cleanup; an observation error retains the record. Process-group records retain custody while a member survives or group ownership remains unresolved.",
+ "evidence": "Source tests cover the original cleanup consumer, injected absent/reused/live/unavailable identities, and live/unresolved/gone groups. This is source proof, not released live proof.",
+ "sources": ["packages/yoke-harness/src/yoke_harness/session_relay_process_liveness.py", "packages/yoke-harness/src/yoke_harness/session_relay_record_pruning.py", "packages/yoke-harness/src/yoke_harness/session_process_custody.py", "runtime/harness/test_session_relay_liveness_pruning.py", "runtime/harness/test_session_relay_process_liveness.py"]
 }

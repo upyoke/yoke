@@ -24,7 +24,9 @@ from yoke_core.domain.machine_qa_execution_contract import (
 from yoke_core.domain.machine_qa_fixture_operations import (
     MachineQaFixtureOperationRunner,
 )
+from yoke_core.domain.machine_qa_phase_heartbeat import heartbeat_during
 from yoke_core.domain.machine_qa_method_contracts import (
+    MachineQaExecutionError,
     validate_machine_method_config,
 )
 
@@ -159,6 +161,26 @@ def _failed_case(
     )
 
 
+def require_runnable_recipe(case: MachineQaCaseContract) -> None:
+    """Refuse a case its runner would reject before any host is reset."""
+    try:
+        validate_machine_method_config(
+            case.method_id,
+            case.method_config,
+            entry_surface=case.entry_surface,
+            required_completion=case.required_completion,
+            host_baseline=case.host_baseline,
+        )
+    except MachineQaExecutionError as exc:
+        raise HostControlLocalError(
+            code="machine_qa_recipe_invalid",
+            phase="recipe_validation",
+            detail=f"case {case.case_key!r}, host untouched: {exc}",
+            recovery_hint="Fix the named field with `yoke qa plan edit PLAN_SLUG`, "
+            "run `yoke qa plan rematerialize` for the requirement, then retry.",
+        ) from exc
+
+
 def execute_case_with_fixture_lifecycle(
     execution: MachineQaLease,
     case: MachineQaCaseContract,
@@ -240,7 +262,8 @@ def execute_case_with_fixture_lifecycle(
                     )
     finally:
         if not communication_unknown(primary_error):
-            cleanup_attempts = _close_with_retry(fixture)
+            with heartbeat_during("fixture_cleanup", execution.progress_callback):
+                cleanup_attempts = _close_with_retry(fixture)
 
     lifecycle = _lifecycle_evidence(
         setup=setup,
@@ -291,4 +314,4 @@ def execute_case_with_fixture_lifecycle(
     )
 
 
-__all__ = ["execute_case_with_fixture_lifecycle"]
+__all__ = ["execute_case_with_fixture_lifecycle", "require_runnable_recipe"]

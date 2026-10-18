@@ -201,7 +201,10 @@ def cmd_item_list(args: list[str]) -> int:
                 print("|".join(_cell(i, row[i]) for i in range(len(field_list))))
         else:
             from yoke_core.domain.render_body import build_body
-            from yoke_contracts.merge_queue_status import render_merge_queue_status
+            from yoke_contracts.merge_queue_status import (
+                LABEL_INPUTS_FOR_ITEM_SQL,
+                render_merge_queue_status,
+            )
 
             for row in rows:
                 db_vals = list(row)
@@ -219,8 +222,7 @@ def cmd_item_list(args: list[str]) -> int:
                             out_vals.append(build_body(conn, int(item_id)) or "")
                         else:
                             marker = conn.execute(
-                                "SELECT status, merge_queue_enqueued_at, "
-                                "merge_queue_landed_at FROM items WHERE id = %s",
+                                LABEL_INPUTS_FOR_ITEM_SQL,
                                 (int(item_id),),
                             ).fetchone()
                             out_vals.append(

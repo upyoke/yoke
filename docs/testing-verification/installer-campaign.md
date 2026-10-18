@@ -38,9 +38,14 @@ definitions into the shared saved plan through the raw replacement adapter.
 The export document carries `source_revision` alongside `cases`; replacement
 automatically records it, and frozen releases retain it. A release uses its frozen source cases,
 and refuses `qa_plan_source_candidate_mismatch` before materialization or refresh
-if the selected source revision is not an ancestor of its candidate. Resync from
-the candidate or an ancestor, or release the newer source; never test newer
-installer expectations against an older candidate. A source-bound plan cannot
+if the selected source revision is not an ancestor of its candidate. Release a
+candidate carrying the newer source, or use run-bound correction cases; never
+test newer installer expectations against an older candidate. A sync moves only
+forward: the source revision must equal or descend from the plan's recorded
+revision. An older revision refuses `qa_plan_source_revision_regression`, and a
+recorded revision the repository cannot prove refuses
+`qa_plan_source_ancestry_unverified`; both name the two revisions and write
+nothing. Export again from current main and sync. A source-bound plan cannot
 be edited or replaced without source provenance. Older serving builds refuse
 source-proven sync as `qa_plan_source_binding_unavailable` before any write.
 Existing execution snapshots keep their original definitions and evidence; any
@@ -65,16 +70,36 @@ with and without a backup, a distinct joining machine, explicit uninstall and
 late harness discovery. Preparation failures preserve their named reason and
 recovery. The late-harness fixture uses a disposable `CODEX_HOME`, preserving
 the executable outside discovery and restoring it even when setup fails.
-It reruns public setup after the harness becomes available. Personal Codex
-home and sign-in files stay in place. Configuration checks do not
-replace the exploration's real
-received-context proof.
+It reruns public machine-only setup after the harness becomes available and
+checks native execution and unattended permissions. Codex hooks live in a
+project's `.codex/hooks.json`, not the disposable `CODEX_HOME`; project hook
+trust and real-session pickup belong to the exploration mission. Personal Codex
+home and sign-in files stay in place. Configuration checks do not replace the
+exploration's real received-context proof.
 
 Hosted recovery journeys repeat their prepared marker after the installer
 exits successfully, then emit a ready marker that the final capture waits for.
 The backup journey also repeats its nonempty-backup assertion after exit;
 preparation, installer or backup failures never emit readiness. This keeps
 the assertion visible after the installer's full-screen display clears.
+
+## Step readiness
+
+Every recipe step that sends keys declares the `ready_text` of the prompt it
+answers; the recipe contract refuses a keyed step without it when the case is
+saved and again before execution. A step never types into a screen on a timer.
+When the installer stops showing a prompt, remove that step from the source
+cases and sync the saved plan; do not keep a step that waits for nothing. The
+browser-approval gate is the one exception: it waits for its own `Open:` and
+`One-time code:` context.
+
+A prompt that never appears fails its step as `terminal_action_not_ready`,
+with the evidence naming `step` and `waiting_for`. When the command under the
+terminal has already exited, the step (including the approval gate) fails as
+`terminal_setup_exited` instead. Its `setup_exit` names the exit code and the
+last `code_name: reason` refusal setup printed. Linux reads the exit from the
+`__YOKE_EXIT_<code>` marker the terminal entry prints and stops waiting as soon
+as it appears. macOS reads the recipe's exit-status file.
 
 ## Complete machine approval links
 
@@ -99,8 +124,12 @@ one canonical `selection=all` or a comma-separated list of unique positive
 project IDs. Unknown, repeated, empty or encoded query parameters, extra path
 segments, fragments and other origins refuse.
 The helper presses the visible approval control only in an exact validated
-tab and requires navigation from that tab's own starting URL. An unchanged
-redirect page is not approval evidence. Full hosted setup still requires the
+tab, then observes same-origin navigation or the visible "Machine connected"
+confirmation in that same tab. An unchanged page without that confirmation
+is not approval evidence: the gate then fails as
+`machine_browser_approval_not_confirmed` even when the terminal reaches its
+completion text, keeping the helper's own code in
+`browser_automation_error_code` beside `browser_approval` and a recovery. Full hosted setup still requires the
 run-bound case verdict and independent inspection review.
 
 On Linux the gate first starts the fixture desktop and its Chromium with a
@@ -112,6 +141,22 @@ always attaches a desktop screenshot. A host without a desktop refuses
 list every refusal and its recovery.
 
 ## Local universe birth
+
+State checks inherit directly from the journey that creates their subject:
+`token-perms` follows the hosted cold-start Apply, and `universe-born` follows
+the local Apply handoff. Token existence, secrets-directory mode 700 and each
+token's mode 600 are separate checks with named output; they never print token
+contents. A pending browser authorization or pre-Apply Review is not a token
+creation prerequisite.
+
+The Review inspection selects "Show all changes" and captures the actual
+pending-write names, including reuse of the token already saved by browser
+approval, then backs out without Apply. A new token write is not expected on
+this path. The regression test compares that line with the installer's own
+friendly-line formatter. Category counts alone do
+not satisfy that inspection. Saved and frozen cases need the registered
+source sync and exact-owner refresh before execution; prior failed captures
+remain evidence, and another campaign still requires its own admission.
 
 The local Apply journey chooses Start fresh, waits for `What's your name?`,
 and submits a validated first-admin name before `Connect GitHub?`. Command-based
@@ -196,3 +241,31 @@ execution. Source sync prepares future definitions; it never starts a fresh run
 or grants execution authority. Preserve existing approval and readiness holds;
 credit this candidate only through its own legitimately admitted execution.
 Retain missing fixture or approval as unproven.
+
+## Sessions outside a project
+
+Three scripted cases use the isolated local setup and the installed candidate.
+`outside-project-sessions` registers one session per declared harness (Claude
+Code, Codex, Cursor) from a folder outside any project and requires
+organization scope in `yoke sessions identity`, the active roster and ended
+history. It ends the sessions only after the startup-probe window, because
+every session read hides a session that ends inside that window without a
+tool call. `outside-project-reinstall` reinstalls without setup and requires the
+same session to keep its organization scope through re-registration.
+`outside-project-first-work` creates an isolated project and task item. The
+outside session must read organization scope with no project; its claim outside
+must refuse `CLAIM_FOLDER_MISMATCH` naming the item and the
+`yoke project register` recovery; from the registered folder it must refuse
+`SESSION_MACHINE_SCOPE_WORK_REFUSED` naming the item and that folder. A session
+opened there must read project scope and either claim the item or refuse only
+with a named non-scope reason such as model admission.
+
+Release QA for the same candidate also owes, in local, self-host and hosted
+modes: Command proof of `yoke sessions list` and ended history, outside-project
+registration on each harness over HTTPS and local, and the claim refusal; and
+the Browser scenario "org-scoped session in roster and detail": the
+**Outside any project** label in the Workbench roster row and session detail,
+no console error, and the session hidden from a signed-in stranger. Model
+admission, real hook delivery and first item done stay with the installer
+exploration. Keep failure and rerun evidence; this proof creates no deployment
+run.

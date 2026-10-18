@@ -14,7 +14,7 @@ from yoke_contracts.hook_runner.main_commit import (
 )
 from yoke_core.hooks import runner as runner_module
 from yoke_core.hooks.remote_entry import evaluate_remote
-from yoke_core.hooks.remote_policy import LOCAL_STATE_POLICIES
+from yoke_contracts.hook_runner.policy_home import CLIENT_POLICIES
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
@@ -38,7 +38,7 @@ def test_main_commit_policy_runs_remotely_with_client_facts(
 ) -> None:
     seen: list[tuple[bool, Any]] = []
     module_id = "yoke_core.domain.lint_main_commit"
-    assert module_id not in LOCAL_STATE_POLICIES
+    assert module_id not in CLIENT_POLICIES
 
     def record(ctx: HookContext) -> HookDecision:
         seen.append((ctx.remote, ctx.payload.get(CLIENT_GIT_COMMIT_FACTS_KEY)))

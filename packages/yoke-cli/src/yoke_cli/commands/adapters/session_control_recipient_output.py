@@ -68,7 +68,11 @@ def recipient_party(row: Mapping[str, Any]) -> Any:
 
 
 def recipient_project(row: Mapping[str, Any]) -> Any:
-    return row.get("project") or row.get("project_id")
+    project = row.get("project") or row.get("project_id")
+    if project is not None:
+        return project
+    org = row.get("org") or row.get("org_name") or row.get("org_id")
+    return f"outside any project (org {org})" if org is not None else "—"
 
 
 def steering_summary(message: Mapping[str, Any]) -> str | None:

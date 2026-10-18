@@ -5,7 +5,6 @@ from __future__ import annotations
 from yoke_contracts.machine_config.directories import create_private_directory
 
 from contextlib import contextmanager
-import fcntl
 import os
 from pathlib import Path
 import time
@@ -15,6 +14,7 @@ from yoke_cli.config.session_relay_instance import (
     PROD_RELAY_STATE_DIR_NAME,
     resolve_relay_instance,
 )
+from yoke_contracts import platform_file_lock
 
 
 RELAY_STATE_DIR_NAME = PROD_RELAY_STATE_DIR_NAME
@@ -46,14 +46,14 @@ def relay_run_lock(
     acquired = False
     try:
         try:
-            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            platform_file_lock.acquire_exclusive_nonblocking(descriptor)
             acquired = True
         except BlockingIOError:
             pass
         yield acquired
     finally:
         if acquired:
-            fcntl.flock(descriptor, fcntl.LOCK_UN)
+            platform_file_lock.release_exclusive(descriptor)
         os.close(descriptor)
 
 

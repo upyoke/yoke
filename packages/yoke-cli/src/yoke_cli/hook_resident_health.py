@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import fcntl
 import os
 import socket
 import time
 from pathlib import Path
+
+from yoke_contracts import platform_file_lock
 
 
 WARNING_INTERVAL_SECONDS = 300
@@ -21,13 +22,16 @@ def claim_fallback_warning(state_dir: Path) -> bool:
     report the live socket's availability independently of this timestamp.
     """
     try:
+        state_path = state_dir / "fallback-warning"
+        if state_path.is_symlink():
+            return False
         fd = os.open(
-            state_dir / "fallback-warning",
-            os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW,
+            state_path,
+            os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0),
             0o600,
         )
         with os.fdopen(fd, "r+", encoding="utf-8") as state:
-            fcntl.flock(state, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            platform_file_lock.acquire_exclusive_nonblocking(state.fileno())
             now = time.time()
             try:
                 previous = float(state.read(64))
@@ -45,6 +49,8 @@ def claim_fallback_warning(state_dir: Path) -> bool:
 
 def resident_revision_problem(socket_path: Path, expected: str) -> str:
     """Read loaded identity without evaluating hooks or restarting the process."""
+    if not hasattr(socket, "AF_UNIX"):
+        return "YOKE_HOOK_RESIDENT_UNSUPPORTED: Unix-domain sockets unavailable"
     from yoke_contracts.hook_evaluator_protocol import receive_frame, send_frame
     from yoke_contracts.hook_evaluator_protocol import HookEvaluatorProtocolError
 

@@ -123,8 +123,10 @@ def _safe(conn, emitted, caplog, request_id, count):
     called = [c for c in emitted.call_args_list if c.args[0] == "YokeFunctionCalled"]
     assert len(called) == count
     for call in called:
-        assert call.kwargs["context"]["result_redacted"] == "one_time_secret_result"
-        assert "result" not in call.kwargs["context"]
+        assert (
+            not {"result", "result_redacted", "result_keys"}
+            & call.kwargs["context"].keys()
+        )
         assert "yinv_" not in json.dumps(call.kwargs, default=str)
     assert "yinv_" not in caplog.text
 

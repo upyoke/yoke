@@ -11,6 +11,5 @@
  "current": "Existing source references; delivered content is not yet proved.",
  "desired": "Reuse scoped instructions for working obligations; move portable guidance to shipped homes and keep private choices private.",
  "plan_notes": ["Previous standing-procedure audit", "JOURNEYS staged disclosure"],
- "plan_refs": ["FIRST-USER.0", "FIRST-USER.40", "FIRST-USER.43"],
  "sources": ["packages/yoke-core/src/yoke_core/domain/execution_instruction_delivery.py:85", "packages/yoke-core/src/yoke_core/domain/execution_instruction_projection.py:11"]
 }

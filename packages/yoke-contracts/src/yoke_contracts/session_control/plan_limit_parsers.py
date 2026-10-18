@@ -9,6 +9,12 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from yoke_contracts.session_control.extra_usage_parsers import (
+    codex_mirror_credits,
+    parse_claude_extra_usage,
+    parse_codex_extra_usage,
+    parse_cursor_extra_usage,
+)
 from yoke_contracts.session_control.plan_limits import (
     ALL_MODELS_SCOPE,
     CURSOR_MODELS_SCOPE,
@@ -88,7 +94,11 @@ def parse_claude_usage(
             "claude-cli", _UNREADABLE, observed_at=observed_at, plan_tier=plan_tier
         )
     return surface_reading(
-        "claude-cli", observed_at=observed_at, plan_tier=plan_tier, windows=windows
+        "claude-cli",
+        observed_at=observed_at,
+        plan_tier=plan_tier,
+        windows=windows,
+        extra_usage=parse_claude_extra_usage(usage),
     )
 
 
@@ -100,6 +110,7 @@ def _codex_from_http_mirror(payload: Mapping[str, Any]) -> Mapping[str, Any]:
     snapshot: dict[str, Any] = {
         "planType": payload.get("plan_type"),
         "limitName": None,
+        **codex_mirror_credits(payload),
     }
     for source, target in (
         ("primary_window", "primary"),
@@ -175,8 +186,18 @@ def parse_codex_rate_limits(
         return unknown_reading(
             "codex-cli", _UNREADABLE, observed_at=observed_at, plan_tier=plan_tier
         )
+    account = payload.get("rateLimits")
+    if not isinstance(account, Mapping):
+        account = next(
+            (bucket for bucket in buckets.values() if isinstance(bucket, Mapping)),
+            None,
+        )
     return surface_reading(
-        "codex-cli", observed_at=observed_at, plan_tier=plan_tier, windows=windows
+        "codex-cli",
+        observed_at=observed_at,
+        plan_tier=plan_tier,
+        windows=windows,
+        extra_usage=parse_codex_extra_usage(account),
     )
 
 
@@ -185,6 +206,7 @@ def parse_cursor_usage(
     usage: Mapping[str, Any],
     *,
     observed_at: str,
+    hard_limit: Mapping[str, Any] | str,
 ) -> dict[str, Any]:
     """Read the two included-usage pools that Cursor bills by model family."""
     info = plan.get("planInfo") if isinstance(plan.get("planInfo"), Mapping) else plan
@@ -221,6 +243,7 @@ def parse_cursor_usage(
         observed_at=observed_at,
         plan_tier=plan_tier,
         windows=windows,
+        extra_usage=parse_cursor_extra_usage(hard_limit),
     )
 
 

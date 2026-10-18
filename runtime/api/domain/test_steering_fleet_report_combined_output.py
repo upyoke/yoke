@@ -15,7 +15,6 @@ from yoke_core.domain.steering_fleet_report_compose import (
     combined_dict,
 )
 from yoke_core.domain.steering_fleet_report_hook_digest import combined_hook_digest
-from yoke_core.domain.steering_fleet_report_inbox import UnackedInjectedMessage
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 from yoke_core.domain.session_launch_level_placement import LevelPlacement
 from yoke_core.domain.steering_fleet_report_levels import LEVELS_HEADING, LevelReadout
@@ -224,7 +223,7 @@ def test_combined_dict_keeps_machine_facts_on_each_scope() -> None:
         )
     )
     payload = combined_dict(combined)
-    assert payload["unacked_injected"] == []
+    assert "unacked_injected" not in payload
     assert payload["scopes"][0]["launchable"] == [
         {"machine_id": "machine-a", "surface": "codex-cli"}
     ]
@@ -235,20 +234,11 @@ def test_combined_dict_keeps_machine_facts_on_each_scope() -> None:
     assert PLAN_LIMIT_HEADING in payload["body"]
 
 
-def test_unacked_injected_makes_a_quiet_combined_report_actionable() -> None:
+def test_a_quiet_combined_report_carries_no_unacked_inbox() -> None:
+    """Unacknowledged mail is re-presented by message delivery, not here."""
     combined = CombinedFleetReport(
         composed_at=NOW,
         sections=(ScopedFleetReport("alpha", _report(1, NOW)),),
-        unacked_injected=(
-            UnackedInjectedMessage(
-                message_id="11111111-2222-4333-8444-555555555555",
-                last_injected_at="2026-08-29T11:00:00.000000Z",
-                age_seconds=3600,
-            ),
-        ),
     )
-    assert not combined.sections[0].report.actionable
-    assert combined.actionable
-    body = combined_body(combined)
-    assert "unacked injected (this session)" in body
-    assert "yoke messages acknowledge 11111111-2222-4333-8444-555555555555" in body
+    assert not combined.actionable
+    assert "unacked injected" not in combined_body(combined)

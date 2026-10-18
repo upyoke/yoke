@@ -8,9 +8,12 @@ whole account weekly. Placement reads exactly the windows that cover the
 option's model, so a pool the option will never touch can neither recommend
 it nor block it.
 
-An option is blocked only by an affirmative zero: a readable window covering
-its model with no quota left. An unreadable meter, or no meter at all, is
-unknown capacity, and unknown is never exhaustion.
+An option is blocked only by an affirmative zero that paid extra usage cannot
+cover: a readable window covering its model with no included quota left, on a
+surface whose fresh extra-usage reading is disabled, capped or unfunded
+(:func:`yoke_contracts.session_control.model_billing_pools.included_zero_blocks`).
+An unreadable meter, no meter at all, or extra usage that is available,
+unknown or stale is not exhaustion.
 
 A pool's headroom assumes one worker spends it, so each pool also carries the
 live workers already drawing on it: sessions on the same machine and surface
@@ -27,7 +30,15 @@ from dataclasses import asdict, dataclass
 from typing import Any, Mapping, Sequence
 
 from yoke_contracts.timestamps import parse_instant, temporal_wire
-from yoke_contracts.session_control.model_billing_pools import window_covers_model
+from yoke_contracts.session_control.extra_usage import (
+    EXTRA_BLOCKING_STATUSES,
+    EXTRA_UNKNOWN,
+)
+from yoke_core.domain.plan_limit_extra_usage import extra_label_now
+from yoke_contracts.session_control.model_billing_pools import (
+    extra_usage_status,
+    window_covers_model,
+)
 from yoke_core.domain.session_probe import not_probe_session_sql
 from yoke_contracts.session_control.plan_limit_unreadable_guidance import (
     unreadable_guidance,
@@ -59,6 +70,9 @@ class PoolCheck:
     exhausted: bool
     reason: str | None = None
     workers: int = 0
+    #: Extra-usage status as of now, and the shared phrase naming it.
+    extra_status: str = EXTRA_UNKNOWN
+    extra_label: str = ""
 
     def __post_init__(self) -> None:
         if self.resets_at is not None:
@@ -119,6 +133,10 @@ def option_pools(
             continue
         computed = compute_plan_limit(row, now=now)
         readable = row.status == "ok" and row.remaining_percent is not None
+        included_empty = bool(readable and float(row.remaining_percent or 0) <= 0)
+        extra = extra_usage_status(
+            row.extra_usage, observed_at=row.observed_at, now=now
+        )
         checks.append(
             PoolCheck(
                 window=window_label(row.window_kind, row.scope),
@@ -127,10 +145,12 @@ def option_pools(
                 resets_at=row.resets_at,
                 status=row.status,
                 reason=row.reason,
-                exhausted=bool(readable and float(row.remaining_percent or 0) <= 0),
+                exhausted=included_empty and extra in EXTRA_BLOCKING_STATUSES,
                 workers=pool_workers(
                     workers, machine_id=machine_id, surface=surface, scope=row.scope
                 ),
+                extra_status=extra,
+                extra_label=extra_label_now(row, now=now),
             )
         )
     return tuple(checks)

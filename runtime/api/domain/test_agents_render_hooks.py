@@ -11,10 +11,7 @@ from __future__ import annotations
 from yoke_contracts.cursor_hook_command_bytes import (
     CURSOR_HOOK_COMMAND_FORBIDDEN_SEQUENCES,
 )
-from yoke_contracts.hook_runner.config_owner import (
-    CURSOR_LIFECYCLE_COMMAND_MARKER,
-    CURSOR_NATIVE_RUNNER_EVENTS,
-)
+from yoke_contracts.hook_runner.config_owner import CURSOR_NATIVE_RUNNER_EVENTS
 
 from yoke_core.domain.agents_render_hooks import (
     _CURSOR_HOOK_TIMEOUT_S,
@@ -113,22 +110,28 @@ def test_cursor_entries_carry_explicit_timeout() -> None:
     assert _CURSOR_HOOK_TIMEOUT_S >= 30
 
 
-def test_cursor_pre_post_matchers_cover_every_tool_except_shell() -> None:
-    """Shell stays on before/afterShellExecution; everything else must match."""
+def test_cursor_shell_gates_on_its_own_event_and_completes_on_post_tool_use() -> None:
+    """Shell gates on beforeShellExecution; postToolUse covers every tool.
+
+    postToolUse is the only post-tool event whose reply reaches the model, so
+    Shell completions ride it and the audit-only afterShellExecution stays
+    unwired rather than running the PostToolUse chain a second time.
+    """
     block = render_cursor_hooks_block()["hooks"]
     assert block["preToolUse"][0]["matcher"] == _CURSOR_NON_SHELL_TOOL_MATCHER
-    assert block["postToolUse"][0]["matcher"] == _CURSOR_NON_SHELL_TOOL_MATCHER
+    assert "matcher" not in block["postToolUse"][0]
+    assert "evaluate PostToolUse" in block["postToolUse"][0]["command"]
+    assert "afterShellExecution" not in block
 
 
-def test_cursor_stop_and_session_end_use_lifecycle_command() -> None:
+def test_cursor_stop_and_session_end_resolve_an_existing_root() -> None:
     """Stop/sessionEnd peel a deleted worktree cwd; ordinary tool hooks do not."""
     block = render_cursor_hooks_block()
-    stop = block["hooks"]["stop"][0]["command"]
-    end = block["hooks"]["sessionEnd"][0]["command"]
-    assert CURSOR_LIFECYCLE_COMMAND_MARKER in stop
-    assert CURSOR_LIFECYCLE_COMMAND_MARKER in end
-    pre = block["hooks"]["preToolUse"][0]["command"]
-    assert CURSOR_LIFECYCLE_COMMAND_MARKER not in pre
+    resolved_root = 'YOKE_ROOT="$root"'
+    assert resolved_root in block["hooks"]["stop"][0]["command"]
+    assert resolved_root in block["hooks"]["sessionEnd"][0]["command"]
+    assert resolved_root not in block["hooks"]["preToolUse"][0]["command"]
+    assert "YOKE_CURSOR_LIFECYCLE_ROOT" not in block["hooks"]["stop"][0]["command"]
 
 
 def test_cursor_commands_avoid_the_bytes_its_hook_loader_mishandles() -> None:

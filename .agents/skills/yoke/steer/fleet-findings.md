@@ -5,16 +5,42 @@ or plan note. Nothing acknowledged is automatically completed.
 
 - **Available work**: staff scoped runnable unclaimed work; ! marks staffing
   age threshold, unmarked is still available. Recheck holder before launch.
+  `fleet ALARM unstaffed-ready` is that same overdue set: one line per waiting
+  episode, then again after another staffing interval if it is still
+  unstaffed. The line names item, project, wait, rank, next skill, and reach.
+  Reach is the stage-level command `yoke session-control launch create
+  --project P --item PREFIX-N --idempotency-key "steer:P:PREFIX-N" --json`.
+  Preview with a judged `--level` before create when the leg is not the stage
+  level. A launch in flight does not alarm. Staffing ends the episode.
+- **Dependency deadlocks**: live items wait on each other in a loop of
+  blocking edges, so none can move first and the work they strand waits too.
+  `fleet ALARM deadlock` and the report's deadlock section name the loop, each
+  edge id and gate, and the stranded items. Decide which order the work really
+  needs, then make one edge `coordination_only` with `yoke items dependency
+  update DEPENDENT BLOCKING --match-gate-point GATE --gate-point
+  coordination_only --rationale TEXT`. New writes already refuse to close a loop.
+- **Waiting to land**: unclaimed committed work held only until each named
+  blocker lands. Do not staff it; it returns to available when they land. If
+  the wait is longer than the work needs, narrow the edge as below.
+- **Waiting chains**: on every report read, check each row; the section names
+  heads holding the most work, how many items each unblocks, chain depth, and
+  `!` on an unstarted, unstaffed blocker with work behind it in progress. Staff
+  a `!` blocker or remove its edge (`yoke items dependency remove DEPENDENT
+  BLOCKING`). Narrow or remove any listed edge heavier than the work needs:
+  `--gate-point coordination_only` or `--satisfaction fact:merged` on `yoke
+  items dependency update DEPENDENT BLOCKING --match-gate-point GATE`, with the
+  reason in `--rationale`.
 - **Unattended linked work**: take/arrange exact owning project+document seat
   named by row before staffing; project seat does not cover another doc link.
 - **Steering messages awaiting a seat**: acquire scope for unacknowledged parked
   or ended-seat mail; acknowledged receipts never inherit. Plan unfinished actions.
-- **Unacked injected (this session)**: receipt already shown, including oversized
-  stub. Read yoke messages get MESSAGE-ID fully and acknowledge; separate from
-  seat-awaiting mail.
 - **Idle holders**: process running→message; exited→message resumes transcript;
-  resuming now→let start. `--mode parked` declared its wait; in-flight,
-  vendor-stopped and stranded are separate rows. Read live mode/quiet_reason with
+  resuming now→let start. `fleet ALARM idle-holder` covers parked holders too,
+  names mode, reason and process, and repeats hourly until `fleet CLEAR`. Answer
+  every one in the same turn: act (message, answer its question, clear its
+  blocker, restaff) or write one line saying why the wait is still sound, e.g.
+  its blocker is still open. A park declares a wait, not that the wait is sound;
+  in-flight, vendor-stopped and stranded are separate rows. Read live mode/quiet_reason with
   yoke sessions list --session SESSION-ID --full --json. When actual blocker clears,
   item-address resume and confirm mode leaves parked. Active work claims protect
   holders from age-based reclaim; no stale TTL countdown releases a live lane.
@@ -26,7 +52,9 @@ or plan note. Nothing acknowledged is automatically completed.
 - **Undelivered messages**: no attempt or failed last attempt means you owe
   recovery. Pull row's read-only machine evidence before diagnosing repeated
   relay code. Attempt moving, queued next hook or recipient turn in flight
-  means waiting: no second wake. Ended/terminated recipient has no route:
+  means waiting: no second wake. Escalated wake (native_process_gone) is the
+  relay resuming that same session; if nothing lands, re-run its named wake
+  command, never terminate a resumable session. Ended/terminated recipient has no route:
   read the named message, handle or re-address its work, then cancel obsolete
   pending/injected mail as sender actor or target-project admin; a successor
   cannot acknowledge old session mail. The report detects ended-session debt
@@ -36,7 +64,8 @@ or plan note. Nothing acknowledged is automatically completed.
   exhausted/spent resume budget. Read lane commits first: produced work merits
   recovery, never-started work can restaff. Repeated machine signature needs
   evidence-led provider/client diagnosis.
-- **Stranded sessions**: confirmed published meter empty, credentials rejected
+- **Stranded sessions**: confirmed published meter empty with extra usage
+  blocked, credentials rejected
   or model unavailable cannot resume; don't wake. Changed preferred default,
   unreadable meter or launch still within registration deadline is not stranded.
   meter_exhausted names relaunch with headroom; resumed-died can report
@@ -75,7 +104,9 @@ Do not wake a confirmed exhausted model; no direct native resume bridge.
 **Plan limits** are informational scoped vendor pools, not launch gates.
 Read model against its own pool; Cursor composer/grok selections use Cursor
 Models, others Other Models. Claude/Codex likewise name enforced scope.
-Only that pool at zero is exhausted. Unreadable is not empty: stale_credential
+Only that pool at zero, with fresh paid extra usage disabled, cap_reached or
+unavailable, is exhausted; extra usage available/unknown/stale lets work run
+and the provider's refusal decides. Unreadable is not empty: stale_credential
 needs sign-in; http_429/failed probe retries refresh and proves nothing about
 launchability. Do not route away on unreadable alone. Compare all windows'
 quota/headroom/reset and raise approaching walls to operator. See model-selection.

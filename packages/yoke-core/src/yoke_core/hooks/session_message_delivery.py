@@ -7,6 +7,7 @@ from typing import Iterable
 
 from yoke_contracts.hook_context_compose import (
     FLEET_REPORT_CONTEXT_FIELD,
+    FLEET_WATCHER_ALERT_CONTEXT_FIELD,
     compose_context_list,
     token_delivered,
 )
@@ -27,7 +28,7 @@ from yoke_core.domain.session_message_delivery_probe import (
     PROBE_SESSION_NOT_DELIVERABLE,
 )
 from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN
-from yoke_core.hooks.fleet_watcher_presence import maybe_append_fleet_watcher_nudge
+from yoke_core.hooks.fleet_watcher_presence import fleet_watcher_alert
 from yoke_core.hooks.session_message_delivery_port import (
     CoreSessionMessageDeliveryPort,
     SessionMessageDeliveryPort,
@@ -43,6 +44,10 @@ from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 DELIVERY_AUDIT_FIELD = "session_message_delivery"
+# Marks a decision whose evaluation reached the server's inbox lease. Only
+# such an evaluation counts as a message probe: the resident evaluator may
+# then run the session's next read-only tool events locally without leasing.
+MESSAGE_PROBE_AUDIT_FIELD = "session_message_probe"
 DEFAULT_LEASE_LIMIT = 10
 _STDOUT_EVENTS = SESSION_OPENING_STDOUT_EVENTS | frozenset({"Stop"})
 
@@ -52,9 +57,13 @@ def _delivery_port() -> SessionMessageDeliveryPort:
 
 
 def _cursor_native_event_visible(context: HookContext) -> bool:
-    """Refuse Cursor's audit-only ``afterShellExecution``, which
-    canonicalizes to the same runner ``PostToolUse`` event as the real
-    ``postToolUse`` but has no model-visible reply channel."""
+    """Refuse a Cursor native event with no model-visible reply channel.
+
+    Generated config never wires one to an injecting runner event, but a
+    config written by another installed release may: its audit-only
+    ``afterShellExecution`` canonicalizes to the same runner ``PostToolUse``
+    as ``postToolUse``. Leasing there would settle the message as injected
+    into a reply the model never reads."""
     if context.executor_family != "cursor":
         return True
     native_event = str(context.payload.get("hook_event_name") or "")
@@ -112,15 +121,7 @@ def _context_decision(
 def _decision_for_event(
     lease: SessionMessageLease, context: HookContext
 ) -> HookDecision:
-    lease = replace(
-        lease,
-        report=maybe_append_fleet_watcher_nudge(
-            lease.report,
-            session_id=str(context.session_id or ""),
-            executor_family=context.executor_family,
-            remote=context.remote,
-        ),
-    )
+    alert = fleet_watcher_alert(lease.report, context)
     rendered, token = render_lease(
         lease,
         session_id=str(context.session_id or ""),
@@ -149,11 +150,13 @@ def _decision_for_event(
         # would concatenate a JSON envelope with raw text into one invalid
         # reply.
         rendered = compose_context_list(
-            [rendered, lease.report] if lease.report else [rendered],
+            [rendered, alert, lease.report],
             harness_id=context.executor_family,
         )
     elif lease.report:
         extra[FLEET_REPORT_CONTEXT_FIELD] = lease.report
+        if alert:
+            extra[FLEET_WATCHER_ALERT_CONTEXT_FIELD] = alert
     return _context_decision(context, rendered, audit, extra_fields=extra or None)
 
 
@@ -231,6 +234,19 @@ def evaluate(context: HookContext) -> HookDecision:
             PROBE_LEASE_FAILED,
             detail=type(error).__name__,
         )
+    decision = _decision_for_lease(port, context, session_id, lease)
+    return replace(
+        decision,
+        audit_fields={**decision.audit_fields, MESSAGE_PROBE_AUDIT_FIELD: True},
+    )
+
+
+def _decision_for_lease(
+    port: SessionMessageDeliveryPort,
+    context: HookContext,
+    session_id: str,
+    lease: SessionMessageLease | None,
+) -> HookDecision:
     if lease is None:
         return _declined(port, context, session_id, PROBE_SESSION_NOT_DELIVERABLE)
     if not lease.messages:
@@ -254,6 +270,14 @@ def evaluate(context: HookContext) -> HookDecision:
             )
         return _declined(port, context, session_id, PROBE_NO_LEASABLE_RECEIPT)
     return _decision_for_event(lease, context)
+
+
+def message_probe_ran(decisions: Iterable[HookDecision]) -> bool:
+    """Whether this run leased the session's inbox at an injecting event."""
+    return any(
+        decision.audit_fields.get(MESSAGE_PROBE_AUDIT_FIELD) is True
+        for decision in decisions
+    )
 
 
 def settle_after_render(
@@ -308,7 +332,9 @@ def settle_after_render(
 
 __all__ = [
     "DELIVERY_AUDIT_FIELD",
+    "MESSAGE_PROBE_AUDIT_FIELD",
     "evaluate",
+    "message_probe_ran",
     "settle_after_render",
     "wake_eligible",
 ]

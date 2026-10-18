@@ -13,8 +13,9 @@ import subprocess
 import sys
 from typing import Optional, Tuple
 
+from yoke_contracts.hook_runner import destructive_git_messages as messages
+from yoke_contracts.hook_runner import destructive_git_rules as rules
 from yoke_core.domain import lint_destructive_git_commands as command_checks
-from yoke_core.domain import lint_destructive_git_messages as messages
 from yoke_core.domain import lint_destructive_git_worktrees as worktree_checks
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
@@ -70,12 +71,8 @@ def _parse_git_invocations(command: str) -> list[Tuple[list[str], str]]:
     return command_checks.parse_git_invocations(command)
 
 
-def _pathspec_like(token: str, worktree: str = "") -> bool:
-    return command_checks.pathspec_like(token, worktree)
-
-
 def _classify_shape(args: list[str], worktree: str = "") -> Optional[str]:
-    return command_checks.classify_shape(args, worktree)
+    return rules.classify_shape(args, worktree)
 
 
 def _claimed_worktree_threats(targets) -> list[str]:
@@ -92,103 +89,17 @@ def _resolve_worktree(repo_path: str, payload: dict) -> str:
     return _toplevel() or os.getcwd()
 
 
-def _is_git_repo(worktree: str) -> bool:
-    r = _git(worktree, "rev-parse", "--is-inside-work-tree")
-    return bool(r and r.returncode == 0)
-
-
-def _porcelain(worktree: str) -> Optional[Tuple[list[str], list[str]]]:
-    r = _git(worktree, "status", "--porcelain", "--untracked-files=all")
-    if not r or r.returncode != 0:
-        return None
-    modified, untracked = [], []
-    for line in r.stdout.splitlines():
-        if len(line) < 4:
-            continue
-        (untracked if line[:2] == "??" else modified).append(
-            line[3:] if line[:2] == "??" else line[3:].split(" -> ")[-1]
-        )
-    return modified, untracked
-
-
-def _path_args(args: list[str]) -> list[str]:
-    rest = args[1:]
-    if "--" in rest:
-        return rest[rest.index("--") + 1 :]
-    paths, skip = [], False
-    for a in rest:
-        if skip:
-            skip = False
-        # `-s`/`--source` consume a value; `-S` is `--staged` and does not.
-        elif a in ("--source", "-s"):
-            skip = True
-        elif not a.startswith("-"):
-            paths.append(a)
-    return paths
-
-
-def _pathspec_covers(pathspec: str, rel: str) -> bool:
-    norm = pathspec.rstrip("/")
-    while norm.startswith("./"):
-        norm = norm[2:]
-    if norm in (".", ""):
-        return True
-    return rel == norm or rel.startswith(norm + "/")
-
-
 def _check_threat(shape: str, worktree: str, args: list[str]) -> Optional[list[str]]:
-    if not _is_git_repo(worktree):
-        return None
-    if shape in ("reset_hard", "checkout_force_branch"):
-        port = _porcelain(worktree)
-        return (port[0] or None) if port else None
-    if shape in ("checkout_path_discard", "restore_worktree_path"):
-        port = _porcelain(worktree)
-        if not port or not port[0]:
-            return None
-        modified = port[0]
-        paths = _path_args(args)
-        if not paths:
-            return modified
-        threatened = [m for p in paths for m in modified if _pathspec_covers(p, m)]
-        return threatened or None
-    if shape == "clean_force":
-        dry_args = [
-            "--dry-run"
-            if a == "--force"
-            else ("-" + a[1:].replace("f", "n"))
-            if a.startswith("-") and not a.startswith("--") and "f" in a[1:]
-            else a
-            for a in args[1:]
-        ]
-        r = _git(worktree, "clean", *dry_args)
-        if not r or r.returncode != 0:
-            return None
-        prefix = "Would remove "
-        threatened = [
-            ln.removeprefix(prefix).rstrip()
-            for ln in r.stdout.splitlines()
-            if ln.startswith(prefix)
-        ]
-        return threatened or None
-    if shape in ("stash_drop", "stash_clear"):
-        listing = _git(worktree, "stash", "list")
-        return command_checks.stash_threatened_refs(
-            shape,
-            args,
-            repo_ok=_is_git_repo(worktree),
-            stash_list=listing.stdout if listing and listing.returncode == 0 else None,
-        )
-    if shape == "worktree_remove":
-        targets = worktree_checks.worktree_remove_targets(args, worktree)
-        threatened = [
-            threat
-            for target in targets
-            for threat in worktree_checks.worktree_status_threats(target, _git)
-        ]
-        threatened.extend(_claimed_worktree_threats(targets))
-        return threatened or None
-    return None
+    if shape != "worktree_remove":
+        return rules.threatened_state(shape, worktree, args, _git)
+    targets = worktree_checks.worktree_remove_targets(args, worktree)
+    threatened = [
+        threat
+        for target in targets
+        for threat in worktree_checks.worktree_status_threats(target, _git)
+    ]
+    threatened.extend(_claimed_worktree_threats(targets))
+    return threatened or None
 
 
 def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:

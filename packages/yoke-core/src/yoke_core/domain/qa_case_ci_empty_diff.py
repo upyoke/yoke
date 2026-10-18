@@ -70,6 +70,7 @@ def record_pass_if_empty(
     target: str,
     requirement_id: int,
     budget: int,
+    requested_sha: str | None = None,
 ) -> Optional[dict[str, Any]]:
     """Record an inapplicable pass when the lane matches *target*, else None."""
     if not lane_has_no_commits_against_target(checkout, target):
@@ -98,6 +99,7 @@ def record_pass_if_empty(
             "ci_run_source": qa_case_ci_covering_run.NOT_EXECUTED,
             "failure_class": None,
             "verification_tree": tree.as_payload(),
+            "requested_sha": requested_sha,
             **selected_budget.as_record(),
         },
         sort_keys=True,

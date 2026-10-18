@@ -46,14 +46,6 @@ def _fixed_message_clock(monkeypatch) -> None:
     pin_message_clocks(monkeypatch)
 
 
-@pytest.fixture(autouse=True)
-def _isolated_watcher_discovery(monkeypatch) -> None:
-    """Channel routing is independent of this machine's watcher processes."""
-    monkeypatch.setattr(
-        "yoke_core.hooks.fleet_watcher_presence.list_process_cmdlines", lambda: ()
-    )
-
-
 class _ConnectionPort:
     """The durable delivery port, bound to one test connection."""
 

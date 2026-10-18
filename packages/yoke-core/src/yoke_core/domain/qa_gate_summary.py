@@ -22,13 +22,18 @@ from yoke_core.domain.qa_latest_execution import latest_executions
 from yoke_core.domain.qa_browser_evidence_check import _browser_proof_exists
 from yoke_core.domain.qa_gate_definitions import GateTarget
 from yoke_core.domain.qa_gate_helpers import _qa_tables_exist
+from yoke_core.domain.qa_gate_summary_rows import (
+    format_run,
+    post_deploy_answered,
+    unsettled_record_rows,
+)
 from yoke_core.domain.qa_gate_summary_text import _format_text
 from yoke_core.domain.qa_obligation_settlement import (
     requirement_retracted_at_select,
     settled_obligation_sql,
 )
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
-from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
+from yoke_core.domain.qa_review_waits import requirement_awaits_human_review
 
 
 VALID_TARGETS = ("reviewed-implementation", "implemented")
@@ -57,38 +62,6 @@ def _is_satisfied(
     return has_pass_run
 
 
-def _post_deploy_answered(conn: Any, row: Any) -> bool:
-    """An item post_deploy row is answered by delivery, as the done gate reads it."""
-    if (
-        str(row["qa_phase"] or "") != "post_deploy"
-        or row["deployment_run_id"]
-        or row["item_id"] is None
-    ):
-        return False
-    from yoke_core.domain.deployment_qa_source_obligation import (
-        source_obligation_consumed,
-    )
-
-    return source_obligation_consumed(
-        conn, item_id=int(row["item_id"]), source_requirement_id=int(row["id"])
-    )
-
-
-def _format_run(row: Optional[Any]) -> Optional[Dict[str, Any]]:
-    if row is None:
-        return None
-    verdict = row["verdict"] if "verdict" in row.keys() else None
-    return {
-        "id": int(row["id"]),
-        "verdict": str(verdict) if verdict else None,
-        "verdict_reason": row["verdict_reason"],
-        "performed_by": str(row["performed_by"]),
-        "created_at": format_instant(parse_instant(row["created_at"]))
-        if row["created_at"] is not None
-        else None,
-    }
-
-
 def render_gate_summary(
     target: GateTarget,
     db_path: str,
@@ -99,8 +72,10 @@ def render_gate_summary(
 
     The returned dict shape is stable: callers (skill prose, dashboards,
     tests) read fields directly. ``satisfied`` is True iff every blocking
-    live non-waived requirement has the evidence its kind requires. Retired
-    requirements remain visible but owe no evidence.
+    live non-waived requirement has the evidence its kind requires and, for
+    an item's ``implemented`` target, the done gate's terminal-settlement
+    check finds no unsettled record. Retired requirements remain visible but
+    owe no evidence.
     """
     if transition_name not in VALID_TARGETS:
         raise ValueError(
@@ -119,6 +94,7 @@ def render_gate_summary(
         "e2e_unsatisfied_count": 0,
         "tree_freshness_checked": False,
         "requirements": [],
+        "unsettled_records": [],
     }
 
     # The target's reference comes from the database this gate reads, so it
@@ -193,7 +169,7 @@ def render_gate_summary(
                     has_substrate_run=substrate_row is not None,
                     has_pass_run=has_current_passing_run(conn, req_id),
                 )
-                or _post_deploy_answered(conn, r)
+                or post_deploy_answered(conn, r)
             )
 
             evidence = latest_row
@@ -220,7 +196,7 @@ def render_gate_summary(
                     else None,
                     "satisfied": satisfied,
                     "triage_discharge": triage,
-                    "latest_run": _format_run(evidence),
+                    "latest_run": format_run(evidence),
                     "human_review": waiting.as_dict() if waiting else None,
                 }
             )
@@ -231,10 +207,14 @@ def render_gate_summary(
                     summary["browser_unsatisfied_count"] += 1
                 if qa_kind == E2E_QA_KIND:
                     summary["e2e_unsatisfied_count"] += 1
+        if transition_name == "implemented" and target.item_id is not None:
+            summary["unsettled_records"] = unsettled_record_rows(conn, target.item_id)
     finally:
         conn.close()
 
-    summary["satisfied"] = summary["blocking_unsatisfied_count"] == 0
+    summary["satisfied"] = (
+        summary["blocking_unsatisfied_count"] == 0 and not summary["unsettled_records"]
+    )
     return summary
 
 

@@ -29,7 +29,7 @@ from yoke_core.domain.post_deploy_verification_answer import (
     NOT_REQUIRED,
     PostDeployAnswer,
 )
-from yoke_core.domain.steering_fleet_report_deployment_runs import run_progress
+from yoke_core.domain.steering_fleet_report_run_progress import run_progress
 
 RUN = "run-pinned-release-reads"
 LINEAGE = "d" * 40

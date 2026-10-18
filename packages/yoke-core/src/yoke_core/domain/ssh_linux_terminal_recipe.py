@@ -9,6 +9,7 @@ from yoke_core.domain.qa_plan_execution_checkin import communication_unknown
 import time
 from typing import Any
 from yoke_core.domain.machine_qa_result_safety import redact_machine_qa_value
+from yoke_core.domain.machine_qa_setup_exit import marker_exit_code, step_failure
 from yoke_core.domain.ssh_mac_terminal_recipe_support import (
     recipe_assertion_failures,
     run_command_recipe,
@@ -20,19 +21,24 @@ from yoke_core.domain.ssh_linux_browser_gate import checkpoint, run_browser_gate
 from yoke_harness.ssh_linux_browser_approval import prepare_desktop_chromium
 from yoke_harness.ssh_linux_terminal import (
     LinuxTerminal,
+    LinuxTerminalWindowError,
 )
 from yoke_harness.test_machine_types import HostActionResult
 
 
 def _wait(terminal: LinuxTerminal, expected, deadline, progress_callback):
+    """Return ``(ready, transcript)``; stop early once the command has exited."""
+    text = ""
     while time.monotonic() < deadline:
         text = terminal.transcript()
         if all(value in text for value in expected):
-            return text
+            return True, text
+        if marker_exit_code(text) is not None:
+            return False, text
         if progress_callback:
             progress_callback()
         time.sleep(0.2)
-    return None
+    return False, text
 
 
 def _interactive(
@@ -104,25 +110,24 @@ def _interactive(
                 if failed is not None:
                     return failed
                 continue
-            ready = _wait(
+            ready_text = list(action.get("ready_text", ()))
+            ready, text = _wait(
                 terminal,
-                action.get("ready_text", ()),
+                ready_text,
                 min(
                     deadline,
                     time.monotonic() + float(action.get("ready_timeout_seconds", 30)),
                 ),
                 progress_callback,
             )
-            if ready is None:
-                return HostActionResult(
-                    False,
-                    {
-                        "steps": rows,
-                        "waiting_for": action.get("ready_text", ()),
-                        "recovery": "Inspect the readiness text and repair the application before retrying.",
-                    },
-                    "terminal_action_not_ready",
+            if not ready:
+                error_code, evidence = step_failure(
+                    str(action["step"]),
+                    waiting_for=ready_text,
+                    transcript=text,
+                    exit_code=marker_exit_code(text),
                 )
+                return HostActionResult(False, {**evidence, "steps": rows}, error_code)
             if not send_recipe_keys(
                 control._run,
                 backend="tmux",
@@ -148,10 +153,10 @@ def _interactive(
                     "terminal_recipe_timed_out",
                 )
             time.sleep(delay)
-            transcript = _wait(
+            completed, transcript = _wait(
                 terminal, action.get("completion_text", ()), deadline, progress_callback
             )
-            if transcript is None:
+            if not completed:
                 return HostActionResult(
                     False,
                     {
@@ -172,12 +177,7 @@ def _interactive(
                 if failed is not None:
                     return failed
         combined = "\n".join(row["transcript"] for row in rows)
-        import re
-
-        exits = re.findall(
-            r"^__YOKE_EXIT_([0-9]+)\s*$", terminal.transcript(), re.MULTILINE
-        )
-        exit_code = int(exits[-1]) if exits else None
+        exit_code = marker_exit_code(terminal.transcript())
         failures = recipe_assertion_failures(
             combined,
             expected_text=config["expected_text"],
@@ -209,6 +209,8 @@ def _interactive(
             "terminal_recipe_assertion_failed" if failures else None,
         )
         return result
+    except LinuxTerminalWindowError as exc:
+        return HostActionResult(False, exc.evidence, exc.code)
     finally:
         if not communication_unknown(sys.exception()) and not terminal.close():
             return HostActionResult(

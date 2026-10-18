@@ -10,6 +10,7 @@ from typing import Any, Mapping, Sequence
 
 from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
 from yoke_contracts.machine_qa_failures import (
+    SSH_UNAVAILABLE,
     HostControlLocalError,
     bounded_machine_qa_diagnostic,
 )
@@ -61,7 +62,7 @@ class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
         result = self._run(shlex.join(["/usr/bin/python3", "-c", script]), timeout=20)
         if result.returncode in (124, 255):
             raise HostControlLocalError(
-                code="ssh_unavailable",
+                code=SSH_UNAVAILABLE,
                 phase="host_facts_ssh",
                 detail="SSH could not read the test user's host facts.",
                 recovery_hint="Verify the registered host's current address, running state, SSH listener and authorized key before retrying.",
@@ -97,7 +98,7 @@ class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
                 "os": "linux",
                 "runner_materialized": result.returncode == 0,
             },
-            None if result.returncode == 0 else "ssh_unavailable",
+            None if result.returncode == 0 else SSH_UNAVAILABLE,
         )
 
     def check_terminal_bridge(self) -> HostActionResult:

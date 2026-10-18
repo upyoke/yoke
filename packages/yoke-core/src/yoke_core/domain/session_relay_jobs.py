@@ -75,6 +75,30 @@ def claim_wake_job(
             continue
         claim = claim_wake_attempt(conn, candidate=row, now=now)
         if claim is not None:
+            if (
+                row.get("project_id") is None
+                and not str(row.get("session_workspace") or "").strip()
+            ):
+                conn.execute(
+                    "UPDATE session_message_attempts SET completed_at="
+                    + marker(conn)
+                    + ",result_code='session_workspace_unrecorded',evidence="
+                    + marker(conn)
+                    + " WHERE attempt_id="
+                    + marker(conn),
+                    (
+                        instant_parameter(conn, parse_instant(now)),
+                        merge_redacted_evidence(
+                            {},
+                            {
+                                "recovery": "Open a new session from its workspace folder."
+                            },
+                        ),
+                        claim.attempt_id,
+                    ),
+                )
+                conn.commit()
+                continue
             selected, execution = row, authorized
             break
     if selected is None:
@@ -103,7 +127,7 @@ def claim_wake_job(
         machine_id=heartbeat.machine_id,
         surface=execution[0],
         surface_version=execution[1],
-        project_id=int(selected["project_id"]),
+        project_id=selected.get("project_id"),
         native_instruction=native_wake_instruction(message_id),
         message_id=str(message_id),
         target_session_id=str(session_id),

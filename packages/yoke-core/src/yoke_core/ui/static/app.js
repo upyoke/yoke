@@ -56,6 +56,7 @@ import { createLocationPreference } from "./universe_location_preference.js";
 import { purgeObsoleteItemDrafts } from "./item_draft_storage.js";
 import { mountBuildUpdate } from "./universe_build_update.js";
 import { mountWorkbenchTelemetry } from "./workbench_telemetry.js";
+import { prefetchShippingOverview } from "./universe_shipping_prefetch.js";
 export { withProjectSelection } from "./universe_selection_routes.js";
 // A host owns its slot DOM, so it cannot inherit the app's own dismissal —
 // and should not write a second one. Contract: `contracts/universe-app.ts`.
@@ -118,7 +119,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     // portability capabilities; the topbar carries no capability controls.
     capabilities, screenPreferences: scopeSelections,
   };
-
+  const disposeShippingRead = prefetchShippingOverview(context, windowNode, navigation);
   const {
     brand, disposeChrome, header, main, navLinks, orgContext, scopeHost,
     setScopeVisible, shell,
@@ -143,7 +144,6 @@ export function mountUniverseApp(rootNode, options = {}) {
   loadWordmark(brand, WORDMARK_ASSET_URL, () => mounted);
 
   loadOrganizationName(client, orgContext, () => mounted);
-
   // Host sections share route scope and cancel their prior render.
   const {
     append: appendViewSection,
@@ -196,8 +196,6 @@ export function mountUniverseApp(rootNode, options = {}) {
       scopeHost.replaceChildren(picker);
       setScopeVisible(true);
     }
-    // `tab` travels: a tabbed destination's drill-in means different things
-    // under different tabs, and its renderer decides which.
     const breadcrumbNavigation = (breadcrumb) => ({
       tab: route.tab,
       breadcrumb,
@@ -235,7 +233,6 @@ export function mountUniverseApp(rootNode, options = {}) {
       return;
     }
     if (entry.scope === SCOPE_NONE) {
-      // Unscoped drill-ins retain their own project and breadcrumb.
       if (detailRenderer && route.detail) {
         const detailHost = el(documentNode, "div", "view-host");
         const breadcrumb = createBreadcrumb(
@@ -254,15 +251,14 @@ export function mountUniverseApp(rootNode, options = {}) {
       const viewHost = el(documentNode, "div", "view-host");
       const pageHead = createPageHead(documentNode, entry);
       main.replaceChildren(pageHead, viewHost);
-      renderer(context, viewHost, null, route.detail, { setPageHead(options) {
+      const handle = renderer(context, viewHost, null, route.detail, { setPageHead(options) {
         if (mounted && main.children[0] === pageHead) configurePageHead(documentNode, pageHead, options);
       } });
-      appendViewSection(entry, viewHost);
+      Promise.resolve(handle).then(() => {
+        if (mounted && viewHost.parentNode === main) appendViewSection(entry, viewHost);
+      });
       return;
     }
-    // Only a single-scope view needs a project to exist: an unfiltered read
-    // over an empty universe is honest, an unscoped single view has nothing
-    // to configure.
     if (scope === null) {
       const emptyHost = el(documentNode, "div", "view-host");
       emptyHost.appendChild(emptyUniversePanel(documentNode));
@@ -306,8 +302,11 @@ export function mountUniverseApp(rootNode, options = {}) {
         configurePageHead(documentNode, pageHead, options);
       },
     });
-    appendViewSection(entry, viewHost, { scoped: true });
-    heldScope.register(entry.id, scope, picker, handle);
+    Promise.resolve(handle).then((loaded) => {
+      if (!mounted || viewHost.parentNode !== main) return;
+      appendViewSection(entry, viewHost, { scoped: true });
+      heldScope.register(entry.id, scope, picker, loaded);
+    });
   }
 
   windowNode.addEventListener("popstate", heldScope.onRouteChange);
@@ -336,6 +335,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     mounted = false;
     disposeHostSection();
     disposeTelemetry(); disposeSelectionRefresh();
+    disposeShippingRead();
     disposeBuildUpdate();
     if (typeof context.abortView === "function") context.abortView();
     navigation.dispose();

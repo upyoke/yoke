@@ -11,8 +11,12 @@ class Cleanup:
     where: str
     params: tuple = ()
     children: tuple[tuple[str, str, str], ...] = ()
-    locks: tuple[str, ...] = ()
     reason: str = "age, outcome and live-reference protections"
+    # Disjoint (where, params) slices of ``where``, each an index range read
+    # in ``branch_order``. A cohort unions bounded reads of every slice, so a
+    # nearly clean table never walks its whole heap to find the last rows.
+    branches: tuple[tuple[str, tuple], ...] = ()
+    branch_order: str = ""
 
 
 def policies(policy, cutoff):
@@ -22,34 +26,43 @@ def policies(policy, cutoff):
         return cutoff - timedelta(days=policy.windows[key])
 
     overrides = list(policy.event_days)
-    event_parts, event_values = [], []
-    if overrides:
-        marks = ",".join("%s" for _ in overrides)
-        for name, days in policy.event_days.items():
-            event_parts.append("(t.event_name=%s AND t.created_at<%s)")
-            event_values.extend((name, cutoff - timedelta(days=days)))
-        excluded = f"t.event_name NOT IN ({marks})"
-    else:
-        excluded = "TRUE"
-    for severity, days in policy.severity_days.items():
-        event_parts.append(f"({excluded} AND t.severity=%s AND t.created_at<%s)")
-        event_values.extend((*overrides, severity, cutoff - timedelta(days=days)))
-    event_where = "(" + " OR ".join(event_parts) + ")"
     # Unknown severities never become eligible, including name overrides.
-    event_where += " AND t.severity IN ('DEBUG','INFO','WARN','ERROR','FATAL','STATUS')"
-    # Hash reference membership so LIMIT can stop the primary-key scan early;
-    # anti joins otherwise sort millions of events before returning a cohort.
-    # event_id is NOT NULL; excluding nullable references preserves protection.
+    # Hash reference membership; event_id is NOT NULL, so excluding nullable
+    # references preserves protection.
+    guard = " AND t.severity IN ('DEBUG','INFO','WARN','ERROR','FATAL','STATUS')"
     for table in ("path_moves", "path_context_values", "path_integrity_repairs"):
-        event_where += f" AND t.event_id NOT IN (SELECT r.recorded_event_id FROM {table} r WHERE r.recorded_event_id IS NOT NULL)"
+        guard += f" AND t.event_id NOT IN (SELECT r.recorded_event_id FROM {table} r WHERE r.recorded_event_id IS NOT NULL)"
+    branches = []
+    for name, days in policy.event_days.items():
+        branches.append(
+            (
+                "t.event_name=%s AND t.created_at<%s",
+                (name, cutoff - timedelta(days=days)),
+            )
+        )
+    excluded = (
+        f"t.event_name NOT IN ({','.join('%s' for _ in overrides)}) AND "
+        if overrides
+        else ""
+    )
+    for severity, days in policy.severity_days.items():
+        branches.append(
+            (
+                f"{excluded}t.severity=%s AND t.created_at<%s",
+                (*overrides, severity, cutoff - timedelta(days=days)),
+            )
+        )
     rules = [
         Cleanup(
             "events",
             ("id",),
-            event_where,
-            tuple(event_values),
-            locks=("path_moves", "path_context_values", "path_integrity_repairs"),
+            "(" + " OR ".join(f"({where})" for where, _ in branches) + ")" + guard,
+            tuple(value for _, params in branches for value in params),
             reason="unknown severity and durable event references are protected",
+            # idx_events_severity_created serves each severity slice and
+            # idx_events_created_at each name override.
+            branches=tuple((where + guard, params) for where, params in branches),
+            branch_order="t.created_at",
         )
     ]
     checks = "t.event_type IN ('verify','function_authorize')"
@@ -70,7 +83,6 @@ def policies(policy, cutoff):
             ("request_id",),
             "t.created_at<%s AND NOT EXISTS (SELECT 1 FROM github_workflow_dispatch_intents d WHERE d.request_id=t.request_id AND d.state='pending')",
             (before("replay"),),
-            locks=("github_workflow_dispatch_intents",),
         ),
         Cleanup(
             "github_workflow_dispatch_intents",
@@ -84,7 +96,6 @@ def policies(policy, cutoff):
             "t.completed_at<%s AND NOT EXISTS (SELECT 1 FROM work_claims w WHERE w.session_id=t.session_id AND w.released_at IS NULL) "
             "AND EXISTS (SELECT 1 FROM harness_sessions s WHERE s.session_id=t.session_id AND s.ended_at IS NOT NULL)",
             (before("tool_calls"),),
-            locks=("work_claims", "harness_sessions"),
             reason="incomplete calls and detail belonging to live sessions/claims are protected",
         ),
         Cleanup(
@@ -111,7 +122,6 @@ def policies(policy, cutoff):
             "t.state IN ('granted','cancelled') AND t.settled_at<%s "
             "AND EXISTS (SELECT 1 FROM qa_plan_executions e WHERE e.id=t.qa_plan_execution_id AND e.state IN ('completed','aborted') AND e.completed_at<%s)",
             (before("settled_waits"), before("settled_waits")),
-            locks=("qa_plan_executions",),
         ),
     ]
     expiry = before("expired_security")

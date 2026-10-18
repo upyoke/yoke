@@ -15,15 +15,13 @@ from yoke_contracts.project_contract.project_keys import (
     DB_PROJECT_POLICY_KEYS,
     LOCAL_PROJECT_KEYS,
     PROJECT_POLICY_CAPABILITY,
-    RECOGNIZED_PROJECT_KEYS,
 )
 
 
 def test_every_entry_carries_a_default_and_a_meaning() -> None:
     for key, entry in MACHINE_SETTING_KEYS.items():
-        default, meaning = entry
-        assert isinstance(default, str), key
-        assert meaning.strip(), key
+        assert type(entry.default) is entry.value_type, key
+        assert entry.meaning.strip(), key
 
 
 def test_machine_keys_do_not_shadow_db_owned_project_policy() -> None:
@@ -34,7 +32,7 @@ def test_machine_keys_do_not_shadow_db_owned_project_policy() -> None:
 def test_local_project_keys_resolve_their_project_default() -> None:
     for key in LOCAL_PROJECT_KEYS:
         assert is_recognized(key)
-        assert machine_setting_default(key) == RECOGNIZED_PROJECT_KEYS[key][0]
+        assert machine_setting_default(key) == str(MACHINE_SETTING_KEYS[key].default)
 
 
 def test_db_owned_keys_name_their_owning_capability() -> None:

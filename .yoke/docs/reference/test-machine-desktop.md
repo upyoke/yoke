@@ -53,13 +53,30 @@ fixture desktop, waits for its X socket to disappear, then starts a replacement.
 A connected RDP client blocks this repair; close it and rerun desktop access.
 GUI commands continue using their existing display without this access repair.
 
+Only one RDP viewer may connect to a Linux fixture at a time. A second viewer
+refuses `linux_desktop_viewer_connected`; close the open `Yoke desktop: NAME`
+viewer or let `browser authorize` finish before retrying. GUI commands may reuse
+the display while its existing viewer is connected.
+
+Reset asks native Chromium's main process to quit gracefully, allowing it to
+flush live sign-ins. Chromium may flatten process arguments in `/proc`; process
+discovery still excludes renderer, zygote and crash-handler children. Killing
+those children alongside the browser can leave its profile marked crashed.
+Keep browser sign-ins live, never golden-capture or wipe them, and require the
+fresh request's exact approval tab. An older restored tab is never approval proof.
+
 To sign a browser identity in, run `yoke browser authorize --project P
 --identity NAME --machine MACHINE` from the connected workstation. It reads
-the project's declarations and opens the authorization window on that Test
-Machine's GUI desktop, then verifies after the operator closes it. No settings
-JSON or control-plane connection is needed on the Test Machine. Read
-`yoke browser authorize --help` and [browser identities](qa-platform/browser-identities.md)
-for SSH, lease and GUI prerequisites.
+the project's declarations, opens this FreeRDP viewer when the machine has a
+Linux or Windows WSL RDP route, and opens the authorization window on that
+desktop. Close the browser window when done; the viewer closes when
+verification finishes. If no viewer route or FreeRDP client is available, the
+command prints this desktop-access command and its recovery, then still waits
+for sign-in. macOS Screen Sharing uses the printed command without `--view`.
+No settings JSON or control-plane connection is needed on the Test Machine.
+Read `yoke browser authorize --help` and
+[browser identities](qa-platform/browser-identities.md) for SSH, lease and
+GUI prerequisites.
 
 The resizable viewer scales the shared desktop to fit its window. The initial
 window fits within 1280 by 800 logical pixels, with a doubled framebuffer on

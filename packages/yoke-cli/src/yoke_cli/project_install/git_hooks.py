@@ -115,13 +115,13 @@ def install_git_hook(
         if existing == shim:
             result.note(f"Exists: .git/hooks/{hook_name} (Yoke-managed, up to date)")
             return
-        hook_path.write_text(shim, encoding="utf-8")
+        hook_path.write_text(shim, encoding="utf-8", newline="")
         os.chmod(hook_path, 0o755)
         result.note(f"Updated: .git/hooks/{hook_name}")
         result.updated += 1
         return
 
-    hook_path.write_text(shim, encoding="utf-8")
+    hook_path.write_text(shim, encoding="utf-8", newline="")
     os.chmod(hook_path, 0o755)
     result.note(f"Created: .git/hooks/{hook_name}")
     result.installed += 1

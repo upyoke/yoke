@@ -71,11 +71,29 @@ _RUN_SELECT = (
 )
 
 
-def _run_named_columns(alias: str = "dr") -> tuple[str, str]:
+def bound_sources_column(alias: str, *, include_preparation_receipt: bool) -> str:
+    """Keep source identities without copying driver intake into presentation."""
+    column = f"{alias}.bound_sources"
+    if include_preparation_receipt:
+        return column
+    return (
+        f"CASE WHEN {column} IS NULL OR {column} = '' "
+        f"THEN {column} ELSE ({column}::jsonb "
+        "- 'preparation_receipt')::text END AS bound_sources"
+    )
+
+
+def _run_named_columns(
+    alias: str = "dr", *, include_preparation_receipt: bool = True
+) -> tuple[str, str]:
     """Named-column SELECT list and its environments join; callers join projects."""
 
     def col(name: str) -> str:
         return f"{alias}.{name}"
+
+    bound_sources = bound_sources_column(
+        alias, include_preparation_receipt=include_preparation_receipt
+    )
 
     environment = "e.name AS target_environment"
     env_join = f"LEFT JOIN environments e ON e.id = {alias}.target_environment_id"
@@ -95,7 +113,7 @@ def _run_named_columns(alias: str = "dr") -> tuple[str, str]:
             col("completed_at"),
             col("created_by"),
             col("carried_work"),
-            col("bound_sources"),
+            bound_sources,
             col("artifact_identity"),
             col("composition_resolution"),
             col("composition_frozen_at"),

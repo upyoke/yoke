@@ -9,7 +9,7 @@ from yoke_core.domain.qa_gate_preconditions import (
     QA_CORE_TABLES,
     qa_gate_precondition_result,
 )
-from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
+from yoke_core.domain.qa_review_waits import requirement_awaits_human_review
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 
 

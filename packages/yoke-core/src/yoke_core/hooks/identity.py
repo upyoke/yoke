@@ -1,7 +1,7 @@
-"""Session-identity resolution + env-file persistence + source classification.
+"""Session-identity resolution + source classification.
 
 Owns the chain of session-id sources (env vars → payload → degraded
-fallback), the SessionStart-only env-file persistence path, and the
+fallback) and the
 ``_classify_session_id_source`` helper that telemetry uses to record
 where the resolved id came from. Re-exported via
 ``yoke_core.hooks.telemetry`` to preserve the public surface
@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import time
 from typing import Optional
 
@@ -60,42 +59,6 @@ def resolve_direct_session_id(payload_json: str = "") -> str:
     return ""
 
 
-def resolve_env_init_session_id(payload_json: str = "") -> str:
-    """Resolve session ID for SessionStart env-file persistence."""
-    direct = resolve_direct_session_id(payload_json)
-    if direct:
-        return direct
-
-    env_file = os.environ.get("CLAUDE_ENV_FILE", "")
-    if env_file:
-        match = re.search(r"/session-env/([^/]+)/", env_file)
-        if match:
-            candidate = match.group(1)
-            if re.fullmatch(
-                r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
-                candidate,
-            ):
-                return candidate
-    return ""
-
-
-def persist_session_id_to_env_file(session_id: str, env_file: str) -> bool:
-    """Persist YOKE_SESSION_ID into the harness env file once."""
-    if not session_id or not env_file:
-        return False
-    try:
-        if os.path.isfile(env_file):
-            with open(env_file, encoding="utf-8") as handle:
-                existing = handle.read()
-            if "YOKE_SESSION_ID=" in existing:
-                return True
-        with open(env_file, "a", encoding="utf-8") as handle:
-            handle.write(f"export YOKE_SESSION_ID={session_id}\n")
-        return True
-    except OSError:
-        return False
-
-
 def _classify_session_id_source(
     session_id: str,
     payload_json: str,
@@ -120,8 +83,6 @@ def _classify_session_id_source(
 
 __all__ = [
     "_classify_session_id_source",
-    "persist_session_id_to_env_file",
     "resolve_direct_session_id",
-    "resolve_env_init_session_id",
     "resolve_session_id_from_env_and_payload",
 ]

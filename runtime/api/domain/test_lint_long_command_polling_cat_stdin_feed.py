@@ -18,6 +18,9 @@ import unittest
 from yoke_core.domain import (
     lint_long_command_polling_evaluate as lint_eval,
 )
+from yoke_core.domain.lint_long_command_polling_test_helpers import (
+    CAPTURE_ROOTS as ROOTS,
+)
 
 
 class TestCatStdinFeedCarveOut(unittest.TestCase):
@@ -26,13 +29,13 @@ class TestCatStdinFeedCarveOut(unittest.TestCase):
             "cat /tmp/yok-1882-impl-notes.md | yoke items section upsert "
             "--item YOK-1882 --heading '## Implementation Notes' --stdin"
         )
-        self.assertIsNone(lint_eval._extract_peek_capture_file(cmd))
+        self.assertIsNone(lint_eval._extract_peek_capture_file(cmd, ROOTS))
 
     def test_cat_pipe_python_module_is_not_peek(self) -> None:
         # Absolute-path consumer — basename check still classifies as
         # substantive.
         cmd = "cat /tmp/payload.json | /usr/bin/python3 -m foo"
-        self.assertIsNone(lint_eval._extract_peek_capture_file(cmd))
+        self.assertIsNone(lint_eval._extract_peek_capture_file(cmd, ROOTS))
 
     def test_cat_pipe_tail_stays_a_peek(self) -> None:
         # Sanity: peek-to-peek pipelines remain classified as peeks. The
@@ -41,7 +44,7 @@ class TestCatStdinFeedCarveOut(unittest.TestCase):
         # is read in isolation.
         self.assertEqual(
             lint_eval._extract_peek_capture_file(
-                "cat /tmp/run.log | tail -n 50"
+                "cat /tmp/run.log | tail -n 50", ROOTS
             ),
             "/tmp/run.log",
         )

@@ -11,6 +11,7 @@ from yoke_core.domain.model_reference_store import (
 from yoke_contracts.session_control.native_models import models_reading, native_model
 from runtime.api.domain.session_launch_test_support import NOW
 
+from yoke_contracts.session_control.extra_usage import EXTRA_DISABLED, extra_usage
 from yoke_contracts.session_control.plan_limits import (
     ALL_MODELS_SCOPE,
     plan_limit_window,
@@ -103,13 +104,32 @@ def weekly(remaining: float, *, scope: str = ALL_MODELS_SCOPE) -> dict[str, Any]
     return window("rolling_7d", remaining, scope=scope)
 
 
+#: Paid extra usage switched off: an empty included pool really stops work.
+EXTRA_OFF = extra_usage(EXTRA_DISABLED, meter="fixture", reason="user_disabled")
+
+
+def plan_reading(
+    windows: list[dict[str, Any]], extra: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """One surface's stored reading: its windows and, when given, extra usage."""
+    reading: dict[str, Any] = {"plan_tier": "max", "windows": windows}
+    if extra is not None:
+        reading.update(observed_at=NOW, extra_usage=extra)
+    return reading
+
+
 def add_surface(
     conn,
     machine_id: str,
     surface: str,
     windows: list[dict[str, Any]] | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> None:
-    """One relay on ``machine_id`` offering ``surface`` with these meters."""
+    """One relay on ``machine_id`` offering ``surface`` with these meters.
+
+    ``extra`` is the surface's paid extra-usage fact, observed at the fixture
+    clock so it is fresh; without it the fact is absent and reads unknown.
+    """
     readings = machine_native_models(conn, machine_id=machine_id)
     add_relay(
         conn,
@@ -117,9 +137,7 @@ def add_surface(
         machine_id=machine_id,
         surface=surface,
         version=SURFACE_VERSIONS[surface],
-        plan_limits=(
-            {surface: {"plan_tier": "max", "windows": windows}} if windows else None
-        ),
+        plan_limits=({surface: plan_reading(windows, extra)} if windows else None),
         access=SHARED_ACCESS,
     )
     reading = models_reading(

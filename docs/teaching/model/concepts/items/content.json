@@ -2,7 +2,6 @@
  "id": "content",
  "title": "Structured item content",
  "status": "observed",
- "plan_refs": ["FIRST-USER.13"],
  "page": "items",
  "position": 2,
  "sources": ["packages/yoke-core/src/yoke_core/domain/backlog_item_db_writes.py"]

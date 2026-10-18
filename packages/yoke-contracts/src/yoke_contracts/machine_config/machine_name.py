@@ -7,6 +7,7 @@ import logging
 import socket
 import subprocess
 import sys
+from yoke_contracts import terminal_detached_process
 
 
 PROBE_TIMEOUT_SECONDS = 2
@@ -52,7 +53,7 @@ def _probe(command: tuple[str, ...]) -> _ProbeOutcome:
     together is what hid this defect through several rounds of fixing it.
     """
     try:
-        completed = subprocess.run(
+        completed = terminal_detached_process.run(
             command,
             capture_output=True,
             text=True,

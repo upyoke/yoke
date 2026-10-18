@@ -36,10 +36,10 @@ class TestLocalOnlySettings:
                 "base_branch",
                 config_path=cfg,
             )
-            == RECOGNIZED_PROJECT_KEYS["base_branch"][0]
+            == RECOGNIZED_PROJECT_KEYS["base_branch"].default
         )
         assert get_project_int(repo, "wip_cap", config_path=cfg) == int(
-            RECOGNIZED_PROJECT_KEYS["wip_cap"][0]
+            RECOGNIZED_PROJECT_KEYS["wip_cap"].default
         )
 
     def test_worktrees_dir_remains_machine_local(self, tmp_path: Path) -> None:

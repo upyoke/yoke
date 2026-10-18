@@ -3,6 +3,5 @@
  "title": "QA follows its subject and target",
  "status": "approved",
  "text": "Local tests/review can satisfy suitable item QA. Preview or post-deploy environments are needed only by QA that requires them. Merge-only preserves required reviews and approvals.",
- "plan_refs": ["FIRST-USER.24", "FIRST-USER.D"],
  "position": 7
 }

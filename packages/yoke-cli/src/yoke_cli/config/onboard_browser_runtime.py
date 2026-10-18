@@ -12,6 +12,7 @@ import subprocess
 from typing import Mapping
 
 from yoke_cli import browser_node_toolchain
+from yoke_contracts import terminal_detached_process
 from yoke_harness import browser_runtime_home, browser_setup
 
 OPEN_TIMEOUT_SECONDS = 20
@@ -30,7 +31,7 @@ OPEN_CHROMIUM_JS = r"""
 const { chromium } = require('playwright');
 const { launchOptions } = require('./src/browser-executable');
 (async () => {
-  const browser = await chromium.launch({ ...launchOptions(), headless: false, chromiumSandbox: true });
+  const browser = await chromium.launch({ ...launchOptions(), headless: false });
   browser.on('disconnected', () => process.exit(0));
   try {
     const page = await browser.newPage();
@@ -57,7 +58,7 @@ def default_browser_command(env: Mapping[str, str]) -> list[str] | None:
     settings = shutil.which("xdg-settings")
     if not settings:
         return _browser_alternative(env)
-    result = subprocess.run(
+    result = terminal_detached_process.run(
         [settings, "get", "default-web-browser"],
         capture_output=True,
         text=True,
@@ -71,26 +72,37 @@ def default_browser_command(env: Mapping[str, str]) -> list[str] | None:
     data_home = Path(env.get("XDG_DATA_HOME", str(Path.home() / ".local/share")))
     roots = [
         data_home,
+        Path("/var/lib/snapd/desktop"),
         *(
             Path(p)
             for p in env.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share").split(":")
         ),
     ]
-    for root in roots:
-        entry = root / "applications" / name
-        if not entry.is_file():
-            continue
-        config = configparser.ConfigParser(interpolation=None)
-        config.read(entry)
-        section = config["Desktop Entry"]
-        if section.getboolean("Hidden", fallback=False):
-            return None
-        command = shlex.split(section.get("Exec", ""))
-        executable = shutil.which(command[0], path=env.get("PATH")) if command else None
-        if not executable or Path(executable).resolve().name in DESKTOP_LAUNCHERS:
-            return _browser_alternative(env)
-        # Desktop field codes are launch metadata, not literal browser args.
-        return [part for part in command if not part.startswith("%")]
+    names = [name]
+    if not any((root / "applications" / name).is_file() for root in roots):
+        names = [
+            "chromium.desktop",
+            "chromium-browser.desktop",
+            "chromium_chromium.desktop",
+        ]
+    for candidate in names:
+        for root in roots:
+            entry = root / "applications" / candidate
+            if not entry.is_file():
+                continue
+            config = configparser.ConfigParser(interpolation=None)
+            config.read(entry)
+            section = config["Desktop Entry"]
+            if section.getboolean("Hidden", fallback=False):
+                return None
+            command = shlex.split(section.get("Exec", ""))
+            executable = (
+                shutil.which(command[0], path=env.get("PATH")) if command else None
+            )
+            if not executable or Path(executable).resolve().name in DESKTOP_LAUNCHERS:
+                return _browser_alternative(env)
+            # Desktop field codes are launch metadata, not literal browser args.
+            return [part for part in command if not part.startswith("%")]
     return _browser_alternative(env)
 
 
