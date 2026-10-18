@@ -56,7 +56,7 @@ def test_hook_evaluation_survives_unknown_project_key(tmp_path, monkeypatch, exe
     import io
     from runtime.api.cli.test_yoke_operations_cli_hooks import _FakeResponse
     from yoke_cli.main import main
-    from yoke_harness.hooks import relay, cursor_lifecycle_hooks
+    from yoke_harness.hooks import relay, machine_hooks
 
     config, payload = _config(tmp_path)
     token = tmp_path / "fixture.token"
@@ -69,9 +69,9 @@ def test_hook_evaluation_survives_unknown_project_key(tmp_path, monkeypatch, exe
     monkeypatch.setenv("YOKE_ENV", "prod")
     monkeypatch.setattr(relay, "detect_executor", lambda: executor)
     monkeypatch.setattr(
-        cursor_lifecycle_hooks,
-        "ensure_user_lifecycle_hooks_for_executor",
-        lambda _executor: None,
+        machine_hooks,
+        "ensure_machine_hooks_for_executor",
+        lambda _executor, **_kwargs: None,
     )
     monkeypatch.setattr(
         sys,
