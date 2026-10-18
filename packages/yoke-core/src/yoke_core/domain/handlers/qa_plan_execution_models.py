@@ -13,6 +13,7 @@ class PlanExecutionBeginRequest(BaseModel):
     source_revision: str | None = None
     source_ref: str | None = None
     checkout_path: str | None = None
+    expected_branch: str | None = None
     deployment_stage: str | None = Field(default=None, min_length=1)
     deployment_member: str | None = Field(default=None, min_length=1)
     machine: str | None = Field(default=None, min_length=1)

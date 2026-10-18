@@ -44,6 +44,9 @@ def build_execution_roster(
     deployment_member_item_id: int | None = None,
     execution_target_digest: str | None = None,
     host_capability_kinds: Any | None = None,
+    checkout_path: str | None = None,
+    expected_branch: str | None = None,
+    session_id: str = "",
 ) -> list[dict[str, Any]]:
     """Capture the complete immutable execution context in server order."""
     from yoke_core.domain.qa_case_execution_context import (
@@ -71,6 +74,9 @@ def build_execution_roster(
             conn,
             requirement_id=int(order["requirement_id"]),
             host_capability_kinds=host_capability_kinds,
+            checkout_path=checkout_path,
+            expected_branch=expected_branch,
+            session_id=session_id,
         )
         roster.append(
             {

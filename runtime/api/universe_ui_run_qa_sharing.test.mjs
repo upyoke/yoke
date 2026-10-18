@@ -81,10 +81,10 @@ test("Run QA draws a shared plan once, labelled, and counts each live check once
   assert.match(text(byClass(section, "run-qa-history")[0]), /Earlier checks \(1\)/);
 });
 
-test("items point at the shared plan, keep a tile when shared-only, and show removal", async () => {
+test("items point at the shared plan and keep a tile when shared-only", async () => {
   const documentNode = new FakeDocument();
   const context = readingContext(documentNode, client());
-  const items = ["YOK-3935", "YOK-3966", "YOK-3948"].map((ref, at) => ({
+  const items = ["YOK-3935", "YOK-3966"].map((ref, at) => ({
     ...member(at + 1, ref), run_id: RUN,
   }));
   const facts = await loadCarriedItemEvidence(context, items);
@@ -100,8 +100,6 @@ test("items point at the shared plan, keep a tile when shared-only, and show rem
   ]);
   const verdicts = byClass(host, "run-verdict").map(text);
   assert.deepEqual(verdicts, ["0 own checks, shares Installer campaign", "1 of 1 passed"]);
-  assert.deepEqual(byClass(host, "carried-item-removed").map(text),
-    ["Removed from this release · 13 checks cancelled"]);
   const sharedOnly = byClass(host, "item-qa-section").find((section) =>
     byClass(section, "run-verdict").some((node) =>
       text(node) === "0 own checks, shares Installer campaign"));
@@ -109,9 +107,7 @@ test("items point at the shared plan, keep a tile when shared-only, and show rem
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.css",
     import.meta.url,
   ), "utf8");
-  for (const node of [sharedOnly, ...byClass(host, "carried-item-removed")]) {
-    assert.equal(node.classList.contains("carried-item-qa-diagnostic"), true);
-  }
+  assert.equal(sharedOnly.classList.contains("carried-item-qa-diagnostic"), true);
   assert.match(css, /\.carried-item-qa-diagnostic\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/);
   assert.match(css, /\.carried-item-qa-diagnostic\s*\{[^}]*overflow-wrap:\s*anywhere/);
 });
@@ -123,7 +119,14 @@ test("the Removed block names the checks its removal cancelled", () => {
     { ref: "YOK-3948", title: "Removed", project_id: 1, cancelled_check_count: 13,
       reason: "rides later" },
   ] }, 1);
+  assert.equal(text(byClass(host, "carried-item-title")[0]), "Removed");
   assert.match(text(byClass(host, "release-removed-note")[0]), /^13 checks cancelled — rides later — rides/);
+  const css = readFileSync(new URL(
+    "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.css",
+    import.meta.url,
+  ), "utf8");
+  assert.match(css, /\.release-removed-note\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/);
+  assert.match(css, /\.release-removed-note\s*\{[^}]*overflow-wrap:\s*anywhere/);
 });
 
 test("the Inbox run review groups shared checks the same way", () => {

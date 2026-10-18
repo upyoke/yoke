@@ -47,11 +47,8 @@ def _resolve_checkout(case: dict, checkout_path: Optional[str | Path]) -> Path:
         )
     from yoke_core.domain.qa_case_execution import _execution_checkout
 
-    checkout = (
-        Path(checkout_path).resolve()
-        if checkout_path is not None
-        else _execution_checkout(case)
-    )
+    source = checkout_path if checkout_path is not None else _execution_checkout(case)
+    checkout = Path(source).resolve()
     if not checkout.is_dir():
         raise QaCaseExecutionError(f"CI execution checkout does not exist: {checkout}")
     return checkout
@@ -125,6 +122,7 @@ def execute_ci_case(
         checkout,
         expected_branch=expected_branch,
         expected_sha=expected_sha,
+        previous_head_sha=previous_head_sha,
         explicit_checkout=checkout_path is not None,
     )
     entry_run_base = lane.queue_target
@@ -149,6 +147,7 @@ def execute_ci_case(
         target=target,
         requirement_id=requirement_id,
         budget=budget,
+        requested_sha=expected_sha,
     )
     if empty is not None:
         return empty
@@ -158,6 +157,7 @@ def execute_ci_case(
         "branch": branch,
         "ci_workflow_inputs": workflow_inputs or None,
         "verification_tree": tree.as_payload(),
+        "requested_sha": expected_sha,
         **selected_budget.as_record(),
     }
     ci_run_id = ""

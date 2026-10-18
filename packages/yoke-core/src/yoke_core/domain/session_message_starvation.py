@@ -115,6 +115,7 @@ from yoke_core.domain.session_mode import session_is_parked
 from yoke_core.domain.session_native_process_observation import (
     current_native_process_observation,
 )
+from yoke_core.domain.session_tool_call_liveness import open_call_predates_park
 
 
 #: Recorded on the receipt and wake attempt this escalation authorized.
@@ -137,10 +138,17 @@ def turn_in_flight(row: Mapping[str, Any]) -> datetime | None:
     A verified process exit retires an orphaned open call even while the
     session remains live under its work claim. Later activity retires that
     exit, so a replacement process's open call still blocks a second turn.
+
+    Parking also retires a call that started before it
+    (:func:`open_call_predates_park`): the session ended that turn, and its
+    completion hook never recorded.
     """
     if current_native_process_observation(row, include_expected_exit=True) is not None:
         return None
-    return parse_timestamp(row.get("open_tool_call_since"))
+    since = row.get("open_tool_call_since")
+    if open_call_predates_park(row, started_at=since):
+        return None
+    return parse_timestamp(since)
 
 
 def awaiting_injection(row: Mapping[str, Any]) -> bool:

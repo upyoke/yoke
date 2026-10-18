@@ -86,11 +86,61 @@ def _covering_run(
             event="pull_request" if queue_routed else "",
         )
     source = qa_case_ci_covering_run.classify(
-        run, head_sha=head_sha, required_inputs=required_inputs,
+        run,
+        head_sha=head_sha,
+        required_inputs=required_inputs,
     )
     if source == qa_case_ci_covering_run.DISPATCHED:
         return None
     return run
+
+
+def refuse_conflicting_pull_request(
+    checkout: Path, *, project: str, branch: str
+) -> None:
+    """Diagnose a missing entry run before attempting to replay the lane."""
+    from yoke_core.domain.qa_case_ci_authority import machine_github_user_authority
+    from yoke_core.engines.merge_worktree_pr_discovery import list_branch_pull_requests
+    from yoke_core.engines.merge_worktree_pr_queue import read_pr_landing_state
+
+    target = qa_case_ci_entry_run.base_branch(project, checkout)
+    ctx = qa_case_ci_entry_run._merge_context(
+        checkout,
+        branch=branch,
+        target=target,
+        project=project,
+    )
+    with machine_github_user_authority():
+        listing = list_branch_pull_requests(
+            ctx, query={"state": "open", "base": target}
+        )
+        if not listing.readable:
+            raise QaCaseExecutionError(
+                f"qa_ci_pull_request_unavailable: {listing.error}. "
+                "Restore GitHub access and rerun the CI case before moving the lane."
+            )
+        for row in listing.rows:
+            number = str(row["number"])
+            state, error = read_pr_landing_state(ctx, number)
+            if state is None:
+                raise QaCaseExecutionError(
+                    f"qa_ci_pull_request_unavailable: pull request #{number}: {error}. "
+                    "Restore GitHub access and rerun the CI case before moving the lane."
+                )
+            # A locally repaired head must reach the normal publication path;
+            # the old remote pull request still reports its earlier conflict.
+            if state.head_sha != qa_case_ci_lane.ref_sha(checkout, "HEAD"):
+                continue
+            if state.merge_state_status.upper() in {"DIRTY", "CONFLICTING"}:
+                raise QaCaseExecutionError(
+                    f"qa_ci_pull_request_conflicting: pull request #{number} is "
+                    f"{state.merge_state_status.upper()} and has no covering CI run; "
+                    "GitHub cannot create its pull_request merge ref. "
+                    f"Merge origin/{target} into lane {branch!r}, resolve the conflicts, "
+                    "commit, publish through the normal gate, and rerun the CI case. "
+                    f"Start with git -C {checkout} fetch origin {target}, then "
+                    f"git -C {checkout} merge origin/{target}."
+                )
 
 
 def prepare_lane_preserving_covering_run(
@@ -132,7 +182,8 @@ def prepare_lane_preserving_covering_run(
             )
         except QaCaseExecutionError as exc:
             qa_case_ci_progress.announce_resume_probe_failed(
-                requirement_id, detail=str(exc),
+                requirement_id,
+                detail=str(exc),
             )
             resumed = None
         if resumed is not None:
@@ -151,6 +202,8 @@ def prepare_lane_preserving_covering_run(
                 ),
                 resumed_run=resumed,
             )
+        if queue_routed:
+            refuse_conflicting_pull_request(checkout, project=project, branch=branch)
     return PreparedLane(
         queue_target=qa_case_ci_entry_run.prepare_ci_lane(
             checkout,

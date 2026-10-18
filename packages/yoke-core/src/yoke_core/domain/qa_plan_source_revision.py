@@ -16,6 +16,7 @@ from yoke_core.domain.deployment_run_carried_work_source import (
 from yoke_core.domain.deployment_run_project_sources import run_delivered_sha
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder
 from yoke_core.domain.schema_common import _column_exists
+from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
 
 SOURCE_BINDING_UNAVAILABLE = (
     "qa_plan_source_binding_unavailable: source-bound QA plans require the "
@@ -143,9 +144,6 @@ def require_candidate_plan(conn: Any, plan: Mapping[str, Any], run_id: str) -> N
     revision = plan.get("source_revision")
     if not revision:
         if _column_exists(conn, "qa_plans", "source_revision"):
-            from yoke_core.domain.deployment_qa_presentation_reads import (
-                presentation_read,
-            )
             from yoke_core.domain.deployment_qa_shared_plan_reads import (
                 presented_plan_rows,
             )
@@ -177,12 +175,20 @@ def require_candidate_plan(conn: Any, plan: Mapping[str, Any], run_id: str) -> N
         candidate = run_delivered_sha(conn, run_id, project_id)
         if not candidate or not re.fullmatch(r"[0-9a-f]{40}", str(revision)):
             raise ValueError("candidate or saved-plan source revision is unavailable")
-        source = open_carried_work_source(conn, project_id)
+        # Plans on one overview share a repository and immutable ancestry.
+        # The presentation scope expires before the next read or gate evaluation.
+        source = presentation_read(
+            conn,
+            ("qa_candidate_repository", project_id),
+            lambda: open_carried_work_source(conn, project_id),
+        )
         candidate = source.resolve_commit(candidate)
-        if (
-            not candidate
-            or source.contains_commit(candidate, str(revision)) is not True
-        ):
+        carried = candidate and presentation_read(
+            conn,
+            ("qa_candidate_ancestry", project_id, candidate, str(revision)),
+            lambda: source.contains_commit(candidate, str(revision)),
+        )
+        if carried is not True:
             raise ValueError(
                 f"candidate {candidate or 'unavailable'} does not carry source {revision}"
             )
