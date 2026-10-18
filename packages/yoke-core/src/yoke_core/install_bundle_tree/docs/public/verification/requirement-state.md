@@ -65,7 +65,7 @@ Approval accepts the reviewed evidence, rejection asks for correction and
 fresh evidence, and waiver discharges the obligation. Read the named case:
 
 ```text
-yoke qa requirement get --requirement-id ID
+yoke qa requirement get --requirement-id {requirement_id}
 ```
 
 With no holder, the notice asks the project's steering session to staff the
