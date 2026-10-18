@@ -121,13 +121,13 @@ def test_a_claude_link_yoke_did_not_create_is_refused(home: Path) -> None:
     assert link.is_dir() and not link.is_symlink()
 
 
-def test_codex_home_override_decides_installation(tmp_path: Path, monkeypatch) -> None:
+def test_codex_home_override_decides_installation(tmp_path: Path) -> None:
     home = tmp_path / "home"
     home.mkdir()
-    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-elsewhere"))
     (tmp_path / "codex-elsewhere").mkdir()
+    environ = {"HOME": str(home), "CODEX_HOME": str(tmp_path / "codex-elsewhere")}
 
-    result = install.ensure_global_skill({"HOME": str(home)})
+    result = install.ensure_global_skill(environ)
 
     assert (_shared(home) / "SKILL.md").is_file()
     assert any(line.startswith("codex: reads") for line in result.lines)
