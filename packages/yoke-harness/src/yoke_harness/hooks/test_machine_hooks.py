@@ -107,7 +107,7 @@ def test_malformed_config_is_never_overwritten(tmp_path, harness_id):
 def test_retired_cursor_entries_are_replaced(tmp_path):
     env = _env(tmp_path, ".cursor")
     path = _config(tmp_path, "cursor")
-    retired = "env YOKE_CURSOR_LIFECYCLE_ROOT=1 YOKE_HOOK_CONFIG_OWNER=cursor-user-lifecycle yoke hook evaluate Stop"
+    retired = "env YOKE_CURSOR_LIFECYCLE_ROOT=1 yoke hook evaluate Stop"
     canary = "/bin/zsh -lc 'echo >> /tmp/yoke-cursor-stop-canary.log'"
     path.write_text(
         json.dumps({"version": 1, "hooks": {"stop": [{"command": retired}, {"command": canary}]}})

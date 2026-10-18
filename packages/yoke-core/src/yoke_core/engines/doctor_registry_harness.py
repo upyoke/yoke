@@ -16,7 +16,7 @@ Session/harness substrate:
 
 Project harness config:
   ``project-hook-config-validity``, ``harness-unattended-posture``,
-  ``hook-resident``, ``pack-prerequisites``.
+  ``hook-resident``, ``machine-hooks``, ``pack-prerequisites``.
 
 Ledger audit:
   ``claim-boundary-audit``.

@@ -210,6 +210,7 @@ _SHAPES = (
         (
             "administered-scratch-databases",
             "harness-unattended-posture",
+            "machine-hooks",
             "hook-resident",
             "harness-cli-auth",
             "dashboard-current-build",
