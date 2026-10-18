@@ -76,9 +76,10 @@ gates. Project defaults apply only where the workflow QA policy declares them.
 Dash optional_item_attachment ignores defaults and does not invent a
 definition-owned verification gate; selected premerge item posture enforces
 its explicitly attached review cases. Plan selection records only the choice;
-it attaches nothing. Attach review verification explicitly before materializing:
+it attaches nothing. Select the plan, then attach review verification, before materializing:
 
 ```text
+yoke workflows item-posture amend PREFIX-N --verification-plan ID_OR_SLUG --reason TEXT
 yoke qa item-plan attach --item ITEM --project P --plan-id <id> --transition reviewing-implementation --qa-phase verification
 ```
 
