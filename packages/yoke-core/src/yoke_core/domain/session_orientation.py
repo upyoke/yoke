@@ -150,7 +150,13 @@ def _startup_block_lines() -> list[str]:
     return ["", block] if block else []
 
 
-def render_orientation(payload: dict[str, Any], root: Path) -> str:
+def render_orientation(
+    payload: dict[str, Any],
+    root: Path,
+    *,
+    setup_lines: list[str] | None = None,
+    required_lines: list[str] | None = None,
+) -> str:
     """Render the orientation block for one session, or ``""``.
 
     ``payload`` is the raw hook payload; ``root`` is the project checkout
@@ -171,6 +177,7 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
             f"Root: {root}",
         ]
     )
+    lines.extend(required_lines or [])
     branch = _git_line(root, ["branch", "--show-current"])
     branch_lines = [f"Current branch: {branch}"] if branch else []
     # One commit, not three: this block rides the inline hook channel, which
@@ -186,11 +193,15 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
     # context before it can crowd the authority/trust instructions out of
     # the smallest harness channel; the checkout identity remains intact.
     budget = min(INLINE_CONTEXT_BYTES.values())
-    for metadata in (branch_lines + commit_lines, branch_lines, []):
-        rendered = "\n".join(lines + metadata + tail).rstrip() + "\n"
-        if len(rendered.encode("utf-8")) <= budget:
-            return rendered
-    return rendered
+    from yoke_core.domain.session_orientation_setup import render_with_setup
+
+    return render_with_setup(
+        lines,
+        [branch_lines + commit_lines, branch_lines, []],
+        tail,
+        setup_lines or [],
+        budget,
+    )
 
 
 def orientation_for_hook(
@@ -270,7 +281,9 @@ def _orientation_for_hook(
 
         block = render_global_orientation(session_id, Path(cwd))
     else:
-        block = render_orientation(payload, root)
+        from yoke_cli.config.setup_facts_summary import orientation_lines
+
+        block = render_orientation(payload, root, setup_lines=orientation_lines(root))
     if not block:
         return None
     if event_name == startup_event and not lost_earlier:

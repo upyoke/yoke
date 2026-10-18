@@ -44,6 +44,14 @@ CHECKLIST_LAYERS = (
     LAYER_VERIFICATION,
 )
 
+NEXT_ACTION_HOMES = {
+    layer: ".yoke/docs/start/agent-setup.md"
+    if layer == LAYER_MACHINE
+    else ".yoke/docs/start/terminal-onboarding.md"
+    for layer in CHECKLIST_LAYERS
+}
+NEXT_ACTION_FIELDS = ("row_id", "title", "status", "reason", "command", "home")
+
 TERMINAL_STATUSES = (
     STATUS_NOT_NEEDED,
     STATUS_DEFERRED,
@@ -214,6 +222,8 @@ __all__ = [
     "FIRST_ITEM_DONE_ROW_ID",
     "HANDOFF_TO",
     "MACHINE_ROW_IDS",
+    "NEXT_ACTION_FIELDS",
+    "NEXT_ACTION_HOMES",
     "OPERATION",
     "OPERATION_INIT",
     "PROJECT_ROW_IDS",

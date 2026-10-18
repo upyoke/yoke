@@ -25,7 +25,7 @@ REASSIGN_ACTION = (
 PROJECT_REGISTER_USAGE = (
     "yoke project register REPO_ROOT --project-id N "
     "[--board-scope SCOPE] [--board-render-path PATH] [--reassign] "
-    "[--config PATH]"
+    "[--config PATH] [--json]"
 )
 
 
@@ -38,6 +38,7 @@ def project_register(args: List[str]) -> int:
             "Moving a project id already routed elsewhere needs --reassign."
         ),
     )
+    parser.add_argument("--json", dest="json_mode", action="store_true")
     parser.add_argument("repo_root")
     parser.add_argument("--project-id", dest="project_id", type=int, required=True)
     parser.add_argument("--board-scope", dest="board_scope", default=None)
@@ -68,7 +69,31 @@ def project_register(args: List[str]) -> int:
             path=parsed.config_path,
         )
 
-    return run(_register)
+    import json
+    import sys
+    from yoke_cli.config.setup_facts_summary import read_project
+
+    if parsed.json_mode:
+        from yoke_cli.commands.adapters.config_write_shared import machine_config_errors
+
+        try:
+            result = _register()
+        except machine_config_errors() as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        setup = read_project(
+            parsed.repo_root, project=parsed.project_id, config_path=parsed.config_path
+        )
+        result["next_action"] = setup["next_action"]
+        print(json.dumps(result))
+        return 0
+    result_code = run(_register)
+    if result_code == 0:
+        setup = read_project(
+            parsed.repo_root, project=parsed.project_id, config_path=parsed.config_path
+        )
+        print("\n".join(setup["lines"]), file=sys.stdout)
+    return result_code
 
 
 def require_reassign_seat(project_id: int) -> None:

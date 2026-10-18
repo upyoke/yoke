@@ -1,0 +1,10 @@
+{
+ "id": "setup-facts",
+ "title": "Read setup facts and their status meanings",
+ "status": "observed",
+ "form": "State and recipe",
+ "verification": "Candidate source tests; installed delivery proof remains pending in setup-next-action-delivery-proof.",
+ "topics": ["projects/onboarding", "projects/onboarding/first-useful-work"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/schema_api_context_main_agent_hints.py"],
+ "position": 20
+}

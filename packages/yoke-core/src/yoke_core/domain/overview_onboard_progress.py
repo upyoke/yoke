@@ -21,6 +21,7 @@ from yoke_core.domain.project_onboarding_run_supersede import (
 )
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.project_onboarding_runs import get_run
+from yoke_core.domain.project_onboarding_next_action import select_next_action
 
 RUNS_TABLE = "project_onboarding_runs"
 ROWS_TABLE = "project_onboarding_checklist_rows"
@@ -41,6 +42,7 @@ RUN_STATUS_OPEN = "open"
 #: Run statuses under which the module's checklist is finished.
 FINISHED_RUN_STATUSES = (RUN_STATUS_COMPLETE, RUN_STATUS_SUPERSEDED)
 
+
 def read_onboard_progress(conn: Any) -> Optional[Dict[str, Any]]:
     """The most recent onboarding run's live facts, or ``None`` for none.
 
@@ -60,12 +62,12 @@ def read_onboard_progress(conn: Any) -> Optional[Dict[str, Any]]:
     rows = current["rows"]
     open_rows = [row for row in rows if row["status"] not in TERMINAL_STATUSES]
     blocked = [row for row in rows if row["status"] == STATUS_BLOCKED]
-    superseded = (
-        superseded_by(run[2]) if str(run[1]) == RUN_STATUS_SUPERSEDED else None
-    )
+    superseded = superseded_by(run[2]) if str(run[1]) == RUN_STATUS_SUPERSEDED else None
+    action = select_next_action(rows, current["setup_readiness"])
     return {
         "run_status": (
-            RUN_STATUS_SUPERSEDED if superseded
+            RUN_STATUS_SUPERSEDED
+            if superseded
             else _run_status(rows, open_rows, blocked)
         ),
         "superseded_by": superseded,
@@ -73,7 +75,16 @@ def read_onboard_progress(conn: Any) -> Optional[Dict[str, Any]]:
         "steps_done": len(rows) - len(open_rows),
         "steps_total": len(rows),
         # A superseded run has nothing next: its project moved on to delivery.
-        "next": _step(open_rows[0]) if open_rows and not superseded else None,
+        "next": (
+            {
+                "step": next(
+                    row["step"] for row in rows if row["row_id"] == action["row_id"]
+                ),
+                "title": action["title"],
+            }
+            if action and not superseded
+            else None
+        ),
         "blocker": _blocker(blocked[0]) if blocked and not superseded else None,
         "scaffold_installed": any(
             row["row_id"] == SCAFFOLD_ROW_ID
@@ -117,8 +128,7 @@ def _strategy_docs_exist(conn: Any) -> bool:
     if not _table_exists(conn, STRATEGY_DOCS_TABLE):
         return False
     row = conn.execute(
-        f"SELECT EXISTS(SELECT 1 FROM {STRATEGY_DOCS_TABLE} "
-        "WHERE archived_at IS NULL)"
+        f"SELECT EXISTS(SELECT 1 FROM {STRATEGY_DOCS_TABLE} WHERE archived_at IS NULL)"
     ).fetchone()
     return bool(row[0]) if row is not None else False
 

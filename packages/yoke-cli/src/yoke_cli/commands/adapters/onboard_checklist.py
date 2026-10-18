@@ -182,7 +182,9 @@ def _init(args: List[str]) -> int:
         except ValueError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
-        response = get_setup(payload, _target(parsed.project_id, project=parsed.project))
+        response = get_setup(
+            payload, _target(parsed.project_id, project=parsed.project)
+        )
         if not response.success:
             return emit_response(response, json_mode=parsed.json_mode)
         response = call_dispatcher(
@@ -274,6 +276,8 @@ def _render_run_human(response: FunctionCallResponse, stdout, stderr) -> None:
 
 
 def _render_init_human(response: FunctionCallResponse, stdout, stderr) -> None:
+    from yoke_cli.config.setup_facts_summary import summary_lines
+
     payload = response.result or {}
     lines = [
         "Yoke onboarding checklist",
@@ -281,8 +285,7 @@ def _render_init_human(response: FunctionCallResponse, stdout, stderr) -> None:
         f"  checkout: {payload.get('checkout_path')}",
         f"  project_id: {payload.get('project_id')}",
         "",
-        "Next:",
-        "  - yoke setup",
+        *summary_lines(payload),
         "",
     ]
     print("\n".join(lines), file=stdout)

@@ -30,7 +30,12 @@ DOCS_URL = "https://upyoke.com/docs"
 _PROJECT_LINES = 5
 
 
-def render_global_orientation(session_id: str, cwd: Path) -> str:
+def render_global_orientation(
+    session_id: str,
+    cwd: Path,
+    *,
+    setup_lines: list[str] | None = None,
+) -> str:
     """Render the outside-project orientation for one session, or ``""``."""
     if not session_id or session_id == "unknown":
         return ""
@@ -40,7 +45,7 @@ def render_global_orientation(session_id: str, cwd: Path) -> str:
         f"Your Session: {session_id}",
         f"Yoke is installed on this machine. This folder is outside every Yoke project: {cwd}",
         "",
-        "Next: ask the user what they want to work on, then use the "
+        "Project selection: ask the user what they want to work on, then use the "
         f"`{GLOBAL_SKILL_NAME}` skill to pick or add its project. Item work "
         "happens in a new session opened in that project's folder.",
         f"Machine status: `yoke status`. Command help: `yoke --help` or {DOCS_URL}.",
@@ -49,11 +54,21 @@ def render_global_orientation(session_id: str, cwd: Path) -> str:
     ]
     budget = min(INLINE_CONTEXT_BYTES.values())
     folders = _project_folders()
-    for count in range(min(len(folders), _PROJECT_LINES), -1, -1):
-        rendered = _join(required + _project_lines(folders, count))
-        if len(rendered.encode("utf-8")) <= budget:
-            return rendered
-    return rendered
+    from yoke_core.domain.session_orientation_setup import render_with_setup
+    from yoke_cli.config.setup_facts_summary import orientation_lines
+
+    setup = orientation_lines(None) if setup_lines is None else setup_lines
+    return render_with_setup(
+        required,
+        [
+            _project_lines(folders, count)
+            for count in range(min(len(folders), _PROJECT_LINES), -1, -1)
+        ],
+        [],
+        setup,
+        budget,
+        global_context=True,
+    )
 
 
 def _project_lines(folders: list[str], count: int) -> list[str]:

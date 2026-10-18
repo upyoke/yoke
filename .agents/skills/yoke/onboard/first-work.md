@@ -40,7 +40,9 @@ yoke onboard checklist --run-id {run_id} --row-status verification=verified --ev
 yoke onboard checklist --run-id {run_id} --row-status work-seeding=configured --evidence work-seeding="handed CURRENT-PLAN to /yoke steer; first work: {outcome}; deferred until needed: {rows}"
 ```
 
-Then run `/yoke steer CURRENT-PLAN` in this session. When steering files the
+Read `run.next_action` from `yoke onboard checklist get --project {project} --json`.
+Complete its required repairs first; when setup is ready its first-work recipe
+runs `/yoke steer CURRENT-PLAN` in this session. When steering files the
 first item, apply the outcome's QA obligations to that ref before staffing:
 
 ```bash
@@ -68,5 +70,5 @@ run stays open. Resume reports it:
 yoke onboard checklist get --project {project} --json
 ```
 
-Required unknown/blocked rows still name their recovery; never claim
-activation before the row reads verified.
+Follow `run.next_action.command` and `run.next_action.home`; optional rows never
+become mandatory next steps. Never claim activation before the row reads verified.

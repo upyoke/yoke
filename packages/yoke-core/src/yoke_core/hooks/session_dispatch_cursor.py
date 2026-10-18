@@ -74,7 +74,13 @@ def _render_orientation(
         warning += [remediation] if remediation else []
         blocks.append("\n".join(warning))
     if not record.payload.get(CLIENT_ORIENTATION_PRESENT_KEY):
-        orientation = render_orientation(record.payload, Path(root)).strip()
+        from yoke_cli.config.setup_facts_summary import orientation_lines
+
+        orientation = render_orientation(
+            record.payload,
+            Path(root),
+            setup_lines=orientation_lines(Path(root)),
+        ).strip()
         if orientation:
             blocks.append(orientation)
     return "\n\n".join(blocks) + ("\n" if blocks else "")

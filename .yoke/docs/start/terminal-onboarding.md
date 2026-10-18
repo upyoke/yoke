@@ -14,7 +14,14 @@ The read resolves that project's run in the connected universe and checks this
 machine's prerequisites. Saved choices and evidence survive a new session or
 machine; current settings determine the observed state. `configured`, `deferred`,
 `not-needed`, `unknown` and `blocked` remain distinct. Optional unexamined
-capabilities stay unknown. `setup_readiness.unmet_rows` names required checks.
+capabilities stay unknown. `run.next_action` names the next required recipe and
+its deeper home; `run.setup_readiness` describes current prerequisites.
+Human checklist replies lead with the same Next recipe that install, refresh,
+register and checklist init show. Orientation includes concise setup facts once
+per session, suppresses settled setup after first-work activation, and uses
+`Setup: run yoke onboard checklist get` if space is tight. Failed reads name the
+reason and recovery; permission-denied setup is omitted. An older server without
+`next_action` supplies no guessed Next line.
 
 Onboard saves the confirmed profile in the existing run. Resume reuses it;
 changed settings require confirming the changed proposal. The checklist Markdown
