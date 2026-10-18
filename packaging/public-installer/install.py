@@ -1045,7 +1045,17 @@ class Installer(InstallerVerification, InstallerResolution):
             self._require_published_release(version)
             command = self.install_command(spec, config_path="<temporary uv config>")
             print(f"Resolved Yoke {version}", file=self.stdout)
-            print(f"Install command: {shlex.join(command)}", file=self.stdout)
+            isolated = [
+                "env",
+                "UV_TOOL_DIR=<new private release>/tools",
+                "UV_TOOL_BIN_DIR=<new private release>/bin",
+                *command,
+            ]
+            print(f"Install command: {shlex.join(isolated)}", file=self.stdout)
+            print(
+                "Publication: verify the candidate, then atomically switch the launcher; retain releases used by running commands.",
+                file=self.stdout,
+            )
             print(
                 f"Dry run: confirmed Yoke {version} is published at "
                 f"{_safe_url(self.options.base_url)}. "
