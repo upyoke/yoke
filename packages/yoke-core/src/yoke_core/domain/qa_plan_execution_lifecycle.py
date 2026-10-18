@@ -129,6 +129,10 @@ def finish_plan_execution(
             "QA plan execution is already terminal as "
             f"{current_state!r}; transition to {state!r} refused"
         )
+    if state in {"aborted", "error"}:
+        from yoke_core.domain.qa_plan_execution_abort_state import require_host_restored
+
+        require_host_restored(conn, execution, reason=reason)
     if state == "completed" and int(execution["cursor_ordinal"]) != len(
         execution["roster"]
     ):

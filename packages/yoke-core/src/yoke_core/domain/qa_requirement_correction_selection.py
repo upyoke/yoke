@@ -15,15 +15,19 @@ def resolve_correction_selection(conn, declarations):
                 f"requirement {failed_id} is declared twice; name each failed requirement once"
             )
         seen.add(failed_id)
+        failed = _row(conn, failed_id)
+        if failed is None:
+            raise QaReplacementError(
+                f"requirement {failed_id} not found; inspect the failed requirement"
+            )
         if entry.get("case_key") is None:
-            failed = _row(conn, failed_id)
-            if failed is None or not failed.get("plan_case_key"):
+            if not failed.get("plan_case_key"):
                 raise QaReplacementError(
                     f"requirement {failed_id} has no plan case key; inspect the failed "
                     "requirement and use --replaces CASE_KEY=REQUIREMENT_ID instead."
                 )
             key = base_case_key(failed["plan_case_key"])
             entry.update(case_key=key, exact_scope=True)
-            scopes.setdefault(key, []).append(failed)
+        scopes.setdefault(entry["case_key"], []).append(failed)
         resolved.append(entry)
     return resolved, scopes

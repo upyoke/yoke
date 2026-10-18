@@ -23,6 +23,19 @@ HEARTBEAT_SECONDS = 15.0
 HEARTBEAT_EVENT = "machine_qa.heartbeat"
 
 
+class MachineQaAborted(RuntimeError):
+    """The authority requested that this runner stop and restore its host."""
+
+
+def check_abort(callback):
+    result = callback() if callback is not None else None
+    if isinstance(result, dict) and result.get("abort_requested"):
+        raise MachineQaAborted(
+            "qa_host_abort_requested: stop host actions and record restore proof; "
+            "retry plan abort after restoration"
+        )
+
+
 def emit_heartbeat_line(phase: str, elapsed_seconds: float, **detail: object) -> None:
     """Print one progress line the plan watcher counts as live progress."""
     print(
@@ -45,14 +58,13 @@ def heartbeat_during(
     progress_callback: Callable[[], None] | None,
     *,
     interval_seconds: float = HEARTBEAT_SECONDS,
+    propagate_abort: bool = True,
 ) -> Iterator[None]:
     """Beat every ``interval_seconds`` while the enclosed host phase runs.
 
-    A heartbeat that fails stops beating and prints the named failure; the
-    phase itself still finishes, because abandoning a reset or cleanup halfway
-    leaves the host worse off. A failure whose delivery is unknown is raised
-    once the phase completes, matching the operator gate, so the plan never
-    reports the host's state as settled when the authority may disagree.
+    A heartbeat failure stops beating and prints the named reason. Blocking
+    phases finish before cancellation or unknown delivery is raised. Cleanup
+    callers suppress cancellation until restoration and proof submission finish.
     """
     stop = threading.Event()
     failures: list[Exception] = []
@@ -63,7 +75,7 @@ def heartbeat_during(
             emit_heartbeat_line(phase, time.monotonic() - started)
             if progress_callback is not None:
                 try:
-                    progress_callback()
+                    check_abort(progress_callback)
                 except Exception as error:
                     failures.append(error)
                     emit_heartbeat_line(
@@ -88,7 +100,10 @@ def heartbeat_during(
     finally:
         stop.set()
         thread.join()
-    if failures and communication_unknown(failures[0]):
+    if failures and (
+        communication_unknown(failures[0])
+        or (propagate_abort and isinstance(failures[0], MachineQaAborted))
+    ):
         raise failures[0]
 
 

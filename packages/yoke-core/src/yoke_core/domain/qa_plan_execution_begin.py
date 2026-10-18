@@ -70,6 +70,7 @@ def begin_plan_execution(
     session_id: str,
     _deployment_subject: dict | None = None,
     _requesting_member_item_id: int | None = None,
+    plan: str | None = None,
 ) -> dict[str, Any]:
     """Create or resume the one live execution for a QA subject.
 
@@ -166,6 +167,7 @@ def begin_plan_execution(
         deployment_stage=deployment_stage,
         deployment_member_item_id=deployment_member_item_id,
         execution_target_digest=expected_deployment_target_digest,
+        plan=plan,
         host_capability_kinds=host_capabilities,
         checkout_path=checkout_path,
         expected_branch=expected_branch,
@@ -252,6 +254,7 @@ def begin_plan_execution(
                 deployment_stage=deployment_stage,
                 deployment_member_item_id=deployment_member_item_id,
                 execution_target_digest=expected_deployment_target_digest,
+                plan=plan,
                 host_capability_kinds=host_capabilities,
                 checkout_path=checkout_path,
                 expected_branch=expected_branch,

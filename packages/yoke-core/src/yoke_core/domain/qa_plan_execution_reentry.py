@@ -17,7 +17,10 @@ PAUSE_REASON = "qa-communication-outcome-unknown:"
 
 
 def checkin_view(execution):
+    from yoke_core.domain.qa_plan_execution_abort_state import abort_request
+
     return {
+        "abort_requested": abort_request(execution) is not None,
         "execution_id": str(execution["id"]),
         **{
             key: execution.get(key)

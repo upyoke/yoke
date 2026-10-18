@@ -86,6 +86,8 @@ def _interactive(
             )
         time.sleep(initial_wait)
         for action in config["actions"]:
+            if progress_callback is not None:
+                progress_callback()
             if time.monotonic() >= deadline:
                 return HostActionResult(
                     False,

@@ -57,6 +57,18 @@ session's live execution remains owned by that session; continue its watcher
 and retry afterward. `shared_plan_execution_busy` names a different group
 already using the stage's ordered cursor. Refresh and declared corrections
 also use an attaching member and keep the failed group's target identity.
+For a correction, name its plan and failed requirement:
+
+```text
+yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N \
+    --plan CORRECTED_PLAN --project P --replaces CASE_KEY=FAILED_REQUIREMENT_ID
+```
+
+This walk selects only the correction plan's rows, including inside a shared
+group. Other original cases and unrelated groups remain owed independently.
+Replacement scopes stay in the frozen selection, so later materialization
+does not create private copies of shared corrections. A passing independent
+verdict supersedes the failed requirement.
 A member refresh with `--plan` naming the member's own plan refreshes only that
 member's rows, so a live run-wide walk of a shared plan does not block it.
 Removing one member or withdrawing its attachment preserves shared evidence for
@@ -176,6 +188,26 @@ Restoring missing or changed packages requires the recorded versions to remain
 available; a failed restore names apt access and journal reconciliation and
 blocks execution. Continuations preserve the existing walk and journal.
 
+
+## Stop host work safely
+
+```text
+yoke qa plan abort --deployment-run-id RUN --execution-id EXECUTION_ID \
+    --reason 'Stop this host case'
+```
+
+An in-flight host abort first records cancellation. Until restore proof is
+recorded, it refuses with `qa_abort_restore_pending` and retains host custody.
+Keep the owning runner connected: heartbeat replies carry cancellation, the
+runner stops before its next step, finishes fixture cleanup, restores the
+declared chain baseline and submits the evidence. Blocking resets finish
+before the runner acts on cancellation. Retry abort after cleanup; success
+confirms the lease is released and restoration is proven.
+
+A failed restore or an `as_is` chain without a declared baseline cannot prove
+restoration. Custody stays held; follow the named control-plane operator
+recovery to recover the machine and record proof before release. Preserve
+the execution, capture and restore diagnostics.
 
 ## Recover communication on the frozen execution
 

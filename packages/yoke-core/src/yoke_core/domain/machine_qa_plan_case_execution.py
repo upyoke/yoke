@@ -204,6 +204,10 @@ def execute_plan_machine_case(
             "test_machine.plan_case.submit returned the wrong requirement"
         )
     _require_restored(submission.payload)
+    if result.get("error_code") == "qa_host_abort_requested":
+        raise MachinePlanCaseDispatchError(
+            "qa_host_abort_requested: host work stopped; restore evidence recorded; inspect the execution before restarting"
+        )
     return result
 
 
