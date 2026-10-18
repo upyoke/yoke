@@ -15,6 +15,14 @@ from runtime.api.skill_doc_regressions_test_helpers import SKILLS, _read
 
 MATERIALIZE_COMMAND = "yoke qa plan materialize --item ITEM --transition NEXT_STAGE"
 TRANSITION_COMMAND = "yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE"
+SELECT_PLAN_COMMAND = (
+    "yoke workflows item-posture amend PREFIX-N --verification-plan "
+    "ID_OR_SLUG --reason TEXT"
+)
+PREMERGE_ATTACH_COMMAND = (
+    "yoke qa item-plan attach --item ITEM --project P --plan-id <id> "
+    "--transition reviewing-implementation --qa-phase verification"
+)
 
 
 class TestDashQaMaterializationOrder:
@@ -51,3 +59,18 @@ class TestDashQaMaterializationOrder:
         authority = _read(SKILLS / "dash" / "function-reference.md")
         assert "`qa.plan.materialize`" in authority
         assert "`qa.requirement.list`" in authority
+
+
+class TestDashVerificationPlanSelectionOrder:
+    """Premerge attach follows verification-plan selection in the recipe."""
+
+    @pytest.fixture
+    def dash_doc(self) -> str:
+        return _read(SKILLS / "dash" / "verify.md")
+
+    def test_selects_the_plan_before_premerge_attach(self, dash_doc: str):
+        select_at = dash_doc.index(SELECT_PLAN_COMMAND)
+        attach_at = dash_doc.index(PREMERGE_ATTACH_COMMAND)
+        assert select_at < attach_at, (
+            "verification-plan selection must precede premerge item-plan attach"
+        )
