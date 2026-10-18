@@ -48,8 +48,15 @@ floor; the control-plane operator must serve the release carrying the field.
 Merge proof hydration resolves item detail's selected `run_id` exactly, preserving
 native start/id selection even if history order changes. Missing selected proof
 stays unbound and enters the existing commit-bound recovery: re-run the Command
-case or re-record methodless hand acceptance against the candidate. Substrate
-methods retain their runner authority and teach their own re-run command.
+case or re-record methodless hand acceptance against the candidate. Epic task
+reviews use the epic review writer, retaining their full review body and binding
+`head_sha` to the candidate; item requirements use the general hand writer.
+`yoke merge item PREFIX-N` attempts each eligible recovery. If any write fails,
+`commit_bound_recovery_failed` lists each failed requirement id and reason plus
+successful ids; landing stays blocked. Inspect failed requirements with
+`yoke qa run list --requirement-id ID`, repair the named refusal, then retry the
+merge. Successful writes remain recorded. Substrate methods retain their runner
+authority and teach their own re-run command.
 A missing or ambiguous start
 refuses the case read with the same named ordering reason as native grading.
 Native `qa.run.list` and `qa.run.get` project each run's `case_outcome` through
