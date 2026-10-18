@@ -6,7 +6,9 @@ After install, `yoke` is on PATH and runs the installed product. A source-checko
 installation has its own launcher binding; changing directories does not select
 a linked worktree's build. For pre-merge source development, use
 `yoke dev run -- <command>` to resolve the claimed checkout and verify its
-locked environment before running candidate code.
+locked environment before running candidate code. Source runs use a disposable
+machine-home snapshot before import probes; `--allow-real-machine-home` explicitly
+permits real machine-home writes. Installed commands keep their normal home.
 
 Common operators:
 
@@ -143,6 +145,11 @@ when the command selects another connection. Set that default to the connection
 that owns those old IDs before registering. The retained flat list is an inert
 snapshot for an already installed older reader; new routing never falls back to
 it, and later registrations update only `connection_projects`.
+
+Unknown keys are ignored and warn once per file/key in each process, naming
+`machine_config_key_unknown`, the key and file. Remove the key or use a release
+that supports it. Invalid known values still refuse; extra settings do not disable
+commands or harness hooks.
 
 
 The installer records `settings.distribution` as `{"origin": "https://api.upyoke.com",
