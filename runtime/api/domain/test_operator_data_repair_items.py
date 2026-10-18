@@ -231,13 +231,23 @@ def test_raw_internal_snapshot_still_refuses_at_wire_boundary():
     assert public_item_request_error(request(plan)).code == "internal_item_id_forbidden"
 
 
-def test_member_public_ref_dry_run_resolves_and_raw_item_id_refuses(item_conn):
+@pytest.mark.parametrize(
+    "column,wire",
+    [
+        ("deployment_member_item_id", "deployment_member_public_ref"),
+        ("epic_id", "epic_public_ref"),
+    ],
+)
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_item_column_public_ref_resolves_and_raw_item_id_refuses(
+    item_conn, column, wire, dry_run
+):
     raw = document(
         table="qa_requirements",
         key_columns=["id"],
         sql="UPDATE qa_requirements SET note='x' WHERE id=1",
-        before=[dict(id=1, deployment_member_item_id=ITEM_KEY)],
-        after=[dict(id=1, deployment_member_item_id=ITEM_KEY)],
+        before=[{"id": 1, column: ITEM_KEY}],
+        after=[{"id": 1, column: ITEM_KEY}],
     )
     with pytest.raises(RepairRefusal) as refused:
         repair.validate_plan(raw, repair.review_digest(raw))
@@ -251,35 +261,38 @@ def test_member_public_ref_dry_run_resolves_and_raw_item_id_refuses(item_conn):
         project_id=1,
         project_sequence=SEQUENCE + 1,
     )
-    requirement = insert_qa_requirement(
-        item_conn,
-        item_id=None,
-        deployment_run_id="repair-run",
-        deployment_stage="qa",
-        deployment_member_item_id=ITEM_KEY,
+    subject = (
+        dict(epic_id=ITEM_KEY, task_num=1)
+        if column == "epic_id"
+        else dict(
+            deployment_run_id="repair-run",
+            deployment_stage="qa",
+            deployment_member_item_id=ITEM_KEY,
+        )
     )
-    before = dict(id=int(requirement["id"]), deployment_member_public_ref=REF)
+    requirement = insert_qa_requirement(item_conn, item_id=None, **subject)
+    before = {"id": int(requirement["id"]), wire: REF}
     plan = document(
         table="qa_requirements",
         key_columns=["id"],
         sql=(
             "UPDATE qa_requirements "
-            f"SET deployment_member_public_ref='{new_ref}' "
-            f"WHERE id={before['id']} AND deployment_member_public_ref='{REF}'"
+            f"SET {wire}='{new_ref}' "
+            f"WHERE id={before['id']} AND {wire}='{REF}'"
         ),
         before=[before],
-        after=[dict(before, deployment_member_public_ref=new_ref)],
+        after=[{**before, wire: new_ref}],
     )
-    execute(item_conn, plan, dry_run=True)
+    execute(item_conn, plan, dry_run=dry_run)
     stored = item_conn.execute(
-        "SELECT deployment_member_item_id FROM public.qa_requirements WHERE id=%s",
+        f"SELECT {column} FROM public.qa_requirements WHERE id=%s",
         (before["id"],),
     ).fetchone()
-    assert stored[0] == ITEM_KEY
+    assert stored[0] == (ITEM_KEY if dry_run else ITEM_KEY + 1)
     observed = json.loads(receipt(item_conn)[3])
     assert observed["observed_before"] == plan.before
     assert observed["observed_after"] == plan.after
-    assert receipt(item_conn)[0] == "test_verified"
+    assert receipt(item_conn)[0] == ("test_verified" if dry_run else "completed")
 
 
 def test_public_reference_changes_invalidate_operator_review():

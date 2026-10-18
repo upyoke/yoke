@@ -98,7 +98,7 @@ def test_matching_source_reaches_normal_preparation(source, monkeypatch):
     prepare.assert_called_once()
 
 
-def test_preparation_cannot_publish_a_changed_explicit_candidate(source, monkeypatch):
+def test_preparation_rechecks_branch_after_integrating_candidate(source, monkeypatch):
     checkout, sha, case = source
     monkeypatch.setattr(qa_case_ci_lane, "repo_slug", lambda _root: "acme/widgets")
 
@@ -114,6 +114,7 @@ def test_preparation_cannot_publish_a_changed_explicit_candidate(source, monkeyp
             "-m",
             "integrated source",
         )
+        git(checkout, "switch", "-c", "other-worker")
         return qa_case_ci_resume.PreparedLane(queue_target=None)
 
     monkeypatch.setattr(
