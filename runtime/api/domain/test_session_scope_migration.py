@@ -20,7 +20,7 @@ from yoke_core.domain.schema_common import _get_columns_with_types
 from yoke_core.domain.schema_expected_catalog import parse_expected_schema
 from yoke_core.domain.schema_init_tables_sessions import create_session_tables
 
-ENTRY_NAME = "0078_project_optional_sessions"
+ENTRY_NAME = "0081_project_optional_sessions"
 entry = importlib.import_module(f"yoke_core.domain.migrations.{ENTRY_NAME}")
 
 
@@ -185,9 +185,13 @@ def test_additive_boot_precedes_governed_history(scoped_rows):
     entry.invariants(conn)
 
 
-def test_minimum_serving_version_is_next_release():
-    assert declared_minimum(entry) == NEXT_RELEASE
-    floor = recorded_floor(entry, running_version="9.0.0")
+@pytest.mark.parametrize(
+    "entry_name", (ENTRY_NAME, "0082_scrub_admission_secret_receipts")
+)
+def test_minimum_serving_version_is_next_release(entry_name):
+    module = importlib.import_module(f"yoke_core.domain.migrations.{entry_name}")
+    assert declared_minimum(module) == NEXT_RELEASE
+    floor = recorded_floor(module, running_version="9.0.0")
     with closing(sqlite3.connect(":memory:")) as conn:
         conn.execute(
             "CREATE TABLE applied_migrations(migration_name TEXT PRIMARY KEY, "
@@ -195,13 +199,13 @@ def test_minimum_serving_version_is_next_release():
         )
         conn.execute(
             "INSERT INTO applied_migrations VALUES (?, 'now', 'scope-test', ?)",
-            (ENTRY_NAME, floor),
+            (entry_name, floor),
         )
         findings = schema_readiness.stranded_by_applied_migrations(
             conn, "8.0.0", (), YOKE_LEDGER_CONTRACT
         )
     assert len(findings) == 1
-    assert ENTRY_NAME in findings[0] and "9.0.0" in findings[0]
+    assert entry_name in findings[0] and "9.0.0" in findings[0]
 
 
 def test_recipient_table_created_before_attempts_fk(test_db, monkeypatch):

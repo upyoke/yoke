@@ -21,6 +21,20 @@ from yoke_harness import browser_system_browser
 from yoke_harness.browser_apparmor import SANDBOX_ENV
 from yoke_harness.browser_system_dependencies import ensure_system_dependencies
 
+NPM_INSTALL_TIMEOUT_SECONDS = 180
+CHROMIUM_PROBE_TIMEOUT_SECONDS = 40
+CHROMIUM_INSTALL_TIMEOUT_SECONDS = 300
+
+
+def _run_setup_command(argv, *, timeout: int, reason: str, **kwargs):
+    try:
+        return terminal_detached_process.run(argv, timeout=timeout, **kwargs)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"{reason}: exceeded {timeout} seconds. Check network access and "
+            "runtime permissions, then retry yoke qa browser setup."
+        ) from exc
+
 
 def _command_output_tail(result: subprocess.CompletedProcess) -> str:
     return "\n".join(
@@ -79,7 +93,7 @@ def chromium_status(browser: Path, toolchain) -> str:
                 capture_output=True,
                 text=True,
                 env=env,
-                timeout=40,
+                timeout=CHROMIUM_PROBE_TIMEOUT_SECONDS,
             )
     except (OSError, subprocess.TimeoutExpired):
         return "missing"
@@ -115,8 +129,10 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
         _log(
             "[browser-auto-bootstrap] node_modules or playwright missing; auto-installing..."
         )
-        result = terminal_detached_process.run(
+        result = _run_setup_command(
             [str(toolchain.npm), "install"],
+            timeout=NPM_INSTALL_TIMEOUT_SECONDS,
+            reason="browser_npm_install_timeout",
             cwd=str(browser),
             capture_output=True,
             text=True,
@@ -130,8 +146,10 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
             )
         _log("[browser-auto-bootstrap] npm install completed successfully")
 
-    result = terminal_detached_process.run(
+    result = _run_setup_command(
         [str(toolchain.node), "-e", browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS],
+        timeout=CHROMIUM_PROBE_TIMEOUT_SECONDS,
+        reason="browser_chromium_probe_timeout",
         cwd=str(browser),
         capture_output=True,
         text=True,
@@ -152,8 +170,10 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
                 "[browser-auto-bootstrap] BLOCKED: Chromium binary missing"
             )
         _log("[browser-auto-bootstrap] Chromium binary not found; auto-installing...")
-        result = terminal_detached_process.run(
+        result = _run_setup_command(
             [str(toolchain.npx), "playwright", "install", "chromium"],
+            timeout=CHROMIUM_INSTALL_TIMEOUT_SECONDS,
+            reason="browser_chromium_install_timeout",
             cwd=str(browser),
             capture_output=True,
             text=True,

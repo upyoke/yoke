@@ -85,3 +85,5 @@ chain_complete, simulation entry follows. Chains still waiting with no task
 running anywhere cannot progress: report each wait and halt for pinned
 authoring repair. Bound delivery skill later owns PR, merge, issue closeout and
 lane cleanup.
+
+Keep each entry body at or below 4,096 UTF-8 bytes; write only what changed and the next step, and move evidence to artifacts or field-notes.

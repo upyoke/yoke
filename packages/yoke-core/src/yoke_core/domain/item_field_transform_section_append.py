@@ -7,7 +7,12 @@ from yoke_contracts.timestamps import format_instant
 from typing import Callable, Optional, TYPE_CHECKING
 from yoke_core.domain.backlog_queries import VALID_STRUCTURED_FIELDS
 from yoke_core.domain.item_json_sections import section_write_refusal
-from yoke_core.domain.progress_log import format_entry, join_entry
+from yoke_core.domain.progress_log import (
+    PROGRESS_LOG_ENTRY_BODY_MAX_BYTES,
+    PROGRESS_LOG_SECTION,
+    format_entry,
+    join_entry,
+)
 
 if TYPE_CHECKING:
     from yoke_core.domain.item_field_transform import TransformResult
@@ -79,6 +84,25 @@ def section_append(
             item_id=item_id,
             section=section,
             error="refusing section append with empty content",
+        )
+
+    body_bytes = len(content.encode("utf-8"))
+    if (
+        section == PROGRESS_LOG_SECTION
+        and body_bytes > PROGRESS_LOG_ENTRY_BODY_MAX_BYTES
+    ):
+        return _result(
+            success=False,
+            operation=op,
+            item_id=item_id,
+            section=section,
+            error=(
+                "progress_log_entry_too_large: "
+                f"entry body is {body_bytes} UTF-8 bytes; "
+                f"maximum is {PROGRESS_LOG_ENTRY_BODY_MAX_BYTES}. "
+                "Progress Log entries are current-state checkpoints: write only "
+                "what changed and the next step; move evidence to artifacts or field-notes."
+            ),
         )
 
     existing = _sections.get_section(item_id, section) or ""

@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "agent",
  "when": "Wrapping up, resuming or recovering after compaction",
- "need": "Use item Progress Log as a current-state checkpoint with evidence links; re-read the current phase and durable artifacts. Wrapup records observations/unfinished work. A UI preference or old transcript is not authoritative work state.",
+ "need": "Use item Progress Log as a current-state checkpoint with evidence links; re-read the current phase and durable artifacts. Wrapup records observations/unfinished work. A UI preference or old transcript is not authoritative work state. Keep each entry body at or below 4,096 UTF-8 bytes; write only what changed and the next step, and move evidence to artifacts or field-notes.",
  "disclosure": "current cue",
  "surface": "Wrapup router -> survey/record phases; AGENTS compaction instruction; public learning page.",
  "review": "Pending exact recipe proof.",

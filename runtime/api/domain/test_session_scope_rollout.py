@@ -190,7 +190,7 @@ def test_old_build_refuses_converged_db():
         )
         conn.execute(
             "INSERT INTO applied_migrations VALUES (?, 'now', 'test', '2.0.0')",
-            ("0078_project_optional_sessions",),
+            ("0081_project_optional_sessions",),
         )
         findings = schema_readiness.stranded_by_applied_migrations(
             conn,
@@ -199,7 +199,7 @@ def test_old_build_refuses_converged_db():
             YOKE_LEDGER_CONTRACT,
         )
         assert len(findings) == 1
-        assert "0078_project_optional_sessions" in findings[0]
+        assert "0081_project_optional_sessions" in findings[0]
         assert "2.0.0" in findings[0] and "1.0.0" in findings[0]
 
 
