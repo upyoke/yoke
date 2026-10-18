@@ -38,8 +38,17 @@ abort before terminal settlement. Selecting an attempt does not release it.
 
 A requirement-filtered `qa.run.list` puts that native-selected attempt first
 and retains every historical run, including detached review audit rows. Case
-detail preserves this selection rather than re-sorting by run id. Unfiltered
-run lists retain their existing audit order. A missing or ambiguous start
+detail resolves the explicit `current_run_id` from that same snapshot, independently
+of history order. The field is null for empty or unfiltered history; unfiltered
+run lists retain their existing audit order. A client missing this response field
+refuses with `qa_current_run_identity_unavailable` and names the serving-response
+floor; the control-plane operator must serve the release carrying the field.
+Merge proof hydration resolves item detail's selected `run_id` exactly, preserving
+native start/id selection even if history order changes. Missing selected proof
+stays unbound and enters the existing commit-bound recovery: re-run the Command
+case or re-record methodless hand acceptance against the candidate. Substrate
+methods retain their runner authority and teach their own re-run command.
+A missing or ambiguous start
 refuses the case read with the same named ordering reason as native grading.
 Native `qa.run.list` and `qa.run.get` project each run's `case_outcome` through
 the shared judged-outcome model. A final review of a `needs_review` capture

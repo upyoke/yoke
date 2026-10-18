@@ -54,6 +54,7 @@ def test_run_history_selects_utc_start_then_equal_instant_id(
     outcome = _read(requirement["id"])
     assert outcome.primary_success, outcome.error
     rows = outcome.result_payload["rows"]
+    assert outcome.result_payload["current_run_id"] == before[current_index]["id"]
     assert rows[0]["id"] == before[current_index]["id"]
     assert {row["id"] for row in rows} == {first["id"], second["id"]}
     after = [
@@ -95,6 +96,7 @@ def test_run_history_keeps_detached_review_without_selecting_it(test_db):
     rows = _read(requirement["id"]).result_payload["rows"]
     assert [row["id"] for row in rows] == [capture["id"], review["id"]]
     assert rows[0]["verdict"] is None
+    assert _read(requirement["id"]).result_payload["current_run_id"] == capture["id"]
 
 
 def test_case_read_refuses_missing_start_instead_of_selecting_an_old_pass(test_db):
@@ -145,6 +147,7 @@ def test_current_selection_uses_the_returned_history_snapshot(test_db, monkeypat
     assert outcome.primary_success, outcome.error
     rows = outcome.result_payload["rows"]
     assert inserted
+    assert outcome.result_payload["current_run_id"] == current["id"]
     assert [row["id"] for row in rows] == [current["id"], old["id"]]
     assert inserted[0] not in [row["id"] for row in rows]
 
@@ -213,3 +216,11 @@ def test_reviewed_capture_history_keeps_utc_selection_and_original_evidence(
         assert stored[key] == before[key]
     assert stored["case_outcome"] == "needs_review"
     assert len(rows) == 2
+
+
+def test_empty_run_history_has_explicit_null_current_identity(test_db):
+    item = insert_item(test_db, title="Empty current history")
+    requirement = insert_qa_requirement(test_db, item_id=item["id"])
+    outcome = _read(requirement["id"])
+    assert outcome.primary_success, outcome.error
+    assert outcome.result_payload == {"rows": [], "current_run_id": None}
