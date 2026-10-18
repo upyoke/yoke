@@ -74,8 +74,8 @@ QA_COMMANDS: list[dict] = [
             "name a stage in the item's pinned workflow that carries or "
             "precedes a qa_verification gate. ac_verification omits "
             "`--success-policy` "
-            "by default; stricter policy is "
-            '`{"min_runs":N,"min_pass":N}`. Several rows in one '
+            "by default; the accepted form is "
+            "`all-pass`. Several rows in one "
             "transaction: pipe a JSON array to `yoke qa requirement "
             "add-batch --item PREFIX-N --stdin`; every row must include "
             "`workflow_transition_id`. With `--deployment-run RUN-ID` the "

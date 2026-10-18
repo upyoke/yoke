@@ -21,7 +21,7 @@ single payload/discovery index; schema and method depth stays with its owner.
 yoke qa requirement add --item PREFIX-N --qa-kind implementation_review \
  --qa-phase verification --blocking-mode blocking --requirement-source explicit \
  --workflow-transition reviewed-implementation \
- --success-policy '{"type":"deterministic","criteria":"verdict_pass"}'
+ --success-policy all-pass
 yoke qa plan materialize --item PREFIX-N --transition reviewing-implementation
 yoke qa plan run --item PREFIX-N --transition reviewing-implementation
 yoke qa case run --requirement-id N

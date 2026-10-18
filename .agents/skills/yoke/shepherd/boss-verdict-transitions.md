@@ -32,16 +32,16 @@ publish corrected definition; no literal stage substitute.
 
 Read ACs from stored spec, body if empty, then existing requirements. For each
 testable checkbox AC (- [ ] AC-N: or plain checkbox) add missing explicit
-blocking ac_verification with verification phase/ac_derived source and its
-description as success policy:
+blocking ac_verification with verification phase/ac_derived source and
+success policy all-pass:
 
 ```bash
 yoke qa requirement list --item ITEM --json
-yoke qa requirement add --item ITEM --qa-kind ac_verification --qa-phase verification --workflow-transition QA_STAGE --blocking-mode blocking --requirement-source ac_derived --success-policy "{AC description}"
+yoke qa requirement add --item ITEM --qa-kind ac_verification --qa-phase verification --workflow-transition QA_STAGE --blocking-mode blocking --requirement-source ac_derived --success-policy all-pass
 ```
 
 No ACs and no existing requirement: one blocking implementation_review,
-seeded_default source, "Implementation matches the item spec".
+seeded_default source, success policy all-pass.
 Duplicate adds create rows; do not call them idempotent. Reentry matches
 existing source/AC/transition and preserves legitimate requirements.
 Browser/command/machine methods come from attached plans or explicit method-backed

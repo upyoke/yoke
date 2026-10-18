@@ -6,7 +6,7 @@ QA_REQUIREMENT_ADD_USAGE = (
     "yoke qa requirement add (--item PREFIX-N | --deployment-run RUN-ID) "
     "(--qa-kind KIND | --method-id METHOD) "
     "--qa-phase PHASE [--target-env E] [--blocking-mode M] "
-    "[--requirement-source S] [--success-policy JSON-OR-TEXT] "
+    "[--requirement-source S] [--success-policy all-pass|JSON] "
     "[--required-capability KIND ...] [--suite-id ID] "
     "[--instructions TEXT | --instructions-file PATH | --stdin] "
     "[--expected-outcome TEXT | --expected-outcome-file PATH] "
@@ -93,7 +93,7 @@ Full configuration: verification/browser-targets.md#method-configuration.
   --starting-state            machine   —          as_is (runs on the machine as found)
   --starting-state-reason     as_is     —          why the machine as found is the start
   --workflow-transition      item      —          pinned workflow stage id
-  --success-policy            no        —          aggregate/ad hoc policy
+  --success-policy            no        —          all-pass or {"id":"all-pass","params":{}}
   --required-capability       no        —          repeatable capability kind
   --suite-id                  no        —          suite id string
   --session-id                no        ambient    opaque session id (operator-debug)

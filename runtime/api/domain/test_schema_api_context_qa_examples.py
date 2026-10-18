@@ -91,7 +91,7 @@ def test_qa_packet_carries_requirement_add_ac_verification_example() -> None:
     ) in body
     assert "`--workflow-transition` is required" in body
     assert "precedes a qa_verification gate" in body
-    assert '{"min_runs":N,"min_pass":N}' in body
+    assert "the accepted form is `all-pass`" in body
     assert "every row must include `workflow_transition_id`" in body
     # The same command attaches a case to a release, so the packet teaches
     # that form rather than sending an agent to an operator-debug CLI.
