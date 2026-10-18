@@ -95,8 +95,4 @@ def _project_folders() -> list[str]:
         return []
 
 
-def _join(lines: list[str]) -> str:
-    return "\n".join(lines).rstrip() + "\n"
-
-
 __all__ = ["DOCS_URL", "render_global_orientation"]

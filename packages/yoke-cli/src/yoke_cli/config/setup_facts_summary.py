@@ -12,7 +12,6 @@ from yoke_contracts.onboard_checklist import (
     STATUS_VERIFIED,
 )
 
-POINTER = "Setup: run yoke onboard checklist get"
 MACHINE_HOME = "https://upyoke.com/docs/start/agent-setup"
 
 

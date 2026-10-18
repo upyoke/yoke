@@ -11,7 +11,6 @@ as a report of what ran.
 from __future__ import annotations
 
 import os
-import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -40,39 +39,6 @@ def _connected_env_remediation(registration_failed: str) -> Optional[str]:
         return registration_failure_remediation(registration_failed)
     except Exception:  # noqa: BLE001 -- orientation text must never crash the hook
         return None
-
-
-def _git_line(root: str, args: list[str]) -> str:
-    try:
-        result = subprocess.run(
-            ["git", "-C", root, *args],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        return ""
-    return result.stdout.rstrip("\n").strip() if result.returncode == 0 else ""
-
-
-def _bootstrap_lines(root: str, *, extra_files: list[str]) -> list[str]:
-    try:
-        from yoke_core.hooks.bootstrap import load_spec, render_compact
-
-        spec_path = Path(root) / "runtime" / "harness" / "bootstrap-spec.json"
-        if spec_path.is_file():
-            rendered = render_compact(
-                Path(root), load_spec(spec_path), extra_files=extra_files
-            )
-            if rendered:
-                return rendered.splitlines()
-    except Exception:
-        pass
-    fallback = ["Read before editing:"]
-    for name in extra_files:
-        if (Path(root) / name).is_file():
-            fallback.append(f"- {name}")
-    return fallback
 
 
 def _render_codex_orientation(
@@ -184,9 +150,7 @@ def _source_orientation(session_id, root, registration_failed, required):
 
 
 __all__ = [
-    "_bootstrap_lines",
     "_connected_env_remediation",
-    "_git_line",
     "_render_claude_orientation",
     "_render_codex_orientation",
     "_render_codex_reminder",
