@@ -215,10 +215,9 @@ def _close_leaked_pg_connections():
 def _forget_schema_readiness_verdict():
     """Keep one test's schema-probe verdict out of the next test's database.
 
-    The health route remembers a positive probe for its process lifetime so
-    container liveness polling stops reopening database connections. Tests
-    share a process but not a database, so that verdict has to be cleared
-    between them. Imported here rather than at module scope: the app is still
+    The health route serves the last background probe without opening a
+    database connection. Tests share a process but not a database, so that
+    snapshot has to be cleared between them. Imported here rather than at module scope: the app is still
     mid-build during conftest import, and pulling in a route module then would
     re-enter that build.
 

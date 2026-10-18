@@ -82,7 +82,10 @@ def create_app() -> FastAPI:
 
         register_all_handlers()
         await attest_github_app_runtime_identity_with_hard_deadline()
-        yield
+        from yoke_core.api.health_refresh import health_refresh_lifespan
+
+        with health_refresh_lifespan():
+            yield
 
     build_sha = os.environ.get("YOKE_BUILD_SHA", "")
     engine_version = advertised_engine_version(build=build_sha)
@@ -323,6 +326,9 @@ def _include_routes(application: FastAPI) -> FastAPI:
     v1_router.include_router(web_sign_in_router)
     v1_router.include_router(token_browser_sign_in_router)
 
+    from yoke_core.api.routes.items_health import router as health_router
+
+    application.include_router(health_router, prefix="/v1")
     application.include_router(v1_router)
     from yoke_core.api.routes.frontend_events import router as frontend_events_router
 

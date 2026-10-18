@@ -313,7 +313,10 @@ def test_health_wire_embeds_only_the_typed_advertisement(monkeypatch):
         lambda: (True, [], [], [], True, True, [], []),
     )
 
-    payload = items_health.health().model_dump(mode="json")
+    import asyncio
+
+    items_health.initialize_health_metadata()
+    payload = asyncio.run(items_health.health()).model_dump(mode="json")
 
     assert payload["github_app"] == profile.model_dump(mode="json")
     assert not {
