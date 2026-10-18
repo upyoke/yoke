@@ -155,6 +155,11 @@ Capacity operands requiring glob expansion retain ordinary authority.
 
 ## Command output
 
+Watcher runtime modules load before the child starts, including terminal-result
+and liveness helpers. A running installed command keeps its immutable CLI release
+leased across updates; the next command selects the newly published release.
+
+
 - **A wait that is silent by design says so first.** A command that is about to poll, back off, wait on a lock, or block on CI or another process prints one line before the quiet starts: `Waiting by design: <what it waits for>; <how it checks>; gives up after <bound>. Silence until then is expected.` Silence after that line, up to the named bound, is the command working, not hanging: do not interrupt it, relaunch it, or investigate it before the bound passes. Every `yoke watch` wrapper passes these lines through immediately, outcome-only wrappers included, so they reach you even when routine progress stays in the raw capture. Code that adds such a wait announces it once through `yoke_contracts.designed_wait.announce_designed_wait` (stderr by default, or the command's own output sink), never with per-poll lines.
 - **Capture-first: any non-trivial command MUST be captured to a temp file.** Never pipe a live command invocation directly to `tail`, `head`, or any other truncating consumer — this silently discards failure context and forces a re-run. Applies to anything whose output matters on failure (roughly >5s): tests, merges, deploys, syncs, browser QA, renders, installs, builds, long git ops. Skip only the obviously instant (`ls`, `echo`, `git rev-parse`). The pattern:
   ```bash

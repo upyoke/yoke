@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_core.domain import verification_tree_binding
+from yoke_core.tools import impacted_tests
+
 import sys
 from dataclasses import replace
 from pathlib import Path
@@ -65,7 +68,6 @@ def _git_common_dir(checkout: Path) -> str:
 def impacted_tree(cwd: Path | None = None) -> Path:
     """Resolve one impacted run to its unique same-repository claimed lane."""
     invocation = _source_pythonpath.repo_root(cwd or Path.cwd()).resolve()
-    from yoke_core.domain import verification_tree_binding
 
     session_id = verification_tree_binding.ambient_session_id()
     if not session_id:
@@ -94,7 +96,6 @@ def impacted_selection(
     root: Path | None = None,
 ):
     """Impacted selection, or ``None`` when the project has no test roots."""
-    from yoke_core.tools import impacted_tests
 
     checkout = (root or impacted_tree()).resolve()
     roots = resolve_test_roots(str(checkout))

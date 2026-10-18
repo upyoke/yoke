@@ -22,6 +22,10 @@ claim until an explicit release or terminal action.
 
 from __future__ import annotations
 
+from yoke_core.domain import session_ambient_identity
+from yoke_contracts.api.function_call import ActorContext, TargetRef
+from yoke_core.api import service_client_structured_api_adapter as structured_api
+
 from contextlib import contextmanager
 import threading
 import time
@@ -37,11 +41,7 @@ HEARTBEAT_INTERVAL_SECONDS = 60.0
 def _ambient_session_id() -> str:
     """The session this process belongs to, or empty when it has none."""
     try:
-        from yoke_core.domain.session_ambient_identity import (
-            resolve_ambient_session_id,
-        )
-
-        return str(resolve_ambient_session_id() or "")
+        return str(session_ambient_identity.resolve_ambient_session_id() or "")
     except Exception:  # noqa: BLE001 - no identity is a no-op, never a failure
         return ""
 
@@ -55,12 +55,7 @@ def refresh_session_heartbeat(session_id: str) -> bool:
     behavior resumes.
     """
     try:
-        from yoke_contracts.api.function_call import ActorContext, TargetRef
-        from yoke_core.api.service_client_structured_api_adapter import (
-            call_dispatcher,
-        )
-
-        response = call_dispatcher(
+        response = structured_api.call_dispatcher(
             function_id="sessions.touch",
             target=TargetRef(kind="global"),
             payload={},
