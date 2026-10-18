@@ -11,9 +11,26 @@ from yoke_core.domain.handlers import (
 )
 from yoke_core.domain.handlers import item_worktree_paths as _item_worktree_paths
 from yoke_core.domain.handlers import item_worktrees as _item_worktrees
+from yoke_core.domain.handlers import worktree_dirty as _dirty
 
 
 def register(registry) -> None:
+    registry.register(
+        "worktree.classify_dirty",
+        _dirty.handle_classify_dirty,
+        _dirty.ClassifyDirtyRequest,
+        _dirty.ClassifyDirtyResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.worktree_dirty",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=[],
+        guardrails=["machine_local_checkout", "readable_git_checkout"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+        minimum_serving_version="next-release",
+    )
     registry.register(
         "item_worktrees.create",
         _item_worktree_create.handle_create,
