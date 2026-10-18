@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 import shutil
 import subprocess
 import sys
 
 import pytest
 
-from yoke_cli.config import install_binding
+from yoke_cli.config import install_binding, cli_release_runtime
 from yoke_contracts import install_binding as contract_binding
 from yoke_core.tools.install_yoke_launcher_core import write_launcher
 
@@ -18,7 +19,9 @@ from yoke_core.tools.install_yoke_launcher_core import write_launcher
 @pytest.fixture
 def released_launcher(tmp_path):
     tools = tmp_path / "tools"
-    environment = tools / "yoke-cli"
+    root = tools / "yoke-cli-releases"
+    generation = root / "releases" / "1.2.3"
+    environment = generation / "tools" / "yoke-cli"
     subprocess.run(
         [sys.executable, "-m", "venv", "--without-pip", str(environment)],
         check=True,
@@ -49,6 +52,15 @@ def released_launcher(tmp_path):
         "    print(json.dumps({'argv': argv, 'origin': __file__, 'prefix': sys.prefix}))\n"
         "    return 7 if '--exit-seven' in argv else 0\n"
     )
+    (generation / "lease").touch()
+    (root / "current").symlink_to(generation)
+    (root / "launcher").write_text(
+        f"#!{sys._base_executable}\n"
+        + Path(cli_release_runtime.__file__)
+        .read_text()
+        .replace("INSTALL_ROOT = None", f"INSTALL_ROOT = {str(root)!r}", 1)
+    )
+    (root / "launcher").chmod(0o755)
     bindir = tmp_path / "bin"
     bindir.mkdir()
     uv = bindir / "uv"
@@ -59,7 +71,7 @@ def released_launcher(tmp_path):
     env = dict(os.environ)
     env.pop("YOKE_SOURCE_DEV", None)
     env.pop("PYTHONHOME", None)
-    env["PATH"] = str(bindir)
+    env["PATH"] = str(bindir) + os.pathsep + os.environ["PATH"]
     return launcher, env, site, environment
 
 
@@ -107,8 +119,8 @@ def test_missing_release_refuses_without_importing_source(released_launcher):
         [str(launcher), "--version"], env=env, capture_output=True, text=True
     )
     assert result.returncode == 2
-    assert "released_cli_unavailable" in result.stderr
-    assert "https://upyoke.com/install" in result.stderr
+    assert "cli_release_unavailable" in result.stderr
+    assert "public installer" in result.stderr
     assert "Traceback" not in result.stderr
 
 
