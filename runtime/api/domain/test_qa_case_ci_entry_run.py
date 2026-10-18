@@ -151,7 +151,8 @@ def test_a_lane_behind_the_base_is_fetched_then_rebased(monkeypatch):
         "origin/main",
         "HEAD",
     )
-    assert calls[2] == ("rebase", "origin/main")
+    assert calls[2] == ("rev-list", "--merges", "origin/main..HEAD")
+    assert calls[3] == ("rebase", "origin/main")
 
 
 def test_gate_rebase_marks_replayed_commits_to_skip_snapshot_sync(monkeypatch):
