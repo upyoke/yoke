@@ -47,7 +47,8 @@ def conn() -> sqlite3.Connection:
             dependent_item_id INTEGER,
             blocking_item_id INTEGER,
             gate_point TEXT,
-            satisfaction TEXT
+            satisfaction TEXT,
+            created_at TEXT NOT NULL DEFAULT '2026-01-01T00:00:00Z'
         );
         CREATE TABLE workflow_versions (
             id INTEGER PRIMARY KEY,
@@ -122,7 +123,7 @@ def _rows() -> list[dict[str, object]]:
 
 def _add_edge(connection: sqlite3.Connection, *, gate_point: str) -> None:
     connection.execute(
-        "INSERT INTO item_dependencies VALUES (?,?,?,?,?)",
+        "INSERT INTO item_dependencies (id,dependent_item_id,blocking_item_id,gate_point,satisfaction) VALUES (?,?,?,?,?)",
         (1, DEPENDENT, BLOCKER, gate_point, "status:done"),
     )
 

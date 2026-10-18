@@ -21,8 +21,7 @@ def _p(conn: Any) -> str:
 def _claim_owning_item(conn: Any, claim_id: int):
     p = _p(conn)
     row = conn.execute(
-        f"SELECT owner_item_id FROM path_claims "
-        f"WHERE id = {p} AND owner_kind = 'item'",
+        f"SELECT owner_item_id FROM path_claims WHERE id = {p} AND owner_kind = 'item'",
         (claim_id,),
     ).fetchone()
     if row is None or row[0] is None:
@@ -30,7 +29,7 @@ def _claim_owning_item(conn: Any, claim_id: int):
     return int(row[0])
 
 
-def _item_merge_state(conn: Any, item_id: int) -> tuple[str, bool | None]:
+def _item_merge_state(conn: Any, item_id: int) -> tuple[str, Any]:
     p = _p(conn)
     row = conn.execute(
         f"SELECT status, merged_at FROM items WHERE id = {p}",
@@ -38,7 +37,7 @@ def _item_merge_state(conn: Any, item_id: int) -> tuple[str, bool | None]:
     ).fetchone()
     if row is None:
         return "", None
-    return str(row[0] or ""), True if row[1] else None
+    return str(row[0] or ""), row[1]
 
 
 def _direct_downstream_claims(
@@ -78,19 +77,19 @@ def _dep_satisfied_downstream_claims(
     blocking_item_id = _claim_owning_item(conn, released_claim_id)
     if blocking_item_id is None:
         return []
-    blocking_status, blocking_merged = _item_merge_state(conn, blocking_item_id)
+    blocking_status, blocking_merged_at = _item_merge_state(conn, blocking_item_id)
     from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
     workflow = load_item_workflow_runtime(conn, blocking_item_id)
     try:
         edges = conn.execute(
-            "SELECT dependent_item_id, blocking_item_id, satisfaction "
+            "SELECT dependent_item_id, blocking_item_id, satisfaction, created_at "
             "FROM item_dependencies"
         ).fetchall()
     except db_backend.operational_error_types(conn):
         return []
     satisfied_dependent_items: Set[int] = set()
-    for raw_dep, raw_blk, sat in edges:
+    for raw_dep, raw_blk, sat, created_at in edges:
         if int(raw_blk) != blocking_item_id:
             continue
         verdict = evaluate_persisted_satisfaction(
@@ -98,7 +97,9 @@ def _dep_satisfied_downstream_claims(
             blocking_item_id=blocking_item_id,
             satisfaction=str(sat or "status:done").strip(),
             blocking_status=blocking_status,
-            blocking_merged=blocking_merged,
+            blocking_merged=True if blocking_merged_at else None,
+            blocking_merged_at=blocking_merged_at,
+            dependency_created_at=created_at,
             workflow=workflow,
         )
         if verdict.satisfied:

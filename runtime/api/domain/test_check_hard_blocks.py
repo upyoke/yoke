@@ -63,15 +63,27 @@ class TestIsSatisfied(unittest.TestCase):
             "implemented",
             merged_at="2026-01-01T00:00:00Z",
         )
-        self.assertTrue(mod._is_satisfied("fact:merged", item, None))
+        self.assertTrue(
+            mod._evaluate_item_satisfaction(
+                "fact:merged", item, None, "2025-12-31T00:00:00Z"
+            ).satisfied
+        )
 
-    def test_fact_merged_via_release_status(self) -> None:
+    def test_release_status_without_landing_does_not_satisfy_merge(self) -> None:
         item = self._item("release", merged_at=None)
-        self.assertTrue(mod._is_satisfied("fact:merged", item, None))
+        self.assertFalse(
+            mod._evaluate_item_satisfaction(
+                "fact:merged", item, None, "2025-12-31T00:00:00Z"
+            ).satisfied
+        )
 
     def test_fact_merged_unmet(self) -> None:
         item = self._item("implementing", merged_at=None)
-        self.assertFalse(mod._is_satisfied("fact:merged", item, None))
+        self.assertFalse(
+            mod._evaluate_item_satisfaction(
+                "fact:merged", item, None, "2025-12-31T00:00:00Z"
+            ).satisfied
+        )
 
     def test_unknown_satisfaction_fails_safe(self) -> None:
         self.assertFalse(
@@ -131,9 +143,9 @@ class TestEvaluateBlockers(unittest.TestCase):
         p = _p(conn)
         conn.execute(
             "INSERT INTO item_dependencies "
-            "(dependent_item_id, blocking_item_id, gate_point, satisfaction) "
-            f"VALUES ({p}, {p}, {p}, {p})",
-            (dependent, blocking, gate_point, satisfaction),
+            "(dependent_item_id, blocking_item_id, gate_point, satisfaction, created_at) "
+            f"VALUES ({p}, {p}, {p}, {p}, {p})",
+            (dependent, blocking, gate_point, satisfaction, "2026-01-02T00:00:00Z"),
         )
         conn.commit()
         conn.close()
@@ -228,10 +240,22 @@ class TestEvaluateBlockers(unittest.TestCase):
         self._insert_dep(42, 10, "activation", "status:implemented")
         self.assertEqual(mod.evaluate_blockers(42), [])
 
-    def test_fact_merged_via_release(self) -> None:
+    def test_fact_merged_requires_a_recorded_landing(self) -> None:
         self._insert_item(42, "Dependent")
         self._insert_item(10, "Blocker", status="release")
         self._insert_dep(42, 10, "integration", "fact:merged")
+        self.assertEqual(len(mod.evaluate_blockers(42)), 1)
+        conn = connect_test_db(self.db_path)
+        conn.execute(
+            "UPDATE items SET merged_at=%s WHERE id=10", ("2026-01-01T00:00:00Z",)
+        )
+        conn.commit()
+        self.assertIn("merge_landing_predates_dependency", mod.evaluate_blockers(42)[0])
+        conn.execute(
+            "UPDATE items SET merged_at=%s WHERE id=10", ("2026-01-03T00:00:00Z",)
+        )
+        conn.commit()
+        conn.close()
         self.assertEqual(mod.evaluate_blockers(42), [])
 
     def test_gate_filter_respected(self) -> None:

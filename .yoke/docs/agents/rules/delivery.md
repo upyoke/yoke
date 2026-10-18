@@ -162,6 +162,14 @@ yoke items dependency add ITEM BLOCKER dash --gate-point integration --satisfact
 yoke sessions touch --mode parked --reason "awaiting BLOCKER merge"
 ```
 
+`fact:merged` requires the blocker's recorded landing to be strictly after the
+edge's creation. Add the edge before the landing you need; an earlier merge,
+branch ancestry or release status cannot satisfy it. For a re-landing, reuse
+an edge only when its creation follows the earlier landing; otherwise remove
+and re-add it before parking. Inspect the stored edge with
+`yoke items dependency list ITEM`. Updating an edge preserves its creation time.
+See [dependency semantics](../../items/model/dependencies.md).
+
 For delivery, replace `integration` with `closure` and `fact:merged` with
 `fact:deployed:prod`, using an environment registered for the blocking project.
 Use `status:done` only when the blocker's entire close-out is required.
