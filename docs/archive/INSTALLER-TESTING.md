@@ -7,9 +7,8 @@
 > used in place of the registered host-baseline and case-execution surfaces.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately -- before retrying, before moving on.
+File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
 This guide preserves the former Live TUI campaign mechanics for the public

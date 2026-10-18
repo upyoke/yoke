@@ -12,9 +12,8 @@ Internal sub-skill called by Conduct; not operator-facing. Add, split,
 reassign or remove tasks after sync. Use a complete public ref with a task graph.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
+File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
 Hold the epic's work claim before any task, spec, plan, dependency, File Budget,

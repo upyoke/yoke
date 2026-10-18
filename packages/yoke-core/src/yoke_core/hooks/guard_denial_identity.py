@@ -4,31 +4,40 @@ from __future__ import annotations
 
 import json
 
+from yoke_contracts.field_note_text import DENIAL_FOOTER
 from yoke_contracts.hook_runner import lint_policy
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_contracts.hook_runner.shell_guard_repairs import NOTHING_RAN, is_compound
 from yoke_core.hooks.types import HookDecision, Outcome
 
 
+def _with_denial_footer(message: str) -> str:
+    """Append the field-note denial footer once, before check-id attachment."""
+    if DENIAL_FOOTER in message:
+        return message
+    body = message.rstrip("\n")
+    return f"{body}\n\n{DENIAL_FOOTER}"
+
+
 def _annotate_message(message: str, check_id: str) -> tuple[str, str]:
-    """Return ``(message, reason)`` with one check-id line."""
+    """Return ``(message, reason)`` with the denial footer and one check-id line."""
     try:
         parsed = json.loads(message)
     except (json.JSONDecodeError, TypeError):
-        reason = attach_check_id(message, check_id)
+        reason = attach_check_id(_with_denial_footer(message), check_id)
         return reason, reason
     if not isinstance(parsed, dict):
-        reason = attach_check_id(message, check_id)
+        reason = attach_check_id(_with_denial_footer(message), check_id)
         return reason, reason
     inner = parsed.get("hookSpecificOutput")
     if not isinstance(inner, dict):
-        reason = attach_check_id(message, check_id)
+        reason = attach_check_id(_with_denial_footer(message), check_id)
         return reason, reason
     raw_reason = inner.get("permissionDecisionReason")
     if not isinstance(raw_reason, str):
-        reason = attach_check_id(message, check_id)
+        reason = attach_check_id(_with_denial_footer(message), check_id)
         return reason, reason
-    reason = attach_check_id(raw_reason, check_id)
+    reason = attach_check_id(_with_denial_footer(raw_reason), check_id)
     rendered = dict(parsed)
     rendered["hookSpecificOutput"] = {**inner, "permissionDecisionReason": reason}
     return json.dumps(rendered), reason

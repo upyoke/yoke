@@ -28,6 +28,7 @@ from yoke_cli.commands.text_file import (
 )
 from yoke_contracts.field_note_text import (
     CATEGORY_PREFIX,
+    CORRELATION_ID_HELP,
     EVIDENCE_MAX_CHARS,
     HELP_BODY,
     KIND_VALUES,
@@ -163,11 +164,8 @@ OUROBOROS_USAGE = (
 
 
 def ouroboros_field_note_append(args: List[str]) -> int:
-    # --help body is composed in yoke_contracts.field_note_text.HELP_BODY
-    # from the worked failure modes, decision tree, canonical vocabulary,
-    # and inline-short footer. Sourcing it here keeps drift impossible —
-    # the constant is the single source of truth across every consumer.
-    # RawDescriptionHelpFormatter preserves the renderer's multi-line layout.
+    # --help body is yoke_contracts.field_note_text.HELP_BODY.
+    # RawDescriptionHelpFormatter preserves that multi-line layout.
     parser = argparse.ArgumentParser(
         prog="yoke ouroboros field-note append",
         description=HELP_BODY,
@@ -224,7 +222,7 @@ def ouroboros_field_note_append(args: List[str]) -> int:
         "--correlation-id",
         dest="correlation_id",
         default=None,
-        help="Optional correlation id (polish-run id, doctor-run id, etc.).",
+        help=CORRELATION_ID_HELP,
     )
     add_session_arg(parser)
     add_json_arg(parser)

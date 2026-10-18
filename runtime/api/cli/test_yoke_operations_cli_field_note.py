@@ -188,19 +188,25 @@ def test_field_note_subcommand_registered() -> None:
         rc = cli_main(["ouroboros", "field-note", "append", "--help"])
     assert rc == 0
     out = buf.getvalue()
-    # Preamble sourced from field_note_text.HELP_BODY.
-    assert "Append a structured field-note" in out
+    from yoke_contracts.field_note_text import HELP_BODY
+
+    assert HELP_BODY in out
 
 
-def test_field_note_help_prints_footer_once() -> None:
-    from yoke_contracts.field_note_text import BASIC_RECIPE
+def test_field_note_help_prints_kind_list_and_correlation_help() -> None:
+    from yoke_contracts.field_note_text import CORRELATION_ID_HELP, HELP_BODY
 
     buf = io.StringIO()
     err = io.StringIO()
     with redirect_stdout(buf), redirect_stderr(err):
         rc = cli_main(["ouroboros", "field-note", "append", "--help"])
     assert rc == 0
-    assert buf.getvalue().count(BASIC_RECIPE) == 1
+    out = buf.getvalue()
+    collapsed = " ".join(out.split())
+    assert HELP_BODY in out
+    assert CORRELATION_ID_HELP in collapsed
+    assert "--kind" in out
+    assert "--evidence" in out
 
 
 def test_field_note_group_help_lists_subcommands() -> None:
