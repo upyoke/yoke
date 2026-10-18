@@ -159,6 +159,15 @@ def has_unquoted_heredoc(segment: str) -> bool:
             continue
         if not in_single and not in_double and ch == "<" and segment[i + 1] == "<":
             return True
+        if (
+            not in_single
+            and not in_double
+            and ch == "#"
+            and (i == 0 or segment[i - 1].isspace())
+        ):
+            end = segment.find("\n", i)
+            i = n if end < 0 else end
+            continue
         i += 1
     return False
 

@@ -137,6 +137,8 @@ def strip_literal_heredocs(command: str) -> str:
     substitution spellings. Expanding heredocs retain their original source
     for the caller's conservative analysis.
     """
+    if "<<" not in command:
+        return command
     spans = []
     for heredoc in scan(command).heredocs:
         if not heredoc.expands:
@@ -146,9 +148,13 @@ def strip_literal_heredocs(command: str) -> str:
                     (heredoc.source_body_start, heredoc.source_body_end),
                 )
             )
-    for start, end in sorted(spans, reverse=True):
-        command = command[:start] + " " + command[end:]
-    return command
+    chunks = []
+    previous = 0
+    for start, end in sorted(spans):
+        chunks.extend((command[previous:start], " "))
+        previous = end
+    chunks.append(command[previous:])
+    return "".join(chunks)
 
 
 def _consume_body(

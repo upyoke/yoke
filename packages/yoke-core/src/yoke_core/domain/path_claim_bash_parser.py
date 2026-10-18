@@ -331,12 +331,13 @@ def extract_mutations(command: str, cwd: str = "") -> List[Mutation]:
     if not command or not isinstance(command, str):
         return []
 
+    command = strip_literal_heredocs(command)
     if SUPPRESSION_TOKEN in command:
         return [Mutation(verb="suppressed", target_path=SUPPRESSION_TOKEN)]
 
     tmp_vars = temp_file_vars(command)
     out: List[Mutation] = []
-    for segment in _split_pipeline(strip_literal_heredocs(command)):
+    for segment in _split_pipeline(command, shell_comments=True):
         out.extend(_classify_segment(segment, cwd))
     return [mut for mut in out if not is_temp_file_var_ref(mut.target_path, tmp_vars)]
 

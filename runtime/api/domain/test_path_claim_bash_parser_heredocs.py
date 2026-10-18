@@ -86,6 +86,11 @@ def test_commented_opener_cannot_hide_a_live_mutation():
     assert Mutation("rm", "owned.txt") in extract_mutations(command)
 
 
+def test_literal_suppression_spelling_does_not_hide_a_real_write():
+    command = "cat <<'EOF'\n# lint:no-worktree-path-check\nEOF\nrm owned.txt"
+    assert extract_mutations(command) == [Mutation("rm", "owned.txt")]
+
+
 @pytest.mark.parametrize("delimiter", ["'EOF'", "EOF"])
 def test_guard_checks_real_redirect_coverage(tmp_path, delimiter):
     from yoke_core.domain.path_claim_bash_guard import evaluate_payload
