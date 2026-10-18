@@ -8,7 +8,7 @@ Owns the following ``python3 -m yoke_core.domain.epic`` subcommands:
 - ``simulation-upsert``, ``simulation-get``
 - ``proceed-triage-handoff``
 - ``cascade-task-status``
-- ``orphan-check``, ``migrate-task-files``
+- ``orphan-check``
 
 The companion handler group is :mod:`yoke_core.domain.epic_cli_handlers_task`.
 
@@ -305,10 +305,6 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
         result = _epic.orphan_check(conn)
         if result:
             print(result)
-        return True
-
-    if subcmd == "migrate-task-files":
-        print(_epic.migrate_task_files(conn))
         return True
 
     return False

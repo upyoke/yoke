@@ -31,7 +31,9 @@ PATH_CLAIM_BINDING_TABLES: dict[str, dict] = {
             "(epic_id, task_num). The binding carries no session or work-claim "
             "column: registering-session provenance is not path authority, "
             "and task coverage survives a session handoff. Worker enforcement "
-            "intersects bound claim targets with epic_task_files; a persisted "
+            "intersects bound claim targets with the paths parsed from the "
+            "task body's ## Files Touched section (epic_tasks.body; there is "
+            "no task file table); a persisted "
             "item_worktrees.lane_role='integration' lane receives their union."
         ),
     },

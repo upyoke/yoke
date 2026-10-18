@@ -137,16 +137,7 @@ def _create_sqlite_database(database_path: Path, item_id: int) -> None:
           status TEXT DEFAULT 'planning',
           body TEXT DEFAULT '',
           dispatch_attempts INTEGER DEFAULT 0,
-          scope_state TEXT NOT NULL DEFAULT 'pending',
-          scope_finalized_at TEXT,
           UNIQUE(epic_id, task_num)
-        );
-        CREATE TABLE epic_task_files (
-          id INTEGER PRIMARY KEY,
-          epic_id INTEGER NOT NULL,
-          task_num INTEGER NOT NULL,
-          file_path TEXT NOT NULL,
-          action TEXT
         );
         INSERT INTO items (id) VALUES ({item_id});
         """

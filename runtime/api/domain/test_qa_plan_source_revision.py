@@ -294,3 +294,56 @@ def test_presentation_shares_repository_and_exact_ancestry_only(monkeypatch):
     source.contains_commit.side_effect = OSError("repository unavailable")
     with pytest.raises(QaPlanError, match="Restore project repository read access"):
         read()
+
+
+def test_overview_uses_recorded_qa_while_admission_still_requires_source(
+    test_db, bound_plan, monkeypatch
+):
+    from unittest.mock import Mock, patch
+    from yoke_core.domain.deployment_run_list_read import list_deployment_runs
+    from yoke_core.domain.deployment_run_carried_work_source import (
+        CarriedWorkSourceUnavailable,
+    )
+    from runtime.api.domain.test_deployment_shipping_reads import CountedConnection
+
+    unavailable = Mock(
+        side_effect=CarriedWorkSourceUnavailable("offline", "Restore repository access")
+    )
+    monkeypatch.setattr(source_binding, "open_carried_work_source", unavailable)
+    with patch(
+        "yoke_core.domain.deployment_run_list_read.connect",
+        return_value=CountedConnection(test_db),
+    ):
+        rows = list_deployment_runs(
+            project=None, status=None, limit=20, relevance="overview"
+        )
+    run = next(row for row in rows if row["id"] == "run-source-proof")
+    assert run["member_items"]
+    assert all(
+        member["item_qa"]["state"] != "unreadable" for member in run["member_items"]
+    )
+    unavailable.assert_not_called()
+    # The display scope expires; an actual admission still refuses this source.
+    with pytest.raises(QaPlanError, match="qa_plan_source_candidate_mismatch.*Restore"):
+        materialize_deployment_qa_stage(
+            test_db,
+            deployment_run_id="run-source-proof",
+            deployment_stage=ITEM_QA_STAGE,
+            deployment_member_item_id=9811,
+        )
+    assert unavailable.called
+    from yoke_core.domain.deployment_qa_presentation_reads import (
+        recorded_source_presentation,
+    )
+
+    # Even inside display composition, a locking admission cannot borrow it.
+    with (
+        recorded_source_presentation(),
+        pytest.raises(QaPlanError, match="qa_plan_source_candidate_mismatch"),
+    ):
+        materialize_deployment_qa_stage(
+            test_db,
+            deployment_run_id="run-source-proof",
+            deployment_stage=ITEM_QA_STAGE,
+            deployment_member_item_id=9811,
+        )

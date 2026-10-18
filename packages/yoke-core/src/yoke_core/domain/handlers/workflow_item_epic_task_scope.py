@@ -15,7 +15,6 @@ from yoke_core.domain.epic_task_scope import (
     TaskScopeIncomplete,
     finalize_generated_task_scopes,
     reopen_generated_task_scopes,
-    set_no_files_scope,
 )
 from yoke_core.domain.project_identity import render_item_ref
 
@@ -56,28 +55,6 @@ def _connect():
     return connect()
 
 
-def handle_no_files(request: FunctionCallRequest) -> HandlerOutcome:
-    target = _target(request)
-    if target is None or target[1] is None:
-        return _bad("target must carry public_ref + task_num")
-    epic_id, task_num = target
-    try:
-        EmptyRequest.model_validate(request.payload)
-        with _connect() as conn:
-            set_no_files_scope(conn, epic_id, task_num)
-            epic_ref = render_item_ref(conn, epic_id)
-    except (LookupError, TaskScopeIncomplete, ValueError) as exc:
-        return _bad(str(exc))
-    return HandlerOutcome(
-        result_payload=ScopeResponse(
-            epic_id=epic_id,
-            task_num=task_num,
-            message=f"{epic_ref} task {task_num} scope set to no_files",
-        ).model_dump(),
-        primary_success=True,
-    )
-
-
 def handle_finalize(request: FunctionCallRequest) -> HandlerOutcome:
     target = _target(request)
     if target is None:
@@ -115,8 +92,9 @@ def handle_reopen(request: FunctionCallRequest) -> HandlerOutcome:
         result_payload=ScopeResponse(
             epic_id=epic_id,
             message=(
-                f"{epic_ref} task scope reopened; "
-                f"{changed} finalized task(s) invalidated"
+                f"{epic_ref} task membership reopened"
+                if changed
+                else f"{epic_ref} task membership was not finalized"
             ),
         ).model_dump(),
         primary_success=True,
@@ -145,11 +123,6 @@ def _entry(
 
 
 REGISTRATIONS = [
-    _entry(
-        "workflow_item.epic_task.scope_no_files",
-        handle_no_files,
-        EmptyRequest,
-    ),
     _entry(
         "workflow_item.epic_task.scope_finalize",
         handle_finalize,

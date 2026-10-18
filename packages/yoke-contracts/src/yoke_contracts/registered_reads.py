@@ -103,6 +103,6 @@ READ_FUNCTION_IDS = frozenset(
         "workflow_item.epic_task.submission_receipt_get workflows.canon.get "
         "workflows.canon_status.list workflows.canon_update.preview "
         "workflows.definition.get workflows.item.get workflows.mechanics.get "
-        "workflows.version.get workflows.version.list "
+        "workflows.version.get workflows.version.list worktree.classify_dirty "
     ).split()
 )

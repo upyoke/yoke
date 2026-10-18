@@ -11,6 +11,7 @@ from runtime.api.domain.path_claim_task_test_support import (
     seed_target,
     seed_worker_task,
 )
+from runtime.api.task_files_touched_test_support import declare_task_files
 from yoke_core.domain.check_path_claim_coverage_at_commit import _decide
 from yoke_core.domain.lint_worktree_path_invariants import (
     WorktreeInvariantContext,
@@ -117,6 +118,35 @@ def test_worker_lane_without_matching_task_claim_has_no_effective_scope(
         )
         == ()
     )
+
+
+def test_body_edit_narrows_the_worker_lane_on_the_next_check(
+    test_db,
+    tmp_path,
+) -> None:
+    item_id, _lanes, _integration = _seed_lanes_and_claims(
+        test_db,
+        tmp_path,
+    )
+    seed_session(test_db, session_id="worker-one", item_id=item_id, task_num=1)
+
+    def targets():
+        return effective_targets_for_session(
+            test_db,
+            session_id="worker-one",
+            item_id=item_id,
+            target_path="src/one.py",
+            cwd=str(tmp_path / "worker-1"),
+        )
+
+    test_db.execute(
+        "UPDATE epic_tasks SET body=%s WHERE epic_id=%s AND task_num=1",
+        ("## Description\nNo file list yet.\n", item_id),
+    )
+    assert targets() == ()
+
+    declare_task_files(test_db, item_id, 1, ["src/one.py"])
+    assert targets() == (("src/one.py", "file"),)
 
 
 def test_integration_lane_unions_eligible_tasks_including_done(

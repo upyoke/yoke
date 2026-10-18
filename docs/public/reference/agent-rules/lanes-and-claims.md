@@ -32,9 +32,14 @@ Supported filesystem-capacity inspection, for example `df -k ~/.yoke /tmp`, may 
 ## Path claims
 
 With effective `path_claims=required_per_task`, readiness and claim gates share
-persisted task-budget coverage: parity defers before generated tasks exist,
-then reports uncovered task paths. Register or widen each owning task claim,
-then rerun readiness; a whole-item claim does not substitute:
+task coverage. A generated task's only file list is its body's
+`## Files Touched` section (`- create|modify|delete `path`` bullets, or the
+single line `None — no repository files`); a missing or pathless section
+narrows the task's lane to nothing, so its writes block until the body
+declares its files. Parity defers before generated tasks exist, then reports
+uncovered task paths. A body edit takes effect on the next check, so widen
+the task's claim when its list grows. Register or widen each owning task
+claim, then rerun readiness; a whole-item claim does not substitute:
 ```text
 yoke claims path register --item PREFIX-N --task-num <task-number> --paths <task-budget-paths> [--allow-planned]
 ```

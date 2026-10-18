@@ -17,6 +17,7 @@ from yoke_core.domain.universe_portability_common import (
 from yoke_core.domain.universe_portability_content_contract import (
     ARCHIVE_OMITTABLE_TARGET_SEQUENCES,
     ARCHIVE_OMITTABLE_TARGET_TABLES,
+    ARCHIVE_RETIRED_TABLE_STAGING,
 )
 from yoke_core.domain.universe_portability_restore_contract import (
     COPY_HEADER_RE,
@@ -106,6 +107,15 @@ def _validate_migration_content_archive_shape(
         )
 
 
+def stage_retired_archive_tables(conn: object, allowed_tables: set[str]) -> None:
+    """Recreate each retired table the archive still carries data for."""
+    present = set(restore_target_columns(conn))
+    for table, statements in ARCHIVE_RETIRED_TABLE_STAGING.items():
+        if table in allowed_tables and table not in present:
+            for statement in statements:
+                conn.execute(statement)  # type: ignore[attr-defined]
+
+
 def apply_restore_stream(
     source: object,
     conn: object,
@@ -116,6 +126,7 @@ def apply_restore_stream(
     deadline: float,
 ) -> None:
     """Apply only catalog-approved COPY data and sequence values via libpq."""
+    stage_retired_archive_tables(conn, allowed_tables)
     target_columns = restore_target_columns(conn)
     target_sequences = restore_target_sequences(conn)
     expected_tables = set(target_columns)
@@ -283,6 +294,7 @@ __all__ = [
     "RESTORE_SET_RE",
     "SETVAL_RE",
     "apply_restore_stream",
+    "stage_retired_archive_tables",
     "compatible_restore_columns",
     "consume_restore_bytes",
     "copy_restore_rows",

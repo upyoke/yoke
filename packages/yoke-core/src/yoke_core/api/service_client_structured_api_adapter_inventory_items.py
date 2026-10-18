@@ -10,6 +10,14 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 
 ITEMS_ADAPTERS = [
     read_entry(
+        function_id="worktree.classify_dirty",
+        cli_invocation=(
+            "yoke worktree classify-dirty --project PROJECT "
+            "[--exclude-worktrees] [--json]"
+        ),
+        notes="Machine-local dirty read; no Yoke source lane or work claim required.",
+    ),
+    read_entry(
         function_id="items.overview.list",
         cli_invocation=(
             "yoke items overview list --project P [--relevance overview] "

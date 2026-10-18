@@ -31,7 +31,7 @@ from yoke_core.domain.machine_qa_fixture_constants import (
 
 EVIDENCE_NAME_PATTERN = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?")
 PRODUCT_STATE_PATHS = (
-    "~/" + ".local/share/uv/tools/yoke-cli",
+    "~/" + ".local/share/uv/tools/yoke-cli-releases",
     "~/" + ".local/bin/yoke",
 )
 STATE_PROJECTS = {

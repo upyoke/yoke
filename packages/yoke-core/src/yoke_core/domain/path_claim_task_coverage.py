@@ -12,6 +12,7 @@ from yoke_core.domain.path_claims_symlink_expansion import (
 )
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.task_files_touched import item_task_files
 
 
 def eligible_task_status_clause(column: str = "status") -> str:
@@ -66,19 +67,16 @@ def _expand_budget_paths(
 
 
 def _budgets(conn: Any, item_id: int) -> dict[int, tuple[str, ...]]:
-    marker = _p(conn)
-    rows = conn.execute(
-        "SELECT task_num, file_path FROM epic_task_files "
-        f"WHERE epic_id = {marker} ORDER BY task_num, file_path",
-        (int(item_id),),
-    ).fetchall()
-    result: dict[int, list[str]] = {}
-    for row in rows:
-        result.setdefault(int(_value(row, "task_num", 0)), []).append(
-            str(_value(row, "file_path", 1))
-        )
+    """Each task's symlink-expanded paths from its body's Files Touched.
+
+    A task whose section is missing or unparseable has no paths here, so
+    every reader narrows it to nothing and fails closed; the scope checks
+    in :mod:`epic_task_scope` name the problem.
+    """
     return {
-        key: _expand_budget_paths(conn, item_id, value) for key, value in result.items()
+        task_num: _expand_budget_paths(conn, item_id, files.paths)
+        for task_num, files in item_task_files(conn, int(item_id)).items()
+        if files.paths
     }
 
 
@@ -115,7 +113,6 @@ def evaluate_task_coverage(conn: Any, item_id: int) -> TaskCoverageResult:
     """Require every generated task budget to have bound claim coverage."""
     required = (
         "epic_tasks",
-        "epic_task_files",
         "path_claims",
         "path_claim_targets",
         "path_claim_task_bindings",
@@ -207,9 +204,7 @@ def evaluate_task_coverage(conn: Any, item_id: int) -> TaskCoverageResult:
             )
         return TaskCoverageResult(
             verdict="block",
-            reason=(
-                f"item {render_item_ref(conn, item_id)} " + "; ".join(details)
-            ),
+            reason=(f"item {render_item_ref(conn, item_id)} " + "; ".join(details)),
             satisfying_claims=tuple(sorted(satisfying)),
             missing_tasks=tuple(missing),
             partial_tasks=tuple(partial),
@@ -226,12 +221,12 @@ def evaluate_task_coverage(conn: Any, item_id: int) -> TaskCoverageResult:
 
 
 def task_budget_paths(conn: Any, item_id: int, task_num: int) -> tuple[str, ...]:
-    """Expose one task's persisted, symlink-expanded file budget."""
+    """Expose one task's declared, symlink-expanded Files Touched paths."""
     return _budgets(conn, int(item_id)).get(int(task_num), ())
 
 
 def item_task_budget_paths(conn: Any, item_id: int) -> tuple[str, ...]:
-    """Return the stable union of persisted task budgets."""
+    """Return the stable union of every task's declared paths."""
     return tuple(
         sorted(
             {path for paths in _budgets(conn, int(item_id)).values() for path in paths}
