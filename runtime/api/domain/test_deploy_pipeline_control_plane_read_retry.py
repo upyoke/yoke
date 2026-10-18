@@ -3,8 +3,8 @@
 A driver on an operator's laptop reaches the control plane over a slow link,
 so one read can expire while the next one answers. Reads change nothing,
 so the driver asks again a bounded number of times; a call that may write is
-never resent, and a read that keeps expiring fails with the driver's own
-recovery rather than the server's "narrow your read" hint.
+never resent, and a read that keeps expiring names the slow composition
+and the narrow field reads that diagnose it.
 """
 
 from __future__ import annotations
@@ -72,8 +72,10 @@ def test_a_read_that_keeps_expiring_fails_with_the_driver_recovery(monkeypatch, 
     assert raised.value.code == control_plane.READ_DEADLINE_CODE
     message = str(raised.value)
     assert f"Every one of {attempts} attempts expired" in message
-    assert f"yoke watch deploy -- {RUN}" in message
-    assert "narrower read" not in message
+    assert f"yoke deployment-runs get {RUN} release_lineage" in message
+    assert QA_PENDING in message
+    assert "omit member_closure" in message
+    assert "control plane responsive" not in message
 
 
 def test_a_call_that_may_write_is_never_resent(monkeypatch, sleeps):

@@ -9,7 +9,7 @@ from runtime.api.domain.handlers.deployment_handler_test_support import (
     deployment_request as _request,
 )
 from yoke_contracts.api.function_call import TargetRef
-from yoke_core.domain.handlers import deployment_runs
+from yoke_core.domain.handlers import deployment_run_get, deployment_runs
 
 
 class TestDeploymentRunHandlers(unittest.TestCase):
@@ -42,7 +42,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             "yoke_core.domain.deployment_runs_crud_query.get_run",
             return_value=raw,
         ):
-            outcome = deployment_runs.handle_deployment_run_get(
+            outcome = deployment_run_get.handle_deployment_run_get(
                 _request(
                     function="deployment_runs.get",
                     target=self._run_target(),
@@ -91,7 +91,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             "yoke_core.domain.deployment_runs_crud_query.get_run",
             return_value=raw,
         ):
-            outcome = deployment_runs.handle_deployment_run_get(
+            outcome = deployment_run_get.handle_deployment_run_get(
                 _request(
                     function="deployment_runs.get",
                     target=self._run_target(),
@@ -110,7 +110,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             "yoke_core.domain.deployment_runs_crud_query.get_run",
             return_value=None,
         ):
-            outcome = deployment_runs.handle_deployment_run_get(
+            outcome = deployment_run_get.handle_deployment_run_get(
                 _request(
                     function="deployment_runs.get",
                     target=self._run_target(),

@@ -23,7 +23,7 @@ test("case network, permission, and execution-read failures retain their meaning
         if (request.function === "qa.requirement.get") return ok({ requirement: {
           id: 4, method_id: "command", instructions: "Check", expected_outcome: "Pass",
         } });
-        return ok({ rows: [], needs_decision: [] });
+        return ok({ rows: [], current_run_id: null, needs_decision: [] });
       } },
     };
     await renderQaCaseDetail(context, host, "1", "4");

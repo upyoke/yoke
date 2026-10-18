@@ -33,9 +33,7 @@ DEPLOYMENT_FLOWS_STAGES_USAGE = (
 DEPLOYMENT_FLOWS_SET_STATUS_USAGE = (
     "yoke deployment-flows set-status FLOW-ID active|disabled [--session-id S] [--json]"
 )
-DEPLOYMENT_RUNS_GET_USAGE = (
-    "yoke deployment-runs get RUN-ID [FIELD] [--session-id S] [--json]"
-)
+DEPLOYMENT_RUNS_GET_USAGE = "yoke deployment-runs get RUN-ID [FIELD] [--include-member-closure] [--session-id S] [--json]"
 DEPLOYMENT_RUNS_LIST_USAGE = (
     "yoke deployment-runs list [--project P] [--status STATUS] "
     "[--relevance overview] [--limit N] [--session-id S] [--json]"
@@ -144,6 +142,11 @@ def deployment_runs_get(args: List[str]) -> int:
     )
     parser.add_argument("run_id")
     parser.add_argument("field", nargs="?", default=None)
+    parser.add_argument(
+        "--include-member-closure",
+        action="store_true",
+        help="Read expensive per-member settlement diagnostics explicitly.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_GET_USAGE)
@@ -156,7 +159,14 @@ def deployment_runs_get(args: List[str]) -> int:
     return dispatch_and_emit(
         function_id="deployment_runs.get",
         target=_run_target(parsed.run_id),
-        payload={"field": parsed.field},
+        payload={
+            "field": parsed.field,
+            **(
+                {"include_member_closure": True}
+                if parsed.include_member_closure
+                else {}
+            ),
+        },
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_human_writer,
