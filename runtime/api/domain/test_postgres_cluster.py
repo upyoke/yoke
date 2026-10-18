@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import stat
 import subprocess
@@ -32,6 +33,37 @@ def test_binary_resolution_path_vs_pinned_dir(tmp_path):
     assert postgres_cluster.binary(pinned, "initdb") == str(
         tmp_path / "engine" / "bin" / "initdb"
     )
+
+
+def test_socket_path_at_platform_limit_stays_with_cluster_root():
+    socket_name = f".s.PGSQL.{postgres_cluster.SOCKET_PORT}"
+    suffix_size = len(os.fsencode(f"/sock/{socket_name}"))
+    root_size = postgres_cluster._MAX_POSTGRES_SOCKET_PATH_BYTES - suffix_size
+    root = Path("/" + ("r" * (root_size - 1)))
+
+    assert len(os.fsencode(root / "sock" / socket_name)) == (
+        postgres_cluster._MAX_POSTGRES_SOCKET_PATH_BYTES
+    )
+    assert postgres_cluster.socket_dir_for_root(root) is None
+    assert postgres_cluster.socket_dir_for_root(Path(f"{root}x")) is not None
+
+
+def test_socket_fallback_skips_unwritable_shorter_root(monkeypatch, tmp_path):
+    long_root = tmp_path / ("nested-machine-home-" * 8) / "local-universe"
+    with tempfile.TemporaryDirectory(
+        prefix="yoke-fallback-test-", dir="/tmp"
+    ) as short_temp:
+        preferred = Path(short_temp)
+        monkeypatch.setattr(tempfile, "gettempdir", lambda: str(preferred))
+        original_access = os.access
+
+        def access(path, mode):
+            if Path(path) == Path("/tmp"):
+                return False
+            return original_access(path, mode)
+
+        monkeypatch.setattr(os, "access", access)
+        assert postgres_cluster.socket_dir_for_root(long_root).parent == preferred
 
 
 def test_dsn_targets_unix_socket_with_superuser(tmp_path):
