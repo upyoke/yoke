@@ -151,8 +151,8 @@
     "user_skills_dir": "~/.agents/skills",
     "placement": "shared",
     "shared_skill_dir": "~/.agents/skills/yoke-global",
-    "verified_on_surface": "",
-    "evidence": "cursor-agent 2026.10.16 resolves user skill folders ~/.cursor/skills and ~/.agents/skills (read from its shipped bundle). No live session has listed the installed skill yet."
+    "verified_on_surface": "cursor-cli",
+    "evidence": "Observed 2026-10-18: cursor-agent 2026.10.14 started outside every project listed yoke-global from $HOME/.agents/skills with the ~/.claude/skills link moved aside, and through the link otherwise."
   },
   "turn_record": {
     "source": "yoke_contracts.harness_turn_record_capability.HARNESS_TURN_RECORD_CAPABILITIES",

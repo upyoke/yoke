@@ -62,11 +62,11 @@ HARNESS_GLOBAL_SKILLS: dict[str, HarnessGlobalSkill] = {
         harness_home="~/.claude",
         user_skills_dir="~/.claude/skills",
         placement="link",
-        verified_on_surface="",
+        verified_on_surface="claude-cli",
         evidence=(
-            "Claude Code reads user skills from ~/.claude/skills and follows a "
-            "symlinked skill folder, as every project's .claude/skills/yoke "
-            "link shows. No live session has listed the user-level link yet."
+            "Observed 2026-10-18: claude-cli 2.1.288 started outside every "
+            "project listed yoke-global through the ~/.claude/skills link to "
+            "$HOME/.agents/skills/yoke-global and invoked it."
         ),
     ),
     "codex": HarnessGlobalSkill(
@@ -83,11 +83,11 @@ HARNESS_GLOBAL_SKILLS: dict[str, HarnessGlobalSkill] = {
         harness_home="~/.cursor",
         user_skills_dir=f"~/{SHARED_SKILLS_DIR}",
         placement="shared",
-        verified_on_surface="",
+        verified_on_surface="cursor-cli",
         evidence=(
-            "cursor-agent 2026.10.16 resolves user skill folders ~/.cursor/skills "
-            "and ~/.agents/skills (read from its shipped bundle). No live "
-            "session has listed the installed skill yet."
+            "Observed 2026-10-18: cursor-agent 2026.10.14 started outside every "
+            "project listed yoke-global from $HOME/.agents/skills with the "
+            "~/.claude/skills link moved aside, and through the link otherwise."
         ),
     ),
 }
