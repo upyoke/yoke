@@ -36,6 +36,12 @@ into it. Everything downstream reads `Stuck upstream: <item>`. Selecting a tile 
 gate, condition, where it is now and its rationale, every dependent, and the
 item's full card. On a phone the graph is an outline of each chain.
 
+Committed work waiting only to land waits too: an item whose lane has a
+recorded commit and whose only unmet edges hold back its merge cannot do
+anything but wait, so it sits in Waiting, not Ready, and its tile reads the
+server's sentence, for example "Waiting on PREFIX-14, PREFIX-15 to merge" — the
+same words `yoke frontier list` and the steering report print.
+
 On hold holds waiting items held for a reason of their own — frozen,
 blocked, an owner that stopped answering — that nothing waits on. The
 project filter keeps every item in the selected projects plus every item tied

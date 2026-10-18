@@ -1,4 +1,4 @@
-"""Task amendment retires file scope without deleting item-owned claims."""
+"""Task amendment retires a task and its bindings, not item-owned claims."""
 
 import pytest
 
@@ -46,13 +46,6 @@ def test_amend_retires_parent_scope_and_preserves_item_claim(
             ).fetchone()[0]
             == 2
         )
-    assert (
-        test_db.execute(
-            "SELECT 1 FROM epic_task_files WHERE epic_id=%s AND task_num=1",
-            (item_id,),
-        ).fetchone()
-        is None
-    )
     assert (
         test_db.execute(
             "SELECT 1 FROM epic_tasks WHERE epic_id=%s AND task_num=1",

@@ -12,8 +12,8 @@ Budget-only does not mint claims; claims-only does not invent a proxy budget;
 neither omits both but universal350 remains.
 
 Required_per_task intake retains full parent execution budget while deferring
-claims until Shepherd persists tasks and epic_task_files. No unbound parent
-claim substitutes for task ownership.
+claims until Shepherd persists tasks, each with its body's `## Files Touched`
+list. No unbound parent claim substitutes for task ownership.
 
 Claim overlap does NOT narrow scope: the file stays in the File Budget when
 enabled. Claims are coordination/dependency/blocking facts; keep every required

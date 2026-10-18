@@ -11,7 +11,8 @@ Parse Tasks involved forms #N/#NNN/Task N/plain numbers. Deduplicate, sort and
 zero-pad; exclude the eventual fix task itself. Unparseable source refs mean
 empty task dependency set, not guessed ids. Resolve next local task number from
 actual rows, never items.id. Task body contains description, each gap severity/
-root cause/fix/files, behavioral ACs, test plan and actual file scope/budget.
+root cause/fix/files, behavioral ACs, test plan and a `## Files Touched`
+section with one `- modify `path`` bullet per file — the task's only file list.
 
 ```text
 yoke workflow-item epic-task simulation-get --epic PREFIX-N --phase integration --json
@@ -19,7 +20,6 @@ yoke epic-tasks list --epic PREFIX-N --json
 yoke workflow-item epic-task add --epic PREFIX-N --title "Fix integration simulation gaps" --worktree {BRANCH} --context-estimate M --dependencies {DEPENDENCIES} --body-file {TASK_FILE}
 yoke workflow-item epic-task update-status --epic PREFIX-N --task-num {FIX_TASK} --status planned
 yoke workflow-item epic-task history-insert --epic PREFIX-N --task-num {FIX_TASK} --from-status none --to-status planned --note "Created by conduct auto-fix"
-yoke workflow-item epic-task file-add --epic PREFIX-N --task-num {FIX_TASK} --file-path {FILE} --action modify
 yoke items github-sync PREFIX-N
 ```
 

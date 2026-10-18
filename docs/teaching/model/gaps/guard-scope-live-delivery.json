@@ -3,7 +3,6 @@
  "title": "Prove installed guard applicability after release",
  "status": "observed",
  "text": "Candidate tests cover unrelated main commits, destructive Git, privacy and unmatched globs; registered projects, subdirectories, worktrees, nested independent Git repos and authenticated remote identity. Installed Claude, Codex and Cursor delivery after release is not yet proved; source tests do not imply live verification.",
- "plan_refs": ["FIRST-USER.P3"],
  "sources": ["runtime/harness/test_hook_guard_scope.py", "runtime/harness/test_hook_project_scope.py"],
  "position": 21
 }

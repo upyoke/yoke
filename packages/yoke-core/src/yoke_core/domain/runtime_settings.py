@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Iterable
 
 from yoke_core.domain import machine_config
+from yoke_contracts.machine_config.settings_keys import MACHINE_SETTING_KEYS
 
 __all__ = ["get_int", "get_seconds", "get_str", "main", "read_all"]
 
@@ -48,17 +49,37 @@ def read_all(config_path: Path | str | None = None) -> dict[str, str]:
         key = key.strip()
         if not key:
             continue
-        values[key] = _strip_value(raw_value)
+        value = _strip_value(raw_value)
+        spec = MACHINE_SETTING_KEYS.get(key)
+        # A blank number in key=value input denotes an absent scalar.
+        if value == "" and spec is not None and spec.value_type is int:
+            continue
+        values[key] = value
     return values
 
 
 def get_str(key: str, default: str, *, config_path: Path | str | None = None) -> str:
-    return read_all(config_path).get(key, default)
-
-
-def get_int(key: str, default: int, *, config_path: Path | str | None = None) -> int:
+    spec = MACHINE_SETTING_KEYS.get(key)
     raw = read_all(config_path).get(key)
+    if spec is not None:
+        value = spec.stored_value(key, raw) if raw is not None else spec.default
+        return str(value).lower() if isinstance(value, bool) else str(value)
+    return raw if raw is not None else default
+
+
+def get_int(
+    key: str, default: int | None = None, *, config_path: Path | str | None = None
+) -> int:
+    raw = read_all(config_path).get(key)
+    spec = MACHINE_SETTING_KEYS.get(key)
+    if spec is not None:
+        value = spec.stored_value(key, raw) if raw is not None else spec.default
+        return int(value)
     if raw is None or raw == "":
+        if default is None:
+            raise ValueError(
+                f"setting_key_unknown: {key}. Recovery: yoke settings list"
+            )
         return default
     try:
         return int(raw)
@@ -66,7 +87,9 @@ def get_int(key: str, default: int, *, config_path: Path | str | None = None) ->
         return default
 
 
-def get_seconds(key: str, default: int, *, config_path: Path | str | None = None) -> int:
+def get_seconds(
+    key: str, default: int, *, config_path: Path | str | None = None
+) -> int:
     value = get_int(key, default, config_path=config_path)
     if value <= 0:
         return default

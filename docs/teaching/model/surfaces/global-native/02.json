@@ -5,6 +5,5 @@
  "form": "Rule",
  "verification": "Not an approved publisher; use global orientation.",
  "topics": ["projects/identity", "sessions/identity", "basics/boundaries"],
- "plan_refs": ["FIRST-USER.P4"],
  "position": 1
 }

@@ -201,6 +201,8 @@ def test_hosted_sign_in_prints_one_browser_line_then_continues(agent, hosted_app
     assert browser["human"]["user_code"] == "ABCD-EFGH"
     assert "ABCD-EFGH" in browser["human"]["instructions"]
     assert browser["wait"]["max_seconds"] == 600
+    assert "Opening your browser" not in drive.stderr
+    assert "Waiting for browser approval" in drive.stderr
     assert question["key"] == "github.machine"
     stored = setup_agent_answers.store_path().read_text(encoding="utf-8")
     for secret in (DEVICE_CODE, TOKEN):

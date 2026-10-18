@@ -23,9 +23,10 @@ auto-widens/narrows applicable unambiguous claims. Mixed widen+narrow,
 zero/multiple exclusive claims and nonrecoverable mixes return refused_paths,
 which remain critique work. Pure stale repair refusal is terminal, not bypassed.
 
-For effective `path_claims=required_per_task`, readiness uses the same
-persisted task budgets and bound claim coverage as the required and spec
-coverage gates. Before generated tasks exist, claim parity is deferred;
+For effective `path_claims=required_per_task`, readiness uses the same task
+paths, parsed from each task body's `## Files Touched` section, and bound
+claim coverage as the required and spec coverage gates. Before generated
+tasks exist, claim parity is deferred;
 once they exist, readiness names only uncovered task paths. Register or widen
 the owning task's claim, then rerun readiness:
 ```text

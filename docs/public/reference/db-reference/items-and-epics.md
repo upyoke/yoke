@@ -197,7 +197,7 @@ blocking_item_id INTEGER NOT NULL REFERENCES items(id)
 gate_point TEXT NOT NULL DEFAULT 'activation' -- activation | integration | closure | coordination_only
 satisfaction TEXT NOT NULL DEFAULT 'status:done' -- status:<stage-id> | fact:merged | fact:deployed:<environment-name>
 source TEXT NOT NULL -- shepherd | conduct | operator | migration | feed | idea | refine | dash
-session_id INTEGER -- nullable contextual session ID
+session_id TEXT -- nullable; the session that added or last changed the edge
 rationale TEXT NOT NULL DEFAULT '' -- human-readable explanation of the edge
 evidence_json TEXT NOT NULL DEFAULT '{}' -- structured provenance payload
 created_at TIMESTAMPTZ NOT NULL
@@ -272,10 +272,8 @@ context_estimate TEXT -- S|M|L|XL
 dependencies TEXT -- comma-separated task nums
 status TEXT DEFAULT 'planning' CHECK(status IN ('planning','plan-drafted','refining-plan','planned','implementing','reviewing-implementation','reviewed-implementation','polishing-implementation','implemented','release','done','failed','blocked','stopped'))
 dispatch_attempts INTEGER DEFAULT 0
-body TEXT
+body TEXT -- its ## Files Touched section is the task's only file list
 github_issue TEXT
-scope_state TEXT NOT NULL DEFAULT 'pending' -- pending|paths|no_files|legacy_deferred
-scope_finalized_at TEXT
 max_attempts INTEGER DEFAULT 5
 agent_id TEXT
 last_heartbeat TIMESTAMPTZ
@@ -283,17 +281,12 @@ last_activity_at TIMESTAMPTZ
 UNIQUE(epic_id, task_num)
 ```
 
-## Table: epic_task_files
-
-```sql
-id INTEGER PRIMARY KEY
-epic_id INTEGER NOT NULL
-task_num INTEGER NOT NULL
-file_path TEXT NOT NULL
-action TEXT -- create|modify|delete
-UNIQUE(epic_id, task_num, file_path)
-FOREIGN KEY (epic_id, task_num) REFERENCES epic_tasks(epic_id, task_num)
-```
+A task's repository files live only in its body's `## Files Touched`
+section: one `- create|modify|delete `path`` bullet per file, or the single
+line `None — no repository files`. Coverage, lane narrowing, registration
+and scope checks parse it (`yoke_core.domain.task_files_touched`); a missing
+or pathless section is reported and fails closed. Whole-plan finalization is
+`items.generated_task_membership_finalized_at`.
 
 ## Table: epic_dispatch_chains
 

@@ -5,7 +5,6 @@
  "form": "Do",
  "verification": "Source and scripted repository-access tests; deployed delivery remains unproved.",
  "topics": ["repositories/github/repository-permissions"],
- "plan_refs": ["FIRST-USER.5"],
  "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_project_github.py", "runtime/api/cli/test_onboard_existing_repository_access.py"],
  "position": 11
 }

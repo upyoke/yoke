@@ -41,23 +41,32 @@ no native effort/speed suffix. Invalid rows name their field and correction.
 ## Where levels live
 
 - **Universe levels** — one definition per universe, in universe settings.
-  With nothing stored, the universe reads the shipped scheme. A stored
-  `universe_settings` row freezes that key at write time, so a later shipped
-  default does not replace it. Delete the row with a reviewed
-  `yoke operator data-repair` to follow shipped defaults again. Writing
-  today's shipped document stores a new freeze. `levels` and
-  `cursor_quota_order` follow this rule.
+  With nothing stored, the universe reads the shipped scheme, so a newer
+  Yoke release brings its new defaults as soon as the server runs it. A
+  stored `universe_settings` row freezes that key at write time, so a later
+  shipped default does not replace it; `yoke settings get levels --json` then reports
+  `result.source: stored` with `result.shipped_defaults_differ` saying whether today's
+  shipped defaults differ. `yoke settings unset levels` (org admin) deletes
+  the stored levels so the universe follows shipped defaults again, and
+  `set` with a document equal to the shipped defaults stores nothing.
+  `cursor_quota_order` follows the same freeze rule; delete its row as
+  described under the Cursor order below.
 
   ```text
-  yoke universe levels get [--json]
-  yoke universe levels get --json | <edit> | yoke universe levels set --stdin
+  yoke settings get levels [--json]
+  yoke settings get levels --json
+  yoke settings set levels - < /tmp/levels.json
+  yoke settings unset levels
   ```
 
+  Save the edited `result.value` list in `/tmp/levels.json`.
   `universe.levels.set` replaces the whole definition and requires an org
   admin. It also refuses a threshold whose effort its
   model's published catalog values contradict (`level_min_effort_unpublished`). Model refresh proposes
   level changes with `yoke models level-proposal`; the operator approves
-  before the proposed document is stored here.
+  before the proposed document is applied, with `reset` when it equals the
+  shipped defaults and `set` otherwise. `yoke update --check` says whether
+  the CLI or the server is behind the channel's latest release.
 - **Project override** — a project may carry its own levels in its
   `session-routing` capability, set only through the CLI. The document holds
   exactly one key, `levels`:
@@ -269,7 +278,7 @@ quoting the code point and offering safe examples such as 🐎 or 🚀:
 
 | Stored glyph | Writer | Correction command |
 |---|---|---|
-| Universe level glyph, `levels[N].glyph` | `universe.levels.set` | `yoke universe levels get --json`, correct the glyph, then `yoke universe levels set --stdin` |
+| Universe level glyph, `levels[N].glyph` | `universe.levels.set` | `yoke settings get levels --json`, correct the glyph, then `yoke settings set levels -` |
 | Project override level glyph, `levels[N].glyph` | `session-routing` capability settings | `yoke projects capability-settings set --project P --cap-type session-routing --settings-json '{"levels": [...]}' --base AS_READ_JSON` |
 | Project emoji, `projects.emoji` (empty clears it) | `projects.create` / `projects.update` | `yoke projects update --slug S --name N --emoji <glyph>` |
 | Workflow stage glyph, `stages[].glyph` | Workflow version publish | Publish an edited definition with `yoke workflows version publish WORKFLOW --definition-file F --expected-current-version N --reason TEXT` (`--keep-current` preserves the global default), then `yoke workflows item migrate ITEM --version V` |
@@ -297,8 +306,13 @@ Sonnet medium and INTERN. Grok 4.7 high-fast resolves as JUNIOR; Cursor Opus
 Unknown models or unpublished effort (including Composer without published
 efforts) establish no level. Item/epic-task claims and work launches refuse
 `session_below_intern` with recovery when no level resolves. Steering without
-item claims is exempt. Roster and identity reads show **no level**, never
-`primary`. Registration and observed-model updates refresh stored labels.
+item claims is exempt. Roster, identity, board and steering reads show
+**no level** with its reason, never `primary`: `session_model_unknown`
+(model not in the catalog), `session_effort_unpublished` (effort not
+published for its model), `session_model_unreported`,
+`session_older_model_bottom_class`, `session_demotion_target_unavailable` or
+`session_below_minimum_effort`. Session list rows carry the code as
+`level_reason`. Registration and observed-model updates refresh stored labels.
 
 ## Cursor quota order
 
@@ -306,16 +320,16 @@ item claims is exempt. Roster and identity reads show **no level**, never
 order of exactly two Cursor monthly pools. It is not per machine:
 
 ```text
-yoke universe cursor-quota-order get --json
-yoke universe cursor-quota-order set --pool 'Cursor Models' --pool 'Other Models'
+yoke settings get cursor_quota_order --json
+yoke settings set cursor_quota_order '["Cursor Models", "Other Models"]'
 ```
 
-Repeat `--pool` exactly twice; reverse them to prefer Other Models. Invalid,
+Pass a JSON array containing both pool names once each; reverse them to prefer Other Models. Invalid,
 duplicate or missing scopes refuse `cursor_quota_order_invalid`. The order
 affects consumption preference, never execution-level membership. An absent
 row uses the shipped order (Cursor Models, then Other Models). A stored row
-freezes that order; delete it with a reviewed `yoke operator data-repair`
-to follow the shipped order again.
+freezes that order; `yoke settings unset cursor_quota_order` (org admin)
+restores the shipped order.
 
 ## Stored settings convergence
 

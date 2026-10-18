@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "When concurrent work needs a declared shared resource or a holder conflict appears.",
- "need": "Identify whether the hold owns an item, steering scope, process or resource; preserve the real owner and use the declared handoff/release path.",
+ "need": "Identify whether the hold owns an item, steering scope, process or resource; preserve the real owner and use the declared handoff/release path. Item and epic-task claims also need a session started in the item's project folder; steering, process and coordination holds keep their own target authorization from any session scope.",
  "disclosure": "audit needed",
  "surface": "claims work/steering/coordination-claim reads; operation-specific procedures",
  "gap": "Existing map traces path overlaps and steering, but not every non-path coordination scenario. Review question: should JOURNEYS show resource-busy recovery as a branch rather than teaching all claims during installation?",

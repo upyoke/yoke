@@ -16,6 +16,7 @@ from fastapi.routing import APIRouter
 from pydantic import ValidationError
 
 from yoke_contracts.machine_authorization import (
+    MACHINE_RETIRED,
     MachineAuthorizationPoll,
     MachineAuthorizationStart,
     HostedMachineAuthorizationError,
@@ -206,6 +207,9 @@ def _poll(model: MachineAuthorizationPoll, request: Request) -> JSONResponse:
             503,
         )
     except MachineRegistryError as exc:
+        if exc.code in {MACHINE_RETIRED, "machine_owner_mismatch"}:
+            # Both refusals already name their own recovery.
+            return _error(exc.code, str(exc), 403)
         return _error(
             exc.code,
             f"{exc}; reconnect as this machine's owner, or ask an admin to inspect its registration",

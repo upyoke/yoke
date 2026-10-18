@@ -3,7 +3,6 @@
  "title": "Uninstall cannot remove machine-wide light hooks yet",
  "status": "observed",
  "text": "Machine uninstall reverts every harness setting recorded in the machine home's harness-settings-written.json, strips Yoke's Cursor user hooks and removes the yoke-global skill folder and Claude link, which install records as created_dir entries. The machine-wide light hooks do not exist yet; when they land they must record their writes in that file so uninstall removes them.",
- "plan_refs": ["FIRST-USER.1"],
  "work_items": ["YOK-3973"],
  "position": 18
 }

@@ -5,6 +5,5 @@
  "form": "Rule",
  "verification": "Shipped in the AGENTS.md managed block; behavior in real sessions is not yet proved.",
  "topics": ["agents/boundaries/writing-to-users"],
- "plan_refs": ["FIRST-USER.8"],
  "position": 5
 }

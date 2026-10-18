@@ -21,7 +21,11 @@ Select an item, deployment run, or manual project plan.
   --item PREFIX-N --transition TRANSITION
       An item's own attached plans, for a lifecycle transition's QA gate.
       Requires --transition; does not accept --plan, because an item uses the
-      plans already attached to it.
+      plans already attached to it. For multiple active lanes, hold the matching
+      item/task claim and select its exact registered --checkout-path PATH
+      --expected-branch BRANCH --expected-sha FULL_SHA. Cases whose newest
+      run passed at the lane's recorded head are skipped; the rest run one
+      execution target at a time, each after the previous one passed.
 
   --deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN]
       --project PROJECT

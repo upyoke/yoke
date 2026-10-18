@@ -86,3 +86,37 @@ def test_setup_refusal_preserves_profile_and_stops_before_window(
     assert (
         "browser_apparmor_setup_failed" in json.loads(capsys.readouterr().out)["error"]
     )
+
+
+@pytest.mark.parametrize("desktop", [False, True])
+def test_omitted_identity_refuses_before_runtime_or_window(
+    setup, monkeypatch, capsys, desktop
+):
+    declarations = {
+        "identities": {
+            "admin": {
+                "sites": [
+                    {
+                        "site": "app",
+                        "origin": "https://app.example",
+                        "account": "admin@example",
+                        "probe": {
+                            "url": "https://app.example/me",
+                            "signed_in_status": 200,
+                        },
+                    }
+                ]
+            }
+        }
+    }
+    monkeypatch.setattr(
+        browser_identities,
+        "declared_identities",
+        lambda *a: parse_identity_declarations(declarations),
+    )
+    args = ["--project", "project", "--json"] + (
+        ["--desktop-browser"] if desktop else []
+    )
+    assert command.browser_authorize(args) != 0
+    assert "browser_identity_required" in json.loads(capsys.readouterr().out)["error"]
+    assert setup == []

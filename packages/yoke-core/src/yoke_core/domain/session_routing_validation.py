@@ -24,7 +24,7 @@ _OVERRIDE_RECIPE = (
     "`yoke projects capability-settings set --project P --cap-type "
     "session-routing --settings-json '{\"levels\": [...]}'`, or remove the "
     "capability so the project reads the universe levels "
-    "(`yoke universe levels get`)."
+    "(`yoke settings get levels`)."
 )
 
 

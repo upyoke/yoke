@@ -109,34 +109,6 @@ def epic_task_simulation_get(args: List[str]) -> int:
     )
 
 
-EPIC_TASK_FILE_ADD_USAGE = (
-    "yoke workflow-item epic-task file-add --epic PREFIX-N --task-num N "
-    "--file-path PATH [--action ACTION] [--session-id S] [--json]"
-)
-
-
-def epic_task_file_add(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke workflow-item epic-task file-add",
-        description="Add or update one epic_task_files row.",
-    )
-    _epic_task_flags(parser)
-    parser.add_argument("--file-path", required=True, help="Task file path.")
-    parser.add_argument("--action", default="", help="File action label.")
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, EPIC_TASK_FILE_ADD_USAGE)
-    if parsed is None:
-        return 2
-    return _dispatch(
-        "workflow_item.epic_task.file_add",
-        _epic_task_target(parsed),
-        {"file_path": parsed.file_path, "action": parsed.action},
-        parsed,
-        _write_message,
-    )
-
-
 EPIC_TASK_HISTORY_INSERT_USAGE = (
     "yoke workflow-item epic-task history-insert --epic PREFIX-N --task-num N "
     "--from-status S --to-status S [--note TEXT | --note-file PATH] "

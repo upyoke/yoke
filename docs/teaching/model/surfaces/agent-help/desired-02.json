@@ -5,6 +5,5 @@
  "form": "Do",
  "verification": "External target with no runtime source directory: HTTPS transport install and repeated refresh resolve the installed manual; runtime/api/domain/test_installed_project_context.py.",
  "topics": ["context/docs", "documentation/ownership"],
- "plan_refs": ["FIRST-USER.35", "FIRST-USER.41", "FIRST-USER.P4"],
  "position": 5
 }

@@ -154,6 +154,10 @@ def qa_plan_rematerialize(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
+    if parsed.item and parsed.plan:
+        return usage_error(
+            "item_plan_filter_unsupported: remove --plan; --item refreshes attached plans"
+        )
     if parsed.item and not parsed.transition:
         return usage_error("--item requires --transition")
     if parsed.deployment_run_id and not parsed.stage:
@@ -173,9 +177,6 @@ def qa_plan_rematerialize(args: List[str]) -> int:
             project_id=parsed.project,
         )
     )
-    # Only the selected subject's keys travel, so the item path sends exactly
-    # what it always sent and a deployment payload never carries an empty
-    # transition the handler would have to ignore.
     payload = (
         {"transition_id": parsed.transition}
         if parsed.item

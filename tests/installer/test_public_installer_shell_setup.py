@@ -66,13 +66,10 @@ def test_installer_finishes_when_uv_cannot_determine_shell(monkeypatch, tmp_path
     assert [str(yoke_bin), "wsl", "setup"] in runner.commands
     assert [
         str(yoke_bin),
-        "config",
-        "distribution",
+        "settings",
         "set",
-        "--origin",
-        "https://api.upyoke.com",
-        "--channel",
-        "stable",
+        "distribution",
+        '{"origin": "https://api.upyoke.com", "channel": "stable"}',
     ] in runner.commands
     output = installer.stdout.getvalue()
     assert "Yoke v1.2.3 is ready" in output

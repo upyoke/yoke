@@ -41,6 +41,20 @@ Task worktree_path/branch is actual-code authority in one lane or many;
 main is the base/integration target. Missing lane or supplied diff is missing
 evidence, never a reason to inspect main as if it held unmerged task changes.
 Read authoritative parent spec: yoke items get {public_ref} spec
+Migration Composition Evidence: {when permanent migrations are renumbered or
+composed, supply the complete block defined in Conduct's
+simulation-gate-criteria.md: old-to-final names/ordinals, candidate commit and
+digests, updated spec rollout/worktree-plan text, applied_migrations rows on
+each declared authority and migration_audit rehearsal rows on the item's
+control plane for ALL old and final names, accepted final rehearsal audit ids,
+and migration_content_adoptions rows; label sources/read times and explicit
+empty results. Otherwise explicitly state not applicable}.
+Retain this block in standard, compressed and retry prompts. Missing reads or
+final receipts are missing evidence: return GAPS FOUND with the access or
+rehearsal recovery; do not guess tables or spend bounded reads reconstructing
+it. An applied old name cannot be renamed; adoption is content provenance.
+Exact Yoke schema/recipes: yoke packets render --role simulator_agent --topic core --detail full
+Other projects use their declared migration_model ledger/evidence contract.
 Check actual exports against contracts, naming, merge/generated-file overlap
 and combined state validity. Apply the common contract.
 ```

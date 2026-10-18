@@ -23,6 +23,9 @@ class PathFlow:
 
     async def _run_install(self) -> None:
         plan, error = await asyncio.to_thread(self._check_install)
+        self._finish_install(plan, error)
+
+    def _finish_install(self, plan: dict[str, Any], error: str) -> None:
         self._checking = False
         self._checking_blocks_quit = False
         previous = self.result.path_repair or {}

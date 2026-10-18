@@ -1,7 +1,7 @@
 """Workflow inputs naming the candidate a CI proof is built against.
 
 A CI run normally proves one fact: the commit it checked out. A consumer
-verifying an *unpublished* producer candidate needs a second one — which
+verifying a pushed producer candidate before release needs a second one — which
 candidate it built against — and that fact reaches GitHub as
 ``workflow_dispatch`` inputs declared on the QA case
 (``method_config.ci_workflow_inputs``). Every dispatch path carries them:
@@ -95,6 +95,11 @@ def case_inputs(case: Mapping[str, Any], *, project: str) -> dict[str, str]:
     )
     if inputs and not case.get("standalone_execution_id"):
         _refuse_queue_routed(project, inputs)
+    from yoke_core.domain.qa_case_ci_product_publication import (
+        require_published_product,
+    )
+
+    require_published_product(case, inputs)
     return inputs
 
 
@@ -158,6 +163,11 @@ def item_inputs(*, item_id: int, workflow: str) -> dict[str, str]:
                 "`yoke qa requirement update`."
             )
         declared, source_requirement = inputs, int(row.get("id") or 0)
+    from yoke_core.domain.qa_case_ci_product_publication import (
+        require_published_product,
+    )
+
+    require_published_product({"public_ref": item_id}, declared)
     return declared
 
 

@@ -269,3 +269,18 @@ def test_unroutable_live_step_refuses_composition(monkeypatch) -> None:
     with pytest.raises(SessionLaunchError) as raised:
         mandate._route_for_item(conn, "YOK-12", 1)
     assert raised.value.code == "mandate_unroutable"
+
+
+def test_dependency_wait_teaching_keeps_custody_until_notice():
+    from yoke_core.domain.session_launch_mandate_teaching import (
+        DEPENDENCY_WAIT_TEACHING,
+    )
+
+    assert (
+        "Keep your work claim and lane; do not release or end the session; the notice wakes you as holder."
+        in DEPENDENCY_WAIT_TEACHING
+    )
+    assert (
+        'yoke sessions touch --mode parked --reason "awaiting <BLOCKER> <gate>"'
+        in DEPENDENCY_WAIT_TEACHING
+    )

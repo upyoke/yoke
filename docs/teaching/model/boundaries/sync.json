@@ -2,7 +2,6 @@
  "id": "sync",
  "title": "TUI issue sync silently off",
  "status": "approved",
- "text": "Agent setup may explain and offer relevant opt-in. Keep the default off and verify deliberate enable paths. Broader dedup remains deferred; entry 2 stays as written.",
- "plan_refs": ["FIRST-USER.2", "FIRST-USER.10", "FIRST-USER.A"],
+ "text": "Agent setup may explain and offer relevant opt-in. Keep the default off and verify deliberate enable paths. Broader deduplication remains deferred.",
  "position": 9
 }

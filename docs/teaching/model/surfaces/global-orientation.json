@@ -11,6 +11,5 @@
  "current": "Source renders outside-project orientation (scope, yoke-global next action, status/help pointers, writing rules, optional project folders) and setup installs yoke-global; delivery waits on machine-wide hooks and released receiving proof.",
  "desired": "One bounded orientation plus yoke-global; select/add a project, then open a session in its folder.",
  "plan_notes": ["FIRST-USER P1–P4", "JOURNEYS 4–8/14"],
- "plan_refs": ["FIRST-USER.P1", "FIRST-USER.P2", "FIRST-USER.P4", "FIRST-USER.43"],
  "sources": ["packages/yoke-core/src/yoke_core/domain/global_orientation.py", "packages/yoke-core/src/yoke_core/domain/session_orientation.py", "packages/yoke-contracts/src/yoke_contracts/global_skill/SKILL.md", "packages/yoke-contracts/src/yoke_contracts/harness_global_skill.py", "packages/yoke-contracts/src/yoke_contracts/global_skill_install.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/hook_config_dedup.py:139", "packages/yoke-core/src/yoke_core/domain/main_agent_packet.py", "packages/yoke-contracts/src/yoke_contracts/connection_authority_teaching.py", "packages/yoke-contracts/src/yoke_contracts/session_control/teaching.py"]
 }

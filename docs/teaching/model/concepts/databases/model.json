@@ -2,7 +2,6 @@
  "id": "model",
  "title": "Migration model",
  "status": "draft-copy",
- "plan_refs": ["JOURNEYS.situation-17"],
  "surface_refs": ["project-native", "skills-roles"],
  "page": "databases",
  "position": 1

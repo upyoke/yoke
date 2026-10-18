@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping
 
 from yoke_core.domain.dependency_cycles import DependencyCycle
-from yoke_core.domain.dependency_cycles_read import dependency_cycles
+from yoke_core.domain.dependency_cycles_read import cycles_in, live_blocking_edges
 from yoke_core.domain.steering_fleet_report_test_machines import read_test_machines
 from yoke_core.domain.machine_registry import machine_names
 from yoke_core.domain.merge_queue_read_reuse import MergeQueueReads
@@ -36,7 +36,8 @@ from yoke_core.domain.steering_fleet_report_abandoned import (
 )
 from yoke_core.domain.steering_fleet_report_available import (
     FrontierEntry,
-    scope_candidates,
+    LandingWait,
+    scope_work,
 )
 from yoke_core.domain.steering_fleet_report_capacity import (
     SessionCount,
@@ -87,6 +88,10 @@ from yoke_core.domain.steering_fleet_report_vendor_errors import (
     VendorErrorSession,
     vendor_error_sessions,
 )
+from yoke_core.domain.steering_fleet_report_waiting_chains import (
+    WaitingChain,
+    waiting_chains,
+)
 
 
 @dataclass(frozen=True)
@@ -94,6 +99,7 @@ class ProjectFleetFacts:
     """One project's report inputs, before any scope narrows them."""
 
     available: tuple[FrontierEntry, ...]
+    landing_waits: tuple[LandingWait, ...]
     holders: tuple[ClaimHolder, ...]
     undelivered: tuple[UndeliveredMessages, ...]
     unregistered_launches: tuple[UnregisteredLaunch, ...]
@@ -115,6 +121,7 @@ class ProjectFleetFacts:
     test_machines: tuple[tuple[str, str], ...] = ()
     levels: LevelReadout | None = None
     deadlocks: tuple[DependencyCycle, ...] = ()
+    waiting_chains: tuple[WaitingChain, ...] = ()
 
 
 def read_project_facts(
@@ -144,8 +151,12 @@ def read_project_facts(
         ),
     )
     inventory = request.include_inventory
+    # One evaluation of the waiting graph feeds both dependency sections.
+    live = live_blocking_edges(conn)
+    work = scope_work(conn, project_id=project_id, session_id=session_id)
     return ProjectFleetFacts(
-        available=scope_candidates(conn, project_id=project_id, session_id=session_id),
+        available=work.available,
+        landing_waits=work.landing_waits,
         holders=holders,
         undelivered=undelivered_messages(
             conn, project_id=project_id, now=now, session_id=session_id
@@ -157,7 +168,8 @@ def read_project_facts(
         landed_open=landed_without_closeout(
             conn, project_id=project_id, now=now, holders=holders
         ),
-        deadlocks=tuple(dependency_cycles(conn, [project_id])),
+        deadlocks=tuple(cycles_in(live, [project_id])),
+        waiting_chains=waiting_chains(conn, live, project_id),
         deployment_runs=run_progress(conn, project_id=project_id, now=now),
         vendor_errors=vendor_error_sessions(conn, project_id=project_id, now=now),
         stranded=stranded_sessions(

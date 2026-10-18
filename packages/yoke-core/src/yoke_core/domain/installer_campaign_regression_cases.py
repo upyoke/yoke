@@ -4,6 +4,9 @@ from copy import deepcopy
 import shlex
 
 from yoke_core.domain.installer_campaign_issue_sync_cases import issue_sync_cases
+from yoke_core.domain.installer_campaign_session_scope_cases import (
+    session_scope_cases,
+)
 from yoke_core.domain.installer_campaign_install_health_cases import (
     install_health_cases,
 )
@@ -85,12 +88,15 @@ def _hosted_case(position, key, prefix, *, instructions, outcome, after_installe
         instructions=instructions,
         expected_outcome=outcome,
         entry_surface=(
-            f"set -eu; {prefix}; printf '%s\\n' {shlex.quote(key + '-prepared')}; "
+            "( set -eu; "
+            + (f"{prefix}; " if prefix else "")
+            + f"printf '%s\\n' {shlex.quote(key + '-prepared')}; "
             + PUBLIC_INSTALL
             + f"; {after_installer}; printf '%s\\n' "
             + shlex.quote(key + "-prepared")
             + " "
             + shlex.quote(key + "-ready")
+            + " )"
         ),
         required_completion="complete-onboarding",
         host_baselines=[FRESH_HOST],
@@ -125,7 +131,7 @@ except (OSError, ValueError, KeyError):
     sys.exit('stale_release_lookup_failed: verify the declared distribution channel and wheel index before rerunning')
 """
 _STALE_PREPARE = (
-    '_campaign_python="$(uv tool dir)/yoke-cli/bin/python3"; '
+    '_campaign_python="$(uv tool dir)/yoke-cli-releases/current/tools/yoke-cli/bin/python3"; '
     '_campaign_selection=$("$_campaign_python" -c '
     + shlex.quote(_STALE_RELEASE_SCRIPT)
     + " {{installer_base_url}} {{release_channel}}); "
@@ -179,7 +185,7 @@ LOCAL_HOSTED_NO_BACKUP = _hosted_case(
 SECOND_MACHINE_JOIN = _hosted_case(
     14,
     "second-machine-join",
-    'test ! -e "$HOME/.yoke/config.json"',
+    "",
     instructions=(
         "Run on a second registered physical Test Machine after the first machine has joined the "
         "same organization. Pin that second machine through the saved case's machine constraint. "
@@ -264,7 +270,7 @@ if changed(record) or record['conflicts']:
 LATE_HARNESS = _command_case(
     16,
     "late-harness-discovery",
-    '"$(uv tool dir)/yoke-cli/bin/python3" -c '
+    '"$(uv tool dir)/yoke-cli-releases/current/tools/yoke-cli/bin/python3" -c '
     + shlex.quote(_LATE_HARNESS_SCRIPT)
     + " "
     + shlex.quote(_LOCAL_SETUP)
@@ -293,6 +299,7 @@ INSTALLER_RECOVERY_CASES = (
     )
     + install_health_cases(_command_case)
     + issue_sync_cases(_command_case, _LOCAL_SETUP)
+    + session_scope_cases(_command_case, _LOCAL_SETUP, _INSTALL_ONLY)
 )
 
 

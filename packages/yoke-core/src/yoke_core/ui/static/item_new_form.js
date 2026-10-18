@@ -139,8 +139,10 @@ export function renderNewItemForm(context, main, projectId, options) {
         "span",
         "item-form-help",
         selected.id === "task"
-          ? "This is the complete laneless, merge-free spec. Choose " +
-            "Dash when work needs a git lane, verification, or approval."
+          ? "This is the complete laneless, merge-free spec. Task " +
+            "refuses projects with a code repository; choose Dash for " +
+            "code project work or when work needs a git lane, " +
+            "verification, or approval."
           : "This is the whole spec. The agent completes the full spec " +
             "in this item, including larger-than-expected work.",
       );

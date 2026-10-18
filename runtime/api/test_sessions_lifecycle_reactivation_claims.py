@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     reasoning_effort TEXT DEFAULT NULL, context_window_tokens INTEGER DEFAULT NULL, requested_model TEXT DEFAULT NULL, requested_reasoning_effort TEXT DEFAULT NULL, requested_context_window_tokens INTEGER DEFAULT NULL,
     executor_version TEXT, machine_id TEXT, workspace TEXT NOT NULL DEFAULT '',
     project_id INTEGER NOT NULL,
+    org_id INTEGER,
     mode TEXT NOT NULL DEFAULT 'wait', offered_at TIMESTAMPTZ NOT NULL,
     last_heartbeat TIMESTAMPTZ NOT NULL, ended_at TIMESTAMPTZ,
     terminated_at TIMESTAMPTZ, terminated_by_actor_id INTEGER,

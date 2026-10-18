@@ -28,6 +28,10 @@ from yoke_core.domain import events as events_module
 from yoke_core.domain import yoke_function_dispatch as dispatch_module
 from yoke_core.domain.handlers import orchestration
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
+from yoke_core.domain.actor_project_visibility import actor_project_ids_with_permission
+from yoke_core.domain.actor_permissions import PERM_ITEMS_READ
+from yoke_core.domain.actors import seed_human_actor
+from yoke_core.domain.api_tokens import mint_token
 from yoke_core.domain.yoke_function_registry import reset_registry_for_tests
 
 from runtime.api.fixtures.backlog_inserts import insert_item
@@ -121,13 +125,20 @@ def test_handler_ignores_unknown_config_field(populated_db):
     assert outcome.result_payload["scope"] == "yoke"
 
 
-def test_handler_vision_count_shapes_zen_plan(populated_db):
-    """VISION count shapes the owning project's timeline width."""
+def test_handler_vision_count_shapes_zen_plan(populated_db, monkeypatch):
+    """VISION count shapes the owning project's timeline width.
+
+    Done items sit just after a UTC midnight and sessions run west of UTC, so
+    the window boundary must compare as an instant, not a session-local date.
+    """
     from yoke_contracts.board.config import config_from_values
 
+    monkeypatch.setenv("PGTZ", "America/Los_Angeles")
     with connect_test_db(populated_db) as conn:
         conn.execute(
-            "UPDATE items SET created_at=now() - interval '2 days', updated_at=now() WHERE status='done'"
+            "UPDATE items SET created_at=date_trunc('day', now() AT TIME ZONE 'UTC') "
+            "AT TIME ZONE 'UTC' - interval '2 days' + interval '30 minutes', "
+            "updated_at=now() WHERE status='done'"
         )
 
     config_values = {"timeline_widget": "always"}
@@ -198,15 +209,7 @@ def test_dispatcher_routes_board_data_get(populated_db):
     try:
         with mock.patch.object(events_module, "emit_event"):
             response = dispatch_module.dispatch(
-                {
-                    "function": "board.data.get",
-                    "version": "v1",
-                    "actor": {"actor_id": None, "session_id": ""},
-                    "target": {"kind": "global"},
-                    "payload": {"scope": "yoke"},
-                    "preconditions": {},
-                    "options": {},
-                }
+                _request({"scope": "yoke"}).model_dump(mode="json")
             )
     finally:
         reset_registry_for_tests()
@@ -225,19 +228,15 @@ class TestBoardDataOverHttpBoundary:
         from runtime.api.auth_test_helpers import mint_api_auth_context
         from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 
-        with mock.patch.dict(os.environ, {"YOKE_DB": populated_db}, clear=False):
+        with (
+            mock.patch.dict(os.environ, {"YOKE_DB": populated_db}, clear=False),
+            mock.patch.object(events_module, "emit_event"),
+            mock.patch.object(
+                dispatch_module, "_idempotency_lookup", return_value=None
+            ),
+        ):
             reset_registry_for_tests()
             register_all_handlers()
-            patches = [
-                mock.patch.object(events_module, "emit_event"),
-                mock.patch.object(
-                    dispatch_module,
-                    "_idempotency_lookup",
-                    return_value=None,
-                ),
-            ]
-            for p in patches:
-                p.start()
             conn = connect_test_db(populated_db)
             try:
                 # The roster section reads these columns whether or not any
@@ -261,6 +260,7 @@ class TestBoardDataOverHttpBoundary:
                     ),
                 )
                 auth = mint_api_auth_context(conn)
+                self.auth, self.db_path = auth, populated_db
             finally:
                 conn.close()
             self.client = TestClient(app)
@@ -268,22 +268,14 @@ class TestBoardDataOverHttpBoundary:
             try:
                 yield
             finally:
-                for p in patches:
-                    p.stop()
                 reset_registry_for_tests()
 
     def test_board_data_get_over_https_route(self) -> None:
         resp = self.client.post(
             "/v1/functions/call",
-            json={
-                "function": "board.data.get",
-                "version": "v1",
-                "actor": {"actor_id": None, "session_id": ""},
-                "target": {"kind": "global"},
-                "payload": {"scope": "yoke", "config_values": {}},
-                "preconditions": {},
-                "options": {},
-            },
+            json=_request({"scope": "yoke", "config_values": {}}).model_dump(
+                mode="json"
+            ),
         )
         assert resp.status_code == 200, resp.text
         body = resp.json()
@@ -299,3 +291,59 @@ class TestBoardDataOverHttpBoundary:
             seed=4,
         )
         assert "First item" in markdown
+
+    @pytest.mark.parametrize("case", "owner stranger project disabled missing".split())
+    @pytest.mark.parametrize("key", ["", "dashboard_sessions_scope", "timeline_scope"])
+    def test_public_org_session_admission(self, case, key):
+        owner, org_id = self.auth.actor_id, self.auth.org_id
+        with connect_test_db(self.db_path) as conn:
+            stranger, other = seed_human_actor(conn), seed_human_actor(conn)
+            conn.execute("DELETE FROM actor_project_roles WHERE actor_id=%s", (owner,))
+            conn.execute("DELETE FROM actor_org_roles WHERE actor_id=%s", (owner,))
+            visible = actor_project_ids_with_permission(conn, owner, PERM_ITEMS_READ)
+            assert visible == set()
+            for sid, actor, project, org in (
+                ("owned-org", owner, None, org_id),
+                ("hidden-org", other, None, org_id),
+                ("hidden-project", owner, self.auth.project_id, None),
+            ):
+                conn.execute(
+                    "INSERT INTO harness_sessions (session_id,actor_id,project_id,org_id,"
+                    "executor,provider,workspace,offered_at,last_heartbeat,last_tool_call_at) "
+                    "VALUES (%s,%s,%s,%s,'codex','openai','/tmp/board',now(),now(),now())",
+                    (sid, actor, project, org),
+                )
+            token = mint_token(conn, actor_id=stranger, name="stranger").raw_token
+            if case == "disabled":
+                conn.execute("UPDATE actors SET status='disabled' WHERE id=%s", (owner,))
+            conn.commit()
+        if case == "missing":
+            self.client.headers.clear()
+        elif case == "stranger":
+            self.client.headers.update({"Authorization": f"Bearer {token}"})
+        scope = "yoke" if case == "project" else "all"
+        payload = {"scope": scope, "config_values": {key: "1"} if key else {}}
+        response = self.client.post(
+            "/v1/functions/call", json=_request(payload).model_dump(mode="json")
+        )
+        body = response.json()
+        if case != "owner" or key:
+            assert not body.get("result"), response.text
+            assert not body["success"]
+            expected = {
+                "owner": "downstream_failure",
+                "disabled": "actor_disabled",
+                "missing": "authentication_required",
+            }
+            assert body["error"]["code"] == expected.get(case, "permission_denied")
+            return
+        assert response.status_code == 200, response.text
+        assert body["success"], body.get("error")
+        data = body["result"]
+        assert not any(data["items"].values())
+        assert {row["session"] for row in data["sessions"]["active"]} == {"`owned-org`"}
+        markdown = render_board_from_payload(
+            data, scope="all", config=BoardConfig(), art_config=ArtConfig(), seed=4
+        )
+        assert "Outside any project" in markdown
+        assert "First item" not in markdown

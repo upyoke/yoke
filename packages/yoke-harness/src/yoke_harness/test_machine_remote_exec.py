@@ -20,6 +20,7 @@ from pathlib import Path
 import selectors
 import subprocess
 import sys
+import time
 from typing import Callable, Mapping, Sequence
 
 
@@ -146,13 +147,21 @@ def run_remote_command(
 
 
 def _stream_command(
-    argv: list[str], *, process: subprocess.Popen, password: str | None = None
+    argv: list[str],
+    *,
+    process: subprocess.Popen,
+    password: str | None = None,
+    redaction_secret: str | None = None,
+    stdout=None,
+    stderr=None,
+    timeout=None,
 ) -> subprocess.CompletedProcess[str]:
     """Drain both pipes without line buffering or retaining the full output."""
     from yoke_harness.test_machine_admin import PasswordRedactor
 
     encoding = locale.getpreferredencoding(False)
-    secret = password.encode("utf-8") if password is not None else b""
+    secret = (redaction_secret or password or "").encode("utf-8")
+    deadline = time.monotonic() + timeout if timeout is not None else None
     with process:
         assert process.stdout is not None and process.stderr is not None
         tails = {process.stdout: bytearray(), process.stderr: bytearray()}
@@ -167,8 +176,8 @@ def _stream_command(
                         # SSH may have already refused; drain its diagnosed failure.
                         pass
                 for stream, destination in (
-                    (process.stdout, sys.stdout),
-                    (process.stderr, sys.stderr),
+                    (process.stdout, stdout if stdout is not None else sys.stdout),
+                    (process.stderr, stderr if stderr is not None else sys.stderr),
                 ):
                     decoder = codecs.getincrementaldecoder(encoding)(
                         errors="backslashreplace"
@@ -179,7 +188,9 @@ def _stream_command(
                         (destination, decoder, PasswordRedactor(secret)),
                     )
                 while selector.get_map():
-                    for key, _ in selector.select():
+                    if deadline is not None and time.monotonic() >= deadline:
+                        raise subprocess.TimeoutExpired(argv, timeout)
+                    for key, _ in selector.select(timeout=1 if deadline else None):
                         stream = key.fileobj
                         chunk = os.read(stream.fileno(), _READ_CHUNK_BYTES)
                         destination, decoder, redactor = key.data

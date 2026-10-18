@@ -164,6 +164,28 @@ Deployment-stage case selections keep each inheriting case directly behind its
 predecessor. Requirements materialized before a plan declared its states read
 as behind their plan: edit the plan, then refresh them.
 
+## Select an item plan's source lane
+
+```text
+yoke qa plan run --item PREFIX-N --transition TRANSITION --checkout-path PATH --expected-branch BRANCH --expected-sha FULL_SHA
+```
+
+When an item has multiple active lanes, hold its matching item/task claim and
+select the exact registered checkout and branch. The plan freezes each case's
+path, branch and commit from that selected lane; an ambiguous selection or a
+branch/path mismatch refuses with `qa_source_lane_unresolved` and names the
+selection recovery. Read `yoke qa plan run --help` for other subjects.
+
+An item plan run skips each case whose newest run, from `yoke qa plan run` or
+`yoke qa case run`, passed at the item lane's recorded head and still matches
+the case's method config and target. The remaining cases can span execution
+targets, for example a no-target CI case and a production mission. One
+execution has one target, so the run executes the first target's cases, then
+starts the next target only after those passed; a stop leaves the rest as
+`remaining_requirement_count`, and rerunning the same command continues. When
+every case already passed at that head, the run refuses with
+`qa_plan_roster_passed_at_candidate` and names the read and rerun commands.
+
 ## What the activity read returns
 
 `qa.activity.list` is scoped to **executable** cases: a case is in scope when

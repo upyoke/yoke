@@ -33,7 +33,9 @@ route by id vocabulary.
 Initial Dash binding: read and follow [Dash's procedure](../dash/SKILL.md)
 internally so direct filing/execution is atomic. A served worktrees:none,
 delivery:merge_free definition supports the complete laneless shortcut
-`yoke task TITLE SPEC --entry-surface harness_skill --execution-instructions-considered`.
+`yoke task TITLE SPEC --entry-surface harness_skill --execution-instructions-considered`
+in a project without a code repository; Task refuses code projects
+(`task_workflow_code_project`), so code project work -> `yoke dash`.
 A refine-to-Blitz boundary links exactly one execution strategy document
 through strategy.execution.link; intake never copies its plan into body.
 

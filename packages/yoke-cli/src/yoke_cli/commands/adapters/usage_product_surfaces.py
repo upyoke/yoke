@@ -1,6 +1,7 @@
 """Usage rows for workflow-aware product surfaces."""
 
 from yoke_cli.commands.adapters import (
+    classify_dirty,
     direct_workflow_usage,
     harness_machine_report,
     inbox_decisions,
@@ -32,6 +33,7 @@ from yoke_cli.commands.adapters import (
 
 
 USAGE_BY_FUNCTION_ID = {
+    "worktree.classify_dirty": classify_dirty.USAGE,
     "workflows.version.publish": workflows_publication.WORKFLOWS_VERSION_PUBLISH_USAGE,
     **projects_retirement.USAGE_BY_FUNCTION_ID,
     "items.progress_log.get": "yoke items progress-log get PREFIX-N [--json]",

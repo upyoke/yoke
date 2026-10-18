@@ -98,8 +98,11 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # added_in and context_schema columns; the code event catalog owns the rest.
 # The re-land attempt table (merge_queue_landing_attempts) is net-new; its
 # item, pull request, arming episode and open/close record are born with it.
+# An ordered history entry retires the born-with task file table
+# (epic_task_files) and epic_tasks' scope_state and scope_finalized_at: each
+# task body's Files Touched section is now its only file list.
 _BORN_WITH_COLUMN_DIGEST = (
-    "2475eb9a2e11f32325afd54b4d140ed6e4c09e3d4e23f6d88b104dd364c84a7c"
+    "3847f5fd92c1485a1525b835ee5610e59b87f33ed64ca8b1d9045702a3e8851c"
 )
 
 

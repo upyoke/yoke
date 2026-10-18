@@ -83,26 +83,10 @@ def _seed_old(conn, *, run_qa: bool) -> dict[int, int]:
     return cases
 
 
-def _passed_item_qa(monkeypatch, *, closes_mid_run: bool | None = True) -> None:
-    """PASSED's item QA is accepted; the stage-acceptance walk is tested elsewhere.
-
-    ``closes_mid_run`` stands in for the member's own close-out read; ``None``
-    keeps the real reader, which this fixture's member cannot satisfy.
-    """
-    from yoke_core.domain import deployment_member_independent_close_out as closing
-    from yoke_core.domain import deployment_qa_run_acceptance as acceptance
-
-    def standing(conn, *, run_id, item_id, current_stage, stages=None):
-        state = acceptance.STAGE_ACCEPTED if item_id == PASSED else "not yet run"
-        return acceptance.ItemStageQa(stage=current_stage, state=state, blockers=())
-
-    monkeypatch.setattr(acceptance, "current_item_qa", standing)
-    if closes_mid_run is not None:
-        monkeypatch.setattr(
-            closing,
-            "member_closes_mid_run",
-            lambda conn, *, item_id, run_id: item_id == PASSED and closes_mid_run,
-        )
+def _close_passed(conn) -> None:
+    """PASSED's accepted item QA closed it in the older run."""
+    conn.execute("UPDATE items SET status='done' WHERE id=%s", (PASSED,))
+    conn.commit()
 
 
 def _memberless_copy(conn, requirement_id: int, *, stage: str = ITEM_QA_STAGE) -> int:
@@ -136,13 +120,7 @@ def _seed_new(conn, lineage: str = NEW_LINEAGE) -> None:
     conn.commit()
 
 
-def _contains(
-    monkeypatch,
-    state: str = containment.CONTAINED,
-    *,
-    closes_mid_run: bool | None = True,
-) -> None:
-    _passed_item_qa(monkeypatch, closes_mid_run=closes_mid_run)
+def _contains(monkeypatch, state: str = containment.CONTAINED) -> None:
     monkeypatch.setattr(
         containment,
         "candidate_contains_commit",
@@ -182,11 +160,12 @@ def _take_over(conn):
     return taken
 
 
-def test_without_run_qa_waiting_members_move_and_passed_members_stay(
+def test_without_run_qa_open_members_move_and_the_older_run_succeeds(
     test_db, monkeypatch
 ):
     cases = _seed_old(test_db, run_qa=False)
     stranded = _memberless_copy(test_db, cases[WAITING])
+    _close_passed(test_db)
     _seed_new(test_db)
     _contains(monkeypatch)
     assert open_qa_lines(test_db, OLD)
@@ -197,7 +176,7 @@ def test_without_run_qa_waiting_members_move_and_passed_members_stay(
     assert _members(test_db, NEW) == {WAITING}
     assert removed_item_ids(test_db, OLD) == {WAITING}
     old, new = _run(test_db, OLD), _run(test_db, NEW)
-    assert old["status"] == "executing" and old["superseded_by_run_id"] == NEW
+    assert old["status"] == "succeeded" and old["superseded_by_run_id"] == NEW
     assert new["supersedes_run_id"] == OLD
     retracted = test_db.execute(
         "SELECT id,retracted_at FROM qa_requirements WHERE id IN (%s,%s)",
@@ -211,24 +190,21 @@ def test_without_run_qa_waiting_members_move_and_passed_members_stay(
     assert _open_memberless(test_db, OLD) == []
 
 
-@pytest.mark.parametrize("closes_mid_run", [False, None])
-def test_a_passed_member_that_cannot_close_mid_run_moves_too(
-    test_db, monkeypatch, closes_mid_run
+def test_a_passed_member_not_yet_closed_moves_and_the_empty_run_is_cancelled(
+    test_db, monkeypatch
 ):
-    """Passed item QA alone is not enough to stay: the old run may never finish.
-
-    ``False`` is a refused close-out; ``None`` reads the real check, which a
-    member without final delivery intent or landing evidence cannot pass.
-    """
+    """Passed item QA alone is not enough to stay: only a closed member did
+    the older run deliver, so a run left with none is cancelled, not green."""
     _seed_old(test_db, run_qa=False)
     _seed_new(test_db)
-    _contains(monkeypatch, closes_mid_run=closes_mid_run)
+    _contains(monkeypatch)
 
     assert _take_over(test_db) == OLD
 
     assert _members(test_db, OLD) == set()
     assert _members(test_db, NEW) == {PASSED, WAITING}
     assert removed_item_ids(test_db, OLD) == {PASSED, WAITING}
+    assert _run(test_db, OLD)["status"] == "cancelled"
     assert _open_memberless(test_db, OLD) == []
 
 
@@ -333,6 +309,7 @@ def test_real_flow_final_completion_tail(test_db, monkeypatch, tail):
         "UPDATE deployment_flows SET stages=%s WHERE id=%s",
         (json.dumps(stages), f"flow-{OLD}"),
     )
+    _close_passed(test_db)
     _seed_new(test_db)
     _contains(monkeypatch)
     assert _take_over(test_db) == (OLD if tail == "auto" else None)

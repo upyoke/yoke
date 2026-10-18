@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from yoke_harness.ssh_linux_browser_sign_in import SNAP_CHROMIUM_HOME_ENTRY
+from yoke_harness.ssh_linux_preserved_entries import SNAP_CHROMIUM_HOME_ENTRY
 from yoke_harness.ssh_mac_preserved_state import SAFARI_COOKIE_HOME_ENTRY
 
 

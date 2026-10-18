@@ -100,8 +100,10 @@ def run_end(args: list[str]) -> int:
         record_mission_restore,
     )
 
-    _register()
+    result = None
+    cleanup_error = None
     try:
+        _register()
         result = execute_agent_mission_walk_end(
             contract, timeout_seconds=parsed.timeout_seconds
         )
@@ -110,16 +112,32 @@ def run_end(args: list[str]) -> int:
         return 2
     except Exception as exc:
         print(
-            f"{PROG_END}: local execution failed ({type(exc).__name__}: {exc})",
+            f"{PROG_END}: mission_teardown_failed ({type(exc).__name__}); "
+            "restore host connectivity and rerun this walk-end",
             file=sys.stderr,
         )
         return 2
+    finally:
+        if getattr(parsed, "cleanup_lease", False):
+            try:
+                cleanup_error = _finish_cleanup(parsed, contract, result)
+            except Exception as exc:
+                cleanup_error = (
+                    f"mission_cleanup_unsettled ({type(exc).__name__}); "
+                    "restore control-plane access and rerun this walk-end"
+                )
+            if cleanup_error:
+                print(f"{PROG_END}: {cleanup_error}", file=sys.stderr)
     restore = result[STARTING_STATE_RESTORE]
-    unrecorded = record_mission_restore(
-        requirement_id=parsed.requirement_id,
-        run_id=parsed.run_id,
-        restore=restore,
-        actor=build_actor(session_id=parsed.session_id),
+    unrecorded = (
+        cleanup_error
+        if getattr(parsed, "cleanup_lease", False)
+        else record_mission_restore(
+            requirement_id=parsed.requirement_id,
+            run_id=parsed.run_id,
+            restore=restore,
+            actor=build_actor(session_id=parsed.session_id),
+        )
     )
     print(
         json.dumps(
@@ -157,6 +175,37 @@ def run_end(args: list[str]) -> int:
     for failure in failures:
         print(f"{PROG_END}: {failure}", file=sys.stderr)
     return 3 if failures else 0
+
+
+def _finish_cleanup(parsed, contract: dict, result: dict | None) -> str | None:
+    from yoke_core.api.service_client_structured_api_adapter import build_actor
+    from yoke_core.domain.agent_mission_host_command_cli import _target
+    from yoke_core.domain.qa_composed_dispatch import call_qa_function
+
+    response = call_qa_function(
+        function_id="test_machine.mission.access",
+        target=_target(parsed),
+        actor=build_actor(session_id=parsed.session_id),
+        payload={
+            "execution_id": parsed.execution_id,
+            "requirement_id": parsed.requirement_id,
+            "cleanup": "finish",
+            "run_id": parsed.run_id,
+            "lease_id": contract["lease_id"],
+            "restore": result[STARTING_STATE_RESTORE] if result else None,
+        },
+    )
+    if response.success:
+        return None
+    error = response.error
+    return (
+        (
+            f"mission_cleanup_unsettled: {error.code}: {error.message}; "
+            "rerun this walk-end to finish cleanup and release its lease"
+        )
+        if error
+        else ("mission_cleanup_unsettled: no finish receipt; rerun this walk-end")
+    )
 
 
 def main(argv: Optional[list[str]] = None) -> int:

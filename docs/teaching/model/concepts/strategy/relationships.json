@@ -2,7 +2,6 @@
  "id": "relationships",
  "title": "Strategy relationships",
  "status": "draft-copy",
- "plan_refs": ["JOURNEYS.situation-15"],
  "commands": ["yoke strategy carry candidate-set", "yoke strategy carry mark", "yoke strategy carry register-new", "yoke strategy carry summary", "yoke strategy coordination append", "yoke strategy parent set"],
  "functions": ["strategy.carry.candidate_set", "strategy.carry.mark", "strategy.carry.register_new", "strategy.carry.summary", "strategy.coordination.append", "strategy.parent.set"],
  "page": "strategy",

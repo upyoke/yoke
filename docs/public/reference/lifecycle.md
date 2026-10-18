@@ -107,7 +107,9 @@ workflow's execution instructions (`items.create`):
 ```text
 yoke dash "<title>" --spec-file /tmp/dash-spec.txt --entry-surface harness_skill --execution-instructions-considered
 ```
-Task uses `yoke task` with the same flags; planned intake uses `/yoke idea`,
+Task uses `yoke task` with the same flags in projects without a code
+repository; code project work -> `yoke dash` (Task refuses there with
+`task_workflow_code_project`). Planned intake uses `/yoke idea`,
 which sets session mode `idea` before filing with `harness_skill`.
 Authenticated caller, allowed workflow surfaces, spec acceptance and
 execution-instruction attestation remain required; a surface grants no authority.

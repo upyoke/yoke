@@ -32,6 +32,14 @@ yoke items dependency list PREFIX-N --json
 Title-only related claimable batch without attestation refuses; don't launch
 work frontier should not offer.
 
+Keep dependencies minimal: every edge holds real work back. Before adding one,
+confirm the dependent truly needs the blocker's merged code; shared files alone
+call for `coordination_only`. Prefer the narrowest gate and condition:
+`coordination_only` over `integration` over `activation`, `fact:merged` over
+`status:done`, a specific task over a whole epic. The report's waiting-chains
+section is where heavy edges show; act on it per
+[fleet-findings.md](fleet-findings.md).
+
 ## 2. Keep the frontier maxed out
 
 Staff every runnable unclaimed scoped item promptly, including work just filed
@@ -181,3 +189,5 @@ yoke claims work holder-get PREFIX-N
    steps rather than replay. item_has_live_worker means finish termination first.
 4. By live deadline_at require succeeded registration and holder-get names
    successor. New worker reports its own leg; predecessor sends no further mail.
+
+Keep each entry body at or below 4,096 UTF-8 bytes; write only what changed and the next step, and move evidence to artifacts or field-notes.

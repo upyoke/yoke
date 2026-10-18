@@ -69,6 +69,8 @@ receipt with `yoke deployment-runs get RUN-ID bound_sources` when diagnosing
 release preparation or recovery. Read its handler timing separately from browser HTTP
 and selection-to-card timings; SQL call counts alone do not prove latency.
 
+An explicit Shipping entry starts its one authorized overview while project and saved-selection reads settle. The first render still applies the saved filter; navigation or unmount discards the early read, and later visits and actions read current facts. This overlaps startup work without caching across requests or changing the production timing requirement.
+
 For a slow statement, use `db.read.run` with its actual parameters:
 
 ```text

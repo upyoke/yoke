@@ -17,7 +17,7 @@ from typing import Any, Mapping
 from yoke_contracts.machine_config.schema_projects import ValidationIssue, _warn
 
 _LEVELS_CORRECTION = (
-    "launches read level options instead (`yoke universe levels get`); name "
+    "launches read level options instead (`yoke settings get levels`); name "
     "--level LEVEL, or --surface/--model/--reasoning-effort for one explicit "
     "launch"
 )

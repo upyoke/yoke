@@ -14,6 +14,9 @@ from typing import Any, Mapping
 
 #: function_id -> minimum serving version. Do not copy already-served ids here.
 FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
+    "worktree.classify_dirty": "next-release",
+    "machine.access.get": "next-release",
+    "machine.access.set": "next-release",
     "merge.audit.snapshot": "next-release",
     "ouroboros.reflection.capture": "next-release",
     "actors.role.set": "next-release",
@@ -114,6 +117,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "test_machine.verify": "next-release",
     "universe.level_capacity.get": "next-release",
     "universe.levels.get": "next-release",
+    "universe.levels.reset": "next-release",
     "universe.levels.set": "next-release",
     "universe.retention.get": "next-release",
     "universe.prune.run": "next-release",
@@ -141,6 +145,11 @@ class ArgumentFloor:
 #: ignore them. Payload refusals name this floor; adapters whose writes can be
 #: ignored must also verify the success receipt echoes the requested argument.
 FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] = {
+    "sessions.begin": {
+        "machine_scope": ArgumentFloor(
+            "next-release", "start the agent inside a registered project folder"
+        ),
+    },
     "items.create": {
         "spec": ArgumentFloor(
             "next-release", "the filing form supported by the serving CLI release"

@@ -4,11 +4,11 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "When a domain-specific recovery is unavailable and an authorized human administrator must review a bounded repair.",
- "need": "Learn the exact document, review, simulation and authority boundaries. Item columns use a public_ref name in snapshots and SQL while key_columns keeps the physical name; a non-key column such as deployment_member_item_id is deployment_member_public_ref, and the server resolves refs within the named project. A steering session still needs organization administrator authority and the operator's approved digest.",
+ "need": "Learn the exact document, review, simulation and authority boundaries. Item columns use a public_ref name in snapshots and SQL while key_columns keeps the physical name; a non-key column such as deployment_member_item_id is deployment_member_public_ref, epic_id is epic_public_ref, and the server resolves refs within the named project. A steering session still needs organization administrator authority and the operator's approved digest.",
  "disclosure": "audit needed",
  "surface": "New public reviewed-operator-repair guide; registered operator command described there",
  "gap": "The current public guide describes operator.data_repair.run, but the supplied root-help capture has no operator namespace. Review question: is this a release/help-scope difference, and what shipped discovery/refusal should reach the guide?",
- "review": "Item-reference update/delete, a non-key deployment_member_public_ref dry-run, simulation rollback and refusal behavior have candidate PostgreSQL tests in runtime/api/domain/test_operator_data_repair_items.py; shipped recipe proof remains pending.",
+ "review": "Item-reference update/delete, non-key deployment_member_public_ref and epic_public_ref simulation/application, simulation rollback and refusal behavior have candidate PostgreSQL tests in runtime/api/domain/test_operator_data_repair_items.py; shipped recipe proof remains pending.",
  "plan_notes": ["FIRST-USER 35", "outside both"],
  "sources": ["docs/public/operator-data-repair.md", "docs/public/reference/agent-rules/code-and-cli.md", "docs/public/reference/agent-rules/databases.md"],
  "position": 0

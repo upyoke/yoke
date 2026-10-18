@@ -49,7 +49,6 @@ from typing import List, Set
 FILE_BUDGET_SECTION = "File Budget"
 FILE_BUDGET_HEADING = f"## {FILE_BUDGET_SECTION}"
 
-_FILE_BUDGET_HEADER = re.compile(rf"^{re.escape(FILE_BUDGET_HEADING)}\b")
 _LEVEL2_HEADER = re.compile(r"^## ")
 _LIST_ITEM = re.compile(r"^\s*-\s")
 _BACKTICKED = re.compile(r"`([^`]+)`")
@@ -109,6 +108,10 @@ UNRESOLVED_FILE_BUDGET_SECTION = (
 )
 
 
+def _section_header(heading: str) -> re.Pattern[str]:
+    return re.compile(rf"^{re.escape(heading)}\b")
+
+
 def is_path_token(candidate: str) -> bool:
     """Return ``True`` when ``candidate`` is a File Budget path token."""
     if not candidate:
@@ -128,22 +131,23 @@ def is_path_token(candidate: str) -> bool:
     return bool(_TOP_LEVEL_ALLCAPS_MD.match(candidate))
 
 
-def extract_file_budget_paths(spec_text: str) -> List[str]:
-    """Pull file path tokens from the ``## File Budget`` section.
+def extract_section_paths(text: str, heading: str) -> List[str]:
+    """Pull path tokens from the list items under one level-2 ``heading``.
 
     Returns paths in first-occurrence order, deduplicated. ``### sub``
     headings inside the section are followed; the next ``## `` heading
     terminates parsing.
     """
-    if not spec_text:
+    if not text:
         return []
+    header = _section_header(heading)
     in_section = False
     seen: Set[str] = set()
     paths: List[str] = []
-    for line in spec_text.splitlines():
+    for line in text.splitlines():
         stripped = line.strip()
         if _LEVEL2_HEADER.match(stripped):
-            in_section = bool(_FILE_BUDGET_HEADER.match(stripped))
+            in_section = bool(header.match(stripped))
             continue
         if not in_section:
             continue
@@ -158,6 +162,11 @@ def extract_file_budget_paths(spec_text: str) -> List[str]:
             seen.add(candidate)
             paths.append(candidate)
     return paths
+
+
+def extract_file_budget_paths(spec_text: str) -> List[str]:
+    """Pull file path tokens from the ``## File Budget`` section."""
+    return extract_section_paths(spec_text, FILE_BUDGET_HEADING)
 
 
 def extract_file_budget_section_paths(section_content: str) -> List[str]:
@@ -179,22 +188,30 @@ def extract_file_budget_section_paths(section_content: str) -> List[str]:
     return extract_file_budget_paths(body)
 
 
-def extract_file_budget_section(spec_text: str) -> str | None:
-    """Return the File Budget section body, or ``None`` when absent."""
-    if not spec_text:
+def extract_section(text: str, heading: str) -> str | None:
+    """Return one level-2 section's body, or ``None`` when absent."""
+    if not text:
         return None
+    header = _section_header(heading)
     in_section = False
+    found = False
     lines: list[str] = []
-    for line in spec_text.splitlines():
+    for line in text.splitlines():
         stripped = line.strip()
         if _LEVEL2_HEADER.match(stripped):
             if in_section:
                 break
-            in_section = bool(_FILE_BUDGET_HEADER.match(stripped))
+            in_section = bool(header.match(stripped))
+            found = found or in_section
             continue
         if in_section:
             lines.append(line)
-    return "\n".join(lines).strip()
+    return "\n".join(lines).strip() if found else None
+
+
+def extract_file_budget_section(spec_text: str) -> str | None:
+    """Return the File Budget section body, or ``None`` when absent."""
+    return extract_section(spec_text, FILE_BUDGET_HEADING)
 
 
 def has_resolved_file_budget(spec_text: str) -> bool:
@@ -266,6 +283,8 @@ __all__ = [
     "extract_file_budget_section",
     "extract_file_budget_section_paths",
     "extract_file_budget_paths_set",
+    "extract_section",
+    "extract_section_paths",
     "has_resolved_file_budget",
     "has_unresolved_file_budget",
     "is_path_token",

@@ -3,6 +3,5 @@
  "title": "Implement the public/installed/web cascade",
  "status": "observed",
  "text": "Exact folder names in the earlier documentation hierarchy are exploratory. Preserve concepts and implement approved navigation and release contracts.",
- "plan_refs": ["FIRST-USER.40", "FIRST-USER.41"],
  "position": 4
 }

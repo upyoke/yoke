@@ -1,11 +1,10 @@
-"""Handler group: task CRUD, files, history, dispatch-chain.
+"""Handler group: task CRUD, history, dispatch-chain.
 
 Owns the following ``python3 -m yoke_core.domain.epic`` subcommands:
 
 - ``task-upsert``, ``task-get``, ``task-list``
 - ``task-update-status``, ``task-update-body``, ``task-get-body``,
   ``task-update-field``
-- ``file-add``, ``file-list``
 - ``history-insert``
 - ``dispatch-chain-upsert``, ``dispatch-chain-get``,
   ``dispatch-chain-update``, ``dispatch-chain-list``,
@@ -41,13 +40,19 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
 
     if subcmd == "task-upsert":
         if not epic_id or len(rest) < 2:
-            _cli_usage_error("Usage: task-upsert <epic-id> <task_num> <title> [worktree] [context_estimate] [dependencies]")
+            _cli_usage_error(
+                "Usage: task-upsert <epic-id> <task_num> <title> [worktree] [context_estimate] [dependencies]"
+            )
         task_num = int(rest[0])
         title = rest[1]
         worktree = rest[2] if len(rest) > 2 else ""
         context_estimate = rest[3] if len(rest) > 3 else ""
         dependencies = rest[4] if len(rest) > 4 else ""
-        print(_epic.task_upsert(conn, epic_id, task_num, title, worktree, context_estimate, dependencies))
+        print(
+            _epic.task_upsert(
+                conn, epic_id, task_num, title, worktree, context_estimate, dependencies
+            )
+        )
         return True
 
     if subcmd == "task-get":
@@ -69,11 +74,16 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
             _cli_usage_error("Usage: task-update-status <epic-id> <task_num> <status>")
         pipeline = os.environ.get("YOKE_STATUS_PIPELINE") == "1"
         scripts_dir = os.environ.get("YOKE_SCRIPTS_DIR")
-        print(_epic.task_update_status(
-            conn, epic_id, int(rest[0]), rest[1],
-            pipeline=pipeline,
-            scripts_dir=scripts_dir,
-        ))
+        print(
+            _epic.task_update_status(
+                conn,
+                epic_id,
+                int(rest[0]),
+                rest[1],
+                pipeline=pipeline,
+                scripts_dir=scripts_dir,
+            )
+        )
         return True
 
     if subcmd == "task-update-body":
@@ -141,6 +151,7 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
         result = _epic.task_get_body(conn, epic_id, task_num)
         if output_file is not None:
             from pathlib import Path
+
             Path(output_file).write_text(result, encoding="utf-8")
         else:
             print(result)
@@ -148,7 +159,9 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
 
     if subcmd == "task-update-field":
         if not epic_id or len(rest) < 2:
-            _cli_usage_error("Usage: task-update-field <epic-id> <task_num> <field> <value>")
+            _cli_usage_error(
+                "Usage: task-update-field <epic-id> <task_num> <field> <value>"
+            )
         value = rest[2] if len(rest) > 2 else ""
         pipeline = os.environ.get("YOKE_STATUS_PIPELINE") == "1"
         print(
@@ -163,28 +176,17 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
         )
         return True
 
-    if subcmd == "file-add":
-        if not epic_id or len(rest) < 2:
-            _cli_usage_error("Usage: file-add <epic-id> <task_num> <file_path> <action>")
-        action = rest[2] if len(rest) > 2 else ""
-        print(_epic.file_add(conn, epic_id, int(rest[0]), rest[1], action))
-        return True
-
-    if subcmd == "file-list":
-        if not epic_id or len(rest) < 1:
-            _cli_usage_error("Usage: file-list <epic-id> <task_num>")
-        result = _epic.file_list(conn, epic_id, int(rest[0]))
-        if result:
-            print(result)
-        return True
-
     if subcmd == "history-insert":
         if not epic_id or len(rest) < 3:
-            _cli_usage_error("Usage: history-insert <epic-id> <task_num> <from_status> <to_status> [note | --body-file <path>]")
+            _cli_usage_error(
+                "Usage: history-insert <epic-id> <task_num> <from_status> <to_status> [note | --body-file <path>]"
+            )
         body_args = rest[3:]
         if body_args and body_args[0] == "--body-file":
             if len(body_args) < 2 or not body_args[1]:
-                _cli_usage_error("Usage: history-insert <epic-id> <task_num> <from_status> <to_status> [note | --body-file <path>]")
+                _cli_usage_error(
+                    "Usage: history-insert <epic-id> <task_num> <from_status> <to_status> [note | --body-file <path>]"
+                )
             try:
                 with open(body_args[1], "r", encoding="utf-8") as fh:
                     note = fh.read()
@@ -197,7 +199,9 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
 
     if subcmd == "dispatch-chain-upsert":
         if not epic_id or len(rest) < 1:
-            _cli_usage_error("Usage: dispatch-chain-upsert <epic-id> <worktree> (reads JSON from stdin)")
+            _cli_usage_error(
+                "Usage: dispatch-chain-upsert <epic-id> <worktree> (reads JSON from stdin)"
+            )
         raw_json = _epic._read_stdin_safe()
         try:
             data = json.loads(raw_json) if raw_json.strip() else {}
@@ -214,7 +218,9 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
 
     if subcmd == "dispatch-chain-update":
         if not epic_id or len(rest) < 2:
-            _cli_usage_error("Usage: dispatch-chain-update <epic-id> <worktree> <field> <value>")
+            _cli_usage_error(
+                "Usage: dispatch-chain-update <epic-id> <worktree> <field> <value>"
+            )
         value = rest[2] if len(rest) > 2 else ""
         print(_epic.dispatch_chain_update(conn, epic_id, rest[0], rest[1], value))
         return True
@@ -240,9 +246,7 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
                 "<epic-id> <worktree> <task-num>"
             )
         print(
-            _epic.dispatch_chain_refresh_for_activation(
-                conn, epic_id, rest[0], rest[1]
-            )
+            _epic.dispatch_chain_refresh_for_activation(conn, epic_id, rest[0], rest[1])
         )
         return True
 

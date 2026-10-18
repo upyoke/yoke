@@ -46,11 +46,6 @@ export function memberSharedPlans(sharing, itemRef) {
     (plan) => refs(plan).includes(String(itemRef)));
 }
 
-export function removedMember(sharing, itemRef) {
-  return (sharing?.removed_members || []).find(
-    (entry) => String(entry.public_ref) === String(itemRef)) || null;
-}
-
 export function cancelledLabel(count) {
   const n = Number(count || 0);
   return `${n} check${n === 1 ? "" : "s"} cancelled`;
@@ -91,9 +86,14 @@ export function sharedOnlyVerdict(plans) {
 }
 
 // Item QA for an item whose every check is a shared plan's: the tile stays,
-// says it owns none, and points at Run QA.
+// says it owns none, and points at Run QA. The section is a direct child of
+// the member grid, so it takes the same full row as the diagnostic note;
+// otherwise the title column collapses to one letter per line.
 export function appendSharedOnlyItemQa(documentNode, host, plans) {
-  const section = el(documentNode, "section", "run-qa-section item-qa-section");
+  const section = el(
+    documentNode, "section",
+    "run-qa-section item-qa-section carried-item-qa-diagnostic",
+  );
   const head = el(documentNode, "div", "run-qa-head");
   head.appendChild(el(documentNode, "h4", null, "Item QA"));
   head.appendChild(el(documentNode, "span", "run-verdict", sharedOnlyVerdict(plans)));
@@ -103,26 +103,13 @@ export function appendSharedOnlyItemQa(documentNode, host, plans) {
   return { node: section, requestIds: new Set() };
 }
 
-// A member removed from this run is drawn as removed, with what removal
-// cancelled, instead of Item QA; null for a current member.
-export function appendRemovedItemQa(documentNode, host, sharing, itemRef) {
-  const entry = removedMember(sharing, itemRef);
-  if (!entry) return null;
-  const note = el(documentNode, "p", "carried-item-removed",
-    `Removed from this release · ${cancelledLabel(entry.cancelled_count)}`);
-  host.appendChild(note);
-  return { node: note, requestIds: new Set() };
-}
-
 export const runQaSharing = {
   appendSharedPlanPointers,
   cancelledLabel,
   collectRunSharing,
   groupRunChecks,
   memberSharedPlans,
-  appendRemovedItemQa,
   appendSharedOnlyItemQa,
-  removedMember,
   sharedByLabel,
   sharedOnlyVerdict,
   sharedPlanId,

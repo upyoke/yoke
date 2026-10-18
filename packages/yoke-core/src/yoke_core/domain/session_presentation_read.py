@@ -11,9 +11,13 @@ from yoke_contracts.levels import (
     level_for_session,
     level_presentation,
     resolve_effective_levels,
+    unresolved_level_reason,
 )
-from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
-from yoke_core.domain.session_level_resolution import (
+from yoke_contracts.session_level import (
+    UNRESOLVED_EXECUTION_LEVEL,
+    level_is_unresolved,
+)
+from yoke_contracts.model_level_resolution import (
     routing_effort_of,
     routing_model_of,
 )
@@ -67,25 +71,33 @@ def session_presentation(
     project_id = row.get("project_id")
     key = int(project_id) if project_id is not None else None
     effective = levels.get(key, levels.get(None, ()))
+    model = routing_model_of(row.get("model"), row.get("requested_model"))
+    effort = routing_effort_of(
+        row.get("reasoning_effort"),
+        row.get("requested_reasoning_effort"),
+        row.get("model"),
+    )
     execution_level = (
         level_for_session(
             effective,
             executor=display_name,
-            model=routing_model_of(row.get("model"), row.get("requested_model")),
-            reasoning_effort=routing_effort_of(
-                row.get("reasoning_effort"),
-                row.get("requested_reasoning_effort"),
-                row.get("model"),
-            ),
+            model=model,
+            reasoning_effort=effort,
             records=records,
         )
         or UNRESOLVED_EXECUTION_LEVEL
     )
-    level = level_presentation(effective, execution_level)
+    reason = (
+        unresolved_level_reason(effective, model=model, effort=effort, records=records)
+        if level_is_unresolved(execution_level)
+        else None
+    )
+    level = level_presentation(effective, execution_level, reason=reason)
     return {
         "execution_level": execution_level,
         "level_label": level["label"],
         "level_glyph": level["glyph"],
+        "level_reason": level.get("reason") or None,
         "executor_mark": executor["mark"],
         "executor_class_name": executor["class_name"],
         "presentation_surface": row.get("presentation_surface"),

@@ -25,7 +25,7 @@ def test_dispatch_progress_cascade_and_sections_keep_native_microseconds(
 ):
     from runtime.api.fixtures.backlog_inserts import insert_epic_task, insert_item
     from runtime.api.test_epic_submission_receipt import RECEIPT
-    from yoke_core.domain.epic_task_scope import set_no_files_scope
+    from runtime.api.task_files_touched_test_support import declare_task_files
     from yoke_core.domain.project_identity import render_item_ref
 
     test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
@@ -39,7 +39,8 @@ def test_dispatch_progress_cascade_and_sections_keep_native_microseconds(
             title="Native clock",
             status="planning",
         )
-        set_no_files_scope(test_db, 42, number)
+        declare_task_files(test_db, 42, number, [])
+    test_db.commit()
     monkeypatch.setattr(epic_dispatch, "utc_now", lambda: anchor)
     epic_dispatch.dispatch_chain_upsert(
         test_db,

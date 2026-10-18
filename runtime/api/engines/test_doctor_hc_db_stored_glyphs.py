@@ -113,7 +113,7 @@ def test_each_stored_violation_fails_with_its_location_and_correction(conn) -> N
     )
     assert "--cap-type session-routing --settings-json" in result.detail
     assert "levels[0].glyph (RESEARCH) in the universe levels" in result.detail
-    assert "yoke universe levels set --stdin" in result.detail
+    assert "yoke settings set levels -" in result.detail
     assert "workflow dash v999 stages[0].glyph" in result.detail
     assert "yoke workflows canon-update apply dash" in result.detail
     assert "U+FE0F" in result.detail

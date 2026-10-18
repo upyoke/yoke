@@ -5,7 +5,5 @@
  "situations": ["Several sessions need one shared mutable resource.", "A process/coordination hold survives a session and blocks progress.", "A resource must be handed to another holder without discarding active work."],
  "coverage": "catalogued",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
- "questions": ["Audit which coordination keys are product procedures versus maintainer-specific locks.", "Verify orphan/operator-release authority from current help/state; do not teach blanket cleanup from claim age alone."],
- "plan_refs": ["FIRST-USER.P1", "JOURNEYS.situation-7"]
+ "questions": ["Audit which coordination keys are product procedures versus maintainer-specific locks.", "Verify orphan/operator-release authority from current help/state; do not teach blanket cleanup from claim age alone."]
 }

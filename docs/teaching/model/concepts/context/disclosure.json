@@ -2,7 +2,6 @@
  "id": "disclosure",
  "title": "Disclosure design",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.29", "FIRST-USER.35", "FIRST-USER.37", "FIRST-USER.43", "FIRST-USER.8", "FIRST-USER.D", "FIRST-USER.P4", "JOURNEYS.execution-boundary", "JOURNEYS.locked-principles", "JOURNEYS.moved-from-first-user-former-dash-g", "JOURNEYS.open-questions", "JOURNEYS.principle-1", "JOURNEYS.principle-2", "JOURNEYS.principle-3", "JOURNEYS.principle-4", "JOURNEYS.principle-5", "JOURNEYS.principle-6", "JOURNEYS.principle-7", "JOURNEYS.principle-8", "JOURNEYS.principle-9", "JOURNEYS.question-1", "JOURNEYS.question-2", "JOURNEYS.question-3", "JOURNEYS.question-4", "JOURNEYS.question-5", "JOURNEYS.question-6"],
  "surface_refs": ["agent-help", "category-summary", "command-feedback", "detail-home", "global-hooks", "packets-help", "project-hooks", "project-native", "project-orientation", "terminal-help"],
  "related": "documentation/disclosure",
  "page": "context-guidance",

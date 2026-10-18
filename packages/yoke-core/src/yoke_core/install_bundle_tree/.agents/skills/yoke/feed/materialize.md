@@ -37,7 +37,8 @@ then continue.
 
 Resolve project and workflow before final title/body context.
 Instruction-led work is Dash regardless of size; agreed ACs/generated task
-graphs use eligible Issue/Epic policy. The laneless merge-free floor is Task.
+graphs use eligible Issue/Epic policy. The laneless merge-free floor is Task,
+only in projects without a code repository.
 
 Registered `workflow.execution_instruction.resolve`:
 
@@ -71,7 +72,8 @@ yoke task "<title>" "<spec including strategic provenance>" --execution-instruct
 
 Choose one adapter. Dash files without execution at idea/next_step=dash.
 Task is only laneless/merge-free, with no optional verification/path-claim/
-approval/deployment posture; use Dash when any of those or a git lane is needed.
+approval/deployment posture, and refuses projects with a code repository; use
+Dash for code project work or when any of those or a git lane is needed.
 
 Record each creation in `_materialized_items` (public ref/title/sml_source);
 record duplicate/rejection as SKIPPED with reason. Verify existence and provenance

@@ -44,6 +44,7 @@ def require_source_agreement(
     expected_branch: str | None = None,
     expected_sha: str | None = None,
     explicit_checkout: bool = False,
+    previous_head_sha: str | None = None,
 ) -> None:
     """An explicit source never authorizes publication under another identity."""
     reason = ""
@@ -72,7 +73,9 @@ def require_source_agreement(
             reason = f"checkout branch {actual_branch!r} differs from selected branch {required_branch!r}"
         elif expected_sha:
             actual_sha = qa_case_ci_lane.ref_sha(checkout, "HEAD")
-            if actual_sha != expected_sha:
+            if actual_sha != expected_sha and (
+                previous_head_sha is None or actual_sha == previous_head_sha
+            ):
                 reason = f"checkout HEAD {actual_sha} differs from expected SHA {expected_sha}"
     if reason:
         raise QaCaseExecutionError(

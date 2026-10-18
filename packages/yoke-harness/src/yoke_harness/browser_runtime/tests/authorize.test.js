@@ -63,7 +63,8 @@ function fakeChild() {
 }
 
 async function testLastWindowCloseFinishesOnMac() {
-  console.log('\n## Test: closing the last window ends a lingering macOS browser');
+  for (const platform of ['darwin', 'linux']) {
+  console.log(`\n## Test: closing the last window ends a lingering ${platform} browser`);
   const child = fakeChild();
   let checks = 0;
   let signals = 0;
@@ -78,7 +79,7 @@ async function testLastWindowCloseFinishesOnMac() {
     {
       spawnProcess: () => child,
       executablePath: () => '/cache/chromium',
-      platform: 'darwin', pollMs: 1, limitMs: 2000,
+      platform, pollMs: 1, limitMs: 2000,
       windowCount: async (pid) => {
         assert(pid === 4242, 'Checks only the spawned browser PID');
         return [1, 0, 0][Math.min(checks++, 2)];
@@ -86,6 +87,7 @@ async function testLastWindowCloseFinishesOnMac() {
     },
   );
   assert(signals === 1, 'The final window close completes the command');
+  }
 }
 
 async function testHeadlessBrowserHasBoundedRecovery() {
@@ -145,6 +147,7 @@ async function testLongRunningBrowserHasAnEnd() {
         spawnProcess: () => child,
         executablePath: () => '/cache/chromium',
         platform: 'linux', pollMs: 1, limitMs: 20,
+        windowCount: async () => 1,
       },
     );
   } catch (error) {

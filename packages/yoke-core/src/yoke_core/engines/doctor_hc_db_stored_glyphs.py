@@ -13,7 +13,7 @@ Scope:
 
 * ``projects.emoji`` — corrected with ``yoke projects update``.
 * ``levels[N].glyph`` in the universe levels (``universe_settings``) —
-  corrected with ``yoke universe levels set --stdin`` — and in each project's
+  corrected with ``yoke settings set levels -`` — and in each project's
   ``session-routing`` levels override — corrected with
   ``yoke projects capability-settings set``.
 * ``stages[].glyph`` in every stored workflow version — corrected by
@@ -99,8 +99,8 @@ def level_glyph_violations(conn) -> list[str]:
             violations += _levels_glyph_violations(
                 _load_json(row["value"]),
                 "the universe levels",
-                "yoke universe levels get --json, correct the glyph, then "
-                "yoke universe levels set --stdin",
+                "yoke settings get levels --json, correct the glyph, then "
+                "yoke settings set levels -",
             )
     if not _table_exists(conn, "project_capabilities"):
         return violations
