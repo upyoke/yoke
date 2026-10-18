@@ -47,7 +47,8 @@ Standing invariants:
 - Each item keeps its pinned workflow and routed next_step. Never convert or
   re-file it to fit a remembered workflow. Verify pin/full command before
   claiming a capability absent or filing replacement work.
-- New filing defaults to Dash; genuinely laneless/merge-free Task, required
+- New filing defaults to Dash; code project work is always Dash (Task
+  refuses projects with a code repository). Genuinely laneless Task, required
   Issue/Epic/Blitz structure, or operator direction are exceptions. Name
   --strategy-doc SLUG at intake. Workers merge; the steerer batches delivery
   at one verified source. Mandates prohibit worker deployment-run creation.
