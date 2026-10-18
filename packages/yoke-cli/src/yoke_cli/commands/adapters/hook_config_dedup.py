@@ -65,6 +65,9 @@ def _evaluate_pattern(verb: str) -> re.Pattern[str]:
 
 def _hooks_block(path: Path, harness_id: str) -> Optional[dict[str, Any]]:
     """The file's hook map, or None when the harness would not load it."""
+    if not path.is_file():
+        return None  # Outside a project this is the whole cost of the rule.
+    # Only a present config pays for the installer's schema validator.
     from yoke_cli.filesystem_safety import first_symlink_component
     from yoke_cli.project_install.files import ProjectInstallError
     from yoke_cli.project_install.hook_schema import (
@@ -77,8 +80,6 @@ def _hooks_block(path: Path, harness_id: str) -> Optional[dict[str, Any]]:
         path.parent.parent, path, include_leaf=True
     ):
         return None  # Cursor refuses a hook config reached through a symlink.
-    if not path.is_file():
-        return None
     try:
         document = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(document, dict):
