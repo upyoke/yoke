@@ -23,7 +23,7 @@ from yoke_core.domain.sessions_identity_read import SessionIdentity
 from yoke_cli.commands.adapters import sessions as adapter
 
 
-def test_legacy_begin_renders_named_scope_refusal(monkeypatch, capsys):
+def test_front_door_begin_renders_named_scope_refusal(monkeypatch, capsys):
     from yoke_core.hooks import sessions_cli
     from yoke_core.domain.sessions_analytics import SessionError
 
@@ -221,7 +221,7 @@ def test_identity_read_tolerates_absent_org_field():
 
 
 @pytest.mark.parametrize("effort", ["medium", "INVALID"])
-def test_legacy_begin_validates_explicit_effort(test_db, effort):
+def test_cmd_begin_validates_explicit_effort(test_db, effort):
     registration = test_db
     from yoke_core.hooks.sessions_lifecycle import cmd_begin
 

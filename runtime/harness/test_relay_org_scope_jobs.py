@@ -159,16 +159,16 @@ def test_target_workspace_precedes_project_checkout(tmp_path, monkeypatch):
 
 def test_older_workspace_first_wire_shape_runs_org_job(tmp_path):
     wire = json.loads(json.dumps(job(tmp_path)))
-    legacy_project = int(wire.get("project_id") or 0)
-    legacy_cwd = (
+    older_project = int(wire.get("project_id") or 0)
+    older_cwd = (
         Path(wire["target_workspace"]) if wire.get("target_workspace") else None
     )
     result = subprocess.run(
         [sys.executable, "-c", "import os; print(os.getcwd())"],
-        cwd=legacy_cwd,
+        cwd=older_cwd,
         capture_output=True,
         text=True,
         check=True,
     )
-    assert legacy_project == 0 and Path(result.stdout.strip()) == tmp_path
+    assert older_project == 0 and Path(result.stdout.strip()) == tmp_path
     assert runtime.execution_context(wire).project_id is None
