@@ -22,8 +22,7 @@ from yoke_contracts.harness_settings_revert import revert_recorded
 
 
 @pytest.fixture()
-def home(tmp_path: Path, monkeypatch) -> Path:
-    monkeypatch.delenv("CODEX_HOME", raising=False)
+def home(tmp_path: Path) -> Path:
     root = tmp_path / "home"
     for name in (".claude", ".codex", ".cursor"):
         (root / name).mkdir(parents=True)
@@ -35,7 +34,7 @@ def _shared(home: Path) -> Path:
 
 
 def test_install_places_one_copy_and_a_claude_link(home: Path) -> None:
-    result = install.ensure_global_skill(home)
+    result = install.ensure_global_skill({"HOME": str(home)})
 
     assert not result.reason
     skill = _shared(home) / "SKILL.md"
@@ -50,14 +49,14 @@ def test_install_places_one_copy_and_a_claude_link(home: Path) -> None:
 
 
 def test_second_install_is_a_no_op(home: Path) -> None:
-    install.ensure_global_skill(home)
+    install.ensure_global_skill({"HOME": str(home)})
     before = ledger.read()
-    result = install.ensure_global_skill(home)
+    result = install.ensure_global_skill({"HOME": str(home)})
     assert not result.reason and ledger.read() == before
 
 
 def test_uninstall_removes_both_paths(home: Path) -> None:
-    install.ensure_global_skill(home)
+    install.ensure_global_skill({"HOME": str(home)})
     lines, failures = revert_recorded()
 
     assert failures == []
@@ -75,7 +74,7 @@ def test_absent_harness_home_is_skipped_never_created(
     home = tmp_path / "home"
     (home / ".codex").mkdir(parents=True)
 
-    result = install.ensure_global_skill(home)
+    result = install.ensure_global_skill({"HOME": str(home)})
 
     assert (_shared(home) / "SKILL.md").is_file()
     assert not (home / ".claude").exists() and not (home / ".cursor").exists()
@@ -83,7 +82,7 @@ def test_absent_harness_home_is_skipped_never_created(
 
 
 def test_no_harness_installs_nothing(tmp_path: Path) -> None:
-    result = install.ensure_global_skill(tmp_path)
+    result = install.ensure_global_skill({"HOME": str(tmp_path)})
 
     assert result.reason == install.NO_HARNESS and not result.refused
     assert not (tmp_path / ".agents").exists()
@@ -94,7 +93,7 @@ def test_a_folder_yoke_did_not_create_is_refused(home: Path) -> None:
     mine.mkdir(parents=True)
     (mine / "SKILL.md").write_text("the user's own skill\n")
 
-    result = install.ensure_global_skill(home)
+    result = install.ensure_global_skill({"HOME": str(home)})
 
     assert result.refused and result.reason == install.NOT_OWNED
     assert str(mine) in result.recovery and "yoke setup" in result.recovery
@@ -103,10 +102,10 @@ def test_a_folder_yoke_did_not_create_is_refused(home: Path) -> None:
 
 
 def test_an_owned_older_copy_is_refreshed(home: Path) -> None:
-    install.ensure_global_skill(home)
+    install.ensure_global_skill({"HOME": str(home)})
     (_shared(home) / "SKILL.md").write_text("older release text\n")
 
-    result = install.ensure_global_skill(home)
+    result = install.ensure_global_skill({"HOME": str(home)})
 
     assert not result.reason
     assert (_shared(home) / "SKILL.md").read_text() == install.skill_text()
@@ -116,7 +115,7 @@ def test_a_claude_link_yoke_did_not_create_is_refused(home: Path) -> None:
     link = home / ".claude" / "skills" / "yoke-global"
     link.mkdir(parents=True)
 
-    result = install.ensure_global_skill(home)
+    result = install.ensure_global_skill({"HOME": str(home)})
 
     assert result.reason == install.NOT_OWNED and str(link) in result.recovery
     assert link.is_dir() and not link.is_symlink()
@@ -128,7 +127,7 @@ def test_codex_home_override_decides_installation(tmp_path: Path, monkeypatch) -
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-elsewhere"))
     (tmp_path / "codex-elsewhere").mkdir()
 
-    result = install.ensure_global_skill(home)
+    result = install.ensure_global_skill({"HOME": str(home)})
 
     assert (_shared(home) / "SKILL.md").is_file()
     assert any(line.startswith("codex: reads") for line in result.lines)

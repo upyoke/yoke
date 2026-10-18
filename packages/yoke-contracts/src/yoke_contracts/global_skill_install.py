@@ -14,18 +14,19 @@ not record is never overwritten: install refuses with
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Mapping, Optional
 
 from yoke_contracts import harness_settings_ledger as ledger
 from yoke_contracts.harness_global_skill import (
     HARNESS_GLOBAL_SKILLS,
-    harness_home,
     link_path,
     shared_skill_dir,
 )
+from yoke_contracts.harness_machine_hooks import machine_hooks_for_harness
 
 SKILL_FILE = "SKILL.md"
 NOT_OWNED = "global_skill_path_not_owned"
@@ -44,6 +45,13 @@ class GlobalSkillResult:
     def refused(self) -> bool:
         return bool(self.reason) and self.reason != NO_HARNESS
 
+    @property
+    def warning(self) -> str:
+        """The refusal as one line; empty unless the install refused."""
+        if not self.refused:
+            return ""
+        return f"yoke-global skill not installed: {self.reason}: {self.recovery}"
+
     def to_json(self) -> dict:
         return {"lines": self.lines, "reason": self.reason, "recovery": self.recovery}
 
@@ -57,16 +65,28 @@ def skill_text() -> str:
     )
 
 
-def user_home() -> Path:
-    """The home folder harness homes and the shared skill folder live in."""
-    return Path.home()
+def user_home(environ: Optional[Mapping[str, str]] = None) -> Path:
+    """The home folder the shared skill folder and link harnesses live in."""
+    env = os.environ if environ is None else environ
+    return Path(env.get("HOME") or str(Path.home()))
 
 
-def ensure_global_skill(home: Optional[Path] = None) -> GlobalSkillResult:
-    """Install or refresh the skill; never raises for an expected refusal."""
-    home = home or user_home()
+def ensure_global_skill(
+    environ: Optional[Mapping[str, str]] = None,
+) -> GlobalSkillResult:
+    """Install or refresh the skill; never raises for an expected refusal.
+
+    A harness counts as installed when its home exists, resolved by
+    :meth:`HarnessMachineHooks.home_path` (``CODEX_HOME`` included), the same
+    rule the machine-wide hooks use.
+    """
+    home = user_home(environ)
     result = GlobalSkillResult()
-    installed = [h for h in HARNESS_GLOBAL_SKILLS if harness_home(h, home).is_dir()]
+    installed = [
+        h
+        for h in HARNESS_GLOBAL_SKILLS
+        if machine_hooks_for_harness(h).home_path(environ).is_dir()
+    ]
     if not installed:
         result.reason = NO_HARNESS
         result.lines.append(
@@ -131,9 +151,7 @@ def _refuse(path: Path, result: GlobalSkillResult) -> bool:
         f"{path} already exists and Yoke did not create it. Move it aside, "
         "then run `yoke setup` again."
     )
-    result.lines.append(
-        f"yoke-global skill not installed: {NOT_OWNED}: {result.recovery}"
-    )
+    result.lines.append(result.warning)
     return False
 
 

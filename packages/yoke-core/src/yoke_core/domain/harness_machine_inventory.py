@@ -3,8 +3,8 @@
 Codex approval requires an exact match between every normalized hook handler
 and the ``trusted_hash`` stored under this checkout's literal
 ``.codex/hooks.json`` path.  The path is not symlink-resolved. Cursor glue is
-the user-level ``~/.cursor/hooks.json``; ``~/.cursor/projects/`` is not
-consulted because it is not confirmed to key by project path.
+the checkout's ``.cursor/hooks.json``. Machine-wide user-level hooks are
+reported by doctor's ``HC-machine-hooks``, not by these project rows.
 """
 
 from __future__ import annotations
@@ -118,10 +118,9 @@ def _claude_report(checkout: Path) -> Optional[dict[str, Any]]:
     }
 
 
-def _cursor_report() -> Optional[dict[str, Any]]:
-    root = Path.home() / ".cursor"
-    config_present = _dir_present(root)
-    glue = root / "hooks.json"
+def _cursor_report(checkout: Path) -> Optional[dict[str, Any]]:
+    config_present = _dir_present(Path.home() / ".cursor")
+    glue = checkout / ".cursor" / "hooks.json"
     payload, malformed = _json_object(glue)
     glue_present = payload is not None or malformed
     if not (config_present or glue_present):
@@ -141,7 +140,7 @@ def collect_harness_inventory(checkout: str | Path) -> list[dict[str, Any]]:
     """Return one report per harness that has machine-side evidence."""
     root = Path(checkout)
     reports: list[dict[str, Any]] = []
-    for report in (_codex_report(root), _claude_report(root), _cursor_report()):
+    for report in (_codex_report(root), _claude_report(root), _cursor_report(root)):
         if report is not None:
             reports.append(report)
     return reports

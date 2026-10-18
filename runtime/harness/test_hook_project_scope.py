@@ -187,7 +187,7 @@ def test_unmapped_https_hook_relays_scope_and_preserves_local_guards(
     import json
     from runtime.api.cli.test_yoke_operations_cli_hooks import _FakeResponse
     from yoke_cli.transport.https import HttpsConnection
-    from yoke_harness.hooks import relay, cursor_lifecycle_hooks, local_subset
+    from yoke_harness.hooks import relay, machine_hooks, local_subset
 
     root = tmp_path / "unrelated"
     root.mkdir()
@@ -210,9 +210,9 @@ def test_unmapped_https_hook_relays_scope_and_preserves_local_guards(
     monkeypatch.setattr(relay, "detect_executor", lambda: "codex")
     monkeypatch.setattr(relay, "_codex_capture", lambda *_a: None)
     monkeypatch.setattr(
-        cursor_lifecycle_hooks,
-        "ensure_user_lifecycle_hooks_for_executor",
-        lambda *_a: None,
+        machine_hooks,
+        "ensure_machine_hooks_for_executor",
+        lambda *_a, **_k: None,
     )
 
     posts, audits = [], []

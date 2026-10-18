@@ -22,7 +22,6 @@ is on; the Claude link resolves to the same folder.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -105,13 +104,6 @@ def global_skill_for_harness(harness_id: str) -> HarnessGlobalSkill:
         ) from None
 
 
-def harness_home(harness_id: str, home: Path) -> Path:
-    """The folder whose presence means the harness is installed."""
-    if harness_id == "codex":
-        return Path(os.environ.get("CODEX_HOME") or (home / ".codex"))
-    return home / global_skill_for_harness(harness_id).harness_home.removeprefix("~/")
-
-
 def shared_skill_dir(home: Path) -> Path:
     return home / SHARED_SKILLS_DIR / GLOBAL_SKILL_NAME
 
@@ -128,7 +120,6 @@ __all__ = (
     "HarnessGlobalSkill",
     "SHARED_SKILLS_DIR",
     "global_skill_for_harness",
-    "harness_home",
     "link_path",
     "shared_skill_dir",
 )

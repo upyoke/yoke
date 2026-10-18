@@ -172,7 +172,10 @@ repository nested inside it does not. A machine connection or a folder named
 `.yoke` alone does not make a checkout managed.
 
 Outside managed projects, hooks apply machine safety rules: privacy-database
-protection, literal search quoting and unmatched path globs. Project rules
+protection, literal search quoting and unmatched path globs. Setup writes
+these machine-wide hooks into each installed harness's user config (the
+manifest's `machine_hooks` names the file and events); inside a managed
+project they step aside so the project's own hooks run once per event. Project rules
 (such as main-commit and destructive-Git checks) apply inside managed projects.
 Lane rules check the real lane and claim authority there, including on main.
 Unmapped HTTPS clients finish machine checks locally without project registration.

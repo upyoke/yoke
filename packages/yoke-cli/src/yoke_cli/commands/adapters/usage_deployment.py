@@ -53,6 +53,9 @@ from yoke_cli.commands.adapters.deployment_inspection import (
 from yoke_cli.commands.adapters.deployment_containment_basis import (
     CONTAINMENT_BASIS_USAGE,
 )
+from yoke_cli.commands.adapters.deployment_run_timings import (
+    DEPLOYMENT_RUNS_TIMINGS_USAGE,
+)
 
 
 DEPLOYMENT_USAGE = {
@@ -79,6 +82,7 @@ DEPLOYMENT_USAGE = {
     "deployment_runs.find_by_item": DEPLOYMENT_RUNS_FIND_BY_ITEM_USAGE,
     "deployment_runs.list": DEPLOYMENT_RUNS_LIST_USAGE,
     "deployment_runs.stages": DEPLOYMENT_RUNS_STAGES_USAGE,
+    "deployment_runs.timings": DEPLOYMENT_RUNS_TIMINGS_USAGE,
     "deployment_runs.update": DEPLOYMENT_RUNS_UPDATE_USAGE,
     "deployment_runs.terminalize": DEPLOYMENT_RUNS_TERMINALIZE_USAGE,
     "deployment_runs.validate_composition": VALIDATE_COMPOSITION_USAGE,

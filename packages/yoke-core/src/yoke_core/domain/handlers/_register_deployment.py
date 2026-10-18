@@ -14,6 +14,7 @@ from yoke_core.domain.handlers import (
     deployment_run_membership as _run_membership,
     deployment_run_projection as _run_projection,
     deployment_run_terminalization as _run_terminalization,
+    deployment_run_timings as _run_timings,
     deployment_stage_approval as _stage_approval,
     deployment_runs as _runs,
     deployment_runs_composed as _runs_composed,
@@ -24,6 +25,7 @@ def register(registry) -> None:
     """Register deployment flow/run wrappers via the given registry."""
     _flow_configuration.register(registry)
     _bound_sources_current.register(registry)
+    _run_timings.register(registry)
     registry.register(
         "deployment_runs.get",
         _runs.handle_deployment_run_get,

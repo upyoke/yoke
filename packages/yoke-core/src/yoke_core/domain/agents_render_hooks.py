@@ -17,12 +17,11 @@ rendered manifest no longer enumerates per-lint module command lines.
 
 from __future__ import annotations
 
-from yoke_core.domain.agents_render_manifests import (
-    CLAUDE_MANIFEST,
-    CODEX_MANIFEST,
-    CURSOR_MANIFEST,
+from yoke_harness.hooks.machine_hooks_render import (
+    CURSOR_HOOK_TIMEOUT_S as _CURSOR_HOOK_TIMEOUT_S,
+    cwd_resilient_hook_command,
+    evaluate_hook_command,
 )
-from yoke_harness.hooks.shell_command import hook_shell_command
 
 from yoke_contracts.hook_runner.hook_ordering import (
     HOOK_ORDERING,
@@ -31,7 +30,6 @@ from yoke_contracts.hook_runner.hook_ordering import (
 )
 from yoke_contracts.hook_runner.config_owner import (
     CLAUDE_CONFIG_OWNER,
-    CONFIG_OWNER_ENV_VAR,
     CURSOR_NATIVE_RUNNER_EVENTS,
     CURSOR_PROJECT_CONFIG_OWNER,
 )
@@ -47,23 +45,10 @@ from yoke_contracts.hook_runner.config_owner import (
 # runner. The matcher fans out at the manifest level, but the per-matcher
 # dispatch happens behind the CLI via the loaded ``AdapterCapability``.
 
-_YOKE_HOOK_EVALUATE = "yoke hook evaluate"
-_CLAUDE_CONFIG_OWNER_ENV = f"{CONFIG_OWNER_ENV_VAR}={CLAUDE_CONFIG_OWNER}"
-
-
-def _environment_export(manifest: dict) -> str:
-    """Render the manifest-declared workspace export for hook subprocesses."""
-    environment = manifest["worktree_hook_enablement"]["environment"]
-    return f'{environment["root_variable"]}="{environment["root_expression"]}"'
-
-
 def _claude_command(event: str) -> str:
-    # GUI apps may omit the launcher directories from PATH. Use the bounded,
-    # deterministic hook PATH without reading operator shell startup files.
-    return hook_shell_command(
-        f"env {_environment_export(CLAUDE_MANIFEST)} {_CLAUDE_CONFIG_OWNER_ENV} "
-        f"{_YOKE_HOOK_EVALUATE} {event}"
-    )
+    # GUI apps may omit the launcher directories from PATH; the shared builder
+    # uses the bounded hook PATH without reading operator shell startup files.
+    return evaluate_hook_command("claude-code", event, config_owner=CLAUDE_CONFIG_OWNER)
 
 
 def _claude_hook_entry(event: str) -> dict:
@@ -162,22 +147,11 @@ _CODEX_VERB_BY_EVENT = {
     "Stop": "Stop",
 }
 # Codex hook subprocesses do not reliably inherit ``CODEX_THREAD_ID`` from the
-# Codex Desktop launcher, so :func:`detect_executor` would otherwise fall back
-# to the Claude family and store ``executor=claude-code`` /
-# ``provider=anthropic`` on the session row and ``context.executor=claude`` on
-# every ``HookDispatchTelemetry`` envelope. Pin the coarse Codex family signal
-# (``codex``) plus the inference provider (``openai``) directly in the
-# generated hook command so :func:`detect_executor` returns ``codex`` and
-# :func:`detect_provider` returns ``openai`` regardless of what the Codex
-# parent process exported.
-_CODEX_IDENTITY_ENV = "YOKE_EXECUTOR=codex YOKE_PROVIDER=openai"
-
-
+# Codex Desktop launcher, so the shared builder pins the Codex family and
+# provider in the command. Codex project commands carry no owner marker, so
+# already-installed project files keep matching their trust entries.
 def _codex_command(event_name: str) -> str:
-    return hook_shell_command(
-        f"env {_environment_export(CODEX_MANIFEST)} {_CODEX_IDENTITY_ENV} "
-        f"{_YOKE_HOOK_EVALUATE} {event_name}"
-    )
+    return evaluate_hook_command("codex", event_name, config_owner=None)
 
 
 # Codex matcher composition: PreToolUse and PostToolUse fan out into the
@@ -242,14 +216,6 @@ def render_codex_hooks_block() -> dict:
 # Cursor hooks.json — runner-per-event rendering
 # ---------------------------------------------------------------------------
 
-# Cursor exports no session env var to hook subprocesses, and its payloads
-# multiplex model providers, so the generated command pins the executor
-# family the same way the Codex command pins its identity. Provider stays
-# payload-derived.
-_CURSOR_IDENTITY_ENV = (
-    f"YOKE_EXECUTOR=cursor {CONFIG_OWNER_ENV_VAR}={CURSOR_PROJECT_CONFIG_OWNER}"
-)
-
 # Cursor-native event -> canonical runner verb. The runner receives the
 # canonical verb as argv; the Cursor payload parser owns payload-shape
 # differences. The shell gate anchors on beforeShellExecution (raw command
@@ -279,27 +245,18 @@ _CURSOR_EVENTS: tuple[tuple[str, str, str | None], ...] = tuple(
 )
 
 
-# Cursor terminates a hook entry after `timeout` seconds; entries without
-# one inherit an undocumented platform default. A live https relay dispatch
-# measures ~1.7s and the runner's internal budget is 3s, so an explicit
-# generous ceiling keeps a slow transport from being killed mid-dispatch
-# by whatever the platform default happens to be.
-_CURSOR_HOOK_TIMEOUT_S = 30
-
-
 _CURSOR_LIFECYCLE_VERBS = frozenset({"Stop", "SessionEnd"})
 
 
 def _cursor_command(event_verb: str) -> str:
+    # Cursor exports no session env var to hook subprocesses, so the builder
+    # pins the executor family. stop and sessionEnd must survive a deleted root.
     if event_verb in _CURSOR_LIFECYCLE_VERBS:
-        from yoke_harness.hooks.cursor_lifecycle_hooks import (
-            cursor_lifecycle_hook_command,
+        return cwd_resilient_hook_command(
+            event_verb, config_owner=CURSOR_PROJECT_CONFIG_OWNER
         )
-
-        return cursor_lifecycle_hook_command(event_verb)
-    return hook_shell_command(
-        f"env {_environment_export(CURSOR_MANIFEST)} {_CURSOR_IDENTITY_ENV} "
-        f"{_YOKE_HOOK_EVALUATE} {event_verb}"
+    return evaluate_hook_command(
+        "cursor", event_verb, config_owner=CURSOR_PROJECT_CONFIG_OWNER
     )
 
 

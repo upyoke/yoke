@@ -236,13 +236,31 @@ def _isolate_harness_settings_ledger(tmp_path, monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
-def _isolate_global_skill_home(tmp_path, monkeypatch: pytest.MonkeyPatch):
-    """Keep project-install and setup tests from installing ``yoke-global``
-    into the developer's real ``~/.agents`` and ``~/.claude`` folders."""
-    from yoke_contracts import global_skill_install
+def _isolate_harness_homes(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    """Keep machine-wide hook and ``yoke-global`` writes out of the
+    developer's harness homes.
 
+    Every hook relay self-heals the running harness's user config, and setup,
+    uninstall and doctor read or write all three. A call that passes no
+    explicit environment resolves homes under one empty per-test ``HOME``, so
+    a test creates the harness home it means to exercise. Subprocesses stay
+    isolated through the ``HOME`` they set.
+    """
+    from yoke_contracts import global_skill_install
+    from yoke_contracts.harness_machine_hooks import HarnessMachineHooks
+
+    resolve = HarnessMachineHooks.home_path
+    isolated = {"HOME": str(tmp_path / "harness-home")}
     monkeypatch.setattr(
-        global_skill_install, "user_home", lambda: tmp_path / "global-skill-home"
+        HarnessMachineHooks,
+        "home_path",
+        lambda self, environ=None: resolve(self, isolated if environ is None else environ),
+    )
+    user_home = global_skill_install.user_home
+    monkeypatch.setattr(
+        global_skill_install,
+        "user_home",
+        lambda environ=None: user_home(isolated if environ is None else environ),
     )
 
 

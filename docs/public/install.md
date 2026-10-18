@@ -146,9 +146,10 @@ local universe `yoke update` updates the CLI and local server together; a team
 server's admin upgrades it; hosted servers update with each hosted release.
 
 Install, reinstall and upgrade restart the machine's hook evaluator and check
-that it answers before reporting readiness. If that check fails, inspect the
-named log and run `yoke hook resident restart`, then retry the installer.
-Hook timing details stay in the diagnostics log, outside harness chat.
+that it answers; on failure, read the named log, run `yoke hook resident
+restart` and retry. Hook timing stays in the diagnostics log. Setup also
+writes Yoke's machine-wide hooks into each installed harness's user config,
+so sessions outside a project register; inside one, the project's hooks run.
 
 The installed CLI follows your active connection (`active_env`, set by
 `yoke env use`) automatically, whether that is upyoke.com, a self-hosted server
@@ -288,13 +289,12 @@ A Git checkout must be on the project's default branch before its layer is
 removed. When the Yoke install that owns a project no longer answers, its layer
 is still removed and committed on the current branch, with a warning to merge
 that commit into the default branch.
-It then removes the relay and stops its workers, removes the selected project
-layers, disconnects Yoke's GitHub credentials and checkout helpers, removes
-Yoke's entries from your Cursor user hooks (`~/.cursor/hooks.json`), reverts the
-approval and folder-trust settings Yoke wrote into Claude Code, Codex, and
-Cursor, stops the hook evaluator, local UI and embedded Postgres, tears down
-local self-host stacks including their universe volumes, and deletes the machine home
-(`~/.yoke` or `YOKE_MACHINE_HOME`). A harness setting you changed after Yoke
+It then removes the relay and its workers, the selected project layers, Yoke's
+GitHub credentials and checkout helpers, its machine-wide hooks and their Codex
+trust, and the approval and folder-trust settings it wrote into Claude Code,
+Codex and Cursor; stops the hook evaluator, local UI and embedded Postgres,
+tears down local self-host stacks and their universe volumes, and deletes the
+machine home (`~/.yoke` or `YOKE_MACHINE_HOME`). A harness setting you changed after Yoke
 wrote it is left in place and reported. Docker is only checked when this
 machine runs a self-host install. No further confirmation is required. Finally a detached
 worker removes the immutable CLI releases and launcher after commands release

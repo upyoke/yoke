@@ -70,6 +70,9 @@ from yoke_core.domain.deployment_run_composition_guard import (
 from yoke_core.domain.deployment_run_membership_removals import (
     removed_item_ids,
 )
+from yoke_core.domain.deployment_run_enrollment_error import (
+    CarriedEnrollmentError,
+)
 from yoke_core.domain.deployment_run_dependency_readiness import (
     unshipped_dependency_pairs,
 )
@@ -207,8 +210,9 @@ def enroll_carried_members(
     """Attach every delivery-ready carried item the run does not already own.
 
     Returns the public references actually added, in item order, so the caller
-    can print exactly what the deployment gained. Raises ``ValueError`` naming
-    the item and its recovery when a carried item is genuinely inadmissible —
+    can print exactly what the deployment gained. Raises
+    ``CarriedEnrollmentError`` naming the item, its cause and recovery when a
+    carried item is genuinely inadmissible —
     an incompatible flow, or a binding its own workflow refuses — because a
     run that cannot carry the obligation must not start pretending it does.
 
@@ -312,11 +316,8 @@ def enroll_carried_members(
                 )
                 progress["completed_count"] += 1
             except (LookupError, ValueError) as exc:
-                raise ValueError(
-                    f"deployment run {run_id!r} carries "
-                    f"{render_item_ref(conn, item_id)} but cannot admit it: {exc}; "
-                    "align that item's deployment flow and stage with this run, or "
-                    "choose a candidate that excludes its code"
+                raise CarriedEnrollmentError(
+                    run_id, render_item_ref(conn, item_id), exc
                 ) from exc
     return tuple(enrolled)
 

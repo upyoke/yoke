@@ -66,8 +66,8 @@ def oriented(monkeypatch):
 @pytest.fixture(autouse=True)
 def prompt_submit_payload(monkeypatch):
     monkeypatch.setattr(
-        "yoke_harness.hooks.cursor_lifecycle_hooks.ensure_user_lifecycle_hooks_for_executor",
-        lambda _executor: None,
+        "yoke_harness.hooks.machine_hooks.ensure_machine_hooks_for_executor",
+        lambda *_a, **_k: None,
     )
     monkeypatch.setenv(EXECUTOR_ENV_VAR, "claude-code")
     monkeypatch.setattr(sys, "stdin", io.StringIO('{"session_id": "s-1"}'))

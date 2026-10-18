@@ -186,6 +186,42 @@
     "project_match": "<checkout-key> is the absolute checkout path with every '/' replaced by '-'; one directory per checkout",
     "evidence": "yoke_harness.session_relay_claude_transcript derives the same key for stopped-session wake; read on claude-cli."
   },
+  "machine_hooks": {
+    "source": "yoke_contracts.harness_machine_hooks.HARNESS_MACHINE_HOOKS",
+    "user_config_path": "~/.claude/settings.json",
+    "home_env": null,
+    "config_owner": "claude-user",
+    "project_configs": [
+      ".claude/settings.json",
+      ".claude/settings.local.json"
+    ],
+    "project_config_in_ancestors": false,
+    "events": [
+      {
+        "native_event": "SessionStart",
+        "verb": "SessionStart"
+      },
+      {
+        "native_event": "UserPromptSubmit",
+        "verb": "UserPromptSubmit"
+      },
+      {
+        "native_event": "PreToolUse",
+        "verb": "PreToolUse",
+        "matcher": "Bash"
+      },
+      {
+        "native_event": "Stop",
+        "verb": "Stop"
+      },
+      {
+        "native_event": "SessionEnd",
+        "verb": "SessionEnd"
+      }
+    ],
+    "trust": "none",
+    "deferrals": []
+  },
   "worktree_hook_enablement": {
     "config_path": ".claude/settings.json",
     "operations": [

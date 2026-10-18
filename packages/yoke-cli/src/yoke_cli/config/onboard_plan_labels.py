@@ -3,7 +3,7 @@
 from __future__ import annotations
 from yoke_cli.config import onboard_relay_supervisor
 
-from yoke_contracts import harness_unattended_posture
+from yoke_contracts import harness_machine_hooks, harness_unattended_posture
 from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_global_skill
@@ -153,10 +153,11 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
             "Install harness hooks in .claude/settings.json, "
             ".codex/hooks.json, and .cursor/hooks.json"
         )
-    if action == "install-cursor-user-lifecycle-hooks":
+    if action == harness_machine_hooks.MACHINE_HOOKS_PLAN_ACTION:
         return (
-            "Install Cursor stop/sessionEnd backstop in ~/.cursor/hooks.json "
-            "(survives a deleted project folder)"
+            f"Install Yoke's machine-wide hooks in {target} (sessions outside a "
+            "project register and run machine guards; inside a project its own "
+            "hooks run instead; keeps your other hooks)"
         )
     if action == "project-install-git-hooks":
         return "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)"

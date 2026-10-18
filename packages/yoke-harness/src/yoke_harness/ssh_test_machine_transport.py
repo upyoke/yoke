@@ -80,8 +80,11 @@ class SshTestMachineTransport:
         *,
         input_text: str | None = None,
         timeout: int = 60,
+        debug_log: Path | None = None,
     ) -> subprocess.CompletedProcess[str]:
         argv = self._ssh_argv(command)
+        if debug_log is not None:
+            argv[1:1] = ["-vvv", "-E", str(debug_log)]
         try:
             return subprocess.run(
                 argv,

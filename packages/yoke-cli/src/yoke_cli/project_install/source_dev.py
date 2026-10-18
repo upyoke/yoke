@@ -59,15 +59,16 @@ def install_source_link(
             "Yoke source checkout."
         ) from exc
     report = module.install_source_link(repo_root, operation=operation)
-    # Same machine-home backstop copy-mode apply_bundle installs: Cursor
-    # stop must survive a deleted worktree project root even on the Yoke
-    # source checkout path.
-    from yoke_harness.hooks.cursor_lifecycle_hooks import (
-        ensure_user_lifecycle_hooks,
-    )
+    # The same machine-wide hooks copy-mode install converges.
+    from yoke_harness.hooks.machine_hooks import ensure_machine_hooks_reported
 
-    ensure_user_lifecycle_hooks()
-    report["global_skill"] = ensure_global_skill().to_json()
+    report["machine_hooks"], failures = ensure_machine_hooks_reported()
+    global_skill = ensure_global_skill()
+    report["global_skill"] = global_skill.to_json()
+    if global_skill.refused:
+        failures = [*failures, global_skill.warning]
+    if failures:
+        report.setdefault("warnings", []).extend(failures)
     return report
 
 

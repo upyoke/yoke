@@ -97,6 +97,28 @@ Creation pins bound sources and checks every shipped project; start revalidates 
 
 Release wrap-up prints each member stamp and close-out step, then confirms the `succeeded` write; output before a slow operation does not assert completion. Composition warns for carried items merged into the candidate but not at release yet: wait for them or `add-item` once they reach release; it never auto-enrolls them early. Removal queues a holder notice saying outstanding run-bound QA was cancelled, not passed, and not to attempt close-out because this run succeeds. When a cancelled requirement's latest verdict is fail or error, the notice names those requirements and keeps the failure handoff: classify the failure; a fixable failure is reworked and re-landed through `yoke merge item`, parking only after landing, while an external failure records its blocker; keep the claim either way; removal never changes item status. Without a red verdict, the item rides a later release: keep the claim and re-park. Settlement and failed-QA releases whose newer candidate already moved past the run send the later-release text. A takeover sends that notice only when it aborts the owner's running QA execution; the text then says the member's QA continues on the new run, and to keep the claim and stay parked. A takeover that aborts nothing sends no owner notice: the new run's item-QA wake names the new run. Delivery-run cards show only QA bound to their own run; a run without item QA shows no item-QA count. Retracted requirements appear as cancelled with their removal reason and are excluded from pass counts, as are no-obligation records. Retracted run requirements are ignored by the done QA gate, while standing obligations and the item's delivery gate remain in force. Stage age reads only the durable `current_stage_entered_at` clock, including `complete`; repeated stage writes preserve it, older runs show unknown age, and snapshots without a source clock clear the prior stage's age when their stage changes.
 
+## Table: deployment_run_timings
+
+Release phase timings: the start/end `Deployment start timing: ` records each
+run-scoped driver timing scope stores through `deployment_runs.timings.record`
+at each pipeline stage and when it closes. Read them with `yoke deployment-runs timings RUN-ID`. They are
+diagnostics; nothing operational reads them, and a refused write never fails
+the run (see [deployment start](../deployment-start.md)).
+
+```sql
+id INTEGER PRIMARY KEY
+run_id TEXT NOT NULL REFERENCES deployment_runs(id)
+batch_id TEXT NOT NULL -- one driver timing scope
+sequence INTEGER NOT NULL -- record order within the scope; a retried flush inserts nothing twice
+step TEXT NOT NULL
+phase TEXT NOT NULL -- start | end
+recorded_at TIMESTAMPTZ NOT NULL -- the driver clock's record timestamp
+elapsed_ms DOUBLE PRECISION -- end records only
+outcome TEXT -- end records only: ok | failed
+record TEXT NOT NULL -- the full JSON record as the driver wrote it
+UNIQUE(batch_id, sequence)
+```
+
 ## Table: deployment_stage_receipts
 
 Durable executor observations for non-QA deployment-stage attempts. Events do

@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from yoke_contracts import harness_unattended_posture
+from yoke_contracts import harness_machine_hooks, harness_unattended_posture
 from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_global_skill
@@ -102,6 +102,8 @@ def build_plan(
     # way whether their control plane is local, a team server, or hosted.
     if harness_posture:
         steps.append(harness_unattended_posture.posture_plan_step())
+    # Machine-wide hooks for every installed harness, with or without a project.
+    steps.extend(harness_machine_hooks.machine_hooks_plan_steps())
     steps.extend(
         onboard_session_relay.plan_steps(
             local_destination=local_destination,

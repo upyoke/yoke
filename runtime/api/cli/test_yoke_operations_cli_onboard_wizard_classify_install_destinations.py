@@ -1,8 +1,9 @@
-"""Finish-review honesty for Cursor / harness install destinations.
+"""Finish-review honesty for harness install destinations.
 
 Covers the post-checkout plan lines that name CURSOR.md, .cursor hooks and
-permissions, and the machine-local ~/.cursor stop backstop. Split from the
-general classifier suite so each authored file stays under the line limit.
+permissions, and the machine-wide hooks written into each installed harness's
+user config. Split from the general classifier suite so each authored file
+stays under the line limit.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ import pytest
 pytest.importorskip("textual")
 
 from yoke_cli.config.onboard_plan_labels import friendly_line
-from yoke_contracts import harness_unattended_posture
+from yoke_contracts import harness_machine_hooks, harness_unattended_posture
 from yoke_cli.config import onboard_global_skill  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import onboard_report  # noqa: E402
@@ -24,7 +25,6 @@ from yoke_cli.config.project_clone_support import ClonePlan  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_classify_test_support import (  # noqa: E402
     AGENT_RULES_LINE,
-    CURSOR_USER_LIFECYCLE_LINE,
     GIT_HOOKS_LINE,
     HARNESS_HOOKS_LINE,
     TOOL_PERMISSIONS_LINE,
@@ -81,7 +81,9 @@ def test_build_plan_clone_just_clone_has_no_remote_rehome_step() -> None:
 
 def test_build_plan_reused_existing_project_lists_missing_art_write(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
+    (tmp_path / "harness-home" / ".cursor").mkdir(parents=True)  # conftest-isolated home
     monkeypatch.setattr(
         "yoke_cli.config.onboard_session_relay.is_supported", lambda **kw: False
     )
@@ -136,6 +138,7 @@ def test_build_plan_reused_existing_project_lists_missing_art_write(
 
     assert actions == [
         "harness-unattended-posture",
+        harness_machine_hooks.MACHINE_HOOKS_PLAN_ACTION,
         "register-machine",
         "install-yoke-global-skill",
         "project-refresh-scaffold",
@@ -143,18 +146,19 @@ def test_build_plan_reused_existing_project_lists_missing_art_write(
         "project-install-tool-permissions",
         "project-install-harness-hooks",
         "project-install-git-hooks",
-        "install-cursor-user-lifecycle-hooks",
         "project-write-board-art",
         "project-setup-publication",
     ]
-    # The posture and yoke-global steps are machine-level writes, so they
-    # group beside the Cursor lifecycle hooks, not the project's own writes.
+    # The posture, machine-wide hooks and yoke-global steps are machine-level
+    # writes, so they group together rather than with the project's own writes.
     assert grouped["machine"] == [
         friendly_line(harness_unattended_posture.POSTURE_PLAN_ACTION, "detected"),
         friendly_line(
+            harness_machine_hooks.MACHINE_HOOKS_PLAN_ACTION, "~/.cursor/hooks.json"
+        ),
+        friendly_line(
             onboard_global_skill.INSTALL_ACTION, onboard_global_skill.INSTALL_TARGET
         ),
-        CURSOR_USER_LIFECYCLE_LINE,
     ]
     assert grouped["core"] == ["Register this machine in the machine registry"]
     assert grouped["repo"] == [
