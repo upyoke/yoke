@@ -16,9 +16,7 @@ from typing import Any, Dict, List
 from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.config import local_universe_setup as setup
 
-DEMO_SEED_USAGE = (
-    "yoke local demo seed [--project PROJECT] [--count N] [--config PATH] [--json]"
-)
+DEMO_SEED_USAGE = "yoke local demo seed [--scenario smoke|shipping] [--project PROJECT] [--count N] [--config PATH] [--json]"
 
 
 def local_demo_seed(args: List[str]) -> int:
@@ -47,6 +45,12 @@ def local_demo_seed(args: List[str]) -> int:
         help="Machine config path override.",
     )
     parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--scenario",
+        choices=("smoke", "shipping"),
+        default="smoke",
+        help="Shipping seeds only the disposable render-proof universe; never a remote or prod-marked connection.",
+    )
     parsed = parse_or_usage_error(parser, args, DEMO_SEED_USAGE)
     if parsed is None:
         return 2
@@ -54,11 +58,14 @@ def local_demo_seed(args: List[str]) -> int:
         print("error: --count must be at least 1", file=sys.stderr)
         return 2
     try:
-        report = _seed_demo_items(
+        kwargs = dict(
             project=parsed.project,
             count=parsed.count,
             config_path=parsed.config_path,
         )
+        if parsed.scenario != "smoke":
+            kwargs["scenario"] = parsed.scenario
+        report = _seed_demo_items(**kwargs)
     except RuntimeError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -81,6 +88,7 @@ def _seed_demo_items(
     project: str | None,
     count: int,
     config_path: str | None,
+    scenario: str = "smoke",
 ) -> Dict[str, Any]:
     from yoke_cli.config import machine_config
     from yoke_cli.project_install.transport import _local_postgres_env
@@ -100,6 +108,10 @@ def _seed_demo_items(
         raise setup.LocalUniverseSetupError(
             f"env {env_name!r} is prod-marked; demo seeding is local-only"
         )
+    if scenario == "shipping" and env_name != "render-proof":
+        raise setup.LocalUniverseSetupError(
+            "shipping_seed_requires_render_proof: select --env render-proof; other universes are unchanged"
+        )
     try:
         db_backend = importlib.import_module("yoke_core.domain.db_backend")
         seed_demo_items = importlib.import_module(
@@ -115,6 +127,16 @@ def _seed_demo_items(
         dsn_env=db_backend.PG_DSN_ENV,
         dsn_file_env=db_backend.PG_DSN_FILE_ENV,
     ):
+        if scenario == "shipping":
+            try:
+                return importlib.import_module(
+                    "yoke_core.domain.local_shipping_seed"
+                ).seed_shipping()
+            except (ValueError, LookupError) as exc:
+                raise setup.LocalUniverseSetupError(
+                    f"shipping_seed_refused: {exc}; retain the fixture rows, repair the "
+                    "named prerequisite in render-proof, then rerun this idempotent seed"
+                ) from exc
         return seed_demo_items(project=project, count=count)
 
 

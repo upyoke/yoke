@@ -5,6 +5,16 @@ from __future__ import annotations
 from yoke_cli.command_router import _extract_global_env
 
 
+def test_dev_setup_connection_name_is_not_a_global_override():
+    arguments = ["dev", "setup", "/source", "--env", "render-proof", "--dry-run"]
+    assert _extract_global_env(arguments) == (arguments, None, True)
+    assert _extract_global_env(["--env", "prod", *arguments]) == (
+        arguments,
+        "prod",
+        True,
+    )
+
+
 def test_inner_env_after_separator_is_left_for_the_inner_process() -> None:
     remaining, selected, ok = _extract_global_env(
         [
