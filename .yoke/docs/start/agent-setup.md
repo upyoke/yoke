@@ -146,6 +146,7 @@ machine-only setup adds a project later through another `yoke setup --agent`.
 
 `yoke connect --json` and `yoke github connect --json` stay available as
 standalone commands for one sign-in outside setup.
+
 ## Setup facts and next action
 
 ```text

@@ -31,9 +31,14 @@ def test_project_delivery_contains_one_setup_summary(monkeypatch):
         orientation, "_startup_block_lines", lambda: ["Required startup"]
     )
     body = orientation.render_orientation(
-        {"session_id": "session"},
+        {
+            "session_id": "session",
+            "_yoke_setup_lines": [
+                "Setup: unknown checkout-binding",
+                "Next: yoke setup --agent",
+            ],
+        },
         Path("/external"),
-        setup_lines=["Setup: unknown checkout-binding", "Next: yoke setup --agent"],
     )
     assert body.count("Setup:") == body.count("Next:") == 1
     assert "Required startup" in body
@@ -81,3 +86,29 @@ def test_source_composers_use_same_summary(monkeypatch, harness):
         )
     assert body.count("Setup: unknown checkout-binding") == 1
     assert len(body.encode()) <= min(INLINE_CONTEXT_BYTES.values())
+
+
+def test_repeated_hook_does_not_reread_setup(monkeypatch):
+    import json
+    from yoke_cli.config import setup_facts_summary
+
+    delivered = []
+    reads = []
+    monkeypatch.setattr(orientation, "_project_root", lambda _: Path("/external"))
+    monkeypatch.setattr(orientation, "orientation_delivered", lambda _: bool(delivered))
+    monkeypatch.setattr(orientation, "record_orientation_attempt", lambda _: False)
+    monkeypatch.setattr(orientation, "_advisory_lines", lambda _: [])
+    monkeypatch.setattr(orientation, "_git_line", lambda *_: "")
+
+    def setup(root):
+        reads.append(root)
+        return ["Setup: unknown checkout-binding"]
+
+    monkeypatch.setattr(setup_facts_summary, "orientation_lines", setup)
+    payload = json.dumps({"session_id": "session", "cwd": "/external"})
+    event = orientation.session_orientation_event(cursor=False)
+    first = orientation.orientation_for_hook(event, payload)
+    assert "Setup: unknown checkout-binding" in first
+    delivered.append(True)
+    assert orientation.orientation_for_hook(event, payload) is None
+    assert reads == [Path("/external")]

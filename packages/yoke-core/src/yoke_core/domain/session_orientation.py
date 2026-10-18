@@ -15,9 +15,9 @@ nothing but the wheels installed:
 
 * **No ``runtime.*`` imports.** That tree is the Yoke source repo and is
   absent from every managed project.
-* **No database.** Orientation is built from the hook payload, the
-  filesystem, and ``git``; a project whose control plane is unreachable
-  still gets oriented rather than getting nothing.
+* **No database access here.** The client supplies optional setup facts through
+  its registered transport. The hook payload, filesystem and ``git`` still
+  orient a project whose control plane is unreachable.
 
 Orientation is short by construction. It carries the facts a session cannot
 look up — its own id, this checkout, this machine's advisories — and then the
@@ -150,13 +150,7 @@ def _startup_block_lines() -> list[str]:
     return ["", block] if block else []
 
 
-def render_orientation(
-    payload: dict[str, Any],
-    root: Path,
-    *,
-    setup_lines: list[str] | None = None,
-    required_lines: list[str] | None = None,
-) -> str:
+def render_orientation(payload: dict[str, Any], root: Path) -> str:
     """Render the orientation block for one session, or ``""``.
 
     ``payload`` is the raw hook payload; ``root`` is the project checkout
@@ -177,7 +171,7 @@ def render_orientation(
             f"Root: {root}",
         ]
     )
-    lines.extend(required_lines or [])
+    lines.extend(payload.get("_yoke_required_lines") or [])
     branch = _git_line(root, ["branch", "--show-current"])
     branch_lines = [f"Current branch: {branch}"] if branch else []
     # One commit, not three: this block rides the inline hook channel, which
@@ -199,7 +193,7 @@ def render_orientation(
         lines,
         [branch_lines + commit_lines, branch_lines, []],
         tail,
-        setup_lines or [],
+        payload.get("_yoke_setup_lines") or [],
         budget,
     )
 
@@ -283,7 +277,9 @@ def _orientation_for_hook(
     else:
         from yoke_cli.config.setup_facts_summary import orientation_lines
 
-        block = render_orientation(payload, root, setup_lines=orientation_lines(root))
+        block = render_orientation(
+            {**payload, "_yoke_setup_lines": orientation_lines(root)}, root
+        )
     if not block:
         return None
     if event_name == startup_event and not lost_earlier:

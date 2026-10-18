@@ -110,3 +110,16 @@ def test_global_summary_has_only_this_machine_facts(monkeypatch):
     assert result["next_action"]["command"] == "yoke setup --agent"
     assert "https://upyoke.com/docs/" in result["next_action"]["home"]
     assert "project-identity" not in str(result)
+
+
+def test_diagnosed_machine_failure_keeps_its_reachable_repair(monkeypatch):
+    def collect(**kwargs):
+        raise ValueError(
+            "setup_machine_config_unreadable: repair this machine with yoke setup."
+        )
+
+    monkeypatch.setattr(onboard_setup_facts, "collect", collect)
+    lines = summary.read_project(Path("/external"))["lines"]
+    assert lines == [
+        "Setup: setup_machine_config_unreadable; repair this machine with yoke setup."
+    ]

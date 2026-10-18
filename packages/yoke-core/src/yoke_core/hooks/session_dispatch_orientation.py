@@ -174,10 +174,12 @@ def _source_orientation(session_id, root, registration_failed, required):
             or "Run: yoke sessions identity --json to diagnose registration."
         )
     return render_orientation(
-        {"session_id": session_id},
+        {
+            "session_id": session_id,
+            "_yoke_setup_lines": orientation_lines(Path(root)),
+            "_yoke_required_lines": required,
+        },
         Path(root),
-        setup_lines=orientation_lines(Path(root)),
-        required_lines=required,
     )
 
 

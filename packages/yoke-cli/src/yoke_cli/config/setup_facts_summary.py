@@ -120,10 +120,16 @@ def read_project(
                 else None,
             }
     except Exception as exc:  # hooks and completed setup writes must still return
-        code = str(exc).partition(":")[0]
+        code, separator, recovery = str(exc).partition(":")
         if not code.replace("_", "").isalnum() or "_" not in code:
             code = "setup_facts_unavailable"
-        return _failure(code, "Run yoke onboard checklist get to diagnose and retry.")
+            recovery = ""
+        return _failure(
+            code,
+            recovery.strip()
+            if separator and recovery.strip()
+            else "Run yoke onboard checklist get to diagnose and retry.",
+        )
 
 
 def machine_summary() -> dict[str, Any]:

@@ -77,9 +77,8 @@ def _render_orientation(
         from yoke_cli.config.setup_facts_summary import orientation_lines
 
         orientation = render_orientation(
-            record.payload,
+            {**record.payload, "_yoke_setup_lines": orientation_lines(Path(root))},
             Path(root),
-            setup_lines=orientation_lines(Path(root)),
         ).strip()
         if orientation:
             blocks.append(orientation)
