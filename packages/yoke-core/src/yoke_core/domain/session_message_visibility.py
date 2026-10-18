@@ -18,10 +18,11 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_message_recipients import ACTOR_KIND
-from yoke_core.domain.actor_permissions import PERM_ITEMS_READ, org_permission_decision
+from yoke_core.domain.actor_permissions import PERM_ITEMS_READ
 from yoke_core.domain.actor_project_visibility import (
     actor_project_ids_with_permission,
 )
+from yoke_core.domain.session_scope_identity import readable_org_ids
 from yoke_core.domain.steering_message_recipients import STEERING_KIND
 
 
@@ -54,16 +55,7 @@ def visible_clause(
     visible_projects = sorted(
         actor_project_ids_with_permission(conn, actor_id, PERM_ITEMS_READ) or []
     )
-    orgs = conn.execute(
-        f"SELECT DISTINCT org_id FROM actor_org_roles WHERE actor_id={p}", (actor_id,)
-    ).fetchall()
-    readable_orgs = sorted(
-        row[0]
-        for row in orgs
-        if org_permission_decision(
-            conn, actor_id=actor_id, org_id=row[0], permission_key=PERM_ITEMS_READ
-        ).allowed
-    )
+    readable_orgs = readable_org_ids(conn, actor_id, PERM_ITEMS_READ)
     false = "FALSE" if db_backend.connection_is_postgres(conn) else "1=0"
     slots = ",".join(p for _ in visible_projects)
     project = (

@@ -108,6 +108,22 @@ def actor_may_operate_session(
     )
 
 
+def readable_org_ids(conn: Any, actor_id: int, permission_key: str) -> list[int]:
+    """Organizations granting the actor ``permission_key``, decided once each."""
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    rows = conn.execute(
+        f"SELECT DISTINCT org_id FROM actor_org_roles WHERE actor_id = {marker}",
+        (actor_id,),
+    ).fetchall()
+    return sorted(
+        int(row[0])
+        for row in rows
+        if actor_permissions.org_permission_decision(
+            conn, actor_id=actor_id, org_id=int(row[0]), permission_key=permission_key
+        ).allowed
+    )
+
+
 def relay_serves_scope(
     *,
     relay_machine_id: str,

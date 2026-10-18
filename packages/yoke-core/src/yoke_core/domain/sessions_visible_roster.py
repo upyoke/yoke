@@ -44,28 +44,12 @@ def org_session_clause(
     """
     from yoke_core.domain.actor_permissions import PERM_ITEMS_READ
     from yoke_core.domain.project_identity import placeholder
-    from yoke_core.domain.session_scope_identity import (
-        SessionScope,
-        actor_may_operate_session,
-    )
+    from yoke_core.domain.session_scope_identity import readable_org_ids
 
     if actor_id is None:
         return "1 = 0", []
     marker = placeholder(conn)
-    orgs = [
-        int(row[0])
-        for row in conn.execute(
-            f"SELECT DISTINCT org_id FROM actor_org_roles WHERE actor_id={marker}",
-            (actor_id,),
-        ).fetchall()
-        if actor_may_operate_session(
-            conn,
-            actor_id=actor_id,
-            scope=SessionScope(None, int(row[0])),
-            session_actor_id=None,
-            permission_key=permission_key or PERM_ITEMS_READ,
-        )
-    ]
+    orgs = readable_org_ids(conn, actor_id, permission_key or PERM_ITEMS_READ)
     allowed = f"s.actor_id={marker}"
     if orgs:
         allowed += f" OR s.org_id IN ({', '.join(marker for _ in orgs)})"
