@@ -150,3 +150,20 @@ def test_unwritable_facet_does_not_stop_other_facets(machine, monkeypatch):
     assert any(
         r.facet == "machine_hooks" and r.outcome == "written" for r in result.rows
     )
+
+
+def test_primary_identity_survives_filtering_missing_worktrees(monkeypatch, tmp_path):
+    from yoke_contracts.machine_config import checkout
+
+    missing = tmp_path / "missing-primary"
+    lane = tmp_path / "existing-lane"
+    lane.mkdir()
+    (lane / ".git").write_text("fixture")
+    output = f"worktree {missing}\0\0worktree {lane}\0\0"
+    monkeypatch.setattr(
+        checkout.terminal_detached_process,
+        "run",
+        lambda *a, **kw: SimpleNamespace(returncode=0, stdout=output),
+    )
+    assert checkout.main_checkout(lane) == missing
+    assert checkout.registered_worktree_paths(lane) == [lane]

@@ -35,7 +35,7 @@ def registered_worktree_paths(root: str | Path) -> list[Path]:
     root = Path(root).expanduser().resolve()
     if not (root / ".git").exists():
         return [root]
-    return _git_worktrees(root)
+    return [path for path in _git_worktrees(root) if path.is_dir()]
 
 
 def _git_main_checkout(root: Path) -> Path:
@@ -55,12 +55,14 @@ def _git_worktrees(root: Path) -> list[Path]:
         raise _identity_refusal(root) from exc
     if result.returncode == 0:
         paths = []
-        for block in result.stdout.split("\0\0"):
+        blocks = result.stdout.split("\0\0")
+        if "bare" in blocks[0].split("\0"):
+            raise _identity_refusal(root)
+        for block in blocks:
             fields = block.split("\0")
             if fields[0].startswith("worktree ") and "bare" not in fields:
                 path = Path(fields[0][9:]).resolve()
-                if path.is_dir():
-                    paths.append(path)
+                paths.append(path)
         if paths:
             return paths
     raise _identity_refusal(root)
