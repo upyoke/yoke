@@ -47,6 +47,19 @@ def operation_mission(conn: Any, *, lease_id: int, project: str, actor: Any) -> 
     if row is None:
         return None
     execution = lock_plan_execution(conn, str(row["id"]))
+    machine = str(lease.target.machine_id)
+    if not same_owner(execution, actor_id=actor.actor_id, session_id=actor.session_id):
+        raise MachineQaProtocolError(
+            f"mission_operation_foreign_holder: you do not hold the lease on {machine}; "
+            f"session {execution['session_id']} holds it for plan {execution['id']}. "
+            "Declare method_config.machine on your QA case and run its scoped plan "
+            "to acquire the host lease after that holder finishes"
+        )
+    if execution["state"] == "active":
+        ordinal = int(execution["cursor_ordinal"])
+        roster = execution["roster"]
+        if ordinal < len(roster) and roster[ordinal].get("runner_id") == "worktree_run":
+            return execution
     missions = [
         case
         for case in execution["roster"]
@@ -54,14 +67,10 @@ def operation_mission(conn: Any, *, lease_id: int, project: str, actor: Any) -> 
     ]
     if execution["state"] != "awaiting_agent_review" or not missions:
         raise MachineQaProtocolError(
-            "mission_operation_unavailable: the host belongs to a plan outside "
-            "its mission walk; resume the owning mission before retrying the operation"
-        )
-    if not same_owner(execution, actor_id=actor.actor_id, session_id=actor.session_id):
-        raise MachineQaProtocolError(
-            "mission_operation_foreign_holder: the mission belongs to a different "
-            "session or actor; ask its holder to perform the operation or wait for "
-            "the mission to finish"
+            f"mission_operation_unavailable: the lease on {machine} belongs to "
+            f"your plan {execution['id']}, which is {execution['state']}; this "
+            "operation requires its active declared-host Command case or an "
+            "awaiting mission walk. Resume the scoped plan before retrying"
         )
     return execution
 
@@ -90,11 +99,12 @@ def begin_operation_execution(
             select_any=False,
             **shape,
         )
-    if shape.get("baselines"):
+    if shape.get("baselines") and mission["state"] == "awaiting_agent_review":
         raise MachineQaProtocolError(
-            "test_machine_cleanup_live_lease: reset/verify would clear temporary "
-            "state owned by a live mission; finish or abort the owning mission "
-            "before resetting or verifying this host"
+            "test_machine_cleanup_live_lease: you hold the lease on "
+            f"{candidate.settings['resource_name']} for your awaiting mission "
+            f"{mission['id']}; reset/verify would clear that mission's temporary "
+            "state. Finish or abort your mission before resetting or verifying this host"
         )
     lease, candidate = _validate_lease_owner(
         conn,

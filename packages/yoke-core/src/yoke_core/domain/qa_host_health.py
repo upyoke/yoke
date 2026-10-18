@@ -30,11 +30,8 @@ HOST_WAIT_TEACHING = (
 
 
 def host_heal_commands(machine: str) -> str:
-    """The operator operations whose success returns the host to its line."""
-    return (
-        f"`yoke test-machine verify --machine {machine} --project PROJECT` or "
-        f"`yoke test-machine golden-capture --machine {machine} --project PROJECT`"
-    )
+    """Repair readiness without replacing the machine's sealed baseline."""
+    return f"`yoke test-machine verify --machine {machine} --project PROJECT`"
 
 
 def host_unhealthy(conn: Any, machine: str) -> dict[str, Any] | None:
@@ -77,9 +74,11 @@ def host_unhealthy(conn: Any, machine: str) -> dict[str, Any] | None:
 def unhealthy_rationale(health: dict[str, Any]) -> str:
     """One sentence naming the failure and the operation that heals it."""
     return (
-        f"{HOST_UNHEALTHY_REASON}: {health['machine']} last verification failed "
-        f"({health['error_code']} at {health['checked_at']}); a successful "
-        f"{host_heal_commands(health['machine'])} wakes the line"
+        f"{HOST_UNHEALTHY_REASON}: QA must wait to acquire {health['machine']}: "
+        f"its last verification failed ({health['error_code']} at "
+        f"{health['checked_at']}). The operator must repair that failure and run "
+        f"{host_heal_commands(health['machine'])}; successful verification wakes "
+        "the host line. Keep the sealed baseline unchanged"
     )
 
 
