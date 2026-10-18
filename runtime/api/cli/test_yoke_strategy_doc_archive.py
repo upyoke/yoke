@@ -113,7 +113,12 @@ class TestDocArchive:
         config_path.parent.mkdir(parents=True, exist_ok=True)
         config_path.write_text(
             json.dumps(
-                {"projects": [{"checkout": str(other_checkout), "project_id": 2}]}
+                {
+                    "active_env": "local",
+                    "connection_projects": {
+                        "local": [{"checkout": str(other_checkout), "project_id": 2}]
+                    },
+                }
             ),
             encoding="utf-8",
         )

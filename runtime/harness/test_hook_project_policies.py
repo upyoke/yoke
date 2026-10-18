@@ -15,7 +15,9 @@ def test_real_chain_pretool_bash_sqlite3_denies(
     project_map,
 ) -> None:
     """The real PreToolUse Bash chain denies a raw ``sqlite3`` invocation."""
-    project_map["projects"] = [{"checkout": str(tmp_path), "project_id": 1}]
+    project_map["connection_projects"]["local"] = [
+        {"checkout": str(tmp_path), "project_id": 1}
+    ]
     _silence_telemetry(monkeypatch)
     payload = {
         "tool_name": "Bash",

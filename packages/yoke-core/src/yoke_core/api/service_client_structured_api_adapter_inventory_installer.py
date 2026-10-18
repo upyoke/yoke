@@ -49,7 +49,7 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         function_id="project.register.run",
         cli_invocation="yoke project register REPO_ROOT --project-id N",
-        notes="Machine-local checkout -> project id mapping, independent of connection.",
+        notes="Machine-local checkout -> project id mapping, scoped to the selected connection.",
     ),
     AdapterEntry(
         function_id="project.install.run",

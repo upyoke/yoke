@@ -63,7 +63,8 @@ def _yoke_json(*args: str) -> dict[str, Any]:
 
 def _project_slug(project_id: int) -> str:
     rows = _yoke_json(
-        "db", "read",
+        "db",
+        "read",
         f"SELECT slug FROM projects WHERE id = {int(project_id)}",
     )
     for row in rows.get("rows") or []:
@@ -85,18 +86,24 @@ def _write_board_settings(project: str, board: Mapping[str, Any]) -> None:
     if not sets:
         return
     _yoke_json(
-        "projects", "capability-settings", "merge",
-        "--project", project,
-        "--cap-type", "project-policy",
+        "projects",
+        "capability-settings",
+        "merge",
+        "--project",
+        project,
+        "--cap-type",
+        "project-policy",
         *sets,
     )
 
 
 def migrate_mapped_checkouts(*, delete_files: bool = False) -> list[dict[str, Any]]:
-    """Migrate every machine-config project entry; optionally delete board.json."""
+    """Migrate the selected connection's checkouts; optionally delete board.json."""
 
     cfg = machine_config.load_config()
-    projects = cfg.get("projects") or []
+    from yoke_contracts.machine_config.schema_projects import projects_for_connection
+
+    projects = projects_for_connection(cfg)
     if not isinstance(projects, list):
         return []
     results: list[dict[str, Any]] = []
@@ -120,13 +127,15 @@ def migrate_mapped_checkouts(*, delete_files: bool = False) -> list[dict[str, An
         if delete_files and board_path.is_file():
             board_path.unlink()
             deleted = True
-        results.append({
-            "checkout": str(checkout),
-            "project_id": int(pid),
-            "project": slug,
-            "scope": merged.get("scope"),
-            "deleted_board_json": deleted,
-        })
+        results.append(
+            {
+                "checkout": str(checkout),
+                "project_id": int(pid),
+                "project": slug,
+                "scope": merged.get("scope"),
+                "deleted_board_json": deleted,
+            }
+        )
     return results
 
 

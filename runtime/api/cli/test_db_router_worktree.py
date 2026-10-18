@@ -93,9 +93,11 @@ class TestWorktreeResolution:
                             },
                         },
                     },
-                    "projects": [
-                        {"checkout": str(repo_root.resolve()), "project_id": 1}
-                    ],
+                    "connection_projects": {
+                        "prod-db-admin": [
+                            {"checkout": str(repo_root.resolve()), "project_id": 1}
+                        ]
+                    },
                 }
             ),
             encoding="utf-8",

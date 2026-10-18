@@ -1,4 +1,4 @@
-"""Validate the machine-local, connection-independent project checkout list."""
+"""Validate the machine-local, connection-scoped project checkout list."""
 
 from typing import Any, Mapping
 
@@ -59,7 +59,7 @@ def validate_projects(projects: Any) -> list[ValidationIssue]:
             issues.append(
                 _error(
                     "project_checkout_duplicate",
-                    "a checkout may map to only one project",
+                    "a checkout may map to only one project per connection",
                     path=prefix,
                 )
             )
@@ -77,10 +77,46 @@ def validate_projects(projects: Any) -> list[ValidationIssue]:
             issues.append(
                 _error(
                     "project_id_duplicate",
-                    "a project must have exactly one checkout",
+                    "a project must have exactly one checkout per connection",
                     path=prefix,
                 )
             )
         else:
             ids.add(project_id)
+    return issues
+
+
+def validate_connection_projects(groups: Any) -> list[ValidationIssue]:
+    """Validate each independent connection's checkout namespace."""
+    if groups is None:
+        return []
+    if not isinstance(groups, Mapping):
+        return [
+            _error(
+                "connection_projects_invalid",
+                "connection_projects must map connection labels to checkout lists",
+                path="connection_projects",
+                hint="Run yoke config example and repair the named map.",
+            )
+        ]
+    issues = []
+    for connection, projects in groups.items():
+        if not _is_nonempty_str(connection):
+            issues.append(
+                _error(
+                    "project_connection_required",
+                    "connection label must be non-empty",
+                    path="connection_projects",
+                )
+            )
+        for issue in validate_projects(projects):
+            issues.append(
+                ValidationIssue(
+                    issue.severity,
+                    issue.code,
+                    issue.message,
+                    path=f"connection_projects.{connection}{issue.path.removeprefix('projects')}",
+                    hint=issue.hint,
+                )
+            )
     return issues

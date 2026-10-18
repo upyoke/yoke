@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "projects",
  "position": 1,
- "note": "Candidate project-scoped commands use a registered checkout or explicit selection; board and Doctor never silently choose another project. Unmapped status is a warning.",
- "sources": ["docs/public/cli/index.md", "docs/public/cli/machine-config.md", "runtime/api/cli/test_projectless_operation_boundaries.py", "runtime/api/domain/test_project_selection_permission_boundaries.py"]
+ "note": "Candidate checkout lookup uses only the selected connection map, with paired HTTPS/admin connections sharing one namespace. Equal numeric project IDs in different universes can map to different checkouts. Unmapped status warns and folder refusals name registration on the selected connection. Project-scoped commands use a registered checkout or explicit selection; board and Doctor never silently choose another project.",
+ "sources": ["docs/public/cli/index.md", "docs/public/cli/machine-config.md", "runtime/api/cli/test_projectless_operation_boundaries.py", "runtime/api/domain/test_project_selection_permission_boundaries.py", "runtime/api/domain/test_machine_config_project_mapping.py"]
 }

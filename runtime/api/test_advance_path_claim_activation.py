@@ -40,7 +40,14 @@ def conn(tmp_path, monkeypatch):
     repo_root.mkdir()
     config_path = tmp_path / "config.json"
     config_path.write_text(
-        json.dumps({"projects": [{"checkout": str(repo_root), "project_id": 1}]}),
+        json.dumps(
+            {
+                "active_env": "local",
+                "connection_projects": {
+                    "local": [{"checkout": str(repo_root), "project_id": 1}]
+                },
+            }
+        ),
         encoding="utf-8",
     )
     select_machine_config_file(monkeypatch, config_path)

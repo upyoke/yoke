@@ -77,11 +77,14 @@ class UpdateStatusEnv:
         self.machine_config_file.write_text(
             json.dumps(
                 {
-                    "projects": machine_config_contract.upsert_project_entry(
-                        None,
-                        checkout=str(self.root),
-                        project_id=1,
-                    ),
+                    "active_env": "local",
+                    "connection_projects": {
+                        "local": machine_config_contract.upsert_project_entry(
+                            None,
+                            checkout=str(self.root),
+                            project_id=1,
+                        )
+                    },
                 }
             )
         )

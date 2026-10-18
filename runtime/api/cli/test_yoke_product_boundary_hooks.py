@@ -35,7 +35,7 @@ def _https_config(token_file: Path, repo: Path) -> dict:
     return {
         "schema_version": 1,
         "active_env": "stage",
-        "projects": [{"checkout": str(repo), "project_id": 1}],
+        "connection_projects": {"stage": [{"checkout": str(repo), "project_id": 1}]},
         "connections": {
             "stage": {
                 "transport": "https",
@@ -160,7 +160,12 @@ def test_local_subset_leaves_main_commit_to_the_authority(
     run = _run_product_cli(
         tmp_path,
         ["hook", "evaluate", "PreToolUse"],
-        config_payload={"projects": [{"checkout": str(repo), "project_id": 1}]},
+        config_payload={
+            "active_env": "local",
+            "connection_projects": {
+                "local": [{"checkout": str(repo), "project_id": 1}]
+            },
+        },
         stdin_data=_payload(repo, "git commit -m impl"),
         client_cwd=repo,
     )
@@ -181,7 +186,12 @@ def test_local_subset_honors_main_commit_bypass_without_authority_imports(
     run = _run_product_cli(
         tmp_path,
         ["hook", "evaluate", "PreToolUse"],
-        config_payload={"projects": [{"checkout": str(repo), "project_id": 1}]},
+        config_payload={
+            "active_env": "local",
+            "connection_projects": {
+                "local": [{"checkout": str(repo), "project_id": 1}]
+            },
+        },
         stdin_data=_payload(repo, "git commit -m impl # lint:no-main-check"),
         client_cwd=repo,
     )
@@ -222,7 +232,12 @@ def test_local_subset_denies_destructive_git_without_authority_imports(
     run = _run_product_cli(
         tmp_path,
         ["hook", "evaluate", "PreToolUse"],
-        config_payload={"projects": [{"checkout": str(repo), "project_id": 1}]},
+        config_payload={
+            "active_env": "local",
+            "connection_projects": {
+                "local": [{"checkout": str(repo), "project_id": 1}]
+            },
+        },
         stdin_data=_payload(repo, "git reset --hard"),
         client_cwd=repo,
     )

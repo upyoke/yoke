@@ -28,8 +28,10 @@ def _register(checkout: Path, project_id: int, *, create: bool = True) -> None:
     if create:
         checkout.mkdir(parents=True, exist_ok=True)
     payload = machine_config.load_config()
-    payload.setdefault("projects", [])
-    payload["projects"].append({"checkout": str(checkout), "project_id": project_id})
+    payload.setdefault("active_env", "local")
+    payload.setdefault("connection_projects", {}).setdefault("local", []).append(
+        {"checkout": str(checkout), "project_id": project_id}
+    )
     config_path = machine_config.config_path()
     config_path.parent.mkdir(parents=True, exist_ok=True)
     import json
