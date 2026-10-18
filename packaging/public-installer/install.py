@@ -724,7 +724,7 @@ class InstallerVerification:
             raise InstallError(f"credential helper repair failed: {error}")
         if payload.get("repaired"):
             print(
-                self._say("Updated the git credential helper bundle for this release."),
+                self._say("Rebuilt the git credential helper bundle for this release."),
                 file=self.stdout,
             )
 

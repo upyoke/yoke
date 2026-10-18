@@ -111,7 +111,7 @@ class InstallerVerification:
         if payload.get("repaired"):
             print(
                 self._say(
-                    "Updated the git credential helper bundle for this release."
+                    "Rebuilt the git credential helper bundle for this release."
                 ),
                 file=self.stdout,
             )
