@@ -12,6 +12,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from yoke_cli.config import install_binding, local_universe_setup, machine_config
+from yoke_cli.config.local_universe_connection import stored_dsn
 from yoke_cli.config.machine_uninstall_detached import DETACHED_TEMP_ROOT
 from yoke_cli.project_install.files import MANIFEST_REL
 from yoke_cli.self_host import bundle, teardown
@@ -82,7 +83,7 @@ def inspect() -> Inventory:
                 if isinstance(entry, dict)
                 and not schema.connection_is_prod(entry)
                 and entry.get("transport") in schema.POSTGRES_TRANSPORTS
-                and local_universe_setup._stored_dsn(entry) == expected
+                and stored_dsn(entry) == expected
             ),
             None,
         )
