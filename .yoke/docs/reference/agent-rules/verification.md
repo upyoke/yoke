@@ -95,6 +95,14 @@ function before this recovery is available.
 
 ## Command case source
 
+Candidate-bound source cases that isolate `HOME` and `YOKE_MACHINE_HOME` still
+run `yoke watch pytest -- <test paths>`. Keep `YOKE_QA_CANDIDATE_TREE` and the
+runner-provided `YOKE_QA_SOURCE_ENVIRONMENT`: the watcher reuses the recorded
+declaration without reading a connection from the empty home. Lock and Python
+checks still run. `SOURCE-ENVIRONMENT-QA-DECLARATION` names an invalid handoff;
+rerun the same candidate-bound case to regenerate it. Outside candidate QA,
+source checks continue to read the connected declaration.
+
 Select an exact worker for an item case when several lanes are registered:
 
 ```text
