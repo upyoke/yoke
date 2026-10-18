@@ -112,8 +112,8 @@ Local edits use the refresh refusal's recovery.
 
 Human diagnostics inside Git and harness tools begin with “yoke (<hook>): ”,
 for example “yoke (pre-commit): ERROR: file-line-limit gate blocked this commit.”
-Follow the repair in that diagnostic. Successful checks and identity-only
-post-commit snapshot scans stay quiet. Required orientation, instructions,
+Follow the repair in that diagnostic. Successful checks and the identity-only
+lane-head recordings after commits, merges, rebases and checkouts stay quiet. Required orientation, instructions,
 continuations, handoffs and recovery still arrive through their normal owner.
 JSON replies, delivery markers and machine identifiers retain their wire form;
 the shared context composer budgets the combined delivery for each harness.
@@ -163,7 +163,10 @@ repository nested inside it does not. A machine connection or a folder named
 `.yoke` alone does not make a checkout managed.
 
 Outside managed projects, hooks apply machine safety rules: privacy-database
-protection, literal search quoting and unmatched path globs. Project rules
+protection, literal search quoting and unmatched path globs. Setup writes
+these machine-wide hooks into each installed harness's user config (the
+manifest's `machine_hooks` names the file and events); inside a managed
+project they step aside so the project's own hooks run once per event. Project rules
 (such as main-commit and destructive-Git checks) apply inside managed projects.
 Lane rules check the real lane and claim authority there, including on main.
 Unmapped HTTPS clients finish machine checks locally without project registration.

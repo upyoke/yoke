@@ -11,10 +11,7 @@ from __future__ import annotations
 from yoke_contracts.cursor_hook_command_bytes import (
     CURSOR_HOOK_COMMAND_FORBIDDEN_SEQUENCES,
 )
-from yoke_contracts.hook_runner.config_owner import (
-    CURSOR_LIFECYCLE_COMMAND_MARKER,
-    CURSOR_NATIVE_RUNNER_EVENTS,
-)
+from yoke_contracts.hook_runner.config_owner import CURSOR_NATIVE_RUNNER_EVENTS
 
 from yoke_core.domain.agents_render_hooks import (
     _CURSOR_HOOK_TIMEOUT_S,
@@ -127,15 +124,14 @@ def test_cursor_shell_gates_on_its_own_event_and_completes_on_post_tool_use() ->
     assert "afterShellExecution" not in block
 
 
-def test_cursor_stop_and_session_end_use_lifecycle_command() -> None:
+def test_cursor_stop_and_session_end_resolve_an_existing_root() -> None:
     """Stop/sessionEnd peel a deleted worktree cwd; ordinary tool hooks do not."""
     block = render_cursor_hooks_block()
-    stop = block["hooks"]["stop"][0]["command"]
-    end = block["hooks"]["sessionEnd"][0]["command"]
-    assert CURSOR_LIFECYCLE_COMMAND_MARKER in stop
-    assert CURSOR_LIFECYCLE_COMMAND_MARKER in end
-    pre = block["hooks"]["preToolUse"][0]["command"]
-    assert CURSOR_LIFECYCLE_COMMAND_MARKER not in pre
+    resolved_root = 'YOKE_ROOT="$root"'
+    assert resolved_root in block["hooks"]["stop"][0]["command"]
+    assert resolved_root in block["hooks"]["sessionEnd"][0]["command"]
+    assert resolved_root not in block["hooks"]["preToolUse"][0]["command"]
+    assert "YOKE_CURSOR_LIFECYCLE_ROOT" not in block["hooks"]["stop"][0]["command"]
 
 
 def test_cursor_commands_avoid_the_bytes_its_hook_loader_mishandles() -> None:

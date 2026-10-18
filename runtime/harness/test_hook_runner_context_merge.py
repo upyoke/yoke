@@ -122,8 +122,8 @@ def test_local_cursor_entry_marks_and_merges_client_orientation(
     )
     monkeypatch.setattr(
         local_entry,
-        "ensure_user_lifecycle_hooks_for_executor",
-        lambda _executor: None,
+        "ensure_machine_hooks_for_executor",
+        lambda *_a, **_k: None,
     )
     monkeypatch.setattr(
         local_entry,
@@ -167,7 +167,7 @@ def test_local_entry_merges_the_chains_client_facts(monkeypatch, capsys) -> None
         lambda _payload, text, _executor, _event: (text, None),
     )
     monkeypatch.setattr(
-        local_entry, "ensure_user_lifecycle_hooks_for_executor", lambda _e: None
+        local_entry, "ensure_machine_hooks_for_executor", lambda *_a, **_k: None
     )
     monkeypatch.setattr(local_entry, "capture_codex_session", lambda *_a, **_k: None)
     monkeypatch.setattr(local_entry, "relay_identity_payload", lambda *_a, **_k: {})

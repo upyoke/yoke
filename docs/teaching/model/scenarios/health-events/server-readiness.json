@@ -1,0 +1,8 @@
+{
+ "id": "server-readiness",
+ "title": "A server health probe is slow or readiness has not converged",
+ "status": "observed",
+ "topics": ["environments/identity/health-endpoint"],
+ "current": "Health immediately returns the last snapshot. Before the first completed refresh it reports not ready; failed refreshes retain the answer and name recovery in server logs. CLI reachability retries once before reporting server_unreachable.",
+ "sources": ["docs/public/verification/health-readiness.md"]
+}

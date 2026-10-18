@@ -1,0 +1,9 @@
+{
+ "id": "server-health",
+ "title": "Distinguish server liveness, cached readiness and authenticated identity",
+ "status": "observed",
+ "form": "Explain",
+ "topics": ["environments/identity/health-endpoint"],
+ "verification": "Focused tests prove requests do not probe or wait for refresh; CLI tests prove bounded retry. Production timing comparison is a release QA obligation.",
+ "sources": ["docs/public/verification/health-readiness.md", "packages/yoke-core/src/yoke_core/api/routes/items_health.py", "packages/yoke-cli/src/yoke_cli/config/status_server.py"]
+}

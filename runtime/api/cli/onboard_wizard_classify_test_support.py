@@ -19,11 +19,7 @@ HARNESS_HOOKS_LINE = (
     "Install harness hooks in .claude/settings.json, "
     ".codex/hooks.json, and .cursor/hooks.json"
 )
-GIT_HOOKS_LINE = "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)"
-CURSOR_USER_LIFECYCLE_LINE = (
-    "Install Cursor stop/sessionEnd backstop in ~/.cursor/hooks.json "
-    "(survives a deleted project folder)"
-)
+GIT_HOOKS_LINE = "Install Git hooks that guard commits and track your current commit"
 
 
 def step_target(plan: dict, action: str) -> str:
@@ -69,7 +65,7 @@ def assert_post_checkout_install_destinations(
     *,
     scaffold_line: str = "Install the Yoke project scaffold (.yoke/)",
 ) -> None:
-    """Assert Finish review names Cursor + harness install destinations."""
+    """Assert Finish review names each project harness install destination."""
     repo = repo_lines(plan, project_mode)
     if scaffold_line:
         assert scaffold_line in repo
@@ -77,4 +73,3 @@ def assert_post_checkout_install_destinations(
     assert TOOL_PERMISSIONS_LINE in repo
     assert HARNESS_HOOKS_LINE in repo
     assert GIT_HOOKS_LINE in repo
-    assert CURSOR_USER_LIFECYCLE_LINE in machine_lines(plan, project_mode)

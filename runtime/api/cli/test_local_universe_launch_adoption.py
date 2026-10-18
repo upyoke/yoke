@@ -98,7 +98,7 @@ class _LaunchedNative:
             ("detect_executor", lambda: "cursor"),
             ("record_client_anchor", lambda *_a, **_k: None),
             ("capture_codex_session", lambda *_a, **_k: None),
-            ("ensure_user_lifecycle_hooks_for_executor", lambda *_a: None),
+            ("ensure_machine_hooks_for_executor", lambda *_a, **_k: None),
             ("relay_identity_payload", lambda *_a, **_k: {}),
             ("record_model_facts_shipped", lambda *_a, **_k: None),
             ("confirmed_served_model", lambda *_a, **_k: None),

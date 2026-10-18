@@ -108,3 +108,6 @@ this choice; they continue running their deployed build.
 
 Universes are portable between modes via export/import. The client reconnects;
 you do not re-author strategy or backlog from scratch.
+
+Server liveness, cached readiness and authenticated identity have separate
+meanings; see [server health readiness](../verification/health-readiness.md).

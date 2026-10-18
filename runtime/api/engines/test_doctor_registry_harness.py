@@ -34,6 +34,7 @@ _ENGINE_CONFIG_SLUGS = (
     "harness-unattended-posture",
     "hook-resident",
     "project-hook-config-validity",
+    "machine-hooks",
     "pack-prerequisites",
 )
 

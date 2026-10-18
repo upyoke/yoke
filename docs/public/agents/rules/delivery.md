@@ -152,6 +152,26 @@ revalidates mutable facts under bounded locks, and preserves unknown outcomes
 on response loss; follow [deployment start diagnostics](../../deployments/start-diagnostics.md)
 before retrying a request or changing its run to failed.
 
+## Wait on another item's merge or delivery
+
+Record the wait before parking; replace `dash` with the item skill, or `operator` for steering:
+
+```text
+yoke items dependency list ITEM
+yoke items dependency add ITEM BLOCKER dash --gate-point integration --satisfaction fact:merged --rationale "needs blocker merged"
+yoke sessions touch --mode parked --reason "awaiting BLOCKER merge"
+```
+
+For delivery, replace `integration` with `closure` and `fact:merged` with
+`fact:deployed:prod`, using an environment registered for the blocking project.
+Use `status:done` only when the blocker's entire close-out is required.
+Reuse an existing edge only if it records the actual wait; see
+`yoke items dependency add --help` for updates and satisfaction values.
+Park only after the edge write succeeds. A `dependency_cycle` refusal names
+both waits and the recovery: resolve the order with steering, or use
+`coordination_only` only when the work is independent. Keep the claim and lane.
+Your own item's release wait needs no self-edge; its delivery flow owns it.
+
 ## Related
 
 - [Release-time roles](release-roles.md)

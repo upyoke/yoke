@@ -155,8 +155,8 @@ def remote(monkeypatch, harness):
     ]:
         monkeypatch.setattr(relay, name, lambda *a, **kw: None)
     monkeypatch.setattr(
-        "yoke_harness.hooks.cursor_lifecycle_hooks.ensure_user_lifecycle_hooks_for_executor",
-        lambda executor: None,
+        "yoke_harness.hooks.machine_hooks.ensure_machine_hooks_for_executor",
+        lambda *_a, **_k: None,
     )
     for name in [
         "client_model_facts",

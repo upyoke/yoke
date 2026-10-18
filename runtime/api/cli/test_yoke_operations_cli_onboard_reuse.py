@@ -155,7 +155,6 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
         "project-install-tool-permissions",
         "project-install-harness-hooks",
         "project-install-git-hooks",
-        "install-cursor-user-lifecycle-hooks",
         "project-write-board-art",
         "project-setup-publication",
         "project-github-auth-choice",

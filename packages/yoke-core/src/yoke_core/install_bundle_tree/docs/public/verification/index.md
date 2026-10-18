@@ -273,6 +273,7 @@ named Item QA read error includes its recovery: reload the page, then ask the
 project operator to repair the named definition or target if it persists.
 
 <!-- yoke:contents -->
+- [Server health readiness](health-readiness.md) — Read cached server readiness, startup probes and named recovery.
 - [Browser action evidence](browser-action-evidence.md) — Budget browser actions and retain original failure and timing evidence.
 - [QA platform](platform.md) — Read obligation dimensions, materialization and evidence gates.
 - [Requirement discharges](requirement-discharges.md) — Derive requirements and settle waived, superseded or retracted obligations.

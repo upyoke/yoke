@@ -32,6 +32,7 @@ def apply(
         onboard_apply_progress.emit(progress, *step, "running")
         report["harness_unattended_posture"] = harness_posture_install.apply_reported()
         onboard_apply_progress.emit(progress, *step, "done")
+    harness_posture_install.apply_machine_hooks(progress, report)
     onboard_session_relay.apply(
         progress,
         report,

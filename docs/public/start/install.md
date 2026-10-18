@@ -155,9 +155,10 @@ local universe `yoke update` updates the CLI and local server together; a team
 server's admin upgrades it; hosted servers update with each hosted release.
 
 Install, reinstall and upgrade restart the machine's hook evaluator and check
-that it answers before reporting readiness. If that check fails, inspect the
-named log and run `yoke hook resident restart`, then retry the installer.
-Hook timing details stay in the diagnostics log, outside harness chat.
+that it answers; on failure, read the named log, run `yoke hook resident
+restart` and retry. Hook timing stays in the diagnostics log. Setup also
+writes Yoke's machine-wide hooks into each installed harness's user config,
+so sessions outside a project register; inside one, the project's hooks run.
 
 The installed CLI follows your active connection (`active_env`, set by
 `yoke env use`) automatically, whether that is upyoke.com, a self-hosted server

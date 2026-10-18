@@ -4,6 +4,11 @@ Bind only under the paired seat/doc; workers never acquire/release either half.
 
 ## Quiet is not absent
 
+Before parking on another item's merge or delivery, record the dependency
+edge and require success; follow [the delivery wait recipe](../../../../.yoke/docs/agents/rules/delivery.md#wait-on-another-items-merge-or-delivery).
+A cycle refusal requires resolving the order before parking. The item's own
+release wait needs no self-edge.
+
 Intentional external wait stamps parked with concrete reason. Reads, heartbeat,
 ack, failed wake and tool calls do not unpark. Accepted UserPromptSubmit clears
 prior park; later re-park advances turn_posture_at so a delayed earlier prompt

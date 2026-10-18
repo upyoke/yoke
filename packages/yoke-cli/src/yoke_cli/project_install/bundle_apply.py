@@ -266,16 +266,11 @@ def apply_bundle(
     )
     manifest_file = files_layer.write_manifest(repo_root, manifest)
     install_recovery.finish(repo_root, hashes, clear_pending=not retain_pending)
-    # Machine-local Cursor stop/sessionEnd backstop: project hooks cannot
-    # spawn when Cursor's project cwd is a deleted linked worktree.
-    try:
-        from yoke_harness.hooks.cursor_lifecycle_hooks import (
-            ensure_user_lifecycle_hooks,
-        )
+    # Install and refresh converge the same machine-wide hooks setup writes.
+    from yoke_harness.hooks.machine_hooks import ensure_machine_hooks_reported
 
-        ensure_user_lifecycle_hooks()
-    except Exception:  # noqa: BLE001 — install must not fail open on home hooks
-        pass
+    machine_hooks, machine_hook_failures = ensure_machine_hooks_reported()
+    warnings.extend(machine_hook_failures)
     return {
         "operation": operation,
         MODE_KEY: MODE_COPY,
@@ -314,6 +309,7 @@ def apply_bundle(
         "hooks_added": hooks_added,
         "hooks_removed": hooks_removed,
         hook_trust_report.REPORT_KEY: hook_trust,
+        "machine_hooks": machine_hooks,
         "git_hooks_installed_or_updated": (git_hooks.installed + git_hooks.updated),
         "git_hook_actions": git_hooks.actions,
         "worktrees_ignore": worktrees_ignore,

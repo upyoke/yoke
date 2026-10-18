@@ -107,11 +107,9 @@ def evaluate_hook_event(
     stdin_data, launch_projection = stamp_hook_input(
         payload, stdin_data, executor, event_name
     )
-    from yoke_harness.hooks.cursor_lifecycle_hooks import (
-        ensure_user_lifecycle_hooks_for_executor,
-    )
+    from yoke_harness.hooks.machine_hooks import ensure_machine_hooks_for_executor
 
-    ensure_user_lifecycle_hooks_for_executor(executor)
+    ensure_machine_hooks_for_executor(executor, hook=event_name)
     local = evaluate_local_subset(
         event_name,
         stdin_data,
@@ -165,11 +163,9 @@ def relay_hook_event(
     stdin_data, launch_projection = stamp_hook_input(
         payload, stdin_data, executor, event_name
     )
-    from yoke_harness.hooks.cursor_lifecycle_hooks import (
-        ensure_user_lifecycle_hooks_for_executor,
-    )
+    from yoke_harness.hooks.machine_hooks import ensure_machine_hooks_for_executor
 
-    ensure_user_lifecycle_hooks_for_executor(executor)
+    ensure_machine_hooks_for_executor(executor, hook=event_name)
     _codex_capture(event_name, original_stdin, executor)
 
     local = evaluate_local_subset(

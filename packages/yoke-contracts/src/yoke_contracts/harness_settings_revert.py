@@ -10,10 +10,9 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from yoke_contracts import harness_settings_ledger as ledger
-from yoke_contracts.hook_runner.config_owner import is_cursor_lifecycle_entry
 from yoke_contracts.codex_config_posture import (
     remove_top_level_key,
     remove_trust_table,
@@ -132,40 +131,6 @@ def _mutate_codex(target, planner):
         raise ValueError(str(exc)) from exc
 
 
-def remove_cursor_user_hooks(*, hooks_path: Optional[Path] = None) -> str:
-    """Strip Yoke's entries from ``~/.cursor/hooks.json``; say what happened.
-
-    Operator hooks stay. A file left holding nothing but empty hook lists is
-    deleted, since Yoke created it. Unlike the installer this raises: uninstall
-    must report a file it could not clean rather than claim it did.
-    """
-    path = hooks_path or (Path.home() / ".cursor" / "hooks.json")
-    if not path.is_file():
-        return f"no {path}"
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    hooks = payload.get("hooks") if isinstance(payload, dict) else None
-    if not isinstance(hooks, dict):
-        return f"no Yoke hooks in {path}"
-    removed = 0
-    for event in list(hooks):
-        entries = hooks[event]
-        if not isinstance(entries, list):
-            continue
-        kept = [entry for entry in entries if not is_cursor_lifecycle_entry(entry)]
-        removed += len(entries) - len(kept)
-        if kept:
-            hooks[event] = kept
-        else:
-            del hooks[event]
-    if not removed:
-        return f"no Yoke hooks in {path}"
-    if not hooks and set(payload) <= {"hooks", "version"}:
-        path.unlink()
-        return f"deleted {path}"
-    _replace(path, json.dumps(payload, indent=2, sort_keys=True) + "\n")
-    return f"removed {removed} Yoke hook entries from {path}"
-
-
 def _left_alone(target: Path, dotted: str, current: Any) -> str:
     return f"left your setting in place: {dotted} = {current!r} in {target}"
 
@@ -176,4 +141,4 @@ def _replace(target: Path, text: str) -> None:
     os.replace(tmp, target)
 
 
-__all__ = ["remove_cursor_user_hooks", "revert_recorded", "revert_entry"]
+__all__ = ["revert_recorded", "revert_entry"]

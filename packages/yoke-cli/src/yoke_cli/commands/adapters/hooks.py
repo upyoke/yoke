@@ -129,7 +129,9 @@ def hook_evaluate(args: List[str]) -> int:
             stdin_data,
         )
     ):
-        stdout = cursor_allow_stdout(parsed.event_name)
+        # Claude and Codex read empty stdout with exit 0 as a no-op allow;
+        # Cursor's gated events need an explicit allow reply.
+        stdout = cursor_allow_stdout(parsed.event_name) if cursor_invocation else ""
         if stdout:
             sys.stdout.write(stdout)
         return 0
