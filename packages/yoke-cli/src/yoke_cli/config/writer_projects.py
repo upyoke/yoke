@@ -59,7 +59,7 @@ def register_project(
 
     import_project_connections(payload)
     connection = contract.project_connection(payload)
-    projects = payload["connection_projects"].get(connection)
+    projects = contract.projects_for_connection(payload)
     displaced = contract.existing_checkout_for_slot(
         projects,
         checkout=str(root),
@@ -87,7 +87,12 @@ def register_project(
         ),
         {},
     )
-    return {"checkout": str(root), "entry": written, "config": str(cfg_path)}
+    return {
+        "connection": connection,
+        "checkout": str(root),
+        "entry": written,
+        "config": str(cfg_path),
+    }
 
 
 __all__ = ["register_project"]

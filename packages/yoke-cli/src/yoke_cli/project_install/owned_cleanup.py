@@ -95,7 +95,7 @@ def _cleanup(root: Path, manifest: dict, *, path=None) -> dict:
     exact = [
         entry
         for entry, normalized in zip(
-            payload["connection_projects"][contract.project_connection(payload)],
+            groups.get(connection, []),
             projects,
             strict=True,
         )
@@ -109,7 +109,7 @@ def _cleanup(root: Path, manifest: dict, *, path=None) -> dict:
         registration = _result("preserved", "registration_ownership_unknown")
     elif (
         len(exact) != 1
-        or record.get("connection") != contract.project_connection(payload)
+        or record.get("connection") != connection
         or exact[0] != record.get("entry")
         or exact[0].get("project_id") != manifest.get("project_id")
     ):
@@ -117,9 +117,7 @@ def _cleanup(root: Path, manifest: dict, *, path=None) -> dict:
     elif any(row["status"] in {"failed", "preserved"} for row in trust):
         registration = _result("preserved", "trust_cleanup_unresolved")
     else:
-        payload["connection_projects"][contract.project_connection(payload)].remove(
-            exact[0]
-        )
+        groups[connection].remove(exact[0])
         try:
             errors = [
                 issue.code

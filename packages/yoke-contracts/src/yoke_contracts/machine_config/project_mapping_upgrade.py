@@ -1,13 +1,14 @@
 """Import the retired flat map once during an explicit config write."""
 
 from yoke_contracts.machine_config.schema_connections import configured_active_env
+from yoke_contracts.machine_config.schema_projects import normalize_projects
 
 
 def import_project_connections(payload: dict) -> None:
     """Preserve the old reader's snapshot; new readers never fall back to it."""
     if "connection_projects" in payload:
         return
-    entries = payload.get("projects") or []
+    entries = normalize_projects(payload.get("projects"))
     if not entries:
         payload["connection_projects"] = {}
         return

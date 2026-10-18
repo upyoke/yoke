@@ -64,7 +64,8 @@ def test_register_preserves_another_universe_and_reassigns_only_selected_slot(
         repo.mkdir()
     for env, repo in zip(("prod", "other"), repos):
         monkeypatch.setenv("YOKE_ENV", env)
-        writer.register_project(repo, 1, path=config)
+        receipt = writer.register_project(repo, 1, path=config)
+        assert receipt["connection"] == env
     with pytest.raises(writer.MachineConfigWriteError, match="already routed"):
         writer.register_project(repos[2], 1, path=config)
     writer.register_project(repos[2], 1, reassign=True, path=config)
@@ -88,11 +89,8 @@ def test_reads_never_write_and_explicit_registration_imports_legacy_once(
     original = config.read_bytes()
     runtime.load_config(config)
     assert config.read_bytes() == original
-    with pytest.raises(
-        contract.MachineConfigContractError,
-        match="project_connection_upgrade_required.*project register",
-    ):
-        runtime.project_id(tmp_path, config)
+    assert runtime.project_id(tmp_path, config) is None
+    assert config.read_bytes() == original
     other = tmp_path / "other"
     other.mkdir()
     payload["connections"]["other"] = payload["connections"]["prod"]
@@ -123,3 +121,46 @@ def test_duplicate_project_refuses_with_recovery():
         match="project_id_duplicate.*repair projects",
     ):
         contract.normalize_projects(projects)
+
+
+def test_same_checkout_can_name_different_projects_per_connection(
+    tmp_path, monkeypatch
+):
+    payload = {
+        "active_env": "first",
+        "connection_projects": {
+            "first": [{"checkout": str(tmp_path), "project_id": 1}],
+            "second": [{"checkout": str(tmp_path), "project_id": 2}],
+        },
+    }
+    for env, expected in (("first", 1), ("second", 2)):
+        monkeypatch.setenv("YOKE_ENV", env)
+        assert contract.project_entry_for_checkout(payload, tmp_path) == {
+            "project_id": expected
+        }
+
+
+def test_uninstall_preserves_checkout_used_by_another_connection(tmp_path, monkeypatch):
+    from yoke_cli.project_install import owned_cleanup
+
+    config = tmp_path / "config.json"
+    payload = contract.canonical_example_payload()
+    payload["connection_projects"] = {
+        "prod": [{"checkout": str(tmp_path), "project_id": 1}],
+        "stage": [{"checkout": str(tmp_path), "project_id": 2}],
+    }
+    config.write_text(json.dumps(payload))
+    select_machine_config_file(monkeypatch, config)
+    monkeypatch.setenv("YOKE_ENV", "prod")
+    reasons = []
+    monkeypatch.setattr(
+        owned_cleanup,
+        "revert_folder_trust",
+        lambda root, exclusive_reason: reasons.append(exclusive_reason) or [],
+    )
+    before = config.read_bytes()
+    result = owned_cleanup.cleanup(tmp_path, {"project_id": 1}, config)
+    assert reasons == ["checkout_shared_with_other_connection"]
+    assert result["registration"]["status"] == "preserved"
+    assert not result["complete"]
+    assert config.read_bytes() == before

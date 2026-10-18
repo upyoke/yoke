@@ -247,10 +247,12 @@ def _register_checkouts(config: Path, repos: list[Path], tmp_path: Path) -> None
                     },
                 }
             },
-            "projects": [
-                {"checkout": str(repo), "project_id": project_id}
-                for project_id, repo in enumerate(repos, start=1)
-            ],
+            "connection_projects": {
+                "stage": [
+                    {"checkout": str(repo), "project_id": project_id}
+                    for project_id, repo in enumerate(repos, start=1)
+                ]
+            },
         }
     )
     config.write_text(json.dumps(payload), encoding="utf-8")

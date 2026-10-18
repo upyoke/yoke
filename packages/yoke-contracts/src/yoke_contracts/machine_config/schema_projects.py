@@ -66,20 +66,14 @@ def project_connection(payload: Mapping[str, Any]) -> str:
 
 def projects_for_connection(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
     """Filter before interpreting a universe-local numeric project id."""
-    groups = payload.get("connection_projects")
-    if groups is None:
-        if payload.get("projects"):
-            raise MachineConfigContractError(
-                "project_connection_upgrade_required: run yoke project register "
-                "CHECKOUT --project-id ID to import the configured default connection's "
-                "checkout map, then register other connections separately"
-            )
-        return []
+    groups = payload.get("connection_projects", {})
     if not isinstance(groups, Mapping):
         raise MachineConfigContractError(
             "connection_projects_invalid: set connection_projects to an object "
             "mapping connection labels to checkout entries, then retry"
         )
+    if not groups:
+        return []
     return normalize_projects(groups.get(project_connection(payload)))
 
 

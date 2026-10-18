@@ -175,7 +175,9 @@ def test_helper_cleanup_retains_and_reports_lookalike_user_command(
 ) -> None:
     repo, config, _credential = _configured_repo(tmp_path, monkeypatch)
     payload = json.loads(config.read_text(encoding="utf-8"))
-    payload["projects"] = [{"checkout": str(repo), "project_id": 1}]
+    payload["connection_projects"] = {
+        "local": [{"checkout": str(repo), "project_id": 1}]
+    }
     config.write_text(json.dumps(payload), encoding="utf-8")
     key = github_git_credentials.GITHUB_CREDENTIAL_HELPER_KEY
     lookalike = (
