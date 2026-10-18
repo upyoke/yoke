@@ -212,8 +212,8 @@ current, stale with plan_diverging_fields, orphaned, or unreadable.
 """
 
 USAGE_BY_FUNCTION_ID = {
-    "qa.method.list": "yoke qa method list --project P",
-    "qa.method.get": "yoke qa method get METHOD --project P",
+    "qa.method.list": "yoke qa method list [--project P]",
+    "qa.method.get": "yoke qa method get METHOD [--project P]",
     "qa.project_method.register": (
         "yoke qa project-method register --project P --slug SLUG --name NAME "
         "--description TEXT --runner worktree_run "

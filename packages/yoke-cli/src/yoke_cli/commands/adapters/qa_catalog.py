@@ -34,9 +34,11 @@ from yoke_cli.commands.adapters.qa_catalog_usage import (
 )
 
 
-def _parser(prog: str, usage: str) -> argparse.ArgumentParser:
+def _parser(
+    prog: str, usage: str, *, project_required: bool = True
+) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog=prog, description=usage)
-    parser.add_argument("--project", required=True, help="Project slug or id.")
+    parser.add_argument("--project", required=project_required, help="slug or id")
     add_session_arg(parser)
     add_json_arg(parser)
     return parser
@@ -50,8 +52,9 @@ def _global(
     function_id: str,
     configure: Callable[[argparse.ArgumentParser], None] | None = None,
     payload: Callable[[argparse.Namespace], dict[str, Any]],
+    project_required: bool = True,
 ) -> int:
-    parser = _parser(prog, usage)
+    parser = _parser(prog, usage, project_required=project_required)
     if configure is not None:
         configure(parser)
     parsed = parse_or_usage_error(parser, args, usage)
@@ -69,35 +72,37 @@ def _global(
         return usage_error(
             "qa_plan_source_revision_required: sync needs a source export document or --source-revision FULL_SHA"
         )
+    if parsed.project:
+        built_payload = {"project": parsed.project, **built_payload}
     return dispatch_and_emit(
         function_id=function_id,
         target=TargetRef(kind="global"),
-        payload={"project": parsed.project, **built_payload},
+        payload=built_payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
     )
 
 
 def qa_method_list(args: List[str]) -> int:
-    usage = "yoke qa method list --project P [--json]"
     return _global(
         args,
         prog="yoke qa method list",
-        usage=usage,
+        usage="yoke qa method list [--project P] [--json]",
         function_id="qa.method.list",
         payload=lambda _args: {},
+        project_required=False,
     )
 
 
 def qa_method_get(args: List[str]) -> int:
-    usage = "yoke qa method get METHOD --project P [--json]"
     return _global(
         args,
         prog="yoke qa method get",
-        usage=usage,
+        usage="yoke qa method get METHOD [--project P] [--json]",
         function_id="qa.method.get",
         configure=lambda parser: parser.add_argument("method_id"),
         payload=lambda parsed: {"method_id": parsed.method_id},
+        project_required=False,
     )
 
 
