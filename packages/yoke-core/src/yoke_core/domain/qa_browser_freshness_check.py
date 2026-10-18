@@ -169,7 +169,7 @@ def _latest_browser_run(conn, requirement_id: int):
     run = latest_executions(conn, [requirement_id]).get(requirement_id)
     if (
         run is None
-        or run["performed_by"] == "agent"
+        or run["performed_by"] != "browser_substrate"
         or not has_current_passing_run(conn, requirement_id)
     ):
         return None

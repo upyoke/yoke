@@ -56,7 +56,7 @@ def lane(tmp_path, monkeypatch):
     return repo, shipped
 
 
-def _proof(conn, lane, *, captured_sha=None):
+def _proof(conn, lane, *, captured_sha=None, performed_by="browser_substrate"):
     repo, shipped = lane
     insert_item(conn, id=ITEM_ID, workflow_id="dash", deployment_flow=FLOW)
     insert_item_worktree(conn, item_id=ITEM_ID, branch="item-lane", path=str(repo))
@@ -69,8 +69,12 @@ def _proof(conn, lane, *, captured_sha=None):
         qa_requirement_id=requirement,
         verdict="pass",
         qa_kind="plan_case",
-        performed_by="browser_substrate",
-        raw_result=json.dumps({"code_identity": {"sha": captured_sha or shipped}}),
+        performed_by=performed_by,
+        raw_result=(
+            json.dumps({"code_identity": {"sha": captured_sha or shipped}})
+            if performed_by == "browser_substrate"
+            else "{}"
+        ),
     )
     screenshot = repo / "capture.png"
     screenshot.write_bytes(b"PNG")
@@ -176,5 +180,12 @@ def test_checkout_free_completion_uses_delivered_identity(test_db, lane, monkeyp
     # No lane commit, CI identity or merge receipt: delivery is the only revision.
     test_db.commit()
     monkeypatch.setattr("yoke_core.domain.qa_gates._resolve_repo_root", lambda: None)
+    result = check_done_gate(GateTarget(item_id=ITEM_ID), db_path)
+    assert result.passed, result.errors
+
+
+def test_command_proof_is_not_reclassified_as_a_browser_capture(test_db, lane):
+    db_path = _proof(test_db, lane, performed_by="worktree_run")
+    _completion(test_db, lane[1])
     result = check_done_gate(GateTarget(item_id=ITEM_ID), db_path)
     assert result.passed, result.errors
