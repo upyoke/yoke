@@ -73,7 +73,7 @@ yoke qa run add \
 
 # Record evidence for a method-less acceptance requirement at an explicit commit.
 # qa_kind must match the requirement; raw-result holds the actual evidence.
-yoke qa run add --requirement-id N --performed-by agent \
+yoke qa run add --requirement-id 1 --performed-by agent \
  --qa-kind ac_verification --verdict pass --head-sha FULL_COMMIT_SHA \
  --raw-result 'Evidence and result for every acceptance criterion'
 
