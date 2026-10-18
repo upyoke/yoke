@@ -26,6 +26,8 @@ because an unreadable release gate is not a passing one.
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_overview_timing import overview_phase
+
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -205,6 +207,7 @@ def current_item_qa(
 
 @presentation_operation
 @member_presentation
+@overview_phase("qa_acceptance")
 def member_qa_standings(
     conn: Any, subjects: list[tuple[str, int, str]]
 ) -> dict[tuple[str, int], dict[str, Any]]:
