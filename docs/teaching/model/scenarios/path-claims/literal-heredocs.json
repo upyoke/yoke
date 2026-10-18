@@ -1,0 +1,12 @@
+{
+ "id": "literal-heredocs",
+ "title": "Write literal input without parsing its prose as shell",
+ "status": "observed",
+ "audience": "agent",
+ "when": "A shell command feeds prose or Python through a quoted heredoc delimiter.",
+ "need": "Quote the delimiter for literal input. Path-claim mutation parsing skips that input while retaining output redirects, tee destinations and commands after the terminator. Unquoted bodies retain conservative parsing; executable payload guards keep their own checks.",
+ "disclosure": "current cue",
+ "surface": "Path claim model reference and shared Bash guard",
+ "review": "Candidate source regressions cover apostrophes, regex operators, single and double quotes, tab-stripped delimiters, multiple inputs, later commands and claimed versus uncovered redirects. Deployed proof remains pending.",
+ "sources": ["docs/public/sessions/model/path-claims.md", "packages/yoke-core/src/yoke_core/domain/path_claim_bash_parser.py", "packages/yoke-core/src/yoke_core/domain/shell_expansion_scan.py", "runtime/api/domain/test_path_claim_bash_parser_heredocs.py"]
+}
