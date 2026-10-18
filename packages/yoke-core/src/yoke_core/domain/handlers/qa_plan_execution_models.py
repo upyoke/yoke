@@ -63,6 +63,7 @@ class PlanExecutionStateResponse(BaseModel):
 
 
 class PlanExecutionCheckinResponse(BaseModel):
+    abort_requested: bool = False
     execution_id: str
     state: str
     cursor_ordinal: int

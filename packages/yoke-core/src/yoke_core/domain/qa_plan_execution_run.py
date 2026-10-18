@@ -82,6 +82,10 @@ def execute_begun_plan(
         )
         if checked.get("delivery"):
             deliveries.append(checked["delivery"])
+        if checked.get("abort_requested"):
+            raise QaPlanExecutionError(
+                "qa_host_abort_requested: stop this walk; inspect restore evidence and retry abort"
+            )
 
     def _record(ordinal, normalized):
         _call_plan_function(
@@ -196,8 +200,7 @@ def execute_begun_plan(
                 raise
             raised = True
             if member_removed(closed):
-                # The run removed this member mid-case; the case's error is
-                # that interruption, not a failure of its host.
+                # Membership removal interrupted the case.
                 results.append(
                     {
                         "requirement_id": requirement_id,
@@ -219,16 +222,12 @@ def execute_begun_plan(
             break
         results.append(normalized)
         state = _aggregate_state(state, normalized)
-        # A failed case's inheriting followers still pass through here: the
-        # server records each one blocked without touching the machine, and
-        # the next named-baseline or as-is chain runs from its own reset.
+        # Record inheriting followers as blocked; the next chain resets itself.
         if case_failed(normalized):
             failed_cases.append(requirement_id)
         if _aggregate_state("passed", normalized) == "waiting":
             if begun.host_free_cases_ahead:
-                # Queued for a host: run the host-free automatic cases first,
-                # then park. Their failures are recorded, not a reason to
-                # leave the line.
+                # Run host-free cases before parking, retaining the queue place.
                 ran, skipped = run_host_free_cases_while_waiting(
                     requirements=requirements,
                     after_ordinal=ordinal,

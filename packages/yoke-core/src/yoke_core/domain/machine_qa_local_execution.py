@@ -46,7 +46,11 @@ from yoke_core.domain.machine_qa_fixture_lifecycle import (
     require_runnable_recipe,
 )
 from yoke_core.domain.machine_qa_mission_scratch import create_mission_scratch
-from yoke_core.domain.machine_qa_phase_heartbeat import heartbeat_during
+from yoke_core.domain.machine_qa_phase_heartbeat import (
+    MachineQaAborted,
+    check_abort,
+    heartbeat_during,
+)
 from yoke_core.domain.machine_qa_result_safety import (
     redact_machine_qa_value,
 )
@@ -95,50 +99,18 @@ def _execution(
     )
 
 
-class _CoreHostOperations:
-    """Adapt the full core execution runtime to the host-operation contract."""
-
-    def __init__(self, execution: MachineQaLease) -> None:
-        self._execution = execution
-        self.secret_values = tuple(execution.material.secrets.values())
-
-    def capture_screenshot(self) -> Any:
-        return self._execution.control.capture_screenshot()
-
-    def check_connection(self) -> Any:
-        return self._execution.control.check_connection()
-
-    def check_terminal_bridge(self) -> Any:
-        return self._execution.control.check_terminal_bridge()
-
-    def diagnose_terminal_bridge(self) -> Any:
-        return self._execution.control.diagnose_terminal_bridge()
-
-    def reach_baseline(self, name: str) -> Any:
-        return self._execution.reach_baseline(name)
-
-    def capture_golden_baseline(
-        self,
-        destination: str,
-        *,
-        probes_document: str | None = None,
-    ) -> Any:
-        return self._execution.control.capture_golden_baseline(
-            destination,
-            probes_document=probes_document,
-        )
-
-
 def execute_host_operation_contract(
     raw_contract: dict[str, Any],
     *,
     probes_document: str | None = None,
 ) -> LocalHostControlSubmission:
     """Run one operator-run operation through the core execution runtime."""
+    from yoke_core.domain.machine_qa_local_operations import CoreHostOperations
+
     return execute_client_host_operation_contract(
         raw_contract,
         probes_document=probes_document,
-        operations_factory=lambda contract: _CoreHostOperations(_execution(contract)),
+        operations_factory=lambda contract: CoreHostOperations(_execution(contract)),
     )
 
 
@@ -178,6 +150,10 @@ def execute_machine_case_contract(
     if contract.operation not in {"case", "plan_case"}:
         raise ValueError("expected a Machine QA case contract")
     require_runnable_recipe(contract.cases[0])
+    callback = progress_callback
+    progress_callback = (
+        (lambda: check_abort(callback)) if callback is not None else None
+    )
     try:
         execution = (
             _execution(contract)
@@ -193,39 +169,58 @@ def execute_machine_case_contract(
     secret_values = tuple(execution.material.secrets.values())
     started = time.monotonic()
     reset = None
-    if contract.baselines:
-        with heartbeat_during("starting_state_reset", progress_callback):
-            reset = baseline_receipt(
-                contract.baselines[0],
-                execution.reach_baseline,
-                failure_code=STARTING_STATE_RESET_FAILED,
-            )
     from yoke_core.domain.machine_qa_continuity import continuity_failure
 
+    continuity_succeeded = False
     try:
+        if contract.baselines:
+            with heartbeat_during("starting_state_reset", progress_callback):
+                reset = baseline_receipt(
+                    contract.baselines[0],
+                    execution.reach_baseline,
+                    failure_code=STARTING_STATE_RESET_FAILED,
+                )
+        check_abort(progress_callback)
         continuity = continuity_failure(execution, case)
+        continuity_succeeded = continuity is None
         if continuity is not None:
             result = continuity
         elif reset is not None and not reset["ok"]:
             result = _unstarted_reset_failure(case, machine, reset)
         else:
             result = execute_case_with_fixture_lifecycle(execution, case)
+        check_abort(progress_callback)
+    except MachineQaAborted as exc:
+        from yoke_core.domain.machine_qa_case_result import MachineCaseResult
+
+        result = MachineCaseResult(
+            case_outcome="failed",
+            verdict="fail",
+            error_code="qa_host_abort_requested",
+            evidence={
+                "runner_id": "host_control",
+                "machine": machine,
+                "method_id": case.method_id,
+                "baseline": contract.baselines[0] if contract.baselines else None,
+                "abort": {"reason": str(exc), "host_work_stopped": True},
+            },
+        )
     except BaseException as exc:
         if communication_unknown(exc):
             raise
-        with heartbeat_during(STARTING_STATE_RESTORE, progress_callback):
+        with heartbeat_during(STARTING_STATE_RESTORE, callback, propagate_abort=False):
             restore = restore_chain_start(
                 case, execution.reach_baseline, machine=machine
             )
         exc.add_note(restore_summary(restore))
         raise
     evidence = dict(result.evidence)
-    if "continuity_fingerprint" in case.method_config and continuity is None:
+    if "continuity_fingerprint" in case.method_config and continuity_succeeded:
         evidence["continuity_fingerprint"] = {"ok": True}
     if restore_due(
         case, result.case_outcome, error_code=result.error_code, verdict=result.verdict
     ):
-        with heartbeat_during(STARTING_STATE_RESTORE, progress_callback):
+        with heartbeat_during(STARTING_STATE_RESTORE, callback, propagate_abort=False):
             evidence[STARTING_STATE_RESTORE] = restore_chain_start(
                 case, execution.reach_baseline, machine=machine
             )

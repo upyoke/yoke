@@ -154,6 +154,8 @@ def run_terminal_app_recipe(
 
         time.sleep(float(config["start_delay"]))
         for action in config["actions"]:
+            if progress_callback is not None:
+                progress_callback()
             if time.monotonic() - started > float(config["max_wall_seconds"]):
                 return _failure(
                     "terminal_recipe_timed_out",

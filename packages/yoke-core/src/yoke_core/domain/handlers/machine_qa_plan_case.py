@@ -207,20 +207,6 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
-def _normalized_result(
-    case: dict[str, Any],
-    result: dict[str, Any],
-) -> dict[str, Any]:
-    return {
-        "plan_id": (int(case["plan_id"]) if case.get("plan_id") is not None else None),
-        "case_key": str(case["case_key"]),
-        "case_position": int(case["case_position"]),
-        "baseline_position": int(case["baseline_position"]),
-        "host_baseline": case.get("host_baseline"),
-        **result,
-    }
-
-
 def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
     target = target_plan_subject(request, "test_machine.plan_case.submit")
     if isinstance(target, HandlerOutcome):
@@ -309,7 +295,9 @@ def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
                     contract_digest=parsed.contract_digest,
                     artifact_rollback=artifact_rollback,
                 )
-        normalized = _normalized_result(case, result)
+        from yoke_core.domain.machine_qa_plan_case_snapshot import normalized_result
+
+        normalized = normalized_result(case, result)
         advance_plan_execution(
             conn,
             execution,
@@ -318,7 +306,10 @@ def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
             result=normalized,
             commit=False,
         )
-        if lease.is_active:
+        from yoke_core.domain.qa_plan_execution_abort_state import settle_host_abort
+
+        settle_host_abort(conn, execution)
+        if lease.is_active and execution["state"] != "aborted":
             heartbeat(commit_deferred_connection(conn), lease.id)
         conn.commit()
         artifact_rollback.preserve()
