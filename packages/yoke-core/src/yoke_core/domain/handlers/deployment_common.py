@@ -138,7 +138,7 @@ class DeploymentRunStartForItemResponse(BaseModel):
 
 
 class DeploymentRunListRequest(BaseModel):
-    summary: bool = False
+    summary: Optional[bool] = None
     cursor: Optional[str] = None
     project: Optional[str] = None
     status: Optional[str] = None
