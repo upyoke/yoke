@@ -116,6 +116,10 @@ a live item row whose case left the plan refuses `qa_plan_rows_orphaned`
 before writing and names the rematerialize that retires it.
 rematerialize refreshes amended rows, retires removed cases, and reports all
 plan_ids reached, including already-answered plans (refresh without new rows).
+A delivery answers a plan only when each current case variant has a run copy
+for the member that passed or was waived; a retracted copy (withdrawn from its
+run, as when the member left it) or a superseded one answers nothing, so a
+plan whose only copies were retracted stays owed and materializes again.
 Item refresh skips shared copies on runs the item no longer belongs to;
 remaining members retain their shared rows and live executions. `--plan`
 filters deployment refresh only; remove it when using `--item`. A lookup
