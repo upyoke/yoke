@@ -25,7 +25,7 @@ def atomic_text(path: Path, content: str) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         descriptor, name = tempfile.mkstemp(prefix="." + path.name, dir=path.parent)
-        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as handle:
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
@@ -154,24 +154,29 @@ def plan(root: Path, bundle: dict[str, Any], prior: dict[str, Any]) -> dict[str,
                 missing.append(rel)
             continue
         try:
-            digest = sha256_text(target.read_bytes().decode("utf-8"))
+            content = target.read_bytes().decode("utf-8")
         except (OSError, UnicodeError) as exc:
             raise ProjectInstallError(
                 f"install_drift_unreadable: {rel} cannot be compared. "
                 "Restore its recorded UTF-8 content, then rerun project refresh."
             ) from exc
-        if digest == baseline:
+        from yoke_cli.project_install.recovery_checkout import text_digests
+
+        digests = text_digests(content)
+        if baseline in digests:
             continue
         changed.append(rel)
-        if digest in (incoming.get(rel), interrupted.get(rel)):
-            previous[rel] = digest
+        installer_digests = {incoming.get(rel), interrupted.get(rel)}
+        matched = next((digest for digest in digests if digest in installer_digests), None)
+        if matched is not None:
+            previous[rel] = matched
             continue
         if proof is None:
             proof = GitOwnership(root)
-        if proof.proves(rel, digest) or archives.proves(
+        if any(proof.proves(rel, digest) for digest in digests) or archives.proves(
             rel, target.read_text(encoding="utf-8")
         ):
-            previous[rel] = digest
+            previous[rel] = sha256_text(content)
             continue
         raise ProjectInstallError(
             f"install_drift_local_edits: {rel} differs from the install record "
@@ -249,7 +254,7 @@ def finish(root: Path, hashes: dict[str, str], *, clear_pending: bool = True) ->
 
 def recoverable_checkout(root: Path) -> bool:
     """Only exact planned states bypass the ordinary dirty gate."""
-    from yoke_cli.project_install.recovery_checkout import state
+    from yoke_cli.project_install.recovery_checkout import states
 
     expected = pending_record(root).get("checkout", {})
     if not expected:
@@ -261,7 +266,7 @@ def recoverable_checkout(root: Path) -> bool:
         if rel == PENDING_REL:
             continue
         try:
-            if state(root / rel) not in expected.get(rel, []):
+            if states(root / rel).isdisjoint(expected.get(rel, [])):
                 return False
         except (OSError, UnicodeError):
             return False

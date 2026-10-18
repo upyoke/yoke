@@ -25,11 +25,10 @@ Trusting the stamp is not the whole answer, which is why
 session id belonging to somebody else. That check reads the authoritative
 ``harness_sessions`` row and requires it to belong to the authenticated
 actor, matching how completed client-wall reports are authorized. It is
-applied on the batch route, whose refusal costs one disposable telemetry
-batch. The evaluate route keeps its existing project authorization
-instead: a false refusal there blocks a live tool call on every machine at
-once, and this module's job is to end one such fleet-wide refusal, not to
-open a second one.
+applied by shared scope authorization before the evaluate route dispatches
+and by the batch route before observations are recorded. Initial unknown
+sessions remain eligible for registration; machine credentials and scope
+are validated separately by the shared authorizer.
 """
 
 from __future__ import annotations

@@ -6,12 +6,16 @@
 // an Inbox release request. Everything on it is the run row the paged
 // history read serves plus the QA activity recorded against the run.
 
-import { appendCarriedItemHeading } from "./universe_carried_item_titles.js";
+import {
+  appendCarriedItemHeading,
+  loadMissingItemTitles,
+} from "./universe_carried_item_titles.js";
 import { appendOutsideCommits } from "./universe_outside_commits.js";
 import { createDecisionResolver } from "./inbox_rows.js";
 import { deploymentRunsHref } from "./universe_navigation.js";
 import { appendSteps } from "./universe_run_verification.js";
 import { runQaSection } from "./universe_run_qa.js";
+import { collectRunSharing, sharingFor } from "./run_qa_sharing.js";
 import { itemQaSubjects } from "./universe_run_removed_members.js";
 import { carriedItems } from "./universe_work_cards.js";
 import {
@@ -135,6 +139,7 @@ function decisionCard(context, row, project, checks, onAct, itemFacts, onItemDec
   }
   const qa = runQaSection(context, row, checks, onAct, {
     drawnRequestIds: drawnRequests,
+    sharing: sharingFor(itemFacts, row.id || row.run_id),
   });
   appendOutsideCommits(documentNode, card, row);
   if (qa) card.appendChild(qa);
@@ -181,13 +186,21 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
     let activity;
     // The run's own checks and what its carried items proved on their own
     // are two reads about one page; neither waits on the other.
-    const carried = loadCarriedItemEvidence(context, itemQaSubjects(row).map(
-      (item) => ({
-        ...item,
-        project_id: item.project_id ?? project.id,
-        run_id: row.id || row.run_id,
-      }),
-    ));
+    const stamp = (item) => ({
+      ...item,
+      project_id: item.project_id ?? project.id,
+      run_id: row.id || row.run_id,
+    });
+    const qa = itemQaSubjects(row).map(stamp);
+    const qaRefs = new Set(qa.map((item) => String(
+      item.public_ref ?? item.ref ?? item.item_ref,
+    )));
+    const carried = Promise.all([
+      loadCarriedItemEvidence(context, qa),
+      loadMissingItemTitles(context, carriedItems(row).filter((item) => (
+        !qaRefs.has(String(item.public_ref ?? item.ref ?? item.item_ref))
+      )).map(stamp)),
+    ]);
     try {
       activity = await callFunction(context.client, "qa.activity.list", {
         project: String(project.id), deployment_run_id: String(runId), limit: 100,
@@ -195,10 +208,19 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
     } catch (error) {
       activity = { status: 0, envelope: { success: false, error: { message: String(error) } } };
     }
+    const [loaded, titles] = await carried;
+    itemFacts = loaded;
     if (activity.status === 200 && activity.envelope.success) {
       checks = activity.envelope.result?.rows || [];
+      // The run's own read names its shared plans even when no member QA was read.
+      itemFacts = { ...loaded, sharing: collectRunSharing(
+        new Map(loaded.sharing), activity.envelope.result?.run_sharing) };
     }
-    itemFacts = await carried;
+    if (titles.size) {
+      const merged = new Map(itemFacts.titles);
+      for (const [key, title] of titles) merged.set(key, title);
+      itemFacts = { ...itemFacts, titles: merged };
+    }
   }
   if (!context.isMounted()) return;
 

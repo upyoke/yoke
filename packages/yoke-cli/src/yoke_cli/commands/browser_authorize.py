@@ -25,7 +25,7 @@ from yoke_cli.commands.browser_sign_in import (
     IDENTITY_FLAG_HELP,
     check_sign_in,
     prepare_browser_runtime,
-    resolve_identity_target,
+    resolve_authorization_target as resolve_identity_target,
 )
 from yoke_cli.config.browser_profile_cookies import (
     SIGN_IN_COOKIE_LIFETIME_DAYS,
@@ -36,7 +36,7 @@ from yoke_cli.config.browser_profile_cookies import (
 
 BROWSER_AUTHORIZE_USAGE = (
     "yoke browser authorize [--project PROJECT] [--identity NAME] [--url URL] "
-    "[--machine NAME] [--declarations-json JSON] [--reset] [--json]"
+    "[--machine NAME] [--desktop-browser] [--declarations-json JSON] [--reset] [--json]"
 )
 
 
@@ -54,6 +54,14 @@ def browser_authorize(args: List[str]) -> int:
     parser.add_argument("--identity", default=None, help=IDENTITY_FLAG_HELP)
     parser.add_argument(
         "--machine", help="Registered Test Machine whose GUI opens the sign-in window."
+    )
+    parser.add_argument(
+        "--desktop-browser",
+        action="store_true",
+        help="Check this host's native Chromium or Safari instead of an automation profile. --machine includes both automatically.",
+    )
+    parser.add_argument(
+        "--include-desktop-browser", action="store_true", help=argparse.SUPPRESS
     )
     parser.add_argument(
         "--declarations-json", default=None, help=DECLARATIONS_FLAG_HELP
@@ -81,6 +89,16 @@ def browser_authorize(args: List[str]) -> int:
 
         return authorize_remote(parsed)
 
+    if parsed.desktop_browser:
+        from yoke_cli.commands.browser_authorize_desktop import authorize_desktop
+
+        return authorize_desktop(parsed)
+
+    if parsed.include_desktop_browser:
+        from yoke_cli.commands.browser_authorize_desktop import authorize_with_desktop
+
+        return authorize_with_desktop(parsed, args)
+
     try:
         from yoke_harness import browser_client, browser_identity_check
         from yoke_harness.browser_human_gate import human_gate
@@ -103,7 +121,9 @@ def browser_authorize(args: List[str]) -> int:
     except (ProjectSlugLookupError, BrowserIdentityError, RuntimeError) as exc:
         return _fail(parsed.json_mode, str(exc), code=2)
     label = f"project {project_key} identity {identity.name}"
-    say = (lambda line: None) if parsed.json_mode else print
+
+    def say(line):
+        print(line, file=sys.stderr if parsed.json_mode else sys.stdout, flush=True)
 
     expired = list(identity.sites)
     if identity.sites and not parsed.reset:
@@ -179,6 +199,7 @@ def browser_authorize(args: List[str]) -> int:
     except (RuntimeError, BrowserIdentityError) as exc:
         return _fail(parsed.json_mode, str(exc), code=1)
 
+    say("Verifying sign-in after the authorization window closed.")
     sites = []
     if identity.sites:
         try:

@@ -1,4 +1,4 @@
-"""Run the actual Platform path consumer against both route rosters.
+"""Run the captured Platform path consumer against historical and current routes.
 
 The fixture is the committed consumer source, with its source identity next
 to it. Platform materializes JS and this JSON together at build time; an
@@ -15,7 +15,7 @@ UI = ROOT / "packages/yoke-core/src/yoke_core/ui"
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
-def test_current_host_consumer_accepts_new_roster_and_old_roster_remains_harmless():
+def test_host_consumer_preserves_surviving_routes_and_refuses_retired_destination():
     source = (FIXTURES / "hosted_dashboard_path_consumer.ts").read_text()
     metadata = json.loads(
         (FIXTURES / "hosted_dashboard_consumer_metadata.json").read_text()
@@ -25,7 +25,12 @@ def test_current_host_consumer_accepts_new_roster_and_old_roster_remains_harmles
     candidate = json.loads((UI / "contracts/dashboard-routes.json").read_text())
     assert candidate["schemaVersion"] == old["schemaVersion"]
     assert candidate["hostedBasePathTemplate"] == old["hostedBasePathTemplate"]
-    assert set(old["views"]).issubset(candidate["views"])
+    assert set(old["views"]) - set(candidate["views"]) == {"actors"}
+    assert set(candidate["views"]) - set(old["views"]) == {
+        "levels",
+        "performance",
+        "team",
+    }
     script = r"""
 const fs = require('node:fs'), vm = require('node:vm'), assert = require('node:assert/strict');
 const ts = require('./node_modules/typescript');
@@ -45,8 +50,10 @@ assert.equal(previous.isHostedDashboardPath(['performance']), false);
 assert.equal(next.isHostedDashboardPath(['performance']), true);
 for (const view of input.old.views) {
   assert.equal(previous.isHostedDashboardPath([view]), true);
-  assert.equal(next.isHostedDashboardPath([view]), true);
+  assert.equal(next.isHostedDashboardPath([view]), view !== 'actors');
 }
+assert.equal(previous.isHostedDashboardPath(['team']), false);
+assert.equal(next.isHostedDashboardPath(['team']), true);
 assert.equal(previous.isHostedDashboardPath(['unknown-destination']), false);
 assert.equal(next.isHostedDashboardPath(['unknown-destination']), false);
 assert.equal(previous.hostedDashboardBasePath('example'), next.hostedDashboardBasePath('example'));

@@ -152,10 +152,14 @@ def admitted_copies_in_flight(
         f"WHERE ({identity}) "
         f"AND NOT {settled_obligation_sql(conn, 'q')} "
         f"AND dr.status IN ({statuses}) "
+        "AND (q.deployment_member_item_id IS NOT NULL OR EXISTS ("
+        "SELECT 1 FROM deployment_run_items m WHERE m.run_id=q.deployment_run_id "
+        f"AND m.item_id={placeholder})) "
         "ORDER BY q.id",
         (
             *identity_params,
             *sorted(ACTIVE_RUN_STATUSES),
+            int(source["item_id"]),
         ),
     )
     copies: list[AdmittedCopy] = []

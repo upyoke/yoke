@@ -176,13 +176,10 @@ def test_every_required_context_reports_on_the_reuse_skip_path() -> None:
 def test_a_matrix_job_carries_the_reuse_verdict_on_its_steps() -> None:
     """Reuse still has to save the work it exists to save.
 
-    Letting the matrix expand is only half the fix. If the suite then ran, a
-    reused tree would pay for the whole thing again, which is the cost the
-    probe exists to avoid — so the steps that ARE that cost stay guarded by
-    the verdict the job itself may no longer carry. The setup steps around
-    them are left running deliberately: they are minutes the reuse path still
-    spends, and buying them back means moving work out of this file, which is
-    already at the authored-file limit.
+    Letting the matrix expand is only half the fix. The steps that ARE the
+    cost — runner setup, interpreter and dependency installs, Postgres, and
+    pytest — stay guarded by the verdict the job itself may no longer carry,
+    so a covered tree spends only the job's own scheduling.
     """
     workflow = _yoke_ci()
     matrix_jobs = [
@@ -195,12 +192,32 @@ def test_a_matrix_job_carries_the_reuse_verdict_on_its_steps() -> None:
     assert matrix_jobs
     for job in matrix_jobs:
         assert job["env"]["SUITE_ALREADY_PROVEN"].endswith("skip_suite }}")
-        guarded = {
-            step["name"]
-            for step in job["steps"]
-            if "SUITE_ALREADY_PROVEN != 'true'" in str(step.get("if"))
-        }
-        assert "Run pytest" in guarded, job.get("name")
+        for step in job["steps"]:
+            assert "SUITE_ALREADY_PROVEN != 'true'" in str(step.get("if")), step["name"]
+
+
+def test_every_ci_event_runs_both_interpreter_legs() -> None:
+    """Pull requests carry the oldest leg so the queue can reuse their proof."""
+    shard = _yoke_ci()["jobs"]["test_shard"]
+    assert "github.event_name" not in json.dumps(shard)
+    assert "RUN_PYTHON_LEG" not in YOKE_CI.read_text(encoding="utf-8")
+
+
+def test_only_a_run_that_executes_the_suite_publishes_coverage_evidence() -> None:
+    """A reusing run publishes nothing, so reuse never renews a proof's age."""
+    job = _yoke_ci()["jobs"]["reuse_coverage"]
+    steps = {step["name"]: step for step in job["steps"]}
+    record = steps["Record the tree and coverage this run executes"]
+    upload = steps["Publish coverage evidence"]
+    for step in (record, upload):
+        assert step["if"] == "steps.probe.outputs.skip_suite != 'true'"
+    assert "yoke_core.tools.yoke_ci_coverage_evidence" in str(record["run"])
+    assert upload["with"]["name"] == "${{ steps.evidence.outputs.artifact_name }}"
+    assert upload["with"]["path"] == "yoke-ci-coverage.json"
+    assert upload["with"]["overwrite"] is True
+    assert int(upload["with"]["retention-days"]) * 24 >= int(
+        _yoke_ci()["env"]["REUSE_WINDOW_HOURS"]
+    )
 
 
 def test_long_work_jobs_use_cancellation_aware_conditions() -> None:
@@ -208,9 +225,8 @@ def test_long_work_jobs_use_cancellation_aware_conditions() -> None:
     contracts_ok = "${{ !cancelled() && needs.repo_contracts.result == 'success' }}"
     assert " ".join(str(jobs["test_shard"]["if"]).split()) == contracts_ok
     assert " ".join(str(jobs["browser_runtime"]["if"]).split()) == contracts_ok
-    assert " ".join(str(jobs["container"]["if"]).split()) == (
-        "${{ !cancelled() && needs.reuse_coverage.outputs.skip_suite != 'true' }}"
-    )
+    # Python coverage never stands in for the commit-versioned image build.
+    assert "if" not in jobs["container"] and "needs" not in jobs["container"]
     steps = {step["name"]: step for step in jobs["test_shard"]["steps"]}
     assert "always()" in str(steps["Upload pytest output"]["if"])
     assert "always()" in str(steps["Stop Postgres"]["if"])

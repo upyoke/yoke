@@ -39,6 +39,20 @@ class AgentShell(AnswerFlow):
 
     opens_browser = False
 
+    def _start_front(self) -> None:
+        _progress("Checking install…")
+        self._checking = self._checking_blocks_quit = True
+        self._finish_install(*self._check_install())
+
+    def _start_connect(self) -> None:
+        # Approval saves machine credentials before Apply. Resume the chosen
+        # destination instead of inserting a new saved-connection question
+        # ahead of the question this setup already printed.
+        if self._answers.value("connect.destination") is not None:
+            self._goto_destination_picker()
+            return
+        super()._start_connect()
+
     # ── flow control ────────────────────────────────────────
 
     def _goto(self, view: _View) -> None:
@@ -70,7 +84,9 @@ class AgentShell(AnswerFlow):
         else:
             work()
 
-    def call_from_thread(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+    def call_from_thread(
+        self, fn: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> Any:
         return fn(*args, **kwargs)
 
     def call_after_refresh(self, fn: Callable[..., Any], *args: Any) -> None:
@@ -195,7 +211,14 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
             if self._final is None:
                 self._finish_stopped()
         except SetupRefusal as refusal:
-            self._final = responses.refused(refusal.reason, refusal.recovery, refusal.prompt)
+            if refusal.prompt is not None:
+                # The repeated question's printed answer must be the next one accepted.
+                self._answers.wait_at(refusal.prompt.key)
+            self._final = responses.refused(
+                refusal.reason, refusal.recovery, refusal.prompt
+            )
+        except KeyboardInterrupt:
+            self._final = responses.interrupted(report_path=self.report_path)
         except Exception as exc:  # noqa: BLE001 - agent mode never prints a traceback
             self._final = self._step_failed(exc, current)
         responses.emit(self._final)
@@ -220,8 +243,10 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
         if prompt.key == apply_prompts.APPLY_FAILED_KEY:
             self._finish_apply_failed(prompt)
             return
-        if prompt.human is not None and len(prompt.choices) == 1 and not (
-            prompt.input or prompt.fields
+        if (
+            prompt.human is not None
+            and len(prompt.choices) == 1
+            and not (prompt.input or prompt.fields)
         ):
             self._show_browser(prompt.step, prompt.key, prompt.human)
             view.on_select(prompt.choices[0].value)
@@ -288,9 +313,13 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
             next=["Run `yoke setup --agent` again to start over."],
         )
 
-    def _step_failed(self, exc: BaseException, prompt: SetupPrompt | None) -> dict[str, Any]:
+    def _step_failed(
+        self, exc: BaseException, prompt: SetupPrompt | None
+    ) -> dict[str, Any]:
         report = f" The run report is {self.report_path}." if self.report_path else ""
-        cause = str(exc) if isinstance(exc, _StepFailed) else f"{type(exc).__name__}: {exc}"
+        cause = (
+            str(exc) if isinstance(exc, _StepFailed) else f"{type(exc).__name__}: {exc}"
+        )
         return responses.failed(
             "setup_step_failed",
             f"{cause.rstrip('.')}.{report} Fix the named cause, then run "

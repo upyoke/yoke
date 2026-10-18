@@ -7,12 +7,13 @@ labels and rendering submodules.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import List, Optional, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.project_scope import project_id_filter, scope_project_id
 from yoke_contracts.board.sql import LOCAL_NOW_SQL, elapsed_days_expr, timestamp_expr
-from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_contracts.timestamps import parse_instant
 
 # -- constants -----------------------------------------------------------------
 
@@ -96,7 +97,9 @@ def _zen_query_projects(db: BoardDBLike, scope: str = "all") -> List[Tuple[str, 
     return [(r[0], r[1]) for r in rows]
 
 
-def _zen_query_items(db: BoardDBLike, project: str, window_start: str) -> List[Tuple]:
+def _zen_query_items(
+    db: BoardDBLike, project: str, window_start: datetime
+) -> List[Tuple]:
     """Done items in scope: ``(id, title, created_at, workflow_id)``."""
     project_id = _zen_project_id(db, project)
     return db.query(
@@ -122,21 +125,22 @@ def _zen_queued_count(db: BoardDBLike, project: str) -> int:
     return int(val) if val else 0
 
 
-def _zen_compute_window(db: BoardDBLike, project: str) -> Optional[str]:
-    """Timeline window start date (``YYYY-MM-DD`` or ``None``)."""
+def _zen_compute_window(db: BoardDBLike, project: str) -> Optional[datetime]:
+    """Timeline window start: UTC midnight of the first done item, or ``None``."""
     project_id = _zen_project_id(db, project)
     val = db.scalar(
         "SELECT MIN(created_at) FROM items WHERE project_id = %s AND status = 'done'",
         (project_id,),
     )
     if val is not None:
-        # Timeline calendar boundaries use UTC regardless of the connection timezone.
-        return format_instant(parse_instant(val))[:10]
+        # A timezone-aware UTC boundary compares correctly in any session timezone;
+        # a bare date string would be read as midnight in the session timezone.
+        return parse_instant(val).replace(hour=0, minute=0, second=0, microsecond=0)
     return None
 
 
 def _zen_item_positions(
-    db: BoardDBLike, project: str, window_start: str, past_width: int
+    db: BoardDBLike, project: str, window_start: datetime, past_width: int
 ) -> List[int]:
     """Compute dot positions on the past-zone timeline.
 
@@ -146,7 +150,7 @@ def _zen_item_positions(
     # query clamps to [0, past_width-1] and dedupes. Deduping via ``DISTINCT``
     # on the computed column keeps the GROUP BY off a bare column.
     created_ts = timestamp_expr("created_at")
-    window_ts = "(%s)::timestamp"
+    window_ts = "(%s)::timestamptz"
     elapsed_from_window = elapsed_days_expr(created_ts, window_ts)
     elapsed_window_span = elapsed_days_expr(LOCAL_NOW_SQL, window_ts)
     project_id = _zen_project_id(db, project)

@@ -60,6 +60,10 @@ _DIGEST_LENGTH = 12
 
 def _normalized(value: Any) -> Any:
     """Compare stored JSON text and decoded payloads as the same content."""
+    # Typed execution configs may serialize an integer timeout as a float.
+    # Its numeric value has not changed, so neither has executable content.
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
     if isinstance(value, Mapping):
         return {str(key): _normalized(value[key]) for key in sorted(value)}
     if isinstance(value, list):
@@ -87,6 +91,35 @@ def case_content_digest(case: Mapping[str, Any]) -> str:
         payload["method_config"] = executable_method_config(payload["method_config"])
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:_DIGEST_LENGTH]
+
+
+def plan_case_content_digest(conn: Any, case: Mapping[str, Any]) -> str:
+    """Identity of a plan case as it materializes, not as it was stored.
+
+    A stored plan case keeps the form the build that wrote it produced; its
+    copies hold the form the materializing build's validator returns. Deriving
+    the case through that same validator first makes the two comparable
+    whatever release stored the plan. A case read without its method's
+    contract takes it from the method catalog, as plan case reads do.
+    """
+    from yoke_core.domain.db_helpers import query_scalar
+    from yoke_core.domain.qa_plan_case_definition import require_runnable_case
+
+    contract = case.get("config_contract_id") or query_scalar(
+        conn,
+        "SELECT config_contract_id FROM qa_methods WHERE id=%s",
+        (str(case["method_id"]),),
+    )
+    if not contract:
+        raise QaPlanError(
+            f"case {case.get('case_key')!r}: method {case['method_id']!r} is not "
+            "registered, so its content cannot be compared; register the method "
+            "or correct the plan case."
+        )
+    derived = {**case, "config_contract_id": str(contract)}
+    return case_content_digest(
+        {**case, "method_config": require_runnable_case(derived)}
+    )
 
 
 def base_case_key(plan_case_key: str) -> str:
@@ -204,7 +237,7 @@ def refreshed_case_keys(
         if not materialized:
             # Never materialized here; ordinary insertion handles it.
             continue
-        digest = case_content_digest(case)
+        digest = plan_case_content_digest(conn, case)
         if any(case_content_digest(row) == digest for row in materialized):
             # This exact content is already present, discharged or not.
             continue
@@ -299,6 +332,7 @@ __all__ = [
     "declare_refreshed_replacements",
     "base_case_key",
     "case_content_digest",
+    "plan_case_content_digest",
     "refreshed_case_key",
     "refreshed_case_keys",
 ]

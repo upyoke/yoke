@@ -18,6 +18,7 @@ from yoke_cli.config.onboard_docker_prerequisites import (
 )
 from yoke_cli.self_host import bundle, first_boot_token, runtime
 from yoke_contracts.self_host_bootstrap_output import redact_api_tokens
+from yoke_contracts import terminal_detached_process
 
 
 _LOOPBACK_HOST = "127.0.0.1"
@@ -28,7 +29,7 @@ HEALTH_WAIT_SECONDS = 120.0
 HEALTH_PROBE_TIMEOUT_SECONDS = 2.0
 HEALTH_RETRY_INTERVAL_SECONDS = 1.0
 
-_RUN = subprocess.run
+_RUN = terminal_detached_process.run
 _SLEEP = time.sleep
 _MONOTONIC = time.monotonic
 

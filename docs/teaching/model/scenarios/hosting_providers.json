@@ -5,6 +5,5 @@
  "situations": ["Existing mature deploy pipeline", "New AWS-managed app", "Render/Fly/DigitalOcean/dokku/on-prem hosting", "Existing non-GitHub CI"],
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
  "questions": ["No live external-provider adoption performed; confirm which existing non-Actions deployment systems have a supported integration rather than inferring one.", "Confirm the project-specific rollback and incident runbook before treating a mapped pipeline as operationally ready."]
 }

@@ -16,6 +16,7 @@ RESIDENT_IDLE_TIMEOUT_SECONDS = 600
 EVALUATOR_PAYLOAD_KEY = "yoke_hook_evaluator"
 HOOK_OBSERVATION_BATCH_CAPABILITY = "read_only_observation_batch_v1"
 HOOK_CLIENT_WALL_CAPABILITY = "hook_client_wall_v1"
+HOOK_MACHINE_SCOPE_CAPABILITY = "machine_scope_hooks"
 HOOK_CLIENT_WALL_BATCH_FIELD = "client_wall_reports"
 HOOK_CLIENT_WALL_PATH = "/v1/hooks/telemetry/client-wall"
 # Correlation key the hook client mints for its own dispatch. It travels in
@@ -28,6 +29,7 @@ HOOK_CALL_IDENTITY_FIELD = "tool_use_id"
 HOOK_EVALUATOR_CAPABILITIES = (
     HOOK_OBSERVATION_BATCH_CAPABILITY,
     HOOK_CLIENT_WALL_CAPABILITY,
+    HOOK_MACHINE_SCOPE_CAPABILITY,
 )
 HOOK_MODEL_CONFIRMATION_FIELD = "model_confirmation"
 HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD = "model_confirmations"
@@ -299,6 +301,7 @@ __all__ = [
     "HOOK_EVALUATOR_CAPABILITIES",
     "HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD",
     "HOOK_MODEL_CONFIRMATION_FIELD",
+    "HOOK_MACHINE_SCOPE_CAPABILITY",
     "HOOK_OBSERVATION_BATCH_CAPABILITY",
     "HookClientWallReport",
     "HookEvaluatorProtocolError",

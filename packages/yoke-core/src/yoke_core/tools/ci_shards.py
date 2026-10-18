@@ -1,9 +1,9 @@
 """One shard count for the workflow matrix and pytest-split.
 
-The newest Python endpoint runs the full suite. The oldest endpoint runs
-only in the merge queue and excludes repository-only checks through
+The newest Python endpoint runs the full suite. The oldest endpoint runs in
+parallel on every CI event and excludes repository-only checks through
 runtime.ci_test_selection before splitting. Both keep the same shard count
-and required check names. Queue tree reuse requires both-interpreter proof.
+and required check names. Tree reuse requires evidence of both legs.
 
 CI refreshes weights from a complete retained report set before fan-out,
 then shares the same profile with every shard. The committed baseline is
@@ -265,9 +265,14 @@ def runner_capacity() -> str:
     cpuinfo = Path("/proc/cpuinfo")
     model = "unavailable"
     try:
-        model = next((line.partition(":")[2].strip()
-                      for line in cpuinfo.read_text().splitlines()
-                      if line.startswith("model name")), model)
+        model = next(
+            (
+                line.partition(":")[2].strip()
+                for line in cpuinfo.read_text().splitlines()
+                if line.startswith("model name")
+            ),
+            model,
+        )
     except (OSError, UnicodeError):
         pass  # Missing capacity telemetry proves nothing and never blocks tests.
     samples = []
@@ -275,10 +280,14 @@ def runner_capacity() -> str:
         started = time.perf_counter()
         sum(value * value for value in range(300_000))
         samples.append(time.perf_counter() - started)
-    return "CI runner capacity: " + json.dumps({
-        "cpu_model": model, "cpu_count": os.cpu_count(),
-        "python_loop_seconds": sorted(samples)[1],
-    }, sort_keys=True)
+    return "CI runner capacity: " + json.dumps(
+        {
+            "cpu_model": model,
+            "cpu_count": os.cpu_count(),
+            "python_loop_seconds": sorted(samples)[1],
+        },
+        sort_keys=True,
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:

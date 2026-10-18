@@ -76,8 +76,8 @@ def operator_correct_landing_pull_request(
     public_ref = render_item_ref(conn, int(item_id))
     merge_sha, merged_at = _verify_merged_pull_request(conn, item_id, replacement)
     from yoke_core.domain.merge_queue_landing_marker import (
-        point_item_at_pull_request,
         read_landing_marker,
+        repoint_item_at_pull_request,
     )
 
     previous = read_landing_marker(conn, int(item_id))
@@ -105,7 +105,7 @@ def operator_correct_landing_pull_request(
         f"UPDATE items SET merged_at = {placeholder} WHERE id = {placeholder}",
         (instant_parameter(conn, merged_at), int(item_id)),
     )
-    marker = point_item_at_pull_request(conn, int(item_id), replacement)
+    marker = repoint_item_at_pull_request(conn, int(item_id), replacement)
     return {
         "corrected": True,
         "item_id": int(item_id),

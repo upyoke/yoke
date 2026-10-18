@@ -219,7 +219,11 @@ def test_lock_wait_notice_starts_after_two_seconds(tmp_path, monkeypatch):
     def busy(*args):
         raise BlockingIOError()
 
-    monkeypatch.setattr(credential_file.fcntl, "flock", busy)
+    monkeypatch.setattr(
+        credential_file.platform_file_lock,
+        "acquire_exclusive_nonblocking",
+        busy,
+    )
     with pytest.raises(credential_file.CredentialFileBusy):
         credential_file._wait_for_exclusive_lock(
             0,

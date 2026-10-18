@@ -2,7 +2,6 @@
  "id": "installed-release-manifest",
  "title": "Installed-release manifest",
  "status": "observed",
- "plan_refs": ["FIRST-USER.41"],
  "surface_refs": ["packets-help"],
  "sources": ["packages/yoke-core/src/yoke_core/domain/install_bundle_sources.py", "runtime/api/domain/test_installed_project_context.py"],
  "detail": "Managed .yoke/harness manifests publish rendered release bytes. Source and HTTPS transport tests prove install/refresh ownership; receiving-harness proof waits for release.",

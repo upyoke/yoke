@@ -1,9 +1,9 @@
 """Hand the hosted approval URL to a browser and say what happened.
 
-``webbrowser.open`` can report failure inside a full-screen terminal app
-without saying why; every attempt here is recorded so the wizard's log and
-its waiting view can name the reason, and macOS/WSL get native browser commands as
-a second route.
+Every attempt here is recorded so the wizard's log and its waiting view can
+name the reason. macOS and WSL use native browser commands run without the
+terminal: ``webbrowser.open`` starts its POSIX helpers attached to it, where
+they could take the wizard's terminal, and can fail without saying why.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ import subprocess
 import sys
 from typing import TYPE_CHECKING, Any, Callable, Mapping
 import webbrowser
+from yoke_contracts import terminal_detached_process
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.hosted_machine_authorization import PendingMachineAuthorization
@@ -74,8 +75,8 @@ def open_url(
     """Hand *url* to a browser, recording why each attempt failed.
 
     Linux verifies the default browser or opens QA's shared Chromium runtime.
-    Other platforms try ``webbrowser.open`` first. macOS then tries ``open``; WSL tries
-    ``wslview`` and ``explorer.exe`` to reach the Windows browser. Every
+    macOS runs ``open``; WSL tries ``wslview`` and ``explorer.exe`` to reach
+    the Windows browser; other platforms use ``webbrowser.open``. Every
     failed attempt is retained for the caller's diagnostics.
 
     An injected *browser_open* replaces the whole real chain: its failure is
@@ -92,13 +93,14 @@ def open_url(
     if platform == "linux" and not is_wsl and browser_open is None:
         return _open_linux_url(url, env)
     attempts: list[str] = []
-    try:
-        if bool((browser_open or webbrowser.open)(url)):
-            return BrowserOpenResult(opened=True, method="webbrowser")
-        attempts.append("webbrowser.open returned False")
-    except Exception as exc:  # noqa: BLE001 - every failure is recorded, not raised
-        attempts.append(f"webbrowser.open raised {type(exc).__name__}: {exc}")
     native_fallback = browser_open is None
+    if browser_open is not None or not (is_wsl or platform == MACOS_PLATFORM):
+        try:
+            if bool((browser_open or webbrowser.open)(url)):
+                return BrowserOpenResult(opened=True, method="webbrowser")
+            attempts.append("webbrowser.open returned False")
+        except Exception as exc:  # noqa: BLE001 - every failure is recorded
+            attempts.append(f"webbrowser.open raised {type(exc).__name__}: {exc}")
     if is_wsl and native_fallback:
         for executable in ("wslview", "explorer.exe"):
             path = shutil.which(executable)
@@ -106,7 +108,7 @@ def open_url(
                 attempts.append(f"{executable} unavailable on PATH")
                 continue
             try:
-                completed = subprocess.run(
+                completed = terminal_detached_process.run(
                     [path, url],
                     capture_output=True,
                     text=True,
@@ -173,7 +175,7 @@ def _open_linux_url(url: str, env: Mapping[str, str]) -> BrowserOpenResult:
 
 
 def _run_macos_open(url: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return terminal_detached_process.run(
         ["open", url],
         capture_output=True,
         text=True,

@@ -38,9 +38,7 @@ def available_lines(report: FleetReport) -> list[str]:
     return capped(lines, len(report.available))
 
 
-def _available_row(
-    entry: FrontierEntry, now: str, overdue: set[int]
-) -> str:
+def _available_row(entry: FrontierEntry, now: str, overdue: set[int]) -> str:
     mark = OVERDUE_MARK if entry.item_id in overdue else " "
     if entry.launch_state:
         kind = f"launch {entry.launch_state}"
@@ -55,4 +53,28 @@ def _available_row(
     )
 
 
-__all__ = ["available_heading", "available_lines"]
+#: Committed work the schedule holds back: not available, and not staffable.
+LANDING_WAIT_HEADING = (
+    "waiting to land — committed, unclaimed, held only until each named "
+    "blocker lands; not available"
+)
+
+
+def landing_wait_section(report: FleetReport) -> list[str]:
+    """The section, heading included; empty when nothing waits to land."""
+    waits = report.landing_waits
+    if not waits:
+        return []
+    lines = [
+        f"  {wait.public_ref}  {wait.reason}  {wait.title}"
+        for wait in waits[:SECTION_LIMIT]
+    ]
+    return [f"{LANDING_WAIT_HEADING}:", *capped(lines, len(waits))]
+
+
+__all__ = [
+    "LANDING_WAIT_HEADING",
+    "available_heading",
+    "available_lines",
+    "landing_wait_section",
+]

@@ -1,0 +1,13 @@
+{
+ "id": "migration-composition",
+ "title": "Integrate permanent migrations after upstream consumed their ordinals",
+ "status": "observed",
+ "audience": "agent",
+ "when": "Conduct composes or renumbers permanent migrations before integration simulation.",
+ "need": "Record the old-to-final names, candidate commit/digests and accepted final rehearsal audit ids in the spec and worktree plan in the same composition step. Supply ledger rows per declared authority and rehearsal rows from the item control plane, plus adoption provenance and explicit empty reads.",
+ "disclosure": "current cue",
+ "surface": "Conduct composition, Simulate integration authority and simulator core packet",
+ "gap": "No deployed integration-session delivery proof is attached.",
+ "review": "Verify packet recipes and final source contracts; preserve source identity and missing-evidence recovery.",
+ "sources": [".agents/skills/yoke/conduct/engineer-tester-closeout.md", ".agents/skills/yoke/conduct/simulation-gate-criteria.md", ".agents/skills/yoke/simulate/dispatch-prompts.md"]
+}

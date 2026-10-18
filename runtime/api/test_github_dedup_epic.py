@@ -1,13 +1,8 @@
-"""Integration tests for the shared GitHub dedup helper via
-``epic_task_sync.sync_epic_tasks`` — both the epic-parent and the epic-task
-call sites.
+"""Shared GitHub dedup through ``epic_task_sync.sync_epic_tasks``.
 
-Helper unit tests and the ``sync_item`` integration tests live in the
-sibling ``test_github_dedup.py`` module.
-
-Tests mock the typed REST surfaces (``github_rest.list_issues`` /
-``github_rest.create_issue``) directly. Yoke does NOT use the
-``gh`` CLI.
+Covers the epic-parent and epic-task call sites; helper unit tests and
+``sync_item`` tests live in ``test_github_dedup.py``. The typed REST
+surfaces are mocked directly: Yoke does NOT use the ``gh`` CLI.
 """
 
 from __future__ import annotations
@@ -20,10 +15,8 @@ import pytest
 
 from runtime.api.conftest import insert_epic_task, insert_item
 from yoke_core.domain import epic_task_sync, github_rest
-from yoke_core.domain.epic_task_scope import (
-    finalize_generated_task_scopes,
-    set_no_files_scope,
-)
+from runtime.api import task_files_touched_test_support as task_files
+from yoke_core.domain.epic_task_scope import finalize_generated_task_scopes
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
 from runtime.api.fixtures.pg_testdb import test_database
@@ -160,14 +153,19 @@ class TestSyncEpicTasksDedup:
             task_num=1,
             title="Some task",
             status="planned",
-            body="body",
+            body=task_files.files_touched_body([], "body"),
         )
-        set_no_files_scope(epic_db, 10, 1)
         finalize_generated_task_scopes(epic_db, 10)
         stdout = io.StringIO()
 
         patches = _patches(
-            dedup_results=[_issue(555, "[EXT-10] 001 Some task", "body")],
+            dedup_results=[
+                _issue(
+                    555,
+                    "[EXT-10] 001 Some task",
+                    task_files.files_touched_body([], "body"),
+                )
+            ],
             create_response=None,
         )
         with patches[0], patches[1]:
@@ -205,7 +203,7 @@ class TestSyncEpicTasksDedup:
             status="planned",
             body="body",
         )
-        set_no_files_scope(epic_db, 1500, 1)
+        task_files.declare_task_files(epic_db, 1500, 1, [])
         finalize_generated_task_scopes(epic_db, 1500)
         stdout = io.StringIO()
 
@@ -255,7 +253,7 @@ class TestSyncEpicTasksDedup:
             status="planned",
             body="body",
         )
-        set_no_files_scope(epic_db, 10, 1)
+        task_files.declare_task_files(epic_db, 10, 1, [])
         finalize_generated_task_scopes(epic_db, 10)
         stdout = io.StringIO()
 
@@ -312,7 +310,7 @@ class TestSyncEpicTasksDedup:
             status="planned",
             body="body",
         )
-        set_no_files_scope(epic_db, 1500, 1)
+        task_files.declare_task_files(epic_db, 1500, 1, [])
         finalize_generated_task_scopes(epic_db, 1500)
         stdout = io.StringIO()
 

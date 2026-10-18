@@ -196,6 +196,7 @@ def evaluate_target(
             mode=OUT_OF_CLAIM,
             target_path=target_path,
             effective_worktree_path=effective_wt,
+            repo_path=rel,
         )
 
     # In-coverage by relative path — verify physical worktree binding.
@@ -224,6 +225,7 @@ def evaluate_target(
         target_path=target_path,
         resolved_parent=resolved_parent,
         effective_worktree_path=effective_wt,
+        repo_path=rel,
     )
 
 

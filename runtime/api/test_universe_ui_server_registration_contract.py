@@ -76,7 +76,7 @@ class TestRegistrationShape:
             "session_control.surface_policy.disable",
             "session_control.surface_policy.enable",
             "machine.retire",
-            "machine.settings.set",
+            "machine.access.set",
             "strategy.revision.restore",
             "deployment_runs.terminalize",
         }

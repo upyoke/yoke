@@ -83,22 +83,19 @@ def resolve_session_project_id(conn: Any, explicit: int) -> int:
     from yoke_core.domain import db_backend
     from yoke_core.domain.sessions import SessionError
 
-    if explicit is None:
-        raise SessionError(
-            "PROJECT_ID_REQUIRED",
-            "Session registration requires a resolved project_id.",
-        )
     try:
         project_id = int(explicit)
     except (TypeError, ValueError):
         raise SessionError(
             "PROJECT_ID_INVALID",
-            "Session registration project_id must be a positive integer.",
+            "Session registration project_id must be a positive integer. "
+            "Recovery: use the registered project's numeric id or request machine scope.",
         )
     if project_id <= 0:
         raise SessionError(
             "PROJECT_ID_INVALID",
-            "Session registration project_id must be a positive integer.",
+            "Session registration project_id must be a positive integer. "
+            "Recovery: use the registered project's numeric id or request machine scope.",
         )
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     try:
@@ -109,12 +106,14 @@ def resolve_session_project_id(conn: Any, explicit: int) -> int:
     except db_backend.operational_error_types(conn):
         raise SessionError(
             "PROJECTS_TABLE_REQUIRED",
-            "Session registration requires the projects table.",
+            "Session registration requires the projects table. "
+            "Recovery: restore the authority's schema and retry.",
         )
     if not found:
         raise SessionError(
             "PROJECT_NOT_FOUND",
-            f"Session registration project_id {project_id} was not found.",
+            f"Session registration project_id {project_id} was not found. "
+            "Recovery: register the project or start a new session outside any project folder.",
         )
     return project_id
 
@@ -167,7 +166,7 @@ def existing_registration_row(
     thread_select = ", native_thread_id" if include_native_thread else ""
     return conn.execute(
         "SELECT ended_at, terminated_at, " + ", ".join(MODEL_COLUMNS) + ", "
-        "actor_id, execution_level, project_id, executor, executor_version, "
+        "actor_id, execution_level, project_id, org_id, executor, executor_version, "
         f"machine_id, executor_surface{thread_select} "
         f"FROM harness_sessions WHERE session_id = {placeholder}",
         (session_id,),
@@ -206,6 +205,7 @@ def refresh_active_duplicate_identity(
     executor_surface: Optional[str],
     executor_version: Optional[str],
     machine_id: Optional[str],
+    executor: str,
     native_thread_id: Optional[str] = None,
 ) -> None:
     """Upgrade mutable identity fields on an active duplicate registration.
@@ -256,9 +256,16 @@ def refresh_active_duplicate_identity(
     if machine_id and not _stored_value(existing, "machine_id"):
         observed_updates.append(f"machine_id = {placeholder}")
         observed_values.append(machine_id)
-    if native_thread_id and not _stored_value(existing, "native_thread_id"):
+    stored_native_thread_id = _stored_value(existing, "native_thread_id") or None
+    resolved_native_thread_id = trusted_native_thread_id(
+        executor,
+        session_id,
+        stored_native_thread_id,
+        native_thread_id,
+    )
+    if resolved_native_thread_id != stored_native_thread_id:
         observed_updates.append(f"native_thread_id = {placeholder}")
-        observed_values.append(native_thread_id)
+        observed_values.append(resolved_native_thread_id)
     if observed_updates:
         conn.execute(
             "UPDATE harness_sessions SET "
@@ -269,6 +276,22 @@ def refresh_active_duplicate_identity(
         conn.commit()
 
 
+def trusted_native_thread_id(
+    executor: str,
+    session_id: str,
+    stored_native_thread_id: Optional[str],
+    incoming_native_thread_id: Optional[str],
+) -> Optional[str]:
+    """Apply Codex's anti-delegation rule without freezing other harness ids."""
+    stored = str(stored_native_thread_id or "").strip() or None
+    incoming = str(incoming_native_thread_id or "").strip() or None
+    if incoming is None:
+        return stored
+    if executor != "codex" or stored is None or incoming == session_id:
+        return incoming
+    return stored
+
+
 __all__ = [
     "existing_registration_row",
     "normalize_observed_identity",
@@ -276,4 +299,5 @@ __all__ = [
     "resolve_session_actor_id",
     "resolve_session_project_id",
     "resolve_reactivation_executor_version",
+    "trusted_native_thread_id",
 ]

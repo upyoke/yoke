@@ -1,0 +1,11 @@
+{
+ "id": "unacknowledged-reminder",
+ "title": "Reminder for unacknowledged messages",
+ "status": "observed",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/session_message_reminders.py", "packages/yoke-core/src/yoke_core/hooks/session_message_rendering.py", "docs/public/items-and-sessions.md"],
+ "commands": ["yoke messages get", "yoke messages acknowledge"],
+ "functions": ["session_control.message.lease", "session_control.message.acknowledge"],
+ "summary": "Injection shows a message; only acknowledgement settles it. The delivery hook re-presents an injected, unacknowledged message after the acknowledgement grace, then on a doubling backoff capped at one hour, on each surface's manifest inject events. The reminder carries a body excerpt, the full-body read command and the acknowledge command. A steering message handed to a new seat gets that seat's ordinary session receipt, so it injects and reminds the same way; acquire lists each ack command.",
+ "page": "messaging",
+ "position": 8
+}

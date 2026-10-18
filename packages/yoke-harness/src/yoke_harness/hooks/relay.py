@@ -107,11 +107,9 @@ def evaluate_hook_event(
     stdin_data, launch_projection = stamp_hook_input(
         payload, stdin_data, executor, event_name
     )
-    from yoke_harness.hooks.cursor_lifecycle_hooks import (
-        ensure_user_lifecycle_hooks_for_executor,
-    )
+    from yoke_harness.hooks.machine_hooks import ensure_machine_hooks_for_executor
 
-    ensure_user_lifecycle_hooks_for_executor(executor)
+    ensure_machine_hooks_for_executor(executor, hook=event_name)
     local = evaluate_local_subset(
         event_name,
         stdin_data,
@@ -165,11 +163,9 @@ def relay_hook_event(
     stdin_data, launch_projection = stamp_hook_input(
         payload, stdin_data, executor, event_name
     )
-    from yoke_harness.hooks.cursor_lifecycle_hooks import (
-        ensure_user_lifecycle_hooks_for_executor,
-    )
+    from yoke_harness.hooks.machine_hooks import ensure_machine_hooks_for_executor
 
-    ensure_user_lifecycle_hooks_for_executor(executor)
+    ensure_machine_hooks_for_executor(executor, hook=event_name)
     _codex_capture(event_name, original_stdin, executor)
 
     local = evaluate_local_subset(
@@ -186,7 +182,7 @@ def relay_hook_event(
         write_hook_output(
             local.stdout, local.exit_code, executor, event_name=event_name
         )
-        if local.denial_audit and project_scope.project_id is not None:
+        if local.denial_audit:
             relay_denial_audit(connection, local.denial_audit)
         return local.exit_code
 
@@ -197,16 +193,6 @@ def relay_hook_event(
         cursor=is_cursor(executor),
         harness_id=canonical_harness_id(executor),
     )
-
-    if project_scope.project_id is None:
-        # The complete machine guard subset is local; project registration is
-        # neither required nor meaningful for an unrelated workspace.
-        print_execution_provenance()
-        write_hook_output(
-            allow_stdout, local.exit_code, executor, event_name=event_name
-        )
-        settle_projection(allow_stdout, launch_projection)
-        return local.exit_code
 
     denied = deny_unstamped_relay(parse_hook_payload(stdin_data))
     if denied is not None:
@@ -291,9 +277,7 @@ def relay_hook_event(
         sys.stderr.write(failure_warning)
     if outcome == "denied":
         stdout = annotate_guard_version_skew(
-            stdout,
-            client=body["execution_provenance"],
-            server=server_fp,
+            stdout, client=body["execution_provenance"], server=server_fp
         )
         write_hook_output(stdout, exit_code, executor, event_name=event_name)
         return exit_code

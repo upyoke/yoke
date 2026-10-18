@@ -11,6 +11,5 @@
  "current": "No universal Yoke-native publisher established by the audit. Existing harness-native project rules are a separate surface.",
  "desired": "P4 explicitly adds no unconditional native startup publisher.",
  "plan_notes": ["FIRST-USER P4/D", "New delivery proposal"],
- "plan_refs": ["FIRST-USER.P4"],
  "sources": ["docs/public/reference/harness-discovery.md:3", ".agents/skills/yoke/SKILL.md:7", "packages/yoke-core/src/yoke_core/domain/main_agent_packet.py", "packages/yoke-contracts/src/yoke_contracts/connection_authority_teaching.py", "packages/yoke-contracts/src/yoke_contracts/session_control/teaching.py"]
 }

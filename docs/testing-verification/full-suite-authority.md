@@ -16,10 +16,11 @@ artifact PR triggers have no path filter so required checks cannot stay pending.
 The signer runs on queue candidates without checking out or executing repository
 code; ordinary PR builds retain read-only authority. Apply the declaration with
 `yoke github merge-queue apply --project yoke`; preview it with `--preview` first.
-A main-push run may short-circuit when
-`reuse-coverage` finds a recent successful dispatch/push yoke-ci run whose
-head commit shares HEAD's tree object id (fail-open otherwise; merge commits
-that rewrite the tree still run the matrix). Branch protection on main
+Any run may skip the test shards when
+`reuse-coverage` finds complete coverage evidence for its checked-out tree
+from a recent successful yoke-ci run; a changed tree runs the matrix. The
+[CI shard reference](ci-shards.md#identical-tree-coverage-reuse) owns the
+evidence rules. Branch protection on main
 requires upstream's `signature-check` (CLA) only in `upyoke/yoke`; the doctor reads the project GitHub binding before expecting it. Yoke-owned gates — the QA CI run
 conclusion and the merge engine's all-check-runs poll — authorize the suite.
 Local verification stays change-scoped:
@@ -179,6 +180,18 @@ declaring the `merge_queue` capability, the gate runs steps 1-3 as:
    run whose head sha does not match, and a run that concluded without a
    verdict — an entry run cancelled by the workflow's concurrency group
    when the next push superseded it, for instance.
+
+Before rebasing an unexamined head, the gate checks its open landing PR.
+`qa_ci_pull_request_conflicting` means that PR is `CONFLICTING`/`DIRTY` and
+GitHub cannot create the merge ref needed for its entry run. Merge the base
+branch into the lane, resolve and commit the conflicts, then rerun the gate
+to publish the repaired head. A PR still reporting the old remote head's
+conflict does not block publication of the repaired local head.
+
+`--expected-sha` binds the caller's initial commit and is checked before
+preparation. If the gate cleanly rebases that commit, the rebased HEAD is
+the candidate it publishes and records; evidence retains `requested_sha`.
+The branch and selected-lane checks still apply after preparation.
 
 The merge queue's `merge_group` train run then applies the same tree-oid
 reuse probe as a main push: a solo item rebased onto the base builds a

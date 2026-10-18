@@ -2,7 +2,6 @@
  "id": "choices",
  "title": "First setup choices",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.1", "FIRST-USER.10", "FIRST-USER.5", "FIRST-USER.A"],
  "surface_refs": ["setup-tui"],
  "page": "installation",
  "position": 3

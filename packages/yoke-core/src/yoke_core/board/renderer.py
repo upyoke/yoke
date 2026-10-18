@@ -76,6 +76,17 @@ def render_board(
     with measure_phase(phase_recorder, "db_connect"):
         db = BoardDB(db_token)
     with db:
+        from yoke_core.domain import db_helpers
+        from yoke_core.domain.session_actor_binding import resolve_operating_actor
+        from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
+
+        with db_helpers.connect() as conn:
+            binding = resolve_operating_actor(conn)
+            if binding.actor_id is None:
+                from yoke_core.board.data import BoardDataError
+
+                raise BoardDataError(f"{binding.code}: {binding.detail}")
+            visible = actor_visible_project_ids(conn, binding.actor_id)
         vision_project = _checkout_project_slug(db, repo_root)
         with measure_phase(phase_recorder, "collect_board_data"):
             payload = collect_board_data(
@@ -85,6 +96,8 @@ def render_board(
                 repo_root=repo_root,
                 vision_entries=vision_entries,
                 vision_project=vision_project,
+                actor_id=binding.actor_id,
+                visible_project_ids=visible,
             )
     return render_board_from_payload(
         payload,

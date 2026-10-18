@@ -46,13 +46,16 @@ def _current_text_case(source: dict[str, Any]) -> dict[str, Any]:
                 ),
                 action(
                     "pending-write-list",
-                    ready_text=["Show summary", "Save your API token (owner-only)"],
+                    ready_text=[
+                        "Show summary",
+                        "Reuse this machine's existing Yoke API token",
+                    ],
                 ),
                 transition("back-before-apply", "Escape", ready_text=["Show summary"]),
             ]
         )
         config["expected_text"].extend(
-            ["Show summary", "Save your API token (owner-only)"]
+            ["Show summary", "Reuse this machine's existing Yoke API token"]
         )
         config["capture_checkpoints"].append("pending-write-list")
         case["required_completion"] = "back-before-apply"

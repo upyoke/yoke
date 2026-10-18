@@ -12,12 +12,17 @@ from datetime import datetime, timezone
 
 from yoke_core.domain.dependency_planning import BlockerDetail
 from yoke_core.domain.frontier_dependency_edges import (
+    FRONTIER_CYCLE_FIELDS,
     FRONTIER_EDGE_FIELDS,
-    frontier_dependency_edges,
+    frontier_dependency_graph,
 )
 from yoke_core.domain.frontier_list_read import list_frontier
 
 from runtime.api.fixtures.backlog import insert_item
+
+
+def frontier_dependency_edges(conn, *args, **kwargs):
+    return frontier_dependency_graph(conn, *args, **kwargs)["dependency_edges"]
 
 
 def _iso() -> str:
@@ -109,15 +114,25 @@ def test_satisfied_and_coordination_only_edges_are_not_returned(test_db):
     assert frontier_dependency_edges(test_db) == []
 
 
-def test_a_cycle_is_returned_rather_than_refused(test_db):
-    _items(test_db, (1, "idea"), (2, "idea"))
+def test_a_stored_loop_serves_its_edges_and_the_backend_deadlock(test_db):
+    _items(test_db, (1, "idea"), (2, "idea"), (3, "idea"))
     _depend(test_db, 1, 2)
     _depend(test_db, 2, 1)
+    _depend(test_db, 3, 2)
 
-    assert _pairs(frontier_dependency_edges(test_db)) == {
+    graph = frontier_dependency_graph(test_db)
+
+    assert _pairs(graph["dependency_edges"]) == {
         ("YOK-2", "YOK-1", "activation"),
         ("YOK-1", "YOK-2", "activation"),
+        ("YOK-2", "YOK-3", "activation"),
     }
+    [cycle] = graph["dependency_cycles"]
+    assert set(cycle) == set(FRONTIER_CYCLE_FIELDS)
+    assert cycle["items"] == ["YOK-1", "YOK-2"]
+    assert [edge["dependent_item"] for edge in cycle["edges"]] == ["YOK-1", "YOK-2"]
+    assert all(isinstance(edge["dependency_id"], int) for edge in cycle["edges"])
+    assert cycle["stranded"] == ["YOK-3"]
 
 
 def test_a_terminal_blocker_is_named_and_a_terminal_dependent_dropped(test_db):
@@ -263,3 +278,34 @@ def test_frontier_list_serves_the_edges_beside_its_rows(test_db):
 
     assert result["fields"]["dependency_edges"] == list(FRONTIER_EDGE_FIELDS)
     assert _pairs(result["dependency_edges"]) == {("YOK-1", "YOK-2", "activation")}
+    assert result["fields"]["dependency_cycles"] == list(FRONTIER_CYCLE_FIELDS)
+    assert result["dependency_cycles"] == []
+
+
+def test_a_scoped_read_draws_a_loop_that_holds_or_strands_its_work(test_db):
+    insert_item(test_db, id=1, workflow_id="issue", status="idea", project="yoke")
+    insert_item(test_db, id=2, workflow_id="issue", status="idea", project="other")
+    insert_item(test_db, id=3, workflow_id="issue", status="idea", project="other")
+    _depend(test_db, 1, 2)
+    _depend(test_db, 2, 3)
+    _depend(test_db, 3, 2)
+    yoke_id = int(
+        test_db.execute("SELECT id FROM projects WHERE slug = 'yoke'").fetchone()[0]
+    )
+    other_id = int(
+        test_db.execute("SELECT id FROM projects WHERE slug = 'other'").fetchone()[0]
+    )
+
+    insert_item(test_db, id=4, workflow_id="issue", status="idea", project="third")
+    third_id = int(
+        test_db.execute("SELECT project_id FROM items WHERE id = 4").fetchone()[0]
+    )
+
+    for scope in ([other_id], [yoke_id]):
+        graph = frontier_dependency_graph(test_db, scope)
+        [cycle] = graph["dependency_cycles"]
+        assert cycle["stranded"] == ["YOK-1"]
+        assert {(e["blocking_item"], e["dependent_item"]) for e in cycle["edges"]} <= {
+            (e["blocking_item"], e["dependent_item"]) for e in graph["dependency_edges"]
+        }
+    assert frontier_dependency_graph(test_db, [third_id])["dependency_cycles"] == []

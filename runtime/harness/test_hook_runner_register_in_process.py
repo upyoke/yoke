@@ -1,10 +1,6 @@
-"""Tests for the in-process (server-side) registration branch.
+"""In-process registration preserves scope, repeated registration and refusals.
 
-``register_in_process=True`` is the remote-evaluation shape: the
-checkout gating and the service-client subprocess are bypassed and the
-domain registrar is called directly (field-note 12445 regression
-coverage lives at the HTTP route level in
-``runtime/api/test_api_hooks_evaluate_route.py``).
+The server calls the domain registrar without checkout or subprocess routing.
 """
 
 from __future__ import annotations
@@ -15,8 +11,12 @@ from yoke_core.hooks import registration as register_module
 
 
 @pytest.mark.parametrize("executor", ["claude", "codex", "cursor"])
-@pytest.mark.parametrize("refusal", [None, "SESSION_TERMINATED", "PROJECT_ID_REQUIRED"])
-def test_repeated_registration_preserves_real_refusals(monkeypatch, executor, refusal):
+@pytest.mark.parametrize(
+    "project_id,refusal", [(1, None), (1, "SESSION_TERMINATED"), (None, None)]
+)
+def test_repeated_registration_preserves_real_refusals(
+    monkeypatch, executor, project_id, refusal
+):
     from yoke_contracts.session_model_facts import SessionModelFacts
     from yoke_core.domain import db_helpers, sessions_lifecycle_registry
     from yoke_core.domain.sessions_analytics import SessionError
@@ -53,7 +53,7 @@ def test_repeated_registration_preserves_real_refusals(monkeypatch, executor, re
             facts,
             "/checkout",
             None,
-            project_id=1,
+            project_id=project_id,
         )
         orientation = session_dispatch_orientation._render_codex_orientation(
             "test-session",

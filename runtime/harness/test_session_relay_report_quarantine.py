@@ -10,12 +10,14 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_harness import session_relay
+from yoke_contracts.session_control.relay_health import retained_settled_reports_only
 from yoke_harness.session_relay_health import (
     PENDING_REPORT_DIR_NAME,
     QUARANTINED_REPORT_DIR_NAME,
     RELAY_HEALTH_FILE_NAME,
     REPORT_ATTEMPT_DIR_NAME,
     observe_relay_health,
+    quarantine_report,
 )
 from yoke_harness.session_relay_inventory import RelayInventory
 from yoke_harness.session_relay_report_delivery import deliver_terminal_report
@@ -246,3 +248,88 @@ def test_permanently_rejected_evidence_is_logged_and_dropped(
         state_dir=tmp_path,
         timeout_s=10,
     )
+
+
+def test_retry_skips_a_pending_report_removed_before_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pending_dir = tmp_path / PENDING_REPORT_DIR_NAME
+    pending_dir.mkdir()
+    pending = pending_dir / f"{'ab' * 32}.json"
+    pending.write_text("{}", encoding="utf-8")
+    real_read_text = Path.read_text
+
+    def vanish(self: Path, *args, **kwargs):
+        if self == pending:
+            self.unlink(missing_ok=True)
+            raise FileNotFoundError(self)
+        return real_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", vanish)
+
+    assert retry_pending_reports(
+        lambda **kwargs: pytest.fail("a vanished report is not dispatched"),
+        session_relay.RELAY_REPORT_FUNCTION_ID,
+        state_dir=tmp_path,
+        timeout_s=10,
+    )
+    quarantine = tmp_path / QUARANTINED_REPORT_DIR_NAME
+    assert not quarantine.exists() or not any(quarantine.glob("*.meta.json"))
+
+
+def test_failed_quarantine_move_writes_no_metadata(tmp_path: Path, caplog) -> None:
+    source = tmp_path / f"{'cd' * 32}.json"
+    source.write_bytes(b"payload")
+    first = quarantine_report(
+        source,
+        {"job_kind": "launch"},
+        tmp_path,
+        error_code="report_conflict",
+        attempts=3,
+    )
+    caplog.clear()
+
+    second = quarantine_report(
+        source,
+        None,
+        tmp_path,
+        error_code="pending_report_invalid",
+        attempts=1,
+    )
+
+    meta_path = tmp_path / QUARANTINED_REPORT_DIR_NAME / f"{source.stem}.meta.json"
+    assert second["payload_sha256"] == ""
+    assert json.loads(meta_path.read_text(encoding="utf-8")) == first
+    assert "quarantined" not in caplog.text
+
+
+def test_payload_less_meta_is_omitted_from_relay_health(tmp_path: Path) -> None:
+    source = tmp_path / f"{'ef' * 32}.json"
+    source.write_bytes(b"payload")
+    quarantine_report(
+        source,
+        {"job_kind": "launch"},
+        tmp_path,
+        error_code="report_conflict",
+        attempts=3,
+    )
+    quarantine = tmp_path / QUARANTINED_REPORT_DIR_NAME
+    bare_id = "12" * 32
+    (quarantine / f"{bare_id}.meta.json").write_text(
+        json.dumps(
+            {
+                "report_id": bare_id,
+                "error_code": "pending_report_invalid",
+                "payload_sha256": "",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    health = observe_relay_health(tmp_path)
+
+    assert health["quarantine_count"] == 1
+    assert [entry["error_code"] for entry in health["quarantined_reports"]] == [
+        "report_conflict"
+    ]
+    assert retained_settled_reports_only(health)

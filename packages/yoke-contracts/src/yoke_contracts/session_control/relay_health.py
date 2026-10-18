@@ -15,8 +15,15 @@ RELAY_HEALTH_STATES = frozenset({"healthy", "retrying", "quarantined", "refused"
 # Server rejections that close the report's attempt for good: the server
 # already settled it, expired or closed its lease, or never held it. Replay
 # cannot change the outcome, so retained evidence of these is not actionable.
-# Contract rejections (payload_invalid, relay_report_payload_invalid,
-# request_validation_failed) stay out: they mean client and server disagree.
+# Contract rejections mean client and server disagree. Only these name a
+# wire/transport mismatch; every other quarantine code stays specific.
+CONTRACT_RELAY_REPORT_CODES = frozenset(
+    {
+        "payload_invalid",
+        "relay_report_payload_invalid",
+        "request_validation_failed",
+    }
+)
 SETTLED_RELAY_REPORT_CODES = frozenset(
     {
         "attempt_missing",
@@ -175,6 +182,7 @@ def fleet_relay_error_code(
 
 
 __all__ = [
+    "CONTRACT_RELAY_REPORT_CODES",
     "MAX_RELAY_QUARANTINE_FACTS",
     "RELAY_HEALTH_STATES",
     "RELAY_NEWER_THAN_SERVER",

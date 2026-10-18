@@ -5,6 +5,15 @@ request. A headless worker receives `landing_pending=true` and waits for the
 control plane's landing notice. Re-enter the same merge command when that
 notice arrives, retaining its result and verification evidence.
 
+Before it selects a route, the command asks the item's integration dependency
+gate (`merge.preflight.dependency_gate`). Queue admission only sees
+predecessors that are queue members, so this gate is what keeps an item from
+enqueuing while a predecessor is still being implemented. A blocked gate
+refuses with `integration_dependency_blocked`, naming each predecessor and its
+status; nothing is armed or enqueued. Wait for the predecessor's landing
+notice, then re-run the same command. A gate that cannot be read refuses with
+`integration_dependency_gate_unavailable` rather than landing.
+
 The existing landing observer reads the registered pull request during relay
 upkeep. A waiting worker's `merge_queue.landing.observe` call returns the
 stored landing record without reading GitHub while that record is newer than
@@ -42,6 +51,29 @@ pass: required checks must be replaced on the exact candidate. A new
 `workflow_dispatch` is a fresh attempt whose head and replacement need proof. Repeated observation reuses the
 same stop notice; a new governed arming starts a new episode.
 
+## Re-landing an item that already landed
+
+An item keeps its current landing until a new pull request actually merges.
+When the merge boundary records a pull request for an item that already
+landed (its `merged_at` or `merge_queue_landed_at` is set), the pull request
+becomes a re-land attempt in
+[`merge_queue_landing_attempts`](db-reference/merge-queue-landing-attempts.md)
+and the item's `merge_queue_*` columns stay on the previous landing. One
+attempt is open per item; a newer pull request closes the older attempt as
+superseded.
+
+The observer reads the open attempt instead of the delivered landing. When
+the attempt merges, the observer moves the item's columns onto it, stamps
+GitHub's merge time and sends the normal completion notice. When it closes
+unmerged, the attempt closes with the reason `pull request N closed without
+merging; the item keeps its previous landing`, the item's landing is
+unchanged. An armed attempt first sends its holder the stopped-landing notice
+and closes once that notice is delivered, so a failed notice is retried.
+The board label, the fleet landing readback, `github.merge_queue.readiness`
+and the waiting worker describe the open attempt. `yoke items detail get`
+shows the current landing under `merge_queue` and the open or last closed
+attempt, with its reason, under `merge_queue.attempt`.
+
 The harness manifest determines whether the existing wake route can resume
 the holder automatically. Operator-driven surfaces need the operator to
 re-enter the session. If the holder is gone, the notice routes to the project's
@@ -68,3 +100,17 @@ the candidate itself for a fast forward. A failed fetch or missing candidate
 returns a named refusal, retains the lane, and leaves the item before landing.
 Repair routing or remote access and re-enter the same governed merge command.
 A project with no remote proves candidate ancestry on its local default branch.
+
+## Integration-lane merge refusals
+
+Integration-lane merges record the verified candidate's first carrying merge
+through `item_landings.record` before removing the lane. Local fast-forwards
+record the candidate itself. The same transaction releases the epic's path
+claims and migration territory; delivery still retains the work claim.
+
+A Git integration or commit-hook failure reports `merge_integration_refused`
+with Git's diagnostic and leaves the pending integration in its lane. Fix the
+named refusal, complete the pending merge commit when one exists, then retry
+the same merge command. An authored-file limit refusal therefore names the
+file that needs splitting instead of classifying engine-created changes as
+user dirt.

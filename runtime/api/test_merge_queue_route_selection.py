@@ -2,6 +2,8 @@
 
 from types import SimpleNamespace
 
+import pytest
+
 from yoke_core.domain import merge_queue_route_selection as selection_mod
 from yoke_core.domain.merge_queue_route import QueueLandingOutcome
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
@@ -20,6 +22,12 @@ def _fail_response(message):
 def _cleared(**_kw):
     """Stand in for an item that needs no candidate review."""
     return ""
+
+
+@pytest.fixture(autouse=True)
+def no_unmerged_predecessor(monkeypatch):
+    """These cases are about route selection; the dependency gate has its own."""
+    monkeypatch.setattr(selection_mod, "integration_dependency_refusal", _cleared)
 
 
 def _probe_dispatch(count):

@@ -1,6 +1,7 @@
 """Deployment run read/update handlers."""
 
 from __future__ import annotations
+from yoke_core.domain.deployment_overview_timing import timed_overview
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -76,6 +77,7 @@ def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
+@timed_overview
 def handle_deployment_run_list(request: FunctionCallRequest) -> HandlerOutcome:
     invalid = require_global(request, "deployment_runs.list")
     if invalid is not None:

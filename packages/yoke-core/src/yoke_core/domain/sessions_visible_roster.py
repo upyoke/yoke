@@ -34,6 +34,31 @@ def resolve_project_ids(
     return project_ids
 
 
+def org_session_clause(
+    conn: Any, actor_id: int | None, permission_key: str | None = None
+) -> tuple[str, list[Any]]:
+    """SQL visibility matching the canonical org session read permission.
+
+    The permission is decided once per organization the actor belongs to, so
+    the cost never grows with the number of outside-project sessions.
+    """
+    from yoke_core.domain.actor_permissions import PERM_ITEMS_READ
+    from yoke_core.domain.project_identity import placeholder
+    from yoke_core.domain.session_scope_identity import org_ids_with_permission
+
+    if actor_id is None:
+        return "1 = 0", []
+    marker = placeholder(conn)
+    orgs = org_ids_with_permission(conn, actor_id, permission_key or PERM_ITEMS_READ)
+    allowed = f"s.actor_id={marker}"
+    if orgs:
+        allowed += f" OR s.org_id IN ({', '.join(marker for _ in orgs)})"
+    return f"(s.project_id IS NULL AND s.org_id IS NOT NULL AND ({allowed}))", [
+        actor_id,
+        *orgs,
+    ]
+
+
 def _matched_projects(row: Dict[str, Any]) -> set[int]:
     """The projects a roster row belongs to: its own, plus every project it
     holds a live steering claim over. Both facts are already on the row, so
@@ -72,9 +97,12 @@ def open_roster_rows(
         project_ids = resolve_project_ids(conn, project_refs, visible)
     finally:
         conn.close()
+    org_actor = numeric_actor_id(actor) if not project_refs else None
     if project_ids is None:
-        return list_sessions(open=True, limit=limit, offset=offset)
-    if not project_ids:
+        return list_sessions(
+            open=True, limit=limit, offset=offset, org_session_actor_id=org_actor
+        )
+    if not project_ids and org_actor is None:
         # No visible project matches nothing, not everything: an unfiltered
         # read here would show the whole universe to a caller who can see
         # none of it.
@@ -83,7 +111,13 @@ def open_roster_rows(
     # One roster read covers the whole visible set. Asking it once per project
     # re-ran the entire pipeline — the same whole-table claim-holder read, the
     # same page enrichments — for every project the operator can see.
-    rows = list_sessions(project_ids=ordered, open=True, limit=limit, offset=offset)
+    rows = list_sessions(
+        project_ids=ordered,
+        open=True,
+        limit=limit,
+        offset=offset,
+        org_session_actor_id=org_actor,
+    )
     # A session's live steering claim can name a project other than its own
     # home project, so the same session legitimately belongs to more than one
     # project's group; keep its first appearance and drop the repeat rather

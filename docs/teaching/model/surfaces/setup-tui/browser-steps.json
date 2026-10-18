@@ -5,6 +5,5 @@
  "form": "Do",
  "verification": "Source and focused regression tests; deployed campaign proof remains pending.",
  "topics": ["identity/auth", "repositories/github"],
- "plan_refs": ["FIRST-USER.26"],
  "position": 13
 }

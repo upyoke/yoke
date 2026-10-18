@@ -20,6 +20,7 @@ from runtime.api.epic_task_sync_orchestrator_test_support import (
     db as db,
     declare_no_file_tasks,
 )
+from runtime.api.task_files_touched_test_support import files_touched_body
 from yoke_core.domain import epic_task_sync, github_rest
 from yoke_core.domain.project_identity import render_item_ref
 
@@ -71,7 +72,9 @@ def _created(number: int):
 
 def test_parent_and_children_share_one_search_and_adopt_existing_child(db):
     ref = _seed_epic(db, task_count=3)
-    existing = github_rest.Issue(555, f"[{ref}] 002 Task 2", "OPEN", body="body 2")
+    existing = github_rest.Issue(
+        555, f"[{ref}] 002 Task 2", "OPEN", body=files_touched_body([], "body 2")
+    )
     stdout = io.StringIO()
 
     with (

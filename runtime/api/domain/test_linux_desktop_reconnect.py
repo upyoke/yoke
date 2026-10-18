@@ -42,6 +42,25 @@ def test_newer_session_reuses_without_signal(manager, monkeypatch):
     assert not state.restart_orphan({**SESSION, "start": "300000"}, 3389)
 
 
+@pytest.mark.parametrize("sessions", [[], [SESSION]])
+def test_connected_viewer_refuses_before_reuse_or_restart(host, monkeypatch, sessions):
+    monkeypatch.setattr(state, "desktop_sessions", lambda: sessions)
+    monkeypatch.setattr(state, "rdp_connected", lambda port: True)
+    monkeypatch.setattr(
+        state, "restart_orphan", lambda *a: pytest.fail("viewer takeover")
+    )
+    with pytest.raises(
+        RuntimeError, match="linux_desktop_viewer_connected:.*close the open"
+    ):
+        state.ensure_desktop(PASSWORD, rdp_access=True)
+
+
+def test_gui_command_reuses_desktop_while_viewer_connected(host, monkeypatch):
+    monkeypatch.setattr(state, "desktop_sessions", lambda: [SESSION])
+    monkeypatch.setattr(state, "rdp_connected", lambda port: True)
+    assert state.ensure_desktop(PASSWORD)["desktop_session"] == "reused"
+
+
 def test_orphan_signals_only_same_fixture_session_and_waits(manager, monkeypatch):
     live = [SESSION]
     monkeypatch.setattr(state, "desktop_sessions", lambda **kw: live)

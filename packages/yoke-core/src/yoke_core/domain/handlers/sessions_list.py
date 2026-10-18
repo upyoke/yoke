@@ -102,6 +102,9 @@ def _history_result(
         result = read_ended_session_history(
             conn,
             project_ids=project_ids,
+            org_session_actor_id=numeric_actor_id(actor)
+            if not history.projects
+            else None,
             search=history.search,
             harnesses=history.harnesses,
             machines=history.machines,
@@ -136,7 +139,11 @@ def _recent_usage_result(
         actor = request.actor.actor_id if request.actor else None
         visible = actor_visible_project_ids(conn, numeric_actor_id(actor))
         project_ids = resolve_project_ids(conn, project_refs, visible)
-        result = read_recent_session_usage_by_machine(conn, project_ids=project_ids)
+        result = read_recent_session_usage_by_machine(
+            conn,
+            project_ids=project_ids,
+            org_session_actor_id=numeric_actor_id(actor) if not project_refs else None,
+        )
     finally:
         conn.close()
     return HandlerOutcome(result_payload=result, primary_success=True)
@@ -279,7 +286,18 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
                 offset,
             )
         else:
+            from yoke_core.domain import db_helpers
+            from yoke_core.domain.actor_project_visibility import (
+                actor_visible_project_ids,
+                numeric_actor_id,
+            )
+
+            actor = numeric_actor_id(request.actor.actor_id if request.actor else None)
+            with db_helpers.connect() as conn:
+                visible = actor_visible_project_ids(conn, actor)
             rows = list_sessions(
+                project_ids=sorted(visible) if visible is not None else None,
+                org_session_actor_id=actor if not project else None,
                 project=project,
                 liveness=liveness,
                 ended_cause=ended_cause,

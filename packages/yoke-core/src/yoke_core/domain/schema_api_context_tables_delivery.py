@@ -89,6 +89,7 @@ DELIVERY_TABLES: dict[str, dict] = {
             ("membership_removals", "TEXT"),
             ("superseded_by_run_id", "TEXT"),
             ("supersedes_run_id", "TEXT"),
+            ("created_by_session_id", "TEXT"),
         ],
         "notes": (
             "`flow` column joins to `deployment_flows.id`. There is no "
@@ -179,6 +180,9 @@ DELIVERY_TABLES: dict[str, dict] = {
             "from a candidate containing that run's, moves its waiting "
             "members (every unclosed member when the flow has run-level QA "
             "or approval, which also cancels it) onto the new run. "
+            "`created_by_session_id` is the session that created the run; while "
+            "a live steering seat covers the project, only that session or the "
+            "seat holder may take the run over. "
             "`settling_at` marks an `executing` run whose shared gates "
             "passed and which is closing its cleared members before it may "
             "read `succeeded`; completion authority treats it as delivered, "
@@ -237,6 +241,28 @@ DELIVERY_TABLES: dict[str, dict] = {
             "newest ready receipt for its pinned `source_stage`, exact target "
             "and release lineage, and any pinned artifact identity. Older or "
             "superseded success never satisfies QA; events are telemetry."
+        ),
+    },
+    "deployment_run_timings": {
+        "columns": [
+            ("id", "INTEGER"),
+            ("run_id", "TEXT"),
+            ("batch_id", "TEXT"),
+            ("sequence", "INTEGER"),
+            ("step", "TEXT"),
+            ("phase", "TEXT"),
+            ("recorded_at", "TIMESTAMPTZ"),
+            ("elapsed_ms", "DOUBLE PRECISION"),
+            ("outcome", "TEXT"),
+            ("record", "TEXT"),
+        ],
+        "notes": (
+            "Release phase timings: the start/end `Deployment start timing` "
+            "records each run-scoped driver timing scope sends through "
+            "`deployment_runs.timings.record` at each pipeline stage and when "
+            "it closes; `record` is the "
+            "full JSON record. Read with `yoke deployment-runs timings RUN-ID`. "
+            "Diagnostics only: nothing operational reads these rows."
         ),
     },
     "deployment_run_items": {

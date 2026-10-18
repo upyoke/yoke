@@ -2,7 +2,6 @@
  "id": "profile",
  "title": "Profile and preferences",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.12"],
  "functions": ["profile.get", "profile.onboarding.reset", "profile.preference.set"],
  "page": "workbench",
  "position": 2

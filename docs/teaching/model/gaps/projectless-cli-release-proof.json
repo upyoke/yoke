@@ -3,6 +3,5 @@
  "title": "Prove projectless CLI corrections in a serving release",
  "status": "observed",
  "text": "Candidate tests cover default-config create/import/onboard without GitHub adoption, project-selection refusals, Git-only install, and machine-owned export destinations. The batched release still owes served proof.",
- "plan_refs": ["FIRST-USER.P6"],
  "sources": ["runtime/api/cli/test_public_project_recipes.py", "runtime/api/cli/test_projectless_operation_boundaries.py", "runtime/api/domain/test_project_selection_permission_boundaries.py"]
 }

@@ -2,10 +2,8 @@
  "id": "github-choices",
  "title": "GitHub access, repository publication and issue sync",
  "status": "draft-copy",
- "situations": ["No GitHub account or another Git provider", "Existing repository needs access", "New repository may stay local", "User later asks about issue mirroring or CI"],
+ "situations": ["No GitHub account or another Git provider", "Existing repository needs access", "New repository may stay local", "User later asks about issue mirroring or CI", "The project uses another source-control provider"],
  "coverage": "traced",
  "current": "Research trace; requirements and source paths need live proof. Source now distinguishes explicit TUI opening from structured agent actions and reuses saved authorization; deployed proof remains pending.",
- "desired": "Reconciled against current plan records.",
- "questions": ["Can users distinguish all three choices without extra setup questions?", "Does general GitHub/relay teaching have one public source, with private operations only linking to it?"],
- "plan_refs": ["FIRST-USER.2", "FIRST-USER.4", "FIRST-USER.5", "FIRST-USER.10", "FIRST-USER.22", "FIRST-USER.32", "FIRST-USER.A", "JOURNEYS.situation-2", "JOURNEYS.moved-from-first-user-former-dash-g"]
+ "questions": ["Can users distinguish all three choices without extra setup questions?", "Does general GitHub/relay teaching have one public source, with private operations only linking to it?"]
 }

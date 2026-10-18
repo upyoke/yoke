@@ -130,8 +130,8 @@ CLI_ADAPTERS: List[AdapterEntry] = [
         notes="preserves history and revokes only the machine-bound bearer",
     ),
     AdapterEntry(
-        "machine.settings.set",
-        "yoke machine settings set [MACHINE-ID] --path use.mode --value universe",
+        "machine.access.set",
+        "yoke machine access set [MACHINE-ID] --path use.mode --value universe",
         notes="owner or administrator edits one leaf of the access document",
     ),
     _read_entry(
@@ -147,8 +147,8 @@ CLI_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke machine detail [MACHINE-ID]",
     ),
     _read_entry(
-        function_id="machine.settings.get",
-        cli_invocation="yoke machine settings get [MACHINE-ID] [--path use.mode]",
+        function_id="machine.access.get",
+        cli_invocation="yoke machine access get [MACHINE-ID] [--path use.mode]",
     ),
     # Cross-family readers (db_router forms stay operator-debug).
     _read_entry(

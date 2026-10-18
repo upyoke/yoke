@@ -64,7 +64,9 @@ def test_a_re_armed_follower_resumes_instead_of_replaying(
         handle.write("COPY tenant_1: starting\n")
         handle.write("COPY tenant_2: starting\n")
 
-    closing = _ClosingStream(accept=2)
+    # The writer claim is routine and rides in front of tenant_1, so the
+    # reader accepts one write and leaves at tenant_2.
+    closing = _ClosingStream(accept=1)
     assert watch_tail.follow(progress, out=closing, poll_interval=0.01) == 0
 
     with progress.open("a", encoding="utf-8") as handle:

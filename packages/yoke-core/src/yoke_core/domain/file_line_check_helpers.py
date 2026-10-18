@@ -10,7 +10,9 @@ import subprocess
 from dataclasses import dataclass, field
 from enum import Enum
 
-from yoke_contracts.project_contract.install_manifest import is_install_bundle_generated_path
+from yoke_contracts.project_contract.install_manifest import (
+    is_install_bundle_generated_path,
+)
 
 
 # Git empty-tree object; used as the "old" side on initial commit (no HEAD).
@@ -21,19 +23,24 @@ VENDORED_PREFIXES = (
     "vendor/",
 )
 
-LOCKFILE_BASENAMES = frozenset({
-    "package-lock.json",
-    "yarn.lock",
-    "Cargo.lock",
-    "Pipfile.lock",
-    "poetry.lock",
-    "uv.lock",
-})
+LOCKFILE_BASENAMES = frozenset(
+    {
+        "package-lock.json",
+        "yarn.lock",
+        "Cargo.lock",
+        "Pipfile.lock",
+        "poetry.lock",
+        "uv.lock",
+    }
+)
 
-GENERATED_SENTINELS = frozenset({
-    ".yoke/BOARD.md",
-    ".yoke/BOARD.md.ts",
-})
+GENERATED_SENTINELS = frozenset(
+    {
+        "packaging/public-installer/install.py",
+        ".yoke/BOARD.md",
+        ".yoke/BOARD.md.ts",
+    }
+)
 
 # fnmatch-style globs for generated trees that don't fit a single sentinel
 # path. Rendered harness adapter files are owned by
@@ -44,9 +51,11 @@ GENERATED_PATH_PATTERNS = (
     "runtime/harness/codex/agents/yoke-*.toml",
 )
 
-DATA_ASSET_PATHS = frozenset({
-    ".yoke/board-art",
-})
+DATA_ASSET_PATHS = frozenset(
+    {
+        ".yoke/board-art",
+    }
+)
 
 
 class Classification(str, Enum):
@@ -129,6 +138,8 @@ def do_classify_path(
     # un-splittable in the receiving repo — GENERATED, not authored (14199).
     if is_install_bundle_generated_path(posix_path, repo_root):
         return Classification.GENERATED
+    if posix_path in GENERATED_SENTINELS:
+        return Classification.GENERATED
     for pattern in temporary_exceptions:
         if fnmatch.fnmatchcase(posix_path, pattern):
             return Classification.TEMPORARY_EXCEPTION
@@ -140,9 +151,6 @@ def do_classify_path(
     basename = posix_path.rsplit("/", 1)[-1]
     if basename in LOCKFILE_BASENAMES or fnmatch.fnmatchcase(basename, "*.lock"):
         return Classification.LOCKFILE
-
-    if posix_path in GENERATED_SENTINELS:
-        return Classification.GENERATED
 
     for pattern in GENERATED_PATH_PATTERNS:
         if fnmatch.fnmatchcase(posix_path, pattern):
@@ -166,9 +174,7 @@ def do_classify_path(
     return Classification.AUTHORED
 
 
-def git_show_line_count(
-    ref: str, path: str, *, repo_root: pathlib.Path
-) -> int:
+def git_show_line_count(ref: str, path: str, *, repo_root: pathlib.Path) -> int:
     result = run_git(["show", f"{ref}:{path}"], repo_root=repo_root)
     if result.returncode != 0:
         return 0
@@ -176,7 +182,9 @@ def git_show_line_count(
 
 
 def head_exists(repo_root: pathlib.Path) -> bool:
-    return run_git(["rev-parse", "--verify", "HEAD"], repo_root=repo_root).returncode == 0
+    return (
+        run_git(["rev-parse", "--verify", "HEAD"], repo_root=repo_root).returncode == 0
+    )
 
 
 def staged_new_count(path: str, *, repo_root: pathlib.Path) -> int:
@@ -250,9 +258,7 @@ def print_report(entries: list[FileEntry], *, limit: int, as_json: bool) -> None
     print(f"# file_line_check report — limit={limit} — {len(entries)} file(s)")
     print(f"{'lines':>6}  {'classification':<22}  path")
     for entry in entries:
-        print(
-            f"{entry.line_count:>6}  {entry.classification.value:<22}  {entry.path}"
-        )
+        print(f"{entry.line_count:>6}  {entry.classification.value:<22}  {entry.path}")
 
 
 def print_verdict(verdict: CheckVerdict, *, as_json: bool) -> None:

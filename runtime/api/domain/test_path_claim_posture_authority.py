@@ -1,4 +1,4 @@
-"""Posture path-claim amendment accepts holders or covering steering only."""
+"""Path-claim and level posture amendments accept holders or covering steering."""
 
 from __future__ import annotations
 
@@ -22,11 +22,16 @@ from yoke_core.domain.handlers.__init_register__ import register_all_handlers
         ("other", True, "path_claims", True),
         ("other", False, "path_claims", False),
         ("", False, "path_claims", False),
+        ("caller", False, "level", True),
+        ("other", True, "level", True),
+        ("other", False, "level", False),
+        ("", True, "level", True),
+        ("", False, "level", False),
         ("other", True, "verification", False),
         ("other", True, "merge_candidate_review", False),
     ],
 )
-def test_path_claim_amendment_authority(monkeypatch, holder, seat, key, allowed):
+def test_steering_amendable_posture_authority(monkeypatch, holder, seat, key, allowed):
     register_all_handlers()
     entry = lookup("workflows.item_posture.amend")
     request = FunctionCallRequest(

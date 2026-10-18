@@ -17,6 +17,9 @@ from yoke_cli.commands.adapters.session_control_common import (
     read_stdin_payload,
     write_launch_result,
 )
+from yoke_cli.commands.adapters.session_control_launch_descriptions import (
+    LAUNCH_DESCRIPTIONS,
+)
 from yoke_cli.commands.adapters.session_control_launch_selection import (
     add_launch_selector as _add_launch_selector,
     maybe_list_models as _maybe_list_models,
@@ -289,7 +292,7 @@ def _launch_by_id(args: List[str], operation: str) -> int:
     }[operation]
     parser = argparse.ArgumentParser(
         prog=f"yoke session-control launch {operation}",
-        description=usage,
+        description=LAUNCH_DESCRIPTIONS.get(operation, usage),
     )
     parser.add_argument("launch_id")
     if operation == "reconcile":

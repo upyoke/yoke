@@ -6,6 +6,11 @@ import json
 from typing import Callable
 
 
+def consumer_dispatch_tag(sha: str) -> str:
+    """The create-only tag that pins consumer workflow source to *sha*."""
+    return f"yoke-deploy/consumer-{sha}"
+
+
 def bound_dispatch_ref(
     run_yoke: Callable,
     *,
@@ -15,7 +20,7 @@ def bound_dispatch_ref(
     timeout: int,
 ) -> tuple[str, str]:
     """Ensure an exact-commit tag and require its identity receipt before dispatch."""
-    tag = f"yoke-deploy/consumer-{sha}"
+    tag = consumer_dispatch_tag(sha)
     code, stdout, stderr = run_yoke(
         [
             "github-actions",

@@ -143,7 +143,7 @@ yoke identity invite create pat@corp.example --role admin
 yoke identity invite list --status pending
 yoke identity invite revoke <invite-id>
 yoke organizations domain set corp.example  # or: --clear
-yoke organizations settings merge --set membership.auto_join_domain_verified=true
+yoke settings set --set membership.auto_join_domain_verified=true
 yoke identity link set --actor <actor-id> --issuer <iss> --subject <sub>
 yoke identity link set --actor <actor-id> --email pat@corp.example
 ```

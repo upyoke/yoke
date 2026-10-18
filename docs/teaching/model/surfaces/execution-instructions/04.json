@@ -5,6 +5,5 @@
  "form": "Do",
  "verification": "No delivery proof attached.",
  "topics": ["items/creation", "planning", "verification", "deployments"],
- "plan_refs": ["FIRST-USER.0", "FIRST-USER.40", "FIRST-USER.43"],
  "position": 3
 }

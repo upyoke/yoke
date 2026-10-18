@@ -28,6 +28,13 @@ error makes BASELINE_TRUST=UNTRUSTED with reason. A product test failure alone
 does not invalidate captured baseline evidence. Baseline commands need the same
 declared validation environment, not production control-plane mutation.
 
+## Producer and consumer handoff
+
+Require evidence the real consumer built against the exact pushed candidate.
+Run the producer gate first, then hand the consumer the full commit the gate
+actually pushed to the producer remote; resolve it again after any rebase.
+See `.yoke/docs/qa.md`, “Proving an exact producer candidate”.
+
 ## Branch evidence and ownership
 
 Run actual claimed candidate checks with capture-first or their watcher. Preserve

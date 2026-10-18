@@ -304,6 +304,7 @@ OPENAI_RECORDS: tuple[ModelRecord, ...] = (
             "high",
             "extra-high",
         ),
+        replacement_model_id="gpt-6.1-sol",
         provider="openai",
         display_name="GPT-5.5",
         api_price=cursor_other_price(
@@ -324,6 +325,7 @@ OPENAI_RECORDS: tuple[ModelRecord, ...] = (
             "high",
             "xhigh",
         ),
+        replacement_model_id="gpt-5.6-terra",
         provider="openai",
         display_name="GPT-5.4",
         api_price=cursor_other_price(

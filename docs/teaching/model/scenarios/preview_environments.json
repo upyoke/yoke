@@ -5,7 +5,5 @@
  "situations": ["Developer wants per-branch preview", "Release reviewer needs a frozen candidate URL", "Preview expires or teardown fails"],
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
- "questions": ["Scheduled expiry and branch-deletion recovery were read as Pack obligations, not exercised against a host."],
- "plan_refs": ["JOURNEYS.situation-16", "JOURNEYS.also-owned-here"]
+ "questions": ["Scheduled expiry and branch-deletion recovery were read as Pack obligations, not exercised against a host."]
 }

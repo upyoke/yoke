@@ -47,6 +47,17 @@ def test_overrunning_check_is_incomplete_without_tracing_it(monkeypatch, worker_
         run()
 
 
+def test_paused_removal_does_not_spend_the_check_budget(monkeypatch):
+    """A removal that outlasts the check keeps the seconds left for verdicts."""
+    monkeypatch.setattr(doctor_budget, "CHECK_BUDGET_S", 0.2)
+    left = None
+    with doctor_budget.check_budget():
+        with doctor_budget.pause_check_budget():
+            time.sleep(0.5)
+        left = doctor_budget.remaining_budget()
+    assert left is not None and left > 0.05
+
+
 def test_running_subprocess_finishes_before_the_budget_is_enforced(monkeypatch):
     monkeypatch.setattr(doctor_budget, "CHECK_BUDGET_S", 0.02)
     finished = []

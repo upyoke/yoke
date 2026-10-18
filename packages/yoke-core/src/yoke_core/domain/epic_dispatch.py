@@ -205,43 +205,30 @@ def parse_dispatch_queue(raw_queue) -> List[str]:
 
 
 def dispatch_chain_advance(conn, epic_id: str, worktree: str) -> str:
-    """Advance to next task in dispatch chain.
+    """Point a dispatch chain at its lane's next ready task.
 
-    Increments current_index and updates current_task.
-    Returns ``new_index|next_task``.
+    Selects the first queued planned task whose dependencies are complete
+    (see :mod:`yoke_core.domain.dispatch_chain_selection`), so a waiting task
+    never holds back a ready one behind it. Returns ``new_index|next_task``;
+    raises ``ChainSelectionRefusal`` when the lane is busy, waiting or complete.
     """
+    from yoke_core.domain.dispatch_chain_selection import (
+        load_epic_tasks,
+        select_next_task,
+    )
+
     p = _placeholder(conn)
     row = query_one(
         conn,
-        "SELECT c.current_index, c.queue FROM epic_dispatch_chains c "
+        "SELECT c.queue FROM epic_dispatch_chains c "
         f"JOIN item_worktrees iw ON iw.id=c.item_worktree_id WHERE c.epic_id={p} AND iw.branch={p}",
         (str(epic_id), worktree),
     )
     if row is None:
         raise LookupError(f"dispatch chain '{epic_id}/{worktree}' not found")
 
-    cur_index = row["current_index"]
-    raw_queue = row["queue"] or ""
-
-    if cur_index is None or (isinstance(cur_index, str) and not cur_index.strip()):
-        raise ValueError("invalid current_index '<empty>'")
-
-    try:
-        cur_index = int(cur_index)
-    except (ValueError, TypeError):
-        raise ValueError(f"invalid current_index '{cur_index}'")
-
-    if cur_index < 0:
-        raise ValueError(f"invalid current_index '{cur_index}'")
-
-    queue = parse_dispatch_queue(raw_queue)
-
-    next_index = cur_index + 1
-    if next_index >= len(queue):
-        raise IndexError(
-            f"already at end of queue (current_index={cur_index}, queue_length={len(queue)})"
-        )
-
+    queue = parse_dispatch_queue(row["queue"] or "")
+    next_index, _ = select_next_task(queue, load_epic_tasks(conn, epic_id), worktree)
     next_task = queue[next_index]
     ts = instant_parameter(conn, utc_now())
 

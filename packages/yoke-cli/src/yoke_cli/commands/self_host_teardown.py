@@ -13,7 +13,7 @@ import sys
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands._helpers import parse_or_usage_error
-from yoke_cli.self_host import teardown
+from yoke_cli.self_host import bundle, teardown
 
 AdapterFn = Callable[[List[str]], int]
 
@@ -37,14 +37,23 @@ def self_host_teardown(args: List[str]) -> int:
             "Take a self-host bundle off this machine. Always stops and "
             "removes the stack; everything further is opt-in and named for "
             "what it destroys. Without --destroy-universe the database "
-            "volume survives, so `yoke self-host init --protect-existing --start` from the bundle "
-            "brings the same universe back. The machine connection pointing "
+            "volume survives, so `yoke self-host init --dir PATH "
+            "--protect-existing --start` brings the same universe back. The "
+            "machine connection pointing "
             "at this bundle's server is retired unless --keep-connection. "
             "Every alias for that server is retired together, so no dead "
             "authority is left behind in ~/.yoke/config.json."
         ),
     )
-    parser.add_argument("--dir", dest="directory", default=None)
+    parser.add_argument(
+        "--dir",
+        dest="directory",
+        default=None,
+        help=(
+            f"Bundle directory (default: ./{bundle.DEFAULT_BUNDLE_DIR} under "
+            "the current directory, matching `yoke self-host init`)."
+        ),
+    )
     parser.add_argument(
         "--destroy-universe",
         action="store_true",

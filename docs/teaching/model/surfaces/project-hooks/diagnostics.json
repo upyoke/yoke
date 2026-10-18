@@ -5,6 +5,5 @@
  "form": "State",
  "verification": "Candidate regression tests cover Git warnings, quiet snapshot scans, unchanged JSON envelopes and bounded combined harness deliveries; no deployed proof yet.",
  "topics": ["context/hooks", "context/disclosure"],
- "plan_refs": ["FIRST-USER.29"],
  "position": 7
 }

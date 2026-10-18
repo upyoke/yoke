@@ -147,13 +147,16 @@ def test_retired_waiver_cannot_mask_current_failure_in_detail_or_list(
     )
     value = "2026-10-01T00:00:00Z" if retirement == "retracted_at" else current_id
     retired_id = _requirement(
-        test_db,
-        item_id,
-        plan_id,
-        created_at="2060-01-01T00:00:00Z",
-        **{retirement: value},
+        test_db, item_id, plan_id, created_at="2060-01-01T00:00:00Z"
     )
+    # Waived while it still counted, then retired: a waiver cannot be
+    # recorded on a row that no longer counts.
     _waive(test_db, retired_id)
+    test_db.execute(
+        f"UPDATE qa_requirements SET {retirement}=%s WHERE id=%s",
+        (value, retired_id),
+    )
+    test_db.commit()
 
     detail = get_plan(test_db, plan_id=plan_id)
     assert detail["cases"][0]["last_result"]["requirement_id"] == current_id

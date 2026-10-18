@@ -13,6 +13,7 @@ from yoke_core.domain import session_stale_alive_probe as probe
 from yoke_core.domain import session_wake_deferral as deferral
 from yoke_core.domain import session_wake_idempotency as idempotency
 from yoke_core.domain import steering_message_drain as drain
+from yoke_core.domain import steering_seat_handover as handover
 from yoke_core.domain.session_message_store import insert_message
 from yoke_core.domain.session_message_types import ResolvedRecipient, row_dict
 from yoke_core.domain.sessions_analytics_core import DEFAULT_STALE_THRESHOLD_MINUTES
@@ -57,7 +58,7 @@ def _seed(conn):
         expires_at=MOMENT,
         recipients=[recipient],
         actor_recipients=[],
-        wake_after_by_project={1: old},
+        wake_after_by_owner={("project", 1): old},
     )
     assert inserted
     return message["message_id"], machine_id
@@ -107,7 +108,7 @@ def test_deferral_backoff_and_refund_comparison_preserve_native_microsecond(
     message_id, _ = _seed(test_db)
     monkeypatch.setattr(
         deferral,
-        "project_policy",
+        "recipient_policy",
         lambda *_: SimpleNamespace(wake_after_idle_seconds=60),
     )
     backoff = MOMENT + timedelta(seconds=60)
@@ -189,7 +190,7 @@ def test_stale_probe_threshold_selects_latest_native_activity_with_strict_order(
     )
     monkeypatch.setattr(
         probe,
-        "project_policy",
+        "recipient_policy",
         lambda *_: SimpleNamespace(stale_alive_probe_seconds=60),
     )
     sent = []
@@ -215,7 +216,7 @@ def test_steering_cancel_clock_is_native_and_acknowledged_recipient_is_retained(
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
     message_id, _ = _seed(test_db)
     test_db.execute("UPDATE session_message_recipients SET state=%s", (state,))
-    drain._cancel_session_recipient(
+    handover.cancel_session_receipt(
         test_db, message_id=message_id, session_id="wake-clock", now=MOMENT
     )
     assert tuple(
@@ -224,12 +225,15 @@ def test_steering_cancel_clock_is_native_and_acknowledged_recipient_is_retained(
         ).fetchone()
     ) == (("cancelled", MOMENT) if state == "pending" else ("acknowledged", None))
     row = {
+        "message_id": message_id,
         "sent_at": MOMENT,
         "sender_item_id": None,
         "state": "awaiting_seat",
         "body": OPAQUE,
     }
-    digest = drain.render_digest(test_db, [row], descriptor="clock test")
+    digest = drain.render_digest(
+        test_db, [row], descriptor="clock test", receipts={message_id: True}
+    )
     assert format_instant(MOMENT) in digest and OPAQUE in digest
     assert (
         test_db.execute(
@@ -266,6 +270,6 @@ def test_invalid_wake_clock_refuses_before_sql_or_backoff_updates(value):
             object(), message_id="message", session_id="wake-clock", now=value
         )
     with pytest.raises(InvalidInstant):
-        drain._cancel_session_recipient(
+        handover.cancel_session_receipt(
             object(), message_id="message", session_id="wake-clock", now=value
         )

@@ -1,9 +1,10 @@
 """Differences between two fleet observations, one line each.
 
 Deltas include an item changing status or ownership and a session registering
-or ending. Those edges need a previous observation. Available work and the
-level conditions in :mod:`yoke_core.domain.fleet_delta_alarms` also fire on
-the arming pass, so existing actionable work needs no subsequent change.
+or ending. Those edges need a previous observation. Available work, the
+level conditions in :mod:`yoke_core.domain.fleet_delta_alarms` and dependency
+deadlocks (:mod:`yoke_core.domain.fleet_delta_deadlocks`) also fire on the
+arming pass, so existing actionable work needs no subsequent change.
 
 Silence is the contract: when nothing moved, this module returns an
 empty list. The probe checks due steering reports independently.
@@ -20,7 +21,9 @@ from yoke_core.domain.fleet_delta_alarms import (
     starved_envelope_alarms,
     unowned_item_alarms,
 )
+from yoke_core.domain.fleet_delta_deadlocks import deadlock_alarms
 from yoke_core.domain.fleet_delta_snapshot import FleetSnapshot
+from yoke_core.domain.fleet_delta_unstaffed import unstaffed_ready_alarms
 
 
 def item_deltas(previous: FleetSnapshot | None, current: FleetSnapshot) -> list[str]:
@@ -93,6 +96,8 @@ def compare(
     lines.extend(idle_holder_alarms(current, state))
     lines.extend(unowned_item_alarms(current, state))
     lines.extend(starved_envelope_alarms(current, state))
+    lines.extend(unstaffed_ready_alarms(current, state))
+    lines.extend(deadlock_alarms(current, state))
     return lines
 
 

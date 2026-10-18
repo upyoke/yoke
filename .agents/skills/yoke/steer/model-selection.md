@@ -29,7 +29,7 @@ For a running item or shift/min/max, amend per help then restaff through rule 9:
 ```text
 yoke workflows item-posture amend PREFIX-N --key level --value '{"max":"SENIOR","reason":"SENIOR is sufficient"}' --reason "steering staffing default"
 yoke projects level-summary get --project {_project}
-yoke universe levels get
+yoke settings get levels
 yoke session-control launch preview --project {_project} --level SENIOR --json
 ```
 
@@ -67,8 +67,9 @@ yoke relay probe-models --surface cursor-cli
 
 Native publication observes new models immediately; missing research never
 gates launch. Catalog research (models get/lookup) is facts, not level mutation.
-Only operator-approved level-proposal followed by universe levels set changes
-options. No catalog-driven silent preference shift.
+Only operator-approved level-proposal followed by its apply command
+(`universe levels reset` or `set`) changes options. No catalog-driven silent
+preference shift.
 
 ## Restaff ladder
 

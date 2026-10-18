@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import PurePosixPath
 import shlex
 
-from yoke_cli.config.path_doctor import resolve_path_state_contract
-
 from yoke_harness._ssh_mac_full_reset_reap_body import REAP_FUNCTIONS
 from yoke_harness._ssh_mac_full_reset_relay_body import RELAY_SERVICE_FUNCTIONS
 from yoke_harness._ssh_mac_full_reset_script_body import SCRIPT_BODY
@@ -57,7 +55,7 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     YOKE_ABSENT_RELATIVE_DIRECTORIES,
     YOKE_ABSENT_TEMP_FILES,
     YOKE_STATE_DIR_NAME,
-    resolve_full_reset_path_contract,
+    canonical_full_reset_path_contract,
 )
 
 
@@ -292,11 +290,8 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
     )
 
 
-_REFERENCE_PATH_STATE = resolve_path_state_contract(
-    env={"HOME": "/", "SHELL": "/bin/zsh"}
-)
 FULL_RESET_SCRIPT = render_full_reset_script(
-    resolve_full_reset_path_contract(_REFERENCE_PATH_STATE)
+    canonical_full_reset_path_contract()
 )
 
 

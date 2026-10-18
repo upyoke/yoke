@@ -197,7 +197,7 @@ blocking_item_id INTEGER NOT NULL REFERENCES items(id)
 gate_point TEXT NOT NULL DEFAULT 'activation' -- activation | integration | closure | coordination_only
 satisfaction TEXT NOT NULL DEFAULT 'status:done' -- status:<stage-id> | fact:merged | fact:deployed:<environment-name>
 source TEXT NOT NULL -- shepherd | conduct | operator | migration | feed | idea | refine | dash
-session_id INTEGER -- nullable contextual session ID
+session_id TEXT -- nullable; the session that added or last changed the edge
 rationale TEXT NOT NULL DEFAULT '' -- human-readable explanation of the edge
 evidence_json TEXT NOT NULL DEFAULT '{}' -- structured provenance payload
 created_at TIMESTAMPTZ NOT NULL
@@ -213,7 +213,10 @@ Indexes:
 - `idx_id_dependent ON item_dependencies(dependent_item_id)`
 - `idx_id_blocking ON item_dependencies(blocking_item_id)`
 
-The writer uses idempotent `ON CONFLICT DO NOTHING` for the unique edge.
+`yoke items dependency add` on an existing edge updates it in place (source, rationale,
+satisfaction, evidence) and replies with the stored row: `created dependency #N`,
+`updated existing dependency #N: <field> old -> new`, or `unchanged: existing dependency #N`.
+`update` also accepts `--source` and `--evidence`.
 
 ### Canonical blocker model
 
@@ -241,6 +244,8 @@ Python service clients are not an agent recipe.
 
 **Enforcement:** `advance.preflight.hard_blocks` exposes the shared `evaluate_blockers` evaluator through `yoke advance preflight hard-blocks PREFIX-N --gate-point activation`. It evaluates on the selected control plane over HTTPS or local Postgres. `implement` / `conduct` / `usher` share it. The authoritative status write runs it for listed `check_hard_blocks` at `activation`, and on every write to `done` at `closure` (not skippable by force or QA bypass). `items.block` refuses a wait a live activation/integration/closure edge already carries — use `yoke items dependency add`. The frontier uses `evaluate_batch_gates()` for activation.
 
+**Loop refusal:** `items.dependency.add` and `items.dependency.update` (when it changes the gate or satisfaction) refuse with `dependency_cycle` a write that would leave unsatisfied activation/integration/closure edges among live items in a loop, because no item in it could move first. The refusal names every edge in the loop with its id, the items it would strand, and the recovery: make one edge `coordination_only` (`yoke items dependency update DEPENDENT BLOCKING --match-gate-point GATE --gate-point coordination_only --rationale TEXT`), or route the ordering decision to steering. Nothing is written. `coordination_only` edges, satisfied edges and terminal dependents never count. `yoke_core.domain.dependency_cycles` is the one detector: `frontier.list` and `charge.schedule` serve its loops as `dependency_cycles`, the fleet watch raises `fleet ALARM deadlock`, and the steering report lists them under dependency deadlocks.
+
 ## Table: ouroboros_entries
 
 ```sql
@@ -267,10 +272,8 @@ context_estimate TEXT -- S|M|L|XL
 dependencies TEXT -- comma-separated task nums
 status TEXT DEFAULT 'planning' CHECK(status IN ('planning','plan-drafted','refining-plan','planned','implementing','reviewing-implementation','reviewed-implementation','polishing-implementation','implemented','release','done','failed','blocked','stopped'))
 dispatch_attempts INTEGER DEFAULT 0
-body TEXT
+body TEXT -- its ## Files Touched section is the task's only file list
 github_issue TEXT
-scope_state TEXT NOT NULL DEFAULT 'pending' -- pending|paths|no_files|legacy_deferred
-scope_finalized_at TEXT
 max_attempts INTEGER DEFAULT 5
 agent_id TEXT
 last_heartbeat TIMESTAMPTZ
@@ -278,17 +281,12 @@ last_activity_at TIMESTAMPTZ
 UNIQUE(epic_id, task_num)
 ```
 
-## Table: epic_task_files
-
-```sql
-id INTEGER PRIMARY KEY
-epic_id INTEGER NOT NULL
-task_num INTEGER NOT NULL
-file_path TEXT NOT NULL
-action TEXT -- create|modify|delete
-UNIQUE(epic_id, task_num, file_path)
-FOREIGN KEY (epic_id, task_num) REFERENCES epic_tasks(epic_id, task_num)
-```
+A task's repository files live only in its body's `## Files Touched`
+section: one `- create|modify|delete `path`` bullet per file, or the single
+line `None — no repository files`. Coverage, lane narrowing, registration
+and scope checks parse it (`yoke_core.domain.task_files_touched`); a missing
+or pathless section is reported and fails closed. Whole-plan finalization is
+`items.generated_task_membership_finalized_at`.
 
 ## Table: epic_dispatch_chains
 
@@ -309,7 +307,7 @@ UNIQUE(epic_id, item_worktree_id)
 
 ## View: item_progress_view
 
-Read model for item delivery progress. Joins `items`, `deployment_flows`, and (when present) `deployment_runs` / `deployment_run_items` to project a single-row progress summary per item. Schema convergence owns its construction.
+Read model for item delivery progress. Joins `items`, `deployment_flows`, and (when present) `deployment_runs` / `deployment_run_items` to project a single-row progress summary per item. Schema convergence owns its construction: it leaves an unchanged view in place, so the view keeps its identity and a concurrent export never reads a dropped relation, and it drops and recreates a view whose definition changed.
 
 ```sql
 -- Fields returned per item:

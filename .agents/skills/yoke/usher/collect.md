@@ -65,10 +65,11 @@ checkout and run its shared dirty classifier. Machine mapping owns paths;
 projects have no repo_path field. Preserve managed-bookkeeping semantics:
 
 ```text
-yoke dev run -- python3 -m yoke_core.domain.classify_dirty_files classify-dirty --project PROJECT --exclude-worktrees
+yoke worktree classify-dirty --project PROJECT --exclude-worktrees --json
 ```
 
-Read its actual result per help/source; unresolved project, failed classifier
+Read `result.yoke_managed` and `result.user_authored`; this read runs on the
+caller's mapped checkout without a Yoke source lane. Unresolved project, failed classifier
 or user-authored dirty files hard-stop. Commit/stash only authorized state;
 never treat an unreadable result as clean.
 

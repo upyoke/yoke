@@ -77,7 +77,7 @@ def _resolve(conn, times=None):
         project_id=1,
         source=SimpleNamespace(
             commit_time=lambda commit: times[commit],
-            resolve_commit=lambda _: "",
+            resolve_commits=lambda refs: dict.fromkeys(refs, ""),
         ),
         base="b" * 40,
         head="a" * 40,

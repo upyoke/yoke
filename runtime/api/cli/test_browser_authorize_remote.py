@@ -97,6 +97,22 @@ def authorize(*extra):
     )
 
 
+def test_desktop_only_and_omitted_identity_are_resolved_before_viewer(route, capsys):
+    assert authorize("--desktop-browser", "--json") == 0
+    argv = route["argv"][0]["argv"]
+    assert "--desktop-browser" in argv and "--include-desktop-browser" not in argv
+    assert "https://shop.example.com" in capsys.readouterr().err
+    route["argv"].clear()
+    assert (
+        browser_authorize.browser_authorize(
+            ["--project", "acme", "--machine", "test-mac", "--json"]
+        )
+        == 2
+    )
+    assert "browser_identity_required" in json.loads(capsys.readouterr().out)["error"]
+    assert not route["argv"]
+
+
 def test_remote_reads_settings_and_forwards_options_without_local_browser(
     route, monkeypatch, capsys
 ):

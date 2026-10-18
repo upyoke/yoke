@@ -16,7 +16,7 @@ Session/harness substrate:
 
 Project harness config:
   ``project-hook-config-validity``, ``harness-unattended-posture``,
-  ``hook-resident``, ``pack-prerequisites``.
+  ``hook-resident``, ``machine-hooks``, ``pack-prerequisites``.
 
 Ledger audit:
   ``claim-boundary-audit``.
@@ -64,6 +64,11 @@ from yoke_core.engines.doctor_hc_reflection_capture_persist_failed import (
 from yoke_core.engines.doctor_hc_project_hook_config import (
     hc_project_hook_config_validity,
 )
+from yoke_core.engines.doctor_hc_machine_hooks import (
+    SLUG as MACHINE_HOOKS_SLUG,
+    TITLE as MACHINE_HOOKS_TITLE,
+    hc_machine_hooks,
+)
 from yoke_core.engines.doctor_hc_pack_prerequisites import (
     SLUG as PACK_PREREQUISITES_SLUG,
     TITLE as PACK_PREREQUISITES_TITLE,
@@ -98,6 +103,7 @@ from yoke_core.engines.doctor_hc_session_relay_orphans import (
 )
 from yoke_core.engines.doctor_registry_types import HealthCheck
 from yoke_core.engines.doctor_install import INSTALL_HEALTH_CHECKS
+from yoke_core.engines.doctor_session import SESSION_HEALTH_CHECKS
 from yoke_core.engines.doctor_hc_hook_resident import (
     SLUG as HOOK_RESIDENT_SLUG,
     TITLE as HOOK_RESIDENT_TITLE,
@@ -165,6 +171,7 @@ HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
         "Project hook configs are regular and schema-valid",
         hc_project_hook_config_validity,
     ),
+    HealthCheck(MACHINE_HOOKS_SLUG, MACHINE_HOOKS_TITLE, hc_machine_hooks),
     HealthCheck(
         PACK_PREREQUISITES_SLUG,
         PACK_PREREQUISITES_TITLE,
@@ -189,5 +196,6 @@ HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
 ]
 
 HARNESS_HEALTH_CHECKS.extend(INSTALL_HEALTH_CHECKS)
+HARNESS_HEALTH_CHECKS.extend(SESSION_HEALTH_CHECKS)
 
 __all__ = ["HARNESS_HEALTH_CHECKS"]

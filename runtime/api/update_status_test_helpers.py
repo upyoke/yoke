@@ -14,10 +14,10 @@ from unittest import mock
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import update_status
-from yoke_core.domain.epic_task_scope import (
-    finalize_generated_task_scopes,
-    set_no_files_scope,
-)
+from yoke_core.domain.epic_task_scope import finalize_generated_task_scopes
+from yoke_core.domain.task_files_touched import parse_files_touched
+
+from runtime.api.task_files_touched_test_support import declare_task_files
 
 
 def _p(conn: Any) -> str:
@@ -46,22 +46,18 @@ def update(conn, epic_id, task_num, new_status, note="", **kwargs):
     """Call update_task_status with captured output and mocked externals."""
     if (
         new_status == "implementing"
-        and task_field(conn, epic_id, task_num, "scope_state") == "pending"
+        and not parse_files_touched(
+            task_field(conn, epic_id, task_num, "body")
+        ).declared
     ):
-        set_no_files_scope(conn, int(epic_id), int(task_num))
+        declare_task_files(conn, int(epic_id), int(task_num), [])
+        conn.commit()
         p = _p(conn)
         parent = conn.execute(
             f"SELECT 1 FROM items WHERE id={p}",
             (int(epic_id),),
         ).fetchone()
-        if parent is None:
-            conn.execute(
-                "UPDATE epic_tasks SET scope_finalized_at=CURRENT_TIMESTAMP "
-                f"WHERE epic_id={p}",
-                (int(epic_id),),
-            )
-            conn.commit()
-        else:
+        if parent is not None:
             finalize_generated_task_scopes(conn, int(epic_id))
     out = io.StringIO()
     err = io.StringIO()

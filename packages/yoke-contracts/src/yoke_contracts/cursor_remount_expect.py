@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import json
 from contextlib import contextmanager
-import fcntl
 import os
 import re
 from dataclasses import dataclass
@@ -23,6 +22,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Iterator, Optional, Union
 
+from yoke_contracts import platform_file_lock
 from yoke_contracts.payload_session_fold import is_hook_replay
 from yoke_contracts.timestamps import (
     InvalidInstant,
@@ -85,7 +85,7 @@ def _exclusive_receipt(path: Path) -> Iterator[bool]:
             os.O_RDWR | os.O_CREAT | getattr(os, "O_CLOEXEC", 0),
             0o600,
         )
-        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        platform_file_lock.acquire_exclusive(descriptor)
         locked = True
     except OSError:
         pass
@@ -95,7 +95,7 @@ def _exclusive_receipt(path: Path) -> Iterator[bool]:
         if descriptor >= 0:
             try:
                 if locked:
-                    fcntl.flock(descriptor, fcntl.LOCK_UN)
+                    platform_file_lock.release_exclusive(descriptor)
             finally:
                 os.close(descriptor)
 

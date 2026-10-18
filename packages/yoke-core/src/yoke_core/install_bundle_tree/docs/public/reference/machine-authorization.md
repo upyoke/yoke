@@ -115,6 +115,28 @@ Roster or relay failures leave pending requests usable. A failed pending read
 offers **Try again**; an older server directs you to the link your terminal
 printed. Local mode shows the reachability notice without a pending read.
 
+## Retired and foreign-owned machines
+
+Start refuses a `machine_id` the registry retired with HTTP 409
+`machine_retired`, before any code exists, so nobody approves a code that
+delivery would refuse. Hosted `machine_authorization.handoff` refuses the same
+id with the same code before storing the hosted code. On that refusal `yoke connect` and the setup wizard
+replace this computer's configured UUID with a new one in
+`~/.yoke/config.json` and request a fresh code once, on every harness, so no
+reinstall is needed. Both say which retired id they replaced; the retired
+machine keeps its row and history on the Machines page. A second
+`machine_retired` for the new id stops with that named refusal. A machine
+retired after its code was issued is refused at delivery the same way: the
+client swaps in a new identity and tells you to run `yoke connect` again. A
+server older than this behavior issues the code and refuses only at delivery,
+which takes that same path. On a local universe, `yoke machine register` and
+setup's registration step make the same one-time swap.
+
+Only retired machines get a new identity. An active machine registered to
+another person still refuses as `machine_owner_mismatch`: its owner or an
+administrator retires the machine, then you run `yoke connect` again on this
+computer.
+
 ## Approval page
 
 The selected request shows one shared card headed **Approve this machine**.

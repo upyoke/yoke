@@ -81,12 +81,17 @@ def select_shell(parsed: argparse.Namespace) -> SetupShell:
                 ("--non-interactive", parsed.non_interactive),
                 ("--json", parsed.json_mode),
                 ("--use-different-folder", bool(parsed.different_folder_run_id)),
-                ("TOKEN, --token-file or --token-stdin", hosted_auth.has_explicit_token_source(parsed)),
+                (
+                    "TOKEN, --token-file or --token-stdin",
+                    hosted_auth.has_explicit_token_source(parsed),
+                ),
             )
             if given
         ]
         if clashes:
-            return SetupShell(error=f"--agent cannot be combined with {', '.join(clashes)}")
+            return SetupShell(
+                error=f"--agent cannot be combined with {', '.join(clashes)}"
+            )
         return SetupShell(SHELL_AGENT)
     terminal = onboard_wizard.is_interactive(sys.stdin, sys.stdout)
     if parsed.tui:
@@ -105,7 +110,9 @@ def select_shell(parsed: argparse.Namespace) -> SetupShell:
         return SetupShell(SHELL_WIZARD)
     if one_shot or terminal or parsed.different_folder_run_id:
         if agent_inputs:
-            return SetupShell(error="--answer and --discard belong to `yoke setup --agent`")
+            return SetupShell(
+                error="--answer and --discard belong to `yoke setup --agent`"
+            )
         return SetupShell(SHELL_DETECT)
     if hosted_auth.has_explicit_token_source(parsed):
         return SetupShell(
@@ -184,6 +191,9 @@ def run(
             refusal=refusal,
         )
         code = setup.run()
+    except KeyboardInterrupt:
+        responses.emit(responses.interrupted())
+        return responses.EXIT_CODES[responses.STATE_FAILED]
     except Exception as exc:  # noqa: BLE001 - agent mode never prints a traceback
         responses.emit(
             responses.failed(

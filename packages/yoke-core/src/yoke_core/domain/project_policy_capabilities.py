@@ -18,9 +18,6 @@ from dataclasses import dataclass
 from typing import Any, Mapping, MutableMapping, Sequence
 
 from yoke_contracts.board.policy_settings import board_settings_defaults
-from yoke_contracts.project_contract.disposable_generated_paths_policy import (
-    DISPOSABLE_GENERATED_PATHS_DEFAULT,
-)
 from yoke_contracts.project_contract.project_keys import (
     LOCAL_PROJECT_KEYS,
     PROJECT_POLICY_CAPABILITY,
@@ -32,18 +29,6 @@ from yoke_contracts.project_contract.project_keys import (
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.project_identity import row_value
-
-_INT_POLICY_KEYS = frozenset(
-    {
-        "title_max_length",
-        "wip_cap",
-        "merge_conflict_threshold",
-        "max_attempts",
-        "steering_report_staffing_minutes",
-        "steering_report_idle_minutes",
-        "steering_report_interval_minutes",
-    }
-)
 
 _PROJECT_POLICY_KEYS = tuple(
     key for key in RECOGNIZED_PROJECT_KEYS if key not in LOCAL_PROJECT_KEYS
@@ -83,8 +68,8 @@ def project_policy_defaults(
 
     defaults: dict[str, Any] = {}
     for key in _PROJECT_POLICY_KEYS:
-        raw = RECOGNIZED_PROJECT_KEYS[key][0]
-        defaults[key] = int(raw) if key in _INT_POLICY_KEYS else raw
+        raw = RECOGNIZED_PROJECT_KEYS[key].default
+        defaults[key] = copy.deepcopy(raw)
 
     resolved_base_branch = (base_branch or "").strip()
     if not resolved_base_branch and conn is not None and project_id is not None:
@@ -99,7 +84,6 @@ def project_policy_defaults(
     if resolved_base_branch:
         defaults["base_branch"] = resolved_base_branch
     defaults["board"] = board_settings_defaults()
-    defaults["disposable_generated_paths"] = list(DISPOSABLE_GENERATED_PATHS_DEFAULT)
     return defaults
 
 

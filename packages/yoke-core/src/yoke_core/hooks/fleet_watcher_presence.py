@@ -19,7 +19,10 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_contracts.executor_labels import canonical_harness_id
-from yoke_contracts.fleet_watcher_observation import observed_absent
+from yoke_contracts.fleet_watcher_observation import (
+    observed_absent,
+    observed_lapsed_tail,
+)
 from yoke_contracts.harness_wake_capability import wake_capability_for_harness
 from yoke_contracts.hook_context_compose import ALERT_BEGIN, ALERT_END
 from yoke_core.domain.session_mode import session_is_parked
@@ -68,10 +71,19 @@ def _project_flags(report: str) -> str:
 
 
 def fleet_watcher_absent_nudge(
-    report: str, executor_family: str, event_name: str
+    report: str, executor_family: str, event_name: str, lapsed_capture: str = ""
 ) -> str:
     """Name the gap and the exact re-arm recipe for this harness's wake model."""
     wake = wake_capability_for_harness(canonical_harness_id(executor_family))
+    limit = wake.idle_wake_subscription_limit_seconds
+    if lapsed_capture and limit:
+        return (
+            f"Fleet watcher's {wake.idle_wake_mechanism} subscription expired "
+            "while its wrapper still runs. Re-arm the same tail against the "
+            f"same capture with {wake.idle_wake_deadline_parameter}="
+            f"{limit * 1000}: `yoke watch tail {shlex.quote(lapsed_capture)}`. "
+            "Never relaunch the wrapper; a second one doubles every report."
+        )
     recipe = (
         " That prints the invocation and starts nothing; run it, using only "
         "the native subscription its wait_mode declares."
@@ -111,7 +123,10 @@ def fleet_watcher_alert(report: str, context: HookContext) -> str:
     ):
         return ""
     line = fleet_watcher_absent_nudge(
-        report, context.executor_family, context.event_name
+        report,
+        context.executor_family,
+        context.event_name,
+        observed_lapsed_tail(context.payload, session_id),
     )
     return f"{ALERT_BEGIN}\n{line}\n{ALERT_END}"
 

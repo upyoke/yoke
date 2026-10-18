@@ -24,7 +24,7 @@ from yoke_core.domain.deployment_run_completion_preconditions import (
     unresolved_blocking_qa,
 )
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.steering_fleet_report_deployment_runs import run_progress
+from yoke_core.domain.steering_fleet_report_run_progress import run_progress
 from yoke_core.domain.steering_fleet_report_projection import _run_dict
 from yoke_core.domain.steering_fleet_report_render import _run_lines
 

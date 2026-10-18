@@ -28,10 +28,10 @@ MACHINE_RETIRE_USAGE = (
     "yoke machine retire [MACHINE-ID] --confirm [--session-id S] [--json]"
 )
 MACHINE_SETTINGS_GET_USAGE = (
-    "yoke machine settings get [MACHINE-ID] [--path use.mode] [--session-id S] [--json]"
+    "yoke machine access get [MACHINE-ID] [--path use.mode] [--session-id S] [--json]"
 )
 MACHINE_SETTINGS_SET_USAGE = (
-    "yoke machine settings set [MACHINE-ID] --path use.mode --value '\"universe\"' "
+    "yoke machine access set [MACHINE-ID] --path use.mode --value '\"universe\"' "
     "[--session-id S] [--json]"
 )
 USAGE_BY_FUNCTION_ID = {
@@ -40,8 +40,8 @@ USAGE_BY_FUNCTION_ID = {
     "machine.show": MACHINE_SHOW_USAGE,
     "machine.detail": MACHINE_DETAIL_USAGE,
     "machine.retire": MACHINE_RETIRE_USAGE,
-    "machine.settings.get": MACHINE_SETTINGS_GET_USAGE,
-    "machine.settings.set": MACHINE_SETTINGS_SET_USAGE,
+    "machine.access.get": MACHINE_SETTINGS_GET_USAGE,
+    "machine.access.set": MACHINE_SETTINGS_SET_USAGE,
 }
 
 
@@ -93,19 +93,27 @@ def machine_register(args: List[str]) -> int:
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        response_recovery=_store_rotated_machine_credential,
+        response_recovery=lambda response, actor: _store_rotated_machine_credential(
+            response, actor, payload
+        ),
     )
 
 
-def _store_rotated_machine_credential(response, _actor):
+def _store_rotated_machine_credential(response, _actor, payload):
+    from yoke_cli.config.machine_registration import (
+        _persist_credential,
+        retry_if_retired,
+    )
+
+    response, retired = retry_if_retired(response, payload)
     if not getattr(response, "success", False):
         return response
-    from yoke_cli.config.machine_registration import _persist_credential
-
     failure = _persist_credential(getattr(response, "result", None) or {}, None)
     if failure is None:
         result = dict(getattr(response, "result", None) or {})
         result["credential"] = {"status": "stored"}
+        if retired is not None:
+            result["retired_machine_id"] = retired
         return response.model_copy(update={"result": result})
     from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
 
@@ -186,7 +194,9 @@ def machine_retire(args: List[str]) -> int:
         prog="yoke machine retire",
         description=(
             "Retire a machine, revoke only its bound bearer, and preserve history. "
-            "Reconnect later by running the installer for a new machine identity."
+            "Reconnecting that computer with `yoke connect` (`yoke machine "
+            "register` on a local universe) gives it a new machine identity "
+            "automatically."
         ),
     )
     parser.add_argument("machine_id", nargs="?", default=None)
@@ -209,9 +219,9 @@ def machine_retire(args: List[str]) -> int:
     )
 
 
-def machine_settings_get(args: List[str]) -> int:
+def machine_access_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke machine settings get",
+        prog="yoke machine access get",
         description=(
             "Read the machine's access document, or one dotted leaf of it "
             "(use.mode, use.actor_ids, use.project_id, use.role, "
@@ -227,7 +237,7 @@ def machine_settings_get(args: List[str]) -> int:
     if parsed is None:
         return 2
     return dispatch_and_emit(
-        function_id="machine.settings.get",
+        function_id="machine.access.get",
         target=TargetRef(kind="global"),
         payload={
             "machine_id": _resolved_machine_id(parsed.machine_id),
@@ -238,9 +248,9 @@ def machine_settings_get(args: List[str]) -> int:
     )
 
 
-def machine_settings_set(args: List[str]) -> int:
+def machine_access_set(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke machine settings set",
+        prog="yoke machine access set",
         description=(
             "Replace one dotted leaf of the machine's access document. The "
             "value is JSON, so a list is '[1,2]' and a string is '\"universe\"'. "
@@ -263,7 +273,7 @@ def machine_settings_set(args: List[str]) -> int:
         # rather than making every operator quote a JSON string.
         value = parsed.value
     return dispatch_and_emit(
-        function_id="machine.settings.set",
+        function_id="machine.access.set",
         target=TargetRef(kind="global"),
         payload={
             "machine_id": _resolved_machine_id(parsed.machine_id),
@@ -288,7 +298,7 @@ __all__ = [
     "machine_detail",
     "machine_register",
     "machine_retire",
-    "machine_settings_get",
-    "machine_settings_set",
+    "machine_access_get",
+    "machine_access_set",
     "machine_show",
 ]

@@ -26,6 +26,8 @@ ITEM_WORKTREE_TABLES: dict[str, dict] = {
             "order alone does not select an item's delivery branch. "
             "commit_sha is the last committed HEAD reported for the lane's "
             "exact checkout path and is the standalone merge identity. "
+            "Wrong guess: item_worktrees has no head_sha column; read "
+            "commit_sha for that registered checkout's last committed HEAD. "
             "Lanes do not own sessions. Session authority is derived from "
             "active work_claims joined through the claimed item or task. "
             "Read an item's exact interpreted policy with `yoke workflows "

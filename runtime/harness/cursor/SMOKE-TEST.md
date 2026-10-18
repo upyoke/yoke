@@ -62,7 +62,7 @@ Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
    carries BOTH `.cursor/hooks.json` and `.claude/settings.json`, Cursor
    routes every tool call through the imported Claude `PreToolUse` /
    `PostToolUse` hooks and does **not** fire its own
-   `beforeShellExecution` / `afterShellExecution` / `preToolUse` /
+   `beforeShellExecution` / `preToolUse` /
    `postToolUse`; only `sessionStart`, `sessionEnd`, and `stop` fire on
    both configs. Verify by running one shell command and one file read and
    watching which hook commands execute. That asymmetry is why the
@@ -74,13 +74,20 @@ Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
    events, widen that set rather than reintroducing a blanket skip.
 6c. PreToolUse coverage. Claude `settings.json` PreToolUse is matcherless so
     every tool that can fire a hook reaches the runner (chain selection stays
-    in `HOOK_ORDERING` by `tool_name`). Cursor-native `preToolUse` /
-    `postToolUse` match every tool except `Shell` (`^(?!Shell$).+$`); Shell
-    stays on `beforeShellExecution` / `afterShellExecution`. Tools Cursor
+    in `HOOK_ORDERING` by `tool_name`). Cursor-native `preToolUse` matches
+    every tool except `Shell` (`^(?!Shell$).+$`), which gates on
+    `beforeShellExecution`; `postToolUse` is matcherless, so Shell completes
+    there and `afterShellExecution` stays unwired. Tools Cursor
     never hooks — observed: `Glob`, `GetDynamicTools` / MCP-style calls —
     emit neither Pre nor Post; that is a declared harness gap, not a matcher
     miss. `HC-pretool-posttool-coverage` fails when a surface's PreToolUse
     count falls materially below its PostToolUse count.
+6d. Mid-turn delivery. While a relay-launched worker's turn runs shell
+    commands, send it a message (`yoke say --stdin --session <session>`).
+    The envelope must arrive in the next `postToolUse` reply's
+    `additional_context` — a Shell call included — and the recipient's
+    `injection_count` must move within one tool call. A `PreToolUse` round trip never counts as a
+    message probe on Cursor, because nothing injects there.
 
 ## Hook-enhanced — IDE surface
 

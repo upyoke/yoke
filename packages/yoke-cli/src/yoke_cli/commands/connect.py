@@ -20,6 +20,7 @@ from yoke_cli.config import server_connect, team_server_authorization
 from yoke_cli.config import setup_browser
 from yoke_contracts.api_urls import HOSTED_PLATFORM_URL, HOSTED_STAGE_PLATFORM_URL
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
+from yoke_contracts.machine_authorization import retired_identity_notice
 
 AdapterFn = Callable[[List[str]], int]
 
@@ -166,10 +167,17 @@ def _connect_hosted(parsed: argparse.Namespace) -> int:
         browser: hosted_machine_authorization.BrowserOpenResult,
     ) -> None:
         stream = sys.stderr if parsed.json_mode else sys.stdout
+        if pending.retired_machine_id and not parsed.json_mode:
+            print(retired_identity_notice(pending.retired_machine_id), file=stream)
         if parsed.json_mode:
             setup_browser.render_progress(
                 {
                     "phase": "machine_authorization",
+                    **(
+                        {"retired_machine_id": pending.retired_machine_id}
+                        if pending.retired_machine_id
+                        else {}
+                    ),
                     "browser_attempted": browser.attempted,
                     "browser_action": setup_browser.action(
                         pending.verification_uri_complete,

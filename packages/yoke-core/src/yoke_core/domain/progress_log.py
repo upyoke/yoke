@@ -5,6 +5,7 @@ from __future__ import annotations
 
 PROGRESS_LOG_SECTION = "Progress Log"
 PROGRESS_LOG_ORDERING = 200
+PROGRESS_LOG_ENTRY_BODY_MAX_BYTES = 4096
 
 
 def format_entry(*, timestamp: str, headline: str, body: str) -> str:

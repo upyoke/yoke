@@ -3,6 +3,5 @@
  "title": "Connect each capability to its real state owner",
  "status": "observed",
  "text": "Extend existing project/universe facts and machine readiness; do not create a parallel registry or compulsory setup interview.",
- "plan_refs": ["FIRST-USER.42", "FIRST-USER.43", "JOURNEYS.situation-19"],
  "position": 10
 }

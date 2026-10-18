@@ -58,6 +58,21 @@ def test_another_actor_cannot_take_over_a_registered_machine():
             now=NOW,
         )
     assert excinfo.value.code == "machine_owner_mismatch"
+    assert "retires this machine, then run `yoke connect` again" in str(excinfo.value)
+
+
+def test_a_retired_machine_names_the_automatic_reconnect():
+    conn = registry_connection()
+    machine_registry.register_machine(
+        conn, machine_id=MACHINE_ID, name="a", actor_id=1, now=NOW
+    )
+    machine_registry.retire_machine(conn, machine_id=MACHINE_ID, actor_id=1, now=NOW)
+    with pytest.raises(machine_registry.MachineRegistryError) as excinfo:
+        machine_registry.register_machine(
+            conn, machine_id=MACHINE_ID, name="a", actor_id=1, now=NOW
+        )
+    assert excinfo.value.code == "machine_retired"
+    assert "new machine identity automatically" in str(excinfo.value)
 
 
 def test_a_non_uuid_machine_id_is_refused():

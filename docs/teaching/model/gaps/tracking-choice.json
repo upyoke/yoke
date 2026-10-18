@@ -3,6 +3,5 @@
  "title": "Keep suggestion tracking undecided",
  "status": "observed",
  "text": "Once-per-session and do-not-ask-again tracking remain an open JOURNEYS question; agent judgment is not a shipped tracker.",
- "plan_refs": ["JOURNEYS.question-1"],
  "position": 13
 }

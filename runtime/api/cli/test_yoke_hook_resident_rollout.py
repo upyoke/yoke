@@ -6,6 +6,7 @@ import urllib.request
 from yoke_cli.transport.bounded_json_http import request_json
 from yoke_contracts.hook_evaluator_protocol import (
     HOOK_CLIENT_WALL_CAPABILITY,
+    HOOK_MACHINE_SCOPE_CAPABILITY,
     HOOK_OBSERVATION_BATCH_CAPABILITY,
 )
 from yoke_core.api.routes.hooks import HookEvaluateResponse
@@ -24,6 +25,7 @@ def test_server_response_advertises_observation_batch_capability() -> None:
     assert response["capabilities"] == [
         HOOK_OBSERVATION_BATCH_CAPABILITY,
         HOOK_CLIENT_WALL_CAPABILITY,
+        HOOK_MACHINE_SCOPE_CAPABILITY,
     ]
 
 

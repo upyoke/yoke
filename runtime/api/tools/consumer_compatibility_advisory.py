@@ -1,14 +1,16 @@
 """Check every upstream PR, main push and manual candidate against Platform.
 
-This independent advisory never decides required CI or release publication.
-Identical product trees at the same observed consumer commit join one durable
-Platform run. Release publication still requires its exact commit pair.
+This independent check never decides required CI. A PR advisory keys on the
+product tree and the observed consumer commit, so identical trees join one
+durable Platform run. ``--exact-pair`` (main pushes and manual runs) instead
+starts the release gate's own exact commit-pair proof at an immutable consumer
+tag, which a release of that commit joins rather than proving again.
 Forks without the scoped credential report NOT CHECKED explicitly.
 
 Usage::
 
     python3 -m runtime.api.tools.consumer_compatibility_advisory \
-        --candidate-sha <40-hex>
+        --candidate-sha <40-hex> [--exact-pair]
 """
 
 from __future__ import annotations
@@ -129,11 +131,12 @@ def _original_candidate(receipt: dict, candidate: str, tree: str) -> str:
     return original
 
 
-def check(candidate: str, *, timeout_sec: int) -> tuple[int, str]:
+def check(
+    candidate: str, *, timeout_sec: int, exact_pair: bool = False
+) -> tuple[int, str]:
     unavailable = gate.bind_consumer_authority()
     if unavailable:
         raise RuntimeError(unavailable)
-    tree = candidate_tree(candidate)
     trunk = _read(
         [
             "github",
@@ -148,6 +151,14 @@ def check(candidate: str, *, timeout_sec: int) -> tuple[int, str]:
     consumer = str(trunk.get("head_sha") or "").lower()
     if not gate.is_full_commit_sha(consumer):
         raise RuntimeError("consumer_head_unreadable: trunk read named no full commit")
+    if exact_pair:
+        # The consumer commit is resolved once here; the release that later
+        # binds the same Platform main commit sends this identical request.
+        code, narrative, _ = gate.prove_pair(
+            candidate, consumer, timeout_sec=timeout_sec
+        )
+        return code, f"exact pair proof: {narrative}"
+    tree = candidate_tree(candidate)
     request_id = f"consumer-advisory:{tree}:{consumer}:{gate.CONSUMER_CHECK_WORKFLOW}"
     receipt = _receipt(request_id)
     original = _original_candidate(receipt, candidate, tree)
@@ -219,6 +230,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     parser.add_argument("--candidate-sha", default="")
     parser.add_argument("--timeout", type=int, default=1800, dest="timeout_sec")
+    parser.add_argument("--exact-pair", action="store_true")
     args = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
     candidate = args.candidate_sha.strip().lower()
     if not gate.is_full_commit_sha(candidate):
@@ -238,7 +250,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         )
         return 0
     try:
-        code, narrative = check(candidate, timeout_sec=args.timeout_sec)
+        code, narrative = check(
+            candidate, timeout_sec=args.timeout_sec, exact_pair=args.exact_pair
+        )
     except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
         _report(
             f"NOT CHECKED — advisory_evidence_unavailable: {exc}. Restore the "

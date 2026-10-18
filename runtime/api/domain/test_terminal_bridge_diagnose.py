@@ -20,9 +20,12 @@ from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_DISPLAY_LOCKED_ERROR_CODE,
     TERMINAL_SECURE_KEYBOARD_ENTRY_ON_ERROR_CODE,
     TERMINAL_SYSTEM_EVENTS_UNAVAILABLE_ERROR_CODE,
+    TERMINAL_WINDOW_ACCUMULATION_ERROR_CODE,
+    TERMINAL_WINDOW_CLOSE_FAILED_ERROR_CODE,
     TERMINAL_WINDOW_FOCUS_TIMEOUT_ERROR_CODE,
 )
 from yoke_harness import ssh_mac_terminal_app, ssh_mac_terminal_bridge_check
+from yoke_harness.ssh_mac_terminal_automation_probe import TerminalAutomationProbe
 from yoke_harness.ssh_mac_terminal_bridge_diagnose import (
     diagnose_terminal_app_control,
 )
@@ -59,6 +62,52 @@ def test_a_healthy_host_reports_every_capability_in_order(
     assert result.evidence["host"]["console_user"] == "yoke-test"
     assert result.evidence["host"]["display_locked"] is False
     assert result.evidence["first_failed_check"] is None
+    rows = _rows(result)
+    assert rows["terminal_app_control"]["observed"]["terminal_window_count"] == 2
+    assert rows["window_launch"]["observed"]["window_closed"] is True
+
+
+def test_a_driven_window_left_open_fails_by_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result = _diagnose(FakeMac(window_closes=False), monkeypatch)
+
+    assert result.error_code == TERMINAL_WINDOW_CLOSE_FAILED_ERROR_CODE
+    launch = _rows(result)["window_launch"]
+    assert launch["ok"] is False
+    assert launch["observed"]["window_closed"] is False
+    assert "yoke test-machine reset" in launch["recovery"]
+    assert result.evidence["first_failed_check"] == "window_launch"
+    assert [row["name"] for row in result.evidence["checks"]] == list(
+        TERMINAL_BRIDGE_CHECKS
+    )
+
+
+def test_accumulated_windows_are_named_when_direct_terminal_control_works(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "yoke_harness.ssh_mac_terminal_bridge_diagnose."
+        "terminal_system_events_automation",
+        lambda _run: TerminalAutomationProbe(
+            TERMINAL_WINDOW_ACCUMULATION_ERROR_CODE,
+            "terminal_window_accumulation:241: Terminal.app command timed out",
+            241,
+        ),
+    )
+
+    result = _diagnose(FakeMac(), monkeypatch)
+
+    assert result.error_code == TERMINAL_WINDOW_ACCUMULATION_ERROR_CODE
+    rows = _rows(result)
+    assert rows["terminal_app_control"]["ok"] is True
+    failing = rows["terminal_system_events_automation"]
+    assert failing["observed"]["terminal_window_count"] == 241
+    assert failing["observed"]["detail"].startswith("terminal_window_accumulation:241")
+    assert (
+        failing["recovery"]
+        == (TERMINAL_BRIDGE_RECOVERY[TERMINAL_WINDOW_ACCUMULATION_ERROR_CODE])
+    )
 
 
 def test_one_missing_grant_produces_one_failure_and_no_consequences(

@@ -87,7 +87,9 @@ def ensure_managed_file_line_exceptions(
         text += "\n"
     entries = "".join(f"{FILE_LINE_EXCEPTION_KEY}={rel}\n" for rel in added)
     config.parent.mkdir(parents=True, exist_ok=True)
-    config.write_text(f"{text}\n{_EXEMPTION_COMMENT}{entries}", encoding="utf-8")
+    config.write_text(
+        f"{text}\n{_EXEMPTION_COMMENT}{entries}", encoding="utf-8", newline=""
+    )
     return {
         "attempted": True,
         "status": "ok",

@@ -2,7 +2,6 @@
  "id": "commands",
  "title": "Command coverage register",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.35", "FIRST-USER.40", "FIRST-USER.P6"],
  "surface_refs": ["agent-help", "command-feedback", "global-orientation", "packets-help", "project-native", "terminal-help"],
  "page": "reference",
  "position": 0

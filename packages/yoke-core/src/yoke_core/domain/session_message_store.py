@@ -16,6 +16,7 @@ from yoke_core.domain.actor_message_recipients import (
     expire_actor_recipients_for_cancel,
     insert_actor_recipient_rows,
 )
+from yoke_core.domain.session_message_recipient_rows import insert_session_receipt
 from yoke_core.domain.session_message_reads import (
     message_details,
     public_recipients,
@@ -24,6 +25,7 @@ from yoke_core.domain.session_message_types import (
     ResolvedRecipient,
     SessionMessageError,
 )
+from yoke_core.domain.session_message_recipient_scope import owner_key
 
 
 def _p(conn: Any) -> str:
@@ -99,7 +101,7 @@ def insert_message(
     expires_at: datetime,
     recipients: list[ResolvedRecipient],
     actor_recipients: list[ResolvedActorRecipient],
-    wake_after_by_project: dict[int, datetime],
+    wake_after_by_owner: dict[tuple[str, int], datetime],
 ) -> tuple[dict[str, Any], bool]:
     """Insert one immutable message snapshot, or return its exact dedupe."""
     selector_json = json.dumps(selector_snapshot, sort_keys=True, separators=(",", ":"))
@@ -160,26 +162,13 @@ def insert_message(
             ),
             False,
         )
-    created_stamp = instant_parameter(conn, created_at)
     for recipient in recipients:
-        conn.execute(
-            "INSERT INTO session_message_recipients (message_id, session_id, "
-            "project_id, resolution_evidence, routing_snapshot, executor_surface, "
-            "executor_version, machine_id, state, created_at, wake_after) "
-            f"VALUES ({', '.join(marker for _ in range(11))})",
-            (
-                message_id,
-                recipient.session_id,
-                recipient.project_id,
-                json.dumps(sorted(set(recipient.resolution))),
-                json.dumps(recipient.routing_snapshot(), sort_keys=True),
-                recipient.executor_surface,
-                recipient.executor_version,
-                recipient.machine_id,
-                "pending",
-                created_stamp,
-                instant_parameter(conn, wake_after_by_project[recipient.project_id]),
-            ),
+        insert_session_receipt(
+            conn,
+            message_id=message_id,
+            recipient=recipient,
+            created_at=created_at,
+            wake_after=wake_after_by_owner[owner_key(recipient.routing_snapshot())],
         )
     insert_actor_recipient_rows(
         conn,
@@ -257,15 +246,11 @@ def cancel_open_recipients(
     cancelled_at: datetime,
     result_code: str,
 ) -> int:
-    """Silence one recipient's open envelopes and close their attempts.
+    """Close a recipient's open envelopes and attempts, naming the absence.
 
-    A recipient that can no longer take delivery leaves its senders waiting
-    on an answer that is never coming, so the envelopes are cancelled rather
-    than left pending: the sender reads ``cancelled`` on its own message and
-    ``result_code`` says which absence closed it. Deliberate termination and
-    a relay's verified-dead process both end that way, and they name
-    themselves through *result_code* rather than through two copies of this
-    statement pair drifting apart.
+    Termination and verified process death both cancel delivery so senders do
+    not wait for an answer that cannot arrive. Their result_code distinguishes
+    the cause while this single statement pair owns the shared mutation.
     """
     marker = _p(conn)
     stamp = instant_parameter(conn, cancelled_at)

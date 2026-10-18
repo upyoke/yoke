@@ -33,6 +33,7 @@ from yoke_core.domain.deployment_run_carried_membership_refusal import (
     carried_membership_refusal,
 )
 from yoke_core.domain.deployment_run_carried_work import carried_work_for_enrollment
+from yoke_core.domain.deployment_run_enrollment_error import CarriedEnrollmentError
 from yoke_core.domain.deployment_run_item_qa_membership import (
     item_qa_membership_verdict,
 )
@@ -49,20 +50,11 @@ from yoke_core.domain.project_identity import (
     resolve_project,
     resolve_project_slug,
 )
-from yoke_core.domain.schema_common import (
-    _get_columns as _schema_get_columns,
-    _table_exists,
+from yoke_core.domain.deployment_run_composition_guard import has_frozen_composition
+from yoke_core.domain.deployment_run_reopened_members import (
+    set_aside_reopened_members,
+    unready_item_ids,
 )
-from yoke_core.domain.workflow_delivery_binding_validation import (
-    COMPLETED_ITEM_STAGE_ID,
-    delivery_ready_for_stage,
-)
-from yoke_core.domain.workflow_runtime import (
-    ENGINE_TERMINAL_STAGE_IDS,
-    load_item_workflow_runtime,
-)
-
-_LEGACY_DELIVERY_READY_STAGES = frozenset({"implemented", "release", "done"})
 
 
 def _item_label(conn, item_id: int, detail: str) -> str:
@@ -77,35 +69,11 @@ def _item_label(conn, item_id: int, detail: str) -> str:
 
 
 def _not_delivery_ready(conn, rows, *, allow_completed: bool = False) -> list[str]:
-    refused: list[str] = []
-    item_columns = set(_schema_get_columns(conn, "items"))
-    has_workflow_pins = (
-        _table_exists(conn, "workflow_versions")
-        and {
-            "workflow_id",
-            "workflow_version_id",
-        }
-        <= item_columns
-    )
-    for item_id, status in rows:
-        if has_workflow_pins:
-            runtime = load_item_workflow_runtime(conn, int(item_id))
-            status_text = str(status)
-            if status_text in runtime.terminal_stage_ids or (
-                status_text in ENGINE_TERMINAL_STAGE_IDS
-            ):
-                ready = (
-                    allow_completed
-                    and status_text == COMPLETED_ITEM_STAGE_ID
-                    and status_text in runtime.terminal_stage_ids
-                )
-            else:
-                ready = delivery_ready_for_stage(runtime, status_text)
-        else:
-            ready = str(status) in _LEGACY_DELIVERY_READY_STAGES
-        if not ready:
-            refused.append(_item_label(conn, item_id, f"status={status}"))
-    return refused
+    status_of = {int(item_id): status for item_id, status in rows}
+    return [
+        _item_label(conn, item_id, f"status={status_of[item_id]}")
+        for item_id in unready_item_ids(conn, rows, allow_completed=allow_completed)
+    ]
 
 
 @composition_operation
@@ -151,6 +119,7 @@ def cmd_validate_composition(
         # handed None walks custody itself, which is the honest fallback when
         # recording those sources is the thing that failed.
         carried = None
+        enrollment_error = None
         try:
             # The run's source commit per project is resolved and recorded
             # before anything reads it, so enrollment and every check below
@@ -175,6 +144,8 @@ def cmd_validate_composition(
             raise
         except (LookupError, ValueError) as exc:
             errors.append(str(exc))
+            if isinstance(exc, CarriedEnrollmentError):
+                enrollment_error = exc
         run_project_id = int(run_project_id)
         run_project = resolve_project_slug(conn, run_project_id)
 
@@ -212,9 +183,24 @@ def cmd_validate_composition(
             "WHERE dri.run_id=%s",
             (run_id,),
         )
-        not_passed = _not_delivery_ready(
-            conn, delivery_candidates, allow_completed=True
-        )
+        # A frozen run already deployed its members' landed code; one that
+        # reopened since is set aside or refused by name, never re-admitted.
+        status_of = {int(row[0]): str(row[1]) for row in delivery_candidates}
+        unready = unready_item_ids(conn, delivery_candidates, allow_completed=True)
+        set_aside = ""
+        if unready and has_frozen_composition(conn, run_id):
+            not_passed, set_aside = set_aside_reopened_members(
+                conn, run_id, [(i, status_of[i]) for i in unready]
+            )
+            delivery_candidates = query_rows(
+                conn,
+                "SELECT item_id, '' FROM deployment_run_items WHERE run_id=%s",
+                (run_id,),
+            )
+        else:
+            not_passed = [
+                _item_label(conn, i, f"status={status_of[i]}") for i in unready
+            ]
         if not_passed:
             errors.append(
                 "Items not delivery-ready for their pinned workflow: "
@@ -239,7 +225,9 @@ def cmd_validate_composition(
 
         if composition_result is not None:
             composition_result["enrolled"] = enrolled
-        carried_refusal = carried_membership_refusal(conn, run_id, custody=custody)
+        carried_refusal = carried_membership_refusal(
+            conn, run_id, custody=custody, enrollment_error=enrollment_error
+        )
         if carried_refusal:
             errors.append(carried_refusal)
 
@@ -256,7 +244,7 @@ def cmd_validate_composition(
         )
 
         if errors:
-            trailing = [note for note in (held, inert, unadmitted) if note]
+            trailing = [note for note in (set_aside, held, inert, unadmitted) if note]
             error_text = "\n".join(errors + trailing)
             if connection is None:
                 conn.rollback()
@@ -266,6 +254,7 @@ def cmd_validate_composition(
             note
             for note in (
                 describe_enrollment(enrolled),
+                set_aside,
                 held,
                 inert,
                 unadmitted,

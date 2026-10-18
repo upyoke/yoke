@@ -25,6 +25,11 @@ def snapshot_policy():
         SELECT DISTINCT s.snapshot_id FROM sightings s
         JOIN current_targets p ON p.id=s.target_id
     )
+    """
+    # Live references to a snapshot: active lane heads, integrity work and
+    # claim bases.
+    references = """
+    TRUE
     AND NOT EXISTS (
         SELECT 1 FROM item_worktrees w JOIN items i ON i.id=w.item_id
         WHERE w.state='active' AND i.project_id=t.project_id AND w.commit_sha=t.commit_sha
@@ -45,7 +50,7 @@ def snapshot_policy():
     return Cleanup(
         "path_snapshots",
         ("id",),
-        where,
+        where + " AND " + references,
         children=(
             ("path_snapshot_entries", "snapshot_id", "id"),
             ("path_snapshot_symlink_facts", "snapshot_id", "id"),

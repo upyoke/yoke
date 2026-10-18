@@ -4,12 +4,32 @@ from __future__ import annotations
 
 import os
 import sys
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Mapping
 
 
 class SetupTerminalError(RuntimeError):
     """Setup cannot safely use the terminal it was given."""
+
+
+_wizard_terminal_owned = False
+
+
+@contextmanager
+def wizard_owns_terminal():
+    """Mark the process's terminal as held by the running setup wizard."""
+    global _wizard_terminal_owned
+    _wizard_terminal_owned = True
+    try:
+        yield
+    finally:
+        _wizard_terminal_owned = False
+
+
+def wizard_terminal_owned() -> bool:
+    """Whether a terminal prompt would collide with the running wizard."""
+    return _wizard_terminal_owned
 
 
 def require_foreground_terminal(stream=None) -> None:

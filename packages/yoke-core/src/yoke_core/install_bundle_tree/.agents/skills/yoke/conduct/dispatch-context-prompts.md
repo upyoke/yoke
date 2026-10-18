@@ -2,8 +2,9 @@
 
 ## Engineer prompt
 
-Dispatch ALL Engineers in parallel when the batch permits; one descriptor per
-local task, parent identity unchanged. Render DispatchDescriptor(role="engineer")
+Dispatch every eligible Engineer together when the manifest's
+`parallel_subagents` permits ([dispatch-context-dispatch.md](dispatch-context-dispatch.md));
+one descriptor per local task, parent identity unchanged. Render DispatchDescriptor(role="engineer")
 through the harness descriptor owner; no isolation or independently chosen model.
 
 ```text
@@ -63,7 +64,7 @@ Render [the shared Tester template](../shared/tester-dispatch-template.md) only:
 exact task identity, parent/task specs, lane, QA/project commands, interfaces,
 downstream bodies, same read-only coverage, full/task/retry diff slots and durable
 review-insert. No local Tester prompt or substituted task-derived public ref.
-Dispatch eligible Testers in parallel, continue immediately on each return,
+Dispatch each Tester as soon as its task is eligible, continue on each return,
 capture reflections/artifacts and persist verdict. Retain feedback only for FAIL;
 cleanup only this dispatch's known captures after analysis.
 

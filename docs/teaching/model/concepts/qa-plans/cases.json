@@ -2,8 +2,8 @@
  "id": "cases",
  "title": "Case definitions",
  "status": "draft-copy",
- "commands": ["yoke qa plan-cases replace"],
- "functions": ["qa.plan_cases.replace"],
+ "commands": ["yoke qa plan-cases replace", "yoke qa plan-cases sync"],
+ "functions": ["qa.plan_cases.replace", "qa.plan_cases.sync"],
  "page": "qa-plans",
  "position": 1
 }

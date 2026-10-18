@@ -18,6 +18,13 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_install.py",
+        "yoke_core.engines.doctor_session",
+    ): (
+        "client_local_diagnostics",
+        "focused session selection reads the packaged canonical check roster",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_install.py",
         "yoke_core.engines.doctor_https_compose",
     ): (
         "client_local_diagnostics",
@@ -118,6 +125,14 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "client_local_execution",
         "build the merge context that hold carries, addressing the pull "
         "request the registered readiness read resolved",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/merge_worktree_local_runtime.py",
+        "yoke_core.engines.merge_worktree",
+    ): (
+        "client_local_execution",
+        "run lane merge mechanics in the child that binds machine GitHub "
+        "user authority",
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/merge_item_local_runtime.py",

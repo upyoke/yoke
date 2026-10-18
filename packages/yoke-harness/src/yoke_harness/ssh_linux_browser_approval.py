@@ -12,10 +12,16 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import shlex
+import time
+from urllib.parse import urlsplit, urlunsplit
 from typing import Any
 
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
-from yoke_harness import linux_desktop_chromium, linux_devtools_page
+from yoke_harness import (
+    linux_chromium_processes,
+    linux_desktop_chromium,
+    linux_devtools_page,
+)
 from yoke_harness.linux_desktop_session import desktop_command, ensure_desktop
 from yoke_harness.machine_browser_approval import (
     APPROVE_CONTROL_LABEL,
@@ -24,6 +30,7 @@ from yoke_harness.machine_browser_approval import (
     approval_outcome,
     approval_tab_urls,
     approval_url,
+    missing_approval_tab,
 )
 from yoke_harness.ssh_mac_sign_in_apps import SIGN_IN_APP_QUIT_NOT_PROVED
 from yoke_harness.test_machine_types import HostActionResult
@@ -47,11 +54,17 @@ def _host(control: Any, *arguments: str, desktop: bool = True) -> dict[str, Any]
     program = "\n".join(
         [
             Path(linux_devtools_page.__file__).read_text(),
+            Path(linux_chromium_processes.__file__).read_text(),
             f"CONNECTED_CONFIRMATION = {json.dumps(CONNECTED_CONFIRMATION)}",
             Path(linux_desktop_chromium.__file__)
             .read_text()
             .replace(_DEVTOOLS_IMPORT, "")
-            .replace(_CONFIRMATION_IMPORT, ""),
+            .replace(_CONFIRMATION_IMPORT, "")
+            .replace(
+                "from yoke_harness import linux_chromium_processes as native_processes",
+                "",
+            )
+            .replace("native_processes.", ""),
             "main()\n",
         ]
     )
@@ -112,17 +125,41 @@ def approve_machine_in_desktop_chromium(
         return BrowserApprovalResult(False, {}, "machine_browser_context_invalid")
     allowed_urls = [expected_url]
     try:
-        tabs = _host(control, "tabs", expected_origin)
-        if tabs.get("ok"):
+        deadline = time.monotonic() + linux_desktop_chromium.TAB_WAIT_SECONDS
+        while True:
+            tabs = _host(control, "tabs", expected_origin)
+            if not tabs.get("ok"):
+                outcome = tabs
+                break
             allowed_urls = approval_tab_urls(expected_url, user_code, tabs["urls"])
-            outcome = _host(
-                control,
-                "approve",
-                json.dumps(allowed_urls),
-                APPROVE_CONTROL_LABEL,
-            )
-        else:
-            outcome = tabs
+            if any(url in allowed_urls for url in tabs["urls"]):
+                outcome = _host(
+                    control,
+                    "approve",
+                    json.dumps(allowed_urls),
+                    APPROVE_CONTROL_LABEL,
+                )
+                break
+            # A request-specific route with a rejected query is a navigation
+            # refusal, not an unrelated tab still waiting for this request.
+            invalid_route = False
+            for url in tabs["urls"]:
+                try:
+                    parsed = urlsplit(url)
+                    base = urlunsplit(parsed._replace(query=""))
+                except ValueError:
+                    continue
+                if base != expected_url and base in approval_tab_urls(
+                    expected_url, user_code, [base]
+                ):
+                    invalid_route = True
+            if invalid_route:
+                outcome = {"ok": True, "state": "approval_navigation_missing"}
+                break
+            if time.monotonic() >= deadline:
+                outcome = {"ok": True, "state": "browser_tab_missing"}
+                break
+            time.sleep(linux_desktop_chromium.POLL_SECONDS)
     except RuntimeError as exc:
         outcome = {"ok": False, "reason": NO_DESKTOP, "recovery": str(exc)}
     if not outcome.get("ok"):
@@ -135,7 +172,7 @@ def approve_machine_in_desktop_chromium(
             },
             "machine_browser_automation_unavailable",
         )
-    return approval_outcome(
+    result = approval_outcome(
         browser=BROWSER,
         state=outcome.get("state", ""),
         starting_url=outcome.get("starting_url", ""),
@@ -143,6 +180,14 @@ def approve_machine_in_desktop_chromium(
         allowed_urls=allowed_urls,
         expected_origin=expected_origin,
     )
+    if outcome.get("state") == "browser_tab_missing":
+        return missing_approval_tab(
+            browser=BROWSER,
+            expected_origin=expected_origin,
+            user_code=user_code,
+            observed=tabs["urls"],
+        )
+    return result
 
 
 def quit_desktop_chromium(control: Any) -> HostActionResult:

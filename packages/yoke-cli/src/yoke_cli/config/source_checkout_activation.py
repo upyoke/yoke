@@ -12,6 +12,7 @@ from typing import Any, TypeVar
 
 from yoke_cli.config import editable_install, machine_config
 from yoke_cli.project_install.files import MODE_SOURCE_LINK
+from yoke_contracts import terminal_detached_process
 
 _Error = TypeVar("_Error", bound=Exception)
 _EDITABLE_PACKAGES = ("yoke-contracts", "yoke-core", "yoke-cli", "yoke-harness")
@@ -79,7 +80,7 @@ def _run_editable_install(
     )
     for package in packages:
         command.extend(["-e", str(package)])
-    result = subprocess.run(
+    result = terminal_detached_process.run(
         command,
         cwd=root,
         text=True,
@@ -129,7 +130,7 @@ def _run_source_link_subprocess(
 ) -> dict[str, Any]:
     env = dict(os.environ)
     env["PYTHONPATH"] = _checkout_pythonpath(root)
-    result = subprocess.run(
+    result = terminal_detached_process.run(
         [
             sys.executable,
             "-c",

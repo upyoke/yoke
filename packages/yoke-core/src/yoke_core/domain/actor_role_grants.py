@@ -78,10 +78,12 @@ def grant_actor_org_role(
     org_id: int,
     role_name: str,
     granted_by_actor_id: int | None = None,
+    commit: bool = True,
 ) -> None:
-    """Grant org ``role_name`` and commit; a person's grant replaces their one role.
+    """Grant org ``role_name`` and commit unless ``commit=False``.
 
-    A system actor's org roles accumulate idempotently. Raises ``ValueError``
+    A person's grant replaces their one role; system roles accumulate.
+    Raises ``ValueError``
     for a role outside ``ORG_ROLES`` or a refused person grant
     (``actor_role.ActorRoleRefused``).
     """
@@ -101,7 +103,8 @@ def grant_actor_org_role(
         granted_by_actor_id=granted_by_actor_id,
         now=utc_now(),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 __all__ = [

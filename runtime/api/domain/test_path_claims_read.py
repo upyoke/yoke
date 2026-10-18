@@ -37,7 +37,7 @@ def _add_edge(conn, *, dependent: int, blocking: int):
         "id INTEGER PRIMARY KEY, dependent_item_id INTEGER NOT NULL, "
         "blocking_item_id INTEGER NOT NULL, gate_point TEXT NOT NULL DEFAULT 'activation', "
         "satisfaction TEXT NOT NULL DEFAULT 'status:done', "
-        "source TEXT NOT NULL, session_id INTEGER, "
+        "source TEXT NOT NULL, session_id TEXT, "
         "rationale TEXT NOT NULL DEFAULT '', "
         "evidence_json TEXT NOT NULL DEFAULT '{}', "
         "created_at TIMESTAMPTZ NOT NULL)"

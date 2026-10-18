@@ -11,6 +11,10 @@ runs from that launch, not from when the item became pickable.
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.project_keys import (
+    DEFAULT_STEERING_REPORT_STAFFING_MINUTES,
+)
+from yoke_core.domain.project_policy_capabilities import project_policy_value
 from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
 
 from datetime import datetime
@@ -18,6 +22,7 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Any, Sequence
 
+from yoke_core.domain.frontier_landing_wait import landing_wait_reason
 from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.domain.scheduler import compute_schedule
 from yoke_core.domain.scheduler_types import ClaimState, NextStep
@@ -45,6 +50,89 @@ class FrontierEntry:
 
     def waiting_seconds(self, now: str) -> int:
         return age_seconds(self.launched_at or self.pickable_since, now) or 0
+
+
+@dataclass(frozen=True)
+class LandingWait:
+    """Unclaimed committed work waiting only for its blockers to land."""
+
+    item_id: int
+    public_ref: str
+    title: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class ScopeWork:
+    """One schedule pass: what to staff, and committed work that must wait."""
+
+    available: tuple[FrontierEntry, ...]
+    landing_waits: tuple[LandingWait, ...]
+
+
+@dataclass(frozen=True)
+class StaffingClock:
+    """Pickable instant, in-flight launch, and the report's staffing threshold."""
+
+    pickable_since: datetime | None
+    launch_state: str
+    staffing_after_seconds: int
+
+
+def is_unstaffed_ready(
+    launch_state: str, waiting_seconds: int, staffing_after_seconds: int
+) -> bool:
+    """Whether ``FleetReport.waited_too_long`` would include this available row.
+
+    A launch already in flight keeps its own clock on the list and is not
+    this alarm. The comparison is the report's seconds threshold.
+    """
+    return not launch_state and waiting_seconds >= int(staffing_after_seconds)
+
+
+def _staffing_after_seconds(conn: Any, project_id: int) -> int:
+    """The report's overdue bound, in seconds, for one project."""
+    try:
+        minutes = int(
+            project_policy_value(
+                conn,
+                project_id,
+                "steering_report_staffing_minutes",
+                DEFAULT_STEERING_REPORT_STAFFING_MINUTES,
+            )
+        )
+    except (TypeError, ValueError):
+        minutes = DEFAULT_STEERING_REPORT_STAFFING_MINUTES
+    return 60 * max(1, minutes)
+
+
+def staffing_clocks(
+    conn: Any, *, project_id: int, item_ids: Sequence[int]
+) -> dict[int, StaffingClock]:
+    """Clocks for one project's runnable steps, keyed by internal item id.
+
+    Same pickable instant and in-flight launch read as ``scope_work``,
+    plus the staffing threshold the report's overdue mark uses.
+    """
+    if not item_ids:
+        return {}
+    refs = render_item_refs(conn, list(item_ids))
+    pickable = _pickable_since(conn, item_ids)
+    launches = _staffing_launches(conn, project_id)
+    threshold = _staffing_after_seconds(conn, project_id)
+    clocks: dict[int, StaffingClock] = {}
+    for item_id in item_ids:
+        public_ref = refs.get(int(item_id), str(item_id))
+        since, _was_owned = pickable.get(int(item_id), (None, False))
+        _launch_id, launch_state, _launched_at = launches.get(
+            public_ref, ("", "", None)
+        )
+        clocks[int(item_id)] = StaffingClock(
+            pickable_since=since,
+            launch_state=launch_state,
+            staffing_after_seconds=threshold,
+        )
+    return clocks
 
 
 def _assignment_ref(session_name: str) -> str:
@@ -116,13 +204,15 @@ def _pickable_since(
     return resolved
 
 
-def scope_candidates(
+def scope_work(
     conn: Any,
     *,
     project_id: int,
     session_id: str,
-) -> tuple[FrontierEntry, ...]:
-    """Runnable, unclaimed, dispatchable steps in one steering scope.
+) -> ScopeWork:
+    """Runnable, unclaimed, dispatchable steps in one steering scope, and the
+    unclaimed committed work the schedule holds back until its blockers land
+    (:mod:`yoke_core.domain.frontier_landing_wait`).
 
     A stale claim is deliberately not a candidate: the work still has a holder
     until the stale-session sweep releases it, and reporting it as available
@@ -167,7 +257,44 @@ def scope_candidates(
                 launched_at=launched_at,
             )
         )
-    return tuple(entries)
+    return ScopeWork(tuple(entries), _landing_waits(conn, schedule.blocked_steps))
 
 
-__all__ = ["FrontierEntry", "STAFFING_LAUNCH_STATES", "scope_candidates"]
+def _landing_waits(conn: Any, blocked: Sequence[Any]) -> tuple[LandingWait, ...]:
+    """Blocked steps held only by edges past activation: landing waits.
+
+    The schedule holds an item on a later gate for one reason alone, committed
+    work whose blockers have not landed, so those edges are the whole wait.
+    """
+    steps = [
+        step
+        for step in blocked
+        if step.claim_state is ClaimState.UNCLAIMED
+        and step.gate_evaluations
+        and all(gate.gate_point != "activation" for gate in step.gate_evaluations)
+    ]
+    refs = render_item_refs(conn, [step.item_id for step in steps])
+    return tuple(
+        LandingWait(
+            item_id=step.item_id,
+            public_ref=refs.get(step.item_id, str(step.item_id)),
+            title=step.title,
+            reason=landing_wait_reason(
+                (gate.blocking_item, gate.satisfaction)
+                for gate in step.gate_evaluations
+            ),
+        )
+        for step in steps
+    )
+
+
+__all__ = [
+    "FrontierEntry",
+    "LandingWait",
+    "STAFFING_LAUNCH_STATES",
+    "ScopeWork",
+    "StaffingClock",
+    "is_unstaffed_ready",
+    "scope_work",
+    "staffing_clocks",
+]

@@ -1,18 +1,11 @@
-"""Drive the Linux test user's desktop Chromium; runs on the host with stdlib only.
-
-The installer under test opens its approval link in the desktop's default
-browser. Chromium hands that link to its already-running instance, so the
-browser is started first with a loopback DevTools port; the approval then
-reads that instance's tabs and presses the page's own visible control.
-The caller (``ssh_linux_browser_approval``) owns which tabs qualify and ships
-this source after ``linux_devtools_page``, so neither uses a __future__ import.
-"""
+"""Drive the Linux desktop Chromium. Shipped after linux_devtools_page; no __future__ import."""
 
 import json
 import os
 from pathlib import Path
+import shlex
 import shutil
-import signal
+import signal as signal
 import subprocess
 import sys
 import time
@@ -21,6 +14,7 @@ from urllib.request import urlopen
 
 from yoke_harness.linux_devtools_page import DevToolsPage  # host: prepended source
 from yoke_harness.machine_browser_approval import CONNECTED_CONFIRMATION
+from yoke_harness import linux_chromium_processes as native_processes
 
 CHROMIUM_EXECUTABLES = ("chromium", "chromium-browser", "/snap/bin/chromium")
 CHROMIUM_DESKTOP_ENTRIES = (
@@ -34,44 +28,16 @@ TAB_WAIT_SECONDS = 15
 CONTROL_ATTEMPTS = 40
 NAVIGATION_ATTEMPTS = 40
 POLL_SECONDS = 0.25
-PROVISION = (
-    "Provision the desktop with the Machine QA Pack's "
-    "ops/machine-qa/provision_linux_desktop.py (linux-host-provisioning.md section 4); "
-    "it installs Chromium and makes it the default browser. Then rerun."
-)
+PROVISION = "Provision the desktop with the Machine QA Pack's ops/machine-qa/provision_linux_desktop.py (linux-host-provisioning.md section 4); it installs Chromium and makes it the default browser. Then rerun."
 
 
-class ChromiumRefusal(RuntimeError):
-    """A named refusal the controller reports with its recovery."""
-
-    def __init__(self, reason, recovery):
-        super().__init__(reason)
-        self.reason = reason
-        self.recovery = recovery
+ChromiumRefusal = native_processes.ChromiumRefusal
+browser_pids = native_processes.browser_pids
 
 
 def user_data_dirs():
     config = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
     return (config / "chromium", Path.home() / "snap/chromium/common/chromium")
-
-
-def browser_pids():
-    """The user's Chromium browser processes, excluding renderers and helpers."""
-    pids = []
-    for process in Path("/proc").iterdir():
-        if not process.name.isdigit():
-            continue
-        try:
-            if process.stat().st_uid != os.getuid():
-                continue
-            if "chromium" not in os.readlink(process / "exe"):
-                continue
-            argv = (process / "cmdline").read_bytes().split(b"\0")
-        except OSError:
-            continue
-        if not any(arg.startswith(b"--type=") for arg in argv):
-            pids.append(int(process.name))
-    return pids
 
 
 def _get_json(port, path):
@@ -80,7 +46,6 @@ def _get_json(port, path):
 
 
 def devtools_port():
-    """The live loopback DevTools port of the running Chromium, if it has one."""
     for directory in user_data_dirs():
         try:
             port = int((directory / "DevToolsActivePort").read_text().split()[0])
@@ -92,106 +57,156 @@ def devtools_port():
 
 
 def quit_chromium():
-    """Ask Chromium to quit and prove it exited; it saves its cookies on SIGTERM."""
-    pids = browser_pids()
-    for pid in pids:
-        try:
-            os.kill(pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-    deadline = time.monotonic() + QUIT_WAIT_SECONDS
-    while browser_pids():
-        if time.monotonic() >= deadline:
-            raise ChromiumRefusal(
-                "linux_desktop_chromium_quit_not_proved",
-                "Close every Chromium window on the test machine's desktop, answering any prompt it shows, then retry. Chromium was asked to quit and was not force-killed, so its unsaved sign-ins are still in memory.",
-            )
-        time.sleep(POLL_SECONDS)
-    return bool(pids)
+    return native_processes.quit_processes(
+        browser_pids, QUIT_WAIT_SECONDS, POLL_SECONDS
+    )
 
 
 _DESKTOP_XDG_MARK = "YOKE_DESKTOP_XDG:"
+_SESSION = (
+    "Install bash so a login shell can run xdg-settings (bash -lc), then rerun. "
+    "The desktop session resolves its default browser there; the bare SSH environment does not."
+)
+_DISPATCHERS = frozenset(
+    {"sensible-browser", "x-www-browser", "xdg-open", "exo-open", "gio", "gnome-open"}
+)
 
 
-def _desktop_env():
-    """This process environment plus the login shell's XDG_DATA_DIRS.
-
-    Chromium starts with that value. A non-login SSH session omits the snap
-    desktop directories that /etc/profile.d adds for the desktop session.
-    """
+def _login(script):
     try:
-        result = subprocess.run(
-            ["bash", "-lc", f'printf "{_DESKTOP_XDG_MARK}%s" "$XDG_DATA_DIRS"'],
-            capture_output=True,
-            text=True,
-            timeout=10,
+        return subprocess.run(
+            ["bash", "-lc", script], capture_output=True, text=True, timeout=10
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise ChromiumRefusal(
-            "linux_desktop_session_environment_unavailable",
-            "Install bash so a login shell can print XDG_DATA_DIRS (bash -lc), then rerun. The desktop session reads snap desktop files from that value; the bare SSH environment does not.",
+            "linux_desktop_session_environment_unavailable", _SESSION
         ) from exc
-    parts = result.stdout.rsplit(_DESKTOP_XDG_MARK, 1)
+
+
+def _marked(result, mark):
+    parts = result.stdout.rsplit(mark, 1)
     if result.returncode != 0 or len(parts) != 2:
-        raise ChromiumRefusal(
-            "linux_desktop_session_environment_unavailable",
-            "Install bash so a login shell can print XDG_DATA_DIRS (bash -lc), then rerun. The desktop session reads snap desktop files from that value; the bare SSH environment does not.",
-        )
+        raise ChromiumRefusal("linux_desktop_session_environment_unavailable", _SESSION)
+    return parts[1]
+
+
+def _desktop_env():
+    value = _marked(
+        _login(f'printf "{_DESKTOP_XDG_MARK}%s" "$XDG_DATA_DIRS"'), _DESKTOP_XDG_MARK
+    )
     env = os.environ.copy()
-    if parts[1]:
-        env["XDG_DATA_DIRS"] = parts[1]
+    if value:
+        env["XDG_DATA_DIRS"] = value
     else:
         env.pop("XDG_DATA_DIRS", None)
     return env
 
 
 def _default_browser():
-    """xdg-settings inside a login shell, the same read as the desktop provisioner."""
     mark = "YOKE_DESKTOP_BROWSER:"
-    script = (
-        "browser=$(xdg-settings get default-web-browser); "
-        f'printf "{mark}%s:%s" "$?" "$browser"'
+    body = _marked(
+        _login(
+            "browser=$(xdg-settings get default-web-browser); "
+            f'printf "{mark}%s:%s" "$?" "$browser"'
+        ),
+        mark,
     )
-    try:
-        result = subprocess.run(
-            ["bash", "-lc", script],
-            capture_output=True,
-            text=True,
-            timeout=10,
+    if ":" not in body:
+        raise ChromiumRefusal("linux_desktop_session_environment_unavailable", _SESSION)
+    status, chosen = body.split(":", 1)
+    return chosen.strip() if status == "0" else ""
+
+
+def _desktop_exec(name, env):
+    if not name or Path(name).name != name:
+        return None
+    roots = [
+        Path(env.get("XDG_DATA_HOME") or Path.home() / ".local/share"),
+        Path("/var/lib/snapd/desktop"),
+    ]
+    roots += [
+        Path(part)
+        for part in env.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share").split(":")
+        if part
+    ]
+    for root in roots:
+        entry = root / "applications" / name
+        if not entry.is_file():
+            continue
+        lines = entry.read_text(errors="replace").splitlines()
+        if any(line.strip().lower() == "hidden=true" for line in lines):
+            return []
+        exec_line = next(
+            (line.strip()[5:] for line in lines if line.strip().startswith("Exec=")), ""
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise ChromiumRefusal(
-            "linux_desktop_session_environment_unavailable",
-            "Install bash so a login shell can run xdg-settings (bash -lc), then rerun. The desktop session resolves its default browser there; the bare SSH environment does not.",
-        ) from exc
-    body = result.stdout.rsplit(mark, 1)
-    if result.returncode != 0 or len(body) != 2 or ":" not in body[1]:
-        raise ChromiumRefusal(
-            "linux_desktop_session_environment_unavailable",
-            "Install bash so a login shell can run xdg-settings (bash -lc), then rerun. The desktop session resolves its default browser there; the bare SSH environment does not.",
+        return (
+            [
+                part
+                for part in shlex.split(exec_line)
+                if part and not part.startswith("%")
+            ]
+            if exec_line
+            else []
         )
-    status, chosen = body[1].split(":", 1)
-    if status != "0":
-        return ""
-    return chosen.strip()
+    return None
+
+
+def _chromium_launcher(found):
+    return (
+        found
+        if found and Path(found).name in {"chromium", "chromium-browser"}
+        else None
+    )
+
+
+def _chromium_from(command, env):
+    if not command:
+        return None
+    path = env.get("PATH")
+    found = shutil.which(command[0], path=path)
+    launched = _chromium_launcher(found)
+    if launched:
+        return launched
+    names = (
+        {Path(command[0]).name, Path(found).name} if found else {Path(command[0]).name}
+    )
+    if names.isdisjoint(_DISPATCHERS):
+        return None
+    return _chromium_launcher(shutil.which("x-www-browser", path=path))
+
+
+def _session_chromium(default):
+    if default in CHROMIUM_DESKTOP_ENTRIES:
+        return next(filter(None, map(shutil.which, CHROMIUM_EXECUTABLES)), None)
+    env = os.environ
+    command = _desktop_exec(default, env)
+    if command is None:
+        env = _desktop_env()
+        command = _desktop_exec(default, env)
+    if not command:
+        command = next(
+            (
+                hit
+                for name in CHROMIUM_DESKTOP_ENTRIES
+                if (hit := _desktop_exec(name, env))
+            ),
+            None,
+        )
+    return _chromium_from(command, env)
 
 
 def prepare():
-    """Start or reuse the desktop's default Chromium with a loopback DevTools port."""
     default = _default_browser()
-    if default not in CHROMIUM_DESKTOP_ENTRIES:
+    executable = _session_chromium(default)
+    if executable is None and default not in CHROMIUM_DESKTOP_ENTRIES:
         raise ChromiumRefusal(
             "linux_desktop_default_browser_not_chromium",
             f"The installer opens approval links in the desktop's default browser, which is {default or 'unset'}. {PROVISION}",
         )
     if devtools_port() is not None:
         return {"chromium": "reused"}
-    executable = next(filter(None, map(shutil.which, CHROMIUM_EXECUTABLES)), None)
     if executable is None:
-        raise ChromiumRefusal(
-            "linux_desktop_chromium_missing",
-            PROVISION,
-        )
+        raise ChromiumRefusal("linux_desktop_chromium_missing", PROVISION)
     restarted = quit_chromium()
     for directory in user_data_dirs():
         (directory / "DevToolsActivePort").unlink(missing_ok=True)
@@ -215,9 +230,7 @@ def prepare():
 
 
 def _pages(port):
-    return [
-        page for page in _get_json(port, "/json/list") if page.get("type") == "page"
-    ]
+    return [p for p in _get_json(port, "/json/list") if p.get("type") == "page"]
 
 
 def _port():
@@ -231,7 +244,6 @@ def _port():
 
 
 def tabs(origin):
-    """Wait for a tab on the approval origin, then report every open page URL."""
     port = _port()
     deadline = time.monotonic() + TAB_WAIT_SECONDS
     while True:
@@ -245,7 +257,6 @@ def tabs(origin):
 
 
 def approve(allowed_urls, label):
-    """Press the visible control only in an allowed, unchanged tab."""
     port = _port()
     match = next(
         (page for page in _pages(port) if page.get("url") in allowed_urls), None
@@ -307,6 +318,11 @@ def approve(allowed_urls, label):
     return {"state": "approval_navigation_missing"}
 
 
+def _refuse(reason, recovery):
+    print(json.dumps({"ok": False, "reason": reason, "recovery": recovery}))
+    raise SystemExit(69)
+
+
 def main():
     command, arguments = sys.argv[1], sys.argv[2:]
     try:
@@ -323,21 +339,10 @@ def main():
                 "linux_desktop_chromium_command_unknown", "Use a registered command."
             )
     except ChromiumRefusal as refusal:
-        print(
-            json.dumps(
-                {"ok": False, "reason": refusal.reason, "recovery": refusal.recovery}
-            )
-        )
-        raise SystemExit(69)
+        _refuse(refusal.reason, refusal.recovery)
     except (OSError, ValueError) as exc:
-        print(
-            json.dumps(
-                {
-                    "ok": False,
-                    "reason": "linux_desktop_chromium_devtools_failed",
-                    "recovery": f"DevTools failed: {exc}. Confirm desktop Chromium is running and responsive, then rerun.",
-                }
-            )
+        _refuse(
+            "linux_desktop_chromium_devtools_failed",
+            f"DevTools failed: {exc}. Confirm desktop Chromium is running and responsive, then rerun.",
         )
-        raise SystemExit(69)
     print(json.dumps({"ok": True, **result}))

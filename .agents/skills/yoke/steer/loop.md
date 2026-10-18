@@ -4,7 +4,7 @@ Wake capability is a manifest fact, not prose. Source of truth:
 `yoke_contracts.harness_wake_capability`. Change the contract and re-render; never
 restate one of these facts on a document's own authority.
 
-- `claude-code` — idle wake: supported (`Monitor`); timer wake: supported (`ScheduleWakeup`). Verified on claude-cli.
+- `claude-code` — idle wake: supported (`Monitor`), each subscription ending within 30 minutes (`timeout_ms`); re-arm the same tail on the expiry notice; timer wake: supported (`ScheduleWakeup`). Verified on claude-cli.
 - `codex` — idle wake: none; timer wake: none. Verified on codex-cli.
 - `cursor` — idle wake: supported (`notify_on_output`); timer wake: none. Verified on cursor-cli.
 <!-- END GENERATED: harness-wake-capability -->
@@ -36,7 +36,7 @@ scope, priority, order and constraints; the DB wins on live item status,
 claims, dependencies and runnable eligibility. A runnable item absent from
 or differently ordered by the doc does not silently become next. Reconcile
 through registered authority; DB-gated work waits and updates the doc.
-Always encode item blockers as proper dependency edges so that the system knows when things move to ready.
+Always encode real item blockers as proper dependency edges so that the system knows when things move to ready; keep each one as narrow as the work needs ([worker-lifecycle.md](worker-lifecycle.md#1-encode-dependency-edges-before-availability)).
 charge.schedule is a frontier read, never dispatch or feed.
 
 ### Negative-space checks — first, every periodic pass

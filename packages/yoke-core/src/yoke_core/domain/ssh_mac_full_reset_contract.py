@@ -19,6 +19,7 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     YOKE_ABSENT_RELATIVE_DIRECTORIES,
     YOKE_ABSENT_RELATIVE_FILES,
     YOKE_ABSENT_TEMP_FILES,
+    canonical_full_reset_path_contract,
     golden_baseline_clears_home,
     resolve_full_reset_path_contract,
 )
@@ -43,6 +44,7 @@ __all__ = [
     "YOKE_ABSENT_RELATIVE_DIRECTORIES",
     "YOKE_ABSENT_RELATIVE_FILES",
     "YOKE_ABSENT_TEMP_FILES",
+    "canonical_full_reset_path_contract",
     "golden_baseline_clears_home",
     "resolve_full_reset_path_contract",
 ]

@@ -22,7 +22,10 @@ STATUSES = (
     "draft-copy",
     "superseded",
 )
-PLAN_MAPPING_KEYS = ("concepts", "surfaces", "scenarios", "boundaries", "gaps")
+RETIRED_PLAN_MIRROR = (
+    "strategy documents are not mirrored here; move any lasting teaching fact "
+    "into a scenario, surface, boundary or gap record"
+)
 REBUILD = "yoke dev run -- python3 docs/teaching/tools/build.py"
 
 
@@ -44,8 +47,6 @@ class Model:
     teaching: dict = field(default_factory=dict)
     scenarios: dict = field(default_factory=dict)
     lessons: dict = field(default_factory=dict)
-    plan_files: list = field(default_factory=list)
-    plan_rows: dict = field(default_factory=dict)
     evidence_files: list = field(default_factory=list)
     evidence: dict = field(default_factory=dict)
     boundaries: dict = field(default_factory=dict)
@@ -163,23 +164,18 @@ def load() -> Model:
                 record.update(full_id=full, owner=owner["id"], page=path.stem)
                 _register(model, parts, full, record, relative(child_path))
                 owner["parts"].append(full)
-    for kind, groups, table, part in (
-        ("plan", model.plan_files, model.plan_rows, "rows"),
-        ("evidence", model.evidence_files, model.evidence, "records"),
-    ):
-        for path, group in _records(model, MODEL_ROOT / kind):
-            group.update(stem=path.stem)
-            groups.append(group)
-            group[part] = []
-            for child_path, record in _records(model, path.with_suffix("")):
-                record["page"] = path.stem
-                record_id = (
-                    f"{path.stem}/{record['id']}"
-                    if kind == "evidence"
-                    else record["id"]
-                )
-                _register(model, table, record_id, record, relative(child_path))
-                group[part].append(record)
+    for path, group in _records(model, MODEL_ROOT / "evidence"):
+        group.update(stem=path.stem, records=[])
+        model.evidence_files.append(group)
+        for child_path, record in _records(model, path.with_suffix("")):
+            record["page"] = path.stem
+            record_id = f"{path.stem}/{record['id']}"
+            _register(model, model.evidence, record_id, record, relative(child_path))
+            group["records"].append(record)
+    if (MODEL_ROOT / "plan").exists():
+        model.problem(
+            "RETIRED_PLAN_MIRROR", "docs/teaching/model/plan", RETIRED_PLAN_MIRROR
+        )
     for kind, table in (("boundaries", model.boundaries), ("gaps", model.gaps)):
         for path, record in _records(model, MODEL_ROOT / kind):
             _register(model, table, record["id"], record, relative(path))
@@ -195,7 +191,6 @@ def all_records(model: Model):
         ("teaching", model.teaching),
         ("scenario", model.scenarios),
         ("lesson", model.lessons),
-        ("plan", model.plan_rows),
         ("boundary", model.boundaries),
         ("gap", model.gaps),
         ("evidence", model.evidence),
@@ -205,13 +200,12 @@ def all_records(model: Model):
 
 
 def validate(model: Model, live: dict, repo_files: set) -> None:
-    """Check statuses, references, plan mappings and cited source paths.
+    """Check statuses, references and cited source paths.
 
     ``live`` maps ``commands``, ``functions`` and ``skills`` to the sets the
     live registries expose; ``repo_files`` is the git-tracked path set.
     """
     targets = {
-        "plan_refs": model.plan_rows,
         "surface_refs": model.surfaces,
         "concepts": model.concepts,
         "topics": model.concepts,
@@ -260,12 +254,9 @@ def validate(model: Model, live: dict, repo_files: set) -> None:
                     where,
                     f"source {source!r} is not a tracked repository file",
                 )
-        if kind == "plan" and not any(record.get(k) for k in PLAN_MAPPING_KEYS):
+        if "plan_refs" in record:
             model.problem(
-                "PLAN_ROW_UNMAPPED",
-                where,
-                "map it to a concept, surface, scenario or boundary, "
-                "or name an explicit gap",
+                "RETIRED_PLAN_MIRROR", where, f"remove plan_refs; {RETIRED_PLAN_MIRROR}"
             )
     for area in model.docs_graph.get("areas", []):
         for concept in area.get("concepts", []):
@@ -278,16 +269,11 @@ def validate(model: Model, live: dict, repo_files: set) -> None:
 
 
 def coverage(model: Model) -> dict:
-    """Return concept id -> sorted plan and teaching ids that map it.
+    """Return concept id -> sorted teaching ids that name it as a topic.
 
     Only direct mappings count: a mapped parent never covers its children.
     """
     mapped = {concept_id: set() for concept_id in model.concepts}
-    for concept_id, record in model.concepts.items():
-        mapped[concept_id].update(record.get("plan_refs", []))
-    for row_id, row in model.plan_rows.items():
-        for concept_id in row.get("concepts", []):
-            mapped.get(concept_id, set()).add(row_id)
     for teaching_id, record in model.teaching.items():
         for concept_id in record.get("topics", []):
             mapped.get(concept_id, set()).add(teaching_id)

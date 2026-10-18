@@ -25,7 +25,9 @@ PROGRESS_CHECKPOINT_TEACHING = (
     "live stage, what is committed, what is still uncommitted in the lane, "
     "and the next concrete step: "
     '`yoke items progress-log append PREFIX-N --headline "<checkpoint>" '
-    "--stdin`. When the item you claim is already past its first stage, you "
+    "--stdin`. Keep the entry body within 4,096 UTF-8 bytes; write only what "
+    "changed and the next step, and move evidence to artifacts or field-notes. "
+    "When the item you claim is already past its first stage, you "
     "are that successor: before acting, read "
     "`yoke items section get PREFIX-N --section 'Progress Log'` and the "
     "lane's `git status` and `git log`, keep the uncommitted work you find, "
@@ -145,6 +147,20 @@ STEERING_REWORK_TEACHING = (
 )
 
 
+DEPENDENCY_WAIT_TEACHING = (
+    "A dependency gate is not yours to poll or to have steering watch. When "
+    "an item you depend on merges or reaches done, the control plane sends "
+    "you one notice naming the blocker, the gate of yours it satisfied, and "
+    "any gates still unmet. Before stopping on an unmet gate, checkpoint and "
+    "park with the blocker named: "
+    '`yoke sessions touch --mode parked --reason "awaiting <BLOCKER> <gate>"`. '
+    "Keep your work claim and lane; do not release or end the session; the notice wakes you as holder. "
+    "When the notice says no gates remain, resume at the live stage; when it "
+    "names gates still unmet, re-park. Do not ask steering to message you "
+    "when a blocker lands."
+)
+
+
 #: Expanded obligations checked against the worker's phase instructions.
 STANDING_TEACHINGS = (
     # First: a successor launched onto an in-flight item must resume from
@@ -160,6 +176,7 @@ STANDING_TEACHINGS = (
     # After the release wait, because that is where steering's vetting
     # reaches a worker that is already parked and holding its item.
     STEERING_REWORK_TEACHING,
+    DEPENDENCY_WAIT_TEACHING,
     HEADLESS_CI_VERIFICATION_WAIT_TEACHING,
     HEADLESS_LANDING_WAIT_TEACHING,
     HEADLESS_TOOL_CONTINUATION_TEACHING,
@@ -169,6 +186,7 @@ STANDING_TEACHINGS = (
 __all__ = [
     "CANDIDATE_REVIEW_TEACHING",
     "COMMITTED_GATE_TEACHING",
+    "DEPENDENCY_WAIT_TEACHING",
     "HEADLESS_CI_VERIFICATION_WAIT_TEACHING",
     "HEADLESS_LANDING_WAIT_TEACHING",
     "HEADLESS_TOOL_CONTINUATION_TEACHING",

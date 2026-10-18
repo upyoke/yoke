@@ -2,7 +2,10 @@
 
 from datetime import timedelta
 
-from runtime.api.domain.test_session_message_support import message_connection
+from runtime.api.domain.test_session_message_support import (
+    NOW_TEXT,
+    message_connection,
+)
 from runtime.api.domain.test_session_wake_failure_notice import (
     SWEEP,
     _fail,
@@ -17,6 +20,16 @@ def test_duplicate_skips_recipient_resolution_but_cancelled_notice_does_not(
 ):
     conn = message_connection()
     _parked_recipient(conn)
+    conn.execute(
+        "INSERT INTO item_strategy_docs VALUES (101,1,'AREA-PLAN',?)",
+        (NOW_TEXT,),
+    )
+    conn.execute(
+        "INSERT INTO work_claims (id,session_id,target_kind,scope,claimed_at) "
+        "VALUES (5,'s1','steering','{\"project_id\":1,\"document\":\"AREA-PLAN\"}',?)",
+        (NOW_TEXT,),
+    )
+    conn.commit()
     candidate = wake_eligible_recipients(conn, now=SWEEP)[0]
     _fail(conn, candidate)
     notice = notices.notify_failed_wake(conn, candidate, now=SWEEP, max_attempts=3)

@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Optional, Sequence, Tuple
 
-from yoke_core.domain.worktree_capacity import capacity_recovery
+from yoke_core.domain.worktree_capacity import capacity_recovery, landed_item_lanes
 from yoke_core.domain.workflow_behavior import LANE_IMPLEMENTATION
 from yoke_core.domain.worktree_lane_plan import (
     resolve_worktree_lanes_for_item,
@@ -106,7 +106,7 @@ def preflight_worktree_plan(
     Detects duplicate paths, mismatched existing directories, and
     insufficient ``max_active_worktrees`` capacity (counting only the
     worktrees that need to be created). ``landed_base`` is the ref lanes
-    land on, so a capacity refusal can tell landed lanes from unmerged ones.
+    land on; an item lane it already carries holds no slot.
     """
     plan = WorktreeCreationPlan()
     if not raw_worktrees:
@@ -162,11 +162,19 @@ def preflight_worktree_plan(
     plan.primary = plan.worktrees[0]
 
     needed = plan.pending_worktree_count
-    if needed and (active_count + needed) > max_active_worktrees:
+    if not needed or active_count + needed <= max_active_worktrees:
+        return plan
+    # Landed lanes hold no slot; proving them costs git reads, so only a
+    # checkout that is over the cap by raw count pays for it.
+    landed = landed_item_lanes(repo_root, active_names, landed_base)
+    counted = active_count - len(landed)
+    if counted + needed > max_active_worktrees:
+        uncounted = f"; {len(landed)} landed lane(s) not counted" if landed else ""
         plan.error = (
-            f"max_active_worktrees limit reached ({active_count} active "
-            f"+ {needed} pending > {max_active_worktrees}). "
-            f"{capacity_recovery(repo_root, active_names, landed_base)}"
+            f"max_active_worktrees limit reached ({counted} active "
+            f"+ {needed} pending > {max_active_worktrees}{uncounted}). "
+            f"{capacity_recovery(repo_root, active_names, landed)}; "
+            "or raise the limit: yoke settings set max_active_worktrees N"
         )
         plan.capacity_refused = True
         return plan

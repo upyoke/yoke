@@ -8,7 +8,9 @@ Intentional external wait stamps parked with concrete reason. Reads, heartbeat,
 ack, failed wake and tool calls do not unpark. Accepted UserPromptSubmit clears
 prior park; later re-park advances turn_posture_at so a delayed earlier prompt
 cannot clear it. Working-mode stamp resumes by choice. Verify mode/reason,
-then resume only after blocker clears. Parked/in-flight/landing quiet is not
+then resume only after blocker clears; a dependency wait clears with the
+blocker's dependency-satisfied notice, so do not relay it by hand.
+Parked/in-flight/landing quiet is not
 grounds to terminate or restaff. Active work claim protects its holder.
 
 Headless process exits between turns normally: running→message it;
@@ -29,6 +31,14 @@ yoke items dependency list PREFIX-N --json
 
 Title-only related claimable batch without attestation refuses; don't launch
 work frontier should not offer.
+
+Keep dependencies minimal: every edge holds real work back. Before adding one,
+confirm the dependent truly needs the blocker's merged code; shared files alone
+call for `coordination_only`. Prefer the narrowest gate and condition:
+`coordination_only` over `integration` over `activation`, `fact:merged` over
+`status:done`, a specific task over a whole epic. The report's waiting-chains
+section is where heavy edges show; act on it per
+[fleet-findings.md](fleet-findings.md).
 
 ## 2. Keep the frontier maxed out
 
@@ -74,7 +84,9 @@ yoke charge schedule --project {_project} --item PREFIX-N --json
 
 One worker owns exactly one item through returned entrypoint/remaining legs.
 Never convert/re-file to fit Dash. Live stage's half-open binding owns next leg.
-Worker cannot create deployment run; steering batches after merge boundary.
+No worker creates or takes over a deployment run while a seat covers the
+project, launched by steering or not; steering batches after merge boundary.
+Takeover by any other session refuses `takeover_reserved_for_steering`.
 
 ## 5. Workers self-end after their DONE report — only terminal
 
@@ -177,3 +189,5 @@ yoke claims work holder-get PREFIX-N
    steps rather than replay. item_has_live_worker means finish termination first.
 4. By live deadline_at require succeeded registration and holder-get names
    successor. New worker reports its own leg; predecessor sends no further mail.
+
+Keep each entry body at or below 4,096 UTF-8 bytes; write only what changed and the next step, and move evidence to artifacts or field-notes.

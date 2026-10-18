@@ -1,5 +1,7 @@
 """Read a carried member's obligations before deployment cases are created."""
 
+from yoke_core.domain.deployment_overview_timing import overview_phase
+
 from collections import defaultdict
 
 from yoke_core.domain.db_helpers import query_rows
@@ -13,12 +15,18 @@ from yoke_core.domain.deployment_member_qa_sources import (
 from yoke_core.domain.qa_activity_reads import _list_activity
 from yoke_core.domain.qa_execution_environment_target import target_digest
 from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
+from yoke_core.domain.deployment_qa_run_sharing import (
+    member_shared_plan_ids,
+    run_qa_sharing,
+)
 
 
 def _copy_matches(conn, row, member, run, *, historical):
-    """A same-title or former-target result cannot answer this release."""
-    from yoke_core.domain.deployment_qa_shared_copy_reads import member_owns_shared_copy
-    from yoke_core.domain.deployment_qa_shared_plans import shared_target_identity
+    """A same-title or former-target result cannot answer this release.
+
+    A shared copy has no owner and is drawn once under Run QA, never inside
+    any one member's section.
+    """
     from yoke_core.domain.deployment_qa_stage_contract import (
         deployment_qa_stage_subject,
     )
@@ -27,15 +35,7 @@ def _copy_matches(conn, row, member, run, *, historical):
     )
 
     owner = row.get("deployment_member_item_id")
-    if owner is None:
-        if not shared_target_identity(row.get("execution_target_json")):
-            return False
-        if historical:
-            # The frozen member selection, tested by the caller's identity join,
-            # owns history even when a later attachment is withdrawn.
-            return True
-        return member_owns_shared_copy(conn, row, member)
-    if int(owner) != member:
+    if owner is None or int(owner) != member:
         return False
     if historical:
         return True
@@ -53,19 +53,19 @@ def _copy_matches(conn, row, member, run, *, historical):
 @presentation_operation
 def _member_qa_obligations(conn, runs, members):
     """Bound all reads to authorized carried members and displayed releases."""
-    item_ids = sorted({int(m["id"]) for values in members.values() for m in values})
+    item_ids = {int(m["id"]) for values in members.values() for m in values}
     if not item_ids:
         return {}
     run_ids = tuple(str(run["id"]) for run in runs)
     markers = ",".join("%s" for _ in run_ids)
-    frozen = query_rows(
-        conn,
-        "SELECT run_id,item_id,requirement_snapshot FROM deployment_run_items "
-        f"WHERE run_id IN ({markers}) AND item_id IN ({','.join('%s' for _ in item_ids)})",
-        (*run_ids, *item_ids),
-    )
+    from yoke_core.domain.deployment_qa_presentation_facts import run_member_rows
+
     snapshots = {
-        (str(r["run_id"]), int(r["item_id"])): r["requirement_snapshot"] for r in frozen
+        (run_id, member): row["requirement_snapshot"]
+        for run_id in run_ids
+        if members.get(run_id)
+        for member, row in run_member_rows(conn, run_id).items()
+        if member in item_ids
     }
     active_ids = sorted(
         {
@@ -76,10 +76,15 @@ def _member_qa_obligations(conn, runs, members):
         }
     )
     sources, plans = current_sources(conn, active_ids)
+    sharing = run_qa_sharing(conn, run_ids)
     environments = _environments(conn, members)
     copies = query_rows(
         conn,
-        "SELECT q.* FROM qa_requirements q "
+        "SELECT q.id,q.deployment_run_id,q.deployment_stage,q.deployment_member_item_id,"
+        "q.plan_id,q.plan_case_key,q.host_baseline,q.target_env,q.execution_target_json,"
+        "q.execution_target_digest,q.waived_at,q.retracted_at,q.superseded_by_requirement_id,"
+        "q.replacement_requirement_id,q.method_id,q.method_config,q.instructions,"
+        "q.expected_outcome FROM qa_requirements q "
         f"WHERE q.deployment_run_id IN ({markers}) "
         "AND q.qa_phase='post_deploy' AND q.qa_kind<>'deployment_stage_acceptance' "
         "ORDER BY q.id DESC",
@@ -88,6 +93,14 @@ def _member_qa_obligations(conn, runs, members):
     by_run = defaultdict(list)
     for row in copies:
         by_run[str(row["deployment_run_id"])].append(dict(row))
+    identities = {}
+
+    def copy_identity(row):
+        copy_id = int(row["id"])
+        if copy_id not in identities:
+            identities[copy_id] = identity(row)
+        return identities[copy_id]
+
     result, evidence_ids = {}, set()
     for run in runs:
         run_id = str(run["id"])
@@ -104,19 +117,21 @@ def _member_qa_obligations(conn, runs, members):
                     environment_names=names,
                     dynamic=dynamic,
                 )
+                shared = member_shared_plan_ids(sharing, run_id, key[1])
                 current, history, used = [], [], set()
                 for definition_key, definition in selected.items():
+                    if definition.get("plan_id") in shared:
+                        continue
                     candidates = [
                         row
                         for row in by_run[run_id]
-                        if identity(row) == definition_key
+                        if copy_identity(row) == definition_key
                         and _copy_matches(conn, row, key[1], run, historical=historical)
                     ]
                     live = [
                         row
                         for row in candidates
-                        if not row.get("retracted_at")
-                        and not row.get("superseded_by_requirement_id")
+                        if not _withdrawn(row)
                         and (historical or _same_content(row, definition))
                     ]
                     chosen = live[0] if live else None
@@ -124,7 +139,9 @@ def _member_qa_obligations(conn, runs, members):
                         current.append({"requirement_id": int(chosen["id"])})
                         used.add(int(chosen["id"]))
                         evidence_ids.add(int(chosen["id"]))
-                    else:
+                    elif not candidates or any(
+                        not _withdrawn(row) for row in candidates
+                    ):
                         current.append(_pending(definition, run_id, member))
                     for row in candidates:
                         if int(row["id"]) not in used:
@@ -140,7 +157,7 @@ def _member_qa_obligations(conn, runs, members):
                 for row in by_run[run_id]:
                     row_id = int(row["id"])
                     if (
-                        identity(row) in selected
+                        copy_identity(row) in selected
                         or row.get("deployment_member_item_id") != key[1]
                     ):
                         continue
@@ -154,8 +171,7 @@ def _member_qa_obligations(conn, runs, members):
                         continue
                     field = (
                         history
-                        if row.get("retracted_at")
-                        or row.get("superseded_by_requirement_id")
+                        if _withdrawn(row) or row.get("replacement_requirement_id")
                         else current
                     )
                     field.append({"requirement_id": row_id})
@@ -192,6 +208,28 @@ def _member_qa_obligations(conn, runs, members):
     return result
 
 
+def _withdrawn(row):
+    """Retracted and superseded checks leave every count; history keeps them."""
+    return bool(row.get("retracted_at") or row.get("superseded_by_requirement_id"))
+
+
+def member_snapshot_rows(conn, run_ids):
+    """One frozen snapshot set for obligations and acceptance of these runs."""
+    markers = ",".join("%s" for _ in run_ids)
+    rows = query_rows(
+        conn,
+        "SELECT dri.run_id,dri.item_id,dri.requirement_snapshot,i.project_id,dr.status "
+        "FROM deployment_run_items dri JOIN items i ON i.id=dri.item_id "
+        "JOIN deployment_runs dr ON dr.id=dri.run_id "
+        f"WHERE dri.run_id IN ({markers})",
+        run_ids,
+    )
+    by_run = defaultdict(dict)
+    for row in rows:
+        by_run[str(row["run_id"])][int(row["item_id"])] = row
+    return by_run
+
+
 def _environments(conn, members):
     projects = sorted(
         {int(m["project_id"]) for values in members.values() for m in values}
@@ -225,6 +263,7 @@ def _pending(definition, run_id, member):
     }
 
 
+@overview_phase("qa_obligations")
 def member_qa_obligations(conn, runs, members):
     from yoke_core.domain.deployment_qa_presentation_facts import member_presentation
 

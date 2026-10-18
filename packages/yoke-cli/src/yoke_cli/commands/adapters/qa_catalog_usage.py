@@ -53,10 +53,15 @@ Generated input is an object with source_revision and cases; qa plan-cases sync
 records its provenance atomically. qa plan-cases replace accepts manual arrays.
 --source-revision FULL_SHA records the merged exporter commit with the cases.
 It must be an ancestor of the project's verified default branch. Once recorded,
-every replacement needs source provenance; interactive editing refuses. Release
-materialization and refresh refuse qa_plan_source_candidate_mismatch when that
-source is not carried by the candidate: sync candidate definitions or deliver
-the newer source. A serving build missing source binding refuses before writing.
+every replacement needs source provenance; interactive editing refuses. A sync
+moves only forward: the recorded revision itself or a descendant of it.
+An older source refuses qa_plan_source_revision_regression, and a recorded
+revision the repository cannot prove refuses qa_plan_source_ancestry_unverified;
+both name the two revisions and write nothing. Export from current main and
+sync again. Release materialization and refresh refuse
+qa_plan_source_candidate_mismatch when that source is not carried by the
+candidate: release a candidate carrying it, or keep corrections run-scoped.
+A serving build missing source binding refuses before writing.
 
 Case environment obligations
 ----------------------------
@@ -75,14 +80,15 @@ refuses it; a read-only check targets production instead.
 Manual wake
 -----------
 `wake_path` is "automatic" (default: the case starts when its stage begins) or
-"manual" (it starts only when steering wakes its owner). "manual" needs
+"manual" (its owner is woken to check the evidence first). "manual" needs
 `wake_evidence`: one line naming the real-traffic evidence a registered read
 can confirm before the case can run, for example "a deployment run with at
 least 44 members exists after this release". Missing evidence refuses
 wake_evidence_required; evidence on an automatic case refuses
 wake_evidence_without_manual_wake. Method, runner and verdict path are
-unchanged. Steering lists these cases in the fleet report under "waiting on
-manual wake" with the command that wakes the owner.
+unchanged. The stage driver wakes the owner once per open manual case to
+check its evidence: run the case if it exists, otherwise ask the operator for a
+waiver. The fleet report lists open cases under "waiting on manual wake".
 
 What a Command case's shell is handed
 -------------------------------------
@@ -114,6 +120,10 @@ Materialization is convergent for added cases: every case the plan has
 gained since the last call gets its row, and every row already there is
 confirmed, never rewritten. A row whose case has since been amended keeps
 its old body here; `yoke qa plan rematerialize` is what brings it current.
+On an item, a live row whose case the plan no longer carries (the case was
+replaced or removed) refuses qa_plan_rows_orphaned before any write, naming
+each row: rematerialize retires it, superseding a replaced post_deploy row
+with its successor or waiving a removed one.
 
 --replaces CASE_KEY=FAILED_REQUIREMENT_ID declares the corrected case the
 replacement of a failed one. A case it names gets no second, automatic
@@ -133,8 +143,8 @@ has gained, and retires cases it has lost. It reaches every executable column,
 instructions and expected_outcome included -- which `yoke qa requirement
 update` cannot write at all -- because it rewrites the derivation whole rather
 than one allowlisted field. It also carries that body onto every admitted
-deployment-stage copy frozen from a refreshed row that can still be reached,
-reported as corrected_admitted_copy_ids -- otherwise the copy would keep the
+deployment-stage copy frozen from a refreshed or newly created row that can
+still be reached, reported as corrected_admitted_copy_ids -- otherwise the copy would keep the
 old body and its stage would refuse the case as superseded.
 
 An item transition whose plan a delivery already answered still has its
@@ -167,6 +177,15 @@ its identity labels are stale, is not rematerialize's job:
 live facts and keeps the recorded verdict. A live item requirement
 cannot be superseded.
 
+An item refresh considers shared copies only on runs it still belongs to.
+Removed members leave shared rows and live walks to the remaining members.
+--plan is a deployment-only filter; with --item, remove --plan and retry.
+
+With --member, --plan selects by owner. A shared plan the member attaches
+refreshes that shared group's run-wide rows. The member's own plan refreshes
+only that member's rows, so a live run-wide walk of a shared plan does not
+block it.
+
 Where it refuses instead
 ------------------------
 It will not move a row something else has already frozen a copy of, and it
@@ -176,6 +195,9 @@ exactly as it was.
 plan_execution_in_flight: a live QA plan execution is walking a roster built
 from these rows. The refusal names the execution and the full
 `yoke qa plan abort` invocation that reopens the refresh.
+
+shared_plan_refresh_selection: --member with a --plan that is neither a
+shared plan the member attaches nor one of its own materialized plans.
 
 admitted_copy_in_flight: an admitted deployment-stage copy of a row is on a
 run that is still executing and cannot be corrected. The refusal names the
@@ -196,7 +218,10 @@ USAGE_BY_FUNCTION_ID = {
         "--verdict-path automatic --verdict-contract TEXT "
         "--evidence-contract TEXT [--required-capability KIND ...]"
     ),
-    "qa.plan.list": "yoke qa plan list --project P [--limit N] [--offset N] [--full]",
+    "qa.plan.list": (
+        "yoke qa plan list --project P [--limit N] [--offset N] "
+        "[--include-retired] [--full]"
+    ),
     "qa.plan.get": (
         "yoke qa plan get (PLAN_ID_OR_SLUG | --plan-id PLAN_ID_OR_SLUG) --project P [--deployment-run-id RUN] "
         "[--full] [--json]"

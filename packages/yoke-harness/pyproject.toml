@@ -18,6 +18,7 @@ dependencies = [
     # Shared client substrate (transport/config) lives in yoke-cli per Decision 1.
     "yoke-cli",
     "httpx==0.28.1",
+    "browser-cookie3>=0.20.1,<1",
 ]
 
 [tool.setuptools_scm]

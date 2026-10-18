@@ -5,7 +5,6 @@
  "form": "Do",
  "verification": "Source and command regression tests cover text/JSON, local/self-host, agent mode, no-browser and opener failures. Source-review regression tests verify generated and explicit fixture tokens never appear in output.",
  "topics": ["security/credentials/connection-tokens", "workbench/identity"],
- "plan_refs": ["FIRST-USER.16"],
  "sources": ["packages/yoke-cli/src/yoke_cli/commands/universe_ui.py", "runtime/api/cli/test_yoke_universe_ui_output.py", "runtime/api/tools/test_review_browser_admission.py"],
  "position": 7
 }

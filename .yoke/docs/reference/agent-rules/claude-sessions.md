@@ -115,7 +115,7 @@ episode flag; inherited claims remain visible. Do not universalize Claude's
 transient-signal facts into other harness policy without manifest/source evidence.
 
 Measured clean declared-wait exit immediately qualifies pending mail's same
-native identity resume, including orphan open call; newer activity supersedes.
+native identity resume, including orphan open call; a park stamped after an open call also retires it; newer activity supersedes.
 A stale recipient whose surface declares no message_idle route uses
 message_stopped through the existing waiting wake mode, even if its recorded
 turn posture is running. Active calls, version floors and operator-only
@@ -171,7 +171,7 @@ Each wrapper captures/classifies output and owns exit/sentinel. Ask its
 | yoke watch pytest -- {TEST_ARGS} | Bare pytest args, never nested python -m pytest. Project verification owns full anchors; bad partial anchors refuse. Injects -n auto; explicit -n N wins, rare order debugging -n 0. |
 | yoke watch merge merge-item -- PREFIX-N | Also done-transition/merge-worktree; actionable terminal error/final result only, banners/polls/warnings raw, exit status/capture in sentinel. Standalone merge boundary is yoke merge item. |
 | yoke watch deploy -- RUN-ID | Terminal errors/final outcome; stages/workflow polls/retry/no-progress raw. Authenticated HTTPS normally; replacing serving API requires operator authority. Same authority as run execute. |
-| yoke watch fleet -- --project P | Repeat --project for scopes. Urgent worker mail/new work/red/block/abnormal/idle alarms wake; healthy churn/clears ride later urgent/changed report. Whole delimited compact report is one wake; due quiet reports still checked. Default 8h, duration 0 until interrupted; every exit gives exact fresh streaming-pair command. |
+| yoke watch fleet -- --project P | Repeat --project for scopes. Urgent worker mail/new work/red/block/abnormal/idle alarms wake; healthy churn/clears ride later urgent/changed report. A changed report is one delimited wake carrying only rows new or changed apart from ages, under their headings; raw keeps every report whole; due quiet reports still checked. Default 8h, duration 0 until interrupted; every exit gives exact fresh streaming-pair command. |
 | yoke watch preflight -- --project P ENV | Migration model fleet of named registered environment, optionally --model/--checkout/db filters; source default, --engine-wheel pins built wheel. --record-receipt writes that fleet environment proof, --receipt-env chooses recorder; one env never covers another. Streams artifact/roster/progress/each verdict/total/receipt/failure, unbuffered preserved exit. |
 | yoke watch qa-case -- --requirement-id N | Single native case verdict/envelope/failures/degraded relay, local pytest classified. CI poll states only on transition; quiet healthy gate has no-progress diagnostic, dead gate sentinel. |
 | yoke watch qa-plan -- --item PREFIX-N --transition T | Or --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P. Full plan/stage credit; single qa-case never credits a stage. |
@@ -263,7 +263,8 @@ and --help own sanctioned recovery. Do not blanket-suppress unrelated checks.
 ### Monitor output and messaging
 
 Relay matched line/digest verbatim into own visible output, including suppressed
-N ticks suffix. One digest is one wake; do not unpack into separate turns.
+N ticks suffix. Digests and stall notices never wake alone: the tail hands them
+over ahead of the next urgent line or sentinel, so a bare tail needs no filter.
 Merge/deploy suppress routine progress/retry/metadata/no-progress; other wrappers
 may batch progress (flush-seconds where supported). Silence needs no filler.
 This never authorizes Fleet mail: no percentages/elapsed polls/heartbeats/still

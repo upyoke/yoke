@@ -5,6 +5,5 @@
  "form": "Rule",
  "verification": "No delivery proof attached.",
  "topics": ["agents/roles", "agents/boundaries"],
- "plan_refs": ["FIRST-USER.24", "FIRST-USER.40", "FIRST-USER.41"],
  "position": 3
 }

@@ -3,8 +3,7 @@
  "title": "Resume the same setup engine with yoke setup --agent --answer KEY=VALUE.",
  "status": "observed",
  "form": "Do",
- "verification": "Source and focused regression tests; deployed campaign proof remains pending.",
+ "verification": "Regression tests cover destination replay after browser approval; live campaign proof pending.",
  "topics": ["installation/entry", "sessions/continuity"],
- "plan_refs": ["FIRST-USER.A", "FIRST-USER.C", "FIRST-USER.24", "FIRST-USER.26", "FIRST-USER.42"],
  "position": 8
 }

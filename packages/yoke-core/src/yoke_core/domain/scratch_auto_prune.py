@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import errno
-import fcntl
 import os
 import re
 import shutil
@@ -11,6 +10,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from yoke_contracts import platform_file_lock
 
 from yoke_core.domain import project_scratch_dir
 from yoke_core.domain import project_scratch_segments
@@ -286,7 +287,7 @@ def auto_prune_stale_scratch(
     lock_path = root / ".auto-prune.lock"
     with lock_path.open("a+", encoding="utf-8") as handle:
         try:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            platform_file_lock.acquire_exclusive_nonblocking(handle.fileno())
         except BlockingIOError:
             return ScratchPruneResult(skipped_throttle=True)
         handle.seek(0)

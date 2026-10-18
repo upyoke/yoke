@@ -46,7 +46,8 @@ Read those owners before changing an integration boundary.
 ## Hook events: mapping and measured coverage
 
 Cursor config: project `.cursor/hooks.json` (`{"version": 1, "hooks": {…}}`),
-user `~/.cursor/hooks.json`; watched and hot-reloaded; matchers are
+user `~/.cursor/hooks.json` (Yoke's machine-wide hooks; see
+`runtime/harness/manifest-machine-hooks.md`); watched and hot-reloaded; matchers are
 JavaScript regexes over tool type, shell command, or subagent type. Exit 0 +
 JSON output, or exit 2 to block; `failClosed` opts a hook into
 deny-on-crash; per-entry `timeout` (seconds) bounds execution — unset
@@ -58,8 +59,8 @@ entries pin an explicit generous value.
 | `SessionStart` | `SessionStart` | `SessionStart` (matcher `startup\|resume`) | `sessionStart` | fired | fired |
 | `SessionEnd` | `SessionEnd` | *(not wired)* | `sessionEnd` (`reason`, `final_status`, `duration_ms`) | fired | not fired while chat stays open |
 | `UserPromptSubmit` | `UserPromptSubmit` | `UserPromptSubmit` | `beforeSubmitPrompt` (`prompt`, `attachments` incl. applied rule files) | **absent** | fired |
-| `PreToolUse` | `PreToolUse` × matcher | `PreToolUse` (+ `PermissionRequest` collapse) | `preToolUse` (`tool_name`, `tool_input`, `tool_use_id`); shell also gets dedicated `beforeShellExecution` (`command`, `sandbox`; no `tool_use_id`/`duration_ms`) | fired | fired |
-| `PostToolUse` | `PostToolUse` | `PostToolUse` | `postToolUse` (+ `afterShellExecution` with `output`) | fired | fired |
+| `PreToolUse` | `PreToolUse` × matcher | `PreToolUse` (+ `PermissionRequest` collapse) | `preToolUse` (`tool_name`, `tool_input`, `tool_use_id`); shell also gets dedicated `beforeShellExecution` (`command`, `sandbox`; `tool_use_id` from 2026.10.16, never `duration_ms`) | fired | fired |
+| `PostToolUse` | `PostToolUse` | `PostToolUse` | `postToolUse`, Shell included (`tool_output` JSON with `output` and `exitCode`; its `additional_context` reaches the model, measured on CLI 2026.10.16). The audit-only `afterShellExecution` is not wired. | fired | fired |
 | `PostToolUseFailure` | `PostToolUseFailure` | *(reconstructed from transcripts)* | `postToolUseFailure` (`failure_type`, `error_message`) | fired | fired |
 | `Stop` | `Stop` | `Stop` (stdout must be `{}`) | `stop` (token counts, `loop_count`, `status`) | **absent** | fired |
 | Subagent lifecycle | `SubagentStop` (rendered into subagent adapters) | in-process, same session | `subagentStart` / `subagentStop` (`subagent_type`, `subagent_id`, `parent_conversation_id`) | **absent** (despite four `Task` dispatches) | fired |
@@ -125,7 +126,7 @@ started it (`yoke_harness.cursor_native_result_usage`).
 | Allow-time advisory | `hookSpecificOutput.additionalContext` | same | `postToolUse.additional_context`; no allow-time channel on `preToolUse` — advisory-only chain output needs rerouting or omission via `AdapterCapability.pretool_omissions` |
 | Rewrite tool input | — | — | `preToolUse.updated_input` |
 | Orientation injection | `UserPromptSubmit` additionalContext | `SessionStart` | `sessionStart.additional_context` (measured working; only channel in `-p` mode, where `beforeSubmitPrompt` never fires) |
-| Stop discipline | empty allow; hold is `{"decision":"block","reason":...}` | allow `{}` from session dispatch, short-circuit on `stop_hook_active`; hold is `{"decision":"block","reason":...}` | allow-path `{}`; hold uses `followup_message` for same-session self-continuation only; stop/sessionEnd commands peel a missing `.worktrees/<lane>` `YOKE_ROOT` and a `~/.cursor/hooks.json` backstop covers deleted project cwd |
+| Stop discipline | empty allow; hold is `{"decision":"block","reason":...}` | allow `{}` from session dispatch, short-circuit on `stop_hook_active`; hold is `{"decision":"block","reason":...}` | allow-path `{}`; hold uses `followup_message` for same-session self-continuation only; stop/sessionEnd commands peel a missing `.worktrees/<lane>` `YOKE_ROOT` and Yoke's machine-wide `~/.cursor/hooks.json` entries (which step aside while the project config owns the event) cover a deleted project cwd |
 
 ## Session identity, process shape, container model
 
@@ -265,8 +266,8 @@ existing registration deadline remain authoritative.
   registration-candidate lookup; the registration deadline remains the bound.
 - Revalidate hook coverage on later builds; manifest floors are current
   authority, while these measured builds are single data points.
-- `beforeShellExecution` vs `preToolUse(Shell)`: run the Bash chain on one,
-  both, or split gate/advisory roles between them?
+- Whether Cursor IDE delivers Shell `postToolUse` `additional_context` to the
+  model as the CLI does (measured on CLI 2026.10.16 only).
 - Whether `updated_input` rewriting and `beforeReadFile` gating open
   enforcement options Yoke has no chain vocabulary for yet.
 - MCP and `preCompact` events (unexercised), and `Write`-tool coverage of

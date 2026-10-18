@@ -17,17 +17,18 @@ from yoke_cli.commands.adapters import (
     qa_catalog_defaults,
     qa_item_plan_retract,
     qa_plan_edit,
+    qa_plan_retire,
     test_machine,
     test_machine_desktop,
     universe_levels,
     universe_retention,
-    quota_pool_order,
 )
 from yoke_cli.commands.registry_direct_workflows import (
     DIRECT_WORKFLOW_SUBCOMMAND_ALIAS_REGISTRY,
     DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY,
 )
 from yoke_cli.commands.adapters.files_cli import files_upload
+from yoke_cli.commands.adapters.classify_dirty import classify_dirty
 from yoke_cli.commands.adapters.qa_artifact_metadata import qa_artifact_get
 from yoke_cli.commands.adapters.items_section import items_progress_log_get
 from yoke_cli.commands.registry_item_pages import ITEM_PAGE_SUBCOMMAND_REGISTRY
@@ -62,6 +63,7 @@ QA_CATALOG_SUBCOMMAND_REGISTRY = {
     ),
     ("qa", "plan", "create"): ("qa.plan.create", qa_catalog.qa_plan_create),
     ("qa", "plan", "edit"): ("qa.plan.edit", qa_plan_edit.qa_plan_edit),
+    ("qa", "plan", "retire"): ("qa.plan.retire", qa_plan_retire.qa_plan_retire),
     ("qa", "plan-cases", "replace"): (
         "qa.plan_cases.replace",
         qa_catalog.qa_plan_cases_replace,
@@ -217,10 +219,6 @@ MODELS_SUBCOMMAND_REGISTRY = {
 }
 
 UNIVERSE_SUBCOMMAND_REGISTRY = {
-    ("universe", "levels", "get"): (
-        "universe.levels.get",
-        universe_levels.universe_levels_get,
-    ),
     ("universe", "retention", "get"): (
         "universe.retention.get",
         universe_retention.retention_get,
@@ -233,18 +231,6 @@ UNIVERSE_SUBCOMMAND_REGISTRY = {
         "universe.level_capacity.get",
         universe_levels.universe_levels_capacity,
     ),
-    ("universe", "cursor-quota-order", "get"): (
-        "universe.cursor_quota_order.get",
-        quota_pool_order.get,
-    ),
-    ("universe", "cursor-quota-order", "set"): (
-        "universe.cursor_quota_order.set",
-        quota_pool_order.set_order,
-    ),
-    ("universe", "levels", "set"): (
-        "universe.levels.set",
-        universe_levels.universe_levels_set,
-    ),
 }
 
 MACHINE_SUBCOMMAND_REGISTRY = {
@@ -253,13 +239,13 @@ MACHINE_SUBCOMMAND_REGISTRY = {
     ("machine", "show"): ("machine.show", machine.machine_show),
     ("machine", "detail"): ("machine.detail", machine.machine_detail),
     ("machine", "retire"): ("machine.retire", machine.machine_retire),
-    ("machine", "settings", "get"): (
-        "machine.settings.get",
-        machine.machine_settings_get,
+    ("machine", "access", "get"): (
+        "machine.access.get",
+        machine.machine_access_get,
     ),
-    ("machine", "settings", "set"): (
-        "machine.settings.set",
-        machine.machine_settings_set,
+    ("machine", "access", "set"): (
+        "machine.access.set",
+        machine.machine_access_set,
     ),
 }
 
@@ -280,6 +266,7 @@ OVERVIEW_SUBCOMMAND_REGISTRY = {
 }
 
 PRODUCT_SURFACE_SUBCOMMAND_REGISTRY = {
+    ("worktree", "classify-dirty"): ("worktree.classify_dirty", classify_dirty),
     ("files", "upload"): ("files.upload", files_upload),
     ("operator", "data-repair"): (
         "operator.data_repair.run",

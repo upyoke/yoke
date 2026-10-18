@@ -16,7 +16,8 @@ from yoke_core.domain.session_launch_registration import (
     complete_launch_for_message,
     prepare_launch_registration,
 )
-from yoke_core.domain.session_launch_requests import cancel_launch, retry_launch
+from yoke_core.domain.session_launch_cancellation import cancel_launch
+from yoke_core.domain.session_launch_requests import retry_launch
 from yoke_core.domain.session_launch_store import get_launch, update_launch
 from yoke_core.domain.session_launch_types import SessionLaunchError
 from yoke_core.domain.session_message_delivery import (
@@ -78,7 +79,13 @@ def _delivery_state(conn, message_id: str) -> tuple[str | None, str]:
     return message[0], recipient[0]
 
 
-def test_cancelled_launch_closes_an_active_hook_lease() -> None:
+def test_cancelled_launch_closes_an_active_hook_lease(monkeypatch) -> None:
+    ended: list[str] = []
+    monkeypatch.setattr(
+        "yoke_core.domain.session_launch_cancellation."
+        "terminate_cancelled_launch_session",
+        lambda conn, **kwargs: ended.append(kwargs["target_session_id"]),
+    )
     conn = launch_connection()
     add_relay(conn)
     launch, session_id = _registered_launch(conn, key="cancel-with-lease")
@@ -120,6 +127,7 @@ def test_cancelled_launch_closes_an_active_hook_lease() -> None:
     )
 
     assert cancelled.state == "cancelled"
+    assert ended == [session_id]
     assert completed == 0
     assert get_launch(conn, launch.launch_id).state == "cancelled"
     assert _delivery_state(conn, launch.message_id) == (

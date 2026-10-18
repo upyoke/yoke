@@ -1,7 +1,9 @@
 {
  "id": "seats-and-billing",
  "title": "Seats and billing",
- "status": "draft-copy",
+ "status": "observed",
+ "summary": "On Cloud, Platform keeps seats in Members and plans and payments in Billing. People, roles, and invites live on Team in every mode.",
+ "sources": ["docs/public/actors-members-billing.md"],
  "page": "identity",
  "position": 3
 }

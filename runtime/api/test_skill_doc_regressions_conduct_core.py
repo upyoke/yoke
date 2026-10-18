@@ -283,7 +283,6 @@ class TestConductFanOutEntryPath:
         required = (
             "Epic Task Fan-Out Flow",
             "_task_ids",
-            "_batch_size",
             "_worktree_branch_${_task_id}",
             "_worktree_path_${_task_id}",
             "dispatch-context-dispatch.md",
@@ -334,9 +333,12 @@ class TestConductFanOutEntryPath:
     def test_dispatch_protocol_remains_live(self):
         dispatch = _read(self.CONDUCT / "dispatch-context-dispatch.md")
         prompts = _read(self.CONDUCT / "dispatch-context-prompts.md")
-        assert "Parallel Engineer Dispatch" in dispatch, "missing engineer fan-out"
-        assert "Parallel Tester Dispatch" in dispatch, "missing tester fan-out"
-        assert "Dispatch ALL Engineers in parallel" in prompts, "missing fan-out prose"
+        assert "parallel_subagents" in dispatch, "missing harness concurrency read"
+        assert "Dispatch every eligible Engineer together" in dispatch
+        assert "Never wait for sibling Engineers" in dispatch, "missing per-return"
+        assert "advance every idle chain" in dispatch, "missing lane refill"
+        assert "After ALL Engineers return" not in dispatch, "batch wait returned"
+        assert "Dispatch every eligible Engineer together" in prompts
 
     def test_legacy_flow_name_only_in_decision_record(self):
         offenders = [

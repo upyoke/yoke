@@ -2,7 +2,6 @@
  "id": "creation",
  "title": "Intake and creation",
  "status": "observed",
- "plan_refs": ["FIRST-USER.13", "FIRST-USER.2", "FIRST-USER.28"],
  "commands": ["yoke items create"],
  "skills": ["curate", "idea", "onboard"],
  "page": "items",

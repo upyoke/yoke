@@ -99,6 +99,7 @@ def list_sessions(
     *,
     project: Optional[str] = None,
     project_ids: Optional[Sequence[int]] = None,
+    org_session_actor_id: int | None = None,
     liveness: Optional[str] = None,
     ended_cause: Optional[str] = None,
     limit: int | None = DEFAULT_SESSIONS_LIST_LIMIT,
@@ -136,6 +137,9 @@ def list_sessions(
     answers in one pass: the roster read is the same question for every
     project it covers, so running the whole pipeline once per project would
     re-ask every enrichment the answer shares.
+
+    When both are given, ``project`` resolves only within ``project_ids``.
+    ``None`` retains local authority; an empty set never permits batch reuse.
 
     ``session_id`` selects exactly one session through the same row renderer
     and enrichment pipeline.
@@ -180,8 +184,17 @@ def list_sessions(
         batch is not None
         and normalized_session_id
         and session_ids is None
+        and project_ids is None
         and not any(
-            (project, project_ids, liveness, ended_cause, offset, per_project, open)
+            (
+                project,
+                liveness,
+                ended_cause,
+                offset,
+                per_project,
+                open,
+                org_session_actor_id,
+            )
         )
         and db_backend.pg_dsn_is_bound()
         and batch[0] == db_backend.resolve_pg_dsn()
@@ -194,7 +207,9 @@ def list_sessions(
         where_params: List[Any] = []
         scoped_ids: tuple[int, ...] = ()
         if project:
-            scoped_ids = (resolve_project_id(conn, project),)
+            scoped_ids = (
+                resolve_project_id(conn, project, visible_project_ids=project_ids),
+            )
         elif project_ids:
             scoped_ids = tuple(dict.fromkeys(int(value) for value in project_ids))
         if scoped_ids:
@@ -211,6 +226,19 @@ def list_sessions(
             )
             where_params.extend(scoped_ids)
             where_params.extend(scoped_ids)
+        elif project_ids is not None:
+            clauses.append("1 = 0")
+        if project or (project_ids is not None and org_session_actor_id is None):
+            clauses.append("s.project_id IS NOT NULL")
+        elif org_session_actor_id is not None:
+            from yoke_core.domain.sessions_visible_roster import org_session_clause
+
+            org_clause, org_params = org_session_clause(conn, org_session_actor_id)
+            if project_ids is not None:
+                clauses[-1] = f"({clauses[-1]} OR {org_clause})"
+            else:
+                clauses.append(f"(s.project_id IS NOT NULL OR {org_clause})")
+            where_params.extend(org_params)
         if normalized_session_id:
             clauses.append("s.session_id = %s")
             where_params.append(normalized_session_id)
@@ -264,6 +292,8 @@ def session_summary_result(rows: list[dict], *, offset: int, limit: int | None) 
         "session_id",
         "actor_label",
         "project",
+        "org_id",
+        "scope_kind",
         "executor",
         "executor_surface",
         "model",

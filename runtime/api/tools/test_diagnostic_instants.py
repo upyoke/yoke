@@ -60,13 +60,26 @@ def test_external_reuse_clock_retains_microseconds_and_explicit_offset() -> None
 
 def test_future_reuse_evidence_cannot_skip_suite(monkeypatch) -> None:
     monkeypatch.setattr(reuse, "tree_object_id", lambda *_: "tree")
-    monkeypatch.setattr(
-        reuse,
-        "list_successful_workflow_runs",
-        lambda **_: [
-            {"id": 2, "created_at": "1969-12-31T23:59:59.123457Z", "head_sha": "head"}
-        ],
-    )
+    listing = {
+        "artifacts": [
+            {
+                "id": 7,
+                "created_at": "1969-12-31T23:59:59.123457Z",
+                "workflow_run": {"id": 2, "repository_id": 1, "head_repository_id": 1},
+            }
+        ]
+    }
+
+    class _Response:
+        def read(self) -> bytes:
+            return json.dumps(listing).encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return None
+
     result = reuse.decide_reuse(
         worktree="/tmp",
         api_url="https://example.test",
@@ -74,8 +87,11 @@ def test_future_reuse_evidence_cannot_skip_suite(monkeypatch) -> None:
         token="test",
         current_run_id=1,
         now=INSTANT,
+        opener=lambda *_args, **_kw: _Response(),
+        required={},
     )
     assert not result.skip_suite
+    assert result.rejected == ("artifact 7 (run 2): proof_from_future",)
 
 
 def test_start_markers_format_wall_clock_without_changing_elapsed_clock(
@@ -96,18 +112,16 @@ def test_start_markers_format_wall_clock_without_changing_elapsed_clock(
     assert records[1]["elapsed_ms"] == 125
 
 
-def _replace_capture_clocks(first, last) -> str:
+def _replace_capture_clocks(first, last) -> list:
     from runtime.api.domain.test_deployment_start_report import _capture
 
-    lines = []
-    for line in _capture().splitlines():
-        record = json.loads(line.removeprefix(timing.PREFIX))
+    records = _capture()
+    for record in records:
         if record["step"] == "driver_preflight":
             record["timestamp"] = first
         if record["step"] == "executing_transition":
             record["timestamp"] = last
-        lines.append(timing.PREFIX + json.dumps(record))
-    return "\n".join(lines)
+    return records
 
 
 def test_start_report_measures_offset_and_microseconds() -> None:

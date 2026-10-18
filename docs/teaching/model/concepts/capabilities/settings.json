@@ -1,9 +1,10 @@
 {
  "id": "settings",
  "title": "Settings ownership",
- "status": "draft-copy",
- "commands": ["yoke config example", "yoke config status", "yoke github-actions variable delete", "yoke github-actions variable get", "yoke github-actions variable set", "yoke projects capability-settings get", "yoke projects capability-settings merge", "yoke projects capability-settings remove", "yoke projects capability-settings set", "yoke projects environment-settings get", "yoke projects environment-settings merge"],
+ "status": "observed",
+ "commands": ["yoke config example", "yoke config status", "yoke github-actions variable delete", "yoke github-actions variable get", "yoke github-actions variable set", "yoke projects capability-settings get", "yoke projects capability-settings merge", "yoke projects capability-settings remove", "yoke projects capability-settings set", "yoke projects environment-settings get", "yoke projects environment-settings merge", "yoke settings list", "yoke settings get", "yoke settings set", "yoke settings unset"],
  "functions": ["config.example.run", "config.status.run", "github_actions.variable.delete", "github_actions.variable.get", "github_actions.variable.set", "projects.capability_settings.get", "projects.capability_settings.merge", "projects.capability_settings.remove", "projects.capability_settings.set", "projects.environment_settings.get", "projects.environment_settings.merge"],
  "page": "capabilities",
- "position": 1
+ "position": 1,
+ "current": "One typed catalog gives each non-sensitive key a unique scope, default, meaning and validation. settings list/get reports value and stored/default source; set/unset uses existing machine, project, organization or universe authority. Structured capabilities and environment settings retain their owners."
 }

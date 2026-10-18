@@ -85,6 +85,7 @@ def _final_members(conn: Any, run_id: str, *, at_wait: bool) -> list[dict[str, A
         members.append(
             {
                 "item_id": item_id,
+                "project_id": int(row["project_id"]),
                 "public_ref": format_item_ref(
                     None, row["public_item_prefix"], row["project_sequence"]
                 ),
@@ -259,11 +260,13 @@ def _commit_phase(conn: Any, run_id: str) -> tuple[list[Any], Optional[str]]:
         held = {int(written.item_id) for written in staged}
         return [], _blocked(conn, run_id, required, refusals, held, cleared)
     from yoke_core.domain.deployment_run_other_target_members import (
+        notify_set_aside_members,
         record_other_target_deliveries,
     )
 
     record_other_target_deliveries(conn, run_id, deferred)
     conn.commit()
+    notify_set_aside_members(conn, run_id, deferred)
     return staged, None
 
 
@@ -322,12 +325,19 @@ def settle_members(conn: Any, run_id: str) -> Optional[str]:
     still at its release wait — its close-out would refuse, or it was never
     cleared — the run may not succeed and no member closes. A member owing
     only another environment's obligations does not hold the run; it stays
-    open, delivered here, until that target answers it. Returns the
-    refusal that keeps the run settling, or ``None`` once it may succeed.
+    open, delivered here, until that target answers it. Members whose
+    candidate left the frozen lineage — reopened ones included — are
+    released first. Returns the refusal that keeps the run settling, or
+    ``None`` once it may succeed.
     """
     from yoke_core.domain.deployment_run_member_removal import release_replaced_members
+    from yoke_core.domain.deployment_run_reopened_members import reopened_members
 
-    release_replaced_members(conn, run_id, _final_members(conn, run_id, at_wait=True))
+    release_replaced_members(
+        conn,
+        run_id,
+        _final_members(conn, run_id, at_wait=True) + reopened_members(conn, run_id),
+    )
     staged, refusal = _commit_phase(conn, run_id)
     if refusal:
         return refusal

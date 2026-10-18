@@ -2,8 +2,8 @@
 
 Ready rows carry ranks, routed steps, and readiness reasons. Blocked rows
 cover unsatisfied activation, integration, and closure dependencies, plus
-operator blocks and incomplete bodies. Dependency edges serve the Waiting
-graph (:mod:`frontier_dependency_edges`). Polling does not emit events.
+operator blocks and incomplete bodies. Dependency edges and deadlocks serve
+the Waiting graph (:mod:`frontier_dependency_edges`). Polling emits no events.
 """
 
 from __future__ import annotations
@@ -16,10 +16,15 @@ from yoke_core.domain.dependency_planning import (
     BlockerDetail,
     evaluate_batch_gates,
 )
+from yoke_core.domain.dependency_cycles_read import BLOCKING_GATE_POINTS
+from yoke_core.domain.frontier_blocked_rows import (
+    FRONTIER_BLOCKED_FIELDS,
+    blocked_row,
+)
 from yoke_core.domain.frontier_dependency_edges import (
-    BLOCKING_GATE_POINTS,
+    FRONTIER_CYCLE_FIELDS,
     FRONTIER_EDGE_FIELDS,
-    frontier_dependency_edges,
+    frontier_dependency_graph,
 )
 from yoke_core.domain.item_ref_resolution import internal_ids_for_refs
 from yoke_core.domain.project_identity import placeholder
@@ -55,23 +60,6 @@ FRONTIER_READY_FIELDS = (
     "created_at",
 )
 
-#: Blocked-row keys, in presentation order.
-FRONTIER_BLOCKED_FIELDS = (
-    "item_id",
-    "title",
-    "workflow_id",
-    "project",
-    "project_id",
-    "project_sequence",
-    "blocking_item",
-    "blocking_project_id",
-    "blocking_project_sequence",
-    "gate_point",
-    "why",
-    "satisfaction",
-    "needs_spec",
-    "created_at",
-)
 
 #: Gate points the frontier computation does not enforce but whose
 #: unsatisfied edges the blocked view still owes a row for.
@@ -107,13 +95,6 @@ def _compose_why_ready(
     return sentence[0].upper() + sentence[1:] + "."
 
 
-def _compose_edge_why(reason: str, rationale: str) -> str:
-    """Join the evaluation reason with the persisted edge rationale."""
-    if rationale:
-        return f"{reason} — {rationale}" if reason else rationale
-    return reason
-
-
 def _item_route_facts(
     conn: Any,
     item_ids: set[int],
@@ -142,50 +123,6 @@ def _item_route_facts(
             ),
         }
     return facts
-
-
-def _blocked_row(
-    step: ScheduledStep,
-    detail: Optional[BlockerDetail | GateEvaluation],
-    public_ref: str,
-    item_route: Dict[str, Any],
-    blocking_route: Optional[Dict[str, Any]],
-) -> Dict[str, Any]:
-    if detail is None:
-        # Non-edge wait: operator block or an item
-        # that needs a spec. No blocking item or gate point; reasons say why.
-        return {
-            "item_id": public_ref,
-            "title": step.title,
-            "workflow_id": step.workflow_id,
-            "project": step.project,
-            "project_id": item_route["project_id"],
-            "project_sequence": item_route["project_sequence"],
-            "blocking_item": "",
-            "blocking_project_id": None,
-            "blocking_project_sequence": None,
-            "gate_point": "",
-            "why": "; ".join(step.blocked_reasons) or step.explanation,
-            "satisfaction": "",
-            "needs_spec": step.needs_spec,
-            "created_at": step.created_at,
-        }
-    return {
-        "item_id": public_ref,
-        "title": step.title,
-        "workflow_id": step.workflow_id,
-        "project": step.project,
-        "project_id": item_route["project_id"],
-        "project_sequence": item_route["project_sequence"],
-        "blocking_item": detail.blocking_item,
-        "blocking_project_id": (blocking_route or {}).get("project_id"),
-        "blocking_project_sequence": (blocking_route or {}).get("project_sequence"),
-        "gate_point": detail.gate_point,
-        "why": _compose_edge_why(detail.reason, detail.rationale),
-        "satisfaction": detail.satisfaction,
-        "needs_spec": step.needs_spec,
-        "created_at": step.created_at,
-    }
 
 
 def list_frontier(
@@ -224,13 +161,20 @@ def list_frontier(
         ):
             for step in step_list:
                 tracked_steps.setdefault(step.item_id, step)
+        # Each spec: the step, one holding edge (or None), and whether that
+        # edge is why the scheduler is not offering the item.
         blocked_specs: List[
-            tuple[ScheduledStep, Optional[BlockerDetail | GateEvaluation]]
+            tuple[ScheduledStep, Optional[BlockerDetail | GateEvaluation], bool]
         ] = []
         for step in schedule.blocked_steps:
             blocked_specs.extend(
-                (step, gate) for gate in (step.gate_evaluations or [None])
+                (step, gate, True) for gate in (step.gate_evaluations or [None])
             )
+        own = {
+            (step.item_id, gate.gate_point, gate.blocking_item)
+            for step, gate, _holds in blocked_specs
+            if gate is not None
+        }
         # Each gate is evaluated once per read; the dependency edges reuse it.
         gate_blocks = {
             gate: evaluate_batch_gates(conn, gate_point=gate, emit_events=False)
@@ -244,13 +188,15 @@ def list_frontier(
                 if step is None:
                     continue
                 for detail in blocks[dependent_item]:
-                    blocked_specs.append((step, detail))
+                    key = (step.item_id, detail.gate_point, detail.blocking_item)
+                    if key not in own:
+                        blocked_specs.append((step, detail, False))
 
         blocking_ids = internal_ids_for_refs(
             conn,
             (
                 detail.blocking_item
-                for _step, detail in blocked_specs
+                for _step, detail, _holds in blocked_specs
                 if detail is not None and detail.blocking_item
             ),
         )
@@ -295,7 +241,7 @@ def list_frontier(
             )
 
         blocked_rows: List[Dict[str, Any]] = []
-        for step, detail in blocked_specs:
+        for step, detail, holds_pickup in blocked_specs:
             blocking_route = (
                 None
                 if detail is None
@@ -304,12 +250,13 @@ def list_frontier(
                 )
             )
             blocked_rows.append(
-                _blocked_row(
+                blocked_row(
                     step,
                     detail,
                     public_refs[step.item_id],
                     route_facts[step.item_id],
                     blocking_route,
+                    holds_pickup=holds_pickup,
                 )
             )
 
@@ -318,12 +265,11 @@ def list_frontier(
                 "ready": list(FRONTIER_READY_FIELDS),
                 "blocked": list(FRONTIER_BLOCKED_FIELDS),
                 "dependency_edges": list(FRONTIER_EDGE_FIELDS),
+                "dependency_cycles": list(FRONTIER_CYCLE_FIELDS),
             },
             "ready_rows": ready_rows,
             "blocked_rows": blocked_rows,
-            "dependency_edges": frontier_dependency_edges(
-                conn, scope, gate_blocks=gate_blocks
-            ),
+            **frontier_dependency_graph(conn, scope, gate_blocks=gate_blocks),
             "frozen_count": len(schedule.frozen_steps),
             "wip_cap": schedule.wip_cap,
             "wip_active": schedule.wip_active,

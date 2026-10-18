@@ -86,7 +86,7 @@ def apply_strategy_files(
                 unchanged.append(rel)
                 continue
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
+        target.write_text(content, encoding="utf-8", newline="")
         strategy_map[rel] = sha256_text(content)
         written.append(rel)
     return strategy_map, written, unchanged, preserved, warnings

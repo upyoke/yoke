@@ -23,6 +23,7 @@ batching off and emits each progress line as it arrives.
 from __future__ import annotations
 
 import argparse
+import re
 import time
 from typing import Callable, Optional, Sequence
 
@@ -33,6 +34,15 @@ from typing import Callable, Optional, Sequence
 DEFAULT_FLUSH_SECONDS = 120.0
 #: Joins the buffered signals inside one digest line.
 DIGEST_SEPARATOR = " · "
+
+#: Progress lines a follower never wakes on: digests, quiet-run stall
+#: notices, the run header and the capture's writer claim. They stay in the
+#: progress capture and reach the reader in front of the next line that
+#: does wake it — a failure, refusal, decision-needing wait, terminal
+#: outcome or the exit sentinel.
+ROUTINE_PROGRESS_RE = re.compile(
+    r"^# watch_\w+ (?:digest\b|still running\b|raw=|headless_continuation:|writer_pid=)"
+)
 
 FLUSH_SECONDS_FLAG = "--flush-seconds"
 
@@ -49,15 +59,18 @@ wake tiers:
   follower the moment they arrive, carrying whatever progress was buffered
   before them.
 
-  For wrappers using progress digests, stage boundaries, run and workflow ids, rehearsal
-  verdicts, percentages, status polls — are buffered and emitted as ONE
+  Routine progress — stage boundaries, timings, run and workflow ids,
+  rehearsal verdicts, percentages, status polls — is buffered into ONE
   `# watch_<kind> digest ...` line at most every {DEFAULT_FLUSH_SECONDS:g}
-  seconds, and always at completion. Read a digest as one wake covering
-  everything between the middle dots, and relay it as it stands.
+  seconds, and always at completion. A digest, like a stall notice, never
+  wakes a follower: `yoke watch tail` holds it and hands it over in front
+  of the next urgent line or the exit sentinel, so a bare tail needs no
+  filter. Relay a held digest as it stands, with the wake it arrived in.
 
   The raw capture keeps every line unchanged either way.
-  `{FLUSH_SECONDS_FLAG} N` resizes the window for one run;
-  `{FLUSH_SECONDS_FLAG} 0` restores one wake per progress line.
+  `{FLUSH_SECONDS_FLAG} N` resizes the digest window for one run;
+  `{FLUSH_SECONDS_FLAG} 0` writes each progress line as it arrives, and
+  those lines do wake a follower.
 """
 
 
@@ -223,6 +236,7 @@ __all__ = [
     "FLUSH_SECONDS_FLAG",
     "FLUSH_SECONDS_HELP",
     "ProgressDigest",
+    "ROUTINE_PROGRESS_RE",
     "TIER_HELP",
     "add_flush_seconds_argument",
     "extract_flush_seconds",

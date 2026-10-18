@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from yoke_core.domain.qa_member_plan_execution import execute_member_partitions
+from yoke_core.domain.qa_member_plan_execution import execute_serial_partitions
 from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
 
 
@@ -21,7 +21,7 @@ def _result(execution_id, requirement_id, remaining, state="passed"):
 
 def test_completed_hosts_continue_with_same_scope_and_aggregate_results():
     runner = mock.Mock(side_effect=[_result("linux", 10, 1), _result("mac", 11, 0)])
-    result = execute_member_partitions(runner)(
+    result = execute_serial_partitions(runner)(
         deployment_run_id="run-hosts",
         deployment_stage="item-qa",
         deployment_member="member",
@@ -41,7 +41,7 @@ def test_completed_hosts_continue_with_same_scope_and_aggregate_results():
 )
 def test_unsettled_host_stops_before_another_execution(state):
     runner = mock.Mock(return_value=_result("linux", 10, 1, state))
-    result = execute_member_partitions(runner)(
+    result = execute_serial_partitions(runner)(
         deployment_stage="item-qa", deployment_member="member"
     )
     runner.assert_called_once()
@@ -58,7 +58,7 @@ def test_old_server_response_keeps_single_execution_semantics():
             "executed_count": 2,
         }
     )
-    result = execute_member_partitions(runner)(
+    result = execute_serial_partitions(runner)(
         deployment_stage="item-qa", deployment_member="member"
     )
     runner.assert_called_once()
@@ -67,11 +67,29 @@ def test_old_server_response_keeps_single_execution_semantics():
 
 def test_a_repeated_completed_execution_refuses_with_recovery():
     runner = mock.Mock(return_value=_result("same", 10, 1))
-    with pytest.raises(
-        QaPlanExecutionError, match="member_machine_partition_stalled.*report"
-    ):
-        execute_member_partitions(runner)(
+    with pytest.raises(QaPlanExecutionError, match="qa_plan_partition_stalled.*report"):
+        execute_serial_partitions(runner)(
             deployment_stage="item-qa", deployment_member="member"
+        )
+
+
+def test_item_target_partitions_continue_in_one_plan_run():
+    runner = mock.Mock(side_effect=[_result("ci", 10, 1), _result("prod", 11, 0)])
+    result = execute_serial_partitions(runner)(
+        public_ref="YOK-1",
+        transition_id="reviewing-implementation",
+        resume_execution_id="ci",
+    )
+    assert result["execution_ids"] == ["ci", "prod"]
+    assert [row["requirement_id"] for row in result["results"]] == [10, 11]
+    assert "resume_execution_id" not in runner.call_args_list[1].kwargs
+
+
+def test_a_reselected_passed_requirement_refuses_with_recovery():
+    runner = mock.Mock(side_effect=[_result("first", 10, 1), _result("again", 10, 1)])
+    with pytest.raises(QaPlanExecutionError, match="qa_plan_partition_stalled.*report"):
+        execute_serial_partitions(runner)(
+            public_ref="YOK-1", transition_id="reviewing-implementation"
         )
 
 

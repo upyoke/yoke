@@ -158,7 +158,7 @@ def test_amazon_linux_deps_command_names_dnf_when_packages_missing(monkeypatch) 
         lambda name: f"/usr/bin/{name}" if name in {"rpm", "dnf", "sudo"} else None,
     )
     monkeypatch.setattr(
-        browser_linux_deps.subprocess,
+        subprocess,
         "run",
         lambda *_args, **_kwargs: subprocess.CompletedProcess([], 1, "", ""),
     )
@@ -178,7 +178,7 @@ def test_amazon_linux_deps_command_skips_when_packages_installed(monkeypatch) ->
         browser_linux_deps.shutil, "which", lambda name: f"/usr/bin/{name}"
     )
     monkeypatch.setattr(
-        browser_linux_deps.subprocess,
+        subprocess,
         "run",
         lambda *_args, **_kwargs: subprocess.CompletedProcess([], 0, "", ""),
     )

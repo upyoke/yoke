@@ -22,7 +22,7 @@ from yoke_core.domain.qa_gates import (
     check_verification_entry,
     check_verification_gate,
 )
-from yoke_core.domain.qa_review_requests import QaReviewWait
+from yoke_core.domain.qa_review_waits import QaReviewWait
 
 TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"

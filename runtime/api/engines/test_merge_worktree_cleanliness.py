@@ -176,3 +176,35 @@ def test_clear_lane_residue_removes_declared_nested_content(tmp_path: Path):
 
     assert assessment.disposable
     assert not generated_dir.exists()
+
+
+def test_hypothesis_cache_and_declared_teaching_render_clear_a_done_lane(
+    tmp_path: Path,
+):
+    """A lane holding only Hypothesis's database and a declared teaching render
+    is disposable, and clearing removes both."""
+    (tmp_path / ".hypothesis" / "examples").mkdir(parents=True)
+    (tmp_path / ".hypothesis" / "examples" / "abc").write_text("x")
+    (tmp_path / "docs" / "teaching" / "live").mkdir(parents=True)
+    (tmp_path / "docs" / "teaching" / "live" / "index.html").write_text("x")
+    stdout = _porcelain(ignored=[".hypothesis/", "docs/teaching/live/"])
+    declared = frozenset({PurePosixPath("docs/teaching/live")})
+    outputs = iter([stdout, ""])
+
+    def run_git(_args: list[str], cwd: Any = None, capture: bool = True):
+        return _FakeResult(next(outputs))
+
+    assessment = clear_lane_residue(run_git, tmp_path, declared)
+
+    assert assessment.disposable
+    assert not (tmp_path / ".hypothesis").exists()
+    assert not (tmp_path / "docs" / "teaching" / "live").exists()
+
+
+def test_unknown_ignored_file_beside_known_caches_still_preserves(tmp_path: Path):
+    stdout = _porcelain(ignored=[".hypothesis/", "notes/scratch.txt"])
+
+    assessment = assess_lane_residue(_fake_git(stdout), tmp_path)
+
+    assert not assessment.disposable
+    assert "notes/scratch.txt" in assessment.reason

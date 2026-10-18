@@ -14,7 +14,7 @@ from yoke_core.domain.item_merge_receipt_document import record_entry
 from yoke_core.domain.backlog_authoritative_status_gate import (
     _run_authoritative_status_gate,
 )
-from yoke_core.domain.qa_review_requests import QaReviewWait
+from yoke_core.domain.qa_review_waits import QaReviewWait
 
 
 def _row_id(row) -> int:

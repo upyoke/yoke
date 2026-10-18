@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import io
+import os
+import socket
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+from yoke_contracts import platform_file_lock
 
 from yoke_cli.commands.adapters import hooks
+from yoke_cli import hook_resident_client as client
 from yoke_cli.hook_resident_client import ResidentUnavailable
 from yoke_cli import hook_resident_health as health
 
@@ -30,7 +34,8 @@ def test_warning_claim_survives_separate_hook_processes(tmp_path):
         for _ in range(3)
     ]
     assert answers == ["True", "False", "False"]
-    assert (tmp_path / "fallback-warning").stat().st_mode & 0o777 == 0o600
+    if os.name != "nt":
+        assert (tmp_path / "fallback-warning").stat().st_mode & 0o777 == 0o600
 
 
 def test_concurrent_hook_process_handles_claim_only_one_warning(tmp_path):
@@ -103,11 +108,12 @@ def test_repeated_hooks_warn_once_and_preserve_fallback_verdict(
 
 
 def test_warning_lock_contention_does_not_block(tmp_path):
-    import fcntl
-
     with (tmp_path / "fallback-warning").open("w", encoding="utf-8") as state:
-        fcntl.flock(state, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        assert not health.claim_fallback_warning(tmp_path)
+        platform_file_lock.acquire_exclusive_nonblocking(state.fileno())
+        try:
+            assert not health.claim_fallback_warning(tmp_path)
+        finally:
+            platform_file_lock.release_exclusive(state.fileno())
 
 
 def test_warning_state_failure_preserves_hook_fallback(monkeypatch, tmp_path, capsys):
@@ -129,6 +135,42 @@ def test_warning_state_failure_preserves_hook_fallback(monkeypatch, tmp_path, ca
     assert "WARNING:" not in capsys.readouterr().err
 
 
+def test_missing_unix_socket_transport_uses_named_fallback(monkeypatch, tmp_path):
+    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.delattr(client.socket, "AF_UNIX", raising=False)
+
+    with pytest.raises(ResidentUnavailable) as failure:
+        client.evaluate_with_resident("SessionStart", "{}")
+
+    assert failure.value.code == "YOKE_HOOK_RESIDENT_UNSUPPORTED"
+    assert failure.value.log_path == tmp_path / "hook-evaluator" / "evaluator.log"
+
+
+def test_missing_unix_socket_transport_has_a_health_verdict(monkeypatch, tmp_path):
+    monkeypatch.delattr(health.socket, "AF_UNIX", raising=False)
+    assert health.resident_revision_problem(tmp_path / "socket", "expected").startswith(
+        "YOKE_HOOK_RESIDENT_UNSUPPORTED:"
+    )
+
+
+def test_missing_unix_socket_transport_reaches_canonical_fallback(
+    monkeypatch, tmp_path
+):
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setattr(sys, "stdin", io.StringIO("{}"))
+    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.delattr(client.socket, "AF_UNIX", raising=False)
+    calls = []
+    monkeypatch.setattr(
+        hooks,
+        "_evaluate_inprocess",
+        lambda *args, **kwargs: calls.append((args, kwargs)) or 0,
+    )
+
+    assert hooks.hook_evaluate(["SessionStart"]) == 0
+    assert calls[0][1]["fallback_reason"] == "YOKE_HOOK_RESIDENT_UNSUPPORTED"
+
+
 @pytest.mark.parametrize(
     "loaded,expected,version,installed,reason",
     [
@@ -145,10 +187,12 @@ def test_warning_state_failure_preserves_hook_fallback(monkeypatch, tmp_path, ca
         ("unknown", "unknown", "", "", "YOKE_HOOK_REVISION_UNKNOWN"),
     ],
 )
+@pytest.mark.skipif(
+    not hasattr(socket, "AF_UNIX"), reason="resident health requires Unix sockets"
+)
 def test_health_reads_identity_without_evaluating_or_restarting(
     monkeypatch, loaded, expected, version, installed, reason
 ):
-    import socket
     import tempfile
     import threading
     from pathlib import Path

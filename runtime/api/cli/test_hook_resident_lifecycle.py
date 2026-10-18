@@ -38,6 +38,19 @@ def test_missing_evaluator_is_a_successful_stop(monkeypatch, tmp_path):
     lifecycle.stop_resident()
 
 
+def test_unsupported_transport_stops_cleanly_and_refuses_restart(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(client, "resident_transport_available", lambda: False)
+
+    lifecycle.stop_resident()
+    with pytest.raises(
+        lifecycle.ResidentLifecycleError, match="YOKE_HOOK_RESIDENT_UNSUPPORTED"
+    ):
+        lifecycle.restart_resident()
+
+
 def test_process_discovery_requires_exact_module_and_machine_socket(
     monkeypatch, tmp_path
 ):

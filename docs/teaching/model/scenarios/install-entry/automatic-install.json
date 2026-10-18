@@ -8,6 +8,5 @@
  "disclosure": "at failure and completion",
  "surface": "Setup Install recovery and finish summary",
  "review": "Scripted source tests cover automatic advance, failure, retry and shell receipts. Installer campaign waits for the next real screen without Install confirmation keys; deployed proof remains release-bound.",
- "plan_refs": ["FIRST-USER.39"],
  "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_path.py", "runtime/api/cli/test_onboard_install_checks.py", "runtime/api/domain/test_installer_campaign_interaction_rows.py"]
 }

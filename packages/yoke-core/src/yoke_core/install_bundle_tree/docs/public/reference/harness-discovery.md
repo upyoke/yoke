@@ -140,9 +140,16 @@ Official sources checked 2026-10-08:
 - [Claude skill directories](https://code.claude.com/docs/en/skills)
 
 Codex and Cursor Agent floors name the native releases verified for this layout;
-older engines receive `instruction_runtime_unsupported`. The installer probes
-installed CLIs. Desktop users must verify their embedded engine separately;
-the outer app version does not prove its discovery capabilities.
+the installer probes detected CLIs before writing project guidance. An older
+engine or failed version probe appears in the install and preview report's
+`harness_health` section. Each supported CLI has its detected version, floor,
+status (`ok`, `below_floor`, `probe_failed` or `absent`), loading effect and next
+step. Operational `warnings` remain separate. Other supported harnesses can
+still use the installation. CLI versions never block installation; absent
+CLIs appear in health so installation can precede native harness setup.
+Install or upgrade a supported native CLI or embedded desktop engine, start
+a new session, and rerun project refresh. Desktop users verify
+their embedded engine separately; the outer app version proves no capability.
 
 ## Guard scope
 
@@ -152,7 +159,10 @@ repository nested inside it does not. A machine connection or a folder named
 `.yoke` alone does not make a checkout managed.
 
 Outside managed projects, hooks apply machine safety rules: privacy-database
-protection, literal search quoting and unmatched path globs. Project rules
+protection, literal search quoting and unmatched path globs. Setup writes
+these machine-wide hooks into each installed harness's user config (the
+manifest's `machine_hooks` names the file and events); inside a managed
+project they step aside so the project's own hooks run once per event. Project rules
 (such as main-commit and destructive-Git checks) apply inside managed projects.
 Lane rules check the real lane and claim authority there, including on main.
 Unmapped HTTPS clients finish machine checks locally without project registration.

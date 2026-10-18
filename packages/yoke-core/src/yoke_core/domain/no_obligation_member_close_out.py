@@ -14,7 +14,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from yoke_core.domain.db_helpers import query_scalar, query_rows
+from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.deployment_qa_shared_copy_reads import member_owns_shared_copy
 from yoke_core.domain.post_deploy_verification_answer import answer_for_item
 from yoke_core.domain.qa_obligation_settlement import (
     settled_obligation_sql,
@@ -47,24 +48,32 @@ def recorded_no_obligation(conn: Any, item_id: int) -> bool:
 def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
     """Whether this run settled the member's post-deploy QA obligations.
 
-    Legacy flows cannot bind QA to a member, so their delivered members also
-    read the run-wide requirements. Scoped flows keep exact member binding.
+    Count exact member requirements and shared copies owned by this member,
+    using the same ownership rule as the done gate.
     """
     discharges_without_cases = answer_for_item(
         conn, int(item_id)
     ).discharges_without_cases
     if not (_table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")):
         return discharges_without_cases
-    member_scope = "r.deployment_member_item_id=%s"
-    total = query_scalar(
+    rows = query_rows(
         conn,
-        "SELECT COUNT(*) FROM qa_requirements r "
-        f"WHERE r.deployment_run_id=%s AND {member_scope} "
+        "SELECT r.id,r.deployment_member_item_id,r.deployment_run_id,"
+        "r.deployment_stage,r.execution_target_json,r.execution_target_digest,"
+        f"{settled_obligation_sql(conn, 'r')} AS settled "
+        "FROM qa_requirements r WHERE r.deployment_run_id=%s "
+        "AND (r.deployment_member_item_id=%s OR r.deployment_member_item_id IS NULL) "
         "AND r.qa_phase='post_deploy' AND r.blocking_mode='blocking' "
         f"AND {unretracted_requirement_sql(conn, 'r')}",
         (str(run_id), int(item_id)),
     )
-    if not int(total or 0):
+    owned = [
+        row
+        for row in rows
+        if row["deployment_member_item_id"] is not None
+        or member_owns_shared_copy(conn, row, int(item_id))
+    ]
+    if not owned:
         from yoke_core.domain.carried_member_qa_obligation import (
             carried_member_no_item_qa_reason,
         )
@@ -72,15 +81,9 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
         return discharges_without_cases or bool(
             carried_member_no_item_qa_reason(conn, run_id=run_id, item_id=item_id)
         )
-    effective = query_rows(
-        conn,
-        "SELECT r.id FROM qa_requirements r "
-        f"WHERE r.deployment_run_id=%s AND {member_scope} "
-        "AND r.qa_phase='post_deploy' AND r.blocking_mode='blocking' "
-        f"AND NOT {settled_obligation_sql(conn, 'r')}",
-        (str(run_id), int(item_id)),
+    return all(
+        row["settled"] or has_current_passing_run(conn, int(row["id"])) for row in owned
     )
-    return all(has_current_passing_run(conn, int(row["id"])) for row in effective)
 
 
 def close_out_satisfied_delivery_member(

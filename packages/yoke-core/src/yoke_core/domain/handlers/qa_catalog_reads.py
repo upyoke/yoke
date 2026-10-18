@@ -26,6 +26,7 @@ class PlanListRequest(ProjectReadRequest):
     limit: Optional[int] = Field(default=None, ge=1, le=500)
     offset: int = Field(default=0, ge=0)
     detail: ReadDetail = DETAIL_SUMMARY
+    include_retired: bool = False
 
 
 class PlanGetRequest(ProjectReadRequest):
@@ -85,6 +86,9 @@ class ActivityListResponse(RowsResponse):
     summary: ActivitySummaryResponse
     #: Present only for an ``item_ids`` read, whose bounding is per item.
     item_selection: Optional[ActivityItemSelection] = None
+    #: Present only for a run-scoped read: per run, the plans its members
+    #: share (drawn once under Run QA) and its removed members.
+    run_sharing: Optional[Dict[str, Any]] = None
 
 
 class MethodGetResponse(BaseModel):
@@ -171,6 +175,7 @@ def handle_plan_list(request: FunctionCallRequest) -> HandlerOutcome:
                 limit=payload.limit,
                 offset=payload.offset,
                 full=payload.detail == DETAIL_FULL,
+                include_retired=payload.include_retired,
             )
     except LookupError as exc:
         return _error("not_found", str(exc), "$.payload.project")

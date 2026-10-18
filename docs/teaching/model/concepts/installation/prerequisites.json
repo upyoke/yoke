@@ -2,7 +2,6 @@
  "id": "prerequisites",
  "title": "Prerequisites",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.39"],
  "page": "installation",
  "position": 1
 }

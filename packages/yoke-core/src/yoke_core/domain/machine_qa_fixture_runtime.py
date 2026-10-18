@@ -297,7 +297,7 @@ class MachineQaFixtureRuntime:
             FAKE_TOKEN_PATH,
             SOURCE_DEV_GIT_CONFIG_PATH,
             self.path_state.yoke_bin,
-            f"{self.home}/.local/share/uv/tools/yoke-cli",
+            f"{self.home}/.local/share/uv/tools/yoke-cli-releases",
             f"{self.home}/.yoke/config.json",
             f"{self.home}/.yoke/secrets",
             f"{self.home}/.yoke/secrets/stage.token",

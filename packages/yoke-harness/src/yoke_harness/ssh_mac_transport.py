@@ -12,6 +12,7 @@ from yoke_contracts.machine_qa_execution import (
     REQUIRED_SESSION_CONTEXT_FIELD,
 )
 from yoke_contracts.machine_qa_failures import (
+    SSH_UNAVAILABLE,
     HostControlLocalError,
     bounded_machine_qa_diagnostic,
 )
@@ -30,6 +31,10 @@ from yoke_harness.ssh_mac_baseline_probes import prove_declared_probes
 from yoke_harness.ssh_mac_full_reset import execute_full_test_machine_reset
 from yoke_harness.ssh_mac_golden_capture import capture_golden_baseline
 from yoke_harness.ssh_mac_sign_in_apps import quit_sign_in_apps
+from yoke_harness.ssh_mac_terminal_restart import (
+    quit_terminal_app,
+    relaunch_terminal_app,
+)
 from yoke_harness.ssh_mac_terminal_bridge_diagnose import (
     diagnose_terminal_app_control,
 )
@@ -62,7 +67,11 @@ class SshMacTransport(SshTestMachineTransport):
         )
         if result.returncode:
             raise HostControlLocalError(
-                code="host_control_connection_failed",
+                code=(
+                    SSH_UNAVAILABLE
+                    if result.returncode in (124, 255)
+                    else "host_control_connection_failed"
+                ),
                 phase="host_facts_ssh",
                 detail="SSH could not collect test-machine host facts",
                 exit_code=int(result.returncode),
@@ -98,7 +107,7 @@ class SshMacTransport(SshTestMachineTransport):
         result = self._run("/usr/bin/true", timeout=20)
         return HostActionResult(
             ok=result.returncode == 0,
-            error_code=None if result.returncode == 0 else "ssh_unavailable",
+            error_code=None if result.returncode == 0 else SSH_UNAVAILABLE,
             evidence={
                 "transport": "ssh",
                 "host": self._host,
@@ -192,6 +201,12 @@ class SshMacTransport(SshTestMachineTransport):
         quit_apps = quit_sign_in_apps(self._run, self._user)
         if not quit_apps.ok:
             return quit_apps
+        # Windows left by earlier runs stall every command inside Terminal, so
+        # the reset starts from no Terminal and ends with a fresh one.
+        quit_terminal = quit_terminal_app(self._run, self._user)
+        evidence = {**quit_apps.evidence, **quit_terminal.evidence}
+        if not quit_terminal.ok:
+            return HostActionResult(False, evidence, quit_terminal.error_code)
         reset = execute_full_test_machine_reset(
             run_remote=self._run,
             upload_text=self.upload_remote_text,
@@ -199,9 +214,12 @@ class SshMacTransport(SshTestMachineTransport):
             golden_baseline_path=self.golden_baseline_path,
             path_state=self.path_state,
         )
-        return HostActionResult(
-            reset.ok, {**quit_apps.evidence, **reset.evidence}, reset.error_code
-        )
+        evidence.update(reset.evidence)
+        if not reset.ok:
+            return HostActionResult(False, evidence, reset.error_code)
+        relaunch = relaunch_terminal_app(self._run)
+        evidence.update(relaunch.evidence)
+        return HostActionResult(relaunch.ok, evidence, relaunch.error_code)
 
     def prove_user_equivalent(self) -> HostActionResult:
         """Run the probes the declared baseline carries beside itself."""

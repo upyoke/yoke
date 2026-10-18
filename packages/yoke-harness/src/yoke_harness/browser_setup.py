@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 
 from yoke_cli import browser_node_toolchain
+from yoke_contracts import terminal_detached_process
 from yoke_cli.config import browser_executable
 from yoke_cli.config import machine_config
 from yoke_cli.config.machine_config_file import ensure_owner_only_directory
@@ -17,7 +18,22 @@ from yoke_contracts.playwright_cache import (
 )
 from yoke_harness import browser_runtime_home
 from yoke_harness import browser_system_browser
+from yoke_harness.browser_apparmor import SANDBOX_ENV
 from yoke_harness.browser_system_dependencies import ensure_system_dependencies
+
+NPM_INSTALL_TIMEOUT_SECONDS = 180
+CHROMIUM_PROBE_TIMEOUT_SECONDS = 40
+CHROMIUM_INSTALL_TIMEOUT_SECONDS = 300
+
+
+def _run_setup_command(argv, *, timeout: int, reason: str, **kwargs):
+    try:
+        return terminal_detached_process.run(argv, timeout=timeout, **kwargs)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"{reason}: exceeded {timeout} seconds. Check network access and "
+            "runtime permissions, then retry yoke qa browser setup."
+        ) from exc
 
 
 def _command_output_tail(result: subprocess.CompletedProcess) -> str:
@@ -67,7 +83,7 @@ def chromium_status(browser: Path, toolchain) -> str:
                 browser, toolchain, env, saved
             )
         else:
-            result = subprocess.run(
+            result = terminal_detached_process.run(
                 [
                     str(toolchain.node),
                     "-e",
@@ -77,7 +93,7 @@ def chromium_status(browser: Path, toolchain) -> str:
                 capture_output=True,
                 text=True,
                 env=env,
-                timeout=40,
+                timeout=CHROMIUM_PROBE_TIMEOUT_SECONDS,
             )
     except (OSError, subprocess.TimeoutExpired):
         return "missing"
@@ -113,8 +129,10 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
         _log(
             "[browser-auto-bootstrap] node_modules or playwright missing; auto-installing..."
         )
-        result = subprocess.run(
+        result = _run_setup_command(
             [str(toolchain.npm), "install"],
+            timeout=NPM_INSTALL_TIMEOUT_SECONDS,
+            reason="browser_npm_install_timeout",
             cwd=str(browser),
             capture_output=True,
             text=True,
@@ -128,8 +146,10 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
             )
         _log("[browser-auto-bootstrap] npm install completed successfully")
 
-    result = subprocess.run(
+    result = _run_setup_command(
         [str(toolchain.node), "-e", browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS],
+        timeout=CHROMIUM_PROBE_TIMEOUT_SECONDS,
+        reason="browser_chromium_probe_timeout",
         cwd=str(browser),
         capture_output=True,
         text=True,
@@ -140,16 +160,20 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
         if saved and browser_system_browser.use_installed(
             browser, toolchain, env, emit=_log, saved=saved
         ):
+            env.pop(SANDBOX_ENV, None)
             return env
         if autoinstall == "0":
             if browser_system_browser.use_installed(browser, toolchain, env, emit=_log):
+                env.pop(SANDBOX_ENV, None)
                 return env
             raise RuntimeError(
                 "[browser-auto-bootstrap] BLOCKED: Chromium binary missing"
             )
         _log("[browser-auto-bootstrap] Chromium binary not found; auto-installing...")
-        result = subprocess.run(
+        result = _run_setup_command(
             [str(toolchain.npx), "playwright", "install", "chromium"],
+            timeout=CHROMIUM_INSTALL_TIMEOUT_SECONDS,
+            reason="browser_chromium_install_timeout",
             cwd=str(browser),
             capture_output=True,
             text=True,
@@ -157,18 +181,22 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
         )
         if result.returncode != 0:
             if browser_system_browser.use_installed(browser, toolchain, env, emit=_log):
+                env.pop(SANDBOX_ENV, None)
                 return env
             raise browser_system_browser.download_failure(
                 result, _command_output_tail(result)
             )
         _log("[browser-auto-bootstrap] Chromium installed successfully")
-    ensure_system_dependencies(
+    sandbox_enabled = ensure_system_dependencies(
         browser,
         toolchain,
         env=env,
         emit=_log,
         autoinstall=autoinstall != "0",
     )
+    env.pop(SANDBOX_ENV, None)
+    if sandbox_enabled is False:
+        env[SANDBOX_ENV] = "0"
     if saved:
         browser_executable.save(None)
     return env

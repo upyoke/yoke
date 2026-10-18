@@ -5,6 +5,5 @@
  "form": "State",
  "verification": "No delivery proof attached.",
  "topics": ["messaging/messages", "messaging/inbox", "approvals/requests"],
- "plan_refs": ["FIRST-USER.P2", "FIRST-USER.P3", "FIRST-USER.29"],
  "position": 1
 }

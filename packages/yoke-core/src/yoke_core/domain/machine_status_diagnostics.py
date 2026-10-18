@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from yoke_core.domain import machine_config
+from yoke_contracts import owner_private_path
 from yoke_contracts.machine_config import schema as contract
 
 REQUIRED_IMPORTS = ("fastapi", "uvicorn", "pydantic", "nacl")
@@ -216,13 +217,21 @@ def _permission_issues(path: Path) -> list[dict[str, str]]:
         return []
     stat = path.stat()
     issues: list[dict[str, str]] = []
-    if stat.st_mode & 0o077:
+    if not owner_private_path.is_owner_private_file(path):
+        message = f"{path} must be owner-only"
+        hint = (
+            "Repair the file permissions so only your Windows account and "
+            "administrators have access."
+        )
+        if os.name != "nt":
+            message += " (0600)"
+            hint = f"Run `chmod 600 {path}`."
         issues.append(
             _issue(
                 "error",
                 "config_permissions",
-                f"{path} must be owner-only (0600)",
-                f"Run `chmod 600 {path}`.",
+                message,
+                hint,
             )
         )
     if hasattr(os, "getuid") and stat.st_uid != os.getuid():

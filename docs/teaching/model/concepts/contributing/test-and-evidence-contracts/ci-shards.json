@@ -3,7 +3,7 @@
  "title": "CI interpreter coverage and shard timing",
  "status": "observed",
  "audience": "Maintainers",
- "sources": ["docs/testing-verification/ci-shards.md", ".github/workflows/yoke-ci.yml", "runtime/ci_test_selection.py", "runtime/product_wheel_fixture.py", "packages/yoke-core/src/yoke_core/tools/ci_durations_refresh.py", "runtime/api/backlog_github_sync_test_helpers.py"],
+ "sources": ["docs/testing-verification/ci-shards.md", ".github/workflows/yoke-ci.yml", "runtime/ci_test_selection.py", "runtime/product_wheel_fixture.py", "packages/yoke-core/src/yoke_core/tools/ci_durations_refresh.py", "runtime/api/backlog_github_sync_test_helpers.py", "packages/yoke-core/src/yoke_core/tools/yoke_ci_tree_reuse.py", "packages/yoke-core/src/yoke_core/tools/yoke_ci_coverage_evidence.py"],
  "page": "contributing-guides",
  "position": 8
 }

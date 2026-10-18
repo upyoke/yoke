@@ -204,7 +204,7 @@ def test_a_cancelled_launch_still_closes_with_phase_and_transport() -> None:
     batch expiring is then the first thing to touch the attempt, so that
     closure has to compose the document rather than inherit one.
     """
-    from yoke_core.domain.session_launch_requests import cancel_launch
+    from yoke_core.domain.session_launch_cancellation import cancel_launch
     from yoke_core.domain.session_relay_expiry import settle_expired_relay_leases
     from runtime.api.domain.session_launch_test_support import authorization
 

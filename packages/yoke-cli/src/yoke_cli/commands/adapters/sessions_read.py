@@ -7,6 +7,9 @@ the authored-file line cap.
 
 from __future__ import annotations
 from yoke_cli.transport.human_values import write_human
+from yoke_cli.commands.adapters.session_control_recipient_output import (
+    recipient_project,
+)
 
 import argparse
 from typing import Any, Dict, List
@@ -45,7 +48,11 @@ def sessions_list(args: List[str]) -> int:
         prog="yoke sessions list",
         description=SESSIONS_LIST_USAGE,
     )
-    parser.add_argument("--project", default=None)
+    parser.add_argument(
+        "--project",
+        default=None,
+        help="Only sessions in this project, excluding outside-project sessions.",
+    )
     parser.add_argument("--liveness", choices=LIVENESS_STATES, default=None)
     parser.add_argument(
         "--ended-cause", dest="ended_cause", choices=ENDED_CAUSES, default=None
@@ -70,7 +77,11 @@ def sessions_list(args: List[str]) -> int:
         return 2
 
     def _human_writer(response, stdout, stderr) -> None:
-        write_human(response.result or {}, stdout)
+        result = response.result or {}
+        displayed = [
+            {**row, "project": recipient_project(row)} for row in result.get("rows", [])
+        ]
+        write_human({**result, "rows": displayed}, stdout)
 
     payload: Dict[str, Any] = {
         "detail": "full" if parsed.full else "summary",

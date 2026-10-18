@@ -1,4 +1,4 @@
-"""Shared install selection and final agent setup readiness report."""
+"""Shared install and session selection and final agent setup readiness report."""
 
 from __future__ import annotations
 
@@ -10,6 +10,10 @@ import json
 
 def install_slugs() -> tuple[str, ...]:
     return importlib.import_module("yoke_core.engines.doctor_install").INSTALL_SLUGS
+
+
+def session_slugs() -> tuple[str, ...]:
+    return importlib.import_module("yoke_core.engines.doctor_session").SESSION_SLUGS
 
 
 def setup_readiness(report: dict, kwargs: dict) -> dict:

@@ -36,7 +36,6 @@ from yoke_core.domain.epic_parsing import (  # noqa: F401
 from yoke_core.domain.epic_resolution import (  # noqa: F401
     dispatch_chain_get,
     dispatch_chain_list,
-    file_list,
     orphan_check,
     progress_note_list,
     progress_note_list_unsynced,
@@ -102,40 +101,6 @@ def _qa_run_add_silent(**kwargs) -> int:
 
     with contextlib.redirect_stdout(io.StringIO()):
         return cmd_run_add(**prepare_task_review_run(kwargs))
-
-
-# Mutations: files
-
-
-def file_add(
-    conn,
-    epic_id: str,
-    task_num: int,
-    file_path: str,
-    action: str = "",
-) -> str:
-    """Add a file entry for a task."""
-    from yoke_core.domain.epic_task_scope import (
-        lock_task_membership,
-    )
-
-    lock_task_membership(conn, int(epic_id))
-    p = _placeholder(conn)
-    conn.execute(
-        f"""INSERT INTO epic_task_files
-           (epic_id, task_num, file_path, action)
-           VALUES ({p}, {p}, {p}, {p})
-           ON CONFLICT (epic_id, task_num, file_path)
-           DO UPDATE SET action = excluded.action""",
-        (str(epic_id), task_num, file_path, action),
-    )
-    conn.execute(
-        f"UPDATE epic_tasks SET scope_state='paths', "
-        f"scope_finalized_at=NULL WHERE epic_id={p} AND task_num={p}",
-        (str(epic_id), task_num),
-    )
-    conn.commit()
-    return f"Added file {file_path} (action: {action}) to {epic_id}/{task_num}"
 
 
 # Mutations: history / events
@@ -280,49 +245,6 @@ def proceed_triage_and_handoff(
         filed_item_ids=filed_item_ids,
         session_id=session_id,
     )
-
-
-# Migration
-
-
-def _epic_task_files_has_unique(conn) -> bool:
-    """Whether UNIQUE(epic_id, task_num, file_path) exists."""
-    row = query_one(
-        conn,
-        """SELECT COUNT(*) AS cnt FROM information_schema.table_constraints
-           WHERE table_name='epic_task_files' AND constraint_type='UNIQUE'""",
-    )
-    return bool(row and row["cnt"])
-
-
-def _epic_task_files_rebuild_unique(conn) -> None:
-    """Deduplicate then add the UNIQUE constraint."""
-    conn.execute(
-        "DELETE FROM epic_task_files WHERE id NOT IN "
-        "(SELECT MIN(id) FROM epic_task_files GROUP BY epic_id, task_num, file_path)"
-    )
-    conn.execute(
-        "ALTER TABLE epic_task_files ADD CONSTRAINT epic_task_files_unique "
-        "UNIQUE (epic_id, task_num, file_path)"
-    )
-    conn.commit()
-
-
-def migrate_task_files(conn) -> str:
-    """Add UNIQUE constraint to epic_task_files (idempotent)."""
-    if _epic_task_files_has_unique(conn):
-        return "UNIQUE(epic_id, task_num, file_path) already in place -- no migration needed."
-
-    before = query_one(conn, "SELECT COUNT(*) as cnt FROM epic_task_files")["cnt"]
-    _epic_task_files_rebuild_unique(conn)
-    after = query_one(conn, "SELECT COUNT(*) as cnt FROM epic_task_files")["cnt"]
-    dropped = before - after
-
-    lines = ["Migrating epic_task_files to add UNIQUE(epic_id, task_num, file_path)..."]
-    if dropped > 0:
-        lines.append(f"Dropped {dropped} duplicate rows during migration.")
-    lines.append(f"Migration complete: {after} rows in epic_task_files (was {before}).")
-    return "\n".join(lines)
 
 
 # CLI entry point (implementation lives in epic_cli.py)

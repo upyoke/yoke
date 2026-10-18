@@ -11,7 +11,7 @@ from public_installer_helpers import (
     branded_installer_glyphs as branded_installer_glyphs,
     load_installer,
 )
-from yoke_cli.commands.adapters.distribution import distribution_set
+from yoke_cli.commands.adapters.settings import set_value
 from yoke_cli.config import distribution
 
 
@@ -64,8 +64,8 @@ def test_install_records_actual_selection_before_ready(monkeypatch, tmp_path):
                 "channel": "preview",
             }
             return subprocess.CompletedProcess(argv, 0, "Hook evaluator: ready", "")
-        assert argv[:4] == ["/bin/yoke", "config", "distribution", "set"]
-        rc = distribution_set(argv[4:])
+        assert argv[:4] == ["/bin/yoke", "settings", "set", "distribution"]
+        rc = set_value(argv[3:])
         return subprocess.CompletedProcess(argv, rc, "", "")
 
     monkeypatch.setattr(instance, "_repair_credential_helper", lambda _: None)

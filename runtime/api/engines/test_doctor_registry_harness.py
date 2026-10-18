@@ -34,6 +34,7 @@ _ENGINE_CONFIG_SLUGS = (
     "harness-unattended-posture",
     "hook-resident",
     "project-hook-config-validity",
+    "machine-hooks",
     "pack-prerequisites",
 )
 
@@ -124,6 +125,8 @@ def test_bundle_holds_session_then_audit_checks_in_order():
             "install-residue",
             "installed-guidance",
             "instruction-discovery",
+            "session-harness-cli-auth",
+            "session-harness-unattended-posture",
         ]
     )
 

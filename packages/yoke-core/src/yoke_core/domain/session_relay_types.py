@@ -74,7 +74,7 @@ class RelayJob:
     machine_id: str
     surface: str
     surface_version: str
-    project_id: int
+    project_id: int | None
     native_instruction: str
     message_id: str | None = None
     target_session_id: str | None = None

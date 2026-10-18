@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 
 import psycopg
@@ -53,6 +54,28 @@ def flavor():
     pg_reusable_db.discard(key)
 
 
+def test_maintenance_policy_is_confined_to_reusable_clone(flavor):
+    control = _build_small_db()
+    try:
+        with pg_reusable_db.checkout(flavor, _build_small_db) as reusable:
+            for name, disabled in ((reusable, True), (control, False)):
+                conn = _connect(name)
+                try:
+                    options = conn.execute(
+                        "SELECT reloptions FROM pg_class WHERE relkind='r' "
+                        "AND relnamespace=current_schema()::regnamespace"
+                    ).fetchall()
+                    assert len(options) == 2
+                    assert all(
+                        ("autovacuum_enabled=false" in (row[0] or ())) == disabled
+                        for row in options
+                    )
+                finally:
+                    conn.close()
+    finally:
+        pg_testdb.drop_test_database(control)
+
+
 def test_checkout_reuses_database_and_resets_to_baseline(flavor):
     with pg_reusable_db.checkout(flavor, _build_small_db) as first:
         assert first is not None
@@ -90,7 +113,63 @@ def test_checkout_reuses_database_and_resets_to_baseline(flavor):
             conn.close()
 
 
-def test_ddl_drift_discards_and_rebuilds(flavor):
+def test_analyze_drift_rebuilds_without_retaining_session_settings(flavor, capsys):
+    with pg_reusable_db.checkout(flavor, _build_small_db) as first:
+        conn = _connect(first)
+        try:
+            table_oid, baseline = conn.execute(
+                "SELECT oid,reltuples FROM pg_class WHERE oid='parent_rows'::regclass"
+            ).fetchone()
+            bitmapscan = conn.execute("SHOW enable_bitmapscan").fetchone()[0]
+            conn.execute("ANALYZE parent_rows")
+            conn.execute("SET enable_bitmapscan = off")
+            conn.commit()
+            assert (
+                conn.execute(
+                    "SELECT reltuples FROM pg_class WHERE oid='parent_rows'::regclass"
+                ).fetchone()[0]
+                != baseline
+            )
+        finally:
+            conn.close()
+
+    evidence = capsys.readouterr().err
+    assert "reusable database invalidated: " in evidence
+    details = json.loads(evidence.split("reusable database invalidated: ", 1)[1])
+    assert set(details) == {"reason", "changes"}
+    assert details["reason"] == "planner_statistics"
+    assert "reltuples" in details["changes"]["parent_rows"]
+    assert all(
+        set(fields) <= {"reltuples", "relpages", "relallvisible", "column_statistics"}
+        for fields in details["changes"].values()
+    )
+    assert "seed" not in evidence
+    assert "host=" not in evidence and "dbname=" not in evidence
+
+    with pg_reusable_db.checkout(flavor, _build_small_db) as second:
+        conn = _connect(second)
+        try:
+            restored_oid, estimate = conn.execute(
+                "SELECT oid,reltuples FROM pg_class WHERE oid='parent_rows'::regclass"
+            ).fetchone()
+            assert estimate == baseline
+            assert restored_oid != table_oid
+            assert conn.execute("SHOW enable_bitmapscan").fetchone()[0] == bitmapscan
+            assert conn.execute("SELECT label FROM parent_rows").fetchall() == [
+                ("seed",)
+            ]
+            assert (
+                conn.execute(
+                    "INSERT INTO parent_rows (label) VALUES ('probe') RETURNING id"
+                ).fetchone()[0]
+                == 2
+            )
+            conn.rollback()
+        finally:
+            conn.close()
+
+
+def test_ddl_drift_discards_and_rebuilds(flavor, capsys):
     with pg_reusable_db.checkout(flavor, _build_small_db) as first:
         conn = _connect(first)
         try:
@@ -98,6 +177,12 @@ def test_ddl_drift_discards_and_rebuilds(flavor):
             conn.commit()
         finally:
             conn.close()
+
+    evidence = capsys.readouterr().err
+    assert "reusable database invalidated: " in evidence
+    assert json.loads(evidence.split("reusable database invalidated: ", 1)[1]) == {
+        "reason": "schema"
+    }
 
     # The drifted database is discarded and the flavor rebuilt from
     # scratch. Whether the discarded database is destroyed or recycled as

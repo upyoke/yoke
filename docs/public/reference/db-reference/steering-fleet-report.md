@@ -16,23 +16,23 @@ inputs load in sets before classification.
 ## Scope and available work
 
 Document seats follow item_strategy_docs membership, including execution in
-other projects. Available work, holders, landing/dead-wait rows and mail to
-those holders follow that membership. Project seats cover unlinked items and
-CURRENT-PLAN members. Other-document work with no live seat appears as
-unattended linked work with owning project/acquire command. Machines, delivery
-and unbound launches remain project-wide/shared facts.
+other projects; available work, holders, landing/dead-wait rows and mail to
+those holders follow it. Project seats cover unlinked items and CURRENT-PLAN
+members. Other-document work with no live seat appears as unattended linked
+work with owning project/acquire command. Machines, delivery and unbound
+launches remain project-wide/shared facts.
 
 Available work leads: scheduler-runnable unheld rows, ranked, `new` or `stopped`
-by prior claim release, `!` after staffing threshold. Quiet holders still own
-their items: idle never makes work available. Release/completion/cancellation/
-authorized termination changes custody; freeze/block are deliberate holds,
-cancel ends work. No age-inferred holds or staffing.
+by prior claim release, `!` after staffing threshold; committed work waiting
+only to land prints under `waiting to land` instead. Idle holders still own
+their items. Release/completion/cancellation/authorized termination changes
+custody; freeze/block hold deliberately; age infers no hold or staffing.
 
 ## Holder and landing detectors
 
 | Section | Evidence and response |
 |---|---|
-| idle holders | No tool call beyond threshold, excluding proven open queue/armed landing with no failed required checks; merged/dead/unreadable/failed landing returns to ordinary idle rules. Light roster's awaiting-landing fact drives probe; missing fact retains alarm. Full landing details load only when report is due. |
+| idle holders | No tool call beyond threshold, excluding proven open queue/armed landing with no failed required checks; merged/dead/unreadable/failed landing returns to ordinary idle rules. Light roster's awaiting-landing fact drives probe; missing fact retains alarm. Full landing details load only when report is due. The watcher's `fleet ALARM idle-holder` also covers parked holders, names mode, park reason and process (`running`, `exited`, `resuming`; `unknown` from a roster without `native_process_exited_at`), and repeats hourly until `fleet CLEAR`. Each alarm gets a same-turn action or a one-line disposition saying why the wait is sound. |
 | in flight | Quiet running holder inside a budgeted watcher/landing call. Unknown/waiting posture, observed native exit (even clean), denied/closed call, a call overtaken by later activity or one older than 45 minutes cannot excuse silence. Terminal vendor-turn observation survives same-turn tool settlement. |
 | landing readbacks | Current nonmutating `yoke github merge-queue readiness PREFIX-N --json`: one status/checks GraphQL read per PR and shared repository/base queue read per request; no cache across reports. |
 
@@ -41,7 +41,7 @@ and arming. GitHub consumes autoMergeRequest when an entry forms: null arming
 with entry means consumed/in-flight; absent entry plus null arming means cleared
 and `!`. Entry decides liveness, not null arming alone.
 
-  **The delivery is still on its way** in three, all of which end in *waiting* and none of which is a failure. *delivery attempt in flight* is an accepted resume that has not settled either way. *queued for the recipient's next hook* is the ordinary case: no attempt is owed yet, because a hook has run since the send or the plane is still inside one poll of its own window. *recipient turn in flight since a fixed-six UTC instant* is a recipient whose latest `session_tool_calls` row is still open — the envelope lands on that call's own hook. A live open call defers automatic message wakes even when its activity ages past the stale or idle threshold; that age does not authorize a second turn. Returning from the call delivers through the existing hook. A verified native exit retires an orphaned call, ended sessions retain their supported recovery route, and explicit operator wakes retain their intentional semantics. None of these three borrows desktop *waiting for the operator to wake it* copy: a session that is already firing hooks, or sitting inside a call, is not waiting on a person who has not typed. A row that is open is only the half of that a clock can see; the other half is the state below, which the recipient's own machine reports rather than this one inferring it. These three are reported and never count toward `actionable`, and they are deliberately excluded from the report's fingerprint: every ordinary send passes through one of them, so hashing them would turn routine fleet traffic into changed-report wakes for mail about to land by itself. Reporting any of them as a failure sends the seat after a delivery already under way, and this section formerly dropped all three, which left a seat unable to tell an attempt in flight from one that had never been made.
+  **The delivery is still on its way** in three, all of which end in *waiting* and none of which is a failure. *delivery attempt in flight* is an accepted resume that has not settled either way. *queued for the recipient's next hook* is the ordinary case: no attempt is owed yet, because a hook has run since the send or the plane is still inside one poll of its own window. *recipient turn in flight since a fixed-six UTC instant* is a recipient whose latest `session_tool_calls` row is still open — the envelope lands on that call's own hook. A live open call defers automatic message wakes even when its activity ages past the stale or idle threshold; that age does not authorize a second turn. Returning from the call delivers through the existing hook. A verified native exit, or a park stamped after the call started, retires an orphaned call, ended sessions retain their supported recovery route, and explicit operator wakes retain their intentional semantics. None of these three borrows desktop *waiting for the operator to wake it* copy: a session that is already firing hooks, or sitting inside a call, is not waiting on a person who has not typed. A row that is open is only the half of that a clock can see; the other half is the state below, which the recipient's own machine reports rather than this one inferring it. These three are reported and never count toward `actionable`, and they are deliberately excluded from the report's fingerprint: every ordinary send passes through one of them, so hashing them would turn routine fleet traffic into changed-report wakes for mail about to land by itself. Reporting any of them as a failure sends the seat after a delivery already under way, and this section formerly dropped all three, which left a seat unable to tell an attempt in flight from one that had never been made.
 Parked holders are expected waits unless native death is proven. A stopped turn
 with unfinished call is immediately idle (declared park remains a wait).
 Process rows distinguish:
@@ -57,7 +57,7 @@ Process rows distinguish:
 `yoke sessions terminate` refuses TERMINATION_RESUME_IN_FLIGHT unless
 --allow-resume-in-flight. sessions.list native_process exposes resuming with
 resume_started_at, or gone with resumable_from_transcript. Ended/terminated
-sessions are excluded from holder alarms, not repeatedly called idle.
+sessions are excluded from holder alarms; a live idle holder re-alarms hourly.
 
 ## Undelivered messages
 
@@ -105,7 +105,7 @@ clock means unknown, never recent output. Parked declares wait, not exit; a
 supervisor-recorded exit ends the hold despite surviving group members. Codex
 background_session_in_use is native_turn_running deferral, not a failure.
 Observed exit reopens a busy receipt even at retry limit; silence cannot reopen
-an exhausted unparked one. Verified exit retires orphan open calls. Explicit
+an exhausted unparked one. Verified exit or a later park retires orphan open calls. Explicit
 operator wake keeps its semantics; automatic wakes never start a second turn.
 
 wake_escalation qualifies actionable rows: starved_hook_route,
@@ -161,15 +161,15 @@ Abandoned launch: delivered mandate but no claim/outbound message/completed
 call, native gone; show session/closed age/exit/last line, restaff unstarted work.
 Rows expire after six hours.
 
-## Landed work and dead waits
+## Landed work, dead waits and dependencies
 
 Landed-without-close-out uses item merged_at or merge_queue_landed_at plus
 nonterminal state; control-plane observer records landing even if waiter died.
 A parked live release holder with active completion flow reports compact
-awaiting-deployment-run or delivering-in-RUN; silence is expected. Missing/gone
-holders, aged working holder + landing, unavailable flow, remerged/unreadable
-custody or actionable run keeps full detail. Section owns these rows; never
-duplicates idle/live holders or members already shown in deployment runs.
+awaiting-deployment-run or custody; silence is expected. Missing/gone holders,
+aged working holder + landing, unavailable flow, remerged/unreadable custody or
+actionable run keeps full detail. Section owns these rows; never duplicates
+idle/live holders or members already shown in deployment runs.
 
 Custody batches landing receipt reads and reuses one comparison source per
 project and release commit. Definite containment answers for full commit hashes
@@ -178,18 +178,19 @@ commit pair; unknown answers retry. Membership, holder and flow state stay live.
 
 Close-out requires holder claim: never propose seat recovery against a live
 holder. Orphan rows alone name pinned workflow recovery including --result/
---verification when close_out_evidence_gate requires them. delivery_landing_custody
-agrees with enrollment: delivering-in-run, no-release-holds-it (expected
-enrollment for valid parked wait), or merged-again-since-run. Losing custody
-changes identity/wakes; moving between releases does not. Merge time starts
-landing age; a queue waiter becomes quiet only after full landing idle threshold,
-while rows retain actual landing age/tool silence.
+--verification when close_out_evidence_gate requires them. Custody agrees with
+enrollment: delivering-in-run, `delivered to ENV; owes #N on ENV` once it
+succeeded, no-release-holds-it (valid parked wait expects enrollment) or
+merged-again-since-run. A non-release status entered after landing reads
+`re-landing owed` (no delivery wait): wake holder to review and merge, else
+re-enter bound skill. Losing custody changes identity/wakes; moving releases
+does not. Landing age starts at merge; queue waiters go quiet after its idle limit.
 
 Dead waits scan recent outbound conversation for real interrogative/explicit
 reply requests, not confirmations or latest message alone. Reply already received
 wins; ended answerer or terminal answerer's item proves no reply possible.
 Live answerer is unresolved; no question means no row. Steering-role question
-survives seat succession and belongs to awaiting-seat count, not dead waits.
+survives seat succession and belongs to awaiting-seat count, not dead waits. Dependency deadlocks, waiting chains and waiting to land — loops, the blockers holding the most work, unstarted blockers stalling work in progress, and committed work held until its blockers land — are described in [steering-report-dependencies.md](steering-report-dependencies.md), with the rule that steering keeps dependencies minimal.
 
 ## Deployment runs
 
@@ -215,7 +216,7 @@ not-woken reason (expired/failed/cancelled, no holder/seat, gone/stale driver).
 One notice + at most two addressability reads per run; detailed requirement
 reasons stay on `yoke deployment-runs stages RUN`. Wakes precede empty-member
 close-out; missing wake is a defect, not instruction to message owners manually.
-A member holding an open `wake_path: manual` requirement (no run recorded, not waived/superseded/retracted) is never woken at stage entry; its line reads `held for manual wake`. Section "waiting on manual wake" lists run, item, requirement, case, `wake_evidence`, claim-holder session and liveness, and the `yoke say --item` wake carrying the member's `yoke qa plan run`. Rows enter the fingerprint (requirement, owner) but never `actionable`: evidence can take days.
+A member holding an open `wake_path: manual` requirement (no run recorded, not waived/superseded/retracted) gets one wake per open requirement asking its owner to check `wake_evidence`, run the case if it exists, else ask for a waiver; its line shows that wake's state. Section "waiting on manual wake" lists run, item, requirement, case, `wake_evidence`, claim-holder session and liveness, and the member's `yoke qa plan run`. Rows enter the fingerprint (requirement, owner) but never `actionable`: evidence can take days.
 
 Waiting-only-to-be-driven means created with no live driver. created + live
 driver may be silent phase; executing does not call for duplicate drive even
@@ -243,11 +244,10 @@ unknown, never run-start or source-QA age. Boot adds column without backfill.
 
 ## Inbox, shared placement and capacity
 
-Steering-awaiting-seat counts parked role reports/unacknowledged ended-seat
-reports; acknowledged never inherits. Acquire shows inherited/parked/stranded
-counts and messages-list unacknowledged; JSON keeps newest-by-item digest.
-Zero count is omitted. Unacked-injected-this-session rows past grace name
-`yoke messages acknowledge MESSAGE-ID`; separate from awaiting-seat inbox.
+Awaiting-seat counts unacknowledged parked/ended-seat reports. Acquire gives
+each a seat session receipt (hook-injected), prints each `yoke messages
+acknowledge MESSAGE-ID` (first 20; unresolved seat = not injectable); the JSON
+digest repeats them. No unacked inbox: the delivery hook re-presents those.
 Every holder appears once in its most specific alarm/landed/live section;
 ordinary live-claim inventory is not an idle alarm. Empty sections print nothing.
 
@@ -295,7 +295,8 @@ marked control-plane facts. Message leases do not wait for report composition:
 one structured event reply carries envelope; report follows empty hook rather
 than holding 30-second lease/ranking or appending unparsable second bytes.
 Hook and watcher use same compact digest/closing marker/actionable sections,
-own unacked inbox and full-read/help pointer; deliver=true/shared delivered
+and full-read/help pointer (unacknowledged messages are re-presented by
+message delivery, not the report); deliver=true/shared delivered
 record prevents reprinting other's report. Worker mail wakes normally; no mail
 is still followed by next due hook report.
 
@@ -334,10 +335,10 @@ up; yoke status lists marks. No auto-trip/probing/counters.
 Watcher SIGHUP/SIGINT/SIGTERM reaps child groups and writes interruption/sentinel.
 Missing dead-writer sentinel is interrupted; watch tail diagnoses, raw capture
 precedes retry. Evidence get FETCH JOB STATE succeeded means file fetched,
-not native alive. Unchanged reports stay silent; heartbeat/stall diagnostics
-remain raw. Drain complete ready lines before waiting, forward whole report
-in one write. Parked release holder awaiting newer candidate remains expected
-even after removal from earlier release.
+not native alive. A report's wake carries only rows new or changed apart from
+ages/instants, under their parent lines; raw keeps every report and stall line
+whole. Drain ready lines before waiting; forward the report in one write.
+Parked release holder awaiting newer candidate stays expected after removal.
 
 Watcher remembers printed holder/landing/run rows, project facts under stable
 lexically-first held descriptor despite actionable reorder. Removed row emits

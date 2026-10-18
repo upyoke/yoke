@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import resource
 import time
 from typing import Any, Mapping, Optional, Union
 
@@ -106,8 +105,7 @@ def bind_process_cpu_gauge() -> bool:
 
 
 def _process_cpu_seconds() -> float:
-    usage = resource.getrusage(resource.RUSAGE_SELF)
-    return float(usage.ru_utime + usage.ru_stime)
+    return time.process_time()
 
 
 def metric_attributes(attributes: Optional[Mapping[str, Any]]) -> dict[str, Any]:

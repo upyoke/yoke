@@ -1,7 +1,7 @@
 {
  "id": "ubuntu",
- "title": "Ubuntu",
- "status": "draft-copy",
+ "title": "Ubuntu fixture provisioning and scoped harness posture",
+ "status": "observed",
  "page": "test-machines",
  "position": 1
 }

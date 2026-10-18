@@ -53,6 +53,7 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
     stages[1].pop("cases")
     subjects = []
     requirement_ids = []
+    execution_ids = []
     for index in range(12):
         run_id = f"shipping-run-{index}"
         count = 17 if index < 2 else 16
@@ -76,6 +77,7 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
             session_id="shipping-read",
         )
         requirement_ids.append(_complete_case(test_db, execution))
+        execution_ids.append(execution["id"])
         assert deployment_qa_stage_status(
             test_db,
             run_id=run_id,
@@ -120,6 +122,9 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
         if "SELECT id FROM deployment_stage_receipts" in sql
     )
     assert (run_reads, member_reads, receipt_reads) == (1, 0, 0)
+    assert not any(
+        "SELECT * FROM qa_plan_executions WHERE id=" in sql for sql in conn.queries
+    )
     assert conn.callers["yoke_core.domain.deployment_qa_presentation_facts.read"] <= 7
     assert (
         conn.callers["yoke_core.domain.deployment_requirement_snapshots._plan_snapshot"]
@@ -191,18 +196,46 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
     )
 
     full = CountedConnection(test_db)
-    with patch("yoke_core.domain.deployment_run_list_read.connect", return_value=full):
+    from yoke_core.domain.deployment_member_qa_sources import identity
+    from yoke_core.domain.deployment_run_bound_sources import parse_bound_sources
+
+    with (
+        patch("yoke_core.domain.deployment_run_list_read.connect", return_value=full),
+        patch(
+            "yoke_core.domain.deployment_member_qa_projection.identity", wraps=identity
+        ) as copy_identity,
+        patch(
+            "yoke_core.domain.deployment_run_project_sources.parse_bound_sources",
+            wraps=parse_bound_sources,
+        ) as source_bindings,
+    ):
         outcome = handle_deployment_run_list(
             deployment_request(
                 function="deployment_runs.list",
                 payload={"relevance": "overview"},
             )
         )
+    assert copy_identity.call_count == len(run_ids)
+    assert source_bindings.call_args_list
+    assert all(
+        isinstance(call.args[0], dict) for call in source_bindings.call_args_list
+    )
+    assert all(
+        "preparation_receipt" not in call.args[0]
+        for call in source_bindings.call_args_list
+    )
     assert outcome.primary_success
     complete = outcome.result_payload["rows"]
     assert {row["id"] for row in complete} == set(run_ids)
     assert sum(len(row["member_items"]) for row in complete) == 194
     assert sum(full.queries.values()) < 60
+    assert not any(
+        "q.id AS presented_requirement_id,run.*" in sql or "SELECT q.*" in sql
+        for sql in full.queries
+    )
+    assert not any(
+        "SELECT run_id,item_id,requirement_snapshot FROM" in sql for sql in full.queries
+    )
     assert all(row["carried_work"]["items"] for row in complete)
     serialized = FunctionCallResponse(
         function="deployment_runs.list",
@@ -236,6 +269,22 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
     _fail(test_db, requirement_ids[0])
     changed = member_qa_standings(conn, subjects[:17])
     assert all(answer["state"] == "cases unresolved" for answer in changed.values())
+    # Selected corrupted rows must still refuse through the scalar validator,
+    # including after an earlier request cached the valid execution.
+    test_db.execute(
+        "UPDATE qa_plan_executions SET roster_json='[1]' WHERE id=%s",
+        (execution_ids[1],),
+    )
+    invalid = member_qa_standings(conn, subjects[17:34])
+    assert all(answer["state"] == "unreadable" for answer in invalid.values())
+    assert all(
+        "invalid roster snapshot" in answer["reason"] for answer in invalid.values()
+    )
+    import pytest
+
+    with pytest.raises(ValueError, match="invalid roster snapshot"):
+        run, member, stage = subjects[17]
+        current_item_qa(conn, run_id=run, item_id=member, current_stage=stage)
 
 
 def test_combined_overview_preserves_each_project_window_and_shared_members(test_db):
@@ -279,6 +328,11 @@ def test_combined_overview_preserves_each_project_window_and_shared_members(test
     assert len({row["id"] for row in all_rows}) == 21
     shared = next(row for row in all_rows if row["id"] == "quiet-active")
     assert {member["id"] for member in shared["member_items"]} == {30001, 30002}
+    assert all(
+        "item_qa_requirements_read_failed"
+        not in member["qa_obligations"].get("error", "")
+        for member in shared["member_items"]
+    )
     assert {row["id"] for row in own_rows} == {"quiet-active"}
     with (
         patch("yoke_core.domain.deployment_run_list_read.connect", return_value=conn),

@@ -2,7 +2,6 @@
  "id": "evaluator-lifecycle",
  "title": "Evaluator readiness and diagnostics",
  "status": "observed",
- "plan_refs": ["FIRST-USER.6"],
  "surface_refs": ["global-hooks", "command-feedback"],
  "sources": ["packages/yoke-cli/src/yoke_cli/hook_resident_lifecycle.py", "docs/hooks.md"],
  "commands": ["yoke hook resident"],

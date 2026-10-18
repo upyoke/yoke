@@ -101,7 +101,7 @@ class TestGitVerbs:
         assert extract_mutations("git -C /repo show HEAD:runtime/api/foo.py") == []
         muts = extract_mutations("git -C /repo checkout -- runtime/api/foo.py")
         assert any(
-            m.verb == "git checkout" and m.target_path == "runtime/api/foo.py"
+            m.verb == "git checkout" and m.target_path == "/repo/runtime/api/foo.py"
             for m in muts
         )
 

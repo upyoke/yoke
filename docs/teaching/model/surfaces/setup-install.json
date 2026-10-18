@@ -10,6 +10,5 @@
  "note": "Healthy checks advance automatically. Missing optional harnesses do not block setup.",
  "current": "Source and scripted tests cover checks and recovery; deployed campaign proof remains release-bound.",
  "desired": "Required tools work in a fresh login shell, with named recovery on failure and visible shell-file changes.",
- "plan_refs": ["FIRST-USER.39"],
  "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_path.py", "runtime/api/cli/test_onboard_install_checks.py", "runtime/api/domain/test_installer_campaign_interaction_rows.py"]
 }

@@ -1,5 +1,5 @@
 // The Waiting graph's model, built from the bands' own rows and the
-// dependency edges frontier.list serves. Every Frontier item is a node in
+// dependency edges and deadlocks frontier.list serves. Every Frontier item is a node in
 // the band it was drawn in; an edge end the page does not otherwise show
 // becomes a ghost carrying the stage and title the edge row brought with it.
 
@@ -57,16 +57,21 @@ function edgeOf(row) {
 }
 
 /**
- * The indexed model for every band's rows and the served edges.
+ * The indexed model for every band's rows, the served edges and the served
+ * deadlocks (`{items, edges, stranded}` rows from the server's detector).
  *
  * `deploy(row)` answers an item's one-line delivery state, or "" while the
  * run roster has not settled.
  */
-export function frontierGraphModel(bandRows, edgeRows, deploy) {
+export function frontierGraphModel(bandRows, edgeRows, deploy, cycleRows = []) {
   const nodes = new Map();
   const put = (node) => { if (!nodes.has(node.ref)) nodes.set(node.ref, node); };
   for (const { row, reason } of bandRows.waiting) {
-    put(rowNode(row, "waiting", { age: age("filed", row.created_at), held: heldReason(row, reason) }));
+    put(rowNode(row, "waiting", {
+      age: age("filed", row.created_at),
+      held: heldReason(row, reason),
+      landing: reason.landing ? reason.flag.text : "",
+    }));
   }
   for (const { row } of bandRows.active) {
     put(rowNode(row, "active", { age: age("updated", row.updated_at) }));
@@ -98,5 +103,5 @@ export function frontierGraphModel(bandRows, edgeRows, deploy) {
     const blocker = nodes.get(row.blocking_item);
     if (blocker) blocker.dead = Boolean(row.blocking_abandoned);
   }
-  return frontierIndex(nodes, edges);
+  return frontierIndex(nodes, edges, cycleRows.map((row) => row.items));
 }

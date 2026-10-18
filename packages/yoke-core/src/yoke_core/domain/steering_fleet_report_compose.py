@@ -51,12 +51,6 @@ from yoke_core.domain.steering_fleet_report_unattended import (
     UnattendedLinkedItem,
     unattended_linked_items,
 )
-from yoke_core.domain.steering_fleet_report_inbox import (
-    UnackedInjectedMessage,
-    load_unacked_injected,
-    unacked_section_lines,
-    wake_ack_grace_seconds,
-)
 from yoke_core.domain.steering_fleet_report_render import (
     REPORT_BEGIN,
     REPORT_END,
@@ -116,13 +110,12 @@ class CombinedFleetReport:
 
     composed_at: datetime
     sections: tuple[ScopedFleetReport, ...]
-    unacked_injected: tuple[UnackedInjectedMessage, ...] = ()
     unattended: tuple[UnattendedLinkedItem, ...] = ()
 
     @property
     def actionable(self) -> bool:
         return any(section.report.actionable for section in self.sections) or bool(
-            self.unacked_injected or self.unattended
+            self.unattended
         )
 
     def fingerprint(self) -> str:
@@ -136,9 +129,6 @@ class CombinedFleetReport:
             (report.project_id, project_payload(rows))
             for report, rows in zip(reports, rows_per_section(reports))
             if rows != ProjectRows()
-        )
-        material.append(
-            ("unacked_injected", [row.message_id for row in self.unacked_injected])
         )
         if self.unattended:
             material.append(("unattended", [row.item_id for row in self.unattended]))
@@ -219,17 +209,9 @@ def compose_held_reports(
         replace(s, report=replace(s.report, session_labels=labels)) for s in sections
     ]
     project_ids = [int(section.report.project_id) for section in sections]
-    grace = wake_ack_grace_seconds(conn, project_ids[0] if project_ids else None)
-    unacked = load_unacked_injected(
-        conn,
-        session_id=session_id,
-        now=now,
-        grace_seconds=grace,
-    )
     return CombinedFleetReport(
         composed_at=now,
         sections=tuple(sections),
-        unacked_injected=unacked,
         unattended=unattended_linked_items(conn, project_ids),
     )
 
@@ -266,10 +248,7 @@ def combined_body(combined: CombinedFleetReport) -> str:
         f"composed {combined.composed_at} · {len(combined.sections)} held scopes",
         COMBINED_PREAMBLE,
         "",
-        *unacked_section_lines(combined.unacked_injected),
     ]
-    if combined.unacked_injected:
-        parts.append("")
     if combined.unattended:
         parts.extend(
             [
@@ -303,14 +282,6 @@ def combined_dict(combined: CombinedFleetReport) -> dict[str, Any]:
         "composed_at": combined.composed_at,
         "actionable": combined.actionable,
         "fingerprint": combined.fingerprint(),
-        "unacked_injected": [
-            {
-                "message_id": row.message_id,
-                "last_injected_at": row.last_injected_at,
-                "age_seconds": row.age_seconds,
-            }
-            for row in combined.unacked_injected
-        ],
         "unattended": [row.finding for row in combined.unattended],
         "scopes": [
             {"descriptor": section.descriptor, **report_dict(section.report)}

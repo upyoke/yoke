@@ -71,7 +71,8 @@ def _observed_at(value: Any) -> datetime:
         raise ObservationBatchError("observation timestamp is invalid") from exc
 
 
-def _request_payload(request: Mapping[str, Any]) -> tuple[Any, dict[str, Any]]:
+def request_payload(request: Mapping[str, Any]) -> tuple[Any, dict[str, Any]]:
+    """Return the effective payload used by observation admission and persistence."""
     executor = str(request.get("executor") or "claude")
     capability = resolve_capability(executor)
     stdin_data = request.get("stdin")
@@ -300,7 +301,7 @@ def persist_observation_batch(
                 )
             observed_at = _observed_at(observation.get("observed_at"))
             hook_wait_ms = max(0, int(observation.get("hook_wait_ms") or 0))
-            capability, payload = _request_payload(request)
+            capability, payload = request_payload(request)
             context = build_context(
                 event_name=event_name,
                 capability=capability,
@@ -345,4 +346,4 @@ def persist_observation_batch(
     return accepted, model_confirmations
 
 
-__all__ = ["ObservationBatchError", "persist_observation_batch"]
+__all__ = ["ObservationBatchError", "persist_observation_batch", "request_payload"]

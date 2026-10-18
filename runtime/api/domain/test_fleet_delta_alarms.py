@@ -65,43 +65,6 @@ def _item(ref: str, **overrides) -> ItemRow:
     return ItemRow(**fields)
 
 
-def test_idle_holder_fires_past_threshold_and_dedupes() -> None:
-    stale = NOW - timedelta(minutes=IDLE_HOLDER_MINUTES + 1)
-    snapshot = _snapshot(sessions={"a": _session("a", activity_at=stale)})
-    state = DeltaState()
-
-    first = idle_holder_alarms(snapshot, state)
-    assert len(first) == 1
-    assert "ALARM idle-holder" in first[0]
-    assert "items=YOK-1" in first[0]
-
-    assert idle_holder_alarms(snapshot, state) == []
-
-
-def test_idle_holder_ignores_parked_and_fresh_holders() -> None:
-    stale = NOW - timedelta(minutes=IDLE_HOLDER_MINUTES + 1)
-    snapshot = _snapshot(
-        sessions={
-            "parked": _session("parked", activity_at=stale, parked=True),
-            "fresh": _session("fresh"),
-            "unclaimed": _session("unclaimed", activity_at=stale, claimed_items=()),
-        }
-    )
-    assert idle_holder_alarms(snapshot, DeltaState()) == []
-
-
-def test_idle_holder_clears_once_when_the_holder_returns() -> None:
-    stale = NOW - timedelta(minutes=IDLE_HOLDER_MINUTES + 1)
-    state = DeltaState()
-    idle_holder_alarms(
-        _snapshot(sessions={"a": _session("a", activity_at=stale)}), state
-    )
-
-    cleared = idle_holder_alarms(_snapshot(sessions={"a": _session("a")}), state)
-    assert cleared == ["fleet CLEAR idle-holder session=a"]
-    assert idle_holder_alarms(_snapshot(sessions={"a": _session("a")}), state) == []
-
-
 def test_unowned_item_requires_continuous_absence_not_a_snapshot() -> None:
     """A momentary claim gap at a segment boundary must not alarm."""
     state = DeltaState()

@@ -96,8 +96,17 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # turn and settlement column is born with that table.
 # An ordered history entry retires event_registry's born-with status,
 # added_in and context_schema columns; the code event catalog owns the rest.
+# The re-land attempt table (merge_queue_landing_attempts) is net-new; its
+# item, pull request, arming episode and open/close record are born with it.
+# An ordered history entry retires the born-with task file table
+# (epic_task_files) and epic_tasks' scope_state and scope_finalized_at: each
+# task body's Files Touched section is now its only file list.
+# The release phase timing table (deployment_run_timings) is net-new; its run,
+# scope batch and sequence, step, phase, clock and record are born with it.
+# Teammate invite codes introduce a net-new hash-only table; its actor, role,
+# request identity and lifecycle clocks are all born with that table.
 _BORN_WITH_COLUMN_DIGEST = (
-    "31f261c0a9f1a8c6de4d15ec6048b44030e16fa7dd69fc6b8cf535dcf9c05ebc"
+    "ce51b94efb751b47861e996fa8060d8f303d38e77231597f2ca61baa50ad59bd"
 )
 
 

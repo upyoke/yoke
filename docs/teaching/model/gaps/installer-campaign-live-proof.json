@@ -3,6 +3,5 @@
  "title": "Complete the installer and first-work campaign proof",
  "status": "observed",
  "text": "The corrected welcome refusal captured successfully but still needs independent inspection. Hosted startup then refused a complete verification URI because the old gate rejected its matching user_code query. Source now validates the URI/code pair and declared origin, with six recovery recipes and the first-work mission. Agent-mode setup (yoke setup --agent) and the installer's terminal-less hand-off to it ship in source with focused tests; a live harness run where an agent relays each setup question to a person is still owed. Full campaign, live-session delivery and first-item done evidence remain required; valid coordinates do not establish approval authority. See docs/testing-verification/installer-campaign.md.",
- "plan_refs": ["FIRST-USER.A", "FIRST-USER.D"],
  "position": 19
 }

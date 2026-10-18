@@ -82,6 +82,8 @@ def test_full_reset_ssh_path_never_invokes_remote_python_or_clt(
             stdout = "/Users/tester\n/bin/zsh\n\n"
         elif remote.startswith(FULL_RESET_REMOTE_PATH):
             stdout = closed_reset_stdout(restored_entries=22, load_average="2.50")
+        elif "whose visible is true" in remote:
+            stdout = "1\n"
         else:
             stdout = ""
         return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
@@ -129,6 +131,8 @@ def test_ssh_host_facts_drive_xdg_launcher_reset_and_entry_placeholder(
             stdout = f"/Users/tester\n/bin/bash\n{xdg_bin_home}\n"
         elif remote.startswith(FULL_RESET_REMOTE_PATH):
             stdout = closed_reset_stdout(restored_entries=22, load_average="1.05")
+        elif "whose visible is true" in remote:
+            stdout = "1\n"
         else:
             stdout = ""
         return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
@@ -253,7 +257,7 @@ def test_initial_ssh_failure_preserves_bounded_redacted_diagnostics(
         )
 
     failure = caught.value
-    assert failure.code == "host_control_connection_failed"
+    assert failure.code == "ssh_unavailable"
     assert failure.phase == "host_facts_ssh"
     assert failure.exit_code == 255
     assert "Permission denied" in failure.stderr

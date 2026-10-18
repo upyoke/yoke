@@ -133,7 +133,16 @@
     "timer_wake": "none",
     "timer_wake_mechanism": "",
     "verified_on_surface": "cursor-cli",
-    "evidence": "Live probe: the session ends its turn after a Shell call with block_until_ms=0 and a notify_on_output pattern, then receives system_notification pattern matches while idle — a working equivalent of Claude's Monitor. No timer wake was observed."
+    "evidence": "Live probe: the session ends its turn after a Shell call with block_until_ms=0 and a notify_on_output pattern, then receives system_notification pattern matches while idle — a working equivalent of Claude's Monitor. No timer wake was observed.",
+    "idle_wake_subscription_limit_seconds": null,
+    "idle_wake_deadline_parameter": ""
+  },
+  "parallel_subagents": {
+    "source": "yoke_contracts.harness_subagent_capability.HARNESS_SUBAGENT_CAPABILITIES",
+    "parallel_subagents": "unverified",
+    "mechanism": "",
+    "verified_on_surface": "",
+    "evidence": "Cursor dispatches named sub-agents through its Task tool, but no session has been observed running several at once. Conduct dispatches one sub-agent at a time here and records that deferral until a probe adds a measured entry."
   },
   "turn_record": {
     "source": "yoke_contracts.harness_turn_record_capability.HARNESS_TURN_RECORD_CAPABILITIES",
@@ -148,6 +157,40 @@
     "location": "~/.cursor/projects/<checkout-slug>/agent-transcripts/<id>/<id>.jsonl",
     "project_match": "<checkout-slug> is yoke_contracts.harness_folder_trust.cursor_project_slug(checkout): the absolute path with dots dropped and each non-alphanumeric run collapsed to '-'",
     "evidence": "yoke_contracts.cursor_session_map parses this layout and harness_folder_trust reproduces the slug, verified against entries Cursor wrote."
+  },
+  "machine_hooks": {
+    "source": "yoke_contracts.harness_machine_hooks.HARNESS_MACHINE_HOOKS",
+    "user_config_path": "~/.cursor/hooks.json",
+    "home_env": null,
+    "config_owner": "cursor-user",
+    "project_configs": [
+      ".cursor/hooks.json"
+    ],
+    "project_config_in_ancestors": false,
+    "events": [
+      {
+        "native_event": "sessionStart",
+        "verb": "SessionStart"
+      },
+      {
+        "native_event": "beforeSubmitPrompt",
+        "verb": "UserPromptSubmit"
+      },
+      {
+        "native_event": "beforeShellExecution",
+        "verb": "PreToolUse"
+      },
+      {
+        "native_event": "stop",
+        "verb": "Stop"
+      },
+      {
+        "native_event": "sessionEnd",
+        "verb": "SessionEnd"
+      }
+    ],
+    "trust": "none",
+    "deferrals": []
   },
   "worktree_hook_enablement": {
     "config_path": ".cursor/hooks.json",

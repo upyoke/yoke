@@ -5,12 +5,11 @@ from __future__ import annotations
 import json
 from typing import Any, Mapping
 
+from yoke_contracts.cursor_tool_names import payload_tool_name
 from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
 
 
-_TOOL_EVENTS = frozenset(
-    {"PreToolUse", "PostToolUse", "PostToolUseFailure"}
-)
+_TOOL_EVENTS = frozenset({"PreToolUse", "PostToolUse", "PostToolUseFailure"})
 
 # These chain members produce delivery, liveness, or telemetry side effects,
 # but never decide whether a tool may run. The server batch endpoint preserves
@@ -36,8 +35,9 @@ def parse_hook_payload(stdin_data: str) -> dict[str, Any]:
 
 
 def _tool_name(payload: Mapping[str, Any]) -> str:
-    value = payload.get("tool_name")
-    return value if isinstance(value, str) else ""
+    """The chain-vocabulary tool name; the resident reads the raw payload,
+    before any harness parser has canonicalized it."""
+    return payload_tool_name(payload) or ""
 
 
 def _chain_is_async_safe(event_name: str, tool_name: str) -> bool:
@@ -59,9 +59,9 @@ def is_read_only_tool_event(event_name: str, stdin_data: str) -> bool:
     tool_name = _tool_name(payload)
     if not tool_name:
         return False
-    return _chain_is_async_safe(
-        "PreToolUse", tool_name
-    ) and _chain_is_async_safe(event_name, tool_name)
+    return _chain_is_async_safe("PreToolUse", tool_name) and _chain_is_async_safe(
+        event_name, tool_name
+    )
 
 
 def message_probe_key(stdin_data: str) -> str:

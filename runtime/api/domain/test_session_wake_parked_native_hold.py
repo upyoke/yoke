@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
-from yoke_core.domain.session_message_authorization import project_policy
+from yoke_core.domain.session_message_authorization import scope_policy
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_relay_jobs import claim_wake_job
@@ -91,7 +91,7 @@ def test_a_parked_session_spent_by_native_hold_is_still_wakeable() -> None:
     conn = message_connection()
     message_id = _send(conn)
     park_session(conn)
-    limit = project_policy(conn, 1).max_wake_attempts
+    limit = scope_policy(conn, project_id=1).max_wake_attempts
     conn.execute(
         "UPDATE session_message_recipients SET wake_attempt_count=?,"
         "wake_escalation=? WHERE message_id=?",
@@ -107,7 +107,7 @@ def test_a_parked_session_spent_by_native_hold_is_still_wakeable() -> None:
 def test_an_unparked_session_spent_by_native_hold_stays_at_the_limit() -> None:
     conn = message_connection()
     message_id = _send(conn)
-    limit = project_policy(conn, 1).max_wake_attempts
+    limit = scope_policy(conn, project_id=1).max_wake_attempts
     conn.execute(
         "UPDATE session_message_recipients SET wake_attempt_count=?,"
         "wake_escalation=? WHERE message_id=?",
@@ -121,7 +121,7 @@ def test_an_unparked_session_spent_by_native_hold_stays_at_the_limit() -> None:
 def test_an_observed_exit_reopens_an_unparked_busy_receipt_at_the_limit() -> None:
     conn = message_connection()
     message_id = _send(conn)
-    limit = project_policy(conn, 1).max_wake_attempts
+    limit = scope_policy(conn, project_id=1).max_wake_attempts
     conn.execute(
         "UPDATE session_message_recipients SET wake_attempt_count=?,"
         "wake_escalation=? WHERE message_id=?",

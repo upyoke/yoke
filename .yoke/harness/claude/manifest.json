@@ -151,7 +151,16 @@
     "timer_wake": "supported",
     "timer_wake_mechanism": "ScheduleWakeup",
     "verified_on_surface": "claude-cli",
-    "evidence": "Monitor and ScheduleWakeup are first-class model-facing tools. Every stdout line a Monitor filter matches resumes the turn, which is what the main-session long-command rule is built on."
+    "evidence": "Monitor and ScheduleWakeup are first-class model-facing tools. Every stdout line a Monitor filter matches resumes the turn, which is what the main-session long-command rule is built on. A Monitor ends at its timeout_ms deadline (default 5 minutes, capped at 30) with one expiry notice and its watcher killed; re-arming the same tail then continues the watch.",
+    "idle_wake_subscription_limit_seconds": 1800,
+    "idle_wake_deadline_parameter": "timeout_ms"
+  },
+  "parallel_subagents": {
+    "source": "yoke_contracts.harness_subagent_capability.HARNESS_SUBAGENT_CAPABILITIES",
+    "parallel_subagents": "supported",
+    "mechanism": "Agent",
+    "verified_on_surface": "claude-cli",
+    "evidence": "Several Agent tool calls sent in one message run concurrently, and each sub-agent's completion arrives as its own notification, so the parent can act on one result while others still run."
   },
   "turn_record": {
     "source": "yoke_contracts.harness_turn_record_capability.HARNESS_TURN_RECORD_CAPABILITIES",
@@ -166,6 +175,42 @@
     "location": "~/.claude/projects/<checkout-key>/<session_id>.jsonl",
     "project_match": "<checkout-key> is the absolute checkout path with every '/' replaced by '-'; one directory per checkout",
     "evidence": "yoke_harness.session_relay_claude_transcript derives the same key for stopped-session wake; read on claude-cli."
+  },
+  "machine_hooks": {
+    "source": "yoke_contracts.harness_machine_hooks.HARNESS_MACHINE_HOOKS",
+    "user_config_path": "~/.claude/settings.json",
+    "home_env": null,
+    "config_owner": "claude-user",
+    "project_configs": [
+      ".claude/settings.json",
+      ".claude/settings.local.json"
+    ],
+    "project_config_in_ancestors": false,
+    "events": [
+      {
+        "native_event": "SessionStart",
+        "verb": "SessionStart"
+      },
+      {
+        "native_event": "UserPromptSubmit",
+        "verb": "UserPromptSubmit"
+      },
+      {
+        "native_event": "PreToolUse",
+        "verb": "PreToolUse",
+        "matcher": "Bash"
+      },
+      {
+        "native_event": "Stop",
+        "verb": "Stop"
+      },
+      {
+        "native_event": "SessionEnd",
+        "verb": "SessionEnd"
+      }
+    ],
+    "trust": "none",
+    "deferrals": []
   },
   "worktree_hook_enablement": {
     "config_path": ".claude/settings.json",

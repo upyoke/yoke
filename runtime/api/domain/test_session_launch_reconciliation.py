@@ -13,7 +13,8 @@ from yoke_core.domain.session_launch_execution import (
     reconcile_launch,
     report_launch_attempt,
 )
-from yoke_core.domain.session_launch_requests import cancel_launch, retry_launch
+from yoke_core.domain.session_launch_cancellation import cancel_launch
+from yoke_core.domain.session_launch_requests import retry_launch
 from yoke_core.domain.session_launch_store import get_launch
 from yoke_core.domain.session_launch_types import SessionLaunchError
 from yoke_core.domain.session_relay import claim_relay_job
@@ -230,7 +231,7 @@ def test_repeat_reconciliation_repairs_a_legacy_attempt_once() -> None:
     assert tuple(relay) == ("newer-lease", "2026-08-22T12:10:00.000000Z")
 
 
-def test_cancelled_native_creation_can_be_reconciled_then_retried() -> None:
+def test_unregistered_native_creation_cancel_awaits_reconciliation() -> None:
     conn = relay_connection()
     launch, job = _claimed_launch(conn, key="cancelled-native-reconcile")
     pending = report_launch_attempt(
@@ -248,7 +249,8 @@ def test_cancelled_native_creation_can_be_reconciled_then_retried() -> None:
         auth=authorization(),
         now="2026-08-22T12:00:11.000000Z",
     )
-    assert cancelled.result_code == "cancelled_after_native_create"
+    assert cancelled.state == "outcome_unknown"
+    assert cancelled.result_code == "cancellation_requires_reconciliation"
 
     reconciled = reconcile_launch(
         conn,
@@ -267,3 +269,30 @@ def test_cancelled_native_creation_can_be_reconciled_then_retried() -> None:
         now="2026-08-22T12:00:13.000000Z",
     )
     assert retried.state == "assigned"
+
+
+def test_a_cancelled_launch_is_never_revived_by_reconciliation() -> None:
+    conn = relay_connection()
+    add_relay(conn, relay_id=RELAY_ID, machine_id=MACHINE_ID)
+    launch = assigned_launch(
+        conn, key="cancelled-stays-cancelled", machine_id=MACHINE_ID
+    )
+    cancelled = cancel_launch(
+        conn,
+        launch_id=launch.launch_id,
+        auth=authorization(),
+        now="2026-08-22T12:00:10.000000Z",
+    )
+    assert cancelled.state == "cancelled"
+
+    with pytest.raises(SessionLaunchError) as refused:
+        reconcile_launch(
+            conn,
+            launch_id=launch.launch_id,
+            auth=authorization(),
+            observed_native_id="native-session",
+            now="2026-08-22T12:00:11.000000Z",
+        )
+
+    assert refused.value.code == "invalid_state"
+    assert get_launch(conn, launch.launch_id).state == "cancelled"

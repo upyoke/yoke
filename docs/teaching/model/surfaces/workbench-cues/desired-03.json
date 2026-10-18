@@ -8,6 +8,5 @@
  "desired": "Accept the standalone hosted screens against their exact deployed build and real timed founding journey. Verify the shared waiting-list and approval journey against its serving candidate in hosted and self-host modes. Standalone hosted screens do not apply to local or self-hosted setup.",
  "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_admission_pending.js", "packages/yoke-core/src/yoke_core/ui/static/machine_approval.js", "runtime/api/universe_ui_machine_admission_pending.test.mjs"],
  "topics": ["identity/auth", "identity/accounts/beta-access-and-organization-creation", "machines/registration", "workbench/onboarding"],
- "plan_refs": ["FIRST-USER.P5", "FIRST-USER.P7", "FIRST-USER.4", "FIRST-USER.12", "FIRST-USER.27"],
  "position": 7
 }

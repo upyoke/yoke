@@ -18,6 +18,7 @@ claimed.
 
 from __future__ import annotations
 
+from yoke_contracts import terminal_detached_process
 from yoke_contracts.machine_config.directories import create_private_directory
 
 import os
@@ -97,7 +98,10 @@ def _env() -> dict:
 
 
 def _run(argv, *, env: dict | None = None, **kw) -> subprocess.CompletedProcess:
-    return subprocess.run(
+    # initdb, pg_ctl and psql run while setup's wizard may own the terminal;
+    # detached, they can neither read it nor take its foreground, and the
+    # server pg_ctl starts is not tied to the terminal's session.
+    return terminal_detached_process.run(
         argv,
         env=env if env is not None else _env(),
         text=True,

@@ -2,7 +2,6 @@
  "id": "harnesses",
  "title": "Harnesses",
  "status": "draft-copy",
- "plan_refs": ["FIRST-USER.18", "FIRST-USER.41", "FIRST-USER.C", "FIRST-USER.P2"],
  "surface_refs": ["packets-help", "resume-context"],
  "commands": ["yoke codex hook-trust sweep", "yoke relay probe-surface", "yoke session-control qualification open", "yoke session-control surface-policy disable", "yoke session-control surface-policy enable", "yoke session-control surface-policy list"],
  "functions": ["session_control.qualification.open", "session_control.surface_policy.disable", "session_control.surface_policy.enable", "session_control.surface_policy.list"],

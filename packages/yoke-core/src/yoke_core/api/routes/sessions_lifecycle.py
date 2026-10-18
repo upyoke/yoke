@@ -30,9 +30,11 @@ from yoke_core.domain.sessions import (
 )
 from yoke_core.domain.session_level_resolution import (
     resolve_execution_level,
+    session_levels,
+)
+from yoke_contracts.model_level_resolution import (
     routing_effort_of,
     routing_model_of,
-    session_levels,
 )
 
 router = APIRouter()
@@ -60,7 +62,8 @@ class RegisterSessionRequest(BaseModel):
     executor_version: Optional[str] = None
     machine_id: Optional[str] = None
     workspace: str
-    project_id: int
+    project_id: int | None = None
+    machine_scope: bool = False
     mode: str = "wait"
     offer_envelope: Optional[Dict[str, Any]] = None
 
@@ -94,6 +97,7 @@ def api_register_session(req: RegisterSessionRequest) -> JSONResponse:
             machine_id=req.machine_id,
             workspace=req.workspace,
             project_id=req.project_id,
+            machine_scope=req.machine_scope,
             mode=req.mode,
             offer_envelope=req.offer_envelope,
         )

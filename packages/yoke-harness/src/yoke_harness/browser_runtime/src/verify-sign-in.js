@@ -106,7 +106,6 @@ async function main() {
   const context = await chromium.launchPersistentContext(args.profileDir, {
     ...launchOptions(),
     headless: true,
-    chromiumSandbox: true,
   });
   try {
     console.log(JSON.stringify({ sites: await checkSites(context, args.checks) }));

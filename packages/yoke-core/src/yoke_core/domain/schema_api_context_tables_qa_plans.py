@@ -1,4 +1,4 @@
-"""QA plan source provenance for the canonical schema packet."""
+"""QA plan provenance and retirement for the canonical schema packet."""
 
 QA_PLAN_TABLES = {
     "qa_plans": {
@@ -15,6 +15,8 @@ QA_PLAN_TABLES = {
             ("created_at", "TIMESTAMPTZ"),
             ("updated_at", "TIMESTAMPTZ"),
             ("retired_at", "TIMESTAMPTZ"),
+            ("retirement_reason", "TEXT"),
+            ("retired_by_actor_id", "INTEGER"),
         ],
         "notes": (
             "source_revision is the full merged case-export commit, recorded "
@@ -22,7 +24,11 @@ QA_PLAN_TABLES = {
             "this provenance; deployment materialization/refresh refuses "
             "qa_plan_source_candidate_mismatch when the candidate does not "
             "carry it. Source-bound plans cannot drop provenance or use the "
-            "interactive editor; manually authored correction plans are separate."
+            "interactive editor; manually authored correction plans are separate. "
+            "qa.plan.retire records retired_at with retirement_reason and "
+            "retired_by_actor_id once no unsettled requirement, live "
+            "execution or project default depends on the plan; retired "
+            "plans stay readable but refuse edits and materialization."
         ),
     },
 }

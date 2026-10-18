@@ -16,10 +16,10 @@ from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.production_schema import initialize_test_schema
 from runtime.api.fixtures.backlog import insert_item, insert_item_worktree
 from yoke_core.domain import epic_amend
-from yoke_core.domain.epic_task_scope import (
-    finalize_generated_task_scopes,
-    set_no_files_scope,
-)
+from runtime.api.task_files_touched_test_support import declare_task_files
+from yoke_core.domain.epic_task_membership import membership_is_finalized
+from yoke_core.domain.epic_task_scope import finalize_generated_task_scopes
+from yoke_core.domain.task_files_touched import parse_files_touched
 
 
 def _seed_conn() -> Any:
@@ -77,8 +77,18 @@ def _add_row(conn, epic_id, task_num, title, **kwargs):
 
 def _finalize_rows(conn, epic_id: int, *task_nums: int) -> None:
     for task_num in task_nums:
-        set_no_files_scope(conn, epic_id, task_num)
+        declare_task_files(conn, epic_id, task_num, [])
+    conn.commit()
     finalize_generated_task_scopes(conn, epic_id)
+    assert membership_is_finalized(conn, epic_id)
+
+
+def _task_states(conn, epic_id: int) -> list[tuple[int, str]]:
+    rows = conn.execute(
+        "SELECT task_num, body FROM epic_tasks WHERE epic_id=%s ORDER BY task_num",
+        (int(epic_id),),
+    ).fetchall()
+    return [(r["task_num"], parse_files_touched(r["body"]).state) for r in rows]
 
 
 class TestTaskAdd(unittest.TestCase):
@@ -115,16 +125,9 @@ class TestTaskAdd(unittest.TestCase):
 
         result = epic_amend.task_add(conn, 100, title="second")
 
-        rows = conn.execute(
-            "SELECT task_num, scope_state, scope_finalized_at "
-            "FROM epic_tasks WHERE epic_id=100 ORDER BY task_num"
-        ).fetchall()
         assert result.task_num == 2
-        assert [(row["task_num"], row["scope_state"]) for row in rows] == [
-            (1, "no_files"),
-            (2, "pending"),
-        ]
-        assert all(row["scope_finalized_at"] is None for row in rows)
+        assert _task_states(conn, 100) == [(1, "no_files"), (2, "missing")]
+        assert not membership_is_finalized(conn, 100)
 
 
 class TestTaskReassign(unittest.TestCase):
@@ -193,13 +196,8 @@ class TestTaskRemove(unittest.TestCase):
 
         epic_amend.task_remove(conn, 100, 1)
 
-        row = conn.execute(
-            "SELECT task_num, scope_state, scope_finalized_at "
-            "FROM epic_tasks WHERE epic_id=100"
-        ).fetchone()
-        assert row["task_num"] == 2
-        assert row["scope_state"] == "no_files"
-        assert row["scope_finalized_at"] is None
+        assert _task_states(conn, 100) == [(2, "no_files")]
+        assert not membership_is_finalized(conn, 100)
 
 
 class TestTaskMetadataUpdate(unittest.TestCase):
@@ -225,12 +223,12 @@ class TestTaskMetadataUpdate(unittest.TestCase):
     def test_rejects_unknown_field(self):
         conn = _seed_conn()
         _add_row(conn, 100, 1, "first")
-        with pytest.raises(ValueError, match="unknown metadata"):
+        with pytest.raises(ValueError, match="item-worktrees path-record"):
             epic_amend.task_metadata_update(
                 conn,
                 100,
                 1,
-                {"status": "planned"},
+                {"status": "planned", "worktree": "lane"},
             )
 
     def test_rejects_empty_fields(self):
@@ -332,17 +330,13 @@ class TestTaskSplit(unittest.TestCase):
             [{"title": "child-A"}, {"title": "child-B"}],
         )
 
-        rows = conn.execute(
-            "SELECT task_num, scope_state, scope_finalized_at "
-            "FROM epic_tasks WHERE epic_id=100 ORDER BY task_num"
-        ).fetchall()
         assert result.new_task_nums == [3, 4]
-        assert [(row["task_num"], row["scope_state"]) for row in rows] == [
+        assert _task_states(conn, 100) == [
             (2, "no_files"),
-            (3, "pending"),
-            (4, "pending"),
+            (3, "missing"),
+            (4, "missing"),
         ]
-        assert all(row["scope_finalized_at"] is None for row in rows)
+        assert not membership_is_finalized(conn, 100)
 
 
 if __name__ == "__main__":

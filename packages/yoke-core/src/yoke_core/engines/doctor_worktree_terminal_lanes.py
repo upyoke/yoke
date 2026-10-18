@@ -3,9 +3,10 @@
 Each terminal lane's prune proof needs a control-plane authority verdict and a
 current target branch. Reading them per lane cost a round trip and a fetch
 each, so a machine holding dozens of landed lanes spent the whole check budget
-before retiring any. Here every verdict arrives in one batched read and each
-target is fetched once per run. The check retires each lane as soon as it is
-proved, so a run the budget cuts short keeps what it already retired.
+before retiring any. Here every verdict arrives in one batched read, each
+target is fetched once per run, and ancestry, remote and checkout identity
+come from one shared git inventory. The check retires each lane as soon as it
+is proved, so a run the budget cuts short keeps what it already retired.
 
 Lanes that stay on disk are named by why, operator-first, for the check's
 one-line summary.
@@ -20,6 +21,7 @@ from yoke_core.engines.doctor_worktree_lane_authority import (
     LaneKey,
     authority_blocks,
 )
+from yoke_core.engines.lane_cleanup_reads import LaneCleanupReads
 from yoke_core.engines.merge_landed_lane_cleanup import (
     LaneCleanupAssessment,
     assess_landed_lane,
@@ -49,11 +51,21 @@ class TerminalLaneRetirer:
         *,
         fix: bool,
         git_for_repo: Callable[[str], Callable[..., object]],
+        residues: Dict[str, object] | None = None,
+        checkouts: Iterable[dict] | None = None,
     ) -> None:
         self._authority = authority_blocks(lanes)
         self._fix = fix
         self._git_for_repo = git_for_repo
         self._refreshed: Dict[Tuple[str, str], str] = {}
+        self._residues = residues or {}
+        self._worktrees: Dict[str, str] = {}
+        for entry in checkouts or ():
+            branch = str(entry.get("branch") or "")
+            path = str(entry.get("path") or "")
+            if branch and path and branch not in self._worktrees:
+                self._worktrees[branch] = path
+        self._reads_by_root: Dict[str, LaneCleanupReads] = {}
 
     @property
     def authority_failure(self) -> str:
@@ -74,6 +86,7 @@ class TerminalLaneRetirer:
             run_git=self._git_for_repo(root),
             refresh_target=False,
             authority_block=self._authority.block(branch, path),
+            reads=self._reads(root),
         )
 
     def prune(
@@ -104,6 +117,18 @@ class TerminalLaneRetirer:
             assessment=assessment,
             release_branch=release_branch,
         )
+
+    def _reads(self, root: str) -> LaneCleanupReads:
+        reads = self._reads_by_root.get(root)
+        if reads is None:
+            reads = LaneCleanupReads(
+                self._git_for_repo(root),
+                root,
+                residues=self._residues,
+                worktrees=self._worktrees,
+            )
+            self._reads_by_root[root] = reads
+        return reads
 
     def _refresh(self, root: str, target: str) -> str:
         key = (root, target)

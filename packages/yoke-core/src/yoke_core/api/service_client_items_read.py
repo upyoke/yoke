@@ -83,11 +83,13 @@ def cmd_item_get(args: list[str]) -> int:
 
             value = build_body(conn, int(item_id)) or ""
         elif field == "merge_queue_status":
-            from yoke_contracts.merge_queue_status import render_merge_queue_status
+            from yoke_contracts.merge_queue_status import (
+                LABEL_INPUTS_FOR_ITEM_SQL,
+                render_merge_queue_status,
+            )
 
             row = conn.execute(
-                "SELECT status, merge_queue_enqueued_at, merge_queue_landed_at "
-                "FROM items WHERE id = %s",
+                LABEL_INPUTS_FOR_ITEM_SQL,
                 (item_id,),
             ).fetchone()
             value = (

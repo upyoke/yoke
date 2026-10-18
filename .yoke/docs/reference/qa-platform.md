@@ -85,6 +85,12 @@ In the implemented summary a post_deploy item source also reads satisfied once
 the run answering its environment accepted its admitted copy -- the reading
 done uses. A supplemental QA run (another environment of the same release)
 answers as soon as its final item QA is accepted, before either run settles.
+The implemented summary of an item also lists `unsettled_records` from the
+done gate's own terminal-settlement check (a latest execution without a
+verdict, a live host lease, an active plan execution); any entry makes it
+unsatisfied, so the summary never reads satisfied while done refuses. An
+item's own verdictless capture on a post_deploy source stops counting once
+the completion run accepts that source's copies: the copies settle it.
 
 Done settles blocking item and run-member requirements of any phase. A
 run-bound supersession needs the same run/stage/member/target and accepted
@@ -105,9 +111,21 @@ GATE_QA_BYPASS_FORBIDDEN. Unset it and satisfy or explicitly waive obligations.
 ## Requirement Materialization
 
 Item requirements are attached by definition/seeded policy before review.
-materialize converges newly added cases and confirms existing rows unchanged.
+materialize converges newly added cases and confirms existing rows unchanged;
+a live item row whose case left the plan refuses `qa_plan_rows_orphaned`
+before writing and names the rematerialize that retires it.
 rematerialize refreshes amended rows, retires removed cases, and reports all
 plan_ids reached, including already-answered plans (refresh without new rows).
+A delivery answers a plan only when each current case variant has a run copy
+for the member that passed or was waived; a retracted copy (withdrawn from its
+run, as when the member left it) or a superseded one answers nothing, so a
+plan whose only copies were retracted stays owed and materializes again.
+Item refresh skips shared copies on runs the item no longer belongs to;
+remaining members retain their shared rows and live executions. `--plan`
+filters deployment refresh only; remove it when using `--item`. A lookup
+failure refuses `qa_refresh_subject_unavailable`: inspect the item attachments
+or run membership, correct the selected subject, then retry. Recovery for
+a stale removed-member row names no unreachable refresh command.
 On an item, a removed post_deploy case replaced by exactly one created row
 (same item/transition/phase/environment/baseline) is superseded by it
 (superseded_requirement_ids), so the corrected case's run copies close the
@@ -248,7 +266,12 @@ needs its item claim, a covering steering seat (including document membership),
 or the live driver of the run holding it. Steering can record the rationale while
 worker keeps item custody; re-drive that run. Another run's driver or an unrelated
 item grants nothing. Agent waivers keep normal QA subject-claim authority.
-Read `yoke qa requirement waive --help`.
+A retracted, superseded or replaced requirement no longer counts, so waiving it
+refuses with `requirement_not_live` and names the live copy of the same case to
+waive instead (or says none is left). A row whose successor link fails the
+correction-graph check (`replacement_graph_invalid`) still counts, so it still
+waives: that waiver is the graph error's named repair. Read
+`yoke qa requirement waive --help`.
 
 **Supersession:** corrected blocking case needs same run/stage/member/target
 (item: same item/transition/phase/target) and its own qualifying pass. History
@@ -279,7 +302,7 @@ member supersession after stage acceptance. Unsettled failures keep done blocked
 Run-local supersession never retires its item source: an outstanding source
 would be admitted again. Receipts name admitted_from_requirement_id and
 next_admission_notice only while that source is outstanding; absent/discharged
-sources get neither. Retiring a post_deploy item source is explicit:
+sources get neither. Retiring a directly admitted post_deploy item source is explicit:
 
 ```text
 yoke qa requirement add --item PREFIX-N --target-env {ENVIRONMENT} --method-id {METHOD_ID} --qa-phase post_deploy --blocking-mode blocking --workflow-transition {TRANSITION} --instructions-file {INSTRUCTIONS_FILE} --expected-outcome-file {EXPECTED_OUTCOME_FILE} --method-config '{METHOD_CONFIG_JSON}'
@@ -299,6 +322,10 @@ proof_owed_notice says the corrected source owes its own next-release proof. Lat
 admissions skip superseded source and admit corrected one; source is never
 rewritten. Control plane may record an authorized target it cannot execute
 (prod recording stage); execution alone checks runtime observation authority.
+
+For a plan copy the source is the member's own plan row: the notice says to
+correct the plan case, then run the named `yoke qa plan rematerialize`, which
+supersedes that row by the corrected case's row.
 
 All blocking cases discharged → subject reports discharged, accepted for gating
 but distinct from accepted passing proof. A carried cross-project member owes

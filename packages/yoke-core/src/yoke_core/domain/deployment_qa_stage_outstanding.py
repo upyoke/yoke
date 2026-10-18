@@ -15,9 +15,9 @@ import json
 from contextvars import ContextVar
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
-from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.item_ref_render import ItemRefLookup, render_item_ref_lookup
 from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
 from yoke_core.domain import deployment_run_item_qa_membership as item_qa
 
@@ -42,7 +42,17 @@ from yoke_core.domain.post_deploy_verification_answer import (
     member_post_deploy_answer,
 )
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
+from yoke_core.domain.deployment_qa_presentation_facts import (
+    member_presentation,
+    presented_member_ids,
+    run_facts,
+    run_member_rows,
+    subject_requirement_rows,
+)
+from yoke_core.domain.deployment_qa_presentation_reads import (
+    presentation_operation,
+    presentation_read,
+)
 from yoke_core.domain.steering_fleet_report_detectors import marker
 
 
@@ -110,13 +120,14 @@ def _qa_stage(conn: Any, *, run_id: str, stage_name: str) -> Optional[dict[str, 
         and _table_exists(conn, "deployment_flows")
     ):
         return None
-    p = marker(conn)
-    row = conn.execute(
-        f"""SELECT df.stages FROM deployment_runs dr
-              JOIN deployment_flows df ON df.id = dr.flow
-             WHERE dr.id = {p}""",
-        (run_id,),
-    ).fetchone()
+    row = run_facts(conn, run_id)
+    if row is None:
+        row = conn.execute(
+            f"""SELECT df.stages FROM deployment_runs dr
+                  JOIN deployment_flows df ON df.id = dr.flow
+                 WHERE dr.id = {marker(conn)}""",
+            (run_id,),
+        ).fetchone()
     if row is None:
         return None
     raw = row["stages"] if hasattr(row, "keys") else row[0]
@@ -144,6 +155,9 @@ def _qa_stage(conn: Any, *, run_id: str, stage_name: str) -> Optional[dict[str, 
 
 def _subjects(conn: Any, run_id: str, stage: Mapping[str, Any]) -> list[int | None]:
     if stage.get("scope") == "item":
+        presented = run_member_rows(conn, run_id)
+        if presented is not None:
+            return sorted(presented)
         rows = conn.execute(
             "SELECT item_id FROM deployment_run_items WHERE run_id=%s ORDER BY item_id",
             (run_id,),
@@ -157,6 +171,9 @@ def _has_method_id(
 ) -> bool:
     if not _table_exists(conn, "qa_requirements"):
         return False
+    rows = subject_requirement_rows(conn, run_id, stage_name, member)
+    if rows is not None:
+        return any(row["method_id"] is not None for row in rows)
     row = conn.execute(
         "SELECT 1 FROM qa_requirements WHERE deployment_run_id=%s "
         "AND deployment_stage=%s "
@@ -180,10 +197,9 @@ def _unselected_reason(
 
 
 def _member_lines(
-    conn: Any, *, run_id: str, stage: Mapping[str, Any], member: int | None
+    conn: Any, *, run_id: str, stage: Mapping[str, Any], member: int | None, label: str
 ) -> tuple[list[str], list[str]]:
     """Driver-shaped wait lines and exemption notes, without writes."""
-    label = f"member {render_item_ref(conn, member)}" if member is not None else "run"
     subject = deployment_qa_stage_subject(
         conn,
         run_id=run_id,
@@ -214,6 +230,16 @@ def _member_lines(
     return [f"{label}: {reason}" for reason in acceptance.blockers], []
 
 
+def member_ref_lookup(conn: Any, members: Iterable[int | None]) -> ItemRefLookup:
+    """Public refs of these members; inside a presentation, of every presented one."""
+    wanted = {int(member) for member in members if member}
+    presented = presented_member_ids(conn)
+    ids = tuple(presented) if presented and wanted <= set(presented) else tuple(wanted)
+    return presentation_read(
+        conn, ("qa_member_refs", ids), lambda: render_item_ref_lookup(conn, ids)
+    )
+
+
 def _evaluate(
     conn: Any, *, run_id: str, stage: Mapping[str, Any], stop_at_first_waiting: bool
 ) -> QaStageOutstanding:
@@ -232,21 +258,34 @@ def _evaluate(
             waiting=0,
             no_obligation_lines=(item_qa.NO_MEMBER_OWES_TARGET,),
         )
+    member_ref = member_ref_lookup(conn, members)
+
+    # Every member's facts are read as one set for the walk, not per member.
+    @member_presentation
+    def walk(connection, subjects):
+        found: list[tuple[int | None, list[str], list[str]]] = []
+        for member in members:
+            label = f"member {member_ref(member)}" if member is not None else "run"
+            member_lines, notes = _member_lines(
+                connection, run_id=run_id, stage=stage, member=member, label=label
+            )
+            found.append((member, member_lines, notes))
+            if member_lines and stop_at_first_waiting:
+                break
+        return found
+
+    stage_name = str(stage["name"])
     lines: list[str] = []
     waiting_members: list[int | None] = []
     blocker_counts: list[int] = []
     no_obligation_lines: list[str] = []
-    for member in members:
-        member_lines, notes = _member_lines(
-            conn, run_id=run_id, stage=stage, member=member
-        )
+    subjects = [(run_id, member, stage_name) for member in members if member]
+    for member, member_lines, notes in walk(conn, subjects):
         no_obligation_lines.extend(notes)
         if member_lines:
             waiting_members.append(member)
             blocker_counts.append(len(member_lines))
             lines.extend(member_lines)
-            if stop_at_first_waiting:
-                break
     return QaStageOutstanding(
         lines=tuple(lines),
         subjects=len(members),
@@ -257,4 +296,4 @@ def _evaluate(
     )
 
 
-__all__ = ["QaStageOutstanding", "qa_stage_outstanding"]
+__all__ = ["QaStageOutstanding", "member_ref_lookup", "qa_stage_outstanding"]

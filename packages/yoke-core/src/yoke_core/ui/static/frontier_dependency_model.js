@@ -3,10 +3,11 @@
 // not otherwise show; edges are the unsatisfied dependency edges frontier.list
 // serves, each with a gate (what it holds back on the dependent: start, merge
 // or close) and a satisfaction condition (what clears it). An item may wait
-// on several blockers, and the engine reports cycles rather than refusing
-// them, so a deadlock is a state this model names rather than one it assumes
-// away. Nothing here touches the DOM: the graph renderer and the tests read
-// the same model.
+// on several blockers. Dependency writes refuse to close a loop, but a loop
+// can still form as items move, so frontier.list also serves its deadlocks —
+// the server's one cycle detector — and this model draws them rather than
+// computing its own. Nothing here touches the DOM: the graph renderer and the
+// tests read the same model.
 
 export const FRONTIER_GATE = { activation: "start", integration: "merge", closure: "close" };
 export const FRONTIER_FANOUT_LIMIT = 6;
@@ -74,36 +75,22 @@ function ghost(ref, facts = {}) {
   };
 }
 
-// Index nodes and edges: blockers and dependents, cycles, each node's own
-// reason it cannot move, what is stuck downstream of it, depth, how much it
-// unblocks, and the longest chain that can still move.
-export function frontierIndex(nodes, edges) {
+// Index nodes, edges and the server's deadlocks (each an array of refs):
+// blockers and dependents, each node's own reason it cannot move, what is
+// stuck downstream of it, depth, how much it unblocks, and the longest chain
+// that can still move.
+export function frontierIndex(nodes, edges, cycles = []) {
+  const place = (ref, facts) => {
+    if (!nodes.has(ref)) nodes.set(ref, { ...ghost(ref, facts), blockers: [], dependents: [] });
+  };
   for (const n of nodes.values()) { n.blockers = []; n.dependents = []; }
   for (const e of edges) {
-    if (!nodes.has(e.from)) nodes.set(e.from, { ...ghost(e.from, e.blockerFacts), blockers: [], dependents: [] });
-    if (!nodes.has(e.to)) nodes.set(e.to, { ...ghost(e.to), blockers: [], dependents: [] });
+    place(e.from, e.blockerFacts);
+    place(e.to);
     nodes.get(e.to).blockers.push(e);
     nodes.get(e.from).dependents.push(e);
   }
-  // Cycles first: a strongly connected group of two or more never starts.
-  const index = new Map(), low = new Map(), stack = [], on = new Set(), cycles = [];
-  let i = 0;
-  const visit = (v) => {
-    index.set(v, i); low.set(v, i++); stack.push(v); on.add(v);
-    for (const e of nodes.get(v).dependents) {
-      const w = e.to;
-      if (!index.has(w)) { visit(w); low.set(v, Math.min(low.get(v), low.get(w))); }
-      else if (on.has(w)) low.set(v, Math.min(low.get(v), index.get(w)));
-    }
-    if (low.get(v) === index.get(v)) {
-      const g = [];
-      let w;
-      do { w = stack.pop(); on.delete(w); g.push(w); } while (w !== v);
-      // An item that depends on itself is a deadlock of one.
-      if (g.length > 1 || nodes.get(v).dependents.some((e) => e.to === v)) cycles.push(g);
-    }
-  };
-  for (const r of nodes.keys()) if (!index.has(r)) visit(r);
+  cycles.forEach((g) => g.forEach((r) => place(r)));
   const inCycle = new Map();
   cycles.forEach((g, k) => g.forEach((r) => inCycle.set(r, k)));
 
@@ -156,7 +143,8 @@ export function frontierIndex(nodes, edges) {
   // The longest chain that can still move: a stuck chain is raised as stuck, not as critical.
   const deepest = linked.filter((n) => !n.cycle && !n.stuck).sort((a, b) => b.depth - a.depth)[0];
   const chain = [];
-  for (let n = deepest; n;) {
+  // A ref seen twice ends the walk, so edges that loop can never spin it.
+  for (let n = deepest; n && !chain.includes(n.ref);) {
     chain.push(n.ref);
     n = n.blockers.map((e) => nodes.get(e.from)).filter((b) => !b.cycle).sort((a, b) => b.depth - a.depth)[0];
   }
@@ -199,12 +187,18 @@ export function frontierFilter(model, selected) {
     n.dependents.forEach((e) => queue.push(e.to));
   }
   const nodes = new Map([...model.nodes].filter(([r]) => keep.has(r)));
-  return frontierIndex(nodes, model.edges.filter((e) => keep.has(e.from) && keep.has(e.to)));
+  return frontierIndex(
+    nodes,
+    model.edges.filter((e) => keep.has(e.from) && keep.has(e.to)),
+    model.cycles.filter((g) => g.some((r) => keep.has(r))),
+  );
 }
 
 // One line under a tile's title: what holds it, or how it is shipping.
 export function frontierTileMeta(node) {
   if (node.stuck) return node.stuck;
+  // Committed work waiting on landings reads the server's one sentence.
+  if (node.landing) return node.landing;
   const open = node.blockers;
   if (open.length === 1) return frontierGatePhrase(open[0]);
   if (open.length > 1) return `Waits on ${open.length} items`;

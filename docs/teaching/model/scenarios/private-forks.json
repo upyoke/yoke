@@ -5,6 +5,5 @@
  "situations": ["Use a private Yoke fork or package host.", "A private relay cannot fetch the exact server release.", "A fork operator asks what upstream supports."],
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
- "desired": "Reconciled against current plan records.",
  "questions": ["No private artifact host, real relay fetch, or fork upgrade was exercised."]
 }

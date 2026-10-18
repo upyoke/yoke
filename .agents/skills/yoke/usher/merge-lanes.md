@@ -34,6 +34,12 @@ resolution lost intended content. Operator investigation/current-item fix is
 required before later lanes. Report pass_count/verifiable_count and runtime
 skip count. Missing criteria skips postcheck silently after preflight's warning.
 
+A reviewed task stays reviewed while its lane catches up to main at landing
+under the existing claim. Resolve forced fixes here, including renumbered
+unshipped migrations, regenerated files and consumer path updates. Only a
+review FAIL or a real change to item scope or acceptance criteria moves the
+task back to implementing; lane freshness alone does not.
+
 Failure after rebase belongs here: halt, report failing tests and reason, resolve
 under this item/claim, commit and resume same procedure. Future/planned owners
 do not waive it; a live conflict/decision is reported before proceeding.

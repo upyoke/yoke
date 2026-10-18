@@ -177,6 +177,7 @@ passes and that stage is accepted.
 
 Terminal settlement and code-identity checks use each requirement's newest execution; older attempts never block. Browser reviews use the capture's verdict and identity, excluding detached agent verdict rows.
 A latest closed, verdict-less execution on a superseded requirement stops blocking only after its successor passes or is discharged; post-deploy successors need accepted completion-member copies.
+An item's own verdictless capture on a post-deploy source stops blocking once the completion run accepts that source's copies; until then it blocks done and appears in the implemented gate summary's `unsettled_records`.
 Refusals name unsettled successors. Latest live executions and active plan executions still block; history remains unchanged.
 
 Completion of a target-bound scoped QA execution settles its active stage

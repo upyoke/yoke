@@ -1,7 +1,8 @@
 {
  "id": "human-actors",
  "title": "Human actors",
- "status": "draft-copy",
+ "status": "observed",
+ "summary": "A teammate code invite creates a new human actor and their normal operator org role in the same transaction as a hashed, single-use code. A name never selects an existing actor. Codes expire after 24 hours; expiry or revocation keeps the actor, and reissue gives that actor a replacement code. Redeeming a code registers one machine and its credential atomically. Disabled actors cannot redeem or receive reissued codes.",
  "page": "identity",
  "position": 0
 }

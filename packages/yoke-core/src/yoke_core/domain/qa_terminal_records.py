@@ -14,11 +14,25 @@ from yoke_core.domain.qa_obligation_settlement import (
 )
 from yoke_core.domain.deployment_qa_source_obligation import source_obligation_consumed
 from yoke_core.domain.qa_merging_identity import recorded_head_sha
-from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
+from yoke_core.domain.qa_review_waits import requirement_awaits_human_review
 from yoke_core.domain.qa_plan_execution_store import marker
 from yoke_core.domain.qa_plan_host_leases import execution_host_leases
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.work_claim_targets import TARGET_KIND_QA_ADMISSION
+
+
+def answered_by_run_copy(
+    conn: Any, item_id: int, requirement_id: int, sources: set[int]
+) -> bool:
+    """A post-deploy source whose accepted run copies already answer it.
+
+    The item's own capture on that source owes no verdict once the completion
+    run accepts the copies: the copies' acceptance is the source's settlement,
+    which is the same reading the terminal verdict gate applies.
+    """
+    return int(requirement_id) in sources and source_obligation_consumed(
+        conn, item_id=int(item_id), source_requirement_id=int(requirement_id)
+    )
 
 
 def live_qa_leases(conn: Any, item_id: int) -> list[tuple[int, str]]:

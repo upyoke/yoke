@@ -8,10 +8,8 @@ from yoke_core.domain.decision_request_resolution import (
     resolve_decision_request,
 )
 from yoke_core.domain.decision_requests import list_subject_requests
-from yoke_core.domain.qa_review_requests import (
-    ensure_qa_review_request,
-    requirement_awaits_human_review,
-)
+from yoke_core.domain.qa_review_requests import ensure_qa_review_request
+from yoke_core.domain.qa_review_waits import requirement_awaits_human_review
 from runtime.api.domain.qa_review_seed import _seed_undetermined_review
 
 

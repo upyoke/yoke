@@ -18,6 +18,7 @@ from yoke_contracts.machine_authorization import (
     HostedMachineAuthorizationCancelled,
     PendingMachineAuthorization,
     HostedMachineCredential,
+    MACHINE_RETIRED,
     authorization_origin,
     same_origin_url,
     parse_authorization_response,
@@ -48,29 +49,25 @@ def start(
     timeout_seconds: float = 15.0,
     self_host: bool = False,
 ) -> PendingMachineAuthorization:
-    """Begin one authorization without opening a browser or persisting state."""
+    """Begin one authorization without opening a browser or persisting state.
+
+    A server that refuses this computer's id as retired gets one more start
+    with a new machine identity; the retired row keeps its history.
+    """
     origin = authorization_origin(platform_url)
-    try:
-        payload, status, _headers = _post_json(
-            f"{origin}{START_PATH}",
-            {
-                **_machine_identity(),
-                "platform": "macOS"
-                if platform.system() == "Darwin"
-                else platform.system(),
-            },
-            opener=opener,
-            timeout_seconds=timeout_seconds,
-        )
-    except BoundedJsonHttpStatusError as exc:
-        response = parse_authorization_response(
-            exc.payload, exc.status, operation="start"
-        )
-        _raise_admission_refusal(exc.payload, exc.status)
-        raise HostedMachineAuthorizationError(
-            f"authorization_refused: hosted authorization could not start (HTTP {exc.status}); "
-            f"{_recovery(response)}"
-        ) from None
+    identity = _machine_identity()
+    payload, status = _request_start(origin, identity, opener, timeout_seconds)
+    retired_machine_id = None
+    if _is_retired(payload, status):
+        retired_machine_id = identity["machine_id"]
+        identity = _replace_retired_identity(retired_machine_id)
+        payload, status = _request_start(origin, identity, opener, timeout_seconds)
+        if _is_retired(payload, status):
+            raise HostedMachineAuthorizationError(
+                f"{MACHINE_RETIRED}: the server refused this computer's new machine "
+                f"identity {identity['machine_id']} as retired too; ask the server "
+                "operator to inspect its machine registry, then run `yoke connect` again"
+            )
     if status != 200:
         response = parse_authorization_response(payload, status, operation="start")
         _raise_admission_refusal(payload, status)
@@ -103,7 +100,51 @@ def start(
         expires_in=response.expires_in,
         interval=response.interval,
         self_host=self_host,
+        retired_machine_id=retired_machine_id,
     )
+
+
+def _request_start(
+    origin: str,
+    identity: Mapping[str, str],
+    opener: Callable[..., Any] | None,
+    timeout_seconds: float,
+) -> tuple[object, int]:
+    try:
+        payload, status, _headers = _post_json(
+            f"{origin}{START_PATH}",
+            {
+                **identity,
+                "platform": "macOS"
+                if platform.system() == "Darwin"
+                else platform.system(),
+            },
+            opener=opener,
+            timeout_seconds=timeout_seconds,
+        )
+    except BoundedJsonHttpStatusError as exc:
+        return exc.payload, exc.status
+    return payload, status
+
+
+def _is_retired(payload: object, status: int) -> bool:
+    return (
+        status in {403, 409}
+        and isinstance(payload, Mapping)
+        and payload.get("error") == MACHINE_RETIRED
+    )
+
+
+def _replace_retired_identity(retired_machine_id: str) -> dict[str, str]:
+    try:
+        machine_config_mutation.replace_retired_machine_identity(retired_machine_id)
+    except machine_config_mutation.MachineConfigWriteError as exc:
+        raise HostedMachineAuthorizationError(
+            f"{MACHINE_RETIRED}: machine {retired_machine_id} is retired and this "
+            f"computer's new machine identity could not be saved: {exc}; repair "
+            "~/.yoke/config.json, then run `yoke connect` again"
+        ) from None
+    return _machine_identity()
 
 
 def complete(
@@ -167,6 +208,13 @@ def complete(
             raise HostedMachineAuthorizationError(
                 f"machine_identity_required: {_recovery(response)}; run `yoke status` to inspect this "
                 "machine's configured identity, repair it, then retry"
+            )
+        if _is_retired(payload, status):
+            _replace_retired_identity(machine_identity["machine_id"])
+            raise HostedMachineAuthorizationError(
+                f"{MACHINE_RETIRED}: machine {machine_identity['machine_id']} was "
+                "retired before its credential was delivered; this computer now has "
+                "a new machine identity, so run `yoke connect` again for a fresh code"
             )
         if status != 200:
             _raise_admission_refusal(payload, status)

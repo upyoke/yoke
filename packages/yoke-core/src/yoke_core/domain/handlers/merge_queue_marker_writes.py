@@ -8,7 +8,10 @@ arms it, and the whole marker is cleared at close-out.
 
 The columns themselves are written by
 :func:`yoke_core.domain.merge_queue_landing_marker.point_item_at_pull_request`,
-shared with the operator repoint so the two can never disagree.
+which shares its column writer with the operator repoint so the two can never
+disagree. For an item that already landed, a new pull request is recorded as
+a re-land attempt instead and the columns keep the current landing until the
+attempt merges.
 
 They are separate calls because the moments are separate and only the first
 is common to both landing routes. Recording the pull request at open time is
@@ -38,6 +41,7 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.merge_queue_landing_marker import (
     point_item_at_pull_request,
 )
+from yoke_core.domain.merge_queue_landing_attempt import close_open_attempts
 from yoke_core.domain.merge_queue_landing_record import delete_landing_record
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
@@ -191,6 +195,9 @@ def handle_clear_landing_pending(request: FunctionCallRequest) -> HandlerOutcome
                 (item_id,),
             )
             delete_landing_record(conn, item_id)
+            close_open_attempts(
+                conn, item_id, "landing marker cleared at item close-out"
+            )
             conn.commit()
             cleared = bool(cursor.rowcount)
     except ValidationError as exc:

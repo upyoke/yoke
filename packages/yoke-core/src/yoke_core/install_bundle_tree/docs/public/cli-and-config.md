@@ -71,7 +71,9 @@ publication source note for the review trail. No source edit or release is
 needed for a normal refresh. Records hold facts only — prices, published
 `reasoning_efforts` and `context_window_tokens`, successors. `yoke models
 level-proposal` then proposes the level changes those facts imply; after
-operator approval, `yoke universe levels set` stores them.
+operator approval, `yoke settings unset levels` applies a proposal equal to the
+shipped defaults and `yoke settings set levels` stores any other, which stops
+the universe following future shipped defaults.
 
 Session usage tokens remain stored in `harness_sessions.usage_totals`; its
 observation clock uses fixed-six UTC or null. Dollar
@@ -83,7 +85,7 @@ the surface API; which model a launch uses comes from the level options.
 
 ## Execution levels
 
-`yoke universe levels get|set` reads and replaces the universe levels, and `yoke universe level-capacity get` reads what each can launch now and why ([execution levels](reference/session-level-routing.md)).
+`yoke settings get|set levels` reads and replaces the universe levels, and `yoke universe level-capacity get` reads what each can launch now and why ([execution levels](reference/session-level-routing.md)).
 
 ## Machine config
 
@@ -134,7 +136,7 @@ The config supports only this list shape and these two entry fields.
 The installer records `settings.distribution` as `{"origin": "https://api.upyoke.com",
 "channel": "stable"}` using the actual install selection. `yoke update` requires
 that record and uses it in a fresh shell. Select or repair it explicitly with
-`yoke config distribution set --origin URL --channel NAME`; run that command's
+`yoke settings set distribution '{"origin":"URL","channel":"NAME"}'`; run that command's
 `--help` for flags. This does not change the active control-plane connection.
 Relays connected to a private API host also require this record and install
 from `origin/simple/`; they do not infer an index from the API host. See
@@ -327,3 +329,5 @@ refusals retain their actual reasons. Board rebuild requires a registered
 checkout, even when only one is registered; pass `--repo-root PATH` from
 elsewhere. Doctor's last report uses your checkout or `--project P`.
 An unmapped folder is a `project_mapping_missing` warning in status.
+
+Read and change non-sensitive keys through [key-value settings](settings.md).

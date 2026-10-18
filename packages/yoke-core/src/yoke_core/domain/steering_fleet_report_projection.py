@@ -24,10 +24,8 @@ from yoke_core.domain.steering_fleet_report_undelivered import (
     UndeliveredMessages,
 )
 from yoke_core.domain.steering_fleet_report_detectors import UnregisteredLaunch
-from yoke_core.domain.steering_fleet_report_landed_open import (
-    LandedItem,
-    landed_recovery,
-)
+from yoke_core.domain.steering_fleet_report_landed_open import LandedItem
+from yoke_core.domain.steering_fleet_report_landed_phrases import landed_recovery
 from yoke_core.domain.steering_fleet_report_vendor_errors import VendorErrorSession
 from yoke_core.domain.steering_fleet_report_stranded import stranded_dicts
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
@@ -235,6 +233,7 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
                 "actionable": report.actionable,
                 "fingerprint": report.fingerprint(),
                 "available": [_entry_dict(entry, now) for entry in report.available],
+                "landing_waits": [w.__dict__ for w in report.landing_waits],
                 "waited_too_long": [
                     _entry_dict(entry, now) for entry in report.waited_too_long()
                 ],
@@ -332,6 +331,8 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
                     for entry in report.relay_health
                 ],
                 "messages_awaiting_seat": report.messages_awaiting_seat,
+                "deadlocks": [cycle.to_dict() for cycle in report.deadlocks],
+                "waiting_chains": [c.to_dict() for c in report.waiting_chains],
             }
         ),
         report.session_labels,

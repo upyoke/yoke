@@ -9,10 +9,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+from yoke_contracts import terminal_detached_process
 from yoke_harness.system_privileges import command_authority
 
 RESTRICTION = Path("/proc/sys/kernel/apparmor_restrict_unprivileged_userns")
 PROFILE_DIRECTORY = Path("/etc/apparmor.d")
+# Projected by browser setup. "0" launches Chromium with its sandbox off.
+SANDBOX_ENV = "YOKE_BROWSER_CHROMIUM_SANDBOX"
 RECOVERY = (
     "Allow Yoke system setup through root or sudo, ensure AppArmor tooling is installed, "
     "then retry yoke qa browser setup. Chromium requires its sandbox; "
@@ -101,7 +104,7 @@ def _current(destination, content):
 def _sandbox_probe(browser, toolchain, env, executables):
     # The kernel's profile list requires CAP_MAC_ADMIN. Prove actual sandboxed
     # launches without demanding root on every later browser startup.
-    return subprocess.run(
+    return terminal_detached_process.run(
         [str(toolchain.node), "-e", SANDBOX_PROBE_JS, json.dumps(executables)],
         cwd=str(browser),
         env=env,
@@ -111,13 +114,31 @@ def _sandbox_probe(browser, toolchain, env, executables):
     )
 
 
+def _sandbox_off(emit, reason):
+    detail = " ".join(str(reason).split())
+    emit(
+        "[browser-auto-bootstrap] Chromium sandbox unavailable without root "
+        f"({detail}); launching with the sandbox off. "
+        "To enable the sandbox, allow system setup through root or passwordless sudo, "
+        "then retry yoke qa browser setup."
+    )
+    return False
+
+
 def ensure_chromium_apparmor(browser, toolchain, *, env, emit, autoinstall=True):
+    """Return whether later Chromium launches keep the sandbox on.
+
+    A restricted host with no root or passwordless sudo finishes setup and
+    returns False so launches set ``chromiumSandbox`` false. A loaded profile,
+    or one this call installs, returns True. An interactive sudo password is
+    not requested.
+    """
     if not sys.platform.startswith("linux"):
-        return
+        return True
     try:
         if not RESTRICTION.exists() or RESTRICTION.read_text().strip() == "0":
-            return
-        result = subprocess.run(
+            return True
+        result = terminal_detached_process.run(
             [str(toolchain.node), "-e", EXECUTABLES_JS],
             cwd=str(browser),
             env=env,
@@ -139,7 +160,7 @@ def ensure_chromium_apparmor(browser, toolchain, *, env, emit, autoinstall=True)
             and _sandbox_probe(browser, toolchain, env, executables).returncode == 0
         ):
             emit("[browser-auto-bootstrap] Chromium AppArmor sandbox already verified")
-            return
+            return True
         if not autoinstall:
             raise _failure(
                 "AppArmor restricts Chromium user namespaces and YOKE_BROWSER_AUTOINSTALL=0"
@@ -151,17 +172,23 @@ def ensure_chromium_apparmor(browser, toolchain, *, env, emit, autoinstall=True)
             raise _failure(
                 "AppArmor restricts Chromium user namespaces but apparmor_parser is missing"
             )
-        prefix, interactive = command_authority(
-            str(
-                _failure(
-                    "AppArmor restricts Chromium user namespaces and the Chromium profile needs system authority"
-                )
+        try:
+            prefix, interactive = command_authority(
+                "browser_chromium_sandbox_unavailable: AppArmor restricts unprivileged user namespaces"
             )
-        )
+        except RuntimeError as exc:
+            return _sandbox_off(emit, exc)
+        # An interactive password prompt hangs setup and fights the wizard.
+        if interactive:
+            return _sandbox_off(
+                emit, "enabling the sandbox would ask for an interactive sudo password"
+            )
         emit(
             "[browser-auto-bootstrap] provisioning Chromium AppArmor userns profiles..."
         )
-        result = subprocess.run(
+        # Only a sudo password prompt keeps the terminal.
+        run = subprocess.run if interactive else terminal_detached_process.run
+        result = run(
             [
                 *prefix,
                 sys.executable,
@@ -186,6 +213,7 @@ def ensure_chromium_apparmor(browser, toolchain, *, env, emit, autoinstall=True)
                 f"Chromium sandbox launch failed: {probe.stderr or probe.stdout}"
             )
         emit("[browser-auto-bootstrap] Chromium AppArmor userns profiles verified")
+        return True
     except (OSError, ValueError) as exc:
         raise _failure(str(exc)) from exc
     except subprocess.TimeoutExpired as exc:

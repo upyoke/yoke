@@ -69,6 +69,29 @@ receipt with `yoke deployment-runs get RUN-ID bound_sources` when diagnosing
 release preparation or recovery. Read its handler timing separately from browser HTTP
 and selection-to-card timings; SQL call counts alone do not prove latency.
 
+An explicit Shipping entry starts its one authorized overview while project and saved-selection reads settle. The first render still applies the saved filter; navigation or unmount discards the early read, and later visits and actions read current facts. This overlaps startup work without caching across requests or changing the production timing requirement.
+
+For a slow statement, use `db.read.run` with its actual parameters:
+
+```text
+yoke db read "EXPLAIN (ANALYZE, BUFFERS) SELECT id FROM deployment_runs ORDER BY created_at DESC LIMIT 20"
+```
+
+Keep the query read-only and scoped. Execution time excludes transport, row
+decoding, Python work and rendering; also count repeated executions. Shipping
+shares attachment environment/case reads and decoded copy/source identities only
+within one evaluation. The next request reads current QA and withdrawals again.
+Completed execution rows are read together for the displayed runs, then each
+selected execution uses the same roster and target validator as a detail read.
+Older unselected rows are not validated or allowed to change the current answer.
+Shared-copy ownership resolves each run/stage/member's selected group targets
+once per presentation, rather than once per matching copy. Later requests repeat
+canonical selection, including attachment withdrawals and source-currency checks.
+Verdict checks read attempt identity, start, completion and outcome fields without
+captured output bodies, using the same actual-attempt ordering and ambiguity checks.
+Full attempt detail remains available separately. Member obligations and acceptance
+share one set of frozen member snapshots within the overview evaluation. Sharing labels also reuse those snapshots and live attachments; copy matching reads only identity and executable-content fields. Full case and attempt detail reads remain unchanged.
+
 `events.performance.aggregate` and `events.performance.detail` authorize every
 selected project with `events.read` before reading or serializing observations
 and summaries. All contains only accessible projects; universe-attributed rows

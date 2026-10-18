@@ -8,7 +8,6 @@ authority surface.
 
 from __future__ import annotations
 
-import fcntl
 import json
 import os
 import tempfile
@@ -16,6 +15,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Mapping
 
+from yoke_contracts import platform_file_lock
 from yoke_contracts.machine_config import schema as contract
 from yoke_contracts.machine_config.paths import (
     CONFIG_FILE_ENV as CONFIG_FILE_ENV,
@@ -95,6 +95,15 @@ def ensure_machine_id(path: str | Path | None = None) -> str:
     current = machine_id(path)
     if current is not None:
         return current
+    return _assign_machine_id(path, replacing=None)
+
+
+def replace_retired_machine_id(retired: str, path: str | Path | None = None) -> str:
+    """Swap a retired machine UUID for a new one; an earlier swap is kept."""
+    return _assign_machine_id(path, replacing=retired)
+
+
+def _assign_machine_id(path: str | Path | None, *, replacing: str | None) -> str:
     selected = config_path(path)
     try:
         assert_write_owned(selected)
@@ -108,9 +117,9 @@ def ensure_machine_id(path: str | Path | None = None) -> str:
     lock_path = selected.with_name(f"{selected.name}.lock")
     lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
     try:
-        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        platform_file_lock.acquire_exclusive(lock_fd)
         current = machine_id(path)
-        if current is not None:
+        if current is not None and current != replacing:
             return current
         payload = load_config(path)
         generated = str(uuid.uuid4())
@@ -118,7 +127,7 @@ def ensure_machine_id(path: str | Path | None = None) -> str:
         _replace_config(selected, payload)
         return generated
     finally:
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        platform_file_lock.release_exclusive(lock_fd)
         os.close(lock_fd)
 
 
