@@ -17,6 +17,7 @@ from yoke_cli.config import (
 from yoke_cli.config.status_credentials import credential_status as _credential_status
 from yoke_cli.config.status_environment import ambient_env_status, permission_issues
 from yoke_cli.config.status_render import dumps_json, render_human
+from yoke_cli.config.status_project import _project_status
 from yoke_cli.config.status_runtime import (
     build_runtime_status,
     with_runtime_identity,
@@ -182,31 +183,6 @@ def _connection_status(
 def _connection_prod_flag(connection: Mapping[str, Any]) -> bool | None:
     value = connection.get(contract.PROD_FLAG_KEY)
     return value if isinstance(value, bool) else None
-
-
-def _project_status(repo_root: Path, config_path: Path) -> dict[str, Any]:
-    project_id = machine_config.project_id(repo_root, config_path)
-    issues: list[dict[str, str]] = []
-    if project_id is None:
-        issues.append(
-            _issue(
-                "warning",
-                "project_mapping_missing",
-                f"checkout {repo_root} is not mapped to a project_id",
-                "Project-scoped commands need `yoke project register` first.",
-            )
-        )
-    render = machine_config.board_render_path(repo_root, path=config_path)
-    return {
-        "repo_root": str(repo_root),
-        "project_id": project_id,
-        "board_settings_authority": "project-policy.settings.board",
-        "board_render_path": str(render),
-        "board_ts_path": f"{render}.ts",
-        "board_art_path": str(machine_config.board_art_path(repo_root)),
-        "board_scope": machine_config.board_scope(repo_root, path=config_path),
-        "issues": issues,
-    }
 
 
 def _runtime_status(connection: Mapping[str, Any]) -> dict[str, Any]:

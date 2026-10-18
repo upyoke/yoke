@@ -41,7 +41,9 @@ def dirty_repo(tmp_path, project_map):
     _git(repo, "add", "tracked.txt")
     _git(repo, "commit", "-q", "-m", "seed")
     tracked.write_text("modified\n")
-    project_map["projects"] = [{"checkout": str(repo), "project_id": 1}]
+    project_map["connection_projects"]["local"] = [
+        {"checkout": str(repo), "project_id": 1}
+    ]
     return repo
 
 

@@ -141,7 +141,9 @@ def test_file_line_limit_through_runner_reaches_claude_output(
     )
     _silence_telemetry(monkeypatch)
 
-    project_map["projects"] = [{"checkout": str(tmp_path), "project_id": 1}]
+    project_map["connection_projects"]["local"] = [
+        {"checkout": str(tmp_path), "project_id": 1}
+    ]
     over_cap = "x = 1\n" * (FILE_LINE_LIMIT + 5)
     target = tmp_path / "module_under_test.py"
     payload = json.dumps(

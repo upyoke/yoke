@@ -28,7 +28,11 @@ def _binding(root: Path, dsn_file: Path) -> Path:
                         },
                     },
                 },
-                "projects": [{"checkout": str(root.resolve()), "project_id": 1}],
+                "connection_projects": {
+                    "prod-db-admin": [
+                        {"checkout": str(root.resolve()), "project_id": 1}
+                    ]
+                },
             }
         ),
         encoding="utf-8",

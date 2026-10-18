@@ -71,7 +71,7 @@ def _assert_installed(checkout: Path, config: Path) -> None:
     assert sorted(manifest["contract_files"]) == [".yoke/lint-config"]
     assert sorted(manifest["strategy_files"]) == [".yoke/strategy/MISSION.md"]
     config_payload = json.loads(config.read_text("utf-8"))
-    assert config_payload["projects"] == [
+    assert config_payload["connection_projects"]["smoke"] == [
         {"checkout": str(checkout.resolve()), "project_id": 7}
     ]
 

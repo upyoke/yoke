@@ -170,7 +170,9 @@ def _installed_env(
                         },
                     },
                 },
-                "projects": [{"checkout": str(repo.resolve()), "project_id": 1}],
+                "connection_projects": {
+                    "local": [{"checkout": str(repo.resolve()), "project_id": 1}]
+                },
             }
         )
         + "\n",

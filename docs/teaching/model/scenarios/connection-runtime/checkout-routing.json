@@ -1,0 +1,13 @@
+{
+ "id": "checkout-routing",
+ "title": "Register the checkout on the selected connection",
+ "status": "observed",
+ "audience": "both",
+ "when": "A machine uses hosted and self-hosted universes whose numeric project IDs overlap.",
+ "need": "Select the connection before project register or project-scoped work. Follow the refusal registration command when that connection has no checkout. Explicit registration imports an older flat map once under configured active_env; config reads never write or borrow a different connection map.",
+ "disclosure": "current cue",
+ "surface": "Project register help, work-claim folder refusal and public machine-config guidance.",
+ "review": "Candidate-source regressions cover colliding IDs, --env precedence, reassignment, inert legacy reads and shared-checkout cleanup. No live two-universe execution is claimed.",
+ "sources": ["docs/public/cli-and-config.md", "runtime/api/domain/test_machine_config_project_mapping.py", "runtime/api/cli/test_yoke_operations_cli_config_write_projects.py"],
+ "position": 3
+}

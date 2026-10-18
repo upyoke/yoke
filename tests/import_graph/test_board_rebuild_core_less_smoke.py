@@ -87,7 +87,10 @@ def test_board_rebuild_runs_without_yoke_core(tmp_path: Path) -> None:
         json.dumps(
             {
                 "cache_dir": str(tmp_path / "cache"),
-                "projects": [{"checkout": str(checkout), "project_id": 37}],
+                "active_env": "local",
+                "connection_projects": {
+                    "local": [{"checkout": str(checkout), "project_id": 37}]
+                },
             }
         ),
         encoding="utf-8",

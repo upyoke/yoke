@@ -53,7 +53,9 @@ def status_config(tmp_path: Path, repo: Path) -> Path:
                 },
                 "temp_root": str(temp_root),
                 "cache_dir": str(cache_dir),
-                "projects": [{"checkout": str(repo.resolve()), "project_id": 1}],
+                "connection_projects": {
+                    "prod": [{"checkout": str(repo.resolve()), "project_id": 1}]
+                },
             }
         ),
         encoding="utf-8",

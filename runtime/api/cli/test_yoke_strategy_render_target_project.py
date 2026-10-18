@@ -49,7 +49,12 @@ def _register(config_path: Path, checkout: Path, project_id: int) -> None:
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(
         json.dumps(
-            {"projects": [{"checkout": str(checkout), "project_id": project_id}]}
+            {
+                "active_env": "local",
+                "connection_projects": {
+                    "local": [{"checkout": str(checkout), "project_id": project_id}]
+                },
+            }
         ),
         encoding="utf-8",
     )

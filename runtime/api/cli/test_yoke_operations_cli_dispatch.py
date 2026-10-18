@@ -179,7 +179,14 @@ class TestEveryTierOneFamilyDispatches:
 
         config = tmp_path / "config.json"
         config.write_text(
-            json.dumps({"projects": [{"project_id": 1, "checkout": str(tmp_path)}]})
+            json.dumps(
+                {
+                    "active_env": "local",
+                    "connection_projects": {
+                        "local": [{"project_id": 1, "checkout": str(tmp_path)}]
+                    },
+                }
+            )
         )
         monkeypatch.delenv(paths.HOME_ENV, raising=False)
         monkeypatch.setenv(paths.CONFIG_FILE_ENV, str(config))

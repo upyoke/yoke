@@ -44,7 +44,10 @@ def test_board_scope_defaults_to_checkout_project_id(
         tmp_path,
         {
             "schema_version": 1,
-            "projects": [{"checkout": str(repo_root.resolve()), "project_id": 2}],
+            "active_env": "local",
+            "connection_projects": {
+                "local": [{"checkout": str(repo_root.resolve()), "project_id": 2}]
+            },
         },
     )
     monkeypatch.setenv(machine_config.CONFIG_FILE_ENV, str(config))
@@ -62,7 +65,10 @@ def test_board_scope_can_use_numeric_project_when_slug_omitted(
         tmp_path,
         {
             "schema_version": 1,
-            "projects": [{"checkout": str(repo_root.resolve()), "project_id": 2}],
+            "active_env": "local",
+            "connection_projects": {
+                "local": [{"checkout": str(repo_root.resolve()), "project_id": 2}]
+            },
         },
     )
     monkeypatch.setenv(machine_config.CONFIG_FILE_ENV, str(config))
@@ -80,7 +86,10 @@ def test_project_entry_matches_worktree_to_main_checkout(
         tmp_path,
         {
             "schema_version": 1,
-            "projects": [{"checkout": str(repo_root.resolve()), "project_id": 1}],
+            "active_env": "local",
+            "connection_projects": {
+                "local": [{"checkout": str(repo_root.resolve()), "project_id": 1}]
+            },
         },
     )
     monkeypatch.setenv(machine_config.CONFIG_FILE_ENV, str(config))
@@ -97,7 +106,10 @@ def test_board_art_path_is_project_local_and_not_configurable(
         tmp_path,
         {
             "schema_version": 1,
-            "projects": [{"checkout": str(repo_root.resolve()), "project_id": 1}],
+            "active_env": "local",
+            "connection_projects": {
+                "local": [{"checkout": str(repo_root.resolve()), "project_id": 1}]
+            },
         },
     )
     monkeypatch.setenv(machine_config.CONFIG_FILE_ENV, str(config))

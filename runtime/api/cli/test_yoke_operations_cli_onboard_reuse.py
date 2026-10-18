@@ -104,9 +104,11 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
                     },
                     "temp_root": str(temp_root),
                     "cache_dir": str(cache_dir),
-                    "projects": [
-                        {"checkout": str(checkout.resolve()), "project_id": 44}
-                    ],
+                    "connection_projects": {
+                        "prod": [
+                            {"checkout": str(checkout.resolve()), "project_id": 44}
+                        ]
+                    },
                 },
                 indent=2,
             )
