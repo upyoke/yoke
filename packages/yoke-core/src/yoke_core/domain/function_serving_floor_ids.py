@@ -7,6 +7,7 @@ must declare ``minimum_serving_version`` at registration.
 from __future__ import annotations
 
 # fmt: off
+# sessions.begin remains served; its machine_scope argument has its own floor.
 ALREADY_SERVED_FUNCTION_IDS: frozenset[str] = frozenset((
     'advance.preflight.file_budget', 'advance.preflight.hard_blocks', 'advance.preflight.spec_coverage',
     'agents.render.check', 'agents.render.run', 'agents.render_relationships.record', 'auth.set.run',

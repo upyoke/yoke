@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "agent",
  "when": "Before sending a work-related request or report",
- "need": "Address a worker by its held item, a person by registered actor, or a whole session ID. Preview recipient count; steering is a role address resolved from scope. In-process subagents report to their parent, not Fleet.",
+ "need": "Address a worker by its held item, a person by registered actor, or a whole session ID; a session outside any project is reached by its session ID, never by project selectors. Preview recipient count; steering is a role address resolved from scope. In-process subagents report to their parent, not Fleet.",
  "disclosure": "current cue",
  "surface": "Items and Sessions -> Messaging commands; skill-specific report instructions.",
  "review": "Pending exact recipe proof.",

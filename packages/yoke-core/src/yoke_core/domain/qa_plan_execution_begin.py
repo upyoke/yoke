@@ -41,6 +41,7 @@ from yoke_core.domain.qa_plan_execution_target_snapshot import (
 from yoke_core.domain.qa_plan_execution_roster import (
     validate_roster_machine,
 )
+from yoke_core.domain.qa_plan_item_target_partition import item_target_partition
 
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
@@ -61,6 +62,8 @@ def begin_plan_execution(
     deployment_run_id: str | None = None,
     deployment_stage: str | None = None,
     deployment_member_item_id: int | None = None,
+    checkout_path: str | None = None,
+    expected_branch: str | None = None,
     machine: str | None = None,
     continue_mission: bool = False,
     actor_id: str | None,
@@ -127,8 +130,8 @@ def begin_plan_execution(
     )
     from yoke_core.domain.qa_plan_settled_review import open_unsettled_roster
 
-    def without_settled(source: list[dict[str, Any]]) -> dict[str, Any] | None:
-        reprint, kept = open_unsettled_roster(
+    def settle(source: list[dict[str, Any]]) -> tuple[Any, list[dict[str, Any]]]:
+        return open_unsettled_roster(
             conn,
             source,
             item_id=item_id,
@@ -137,6 +140,20 @@ def begin_plan_execution(
             deployment_stage=deployment_stage,
             deployment_member_item_id=deployment_member_item_id,
         )
+
+    item_remaining: list[int | None] = [None]
+
+    def without_settled(source: list[dict[str, Any]]) -> dict[str, Any] | None:
+        if item_id is None:
+            reprint, kept = settle(source)
+        else:
+            reprint, kept, item_remaining[0] = item_target_partition(
+                conn,
+                source,
+                item_id=int(item_id),
+                transition_id=str(transition_id),
+                settle=settle,
+            )
         source[:] = kept
         return reprint
 
@@ -149,6 +166,9 @@ def begin_plan_execution(
         deployment_member_item_id=deployment_member_item_id,
         execution_target_digest=expected_deployment_target_digest,
         host_capability_kinds=host_capabilities,
+        checkout_path=checkout_path,
+        expected_branch=expected_branch,
+        session_id=session_id,
     )
     if reprint := without_settled(roster):
         return reprint
@@ -164,6 +184,7 @@ def begin_plan_execution(
     )
     if completed is not None:
         return {**completed, "remaining_requirement_count": remaining}
+    remaining = item_remaining[0] if remaining is None else remaining
     validate_roster_machine(conn, roster, machine)
     digest = roster_digest(roster)
     execution_target, execution_target_digest = execution_target_for_roster(roster)
@@ -231,6 +252,9 @@ def begin_plan_execution(
                 deployment_member_item_id=deployment_member_item_id,
                 execution_target_digest=expected_deployment_target_digest,
                 host_capability_kinds=host_capabilities,
+                checkout_path=checkout_path,
+                expected_branch=expected_branch,
+                session_id=session_id,
             )
             if reprint := without_settled(roster):
                 return reprint
@@ -244,6 +268,7 @@ def begin_plan_execution(
             )
             if completed is not None:
                 return {**completed, "remaining_requirement_count": remaining}
+            remaining = item_remaining[0] if remaining is None else remaining
             validate_roster_machine(conn, roster, machine)
             digest = roster_digest(roster)
             execution_target, execution_target_digest = execution_target_for_roster(

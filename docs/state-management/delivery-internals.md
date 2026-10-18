@@ -222,6 +222,9 @@ settlement records `settling_at` while executing, commits prerequisites, then
 closes eligible members atomically through their ordinary done gates. Effects
 run idempotently after commit; the run reaches `succeeded` only when settlement
 finishes. Refusal preserves members, claims and recovery evidence.
+Member settlement counts its private checks and shared plan copies it owns,
+using the same ownership rule as the done gate. Every owned blocking copy
+must pass or be discharged; unrelated shared groups never provide credit.
 Independent member closure is allowed only by its final-delivery and shared
 gate contract. See [deployment runs](../public/deployments/model/runs.md) for
 admission; [stage receipts](../public/deployments/model/stage-receipts.md) for receipt

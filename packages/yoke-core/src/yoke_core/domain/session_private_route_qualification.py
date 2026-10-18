@@ -279,6 +279,11 @@ def qualification_for_message(
     )
     if canonical:
         return None
+    if candidate.get("project_id") is None:
+        raise PrivateRouteQualificationError(
+            "route_qualification_requires_project",
+            "private-route qualification is project scoped; message a session started in that project's folder",
+        )
     resolved = _message_scope(conn, candidate, operation=operation, route=route)
     if resolved is None:
         return None

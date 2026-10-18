@@ -63,6 +63,34 @@ or `yoke claims path cancel` with `--item`, `--claim-id`, and `--reason`; see
 - **One work item = one project.** The `project` field = where code deploys (`project=external-webapp` → External webapp repo, `project=yoke` → Yoke repo); scope is defined by where changes land, not where the idea came from. Never mix deploy targets in one item or its generated task graph. All work items live in the Yoke backlog regardless of target.
 - **Cross-project work → linked companion items, one per project.** Ambiguous target → ask; never silently default to `yoke` for work targeting an external system. Work that mandates changes in a second project gets a companion item filed in THAT project, linked to the first by an `item_dependencies` edge; one session may claim both items and execute both lanes together, because work claims and lane authority are already project-agnostic. There is no second-repo lane on a single item: worktree preparation resolves each item's own project checkout from the machine mapping (`yoke project register <checkout> --project-id <id>` adds a missing one) and refuses rather than borrowing the session's repo, so a lane always lives in its item's project; repair a wrong-repo lane with `yoke item-worktrees path-record`. Path claims stay single-project — `path_targets` rows are project-scoped, so one claim never spans repos. **A change to a contract another project consumes is cross-project by definition.** The companion item is mandatory in the consuming project, and an instruction that excludes redesigning that consumer never waives adapting it to the new contract. Delivery evidence must show the real consumer built against the exact pushed candidate revision; a producer-only green run proves the producer and nothing else.
 
+## Session scope and folder admission
+
+Registration fixes the starting folder's registered project, otherwise the
+session authority's organization. Retry, reactivate, reinstall or change
+folders: scope never changes. Entering a project leaves an outside session
+outside; leaving keeps the project but loses work admission.
+
+Item/epic-task claims require registration in the item's project.
+`yoke claims work acquire` first checks the caller's folder maps there on this
+machine. Process, steering and coordination claims retain target authority
+without folder binding. Refusals set no claim/current item; each names recovery.
+
+| Refusal | Cause | Recovery |
+|---|---|---|
+| `CLAIM_FOLDER_MISMATCH` | Folder is not the item's mapped checkout | Start there; if unmapped, first run `yoke project register CHECKOUT --project-id N` |
+| `SESSION_MACHINE_SCOPE_WORK_REFUSED` | Started outside any project | Start in the named project folder |
+| `SESSION_PROJECT_MISMATCH` | Other starting project | Start in named project |
+| `SESSION_SCOPE_IMMUTABLE` | Re-registration names another project | Start a new session there |
+| `SESSION_SCOPE_AMBIGUOUS` | Both project and machine scope named | Start in a registered project folder or request machine scope |
+| `SESSION_ORG_UNRESOLVED`, `SESSION_ORG_MEMBERSHIP_REQUIRED` | Org unresolved/nonmember | Use `yoke connection set` or ask an org admin to add you |
+
+Outside sessions read, message and steer wherever their actor is authorized.
+Steering launches background CLI workers in each target project's registered
+folder on an authorized machine. Workers register there; the launcher keeps
+its scope. No interactive window opens. Workbench roster/session detail,
+ended history, `yoke sessions list` and board show **Outside any project**
+to owners and org readers. Machine pages list them; project filters omit them.
+
 ## Lifecycle and routing
 
 - Canonical human guide: `.yoke/docs/workflows/lifecycle.md`. Each item pins immutable `workflow_id` / `workflow_version_id`; that definition owns ordered stages, transitions, target-stage gates, policies, entry surfaces, and registered skill bindings.

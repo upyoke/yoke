@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any, Tuple
 
+from yoke_contracts.board.data import BoardDataError
 from yoke_contracts.public_ref import (
     format_item_ref,
     unresolved_item_ref,
@@ -76,7 +77,8 @@ def project_filter(scope: str, alias: str = "") -> Tuple[str, tuple[Any, ...]]:
         return _visible_ids_filter(_column(alias, "project_id"))
     col = _column(alias, "project_id")
     if str(scope).isdigit():
-        return f" AND {col} = %s", (int(scope),)
+        visible_sql, visible_params = _visible_ids_filter(col)
+        return f" AND {col} = %s{visible_sql}", (int(scope), *visible_params)
     visible_sql, visible_params = _visible_ids_filter("id")
     return (
         f" AND {col} = (SELECT id FROM projects WHERE slug = %s{visible_sql})",
@@ -86,7 +88,8 @@ def project_filter(scope: str, alias: str = "") -> Tuple[str, tuple[Any, ...]]:
 
 def project_ref_where(scope: str) -> Tuple[str, tuple[Any, ...]]:
     if str(scope).isdigit():
-        return "id = %s", (int(scope),)
+        visible_sql, visible_params = _visible_ids_filter("id")
+        return f"id = %s{visible_sql}", (int(scope), *visible_params)
     ids = visible_project_ids()
     if ids is not None:
         if not ids:
@@ -98,9 +101,14 @@ def project_ref_where(scope: str) -> Tuple[str, tuple[Any, ...]]:
 
 def scope_project_id(db: Any, scope: str | int) -> int:
     """Resolve a board scope (project slug or numeric id) to the project id."""
-    if isinstance(scope, int) or str(scope).isdigit():
-        return int(scope)
     ids = visible_project_ids()
+    if isinstance(scope, int) or str(scope).isdigit():
+        project_id = int(scope)
+        if ids is not None and project_id not in ids:
+            raise BoardDataError(
+                "project scope is unavailable; choose a readable project or all"
+            )
+        return project_id
     if ids is None:
         value = db.scalar("SELECT id FROM projects WHERE slug = %s", (str(scope),))
         if value is None:
@@ -115,7 +123,9 @@ def scope_project_id(db: Any, scope: str | int) -> int:
             (str(scope), *ids),
         )
     if not rows:
-        raise LookupError(f"project {scope!r} not found")
+        raise BoardDataError(
+            "project scope is unavailable; choose a readable project or all"
+        )
     if len(rows) > 1:
         raise LookupError(f"project {scope!r} is ambiguous")
     return int(rows[0][0])

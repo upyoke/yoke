@@ -5,8 +5,9 @@ owner, who runs every case it owes. Some cases can only be judged after real
 production traffic exists, such as "a real failed direct wake that a relay
 then claimed". Run at stage entry, they fail or prove nothing, so they declare
 ``wake_path: "manual"`` and a one-line ``wake_evidence`` naming the evidence a
-registered read can confirm first. The stage driver does not wake an owner for
-them; steering checks the evidence and wakes the owner when it exists.
+registered read can confirm first. The stage driver wakes the owner with one
+notice per open manual case that names the evidence: the owner checks it, runs
+the case if it exists, and otherwise asks the operator for a waiver.
 
 The method, runner and verdict path are unchanged: a manual case runs exactly
 like an automatic one once its owner is woken. The field mirrors
@@ -65,7 +66,7 @@ def validated_wake_path(value: Any, *, subject: str) -> str:
         raise WakePathError(
             f"{subject}: {WAKE_PATH_INVALID}: {declared!r} is not a wake path; "
             f"use {AUTOMATIC!r} (starts when its stage begins) or {MANUAL!r} "
-            "(starts only when steering wakes its owner)"
+            "(its owner is woken to check wake_evidence first)"
         )
     return declared
 

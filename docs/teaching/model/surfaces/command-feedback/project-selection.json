@@ -3,7 +3,7 @@
  "title": "Missing project selection names accessible choices; explicit authority and ambiguity refusals keep their real causes.",
  "status": "observed",
  "form": "Do",
- "verification": "Candidate scope and refusal tests include unknown QA capture IDs, which retain permission_denied without a project roster; serving release proof is pending.",
+ "verification": "Candidate scope and refusal tests include unknown QA capture IDs, which retain permission_denied without a project roster; serving release proof is pending. Session registration is not a selection case: a missing project registers the session in its organization, while an unknown project still refuses with recovery.",
  "topics": ["projects/identity", "reference/commands"],
- "sources": ["runtime/api/cli/test_projectless_operation_boundaries.py", "packages/yoke-core/src/yoke_core/domain/yoke_function_permissions.py"]
+ "sources": ["runtime/api/cli/test_projectless_operation_boundaries.py", "packages/yoke-core/src/yoke_core/domain/yoke_function_permissions.py", "runtime/api/domain/test_session_registration_scope.py"]
 }

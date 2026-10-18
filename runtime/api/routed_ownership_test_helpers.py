@@ -9,6 +9,8 @@ helper itself — so no event seeding is required.
 
 from __future__ import annotations
 
+from yoke_core.domain.item_refs_schema import ensure_item_refs_view
+
 import unittest
 from typing import Any, Optional
 
@@ -77,6 +79,10 @@ def apply_release_gap_schema() -> None:
             + EVENTS_SCHEMA
             + PATH_CLAIMS_SCHEMA,
         )
+        conn.execute(
+            "ALTER TABLE harness_sessions ADD COLUMN project_id INTEGER REFERENCES projects(id)"
+        )
+        ensure_item_refs_view(conn)
         from yoke_core.domain.workflow_registry import converge_builtin_workflows
         from yoke_core.domain.workflow_schema import ensure_workflow_schema
 
@@ -140,9 +146,9 @@ def register_live_session(
         "(session_id, executor, provider, model, reasoning_effort, execution_level, "
         " executor_version, machine_id, workspace, mode, offered_at, last_heartbeat, "
         " ended_at, offer_envelope, current_item_id, "
-        " current_item_set_at) "
+        " current_item_set_at, project_id) "
         f"VALUES ({p}, 'claude-code', 'anthropic', '{TEST_MODEL_ID}', "
-        f" 'medium', 'SENIOR', NULL, NULL, {p}, 'wait', {p}, {p}, NULL, NULL, {p}, {p})",
+        f" 'medium', 'SENIOR', NULL, NULL, {p}, 'wait', {p}, {p}, NULL, NULL, {p}, {p}, 1)",
         (
             session_id,
             WORKSPACE,

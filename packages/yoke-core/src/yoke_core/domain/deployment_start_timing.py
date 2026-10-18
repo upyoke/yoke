@@ -52,9 +52,9 @@ def timing_facts(*, run_id=None, source_sha=None, member_count=None):
             state["member_count"] = member_count
 
 
-def emit_records(records):
+def emit_records(records, *, stream=None):
     for record in records or ():
-        print(PREFIX + json.dumps(record, sort_keys=True), flush=True)
+        print(PREFIX + json.dumps(record, sort_keys=True), file=stream, flush=True)
 
 
 def _emit(step, phase, elapsed_ms=None, outcome=None, **facts):

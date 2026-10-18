@@ -137,6 +137,9 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
         "event_registry",
         "ouroboros_entries",
         "item_sections",
+        "applied_migrations",
+        "migration_audit",
+        "migration_content_adoptions",
         # The satisfier-ladder substrate: how a gate obligation was
         # actually discharged for an item, and the derived project
         # facts that pick the rung.

@@ -1,10 +1,12 @@
 {
  "id": "messages",
  "title": "Fleet messages",
- "status": "draft-copy",
+ "status": "observed",
  "surface_refs": ["global-hooks", "global-orientation", "project-hooks"],
  "commands": ["yoke messages ack", "yoke messages acknowledge", "yoke messages cancel", "yoke messages get", "yoke messages list", "yoke messages send", "yoke messages status", "yoke session-control message acknowledge", "yoke session-control message cancel", "yoke session-control message get", "yoke session-control message list", "yoke session-control message preview", "yoke session-control message send"],
  "functions": ["session_control.message.acknowledge", "session_control.message.cancel", "session_control.message.get", "session_control.message.lease", "session_control.message.list", "session_control.message.preview", "session_control.message.send"],
  "page": "messaging",
- "position": 1
+ "position": 1,
+ "summary": "Each message is one immutable envelope with separately owned recipient records. A project recipient belongs to its project; a recipient outside any project belongs to its organization, whatever the sender's scope, and mixed fanout carries both. Direct session selectors reach authorized organization sessions; project selectors never add them. Wake, receipts, history and read visibility use the recipient's own scope policy and never reveal hidden recipients. These are source behaviors; deployed proof is pending.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/session_message_recipient_scope.py", "packages/yoke-core/src/yoke_core/domain/session_message_visibility.py", "runtime/api/domain/test_org_scope_wake_consumers.py"]
 }

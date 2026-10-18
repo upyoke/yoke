@@ -20,8 +20,9 @@ Use ordinary registered item/claim/lifecycle/QA/delivery authority.
 
 `/yoke dash "spec"` files and executes; `/yoke dash PREFIX-N`
 resumes. The CLI `yoke dash "<title>" --stdin` files only, with the required
-execution-instruction attestation. Task is the merge-free/laneless alternative,
-not a way to remove a selected gate.
+execution-instruction attestation. Task is the merge-free/laneless alternative
+for projects without a code repository, not a way to remove a selected gate;
+it refuses code projects.
 
 ## Phase map
 

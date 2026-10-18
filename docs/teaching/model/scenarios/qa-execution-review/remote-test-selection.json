@@ -4,7 +4,7 @@
  "status": "observed",
  "audience": "agent",
  "when": "Before remote pytest iteration or the final review gate.",
- "need": "Targeted files/node IDs and bounded impacted selection support iteration. An unfiltered request covering every declared test root duplicates an available registered full CI gate and refuses before publication/dispatch. Follow the named attached requirement or its lookup for full verification; keep its native verdict. Empty effective keyword/marker expressions are unfiltered; nonempty filters and collection keep their routes.",
+ "need": "Targeted files/node IDs and bounded impacted selection support iteration. An unfiltered request covering every declared test root duplicates an available registered full CI gate and refuses before publication/dispatch. Follow the named attached requirement or its lookup for full verification; keep its native verdict. A conflicting landing PR with no covering run refuses before rebase: merge the base into the lane, resolve and commit, then let the normal gate publish the repaired head and rerun. An explicit expected SHA is checked before preparation; a clean gate rebase becomes the verified candidate and evidence retains the requested SHA. Empty effective keyword/marker expressions are unfiltered; nonempty filters and collection keep their routes.",
  "disclosure": "before action",
  "surface": "Wrapper help, routing refusal and verification rules",
  "review": "Source and fixture coverage only; post-deploy Command proof must exercise the candidate router with fake dispatch boundaries.",

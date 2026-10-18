@@ -28,6 +28,8 @@ def test_machine_desktop_access(args: list[str]) -> int:
             "Linux and Windows WSL reuse or start XFCE and report desktop_session=started/reused/restarted. "
             "RDP access ends an orphaned fixture desktop older than xrdp-sesman and starts a replacement; "
             "a connected RDP client must close before that repair. "
+            "Any second Linux viewer refuses linux_desktop_viewer_connected: close the open "
+            "'Yoke desktop: MACHINE' viewer (or let browser authorize finish), then retry. "
             "Windows desktop_user and desktop_port name the WSL user and loopback xrdp service. "
             "--view opens that same XFCE display in FreeRDP's visible SDL client, feeds the fixture "
             "password on stdin, and closes the SSH forward when the viewer closes; no password file. "

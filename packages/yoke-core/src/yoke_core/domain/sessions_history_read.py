@@ -39,11 +39,15 @@ RECENT_USAGE_FIELDS = (
     "session_id",
     "machine_id",
     "project_id",
+    "org_id",
+    "scope_kind",
     *USAGE_PROJECTION_FIELDS,
 )
 HISTORY_FIELDS = (
     "session_id",
     "project_id",
+    "org_id",
+    "scope_kind",
     "project",
     "focus",
     "recent_item",
@@ -78,6 +82,7 @@ def _actor_label() -> str:
 def _scope(
     conn: Any,
     project_ids: Optional[Collection[int]],
+    org_session_actor_id: int | None = None,
 ) -> tuple[list[str], list[Any]]:
     clauses = [ended_session_sql("s"), not_probe_session_sql("s")]
     params: list[Any] = []
@@ -89,6 +94,15 @@ def _scope(
         else:
             clauses.append(f"s.project_id IN ({', '.join(marker for _ in ids)})")
             params.extend(ids)
+    if org_session_actor_id is not None:
+        from yoke_core.domain.sessions_visible_roster import org_session_clause
+
+        org_clause, org_params = org_session_clause(conn, org_session_actor_id)
+        if project_ids is not None:
+            clauses[-1] = f"({clauses[-1]} OR {org_clause})"
+        else:
+            clauses.append(f"(s.project_id IS NOT NULL OR {org_clause})")
+        params.extend(org_params)
     return clauses, params
 
 
@@ -100,6 +114,7 @@ def read_ended_session_history(
     conn: Any,
     *,
     project_ids: Optional[Collection[int]],
+    org_session_actor_id: int | None = None,
     search: str = "",
     harnesses: Sequence[str] = (),
     machines: Sequence[str] = (),
@@ -108,7 +123,7 @@ def read_ended_session_history(
 ) -> dict[str, Any]:
     """Return one compact ended-history page within resolved project ids."""
     marker = placeholder(conn)
-    scope_clauses, scope_params = _scope(conn, project_ids)
+    scope_clauses, scope_params = _scope(conn, project_ids, org_session_actor_id)
     facets = _facet_rows(conn, scope_clauses, scope_params)
     clauses = list(scope_clauses)
     params = list(scope_params)
@@ -173,7 +188,7 @@ def read_ended_session_history(
     query_params.extend(params)
     query_params.append(limit + 1)
     rows = conn.execute(
-        "SELECT s.session_id, s.project_id, pr.slug AS project, "
+        "SELECT s.session_id, s.project_id, s.org_id, pr.slug AS project, "
         "fi.title AS recent_item_title, fi.project_sequence, "
         "fpr.public_item_prefix, s.actor_id, a.kind AS actor_kind, "
         + actor_label
@@ -204,6 +219,8 @@ def read_ended_session_history(
             {
                 "session_id": str(row["session_id"]),
                 "project_id": row.get("project_id"),
+                "org_id": row.get("org_id"),
+                "scope_kind": "org" if row.get("org_id") is not None else "project",
                 "project": row.get("project"),
                 "focus": row.get("recent_item_title") or row.get("project"),
                 "recent_item": recent_item,
@@ -250,6 +267,7 @@ def read_recent_session_usage_by_machine(
     conn: Any,
     *,
     project_ids: Optional[Collection[int]],
+    org_session_actor_id: int | None = None,
 ) -> dict[str, Any]:
     """Every session's full usage for the sessions a machine's 24-hour figures
     answer for, unpaginated, scoped to ``project_ids`` (every visible project
@@ -270,15 +288,8 @@ def read_recent_session_usage_by_machine(
     the same stamp the roster renders as when a session started.
     """
     marker = placeholder(conn)
-    clauses = [not_probe_session_sql("s"), "s.machine_id IS NOT NULL"]
-    params: list[Any] = []
-    if project_ids is not None:
-        ids = sorted({int(value) for value in project_ids})
-        if not ids:
-            clauses.append("1 = 0")
-        else:
-            clauses.append(f"s.project_id IN ({', '.join(marker for _ in ids)})")
-            params.extend(ids)
+    clauses, params = _scope(conn, project_ids, org_session_actor_id)
+    clauses[0] = "s.machine_id IS NOT NULL"
     cutoff = instant_parameter(conn, utc_now() - RECENT_USAGE_WINDOW)
     clauses.append(
         f"(({ended_session_sql('s')} AND {ended_at_sql('s')} >= {marker})"
@@ -287,7 +298,7 @@ def read_recent_session_usage_by_machine(
     params.extend([cutoff, cutoff])
     where = "WHERE " + " AND ".join(clauses)
     rows = conn.execute(
-        "SELECT s.session_id, s.machine_id, s.project_id, s.usage_totals, s.offered_at "
+        "SELECT s.session_id, s.machine_id, s.project_id, s.usage_totals, s.offered_at, s.org_id "
         "FROM harness_sessions s " + where,
         tuple(params),
     ).fetchall()
@@ -297,6 +308,10 @@ def read_recent_session_usage_by_machine(
             "session_id": str(row_value(raw, "session_id", 0)),
             "machine_id": str(row_value(raw, "machine_id", 1)),
             "project_id": row_value(raw, "project_id", 2),
+            "org_id": row_value(raw, "org_id", 5),
+            "scope_kind": "org"
+            if row_value(raw, "org_id", 5) is not None
+            else "project",
             **usage_fields(
                 dict(raw),
                 revision_from_schedule(schedule, row_value(raw, "offered_at", 4)),

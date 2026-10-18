@@ -59,6 +59,34 @@ renumbering unshipped migrations, regenerating files or updating consumer paths.
 Only a review FAIL or a real change to item scope or acceptance criteria moves
 a reviewed task back to implementing; lane freshness alone does not.
 
+When composition renumbers or combines permanent migrations, finish these
+facts in the same composition step, before integration simulation dispatch:
+- Keep each permanent module and map every old name/ordinal to its final
+  name/ordinal; retain the candidate's full commit and content digest.
+- Supply Migration Composition Evidence as defined in
+  [simulation-gate-criteria.md](simulation-gate-criteria.md). Read the old and
+  final names on each declared authoritative database; rehearsal receipts
+  live on the control plane holding the item. Keep those sources distinct.
+- Rehearse the final modules through the governed recipe in
+  [DB rules](../../../../.yoke/docs/agents/rules/databases.md), then
+  record final ordinals, old-to-final mapping, source commit/digests and the
+  accepted migration_audit ids in BOTH the item's spec rollout section and
+  its worktree plan through items.structured_field.section_upsert. Update
+  existing text that still names old ordinals; do not leave contradictory
+  rollout instructions beside an addendum. Read back both fields before
+  dispatch. Keep reviewed task status unless the conditions above apply.
+
+```text
+yoke items structured-field section-upsert PREFIX-N --field spec --section "Migration composition" --content-file SPEC_FACTS
+yoke items structured-field section-upsert PREFIX-N --field worktree_plan --section "Migration composition" --content-file PLAN_FACTS
+yoke items get PREFIX-N spec worktree_plan
+```
+
+Write the fact files first. Use the existing rollout heading when replacing
+stale rollout text; --help owns section-upsert variants. Missing ledger access
+or a final rehearsal receipt is missing evidence: preserve the composition,
+report the named access/rehearsal recovery and halt dispatch until supplied.
+
 FAIL below the configured attempt limit retains feedback, increments attempt,
 then uses pipeline status/chain counter writes and refreshes attempt baseline:
 

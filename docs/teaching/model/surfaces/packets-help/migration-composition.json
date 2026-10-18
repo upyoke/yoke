@@ -1,0 +1,9 @@
+{
+ "id": "migration-composition",
+ "title": "Read migration ledger, rehearsal and adoption facts before integration.",
+ "status": "observed",
+ "form": "Do",
+ "verification": "Source packet recipes and schema facts cover old and final names; deployed delivery is not yet proven.",
+ "topics": ["context/packets/live-schema-and-command-facts", "databases/model/python-migration-runner", "planning/change/simulate-integration"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/schema_api_context_commands_migrations.py", "packages/yoke-core/src/yoke_core/domain/schema_api_context_tables_migrations.py"]
+}

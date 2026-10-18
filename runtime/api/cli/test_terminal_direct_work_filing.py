@@ -12,6 +12,7 @@ from runtime.api.backlog_mutations_test_helpers import (
     _patch_externals,
     tmp_db,  # noqa: F401 — re-exported pytest fixture
 )
+from runtime.api.cli.test_task_code_project_refusal import remove_code_repository
 from yoke_cli.commands.adapters import dash_file, task
 from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 from yoke_core.domain import backlog_create_op
@@ -40,6 +41,8 @@ def test_direct_work_filing_without_harness_session(
     for name in AMBIENT_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
     monkeypatch.delenv("YOKE_ACTOR_ID", raising=False)
+    if workflow == "task":
+        remove_code_repository(tmp_db)
     real_resolver = backlog_create_op.resolve_item_source_actor
 
     with (

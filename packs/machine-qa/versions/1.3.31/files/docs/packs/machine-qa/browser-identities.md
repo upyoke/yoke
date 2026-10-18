@@ -21,8 +21,9 @@ complete per-OS procedures:
 
 Agents do every step that does not need the user; personal credentials are
 entered by the user, and only for the sites the check reports expired. Profile
-data stays on the host. Tests use agent captures; human viewing serves only a
-requested, announced personal sign-in handoff, never a test acceptance check.
+data stays on the host. Use the saved human session for native harness login.
+Tests use agent captures; human viewing serves only a requested, announced
+personal sign-in handoff, never a test acceptance check.
 
 ## Desktop browser checks
 

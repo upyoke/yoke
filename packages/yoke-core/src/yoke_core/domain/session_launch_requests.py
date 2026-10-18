@@ -176,59 +176,6 @@ def create_launch(
         raise
 
 
-def cancel_launch(
-    conn: Any,
-    *,
-    launch_id: str,
-    auth: LaunchAuthorization,
-    now: datetime | str | None = None,
-) -> LaunchRecord:
-    current = utc_now() if now is None else parse_instant(now)
-    begin_mutation(conn)
-    try:
-        launch = get_launch(conn, launch_id, for_update=True)
-        if (
-            auth.actor_id != launch.requester_actor_id
-            and not auth.can_administer_project
-        ):
-            raise SessionLaunchError(
-                "permission_denied",
-                "only the requester or project admin may cancel",
-            )
-        if launch.state == "cancelled":
-            conn.commit()
-            return launch
-        if launch.state == "succeeded":
-            raise SessionLaunchError(
-                "invalid_state", "a succeeded launch cannot be cancelled"
-            )
-        if launch.state in {"launching", "outcome_unknown"}:
-            result = update_launch(
-                conn,
-                launch_id,
-                delivery_changed_at=current,
-                state="outcome_unknown",
-                result_code="cancellation_requires_reconciliation",
-            )
-        else:
-            result = update_launch(
-                conn,
-                launch_id,
-                state="cancelled",
-                completed_at=current,
-                result_code=(
-                    "cancelled_after_native_create"
-                    if launch.native_session_id
-                    else "cancelled"
-                ),
-            )
-        conn.commit()
-        return result
-    except Exception:
-        conn.rollback()
-        raise
-
-
 def retry_launch(
     conn: Any,
     *,
@@ -332,4 +279,4 @@ def retry_launch(
         raise
 
 
-__all__ = ["cancel_launch", "create_launch", "preview_launch", "retry_launch"]
+__all__ = ["create_launch", "preview_launch", "retry_launch"]

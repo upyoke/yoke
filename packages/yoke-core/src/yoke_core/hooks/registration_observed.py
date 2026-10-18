@@ -25,6 +25,7 @@ class HookRegistrationFacts:
     #: payload. Present only while that launch is still undelivered; a
     #: session nobody launched carries none.
     launch_id: str = ""
+    #: An absent project registers under this authority's organization.
     project_id: Optional[int] = None
     transcript_path: str = ""
     #: The harness workspace the session opened, from the first path the

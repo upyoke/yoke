@@ -16,6 +16,12 @@ import {
   settledScopedCalls,
 } from "./universe_view_support.js";
 
+export function sessionScopeLabel(row) {
+  if (row.project_id == null && (row.org_id != null || row.scope_kind === "org")) {
+    return "Outside any project";
+  }
+  return String(row.project || "—");
+}
 
 export function renderRegisteredSessionDetail(
   context,

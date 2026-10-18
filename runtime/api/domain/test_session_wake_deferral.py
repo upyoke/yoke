@@ -320,9 +320,7 @@ def test_a_late_deferral_leaves_a_newer_attempt_alone() -> None:
 
 def _connection_at(path) -> sqlite3.Connection:
     """Re-seed the shared relay fixture into a file the threads can share."""
-    from runtime.api.domain.session_launch_test_support import relay_connection
-
-    memory = relay_connection()
+    memory = _connection()
     disk = sqlite3.connect(path, timeout=5, check_same_thread=False)
     memory.backup(disk)
     memory.close()

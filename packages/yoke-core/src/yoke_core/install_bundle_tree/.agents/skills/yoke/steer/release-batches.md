@@ -99,17 +99,17 @@ same pinned run after notice without replaying passing stages.
 
 ### Manual-wake member QA
 
-A requirement with `wake_path: manual` is never woken at stage entry; the
-member's owner stays unwoken until you wake it. Each release/QA loop pass,
-read the report's "waiting on manual wake" section. For each row:
+For each open `wake_path: manual` requirement the stage driver wakes the
+member's owner (or, with no live holder, this steering seat) with a notice
+naming its `wake_evidence`: check it with registered reads (`yoke
+deployment-runs get`, `yoke qa requirement list`, `yoke db read`), run the
+member's cases if it exists, otherwise ask the operator to waive or remove the
+case. Each release/QA loop pass, read the report's "waiting on manual wake"
+section; the member's line shows its wake state.
 
-1. Check whether its `wake_evidence` exists with registered reads
-   (`yoke deployment-runs get`, `yoke qa requirement list`, `yoke db read`).
-   Never wake on time passed or a guess.
-2. Evidence exists: run the row's printed `wake:` command, which sends the
-   owner `yoke qa plan run` for that stage and member through `yoke say
-   --item`. A row naming no live holder needs staffing first.
-3. This run cannot produce the evidence: ask the operator one decision,
+1. A notice that reached you: do the owner's check yourself, or staff the
+   item. Never run the case on time passed or a guess.
+2. This run cannot produce the evidence: ask the operator one decision,
    waive or remove the case, with the run, requirement and evidence named.
    Never waive it yourself.
 

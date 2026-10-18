@@ -119,7 +119,7 @@ episode flag; inherited claims remain visible. Do not universalize Claude's
 transient-signal facts into other harness policy without manifest/source evidence.
 
 Measured clean declared-wait exit immediately qualifies pending mail's same
-native identity resume, including orphan open call; newer activity supersedes.
+native identity resume, including orphan open call; a park stamped after an open call also retires it; newer activity supersedes.
 A stale recipient whose surface declares no message_idle route uses
 message_stopped through the existing waiting wake mode, even if its recorded
 turn posture is running. Active calls, version floors and operator-only

@@ -126,7 +126,7 @@ stage entry, they fail or prove nothing. Give such a case
 | `wake_path` | Starts |
 |---|---|
 | `automatic` (default) | When its stage begins: the stage driver wakes the member's owner |
-| `manual` | Only when steering wakes the owner, after confirming `wake_evidence` |
+| `manual` | Once its owner confirms `wake_evidence`: the stage driver wakes the owner to check it |
 
 Write `wake_evidence` as the evidence itself, as something a registered read
 can confirm (`yoke deployment-runs get`, `yoke db read`, `yoke qa requirement
@@ -137,11 +137,15 @@ automatic case refuses `wake_evidence_without_manual_wake`; an unknown path
 refuses `wake_path_invalid`; more than one line or 300 characters refuses
 `wake_evidence_not_one_line`.
 
-The stage driver does not wake a member's owner while one of its manual cases
-is open, because one stage execution runs the member's whole roster: its
-automatic cases wait with it. The steering fleet report lists each open one
-under "waiting on manual wake" with its run, item, requirement, case,
-evidence, owner and wake command. To mark an already materialized requirement,
+While one of a member's manual cases is open, the stage driver sends its
+owner one notice per open manual case instead of the ordinary stage wake,
+because one stage execution runs the member's whole roster. The notice names
+the evidence: check it with a registered read, run the member's cases if it
+exists, otherwise ask the operator through `yoke say --steering` to waive or
+remove the case. A parked holder is woken; a member with no live holder
+reaches the project's steering seat. The steering fleet report lists each open
+one under "waiting on manual wake" with its run, item, requirement, case,
+evidence, owner and run command. To mark an already materialized requirement,
 set the evidence first, then the path:
 
 ```text

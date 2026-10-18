@@ -9,13 +9,13 @@ from typing import Optional
 from pydantic import BaseModel
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
-from yoke_core.domain.handlers.deployment_common import (
-    error,
-    require_global,
-)
+from yoke_core.domain.handlers.deployment_common import error, require_global
 from yoke_core.domain import deployment_run_create_idempotency as idempotency
 from yoke_core.domain.deployment_run_retry_membership import (
     candidate_mismatch_refusal,
+)
+from yoke_core.domain.deployment_run_carried_work_source import (
+    CarriedWorkSourceUnavailable,
 )
 from yoke_core.domain.deployment_run_target_takeover import TakeoverRefused
 from yoke_core.domain.deployment_run_target_resolution import (
@@ -259,6 +259,8 @@ def handle_deployment_run_create(
         return error("not_found", str(exc), jsonpath="$.payload")
     except TakeoverRefused as exc:
         return error(exc.code, str(exc), jsonpath="$.payload")
+    except CarriedWorkSourceUnavailable as exc:
+        return error(exc.reason, f"{exc.reason}: {exc.recovery}", jsonpath="$.payload")
     except ValueError as exc:
         return error("run_create_rejected", str(exc), jsonpath="$.payload")
 

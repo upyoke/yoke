@@ -11,6 +11,7 @@ from runtime.api.backlog_mutations_test_helpers import (
     _patch_externals,
     tmp_db,  # noqa: F401
 )
+from runtime.api.cli.test_task_code_project_refusal import remove_code_repository
 from runtime.api.test_items_create_function import _request
 from yoke_core.domain.handlers.items_create import handle_item_create
 from yoke_core.domain.items import query_item
@@ -19,6 +20,8 @@ from yoke_core.domain.items import query_item
 @pytest.mark.parametrize("workflow", ["issue", "epic", "dash", "task", "blitz"])
 def test_spec_is_stored_in_the_create_transaction(tmp_db, workflow):  # noqa: F811
     spec = "First paragraph with `ticks` and $(literal).\n\nSecond paragraph.\n"
+    if workflow == "task":
+        remove_code_repository(tmp_db)
     with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
         outcome = handle_item_create(
             _request(

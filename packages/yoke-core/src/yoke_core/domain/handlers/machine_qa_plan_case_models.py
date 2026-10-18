@@ -76,12 +76,17 @@ class AgentMissionAccessRequest(BaseModel):
 
     execution_id: str = Field(min_length=1)
     requirement_id: int = Field(ge=1)
+    cleanup: Literal["begin", "finish"] | None = None
+    lease_id: int | None = Field(default=None, ge=1)
+    run_id: int | None = Field(default=None, ge=1)
+    restore: dict[str, Any] | None = None
 
 
 class AgentMissionAccessResponse(BaseModel):
     execution_id: str
     requirement_id: int
-    execution: HostControlExecutionContract
+    execution: HostControlExecutionContract | None = None
+    cleanup_lease: bool = False
 
 
 __all__ = [

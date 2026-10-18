@@ -127,6 +127,14 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "request the registered readiness read resolved",
     ),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/merge_worktree_local_runtime.py",
+        "yoke_core.engines.merge_worktree",
+    ): (
+        "client_local_execution",
+        "run lane merge mechanics in the child that binds machine GitHub "
+        "user authority",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/merge_item_local_runtime.py",
         "yoke_core.domain.project_github_auth",
     ): (

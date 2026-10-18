@@ -70,10 +70,10 @@ def validate_plan(plan: RepairPlan, reviewed_sha256: str):
             "The review digest does not match this repair document; review the current document and compute its digest.",
         )
     stmt = validate_sql(plan.sql, plan.table, plan.key_columns)
-    if "item_id" in plan.key_columns and "public_ref" in stmt.changed_columns:
+    if set(snapshot_keys(plan)) & set(stmt.changed_columns):
         raise RepairRefusal(
             "repair_key_mutation",
-            "public_ref identifies an immutable item key; change only non-key columns.",
+            "Public references identify immutable item keys; change only non-key columns.",
         )
     keys = snapshot_keys(plan)
     columns = sorted(plan.before[0])
@@ -82,7 +82,7 @@ def validate_plan(plan: RepairPlan, reviewed_sha256: str):
     ):
         raise RepairRefusal(
             "repair_snapshot_incomplete",
-            "Snapshots must include every primary key and assigned column; use public_ref (PREFIX-N) for the item_id key.",
+            "Snapshots must include every primary key and assigned column; use public_ref for item_id, <role>_public_ref for <role>_item_id, and epic_public_ref for epic_id (PREFIX-N values).",
         )
     for column in columns:
         identifier(column)

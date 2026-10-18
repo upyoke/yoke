@@ -118,3 +118,19 @@ def test_other_sources_leave_stdin_untouched(tmp_path, executor):
 def test_missing_rollout_stamps_nothing(tmp_path):
     stdin = _stdin(str(tmp_path / "absent.jsonl"), EDIT_COMMAND)
     assert stamp_command_workdir(stdin, "codex") == stdin
+
+
+def test_code_mode_inner_item_id_falls_back_to_the_exact_command(tmp_path):
+    transcript = _rollout(tmp_path, EXEC_INPUT)
+    stdin = json.loads(_stdin(transcript, EDIT_COMMAND))
+    stdin["tool_use_id"] = "item_inner_exec_command_1"
+    stamped = json.loads(stamp_command_workdir(json.dumps(stdin), "codex"))
+    assert stamped["tool_input"]["workdir"] == LANE
+
+
+def test_code_mode_fallback_never_borrows_a_neighbour_workdir(tmp_path):
+    transcript = _rollout(tmp_path, 'tools.exec_command({cmd:"ls",workdir:"/lane"})')
+    stdin = json.loads(_stdin(transcript, "pwd"))
+    stdin["tool_use_id"] = "item_inner_exec_command_1"
+    raw = json.dumps(stdin)
+    assert stamp_command_workdir(raw, "codex") == raw

@@ -26,6 +26,7 @@ from typing import Any, Callable, Iterator, Mapping
 from yoke_cli.config import machine_config
 from yoke_contracts.process_ancestry import process_start_time
 from yoke_harness.session_process_custody import custody_state
+from yoke_harness.session_relay_record_pruning import prune_dead_session_records
 from yoke_contracts.session_identity import ANCHORS_DIR_NAME
 from yoke_harness.cursor_native_result_usage import (
     fold_launch_native_result,
@@ -271,19 +272,6 @@ def native_account(launch_id: str, *, state_dir: Path | None) -> dict[str, Any]:
     return account
 
 
-def _prune(dead: tuple[VerifiedDeadSession, ...]) -> None:
-    """Remove the spent records; a dead pid can never be reached again."""
-    for entry in dead:
-        for path in entry.record_paths:
-            try:
-                record = read_local_record(path)
-                if record is None or custody_state(record) != "gone":
-                    continue
-                path.unlink(missing_ok=True)
-            except OSError:
-                continue
-
-
 def report_verified_dead_sessions(
     dispatcher: Callable[..., Any],
     inventory: Any,
@@ -333,7 +321,11 @@ def report_verified_dead_sessions(
         ended = [str(session_id) for session_id in result.get("ended") or []]
         ended_ids.extend(ended)
         prune_ids.update(prunable_session_ids(result, ended))
-    _prune(tuple(entry for entry in dead if entry.session_id in prune_ids))
+    prune_dead_session_records(
+        (entry for entry in dead if entry.session_id in prune_ids),
+        start_time_of=start_time_of,
+        custody_state_of=custody_state,
+    )
     return tuple(ended_ids)
 
 

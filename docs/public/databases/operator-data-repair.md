@@ -51,14 +51,14 @@ use the credential capability's own command for those values.
 
 ### Item references
 
-A column whose name ends in `item_id` and stores an `items.id` value is an
-item reference. A foreign key to `items.id` qualifies. So does an `item_id`
+A column named `item_id`, `<role>_item_id`, or `epic_id` that stores an
+`items.id` value is an item reference. A foreign key to `items.id` qualifies. So does an `item_id`
 column with no foreign key, which is how several tables store the id. A
 foreign key to any other table does not qualify.
 
 Use the public name in snapshots and in SQL. `item_id` is `public_ref`.
 `<prefix>_item_id` is `<prefix>_public_ref`, so `deployment_member_item_id`
-is `deployment_member_public_ref`. Keep a physical primary-key column in
+is `deployment_member_public_ref`; `epic_id` is `epic_public_ref`. Keep a physical primary-key column in
 `key_columns`. The server resolves each reference through `item_refs` within
 the document's project.
 

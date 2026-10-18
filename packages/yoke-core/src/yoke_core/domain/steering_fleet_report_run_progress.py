@@ -189,8 +189,6 @@ def _run_row(
         item_ids=waiting,
         project_slug=project_slug,
     )
-    for entry in manual:
-        wakes[entry.item_id] = "held for manual wake (see waiting on manual wake)"
     member_lines: tuple[str, ...] = ()
     if qa is not None:
         unresolved, member_lines = _stage_lines(conn, qa, wakes)

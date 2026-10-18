@@ -1,7 +1,7 @@
 {
  "id": "headed-authorization",
- "title": "Headed authorization",
- "status": "draft-copy",
+ "title": "Headed authorization: explicit declared identity, native-only machine checks, and one Linux viewer",
+ "status": "observed",
  "page": "browser-qa",
  "position": 3
 }

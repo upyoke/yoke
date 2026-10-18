@@ -94,7 +94,7 @@ permanent desktop tools must remain baseline.
 | Refusal | Required recovery |
 | --- | --- |
 | `linux_desktop_stop_not_proved` | Repair termination of the named fixture desktop, then retry; other users are excluded |
-| `test_machine_sign_in_newer_than_baseline` | The named login changed after the seal and fails its request. Follow `probe_reason`: quota needs provider capacity, auth needs sign-in. Retry proof after recovery; a verified login can be carried forward, then saved with `yoke test-machine golden-capture` |
+| `test_machine_sign_in_newer_than_baseline` | The named login changed after the seal and fails its request. Follow `probe_reason`: quota needs provider capacity, auth needs sign-in. Retry proof after recovery; a verified login can be carried forward, kept live without recapturing the golden |
 | `test_machine_sign_in_app_quit_not_proved` | Close every Chromium window on the fixture desktop, answering its prompts, then retry; `reason` names the helper's own refusal |
 | `linux_sign_in_store_unsafe` | Make the named login path a regular file owned by the test user, or recapture a golden whose copy of it is a regular file |
 | `linux_home_writers_stop_not_proved` | Stop the named test-home writer through its owner, then retry the sealed baseline |
@@ -106,6 +106,6 @@ A timeout may leave unregistered archive/manifest or a partly restored home.
 Inspect only the named destination/capture temporary paths after remote exit;
 use a new capture destination or retry the existing sealed restore. Never use
 an unsealed archive or edit its manifest to force acceptance. Expired sign-in
-requires operator login, then `yoke test-machine golden-capture`, which proves
-the real request and seals a new clean golden. A successful save alone is not a
+requires operator login and a passing real request; keep it live without recapture.
+[Live-state recovery](linux-live-state.md) owns installations, exclusions and repair. A successful save alone is not a
 proved roundtrip.

@@ -181,6 +181,18 @@ declaring the `merge_queue` capability, the gate runs steps 1-3 as:
    verdict — an entry run cancelled by the workflow's concurrency group
    when the next push superseded it, for instance.
 
+Before rebasing an unexamined head, the gate checks its open landing PR.
+`qa_ci_pull_request_conflicting` means that PR is `CONFLICTING`/`DIRTY` and
+GitHub cannot create the merge ref needed for its entry run. Merge the base
+branch into the lane, resolve and commit the conflicts, then rerun the gate
+to publish the repaired head. A PR still reporting the old remote head's
+conflict does not block publication of the repaired local head.
+
+`--expected-sha` binds the caller's initial commit and is checked before
+preparation. If the gate cleanly rebases that commit, the rebased HEAD is
+the candidate it publishes and records; evidence retains `requested_sha`.
+The branch and selected-lane checks still apply after preparation.
+
 The merge queue's `merge_group` train run then applies the same tree-oid
 reuse probe as a main push: a solo item rebased onto the base builds a
 candidate tree byte-identical to its entry tree, so the train self-skips

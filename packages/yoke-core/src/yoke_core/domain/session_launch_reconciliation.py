@@ -150,11 +150,7 @@ def reconcile_launch(
                 )
             conn.commit()
             return launch
-        reconcilable = launch.state in {"outcome_unknown", "failed"} or (
-            launch.state == "cancelled"
-            and launch.result_code == "cancelled_after_native_create"
-        )
-        if not reconcilable:
+        if launch.state not in {"outcome_unknown", "failed"}:
             raise SessionLaunchError(
                 "invalid_state",
                 f"launch in state {launch.state!r} is not reconcilable",

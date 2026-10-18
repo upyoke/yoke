@@ -1,9 +1,10 @@
-"""Manual-wake item QA waits for steering, not for its stage to begin.
+"""Manual-wake item QA wakes its owner to check evidence first.
 
 A member whose open requirement says ``wake_path: manual`` is still waited on
-by its stage, but the stage driver leaves its owner unwoken. The steering
-report lists the requirement with its evidence, its owner, and the exact wake
-command, and the row leaves the list once the owner's run is recorded.
+by its stage, and the stage driver wakes its owner once per open manual
+requirement instead of with the ordinary stage wake. The steering report lists
+the requirement with its evidence, its owner, and the member's run command,
+and the row leaves the list once the owner's run is recorded.
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ from yoke_core.domain import deployment_qa_stage_dispatch as dispatch_mod
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.deployment_qa_manual_wake import (
     NO_OWNER,
-    member_holds_for_manual_wake,
+    manual_wake_requirements,
 )
 from yoke_core.domain.deployment_qa_stage_dispatch import (
     materialize_and_gate_deployment_qa_stage,
@@ -82,7 +83,7 @@ def _record_run(conn: Any, requirement_id: int, verdict: str = "pass") -> None:
     conn.commit()
 
 
-def _drive(conn: Any, run_id: str) -> tuple[int, str, mock.Mock]:
+def _drive(conn: Any, run_id: str) -> tuple[int, str, mock.Mock, mock.Mock]:
     with (
         mock.patch(
             "yoke_core.domain.deployment_qa_stage_gate.deployment_qa_stage_status",
@@ -91,15 +92,18 @@ def _drive(conn: Any, run_id: str) -> tuple[int, str, mock.Mock]:
         mock.patch.object(
             dispatch_mod, "notify_item_scoped_qa_wait", return_value="delivered"
         ) as notify,
+        mock.patch.object(
+            dispatch_mod, "wake_manual_requirement_owners", return_value=[]
+        ) as manual,
     ):
         rc, diag = materialize_and_gate_deployment_qa_stage(
             conn, {"name": "item-qa", "scope": "item"}, run_id=run_id
         )
-    return rc, diag, notify
+    return rc, diag, notify, manual
 
 
-def test_stage_entry_does_not_wake_an_owner_holding_a_manual_case(
-    test_db: Any, capsys: Any
+def test_stage_entry_sends_the_manual_wake_instead_of_the_stage_wake(
+    test_db: Any,
 ) -> None:
     _run(test_db, "run-manual-1")
     _member(test_db, "run-manual-1", 9701)
@@ -111,14 +115,15 @@ def test_stage_entry_does_not_wake_an_owner_holding_a_manual_case(
         wake_path="manual",
     )
 
-    rc, diag, notify = _drive(test_db, "run-manual-1")
+    rc, diag, notify, manual = _drive(test_db, "run-manual-1")
 
     assert rc == -4, "the manual case still blocks the stage"
     assert "awaiting agent verdict" in diag
     notify.assert_not_called()
-    assert (
-        "holding for manual wake; steering wakes its owner" in capsys.readouterr().out
-    )
+    manual.assert_called_once()
+    (entry,) = manual.call_args.args[1]
+    assert (entry.item_id, entry.requirement_id) == (9701, 97011)
+    assert manual.call_args.kwargs["project_id"] == 1
 
 
 def test_automatic_and_settled_manual_cases_wake_the_owner_normally(
@@ -144,10 +149,11 @@ def test_automatic_and_settled_manual_cases_wake_the_owner_normally(
     # Steering woke the owner and its run is recorded: no longer held.
     _record_run(test_db, 97031, verdict="fail")
 
-    _rc, _diag, notify = _drive(test_db, "run-manual-2")
+    _rc, _diag, notify, manual = _drive(test_db, "run-manual-2")
 
     woken = sorted(call.kwargs["item_id"] for call in notify.call_args_list)
     assert woken == [9702, 9703]
+    manual.assert_not_called()
 
 
 def test_waived_or_other_stage_manual_cases_do_not_hold(test_db: Any) -> None:
@@ -173,8 +179,15 @@ def test_waived_or_other_stage_manual_cases_do_not_hold(test_db: Any) -> None:
     )
     test_db.commit()
 
-    assert not member_holds_for_manual_wake(
-        test_db, run_id="run-manual-3", stage_name="item-qa", member_item_id=9704
+    assert (
+        manual_wake_requirements(
+            test_db,
+            run_id="run-manual-3",
+            stage_name="item-qa",
+            item_ids=(9704,),
+            project_slug="yoke",
+        )
+        == ()
     )
 
 
@@ -204,7 +217,7 @@ def _report_run(test_db: Any) -> Any:
     return conn
 
 
-def test_report_lists_the_manual_wake_with_evidence_owner_and_command(
+def test_report_lists_the_manual_wake_with_evidence_owner_and_run(
     test_db: Any,
 ) -> None:
     conn = _report_run(test_db)
@@ -235,14 +248,15 @@ def test_report_lists_the_manual_wake_with_evidence_owner_and_command(
     assert "waiting on manual wake" in body
     assert f"{RUN_ID}  {ref}  requirement #9801 case real-traffic" in body
     assert f"evidence: {EVIDENCE}" in body
-    assert f"| yoke say --stdin --item {ref}" in wake.wake_command()
-    assert (
+    run_command = (
         f"yoke qa plan run --deployment-run-id {RUN_ID} --stage {ITEM_QA_STAGE} "
         f"--member {ref} --project yoke"
-    ) in wake.wake_command()
-    assert f"member {ref}: " in body and "held for manual wake" in body
+    )
+    assert wake.run_command() == run_command
+    assert f"run: {run_command}" in body
+    assert "each owner was woken to check its evidence" in body
     projected = report_dict(report)
-    assert "9801" in str(projected) and "wake_command" in str(projected)
+    assert "9801" in str(projected) and "run_command" in str(projected)
 
 
 def test_report_row_names_a_missing_owner_and_leaves_once_run(test_db: Any) -> None:

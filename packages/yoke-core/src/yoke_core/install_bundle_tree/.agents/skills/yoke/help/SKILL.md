@@ -88,7 +88,8 @@ LOCAL TERMINAL HELPERS
  yoke dev setup [CHECKOUT]
   Explicit Yoke source-dev/admin setup.
  yoke dash TITLE SPEC / yoke task TITLE SPEC
-  File direct work; Task is laneless and merge-free.
+  File direct work; Task is laneless and merge-free, and refuses projects
+  with a code repository: code project work -> yoke dash.
  /yoke idea --workflow issue|epic|blitz|task {title}
   Select the filing workflow; `/yoke blitz` executes document-led work.
  yoke items freeze PREFIX-N / yoke items thaw PREFIX-N

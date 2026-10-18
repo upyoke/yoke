@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import re
+from datetime import datetime
 from typing import List, Optional, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
@@ -32,7 +33,7 @@ def _parse_extra_stopwords(raw: str) -> frozenset:
 def _labels_for_window(
     db: BoardDBLike,
     project: str,
-    window_start: str,
+    window_start: datetime,
     label_days: int,
     df_cap_pct: int,
     extra_stops: frozenset,
@@ -93,7 +94,7 @@ def _labels_for_window(
 def _zen_compute_labels(
     db: BoardDBLike,
     project: str,
-    window_start: str,
+    window_start: datetime,
     label_days: int = 0,
     df_cap_pct: int = 0,
     extra_stops: frozenset = frozenset(),

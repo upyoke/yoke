@@ -1,7 +1,11 @@
 {
  "id": "ownership",
  "title": "Session work",
- "status": "draft-copy",
+ "status": "observed",
+ "commands": ["yoke claims work acquire"],
+ "functions": ["claims.work.acquire"],
  "page": "sessions",
- "position": 2
+ "position": 2,
+ "summary": "Item and epic-task claims are work: only a session registered in the item's project, running from its mapped folder, may claim them. Other attempts write nothing and name the folder to open or the checkout registration recovery. Process, steering and coordination holds keep their own target authorization. Source behavior; deployed proof is pending.",
+ "sources": ["docs/public/agents/rules/lanes-and-claims.md", "packages/yoke-core/src/yoke_core/domain/session_work_eligibility.py", "runtime/api/cli/test_claims_work_folder_guard.py"]
 }

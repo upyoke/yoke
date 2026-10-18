@@ -57,6 +57,18 @@ fixture desktop, waits for its X socket to disappear, then starts a replacement.
 A connected RDP client blocks this repair; close it and rerun desktop access.
 GUI commands continue using their existing display without this access repair.
 
+Only one RDP viewer may connect to a Linux fixture at a time. A second viewer
+refuses `linux_desktop_viewer_connected`; close the open `Yoke desktop: NAME`
+viewer or let `browser authorize` finish before retrying. GUI commands may reuse
+the display while its existing viewer is connected.
+
+Reset asks native Chromium's main process to quit gracefully, allowing it to
+flush live sign-ins. Chromium may flatten process arguments in `/proc`; process
+discovery still excludes renderer, zygote and crash-handler children. Killing
+those children alongside the browser can leave its profile marked crashed.
+Keep browser sign-ins live, never golden-capture or wipe them, and require the
+fresh request's exact approval tab. An older restored tab is never approval proof.
+
 To sign a browser identity in, run `yoke browser authorize --project P
 --identity NAME --machine MACHINE` from the connected workstation. It reads
 the project's declarations, opens this FreeRDP viewer when the machine has a

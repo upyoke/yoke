@@ -157,13 +157,12 @@ in the dedicated test context; require `skipDangerousModePermissionPrompt=true`
 before saving. It is signed-in home state restored from the golden, not a
 permission to bypass unrelated product safeguards.
 
-Save every completed harness sign-in at once with
-`yoke test-machine golden-capture` (step 6): it proves each harness's real
-request and recaptures the baseline. Desktop Chromium sign-ins must stay live
-outside the golden. Chromium quits to flush its state before preservation;
-its existing `~/snap/chromium/common/chromium` store is preserved only when
-present and must never be restored from an older golden. Require the separate
-reset and browser sign-in proof in the [baseline procedure](linux-baseline-recovery.md).
+Keep every harness installation and sign-in live outside the golden; follow
+[Linux live-state preservation and reset recovery](linux-live-state.md).
+Require all three real requests before reset. Chromium quits to flush its
+state; preserve its existing `~/snap/chromium/common/chromium` store only when
+present, never an older golden copy. Require separate reset and browser
+sign-in proof in the [baseline procedure](linux-baseline-recovery.md).
 
 ## 4. Durable desktop and unattended sessions
 

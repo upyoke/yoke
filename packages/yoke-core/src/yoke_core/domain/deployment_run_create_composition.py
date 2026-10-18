@@ -110,7 +110,13 @@ def compose_run(
     copy a retry's membership, enroll *enroll_item_id*, and validate
     composition. Everything shares the caller's transaction, so a refusal at
     any step leaves no run, membership or takeover behind."""
-    from yoke_core.domain.deployment_run_target_takeover import take_over_waiting_run
+    from yoke_core.domain.deployment_run_target_takeover import (
+        take_over_waiting_run,
+        takeover_will_succeed,
+    )
+    from yoke_core.domain.deployment_run_carried_work import (
+        prospective_previous_release,
+    )
     from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
     from yoke_core.domain.deployment_start_timing import timed_preparation
     from yoke_core.domain.workflow_item_binding_lock import (
@@ -144,31 +150,37 @@ def compose_run(
         # bound branches here would let a retry ship a consumer revision
         # the run it retries never carried.
         copy_bound_sources(conn, inherit_members_from, run_id)
-    timed_preparation(
+    unlocked = run_id.startswith(UNLOCKED_RUN_PREFIX)
+    taken_over = timed_preparation(
         "create_takeover",
         take_over_waiting_run,
         conn,
         run_id,
         session_id=session_id,
         actor_id=actor_id,
-        apply=not run_id.startswith(UNLOCKED_RUN_PREFIX),
+        apply=not unlocked,
     )
-    if enroll_item_id is not None:
-        enroll_creating_item(conn, run_id, int(enroll_item_id))
     # The row and any inherited members are provisional until the same
     # validator used by the explicit command has checked the pinned
     # sources, carried work, member flows, and dependencies. A refusal
     # rolls back the row, so it consumes no run ID.
-    return timed_preparation(
-        "create_validation",
-        cmd_validate_composition,
-        run_id,
-        allow_pending_pair_merges=allow_pending_pair_merges,
-        connection=conn,
-        # An itemless create precedes add-item and start checks the count;
-        # an item-bound create enrolled its item above.
-        require_item_qa_members=enroll_item_id is not None,
+    previous = (
+        taken_over
+        if unlocked and taken_over and takeover_will_succeed(conn, taken_over)
+        else None
     )
+    with prospective_previous_release(conn, run_id, previous):
+        if enroll_item_id is not None:
+            enroll_creating_item(conn, run_id, int(enroll_item_id))
+        return timed_preparation(
+            "create_validation",
+            cmd_validate_composition,
+            run_id,
+            allow_pending_pair_merges=allow_pending_pair_merges,
+            connection=conn,
+            # An itemless create precedes add-item and start checks the count.
+            require_item_qa_members=enroll_item_id is not None,
+        )
 
 
 def validate_before_lock(
@@ -186,8 +198,9 @@ def validate_before_lock(
     the transaction back: the row, members, recorded sources and enrollment
     are gone and this verdict decides nothing. What remains is the caller's
     read scope. A comparison whose basis moved before the lock, such as a
-    newer preceding release, has a different key and is derived again under
-    the lock rather than reused.
+    newer preceding release, has a different key and triggers unlocked source
+    refresh rather than reusing stale facts. A takeover projected to succeed
+    prepares against that waiting run without changing its durable state.
 
     A keyed repeat of a run that already exists skips the reads, because the
     locked pass replays it. Any failure here is left to the locked pass,

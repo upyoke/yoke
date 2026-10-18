@@ -203,23 +203,35 @@ def is_write_operation(tool_name: str, payload: dict) -> bool:
 def _client_target(
     payload: Mapping[str, Any], raw: str, fallback_cwd: str
 ) -> tuple[str, bool]:
-    """Return ``(path, ignored)`` for one operand as the client resolved it.
+    """Return ``(path, ignored)`` for one operand.
 
-    The client resolved ``~``, the command's cwd and symlinks on its own
-    filesystem and asked its checkout's ignore rules
-    (:func:`~yoke_contracts.hook_runner.client_facts.write_target`). An
-    operand it did not report is joined to the cwd as written and treated
-    as tracked, so an unanswered question leaves the guard protecting.
+    A relative operand resolves against ``fallback_cwd`` — the command's
+    declared workdir, then its leading ``cd`` statements, newline-joined
+    included — the same answer the shell-path guard uses. The client's own
+    resolution (``~``, symlinks, its checkout's ignore rules; see
+    :func:`~yoke_contracts.hook_runner.client_facts.write_target`) is used
+    only when it names that same path, so a client that missed the
+    command's directory cannot move the write onto main. An operand without
+    an agreeing client answer is treated as tracked, so an unanswered
+    question leaves the guard protecting.
     """
     fact = write_target(payload, raw)
-    if fact is not None and isinstance(fact.get("path"), str):
-        return fact["path"], fact.get("ignored") is True
+    client_path = fact.get("path") if fact is not None else None
+    client = (
+        (client_path, fact.get("ignored") is True)
+        if isinstance(client_path, str)
+        else None
+    )
     target = expand_machine_home(raw, machine_home=client_machine_home(payload))
     if target.startswith("~"):
-        return target, False  # no client home: names no path on any machine
-    if not os.path.isabs(target) and fallback_cwd.strip():
-        target = os.path.join(fallback_cwd, target)
-    return os.path.normpath(target), False
+        # No client home: only the client can say where this names.
+        return client or (target, False)
+    if os.path.isabs(target) or not fallback_cwd.strip():
+        return client or (os.path.normpath(target), False)
+    target = os.path.normpath(os.path.join(fallback_cwd, target))
+    if client is not None and client[0] == target:
+        return client
+    return target, False
 
 
 def collect_main_write_targets(

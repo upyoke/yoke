@@ -54,6 +54,8 @@ ITEMS_TABLE: dict[str, dict] = {
             "Conflict Survey touch_paths are section data read via items.get body; "
             "touch_paths is not an items.get column. "
             "`item_id` is a foreign-key column on OTHER tables. "
+            "Item reader fixtures must seed items.title. Wrong guess: an id-only "
+            "items fixture satisfies readers that project the title. "
             "To resolve a public `PREFIX-N` ref in raw SQL use "
             "`WHERE project_id = <p> AND project_sequence = <n>` "
             "(join `item_refs` on item_id for public_ref); never treat the N from a "

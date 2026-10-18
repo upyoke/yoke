@@ -83,8 +83,8 @@ def test_items_create_skip_on_bound_disabled_project_is_unmirrored(
             _request(
                 {
                     "title": "Skip must not look synced",
-                    "spec": "Create a task against a sync-disabled project.",
-                    "workflow": "task",
+                    "spec": "Create an item against a sync-disabled project.",
+                    "workflow": "dash",
                     "project": "yoke",
                     "entry_surface": "cli",
                     "execution_instructions_considered": True,

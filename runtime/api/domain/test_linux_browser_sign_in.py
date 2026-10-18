@@ -11,7 +11,7 @@ import tarfile
 import pytest
 
 from yoke_harness.ssh_linux_baseline import _ARCHIVE_PROGRAM
-from yoke_harness.ssh_linux_browser_sign_in import SNAP_CHROMIUM_HOME_ENTRY
+from yoke_harness.ssh_linux_preserved_entries import SNAP_CHROMIUM_HOME_ENTRY
 
 pytestmark = pytest.mark.skipif(os.getuid() == 0, reason="owner-only archive")
 

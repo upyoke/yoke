@@ -1,5 +1,7 @@
 """Read a carried member's obligations before deployment cases are created."""
 
+from yoke_core.domain.deployment_overview_timing import overview_phase
+
 from collections import defaultdict
 
 from yoke_core.domain.db_helpers import query_rows
@@ -261,6 +263,7 @@ def _pending(definition, run_id, member):
     }
 
 
+@overview_phase("qa_obligations")
 def member_qa_obligations(conn, runs, members):
     from yoke_core.domain.deployment_qa_presentation_facts import member_presentation
 

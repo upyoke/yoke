@@ -25,7 +25,7 @@ class ResolvedRecipient:
     """One deduplicated top-level session plus its immutable routing facts."""
 
     session_id: str
-    project_id: int
+    project_id: int | None
     project: str
     executor: str
     executor_surface: str | None
@@ -33,6 +33,7 @@ class ResolvedRecipient:
     machine_id: str | None
     liveness: str
     messageability: dict[str, Any]
+    org_id: int | None = None
     resolution: list[str] = field(default_factory=list)
     authorized_project_ids: set[int] = field(default_factory=set)
     work_roles: set[str] = field(default_factory=set)
@@ -55,6 +56,7 @@ class ResolvedRecipient:
         return {
             **self.public(),
             "project_id": self.project_id,
+            "org_id": self.org_id,
             "authorized_project_ids": sorted(self.authorized_project_ids),
             "executor_version": self.executor_version,
             "execution_level": self.execution_level,

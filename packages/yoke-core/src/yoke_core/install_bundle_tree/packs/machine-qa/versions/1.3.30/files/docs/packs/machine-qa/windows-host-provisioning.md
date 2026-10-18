@@ -241,9 +241,9 @@ clean-home golden.
    `--help`. It checks every declared site first and opens a window only for
    the expired ones, naming the identity, the site and the account; no
    automated browser runs while it is open. The user supplies personal
-   credentials and completes personal approval prompts. Agents prepare the
-   desktop and run the declared checks; use project-approved test accounts
-   and follow project-owned sign-in policy. Keep profile data on the host.
+   credentials. Follow the existing [test-account approval rule](https://github.com/upyoke/yoke/blob/main/docs/testing-verification/test-machine-golden-baseline.md#yoke-application-sign-ins)
+   for the agent/user split, including native harness login from this saved
+   session. Keep profile data on the host.
 4. The user closes every authorization window; the command checks each site
    again and fails naming any still signed out. The identity's profile path
    links into the store, so the sign-in already lives there: nothing is

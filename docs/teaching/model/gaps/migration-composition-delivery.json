@@ -1,0 +1,7 @@
+{
+ "id": "migration-composition-delivery",
+ "title": "Prove migration composition evidence reaches an installed integration session",
+ "status": "observed",
+ "sources": [".agents/skills/yoke/conduct/simulation-gate-criteria.md", ".agents/skills/yoke/simulate/dispatch-prompts.md", "runtime/api/domain/test_schema_api_context_migrations.py"],
+ "text": "Source contracts and focused query/schema checks cover the evidence block. An installed integration session exercising a real ordinal collision has not yet supplied delivery proof; production candidate-source QA is attached to the item."
+}

@@ -6,6 +6,27 @@ a reusable clone whose schema, rows and sequences reset after each checkout.
 The template never receives test writes. Nested contexts and replacements
 after schema changes clone the template instead of replaying initialization.
 
+Planner statistics belong to that baseline too. An `ANALYZE` or automatic
+statistics update can change index choices even after rows are restored.
+When relation estimates or column statistics drift, the existing reusable
+clone is discarded and the next checkout rebuilds from the unchanged template.
+Ordinary checkouts keep reusing their database. Session settings end with
+their connection; database-scoped `ALTER DATABASE ... SET` changes still need
+a separately disposable database.
+
+Before first baseline capture, construction stops other connections to the
+newly owned reusable clone, disables ordinary automatic maintenance on its
+user tables, and commits that policy. Source templates, ambient databases,
+independent disposable databases and global settings stay unchanged.
+Wraparound protection remains active, and explicit `ANALYZE` still causes
+baseline invalidation. Drift field names do not identify the initiating process.
+
+Discard writes `reusable database invalidated:` to the captured stderr.
+Its JSON distinguishes `schema` from `planner_statistics`; planner drift
+lists relation and field names only, without values or connection strings.
+Retain that evidence before diagnosing a reuse failure; it does not identify
+whether a statistics change was requested or performed by maintenance.
+
 The shared `test_db` fixture, the default strategy, explicit `schema.cmd_init`
 and `apply_test_schema` use one production schema flavor. The template runs
 `environment_bootstrap.run_init_chain`, including `schema.cmd_init`, then

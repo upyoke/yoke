@@ -251,3 +251,46 @@ def test_source_document_uses_version_admitted_sync_endpoint(tmp_path, monkeypat
     dispatched.reset_mock()
     assert qa_catalog.qa_plan_cases_replace(args) == 2
     dispatched.assert_not_called()
+
+
+def test_presentation_shares_repository_and_exact_ancestry_only(monkeypatch):
+    from unittest.mock import Mock
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
+
+    conn = object()
+    source = Mock()
+    source.resolve_commit.side_effect = lambda value: value
+    source.contains_commit.return_value = True
+    opened = Mock(return_value=source)
+    monkeypatch.setattr(source_binding, "open_carried_work_source", opened)
+    candidates = {"first": "a" * 40, "same": "a" * 40, "later": "b" * 40}
+    monkeypatch.setattr(
+        source_binding, "run_delivered_sha", lambda conn, run, project: candidates[run]
+    )
+    plan = {"id": 1, "project_id": 1, "source_revision": "c" * 40}
+
+    @presentation_operation
+    def read():
+        source_binding.require_candidate_plan(conn, plan, "first")
+        source_binding.require_candidate_plan(conn, {**plan, "id": 2}, "same")
+        source_binding.require_candidate_plan(conn, plan, "later")
+        source_binding.require_candidate_plan(
+            conn, {**plan, "source_revision": "d" * 40}, "later"
+        )
+        source_binding.require_candidate_plan(conn, {**plan, "project_id": 2}, "first")
+
+    read()
+    assert opened.call_count == 2  # Project identity separates repositories.
+    assert source.resolve_commit.call_count == 3  # Same candidate resolves once.
+    assert (
+        source.contains_commit.call_count == 4
+    )  # Candidate and source separate proof.
+    read()
+    assert opened.call_count == 4
+    assert source.contains_commit.call_count == 8
+    source.contains_commit.return_value = False
+    with pytest.raises(QaPlanError, match="qa_plan_source_candidate_mismatch"):
+        read()  # A previous presentation cannot lend its pass to this one.
+    source.contains_commit.side_effect = OSError("repository unavailable")
+    with pytest.raises(QaPlanError, match="Restore project repository read access"):
+        read()

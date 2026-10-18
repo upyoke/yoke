@@ -208,8 +208,15 @@ def steering_visibility(
     now = parse_instant(utc_now() if now is None else now)
     session_ids = _session_ids(rows)
     current = now
-    scopes = _scope_rows(conn, _project_ids(rows), now=current)
     claims = live_steering_claims(conn) if _table_exists(conn, "work_claims") else []
+    target_projects = {
+        int(claim["scope"]["project_id"])
+        for claim in claims
+        if claim.get("scope", {}).get("project_id") is not None
+    }
+    scopes = _scope_rows(
+        conn, tuple(sorted(set(_project_ids(rows)) | target_projects)), now=current
+    )
     holders = {str(claim["session_id"]) for claim in claims}
     held_items = _held_item_ids(conn, session_ids)
     # Every covered worker's target names the document its held item is
@@ -226,7 +233,18 @@ def steering_visibility(
     for row in rows:
         session_id = str(row.get("session_id") or "")
         project_id = row.get("project_id")
-        scope = scopes.get(int(project_id)) if project_id is not None else None
+        scope = (
+            scopes.get(int(project_id))
+            if project_id is not None
+            else next(
+                (
+                    value
+                    for value in scopes.values()
+                    if value["holder_session_id"] == session_id
+                ),
+                None,
+            )
+        )
         if scope and scope["holder_session_id"] == session_id:
             projected[session_id]["steering_scope"] = scope
         if session_id in holders:

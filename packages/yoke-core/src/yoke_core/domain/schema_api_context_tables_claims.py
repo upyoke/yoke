@@ -55,6 +55,7 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("recent_item_recorded_at", "TIMESTAMPTZ"),
             ("actor_id", "INTEGER"),
             ("project_id", "INTEGER"),
+            ("org_id", "INTEGER"),
             ("offered_at", "TIMESTAMPTZ"),
             ("last_heartbeat", "TIMESTAMPTZ"),
             ("turn_posture", "TEXT"),
@@ -81,7 +82,22 @@ CLAIMS_TABLES: dict[str, dict] = {
             "harness_sessions.native_process_gone_at (TIMESTAMPTZ), last_tool_call_at "
             "and last_heartbeat. A launch-only fixture does not contain these "
             "relay liveness columns; include them before testing resume admission "
-            "rather than assuming launch_connection is a complete session schema."
+            "rather than assuming launch_connection is a complete session schema. "
+            "Relay report/probe and vendor recovery readers select nullable org_id and "
+            "actor_id. Wrong guess: a project-only launch/message fixture can omit org_id; "
+            "include the nullable column even when every seeded session has project_id. "
+            "Org-session fixtures still declare harness_sessions.project_id and store NULL. "
+            "Wrong guess: a session outside any project lets a fixture omit the column. "
+            "Project sessions set org_id NULL; org sessions set project_id NULL and retain "
+            "their authenticated actor_id. Wake eligibility also selects "
+            "harness_sessions.actor_id. Wrong guess: a project-only relay fixture may "
+            "omit its session actor; seed the authenticated fixture actor. "
+            "Shared and file-backed relay tests use "
+            "session_launch_test_support.relay_connection, which owns this column. "
+            "Registration inserts and duplicate/reactivation projections, including conflict-row fakes, require nullable org_id "
+            "in project-only fixtures. DDL owners: sessions_schema_test_ddl._SESSIONS_AND_CLAIMS_DDL, "
+            "test_sessions_lifecycle_reactivation_claims._CREATE_SESSIONS, "
+            "test_service_client_sessions_helpers._SESSION_SCHEMA_DDL, sessions_api_test_support.ACTIVE_SESSIONS_SCHEMA and api_items_fixture_schema._SCHEMA_DDL. Identity SELECT fixtures have sixteen fields, ending in nullable org_id."
         ),
     },
     "session_tool_calls": {
