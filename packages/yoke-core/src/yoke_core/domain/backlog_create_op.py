@@ -35,6 +35,7 @@ from yoke_core.domain.item_source_actor import (
     coerce_explicit_item_source,
     resolve_item_source_actor,
 )
+from yoke_core.domain.task_workflow_project_guard import task_in_code_project_refusal
 
 
 def execute_create(
@@ -200,6 +201,15 @@ def execute_create(
             if result.error_code == "SPEC_REQUIRED":
                 refusal["error_code"] = SPEC_REQUIRED_CODE
             return refusal
+
+        task_refusal = task_in_code_project_refusal(
+            conn,
+            workflow_id=workflow_id,
+            project_id=project_identity.id,
+            project_slug=project_identity.slug,
+        )
+        if task_refusal:
+            return task_refusal
 
         if dry_run:
             next_id = _get_next_id(conn)
