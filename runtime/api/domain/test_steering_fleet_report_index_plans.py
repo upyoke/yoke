@@ -19,7 +19,10 @@ from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     seed_run_standing_on_qa_stage,
 )
 from runtime.api.steering_fleet_test_helpers import (
+    JUST_NOW,
     STEERING_SESSION,
+    WORKER_SESSION,
+    seed_message,
     seed_steering_scope,
 )
 from yoke_core.domain.db_helpers import iso8601_now
@@ -59,18 +62,44 @@ def test_each_history_scan_has_an_index_its_statement_uses(test_db) -> None:
         lineage="f" * 40,
     )
     release_seeded_driver(conn, "run-20260927-001")
+    seed_message(
+        conn,
+        "current-wake",
+        sender=None,
+        to=WORKER_SESSION,
+        at=JUST_NOW,
+        idempotency_key="deployment-qa-stage-wait:run-20260927-001:item-qa:7701:digest",
+    )
+    # An empty analyzed table correctly favors the time index for ORDER BY.
+    # Exercise the selective history lookup this index exists to accelerate.
+    conn.execute(
+        "INSERT INTO session_messages "
+        "(message_id, sender_actor_id, body, body_sha256, selector_snapshot, "
+        "created_at, expires_at, idempotency_key) "
+        "SELECT 'history-' || i, sender_actor_id, body, body_sha256, "
+        "selector_snapshot, created_at, expires_at, 'unrelated-history:' || i "
+        "FROM session_messages CROSS JOIN generate_series(1, 2000) AS history(i) "
+        "WHERE message_id = 'current-wake'"
+    )
     conn.commit()
+    conn.execute("ANALYZE session_messages")
+    conn.execute("ANALYZE session_message_recipients")
     recorder = _Recorder(conn)
     compose_held_reports(recorder, session_id=STEERING_SESSION, now=iso8601_now())
 
     used: set[str] = set()
+    message_plan = ""
     conn.execute("SET enable_seqscan = off")
     try:
         for sql, params in recorder.statements.items():
             plan = conn.execute(f"EXPLAIN {sql}", params).fetchall()
             text = "\n".join(str(row[0]) for row in plan)
+            if "FROM session_messages m" in sql:
+                message_plan = text
             used.update(name for name in INDEXES if name in text)
     finally:
         conn.execute("RESET enable_seqscan")
 
-    assert used == INDEXES, f"indexes no report statement can use: {INDEXES - used}"
+    assert used == INDEXES, (
+        f"indexes no report statement can use: {INDEXES - used}\n{message_plan}"
+    )
