@@ -18,6 +18,10 @@ from yoke_harness.ssh_linux_sign_in_stores import SIGN_IN_PROGRAM
 from yoke_harness.ssh_linux_preserved_entries import PRESERVED_HOME_PROGRAM
 from yoke_harness.ssh_linux_reset_services import YOKE_SERVICE_PATTERNS
 from yoke_harness.ssh_test_machine_transport import SSH_TIMEOUT_DIAGNOSTIC
+from yoke_harness.ssh_linux_golden_diagnostics import (
+    golden_timeout_result,
+    run_golden_command,
+)
 from yoke_harness.ssh_mac_baseline_probes import (
     parse_baseline_probes,
     run_baseline_probes,
@@ -246,39 +250,22 @@ def archive_operation(
         ]
     )
     started = time.monotonic()
-    result = control._run(
+    result, diagnostics = run_golden_command(
+        control,
         command,
         input_text=json.dumps(ABSENT_HOME_PATHS),
         timeout=GOLDEN_ARCHIVE_TIMEOUT_SECONDS,
     )
     if result.returncode == 124 and result.stderr.startswith(SSH_TIMEOUT_DIAGNOSTIC):
         elapsed = round(time.monotonic() - started, 3)
-        return HostActionResult(
-            False,
-            {
-                "reason": "linux_golden_operation_timeout",
-                "operation": operation,
-                "elapsed_seconds": elapsed,
-                "timeout_seconds": GOLDEN_ARCHIVE_TIMEOUT_SECONDS,
-                "golden_baseline_path": destination,
-                "exit_code": result.returncode,
-                "stdout": bounded_machine_qa_diagnostic(
-                    result.stdout, getattr(control, "secret_values", ())
-                ),
-                "stderr": bounded_machine_qa_diagnostic(
-                    result.stderr, getattr(control, "secret_values", ())
-                ),
-                "detail": f"Linux golden {operation} timed out after {elapsed} seconds.",
-                "recovery": (
-                    f"The remote archive process may still be running. Stop or wait for the {operation} targeting {destination} before retrying. "
-                    + (
-                        f"Capture was not registered or sealed with probes; inspect {destination}/home.tar.gz and {destination}/manifest.json, and sibling .yoke-golden-* temporary directories. Remove only this capture's unregistered output after the process stops, or choose a new literal destination outside the home."
-                        if operation == "capture"
-                        else "The home may be partly restored; retry the existing sealed baseline after the process stops. Never capture a mixed home."
-                    )
-                ),
-            },
-            "linux_golden_operation_timeout",
+        return golden_timeout_result(
+            control,
+            result,
+            diagnostics,
+            operation,
+            destination,
+            elapsed,
+            GOLDEN_ARCHIVE_TIMEOUT_SECONDS,
         )
     try:
         evidence = json.loads(result.stdout.splitlines()[-1])
@@ -286,6 +273,7 @@ def archive_operation(
         evidence = {"reason": "linux_golden_operation_failed"}
     if not isinstance(evidence, dict):
         evidence = {"reason": "linux_golden_receipt_invalid"}
+    evidence["transport_diagnostics"] = diagnostics
     # The program's own flag becomes the verdict, never a row field.
     ok = result.returncode == 0 and evidence.pop("ok", None) is True
     if not ok:
