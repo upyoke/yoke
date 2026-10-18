@@ -6,6 +6,7 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 import subprocess
+import shlex
 from typing import Iterator
 
 import yaml
@@ -221,8 +222,10 @@ def _read_navigation(root: Path) -> tuple[NavNode | None, list[NavigationRefusal
             refuse(
                 "NAV_PATH_MISSING",
                 path,
-                "page is missing or untracked",
-                "create and git-add the page in source, or include it in the snapshot",
+                "page is untracked" if (root / path).is_file() else "page is missing",
+                f"untracked: stage it with git add -- {shlex.quote(str(root / path))}"
+                if (root / path).is_file()
+                else "create and git-add the page in source, or include it in the snapshot",
             )
         if path in ancestors:
             refuse(
