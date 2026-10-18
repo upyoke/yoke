@@ -54,7 +54,7 @@ class CompletionPreview:
         if self.unavailable:
             return (
                 f"member_closure_unavailable: restore the named member contract or "
-                f"control-plane read, then reread `yoke deployment-runs get {run_id}`; "
+                f"control-plane read, then reread `yoke deployment-runs get {run_id} --include-member-closure`; "
                 "do not infer completion or dispatch another driver."
             )
         if self.blocked:
@@ -63,7 +63,7 @@ class CompletionPreview:
                 "declared targets. Atomic siblings need no separate repair. "
                 "Settlement continues after the last blocker clears; repeating "
                 "the success write cannot supply missing acceptance. "
-                f"Read `yoke deployment-runs get {run_id}`."
+                f"Read `yoke deployment-runs get {run_id} --include-member-closure`."
             )
         if self.members:
             return (
@@ -74,7 +74,7 @@ class CompletionPreview:
         if self.settling:
             return (
                 "Member statuses are settled; finalization effects remain pending. "
-                f"Read `yoke deployment-runs get {run_id}` and its driver progress; "
+                f"Read `yoke deployment-runs get {run_id} --include-member-closure` and its driver progress; "
                 "recover a stopped driver before re-driving finalization."
             )
         return ""

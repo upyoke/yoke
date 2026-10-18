@@ -262,11 +262,12 @@ def test_retry_compares_the_source_run_lineage_not_origin_main(tmp_path) -> None
         calls.append((function_id, payload))
         if function_id == "deployment_runs.get":
             assert target.workflow_run_id == "run-old"
+            assert payload == {"field": "release_lineage"}
             return FunctionCallResponse(
                 success=True,
                 function=function_id,
                 version="v1",
-                result={"run": {"release_lineage": stale_sha}},
+                result={"value": stale_sha},
             )
         if function_id == "projects.capability_settings.get":
             return FunctionCallResponse(
