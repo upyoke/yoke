@@ -154,13 +154,14 @@ def acquire_test_machine_admission(
         ]
     else:
         candidates = list_test_machine_contracts(conn, project=project)
-        if not candidates:
-            raise TestMachineCapabilityError(
-                f"project {project!r} has no test-machine capability"
-            )
     from yoke_core.domain.machine_qa_case_platform import matching_platform_hosts
 
     candidates = matching_platform_hosts(candidates, cases)
+    if not candidates:
+        raise TestMachineCapabilityError(
+            f"project {project!r} has no test-machine capability; "
+            "register and verify a Test Machine before retrying"
+        )
     verification = _verification_by_machine(conn, candidates)
     candidates.sort(
         key=lambda candidate: (

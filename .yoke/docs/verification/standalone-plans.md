@@ -37,7 +37,9 @@ An in-flight host abort retains custody until the runner records restoration;
 follow [safe host cancellation](deployment-plan-execution.md#stop-host-work-safely)
 when it returns `qa_abort_restore_pending`.
 `--continue-mission` resumes a stale-settled mission with its unchanged plan snapshot
-and preserved host state. Read `yoke qa plan run --help` for the complete requirements.
+and preserved host state. Keep `--machine NAME` from the emitted continuation
+command so it returns to the original host. Read `yoke qa plan run --help` for
+the complete requirements.
 
 ## Function protocol
 

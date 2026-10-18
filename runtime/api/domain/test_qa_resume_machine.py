@@ -96,3 +96,14 @@ def test_mission_docket_recovers_released_host_lease(monkeypatch):
         run_machine(Mock(), json.dumps({"host_control_submission": {"lease_id": 42}}))
         == "linux-lab"
     )
+
+
+def test_execution_that_never_reached_a_host_has_no_host_to_pin():
+    conn = Mock()
+    conn.execute.return_value.fetchall.return_value = []
+    assert (
+        execution_machine(
+            conn, {"id": "pre-host", "roster": [{"runner_id": "agent_mission"}]}
+        )
+        is None
+    )

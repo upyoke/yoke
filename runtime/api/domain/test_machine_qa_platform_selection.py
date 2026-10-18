@@ -128,3 +128,13 @@ def test_no_matching_host_names_platform_and_recovery():
             select_any=True,
             cases=({"instructions": "Run on Linux"},),
         )
+
+
+def test_empty_fleet_still_names_the_required_platform_and_recovery():
+    from yoke_core.domain.machine_qa_case_platform import matching_platform_hosts
+
+    with pytest.raises(
+        CapabilityError,
+        match="test_machine_platform_unavailable.*Register and verify a linux",
+    ):
+        matching_platform_hosts([], ({"instructions": "Run on Linux"},))
