@@ -64,6 +64,7 @@ from yoke_core.domain.schema_api_context_tables_gate_satisfier import (
     GATE_SATISFIER_TABLES,
 )
 from yoke_core.domain.schema_api_context_tables_packs import PACK_TABLES
+from yoke_core.domain.schema_api_context_tables_migrations import MIGRATION_TABLES
 from yoke_core.domain.schema_api_context_tables_python_helpers import (
     PYTHON_HELPERS_TABLES,
 )
@@ -82,6 +83,7 @@ CANONICAL_TABLES: dict[str, dict] = {
     **QA_TABLES,
     **DOCTOR_TABLES,
     **PROJECT_TABLES,
+    **MIGRATION_TABLES,
     **DELIVERY_TABLES,
     **PACK_TABLES,
     **GITHUB_APP_TABLES,
