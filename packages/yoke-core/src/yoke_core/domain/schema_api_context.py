@@ -27,6 +27,7 @@ from yoke_core.domain.schema_api_context_render import (
     render_json_nested_schema_block,
     render_package_roots_block,
     render_table_block,
+    unknown_topic_message,
 )
 from yoke_core.domain.schema_common import (
     _get_columns_with_types,
@@ -260,7 +261,7 @@ def render_topic_packet(
     body ends by naming the command that renders its own full form.
     """
     if topic not in seed.TOPICS:
-        raise ValueError(f"unknown topic: {topic}")
+        raise ValueError(unknown_topic_message(topic, role=role))
     if role not in seed.ROLE_TOPICS:
         raise ValueError(f"unknown role: {role}")
     _validate_detail(detail)
