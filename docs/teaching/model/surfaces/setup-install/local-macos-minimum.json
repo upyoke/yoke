@@ -1,0 +1,9 @@
+{
+ "id": "local-macos-minimum",
+ "title": "Local setup names the embedded PostgreSQL macOS minimum and recovery",
+ "status": "observed",
+ "form": "Do",
+ "verification": "Source tests cover refusal before cache access or download below macOS 26.0 and with an unreadable version, acceptance at and above the floor, and no macOS probe on Linux. Live host proof remains release-bound.",
+ "topics": ["modes/local/local-core-and-postgres"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/postgres_binaries.py", "runtime/api/domain/test_postgres_binaries.py", "docs/public/start/install.md", "docs/testing-verification/test-machine-operations.md"]
+}

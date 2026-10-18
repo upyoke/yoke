@@ -14,6 +14,7 @@ from yoke_core.domain.qa_plan_execution_result_state import (
     plan_order as _plan_order,
 )
 from yoke_core.domain.qa_plan_execution_continuation import continuation_abort_reason
+from yoke_core.domain.qa_plan_command_case import begin_command_host, command_liveness
 from yoke_core.domain.qa_plan_host_free_cases import (
     run_host_free_cases_while_waiting,
     waiting_recovery,
@@ -69,6 +70,7 @@ def execute_begun_plan(
             checkout_path=checkout_path,
             allow_tree_mismatch=allow_tree_mismatch,
             actor=resolved_actor,
+            **command_liveness(requirement, _check_in),
         )
 
     def _check_in():
@@ -133,8 +135,20 @@ def execute_begun_plan(
                 )
                 advance_result = False
             else:
-                result = _execute_local(requirement)
-                advance_result = True
+                result = None
+                if requirement.get("runner_id") == "worktree_run" and (
+                    requirement.get("method_config") or {}
+                ).get("machine"):
+                    result = begin_command_host(
+                        requirement,
+                        execution_id=execution_id,
+                        ordinal=ordinal,
+                        target=target,
+                        actor=resolved_actor,
+                    )
+                advance_result = result is None
+                if advance_result:
+                    result = _execute_local(requirement)
             if int(result.get("requirement_id") or 0) != requirement_id:
                 raise QaPlanExecutionError(
                     f"case runner returned the wrong requirement for {requirement_id}"

@@ -67,7 +67,7 @@ class MachineQaCaseContract(BaseModel):
     case_key: str
     method_id: str
     method_name: str
-    runner_id: Literal["host_control", "agent_mission"]
+    runner_id: Literal["host_control", "agent_mission", "worktree_run"]
     required_capability_kinds: list[str]
     verdict_path: str
     qa_kind: str
@@ -130,7 +130,13 @@ class MachineQaCaseContract(BaseModel):
         if not hmac.compare_digest(self.execution_target_digest, expected_digest):
             raise ValueError("Machine QA execution target digest is invalid")
         require_case_execution_target(self)
-        require_materialized_starting_state(self)
+        if self.runner_id == "worktree_run":
+            if not self.method_config.get("machine"):
+                raise ValueError(
+                    "Command host admission requires method_config.machine"
+                )
+        else:
+            require_materialized_starting_state(self)
         require_continuity_state(self)
         return self
 

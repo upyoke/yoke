@@ -1,5 +1,14 @@
 # Test Machine operation contracts
 
+Before provisioning local-mode QA, check the host against the
+[installation requirements](../public/start/install.md). The pinned embedded
+PostgreSQL 17.10.0 macOS binaries require macOS 26.0 or newer on both CPU
+architectures. `test-mac-pro` on macOS 12.7.6 is an **unsupported local-mode
+host**: do not provision it for a successful local install/init mission.
+Use it only for the expected unsupported-host refusal or remote-core work
+whose own tools support that OS; upgrade the host or choose a supported Mac
+for local-mode success evidence. No custom PostgreSQL build is supported.
+
 Host preparation, sign-in, permissions, desktop access, save/restore and their
 recoveries have one authoritative procedure per OS in the Machine QA Pack:
 
@@ -27,13 +36,30 @@ reachability read does not establish baseline readiness.
 During an awaiting Machine QA mission, these commands automatically reuse its
 host lease when the calling session and actor own the mission. Submission and
 operation abort retain the lease; the mission's close-out releases it. A foreign
-holder refuses with `mission_operation_foreign_holder`: ask the mission holder
-to run the operation or wait for it to finish. A plan outside its mission walk
-refuses with `mission_operation_unavailable`; resume its mission first.
+holder refuses with `mission_operation_foreign_holder`, naming the machine,
+holding session and plan. Declare the host on the case and run its scoped plan
+to acquire the lease after that holder finishes. A caller-owned plan outside
+an active Command case or awaiting mission refuses with
+`mission_operation_unavailable`, naming its actual state and scoped resume.
 Calls without a mission retain exclusive acquire/release behavior. Repeated
 mission operations update the last receipt; identical retries reuse evidence.
 Golden-capture contracts bind their destination and omit the baseline pointers
 they update, so recording a capture does not invalidate its submission retry.
+
+A local Command case that drives a host declares `method_config.machine`.
+The plan acquires that machine through the existing host line before running
+the command, heartbeats the plan during execution, and retains custody until
+the plan settles. The command runs locally; this declaration grants host
+custody, not remote shell execution. Nested `yoke test-machine` operations
+borrow the caller's active Command-plan lease, and operation submit/abort
+keeps it for the plan. A Command without a declared host remains host-free.
+An awaiting mission still cannot reset or verify its own live host: finish
+or abort that mission first so its temporary state is not cleared.
+
+Lease refusals name the machine and actual owner when known. A missing,
+expired or mismatched lease requires fresh admission through the declared
+case's scoped plan. A released lease without a recorded receipt requires
+inspection and receipt recovery, not repeating the host action.
 
 Verification distinguishes `ssh` and `terminal_bridge` surfaces as passed,
 failed or not_run. A failed bridge leaves overall status error while a passing

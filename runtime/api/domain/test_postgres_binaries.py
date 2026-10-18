@@ -21,6 +21,7 @@ from yoke_cli import resilient_fetch
 @pytest.fixture(autouse=True)
 def _isolated_machine_home(monkeypatch, tmp_path):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
+    monkeypatch.setattr(pb.platform, "mac_ver", lambda: ("26.0", ("", "", ""), ""))
 
 
 def test_platform_target_mapping():
@@ -62,7 +63,8 @@ def test_ensure_binaries_short_circuits_without_fetch(monkeypatch):
     bin_dir.mkdir(parents=True)
     (bin_dir / "initdb").write_text("#!/bin/sh\n", encoding="utf-8")
     monkeypatch.setattr(
-        pb, "fetch_binaries",
+        pb,
+        "fetch_binaries",
         lambda *a, **kw: pytest.fail("installed binaries must not refetch"),
     )
 
@@ -70,7 +72,11 @@ def test_ensure_binaries_short_circuits_without_fetch(monkeypatch):
 
 
 def _fixture_release(
-    releases_root: Path, version: str, target: str, *, corrupt_checksum: bool = False,
+    releases_root: Path,
+    version: str,
+    target: str,
+    *,
+    corrupt_checksum: bool = False,
 ) -> str:
     """Build a file:// release mirroring the published tarball layout."""
     release_dir = releases_root / version
@@ -105,16 +111,16 @@ def test_fetch_binaries_verifies_unpacks_and_installs(tmp_path):
     assert initdb.stat().st_mode & 0o111  # exec bit survives unpack
     # No staging residue next to the installed version dir.
     residue = [
-        entry.name
-        for entry in pb.binaries_root().iterdir()
-        if entry.name != "9.9.9"
+        entry.name for entry in pb.binaries_root().iterdir() if entry.name != "9.9.9"
     ]
     assert residue == []
 
 
 def test_fetch_binaries_rejects_checksum_mismatch(tmp_path):
     base_url = _fixture_release(
-        tmp_path / "releases", "9.9.9", "aarch64-apple-darwin",
+        tmp_path / "releases",
+        "9.9.9",
+        "aarch64-apple-darwin",
         corrupt_checksum=True,
     )
 
@@ -129,7 +135,8 @@ def test_ensure_binaries_fetches_once_then_reuses(tmp_path, monkeypatch):
 
     first = pb.ensure_binaries("9.9.9", base_url=base_url)
     monkeypatch.setattr(
-        pb, "fetch_binaries",
+        pb,
+        "fetch_binaries",
         lambda *a, **kw: pytest.fail("second ensure must reuse the install"),
     )
     second = pb.ensure_binaries("9.9.9", base_url=base_url)
@@ -155,11 +162,13 @@ class _DownloadResponse:
 def test_download_retries_twice_and_returns_attempt_evidence(tmp_path, monkeypatch):
     url = "https://artifacts.example.test/postgres.tar.gz"
     body = b"complete tarball"
-    effects = iter([
-        urllib.error.URLError("connection dropped"),
-        TimeoutError("timed out"),
-        _DownloadResponse(body, content_length=len(body)),
-    ])
+    effects = iter(
+        [
+            urllib.error.URLError("connection dropped"),
+            TimeoutError("timed out"),
+            _DownloadResponse(body, content_length=len(body)),
+        ]
+    )
     attempts = []
 
     def opener(request, *, timeout):
@@ -201,9 +210,7 @@ def test_download_permanent_failure_names_url_and_attempts(tmp_path, monkeypatch
     )
 
     with pytest.raises(pb.PostgresBinariesError) as raised:
-        pb._download(
-            url, tmp_path / "missing.tar.gz", expected_sha256="0" * 64
-        )
+        pb._download(url, tmp_path / "missing.tar.gz", expected_sha256="0" * 64)
 
     assert url in str(raised.value)
     assert "1 attempt" in str(raised.value)
@@ -233,3 +240,46 @@ def test_download_rejects_truncated_tarball_before_publish(tmp_path, monkeypatch
         )
 
     assert not destination.exists()
+
+
+@pytest.mark.parametrize("version", ["12.7.6", "25.9", "", "unknown"])
+@pytest.mark.parametrize("entrypoint", ["ensure_binaries", "fetch_binaries"])
+def test_macos_refuses_before_cache_or_download(monkeypatch, version, entrypoint):
+    monkeypatch.setattr(pb.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(pb.platform, "mac_ver", lambda: (version, (), ""))
+    monkeypatch.setattr(
+        pb,
+        "installed_bin_dir",
+        lambda *_: pytest.fail("must refuse before cache lookup"),
+    )
+    monkeypatch.setattr(
+        pb,
+        "version_dir",
+        lambda *_: pytest.fail("must refuse before filesystem writes"),
+    )
+    with pytest.raises(pb.PostgresBinariesError) as raised:
+        getattr(pb, entrypoint)()
+    message = str(raised.value)
+    reason = "unsupported" if version in {"12.7.6", "25.9"} else "version_unknown"
+    assert f"embedded_postgres_macos_{reason}" in message
+    assert "26.0 or newer" in message
+    assert "Upgrade macOS" in message
+    assert "yoke setup" in message
+    assert version in message
+
+
+@pytest.mark.parametrize("version", ["26", "26.0", "26.0.1", "26.1", "27.0"])
+def test_macos_at_or_above_minimum_reuses_cached_engine(monkeypatch, tmp_path, version):
+    monkeypatch.setattr(pb.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(pb.platform, "mac_ver", lambda: (version, (), ""))
+    monkeypatch.setattr(pb, "installed_bin_dir", lambda *_: tmp_path)
+    assert pb.ensure_binaries() == tmp_path
+
+
+def test_linux_does_not_probe_macos_version(monkeypatch, tmp_path):
+    monkeypatch.setattr(pb.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        pb.platform, "mac_ver", lambda: pytest.fail("Linux has no macOS floor")
+    )
+    monkeypatch.setattr(pb, "installed_bin_dir", lambda *_: tmp_path)
+    assert pb.ensure_binaries() == tmp_path

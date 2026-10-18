@@ -23,6 +23,7 @@ _TEXT_FIELDS = frozenset(
         # server-side closure runs because nothing was reported, so these are
         # the only diagnosable facts such an attempt carries.
         "closure_reason",
+        "attempt_claimed_at",
         "launch_phase_reached",
         "transport_state",
         "diagnostic_availability",

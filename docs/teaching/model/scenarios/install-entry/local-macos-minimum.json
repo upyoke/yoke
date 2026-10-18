@@ -1,0 +1,12 @@
+{
+ "id": "local-macos-minimum",
+ "title": "An older Mac selects local setup",
+ "status": "observed",
+ "audience": "human",
+ "when": "Starting local mode on macOS below 26.0 or with an unreadable OS version",
+ "need": "Refuse before downloading or initializing embedded PostgreSQL, name the detected and required macOS versions, and teach upgrading macOS or connecting to a team server or upyoke.com. Cached binaries must not bypass the refusal.",
+ "disclosure": "before embedded-engine resolution",
+ "surface": "Local setup refusal and installation requirements",
+ "review": "Source regression tests cover below, at and above the floor; deployed host evidence is pending release.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/postgres_binaries.py", "runtime/api/domain/test_postgres_binaries.py", "docs/public/start/install.md"]
+}

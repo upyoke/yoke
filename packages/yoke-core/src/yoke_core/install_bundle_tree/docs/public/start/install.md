@@ -36,6 +36,15 @@ relay and background work continue. After a deliberate distro shutdown, run
 connection. See [local connection repair](../verification/local-connection-repair.md).
 See [Yoke on Windows (WSL)](windows-wsl.md) for filesystem, systemd, and agent setup.
 
+Local mode on macOS requires **macOS 26.0 or newer** on Apple Silicon and
+Intel. The pinned embedded PostgreSQL 17.10.0 build sets this minimum.
+Before downloading or initializing it, Yoke refuses older systems with
+`embedded_postgres_macos_unsupported`, stating the detected and minimum
+versions. An unreadable version refuses as `embedded_postgres_macos_version_unknown`.
+Upgrade macOS and retry, or choose **A team server** or **upyoke.com** in
+`yoke setup`; connecting to a remote core does not run embedded PostgreSQL.
+See [Modes](modes.md#local).
+
 Linux requires glibc (for example Ubuntu, Debian, or Fedora); musl hosts such as Alpine are refused before installation.
 Amazon Linux 2 on arm64 is unsupported: its glibc is too old for the aarch64 psycopg wheels.
 

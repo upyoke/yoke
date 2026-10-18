@@ -3,7 +3,7 @@
  "title": "Teaching model and local views",
  "status": "observed",
  "audience": "Yoke source contributors",
- "note": "Commit the teaching model in a claimed lane; build the gitignored views locally to read them. The registered source scanner also runs from mapped main without a work claim and never rewrites model records. CI validates the model and renders pages in memory without comparing local output.",
+ "note": "Commit the teaching model in a claimed lane; build the gitignored views locally to read them. The registered source scanner also runs from mapped main without a work claim and never rewrites model records. Use convert_model.py to repair canonical record formatting; stage cited new files with git add before checking tracked sources. CI validates the model and renders pages in memory without comparing local output.",
  "sources": ["docs/teaching/README.md", "docs/teaching/tools/build.py", "tests/teaching_prototype/test_teaching_prototype_check.py"],
  "page": "documentation",
  "position": 0

@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "After interruption, compaction, session handoff or return on another machine.",
- "need": "Preserve item Progress Logs, plan live status, checklist rows and owning run IDs. Reload the live skill phase and state rather than restarting from the transcript or assuming silence means completion. Keep each entry body at or below 4,096 UTF-8 bytes; write only what changed and the next step, and move evidence to artifacts or field-notes.",
+ "need": "Preserve item Progress Logs, plan live status, checklist rows and owning run IDs. Reload the live skill phase and state rather than restarting from the transcript or assuming silence means completion. Checkpoint unfinished items before releasing their work claim. After automatic completion, read live status; for terminal items use recorded results and evidence, skip the final Progress Log append and do not reacquire a claim for it. Keep each entry body at or below 4,096 UTF-8 bytes; write only what changed and the next step, and move evidence to artifacts or field-notes.",
  "disclosure": "current cue",
  "surface": "Onboard resume; Steer loop/close-out; Wrapup checkpoints",
  "gap": "Review question: should JOURNEYS add interrupted-work recovery and FIRST-USER D prove a fresh session can continue the handoff without duplicated work?",
