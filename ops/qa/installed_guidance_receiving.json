@@ -1,0 +1,79 @@
+[
+  {
+    "case_key": "released-cli-prepare",
+    "position": 1,
+    "method_id": "terminal-check",
+    "instructions": "Prepare the published stable release through the registered setup operations on the Test Mac as found. Verify the prepared CLI runs and retain installer preparation receipts and source identity. This case prepares the following mission; it does not establish receiving acceptance. Preserve home, authentication and global hooks; do not reset or recapture a baseline.",
+    "expected_outcome": "The normal released installer preparation and PATH preparation succeed, the CLI runs, and the registered preparation receipt identifies the published release for the following as_is receiving mission.",
+    "starting_state": "as_is",
+    "starting_state_reason": "Preserve the existing Test Mac home, authentication, protected stores, profiles and golden baseline; prepare only the released CLI and PATH under the admitted lease for the following receiving mission.",
+    "host_baselines": [],
+    "entry_surface": "set -eu; {yoke_bin} --version; {yoke_bin} --help; printf '%s\\n' released-cli-prepared",
+    "required_completion": "released-cli-prepared",
+    "target_envs": [
+      "prod"
+    ],
+    "method_config": {
+      "execution_mode": "ssh-command",
+      "actions": [
+        {
+          "step": "released-cli-prepared",
+          "capture": false
+        }
+      ],
+      "capture_checkpoints": [],
+      "expected_return_codes": [
+        0
+      ],
+      "expected_text": [
+        "released-cli-prepared"
+      ],
+      "machine": "test-mac",
+      "max_wall_seconds": 1200,
+      "notes": "Prepare only the normal released CLI under the admitted lease. Preserve authentication, profiles, protected stores and global hooks; no baseline reset. Keep the host for the following as_is mission.",
+      "post_checks": [
+        "secret_free",
+        "no_text:Traceback"
+      ],
+      "setup_operations": [
+        {
+          "id": "installer.current-release-prepare",
+          "parameters": {
+            "base_url": "https://api.upyoke.com",
+            "channel": "stable",
+            "evidence_name": "installed-guidance-receiving",
+            "no_setup": true,
+            "remove_existing_launcher": true
+          }
+        },
+        {
+          "id": "machine.path-prepare",
+          "parameters": {
+            "apply": true,
+            "evidence_name": "installed-guidance-receiving",
+            "yoke_bin": "{yoke_bin}"
+          }
+        }
+      ],
+      "start_delay": 3,
+      "step_delay": 3
+    }
+  },
+  {
+    "case_key": "installed-main-worker-receiving",
+    "position": 2,
+    "method_id": "exploratory-mission",
+    "instructions": "Prove the unrelated external project's actual receiving guidance for the published release that contains YOK-3965's merge. Before preparation, resolve and verify that published release, its immutable full source commit, and the actual YOK-3965 merge ancestry through registered release receipts. This is post-merge release QA, never proof for an unmerged candidate. This is the YOK-3965 non-global receiving obligation. Walk all manifest-supported Claude CLI, Codex CLI and Cursor CLI MAIN plus genuinely launched WORKER roles, using installed surfaces without a Yoke source checkout in either receiving workspace/context. Outside-project global sessions and user-level/global hook changes belong to YOK-3975 and are excluded. Parent owns verdict; walker returns ranked findings and exact proof gaps.\n\nStart with the dispatch walk-start and retain only the admitted execution's exclusive registered test-mac lease. Starting state is as_is: leave the existing home, authentication, protected credentials, user hooks, profiles and golden baselines untouched. Never reset, restore or recapture a baseline, enter personal credentials, replace protected stores or alter global hooks. Do not pre-acquire a host lease. Use only runtime-provided leased host-command, GUI/browser and artifact routes. A demonstrated personal sign-in or OS permission returns HUMAN_GATE with action, reason, observed state and exact resume point; contention is HOST_WAIT. No deployment, preview, Pack publication/update or private strategy/instruction writes.\n\nPreparation remains part of this mission and is not acceptance evidence. The immediately preceding released-cli-prepare Machine QA case executes installer.current-release-prepare through method_config.setup_operations, then machine.path-prepare. Use the same pinned Test Mac in as_is state without reset; verify and retain its registered preparation receipt and resolved release/source identity before any receiving action. Do not invoke the setup-operation identifier as a standalone CLI or repeat installation in the exploratory runner. If the preceding setup case has not passed, do not walk: preserve its named preparation failure. A controller may inspect registered published-release artifacts, but no Yoke source checkout or implementation-only instructions may enter receiving workspaces or model context. Read the preceding registered setup-operation receipt and current project install/refresh help. Create a fresh mission-owned unrelated external test project through the REAL project install route; derive its project ID/slug/install-manifest lineage from the run's receipts, never hand-supply or fabricate lineage. Use a new mission-owned directory/repository, preserve all pre-existing files, and record the created project/fixture immediately in the parent's Progress Log without secrets. Use a valid authorized connection as found. Do not silently broaden connection/auth authority; if missing setup/sign-in permission blocks, return the demonstrated named gate. Bind installed project guidance to that published release through the normal released installer and supported install/refresh routes; verify installed source_build and release source receipts identify the full published release source commit containing YOK-3965's merge, plus source/installed/package byte identity. Do not substitute a different release, an unmerged candidate or manually copied manifest. If the registered released installer, preparation or identity route refuses, preserve that refusal and report the unmet prerequisite; source files and fixtures alone are not receiving proof.\n\nAcceptance territory: actual combined native startup/first-use/core-work delivery in this installed unrelated project for each supported CLI MAIN and its real launched WORKER. Follow ordinary installed help/discovery to install/connect guidance and a complete core-work recipe covering item creation, claimed implementation lane and the relevant rule home. Guidance must arrive before its action, its installed .yoke/docs pointer must resolve, and the receiver must demonstrate use without controller-added implementation guidance. Capture actual received orientation plus required messages and recovery, correlate native hook/tool replies with the receiving model's observable use or native receipt, and measure complete combined payload against the installed harness manifest's declared byte unit/limit and 350 wrapped-line ceiling. Count actual received bodies rather than file sizes, token use or controller prompts. Missing manifest-supported primitives need supported designed coverage or an explicit incomplete-proof finding, never silent PASS. No self-wake retry; no claim of paid-usage refusal without native provider evidence.\n\nMission-owned fixture instrumentation may preserve the original installed hook commands and their stdin/environment/stdout/stderr/exit status to collect private native wire evidence, but never bypass a guard or alter user-level hook files. Keep unsanitized evidence private; attach sanitized content, original UTF-8 byte counts and hashes, exact harness/build/published-release/source-commit/role/event identity. Investigate the touched installer/onboarding and interrupted-write/refusal/recovery territory relevant to moved installed documentation through the actual install preparation and existing sanctioned checks; do not reset the host to force old campaign baselines or add source tests. Distinguish this actual mission's evidence from any unchanged scripted campaign, full CI, PLAT-223 consumer build and post-release evidence. Record every unexecuted scripted obligation explicitly.\n\nReturn a complete per-harness, surface, MAIN/WORKER and context matrix with published-release/source-commit/install receipt, actual combined payload/count/limit/unit, readable canonical homes, first-use/core-work outcomes and supported/incomplete primitive coverage. State every named refusal and exact recovery. No blanket AC or release credit: PLAT-223 real consumer build, recursive navigation/breadcrumbs/fragments/relative links/retired pages/visible identity and verify-candidate consumer proof remain separately required; the retained pre-merge full49402 and PLAT-223 consumer proof remain evidence for their original exact candidate, while this receiving mission must bind the published release containing the actual YOK-3965 merge. Operator authority 95b4fbc9-c37f-440a-a40b-11c30b0a397d says later nonconflicting landings do not invalidate proof; an actual conflicting landing carries its fact and reruns only checks touching those files. Hosted/self-hosted released matrix, wheel/landed attribution and fresh private rollback/pointers remain post-release blocking.\n\nCleanup only mission-owned changes using the registered project uninstall/retire surfaces while the fixture still exists. Restore mission-owned instrumentation to original installed bytes, verify its repository clean, retain exact uninstall refusals and do not delete a fixture before sanctioned recovery. Never discard another session's state or change existing home/auth/global settings. Run dispatch walk-end, report cleanup and preserved as_is state honestly, and return WALK_STATUS COMPLETE, HOST_WAIT, HUMAN_GATE or UNDETERMINED with ranked findings. The walker never submits the final verdict or sends Fleet messages.\n\nOperator decision945b64c2-b8d9-4e06-ae9d-653424c2f789 corrects the timing and installation identity only. Preserve original failed receiving run51491 and artifacts37621,37622,37623 as history, with no PASS or waiver inferred. All six supported Claude/Codex/Cursor CLI MAIN+WORKER combinations, complete payload limits, pointer-before-action, real install, interrupted-write/refusal/installer recovery, as_is host preservation, fixture cleanup and every behavioral assertion above remain required. Before executing post-release QA, verify actual current item/run membership and live driver; this correction creates no deployment ownership, run, host lease or duplicate execution. The coupled hold forbids any Yoke release between YOK-3965 merge and PLAT-223 merge.\n",
+    "expected_outcome": "Installed unrelated-project MAIN and launched WORKER sessions on every manifest-supported Claude/Codex/Cursor CLI receive and use guidance from the published release containing YOK-3965's merge: complete first-use/core-work guidance before acting; actual native combined payload, limits, installed pointer and identity evidence are complete. Every missing primitive or preparation/receiving/installer proof is explicitly incomplete, never PASS. Existing host/home/auth/global state is preserved and owned fixtures are safely retired. Parent submits verdict from ranked written evidence; no release or consumer proof is inferred.",
+    "starting_state": "as_is",
+    "starting_state_reason": "Preserve the Test Mac as found after the ordered released CLI preparation case. Before receiving work, verify that case passed on this same host and that its preparation receipt and live installed identity still match the admitted released source. If intervening work changed the host, return the named preparation prerequisite without reinstalling or resetting it.",
+    "host_baselines": [],
+    "method_config": {
+      "executor": "informed_subagent",
+      "machine": "test-mac"
+    },
+    "target_envs": [
+      "prod"
+    ]
+  }
+]
