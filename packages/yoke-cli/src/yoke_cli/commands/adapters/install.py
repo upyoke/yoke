@@ -136,6 +136,7 @@ def _run_install(args: List[str], usage: str, prog: str, operation: str) -> int:
             publish=not parsed.no_publish,
         ),
         json_mode=parsed.json_mode,
+        config_path=parsed.config_path,
     )
 
 
@@ -178,6 +179,7 @@ def project_refresh(args: List[str]) -> int:
                 commit=not parsed.no_commit,
             ),
             json_mode=parsed.json_mode,
+            config_path=parsed.config_path,
         )
     return _run(
         lambda: _project_install_domain().refresh(
@@ -190,6 +192,7 @@ def project_refresh(args: List[str]) -> int:
             publish=not parsed.no_publish,
         ),
         json_mode=parsed.json_mode,
+        config_path=parsed.config_path,
     )
 
 
@@ -214,10 +217,11 @@ def project_uninstall(args: List[str]) -> int:
             config_path=parsed.config_path,
         ),
         json_mode=parsed.json_mode,
+        config_path=parsed.config_path,
     )
 
 
-def _run(operation, *, json_mode: bool = False) -> int:
+def _run(operation, *, json_mode: bool = False, config_path=None) -> int:
     import sys
 
     try:
@@ -225,10 +229,26 @@ def _run(operation, *, json_mode: bool = False) -> int:
     except _install_errors() as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    setup = None
+    if (
+        not result.get("preview")
+        and result.get("project_id")
+        and result.get("operation") in ("install", "refresh")
+    ):
+        from yoke_cli.config.setup_facts_summary import read_project
+
+        setup = read_project(
+            result["repo_root"], project=result["project_id"], config_path=config_path
+        )
+        result["next_action"] = setup["next_action"]
     if json_mode:
+        if setup is not None:
+            result["setup_summary"] = setup["lines"]
         print(json.dumps(result, indent=2))
     else:
         write_local(result, sys.stdout, essential_writer=_write_harness_health)
+        if setup:
+            print("\n".join(setup["lines"]))
     if publication_outcome.is_publication_pending(result):
         return PUBLICATION_PENDING_EXIT
     if result.get("outcome") == "partial":

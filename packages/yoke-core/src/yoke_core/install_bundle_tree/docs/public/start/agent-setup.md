@@ -137,12 +137,33 @@ CLI is signed in, and its harness runs `yoke` without approval prompts. Other
 installed harnesses do not block it. Each failed check names one next step: a
 new session, a restart, a sign-in such as `claude auth login`, or a hook
 approval. Give the person that step, then rerun the check. When every check
-passes, ask the person once, then start `/yoke onboard` in this session.
+passes, follow the returned `next_action` command and deeper home.
 
 When this session runs elsewhere, `done` says to open Claude Code, Codex or
-Cursor in the project folder and run `/yoke onboard` there; onboarding runs the
-same check first. Yoke never opens a new session for the person. A
+Cursor in the project folder, run the same check there, then follow `next_action`.
+Yoke never opens a new session for the person. A
 machine-only setup adds a project later through another `yoke setup --agent`.
 
 `yoke connect --json` and `yoke github connect --json` stay available as
 standalone commands for one sign-in outside setup.
+
+## Setup facts and next action
+
+```text
+yoke onboard checklist get --json
+```
+
+Read `run.next_action.command` and `run.next_action.home` for the next required
+repair or first-work action. `run.setup_readiness` describes current prerequisites;
+optional deferred, not-needed and unknown capabilities do not force setup.
+The human reply leads with Next and Setup; install, refresh, register and checklist
+init reuse the summary. JSON keeps `next_action` structured; `setup_summary`
+retains setup diagnostics in install, refresh and register replies.
+
+Orientation shows this machine's facts alongside shared project choices once per
+session, then suppresses settled setup after the first item reaches done. Outside
+a project it shows only machine facts and a public guide. Under budget pressure,
+`Setup: run yoke onboard checklist get` points to the complete read.
+A failed read names its reason and recovery. Follow that repair, then retry;
+unknown never means ready. Actors without project-install permission see no setup
+suggestion. An older server without `next_action` supplies no guessed Next line.

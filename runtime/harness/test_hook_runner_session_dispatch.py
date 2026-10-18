@@ -102,11 +102,11 @@ class TestOrientationProjectAuthority(unittest.TestCase):
 
         with (
             mock.patch(
-                "yoke_core.hooks.session_dispatch_orientation._bootstrap_lines",
+                "yoke_core.domain.session_orientation._startup_block_lines",
                 return_value=["Read before editing:", "- AGENTS.md"],
             ),
             mock.patch(
-                "yoke_core.hooks.session_dispatch_orientation._git_line",
+                "yoke_core.domain.session_orientation._git_line",
                 return_value="",
             ),
         ):

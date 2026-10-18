@@ -77,5 +77,6 @@ that item's workflow and delivery require nothing more. The checklist's
 Report project/checkout/run, open rows, docs written/kept, what the first work
 needed and what was deferred, Pack versions, redacted capabilities,
 environments/flows or explicit absence, the steering handoff and blockers.
-`setup_readiness.unmet_rows` names required unknown/blocked prerequisites;
-unexamined optional capabilities stay unknown.
+`run.next_action` supplies the next required recipe and its installed deeper
+home; follow it. Optional deferred, not-needed or unknown capabilities never
+force setup. An absent field on an older server supplies no Next line.

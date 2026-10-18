@@ -21,7 +21,12 @@ def render_human(report: Mapping[str, Any]) -> str:
     run = _run_payload(report)
     summary = _summary_payload(run)
     doctor_status = _doctor_status(run)
+    from yoke_cli.config.setup_facts_summary import summary_lines
+
+    context = summary_lines(run)
     lines = [
+        *context[1:],
+        *context[:1],
         "Yoke onboarding checklist",
         f"  run: {run['run_id']}",
         f"  branch: {run['branch']}",

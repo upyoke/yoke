@@ -1,0 +1,8 @@
+{
+ "id": "setup-next-action-delivery-proof",
+ "title": "Prove concise setup context in installed sessions",
+ "status": "observed",
+ "text": "Candidate source checks cover the selector, command replies and shared hook delivery. The existing installer campaign owner must run the released candidate for global, unrelated project and resumed second-machine scenarios. Preserve that campaign execution and ownership; source checks do not claim installed proof.",
+ "sources": ["runtime/api/domain/test_session_orientation_setup_facts.py", "runtime/api/cli/test_setup_facts_summary.py", "docs/public/start/agent-setup.md"],
+ "position": 23
+}
