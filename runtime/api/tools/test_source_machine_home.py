@@ -37,6 +37,8 @@ def _seed(home):
 def test_source_probe_and_child_writes_leave_parent_byte_identical(
     tmp_path, monkeypatch
 ):
+    # This unit test supplies its own source root and interpreter.
+    monkeypatch.delenv("YOKE_QA_CANDIDATE_TREE", raising=False)
     home = tmp_path / "machine"
     config, original, token = _seed(home)
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
@@ -118,6 +120,8 @@ def test_snapshot_selects_explicit_config_and_rebases_default_paths(
 def test_snapshot_failure_is_named_and_does_not_launch_child(
     tmp_path, monkeypatch, capsys
 ):
+    # Exercise snapshot failure after selecting the simulated source root.
+    monkeypatch.delenv("YOKE_QA_CANDIDATE_TREE", raising=False)
     config, _, _ = _seed(tmp_path / "machine")
     config.write_text("invalid json")
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(config.parent))
@@ -148,7 +152,10 @@ def test_symlinked_machine_home_rebases_both_aliases(tmp_path):
     assert token.read_text() == "fixture-token"
 
 
-def test_watcher_evidence_outlives_disposable_machine_settings(tmp_path):
+def test_watcher_evidence_outlives_disposable_machine_settings(tmp_path, monkeypatch):
+    long_temp = tmp_path / ("temporary-directory-" * 6)
+    long_temp.mkdir()
+    monkeypatch.setattr("tempfile.tempdir", str(long_temp))
     config, original, _ = _seed(tmp_path / "machine")
     with isolated_machine_home(
         {"YOKE_MACHINE_HOME": str(config.parent), "YOKE_SESSION_ID": "fixture"}
@@ -156,6 +163,8 @@ def test_watcher_evidence_outlives_disposable_machine_settings(tmp_path):
         home = Path(child["YOKE_MACHINE_HOME"])
         evidence = Path(child["YOKE_SCRATCH_ROOT"])
         assert not evidence.is_relative_to(home)
+        socket = evidence / "yoke-pgtest-cluster/sock/.s.PGSQL.5432"
+        assert len(os.fsencode(socket)) <= 103
         capture = evidence / "capture.log"
         capture.write_text("fixture proof")
     assert not home.exists()
