@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable, Sequence
 
-from yoke_cli.config.machine_config import configured_projects
+from yoke_cli.config.machine_config import all_registered_checkouts
 from yoke_contracts import harness_unattended_posture as posture
 from yoke_contracts.codex_hook_trust_store import (
     inspect_hook_file_trust,
@@ -191,8 +191,8 @@ def _targets(
         [Path(path).expanduser().resolve() for path in paths]
         if paths is not None
         else [
-            entry.checkout.resolve()
-            for entry in configured_projects(existing_only=True)
+            checkout.resolve()
+            for checkout in all_registered_checkouts(existing_only=True)
         ]
     )
     targets: dict[Path, Path] = {}

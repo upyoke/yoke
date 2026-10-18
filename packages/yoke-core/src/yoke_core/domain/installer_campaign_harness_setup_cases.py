@@ -34,7 +34,6 @@ def run_probe() -> None:
     import subprocess
     from pathlib import Path
     from tempfile import TemporaryDirectory
-    from types import SimpleNamespace
     from unittest.mock import patch
 
     from yoke_contracts import claude_posture_install
@@ -96,8 +95,8 @@ def run_probe() -> None:
             patch.dict(os.environ, environment),
             patch.object(
                 setup,
-                "configured_projects",
-                return_value=[SimpleNamespace(checkout=checkout)],
+                "all_registered_checkouts",
+                return_value=[checkout],
             ),
             patch.object(
                 claude_posture_install, "CLAUDE_APP_CONFIG_PATH", home / "desktop.json"

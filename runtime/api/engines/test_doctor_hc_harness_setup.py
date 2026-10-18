@@ -80,7 +80,7 @@ def test_prompting_harness_names_shared_setup_repair(monkeypatch, tmp_path):
             home if self.harness_id == "codex" else tmp_path / self.harness_id
         ),
     )
-    monkeypatch.setattr(setup, "configured_projects", lambda **kw: [])
+    monkeypatch.setattr(setup, "all_registered_checkouts", lambda **kw: [])
     monkeypatch.setattr(doctor, "codex_home_without_codex", lambda: "")
     monkeypatch.setattr(doctor, "read_reconcile_state", lambda: {})
     rec = RecordCollector()

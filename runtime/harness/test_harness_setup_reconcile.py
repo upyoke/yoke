@@ -50,9 +50,7 @@ def machine(monkeypatch, tmp_path):
     for target in [root, *lanes]:
         (target / ".codex").mkdir(parents=True)
         (target / ".codex/hooks.json").write_text(json.dumps(hooks))
-    monkeypatch.setattr(
-        setup, "configured_projects", lambda **kw: [SimpleNamespace(checkout=root)]
-    )
+    monkeypatch.setattr(setup, "all_registered_checkouts", lambda **kw: [root])
     monkeypatch.setattr(setup, "main_checkout", lambda path: root)
     monkeypatch.setattr(setup, "registered_worktree_paths", lambda path: [root, *lanes])
     return home, root, lanes
@@ -167,3 +165,22 @@ def test_primary_identity_survives_filtering_missing_worktrees(monkeypatch, tmp_
     )
     assert checkout.main_checkout(lane) == missing
     assert checkout.registered_worktree_paths(lane) == [lane]
+
+
+def test_machine_inventory_reconciles_every_registered_checkout(
+    machine, monkeypatch, tmp_path
+):
+    home, root, _ = machine
+    other = tmp_path / "other-checkout"
+    other.mkdir()
+    (home / ".cursor").mkdir()
+    monkeypatch.setattr(setup, "all_registered_checkouts", lambda **kw: [root, other])
+    monkeypatch.setattr(setup, "main_checkout", lambda path: path)
+    monkeypatch.setattr(setup, "registered_worktree_paths", lambda path: [path])
+    result = setup.reconcile_harness_setup()
+    assert not result.failed
+    rows = [
+        r for r in result.rows if r.harness_id == "cursor" and r.facet == "folder_trust"
+    ]
+    assert {r.target_path for r in rows} == {str(root), str(other)}
+    assert all(r.outcome == "written" for r in rows)
