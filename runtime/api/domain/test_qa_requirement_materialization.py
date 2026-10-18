@@ -198,3 +198,49 @@ def test_head_sha_cli_reaches_existing_recording_contract(monkeypatch):
     )
     assert received["payload"]["head_sha"] == "a" * 40
     assert received["payload"]["raw_result"] == "All criteria checked"
+
+
+def test_bound_default_environment_is_stable_across_materialize_and_refresh(test_db):
+    from runtime.api.domain.test_deployment_qa_stage_execution import _environment
+    from yoke_core.domain.qa_plan_management import create_plan
+    from yoke_core.domain.qa_plan_attachments import set_project_default
+    from yoke_core.domain.qa_plan_rematerialize import rematerialize_for_item
+    from yoke_core.domain.qa_plan_case_currency import plan_case_divergence
+
+    _environment(test_db)
+    plan = create_plan(
+        test_db,
+        project="yoke",
+        slug="bound-default",
+        name="Bound default",
+        target_environment="stage",
+    )
+    replace_plan_cases(
+        test_db,
+        plan_id=plan["id"],
+        cases=[
+            {
+                "case_key": "command",
+                "method_id": "command",
+                "instructions": "Run true",
+                "expected_outcome": "It passes",
+                "method_config": {"command": "true"},
+            }
+        ],
+    )
+    insert_item(
+        test_db, id=9716, title="Default environment proof", workflow_id="issue"
+    )
+    set_project_default(
+        test_db, plan_id=plan["id"], workflow_id="issue", transition_id="implemented"
+    )
+    first = materialize_for_item(test_db, item_id=9716, transition_id="implemented")
+    requirement_id = first["created_requirement_ids"][0]
+    again = materialize_for_item(test_db, item_id=9716, transition_id="implemented")
+    assert again["created_requirement_ids"] == []
+    assert again["existing_requirement_ids"] == [requirement_id]
+    refreshed = rematerialize_for_item(
+        test_db, item_id=9716, transition_id="implemented"
+    )
+    assert refreshed["created_requirement_ids"] == []
+    assert plan_case_divergence(test_db, requirement_id) is None
