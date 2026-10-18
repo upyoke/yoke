@@ -8,10 +8,7 @@ from datetime import datetime
 import pytest
 
 from yoke_core.domain import epic
-from yoke_core.domain.epic_task_scope import (
-    finalize_generated_task_scopes,
-    set_no_files_scope,
-)
+from yoke_core.domain.epic_task_scope import finalize_generated_task_scopes
 from runtime.api.conftest import insert_epic_task, insert_item
 from runtime.api.epic_cascade_dispatch_test_support import (
     TEST_ITEM_ID,
@@ -20,6 +17,7 @@ from runtime.api.epic_cascade_dispatch_test_support import (
     db_with_task as db_with_task,
 )
 from runtime.api.fixtures.backlog import insert_item_worktree
+from runtime.api.task_files_touched_test_support import declare_task_files
 
 
 class TestDispatchChainRefreshForActivation:
@@ -107,7 +105,7 @@ class TestDispatchChainRefreshForActivation:
             title="Second task",
             status="planned",
         )
-        set_no_files_scope(db_with_task, TEST_ITEM_ID, 2)
+        declare_task_files(db_with_task, TEST_ITEM_ID, 2, [])
         finalize_generated_task_scopes(db_with_task, TEST_ITEM_ID)
         p = _p(db_with_task)
         db_with_task.execute(

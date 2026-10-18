@@ -62,20 +62,6 @@ def test_task_get_returns_legacy_pipe_row() -> None:
     }
 
 
-def test_file_add_rejects_whitespace_only_path() -> None:
-    with patch.object(handlers.epic, "file_add") as file_add:
-        outcome = handlers.handle_file_add(
-            _request(
-                "workflow_item.epic_task.file_add",
-                payload={"file_path": "   ", "action": "modify"},
-            ),
-        )
-
-    assert not outcome.primary_success
-    assert outcome.error.code == "invalid_payload"
-    file_add.assert_not_called()
-
-
 def test_dispatch_chain_update_maps_invalid_field() -> None:
     with patch.object(handlers, "_open_connection", _fake_conn):
         with patch.object(
@@ -129,7 +115,6 @@ READ_IDS = (
 )
 
 WRITE_IDS = (
-    "workflow_item.epic_task.file_add",
     "workflow_item.epic_task.history_insert",
     "workflow_item.epic_dispatch_chain.update",
     "workflow_item.epic_dispatch_chain.refresh_activation",

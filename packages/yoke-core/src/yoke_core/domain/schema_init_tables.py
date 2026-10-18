@@ -194,19 +194,7 @@ def create_core_tables(conn: Any) -> None:
           dependencies TEXT,
           status TEXT DEFAULT 'planning' CHECK(status IN ({_VALID_TASK_STATUSES_SQL})),
           dispatch_attempts INTEGER DEFAULT 0,
-          scope_state TEXT NOT NULL DEFAULT 'pending'
-            CHECK(scope_state IN ('pending','paths','no_files','legacy_deferred')),
-          scope_finalized_at TIMESTAMPTZ,
           UNIQUE(epic_id, task_num)
-        );
-        CREATE TABLE IF NOT EXISTS epic_task_files (
-          id INTEGER PRIMARY KEY,
-          epic_id INTEGER NOT NULL,
-          task_num INTEGER NOT NULL,
-          file_path TEXT NOT NULL,
-          action TEXT,
-          UNIQUE(epic_id, task_num, file_path),
-          FOREIGN KEY (epic_id, task_num) REFERENCES epic_tasks(epic_id, task_num)
         );
         CREATE TABLE IF NOT EXISTS epic_dispatch_chains (
           id INTEGER PRIMARY KEY,

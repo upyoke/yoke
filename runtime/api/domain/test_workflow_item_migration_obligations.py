@@ -13,7 +13,7 @@ from runtime.api.domain.test_workflow_item_migration_compatibility import (
 )
 from runtime.api.fixtures.backlog import insert_item
 from runtime.api.fixtures.backlog_inserts import insert_epic_task
-from yoke_core.domain import epic
+from runtime.api.task_files_touched_test_support import declare_task_files
 from yoke_core.domain.builtin_workflow_definitions import (
     builtin_workflow_definition,
 )
@@ -96,7 +96,9 @@ def test_new_required_file_budget_rejects_missing_current_coverage(test_db):
 
     with pytest.raises(WorkflowRegistryError, match="File Budget policy"):
         migrate_item_workflow_pin(
-            test_db, item_id=ITEM_ID, target_version=int(target["version"]),
+            test_db,
+            item_id=ITEM_ID,
+            target_version=int(target["version"]),
         )
 
     assert _pin(test_db) == before
@@ -111,7 +113,9 @@ def test_new_required_file_budget_accepts_resolved_current_budget(test_db):
     )
 
     result = migrate_item_workflow_pin(
-        test_db, item_id=ITEM_ID, target_version=int(target["version"]),
+        test_db,
+        item_id=ITEM_ID,
+        target_version=int(target["version"]),
     )
 
     assert result["changed"] is True
@@ -128,7 +132,9 @@ def test_new_task_file_budget_requires_each_current_task_budget(test_db):
 
     with pytest.raises(WorkflowRegistryError, match="File Budget policy"):
         migrate_item_workflow_pin(
-            test_db, item_id=ITEM_ID, target_version=int(target["version"]),
+            test_db,
+            item_id=ITEM_ID,
+            target_version=int(target["version"]),
         )
 
     assert _pin(test_db) == before
@@ -141,10 +147,13 @@ def test_new_task_file_budget_accepts_persisted_current_task_budget(test_db):
         target_file_budget=WORKFLOW_FILE_BUDGET_REQUIRED_PER_TASK,
     )
     insert_epic_task(test_db, epic_id=ITEM_ID, task_num=1)
-    epic.file_add(test_db, str(ITEM_ID), 1, "src/task.py", "modify")
+    declare_task_files(test_db, ITEM_ID, 1, ["src/task.py"])
+    test_db.commit()
 
     result = migrate_item_workflow_pin(
-        test_db, item_id=ITEM_ID, target_version=int(target["version"]),
+        test_db,
+        item_id=ITEM_ID,
+        target_version=int(target["version"]),
     )
 
     assert result["changed"] is True
