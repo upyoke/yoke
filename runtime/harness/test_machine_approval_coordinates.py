@@ -6,13 +6,14 @@ import pytest
 from subprocess import CompletedProcess
 
 from yoke_contracts.machine_approval_coordinates import machine_approval_coordinates
+from yoke_contracts.machine_authorization import MATCH_CODE_ALPHABET, MATCH_CODE_LENGTH
 from yoke_harness import ssh_linux_browser_approval as chromium
 from yoke_harness import ssh_mac_browser_approval as safari
 from yoke_harness.machine_browser_approval import approval_tab_urls, approval_url
 
 
 @pytest.mark.parametrize("path", ["/connect", "/machine"])
-@pytest.mark.parametrize("code", ["K7F2", "AB23"])
+@pytest.mark.parametrize("code", ["K7F2", MATCH_CODE_ALPHABET[:MATCH_CODE_LENGTH]])
 def test_base_and_complete_uris_resolve_to_the_same_exact_request(path, code):
     base = "https://example.invalid" + path
     complete = base + "?user_code=" + code

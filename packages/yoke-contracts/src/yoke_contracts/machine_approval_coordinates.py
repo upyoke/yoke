@@ -3,10 +3,11 @@
 from dataclasses import dataclass
 import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from yoke_contracts.machine_authorization import MATCH_CODE_PATTERN
 
 
 _ENTRY_PATHS = frozenset({"/connect", "/machine"})
-_CODE_PATTERN = re.compile(r"[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{4}")
+_CODE_PATTERN = re.compile(MATCH_CODE_PATTERN)
 
 
 @dataclass(frozen=True)
