@@ -10,7 +10,10 @@ like other fields; a pre-declaration row may be behind its current plan.
 `qa.plan.edit` / `qa.plan_cases.replace` report `requirements_behind_plan` and
 `requirements_behind_plan_count`. Each live divergent row names requirement id,
 case key, baseline, state, diverging fields and its exact recovery. A plan edit
-alone does not update the case that executes.
+alone does not update the case that executes. Done/cancelled item rows and
+completed/aborted/error standalone executions stay as history; the report omits
+them and returns one `historical_requirements_excluded_count`. Waived rows are
+also omitted, outside that count.
 
 `yoke qa requirement list` reports materialized row currency:
 

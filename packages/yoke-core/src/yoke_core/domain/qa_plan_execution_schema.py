@@ -60,7 +60,7 @@ QA_PLAN_EXECUTION_TARGET_COLUMNS = (
 #: execution built, so no case in this execution reaches a host baseline.
 QA_PLAN_EXECUTION_CONTINUATION_COLUMNS = ("continues_execution_id",)
 QA_PLAN_EXECUTION_ADDITIVE_COLUMNS = (
-    ("standalone_plan_id", "execution_order")
+    ("standalone_plan_id", "execution_order", "requesting_member_item_id")
     + QA_PLAN_EXECUTION_TARGET_COLUMNS
     + QA_PLAN_EXECUTION_CONTINUATION_COLUMNS
     + tuple(column for column, _definition in DEPLOYMENT_SCOPE_COLUMNS)
@@ -111,6 +111,7 @@ CREATE TABLE IF NOT EXISTS qa_plan_executions (
     release_reason TEXT,
     deployment_stage TEXT,
     deployment_member_item_id INTEGER,
+    requesting_member_item_id INTEGER,
     CONSTRAINT {EXECUTION_SUBJECT_CONSTRAINT}
         CHECK ({EXECUTION_SUBJECT_EXPRESSION})
 );
@@ -157,7 +158,7 @@ def converge_qa_plan_execution_schema(conn: Any) -> None:
                     EXECUTION_ORDER_DEFINITION
                     if column == "execution_order"
                     else "INTEGER"
-                    if column == "standalone_plan_id"
+                    if column in {"standalone_plan_id", "requesting_member_item_id"}
                     else dict(DEPLOYMENT_SCOPE_COLUMNS).get(column, "TEXT")
                 )
                 conn.execute(

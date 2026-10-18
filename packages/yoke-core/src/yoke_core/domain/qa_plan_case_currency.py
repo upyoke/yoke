@@ -19,7 +19,8 @@ import json
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from yoke_core.domain.db_helpers import query_one, query_rows
+from yoke_core.domain.db_helpers import query_one
+from yoke_core.domain.qa_plan_drift_rows import plan_drift_rows
 from yoke_core.domain.qa_plan_case_definition import (
     case_baselines,
     materialized_definition,
@@ -223,13 +224,7 @@ def rows_behind_plan(conn: Any, plan_id: int) -> list[PlanCaseDivergence]:
     Waived rows are left out: a waived row runs nothing, so it cannot certify
     against a superseded body, and naming it would bury the rows that can.
     """
-    columns = ",".join((*_SUBJECT_COLUMNS, *PLAN_DEFINITION_COLUMNS))
-    rows = query_rows(
-        conn,
-        f"SELECT id,{columns} FROM qa_requirements "
-        f"WHERE plan_id={marker(conn)} AND waived_at IS NULL ORDER BY id",
-        (int(plan_id),),
-    )
+    rows, _historical_count = plan_drift_rows(conn, plan_id)
     found = (_divergence_for_row(conn, row) for row in rows)
     return [divergence for divergence in found if divergence is not None]
 
@@ -240,7 +235,12 @@ def plan_drift_report(conn: Any, plan_id: int) -> dict[str, Any]:
     An author who corrects a case learns in the same breath which rows are now
     behind it, so a correction can never be silently partial again.
     """
-    divergences = rows_behind_plan(conn, int(plan_id))
+    rows, historical_count = plan_drift_rows(conn, int(plan_id))
+    divergences = [
+        divergence
+        for row in rows
+        if (divergence := _divergence_for_row(conn, row)) is not None
+    ]
     return {
         "requirements_behind_plan": [
             {
@@ -254,6 +254,7 @@ def plan_drift_report(conn: Any, plan_id: int) -> dict[str, Any]:
             for divergence in divergences
         ],
         "requirements_behind_plan_count": len(divergences),
+        "historical_requirements_excluded_count": historical_count,
     }
 
 

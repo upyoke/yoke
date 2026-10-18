@@ -14,6 +14,12 @@ Read `yoke qa plan run --help` for correction and continuation options.
 [Case attachment](case-attachment.md#binding-a-deployment-case-to-its-stage-and-member)
 owns the scope and target-binding contract.
 
+Only requirements with an executable method are copied from admission.
+Method-less standing requirements remain on their source item; a selected
+plan supplies the executable stage cases. A bound persistent deployment environment supplies
+`target_env` even when a correction case has no `target_envs` selector, so its
+scope matches the case it replaces.
+
 ## Shared plan credit
 
 Members attaching the same post-deploy plan share its case rows and ordered
@@ -23,6 +29,9 @@ admission-frozen attachment, or an admitted requirement that plan owns.
 A plan only one run member attaches stays that member's private copy and keeps
 its `deployment_member_item_id`; a formed group stays shared until its last
 attaching member leaves.
+The shared execution records the member that requested it, separately from its
+run-wide subject. Continuation and host-wait commands retain that member as
+`--member`; another attaching member resuming it does not change the requester.
 The shared target omits `deployment.member_item_id` and records
 `deployment.shared_plan`; the run and stage remain explicit. Each member waits
 only for its attached groups. A failing shared case blocks every attaching
