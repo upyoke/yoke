@@ -33,6 +33,7 @@ from yoke_contracts.git_hook_markers import HEAD_RECORDING_SKIP_ENV
 from yoke_cli.config import credentialed_git
 from yoke_core.domain import process_group_reaping
 from yoke_core.domain import (
+    authored_file_merge_preflight,
     qa_case_ci_covering_run,
     qa_case_ci_lane,
     qa_case_ci_progress,
@@ -203,11 +204,9 @@ def prepare_ci_lane(
         project=project,
     )
     if queue_routed:
-        from yoke_core.domain.authored_file_merge_preflight import (
-            enforce_authored_file_limit,
+        authored_file_merge_preflight.enforce_authored_file_limit(
+            checkout, target=target
         )
-
-        enforce_authored_file_limit(checkout, target=target)
         return target
     return None
 
