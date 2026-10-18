@@ -117,7 +117,9 @@ def test_unreachable_item_lookup_refuses(monkeypatch, capsys):
     assert "relay_unavailable: Reconnect authority" in capsys.readouterr().err
 
 
-def test_items_get_uses_served_projection(monkeypatch):
+@pytest.mark.parametrize("served", ("4", 4))
+def test_items_get_uses_served_projection(monkeypatch, served):
+    # items.get serves fields as text; an int projection is accepted too.
     calls = []
     monkeypatch.setattr(guard, "ensure_handlers_loaded", lambda: None)
     monkeypatch.setattr(guard, "build_actor", lambda: None)
@@ -128,7 +130,7 @@ def test_items_get_uses_served_projection(monkeypatch):
             success=True,
             result={
                 "public_ref": "GAR-3",
-                "fields": {"project_id": 4, "title": "Plant trees"},
+                "fields": {"project_id": served, "title": "Plant trees"},
             },
         )
 
