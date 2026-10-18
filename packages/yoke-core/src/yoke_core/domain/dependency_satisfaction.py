@@ -152,6 +152,10 @@ def evaluate_satisfaction(
             )
         if blocking_status == "done" and blocking_deployed.carried:
             return GateResult(True, f"Blocking item is deployed to {environment}.")
+    if satisfaction == Satisfaction.FACT_MERGED.value and blocking_status == "done":
+        return GateResult(
+            True, "Blocking item is done; its merge dependency is satisfied."
+        )
     if workflow is None or blocking_status is None:
         return GateResult(
             False, "Blocking item has no verifiable workflow-version pin."

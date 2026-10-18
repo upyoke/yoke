@@ -16,7 +16,7 @@ def satisfaction_description(satisfaction: str) -> str:
     if stage_id is not None:
         return f"status reaches {stage_id}"
     return {
-        "fact:merged": "merged after dependency creation (recorded landing)",
+        "fact:merged": "blocker is done or merged after dependency creation (recorded landing)",
     }.get(satisfaction, satisfaction)
 
 
