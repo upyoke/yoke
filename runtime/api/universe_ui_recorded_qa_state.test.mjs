@@ -27,7 +27,7 @@ function capturedContext() {
     if (request.function === "inbox.list") return ok({ needs_decision: [] });
     if (request.function === "qa.requirement.get") return ok({ requirement });
     if (request.function === "items.detail.get") return ok({ item });
-    if (request.function === "qa.run.list") return ok({ rows: [
+    if (request.function === "qa.run.list") return ok({ current_run_id: row.run_id, rows: [
       { id: row.run_id, case_outcome: "captured", execution_status: "captured", created_at: row.happened_at },
       { id: 11, case_outcome: "failed", verdict: "fail" },
     ] });

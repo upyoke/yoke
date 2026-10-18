@@ -78,7 +78,7 @@ def item_for_merge_phase(
 
 
 def _hydrate_run_identity(requirement: dict[str, Any]) -> str:
-    """Read raw run proof through the deployed, backward-compatible API."""
+    """Read proof for the actual attempt already selected by item detail."""
     if requirement.get("recorded_head_sha") or requirement.get("run_id") is None:
         return ""
     requirement_id = int(requirement["id"])
@@ -96,9 +96,15 @@ def _hydrate_run_identity(requirement: dict[str, Any]) -> str:
         detail = response.error.message if response.error else "read failed"
         return f"could not read QA runs for requirement {requirement_id}: {detail}"
     rows = list((response.result or {}).get("rows") or [])
-    if not rows:
-        return ""
-    latest = rows[-1]
+    run_id = int(requirement["run_id"])
+    latest = next((row for row in rows if int(row["id"]) == run_id), None)
+    if latest is None:
+        return (
+            f"qa_run_identity_unavailable: requirement {requirement_id} selected "
+            f"run {run_id}, absent from run history with no recorded SHA proof; "
+            "refresh item detail and retry "
+            "merge before grading this requirement"
+        )
     requirement.update(
         run_id=latest.get("id"),
         verdict=latest.get("verdict"),

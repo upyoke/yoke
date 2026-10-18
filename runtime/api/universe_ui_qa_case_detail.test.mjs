@@ -1,7 +1,3 @@
-// The QA case page an Activity row opens: what the case had to prove, which
-// subject it answers for, the stage execution that judged it, and what it
-// captured.
-
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -36,9 +32,6 @@ const REQUIREMENT = { id: 9001,
   waiver_rationale: null,
 };
 
-// The case's own executions, which the run list serves complete. The activity
-// table joins a requirement to its latest run alone, so the page reads this
-// rather than trusting a page of recent activity to carry the case at all.
 const EXECUTION = {
   id: 44,
   qa_requirement_id: 9001,
@@ -91,7 +84,9 @@ function caseContext(documentNode, requests, overrides = {}) {
           return ok({ rows: overrides.rows ?? [ACTIVITY_ROW] });
         }
         if (request.function === "qa.run.list") {
-          return ok({ rows: overrides.runs ?? [EXECUTION] });
+          return ok({ rows: overrides.runs ?? [EXECUTION],
+            ...(overrides.legacy ? {} : { current_run_id: overrides.currentId
+              ?? (overrides.runs === undefined ? 44 : overrides.runs[0]?.id ?? null) }) });
         }
         if (request.function === "deployment_runs.stages") {
           return ok({
@@ -144,8 +139,6 @@ test("a case page names its subject, its stage execution, and its contract", asy
   await renderQaCaseDetail(caseContext(documentNode, requests), root, "1", "9001");
   await settle();
 
-  // The case is read by its own id; the row it draws is found through the
-  // subject the case names, because activity is keyed by subject.
   const definition = requests.find((r) => r.function === "qa.requirement.get");
   assert.deepEqual(definition.target, {
     kind: "qa_requirement", qa_requirement_id: 9001,
@@ -155,24 +148,16 @@ test("a case page names its subject, its stage execution, and its contract", asy
     { project: "1", public_refs: ["YOK-2228"] },
   );
 
-  // Titled for what ran against what, the name the activity table links.
   assert.equal(byClass(root, "title")[0].textContent, "Browser check · YOK-2228");
   const facts = values(root);
-  // Subject is the item's public ref, not the internal id the case stores.
   assert.match(facts[0], /YOK-2228/);
   assert.equal(facts[1], "item");
-  // The environment its frozen target names, not the project's current one:
-  // a run preview registers no environment of its own.
   assert.equal(facts[2], "demo-preview");
-  // The verdict policy is attributed to the stage that set it.
   assert.match(facts[3], /run-20260726-001 · stage-item-qa/);
   assert.match(facts[3], /verdict required human \(set by this stage\)/);
   assert.equal(facts[4], "Browser check");
   assert.equal(facts[5], "failed");
-  // The candidate its target froze sits with the rest of the case facts, so
-  // a reviewer is not asked which build the screenshot below came from.
   assert.equal(facts[7], "aa11bb22cc33dd44ee55ff6677889900aabbccdd");
-  // The contract the case was held to, and what the agent said about it.
   assert.match(facts[8], /Open the stage preview/);
   assert.match(facts[9], /banner names the candidate revision/);
   assert.match(
@@ -183,8 +168,6 @@ test("a case page names its subject, its stage execution, and its contract", asy
 });
 
 test("a repeated case keeps its history instead of only its newest run", async () => {
-  // The activity table joins a requirement to its latest run alone, so a case
-  // run twice would otherwise look like it ran once.
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("main");
   const requests = [];
@@ -200,13 +183,11 @@ test("a repeated case keeps its history instead of only its newest run", async (
   );
   await settle();
 
-  // The complete run list is read by requirement, not by subject recency.
   assert.deepEqual(
     requests.find((r) => r.function === "qa.run.list").payload,
     { requirement_id: 9001 },
   );
   const facts = values(root);
-  // Newest execution is the current answer; the earlier one is still counted.
   assert.equal(facts[5], "passed");
   assert.equal(facts[7], "1 before this one");
 });
@@ -215,8 +196,8 @@ test("case detail preserves native current-attempt selection across offset and t
   for (const currentId of [6, 7]) {
     const documentNode = new FakeDocument();
     const root = documentNode.createElement("main");
-    // Native order is authoritative: lower ID can have the later UTC start;
-    // equal instants instead select the higher ID. Audit creation is unrelated.
+    // A detached review has the largest id; native start/id selection names
+    // the actual attempt even when its row appears last in returned history.
     const runs = [
       { ...EXECUTION, id: currentId, verdict: "pass", case_outcome: "passed",
         started_at: "2026-10-01T09:00:01+09:00", created_at: "2026-09-30T00:00:00Z" },
@@ -225,7 +206,9 @@ test("case detail preserves native current-attempt selection across offset and t
           ? "2026-09-30T20:00:00-04:00" : "2026-09-30T20:00:01-04:00" },
       { ...EXECUTION, id: 99, performed_by: "agent", case_outcome: "failed" },
     ];
-    await renderQaCaseDetail(caseContext(documentNode, [], { runs }), root, "1", "9001");
+    await renderQaCaseDetail(caseContext(documentNode, [], {
+      runs: [runs[2], runs[1], runs[0]], currentId,
+    }), root, "1", "9001");
     await settle();
     assert.equal(values(root)[5], "passed");
     assert.equal(values(root)[7], "2 before this one");
@@ -233,8 +216,6 @@ test("case detail preserves native current-attempt selection across offset and t
 });
 
 test("an execution whose evidence is out of reach does not read as never run", async () => {
-  // A case whose subject the activity read does not carry still ran; saying
-  // "never run" there would deny an execution the run list can see.
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("main");
   await renderQaCaseDetail(
@@ -302,7 +283,6 @@ test("a standalone case keeps its own subject rather than borrowing a release", 
   assert.equal(facts[0], "standalone — not bound to an item or a release");
   assert.equal(facts[1], "standalone");
   assert.equal(facts[3], "not part of a release");
-  // No release means no stage read to make.
   assert.equal(
     requests.filter((r) => r.function === "deployment_runs.stages").length, 0,
   );
@@ -334,4 +314,21 @@ test("a case still waiting on a person carries that decision", async () => {
     byClass(root, "review-action").map((node) => node.textContent),
     ["Reject", "Approve"],
   );
+});
+
+test("missing current identity names the serving floor and recovery", async () => {
+  const doc = new FakeDocument();
+  const root = doc.createElement("main");
+  await renderQaCaseDetail(caseContext(doc, [], { legacy: true }), root, "1", "9001");
+  assert.match(root.textContent, /qa_current_run_identity_unavailable/);
+  assert.match(root.textContent, /response floor/);
+  assert.match(root.textContent, /control-plane operator/);
+});
+
+test("a selected run absent from history refuses instead of saying never run", async () => {
+  const doc = new FakeDocument();
+  const root = doc.createElement("main");
+  await renderQaCaseDetail(caseContext(doc, [], { runs: [], currentId: 99 }), root, "1", "9001");
+  assert.match(root.textContent, /qa_current_run_identity_unavailable/);
+  assert.doesNotMatch(root.textContent, /never run/);
 });

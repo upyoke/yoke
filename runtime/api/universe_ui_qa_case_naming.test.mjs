@@ -60,7 +60,7 @@ function qaContext(documentNode, { rows, requirement, navigate = () => {} }) {
           case "qa.requirement.get":
             return ok({ requirement });
           case "qa.run.list":
-            return ok({ rows: [{ id: 71, verdict: "pass", case_outcome: "passed",
+            return ok({ current_run_id: 71, rows: [{ id: 71, verdict: "pass", case_outcome: "passed",
               completed_at: "2026-09-27T16:30:00Z" }] });
           case "qa.artifact.read":
             return ok({ artifact_id: request.payload.artifact_id, disposition: "ready",

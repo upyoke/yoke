@@ -104,10 +104,10 @@ def select_latest_executions(rows: Iterable[Any]) -> dict[int, dict[str, Any]]:
     return selected
 
 
-def current_first_run_history(
+def run_history_with_current(
     rows: Iterable[Any], requirement_id: int | None
-) -> list[Any]:
-    """Put the native-selected attempt first without discarding audit history.
+) -> tuple[list[Any], int | None]:
+    """Return current-first audit history and its explicit selected identity.
 
     Requirement-filtered run lists feed case detail. Detached judgments stay
     readable as history but cannot become the current answer. Unfiltered
@@ -115,7 +115,7 @@ def current_first_run_history(
     """
     history = list(rows)
     if requirement_id is None or not history:
-        return history
+        return history, None
     current = select_latest_executions(
         row for row in history if row["actual_execution"]
     ).get(int(requirement_id))
@@ -130,7 +130,7 @@ def current_first_run_history(
         history,
         key=lambda row: (row["id"] == current_id, int(row["id"])),
         reverse=True,
-    )
+    ), int(current_id)
 
 
 def _presented_executions(conn, requested, columns):
