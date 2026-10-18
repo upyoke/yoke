@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-import shlex
+import re
 import shutil
 import subprocess
 import sys
@@ -30,15 +30,16 @@ def _postmasters() -> list[tuple[int, Path, Path]]:
         if len(fields) != 3 or fields[0] != str(os.getuid()):
             continue
         try:
-            args = shlex.split(fields[2])
-            if not args or Path(args[0]).name not in {"postgres", "postmaster"}:
+            match = re.match(r"^(.*?)\s+-D\s+(.+?/data)(?=\s+-|$)", fields[2])
+            if match is None:
                 continue
-            data = Path(args[args.index("-D") + 1])
-            if data.name != "data":
+            executable, directory = match.groups()
+            binary = Path(executable)
+            if binary.name not in {"postgres", "postmaster"}:
                 continue
-            binary = Path(args[0])
+            data = Path(directory)
             if not binary.is_absolute():
-                binary = Path(shutil.which(args[0]) or args[0])
+                binary = Path(shutil.which(executable) or executable)
             found.append((int(fields[1]), data.parent, binary.parent))
         except (ValueError, IndexError):
             continue
@@ -175,10 +176,18 @@ def destroy_evidence_clusters(evidence: Path) -> None:
         root = marker.parent.parent
         if root.is_symlink() or marker.parent.is_symlink():
             continue
-        if not (marker.parent / "postmaster.pid").exists():
+        if (marker.parent / "postmaster.pid").exists():
+            failed = 1
+            print(
+                f"pgtest_evidence_postmaster_unresolved: {root}; preserve this evidence "
+                "and stop the cluster with YOKE_PG_CLUSTER_ROOT set to this root "
+                "using pg_testcluster stop, then retry cleanup",
+                file=sys.stderr,
+            )
+        else:
             shutil.rmtree(marker.parent if root == evidence else root)
     if failed:
         raise OSError(
             f"pgtest_evidence_cleanup_failed: {evidence}; inspect the refusal above "
-            "and run pg_testcluster prune-clusters before deleting evidence"
+            "and stop the named cluster with pg_testcluster stop before deleting evidence"
         )

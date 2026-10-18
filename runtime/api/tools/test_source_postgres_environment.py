@@ -153,9 +153,12 @@ def test_cleanup_reclaims_only_its_own_evidence_cluster(tmp_path, monkeypatch):
         lambda pid, root, bins: (reclaim.ClusterSpec(root, "yoketest"), 0),
     )
     destroyed = []
-    monkeypatch.setattr(
-        reclaim, "_destroy", lambda pid, spec: destroyed.append(spec.root)
-    )
+
+    def destroy(pid, spec):
+        destroyed.append(spec.root)
+        reclaim.shutil.rmtree(spec.root)
+
+    monkeypatch.setattr(reclaim, "_destroy", destroy)
     reclaim.destroy_evidence_clusters(evidence)
     assert destroyed == [inside]
 
@@ -224,3 +227,28 @@ def test_empty_evidence_never_inspects_processes(tmp_path, monkeypatch):
         reclaim, "_postmasters", lambda: pytest.fail("no cluster needs inspection")
     )
     reclaim.destroy_evidence_clusters(tmp_path)
+
+
+def test_unknown_postmaster_identity_refuses_instead_of_leaking_silently(
+    tmp_path, monkeypatch
+):
+    data = tmp_path / "custom/data"
+    data.mkdir(parents=True)
+    (data / "PG_VERSION").write_text("17")
+    (data / "postmaster.pid").write_text("unknown")
+    monkeypatch.setattr(reclaim, "_postmasters", lambda: [])
+    with pytest.raises(OSError, match="pgtest_evidence_cleanup_failed"):
+        reclaim.destroy_evidence_clusters(tmp_path)
+    assert data.exists()
+
+
+def test_postmaster_inventory_preserves_spaces_in_owned_paths(monkeypatch):
+    listing = f"{os.getuid()} 12 /embedded engine/bin/postgres -D /tmp/evidence/private cluster/data -k /tmp/socket -p 5432\n"
+    monkeypatch.setattr(
+        reclaim.subprocess,
+        "run",
+        lambda *a, **kw: reclaim.subprocess.CompletedProcess([], 0, listing, ""),
+    )
+    assert reclaim._postmasters() == [
+        (12, Path("/tmp/evidence/private cluster"), Path("/embedded engine/bin"))
+    ]
