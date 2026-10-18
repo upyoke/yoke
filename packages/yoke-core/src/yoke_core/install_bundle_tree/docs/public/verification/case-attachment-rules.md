@@ -23,12 +23,10 @@ state. Authoring, `qa.requirement.add`, and materialization refuse missing state
 - `"starting_state": "as_is"` with `"starting_state_reason"`: run on the
   machine as found, for the stated reason.
 
-On macOS, restore keeps the live `Library/ContainerManager`,
-`Library/Containers/com.apple.photolibraryd` and `Library/Biome` folders outside
-the golden copy because macOS services manage them during reset. Other failed
-copies retry once; persistent failure retains the named unrestored-entry
-receipt and copier diagnostic. Inspect that entry and repair its permissions
-or service contention before retrying reset.
+On macOS, a failed captured-entry copy retries once to handle entries a live
+service recreates during restore. A persistent failure retains the named
+unrestored-entry receipt and copier diagnostic. Inspect that entry and repair
+its permissions or service contention before retrying reset.
 
 For a continuity case that needs earlier machine state, add
 `method_config.continuity_fingerprint` to its `as_is` configuration: an object

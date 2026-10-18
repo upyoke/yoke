@@ -259,24 +259,6 @@ def test_verify_reports_surviving_yoke_state_after_a_restore(
     assert "VERIFY_FAILED" in contaminated.stdout
 
 
-def test_service_owned_folders_stay_live_through_clear_and_restore(tmp_path):
-    from yoke_harness.ssh_mac_preserved_state import OS_SERVICE_HOME_ENTRIES
-
-    golden, home = _baseline_pair(tmp_path)
-    for entry in OS_SERVICE_HOME_ENTRIES:
-        _write(home / entry / "protected", "live")
-        _write(golden / entry / "protected", "stale")
-    result = _run_functions(
-        _clear_and_restore(golden, home, tmp_path / "errors"),
-        shell_home=tmp_path / "shell-home",
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
-    for entry in OS_SERVICE_HOME_ENTRIES:
-        assert (home / entry / "protected").read_text() == "live"
-    assert (home / "Documents/notes.txt").read_text() == "user notes\n"
-    assert not (home / "Documents/contaminant.txt").exists()
-
-
 @pytest.mark.parametrize("always_fails", [False, True])
 def test_restore_retries_a_copy_once_and_reports_persistent_failure(
     tmp_path, always_fails
@@ -287,7 +269,8 @@ def test_restore_retries_a_copy_once_and_reports_persistent_failure(
         _function_program(),
         *_restore_scratch(error_log),
         "attempts=0",
-        'restore_entry() { (( attempts += 1 )); if (( attempts == 1 )) || [[ "$persistent" == yes ]]; then print -u2 denied; return 1; fi; }',
+        'functions[copy_entry]="$functions[restore_entry]"',
+        'restore_entry() { (( attempts += 1 )); if (( attempts == 1 )) || [[ "$persistent" == yes ]]; then print -u2 denied; return 1; fi; copy_entry "$@"; }',
         _assignment("persistent", "yes" if always_fails else "no"),
         f"restore_captured_entry {shlex.quote(str(golden / 'Documents'))} {shlex.quote(str(home))}",
         'print -r -- "attempts=$attempts"',
@@ -297,3 +280,5 @@ def test_restore_retries_a_copy_once_and_reports_persistent_failure(
     assert "attempts=2" in result.stdout
     assert bool(error_log.read_text()) == always_fails
     assert bool(Path(str(error_log) + ".entries").read_text()) == always_fails
+    if not always_fails:
+        assert (home / "Documents/notes.txt").read_text() == "user notes\n"
