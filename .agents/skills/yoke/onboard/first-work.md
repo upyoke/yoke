@@ -45,7 +45,7 @@ first item, apply the outcome's QA obligations to that ref before staffing:
 
 ```bash
 yoke qa item-plan attach --item {ITEM} --project {project} --plan-id {plan_id} --transition reviewing-implementation --qa-phase verification
-yoke qa requirement add --item {ITEM} --qa-kind implementation_review --qa-phase verification --blocking-mode blocking --requirement-source explicit --success-policy "Implementation matches the item acceptance criteria under review" --workflow-transition reviewed-implementation
+yoke qa requirement add --item {ITEM} --qa-kind implementation_review --qa-phase verification --blocking-mode blocking --requirement-source explicit --workflow-transition reviewed-implementation --success-policy all-pass
 yoke qa requirement add --item {ITEM} --method-id command --qa-phase verification --blocking-mode non_blocking --requirement-source explicit --instructions "Run the declared legacy suite for advisory evidence." --expected-outcome "Record the current suite result without gating the item." --method-config '{"command":"{legacy_argv}"}' --workflow-transition reviewed-implementation
 ```
 

@@ -198,7 +198,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
         "yoke qa requirement add (--item PREFIX-N | --deployment-run RUN-ID) "
         "(--qa-kind KIND | --method-id METHOD) "
         "--qa-phase PHASE [--target-env E] [--blocking-mode M] "
-        "[--requirement-source S] [--success-policy JSON-OR-TEXT] "
+        "[--requirement-source S] [--success-policy all-pass|JSON] "
         "[--required-capability KIND ...] [--suite-id ID] "
         "[--instructions TEXT | --instructions-file PATH | --stdin] "
         "[--expected-outcome TEXT | --expected-outcome-file PATH] "
