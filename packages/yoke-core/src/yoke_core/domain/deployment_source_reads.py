@@ -31,8 +31,7 @@ def source_read(conn, key, reader):
             raise SourcePreparationChanged(
                 "deployment_source_preparation_changed: locked validation needs "
                 f"source fact {_KEY_REPR.repr(key)}, which was not prepared; nothing was "
-                "dispatched. Re-drive the same run to prepare its current "
-                "source facts before acquiring item/run locks.",
+                f"dispatched. {_VALIDATING.get()}",
                 lambda: shared_read(conn, key, reader),
             )
         return reader()
@@ -41,8 +40,14 @@ def source_read(conn, key, reader):
 
 
 @contextmanager
-def prepared_sources_only():
-    token = _VALIDATING.set(True)
+def prepared_sources_only(
+    *,
+    recovery=(
+        "Re-drive the same run to prepare its current source facts before "
+        "acquiring item/run locks."
+    ),
+):
+    token = _VALIDATING.set(recovery)
     try:
         yield
     finally:

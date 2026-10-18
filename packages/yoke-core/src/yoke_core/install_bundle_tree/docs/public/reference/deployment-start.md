@@ -124,7 +124,18 @@ open lanes during preparation ask no new question. A changed source question
 only that question with every lock released (timing step `start_source_refresh`)
 and retries the commit phase, up to eight preparations. After that the start
 refuses as `deployment_source_preparation_changed`, naming the exact source
-key; nothing was dispatched, so re-drive the same run. QA occupancy
+key; nothing was dispatched, so re-drive the same run.
+
+Creation prepares
+against the waiting run when its takeover would settle that run succeeded;
+a cancelled takeover keeps the preceding succeeded release as its base. This
+unlocked prediction changes no waiting-run state, and the locked pass rechecks
+it. If creation exhausts source preparation, repeat the original
+`yoke deployment-runs create` or `yoke deployment-runs start-for-item` command
+with the same arguments and idempotency key, if supplied; no new run was
+created.
+
+QA occupancy
 uses the first real blocker and shares peer-plan facts within that evaluation;
 full diagnostic reads still report all blockers. Item/run/target lock contention
 refuses as `deployment_start_lock_busy` after two seconds and names same-run
