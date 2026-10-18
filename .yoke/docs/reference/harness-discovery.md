@@ -108,8 +108,8 @@ Local edits use the refresh refusal's recovery.
 
 Human diagnostics inside Git and harness tools begin with “yoke (<hook>): ”,
 for example “yoke (pre-commit): ERROR: file-line-limit gate blocked this commit.”
-Follow the repair in that diagnostic. Successful checks and identity-only
-post-commit snapshot scans stay quiet. Required orientation, instructions,
+Follow the repair in that diagnostic. Successful checks and the identity-only
+lane-head recordings after commits, merges, rebases and checkouts stay quiet. Required orientation, instructions,
 continuations, handoffs and recovery still arrive through their normal owner.
 JSON replies, delivery markers and machine identifiers retain their wire form;
 the shared context composer budgets the combined delivery for each harness.

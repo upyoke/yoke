@@ -27,6 +27,7 @@ from yoke_cli.transport.dispatcher import (
     emit_response,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.git_hook_markers import HEAD_RECORDING_GIT_HOOKS
 from yoke_contracts.hook_diagnostics import format_hook_diagnostic
 from yoke_contracts.path_snapshot import (
     PathSnapshotSyncPayload,
@@ -37,7 +38,7 @@ _RESPONSE_TIMEOUT_MARKER = "exceeded the time limit"
 
 PROJECT_SNAPSHOT_SYNC_USAGE = (
     "yoke project snapshot sync [REPO_ROOT] [--project P] "
-    "[--integration-target BRANCH] [--head-only] [--hook] "
+    "[--integration-target BRANCH] [--head-only] [--hook GIT_HOOK] "
     "[--session-id S] [--json]"
 )
 
@@ -66,9 +67,9 @@ def project_snapshot_sync(args: List[str]) -> int:
     )
     parser.add_argument(
         "--hook",
-        dest="hook_mode",
-        action="store_true",
-        help="Hook-safe mode: report failures but exit zero.",
+        dest="hook_name",
+        choices=HEAD_RECORDING_GIT_HOOKS,
+        help="Hook-safe mode for GIT_HOOK: label failures with it, exit 0.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -77,6 +78,7 @@ def project_snapshot_sync(args: List[str]) -> int:
         return 2
 
     project = _project_context(parsed.project)
+    hook_mode = parsed.hook_name is not None
     # --head-only and the git hook ask for commit identity only: the server
     # records the lane head and stores no snapshot. A full sync stores the
     # inventory, uploading only files the server's base snapshot lacks.
@@ -86,7 +88,7 @@ def project_snapshot_sync(args: List[str]) -> int:
             integration_target=parsed.integration_target,
             head_only=parsed.head_only,
         )
-        if parsed.head_only and not parsed.hook_mode:
+        if parsed.head_only and not hook_mode:
             response = _dispatch_sync_payload(
                 project=project,
                 payload=identity_sync_payload(
@@ -99,24 +101,24 @@ def project_snapshot_sync(args: List[str]) -> int:
             response = sync_snapshots(
                 project=project,
                 plan=plan,
-                contents=not parsed.hook_mode,
-                hook_mode=parsed.hook_mode,
+                contents=not hook_mode,
+                hook_mode=hook_mode,
                 session_id=parsed.session_id,
-                timeout_s=HOOK_WRITE_TIMEOUT_S if parsed.hook_mode else None,
+                timeout_s=HOOK_WRITE_TIMEOUT_S if hook_mode else None,
             )
     except ProjectSnapshotScanError as exc:
-        label = "warning" if parsed.hook_mode else "error"
+        label = "warning" if hook_mode else "error"
         message = f"{label}: {exc}"
-        if parsed.hook_mode:
-            message = format_hook_diagnostic("post-commit", message)
+        if hook_mode:
+            message = format_hook_diagnostic(parsed.hook_name, message)
         print(message, file=sys.stderr)
-        return 0 if parsed.hook_mode else 1
+        return 0 if hook_mode else 1
     except Exception as exc:
-        if parsed.hook_mode:
+        if hook_mode:
             message = str(exc) or type(exc).__name__
             print(
                 format_hook_diagnostic(
-                    "post-commit",
+                    parsed.hook_name,
                     _failure_warning(
                         message,
                         _write_repair(
@@ -131,10 +133,10 @@ def project_snapshot_sync(args: List[str]) -> int:
             )
             return 0
         raise
-    if parsed.hook_mode:
+    if hook_mode:
         if not response.success:
             print(
-                format_hook_diagnostic("post-commit", _sync_outcome_line(response)),
+                format_hook_diagnostic(parsed.hook_name, _sync_outcome_line(response)),
                 file=sys.stderr,
             )
         return 0
@@ -172,8 +174,8 @@ def sync_local_snapshot_for_write(
             head_only=head_only,
         )
         if head_only:
-            # Identity-only callers match the git post-commit shim: no blob
-            # scan, and the server stores no snapshot for them.
+            # Identity-only callers match the git hook shims: no blob scan,
+            # and the server stores no snapshot for them.
             response = _dispatch_sync_payload(
                 project=project_id,
                 payload=identity_sync_payload(

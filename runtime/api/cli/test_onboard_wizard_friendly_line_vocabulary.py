@@ -84,7 +84,7 @@ def test_friendly_line_covers_full_action_vocabulary() -> None:
         (
             "project-install-git-hooks",
             "",
-        ): "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)",
+        ): "Install Git hooks that guard commits and track your current commit",
         (
             "project-write-board-art",
             "",

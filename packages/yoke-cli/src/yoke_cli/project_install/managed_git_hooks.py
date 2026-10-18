@@ -8,12 +8,22 @@ from typing import Any, List
 # doctor gate-liveness check can recognize an installed shim without importing
 # yoke-cli. Re-exported here so this module's public API is unchanged.
 from yoke_contracts.git_hook_markers import (
+    POST_CHECKOUT_MARKER,
     POST_COMMIT_MARKER,
+    POST_MERGE_MARKER,
+    POST_REWRITE_MARKER,
     PRE_COMMIT_MARKER,
     PRE_MERGE_COMMIT_MARKER,
 )
 
-GIT_HOOK_NAMES = ("pre-commit", "post-commit", "pre-merge-commit")
+GIT_HOOK_NAMES = (
+    "pre-commit",
+    "post-commit",
+    "pre-merge-commit",
+    "post-merge",
+    "post-rewrite",
+    "post-checkout",
+)
 
 
 # A repository can reach a computer without Yoke (a synced folder, a plain
@@ -45,17 +55,47 @@ PRE_COMMIT_SHIM = (
     + 'exec "$yoke_bin" git pre-commit "$@"\n'
 )
 
-POST_COMMIT_SHIM = (
-    "#!/bin/sh\n"
-    f"# {POST_COMMIT_MARKER} hook installed by `yoke project install`\n"
-    "# Syncs committed git tree path snapshots for the project's HEAD so\n"
-    "# downstream activate / boundary calls see current file metadata.\n"
-    "# Harness-neutral: fires on every commit regardless of source\n"
-    "# (agent tool calls, manual git commit, merge, rebase, cherry-pick).\n"
-    "# Routes through the machine-installed `yoke` launcher; never\n"
-    "# blocks — a completed commit must not fail on snapshot sync trouble.\n"
-    + _launcher_lookup("post-commit")
-    + 'exec "$yoke_bin" git post-commit "$@"\n'
+
+def _head_recording_shim(hook_name: str, marker: str, fires_on: str) -> str:
+    return (
+        "#!/bin/sh\n"
+        f"# {marker} hook installed by `yoke project install`\n"
+        "# Records this checkout's HEAD as its lane head so the control\n"
+        "# plane names the commit the lane actually offers.\n"
+        f"# Fires on {fires_on}, whatever runs it\n"
+        "# (agent tool calls, a terminal, an editor).\n"
+        "# Routes through the machine-installed `yoke` launcher; never\n"
+        "# blocks — a finished git operation must not fail on recording.\n"
+        + _launcher_lookup(hook_name)
+        + f'exec "$yoke_bin" git {hook_name} "$@"\n'
+    )
+
+
+POST_COMMIT_SHIM = _head_recording_shim(
+    "post-commit",
+    POST_COMMIT_MARKER,
+    "every commit, amend, cherry-pick and rebase pick",
+)
+
+# Each of the next three covers a HEAD move no commit announces:
+# post-merge a merge or pull (fast-forward or not), post-rewrite the end of
+# a rebase, post-checkout a branch switch or a fast-forward rebase.
+POST_MERGE_SHIM = _head_recording_shim(
+    "post-merge",
+    POST_MERGE_MARKER,
+    "every merge and pull, fast-forward or not",
+)
+
+POST_REWRITE_SHIM = _head_recording_shim(
+    "post-rewrite",
+    POST_REWRITE_MARKER,
+    "the end of every rebase",
+)
+
+POST_CHECKOUT_SHIM = _head_recording_shim(
+    "post-checkout",
+    POST_CHECKOUT_MARKER,
+    "every branch checkout, including a fast-forward rebase",
 )
 
 PRE_MERGE_COMMIT_SHIM = (
@@ -74,12 +114,18 @@ _MARKER_BY_HOOK = {
     "pre-commit": PRE_COMMIT_MARKER,
     "post-commit": POST_COMMIT_MARKER,
     "pre-merge-commit": PRE_MERGE_COMMIT_MARKER,
+    "post-merge": POST_MERGE_MARKER,
+    "post-rewrite": POST_REWRITE_MARKER,
+    "post-checkout": POST_CHECKOUT_MARKER,
 }
 
 _SHIM_BY_HOOK = {
     "pre-commit": PRE_COMMIT_SHIM,
     "post-commit": POST_COMMIT_SHIM,
     "pre-merge-commit": PRE_MERGE_COMMIT_SHIM,
+    "post-merge": POST_MERGE_SHIM,
+    "post-rewrite": POST_REWRITE_SHIM,
+    "post-checkout": POST_CHECKOUT_SHIM,
 }
 
 
@@ -182,8 +228,14 @@ __all__ = [
     "GIT_HOOK_NAMES",
     "PRE_COMMIT_MARKER",
     "PRE_COMMIT_SHIM",
+    "POST_CHECKOUT_MARKER",
+    "POST_CHECKOUT_SHIM",
     "POST_COMMIT_MARKER",
     "POST_COMMIT_SHIM",
+    "POST_MERGE_MARKER",
+    "POST_MERGE_SHIM",
+    "POST_REWRITE_MARKER",
+    "POST_REWRITE_SHIM",
     "PRE_MERGE_COMMIT_MARKER",
     "PRE_MERGE_COMMIT_SHIM",
     "assert_pre_commit_runtime_available",

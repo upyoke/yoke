@@ -19,7 +19,9 @@ HARNESS_HOOKS_LINE = (
     "Install harness hooks in .claude/settings.json, "
     ".codex/hooks.json, and .cursor/hooks.json"
 )
-GIT_HOOKS_LINE = "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)"
+GIT_HOOKS_LINE = "Install Git hooks that guard commits and track your current commit"
+
+
 def step_target(plan: dict, action: str) -> str:
     for step in plan["steps"]:
         if step["action"] == action:
