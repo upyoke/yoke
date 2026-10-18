@@ -83,27 +83,34 @@ def test_prune_and_message_expiry_do_not_deadlock(test_db):
     ).fetchone() == ("expired",)
 
 
-def test_snapshot_lock_waits_for_a_reader_gap_without_queueing(test_db):
-    import threading
+def test_snapshot_cohort_deletes_beside_an_open_reader(test_db):
     import time
 
-    import psycopg
-    import pytest
-    from yoke_contracts.universe_retention import RetentionPolicy
-    from yoke_core.domain.universe_retention import _lock_snapshot_tables
+    from yoke_core.domain.universe_retention import _table_pass, read_policy
+    from yoke_core.domain.universe_retention_snapshots import snapshot_policy
 
-    policy = RetentionPolicy(lock_seconds=0.2)
+    old = utc_now() - timedelta(days=500)
+    ids = [
+        test_db.execute(
+            "INSERT INTO path_snapshots (project_id,commit_sha,built_at) "
+            "VALUES (1,%s,%s) RETURNING id",
+            (str(index) * 40, old),
+        ).fetchone()[0]
+        for index in range(2)
+    ]
+    test_db.commit()
     with connect_test_database(test_db.info.dbname) as reader:
-        reader.execute("SELECT COUNT(*) FROM path_snapshots").fetchone()
-        threading.Timer(0.5, reader.rollback).start()
-        started = time.monotonic()
-        _lock_snapshot_tables(test_db, policy, started + 8)
-        assert time.monotonic() - started >= 0.4
-        test_db.rollback()
-        reader.execute("SELECT COUNT(*) FROM path_snapshots").fetchone()
-        with pytest.raises(psycopg.errors.LockNotAvailable):
-            _lock_snapshot_tables(test_db, policy, time.monotonic() + 1)
-        # A refused attempt never queued, so the reader was never blocked.
+        reader.execute("SET lock_timeout='1s'")
+        assert reader.execute("SELECT COUNT(*) FROM path_snapshots").fetchone()[0] == 2
+        row = _table_pass(
+            test_db,
+            read_policy(test_db)[0],
+            time.monotonic() + 8,
+            snapshot_policy(),
+            True,
+        )
+        assert row["deleted"]["path_snapshots"] == 1
+        # The open reader is neither blocked nor shown a partial inventory.
         reader.execute("SELECT COUNT(*) FROM path_snapshot_entries").fetchone()
         reader.rollback()
-    test_db.rollback()
+    assert [r[0] for r in test_db.execute("SELECT id FROM path_snapshots")] == [ids[1]]

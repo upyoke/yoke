@@ -106,46 +106,15 @@ def _hold_policy(conn, policy, deadline):
         )
 
 
-SNAPSHOT_TABLES = "path_snapshots,path_snapshot_entries,path_snapshot_symlink_facts"
-LOCK_RETRY_SECONDS = 0.1
-
-
-def _lock_snapshot_tables(conn, policy, deadline):
-    """Take the inventory lock in a gap between readers, never in their queue.
-
-    A queued ACCESS EXCLUSIVE request stalls every new reader behind it, so it
-    may wait only briefly. NOWAIT attempts never queue; repeating them across
-    the pass budget (keeping one lock allowance for the cohort's own work)
-    finds a gap on a busy table without delaying its readers.
-    """
-    while True:
-        try:
-            _execute(
-                conn,
-                policy,
-                deadline,
-                f"LOCK TABLE {SNAPSHOT_TABLES} IN ACCESS EXCLUSIVE MODE NOWAIT",
-            )
-            return
-        except Exception as exc:
-            if getattr(exc, "sqlstate", "") != "55P03":
-                raise
-            conn.rollback()
-            if deadline - time.monotonic() <= policy.lock_seconds + LOCK_RETRY_SECONDS:
-                raise
-            time.sleep(LOCK_RETRY_SECONDS)
-
-
 def _hold_cohort(conn, policy, deadline, rule):
-    """Lock only what this cohort needs; never whole message tables.
+    """Lock only what this cohort needs; never whole tables.
 
-    Row locks taken by the eligibility select and the settings-row share lock
-    replace table-wide custody, so prune never queues behind (or ahead of) the
-    message writers' row order. Snapshot inventories keep one table lock:
-    native readers take it, and no message writer touches these tables.
+    The eligibility select row-locks its cohort (skipping rows a writer holds)
+    and the settings row is share-locked, so prune never waits on, or stalls,
+    readers and writers of the tables it cleans. A row-locked snapshot also
+    blocks new children for it, because their foreign key needs a key-share
+    lock on the parent; each inventory is still deleted in one transaction.
     """
-    if rule.table == "path_snapshots" and db_backend.connection_is_postgres(conn):
-        _lock_snapshot_tables(conn, policy, deadline)
     _hold_policy(conn, policy, deadline)
 
 
@@ -249,8 +218,8 @@ def _delete_cohort(conn, policy, deadline, rule, rows, custody):
             conn,
             policy,
             deadline,
-            f"DELETE FROM {rule.table} t WHERE {clause} AND ({rule.recheck or rule.where})",
-            (*values, *(() if rule.recheck else rule.params)),
+            f"DELETE FROM {rule.table} t WHERE {clause} AND ({rule.where})",
+            (*values, *rule.params),
         )
         if rule.children and result.rowcount != len(accepted):
             conn.rollback()
