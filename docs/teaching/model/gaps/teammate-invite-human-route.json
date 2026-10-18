@@ -1,0 +1,7 @@
+{
+ "id": "teammate-invite-human-route",
+ "title": "Complete the human teammate invite route",
+ "status": "observed",
+ "text": "The engine registers create/list/revoke/reissue and reports the serving-mode form before invite entry. Name-code results include private sharing and lost-code recovery guidance; atomic store and dispatcher tests prove code secrecy and replay refusal. These registrations alone do not expose the CLI invite-code redemption choice or replace existing Team navigation. Keep the human-route teaching gap open until the CLI, self-host Team and hosted consumer have exact-candidate and deployed route evidence. Source-level registration tests do not prove a person can complete those routes.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/handlers/teammate_invites.py", "runtime/api/domain/test_teammate_invite_forms.py", "runtime/api/domain/test_teammate_invite_functions.py"]
+}

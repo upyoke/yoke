@@ -28,7 +28,8 @@ def _connection():
             revoked_at TEXT,
             expires_at TEXT,
             last_used_at TEXT,
-            diagnostic_metadata TEXT
+            diagnostic_metadata TEXT,
+            creation_request_id TEXT UNIQUE
         );
         CREATE TABLE api_token_audit (
             id INTEGER PRIMARY KEY,
