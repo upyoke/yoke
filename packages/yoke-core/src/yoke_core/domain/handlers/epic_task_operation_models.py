@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 class EmptyRequest(BaseModel):
@@ -11,19 +11,6 @@ class EmptyRequest(BaseModel):
 
 class PhaseRequest(BaseModel):
     phase: str = Field(..., min_length=1)
-
-
-class FileAddRequest(BaseModel):
-    file_path: str = Field(..., min_length=1)
-    action: str = ""
-
-    @field_validator("file_path")
-    @classmethod
-    def _nonblank_file_path(cls, value: str) -> str:
-        normalized = value.strip()
-        if not normalized:
-            raise ValueError("file_path must name a nonblank path")
-        return normalized
 
 
 class HistoryInsertRequest(BaseModel):

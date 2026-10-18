@@ -7,7 +7,7 @@ import pytest
 
 from yoke_core.domain import github_rest
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
-from yoke_core.domain.epic_task_scope import set_no_files_scope
+from runtime.api.task_files_touched_test_support import declare_task_files
 from runtime.api.fixtures.file_test_db import (
     apply_test_schema,
     connect_test_db,
@@ -73,7 +73,8 @@ def declare_no_file_tasks(conn, epic_id: int) -> None:
         (int(epic_id),),
     ).fetchall()
     for row in rows:
-        set_no_files_scope(conn, int(epic_id), int(row[0]))
+        declare_task_files(conn, int(epic_id), int(row[0]), [])
+    conn.commit()
 
 
 @pytest.fixture(autouse=True)

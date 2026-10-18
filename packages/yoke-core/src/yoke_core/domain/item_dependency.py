@@ -55,7 +55,7 @@ def cmd_dependency_add(
     satisfaction: Optional[str] = None,
     rationale: Optional[str] = None,
     evidence_json: Optional[str] = None,
-    session_id: Optional[int] = None,
+    session_id: Optional[str] = None,
 ) -> DependencyWrite:
     """Create the edge, or update the fields that differ on an existing one.
 
@@ -120,8 +120,9 @@ def cmd_dependency_update(
     rationale: Optional[str] = None,
     source: Optional[str] = None,
     evidence_json: Optional[str] = None,
+    session_id: Optional[str] = None,
 ) -> str:
-    """Change the fields of one edge.
+    """Change the fields of one edge and record ``session_id`` as its author.
 
     A gate or satisfaction change that would leave the edge closing a loop of
     blocking edges among live items rolls back and raises
@@ -164,6 +165,8 @@ def cmd_dependency_update(
         if value:
             set_parts.append(f"{column}={p}")
             set_params.append(value)
+    set_parts.append(f"session_id={p}")
+    set_params.append(session_id)
 
     edge_ids = [
         int(row[0])
@@ -268,7 +271,7 @@ def cmd_dependency_remove(
     conn,
     dependent: str,
     blocking: str,
-    session_id: Optional[int] = None,
+    session_id: Optional[str] = None,
 ) -> str:
     dep_id, blk_id = _edge_ids(conn, dependent, blocking)
     if session_id is not None:

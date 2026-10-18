@@ -35,13 +35,10 @@ Supported filesystem-capacity inspection, for example `df -k ~/.yoke /tmp`, may 
 
 ## Path claims
 
-With effective `path_claims=required_per_task`, readiness and claim gates share
-persisted task-budget coverage: parity defers before generated tasks exist,
-then reports uncovered task paths. Register or widen each owning task claim,
-then rerun readiness; a whole-item claim does not substitute:
-```text
-yoke claims path register --item PREFIX-N --task-num <task-number> --paths <task-budget-paths> [--allow-planned]
-```
+With effective `path_claims=required_per_task`, the task body owns its file
+list. Read [task coverage](../../sessions/model/path-claims.md#task-coverage)
+for the exact grammar, fail-closed lane narrowing and claim reconciliation
+before writing. A whole-item claim does not replace task coverage.
 
 - **File Budget and path claims are independent policy axes — never fuse them.** Before authoring or gating either surface, consume `result.effective_policies.file_budget` and `result.effective_policies.path_claims` from registered `workflows.item.get`; never reconstruct them from raw pinned policies or posture. The universal 350-line authored-file limit always applies, even when File Budget policy is off. File Budget/path-claim parity applies only when both effective axes are enabled. With File Budget off and path claims on, derive claim paths from the execution document, instruction, or conflict survey. With File Budget on and path claims off, use the budget for sizing and conflict evidence without registering a claim. With both off, neither artifact is required.
 - **Claimed paths do not narrow work item scope.** A work item's scope must never be narrowed, descoped, or rewritten solely because a required path is already claimed. If the right fix touches a file, the file stays in the work item and its execution artifact; when enabled, it also stays in `## File Budget` and the path-claim attempt regardless of who holds an overlapping claim.

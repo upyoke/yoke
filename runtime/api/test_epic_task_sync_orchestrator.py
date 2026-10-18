@@ -172,7 +172,11 @@ class TestSyncEpicTasks:
 
     def test_sync_dry_run_skips_github(self, db):
         insert_item(
-            db, id=10, workflow_id="epic", status="implementing", project="externalwebapp"
+            db,
+            id=10,
+            workflow_id="epic",
+            status="implementing",
+            project="externalwebapp",
         )
         insert_epic_task(
             db, epic_id="10", task_num=1, title="Task one", status="planned"
@@ -285,7 +289,7 @@ class TestSyncEpicTasks:
             )
 
         assert rc == 1
-        assert "task 1 has no explicit scope" in stderr.getvalue()
+        assert "task 1 has no ## Files Touched section" in stderr.getvalue()
         create_issue.assert_not_called()
 
     def test_main_sync_routing(self, capsys):

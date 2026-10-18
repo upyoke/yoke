@@ -33,15 +33,23 @@ def _stored(conn):
     return tuple(rows[0])
 
 
-def _handler_add(payload: dict):
-    return item_dependency_writes.handle_item_dependency_add(
-        FunctionCallRequest(
-            function="items.dependency.add",
-            actor=ActorContext(actor_id="op", session_id="s-1"),
-            target=TargetRef(kind="item", item_id=10),
-            payload={"blocking_item": "YOK-5", **payload},
-        )
+def _request(function: str, payload: dict, session_id: str = "s-1"):
+    return FunctionCallRequest(
+        function=function,
+        actor=ActorContext(actor_id="op", session_id=session_id),
+        target=TargetRef(kind="item", item_id=10),
+        payload={"blocking_item": "YOK-5", **payload},
     )
+
+
+def _handler_add(payload: dict, session_id: str = "s-1"):
+    return item_dependency_writes.handle_item_dependency_add(
+        _request("items.dependency.add", payload, session_id)
+    )
+
+
+def _stored_session(conn):
+    return conn.execute("SELECT session_id FROM item_dependencies").fetchone()[0]
 
 
 def test_new_edge_reports_created(items):
@@ -163,3 +171,25 @@ def test_update_with_no_field_names_every_option(items):
     cmd_dependency_add(items, "YOK-10", "YOK-5", "shepherd", rationale="r")
     with pytest.raises(ValueError, match="--source, --evidence"):
         cmd_dependency_update(items, "YOK-10", "YOK-5")
+
+
+def test_handler_add_records_the_calling_session(items):
+    assert _handler_add({"source": "dash", "rationale": "r"}).primary_success
+    assert _stored_session(items) == "s-1"
+
+
+def test_handler_add_changing_an_edge_records_the_new_session(items):
+    _handler_add({"source": "dash", "rationale": "r"})
+    _handler_add({"source": "dash", "rationale": "r"}, session_id="s-2")
+    assert _stored_session(items) == "s-1"  # unchanged edge keeps its author
+    _handler_add({"source": "operator", "rationale": "r"}, session_id="s-2")
+    assert _stored_session(items) == "s-2"
+
+
+def test_handler_update_records_the_calling_session(items):
+    _handler_add({"source": "dash", "rationale": "r"})
+    outcome = item_dependency_writes.handle_item_dependency_update(
+        _request("items.dependency.update", {"rationale": "new"}, "s-3")
+    )
+    assert outcome.primary_success
+    assert _stored_session(items) == "s-3"

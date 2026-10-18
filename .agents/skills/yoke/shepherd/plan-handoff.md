@@ -33,26 +33,28 @@ source shepherd/original target; any failed write is NOT_READY/no advance.
 Read technical_plan back nonempty; up to two retries with readback, then stop
 NOT_READY before through-stage. For each task use workflow_item.epic_task.add:
 title/body/worktree/context_estimate/dependencies; body stays end-to-end.
-File entries now use registered workflow_item.epic_task.file_add:
+The body's `## Files Touched` section is the task's only file list: one
+`- create|modify|delete `path`` bullet per file, or the single line
+`None — no repository files`. A missing or pathless section blocks
+finalization, dispatch and activation with the task named.
 
-```bash
-yoke workflow-item epic-task file-add --epic ITEM --task-num {task_num} --file-path PATH --action ACTION
-```
-
-Only after all tasks/files persist, required_per_task claims use each eligible
-task's exact persisted files (exclude stopped/failed), never branches/prose/
-one parent claim attached everywhere. Nonempty budget:
+Only after all tasks persist, required_per_task claims use each eligible
+task's exact Files Touched paths (exclude stopped/failed), never branches/
+other prose/one parent claim attached everywhere. Paths listed:
 
 ```bash
 yoke claims path register --item ITEM --task-num {task_num} --paths PATHS --allow-planned
 ```
 
-Empty budget requires explicit task exception:
+`None — no repository files` requires an explicit task exception:
 
 ```bash
-yoke claims path register --item ITEM --task-num {task_num} --mode exception --exception-reason "Architect persisted no repository file budget for this task"
+yoke claims path register --item ITEM --task-num {task_num} --mode exception --exception-reason "Task declares no repository files"
 yoke claims path required-gate ITEM --json
 ```
+
+A later body edit takes effect on the next check: widen the task's claim
+when its Files Touched grows.
 
 Any gate verdict other than pass is NOT_READY and blocks handoff.
 

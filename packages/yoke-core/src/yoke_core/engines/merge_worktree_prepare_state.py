@@ -123,7 +123,7 @@ def extract_generated_files(ctx: MergeContext) -> list[str]:
         return []
 
 
-def _pre_merge_integration(ctx: MergeContext) -> None:
+def _pre_merge_integration(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     """Bring worktree branch up to date with origin/target before merge."""
     mw = _parent()
     _print = mw._print
@@ -169,15 +169,30 @@ def _pre_merge_integration(ctx: MergeContext) -> None:
                 for cf in conflicts.stdout.strip().splitlines():
                     _run_git(["checkout", "--theirs", cf], cwd=cwd, capture=True)
                     _run_git(["add", cf], cwd=cwd, capture=True)
-                _run_git(["commit", "--no-edit"], cwd=cwd, capture=True)
+                committed = _run_git(["commit", "--no-edit"], cwd=cwd, capture=True)
+                if committed.returncode:
+                    return _integration_refused(ctx, committed)
                 _print("Pre-merge integration: auto-resolved generated file conflicts.")
             else:
                 _run_git(["merge", "--abort"], cwd=cwd, capture=True)
                 _print(
                     "Pre-merge integration: non-trivial conflicts, deferring to main merge flow."
                 )
+        else:
+            return _integration_refused(ctx, merge_result)
     else:
         _print("Pre-merge integration: success.")
+
+
+def _integration_refused(ctx: MergeContext, result) -> Tuple[int, str]:
+    message = (
+        "merge_integration_refused: git integration or its commit hook refused: "
+        f"{result.stderr or result.stdout}. The engine's integration is preserved "
+        f"in lane {ctx.worktree_path}; fix the named hook refusal, complete the pending merge "
+        "commit, then retry merge-worktree."
+    )
+    _parent()._print(message, err=True)
+    return (1, message)
 
 
 def _stash_classify_gate(ctx: MergeContext) -> Optional[Tuple[int, str]]:

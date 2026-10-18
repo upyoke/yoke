@@ -1,4 +1,4 @@
-"""File operations, dispatch chains, and progress notes for ``yoke_core.domain.epic``.
+"""Dispatch chains and progress notes for ``yoke_core.domain.epic``.
 
 Split from ``test_epic_full.py``.
 
@@ -10,9 +10,9 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain import epic
-from yoke_core.domain.epic_task_scope import set_no_files_scope
 from runtime.api.conftest import insert_item
 from runtime.api.fixtures.backlog import insert_item_worktree
+from runtime.api.task_files_touched_test_support import declare_task_files
 
 TEST_EPIC_ID = 42
 TEST_EPIC_REF = f"YOK-{TEST_EPIC_ID}"
@@ -25,58 +25,8 @@ def _p(conn) -> str:
 
 def _declare_no_files(conn, task_nums) -> None:
     for task_num in task_nums:
-        set_no_files_scope(conn, TEST_EPIC_ID, task_num)
+        declare_task_files(conn, TEST_EPIC_ID, task_num, [])
     conn.commit()
-
-
-class TestFileOperations:
-    @pytest.fixture(autouse=True)
-    def _seed_parent_item(self, test_db):
-        insert_item(
-            test_db,
-            id=TEST_EPIC_ID,
-            workflow_id="epic",
-            status="planned",
-            project="yoke",
-        )
-
-    def test_add_and_list(self, test_db):
-        epic.task_upsert(test_db, "42", 1, "Widget", "", "", "")
-        result = epic.file_add(test_db, "42", 1, "src/widget.sh", "create")
-        assert "Added file src/widget.sh" in result
-
-        epic.file_add(test_db, "42", 1, "tests/test-widget.sh", "create")
-        epic.file_add(test_db, "42", 1, "CHANGELOG.md", "modify")
-
-        listing = epic.file_list(test_db, "42", 1)
-        lines = listing.strip().split("\n")
-        assert len(lines) == 3
-        assert "src/widget.sh" in listing
-        assert "tests/test-widget.sh" in listing
-        assert "modify" in listing
-
-    def test_empty_file_list(self, test_db):
-        epic.task_upsert(test_db, "42", 1, "Widget", "", "", "")
-        result = epic.file_list(test_db, "42", 1)
-        assert result == ""
-
-    def test_duplicate_file_replaces(self, test_db):
-        epic.task_upsert(test_db, "42", 1, "Widget", "", "", "")
-        epic.file_add(test_db, "42", 1, "src/widget.sh", "create")
-        count1 = test_db.execute(
-            "SELECT COUNT(*) FROM epic_task_files WHERE epic_id='42' AND task_num=1"
-        ).fetchone()[0]
-        assert count1 == 1
-
-        # Re-add with different action
-        epic.file_add(test_db, "42", 1, "src/widget.sh", "modify")
-        count2 = test_db.execute(
-            "SELECT COUNT(*) FROM epic_task_files WHERE epic_id='42' AND task_num=1"
-        ).fetchone()[0]
-        assert count2 == 1
-
-        listing = epic.file_list(test_db, "42", 1)
-        assert "modify" in listing
 
 
 class TestDispatchChains:

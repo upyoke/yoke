@@ -60,6 +60,21 @@ Three outcomes:
 | Shared paths mix render targets with hand-authored paths | existing semantics (falls through) |
 | Shared paths all hand-authored | existing semantics (unchanged) |
 
+## Task coverage
+
+With effective `path_claims=required_per_task`, readiness and claim gates share
+task coverage. A generated task's only file list is its body's
+`## Files Touched` section (`- create|modify|delete `path`` bullets, or the
+single line `None — no repository files`); a missing or pathless section
+narrows the task's lane to nothing, so its writes block until the body
+declares its files. Parity defers before generated tasks exist, then reports
+uncovered task paths. A body edit takes effect on the next check, so widen
+the task's claim when its list grows. Register or widen each owning task
+claim, then rerun readiness; a whole-item claim does not substitute:
+```text
+yoke claims path register --item PREFIX-N --task-num <task-number> --paths <task-budget-paths> [--allow-planned]
+```
+
 ## Registration
 
 The renderer registers each known generated output's
@@ -132,7 +147,12 @@ refuse another owner's claim. A released or cancelled claim cannot reopen.
 
 Recording the merge landing releases every open item-owned path claim with
 reason `landed`, on the landing's transaction, and unblocks downstream claims.
-The work claim stays held through delivery. Landed items in a pinned stage
+Integration-lane merges use the same `item_landings.record` writer as item
+merges, releasing both path coverage and migration territory before cleanup.
+If recording fails, `item_landing_record_failed` preserves the lane: restore
+control-plane access and retry the same merge command, even if Git already
+contains the branch. The work claim stays held through delivery.
+Landed items in a pinned stage
 that implies merge need no open path coverage; released coverage remains
 evidence for the merge boundary. Snapshot materialization writes all observed
 planned targets together and emits one summary event, whose loss changes no fact.

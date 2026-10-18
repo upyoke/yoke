@@ -4,19 +4,17 @@ Close-out already has to say which lane it is closing, and the merge outcome
 is that answer: the convergence on a base branch that already holds the work
 and the merge that just ran both resolve it. The landed-lane read taken before
 convergence is not, because it can still name an earlier landing that a
-rebased lane replaced. Both routes to the base branch — the merge queue and
-the standalone engine — arrive here with that identity resolved, and this is
-the only place they both pass through, so it is the one writer of the item's
-landing history. A second writer anywhere else could disagree with what
-close-out believes it landed.
+rebased lane replaced. The merge queue, standalone engine, and integration-lane engine
+arrive here with that identity resolved and share this landing-history writer.
 
 The append is idempotent on the landing identity, so a close-out re-entered
 after a dead wait converges on the landing it already recorded. Only a
 different merge identity is a second landing.
 
-Recording is advisory and never unwinds a merge that has already landed: a
-control-plane hiccup costs the audit trail one row, and refusing the close-out
-over it would cost the item its terminal transition.
+Recording returns a note and never unwinds a merge that has already landed.
+Standalone close-out surfaces that note as an advisory. Integration-lane
+merges preserve their retry checkout until recording succeeds, because
+recording also releases the claims other lanes are waiting on.
 """
 
 from __future__ import annotations
