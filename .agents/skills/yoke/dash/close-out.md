@@ -135,6 +135,11 @@ Wait for that decision, then resume. Uncleared candidate review never landed:
 report its exact request, wait, and rerun only after independent clearance
 without intervening commits.
 
+Read the actual item status before any final checkpoint. If it is terminal,
+use the recorded completion result and verification; do not append another
+Progress Log entry or reacquire a claim for one. For a nonterminal wait or
+handoff, write the checkpoint while the work claim is still held.
+
 Successful merge/done may already release the item work claim and sweep its
 lane; read lane_sweep kept/removed reasons and LandedLanePreserved evidence.
 Only release when a claim remains AND the item is finished, or on an actual

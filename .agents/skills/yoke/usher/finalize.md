@@ -54,6 +54,9 @@ yoke claims work release --item PREFIX-N --reason completed --json
 
 Attempt each owed release even if another fails; name failures/holders in the
 report. Release waits retain claim/park under the current worker mandate.
+Read actual item status before checkpointing. Terminal completion already
+records the result and evidence: skip the final Progress Log append, even
+when automatic completion released the claim. Do not reacquire it for a log.
 Before any nonterminal stop, checkpoint live stage, committed/dirty state,
 receipts and next command. A level_change handoff takes precedence over wait.
 Send Fleet DONE/END only at actual terminal when the mandate requires it,
