@@ -186,6 +186,6 @@ def test_agent_selected_plan_stays_distinct_from_admitted_obligation(test_db) ->
     )["accepted"]
     assert not test_db.execute(
         "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
-        "AND plan_id IS NULL AND method_id IS NULL",
-        ("run-agent-selection",),
+        "AND plan_case_key=%s",
+        ("run-agent-selection", admitted_requirement_case_key(original_id)),
     ).fetchall()

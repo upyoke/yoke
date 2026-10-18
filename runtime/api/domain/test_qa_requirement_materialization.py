@@ -44,7 +44,7 @@ def test_bound_environment_without_case_selector_keeps_correction_scope(test_db)
     )
     case = plan_cases(test_db, plan_id)[0]
     assert not json.loads(case["target_envs"] or "[]")
-    target = {"environment": {"name": "prod"}}
+    target = {"environment": {"name": "prod", "kind": "persistent_environment"}}
     definition = materialized_definition(
         plan=plan,
         case=case,
@@ -237,6 +237,12 @@ def test_bound_default_environment_is_stable_across_materialize_and_refresh(test
     first = materialize_for_item(test_db, item_id=9716, transition_id="implemented")
     requirement_id = first["created_requirement_ids"][0]
     again = materialize_for_item(test_db, item_id=9716, transition_id="implemented")
+    assert (
+        test_db.execute(
+            "SELECT target_env FROM qa_requirements WHERE id=%s", (requirement_id,)
+        ).fetchone()[0]
+        is None
+    )
     assert again["created_requirement_ids"] == []
     assert again["existing_requirement_ids"] == [requirement_id]
     refreshed = rematerialize_for_item(

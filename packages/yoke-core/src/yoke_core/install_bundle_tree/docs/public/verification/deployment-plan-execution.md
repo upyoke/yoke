@@ -16,7 +16,7 @@ owns the scope and target-binding contract.
 
 Only requirements with an executable method are copied from admission.
 Method-less standing requirements remain on their source item; a selected
-plan supplies the executable stage cases. A bound environment supplies
+plan supplies the executable stage cases. A bound persistent deployment environment supplies
 `target_env` even when a correction case has no `target_envs` selector, so its
 scope matches the case it replaces.
 

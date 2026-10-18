@@ -53,13 +53,18 @@ def resolve_case_targets(
 
     names = case_target_envs(case)
     if not names:
-        if not resolve_default:
-            return []
-        target = resolve_plan_execution_target(
-            conn, plan_id=int(plan["id"]), require_runtime_match=False
+        return (
+            [
+                (
+                    None,
+                    resolve_plan_execution_target(
+                        conn, plan_id=int(plan["id"]), require_runtime_match=False
+                    ),
+                )
+            ]
+            if resolve_default
+            else []
         )
-        name = (target.get("environment") or {}).get("name") or None
-        return [(name, target)]
     targets = []
     for name in names:
         try:

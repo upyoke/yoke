@@ -172,7 +172,7 @@ def _divergence_for_row(conn: Any, row: Any) -> Optional[PlanCaseDivergence]:
     baselines = case_baselines(case)
     from yoke_core.domain.qa_plan_case_targets import case_target_envs
 
-    if case_target_envs(case) and row["target_env"] not in case_target_envs(case):
+    if (row["target_env"] or None) not in (case_target_envs(case) or [None]):
         return PlanCaseDivergence(state=ORPHANED, **common)
     if baseline not in baselines:
         return PlanCaseDivergence(state=ORPHANED, **common)
