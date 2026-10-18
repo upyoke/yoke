@@ -114,6 +114,7 @@ def route_shared_plan_execution(begin):
                 **{
                     **kwargs,
                     "deployment_member_item_id": None,
+                    "_requesting_member_item_id": member,
                     "_deployment_subject": pending[0],
                 },
             )

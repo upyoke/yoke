@@ -38,6 +38,14 @@ def _recovery_instruction(requirement: dict[str, Any]) -> str:
     case_command = f"yoke qa case run --requirement-id {requirement_id}"
     method_id = str(requirement.get("method_id") or "")
     source = str(requirement.get("requirement_source") or "")
+    if not method_id:
+        qa_kind = str(requirement.get("qa_kind") or "ac_verification")
+        return (
+            f"Record the exact-head evidence with `yoke qa run add --requirement-id "
+            f"{requirement_id} --performed-by agent --qa-kind {qa_kind} "
+            "--verdict pass --head-sha <full-commit-sha> --raw-result "
+            "'<evidence and result>'`"
+        )
     if requirement.get("qa_phase") == "post_deploy":
         return (
             "Finish the admitted post-deploy QA through `yoke watch qa-plan -- "

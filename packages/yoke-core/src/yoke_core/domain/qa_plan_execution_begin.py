@@ -69,6 +69,7 @@ def begin_plan_execution(
     actor_id: str | None,
     session_id: str,
     _deployment_subject: dict | None = None,
+    _requesting_member_item_id: int | None = None,
 ) -> dict[str, Any]:
     """Create or resume the one live execution for a QA subject.
 
@@ -285,9 +286,9 @@ def begin_plan_execution(
             "deployment_member_item_id,transition_id,actor_id,session_id,"
             "roster_digest,"
             "roster_json,execution_target_json,execution_target_digest,"
-            "continues_execution_id,"
+            "continues_execution_id,requesting_member_item_id,"
             "cursor_ordinal,state,created_at,heartbeat_at"
-            f") VALUES ({', '.join([placeholder] * 17)})",
+            f") VALUES ({', '.join([placeholder] * 18)})",
             (
                 execution_id,
                 int(item_id) if item_id is not None else None,
@@ -302,6 +303,7 @@ def begin_plan_execution(
                 canonical(execution_target),
                 execution_target_digest,
                 continues_execution_id,
+                _requesting_member_item_id,
                 0,
                 "active",
                 instant_parameter(conn, now),

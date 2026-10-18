@@ -154,7 +154,6 @@ def materialized_definition(
         "method_config": _json(method_config),
     }
     from yoke_core.domain.qa_plan_case_targets import (
-        case_target_envs,
         case_applies_to_target,
     )
 
@@ -165,8 +164,8 @@ def materialized_definition(
             f"case_target_not_selected: case {case['case_key']!r} does not name "
             "this execution environment. Select the case on a matching QA stage."
         )
-    if target_env is None and execution_target is not None and case_target_envs(case):
-        target_env = str((execution_target.get("environment") or {}).get("name") or "")
+    if target_env is None and execution_target is not None:
+        target_env = (execution_target.get("environment") or {}).get("name") or None
     definition["target_env"] = target_env
     if execution_target is not None:
         definition["execution_target_json"] = canonical_target(execution_target)

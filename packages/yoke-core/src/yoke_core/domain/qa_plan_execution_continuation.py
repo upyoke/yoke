@@ -268,7 +268,9 @@ def continuation_recipe(conn: Any, execution: Mapping[str, Any]) -> str:
         )
     else:
         stage = str(execution.get("deployment_stage") or "")
-        member = execution.get("deployment_member_item_id")
+        member = execution.get("requesting_member_item_id") or execution.get(
+            "deployment_member_item_id"
+        )
         scope = f" --stage {stage}" if stage else ""
         if member is not None:
             from yoke_core.domain.project_identity import render_item_ref
