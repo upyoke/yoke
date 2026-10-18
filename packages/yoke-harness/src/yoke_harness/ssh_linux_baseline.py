@@ -15,7 +15,7 @@ from yoke_harness.ssh_linux_reset_preconditions import (
     archive_admission,
 )
 from yoke_harness.ssh_linux_sign_in_stores import SIGN_IN_PROGRAM
-from yoke_harness.ssh_linux_browser_sign_in import BROWSER_SIGN_IN_PROGRAM
+from yoke_harness.ssh_linux_preserved_entries import PRESERVED_HOME_PROGRAM
 from yoke_harness.ssh_linux_reset_services import YOKE_SERVICE_PATTERNS
 from yoke_harness.ssh_test_machine_transport import SSH_TIMEOUT_DIAGNOSTIC
 from yoke_harness.ssh_mac_baseline_probes import (
@@ -85,7 +85,7 @@ if not baseline.is_absolute() or baseline == home or home in baseline.parents:
 if baseline.is_symlink() or baseline.resolve() != baseline:
     refuse("golden_baseline_symlink_refused")
 def validate_archive(archive):
-    members = [member for member in archive.getmembers() if not browser_sign_in_entry(member.name)]
+    members = [member for member in archive.getmembers() if not preserved_home_entry(member.name)]
     links = {pathlib.PurePosixPath(member.name) for member in members if member.issym()}
     for member in members:
         path = pathlib.PurePosixPath(member.name)
@@ -116,7 +116,7 @@ if operation == "capture":
     temporary = pathlib.Path(tempfile.mkdtemp(prefix=".yoke-golden-", dir=baseline.parent))
     try:
         def persistent_entry(member):
-            if browser_sign_in_entry(member.name): return None
+            if preserved_home_entry(member.name): return None
             source = home / member.name
             if stat.S_ISSOCK(source.lstat().st_mode): return None
             if member.issym():
@@ -131,7 +131,7 @@ if operation == "capture":
             for entry in sorted(home.iterdir()):
                 if entry.name in kept_live: continue
                 for directory, subdirs, files in os.walk(entry, followlinks=False):
-                    subdirs[:] = [name for name in subdirs if not browser_sign_in_entry(str((pathlib.Path(directory) / name).relative_to(home)))]
+                    subdirs[:] = [name for name in subdirs if not preserved_home_entry(str((pathlib.Path(directory) / name).relative_to(home)))]
                     for value in [directory, *[str(pathlib.Path(directory) / name) for name in subdirs + files]]:
                         if pathlib.Path(value).lstat().st_uid != os.getuid():
                             refuse("golden_capture_foreign_owner")
@@ -158,7 +158,7 @@ else:
         terminal_selection = [line for line in terminal_preference_lines() if selects_terminal(line)]
         stashes = stash_sign_ins(sign_in_plan)
         try:
-            stash_browser_sign_in()
+            stash_live_home_entries()
             try:
                 stop_desktop()
             except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
@@ -183,7 +183,7 @@ else:
         except (OSError, tarfile.TarError):
             refuse("linux_golden_restore_failed", recovery="Repair the sealed archive or destination permissions, then retry; never capture the mixed home.")
         finally:
-            restore_browser_sign_in()
+            restore_live_home_entries()
             restore_sign_ins(stashes)
     if terminal_selection:
         lines = [line for line in terminal_preference_lines() if not selects_terminal(line)]
@@ -196,13 +196,13 @@ else:
     for value in absent:
         if (home / value).exists() or (home / value).is_symlink(): refuse("reset_absence_not_proved")
 print(json.dumps({"ok":True, "operation":operation, "golden_baseline_path":str(baseline),
-                  "preserved_entries":[".ssh"] + [stash[0] for stash in stashes] + [name for name in (*kept_live[1:], browser_home_entry) if (home / name).is_dir()], "absent_paths":absent if operation == "reset" else [],
+                  "preserved_entries":[".ssh"] + [stash[0] for stash in stashes] + [name for name in (*kept_live[1:], *live_home_entries) if (home / name).exists()], "absent_paths":absent if operation == "reset" else [],
                   "desktop_terminal_preference_preserved":bool(locals().get("terminal_selection")),
                   "service_cleanup": locals().get("service_cleanup")}))
 """.replace("__YOKE_SERVICE_PATTERNS__", repr(YOKE_SERVICE_PATTERNS))
     .replace("__LIVE_IDENTITY_STORE__", repr(LIVE_IDENTITY_STORE_HOME_ENTRY))
     .replace("# RESET_PRECONDITION_FUNCTIONS", DESKTOP_PROGRAM + SIGN_IN_PROGRAM)
-    .replace("# BROWSER_SIGN_IN_FUNCTIONS", BROWSER_SIGN_IN_PROGRAM)
+    .replace("# BROWSER_SIGN_IN_FUNCTIONS", PRESERVED_HOME_PROGRAM)
     .replace("# LINUX_CAPTURE_SPACE_CHECK", LINUX_CAPTURE_SPACE_CHECK)
 )
 
