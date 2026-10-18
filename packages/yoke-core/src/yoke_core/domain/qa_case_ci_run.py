@@ -36,6 +36,24 @@ EXECUTOR_ID = "ci_run"
 DEFAULT_CI_RUN_TIMEOUT_SECONDS = qa_case_budget.DEFAULT_CI_RUN_TIMEOUT_SECONDS
 
 
+def _resolve_checkout(case: dict, checkout_path: Optional[str | Path]) -> Path:
+    if case.get("deployment_run_id"):
+        raise QaCaseExecutionError(
+            "deployment_ci_candidate_unverified: command-ci verifies an item "
+            f"lane, not deployment run {case['deployment_run_id']!r}. No action was "
+            "produced. Replace this post-deploy case with the command method "
+            "and run the same stage/member QA plan; without --checkout-path "
+            "that runner checks out the run's pinned candidate."
+        )
+    from yoke_core.domain.qa_case_execution import _execution_checkout
+
+    source = checkout_path if checkout_path is not None else _execution_checkout(case)
+    checkout = Path(source).resolve()
+    if not checkout.is_dir():
+        raise QaCaseExecutionError(f"CI execution checkout does not exist: {checkout}")
+    return checkout
+
+
 def execute_ci_case(
     case: dict,
     *,
@@ -58,7 +76,7 @@ def execute_ci_case(
         )
     required_case_command(case)
     workflow = qa_case_ci_lane.workflow_file(case)
-    checkout = qa_case_ci_source.resolve_checkout(case, checkout_path)
+    checkout = _resolve_checkout(case, checkout_path)
     qa_case_ci_source.require_source_agreement(
         case,
         checkout,
@@ -103,11 +121,8 @@ def execute_ci_case(
         case,
         checkout,
         expected_branch=expected_branch,
-        expected_sha=(
-            expected_sha
-            if qa_case_ci_lane.ref_sha(checkout, "HEAD") == previous_head_sha
-            else None
-        ),
+        expected_sha=expected_sha,
+        previous_head_sha=previous_head_sha,
         explicit_checkout=checkout_path is not None,
     )
     entry_run_base = lane.queue_target
