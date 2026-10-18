@@ -5,6 +5,7 @@ import subprocess
 import os
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -100,6 +101,43 @@ def test_inventory_is_read_only(machine):
     before = machine.stat().st_mode
     inventory.inspect()
     assert machine.stat().st_mode == before
+
+
+@pytest.mark.parametrize("matches", [False, True])
+def test_local_connection_inventory_reads_stored_dsn(machine, monkeypatch, matches):
+    expected = "postgresql://localhost/owned"
+    credential = machine / "local.dsn"
+    credential.write_text(expected if matches else "postgresql://localhost/other")
+    credential.chmod(0o600)
+    (machine / "config.json").write_text(
+        json.dumps(
+            {
+                "connections": {
+                    "local": {
+                        "transport": "local-postgres",
+                        "credential_source": {
+                            "kind": inventory.schema.CREDENTIAL_KIND_DSN_FILE,
+                            "path": str(credential),
+                        },
+                    }
+                }
+            }
+        )
+    )
+    monkeypatch.setattr(
+        inventory.local_universe_setup, "local_cluster_initialized", lambda: True
+    )
+    monkeypatch.setattr(
+        inventory.local_universe_setup,
+        "_engine",
+        lambda: SimpleNamespace(local_dsn=lambda: expected),
+    )
+
+    result = inventory.inspect()
+
+    assert result.local_universe
+    assert result.owns_data
+    assert result.local_env == ("local" if matches else None)
 
 
 def test_docker_inventory_uses_self_host_marker_and_compose_path(tmp_path, monkeypatch):
