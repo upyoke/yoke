@@ -5,7 +5,10 @@ Its workflow id is the registry key for the version read; no implementation
 behavior branches on its value. Read policies and bindings from that version.
 
 Keep the complete public ref; its numeric tail is not `items.id`.
-Read `workflows.item.get` and the exact `workflows.version.get`:
+Read `yoke workflows item get PREFIX-N --json`, then
+`yoke workflows version get WORKFLOW VERSION --json`.
+WORKFLOW is result.workflow_id. VERSION is result.workflow_version,
+the version number, not workflow_version_id:
 ```bash
 _item_workflow_json=$(yoke workflows item get PREFIX-N --json) || {
  echo "Item PREFIX-N not found."

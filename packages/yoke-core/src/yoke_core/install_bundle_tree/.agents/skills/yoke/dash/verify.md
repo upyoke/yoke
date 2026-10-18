@@ -64,7 +64,10 @@ Read plan-run help for continuation/abort; no guessed gate substitute.
 
 ## Resolve and execute the pinned roster
 
-Refresh workflows.item.get and its exact workflows.version.get.
+Refresh with `yoke workflows item get ITEM --json`, then
+`yoke workflows version get WORKFLOW VERSION --json`.
+WORKFLOW is result.workflow_id. VERSION is result.workflow_version,
+the version number, not workflow_version_id.
 Choose LIVE_STAGE from status and NEXT_STAGE from the unique forward edge,
 ordered by stages; confirm the live Dash half-open binding.
 Ambiguous/absent route is workflow_next_stage_ambiguous for its owner.

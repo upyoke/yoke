@@ -18,8 +18,13 @@ class ProjectReadRequest(BaseModel):
     project: str = Field(..., min_length=1)
 
 
-class MethodGetRequest(ProjectReadRequest):
+class MethodListRequest(BaseModel):
+    project: Optional[str] = None
+
+
+class MethodGetRequest(BaseModel):
     method_id: str = Field(..., min_length=1)
+    project: Optional[str] = None
 
 
 class PlanListRequest(ProjectReadRequest):
@@ -123,8 +128,35 @@ def _payload(
         return None, _error("payload_invalid", str(exc), "$.payload")
 
 
+_PROJECT_REQUIRED = (
+    "project_required: this session has no project. Pass --project SLUG."
+)
+
+
+class MethodProjectError(Exception):
+    """The method read has neither an explicit project nor a session project."""
+
+
+def _method_project(
+    conn: Any, request: FunctionCallRequest, explicit: Optional[str]
+) -> str:
+    chosen = str(explicit or "").strip()
+    if chosen:
+        return chosen
+    from yoke_core.domain.sessions import SessionError
+    from yoke_core.domain.sessions_identity_read import resolve_session_identity
+
+    try:
+        identity = resolve_session_identity(conn, request.actor.session_id)
+    except SessionError as exc:
+        raise MethodProjectError(str(exc)) from exc
+    if identity.project_id is None:
+        raise MethodProjectError(_PROJECT_REQUIRED)
+    return str(identity.project_id)
+
+
 def handle_method_list(request: FunctionCallRequest) -> HandlerOutcome:
-    payload, error = _payload(request, ProjectReadRequest)
+    payload, error = _payload(request, MethodListRequest)
     if error is not None:
         return error
     from yoke_core.domain.db_helpers import connect
@@ -132,7 +164,10 @@ def handle_method_list(request: FunctionCallRequest) -> HandlerOutcome:
 
     try:
         with connect() as conn:
-            rows = list_methods(conn, project=payload.project)
+            project = _method_project(conn, request, payload.project)
+            rows = list_methods(conn, project=project)
+    except MethodProjectError as exc:
+        return _error("payload_invalid", str(exc), "$.payload.project")
     except LookupError as exc:
         return _error("not_found", str(exc), "$.payload.project")
     return HandlerOutcome(result_payload={"rows": rows}, primary_success=True)
@@ -147,11 +182,14 @@ def handle_method_get(request: FunctionCallRequest) -> HandlerOutcome:
 
     try:
         with connect() as conn:
+            project = _method_project(conn, request, payload.project)
             method = get_method(
                 conn,
                 method_id=payload.method_id,
-                project=payload.project,
+                project=project,
             )
+    except MethodProjectError as exc:
+        return _error("payload_invalid", str(exc), "$.payload.project")
     except LookupError as exc:
         return _error("not_found", str(exc), "$.payload.method_id")
     return HandlerOutcome(
@@ -273,6 +311,7 @@ __all__ = [
     "ActivityListRequest",
     "ActivitySummaryResponse",
     "MethodGetRequest",
+    "MethodListRequest",
     "MethodGetResponse",
     "PlanGetRequest",
     "PlanGetResponse",

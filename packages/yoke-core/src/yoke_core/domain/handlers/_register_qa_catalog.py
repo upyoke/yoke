@@ -50,7 +50,7 @@ def register(registry) -> None:
         registry,
         "qa.method.list",
         _reads.handle_method_list,
-        _reads.ProjectReadRequest,
+        _reads.MethodListRequest,
         _reads.RowsResponse,
     )
     _read(
