@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 from uuid import uuid4
 from datetime import datetime, timedelta, timezone
 
@@ -13,6 +14,7 @@ from runtime.api.api_items_test_helpers import (
     make_test_db_fixture,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
+from yoke_core.api.routes import hook_observations
 from yoke_contracts.hook_evaluator_protocol import (
     HOOK_EVALUATOR_CAPABILITIES,
     attach_evaluator_metadata,
@@ -311,4 +313,37 @@ def test_batch_rejects_guarded_tools_and_invisible_projects(
     denied = client.post("/v1/hooks/telemetry/batch", json=denied_batch)
     assert denied.status_code == 403
     assert denied.json()["error"]["code"] == "HOOK_OBSERVATION_PROJECT_DENIED"
+    assert _stored_state(observation_db) == before
+
+
+def test_batch_authorizes_every_observation_through_one_connection(
+    client, observation_db, monkeypatch
+) -> None:
+    authorize = hook_observations.authorize_hook_request
+    connections = []
+
+    def recording(*args, **kwargs):
+        connections.append(kwargs["conn"])
+        return authorize(*args, **kwargs)
+
+    monkeypatch.setattr(hook_observations, "authorize_hook_request", recording)
+    response = client.post("/v1/hooks/telemetry/batch", json=_batch())
+    assert response.status_code == 200, response.text
+    assert len(connections) == 2
+    assert connections[0] is not None and connections[0] is connections[1]
+
+
+def test_batch_reports_unavailable_authority(client, observation_db, monkeypatch):
+    def unavailable():
+        raise OSError("authority unavailable")
+
+    before = _stored_state(observation_db)
+    monkeypatch.setattr(
+        hook_observations, "db_helpers", SimpleNamespace(connect=unavailable)
+    )
+    response = client.post("/v1/hooks/telemetry/batch", json=_batch())
+    assert response.status_code == 503
+    error = response.json()["error"]
+    assert error["code"] == "HOOK_OBSERVATION_AUTH_UNAVAILABLE"
+    assert "Recovery:" in error["message"]
     assert _stored_state(observation_db) == before

@@ -22,7 +22,11 @@ from yoke_core.hooks.relayed_session_identity import (
     refusal_text,
     stamped_identity_refusal,
 )
-from yoke_core.domain.session_scope_identity import authorize_hook_request
+from yoke_core.domain import db_helpers
+from yoke_core.domain.session_scope_identity import (
+    HOOK_SCOPE_UNAVAILABLE,
+    authorize_hook_request,
+)
 from yoke_core.hooks.observation_batch import persist_observation_batch, request_payload
 
 
@@ -68,6 +72,16 @@ def _error(status: int, code: str, message: str) -> JSONResponse:
     )
 
 
+def _scope_denial(decision: Any) -> JSONResponse:
+    unavailable = decision.denial_code == "HOOK_SCOPE_AUTH_UNAVAILABLE"
+    code = {
+        "HOOK_SCOPE_AUTH_UNAVAILABLE": "HOOK_OBSERVATION_AUTH_UNAVAILABLE",
+        "HOOK_SESSION_DENIED": "HOOK_OBSERVATION_SESSION_DENIED",
+        "HOOK_PROJECT_DENIED": "HOOK_OBSERVATION_PROJECT_DENIED",
+    }.get(decision.denial_code, decision.denial_code)
+    return _error(503 if unavailable else 403, code, decision.reason)
+
+
 @router.post("/hooks/telemetry/batch")
 def post_hook_observation_batch(
     http_request: Request,
@@ -83,7 +97,7 @@ def post_hook_observation_batch(
     auth = require_auth_context(http_request)
     from yoke_core.api.routes.hooks import HookEvaluateRequest, HOOK_WIRE_SCHEMA
 
-    validated: list[dict[str, Any]] = []
+    stamped: list[tuple[HookObservation, Any, str]] = []
     for observation in batch.observations:
         try:
             hook_request = HookEvaluateRequest.model_validate(observation.hook_request)
@@ -125,45 +139,48 @@ def post_hook_observation_batch(
                 "HOOK_OBSERVATION_SESSION_INVALID",
                 f"batched hook payload {refusal_text(reason_key)}",
             )
-        session_id = str(payload["session_id"]).strip()
-        decision = authorize_hook_request(
-            auth.actor_id,
-            hook_request.project_id,
-            [session_id],
-            machine_id=hook_request.machine_id,
-            authenticated_machine_id=auth.machine_id,
-            event_name=hook_request.event_name,
-        )
-        if decision.denial_code is not None:
-            unavailable = decision.denial_code == "HOOK_SCOPE_AUTH_UNAVAILABLE"
-            code = {
-                "HOOK_SCOPE_AUTH_UNAVAILABLE": "HOOK_OBSERVATION_AUTH_UNAVAILABLE",
-                "HOOK_SESSION_DENIED": "HOOK_OBSERVATION_SESSION_DENIED",
-                "HOOK_PROJECT_DENIED": "HOOK_OBSERVATION_PROJECT_DENIED",
-            }.get(decision.denial_code, decision.denial_code)
-            return _error(503 if unavailable else 403, code, decision.reason)
-        # Persistence merges extras into stdin. Bind every identity field after
-        # untrusted extras, including an authorized absent project.
-        hook_request.project_id = decision.project_id
-        hook_request.payload_extra.update(
-            session_id=session_id,
-            identity_stamped=True,
-            project_id=decision.project_id,
-            machine_id=hook_request.machine_id,
-            actor_id=auth.actor_id,
-        )
-        _, effective_payload = request_payload(hook_request.model_dump())
-        if not is_read_only_tool_event(
-            hook_request.event_name, json.dumps(effective_payload)
-        ):
-            return _error(
-                400,
-                "HOOK_OBSERVATION_NOT_READ_ONLY",
-                _READ_ONLY_RECOVERY,
+        stamped.append((observation, hook_request, str(payload["session_id"]).strip()))
+
+    try:
+        authority = db_helpers.connect()
+    except Exception:
+        return _scope_denial(HOOK_SCOPE_UNAVAILABLE)
+    validated: list[dict[str, Any]] = []
+    with authority as conn:
+        for observation, hook_request, session_id in stamped:
+            decision = authorize_hook_request(
+                auth.actor_id,
+                hook_request.project_id,
+                [session_id],
+                machine_id=hook_request.machine_id,
+                authenticated_machine_id=auth.machine_id,
+                event_name=hook_request.event_name,
+                conn=conn,
             )
-        raw = observation.model_dump()
-        raw["hook_request"] = hook_request.model_dump()
-        validated.append(raw)
+            if decision.denial_code is not None:
+                return _scope_denial(decision)
+            # Persistence merges extras into stdin. Bind every identity field
+            # after untrusted extras, including an authorized absent project.
+            hook_request.project_id = decision.project_id
+            hook_request.payload_extra.update(
+                session_id=session_id,
+                identity_stamped=True,
+                project_id=decision.project_id,
+                machine_id=hook_request.machine_id,
+                actor_id=auth.actor_id,
+            )
+            _, effective_payload = request_payload(hook_request.model_dump())
+            if not is_read_only_tool_event(
+                hook_request.event_name, json.dumps(effective_payload)
+            ):
+                return _error(
+                    400,
+                    "HOOK_OBSERVATION_NOT_READ_ONLY",
+                    _READ_ONLY_RECOVERY,
+                )
+            raw = observation.model_dump()
+            raw["hook_request"] = hook_request.model_dump()
+            validated.append(raw)
 
     try:
         accepted, model_confirmations = persist_observation_batch(

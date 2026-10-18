@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Collection, Mapping
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any
 
@@ -136,6 +137,12 @@ class HookScopeDecision:
     project_id: int | None = None
 
 
+HOOK_SCOPE_UNAVAILABLE = HookScopeDecision(
+    denial_code="HOOK_SCOPE_AUTH_UNAVAILABLE",
+    reason="Hook scope authorization is unavailable. Recovery: restore the authority connection and retry.",
+)
+
+
 def authorize_hook_request(
     actor_id: int | None,
     project_id: int | None,
@@ -144,6 +151,7 @@ def authorize_hook_request(
     machine_id: str | None = None,
     authenticated_machine_id: str | None = None,
     event_name: str | None = None,
+    conn: Any = None,
 ) -> HookScopeDecision:
     """Authorize stored scope; event context additionally admits real registration.
 
@@ -152,9 +160,10 @@ def authorize_hook_request(
     ``machine_id`` is claimed, ``authenticated_machine_id`` is credential-bound.
     ``event_name=None`` checks scope only; an event also checks registration
     admission, with terminal events retaining owner-operation authority.
+    A batch passes its one authority ``conn``; otherwise each call opens one.
     """
     try:
-        with db_helpers.connect() as conn:
+        with nullcontext(conn) if conn is not None else db_helpers.connect() as conn:
             marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
             scopes = set()
             rows = []
@@ -229,7 +238,4 @@ def authorize_hook_request(
     except SessionError as exc:
         return HookScopeDecision(denial_code=exc.code, reason=str(exc))
     except Exception:
-        return HookScopeDecision(
-            denial_code="HOOK_SCOPE_AUTH_UNAVAILABLE",
-            reason="Hook scope authorization is unavailable. Recovery: restore the authority connection and retry.",
-        )
+        return HOOK_SCOPE_UNAVAILABLE
