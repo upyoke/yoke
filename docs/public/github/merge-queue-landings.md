@@ -71,7 +71,8 @@ attempt starts a new observation episode.
 When a lane adds no content to its target, re-run `yoke merge item PREFIX-N`
 with `--result` and `--verification`. Close-out verifies the newest completed
 Merge Receipt against the fetched target and uses the pull request that
-carried that merge. A later open, unarmed pull request needs no landing
+carried that merge. A newer merge carrying the lane candidate still uses its
+own landing observation instead of an older receipt. A later open, unarmed pull request needs no landing
 observation and is not armed again. `merge_recorded_landing_missing` means
 no completed identity can be read: preserve the lane and ask the control-plane
 operator to restore its recorded landing, then retry. An ancestry or carrier

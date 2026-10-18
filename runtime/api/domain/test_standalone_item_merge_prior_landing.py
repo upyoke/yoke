@@ -148,3 +148,38 @@ def test_recorded_merge_outside_target_refuses_before_writing(
     outcome = _close(repo)
     assert not outcome.ok
     assert "merge_candidate_not_landed" in outcome.error
+
+
+def test_a_newer_own_merge_uses_its_observation_instead_of_an_old_receipt(
+    prior_landing, monkeypatch
+):
+    repo, first = prior_landing
+    (repo / "correction.py").write_text("correction\n")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "correction")
+    correction = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "checkout", "-q", "main")
+    _git(repo, "merge", "-q", "--no-ff", "-m", "Merge pull request #43", "item-lane")
+    second_merge = _git(repo, "rev-parse", "HEAD")
+    monkeypatch.setattr(
+        "yoke_core.domain.merge_queue_landed_candidate.landed_candidate_head",
+        lambda *_a: (correction, ""),
+    )
+    monkeypatch.setattr(
+        closing,
+        "read_recorded_batch",
+        lambda *_a, **_k: BatchReceipt(
+            pr_num="43",
+            merge_sha=second_merge,
+            head_sha=second_merge,
+            run_url="https://example.test/run",
+        ),
+    )
+    monkeypatch.setattr(receipts, "record", lambda *_a: "")
+
+    outcome = _close(repo)
+
+    assert outcome.ok, outcome.error
+    assert outcome.commit_sha == correction
+    assert outcome.merge_sha == second_merge
+    assert outcome.merge_sha != first.merge_sha
