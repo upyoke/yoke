@@ -118,16 +118,6 @@ def _run_with_platform_driver(app) -> None:
         active = False
         ownership_check = None
         ownership_signal = False
-        suspend_signal = False
-
-        def _sigtstp_application(self, *_):
-            if not self._auto_restart:
-                # A copy handoff already restored the tty and paused the timer.
-                os.kill(os.getpid(), signal.SIGSTOP)
-                return
-            # Textual's handler writes while restoring terminal modes. A signal
-            # may interrupt a write holding the same non-reentrant queue lock.
-            self.suspend_signal = True
 
         def ownership_lost(self, signum=None, *_):
             nonlocal lost, restore_error
@@ -181,11 +171,6 @@ def _run_with_platform_driver(app) -> None:
             foreground = self.observe_foreground()
             if foreground != os.getpgrp():
                 self.ownership_lost()
-                return
-            if self.suspend_signal:
-                self.suspend_signal = False
-                # SIGCONT restarts application mode and its ownership timer.
-                super()._sigtstp_application()
                 return
             self.ownership_check = self._loop.call_later(
                 OWNERSHIP_CHECK_SECONDS, self.check_ownership

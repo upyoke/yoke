@@ -157,10 +157,8 @@ def _wizard(scenario: str, ready: int, config: Path, continue_read: int):
                 yield
 
         def suspend_and_finish(self):
-            # Reproduce SIGTSTP interrupting a write's non-reentrant queue
-            # lock. Signal handlers must defer cleanup until this releases.
-            with self._driver._writer_thread._queue.mutex:
-                os.kill(os.getpid(), signal.SIGTSTP)
+            # The real Textual SIGTSTP/SIGCONT lifecycle is driven by controller.
+            os.kill(os.getpid(), signal.SIGTSTP)
             self.set_timer(0.15, self.exit)
 
     run_wizard_app(TerminalApp())
