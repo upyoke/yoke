@@ -101,6 +101,8 @@ def pause_execution(
                 "qa_recovery_receipt_consumed: this pause already resumed; inspect the current action outcome instead of reusing its receipt"
             )
         current = json.loads(evidence)
+        if previous.get("abort"):
+            current["abort"] = previous["abort"]
         if previous.get("attempts"):
             current["first_failure"] = previous.get("first_failure", previous)
         evidence = canonical(current)

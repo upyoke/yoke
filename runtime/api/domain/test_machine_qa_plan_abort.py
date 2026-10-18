@@ -147,6 +147,21 @@ def test_server_retains_lease_until_submitted_restore_proof(
         )
     assert _active_lease_count(test_db) == 1
     current = lock_plan_execution(test_db, execution["id"])
+    from yoke_core.domain.qa_plan_execution_reentry import (
+        pause_execution,
+        resume_execution,
+    )
+
+    pause_execution(
+        test_db,
+        current,
+        phase="checkin",
+        cursor=0,
+        request_id="cancel-checkin",
+        attempts=[],
+    )
+    assert checkin_view(current)["abort_requested"]
+    resume_execution(test_db, current)
     heartbeat_plan_execution(test_db, current)
     assert checkin_view(current)["abort_requested"]
     issued = ready.result_payload["execution"]
