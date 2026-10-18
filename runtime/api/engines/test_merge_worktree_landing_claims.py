@@ -38,6 +38,13 @@ def test_integration_landing_releases_path_and_migration_claims(
     item_id = 6101
     _seed_apply_item(tmp_db, item_id=item_id)
     conn = _conn(tmp_db)
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    workflow_id, version_id = resolve_current_workflow_pin(conn, "epic")
+    conn.execute(
+        "UPDATE items SET workflow_id=%s, workflow_version_id=%s WHERE id=%s",
+        (workflow_id, version_id, item_id),
+    )
     ensure_item_landings_schema(conn)
     path_claim = seed_claim(
         conn,
