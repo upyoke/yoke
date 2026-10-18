@@ -87,6 +87,15 @@ function before this recovery is available.
 - **Project-local checks live in the project.** A project's own checks go in `.yoke/doctor/`, discovered pytest-style (`check_*.py` files, `hc_*` functions, or an explicit `PROJECT_HEALTH_CHECKS` list) by a runner that holds the checkout, with the same declarations and reporting as engine checks. They import under the `yoke_project_checks` package namespace, so a check can share helpers with a sibling. A module that fails to import is a FAIL, not a skip. Yoke's own source-dev checks live there, not in the engine: the engine roster holds only what is true of every project. Hosted and custom checks are data-driven assertions over the control plane, never arbitrary code in the engine.
 
 ## Command case source
+
+Candidate-bound source cases that isolate `HOME` and `YOKE_MACHINE_HOME` still
+run `yoke watch pytest -- <test paths>`. Keep `YOKE_QA_CANDIDATE_TREE` and the
+runner-provided `YOKE_QA_SOURCE_ENVIRONMENT`: the watcher reuses the recorded
+declaration without reading a connection from the empty home. Lock and Python
+checks still run. `SOURCE-ENVIRONMENT-QA-DECLARATION` names an invalid handoff;
+rerun the same candidate-bound case to regenerate it. Outside candidate QA,
+source checks continue to read the connected declaration.
+
 Select an exact worker for an item case when several lanes are registered:
 
 ```text

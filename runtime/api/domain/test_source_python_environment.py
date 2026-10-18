@@ -1,6 +1,7 @@
 """Locked checkout checks reject stale, missing, and redirected environments."""
 
 import os
+import json
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -150,6 +151,67 @@ def test_unreachable_declaration_is_a_named_refusal(lane, monkeypatch):
     monkeypatch.setattr(environment, "load_declaration", unavailable)
     with pytest.raises(environment.SourceEnvironmentRefusal, match="DECLARATION"):
         environment.resolve(lane, os.environ)
+
+
+@pytest.mark.parametrize("candidate", [False, True])
+def test_snapshot_is_used_only_for_its_candidate(lane, monkeypatch, candidate):
+    snapshot = json.dumps(
+        {
+            "root": str(lane),
+            "declaration": {
+                "project": "fixture",
+                "uv_project": ".",
+                "extras": [],
+                "groups": [],
+            },
+        }
+    )
+    incoming = dict(os.environ, YOKE_QA_SOURCE_ENVIRONMENT=snapshot)
+    incoming.pop("YOKE_QA_CANDIDATE_TREE", None)
+    if candidate:
+        incoming["YOKE_QA_CANDIDATE_TREE"] = json.dumps({"root": str(lane)})
+
+    def unavailable(**_kwargs):
+        raise ConnectionError("isolated home has no connection")
+
+    monkeypatch.setattr(environment, "load_declaration", unavailable)
+    if candidate:
+        result = environment.resolve(lane, incoming)
+        assert result.evidence["declaration"]["uv_project"] == "."
+    else:
+        with pytest.raises(environment.SourceEnvironmentRefusal, match="DECLARATION"):
+            environment.resolve(lane, incoming)
+
+
+@pytest.mark.parametrize(
+    "snapshot",
+    [
+        "{",
+        "[]",
+        '{"root":"/other"}',
+        '{"root":ROOT,"declaration":{"project":"fixture"}}',
+    ],
+)
+def test_invalid_candidate_snapshot_refuses_without_live_fallback(
+    lane, monkeypatch, snapshot
+):
+    snapshot = snapshot.replace("ROOT", json.dumps(str(lane)))
+    monkeypatch.setattr(
+        environment,
+        "load_declaration",
+        lambda **_kwargs: pytest.fail(
+            "a malformed handoff cannot fall back to a live declaration"
+        ),
+    )
+    with pytest.raises(environment.SourceEnvironmentRefusal, match="QA-DECLARATION"):
+        environment.resolve(
+            lane,
+            dict(
+                os.environ,
+                YOKE_QA_CANDIDATE_TREE=json.dumps({"root": str(lane)}),
+                YOKE_QA_SOURCE_ENVIRONMENT=snapshot,
+            ),
+        )
 
 
 def test_python_pin_mismatch_cannot_replace_the_environment(lane):
