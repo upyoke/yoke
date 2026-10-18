@@ -159,7 +159,11 @@ def create_app() -> FastAPI:
                 outcome=outcome,
             )
 
-    return _include_routes(application)
+    _include_routes(application)
+    from yoke_core.api.routes.items_health import initialize_health_metadata
+
+    initialize_health_metadata()
+    return application
 
 
 #: Request-state attribute holding the moment the middleware handed the
