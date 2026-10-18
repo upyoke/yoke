@@ -1,0 +1,7 @@
+{
+ "id": "evidence-freshness",
+ "title": "Browser evidence revision freshness",
+ "status": "observed",
+ "summary": "Browser evidence must observe a build at or carrying the revision under verification. Before delivery, new lane code requires fresh proof. Member close-out uses the selected completion run's delivered project commit, including during settlement; later base-branch synchronization cannot stale delivered proof.",
+ "sources": ["docs/public/reference/browser-evidence.md", "packages/yoke-core/src/yoke_core/domain/qa_gate_helpers.py", "runtime/api/domain/test_browser_completion_freshness.py"]
+}
