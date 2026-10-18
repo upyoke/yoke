@@ -22,6 +22,10 @@ from yoke_core.domain.environment_delivery_record import (
     require_registered_environment,
     resolve_environment_id,
 )
+from yoke_core.domain.dependency_merge_fact import (
+    evaluate_merge_state,
+    evaluate_recorded_merge,
+)
 from yoke_core.domain.schema_common import _get_columns, _table_exists
 from yoke_core.domain.workflow_runtime import WorkflowRuntime, builtin_workflow_runtime
 from yoke_core.domain.project_identity import render_item_ref
@@ -114,30 +118,6 @@ def require_authorable_satisfaction(
         raise UnregisteredEnvironment(f"environment_unregistered: {exc}") from exc
 
 
-def _evaluate_merge(
-    blocking_status: str,
-    blocking_worktree: Optional[str],
-    blocking_merged: Optional[bool],
-    workflow: WorkflowRuntime,
-) -> GateResult:
-    if blocking_merged is True:
-        return GateResult(True, "Blocking item's merge is confirmed.")
-    if blocking_merged is False:
-        branch = f" ({blocking_worktree})" if blocking_worktree else ""
-        return GateResult(
-            False, f"Blocking item's branch{branch} is not yet merged to main."
-        )
-    if workflow.stage_implies_merge(blocking_status):
-        return GateResult(
-            True,
-            f"Blocking item status is '{blocking_status}' (merge inferred).",
-        )
-    return GateResult(
-        False,
-        f"Blocking item status is '{blocking_status}'; branch merge not confirmed.",
-    )
-
-
 def evaluate_satisfaction(
     satisfaction: str,
     blocking_status: Optional[str],
@@ -146,6 +126,8 @@ def evaluate_satisfaction(
     blocking_deployed: DeployedEnvironmentFact | None = None,
     *,
     workflow: Optional[WorkflowRuntime] = None,
+    blocking_merged_at: Any = None,
+    dependency_created_at: Any = None,
 ) -> GateResult:
     """Evaluate one value from the canonical satisfaction grammar."""
     if not satisfaction_is_known(satisfaction):
@@ -179,11 +161,11 @@ def evaluate_satisfaction(
     )
     if status_result is not None:
         return status_result
-    merge_result = _evaluate_merge(
+    if satisfaction == Satisfaction.FACT_MERGED.value:
+        return evaluate_recorded_merge(blocking_merged_at, dependency_created_at)
+    merge_result = evaluate_merge_state(
         blocking_status, blocking_worktree, blocking_merged, workflow
     )
-    if satisfaction == Satisfaction.FACT_MERGED.value:
-        return merge_result
     assert environment is not None
     if blocking_deployed is None:
         return GateResult(
@@ -208,6 +190,8 @@ def evaluate_persisted_satisfaction(
     blocking_worktree: Optional[str] = None,
     blocking_merged: Optional[bool] = None,
     workflow: Optional[WorkflowRuntime] = None,
+    blocking_merged_at: Any = None,
+    dependency_created_at: Any = None,
 ) -> GateResult:
     """Read any dynamic fact, then invoke the one pure evaluator."""
     deployed = None
@@ -224,6 +208,8 @@ def evaluate_persisted_satisfaction(
         blocking_merged,
         deployed,
         workflow=workflow,
+        blocking_merged_at=blocking_merged_at,
+        dependency_created_at=dependency_created_at,
     )
 
 
@@ -267,7 +253,7 @@ def unsatisfied_dependency_pairs(
     rows = conn.execute(
         "SELECT d.dependent_item_id,d.blocking_item_id,d.satisfaction,"
         f"b.status AS blocking_status,b.merged_at,{workflow_fields},"
-        "NULL AS lane_branch "
+        "NULL AS lane_branch,d.created_at AS dependency_created_at "
         "FROM item_dependencies d LEFT JOIN items b ON b.id=d.blocking_item_id "
         f"{workflow_join}"
         f"WHERE d.dependent_item_id IN ({placeholders}) "
@@ -329,6 +315,8 @@ def unsatisfied_dependency_pairs(
             True if _row_value(row, "merged_at", 4) else None,
             deployed,
             workflow=workflow,
+            blocking_merged_at=_row_value(row, "merged_at", 4),
+            dependency_created_at=_row_value(row, "dependency_created_at", 11),
         )
         may_ship_together = (
             blocker in co_scheduled
