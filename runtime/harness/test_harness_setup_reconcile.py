@@ -1,0 +1,147 @@
+"""Late native installs converge existing checkouts without creating absent homes."""
+
+import json
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+from yoke_harness import harness_setup_reconcile as setup
+from yoke_harness import session_relay_harness_reconcile as relay
+
+
+@pytest.fixture
+def machine(monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("CODEX_HOME", str(home / ".codex"))
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    from yoke_contracts.harness_machine_hooks import HarnessMachineHooks
+
+    monkeypatch.setattr(
+        HarnessMachineHooks,
+        "home_path",
+        lambda self, environ=None: (
+            home
+            / (
+                ".codex"
+                if self.harness_id == "codex"
+                else ".claude"
+                if self.harness_id == "claude-code"
+                else ".cursor"
+            )
+        ),
+    )
+    from yoke_contracts import claude_posture_install
+
+    monkeypatch.setattr(
+        claude_posture_install, "CLAUDE_APP_CONFIG_PATH", home / "desktop.json"
+    )
+    root = tmp_path / "checkout"
+    lanes = [tmp_path / "lane-a", tmp_path / "lane-b"]
+    hooks = {
+        "hooks": {
+            "Stop": [
+                {"hooks": [{"type": "command", "command": "yoke hook evaluate Stop"}]}
+            ]
+        }
+    }
+    for target in [root, *lanes]:
+        (target / ".codex").mkdir(parents=True)
+        (target / ".codex/hooks.json").write_text(json.dumps(hooks))
+    monkeypatch.setattr(
+        setup, "configured_projects", lambda **kw: [SimpleNamespace(checkout=root)]
+    )
+    monkeypatch.setattr(setup, "main_checkout", lambda path: root)
+    monkeypatch.setattr(setup, "registered_worktree_paths", lambda path: [root, *lanes])
+    return home, root, lanes
+
+
+@pytest.mark.parametrize(
+    "harness,dirname",
+    [("codex", ".codex"), ("claude-code", ".claude"), ("cursor", ".cursor")],
+)
+def test_harness_installed_after_yoke_converges_existing_lanes(
+    machine, harness, dirname
+):
+    home, root, lanes = machine
+    before = setup.reconcile_harness_setup()
+    assert all(row.outcome == "skipped_not_installed" for row in before.rows)
+    assert not any(home.iterdir())
+    (home / dirname).mkdir()
+    state = relay.reconcile_on_change(path=home / "relay.json", now=100)
+    assert state["fingerprint"] == [harness]
+    assert state["failure"] is None
+    inspected = setup.inspect_harness_setup()
+    rows = [row for row in inspected.rows if row.harness_id == harness]
+    assert all(row.outcome == "already_set" for row in rows), rows
+    assert {row.target_path for row in rows if row.facet == "folder_trust"} == {
+        str(root),
+        *map(str, lanes),
+    }
+    files = {p: p.read_bytes() for p in home.rglob("*") if p.is_file()}
+    again = setup.reconcile_harness_setup()
+    assert all(
+        row.outcome in ("already_set", "skipped_not_installed") for row in again.rows
+    )
+    assert files == {p: p.read_bytes() for p in home.rglob("*") if p.is_file()}
+
+
+def test_modified_lane_hooks_refuse_without_minting(machine):
+    home, root, lanes = machine
+    (home / ".codex").mkdir()
+    assert not setup.reconcile_harness_setup().failed
+    hooks = lanes[0] / ".codex/hooks.json"
+    hooks.write_text(hooks.read_text().replace("Stop", "SessionStart"))
+    result = setup.reconcile_harness_setup(paths=[lanes[0]])
+    row = next(
+        r for r in result.rows if r.harness_id == "codex" and r.facet == "hook_trust"
+    )
+    assert row.outcome == "refused"
+    assert "differs" in row.detail
+    assert "re-trust in Codex" in row.recovery
+
+
+def test_malformed_file_preserved_and_other_harnesses_continue(machine):
+    home, root, _ = machine
+    (home / ".codex").mkdir()
+    (home / ".cursor").mkdir()
+    config = home / ".codex/config.toml"
+    config.write_text("[invalid")
+    result = setup.reconcile_harness_setup()
+    assert result.failed
+    assert config.read_text() == "[invalid"
+    assert any(r.harness_id == "cursor" and r.outcome == "written" for r in result.rows)
+    assert all(r.recovery for r in result.rows if r.outcome in setup.FAILURES)
+
+
+def test_inspection_never_writes_and_scoped_call_targets_only_lane(machine):
+    home, root, lanes = machine
+    (home / ".codex").mkdir()
+    assert setup.inspect_harness_setup().failed
+    assert not (home / ".codex/config.toml").exists()
+    assert not setup.reconcile_harness_setup(paths=[root]).failed
+    result = setup.reconcile_harness_setup(paths=[lanes[1]])
+    assert not result.failed
+    assert {
+        r.target_path
+        for r in result.rows
+        if r.facet == "folder_trust" and r.harness_id == "codex"
+    } == {str(lanes[1])}
+    assert str(lanes[0]) not in (home / ".codex/config.toml").read_text()
+
+
+def test_unwritable_facet_does_not_stop_other_facets(machine, monkeypatch):
+    home, _, _ = machine
+    (home / ".cursor").mkdir()
+    monkeypatch.setattr(
+        setup,
+        "grant_folder_trust",
+        lambda *a, **kw: (_ for _ in ()).throw(PermissionError("folder.json")),
+    )
+    result = setup.reconcile_harness_setup()
+    assert any(r.outcome == "failed" and "folder.json" in r.detail for r in result.rows)
+    assert any(
+        r.facet == "machine_hooks" and r.outcome == "written" for r in result.rows
+    )

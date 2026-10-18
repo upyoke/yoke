@@ -57,9 +57,7 @@ def _harness_posture_noop(monkeypatch):
     rewrite the config of whoever ran it. Tests asserting on the step patch
     it with their own spy, which replaces this one.
     """
-    monkeypatch.setattr(
-        isl, "configure_harness_unattended_posture", lambda **_kwargs: []
-    )
+    monkeypatch.setattr(isl, "reconcile_harness_setup", lambda **_kwargs: [])
 
 
 def test_install_skip_harness_permissions_propagates(tmp_path: Path, install_env):
@@ -71,7 +69,7 @@ def test_install_skip_harness_permissions_propagates(tmp_path: Path, install_env
         called.append(checkout)
         return []
 
-    install_env.setattr(isl, "configure_harness_unattended_posture", spy)
+    install_env.setattr(isl, "reconcile_harness_setup", spy)
     isl.install(
         cwd=repo,
         home=repo,
@@ -92,7 +90,7 @@ def test_install_default_configures_every_harness(tmp_path: Path, install_env):
         called.append(checkout)
         return []
 
-    install_env.setattr(isl, "configure_harness_unattended_posture", spy)
+    install_env.setattr(isl, "reconcile_harness_setup", spy)
     isl.install(
         cwd=repo,
         home=repo,

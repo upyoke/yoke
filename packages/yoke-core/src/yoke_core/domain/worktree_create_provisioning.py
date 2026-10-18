@@ -27,7 +27,7 @@ from yoke_core.domain.worktree_create_plan import (
 from yoke_core.domain.worktree_deps import install_worktree_deps
 from yoke_core.domain.worktree_provision import (
     create_worktree_lane,
-    provision_worktree_folder_trust,
+    provision_worktree_harness_setup,
     provision_worktree_harness_enablement,
     provision_worktree_test_environment,
     provision_worktree_validation_surfaces,
@@ -136,7 +136,7 @@ def provision_planned_lanes(
     # prepared before an adapter update is repaired on the next preparation.
     for entry in plan.worktrees:
         provision_worktree_harness_enablement(repo_root, entry.path)
-        provision_worktree_folder_trust(entry.path)
+        provision_worktree_harness_setup(entry.path)
 
     # Step 4 — the blocking readiness proof. A lane is ready when its tests
     # can run in it. This runs for reused lanes too, so a lane prepared

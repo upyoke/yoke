@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 from typing import Optional
 
 from yoke_core.domain.worktree_create_plan import WorktreeCreationEntry
@@ -89,62 +90,13 @@ def create_worktree_lane(
     return None
 
 
-def provision_worktree_hook_trust(repo_root: str, worktree_path: str) -> None:
-    """Best-effort mirroring of the checkout's Codex hook trust into a lane.
+def provision_worktree_harness_setup(worktree_path: str) -> None:
+    """Reconcile only this lane and report each failed facet with recovery."""
+    from yoke_harness.harness_setup_reconcile import reconcile_harness_setup
 
-    Codex keys hook trust by the literal hooks-file path, so a worktree
-    starts out untrusted and therefore hook-dead. Runs for reused lanes as
-    well as new ones, so a worktree created before this step existed becomes
-    hook-live the next time it is prepared.
-    """
-    try:
-        from yoke_core.domain.worktree_codex_hook_trust import mirror_hook_trust
-
-        result = mirror_hook_trust(repo_root, worktree_path)
-    except Exception as exc:  # noqa: BLE001 — best-effort
-        print(
-            f"Warning: Codex hook-trust mirroring failed (non-fatal): {exc}",
-            file=sys.stderr,
-        )
-        return
-
-    if result.mirrored:
-        print(
-            f"Codex hook trust mirrored into {worktree_path}: "
-            f"{len(result.mirrored)} entries",
-            file=sys.stderr,
-        )
-    elif result.source_trusted and not result.hooks_fire:
-        # Silent when the checkout holds no trusted entries at all: there is
-        # nothing to mirror, and a Codex-less machine should not be warned
-        # about Codex on every lane it prepares.
-        print(
-            f"Warning: Codex hooks will not fire in {worktree_path} — "
-            f"{result.summary()}",
-            file=sys.stderr,
-        )
-
-
-def provision_worktree_folder_trust(worktree_path: str) -> None:
-    """Best-effort folder trust for a lane, in every harness present.
-
-    Folder trust is path-keyed in all three harnesses with no inheritance
-    from the checkout, so a lane a person opens would otherwise stop and ask
-    about the directory before running anything in it. Runs for reused lanes
-    too, so one created before this step existed is trusted next time.
-    """
-    try:
-        from yoke_contracts.harness_folder_trust_grant import grant_folder_trust
-
-        granted = grant_folder_trust(worktree_path)
-    except Exception as exc:  # noqa: BLE001 — best-effort lane provisioning
-        print(
-            f"Warning: harness folder trust failed (non-fatal): {exc}",
-            file=sys.stderr,
-        )
-        return
-    for line in granted:
-        print(f"lane folder trust: {line}", file=sys.stderr)
+    result = reconcile_harness_setup(paths=[Path(worktree_path)])
+    for line in result.lines():
+        print(f"lane harness setup: {line}", file=sys.stderr)
 
 
 def provision_worktree_harness_enablement(
@@ -311,9 +263,8 @@ __all__ = [
     "count_active_worktrees",
     "create_worktree_lane",
     "project_field",
-    "provision_worktree_folder_trust",
+    "provision_worktree_harness_setup",
     "provision_worktree_harness_enablement",
-    "provision_worktree_hook_trust",
     "provision_worktree_test_environment",
     "provision_worktree_validation_surfaces",
 ]

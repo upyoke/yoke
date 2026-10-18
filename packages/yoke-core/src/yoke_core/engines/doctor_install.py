@@ -35,6 +35,7 @@ INSTALL_SLUGS = (
     "session-relay",
     "hook-resident",
     "harness-unattended-posture",
+    "harness-setup",
     "project-gh-auth",
     "harness-cli-auth",
     "dashboard-current-build",
