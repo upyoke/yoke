@@ -26,6 +26,7 @@ from yoke_core.domain.session_relay_types import (
 from yoke_core.domain.session_broker_wake_fallback import direct_wake_waits_for_broker
 from yoke_core.domain.session_turn_posture import TURN_POSTURES
 from yoke_core.domain.session_wake_meter import skip_exhausted_wake
+from yoke_core.domain.session_scope_identity import relay_serves_scope
 
 
 @dataclass(frozen=True)
@@ -45,13 +46,19 @@ def wake_candidates(
     from yoke_core.domain.session_message_wake import wake_eligible_recipients
 
     projects = tuple(sorted({int(value) for value in heartbeat.project_ids}))
-    if not projects:
-        return ()
     return tuple(
         row
         for row in wake_eligible_recipients(conn, now=parse_timestamp(now))
         if row.get("machine_id") == heartbeat.machine_id
-        and int(row["project_id"]) in projects
+        and relay_serves_scope(
+            relay_machine_id=heartbeat.machine_id,
+            relay_actor_id=heartbeat.actor_id,
+            advertised_project_ids=projects,
+            row_machine_id=row.get("machine_id"),
+            row_project_id=row.get("project_id"),
+            row_org_id=row.get("org_id"),
+            row_actor_id=row.get("actor_id"),
+        )
         and not direct_wake_waits_for_broker(
             conn,
             message_id=str(row["message_id"]),

@@ -4,6 +4,9 @@ from copy import deepcopy
 import shlex
 
 from yoke_core.domain.installer_campaign_issue_sync_cases import issue_sync_cases
+from yoke_core.domain.installer_campaign_session_scope_cases import (
+    session_scope_cases,
+)
 from yoke_core.domain.installer_campaign_install_health_cases import (
     install_health_cases,
 )
@@ -296,6 +299,7 @@ INSTALLER_RECOVERY_CASES = (
     )
     + install_health_cases(_command_case)
     + issue_sync_cases(_command_case, _LOCAL_SETUP)
+    + session_scope_cases(_command_case, _LOCAL_SETUP, _INSTALL_ONLY)
 )
 
 

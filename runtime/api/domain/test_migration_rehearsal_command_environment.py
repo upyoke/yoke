@@ -37,6 +37,7 @@ def test_rehearsal_command_replaces_admin_selection_and_keeps_validation_binding
     select_machine_config_file(monkeypatch, str(config))
     monkeypatch.setenv(ENV_OVERRIDE, "prod-db-admin")
     monkeypatch.setenv("REHEARSAL_PARENT_CONTEXT", "retained")
+    monkeypatch.setenv(migration_apply_verify.REHEARSAL_MODULE_ENV, "stale_module")
     captured: dict[str, object] = {}
 
     def _run(command: str, **kwargs: object) -> SimpleNamespace:
@@ -49,6 +50,7 @@ def test_rehearsal_command_replaces_admin_selection_and_keeps_validation_binding
 
     outcomes, error = migration_apply_verify.run_rehearsal_commands(
         ["pytest -q runtime/api/domain"],
+        module_identifier="current_module",
         env_var="APPLICATION_DATABASE_URL",
         validation_db_path=validation_dsn,
         cwd=tmp_path,
@@ -60,5 +62,6 @@ def test_rehearsal_command_replaces_admin_selection_and_keeps_validation_binding
     assert child_env["APPLICATION_DATABASE_URL"] == validation_dsn
     assert child_env["YOKE_DB"] == validation_dsn
     assert child_env["REHEARSAL_PARENT_CONTEXT"] == "retained"
+    assert child_env[migration_apply_verify.REHEARSAL_MODULE_ENV] == "current_module"
     assert error is None
     assert outcomes[0]["returncode"] == 0

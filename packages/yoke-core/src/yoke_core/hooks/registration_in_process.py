@@ -33,6 +33,7 @@ def _register_in_process(
     actor_id: Optional[int] = None,
     execution_level: Optional[str] = None,
     project_id: Optional[int] = None,
+    machine_scope: bool | None = None,
     executor_version: Optional[str] = None,
     machine_id: Optional[str] = None,
     native_thread_id: Optional[str] = None,
@@ -60,8 +61,6 @@ def _register_in_process(
         from yoke_core.domain import db_helpers
         from yoke_core.domain.sessions_lifecycle_registry import register_session
 
-        if project_id is None:
-            return "session registration requires project_id"
         conn = db_helpers.connect()
         try:
             resolved_level = project_level_for_session(
@@ -87,6 +86,9 @@ def _register_in_process(
                 entrypoint=entrypoint,
                 actor_id=actor_id,
                 project_id=project_id,
+                machine_scope=(
+                    project_id is None if machine_scope is None else machine_scope
+                ),
                 executor_version=executor_version,
                 machine_id=machine_id,
                 native_thread_id=native_thread_id,

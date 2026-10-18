@@ -41,7 +41,7 @@ def registered_session_facts(conn: Any, session_id: str) -> dict[str, Any] | Non
     if row is None:
         return None
     return {
-        "project_id": int(value(row, "project_id", 0)),
+        "project_id": value(row, "project_id", 0),
         "surface": value(row, "executor_surface", 1),
         "version": value(row, "executor_version", 2),
         "machine_id": value(row, "machine_id", 3),
@@ -63,6 +63,14 @@ def require_registered_session_facts(conn: Any, session_id: str) -> dict[str, An
 def _require_launch_session_context(
     launch: LaunchRecord, facts: dict[str, Any]
 ) -> None:
+    if facts["project_id"] is None:
+        raise SessionLaunchError(
+            "project_mismatch",
+            "registered session started outside any project; a launched worker "
+            f"must register in project {launch.project_id}'s folder. Recovery: map "
+            "that checkout on the launch machine with `yoke project register "
+            f"CHECKOUT --project-id {launch.project_id}`, then launch again.",
+        )
     if facts["project_id"] != launch.project_id:
         raise SessionLaunchError("project_mismatch", "registered project differs")
     if facts["surface"] != launch.selected_surface:

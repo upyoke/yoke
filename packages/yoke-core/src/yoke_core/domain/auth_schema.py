@@ -1,11 +1,16 @@
-"""Schema DDL for actor-token auth and project-role permissions."""
+"""Schema DDL for actor-token auth and project-role permissions.
+
+``api_tokens.creation_request_id`` is nullable for bootstrap issuance. Its
+partial unique index remembers personal-token creation without storing the
+one-time result, so repeating a request cannot issue another credential.
+"""
 
 from __future__ import annotations
 
 from typing import Any
 
 from yoke_core.domain.org_schema import REQUIRED_ORG_TABLES, create_org_tables
-from yoke_core.domain.schema_common import _get_columns
+from yoke_core.domain.schema_common import _add_column_if_not_exists, _get_columns
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
@@ -37,7 +42,8 @@ def create_auth_tables(conn: Any) -> None:
             revoked_at TIMESTAMPTZ,
             expires_at TIMESTAMPTZ,
             last_used_at TIMESTAMPTZ,
-            diagnostic_metadata TEXT
+            diagnostic_metadata TEXT,
+            creation_request_id TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_api_tokens_actor
             ON api_tokens(actor_id);
@@ -98,6 +104,11 @@ def create_auth_tables(conn: Any) -> None:
         CREATE INDEX IF NOT EXISTS idx_actor_project_roles_role
             ON actor_project_roles(role_id);
     """,
+    )
+    _add_column_if_not_exists(conn, "api_tokens", "creation_request_id", "TEXT")
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_api_tokens_creation_request "
+        "ON api_tokens(creation_request_id) WHERE creation_request_id IS NOT NULL"
     )
     if "machine_id" in _get_columns(conn, "api_tokens"):
         conn.execute(

@@ -176,6 +176,8 @@ def emit_denial_event(
     client_revision: str = "",
     server_revision: str = "",
     guard_version_skew: str = "",
+    *,
+    close_tool_call: bool = True,
 ) -> None:
     """Emit HarnessToolCallDenied via the Python emit-event owner.
 
@@ -200,12 +202,14 @@ def emit_denial_event(
         payload["tool_use_id"] = tool_use_id
     if turn_id:
         payload["turn_id"] = turn_id
-    _close_denied_call(
-        session_id=session_id,
-        tool_use_id=tool_use_id,
-        tool_name=tool,
-        outcome=outcome or OUTCOME_DENIED,
-    )
+    # An audit before authorization must not complete unverified session state.
+    if close_tool_call:
+        _close_denied_call(
+            session_id=session_id,
+            tool_use_id=tool_use_id,
+            tool_name=tool,
+            outcome=outcome or OUTCOME_DENIED,
+        )
     try:
         from yoke_core.domain import emit_event as emit_event_cli
 

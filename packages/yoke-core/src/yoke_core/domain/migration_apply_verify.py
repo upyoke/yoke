@@ -20,6 +20,7 @@ from yoke_core.domain.migration_apply_contract import _now
 
 REHEARSAL_COMMAND_TIMEOUT_CONFIG = "migration_rehearsal_command_timeout_seconds"
 DEFAULT_REHEARSAL_COMMAND_TIMEOUT_SECONDS = 600
+REHEARSAL_MODULE_ENV = "YOKE_MIGRATION_REHEARSAL_MODULE"
 
 
 def _quote_identifier(raw: str) -> str:
@@ -157,12 +158,13 @@ def _rehearsal_command_timeout_seconds() -> int:
 def run_rehearsal_commands(
     commands: List[str],
     *,
+    module_identifier: str,
     env_var: str,
     validation_db_path: str,
     cwd: Path,
 ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
     """Execute each attestation ``rehearsal_commands`` entry with
-    ``<env_var>`` pointed at the validation DB.
+    ``<env_var>`` pointed at the validation DB and explicit current module context.
 
     Returns (outcomes, error) where error is the concatenated stderr of
     the first failing command (if any).  Each outcome records
@@ -173,6 +175,7 @@ def run_rehearsal_commands(
     env = schema_authority.environment_without_administering_selection()
     env[env_var] = validation_db_path
     env["YOKE_DB"] = validation_db_path
+    env[REHEARSAL_MODULE_ENV] = module_identifier
     timeout_seconds = _rehearsal_command_timeout_seconds()
     first_error: Optional[str] = None
     for cmd in commands:

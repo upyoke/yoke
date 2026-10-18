@@ -6,6 +6,7 @@ from __future__ import annotations
 SESSION_CONTROL_ROSTER_DISPLAY_FIELDS = (
     "session_id",
     "project",
+    "scope",
     "claims",
     "focus",
     "role",

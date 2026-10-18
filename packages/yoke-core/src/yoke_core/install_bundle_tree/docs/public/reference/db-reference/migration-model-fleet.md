@@ -117,9 +117,16 @@ product sessions, frontier, board, launch get/list, message-attempt and item
 get/list readers must consume the copied rows. Per-record session/item reads
 and paged launch reads cover rows beyond list windows. A refused or crashing
 reader fails preflight with its operation and recovery; it earns no fleet
-receipt. All these operations stay inside the existing copy admission and
-cleanup. Named-database fleets retain their project-declared boot and
-verification commands.
+receipt. Once the readers pass, the verifier runs the secret-receipt replay
+proof directly on the same converged copy and transaction: it inherits no
+rehearsal module context or skip, a copy that still holds one-time secret
+receipts refuses before replay, and the replayed scrub must rewrite nothing
+and leave the ledger and event receipts byte-identical. A replay failure fails
+preflight with its named `secret_receipt_replay_failed` reason. Only then do
+the release-surface checks run. The first failure wins and is reported with its
+own operation and recovery. All these operations stay inside the existing copy
+admission and cleanup. Named-database fleets retain their project-declared boot
+and verification commands.
 
 Before a deployment run dispatches a GitHub workflow for a project that
 declares a `migration_model`, it reads every model's fleet. A `none` fleet is

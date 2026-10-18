@@ -35,6 +35,7 @@ from .sessions_render_end_chain_pending import chain_pending_state
 from .sessions_render import reclaim_stale_session
 from .scratch_auto_prune import ScratchPruneResult, auto_prune_stale_scratch
 from .session_cleanup_receipt import sweep_receipt
+from .sessions_render_end_if_empty import deployment_driver_holds
 
 
 def clean_stale_harness_sessions(
@@ -66,6 +67,7 @@ def clean_stale_harness_sessions(
     select_cols = "session_id, offered_at"
     for name in (
         "executor",
+        "org_id",
         "last_tool_call_at",
         "tool_call_count",
         "episode_started_at",
@@ -106,11 +108,14 @@ def clean_stale_harness_sessions(
     )
     holdings = active_holding_sessions(conn)
     claims = active_work_claim_sessions(conn)
+    deploy_drivers = None
     for raw in all_active:
         row = dict(raw)
         sid = row["session_id"]
         signals = read_activity_signals(conn, sid)
-        row["holds_work_claim"] = sid in claims
+        if sid not in claims and deploy_drivers is None:
+            deploy_drivers = deployment_driver_holds(conn)
+        row["holds_work_claim"] = sid in claims or sid in (deploy_drivers or {})
         row["has_active_holdings"] = sid in holdings
         row["last_heartbeat"] = signals.activity_at
         # A protected holder needs no open-call query interpretation. Its
@@ -120,6 +125,7 @@ def clean_stale_harness_sessions(
         evidence = decision.evidence
         entry = {
             "session_id": row["session_id"],
+            "org_id": row.get("org_id"),
             "executor": evidence.executor,
             "effective_ttl_minutes": evidence.effective_ttl_minutes,
             "has_active_holdings": row["has_active_holdings"],
@@ -151,7 +157,7 @@ def clean_stale_harness_sessions(
     # the shared activity classifier; if fresh activity has landed since the
     # snapshot, the mutation is skipped and ReclaimAborted is emitted with
     # scope='session_cleanup' instead.
-    total_reclaimed = 0
+    total_reclaimed = org_scoped_reclaimed = 0
     reclaim_batches = never_engaged + heartbeat_stale + progress_stale
     for entry in reclaim_batches:
         sid = entry["session_id"]
@@ -160,7 +166,9 @@ def clean_stale_harness_sessions(
         lock_session_rows_for_claim_lifecycle(conn, (sid,))
         row = reclaim_facts(conn, [{"session_id": sid}])[0]
         has_active_holdings = row["has_active_holdings"]
-        row["holds_work_claim"] = session_has_active_work_claim(conn, sid)
+        row["holds_work_claim"] = session_has_active_work_claim(
+            conn, sid
+        ) or sid in deployment_driver_holds(conn)
         if row["holds_work_claim"]:
             recheck = automatic_reclaim(row, **options)
         else:
@@ -220,6 +228,7 @@ def clean_stale_harness_sessions(
             )
             continue
         total_reclaimed += 1
+        org_scoped_reclaimed += int(entry["org_id"] is not None)
 
         _sa._emit_event(
             EVENT_HARNESS_SESSION_STALE_RECLAIMED,
@@ -269,6 +278,7 @@ def clean_stale_harness_sessions(
             "project_ids": project_ids,
             "total_scanned": len(all_active),
             "total_reclaimed": total_reclaimed,
+            "org_scoped_reclaimed": org_scoped_reclaimed,
             "sweep_duration_ms": _sweep_duration_ms,
             "never_engaged_count": len(never_engaged),
             "heartbeat_stale_count": len(heartbeat_stale),
@@ -278,14 +288,17 @@ def clean_stale_harness_sessions(
         },
     )
 
-    return sweep_receipt(
-        never_engaged=never_engaged,
-        heartbeat_stale=heartbeat_stale,
-        progress_stale=progress_stale,
-        skipped_between_turns=skipped_between_turns,
-        total_reclaimed=total_reclaimed,
-        scratch_cleanup=scratch_cleanup,
-    )
+    return {
+        "org_scoped_reclaimed": org_scoped_reclaimed,
+        **sweep_receipt(
+            never_engaged=never_engaged,
+            heartbeat_stale=heartbeat_stale,
+            progress_stale=progress_stale,
+            skipped_between_turns=skipped_between_turns,
+            total_reclaimed=total_reclaimed,
+            scratch_cleanup=scratch_cleanup,
+        ),
+    }
 
 
 cleanup_never_engaged_sessions = clean_stale_harness_sessions

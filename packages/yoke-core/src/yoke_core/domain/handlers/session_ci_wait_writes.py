@@ -110,11 +110,19 @@ def handle_record_ci_wait(request: FunctionCallRequest) -> HandlerOutcome:
                 f"SELECT project_id FROM harness_sessions WHERE session_id={p}",
                 (session_id,),
             ).fetchone()
-            if row is None or row[0] is None:
+            if row is None:
                 return _err(
                     "session_not_found",
-                    f"session {session_id} has no registered project to sweep "
-                    "for; re-register the session and retry",
+                    f"session {session_id} is not registered. Recovery: run the "
+                    "check from a registered harness session.",
+                )
+            if row[0] is None:
+                return _err(
+                    "session_outside_project",
+                    f"session {session_id} was started outside any project; CI "
+                    "waits belong to project item work. Recovery: run the check "
+                    "from a session opened in the project folder; sessions never "
+                    "switch projects.",
                 )
             project_id = int(row[0])
             recorded = _insert(

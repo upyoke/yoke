@@ -114,10 +114,15 @@ def test_selected_worker_reaches_public_rehearsal_runner(apply_env, monkeypatch)
 
     # Only the process boundary is in-process; the public adapter, authority
     # validation, target isolation, runner and durable receipt are real.
+    # A real child owns an unpatched subprocess module, so the rehearsal's
+    # own restore-point dump runs for real inside the simulated child.
+    real_run = source_dev_run.subprocess.run
+
     def child(command, *, cwd, env, check):
         assert command[-3:] == ["migration", "rehearse", public_ref]
         assert cwd == env[SOURCE_DEV_RUN_ROOT_ENV] == str(worker)
         with monkeypatch.context() as child_context:
+            child_context.setattr(source_dev_run.subprocess, "run", real_run)
             child_context.setenv(SOURCE_DEV_RUN_ROOT_ENV, env[SOURCE_DEV_RUN_ROOT_ENV])
             child_context.chdir(cwd)
             return SimpleNamespace(returncode=migration_rehearse([public_ref]))

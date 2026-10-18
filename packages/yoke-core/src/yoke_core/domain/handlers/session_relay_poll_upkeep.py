@@ -15,7 +15,9 @@ import logging
 _LOGGER = logging.getLogger(__name__)
 
 
-def sweep_quiet_claim_holders(conn, *, machine_id: str, projects) -> None:
+def sweep_quiet_claim_holders(
+    conn, *, machine_id: str, projects, actor_id: int
+) -> None:
     """Probe this machine's silent claim-holders.
 
     The probe is best-effort around the poll it rides on. The poll's job
@@ -27,7 +29,10 @@ def sweep_quiet_claim_holders(conn, *, machine_id: str, projects) -> None:
 
     try:
         probe_stale_alive_sessions(
-            conn, machine_id=machine_id, authorized_projects=projects
+            conn,
+            machine_id=machine_id,
+            authorized_projects=projects,
+            relay_actor_id=actor_id,
         )
     except Exception:
         _LOGGER.debug(
@@ -59,7 +64,7 @@ def resume_vendor_error_sessions(conn, *, machine_id: str, projects, actor_id: i
         _LOGGER.debug("vendor-error resume sweep skipped", exc_info=True)
 
 
-def stuck_native_turn_probes(conn, *, machine_id: str, projects) -> list:
+def stuck_native_turn_probes(conn, *, machine_id: str, projects, actor_id: int) -> list:
     """Name the sessions this machine should read a turn record back for.
 
     Best-effort like the sweeps above: a poll whose job is to hand the relay
@@ -69,7 +74,12 @@ def stuck_native_turn_probes(conn, *, machine_id: str, projects) -> list:
     from yoke_core.domain.session_native_turn_end import probe_targets
 
     try:
-        return probe_targets(conn, machine_id=machine_id, authorized_projects=projects)
+        return probe_targets(
+            conn,
+            machine_id=machine_id,
+            authorized_projects=projects,
+            relay_actor_id=actor_id,
+        )
     except Exception:
         _LOGGER.debug("native turn-end probe targets skipped", exc_info=True)
         return []
