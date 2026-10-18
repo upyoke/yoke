@@ -263,6 +263,7 @@ def test_verify_reports_surviving_yoke_state_after_a_restore(
 def test_restore_retries_a_copy_once_and_reports_persistent_failure(
     tmp_path, always_fails
 ):
+    _require_zsh()
     golden, home = _baseline_pair(tmp_path)
     error_log = tmp_path / "errors"
     lines = (
