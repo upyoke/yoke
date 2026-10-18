@@ -1,9 +1,9 @@
 {
  "id": "diagnostics",
- "title": "Recognize the Yoke hook label, follow its recovery, and expect successful checks to stay quiet.",
+ "title": "Recognize hook diagnostics, repair infrastructure failures, and expect lifecycle failures to allow stopping.",
  "status": "observed",
  "form": "State",
- "verification": "Candidate regression tests cover Git warnings, quiet snapshot scans, unchanged JSON envelopes and bounded combined harness deliveries; no deployed proof yet.",
- "topics": ["context/hooks", "context/disclosure"],
+ "verification": "Candidate regression tests cover lifecycle infrastructure allow replies in Claude, Codex and Cursor, native Stop reentry, bounded repeated holds, fail-closed infrastructure refusals on tool/prompt hooks and shortened repeated diagnostics. Deployed proof is pending.",
+ "topics": ["context/hooks", "context/hooks/guard-applicability", "context/disclosure"],
  "position": 6
 }

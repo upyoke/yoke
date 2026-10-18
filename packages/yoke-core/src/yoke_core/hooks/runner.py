@@ -24,6 +24,7 @@ from typing import Any, Optional
 
 from yoke_contracts.hook_runner.chain_registry import chain_for
 from yoke_contracts.hook_runner.failures import FAILURE_PREFIX
+from yoke_contracts.hook_runner.safety import infrastructure_reply, stop_reentry
 from yoke_contracts.hook_runner.hook_ordering import matchers_for
 from yoke_core.domain.lint_session_cwd_target_extract import extract_payload_command
 from yoke_core.domain.hook_runner_deadline import (
@@ -121,7 +122,7 @@ def run_event(
     dry_run: bool = False,
     controls: Optional[RunControls] = None,
 ) -> tuple[str, int]:
-    """Dispatch one hook event. Never raises; failures degrade to audit-only.
+    """Dispatch one event; lifecycle failures allow, safety guard failures refuse.
 
     ``controls`` (relay-split evaluation) injects the caller's remaining
     budget, skips the classifier-excluded policies into ``controls.degraded``,
@@ -168,27 +169,25 @@ def run_event(
             project_id = resolve_hook_project_scope(payload).require_project_id()
         chain = applicable_chain(chain, project_id)
     except (ValueError, OSError, RuntimeError) as exc:
-        reason = (
-            f"hook_scope_unavailable: {exc}; repair the machine project mapping "
-            "or declared guard scope and retry"
+        text, code, denied = infrastructure_reply(
+            event_name, payload, capability.family, f"hook_scope_unavailable: {exc}"
         )
         if controls is not None:
-            controls.final_outcome = "deny"
-            controls.denial_audit = {
-                "hook": "hook_scope",
-                "check_id": "hook_scope_unavailable",
-                "reason": reason,
-            }
-        return capability.decision_renderer(
-            [
-                HookDecision(
-                    outcome=Outcome.DENY,
-                    next=Next.STOP,
-                    message=reason,
+            controls.final_outcome = "deny" if denied else "allow"
+            if controls.remote and not denied:
+                controls.degraded.append(
+                    f"{FAILURE_PREFIX}hook_scope_unavailable:{exc}; repair the declared guard scope and retry"
                 )
-            ],
-            event_name,
-        )
+            controls.denial_audit = (
+                {
+                    "hook": "hook_scope",
+                    "check_id": "hook_scope_unavailable",
+                    "reason": text,
+                }
+                if denied
+                else {}
+            )
+        return text, code
     if deduplicated_dispatch(
         event_name,
         context=context,
@@ -235,6 +234,12 @@ def run_event(
         )
         # Apply registered policy mode and denial identity before STOP.
         decision = _mode_gate.apply_mode(decision, module_id, context=context)
+        if (
+            event_name == "Stop"
+            and stop_reentry(payload)
+            and decision.outcome is Outcome.DENY
+        ):
+            decision = HookDecision(outcome=Outcome.ALLOW)
         decision = _guard_denial_identity.bind(
             decision,
             module_id,
@@ -278,6 +283,10 @@ def run_event(
     if skipped_guards:
         record_skipped_guards(skipped_guards, controls)
 
+    if event_name == "Stop" and stop_reentry(payload):
+        extra_stdout_parts = []
+        if controls is not None:
+            controls.denial_audit = {}
     rendered_text, exit_code = capability.decision_renderer(decisions, event_name)
     if extra_stdout_parts:
         joined = "".join(extra_stdout_parts)

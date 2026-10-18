@@ -106,6 +106,25 @@ Local edits use the refresh refusal's recovery.
 
 ## Hook diagnostics
 
+Hook infrastructure failures never hold `Stop`, `SessionStart` or
+`SessionEnd`. They return allow with one short warning naming the failure
+and its recovery. Repair machine configuration or connectivity before
+resuming work. Tool and prompt hooks still refuse when scope or authority
+cannot be resolved; identical failures show their full diagnosis once per
+five minutes, then a short reference. Policy denials remain enforced.
+
+The shared client boundary protects every supported harness and surface,
+including resident and in-process evaluation. `stop_hook_active` on Claude
+and Codex, or a positive Cursor `loop_count`, prevents another Stop hold.
+Without that native signal, at most three consecutive identical Stop blocks
+are allowed in five minutes; the next attempt allows Stop with
+`hook_stop_block_limit`. A changed reason or expired window starts a new
+count. Counters live in private machine-local `hook-safety/counters.json`,
+independent of machine config and server telemetry. Unavailable counters
+allow Stop with `hook_stop_safety_unavailable`; they never relax tool guards.
+Cursor's declared Stop contract still returns `{}` without a follow-up;
+its SessionEnd cannot continue the turn.
+
 Human diagnostics inside Git and harness tools begin with “yoke (<hook>): ”,
 for example “yoke (pre-commit): ERROR: file-line-limit gate blocked this commit.”
 Follow the repair in that diagnostic. Successful checks and the identity-only

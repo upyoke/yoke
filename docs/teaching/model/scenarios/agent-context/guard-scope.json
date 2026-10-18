@@ -4,11 +4,11 @@
  "status": "observed",
  "audience": "agent",
  "when": "Before a tool guard evaluates a workspace",
- "need": "Machine privacy, literal search quoting and unmatched path-glob guards apply outside projects. Main-commit, destructive-Git and lane authority rules apply in managed projects. Registered Git worktrees share the main checkout mapping; nested independent repositories do not.",
+ "need": "Machine guards apply outside projects; managed project rules use the registered checkout mapping. Broken scope or authority cannot hold Stop, SessionStart or SessionEnd. Repair the named infrastructure failure before resuming work; tool and prompt refusals remain enforced. Native Stop reentry always allows, and repeated identical holds exhaust their allowance after three blocks within five minutes.",
  "disclosure": "current cue",
  "surface": "Shared client-local and server hook dispatch",
  "gap": "Candidate scope is covered by regression tests; deployed installed-harness delivery is unproved. See guard-scope-live-delivery.",
  "review": "Source and candidate tests; no live delivery claim.",
- "sources": ["docs/public/reference/harness-discovery.md", "packages/yoke-core/src/yoke_core/hooks/runner.py", "packages/yoke-harness/src/yoke_harness/hooks/relay.py"],
+ "sources": ["docs/public/reference/harness-discovery.md", "packages/yoke-core/src/yoke_core/hooks/runner.py", "packages/yoke-contracts/src/yoke_contracts/hook_runner/safety.py", "runtime/harness/test_hook_lifecycle_safety.py"],
  "position": 6
 }

@@ -178,7 +178,7 @@ def relay_hook_event(
         lint_config_snapshot=policy_snapshot,
         project_scope=project_scope,
     )
-    if local.denied:
+    if local.denied or project_scope.failure:
         write_hook_output(
             local.stdout, local.exit_code, executor, event_name=event_name
         )
@@ -241,12 +241,14 @@ def relay_hook_event(
             event_name,
             f"HTTP {exc.status} from {safe_diagnostic_text(url)}",
             preserved_stdout=allow_stdout,
+            payload=payload,
         )
     except BoundedJsonHttpError as exc:
         return degrade_to_noop(
             event_name,
             f"{safe_diagnostic_text(url)} unreachable or timed out: {exc}",
             preserved_stdout=allow_stdout,
+            payload=payload,
         )
 
     if not isinstance(response, dict):
@@ -254,6 +256,7 @@ def relay_hook_event(
             event_name,
             "response body is not an object",
             preserved_stdout=allow_stdout,
+            payload=payload,
         )
     stdout = response.get("stdout")
     exit_code = response.get("exit_code")
@@ -267,6 +270,7 @@ def relay_hook_event(
             event_name,
             "response body is not the hook contract",
             preserved_stdout=allow_stdout,
+            payload=payload,
         )
     # Only the control plane's durable-row receipt settles transcript reads.
     # A deferred resident response intentionally carries no confirmation.
