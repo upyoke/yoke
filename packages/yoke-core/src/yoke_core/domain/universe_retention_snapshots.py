@@ -26,9 +26,8 @@ def snapshot_policy():
         JOIN current_targets p ON p.id=s.target_id
     )
     """
-    # Live references outside the locked snapshot tables can change while a
-    # cohort runs; the inventory protections above cannot, because deleting a
-    # non-latest, non-sighting snapshot never changes which ones are latest.
+    # Live references to a snapshot: active lane heads, integrity work and
+    # claim bases.
     references = """
     TRUE
     AND NOT EXISTS (
@@ -56,6 +55,5 @@ def snapshot_policy():
             ("path_snapshot_entries", "snapshot_id", "id"),
             ("path_snapshot_symlink_facts", "snapshot_id", "id"),
         ),
-        recheck=references,
         reason="latest/content snapshots, last sightings, active heads, claims and integrity references stay whole",
     )

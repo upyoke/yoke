@@ -107,21 +107,15 @@ def _hold_policy(conn, policy, deadline):
 
 
 def _hold_cohort(conn, policy, deadline, rule):
-    """Lock only what this cohort needs; never whole message tables.
+    """Lock only what this cohort needs; never whole tables.
 
-    Row locks taken by the eligibility select and the settings-row share lock
-    replace table-wide custody, so prune never queues behind (or ahead of) the
-    message writers' row order. Snapshot inventories keep one table lock:
-    native readers take it, and no message writer touches these tables.
+    The eligibility select row-locks its cohort (skipping rows a writer holds)
+    and the settings row is share-locked, so prune never waits on, or stalls,
+    readers and writers of the tables it cleans. A row-locked snapshot also
+    blocks new children for it, because their foreign key needs a key-share
+    lock on the parent; each inventory is still deleted in one transaction.
     """
     _hold_policy(conn, policy, deadline)
-    if rule.table == "path_snapshots" and db_backend.connection_is_postgres(conn):
-        _execute(
-            conn,
-            policy,
-            deadline,
-            "LOCK TABLE path_snapshots,path_snapshot_entries,path_snapshot_symlink_facts IN ACCESS EXCLUSIVE MODE",
-        )
 
 
 def _key_where(keys, rows):
@@ -224,8 +218,8 @@ def _delete_cohort(conn, policy, deadline, rule, rows, custody):
             conn,
             policy,
             deadline,
-            f"DELETE FROM {rule.table} t WHERE {clause} AND ({rule.recheck or rule.where})",
-            (*values, *(() if rule.recheck else rule.params)),
+            f"DELETE FROM {rule.table} t WHERE {clause} AND ({rule.where})",
+            (*values, *rule.params),
         )
         if rule.children and result.rowcount != len(accepted):
             conn.rollback()
