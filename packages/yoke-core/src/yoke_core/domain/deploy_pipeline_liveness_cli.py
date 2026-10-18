@@ -59,7 +59,7 @@ def _reexec_into_pinned_source(argv: List[str]) -> Optional[int]:
     )
 
     try:
-        with timing_scope(argv[0]):
+        with timing_scope(argv[0], persist=True):
             pinned = child_environment(argv[0])
     except DeployPinnedSourceError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -69,7 +69,7 @@ def _reexec_into_pinned_source(argv: List[str]) -> Optional[int]:
     print(frozen_driver_notice(pinned))
     env = dict(pinned)
     env[PINNED_REEXEC_ENV] = "1"
-    with timing_scope(argv[0]):
+    with timing_scope(argv[0], persist=True):
         timing_facts(source_sha=env.get(PINNED_RELEASE_ENV, ""))
         begin_reexec(env)
         try:

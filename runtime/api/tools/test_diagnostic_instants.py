@@ -112,18 +112,16 @@ def test_start_markers_format_wall_clock_without_changing_elapsed_clock(
     assert records[1]["elapsed_ms"] == 125
 
 
-def _replace_capture_clocks(first, last) -> str:
+def _replace_capture_clocks(first, last) -> list:
     from runtime.api.domain.test_deployment_start_report import _capture
 
-    lines = []
-    for line in _capture().splitlines():
-        record = json.loads(line.removeprefix(timing.PREFIX))
+    records = _capture()
+    for record in records:
         if record["step"] == "driver_preflight":
             record["timestamp"] = first
         if record["step"] == "executing_transition":
             record["timestamp"] = last
-        lines.append(timing.PREFIX + json.dumps(record))
-    return "\n".join(lines)
+    return records
 
 
 def test_start_report_measures_offset_and_microseconds() -> None:

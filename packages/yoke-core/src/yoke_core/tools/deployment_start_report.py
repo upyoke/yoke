@@ -1,43 +1,32 @@
-"""Measure an existing driver capture; never start or retry a deployment."""
+"""Measure a run's recorded start timings; never start or retry a deployment."""
 
 import argparse
 import json
 import os
-from pathlib import Path
 
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 
-from yoke_core.domain.deployment_start_timing import PREFIX
-from yoke_core.domain.project_scratch_dir import (
-    global_scratch_root,
-    resolve_active_project,
-)
-
 
 class StartEvidenceError(ValueError):
-    """The capture cannot prove a completed start."""
+    """The recorded timings cannot prove a completed start."""
 
 
-def start_report(text, *, run_id, baseline_seconds):
+def start_report(stored, *, run_id, baseline_seconds):
+    """Measure the start gap from a run's recorded timings."""
     records = []
-    for line in text.splitlines():
-        if line.startswith(PREFIX):
-            try:
-                record = json.loads(line[len(PREFIX) :])
-            except json.JSONDecodeError as exc:
-                raise StartEvidenceError(
-                    "start_timing_invalid: malformed marker; recover the full raw capture"
-                ) from exc
-            if record.get("run_id") == run_id:
-                if "timestamp" in record:
-                    try:
-                        record["timestamp"] = parse_instant(record["timestamp"])
-                    except InvalidInstant as exc:
-                        raise StartEvidenceError(
-                            "start_clock_invalid: capture supplies an invalid instant; "
-                            "recover its original qualified driver markers"
-                        ) from exc
-                records.append(record)
+    for stored_record in stored:
+        record = dict(stored_record)
+        if record.get("run_id") == run_id:
+            if "timestamp" in record:
+                try:
+                    record["timestamp"] = parse_instant(record["timestamp"])
+                except InvalidInstant as exc:
+                    raise StartEvidenceError(
+                        "start_clock_invalid: a recorded timing supplies an invalid "
+                        "instant; inspect `yoke deployment-runs timings "
+                        f"{run_id} --json`"
+                    ) from exc
+            records.append(record)
     starts = [
         r
         for r in records
@@ -58,7 +47,7 @@ def start_report(text, *, run_id, baseline_seconds):
     ]
     if not starts or not ends:
         raise StartEvidenceError(
-            "start_timing_incomplete: preflight or successful executing transition absent; obtain this run's driver raw capture on its execution machine"
+            "start_timing_incomplete: preflight or successful executing transition absent; read `yoke deployment-runs timings RUN-ID` and look for a `Deployment timing record refused` line in the driver capture"
         )
     if len(contexts) != 1:
         raise StartEvidenceError(
@@ -100,7 +89,7 @@ def start_report(text, *, run_id, baseline_seconds):
     missing = sorted(required - steps.keys())
     if missing:
         raise StartEvidenceError(
-            f"start_steps_missing: {', '.join(missing)}; recover the complete self-deploy capture, including preflight"
+            f"start_steps_missing: {', '.join(missing)}; a driver scope did not record; read `yoke deployment-runs timings RUN-ID` and the driver capture's refusal lines"
         )
     return {
         "run_id": run_id,
@@ -115,74 +104,49 @@ def start_report(text, *, run_id, baseline_seconds):
     }
 
 
-def find_capture(run_id, project=None):
-    """Search only the configured project's deploy watcher captures."""
-    name = resolve_active_project(project)
-    namespaces = {name}
+def recorded_timings(run_id):
+    """Read the run's stored timings through the registered read."""
     from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
-    for field in ("id", "slug"):
-        response = call_dispatcher(
-            function_id="projects.get",
-            target=TargetRef(kind="global"),
-            payload={"project": name, "field": field},
+    response = call_dispatcher(
+        function_id="deployment_runs.timings",
+        target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
+        payload={},
+    )
+    if not response.success:
+        error = response.error
+        raise StartEvidenceError(
+            "start_timings_unavailable: "
+            + (f"{error.code}: {error.message}" if error else "read refused")
+            + "; confirm `yoke deployment-runs timings RUN-ID` is served"
         )
-        if response.success and (response.result or {}).get("value") is not None:
-            namespaces.add(str(response.result["value"]))
-    from yoke_core.domain.project_scratch_segments import safe_segment
-
-    namespaces = {safe_segment(value) for value in namespaces}
-    roots = [global_scratch_root() / namespace / "sessions" for namespace in namespaces]
-    candidates = sorted(
-        (
-            path
-            for root in roots
-            for path in root.glob("*/runs/*/watcher-captures/yoke-deploy.raw.*.log")
-        ),
-        key=lambda path: path.stat().st_mtime,
-        reverse=True,
-    )
-    for path in candidates:
-        with path.open(encoding="utf-8") as stream:
-            # The first marker carries the run ID, so unrelated logs are not read whole.
-            for line in stream:
-                if not line.startswith(PREFIX):
-                    continue
-                record = json.loads(line[len(PREFIX) :])
-                if record.get("run_id") == run_id:
-                    return path
-                break
-    raise StartEvidenceError(
-        "start_capture_unavailable: no capture for this run on this machine; run the report on the deploy driver's machine or supply --capture PATH"
-    )
+    return (response.result or {}).get("records") or []
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-id", default=os.environ.get("DEPLOYMENT_RUN_ID"))
-    parser.add_argument("--capture", type=Path)
-    parser.add_argument("--project")
     parser.add_argument("--baseline-seconds", type=float, required=True)
     args = parser.parse_args(argv)
     if not args.run_id:
         parser.error("--run-id or DEPLOYMENT_RUN_ID is required")
     try:
-        capture = args.capture or find_capture(args.run_id, args.project)
         report = start_report(
-            capture.read_text(),
+            recorded_timings(args.run_id),
             run_id=args.run_id,
             baseline_seconds=args.baseline_seconds,
         )
-    except (StartEvidenceError, OSError, ValueError, KeyError, TypeError) as exc:
+    except (StartEvidenceError, ValueError, KeyError, TypeError) as exc:
         reason = (
             str(exc)
             if isinstance(exc, StartEvidenceError)
-            else f"start_capture_invalid: {exc}; recover the full raw capture on the execution machine or supply --capture PATH"
+            else f"start_timings_invalid: {exc}; inspect "
+            f"`yoke deployment-runs timings {args.run_id} --json`"
         )
         print(f"Deployment start evidence refused: {reason}")
         return 1
-    print(json.dumps({**report, "capture": str(capture)}, sort_keys=True))
+    print(json.dumps(report, sort_keys=True))
     return 0
 
 

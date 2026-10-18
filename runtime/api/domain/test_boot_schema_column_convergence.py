@@ -101,8 +101,10 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # An ordered history entry retires the born-with task file table
 # (epic_task_files) and epic_tasks' scope_state and scope_finalized_at: each
 # task body's Files Touched section is now its only file list.
+# The release phase timing table (deployment_run_timings) is net-new; its run,
+# scope batch and sequence, step, phase, clock and record are born with it.
 _BORN_WITH_COLUMN_DIGEST = (
-    "3847f5fd92c1485a1525b835ee5610e59b87f33ed64ca8b1d9045702a3e8851c"
+    "3990ecfaedd4a6765f162a1a01310664d81eeb1ba9f0548c871068d4dc7f0c4f"
 )
 
 

@@ -85,12 +85,12 @@ def blank():
         yield conn
 
 
-#: Instant columns born native TIMESTAMPTZ after the cutover; the frozen
-#: history never converts them, but the live roster still declares them.
+#: Instant columns born native after the cutover: still in the live roster.
 BORN_NATIVE_AFTER_HISTORY = frozenset(
     {("qa_host_waits", "queued_at"), ("qa_host_waits", "settled_at")}
     | {("merge_queue_landing_attempts", c) for c in ("enqueued_at", "opened_at")}
     | {("merge_queue_landing_attempts", "closed_at")}
+    | {("deployment_run_timings", "recorded_at")}
 )
 
 
