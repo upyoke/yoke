@@ -1,0 +1,9 @@
+{
+ "id": "migration-composition",
+ "title": "Carry final migration identities and rehearsal receipts into every integration prompt.",
+ "status": "observed",
+ "form": "Do",
+ "verification": "Conduct and Simulate source contracts require the same evidence in standard, compressed and retry modes.",
+ "topics": ["agents/skills/implement-and-conduct", "agents/skills/polish-and-simulate", "planning/change/simulate-integration", "databases/model/python-migration-runner"],
+ "sources": [".agents/skills/yoke/conduct/engineer-tester-closeout.md", ".agents/skills/yoke/conduct/simulation-gate-criteria.md", ".agents/skills/yoke/simulate/dispatch-prompts.md"]
+}
