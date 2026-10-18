@@ -60,6 +60,8 @@ Read [envelope and authority](functions.md) first. `none` means no dispatcher wo
 | `deployment_runs.stages` | `none` |
 | `deployment_runs.start_for_item` | `item` |
 | `deployment_runs.terminalize` | `none` |
+| `deployment_runs.timings` | `none` |
+| `deployment_runs.timings.record` | `none` |
 | `deployment_runs.update` | `none` |
 | `deployment_runs.validate_composition` | `none` |
 | `doctor.last_run.get` | `none` |

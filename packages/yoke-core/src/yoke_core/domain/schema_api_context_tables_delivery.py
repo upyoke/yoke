@@ -243,6 +243,27 @@ DELIVERY_TABLES: dict[str, dict] = {
             "superseded success never satisfies QA; events are telemetry."
         ),
     },
+    "deployment_run_timings": {
+        "columns": [
+            ("id", "INTEGER"),
+            ("run_id", "TEXT"),
+            ("batch_id", "TEXT"),
+            ("sequence", "INTEGER"),
+            ("step", "TEXT"),
+            ("phase", "TEXT"),
+            ("recorded_at", "TIMESTAMPTZ"),
+            ("elapsed_ms", "DOUBLE PRECISION"),
+            ("outcome", "TEXT"),
+            ("record", "TEXT"),
+        ],
+        "notes": (
+            "Release phase timings: the start/end `Deployment start timing` "
+            "records each run-scoped driver timing scope sends through "
+            "`deployment_runs.timings.record` when it closes; `record` is the "
+            "full JSON record. Read with `yoke deployment-runs timings RUN-ID`. "
+            "Diagnostics only: nothing operational reads these rows."
+        ),
+    },
     "deployment_run_items": {
         "columns": [
             ("run_id", "TEXT"),

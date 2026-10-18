@@ -1,4 +1,9 @@
-"""Flushed deployment-start diagnostics, carried with responses on HTTPS."""
+"""Flushed deployment-start diagnostics, carried with responses on HTTPS.
+
+A driver-side scope opened with ``persist=True`` also stores its run's
+start/end records through ``deployment_runs.timings.record`` when it closes,
+so ``yoke deployment-runs timings RUN-ID`` answers from any machine.
+"""
 
 from contextlib import contextmanager
 from contextvars import ContextVar, copy_context
@@ -9,11 +14,14 @@ import sys
 from pathlib import Path
 from time import monotonic
 from threading import Event, Thread
+from uuid import uuid4
 
 from yoke_contracts.timestamps import iso8601_now
 
 PREFIX = "Deployment start timing: "
 _SCOPE = ContextVar("deployment_start_timing", default=None)
+RECORD_FUNCTION_ID = "deployment_runs.timings.record"
+REFUSAL_PREFIX = "Deployment timing record refused: "
 
 
 def _transport():
@@ -23,7 +31,7 @@ def _transport():
 
 
 @contextmanager
-def timing_scope(run_id, *, collect=False, capture=None):
+def timing_scope(run_id, *, collect=False, capture=None, persist=False):
     records = []
     state = {
         "run_id": run_id,
@@ -39,6 +47,56 @@ def timing_scope(run_id, *, collect=False, capture=None):
         yield records
     finally:
         _SCOPE.reset(token)
+        if persist:
+            persist_records(state["run_id"], records)
+
+
+def persist_records(run_id, records):
+    """Store a closed scope's records; a refusal is reported, never raised.
+
+    Timings are diagnostics: the deployment's outcome must not depend on
+    whether its measurements could be written.
+    """
+    from yoke_core.domain.deployment_run_timings import (
+        MAX_BATCH_RECORDS,
+        persistable,
+    )
+
+    stored = [r for r in persistable(records) if run_id and r.get("run_id") == run_id]
+    for start in range(0, len(stored), MAX_BATCH_RECORDS):
+        reason = _record_batch(run_id, stored[start : start + MAX_BATCH_RECORDS])
+        if reason:
+            print(
+                f"{REFUSAL_PREFIX}run {run_id}: {reason}. The run is unaffected; "
+                "its `Deployment start timing:` lines remain in this capture. "
+                f"Recovery: confirm `yoke deployment-runs timings {run_id}` is "
+                "served (`yoke env list` names the control plane), then attach "
+                "this capture to the evidence that needed the timings.",
+                file=sys.stderr,
+                flush=True,
+            )
+            return
+
+
+def _record_batch(run_id, batch):
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+
+    try:
+        response = call_dispatcher(
+            function_id=RECORD_FUNCTION_ID,
+            target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
+            payload={"batch_id": uuid4().hex, "records": batch},
+        )
+    except Exception as exc:  # diagnostics never change the run's outcome
+        return f"{type(exc).__name__}: {exc}"
+    if response.success:
+        return ""
+    error = response.error
+    if error is None:
+        return "request failed without a named error"
+    hint = f" ({error.recovery_hint})" if error.recovery_hint else ""
+    return f"{error.code}: {error.message}{hint}"
 
 
 def timing_facts(*, run_id=None, source_sha=None, member_count=None):
@@ -53,8 +111,12 @@ def timing_facts(*, run_id=None, source_sha=None, member_count=None):
 
 
 def emit_records(records, *, stream=None):
+    """Flush server-returned records; the open driver scope also keeps them."""
+    state = _SCOPE.get()
     for record in records or ():
         print(PREFIX + json.dumps(record, sort_keys=True), file=stream, flush=True)
+        if state is not None and not state["collect"]:
+            state["records"].append(record)
 
 
 def _emit(step, phase, elapsed_ms=None, outcome=None, *, stream=None, **facts):
@@ -133,7 +195,7 @@ def timed_pipeline(function):
     @wraps(function)
     def run(primary_arg, *args, **kwargs):
         run_id = primary_arg
-        with timing_scope(run_id):
+        with timing_scope(run_id, persist=True):
             from yoke_core.domain.deploy_pipeline_pinned_source import (
                 PINNED_RELEASE_ENV,
             )
@@ -176,7 +238,7 @@ def finish_reexec(run_id, *, outcome="ok", environment=None):
         return
     from yoke_core.domain.deploy_pipeline_pinned_source import PINNED_RELEASE_ENV
 
-    with timing_scope(run_id):
+    with timing_scope(run_id, persist=True):
         timing_facts(source_sha=env.get(PINNED_RELEASE_ENV, ""))
         _emit(
             "child_start",

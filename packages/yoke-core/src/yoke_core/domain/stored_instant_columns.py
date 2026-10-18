@@ -40,6 +40,7 @@ STORED_INSTANT_COLUMNS: tuple[tuple[str, str], ...] = (
     ("deployment_preview_environments", "created_at"),
     ("deployment_run_items", "added_at"),
     ("deployment_run_qa", "updated_at"),
+    ("deployment_run_timings", "recorded_at"),
     ("deployment_stage_receipts", "created_at"),
     ("deployment_stage_receipts", "completed_at"),
     ("deployment_runs", "current_stage_entered_at"),

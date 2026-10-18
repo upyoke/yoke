@@ -12,6 +12,7 @@ from yoke_core.domain.deployment_run_create_idempotency import (
     KEY_INDEX_SQL,
     REQUEST_COLUMN,
 )
+from yoke_core.domain.deployment_run_timings import DEPLOYMENT_RUN_TIMINGS_SQL
 from yoke_core.domain.deployment_stage_receipts import (
     DEPLOYMENT_STAGE_RECEIPTS_SQL,
 )
@@ -109,6 +110,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
             )
             """,
             DEPLOYMENT_STAGE_RECEIPTS_SQL,
+            DEPLOYMENT_RUN_TIMINGS_SQL,
         ):
             conn.execute(statement)
         for column in (

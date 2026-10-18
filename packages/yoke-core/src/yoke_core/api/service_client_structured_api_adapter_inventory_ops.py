@@ -180,6 +180,10 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke deployment-runs stages RUN-ID",
     ),
     _read_entry(
+        function_id="deployment_runs.timings",
+        cli_invocation="yoke deployment-runs timings RUN-ID",
+    ),
+    _read_entry(
         function_id="deployment_runs.resolve_target",
         cli_invocation="yoke deployment-runs resolve-target",
     ),
