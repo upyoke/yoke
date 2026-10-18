@@ -45,6 +45,60 @@ def _converge_queue_landing(
     from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
     from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
+    resolver = landed_candidate_head
+    candidate = lane.candidate_sha or lane.commit_sha
+    if (
+        git.lane_adds_nothing(
+            repo_root, candidate, git.current_base_ref(repo_root, lane.target)
+        )
+        is True
+    ):
+        from yoke_core.domain.merge_queue_landing_carrier import landing_carrier
+
+        recorded = receipts.load(public_ref, lane.branch, lane.target, landed_only=True)
+        try:
+            if recorded is None or not recorded.commit_sha or not recorded.merge_sha:
+                raise LandingUnverified(
+                    "merge_recorded_landing_missing: no completed merge receipt for "
+                    f"{public_ref}. Preserve the lane; restore the item's recorded "
+                    "landing identity through the control-plane operator, then retry "
+                    "the governed merge command."
+                )
+            remote = verified_target_sha(repo_root, lane.target, recorded.merge_sha)
+            verified_landing_identity(
+                repo_root, remote, recorded.commit_sha, recorded.merge_sha
+            )
+            if git.lane_adds_nothing(repo_root, candidate, remote) is not True:
+                raise LandingUnverified(
+                    "merge_recorded_landing_content_unverified: the lane was not "
+                    "proved unchanged against the fetched target. Preserve the lane; "
+                    "refresh its target, verify any remaining work, and re-run the "
+                    "governed merge command."
+                )
+            carrier, reason = landing_carrier(
+                MergeContext(
+                    args=MergeArgs(branch=lane.branch, target=lane.target),
+                    repo_root=repo_root,
+                    project=project,
+                ),
+                recorded.merge_sha,
+            )
+            if not carrier:
+                raise LandingUnverified(
+                    f"merge_recorded_landing_carrier_unreadable: {reason}. "
+                    "Preserve the lane; restore GitHub or merge-commit read access, "
+                    "then retry the governed merge command."
+                )
+        except LandingUnverified as exc:
+            return StandaloneMergeOutcome(
+                ok=False, exit_code=1, already_merged=False, error=str(exc)
+            )
+        queue_pr_number = carrier
+        candidate = recorded.commit_sha
+
+        def resolver(_item):
+            return recorded.commit_sha, ""
+
     closed = record_landing(
         MergeContext(
             args=MergeArgs(branch=lane.branch, target=lane.target),
@@ -53,12 +107,10 @@ def _converge_queue_landing(
         ),
         item_id=public_ref,
         commit_sha=lane.commit_sha,
-        # Which merge carried this lane must be asked of the candidate in
-        # hand, never of the older commit the receipt may still name: a
-        # lane that landed twice has both on the base, and the recorded
-        # one answers for the landing this close-out already replaced.
-        candidate_sha=lane.candidate_sha or lane.commit_sha,
-        resolve_landed_head=landed_candidate_head,
+        # A no-content lane uses the proved receipt identity. Other lanes
+        # still require the observer to name their current candidate.
+        candidate_sha=candidate,
+        resolve_landed_head=resolver,
         pr_num=queue_pr_number,
         member_snapshot=(public_ref,) if public_ref else (),
     )

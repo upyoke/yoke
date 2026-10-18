@@ -61,6 +61,7 @@ class GetMergeReceiptRequest(BaseModel):
     branch: str = Field(..., min_length=1)
     # Lane retirement knows the branch but not the target it landed on.
     target: str = ""
+    landed_only: bool = False
 
 
 class GetMergeReceiptResponse(BaseModel):
@@ -195,6 +196,7 @@ def handle_get_merge_receipt(request: FunctionCallRequest) -> HandlerOutcome:
                 item_id,
                 branch=body.branch,
                 target=body.target,
+                landed_only=body.landed_only,
             )
     except Exception as exc:  # noqa: BLE001 - surfaced as an advisory refusal
         return _err("merge_receipt_read_failed", str(exc))

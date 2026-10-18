@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "merging",
  "position": 1,
- "summary": "The observer atomically records the current PR branch, target, head and merge SHA with landing stamps before notifying the worker. Worker closeout enriches that receipt with results and verification; later landings retain earlier identities. Local merges resolve the first carrying merge or fast-forward candidate.",
+ "summary": "The observer atomically records the current PR branch, target, head and merge SHA with landing stamps before notifying the worker. Worker closeout enriches that receipt with results and verification; later landings retain earlier identities. A no-content closeout uses the newest completed receipt after verifying its merge on the fetched target, even when a later unarmed PR has no observation. Missing identity refuses with merge_recorded_landing_missing and operator recovery. Local merges resolve the first carrying merge or fast-forward candidate.",
  "sources": ["docs/public/github/merge-queue-landings.md"]
 }

@@ -4,5 +4,5 @@
  "status": "observed",
  "page": "merging",
  "position": 3,
- "current": "Merge queue, standalone and integration-lane merges share the landing recorder. Recording a landing releases the item's path claims and migration territory before delivery; a failed integration-lane recording preserves the lane and teaches a retry."
+ "current": "Merge queue, standalone and integration-lane merges share the landing recorder. Recording a landing releases the item's path claims and migration territory before delivery; a failed integration-lane recording preserves the lane and teaches a retry. A never-armed re-land attempt preserves the prior landed observation, including after it closes unmerged; arming starts a new observation episode."
 }
