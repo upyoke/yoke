@@ -79,7 +79,7 @@ def unknown_key_issues(payload: Mapping[str, Any]) -> list[ValidationIssue]:
 def warn_unknown_keys(payload: Mapping[str, Any], selected: Path) -> None:
     """Emit each file/key once per process, shared by CLI and hook readers."""
     for issue in unknown_key_issues(payload):
-        identity = (str(selected.resolve()), issue.path)
+        identity = (str(selected), issue.path)
         if identity in _WARNED:
             continue
         _WARNED.add(identity)
