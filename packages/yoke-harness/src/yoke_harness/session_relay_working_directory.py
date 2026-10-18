@@ -37,9 +37,10 @@ def working_directory(job: Mapping[str, Any], project_id: int | None) -> Path:
     if project_id is None:
         raise RelayJobSurfaceError(
             "session_workspace_unrecorded",
-            "org-scoped session has no recorded workspace on this machine — "
-            "terminate it deliberately (confirm the command with `yoke sessions --help`) "
-            "or start a new session; project registration does not apply",
+            "org-scoped session has no recorded workspace on this machine — end it "
+            "with `yoke sessions terminate "
+            f"{job.get('target_session_id') or 'SESSION-ID'} --reason R` or start a "
+            "new session; project registration does not apply",
         )
     checkout = checkout_for_project(project_id)
     if checkout is None:

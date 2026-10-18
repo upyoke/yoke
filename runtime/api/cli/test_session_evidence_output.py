@@ -31,8 +31,9 @@ def test_evidence_success_is_labelled_as_fetch_job_state():
 
 
 _WORKSPACE_RECOVERY = (
-    "org-scoped session has no recorded workspace on this machine — terminate it deliberately "
-    "(confirm the command with `yoke sessions --help`) or start a new session; project registration does not apply"
+    "org-scoped session has no recorded workspace on this machine — end it with "
+    "`yoke sessions terminate target --reason R` or start a new session; "
+    "project registration does not apply"
 )
 
 

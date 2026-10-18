@@ -263,8 +263,9 @@ def test_org_evidence_missing_workspace_is_terminal_without_job(world):
     )
     assert record["lease_id"] is None and record["completed_at"] is not None
     assert evidence_fetch_result(record)["recovery"] == (
-        "org-scoped session has no recorded workspace on this machine — terminate it deliberately "
-        "(confirm the command with `yoke sessions --help`) or start a new session; project registration does not apply"
+        "org-scoped session has no recorded workspace on this machine — end it with "
+        "`yoke sessions terminate org-target --reason R` or start a new session; "
+        "project registration does not apply"
     )
 
 

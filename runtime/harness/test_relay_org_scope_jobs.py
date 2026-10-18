@@ -120,8 +120,9 @@ def test_org_job_without_workspace_refused_by_name(workspace, monkeypatch):
     assert runtime.RelayJobSurfaceError is directories.RelayJobSurfaceError
     assert exc.value.result_code == "session_workspace_unrecorded"
     assert str(exc.value) == (
-        "org-scoped session has no recorded workspace on this machine — terminate it deliberately "
-        "(confirm the command with `yoke sessions --help`) or start a new session; project registration does not apply"
+        "org-scoped session has no recorded workspace on this machine — end it with "
+        "`yoke sessions terminate target --reason R` or start a new session; "
+        "project registration does not apply"
     )
     result = runtime.run_registered_job(job(workspace))
     assert result.result_code == "failed"

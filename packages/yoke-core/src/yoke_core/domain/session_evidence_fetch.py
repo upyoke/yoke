@@ -212,8 +212,9 @@ def evidence_fetch_result(record: Mapping[str, Any]) -> dict[str, Any]:
         and record.get("result_code") == "session_workspace_unrecorded"
     ):
         recovery = (
-            "org-scoped session has no recorded workspace on this machine — terminate it deliberately "
-            "(confirm the command with `yoke sessions --help`) or start a new session; project registration does not apply"
+            "org-scoped session has no recorded workspace on this machine — end it with "
+            f"`yoke sessions terminate {session_id} --reason R` or start a new session; "
+            "project registration does not apply"
         )
     elif state not in _TERMINAL_STATES:
         recovery = evidence_pull_command(
