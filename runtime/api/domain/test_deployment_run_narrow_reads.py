@@ -163,3 +163,48 @@ def test_watcher_captures_a_pin_read_deadline(monkeypatch, tmp_path, capsys):
         assert "read_deadline_exceeded" in output
         assert "narrow field reads" in output and "Traceback" not in output
     assert "# watch_deploy exit=2" in progress.read_text()
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [["status", "release_lineage"], ["project", "target_environment", "status"]],
+)
+def test_multi_field_get_selects_only_named_columns(test_db, fields):
+    _project(test_db)
+    _executing_run(test_db, RUN, ())
+    outcome = handle_deployment_run_get(
+        deployment_request(
+            function="deployment_runs.get",
+            target=TargetRef(kind="workflow_run", workflow_run_id=RUN),
+            payload={"fields": fields},
+        )
+    )
+    assert outcome.primary_success, outcome.error
+    assert outcome.result_payload["fields"] == fields
+    assert set(outcome.result_payload["run"]) == set(fields)
+    assert outcome.result_payload["run"]["status"] == "executing"
+    assert "member_closure" not in outcome.result_payload
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"fields": []},
+        {"fields": "status"},
+        {"fields": [3]},
+        {"fields": ["status"], "field": "project"},
+        {"fields": ["status"], "include_member_closure": True},
+        {"fields": ["status", "no_such_field"]},
+    ],
+)
+def test_multi_field_get_refuses_invalid_selection(payload):
+    outcome = handle_deployment_run_get(
+        deployment_request(
+            function="deployment_runs.get",
+            target=TargetRef(kind="workflow_run", workflow_run_id=RUN),
+            payload=payload,
+        )
+    )
+    assert not outcome.primary_success
+    assert outcome.error.code in {"payload_invalid", "invalid_field"}
+    assert outcome.error.jsonpath == "$.payload.fields"
