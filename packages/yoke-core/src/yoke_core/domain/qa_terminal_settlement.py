@@ -9,6 +9,7 @@ from yoke_contracts.timestamps import parse_instant
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_latest_execution import latest_executions
+from yoke_core.domain.qa_ci_candidate_coverage import covered_stale_ci_ids
 from yoke_core.domain.qa_merging_identity import (
     accepted_merging_shas,
 )
@@ -189,16 +190,15 @@ def blocking_requirement_issues(
                 "--transition reviewing-implementation",
             )
         ]
+    graded = [
+        (row, _issue_for_requirement(row, accepted_shas=accepted_shas))
+        for row in blocking
+    ]
+    covered = covered_stale_ci_ids(graded)
     return [
         issue
-        for requirement in blocking
-        if (
-            issue := _issue_for_requirement(
-                requirement,
-                accepted_shas=accepted_shas,
-            )
-        )
-        is not None
+        for row, issue in graded
+        if issue is not None and str(row.get("id")) not in covered
     ]
 
 

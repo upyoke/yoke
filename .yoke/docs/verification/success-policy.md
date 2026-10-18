@@ -12,6 +12,19 @@ tiebreak before grading. Historical passing attempts never rescue a newer
 pending or failing attempt. See the [requirement state model](requirement-state.md)
 and [QA platform](platform.md).
 
+## CI across candidate commits
+
+After a rebase, run `yoke qa case run --requirement-id ID` for the current
+candidate. A newer completed passing `command-ci` requirement on that exact
+candidate covers older passing CI requirements whose only refusal is their
+earlier recorded commit. They must belong to the same item, workflow transition
+and verification phase; the covering requirement and its run must both be newer.
+The original requirements and runs remain readable history, with no waiver.
+Without a current pass, merge still names each stale requirement and its repair.
+Missing commit proof, changed configuration or target, incomplete or failed
+attempts, human review, deployment-bound cases and other methods keep their
+own obligations.
+
 ## Stored all-pass policy
 
 Plan cases use the registered policy shape:
