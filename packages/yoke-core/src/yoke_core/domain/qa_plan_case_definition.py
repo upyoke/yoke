@@ -54,11 +54,9 @@ def require_runnable_case(
     """
     from yoke_core.domain.machine_qa_method_contracts import (
         MACHINE_METHODS,
-        MachineQaExecutionError,
         validate_machine_method_config,
     )
     from yoke_core.domain.qa_method_config_validation import (
-        QaMethodConfigError,
         validate_method_config,
     )
 
@@ -74,6 +72,9 @@ def require_runnable_case(
             conn=conn,
             project_id=project_id,
         )
+        from yoke_contracts.qa_continuity_fingerprint import require_continuity_state
+
+        require_continuity_state({**dict(case), "method_config": config})
         if str(case["method_id"]) in MACHINE_METHODS:
             validate_machine_method_config(
                 str(case["method_id"]),
@@ -82,7 +83,7 @@ def require_runnable_case(
                 required_completion=case.get("required_completion"),
                 host_baseline=host_baseline,
             )
-    except (QaMethodConfigError, MachineQaExecutionError) as exc:
+    except ValueError as exc:
         raise QaPlanError(f"case {str(case['case_key'])!r}: {exc}") from exc
     return config
 

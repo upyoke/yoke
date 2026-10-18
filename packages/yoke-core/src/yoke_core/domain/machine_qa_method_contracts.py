@@ -69,6 +69,9 @@ def validate_machine_method_config(
         raise MachineQaExecutionError(str(exc)) from exc
     config.pop("machine", None)
     machines = config.pop("machines", None)
+    from yoke_contracts.qa_continuity_fingerprint import KEY, normalize_fingerprint
+
+    continuity = {KEY: normalize_fingerprint(config.pop(KEY))} if KEY in config else {}
     result = _validate_method_payload(
         definition,
         config,
@@ -78,6 +81,7 @@ def validate_machine_method_config(
     )
     return {
         **result,
+        **continuity,
         **({"machine": machine} if machine is not None else {}),
         **({"machines": machines} if machines is not None else {}),
     }

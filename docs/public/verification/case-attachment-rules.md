@@ -23,6 +23,36 @@ state. Authoring, `qa.requirement.add`, and materialization refuse missing state
 - `"starting_state": "as_is"` with `"starting_state_reason"`: run on the
   machine as found, for the stated reason.
 
+On macOS, a failed captured-entry copy retries once to handle entries a live
+service recreates during restore. A persistent failure retains the named
+unrestored-entry receipt and copier diagnostic. Inspect that entry and repair
+its permissions or service contention before retrying reset.
+
+For a continuity case that needs earlier machine state, add
+`method_config.continuity_fingerprint` to its `as_is` configuration: an object
+mapping 1..16 absolute or `~/` stable file paths to recorded lowercase SHA-256
+hashes. Record the hashes while the intended state is present under the host
+lease, save the plan, and rematerialize its cases. For example, retain the
+method's other fields and add:
+
+```json
+{"continuity_fingerprint":{"~/qa-state/conversation.json":"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"}}
+```
+
+That example hash is for a file containing exactly `abc`; record your own
+with `python3 -c 'import hashlib,pathlib; print(hashlib.sha256(pathlib.Path("qa-state/conversation.json").read_bytes()).hexdigest())'`
+on the leased machine from its home directory. Choose stable regular files
+that prove the needed state, such as the required conversation artifact;
+mutable databases, login stores and symlinks are unsuitable. The runner
+checks before setup, and missions check again at walk-start. Missing, changed,
+unreadable or uncheckable files refuse as `continuity_lost` without starting
+the case. These contracts use `host-control-continuity-v1`, so an older
+runner refuses the protocol instead of ignoring the check; upgrade the CLI
+before retrying. Restore and prove the required state before recording replacement
+hashes. `as_is` alone keeps the state it finds; it does not reserve a machine
+between leases. Fingerprints detect loss; they do not prevent another lease
+from resetting the host.
+
 A case added on its own (`yoke qa requirement add`) belongs to no plan, so it
 takes `--host-baseline NAME` or `--starting-state as_is
 --starting-state-reason TEXT` and cannot inherit.
