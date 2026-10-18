@@ -3,8 +3,8 @@
  "title": "Select the machine config and recover a foreign-write refusal",
  "status": "observed",
  "form": "Do",
- "verification": "Config writer help names HOME/file precedence, explicit --config and machine_config_not_owned; subprocess regression tests prove candidate refusal and recovery text.",
- "topics": ["machines/operations/config-isolation"],
- "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/config_write.py", "runtime/api/cli/test_worker_machine_config_isolation.py"],
+ "verification": "Config writer help names file selection and write ownership. Project register help and folder recovery name selected-connection checkout routing; candidate regressions prove global --env selection, colliding IDs and complete recovery commands. Evidence is source/test scoped.",
+ "topics": ["machines/operations/config-isolation", "projects/identity/checkout-and-workspace-home", "universes/connections/multiple-universes"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/config_write.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/config_write_project.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/claims_work_folder_guard.py", "runtime/api/cli/test_worker_machine_config_isolation.py", "runtime/api/domain/test_machine_config_project_mapping.py"],
  "position": 8
 }
