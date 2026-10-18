@@ -28,7 +28,6 @@ from yoke_contracts.field_note_text import (
     BASIC_RECIPE,
     DIRECTIVE,
     FOOTER,
-    HELP_POINTER,
 )
 from runtime.api.domain.test_agents_render_workspace_fixtures import (
     resolve_live_repo_root,
@@ -73,11 +72,9 @@ def test_expand_replaces_single_marker_line_with_footer() -> None:
     body = f"intro line\n\n{MARKER}\n\n## Next heading\n"
     expanded = expand_field_note_markers(body)
     assert MARKER not in expanded
-    # The full FOOTER block (three lines) lands where the marker stood.
     assert FOOTER in expanded
     assert DIRECTIVE in expanded
     assert BASIC_RECIPE in expanded
-    assert HELP_POINTER in expanded
     # Surrounding paragraph shape is preserved.
     assert expanded.startswith("intro line\n\n")
     assert expanded.endswith("## Next heading\n")
@@ -109,13 +106,10 @@ def test_every_expected_agent_body_carries_exactly_one_marker(
     repo_root: Path,
 ) -> None:
     for agent in EXPECTED_MARKERED_AGENTS:
-        body = (repo_root / CANONICAL_DIR / f"{agent}.md").read_text(
-            encoding="utf-8"
-        )
+        body = (repo_root / CANONICAL_DIR / f"{agent}.md").read_text(encoding="utf-8")
         count = count_field_note_markers(body)
         assert count == 1, (
-            f"{agent}.md must carry exactly one YOKE:FIELD-NOTE "
-            f"marker; found {count}"
+            f"{agent}.md must carry exactly one YOKE:FIELD-NOTE marker; found {count}"
         )
 
 
@@ -123,9 +117,7 @@ def test_marker_insertion_target_for_ouroboros_bodies(repo_root: Path) -> None:
     # Eight of the nine bodies anchor the marker before the Ouroboros
     # reflection section; tester-browser anchors before Important Notes.
     for agent in EXPECTED_MARKERED_AGENTS:
-        body = (repo_root / CANONICAL_DIR / f"{agent}.md").read_text(
-            encoding="utf-8"
-        )
+        body = (repo_root / CANONICAL_DIR / f"{agent}.md").read_text(encoding="utf-8")
         marker_idx = body.find(MARKER)
         assert marker_idx >= 0, f"{agent}.md missing the marker"
         tail = body[marker_idx:]
@@ -151,9 +143,7 @@ def test_pmpd_bodies_carry_reflection_bridge_sentence(repo_root: Path) -> None:
     # sentence names the PostToolUse Agent-tool hook (the new
     # authoritative capture surface) rather than the operator/debug CLI.
     for agent in ("product-manager", "product-designer"):
-        body = (repo_root / CANONICAL_DIR / f"{agent}.md").read_text(
-            encoding="utf-8"
-        )
+        body = (repo_root / CANONICAL_DIR / f"{agent}.md").read_text(encoding="utf-8")
         assert "yoke_core.domain.reflection_capture_hook" in body, (
             f"{agent}.md must cite the reflection capture hook module near the marker"
         )
@@ -190,9 +180,6 @@ def test_rendered_claude_adapter_carries_footer_and_no_marker(
         assert BASIC_RECIPE in rendered, (
             f"rendered Claude adapter for {agent} missing FOOTER recipe line"
         )
-        assert HELP_POINTER in rendered, (
-            f"rendered Claude adapter for {agent} missing FOOTER help pointer"
-        )
 
 
 def test_rendered_codex_adapter_body_carries_footer(repo_root: Path) -> None:
@@ -202,9 +189,7 @@ def test_rendered_codex_adapter_body_carries_footer(repo_root: Path) -> None:
         assert MARKER not in body, (
             f"rendered Codex body for {agent} still carries the marker"
         )
-        assert FOOTER in body, (
-            f"rendered Codex body for {agent} missing FOOTER block"
-        )
+        assert FOOTER in body, f"rendered Codex body for {agent} missing FOOTER block"
 
 
 def test_tester_browser_canonical_body_carries_marker_without_ouroboros(
@@ -215,9 +200,7 @@ def test_tester_browser_canonical_body_carries_marker_without_ouroboros(
     # contract is the marker is present at the documented insertion
     # target — the absence of an Ouroboros section is why ``## Important
     # Notes`` is the anchor.
-    body = (repo_root / CANONICAL_DIR / "tester-browser.md").read_text(
-        encoding="utf-8"
-    )
+    body = (repo_root / CANONICAL_DIR / "tester-browser.md").read_text(encoding="utf-8")
     assert "## Ouroboros" not in body
     assert count_field_note_markers(body) == 1
 

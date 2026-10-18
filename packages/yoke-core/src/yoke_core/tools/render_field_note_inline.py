@@ -53,8 +53,7 @@ BEGIN_MARKER: str = begin_marker(SLUG)
 END_MARKER: str = end_marker(SLUG)
 REPAIR_COMMAND: str = "python3 -m yoke_core.tools.render_field_note_inline"
 
-# The long-form file carries directive + worked-mode catalog + help pointer.
-# Every other inventory file carries only the short FOOTER.
+# Every inventory file, including the shared long-form path, carries FOOTER.
 _SHARED_LONG_FORM_PATH: str = "runtime/agents/_shared/ouroboros-field-note.md"
 
 
@@ -77,37 +76,7 @@ def _build_short_block() -> str:
     return rft.FOOTER + "\n"
 
 
-def _build_long_block() -> str:
-    """Long form: directive + copy-paste + worked-mode catalog + help pointer.
-
-    Generated programmatically from FAILURE_MODES so adding or dropping a
-    mode in field_note_text re-renders here automatically.
-    """
-    lines: list[str] = [
-        rft.DIRECTIVE,
-        "",
-        "Copy-paste recipe:",
-        "",
-        "    " + rft.BASIC_RECIPE,
-        "",
-        "## Failure modes",
-        "",
-    ]
-    for mode in rft.FAILURE_MODES:
-        lines.append(f"### {mode.title} (`--kind {mode.kind}`)")
-        lines.append("")
-        lines.append(f"**When to fire:** {mode.when_to_fire}")
-        lines.append("")
-        lines.append(f"**Example evidence:** {mode.example_evidence}")
-        lines.append("")
-    lines.append(rft.HELP_POINTER)
-    lines.append("")
-    return "\n".join(lines)
-
-
-def _content_for_path(rel_path: str) -> str:
-    if rel_path == _SHARED_LONG_FORM_PATH:
-        return _build_long_block()
+def _content_for_path(_rel_path: str) -> str:
     return _build_short_block()
 
 
