@@ -44,23 +44,32 @@ def _current_text_case(source: dict[str, Any]) -> dict[str, Any]:
                 transition(
                     "show-all-changes", "Down", "Enter", ready_text=["Show all changes"]
                 ),
+                # The expanded plan exceeds the 45-row host viewport. Inspect
+                # its saved-state lines and its controls in separate frames.
+                transition("expanded-plan-top", "Home"),
                 action(
                     "pending-write-list",
-                    ready_text=[
-                        "Show summary",
-                        "Reuse this machine's existing Yoke API token",
-                    ],
+                    ready_text=["Reuse this machine's existing Yoke API token"],
                 ),
+                transition(
+                    "review-controls",
+                    "End",
+                    ready_text=["Reuse this machine's existing Yoke API token"],
+                ),
+                action("expanded-review-controls", ready_text=["Show summary"]),
                 transition("back-before-apply", "Escape", ready_text=["Show summary"]),
             ]
         )
         config["expected_text"].extend(
             ["Show summary", "Reuse this machine's existing Yoke API token"]
         )
-        config["capture_checkpoints"].append("pending-write-list")
+        config["capture_checkpoints"].extend(
+            ["pending-write-list", "expanded-review-controls"]
+        )
         case["required_completion"] = "back-before-apply"
         case["instructions"] += (
-            " Select Show all changes, capture the named pending writes, then back out without Apply."
+            " Select Show all changes, use Home to capture the named pending writes,"
+            " then End to capture Show summary before backing out without Apply."
         )
     if case["case_key"] != "cold-start-hosted":
         return case
