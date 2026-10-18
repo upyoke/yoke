@@ -7,6 +7,8 @@ so each assertion is what an author or a steering seat actually sees.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 
 from runtime.api.fixtures.backlog import insert_item
@@ -240,3 +242,58 @@ def test_charge_schedule_serves_loops_narrowed_to_a_seat(test_db):
     assert row["items"] == ["YOK-1", "YOK-2"]
     assert _dependency_cycles(test_db, [project], {2})[0]["items"] == row["items"]
     assert _dependency_cycles(test_db, [project], {3}) == []
+
+
+@pytest.mark.parametrize(
+    ("gate", "satisfaction"),
+    [("integration", "fact:merged"), ("closure", "fact:deployed:fixture-101")],
+)
+def test_recording_a_park_wait_refuses_a_reverse_closeout_dependency(
+    test_db, gate, satisfaction
+):
+    from runtime.api.fixtures.backlog_insert_support import ensure_environment_id
+
+    _items(test_db, 1, 2)
+    project = int(
+        test_db.execute("SELECT project_id FROM items WHERE id=1").fetchone()[0]
+    )
+    ensure_environment_id(
+        test_db, 101, project, ts=datetime(2026, 1, 1, tzinfo=timezone.utc)
+    )
+    test_db.commit()
+    first = cmd_dependency_add(
+        test_db,
+        "YOK-1",
+        "YOK-2",
+        "dash",
+        gate_point="closure",
+        satisfaction="status:done",
+        rationale="needs complete closeout",
+    )
+    before = _count(test_db)
+
+    # This is the prerequisite write in the taught sequence, before sessions.touch.
+    refused = handle_item_dependency_add(
+        _request(
+            "items.dependency.add",
+            2,
+            {
+                "blocking_item": "YOK-1",
+                "source": "dash",
+                "gate_point": gate,
+                "satisfaction": satisfaction,
+                "rationale": "waiting before parking",
+            },
+        )
+    )
+    assert refused.primary_success is False
+    assert refused.error.code == "dependency_cycle"
+    message = refused.error.message
+    assert (
+        f"#{first.edge.dependency_id} YOK-1 waits on YOK-2 (closure, status:done)"
+        in message
+    )
+    assert f"proposed YOK-2 waits on YOK-1 ({gate}, {satisfaction})" in message
+    assert "yoke say --steering" in message
+    assert _count(test_db) == before
+    assert dependency_cycles(test_db) == []
