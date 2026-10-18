@@ -286,7 +286,7 @@ def test_shared_safety_guard_crash_refuses_tool(monkeypatch):
 @pytest.mark.parametrize("executor", ["claude-code", "codex", "cursor"])
 def test_broken_scope_never_reaches_server_stop_policies(executor, monkeypatch, capsys):
     from yoke_cli.transport.https import HttpsConnection
-    from yoke_harness.hooks import relay, local_subset, cursor_lifecycle_hooks
+    from yoke_harness.hooks import relay, local_subset, machine_hooks
 
     monkeypatch.setattr(relay, "detect_executor", lambda: executor)
     monkeypatch.setattr(
@@ -302,9 +302,9 @@ def test_broken_scope_never_reaches_server_stop_policies(executor, monkeypatch, 
     monkeypatch.setattr(relay, "_record_client_anchor", lambda *_a, **_kw: None)
     monkeypatch.setattr(relay, "_codex_capture", lambda *_a: None)
     monkeypatch.setattr(
-        cursor_lifecycle_hooks,
-        "ensure_user_lifecycle_hooks_for_executor",
-        lambda *_a: None,
+        machine_hooks,
+        "ensure_machine_hooks_for_executor",
+        lambda *_a, **_kw: None,
     )
 
     def unexpected_server(*_a, **_kw):
