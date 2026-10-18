@@ -15,6 +15,7 @@ from yoke_contracts.github_app_installation_permissions import (
     GITHUB_CONTENTS_READ_PERMISSION_LEVELS,
 )
 from yoke_core.domain.commit_evidence_instant import commit_instant
+from yoke_core.domain.deployment_run_compare_graph import CompareGraph
 from yoke_core.domain.deployment_run_carried_work_source import (
     RELATION_AHEAD,
     RELATION_DIVERGED,
@@ -68,7 +69,7 @@ class RepositoryProviderSource:
     def __init__(self, repo_slug: str, token: str) -> None:
         self.location = repo_slug
         self._token = token
-        self._graph: dict[str, dict[str, Any]] = {}
+        self._graphs: dict[tuple[str, str], CompareGraph] = {}
         self._warnings: list[dict[str, str]] = []
         self._resolved_refs: dict[str, str] = {}
         self._compare_statuses: dict[tuple[str, str], str] = {}
@@ -147,7 +148,9 @@ class RepositoryProviderSource:
         status = self._load_graph(base, head)
         if relation(status) == RELATION_DIVERGED:
             return CommitRange(RELATION_DIVERGED, ())
-        return CommitRange(RELATION_AHEAD, self._first_parent_chain(base, head))
+        return CommitRange(
+            RELATION_AHEAD, self._graphs[(base, head)].first_parent_chain(head)
+        )
 
     def _compare_status(self, base: str, head: str) -> str:
         cached = self._compare_statuses.get((base, head))
@@ -157,16 +160,21 @@ class RepositoryProviderSource:
         self._compare_statuses[(base, head)] = status
         return status
 
+    def _commit(self, sha: str) -> Mapping[str, Any]:
+        """A commit's own facts are the same in every comparison listing it."""
+        for graph in self._graphs.values():
+            if sha.lower() in graph:
+                return graph.commits[sha.lower()]
+        return {}
+
     def commit_message(self, sha: str) -> str:
-        commit = self._graph.get(sha.lower(), {})
-        return str(commit.get("message") or "")
+        return str(self._commit(sha).get("message") or "")
 
     def commit_time(self, sha: str) -> datetime | None:
-        commit = self._graph.get(sha.lower(), {})
-        return commit_instant(commit.get("committed_at"))
+        return commit_instant(self._commit(sha).get("committed_at"))
 
     def commit_author(self, sha: str) -> str:
-        return str(self._graph.get(sha.lower(), {}).get("author") or "")
+        return str(self._commit(sha).get("author") or "")
 
     def carrying_commit(
         self,
@@ -178,17 +186,17 @@ class RepositoryProviderSource:
     ) -> str:
         """Return the range commit containing ``lane_commit``.
 
-        The loaded graph is exactly the commits reachable from ``head`` and not
-        from ``base``, so membership in it already answers both ancestry
+        The pair's graph is exactly the commits reachable from ``head`` and
+        not from ``base``, so membership in it already answers both ancestry
         questions the checkout is asked: a lane commit outside the graph is
         either already released or not on this line at all.
         """
-        del base, head
+        graph = self._graphs.get((base, head))
         lane = str(lane_commit or "").strip().lower()
-        if lane not in self._graph:
+        if graph is None or lane not in graph:
             return ""
         for commit in commits:
-            if self._reaches(commit, lane):
+            if graph.reaches(commit, lane):
                 return commit
         return ""
 
@@ -220,25 +228,27 @@ class RepositoryProviderSource:
         "empty": a body with no commit total, no listing, or fewer commits
         than it declares has not told this reader what the range holds, and
         recording that as an empty release is the exact confusion carried work
-        exists to avoid.
+        exists to avoid. Only this pair's own listing is counted.
         """
         status = ""
         total = 0
+        graph = CompareGraph()
         for page in range(1, COMPARE_PAGE_LIMIT + 1):
             body = self._compare_page(base, head, page)
             status = require_status(body)
             total = require_total(body)
             page_commits = require_commits(body)
             for entry in page_commits:
-                self._graph.update(recorded_commit(entry))
-            if len(self._graph) >= total or not page_commits:
+                graph.add(recorded_commit(entry))
+            if len(graph) >= total or not page_commits:
                 break
-        if len(self._graph) != total:
+        if len(graph) != total:
             raise incomplete(
                 f"the comparison declares {total} commit(s) and this reader "
-                f"holds {len(self._graph)} after paging up to "
+                f"holds {len(graph)} after paging up to "
                 f"{COMPARE_PAGE_LIMIT * COMPARE_PAGE_SIZE}"
             )
+        self._graphs[(base, head)] = graph
         self._compare_statuses[(base, head)] = status
         return status
 
@@ -272,52 +282,6 @@ class RepositoryProviderSource:
             raise unreadable_body()
         self._compare_pages[(base, head, page)] = body
         return body
-
-    def _first_parent_chain(self, base: str, head: str) -> tuple[str, ...]:
-        """Walk first parents from ``head`` while still inside the range.
-
-        The graph holds exactly what is reachable from ``head`` and not from
-        ``base``, which is the same stopping rule git applies for
-        ``rev-list --first-parent base..head``. The walk therefore has to
-        start at ``head``: a non-empty comparison whose listing does not
-        contain the commit it was asked about describes some other range, and
-        walking it would report an empty release rather than an unread one.
-        """
-        del base
-        chain: list[str] = []
-        cursor = head.lower()
-        if not self._graph:
-            return ()
-        if cursor not in self._graph:
-            raise incomplete(
-                f"the comparison listed {len(self._graph)} commit(s) but not "
-                f"{cursor}, the head it was asked about"
-            )
-        while cursor in self._graph and cursor not in chain:
-            chain.append(cursor)
-            # ``recorded_commit`` refuses an unreadable parent, so leaving
-            # the graph is the only way this walk ends: the base side.
-            cursor = self._graph[cursor]["parents"][0]
-        chain.reverse()
-        return tuple(chain)
-
-    def _reaches(self, start: str, target: str) -> bool:
-        start = start.lower()
-        target = target.lower()
-        if start == target:
-            return True
-        seen: set[str] = set()
-        stack = [start]
-        while stack:
-            current = stack.pop()
-            if current in seen or current not in self._graph:
-                continue
-            seen.add(current)
-            for parent in self._graph[current]["parents"]:
-                if parent == target:
-                    return True
-                stack.append(parent)
-        return False
 
 
 def open_repository_provider_source(

@@ -14,7 +14,10 @@ from yoke_contracts.session_control.liveness import LIVENESS_ENDED, LIVENESS_STA
 from yoke_core.domain.handlers.session_termination import handle_session_terminate
 from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.session_staleness import session_liveness
-from yoke_core.domain.session_termination import terminate_session
+from yoke_core.domain.session_termination import (
+    terminate_cancelled_launch_session,
+    terminate_session,
+)
 from yoke_core.domain.sessions import SessionError, claim_work
 from yoke_core.domain.sessions_list_read import list_sessions
 from yoke_core.domain.steering_claims import acquire as acquire_steering
@@ -251,6 +254,25 @@ def test_steering_claim_authorizes_termination_and_unrelated_session_does_not(
         reason="steering completed worker",
     )
     assert result["session"]["terminated_at"]
+
+
+def test_launch_cancel_ends_its_session_without_a_steering_seat(
+    conn, _termination_schema_and_events
+) -> None:
+    _register(conn, session_id="requester", actor_id=41, mode="wait")
+    _register(conn, session_id="worker", actor_id=42, machine_id=MACHINE_ID)
+
+    result = terminate_cancelled_launch_session(
+        conn,
+        target_session_id="worker",
+        actor_id=41,
+        caller_session_id="requester",
+        reason="launch cancelled before its instructions were delivered",
+    )
+
+    assert result["session"]["terminated_at"]
+    assert result["reap_state"] == "pending"
+    assert _termination_schema_and_events[0][1]["authority"] == "launch_cancel"
 
 
 def test_termination_ignores_checkpoint_budget(conn) -> None:
