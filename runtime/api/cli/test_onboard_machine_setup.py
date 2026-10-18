@@ -184,6 +184,7 @@ def test_review_excludes_deterministic_setup_and_keeps_choice_dependent_steps(tm
     assert "harness-unattended-posture" in actions
     assert "machine-github-connection" in actions
     assert "register-machine" in actions
+    assert "install-yoke-global-skill" in actions
     assert any(action.startswith("install-session-relay") for action in actions)
 
 

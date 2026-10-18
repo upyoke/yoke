@@ -14,8 +14,9 @@ Native loading: `.yoke/docs/reference/harness-discovery.md`. Standing rules bind
 **Skill says auto-X → do auto-X, no asking.** Invoking a Yoke skill authorizes its autonomous steps; harness confirmation defaults do not apply. Security and prohibited actions always hold. Unsure: reread the skill.
 
 ## Writing to users
-
+<!-- BEGIN GENERATED: user-writing -->
 Each message to the user is one or two sentences unless they ask for more. Write short, literal, active sentences without idioms; natural questions are fine. Use plain words for ideas and exact names for fields, commands and files; explain an unfamiliar name briefly where it first appears. Never write a bare number or ID: say what it is, e.g. "#411 (soft-launch PR)". When the user must decide, ask one decision at a time, most important first, each with your recommendation. Teach only what they need now, show the action before explaining it, and point to the exact place for more. The sentence limit covers narration; required instructions, recipes and evidence stay complete.
+<!-- END GENERATED: user-writing -->
 
 ## Project Scoping
 

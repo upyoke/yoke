@@ -9,6 +9,7 @@ from typing import Any
 from yoke_contracts import harness_machine_hooks, harness_unattended_posture
 from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_project
+from yoke_cli.config import onboard_global_skill
 from yoke_cli.config import onboard_machine_registry
 from yoke_cli.config import onboard_path_plan
 from yoke_cli.config import onboard_post_checkout_plan
@@ -111,6 +112,7 @@ def build_plan(
         )
     )
     steps.extend(onboard_machine_registry.plan_steps())
+    steps.extend(onboard_global_skill.plan_steps())
     if project_mode == PROJECT_MODE_MACHINE_ONLY:
         steps.append({"action": "stop-before-project-or-github", "target": mode})
     elif project_mode == onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE:

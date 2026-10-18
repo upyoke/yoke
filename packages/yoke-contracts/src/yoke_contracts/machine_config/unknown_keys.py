@@ -54,6 +54,7 @@ def unknown_key_issues(payload: Mapping[str, Any]) -> list[ValidationIssue]:
             )
 
     check(payload, _ROOT_KEYS | RETIRED_MACHINE_CONFIG_KEYS.keys(), "")
+
     def check_projects(projects, prefix):
         if isinstance(projects, list):
             for index, entry in enumerate(projects):

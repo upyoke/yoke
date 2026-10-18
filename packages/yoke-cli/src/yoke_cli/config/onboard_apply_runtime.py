@@ -7,6 +7,7 @@ from typing import Any, Mapping
 
 from yoke_contracts import harness_unattended_posture
 from yoke_cli.config import harness_posture_install
+from yoke_cli.config import onboard_global_skill
 from yoke_cli.config import onboard_machine_setup
 from yoke_cli.config import onboard_apply_progress
 from yoke_cli.config import onboard_machine_registry
@@ -42,6 +43,7 @@ def apply(
         environment=environment,
     )
     onboard_machine_registry.apply(config_path, progress=progress, report=report)
+    onboard_global_skill.apply(progress=progress, report=report)
 
 
 __all__ = ["apply"]

@@ -237,7 +237,8 @@ def _isolate_harness_settings_ledger(tmp_path, monkeypatch: pytest.MonkeyPatch):
 
 @pytest.fixture(autouse=True)
 def _isolate_harness_homes(tmp_path, monkeypatch: pytest.MonkeyPatch):
-    """Keep machine-wide hook writes out of the developer's harness homes.
+    """Keep machine-wide hook and ``yoke-global`` writes out of the
+    developer's harness homes.
 
     Every hook relay self-heals the running harness's user config, and setup,
     uninstall and doctor read or write all three. A call that passes no
@@ -245,6 +246,7 @@ def _isolate_harness_homes(tmp_path, monkeypatch: pytest.MonkeyPatch):
     a test creates the harness home it means to exercise. Subprocesses stay
     isolated through the ``HOME`` they set.
     """
+    from yoke_contracts import global_skill_install
     from yoke_contracts.harness_machine_hooks import HarnessMachineHooks
 
     resolve = HarnessMachineHooks.home_path
@@ -252,7 +254,15 @@ def _isolate_harness_homes(tmp_path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         HarnessMachineHooks,
         "home_path",
-        lambda self, environ=None: resolve(self, isolated if environ is None else environ),
+        lambda self, environ=None: resolve(
+            self, isolated if environ is None else environ
+        ),
+    )
+    user_home = global_skill_install.user_home
+    monkeypatch.setattr(
+        global_skill_install,
+        "user_home",
+        lambda environ=None: user_home(isolated if environ is None else environ),
     )
 
 

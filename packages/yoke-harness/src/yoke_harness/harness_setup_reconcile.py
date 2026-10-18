@@ -16,6 +16,7 @@ from yoke_contracts.codex_hook_trust_store import (
     mint_installed_checkout_trust,
     retrust_recovery,
 )
+from yoke_contracts.global_skill_install import ensure_global_skill, global_skill_ready
 from yoke_contracts.codex_lane_hook_trust import inspect_hook_trust, mirror_hook_trust
 from yoke_contracts.harness_folder_trust import claude_state_path, cursor_trust_file
 from yoke_contracts.harness_folder_trust_grant import grant_folder_trust
@@ -239,7 +240,13 @@ def _walk(
         home = spec.home_path()
         if not home.is_dir():
             for target, _source in targets or [(home, home)]:
-                for facet in ("folder_trust", "hook_trust", "posture", "machine_hooks"):
+                for facet in (
+                    "folder_trust",
+                    "hook_trust",
+                    "posture",
+                    "machine_hooks",
+                    "global_skill",
+                ):
                     rows.append(
                         HarnessSetupRow(
                             str(target), harness, facet, "skipped_not_installed"
@@ -289,6 +296,16 @@ def _walk(
                 "machine_hooks",
                 lambda: _machine_hooks(harness),
                 lambda: ensure_machine_hooks([harness]),
+                apply,
+            )
+        )
+        rows.append(
+            _facet(
+                home,
+                harness,
+                "global_skill",
+                lambda: global_skill_ready(harness),
+                lambda: ensure_global_skill().warning,
                 apply,
             )
         )
