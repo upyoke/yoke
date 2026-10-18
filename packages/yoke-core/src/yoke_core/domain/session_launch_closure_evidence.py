@@ -105,7 +105,7 @@ def closure_evidence(
     if str(machine_id or "").strip():
         document["machine_id"] = str(machine_id)
     if started_at is not None:
-        document["native_started_at"] = format_instant(parse_time(started_at))
+        document["attempt_claimed_at"] = format_instant(parse_time(started_at))
         elapsed = parse_time(now) - parse_time(started_at)
         document["duration_ms"] = max(0, int(elapsed.total_seconds() * 1000))
     return document
