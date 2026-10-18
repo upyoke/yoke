@@ -121,13 +121,20 @@ def test_handler_ignores_unknown_config_field(populated_db):
     assert outcome.result_payload["scope"] == "yoke"
 
 
-def test_handler_vision_count_shapes_zen_plan(populated_db):
-    """VISION count shapes the owning project's timeline width."""
+def test_handler_vision_count_shapes_zen_plan(populated_db, monkeypatch):
+    """VISION count shapes the owning project's timeline width.
+
+    Done items sit just after a UTC midnight and sessions run west of UTC, so
+    the window boundary must compare as an instant, not a session-local date.
+    """
     from yoke_contracts.board.config import config_from_values
 
+    monkeypatch.setenv("PGTZ", "America/Los_Angeles")
     with connect_test_db(populated_db) as conn:
         conn.execute(
-            "UPDATE items SET created_at=now() - interval '2 days', updated_at=now() WHERE status='done'"
+            "UPDATE items SET created_at=date_trunc('day', now() AT TIME ZONE 'UTC') "
+            "AT TIME ZONE 'UTC' - interval '2 days' + interval '30 minutes', "
+            "updated_at=now() WHERE status='done'"
         )
 
     config_values = {"timeline_widget": "always"}

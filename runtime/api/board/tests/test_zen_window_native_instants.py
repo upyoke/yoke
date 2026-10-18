@@ -1,6 +1,6 @@
 """Timeline calendar cutoffs use UTC for native instants."""
 
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -19,7 +19,9 @@ def test_window_uses_utc_day(monkeypatch, offset):
         def scalar(self, sql, params):
             return stamp
 
-    assert zen_data._zen_compute_window(DB(), "example") == "2025-01-01"
+    window = zen_data._zen_compute_window(DB(), "example")
+    assert window == datetime(2025, 1, 1, tzinfo=timezone.utc)
+    assert window.utcoffset() == timedelta(0)
 
 
 @pytest.mark.parametrize("value", [None, "2025-01-01"])
