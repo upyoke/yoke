@@ -56,14 +56,11 @@ def _converge_queue_landing(
         from yoke_core.domain.merge_queue_landing_carrier import landing_carrier
 
         recorded = receipts.load(public_ref, lane.branch, lane.target, landed_only=True)
-        newer_merge = bool(
-            recorded is not None
-            and recorded.merge_sha
-            and lane.merge_sha
-            and lane.merge_sha != recorded.merge_sha
-            and git.is_ancestor(repo_root, recorded.merge_sha, lane.merge_sha)
+        observed_merge_required = bool(
+            lane.merge_sha
+            and (recorded is None or lane.merge_sha != recorded.merge_sha)
         )
-        if not newer_merge:
+        if not observed_merge_required:
             try:
                 if (
                     recorded is None

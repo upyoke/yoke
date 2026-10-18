@@ -73,7 +73,7 @@ def prior_landing(tmp_path, monkeypatch):
     return repo, receipt
 
 
-def _close(repo):
+def _close(repo, pr="43"):
     lane = landed.landed_lane(
         item_id=101,
         branch="item-lane",
@@ -88,7 +88,7 @@ def _close(repo):
         project="project",
         repo_root=str(repo),
         lane=lane,
-        queue_pr_number="43",
+        queue_pr_number=pr,
     )
 
 
@@ -183,3 +183,20 @@ def test_a_newer_own_merge_uses_its_observation_instead_of_an_old_receipt(
     assert outcome.commit_sha == correction
     assert outcome.merge_sha == second_merge
     assert outcome.merge_sha != first.merge_sha
+
+
+def test_a_first_own_merge_can_close_from_its_observation(prior_landing, monkeypatch):
+    repo, receipt = prior_landing
+    _git(repo, "update-ref", "refs/heads/item-lane", receipt.commit_sha)
+    monkeypatch.setattr(receipts, "load", lambda *_a, **_k: None)
+    monkeypatch.setattr(receipts, "record", lambda *_a: "")
+    monkeypatch.setattr(
+        "yoke_core.domain.merge_queue_landed_candidate.landed_candidate_head",
+        lambda *_a: (receipt.commit_sha, ""),
+    )
+
+    outcome = _close(repo, pr="42")
+
+    assert outcome.ok, outcome.error
+    assert outcome.commit_sha == receipt.commit_sha
+    assert outcome.merge_sha == receipt.merge_sha
