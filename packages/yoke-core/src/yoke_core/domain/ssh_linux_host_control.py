@@ -33,12 +33,12 @@ class SshLinuxHostControl(SshLinuxHostOperations):
     def read_text(self, path: str) -> str | None:
         return self.read_remote_text(path)
 
-    def capture_terminal_checkpoint(self) -> dict:
+    def capture_terminal_checkpoint(self, *, focused_window: bool = False) -> dict:
         from yoke_core.domain.machine_terminal_screenshot import (
             capture_terminal_checkpoint,
         )
 
-        return capture_terminal_checkpoint(self)
+        return capture_terminal_checkpoint(self, focused_window=focused_window)
 
     def write_text(self, path: str, content: str) -> None:
         self.upload_remote_text(path, content)

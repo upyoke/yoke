@@ -77,6 +77,15 @@ captures have no passing artifact. A transcript cannot substitute for a frame
 of the real interactive display. Started/reused desktop identity is operational
 evidence, not permission to displace a human session.
 
+A terminal checkpoint frame shows the terminal under test, not whatever window
+is in front. On Linux the recipe activates the session's xfce4-terminal window,
+reads the active window name back, and captures only that window
+(`capture_scope: focused_window`); a window it cannot raise refuses
+`linux_terminal_window_not_frontmost` with the active window's name and a
+recovery. A browser-approval step still captures the whole desktop, because
+the browser is the evidence there. On macOS, window placement before each
+capture also raises the Terminal.app window to the front.
+
 Windows session-state reads allow a bounded 45 seconds for native PowerShell
 initialization after boot. An unreadable WTS result refuses desktop startup
 and records the query exit status and bounded, redacted stdout/stderr. SSH

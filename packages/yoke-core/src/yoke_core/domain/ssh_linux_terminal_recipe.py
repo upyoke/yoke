@@ -173,7 +173,7 @@ def _interactive(
                 }
             )
             if str(action["step"]) in config["capture_checkpoints"]:
-                failed = checkpoint(control, rows)
+                failed = checkpoint(control, rows, terminal)
                 if failed is not None:
                     return failed
         combined = "\n".join(row["transcript"] for row in rows)
