@@ -59,6 +59,8 @@ ORIENTATION_REDELIVERED_MARKER = "YOKE_ORIENTATION_REDELIVERED"
 # marker so it consumes the shared body directly only when no client body is
 # already waiting to be merged into its SessionStart reply.
 CLIENT_ORIENTATION_PRESENT_KEY = "_yoke_client_orientation_present"
+SETUP_LINES_KEY = "_yoke_setup_lines"
+REQUIRED_LINES_KEY = "_yoke_required_lines"
 
 _GIT_TIMEOUT_S = 5
 
@@ -171,7 +173,7 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
             f"Root: {root}",
         ]
     )
-    lines.extend(payload.get("_yoke_required_lines") or [])
+    lines.extend(payload.get(REQUIRED_LINES_KEY) or [])
     branch = _git_line(root, ["branch", "--show-current"])
     branch_lines = [f"Current branch: {branch}"] if branch else []
     # One commit, not three: this block rides the inline hook channel, which
@@ -193,7 +195,7 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
         lines,
         [branch_lines + commit_lines, branch_lines, []],
         tail,
-        payload.get("_yoke_setup_lines") or [],
+        payload.get(SETUP_LINES_KEY) or [],
         budget,
     )
 
@@ -278,7 +280,7 @@ def _orientation_for_hook(
         from yoke_cli.config.setup_facts_summary import orientation_lines
 
         block = render_orientation(
-            {**payload, "_yoke_setup_lines": orientation_lines(root)}, root
+            {**payload, SETUP_LINES_KEY: orientation_lines(root)}, root
         )
     if not block:
         return None

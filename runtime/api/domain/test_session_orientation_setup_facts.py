@@ -33,7 +33,7 @@ def test_project_delivery_contains_one_setup_summary(monkeypatch):
     body = orientation.render_orientation(
         {
             "session_id": "session",
-            "_yoke_setup_lines": [
+            orientation.SETUP_LINES_KEY: [
                 "Setup: unknown checkout-binding",
                 "Next: yoke setup --agent",
             ],

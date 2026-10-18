@@ -21,7 +21,6 @@ from yoke_core.domain.project_onboarding_run_supersede import (
 )
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.project_onboarding_runs import get_run
-from yoke_core.domain.project_onboarding_next_action import select_next_action
 
 RUNS_TABLE = "project_onboarding_runs"
 ROWS_TABLE = "project_onboarding_checklist_rows"
@@ -63,7 +62,7 @@ def read_onboard_progress(conn: Any) -> Optional[Dict[str, Any]]:
     open_rows = [row for row in rows if row["status"] not in TERMINAL_STATUSES]
     blocked = [row for row in rows if row["status"] == STATUS_BLOCKED]
     superseded = superseded_by(run[2]) if str(run[1]) == RUN_STATUS_SUPERSEDED else None
-    action = select_next_action(rows, current["setup_readiness"])
+    action = current["next_action"]
     return {
         "run_status": (
             RUN_STATUS_SUPERSEDED

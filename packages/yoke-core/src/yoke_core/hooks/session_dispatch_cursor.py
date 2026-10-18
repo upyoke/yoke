@@ -58,6 +58,7 @@ def _render_orientation(
 ) -> str:
     from yoke_core.domain.session_orientation import (
         CLIENT_ORIENTATION_PRESENT_KEY,
+        SETUP_LINES_KEY,
         render_orientation,
     )
     from yoke_core.hooks.session_dispatch_orientation import (
@@ -77,7 +78,7 @@ def _render_orientation(
         from yoke_cli.config.setup_facts_summary import orientation_lines
 
         orientation = render_orientation(
-            {**record.payload, "_yoke_setup_lines": orientation_lines(Path(root))},
+            {**record.payload, SETUP_LINES_KEY: orientation_lines(Path(root))},
             Path(root),
         ).strip()
         if orientation:
