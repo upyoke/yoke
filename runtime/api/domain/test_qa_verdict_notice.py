@@ -53,10 +53,18 @@ def _hold(conn, item_id, session_id):
         ("waive", "waived", "obligation is discharged"),
     ],
 )
+@pytest.mark.parametrize("epic_owned", [False, True])
 def test_item_decision_notifies_current_holder_once(
-    test_db, action, outcome, next_step
+    test_db, action, outcome, next_step, epic_owned
 ):
     item_id, seeded, request = _review(test_db)
+    if epic_owned:
+        test_db.execute(
+            "UPDATE qa_requirements SET epic_id=item_id,item_id=NULL,task_num=1 "
+            "WHERE id=%s",
+            (seeded["requirement_id"],),
+        )
+        test_db.commit()
     _hold(test_db, item_id, HOLDER_A)
     test_db.execute(
         "UPDATE work_claims SET released_at=claimed_at WHERE session_id=%s",

@@ -20,8 +20,9 @@ def notify_qa_verdict(
     which reports the missing recipient without reversing the verdict.
     """
     row = conn.execute(
-        "SELECT q.item_id,i.project_id,q.deployment_run_id,q.deployment_stage "
-        "FROM qa_requirements q LEFT JOIN items i ON i.id=q.item_id WHERE q.id=%s",
+        "SELECT COALESCE(q.item_id,q.epic_id) AS item_id,i.project_id,"
+        "q.deployment_run_id,q.deployment_stage FROM qa_requirements q "
+        "LEFT JOIN items i ON i.id=COALESCE(q.item_id,q.epic_id) WHERE q.id=%s",
         (int(requirement_id),),
     ).fetchone()
     if row is None:
