@@ -8,8 +8,11 @@ Read deployment membership, target occupancy and run-bound QA authority before c
 
 ## Member completion diagnostics
 
-`yoke deployment-runs get RUN` includes `member_closure` beside the run fields.
-During settlement it reads current canonical member prerequisites, requirement
+`yoke deployment-runs get RUN --include-member-closure` explicitly requests
+`member_closure` beside the run fields. Ordinary full and field reads skip this
+expensive diagnostic, so driver pinning reads only `project` and
+`release_lineage`. During settlement the diagnostic reads current canonical
+member prerequisites, requirement
 ids, phases and declared targets, independently blocked members, atomic siblings,
 and other-target deferrals. Its `blocked` flag describes member settlement,
 not the count of run-bound QA. An empty run-bound case set proves nothing about
