@@ -9,6 +9,10 @@ One installer. After install, choose where the Yoke core and its database live.
 ## Local
 
 Private on your machine. No signup. One human, as many agents as you want.
+On macOS, local mode requires macOS 26.0 or newer for its pinned embedded
+PostgreSQL build, on both Apple Silicon and Intel. Older systems refuse
+before download or initialization; upgrade macOS or connect to a remote core.
+See [installation requirements](install.md).
 
 - Wizard: pick **This machine** (it asks your name: you become the universe's
   first admin), or run `yoke init --local --admin-name "Your Name"`

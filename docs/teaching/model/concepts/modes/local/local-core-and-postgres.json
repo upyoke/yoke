@@ -1,7 +1,9 @@
 {
  "id": "local-core-and-postgres",
  "title": "Local core and Postgres",
- "status": "draft-copy",
+ "status": "observed",
  "page": "modes",
- "position": 1
+ "position": 1,
+ "summary": "Local macOS mode requires macOS 26.0 or newer for the pinned PostgreSQL 17.10.0 binaries; older or unreadable versions refuse before download or cached-engine initialization with recovery.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/postgres_binaries.py", "docs/public/start/install.md"]
 }
