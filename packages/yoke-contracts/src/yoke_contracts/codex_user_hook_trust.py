@@ -86,19 +86,24 @@ def _plan(
             if isinstance(value, dict) and str(key).startswith(prefix)
         }
         current = {key[len(prefix) :]: digest for key, digest in state.items()}
-        drop = {prefix + suffix for suffix in current if suffix in write or not keep(suffix)}
-        if not drop and all(current.get(s) == d for s, d in write.items()):
+        changed = {s: d for s, d in write.items() if current.get(s) != d}
+        drop = {
+            prefix + suffix
+            for suffix in current
+            if suffix in changed or (suffix not in write and not keep(suffix))
+        }
+        if not drop and not changed:
             return text, TrustMutation(str(selected))
         filtered, removed, _ = filter_tables(text, drop, set())
         if removed != len(drop):
             raise CodexHookTrustStoreError(
                 "hook trust uses an unsupported inline TOML layout"
             )
-        updated = append_hook_entries(filtered, hooks_path, write)
+        updated = append_hook_entries(filtered, hooks_path, changed)
         return updated, TrustMutation(
             str(selected),
             hook_entries_removed=removed,
-            hook_entries_written=len(write),
+            hook_entries_written=len(changed),
             changed=True,
         )
 
