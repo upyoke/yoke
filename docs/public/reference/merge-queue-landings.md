@@ -100,3 +100,17 @@ the candidate itself for a fast forward. A failed fetch or missing candidate
 returns a named refusal, retains the lane, and leaves the item before landing.
 Repair routing or remote access and re-enter the same governed merge command.
 A project with no remote proves candidate ancestry on its local default branch.
+
+## Integration-lane merge refusals
+
+Integration-lane merges record the verified candidate's first carrying merge
+through `item_landings.record` before removing the lane. Local fast-forwards
+record the candidate itself. The same transaction releases the epic's path
+claims and migration territory; delivery still retains the work claim.
+
+A Git integration or commit-hook failure reports `merge_integration_refused`
+with Git's diagnostic and leaves the pending integration in its lane. Fix the
+named refusal, complete the pending merge commit when one exists, then retry
+the same merge command. An authored-file limit refusal therefore names the
+file that needs splitting instead of classifying engine-created changes as
+user dirt.
