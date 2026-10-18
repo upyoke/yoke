@@ -5,7 +5,16 @@ and npm manifests. `yoke_harness.browser_runtime_home` materializes it on
 demand into `~/.yoke/browser-runtime/`, where `node_modules/`, Playwright
 browsers, and daemon state live. Both the harness CLI and core QA execution use
 that materializer and source hash; project repositories never receive a
-browser source tree.
+browser source tree. `YOKE_MACHINE_HOME` selects the isolated runtime and
+`playwright-cache/yoke` beneath that home; escaping cache symlinks refuse
+before setup as `browser_cache_not_isolated`.
+
+The registered `request_interception` step holds, rejects, releases or reports
+same-origin POST JSON calls by exact `function_id`, scoped to one owned page.
+Its `interception` result records matched, pending, rejected and released
+counts without request contents. Install before navigation and verify a
+positive match before claiming pending/error proof. Closing the page removes
+its rules. See `docs/public/verification/browser-request-interception.md`.
 
 The product entry points are:
 

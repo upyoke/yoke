@@ -43,14 +43,15 @@ class TestReadConfig:
         cfg = tmp_path / "config"
         cfg.write_text("wip_cap=3\n")
         assert (
-            runtime_settings.get_str("base_branch", "main", config_path=cfg)
-            == "main"
+            runtime_settings.get_str("base_branch", "main", config_path=cfg) == "main"
         )
 
     def test_default_on_missing_file(self, tmp_path):
         assert (
             runtime_settings.get_str(
-                "key", "default", config_path=tmp_path / "nonexistent",
+                "key",
+                "default",
+                config_path=tmp_path / "nonexistent",
             )
             == "default"
         )
@@ -58,16 +59,20 @@ class TestReadConfig:
     def test_ignores_comments(self, tmp_path):
         cfg = tmp_path / "config"
         cfg.write_text("# comment\nbase_branch=develop\n")
-        assert (
-            runtime_settings.get_str("base_branch", "", config_path=cfg)
-            == "develop"
-        )
+        assert runtime_settings.get_str("base_branch", "", config_path=cfg) == "develop"
 
 
 class TestResolvePlaywrightCache:
-    def test_with_project(self):
+    def test_with_project(self, monkeypatch):
+        monkeypatch.delenv("YOKE_MACHINE_HOME", raising=False)
         result = resolve_playwright_cache("externalwebapp", "/some/worktree")
         assert result.endswith(".yoke/playwright-cache/externalwebapp")
+
+    def test_with_explicit_machine_home(self, tmp_path, monkeypatch):
+        home = tmp_path / "machine-home"
+        monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+        result = resolve_playwright_cache("externalwebapp", "/some/worktree")
+        assert result == str(home / "playwright-cache" / "externalwebapp")
 
     def test_without_project(self):
         result = resolve_playwright_cache(None, "/tmp/wt")
@@ -83,23 +88,47 @@ class TestResolvePlaywrightCache:
 class TestResolvePaths:
     def test_main_root_from_worktree(self, git_repo):
         subprocess.run(
-            ["git", "worktree", "add", str(git_repo / ".worktrees" / "YOK-1"), "-b", "YOK-1", "main"],
-            cwd=str(git_repo), check=True, capture_output=True,
+            [
+                "git",
+                "worktree",
+                "add",
+                str(git_repo / ".worktrees" / "YOK-1"),
+                "-b",
+                "YOK-1",
+                "main",
+            ],
+            cwd=str(git_repo),
+            check=True,
+            capture_output=True,
         )
         worktree_path = str(git_repo / ".worktrees" / "YOK-1")
         assert resolve_main_root(cwd=worktree_path) == str(git_repo)
 
     def test_worktree_root_from_worktree(self, git_repo):
         subprocess.run(
-            ["git", "worktree", "add", str(git_repo / ".worktrees" / "YOK-2"), "-b", "YOK-2", "main"],
-            cwd=str(git_repo), check=True, capture_output=True,
+            [
+                "git",
+                "worktree",
+                "add",
+                str(git_repo / ".worktrees" / "YOK-2"),
+                "-b",
+                "YOK-2",
+                "main",
+            ],
+            cwd=str(git_repo),
+            check=True,
+            capture_output=True,
         )
         worktree_path = str(git_repo / ".worktrees" / "YOK-2")
         assert resolve_worktree_root(cwd=worktree_path) == worktree_path
 
     def test_named_paths(self, git_repo):
-        assert resolve_named_path("main-file", ".yoke/lint-config", cwd=str(git_repo)) == str(git_repo / ".yoke" / "lint-config")
-        assert resolve_named_path("backups", cwd=str(git_repo)) == str(git_repo / ".yoke" / "backups")
+        assert resolve_named_path(
+            "main-file", ".yoke/lint-config", cwd=str(git_repo)
+        ) == str(git_repo / ".yoke" / "lint-config")
+        assert resolve_named_path("backups", cwd=str(git_repo)) == str(
+            git_repo / ".yoke" / "backups"
+        )
 
     def test_db_path_refuses_retired_sqlite_authority(self, git_repo):
         with pytest.raises(RuntimeError) as excinfo:
@@ -111,11 +140,23 @@ class TestResolvePaths:
 
     def test_yoke_root_strips_worktree_from_env(self, git_repo):
         subprocess.run(
-            ["git", "worktree", "add", str(git_repo / ".worktrees" / "YOK-3"), "-b", "YOK-3", "main"],
-            cwd=str(git_repo), check=True, capture_output=True,
+            [
+                "git",
+                "worktree",
+                "add",
+                str(git_repo / ".worktrees" / "YOK-3"),
+                "-b",
+                "YOK-3",
+                "main",
+            ],
+            cwd=str(git_repo),
+            check=True,
+            capture_output=True,
         )
         worktree_state = git_repo / ".worktrees" / "YOK-3" / ".yoke"
-        assert resolve_yoke_root(yoke_root_env=str(worktree_state)) == str(git_repo / ".yoke")
+        assert resolve_yoke_root(yoke_root_env=str(worktree_state)) == str(
+            git_repo / ".yoke"
+        )
 
 
 class TestFindNested:
@@ -143,12 +184,32 @@ class TestCountActiveWorktrees:
         wt_dir = str(git_repo / ".worktrees")
         os.makedirs(wt_dir, exist_ok=True)
         subprocess.run(
-            ["git", "worktree", "add", os.path.join(wt_dir, "YOK-1"), "-b", "YOK-1", "main"],
-            cwd=str(git_repo), check=True, capture_output=True,
+            [
+                "git",
+                "worktree",
+                "add",
+                os.path.join(wt_dir, "YOK-1"),
+                "-b",
+                "YOK-1",
+                "main",
+            ],
+            cwd=str(git_repo),
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
-            ["git", "worktree", "add", os.path.join(wt_dir, "YOK-2"), "-b", "YOK-2", "main"],
-            cwd=str(git_repo), check=True, capture_output=True,
+            [
+                "git",
+                "worktree",
+                "add",
+                os.path.join(wt_dir, "YOK-2"),
+                "-b",
+                "YOK-2",
+                "main",
+            ],
+            cwd=str(git_repo),
+            check=True,
+            capture_output=True,
         )
         count, names = _count_active_worktrees(str(git_repo), wt_dir)
         assert count == 2

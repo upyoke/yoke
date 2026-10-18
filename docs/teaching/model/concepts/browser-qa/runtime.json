@@ -5,5 +5,6 @@
  "commands": ["yoke qa browser setup", "yoke qa browser status", "yoke qa browser stop", "yoke qa browser-context get"],
  "functions": ["qa.browser_context.get"],
  "page": "browser-qa",
- "position": 0
+ "position": 0,
+ "summary": "Browser setup, authorization and QA use the selected YOKE_MACHINE_HOME for runtime, profiles and Chromium cache. An escaping isolated cache refuses before setup as browser_cache_not_isolated; use mission scratch and repair cache symlinks before retrying."
 }

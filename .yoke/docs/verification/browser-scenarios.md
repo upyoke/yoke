@@ -102,7 +102,7 @@ The box is what the element shows, not its scrollable content: a capture
 cannot photograph pixels the page never painted. A case covering a long
 inner-scrolling list pairs `scroll` with a capture per screenful.
 
-The declared schema is `yoke qa browser step --help`. The runner rejects
+The schema is `yoke qa browser step --help`; [interception and cache isolation](browser-request-interception.md) cover pending/error proof. The runner rejects
 aliases such as `url` for `route`, `selector` for `target`, `value` for
 `expected` on an assert, and `wait` for `delay` or `wait_for`. `target` must
 be a string; an object is refused. A screenshot without `capture: true` is

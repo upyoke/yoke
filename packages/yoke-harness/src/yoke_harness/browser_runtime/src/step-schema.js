@@ -86,6 +86,14 @@ function nonEmptyText(value) {
 function refuseField(action, step, field, rule) {
   const present = Object.prototype.hasOwnProperty.call(step, field);
   const value = step[field];
+  if (rule.type === 'enum') {
+    if (!rule.values.includes(value)) {
+      throw new Error(
+        `Browser ${action} step requires ${field} to be one of ${rule.values.join(', ')}.`
+      );
+    }
+    return;
+  }
   if (rule.type === 'true') {
     if (value !== true) {
       throw new Error(

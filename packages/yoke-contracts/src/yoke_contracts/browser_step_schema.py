@@ -101,6 +101,14 @@ def declared_schema_help() -> str:
             "origin. Another origin fails as "
             "clipboard_permission_origin_required."
         )
+    lines.append(
+        "request_interception names function_id and mode hold, reject, release "
+        "or status. It matches same-origin POST JSON function calls on this "
+        "page only. Install before navigation; status reports matched/pending/"
+        "rejected counts. release forwards held requests and removes the rule; "
+        "reject aborts held and future matching requests. Close the page to "
+        "discard all rules. See verification/browser-request-interception.md."
+    )
     return "\n".join(lines)
 
 
@@ -137,6 +145,14 @@ def _field_violation(
 ) -> Optional[StepSchemaViolation]:
     present = field in step
     value = step.get(field)
+    if rule.get("type") == "enum":
+        if value not in rule["values"]:
+            return StepSchemaViolation(
+                "step_field_invalid",
+                f"Browser {action} step {index} requires {field} to be one "
+                f"of {', '.join(rule['values'])}.",
+            )
+        return None
     if rule.get("type") == "true":
         if value is not True:
             return StepSchemaViolation(

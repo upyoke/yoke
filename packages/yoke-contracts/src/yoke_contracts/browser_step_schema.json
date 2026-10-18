@@ -87,6 +87,13 @@
         "target": {"type": "non_empty_string", "required": true}
       }
     },
+    "request_interception": {
+      "keys": ["function_id", "mode"],
+      "fields": {
+        "function_id": {"type": "non_empty_string", "required": true},
+        "mode": {"type": "enum", "values": ["hold", "reject", "release", "status"], "required": true}
+      }
+    },
     "grant_clipboard": {
       "keys": [],
       "fields": {}

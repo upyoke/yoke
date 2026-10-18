@@ -1,0 +1,9 @@
+{
+ "id": "request-interception",
+ "title": "Request interception",
+ "status": "observed",
+ "summary": "The registered request_interception step holds, rejects, releases or reports same-origin POST JSON function calls by exact function_id on one owned page. Matched and pending counts prove traffic was exercised before card assertions; closing the page discards its rules. This enables authorized pending/error proof without server-side changes.",
+ "sources": ["docs/public/verification/browser-request-interception.md", "packages/yoke-contracts/src/yoke_contracts/browser_step_schema.json", "packages/yoke-harness/src/yoke_harness/browser_runtime/src/step-actions/request-interception.js", "packages/yoke-harness/src/yoke_harness/browser_runtime/tests/request-interception.test.js"],
+ "page": "browser-qa",
+ "position": 7
+}

@@ -60,6 +60,9 @@ def _ensure_cache_writable(cache: Path) -> None:
 
 def ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit=print):
     try:
+        # Refuse an escaping cache before materialization, permissions or
+        # toolchain provisioning can write anything for this setup.
+        resolve_playwright_cache(YOKE_BROWSER_CACHE_PROJECT, None)
         ensure_owner_only_directory(machine_config.yoke_home())
         return _ensure_browser_runtime(browser, toolchain, emit=emit)
     except OSError as exc:
@@ -187,13 +190,24 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
                 result, _command_output_tail(result)
             )
         _log("[browser-auto-bootstrap] Chromium installed successfully")
-    sandbox_enabled = ensure_system_dependencies(
-        browser,
-        toolchain,
-        env=env,
-        emit=_log,
-        autoinstall=autoinstall != "0",
-    )
+    isolated = bool(os.environ.get("YOKE_MACHINE_HOME", "").strip())
+    try:
+        sandbox_enabled = ensure_system_dependencies(
+            browser,
+            toolchain,
+            env=env,
+            emit=_log,
+            autoinstall=autoinstall != "0" and not isolated,
+        )
+    except RuntimeError as exc:
+        if not isolated:
+            raise
+        raise RuntimeError(
+            f"browser_isolated_system_setup_required: {exc}; isolated setup "
+            "cannot change OS libraries or AppArmor outside mission scratch. "
+            "Use a QA host with these prerequisites already prepared, then "
+            "retry yoke qa browser setup with the same YOKE_MACHINE_HOME."
+        ) from exc
     env.pop(SANDBOX_ENV, None)
     if sandbox_enabled is False:
         env[SANDBOX_ENV] = "0"
