@@ -28,6 +28,41 @@ test("a deferred destination keeps loading visible and returns its rescope handl
   assert.equal(host.textContent, "real screen");
 });
 
+test("preloading shares an import without rendering before bootstrap is ready", async () => {
+  const { host, context } = fixture();
+  let imports = 0, renders = 0;
+  let finish;
+  const module = new Promise((done) => { finish = done; });
+  const render = deferredRenderer(() => { imports += 1; return module; }, "screen");
+  const warm = render.preload();
+  await Promise.resolve();
+  assert.equal(imports, 1);
+  assert.equal(host.textContent, "");
+  const pending = render(context, host, ["2"]);
+  finish({ screen(actualContext, actualHost, scope) {
+    renders += 1;
+    assert.deepEqual(scope, ["2"]);
+    actualHost.textContent = "scoped screen";
+  } });
+  await Promise.all([warm, pending]);
+  assert.equal(imports, 1);
+  assert.equal(renders, 1);
+});
+
+test("a failed preload retries on render and keeps the named failure recovery", async () => {
+  const { host, context } = fixture();
+  let imports = 0;
+  const render = deferredRenderer(() => {
+    imports += 1;
+    return Promise.reject(new Error("network"));
+  }, "screen");
+  assert.equal(await render.preload(), null);
+  assert.equal(host.textContent, "");
+  await render(context, host);
+  assert.equal(imports, 2);
+  assert.match(host.textContent, /view_module_load_failed.*Reload to retry/);
+});
+
 test("navigation discards a module that finishes after its view was aborted", async () => {
   const { host, context, controller, resolve, render } = fixture();
   let called = false;
