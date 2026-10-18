@@ -10,9 +10,9 @@ from yoke_contracts.machine_screenshot import screenshot_png
 from yoke_core.domain.qa_artifact_handle import local_handle
 
 
-def capture_terminal_checkpoint(control) -> dict:
+def capture_terminal_checkpoint(control, *, focused_window: bool = False) -> dict:
     """Write validated screenshot bytes into owner-only local evidence scratch."""
-    result = control.capture_screenshot()
+    result = control.capture_screenshot(focused_window=focused_window)
     if not result.ok:
         raise RuntimeError(
             result.error_code + ": " + str(result.evidence.get("recovery"))

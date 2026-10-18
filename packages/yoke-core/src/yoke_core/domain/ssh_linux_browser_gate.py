@@ -10,13 +10,24 @@ from yoke_core.domain.ssh_mac_terminal_recipe_support import send_recipe_keys
 from yoke_harness.ssh_linux_browser_approval import (
     approve_machine_in_desktop_chromium,
 )
+from yoke_harness.ssh_linux_terminal import LinuxTerminalWindowError
 from yoke_harness.test_machine_types import HostActionResult
 
 
-def checkpoint(control, rows):
-    """Attach a desktop screenshot to the last step, or name why it failed."""
+def checkpoint(control, rows, terminal=None):
+    """Attach a screenshot to the last step, or name why it failed.
+
+    With *terminal*, the capture is that terminal's raised window alone;
+    without it, the whole desktop, which is what proves a browser approval.
+    """
     try:
-        rows[-1].update(control.capture_terminal_checkpoint())
+        rows[-1].update(
+            terminal.capture_window()
+            if terminal is not None
+            else control.capture_terminal_checkpoint()
+        )
+    except LinuxTerminalWindowError as exc:
+        return HostActionResult(False, {**exc.evidence, "steps": rows}, exc.code)
     except RuntimeError as exc:
         return HostActionResult(
             False,

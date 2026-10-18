@@ -322,11 +322,11 @@ def _serve_under_lock(
                 stop.wait(idle_tick_seconds)
             supervisor.drain(timeout=drain_timeout_seconds)
         except RelayStopRequested:
-            supervisor.pool.shutdown(wait=False, cancel_futures=True)
+            supervisor.pool.shutdown(wait=False, cancel_futures=False)
             remaining = stop.requested_at + stop_settlement_seconds - time.monotonic()
             supervisor.drain(timeout=remaining)
         finally:
-            supervisor.pool.shutdown(wait=False, cancel_futures=True)
+            supervisor.pool.shutdown(wait=False, cancel_futures=False)
         result = DaemonOutcome(
             stop.reason or "stopped",
             cycles=cycles,

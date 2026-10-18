@@ -203,7 +203,7 @@ def test_a_row_carries_the_marks_that_decide_what_to_do_with_it():
         line for line in body.splitlines() if "yoke say --item YOK-3 --stdin" in line
     )
     assert "session holder-session" in waiter_row
-    assert "idle, process running — message it" in waiter_row
+    assert "delivery state unknown — inspect session evidence" in waiter_row
 
 
 def test_a_landed_item_nobody_holds_carries_the_command_that_runs_for_it():

@@ -8,9 +8,25 @@ Baseline reset and verification clear test-account-owned Yoke, Playwright,
 Chromium and pip run artifacts from system and OS user temporary locations.
 The golden directory and its sidecars, browser-profile baseline and restored
 home remain protected. Receipts record `temp_cleanup.freed_bytes` and removed
-entries. Reset/verify refuse `test_machine_cleanup_live_lease` while a mission
-owns the host: finish or abort that mission first. Run
-`yoke test-machine reset --project P --machine NAME`; read its `--help`.
+entries. Only the leaseholder can reset the host. A refusal names the machine,
+its owning session or plan, and the next step: wait for another holder, or finish
+or abort your own mission before resetting. Do not reset an active mission from
+an unrelated command.
+
+A Command QA case that operates a host declares `method_config.machine` in its
+saved plan. The plan acquires that host, queues when it is busy or unhealthy,
+and heartbeats its lease while the local command runs. Nested host operations
+borrow that owned active Command plan lease. A Command without a machine
+declaration has no host custody; declaring the machine is required before
+running its host operations. A missing or expired lease requires fresh admission;
+a released lease with an unknown receipt requires inspecting the retained
+capture, rather than repeating the operation.
+
+When verification marks a host unhealthy, repair the named failure and run
+`yoke test-machine verify --project P --machine NAME` to wake the waiting line.
+Keep the sealed baseline unchanged during this recovery. Run
+`yoke test-machine reset --project P --machine NAME` for an authorized reset;
+read each command's `--help`.
 
 Mission preparation requires at least 1 GiB free on the home and temporary
 filesystems before package setup or scratch creation. A

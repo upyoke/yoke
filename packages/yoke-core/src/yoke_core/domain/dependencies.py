@@ -87,7 +87,8 @@ SELECT
     bi.workflow_version_id,
     wv.version,
     wv.definition_json,
-    wv.definition_digest
+    wv.definition_digest,
+    d.created_at
 FROM item_dependencies d
 LEFT JOIN items bi ON bi.id = d.blocking_item_id
 LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
@@ -143,6 +144,7 @@ def query_unsatisfied_at_gate(
             workflow_version,
             definition_json,
             definition_digest,
+            dependency_created_at,
         ) = row
         edge = DependencyEdge(
             dep_id=dep_id,
@@ -162,6 +164,8 @@ def query_unsatisfied_at_gate(
             blocking_status=blk_status,
             blocking_worktree=blk_worktree,
             blocking_merged=merge_fact,
+            blocking_merged_at=blk_merged_at,
+            dependency_created_at=dependency_created_at,
             workflow=workflow_from_joined_values(
                 workflow_id,
                 workflow_version_id,
@@ -193,7 +197,8 @@ SELECT
     bi.workflow_version_id,
     wv.version,
     wv.definition_json,
-    wv.definition_digest
+    wv.definition_digest,
+    d.created_at
 FROM item_dependencies d
 LEFT JOIN items bi ON bi.id = d.blocking_item_id
 LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
@@ -237,6 +242,7 @@ def query_frontier_blocks(
             workflow_version,
             definition_json,
             definition_digest,
+            dependency_created_at,
         ) = row
         merge_fact = True if blk_merged_at else None
         result = evaluate_persisted_satisfaction(
@@ -246,6 +252,8 @@ def query_frontier_blocks(
             blocking_status=blk_status,
             blocking_worktree=blk_worktree,
             blocking_merged=merge_fact,
+            blocking_merged_at=blk_merged_at,
+            dependency_created_at=dependency_created_at,
             workflow=workflow_from_joined_values(
                 workflow_id,
                 workflow_version_id,

@@ -36,7 +36,7 @@ custody; freeze/block hold deliberately; age infers no hold or staffing.
 
 | Section | Evidence and response |
 |---|---|
-| idle holders | No tool call beyond threshold, excluding proven open queue/armed landing with no failed required checks; merged/dead/unreadable/failed landing returns to ordinary idle rules. Light roster's awaiting-landing fact drives probe; missing fact retains alarm. Full landing details load only when report is due. The watcher's `fleet ALARM idle-holder` also covers parked holders, names mode, park reason and process (`running`, `exited`, `resuming`; `unknown` from a roster without `native_process_exited_at`), and repeats hourly until `fleet CLEAR`. Each alarm gets a same-turn action or a one-line disposition saying why the wait is sound. |
+| idle holders | No tool call beyond threshold, excluding proven open queue/armed landing with no failed required checks; merged/dead/unreadable/failed landing returns to ordinary idle rules. Light roster's awaiting-landing fact drives probe; missing fact retains alarm. Full landing details load only when report is due. The watcher's `fleet ALARM idle-holder` also covers parked holders, names mode, park reason and message delivery state (unknown when an older roster omits `message_delivery`), and repeats hourly until `fleet CLEAR`. Each alarm gets a same-turn action or a one-line disposition saying why the wait is sound. |
 | in flight | Quiet running holder inside a budgeted watcher/landing call. Unknown/waiting posture, observed native exit (even clean), denied/closed call, a call overtaken by later activity or one older than 45 minutes cannot excuse silence. Terminal vendor-turn observation survives same-turn tool settlement. |
 | landing readbacks | Current nonmutating `yoke github merge-queue readiness PREFIX-N --json`: one status/checks GraphQL read per PR and shared repository/base queue read per request; no cache across reports. |
 
@@ -48,15 +48,22 @@ and `!`. Entry decides liveness, not null arming alone.
   **The delivery is still on its way** in three, all of which end in *waiting* and none of which is a failure. *delivery attempt in flight* is an accepted resume that has not settled either way. *queued for the recipient's next hook* is the ordinary case: no attempt is owed yet, because a hook has run since the send or the plane is still inside one poll of its own window. *recipient turn in flight since a fixed-six UTC instant* is a recipient whose latest `session_tool_calls` row is still open — the envelope lands on that call's own hook. A live open call defers automatic message wakes even when its activity ages past the stale or idle threshold; that age does not authorize a second turn. Returning from the call delivers through the existing hook. A verified native exit, or a park stamped after the call started, retires an orphaned call, ended sessions retain their supported recovery route, and explicit operator wakes retain their intentional semantics. None of these three borrows desktop *waiting for the operator to wake it* copy: a session that is already firing hooks, or sitting inside a call, is not waiting on a person who has not typed. A row that is open is only the half of that a clock can see; the other half is the state below, which the recipient's own machine reports rather than this one inferring it. These three are reported and never count toward `actionable`, and they are deliberately excluded from the report's fingerprint: every ordinary send passes through one of them, so hashing them would turn routine fleet traffic into changed-report wakes for mail about to land by itself. Reporting any of them as a failure sends the seat after a delivery already under way, and this section formerly dropped all three, which left a seat unable to tell an attempt in flight from one that had never been made.
 Parked holders are expected waits unless native death is proven. A stopped turn
 with unfinished call is immediately idle (declared park remains a wait).
-Process rows distinguish:
+Holder rows describe delivery rather than infer native liveness:
 
-- running: message it;
-- exited on a surface declaring message_stopped: message to resume transcript;
-- resuming: wake_relay started at/after exit and still open, or resumed without
-  another exit within resume-custody quiet window; no process-gone alarm;
-- gone on a surface unable to resume by message: deliberately terminate if dead;
-- contained by sweep: only with recorded containment reason, never inferred
-  from unexplained exit. Exhausted/rejected/unavailable-model cases go to stranded.
+- `mid-turn — message waits until the turn ends` from running turn posture;
+- `between turns — message wakes it` from waiting posture or a recorded exit,
+  on surfaces whose manifest declares `message_stopped`;
+- `parked waiting on X` from the holder's declared park reason, whether its
+  native remains alive or exited normally;
+- a wake already underway says `message wake in flight — let the turn start`;
+- surfaces without stopped-message support name the need for operator input;
+- unavailable posture says `delivery state unknown — inspect session evidence`.
+
+Containment keeps its recorded reason visible, including when the native
+returned zero: a sweep kill is abnormal and a park cannot hide it.
+Exhausted/rejected/unavailable-model cases go to stranded.
+The session roster exposes the same server-composed `message_delivery` for
+fleet idle-holder lines; an older server without that field reports unknown.
 
 `yoke sessions terminate` refuses TERMINATION_RESUME_IN_FLIGHT unless
 --allow-resume-in-flight. sessions.list native_process exposes resuming with

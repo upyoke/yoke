@@ -74,6 +74,7 @@ class PlanCasesReplaceResponse(BaseModel):
     #: reach, each with the refresh command that does.
     requirements_behind_plan: List[Dict[str, Any]] = []
     requirements_behind_plan_count: int = 0
+    historical_requirements_excluded_count: int = 0
 
 
 class ProjectDefaultSetRequest(BaseModel):

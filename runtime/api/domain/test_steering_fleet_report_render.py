@@ -72,10 +72,7 @@ def test_process_gone_holder_is_actionable_without_offering_a_wake(steering_scop
     holder = next(row for row in report.idle if row.session_id == WORKER_SESSION)
     assert holder.native_process_gone is True
     body = report_body(report)
-    assert (
-        "process gone, claims held — this surface cannot resume by message; "
-        "terminate deliberately if dead"
-    ) in body
+    assert "parked waiting (reason not recorded)" in body
     holder_line = next(line for line in body.splitlines() if WORKER_SESSION in line)
     assert "wake `" not in holder_line
 
@@ -232,7 +229,9 @@ def test_a_sweep_contained_holder_is_named_rather_than_called_idle(steering_scop
     assert "terminate deliberately if dead" not in holder_line
 
 
-def test_an_unexplained_death_keeps_the_process_gone_wording(steering_scope):
+def test_an_unexplained_death_describes_message_delivery_without_inventing_a_cause(
+    steering_scope,
+):
     """Only a recorded containment claims one; anything else stays generic."""
     claim_work(
         steering_scope,
@@ -251,4 +250,7 @@ def test_an_unexplained_death_keeps_the_process_gone_wording(steering_scope):
     holder = next(row for row in report.idle if row.session_id == WORKER_SESSION)
 
     assert holder.contained_by_sweep is False
-    assert "process gone, claims held" in report_body(report)
+    assert (
+        "between turns — message needs operator input on this surface"
+        in report_body(report)
+    )

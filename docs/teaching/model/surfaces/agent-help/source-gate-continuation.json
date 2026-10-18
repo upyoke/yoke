@@ -1,0 +1,9 @@
+{
+ "id": "source-gate-continuation",
+ "title": "Source gate continuation and watcher import lifetime",
+ "status": "observed",
+ "form": "Inline recipe",
+ "verification": "QA CLI guidance names the fresh interpreter boundary, retained case authority and same-case restart recovery. Shell guidance names eager watcher modules and leased installed releases; subprocess regression coverage still needs deployed proof.",
+ "topics": ["verification/watchers", "verification/ci/queue-gate"],
+ "sources": ["docs/public/verification/qa-cli.md", "docs/public/agents/rules/shell-and-cli.md", "runtime/api/domain/test_qa_case_ci_runtime.py", "runtime/api/tools/test_watch_runtime_imports.py"]
+}

@@ -40,6 +40,9 @@ from yoke_cli.resilient_fetch import (
 #: upstream major.minor plus a build suffix).
 POSTGRES_VERSION = "17.10.0"
 
+#: LC_BUILD_VERSION minos of the pinned macOS release binaries.
+MINIMUM_MACOS_VERSION = (26, 0)
+
 RELEASE_BASE_URL = "https://github.com/theseus-rs/postgresql-binaries/releases/download"
 
 #: Directory under the machine runtime dir holding fetched engines,
@@ -79,6 +82,34 @@ def platform_target(
     return target
 
 
+def require_supported_host() -> None:
+    """Refuse before fetching or executing an incompatible embedded engine."""
+    if platform.system().lower() != "darwin":
+        return
+    detected = platform.mac_ver()[0]
+    minimum = ".".join(map(str, MINIMUM_MACOS_VERSION))
+    recovery = (
+        f"Upgrade macOS to {minimum} or newer, then retry local setup; "
+        "or run yoke setup and connect to a team server or upyoke.com."
+    )
+    try:
+        components = tuple(int(part) for part in detected.split("."))
+        if not 1 <= len(components) <= 3 or any(part < 0 for part in components):
+            raise ValueError
+    except ValueError:
+        raise PostgresBinariesError(
+            f"embedded_postgres_macos_version_unknown: detected macOS version "
+            f"{detected!r}; embedded PostgreSQL {POSTGRES_VERSION} requires "
+            f"macOS {minimum} or newer. {recovery}"
+        ) from None
+    if (components + (0, 0))[:2] < MINIMUM_MACOS_VERSION:
+        raise PostgresBinariesError(
+            f"embedded_postgres_macos_unsupported: detected macOS {detected}; "
+            f"embedded PostgreSQL {POSTGRES_VERSION} requires macOS "
+            f"{minimum} or newer. {recovery}"
+        )
+
+
 def release_asset_name(version: str, target: str) -> str:
     return f"postgresql-{version}-{target}.tar.gz"
 
@@ -115,6 +146,7 @@ def ensure_binaries(
     emit: Callable[[str], None] = lambda _line: None,
 ) -> Path:
     """Return the engine bin directory, fetching lazily on first use."""
+    require_supported_host()
     existing = installed_bin_dir(version)
     if existing is not None:
         return existing
@@ -129,6 +161,7 @@ def fetch_binaries(
     emit: Callable[[str], None] = lambda _line: None,
 ) -> Path:
     """Fetch, verify, and unpack one engine release; return its bin dir."""
+    require_supported_host()
     resolved_target = target or platform_target()
     url = release_asset_url(version, resolved_target, base_url=base_url)
     dest = version_dir(version)

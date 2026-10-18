@@ -31,7 +31,7 @@ def hold():
     time.sleep(60)
 def cycle(**kwargs):
     if blocked == 'poll': hold()
-    if blocked == 'settlement': kwargs['dispatch_job'](hold)
+    if blocked == 'settlement': kwargs['dispatch_job'](hold, lambda reason: None)
     if blocked == 'report':
         from yoke_harness.session_relay_report_delivery import deliver_terminal_report
         def report():
@@ -39,7 +39,7 @@ def cycle(**kwargs):
                 dict(relay_id='relay',machine_id='machine',job_kind='launch',
                      job_id='job',lease_id='lease',result='native_created'),
                 state_dir=root, timeout_s=10)
-        kwargs['dispatch_job'](report)
+        kwargs['dispatch_job'](report, lambda reason: None)
     if blocked == 'refresh':
         with refreshing_inventory(hold): time.sleep(60)
     if blocked == 'idle': (root / 'ready').touch()
@@ -89,7 +89,7 @@ print('stopped', flush=True)
             process.communicate(timeout=2)
 
 
-def test_stop_closes_admission_and_cancels_queued_jobs(tmp_path):
+def test_stop_and_busy_workers_release_unstarted_jobs(tmp_path):
     import threading
     from yoke_harness.session_relay_daemon import _StopRequest
     from yoke_harness.session_relay_failure_log import FailureReporter
@@ -104,15 +104,15 @@ def test_stop_closes_admission_and_cancels_queued_jobs(tmp_path):
         entered.set()
         release.wait(5)
 
-    supervisor.dispatch(active)
+    supervisor.dispatch(active, lambda reason: calls.append(reason))
     assert entered.wait(1)
-    supervisor.dispatch(lambda: calls.append("queued"))
+    supervisor.dispatch(lambda: calls.append("queued"), calls.append)
     stop.set("signal:SIGTERM")
-    supervisor.dispatch(lambda: calls.append("new"))
+    supervisor.dispatch(lambda: calls.append("new"), calls.append)
     supervisor.pool.shutdown(wait=False, cancel_futures=True)
     release.set()
     supervisor.drain(timeout=1)
-    assert calls == []
+    assert calls == ["relay_workers_busy", "relay_stopping"]
 
 
 def test_ordinary_poll_failure_settles_refresh_before_another_cycle():

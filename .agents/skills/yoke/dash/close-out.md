@@ -10,7 +10,7 @@ yoke merge item ITEM --result "<result>" --verification "<checks/evidence>" --js
 
 It resolves actual touched files and merge identity. Do not substitute a
 terminal scalar/lifecycle write for a landed Dash. Read the pinned status and
-[close-out] block, not exit0 alone.
+[close-out] block, not exit code 0 alone.
 
 If delivery is still owed, the command retains the claim and registered Dash worktree lane,
 lands at the declared release wait and parks this session.
@@ -73,7 +73,7 @@ shared-plan groups. Matching plan/source/target groups execute once and credit
 every attaching member; an unrelated run-wide pass cannot substitute. Requirement-case execution credits its stored binding and does
 not substitute for stage execution.
 
-Exit12 awaiting_agent_review/review_status=pending is capture only, no pass.
+Exit code 12 awaiting_agent_review/review_status=pending is capture only, no pass.
 Dispatch the returned independent review_bundle.dispatch and submit its full
 batch with the exact returned command. Own complete/record-verdict is refused.
 If another session owns review, repark until accepted evidence exists.
@@ -134,6 +134,11 @@ Approval-on-done creates the authorized owner's request without transition.
 Wait for that decision, then resume. Uncleared candidate review never landed:
 report its exact request, wait, and rerun only after independent clearance
 without intervening commits.
+
+Read the actual item status before any final checkpoint. If it is terminal,
+use the recorded completion result and verification; do not append another
+Progress Log entry or reacquire a claim for one. For a nonterminal wait or
+handoff, write the checkpoint while the work claim is still held.
 
 Successful merge/done may already release the item work claim and sweep its
 lane; read lane_sweep kept/removed reasons and LandedLanePreserved evidence.

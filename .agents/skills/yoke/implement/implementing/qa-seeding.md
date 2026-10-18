@@ -15,7 +15,7 @@ yoke qa requirement add --item PREFIX-N --qa-kind ac_verification \
   --qa-phase verification \
   --workflow-transition reviewed-implementation \
   --blocking-mode blocking --requirement-source ac_derived \
-  --success-policy "<observable passing outcome>"
+  --success-policy all-pass
 ```
 
 The session already holds the claim. Read `--help` for methods, task selectors
@@ -23,9 +23,8 @@ and deployment-run attachments; the transition must be the QA-gated stage
 selected by the immutable definition.
 
 Only a genuinely uncategorized item with no attached plan and no AC gets an
-explicit `implementation_review` requirement, with a success policy that the
-implementation matches its title/description. A default-testing workflow
-without a registered command instead structurally seeds
+explicit `implementation_review` requirement with success policy `all-pass`.
+A default-testing workflow without a registered command instead structurally seeds
 `no_tests_declared` where quick would run. Record that stored kind as
 `performed_by=agent`: agent-attested/no-tests-declared proves review, not
 an executed suite. `yoke qa no-tests attest --project P --reason "..."`

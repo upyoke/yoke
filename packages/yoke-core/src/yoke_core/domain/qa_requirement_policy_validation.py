@@ -25,7 +25,9 @@ QA_KIND_HELP = (
 )
 
 SUCCESS_POLICY_HELP = (
-    "All-pass requirement policy. Grade only the current actual attempt; "
+    "Accepted form: all-pass, stored as "
+    '{"id":"all-pass","params":{}}. '
+    "Grade only the current actual attempt; "
     "method_config may measure that attempt against a threshold."
 )
 

@@ -257,9 +257,11 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
                 raise ValueError("replayed result differs from the recorded receipt")
         if recorded is None:
             if not lease.is_active:
-                raise ValueError(
-                    "host-control lease is released without a recorded receipt"
+                from yoke_core.domain.machine_qa_lease_messages import (
+                    released_without_receipt,
                 )
+
+                raise ValueError(released_without_receipt(lease))
             if parsed.operation == "screenshot":
                 from yoke_core.domain.handlers.machine_qa_screenshot_artifact import (
                     store_screenshot,

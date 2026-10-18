@@ -6,6 +6,15 @@
 
 Use the registered QA commands to author requirements, execute cases and record evidence. The [database reference](../databases/reference.md) owns the domain catalog and shared payload conventions.
 
+## Source-backed CI gates
+
+A CI gate that updates the source lane it runs from continues in a fresh
+interpreter before publication. The authorized case, prepared lane and original
+source identity travel together; it does not authorize or update the lane twice.
+Installed gates updating another project's checkout continue in their leased
+CLI release. A failed restart names `qa_ci_source_restart_failed`; keep the
+updated lane and rerun the same case to rejoin any existing CI run.
+
 ## qa domain CLI
 
 Python owner: `yoke_core.domain.qa`. Public command examples use the installed
@@ -70,6 +79,12 @@ yoke qa requirement update --requirement-id 4309 --field starting_state --value 
 # from the clean lane. --raw-result is evidence text, not the run identity.
 yoke qa run add \
  --requirement-id 1 --performed-by agent --qa-kind implementation_review --verdict pass
+
+# Record evidence for a method-less acceptance requirement at an explicit commit.
+# qa_kind must match the requirement; raw-result holds the actual evidence.
+yoke qa run add --requirement-id 1 --performed-by agent \
+ --qa-kind ac_verification --verdict pass --head-sha FULL_COMMIT_SHA \
+ --raw-result 'Evidence and result for every acceptance criterion'
 
 # Epic-task review verdicts use the workflow-item helper path
 yoke workflow-item epic-task review-insert \

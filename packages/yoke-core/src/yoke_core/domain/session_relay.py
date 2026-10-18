@@ -256,6 +256,19 @@ def report_relay_job(
 
     require_relay_actor(conn, relay_id=relay_id, actor_id=actor_id)
     current = utc_now() if now is None else parse_instant(now)
+    if result_code == "released":
+        from yoke_core.domain.session_relay_job_release import release_relay_job
+
+        return release_relay_job(
+            conn,
+            relay_id=relay_id,
+            job_kind=job_kind,
+            job_id=job_id,
+            lease_id=lease_id,
+            native_session_id=native_session_id,
+            evidence=evidence,
+            now=current,
+        )
     if job_kind == "launch":
         return report_launch_job(
             conn,

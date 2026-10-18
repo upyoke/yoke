@@ -199,6 +199,7 @@ def execute_case_context(
     checkout_path: Optional[str | Path] = None,
     allow_tree_mismatch: bool = False,
     actor: Optional[ActorContext] = None,
+    liveness=None,
 ) -> dict:
     """Execute a server-authorized immutable case context locally."""
     try:
@@ -215,6 +216,7 @@ def execute_case_context(
             checkout_path=checkout_path,
             allow_tree_mismatch=allow_tree_mismatch,
             actor=actor,
+            **({"liveness": liveness} if liveness is not None else {}),
         )
     if runner_id == "ci_run":
         from yoke_core.domain.qa_case_ci_run import execute_ci_case

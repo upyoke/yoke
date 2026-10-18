@@ -120,7 +120,9 @@ def deliver_terminal_report(
     safe = _safe_payload(payload)
     if safe is None:
         raise ValueError("relay report payload is invalid")
-    custody_retries = safe["job_kind"] in {"wake", "evidence"}
+    custody_retries = (
+        safe["job_kind"] in {"wake", "evidence"} and safe["result"] != "released"
+    )
     pending = None if custody_retries else _write_pending(safe, state_dir)
     try:
         response = _dispatch(dispatcher, function_id, safe, timeout_s=timeout_s)

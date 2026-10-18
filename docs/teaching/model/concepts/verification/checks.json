@@ -1,9 +1,11 @@
 {
  "id": "checks",
  "title": "Other checks",
- "status": "draft-copy",
+ "status": "observed",
+ "summary": "Source lint and import checks select a live claimed checkout and its locked environment with --lane or --workdir when a session owns several lanes.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/source_dev_run.py", "docs/source-dev-doctrine.md"],
  "surface_refs": ["skills-roles"],
- "commands": ["yoke check file-line", "yoke dev ruff-changed", "yoke lint config show", "yoke session-control acceptance run"],
+ "commands": ["yoke check file-line", "yoke dev ruff-changed", "yoke dev import-check", "yoke lint config show", "yoke session-control acceptance run"],
  "functions": ["lint.config.show"],
  "skills": ["simulate"],
  "page": "verification",

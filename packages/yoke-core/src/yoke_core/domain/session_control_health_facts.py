@@ -104,7 +104,7 @@ def _gating_blockers(
         "d.blocking_item_id,b.status AS blocking_status,b.merged_at,"
         "b.workflow_id,b.workflow_version_id,wv.version,"
         "wv.definition_json,wv.definition_digest,"
-        f"{primary_item_worktree_branch_sql('b.id')} AS lane_branch "
+        f"{primary_item_worktree_branch_sql('b.id')} AS lane_branch,d.created_at "
         "FROM item_dependencies d JOIN items b ON b.id=d.blocking_item_id "
         "LEFT JOIN workflow_versions wv ON wv.id=b.workflow_version_id "
         "WHERE d.dependent_item_id IN ("
@@ -131,6 +131,8 @@ def _gating_blockers(
             blocking_status=row["blocking_status"],
             blocking_worktree=row["lane_branch"],
             blocking_merged=True if row["merged_at"] else None,
+            blocking_merged_at=row["merged_at"],
+            dependency_created_at=row["created_at"],
             workflow=workflow,
         )
         if verdict.satisfied:

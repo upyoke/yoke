@@ -58,7 +58,7 @@ For implementation-bearing item artifacts, add a missing File Budget with
 likely exact files and single responsibilities. Investigate unknown shape or
 escalate; do not advance unresolved. Under required_per_task, each task creating
 or growing code needs its own concrete budget; no oversized responsibility
-hidden in a worktree plan. Explicitly name touched300+ files and their split
+hidden in a worktree plan. Explicitly name touched 300+ files and their split
 plan. Counts, "all callers" and approximations are not path enumeration.
 
 ## DB claim consistency
@@ -88,8 +88,8 @@ cleanup/residue/error ACs. Name upstream/downstream dependencies and implementat
 test, documentation and configuration files. Self-consistency across narrative,
 FRs, ACs/non-goals and resolved questions: propagate resolutions everywhere.
 
-Sizing: 5+ FRs across3+ subsystem files probably needs decomposition;
-7+ FRs or10+ ACs should be flagged for task decomposition, not auto-created.
+Sizing: 5+ FRs across 3+ subsystem files probably needs decomposition;
+7+ FRs or 10+ ACs should be flagged for task decomposition, not auto-created.
 
 **Design:** full interaction sequence including empty/error/boundary states;
 remove replaced components/routes/help/screenshots and complete the journey.

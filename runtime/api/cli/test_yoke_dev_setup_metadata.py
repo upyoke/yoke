@@ -117,3 +117,41 @@ def test_dev_setup_apply_writes_tunnel_and_authority_metadata(
             "database_name": "yoke_prod",
         },
     }
+
+
+def test_dev_setup_admin_env_is_not_swallowed_by_global_env(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
+    checkout = _source_checkout(tmp_path)
+    rc = yoke_operations_cli.main(
+        [
+            "dev",
+            "setup",
+            str(checkout),
+            "--admin-env",
+            "render-proof",
+            "--dry-run",
+            "--json",
+        ]
+    )
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["plan"]["admin_env"] == "render-proof"
+
+    rc = yoke_operations_cli.main(
+        [
+            "--env",
+            "prod",
+            "dev",
+            "setup",
+            str(checkout),
+            "--admin-env",
+            "render-proof",
+            "--dry-run",
+            "--json",
+        ]
+    )
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["plan"]["admin_env"] == "render-proof"

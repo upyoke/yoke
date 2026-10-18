@@ -8,6 +8,7 @@ names, so one check run reports everything that needs repair.
 from __future__ import annotations
 
 import json
+import shlex
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -252,7 +253,11 @@ def validate(model: Model, live: dict, repo_files: set) -> None:
                 model.problem(
                     "DANGLING_SOURCE",
                     where,
-                    f"source {source!r} is not a tracked repository file",
+                    f"source {source!r} is untracked: stage it with "
+                    f"`git add -- {shlex.quote(path)}`"
+                    if (TEACHING_ROOT.parents[1] / path).is_file()
+                    else f"source {source!r} is missing; create and git-add it "
+                    "or cite an existing tracked repository file",
                 )
         if "plan_refs" in record:
             model.problem(

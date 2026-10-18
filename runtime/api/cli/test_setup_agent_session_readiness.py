@@ -5,8 +5,32 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from yoke_cli.commands.adapters import doctor, doctor_install
+from yoke_cli.config import setup_facts_summary
 from yoke_cli.config.setup_agent_answering import AnswerFlow
+
+ACTION = {
+    "row_id": "lifecycle-readiness",
+    "title": "First work",
+    "status": "unknown",
+    "reason": "first_item_not_done",
+    "command": "/yoke steer CURRENT-PLAN",
+    "home": ".yoke/docs/start/terminal-onboarding.md",
+}
+
+
+@pytest.fixture(autouse=True)
+def current_setup_facts(monkeypatch):
+    monkeypatch.setattr(
+        setup_facts_summary,
+        "read_project",
+        lambda *_a, **_kw: {
+            "lines": ["Setup: 9 configured"],
+            "next_action": ACTION,
+        },
+    )
 
 
 def _done(checkout: Path | None) -> dict:
@@ -20,15 +44,19 @@ def _done(checkout: Path | None) -> dict:
     return AnswerFlow._done_fields(flow)
 
 
-def test_a_session_in_the_project_checks_itself_then_asks_once(tmp_path, monkeypatch):
+def test_a_session_in_the_project_checks_itself_then_follows_current_action(
+    tmp_path, monkeypatch
+):
     checkout = tmp_path / "demo"
     (checkout / "src").mkdir(parents=True)
     monkeypatch.chdir(checkout / "src")
     steps = _done(checkout)["next"]
     assert len(steps) == 2
     assert "doctor run --session`" in steps[0]
-    assert "ask the person once" in steps[1]
-    assert "/yoke onboard" in steps[1]
+    assert steps[
+        1
+    ] == "After session readiness passes: " + setup_facts_summary.next_line(ACTION)
+    assert _done(checkout)["next_action"] == ACTION
 
 
 def test_a_session_elsewhere_opens_the_project_folder(tmp_path, monkeypatch):
@@ -37,8 +65,29 @@ def test_a_session_elsewhere_opens_the_project_folder(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     steps = _done(checkout)["next"]
     assert steps[0] == f"Open Claude Code, Codex or Cursor in {checkout}."
-    assert "checks the session is ready first" in steps[1]
-    assert not any("--session" in step for step in steps)
+    assert "doctor run --session" in steps[1]
+    assert steps[
+        2
+    ] == "After session readiness passes: " + setup_facts_summary.next_line(ACTION)
+    assert _done(checkout)["next_action"] == ACTION
+
+
+def test_absent_server_next_action_never_guesses_onboarding(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        setup_facts_summary,
+        "read_project",
+        lambda *_a, **_kw: {
+            "lines": ["Setup: 9 configured"],
+            "next_action": None,
+        },
+    )
+    result = _done(tmp_path)
+    assert "doctor run --session" in result["next"][0]
+    assert result["next_action"] is None
+    assert not any(
+        "/yoke onboard" in step or "Next:" in step for step in result["next"]
+    )
 
 
 def test_machine_only_setup_has_no_readiness_step(tmp_path, monkeypatch):

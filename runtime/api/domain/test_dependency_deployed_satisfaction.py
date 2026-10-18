@@ -156,7 +156,7 @@ def _insert_run(
         ("fact:merged", "implementing", False, False),
     ],
 )
-def test_existing_satisfaction_values_are_unchanged(
+def test_satisfaction_values_with_recorded_merge_evidence(
     satisfaction: str,
     status: str,
     merged: bool | None,
@@ -166,6 +166,8 @@ def test_existing_satisfaction_values_are_unchanged(
         satisfaction,
         status,
         blocking_merged=merged,
+        blocking_merged_at=NOW if merged else None,
+        dependency_created_at="2026-01-01T00:00:00Z",
         workflow=WORKFLOW,
     )
     assert result.satisfied is expected

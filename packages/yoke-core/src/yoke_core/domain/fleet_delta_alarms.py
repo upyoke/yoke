@@ -152,7 +152,7 @@ def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
     A park declares a wait but does not prove the wait is still sound: a
     parked holder whose blocker cleared, whose question went unanswered or
     whose process exited stays stuck until someone looks. The line carries
-    mode, park reason and process state so the reader can judge the wait,
+    mode, park reason and message delivery state so the reader can judge the wait,
     and repeats every :data:`IDLE_HOLDER_REPEAT_MINUTES` while it holds.
     A healthy in-flight landing declares work the queue is driving and is
     excluded; once it is recorded as merged, the idle threshold applies.
@@ -174,7 +174,7 @@ def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
                 f"session={identifier(row.session_id)} "
                 f"items={','.join(row.claimed_items)} idle={idle}m "
                 f"mode={row.mode or 'none'} reason={reason} "
-                f"process={row.process} surface={row.executor_surface} "
+                f"delivery={row.message_delivery!r} surface={row.executor_surface} "
                 f"reach={address_recipe(row.session_id, current)!r}",
                 current.taken_at,
                 IDLE_HOLDER_REPEAT_MINUTES,
