@@ -1,11 +1,13 @@
 """Share current QA facts within one evaluation, independently of source caches."""
 
 from contextvars import ContextVar
+from contextlib import contextmanager
 from functools import wraps
 
 from yoke_core.domain.schema_read_scope import composition_reads
 
 _PRESENTATION = ContextVar("deployment_qa_presentation", default=None)
+_RECORDED_SOURCE = ContextVar("deployment_recorded_source_presentation", default=False)
 
 
 def presentation_operation(function):
@@ -36,3 +38,24 @@ def presentation_read(conn, key, reader):
     if scoped_key not in cache:
         cache[scoped_key] = reader()
     return cache[scoped_key]
+
+
+@contextmanager
+def recorded_source_presentation(*, enabled=True):
+    """Display recorded exact-target QA; source proof belongs to admission/gates.
+
+    This read still resolves current attachments, withdrawals and case/target
+    identities. It cannot authorize execution, create evidence or settle a gate.
+    """
+    if not enabled:
+        yield
+        return
+    token = _RECORDED_SOURCE.set(True)
+    try:
+        yield
+    finally:
+        _RECORDED_SOURCE.reset(token)
+
+
+def presentation_requires_candidate_source():
+    return not _RECORDED_SOURCE.get()
