@@ -56,6 +56,9 @@ from yoke_core.domain.db_mutation_profile_normalize import (
     REVIEWED_VALIDATED_AT_FIELD,
     VALID_MIGRATION_STRATEGIES,
     DbMutationProfileError,
+    _OPTIONAL_DECLARED_KEYS,
+    _REQUIRED_DECLARED_KEYS,
+    _THEOREM_BEARING_KEYS,
     _check_enum,
     _check_slug,
     _normalize_affected_surfaces,
@@ -76,10 +79,12 @@ VALID_MUTATION_INTENTS = frozenset({MUTATION_INTENT_APPLY})
 
 COMPATIBILITY_PRE_MERGE_SAFE = "pre_merge_safe"
 COMPATIBILITY_PRE_MERGE_BREAKING = "pre_merge_breaking"
-VALID_COMPATIBILITY_CLASSES = frozenset({
-    COMPATIBILITY_PRE_MERGE_SAFE,
-    COMPATIBILITY_PRE_MERGE_BREAKING,
-})
+VALID_COMPATIBILITY_CLASSES = frozenset(
+    {
+        COMPATIBILITY_PRE_MERGE_SAFE,
+        COMPATIBILITY_PRE_MERGE_BREAKING,
+    }
+)
 
 VALID_SCHEMA_KINDS = frozenset({"additive", "destructive", "rebuild"})
 VALID_DATA_KINDS = frozenset({"fill", "transform", "drop"})
@@ -92,33 +97,6 @@ VALID_DATA_KINDS = frozenset({"fill", "transform", "drop"})
 # count_preserving=true declaration up front and route operators to the
 # module-level invariants() hook for semantic correctness.
 LIVE_APPEND_TABLES = frozenset({"events"})
-
-# Canonical key order for the declared-state payload.  Serialization is
-# sort_keys=True for stability, but the ordering here matches the spec's
-# read order and is documented for future contributors.
-_DECLARED_KEYS = (
-    "state",
-    "model_name",
-    "mutation_intent",
-    "migration_modules",
-    "compatibility_class",
-    "migration_strategy",
-    "migration_strategy_justification",
-    "schema_kinds",
-    "data_kinds",
-    "affected_surfaces",
-    "count_preserving",
-)
-_REQUIRED_DECLARED_KEYS = frozenset({
-    "state", "model_name", "mutation_intent", "migration_modules",
-    "compatibility_class",
-})
-_OPTIONAL_DECLARED_KEYS = frozenset({
-    "schema_kinds", "data_kinds", "affected_surfaces", "count_preserving",
-    "migration_strategy", "migration_strategy_justification",
-})
-_THEOREM_BEARING_KEYS = frozenset(_DECLARED_KEYS) - {"state"}
-
 
 NEGATIVE_DEFAULT: Dict[str, Any] = {"state": STATE_NONE}
 
@@ -195,10 +173,13 @@ def validate(payload: Any) -> Dict[str, Any]:
         raise DbMutationProfileError("count_preserving must be a strict boolean")
 
     if count_preserving:
-        live_hits = sorted({
-            s["table"] for s in affected_surfaces
-            if s.get("table") in LIVE_APPEND_TABLES
-        })
+        live_hits = sorted(
+            {
+                s["table"]
+                for s in affected_surfaces
+                if s.get("table") in LIVE_APPEND_TABLES
+            }
+        )
         if live_hits:
             raise DbMutationProfileError(
                 f"count_preserving=true is not allowed when affected_surfaces "
@@ -213,8 +194,11 @@ def validate(payload: Any) -> Dict[str, Any]:
                 f"unified amendment workflow' for the canonical amend payload shape."
             )
 
-    migration_strategy, migration_strategy_justification = _normalize_migration_strategy(
-        payload, mutation_intent=mutation_intent,
+    migration_strategy, migration_strategy_justification = (
+        _normalize_migration_strategy(
+            payload,
+            mutation_intent=mutation_intent,
+        )
     )
 
     out: Dict[str, Any] = {

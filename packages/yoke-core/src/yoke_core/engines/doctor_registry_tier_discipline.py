@@ -52,17 +52,11 @@ TIER_GLOBS: dict[int, tuple[str, ...]] = {
     ),
     # Tier 4 — canonical agent bodies. Rendered harness adapters derive
     # from these and are not scanned independently.
-    4: (
-        "runtime/agents/*.md",
-    ),
+    4: ("runtime/agents/*.md",),
     # Tier 5 — skill prose (top-level SKILL.md plus skill-internal subdocs).
-    5: (
-        ".agents/skills/yoke/**/*.md",
-    ),
+    5: (".agents/skills/yoke/**/*.md",),
     # Tier 6 — archive decision records (callers opt in explicitly).
-    6: (
-        "docs/archive/**/*.md",
-    ),
+    6: ("docs/archive/**/*.md",),
 }
 
 
@@ -77,9 +71,7 @@ CROSS_REFERENCE_PREFIXES: tuple[str, ...] = (
 
 # Archive-root prefixes — repo-relative paths starting with any entry
 # here are exempt by default from every tier-discipline HC.
-TIER_6_ARCHIVE_PREFIXES: tuple[str, ...] = (
-    "docs/archive/",
-)
+TIER_6_ARCHIVE_PREFIXES: tuple[str, ...] = ("docs/archive/",)
 
 
 # Tier 1 — the in-memory rendered `schema_api_context` packet (no
@@ -198,8 +190,7 @@ def _build_health_checks() -> List[HealthCheck]:
     if _TIER_DISCIPLINE_HEALTH_CHECKS is not None:
         return _TIER_DISCIPLINE_HEALTH_CHECKS
 
-    _TIER_DISCIPLINE_HEALTH_CHECKS = [
-    ]
+    _TIER_DISCIPLINE_HEALTH_CHECKS = []
     return _TIER_DISCIPLINE_HEALTH_CHECKS
 
 

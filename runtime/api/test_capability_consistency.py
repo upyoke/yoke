@@ -183,9 +183,7 @@ class TestCodexMdMatchesRegistry:
             codex_md,
             re.DOTALL,
         )
-        assert match, (
-            "docs/public/agents/codex.md missing '### Limitations' section"
-        )
+        assert match, "docs/public/agents/codex.md missing '### Limitations' section"
         section = match.group(1)
         limitation_bullets = re.findall(r"^- `(/yoke \S+)`", section, re.MULTILINE)
         assert "/yoke implement" not in limitation_bullets, (

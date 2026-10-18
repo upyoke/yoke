@@ -37,7 +37,10 @@ def proven_source_build(root: Path, *, require_clean: bool = False) -> str:
     def git(*args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             ["git", "-C", str(root), *args],
-            capture_output=True, text=True, timeout=10, check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
         )
 
     try:
@@ -49,8 +52,13 @@ def proven_source_build(root: Path, *, require_clean: bool = False) -> str:
             return ""
         if require_clean:
             status = git(
-                "status", "--porcelain", "--", "docs/public",
-                ".agents/skills/yoke", "runtime/harness", "AGENTS.md",
+                "status",
+                "--porcelain",
+                "--",
+                "docs/public",
+                ".agents/skills/yoke",
+                "runtime/harness",
+                "AGENTS.md",
             )
             if status.returncode:
                 return ""
@@ -128,9 +136,12 @@ def build_project_bundle(project_id: int, conn: Any) -> Dict[str, Any]:
     from yoke_core.domain.install_bundle_sources import harness_manifest_files
 
     files.extend(harness_manifest_files(root))
-    files.append(installed_layer_receipt_entry(
-        source_engine_release, source_build=proven_source_build(root),
-    ))
+    files.append(
+        installed_layer_receipt_entry(
+            source_engine_release,
+            source_build=proven_source_build(root),
+        )
+    )
     files.sort(key=lambda entry: entry["path"])
     return {
         "bundle_schema": BUNDLE_SCHEMA,

@@ -88,9 +88,7 @@ class TestClaimsPath(_ClaimsHandlerSuite):
         self.assertEqual(resp.error.code, "register_failed")
         self.assertIn("BLOCKED: path-claim register overlap", resp.error.message)
         self.assertIn("claim 300", resp.error.message)
-        self.assertIn(
-            ".yoke/docs/functions/index.md", resp.error.message
-        )
+        self.assertIn(".yoke/docs/functions/index.md", resp.error.message)
         render_denial.assert_called_once()
 
     def test_release_routes_to_path_claims_release(self):

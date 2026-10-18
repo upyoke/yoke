@@ -279,6 +279,4 @@ def test_module_basename_drives_doctor_hc_match(
         file_budget_paths=_file_budget_paths(fb_path),
         repo_root=root,
     )
-    assert (
-        f"runtime/api/engines/doctor_hc_{expected_basename}.py" in result.doctor_hcs
-    )
+    assert f"runtime/api/engines/doctor_hc_{expected_basename}.py" in result.doctor_hcs

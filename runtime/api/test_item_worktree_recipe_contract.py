@@ -21,13 +21,7 @@ PACKAGED_SKILLS = (
     / "skills"
     / "yoke"
 )
-SOURCE_FUNCTION_REFERENCE = (
-    REPO_ROOT
-    / ".yoke"
-    / "docs"
-    / "functions"
-    / "worktrees.md"
-)
+SOURCE_FUNCTION_REFERENCE = REPO_ROOT / ".yoke" / "docs" / "functions" / "worktrees.md"
 PACKAGED_FUNCTION_REFERENCE = (
     REPO_ROOT
     / "packages"

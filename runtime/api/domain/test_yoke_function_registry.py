@@ -296,9 +296,7 @@ class TestFunctionDocumentation(_RegistryTestBase):
 
         register_all_handlers()
         expected = {entry.function_id for entry in list_entries()}
-        root = (
-            Path(__file__).resolve().parents[3] / "docs/public/functions"
-        )
+        root = Path(__file__).resolve().parents[3] / "docs/public/functions"
         families = (
             "claims items project-configuration qa runtime tasks workflows worktrees"
         ).split()

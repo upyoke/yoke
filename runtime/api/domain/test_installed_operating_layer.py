@@ -146,13 +146,23 @@ def test_project_bundle_receipt_matches_top_level_engine_release(
     }
 
 
-@pytest.mark.parametrize("build", ["abc123", "A" * 40, "g" * 40, "a" * 41, " " + "a" * 40])
+@pytest.mark.parametrize(
+    "build", ["abc123", "A" * 40, "g" * 40, "a" * 41, " " + "a" * 40]
+)
 def test_receipt_refuses_malformed_source_build(tmp_path, build) -> None:
-    with pytest.raises(ValueError, match="Rebuild from the declared full candidate commit"):
+    with pytest.raises(
+        ValueError, match="Rebuild from the declared full candidate commit"
+    ):
         installed_layer_receipt_entry("source-content", source_build=build)
-    (tmp_path / INSTALLED_LAYER_RECEIPT_REL).write_text(json.dumps({
-        "schema": 1, "source_engine_release": "source-content", "source_build": build,
-    }))
+    (tmp_path / INSTALLED_LAYER_RECEIPT_REL).write_text(
+        json.dumps(
+            {
+                "schema": 1,
+                "source_engine_release": "source-content",
+                "source_build": build,
+            }
+        )
+    )
     assert read_installed_layer_receipt(tmp_path) is None
 
 
@@ -169,21 +179,36 @@ def _committed_checkout(root):
     (root / "runtime/harness").mkdir(parents=True)
     (root / "pyproject.toml").write_text('[project]\nname = "yoke"\n')
     (root / "AGENTS.md").write_text("teaching\n")
+
     def git(*args):
         return subprocess.run(
-            ["git", "-C", str(root), *args], check=True,
-            capture_output=True, text=True,
+            ["git", "-C", str(root), *args],
+            check=True,
+            capture_output=True,
+            text=True,
         ).stdout.strip()
+
     git("init", "-q")
     git("add", ".")
-    git("-c", "user.name=Test", "-c", "user.email=test@example.com",
-        "-c", "core.hooksPath=/dev/null", "commit", "-qm", "Initial source")
+    git(
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.com",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "commit",
+        "-qm",
+        "Initial source",
+    )
     return git("rev-parse", "HEAD")
 
 
 def test_proven_source_build_preserves_dirty_checkout_head(tmp_path) -> None:
     head = _committed_checkout(tmp_path)
-    assert install_bundle_project.proven_source_build(tmp_path, require_clean=True) == head
+    assert (
+        install_bundle_project.proven_source_build(tmp_path, require_clean=True) == head
+    )
     (tmp_path / "AGENTS.md").write_text("changed teaching\n")
     assert install_bundle_project.proven_source_build(tmp_path) == head
     with pytest.raises(install_bundle_project.CandidateIdentityError) as error:
@@ -196,9 +221,12 @@ def test_proven_source_build_preserves_dirty_checkout_head(tmp_path) -> None:
 def test_proven_source_build_does_not_run_git_for_packaged_root(tmp_path, monkeypatch):
     def unexpected(*args, **kwargs):
         pytest.fail("packaged roots must not spawn git")
+
     monkeypatch.setattr(install_bundle_project.subprocess, "run", unexpected)
     assert install_bundle_project.proven_source_build(tmp_path) == ""
-    assert install_bundle_project.proven_source_build(tmp_path, require_clean=True) == ""
+    assert (
+        install_bundle_project.proven_source_build(tmp_path, require_clean=True) == ""
+    )
 
 
 def test_proven_source_build_returns_empty_for_uncommitted_source(tmp_path):
@@ -207,11 +235,18 @@ def test_proven_source_build_returns_empty_for_uncommitted_source(tmp_path):
     assert install_bundle_project.proven_source_build(tmp_path) == ""
 
 
-@pytest.mark.parametrize("resolved,exists", [("abc123", 0), ("A" * 40, 0), ("a" * 40, 1)])
+@pytest.mark.parametrize(
+    "resolved,exists", [("abc123", 0), ("A" * 40, 0), ("a" * 40, 1)]
+)
 def test_proven_source_build_requires_a_resolvable_full_commit(
-    tmp_path, monkeypatch, resolved, exists,
+    tmp_path,
+    monkeypatch,
+    resolved,
+    exists,
 ):
-    monkeypatch.setattr(install_bundle_project, "is_yoke_source_checkout", lambda root: True)
+    monkeypatch.setattr(
+        install_bundle_project, "is_yoke_source_checkout", lambda root: True
+    )
 
     def run(args, **kwargs):
         if args[3] == "rev-parse":

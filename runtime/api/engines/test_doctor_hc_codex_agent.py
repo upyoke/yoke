@@ -174,9 +174,7 @@ def _make_final_surface_root(
         codex_doc = "Codex covers polish and usher."
         agents_doc = "Agents use canonical bodies."
     (root / "docs/public/agents").mkdir(parents=True, exist_ok=True)
-    (root / "docs/public/agents/codex.md").write_text(
-        codex_doc, encoding="utf-8"
-    )
+    (root / "docs/public/agents/codex.md").write_text(codex_doc, encoding="utf-8")
     (root / "docs/agents.md").write_text(agents_doc, encoding="utf-8")
     return root
 

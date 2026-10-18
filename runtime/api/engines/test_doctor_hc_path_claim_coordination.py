@@ -60,8 +60,13 @@ def conn():
 
 
 def _seed_claim(
-    conn, *, claim_id: int, state: str, target_id: int,
-    mode: str = "exclusive", blocked_reason: str | None = None,
+    conn,
+    *,
+    claim_id: int,
+    state: str,
+    target_id: int,
+    mode: str = "exclusive",
+    blocked_reason: str | None = None,
 ) -> None:
     conn.execute(
         "INSERT INTO path_claims (id, state, mode, owner_kind, owner_item_id, "
@@ -76,7 +81,11 @@ def _seed_claim(
 
 
 def _seed_target(
-    conn, *, target_id: int, path: str, parent_target_id: int | None = None,
+    conn,
+    *,
+    target_id: int,
+    path: str,
+    parent_target_id: int | None = None,
 ) -> None:
     conn.execute(
         "INSERT INTO path_targets "
@@ -88,7 +97,11 @@ def _seed_target(
 
 
 def _seed_coord_edge(
-    conn, *, dependent: int, blocking: int, rationale: str | None,
+    conn,
+    *,
+    dependent: int,
+    blocking: int,
+    rationale: str | None,
 ) -> None:
     conn.execute(
         "INSERT INTO item_dependencies (dependent_item_id, blocking_item_id, "
@@ -123,7 +136,9 @@ def test_fail_when_coordination_edge_has_null_rationale(conn):
 
 def test_pass_when_coordination_edge_has_authored_rationale(conn):
     _seed_coord_edge(
-        conn, dependent=7201, blocking=7202,
+        conn,
+        dependent=7201,
+        blocking=7202,
         rationale="Both edits to runtime/api/foo are independent.",
     )
     assert _run_hc(conn).results[0].result == "PASS"
@@ -136,7 +151,10 @@ def test_fail_when_blocked_reason_names_released_with_surviving_overlap(
     _seed_claim(conn, claim_id=upstream, state="released", target_id=target)
     _seed_claim(conn, claim_id=survivor, state="active", target_id=target)
     _seed_claim(
-        conn, claim_id=blocked_id, state="blocked", target_id=target,
+        conn,
+        claim_id=blocked_id,
+        state="blocked",
+        target_id=target,
         blocked_reason=f"path_claims.id={upstream}",
     )
     result = _run_hc(conn).results[0]
@@ -149,11 +167,19 @@ def test_fail_for_lineage_overlap_after_released_upstream(conn):
     parent, child = 9100, 9101
     upstream, survivor, blocked_id = 501, 502, 503
     _seed_target(conn, target_id=parent, path="docs")
-    _seed_target(conn, target_id=child, path=".yoke/docs/workflows/lifecycle.md", parent_target_id=parent)
+    _seed_target(
+        conn,
+        target_id=child,
+        path=".yoke/docs/workflows/lifecycle.md",
+        parent_target_id=parent,
+    )
     _seed_claim(conn, claim_id=upstream, state="released", target_id=child)
     _seed_claim(conn, claim_id=survivor, state="active", target_id=parent)
     _seed_claim(
-        conn, claim_id=blocked_id, state="blocked", target_id=child,
+        conn,
+        claim_id=blocked_id,
+        state="blocked",
+        target_id=child,
         blocked_reason=f"path_claims.id={upstream}",
     )
 
@@ -168,7 +194,10 @@ def test_pass_when_blocked_reason_names_released_without_survivor(conn):
     target, upstream, blocked_id = 9998, 201, 202
     _seed_claim(conn, claim_id=upstream, state="released", target_id=target)
     _seed_claim(
-        conn, claim_id=blocked_id, state="blocked", target_id=target,
+        conn,
+        claim_id=blocked_id,
+        state="blocked",
+        target_id=target,
         blocked_reason=f"path_claims.id={upstream}",
     )
     assert _run_hc(conn).results[0].result == "PASS"
@@ -179,7 +208,10 @@ def test_pass_when_blocked_reason_names_active_upstream(conn):
     target, upstream, blocked_id = 9997, 301, 302
     _seed_claim(conn, claim_id=upstream, state="active", target_id=target)
     _seed_claim(
-        conn, claim_id=blocked_id, state="blocked", target_id=target,
+        conn,
+        claim_id=blocked_id,
+        state="blocked",
+        target_id=target,
         blocked_reason=f"path_claims.id={upstream}",
     )
     assert _run_hc(conn).results[0].result == "PASS"
@@ -197,12 +229,20 @@ def test_hc_ignores_exception_mode_claims(conn):
     _seed_claim(conn, claim_id=upstream, state="released", target_id=target)
     _seed_claim(conn, claim_id=survivor, state="active", target_id=target)
     _seed_claim(
-        conn, claim_id=std, state="blocked", target_id=target,
-        blocked_reason=f"path_claims.id={upstream}", mode="exclusive",
+        conn,
+        claim_id=std,
+        state="blocked",
+        target_id=target,
+        blocked_reason=f"path_claims.id={upstream}",
+        mode="exclusive",
     )
     _seed_claim(
-        conn, claim_id=exc, state="blocked", target_id=target,
-        blocked_reason=f"path_claims.id={upstream}", mode="exception",
+        conn,
+        claim_id=exc,
+        state="blocked",
+        target_id=target,
+        blocked_reason=f"path_claims.id={upstream}",
+        mode="exception",
     )
     result = _run_hc(conn).results[0]
     assert result.result == "WARN"

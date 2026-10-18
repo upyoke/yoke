@@ -42,7 +42,9 @@ def compose_refusal(
     evaluated_text = str(evaluated or "").strip()
     if evaluated_text:
         parts.append(f"Evaluated: {evaluated_text.rstrip('.')}")
-    blocked = [str(item).strip().rstrip(".") for item in unavailable if str(item).strip()]
+    blocked = [
+        str(item).strip().rstrip(".") for item in unavailable if str(item).strip()
+    ]
     if blocked:
         parts.append("Not available: " + "; ".join(blocked))
     if recovery_text:

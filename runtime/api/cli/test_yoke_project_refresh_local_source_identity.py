@@ -128,21 +128,48 @@ def test_source_refresh_writes_checkout_head(tmp_path, capsys) -> None:
     _git_init(target)
     head = subprocess.run(
         ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
-        check=True, capture_output=True, text=True,
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout.strip()
     manifest = target / ".yoke/install-manifest.json"
     manifest.parent.mkdir()
-    manifest.write_text(json.dumps({
-        "manifest_schema": 1, "yoke_version": "packaged-baseline",
-        "project_id": 51, "project_slug": "identity-project", "mode": "copy",
-        "files": {}, "contract_files": {}, "strategy_files": {},
-        "created_settings_files": [], "hook_entries": {},
-    }))
-    assert cli_main([
-        "project", "refresh", str(target), "--source-checkout", str(REPO_ROOT),
-        "--project-id", "51", "--project-slug", "identity-project",
-        "--force", "--no-commit", "--apply", "--json",
-    ]) == 0
+    manifest.write_text(
+        json.dumps(
+            {
+                "manifest_schema": 1,
+                "yoke_version": "packaged-baseline",
+                "project_id": 51,
+                "project_slug": "identity-project",
+                "mode": "copy",
+                "files": {},
+                "contract_files": {},
+                "strategy_files": {},
+                "created_settings_files": [],
+                "hook_entries": {},
+            }
+        )
+    )
+    assert (
+        cli_main(
+            [
+                "project",
+                "refresh",
+                str(target),
+                "--source-checkout",
+                str(REPO_ROOT),
+                "--project-id",
+                "51",
+                "--project-slug",
+                "identity-project",
+                "--force",
+                "--no-commit",
+                "--apply",
+                "--json",
+            ]
+        )
+        == 0
+    )
     capsys.readouterr()
     receipt = json.loads((target / INSTALLED_LAYER_RECEIPT_REL).read_text())
     assert receipt["source_build"] == head

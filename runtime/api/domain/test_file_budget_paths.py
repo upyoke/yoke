@@ -94,10 +94,7 @@ class TestFunctionIdsInFileBudgetReproductionShape:
 
 class TestExtractFileBudgetPaths:
     def test_project_local_extensionless_picked_up(self):
-        spec = (
-            "## File Budget\n\n"
-            "- `.yoke/lint-config` — project lint policy.\n"
-        )
+        spec = "## File Budget\n\n- `.yoke/lint-config` — project lint policy.\n"
         assert extract_file_budget_paths(spec) == [".yoke/lint-config"]
 
     def test_extensioned_paths_still_extract(self):

@@ -47,13 +47,12 @@ def test_installed_layer_comparison_retains_receipt_root(tmp_path) -> None:
     assert comparison is not None
     assert comparison.layer_is_behind
     assert comparison.receipt.project_root == project
-    assert drift.refresh_command(project) == (
-        f"yoke project install '{project}'"
-    )
+    assert drift.refresh_command(project) == (f"yoke project install '{project}'")
 
 
 def test_source_checkout_uses_git_relationship(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     monkeypatch.setattr(drift, "source_checkout_root", lambda module: tmp_path)
     monkeypatch.setattr(
@@ -78,7 +77,8 @@ def test_source_checkout_uses_git_relationship(
 
 
 def test_source_receipt_compares_its_recorded_build(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     project = tmp_path / "project"
     project.mkdir()
@@ -113,7 +113,8 @@ def test_source_receipt_compares_its_recorded_build(
 
 
 def test_source_receipt_detects_content_change_at_same_commit(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     monkeypatch.setattr(drift, "source_checkout_root", lambda module: tmp_path)
     monkeypatch.setattr(
@@ -143,7 +144,8 @@ def test_source_receipt_detects_content_change_at_same_commit(
 
 
 def test_legacy_source_receipt_compares_content_without_commit(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     monkeypatch.setattr(drift, "source_checkout_root", lambda module: tmp_path)
     monkeypatch.setattr(

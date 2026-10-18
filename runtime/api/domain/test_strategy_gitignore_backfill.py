@@ -54,7 +54,10 @@ def test_already_complete_is_a_noop(tmp_path: Path) -> None:
 
 def test_no_gitignore_entry_in_bundle_is_a_noop(tmp_path: Path) -> None:
     _write(tmp_path, "BOARD.md\n")
-    assert reconcile_gitignore(tmp_path, [{"path": ".yoke/README.md", "content": "x"}]) == []
+    assert (
+        reconcile_gitignore(tmp_path, [{"path": ".yoke/README.md", "content": "x"}])
+        == []
+    )
 
 
 @pytest.mark.parametrize("existing_install", [False, True])

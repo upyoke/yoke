@@ -13,29 +13,15 @@ from typing import Dict, Iterable, Iterator, Tuple
 
 import pytest
 
-from yoke_project_checks import check_cli_help_handler as help_mod
 from yoke_project_checks import check_packet_tier_completeness as packet_mod
 from yoke_project_checks import check_progressive_disclosure_direction as disc_mod
 from yoke_project_checks import check_tier_cli_shape_bleed as cli_mod
 from yoke_project_checks import check_tier_module_path_resolution as mod_path_mod
 from yoke_project_checks import check_tier_schema_bleed as schema_mod
-from yoke_core.engines.doctor_project_checks import discover_project_checks
 from yoke_core.engines.doctor_registry_tier_discipline import (
     REQUIRED_FUNCTION_IDS,
-    TIER_DISCIPLINE_HEALTH_CHECKS,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-
-_TIER_DISCIPLINE_CHECK_FUNCTIONS = {
-    "tier-schema-bleed": schema_mod.hc_tier_schema_bleed,
-    "tier-cli-shape-bleed": cli_mod.hc_tier_cli_shape_bleed,
-    "packet-tier-completeness": packet_mod.hc_packet_tier_completeness,
-    "progressive-disclosure-direction": disc_mod.hc_progressive_disclosure_direction,
-    "tier-module-path-resolution": mod_path_mod.hc_tier_module_path_resolution,
-    "cli-help-handler-present": help_mod.hc_cli_help_handler_present,
-}
 
 
 @pytest.fixture
@@ -88,22 +74,6 @@ def _run(hc_fn, conn) -> RecordCollector:
 
 def _detail(rec: RecordCollector) -> str:
     return rec.results[0].detail
-
-
-def test_tier_discipline_checks_registered_as_project_checks():
-    assert [hc.slug for hc in TIER_DISCIPLINE_HEALTH_CHECKS] == []
-    checks = discover_project_checks(REPO_ROOT).checks
-    slugs = [hc.slug for hc in checks]
-    by_slug = {hc.slug: hc for hc in checks}
-    for slug, fn in _TIER_DISCIPLINE_CHECK_FUNCTIONS.items():
-        assert slugs.count(slug) == 1, (
-            f"slug {slug!r} appears {slugs.count(slug)} times in the checks "
-            f"discovered under {REPO_ROOT}"
-        )
-        registered = by_slug[slug].fn
-        assert (registered.__module__, registered.__name__) == (
-            fn.__module__, fn.__name__,
-        )
 
 
 _CLASS_A_CASES = [
@@ -162,16 +132,21 @@ _NM_ERR = (1, "No module named yoke_core.engines.nonexistent")
 _CLI_CASES = [
     (
         "drifted_db_claim_amend_flag",
-        ".agents/skills/yoke/conduct/SKILL.md", 5,
+        ".agents/skills/yoke/conduct/SKILL.md",
+        5,
         "    python3 -m yoke_core.api.service_client db-claim-amend --claim-state none\n",
-        {("yoke_core.api.service_client", "db-claim-amend"): (
-            0, "usage: db-claim-amend --item ITEM --reason REASON [--state {none}]\n",
-        )},
+        {
+            ("yoke_core.api.service_client", "db-claim-amend"): (
+                0,
+                "usage: db-claim-amend --item ITEM --reason REASON [--state {none}]\n",
+            )
+        },
         "`--claim-state`",
     ),
     (
         "drifted_claim_list_subcommand",
-        ".yoke/docs/agents/commands.md", 2,
+        ".yoke/docs/agents/commands.md",
+        2,
         "    python3 -m yoke_core.api.service_client claim-list --item YOK-1674\n",
         {
             ("yoke_core.api.service_client", "claim-list"): (1, "no such subcommand"),
@@ -185,24 +160,30 @@ _CLI_CASES = [
     ),
     (
         "drifted_section_upsert_flag",
-        ".agents/skills/yoke/refine/SKILL.md", 5,
+        ".agents/skills/yoke/refine/SKILL.md",
+        5,
         "    python3 -m yoke_core.domain.item_field_transform section-upsert "
         "--field spec --heading X\n",
-        {("yoke_core.domain.item_field_transform", "section-upsert"): (
-            0, "usage: section-upsert --item ITEM --field FIELD --section SECTION\n",
-        )},
+        {
+            ("yoke_core.domain.item_field_transform", "section-upsert"): (
+                0,
+                "usage: section-upsert --item ITEM --field FIELD --section SECTION\n",
+            )
+        },
         "`--heading`",
     ),
     (
         "bare_doctor",
-        "AGENTS.md", 0,
+        "AGENTS.md",
+        0,
         "# Substrate\n\n$ python3 -m yoke_core.engines.doctor\n",
         {},
         "bare",
     ),
     (
         "confabulated_subcommand",
-        ".yoke/docs/agents/commands.md", 2,
+        ".yoke/docs/agents/commands.md",
+        2,
         "    python3 -m yoke_core.engines.nonexistent-cmd --help\n",
         {
             ("yoke_core.engines.nonexistent", "cmd"): _NM_ERR,

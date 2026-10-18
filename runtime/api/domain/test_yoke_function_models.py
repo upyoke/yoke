@@ -149,7 +149,9 @@ class TestFunctionErrorRecoveryHint(unittest.TestCase):
     def test_existing_recovery_hint_is_left_verbatim(self):
         hint = "See .yoke/docs/functions/index.md."
         err = FunctionError(
-            code="payload_invalid", message="bad payload", recovery_hint=hint,
+            code="payload_invalid",
+            message="bad payload",
+            recovery_hint=hint,
         )
         self.assertEqual(err.recovery_hint, hint)
 
