@@ -213,6 +213,12 @@ def hook_evaluate(args: List[str]) -> int:
         parse_payload,
         protect_stop,
     )
+    from yoke_contracts.hook_runner.project_scope import HookProjectScopeUnavailable
+    from yoke_contracts.machine_config.paths import MachineConfigOwnershipError
+    from yoke_contracts.machine_config.runtime import MachineConfigError
+    from yoke_contracts.machine_config.schema_connections import (
+        MachineConfigContractError,
+    )
 
     raw = _read_stdin()
     payload = parse_payload(raw)
@@ -226,7 +232,15 @@ def hook_evaluate(args: List[str]) -> int:
     try:
         with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
             code = _dispatch_hook(args, raw)
-    except Exception as exc:
+    except (
+        OSError,
+        ValueError,
+        ImportError,
+        MachineConfigError,
+        MachineConfigContractError,
+        MachineConfigOwnershipError,
+        HookProjectScopeUnavailable,
+    ) as exc:
         # No exception, config loader or resident may turn a lifecycle
         # infrastructure failure into the harness's continuation signal.
         text, code, _denied = infrastructure_reply(
@@ -237,15 +251,12 @@ def hook_evaluate(args: List[str]) -> int:
         )
     else:
         text = stdout.getvalue()
-        if event in LIFECYCLE_EVENTS and (
-            code not in {0, 2}
-            or any(
-                reason in text
-                for reason in (
-                    "hook_scope_unavailable:",
-                    "hook_authority_unavailable:",
-                    "hook_infrastructure_unavailable:",
-                )
+        if event in LIFECYCLE_EVENTS and any(
+            reason in text
+            for reason in (
+                "hook_scope_unavailable:",
+                "hook_authority_unavailable:",
+                "hook_infrastructure_unavailable:",
             )
         ):
             text, code, _denied = infrastructure_reply(

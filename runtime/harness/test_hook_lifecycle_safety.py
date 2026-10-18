@@ -78,7 +78,9 @@ def test_cli_config_crash_is_lifecycle_allow_and_tool_refusal(
 
     def broken(*args, **kwargs):
         print('{"decision":"block","reason":"partial"}')
-        raise RuntimeError("project_key_invalid")
+        from yoke_contracts.machine_config.runtime import MachineConfigError
+
+        raise MachineConfigError("project_key_invalid")
 
     monkeypatch.setattr(hooks, "_dispatch_hook", broken)
     code = hooks.hook_evaluate([event])
