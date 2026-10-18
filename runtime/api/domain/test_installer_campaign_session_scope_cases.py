@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from subprocess import CompletedProcess
 
 import pytest
@@ -17,6 +18,7 @@ from yoke_core.domain.installer_campaign_execution_target import (
 from yoke_core.domain.installer_campaign_session_scope_cases import (
     SESSION_SCOPE_SCRIPT,
 )
+from yoke_core.domain.session_probe import PROBE_MAX_LIFETIME_SECONDS
 
 KEYS = (
     "outside-project-sessions",
@@ -66,6 +68,26 @@ class FakeCli:
         self.folder_refusal_names_folder = folder_refusal_names_folder
         self.worker_claim = worker_claim
         self.calls = []
+        # Seconds on a fake clock; begun and ended sessions record their instants.
+        self.now = 0.0
+        self.begun = {}
+        self.ended = {}
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+    def _listed(self, argv):
+        """Apply the served --session filter and the probe-session exclusion."""
+        state = argv[argv.index("--liveness") + 1]
+        wanted = argv[argv.index("--session") + 1] if "--session" in argv else None
+        rows = []
+        for sid in self.scopes:
+            ended = sid in self.ended
+            probe = ended and self.ended[sid] - self.begun[sid] <= PROBE_MAX_LIFETIME_SECONDS
+            if (state == "ended") != ended or probe or wanted not in (None, sid):
+                continue
+            rows.append({"session_id": sid})
+        return rows
 
     def mkdtemp(self, prefix=""):
         folder = self.tmp_path / f"{prefix}{next(self.folders)}"
@@ -81,18 +103,18 @@ class FakeCli:
         if command[:2] == ["sessions", "begin"]:
             in_project = str(cwd) == self.checkout
             self.scopes.setdefault(session, (7, None) if in_project else (None, 1))
+            self.begun.setdefault(session, self.now)
             return self._ok({})
         if command[:2] == ["sessions", "identity"]:
             project, org = self.scopes[session]
             kind = "project" if project is not None else "org"
             return self._ok({"project_id": project, "org_id": org, "scope_kind": kind})
         if command[:2] == ["sessions", "list"]:
-            return self._ok({"sessions": [{"session_id": sid} for sid in self.scopes]})
-        if command[:2] in (
-            ["projects", "create"],
-            ["project", "register"],
-            ["sessions", "end-if-empty"],
-        ):
+            return self._ok({"sessions": self._listed(argv)})
+        if command[:2] == ["sessions", "end-if-empty"]:
+            self.ended.setdefault(session, self.now)
+            return self._ok({})
+        if command[:2] in (["projects", "create"], ["project", "register"]):
             return self._ok({})
         if command[:2] == ["items", "create"]:
             return self._ok({"public_ref": "SCP-1"})
@@ -128,6 +150,7 @@ def cli(tmp_path, monkeypatch):
     def install(**options):
         fake = FakeCli(tmp_path, **options)
         monkeypatch.setattr(subprocess, "run", fake.run)
+        monkeypatch.setattr(time, "sleep", fake.sleep)
         monkeypatch.setattr(tempfile, "mkdtemp", fake.mkdtemp)
         monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
         return fake
@@ -148,6 +171,19 @@ def test_every_harness_session_outside_a_project_belongs_to_the_org(
     assert len(fake.scopes) == 3
     assert set(fake.scopes.values()) == {(None, 1)}
     assert "on every harness" in capsys.readouterr().out
+    # Each session outlives the probe window before it ends, so history keeps it.
+    assert all(
+        fake.ended[sid] - fake.begun[sid] > PROBE_MAX_LIFETIME_SECONDS
+        for sid in fake.scopes
+    )
+
+
+def test_session_ended_inside_probe_window_is_hidden_from_history(cli, monkeypatch):
+    fake = cli()
+    monkeypatch.setattr(time, "sleep", lambda seconds: None)
+    with pytest.raises(SystemExit, match="session_scope_history_hidden"):
+        _probe(monkeypatch, "harnesses")
+    assert fake.ended
 
 
 def test_reinstall_keeps_the_saved_session_in_its_org(cli, monkeypatch, capsys):

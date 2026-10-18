@@ -11,11 +11,13 @@ import shlex
 
 from yoke_core.domain.machine_qa_fixture_constants import YOKE_BIN
 from yoke_core.domain.installer_campaign_plan_common import action
+from yoke_core.domain.session_probe import PROBE_MAX_LIFETIME_SECONDS
 
 
 SESSION_SCOPE_SCRIPT = r"""
-import json, os, re, subprocess, sys, tempfile, uuid
+import json, os, re, subprocess, sys, tempfile, time, uuid
 binary, mode = sys.argv[1], sys.argv[2]
+probe_window_seconds = PROBE_WINDOW_SECONDS
 saved = os.path.join(tempfile.gettempdir(), 'yoke-session-scope-proof')
 ambient = ('YOKE_SESSION_ID', 'CLAUDE_CODE_SESSION_ID', 'CODEX_SESSION_ID', 'CODEX_THREAD_ID', 'CURSOR_CONVERSATION_ID')
 harnesses = (('claude-code', 'anthropic', 'claude-sonnet-5-5'), ('codex', 'openai', 'gpt-5.6-terra'), ('cursor', 'cursor', 'claude-sonnet-5-5'))
@@ -60,15 +62,21 @@ def claim(ref, session, folder):
     return result.returncode, result.stdout + result.stderr, named
 outside = tempfile.mkdtemp(prefix='outside-project-')
 if mode == 'harnesses':
+    started = []
     for harness in harnesses:
         session = str(uuid.uuid4())
         begin(harness, session, outside)
         require_org(session, outside, 'the ' + harness[0] + ' session')
-        result, payload = call(['sessions', 'list', '--liveness', 'active'], session, outside)
+        result, payload = call(['sessions', 'list', '--liveness', 'active', '--session', session], session, outside)
         if session not in json.dumps(payload):
             sys.exit('session_scope_roster_hidden: the ' + harness[0] + ' session is missing from sessions list; retain the listing and repair roster visibility before retrying')
+        started.append((harness, session))
+    # Every session read hides a session that ends inside the probe window
+    # without a tool call (a harness startup probe), so outlive that window.
+    time.sleep(probe_window_seconds)
+    for harness, session in started:
         call(['sessions', 'end-if-empty', '--triggered-by', 'session-scope-proof'], session, outside)
-        result, payload = call(['sessions', 'list', '--liveness', 'ended'], session, outside)
+        result, payload = call(['sessions', 'list', '--liveness', 'ended', '--session', session], session, outside)
         if session not in json.dumps(payload):
             sys.exit('session_scope_history_hidden: the ended ' + harness[0] + ' session is missing from session history; retain the listing and repair history visibility before retrying')
     print('outside-project sessions belong to the organization on every harness')
@@ -128,7 +136,7 @@ elif mode == 'first-work':
     print('first project work refused outside its folder; the session opened in the registered folder passed folder admission and ' + outcome)
 else:
     sys.exit('session_scope_mode_unknown: name harnesses, reinstall-before, reinstall-after or first-work')
-"""
+""".replace("PROBE_WINDOW_SECONDS", str(PROBE_MAX_LIFETIME_SECONDS + 5))
 
 
 def _probe(mode):
@@ -148,8 +156,9 @@ def session_scope_cases(command_case, local_setup, install_only):
             f"{local_setup}; {_probe('harnesses')}",
             "Register one session per declared harness (Claude Code, Codex, Cursor) "
             "from a fresh folder outside any project with the installed candidate. "
-            "Read each identity and the active roster, end it, then read ended history. "
-            "Restore the declared baseline afterward.",
+            "Read each identity and the active roster, wait past the startup-probe "
+            "window, end each session, then read ended history. Restore the declared "
+            "baseline afterward.",
             "Every harness session belongs to the organization, with no project, "
             "and appears in sessions list and ended history.",
         ),

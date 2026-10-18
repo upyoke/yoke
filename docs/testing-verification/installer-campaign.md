@@ -248,7 +248,9 @@ Three scripted cases use the isolated local setup and the installed candidate.
 `outside-project-sessions` registers one session per declared harness (Claude
 Code, Codex, Cursor) from a folder outside any project and requires
 organization scope in `yoke sessions identity`, the active roster and ended
-history. `outside-project-reinstall` reinstalls without setup and requires the
+history. It ends the sessions only after the startup-probe window, because
+every session read hides a session that ends inside that window without a
+tool call. `outside-project-reinstall` reinstalls without setup and requires the
 same session to keep its organization scope through re-registration.
 `outside-project-first-work` creates an isolated project and task item. The
 outside session must read organization scope with no project; its claim outside
