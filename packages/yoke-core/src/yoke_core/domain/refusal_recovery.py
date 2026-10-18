@@ -4,7 +4,7 @@ Reason and recovery are two obligations. A message that names only the
 condition it tripped on is unfinished: the reader assumes anything
 unreported is fine, and a listed remedy this caller's state forbids is a
 defect. Authors format refusals through :func:`compose_refusal`; reviewers
-check the same helper and the teaching in ``code-and-cli.md``.
+check the same helper and the teaching in ``agents/rules/shell-and-cli.md``.
 """
 
 from __future__ import annotations
@@ -42,7 +42,9 @@ def compose_refusal(
     evaluated_text = str(evaluated or "").strip()
     if evaluated_text:
         parts.append(f"Evaluated: {evaluated_text.rstrip('.')}")
-    blocked = [str(item).strip().rstrip(".") for item in unavailable if str(item).strip()]
+    blocked = [
+        str(item).strip().rstrip(".") for item in unavailable if str(item).strip()
+    ]
     if blocked:
         parts.append("Not available: " + "; ".join(blocked))
     if recovery_text:

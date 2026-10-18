@@ -2,6 +2,9 @@
  "id": "preview-recipe",
  "title": "Finish preview setup teaching",
  "status": "observed",
- "text": "Map supported preview Packs, provisioning/connection, access/data, candidate identity, QA binding, expiry and cleanup to executable recipes.",
- "position": 7
+ "text": "JOURNEYS owns the deeper executable preview setup branch: supported Pack prerequisites, hosting/routing/application configuration, access/data, candidate identity, QA binding, lifetime and cleanup ownership. The existing lessons distinguish a changing branch target from a frozen release candidate and name current Pack sources. An existing supported target remains a valid choice; unsupported/deferred setup stays visible. This open teaching gap provides no preview provisioning or actual QA proof.",
+ "position": 7,
+ "owner": "JOURNEYS",
+ "topics": ["environments/previews/prerequisites-and-serving-validation", "environments/previews/branch-preview", "environments/previews/release-candidate-preview", "environments/previews/expiry-and-cleanup"],
+ "sources": ["docs/teaching/model/scenarios/preview_environments/01.json", "docs/teaching/model/scenarios/preview_environments/02.json", "docs/public/verification/standalone-plans.md"]
 }

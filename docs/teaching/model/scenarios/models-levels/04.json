@@ -9,6 +9,6 @@
  "surface": "Item details → Level; Workflows → stage cards; session level routing guide.",
  "review": "Source and focused renderer tests; served browser behavior awaits deployment proof.",
  "concepts": ["levels/scheme/item-level-adjustment", "levels/scheme/stage-defaults"],
- "sources": ["docs/public/reference/session-level-routing.md", "runtime/api/universe_ui_item_level_fact.test.mjs"],
+ "sources": ["docs/public/agents/levels.md", "runtime/api/universe_ui_item_level_fact.test.mjs"],
  "position": 3
 }

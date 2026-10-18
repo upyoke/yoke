@@ -6,5 +6,6 @@
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
  "questions": ["How are users first notified of version availability across each mode?", "Are component refresh receipts and the source-versus-installed layer version discoverable from one support entry?"],
- "related_scenarios": ["harness-readiness", "project-lifecycle", "private-forks"]
+ "related_scenarios": ["harness-readiness", "project-lifecycle", "private-forks"],
+ "sources": ["docs/public/start/install.md", "docs/public/projects/private-forks.md"]
 }

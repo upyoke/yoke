@@ -1,0 +1,12 @@
+root:
+  title: Corpus
+  summary: A shared documentation consumer fixture.
+  path: index.md
+  children:
+    - title: Guide
+      summary: Learn the supported setup path.
+      path: guide/index.md
+      children:
+        - title: Setup
+          summary: Set up and return to the guide.
+          path: guide/setup.md

@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke qa method list --help", "yoke qa method get --help"],
  "plan_notes": ["FIRST-USER C", "JOURNEYS row 13"],
- "sources": ["docs/public/qa.md", "docs/testing-verification.md", "packages/yoke-core/src/yoke_core/domain/qa_method_definitions.py", ".agents/skills/yoke/onboard/verification-binding.md"],
+ "sources": ["docs/public/verification/index.md", "docs/testing-verification.md", "packages/yoke-core/src/yoke_core/domain/qa_method_definitions.py", ".agents/skills/yoke/onboard/verification-binding.md"],
  "position": 0
 }

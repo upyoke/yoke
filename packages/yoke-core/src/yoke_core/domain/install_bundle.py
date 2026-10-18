@@ -33,6 +33,9 @@ Determinism: files are sorted by bundle path and no timestamps are embedded.
 
 from __future__ import annotations
 
+from functools import lru_cache
+import hashlib
+
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -246,6 +249,33 @@ def _hooks_block() -> Dict[str, Any]:
         "codex_hooks": render_codex_hooks_block(),
         "cursor_hooks": render_cursor_hooks_block()["hooks"],
     }
+
+
+def validate_docs_for_bundle(root: Path) -> None:
+    """Cache complete validation by root and the corpus's actual content."""
+    from yoke_core.domain.install_bundle_docs_validation import public_corpus_files
+
+    source = root / DOCS_SOURCE
+    digest = hashlib.sha256()
+    for path in public_corpus_files(source):
+        digest.update(path.relative_to(source).as_posix().encode())
+        digest.update(b"\0")
+        try:
+            digest.update(path.read_bytes())
+        except OSError as exc:
+            raise InstallBundleError(
+                f"CORPUS_READ_FAILED {path}: {exc}. Repair: restore readable source files and retry"
+            ) from exc
+    _validated_docs(str(source.resolve()), digest.digest())
+
+
+@lru_cache(maxsize=8)
+def _validated_docs(root: str, digest: bytes) -> None:
+    from yoke_core.domain.install_bundle_docs_validation import validate_public_corpus
+
+    refusals = validate_public_corpus(Path(root))
+    if refusals:
+        raise InstallBundleError("\n".join(str(r) for r in refusals))
 
 
 def build_bundle(project_id: int, conn) -> Dict[str, Any]:

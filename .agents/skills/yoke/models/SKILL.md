@@ -71,7 +71,7 @@ project override (`yoke projects level-summary get --project P` shows
 
 ## Entry
 
-Registered function ids and claim policy: [service catalog](../../../../.yoke/docs/reference/db-reference/functions-runtime.md).
+Registered function ids and claim policy: [service catalog](../../../../.yoke/docs/functions/runtime.md).
 
 Read-only lookup/get/validate/diff/revisions needs no Dash:
 

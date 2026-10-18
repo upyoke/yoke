@@ -75,7 +75,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
         "notes": (
             "Same shape for any non-terminal transition. Status "
-            "vocabulary in .yoke/docs/reference/lifecycle.md. The function id "
+            "vocabulary in .yoke/docs/workflows/lifecycle.md. The function id "
             "`lifecycle.transition.execute` fires status gates, "
             "cascades, and GitHub sync."
         ),
@@ -103,11 +103,18 @@ OPERATIONAL_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
-        "purpose": "Find or request the CLI adapter for a function id",
-        "recipe": "yoke <family> --help",
+        "purpose": "Read operation rules and find the CLI adapter for a function id",
+        "recipe": (
+            "cat .yoke/docs/agents/rules/code-and-cli.md\n"
+            "cat .yoke/docs/documentation/index.md\n"
+            "yoke <family> --help"
+        ),
         "notes": (
-            "`.yoke/docs/reference/db-reference/functions.md` links the registered "
-            "function catalogs per family, and the matching `yoke <subcommand> "
+            "`.yoke/docs/functions/index.md` links the registered "
+            "function catalogs per family. Read the operation home before acting; "
+            "complete scope and portable behavior live in "
+            "`.yoke/docs/agents/rules/code-and-cli.md`; the teaching standard "
+            "lives in `.yoke/docs/documentation/index.md`. The matching `yoke <subcommand> "
             "--help` carries that adapter's variants and flag matrix. The "
             "CLI grammar is reversible — dots become spaces, underscores "
             "become hyphens, a terminal `.run`/`.execute` drops — so a "

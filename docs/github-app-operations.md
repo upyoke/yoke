@@ -2,7 +2,7 @@
 
 This runbook owns Yoke's GitHub App registration, installation scope, private-key
 custody, hosted and self-hosted bootstrap, rotation, verification, and incident response.
-Product flows never ask users to paste a GitHub credential; shared [access-change and CI relay guidance](public/github.md#github-access-changes-by-mode) lives in the public corpus.
+Product flows never ask users to paste a GitHub credential; shared [access-change and CI relay guidance](public/github/index.md#github-access-changes-by-mode) lives in the public corpus.
 
 ## Ownership Boundary
 
@@ -83,7 +83,7 @@ Set or review these fields:
 | Description | GitHub automation for Yoke projects |
 | Visibility | Private for owner-only/internal use; public only for an App intended for third-party installation |
 | User callback URLs | Hosted Product App: its exact Platform origin plus `/api/github/oauth/callback`. Leave empty for a device-flow-only registration. |
-| Setup URL | Leave empty; **hosted only:** repository updates arrive through App webhooks. See [access-change timing](public/github.md#github-access-changes-by-mode) for every mode. Redirect on update stays off. |
+| Setup URL | Leave empty; **hosted only:** repository updates arrive through App webhooks. See [access-change timing](public/github/index.md#github-access-changes-by-mode) for every mode. Redirect on update stays off. |
 | Request authorization on install | On; installation and user authorization return through one signed OAuth flow |
 | Device Flow | On |
 | Expire user authorization tokens | On |
@@ -127,7 +127,7 @@ For the product App, choose **All repositories** so new repositories work
 without another settings visit; this grants access to every repository in the
 account. Setup and status recommend switching selected installations through
 their direct settings link. Keep the separate privileged runner App on
-**Only select repositories**; see [public GitHub guidance](public/github.md).
+**Only select repositories**; see [public GitHub guidance](public/github/index.md).
 
 After installation or a permission/repository change:
 

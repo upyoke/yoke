@@ -3,7 +3,7 @@
  "title": "Chromium sandbox without root",
  "status": "observed",
  "text": "On a host that restricts unprivileged user namespaces, setup installs an AppArmor profile when the process is root or has passwordless sudo, and Chromium keeps its sandbox. When that profile cannot be enabled without an interactive root password, setup finishes and Chromium launches with the sandbox off. A missing parser, a profile that fails to load, or a sandboxed launch that still fails stops setup with browser_apparmor_setup_failed.",
- "sources": ["docs/public/reference/linux-relay.md", "packages/yoke-harness/src/yoke_harness/browser_apparmor.py", "packages/yoke-harness/src/yoke_harness/browser_runtime/src/browser-executable.js"],
+ "sources": ["docs/public/sessions/linux-relay.md", "packages/yoke-harness/src/yoke_harness/browser_apparmor.py", "packages/yoke-harness/src/yoke_harness/browser_runtime/src/browser-executable.js"],
  "page": "browser-qa",
  "position": 4
 }

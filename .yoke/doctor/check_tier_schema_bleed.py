@@ -43,6 +43,7 @@ from yoke_core.domain.schema_api_context_json_schemas import (
     JSON_NESTED_SCHEMAS,
 )
 from yoke_core.domain.schema_api_context_tables import CANONICAL_TABLES
+from yoke_core.domain.schema_expected_catalog import parse_expected_schema
 from yoke_core.domain.items_constants import LARGE_TEXT_FIELDS
 from yoke_core.engines.doctor_registry_tier_discipline import (
     TIER_GLOBS,
@@ -59,8 +60,7 @@ from yoke_core.engines.doctor_report import (
 
 HC_SLUG = "HC-tier-schema-bleed"
 HC_LABEL = (
-    "Tier 0/2/4/5 surface references schema column outside "
-    "cross-reference allow-list"
+    "Tier 0/2/4/5 surface references schema column outside cross-reference allow-list"
 )
 _MAX_FINDINGS = 40
 
@@ -70,10 +70,12 @@ _MAX_FINDINGS = 40
 # upstream constants — they grow automatically as those constants grow).
 # ---------------------------------------------------------------------------
 
-# table_name -> set of real column names.
+# Curated packet tables select teaching scope; the serving catalog owns
+# physical column existence. A concise packet omission is not confabulation.
 _TABLE_COLUMNS: Dict[str, set] = {
-    table: {col for col, _sqltype in meta.get("columns", [])}
-    for table, meta in CANONICAL_TABLES.items()
+    table: set(columns)
+    for table, columns in parse_expected_schema().items()
+    if table in CANONICAL_TABLES
 }
 
 # (table, json_col) -> (set-of-nested-field-names, ...) — exact metadata
@@ -96,9 +98,7 @@ for (_table, _json_col), _meta in JSON_NESTED_SCHEMAS.items():
 # rather than only its first two components, lets the scanner distinguish
 # registered function ids such as ``items.structured_field.replace`` from
 # schema references such as ``items.worktree_path``.
-_DOTTED_IDENTIFIER_RE = re.compile(
-    r"\b[a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)+\b"
-)
+_DOTTED_IDENTIFIER_RE = re.compile(r"\b[a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)+\b")
 _NON_SCHEMA_DOTTED_SUFFIXES = frozenset({".json", ".md", ".py", ".toml"})
 # Item structured fields are agent-facing read/write projections, and ``body``
 # is rendered virtually. Their dotted names describe the item API rather than
@@ -148,7 +148,7 @@ def extract_schema_references(text: str) -> List[Tuple[str, str]]:
         if token.endswith(tuple(_NON_SCHEMA_DOTTED_SUFFIXES)):
             continue
         table, column, *_rest = token.split(".")
-        if table not in CANONICAL_TABLES:
+        if table not in _TABLE_COLUMNS:
             continue
         if table == "items" and column in _ITEM_PUBLIC_FIELD_REFERENCES:
             continue
@@ -277,5 +277,9 @@ from yoke_project_checks._declare import (  # noqa: E402
 )
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
-    ('tier-schema-bleed', 'Tier 0/2/4/5 surfaces restate Tier 1 schema facts', hc_tier_schema_bleed),
+    (
+        "tier-schema-bleed",
+        "Tier 0/2/4/5 surfaces restate Tier 1 schema facts",
+        hc_tier_schema_bleed,
+    ),
 )

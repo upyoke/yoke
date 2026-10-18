@@ -2,7 +2,7 @@
  "id": "run-receipts-and-audit-history",
  "title": "Run receipts and audit history",
  "status": "observed",
- "page": "deployments",
+ "page": "deployment-recovery",
  "position": 4,
  "summary": "A refused promotion record fails the bridge with its named server reason. Recover the exact shipped receipt without repeating deployment; stale-pair diagnostics stop at their own refusal.",
  "sources": [".github/workflows/platform-release-bridge.yml", "packages/yoke-core/src/yoke_core/domain/deployment_failure_trace.py"]

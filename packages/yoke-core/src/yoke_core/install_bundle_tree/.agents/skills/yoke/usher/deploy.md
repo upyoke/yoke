@@ -71,7 +71,7 @@ printf %s "LANDED PREFIX-N MERGE_SHA" | yoke say --stdin --steering
 The engine enforces this: taking over another session's run under a seat
 refuses `takeover_reserved_for_steering`, and creating a self-deploy run on a
 machine without the paired database connection that drives it refuses before
-anything is written. Otherwise read [delivery rules](../../../../.yoke/docs/reference/agent-rules/delivery.md)
+anything is written. Otherwise read [delivery rules](../../../../.yoke/docs/agents/rules/delivery.md)
 first. Runs take no claim: a run occupies its target servers from start until
 its QA settles or it is terminal. A start refused `target_occupied` names the
 holding run and its open QA: wait/coordinate, no workaround. A run with
@@ -146,7 +146,7 @@ yoke claims work release --item PREFIX-N --reason usher-halt-deploy-stage-failur
 ```
 
 A QA plan `outcome_unknown` preserves its execution and custody; follow
-[check-in recovery](../../../../.yoke/docs/reference/qa-platform/standalone-plans.md#recover-a-lost-check-in-response)
+[check-in recovery](../../../../.yoke/docs/verification/standalone-plans.md#recover-a-lost-check-in-response)
 with the same scoped command plus `--resume-execution-id ID` before proceeding.
 
 Own-flow close-out never uses done-transition skip-deploy. Unsatisfied member QA
@@ -166,5 +166,5 @@ alone is not recovery. Delivered members may still owe another target's manual
 acceptance; leave that requirement unmet and the item open. On
 `deployment_outcome_unknown`, preserve run/receipt state, read the exact
 preparation receipt or existing provider attempt before retrying, and do not
-use `--fresh`. [Deployment start diagnostics](../../../../.yoke/docs/reference/deployment-start.md)
+use `--fresh`. [Deployment start diagnostics](../../../../.yoke/docs/deployments/start-diagnostics.md)
 explains source preparation, bounded locks and the phase timing evidence.

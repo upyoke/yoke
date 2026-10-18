@@ -3,7 +3,7 @@
  "title": "The workbench GitHub page",
  "status": "observed",
  "text": "One page in every mode: App installations with a Manage on GitHub link to repository-access settings, personal authorization when one is known, and project mappings. Hosted marks installation facts live. Local and self-hosted show when each installation was last checked; Check now runs projects.github_binding.check for every bound project in scope and names any refusal's reason and recovery. Facts the page cannot read are hidden, never shown as unavailable.",
- "sources": ["docs/public/github.md", "packages/yoke-core/src/yoke_core/ui/static/universe_views_github.js", "packages/yoke-core/src/yoke_core/ui/static/universe_views_github_access.js", "packages/yoke-core/src/yoke_core/ui/contracts/universe-github-host.ts", "packages/yoke-core/src/yoke_core/domain/project_github_binding_check.py"],
+ "sources": ["docs/public/github/index.md", "packages/yoke-core/src/yoke_core/ui/static/universe_views_github.js", "packages/yoke-core/src/yoke_core/ui/static/universe_views_github_access.js", "packages/yoke-core/src/yoke_core/ui/contracts/universe-github-host.ts", "packages/yoke-core/src/yoke_core/domain/project_github_binding_check.py"],
  "surface_refs": ["workbench-cues"],
  "commands": ["yoke projects github-binding check"],
  "functions": ["projects.github_binding.check"],

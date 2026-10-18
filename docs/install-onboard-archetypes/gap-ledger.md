@@ -81,7 +81,7 @@ rerun.
 - Idea defaults: `.agents/skills/yoke/idea/infer-and-create.md` §b
 - Onboard step 5 entry with deferred hosting: `hosting-and-environments.md`
 - Usher Route A/B and exit 7: `.agents/skills/yoke/usher/deploy.md`
-- Merge-only `target_tier`: `docs/public/reference/db-reference/projects-and-flows.md`
+- Merge-only `target_tier`: `docs/public/databases/model/projects.md`
 - QA scopes and `command` vs `command-ci`: `qa_command_plan_registration.py`
 - `ci_workflow_file` / `merge_queue` templates: `projects_seed_ci_workflow.py`
 - Registered-command target matrix: `qa_command_plan_registration.py`

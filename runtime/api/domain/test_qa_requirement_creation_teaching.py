@@ -71,17 +71,17 @@ def test_runner_packet_creation_recipes_are_transition_bound(
             "--requirement-source explicit --workflow-transition reviewed-implementation",
         ),
         (
-            ".yoke/docs/reference/browser-scenarios.md",
+            ".yoke/docs/verification/browser-scenarios.md",
             "--qa-phase verification \\\n"
             "  --workflow-transition reviewed-implementation",
         ),
         (
-            ".yoke/docs/reference/db-reference/qa-cli-and-body-write.md",
+            ".yoke/docs/verification/qa-cli.md",
             "--qa-phase verification \\\n"
             " --workflow-transition reviewed-implementation",
         ),
         (
-            ".yoke/docs/reference/db-reference/qa-cli-and-body-write.md",
+            ".yoke/docs/verification/qa-cli.md",
             "--qa-phase verification --workflow-transition reviewed-implementation",
         ),
         (
@@ -119,11 +119,11 @@ def test_ci_recovery_recipe_preserves_repository_and_qa_authority() -> None:
     assert "yoke watch pytest -- <CI pytest paths and options> --collect-only" in prose
 
 
-_BROWSER_PLACEMENT_ANCHOR = "browser-scenarios.md#where-a-browser-case-runs"
+_BROWSER_PLACEMENT_ANCHOR = "browser-targets.md#where-a-browser-case-runs"
 
 
 def test_browser_case_placement_has_one_home() -> None:
-    home = (REPO_ROOT / "docs/public/reference/browser-scenarios.md").read_text(
+    home = (REPO_ROOT / "docs/public/verification/browser-targets.md").read_text(
         encoding="utf-8"
     )
     compact = " ".join(home.split())

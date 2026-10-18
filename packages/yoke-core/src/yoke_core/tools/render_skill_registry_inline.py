@@ -26,11 +26,14 @@ from yoke_core.tools.generated_block_render import (
 SLUG = "skill-registry"
 INVENTORY = (
     ".agents/skills/yoke/SKILL.md",
-    "docs/public/reference/commands.md",
+    "docs/public/agents/commands.md",
     "docs/harness-bootstrap.md",
     ".agents/skills/yoke/help/SKILL.md",
 )
-INTERNAL_INVENTORY = INVENTORY[1:3]
+INTERNAL_INVENTORY = (
+    "docs/public/agents/maintenance-commands.md",
+    "docs/harness-bootstrap.md",
+)
 ARGUMENT_HINT_NOTICE = (
     "# argument-hint is generated from yoke_contracts.skill_registry."
 )

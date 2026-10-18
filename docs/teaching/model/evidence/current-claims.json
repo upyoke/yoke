@@ -1,5 +1,5 @@
 {
  "title": "Current claims that need verification",
- "scope": "Dated evidence with a scope per record: original source research from 2026-10-12 and scoped production checks from 2026-10-13. Revalidate changed behavior before relying on it.",
+ "scope": "Dated evidence with a scope per record: original source research from 2026-10-12 and scoped production checks from 2026-10-13. Revalidate changed behavior before relying on it. Nested public/installed source homes were reconciled against the current tree on 2026-10-17; this does not refresh older child observations into live or released proof.",
  "id": "current-claims"
 }

@@ -9,5 +9,5 @@
  "basis": "Candidate source and regression tests",
  "current": "Missing local credential files and invalid actor bindings have named diagnostics and local repair; connection rewrites preserve the selected connection.",
  "desired": "The released CLI demonstrates the same behavior on every supported machine.",
- "sources": ["docs/public/reference/local-connection-repair.md", "packages/yoke-cli/src/yoke_cli/commands/local_universe.py", "packages/yoke-core/src/yoke_core/engines/doctor_hc_connections.py"]
+ "sources": ["docs/public/verification/local-connection-repair.md", "packages/yoke-cli/src/yoke_cli/commands/local_universe.py", "packages/yoke-core/src/yoke_core/engines/doctor_hc_connections.py"]
 }

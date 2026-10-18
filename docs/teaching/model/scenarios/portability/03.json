@@ -9,6 +9,6 @@
  "surface": "Setup Account backup validation and Apply; Project restored-project picker; mode-specific import help.",
  "review": "Focused pilot and command-order contract tests pass; live deployment proof pending.",
  "plan_notes": ["FIRST-USER item 9", "FIRST-USER item 1", "FIRST-USER D"],
- "sources": ["docs/public/install.md", "packages/yoke-core/src/yoke_core/domain/universe_export.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_backup.py", "packages/yoke-cli/src/yoke_cli/config/onboard_backup.py"],
+ "sources": ["docs/public/start/install.md", "packages/yoke-core/src/yoke_core/domain/universe_export.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_backup.py", "packages/yoke-cli/src/yoke_cli/config/onboard_backup.py"],
  "position": 2
 }

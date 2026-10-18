@@ -1,36 +1,337 @@
-# Public docs sidebar. Platform renders this order; install ships the same tree.
-sections:
-  - title: Start
-    pages:
-      - index.md
-      - modes.md
-      - install.md
-      - concepts.md
-  - title: Operate
-    pages:
-      - cli-and-config.md
-      - projects.md
-      - github.md
-      - strategy.md
-      - frontier.md
-      - items-and-sessions.md
-      - workflows.md
-      - delivery.md
-      - databases-and-migrations.md
-      - qa.md
-      - capabilities.md
-      - events-doctor-ouroboros.md
-      - actors-members-billing.md
-      - operating-with-agents.md
-  - title: Reference
-    pages:
-      - reference/commands.md
-      - reference/lifecycle.md
-      - reference/lifecycle-gates.md
-      - reference/charge-frontier.md
-      - reference/qa-platform.md
-      - reference/github-sync.md
-      - reference/browser-scenarios.md
-      - reference/browser-evidence.md
-      - reference/shared-files.md
-      - reference/db-reference.md
+# One maintained tree; installed and web views derive from these nodes.
+root:
+  title: Yoke
+  summary: Software delivery from direction through verified delivery.
+  path: index.md
+  children:
+    - title: Get started
+      summary: Install, connect, add a project and file your first item.
+      path: start/index.md
+      children:
+        - {title: "Agent setup", summary: "Relay setup questions and preserve human choices and secret boundaries.", path: "start/agent-setup.md"}
+        - {title: "Install", summary: "Prepare the CLI and complete machine onboarding.", path: "start/install.md"}
+        - {title: "Modes", summary: "Choose local, hosted or self-hosted ownership.", path: "start/modes.md"}
+        - {title: "Concepts", summary: "Understand universes, projects, items and workflows.", path: "start/concepts.md"}
+        - {title: "Project installation", summary: "Install repository guidance and manage source launcher ownership.", path: "start/project-install.md"}
+        - {title: "Terminal onboarding", summary: "Copy approval links and resume setup in local or remote terminals.", path: "start/terminal-onboarding.md"}
+        - {title: "Windows and WSL", summary: "Keep Yoke, agents and checkouts inside supported Linux on Windows.", path: "start/windows-wsl.md"}
+        - {title: "Uninstall", summary: "Preserve chosen data and remove machine or project guidance.", path: "start/uninstall.md"}
+    - title: Agents
+      summary: Use harness guidance, command maps and operation homes before acting.
+      path: agents/index.md
+      children:
+        - {title: "Commands", summary: "Find operator commands and the delivery skill for the current binding.", path: "agents/commands.md"}
+        - {title: "Maintenance commands", summary: "Inspect maintenance operations, internal helpers and project context.", path: "agents/maintenance-commands.md"}
+        - {title: "Native discovery", summary: "Load shared instructions, discover skills and inspect installed capabilities.", path: "agents/harness-discovery.md"}
+        - {title: "Codex", summary: "Install and verify Yoke\u2019s Codex hooks and agent surfaces.", path: "agents/codex.md"}
+        - {title: "Cursor", summary: "Install and verify Yoke\u2019s Cursor hooks and agent surfaces.", path: "agents/cursor.md"}
+        - title: Execution levels
+          summary: Read model thresholds, routing settings and stage-level handoffs.
+          path: agents/levels.md
+        - title: Level launches
+          summary: Launch and label sessions using model thresholds and native selectors.
+          path: agents/level-launches.md
+        - title: Capacity recovery
+          summary: Recover a launched session when its model capacity is exhausted.
+          path: agents/capacity-recovery.md
+        - title: Operation homes
+          summary: Choose the rule home for the operation before acting.
+          path: agents/rules/index.md
+          children:
+            - title: Code and teaching
+              summary: Read before code changes, naming decisions or operation teaching.
+              path: agents/rules/code-and-cli.md
+            - title: Shell and CLI
+              summary: Read before shell calls, CLI operations or serving-floor changes.
+              path: agents/rules/shell-and-cli.md
+            - title: Lanes and claims
+              summary: Read before lane preparation, path coordination or destructive operations.
+              path: agents/rules/lanes-and-claims.md
+            - title: Item writes
+              summary: Read before item creation, typed content writes or progress updates.
+              path: agents/rules/item-writes.md
+            - title: Databases
+              summary: Read before schema or bulk-data changes and governed rehearsals.
+              path: agents/rules/databases.md
+            - title: Verification
+              summary: Read before tests, QA, CI, captures or health checks.
+              path: agents/rules/verification.md
+            - title: Delivery
+              summary: Read before deployment runs, binding-based delivery or release-target QA.
+              path: agents/rules/delivery.md
+            - title: Release roles
+              summary: Read before release identity configuration or permission grants.
+              path: agents/rules/release-roles.md
+            - title: Packs
+              summary: Read before capability packaging, credential references or Pack updates.
+              path: agents/rules/packs.md
+            - title: Architecture model
+              summary: Read before architecture-model or cross-cutting dependency changes.
+              path: agents/rules/architecture-model.md
+            - title: Claude sessions
+              summary: Read before Claude hook configuration or session identity and recovery work.
+              path: agents/rules/claude-sessions.md
+            - title: Claude long commands
+              summary: Read before long commands, watcher waits or Claude subagent checks.
+              path: agents/rules/claude-long-commands.md
+    - title: Projects
+      summary: Add projects and configure their capabilities, guidance and shared files.
+      path: projects/index.md
+      children:
+        - title: Capabilities
+          summary: Inspect project providers, models and test resources.
+          path: projects/capabilities.md
+        - title: Execution instructions
+          summary: Store reusable guidance for project work and sessions.
+          path: projects/execution-instructions.md
+        - title: Shared files
+          summary: Upload files and reuse them as project context.
+          path: projects/shared-files.md
+        - title: Private forks
+          summary: Bind installation artifacts and maintain a private Yoke distribution.
+          path: projects/private-forks.md
+        - title: Actors, members and billing
+          summary: Understand identity, organization access and billing ownership.
+          path: projects/actors-members-billing.md
+        - title: Hosted organization administration
+          summary: Create an organization, manage invitations and approve machines.
+          path: projects/hosted-org-admin.md
+    - title: GitHub
+      summary: Connect repository access, mirror issues and inspect merge evidence.
+      path: github/index.md
+      children:
+        - title: Issue sync
+          summary: Choose mirroring semantics and repair repository issue bindings.
+          path: github/sync.md
+        - title: Merge queue landings
+          summary: Read queued landing evidence and recover from a rejected landing.
+          path: github/merge-queue-landings.md
+    - title: CLI and config
+      summary: Read command help, choose connections and configure your machine.
+      path: cli/index.md
+      children:
+        - title: Machine config and native models
+          summary: Select configuration and inspect native model availability and unattended launches.
+          path: cli/machine-config.md
+        - title: Help and replies
+          summary: Read focused command help and choose human or machine output.
+          path: cli/help.md
+        - title: HTTPS connection diagnostics
+          summary: Diagnose API transport and connection failures.
+          path: cli/https-connection-diagnostics.md
+        - title: Machine authorization
+          summary: Connect a machine and inspect actor approval and hosted handoff.
+          path: cli/machine-authorization.md
+    - title: Items
+      summary: Read and update backlog work, generated tasks and landing evidence.
+      path: items/index.md
+      children:
+        - title: Item model
+          summary: Read item fields, database claims and supporting records.
+          path: items/model/items.md
+        - title: Item dependency model
+          summary: Read dependency edges, gate satisfaction and the canonical blocker model.
+          path: items/model/dependencies.md
+        - title: Generated task model
+          summary: Read task graphs, dispatch chains and progress records.
+          path: items/model/tasks.md
+        - title: Landing model
+          summary: Inspect merge provenance and landing attribution.
+          path: items/model/landings.md
+        - {title: "Body writes", summary: "Write structured fields and render the generated item body.", path: "items/model/body-writes.md"}
+    - title: Sessions
+      summary: Inspect live sessions, ownership, messages and steering reports.
+      path: sessions/index.md
+      children:
+        - title: Inbox and messaging
+          summary: Read decisions and send messages to their intended recipients.
+          path: sessions/inbox.md
+        - title: Steering report
+          summary: Inspect available work, holders and session delivery failures.
+          path: sessions/steering-report.md
+        - title: Steering report delivery
+          summary: Read deployment waits, shared capacity and report deltas.
+          path: sessions/steering-report-delivery.md
+        - title: Fleet policy
+          summary: Read session launch limits and supervision policy.
+          path: sessions/fleet-policy.md
+        - title: Path claim model
+          summary: Read claim ownership, path coverage and overlap decisions.
+          path: sessions/model/path-claims.md
+        - title: Linux relay
+          summary: Install and inspect login-scoped Linux relay supervision.
+          path: sessions/linux-relay.md
+        - {title: "Session model", summary: "Read harness identity, liveness and work-claim ownership.", path: "sessions/model/sessions.md"}
+        - {title: "Shared coordination model", summary: "Read shared-operation leases, host queues and session accounting.", path: "sessions/model/coordination.md"}
+    - title: Workflows
+      summary: Choose definitions and follow pinned lifecycle gates and transitions.
+      path: workflows/index.md
+      children:
+        - title: Lifecycle
+          summary: Read item stage authority and independent generated task progression.
+          path: workflows/lifecycle.md
+        - title: Transitions and routing
+          summary: Follow post-merge behavior, skill boundaries and staffing.
+          path: workflows/transitions.md
+        - title: Gates
+          summary: Read readiness and lifecycle gate requirements.
+          path: workflows/gates.md
+        - title: Status model
+          summary: Inspect stage truth, task status and dispatch records.
+          path: workflows/model/statuses.md
+    - title: Strategy
+      summary: Maintain project direction and select ready work from the frontier.
+      path: strategy/index.md
+      children:
+        - title: Frontier
+          summary: Read available, blocked, active and completed work.
+          path: strategy/frontier.md
+        - title: Charge frontier
+          summary: Understand dependency ranking and frontier data models.
+          path: strategy/charge-frontier.md
+        - title: Charge dispatch
+          summary: Read the frontier API and dispatch ranked work.
+          path: strategy/charge-dispatch.md
+    - title: Deployments
+      summary: Follow delivery destinations, inspect runs and read release authority.
+      path: deployments/index.md
+      children:
+        - title: Start diagnostics
+          summary: Diagnose candidate preparation, containment refresh and start timing.
+          path: deployments/start-diagnostics.md
+        - title: Runs
+          summary: Read deployment run composition and carried-work authority.
+          path: deployments/model/runs.md
+        - title: Stage receipts
+          summary: Read durable non-QA deployment-stage attempt evidence.
+          path: deployments/model/stage-receipts.md
+        - title: Run members and QA
+          summary: Read member custody, target occupancy and run-bound QA.
+          path: deployments/model/run-members.md
+        - title: Release authorities
+          summary: Read deployed revision checks and release-to-done QA authority.
+          path: deployments/model/releases.md
+        - title: Release notices
+          summary: Read caseless QA, settled-result and owner delivery notices.
+          path: deployments/model/release-notices.md
+        - title: Sites, environments and flows
+          summary: Read deployment targets, flow definitions and supported stage contracts.
+          path: deployments/model/flows.md
+    - title: Databases
+      summary: Inspect declared models, migration conventions and governed repair.
+      path: databases/index.md
+      children:
+        - title: Database reference
+          summary: Read diagnostic columns, packet ownership and current data-model homes.
+          path: databases/reference.md
+        - title: Migration conventions
+          summary: Use timestamp, query-clock and migration-audit conventions.
+          path: databases/migrations.md
+        - title: Migration models
+          summary: Declare migration models, validate their payloads and run migrations.
+          path: databases/migration-model.md
+        - title: Migration pairing
+          summary: Configure migration audit bootstrap, environment pairing and Webapp Packs.
+          path: databases/migration-model-pairing.md
+        - title: Migration fleets
+          summary: Declare and rehearse every live database a release must cover.
+          path: databases/migration-fleet.md
+        - title: Operator data repair
+          summary: Review and apply bounded guarded repairs with audited authority.
+          path: databases/operator-data-repair.md
+        - title: Machine-local evidence
+          summary: Retrieve bounded relay logs, watcher captures and diagnostics from their owner.
+          path: databases/machine-local-evidence.md
+        - title: Projects and capabilities
+          summary: Read project identity, Project Structure and capability schemas.
+          path: databases/model/projects.md
+    - title: Functions
+      summary: Discover typed function envelopes and registered operation families.
+      path: functions/index.md
+      children:
+        - title: Claims
+          summary: Read claim function identities, policies and operation obligations.
+          path: functions/claims.md
+        - title: Items
+          summary: Read item function identities and structured-write contracts.
+          path: functions/items.md
+        - title: Project configuration
+          summary: Read configuration, strategy and shared-file operation contracts.
+          path: functions/project-configuration.md
+        - title: QA
+          summary: Read QA function identities and execution and evidence obligations.
+          path: functions/qa.md
+        - title: Runtime
+          summary: Read runtime function identities, actor roles and output authority.
+          path: functions/runtime.md
+        - title: Tasks
+          summary: Read generated-task, dispatch and review operation contracts.
+          path: functions/tasks.md
+        - title: Workflows
+          summary: Read workflow function identities, immutable pins and routing contracts.
+          path: functions/workflows.md
+        - title: Worktrees
+          summary: Read lane preparation, landing, merge and close-out contracts.
+          path: functions/worktrees.md
+        - title: Models
+          summary: Read effective-dated model catalog and publication functions.
+          path: functions/models.md
+        - {title: "Landing attempts", summary: "Read durable evidence for a new landing of an item that already landed.", path: "functions/merge-queue-landing-attempts.md"}
+        - {title: "Steering dependencies", summary: "Read dependency deadlocks, waiting chains and minimal-edge recovery.", path: "functions/steering-report-dependencies.md"}
+    - title: Verification
+      summary: Define cases, execute project plans and inspect evidence for workflow gates.
+      path: verification/index.md
+      children:
+        - {title: "Local connection repair", summary: "Repair local credentials and actor references while preserving the selected connection.", path: "verification/local-connection-repair.md"}
+        - {title: "Server health readiness", summary: "Read cached server readiness, startup probes and named recovery.", path: "verification/health-readiness.md"}
+        - {title: "Browser action evidence", summary: "Budget browser actions and retain original failure and timing evidence.", path: "verification/browser-action-evidence.md"}
+        - {title: "QA platform", summary: "Read obligation dimensions, materialization and evidence gates.", path: "verification/platform.md"}
+        - {title: "Requirement discharges", summary: "Derive requirements and settle waived, superseded or retracted obligations.", path: "verification/requirement-discharges.md"}
+        - {title: "Requirement state", summary: "Evaluate current attempts, review authority and exact subject proof.", path: "verification/requirement-state.md"}
+        - {title: "Standalone plans", summary: "Run project plans and recover an interrupted or ambiguous execution.", path: "verification/standalone-plans.md"}
+        - {title: "Success policy", summary: "Apply all-pass aggregation and attempt-local measurements.", path: "verification/success-policy.md"}
+        - {title: "Case attachment", summary: "Bind cases to authorized items, tasks and deployment targets.", path: "verification/case-attachment.md"}
+        - {title: "Starting state and activity", summary: "Declare Machine starting state and read case activity.", path: "verification/case-attachment-rules.md"}
+        - {title: "Deployment plan execution", summary: "Run frozen cases across members, machines and shared host turns.", path: "verification/deployment-plan-execution.md"}
+        - {title: "Browser targets", summary: "Select Browser targets, methods, identities and viewport configuration.", path: "verification/browser-targets.md"}
+        - {title: "Browser scenarios", summary: "Author actions and assertions, then execute the Browser case.", path: "verification/browser-scenarios.md"}
+        - {title: "Browser evidence", summary: "Read captures and distinguish execution from inspected verdicts.", path: "verification/browser-evidence.md"}
+        - {title: "Browser identities", summary: "Declare personas, sign in and use isolated browser profiles.", path: "verification/browser-identities.md"}
+        - {title: "Exploratory missions", summary: "Define discovery territory and follow execution, review and human gates.", path: "verification/exploration.md"}
+        - {title: "Exploratory evidence", summary: "Use substrates, retain evidence and submit mission decisions.", path: "verification/exploration-evidence.md"}
+        - {title: "QA model", summary: "Read requirement, execution and artifact storage contracts.", path: "verification/model/qa.md"}
+        - {title: "QA CLI", summary: "Use registered requirement, execution and evidence commands.", path: "verification/qa-cli.md"}
+        - {title: "Test Machine desktop", summary: "View remote desktops and recover cleanup or disk-space refusals.", path: "verification/test-machine-desktop.md"}
+        - {title: "Linux golden home", summary: "Read Linux baseline capture, restore and timeout recovery.", path: "verification/linux-golden-home.md"}
+        - {title: "Linux desktop applications", summary: "Detect installed desktop versions without starting the apps.", path: "verification/linux-desktop-apps.md"}
+        - {title: "Product smoke", summary: "Find the source-maintainer smoke procedure and project plan entry.", path: "verification/product-smoke.md"}
+        - {title: "Real harness QA", summary: "Find real-harness Machine checks and their subject identity contract.", path: "verification/real-harness.md"}
+    - title: Operations
+      summary: Inspect events, run health checks, record learning and diagnose performance.
+      path: operations/index.md
+      children:
+        - {title: "Universe retention", summary: "Preview and prune disposable records with protected state and bounded recovery.", path: "universe-retention.md"}
+        - {title: "Events", summary: "Read telemetry admission, attribution and visitor links.", path: "operations/events.md"}
+        - {title: "Doctor", summary: "Run applicable health checks and recover incomplete evidence.", path: "operations/doctor.md"}
+        - {title: "Ouroboros", summary: "Record observations and improve delivery through the learning loop.", path: "operations/ouroboros.md"}
+        - {title: "Event model", summary: "Read the event log, severity configuration and registry.", path: "operations/model/events.md"}
+        - {title: "Performance diagnostics", summary: "Inspect exact timing observations and their unknowns.", path: "operations/performance-diagnostics.md"}
+    - title: Runtime
+      summary: Encode native instants, verify clocks and find timestamp ownership boundaries.
+      path: runtime/index.md
+      children:
+        - {title: "Instant encoding", summary: "Use native instants and fixed-six UTC wire values.", path: "runtime/time/encoding.md"}
+        - {title: "Clock verification", summary: "Validate inputs, retain deadlines and recover governed history.", path: "runtime/time/verification.md"}
+        - {title: "Timestamp owners", summary: "Find work, session, claim, workflow and delivery clock writers.", path: "runtime/time/ownership.md"}
+        - {title: "Integration owners", summary: "Find identity, provider and external adapter clock boundaries.", path: "runtime/time/ownership-integrations.md"}
+        - {title: "Verification owners", summary: "Find artifact, projection, QA, Doctor and fixture clock boundaries.", path: "runtime/time/ownership-verification.md"}
+    - title: Documentation
+      summary: Write, navigate and verify complete, concise teaching.
+      path: documentation/index.md
+      children:
+        - title: Verification
+          summary: Validate complete teaching, publication copies and exact candidate proof.
+          path: documentation/verification.md
+        - title: Navigation contract
+          summary: Share page routes, heading fragments and exact corpus identity.
+          path: documentation/navigation.md

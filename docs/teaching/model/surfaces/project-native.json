@@ -6,10 +6,10 @@
  "audience": "Agent",
  "encounter": "Native session load",
  "location": "AGENTS.md managed block + project-owned rules; harness-specific native adapters",
- "basis": "Existing mechanism · revised outline",
+ "basis": "Inspected managed rules and harness-specific native adapters",
  "note": "Project-owned additions carry local policy. Yoke’s own production rules and Platform runbooks stay in their owning projects.",
- "current": "Existing source references; delivered content is not yet proved.",
+ "current": "The managed rules retain project-owned additions and point at installed .yoke/docs/agents/rules operation homes and agents/harness-discovery.md. Shared teaching includes concise user writing, claim/lane authority, typed operations and verification ownership. Native adapter/source files and automated install tests do not prove the complete actual payload received by an unrelated-project main or worker.",
  "desired": "Keep existing project rules; concise complete obligations with exact operation homes. Add no second project startup block.",
  "plan_notes": ["JOURNEYS static-guidance principle", "Project-context routing proposal"],
- "sources": ["AGENTS.md:75", "packages/yoke-core/src/yoke_core/domain/install_bundle_managed.py:25", "runtime/harness/claude/rules/session.md:1", "docs/public/reference/harness-discovery.md:9"]
+ "sources": ["AGENTS.md", "docs/public/agents/harness-discovery.md", "docs/public/agents/rules/code-and-cli.md", "packages/yoke-core/src/yoke_core/domain/install_bundle_managed.py"]
 }

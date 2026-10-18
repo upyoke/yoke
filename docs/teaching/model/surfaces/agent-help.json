@@ -5,11 +5,11 @@
  "scope": "Global + project-aware route",
  "audience": "Human with agent",
  "encounter": "Question or help invocation",
- "location": "/yoke help in a project; planned yoke-global outside",
- "basis": "Existing project skill · global planned",
+ "location": "/yoke help in an installed project; public docs and CLI help outside one",
+ "basis": "Inspected project Help skill; global appearance remains pending",
  "note": "A human-facing router. It does not become a second copy of every skill or command reference.",
- "current": "The project Help skill routes product documentation to installed .yoke/docs/index.md; automated external-project install/refresh proof is in test_installed_project_context.py. Live receiving-harness delivery is unproven.",
+ "current": "The project Help skill answers general requests with the overview and specific topics with the complete recipe and installed deeper home. It routes product documentation to .yoke/docs/index.md and distinguishes project-owned guidance. Outside a project, public docs and command --help are available; user-level yoke-global appearance and global hook orientation remain absent/pending under YOK-3975. Source/fixture evidence does not prove a live receiving agent answer.",
  "desired": "General answer: overview. Specific question: complete short recipe. Installed help routes to .yoke/docs/index.md.",
  "plan_notes": ["FIRST-USER 8/P4", "JOURNEYS progressive guidance"],
- "sources": [".agents/skills/yoke/SKILL.md", ".agents/skills/yoke/help/SKILL.md", "docs/public/operating-with-agents.md"]
+ "sources": [".agents/skills/yoke/help/SKILL.md", "docs/public/cli/help.md", "docs/public/agents/index.md"]
 }

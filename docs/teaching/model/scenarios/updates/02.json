@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke status", "yoke ui status", "yoke relay status", "yoke project install --help"],
  "plan_notes": ["FIRST-USER items 6,15", "FIRST-USER E"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/session_orientation.py", "docs/public/install.md", "packages/yoke-cli/src/yoke_cli/hook_resident_lifecycle.py"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/session_orientation.py", "docs/public/start/install.md", "packages/yoke-cli/src/yoke_cli/hook_resident_lifecycle.py"],
  "position": 1
 }

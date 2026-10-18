@@ -6,5 +6,6 @@
  "coverage": "partial",
  "current": "Source behavior: required-per-task readiness defers before generated tasks exist, then reports uncovered paths from the same task coverage evaluator used by claim gates. Whole-item claims do not substitute for task bindings; regressions cover pre-task, missing and partial coverage. Source now releases item-owned claims at recorded landing, exposes holder-only release and cancel commands, and requires fresh coverage for rework; live rollout proof remains pending. After landing, the merge boundary and the selected Dash path-claims done gate both check touched files against the claims released at that landing; open rework claims replace that coverage. Satisfied dependency ordering now contributes effective coordination without rewriting its stored edge; other unmet conditions keep serialization.",
  "questions": ["Overlap procedure and current override source were inspected, but collision/authorization scenarios were not executed.", "Verify each scope expansion/refusal routes to current registered commands and never recommends dropping required work.", "Command nodes, when present, were checked with installed CLI --help only; this proves parser/help availability, not serving-control-plane capability or successful execution."],
- "related_scenarios": ["dependencies", "shared-coordination", "task-graph-planning"]
+ "related_scenarios": ["dependencies", "shared-coordination", "task-graph-planning"],
+ "sources": ["docs/public/sessions/model/path-claims.md", "docs/public/agents/rules/lanes-and-claims.md"]
 }

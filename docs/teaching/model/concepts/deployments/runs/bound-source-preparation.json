@@ -1,0 +1,11 @@
+{
+ "id": "bound-source-preparation",
+ "title": "Prepare unconsumed bound sources",
+ "status": "observed",
+ "page": "deployment-sources",
+ "position": 6,
+ "functions": ["deployment_runs.execution.bound_sources_prepare"],
+ "sources": ["docs/public/deployments/model/runs.md", "docs/public/agents/rules/delivery.md"],
+ "summary": "Before a stage first consumes a bound project, the driver may refresh a stale pin to the declared branch head, record its from/to rebindings and rederive newly carried work through existing admission rules. Existing member facts and requirement snapshots stay fixed. consumed_by and consumed_at are recorded before dispatch; a moved consumed source requires a new run. Source walks precede locks; changed preparation state refuses a same-run retry. Missing or unreadable evidence never authorizes dispatch.",
+ "verification": "The public bound-sources procedure is the direct function home. Source teaching observed; no source pin, deployment membership, stage or run was changed or proved live."
+}

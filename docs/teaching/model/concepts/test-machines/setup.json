@@ -4,6 +4,6 @@
  "status": "draft-copy",
  "commands": ["yoke test-machine desktop-access", "yoke test-machine verify"],
  "functions": ["test_machine.desktop_access", "test_machine.verify"],
- "page": "test-machines",
+ "page": "test-machine-setup",
  "position": 0
 }

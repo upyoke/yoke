@@ -2,7 +2,7 @@
  "id": "repositories",
  "title": "Repositories, Git and GitHub",
  "status": "draft-copy",
- "sources": ["docs/public/github.md", "docs/public/reference/github-sync.md", "docs/public/projects.md"],
+ "sources": ["docs/public/github/index.md", "docs/public/github/sync.md", "docs/public/projects/index.md"],
  "page": "repositories",
  "position": 35
 }

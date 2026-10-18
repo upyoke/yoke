@@ -113,7 +113,9 @@ Adapters build the function-call envelope: `actor.session_id` binds the harness;
 - _Write epic task body / metadata via CLI adapters_
   - `yoke workflow-item epic-task body-replace --epic PREFIX-1704 --task-num 5 --body-file PATH`
   - `yoke workflow-item epic-task metadata-update --epic PREFIX-1704 --task-num 5 --fields-json '{"max_attempts": 2}'`
-- _Find or request the CLI adapter for a function id_
+- _Read operation rules and find the CLI adapter for a function id_
+  - `cat .yoke/docs/agents/rules/code-and-cli.md`
+  - `cat .yoke/docs/documentation/index.md`
   - `yoke <family> --help`
 - _Field-note channel: log a failed/new/unclear recipe or observation_
   - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths' --correlation-id polish-run-2026-05-20`
@@ -222,64 +224,11 @@ Dash, Conduct, Implement, Polish, Usher, or Blitz). Engineer and Tester report
 the overlap to that parent and do not author the edge. When no live work-claim
 holder exists, route to `/yoke refine`.
 
-## Technical Plan Template
+## Plan and task templates
 
-Under `## Technical Plan`, in order:
-`### Technical Approach`, `### Architecture Decisions`, `### Dependencies`,
-`### Task Summary`, `### FR Traceability`, `### Task Dependency Graph`,
-`### Interface Contracts`, `### Acceptance Criteria`, `### Risk Assessment`.
-Task Summary and FR Traceability are tables. Every spec FR maps to tasks and
-epic ACs, every epic AC to task ACs. Without FR identifiers enumerate R-1 etc.
-No unmapped requirement: implement or evidence-backed Coverage Note exclusion.
-
-## Task Template
-
-Every task carries required parseable YAML and all sections:
-
-````markdown
----
-worktree: PREFIX-{N}
-context_estimate: M
-dependencies: none
----
-# Task {NNN}: {Title}
-## Description
-{verified paths and semantic source anchors; never line numbers}
-## Acceptance Criteria
-- [ ] AC-1: {specific independently testable behavior}
-## Test Plan
-{unit, integration and applicable manual checks}
-## Interface Contract — Provides
-{path, exports, types/signatures and exact behavior}
-## Interface Contract — Expects
-{upstream task/path, exports, types/signatures and behavior required}
-## Cross-Script Contracts
-{conditional: exact data schema/nesting, arguments, exits and transforms;
-subprocess environment/cwd, old/new error models and caller guards}
-## Watch Out For
-{conditional boundary/error/data gotchas with references and mitigation}
-## Documentation Requirements
-{new docs and all existing docs to update}
-## Files Touched
-- {create|modify|delete} `{exact/path}` — {responsibility}
-````
-
-`## Files Touched` is the task's only file list: coverage, claims and lane
-narrowing parse it. One bullet per file with the path in backticks; a task
-touching no repository file writes exactly `None — no repository files`.
-
-Omit conditional sections when irrelevant. Include functional naming obligation
-where creating/renaming live surfaces. Enabled File Budget names each planned
-file and single responsibility, with sizing/headroom decisions before implementation.
-Live-state ACs use exactly `[READ-ONLY]` (inspect; mismatch report/stop, no repair)
-or `[APPLY-MUTATION]` (sanctioned domain write). No alternate spellings. Untagged
-live state defaults read-only. State recovery/rollback for all mutations.
-
-worktree is bare PREFIX-{N} for single lane, otherwise PREFIX-{N}-{short-kebab-
-concern}; all tasks in one lane share its value. context_estimate XS/S/M/L,
-never XL. dependencies are comma-separated task ids or none; cross-lane upstream
-ids gate consumer activation until required merge. Smaller coherent tasks are
-safer than oversized multi-concern work; beyond about20 propose epic split.
+Before authoring a plan or task, read `.claude/agents/references/architect/task-templates.md`
+for the complete technical-plan sections, task YAML, interfaces, traceability,
+classification and recovery requirements.
 
 ## Integration safeguards
 

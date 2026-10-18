@@ -61,5 +61,5 @@ Only verified terminal success reports completion.
 
 Before a nonterminal stop, checkpoint current stage, committed/dirty work and
 next command. A handoff reason=level_change takes precedence over release wait;
-follow [stage-level routing](../../../../.yoke/docs/reference/session-level-routing.md)
+follow [stage-level routing](../../../../.yoke/docs/agents/levels.md)
 and its exact successor command. Release waits obey current claim/park mandate.

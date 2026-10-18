@@ -111,7 +111,7 @@ def test_command_help_stays_within_its_fixed_fixture_budget(
         f"Advisory help budget: {command}: {len(output)} characters; target {ceiling}"
     )
     if command in ("messages send", "say"):
-        assert ".yoke/docs/items-and-sessions.md" in output
+        assert ".yoke/docs/sessions/inbox.md" in output
 
 
 def test_startup_packet_points_at_the_help_that_carries_the_recipe() -> None:
@@ -146,7 +146,7 @@ def test_launch_sentence_names_the_message_read() -> None:
     "path",
     [
         "AGENTS.md",
-        "docs/public/reference/agent-rules/code-and-cli.md",
+        "docs/public/agents/rules/shell-and-cli.md",
         "runtime/agents/engineer/large-output.md",
     ],
 )

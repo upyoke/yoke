@@ -43,7 +43,8 @@ def test_canonical_browser_docs_use_method_case_contract() -> None:
         AGENT_OVERVIEW,
         BROWSER_SUBSTRATE,
         CASE_ORCHESTRATION,
-        REPO / "docs/public/reference/browser-scenarios.md",
+        REPO / "docs/public/verification/browser-scenarios.md",
+        REPO / "docs/public/verification/browser-targets.md",
     )
     text = "\n".join(_read(path) for path in paths)
 
@@ -59,6 +60,20 @@ def test_canonical_browser_docs_use_method_case_contract() -> None:
         "yoke qa browser run",
     ):
         assert retired not in text
+
+
+def test_browser_configuration_and_execution_have_separate_homes() -> None:
+    targets = _read(REPO / "docs/public/verification/browser-targets.md")
+    scenarios = _read(REPO / "docs/public/verification/browser-scenarios.md")
+    assert "## Browser Methods" in targets
+    assert "## Method configuration" in targets
+    assert "## Where a Browser case runs" in targets
+    assert "## Viewport" in targets
+    assert "method_config" in targets
+    assert "## Action reference" in scenarios
+    assert "## Assertion checks" in scenarios
+    assert "## Execution" in scenarios
+    assert "yoke qa case run" in scenarios
 
 
 def test_tester_protocol_runs_each_case_with_freshness_identity() -> None:

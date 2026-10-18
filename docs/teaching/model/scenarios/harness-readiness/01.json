@@ -11,6 +11,6 @@
  "review": "runtime/api/engines/test_doctor_session.py, runtime/api/cli/test_setup_agent_session_readiness.py and runtime/api/domain/test_session_orientation_repair.py cover active-harness scoping, recovery lines, setup's final step and once-only mid-session orientation; observed passing live in a Claude Code CLI session.",
  "recipes": ["yoke sessions identity", "yoke doctor run --help"],
  "plan_notes": ["FIRST-USER C", "FIRST-USER D", "FIRST-USER E", "FIRST-USER 6", "FIRST-USER 23", "JOURNEYS 3"],
- "sources": ["docs/public/reference/harness-discovery.md", "packages/yoke-core/src/yoke_core/domain/session_orientation_delivery.py", "packages/yoke-core/src/yoke_core/engines/doctor_session.py", "docs/public/guides/agent-setup.md", ".agents/skills/yoke/onboard/SKILL.md"],
+ "sources": ["docs/public/agents/harness-discovery.md", "packages/yoke-core/src/yoke_core/domain/session_orientation_delivery.py", "packages/yoke-core/src/yoke_core/engines/doctor_session.py", "docs/public/start/agent-setup.md", ".agents/skills/yoke/onboard/SKILL.md"],
  "position": 0
 }

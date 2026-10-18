@@ -211,6 +211,44 @@ def _normalize_migration_strategy(
     return strategy, justification
 
 
+# Canonical key order for the declared-state payload.  Serialization is
+# sort_keys=True for stability, but the ordering here matches the spec's
+# read order and is documented for future contributors.
+_DECLARED_KEYS = (
+    "state",
+    "model_name",
+    "mutation_intent",
+    "migration_modules",
+    "compatibility_class",
+    "migration_strategy",
+    "migration_strategy_justification",
+    "schema_kinds",
+    "data_kinds",
+    "affected_surfaces",
+    "count_preserving",
+)
+_REQUIRED_DECLARED_KEYS = frozenset(
+    {
+        "state",
+        "model_name",
+        "mutation_intent",
+        "migration_modules",
+        "compatibility_class",
+    }
+)
+_OPTIONAL_DECLARED_KEYS = frozenset(
+    {
+        "schema_kinds",
+        "data_kinds",
+        "affected_surfaces",
+        "count_preserving",
+        "migration_strategy",
+        "migration_strategy_justification",
+    }
+)
+_THEOREM_BEARING_KEYS = frozenset(_DECLARED_KEYS) - {"state"}
+
+
 __all__ = [
     "DbMutationProfileError",
     "MIGRATION_STRATEGY_ADDITIVE_ONLY",

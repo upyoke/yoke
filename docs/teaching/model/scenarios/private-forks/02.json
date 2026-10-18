@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke relay status", "yoke relay install --help", "yoke update --help"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/private-forks.md", "docs/public/reference/linux-relay.md", "packages/yoke-cli/src/yoke_cli/config/distribution.py"],
+ "sources": ["docs/public/projects/private-forks.md", "packages/yoke-cli/src/yoke_cli/config/distribution.py", "docs/public/sessions/linux-relay.md"],
  "position": 1
 }

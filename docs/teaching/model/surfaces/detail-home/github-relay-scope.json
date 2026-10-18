@@ -5,6 +5,6 @@
  "form": "Do",
  "verification": "Source-backed public guidance authored; installed/web delivery is checked after release.",
  "topics": ["repositories/github/github-app-and-relay-access", "repositories/actions/ci-verdict-wake", "machines/relay/ci-wake-machine", "machines/relay/linux-supervision-and-linger"],
- "sources": ["docs/public/github.md", "docs/public/reference/linux-relay.md"],
+ "sources": ["docs/public/github/index.md", "docs/public/sessions/linux-relay.md"],
  "position": 7
 }

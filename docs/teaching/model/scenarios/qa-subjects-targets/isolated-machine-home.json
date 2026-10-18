@@ -8,6 +8,6 @@
  "disclosure": "current cue",
  "surface": "Command case source guidance and source-development doctrine",
  "review": "Source and regression coverage; deployed behavior is not yet proven.",
- "sources": ["docs/source-dev-doctrine.md", "docs/testing-verification/source-development.md", "docs/public/reference/agent-rules/verification.md", "runtime/api/domain/test_qa_candidate_isolated_watcher.py"],
+ "sources": ["docs/source-dev-doctrine.md", "docs/testing-verification/source-development.md", "docs/public/agents/rules/verification.md", "runtime/api/domain/test_qa_candidate_isolated_watcher.py"],
  "position": 4
 }

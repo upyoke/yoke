@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke ouroboros field-note append --help", "yoke ouroboros field-note list --unreviewed"],
  "plan_notes": ["outside both"],
- "sources": ["AGENTS.md", "packages/yoke-contracts/src/yoke_contracts/field_note_text.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/ouroboros_field_note.py", "docs/public/events-doctor-ouroboros.md"],
+ "sources": ["AGENTS.md", "packages/yoke-contracts/src/yoke_contracts/field_note_text.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/ouroboros_field_note.py", "docs/public/operations/ouroboros.md"],
  "position": 0
 }

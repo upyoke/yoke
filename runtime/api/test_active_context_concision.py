@@ -49,7 +49,7 @@ class TestCurrentStateCheckpointTeaching:
     def test_wrapup_progress_log_is_a_checkpoint_template(self):
         text = _command("wrapup")
         assert "current-state checkpoint" in text
-        assert "--headline \"Session checkpoint\"" in text
+        assert '--headline "Session checkpoint"' in text
         assert "Objective:" in text
         assert "Standing decisions/holds:" in text
         assert "Active work:" in text
@@ -79,9 +79,7 @@ class TestCurrentStateCheckpointTeaching:
         assert "do not copy historical status sections" in skill.lower()
 
     def test_progress_log_deep_home_is_a_checkpoint(self):
-        text = _words(
-            _read("docs/public/reference/agent-rules/item-writes.md")
-        )
+        text = _words(_read("docs/public/agents/rules/item-writes.md"))
         assert "current-state checkpoint" in text
         assert "Do not restate full results" in text
         assert "historical status snapshots" in text

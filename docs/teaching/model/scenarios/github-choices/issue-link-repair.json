@@ -10,6 +10,6 @@
  "gap": "Candidate source and regression tests require deployed proof before verified-live status.",
  "review": "Source implementation uses the compact body actually sent by creation; old task title fallback is removed.",
  "plan_notes": ["FIRST-USER 2"],
- "sources": ["docs/public/reference/github-sync.md", "packages/yoke-core/src/yoke_core/domain/github_dedup.py", "packages/yoke-core/src/yoke_core/domain/handlers/items_github_link.py"],
+ "sources": ["docs/public/github/sync.md", "packages/yoke-core/src/yoke_core/domain/github_dedup.py", "packages/yoke-core/src/yoke_core/domain/handlers/items_github_link.py"],
  "position": 50
 }

@@ -51,9 +51,7 @@ def test_readiness_repair_verification_defers_to_project_command() -> None:
 
 
 def test_db_reference_rehearsal_commands_use_watcher() -> None:
-    text = _read(
-        REPO / ".yoke" / "docs" / "reference" / "db-reference" / "items-and-epics.md"
-    )
+    text = _read(REPO / ".yoke" / "docs" / "items" / "model" / "items.md")
     assert (
         '"rehearsal_commands": ["yoke watch pytest -- <project-test-path>"]'
     ) in text
@@ -122,7 +120,7 @@ def test_verification_teaching_does_not_treat_uncommitted_as_local_reason() -> N
     assert "small targeted check expected to finish in about one minute" in agents
     session = _read(REPO / "runtime" / "harness" / "claude" / "rules" / "session.md")
     assert "Read `AGENTS.md` for shared rules" in session
-    assert ".yoke/docs/reference/agent-rules/claude-sessions.md" in session
+    assert ".yoke/docs/agents/rules/claude-sessions.md" in session
     inventory = _read(REPO / ".yoke" / "test-inventory.md")
     assert "python3 -m pytest <targeted files>" not in inventory
     assert "expected to finish in about one minute" in inventory

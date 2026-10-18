@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke workflows item get PREFIX-N", "yoke steering report get"],
  "plan_notes": ["JOURNEYS row 11", "JOURNEYS row 7"],
- "sources": ["docs/public/index.md", "docs/public/operating-with-agents.md", ".agents/skills/yoke/steer/SKILL.md"],
+ "sources": ["docs/public/index.md", "docs/public/agents/index.md", ".agents/skills/yoke/steer/SKILL.md"],
  "position": 0
 }
