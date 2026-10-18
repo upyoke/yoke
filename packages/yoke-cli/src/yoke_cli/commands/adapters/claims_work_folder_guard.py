@@ -56,8 +56,16 @@ def _work_item(item_ref: str) -> dict:
             else "ITEM_LOOKUP_FAILED: authority read failed"
         )
     fields = (response.result or {}).get("fields") or {}
+    # items.get serves every field as text, so the project id arrives as digits.
+    raw_project = fields.get("project_id")
+    project_id = (
+        int(raw_project)
+        if isinstance(raw_project, str) and raw_project.isdigit()
+        else raw_project
+    )
     if (
-        not isinstance(fields.get("project_id"), int)
+        not isinstance(project_id, int)
+        or isinstance(project_id, bool)
         or not fields.get("title")
         or not (response.result or {}).get("public_ref")
     ):
@@ -67,6 +75,7 @@ def _work_item(item_ref: str) -> dict:
         )
     return {
         **fields,
+        "project_id": project_id,
         "public_ref": response.result["public_ref"],
     }
 
