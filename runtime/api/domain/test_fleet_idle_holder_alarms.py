@@ -15,7 +15,6 @@ from yoke_core.domain.fleet_delta_snapshot import (
     SESSIONS_FUNCTION,
     FleetSnapshot,
     SessionRow,
-    process_state,
     read_snapshot,
     session_rows,
 )
@@ -34,7 +33,7 @@ def _session(session_id: str, **overrides) -> SessionRow:
         "terminated": False,
         "activity_at": STALE,
         "claimed_items": ("YOK-1",),
-        "process": "running",
+        "message_delivery": "mid-turn — message waits until the turn ends",
     }
     fields.update(overrides)
     return SessionRow(**fields)
@@ -54,7 +53,8 @@ def test_idle_holder_fires_past_threshold_and_holds_inside_the_cadence() -> None
     first = idle_holder_alarms(_snapshot(_session("a")), state)
     assert len(first) == 1
     assert "ALARM idle-holder session=a items=YOK-1 idle=21m mode=dash" in first[0]
-    assert "mode=dash reason=none process=running" in first[0]
+    assert "delivery='mid-turn — message waits until the turn ends'" in first[0]
+    assert "process=" not in first[0]
 
     later = NOW + timedelta(minutes=IDLE_HOLDER_REPEAT_MINUTES - 1)
     assert idle_holder_alarms(_snapshot(_session("a"), at=later), state) == []
@@ -69,10 +69,10 @@ def test_parked_holder_past_threshold_alarms_with_its_reason() -> None:
     assert "mode=parked reason='waiting on YOK-3965'" in line
 
 
-def test_exited_process_holder_alarms_with_process_exited() -> None:
-    gone = _session("g", mode="parked", parked=True, process="exited")
+def test_between_turns_holder_alarms_with_message_wake() -> None:
+    gone = _session("g", message_delivery="between turns — message wakes it")
     [line] = idle_holder_alarms(_snapshot(gone), DeltaState())
-    assert "process=exited" in line
+    assert "delivery='between turns — message wakes it'" in line
 
 
 def test_still_idle_holder_reraises_after_the_cadence() -> None:
@@ -106,21 +106,12 @@ def test_fresh_unclaimed_and_landing_holders_stay_quiet() -> None:
     assert idle_holder_alarms(snapshot, DeltaState()) == []
 
 
-def test_process_state_reads_hidden_clean_exit_and_older_rosters() -> None:
-    assert (
-        process_state({"native_process": None, "native_process_exited_at": None})
-        == "running"
-    )
-    assert (
-        process_state({"native_process": None, "native_process_exited_at": "t"})
-        == "exited"
-    )
-    assert process_state({"native_process": {"state": "gone"}}) == "exited"
-    assert process_state({"native_process": {"state": "resuming"}}) == "resuming"
-    assert process_state({"native_process": None}) == "unknown"
+def test_older_roster_does_not_invent_delivery_state() -> None:
+    row = session_rows({"rows": [{"session_id": "old"}]})["old"]
+    assert row.message_delivery == "delivery state unknown — inspect session evidence"
 
 
-def test_session_rows_carry_park_reason_and_process() -> None:
+def test_session_rows_carry_park_reason_and_delivery() -> None:
     rows = session_rows(
         {
             "rows": [
@@ -128,8 +119,7 @@ def test_session_rows_carry_park_reason_and_process() -> None:
                     "session_id": "p",
                     "mode": "parked",
                     "quiet_reason": "awaiting operator",
-                    "native_process": None,
-                    "native_process_exited_at": "2026-08-28T16:00:00Z",
+                    "message_delivery": "parked awaiting operator",
                     "claims": [{"target_kind": "item", "target": "YOK-1"}],
                 }
             ]
@@ -137,7 +127,8 @@ def test_session_rows_carry_park_reason_and_process() -> None:
     )
     row = rows["p"]
     assert row.parked and row.quiet_reason == "awaiting operator"
-    assert row.process == "exited" and row.claimed_items == ("YOK-1",)
+    assert row.message_delivery == "parked awaiting operator"
+    assert row.claimed_items == ("YOK-1",)
 
 
 def test_probe_reads_the_full_live_roster_rather_than_the_summary_page() -> None:

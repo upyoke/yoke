@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from yoke_core.domain.session_mode import session_is_parked
+from yoke_core.domain.session_message_reachability import DELIVERY_UNKNOWN
 
 #: Registered function ids this observation is composed from.
 SESSIONS_FUNCTION = "sessions.list"
@@ -29,10 +30,6 @@ STEERING_REPORT_FUNCTION = "steering.report.get"
 #: Every live session with claims, activity, park reason and process facts;
 #: the routine summary page omits them all and so shows no holders.
 SESSIONS_PAYLOAD = {"open": True, "detail": "full"}
-
-PROCESS_RUNNING = "running"
-PROCESS_EXITED = "exited"
-PROCESS_UNKNOWN = "unknown"
 
 #: Envelope rows fetched per pass. Starvation lives at the recent end of
 #: the list, so a bounded page is the whole working set.
@@ -68,7 +65,7 @@ class SessionRow:
     claimed_items: tuple[str, ...] = ()
     landing_waits: tuple[str, ...] = ()
     quiet_reason: str = ""  # the park reason, or empty
-    process: str = PROCESS_UNKNOWN  # see :func:`process_state`
+    message_delivery: str = DELIVERY_UNKNOWN
 
     @property
     def lifecycle(self) -> str:
@@ -147,21 +144,6 @@ def _result(response: Any, function_id: str) -> dict[str, Any]:
     return dict(getattr(response, "result", None) or {})
 
 
-def process_state(raw: Mapping[str, Any]) -> str:
-    """``running``/``exited``/``resuming``, or ``unknown`` from an older roster.
-
-    ``native_process`` omits a clean exit that a declared wait explains;
-    ``native_process_exited_at`` carries every unsuperseded exit.
-    """
-    projected = raw.get("native_process")
-    if isinstance(projected, Mapping):
-        state = str(projected.get("state") or "")
-        return state if state == "resuming" else PROCESS_EXITED
-    if "native_process_exited_at" not in raw:
-        return PROCESS_UNKNOWN
-    return PROCESS_EXITED if raw["native_process_exited_at"] else PROCESS_RUNNING
-
-
 def session_rows(result: Mapping[str, Any]) -> dict[str, SessionRow]:
     """Normalize a ``sessions.list`` result into roster rows.
 
@@ -193,7 +175,7 @@ def session_rows(result: Mapping[str, Any]) -> dict[str, SessionRow]:
             claimed_items=tuple(ref for ref, _ in claims),
             landing_waits=tuple(ref for ref, landing in claims if landing),
             quiet_reason=str(raw.get("quiet_reason") or ""),
-            process=process_state(raw),
+            message_delivery=str(raw.get("message_delivery") or DELIVERY_UNKNOWN),
         )
     return rows
 
@@ -330,9 +312,6 @@ __all__ = [
     "FleetReadError",
     "FleetSnapshot",
     "ItemRow",
-    "PROCESS_EXITED",
-    "PROCESS_RUNNING",
-    "PROCESS_UNKNOWN",
     "SESSIONS_FUNCTION",
     "SESSIONS_PAYLOAD",
     "SessionRow",
@@ -340,7 +319,6 @@ __all__ = [
     "envelope_rows",
     "item_rows",
     "parse_timestamp",
-    "process_state",
     "read_snapshot",
     "session_rows",
 ]
