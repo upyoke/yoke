@@ -225,35 +225,59 @@ def _create(
     conn = connect(db_path)
     try:
         with composition_reads():
-            if db_backend.connection_is_postgres(conn):
-                timed_preparation(
-                    "create_provisional_composition",
-                    validate_before_lock,
-                    conn,
-                    project,
-                    **request,
-                    **run,
-                )
-                for attempt in range(8):
-                    try:
-                        with (
-                            bounded_run_write(conn, "new release"),
-                            prepared_sources_only(),
-                        ):
-                            timed_preparation(
-                                "create_lock", conn.execute, _CREATE_LOCK_SQL
-                            )
-                            return _create_locked(conn, project, **request, **run)
-                    except SourcePreparationChanged as exc:
-                        conn.rollback()
-                        if attempt == 7:
-                            raise
-                        # Answer only the new exact source question with every
-                        # write lock released, then revalidate mutable facts.
-                        timed_preparation("create_source_refresh", exc.prepare)
-            return _create_locked(conn, project, **request, **run)
+            created, message = _create_committed(conn, project, request, run)
+            if not created.replayed:
+                _finish_takeover(conn, created.run_id)
+            return created, message
     finally:
         conn.close()
+
+
+def _finish_takeover(conn, run_id: str) -> None:
+    """Record a settled run's carried work once the creation has committed.
+
+    This runs outside the locked validation scope: the settled run's own
+    comparison was never a question of this creation, so it is read from the
+    provider here rather than demanded from preparation, which would retry an
+    already committed creation.
+    """
+    from yoke_core.domain.deployment_run_takeover_settlement import (
+        finish_settled_takeover,
+    )
+
+    timed_preparation(
+        "create_takeover_settlement", finish_settled_takeover, conn, run_id
+    )
+
+
+def _create_committed(
+    conn, project: str, request: dict, run: dict
+) -> tuple[CreatedRun, str]:
+    if db_backend.connection_is_postgres(conn):
+        timed_preparation(
+            "create_provisional_composition",
+            validate_before_lock,
+            conn,
+            project,
+            **request,
+            **run,
+        )
+        for attempt in range(8):
+            try:
+                with (
+                    bounded_run_write(conn, "new release"),
+                    prepared_sources_only(),
+                ):
+                    timed_preparation("create_lock", conn.execute, _CREATE_LOCK_SQL)
+                    return _create_locked(conn, project, **request, **run)
+            except SourcePreparationChanged as exc:
+                conn.rollback()
+                if attempt == 7:
+                    raise
+                # Answer only the new exact source question with every
+                # write lock released, then revalidate mutable facts.
+                timed_preparation("create_source_refresh", exc.prepare)
+    return _create_locked(conn, project, **request, **run)
 
 
 def _create_locked(
@@ -305,13 +329,6 @@ def _create_locked(
     if not valid:
         raise CompositionRefused(message)
     timed_preparation("create_commit", conn.commit)
-    from yoke_core.domain.deployment_run_takeover_settlement import (
-        finish_settled_takeover,
-    )
-
-    timed_preparation(
-        "create_takeover_settlement", finish_settled_takeover, conn, run_id
-    )
     return CreatedRun(run_id, False, basis), message
 
 
