@@ -200,8 +200,13 @@ def execute_machine_case_contract(
                 execution.reach_baseline,
                 failure_code=STARTING_STATE_RESET_FAILED,
             )
+    from yoke_core.domain.machine_qa_continuity import continuity_failure
+
     try:
-        if reset is not None and not reset["ok"]:
+        continuity = continuity_failure(execution, case)
+        if continuity is not None:
+            result = continuity
+        elif reset is not None and not reset["ok"]:
             result = _unstarted_reset_failure(case, machine, reset)
         else:
             result = execute_case_with_fixture_lifecycle(execution, case)
@@ -215,6 +220,8 @@ def execute_machine_case_contract(
         exc.add_note(restore_summary(restore))
         raise
     evidence = dict(result.evidence)
+    if "continuity_fingerprint" in case.method_config and continuity is None:
+        evidence["continuity_fingerprint"] = {"ok": True}
     if restore_due(
         case, result.case_outcome, error_code=result.error_code, verdict=result.verdict
     ):

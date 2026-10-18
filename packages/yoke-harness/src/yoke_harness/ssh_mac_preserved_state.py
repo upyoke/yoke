@@ -15,6 +15,12 @@ OS_MANAGED_HOME_ENTRIES = (
     "Library/Group Containers/group.com.apple.secure-control-center-preferences/"
     "Library/Preferences/group.com.apple.secure-control-center-preferences.av.plist",
 )
+# macOS services recreate protected state while the live user's home is reset.
+OS_SERVICE_HOME_ENTRIES = (
+    "Library/ContainerManager",
+    "Library/Containers/com.apple.photolibraryd",
+    "Library/Biome",
+)
 REQUIRED_PRESERVED_HOME_ENTRIES = (
     ".ssh",
     "Library/Application Support/com.apple.TCC",
@@ -40,6 +46,7 @@ PRESERVED_HOME_ENTRIES = (
     *REQUIRED_PRESERVED_HOME_ENTRIES,
     *HARNESS_LOGIN_HOME_ENTRIES,
     *OS_MANAGED_HOME_ENTRIES,
+    *OS_SERVICE_HOME_ENTRIES,
     *LIVE_IDENTITY_HOME_ENTRIES,
     *BROWSER_SIGN_IN_HOME_ENTRIES,
 )
@@ -69,6 +76,9 @@ def render_preserved_state_contract() -> str:
     ownership = " ".join(
         '! -path "$home"/' + shlex.quote(path) for path in OS_MANAGED_HOME_ENTRIES
     )
+    for path in OS_SERVICE_HOME_ENTRIES:
+        ownership += ' ! -path "$home"/' + shlex.quote(path)
+        ownership += ' ! -path "$home"/' + shlex.quote(path + "/*")
     # Pruned, not filtered: a kept directory's contents stay out of the golden.
     preserved = " -o ".join(
         "-path " + shlex.quote("./" + path) for path in PRESERVED_HOME_ENTRIES

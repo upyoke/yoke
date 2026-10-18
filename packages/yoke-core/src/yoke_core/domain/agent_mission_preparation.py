@@ -75,6 +75,14 @@ def prepare_mission(
     try:
         execution = execution_factory(contract, progress_callback=progress_callback)
         secrets = tuple(execution.material.secrets.values())
+        from yoke_harness.qa_continuity_fingerprint import check_continuity
+
+        phase = "continuity_fingerprint"
+        continuity = check_continuity(
+            execution.control, contract.cases[0].method_config
+        )
+        if continuity is not None:
+            preparation["evidence"]["continuity_fingerprint"] = continuity
         phase = "preparation_heartbeat"
         if progress_callback is not None:
             progress_callback()

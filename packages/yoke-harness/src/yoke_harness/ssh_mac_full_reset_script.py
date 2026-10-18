@@ -133,7 +133,18 @@ record_restore_errors() {
 restore_captured_entry() {
   local captured="$1" target_dir="$2" entry_log="$restore_error_log.entry"
   : > "$entry_log"
-  restore_entry "$captured" "$target_dir" 2>"$entry_log" || true
+  local copy_rc=0
+  restore_entry "$captured" "$target_dir" 2>"$entry_log" || copy_rc=$?
+  # A live service may recreate an entry during the copy. Retry once, and
+  # report the final attempt rather than retaining a transient first failure.
+  if (( copy_rc != 0 )) || [[ -s "$entry_log" ]]; then
+    : > "$entry_log"
+    copy_rc=0
+    restore_entry "$captured" "$target_dir" 2>"$entry_log" || copy_rc=$?
+  fi
+  if (( copy_rc != 0 )) && [[ ! -s "$entry_log" ]]; then
+    print -r -- "copy failed with exit $copy_rc after retry" > "$entry_log"
+  fi
   record_restore_errors "${captured:t}" "$entry_log"
   /bin/rm -f -- "$entry_log" 2>/dev/null || true
   return 0
@@ -290,9 +301,7 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
     )
 
 
-FULL_RESET_SCRIPT = render_full_reset_script(
-    canonical_full_reset_path_contract()
-)
+FULL_RESET_SCRIPT = render_full_reset_script(canonical_full_reset_path_contract())
 
 
 __all__ = [

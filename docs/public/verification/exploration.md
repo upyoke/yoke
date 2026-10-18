@@ -150,7 +150,7 @@ not delivery — cancel it, then `yoke say --preview --actor` and `--actor` for
 the numeric human `items.owner`. A non-numeric, nonhuman, or refused owner is
 a named recovery. `--item` returns the answer to the holder. Acknowledgement
 is not proof. Dispatch a fresh walker, continuing when the held host must keep its state.
-A mission that needs a session a person opens (a sign-in, approval or permission that must survive) declares `"starting_state":"as_is"` with a reason, so no reset erases it, and requests that human action only while it holds the host lease: released, the host's next turn may reset it first. Re-declare an unrun case with `yoke qa requirement update --field starting_state` ([case attachment](case-attachment-rules.md#machine-case-starting-state)).
+A mission that needs a session a person opens (a sign-in, approval or permission that must survive) declares `"starting_state":"as_is"` with a reason, so no reset erases it, and requests that human action only while it holds the host lease: released, the host's next turn may reset it first. A case requiring earlier files also declares `method_config.continuity_fingerprint`; the [starting-state contract](case-attachment-rules.md#machine-case-starting-state) explains recording hashes and the `continuity_lost` refusal before setup or walking. Re-declare an unrun case with `yoke qa requirement update --field starting_state` ([case attachment](case-attachment-rules.md#machine-case-starting-state)).
 
 ## Holding a Walk, and Continuing a Settled One
 
