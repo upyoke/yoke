@@ -77,9 +77,12 @@ def execution_target_for_roster(
     if len({canonical(target) for target in targets}) != 1 or len(set(digests)) != 1:
         raise QaPlanExecutionStateError(
             "qa_plan_requires_environment_scopes: materialized QA roster mixes "
-            "execution targets. Execute each requirement with yoke qa case run, "
-            "or execute each matching deployment QA stage with yoke qa plan run "
-            "--deployment-run-id RUN --stage STAGE --member ITEM."
+            "execution targets. An item plan run (yoke qa plan run --item ITEM "
+            "--transition T) runs one target at a time, so rerun it until "
+            "nothing remains; for a deployment run, execute each matching "
+            "deployment QA stage with yoke qa plan run --deployment-run-id RUN "
+            "--stage STAGE --member ITEM, or each requirement with yoke qa "
+            "case run."
         )
     target = dict(targets[0])
     from yoke_core.domain.qa_execution_environment_target import (
