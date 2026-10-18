@@ -38,7 +38,15 @@ async function loadExecutions(context, requirementId) {
     context, "qa.run.list", { requirement_id: Number(requirementId) },
     { kind: "qa_requirement", qa_requirement_id: Number(requirementId) },
   );
-  return result?.rows || [];
+  const runs = result?.rows || [];
+  if (!Object.hasOwn(result || {}, "current_run_id")) {
+    throw new Error("qa_current_run_identity_unavailable: this view requires the qa.run.list.current_run_id response floor; ask the control-plane operator to serve the release carrying that field, then reload.");
+  }
+  const latest = runs.find((run) => String(run.id) === String(result.current_run_id)) || null;
+  if ((runs.length || result.current_run_id !== null) && !latest) {
+    throw new Error("qa_current_run_identity_unavailable: the selected run is absent from history; reload the case, then ask the control-plane operator to inspect its run identity if this persists.");
+  }
+  return { latest, earlier: runs.filter((run) => run !== latest) };
 }
 
 // Artifacts are resolved through the activity read's shared evidence chain,
@@ -181,8 +189,7 @@ async function loadQaCaseDetail(
   // The newest execution is the case's current answer; the ones before it are
   // its history, and both come from the case's own complete run list rather
   // than from a page of recent activity that may not carry either.
-  const latest = executions[0] || null;
-  const earlier = executions.slice(1);
+  const { latest, earlier } = executions;
   const stage = (stages?.stages || []).find(
     (candidate) => String(candidate.name) === String(requirement.deployment_stage),
   ) || null;
