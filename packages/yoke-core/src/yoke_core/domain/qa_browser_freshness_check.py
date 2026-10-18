@@ -169,7 +169,7 @@ def _latest_browser_run(conn, requirement_id: int):
     run = latest_executions(conn, [requirement_id]).get(requirement_id)
     if (
         run is None
-        or run["performed_by"] == "agent"
+        or run["performed_by"] != "browser_substrate"
         or not has_current_passing_run(conn, requirement_id)
     ):
         return None
@@ -255,7 +255,8 @@ def _browser_freshness_errors(
     errors = [
         f"Error: Cannot transition {name} to '{transition_name}' -- {len(stale_rows)} browser requirement(s) have only stale passing runs.",
         "  Browser runs must record an observed build at or carrying "
-        "the latest code on the branch.",
+        "the revision under verification: the delivered project commit at "
+        "completion, or the latest lane code before delivery.",
     ]
     if latest_code.branch:
         errors.append(f"  Branch: {latest_code.branch}")
