@@ -190,7 +190,7 @@
     "project_configs": [
       ".codex/hooks.json"
     ],
-    "project_config_search": "ancestors",
+    "project_config_in_ancestors": true,
     "events": [
       {
         "native_event": "SessionStart",

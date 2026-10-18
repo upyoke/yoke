@@ -166,7 +166,7 @@
     "project_configs": [
       ".cursor/hooks.json"
     ],
-    "project_config_search": "project_dir",
+    "project_config_in_ancestors": false,
     "events": [
       {
         "native_event": "sessionStart",

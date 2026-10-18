@@ -142,7 +142,7 @@ def _session_folder(environment: Mapping[str, str], payload: Mapping[str, Any]) 
 
 
 def _search_dirs(spec: HarnessMachineHooks, folder: Path) -> list[Path]:
-    if spec.project_config_search == "project_dir":
+    if not spec.project_config_in_ancestors:
         return [folder]
     dirs: list[Path] = []
     for candidate in (folder, *folder.parents):

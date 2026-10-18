@@ -32,11 +32,6 @@ from yoke_contracts.hook_runner.config_owner import (
 )
 
 
-#: How a harness finds its project config from a session folder.
-#: ``project_dir`` reads only the folder the harness opened; ``ancestors``
-#: reads every folder from the session folder up to the repository root.
-ProjectConfigSearch = Literal["project_dir", "ancestors"]
-
 #: The user-level hooks-file trust a harness requires before running it.
 TrustKind = Literal["none", "codex_trusted_hash"]
 
@@ -76,7 +71,9 @@ class HarnessMachineHooks:
     user_config: str
     config_owner: str
     project_configs: tuple[str, ...]
-    project_config_search: ProjectConfigSearch
+    # True: the harness reads project configs in every folder from the session
+    # folder up to the repository root; False: only the folder it opened.
+    project_config_in_ancestors: bool
     events: tuple[MachineHookEvent, ...]
     trust: TrustKind
     deferrals: tuple[str, ...] = ()
@@ -116,7 +113,7 @@ class HarnessMachineHooks:
             "home_env": self.home_env or None,
             "config_owner": self.config_owner,
             "project_configs": list(self.project_configs),
-            "project_config_search": self.project_config_search,
+            "project_config_in_ancestors": self.project_config_in_ancestors,
             "events": [event.to_json() for event in self.events],
             "trust": self.trust,
             "deferrals": list(self.deferrals),
@@ -131,7 +128,7 @@ HARNESS_MACHINE_HOOKS: Mapping[str, HarnessMachineHooks] = {
         user_config="settings.json",
         config_owner=CLAUDE_USER_CONFIG_OWNER,
         project_configs=(".claude/settings.json", ".claude/settings.local.json"),
-        project_config_search="project_dir",
+        project_config_in_ancestors=False,
         events=(
             MachineHookEvent("SessionStart", "SessionStart"),
             MachineHookEvent("UserPromptSubmit", "UserPromptSubmit"),
@@ -148,7 +145,7 @@ HARNESS_MACHINE_HOOKS: Mapping[str, HarnessMachineHooks] = {
         user_config="hooks.json",
         config_owner=CODEX_USER_CONFIG_OWNER,
         project_configs=(".codex/hooks.json",),
-        project_config_search="ancestors",
+        project_config_in_ancestors=True,
         events=(
             MachineHookEvent("SessionStart", "SessionStart", "startup|resume"),
             MachineHookEvent("UserPromptSubmit", "UserPromptSubmit"),
@@ -169,7 +166,7 @@ HARNESS_MACHINE_HOOKS: Mapping[str, HarnessMachineHooks] = {
         user_config="hooks.json",
         config_owner=CURSOR_USER_CONFIG_OWNER,
         project_configs=(".cursor/hooks.json",),
-        project_config_search="project_dir",
+        project_config_in_ancestors=False,
         events=(
             MachineHookEvent("sessionStart", "SessionStart"),
             MachineHookEvent("beforeSubmitPrompt", "UserPromptSubmit"),

@@ -19,7 +19,7 @@ here: nothing is written and the result names `<harness>_not_installed`.
 | `home_env` | string \| null | Environment variable that overrides the harness home (`CODEX_HOME`), or null. |
 | `config_owner` | string | `YOKE_HOOK_CONFIG_OWNER` value every installed command carries. |
 | `project_configs` | array | Project-relative configs whose Yoke entries make the user-level hook step aside. |
-| `project_config_search` | string | `project_dir` reads the folder the harness opened; `ancestors` reads each folder up to the repository root. |
+| `project_config_in_ancestors` | boolean | `true` reads project configs in each folder from the session folder up to the repository root; `false` reads only the folder the harness opened. |
 | `events` | array | `{native_event, verb, matcher?}` entries installed in the user config. |
 | `trust` | string | `none`, or `codex_trusted_hash` when the harness runs a hooks file only after trusting each handler. |
 | `deferrals` | array | Events the harness offers that the set leaves out on purpose, each with its reason. |
