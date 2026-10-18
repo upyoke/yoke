@@ -226,6 +226,8 @@ def authorize_remote(parsed) -> int:
                 argv=argv,
                 yoke_home=machine_config.yoke_home(),
                 desktop_password=desktop_password,
+                stream_output=True,
+                json_mode=parsed.json_mode,
             )
         finally:
             if viewer is not None:
@@ -250,8 +252,9 @@ def authorize_remote(parsed) -> int:
             payload["machine"] = detail["machine"]
             print(json.dumps(payload))
         else:
-            print(result.stdout, end="")
-            print(result.stderr, end="", file=sys.stderr)
+            if not getattr(result, "output_streamed", False):
+                print(result.stdout, end="")
+                print(result.stderr, end="", file=sys.stderr)
             if result.returncode:
                 print(
                     f"browser_authorize_remote_failed: machine {detail['machine']} "

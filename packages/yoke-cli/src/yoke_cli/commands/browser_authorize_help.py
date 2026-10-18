@@ -70,6 +70,8 @@ browser, or combine both flags to check only the Test Machine's native browser.
 If default has no sites but other identities do, an omitted --identity refuses
 with browser_identity_required and names the choices before opening any window.
 Site, origin and account instructions print on the workstation before its viewer.
+Linux remote progress streams while authorization runs, including verification;
+--json reserves stdout for the final receipt and sends progress to stderr.
 A connected Linux viewer refuses linux_desktop_viewer_connected: close the open
 "Yoke desktop: MACHINE" viewer or let browser authorize finish, then retry.
 Linux window-close detection requires xdotool and checks only the spawned PID.

@@ -50,6 +50,8 @@ If `default` declares no sites while other identities do, omitting `--identity`
 refuses with `browser_identity_required` and names the choices before any window
 opens. Choose the declared identity; site, origin and account instructions print
 on the workstation before its viewer opens.
+Linux remote authorization streams progress as it runs. JSON mode keeps stdout
+for the final receipt and sends progress to stderr.
 
 While a sign-in window is open no automated browser runs on the machine: every
 browser daemon is stopped first, and a daemon start is refused with
@@ -84,6 +86,10 @@ into golden snapshots or wiped by authorization. A second Linux viewer refuses
 `linux_desktop_viewer_connected`; close the open `Yoke desktop: NAME` viewer or
 let its authorization finish, then retry. Linux authorization uses `xdotool`
 to detect closure of the spawned Chromium PID's windows before verification.
+If an approval walk finds a Google or Microsoft sign-in page instead of its exact
+request tab, it names `machine_browser_sign_in_required`. The operator completes
+the declared identity's native sign-in before retrying; approval automation never
+enters credentials or clicks an unrelated request.
 
 The workstation needs an ssh-agent with a key the host accepts. macOS uses its
 logged-in Terminal.app session; Linux and Windows WSL use the registered user's
