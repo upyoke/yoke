@@ -33,6 +33,7 @@ from yoke_core.domain.deployment_run_carried_membership_refusal import (
     carried_membership_refusal,
 )
 from yoke_core.domain.deployment_run_carried_work import carried_work_for_enrollment
+from yoke_core.domain.deployment_run_enrollment_error import CarriedEnrollmentError
 from yoke_core.domain.deployment_run_item_qa_membership import (
     item_qa_membership_verdict,
 )
@@ -118,6 +119,7 @@ def cmd_validate_composition(
         # handed None walks custody itself, which is the honest fallback when
         # recording those sources is the thing that failed.
         carried = None
+        enrollment_error = None
         try:
             # The run's source commit per project is resolved and recorded
             # before anything reads it, so enrollment and every check below
@@ -142,6 +144,8 @@ def cmd_validate_composition(
             raise
         except (LookupError, ValueError) as exc:
             errors.append(str(exc))
+            if isinstance(exc, CarriedEnrollmentError):
+                enrollment_error = exc
         run_project_id = int(run_project_id)
         run_project = resolve_project_slug(conn, run_project_id)
 
@@ -221,7 +225,9 @@ def cmd_validate_composition(
 
         if composition_result is not None:
             composition_result["enrolled"] = enrolled
-        carried_refusal = carried_membership_refusal(conn, run_id, custody=custody)
+        carried_refusal = carried_membership_refusal(
+            conn, run_id, custody=custody, enrollment_error=enrollment_error
+        )
         if carried_refusal:
             errors.append(carried_refusal)
 
