@@ -7,6 +7,7 @@ re-exported there so existing imports are unaffected.
 from __future__ import annotations
 
 from pathlib import Path
+import shlex
 from typing import Any, Optional
 
 from yoke_cli.config.machine_config_mutation import (
@@ -28,10 +29,10 @@ def register_project(
     reassign: bool = False,
     path: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Map a local checkout path to its DB project id.
+    """Map a checkout to a project id on the selected connection.
 
     Re-pointing an already-claimed ``project_id`` slot at a different
-    checkout moves shared routing every other reader resolves against —
+    checkout moves routing within that connection's map —
     worktree preparation included — so it requires ``reassign=True`` from an
     operator using ``yoke project register --reassign``. Registering a slot with no
     existing checkout, or re-registering the same checkout, is ordinary
@@ -71,10 +72,12 @@ def register_project(
     if displaced is not None and not reassign:
         raise MachineConfigWriteError(
             f"project {normalized} is already routed to "
-            f"{displaced!r}; registering {root} would move shared checkout "
-            "routing. To move it deliberately, run yoke project register "
-            "--reassign from a session holding the project's steering seat "
-            f"(yoke claims steering acquire --project {normalized})."
+            f"{displaced!r} on connection {connection!r}; registering {root} "
+            "would move that connection's checkout routing. To move it deliberately, "
+            f"acquire its steering seat with `yoke --env {shlex.quote(connection)} "
+            f"claims steering acquire --project {normalized}`, then run "
+            f"`yoke --env {shlex.quote(connection)} project register --reassign "
+            f"--project-id {normalized} {shlex.quote(str(root))}`."
         )
     payload["connection_projects"][connection] = contract.upsert_project_entry(
         projects,

@@ -247,9 +247,9 @@ def project_id(repo_root: str | Path, path: str | Path | None = None) -> int | N
 
 
 def installed_project_ids(path: str | Path | None = None) -> set[int]:
-    """Return the distinct project ids installed on this machine.
+    """Return installed project ids for the selected connection.
 
-    Sourced from the machine-local ``projects`` checkout list.
+    Sourced from the selected ``connection_projects`` checkout list.
     Used to disambiguate a bare item number when there is no explicit/cwd
     project context. Only the selected connection supplies project ids.
     """

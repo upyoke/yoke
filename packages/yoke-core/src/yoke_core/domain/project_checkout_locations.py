@@ -92,9 +92,9 @@ def checkout_for_project_slug(
 
     Transport-aware sibling of :func:`checkout_for_project`: the project id
     comes from :func:`project_id_for_slug` instead of a caller-supplied DB
-    connection. The checkout mapping is machine-local, so
-    :func:`checkout_for_project_id` needs no connection. Returns ``None``
-    when the project cannot be resolved or has no machine-local checkout.
+    connection. The selected connection supplies its machine-local checkout
+    map after the relay resolves the project id. Returns ``None`` when the
+    project cannot be resolved or has no checkout on that connection.
     """
 
     project_id = project_id_for_slug(project)

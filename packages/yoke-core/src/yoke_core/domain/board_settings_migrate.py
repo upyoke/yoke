@@ -98,7 +98,7 @@ def _write_board_settings(project: str, board: Mapping[str, Any]) -> None:
 
 
 def migrate_mapped_checkouts(*, delete_files: bool = False) -> list[dict[str, Any]]:
-    """Migrate every machine-config project entry; optionally delete board.json."""
+    """Migrate the selected connection's checkouts; optionally delete board.json."""
 
     cfg = machine_config.load_config()
     from yoke_contracts.machine_config.schema_projects import projects_for_connection
