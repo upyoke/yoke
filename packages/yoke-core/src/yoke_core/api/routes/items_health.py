@@ -64,7 +64,7 @@ async def health() -> _main.HealthResponse:
         status="ok",
         version=API_CONTRACT_VERSION,
         engine_version=_engine_version,
-        build=_build,
+        build=os.environ.get("YOKE_BUILD_SHA", ""),
         schema_ready=schema_ready,
         schema_missing_tables=missing,
         migrations_current=not pending,

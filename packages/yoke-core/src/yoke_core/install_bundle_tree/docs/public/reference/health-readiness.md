@@ -6,8 +6,8 @@
 or select a reachable environment. A successful health check is followed by
 a separate authenticated identity check; liveness does not prove the tenant.
 
-`/v1/health` always serves the last complete readiness snapshot. A dedicated
-background worker probes schema readiness, migration membership, serving
+`/v1/health` always serves the last complete readiness snapshot. Application
+construction warms the initial snapshot; a dedicated background worker probes schema readiness, migration membership, serving
 surfaces and migration content identity every 30 seconds by default, starting
 when the server starts. The existing `health_migrations_probe_ttl_seconds`
 machine setting controls the delay between completed probes. Health requests
@@ -22,7 +22,7 @@ step: check database connectivity and migration readiness, then retry after
 the next refresh. The snapshot is a recent observation, not a guarantee that
 the database is reachable at the instant of a health request.
 
-The engine version, build identity and startup-attested public GitHub App
-advertisement are resolved at startup. Restart the server after changing its
-build or GitHub App configuration. Public health never includes private keys
+The engine version and startup-attested public GitHub App advertisement are
+resolved at startup. Build identity comes from the baked process environment.
+Restart the server after changing its build or GitHub App configuration. Public health never includes private keys
 or database connection details.

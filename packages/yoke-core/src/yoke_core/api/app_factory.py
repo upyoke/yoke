@@ -160,9 +160,10 @@ def create_app() -> FastAPI:
             )
 
     _include_routes(application)
-    from yoke_core.api.routes.items_health import initialize_health_metadata
+    from yoke_core.api.routes import items_health
 
-    initialize_health_metadata()
+    items_health.initialize_health_metadata()
+    items_health.refresh_health_snapshot()
     return application
 
 
