@@ -1,4 +1,4 @@
-"""Cursor deduplication for Claude-compatible project hook imports."""
+"""Cursor deduplication for imported Claude hooks and its user-level hooks."""
 
 from __future__ import annotations
 
@@ -9,9 +9,6 @@ from pathlib import Path
 
 import pytest
 
-from yoke_contracts.hook_runner.config_owner import (
-    CURSOR_LIFECYCLE_COMMAND_MARKER,
-)
 from yoke_cli.commands.adapters.hook_config_dedup import (
     should_skip_config_duplicate,
 )
@@ -23,7 +20,6 @@ def _write_cursor_owner(
     native_events: str | tuple[str, ...],
     runner_event: str,
     *,
-    lifecycle_marker: str = CURSOR_LIFECYCLE_COMMAND_MARKER,
     owner: str = "cursor-project",
 ) -> None:
     cursor = root / ".cursor"
@@ -38,7 +34,6 @@ def _write_cursor_owner(
                     native_event: [
                         {
                             "command": (
-                                f"{lifecycle_marker}; "
                                 f"env YOKE_HOOK_CONFIG_OWNER={owner} "
                                 f"yoke hook evaluate {runner_event}"
                             ),
@@ -123,7 +118,7 @@ def test_native_cursor_owner_covers_imported_claude_event(
 
 
 @pytest.mark.parametrize("runner_event", ("Stop", "SessionEnd"))
-def test_user_backstop_owns_lifecycle_when_project_config_is_missing(
+def test_cursor_user_hooks_own_lifecycle_when_project_config_is_missing(
     tmp_path,
     runner_event,
 ) -> None:
@@ -133,7 +128,7 @@ def test_user_backstop_owns_lifecycle_when_project_config_is_missing(
         machine_home,
         native_event,
         runner_event,
-        owner="cursor-user-lifecycle",
+        owner="cursor-user",
     )
     payload = '{"session_id":"cursor-degraded","conversation_id":"cursor-degraded"}'
     base_environment = {
@@ -150,7 +145,7 @@ def test_user_backstop_owns_lifecycle_when_project_config_is_missing(
         runner_event,
         {
             **base_environment,
-            "YOKE_HOOK_CONFIG_OWNER": "cursor-user-lifecycle",
+            "YOKE_HOOK_CONFIG_OWNER": "cursor-user",
         },
         payload,
     )
@@ -216,7 +211,7 @@ def test_mismatched_cursor_payload_ids_do_not_disable_claude_hook(
         cli_main(["hook", "evaluate", "SessionStart"])
 
 
-def test_user_lifecycle_backstop_skips_live_project_owner(
+def test_cursor_user_hook_steps_aside_for_live_project_owner(
     monkeypatch,
     tmp_path,
     capsys,
@@ -227,12 +222,12 @@ def test_user_lifecycle_backstop_skips_live_project_owner(
         "stdin",
         io.StringIO('{"session_id":"c-1","conversation_id":"c-1"}'),
     )
-    monkeypatch.setenv("YOKE_HOOK_CONFIG_OWNER", "cursor-user-lifecycle")
+    monkeypatch.setenv("YOKE_HOOK_CONFIG_OWNER", "cursor-user")
     monkeypatch.setenv("CURSOR_PROJECT_DIR", str(tmp_path))
     monkeypatch.setattr(
         "yoke_cli.transport.https.resolve_https_connection",
         lambda: (_ for _ in ()).throw(
-            AssertionError("live project owner must suppress the backstop")
+            AssertionError("live project owner must suppress the user hook")
         ),
     )
 
@@ -240,7 +235,7 @@ def test_user_lifecycle_backstop_skips_live_project_owner(
     assert capsys.readouterr().out == "{}"
 
 
-def test_user_backstop_ignores_unrelated_owner_marker(
+def test_cursor_user_hook_ignores_unrelated_evaluate_verb(
     monkeypatch,
     tmp_path,
 ) -> None:
@@ -250,7 +245,7 @@ def test_user_backstop_ignores_unrelated_owner_marker(
         "stdin",
         io.StringIO('{"conversation_id":"c-unrelated"}'),
     )
-    monkeypatch.setenv("YOKE_HOOK_CONFIG_OWNER", "cursor-user-lifecycle")
+    monkeypatch.setenv("YOKE_HOOK_CONFIG_OWNER", "cursor-user")
     monkeypatch.setenv("CURSOR_PROJECT_DIR", str(tmp_path))
     monkeypatch.setattr(
         "yoke_cli.transport.https.resolve_https_connection",
@@ -261,7 +256,7 @@ def test_user_backstop_ignores_unrelated_owner_marker(
         cli_main(["hook", "evaluate", "Stop"])
 
 
-def test_user_lifecycle_backstop_runs_without_project_owner(
+def test_cursor_user_hook_runs_without_project_owner(
     monkeypatch,
     tmp_path,
 ) -> None:
@@ -270,7 +265,7 @@ def test_user_lifecycle_backstop_runs_without_project_owner(
         "stdin",
         io.StringIO('{"session_id":"c-2","conversation_id":"c-2"}'),
     )
-    monkeypatch.setenv("YOKE_HOOK_CONFIG_OWNER", "cursor-user-lifecycle")
+    monkeypatch.setenv("YOKE_HOOK_CONFIG_OWNER", "cursor-user")
     monkeypatch.setenv("CURSOR_PROJECT_DIR", str(tmp_path / "deleted"))
     monkeypatch.setattr(
         "yoke_cli.transport.https.resolve_https_connection",

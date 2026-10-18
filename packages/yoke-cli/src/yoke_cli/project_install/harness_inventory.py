@@ -152,10 +152,9 @@ def _claude_report(checkout: Path) -> Optional[dict[str, Any]]:
     }
 
 
-def _cursor_report() -> Optional[dict[str, Any]]:
-    root = Path.home() / ".cursor"
-    config_present = _dir_present(root)
-    glue = root / "hooks.json"
+def _cursor_report(checkout: Path) -> Optional[dict[str, Any]]:
+    config_present = _dir_present(Path.home() / ".cursor")
+    glue = checkout / ".cursor" / "hooks.json"
     payload, malformed = _json_object(glue)
     glue_present = payload is not None or malformed
     if not (config_present or glue_present):
@@ -174,7 +173,7 @@ def _cursor_report() -> Optional[dict[str, Any]]:
 def collect_harness_inventory(checkout: str | Path) -> list[dict[str, Any]]:
     root = Path(checkout)
     reports: list[dict[str, Any]] = []
-    for report in (_codex_report(root), _claude_report(root), _cursor_report()):
+    for report in (_codex_report(root), _claude_report(root), _cursor_report(root)):
         if report is not None:
             reports.append(report)
     return reports

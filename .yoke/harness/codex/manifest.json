@@ -182,6 +182,40 @@
     "project_match": "the first line is a session_meta row whose payload.cwd names the directory the session ran in",
     "evidence": "Read on codex-cli: the rollout's first row is session_meta with cwd; yoke_contracts.harness_turn_record_capability reads the same files."
   },
+  "machine_hooks": {
+    "source": "yoke_contracts.harness_machine_hooks.HARNESS_MACHINE_HOOKS",
+    "user_config_path": "~/.codex/hooks.json",
+    "home_env": "CODEX_HOME",
+    "config_owner": "codex-user",
+    "project_configs": [
+      ".codex/hooks.json"
+    ],
+    "project_config_search": "ancestors",
+    "events": [
+      {
+        "native_event": "SessionStart",
+        "verb": "SessionStart",
+        "matcher": "startup|resume"
+      },
+      {
+        "native_event": "UserPromptSubmit",
+        "verb": "UserPromptSubmit"
+      },
+      {
+        "native_event": "PreToolUse",
+        "verb": "PreToolUse",
+        "matcher": "Bash"
+      },
+      {
+        "native_event": "Stop",
+        "verb": "Stop"
+      }
+    ],
+    "trust": "codex_trusted_hash",
+    "deferrals": [
+      "SessionEnd: codex-cli 0.161.0 fires a SessionEnd hook, but Yoke's Codex project hooks do not wire it; the machine-wide set matches the project set so one Yoke evaluation runs per native event."
+    ]
+  },
   "worktree_hook_enablement": {
     "config_path": ".codex/hooks.json",
     "operations": [

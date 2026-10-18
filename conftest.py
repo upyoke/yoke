@@ -235,6 +235,27 @@ def _isolate_harness_settings_ledger(tmp_path, monkeypatch: pytest.MonkeyPatch):
     )
 
 
+@pytest.fixture(autouse=True)
+def _isolate_harness_homes(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    """Keep machine-wide hook writes out of the developer's harness homes.
+
+    Every hook relay self-heals the running harness's user config, and setup,
+    uninstall and doctor read or write all three. A call that passes no
+    explicit environment resolves homes under one empty per-test ``HOME``, so
+    a test creates the harness home it means to exercise. Subprocesses stay
+    isolated through the ``HOME`` they set.
+    """
+    from yoke_contracts.harness_machine_hooks import HarnessMachineHooks
+
+    resolve = HarnessMachineHooks.home_path
+    isolated = {"HOME": str(tmp_path / "harness-home")}
+    monkeypatch.setattr(
+        HarnessMachineHooks,
+        "home_path",
+        lambda self, environ=None: resolve(self, isolated if environ is None else environ),
+    )
+
+
 @pytest.fixture(scope="session")
 def product_wheelhouse(tmp_path_factory, pytestconfig: pytest.Config) -> Path:
     """Build the client product wheels once per pytest run."""
