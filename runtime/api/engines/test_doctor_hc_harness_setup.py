@@ -60,3 +60,32 @@ def test_orphan_codex_home_reports_recovery(monkeypatch, tmp_path):
     )
     assert "codex_home_without_codex" in doctor.codex_home_without_codex()
     assert "otherwise open Codex once" in doctor.codex_home_without_codex()
+
+
+def test_prompting_harness_names_shared_setup_repair(monkeypatch, tmp_path):
+    from yoke_contracts.harness_machine_hooks import HarnessMachineHooks
+    from yoke_harness import harness_setup_reconcile as setup
+
+    home = tmp_path / ".codex"
+    home.mkdir()
+    config = home / "config.toml"
+    config.write_text(
+        'approval_policy = "on-request"\nsandbox_mode = "workspace-write"\n'
+    )
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    monkeypatch.setattr(
+        HarnessMachineHooks,
+        "home_path",
+        lambda self, environ=None: (
+            home if self.harness_id == "codex" else tmp_path / self.harness_id
+        ),
+    )
+    monkeypatch.setattr(setup, "configured_projects", lambda **kw: [])
+    monkeypatch.setattr(doctor, "codex_home_without_codex", lambda: "")
+    monkeypatch.setattr(doctor, "read_reconcile_state", lambda: {})
+    rec = RecordCollector()
+    doctor.hc_harness_setup(None, DoctorArgs(), rec)
+    assert rec.results[0].result == "FAIL"
+    assert "approval_policy" in rec.results[0].detail
+    assert "yoke doctor run --only harness-setup --fix" in rec.results[0].detail
+    assert config.read_text().startswith('approval_policy = "on-request"')
