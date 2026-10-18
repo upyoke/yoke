@@ -116,5 +116,3 @@ def _safe_url(value: str) -> str:
 
 def _env_truthy(name: str) -> bool:
     return os.environ.get(name, "").lower() in {"1", "true", "yes", "y"}
-
-

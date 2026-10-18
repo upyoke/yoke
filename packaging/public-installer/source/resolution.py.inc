@@ -169,5 +169,3 @@ class InstallerResolution:
             enabled=self.color,
         )
         print(f"  {retry}", file=self.stdout, flush=True)
-
-

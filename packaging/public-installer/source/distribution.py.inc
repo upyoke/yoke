@@ -264,5 +264,3 @@ def _require_channel_release_evidence(
         raise InstallError(
             f"{label} channel has an invalid migration release-evidence URL"
         )
-
-

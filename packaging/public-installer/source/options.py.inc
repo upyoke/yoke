@@ -178,5 +178,3 @@ def parse_args(argv: Iterable[str] | None = None) -> InstallOptions:
         base_url=args.base_url.rstrip("/"),
         no_setup=bool(args.no_setup),
     )
-
-

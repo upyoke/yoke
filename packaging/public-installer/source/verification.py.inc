@@ -179,5 +179,3 @@ class InstallerVerification:
             file=self.stdout,
         )
         print(self._say("uv tool update-shell"), file=self.stdout)
-
-

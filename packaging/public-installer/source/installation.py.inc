@@ -167,5 +167,3 @@ class Installer(InstallerVerification, InstallerResolution):
             )
         else:
             self._advise_path()
-
-
