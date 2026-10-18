@@ -11,6 +11,7 @@ live_home_entries = (
     ".local/bin/agent", ".local/bin/cursor-agent",
     ".local/share/claude", ".local/share/cursor-agent",
     ".local/lib/node_modules/@openai",
+    ".codex/packages",
 )
 live_home_stashes = []
 live_home_stash_root = None
@@ -53,7 +54,7 @@ def restore_live_home_entries():
     global live_home_stash_root
     try:
         for relative, source in live_home_stashes:
-            destination = home / relative
+            destination = preserved_home_path(relative)
             destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             source.rename(destination)
         if live_home_stash_root is not None: shutil.rmtree(live_home_stash_root)

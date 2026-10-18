@@ -13,7 +13,7 @@ It also renames these live installation entries out of the home before clearing
 and restores them afterward, using the same mechanism as native Chromium:
 
 - `.local/bin/claude`, `.local/share/claude`
-- `.local/bin/codex`, `.local/lib/node_modules/@openai`
+- `.local/bin/codex`, `.local/lib/node_modules/@openai`, `.codex/packages`
 - `.local/bin/agent`, `.local/bin/cursor-agent`, `.local/share/cursor-agent`
 - `snap/chromium/common/chromium`
 
