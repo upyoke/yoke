@@ -46,15 +46,8 @@ def seed_demo_items(
     *,
     project: Optional[str] = None,
     count: int = len(DEFAULT_DEMO_ITEMS),
-    scenario: str = "smoke",
 ) -> dict[str, Any]:
     """Create local smoke items through the registered harness-skill path."""
-    if scenario == "shipping":
-        from yoke_core.domain.local_shipping_seed import seed_shipping
-
-        return seed_shipping()
-    if scenario != "smoke":
-        raise LocalDemoSeedError("demo_seed_scenario_unknown: choose smoke or shipping")
     if count < 1:
         raise LocalDemoSeedError("count must be at least 1")
     specs = _selected_specs(count)

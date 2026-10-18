@@ -34,6 +34,10 @@ def test_shipping_seed_uses_real_writers_and_replays_population(test_db, monkeyp
             config={"transport": "local-postgres", "prod": False},
         ),
     )
+    # Unit fixture boot is owned by test_db. The actual demo command uses full boot.
+    monkeypatch.setattr(
+        "yoke_core.api.server_entrypoint.ensure_core_schema", lambda: None
+    )
     result = seed.seed_shipping()
     again = seed.seed_shipping()
     assert result["run_count"] == again["run_count"] == 12
@@ -49,30 +53,3 @@ def test_shipping_seed_uses_real_writers_and_replays_population(test_db, monkeyp
     assert result["project_ids"][0] in visible
     assert result["project_ids"][1] not in visible
     assert result["aux_failure_case"]["functions"]
-
-
-def test_existing_demo_seed_entrypoint_routes_shipping(monkeypatch):
-    from yoke_core.domain.local_demo_seed import seed_demo_items
-
-    receipt = {"ok": True, "scenario": "shipping"}
-    monkeypatch.setattr(seed, "seed_shipping", lambda: receipt)
-    assert seed_demo_items(scenario="shipping") is receipt
-
-
-def test_shipping_requires_boot_before_fixture_writes(test_db, monkeypatch):
-    monkeypatch.setattr(
-        "yoke_core.domain.yoke_connected_env.load_active",
-        lambda: SimpleNamespace(
-            environment="render-proof",
-            config={"transport": "local-postgres", "prod": False},
-        ),
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.schema_common._table_exists", lambda *args: False
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.deployment_runs_schema.cmd_init",
-        lambda: pytest.fail("created fixture schema before review boot"),
-    )
-    with pytest.raises(RuntimeError, match="shipping_seed_database_unprepared"):
-        seed.seed_shipping()

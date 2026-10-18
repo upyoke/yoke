@@ -129,9 +129,9 @@ def _seed_demo_items(
     ):
         if scenario == "shipping":
             try:
-                return seed_demo_items(
-                    project=project, count=count, scenario="shipping"
-                )
+                return importlib.import_module(
+                    "yoke_core.domain.local_shipping_seed"
+                ).seed_shipping()
             except (ValueError, LookupError) as exc:
                 raise setup.LocalUniverseSetupError(
                     f"shipping_seed_refused: {exc}; retain the fixture rows, repair the "
