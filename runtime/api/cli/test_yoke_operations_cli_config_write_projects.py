@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -66,6 +67,40 @@ def test_project_register_maps_checkout(cfg, tmp_path, capsys) -> None:
     assert payload["connection_projects"]["prod"] == [
         {"checkout": checkout, "project_id": 7}
     ]
+
+
+def test_global_env_registers_colliding_ids_without_moving_the_default(
+    cfg, tmp_path, monkeypatch
+) -> None:
+    _seed(cfg, tmp_path, "prod")
+    _seed(cfg, tmp_path, "other")
+    monkeypatch.setenv("YOKE_ENV", "prod")
+    checkouts = {}
+    for env in ("other", "prod"):
+        checkout = tmp_path / env
+        checkout.mkdir()
+        checkouts[env] = checkout
+        assert (
+            yoke_operations_cli.main(
+                [
+                    "--env",
+                    env,
+                    "project",
+                    "register",
+                    str(checkout),
+                    "--project-id",
+                    "7",
+                ]
+            )
+            == 0
+        )
+    payload = json.loads(cfg.read_text())
+    assert payload["active_env"] == "prod"
+    assert payload["connection_projects"] == {
+        env: [{"checkout": str(checkout.resolve()), "project_id": 7}]
+        for env, checkout in checkouts.items()
+    }
+    assert os.environ["YOKE_ENV"] == "prod"
 
 
 def test_project_register_refuses_board_scope(cfg, tmp_path, capsys) -> None:

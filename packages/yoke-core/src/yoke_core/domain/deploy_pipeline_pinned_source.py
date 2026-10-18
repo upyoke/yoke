@@ -177,15 +177,14 @@ def self_release_checkout(project: str) -> Path | None:
         from yoke_contracts.machine_config.schema_connections import (
             MachineConfigContractError,
         )
-        from yoke_contracts.machine_config.schema_projects import project_connection
+        from yoke_contracts.machine_config.schema_projects import (
+            connection_project_maps,
+            project_connection,
+        )
 
         config = machine_config.load_config()
-        groups = config.get("connection_projects") or {}
-        entries = (
-            groups.get(project_connection(config))
-            if isinstance(groups, dict) and groups
-            else []
-        )
+        groups = connection_project_maps(config)
+        entries = groups.get(project_connection(config)) if groups else []
     except (machine_config.MachineConfigError, MachineConfigContractError) as exc:
         raise DeployPinnedSourceError(
             f"machine config is unreadable ({exc}); repair ~/.yoke/config.json "

@@ -159,7 +159,7 @@ def all_registered_checkouts(
     seen: set[str] = set()
     for entry in [
         entry
-        for entries in payload.get("connection_projects", {}).values()
+        for entries in contract.connection_project_maps(payload).values()
         for entry in contract.normalize_projects(entries)
     ]:
         try:

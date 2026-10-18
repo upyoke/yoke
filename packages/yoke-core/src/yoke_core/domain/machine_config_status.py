@@ -180,9 +180,22 @@ def dumps_json(report: Mapping[str, Any]) -> str:
 
 
 def _project_status(repo_root: Path, config_path: Path) -> dict[str, Any]:
-    project_id = machine_config.project_id(repo_root, config_path)
     issues: list[dict[str, str]] = []
-    if project_id is None:
+    board_scope = None
+    try:
+        project_id = machine_config.project_id(repo_root, config_path)
+        board_scope = str(project_id) if project_id is not None else "all"
+    except contract.MachineConfigContractError as exc:
+        project_id = None
+        issues.append(
+            _issue(
+                "error",
+                "project_mapping_invalid",
+                str(exc),
+                "Repair the reported machine-config issue, then rerun `yoke status`.",
+            )
+        )
+    if project_id is None and not issues:
         issues.append(
             _issue(
                 "warning",
@@ -199,7 +212,7 @@ def _project_status(repo_root: Path, config_path: Path) -> dict[str, Any]:
         "board_render_path": str(render_path),
         "board_ts_path": f"{render_path}.ts",
         "board_art_path": str(machine_config.board_art_path(repo_root)),
-        "board_scope": machine_config.board_scope(repo_root, path=config_path),
+        "board_scope": board_scope,
         "issues": issues,
     }
 

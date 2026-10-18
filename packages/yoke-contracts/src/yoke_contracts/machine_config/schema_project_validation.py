@@ -84,3 +84,39 @@ def validate_projects(projects: Any) -> list[ValidationIssue]:
         else:
             ids.add(project_id)
     return issues
+
+
+def validate_connection_projects(groups: Any) -> list[ValidationIssue]:
+    """Validate each independent connection's checkout namespace."""
+    if groups is None:
+        return []
+    if not isinstance(groups, Mapping):
+        return [
+            _error(
+                "connection_projects_invalid",
+                "connection_projects must map connection labels to checkout lists",
+                path="connection_projects",
+                hint="Run yoke config example and repair the named map.",
+            )
+        ]
+    issues = []
+    for connection, projects in groups.items():
+        if not _is_nonempty_str(connection):
+            issues.append(
+                _error(
+                    "project_connection_required",
+                    "connection label must be non-empty",
+                    path="connection_projects",
+                )
+            )
+        for issue in validate_projects(projects):
+            issues.append(
+                ValidationIssue(
+                    issue.severity,
+                    issue.code,
+                    issue.message,
+                    path=f"connection_projects.{connection}{issue.path.removeprefix('projects')}",
+                    hint=issue.hint,
+                )
+            )
+    return issues

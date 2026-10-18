@@ -64,14 +64,22 @@ def project_connection(payload: Mapping[str, Any]) -> str:
     return same_universe_https_env(payload, env) or env
 
 
-def projects_for_connection(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Filter before interpreting a universe-local numeric project id."""
-    groups = payload.get("connection_projects", {})
+def connection_project_maps(payload: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Read the optional namespace map with one named shape refusal."""
+    groups = payload.get("connection_projects")
+    if groups is None:
+        return {}
     if not isinstance(groups, Mapping):
         raise MachineConfigContractError(
             "connection_projects_invalid: set connection_projects to an object "
             "mapping connection labels to checkout entries, then retry"
         )
+    return groups
+
+
+def projects_for_connection(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Filter before interpreting a universe-local numeric project id."""
+    groups = connection_project_maps(payload)
     if not groups:
         return []
     return normalize_projects(groups.get(project_connection(payload)))
@@ -83,7 +91,9 @@ def normalize_projects(projects: Any) -> list[dict[str, Any]]:
         validate_projects,
     )
 
-    issues = validate_projects(projects)
+    issues = [
+        issue for issue in validate_projects(projects) if issue.severity == "error"
+    ]
     if issues:
         issue = issues[0]
         raise MachineConfigContractError(

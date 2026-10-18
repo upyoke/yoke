@@ -45,6 +45,7 @@ def test_readers_isolate_colliding_project_ids(tmp_path, monkeypatch, env, conne
     assert runtime.project_id(other, config) is None
     assert runtime.installed_project_ids(config) == {7}
     assert [p.checkout for p in machine_config.configured_projects(config)] == [repo]
+    assert set(machine_config.all_registered_checkouts(config)) == set(repos.values())
     assert checkout_for_project_id(7, config_path=config) == repo
     assert str(repo) in render_folder_line(7, "example", "ITEM", "Example work")
     missing = render_folder_line(8, "unmapped", "ITEM", "Example work")
@@ -83,12 +84,15 @@ def test_register_preserves_another_universe_and_reassigns_only_selected_slot(
     }
 
 
+@pytest.mark.parametrize("null_map", [False, True])
 def test_reads_never_write_and_explicit_registration_imports_legacy_once(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, null_map
 ):
     config = tmp_path / "config.json"
     payload = contract.canonical_example_payload()
     payload.pop("connection_projects")
+    if null_map:
+        payload["connection_projects"] = None
     payload["projects"] = [{"checkout": str(tmp_path), "project_id": 1}]
     config.write_text(json.dumps(payload))
     select_machine_config_file(monkeypatch, config)
@@ -97,6 +101,8 @@ def test_reads_never_write_and_explicit_registration_imports_legacy_once(
     runtime.load_config(config)
     assert config.read_bytes() == original
     assert runtime.project_id(tmp_path, config) is None
+    assert runtime.installed_project_ids(config) == set()
+    assert machine_config.all_registered_checkouts(config) == []
     assert config.read_bytes() == original
     other = tmp_path / "other"
     other.mkdir()
@@ -173,4 +179,72 @@ def test_uninstall_preserves_checkout_used_by_another_connection(tmp_path, monke
     assert reasons == ["checkout_shared_with_other_connection"]
     assert result["registration"]["status"] == "preserved"
     assert not result["complete"]
+    assert config.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "groups,code,path",
+    [
+        (None, None, None),
+        ([], "connection_projects_invalid", "connection_projects"),
+        ({"sandbox": "bad"}, "projects_invalid", "connection_projects.sandbox"),
+        ({"": []}, "project_connection_required", "connection_projects"),
+        (
+            {
+                "sandbox": [
+                    {"checkout": "/one", "project_id": 1},
+                    {"checkout": "/two", "project_id": 1},
+                ]
+            },
+            "project_id_duplicate",
+            "connection_projects.sandbox[1]",
+        ),
+        (
+            {
+                "first": [{"checkout": "/one", "project_id": 1}],
+                "second": [{"checkout": "/two", "project_id": 1}],
+            },
+            None,
+            None,
+        ),
+    ],
+)
+def test_config_validation_names_the_connection_checkout_list(groups, code, path):
+    payload = contract.canonical_example_payload()
+    payload["connection_projects"] = groups
+    issues = contract.validate_payload(payload)
+    if code is None:
+        assert issues == []
+    else:
+        assert any(issue.code == code and issue.path == path for issue in issues)
+
+
+@pytest.mark.parametrize(
+    "module_name",
+    [
+        "yoke_cli.config.status",
+        "yoke_core.domain.machine_config_status",
+    ],
+)
+def test_status_reports_invalid_mapping_without_writing(
+    tmp_path, monkeypatch, module_name
+):
+    import importlib
+
+    payload = contract.canonical_example_payload()
+    payload["connection_projects"] = []
+    config = tmp_path / "config.json"
+    config.write_text(json.dumps(payload))
+    select_machine_config_file(monkeypatch, config)
+    monkeypatch.setenv("YOKE_ENV", "prod")
+    before = config.read_bytes()
+    report = importlib.import_module(module_name).build_status(
+        config_path=config,
+        repo_root=tmp_path,
+        check_reachability=False,
+    )
+    assert not report["ok"]
+    assert any(issue["code"] == "project_mapping_invalid" for issue in report["issues"])
+    assert report["project"]["project_id"] is None
+    assert report["project"]["board_scope"] is None
     assert config.read_bytes() == before

@@ -27,7 +27,7 @@ def scope_reason(root: Path, manifest: dict, config_path) -> str:
         payload = machine_config.load_config(config_path)
         projects = [
             entry
-            for entries in payload.get("connection_projects", {}).values()
+            for entries in contract.connection_project_maps(payload).values()
             for entry in normalize_projects(entries)
         ]
         return _config_reason(
@@ -72,7 +72,7 @@ def cleanup(root: Path, manifest: dict, config_path) -> dict:
 def _cleanup(root: Path, manifest: dict, *, path=None) -> dict:
     payload, cfg = load_payload(path)
     projects = contract.projects_for_connection(payload)
-    groups = payload.get("connection_projects", {})
+    groups = contract.connection_project_maps(payload)
     connection = contract.project_connection(payload) if groups else ""
     all_projects = [
         entry for entries in groups.values() for entry in normalize_projects(entries)

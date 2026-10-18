@@ -6,7 +6,7 @@ from yoke_contracts.machine_config.schema_projects import normalize_projects
 
 def import_project_connections(payload: dict) -> None:
     """Preserve the old reader's snapshot; new readers never fall back to it."""
-    if "connection_projects" in payload:
+    if payload.get("connection_projects") is not None:
         return
     entries = normalize_projects(payload.get("projects"))
     if not entries:

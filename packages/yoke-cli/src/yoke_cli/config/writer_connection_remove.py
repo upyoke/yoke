@@ -135,7 +135,6 @@ def remove_connections(
                 credential_removed.add(env)
         for env in selected:
             connections.pop(env, None)
-        payload.setdefault("projects", [])
         write_payload(payload, cfg_path, allow_unconfigured=unconfigured)
     except BaseException:
         for secret, (tombstone, _env) in reversed(tuple(staged.items())):

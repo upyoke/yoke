@@ -91,7 +91,10 @@ def _root_from_config(config_path: Path, environ):
         base = env[: -len("-db-admin")]
         if connections.get(base, {}).get("transport") == "https":
             env = base
-    projects = (data.get("connection_projects") or {}).get(env)
+    groups = data.get("connection_projects") or {}
+    if not isinstance(groups, dict):
+        return None
+    projects = groups.get(env)
     if not isinstance(projects, list):
         return None
     checkouts = [e.get("checkout") for e in projects if isinstance(e, dict)]

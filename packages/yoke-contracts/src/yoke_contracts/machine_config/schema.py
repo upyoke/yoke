@@ -11,6 +11,7 @@ import uuid
 from typing import Any, Mapping
 
 from yoke_contracts.machine_config.schema_projects import (
+    connection_project_maps as connection_project_maps,
     ValidationIssue,
     checkout_path_candidates as checkout_path_candidates,
     existing_checkout_for_slot as existing_checkout_for_slot,
@@ -26,6 +27,7 @@ from yoke_contracts.machine_config.schema_projects import (
     _nonempty_str,
 )
 from yoke_contracts.machine_config.schema_project_validation import (
+    validate_connection_projects,
     validate_projects,
 )
 from yoke_contracts.machine_config.credential_sources import (
@@ -203,27 +205,7 @@ def validate_payload(
             )
     # The old flat snapshot remains readable by already-installed releases.
     issues.extend(validate_projects(raw.get("projects")))
-    groups = raw.get("connection_projects", {})
-    if not isinstance(groups, Mapping):
-        issues.append(
-            _error(
-                "connection_projects_invalid",
-                "connection_projects must map connection labels to checkout lists",
-                path="connection_projects",
-                hint="Run yoke config example and repair the named map.",
-            )
-        )
-    else:
-        for connection, projects in groups.items():
-            if not _is_nonempty_str(connection):
-                issues.append(
-                    _error(
-                        "project_connection_required",
-                        "connection label must be non-empty",
-                        path="connection_projects",
-                    )
-                )
-            issues.extend(validate_projects(projects))
+    issues.extend(validate_connection_projects(raw.get("connection_projects")))
     machine_id = raw.get(MACHINE_ID_KEY)
     if machine_id is not None:
         try:
