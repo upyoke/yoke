@@ -119,7 +119,6 @@ def _resolve_active_holder(
     return winner["session_id"]
 
 
-@binding_lock.rollback_workflow_binding_write_errors
 def _admit(conn: Any, session_id: str, target: WorkClaimTarget, close_only: bool):
     if close_only and target.kind == TARGET_KIND_ITEM:
         require_session_close_eligibility(conn, session_id, target)
@@ -127,6 +126,7 @@ def _admit(conn: Any, session_id: str, target: WorkClaimTarget, close_only: bool
         require_session_work_eligibility(conn, session_id, target)
 
 
+@binding_lock.rollback_workflow_binding_write_errors
 def claim_work(
     conn: Any,
     *,
