@@ -51,52 +51,21 @@ QA_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent",),
+        "startup_roles": ("main_agent", "engineer_agent", "tester_agent"),
         "topic": "qa",
-        "purpose": "Add a QA requirement — ac_verification variant",
+        "purpose": "Bind acceptance criteria to executable QA cases",
         "recipe": (
-            "yoke qa requirement add "
-            "--item PREFIX-N --qa-kind ac_verification --qa-phase verification "
-            "--blocking-mode blocking --requirement-source ac_derived "
-            "--workflow-transition reviewed-implementation\n"
-            "# Several rows in one transaction — every row must include "
-            "`workflow_transition_id`:\n"
-            "yoke qa requirement add-batch --item PREFIX-N --stdin\n"
-            "# Epic-task attachment (operator-debug; requires the item "
-            "binding):\n"
-            "python3 -m yoke_core.domain.qa requirement-add "
-            "--epic-id PREFIX-N --task-num K --workflow-transition STAGE ..."
+            "yoke qa item-plan attach --item PREFIX-N --project PROJECT "
+            "--plan-id PLAN_ID --transition QA_STAGE --qa-phase verification\n"
+            "yoke qa plan materialize --item PREFIX-N --transition QA_STAGE"
         ),
         "notes": (
-            "Registered write qa.requirement.add. With `--item` it is "
-            "item-claim-gated and item-attached, and "
-            "`--workflow-transition` is required and must "
-            "name a stage in the item's pinned workflow that carries or "
-            "precedes a qa_verification gate. ac_verification omits "
-            "`--success-policy` "
-            "by default; the accepted form is "
-            "`all-pass`. Several rows in one "
-            "transaction: pipe a JSON array to `yoke qa requirement "
-            "add-batch --item PREFIX-N --stdin`; every row must include "
-            "`workflow_transition_id`. With `--deployment-run RUN-ID` the "
-            "same command attaches one executable case to a release, "
-            "authorized by the run's project scope and carrying no "
-            "workflow transition because the run owns that context: "
-            "`yoke qa requirement add --deployment-run run-YYYYMMDD-NNN "
-            "--method-id browser-inspection --qa-phase post_deploy "
-            "[--deployment-stage STAGE [--deployment-member-item PREFIX-N]] "
-            "--instructions ... --expected-outcome ... --method-config ...`. "
-            "A run-attached case requires `--method-id` and a bindable "
-            "target (`--deployment-stage` for frozen run/stage authority, "
-            "or `--target-env`). Unbound existing member cases recover on "
-            "`yoke qa case run --requirement-id N`; do not add-item onto a "
-            "frozen run and do not attach a plan. Epic-task attachment is "
-            "operator-debug only and requires the item binding: "
-            "`python3 -m yoke_core.domain.qa requirement-add "
-            "--epic-id PREFIX-N --task-num K --workflow-transition STAGE ...`. "
-            "Wrong guesses: that a release case needs a plan to be "
-            "visible, and that deployment-run attachment is operator-debug "
-            "only."
+            "Map every acceptance criterion to its proving plan case. "
+            "Blocking methodless acceptance rows refuse as requirement_proof_required, "
+            "including copied ac_derived rows. For a one-off case use qa.requirement.add "
+            "with --method-id, instructions, expected outcome and method config. "
+            "Read yoke qa requirement add --help; every add-batch row requires "
+            "workflow_transition_id. Select a Dash premerge verification plan before attachment."
         ),
     },
     {
@@ -149,11 +118,11 @@ QA_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent", "tester_agent"),
         "topic": "qa",
-        "purpose": "Add a QA run verdict — agent × ac_verification (inline raw_result)",
+        "purpose": "Record an explicit review verdict",
         "recipe": (
             "yoke qa run add "
             "--requirement-id R --performed-by agent "
-            "--qa-kind ac_verification --verdict pass "
+            "--qa-kind implementation_review --verdict pass "
             "--head-sha <commit> "
             "--raw-result 'Full backend pytest passed: N passed, K skipped.'"
         ),

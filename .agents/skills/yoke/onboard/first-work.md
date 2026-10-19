@@ -56,7 +56,7 @@ argv and roots from this run's confirmed profile. A truly one-off check with
 no reusable plan uses explicit requirements:
 
 ```bash
-yoke qa requirement add --item {ITEM} --qa-kind ac_verification --qa-phase verification --blocking-mode blocking --requirement-source explicit --workflow-transition reviewed-implementation
+yoke qa requirement add --item {ITEM} --method-id command --qa-phase verification --blocking-mode blocking --requirement-source explicit --workflow-transition reviewed-implementation --instructions "Run the confirmed verification command." --expected-outcome "The stated acceptance criterion passes." --method-config '{"command":"{verified_argv}"}'
 ```
 
 ## Activation

@@ -13,7 +13,7 @@ import pytest
 
 from yoke_core.domain import qa
 from runtime.api.qa_full_test_helpers import conn_with_rows, make_qa_db_file
-from runtime.api.qa_transition_test_support import add_bound_requirement
+from runtime.api.qa_transition_test_support import seed_historical_requirement
 
 
 @pytest.fixture()
@@ -75,7 +75,7 @@ class TestArtifactAdd:
         assert json.loads(row[0])["route"] == "/"
 
     def test_add_artifact_with_run_id(self, db_path, capsys, tmp_path, monkeypatch):
-        req_id = add_bound_requirement(
+        req_id = seed_historical_requirement(
             db_path=db_path,
             item_id=100,
             qa_kind="smoke",
@@ -122,7 +122,9 @@ class TestArtifactList:
         assert len(lines) == 2
 
     def test_empty_item_listing_names_the_item_after_the_conn_closes(
-        self, db_path, capsys,
+        self,
+        db_path,
+        capsys,
     ):
         """Regression: the empty-list message ran against a closed handle.
 
@@ -131,7 +133,7 @@ class TestArtifactList:
         listing with no artifacts queried a connection that was gone. No
         mock here: this exercises the real close.
         """
-        req_id = add_bound_requirement(
+        req_id = seed_historical_requirement(
             db_path=db_path,
             item_id=100,
             qa_kind="smoke",
@@ -148,7 +150,7 @@ class TestArtifactList:
         assert "No artifacts found for YOK-100" in out
 
     def test_list_by_run(self, db_path, capsys):
-        req_id = add_bound_requirement(
+        req_id = seed_historical_requirement(
             db_path=db_path,
             item_id=100,
             qa_kind="smoke",
@@ -168,13 +170,13 @@ class TestArtifactList:
         assert len(lines) == 1
 
     def test_list_by_item_id(self, db_path, capsys, tmp_path, monkeypatch):
-        req_id = add_bound_requirement(
+        req_id = seed_historical_requirement(
             db_path=db_path,
             item_id=100,
             qa_kind="smoke",
             qa_phase="verification",
         )
-        other_req_id = add_bound_requirement(
+        other_req_id = seed_historical_requirement(
             db_path=db_path,
             item_id=200,
             qa_kind="smoke",
@@ -231,10 +233,8 @@ class TestArtifactList:
         assert "one.png" in lines[0]
         assert "two.png" not in lines[0]
 
-    def test_list_by_item_id_resolves_handle_addresses(
-        self, db_path, capsys, tmp_path
-    ):
-        req_id = add_bound_requirement(
+    def test_list_by_item_id_resolves_handle_addresses(self, db_path, capsys, tmp_path):
+        req_id = seed_historical_requirement(
             db_path=db_path,
             item_id=100,
             qa_kind="smoke",
@@ -257,11 +257,13 @@ class TestArtifactList:
             "(%s,'screenshot',%s,'2026-01-01T00:00:00Z')",
             (
                 run_id,
-                json.dumps({
-                    "backend": "s3",
-                    "bucket": "externalwebapp-prod-artifacts",
-                    "key": f"qa-artifacts/externalwebapp/100/{run_id}/shot.png",
-                }),
+                json.dumps(
+                    {
+                        "backend": "s3",
+                        "bucket": "externalwebapp-prod-artifacts",
+                        "key": f"qa-artifacts/externalwebapp/100/{run_id}/shot.png",
+                    }
+                ),
                 run_id,
                 json.dumps({"backend": "local", "path": str(local)}),
             ),

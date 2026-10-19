@@ -127,7 +127,9 @@ def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
                 jsonpath=f"$.payload.{run_only}",
             )
         row.pop(run_only, None)
-    invalid = validate_row(row, "$.payload")
+    invalid = validate_row(
+        row, "$.payload", subject=str(request.target.public_ref or f"item {item_id}")
+    )
     if invalid is not None:
         return invalid
 
@@ -241,7 +243,9 @@ def handle_qa_requirement_add_batch(
                     "with target.kind='deployment_run'.",
                     jsonpath=f"{jsonpath}.{foreign}",
                 )
-        invalid = validate_row(row, jsonpath)
+        invalid = validate_row(
+            row, jsonpath, subject=str(request.target.public_ref or f"item {item_id}")
+        )
         if invalid is not None:
             return invalid
         normalized.append(row)

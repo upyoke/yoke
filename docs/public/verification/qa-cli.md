@@ -20,7 +20,7 @@ updated lane and rerun the same case to rejoin any existing CI run.
 Python owner: `yoke_core.domain.qa`. Public command examples use the installed
 Yoke CLI, which dispatches the registered `qa.*` function ids:
 
-- `yoke qa requirement add|add-batch|list|get|update|waive ...`
+- `yoke qa requirement add|add-batch|list|get|update|waive|transfer ...`
 - `yoke qa plan materialize --item PREFIX-N --transition T`
 - `yoke qa plan run --deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN] --project P` — `--plan` only for a stage that names no cases; one already naming its own refuses it
 - `yoke qa plan run --deployment-run-id RUN --plan PLAN --project P` — run-wide, and refused on a run pinning any QA stage
@@ -80,11 +80,11 @@ yoke qa requirement update --requirement-id 4309 --field starting_state --value 
 yoke qa run add \
  --requirement-id 1 --performed-by agent --qa-kind implementation_review --verdict pass
 
-# Record evidence for a method-less acceptance requirement at an explicit commit.
-# qa_kind must match the requirement; raw-result holds the actual evidence.
-yoke qa run add --requirement-id 1 --performed-by agent \
- --qa-kind ac_verification --verdict pass --head-sha FULL_COMMIT_SHA \
- --raw-result 'Evidence and result for every acceptance criterion'
+# Execute the method case that proves the acceptance criterion.
+yoke qa case run --requirement-id REQUIREMENT_ID
+
+# Move an unexecuted direct case; hold both item claims in one project.
+yoke qa requirement transfer --requirement-id REQUIREMENT_ID --to-item PREFIX-N --workflow-transition QA_STAGE --rationale "Destination owns this check"
 
 # Epic-task review verdicts use the workflow-item helper path
 yoke workflow-item epic-task review-insert \

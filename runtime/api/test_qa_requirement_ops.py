@@ -14,7 +14,7 @@ from runtime.api.qa_test_helpers import (
     make_basic_requirement,
     make_qa_db_file,
 )
-from runtime.api.qa_transition_test_support import add_bound_requirement
+from runtime.api.qa_transition_test_support import seed_historical_requirement
 
 
 @pytest.fixture()
@@ -30,20 +30,20 @@ def req_id(db_path: str) -> int:
 
 class TestRequirementList:
     def test_list_all(self, db_path: str) -> None:
-        add_bound_requirement(
+        seed_historical_requirement(
             db_path=db_path, item_id=10, qa_kind="a", qa_phase="verification"
         )
-        add_bound_requirement(
+        seed_historical_requirement(
             db_path=db_path, item_id=20, qa_kind="b", qa_phase="verification"
         )
         lines = qa.cmd_requirement_list(db_path=db_path)
         assert len(lines) == 2
 
     def test_filter_by_item_id(self, db_path: str) -> None:
-        add_bound_requirement(
+        seed_historical_requirement(
             db_path=db_path, item_id=10, qa_kind="a", qa_phase="verification"
         )
-        add_bound_requirement(
+        seed_historical_requirement(
             db_path=db_path, item_id=20, qa_kind="b", qa_phase="verification"
         )
         lines = qa.cmd_requirement_list(db_path=db_path, item_id=10)
@@ -51,10 +51,10 @@ class TestRequirementList:
         assert "|a|" in lines[0]
 
     def test_filter_by_epic_id(self, db_path: str) -> None:
-        add_bound_requirement(
+        seed_historical_requirement(
             db_path=db_path, epic_id=5, task_num=1, qa_kind="e", qa_phase="verification"
         )
-        add_bound_requirement(
+        seed_historical_requirement(
             db_path=db_path, item_id=99, qa_kind="x", qa_phase="verification"
         )
         lines = qa.cmd_requirement_list(db_path=db_path, epic_id=5)
@@ -75,7 +75,7 @@ class TestRequirementGet:
 
 class TestRequirementWaive:
     def test_waive_non_blocking(self, db_path: str) -> None:
-        rid = add_bound_requirement(
+        rid = seed_historical_requirement(
             db_path=db_path,
             item_id=10,
             qa_kind="unit_test",
@@ -149,7 +149,7 @@ class TestRequirementUpdate:
         assert row[0] == "stage"
 
     def test_update_success_policy_json(self, db_path: str) -> None:
-        rid = add_bound_requirement(
+        rid = seed_historical_requirement(
             db_path=db_path,
             item_id=42,
             qa_kind="plan_case",

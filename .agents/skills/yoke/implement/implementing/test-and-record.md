@@ -99,7 +99,7 @@ requirements, `qa.run.add` stamps the clean claimed lane HEAD:
 commit before recording; raw-result is evidence, not tree identity.
 
 ```text
-yoke qa run add --requirement-id <id> --performed-by agent --qa-kind ac_verification --verdict pass --raw-result "<actual verified evidence>"
+yoke qa run add --requirement-id <id> --performed-by agent --qa-kind implementation_review --verdict pass --raw-result "<actual verified evidence>"
 ```
 
 Use the stored kind for structural no_tests_declared and say

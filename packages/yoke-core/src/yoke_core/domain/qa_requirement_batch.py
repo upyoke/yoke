@@ -167,6 +167,14 @@ def _validate_row(row, index: int) -> None:
     if targets > 1:
         _exit(f"row {index} must specify exactly one attachment target")
 
+    from yoke_core.domain.qa_requirement_proof import proof_refusal
+
+    refused = proof_refusal(
+        row,
+        subject=f"row {index}, item {row.get('item_id') or row.get('epic_id') or row.get('deployment_run_id')}",
+    )
+    if refused:
+        _exit(refused)
     row["qa_phase"] = qa_phase
     row["qa_kind"] = qa_kind
     try:

@@ -23,7 +23,7 @@ class TestRequirementAdd:
         rid = add_bound_requirement(
             db_path=db_path,
             item_id=10,
-            qa_kind="unit_test",
+            qa_kind="implementation_review",
             qa_phase="verification",
         )
         assert isinstance(rid, int)
@@ -34,7 +34,7 @@ class TestRequirementAdd:
             db_path=db_path,
             epic_id=5,
             task_num=3,
-            qa_kind="integration_test",
+            qa_kind="implementation_review",
             qa_phase="post_deploy",
         )
         assert rid > 0
@@ -43,7 +43,7 @@ class TestRequirementAdd:
         rid = qa.cmd_requirement_add(
             db_path=db_path,
             deployment_run_id="run-abc",
-            qa_kind="smoke_test",
+            qa_kind="implementation_review",
             qa_phase="manual_acceptance",
         )
         assert rid > 0
@@ -62,7 +62,7 @@ class TestRequirementAdd:
         with pytest.raises(SystemExit) as exc:
             add_bound_requirement(
                 db_path=db_path,
-                qa_kind="unit_test",
+                qa_kind="implementation_review",
                 qa_phase="verification",
             )
         assert exc.value.code == 2
@@ -73,7 +73,7 @@ class TestRequirementAdd:
                 db_path=db_path,
                 item_id=10,
                 deployment_run_id="run-abc",
-                qa_kind="unit_test",
+                qa_kind="implementation_review",
                 qa_phase="verification",
             )
         assert exc.value.code == 2
@@ -83,7 +83,7 @@ class TestRequirementAdd:
             add_bound_requirement(
                 db_path=db_path,
                 epic_id=5,
-                qa_kind="unit_test",
+                qa_kind="implementation_review",
                 qa_phase="verification",
             )
         assert exc.value.code == 2
@@ -92,7 +92,7 @@ class TestRequirementAdd:
         rid = add_bound_requirement(
             db_path=db_path,
             item_id=10,
-            qa_kind="unit_test",
+            qa_kind="implementation_review",
             qa_phase="verification",
             target_env="stage",
             blocking_mode="non_blocking",
@@ -118,7 +118,7 @@ class TestRequirementAdd:
             add_bound_requirement(
                 db_path=db_path,
                 item_id=10,
-                qa_kind="unit_test",
+                qa_kind="implementation_review",
                 qa_phase="verification",
                 capability_requirements=value,
             )
@@ -131,7 +131,7 @@ class TestRequirementAdd:
             add_bound_requirement(
                 db_path=db_path,
                 item_id=10,
-                qa_kind="unit_test",
+                qa_kind="implementation_review",
                 qa_phase="verification",
                 requirement_source="agent",
             )

@@ -327,7 +327,7 @@ def test_domain_cli_deployment_run_requirement_needs_no_transition():
     with test_database():
         requirement_id = qa.cmd_requirement_add(
             deployment_run_id="run-unbound",
-            qa_kind="post_deploy",
+            qa_kind="implementation_review",
             qa_phase="post_deploy",
         )
     assert requirement_id > 0

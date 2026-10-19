@@ -9,6 +9,7 @@ from yoke_core.domain.handlers import (
     qa_post_deploy_declare_none as _qa_post_deploy_declare_none,
     qa_post_deploy_record_no_obligation as _qa_post_deploy_record_no_obligation,
     qa_requirement_rebind as _qa_requirement_rebind,
+    qa_requirement_transfer as _qa_transfer,
     qa_requirement_supersede as _qa_requirement_supersede,
     qa_requirement_waive as _qa_requirement_waive,
     qa_run as _qa_run,
@@ -17,6 +18,21 @@ from yoke_core.domain.handlers import (
 
 def register(registry) -> None:
     """Register QA requirement and run handlers."""
+    registry.register(
+        "qa.requirement.transfer",
+        _qa_transfer.handle_qa_requirement_transfer,
+        _qa_transfer.QaRequirementTransferRequest,
+        _qa_transfer.QaRequirementTransferResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.qa_requirement_transfer",
+        target_kinds=["qa_requirement"],
+        side_effects=["qa_requirements_update", "item_sections_update"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["claim_required"],
+        adapter_status="live",
+        claim_required_kind="qa_subject",
+        minimum_serving_version="next-release",
+    )
     registry.register(
         "qa.requirement.update",
         _qa.handle_qa_requirement_update,

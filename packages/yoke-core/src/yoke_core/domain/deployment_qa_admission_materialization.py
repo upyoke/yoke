@@ -74,14 +74,19 @@ def materialize_admitted_requirement(
 ) -> tuple[int, bool]:
     """Copy one frozen direct obligation without its former item subject.
 
-    A direct copy belongs to no plan, so case/baseline positions stay null.
-    The execution roster assigns its order. Stored positions would instead
-    claim plan ordering authority and trigger permanent case-position drift
-    on execution begin, even after rebuilding the roster.
+    Direct copies keep null plan positions; the execution roster owns order.
     """
     source_id = int(requirement.get("id") or 0)
     if source_id < 1:
         raise QaPlanError("frozen member QA requirement has no source identity")
+    from yoke_core.domain.qa_requirement_proof import proof_refusal
+
+    refusal = proof_refusal(
+        requirement,
+        subject=f"member {subject.get('member_item_id')}, requirement {source_id}",
+    )
+    if refusal:
+        raise QaPlanError(refusal)
     case_key = admitted_requirement_case_key(source_id)
     identity, identity_params = admitted_requirement_identity_clause(requirement)
     existing = conn.execute(

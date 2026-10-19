@@ -18,7 +18,7 @@ from yoke_core.domain.schema_init_actor_path_claim_tables import (
 )
 from yoke_core.domain.schema_init_tables_sessions import create_session_tables
 from runtime.api.qa_full_test_helpers import conn_with_rows, make_qa_db_file
-from runtime.api.qa_transition_test_support import add_bound_requirement
+from runtime.api.qa_transition_test_support import seed_historical_requirement
 
 
 @pytest.fixture()
@@ -42,7 +42,7 @@ class TestRunAddBatch:
         qa_kind="ac_verification",
         method_id=None,
     ):
-        req_id = add_bound_requirement(
+        req_id = seed_historical_requirement(
             db_path=db_path,
             item_id=item_id,
             qa_kind=qa_kind,

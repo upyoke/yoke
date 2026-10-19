@@ -27,10 +27,8 @@ _EXECUTOR_PACKET_PATHS = (
 )
 
 _REQUIRED_ADD_RECIPE = (
-    "yoke qa requirement add --item PREFIX-N "
-    "--qa-kind ac_verification --qa-phase verification "
-    "--blocking-mode blocking --requirement-source ac_derived "
-    "--workflow-transition reviewed-implementation"
+    "yoke qa item-plan attach --item PREFIX-N --project PROJECT "
+    "--plan-id PLAN_ID --transition QA_STAGE --qa-phase verification"
 )
 
 
@@ -43,10 +41,9 @@ def test_runner_packet_creation_recipes_are_transition_bound(
     assert f"yoke packets render --role {role} --topic qa --detail full" in body
     body = sac.render_topic_packet("qa", role=role, detail="full")
     assert _REQUIRED_ADD_RECIPE in body
-    assert "every row must include `workflow_transition_id`" in body
-    assert (
-        "requirement-add --epic-id PREFIX-N --task-num K --workflow-transition STAGE"
-    ) in body
+    assert "every add-batch row requires workflow_transition_id" in body
+    assert "requirement_proof_required" in body
+    assert "with --method-id, instructions, expected outcome and method config" in body
 
 
 @pytest.mark.parametrize(
@@ -54,8 +51,7 @@ def test_runner_packet_creation_recipes_are_transition_bound(
     (
         (
             ".agents/skills/yoke/implement/implementing/qa-seeding.md",
-            "--qa-phase verification \\\n"
-            "  --workflow-transition reviewed-implementation",
+            "--transition QA_STAGE --qa-phase verification",
         ),
         (
             ".agents/skills/yoke/implement/implementing/browser-seeding.md",
@@ -64,7 +60,7 @@ def test_runner_packet_creation_recipes_are_transition_bound(
         ),
         (
             ".agents/skills/yoke/shepherd/boss-verdict-transitions.md",
-            "--qa-phase verification --workflow-transition QA_STAGE",
+            "--transition QA_STAGE --qa-phase verification",
         ),
         (
             ".agents/skills/yoke/onboard/first-work.md",

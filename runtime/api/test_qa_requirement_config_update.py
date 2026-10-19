@@ -15,7 +15,10 @@ from yoke_core.domain.qa_requirement_pass_currency import (
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.qa_test_helpers import make_qa_db_file
-from runtime.api.qa_transition_test_support import QA_GATED_TRANSITION
+from runtime.api.qa_transition_test_support import (
+    QA_GATED_TRANSITION,
+    seed_historical_requirement,
+)
 
 _OLD_STEPS = [
     {"action": "navigate", "route": "/dashboard"},
@@ -37,7 +40,7 @@ def db_path(tmp_path: Path):
 
 
 def _seed_requirement(db_path: str, *, method_id: str, config: dict) -> int:
-    req_id = qa.cmd_requirement_add(
+    req_id = seed_historical_requirement(
         db_path=db_path,
         item_id=42,
         qa_kind="plan_case",
@@ -278,7 +281,7 @@ class TestMethodConfigUpdate:
     def test_non_method_requirement_cannot_take_method_config(
         self, db_path: str
     ) -> None:
-        req_id = qa.cmd_requirement_add(
+        req_id = seed_historical_requirement(
             db_path=db_path,
             item_id=42,
             qa_kind="unit_test",

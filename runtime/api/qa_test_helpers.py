@@ -23,7 +23,10 @@ from runtime.api.api_workflow_test_helpers import (
     install_workflow_registry_and_pin_items,
 )
 from runtime.api.fixtures.file_test_db import init_test_db
-from runtime.api.qa_transition_test_support import QA_GATED_TRANSITION
+from runtime.api.qa_transition_test_support import (
+    QA_GATED_TRANSITION,
+    seed_historical_requirement,
+)
 
 
 _QA_PARENT_SCHEMA = """
@@ -101,7 +104,7 @@ def make_basic_requirement(db_path: str) -> int:
 
     Returns the requirement ID used by tests that need one seeded row.
     """
-    return qa.cmd_requirement_add(
+    return seed_historical_requirement(
         db_path=db_path,
         item_id=42,
         qa_kind="unit_test",

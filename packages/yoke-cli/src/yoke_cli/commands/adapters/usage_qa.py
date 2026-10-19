@@ -18,6 +18,9 @@ from yoke_cli.commands.adapters.qa_requirement_rebind import (
 from yoke_cli.commands.adapters.qa_requirement_supersede import (
     QA_REQUIREMENT_SUPERSEDE_USAGE,
 )
+from yoke_cli.commands.adapters.qa_requirement_transfer import (
+    QA_REQUIREMENT_TRANSFER_USAGE,
+)
 from yoke_cli.commands.adapters.qa_crud import QA_REQUIREMENT_ADD_USAGE
 from yoke_cli.commands.adapters.qa_post_deploy import (
     QA_POST_DEPLOY_DECLARE_NONE_USAGE,
@@ -47,6 +50,7 @@ from yoke_cli.commands.adapters.qa_browser import (
 
 QA_ADAPTER_USAGE: Dict[str, str] = {
     "qa.artifact.get": QA_ARTIFACT_GET_USAGE,
+    "qa.requirement.transfer": QA_REQUIREMENT_TRANSFER_USAGE,
     "qa.requirement.update": QA_REQUIREMENT_UPDATE_USAGE,
     "qa.requirement.rebind_target": QA_REQUIREMENT_REBIND_TARGET_USAGE,
     "qa.requirement.supersede": QA_REQUIREMENT_SUPERSEDE_USAGE,

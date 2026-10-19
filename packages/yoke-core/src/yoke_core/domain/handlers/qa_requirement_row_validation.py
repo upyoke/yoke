@@ -16,7 +16,9 @@ from yoke_contracts.api.function_call import HandlerOutcome
 from yoke_core.domain.handlers.qa import _error
 
 
-def validate_row(row: Dict[str, Any], jsonpath: str) -> Optional[HandlerOutcome]:
+def validate_row(
+    row: Dict[str, Any], jsonpath: str, *, subject: str = "QA subject"
+) -> Optional[HandlerOutcome]:
     """Validate one add/add-batch row and return an error outcome or None.
 
     Mutates *row* in place through the canonical field normalizers.
@@ -90,6 +92,11 @@ def validate_row(row: Dict[str, Any], jsonpath: str) -> Optional[HandlerOutcome]
             "; ".join(policy_errors),
             jsonpath=f"{jsonpath}.success_policy",
         )
+    from yoke_core.domain.qa_requirement_proof import proof_refusal
+
+    refusal = proof_refusal(row, subject=subject)
+    if refusal:
+        return _error("requirement_proof_required", refusal, jsonpath=jsonpath)
     return None
 
 

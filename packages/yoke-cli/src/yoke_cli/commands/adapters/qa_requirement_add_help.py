@@ -37,12 +37,17 @@ Insert one qa_requirements row against the subject you name.
                           --requirement-id N`; do not add-item onto a
                           frozen run and do not attach a plan.
 
+Blocking acceptance cases require a registered method and complete executable
+configuration. requirement_proof_required names the item and criterion: attach
+the plan case that proves it, or add a method case. Copying/transferring keeps
+that method. simulation, implementation_review and no_tests_declared retain
+their domain-owned verdict writers; nonblocking declarations remain advisory.
+
 Worked examples:
 
-  yoke qa requirement add --item YOK-N \\
-    --qa-kind ac_verification --qa-phase verification \\
-    --blocking-mode blocking --requirement-source ac_derived \\
-    --workflow-transition reviewed-implementation
+  yoke qa item-plan attach --item PREFIX-N --project PROJECT \
+    --plan-id PLAN_ID --transition QA_STAGE --qa-phase verification
+  yoke qa plan materialize --item PREFIX-N --transition QA_STAGE
 
   yoke qa requirement add --item YOK-N \\
     --method-id browser-inspection --qa-phase verification \\

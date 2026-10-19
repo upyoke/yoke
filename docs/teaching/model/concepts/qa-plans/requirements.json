@@ -1,9 +1,11 @@
 {
  "id": "requirements",
  "title": "Materialized requirements",
- "status": "draft-copy",
- "commands": ["yoke qa requirement add", "yoke qa requirement add-batch", "yoke qa requirement get", "yoke qa requirement list", "yoke qa requirement rebind-target", "yoke qa requirement update"],
- "functions": ["qa.requirement.add", "qa.requirement.add_batch", "qa.requirement.get", "qa.requirement.list", "qa.requirement.rebind_target", "qa.requirement.update"],
- "page": "qa-plans",
- "position": 2
+ "status": "observed",
+ "commands": ["yoke qa requirement add", "yoke qa requirement add-batch", "yoke qa requirement get", "yoke qa requirement list", "yoke qa requirement rebind-target", "yoke qa requirement update", "yoke qa requirement transfer"],
+ "functions": ["qa.requirement.add", "qa.requirement.add_batch", "qa.requirement.get", "qa.requirement.list", "qa.requirement.rebind_target", "qa.requirement.update", "qa.requirement.transfer"],
+ "page": "qa-requirements",
+ "position": 2,
+ "summary": "Blocking acceptance obligations retain a runnable method; derive them from proving plan cases. Simulation and explicit review kinds retain domain-owned discharge writers. Transfers retain the executable direct case and record ownership on both items. A standing case can be superseded by its matching, currently passing deployment copy.",
+ "sources": ["docs/public/verification/requirement-discharges.md", "packages/yoke-core/src/yoke_core/domain/qa_requirement_proof.py", "packages/yoke-core/src/yoke_core/domain/qa_requirement_run_proof.py"]
 }

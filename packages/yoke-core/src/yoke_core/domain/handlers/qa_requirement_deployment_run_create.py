@@ -242,7 +242,9 @@ def handle_deployment_run_requirement_add(
             "written by the run's own pipeline",
             jsonpath="$.payload.method_id",
         )
-    invalid = validate_row(row, "$.payload")
+    invalid = validate_row(
+        row, "$.payload", subject=f"deployment run {request.target.deployment_run_id}"
+    )
     if invalid is not None:
         return invalid
 

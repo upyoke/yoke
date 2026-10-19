@@ -30,21 +30,22 @@ Derive _qa_verification_stage from first post-binding stage with reviewing board
 bucket and qa_verification gate. Absent: shepherd_qa_anchor_unavailable,
 publish corrected definition; no literal stage substitute.
 
-Read ACs from stored spec, body if empty, then existing requirements. For each
-testable checkbox AC (- [ ] AC-N: or plain checkbox) add missing explicit
-blocking ac_verification with verification phase/ac_derived source and
-success policy all-pass:
+Read ACs from the stored spec, then existing plan cases and requirements.
+Map every testable checkbox AC to a proving executable plan case. Attach and
+materialize those cases at the derived QA stage; preserve their concrete
+instructions, expected outcome and method. Missing mapping stops as
+`requirement_proof_required`: author the proving case before proceeding.
+Do not create a blocking `ac_verification` row from acceptance prose alone.
 
 ```bash
 yoke qa requirement list --item ITEM --json
-yoke qa requirement add --item ITEM --qa-kind ac_verification --qa-phase verification --workflow-transition QA_STAGE --blocking-mode blocking --requirement-source ac_derived --success-policy all-pass
+yoke qa item-plan attach --item ITEM --project PROJECT --plan-id PLAN_ID --transition QA_STAGE --qa-phase verification
+yoke qa plan materialize --item ITEM --transition QA_STAGE
 ```
 
 No ACs and no existing requirement: one blocking implementation_review,
-seeded_default source, success policy all-pass.
-Duplicate adds create rows; do not call them idempotent. Reentry matches
-existing source/AC/transition and preserves legitimate requirements.
-Browser/command/machine methods come from attached plans or explicit method-backed
-requirements; never infer/duplicate them here. Inspect each write/readback;
-a failed seed stops with named requirement/recovery, never swallowed green.
+seeded_default source, success policy all-pass, retains its real review writer.
+Reentry matches existing plan/case/transition and preserves requirements.
+Never infer a command, browser or machine method from AC prose. Inspect each
+write and readback; failed coverage stops with its criterion and recovery.
 Next: [finalize.md](finalize.md).
