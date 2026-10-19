@@ -1,8 +1,15 @@
 """Dash filing options preserve provenance, posture, attestation and priority."""
 
+from io import StringIO
+
 import pytest
 
 from yoke_cli.commands.adapters import dash_file, items_create
+
+
+@pytest.fixture(autouse=True)
+def _spec_on_stdin(monkeypatch):
+    monkeypatch.setattr("sys.stdin", StringIO("Fix the footer copy."))
 
 
 def _capture(monkeypatch, module):
@@ -22,8 +29,9 @@ def test_dash_filing_uses_cli_provenance_and_tightening_posture(monkeypatch):
     assert (
         dash_file.dash_file(
             [
+                "--title",
                 "Tighten footer",
-                "Fix the footer copy.",
+                "--stdin",
                 "--project",
                 "yoke",
                 "--path-claims",
@@ -54,7 +62,7 @@ def test_dash_filing_uses_cli_provenance_and_tightening_posture(monkeypatch):
 def test_dash_filing_never_attests_for_the_caller(monkeypatch):
     captured = _capture(monkeypatch, dash_file)
 
-    assert dash_file.dash_file(["Tighten footer", "Fix the footer copy."]) == 0
+    assert dash_file.dash_file(["--title", "Tighten footer", "--stdin"]) == 0
 
     # The flag records what the filer did before authoring; an adapter
     # that defaulted it to true would attest a read that never happened.
@@ -78,8 +86,9 @@ def test_dash_filing_accepts_named_priority(monkeypatch):
     assert (
         dash_file.dash_file(
             [
+                "--title",
                 "Tighten footer",
-                "Fix the footer copy.",
+                "--stdin",
                 "--priority",
                 "high",
             ]
@@ -93,8 +102,9 @@ def test_dash_filing_rejects_unknown_priority(capsys):
     assert (
         dash_file.dash_file(
             [
+                "--title",
                 "Tighten footer",
-                "Fix the footer copy.",
+                "--stdin",
                 "--priority",
                 "P2",
             ]

@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
+from io import StringIO
+
 import pytest
 
 from yoke_cli.commands.adapters import task, items_create
+
+
+@pytest.fixture(autouse=True)
+def _spec_on_stdin(monkeypatch):
+    monkeypatch.setattr("sys.stdin", StringIO("Refresh the local inventory file."))
 
 
 def _capture(monkeypatch):
@@ -24,8 +31,9 @@ def test_task_filing_dispatches_typed_cli_create(monkeypatch):
     assert (
         task.task_file(
             [
+                "--title",
                 "Refresh inventory",
-                "Refresh the local inventory file.",
+                "--stdin",
                 "--project",
                 "yoke",
                 "--priority",
@@ -55,8 +63,9 @@ def test_task_filing_never_attests_for_the_caller(monkeypatch):
     assert (
         task.task_file(
             [
+                "--title",
                 "Refresh inventory",
-                "Refresh the local inventory file.",
+                "--stdin",
             ]
         )
         == 0
@@ -84,8 +93,9 @@ def test_task_filing_refuses_inapplicable_dash_postures(
     assert (
         task.task_file(
             [
+                "--title",
                 "Refresh inventory",
-                "Refresh it.",
+                "--stdin",
                 *flags,
             ]
         )

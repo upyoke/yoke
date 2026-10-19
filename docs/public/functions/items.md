@@ -59,11 +59,13 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 ## Creation and structured writes
 
 ```text
-yoke items create "Outcome" task --spec-file spec.md --project P --execution-instructions-considered
+yoke items create --title "Outcome" --workflow task --spec-file spec.md --project P --execution-instructions-considered
 ```
 
-The item text is **spec**. Use --stdin for spec input and --title-file PATH
-for a title file. Task and Dash are thin shortcuts to this same operation.
+The item text is **spec**. Title and spec are flags only: `--title TEXT` or
+`--title-file PATH` for the title, `--spec-file PATH` or `--stdin` for the
+spec. Positional text refuses with `ITEM_TEXT_POSITIONAL_RETIRED`. Task and
+Dash are thin shortcuts to this same operation without `--workflow`.
 The payload carries spec. Creation stores it with attribution in the same
 transaction. A spec-bearing CLI write first previews the request and requires
 spec_accepted in the receipt. An older server that cannot attest acceptance

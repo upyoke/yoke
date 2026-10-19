@@ -1,5 +1,6 @@
 """Client selection refuses unmapped folders and forwards caller project context."""
 
+from io import StringIO
 from types import SimpleNamespace
 
 import pytest
@@ -70,7 +71,8 @@ def test_dash_forwards_the_callers_selection(
     monkeypatch.setattr(
         items_create, "dispatch_create", lambda **kw: seen.append(kw) or 0
     )
-    args = ["test", "instruction", "--execution-instructions-considered"]
+    monkeypatch.setattr("sys.stdin", StringIO("instruction"))
+    args = ["--title", "test", "--stdin", "--execution-instructions-considered"]
     if explicit:
         args += ["--project", explicit]
     assert dash_file.dash_file(args) == 0

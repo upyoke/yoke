@@ -104,7 +104,7 @@ The item is created with its full spec; creation refuses a missing or
 title-only spec (`spec_required`). Write the spec to a file first:
 
 ```sh
-yoke items create "{title}" issue --spec-file {spec_file} --project {project} --priority {priority} --entry-surface harness_skill --execution-instructions-considered
+yoke items create --title "{title}" --workflow issue --spec-file {spec_file} --project {project} --priority {priority} --entry-surface harness_skill --execution-instructions-considered
 ```
 
 The spec includes observation summary, source entry ids/authors/categories,

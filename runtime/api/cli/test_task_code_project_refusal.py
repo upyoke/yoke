@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from io import StringIO
 from unittest import mock
 
 from runtime.api.backlog_mutations_test_helpers import (
@@ -35,11 +36,13 @@ def _item_count(db_path: str) -> int:
 def _file_task(db_path: str, monkeypatch) -> int:
     for name in AMBIENT_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr("sys.stdin", StringIO("Edit the parser source and land it."))
     with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": db_path}):
         return task.task_file(
             [
+                "--title",
                 "Change the parser",
-                "Edit the parser source and land it.",
+                "--stdin",
                 "--project",
                 "yoke",
                 "--execution-instructions-considered",
@@ -59,7 +62,7 @@ def test_task_refuses_a_project_with_a_code_repository(
     err = capsys.readouterr().err
     assert "task_workflow_code_project" in err
     assert "upyoke/yoke" in err
-    assert "yoke dash TITLE SPEC --project yoke" in err
+    assert "yoke dash --title TEXT --spec-file PATH --project yoke" in err
     assert _item_count(tmp_db) == before
 
 

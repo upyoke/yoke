@@ -13,7 +13,7 @@ registered name/id, machine_unresolved is not absent relay.
 | strategy.doc.get | yoke strategy doc get SLUG --project P |
 | strategy.doc.create | yoke strategy doc create SLUG --summary TEXT --state draft --stdin --project P |
 | strategy.execution.link | yoke strategy execution link ITEM --slug SLUG --project P |
-| items.create | yoke dash TITLE SPEC --strategy-doc SLUG --execution-instructions-considered |
+| items.create | yoke dash --title TEXT --spec-file PATH --strategy-doc SLUG --execution-instructions-considered |
 | items.detail.get | yoke items detail get PREFIX-N --json (use --include '' for index-only) |
 | workflows.item.get | yoke workflows item get PREFIX-N --json |
 | claims.work.acquire | yoke claims work acquire --item PREFIX-N --reason TEXT |

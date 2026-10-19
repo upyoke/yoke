@@ -96,17 +96,19 @@ ITEMS_ADAPTERS = [
     AdapterEntry(
         function_id="items.create",
         cli_invocation=(
-            "yoke items create TITLE WORKFLOW --spec-file PATH --entry-surface harness_skill "
+            "yoke items create --title TEXT --workflow W --spec-file PATH "
+            "--entry-surface harness_skill "
             "--project P --execution-instructions-considered"
         ),
         notes=(
-            "Workflow-selected creation with spec input through --spec-file or --stdin. --title-file names the title source. "
+            "Workflow-selected creation with spec input through --spec-file or --stdin "
+            "and title through --title or --title-file. "
             "Every non-web surface attests the operator "
             "execution-instruction read with "
             "--execution-instructions-considered."
         ),
         canonical_skill_invocation=(
-            'yoke items create "{title}" {workflow} --spec-file PATH '
+            'yoke items create --title "{title}" --workflow {workflow} --spec-file PATH '
             '--entry-surface harness_skill --project "${_project}" '
             "--execution-instructions-considered"
         ),
