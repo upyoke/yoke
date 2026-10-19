@@ -130,11 +130,9 @@ def _render_claude_orientation(
 
 
 def _source_orientation(session_id, root, registration_failed, required):
-    from yoke_cli.config.setup_facts_summary import orientation_lines
     from yoke_core.domain.session_orientation import (
-        render_orientation,
+        render_scoped_orientation,
         REQUIRED_LINES_KEY,
-        SETUP_LINES_KEY,
     )
 
     if registration_failed:
@@ -143,10 +141,9 @@ def _source_orientation(session_id, root, registration_failed, required):
             _connected_env_remediation(registration_failed)
             or "Run: yoke sessions identity --json to diagnose registration."
         )
-    return render_orientation(
+    return render_scoped_orientation(
         {
             "session_id": session_id,
-            SETUP_LINES_KEY: orientation_lines(Path(root)),
             REQUIRED_LINES_KEY: required,
         },
         Path(root),

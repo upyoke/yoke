@@ -2,7 +2,7 @@
  "id": "setup-next-action-delivery-proof",
  "title": "Prove concise setup context in installed sessions",
  "status": "observed",
- "text": "Candidate source checks cover the selector, command replies and shared hook delivery. The existing installer campaign owner must run the released candidate for global, unrelated project and resumed second-machine scenarios. Preserve that campaign execution and ownership; source checks do not claim installed proof.",
+ "text": "Actual global receiving exposed project-registration guidance outside a project. Shared hook scope routing now excludes the machine state directory, but corrected installed proof is still owed. Genuine private-project import also blocked receiving despite authorized access. The receiving plan and existing installer campaign owner must prove the same corrected release for global, unrelated new/existing project and resumed second-machine scenarios. Preserve failed evidence and campaign ownership; source checks do not claim installed proof.",
  "sources": ["runtime/api/domain/test_session_orientation_setup_facts.py", "runtime/api/cli/test_setup_facts_summary.py", "docs/public/start/agent-setup.md"],
  "position": 23
 }

@@ -112,3 +112,73 @@ def test_repeated_hook_does_not_reread_setup(monkeypatch):
     delivered.append(True)
     assert orientation.orientation_for_hook(event, payload) is None
     assert reads == [Path("/external")]
+
+
+@pytest.mark.parametrize("harness", ["claude", "codex", "cursor"])
+@pytest.mark.parametrize("in_project", [False, True])
+def test_hook_scope_distinguishes_machine_state_from_project(
+    monkeypatch, tmp_path, harness, in_project
+):
+    from types import SimpleNamespace
+    from yoke_cli.config import setup_facts_summary
+    from yoke_contracts.session_model_facts import SessionModelFacts
+    from yoke_core.hooks import session_dispatch_orientation as source
+    from yoke_core.hooks import session_dispatch_cursor as cursor
+
+    home = tmp_path / "home"
+    machine_state = home / ".yoke"
+    machine_state.mkdir(parents=True)
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(machine_state))
+    root = home / "project"
+    if in_project:
+        (root / ".yoke").mkdir(parents=True)
+    cwd = root / "nested" if in_project else home / "outside" / "nested"
+    cwd.mkdir(parents=True)
+    reads = []
+
+    def setup(selected):
+        reads.append(selected)
+        scope = "machine" if selected is None else "project"
+        return [f"Setup: {scope} facts", "Next: yoke setup --agent"]
+
+    monkeypatch.setattr(setup_facts_summary, "orientation_lines", setup)
+    monkeypatch.setattr(global_orientation, "_project_folders", lambda: [])
+    monkeypatch.setattr(orientation, "_advisory_lines", lambda _: [])
+    monkeypatch.setattr(orientation, "_git_line", lambda *_: "")
+    if harness == "cursor":
+        body = cursor._render_orientation(
+            SimpleNamespace(payload={"session_id": "session"}), str(cwd), ""
+        )
+    elif harness == "codex":
+        body = source._render_codex_orientation(
+            "session", str(cwd), "", SessionModelFacts(), None
+        )
+    else:
+        body = source._render_claude_orientation(
+            "session", str(cwd), "", "claude-code", SessionModelFacts()
+        )
+    assert reads == [root if in_project else None]
+    assert body.count("Setup:") == body.count("Next:") == 1
+    assert ("outside every Yoke project" in body) is not in_project
+    if not in_project:
+        assert ".yoke/docs" not in body
+        assert "setup_project_unbound" not in body
+    assert len(body.encode()) <= min(INLINE_CONTEXT_BYTES.values())
+
+
+def test_global_scope_keeps_required_hook_recovery(monkeypatch, tmp_path):
+    from yoke_cli.config import setup_facts_summary
+
+    monkeypatch.setattr(orientation, "_project_root", lambda _: None)
+    monkeypatch.setattr(global_orientation, "_project_folders", lambda: [])
+    monkeypatch.setattr(setup_facts_summary, "orientation_lines", lambda _: [])
+    body = orientation.render_scoped_orientation(
+        {
+            "session_id": "session",
+            orientation.REQUIRED_LINES_KEY: ["Required recovery"],
+        },
+        tmp_path,
+    )
+    assert "Required recovery" in body
+    assert "outside every Yoke project" in body
+    assert len(body.encode()) <= min(INLINE_CONTEXT_BYTES.values())
