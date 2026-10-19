@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from yoke_core.domain import merge_queue_landing_timeout as _timeout
 from yoke_core.domain import standalone_item_merge_commit_bound as commit_bound
@@ -45,11 +45,25 @@ def verify_and_land(
     target: str,
     repo_root: Path,
     project: str,
+    read_item: Callable[[], tuple[dict[str, Any], str]],
 ) -> tuple[Optional[Any], str]:
-    """Prove the lane before landing it. Returns ``(outcome, refusal)``."""
+    """Prove the lane before landing it. Returns ``(outcome, refusal)``.
+
+    ``read_item`` re-reads the item when recovery re-ran a case.
+    """
+    leaves_status_unchanged = bool(args.skip_status)
+
+    def reload() -> tuple[dict[str, Any], str]:
+        fresh, error = read_item()
+        if error:
+            return {}, error
+        return item_for_merge_phase(
+            fresh, leaves_status_unchanged=leaves_status_unchanged
+        ), ""
+
     qa_item = item_for_merge_phase(
         item,
-        leaves_status_unchanged=bool(args.skip_status),
+        leaves_status_unchanged=leaves_status_unchanged,
     )
     commit_sha, qa_error = qa_preflight(
         qa_item,
@@ -64,6 +78,7 @@ def verify_and_land(
             repo_root=repo_root,
             branch=branch,
             qa_error=qa_error,
+            reload=reload,
             rerecord=commit_bound.rerecord_hand_run,
             run_case=commit_bound.rerun_command_case,
         )

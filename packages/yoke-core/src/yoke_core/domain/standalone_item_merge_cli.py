@@ -8,6 +8,7 @@ from functools import partial
 from typing import Any, List, Optional
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.merge_queue_status import in_flight_landing
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.merge_preflight_github_lock_retry import (
     call_with_machine_lock_retry,
@@ -189,7 +190,7 @@ def run(argv: List[str]) -> int:
             project=project,
             repo_root=str(repo_root),
             lane=landed_lane,
-            queue_pr_number=str((item.get("merge_queue") or {}).get("pr_number") or ""),
+            queue_pr_number=in_flight_landing(queue)["pr_number"],
             public_ref=public_ref,
         )
     else:
@@ -202,6 +203,7 @@ def run(argv: List[str]) -> int:
             target=target,
             repo_root=repo_root,
             project=project,
+            read_item=lambda: _resolve_item(public_ref, args.project),
         )
         if refusal:
             return fail(f"{public_ref}: {refusal}")

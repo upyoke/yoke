@@ -51,6 +51,7 @@ def handle_hold(request: FunctionCallRequest) -> HandlerOutcome:
             "$.target",
         )
 
+    from yoke_contracts.merge_queue_status import in_flight_landing
     from yoke_core.domain.item_detail_read import get_item_detail
     from yoke_core.domain.merge_queue_hold import hold_landing
     from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
@@ -63,7 +64,9 @@ def handle_hold(request: FunctionCallRequest) -> HandlerOutcome:
     project = item.get("project") or {}
     public_ref = str(item.get("public_ref") or request.target.item_id)
     target = str(project.get("default_branch") or "main")
-    pr_number = str((item.get("merge_queue") or {}).get("pr_number") or "")
+    # A re-land's open attempt is the candidate in the queue, not the
+    # landing the item already delivered.
+    pr_number = in_flight_landing(item.get("merge_queue"))["pr_number"]
     if not pr_number:
         return _error(
             "no_landing_recorded",

@@ -32,8 +32,10 @@ def _enter_release_wait_on_close_out(monkeypatch):
     )
 
 
-def _run_merge(tmp_path: Path, monkeypatch, item, *, rerecord, run_case=None):
-    monkeypatch.setattr(merge_cli, "_resolve_item", lambda *a: (item, ""))
+def _run_merge(
+    tmp_path: Path, monkeypatch, item, *, rerecord, run_case=None, resolve=None
+):
+    monkeypatch.setattr(merge_cli, "_resolve_item", resolve or (lambda *a: (item, "")))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *a: "")
     monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
@@ -99,29 +101,73 @@ def test_stale_sha_is_re_recorded_then_lands(tmp_path: Path, monkeypatch):
     merger.assert_called_once()
 
 
-def test_command_case_is_re_run_then_lands(tmp_path: Path, monkeypatch):
+REBASED_SHA = "d" * 40
+
+
+def _command_case_merge(tmp_path, monkeypatch, *, verdict="pass"):
+    """The gate rebases the lane, tests the new head, and records that run."""
     requirement = _requirement(verdict="pass", sha="")
     requirement["method_id"] = "command-ci"
     requirement["runner_id"] = "ci_run"
     item = _item(requirement)
     ran = []
+    lane_head = [MERGING_SHA]
 
     def run_case(requirement_id):
         ran.append(requirement_id)
+        lane_head[0] = REBASED_SHA
+        requirement.update(run_id=89, verdict=verdict, recorded_head_sha=REBASED_SHA)
+        if verdict != "pass":
+            requirement["case_outcome"] = "failed"
 
     def rerecord(_requirement, _commit_sha):
         raise AssertionError("hand re-record is not the command-case path")
 
+    monkeypatch.setattr(commit_bound.git, "head_of", lambda *_a: lane_head[0])
+    code, merger = _run_merge(
+        tmp_path, monkeypatch, item, rerecord=rerecord, run_case=run_case
+    )
+    return code, merger, ran
+
+
+def test_command_case_that_rebased_the_lane_lands_the_tested_head(
+    tmp_path: Path, monkeypatch
+):
+    code, merger, ran = _command_case_merge(tmp_path, monkeypatch)
+    assert code == 0
+    assert ran == [77]
+    merger.assert_called_once()
+    assert merger.call_args.kwargs["commit_sha"] == REBASED_SHA
+
+
+def test_command_case_that_failed_is_not_reported_as_proof(tmp_path: Path, monkeypatch):
+    code, merger, ran = _command_case_merge(tmp_path, monkeypatch, verdict="error")
+    assert code == 1
+    assert ran == [77]
+    merger.assert_not_called()
+
+
+def test_unreadable_recheck_refuses_with_its_recovery(
+    tmp_path: Path, monkeypatch, capsys
+):
+    requirement = _requirement(verdict="pass", sha="")
+    requirement.update(method_id="command-ci", runner_id="ci_run")
+    item = _item(requirement)
+    reads = iter([(item, ""), (None, "control plane unreachable")])
     code, merger = _run_merge(
         tmp_path,
         monkeypatch,
         item,
-        rerecord=rerecord,
-        run_case=run_case,
+        rerecord=mock.Mock(),
+        run_case=lambda _id: None,
+        resolve=lambda *_a: next(reads),
     )
-    assert code == 0
-    assert ran == [77]
-    merger.assert_called_once()
+    assert code == 1
+    error = capsys.readouterr().err
+    assert "commit_bound_recheck_unreadable" in error
+    assert "control plane unreachable" in error
+    assert "retry `yoke merge item YOK-10`" in error
+    merger.assert_not_called()
 
 
 def test_browser_case_refuses_before_fabricating_run(

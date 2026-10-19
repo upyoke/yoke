@@ -146,3 +146,24 @@ def test_a_stale_listing_without_a_hard_create_failure_does_not_recommend_reset(
     assert pr_num == ""
     assert "carries commits beyond the pull request that merged it" in error
     assert "reset the lane" not in error.lower()
+
+
+def test_a_superseded_candidate_is_never_force_pushed_over_the_tested_head(
+    monkeypatch,
+):
+    """The gate rebased and published the branch; the old candidate stays local."""
+    from yoke_core.domain import qa_case_ci_lane
+
+    tested_head = "9" * 40
+    monkeypatch.setattr(landing_pr_mod.git, "remote_head_of", lambda *_a: tested_head)
+    monkeypatch.setattr(landing_pr_mod.git, "head_of", lambda *_a: tested_head)
+    pushed: list = []
+    monkeypatch.setattr(qa_case_ci_lane, "push_lane", lambda *a, **kw: pushed.append(a))
+
+    error = landing_pr_mod._publish_lane_head(
+        ctx(repo_root=CHECKOUT), lane_head=LANE_SHA
+    )
+
+    assert error is not None and error.startswith("lane_head_superseded")
+    assert tested_head in error and "yoke merge item" in error
+    assert pushed == []
