@@ -6,6 +6,7 @@ import json
 import shlex
 import os
 import urllib.request
+from contextlib import nullcontext
 
 from yoke_contracts.engine_version import ENGINE_VERSION_HEADER, local_handshake_version
 from yoke_contracts.execution_provenance import collect_execution_provenance
@@ -146,7 +147,11 @@ def hc_dashboard_current_build(conn, args: DoctorArgs, rec: RecordCollector) -> 
     )
 
 
-def session_hook_recovery() -> str:
+class _SessionHookUnproven(ValueError):
+    """A registered session or its orientation could not be proven."""
+
+
+def session_hook_recovery(reason: str = "SESSION_HOOK_UNOBSERVED") -> str:
     """The unproven-registration line: what happened and the one next step."""
     approvals = "".join(
         f" In {harness_display_name(harness_id)}, first approve this project's "
@@ -154,7 +159,7 @@ def session_hook_recovery() -> str:
         for harness_id, gate in HARNESS_HOOK_APPROVAL.items()
     )
     return (
-        "SESSION_HOOK_UNOBSERVED: registration and hook delivery for this "
+        f"{reason}: registration and hook delivery for this "
         "session are not both proven. Start a new harness session in the "
         "installed project (quit and reopen the harness app if it stays open), "
         "then rerun the same `yoke doctor run` command." + approvals
@@ -165,10 +170,10 @@ def hc_session_hook_registration(conn, args: DoctorArgs, rec: RecordCollector) -
     try:
         session_id = build_actor().session_id
         if not session_id:
-            raise ValueError("SESSION_HOOK_UNOBSERVED")
+            raise _SessionHookUnproven("SESSION_HOOK_UNOBSERVED")
         identity = relay("sessions.identity", {})
         if identity.get("session_id") != session_id:
-            raise ValueError("SESSION_REGISTRATION_UNVERIFIED")
+            raise _SessionHookUnproven("SESSION_REGISTRATION_UNVERIFIED")
         if args.project:
             from yoke_core.domain.project_checkout_locations import project_id_for_slug
 
@@ -181,16 +186,27 @@ def hc_session_hook_registration(conn, args: DoctorArgs, rec: RecordCollector) -
             if expected_project is None or str(identity.get("project_id")) != str(
                 expected_project
             ):
-                raise ValueError("SESSION_HOOK_PROJECT_MISMATCH")
-        with scratch_project(str(identity.get("project_id") or args.project or "")):
+                raise _SessionHookUnproven("SESSION_HOOK_PROJECT_MISMATCH")
+        project_id = identity.get("project_id")
+        # Outside-project hooks use the authority's machine scratch namespace.
+        with scratch_project(str(project_id)) if project_id else nullcontext():
             if not orientation_delivered(session_id):
-                raise ValueError("SESSION_HOOK_UNOBSERVED")
-    except Exception:  # identity refusal is a failed observation, not guessed success
+                raise _SessionHookUnproven("SESSION_HOOK_UNOBSERVED")
+    except _SessionHookUnproven as exc:
         rec.record(
             "session-hook-registration",
             "This session received a registering hook",
             "FAIL",
-            session_hook_recovery(),
+            session_hook_recovery(str(exc)),
+        )
+        return
+    except (OSError, RuntimeError, ValueError, LookupError) as exc:
+        rec.record(
+            "session-hook-registration",
+            "This session received a registering hook",
+            "FAIL",
+            f"SESSION_HOOK_CHECK_FAILED: {exc}. Resolve the reported failure, "
+            "then rerun the same `yoke doctor run` command.",
         )
         return
     rec.record(

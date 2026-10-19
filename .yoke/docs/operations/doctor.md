@@ -148,6 +148,11 @@ that its own harness CLI is signed in and runs `yoke` without approval
 prompts. Other installed harnesses do not block it. Agent setup ends with this
 check and `/yoke onboard` runs it first.
 
+The session check also works outside every project: registration and confirmed
+orientation use the selected authority's machine scope. An explicit `--project`
+still requires that same project registration. Missing delivery, a project
+mismatch and an unreadable authority retain their own failure reasons.
+
 ## Related
 
 - [Events](events.md)
