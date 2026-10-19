@@ -1,0 +1,12 @@
+{
+ "id": "local-reach",
+ "title": "Local is reachable here only; failed server URLs name why",
+ "status": "observed",
+ "form": "CLI output, dashboard footer and connection errors",
+ "verification": "Focused tests cover `yoke status` (`local: reachable here only`, `project: no project here`), the dashboard footer and named team-server failures (server_name_unresolved, server_timed_out, server_refused, server_https_failed, server_not_yoke, server_unreachable) that point to `yoke status` on the server's machine; no installed-release capture yet.",
+ "topics": ["modes/local", "universes/connections"],
+ "commands": ["yoke status", "yoke connect"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/status_render.py", "packages/yoke-cli/src/yoke_cli/transport/server_reach_failure.py", "runtime/api/cli/test_server_reach_failure.py", "runtime/api/cli/test_yoke_status_local_reach.py"],
+ "gaps": ["local-reach-delivery-proof"],
+ "position": 1
+}
