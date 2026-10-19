@@ -236,21 +236,37 @@ def reconcile_admitted_copies(
     refusal = unreachable_copy_refusal(int(source_requirement_id), copies)
     if refusal:
         return [], refusal
-    placeholder = marker(conn)
-    updated: list[int] = []
-    for copy in copies:
-        conn.execute(
-            f"UPDATE qa_requirements SET {field} = {placeholder} "
-            f"WHERE id = {placeholder}",
-            (value, copy.requirement_id),
-        )
-        updated.append(copy.requirement_id)
     from yoke_core.domain.qa_plan_execution_roster_correction import (
         correct_live_rosters,
     )
+    from yoke_core.domain.qa_plan_management import QaPlanError
 
-    correct_live_rosters(conn, updated)
-    return updated, ""
+    update = (
+        f"UPDATE qa_requirements SET {field}={marker(conn)} WHERE id={marker(conn)}"
+    )
+    before = {
+        copy.requirement_id: _field_value(conn, copy.requirement_id, field)
+        for copy in copies
+    }
+    for copy_id in before:
+        conn.execute(update, (value, copy_id))
+    try:
+        correct_live_rosters(conn, list(before))
+    except QaPlanError as exc:
+        # A live roster could not take the correction: put the copies back
+        # and return the refusal; the caller does not commit a refused write.
+        for copy_id, previous in before.items():
+            conn.execute(update, (previous, copy_id))
+        return [], str(exc)
+    return list(before), ""
+
+
+def _field_value(conn: Any, copy_id: int, field: str) -> Any:
+    return query_one(
+        conn,
+        f"SELECT {field} FROM qa_requirements WHERE id={marker(conn)}",
+        (int(copy_id),),
+    )[field]
 
 
 def _already_holds(conn: Any, copy_id: int, field: str, value: Any) -> bool:
@@ -259,12 +275,8 @@ def _already_holds(conn: Any, copy_id: int, field: str, value: Any) -> bool:
     An answered copy whose field is unchanged blocks nothing; only a copy the
     amendment would actually rewrite has to be reachable.
     """
-    row = query_one(
-        conn,
-        f"SELECT {field} FROM qa_requirements WHERE id={marker(conn)}",
-        (int(copy_id),),
-    )
-    return definition_value(field, row[field]) == definition_value(field, value)
+    current = _field_value(conn, copy_id, field)
+    return definition_value(field, current) == definition_value(field, value)
 
 
 __all__ = [
