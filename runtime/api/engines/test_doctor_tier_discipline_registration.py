@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yoke_project_checks import check_cli_help_handler as help_mod
 from yoke_project_checks import check_packet_tier_completeness as packet_mod
 from yoke_project_checks import check_progressive_disclosure_direction as disc_mod
 from yoke_project_checks import check_tier_cli_shape_bleed as cli_mod
@@ -23,7 +22,6 @@ _TIER_DISCIPLINE_CHECK_FUNCTIONS = {
     "packet-tier-completeness": packet_mod.hc_packet_tier_completeness,
     "progressive-disclosure-direction": disc_mod.hc_progressive_disclosure_direction,
     "tier-module-path-resolution": mod_path_mod.hc_tier_module_path_resolution,
-    "cli-help-handler-present": help_mod.hc_cli_help_handler_present,
 }
 
 
