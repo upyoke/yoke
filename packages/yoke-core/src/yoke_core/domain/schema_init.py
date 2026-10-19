@@ -61,6 +61,24 @@ def project_code_owned_rows(conn) -> None:
     # project keeps whatever binding it was first given.
     _converge_registered_command_plans(conn)
     conn.commit()
+    # Cases authored in this build's code reach source-bound plans here, after
+    # the deploy and before its item QA freezes them. Each plan commits or
+    # rolls back alone, so it runs after everything above has committed.
+    _converge_source_bound_plans(conn)
+
+
+def _converge_source_bound_plans(conn) -> None:
+    """Converge source-bound plan cases; never fail a boot over them."""
+    if not all(
+        _table_exists(conn, table)
+        for table in ("projects", "qa_plans", "qa_plan_cases", "qa_methods")
+    ):
+        return
+    from yoke_core.domain.qa_plan_source_convergence import (
+        converge_source_bound_plans,
+    )
+
+    converge_source_bound_plans(conn)
 
 
 def _converge_registered_command_plans(conn) -> None:

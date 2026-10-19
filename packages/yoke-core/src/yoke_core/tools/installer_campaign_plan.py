@@ -34,6 +34,10 @@ _CASE_DEFAULTS: dict[str, Any] = {
 }
 
 
+# Plans whose cases this build generates; boot converges them when source-bound.
+SOURCE_AUTHORED_PLAN_SLUGS = ("installer-campaign", "installer-exploration")
+
+
 class SourceSyncRefused(ValueError):
     """The source is not proven safe for the shared saved plan."""
 
@@ -239,8 +243,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.check and not report["matches_source"]:
         print(
             "installer_campaign_plan_source_drift: installed cases differ; "
-            "sync after merge: export clean merged source with --cases-file, "
-            "review the differences, then install "
+            "a source-bound plan converges when a server running a merged "
+            "build that carries this source boots. For an unbound plan, or "
+            "after boot logged qa_plan_source_convergence_failed: export clean "
+            "merged source with --cases-file, review the differences, install "
             "with yoke qa plan-cases sync and check a fresh plan receipt.",
             file=sys.stderr,
         )
