@@ -185,7 +185,7 @@ def _refuse(path: Path, result: GlobalSkillResult) -> bool:
     result.reason = NOT_OWNED
     result.recovery = (
         f"{path} already exists and Yoke did not create it. Move it aside, "
-        "then run `yoke doctor run --only harness-setup --fix`."
+        "then run `yoke setup` again; it works outside a project."
     )
     result.lines.append(result.warning)
     return False
