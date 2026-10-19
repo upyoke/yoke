@@ -8,6 +8,6 @@
  "commands": ["yoke claims coordination-claim acquire", "yoke claims coordination-claim release", "yoke claims work release", "yoke qa plan run", "yoke test-machine golden-capture", "yoke test-machine verify"],
  "functions": ["claims.coordination_claim.acquire", "claims.coordination_claim.release", "claims.work.release", "test_machine.golden_capture", "test_machine.plan_case.begin", "test_machine.plan_case.submit", "test_machine.verify"],
  "gaps": ["host-line-parked-waiters"],
- "page": "test-machines",
+ "page": "test-machine-execution",
  "position": 4
 }

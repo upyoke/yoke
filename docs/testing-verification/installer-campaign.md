@@ -90,8 +90,25 @@ answers; the recipe contract refuses a keyed step without it when the case is
 saved and again before execution. A step never types into a screen on a timer.
 When the installer stops showing a prompt, remove that step from the source
 cases and sync the saved plan; do not keep a step that waits for nothing. The
-browser-approval gate is the one exception: it waits for its own `Open:` and
-`Match code:` context.
+browser-approval gate is the one keyed exception: it waits for its own `Open:`
+and `Match code:` context.
+
+A step only the person may do uses `operator_gate: human_action` with a
+`human_purpose` of `machine_approval`, `private_invite_entry` or
+`company_sign_in`. The gate never approves, types or carries a secret: the
+contract refuses `keys`, `ready_text` and `wait_seconds` on it, so the
+preceding step waits for the screen. It prints one `machine_qa.operator_gate`
+line (`kind: human_action`, `self_approving: false`) naming the purpose, where
+to act and what to do, then waits up to `gate_timeout_seconds` (1..1800) for
+`completion_text`. A machine approval names the displayed match code and
+`yoke machines approve CODE` for the person's already-connected machine;
+company sign-in names the code the teammate approves in the browser; the
+inviter issues `yoke invite NAME` and the teammate types the code privately
+into the named terminal, so it never reaches the run. Failures are `human_action_context_missing`,
+`human_action_rejected`, `human_action_timed_out`,
+`human_action_heartbeat_failed` or `terminal_setup_exited`, each with a
+recovery. On Linux only browser approval and company sign-in start the desktop
+Chromium.
 
 A prompt that never appears fails its step as `terminal_action_not_ready`,
 with the evidence naming `step` and `waiting_for`. When the command under the
@@ -139,6 +156,45 @@ always attaches a desktop screenshot. A host without a desktop refuses
 `headless_linux_browser_approval_unavailable`; the Machine QA Pack's
 [Linux browser approval gates](../../packs/machine-qa/versions/1.3.25/files/docs/packs/machine-qa/linux-host-provisioning.md#browser-approval-gates)
 list every refusal and its recovery.
+
+## Real machine admission fixture
+
+`fixture.machine-admission-prepare` runs the installed candidate's own
+`python -m yoke_core.domain.machine_qa_admission_host start MODE` on the test
+machine, so the exact candidate serves the journey. `self-hosted` (port 19121)
+and `self-hosted-company-sign-in` (port 19122) boot the unchanged self-host
+server entrypoint on loopback, as `YOKE_SERVER_MODE=self-host` like the
+bundle, against a disposable embedded Postgres under
+`/tmp/yoke-machine-qa-fixtures/machine-admission/MODE`. Its real first boot
+creates the owner (`Fixture Owner`) and the owner's token, saved owner-only
+with an approver config: run owner commands with
+`YOKE_MACHINE_HOME=…/MODE/approver`. Company sign-in adds a disposable stub
+provider whose only identity is the teammate, and the owner runs
+`yoke invite EMAIL --role operator` first. `local` runs the real `yoke init --local` in `…/local/home`.
+The fixture never approves, invites a machine or redeems anything.
+
+`fixture.machine-admission-state-assert` compares the universe's people,
+machines, active credentials, linked identities and consumed teammate invites
+with the baseline recorded at start: `owner-admitted`, `teammate-admitted`
+(an org role for the teammate and, on `self-hosted`, exactly one invite
+consumed by the new machine) or
+`nothing-admitted`.
+A mismatch fails as `machine_admission_state_mismatch` with the changed rows;
+start, birth and cleanup failures name their reason and recovery in the
+operation row. Cleanup stops the server, removes the cluster and the root.
+
+## Machine admission journeys
+
+Positions 30-37 run own-machine approval, teammate invite, company sign-in and
+local refusal, each in the full-screen wizard and in agent mode
+(`machine_qa_setup_agent_driver` plays the agent). Each starts the fixture
+above and ends with its state assertion. Stay at the test machine: every
+human gate prints what to do. Owner steps use
+`YOKE_MACHINE_HOME=/tmp/yoke-machine-qa-fixtures/machine-admission/self-hosted/approver`
+(`yoke machines approve CODE`, `yoke invite 'Fixture Teammate'`); type an
+invite only into the wizard, and in the agent invite journey press Ctrl-C after
+the wizard connects so the agent resumes. Company sign-in signs in as the
+fixture teammate in the test machine's browser. Local refusal needs no person.
 
 ## Local universe birth
 

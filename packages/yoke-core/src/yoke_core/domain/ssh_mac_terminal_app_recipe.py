@@ -10,9 +10,7 @@ from typing import Any
 from uuid import uuid4
 
 from yoke_core.domain.host_control_runner import HostActionResult
-from yoke_core.domain.machine_qa_operator_gate import (
-    run_machine_browser_approval_with_io,
-)
+from yoke_core.domain.machine_qa_human_gate import run_operator_gate_with_io
 from yoke_core.domain.machine_qa_setup_exit import step_failure
 from yoke_harness.ssh_mac_browser_approval import approve_machine_in_safari
 from yoke_core.domain.qa_artifact_handle import local_handle
@@ -164,9 +162,10 @@ def run_terminal_app_recipe(
             ready_text = tuple(action.get("ready_text", ()))
             ready_transcript: str | None = None
             browser_evidence: dict[str, Any] | None = None
+            human_evidence: dict[str, Any] | None = None
             operator_gate = action.get("operator_gate")
-            if operator_gate == "machine_browser_approval":
-                gate_result = run_machine_browser_approval_with_io(
+            if operator_gate is not None:
+                gate_result = run_operator_gate_with_io(
                     read_transcript=read_transcript,
                     send_keys=send_keys,
                     read_exit_code=lambda _transcript: read_recipe_exit_code(
@@ -181,9 +180,11 @@ def run_terminal_app_recipe(
                         verification_url=url,
                         user_code=code,
                     ),
+                    terminal_location="the Terminal.app window on the test machine",
                 )
                 ready_transcript = gate_result.transcript
                 browser_evidence = gate_result.browser_evidence
+                human_evidence = gate_result.step_evidence
                 if not gate_result.ok:
                     captures.append(
                         {
@@ -257,6 +258,8 @@ def run_terminal_app_recipe(
             }
             if browser_evidence is not None:
                 capture["browser_approval"] = browser_evidence
+            if operator_gate == "human_action":
+                capture["human_action"] = human_evidence
             captures.append(capture)
             reached.append(key)
             if action["capture"] and key in config["capture_checkpoints"]:

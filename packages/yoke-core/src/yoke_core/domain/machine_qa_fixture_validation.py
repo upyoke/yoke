@@ -10,11 +10,15 @@ from yoke_core.domain.machine_qa_fixture_validation_common import (
     MachineQaFixtureOperationError,
     Validator,
 )
+from yoke_core.domain.machine_qa_fixture_validation_admission import (
+    ADMISSION_POST_VALIDATORS,
+    ADMISSION_SETUP_VALIDATORS,
+)
 from yoke_core.domain.machine_qa_fixture_validation_machine import (
     MACHINE_SETUP_VALIDATORS,
 )
 from yoke_core.domain.machine_qa_fixture_validation_repository import (
-    POST_VALIDATORS,
+    POST_VALIDATORS as REPOSITORY_POST_VALIDATORS,
     REPOSITORY_SETUP_VALIDATORS,
 )
 from yoke_core.domain.machine_qa_recipe_contracts import (
@@ -24,8 +28,13 @@ from yoke_core.domain.machine_qa_recipe_contracts import (
 
 
 SETUP_VALIDATORS: dict[str, Validator] = {
+    **ADMISSION_SETUP_VALIDATORS,
     **MACHINE_SETUP_VALIDATORS,
     **REPOSITORY_SETUP_VALIDATORS,
+}
+POST_VALIDATORS: dict[str, Validator] = {
+    **ADMISSION_POST_VALIDATORS,
+    **REPOSITORY_POST_VALIDATORS,
 }
 if frozenset(SETUP_VALIDATORS) != REGISTERED_SETUP_OPERATION_IDS:
     raise RuntimeError("fixture runner setup registry drifted")

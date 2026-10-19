@@ -171,3 +171,65 @@ def test_current_release_rejects_unsafe_distribution_values(
                 )
             ]
         )
+
+
+@pytest.mark.parametrize(
+    ("operation_id", "parameters", "message"),
+    [
+        ("fixture.machine-admission-prepare", {"mode": "hosted"}, "mode must be"),
+        (
+            "fixture.machine-admission-prepare",
+            {"mode": "local", "port": 1},
+            "exactly mode",
+        ),
+    ],
+)
+def test_admission_prepare_accepts_only_a_registered_mode(
+    operation_id: str, parameters: dict, message: str
+) -> None:
+    with pytest.raises(MachineQaFixtureOperationError, match=message):
+        _runner(FakeRemote()).execute_setup_operations(
+            [_operation(operation_id, **parameters)]
+        )
+
+
+def test_admission_state_assert_accepts_only_the_mode_expectations() -> None:
+    with pytest.raises(MachineQaFixtureOperationError, match="expect must be"):
+        _runner(FakeRemote()).execute_post_state_assertions(
+            [
+                _operation(
+                    "fixture.machine-admission-state-assert",
+                    mode="local",
+                    expect="owner-admitted",
+                )
+            ]
+        )
+
+
+def test_admission_cleanup_is_owed_even_when_start_fails_and_retries() -> None:
+    remote = FakeRemote()
+    remote.stdout = "machine_admission_server_not_ready: read server.log\nmore"
+    remote.fail_once_contains = "machine_qa_admission_host start"
+    runner = _runner(remote)
+
+    result = runner.execute_setup_operations(
+        [_operation("fixture.machine-admission-prepare", mode="self-hosted")]
+    )
+
+    assert not result.ok
+    assert result.evidence["operations"] == [
+        {
+            "id": "fixture.machine-admission-prepare",
+            "outcome": "failed",
+            "reason": "machine_admission_server_not_ready: read server.log",
+        }
+    ]
+    remote.fail_once_contains = "machine_qa_admission_host stop"
+    first = runner.close()
+    assert not first.ok
+    assert first.evidence["operations"] == [
+        {"id": "fixture.machine-admission-prepare", "outcome": "failed"}
+    ]
+    assert runner.close().ok
+    stops = [c for c, _t in remote.commands if "machine_qa_admission_host stop" in c]
+    assert len(stops) == 2 and all("self-hosted" in c for c in stops)

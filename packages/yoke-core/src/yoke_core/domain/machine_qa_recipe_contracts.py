@@ -10,6 +10,7 @@ from yoke_core.domain.machine_qa_action_readiness_contract import (
     registered_terminal_post_check,
 )
 from yoke_core.domain.machine_qa_operator_gate_contract import (
+    OPERATOR_GATE_FIELDS,
     normalize_operator_gate,
 )
 
@@ -19,6 +20,7 @@ REGISTERED_SETUP_OPERATION_IDS = frozenset(
         "fixture.apply-resume-report-prepare",
         "fixture.git-checkout-prepare",
         "fixture.git-remote-prepare",
+        "fixture.machine-admission-prepare",
         "fixture.project-registrations-prepare",
         "fixture.source-dev-checkout-prepare",
         "fixture.source-dev-remote-prepare",
@@ -38,6 +40,7 @@ REGISTERED_SETUP_OPERATION_IDS = frozenset(
 )
 REGISTERED_POST_STATE_ASSERTION_IDS = frozenset(
     {
+        "fixture.machine-admission-state-assert",
         "source-dev.checkout-state-assert",
     }
 )
@@ -146,13 +149,10 @@ def _actions(raw: Any) -> list[dict[str, Any]]:
     for action in raw:
         if not isinstance(action, Mapping):
             raise MachineQaRecipeError("actions must be objects")
-        allowed = {
+        allowed = OPERATOR_GATE_FIELDS | {
             "step",
             "keys",
             "capture",
-            "completion_text",
-            "gate_timeout_seconds",
-            "operator_gate",
             "ready_text",
             "ready_timeout_seconds",
             "target_environment",

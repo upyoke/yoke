@@ -8,6 +8,9 @@ from typing import Any, Mapping
 from yoke_core.domain.installer_campaign_current_text_cases import (
     CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES,
 )
+from yoke_core.domain.installer_campaign_machine_admission_cases import (
+    MACHINE_ADMISSION_CASES,
+)
 from yoke_core.domain.installer_campaign_regression_cases import recovery_cases
 from yoke_core.domain.environment_declared_facts import target_is_production
 from yoke_core.domain.qa_execution_environment_target import require_case_target
@@ -55,13 +58,19 @@ def installer_campaign_cases_for_target(
             else str(target["environment"]["name"]).title()
         ),
     }
+    recovery = recovery_cases(
+        primary_machine=primary_machine, joining_machine=joining_machine
+    )
     cases = _fill_template(
         list(CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES)
-        + list(recovery_cases(primary_machine=primary_machine, joining_machine=joining_machine)),
+        + list(recovery)
+        + list(MACHINE_ADMISSION_CASES),
         fields,
     )
-    for case in cases[:len(CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES)]:
-        case["method_config"]["machine"] = primary_machine
+    # Admission journeys serve their own disposable server on the host they run on.
+    for case in cases:
+        if case["case_key"] not in {row["case_key"] for row in recovery}:
+            case["method_config"]["machine"] = primary_machine
     for case in cases:
         require_case_target(case, target)
     return cases

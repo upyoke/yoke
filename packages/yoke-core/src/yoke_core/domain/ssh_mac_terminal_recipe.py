@@ -14,9 +14,7 @@ from typing import Any, Mapping, Sequence
 from uuid import uuid4
 
 from yoke_core.domain.host_control_runner import HostActionResult
-from yoke_core.domain.machine_qa_operator_gate import (
-    run_machine_browser_approval,
-)
+from yoke_core.domain.machine_qa_human_gate import run_multiplexer_operator_gate
 from yoke_core.domain.machine_qa_setup_exit import step_failure
 from yoke_core.domain.qa_artifact_handle import local_handle
 from yoke_core.domain.ssh_mac_terminal_capture import (
@@ -135,9 +133,10 @@ def _run_interactive_recipe(
             ready_text = tuple(action.get("ready_text", ()))
             ready_transcript: str | None = None
             browser_evidence: dict[str, Any] | None = None
+            human_evidence: dict[str, Any] | None = None
             operator_gate = action.get("operator_gate")
-            if operator_gate == "machine_browser_approval":
-                gate_result = run_machine_browser_approval(
+            if operator_gate is not None:
+                gate_result = run_multiplexer_operator_gate(
                     run,
                     backend=backend,
                     session=session,
@@ -148,6 +147,7 @@ def _run_interactive_recipe(
                 )
                 ready_transcript = gate_result.transcript
                 browser_evidence = gate_result.browser_evidence
+                human_evidence = gate_result.step_evidence
                 if not gate_result.ok:
                     captures.append(
                         {
@@ -244,6 +244,8 @@ def _run_interactive_recipe(
             }
             if browser_evidence is not None:
                 capture["browser_approval"] = browser_evidence
+            if operator_gate == "human_action":
+                capture["human_action"] = human_evidence
             captures.append(capture)
             reached.append(key)
             if action["capture"] and key in config["capture_checkpoints"]:

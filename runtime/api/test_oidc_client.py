@@ -7,7 +7,7 @@ import urllib.parse
 
 import pytest
 
-from runtime.api.oidc_provider_test_helpers import StubOidcProvider
+from yoke_core.api.oidc_stub_provider import StubOidcProvider
 from yoke_core.api.oidc_client import (
     OidcDiscoveryError,
     OidcExchangeError,
@@ -163,9 +163,7 @@ class TestResolveConfig:
         assert not _config(redirect_base_url="http://10.0.0.5:8765").cookie_secure
 
     def test_callback_url_derived_from_base(self):
-        assert callback_url(_config()) == (
-            "https://yoke.example/v1/auth/oidc/callback"
-        )
+        assert callback_url(_config()) == ("https://yoke.example/v1/auth/oidc/callback")
 
 
 class TestFlowState:
@@ -173,7 +171,7 @@ class TestFlowState:
         config = _config()
         flow = mint_flow_state(config)
         nonce = verify_flow_state(
-            config, cookie_value=flow.cookie_value, state_param=flow.state,
+            config, cookie_value=flow.cookie_value, state_param=flow.state
         )
         assert nonce == flow.nonce
 
@@ -182,7 +180,7 @@ class TestFlowState:
         flow = mint_flow_state(config)
         with pytest.raises(OidcFlowStateError):
             verify_flow_state(
-                config, cookie_value=flow.cookie_value, state_param="other",
+                config, cookie_value=flow.cookie_value, state_param="other"
             )
 
     def test_tampered_record_rejected(self):
@@ -201,7 +199,9 @@ class TestFlowState:
         flow = mint_flow_state(_config(client_secret="other-secret"))
         with pytest.raises(OidcFlowStateError):
             verify_flow_state(
-                _config(), cookie_value=flow.cookie_value, state_param=flow.state,
+                _config(),
+                cookie_value=flow.cookie_value,
+                state_param=flow.state,
             )
 
     def test_expired_record_rejected(self):
@@ -210,7 +210,7 @@ class TestFlowState:
         cookie_value = payload + "." + _signature(config, payload)
         with pytest.raises(OidcFlowStateError):
             verify_flow_state(
-                config, cookie_value=cookie_value, state_param="the-state",
+                config, cookie_value=cookie_value, state_param="the-state"
             )
 
     @pytest.mark.parametrize("bad", ["", "a.b", "a.b.c.d.e", "no-dots-here"])
@@ -258,9 +258,7 @@ class TestProviderClient:
         assert query["state"] == flow.state
         assert query["nonce"] == flow.nonce
         assert query["client_id"] == provider.client_id
-        assert query["redirect_uri"] == (
-            "http://yoke.example/v1/auth/oidc/callback"
-        )
+        assert query["redirect_uri"] == ("http://yoke.example/v1/auth/oidc/callback")
         assert provider.client_secret not in url
 
     def test_exchange_and_verify_roundtrip(self, provider):
@@ -272,7 +270,7 @@ class TestProviderClient:
         )
         response = exchange_code(config, endpoints, code=code)
         claims = verify_id_token(
-            config, endpoints, id_token=response["id_token"], nonce=flow.nonce,
+            config, endpoints, id_token=response["id_token"], nonce=flow.nonce
         )
         assert claims["email"] == "pat@example.com"
         assert provider.token_requests[-1]["redirect_uri"] == (
@@ -315,8 +313,10 @@ class TestProviderClient:
         claims.update(skew)
         with pytest.raises(OidcVerificationError):
             verify_id_token(
-                config, endpoints,
-                id_token=provider.sign(claims), nonce="the-nonce",
+                config,
+                endpoints,
+                id_token=provider.sign(claims),
+                nonce="the-nonce",
             )
 
     def test_nonce_mismatch_rejected(self, provider):
@@ -338,8 +338,6 @@ class TestProviderClient:
         JWKS-based verification (algorithm confusion hardening)."""
         config = self._door(provider)
         endpoints = discover(provider.issuer)
-        token = provider.sign_symmetric(
-            provider.standard_claims(nonce="the-nonce")
-        )
+        token = provider.sign_symmetric(provider.standard_claims(nonce="the-nonce"))
         with pytest.raises(OidcVerificationError):
             verify_id_token(config, endpoints, id_token=token, nonce="the-nonce")

@@ -8,9 +8,9 @@ import subprocess
 import pytest
 
 from runtime.api.domain.machine_qa_terminal_recipe_test_support import completed
+from yoke_core.domain.machine_qa_human_gate import run_multiplexer_operator_gate
 from yoke_core.domain.machine_qa_operator_gate import (
     BROWSER_APPROVAL_NOT_CONFIRMED,
-    run_machine_browser_approval,
     run_machine_browser_approval_with_io,
 )
 from yoke_harness.machine_browser_approval import BrowserApprovalResult
@@ -75,7 +75,7 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
         lambda _seconds: None,
     )
 
-    result = run_machine_browser_approval(
+    result = run_multiplexer_operator_gate(
         run,
         backend="screen",
         session="approval-session",

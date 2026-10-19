@@ -14,7 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from runtime.api.fixtures import pg_testdb
-from runtime.api.oidc_provider_test_helpers import StubOidcProvider
+from yoke_core.api.oidc_stub_provider import StubOidcProvider
 
 # main must import before app_factory: the two modules are mutually
 # referential and only resolve cleanly in this order.

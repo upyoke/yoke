@@ -24,7 +24,7 @@ import socket
 import tempfile
 from pathlib import Path
 
-from runtime.api.oidc_provider_test_helpers import StubOidcProvider
+from yoke_core.api.oidc_stub_provider import StubOidcProvider
 from runtime.api.tools.serve_workbench_for_review import prepare_review_database
 from yoke_core.api.http_auth import OIDC_START_PATH
 from yoke_core.ui.server import UiServerError

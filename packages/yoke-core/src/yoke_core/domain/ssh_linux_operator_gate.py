@@ -1,10 +1,8 @@
-"""The Linux recipe's browser approval step and its desktop screenshot."""
+"""The Linux recipe's operator gate step and its desktop screenshot."""
 
 from __future__ import annotations
 
-from yoke_core.domain.machine_qa_operator_gate import (
-    run_machine_browser_approval_with_io,
-)
+from yoke_core.domain.machine_qa_human_gate import run_operator_gate_with_io
 from yoke_core.domain.machine_qa_setup_exit import marker_exit_code
 from yoke_core.domain.ssh_mac_terminal_recipe_support import send_recipe_keys
 from yoke_harness.ssh_linux_browser_approval import (
@@ -37,9 +35,9 @@ def checkpoint(control, rows, terminal=None):
     return None
 
 
-def run_browser_gate(control, terminal, action, rows, allowed_operator_urls, progress):
-    """Hand the installer's approval to desktop Chromium; refuse with its reason."""
-    gate = run_machine_browser_approval_with_io(
+def run_operator_gate(control, terminal, action, rows, allowed_operator_urls, progress):
+    """Run the action's typed gate in the tmux session; refuse with its reason."""
+    gate = run_operator_gate_with_io(
         read_transcript=terminal.transcript,
         send_keys=lambda keys: send_recipe_keys(
             control._run, backend="tmux", session=terminal.session, keys=keys
@@ -52,6 +50,10 @@ def run_browser_gate(control, terminal, action, rows, allowed_operator_urls, pro
         approve_browser=lambda url, code: approve_machine_in_desktop_chromium(
             control, verification_url=url, user_code=code
         ),
+        terminal_location=(
+            "the terminal window on the test machine's desktop "
+            f"(tmux attach-session -t {terminal.session})"
+        ),
     )
     rows.append(
         {
@@ -61,6 +63,11 @@ def run_browser_gate(control, terminal, action, rows, allowed_operator_urls, pro
             "operator_gate": action["operator_gate"],
             "browser_approval": gate.browser_evidence,
             "browser_automation_error_code": gate.browser_automation_error_code,
+            **(
+                {"human_action": gate.step_evidence}
+                if action["operator_gate"] == "human_action"
+                else {}
+            ),
         }
     )
     if gate.ok:
@@ -89,4 +96,4 @@ def run_browser_gate(control, terminal, action, rows, allowed_operator_urls, pro
     )
 
 
-__all__ = ["checkpoint", "run_browser_gate"]
+__all__ = ["checkpoint", "run_operator_gate"]

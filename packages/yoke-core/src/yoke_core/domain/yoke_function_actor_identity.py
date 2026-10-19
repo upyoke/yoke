@@ -55,7 +55,7 @@ from yoke_core.domain.session_ambient_identity import (
     format_actor_session_missing,
     resolve_ambient_session_id,
 )
-from yoke_core.domain.session_less_actor_binding import bind_operating_actor
+from yoke_core.domain.session_less_actor_binding import bind_operating_actor_if_needed
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
@@ -233,7 +233,8 @@ def bind_actor_identity(
             payload_session_id=payload_session,
             ambient_session_id="",
             error=_error_response(
-                request, entry,
+                request,
+                entry,
                 code="actor_session_missing",
                 message=format_actor_session_missing(entry.function_id),
             ),
@@ -241,8 +242,8 @@ def bind_actor_identity(
 
     if not bound_session:
         return BoundIdentity(
-            bound_request=(
-                request if read_only else bind_operating_actor(request)
+            bound_request=bind_operating_actor_if_needed(
+                entry, request, read_only=read_only
             ),
             payload_session_id=payload_session,
             ambient_session_id=ambient_session_id,
@@ -252,9 +253,7 @@ def bind_actor_identity(
     if request.actor.session_id == bound_session:
         bound = request
     else:
-        new_actor = request.actor.model_copy(
-            update={"session_id": bound_session}
-        )
+        new_actor = request.actor.model_copy(update={"session_id": bound_session})
         bound = request.model_copy(update={"actor": new_actor})
 
     return _bind_actor_id(
@@ -324,12 +323,12 @@ def _bind_actor_id(
         bound_request = bound_request.model_copy(update={"actor": new_actor})
 
     # No actor from the session (unregistered id or NULL row actor): a
-    # mutating call binds the operating actor, else the permission gate
-    # refuses it ``actor_required``. The row-existence finding still
+    # mutating call or a viewer-scoped read binds the operating actor, else
+    # the permission gate or handler refuses it ``actor_required``. The row-existence finding still
     # marks the call's events for an unverifiable session string.
     return BoundIdentity(
-        bound_request=(
-            bound_request if read_only else bind_operating_actor(bound_request)
+        bound_request=bind_operating_actor_if_needed(
+            entry, bound_request, read_only=read_only
         ),
         payload_session_id=payload_session_id,
         ambient_session_id=ambient_session_id,
