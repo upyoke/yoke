@@ -3,9 +3,8 @@
 The hosted service (Platform, at upyoke.com) delivers a few facts into each
 tenant universe that only it observes: GitHub App installation and repository
 lifecycle (`projects.github_binding.lifecycle`), preissued machine codes
-(`machine_authorization.handoff` and `machine_authorization.handoff_poll`), and machine-authorization expiry or withdrawal (`machine_approval.lifecycle.apply` with state `expired`
-or `withdrawn`). It calls as its own least-privilege identity, never as a
-person.
+(`machine_authorization.handoff` and `machine_authorization.handoff_poll`).
+It calls as its own least-privilege identity, never as a person.
 
 ## Shape
 
@@ -32,11 +31,10 @@ this identity and the mint command. A signed-in browser session can never call
 these functions.
 
 Dispatch then checks the same permission against the org owning the call's
-`payload.project` for `projects.github_binding.lifecycle`. For machine
-approvals, the service identity withdraws an `expired`/`withdrawn` request on
-its own org without org-admin authority, and the subject-ended contract still
-refuses a live authorization. `approved` and `denied` remain member decisions
-under the request's org-admin authority.
+`payload.project` for `projects.github_binding.lifecycle`. Machine handoff and
+polling require the identity's grant on the explicit engine organization.
+The engine owns machine decisions and expiry; a person approves or denies
+as themselves through `machine_authorization.resolve`.
 
 ## Minting and rotation
 
@@ -100,7 +98,7 @@ holds the swapped credential. Keep it to the repin step itself.
 ## What the service may reach
 
 The identity calls only `projects.github_binding.lifecycle`,
-`machine_approval.lifecycle.apply`, `machine_authorization.handoff` and
+`machine_authorization.handoff` and
 `machine_authorization.handoff_poll`,
 and only through `/v1/functions/call`. Handoff checks the exact target
 `payload.org_id` against the identity's own org grant before writing the shared
@@ -115,11 +113,3 @@ for its payload, serving floor and named refusals.
   and models.
 - Any other HTTP route is refused at authentication with `hosted_service_scope`.
 - A disabled service actor is refused like any disabled actor.
-
-A machine-approval `expired`/`withdrawn` delivery from the service succeeds
-only when the universe's own rows show the authorization has ended. Either the
-expiry stored when it opened has passed by the engine's clock, or the
-requesting member has left the org: their actor is disabled, or holds no org
-role and no project role there. A delivery about a live authorization is
-refused as `hosted_service_withdrawal_subject_live`. An org admin withdraws
-one early.

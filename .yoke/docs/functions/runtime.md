@@ -119,7 +119,6 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `machine.access.get` | `none` |
 | `machine.access.set` | `none` |
 | `machine.show` | `none` |
-| `machine_approval.lifecycle.apply` | `none` |
 | `machine_authorization.get` | `none` |
 | `machine_authorization.handoff` | `none` |
 | `machine_authorization.handoff_poll` | `none` |

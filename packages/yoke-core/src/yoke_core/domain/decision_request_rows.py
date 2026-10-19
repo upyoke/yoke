@@ -15,7 +15,10 @@ from typing import Any, Iterable
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.approval_policy import DEFAULT_APPROVAL_MODE
-from yoke_core.domain.decision_request_contract import DECISION_KINDS
+from yoke_core.domain.decision_request_contract import (
+    DECISION_KINDS,
+    RETIRED_DECISION_KINDS,
+)
 from yoke_core.domain.decision_answers import decisions_for_requests
 from yoke_core.domain.decision_request_live_evidence import live_evidence
 
@@ -83,7 +86,11 @@ def request_rows(conn: Any, request_ids: Iterable[int]) -> dict[int, dict[str, A
             )
             if live is not None:
                 result["subject_context"].update(live)
-        result["actions"] = list(DECISION_KINDS[result["kind"]].actions)
+        result["actions"] = (
+            []
+            if result["kind"] in RETIRED_DECISION_KINDS
+            else list(DECISION_KINDS[result["kind"]].actions)
+        )
         result["role_authorities"] = [
             {
                 "scope_kind": row[1],
@@ -92,15 +99,15 @@ def request_rows(conn: Any, request_ids: Iterable[int]) -> dict[int, dict[str, A
             }
             for row in roles.get(request_id, [])
         ]
-        result["named_actor_ids"] = [
-            int(row[1]) for row in named.get(request_id, [])
-        ]
+        result["named_actor_ids"] = [int(row[1]) for row in named.get(request_id, [])]
         result["approval_mode"] = str(
             result.get("approval_mode") or DEFAULT_APPROVAL_MODE
         )
         result["decisions"] = answers.get(request_id, [])
         result["approval_progress"] = evaluate_decisions(
-            conn, result, decisions=result["decisions"],
+            conn,
+            result,
+            decisions=result["decisions"],
         ).as_dict()
         composed[request_id] = result
     return composed

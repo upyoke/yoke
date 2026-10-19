@@ -76,6 +76,8 @@ test("Inbox renders its sections, the served counts, and one card shape", async 
     [["YOK-1907", "/items/YOK-1907?project=10"]],
   );
   assert.equal(byClass(card, "gate-details").length, 0);
+  assert.equal(client.requests.some((request) => request.function === "machine_authorization.pending"), false);
+  assert.doesNotMatch(main.textContent, /Approving as/);
   assert.ok(!card.textContent.includes("What changed on the branch"));
 });
 

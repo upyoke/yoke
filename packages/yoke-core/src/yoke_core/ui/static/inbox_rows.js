@@ -1,7 +1,6 @@
 import { callFunction, el } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
 import { senderDescription } from "./universe_session_message_actors.js";
-import { resolveMirroredMachineApproval } from "./machine_admission_pending.js";
 
 // Answering a gate is one act wherever its card is rendered — the Inbox,
 // a deployment run card, the run page — so every caller resolves through
@@ -24,9 +23,7 @@ export function createDecisionResolver(context, reload) {
     if (note) resolution.note = note;
     let result;
     try {
-      result = row.kind === "machine_approval"
-        ? await resolveMirroredMachineApproval(context, row, action, note)
-        : await callFunction(context.client, "decision_requests.resolve", resolution);
+      result = await callFunction(context.client, "decision_requests.resolve", resolution);
     } catch (error) {
       result = {
         status: 0,

@@ -9,7 +9,6 @@ export const KIND_PRESENTATION = {
   deployment_stage_approval: { icon: "⬈", fallback: "Approve deployment stage" },
   qa_needs_review: { icon: "◉", fallback: "QA evidence needs your review" },
   lifecycle_transition_approval: { icon: "≣", fallback: "Approve lifecycle transition" },
-  machine_approval: { icon: "⚇", fallback: "Approve a new machine" },
   merge_candidate_review: { icon: "⌥", fallback: "Clear a merge candidate" },
 };
 
@@ -56,11 +55,7 @@ export function subjectHref(row) {
       publicRef: facts.item_ref,
     }) || buildUniverseRoute("items", row.project_id);
   }
-  if (row.kind === "machine_approval") {
-    // A machine approval is answered beside the machine it admits, and it
-    // is org-scoped, so no project narrows the destination.
-    return buildUniverseRoute("machines", null);
-  }
+
   return buildUniverseRoute("inbox", row.project_id);
 }
 
@@ -101,12 +96,7 @@ export function decisionLinks(row) {
       });
     }
   }
-  if (row.kind === "machine_approval" && facts.machine) {
-    links.push({
-      label: String(facts.machine),
-      href: buildUniverseRoute("machines", null),
-    });
-  }
+
   return links;
 }
 
@@ -142,10 +132,7 @@ export function decisionOrigin(row) {
     return "An agent ran this check and returned no verdict, so recording "
       + "one is a person's job.";
   }
-  if (row.kind === "machine_approval") {
-    return "A machine asked to join this organization and cannot act until "
-      + "a member approves it as themselves.";
-  }
+
   if (row.kind === "merge_candidate_review") {
     return "This item asks for a person to review the exact commit before it "
       + "lands. Clearing binds to that commit; a later commit asks again.";
@@ -225,15 +212,6 @@ const SUBTITLE_BUILDERS = {
   merge_candidate_review(facts) {
     const head = String(facts.commit_sha || "").slice(0, 12);
     return [facts.item_title, head ? `commit ${head}` : ""];
-  },
-  machine_approval(facts, row) {
-    return [
-      facts.machine ? `machine ${facts.machine}` : "machine not named",
-      facts.code ? `match code ${facts.code}` : "no match code delivered",
-      // Whoever installed Yoke on that machine keeps it once it is admitted:
-      // approving never transfers ownership to the approver.
-      row.originator_actor_label ? `requested by ${row.originator_actor_label}` : "",
-    ];
   },
 };
 

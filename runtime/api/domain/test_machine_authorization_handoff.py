@@ -228,7 +228,8 @@ def test_disabled_service_cannot_handoff(conn):
         handoff(conn, **payload(), actor_id=6)
 
 
-def test_identical_pending_handoff_replay_returns_the_existing_row(conn):
+@pytest.mark.parametrize("state", ["approve", "deny", "consumed"])
+def test_identical_pending_handoff_replay_returns_the_existing_row(conn, state):
     body = payload()
     first = handoff(conn, **body, actor_id=6)
     assert handoff(conn, **body, actor_id=6) == first
@@ -236,9 +237,29 @@ def test_identical_pending_handoff_replay_returns_the_existing_row(conn):
         conn.execute("SELECT count(*) FROM machine_authorization_codes").fetchone()[0]
         == 1
     )
-    decisions.resolve(conn, code=body["user_code"], actor_id=1, action="approve")
+    decisions.resolve(
+        conn,
+        code=body["user_code"],
+        actor_id=1,
+        action="approve" if state == "consumed" else state,
+    )
+    if state == "consumed":
+        codes.poll(
+            conn,
+            device_code="hosted-device-secret",
+            machine_id=MACHINE_ID,
+            machine_name="Laptop",
+            origin="https://team.example",
+        )
+    original = tuple(
+        conn.execute("SELECT * FROM machine_authorization_codes").fetchone()
+    )
     with pytest.raises(codes.MachineAuthorizationError, match="device_code_taken"):
         handoff(conn, **body, actor_id=6)
+    assert (
+        tuple(conn.execute("SELECT * FROM machine_authorization_codes").fetchone())
+        == original
+    )
 
 
 @pytest.mark.parametrize(

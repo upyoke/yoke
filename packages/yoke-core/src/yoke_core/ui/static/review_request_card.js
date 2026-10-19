@@ -17,7 +17,6 @@ import {
   decisionTitle,
 } from "./inbox_presentation.js";
 import { evidenceStrip } from "./review_evidence_strip.js";
-import { appendApprovingAs } from "./machine_admission_pending.js";
 import {
   contextLine,
   decidedLabel,
@@ -212,7 +211,6 @@ export function reviewRequestCard(context, row, options = {}) {
   appendLinks(documentNode, foot, row);
   const canAct = row.status !== "resolved" && !row.decided_by_you && row.can_act !== false
     && typeof options.onAct === "function" && !compact;
-  if (row.kind === "machine_approval") appendApprovingAs(context, foot);
   if (canAct) appendActions(documentNode, foot, card, row, options.onAct);
   if (foot.children.length) side.appendChild(foot);
   return card;

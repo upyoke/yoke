@@ -1,11 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { appendApprovingAs, renderPendingMachines, resolveMirroredMachineApproval } from "../../packages/yoke-core/src/yoke_core/ui/static/machine_admission_pending.js";
+import { renderPendingMachines } from "../../packages/yoke-core/src/yoke_core/ui/static/machine_admission_pending.js";
 import { renderMachineApproval } from "../../packages/yoke-core/src/yoke_core/ui/static/machine_approval.js";
-import { inboxPresentation } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_inbox.js";
 import { createDecisionResolver } from "../../packages/yoke-core/src/yoke_core/ui/static/inbox_rows.js";
-import { replaceViewAbort } from "../../packages/yoke-core/src/yoke_core/ui/static/mount-options.js";
-import { machineRequestRow, renderInbox } from "./universe_ui_inbox_test_support.mjs";
+import { requestRow, renderInbox } from "./universe_ui_inbox_test_support.mjs";
 import { FakeDocument, allNodes, byClass, settle } from "./universe_ui_dom_test_support.mjs";
 
 const ok = (result) => ({ status: 200, envelope: { success: true, result } });
@@ -197,40 +195,22 @@ test("late and superseded reads cannot overwrite the current list", async (t) =>
   assert.equal(f.main.textContent, "");
 });
 
-for (const action of ["approve", "deny"]) test(`Inbox ${action} preserves the mirror payload and shows the approving identity`, async () => {
-  const row = machineRequestRow(), { main, client } = renderInbox("all", [row]);
-  await settle();
-  const card = byClass(main, "review-card")[0], actions = byClass(card, "review-actions")[0];
-  assert.match(card.textContent, /Approving as Morgan · actor #9\. This machine will act as you\./);
-  assert.ok(actions.parentNode.children.findIndex((n) => n.textContent.startsWith("Approving as"))
-    < actions.parentNode.children.indexOf(actions));
-  assert.equal(inboxPresentation.subjectHref(row), "/machines");
-  assert.match(inboxPresentation.decisionOrigin(row), /cannot act until a member approves it as themselves/);
-  assert.match(inboxPresentation.decisionSubtitle(row).leading, /match code WXYZ-1234/);
-  button(card, action === "approve" ? "Approve" : "Deny").dispatchEvent(new Event("click")); await settle();
-  assert.deepEqual(client.requests.filter((c) => c.function === "decision_requests.resolve"), [
-    { function: "decision_requests.resolve", payload: { request_id: row.id, action } },
-  ]);
-  assert.equal(client.requests.filter((c) => c.function === "machine_authorization.pending").length, 1);
-  assert.equal(byClass(main, "review-action").length, 0);
-  assert.match(main.textContent, action === "approve" ? /Approved/ : /Denied/);
-});
-
-test("mirror action preserves request_id fallback and optional notes exactly", async () => {
-  const calls = [], context = { client: { call: async (call) => { calls.push(call); return ok({}); } } };
+test("Inbox decisions preserve request_id fallback and optional notes exactly", async () => {
+  const calls = [], document = new FakeDocument(), context = { document, client: { call: async (call) => { calls.push(call); return ok({}); } } };
   for (const note of [null, "", "checked the code"]) {
-    await resolveMirroredMachineApproval(context, { request_id: 17 }, "deny", note);
+    await createDecisionResolver(context, async () => {})(
+      { request_id: 17 }, "reject", document.createElement("article"), note);
     assert.deepEqual(calls.at(-1), { function: "decision_requests.resolve",
-      payload: { request_id: 17, action: "deny", ...(note ? { note } : {}) } });
+      payload: { request_id: 17, action: "reject", ...(note ? { note } : {}) } });
   }
 });
 
-for (const rejects of [false, true]) test(`mirror ${rejects ? "network" : "refusal"} failure keeps actions retryable`, async () => {
+for (const rejects of [false, true]) test(`Inbox decision ${rejects ? "network" : "refusal"} failure keeps actions retryable`, async () => {
   const document = new FakeDocument(), wrap = document.createElement("article"), action = document.createElement("button");
   wrap.appendChild(action);
   let finish, reloads = 0;
   const context = { document, client: { call: () => new Promise((resolve, reject) => { finish = rejects ? reject : resolve; }) } };
-  const result = createDecisionResolver(context, () => { reloads++; })(machineRequestRow(), "deny", wrap);
+  const result = createDecisionResolver(context, () => { reloads++; })(requestRow(), "reject", wrap);
   assert.equal(action.disabled, true);
   finish(rejects ? new Error("retry decision") : { status: 503, envelope: { success: false, error: { message: "retry decision" } } });
   await result;
@@ -238,50 +218,7 @@ for (const rejects of [false, true]) test(`mirror ${rejects ? "network" : "refus
   assert.match(byClass(wrap, "inbox-row-error")[0].textContent, /retry decision/);
 });
 
-test("same-context route replacement prevents stale identity updates in retained and detached cards", async () => {
-  const document = new FakeDocument(), calls = [], finishes = [];
-  const context = { document, isMounted: () => true,
-    client: { call: (call) => { calls.push(call); return new Promise((resolve) => finishes.push(resolve)); } } };
-  replaceViewAbort(context);
-  const oldSignal = context.signal;
-  const hosts = [document.createElement("div"), document.createElement("div")];
-  const reads = hosts.map((host) => appendApprovingAs(context, host)); await settle();
-  assert.deepEqual(calls, [{ function: "machine_authorization.pending", payload: {} }]);
-  replaceViewAbort(context);
-  assert.equal(oldSignal.aborted, true); assert.equal(context.signal.aborted, false);
-  hosts[0].isConnected = false; hosts[1].isConnected = true;
-  const current = document.createElement("footer");
-  const remount = appendApprovingAs(context, current); await settle();
-  finishes[0](ok({ viewer: { name: "Morgan", actor_id: 9 } })); await Promise.all(reads);
-  for (const host of hosts) assert.match(host.textContent, /Approving as your signed-in account/);
-  assert.match(current.textContent, /Approving as your signed-in account/);
-  finishes[1](ok({ viewer: { name: "Sam", actor_id: 10 } })); await remount;
-  const sibling = document.createElement("footer"); await appendApprovingAs(context, sibling);
-  assert.equal(calls.length, 2);
-  for (const host of [current, sibling]) assert.match(host.textContent, /Approving as Sam · actor #10/);
-  context.abortView();
-});
-
-test("an aborted owning route never starts its deferred identity read", async () => {
-  const document = new FakeDocument(), host = document.createElement("footer"), calls = [];
-  const context = { document, isMounted: () => true, client: { call: (call) => calls.push(call) } };
-  replaceViewAbort(context);
-  const read = appendApprovingAs(context, host); replaceViewAbort(context); await read;
-  assert.equal(calls.length, 0); assert.match(host.textContent, /Approving as your signed-in account/);
-  context.abortView();
-});
-
-for (const reply of [ok({}), fail("function_not_registered"), new Error("network")]) {
-  test(`missing viewer degrades safely: ${reply instanceof Error ? "network" : reply.status}`, async () => {
-    const document = new FakeDocument(), host = document.createElement("div");
-    await appendApprovingAs({ document, isMounted: () => true, client: { call: async () => {
-      if (reply instanceof Error) throw reply; return reply;
-    } } }, host);
-    assert.equal(host.textContent, "Approving as your signed-in account. This machine will act as you.");
-  });
-}
-
-test("other Inbox kinds do not request or display the approving identity", async () => {
+test("Inbox does not request or display the approving identity", async () => {
   const { main, client } = renderInbox(); await settle();
   assert.doesNotMatch(main.textContent, /Approving as/);
   assert.equal(client.requests.some((c) => c.function === "machine_authorization.pending"), false);

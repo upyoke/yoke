@@ -4,14 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.actors import actor_name
-from yoke_core.domain.actors import ActorError
 from yoke_core.domain.actor_message_recipients import inbox_actor_messages
 from yoke_core.domain.actor_decision_queue import (
     pending_requests_for_actor,
     recently_decided_requests_for_actor,
 )
-from yoke_core.domain.decision_request_contract import MACHINE_APPROVAL
+from yoke_core.domain.decision_request_contract import RETIRED_DECISION_KINDS
 from yoke_core.domain.delivery_notice_kind import classify_messages
 from yoke_core.domain.decision_request_disposition import (
     dispose_ended_decision_requests,
@@ -19,23 +17,6 @@ from yoke_core.domain.decision_request_disposition import (
 from yoke_core.domain.session_operator_wake_notice import (
     settle_operator_wake_notices,
 )
-
-
-def _requester_named(conn: Any, row: dict[str, Any]) -> dict[str, Any]:
-    """Name who asked for the machine, so the approver reads a person.
-
-    The originator is the actor who installed Yoke on that machine and
-    authenticated there. Approving does not make the approver its owner,
-    so the row says whose machine it is before anyone answers.
-    """
-    actor_id = row.get("originator_actor_id")
-    label = None
-    if actor_id is not None:
-        try:
-            label = actor_name(conn, int(actor_id))
-        except ActorError:
-            label = None
-    return {**row, "originator_actor_label": label}
 
 
 def inbox_for_actor(
@@ -55,16 +36,10 @@ def inbox_for_actor(
     converges the same way and for the same reason — it reports an absence,
     and the absence ends without anyone telling the notice.
 
-    Machine approvals are the one gate answered somewhere else. They are
-    org-scoped rather than project-scoped, and what an approver needs
-    beside the decision — which machine, its one-time code, who asked for
-    it — is the Machines page. They travel in their own key so that page
-    reads them from this one authority rather than a second one.
-
-    A short tail of the gates this actor already settled travels beside what
-    still waits, so what they just answered is still there after a reload.
-    Only the waiting gates can be answered somewhere else, so only they
-    reach the machine-approval key.
+    Retired decision kinds remain readable through their history but do not
+    appear as current Inbox work. Machine admission uses its own engine store.
+    A short tail of settled gates travels beside what still waits so the
+    actor can see the answers they just gave after a reload.
     """
     dispose_ended_decision_requests(conn, project_ids=project_ids)
     settle_operator_wake_notices(conn, actor_id=actor_id)
@@ -86,12 +61,9 @@ def inbox_for_actor(
     messages = classify_messages(actor_messages["messages"])
     return {
         "needs_decision": [
-            row for row in (*decisions, *settled) if row["kind"] != MACHINE_APPROVAL
-        ],
-        "machine_approvals": [
-            _requester_named(conn, row)
-            for row in decisions
-            if row["kind"] == MACHINE_APPROVAL
+            row
+            for row in (*decisions, *settled)
+            if row["kind"] not in RETIRED_DECISION_KINDS
         ],
         "messages": messages,
         "pending_actor_message_count": actor_messages["pending_count"],

@@ -5,9 +5,6 @@ from __future__ import annotations
 import pytest
 from starlette.requests import Request
 
-from runtime.api.domain.decision_request_test_support import (
-    decision_request_connection,
-)
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -15,7 +12,6 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.api.http_auth import HttpAuthContext, authenticate_request
 from yoke_core.api.routes.functions import _service_token_guard_response
-from yoke_core.domain import machine_approval_requests as approvals
 from yoke_core.domain.actor_permissions import (
     role_id_by_name,
     seed_roles_and_permissions,
@@ -34,7 +30,6 @@ from yoke_core.domain.yoke_function_permissions import check_dispatch_permission
 from yoke_core.domain.yoke_function_registry import lookup, reset_registry_for_tests
 
 _LIFECYCLE = "projects.github_binding.lifecycle"
-_AUTH_ID = "5b234860-c927-46ab-b19a-9fb36df056aa"
 
 
 @pytest.fixture()
@@ -172,104 +167,3 @@ def test_named_project_decides_the_org_over_a_payload_org(tokendb) -> None:
         1, _LIFECYCLE, {"project": "yoke", "org_id": str(other_org)}
     )
     assert resolve_org_context(tokendb, request) == project_org
-
-
-@pytest.fixture()
-def approvals_conn():
-    with decision_request_connection() as value:
-        yield value
-
-
-def _pending(conn, *, expires_at: str, member: int = 2) -> None:
-    """Open an approval for ``member``; actor 2 owns a project in org 1."""
-    approvals.apply_machine_approval_lifecycle(
-        conn,
-        auth_request_id=_AUTH_ID,
-        org_id=1,
-        state="pending",
-        occurred_at="2026-07-28T12:00:00Z",
-        actor_id=member,
-        context={"expires_at": expires_at},
-    )
-
-
-def _end(conn, *, actor_id: int, state: str = "expired"):
-    return approvals.apply_machine_approval_lifecycle(
-        conn,
-        auth_request_id=_AUTH_ID,
-        org_id=1,
-        state=state,
-        occurred_at="2099-12-31T00:00:00Z",
-        actor_id=actor_id,
-        context={},
-    )
-
-
-@pytest.mark.parametrize("state", ("expired", "withdrawn"))
-def test_service_cannot_end_a_live_machine_approval(approvals_conn, state) -> None:
-    """The delivery's own claimed status and occurred_at prove nothing."""
-    _pending(approvals_conn, expires_at="2099-01-01T00:00:00Z")
-    with pytest.raises(PermissionError, match="hosted_service_withdrawal_subject_live"):
-        _end(approvals_conn, actor_id=6, state=state)
-    status = approvals_conn.execute("SELECT status FROM decision_requests").fetchone()[
-        0
-    ]
-    assert status == "pending"
-
-
-@pytest.mark.parametrize(
-    "departure",
-    (
-        "UPDATE actors SET status = 'disabled' WHERE id = 2",
-        "DELETE FROM actor_project_roles WHERE actor_id = 2",
-    ),
-)
-def test_service_ends_a_live_approval_whose_member_left_the_org(
-    approvals_conn, departure
-) -> None:
-    """The member's own rows, not the delivery, show the subject ended."""
-    _pending(approvals_conn, expires_at="2099-01-01T00:00:00Z")
-    approvals_conn.execute(departure)
-    withdrawn, _, applied = _end(approvals_conn, actor_id=6, state="withdrawn")
-    assert withdrawn is not None
-    assert (withdrawn["status"], applied) == ("withdrawn", True)
-
-
-def test_disabled_service_actor_cannot_end_a_machine_approval(approvals_conn) -> None:
-    _pending(approvals_conn, expires_at="2026-07-28T12:10:00Z")
-    approvals_conn.execute("UPDATE actors SET status = 'disabled' WHERE id = 6")
-    with pytest.raises(PermissionError):
-        _end(approvals_conn, actor_id=6)
-
-
-def test_another_orgs_service_actor_cannot_end_a_machine_approval(
-    approvals_conn,
-) -> None:
-    _pending(approvals_conn, expires_at="2026-07-28T12:10:00Z")
-    approvals_conn.execute(
-        "INSERT INTO organizations VALUES (2, 'elsewhere', 'Elsewhere', 'now')"
-    )
-    approvals_conn.execute("UPDATE actor_org_roles SET org_id = 2 WHERE actor_id = 6")
-    with pytest.raises(PermissionError, match="not authorized"):
-        _end(approvals_conn, actor_id=6)
-
-
-@pytest.mark.parametrize(
-    ("actor_id", "kind", "component"),
-    ((1, "human", None), (7, "system", "some_other_component")),
-)
-def test_non_service_role_holder_cannot_end_a_machine_approval(
-    approvals_conn, actor_id, kind, component
-) -> None:
-    _pending(approvals_conn, expires_at="2026-07-28T12:10:00Z")
-    if actor_id == 7:
-        approvals_conn.execute(
-            "INSERT INTO actors (id, kind, system_component, created_at) "
-            "VALUES (7, ?, ?, 'now')",
-            (kind, component),
-        )
-    approvals_conn.execute(
-        "INSERT INTO actor_org_roles VALUES (?, 1, 5, 'now')", (actor_id,)
-    )
-    with pytest.raises(PermissionError, match="not authorized"):
-        _end(approvals_conn, actor_id=actor_id)

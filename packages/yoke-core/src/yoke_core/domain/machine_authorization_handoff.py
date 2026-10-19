@@ -19,7 +19,6 @@ from yoke_core.domain.machine_authorization_codes import (
     _p,
     refuse_retired_machine,
 )
-from yoke_core.domain.machine_approval_requests import machine_approval_decision
 
 
 def require_service_org(conn: Any, actor_id: int, org_id: int) -> None:
@@ -95,7 +94,7 @@ def handoff(
             "issue a code expiring within the engine code TTL",
         )
     previous = conn.execute(
-        "SELECT user_code,org_id,machine_id,machine_name,platform,expires_at,actor_id,consumed_at "
+        "SELECT user_code,org_id,machine_id,machine_name,platform,expires_at,actor_id,consumed_at,decision,decided_at "
         f"FROM machine_authorization_codes WHERE device_hash={p}",
         (device_code_sha256,),
     ).fetchone()
@@ -110,7 +109,8 @@ def handoff(
         pending = (
             not previous[6]
             and not previous[7]
-            and not machine_approval_decision(conn, auth_request_id=device_code_sha256)
+            and previous[8] is None
+            and previous[9] is None
         )
         if not (same and parse_instant(previous[5]) == expires and pending):
             raise MachineAuthorizationError(
