@@ -137,6 +137,7 @@ def test_observer_discovers_and_stamps_absent_optional_clocks(
         "UPDATE items SET merge_queue_pr_number='42',merge_queue_enqueued_at=NULL,merge_queue_landed_at=NULL,merge_queue_notified_at=NULL WHERE id=1"
     )
     monkeypatch.setattr(observer, "push_notice", lambda *_, **__: "delivered")
+    monkeypatch.setattr(observer, "notify_after_commit", lambda *_, **__: ([], ""))
     result = observer.observe_pending_landings(
         native_clocks, [1], now=DRIVER_STAMP, read_state=merged
     )

@@ -15,7 +15,9 @@ reads GitHub for every non-terminal item that has one. Relay upkeep and a
 waiting lane both call it, while the project cadence row makes those callers
 share one GitHub sweep. A merge stamps the item's landing facts and current
 PR receipt identity atomically, then notifies whoever owns the lane
-(:mod:`yoke_core.domain.merge_queue_landing_notice`). Nothing here
+(:mod:`yoke_core.domain.merge_queue_landing_notice`) and every dependent
+whose gate the merge satisfied
+(:mod:`yoke_core.domain.dependency_satisfied_notice`). Nothing here
 transitions an item: close-out is evidence-bound work that belongs to a
 claim holder, and a landing recorded without it is exactly the state the
 report exists to surface.
@@ -82,6 +84,10 @@ from yoke_core.domain.merge_queue_landing_observation import (
     ejection_message,
 )
 from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.dependency_satisfied_notice import (
+    EVENT_MERGED,
+    notify_after_commit,
+)
 from yoke_core.engines.merge_worktree_pr_check_runs import read_required_checks
 from yoke_core.engines.merge_worktree_pr_membership import read_pr_queue_membership
 from yoke_core.engines.merge_worktree_pr_queue import read_pr_landing_state
@@ -104,8 +110,8 @@ def observe_pending_landings(
 ) -> dict[str, Any]:
     """Record every landing that happened, and report how each resolved.
 
-    A landing that merged is stamped on the item and its holder is told to
-    close out. A pull request the queue has dropped notifies the holder to
+    A landing that merged is stamped on the item, its holder is told to
+    close out and its newly satisfied dependents are told their gate cleared. A pull request the queue has dropped notifies the holder to
     rebase and re-gate, and its handoff marker is cleared, because there is
     no queued landing left to wait for. The marker remains while its notice
     is queued. Anything GitHub is still holding stays silent. A notice
@@ -281,10 +287,8 @@ def observe_pending_landings(
             )
             notice_in_progress = False
             if not delivery:
-                conn.commit()
                 result["unrouted"] += 1
-                continue
-            if delivery == "delivered":
+            elif delivery == "delivered":
                 conn.execute(
                     f"UPDATE items SET merge_queue_notified_at={marker} "
                     f"WHERE id={marker} AND merge_queue_pr_number={marker} "
@@ -297,6 +301,17 @@ def observe_pending_landings(
                 )
                 result["notified"] += 1
             conn.commit()
+            if prior_landing is None:
+                # Dependents waiting on this merge hear it now, not when a
+                # holder that may be gone records its close-out; the per-edge
+                # notice key keeps that later record from repeating it.
+                _, advisory = notify_after_commit(
+                    conn, blocking_item_id=item_id, event=EVENT_MERGED
+                )
+                if advisory:
+                    result.setdefault("notice_errors", []).append(
+                        {"item_id": item_id, "pr_number": pr_number, "error": advisory}
+                    )
         except Exception as exc:
             conn.rollback()
             detail = f"{render_item_ref(conn, item_id)}: {exc}"
