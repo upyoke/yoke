@@ -59,7 +59,9 @@ their host turns and leases, and retracts every unsettled run copy of its QA,
 even one passed before a later failure; history and item plans remain.
 [In-flight host cancellation](deployment-plan-execution.md#stop-host-work-safely)
 refuses as `qa_abort_restore_required`: abort through the plan command, wait
-for restore proof, then retry removal. To clean
+for the interrupted case's cleanup proof, then retry removal. A declared
+baseline requires restoration; an `as_is` case or chain without a baseline
+settles on its no-restore cleanup receipt. To clean
 an older removal's residue, a holder runs `yoke qa plan abort --deployment-run-id
 RUN --execution-id ID --reason TEXT --project P` (read its `--help` first). The
 audited removal keeps abort authority under the member's item claim and

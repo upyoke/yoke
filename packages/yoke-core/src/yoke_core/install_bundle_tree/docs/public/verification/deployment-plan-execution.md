@@ -198,18 +198,22 @@ yoke qa plan abort --deployment-run-id RUN --execution-id EXECUTION_ID \
     --reason 'Stop this host case'
 ```
 
-An in-flight host abort first records cancellation. Until restore proof is
-recorded, it refuses with `qa_abort_restore_pending` and retains host custody.
-Keep the owning runner connected: heartbeat replies carry cancellation, the
-runner stops before its next step, finishes fixture cleanup, restores the
-declared chain baseline and submits the evidence. Blocking resets finish
-before the runner acts on cancellation. Retry abort after cleanup; success
-confirms the lease is released and restoration is proven.
+An in-flight host abort first records cancellation. Until the interrupted
+case's cleanup proof is recorded, it refuses with `qa_abort_restore_pending`
+and retains host custody. Keep the owning runner connected: heartbeat replies
+carry cancellation, the runner stops before its next step, finishes fixture
+cleanup and submits `starting_state_restore` evidence. A case with a declared
+baseline must prove `restored: true` for that baseline. An `as_is` case or a
+chain without a declared baseline records that there is no starting state to
+restore; that cleanup receipt permits release with `restored: false`.
+Other roster cases do not impose their baselines on the interrupted case.
+Blocking resets finish before the runner acts on cancellation. Retry abort
+only after cleanup proof is recorded; success confirms the lease is released.
 
-A failed restore or an `as_is` chain without a declared baseline cannot prove
-restoration. Custody stays held; follow the named control-plane operator
-recovery to recover the machine and record proof before release. Preserve
-the execution, capture and restore diagnostics.
+If cleanup or a required restore fails, or the runner is gone, custody stays
+held. Ask the control-plane operator to recover the machine and record
+verified cleanup evidence before release. Preserve the execution, capture and
+restore diagnostics; retrying without new proof cannot settle the abort.
 
 ## Recover communication on the frozen execution
 

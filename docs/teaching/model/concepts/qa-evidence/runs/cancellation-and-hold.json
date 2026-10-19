@@ -1,7 +1,9 @@
 {
  "id": "cancellation-and-hold",
  "title": "Cancellation and hold",
- "status": "draft-copy",
+ "status": "observed",
+ "summary": "Host abort retains custody until the interrupted case records starting_state_restore cleanup evidence. A declared baseline requires restored=true for that baseline; an as_is case or chain without a baseline settles on its no-restore receipt. Other roster cases do not impose restore requirements. Missing proof, failed cleanup or failed required restoration retains custody and names operator recovery.",
+ "sources": ["docs/public/verification/deployment-plan-execution.md", "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_abort_state.py", "runtime/api/domain/test_machine_qa_plan_abort.py"],
  "page": "qa-evidence",
  "position": 4
 }

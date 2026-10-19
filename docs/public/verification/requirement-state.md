@@ -36,7 +36,8 @@ An older unfinished attempt is history after a newer actual attempt. A live
 plan execution, process or lease remains separately owned and must finish or
 abort before terminal settlement. Selecting an attempt does not release it.
 An in-flight host abort first requests cancellation and retains custody until
-[restore proof is recorded](deployment-plan-execution.md#stop-host-work-safely).
+[case cleanup is proven](deployment-plan-execution.md#stop-host-work-safely),
+including restoration only when that case declared a baseline.
 
 A requirement-filtered `qa.run.list` puts that native-selected attempt first
 and retains every historical run, including detached review audit rows. Case
@@ -259,7 +260,8 @@ new walk; manual retractions and terminal execution histories remain intact.
 
 Removing a member (`yoke deployment-runs remove-item`) aborts that member's
 live executions with reason `deployment-member-removed`. A case already running
-must stop and prove restoration before host custody releases; removal can
+must stop and prove cleanup before host custody releases, including any
+declared baseline's restoration; an `as_is` receipt needs no restore. Removal can
 refuse with `qa_abort_restore_required`: request cancellation through plan
 abort, keep the runner connected through cleanup, then retry removal.
 The runner's abort response returns the execution's `release_reason`. When it
