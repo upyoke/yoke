@@ -150,22 +150,3 @@ def frozen_member_readiness(conn: Any, run_id: str) -> tuple[list[str], str]:
     return set_aside_reopened_members(
         conn, run_id, [(item_id, status_of[item_id]) for item_id in unready]
     )
-
-
-def frozen_composition_verdict(conn: Any, run_id: str) -> tuple[bool, str]:
-    """Judge a re-driven run whose composition is already frozen.
-
-    Freezing validated the membership, carried work and custody, and none of
-    them can change afterwards, so a re-drive repeats only what can: a member
-    that left delivery readiness since. The verdict has the shape and wording
-    of ``cmd_validate_composition``.
-    """
-    refused, notice = frozen_member_readiness(conn, run_id)
-    if refused:
-        text = "Items not delivery-ready for their pinned workflow: " + ", ".join(
-            refused
-        )
-        return False, "FAIL: Composition validation failed:\n" + "\n".join(
-            part for part in (text, notice) if part
-        )
-    return True, f"OK; {notice}" if notice else "OK"

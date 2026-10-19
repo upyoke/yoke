@@ -138,7 +138,7 @@ def _record_and_compose(
     from yoke_core.domain.deployment_run_composition_guard import (
         has_frozen_composition,
     )
-    from yoke_core.domain.deployment_run_reopened_members import (
+    from yoke_core.domain.deployment_run_frozen_composition import (
         frozen_composition_verdict,
     )
     from yoke_core.domain.deployment_runs_validation import cmd_validate_composition

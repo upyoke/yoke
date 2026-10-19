@@ -61,8 +61,9 @@ branch head resolves once, and each project's commit comparison against its
 preceding release runs once however many readers ask. The execution context
 records bound sources and validates composition on one connection, so its
 validation reuses the heads the record resolved. A re-drive of a run whose
-composition is frozen skips that validation and only sets aside or refuses
-members that left delivery readiness since the freeze (timing step
+composition is frozen skips that validation. It only sets aside or refuses
+members that left delivery readiness since the freeze, and refuses a run left
+with no member its item-scoped QA can prove (timing step
 `context_frozen_composition`). A comparison whose preceding
 release changed is a different answer and is derived again. Catalog probes
 share table and column answers only inside that operation and only for the

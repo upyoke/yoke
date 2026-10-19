@@ -24,7 +24,7 @@ from yoke_core.domain.dash_execution import record_dash_evidence
 from yoke_core.domain.deployment_run_member_removal import REOPENED_REMOVED_BY
 from yoke_core.domain.deployment_run_membership_removals import membership_removals
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
-from yoke_core.domain.deployment_run_reopened_members import (
+from yoke_core.domain.deployment_run_frozen_composition import (
     frozen_composition_verdict,
 )
 from yoke_core.domain.deployment_runs_validation import cmd_validate_composition

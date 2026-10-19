@@ -40,7 +40,7 @@ def _context(*, frozen: bool, compose: Any, frozen_verdict: Any):
             side_effect=compose,
         ) as composition,
         patch(
-            "yoke_core.domain.deployment_run_reopened_members."
+            "yoke_core.domain.deployment_run_frozen_composition."
             "frozen_composition_verdict",
             side_effect=frozen_verdict,
         ) as frozen_check,
