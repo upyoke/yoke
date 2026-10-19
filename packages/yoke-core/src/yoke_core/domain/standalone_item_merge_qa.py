@@ -61,12 +61,6 @@ def item_for_merge_phase(
         row
         for row in list(item.get("qa_requirements") or [])
         if applies_at_pre_merge(row)
-        # The landing gate executes these after producer verification and
-        # publication; an earlier failure must remain retryable there.
-        and not (
-            row.get("requirement_source") == "flow_derived"
-            and str(row.get("suite_id") or "").startswith("consumer-proof:")
-        )
     ]
     attachments = [
         row

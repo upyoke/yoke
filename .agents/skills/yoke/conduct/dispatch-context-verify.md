@@ -30,10 +30,11 @@ declared validation environment, not production control-plane mutation.
 
 ## Producer and consumer handoff
 
-Require evidence the real consumer built against the exact pushed candidate.
-Run the producer gate first, then hand the consumer the full commit the gate
-actually pushed to the producer remote; resolve it again after any rebase.
-See `.yoke/docs/verification/index.md#proving-an-exact-producer-candidate`, “Proving an exact producer candidate”.
+Use the configured release-time exact-pair gate for consumer proof; do not
+add a separate consumer-build requirement before each item merge. Consumer
+code changes still need their linked companion. For an explicitly requested
+consumer case, use the producer gate's full pushed commit after any rebase.
+See `.yoke/docs/verification/consumer-proof.md`.
 
 ## Branch evidence and ownership
 

@@ -108,9 +108,9 @@ capability-specific branches thin and named. An unavailable primitive needs an
 explicit coverage decision and evidence; it cannot silently count as a pass.
 Read [harness discovery](../harness-discovery.md) for the receiving surfaces.
 
-Verify the whole consumed contract. The merge gate runs declared
-[consumer proof](../../verification/consumer-proof.md) against the exact
-pushed candidate. Consumer code changes require the linked companion in
+Verify the whole consumed contract through the configured release-time
+exact-pair [consumer proof](../../verification/consumer-proof.md) gate.
+Item merges need no separate consumer build. Consumer code changes require the linked companion in
 [project scoping](lanes-and-claims.md#project-scoping); verification alone
 needs none. One item's claim grants no authority over another project's source or release.
 

@@ -55,6 +55,9 @@ file and single responsibility, with sizing/headroom decisions before implementa
 Live-state ACs use exactly `[READ-ONLY]` (inspect; mismatch report/stop, no repair)
 or `[APPLY-MUTATION]` (sanctioned domain write). No alternate spellings. Untagged
 live state defaults read-only. State recovery/rollback for all mutations.
+Consumer-proof ACs use the configured release-time exact-pair gate, not a
+separate consumer build before item merge. Consumer code changes still need
+their linked companion; see `.yoke/docs/verification/consumer-proof.md`.
 
 worktree is bare PREFIX-{N} for single lane, otherwise PREFIX-{N}-{short-kebab-
 concern}; all tasks in one lane share its value. context_estimate XS/S/M/L,

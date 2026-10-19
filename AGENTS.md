@@ -19,7 +19,7 @@ Each message to the user is one or two sentences unless they ask for more. Write
 
 ## Project Scoping
 
-One item has one project. Consumer code changes require linked companion items. The merge gate runs declared consumer proof against the exact pushed candidate; verification alone needs no companion. See `.yoke/docs/verification/consumer-proof.md`. Ask when the target is ambiguous.
+One item has one project. Consumer code changes require linked companion items. The configured release-time exact-pair gate owns consumer proof; item merges need no separate consumer build. See `.yoke/docs/verification/consumer-proof.md`. Ask when the target is ambiguous.
 
 ## Worktree Discipline
 

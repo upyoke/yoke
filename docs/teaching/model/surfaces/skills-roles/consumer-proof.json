@@ -1,9 +1,9 @@
 {
  "id": "consumer-proof",
- "title": "Consumer proof at the merge boundary",
+ "title": "Consumer proof at release",
  "status": "observed",
  "form": "Do",
- "verification": "Focused source tests cover candidate inputs, consumer commit identity, evidence recording, failures, skips and retries. Live consumer declaration awaits operator choice.",
+ "verification": "Source teaching requires release-time exact-pair proof and keeps per-merge consumer-build ACs out of intake and task generation; live release execution remains unclaimed.",
  "topics": ["contributing/building-and-publishing-yoke-releases/consumer-compatibility"],
- "sources": ["AGENTS.md", "docs/public/agents/rules/lanes-and-claims.md", "docs/public/verification/consumer-proof.md"]
+ "sources": ["AGENTS.md", "runtime/agents/product-manager.md", "runtime/agents/architect/task-templates.md", ".agents/skills/yoke/conduct/dispatch-context-verify.md", "docs/public/verification/consumer-proof.md"]
 }

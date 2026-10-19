@@ -75,9 +75,12 @@ def land_item_through_merge_queue(
 ) -> QueueLandingOutcome:
     """Land one verified item branch through the merge queue.
 
-    Relay-launched callers arm and exit: a wait would die with their turn
-    and leave a landed item open. The control-plane observer owns durable
-    landing and notifies the claim holder to complete close-out.
+    A relay-launched caller never waits, whatever it asked for. It is a
+    headless command that cannot be prompted again, and a queue landing
+    outlasts the turn holding the wait: the wait dies with the turn and
+    leaves the branch landed with its item open. Arming and stopping hands
+    the landing to the record the control-plane observer already watches,
+    and its notice wakes the claim holder for close-out.
     """
     warnings: list[str] = []
     if relay_launched:
@@ -176,17 +179,6 @@ def land_item_through_merge_queue(
     )
     if pr_err:
         return QueueLandingOutcome(ok=False, exit_code=1, error=pr_err)
-    from yoke_core.engines.merge_worktree_consumer_proof import require_consumer_proof
-
-    refusal = require_consumer_proof(
-        ctx,
-        candidate=commit_sha,
-        public_ref=public_ref,
-        dispatch=dispatch,
-        publish=False,
-    )
-    if refusal:
-        return QueueLandingOutcome(ok=False, exit_code=1, pr_num=pr_num, error=refusal)
     # GitHub refuses re-enabling an armed or already-merged pull request.
     pre_state, pre_err = read_pr_landing_state(ctx, pr_num)
     if pre_err:

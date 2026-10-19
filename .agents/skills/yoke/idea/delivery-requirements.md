@@ -10,6 +10,9 @@ case catalog, flow engine or hidden stages.
 Preserve requested evidence and every receiving context in the item. Read
 `.yoke/docs/agents/rules/code-and-cli.md` before declaring coverage; a producer
 check alone does not prove a real consumer or delivered teaching. Use the
+configured release-time exact-pair gate for consumer proof; do not add a
+per-merge consumer-build AC. See `.yoke/docs/verification/consumer-proof.md`.
+Use the
 standard at `.yoke/docs/documentation/index.md` for the intake's concise
 action teaching and exact deeper pointers.
 

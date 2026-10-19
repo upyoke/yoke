@@ -85,8 +85,10 @@ owned. Print project/workflow/priority/flow-or-omitted/dependencies/Pack stance.
 One item/graph/lane belongs to one deployment project. Independently deliverable
 project portions: propose one companion per project and the real dependency,
 ask to split; refusal means clarify scope. A producer-led reusable contract/
-Pack change automatically gets a consuming-project companion with directional
-wait, reciprocal references and exact-candidate consumer verification.
+Pack change needing consumer code or Pack application gets a consuming-project
+companion with directional wait and reciprocal references. Consumer proof belongs
+to the configured release-time exact-pair gate; verification alone needs no
+companion or per-merge consumer-build AC. See `.yoke/docs/verification/consumer-proof.md`.
 Never give one item a second project's lane.
 
 ## 4. Duplicate check before create

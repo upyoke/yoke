@@ -114,8 +114,6 @@ def dispatch_for(
     last_record = [records[-1] if records else None]
 
     def dispatch(*, function_id, target, payload=None, **_kw):
-        if function_id in {"projects.list", "qa.requirement.list"}:
-            return ok_response({"rows": []})
         if function_id == "claims.work.holder_get":
             return ok_response({"holder": holder})
         if function_id == "items.detail.get":
