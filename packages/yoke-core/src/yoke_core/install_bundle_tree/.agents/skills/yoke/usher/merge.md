@@ -76,7 +76,8 @@ No invented runner args, swallowed errors or substring-based JSON parsing.
 
 Effective children=epic_tasks with worktrees=worker_and_integration_lanes
 selects [generated-task merge](merge-generated-tasks.md); it lands every
-registered lane and records the parent. Never merge only the parent lane.
+registered lane, through the merge queue when the project declares one, and
+records the parent. Never merge only the parent lane.
 Children=none with worktrees=single_implementation_lane selects the one standalone
 boundary. Unsupported combination refuses with both policy values.
 

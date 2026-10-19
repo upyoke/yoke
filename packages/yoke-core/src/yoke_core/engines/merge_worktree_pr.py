@@ -5,6 +5,7 @@ from __future__ import annotations
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 from yoke_core.engines.merge_worktree_cleanup import _post_merge_cleanup
 from yoke_core.engines.merge_worktree_pr_discovery import find_existing_pr
+from yoke_core.engines.merge_worktree_queue_landing import queue_lane_landing
 from yoke_core.engines.merge_worktree_pr_rest import create_pr
 from yoke_core.engines.merge_worktree_pr_merge import (
     run_pr_merge_with_retry_guard,
@@ -28,7 +29,11 @@ def _parent():
 
 
 def do_pr_merge(ctx: MergeContext) -> int:
-    """Execute the push + PR + CI + merge workflow.
+    """Land the lane: through the merge queue, or push + PR + CI + merge.
+
+    A project declaring the merge queue lands the lane through it
+    (:mod:`yoke_core.engines.merge_worktree_queue_landing`); the steps below
+    are the direct pull-request merge for every other project.
 
     Preconditions (enforced by ``run()``):
       - Local ``{target}`` has already been pushed to origin, and
@@ -65,6 +70,12 @@ def do_pr_merge(ctx: MergeContext) -> int:
     if unique_count == 0:
         _print("No unique commits after rebase \u2014 nothing to merge. Cleaning up.")
         return _post_merge_cleanup(ctx, no_changes=True, pr_num="")
+
+    queued = queue_lane_landing(ctx)
+    if queued is not None:
+        if queued.exit_code is not None:
+            return queued.exit_code
+        return _post_merge_cleanup(ctx, no_changes=False, pr_num=queued.pr_num)
 
     # 1. Push branch -- fail-fast on push failure.
     _print(f"Pushing {ctx.args.branch}...")
