@@ -32,6 +32,17 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "project control-plane checks still use authenticated Doctor dispatch",
     ),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_machine_scope.py",
+        "yoke_core.engines.doctor_applicability_declarations",
+    ): (
+        "client_local_diagnostics",
+        "a project-less run reads which packaged checks are machine scope",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_machine_scope.py",
+        "yoke_core.engines.doctor_https_compose",
+    ): ("client_local_diagnostics", "a project-less run executes machine checks here"),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/claims_path_flow.py",
         "yoke_core.domain.path_claim_activation_client",
     ): (
