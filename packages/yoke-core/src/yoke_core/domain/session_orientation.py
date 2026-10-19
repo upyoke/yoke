@@ -1,4 +1,4 @@
-"""Startup orientation for a managed project's top-level session.
+"""Startup orientation for project and outside-project top-level sessions.
 
 A Yoke source checkout renders startup orientation from its own harness
 tree. A managed project has no such tree: its hooks relay every event to
@@ -19,13 +19,9 @@ nothing but the wheels installed:
   its registered transport. The hook payload, filesystem and ``git`` still
   orient a project whose control plane is unreachable.
 
-Orientation is short by construction. It carries the facts a session cannot
-look up — its own id, this checkout, this machine's advisories — and then the
-main-session startup block, which names the command behind each remaining
-question rather than inlining the answer. The generated packet is deliberately
-not part of this delivery: composed inline it exceeded every harness's inline
-ceiling, so the harness persisted the block to a file and showed the model a
-preview, delivering the tail in name only.
+Orientation carries identity, checkout and machine advisories, then pointers
+for remaining questions. Full packets exceed harness inline budgets, causing
+file-backed previews that deliver the tail in name only.
 """
 
 from __future__ import annotations
@@ -61,6 +57,7 @@ ORIENTATION_REDELIVERED_MARKER = "YOKE_ORIENTATION_REDELIVERED"
 CLIENT_ORIENTATION_PRESENT_KEY = "_yoke_client_orientation_present"
 SETUP_LINES_KEY = "_yoke_setup_lines"
 REQUIRED_LINES_KEY = "_yoke_required_lines"
+_GLOBAL_CONTEXT_KEY = "_yoke_global_orientation"
 
 _GIT_TIMEOUT_S = 5
 
@@ -162,6 +159,12 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
     session_id = _text(payload, "session_id")
     if not session_id or session_id == "unknown":
         return ""
+    if payload.get(_GLOBAL_CONTEXT_KEY):
+        from yoke_core.domain.global_orientation import render_global_orientation
+
+        return render_global_orientation(
+            session_id, root, required_lines=payload.get(REQUIRED_LINES_KEY, [])
+        )
     lines: list[str] = _advisory_lines(root)
     lines.extend(
         [
@@ -283,17 +286,16 @@ def render_scoped_orientation(payload: dict[str, Any], cwd: Path) -> str:
     """Select setup facts and teaching from the actual project boundary."""
     root = _project_root(cwd)
     if root is None:
-        from yoke_core.domain.global_orientation import render_global_orientation
-
-        return render_global_orientation(
-            _text(payload, "session_id"),
-            cwd,
-            required_lines=payload.get(REQUIRED_LINES_KEY, []),
-        )
+        return render_orientation({**payload, _GLOBAL_CONTEXT_KEY: True}, cwd)
     from yoke_cli.config.setup_facts_summary import orientation_lines
 
     return render_orientation(
-        {**payload, SETUP_LINES_KEY: orientation_lines(root)}, root
+        {
+            **payload,
+            _GLOBAL_CONTEXT_KEY: False,
+            SETUP_LINES_KEY: orientation_lines(root),
+        },
+        root,
     )
 
 
