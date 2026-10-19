@@ -1,9 +1,11 @@
 """Bring source-bound QA plans to the cases the serving build authors.
 
-Item attachment and release materialization freeze a plan's cases as they
-stand. Boot runs a new build after its deploy and before that release's item
-QA, so converging here ships a merged change to code-authored cases with the
-release that carries it. Only plans already bound to a source commit move, and
+Item attachment and a release run's start freeze a plan's cases as they stand.
+A release usually freezes before its own build boots, so boot convergence
+alone would leave that release on the old cases; before a stage first
+materializes the plan, :mod:`deployment_qa_source_plan_refresh` takes the
+cases converged here when the run's candidate carries their source. Only plans
+already bound to a source commit move, and
 only forward: :func:`replace_plan_cases` proves the build is merged and
 descends from the plan's recorded source, so an older build never rewrites a
 plan a newer one converged.
@@ -89,7 +91,7 @@ def converge_source_bound_plans(conn: Any, build_sha: str | None = None) -> list
             else:
                 _log.warning(
                     "qa_plan_source_convergence_failed: plan %s (%s) kept its "
-                    "cases from source %s, so item QA will freeze those, not "
+                    "cases from source %s, so item QA will materialize those, not "
                     "build %s. Reason: %s. Recovery: fix the reason and restart "
                     "the server, or export and sync the cases by hand with "
                     "yoke qa plan-cases sync "

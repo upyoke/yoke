@@ -8,9 +8,13 @@ A source-bound plan follows the serving build. When a server whose image
 carries `YOKE_BUILD_SHA` boots, it compares each source-bound
 `installer-campaign` and `installer-exploration` plan with the cases that build
 generates. On drift it replaces the cases and records the build commit as
-`source_revision`, through the same proofs as a sync. Boot runs after a deploy
-and before that release's item QA freezes the plan, so merged case changes ship
-with their release; no manual sync or wake is needed. An older build leaves a
+`source_revision`, through the same proofs as a sync. A release run freezes its
+plans when it starts, usually before its own build boots, so before a stage
+first materializes a frozen source-bound plan it takes the saved cases instead
+when their source descends from the frozen one and the run's candidate carries
+it. Merged case changes ship with their release; no manual sync or wake is
+needed. A saved source the candidate does not carry keeps the frozen cases and
+logs `qa_frozen_plan_kept` with the reason. An older build leaves a
 newer plan unchanged (`qa_plan_source_newer_kept` in the server log). A plan
 that cannot converge keeps its cases and boot continues; the server log names
 `qa_plan_source_convergence_failed`, the reason and this recovery.
@@ -47,9 +51,10 @@ unreadable upstream refuses as `qa_plan_source_unmerged_or_unverified` and teach
 Use item-scoped or run-bound correction cases for lane proof; never copy lane
 definitions into the shared saved plan through the raw replacement adapter.
 The export document carries `source_revision` alongside `cases`; replacement
-automatically records it, and frozen releases retain it. A release uses its frozen source cases,
-and refuses `qa_plan_source_candidate_mismatch` before materialization or refresh
-if the selected source revision is not an ancestor of its candidate. Release a
+automatically records it, and frozen releases retain it. A release uses its frozen
+source cases unless a stage refreshes them first as described above, and refuses
+`qa_plan_source_candidate_mismatch` before materialization or refresh if the
+selected source revision is not an ancestor of its candidate. Release a
 candidate carrying the newer source, or use run-bound correction cases; never
 test newer installer expectations against an older candidate. A sync moves only
 forward: the source revision must equal or descend from the plan's recorded

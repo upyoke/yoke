@@ -9,6 +9,7 @@ from yoke_core.domain.deployment_requirement_snapshot_format import (
     PLAN_FIELDS,
 )
 from yoke_core.domain.deployment_requirement_snapshots import _canonical
+from yoke_core.domain.deployment_qa_source_plan_refresh import REFRESHED_CONTRACT
 from yoke_core.domain.qa_plan_management import QaPlanError
 
 
@@ -105,8 +106,9 @@ def plan_matches_target(conn, plan, target, stage_environment_id):
 def freeze_selected_plans(conn, subject, snapshots):
     """Persist new selections in the same transaction as their first cases.
 
-    The caller holds the run lock. Existing contracts are immutable here;
-    explicit rematerialization owns changes to a previously selected plan.
+    The caller holds the run lock. An existing contract changes here only to
+    the saved source its stage refreshed it to before first materializing it;
+    explicit rematerialization owns changes to a previously materialized plan.
     """
     if not snapshots or subject.get("shared_plan"):
         return
@@ -155,7 +157,15 @@ def freeze_selected_plans(conn, subject, snapshots):
         require_complete_snapshot(snapshot)
         plan_id = int(snapshot["plan"]["id"])
         index = existing.get(plan_id)
+        refreshed = snapshot.get(REFRESHED_CONTRACT)
         if index is not None and not snapshot.get("selected_by_agent"):
+            if refreshed is None:
+                continue
+            value = {**values[index], "plan": dict(refreshed["plan"])}
+            value["cases"] = refreshed["cases"]
+            if values[index] != value:
+                values[index] = value
+                changed = True
             continue
         value = {"plan": dict(snapshot["plan"]), "cases": snapshot["cases"]}
         for key in ("selected_by_agent", "replacement_scopes"):

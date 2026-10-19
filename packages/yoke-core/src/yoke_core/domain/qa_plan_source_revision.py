@@ -141,31 +141,30 @@ def update_plan_source(
     )
 
 
+def current_plan_source(conn: Any, plan_id: int) -> str | None:
+    """The saved plan's source revision now, which a later sync may have moved."""
+    from yoke_core.domain.deployment_qa_shared_plan_reads import presented_plan_rows
+
+    batch = presented_plan_rows(conn, plan_id)
+    return presentation_read(
+        conn,
+        ("qa_current_plan_source", plan_id),
+        lambda: (
+            batch[0].get("source_revision")
+            if batch is not None
+            else query_scalar(
+                conn, "SELECT source_revision FROM qa_plans WHERE id=%s", (plan_id,)
+            )
+        ),
+    )
+
+
 def require_candidate_plan(conn: Any, plan: Mapping[str, Any], run_id: str) -> None:
     """A run may materialize only source definitions its own candidate carries."""
     revision = plan.get("source_revision")
     if not revision:
         if _column_exists(conn, "qa_plans", "source_revision"):
-            from yoke_core.domain.deployment_qa_shared_plan_reads import (
-                presented_plan_rows,
-            )
-
-            batch = presented_plan_rows(conn, int(plan["id"]))
-
-            current = presentation_read(
-                conn,
-                ("qa_current_plan_source", int(plan["id"])),
-                lambda: (
-                    batch[0].get("source_revision")
-                    if batch is not None
-                    else query_scalar(
-                        conn,
-                        "SELECT source_revision FROM qa_plans WHERE id=%s",
-                        (int(plan["id"]),),
-                    )
-                ),
-            )
-            if current:
+            if current_plan_source(conn, int(plan["id"])):
                 raise QaPlanError(
                     "qa_plan_source_snapshot_missing: this frozen plan predates source "
                     "binding; retain its evidence and select a source-proven plan for "

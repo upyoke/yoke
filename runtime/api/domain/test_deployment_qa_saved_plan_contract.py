@@ -32,6 +32,10 @@ RUN = "run-saved-contract"
 MEMBERS = (9921, 9922)
 
 
+def _kept(value):
+    return value
+
+
 def _materialize(conn, member=MEMBERS[0]):
     return materialize_deployment_qa_stage(
         conn,
@@ -244,7 +248,7 @@ def test_frozen_hosted_bridge_selects_original_cases_without_repointing(test_db)
     )
     subject = {"member_item_id": MEMBERS[0], "member_snapshot": {"plans": [snapshot]}}
     target = {"project": {"id": 1}, "environment": {"id": own, "name": "prod"}}
-    selected = _member_plans(test_db, subject, target=target)
+    selected = _member_plans(test_db, subject, target=target, refresh=_kept)
     assert selected == [snapshot]
     assert selected[0]["plan"]["target_environment_id"] == hosted
     assert selected[0]["cases"][0]["target_envs"] == []
@@ -253,6 +257,7 @@ def test_frozen_hosted_bridge_selects_original_cases_without_repointing(test_db)
             test_db,
             subject,
             target={**target, "environment": {"id": own + 100, "name": "other"}},
+            refresh=_kept,
         )
         == []
     )
@@ -271,6 +276,8 @@ def test_authorized_withdrawal_excludes_incomplete_selection_before_validation(
         },
     }
     assert (
-        selection._member_plans(test_db, subject, target={"environment": {"id": 1}})
+        selection._member_plans(
+            test_db, subject, target={"environment": {"id": 1}}, refresh=_kept
+        )
         == []
     )
