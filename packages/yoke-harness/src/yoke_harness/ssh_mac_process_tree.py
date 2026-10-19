@@ -3,8 +3,11 @@
 A command the Terminal bridge gave up on keeps running unless something stops
 it: one `yoke setup` did, writing into output files the bridge had already
 deleted and holding its setup lock until its own approval wait expired. So a
-timeout stops the whole tree, deepest first, and reports which processes, if
-any, survived both signals.
+timeout stops the whole tree, deepest first, plus every process group a tree
+member leads, which reaches descendants already re-parented away from the
+tree. It reports which processes, if any, survived both signals. A process is
+alive while ``ps`` still lists it (zombies excepted); ``kill -0`` would call a
+process this user may not signal dead.
 """
 
 from __future__ import annotations
@@ -34,15 +37,22 @@ class ProcessTreeStop:
 def _stop_script(pid: int) -> str:
     return (
         f"{PROCESS_TREE_FUNCTION}; pids=$(process_tree {pid}); "
-        'alive() { for p in $1; do /bin/kill -0 "$p" 2>/dev/null && echo "$p"; '
-        "done; }; "
-        "/bin/kill -TERM $pids 2>/dev/null; i=0; "
+        "groups=$(for p in $pids; do "
+        '[ "$(/bin/ps -o pgid= -p "$p" | /usr/bin/tr -d " ")" = "$p" ] && echo "$p"; '
+        "done); "
+        'members() { echo $pids; for g in $groups; do /usr/bin/pgrep -g "$g"; done; }; '
+        "alive() { for p in $1; do "
+        's=$(/bin/ps -o stat= -p "$p") || continue; '
+        'case "$s" in Z*) ;; *) echo "$p";; esac; done; }; '
+        "stop() { /bin/kill -$1 $2 2>/dev/null; "
+        'for g in $groups; do /bin/kill -$1 -- "-$g" 2>/dev/null; done; }; '
+        'stop TERM "$pids"; i=0; '
         f"while [ $i -lt {TERM_WAIT_SECONDS} ]; do "
-        'left=$(alive "$pids"); [ -z "$left" ] && exit 0; '
+        'left=$(alive "$(members)"); [ -z "$left" ] && exit 0; '
         "/bin/sleep 1; i=$((i+1)); done; "
-        "/bin/kill -KILL $left 2>/dev/null; /bin/sleep 1; "
-        'left=$(alive "$left"); [ -z "$left" ] && exit 0; '
-        f"echo $left; exit {_SURVIVED}"
+        'stop KILL "$left"; /bin/sleep 1; '
+        'left=$(alive "$(members)"); [ -z "$left" ] && exit 0; '
+        f"echo $(echo $left | /usr/bin/tr ' ' '\\n' | /usr/bin/sort -un); exit {_SURVIVED}"
     )
 
 
