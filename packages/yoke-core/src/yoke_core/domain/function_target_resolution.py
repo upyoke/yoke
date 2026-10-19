@@ -201,8 +201,32 @@ def resolve_project_context(
             entry_project = None
         if entry_project is not None:
             return entry_project
+    if entry.function_id in {"qa.method.list", "qa.method.get"}:
+        return _qa_method_session_project(conn, request)
     # An unresolved target is denied upstream.
     return None
+
+
+def _qa_method_session_project(
+    conn: Any, request: FunctionCallRequest
+) -> tuple[int, str] | None:
+    """Permission scope for a method read that omitted --project.
+
+    Reads only the stored session project. The full session identity also
+    opens harness files, and this resolver runs inside server hook policy.
+    A session with no project stays unresolved so the caller passes --project.
+    """
+    session_id = str(request.actor.session_id or "").strip()
+    if not session_id:
+        return None
+    row = conn.execute(
+        "SELECT project_id FROM harness_sessions WHERE session_id=%s",
+        (session_id,),
+    ).fetchone()
+    if row is None or row[0] is None:
+        return None
+    project_id = int(row[0])
+    return project_id, slug_for_project_id(conn, project_id)
 
 
 def _resolve_github_actions_project_context(
