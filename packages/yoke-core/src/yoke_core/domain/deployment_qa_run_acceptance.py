@@ -256,6 +256,7 @@ def member_qa_standings(
     return standing
 
 
+@presentation_operation
 def item_qa_acceptance_blockers(conn: Any, *, run_id: str, item_id: int) -> list[str]:
     """Every unsatisfied scoped QA verdict this item still owes in the run.
 

@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
 from yoke_core.domain.deployment_qa_shared_copy_reads import member_owns_shared_copy
 from yoke_core.domain.post_deploy_verification_answer import answer_for_item
 from yoke_core.domain.qa_obligation_settlement import (
@@ -23,6 +24,7 @@ from yoke_core.domain.qa_obligation_settlement import (
 )
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.schema_read_scope import composition_operation
 
 
 @dataclass(frozen=True)
@@ -45,6 +47,7 @@ def recorded_no_obligation(conn: Any, item_id: int) -> bool:
     return answer_for_item(conn, int(item_id)).no_obligation
 
 
+@presentation_operation
 def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
     """Whether this run settled the member's post-deploy QA obligations.
 
@@ -86,6 +89,7 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
     )
 
 
+@composition_operation
 def close_out_satisfied_delivery_member(
     conn: Any,
     *,
