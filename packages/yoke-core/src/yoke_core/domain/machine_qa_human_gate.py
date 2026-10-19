@@ -65,9 +65,10 @@ def human_action_instructions(
             "the code."
         )
     return (
-        "Sign in as the teammate in the browser the terminal opened on the "
-        f"test machine, confirm match code {code} and approve this machine; "
-        f"the terminal at {terminal_location} continues by itself."
+        "In the test machine's browser, open the approval link the terminal "
+        "shows (the full-screen wizard opens it for you), sign in as the "
+        f"teammate, confirm match code {code} and approve this machine; the "
+        f"terminal at {terminal_location} continues by itself."
     )
 
 

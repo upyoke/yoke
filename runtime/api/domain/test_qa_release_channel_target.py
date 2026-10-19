@@ -79,7 +79,9 @@ def test_hosted_environment_projects_its_release_channel(
     target = _target(environment)
     endpoints = target["endpoints"]
 
-    cases = installer_campaign_cases_for_target(target, primary_machine="primary-test", joining_machine="joining-test")
+    cases = installer_campaign_cases_for_target(
+        target, primary_machine="primary-test", joining_machine="joining-test"
+    )
     rendered = json.dumps(cases)
 
     assert endpoints["release_channel"] == expected_channel
@@ -92,7 +94,11 @@ def test_hosted_environment_projects_its_release_channel(
 
 @pytest.mark.parametrize("environment", ["stage", "prod"])
 def test_projected_installer_cases_remain_executable(environment: str) -> None:
-    cases = installer_campaign_cases_for_target(_target(environment), primary_machine="primary-test", joining_machine="joining-test")
+    cases = installer_campaign_cases_for_target(
+        _target(environment),
+        primary_machine="primary-test",
+        joining_machine="joining-test",
+    )
     hosted = next(case for case in cases if case["case_key"] == "cold-start-hosted")
     for config in hosted["method_config"]["baseline_configs"].values():
         actions = {action["step"]: action for action in config["actions"]}
@@ -203,12 +209,19 @@ def test_campaign_environments_differ_only_in_bound_template_values() -> None:
     from yoke_core.domain.installer_campaign_current_text_cases import (
         CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES,
     )
+    from yoke_core.domain.installer_campaign_machine_admission_cases import (
+        MACHINE_ADMISSION_CASES,
+    )
     from yoke_core.domain.installer_campaign_regression_cases import recovery_cases
 
     baseline = deepcopy(list(CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES))
-    for case in baseline:
+    admission = deepcopy(list(MACHINE_ADMISSION_CASES))
+    for case in baseline + admission:
         case["method_config"]["machine"] = "primary-test"
-    template = json.dumps(baseline + list(recovery_cases(primary_machine="primary-test", joining_machine="joining-test")))
+    recovery = recovery_cases(
+        primary_machine="primary-test", joining_machine="joining-test"
+    )
+    template = json.dumps(baseline + list(recovery) + admission)
     for environment, display_name in (("prod", "Production"), ("stage", "Stage")):
         target = _target(environment)
         endpoints = target["endpoints"]
@@ -221,7 +234,9 @@ def test_campaign_environments_differ_only_in_bound_template_values() -> None:
         }
         for key, value in values.items():
             expected = expected.replace("{{" + key + "}}", str(value))
-        assert installer_campaign_cases_for_target(target, primary_machine="primary-test", joining_machine="joining-test") == json.loads(expected)
+        assert installer_campaign_cases_for_target(
+            target, primary_machine="primary-test", joining_machine="joining-test"
+        ) == json.loads(expected)
         assert "{{" not in expected
 
 
@@ -247,7 +262,9 @@ def test_campaign_template_sources_have_no_environment_literals() -> None:
 
 
 def test_campaign_binding_preserves_shell_and_runner_placeholders() -> None:
-    cases = installer_campaign_cases_for_target(_target("prod"), primary_machine="primary-test", joining_machine="joining-test")
+    cases = installer_campaign_cases_for_target(
+        _target("prod"), primary_machine="primary-test", joining_machine="joining-test"
+    )
     rendered = json.dumps(cases)
     assert "{yoke_bin}" in rendered
     assert "${#files[@]}" in rendered
@@ -263,7 +280,9 @@ def test_campaign_binding_uses_declared_custom_environment_values() -> None:
         installer_base_url="https://downloads.example.net/yoke",
         release_channel="candidate.7",
     )
-    cases = installer_campaign_cases_for_target(target, primary_machine="primary-test", joining_machine="joining-test")
+    cases = installer_campaign_cases_for_target(
+        target, primary_machine="primary-test", joining_machine="joining-test"
+    )
     rendered = json.dumps(cases)
     assert "Preview" in rendered
     assert "preview.example.net:8443" in rendered
@@ -284,4 +303,8 @@ def test_campaign_unknown_template_field_names_the_recovery(monkeypatch) -> None
         ValueError,
         match="installer_campaign_template_field_unknown.*correct the template",
     ):
-        binding.installer_campaign_cases_for_target(_target("prod"), primary_machine="primary-test", joining_machine="joining-test")
+        binding.installer_campaign_cases_for_target(
+            _target("prod"),
+            primary_machine="primary-test",
+            joining_machine="joining-test",
+        )

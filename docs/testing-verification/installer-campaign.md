@@ -183,6 +183,19 @@ A mismatch fails as `machine_admission_state_mismatch` with the changed rows;
 start, birth and cleanup failures name their reason and recovery in the
 operation row. Cleanup stops the server, removes the cluster and the root.
 
+## Machine admission journeys
+
+Positions 30-37 run own-machine approval, teammate invite, company sign-in and
+local refusal, each in the full-screen wizard and in agent mode
+(`machine_qa_setup_agent_driver` plays the agent). Each starts the fixture
+above and ends with its state assertion. Stay at the test machine: every
+human gate prints what to do. Owner steps use
+`YOKE_MACHINE_HOME=/tmp/yoke-machine-qa-fixtures/machine-admission/self-hosted/approver`
+(`yoke machines approve CODE`, `yoke invite 'Fixture Teammate'`); type an
+invite only into the wizard, and in the agent invite journey press Ctrl-C after
+the wizard connects so the agent resumes. Company sign-in signs in as the
+fixture teammate in the test machine's browser. Local refusal needs no person.
+
 ## Local universe birth
 
 State checks inherit directly from the journey that creates their subject:
