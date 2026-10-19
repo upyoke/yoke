@@ -46,12 +46,19 @@ def _publish_capacity(conn, *, max_worker_lanes: int | None, relay_id="relay-1")
     conn.commit()
 
 
-def _live_session(conn, session_id: str, *, machine_id: str = MACHINE) -> None:
+def _live_session(
+    conn, session_id: str, *, machine_id: str = MACHINE, model="gpt-5"
+) -> None:
     conn.execute(
         "INSERT INTO harness_sessions (session_id, project_id, executor_surface, "
         "executor_version, machine_id, model) VALUES (?, 10, 'codex-cli', "
-        "'0.148.0a15', ?, 'gpt-5')",
-        (session_id, machine_id),
+        "'0.148.0a15', ?, ?)",
+        (session_id, machine_id, model),
+    )
+    launch = assigned_launch(conn, key=session_id, machine_id=machine_id, model=model)
+    conn.execute(
+        "UPDATE session_launches SET registered_session_id=? WHERE launch_id=?",
+        (session_id, launch.launch_id),
     )
     conn.commit()
 
@@ -274,12 +281,19 @@ def test_native_lane_deadline_comparison_preserves_exact_microseconds(
     with blank_database() as conn:
         conn.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
         conn.execute(
-            "CREATE TABLE harness_sessions (machine_id TEXT, ended_at TIMESTAMPTZ)"
+            "CREATE TABLE harness_sessions (session_id TEXT, machine_id TEXT, "
+            "ended_at TIMESTAMPTZ, terminated_at TIMESTAMPTZ)"
         )
         conn.execute(
             "CREATE TABLE session_launches (assigned_machine_id TEXT, state TEXT, registered_session_id TEXT, deadline_at TIMESTAMPTZ)"
         )
-        conn.execute("INSERT INTO harness_sessions VALUES (%s, NULL)", (MACHINE,))
+        conn.execute(
+            "INSERT INTO harness_sessions VALUES ('worker', %s, NULL, NULL)", (MACHINE,)
+        )
+        conn.execute(
+            "INSERT INTO session_launches VALUES (%s, 'registered', 'worker', %s)",
+            (MACHINE, anchor),
+        )
         for delta in (-1, 0, 1):
             conn.execute(
                 "INSERT INTO session_launches VALUES (%s, 'assigned', NULL, %s)",
@@ -287,7 +301,9 @@ def test_native_lane_deadline_comparison_preserves_exact_microseconds(
             )
         assert live_lane_count(conn, machine_id=MACHINE, now=supplied) == 2
         assert conn.execute("SHOW TimeZone").fetchone()[0] == zone
-        clocks = conn.execute("SELECT deadline_at FROM session_launches").fetchall()
+        clocks = conn.execute(
+            "SELECT deadline_at FROM session_launches WHERE registered_session_id IS NULL"
+        ).fetchall()
         assert all(isinstance(row[0], datetime) and row[0].tzinfo for row in clocks)
         assert sorted(row[0] for row in clocks) == [
             anchor + timedelta(microseconds=delta) for delta in (-1, 0, 1)

@@ -23,11 +23,13 @@ def test_the_derived_cap_is_what_memory_leaves_after_the_reserve() -> None:
     assert derived_lane_cap(16 * GIB) == 8
     # A box smaller than the reserve still carries one lane rather than none.
     assert derived_lane_cap(8 * GIB) == 1
+    assert derived_lane_cap(948195328) == 1
     assert derived_lane_cap(None) is None
 
 
 def test_a_configured_cap_wins_over_the_derivation() -> None:
     assert configured_lane_cap({"max_worker_lanes": "7"}) == 7
+    assert configured_lane_cap({"max_worker_lanes": 1}) == 1
     assert configured_lane_cap({"max_worker_lanes": 0}) is None
     assert configured_lane_cap({"max_worker_lanes": "lots"}) is None
     assert configured_lane_cap({}) is None

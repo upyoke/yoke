@@ -10,6 +10,7 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from yoke_core.domain.session_launch_level_pools import PoolCheck
+from yoke_core.domain.session_launch_capacity import MachineCapacity
 
 
 @dataclass(frozen=True)
@@ -25,10 +26,11 @@ class LevelCandidate:
     pools: tuple[PoolCheck, ...] = ()
     headroom_percent: float | None = None
     headroom_window: str | None = None
-    live_workers: int = 0
+    live_workers: int | None = None
     blocked: str | None = None
     chosen: bool = False
     machine_name: str | None = None
+    machine_capacity: tuple[MachineCapacity, ...] = ()
 
     @property
     def label(self) -> str:
@@ -39,6 +41,9 @@ class LevelCandidate:
     def to_dict(self) -> dict[str, Any]:
         out = asdict(self)
         out["pools"] = [pool.to_dict() for pool in self.pools]
+        out["machine_capacity"] = [
+            reading.to_dict() for reading in self.machine_capacity
+        ]
         out["label"] = self.label
         return out
 

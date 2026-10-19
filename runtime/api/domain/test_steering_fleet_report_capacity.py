@@ -18,6 +18,7 @@ from runtime.api.steering_fleet_test_helpers import (
     ACTOR_ID,
     NOW,
     PROJECT_ID,
+    WORKER_SESSION,
     compose as _compose,
     seed_session,
     seed_steering_scope,
@@ -58,7 +59,24 @@ def _reading(**overrides) -> dict:
 
 @pytest.fixture
 def fleet(test_db):
-    return seed_steering_scope(test_db)
+    conn = seed_steering_scope(test_db)
+    conn.execute(
+        "INSERT INTO session_messages "
+        "(message_id, sender_actor_id, body, body_sha256, selector_snapshot, created_at, expires_at) "
+        "VALUES ('worker-message', %s, 'work', 'sha', '{}', %s, %s)",
+        (ACTOR_ID, NOW, NOW),
+    )
+    conn.execute(
+        "INSERT INTO session_launches "
+        "(launch_id, requester_actor_id, project_id, requested_surface, selected_surface, "
+        "allow_surface_fallback, message_id, state, deadline_at, created_at, origin, "
+        "assigned_machine_id, registered_session_id) "
+        "VALUES ('worker-launch', %s, %s, 'codex-cli', 'codex-cli', 0, "
+        "'worker-message', 'awaiting_registration', %s, %s, 'steering', %s, %s)",
+        (ACTOR_ID, PROJECT_ID, NOW, NOW, MACHINE, WORKER_SESSION),
+    )
+    conn.commit()
+    return conn
 
 
 def test_the_capacity_line_names_lanes_against_cap_and_where_the_cap_came_from(fleet):
@@ -66,7 +84,7 @@ def test_the_capacity_line_names_lanes_against_cap_and_where_the_cap_came_from(f
 
     body = report_body(_compose(fleet))
 
-    assert "capacity lanes 2/4 · free 8.0 GB · load 4.5 on 12 cores" in body
+    assert "capacity lanes 1/4 · free 8.0 GB · load 4.5 on 12 cores" in body
     assert "cap from max_worker_lanes" in body
 
 
@@ -79,7 +97,7 @@ def test_a_derived_cap_says_which_memory_reading_it_came_from(fleet):
 def test_a_machine_at_its_cap_is_marked_and_still_listed_without_a_surface(fleet):
     # Eligibility drops a full machine, so this line is the only place the
     # seat learns the box exists and is the reason nothing is launchable.
-    _publish(fleet, _reading(max_worker_lanes=2))
+    _publish(fleet, _reading(max_worker_lanes=1))
 
     body = report_body(_compose(fleet))
 
@@ -93,7 +111,7 @@ def test_a_relay_publishing_no_reading_says_so_rather_than_reading_as_roomy(flee
     body = report_body(_compose(fleet))
 
     assert (
-        f"capacity lanes 2/? · capacity unreported ({RELAY_PREDATES_CAPACITY_REASON})"
+        f"capacity lanes 1/? · capacity unreported ({RELAY_PREDATES_CAPACITY_REASON})"
         in body
     )
     assert (
@@ -126,19 +144,19 @@ def test_launches_already_assigned_there_count_against_the_cap(fleet):
     capacity = _compose(fleet).machine_capacity
 
     assert [(entry.machine_id, entry.live_lanes) for entry in capacity] == [
-        (MACHINE, 3)
+        (MACHINE, 2)
     ]
 
 
 def test_the_projection_carries_the_same_reading_the_line_rendered(fleet):
-    _publish(fleet, _reading(max_worker_lanes=2))
+    _publish(fleet, _reading(max_worker_lanes=1))
 
     published = report_dict(_compose(fleet))["machine_capacity"]
 
     assert [entry["machine_id"] for entry in published] == [MACHINE]
     assert published[0]["at_capacity"] is True
-    assert published[0]["max_worker_lanes"] == 2
-    assert published[0]["summary"].startswith("lanes 2/2 · free 8.0 GB")
+    assert published[0]["max_worker_lanes"] == 1
+    assert published[0]["summary"].startswith("lanes 1/1 · free 8.0 GB")
 
 
 def test_a_machine_serving_another_project_is_not_reported_here(fleet):

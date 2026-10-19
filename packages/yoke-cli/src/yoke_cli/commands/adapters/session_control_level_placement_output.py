@@ -58,15 +58,33 @@ def _pool(pool: Mapping[str, Any]) -> str:
 def _pools_cell(row: Mapping[str, Any]) -> str:
     pools = row.get("pools") or []
     if not pools:
-        return "no meter covers this model"
+        return "pool population unknown; no covering meter was weighed"
     return "; ".join(_pool(pool) for pool in pools if isinstance(pool, Mapping))
+
+
+def _lanes_cell(row: Mapping[str, Any]) -> str:
+    return "; ".join(
+        f"{entry.get('machine_id')}: {entry.get('live_lanes')}/"
+        f"{entry.get('max_worker_lanes') if entry.get('max_worker_lanes') is not None else '?'}"
+        for entry in row.get("machine_capacity") or []
+        if isinstance(entry, Mapping)
+    )
 
 
 _COLUMNS: tuple[Column, ...] = (
     ("OPTION", lambda row: row.get("label"), None),
     ("POOLS CHECKED", _pools_cell, None),
     ("HEADROOM", lambda row: _percent(row.get("headroom_percent")), 10),
-    ("LIVE", lambda row: row.get("live_workers"), 5),
+    (
+        "LIVE",
+        lambda row: (
+            row.get("live_workers")
+            if row.get("live_workers") is not None
+            else "unknown"
+        ),
+        7,
+    ),
+    ("WORKER LANES", _lanes_cell, None),
     ("BLOCKED", lambda row: row.get("blocked") or "", 48),
     ("CHOSEN", lambda row: "yes" if row.get("chosen") else "", 7),
 )

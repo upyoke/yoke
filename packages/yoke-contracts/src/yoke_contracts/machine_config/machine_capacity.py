@@ -5,7 +5,8 @@ refuse to place a worker on a box that has no room for one. Each harness
 worker costs roughly half a gigabyte resident, so the cap defaults to what
 total memory leaves after a reserve for the operating system, the browser,
 and the operator's own tools; ``max_worker_lanes`` in ``~/.yoke/config.json``
-settings overrides that derivation on the machine it describes.
+settings overrides that derivation on the machine it describes. The allowance
+counts Yoke-launched workers, not the interactive MAIN that staffs them.
 
 Values only ever leave the machine. A platform the hardware probe cannot read
 reports ``None`` for that field, which proves no room. The declared observation
@@ -133,7 +134,7 @@ def core_count() -> int | None:
 
 
 def derived_lane_cap(total_memory: int | None) -> int | None:
-    """Lanes total memory can carry after the reserve; one when only a sliver is left."""
+    """Worker allowance after the reserve, with a minimum of one worker."""
     if total_memory is None:
         return None
     return max(1, (total_memory - RESERVED_MEMORY_BYTES) // MEMORY_PER_LANE_BYTES)
