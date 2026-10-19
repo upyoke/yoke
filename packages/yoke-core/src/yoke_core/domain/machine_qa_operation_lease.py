@@ -29,7 +29,9 @@ from yoke_core.domain.qa_plan_execution_lifecycle import heartbeat_plan_executio
 from yoke_core.domain.schema_common import _table_exists
 
 
-def operation_mission(conn: Any, *, lease_id: int, project: str, actor: Any) -> Any:
+def operation_mission(
+    conn: Any, *, lease_id: int, project: str, actor: Any, operation=None, baselines=()
+) -> Any:
     """Lock the durable mission before its host claim, matching plan close-out."""
     try:
         lease = get_claim(conn, lease_id)
@@ -47,6 +49,18 @@ def operation_mission(conn: Any, *, lease_id: int, project: str, actor: Any) -> 
     if row is None:
         return None
     execution = lock_plan_execution(conn, str(row["id"]))
+    from yoke_core.domain.qa_plan_abort_reset import require_abort_reset
+
+    if require_abort_reset(
+        conn,
+        execution,
+        lease=lease,
+        project=project,
+        actor=actor,
+        operation=operation,
+        baselines=baselines,
+    ):
+        return execution
     machine = str(lease.target.machine_id)
     if not same_owner(execution, actor_id=actor.actor_id, session_id=actor.session_id):
         raise MachineQaProtocolError(
@@ -88,6 +102,8 @@ def begin_operation_execution(
             lease_id=lease.id,
             project=project,
             actor=actor,
+            operation=shape.get("operation"),
+            baselines=shape.get("baselines", ()),
         )
     )
     if mission is None:
@@ -109,8 +125,8 @@ def begin_operation_execution(
     lease, candidate = _validate_lease_owner(
         conn,
         project=project,
-        session_id=actor.session_id,
-        actor_id=actor.actor_id,
+        session_id=mission["session_id"],
+        actor_id=mission["actor_id"],
         lease_id=lease.id,
         allow_released=False,
     )
@@ -134,6 +150,19 @@ def repeated_mission_receipt(parsed: Any, recorded: Any, mission: Any) -> Any:
     """Identical retries adopt evidence; a later walk operation replaces it."""
     if mission is None or recorded is None:
         return recorded
+    from yoke_core.domain.qa_plan_execution_abort_state import abort_request
+    from yoke_contracts.timestamps import parse_instant
+
+    request = abort_request(mission)
+    if (
+        request
+        and request.get("requested_at")
+        and (
+            parse_instant(recorded["performed_at"])
+            <= parse_instant(request["requested_at"])
+        )
+    ):
+        return None
     checks = deepcopy(parsed.checks)
     if parsed.operation == "screenshot":
         from yoke_core.domain.handlers.machine_qa_screenshot_artifact import (

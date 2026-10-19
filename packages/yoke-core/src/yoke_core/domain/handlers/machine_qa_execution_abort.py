@@ -64,8 +64,8 @@ def _release(
     cases: Sequence[dict[str, Any]] = (),
     golden_destination: str | None = None,
 ) -> dict[str, Any]:
-    from yoke_core.domain.machine_qa_execution_protocol import (
-        validate_host_control_submission,
+    from yoke_core.domain.qa_plan_abort_reset import (
+        validate_operation_submission,
     )
     from yoke_core.domain.machine_qa_operation_lease import (
         operation_mission,
@@ -73,15 +73,22 @@ def _release(
     )
 
     mission = (
-        operation_mission(conn, lease_id=lease_id, project=project, actor=request.actor)
+        operation_mission(
+            conn,
+            lease_id=lease_id,
+            project=project,
+            actor=request.actor,
+            operation=operation,
+            baselines=baselines,
+        )
         if operation != "case"
         else None
     )
-    lease, _contract = validate_host_control_submission(
+    lease, _contract = validate_operation_submission(
         conn,
         project=project,
-        session_id=request.actor.session_id,
-        actor_id=request.actor.actor_id,
+        mission=mission,
+        actor=request.actor,
         lease_id=lease_id,
         contract_digest=contract_digest,
         operation=operation,
