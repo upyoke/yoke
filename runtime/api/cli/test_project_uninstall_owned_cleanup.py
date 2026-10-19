@@ -192,19 +192,32 @@ def test_unknown_and_legacy_trust_is_preserved(installed):
     assert trust.cursor_trust_file(root).read_bytes() == before
 
 
-def test_broader_trust_is_not_removed(installed):
-    from yoke_contracts.harness_folder_trust_revert import revert_folder_trust
-
+@pytest.mark.parametrize("family", ["claude-code", "codex", "cursor"])
+def test_parent_folder_trust_is_neither_reported_nor_touched(installed, family):
     root, _, config = installed
-    grant_folder_trust(root.parent)
+    parent = str(root.parent)
+    if family == "claude-code":
+        target = trust.claude_state_path()
+        payload = read_json(target)
+        payload["projects"][parent] = {"hasTrustDialogAccepted": True}
+        target.write_text(json.dumps(payload))
+    elif family == "codex":
+        target = Path.home() / ".codex/config.toml"
+        target.write_text(
+            target.read_text()
+            + f'\n[projects.{json.dumps(parent)}]\ntrust_level = "trusted"\n'
+        )
+    else:
+        target = trust.cursor_trust_file(root.parent)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps({"workspacePath": parent}))
+    before = target.read_bytes()
     report = uninstall(root, config_path=config)
-    assert report["outcome"] == "partial"
-    assert any(
-        row["reason"] == "broader_trust" for row in report["local_cleanup"]["trust"]
-    )
-    assert str(root.parent) in read_json(trust.claude_state_path())["projects"]
-    revert_folder_trust(root.parent)
-    assert uninstall(root, config_path=config)["outcome"] == "complete"
+    assert report["outcome"] == "complete", report
+    assert {row["status"] for row in report["local_cleanup"]["trust"]} == {"removed"}
+    assert parent in target.read_text() and not trust.cursor_trust_file(root).exists()
+    if family == "cursor":
+        assert target.read_bytes() == before
 
 
 def test_cleanup_failure_keeps_manifest_for_retry(installed, monkeypatch):
