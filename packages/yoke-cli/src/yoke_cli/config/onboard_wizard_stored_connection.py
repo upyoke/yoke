@@ -7,7 +7,9 @@ from typing import Any, Protocol
 
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_wizard_stored_github
-from yoke_cli.config.onboard_destinations import matches_stored_hosted_authority as _matches_hosted
+from yoke_cli.config.onboard_destinations import (
+    matches_stored_hosted_authority as _matches_hosted,
+)
 from yoke_cli.config.onboard_wizard import WizardDefaults
 
 
@@ -33,7 +35,7 @@ class StoredConnectionHydration:
         self._hydrate_stored_project_checkouts()
 
     def _hydrate_stored_yoke_connection(self: _Shell, defaults: WizardDefaults) -> None:
-        if defaults.token or defaults.token_file:
+        if defaults.token:
             return
         try:
             connection = machine_config.active_connection(
@@ -58,6 +60,11 @@ class StoredConnectionHydration:
         token_path = Path(token_file).expanduser()
         if not token_path.is_file():
             return
+        # A preset token file is a manual source unless it is this stored
+        # connection's own file, as when a resumed run reloads the saved
+        # sign-in; that one still counts as the reusable approval.
+        if defaults.token_file and Path(defaults.token_file).expanduser() != token_path:
+            return
         self.result.env_name = str(connection.get("env") or self.result.env_name)
         self.result.api_url = api_url
         self.result.token_file = str(token_path)
@@ -65,9 +72,7 @@ class StoredConnectionHydration:
         self._stored_yoke_token_available = True
 
     def _hydrate_stored_github_connection(self: _Shell) -> None:
-        api_url = onboard_wizard_stored_github.stored_api_url(
-            self.result.config_path
-        )
+        api_url = onboard_wizard_stored_github.stored_api_url(self.result.config_path)
         if api_url is None:
             return
         self.result.machine_github_saved = True
