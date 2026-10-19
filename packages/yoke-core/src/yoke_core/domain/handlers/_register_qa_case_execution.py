@@ -11,6 +11,11 @@ from yoke_core.domain.handlers.qa_plan_execution_models import (
 
 
 def register(registry) -> None:
+    from yoke_core.domain.handlers.qa_plan_execution_adoption import (
+        register as register_adoption,
+    )
+
+    register_adoption(registry)
     from yoke_core.domain.handlers.qa_plan_execution_reentry import (
         PlanExecutionPauseRequest,
         PlanExecutionResumeRequest,

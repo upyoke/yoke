@@ -163,7 +163,12 @@ def require_plan_execution_owner(
         deployment_member_item_id=deployment_member_item_id,
     )
     if not same_owner(execution, actor_id=actor_id, session_id=session_id):
-        _fail("QA plan execution belongs to a different actor or session")
+        _fail(
+            "qa_execution_owner_mismatch: QA plan execution belongs to a different "
+            "actor or session; if its owner has ended, acquire the item work claim "
+            "and run yoke qa plan adopt with the same subject and --execution-id "
+            f"{execution.get('id', 'ID')} --reason TEXT, then retry"
+        )
     if execution.get("deployment_stage") is not None:
         if conn is None:
             _fail("scoped deployment QA mutation requires database authority")

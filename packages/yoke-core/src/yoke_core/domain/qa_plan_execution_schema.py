@@ -122,6 +122,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_plan_executions_active
 {EXECUTION_SCOPE_INDEX_SQL}
 {STANDALONE_EXECUTION_INDEX_SQL}
 
+CREATE TABLE IF NOT EXISTS qa_plan_execution_adoptions (
+    id TEXT PRIMARY KEY,
+    execution_id TEXT NOT NULL REFERENCES qa_plan_executions(id),
+    item_id INTEGER NOT NULL,
+    work_claim_id INTEGER NOT NULL,
+    previous_actor_id TEXT,
+    previous_session_id TEXT NOT NULL,
+    actor_id TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    adopted_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_qa_plan_execution_adoptions_execution
+    ON qa_plan_execution_adoptions(execution_id, adopted_at);
+
 CREATE TABLE IF NOT EXISTS qa_plan_execution_results (
     execution_id TEXT NOT NULL,
     ordinal INTEGER NOT NULL,
@@ -187,6 +202,21 @@ def assert_qa_plan_execution_subject_invariants(conn: Any) -> None:
 def assert_qa_plan_execution_schema_invariants(conn: Any) -> None:
     """Require both execution tables, their columns, and lookup indexes."""
     table_columns = (
+        (
+            "qa_plan_execution_adoptions",
+            (
+                "id",
+                "execution_id",
+                "item_id",
+                "work_claim_id",
+                "previous_actor_id",
+                "previous_session_id",
+                "actor_id",
+                "session_id",
+                "reason",
+                "adopted_at",
+            ),
+        ),
         (
             QA_PLAN_EXECUTION_TABLE,
             QA_PLAN_EXECUTION_COLUMNS + QA_PLAN_EXECUTION_ADDITIVE_COLUMNS,

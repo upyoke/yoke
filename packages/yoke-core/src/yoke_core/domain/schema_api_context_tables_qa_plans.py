@@ -1,6 +1,25 @@
 """QA plan provenance and retirement for the canonical schema packet."""
 
 QA_PLAN_TABLES = {
+    "qa_plan_execution_adoptions": {
+        "columns": [
+            ("id", "TEXT"),
+            ("execution_id", "TEXT"),
+            ("item_id", "INTEGER"),
+            ("work_claim_id", "INTEGER"),
+            ("previous_actor_id", "TEXT"),
+            ("previous_session_id", "TEXT"),
+            ("actor_id", "TEXT"),
+            ("session_id", "TEXT"),
+            ("reason", "TEXT"),
+            ("adopted_at", "TIMESTAMPTZ"),
+        ],
+        "notes": (
+            "Durable qa.plan_execution.adopt receipts, committed atomically "
+            "with execution ownership. An ended predecessor and the execution "
+            "item's current work holder are required; telemetry is not authority."
+        ),
+    },
     "qa_plans": {
         "columns": [
             ("id", "INTEGER"),

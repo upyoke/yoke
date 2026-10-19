@@ -280,6 +280,31 @@ Use the returned `review-submit` command to judge the captures independently;
 unwalked cases remain unfulfilled and the execution remains terminal.
 Incomplete captures without review authority settle as errors.
 
+After restaffing, the successor first acquires the execution item's work claim,
+then explicitly adopts the existing execution through `qa.plan_execution.adopt`:
+
+```text
+yoke qa plan adopt --item PREFIX-N --execution-id ID --reason "Continue captured QA after restaffing"
+yoke qa plan review-begin --item PREFIX-N --execution-id ID
+```
+
+For deployment QA, replace `--item PREFIX-N` with `--deployment-run-id RUN` in
+both commands; the execution identifies its member or requesting item. Adoption
+requires a registered predecessor with `ended_at` or `terminated_at`; heartbeat
+silence, a parked session or a missing session row never authorizes transfer.
+It records the previous/new actors and sessions, work claim, reason and time in
+`qa_plan_execution_adoptions`, atomically with the ownership change.
+Captured approvals, artifacts, cursor and review bundle identity stay intact.
+A live execution can continue using its original command plus
+`--resume-execution-id ID`; its source, unknown-action and host-custody checks
+still apply. Adoption never revives a released host lease or terminal execution;
+review an aborted execution's completed captures instead. Standalone executions
+without an owning item require project-operator reconciliation.
+
+This command requires a serving release carrying `qa.plan_execution.adopt`.
+A serving-floor refusal names the minimum release; ask the control-plane
+operator to supply that release before retrying.
+
 Verdict writers automatically record the actual plan execution id and its
 concrete artifact ids beside other proof. A deployment-stage verdict also
 re-evaluates active acceptance after commit, using the same frozen-target gate
