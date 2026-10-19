@@ -13,6 +13,7 @@ import json
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.item_worktrees import (
     record_item_worktree,
     release_item_worktrees,
@@ -105,7 +106,7 @@ def seed_merge_audit_simulation(conn: Any, *, epic_id: int, result: str) -> None
         verdict=SIMULATION_VERDICTS[result],
         raw_result=json.dumps(
             {
-                "body": f"SIMULATION: {result}\nEPIC: YOK-{epic_id}",
+                "body": f"SIMULATION: {result}\nEPIC: {render_item_ref(conn, epic_id)}",
                 "phase": "integration",
             }
         ),
