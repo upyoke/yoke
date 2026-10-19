@@ -113,8 +113,34 @@ def begin_case_host_contract(
     )
     from yoke_core.domain.qa_plan_execution_lifecycle import set_plan_machine_lease
 
-    driver = resolve_case_machine(case, machine)
-    names = case_machines(case, machine)
+    from yoke_core.domain.qa_resume_machine import execution_machine
+    from yoke_core.domain.machine_qa_case_platform import case_platform
+
+    retained = execution_machine(conn, execution, case)
+    if retained and machine and retained != machine:
+        custody = (
+            "active plan lease"
+            if execution.get("machine_lease_id")
+            else "recorded platform host"
+        )
+        raise ValueError(
+            f"test_machine_constraint_mismatch: {custody} uses {retained!r}, "
+            f"but --machine names {machine!r}; omit --machine to resume on its recorded host"
+        )
+    driver = resolve_case_machine(case, retained or machine)
+    names = case_machines(case, driver)
+    lease_id = execution.get("machine_lease_id")
+    if (
+        lease_id is not None
+        and get_claim(conn, int(lease_id)).target.machine_id != driver
+    ):
+        release_execution_hosts(conn, execution, reason="qa-case-host-change")
+        release(conn, int(lease_id), "qa-case-host-change", commit=False)
+        conn.execute(
+            f"UPDATE qa_plan_executions SET machine_lease_id=NULL WHERE id={marker(conn)}",
+            (str(execution["id"]),),
+        )
+        execution["machine_lease_id"] = None
     arguments = plan_case_contract_arguments(execution, case, ordinal=ordinal)
     deferred = commit_deferred_connection(conn)
     lease_id = execution.get("machine_lease_id")
@@ -130,6 +156,8 @@ def begin_case_host_contract(
                     row
                     for row in execution["roster"]
                     if row.get("runner_id") in {"host_control", "agent_mission"}
+                    and case_platform(row) == case_platform(case)
+                    and resolve_case_machine(row, None) in {None, driver}
                 ],
                 **arguments,
             )

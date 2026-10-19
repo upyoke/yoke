@@ -10,6 +10,7 @@ acquires share one line, ordered by when each session first queued.
 from __future__ import annotations
 
 from typing import Any, Iterable
+import json
 from uuid import uuid4
 
 from yoke_contracts.coordination_claim_recovery import holder_release_command
@@ -17,6 +18,7 @@ from yoke_contracts.timestamps import format_instant, utc_now
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter, query_one, query_rows
 from yoke_core.domain.qa_host_wait_schema import QA_HOST_WAIT_TABLE
+from yoke_core.domain.qa_plan_execution_store import marker as _p
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
@@ -25,8 +27,23 @@ HOST_WAIT_CANCELLED_REASON = "qa-host-wait-cancelled"
 _LIVE = "('waiting','reserved')"
 
 
-def _p(conn: Any) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
+def _resume_command(conn: Any, wait: Any) -> str:
+    if not wait["qa_plan_execution_id"]:
+        return str(wait["resume_command"])
+    from yoke_core.domain.qa_plan_execution_continuation import continuation_recipe
+
+    execution = query_one(
+        conn,
+        f"SELECT * FROM qa_plan_executions WHERE id={_p(conn)}",
+        (str(wait["qa_plan_execution_id"]),),
+    )
+    if execution is None:
+        raise ValueError(
+            "qa_host_wait_execution_missing: queued execution no longer exists; "
+            "ask the control-plane operator to repair this host wait"
+        )
+    subject = {**execution, "roster": json.loads(execution["roster_json"])}
+    return continuation_recipe(conn, subject).removesuffix(" --continue-mission")
 
 
 def _has_line(conn: Any) -> bool:
@@ -70,7 +87,7 @@ def host_wait_view(conn: Any, wait_id: str) -> dict[str, Any]:
         "machine": str(row["machine_id"]),
         "state": str(row["state"]),
         "queued_at": format_instant(row["queued_at"]),
-        "resume_command": str(row["resume_command"]),
+        "resume_command": _resume_command(conn, row),
         "rationale": str(row["rationale"] or ""),
         "position": line.index(wait_id) + 1 if wait_id in line else None,
         "line_length": len(line),
@@ -177,7 +194,7 @@ def _wake_waiter(conn: Any, wait: dict[str, Any], claim: Any) -> None:
         selector=RecipientSelector(session_ids=[str(wait["session_id"])]),
         body=(
             f"QA host turn ready: {wait['machine_id']}; reserved lease {claim.id} "
-            f"for this session. Take it with: {wait['resume_command']}."
+            f"for this session. Take it with: {_resume_command(conn, wait)}."
             f"{open_requirement} If you no longer need the host, release it "
             f"so the next waiter gets it: `{holder_release_command(claim.id)}`."
         ),
@@ -299,9 +316,9 @@ def record_host_wait(
         target,
         session_id=str(execution["session_id"]),
         actor_id=int(execution["actor_id"]),
-        resume_command=continuation_recipe(
-            conn, execution, machine=machine
-        ).removesuffix(" --continue-mission"),
+        resume_command=continuation_recipe(conn, execution).removesuffix(
+            " --continue-mission"
+        ),
         rationale=rationale,
         execution_id=execution_id,
     )
@@ -321,18 +338,3 @@ def record_host_wait(
         "cursor_ordinal": int(execution["cursor_ordinal"]),
         "host_wait": host_wait_view(conn, wait["id"]),
     }
-
-
-__all__ = [
-    "HOST_TURN_REASON",
-    "HOST_WAIT_CANCELLED_REASON",
-    "cancel_host_waits",
-    "host_claim_released",
-    "host_line",
-    "host_wait_view",
-    "join_host_line",
-    "lock_host_turn",
-    "record_host_wait",
-    "reservation_for",
-    "reserve_host_turn",
-]

@@ -14,6 +14,7 @@ from yoke_core.domain.qa_plan_execution_result_state import (
     plan_order as _plan_order,
 )
 from yoke_core.domain.qa_plan_execution_continuation import continuation_abort_reason
+from yoke_core.domain.machine_qa_case_machine import resolve_case_machine
 from yoke_core.domain.qa_plan_command_case import begin_command_host, command_liveness
 from yoke_core.domain.qa_plan_host_free_cases import (
     run_host_free_cases_while_waiting,
@@ -40,9 +41,6 @@ def execute_begun_plan(
     requirements = begun.requirements
     cursor = begun.cursor
     resolved_base_url = begun.resolved_base_url
-    machine_options = (
-        {"machine": begun.selected_machine} if begun.selected_machine else {}
-    )
     from yoke_core.domain.qa_plan_execution_checkin import (
         communication_unknown,
         paused_result,
@@ -112,6 +110,8 @@ def execute_begun_plan(
         try:
             _check_in()
             phase = "case"
+            case_machine = resolve_case_machine(requirement, begun.selected_machine)
+            machine_options = {"machine": case_machine} if case_machine else {}
             if requirement.get("runner_id") == "host_control":
                 from yoke_core.domain.machine_qa_plan_case_execution import (
                     execute_plan_machine_case,

@@ -156,7 +156,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                     "result": blocked,
                 },
             )
-        selection_new = execution.get("machine_lease_id") is None
+        previous_lease_id = execution.get("machine_lease_id")
         from yoke_core.domain.qa_plan_host_leases import begin_case_host_contract
 
         try:
@@ -205,7 +205,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
             "execution_id": str(execution["id"]),
             "cursor_ordinal": int(execution["cursor_ordinal"]),
             "execution": contract.model_dump(mode="json"),
-            "selection_new": selection_new,
+            "selection_new": contract.lease_id != previous_lease_id,
         },
     )
 
