@@ -151,8 +151,8 @@ session correlated with a Yoke relay launch. The Stop gate requires both facts
 to be `supported` for a relay worker, because a surface that honors a block
 when a person is watching may still end the turn under its own headless
 launch command. Both facts are proof, never inference: a surface whose
-headless continuation nobody has observed declares `none` and is durably
-deferred, and it is a canary on that surface — not the shape of its
+headless continuation nobody has observed declares `none`; its relay worker
+stops and is woken through the stopped-session route; a canary on it — not the shape of its
 transport — that moves it to `supported`
 ([why](../../docs/archive/decisions/headless-stop-continuation-is-observed-not-inferred.md)).
 `turn_end_event` is `Stop | SessionEnd` and names the hook that ends a turn on

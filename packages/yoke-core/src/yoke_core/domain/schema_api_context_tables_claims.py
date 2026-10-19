@@ -152,7 +152,8 @@ CLAIMS_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "How often the Stop gate has held one session on one item, "
-            "and when it last did — the ceiling (3) and cooldown (30m) "
+            "or woken a relay worker that could not be held, and when it "
+            "last did — the ceiling (3) and cooldown (30m) "
             "the turn-end promised-work gate enforces. Written by the "
             "hold decision itself, so the bound survives telemetry "
             "retention; do NOT count ChainEndDeferred events for it. "

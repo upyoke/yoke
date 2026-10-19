@@ -37,7 +37,11 @@ from yoke_core.tools._impacted_contract_tests_workflow_definitions import (
     WORKFLOW_DEFINITION_VALIDATION_TESTS,
 )
 
-REPO_CLEANLINESS_TESTS = ("runtime/api/test_doc_hygiene.py",)
+REPO_CLEANLINESS_TESTS = (
+    "runtime/api/test_doc_hygiene.py",
+    # Scans every shipped message for internal item ids; no import reaches it.
+    "runtime/api/domain/test_item_ref_message_text.py",
+)
 _ALWAYS_RUN_CONTRACTS = (
     (
         "core_contract_floor",
