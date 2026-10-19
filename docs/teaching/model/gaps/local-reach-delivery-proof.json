@@ -1,0 +1,7 @@
+{
+ "id": "local-reach-delivery-proof",
+ "title": "Prove local reachability teaching in a serving release",
+ "status": "observed",
+ "text": "Candidate tests cover the setup rows, local summary, `yoke status` lines, local dashboard footer and named team-server connection failures. The batched release still owes installed proof: setup's destination screen, `yoke status` on a local install, and a second computer connecting to a local install's address.",
+ "sources": ["runtime/api/cli/test_server_reach_failure.py", "runtime/api/cli/test_yoke_status_local_reach.py", "runtime/api/cli/__snapshots__/connect_destination_picker.svg"]
+}

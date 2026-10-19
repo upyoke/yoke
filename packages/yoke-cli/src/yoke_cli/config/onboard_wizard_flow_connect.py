@@ -16,6 +16,7 @@ from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT
 from yoke_cli.config.onboard_wizard_flow_hosted_machine import HostedMachineConnectFlow
 from yoke_cli.config.onboard_wizard_flow_protocols import ConnectFlowShell as _Shell
 from yoke_cli.config.onboard_wizard_self_host import NO_SERVER_GUIDANCE
+from yoke_cli.transport import server_reach_failure
 
 
 def verify_yoke_token(api_url: str, token: str) -> dict[str, Any]:
@@ -134,11 +135,12 @@ class ConnectFlow(TeamServerConnectFlow, ServerConnectionForm):
     ) -> None:
         from yoke_cli.config.onboard_wizard_state import _View
 
+        server = retry_source in {"team-server", "server-form"}
         details = list(
             detail_lines
             or [
-                "Check the server URL and company sign-in settings."
-                if retry_source == "team-server"
+                server_reach_failure.CHECK_SERVER_MACHINE
+                if server
                 else "Check the token value, environment, and network connection."
             ]
         )
@@ -150,7 +152,7 @@ class ConnectFlow(TeamServerConnectFlow, ServerConnectionForm):
                 SetupPrompt(
                     key="connect.yoke_verify_error",
                     step=STEP_CONNECT,
-                    title="Company sign-in could not be checked."
+                    title="Yoke could not use that server."
                     if retry_source == "team-server"
                     else "Yoke token could not be verified.",
                     message=message,

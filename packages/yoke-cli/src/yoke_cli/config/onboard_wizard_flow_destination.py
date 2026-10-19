@@ -112,8 +112,9 @@ class DestinationFlow:
             initial=DEFAULT_DESTINATION_INDEX,
             guidance=DESTINATION_AGENT_GUIDANCE,
         )
-        view = _View(prompt, self._after_destination_select,
-                     self._account_picker_builder(prompt))
+        view = _View(
+            prompt, self._after_destination_select, self._account_picker_builder(prompt)
+        )
         self._destination_picker_view = view
         self._goto(view)
 
@@ -268,7 +269,7 @@ class DestinationFlow:
                     key="connect.local_universe",
                     step=STEP_CONNECT,
                     title="Your Yoke lives on this machine.",
-                    message="Free, no account — everything stays on this computer.",
+                    message="Reachable here only — other computers cannot connect to it.",
                     detail_lines=tuple(local_universe_summary_lines(state)),
                     choices=tuple(local_universe_summary_rows(state)),
                     tone=TONE_OK if ok else TONE_ERROR,

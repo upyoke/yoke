@@ -115,8 +115,7 @@ See [People and machines](self-host-people.md) to connect engineers and approve 
 ## Restore admin access
 
 The host stays connected after setup. If this machine loses its connection,
-rerun `yoke setup` on the host and choose **Set this machine up as a
-self-hosting server**: it finds the existing bundle, restarts it, and
+rerun `yoke setup` on the host and choose **Host a server here**: it finds the existing bundle, restarts it, and
 reconnects with `secrets/first-boot-admin-token` without asking anything new.
 
 If that credential is lost or revoked, the first-boot and recovery bootstrap

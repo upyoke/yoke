@@ -12,6 +12,7 @@ offered device codes only with company sign-in, so its absence reads as
 
 import urllib.request
 from dataclasses import dataclass
+from yoke_cli.transport import server_reach_failure
 from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
@@ -36,7 +37,12 @@ def browser_sign_in_available(url: str) -> bool:
 
 
 def sign_in_methods(url: str) -> SignInMethods:
-    origin = authorization_origin(url)
+    try:
+        origin = authorization_origin(url)
+    except HostedMachineAuthorizationError as exc:
+        raise HostedMachineAuthorizationError(
+            f"{exc}. {server_reach_failure.CHECK_SERVER_MACHINE}"
+        ) from None
     try:
         response = request_json(
             urllib.request.Request(origin + START_PATH, method="GET"),
@@ -44,7 +50,21 @@ def sign_in_methods(url: str) -> SignInMethods:
             replay_safe=True,
             allow_loopback_http=True,
         )
-    except BoundedJsonHttpStatusError as exc:
+    except BoundedJsonHttpError as exc:
+        # A 404 here may be a Yoke server older than this discovery path,
+        # so it keeps the token-entry recovery below.
+        older_server = isinstance(exc, BoundedJsonHttpStatusError) and exc.status == 404
+        failure = (
+            None
+            if older_server
+            else server_reach_failure.describe(exc, origin, check_server_machine=True)
+        )
+        if failure is not None:
+            raise HostedMachineAuthorizationError(failure) from None
+        if not isinstance(exc, BoundedJsonHttpStatusError):
+            raise HostedMachineAuthorizationError(
+                f"machine_sign_in_unavailable: {exc}; check the server URL and retry"
+            ) from None
         reason = (
             "oidc_misconfigured"
             if isinstance(exc.payload, dict)
@@ -55,10 +75,6 @@ def sign_in_methods(url: str) -> SignInMethods:
             f"{reason}: the server's sign-in discovery returned HTTP {exc.status}; "
             "ask its operator to check the served build and company sign-in settings, "
             "or connect with an API token using --token-stdin"
-        ) from None
-    except BoundedJsonHttpError as exc:
-        raise HostedMachineAuthorizationError(
-            f"machine_sign_in_unavailable: {exc}; check the server URL and retry"
         ) from None
     payload = response.payload
     device_code = payload.get("device_code") if isinstance(payload, dict) else None

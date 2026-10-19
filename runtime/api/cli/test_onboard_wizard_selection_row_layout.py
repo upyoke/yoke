@@ -23,7 +23,8 @@ SELF_HOST_ROW = next(
 
 
 def test_long_hint_moves_below_the_full_label() -> None:
-    rendered = _option_row_text(SELF_HOST_ROW, selected=True, width=70)
+    # Label, gap and hint need 67 cells; 60 forces the hint onto its own line.
+    rendered = _option_row_text(SELF_HOST_ROW, selected=True, width=60)
     assert rendered.plain == f"›  {SELF_HOST_ROW.label}\n{SELF_HOST_ROW.hint}"
 
 

@@ -22,6 +22,7 @@ import urllib.request
 from typing import Any, Dict, Mapping, Optional
 
 from yoke_cli.config import writer
+from yoke_cli.transport import server_reach_failure
 from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
@@ -128,14 +129,14 @@ def _normalized_api_url(url: str) -> str:
         raise ServerConnectError("server URL must name a host without credentials")
     if parsed.scheme.lower() == "http":
         try:
-            address = ipaddress.ip_address(parsed.hostname)
-        except ValueError as exc:
+            loopback = ipaddress.ip_address(parsed.hostname).is_loopback
+        except ValueError:
+            loopback = False
+        if not loopback:
             raise ServerConnectError(
-                "plain HTTP server URLs require a numeric loopback address"
-            ) from exc
-        if not address.is_loopback:
-            raise ServerConnectError(
-                "plain HTTP server URLs require a numeric loopback address"
+                "plain HTTP server URLs require a numeric loopback address; "
+                "use the server's https:// URL. "
+                + server_reach_failure.CHECK_SERVER_MACHINE
             )
     return candidate
 
@@ -146,6 +147,10 @@ def _verify_health(api_url: str, *, timeout_s: float) -> Mapping[str, Any]:
     try:
         payload = _http_get_json(health_url, headers={}, timeout_s=timeout_s)
     except _HttpFailure as exc:
+        if exc.named:
+            raise ServerConnectError(
+                f"{exc} Nothing was persisted ({safe_health_url})."
+            ) from exc
         raise ServerConnectError(
             f"server health check failed ({safe_health_url}): {exc}; nothing was "
             "persisted — verify the URL and that the server is running "
@@ -199,7 +204,14 @@ def verify_server_identity(
 
 
 class _HttpFailure(RuntimeError):
-    """One HTTP verification request failed (status, network, or body)."""
+    """One HTTP verification request failed (status, network, or body).
+
+    ``named`` marks a reach failure already carrying its code and fix.
+    """
+
+    def __init__(self, message: str, *, named: bool = False) -> None:
+        self.named = named
+        super().__init__(message)
 
 
 def _http_get_json(url: str, *, headers: Mapping[str, str], timeout_s: float) -> Any:
@@ -213,11 +225,26 @@ def _http_get_json(url: str, *, headers: Mapping[str, str], timeout_s: float) ->
             allow_loopback_http=True,
             opener=urllib.request.urlopen,
         )
-    except BoundedJsonHttpStatusError as exc:
-        raise _HttpFailure(f"HTTP {exc.status}") from None
     except BoundedJsonHttpError as exc:
+        failure = server_reach_failure.describe(
+            exc, url, check_server_machine=not _is_loopback(url)
+        )
+        if failure is not None:
+            raise _HttpFailure(failure, named=True) from None
+        if isinstance(exc, BoundedJsonHttpStatusError):
+            raise _HttpFailure(f"HTTP {exc.status}") from None
         raise _HttpFailure(str(exc)) from None
     return response.payload
+
+
+def _is_loopback(url: str) -> bool:
+    """A loopback server is on this machine, so no other machine to check."""
+    try:
+        return ipaddress.ip_address(
+            urllib.parse.urlsplit(url).hostname or ""
+        ).is_loopback
+    except ValueError:
+        return False
 
 
 def _health_summary(health: Mapping[str, Any]) -> Dict[str, Any]:

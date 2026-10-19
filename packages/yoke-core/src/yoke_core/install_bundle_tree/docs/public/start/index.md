@@ -23,11 +23,13 @@ installer requests it. See [Install](install.md) for prerequisites and recovery.
 
 In setup's Account step, choose where Yoke and its database live:
 
-- **This machine:** a private local universe; no signup or token.
-- **upyoke.com:** a hosted universe with browser sign-in.
-- **A team server:** your team's reachable server URL and its sign-in flow.
-- **Set this machine up as a self-hosting server:** preview and create a server
-  on a host you control.
+- **This machine:** a private local universe, reachable here only; no signup
+  or token. No other computer can connect to it.
+- **A team server:** connect to your own Yoke server by its reachable URL.
+- **Host a server here:** for a team or multiple computers; needs Docker.
+  Preview and create a server on a host you control.
+- **upyoke.com:** hosted by Yoke with browser sign-in; private beta, requires a
+  beta code.
 
 [Modes](modes.md) explains ownership, networking and switching later. Review
 setup's proposed writes before Apply. Browser sign-in and machine approval
