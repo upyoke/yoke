@@ -10,15 +10,9 @@
  "note": "Root help is the overview; group help lists immediate children and command help owns the narrow recipe. The generated skill registry remains the full skill reference; no speculative full-catalog flag is assumed. yoke machines --help exposes pending, approve and deny for waiting machines; yoke machine --help manages registered machines.",
  "current": "Candidate source replaces the earlier monolithic root catalog with root/category/command disclosure. command-tree and config-selection records name fixture evidence. cli/help.md documents help from any directory, complete saved evidence, 350 wrapped lines and deliberate machine contracts. These are source/fixture observations, not a serving release or live terminal proof.",
  "desired": "Overview → immediate categories → command recipes. Hard 350 lines; smaller budgets are advisory.",
- "plan_notes": [
-  "FIRST-USER 35/P6",
-  "New help layout proposal"
- ],
- "sources": [
-  "docs/public/cli/help.md",
-  "packages/yoke-cli/src/yoke_cli/command_router.py",
-  "packages/yoke-cli/src/yoke_cli/commands/group_help.py",
-  "runtime/api/cli/test_cli_help_tree.py",
-  "packages/yoke-cli/src/yoke_cli/commands/registry_admission.py"
- ]
+ "commands": ["yoke tokens create", "yoke tokens list", "yoke tokens revoke", "yoke invite", "yoke invites list", "yoke invites revoke", "yoke invites reissue"],
+ "text": "yoke tokens --help lists create, list and revoke. Create requires --name LABEL and shows your token once; list reveals metadata only. Lost it? Revoke its ID and create a new one. These operations need no project or harness session. yoke invite PERSON follows the server sign-in method. yoke invites lists code-N and email-N refs, revokes either kind, and reissues codes for the same person. Copy each code once and send it privately.",
+ "plan_notes": ["FIRST-USER 35/P6", "New help layout proposal"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/command_router.py", "packages/yoke-cli/src/yoke_cli/commands/group_help.py", "packages/yoke-cli/src/yoke_cli/commands/registry.py", "packages/yoke-cli/src/yoke_cli/commands/registry_admission.py", "docs/public/agents/commands.md", "docs/public/projects/teammate-invitations.md", "docs/public/cli/help.md", "runtime/api/cli/test_cli_help_tree.py"],
+ "functions": ["teammate_invites.create", "teammate_invites.list", "teammate_invites.revoke", "teammate_invites.reissue", "identity.invite.create", "identity.invite.list", "identity.invite.revoke"]
 }

@@ -157,5 +157,6 @@ setup uses the same sign-in convergence through `yoke dev setup`.
 - [Shared files](shared-files.md) — Upload files and reuse them as project context.
 - [Private forks](private-forks.md) — Bind installation artifacts and maintain a private Yoke distribution.
 - [Actors, members and billing](actors-members-billing.md) — Understand identity, organization access and billing ownership.
+- [Invite a teammate](teammate-invitations.md) — Invite a person and manage code or email invitations.
 - [Hosted organization administration](hosted-org-admin.md) — Create an organization, manage invitations and approve machines.
 <!-- /yoke:contents -->

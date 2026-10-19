@@ -8,8 +8,22 @@
  "disclosure": "current cue",
  "surface": "Shared approval card and machine authorization reference.",
  "review": "Engine producer contract and authorized consumer source evidence reviewed. Hosted source adoption is observed; exact redesign consumer integration, fresh installer approval and deployed personal-approval/one-time-delivery captures remain pending.",
- "recipes": ["yoke connect --help", "yoke machines pending", "yoke machines approve CODE", "yoke machines deny CODE"],
- "plan_notes": ["FIRST-USER items 26,27,33", "FIRST-USER D"],
- "sources": ["docs/public/start/install.md", "docs/public/projects/actors-members-billing.md", "docs/public/cli/machine-authorization.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/machine_admission.py", "packages/yoke-core/src/yoke_core/ui/static/machine_approval.js"],
+ "recipes": [
+  "yoke connect --help",
+  "yoke machines pending",
+  "yoke machines approve CODE",
+  "yoke machines deny CODE"
+ ],
+ "plan_notes": [
+  "FIRST-USER items 26,27,33",
+  "FIRST-USER D"
+ ],
+ "sources": [
+  "docs/public/start/install.md",
+  "docs/public/projects/actors-members-billing.md",
+  "docs/public/cli/machine-authorization.md",
+  "packages/yoke-cli/src/yoke_cli/commands/adapters/machine_admission.py",
+  "packages/yoke-core/src/yoke_core/ui/static/machine_approval.js"
+ ],
  "position": 0
 }

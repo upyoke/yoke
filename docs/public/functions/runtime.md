@@ -228,23 +228,20 @@ declare their function serving floor. [Retention](../universe-retention.md)
 owns apply, permanent protections and the command-output-only audit exception;
 prune stores no replay receipt and a lost pass reply has an unknown count.
 
-The board data read is the server half of explicit board rebuilding: it returns
-named item, task, session, activity, timeline and architecture facts plus the
-checkout project's VISION identity. The client renders/writes markdown with
-local art and VISION labels. SQL stays inside collection; changing a query
-requires no matching client query or fallback. Optional added facts do not
-change the snapshot contract. Nothing rebuilds automatically.
-Packet budget reports configured line usage/headroom per role and in aggregate;
-character counts measure usage and are not enforced limits. Agent render/check
-compose native adapters from the same canonical sources.
+The board data read is the server half of explicit board rebuilding: it returns named item, task,
+session, activity, timeline and architecture facts plus the checkout project's VISION identity. The
+client renders/writes markdown with local art and VISION labels. SQL stays inside collection;
+changing a query requires no matching client query or fallback. Optional added facts do not change
+the snapshot contract. Nothing rebuilds automatically. Packet budget reports configured line
+usage/headroom per role and in aggregate; character counts measure usage and are not enforced
+limits. Agent render/check compose native adapters from the same canonical sources.
 
-Doctor requires project context and exactly one scope: quick, full or named
-checks. Missing context/scope and unknown checks refuse by name. Runtime is the
-executing destination; applicable checks derive from project/capability/tree
-facts. N/A carries its reason and is never counted green or dropped. Events are
-diagnostic telemetry. Session CI wait records the exact session/run once and
-resolves that pair after its watcher receives the verdict; supersession clears
-abandoned waits without manufacturing a test result.
+Doctor requires project context and exactly one scope: quick, full or named checks. Missing
+context/scope and unknown checks refuse by name. Runtime is the executing destination; applicable
+checks derive from project/capability/tree facts. N/A carries its reason and is never counted green
+or dropped. Events are diagnostic telemetry. Session CI wait records the exact session/run once and
+resolves that pair after its watcher receives the verdict; supersession clears abandoned waits
+without manufacturing a test result.
 
 Deployment definitions retain history and immutable referenced versions. Run
 creation/execution requires the project deployment hold, registered authority,
@@ -253,33 +250,49 @@ its attachment and continuation. Read [deployment contracts](../deployments/mode
 before operating. Ephemeral-environment updates authorize the owning project;
 terminal status retains stopped-at behavior and invalid fields refuse.
 
-Sessions, launch/wake/message and machine operations use manifest capabilities,
-authenticated outer delivery and exact bound identity. Message bodies grant no
-authority. Read [fleet policy](../sessions/fleet-policy.md) before cross-machine operations.
-`yoke machines pending` lists waiting requests; `yoke machines approve CODE` and
-`yoke machines deny CODE` record the signed-in person's own decision. Profile writes act only on
-the caller's own identity/preferences/tokens; raw new token appears once.
-Machine-bound credentials are retired through their machine, never arbitrary
+Sessions, launches, wakes, messages and machines require manifest capabilities
+and authenticated, bound identity; message bodies grant no authority.
+Cross-machine work follows [fleet policy](../sessions/fleet-policy.md).
+`yoke machines pending` lists requests; `yoke machines approve CODE` and
+`yoke machines deny CODE` record the signed-in person's decision.
+Profile writes use the caller's identity, preferences and tokens; raw tokens
+appear once. Retire machine credentials through their machine, never through
 profile token removal.
+
+| Admission command | Function id |
+|---|---|
+| `yoke tokens create --name LABEL` | `profile.token.create` |
+| `yoke tokens list` | `profile.get` |
+| `yoke tokens revoke TOKEN-ID` | `profile.token.revoke` |
+| `yoke invite PERSON` | `teammate_invites.create` or `identity.invite.create` |
+| `yoke invites list` | `teammate_invites.list` and, for email, `identity.invite.list` |
+| `yoke invites revoke REF` | `teammate_invites.revoke` or `identity.invite.revoke` |
+| `yoke invites reissue code-N` | `teammate_invites.reissue` |
+
+No project or harness session is required. Token labels contain 1–80 characters.
+List returns metadata only. Copy a new token once; after lost output or
+`result_unavailable`, list its ID, revoke it and create another.
+
+Invites follow server sign-in: name/code or email. Reissue replaces a lost code
+for the same actor. Email rows retain role ID and add catalog role/name; null grants none.
+Both kinds carry stored creation time and nullable authoritative inviter name.
+[Invitation details](../projects/teammate-invitations.md) owns refs and refusal recovery.
 
 ## Actors and org roles
 
-Actors functions use global targets and the bound actor. Roster returns kinds,
-states, org/project roles, linked email, live-key metadata, current actor and
-org-admin management capability. State changes require org admin; disabling
-revokes keys/browser sessions. Role set targets actor id or uniquely linked
-member email and replaces a person's one org role, returning old/new roles and
-changed state. Sign-in once resolves unlinked email; ambiguous email needs id.
-System-actor retirement also requires `--confirm-system-retirement`; inspect
-the actor and credential owner before explicitly confirming that retirement.
+Actors functions use global targets and the bound actor. Roster returns kinds, states, org/project
+roles, linked email, live-key metadata, current actor and org-admin management capability. State
+changes require org admin; disabling revokes keys/browser sessions. Role set targets actor id or
+uniquely linked member email and replaces a person's one org role, returning old/new roles and
+changed state. Sign-in once resolves unlinked email; ambiguous email needs id. System-actor
+retirement also requires `--confirm-system-retirement`; inspect the actor and credential owner
+before explicitly confirming that retirement.
 
-A person has exactly one role from
-`yoke_core.domain.actor_role.HUMAN_ORG_ROLES`: admin, operator or viewer.
-Operator works across the org's projects. Machine-only roles are deployment_ci,
-hosted_service, infrastructure_ci and migration_verification_ci; system roles
-accumulate. Every grant uses the same person-role validator, including invites,
-sign-in, bootstrap and local seeding. Invite-role validation precedes creation,
-linking or acceptance; refusal names revoke recovery.
+A person has exactly one role from `yoke_core.domain.actor_role.HUMAN_ORG_ROLES`: admin, operator or
+viewer. Operator works across the org's projects. Machine-only roles are deployment_ci,
+hosted_service, infrastructure_ci and migration_verification_ci; system roles accumulate. Every
+grant uses the same person-role validator, including invites, sign-in, bootstrap and local seeding.
+Invite-role validation precedes creation, linking or acceptance; refusal names revoke recovery.
 
 ```sh
 yoke actors state set <actor-id> --disable
@@ -296,9 +309,8 @@ yoke actors role set <actor-id> --role ROLE
 | member_ambiguous | Use exact actor id. |
 | permission_denied | Caller must have org-admin authority. |
 
-Overview activation reads/latches universe setup facts; hiding removes a module
-until the caller explicitly resets onboarding preferences. Per-machine connect
-facts include approval/hook health, and onboarding facts retain live outcomes,
-next action/blocker and superseding deployment. Latching never rewrites current
-evidence. Model/auth/identity/migration runtime operations keep their own
+Overview activation reads/latches universe setup facts; hiding removes a module until the caller
+explicitly resets onboarding preferences. Per-machine connect facts include approval/hook health,
+and onboarding facts retain live outcomes, next action/blocker and superseding deployment. Latching
+never rewrites current evidence. Model/auth/identity/migration runtime operations keep their own
 permission and serving-floor contracts; command help names the reachable repair.

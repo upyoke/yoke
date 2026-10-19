@@ -1,0 +1,12 @@
+{
+ "id": "02",
+ "title": "Invite a teammate, then let them connect as themselves.",
+ "status": "observed",
+ "form": "Do",
+ "text": "On a server without company sign-in, an organization admin runs yoke invite NAME or uses Team → Invite. This creates a separate person with the chosen role, defaulting to operator; an identical display name is not an identity match. Send the one-time code privately. The teammate chooses Enter invite code in yoke setup --tui before its 24-hour expiry. Agent mode hands this secret step to the person, then resumes; never supply the code through --answer. Lost, expired or consumed codes need admin reissue, which keeps the same person and invalidates earlier codes. Hosted and company-sign-in invitations take email; the teammate signs in as themselves, never through the inviter's own-machine approval.",
+ "verification": "Real invite transactions, private CLI redemption and Team source tests cover actor binding, one-use delivery and recovery. Deployed and scripted journey proof remains owed.",
+ "related_scenarios": ["people-access"],
+ "plan_refs": ["FIRST-USER.33"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/teammate_invite_codes.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_machine_admission.py", "packages/yoke-core/src/yoke_core/ui/static/actor_invite_form.js", "runtime/api/domain/test_teammate_invite_transactions.py", "runtime/api/cli/test_teammate_invite_redemption.py", "runtime/api/universe_ui_actor_invites.test.mjs"],
+ "position": 2
+}

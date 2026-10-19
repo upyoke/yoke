@@ -188,20 +188,6 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     _read_entry(function_id="projects.list", cli_invocation="yoke projects list"),
     *PROJECT_ADAPTERS,
     *ORGANIZATION_ADAPTERS,
-    # Sign-in admission admin family (org-admin-gated at dispatch).
-    AdapterEntry(
-        function_id="identity.invite.create",
-        cli_invocation="yoke identity invite create EMAIL --role ROLE",
-        notes="pending invite admits the next verified OIDC sign-in with that email",
-    ),
-    _read_entry(
-        function_id="identity.invite.list",
-        cli_invocation="yoke identity invite list --status pending",
-    ),
-    AdapterEntry(
-        function_id="identity.invite.revoke",
-        cli_invocation="yoke identity invite revoke INVITE_ID",
-    ),
     AdapterEntry(
         function_id="identity.link.set",
         cli_invocation="yoke identity link set --actor ACTOR --issuer I --subject S",

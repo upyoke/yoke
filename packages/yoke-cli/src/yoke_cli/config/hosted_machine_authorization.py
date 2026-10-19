@@ -169,7 +169,7 @@ def complete(
         sleep(min(delay, max(0.0, deadline - monotonic())))
         if cancelled is not None and cancelled():
             raise HostedMachineAuthorizationCancelled(
-                "browser approval wait cancelled; the one-time code expires on its own"
+                "browser approval wait cancelled; the match code expires on its own"
             )
         if monotonic() >= deadline:
             break

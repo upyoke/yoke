@@ -42,13 +42,18 @@ under the request's org-admin authority.
 
 Platform mints in-process against the tenant database at tenant birth through
 `yoke_core.domain.api_tokens.bootstrap_hosted_service_token(conn)`, which
-returns the raw token once. Operators use the same operation from the token
-CLI:
+returns the raw token once. Operators use the [server token bootstrap
+entrypoint](self-host.md#restore-admin-access) on the tenant host, replacing
+`bootstrap-admin` and all following arguments with:
 
-```bash
-python3 -m yoke_core.domain.api_tokens_cli hosted-service \
+```text
+hosted-service \
   [--name hosted-service] [--raw-token-file <owner-only-secret-path>]
 ```
+
+For source-dev/admin execution, omit the `docker compose exec --user yoke core`
+prefix and select the tenant's admin connection. File mode writes an owner-only
+secret file; without it, copy the raw token from the one-time response.
 
 The actor and its single org grant converge idempotently, and every invocation
 mints another active token. If the actor already carries any other grant, the
@@ -60,7 +65,8 @@ To rotate a tenant that already runs this identity:
 1. Mint a new token.
 2. Install it as the tenant's service credential.
 3. Verify a delivery.
-4. Revoke the superseded token id with `api_tokens_cli revoke --token-id <id>`.
+4. Revoke the superseded token using the same bootstrap entrypoint, replacing
+   the service-mint arguments with `revoke --token-id <id>`.
 
 ## Moving a tenant onto this identity
 

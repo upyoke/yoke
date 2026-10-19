@@ -1,7 +1,11 @@
 {
  "id": "organization-administrator",
  "title": "Organization administrator",
- "status": "draft-copy",
+ "status": "observed",
  "page": "identity",
- "position": 0
+ "position": 0,
+ "sources": [
+  "docs/public/projects/teammate-invitations.md"
+ ],
+ "text": "Only organization admins invite, revoke or reissue teammate access. Roles apply to the organization. A null email role means no role grant. Local universes cannot invite teammates."
 }

@@ -93,6 +93,7 @@ root:
         - title: Actors, members and billing
           summary: Understand identity, organization access and billing ownership.
           path: projects/actors-members-billing.md
+        - {title: "Invite a teammate", summary: "Invite a person and manage code or email invitations.", path: "projects/teammate-invitations.md"}
         - title: Hosted organization administration
           summary: Create an organization, manage invitations and approve machines.
           path: projects/hosted-org-admin.md

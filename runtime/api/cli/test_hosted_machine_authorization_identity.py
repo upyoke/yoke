@@ -176,6 +176,17 @@ def test_local_persistence_failure_refuses_before_poll(monkeypatch, tmp_path) ->
         auth.complete(_pending())
 
 
+def test_cancelled_wait_teaches_match_code_expiry_without_poll(monkeypatch):
+    monkeypatch.setattr(auth, "_machine_identity", lambda: {"machine_id": MACHINE_ID})
+    monkeypatch.setattr(
+        auth, "request_json", lambda *_a, **_k: pytest.fail("cancelled poll")
+    )
+    with pytest.raises(
+        auth.HostedMachineAuthorizationCancelled, match="match code expires"
+    ):
+        auth.complete(_pending(), sleep=lambda _: None, cancelled=lambda: True)
+
+
 def test_server_identity_refusal_names_recovery(monkeypatch, tmp_path) -> None:
     config_path = tmp_path / "config.json"
     config_path.write_text(json.dumps({"machine_id": MACHINE_ID}), encoding="utf-8")

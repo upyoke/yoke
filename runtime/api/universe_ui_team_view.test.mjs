@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
+import { renderTeamView } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_team.js";
 import {
   FakeDocument, allNodes, byClass, settle,
 } from "./universe_ui_dom_test_support.mjs";
 
 const ok = (result) => ({ status: 200, envelope: { success: true, result } });
+const nameFact = { invite_form: "name", sign_in_method: "invite_code" };
 
 const roster = {
   current_actor_id: 2,
@@ -32,7 +34,7 @@ const roster = {
   ],
 };
 
-function client(answer) {
+function client(answer, inviteAnswer = () => ok({ ...nameFact, invites: [] })) {
   const requests = [];
   return {
     requests,
@@ -43,16 +45,17 @@ function client(answer) {
       }
       if (request.function === "projects.list") return ok({ rows: [] });
       if (request.function === "actors.roster") return answer();
+      if (/^(teammate_invites|identity\.invite)\./.test(request.function)) return inviteAnswer(request);
       throw new Error(`unexpected function ${request.function}`);
     },
   };
 }
 
-async function mountTeam(answer, mode = "local") {
+async function mountTeam(answer, mode = "local", inviteAnswer) {
   const documentNode = new FakeDocument();
   documentNode.defaultView.location.href = "/team";
   const root = documentNode.createElement("div");
-  const reads = client(answer);
+  const reads = client(answer, inviteAnswer);
   const mounted = mountUniverseApp(root, {
     client: reads,
     capabilities: { data: { portability: { mode } } },
@@ -74,7 +77,7 @@ const panelTitles = (root) => byClass(root, "actors-panel")
 test("Team route groups people and machine accounts with readable grants", async () => {
   const { root, reads, mounted } = await mountTeam(() => ok(roster), "hosted");
   assert.deepEqual(byClass(root, "page-head").map((node) => node.textContent), ["Team"]);
-  assert.deepEqual(panelTitles(root), ["People· 1", "Machine accounts· 1"]);
+  assert.deepEqual(panelTitles(root), ["People· 1", "Machine accounts· 1", "Invites· 0"]);
   const [people, machines] = byClass(root, "actors-panel");
   assert.deepEqual(headings(people), [
     "Actor", "State", "Org role", "Project access", "Member email", "API keys", "Action",
@@ -110,8 +113,172 @@ test("local roster omits Member email and names a sole human actor", async () =>
   ]);
   const notice = byClass(root, "actors-local-notice")[0];
   assert.equal(notice.hidden, false);
-  assert.equal(notice.textContent, "You are the only actor in this universe.");
+  assert.match(notice.textContent, /Reachable here only/);
+  assert.match(notice.textContent, /You are the only actor in this universe\./);
   mounted.unmount();
+});
+
+test("the actual app exposes the name form and restores Invite focus on Escape", async () => {
+  const { root, mounted } = await mountTeam(() => ok(adminRoster), "self-host");
+  const invite = button(root, "Invite");
+  await click(invite);
+  assert.match(byClass(root, "actors-invite-slot")[0].textContent, /Name/);
+  assert.equal(invite.disabled, true);
+  nodes(root, "FORM")[0].dispatchEvent(Object.assign(new Event("keydown"), { key: "Escape" }));
+  assert.equal(invite.disabled, false);
+  assert.equal(root.ownerDocument.activeElement, invite);
+  mounted.unmount();
+});
+
+const nodes = (root, tag) => allNodes(root).filter((node) => node.tagName === tag);
+const button = (root, text) => nodes(root, "BUTTON").find((node) => node.textContent === text);
+const click = async (node) => { assert.ok(node); node.dispatchEvent(new Event("click")); await settle(); };
+const adminRoster = { ...roster, can_manage_actors: true, person_org_roles: ["admin", "operator", "viewer"],
+  rows: [...roster.rows, { id: 8, name: "Disabled", kind: "human", status: "disabled", roles: { org: [] } }] };
+const inviteRow = { invite_id: 1, actor_id: 9, name: "Ana", kind: "code", role: "operator", state: "pending",
+  created_at: "2026-10-17T10:00:00Z", expires_at: "2026-10-18T10:00:00Z", invited_by_name: "Ben" };
+async function direct(call, mode = "self-host") {
+  const document = new FakeDocument(), main = document.createElement("main"), head = document.createElement("div");
+  const requests = [];
+  const context = { document, isMounted: () => true, capabilities: { data: { portability: { mode } } },
+    client: { call: async (request) => { requests.push(request); return call(request); } } };
+  const pending = renderTeamView(context, main, null, null, { setPageHead: ({ actions = [] }) => head.replaceChildren(...actions) });
+  await settle();
+  return { document, main, head, requests, pending };
+}
+
+test("both registry-skew refusals and OIDC failure hide Invite but retain the usable roster", async () => {
+  for (const code of ["function_not_registered", "function_version_skew", "oidc_misconfigured", "read_failed"]) {
+    const message = code === "oidc_misconfigured" ? "Sign-in is not ready; ask the server operator to correct company sign-in settings" : "Read refused";
+    const f = await direct((request) => request.function === "actors.roster" ? ok(adminRoster)
+      : { status: 503, envelope: { success: false, error: { code, message } } });
+    assert.equal(button(f.head, "Invite"), undefined);
+    assert.match(f.main.textContent, /Ben/);
+    assert.ok(nodes(f.main, "SELECT").length);
+    const text = byClass(f.main, "actors-invites")[0].textContent;
+    if (code.startsWith("function_")) assert.match(text, /Invites need a newer Yoke server\. Ask the server operator to upgrade, then reload\./);
+    else { assert.ok(text.includes(message)); assert.match(text, /Invites could not be read/); assert.ok(button(f.main, "Try again")); assert.doesNotMatch(text, /newer Yoke server/); }
+  }
+});
+
+test("nonadmins get read-only invites or the permission line alone; older roles prevent Invite", async () => {
+  for (const denied of [false, true]) {
+    const f = await direct((request) => request.function === "actors.roster" ? ok({ ...adminRoster, can_manage_actors: false })
+      : denied ? { status: 403, envelope: { success: false } } : ok({ ...nameFact, invites: [inviteRow] }));
+    const panel = byClass(f.main, "actors-invites")[0];
+    assert.match(panel.textContent, /Only org admins can invite people\./);
+    assert.equal(nodes(panel, "BUTTON").length, 0);
+    assert.equal(button(f.head, "Invite"), undefined);
+    if (denied) assert.equal(byClass(panel, "panel-body")[0].textContent, "Only org admins can invite people.");
+  }
+  const f = await direct((request) => request.function === "actors.roster" ? ok({ ...adminRoster, person_org_roles: undefined }) : ok({ ...nameFact, invites: [inviteRow] }));
+  assert.equal(nodes(f.main, "SELECT").length, 0);
+  assert.equal(button(f.head, "Invite"), undefined);
+  assert.match(f.main.textContent, /Invite roles are unavailable/);
+});
+
+test("local mode shows reachability for multiple actors and never reads invites", async () => {
+  const f = await direct(() => ok(adminRoster), "local");
+  assert.match(byClass(f.main, "actors-local-notice")[0].textContent, /Reachable here only/);
+  assert.equal(byClass(f.main, "actors-invites").length, 0);
+  assert.equal(button(f.head, "Invite"), undefined);
+  assert.deepEqual(f.requests.map((request) => request.function), ["actors.roster"]);
+});
+
+test("roster and invite reads start together; a pending invite read does not hide the roster", async () => {
+  let release;
+  const f = await direct((request) => request.function === "actors.roster" ? ok(adminRoster) : new Promise((resolve) => { release = resolve; }));
+  assert.deepEqual(f.requests.map((request) => request.function), ["actors.roster", "teammate_invites.list"]);
+  assert.match(f.main.textContent, /Ben/);
+  assert.match(f.main.textContent, /Loading invites/);
+  release(ok({ ...nameFact, invites: [] }));
+  await f.pending;
+  assert.ok(button(f.head, "Invite"));
+});
+
+test("the actual app accepts the name fact for create/reissue/revoke, rereads and keeps toggles and code", async () => {
+  let added = false, state = "pending", serial = 0;
+  const used = { ...inviteRow, invite_id: 2, state: "consumed", name: "Joined" };
+  const { root, reads, mounted } = await mountTeam(() => ok({ ...adminRoster,
+    rows: [...adminRoster.rows, ...(added ? [{ id: 9, name: "Ana", kind: "human", status: "active", roles: { org: [] } }] : [])] }), "self-host", (request) => {
+    if (request.function === "teammate_invites.list") return ok({ ...nameFact, invites: [used, ...(added ? [{ ...inviteRow, state }] : [])] });
+    if (request.function === "teammate_invites.revoke") { state = "revoked"; return ok({ invite: { ...inviteRow, state } }); }
+    assert.ok(["teammate_invites.create", "teammate_invites.reissue"].includes(request.function));
+    added = true; state = "pending";
+    return ok({ invite: inviteRow, code: `private-code-${++serial}`, expires_at: inviteRow.expires_at });
+  });
+  for (const toggle of nodes(root, "INPUT")) { toggle.checked = true; toggle.dispatchEvent(new Event("change")); }
+  await click(button(root, "Invite"));
+  assert.equal(button(root, "Invite").disabled, true);
+  const input = nodes(byClass(root, "actors-invite-slot")[0], "INPUT")[0];
+  input.value = "Ana";
+  nodes(root, "FORM")[0].dispatchEvent(new Event("submit"));
+  await settle();
+  assert.equal(byClass(root, "profile-token-value")[0].textContent, "private-code-1");
+  assert.ok(nodes(root, "INPUT").every((node) => node.checked));
+  assert.equal(byClass(root, "actors-name").filter((node) => node.textContent === "Ana").length, 1);
+  assert.match(byClass(root, "actors-invites")[0].textContent, /pending/);
+  await click(button(root, "Reissue")); await click(button(root, "Reissue invite"));
+  assert.equal(byClass(root, "profile-token-value")[0].textContent, "private-code-2");
+  assert.equal(byClass(root, "actors-name").filter((node) => node.textContent === "Ana").length, 1);
+  await click(button(root, "Revoke…")); await click(button(root, "Revoke invite"));
+  assert.match(byClass(root, "actors-invites")[0].textContent, /revoked/);
+  assert.equal(byClass(root, "profile-token-value")[0].textContent, "private-code-2");
+  await click(button(root, "Done"));
+  assert.equal(byClass(root, "profile-token-value").length, 0);
+  assert.equal(root.ownerDocument.activeElement, button(root, "Invite"));
+  const count = (id) => reads.requests.filter((request) => request.function === id).length;
+  assert.equal(count("actors.roster"), 5); assert.equal(count("teammate_invites.list"), 5);
+  for (const action of ["create", "reissue", "revoke"]) assert.equal(count(`teammate_invites.${action}`), 1);
+  for (const action of ["reissue", "revoke"]) assert.deepEqual(
+    reads.requests.find((request) => request.function === `teammate_invites.${action}`).payload, { invite_id: inviteRow.invite_id });
+  mounted.unmount();
+});
+
+for (const mode of ["hosted", "self-host"]) test(`the actual ${mode} app creates email invites and revokes their producer identifier`, async () => {
+  let sent = false, status = "pending", codeState = "pending";
+  const email = { ...(mode === "hosted" ? { id: 8, invited_by_user_id: 2 } : { invite_id: 8, invited_by_actor_id: 2 }),
+    email: "a@example.test", role: "viewer", created_at: inviteRow.created_at, invited_by_name: "Authoritative inviter" };
+  const { root, reads, mounted } = await mountTeam(() => ok(adminRoster), mode, (request) => {
+    if (request.function === "teammate_invites.list") return ok({ invite_form: "email", sign_in_method: mode === "hosted" ? "yoke_account" : "company_sign_in", invites: [{ ...inviteRow, state: codeState }] });
+    if (request.function === "identity.invite.list") return ok({ invites: sent ? [{ ...email, status }] : [] });
+    if (request.function === "teammate_invites.revoke") { codeState = "revoked"; return ok({ invite: { ...inviteRow, state: codeState } }); }
+    if (request.function === "identity.invite.revoke") { status = "revoked"; return ok({ invite: { ...email, status } }); }
+    assert.equal(request.function, "identity.invite.create"); sent = true;
+    return ok({ invite: email });
+  });
+  await click(button(root, "Invite"));
+  assert.match(root.textContent, mode === "hosted" ? /their Yoke account/ : /company sign-in/);
+  nodes(byClass(root, "actors-invite-slot")[0], "INPUT")[0].value = email.email;
+  nodes(root, "FORM")[0].dispatchEvent(new Event("submit")); await settle();
+  assert.match(root.textContent, /Invite sent to a@example.test/);
+  assert.match(root.textContent, /Authoritative inviter/);
+  assert.equal(byClass(root, "profile-token-reveal").length, 0);
+  assert.equal(reads.requests.filter((request) => request.function === "identity.invite.list").length, 2);
+  await click(button(root, "Done"));
+  assert.equal(byClass(root, "actors-invite-slot")[0].textContent, "");
+  const emailRow = nodes(root, "TR").find((row) => row.children[0]?.textContent === email.email);
+  assert.equal(button(emailRow, "Reissue"), undefined);
+  await click(button(emailRow, "Revoke…")); await click(button(emailRow, "Revoke invite"));
+  assert.deepEqual(reads.requests.filter((request) => request.function === "identity.invite.revoke").map((request) => request.payload), [{ invite_id: 8 }]);
+  assert.match(nodes(root, "TR").find((row) => row.children[0]?.textContent === email.email).textContent, /revoked/);
+  for (const id of ["actors.roster", "teammate_invites.list", "identity.invite.list"]) assert.equal(reads.requests.filter((request) => request.function === id).length, 4);
+  await click(button(root, "Revoke…")); await click(button(root, "Revoke invite"));
+  assert.deepEqual(reads.requests.filter((request) => request.function === "teammate_invites.revoke").map((request) => request.payload), [{ invite_id: inviteRow.invite_id }]);
+  assert.match(nodes(root, "TR").find((row) => row.children[0]?.textContent.startsWith(inviteRow.name)).textContent, /revoked/);
+  mounted.unmount();
+});
+
+test("actor role and enable actions reload invites and preserve visibility choices", async () => {
+  const f = await direct((request) => request.function === "actors.roster" ? ok(adminRoster)
+    : request.function === "teammate_invites.list" ? ok({ ...nameFact, invites: [{ ...inviteRow, state: "consumed" }] }) : ok({}));
+  for (const toggle of nodes(f.main, "INPUT")) { toggle.checked = true; toggle.dispatchEvent(new Event("change")); }
+  await click(button(f.main, "Enable"));
+  const role = nodes(f.main, "SELECT")[0]; role.value = "viewer"; role.dispatchEvent(new Event("change")); await settle();
+  for (const id of ["actors.roster", "teammate_invites.list"]) assert.equal(f.requests.filter((request) => request.function === id).length, 3);
+  assert.ok(nodes(f.main, "INPUT").every((node) => node.checked));
+  assert.ok(f.requests.some((request) => request.function === "actors.state.set"));
+  assert.ok(f.requests.some((request) => request.function === "actors.role.set"));
 });
 
 test("empty, loading and refused reads retain a meaningful Team screen", async () => {

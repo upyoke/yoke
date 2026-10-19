@@ -1,10 +1,8 @@
 """Handler registrations for the profile.* surface.
 
-Browser-proxied UI surfaces (``adapter_status="internal"``): the Profile
-page dispatches them through the local ``yoke ui`` proxy or the hosted
-doorman, which bind the acting actor. ``ambient_session_required=False``
-because a browser has no harness session; every handler refuses without a
-bound actor, since there is no profile to show or change for nobody.
+Profile and the tokens CLI bind the acting actor. Browser-only preferences
+remain internal. ``ambient_session_required=False`` supports both browsers
+and plain terminals; every handler refuses without a bound actor.
 """
 
 from __future__ import annotations
@@ -22,7 +20,7 @@ def register(registry) -> None:
         _p.ProfileGetRequest, _p.ProfileGetResponse,
         stability="stable", owner_module=_OWNER, target_kinds=["global"],
         side_effects=[], emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["actor_required"], adapter_status="internal",
+        guardrails=["actor_required"], adapter_status="live",
         claim_required_kind=None, ambient_session_required=False,
     )
     registry.register(
@@ -35,7 +33,7 @@ def register(registry) -> None:
             "actor_required", "api_token_actor_bound",
             "handler_managed_idempotency", ONE_TIME_SECRET_GUARDRAIL,
         ],
-        adapter_status="internal",
+        adapter_status="live",
         claim_required_kind=None, ambient_session_required=False,
     )
     registry.register(
@@ -45,7 +43,7 @@ def register(registry) -> None:
         side_effects=["api_tokens_update", "api_token_audit_insert"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["actor_required", "api_token_actor_bound"],
-        adapter_status="internal",
+        adapter_status="live",
         claim_required_kind=None, ambient_session_required=False,
     )
     registry.register(

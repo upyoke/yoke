@@ -50,7 +50,7 @@ def invite_role_refusal(conn: Any, invite: Invite) -> Optional[str]:
     except ActorRoleRefused as exc:
         return (
             f"invite {invite.invite_id} cannot be accepted: {exc}. Ask an org "
-            f"admin to run `yoke identity invite revoke {invite.invite_id}` and "
+            f"admin to run `yoke invites revoke email-{invite.invite_id}` and "
             "invite again with a role it can grant"
         )
     return None

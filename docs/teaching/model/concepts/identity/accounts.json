@@ -1,9 +1,32 @@
 {
  "id": "accounts",
  "title": "Accounts and organizations",
- "status": "draft-copy",
- "commands": ["yoke identity invite create", "yoke identity invite list", "yoke identity invite revoke", "yoke organizations create", "yoke organizations domain set", "yoke organizations get"],
- "functions": ["identity.invite.create", "identity.invite.list", "identity.invite.revoke", "organizations.create", "organizations.domain.set", "organizations.get"],
+ "status": "observed",
+ "commands": [
+  "yoke organizations create",
+  "yoke organizations domain set",
+  "yoke organizations get",
+  "yoke invite",
+  "yoke invites list",
+  "yoke invites revoke",
+  "yoke invites reissue"
+ ],
+ "functions": [
+  "identity.invite.create",
+  "identity.invite.list",
+  "identity.invite.revoke",
+  "organizations.create",
+  "organizations.domain.set",
+  "organizations.get",
+  "teammate_invites.create",
+  "teammate_invites.list",
+  "teammate_invites.revoke",
+  "teammate_invites.reissue"
+ ],
  "page": "identity",
- "position": 1
+ "position": 1,
+ "sources": [
+  "docs/public/projects/teammate-invitations.md"
+ ],
+ "text": "Organization admins invite teammates to this organization using the server sign-in method. Codes connect a new person, while personal tokens connect machines as their existing owner."
 }

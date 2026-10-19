@@ -7,13 +7,13 @@ import secrets
 from datetime import timedelta
 from typing import Any
 
-from yoke_contracts.timestamps import parse_instant, temporal_wire, utc_now
+from yoke_contracts.timestamps import utc_now
 
 from yoke_core.domain import db_backend, universe_serving_mode
 from yoke_core.domain.actor_permissions import ROLE_OPERATOR
 from yoke_core.domain.actor_role_grants import grant_actor_org_role
 from yoke_core.domain.actor_state import ActorDisabledError, require_actor_active
-from yoke_core.domain.actors import actor_name, seed_human_actor
+from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.external_identities import default_org_id
 from yoke_core.domain.machine_credentials import register_with_credential
@@ -23,6 +23,7 @@ from yoke_core.domain.machine_registry import (
     get_machine,
     validate_name,
 )
+from yoke_core.domain.teammate_invite_rows import invite_state, public_invites
 from yoke_core.domain.teammate_invite_contract import (
     INVITE_TTL_SECONDS,
     CreatedInvite,
@@ -79,30 +80,6 @@ def _row(conn: Any, key: str, value: Any, *, lock: bool = False) -> dict:
     return dict(zip(_COLUMNS.split(","), row))
 
 
-def _state(row: dict) -> str:
-    if row["consumed_at"] is not None:
-        return "consumed"
-    if row["revoked_at"] is not None or row["replaced_at"] is not None:
-        return "revoked"
-    return "expired" if parse_instant(row["expires_at"]) <= utc_now() else "pending"
-
-
-def _public(conn: Any, row: dict) -> dict:
-    return temporal_wire(
-        {
-            "invite_id": row["id"],
-            "ref": f"code-{row['id']}",
-            "kind": "code",
-            "actor_id": row["actor_id"],
-            "name": actor_name(conn, row["actor_id"]),
-            "role": row["role"],
-            "state": _state(row),
-            "expires_at": row["expires_at"],
-            "invited_by": actor_name(conn, row["invited_by_actor_id"]),
-        }
-    )
-
-
 def _request_used(conn: Any, request_id: str | None) -> bool:
     return (
         request_id is not None
@@ -149,7 +126,7 @@ def _issue(
             instant_parameter(conn, now + timedelta(seconds=INVITE_TTL_SECONDS)),
         ),
     ).fetchone()
-    result = CreatedInvite(_public(conn, _row(conn, "id", row[0])), code)
+    result = CreatedInvite(public_invites(conn, [_row(conn, "id", row[0])])[0], code)
     conn.commit()
     return result
 
@@ -187,7 +164,9 @@ def list_invites(conn: Any, *, include_used: bool = False) -> list[dict]:
         "WHERE id IN (SELECT MAX(id) FROM teammate_invite_codes GROUP BY actor_id) "
         "ORDER BY id DESC"
     ).fetchall()
-    invites = [_public(conn, dict(zip(_COLUMNS.split(","), row))) for row in rows]
+    invites = public_invites(
+        conn, [dict(zip(_COLUMNS.split(","), row)) for row in rows]
+    )
     return [row for row in invites if include_used or row["state"] == "pending"]
 
 
@@ -195,7 +174,7 @@ def revoke_invite(conn: Any, *, invite_id: int, actor_id: int) -> dict:
     try:
         require_actor_active(conn, actor_id)
         row = _row(conn, "id", invite_id, lock=True)
-        if _state(row) == "consumed":
+        if invite_state(row) == "consumed":
             raise TeammateInviteError(
                 "invite_consumed",
                 "invite already used; manage the person's machines",
@@ -207,7 +186,7 @@ def revoke_invite(conn: Any, *, invite_id: int, actor_id: int) -> dict:
             (instant_parameter(conn, now), invite_id),
         )
         row["revoked_at"] = now
-        result = _public(conn, row)
+        result = public_invites(conn, [row])[0]
         conn.commit()
         return result
     except Exception:
@@ -248,7 +227,7 @@ def redeem_invite(
 ) -> dict:
     try:
         row = _row(conn, "code_hash", _hash(parse_invite_code(code)), lock=True)
-        state = _state(row)
+        state = invite_state(row)
         if state != "pending":
             raise TeammateInviteError(
                 f"invite_{state}",

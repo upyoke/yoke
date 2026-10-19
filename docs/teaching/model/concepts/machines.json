@@ -1,10 +1,22 @@
 {
  "id": "machines",
  "title": "Machines, approval and capacity",
- "status": "draft-copy",
- "sources": ["docs/public/cli/machine-authorization.md", "docs/public/agents/levels.md", "docs/public/sessions/linux-relay.md"],
- "commands": ["yoke machine detail", "yoke machine list", "yoke machine show"],
- "functions": ["machine.detail", "machine.list", "machine.show"],
+ "status": "observed",
+ "sources": [
+  "docs/public/cli/machine-authorization.md",
+  "docs/public/agents/levels.md",
+  "docs/public/sessions/linux-relay.md"
+ ],
+ "commands": [
+  "yoke machine detail",
+  "yoke machine list",
+  "yoke machine show"
+ ],
+ "functions": [
+  "machine.detail",
+  "machine.list",
+  "machine.show"
+ ],
  "page": "machines",
  "position": 21
 }

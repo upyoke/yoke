@@ -1,8 +1,14 @@
 {
  "id": "security",
  "title": "Security and privacy",
- "status": "draft-copy",
- "sources": ["docs/public/start/modes.md", "docs/public/agents/rules/code-and-cli.md", "docs/public/cli/machine-authorization.md", "docs/public/verification/browser-identities.md"],
+ "status": "observed",
+ "text": "A match code identifies a request; a teammate invite and a personal token are secrets. Approval stays with the person. Share invites privately, reveal tokens once and revoke or replace lost values; agents never receive secret setup answers.",
+ "sources": [
+  "docs/public/start/modes.md",
+  "docs/public/agents/rules/code-and-cli.md",
+  "docs/public/cli/machine-authorization.md",
+  "docs/public/verification/browser-identities.md"
+ ],
  "page": "security",
  "position": 37
 }
