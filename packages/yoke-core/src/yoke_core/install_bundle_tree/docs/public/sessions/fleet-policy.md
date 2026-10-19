@@ -11,6 +11,9 @@ has 10 minutes from relay pickup. Organization settings retain
 requires a work item naming the person who needs to change that value.
 
 Relay polls lease assigned launches alongside serial control/wake work.
+An idle machine with no launch-capable surface polls every 5 minutes instead
+of every minute. A relay that has not probed its surfaces yet, such as a fresh
+install, keeps the one-minute cadence until it reports what it found.
 Each serialized native spawn checks current reclaimable memory and swap,
 with a three-second stagger. macOS uses `/usr/bin/vm_stat` and
 `/usr/sbin/sysctl -n vm.swapusage` independently of the relay's filtered PATH;

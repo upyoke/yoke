@@ -201,7 +201,11 @@ def claim_relay_job(
         now=current,
     )
     state = "idle" if idle else "active"
-    launch_capable = any(
+    # A relay that reports no surface either way has not probed yet (a fresh
+    # install's empty cache); back off only once it has confirmed absence.
+    launch_capable = not (
+        heartbeat.surface_versions or heartbeat.surface_confirmed_absent
+    ) or any(
         surface_operation_supported(surface, version, "create")
         for surface, version in heartbeat.surface_versions.items()
     )
