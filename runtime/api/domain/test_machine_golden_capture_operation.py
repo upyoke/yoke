@@ -216,3 +216,60 @@ def test_an_explicit_destination_is_taken_as_given() -> None:
         )
         == chosen
     )
+
+
+def _register_in_second_project(conn, settings_token: str) -> None:
+    conn.execute(
+        "INSERT INTO projects(id,slug,name,public_item_prefix) "
+        "VALUES(2,'platform','Platform','PLAT')"
+    )
+    conn.execute(
+        "INSERT INTO project_capabilities(project_id,type,settings,created_at) "
+        "VALUES(2,?,?,'2026-08-02T00:00:00Z')",
+        (f"test-machine:{MACHINE}", settings_token),
+    )
+    conn.commit()
+
+
+def test_capture_names_every_projects_golden_beside_it(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # One machine registered in two projects keeps both goldens in one
+    # parent; retention must learn about the other project's golden here.
+    conn = make_conn()
+    configure_test_machine(conn, tmp_path, monkeypatch)
+    _declare_golden_baseline(conn)
+    other = "/Users/Shared/yoke-golden/tester-home-platform"
+    _register_in_second_project(
+        conn,
+        json.dumps(
+            validate_test_machine_settings(
+                {**TEST_MACHINE_SETTINGS, "golden_baseline_path": other}
+            )
+        ),
+    )
+
+    submitted, execution = run_operation("golden_capture", control=FakeHostControl())
+
+    assert submitted.primary_success, submitted.error
+    destination = execution["golden_destination"]
+    assert submitted.result_payload["kept_golden_paths"] == sorted({destination, other})
+    assert "kept_golden_paths_unknown" not in submitted.result_payload
+
+
+def test_an_unreadable_registration_makes_the_kept_goldens_unknown(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conn = make_conn()
+    configure_test_machine(conn, tmp_path, monkeypatch)
+    _declare_golden_baseline(conn)
+    _register_in_second_project(conn, "{not json")
+
+    submitted, _execution = run_operation("golden_capture", control=FakeHostControl())
+
+    assert submitted.primary_success, submitted.error
+    assert "kept_golden_paths" not in submitted.result_payload
+    assert "project 2" in submitted.result_payload["kept_golden_paths_unknown"]
+    assert "settings-replace" in submitted.result_payload["kept_golden_paths_unknown"]

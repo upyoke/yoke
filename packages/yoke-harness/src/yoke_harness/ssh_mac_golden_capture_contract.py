@@ -84,8 +84,10 @@ CAPTURE_REFUSAL_RECOVERY = {
     ),
     CAPTURE_REFUSAL_KIND_INSUFFICIENT_SPACE: (
         "{path} does not have room for this golden. Remove every snapshot "
-        "there except the registered golden and its .probes and .manifest "
-        "files, then retry `yoke test-machine golden-capture`."
+        "there except each project's registered golden for this machine "
+        "(`yoke test-machine get` shows golden_baseline_path) and their "
+        ".probes and .manifest files, then retry `yoke test-machine "
+        "golden-capture`."
     ),
     CAPTURE_REFUSAL_KIND_SPACE_CHECK_FAILED: (
         "The space check could not read {path} or the home. Repair that "

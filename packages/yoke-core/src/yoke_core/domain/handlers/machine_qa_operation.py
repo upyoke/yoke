@@ -41,6 +41,7 @@ from yoke_core.domain.handlers.machine_qa_operation_receipt import (
     recorded_operation_receipt,
 )
 from yoke_core.domain.machine_qa_golden_destination import (
+    kept_golden_fields,
     resolve_golden_capture_destination,
     selected_test_machine_row,
 )
@@ -308,6 +309,9 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
             "project": contract.project,
             "machine": machine,
             "golden_baseline_path": golden_baseline_path,
+            **kept_golden_fields(
+                conn, machine=machine, destination=golden_baseline_path
+            ),
             **performed_at_row(recorded),
         }
         if parsed.operation == VERIFY_OPERATION:

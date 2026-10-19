@@ -86,8 +86,9 @@ greeters, closing sessions and other users. Reset ends the fixture desktop.
 
 Before it writes, capture compares free space on the destination filesystem
 with the home's file bytes. `golden_capture_insufficient_space` names that
-parent and the recovery: remove every other snapshot there, keep the
-registered golden and its `.probes` and `.manifest` files, then retry
+parent and the recovery: remove every other snapshot there, keep each
+project's registered golden for this machine (`yoke test-machine get` shows
+`golden_baseline_path`) and their `.probes` and `.manifest` files, then retry
 `yoke test-machine golden-capture`. A check that cannot read the home or the
 filesystem refuses `golden_capture_space_check_failed` instead of a traceback.
 After the new golden is registered, capture deletes retired snapshots beside
@@ -95,10 +96,15 @@ it. A parent directory named for the test user is that user's golden root, so
 every other child goes, including dated homes, mixed captures, `.yoke-golden-*`
 temporaries and retired browser profiles. A shared parent deletes only this
 user's `USER-home-*` and `home-*` snapshots, so another user's baseline stays.
-The registered directory and its sidecars stay. A symlink is left in place.
+One machine can be registered in several projects that share a golden parent.
+The capture result's `kept_golden_paths` names every project's registered
+golden for this machine in that parent, and each one stays with its sidecars;
+only snapshots no project registers are deleted. A symlink is left in place.
 `golden_snapshot_retention_failed` means the new golden is already registered
-and the named leftovers are still there; remove them and do not capture again
-until they are gone. Windows/WSL capture uses this same Linux archive, so the
+and the named leftovers are still there; remove them, keep every project's
+registered golden, and do not capture again until they are gone. When the
+server cannot name the other projects' goldens (`kept_golden_paths` absent or
+`kept_golden_paths_unknown` set), nothing is deleted and the refusal says why. Windows/WSL capture uses this same Linux archive, so the
 same check and retention apply there.
 
 Linux user-service mutations share the relay's 180-second operation budget;
