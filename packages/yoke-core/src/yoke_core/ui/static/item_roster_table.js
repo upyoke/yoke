@@ -120,7 +120,7 @@ export function itemTable(documentNode, rows, rowHref, scope, projects, sort, on
       documentNode,
       "td",
       "item-muted",
-      row.owner || "unassigned",
+      row.owner_label,
     ));
     const claimCell = el(documentNode, "td", "item-muted");
     const claimedBy = claimLabel(row);

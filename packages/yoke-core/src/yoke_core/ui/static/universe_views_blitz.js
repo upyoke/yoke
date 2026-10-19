@@ -184,7 +184,7 @@ function blitzFactsPanel(documentNode, item) {
         item.workflow.stage_label || item.status,
       ),
     ],
-    ["Owner", item.owner || "unassigned"],
+    ["Owner", item.owner_label],
     ["Live claim", liveClaim],
     [
       "File budget",

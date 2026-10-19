@@ -47,7 +47,7 @@ test("Task roster rows suppress stale QA attention", async () => {
         rows: [{
           public_ref: "ACM-30", project_id: 7, title: "Refresh inventory",
           workflow_id: "task", status: "idea", stage_label: "Idea",
-          owner: "Rae", claimed_by: null,
+          owner_actor_id: 7, owner_name: "Rae", owner_label: "Rae (actor id: 7)", claimed_by: null,
           qa_attention: {
             verdict: "undetermined",
             verdict_reason: "Stale QA projection",

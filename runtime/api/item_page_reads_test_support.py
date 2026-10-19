@@ -228,7 +228,7 @@ def _connection() -> sqlite3.Connection:
     conn.execute(
         """
         INSERT INTO items VALUES (
-              51, 'Fix the footer', 'reviewing-implementation', 'medium', 'Rae',
+              51, 'Fix the footer', 'reviewing-implementation', 'medium', '4',
               0, '', '2026-07-25T12:00:00Z', '2026-07-26T12:00:00Z', NULL,
               NULL, NULL, NULL, NULL,
               '{"verification": true, "file_budget": true}',
@@ -243,6 +243,10 @@ def _connection() -> sqlite3.Connection:
     conn.execute(
         "INSERT INTO actors (id, kind, system_component, name) "
         "VALUES (3, 'human', NULL, 'Codex')"
+    )
+    conn.execute(
+        "INSERT INTO actors (id, kind, system_component, name) "
+        "VALUES (4, 'human', NULL, 'Rae')"
     )
     conn.execute("INSERT INTO harness_sessions VALUES ('session-z', 3, 'codex')")
     conn.execute(

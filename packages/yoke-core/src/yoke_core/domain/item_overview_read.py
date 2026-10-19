@@ -13,6 +13,7 @@ from yoke_core.domain.item_finished_times import (
     is_finished,
 )
 from yoke_core.domain.item_landings import landing_counts
+from yoke_core.domain.item_owner_label import owner_facts, resolve_owner_names
 from yoke_core.domain.item_page_claims import active_item_claims
 from yoke_core.domain.item_terminal_resources import terminal_stage_ids
 from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
@@ -64,7 +65,9 @@ COMPACT_ROSTER_FIELDS = (
     "workflow_id",
     "status",
     "stage_label",
-    "owner",
+    "owner_actor_id",
+    "owner_name",
+    "owner_label",
     "claimed_by",
     "qa_attention",
     "updated_at",
@@ -99,14 +102,12 @@ def enrich_item_overview_rows(
     *,
     compact: bool = False,
 ) -> list[dict[str, Any]]:
-    """Add stored owner label, public reference, and active-claim facts.
+    """Add owner, public reference, and active-claim facts.
 
     Public refs resolve to internal keys only for server-owned joins.
-    Missing actor labels render empty; distinct owners resolve once.
+    Owners carry ``item_owner_label`` facts; distinct owners resolve once.
     Compact mode emits COMPACT_ROSTER_FIELDS and skips lane reads.
     """
-    from yoke_core.domain.actors import ActorError, actor_name
-
     base_rows = [dict(row) for row in rows]
     if not base_rows:
         return []
@@ -129,32 +130,9 @@ def enrich_item_overview_rows(
             tuple(ids),
         )
         facts = {int(row["id"]): row for row in _dict_rows(cursor)}
-        actor_ids: set[int] = set()
-        raw_owners: dict[int, str] = {}
-        for item_id, fact in facts.items():
-            owner_raw = str(fact.get("owner") or "").strip()
-            raw_owners[item_id] = owner_raw
-            if not owner_raw or owner_raw.lower() in ("none", "null"):
-                continue
-            try:
-                actor_ids.add(int(owner_raw))
-            except ValueError:
-                continue
-        owner_by_actor: dict[int, str] = {}
-        for actor_id in actor_ids:
-            try:
-                owner_by_actor[actor_id] = actor_name(conn, actor_id)
-            except ActorError:
-                owner_by_actor[actor_id] = ""
-        owner_labels: dict[int, str] = {}
-        for item_id, owner_raw in raw_owners.items():
-            if not owner_raw or owner_raw.lower() in ("none", "null"):
-                owner_labels[item_id] = ""
-                continue
-            try:
-                owner_labels[item_id] = owner_by_actor.get(int(owner_raw), "")
-            except ValueError:
-                owner_labels[item_id] = owner_raw
+        owner_names = resolve_owner_names(
+            conn, (fact.get("owner") for fact in facts.values())
+        )
         worktrees: dict[int, list[dict[str, Any]]] = {}
         if not compact:
             lane_cursor = conn.execute(
@@ -223,7 +201,7 @@ def enrich_item_overview_rows(
                 "project_id": int(fact["project_id"]),
                 "project": str(fact["project"]),
                 "project_name": str(fact["project_name"]),
-                "owner": owner_labels.get(item_id, ""),
+                **owner_facts(fact.get("owner"), owner_names),
                 "claimed_by": claims.get(item_id),
                 "worktrees": worktrees.get(item_id, []),
                 "stage_label": runtime.stage_label(str(row["status"])),

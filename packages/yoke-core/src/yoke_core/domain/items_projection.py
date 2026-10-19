@@ -27,7 +27,8 @@ def item_text_expression(field: str, *, column: str | None = None) -> str:
 
 
 #: Columns whose emitted form is an actor display label rather than the
-#: raw stored value (which is a numeric ``actors.id``).
+#: raw stored value (which is a numeric ``actors.id``). ``owner`` renders
+#: name plus actor id through :mod:`yoke_core.domain.item_owner_label`.
 ACTOR_LABEL_FIELDS = frozenset({"source", "owner"})
 
 #: Default column projection for operator-facing item listings. ``id``

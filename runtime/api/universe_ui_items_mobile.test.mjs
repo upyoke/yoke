@@ -7,7 +7,7 @@ import { FakeDocument, allNodes, byClass } from "./universe_ui_dom_test_support.
 const fixture = {
   public_ref: ["DEMO", 7].join("-"), project_id: 1, project_slug: "demo",
   title: "Preserve context across a narrow viewport", workflow_id: "dash",
-  status: "implementing", owner: "A named owner",
+  status: "implementing", owner_actor_id: 4, owner_name: "A named owner", owner_label: "A named owner (actor id: 4)",
   claimed_by: { actor_label: "A separate claimant" },
   updated_at: "2026-01-01T12:00:00Z",
 };
@@ -23,7 +23,7 @@ for (const scope of [["1"], ["1", "2"]]) {
     assert.equal(cells.ID.textContent, fixture.public_ref);
     assert.equal(cells.Title.textContent, fixture.title);
     assert.equal(cells.Status.textContent, "implementing");
-    assert.equal(cells.Owner.textContent, fixture.owner);
+    assert.equal(cells.Owner.textContent, fixture.owner_label);
     assert.match(cells["Claimed by"].textContent, /A separate claimant/);
     assert.equal(cells["Claimed by"].children.length, 1);
     assert.equal(allNodes(cells["Last updated"]).some((node) => node.tagName === "TIME"), true);

@@ -27,7 +27,7 @@ function row(ref) {
     workflow_id: "issue",
     status: "idea",
     stage_label: "Idea",
-    owner: "",
+    owner_actor_id: null, owner_name: null, owner_label: "unassigned",
     claimed_by: null,
   };
 }
