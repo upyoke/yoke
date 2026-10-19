@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.machine_qa import _failure
 from yoke_core.domain.handlers.machine_qa_operation import (
-    OperatorOperation,
+    TestMachineOperationShape,
     refuse_browser_profile_capture,
 )
 from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
@@ -22,18 +22,9 @@ AbortReason = Literal[
 ]
 
 
-class TestMachineOperationAbortRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    project: str
+class TestMachineOperationAbortRequest(TestMachineOperationShape):
     lease_id: int = Field(ge=1)
     contract_digest: str = Field(min_length=1)
-    operation: OperatorOperation
-    # The issued shape, echoed back so the abort rebuilds the same contract it
-    # is releasing.
-    baseline: str | None = None
-    destination: str | None = None
-    plan_execution_id: str | None = None
     reason: AbortReason
 
 
