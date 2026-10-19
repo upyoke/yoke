@@ -25,6 +25,8 @@ import subprocess
 import sys
 from typing import Any
 
+from yoke_contracts.machine_authorization import MATCH_CODE_LABEL
+
 REACHED = "agent-presentation-reached:"
 _MAX_TURNS = 20
 
@@ -38,7 +40,7 @@ def _show(line: dict[str, Any]) -> None:
     state = line.get("state")
     if state == "browser":
         human = line.get("human") or {}
-        print(f"Match code: {human.get('user_code', '')}")
+        print(f"{MATCH_CODE_LABEL} {human.get('user_code', '')}")
         print(f"Open: {human.get('url', '')}")
         print(human.get("instructions", ""))
         print(line.get("guidance", ""), flush=True)

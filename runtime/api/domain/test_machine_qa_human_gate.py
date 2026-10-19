@@ -134,9 +134,9 @@ def test_machine_approval_announces_the_code_and_waits_for_the_person(
     beats: list[bool] = []
     result = _run(
         [
-            "Earlier run\nMachine connected.\nOne-time code: k7f2\nWaiting",
-            "One-time code: K7F2\nWaiting",
-            "One-time code: K7F2\nMachine connected.",
+            "Earlier run\nMachine connected.\nMatch code: k7f2\nWaiting",
+            "Match code: K7F2\nWaiting",
+            "Match code: K7F2\nMachine connected.",
         ],
         progress=lambda: beats.append(True),
     )
@@ -189,7 +189,7 @@ def test_wait_is_bounded_and_names_the_purpose(clock: list[float]) -> None:
 
 
 def test_denial_and_exit_end_the_wait_by_name(clock: list[float]) -> None:
-    denied = _run(["One-time code: K7F2", "One-time code: K7F2\nAuthorization expired"])
+    denied = _run(["Match code: K7F2", "Match code: K7F2\nAuthorization expired"])
     assert denied.error_code == "human_action_rejected"
     exited = _run(
         ["Company sign-in", "Company sign-in\nsetup_refused: no"],
@@ -204,5 +204,5 @@ def test_lost_lease_renewal_stops_the_wait(clock: list[float]) -> None:
     def renew() -> None:
         raise RuntimeError("lease lost")
 
-    result = _run(["One-time code: K7F2"], progress=renew)
+    result = _run(["Match code: K7F2"], progress=renew)
     assert result.error_code == "human_action_heartbeat_failed"

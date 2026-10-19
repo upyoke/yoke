@@ -8,6 +8,8 @@ on a human-only gate for the person's step, and proves the universe's rows.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_authorization import MATCH_CODE_LABEL
+
 import shlex
 from typing import Any, Sequence
 
@@ -38,7 +40,6 @@ SERVER = api_url("self-hosted")
 COMPANY = api_url("self-hosted-company-sign-in")
 OWNER_HOME = shlex.quote(str(approver_home("self-hosted")))
 LOCAL_HOME = shlex.quote(str(mode_root("local") / "home"))
-MATCH_CODE_LABEL = "Match code:"
 TEAM_SERVER_TEXT = "Connect to your team server."
 ADMISSION_TEXT = "How should this machine join your team server?"
 APPROVAL_TEXT = ("Sign in and approve your machine.", MATCH_CODE_LABEL)

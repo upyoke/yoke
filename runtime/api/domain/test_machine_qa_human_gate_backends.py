@@ -17,7 +17,7 @@ from yoke_core.domain.ssh_linux_terminal_recipe import execute_linux_recipe
 from yoke_core.domain.ssh_mac_terminal_recipe import execute_terminal_recipe
 from yoke_harness import ssh_linux_browser_approval
 
-SCREEN = "One-time code: K7F2\nMachine connected.\n"
+SCREEN = "Match code: K7F2\nMachine connected.\n"
 
 
 def _config(mode: str, purpose: str = "machine_approval") -> dict:

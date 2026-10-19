@@ -14,7 +14,7 @@ import re
 import time
 from typing import Any
 
-from yoke_contracts.machine_authorization import MATCH_CODE_PATTERN
+from yoke_contracts.machine_authorization import MATCH_CODE_LABEL, MATCH_CODE_PATTERN
 from yoke_harness.machine_browser_approval import BrowserApprovalResult
 from yoke_harness.ssh_mac_browser_approval import approve_machine_in_safari
 
@@ -106,7 +106,7 @@ def run_human_action_gate_with_io(
     transcript = read_transcript()
     code: str | None = None
     if purpose in _CODED_PURPOSES:
-        code = (labeled_value(transcript, "One-time code:") or "").upper()
+        code = (labeled_value(transcript, MATCH_CODE_LABEL) or "").upper()
         if not _MATCH_CODE.fullmatch(code):
             exited = gate_exit_result(action, transcript, read_exit_code)
             if exited is not None:
