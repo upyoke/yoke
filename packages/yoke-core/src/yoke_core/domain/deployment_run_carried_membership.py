@@ -188,7 +188,10 @@ def enroll_carried_members(
         if item_id not in members and item_id in required and item_id in needed
     ]
     blocked = {
-        dependent for dependent, _, _ in unshipped_dependency_pairs(conn, candidates)
+        dependent
+        for dependent, _, _ in unshipped_dependency_pairs(
+            conn, candidates, member_ids=members
+        )
     }
     candidates = [item_id for item_id in candidates if item_id not in blocked]
     with start_step(

@@ -176,14 +176,13 @@ def skipped_candidate_notice(
         if bool((project_set.get("derivation") or {}).get("contents_known"))
         for entry in project_set.get("items") or []
     }
-    candidates = sorted(
-        (range_ids | set(resolved.enrollable))
-        - excluded
-        - set(member_ids(conn, run_id))
-    )
+    members = set(member_ids(conn, run_id))
+    candidates = sorted((range_ids | set(resolved.enrollable)) - excluded - members)
     required = items_requiring_release_membership(conn, candidates)
     blocked = unshipped_dependency_pairs(
-        conn, [item_id for item_id in candidates if item_id in required]
+        conn,
+        [item_id for item_id in candidates if item_id in required],
+        member_ids=members,
     )
     parts: list[str] = []
     if blocked:

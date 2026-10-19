@@ -46,7 +46,7 @@ learns the other's part from its own skill. The split is the whole rule:
   skipped and why: held by another release, back in rework (status before
   its release stage), removed, or blocked by an open dependency on an unshipped
   item. Composition skips that dependent until its blocker ships or reaches
-  done. Completion dependencies read the item's done milestone; explicit
+  done; a blocker the same run enrolls takes its dependent with it. Completion dependencies read the item's done milestone; explicit
   environment dependencies also read its persisted delivery attribution.
   Completed members remain satisfied while siblings wait, fail or cancel.
   For incomplete blockers the notice names the holding run. The first
