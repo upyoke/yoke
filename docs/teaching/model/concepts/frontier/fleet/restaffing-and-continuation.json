@@ -1,7 +1,8 @@
 {
  "id": "restaffing-and-continuation",
  "title": "Restaffing and continuation",
- "status": "draft-copy",
+ "status": "observed",
  "page": "frontier",
- "position": 4
+ "position": 4,
+ "sources": [".agents/skills/yoke/steer/worker-lifecycle.md", "docs/public/verification/requirement-state.md"]
 }

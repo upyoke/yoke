@@ -1,0 +1,9 @@
+{
+ "id": "qa-execution-adoption",
+ "title": "Adopt captured QA after restaffing",
+ "status": "observed",
+ "form": "Do",
+ "verification": "Candidate tests cover transfer authority and preserved captures; deployed proof pending.",
+ "topics": ["frontier/fleet/restaffing-and-continuation"],
+ "sources": [".agents/skills/yoke/steer/worker-lifecycle.md", "docs/public/verification/requirement-state.md", "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_adoption.py"]
+}

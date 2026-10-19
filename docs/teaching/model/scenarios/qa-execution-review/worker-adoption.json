@@ -1,0 +1,12 @@
+{
+ "id": "worker-adoption",
+ "title": "Keep captured QA when a successor takes over",
+ "status": "observed",
+ "audience": "agent",
+ "when": "After an ended predecessor leaves a QA execution on the claimed item.",
+ "need": "Acquire the item work claim, explicitly adopt the same execution, then review its captured evidence or resume its original exact-ID command. Live or parked predecessors and missing session evidence refuse adoption. Transfer records are durable; adoption preserves captures, bundle identity and terminal state without reviving released host custody.",
+ "disclosure": "before action",
+ "surface": "Restaff recipe, QA ownership refusal and adopt help",
+ "review": "Candidate regression coverage; deployed proof pending.",
+ "sources": ["docs/public/verification/requirement-state.md", ".agents/skills/yoke/steer/worker-lifecycle.md", "runtime/api/domain/test_qa_plan_execution_adoption.py"]
+}

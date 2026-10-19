@@ -36,6 +36,7 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `qa.plan_cases.replace` | `none` |
 | `qa.plan_cases.sync` | `none` |
 | `qa.plan_execution.abort` | `qa_subject` |
+| `qa.plan_execution.adopt` | `qa_subject` |
 | `qa.plan_execution.advance` | `qa_subject` |
 | `qa.plan_execution.begin` | `qa_subject` |
 | `qa.plan_execution.complete` | `qa_subject` |
@@ -83,6 +84,13 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `test_machine.screenshot` | `none` |
 | `test_machine.settings_replace` | `none` |
 | `test_machine.verify` | `none` |
+
+## Adopt captured QA after restaffing
+
+`qa.plan_execution.adopt` transfers an ended predecessor's execution to its
+item's current work-claim holder and writes a durable transfer receipt. Use
+`yoke qa plan adopt --help`, then [captured QA recovery](../verification/requirement-state.md)
+for the complete item/deployment recipe and continuation boundaries.
 
 ## Case execution and evidence
 

@@ -192,7 +192,14 @@ yoke claims work holder-get PREFIX-N
    steer:project:item:restaff:{PREVIOUS_LAUNCH_ID}:level. Server composes current
    bound stage; successor reads checkpoint/lane, keeps work, resumes completed
    steps rather than replay. item_has_live_worker means finish termination first.
-4. By live deadline_at require succeeded registration and holder-get names
+4. If the predecessor left a QA execution, the successor acquires the item's
+   work claim and runs `yoke qa plan adopt --item PREFIX-N --execution-id ID
+   --reason TEXT` before review or exact-execution resume. Deployment QA uses
+   `--deployment-run-id RUN` instead of `--item`; the execution identifies the
+   claimed item. Adoption verifies an ended predecessor and records the transfer
+   without repeating captured approvals. It never restores lost host custody or
+   reopens terminal history. See [captured QA recovery](../../../../.yoke/docs/verification/requirement-state.md).
+5. By live deadline_at require succeeded registration and holder-get names
    successor. New worker reports its own leg; predecessor sends no further mail.
 
 Keep each entry body at or below 4,096 UTF-8 bytes; write only what changed and the next step, and move evidence to artifacts or field-notes.
