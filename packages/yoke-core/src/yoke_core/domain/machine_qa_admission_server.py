@@ -102,6 +102,8 @@ def invite_teammate_identity() -> None:
             "yoke_cli.main",
             "invite",
             TEAMMATE_EMAIL,
+            "--role",
+            "operator",
         ],
         env=environment,
         stdin=subprocess.DEVNULL,

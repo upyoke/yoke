@@ -196,6 +196,7 @@ BASE = {
     "tokens": [[1, None]],
     "identities": {},
     "consumed_invites": [],
+    "org_members": [1],
 }
 
 
@@ -232,6 +233,17 @@ BASE = {
             },
             "teammate-admitted",
             "consumed by m",
+        ),
+        (
+            {
+                **BASE,
+                "humans": [1, 2],
+                "machines": {"m": 2},
+                "tokens": [[1, None], [2, "m"]],
+                "consumed_invites": [[2, "m"]],
+            },
+            "teammate-admitted",
+            "without an org role",
         ),
     ],
 )

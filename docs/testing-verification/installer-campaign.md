@@ -170,13 +170,14 @@ creates the owner (`Fixture Owner`) and the owner's token, saved owner-only
 with an approver config: run owner commands with
 `YOKE_MACHINE_HOME=…/MODE/approver`. Company sign-in adds a disposable stub
 provider whose only identity is the teammate, and the owner runs
-`yoke invite` for that email first. `local` runs the real `yoke init --local` in `…/local/home`.
+`yoke invite EMAIL --role operator` first. `local` runs the real `yoke init --local` in `…/local/home`.
 The fixture never approves, invites a machine or redeems anything.
 
 `fixture.machine-admission-state-assert` compares the universe's people,
 machines, active credentials, linked identities and consumed teammate invites
 with the baseline recorded at start: `owner-admitted`, `teammate-admitted`
-(on `self-hosted`, exactly one invite consumed by the new machine) or
+(an org role for the teammate and, on `self-hosted`, exactly one invite
+consumed by the new machine) or
 `nothing-admitted`.
 A mismatch fails as `machine_admission_state_mismatch` with the changed rows;
 start, birth and cleanup failures name their reason and recovery in the

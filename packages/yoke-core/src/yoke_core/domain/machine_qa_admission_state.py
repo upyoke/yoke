@@ -4,8 +4,9 @@
 born; the post-state assertion compares the universe's actual rows with it,
 rather than trusting the journey's success text. It reads only who exists,
 which machines are registered to whom, which credentials are active for
-which actor and machine, which provider subjects are linked, and which
-teammate invites were consumed for which person and machine. It never reads
+which actor and machine, who holds an org role, which provider subjects are
+linked, and which teammate invites were consumed for which person and
+machine. It never reads
 or prints a credential or invite value.
 """
 
@@ -49,6 +50,9 @@ def snapshot(mode: str) -> dict[str, Any]:
             "SELECT actor_id, machine_id FROM api_tokens "
             "WHERE status = 'active' ORDER BY id"
         ).fetchall()
+        org_members = conn.execute(
+            "SELECT DISTINCT actor_id FROM actor_org_roles ORDER BY actor_id"
+        ).fetchall()
         invites = conn.execute(
             "SELECT actor_id, consumed_machine_id FROM teammate_invite_codes "
             "WHERE consumed_at IS NOT NULL ORDER BY id"
@@ -64,6 +68,7 @@ def snapshot(mode: str) -> dict[str, Any]:
         "tokens": [[actor_id, machine_id] for actor_id, machine_id in tokens],
         "identities": {subject: actor_id for subject, actor_id in identities},
         "consumed_invites": [list(row) for row in invites],
+        "org_members": [row[0] for row in org_members],
     }
 
 
@@ -129,6 +134,8 @@ def expectation_failures(
             )
         if owner == baseline["owner_actor_id"]:
             failures.append("the teammate's machine belongs to the owner")
+        if owner not in current["org_members"]:
+            failures.append(f"teammate {owner} was admitted without an org role")
         if (
             mode == "self-hosted-company-sign-in"
             and current["identities"].get(TEAMMATE_SUBJECT) != owner
