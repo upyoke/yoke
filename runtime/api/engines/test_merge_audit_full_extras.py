@@ -13,24 +13,12 @@ from unittest import mock
 import pytest
 
 from yoke_core.engines import merge_audit
-from runtime.api.engines.merge_audit_test_schema import (
-    apply_merge_audit_schema,
+from runtime.api.engines.merge_audit_test_seeds import (
+    seed_merge_audit_item,
     seed_merge_audit_task,
 )
-from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-
-
-@pytest.fixture()
-def tmp_db(tmp_path, monkeypatch):
-    """Backend-aware DB with the merge-audit tables; yields its path.
-
-    ``merge_audit.generate_report`` reads through the backend factory, so the
-    schema and seed must land in the same backend (the file on SQLite, the
-    repointed per-test database on Postgres).
-    """
-    monkeypatch.setenv("YOKE_PROJECT", "yoke")
-    with init_test_db(tmp_path, apply_schema=apply_merge_audit_schema) as path:
-        yield path
+from runtime.api.fixtures.file_test_db import connect_test_db
+from runtime.api.engines.merge_audit_full_test_support import tmp_db as tmp_db
 
 
 GIT_ENV = {
@@ -101,8 +89,8 @@ class TestMergeOrder:
     def test_recommended_merge_order(self, tmp_db, fake_repo):
         """Report includes recommended merge order."""
         conn = connect_test_db(tmp_db)
-        conn.execute(
-            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (600, 1, 600, 'Merge Order', 'implementing')"
+        seed_merge_audit_item(
+            conn, item_id=600, title="Merge Order", status="implementing"
         )
         seed_merge_audit_task(
             conn,
@@ -130,9 +118,7 @@ class TestSummaryCounts:
     def test_ready_branch_counted(self, tmp_db, fake_repo):
         """Ready branch (all tasks done) counted correctly."""
         conn = connect_test_db(tmp_db)
-        conn.execute(
-            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (700, 1, 700, 'Ready', 'implementing')"
-        )
+        seed_merge_audit_item(conn, item_id=700, title="Ready", status="implementing")
         seed_merge_audit_task(
             conn,
             epic_id=700,
@@ -154,9 +140,7 @@ class TestSummaryCounts:
     def test_blocked_branch_counted(self, tmp_db, fake_repo):
         """Blocked branch (incomplete tasks) counted correctly."""
         conn = connect_test_db(tmp_db)
-        conn.execute(
-            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (710, 1, 710, 'Blocked', 'implementing')"
-        )
+        seed_merge_audit_item(conn, item_id=710, title="Blocked", status="implementing")
         seed_merge_audit_task(
             conn,
             epic_id=710,
@@ -186,9 +170,7 @@ class TestSummaryCounts:
     def test_conflicts_detected_zero(self, tmp_db, fake_repo):
         """Summary shows 'Conflicts detected: 0' when no conflicts."""
         conn = connect_test_db(tmp_db)
-        conn.execute(
-            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (720, 1, 720, 'NC', 'implementing')"
-        )
+        seed_merge_audit_item(conn, item_id=720, title="NC", status="implementing")
         seed_merge_audit_task(
             conn,
             epic_id=720,
@@ -252,9 +234,7 @@ class TestCLI:
     def test_exit_code_always_zero(self, tmp_db, fake_repo):
         """CLI exits 0 even when there are warnings."""
         conn = connect_test_db(tmp_db)
-        conn.execute(
-            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (800, 1, 800, 'Ex', 'implementing')"
-        )
+        seed_merge_audit_item(conn, item_id=800, title="Ex", status="implementing")
         seed_merge_audit_task(
             conn,
             epic_id=800,

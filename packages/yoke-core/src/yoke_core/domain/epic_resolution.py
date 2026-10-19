@@ -260,12 +260,13 @@ def progress_note_list(
 # ---------------------------------------------------------------------------
 
 
-def simulation_get(conn, epic_id: str, phase: str) -> str:
-    """Get a simulation report (pipe-delimited).
+def latest_simulation(conn, epic_id: int, phase: str):
+    """Return the newest recorded simulation attempt for one phase, or None.
 
-    Format: id|epic_id|phase|result|body|created_at|verdict_reason
+    Simulations live as ``qa_kind='simulation'`` QA runs; ``result`` is the
+    report verdict (CLEAN, GAPS FOUND, UNDETERMINED or ERROR).
     """
-    row = query_one(
+    return query_one(
         conn,
         f"""SELECT qr.id,
                   qreq.item_id,
@@ -296,6 +297,14 @@ def simulation_get(conn, epic_id: str, phase: str) -> str:
            LIMIT 1""",
         (int(epic_id), phase, phase),
     )
+
+
+def simulation_get(conn, epic_id: str, phase: str) -> str:
+    """Get a simulation report (pipe-delimited).
+
+    Format: id|epic_id|phase|result|body|created_at|verdict_reason
+    """
+    row = latest_simulation(conn, int(epic_id), phase)
     if row is None:
         raise LookupError(f"simulation '{epic_id}/{phase}' not found")
     return _pipe_row(
