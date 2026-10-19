@@ -203,4 +203,64 @@ def test_hook_delivery_from_another_project_cannot_prove_install_readiness(monke
     monkeypatch.setattr(checks, "orientation_delivered", lambda session: True)
     result = run(checks.hc_session_hook_registration, project="42")[0]
     assert result.result == "FAIL"
+    assert "SESSION_HOOK_PROJECT_MISMATCH" in result.detail
     assert "Start a new harness session" in result.detail
+
+
+@pytest.mark.parametrize("project_id", [None, 42])
+@pytest.mark.parametrize("delivered", [False, True])
+def test_hook_readiness_reads_delivery_in_the_registered_scope(
+    monkeypatch, tmp_path, project_id, delivered
+):
+    from contextlib import nullcontext
+    from yoke_core.domain import project_scratch_identity
+    from yoke_core.domain.project_scratch_dir import hook_marker_path, scratch_project
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("YOKE_PROJECT", raising=False)
+    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
+    monkeypatch.setattr(
+        project_scratch_identity, "machine_scope_namespace", lambda: ("_machine-test",)
+    )
+    monkeypatch.setattr(
+        checks, "build_actor", lambda: SimpleNamespace(session_id="session")
+    )
+    monkeypatch.setattr(
+        checks, "relay", lambda *a: {"session_id": "session", "project_id": project_id}
+    )
+    # The marker in the other scope must never stand in for this session's proof.
+    for scope in (None, 42):
+        with scratch_project(str(scope)) if scope else nullcontext():
+            if scope != project_id or delivered:
+                hook_marker_path("session-orientation-delivered-session").touch()
+    result = run(checks.hc_session_hook_registration, project=None)[0]
+    assert result.result == ("PASS" if delivered else "FAIL")
+
+
+@pytest.mark.parametrize(
+    "error", [RuntimeError("authority_unreachable"), OSError("marker_unreadable")]
+)
+def test_hook_observation_failures_preserve_their_actual_reason(monkeypatch, error):
+    monkeypatch.setattr(
+        checks, "build_actor", lambda: SimpleNamespace(session_id="session")
+    )
+
+    def refused(*args):
+        raise error
+
+    monkeypatch.setattr(checks, "relay", refused)
+    result = run(checks.hc_session_hook_registration)[0]
+    assert result.result == "FAIL"
+    assert str(error) in result.detail
+    assert "SESSION_HOOK_UNOBSERVED" not in result.detail
+
+
+def test_unexpected_hook_check_errors_are_not_mislabeled_as_missing_delivery(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        checks, "build_actor", lambda: SimpleNamespace(session_id="session")
+    )
+    monkeypatch.setattr(checks, "relay", lambda *a: None)
+    with pytest.raises(AttributeError):
+        run(checks.hc_session_hook_registration)
