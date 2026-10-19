@@ -73,12 +73,11 @@ def human_data(human: SetupHuman | None) -> dict[str, Any] | None:
     }
 
 
-def wait_data(human: SetupHuman, *, silence_expected: bool = True) -> dict[str, Any]:
+def wait_data(human: SetupHuman) -> dict[str, Any]:
     return {
         "reason": "human_browser_approval",
         "max_seconds": human.max_seconds,
         "poll_interval_seconds": human.poll_interval_seconds,
-        "silence_expected": silence_expected,
     }
 
 
@@ -148,37 +147,36 @@ def question(prompt: SetupPrompt) -> dict[str, Any]:
 
 
 def browser(step: str, key: str, human: SetupHuman) -> dict[str, Any]:
+    """A link shown on the way to this call's outcome; nothing waits on it."""
     return response(
         STATE_BROWSER,
         step=step,
         key=key,
         human=human_data(human),
-        wait=wait_data(human),
         guidance=(
-            "Show the person this link and any one-time code, and ask them to "
-            "finish in their browser. Setup keeps waiting in this same command; "
-            "do not run it again while it waits."
+            "Show the person this link and any one-time code. Setup has moved "
+            "on; the last line says what to do next."
         ),
     )
 
 
-def approval_pending(step: str, key: str, human: SetupHuman) -> dict[str, Any]:
+def approval_pending(
+    step: str, key: str, human: SetupHuman, *, instead: str
+) -> dict[str, Any]:
     """Browser approval this call stopped at; the next call checks it once."""
     return response(
         STATE_BROWSER,
         step=step,
         key=key,
         human=human_data(human),
-        wait=wait_data(human, silence_expected=False),
+        wait=wait_data(human),
         answer_command=f"{yoke_executable()} setup --agent",
         guidance=(
             "Show the person this link and the match code and ask them to "
             "approve in their browser. This call has ended; when they say they "
             "are done, run answer_command. The same browser step again means "
             "approval is not finished yet. The code lapses after "
-            "wait.max_seconds; setup then asks to start a fresh one. To choose "
-            "another home instead, run `yoke setup --agent --discard` and "
-            "start again."
+            "wait.max_seconds; setup then asks to start a fresh one. " + instead
         ),
     )
 

@@ -64,21 +64,23 @@ answer the first question.
 
 ## Browser steps
 
-A line with `state` `browser` carries `human.url`, `human.user_code`,
-`human.instructions` and `wait`. Setup never opens a browser in agent mode.
-Show the person the link and code and ask them to finish in their browser.
+A line with `state` `browser` carries `human.url`, `human.user_code` and
+`human.instructions`. Setup never opens a browser in agent mode.
 
-- **Machine approval** (`key` `connect.hosted_machine_approval`) ends the
-  call. When the person says they approved, run its `answer_command`. The
-  same browser line again means approval is not finished. The code lapses
-  after `wait.max_seconds`; setup then offers a fresh one. To choose another
-  home instead, run `yoke setup --agent --discard` and start again.
-- **GitHub sign-in during Apply** keeps waiting in the same command; let it
-  run, and the next line arrives once they finish.
+As the last line, a `browser` line is a step waiting on the person: machine
+approval (`key` `connect.hosted_machine_approval`) or GitHub sign-in (`key`
+`github.machine`). The call has ended. Show the person the link and code and
+ask them to finish in their browser. When they say they are done, run the
+line's `answer_command`. The same browser line again means they have not
+finished. The code lapses after `wait.max_seconds`, and setup then offers a
+fresh one. `guidance` names how to choose differently instead.
 
-Device codes and tokens never appear in any line. The pending approval's
-short-lived device code waits in the private (0600) setup file until the
-approval completes, fails or lapses.
+Earlier in the output, a `browser` line is a link to show on the way, such as
+the GitHub App installation page; the last line says what comes next.
+
+Device codes and tokens never appear in any line. A pending step's
+short-lived device code waits in the private (0600) setup file until the step
+completes, fails or lapses.
 
 ## Secrets
 

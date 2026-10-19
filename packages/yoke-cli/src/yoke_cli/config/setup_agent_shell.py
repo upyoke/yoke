@@ -6,10 +6,9 @@ those flows call — ``_goto``, ``_replace_current``, ``_run_checking``,
 ``run_worker`` and the rest — without a terminal. Presenting a screen either
 answers it (an answer given on this command line, then a stored one, then a
 preset) or stops and prints it as the one waiting question. Checks run in
-line, browser steps are printed for the person and never opened, browser
-approval ends the call and resumes on the next one
-(:mod:`setup_agent_hosted_approval`), and every outcome is one JSON line from
-:mod:`setup_agent_response`.
+line, browser steps are printed for the person and never opened, a browser
+approval ends the call and resumes on the next one (:mod:`setup_agent_approvals`),
+and every outcome is one JSON line from :mod:`setup_agent_response`.
 """
 
 from __future__ import annotations
@@ -27,9 +26,10 @@ from yoke_cli.config import setup_agent_response as responses
 from yoke_cli.config.onboard_wizard_flows import SETUP_FLOWS, init_setup_state
 from yoke_cli.config.onboard_wizard_state import CopyTarget, _View
 from yoke_cli.config.setup_agent_answering import REVIEW_KEY, AnswerFlow, SetupRefusal
-from yoke_cli.config.setup_agent_hosted_approval import (
-    APPROVAL_KEY,
-    AgentHostedApproval,
+from yoke_cli.config.setup_agent_approvals import (
+    MACHINE_KEY,
+    AgentApprovals,
+    ApprovalPending,
 )
 from yoke_cli.config.setup_prompt import SetupHuman, SetupPrompt
 
@@ -38,7 +38,7 @@ class _StepFailed(RuntimeError):
     """The flow reached a screen that asks nothing and leads nowhere."""
 
 
-class AgentShell(AgentHostedApproval, AnswerFlow):
+class AgentShell(AgentApprovals, AnswerFlow):
     """Shell primitives the setup flows call, implemented without Textual."""
 
     opens_browser = False
@@ -123,6 +123,8 @@ class AgentShell(AgentHostedApproval, AnswerFlow):
         def finish() -> None:
             try:
                 result = work()
+            except ApprovalPending:
+                return  # the browser step is this call's outcome
             except Exception as exc:  # noqa: BLE001 - each check names its error route
                 on_error(exc)
                 return
@@ -239,7 +241,7 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
         if prompt.key == apply_prompts.APPLY_FAILED_KEY:
             self._finish_apply_failed(prompt)
             return
-        if prompt.key == APPROVAL_KEY:
+        if prompt.key == MACHINE_KEY:
             view.on_select(prompt.choices[0].value)
             return
         if not prompt.answerable:
