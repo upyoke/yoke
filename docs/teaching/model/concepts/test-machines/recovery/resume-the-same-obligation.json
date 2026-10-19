@@ -4,5 +4,6 @@
  "status": "observed",
  "page": "test-machine-recovery",
  "position": 4,
- "description": "Host-wait and settled-mission continuation commands omit --machine. The scheduler recovers each platform’s host from execution leases and runs, including continuation sources; a new platform selects a fresh eligible host. Correction-ready commands also omit the pin; scheduling follows each corrected case’s requirement replacement history to its failed attempt host."
+ "description": "Host-wait and settled-mission continuation commands omit --machine. The scheduler recovers each platform’s host from execution leases and runs, including continuation sources; a new platform selects a fresh eligible host. Correction-ready commands also omit the pin; scheduling follows each corrected case’s requirement replacement history to its failed attempt host.",
+ "sources": ["docs/public/verification/exploration.md", "packages/yoke-cli/src/yoke_cli/commands/qa_case.py"]
 }
