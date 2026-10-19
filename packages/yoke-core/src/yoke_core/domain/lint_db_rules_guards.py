@@ -157,10 +157,10 @@ RULE_TEXT_GUARDS_CLI = r"""
 # --- Check 5: Block claude CLI invocations that would nest a session ---
 # A Claude session that starts a second one crashes; a Codex or Cursor
 # caller starts a first session, and a sessionless flag starts none. The
-# classifier decides on the caller's harness family, so this branch only
-# finds the "claude" binary — first word of a segment, never a .claude/
-# path or the word inside a string or comment.
-if "claude" in command_stripped:
+# classifier decides on the caller's harness family; claude_invocations
+# finds the "claude" binary only in command position, never a path
+# argument such as runtime/harness/claude, a quoted string or heredoc text.
+if "claude" in command:
     from yoke_core.domain.lint_db_remote_claude import (
         REMOTE_CLAUDE_CLI_CHECK_ID,
         REMOTE_CLAUDE_DENIAL,
@@ -168,6 +168,7 @@ if "claude" in command_stripped:
     )
     from yoke_core.domain.lint_nested_claude_cli import (
         NESTED_CLAUDE_CLI_CHECK_ID,
+        claude_invocations,
         nested_claude_cli_denial,
     )
     _remote_claude_seen, _remote_claude_allowed = remote_claude_cli_state(command_stripped, data)
@@ -182,41 +183,22 @@ if "claude" in command_stripped:
         }
         print(json.dumps(result))
         sys.exit(0)
-    # Split command on compound operators (&&, ||, ;, |) and subshells $()
-    _segments = re.split(r"[;&|\n]+|\$\(", command_stripped)
-    for _seg in _segments:
-        _seg = _seg.strip()
-        if not _seg:
+    for _claude_words in claude_invocations(command):
+        if _remote_claude_allowed:
             continue
-        _words = _seg.split()
-        if not _words:
+        _nested_reason = nested_claude_cli_denial(_claude_words, data)
+        if _nested_reason is None:
             continue
-        _first = _words[0]
-        # Skip env var assignments preceding the command (e.g. VAR=val claude -p)
-        _word_idx = 0
-        while _word_idx < len(_words) and "=" in _words[_word_idx] and not _words[_word_idx].startswith("="):
-            _word_idx += 1
-        if _word_idx < len(_words):
-            _first = _words[_word_idx]
-        # Strip leading path to get basename
-        _basename = _first.rsplit("/", 1)[-1] if "/" in _first else _first
-        # Match exactly "claude" as the command binary
-        if _basename == "claude":
-            if _remote_claude_allowed:
-                continue
-            _nested_reason = nested_claude_cli_denial(_words[_word_idx:], data)
-            if _nested_reason is None:
-                continue
-            result = {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": _nested_reason,
-                    "check_id": NESTED_CLAUDE_CLI_CHECK_ID,
-                }
+        result = {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": _nested_reason,
+                "check_id": NESTED_CLAUDE_CLI_CHECK_ID,
             }
-            print(json.dumps(result))
-            sys.exit(0)
+        }
+        print(json.dumps(result))
+        sys.exit(0)
 
 """
 RULE_TEXT_BODY_BANS = r"""

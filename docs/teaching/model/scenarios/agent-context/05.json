@@ -4,13 +4,13 @@
  "status": "draft-copy",
  "audience": "agent",
  "when": "Delegating an authorized task or continuing its current phase",
- "need": "Canonical role → generated harness adapter → relevant conditional references, plus a dispatch prompt carrying item, lane, policies, project docs and QA. The Engineer paths are a concrete example of the role family.",
+ "need": "Canonical role → generated harness adapter → relevant conditional references, plus a dispatch prompt carrying item, lane, policies, project docs and QA. Before the first edit the worker must read the operation-home index and code-and-cli.md in its lane, then each home the index names before that operation; the role body and the Conduct dispatch prompt both require it. The Engineer paths are a concrete example of the role family.",
  "disclosure": "current cue",
  "surface": "Role renderer + harness-native adapter + task-specific dispatch context",
- "gap": "Shared conditional references currently use Claude rendering; the accepted harness-correct access repair still needs proof. This example does not certify every role/harness combination.",
+ "gap": "Shared conditional references currently use Claude rendering; the accepted harness-correct access repair still needs proof. This example does not certify every role/harness combination. The operation-home read is a required instruction with no read-receipt guard, so a worker that skips it is not refused.",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["FIRST-USER accepted guidance-access amendment"],
  "surface_notes": ["Task-specific dispatch prompt: Carries the actual item/artifacts, registered lane, resolved policies, relevant project/QA facts and role assignment. It is separate from native startup loading."],
- "sources": ["runtime/agents/engineer.md", "runtime/harness/claude/agents/yoke-engineer.md", "runtime/harness/codex/agents/yoke-engineer.toml", "runtime/harness/claude/agents/references/engineer/reflection.md"],
+ "sources": ["runtime/agents/engineer.md", "runtime/harness/claude/agents/yoke-engineer.md", "runtime/harness/codex/agents/yoke-engineer.toml", "runtime/harness/claude/agents/references/engineer/reflection.md", ".agents/skills/yoke/conduct/dispatch-context-prompts.md"],
  "position": 4
 }

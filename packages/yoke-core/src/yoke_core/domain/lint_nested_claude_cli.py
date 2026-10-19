@@ -22,6 +22,8 @@ and names the operator override.
 
 from __future__ import annotations
 
+import shlex
+from pathlib import PurePosixPath
 from typing import Mapping, Optional, Sequence
 
 from yoke_contracts.executor_labels import canonical_harness_id
@@ -33,6 +35,7 @@ from yoke_contracts.hook_runner.hook_guard_catalog import (
     NESTED_CLAUDE_CLI_CHECK_ID,
     NESTED_CLAUDE_CLI_GUARD,
 )
+from yoke_contracts.hook_runner.shell_guard_repairs import without_heredoc_bodies
 from yoke_core.domain import lint_config
 
 #: Payload key carrying the calling harness family across the relay split.
@@ -86,6 +89,44 @@ def resolve_caller_family(payload: object | None = None) -> Optional[str]:
         return None
 
 
+def claude_invocations(command: str) -> list[list[str]]:
+    """Return each command in ``command`` whose binary is ``claude``.
+
+    Each entry is that command's own words, binary first. A word is the
+    binary only in command position: after a shell operator, a newline or an
+    opening ``$(``/``(``, past any ``VAR=value`` prefixes. Line continuations
+    join first and heredoc bodies drop, so a path argument such as
+    ``runtime/harness/claude`` on a continued line is never read as a command.
+    Text the shell cannot tokenize runs nothing, so it names no invocation.
+    """
+    text = without_heredoc_bodies(command.replace("\\\n", " "))
+    try:
+        lexer = shlex.shlex(text, posix=True, punctuation_chars=";&|()")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        tokens = list(lexer)
+    except ValueError:
+        return []
+    segments: list[list[str]] = [[]]
+    for token in tokens:
+        if token and set(token) <= set(";&|()"):
+            segments.append([])
+        else:
+            segments[-1].append(token)
+    invocations: list[list[str]] = []
+    for words in segments:
+        index = 0
+        while (
+            index < len(words)
+            and "=" in words[index]
+            and not words[index].startswith("=")
+        ):
+            index += 1
+        if index < len(words) and PurePosixPath(words[index]).name == "claude":
+            invocations.append(words[index:])
+    return invocations
+
+
 def starts_no_session(words: Sequence[str]) -> bool:
     """Return True when this ``claude`` invocation only prints and exits."""
     arguments = [word for word in list(words)[1:] if word]
@@ -130,6 +171,7 @@ __all__ = [
     "NESTED_CLAUDE_CLI_GUARD",
     "SESSIONLESS_FLAGS",
     "UNKNOWN_CALLER_CLAUDE_CLI_DENIAL",
+    "claude_invocations",
     "nested_claude_cli_denial",
     "resolve_caller_family",
     "starts_no_session",
