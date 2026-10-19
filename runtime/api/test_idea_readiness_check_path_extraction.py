@@ -92,7 +92,8 @@ def test_broadened_paths_recognized(conn_with_claim):
             (tid, path),
         )
         conn.execute(
-            f"INSERT INTO path_claim_targets VALUES (10, {p})", (tid,),
+            f"INSERT INTO path_claim_targets VALUES (10, {p})",
+            (tid,),
         )
     conn.commit()
     issues = verify_file_budget_claim_consistency(conn, 1)
@@ -101,15 +102,15 @@ def test_broadened_paths_recognized(conn_with_claim):
     )
 
 
-def test_lowercase_top_level_filename_still_ignored(conn_with_claim):
-    """Lower-cased top-level paths (e.g. ``readme.md``, ``config.toml``)
-    stay outside the recognized set unless they are dotfiles."""
+def test_top_level_filename_with_extension_passes_consistency(conn_with_claim):
+    """A root file such as ``leaves.md`` named in both the File Budget
+    and the planned path claim must not report a consistency issue."""
     conn, _ = conn_with_claim
     p = _p(conn)
     spec = (
         "## File Budget\n\n"
-        "- `readme.md` — lowercase, intentionally not matched\n"
-        "- `runtime/api/domain/foo.py` — anchor\n"
+        "- `leaves.md` — root notes file.\n"
+        "- `items.section.upsert` — function id, not a path.\n"
     )
     conn.execute(f"INSERT INTO items (id, spec) VALUES (1, {p})", (spec,))
     conn.execute(
@@ -117,14 +118,9 @@ def test_lowercase_top_level_filename_still_ignored(conn_with_claim):
         "(id, owner_kind, owner_item_id, state) "
         "VALUES (10, 'item', 1, 'planned')"
     )
-    conn.execute(
-        "INSERT INTO path_targets VALUES (1, 'runtime/api/domain/foo.py', 'file')"
-    )
+    conn.execute("INSERT INTO path_targets VALUES (1, 'leaves.md', 'file')")
     conn.execute("INSERT INTO path_claim_targets VALUES (10, 1)")
     conn.commit()
-    # lowercase readme.md is not declared in claim, and not extracted
-    # from the budget — claim-vs-budget consistency holds because both
-    # sides agree on the empty-or-py-only set.
     issues = verify_file_budget_claim_consistency(conn, 1)
     assert issues == []
 
@@ -154,7 +150,8 @@ def test_top_level_dotfile_passes_consistency(conn_with_claim):
             (tid, path),
         )
         conn.execute(
-            f"INSERT INTO path_claim_targets VALUES (10, {p})", (tid,),
+            f"INSERT INTO path_claim_targets VALUES (10, {p})",
+            (tid,),
         )
     conn.commit()
 
@@ -201,13 +198,12 @@ def test_file_budget_section_extends_through_level3_subheadings(
             (tid, path),
         )
         conn.execute(
-            f"INSERT INTO path_claim_targets VALUES (10, {p})", (tid,),
+            f"INSERT INTO path_claim_targets VALUES (10, {p})",
+            (tid,),
         )
     conn.commit()
     issues = verify_file_budget_claim_consistency(conn, 1)
-    assert issues == [], (
-        f"expected all three under-### paths recognized; got: {issues}"
-    )
+    assert issues == [], f"expected all three under-### paths recognized; got: {issues}"
 
     extracted = _extract_file_budget_paths(spec)
     assert extracted == {
@@ -246,7 +242,8 @@ def test_extensionless_project_policy_passes_consistency(conn_with_claim):
             (tid, path),
         )
         conn.execute(
-            f"INSERT INTO path_claim_targets VALUES (10, {p})", (tid,),
+            f"INSERT INTO path_claim_targets VALUES (10, {p})",
+            (tid,),
         )
     conn.commit()
 
