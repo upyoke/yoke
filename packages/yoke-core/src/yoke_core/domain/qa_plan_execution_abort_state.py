@@ -1,4 +1,4 @@
-"""Cooperative host aborts retain custody until the runner proves restoration."""
+"""Cooperative host aborts retain custody until required cleanup is proven."""
 
 import json
 
@@ -35,8 +35,6 @@ def require_host_restored(conn, execution, *, reason, commit):
     ):
         return
     roster = execution.get("roster") or []
-    if not any(case.get("runner_id") == "host_control" for case in roster):
-        return
     cursor = int(execution["cursor_ordinal"])
     request = abort_request(execution)
     prior = str(execution.get("release_reason") or "")
@@ -50,15 +48,20 @@ def require_host_restored(conn, execution, *, reason, commit):
             len(roster) - 1,
         )
     )
-    if host_restored(conn, execution, ordinal):
+    if roster[ordinal].get("runner_id") != "host_control":
+        return
+    if host_cleanup_proven(conn, execution, ordinal):
         return
     if not commit:
         raise QaPlanExecutionStateError(
-            "qa_abort_restore_required: in-flight host work must stop and prove "
-            "restoration before this operation can settle it. Run `yoke qa plan "
+            "qa_abort_restore_required: in-flight host work must stop and record "
+            "cleanup, including restoration of any declared baseline, before "
+            "this operation can settle it. Run `yoke qa plan "
             "abort` for this execution's item, deployment run or standalone "
-            "project, keep its runner connected through cleanup, then retry "
-            "this operation. No caller changes were committed."
+            "project and keep its runner connected through cleanup. Retry only "
+            "after cleanup proof is recorded; if the runner is gone or cleanup "
+            "fails, ask the control-plane operator to recover the host and record "
+            "verified cleanup evidence. No caller changes were committed."
         )
     checkpoint = json.loads(inflight_checkpoint(execution)[len(PAUSE_REASON) :])
     checkpoint["abort"] = request or {"reason": reason, "ordinal": ordinal}
@@ -71,14 +74,19 @@ def require_host_restored(conn, execution, *, reason, commit):
     execution["release_reason"] = encoded
     raise QaPlanExecutionStateError(
         "qa_abort_restore_pending: cancellation is recorded; host custody is retained "
-        "until the runner stops and records starting_state_restore proof. Keep the "
-        "runner connected and retry abort after cleanup. If the runner is gone or "
-        "restoration fails, ask the control-plane operator to recover the host and "
-        "record verified restore evidence before releasing custody."
+        "until the runner stops and records starting_state_restore cleanup proof. "
+        "A declared baseline requires restored=true; an as_is case or a case "
+        "without a baseline records that no restoration is required. Keep the "
+        "runner connected and retry only after that proof is recorded. If the "
+        "runner is gone or cleanup fails, ask the control-plane operator to recover "
+        "the host and record verified cleanup evidence before releasing custody."
     )
 
 
-def host_restored(conn, execution, ordinal):
+def host_cleanup_proven(conn, execution, ordinal):
+    case = execution["roster"][ordinal]
+    baseline = case.get("host_baseline")
+    restore_required = case.get("starting_state") != "as_is" and bool(baseline)
     for row in result_rows(conn, str(execution["id"])):
         if row["ordinal"] != ordinal:
             continue
@@ -94,16 +102,17 @@ def host_restored(conn, execution, ordinal):
             "evidence"
         ) or {}
         restore = evidence.get("starting_state_restore") or {}
-        if restore.get("restored") is True and restore.get("baseline") == execution[
-            "roster"
-        ][ordinal].get("host_baseline"):
+        if restore_required:
+            if restore.get("restored") is True and restore.get("baseline") == baseline:
+                return True
+        elif restore:
             return True
     return False
 
 
 def settle_host_abort(conn, execution):
     request = abort_request(execution)
-    if request and host_restored(conn, execution, int(request["ordinal"])):
+    if request and host_cleanup_proven(conn, execution, int(request["ordinal"])):
         from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
 
         finish_plan_execution(

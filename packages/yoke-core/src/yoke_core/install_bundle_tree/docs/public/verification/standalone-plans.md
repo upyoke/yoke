@@ -33,8 +33,10 @@ target, capability, serial lease, evidence, and review contracts.
 Read proof with `yoke qa plan get PLAN --project P --full`, then inspect returned
 requirement and run ids through QA reads. Abort with
 `yoke qa plan abort --project P --execution-id ID --reason TEXT`.
-An in-flight host abort retains custody until the runner records restoration;
-follow [safe host cancellation](deployment-plan-execution.md#stop-host-work-safely)
+An in-flight host abort retains custody until the runner records case cleanup;
+only a declared baseline requires restoration. An `as_is` case or chain without
+a baseline settles on its no-restore cleanup receipt. Follow
+[safe host cancellation](deployment-plan-execution.md#stop-host-work-safely)
 when it returns `qa_abort_restore_pending`.
 `--continue-mission` resumes a stale-settled mission with its unchanged plan snapshot
 and preserved host state. Keep `--machine NAME` from the emitted continuation
