@@ -180,6 +180,8 @@ def from_readback(
         kind = PENDING
     elif readback.membership is None or readback.admitted():
         kind = PENDING
+    elif readback.undetermined():
+        kind = PENDING
     elif failed:
         kind = ENTRY_CHECKS_FAILED
     elif state.closed:

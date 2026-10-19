@@ -14,6 +14,7 @@ from yoke_core.domain.merge_queue_landing_record import (
 from yoke_core.domain.merge_queue_landing_record_state import (
     CLOSED_UNMERGED,
     CONFLICTED,
+    LANDED,
     PENDING,
     STALLED,
 )
@@ -187,3 +188,33 @@ def test_closed_and_unheld_open_pull_requests_keep_distinct_recoveries():
 
     assert classify(closed=True).state == CLOSED_UNMERGED
     assert classify(closed=False).state == STALLED
+
+
+def _unheld_open_record(merge_state_status: str, *, merged: bool = False):
+    return from_readback(
+        item_id=101,
+        project_id=1,
+        pr_number="42",
+        readback=LandingReadback(
+            state=PrLandingState(
+                merged=merged,
+                closed=False,
+                auto_merge_active=False,
+                merge_state_status=merge_state_status,
+            ),
+            membership=PrQueueMembership(in_queue=False, mergeable=""),
+            required_checks=(),
+        ),
+        observed_at="2026-10-19T13:45:29Z",
+    )
+
+
+def test_a_pull_request_github_is_mid_merge_on_records_pending():
+    """GitHub clears the entry and arming mid-merge but reports unknown."""
+    assert _unheld_open_record("unknown").state == PENDING
+    assert _unheld_open_record("unknown", merged=True).state == LANDED
+
+
+def test_a_known_merge_state_without_a_holder_still_records_stalled():
+    assert _unheld_open_record("clean").state == STALLED
+    assert _unheld_open_record("blocked").state == STALLED

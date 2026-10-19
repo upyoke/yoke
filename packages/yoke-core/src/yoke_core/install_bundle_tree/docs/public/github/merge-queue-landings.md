@@ -39,7 +39,10 @@ the stop is still reported if a later rerun passed without restoring arming.
 An `UNMERGEABLE` entry reports a conflict even while GitHub retains it behind
 other entries: rebase onto the base and re-run verification before merge re-entry.
 An unreadable queue membership proves no stop and is retried on the next
-observation. A merged pull request receives the normal completion notice.
+observation. So does an open pull request whose merge state GitHub reports as
+unknown: GitHub reports that while it recomputes, including mid-merge after it
+clears the queue entry and merge-when-ready, so the observation stays pending
+until a later read shows the merge or a known refusal. A merged pull request receives the normal completion notice.
 
 Recovery belongs to the holder: address the named check or protection rule
 and re-run the same governed `yoke merge item` command. If the lane or base
