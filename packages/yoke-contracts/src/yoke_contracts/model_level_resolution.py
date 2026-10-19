@@ -3,7 +3,10 @@
 from dataclasses import dataclass
 from yoke_contracts.model_reference import lookup_model_reference
 from yoke_contracts.session_control.native_model_parsers import cursor_token_effort
-from yoke_contracts.session_model_facts import CLAUDE_CONTEXT_TIER_SUFFIX
+from yoke_contracts.session_model_facts import (
+    CLAUDE_CONTEXT_TIER_SUFFIX,
+    NOT_REPORTED_EFFORT,
+)
 
 EFFORT_ORDER = ("none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra")
 MODEL_CLASSES = {
@@ -84,6 +87,15 @@ def resolve_model_level(levels, *, model, effort, records):
     if not actual_effort:
         return ModelLevelResolution(
             None, record.model_id, actual_effort, "session_effort_unreported"
+        )
+    if actual_effort == NOT_REPORTED_EFFORT:
+        # The harness was read and named no effort: the lowest level holds
+        # the session, and the reason stays on it until the harness reports.
+        return ModelLevelResolution(
+            levels[0].name if levels else None,
+            record.model_id,
+            actual_effort,
+            "session_effort_not_reported",
         )
     published = {normalized_effort(value) for value in record.reasoning_efforts}
     if ordinal is None or actual_effort not in published:

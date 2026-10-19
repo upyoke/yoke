@@ -129,3 +129,23 @@ def test_missing_effort_is_distinct_from_unpublished_effort(effort, reason):
         default_levels(), model="claude-opus-5-5", effort=effort, records=RECORDS
     )
     assert (result.level, result.reason) == (None, reason)
+
+
+@pytest.mark.parametrize("model", ["gpt-6-astra", "claude-opus-5-5", "gpt-6-luna"])
+def test_a_not_reported_effort_takes_the_lowest_level_and_names_why(model):
+    levels = default_levels()
+
+    result = resolve_model_level(
+        levels, model=model, effort="not_reported", records=RECORDS
+    )
+
+    assert result.level == levels[0].name
+    assert result.reason == "session_effort_not_reported"
+
+
+def test_a_not_reported_effort_on_an_unknown_model_still_resolves_no_level():
+    result = resolve_model_level(
+        default_levels(), model="unknown", effort="not_reported", records=RECORDS
+    )
+
+    assert (result.level, result.reason) == (None, "session_model_unknown")

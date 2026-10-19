@@ -17,7 +17,9 @@ What each harness reports, measured rather than assumed:
   not run yet reports its model with the window still unattested.
 * **codex** — its rollout carries ``turn_context`` (model and effort) and
   a declared ``model_context_window``, the one served window any supported
-  harness states outright.
+  harness states outright. A turn whose context names no effort records
+  :data:`~yoke_contracts.session_model_facts.NOT_REPORTED_EFFORT`, never
+  the configuration default it may have started from.
 * **cursor** — its per-conversation store names the served variant, and
   because Cursor encodes effort in the variant name that single string
   reports both. It persists no window.
@@ -37,10 +39,12 @@ from pathlib import Path
 from typing import Any, Mapping, Optional
 
 from yoke_contracts.session_model_facts import (
+    NOT_REPORTED_EFFORT,
     SessionModelFacts,
     effort_suffix_of,
     normalize_context_window_tokens,
     normalize_reasoning_effort,
+    normalize_served_effort,
 )
 from yoke_harness.artifact_scan import scan_rows, tail_rows_newest_first
 from yoke_harness.codex_artifact_reader import (
@@ -52,7 +56,6 @@ from yoke_harness.codex_artifact_reader import (
 from yoke_harness.artifact_watermark import (
     MODEL_KIND,
     ArtifactWatermark,
-    fold_is_behind,
     load_watermark,
     save_watermark,
     stored_totals,
@@ -121,27 +124,6 @@ def _claude_facts(
     return SessionModelFacts(context_window_tokens=window)
 
 
-def served_facts_catching_up(executor: str, payload: Mapping[str, Any]) -> bool:
-    """True when this session's served facts are mid-fold and behind.
-
-    A caller that has already shipped a model stops resolving, which is
-    what keeps a settled session cheap. That has to yield while a fold is
-    knowingly behind: the newest statement is the served fact, so a
-    session whose rollout is still being caught up may have shipped an
-    older one, and only continued resolving reaches the current answer.
-    Harnesses whose model reads are current by construction — a bounded
-    tail, a conversation store — are never behind.
-    """
-    try:
-        from yoke_harness.hooks.identity_runtime import is_codex
-
-        if not is_codex(executor):
-            return False
-        return fold_is_behind(_codex_thread_id(payload), kind=MODEL_KIND)
-    except Exception:  # noqa: BLE001 — an unreadable record blocks nothing
-        return False
-
-
 def _codex_thread_id(payload: Mapping[str, Any]) -> str:
     from yoke_harness.hooks.identity_runtime import resolve_session_id
 
@@ -191,9 +173,10 @@ def _codex_rollout_facts(path: Path, thread_id: str) -> SessionModelFacts:
                 return
             if row.get("type") == "turn_context":
                 held["model"] = _served_model(block.get("model")) or held.get("model")
-                held["effort"] = normalize_reasoning_effort(
-                    block.get("effort")
-                ) or held.get("effort")
+                held["effort"] = (
+                    normalize_reasoning_effort(block.get("effort"))
+                    or NOT_REPORTED_EFFORT
+                )
             held["window"] = _codex_window(block) or held.get("window")
 
         scan = scan_rows(
@@ -231,7 +214,7 @@ def _facts_from_record(
         return SessionModelFacts()
     return SessionModelFacts(
         model=_served_model(held.get("model")),
-        reasoning_effort=normalize_reasoning_effort(held.get("effort")),
+        reasoning_effort=normalize_served_effort(held.get("effort")),
         context_window_tokens=normalize_context_window_tokens(held.get("window")),
     )
 
@@ -275,5 +258,4 @@ def _text(value: object) -> str:
 __all__ = [
     "TRANSCRIPT_SCAN_LINES",
     "attest_served_facts",
-    "served_facts_catching_up",
 ]

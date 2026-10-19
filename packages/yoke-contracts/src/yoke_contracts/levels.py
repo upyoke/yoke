@@ -182,8 +182,15 @@ UNRESOLVED_LEVEL_REASONS = {
 }
 
 
-def unresolved_level_reason(levels, *, model, effort, records):
-    """The reason code a session with these facts resolves to no level."""
+#: Why a session holds the level it does when that level is a placement
+#: rather than a measurement, as the board and session reads print it.
+PLACED_LEVEL_REASONS = {
+    "session_effort_not_reported": "effort not reported by the harness",
+}
+
+
+def level_reason(levels, *, model, effort, records):
+    """The reason code for no level, or for a placed level; else ``None``."""
     if not str(model or "").strip():
         return "session_model_unreported"
     return resolve_model_level(
@@ -192,7 +199,7 @@ def unresolved_level_reason(levels, *, model, effort, records):
 
 
 def level_presentation(levels, level, *, reason=None):
-    """Label and glyph for a stored level; an unresolved one names its reason."""
+    """Label and glyph for a stored level; unresolved or placed names why."""
     if level_is_unresolved(level):
         text = UNRESOLVED_LEVEL_REASONS.get(str(reason or ""), "")
         return {
@@ -201,12 +208,13 @@ def level_presentation(levels, level, *, reason=None):
             "reason": str(reason or ""),
         }
     name = str(level or "")
-    return {
-        "label": name,
-        "glyph": next(
-            (candidate.glyph for candidate in levels if candidate.name == name), ""
-        ),
-    }
+    glyph = next(
+        (candidate.glyph for candidate in levels if candidate.name == name), ""
+    )
+    placed = PLACED_LEVEL_REASONS.get(str(reason or ""))
+    if placed:
+        return {"label": f"{name} ({placed})", "glyph": glyph, "reason": reason}
+    return {"label": name, "glyph": glyph}
 
 
 __all__ = [
@@ -215,13 +223,14 @@ __all__ = [
     "Level",
     "LevelEntry",
     "LevelsError",
+    "PLACED_LEVEL_REASONS",
     "UNRESOLVED_LEVEL_REASONS",
     "default_levels",
     "level_for_session",
     "level_name_error",
+    "level_reason",
     "level_presentation",
     "levels_payload",
     "parse_levels",
     "resolve_effective_levels",
-    "unresolved_level_reason",
 ]

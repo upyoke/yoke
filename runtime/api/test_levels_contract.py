@@ -14,7 +14,7 @@ from yoke_contracts.levels import (
     parse_levels,
     resolve_effective_levels,
     level_presentation,
-    unresolved_level_reason,
+    level_reason,
 )
 from yoke_contracts.model_reference_data import MODEL_RECORDS
 
@@ -150,9 +150,7 @@ def test_unresolved_presentation_never_prints_primary(level):
 )
 def test_unresolved_presentation_names_its_reason(model, effort, reason, label):
     levels = default_levels()
-    found = unresolved_level_reason(
-        levels, model=model, effort=effort, records=MODEL_RECORDS
-    )
+    found = level_reason(levels, model=model, effort=effort, records=MODEL_RECORDS)
     assert found == reason
     assert level_presentation(levels, "primary", reason=found) == {
         "label": f"no level: {label}",
@@ -182,3 +180,27 @@ def test_unsafe_glyph_refuses():
     raw[0]["glyph"] = "a"
     with pytest.raises(LevelsError, match="level_glyph_unsafe"):
         parse_levels(raw)
+
+
+def test_a_not_reported_effort_presents_the_lowest_level_with_its_reason():
+    levels = default_levels()
+    found = level_reason(
+        levels, model="gpt-6-astra", effort="not_reported", records=MODEL_RECORDS
+    )
+    lowest = levels[0]
+    assert found == "session_effort_not_reported"
+    assert level_presentation(levels, lowest.name, reason=found) == {
+        "label": f"{lowest.name} (effort not reported by the harness)",
+        "glyph": lowest.glyph,
+        "reason": "session_effort_not_reported",
+    }
+
+
+def test_a_measured_level_presents_no_reason():
+    levels = default_levels()
+    assert (
+        level_reason(
+            levels, model="claude-opus-5-5", effort="medium", records=MODEL_RECORDS
+        )
+        is None
+    )

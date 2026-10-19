@@ -48,6 +48,13 @@ REASONING_EFFORT_VALUES = (
     "ultra",
 )
 
+#: The served effort recorded when a harness ran a turn and its artifact
+#: named no effort for it. ``None`` means nothing has been read yet; this
+#: value means the artifact was read and stated none. It never comes from
+#: configuration or a catalog default, and work admission places it at the
+#: lowest level with ``session_effort_not_reported``.
+NOT_REPORTED_EFFORT = "not_reported"
+
 #: Claude spells its million-token context tier as a selector suffix on the
 #: model string (``claude-opus-5[1m]``). The suffix is an ask: the served id
 #: never carries it back, so it is requested-side only.
@@ -177,6 +184,8 @@ def facts_from_mapping(source: Any) -> SessionModelFacts:
         raw = source.get(field) if hasattr(source, "get") else None
         if field.endswith("context_window_tokens"):
             values[field] = normalize_context_window_tokens(raw)
+        elif field == "reasoning_effort":
+            values[field] = normalize_served_effort(raw)
         elif field.endswith("reasoning_effort"):
             values[field] = normalize_reasoning_effort(raw)
         elif field == "model":
@@ -203,6 +212,13 @@ def normalize_reasoning_effort(value: object) -> Optional[str]:
         return None
     token = value.strip().lower()
     return token if token in REASONING_EFFORT_VALUES else None
+
+
+def normalize_served_effort(value: object) -> Optional[str]:
+    """Return a recognized served effort, including the not-reported reading."""
+    if isinstance(value, str) and value.strip().lower() == NOT_REPORTED_EFFORT:
+        return NOT_REPORTED_EFFORT
+    return normalize_reasoning_effort(value)
 
 
 def normalize_context_window_tokens(value: object) -> Optional[int]:
@@ -283,6 +299,7 @@ __all__ = [
     "CLAUDE_CONTEXT_TIER_TOKENS",
     "MODEL_FACT_FIELDS",
     "NAME_ENCODED_EFFORT_HARNESSES",
+    "NOT_REPORTED_EFFORT",
     "PLACEHOLDER_MODEL_VALUES",
     "REQUESTED_LABEL",
     "UNKNOWN_MODEL_DISPLAY",
@@ -299,6 +316,7 @@ __all__ = [
     "model_display",
     "normalize_context_window_tokens",
     "normalize_reasoning_effort",
+    "normalize_served_effort",
     "requested_context_window_of",
     "requested_facts_of",
     "served_model_or_none",

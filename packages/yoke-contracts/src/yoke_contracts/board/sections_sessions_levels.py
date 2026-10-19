@@ -19,7 +19,7 @@ from yoke_contracts.levels import (
     Level,
     LevelsError,
     resolve_effective_levels,
-    unresolved_level_reason,
+    level_reason,
 )
 from yoke_contracts.model_level_resolution import routing_effort_of, routing_model_of
 from yoke_contracts.model_reference_catalog import validate_catalog
@@ -80,16 +80,16 @@ def _current_records(db: BoardDBLike) -> tuple:
         return ()
 
 
-def board_unresolved_reason(
+def board_level_reason(
     db: BoardDBLike, session_id: str, levels: tuple[Level, ...]
 ) -> str:
-    """Why one session holds no level, as a reason code (``""`` if unknown)."""
+    """Why one session holds no level or a placed one (``""`` if neither)."""
     rows = db.query_quiet(_SESSION_FACTS_SQL, (session_id,))
     if not rows:
         return ""
     model, requested_model, effort, requested_effort = rows[0][:4]
     return (
-        unresolved_level_reason(
+        level_reason(
             levels,
             model=routing_model_of(model, requested_model),
             effort=routing_effort_of(effort, requested_effort, model),
@@ -99,4 +99,4 @@ def board_unresolved_reason(
     )
 
 
-__all__ = ["board_levels", "board_unresolved_reason"]
+__all__ = ["board_level_reason", "board_levels"]
