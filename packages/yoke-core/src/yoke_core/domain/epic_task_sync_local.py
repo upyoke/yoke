@@ -18,6 +18,8 @@ from yoke_core.domain.dispatch_chain_selection import (
     parse_task_dependencies,
 )
 from yoke_core.domain.epic_task_sync import _placeholder
+from yoke_core.domain.item_terminal_resources import item_is_terminal
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.worktree_naming import worktree_name_for_item
 from yoke_core.domain.item_worktrees import record_worker_item_worktree
 
@@ -128,7 +130,18 @@ def prepare_dispatch_chains(
     stdout: TextIO,
     stderr: TextIO,
 ) -> bool:
-    """Materialize local queues before optional issue publication."""
+    """Materialize local queues before optional issue publication.
+
+    A terminal epic has retired its lanes and dispatches nothing, so it keeps
+    its recorded chains and generates none.
+    """
+    if item_is_terminal(conn, int(epic_name)) is True:
+        print(
+            f"Dispatch chains skipped: {render_item_ref(conn, int(epic_name))} "
+            "is terminal; its lanes are retired.",
+            file=stdout,
+        )
+        return True
     rows = load_task_rows(conn, placeholder=_placeholder(conn), epic_name=epic_name)
     if not rows:
         return True
