@@ -130,8 +130,7 @@ class LandingReadback:
         return self.state.auto_merge_active and landing_eligible(self.state)
 
     def undetermined(self) -> bool:
-        """An open PR GitHub reports unknown (recomputing, as mid-merge once the
-        queue entry and arming clear) with no refusal read: it proves nothing."""
+        """Open and unrefused, but GitHub reports unknown: e.g. mid-merge."""
         state, member = self.state, self.membership
         if state is None or state.merged or state.closed or self.failed_required:
             return False
