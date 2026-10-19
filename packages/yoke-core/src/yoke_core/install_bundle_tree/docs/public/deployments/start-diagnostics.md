@@ -31,8 +31,10 @@ Each statement waits at most the run-lock timeout; a busy table is retried
 with backoff and then refuses as `release_start_schema_lock_unavailable`,
 naming the table, and any other failure refuses as
 `release_start_schema_convergence_failed`, each naming the re-drive step,
-before anything about the run changes. A driver relaying through HTTPS
-skips this step, because the serving build answers every call.
+before anything about the run changes. A re-drive of a run that already
+started skips the phase: its first start converged the schema and its
+candidate is frozen. A driver relaying through HTTPS skips this step,
+because the serving build answers every call.
 
 A normal driver start builds its execution context once. Composition completes
 and validates membership before the driver reads it, and returns that pass’s
@@ -224,8 +226,8 @@ A missing end marker is unfinished evidence, never a successful receipt.
 
 Creation uses the same timing format for `create_source`,
 `create_provisional_composition`, `create_lock`, `create_locked_composition`,
-`create_takeover`, `create_validation`, `enrollment_inputs`,
-`enrollment_members`, `create_commit`, `create_takeover_settlement` and
+`create_takeover`, `create_validation`, `enrollment_members`,
+`create_commit`, `create_takeover_settlement` and
 `create_response`. Source refresh attempts have their own marker. Long phases
 emit the same thirty-second pending heartbeat; member validation also reports
 record/completed counts. The creation handler flushes these diagnostics to
