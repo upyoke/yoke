@@ -236,6 +236,14 @@ def cmd_update(
                     conn, run_id=run_id, reason=f"run_terminal:{value}"
                 )
                 conn.commit()
+                if value in {"failed", "cancelled"}:
+                    from yoke_core.domain.deployment_run_workflow_cancellation import (
+                        cancel_run_workflows,
+                    )
+
+                    # After the commit: the close stands even when GitHub
+                    # cannot be reached, and each miss is logged with its fix.
+                    cancel_run_workflows(conn, run_id)
                 if value == "succeeded":
                     from yoke_core.domain.deployment_delivery_close_out_notice import (
                         notify_delivery_cleared,

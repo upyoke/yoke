@@ -183,8 +183,16 @@ def notify_deployment_stage_decision(
     A rejection is already closed by
     :func:`apply_deployment_stage_decision`, so there is no run left to drive
     and nobody to tell -- which is different from having somebody to tell and
-    failing to find them, and is reported as such.
+    failing to find them, and is reported as such. What it still owes, now
+    that the close has committed, is cancelling the workflows it dispatched.
     """
+    if action == "reject":
+        from yoke_core.domain.deployment_run_workflow_cancellation import (
+            cancel_run_workflows,
+        )
+
+        cancel_run_workflows(conn, _stage_identity(request)[0])
+        return None
     if action != "approve":
         return None
     from yoke_core.domain.project_identity import resolve_project

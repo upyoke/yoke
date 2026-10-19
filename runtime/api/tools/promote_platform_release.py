@@ -14,9 +14,13 @@ Usage::
     python3 -m runtime.api.tools.promote_platform_release \\
         --candidate-sha <40-hex> --proven-consumer-sha <40-hex> \\
         --product-ref <tag> --release-mode normal|hotfix \\
-        --target-environment stage|prod --request-id <id>
+        --target-environment stage|prod --request-id <id> \\
+        --started-runs-file <path>
 
 Writes ``run_id`` (the promotion run that succeeded) to ``$GITHUB_OUTPUT``.
+Appends every promotion run it dispatches to ``--started-runs-file`` the moment
+GitHub names it, so the bridge's cleanup step can cancel a promotion left
+running when the bridge is cancelled or fails before that promotion ends.
 """
 
 from __future__ import annotations
@@ -184,6 +188,8 @@ def promote(args: argparse.Namespace) -> int:
         if error:
             print(error, file=sys.stderr)
             return 1
+        with open(args.started_runs_file, "a", encoding="utf-8") as started:
+            started.write(f"{run_id}\n")
         print(
             f"Platform release run: https://github.com/{CONSUMER_REPO}/actions/runs/{run_id}",
             flush=True,
@@ -229,6 +235,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "--target-environment", required=True, choices=("stage", "prod")
     )
     parser.add_argument("--request-id", required=True)
+    parser.add_argument(
+        "--started-runs-file",
+        required=True,
+        help="File each dispatched promotion run id is appended to.",
+    )
     args = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
     args.candidate_sha = args.candidate_sha.strip().lower()
     args.proven_consumer_sha = args.proven_consumer_sha.strip().lower()

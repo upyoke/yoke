@@ -112,7 +112,8 @@ def succeed_taken_over_run(
 
 
 def finish_settled_takeover(conn: Any, new_run_id: str) -> Optional[str]:
-    """After creation commits: record carried work and send delivery notices.
+    """After creation commits: cancel the superseded run's workflows, then
+    record carried work and send delivery notices for a settled one.
 
     Returns the settled run's id, or ``None`` when this creation settled none.
     """
@@ -127,15 +128,22 @@ def finish_settled_takeover(conn: Any, new_run_id: str) -> Optional[str]:
 
     if not takeover_available(conn):
         return None
+    from yoke_core.domain.deployment_run_workflow_cancellation import (
+        cancel_run_workflows,
+    )
+
     row = conn.execute(
-        f"SELECT old.id FROM deployment_runs new JOIN deployment_runs old "
-        f"ON old.id = new.{SUPERSEDES_COLUMN} "
-        "WHERE new.id = %s AND old.status = 'succeeded'",
+        f"SELECT old.id, old.status FROM deployment_runs new "
+        f"JOIN deployment_runs old ON old.id = new.{SUPERSEDES_COLUMN} "
+        "WHERE new.id = %s",
         (new_run_id,),
     ).fetchone()
     if row is None:
         return None
     old_id = str(row["id"])
+    cancel_run_workflows(conn, old_id)
+    if str(row["status"]) != "succeeded":
+        return None
     record_carried_work(conn, old_id)
     conn.commit()
     notify_delivery_cleared(conn, run_id=old_id)

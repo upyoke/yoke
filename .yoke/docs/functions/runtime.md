@@ -92,6 +92,7 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `github_actions.dispatch_receipt.get` | `none` |
 | `github_actions.dispatch_tag.ensure` | `none` |
 | `github_actions.failed_log` | `none` |
+| `github_actions.run.cancel` | `none` |
 | `github_actions.run.jobs_count` | `none` |
 | `github_actions.run.rerun_failed` | `item` |
 | `github_actions.runners.status` | `none` |

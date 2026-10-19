@@ -51,6 +51,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "github.release.create_commit_tag": "next-release",
     "github_actions.dispatch_receipt.get": "next-release",
     "github_actions.dispatch_tag.ensure": "next-release",
+    "github_actions.run.cancel": "next-release",
     "github_actions.run.rerun_failed": "next-release",
     "item_landings.list": "next-release",
     "item_landings.record": "next-release",

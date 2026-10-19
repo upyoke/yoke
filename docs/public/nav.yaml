@@ -203,6 +203,9 @@ root:
         - title: Runs
           summary: Read deployment run composition and carried-work authority.
           path: deployments/model/runs.md
+        - title: Ended runs
+          summary: Read how an ended run cancels the GitHub workflows it dispatched.
+          path: deployments/model/ended-runs.md
         - title: Stage receipts
           summary: Read durable non-QA deployment-stage attempt evidence.
           path: deployments/model/stage-receipts.md

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Any, Dict, List, Tuple
 
 import pytest
@@ -33,6 +34,8 @@ ARGS = [
     "prod",
     "--request-id",
     "bridge:1:1:outer",
+    "--started-runs-file",
+    os.devnull,
 ]
 
 
@@ -231,3 +234,21 @@ def test_a_lost_dispatch_response_is_recovered_under_the_same_request_id(
 def test_an_unroutable_environment_is_refused_before_anything_runs() -> None:
     with pytest.raises(SystemExit):
         promote.main([*ARGS[:-4], "--target-environment", "production", *ARGS[-2:]])
+
+
+def test_every_dispatched_promotion_is_recorded_for_the_cleanup_step(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    refusal = f"but the pair was proven at {PROVEN}."
+    _wire(
+        monkeypatch,
+        follows=[(0, "same", PROVEN), (0, "moved", MOVED)],
+        verdicts=["failed", "success"],
+        refusal_regions=[refusal],
+    )
+    started = tmp_path / "started-runs.txt"
+    argv = [*ARGS[:-1], str(started)]
+
+    assert promote.main(argv) == 0
+    assert started.read_text(encoding="utf-8").split() == ["701", "702"]

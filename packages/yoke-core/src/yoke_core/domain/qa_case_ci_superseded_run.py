@@ -18,6 +18,7 @@ from yoke_core.domain import (
     qa_case_ci_progress,
 )
 from yoke_core.domain.gh_rest_transport import RestTransportError
+from yoke_core.domain.github_actions_run_cancel import run_completed
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
 
@@ -79,19 +80,6 @@ def _machine_token(*, project: str, repo: str) -> str:
     return resolved.token
 
 
-def _race_concluded(*, repo: str, run_id: str, token: str) -> bool:
-    try:
-        refreshed = github_actions_rest.rest_get(
-            f"/repos/{repo}/actions/runs/{run_id}", token=token
-        )
-    except RestTransportError:
-        return False
-    return (
-        isinstance(refreshed, dict)
-        and str(refreshed.get("status") or "") == "completed"
-    )
-
-
 def _force_cancel_run(*, repo: str, run_id: str, token: str) -> bool:
     """Cancel one active run; a run that concluded in the race is settled."""
     try:
@@ -102,7 +90,7 @@ def _force_cancel_run(*, repo: str, run_id: str, token: str) -> bool:
             max_attempts=1,
         )
     except RestTransportError as exc:
-        if exc.status in {409, 422} and _race_concluded(
+        if exc.status in {409, 422} and run_completed(
             repo=repo,
             run_id=run_id,
             token=token,

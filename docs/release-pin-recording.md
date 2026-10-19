@@ -72,6 +72,13 @@ the version through `yoke release-pin record`. The record command's successful,
 non-empty receipt is the final job gate: a missing declaration, authorization
 denial, mutation refusal, or missing receipt keeps the outer release red.
 
+Only one bridge runs per target environment: the workflow's concurrency group
+`platform-release-bridge-<environment>` makes a second one wait rather than
+race. The deployment run that owns a bridge cancels it when that run ends, and
+a cancelled or failing bridge's last step cancels every Platform promotion it
+dispatched (`yoke github-actions run cancel upyoke/platform RUN-ID --project
+platform`), so no promotion deploys after its owner is gone.
+
 The bridge's `target_environment` input is the **registered environment name**,
 which the deploy pipeline resolves from the run's typed environment reference
 through the `{target_environment}` stage-input placeholder. That same name is

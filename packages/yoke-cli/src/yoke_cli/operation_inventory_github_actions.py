@@ -12,6 +12,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke github release create-commit-tag", "github_release"),
     _w("yoke github branch head", "github_branch"),
     _w("yoke github open-work list", "github"),
+    _w("yoke github-actions run cancel", "github_actions"),
     _w("yoke github-actions run rerun-failed", "github_actions"),
     _w("yoke github-actions check-ci", "github_actions"),
     _w("yoke github-actions failed-log", "github_actions"),
