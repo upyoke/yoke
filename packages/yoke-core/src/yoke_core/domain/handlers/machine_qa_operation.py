@@ -70,6 +70,7 @@ class TestMachineOperationBeginRequest(BaseModel):
     operation: OperatorOperation
     baseline: str | None = None
     destination: str | None = None
+    plan_execution_id: str | None = None
 
 
 class TestMachineOperationBeginResponse(BaseModel):
@@ -88,6 +89,7 @@ class TestMachineOperationSubmitRequest(BaseModel):
     # taken on trust.
     baseline: str | None = None
     destination: str | None = None
+    plan_execution_id: str | None = None
     status: Literal["verified", "error"]
     checks: list[dict[str, Any]]
     error_code: str | None = None
@@ -168,6 +170,7 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
             project=parsed.project,
             actor=request.actor,
             machine=parsed.machine,
+            plan_execution_id=parsed.plan_execution_id,
             operation=_operation(parsed.operation),
             **operation_contract_shape(
                 parsed.operation,
@@ -221,6 +224,7 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
             actor=request.actor,
             operation=parsed.operation,
             baselines=shape["baselines"],
+            plan_execution_id=parsed.plan_execution_id,
         )
         lease, contract = validate_operation_submission(
             conn,

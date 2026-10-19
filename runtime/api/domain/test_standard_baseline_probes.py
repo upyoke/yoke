@@ -213,6 +213,7 @@ def test_default_capture_stops_before_archive_on_each_failed_standard_check(
         assert all(kwargs["required_session_context"] == "gui" for _, kwargs in calls)
 
 
+@pytest.mark.usefixtures("recorded_harness_clis")
 @pytest.mark.parametrize("os_name", ["macos", "linux", "windows"])
 def test_success_seals_exactly_the_proven_default_document(monkeypatch, os_name):
     from yoke_harness import ssh_linux_baseline, ssh_mac_golden_capture
@@ -261,6 +262,7 @@ def test_success_seals_exactly_the_proven_default_document(monkeypatch, os_name)
     assert len(proof["probes"]) == len(standard_probes(os_name))
 
 
+@pytest.mark.usefixtures("recorded_harness_clis")
 @pytest.mark.parametrize("survives_reset", [True, False])
 def test_linux_input_probe_is_replayed_after_the_captured_home_is_reset(
     monkeypatch, survives_reset

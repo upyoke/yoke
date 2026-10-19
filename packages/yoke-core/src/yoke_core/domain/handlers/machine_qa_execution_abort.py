@@ -33,6 +33,7 @@ class TestMachineOperationAbortRequest(BaseModel):
     # is releasing.
     baseline: str | None = None
     destination: str | None = None
+    plan_execution_id: str | None = None
     reason: AbortReason
 
 
@@ -63,6 +64,7 @@ def _release(
     baselines: Sequence[str] = (),
     cases: Sequence[dict[str, Any]] = (),
     golden_destination: str | None = None,
+    plan_execution_id: str | None = None,
 ) -> dict[str, Any]:
     from yoke_core.domain.qa_plan_abort_reset import (
         validate_operation_submission,
@@ -80,6 +82,7 @@ def _release(
             actor=request.actor,
             operation=operation,
             baselines=baselines,
+            plan_execution_id=plan_execution_id,
         )
         if operation != "case"
         else None
@@ -138,6 +141,7 @@ def handle_operation_abort(request: FunctionCallRequest) -> HandlerOutcome:
             contract_digest=parsed.contract_digest,
             reason=parsed.reason,
             operation=parsed.operation,
+            plan_execution_id=parsed.plan_execution_id,
             **operation_contract_shape(
                 parsed.operation,
                 baseline=parsed.baseline,

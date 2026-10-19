@@ -329,6 +329,14 @@ def capture_linux_golden(
             },
             "golden_probes_write_failed",
         )
+    from yoke_harness.golden_harness_clis import record_golden_harness_clis
+
+    recorded = record_golden_harness_clis(control, destination)
+    if not recorded.ok:
+        return HostActionResult(
+            False, {**captured.evidence, **recorded.evidence}, recorded.error_code
+        )
+    captured = HostActionResult(True, {**captured.evidence, **recorded.evidence})
     if getattr(control, "os", "linux") == "linux":
         from yoke_harness.ssh_linux_baseline_desktop import prove_capture_roundtrip
 

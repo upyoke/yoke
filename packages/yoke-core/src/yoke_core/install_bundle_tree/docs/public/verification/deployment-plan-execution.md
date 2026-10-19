@@ -176,6 +176,13 @@ requirement has only the generic <!-- qa:test-machine-capability -->`test-machin
 copies retain the pin; omitting `--machine` does not permit another host, and a
 conflicting run pin is refused before a lease is acquired.
 
+Before a plan's first golden reset on each Test Machine, Yoke compares the
+harness CLI versions recorded beside that golden with each vendor's latest
+release. A golden that is behind is refreshed once under the plan's own host
+lease: reset, install the newer CLIs as the test user, capture a new golden,
+then begin the case again, so every later reset restores current CLIs. A
+failed refresh stops the plan with a `golden_refresh_*` reason and its repair.
+
 Only an explicitly declared host baseline restores the golden home. A mission
 declared `as_is` keeps the home it finds and, absent `host_starting_state`, leaves
 packages and their journal untouched. A named baseline or explicit fixture

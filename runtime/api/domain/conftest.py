@@ -77,3 +77,19 @@ def gate_conn(tmp_path, monkeypatch):
             yield conn
         finally:
             conn.close()
+
+
+@pytest.fixture
+def recorded_harness_clis(monkeypatch):
+    """Capture tests about other steps record fixed harness CLI versions."""
+    from yoke_harness import golden_harness_clis
+    from yoke_harness.test_machine_types import HostActionResult
+
+    versions = {"claude-code": "2.1.300", "codex": "0.163.0", "cursor": "2026.10.16"}
+    monkeypatch.setattr(
+        golden_harness_clis,
+        "record_golden_harness_clis",
+        lambda control, destination: HostActionResult(
+            True, {"harness_cli_versions": versions}
+        ),
+    )
