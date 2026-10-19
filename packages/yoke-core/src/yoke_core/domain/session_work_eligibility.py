@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from yoke_contracts.levels import LevelsError, level_for_session
+from yoke_contracts.levels import (
+    UNRESOLVED_LEVEL_REASONS,
+    LevelsError,
+    level_for_session,
+)
 from yoke_contracts.model_level_resolution import resolve_model_level
 from yoke_contracts.model_level_resolution import (
     routing_effort_of,
@@ -37,7 +41,8 @@ def require_work_selection(conn, *, project_id, executor, model, reasoning_effor
         )
         raise SessionError(
             "SESSION_BELOW_INTERN",
-            f"{resolution.reason}: selection meets no configured execution level; model or effort "
+            f"{resolution.reason} ({UNRESOLVED_LEVEL_REASONS.get(resolution.reason, 'unresolved')}): "
+            "selection meets no configured execution level; model or effort "
             "is unknown, or both are below every option. Recovery: choose a "
             "known model and effort meeting a configured level, or ask an org "
             "admin to publish the missing catalog facts and approve Levels. "
@@ -46,11 +51,8 @@ def require_work_selection(conn, *, project_id, executor, model, reasoning_effor
     return level
 
 
-def require_session_work_eligibility(conn, session_id, target):
-    """Process-only coordination is exempt; item and epic-task claims are work."""
-    item_id = target.item_id or target.epic_id
-    if item_id is None:
-        return
+def _session_and_item(conn, session_id, item_id):
+    """Load the claiming session row and the target item's project facts."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     session = conn.execute(
         f"SELECT * FROM harness_sessions WHERE session_id = {marker}",
@@ -66,30 +68,41 @@ def require_session_work_eligibility(conn, session_id, target):
     ).fetchone()
     if project is None:
         raise SessionError("INVALID_CLAIM", "Work target item does not exist.")
-    observed = dict(session)
+    return dict(session), project
+
+
+def _project_mismatch(conn, observed, project, *, recovery):
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    session_project = None
+    if observed.get("project_id") is not None:
+        session_project = conn.execute(
+            f"SELECT slug FROM projects WHERE id = {marker}",
+            (observed["project_id"],),
+        ).fetchone()
+    origin = (
+        f"in project {session_project[0]}" if session_project else "outside any project"
+    )
+    code = (
+        "SESSION_MACHINE_SCOPE_WORK_REFUSED"
+        if observed.get("project_id") is None
+        else "SESSION_PROJECT_MISMATCH"
+    )
+    return SessionError(
+        code,
+        f"Open a session in the {project[3]} project folder to work on "
+        f"{project[1]} ({project[2]}). This session was started {origin}; "
+        f"sessions never switch projects.{recovery}",
+    )
+
+
+def require_session_work_eligibility(conn, session_id, target):
+    """Process-only coordination is exempt; item and epic-task claims are work."""
+    item_id = target.item_id or target.epic_id
+    if item_id is None:
+        return
+    observed, project = _session_and_item(conn, session_id, item_id)
     if observed.get("project_id") != project[0]:
-        session_project = None
-        if observed.get("project_id") is not None:
-            session_project = conn.execute(
-                f"SELECT slug FROM projects WHERE id = {marker}",
-                (observed["project_id"],),
-            ).fetchone()
-        origin = (
-            f"in project {session_project[0]}"
-            if session_project
-            else "outside any project"
-        )
-        code = (
-            "SESSION_MACHINE_SCOPE_WORK_REFUSED"
-            if observed.get("project_id") is None
-            else "SESSION_PROJECT_MISMATCH"
-        )
-        raise SessionError(
-            code,
-            f"Open a session in the {project[3]} project folder to work on "
-            f"{project[1]} ({project[2]}). This session was started {origin}; "
-            "sessions never switch projects.",
-        )
+        raise _project_mismatch(conn, observed, project, recovery="")
     require_work_selection(
         conn,
         project_id=project[0],
@@ -101,3 +114,33 @@ def require_session_work_eligibility(conn, session_id, target):
             observed.get("model"),
         ),
     )
+
+
+def require_session_close_eligibility(conn, session_id, target):
+    """Admit an administrative close: no model level, project or covering seat.
+
+    Closing an item does no work on it, so the session's model selection is
+    not consulted. A session in the item's project may close it; a session
+    elsewhere needs its own live steering seat covering the item.
+    """
+    from yoke_core.domain.session_steering_authority import (
+        covering_session_seat,
+        steering_authority_message,
+    )
+
+    observed, project = _session_and_item(conn, session_id, target.item_id)
+    if observed.get("project_id") == project[0]:
+        return
+    seat = covering_session_seat(
+        conn,
+        caller_session_id=str(session_id),
+        target={"project_id": int(project[0]), "item_id": int(target.item_id)},
+    )
+    if seat is None:
+        raise _project_mismatch(
+            conn,
+            observed,
+            project,
+            recovery=" Closing an item from another project "
+            + steering_authority_message(project[3]),
+        )

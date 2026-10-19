@@ -107,12 +107,14 @@ Haiku/Luna and single-class Grok refuse. Opus 4.8 medium resolves as current
 Sonnet medium and INTERN. Grok 4.7 high-fast resolves as JUNIOR; Cursor Opus
 5.5 medium resolves as SENIOR.
 
-Unknown models or unpublished effort (including Composer without published
+Unknown models, unreported effort or unpublished effort (including Composer without published
 efforts) establish no level. Item/epic-task claims and work launches refuse
 `session_below_intern` with recovery when no level resolves. Steering without
-item claims is exempt. Roster, identity, board and steering reads show
+item claims is exempt, and so is `yoke items cancel`: cancelling is an
+administrative close, not work. Roster, identity, board and steering reads show
 **no level** with its reason, never `primary`: `session_model_unknown`
-(model not in the catalog), `session_effort_unpublished` (effort not
+(model not in the catalog), `session_effort_unreported` (no effort
+reported for the session), `session_effort_unpublished` (effort not
 published for its model), `session_model_unreported`,
 `session_older_model_bottom_class`, `session_demotion_target_unavailable` or
 `session_below_minimum_effort`. Session list rows carry the code as
