@@ -143,6 +143,35 @@ def test_sync_refuses_a_dependency_cycle_with_its_recovery(db):
     assert "retry yoke items github-sync" in err.getvalue()
 
 
+def _retire_lanes(db, status):
+    db.execute(f"UPDATE items SET status='{status}' WHERE id=10")
+    db.execute("UPDATE item_worktrees SET state='released' WHERE item_id=10")
+    db.commit()
+
+
+def test_terminal_epic_with_retired_lanes_generates_no_chain(db):
+    _seed_lane_with_blocked_head(db)
+    _retire_lanes(db, "done")
+    out, err = io.StringIO(), io.StringIO()
+    assert prepare_dispatch_chains(db, epic_name="10", stdout=out, stderr=err)
+    assert err.getvalue() == ""
+    assert "is terminal; its lanes are retired" in out.getvalue()
+    assert (
+        db.execute(
+            "SELECT COUNT(*) AS n FROM epic_dispatch_chains WHERE epic_id=10"
+        ).fetchone()["n"]
+        == 0
+    )
+
+
+def test_open_epic_with_retired_lanes_still_names_the_missing_lane(db):
+    _seed_lane_with_blocked_head(db)
+    _retire_lanes(db, "planned")
+    out, err = io.StringIO(), io.StringIO()
+    assert not prepare_dispatch_chains(db, epic_name="10", stdout=out, stderr=err)
+    assert "dispatch_lane_missing: worker-a, worker-b" in err.getvalue()
+
+
 def test_advance_handler_returns_named_refusal_code(db, monkeypatch):
     _seed_lane_with_blocked_head(db)
     assert prepare_dispatch_chains(

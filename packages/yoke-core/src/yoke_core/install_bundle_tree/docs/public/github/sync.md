@@ -132,7 +132,9 @@ workflow URL, conclusion and evaluated head SHA in its check evidence.
 Local task graphs and dispatch chains do not depend on issue mirroring. The
 planning sync and its registered retry generate local queues in either mode,
 before optional GitHub publication. A disabled project needs no GitHub auth
-and makes no remote issue writes.
+and makes no remote issue writes. A terminal item (done, cancelled or stopped)
+has retired its lanes, so sync keeps its recorded chains, generates none and
+prints `Dispatch chains skipped`.
 
 ```text
 yoke items github-sync PREFIX-N
