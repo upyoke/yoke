@@ -207,8 +207,9 @@ a run-scoped stage. It names the run, stage, subject, outcome and the next
 step — an approval releases the parked agent, a rejection hands it work, a
 waiver discharges the obligation. Sent after the resolution commits and
 degrading to a warning when undeliverable, because the verdict is the
-durable outcome; a requirement that is not a deployment-stage subject
-notifies nobody. Item-scoped decisions also notify the run driver. Owners:
+durable outcome. Reviews outside deployment runs reach the item
+claim holder or steering through [item review notices](../../verification/requirement-state.md#reviews).
+Item-scoped deployment decisions also notify the run driver. Owners:
 `yoke_core.domain.deployment_qa_verdict_notice` and
 `yoke_core.domain.deployment_qa_stage_settlement`.
 

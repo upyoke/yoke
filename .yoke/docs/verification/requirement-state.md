@@ -66,6 +66,23 @@ raw evidence or timestamps. Case detail displays that native projection.
 
 ## Reviews
 
+Resolving a `qa_needs_review` decision outside a deployment run sends its
+outcome, reviewer note and next step to the item's current work-claim holder.
+Approval accepts the reviewed evidence, rejection asks for correction and
+fresh evidence, and waiver discharges the obligation. Read the named case:
+
+```text
+yoke qa requirement get --requirement-id {requirement_id}
+```
+
+With no holder, the notice asks the project's steering session to staff the
+item and relay the verdict. Queued envelopes remain in steering's undelivered
+messages view. If neither holder nor steering is addressable, resolution warns
+that manual staffing is required; the saved verdict remains authoritative.
+Retries reuse one session notice per requirement and action. Deployment-bound
+reviews retain their [run/stage routing](../deployments/model/releases.md#a-human-verdict-reaches-the-agent-that-parked-for-it).
+Owner: `yoke_core.domain.qa_verdict_notice`.
+
 A review judges the actual captured run. It does not create an execution.
 Plan review audit retains capture id, verdict and rationale; the bundle retains
 reviewer actor and session. Responses, artifacts, completion notices and human

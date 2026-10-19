@@ -81,15 +81,13 @@ def _notify_qa_review(
     action: str,
     note: Optional[str],
 ) -> Optional[str]:
-    from yoke_core.domain.deployment_qa_verdict_notice import (
-        notify_deployment_qa_verdict,
-    )
+    from yoke_core.domain.qa_verdict_notice import notify_qa_verdict
 
     from yoke_core.domain.deployment_member_close_out_retry import (
         after_record_settled,
     )
 
-    delivery = notify_deployment_qa_verdict(
+    delivery = notify_qa_verdict(
         conn,
         requirement_id=int(request["subject_key"]),
         action=action,
