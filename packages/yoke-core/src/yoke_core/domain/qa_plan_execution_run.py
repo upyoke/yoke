@@ -44,6 +44,7 @@ def execute_begun_plan(
     from yoke_core.domain.qa_plan_execution_checkin import (
         communication_unknown,
         paused_result,
+        stop_if_told,
     )
 
     deliveries = []
@@ -80,10 +81,7 @@ def execute_begun_plan(
         )
         if checked.get("delivery"):
             deliveries.append(checked["delivery"])
-        if checked.get("abort_requested"):
-            raise QaPlanExecutionError(
-                "qa_host_abort_requested: stop this walk; inspect restore evidence and retry abort"
-            )
+        stop_if_told(checked, execution)
 
     def _record(ordinal, normalized):
         _call_plan_function(

@@ -44,7 +44,9 @@ from yoke_core.domain.qa_plan_management import (
     create_plan,
     replace_plan_cases,
 )
-from yoke_core.domain.qa_plan_refresh_safety import LIVE_EXECUTION_CODE
+from yoke_core.domain.qa_plan_execution_roster_correction import (
+    ROSTER_CASE_REACHED_CODE,
+)
 from yoke_core.domain.qa_plan_rematerialize import rematerialize_for_item
 
 TRANSITION = "implemented"
@@ -144,8 +146,8 @@ def test_the_named_refresh_actually_brings_the_row_current() -> None:
         assert plan_drift_report(conn, plan_id)["requirements_behind_plan"] == []
 
 
-def test_a_refresh_refuses_while_a_live_execution_holds_the_roster() -> None:
-    """A walk in progress is a frozen copy; the refresh refuses before writing."""
+def test_a_refresh_refuses_a_case_the_live_walk_has_reached() -> None:
+    """The walk's cursor sits on this case; changing it refuses with the abort."""
     with test_database() as conn:
         plan_id, requirement_id = _materialized(conn, item_id=8604)
         execution = begin_plan_execution(
@@ -161,15 +163,13 @@ def test_a_refresh_refuses_while_a_live_execution_holds_the_roster() -> None:
             rematerialize_for_item(conn, item_id=8604, transition_id=TRANSITION)
         message = str(excinfo.value)
 
-        # Refused before any write: the row is exactly as it was.
+        # Rolled back whole: the row is exactly as it was.
         assert _instructions(conn, requirement_id) == ORIGINAL_INSTRUCTIONS
 
-    assert LIVE_EXECUTION_CODE in message
-    assert str(execution["id"]) in message
+    assert ROSTER_CASE_REACHED_CODE in message
     # The recovery names the whole invocation, not the bare command, because
     # the bare command answers with a usage error rather than an abort.
-    assert "yoke qa plan abort --item" in message
-    assert f"--execution-id {execution['id']}" in message
+    assert f"yoke qa plan abort --execution-id {execution['id']} --item" in message
 
 
 def test_a_row_whose_case_left_the_plan_reads_as_orphaned() -> None:

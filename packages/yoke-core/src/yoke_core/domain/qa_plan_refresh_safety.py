@@ -1,22 +1,21 @@
 """What a plan refresh will not touch, and why it refuses rather than proceed.
 
 Bringing a live requirement row back to its plan's current text is the one
-supported correction, and it is safe exactly while nothing else has already
-frozen a copy of that row. Two things can have:
+supported correction. Two things can have frozen a copy of that row:
 
-* a **live QA plan execution**, which built its roster from these very rows
-  and is being walked against it right now. Rewriting a row underneath that
-  walk is the drift the roster snapshot check exists to catch, so the refresh
-  refuses and names the abort that reopens it.
+* a **live QA plan execution**, which built its roster from these rows. A
+  case the walk has not reached takes the correction together with its
+  roster entry; a reached case, a retired unreached case, or a case the
+  refresh adds refuses and names the abort that reopens the walk
+  (:mod:`qa_plan_execution_roster_correction`).
 * an **admitted deployment-stage copy** of the row, frozen onto a run that is
-  still executing. :mod:`qa_admitted_case_reconciliation` already decides per
-  copy whether an amendment can honestly reach it; this asks it the same
-  question before a refresh writes anything, rather than asking it a second
-  way.
+  still executing. :mod:`qa_admitted_case_reconciliation` decides per copy
+  whether the correction can honestly reach it; a copy the refresh leaves
+  unchanged needs no decision at all.
 
-Both checks run before the first write, so a refused refresh leaves every row
-exactly as it was. A half-applied refresh is the state hardest to reason about
-afterwards, and it is the state that made the original defect invisible.
+A refusal raises inside the refresh's transaction, so the caller's rollback
+leaves every row and roster exactly as it was. A half-applied refresh is the
+state hardest to reason about afterwards.
 """
 
 from __future__ import annotations
@@ -160,6 +159,29 @@ def _abort_command(
     )
 
 
+def carry_into_live_rosters(
+    conn: Any,
+    *,
+    subject: str,
+    rewritten: list[int],
+    created: list[int],
+    **live_subject: Any,
+) -> None:
+    """After a refresh's writes: correct unreached roster entries, or refuse.
+
+    A created row would add a case the live walk's roster does not carry, so
+    it refuses with the abort; rewritten and retired rows go to
+    :func:`correct_live_rosters`, which reaches only cases not yet walked.
+    """
+    from yoke_core.domain.qa_plan_execution_roster_correction import (
+        correct_live_rosters,
+    )
+
+    if created:
+        require_no_live_execution(conn, subject=subject, **live_subject)
+    correct_live_rosters(conn, rewritten)
+
+
 def require_no_live_execution(
     conn: Any,
     *,
@@ -201,34 +223,24 @@ def require_no_live_execution(
     )
 
 
-def require_reachable_admitted_copies(conn: Any, requirement_ids: list[int]) -> None:
-    """Refuse a refresh that would strand a copy already frozen onto a run.
+def lock_admitted_copies(conn: Any, requirement_ids: list[int]) -> None:
+    """Lock the runs holding these rows' admitted copies, then check owners.
 
-    A refresh rewrites the executable body whole, so every admitted copy of a
-    refreshed row is affected by it. The reconciliation module owns which
-    copies an amendment can reach; asking it here — before any write — is what
-    keeps one answer for that question instead of two that can disagree.
+    Locking before the first write keeps a run from answering or admitting
+    in between. Whether each copy can take the correction is decided when
+    its new value is known (:func:`correct_admitted_copies`): a copy the
+    refresh leaves unchanged blocks nothing, even when it has answered.
     """
     from yoke_core.domain.qa_admitted_case_reconciliation import (
         admitted_copies_in_flight,
-        unreachable_copy_refusal,
     )
-    from yoke_core.domain.qa_plan_management import QaPlanError
 
-    refusals = []
     for requirement_id in requirement_ids:
         copies = admitted_copies_in_flight(conn, int(requirement_id))
         for run_id in sorted({copy.run_id for copy in copies}):
             query_one(
                 conn, "SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE", (run_id,)
             )
-        copies = admitted_copies_in_flight(conn, int(requirement_id))
-        refusal = unreachable_copy_refusal(int(requirement_id), copies)
-        if refusal:
-            refusals.append(refusal)
-    if refusals:
-        raise QaPlanError(" ".join(refusals))
-    for requirement_id in requirement_ids:
         for copy in admitted_copies_in_flight(conn, int(requirement_id)):
             _correct_selected_copy(
                 conn, requirement_id, copy.requirement_id, write=False
@@ -311,9 +323,7 @@ def correct_admitted_copies(
             value=definition[field],
         )
         if refusal:
-            # The pre-pass cleared every copy before the first write, so a
-            # refusal here means one answered or froze in between. Raising
-            # keeps the caller's rollback the single outcome.
+            # Raising keeps the caller's rollback the single outcome.
             raise QaPlanError(refusal)
         corrected.update(reached)
     for copy_id in sorted(corrected):
@@ -322,12 +332,13 @@ def correct_admitted_copies(
 
 
 __all__ = [
+    "carry_into_live_rosters",
     "LIVE_EXECUTION_CODE",
     "LIVE_EXECUTION_MESSAGE",
     "correct_admitted_copies",
     "plan_refresh_invocation",
     "refresh_invocation",
     "refresh_recovery",
+    "lock_admitted_copies",
     "require_no_live_execution",
-    "require_reachable_admitted_copies",
 ]

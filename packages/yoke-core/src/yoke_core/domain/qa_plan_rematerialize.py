@@ -5,8 +5,8 @@ plan's current text, and it reaches every executable column — instructions and
 expected_outcome included — because :func:`refresh_requirement` rewrites the
 derivation whole rather than going through the narrow ``qa.requirement.update``
 allowlist. What it will not touch is named by :mod:`qa_plan_refresh_safety`:
-it refuses, before writing anything, when a live execution or an unreachable
-admitted copy has already frozen a copy of the rows it would refresh.
+a case a live walk already reached, and an admitted copy that can no longer
+take the change. A case a live walk has not reached takes the correction.
 
 One call converges the transition on its plans: a case added since the last
 materialization gets its row, an amended case's row is refreshed, and a row
@@ -50,9 +50,9 @@ from yoke_core.domain.qa_plan_case_definition import (
 from yoke_core.domain.qa_obligation_settlement import obligation_settled
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder, _plan_row
 from yoke_core.domain.qa_plan_refresh_safety import (
+    carry_into_live_rosters,
     correct_admitted_copies,
-    require_no_live_execution,
-    require_reachable_admitted_copies,
+    lock_admitted_copies,
 )
 from yoke_core.domain.qa_plan_requirement_snapshot import (
     existing_requirement_id,
@@ -126,12 +126,7 @@ def rematerialize_for_item(
             "waived_requirement_ids": [],
         }
     subject = f"{render_item_ref(conn, item_id)} transition {transition_id!r}"
-    # Both refusals run before the first write: a refresh that stops halfway
-    # leaves exactly the half-corrected state this operation exists to end.
-    require_no_live_execution(
-        conn, subject=subject, item_id=int(item_id), transition_id=transition_id
-    )
-    require_reachable_admitted_copies(conn, [int(row["id"]) for row in rows])
+    lock_admitted_copies(conn, [int(row["id"]) for row in rows])
     rows_by_plan: dict[int, list[Any]] = {}
     for row in rows:
         rows_by_plan.setdefault(int(row["plan_id"]), []).append(row)
@@ -267,6 +262,16 @@ def rematerialize_for_item(
                 requirement_id,
             ),
         )
+    # A refusal here raises inside this transaction, so the rollback leaves
+    # every row and roster as it was; a passed case is never replayed.
+    carry_into_live_rosters(
+        conn,
+        subject=subject,
+        rewritten=[*refreshed_requirement_ids, *superseded, *waived_requirement_ids],
+        created=created_requirement_ids,
+        item_id=int(item_id),
+        transition_id=transition_id,
+    )
     if commit:
         conn.commit()
     return {

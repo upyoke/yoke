@@ -172,16 +172,19 @@ def _comparable(value: Any) -> str:
     return canonical(value)
 
 
+def definition_value(column: str, value: Any) -> str:
+    """One definition column's value in the form two rows compare by."""
+    if column == METHOD_CONFIG_FIELD:
+        return canonical_method_config(value)
+    return _comparable(value)
+
+
 def definition_snapshot(row: Any) -> dict[str, str]:
     """The executable definition of one requirement row, field by field."""
-    snapshot: dict[str, str] = {}
-    for column in DEFINITION_COLUMNS:
-        value = row[column] if hasattr(row, "keys") else None
-        if column == METHOD_CONFIG_FIELD:
-            snapshot[column] = canonical_method_config(value)
-        else:
-            snapshot[column] = _comparable(value)
-    return snapshot
+    return {
+        column: definition_value(column, row[column] if hasattr(row, "keys") else None)
+        for column in DEFINITION_COLUMNS
+    }
 
 
 def _definition_row(conn: Any, requirement_id: int) -> Any:
@@ -267,6 +270,7 @@ __all__ = [
     "UNREACHABLE_FIELD_RECOVERY",
     "admitted_case_divergence",
     "annotate_admitted_currency",
+    "definition_value",
     "definition_snapshot",
     "diverging_fields",
     "reachable_in_place_fields",

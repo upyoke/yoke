@@ -24,7 +24,9 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.qa_plan_case_currency import STALE_PLAN_CASE_CODE
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 from yoke_core.domain.qa_plan_management import QaPlanError
-from yoke_core.domain.qa_plan_refresh_safety import LIVE_EXECUTION_CODE
+from yoke_core.domain.qa_plan_execution_roster_correction import (
+    ROSTER_CASE_REACHED_CODE,
+)
 from yoke_core.domain.qa_plan_rematerialize_deployment import (
     rematerialize_for_deployment_stage,
 )
@@ -87,10 +89,10 @@ def test_rematerialize_refuses_a_subject_with_no_materialized_cases(test_db) -> 
         )
 
 
-def test_rematerialize_refuses_while_a_live_execution_walks_the_stage(
+def test_rematerialize_refuses_a_case_the_live_walk_has_reached(
     test_db,
 ) -> None:
-    """A walk in progress froze these rows; the refresh refuses before writing."""
+    """The walk's cursor sits on this case; changing it refuses with the abort."""
     run_id = "run-rematerialize-walking"
     requirement_id = _seed(test_db, run_id)
     execution = begin_plan_execution(
@@ -112,10 +114,10 @@ def test_rematerialize_refuses_while_a_live_execution_walks_the_stage(
         )
 
     message = str(excinfo.value)
-    assert LIVE_EXECUTION_CODE in message
-    assert f"--execution-id {execution['id']}" in message
-    assert "yoke qa plan abort --deployment-run-id" in message
-    # Refused before any write: the frozen body is exactly as the walk saw it.
+    assert ROSTER_CASE_REACHED_CODE in message
+    assert f"yoke qa plan abort --execution-id {execution['id']}" in message
+    assert f"--deployment-run-id {run_id}" in message
+    # Rolled back whole: the frozen body is exactly as the walk saw it.
     row = test_db.execute(
         "SELECT instructions FROM qa_requirements WHERE id=%s", (requirement_id,)
     ).fetchone()
