@@ -8,6 +8,7 @@ did not create is never overwritten.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -169,3 +170,16 @@ def test_skill_body_stays_within_the_teaching_ceiling() -> None:
     text = install.skill_text()
     assert len(text.splitlines()) <= 350
     assert "name: yoke-global" in text and "yoke setup --agent" in text
+
+
+DOCS_ROOT = Path(__file__).resolve().parents[3] / "docs" / "public"
+
+
+def test_every_docs_link_in_the_skill_names_a_published_page() -> None:
+    paths = re.findall(r"https://upyoke\.com/docs((?:/[\w.-]+)*)", install.skill_text())
+    assert paths
+    for path in paths:
+        page = path.strip("/")
+        assert (DOCS_ROOT / f"{page}.md").is_file() or (
+            DOCS_ROOT / page / "index.md"
+        ).is_file(), f"yoke-global links https://upyoke.com/docs{path}, not a page"
