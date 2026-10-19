@@ -3,8 +3,9 @@
 The relay heartbeat carries what the machine measured about itself -- free
 memory, load, cores, and the lane cap it resolved from its own settings or
 total memory. The control plane pairs that with what it can see that the
-machine cannot: every live session registered from there plus every launch
-already assigned there and not yet registered. Those are the lanes a new
+machine cannot: live Yoke-launched workers plus every launch already assigned
+there and not yet registered. Interactive MAIN sessions use no worker lane.
+Those are the lanes a new
 launch would join, and a launch is refused when they already fill the cap.
 
 A relay that publishes no reading carries no cap. That is an older relay,
@@ -108,41 +109,39 @@ def _document(value: Any) -> dict[str, Any]:
         return {}
 
 
-def live_lane_count(conn: Any, *, machine_id: str, now: datetime) -> int:
-    """Sessions running on the machine plus launches still on their way there."""
+def _live_lane_rows(conn: Any, now: datetime) -> tuple[str, tuple[Any, ...]]:
+    """One population for placement and grouped fleet occupancy."""
     current = as_utc(now)
     p = _marker(conn)
-    sessions = conn.execute(
-        f"SELECT COUNT(*) FROM harness_sessions WHERE machine_id = {p} "
-        "AND ended_at IS NULL",
-        (machine_id,),
-    ).fetchone()[0]
     states = ",".join(p for _ in IN_FLIGHT_LAUNCH_STATES)
-    launches = conn.execute(
-        "SELECT COUNT(*) FROM session_launches "
-        f"WHERE assigned_machine_id = {p} AND state IN ({states}) "
-        f"AND registered_session_id IS NULL AND deadline_at > {p}",
-        (
-            machine_id,
-            *IN_FLIGHT_LAUNCH_STATES,
-            instant_parameter(conn, current),
-        ),
+    return (
+        "SELECT s.machine_id FROM harness_sessions s "
+        "WHERE s.ended_at IS NULL AND s.terminated_at IS NULL "
+        "AND EXISTS (SELECT 1 FROM session_launches linked "
+        "WHERE linked.registered_session_id = s.session_id) UNION ALL "
+        "SELECT assigned_machine_id AS machine_id FROM session_launches "
+        f"WHERE state IN ({states}) AND registered_session_id IS NULL "
+        f"AND deadline_at > {p}",
+        (*IN_FLIGHT_LAUNCH_STATES, instant_parameter(conn, current)),
+    )
+
+
+def live_lane_count(conn: Any, *, machine_id: str, now: datetime) -> int:
+    """Live launched workers and unregistered launches on one machine."""
+    rows, params = _live_lane_rows(conn, now)
+    count = conn.execute(
+        f"SELECT COUNT(*) FROM ({rows}) lanes WHERE machine_id = {_marker(conn)}",
+        (*params, machine_id),
     ).fetchone()[0]
-    return int(sessions or 0) + int(launches or 0)
+    return int(count or 0)
 
 
 def live_lane_counts(conn: Any, *, now: datetime) -> dict[str, int]:
-    """One grouped read of all machines' sessions and in-flight launches."""
-    p = _marker(conn)
-    states = ",".join(p for _ in IN_FLIGHT_LAUNCH_STATES)
+    """The same worker population, grouped without one query per machine."""
+    population, params = _live_lane_rows(conn, now)
     rows = conn.execute(
-        "SELECT machine_id, SUM(n) AS n FROM ("
-        "SELECT machine_id, COUNT(*) AS n FROM harness_sessions "
-        "WHERE ended_at IS NULL GROUP BY machine_id UNION ALL "
-        "SELECT assigned_machine_id AS machine_id, COUNT(*) AS n FROM session_launches "
-        f"WHERE state IN ({states}) AND registered_session_id IS NULL AND deadline_at > {p} "
-        "GROUP BY assigned_machine_id) counts GROUP BY machine_id",
-        (*IN_FLIGHT_LAUNCH_STATES, instant_parameter(conn, as_utc(now))),
+        f"SELECT machine_id, COUNT(*) AS n FROM ({population}) lanes GROUP BY machine_id",
+        params,
     ).fetchall()
     return {str(row["machine_id"]): int(row["n"]) for row in rows}
 

@@ -50,6 +50,33 @@ is a designed deferral until a supported signal is declared. Desktop surfaces
 without a verified provider-error record do not inherit their CLI's reader;
 steering owns their recovery until that surface declares an observation path.
 
+## Machine worker allowance
+
+Inspect placement before changing capacity:
+
+```text
+yoke session-control launch preview --project PROJECT --level SENIOR --json
+```
+
+`max_worker_lanes` limits Yoke-launched workers on a machine. Interactive MAIN
+sessions do not spend that allowance. Assigned launches reserve a lane until
+registration or their deadline; a registered worker counts once until it ends
+or is terminated. Scalar placement and the grouped fleet report count the same
+population across projects.
+
+Without an explicit positive setting, the relay derives the allowance from
+total memory minus a 12 GiB reserve, at 512 MiB per worker, with a minimum of one
+worker even on a small machine. This estimate is not a guarantee of free memory.
+An explicit positive `settings.max_worker_lanes` in `~/.yoke/config.json` wins.
+At the cap, wait for a worker to finish, deliberately configure that setting,
+or select another authorized machine with `--machine`.
+
+A capacity-rejected preview retains each machine's actual `live_lanes`,
+`max_worker_lanes`, cap source and measurements under `machine_capacity`.
+Its model-pool `live_workers` is `null` (shown as `unknown`) when no covering
+pool was weighed. It is a different population from machine worker occupancy;
+an unweighed pool is not evidence of zero workers or a provider quota refusal.
+
 ## Message and survey recovery during a slow read
 
 Inspect the original message with `yoke messages get MESSAGE-ID --json --full`.

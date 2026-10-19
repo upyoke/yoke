@@ -42,8 +42,9 @@ MACHINE_SETTING_KEYS: Dict[str, SettingSpec] = {
     "max_worker_lanes": SettingSpec(
         0,
         int,
-        "harness sessions this machine accepts before launch preview refuses; "
-        "zero derives (total memory - 12 GB reserved) / 0.5 GB per lane",
+        "Yoke-launched workers this machine accepts before launch preview refuses; "
+        "zero derives (total memory - 12 GB reserved) / 0.5 GB per worker; "
+        "minimum one worker, interactive MAIN excluded",
         minimum=0,
     ),
     "max_chain_steps": SettingSpec(
