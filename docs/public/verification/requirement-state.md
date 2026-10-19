@@ -260,19 +260,22 @@ so any change to the scope rule reaches both.
 
 Failing or cancelling a deployment run aborts its live plan executions and
 retracts its unsettled run-bound requirements in the same transaction. Host
-reservations and leases release through execution settlement. Current passing
+reservations and leases release through execution settlement. An execution
+already under a recorded abort is left to that abort: it keeps its host until
+its own cleanup proof settles it. Current passing
 evidence and standing item plans remain; a later release materializes fresh
 copies. Retraction records the run and reason; it grants no passing verdict.
 Retrying a failed run restores only its automatic retractions and requires a
 new walk; manual retractions and terminal execution histories remain intact.
 
-Removing a member (`yoke deployment-runs remove-item`) aborts that member's
-live executions with reason `deployment-member-removed`. A case already running
-must stop and prove cleanup before host custody releases, including any
-declared baseline's restoration; an `as_is` receipt needs no restore. Removal can
-refuse with `qa_abort_restore_required`: request cancellation through plan
-abort, keep the runner connected through cleanup, then retry removal.
-The runner's abort response returns the execution's `release_reason`. When it
+Removing a member (`yoke deployment-runs remove-item`, or a run takeover)
+aborts that member's live executions with reason `deployment-member-removed`.
+A runner checked in on a host case, or a mission walk holding its Test Machine,
+instead keeps custody and heartbeat authority under the cooperative abort `yoke
+qa plan abort` records. Its check-in reports `abort_requested`; its cleanup
+proof (`as_is` needs no restore) or the walk's `yoke qa mission walk-end`
+settles it and frees the host, which no waiting execution gets first. A gone
+runner's recovery: "Stopping a host case" in `yoke qa plan run --help`. The runner's abort response returns the execution's `release_reason`. When it
 names the removal, `yoke qa plan run` reports the case as `case_outcome:
 removed` with plan state `removed` and exit status 1, not as a host-control
 error. QA was cancelled, not passed, and no host needs repair. The item owes

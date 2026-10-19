@@ -45,10 +45,13 @@ naming `mission_scratch_not_removed`, `starting_state_restore_failed` (with the
 `yoke test-machine reset` recovery) or `starting_state_restore_unrecorded`.
 `yoke qa plan review-submit` refuses with `mission_walk_unfinished` while any
 mission's scratch is still on the host. Both delete a stale owner marker.
-After member removal, its original session can still run `walk-end`: acquire
-the recorded host for teardown, then release it even after local failure.
-The execution stays aborted; `walk-start` and `host-command` remain refused.
-A busy host stays with its holder: resolve the blocker, then retry `walk-end`.
+Member removal (including a run takeover) keeps a walk's Test Machine: the
+execution stays under a recorded abort and holds its lease, so no other QA gets
+that host before teardown. Its original session runs `walk-end` on the held
+lease; finishing it releases the host and settles the execution aborted with
+`deployment-member-removed`, even after local failure. `walk-start` and
+`host-command` are refused with `mission_member_removed`, and no other abort
+releases that lease (`qa_abort_walk_end_required`).
 
 The lease holder owns every Yoke project it creates: it appends each slug to
 the item's Progress Log as created, so a replacement can finish the cleanup,
