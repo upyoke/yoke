@@ -46,18 +46,13 @@ def _current_text_case(source: dict[str, Any]) -> dict[str, Any]:
                 ),
                 # The expanded plan exceeds the 45-row host viewport. Inspect
                 # its saved-state lines and its controls in separate frames.
-                transition(
-                    "expanded-plan-top",
-                    "Home",
-                    ready_text=["Reuse this machine's existing Yoke API token"],
-                ),
                 action(
                     "pending-write-list",
                     ready_text=["Reuse this machine's existing Yoke API token"],
                 ),
                 transition(
                     "review-controls",
-                    "End",
+                    "Down",
                     ready_text=["Reuse this machine's existing Yoke API token"],
                 ),
                 action("expanded-review-controls", ready_text=["Show summary"]),
@@ -72,8 +67,8 @@ def _current_text_case(source: dict[str, Any]) -> dict[str, Any]:
         )
         case["required_completion"] = "back-before-apply"
         case["instructions"] += (
-            " Select Show all changes, use Home to capture the named pending writes,"
-            " then End to capture Show summary before backing out without Apply."
+            " Select Show all changes and capture the named pending writes,"
+            " then press Down to reveal and capture Show summary before backing out without Apply."
         )
     if case["case_key"] != "cold-start-hosted":
         return case

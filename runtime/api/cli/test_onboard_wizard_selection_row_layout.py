@@ -81,13 +81,45 @@ def test_long_label_and_hint_are_never_truncated(width):
 
 
 def test_review_recipe_inspects_both_ends_of_a_long_plan_without_apply(monkeypatch):
+    import subprocess
+
     from runtime.api.cli.onboard_wizard_test_helpers import make_app, stub_path_doctor
+    from yoke_harness import ssh_mac_terminal_app as terminal
     from yoke_cli.config.onboard_wizard_finish_flow import FinishBodyFlow
     from yoke_core.domain.installer_campaign_current_text_cases import (
         CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES,
     )
 
     stub_path_doctor(monkeypatch)
+    scripts = []
+
+    def osascript(_run, lines, **_kwargs):
+        scripts.append(lines)
+        return subprocess.CompletedProcess([], 0, "true", "")
+
+    monkeypatch.setattr(terminal, "run_osascript", osascript)
+    monkeypatch.setattr(
+        terminal,
+        "wait_for_terminal_app_focus",
+        lambda *_args, **_kwargs: (True, "Terminal"),
+    )
+
+    def delivered_keys(keys):
+        # Drive the pilot from the actual Terminal.app encoder. Passing logical
+        # Home/End straight to the pilot hid their delivery as literal text.
+        scripts.clear()
+        delivered = terminal.send_terminal_app_keys(
+            lambda *_args, **_kwargs: None, window_id=1, keys=keys, load_average=0
+        )
+        assert delivered.delivered
+        native_keys = {125: "down", 126: "up", 36: "enter", 53: "escape", 49: "space"}
+        result = []
+        for line in scripts[-1]:
+            assert not line.startswith("keystroke "), (keys, "literal text", line)
+            if line.startswith("key code "):
+                result.append(native_keys[int(line.split()[2])])
+        return result
+
     # A full pending plan and its first-work guidance exceed the host's 45 rows.
     monkeypatch.setattr(
         FinishBodyFlow,
@@ -128,12 +160,12 @@ def test_review_recipe_inspects_both_ends_of_a_long_plan_without_apply(monkeypat
             await app._apply_pending_swap()
             await pilot.pause()
             frames = {}
-            for action in actions[first:-1]:
+            for action in actions[first:]:
                 for marker in action.get("ready_text", []):
                     assert marker in frame(), (action["step"], marker, frame())
-                keys = [key.lower() for key in action.get("keys", [])]
+                keys = action.get("keys", [])
                 if keys:
-                    await pilot.press(*keys)
+                    await pilot.press(*delivered_keys(keys))
                 await pilot.pause()
                 frames[action["step"]] = frame()
             assert (
@@ -142,8 +174,7 @@ def test_review_recipe_inspects_both_ends_of_a_long_plan_without_apply(monkeypat
             )
             assert "Show summary" in frames["expanded-review-controls"]
             assert "Show summary" not in frames["pending-write-list"]
-            await pilot.press("escape")
-            await pilot.pause()
+            assert "Review what Yoke will save." not in frames["back-before-apply"]
 
     asyncio.run(scenario())
     assert spy.applied is None
