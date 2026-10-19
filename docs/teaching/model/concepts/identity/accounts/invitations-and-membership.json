@@ -4,23 +4,8 @@
  "status": "observed",
  "page": "identity",
  "position": 2,
- "commands": [
-  "yoke invite",
-  "yoke invites list",
-  "yoke invites revoke",
-  "yoke invites reissue"
- ],
- "functions": [
-  "teammate_invites.create",
-  "teammate_invites.list",
-  "teammate_invites.revoke",
-  "teammate_invites.reissue",
-  "identity.invite.create",
-  "identity.invite.list",
-  "identity.invite.revoke"
- ],
- "sources": [
-  "docs/public/projects/teammate-invitations.md"
- ],
+ "commands": ["yoke invite", "yoke invites list", "yoke invites revoke", "yoke invites reissue"],
+ "functions": ["teammate_invites.create", "teammate_invites.list", "teammate_invites.revoke", "teammate_invites.reissue", "identity.invite.create", "identity.invite.list", "identity.invite.revoke"],
+ "sources": ["docs/public/projects/teammate-invitations.md"],
  "text": "Invite by name on a code server, or by email with company sign-in or a Yoke account. Copy a code once, send it privately, and redeem it within 24 hours through Enter invite code. Reissue keeps the same person. Email invites join through sign-in."
 }

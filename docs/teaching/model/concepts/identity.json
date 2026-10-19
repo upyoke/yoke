@@ -3,12 +3,7 @@
  "title": "People, authentication and permissions",
  "status": "observed",
  "text": "Approve as yourself; invite a separate person.",
- "sources": [
-  "docs/public/projects/actors-members-billing.md",
-  "docs/public/projects/hosted-org-admin.md",
-  "docs/public/cli/machine-authorization.md",
-  "docs/self-host-browser-sign-in.md"
- ],
+ "sources": ["docs/public/projects/actors-members-billing.md", "docs/public/projects/hosted-org-admin.md", "docs/public/cli/machine-authorization.md", "docs/self-host-browser-sign-in.md"],
  "page": "identity",
  "position": 15
 }

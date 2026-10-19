@@ -2,30 +2,11 @@
  "id": "registration",
  "title": "Registration and approval",
  "status": "observed",
- "surface_refs": [
-  "workbench-cues"
- ],
- "commands": [
-  "yoke connect",
-  "yoke machine register",
-  "yoke machine retire",
-  "yoke machines pending",
-  "yoke machines approve",
-  "yoke machines deny"
- ],
- "functions": [
-  "machine.register",
-  "machine.retire",
-  "machine_authorization.pending",
-  "machine_authorization.get",
-  "machine_authorization.resolve",
-  "machine_authorization.handoff",
-  "machine_authorization.handoff_poll"
- ],
+ "surface_refs": ["workbench-cues"],
+ "commands": ["yoke connect", "yoke machine register", "yoke machine retire", "yoke machines pending", "yoke machines approve", "yoke machines deny"],
+ "functions": ["machine.register", "machine.retire", "machine_authorization.pending", "machine_authorization.get", "machine_authorization.resolve", "machine_authorization.handoff", "machine_authorization.handoff_poll"],
  "page": "machines",
  "position": 0,
  "text": "Run yoke machines pending on a connected machine, compare the four-character terminal code and displayed identity, then approve your own machine with yoke machines approve CODE or refuse it with yoke machines deny CODE. The engine owns decisions and one-time credentials. Hosted routing hands a preissued code into the selected organization through service-only handoff and polling. A local universe explains that other computers cannot connect. Source adoption is observed; production delivery remains unverified.",
- "sources": [
-  "docs/public/cli/machine-authorization.md"
- ]
+ "sources": ["docs/public/cli/machine-authorization.md"]
 }

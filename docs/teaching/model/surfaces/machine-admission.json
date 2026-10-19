@@ -10,7 +10,6 @@
  "note": "A person approves their own machine. Agents present the request and hand private invite input to the human TUI; they never approve or receive the secret as an answer.",
  "current": "Source separates own-machine approval, teammate invitation and explicit personal tokens. Hosted and company-sign-in teammates sign in as themselves. A local universe is reachable here only; yoke self-host init is the sharing path.",
  "desired": "Prove the same identities, recovery and secret boundaries from published installers and deployed browser surfaces.",
- "plan_refs": ["FIRST-USER.33"],
  "gaps": ["admission-journeys-delivery-proof"],
  "sources": ["packages/yoke-cli/src/yoke_cli/commands/connect.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_machine_admission.py", "packages/yoke-core/src/yoke_core/ui/static/universe_views_team.js", "packages/yoke-core/src/yoke_core/ui/static/machine_admission_pending.js", "packages/yoke-core/src/yoke_core/ui/static/universe_views_profile_tokens.js"]
 }

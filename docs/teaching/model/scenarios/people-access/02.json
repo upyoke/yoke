@@ -8,17 +8,8 @@
  "disclosure": "current cue",
  "surface": "Team confirmation/role refusal documented in public guide; actor CLI help.",
  "review": "Inline invite confirmations and source refusal recovery are tested; production proof remains pending.",
- "recipes": [
-  "yoke actors state set --help",
-  "yoke actors role set --help"
- ],
- "plan_notes": [
-  "outside both"
- ],
- "sources": [
-  "docs/public/projects/actors-members-billing.md",
-  "packages/yoke-cli/src/yoke_cli/commands/adapters/actors.py",
-  "runtime/api/universe_ui_actor_invites.test.mjs"
- ],
+ "recipes": ["yoke actors state set --help", "yoke actors role set --help"],
+ "plan_notes": ["outside both"],
+ "sources": ["docs/public/projects/actors-members-billing.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/actors.py", "runtime/api/universe_ui_actor_invites.test.mjs"],
  "position": 1
 }

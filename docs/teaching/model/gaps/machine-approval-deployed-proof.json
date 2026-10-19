@@ -3,8 +3,5 @@
  "title": "Prove machine approval from published installers",
  "status": "observed",
  "text": "Shared approval source and start identity have producer, hosted-service, consumer and image-build evidence. The pending list, human decision and one-time delivery still need proof from the published installer against the delivered candidate. Formal Browser proof runs after production deployment, covering every outcome at desktop and 375px in both themes. Source fixtures and earlier consumer proof do not satisfy the changed Team consumer or production obligations; retain exact-candidate results and failures.",
- "sources": [
-  "packages/yoke-core/src/yoke_core/ui/static/machine_approval.js",
-  "docs/public/cli/machine-authorization.md"
- ]
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_approval.js", "docs/public/cli/machine-authorization.md"]
 }

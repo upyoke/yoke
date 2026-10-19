@@ -6,7 +6,6 @@
  "text": "Run yoke connect <server> on the new machine, or choose A team server in setup. On a connected machine, run yoke machines pending or open Machines. Compare the four-character code, machine, organization and Approving as identity before personally choosing Approve or running yoke machines approve CODE. Deny refuses the request. Approval binds the new machine to you, not to a teammate. Expired requests need a fresh connection; agents only present the request for your decision.",
  "verification": "Shared decision and pending-list source tests cover identities and outcomes. Deployed approval and published-installer proof remain owed.",
  "related_scenarios": ["machine-access"],
- "plan_refs": ["FIRST-USER.33"],
  "sources": ["packages/yoke-core/src/yoke_core/domain/machine_authorization_decisions.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/machine_admission.py", "packages/yoke-core/src/yoke_core/ui/static/machine_admission_pending.js", "runtime/api/domain/test_machine_admission_functions.py", "runtime/api/universe_ui_machine_admission_pending.test.mjs"],
  "position": 1
 }

@@ -8,17 +8,8 @@
  "disclosure": "current cue",
  "surface": "Docs sidebar -> Team/Members/Billing -> documented Team and Machines surfaces.",
  "review": "Source form and row contracts are tested; deployed journey proof remains pending.",
- "recipes": [
-  "yoke actors role set --help"
- ],
- "plan_notes": [
-  "FIRST-USER item 33"
- ],
- "sources": [
-  "docs/public/nav.yaml",
-  "docs/public/projects/actors-members-billing.md",
-  "packages/yoke-cli/src/yoke_cli/commands/adapters/actors.py",
-  "runtime/api/universe_ui_actor_invites.test.mjs"
- ],
+ "recipes": ["yoke actors role set --help"],
+ "plan_notes": ["FIRST-USER item 33"],
+ "sources": ["docs/public/nav.yaml", "docs/public/projects/actors-members-billing.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/actors.py", "runtime/api/universe_ui_actor_invites.test.mjs"],
  "position": 0
 }

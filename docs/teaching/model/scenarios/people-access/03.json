@@ -9,17 +9,7 @@
  "surface": "Team Invite form, one-time result and Invites history; public mode table.",
  "gap": "Actual changed hosted Team consumer and production journey proof remain pending; project-grant creation needs its own traced proof.",
  "review": "Source tests cover mode facts, local refusal, older servers and company sign-in configuration recovery.",
- "plan_notes": [
-  "FIRST-USER item 33",
-  "FIRST-USER item 27"
- ],
- "sources": [
-  "docs/public/projects/actors-members-billing.md",
-  "docs/public/projects/teammate-invitations.md",
-  "runtime/api/universe_ui_team_view.test.mjs",
-  "docs/public/cli/machine-authorization.md",
-  "runtime/api/domain/test_teammate_invite_forms.py",
-  "runtime/api/domain/test_teammate_invite_functions.py"
- ],
+ "plan_notes": ["FIRST-USER item 33", "FIRST-USER item 27"],
+ "sources": ["docs/public/projects/actors-members-billing.md", "docs/public/projects/teammate-invitations.md", "runtime/api/universe_ui_team_view.test.mjs", "docs/public/cli/machine-authorization.md", "runtime/api/domain/test_teammate_invite_forms.py", "runtime/api/domain/test_teammate_invite_functions.py"],
  "position": 2
 }
