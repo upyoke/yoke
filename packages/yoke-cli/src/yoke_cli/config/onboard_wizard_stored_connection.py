@@ -8,6 +8,7 @@ from typing import Any, Protocol
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_wizard_stored_github
 from yoke_cli.config.onboard_destinations import (
+    DEFAULT_SIGN_IN_ENV,
     matches_stored_hosted_authority as _matches_hosted,
 )
 from yoke_cli.config.onboard_wizard import WizardDefaults
@@ -18,6 +19,25 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     _stored_yoke_token_available: bool
     _stored_machine_github_api_url: str | None
     _stored_project_checkouts: list[machine_config.ConfiguredProject]
+
+
+def _stored_connection(config_path: Any, env_name: str | None) -> Any:
+    """The saved connection this run may reuse, or ``None``.
+
+    ``--connect URL`` only defaults the env name. Browser approval and invite
+    redemption save the connection under the org's name and activate it, so a
+    defaulted name that is not configured falls back to the active connection;
+    the caller still requires its URL to match the selected server.
+    """
+    try:
+        return machine_config.active_connection(config_path, explicit_env=env_name)
+    except (OSError, RuntimeError, ValueError):
+        if env_name != DEFAULT_SIGN_IN_ENV:
+            return None
+    try:
+        return machine_config.active_connection(config_path)
+    except (OSError, RuntimeError, ValueError):
+        return None
 
 
 class StoredConnectionHydration:
@@ -37,12 +57,8 @@ class StoredConnectionHydration:
     def _hydrate_stored_yoke_connection(self: _Shell, defaults: WizardDefaults) -> None:
         if defaults.token:
             return
-        try:
-            connection = machine_config.active_connection(
-                self.result.config_path,
-                explicit_env=defaults.env_name,
-            )
-        except (OSError, RuntimeError, ValueError):
+        connection = _stored_connection(self.result.config_path, defaults.env_name)
+        if connection is None:
             return
         if str(connection.get("transport") or "") != "https":
             return
