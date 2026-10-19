@@ -152,9 +152,11 @@ through the current bundle's `yoke qa plan review-submit ... --stdin`:
 
 Submit this object alone. It records no verdict or human review request,
 retains the old capture and bundle as history, and queues a new capture against
-the identical immutable target. The emitted scoped plan-run command resumes it
-with `--machine NAME` naming the waited host. Keep that pin on host-ready and
-correction-ready commands so a free host cannot replace the original one.
+the identical immutable target. Host-ready and continuation commands omit
+`--machine`, so every platform in a multi-host roster can resume. The scheduler
+returns each previously used platform to its recorded host; only a new platform
+selects a fresh eligible host. Correction-ready commands also omit the pin; scheduling retains each corrected
+case’s failed attempt host through its requirement replacement history.
 Use a verdict only after the required host was available and the walk ran.
 
 Exploratory mission `method_config` can declare an apt package fixture:
@@ -211,9 +213,23 @@ Blocking resets finish before the runner acts on cancellation. Retry abort
 only after cleanup proof is recorded; success confirms the lease is released.
 
 If cleanup or a required restore fails, or the runner is gone, custody stays
-held. Ask the control-plane operator to recover the machine and record
-verified cleanup evidence before release. Preserve the execution, capture and
-restore diagnostics; retrying without new proof cannot settle the abort.
+held. Stop the old runner before recovery. The lease-holding session or a live
+steering seat covering the project can reset each retained machine to the
+interrupted case's declared baseline:
+
+```text
+yoke test-machine reset --project P --machine NAME --baseline BASELINE
+```
+
+Then retry the same scoped abort command. Only a successful reset receipt for
+the same machine and lease, matching that baseline and recorded after the abort
+request, proves recovery. Reset retains custody; abort performs normal capture,
+review and lease settlement. A stale or failed reset cannot release custody.
+Without a declared baseline, recover the runner's no-restore cleanup receipt.
+Preserve the execution, capture and restore diagnostics. A liveness heartbeat
+does not mark the next case in flight. Host-case admission identifies its
+cursor; only a subsequent check-in for that admitted cursor marks host work
+in flight. Admission alone does not require restoration.
 
 ## Recover communication on the frozen execution
 

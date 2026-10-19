@@ -140,9 +140,12 @@ def resume_execution(conn: Any, execution: dict) -> dict:
             )
     else:
         cursor = int(execution["cursor_ordinal"])
-        if evidence is not None and evidence.get("case_inflight") == cursor:
+        if evidence is not None and cursor in (
+            evidence.get("case_inflight"),
+            evidence.get("checkin_cursor"),
+        ):
             raise QaPlanExecutionStateError(
-                "qa_pause_unconfirmed: a case may have started at this cursor; "
+                "qa_pause_unconfirmed: an active check-in has no confirmed safe pause; "
                 "use the saved pre-case check-in --recovery-file to confirm its pause, "
                 "or reconcile its saved action/recording outcome without replay"
             )
@@ -179,7 +182,13 @@ def resume_execution(conn: Any, execution: dict) -> dict:
 
 
 def resume_if_paused(conn, execution):
-    if not str(execution.get("release_reason") or "").startswith(PAUSE_REASON):
+    reason = str(execution.get("release_reason") or "")
+    if not reason.startswith(PAUSE_REASON):
+        return False
+    checkpoint = json.loads(reason[len(PAUSE_REASON) :])
+    if checkpoint.get("resumed") is True and not any(
+        key in checkpoint for key in ("case_inflight", "checkin_cursor")
+    ):
         return False
     resume_execution(conn, execution)
     return True
@@ -201,4 +210,37 @@ def inflight_checkpoint(execution):
         else {}
     )
     evidence.update(resumed=True, case_inflight=int(execution["cursor_ordinal"]))
+    return PAUSE_REASON + canonical(evidence)
+
+
+def record_case_admitted(conn, execution):
+    """Remember which cursor acquired the host without claiming it ran."""
+    reason = str(execution.get("release_reason") or "")
+    evidence = (
+        json.loads(reason[len(PAUSE_REASON) :])
+        if reason.startswith(PAUSE_REASON)
+        else {}
+    )
+    evidence.update(resumed=True, case_admitted=int(execution["cursor_ordinal"]))
+    checkpoint = PAUSE_REASON + canonical(evidence)
+    conn.execute(
+        f"UPDATE qa_plan_executions SET release_reason={marker(conn)} WHERE id={marker(conn)}",
+        (checkpoint, str(execution["id"])),
+    )
+    conn.commit()
+    execution["release_reason"] = checkpoint
+
+
+def heartbeat_checkpoint(execution):
+    """A check-in renews liveness without asserting that its next action began."""
+    reason = str(execution.get("release_reason") or "")
+    evidence = (
+        json.loads(reason[len(PAUSE_REASON) :])
+        if reason.startswith(PAUSE_REASON)
+        else {}
+    )
+    cursor = int(execution["cursor_ordinal"])
+    if evidence.get("case_admitted") == cursor:
+        evidence["case_inflight"] = cursor
+    evidence.update(resumed=True, checkin_cursor=cursor)
     return PAUSE_REASON + canonical(evidence)

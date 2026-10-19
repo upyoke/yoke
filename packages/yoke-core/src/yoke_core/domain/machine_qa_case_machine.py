@@ -131,29 +131,10 @@ def resolve_plan_machine(
     requirements: Sequence[Mapping[str, Any]],
     requested: str | None,
 ) -> str | None:
-    """Resolve the one machine usable by an uninterrupted plan lease."""
-    constrained = {
-        machine for row in requirements if (machine := resolve_case_machine(row, None))
-    }
-    if len(constrained) > 1:
-        names = ", ".join(sorted(constrained))
-        raise MachineConstraintError(
-            "test_machine_plan_constraints_conflict: one plan execution holds "
-            f"one uninterrupted machine lease, but its cases require {names}; "
-            "for deployment member QA, rerun with --stage STAGE --member ITEM "
-            "and omit --machine to execute separate host rosters; other subjects "
-            "require one plan execution per machine"
-        )
-    plan_machine = next(iter(constrained), None)
-    return resolve_case_machine(
-        {
-            "case_key": "plan roster",
-            "required_capability_kinds": (
-                [test_machine_capability_type(plan_machine)] if plan_machine else []
-            ),
-        },
-        requested,
-    )
+    """Validate an explicit global pin; otherwise schedule each case's host."""
+    for row in requirements:
+        resolve_case_machine(row, requested)
+    return validate_test_machine_resource_name(requested) if requested else None
 
 
 __all__ = [

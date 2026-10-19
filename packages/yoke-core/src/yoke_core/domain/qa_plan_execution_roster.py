@@ -146,19 +146,26 @@ def validate_roster_machine(
         resolve_plan_machine,
     )
 
-    selected = resolve_plan_machine(roster, machine)
+    resolve_plan_machine(roster, machine)
     projects = {
         int(row["project_id"])
         for row in roster
         if row.get("runner_id") in {"host_control", "agent_mission"}
     }
+    from yoke_core.domain.machine_qa_case_hosts import case_machines
+
     for project_id in projects:
-        require_registered_machine(
-            conn,
-            project_id=project_id,
-            machine=selected,
-            subject="run pin" if machine else "case constraint",
-        )
+        names = {machine} if machine else set()
+        for row in roster:
+            if row.get("project_id") == project_id:
+                names.update(case_machines(row))
+        for name in names:
+            require_registered_machine(
+                conn,
+                project_id=project_id,
+                machine=name,
+                subject="run pin" if machine else "case constraint",
+            )
 
 
 def expected_plan_case(
