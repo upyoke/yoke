@@ -52,7 +52,7 @@ For an explicit token for your own identity, use your connected terminal:
 ```bash
 yoke tokens create --name ci
 yoke tokens list
-yoke tokens revoke TOKEN-ID
+yoke tokens revoke <token-id>
 ```
 
 Copy the new token now; it is shown once. Lost it? List its ID, revoke it, and
