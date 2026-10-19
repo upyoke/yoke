@@ -188,7 +188,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
         "qa.run.record_verdict",
         "yoke qa run record-verdict --requirement-id N "
         "--performed-by WHO --verdict VERDICT "
-        "[--verdict-reason REASON] [--raw-result TEXT] "
+        "[--verdict-reason REASON] [--raw-result JSON] "
         "[--duration-ms N] [--session-id S] [--json]",
     ),
     # Public QA reads, item-attached creation, and gate-entry summary.

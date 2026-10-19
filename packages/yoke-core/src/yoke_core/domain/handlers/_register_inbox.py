@@ -6,7 +6,6 @@ from yoke_core.domain.handlers import decision_request_disposition as _dispositi
 from yoke_core.domain.handlers import inbox_decisions as _inbox
 from yoke_core.domain.handlers import inbox_decision_models as _models
 from yoke_core.domain.handlers import decision_request_get as _get
-from yoke_core.domain import machine_approval_requests as _machine
 
 
 def _register(
@@ -52,7 +51,7 @@ def register(registry) -> None:
             "machine_authorization.resolve",
             authorization.handle_resolve,
             authorization.AuthorizationResolveRequest,
-            ["machine_authorization_approve", "decision_requests_resolve"],
+            ["machine_authorization_codes_update"],
         ),
     ):
         registry.register(
@@ -71,6 +70,22 @@ def register(registry) -> None:
             ambient_session_required=False,
             minimum_serving_version="next-release",
         )
+    registry.register(
+        "machine_authorization.pending",
+        authorization.handle_pending,
+        authorization.AuthorizationPendingRequest,
+        authorization.AuthorizationPendingResponse,
+        stability="stable",
+        owner_module=authorization.__name__,
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["verified_actor", "org_membership"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+        minimum_serving_version="next-release",
+    )
     registry.register(
         "decision_requests.get",
         _get.handle_decision_request_get,
@@ -96,31 +111,6 @@ def register(registry) -> None:
         side_effects=[],
         events=[],
         guardrails=["actor_required", "authority_union"],
-    )
-    _register(
-        registry,
-        "machine_approval.lifecycle.apply",
-        _machine.apply_machine_approval_lifecycle_request,
-        _models.MachineApprovalLifecycleRequest,
-        _models.MachineApprovalLifecycleResponse,
-        side_effects=[
-            "decision_requests_insert",
-            "decision_requests_resolve",
-            "decision_requests_withdraw",
-        ],
-        events=[
-            "DecisionRequestCreated",
-            "DecisionRequestResolved",
-            "DecisionRequestWithdrawn",
-        ],
-        guardrails=[
-            "actor_required",
-            "org_scope_exact",
-            "tenant_identity_org",
-            "closed_lifecycle_state",
-            "terminal_replay_idempotent",
-        ],
-        owner_module="yoke_core.domain.machine_approval_requests",
     )
     _register(
         registry,

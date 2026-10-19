@@ -113,10 +113,10 @@ def test_connect_without_token_uses_hosted_browser_org_authority(
                 hosted_machine_authorization.PendingMachineAuthorization(
                     platform_url="https://app.upyoke.com",
                     device_code="device-secret",
-                    user_code="ABCD-2345",
+                    user_code="K7F2",
                     verification_uri="https://app.upyoke.com/connect",
                     verification_uri_complete=(
-                        "https://app.upyoke.com/connect?user_code=ABCD-2345"
+                        "https://app.upyoke.com/connect?user_code=K7F2"
                     ),
                     expires_in=600,
                     interval=2,
@@ -141,7 +141,7 @@ def test_connect_without_token_uses_hosted_browser_org_authority(
     )
     output = capsys.readouterr()
     assert json.loads(output.out)["env"] == "acme"
-    assert "ABCD-2345" in output.err
+    assert "K7F2" in output.err
 
 
 def test_connect_stage_platform_url_uses_stage_browser_authority(

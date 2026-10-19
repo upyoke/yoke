@@ -10,7 +10,10 @@ from typing import Any, Dict, Optional
 
 from . import db_backend
 from .sessions_analytics import SessionError
-from .session_work_eligibility import require_session_work_eligibility
+from .session_work_eligibility import (
+    require_session_close_eligibility,
+    require_session_work_eligibility,
+)
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_ended_recovery import session_ended_message
 from .sessions_lifecycle_claim_events import emit_work_claimed
@@ -116,6 +119,13 @@ def _resolve_active_holder(
     return winner["session_id"]
 
 
+def _admit(conn: Any, session_id: str, target: WorkClaimTarget, close_only: bool):
+    if close_only and target.kind == TARGET_KIND_ITEM:
+        require_session_close_eligibility(conn, session_id, target)
+    else:
+        require_session_work_eligibility(conn, session_id, target)
+
+
 @binding_lock.rollback_workflow_binding_write_errors
 def claim_work(
     conn: Any,
@@ -125,6 +135,7 @@ def claim_work(
     item_id: Optional[str] = None,
     claim_type: str = "exclusive",
     reason: Optional[str] = None,
+    close_only: bool = False,
 ) -> Dict[str, Any]:
     """Acquire a typed work claim for ``session_id``.
 
@@ -132,6 +143,8 @@ def claim_work(
     (item-target convenience). ``claim_type`` accepts only ``"exclusive"``.
     ``reason`` lands verbatim on ``work_claims.reason`` (canonical tag
     classified into ``reason_intent``) and echoes on ``WorkClaimed``.
+    ``close_only`` admits an administrative close of an item instead of
+    work: no model-level check, and a covering steering seat may hold it.
     """
     from yoke_core.domain.sessions import clean_stale_harness_sessions
     from .sessions_render import set_current_item
@@ -172,7 +185,7 @@ def claim_work(
             session_ended_message(conn, session_id),
         )
 
-    require_session_work_eligibility(conn, session_id, target)
+    _admit(conn, session_id, target, close_only)
 
     conflict = conn.execute(
         f"SELECT session_id FROM work_claims "
@@ -208,7 +221,7 @@ def claim_work(
         )
 
     binding_lock.lock_work_claim_target_workflow_binding(conn, target)
-    require_session_work_eligibility(conn, session_id, target)
+    _admit(conn, session_id, target, close_only)
     try:
         validate_work_claim_target(conn, target)
     except WorkflowItemBindingError as exc:
@@ -271,7 +284,7 @@ def claim_work(
             f"Work unit already has an active exclusive claim by session "
             f"'{winner_id}'.",
         )
-    if target.kind == TARGET_KIND_ITEM:
+    if target.kind == TARGET_KIND_ITEM and not close_only:
         set_current_item(
             conn,
             session_id,

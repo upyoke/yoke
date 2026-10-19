@@ -139,11 +139,11 @@ def test_overview_resolves_each_owner_once(test_db, monkeypatch):
     )
     assert outcome.primary_success
     owners = {
-        row["owner"]
+        row["owner_label"]
         for row in outcome.result_payload["rows"]
         if row["title"] in {"owned-a", "owned-b"}
     }
-    assert owners == {"Ada"}
+    assert owners == {f"Ada (actor id: {actor_id})"}
     assert calls.count(actor_id) == 1
 
 

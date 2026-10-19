@@ -34,6 +34,7 @@ def test_dash_filing_reads_spec_from_stdin(monkeypatch):
     assert (
         dash_file.dash_file(
             [
+                "--title",
                 "Tighten footer",
                 "--stdin",
                 "--execution-instructions-considered",
@@ -54,6 +55,7 @@ def test_dash_filing_reads_spec_from_spec_file(monkeypatch, tmp_path):
     assert (
         dash_file.dash_file(
             [
+                "--title",
                 "Tighten footer",
                 "--spec-file",
                 str(path),
@@ -76,6 +78,7 @@ def test_task_filing_reads_spec_from_stdin(monkeypatch):
     assert (
         task.task_file(
             [
+                "--title",
                 "Refresh inventory",
                 "--stdin",
                 "--execution-instructions-considered",
@@ -88,7 +91,7 @@ def test_task_filing_reads_spec_from_stdin(monkeypatch):
 
 
 @pytest.mark.parametrize("adapter", [dash_file, task])
-@pytest.mark.parametrize("source", ["stdin", "file", "positional"])
+@pytest.mark.parametrize("source", ["stdin", "file"])
 @pytest.mark.parametrize("blank", ["", " \n"])
 def test_direct_work_refuses_blank_spec_before_dispatch(
     monkeypatch,
@@ -102,7 +105,7 @@ def test_direct_work_refuses_blank_spec_before_dispatch(
     monkeypatch.setattr(
         items_create, "dispatch_create", lambda **kw: dispatched.append(kw)
     )
-    args = ["Work title", "--execution-instructions-considered"]
+    args = ["--title", "Work title", "--execution-instructions-considered"]
     if source == "stdin":
         monkeypatch.setattr("yoke_cli.commands.text_file.sys.stdin", StringIO(blank))
         args.append("--stdin")
@@ -110,8 +113,6 @@ def test_direct_work_refuses_blank_spec_before_dispatch(
         path = tmp_path / "empty.txt"
         path.write_text(blank, encoding="utf-8")
         args.extend(["--spec-file", str(path)])
-    else:
-        args.insert(1, blank)
 
     command = adapter.dash_file if adapter is dash_file else adapter.task_file
     assert command(args) == 2
@@ -132,7 +133,9 @@ def test_items_create_reads_spec_from_stdin(monkeypatch):
     assert (
         items_create.items_create(
             [
+                "--title",
                 "Stored title",
+                "--workflow",
                 "issue",
                 "--stdin",
                 "--execution-instructions-considered",

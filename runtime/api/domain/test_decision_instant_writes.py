@@ -18,24 +18,42 @@ from yoke_core.domain.decision_request_resolution import (
     withdraw_decision_request,
     withdraw_for_ended_subject,
 )
-from yoke_core.domain.decision_request_subject_state import (
-    require_decision_request_subject_ended,
-)
 from yoke_core.domain.decision_requests import create_decision_request
+from yoke_core.domain.project_seed_test_helpers import seed_project_identities
+from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.deployment_run_terminalization import terminalize_run_on
 from yoke_core.domain.qa_review_requests import apply_qa_review_resolution
 
 
-def _machine_request(conn, *, subject, clock, expires):
+def _transition_request(conn, *, item_id, clock, project_id, actor_id):
     return create_decision_request(
         conn,
-        kind="machine_approval",
-        subject_type="machine_auth_request",
-        subject_key=subject,
-        org_id=9100,
-        named_actor_ids=[9101],
-        subject_context={"expires_at": expires, "label": "2026-01-01"},
+        kind="lifecycle_transition_approval",
+        subject_type="item_transition",
+        subject_key=f"{item_id}:reviewing-implementation",
+        project_id=project_id,
+        named_actor_ids=[actor_id],
         created_at=clock,
+        subject_context={
+            "item_id": item_id,
+            "item_ref": f"YOK-{item_id}",
+            "item_title": "Clock check",
+            "from_stage": "implementing",
+            "to_stage": "reviewing-implementation",
+            "workflow_id": "issue",
+            "workflow_version_id": 1,
+            "branch_changes": {
+                "branch": None,
+                "commit_sha": None,
+                "touched_files": [],
+                "summary": "No implementation branch is recorded.",
+            },
+            "approval_source": {
+                "kind": "workflow_approval_default",
+                "entry": "approval_defaults.reviewing-implementation",
+            },
+            "label": "2026-01-01",
+        },
     )
 
 
@@ -53,19 +71,23 @@ def test_decisions_and_withdrawals_bind_native_clocks_and_atomic_audits(test_db,
         "INSERT INTO actors (id,kind,created_at) VALUES (%s,'human',%s)",
         (9101, anchor),
     )
-    first, created = _machine_request(
+    seed_project_identities(test_db)
+    project_id = resolve_project_id(test_db, "yoke")
+    first, created = _transition_request(
         test_db,
-        subject="approval",
+        item_id=9102,
         clock=equivalent,
-        expires=format_instant(later),
+        project_id=project_id,
+        actor_id=9101,
     )
     assert created and first["created_at"] == anchor
     assert first["resolved_at"] is None
-    again, created = _machine_request(
+    again, created = _transition_request(
         test_db,
-        subject="approval",
+        item_id=9102,
         clock=anchor,
-        expires=format_instant(later),
+        project_id=project_id,
+        actor_id=9101,
     )
     assert not created and again["id"] == first["id"]
     resolved = resolve_decision_request(
@@ -78,23 +100,19 @@ def test_decisions_and_withdrawals_bind_native_clocks_and_atomic_audits(test_db,
     assert resolved["resolved_at"] == later
     assert resolved["decisions"][0]["decided_at"] == format_instant(later)
     assert temporal_wire(resolved)["created_at"] == format_instant(anchor)
-    second, _ = _machine_request(
+    # A removed subject makes withdrawal valid; the timestamp storage contract
+    # is the same for any active decision kind.
+    second, _ = _transition_request(
         test_db,
-        subject="expired",
+        item_id=9103,
         clock=anchor,
-        expires=equivalent,
+        project_id=project_id,
+        actor_id=9101,
     )
-    with pytest.raises(ValueError, match="has not ended"):
-        withdraw_for_ended_subject(
-            test_db,
-            second["id"],
-            reason="Expired",
-            withdrawn_at=anchor - timedelta(microseconds=1),
-        )
     withdrawn = withdraw_for_ended_subject(
         test_db,
         second["id"],
-        reason="Expired",
+        reason="Subject removed",
         withdrawn_at=equivalent,
     )
     assert withdrawn["withdrawn_at"] == anchor
@@ -136,18 +154,8 @@ def test_bad_owned_clocks_refuse_before_sql(bad):
     calls = [
         lambda: create_decision_request(
             conn,
-            kind="machine_approval",
-            subject_type="machine_auth_request",
-            subject_key="invalid-context",
-            org_id=9100,
-            named_actor_ids=[9101],
-            created_at="2026-01-01T00:00:00Z",
-            subject_context={"expires_at": bad},
-        ),
-        lambda: create_decision_request(
-            conn,
-            kind="machine_approval",
-            subject_type="machine_auth_request",
+            kind="lifecycle_transition_approval",
+            subject_type="item_transition",
             subject_key="invalid",
             org_id=9100,
             named_actor_ids=[9101],
@@ -190,15 +198,6 @@ def test_bad_owned_clocks_refuse_before_sql(bad):
             session_id="",
             terminalized_at=bad,
         ),
-        lambda: require_decision_request_subject_ended(
-            conn,
-            {
-                "id": 1,
-                "kind": "machine_approval",
-                "subject_context": {"expires_at": bad},
-            },
-            observed_at="2026-01-02T00:00:00.000000Z",
-        ),
     ]
     for call in calls:
         with pytest.raises(InvalidInstant):
@@ -212,14 +211,12 @@ def test_sqlite_decisions_and_audit_clocks_have_canonical_text():
 
     with decision_request_connection() as conn:
         stamp = parse_instant("1969-12-31T23:59:59.999999Z")
-        request, _ = create_decision_request(
+        request, _ = _transition_request(
             conn,
-            kind="machine_approval",
-            subject_type="machine_auth_request",
-            subject_key="sqlite-clock",
-            org_id=1,
-            named_actor_ids=[5],
-            created_at=stamp,
+            item_id=9102,
+            clock=stamp,
+            project_id=10,
+            actor_id=5,
         )
         assert request["created_at"] == format_instant(stamp)
         result = resolve_decision_request(
@@ -233,45 +230,3 @@ def test_sqlite_decisions_and_audit_clocks_have_canonical_text():
         for row in conn.execute("SELECT created_at,envelope FROM events"):
             assert row[0] == format_instant(row[0])
             assert json.loads(row[1])["created_at"] == row[0]
-
-
-@pytest.mark.parametrize("field", ["occurred_at", "expires_at"])
-@pytest.mark.parametrize(
-    "bad", ["", "2026-01-01", "2026-01-01T00:00:00", 0, 1767225600]
-)
-def test_machine_delivery_validates_original_clock_values_before_coercion(field, bad):
-    from pydantic import ValidationError
-    from yoke_core.domain.handlers.inbox_decision_models import (
-        MachineApprovalLifecycleRequest,
-    )
-
-    values = {
-        "authorization_id": "5b234860-c927-46ab-b19a-9fb36df056aa",
-        "state": "pending",
-        "occurred_at": "2026-01-01T00:00:00.000001Z",
-        "expires_at": "2026-01-01T00:10:00.000001Z",
-    }
-    values[field] = bad
-    with pytest.raises(ValidationError):
-        MachineApprovalLifecycleRequest.model_validate(values)
-
-
-def test_machine_context_formats_only_declared_clocks_and_preserves_nulls():
-    from yoke_core.domain.decision_machine_clocks import machine_context_wire
-
-    assert machine_context_wire(
-        {
-            "expires_at": "1969-12-31T18:59:59.999999-05:00",
-            "ended_at": None,
-            "label": "2026-01-01",
-            "note": "opaque",
-        }
-    ) == {
-        "expires_at": "1969-12-31T23:59:59.999999Z",
-        "ended_at": None,
-        "label": "2026-01-01",
-        "note": "opaque",
-    }
-    for key in ["expires_at", "ended_at", "expired_at", "occurred_at", "withdrawn_at"]:
-        with pytest.raises(InvalidInstant):
-            machine_context_wire({key: "2026-01-01"})

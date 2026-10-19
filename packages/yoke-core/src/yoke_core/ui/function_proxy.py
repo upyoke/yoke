@@ -1,15 +1,9 @@
-"""Allowlists and dispatch for the local UI server's function proxy.
+"""Closed browser rosters and dispatch for the local UI function proxy.
 
-The server keeps routing and token security; the proxy admits a closed roster:
-
-* :data:`UI_READ_FUNCTION_ALLOWLIST` — read-only by construction, with
-  one documented exception (:data:`UI_ACTIVATION_LATCH_FUNCTIONS`).
-* :data:`UI_MUTATION_FUNCTION_ALLOWLIST` — the bounded browser action
-  roster, dispatched as the resolved local operator actor.
-
-Everything else is refused with 403 before the dispatcher sees it. The
-browser envelope's own actor claim is never trusted: only the
-server-resolved operator actor may fill ``actor_id``.
+Reads are claimless and read-only except UI_ACTIVATION_LATCH_FUNCTIONS.
+Bounded mutations and actor-bound reads require the resolved local operator.
+All other functions are refused with 403 before dispatch. Browser-supplied actor
+and session claims are never trusted; the server or relay owns identity.
 """
 
 from __future__ import annotations
@@ -41,6 +35,9 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         # Reads used by served pages must pass the static UI caller contract.
         "profile.get",
         "machine_authorization.get",
+        "machine_authorization.pending",
+        "identity.invite.list",
+        "teammate_invites.list",
         "actors.roster",
         "packs.list",
         "packs.bundle.get",
@@ -140,6 +137,9 @@ UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset(
         "workflows.mechanics.get",
         "profile.get",
         "actors.roster",
+        "machine_authorization.pending",
+        "identity.invite.list",
+        "teammate_invites.list",
     }
 )
 
@@ -174,6 +174,8 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
         "overview.module.dismiss",
         "overview.module.restore",
         "profile.token.create",
+        "identity.invite.create",
+        "teammate_invites.create",
         "actors.state.set",
         "actors.role.set",
         "profile.token.revoke",

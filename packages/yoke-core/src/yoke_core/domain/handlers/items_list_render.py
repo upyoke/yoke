@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 from yoke_core.domain.items_projection import ACTOR_LABEL_FIELDS, ITEM_INSTANT_FIELDS
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.item_completion_flow_projection import completion_flow_values
+from yoke_core.domain.item_owner_label import owner_actor_id, owner_label
 
 _UNSET_LABEL_TOKENS = frozenset({"none", "null"})
 
@@ -121,6 +122,10 @@ def _render_rows(
             elif field == "deployment_flow":
                 rendered[field] = flows.get(
                     int(row[-1]), {"value": "", "source": "none"}
+                )
+            elif field == "owner":
+                rendered[field] = owner_label(
+                    value, labels.get(owner_actor_id(value) or 0)
                 )
             elif field in ACTOR_LABEL_FIELDS:
                 rendered[field] = _render_label(value)

@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
-from yoke_contracts.timestamps import parse_instant
 from typing import Any, Callable, Mapping
 
 from yoke_core.domain.project_identity import render_item_ref
@@ -14,20 +13,15 @@ from yoke_core.domain import decision_request_merge_candidate as _merge_candidat
 from yoke_core.domain.decision_request_contract import (
     DEPLOYMENT_STAGE_APPROVAL,
     LIFECYCLE_TRANSITION_APPROVAL,
-    MACHINE_APPROVAL,
     QA_NEEDS_REVIEW,
 )
 from yoke_core.domain.schema_common import _column_exists, _table_exists
-from yoke_core.domain.decision_machine_clocks import MACHINE_END_TIMESTAMPS
 
 
 SubjectStateCheck = Callable[
     [Any, Mapping[str, Any], str],
     tuple[bool, str],
 ]
-
-_MACHINE_ENDED_STATES = frozenset({"expired", "withdrawn", "cancelled", "canceled"})
-_MACHINE_END_TIMESTAMPS = MACHINE_END_TIMESTAMPS
 
 
 def _p(conn: Any) -> str:
@@ -45,10 +39,6 @@ def _require_table(conn: Any, table: str, request_id: int) -> None:
             f"decision request {request_id} subject state cannot be verified: "
             f"{table} is unavailable"
         )
-
-
-def _instant(value: Any) -> datetime | None:
-    return parse_instant(value) if value is not None else None
 
 
 def _deployment_stage_ended(
@@ -264,42 +254,10 @@ def _qa_walk_ended(conn: Any, requirement_id: int, run_id: int) -> tuple[bool, s
     )
 
 
-def _machine_approval_ended(
-    _conn: Any,
-    request: Mapping[str, Any],
-    observed_at: str,
-) -> tuple[bool, str]:
-    request_id = int(request["id"])
-    context = _context(request)
-    state = str(context.get("status") or context.get("state") or "").lower()
-    if state in _MACHINE_ENDED_STATES:
-        return True, f"machine authorization is {state}"
-    observed = _instant(observed_at)
-    if observed is None:
-        raise ValueError(
-            f"decision request {request_id} has an invalid observation timestamp"
-        )
-    for key in _MACHINE_END_TIMESTAMPS:
-        if context.get(key) is None:
-            continue
-        instant = _instant(context[key])
-        if instant is None:
-            raise ValueError(
-                f"decision request {request_id} has invalid {key} evidence"
-            )
-        if instant <= observed:
-            return True, f"machine authorization reached {key} at {context[key]}"
-    expires_at = _instant(context.get("expires_at"))
-    if expires_at is not None and expires_at <= observed:
-        return True, (f"machine authorization expired at {context['expires_at']}")
-    return False, "machine authorization has not expired or been cancelled"
-
-
 _SUBJECT_STATE_CHECKS: dict[str, SubjectStateCheck] = {
     DEPLOYMENT_STAGE_APPROVAL: _deployment_stage_ended,
     QA_NEEDS_REVIEW: _qa_review_ended,
     LIFECYCLE_TRANSITION_APPROVAL: _lifecycle_transition_ended,
-    MACHINE_APPROVAL: _machine_approval_ended,
     _merge_candidate.KIND: _merge_candidate.subject_ended,
 }
 

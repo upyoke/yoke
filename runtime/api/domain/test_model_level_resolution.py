@@ -118,3 +118,14 @@ def test_no_catalog_is_no_level():
         )
         is None
     )
+
+
+@pytest.mark.parametrize(
+    "effort,reason",
+    [(None, "session_effort_unreported"), ("ultra", "session_effort_unpublished")],
+)
+def test_missing_effort_is_distinct_from_unpublished_effort(effort, reason):
+    result = resolve_model_level(
+        default_levels(), model="claude-opus-5-5", effort=effort, records=RECORDS
+    )
+    assert (result.level, result.reason) == (None, reason)

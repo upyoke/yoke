@@ -26,13 +26,16 @@ def _acquire_for_caller(
     session_id: str,
     *,
     reason: str = "item flag verb",
+    close_only: bool = False,
 ) -> Optional[int]:
     """Ensure the caller owns the item claim; return one it acquired.
 
     Returns the new claim id when this call established the claim (the
     caller must release it), or None when the calling session already
     held it. Raises :class:`_ClaimRefused` when another live session
-    holds it.
+    holds it. ``close_only`` admits an administrative close rather than
+    work (see ``claim_work``). Any other admission refusal propagates as
+    the typed ``SessionError`` for the handler to report.
 
     The caller's own claim is read first, because ``claim_work``'s
     conflict check excludes the calling session by design: acquiring
@@ -61,6 +64,7 @@ def _acquire_for_caller(
                 session_id=session_id,
                 target=make_item_target(item_id),
                 reason=reason,
+                close_only=close_only,
             )
         except SessionError as exc:
             if exc.code != "ALREADY_CLAIMED":

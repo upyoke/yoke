@@ -16,7 +16,10 @@ from yoke_cli.commands.adapters.items_create_policy import (
     refuse_unscaffolded_create,
     _unsupported_posture,
 )
-from yoke_cli.commands.adapters.items_create_text import resolve_create_text
+from yoke_cli.commands.adapters.items_create_text import (
+    add_create_text_args,
+    resolve_create_text,
+)
 from yoke_cli.commands.adapters.dash_verification_plan import (
     resolve_dash_verification_plan,
     DashVerificationPlanError,
@@ -24,7 +27,7 @@ from yoke_cli.commands.adapters.dash_verification_plan import (
 from yoke_contracts.api.function_call import TargetRef
 
 ITEMS_CREATE_USAGE = (
-    "yoke items create (TITLE | --title-file PATH) WORKFLOW "
+    "yoke items create (--title TEXT | --title-file PATH) --workflow W "
     "(--spec-file PATH | --stdin) --execution-instructions-considered "
     "[--project P] [--priority P] [--entry-surface SURFACE] [--dry-run] [--json]"
 )
@@ -38,13 +41,14 @@ def items_create(args: list[str], *, shortcut: str | None = None) -> int:
             "and --spec-file PATH or --stdin for spec"
         )
     usage = (
-        f"{command} (TITLE | --title-file PATH) "
-        "(SPEC | --spec-file PATH | --stdin) --execution-instructions-considered"
+        f"{command} (--title TEXT | --title-file PATH) "
+        "(--spec-file PATH | --stdin) --execution-instructions-considered"
         if shortcut
         else ITEMS_CREATE_USAGE
     )
     parser = argparse.ArgumentParser(
         prog=command,
+        allow_abbrev=False,
         description=usage + "\n\n"
         "task  Laneless, merge-free work in projects without a code repository.\n"
         "dash  Focused repository work with a lane or selected gates;\n"
@@ -54,21 +58,9 @@ def items_create(args: list[str], *, shortcut: str | None = None) -> int:
         "First: yoke workflow execution-instruction resolve --workflow W --project P --full\n"
         "pass --execution-instructions-considered after reading them.",
     )
-    parser.add_argument(
-        "title",
-        nargs="?",
-        metavar="TITLE",
-        help="Title; use --title-file PATH for a file.",
-    )
-    parser.add_argument(
-        "spec" if shortcut else "workflow",
-        nargs="?",
-        metavar="SPEC" if shortcut else "WORKFLOW",
-        help="Spec text." if shortcut else "Workflow id.",
-    )
-    parser.add_argument("--title-file", help="Read title from this UTF-8 file.")
-    parser.add_argument("--spec-file", help="Read spec from this UTF-8 file.")
-    parser.add_argument("--stdin", action="store_true", help="Read spec from stdin.")
+    add_create_text_args(parser)
+    if not shortcut:
+        parser.add_argument("--workflow", metavar="W", help="Workflow id.")
     parser.add_argument(
         "--priority",
         choices=("high", "medium", "low"),
@@ -118,7 +110,7 @@ def items_create(args: list[str], *, shortcut: str | None = None) -> int:
     if parsed is None:
         return 2
     try:
-        title, workflow, spec = resolve_create_text(parsed, shortcut)
+        title, workflow, spec = resolve_create_text(parsed, shortcut, command)
     except ValueError as exc:
         return usage_error(str(exc))
     refused = refuse_unscaffolded_create(

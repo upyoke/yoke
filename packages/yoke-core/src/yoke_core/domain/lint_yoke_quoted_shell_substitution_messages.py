@@ -11,14 +11,14 @@ SUPPRESSION_TOKEN = "# lint:no-yoke-quoted-substitution-check"
 SAFE_FORM = (
     "Pass free text on --stdin or --content-file from a quoted heredoc "
     "(<<'EOF'), which the shell does not expand:\n"
-    "  yoke dash TITLE --stdin --execution-instructions-considered <<'EOF'\n"
+    "  yoke dash --title TITLE --stdin --execution-instructions-considered <<'EOF'\n"
     "  instruction that names `yoke items get` and $(whoami) literally\n"
     "  EOF\n"
-    "  printf '%s' \"$instruction\" | yoke dash TITLE --stdin "
+    "  printf '%s' \"$instruction\" | yoke dash --title TITLE --stdin "
     "--execution-instructions-considered\n"
     "For a computed value, capture first, then pass the variable:\n"
     "  sha=$(git rev-parse HEAD)\n"
-    "  yoke ... --source-ref \"$sha\""
+    '  yoke ... --source-ref "$sha"'
 )
 
 MERGE_ITEM_SAFE_FORM = (
@@ -32,8 +32,8 @@ MERGE_ITEM_SAFE_FORM = (
     "  evidence\n"
     "  EOF\n"
     "  )\n"
-    "  yoke merge item PREFIX-N --result \"$result\" "
-    "--verification \"$verification\""
+    '  yoke merge item PREFIX-N --result "$result" '
+    '--verification "$verification"'
 )
 
 QUOTE_THE_DELIMITER = (
@@ -69,9 +69,7 @@ def format_reason(
     command: str = "",
 ) -> str:
     preview = text if len(text) <= 160 else text[:157] + "..."
-    recovery = (
-        MERGE_ITEM_SAFE_FORM if _is_merge_item(command) else _RECOVERIES[kind]
-    )
+    recovery = MERGE_ITEM_SAFE_FORM if _is_merge_item(command) else _RECOVERIES[kind]
     body = (
         f"{_HEADLINES[kind]}\n\n"
         f"{_LABELS[kind]}: {preview!r}\n\n"

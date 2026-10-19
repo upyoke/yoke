@@ -1,8 +1,8 @@
 {
  "id": "spec-input",
- "title": "Independent title and spec sources",
+ "title": "Flag-only title and spec sources",
  "status": "observed",
- "commands": ["yoke items create"],
+ "commands": ["yoke items create", "yoke dash", "yoke task"],
  "functions": ["items.create"],
- "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/items_create_text.py", "runtime/api/test_items_create_spec_storage.py"]
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/items_create_text.py", "runtime/api/cli/test_items_create_spec_sources.py", "runtime/api/test_items_create_spec_storage.py"]
 }

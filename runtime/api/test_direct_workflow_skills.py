@@ -161,7 +161,9 @@ def test_idea_to_blitz_route_dispatches_the_typed_create_payload(monkeypatch):
     assert (
         items_create.items_create(
             [
+                "--title",
                 "Reconcile the document-led rollout",
+                "--workflow",
                 "blitz",
                 "--stdin",
                 "--entry-surface",

@@ -22,6 +22,7 @@ from yoke_core.api.service_client_items_parsing import (
 )
 from yoke_core.domain.project_identity import item_project_join_select, render_item_ref
 from yoke_core.domain.items_constants import CANONICAL_COLUMNS, _DB_COLUMNS
+from yoke_core.domain.item_owner_label import owner_facts, resolve_owner_names
 from yoke_core.domain.items_projection import item_text_expression
 
 
@@ -112,6 +113,9 @@ def cmd_item_get(args: list[str]) -> int:
                 (item_id,),
             ).fetchone()
             value = row["value"] if row else ""
+            if field == "owner":
+                names = resolve_owner_names(conn, [value])
+                value = owner_facts(value, names)["owner_label"]
 
         if field in _QI_LARGE_TEXT_FIELDS:
             if not value:

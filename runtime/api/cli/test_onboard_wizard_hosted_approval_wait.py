@@ -27,7 +27,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     stub_path_doctor,
 )
 
-COMPLETE_URL = "https://app.upyoke.com/connect?user_code=ABCD-2345"
+COMPLETE_URL = "https://app.upyoke.com/connect?user_code=K7F2"
 FAILURE_REASON = "webbrowser.open returned False"
 
 
@@ -51,9 +51,9 @@ def _pending(
     return hosted_machine_authorization.PendingMachineAuthorization(
         platform_url=url,
         device_code="device-secret",
-        user_code="ABCD-2345",
+        user_code="K7F2",
         verification_uri=f"{url}/connect",
-        verification_uri_complete=f"{url}/connect?user_code=ABCD-2345",
+        verification_uri_complete=f"{url}/connect?user_code=K7F2",
         expires_in=600,
         interval=1,
     )
@@ -167,7 +167,7 @@ def test_every_approval_view_names_the_complete_url_and_the_browser_outcome(
             await pilot.pause()
             waiting = _body_text(app)
             assert f"Open: {COMPLETE_URL}" in waiting
-            assert "One-time code: ABCD-2345" in waiting
+            assert "Match code: K7F2" in waiting
             assert "No browser available here. Open this link on any device" in waiting
             assert "opened for you" not in waiting
             assert FAILURE_REASON in waiting
@@ -280,10 +280,10 @@ def test_browser_setup_keeps_the_link_and_code_visible_and_copyable(
                 assert app._checking
                 body = _body_text(app)
                 assert "preparing Yoke's browser runtime" in body
-                assert COMPLETE_URL in body and "ABCD-2345" in body
+                assert COMPLETE_URL in body and "K7F2" in body
                 assert "opened for you" not in body
                 await pilot.press("ctrl+y", "ctrl+y")
-                assert copied == ["ABCD-2345", COMPLETE_URL]
+                assert copied == ["K7F2", COMPLETE_URL]
             finally:
                 release.set()
             await app.workers.wait_for_complete()

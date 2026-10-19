@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from io import StringIO
 from types import SimpleNamespace
 
 import pytest
@@ -11,6 +12,11 @@ from yoke_cli.commands.adapters import dash_file, dash_verification_plan, items_
 from yoke_cli.commands import direct_workflow_worktree
 from yoke_core.api import service_client_structured_api_adapter
 from yoke_core.domain import direct_workflow_worktree_preflight
+
+
+@pytest.fixture(autouse=True)
+def _spec_on_stdin(monkeypatch):
+    monkeypatch.setattr("sys.stdin", StringIO("Instruction"))
 
 
 def _plan_lookup(monkeypatch: pytest.MonkeyPatch, plan: dict | None) -> dict:
@@ -64,8 +70,9 @@ def test_dash_filing_resolves_plan_slug_within_item_project(
     assert (
         dash_file.dash_file(
             [
+                "--title",
                 "Title",
-                "Instruction",
+                "--stdin",
                 "--project",
                 "yoke",
                 "--verification-plan",
@@ -98,7 +105,10 @@ def test_dash_filing_keeps_integer_plan_id_without_catalog_lookup(
     captured = _capture_filing(monkeypatch)
 
     assert (
-        dash_file.dash_file(["Title", "Instruction", "--verification-plan", "38"]) == 0
+        dash_file.dash_file(
+            ["--title", "Title", "--stdin", "--verification-plan", "38"]
+        )
+        == 0
     )
     assert captured["payload"]["workflow_posture"]["verification"]["plan_id"] == 38
 
@@ -112,8 +122,9 @@ def test_unknown_plan_slug_names_slug_and_project(
     assert (
         dash_file.dash_file(
             [
+                "--title",
                 "Title",
-                "Instruction",
+                "--stdin",
                 "--project",
                 "external",
                 "--verification-plan",
@@ -140,8 +151,9 @@ def test_retired_plan_slug_is_refused_with_recovery(
     assert (
         dash_file.dash_file(
             [
+                "--title",
                 "Title",
-                "Instruction",
+                "--stdin",
                 "--project",
                 "yoke",
                 "--verification-plan",

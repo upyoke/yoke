@@ -42,7 +42,7 @@ def task_in_code_project_refusal(
         "error": (
             f"Task refused: project {project_slug} has the code repository "
             f"{repository}, and Task items get no git lane or merge. File "
-            "code project work with yoke dash TITLE SPEC "
+            "code project work with yoke dash --title TEXT --spec-file PATH "
             f"--project {project_slug} --execution-instructions-considered "
             '(or /yoke dash "spec" to file and execute). Task stays '
             "available for projects without a code repository."

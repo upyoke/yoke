@@ -59,7 +59,7 @@ def test_incident_commands_are_denied(command: str, detected: str):
 @pytest.mark.parametrize(
     "command",
     [
-        "yoke dash 'title' 'instruction' 2>/dev/null",
+        "yoke dash --title 'title' --stdin 2>/dev/null",
         "yoke items cancel YOK-1 2>&-",
         "yoke items structured-field replace YOK-1 --stdin 2>/dev/null",
         "yoke items section upsert YOK-1 --stdin 2>/dev/null",

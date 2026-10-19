@@ -78,9 +78,7 @@ def revert_folder_trust(checkout: Path, *, exclusive_reason: str = "") -> list[d
                         _result(family, "failed", "trust_unreadable", root, str(exc))
                     )
             for family, owner, target in _current(root):
-                if Path(owner).expanduser().resolve() != checkout.resolve():
-                    results.append(_result(family, "preserved", "broader_trust", owner))
-                elif (family, str(target.expanduser().resolve()), owner) not in matched:
+                if (family, str(target.expanduser().resolve()), owner) not in matched:
                     results.append(
                         _result(family, "preserved", "trust_ownership_unknown", root)
                     )
@@ -118,10 +116,11 @@ def _scope(entry: dict) -> tuple[str, str] | None:
 
 
 def _current(root: str):
-    """Detect unowned exact and broader trust without rewriting user state.
+    """Detect unowned trust for this exact checkout without rewriting user state.
 
     Harnesses keep metadata for folders they have only seen; an entry counts
-    only when it carries the trust value the grant side writes.
+    only when it carries the trust value the grant side writes. Parent-folder
+    trust is never Yoke's: install grants only the exact checkout.
     """
     targets = {
         "claude-code": trust.claude_state_path(),
@@ -149,12 +148,9 @@ def _current(root: str):
             if (
                 _grants_trust(family, entry)
                 and Path(owner).is_absolute()
-                and Path(root).is_relative_to(Path(owner).resolve())
+                and Path(owner).resolve() == Path(root)
             ):
                 yield family, owner, target
-    for parent in Path(root).parents:
-        if trust.cursor_trust_file(parent).is_file():
-            yield "cursor", str(parent), trust.cursor_trust_file(parent)
 
 
 def _grants_trust(family: str, entry: object) -> bool:

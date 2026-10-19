@@ -211,7 +211,7 @@ def qa_requirement_waive(args: List[str]) -> int:
 QA_RUN_RECORD_VERDICT_USAGE = (
     "yoke qa run record-verdict --requirement-id N "
     "--performed-by WHO --verdict VERDICT "
-    "[--verdict-reason REASON] [--raw-result TEXT] "
+    "[--verdict-reason REASON] [--raw-result JSON] "
     "[--duration-ms N] [--session-id S] [--json]"
 )
 
@@ -223,8 +223,15 @@ def qa_run_record_verdict(args: List[str]) -> int:
         prog="yoke qa run record-verdict",
         description=QA_RUN_RECORD_VERDICT_USAGE,
         epilog=(
-            AGENT_UNDETERMINED_HELP + " This one-shot command has no artifact "
-            "surface, so it refuses agent undetermined."
+            "A pass on a blocking, unwaived requirement must name the tree it "
+            "verified: --raw-result is JSON carrying "
+            '{"verification_tree": {"head_sha": "<full commit sha>"}} beside '
+            "the evidence (for example the CI run id or URL); prose alone is "
+            "refused. A browser-inspection review passes no --raw-result: the "
+            "capture already names its commit. "
+            + AGENT_UNDETERMINED_HELP
+            + " This one-shot command has no artifact surface, so it refuses "
+            "agent undetermined."
         ),
     )
     parser.add_argument(
@@ -255,7 +262,10 @@ def qa_run_record_verdict(args: List[str]) -> int:
         "--raw-result",
         dest="raw_result",
         default=None,
-        help="Optional raw output snippet.",
+        help=(
+            "Result payload. Required as JSON naming "
+            "verification_tree.head_sha for a blocking pass; see below."
+        ),
     )
     parser.add_argument(
         "--duration-ms",

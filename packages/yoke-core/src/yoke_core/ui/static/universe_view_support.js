@@ -20,6 +20,11 @@ export function callFunction(client, functionId, payload, target, init) {
   return init === undefined ? client.call(request) : client.call(request, init);
 }
 
+export const REGISTRY_SKEW_CODES = new Set(["function_not_registered", "function_version_skew"]);
+export function isRegistrySkewError(error) {
+  return REGISTRY_SKEW_CODES.has(error?.code);
+}
+
 // A form control with its own label. Every dialog needs this and each one
 // dresses it differently, so the class is the caller's and the pairing is
 // shared.

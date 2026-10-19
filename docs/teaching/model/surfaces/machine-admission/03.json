@@ -1,0 +1,11 @@
+{
+ "id": "03",
+ "title": "Create and recover your own personal token.",
+ "status": "observed",
+ "form": "Do",
+ "text": "Run yoke tokens create --name LABEL from a personal terminal, or choose Profile → API tokens → New token. Copy the value once; yoke tokens list exposes metadata only. Lost output or result_unavailable means revoke its ID with yoke tokens revoke TOKEN-ID and create another token. Use --token-stdin or --token-file PATH for an intentional token connection. A token acts as its creator and cannot admit a teammate as a new person. Local tokens work on this computer only; sharing requires yoke self-host init. Retire a machine to revoke its machine-bound credentials.",
+ "verification": "CLI and Profile source tests cover personal authority, one-time output and revoke/create recovery. Published-wheel and deployed proof remain owed.",
+ "topics": ["security/credentials/connection-tokens", "security/credentials/revocation"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/tokens.py", "packages/yoke-core/src/yoke_core/domain/handlers/profile_tokens.py", "packages/yoke-core/src/yoke_core/ui/static/universe_views_profile_tokens.js", "runtime/api/cli/test_token_commands.py", "runtime/api/universe_ui_profile_tokens.test.mjs"],
+ "position": 3
+}

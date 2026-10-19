@@ -4,11 +4,11 @@
  "status": "observed",
  "audience": "both",
  "when": "When filing a new item from a terminal or its web form.",
- "need": "Use the selected workflow and separate title/spec inputs. Spec input is shared by canonical creation and Task/Dash shortcuts. Read the applicable operator execution instructions first.",
+ "need": "Use the selected workflow and flag-named inputs: --title or --title-file for the title, --spec-file or --stdin for the spec. Positional title or spec text refuses with ITEM_TEXT_POSITIONAL_RETIRED, so a file path is never stored as the spec. Spec input is shared by canonical creation and Task/Dash shortcuts. Read the applicable operator execution instructions first.",
  "disclosure": "current cue",
  "surface": "Item creation CLI help, intake skills and web Spec form",
  "gap": "Candidate CLI/storage/draft tests pass. Deployed acceptance still needs the release-bound proof.",
- "review": "Source tests cover independent text files/stdin, nonblank validation and older-server no-write refusal.",
+ "review": "Source tests cover flag-named text files/stdin, positional refusal with the flag recipe, nonblank validation and older-server no-write refusal.",
  "recipes": ["yoke items create --help"],
  "sources": ["docs/public/functions/items.md", "runtime/api/cli/test_items_create_spec_sources.py", "runtime/api/cli/test_items_create_serving_floor.py", "runtime/api/test_items_create_spec_storage.py"]
 }

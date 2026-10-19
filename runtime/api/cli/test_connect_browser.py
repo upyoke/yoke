@@ -44,12 +44,10 @@ def test_connect_approval_opens_only_in_human_terminal(
     monkeypatch.setattr(command, "_resolve_session_id", lambda: session)
     monkeypatch.setattr(command, "running_harness_family", lambda: family)
     if self_host:
-        from types import SimpleNamespace
-
         monkeypatch.setattr(
             command.team_server_authorization,
             "sign_in_methods",
-            lambda url: SimpleNamespace(device_code=True),
+            lambda url: command.team_server_authorization.SignInMethods(True, True),
         )
     args = ["https://team.example"] if self_host else []
     if json_mode:
@@ -66,7 +64,7 @@ def test_connect_approval_opens_only_in_human_terminal(
         assert event["browser_attempted"] is False
         assert event["browser_action"]["user_code"] == "K7F2"
     else:
-        assert "One-time code: K7F2" in output.out
+        assert "Match code: K7F2" in output.out
         assert "Waiting by design:" in output.out
 
 

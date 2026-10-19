@@ -30,7 +30,7 @@ def _scenario(tmp_path, *, cleanup, cleanup_fails=False):
             "browser-check",
             {
                 "steps": [
-                    {"action": "navigate", "route": "/actors"},
+                    {"action": "navigate", "route": "/team"},
                     {"action": "wait_for", "target": "#missing"},
                     {"action": "click", "target": "#dependent-one"},
                     {

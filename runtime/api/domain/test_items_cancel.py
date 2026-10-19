@@ -2,7 +2,9 @@
 
 Covers ``items.cancel.run``: it consumes ``execute_close``, takes the
 claim like the flag verbs, cancels a frozen item in one step, and
-refuses a foreign holder without touching that claim.
+refuses a foreign holder without touching that claim. Cancel is an
+administrative close: it ignores the session's model level, and a
+covering steering seat may cancel from a session in another project.
 """
 
 from __future__ import annotations
@@ -12,7 +14,12 @@ from typing import Any
 import pytest
 
 from runtime.api.fixtures.backlog import insert_item
-from runtime.api.fixtures.session_holdings import insert_session as _seed_session
+from runtime.api.fixtures.backlog_insert_support import ensure_project_id
+from runtime.api.fixtures.session_holdings import (
+    insert_session as _seed_session,
+    insert_steering_claim,
+    instant_ago,
+)
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -172,3 +179,48 @@ class TestCancel:
         outcome = handle_cancel(_request(999_888, reason="gone"))
         assert not outcome.primary_success
         assert outcome.error.code == "not_found"
+
+
+def _move_session_to_another_project(conn: Any) -> None:
+    other = ensure_project_id(conn, "cancel-other", ts=instant_ago())
+    conn.execute(
+        "UPDATE harness_sessions SET project_id = %s WHERE session_id = %s",
+        (other, SESSION),
+    )
+    conn.commit()
+
+
+class TestCancelAdmission:
+    def test_a_session_without_recorded_effort_can_cancel(self, test_db) -> None:
+        insert_item(test_db, id=8411, status="implementing")
+        test_db.execute(
+            "UPDATE harness_sessions SET reasoning_effort = NULL, "
+            "requested_reasoning_effort = NULL WHERE session_id = %s",
+            (SESSION,),
+        )
+        test_db.commit()
+        outcome = handle_cancel(_request(8411, reason="never resuming"))
+        assert outcome.primary_success, outcome.error
+        assert _row(test_db, 8411)[0] == "cancelled"
+        assert _live_claims(test_db, 8411) == []
+
+    def test_a_covering_steering_seat_cancels_across_projects(self, test_db) -> None:
+        insert_item(test_db, id=8412, status="implementing")
+        _move_session_to_another_project(test_db)
+        insert_steering_claim(test_db, SESSION, project_id=1)
+        outcome = handle_cancel(_request(8412, reason="fixture retired"))
+        assert outcome.primary_success, outcome.error
+        assert _row(test_db, 8412)[0] == "cancelled"
+        assert _live_claims(test_db, 8412) == []
+
+    def test_another_project_without_a_seat_refuses_with_recovery(
+        self, test_db
+    ) -> None:
+        insert_item(test_db, id=8413, status="implementing")
+        _move_session_to_another_project(test_db)
+        outcome = handle_cancel(_request(8413, reason="fixture retired"))
+        assert not outcome.primary_success
+        assert outcome.error.code == "session_project_mismatch"
+        assert "yoke claims steering acquire --project" in outcome.error.message
+        assert _row(test_db, 8413)[0] == "implementing"
+        assert _live_claims(test_db, 8413) == []

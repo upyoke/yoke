@@ -113,7 +113,7 @@ export const NAV = [
     group: GROUP_SETTINGS,
   },
   {
-    id: "actors", label: "Actors", scope: SCOPE_NONE,
+    id: "team", label: "Team", scope: SCOPE_NONE,
     group: GROUP_SETTINGS,
   },
   {

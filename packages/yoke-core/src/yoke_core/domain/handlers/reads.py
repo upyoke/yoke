@@ -99,6 +99,17 @@ def handle_items_get(request: FunctionCallRequest) -> HandlerOutcome:
                     item_id,
                     {"value": "", "source": "none"},
                 )
+        elif col == "owner":
+            from yoke_core.domain.db_helpers import connect
+            from yoke_core.domain.item_owner_label import (
+                owner_facts,
+                resolve_owner_names,
+            )
+
+            stored = query_item(item_id, col)
+            with connect() as conn:
+                names = resolve_owner_names(conn, [stored])
+            out[col] = owner_facts(stored, names)["owner_label"]
         else:
             out[col] = query_item(item_id, col)
     result: Dict[str, Any] = {"item_id": item_id, "fields": out}

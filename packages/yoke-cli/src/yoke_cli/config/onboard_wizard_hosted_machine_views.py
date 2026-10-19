@@ -8,6 +8,7 @@ from yoke_contracts.api_urls import HOSTED_STAGE_PLATFORM_URL
 from yoke_contracts.machine_authorization import retired_identity_notice
 
 from yoke_cli.config import hosted_machine_authorization
+from yoke_cli.config.onboard_wizard_flow_machine_admission import approval_hint
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config.onboard_wizard_state import CopyTarget, _View
 from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT
@@ -51,14 +52,15 @@ class HostedMachineApprovalViews:
         return [
             *stage_warning,
             *retired,
-            f"One-time code: {pending.user_code}",
+            f"Match code: {pending.user_code}",
+            approval_hint(pending.user_code),
             f"Open: {pending.verification_uri_complete}",
             browser_line,
         ]
 
     def _approval_copy_targets(self, pending: Pending) -> tuple[CopyTarget, ...]:
         return (
-            CopyTarget("the one-time code", pending.user_code),
+            CopyTarget("the match code", pending.user_code),
             CopyTarget(
                 "the approval link",
                 pending.verification_uri_complete,
@@ -74,8 +76,8 @@ class HostedMachineApprovalViews:
         )
         return SetupHuman(
             instructions=(
-                f"Open the link, confirm the one-time code {pending.user_code}, "
-                f"then {action}."
+                f"Open the link, confirm the match code {pending.user_code}, "
+                f"then {action}. {approval_hint(pending.user_code)}"
             ),
             url=pending.verification_uri_complete,
             user_code=pending.user_code,

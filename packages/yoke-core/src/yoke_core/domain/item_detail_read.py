@@ -23,6 +23,7 @@ from yoke_core.domain.field_note_dash_promotion import (
 )
 from yoke_core.domain.gate_satisfier_stamp import read_rungs
 from yoke_core.domain.item_content_index import build_content_index
+from yoke_core.domain.item_owner_label import owner_facts, resolve_owner_names
 from yoke_core.domain.item_page_claims import active_item_claims
 from yoke_core.domain.item_detail_qa import qa_plan_attachments, qa_rows
 from yoke_core.domain.item_terminal_resources import terminal_stage_ids
@@ -232,6 +233,7 @@ def get_item_detail(item_id: int, *, include: Sequence[str] = ()) -> dict[str, A
         public_ref = format_item_ref(
             row["project"], row["public_item_prefix"], row["project_sequence"]
         )
+        owner_names = resolve_owner_names(conn, [row.get("owner")])
         claim = active_item_claims(conn, [item_id]).get(item_id)
         qa_requirements = qa_rows(conn, item_id)
         flow = completion_flow_values(conn, [item_id]).get(
@@ -244,7 +246,7 @@ def get_item_detail(item_id: int, *, include: Sequence[str] = ()) -> dict[str, A
             "title": str(row["title"]),
             "status": str(row["status"]),
             "priority": str(row.get("priority") or ""),
-            "owner": str(row.get("owner") or ""),
+            **owner_facts(row.get("owner"), owner_names),
             "blocked": bool(int(row.get("blocked") or 0)),
             "blocked_reason": str(row.get("blocked_reason") or ""),
             "created_at": row.get("created_at"),

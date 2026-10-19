@@ -4,12 +4,12 @@
  "status": "observed",
  "audience": "human",
  "when": "A new teammate needs initial access",
- "need": "Use the mode-appropriate invitation/account and machine admission route; do not give someone else an own-machine code or infer authority from an existing token.",
- "disclosure": "Registered invite form fact before choosing an invite form; one-time code guidance after creation.",
- "surface": "teammate_invites.list reports email/yoke_account for hosted mode, email/company_sign_in for self-host with complete OIDC, name/invite_code for self-host without OIDC, and local/local for a local universe. Partial self-host OIDC refuses with operator recovery.",
- "gap": "The additive registry and atomic store are present. Human CLI redemption and Team navigation are separate, unfinished teaching surfaces; see gap teammate-invite-human-route.",
- "review": "Disposable-database tests cover form selection, org-admin authority, refusal guidance and secret replay/debug protection; deployed human-route proof remains open.",
+ "need": "An org admin opens Team and chooses Invite. The server selects Name/code or Email/company sign-in/Yoke account. Send a code privately; it works once for 24 hours. The teammate runs yoke connect and chooses Enter invite code. Local mode offers a team-server reachability guide instead.",
+ "disclosure": "current cue",
+ "surface": "Team Invite form, one-time result and Invites history; public mode table.",
+ "gap": "Actual changed hosted Team consumer and production journey proof remain pending; project-grant creation needs its own traced proof.",
+ "review": "Source tests cover mode facts, local refusal, older servers and company sign-in configuration recovery.",
  "plan_notes": ["FIRST-USER item 33", "FIRST-USER item 27"],
- "sources": ["docs/public/projects/actors-members-billing.md", "docs/public/cli/machine-authorization.md", "runtime/api/domain/test_teammate_invite_forms.py", "runtime/api/domain/test_teammate_invite_functions.py"],
+ "sources": ["docs/public/projects/actors-members-billing.md", "docs/public/projects/teammate-invitations.md", "runtime/api/universe_ui_team_view.test.mjs", "docs/public/cli/machine-authorization.md", "runtime/api/domain/test_teammate_invite_forms.py", "runtime/api/domain/test_teammate_invite_functions.py"],
  "position": 2
 }

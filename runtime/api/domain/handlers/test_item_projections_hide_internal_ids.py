@@ -2,7 +2,8 @@
 
 The roster, search, and overview projections are operator-facing reads:
 their emitted values must be public ``PREFIX-N`` refs and actor display
-labels, never the bare numeric primary key or a raw actor id. Fixture
+labels, never the bare numeric primary key. ``source`` renders the actor
+name alone; ``owner`` renders the name plus its actor id. Fixture
 data forces every identity pair to diverge — the internal id differs
 from the project sequence, and the actor label is non-numeric — so an
 assertion cannot pass vacuously on coincidentally equal numbers.
@@ -74,7 +75,7 @@ class TestItemsListProjection:
         assert not outcome.primary_success
         assert outcome.error.code == "payload_invalid"
 
-    def test_owner_and_source_render_actor_names(
+    def test_owner_renders_name_and_actor_id_and_source_the_name(
         self,
         diverged_item,
         labeled_owner,
@@ -96,9 +97,8 @@ class TestItemsListProjection:
         )
         assert outcome.primary_success
         row = _find(outcome.result_payload["rows"], "Owned thing")
-        assert row["owner"] == OWNER_LABEL
+        assert row["owner"] == f"{OWNER_LABEL} (actor id: {labeled_owner})"
         assert row["source"] == OWNER_LABEL
-        assert str(labeled_owner) not in {str(v) for v in row.values()}
 
     def test_legacy_text_source_passes_through(self, diverged_item):
         outcome = items_listing.handle_items_list(request_for("items.list.run", {}))
@@ -128,7 +128,7 @@ class TestItemsListProjection:
         )
         assert outcome.primary_success
         row = _find(outcome.result_payload["rows"], "Orphaned ownership")
-        assert row["owner"] == ""
+        assert row["owner"] == f"unknown actor (actor id: {orphan_id})"
         assert row["source"] == ""
 
     def test_unset_sentinels_render_empty(self, diverged_item):
@@ -149,7 +149,7 @@ class TestItemsListProjection:
         )
         assert outcome.primary_success
         row = _find(outcome.result_payload["rows"], "Sentinel owner")
-        assert row["owner"] == ""
+        assert row["owner"] == "unassigned"
         assert row["source"] == ""
 
     def test_duplicate_requested_fields_are_rejected(self, diverged_item):
@@ -195,8 +195,10 @@ class TestItemsOverviewProjection:
         assert row["id"] == f"YOK-{SEQUENCE}"
         assert row["public_ref"] == f"YOK-{SEQUENCE}"
         assert row["internal_id"] == INTERNAL_ID
-        assert row["owner"] == OWNER_LABEL
-        assert str(labeled_owner) not in {str(v) for v in row.values()}
+        assert "owner" not in row
+        assert row["owner_actor_id"] == labeled_owner
+        assert row["owner_name"] == OWNER_LABEL
+        assert row["owner_label"] == f"{OWNER_LABEL} (actor id: {labeled_owner})"
 
 
 class TestDefaultProjectionSingleSource:

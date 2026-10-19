@@ -57,7 +57,7 @@ passing `--doc` and `--plan-doc` together is refused.
 Write the link either at intake or afterwards:
 
 ```bash
-yoke dash "TITLE" "INSTRUCTION" --strategy-doc <SLUG> \
+yoke dash --title "TITLE" --spec-file spec.md --strategy-doc <SLUG> \
   --execution-instructions-considered
 yoke strategy execution link PREFIX-N --slug <SLUG> \
   [--document-project DOC_PROJECT] --project P

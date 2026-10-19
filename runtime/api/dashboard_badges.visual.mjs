@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { alignmentFixture, captureAlignmentProof } from "./dashboard_alignment.visual.mjs";
@@ -11,6 +12,9 @@ const [modulePath, output, sourceRoot] = process.argv.slice(2);
 assert(modulePath && output, "Name PLAYWRIGHT_MODULE and OUTPUT_DIR.");
 const { chromium } = createRequire(import.meta.url)(modulePath);
 const root = sourceRoot || fileURLToPath(new URL("../../packages/yoke-core/src/yoke_core/ui/static/", import.meta.url));
+const checkout = fileURLToPath(new URL("../../", import.meta.url));
+const head = execFileSync("git", ["-C", checkout, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+assert.equal(execFileSync("git", ["-C", checkout, "status", "--porcelain"], { encoding: "utf8" }).trim(), "", "Commit the capture source first.");
 const styles = [...(await readFile(path.join(root, "index.html"), "utf8"))
   .matchAll(/href="(?:\.\/|\/)assets\/([^\"]+\.css)"/g)].map((m) => m[1]);
 assert(styles.length, "Source index must declare its stylesheet roster.");
@@ -21,14 +25,16 @@ const rows = ["wrapping-row", "activation-head", "machine-detail-fact", "machine
   "session-top", "strategy-doc-metadata", "strategy-spark-label", "test-machine-head",
   "workflow-dialog-footer", "workflow-panel-meta"];
 const flow = "production-release-with-consumer-verification-and-item-quality-assurance";
-const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">${styles.map((s) => `<link rel="stylesheet" href="/assets/${s}">`).join("")}
+const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${styles.map((s) => `<link rel="stylesheet" href="/assets/${s}">`).join("")}
 <style>body{margin:0;padding:0}.proof{margin:0 0 20px;min-width:0}.content{max-width:100%}
 #rows{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
 .sample{border:1px solid #aaa;padding:10px;min-width:0}.sample label,footer{font:12px sans-serif}
 .sample-row{display:flex;gap:10px;margin:8px 0}.sample-row>.long{flex-basis:100%}</style></head>
 <body><main class="universe-app-root"><div class="content">
 <h1>Populated dashboard layout evidence</h1><div id="session" class="proof sessions-view"></div>
-<div id="launches" class="proof"></div><div id="projects" class="proof"></div><div id="strategy" class="proof"></div><div id="actors" class="proof"></div>
+<div id="launches" class="proof"></div><div id="projects" class="proof"></div><div id="strategy" class="proof"></div><div id="team" class="proof"></div>
+<section id="team-proof" class="proof"><div id="team-head" class="page-head"></div><footer>Source fixtures · no live universe · ${head}</footer></section>
+<section id="machines-proof" class="proof"><h2>Machines</h2><div id="machines"></div><footer>Source fixtures · no live universe · ${head}</footer></section>
 <div id="workflows" class="proof"></div><div id="card" class="proof"></div>
 <div id="item" class="proof"></div><div id="actions" class="proof"></div><div id="rows"></div>
 <footer>Candidate assets · populated deterministic fixtures · no control-plane universe</footer>
@@ -39,7 +45,9 @@ import { launchFilters } from "/assets/universe_session_launch_filters.js";
 import { renderProjectsView } from "/assets/universe_views_projects.js";
 import { sessionCard } from "/assets/universe_views_sessions.js";
 import { strategyDocumentCard } from "/assets/universe_strategy_cards.js";
-import { renderActorsView } from "/assets/universe_views_actors.js";
+import { renderTeamView } from "/assets/universe_views_team.js";
+import { renderMachinesView } from "/assets/universe_views_machines.js";
+import { renderMachineApproval } from "/assets/machine_approval.js";
 import { renderMechanics } from "/assets/workflow_view_mechanics.js";
 import { appendItemDelivery } from "/assets/universe_item_deployment.js";
 import { itemDeliveryPanel } from "/assets/item_view_delivery.js";
@@ -52,13 +60,51 @@ document.querySelector("#strategy").append(strategyDocumentCard(document,{slug:"
 const actor={id:1,name:"Deployment reviewer",kind:"human",status:"active",roles:{org:[{role:"admin"}]},
  tokens:[{name:"release_automation_credential_inventory_for_production_deployment",token_id:7,last_used_at:"2026-10-05T12:00:00Z",
  machine_id:"fixture-machine",machine_name:"Production deployment workstation"}]};
-const context={document,isMounted:()=>true,capabilities:{data:{portability:{mode:"hosted"}}},
- client:{call:async(request)=>({status:200,envelope:{success:true,result:request.function==="actors.roster"
- ? {rows:[actor],current_actor_id:1,can_manage_actors:false}:{rows:[]}}})}};
+let requests=[{code:"K7F2",machine:"New laptop",platform:"macOS",machine_id:"4f2c9a1e-80d6-4b2c-a447-123456789abc",
+ requested_by:{name:"Morgan",actor_id:9},expires_at:new Date(Date.now()+540000).toISOString(),state:"pending"},
+ {code:"G8P3",machine:"Another workstation with a long name",platform:"Linux",machine_id:"741a2682-3340-4be7-80fb-0123456789ab",
+ requested_by:null,expires_at:new Date(Date.now()+300000).toISOString(),state:"pending"},
+ {code:"D4N6",machine:"Expired request",requested_by:null,expires_at:new Date(Date.now()-1000).toISOString(),state:"expired"}];
+const viewer={name:"Morgan",actor_id:9}, authorizations=[...requests];
+let teamState="name";
+const invite={invite_id:1,actor_id:8,name:"Alexandra Long-Name",kind:"code",role:"operator",state:"pending",
+ created_at:"2026-10-17T10:00:00Z",expires_at:"2026-10-18T10:00:00Z",invited_by_name:"Deployment reviewer"};
+const invitations=[invite,{...invite,invite_id:2,name:"Expired teammate",state:"expired"},
+ {...invite,invite_id:3,name:"Joined teammate",state:"consumed"}];
+const context={document,isMounted:()=>true,projects:()=>[project],capabilities:{data:{portability:{mode:"hosted"}}},
+ client:{call:async(request)=>{
+ const ok=result=>({status:200,envelope:{success:true,result}});
+ if(request.function==="machine_authorization.pending")return ok({requests,viewer});
+ if(request.function==="machine_authorization.get")return ok({authorization:{...authorizations.find(row=>row.code===request.payload.code),viewer,decision:null}});
+ if(request.function==="machine_authorization.resolve"){
+  requests=requests.filter(row=>row.code!==request.payload.code);return ok({authorization:{decision:request.payload.action}});
+ }
+ if(request.function==="machine.list")return ok({machines:[{machine_id:"fixture-machine",name:"Registered workstation",retired_at:null}],count:1});
+ if(request.function==="session_control.relay.list")return ok({relays:[]});
+ if(request.function==="organizations.get")return ok({name:"Example team"});
+ if(request.function==="teammate_invites.list")return teamState==="error"
+  ? {status:503,envelope:{success:false,error:{code:"oidc_misconfigured",message:"Company sign-in is unavailable; ask the server operator to correct company sign-in settings"}}}
+  : ok({invite_form:teamState==="email"?"email":"name",sign_in_method:teamState==="email"?"company_sign_in":"invite_code",invites:invitations});
+ if(request.function==="identity.invite.list")return ok({invites:[{...invite,kind:"email",email:"alexandra.long.address@example.test",invited_by_name:"Hosted administrator"}]});
+ if(request.function==="identity.invite.create")return ok({invite:{email:request.payload.email}});
+ if(["teammate_invites.create","teammate_invites.reissue"].includes(request.function))return ok({invite:{...invite,name:request.payload.name||invite.name},code:"fixture-only-one-time-invite-code-with-a-long-selectable-value",expires_at:invite.expires_at});
+ return ok(request.function==="actors.roster" ? {rows:[actor],current_actor_id:1,can_manage_actors:teamState!=="readonly",
+  person_org_roles:["admin","operator","viewer"],role_descriptions:{operator:"Run ordinary work across projects.",viewer:"Read items and events."}}:{rows:[]});
+ }}};
 const launches=launchFilters(document,()=>{});launches.offer([{state:"succeeded",selected_surface:"codex-cli",assigned_machine_id:"fixture-machine"}]);
 document.querySelector("#launches").append(launches.host);
 renderProjectsView(context,document.querySelector("#projects"));
-await renderActorsView(context,document.querySelector("#actors"));
+await renderTeamView(context,document.querySelector("#team"));
+const teamProof=document.querySelector("#team-proof"),teamHost=document.querySelector("#team"),teamHead=document.querySelector("#team-head");
+teamProof.insertBefore(teamHost,teamProof.lastChild);
+window.teamProof=async(state)=>{
+ teamState=state;
+ await renderTeamView({...context,capabilities:{data:{portability:{mode:state==="local"?"local":"self-host"}}}},teamHost,null,null,
+  {setPageHead:({title,actions=[]})=>{const heading=document.createElement("h1");heading.textContent=title;teamHead.replaceChildren(heading,...actions);}});
+};
+await window.teamProof("name");
+renderMachinesView(context,document.querySelector("#machines"));
+window.approvalRoute=code=>renderMachineApproval(context,document.querySelector("#machines"),null,code);
 document.querySelector("#workflows").append(renderMechanics(document,{id:"dash",name:"Dash",
  definition:{policies:{qa:"optional_item_attachment"},skill_bindings:[{skill_id:"dash"}]}},{editTesting:()=>{}}));
 appendItemDelivery(document,document.querySelector("#card"),{id:1,completion_flow:${JSON.stringify(flow)}},new Map());
@@ -114,7 +160,8 @@ const freshPage=async(width)=>{
  await page.goto(`http://127.0.0.1:${server.address().port}/`);
  await page.waitForFunction(()=>window.proofReady && document.querySelector(".actors-key")
    && document.querySelector(".item-delivery-flow a") && document.querySelector(".session-harness")
-   && document.querySelector(".strategy-doc-state")?.textContent==="ACTIVE");
+   && document.querySelector(".strategy-doc-state")?.textContent==="ACTIVE"
+   && document.querySelector("#machines .machine-pending tbody tr"));
  assert.deepEqual(errors,[]);
  assert.equal(await page.evaluate(()=>matchMedia("(hover: none)").matches),width<1280);
  return page;
@@ -190,7 +237,75 @@ try{
    await menuPage.screenshot({path:path.join(output,"menu-390.png"),fullPage:false});
    await menuPage.close();
   }
-  console.log(`${sourceRoot?"before":"after"} ${width}px: populated cards, Actors, Workflows, ${rows.length} row classes, both Delivery surfaces`);
+  console.log(`${sourceRoot?"before":"after"} ${width}px: populated cards, Team, Workflows, ${rows.length} row classes, both Delivery surfaces`);
  }
  await captureAlignmentProof({freshPage,output,baseline:Boolean(sourceRoot)});
+ const captures=[];
+ for(const width of [1280,375])for(const theme of ["light","dark"]){
+  const page=await freshPage(width);await page.emulateMedia({colorScheme:theme});
+  await page.addStyleTag({content:".universe-app-root .topbar{position:static}"});
+  const proof=page.locator("#machines-proof");
+  const capture=async(state)=>{
+   const values=await proof.evaluate(n=>({width:n.clientWidth,scroll:n.scrollWidth,
+    table:n.querySelector("table")?.className,headings:[...n.querySelectorAll("h1")].map(h=>h.textContent)}));
+   assert(values.scroll<=values.width+1,"Waiting machines overflow their container");
+   const file=state+"-"+width+"-"+theme+".png";
+   await proof.screenshot({path:path.join(output,file)});captures.push({state,width,theme,file,...values});
+  };
+  await capture("machines-waiting");
+  await proof.getByRole("button",{name:"Review",exact:true}).first().click();
+  await proof.getByRole("button",{name:"Approve machine",exact:true}).waitFor();
+  assert.equal(new URL(page.url()).pathname,"/machine-approval/K7F2");
+  assert.equal(await page.evaluate(()=>document.activeElement?.tagName),"H2");
+  await capture("machines-review");
+  await proof.getByRole("button",{name:"Approve machine",exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector("#machines .machine-approval-next"));
+  assert.equal(await proof.locator("tbody tr").count(),2);
+  await capture("machines-approved");
+  await page.evaluate(()=>window.approvalRoute("G8P3"));
+  await capture("approval-others");
+  await page.evaluate(()=>window.approvalRoute(null));
+  assert.equal(await proof.locator("input,form").count(),0);
+  await capture("approval-list");
+  await page.close();
+ }
+ await writeFile(path.join(output,"machines-measurements.json"),JSON.stringify({head_sha:head,data_source:"source fixtures; no live universe",captures},null,2));
+ console.log("Captured "+captures.length+" Machines and approval source fixtures on "+head);
+ const teamCaptures=[];
+ for(const width of [1280,375])for(const theme of ["light","dark"]){
+  const page=await freshPage(width);await page.emulateMedia({colorScheme:theme});
+  await page.addStyleTag({content:".universe-app-root .topbar{position:static}"});
+  const proof=page.locator("#team-proof");
+  const capture=async(state)=>{
+   const values=await proof.evaluate(n=>({width:n.clientWidth,scroll:n.scrollWidth,
+    tables:[...n.querySelectorAll("table")].map(t=>({width:t.clientWidth,scroll:t.scrollWidth})),
+    roleLines:[...n.querySelectorAll(".actors-invites .actors-role")].map(r=>r.getClientRects().length)}));
+   assert(values.scroll<=values.width+1,"Team overflows its container");
+   assert(values.tables.every(t=>t.scroll<=t.width+1),"Team table content overflows");
+   assert(values.roleLines.every(lines=>lines===1),"Invite role chips must stay on one line");
+   const file="team-"+state+"-"+width+"-"+theme+".png";
+   await proof.screenshot({path:path.join(output,file)});teamCaptures.push({state,width,theme,file,...values});
+  };
+  await capture("invites");
+  await proof.getByRole("button",{name:"Invite",exact:true}).click();
+  assert.equal(await page.evaluate(()=>document.activeElement?.tagName),"INPUT");
+  await capture("name-form");
+  await proof.getByLabel("Name",{exact:true}).fill("Alexandra Long-Name");
+  await proof.getByRole("button",{name:"Create invite",exact:true}).click();
+  await proof.locator(".profile-token-value").waitFor();
+  await capture("code-result");
+  await proof.getByRole("button",{name:"Invite",exact:true}).click();await capture("close-code");
+  await proof.getByRole("button",{name:"Keep",exact:true}).click();
+  await proof.getByRole("button",{name:"Done",exact:true}).click();
+  assert.equal(await proof.locator(".profile-token-value").count(),0);
+  for(const state of ["email","readonly","error","local"]){
+   await page.evaluate(state=>window.teamProof(state),state);
+   if(state==="email")await proof.getByRole("button",{name:"Invite",exact:true}).click();
+   if(state!=="email")assert.equal(await proof.getByRole("button",{name:"Invite",exact:true}).count(),0);
+   await capture(state);
+  }
+  await page.close();
+ }
+ await writeFile(path.join(output,"team-measurements.json"),JSON.stringify({head_sha:head,data_source:"source fixtures; no live universe",captures:teamCaptures},null,2));
+ console.log("Captured "+teamCaptures.length+" Team source fixtures on "+head);
 }finally{await browser.close();await new Promise((resolve)=>server.close(resolve));}

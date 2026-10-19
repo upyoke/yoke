@@ -36,8 +36,10 @@ def test_core_topic_packet_teaches_items_create_scaffolding_gate() -> None:
     body = _core_body()
     assert "yoke items create" in body
     assert "idea mode" in body
-    assert "yoke dash TITLE SPEC" in body
-    assert "yoke task TITLE SPEC" in body
+    assert "yoke items create --title TEXT --workflow W" in body
+    assert "`yoke dash` / `yoke task` shortcuts" in body
+    assert "positional text refuses" in body
+    assert "TITLE SPEC" not in body
 
 
 def test_item_entry_block_renders_before_function_call_surface() -> None:

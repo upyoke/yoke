@@ -14,12 +14,23 @@ yoke watch merge merge-worktree -- BRANCH DEFAULT_BRANCH PREFIX-N
 ```
 
 Pass force-lock/skip-simulation only when explicitly authorized; no local
-fallback for queue policy. Engine owns rebase/generated resolution/tests/
-App-bound PR+CI+merge, branch/checkout cleanup and terminal task/GitHub receipts.
+fallback for queue policy. Engine owns rebase/generated resolution/tests,
+the landing, branch/checkout cleanup and terminal task/GitHub receipts.
 Read actual outcome, merged PR/commit and target sync. Never supplement it
 with bypass env vars or internal update_status terminal writes.
 
-After each successful landing, verify target synchronization before trusting
+A project declaring the merge queue lands each lane through the queue, the
+same route as `yoke merge item`: its train retests the lane against the
+target as it stands at landing, so items landing meanwhile never make the
+lane stale. Exit 9 is queue coordination. `merge_queue_landing_refused`
+names the admission, ejection or check reason; fix it and re-run.
+`landing_pending` (a headless worker never waits) means armed, not landed:
+wait for the landing notice, then re-run the same command, which records the
+queue close-out and the lane landing. Other projects land through a direct
+App-bound PR+CI+merge that refuses `MergeTargetStale` when the target moved
+during CI; re-run the same command.
+
+After each successful landing (exit 0; a pending landing is not one), verify target synchronization before trusting
 main's files. Engine owns sync; failure reports merge_target_sync_failed and
 exact recovery, preserves dirty state and skips unverifiable checks. Don't
 claim a postmerge pass or advance bookkeeping against stale checkout.

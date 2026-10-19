@@ -1,7 +1,9 @@
 {
  "id": "machines",
  "title": "Machines",
- "status": "draft-copy",
+ "status": "observed",
+ "text": "Machines shows Waiting for approval above the roster. Match the code with your terminal and choose Review to open the shared approval card. A decision removes the request on the next read while its outcome remains visible. Local mode shows the reachability notice instead of remote requests.",
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/universe_views_machines.js", "packages/yoke-core/src/yoke_core/ui/static/machine_admission_pending.js"],
  "related": "machines",
  "page": "workbench-destinations",
  "position": 3

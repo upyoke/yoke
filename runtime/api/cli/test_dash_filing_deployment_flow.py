@@ -9,9 +9,16 @@ validates it against the project's registered flows.
 
 from __future__ import annotations
 
+from io import StringIO
+
 import pytest
 
 from yoke_cli.commands.adapters import dash_file, items_create
+
+
+@pytest.fixture(autouse=True)
+def _spec_on_stdin(monkeypatch):
+    monkeypatch.setattr("sys.stdin", StringIO("Fix the footer copy."))
 
 
 def _capture(monkeypatch):
@@ -31,8 +38,9 @@ def test_dash_filing_sends_the_named_deployment_flow(monkeypatch):
     assert (
         dash_file.dash_file(
             [
+                "--title",
                 "Tighten footer",
-                "Fix the footer copy.",
+                "--stdin",
                 "--deployment-flow",
                 "yoke-hosted-production-release-qa",
                 "--execution-instructions-considered",
@@ -49,7 +57,7 @@ def test_dash_filing_sends_the_named_deployment_flow(monkeypatch):
 def test_dash_filing_without_a_flow_leaves_the_project_default(monkeypatch):
     captured = _capture(monkeypatch)
 
-    assert dash_file.dash_file(["Tighten footer", "Fix the footer copy."]) == 0
+    assert dash_file.dash_file(["--title", "Tighten footer", "--stdin"]) == 0
 
     assert "deployment_flow" not in captured["payload"]
 

@@ -19,6 +19,7 @@ from yoke_core.api.service_client_items_parsing import (
     _parse_item_filters,
     _validate_fields,
 )
+from yoke_core.domain.item_owner_label import owner_facts, resolve_owner_names
 from yoke_core.domain.project_identity import item_project_join_select
 
 
@@ -83,6 +84,9 @@ def cmd_active_queue(args: list[str]) -> int:
             if position in ref_positions:
                 stripped = text.strip()
                 return ref_lookup(int(stripped)) if stripped.isdigit() else stripped
+            if field_list[position] == "owner":
+                names = resolve_owner_names(conn, [text])
+                return owner_facts(text, names)["owner_label"]
             if position in label_positions:
                 stripped = text.strip()
                 if not stripped or stripped.lower() in ("none", "null"):
@@ -182,6 +186,9 @@ def cmd_item_list(args: list[str]) -> int:
                 if stripped.isdigit():
                     return ref_lookup(int(stripped))
                 return stripped
+            if field_list[position] == "owner":
+                names = resolve_owner_names(conn, [text])
+                return owner_facts(text, names)["owner_label"]
             if position in label_positions:
                 stripped = text.strip()
                 if not stripped or stripped.lower() in ("none", "null"):

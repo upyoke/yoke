@@ -32,9 +32,9 @@ def _pending() -> auth.PendingMachineAuthorization:
     return auth.PendingMachineAuthorization(
         platform_url="https://app.upyoke.com",
         device_code="device-secret",
-        user_code="ABCD-2345",
+        user_code="K7F2",
         verification_uri="https://app.upyoke.com/connect",
-        verification_uri_complete="https://app.upyoke.com/connect?user_code=ABCD-2345",
+        verification_uri_complete="https://app.upyoke.com/connect?user_code=K7F2",
         expires_in=60,
         interval=1,
     )
@@ -174,6 +174,17 @@ def test_local_persistence_failure_refuses_before_poll(monkeypatch, tmp_path) ->
         match="machine_identity_required.*create or restore",
     ):
         auth.complete(_pending())
+
+
+def test_cancelled_wait_teaches_match_code_expiry_without_poll(monkeypatch):
+    monkeypatch.setattr(auth, "_machine_identity", lambda: {"machine_id": MACHINE_ID})
+    monkeypatch.setattr(
+        auth, "request_json", lambda *_a, **_k: pytest.fail("cancelled poll")
+    )
+    with pytest.raises(
+        auth.HostedMachineAuthorizationCancelled, match="match code expires"
+    ):
+        auth.complete(_pending(), sleep=lambda _: None, cancelled=lambda: True)
 
 
 def test_server_identity_refusal_names_recovery(monkeypatch, tmp_path) -> None:

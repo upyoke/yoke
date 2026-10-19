@@ -82,7 +82,7 @@ test("Items is one workflow roster with distinct owner and claim facts", async (
               workflow_version_id: 3,
               status: "reviewing-implementation",
               stage_label: "Reviewing work",
-              owner: "Rae",
+              owner_actor_id: 7, owner_name: "Rae", owner_label: "Rae (actor id: 7)",
               claimed_by: {
                 actor_label: "build-system",
                 session_id: "session-a",
@@ -101,7 +101,7 @@ test("Items is one workflow roster with distinct owner and claim facts", async (
               workflow_version_id: 2,
               status: "planned",
               stage_label: "Ready to plan",
-              owner: "",
+              owner_actor_id: null, owner_name: null, owner_label: "unassigned",
               claimed_by: null,
             },
           ],
@@ -132,7 +132,7 @@ test("Items is one workflow roster with distinct owner and claim facts", async (
   );
   assert.match(itemText(root), /ACM-12/);
   assert.match(itemText(root), /Ship the direct fix/);
-  assert.match(itemText(root), /Rae/);
+  assert.match(itemText(root), /Rae \(actor id: 7\)/);
   assert.match(itemText(root), /build-system/);
   assert.match(itemText(root), /unassigned/);
   assert.match(itemText(root), /Reviewing work/);
@@ -187,12 +187,12 @@ test("Items keeps the filter control mounted while its rows update", async () =>
     {
       public_ref: "ACM-12", project_id: 7, title: "Ship the fix",
       workflow_id: "dash", status: "new", stage_label: "Idea",
-      owner: "", claimed_by: null,
+      owner_actor_id: null, owner_name: null, owner_label: "unassigned", claimed_by: null,
     },
     {
       public_ref: "ACM-13", project_id: 7, title: "Plan the work",
       workflow_id: "epic", status: "planned", stage_label: "Ready to plan",
-      owner: "", claimed_by: null,
+      owner_actor_id: null, owner_name: null, owner_label: "unassigned", claimed_by: null,
     },
   ];
   renderItemsView(itemContext(documentNode, async (request) => {
@@ -286,7 +286,7 @@ test("Items rows retain native links and open from the row surface", async () =>
         count: 1,
         rows: [{
           public_ref: "ACM-12", project_id: 7, title: "Ship the fix",
-          workflow_id: "dash", status: "new", owner: "", claimed_by: null,
+          workflow_id: "dash", status: "new", owner_actor_id: null, owner_name: null, owner_label: "unassigned", claimed_by: null,
         }],
       },
     },

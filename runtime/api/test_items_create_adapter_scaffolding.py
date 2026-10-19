@@ -88,7 +88,9 @@ def test_adapter_refuses_non_idea_session_and_names_correct_paths(
     assert (
         items_create.items_create(
             [
+                "--title",
                 "Skip scaffolding",
+                "--workflow",
                 workflow,
                 "--stdin",
                 "--entry-surface",
@@ -129,7 +131,9 @@ def test_adapter_dispatches_when_session_mode_is_idea(monkeypatch) -> None:
     assert (
         items_create.items_create(
             [
+                "--title",
                 "File through idea",
+                "--workflow",
                 "issue",
                 "--stdin",
                 "--entry-surface",
@@ -164,7 +168,9 @@ def test_adapter_dispatches_dry_run_without_reading_session_mode(
     monkeypatch.setattr(items_create, "dispatch_create", _dispatch)
 
     assert (
-        items_create.items_create(["Preview only", "issue", "--stdin", "--dry-run"])
+        items_create.items_create(
+            ["--title", "Preview only", "--workflow", "issue", "--stdin", "--dry-run"]
+        )
         == 0
     )
     assert captured["payload"]["dry_run"] is True
@@ -189,7 +195,12 @@ def test_adapter_refuses_when_session_identity_cannot_be_read(
         ),
     )
 
-    assert items_create.items_create(["Needs identity", "issue", "--stdin"]) == 2
+    assert (
+        items_create.items_create(
+            ["--title", "Needs identity", "--workflow", "issue", "--stdin"]
+        )
+        == 2
+    )
     err = capsys.readouterr().err
     assert "yoke sessions identity" in err
 
@@ -210,9 +221,9 @@ def test_direct_skill_intake_preserves_surface_and_attestation(
         "dispatch_create",
         lambda **kw: captured.update(kw) or 0,
     )
-    args = ["Direct outcome"]
+    args = ["--title", "Direct outcome"]
     if not shortcut:
-        args.append(workflow)
+        args += ["--workflow", workflow]
     args += ["--stdin", "--entry-surface", "harness_skill"]
     command = (
         {"dash": dash_file.dash_file, "task": task.task_file}[workflow]

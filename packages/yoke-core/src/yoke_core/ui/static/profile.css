@@ -164,6 +164,7 @@
   color: var(--yoke-ink);
 }
 .universe-app-root .profile-save-status { color: var(--yoke-muted); }
+.universe-app-root .profile-token-hint { color: var(--yoke-muted); }
 .universe-app-root .item-button.danger {
   color: var(--yoke-crit);
   border-color: var(--yoke-crit);

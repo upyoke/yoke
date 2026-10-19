@@ -269,7 +269,7 @@ test("the items count is the served match total — never rows.length", async (t
     workflow_version_id: 1,
     status: "idea",
     stage_label: "Idea",
-    owner: "",
+    owner_actor_id: null, owner_name: null, owner_label: "unassigned",
     claimed_by: null,
     project,
   });

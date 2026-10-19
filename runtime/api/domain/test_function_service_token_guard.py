@@ -21,15 +21,15 @@ def _auth(token_name: str) -> HttpAuthContext:
     return HttpAuthContext(token_id=1, actor_id=1, token_name=token_name)
 
 
-def test_machine_lifecycle_is_not_service_only() -> None:
-    """Members deliver their own approvals, so no credential gate applies."""
+def test_personal_machine_resolution_is_not_service_only() -> None:
+    """Members approve as themselves; the hosted service guard does not apply."""
     reset_registry_for_tests()
     register_all_handlers()
     try:
-        entry = lookup("machine_approval.lifecycle.apply")
+        entry = lookup("machine_authorization.resolve")
         assert (
             _service_token_guard_response(
-                {"function": "machine_approval.lifecycle.apply"},
+                {"function": "machine_authorization.resolve"},
                 entry,
                 _auth("doorman:user-7"),
                 conn=object(),

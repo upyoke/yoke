@@ -56,7 +56,7 @@ export function detailItem(workflowId) {
     title: workflowId === "dash" ? "Fix the footer" : "Build the shell",
     status: "reviewing-implementation",
     priority: "medium",
-    owner: "Rae",
+    owner_actor_id: 7, owner_name: "Rae", owner_label: "Rae (actor id: 7)",
     blocked: false,
     blocked_reason: "",
     created_at: "2026-07-25T12:00:00Z",

@@ -76,7 +76,7 @@ Write `first-change.md` with the agreed outcome, scope and verification. Follow
 the instructions you just read, then file and inspect it:
 
 ```bash
-yoke items create "First small change" dash --project P \
+yoke items create --title "First small change" --workflow dash --project P \
   --spec-file first-change.md --execution-instructions-considered
 yoke items list --project P --limit 5
 ```

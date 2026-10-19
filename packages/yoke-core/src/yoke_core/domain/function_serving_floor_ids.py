@@ -59,7 +59,7 @@ ALREADY_SERVED_FUNCTION_IDS: frozenset[str] = frozenset((
     'items.structured_field.section_append', 'items.structured_field.section_upsert', 'items.thaw.run', 'items.unblock.run',
     'lifecycle.repair_status.execute', 'lifecycle.skip.record_recoverable_substrate', 'lifecycle.transition.execute', 'lint.config.show',
     'machine.detail', 'machine.list', 'machine.register', 'machine.retire',
-    'machine.access.get', 'machine.access.set', 'machine.show', 'machine_approval.lifecycle.apply',
+    'machine.access.get', 'machine.access.set', 'machine.show',
     'merge.lock.acquire', 'merge.lock.list', 'merge.lock.release', 'merge.preflight.blocked_gate',
     'merge.preflight.dependency_gate', 'merge.preflight.epic_task_statuses', 'merge.prune.authority_verdict', 'merge.tests.post_rebase_requirement',
     'merge.tests.record_post_rebase_ci_run', 'merge.tests.recorded_queue_receipt', 'merge_queue.landing.observe', 'merge_queue.landing_pending.clear',

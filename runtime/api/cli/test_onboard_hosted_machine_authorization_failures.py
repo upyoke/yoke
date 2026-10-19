@@ -41,11 +41,9 @@ def _pending(path: str):
     return hosted_machine_authorization.PendingMachineAuthorization(
         platform_url="https://app.upyoke.com",
         device_code="device-secret",
-        user_code="ABCD-2345",
+        user_code="K7F2",
         verification_uri=f"https://app.upyoke.com/{path}",
-        verification_uri_complete=(
-            f"https://app.upyoke.com/{path}?user_code=ABCD-2345"
-        ),
+        verification_uri_complete=(f"https://app.upyoke.com/{path}?user_code=K7F2"),
         expires_in=600,
         interval=2,
     )
@@ -80,6 +78,12 @@ def test_browser_denial_reports_and_mints_one_fresh_authorization(monkeypatch) -
             await app.workers.wait_for_complete()
             assert len(starts) == 2
             assert "Sign in and choose an organization." in _body_text(app)
+            assert "Match code: K7F2" in _body_text(app)
+            assert "yoke machines approve K7F2" in _body_text(app)
+            prompt = app._history[-1].prompt
+            assert pending.verification_uri_complete == prompt.human.url
+            assert "match code K7F2" in prompt.human.instructions
+            assert "yoke machines approve K7F2" in prompt.human.instructions
             await pilot.press("enter")
             await app.workers.wait_for_complete()
             assert len(starts) == 2

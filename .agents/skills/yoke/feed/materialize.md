@@ -66,8 +66,8 @@ Idea owns title_max_length, inference, secondary dedup, GH sync and AC normaliza
 For one coherent spec carrying all strategic context, file instead:
 
 ```sh
-yoke dash "<title>" "<spec including strategic provenance>" --execution-instructions-considered --json
-yoke task "<title>" "<spec including strategic provenance>" --execution-instructions-considered --json
+yoke dash --title "<title>" --spec-file <spec-file-with-strategic-provenance> --execution-instructions-considered --json
+yoke task --title "<title>" --spec-file <spec-file-with-strategic-provenance> --execution-instructions-considered --json
 ```
 
 Choose one adapter. Dash files without execution at idea/next_step=dash.

@@ -36,7 +36,9 @@ def test_overview_enrichment_keeps_owner_and_live_claim_distinct(monkeypatch):
 
     assert rows[0]["public_ref"] == "ACM-22"
     assert rows[0]["project_name"] == "Acme"
-    assert rows[0]["owner"] == "Rae"
+    assert rows[0]["owner_actor_id"] == 4
+    assert rows[0]["owner_name"] == "Rae"
+    assert rows[0]["owner_label"] == "Rae (actor id: 4)"
     assert rows[0]["stage_label"] == "reviewing implementation"
     assert rows[0]["claimed_by"]["actor_label"] == "Codex"
     assert rows[0]["claimed_by"]["session_id"] == "session-z"
@@ -65,6 +67,8 @@ def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
 
     assert item["public_ref"] == "ACM-22"
     assert item["title"] == "Fix the footer"
+    assert (item["owner_actor_id"], item["owner_name"]) == (4, "Rae")
+    assert item["owner_label"] == "Rae (actor id: 4)"
     assert item["workflow"]["id"] == "dash"
     assert (
         item["workflow"]["version"]
