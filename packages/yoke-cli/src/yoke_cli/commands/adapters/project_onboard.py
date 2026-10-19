@@ -7,6 +7,7 @@ import json
 import sys
 from typing import List
 
+from yoke_contracts import github_origin
 from yoke_cli.commands._helpers import (
     add_json_arg,
     parse_or_usage_error,
@@ -106,9 +107,7 @@ def project_import(args: List[str]) -> int:
         report = project_onboard.import_project(
             remote_url=parsed.remote_url,
             checkout=parsed.checkout,
-            clone=ClonePlan(
-                existing_layer_decision=parsed.existing_yoke_layer or "",
-            ),
+            clone=_import_clone_plan(parsed),
             slug=parsed.slug,
             name=parsed.name,
             org=parsed.org,
@@ -124,6 +123,22 @@ def project_import(args: List[str]) -> int:
         return 1
     _emit(report, parsed.json_mode)
     return 0
+
+
+def _import_clone_plan(parsed: argparse.Namespace) -> ClonePlan:
+    """Read the source through this machine's connected GitHub App, if any.
+
+    ``yoke github connect`` stores the ``github`` block that
+    ``yoke github disconnect`` clears, so its presence is the connection.
+    """
+    github_config = machine_config.github_config(parsed.config_path)
+    return ClonePlan(
+        use_machine_github=bool(github_config),
+        fork_web_url=str(
+            github_config.get("web_url") or github_origin.DEFAULT_GITHUB_WEB_URL
+        ),
+        existing_layer_decision=parsed.existing_yoke_layer or "",
+    )
 
 
 def onboard_project(args: List[str]) -> int:
@@ -220,6 +235,7 @@ def _errors():
         ProjectInstallError,
         ProjectGithubAdoptionError,
         project_onboard.ProjectOnboardError,
+        machine_config.MachineConfigError,
         machine_secret_error(),
     )
 

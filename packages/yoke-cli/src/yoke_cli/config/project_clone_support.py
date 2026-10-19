@@ -57,6 +57,7 @@ CLONE_OUTCOMES = (
     CLONE_OUTCOME_FORK,
 )
 
+
 @dataclass(frozen=True)
 class ClonePlan:
     """The post-clone decision threaded from the wizard into ``import_project``.
@@ -102,7 +103,9 @@ def https_clone_url(remote_url: str, *, web_url: str | None = None) -> str:
 
 
 def source_owner_repo(
-    remote_url: str, *, web_url: str | None = None,
+    remote_url: str,
+    *,
+    web_url: str | None = None,
 ) -> tuple[str, str]:
     """Parse ``owner`` and ``repo`` from a GitHub source URL (SSH or HTTPS).
 
@@ -111,7 +114,8 @@ def source_owner_repo(
     """
     try:
         repo = github_origin.normalize_github_repository(
-            remote_url, web_url=web_url,
+            remote_url,
+            web_url=web_url,
         )
     except github_origin.GitHubApiOriginError as exc:
         raise CloneAccessError(str(exc)) from exc
@@ -138,7 +142,9 @@ def _run_clone(
     try:
         clean_url = clean_remote_url(url, web_url=github_web_url)
         config = isolated_remote_config(
-            clean_url, token=token, web_url=github_web_url,
+            clean_url,
+            token=token,
+            web_url=github_web_url,
         )
     except ProjectOnboardError as exc:
         raise CloneAccessError(str(exc)) from exc
@@ -190,19 +196,26 @@ def clone_with_connected_access(
     https_url = https_clone_url(remote_url, web_url=github_web_url)
     target_claim = project_clone_runner.CloneTargetClaim()
     on_configured_origin = is_configured_github_remote(
-        https_url, web_url=github_web_url,
+        https_url,
+        web_url=github_web_url,
     )
     if on_configured_origin and not token and token_provider is not None:
         token = token_provider()
     if on_configured_origin and token:
         authenticated = _run_clone(
-            parent, name, https_url, token=token,
-            github_web_url=github_web_url, target_claim=target_claim,
+            parent,
+            name,
+            https_url,
+            token=token,
+            github_web_url=github_web_url,
+            target_claim=target_claim,
         )
         if authenticated.returncode != 0:
             raise CloneAccessError(
-                "clone failed even with connected GitHub App access — the App "
-                "authorization lacks access or the repo was not found: "
+                f"connected GitHub App access cannot read {https_url}: the App "
+                "installation does not include this repository, or it does not "
+                "exist. Add the repository with `yoke github connect "
+                "--add-installation`, confirm `yoke github status`, then retry: "
                 + (
                     scrub_git_diagnostic(authenticated.stderr, token=token)
                     or "unknown error"
@@ -217,7 +230,10 @@ def clone_with_connected_access(
         run_git(parent / name, "checkout", "-f")
         return CloneOutcome(used_token=True, origin_url=https_url)
     anonymous = _run_clone(
-        parent, name, https_url, github_web_url=github_web_url,
+        parent,
+        name,
+        https_url,
+        github_web_url=github_web_url,
         target_claim=target_claim,
     )
     if anonymous.returncode == 0:
@@ -232,9 +248,10 @@ def clone_with_connected_access(
             f"{detail}"
         )
     raise CloneAccessError(
-        "git clone could not read the repository without GitHub access; "
-        "connect the Yoke GitHub App for private repository access, or check "
-        f"the URL and network connection: {detail}"
+        f"git clone could not read {https_url} anonymously, and this clone "
+        "had no GitHub App connection to read it with. For a private "
+        "repository run `yoke github connect`, then retry; otherwise check the "
+        f"URL and network connection: {detail}"
     )
 
 
@@ -276,8 +293,13 @@ def rehome_to_new_origin(
             run_git(root, "remote", "remove", "origin")
         run_git(root, "remote", "add", "origin", new_origin_url)
     run_git(
-        root, "push", "-u", "origin", branch,
-        token=token, github_web_url=github_web_url,
+        root,
+        "push",
+        "-u",
+        "origin",
+        branch,
+        token=token,
+        github_web_url=github_web_url,
     )
     return branch
 

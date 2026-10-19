@@ -52,6 +52,11 @@ yoke project create ~/work/local-app \
 Create initializes Git; import clones the named remote; onboard adopts an
 existing local checkout. Disabled GitHub adoption needs no GitHub sign-in.
 
+Import reads a private GitHub repository through this machine's connected
+GitHub App. Run `yoke github connect` first; when the App cannot see the
+repository, add it with `yoke github connect --add-installation` and check
+`yoke github status` before you retry.
+
 ## Install the operating layer
 
 ```bash

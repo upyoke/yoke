@@ -1,7 +1,10 @@
 {
  "id": "private-repositories",
  "title": "Private repositories",
- "status": "draft-copy",
+ "status": "observed",
+ "note": "Import and the setup wizard clone a private GitHub source through the machine's connected GitHub App. Without a connection the clone runs anonymously and its refusal teaches `yoke github connect`; with a connection that cannot see the repository, the refusal names the URL and teaches `yoke github connect --add-installation` plus `yoke github status`.",
+ "commands": ["yoke project import", "yoke github connect", "yoke github status"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/project_onboard.py", "packages/yoke-cli/src/yoke_cli/config/project_clone_support.py", "docs/public/projects/index.md"],
  "page": "repositories",
  "position": 3
 }
