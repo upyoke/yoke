@@ -20,7 +20,10 @@ from yoke_cli.config.local_reachability import (
 )
 from yoke_contracts.api_urls import HOSTED_PLATFORM_URL, HOSTED_STAGE_PLATFORM_URL
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
-from yoke_contracts.machine_authorization import retired_identity_notice
+from yoke_contracts.machine_authorization import (
+    MATCH_CODE_LABEL,
+    retired_identity_notice,
+)
 from yoke_contracts.harness_sandbox_recovery import running_harness_family
 
 AdapterFn = Callable[[List[str]], int]
@@ -220,7 +223,7 @@ def _connect_hosted(parsed: argparse.Namespace) -> int:
             )
             return
         print(f"Open {pending.verification_uri_complete}", file=stream)
-        print(f"Match code: {pending.user_code}", file=stream)
+        print(f"{MATCH_CODE_LABEL} {pending.user_code}", file=stream)
         print(
             "Approve it from a machine already connected to this server: "
             f"`yoke machines approve {pending.user_code}`, or Approve under "

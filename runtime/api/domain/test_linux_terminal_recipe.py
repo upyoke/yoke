@@ -118,7 +118,7 @@ def test_operator_gate_approves_through_desktop_chromium(monkeypatch, capsys):
     _terminal(
         monkeypatch,
         events,
-        f"Open: {ENTRY}\nOne-time code: K7F2\nMachine connected.\n__YOKE_EXIT_0\n",
+        f"Open: {ENTRY}\nMatch code: K7F2\nMachine connected.\n__YOKE_EXIT_0\n",
     )
     monkeypatch.setattr(
         ssh_linux_browser_approval,

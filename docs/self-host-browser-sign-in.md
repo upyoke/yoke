@@ -175,7 +175,7 @@ provider is never trusted).
 
 With company sign-in configured, run `yoke connect https://<server>` or choose
 **A team server** in `yoke setup`. Open the printed approval link, sign in,
-compare its one-time code with your CLI, and select **Approve my machine**.
+compare its Match code with your CLI, and select **Approve my machine**.
 Sign-in returns you to that workbench page. The CLI receives a machine-bound
 credential once and verifies it before saving the connection. Org membership
 is required; approving your own machine does not require an org-admin role.

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_contracts.first_admin_name import validate_admin_name
+from yoke_contracts.machine_authorization import MATCH_CODE_LABEL
 
 from yoke_core.domain.installer_campaign_plan_common import (
     APPLY_SUCCESS_TEXT,
@@ -110,7 +111,7 @@ COLD_START_HOSTED = terminal_case(
     "terminal-check",
     instructions=(
         "Run the public {{environment_display_name}} installer; connect to {{app_url}}. Let the Test Machine's "
-        "visible Safari approve the one-time code automatically; no operator browser "
+        "visible Safari approve the Match code automatically; no operator browser "
         "action is needed or wanted. Finish onboarding and the parent handoff for both "
         "PATH states. Parallel manual approval consumes the code and breaks the gate."
     ),
@@ -281,7 +282,7 @@ APPLY_HANDOFF = terminal_case(
         ),
         post_checks=(
             *SECRET_SAFE_POST_CHECKS,
-            "no_text:One-time code:",
+            f"no_text:{MATCH_CODE_LABEL}",
             "no_text:Paste your Yoke API token.",
             "terminal_exit_code:0",
         ),

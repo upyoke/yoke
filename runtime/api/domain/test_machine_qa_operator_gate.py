@@ -40,7 +40,7 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
     transcripts = iter(
         (
             "Approve this machine.\n"
-            f"  {detail_marker} One-time code: K7F2\n"
+            f"  {detail_marker} Match code: K7F2\n"
             f"  {detail_marker} Open: https://app.stage.upyoke.com/connect\n",
             "Waiting for browser approval",
             "Yoke token connected.",
@@ -117,7 +117,7 @@ def test_browser_gate_ignores_stale_outcomes_before_current_code(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    current_gate = "One-time code: M8G3\nOpen: https://app.stage.upyoke.com/machine\n"
+    current_gate = "Match code: M8G3\nOpen: https://app.stage.upyoke.com/machine\n"
     retained_history = "Yoke token connected.\nauthorization expired\n"
     transcripts = iter(
         (
@@ -164,8 +164,8 @@ def test_browser_gate_fails_fast_when_the_browser_helper_fails(
     browser_evidence = {"browser": "Safari", "state": "browser_tab_missing"}
     transcripts = iter(
         (
-            "One-time code: K7F2\nOpen: https://app.stage.upyoke.com/connect\n",
-            "One-time code: K7F2\nWaiting for browser approval\n",
+            "Match code: K7F2\nOpen: https://app.stage.upyoke.com/connect\n",
+            "Match code: K7F2\nWaiting for browser approval\n",
         )
     )
 
@@ -207,7 +207,7 @@ def test_browser_gate_rejects_a_non_entry_path_before_automation() -> None:
     called: list[bool] = []
     result = run_machine_browser_approval_with_io(
         read_transcript=lambda: (
-            "One-time code: K7F2\nOpen: https://app.stage.upyoke.com/anything\n"
+            "Match code: K7F2\nOpen: https://app.stage.upyoke.com/anything\n"
         ),
         send_keys=lambda _keys: True,
         read_exit_code=lambda _transcript: None,
@@ -260,9 +260,7 @@ def test_operator_sleep_is_rejected_by_the_recipe_contract() -> None:
 @pytest.mark.parametrize("browser", ["Safari", "Chromium"])
 def test_standalone_gate_accepts_the_current_complete_verification_uri(code, browser):
     uri = "https://example.invalid/connect?user_code=" + code
-    transcripts = iter(
-        (f"One-time code: {code}\nOpen: {uri}\n", "Yoke token connected.")
-    )
+    transcripts = iter((f"Match code: {code}\nOpen: {uri}\n", "Yoke token connected."))
     requests = []
     result = run_machine_browser_approval_with_io(
         read_transcript=lambda: next(transcripts),
@@ -284,7 +282,7 @@ def test_complete_uri_on_an_undeclared_origin_is_refused_before_approval():
     requests = []
     result = run_machine_browser_approval_with_io(
         read_transcript=lambda: (
-            "One-time code: K7F2\nOpen: https://other.invalid/connect?user_code=K7F2\n"
+            "Match code: K7F2\nOpen: https://other.invalid/connect?user_code=K7F2\n"
         ),
         send_keys=lambda keys: True,
         read_exit_code=lambda _transcript: None,
@@ -331,7 +329,7 @@ def test_setup_exit_before_the_approval_prompt_reports_that_exit() -> None:
 
 
 def test_setup_exit_during_approval_is_named_instead_of_waiting() -> None:
-    prompt = "One-time code: K7F2\nOpen: https://app.upyoke.com/connect\n"
+    prompt = "Match code: K7F2\nOpen: https://app.upyoke.com/connect\n"
     result, approvals = _exiting_gate([prompt, prompt + "exit"], 2)
 
     assert result.error_code == "terminal_setup_exited"

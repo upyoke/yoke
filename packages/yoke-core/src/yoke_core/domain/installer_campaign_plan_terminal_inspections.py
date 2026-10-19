@@ -75,7 +75,7 @@ CONNECT_WAIT = terminal_case(
         "release and inspect the Terminal frame while approval is pending."
     ),
     expected_outcome=(
-        "The Terminal shows the one-time code, browser URL, and explicit "
+        "The Terminal shows the Match code, browser URL, and explicit "
         "continue-after-approval instruction without exposing a credential."
     ),
     method_config=terminal_recipe(
@@ -114,7 +114,7 @@ REVIEW_FRAME = terminal_case(
         "live {{environment_display_name}} machine authorization; no operator browser action is "
         "needed or wanted. Stay disabled for GitHub and inspect the machine-only "
         "Review frame without choosing Apply. A parallel manual approval "
-        "consumes the one-time code and breaks the automated gate."
+        "consumes the Match code and breaks the automated gate."
     ),
     expected_outcome=(
         "Review names the pending writes and presents Apply as the primary "
