@@ -76,8 +76,9 @@ def test_transfer_requires_destination_claim(test_db, monkeypatch):
             else {"session_id": "owner"}
         ),
     )
-    with pytest.raises(ValueError, match="no work claim on item 2391"):
+    with pytest.raises(ValueError, match="no work claim on item") as refused:
         _move(test_db, rid, ref)
+    assert ref in str(refused.value)
 
 
 def test_transfer_refuses_recorded_history(test_db, monkeypatch):

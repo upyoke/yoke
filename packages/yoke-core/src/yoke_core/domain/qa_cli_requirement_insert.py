@@ -40,16 +40,6 @@ def insert_params(
     leaving it unset on a run whose flow pins QA stages is refused upstream
     by ``qa_deployment_run_stage_scope``.
     """
-    from yoke_core.domain.qa_requirement_proof import proof_refusal
-
-    refusal = proof_refusal(
-        row,
-        subject=f"item {item_id or epic_id or deployment_run_id}",
-        conn=conn,
-        item_id=item_id or epic_id,
-    )
-    if refusal:
-        raise ValueError(refusal)
     return (
         item_id,
         epic_id,

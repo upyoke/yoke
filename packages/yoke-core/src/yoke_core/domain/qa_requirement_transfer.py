@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_one, iso8601_now
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.item_json_sections import upsert_json_section
 from yoke_core.domain.qa_requirement_proof import proof_refusal
 from yoke_core.domain.qa_obligation_settlement import obligation_settled
@@ -80,12 +81,12 @@ def transfer_requirement(
         claim = get_claim_for_work_unit(conn, item_id=str(item_id))
         if not claim or claim["session_id"] != session_id:
             refuse(
-                f"no work claim on item {item_id}",
+                f"no work claim on item {render_item_ref(conn, item_id)}",
                 "Hold both item work claims before transferring",
             )
     refusal = proof_refusal(
         row,
-        subject=f"item {source_id}, requirement {requirement_id}",
+        subject=f"requirement {requirement_id}",
         conn=conn,
         item_id=source_id,
     )

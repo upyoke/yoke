@@ -12,6 +12,10 @@ def manual_credit_available(
     """The item QA gate can grade a verification row through manual review."""
     if conn is None or item_id is None or row.get("qa_phase") != "verification":
         return False
+    # Existing unbound verification rows are graded by item QA too;
+    # registered authoring validates a required binding before this check.
+    if not row.get("workflow_transition_id"):
+        return True
     from yoke_core.domain.qa_workflow_binding_validation import (
         validate_item_qa_transition,
     )
@@ -42,6 +46,10 @@ def proof_refusal(
         return ""
     if manual_credit_available(conn, row, item_id):
         return ""
+    if conn is not None and item_id is not None:
+        from yoke_core.domain.project_identity import render_item_ref
+
+        subject = f"{render_item_ref(conn, item_id)}, {subject}"
     criterion = (
         row.get("expected_outcome") or row.get("instructions") or row.get("qa_kind")
     )
@@ -50,5 +58,5 @@ def proof_refusal(
         "has neither a runnable method nor a manual review credit path at this binding. Attach the plan case that proves this criterion "
         "with yoke qa item-plan attach, then yoke qa plan materialize; or add a "
         "registered --method-id with instructions, expected outcome and method config. "
-        "Copying or transferring a requirement must retain its executable case."
+        "Copying or transferring a requirement must retain a supported credit path."
     )

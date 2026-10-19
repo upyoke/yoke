@@ -249,7 +249,7 @@ def apply_requirement_update(
 
         refusal = proof_refusal(
             {**dict(existing), field: value},
-            subject=f"item {existing['item_id']}, requirement {req_id}",
+            subject=f"requirement {req_id}",
             conn=conn,
             item_id=existing["item_id"] or existing["epic_id"],
         )

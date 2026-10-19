@@ -163,7 +163,7 @@ def cmd_requirement_add(
 
         refused = proof_refusal(
             row,
-            subject=f"item {binding_item_id or deployment_run_id}",
+            subject="QA requirement",
             conn=conn,
             item_id=binding_item_id,
         )

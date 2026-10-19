@@ -119,16 +119,6 @@ def execute_insert(
     """Insert one requirement row and return the cursor holding its id."""
     from yoke_core.domain import db_backend
 
-    from yoke_core.domain.qa_requirement_proof import proof_refusal
-
-    refusal = proof_refusal(
-        row,
-        subject=f"item {subject.item_id or subject.deployment_run_id}",
-        conn=conn,
-        item_id=subject.item_id,
-    )
-    if refusal:
-        raise ValueError(refusal)
     stored = dict(zip(_COLUMNS, insert_params(subject, row, created_at)))
     stored["created_at"] = instant_parameter(conn, stored["created_at"])
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"

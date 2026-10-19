@@ -72,18 +72,17 @@ def materialize_admitted_requirement(
     target: Mapping[str, Any],
     now: str,
 ) -> tuple[int, bool]:
-    """Copy one frozen direct obligation without its former item subject.
-
-    Direct copies keep null plan positions; the execution roster owns order.
-    """
+    """Copy a creditable direct obligation; its execution roster owns order."""
     source_id = int(requirement.get("id") or 0)
     if source_id < 1:
         raise QaPlanError("frozen member QA requirement has no source identity")
     from yoke_core.domain.qa_requirement_proof import proof_refusal
 
     refusal = proof_refusal(
-        requirement,
-        subject=f"member {subject.get('member_item_id')}, requirement {source_id}",
+        dict(requirement, qa_phase="post_deploy"),
+        subject=f"requirement {source_id}",
+        conn=conn,
+        item_id=subject.get("member_item_id"),
     )
     if refusal:
         raise QaPlanError(refusal)

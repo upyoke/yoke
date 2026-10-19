@@ -82,7 +82,7 @@ def cmd_requirement_add_batch(
 
             refusal = proof_refusal(
                 row,
-                subject=f"row {len(inserted_ids)}, item {binding_item_id or row.get('deployment_run_id')}",
+                subject=f"row {len(inserted_ids)}",
                 conn=conn,
                 item_id=binding_item_id,
             )
