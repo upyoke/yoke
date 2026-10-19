@@ -35,6 +35,7 @@ def render_global_orientation(
     cwd: Path,
     *,
     setup_lines: list[str] | None = None,
+    required_lines: list[str] | None = None,
 ) -> str:
     """Render the outside-project orientation for one session, or ``""``."""
     if not session_id or session_id == "unknown":
@@ -52,6 +53,7 @@ def render_global_orientation(
         "",
         f"Writing to the user: {WRITING_RULES}",
     ]
+    required.extend(required_lines or [])
     budget = min(INLINE_CONTEXT_BYTES.values())
     folders = _project_folders()
     from yoke_core.domain.session_orientation_setup import render_with_setup
