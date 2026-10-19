@@ -1,9 +1,9 @@
 """An item-QA stage wakes every waiting member before any close-out.
 
-A close-out (GitHub sync, branch deletion, worktree prune) can take minutes.
-Closing each accepted member inline held every later member's wake behind
-it. The walk now gates and wakes every member, committing each accepted
-member's stage result, then closes the accepted members in the same pass.
+A close-out can take minutes (mostly its acceptance reads). Closing each
+accepted member inline held every later member's wake behind it. The walk
+now gates and wakes every member, committing each accepted member's stage
+result, then closes the accepted members in the same pass.
 """
 
 from __future__ import annotations
