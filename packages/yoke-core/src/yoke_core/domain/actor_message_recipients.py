@@ -263,15 +263,15 @@ def acknowledge_actor_recipient(
 
 
 def expire_actor_recipients_for_cancel(
-    conn: Any, *, message_id: str, expired_at: datetime
+    conn: Any, *, message_ids: list[str], expired_at: datetime
 ) -> None:
     marker = _p(conn)
     conn.execute(
         "UPDATE actor_message_recipients SET state='expired',expired_at="
         + marker
-        + f" WHERE message_id={marker} AND recipient_kind={marker} "
-        "AND state='pending'",
-        (instant_parameter(conn, expired_at), message_id, ACTOR_KIND),
+        + f" WHERE message_id IN ({','.join(marker for _ in message_ids)}) "
+        f"AND recipient_kind={marker} AND state='pending'",
+        (instant_parameter(conn, expired_at), *message_ids, ACTOR_KIND),
     )
 
 

@@ -284,28 +284,54 @@ def cancel_message_rows(
     reason: str,
     cancelled_at: datetime,
 ) -> dict[str, Any]:
-    marker = _p(conn)
     details = message_details(conn, message_id)
     if details.get("cancelled_at"):
         return details
+    cancel_messages(
+        conn,
+        message_ids=[message_id],
+        actor_id=actor_id,
+        reason=reason,
+        cancelled_at=cancelled_at,
+    )
+    return message_details(conn, message_id)
+
+
+def cancel_messages(
+    conn: Any,
+    *,
+    message_ids: list[str],
+    actor_id: int | None,
+    reason: str,
+    cancelled_at: datetime,
+) -> None:
+    """Cancel every still-open message in *message_ids* with one statement per table."""
+    if not message_ids:
+        return
+    marker = _p(conn)
     stamp = instant_parameter(conn, cancelled_at)
-    conn.execute(
+    rows = conn.execute(
         "UPDATE session_messages SET cancelled_at=" + marker + ", "
         "cancelled_by_actor_id=" + marker + ", cancellation_reason=" + marker + " "
-        "WHERE message_id=" + marker,
-        (stamp, actor_id, reason, message_id),
-    )
+        f"WHERE message_id IN ({','.join(marker for _ in message_ids)}) "
+        "AND cancelled_at IS NULL RETURNING message_id",
+        (stamp, actor_id, reason, *message_ids),
+    ).fetchall()
+    # A message cancelled earlier keeps its recipients' recorded outcome.
+    message_ids = [str(row[0]) for row in rows]
+    if not message_ids:
+        return
+    ids = ",".join(marker for _ in message_ids)
     conn.execute(
         "UPDATE session_message_recipients SET state='cancelled', "
         f"cancelled_at={marker}, injection_lease_id=NULL, "
         "injection_leased_at=NULL, injection_lease_expires_at=NULL "
-        f"WHERE message_id={marker} AND state IN ('pending','injected')",
-        (stamp, message_id),
+        f"WHERE message_id IN ({ids}) AND state IN ('pending','injected')",
+        (stamp, *message_ids),
     )
     expire_actor_recipients_for_cancel(
-        conn, message_id=message_id, expired_at=cancelled_at
+        conn, message_ids=message_ids, expired_at=cancelled_at
     )
-    return message_details(conn, message_id)
 
 
 __all__ = [
@@ -313,6 +339,7 @@ __all__ = [
     "begin_message_mutation",
     "body_sha256",
     "cancel_message_rows",
+    "cancel_messages",
     "cancel_open_recipients",
     "idempotent_message",
     "insert_message",

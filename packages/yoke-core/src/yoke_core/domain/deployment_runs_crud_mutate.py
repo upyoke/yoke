@@ -39,7 +39,7 @@ from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
 )
 from yoke_core.domain.workflow_delivery_binding_validation import (
-    validate_deployment_run_items,
+    validate_deployment_run_members,
 )
 from yoke_core.domain.deployment_run_member_removal import cmd_remove_item
 
@@ -71,7 +71,7 @@ def cmd_add_item(
     try:
         lock_item_workflow_bindings(conn, (int(item_id),))
         _require_composable_run(conn, run_id)
-        from yoke_core.domain.deployment_run_carried_membership import (
+        from yoke_core.domain.deployment_run_member_admission import (
             admit_run_item,
         )
         from yoke_core.domain.deployment_run_item_qa_membership import (
@@ -159,10 +159,11 @@ def cmd_update(
                 return frozen_mutation_refusal(run_id, "status")
             if value in {"created", "executing"}:
                 try:
-                    validate_deployment_run_items(
+                    validate_deployment_run_members(
                         conn,
                         run_id=run_id,
                         item_ids=item_ids,
+                        attached=True,
                     )
                 except ValueError as exc:
                     return f"Error: {exc}"

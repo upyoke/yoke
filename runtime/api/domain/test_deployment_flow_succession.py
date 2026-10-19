@@ -22,11 +22,13 @@ from yoke_core.domain.deployment_item_flow_resolution import (
     membership_closes_item,
 )
 from yoke_core.domain.deployment_item_completion_runs import completion_runs
-from yoke_core.domain.deployment_run_carried_membership import admit_run_item
+from yoke_core.domain.deployment_run_member_admission import admit_run_item
 from yoke_core.domain.flow_create import cmd_create
 from yoke_core.domain.item_completion_flow_projection import completion_flow_values
 
-_STAGES = json.dumps([{"name": "deploy", "stage_kind": "execution", "step_runner": "auto"}])
+_STAGES = json.dumps(
+    [{"name": "deploy", "stage_kind": "execution", "step_runner": "auto"}]
+)
 
 
 def _flow(

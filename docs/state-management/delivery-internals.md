@@ -36,7 +36,7 @@ That is the last moment the answer is cheap: the owner still holds the claim
 and the lane, and the cases are still editable.
 
 **Read the flow that will close the item, not `items.deployment_flow`.** That
-column holds only an explicit pin. `freeze_item_completion_flow` writes the
+column holds only an explicit pin. `freeze_item_completion_flows` writes the
 project and workflow delivery default into it when a run admits the item,
 which is after the merge, so before the merge it is empty on essentially
 every item. A gate keyed on it therefore asks almost nobody. The resolution

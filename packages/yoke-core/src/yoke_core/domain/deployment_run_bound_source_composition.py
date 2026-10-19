@@ -14,13 +14,7 @@ from yoke_core.domain.deployment_run_carried_work import (
 )
 from yoke_core.domain.deployment_run_bound_sources import bound_project_shas
 from yoke_core.domain.deployment_run_composition_guard import has_frozen_composition
-from yoke_core.domain.deployment_requirement_snapshots import (
-    requirement_selection,
-    snapshot_member_requirements,
-)
-from yoke_core.domain.deployment_member_post_deploy_admission import (
-    admissible_post_deploy_requirement_ids,
-)
+from yoke_core.domain.deployment_member_snapshot_write import write_member_snapshots
 from yoke_core.domain.deployment_run_unheld_candidates import (
     candidate_custody,
     CustodyResolution,
@@ -171,25 +165,15 @@ def recompose_bound_sources(
         custody=preview.custody,
         rebound_project_ids=project_ids,
     )
-    if has_frozen_composition(conn, run_id):
-        rows = conn.execute(
+    rows = (
+        conn.execute(
             "SELECT item_id,requirement_selection FROM deployment_run_items WHERE run_id=%s AND COALESCE(requirement_snapshot,'')=''",
             (run_id,),
         ).fetchall()
-        for row in rows:
-            item_id = int(row[0])
-            selection = row[1] or requirement_selection(
-                requirement_ids=admissible_post_deploy_requirement_ids(
-                    conn, run_id=run_id, item_id=item_id
-                )
-            )
-            snapshot = snapshot_member_requirements(
-                conn, run_id=run_id, item_id=item_id, selection_json=selection
-            )
-            conn.execute(
-                "UPDATE deployment_run_items SET requirement_selection=%s,requirement_snapshot=%s WHERE run_id=%s AND item_id=%s",
-                (selection, snapshot, run_id, item_id),
-            )
+        if has_frozen_composition(conn, run_id)
+        else ()
+    )
+    write_member_snapshots(conn, run_id, {int(row[0]): row[1] for row in rows})
     valid, reason = cmd_validate_composition(
         run_id, connection=conn, custody=preview.custody
     )

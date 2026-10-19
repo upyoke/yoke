@@ -330,7 +330,9 @@ def settle_members(conn: Any, run_id: str) -> Optional[str]:
     released first. Returns the refusal that keeps the run settling, or
     ``None`` once it may succeed.
     """
-    from yoke_core.domain.deployment_run_member_removal import release_replaced_members
+    from yoke_core.domain.deployment_member_candidate_release import (
+        release_replaced_members,
+    )
     from yoke_core.domain.deployment_run_reopened_members import reopened_members
 
     release_replaced_members(

@@ -15,7 +15,6 @@ from yoke_core.domain.deployment_run_member_removal import (
     REOPENED_REMOVED_BY,
     SETTLEMENT_REMOVED_BY,
 )
-from yoke_core.domain.deployment_run_membership_removals import membership_removals
 from yoke_core.domain.deployment_run_target_takeover import TAKEOVER_REMOVED_BY
 from yoke_core.domain.qa_latest_execution import latest_executions
 
@@ -110,6 +109,7 @@ def notify_removed_member(
     public_ref: str,
     reason: str,
     removed_by: str,
+    removed_at: str,
     execution_aborted: bool = False,
     cancelled_requirement_ids: Iterable[int] = (),
 ) -> None:
@@ -145,17 +145,12 @@ def notify_removed_member(
         project = query_one(
             conn, "SELECT project_id FROM items WHERE id=%s", (item_id,)
         )
-        removal = next(
-            entry
-            for entry in membership_removals(conn, run_id)
-            if int(entry["item_id"]) == int(item_id)
-        )
         delivery = push_member_notice(
             conn,
             item_id=item_id,
             project_id=int(project["project_id"]),
             body_for_route=lambda _route: body,
-            idempotency_key=f"removed-member:{run_id}:{item_id}:{removal['removed_at']}",
+            idempotency_key=f"removed-member:{run_id}:{item_id}:{removed_at}",
         )
     except Exception as exc:  # noqa: BLE001 - removal survives a notice failure
         rollback_savepoint(conn, _SEND_SAVEPOINT)

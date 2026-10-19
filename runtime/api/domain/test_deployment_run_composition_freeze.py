@@ -344,6 +344,6 @@ def test_membership_classification_is_terminal_and_default_safe(test_db: Any) ->
     set_delivery_default(
         test_db, project="yoke", workflow_id="task", flow_id="effective-default"
     )
-    assert composition.item_requires_release_membership(test_db, 9321)
-    assert not composition.item_requires_release_membership(test_db, 9322)
-    assert not composition.item_requires_release_membership(test_db, 9323)
+    assert composition.items_requiring_release_membership(
+        test_db, (9321, 9322, 9323)
+    ) == {9321}

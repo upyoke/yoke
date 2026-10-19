@@ -23,7 +23,7 @@ from yoke_core.domain.deployment_member_post_deploy_admission import (
     run_qa_stage_targets,
     unadmitted_post_deploy_notice,
 )
-from yoke_core.domain.deployment_run_carried_membership import admit_run_item
+from yoke_core.domain.deployment_run_member_admission import admit_run_item
 from yoke_core.domain.deployment_run_composition_freeze import (
     freeze_run_composition,
 )

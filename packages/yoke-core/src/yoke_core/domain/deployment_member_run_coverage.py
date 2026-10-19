@@ -246,7 +246,7 @@ def unclosable_final_member_refusal(
             conn, run_id=run_id, item_ids=member_ids(conn, run_id)
         ).items()
         if item_id in subjects
-        # No completion flow at all is completion_flow_refusal's to name.
+        # No completion flow at all is completion_flow_refusals' to name.
         if coverage.completion_flow
         and not coverage.closes
         and not supplemental_qa_run(conn, run_id=run_id, item_id=item_id)

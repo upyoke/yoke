@@ -88,6 +88,28 @@ def test_busy_table_refuses_by_name_and_starts_nothing(
     assert status == "created"
 
 
+def test_re_driving_a_started_run_converges_nothing(
+    serving_plane,  # noqa: F811 - fixture re-export, this is the intended shadow
+    monkeypatch,
+) -> None:
+    """Its first start converged the schema and its candidate is frozen."""
+    from yoke_core.domain import schema_creation
+
+    run_id = _start_previous_schema_run(serving_plane, monkeypatch)
+    serving_plane["conn"].execute(
+        "UPDATE deployment_runs SET started_at=NOW() WHERE id=%s", (run_id,)
+    )
+    serving_plane["conn"].commit()
+    monkeypatch.setattr(
+        schema_creation,
+        "converge_additive_schema",
+        lambda _conn: pytest.fail("a re-drive converged the schema"),
+    )
+
+    assert converge_release_start_schema(run_id) is False
+    assert not _column_exists(serving_plane["conn"], *_PREVIOUS_RELEASE_GAP)
+
+
 def test_https_driver_leaves_the_schema_to_the_serving_build(monkeypatch) -> None:
     from yoke_cli.transport import https as https_transport
 

@@ -16,6 +16,9 @@ same boot sequence before any release, which is the proof the phase is safe.
 
 A driver relaying through HTTPS runs no release code against the database:
 the serving build answers every call, so there is nothing to converge.
+
+A run that already started converged at its first start, and its candidate
+is frozen, so re-driving it converges nothing and reads only its start stamp.
 """
 
 from __future__ import annotations
@@ -36,7 +39,7 @@ class ReleaseStartSchemaError(RuntimeError):
 
 
 def converge_release_start_schema(run_id: str) -> bool:
-    """Apply the additive phase when this driver dispatches in-process.
+    """Apply the additive phase when this driver first starts a run in-process.
 
     Returns whether it ran. Only missing objects are created, one table per
     transaction, and each statement waits at most
@@ -63,7 +66,7 @@ def converge_release_start_schema(run_id: str) -> bool:
     )
     try:
         with db_helpers.connect() as conn, serving_build_authority():
-            if not universe_is_born_on(conn):
+            if not universe_is_born_on(conn) or _already_started(conn, run_id):
                 return False
             conn.execute(f"SET lock_timeout = '{RUN_ROW_LOCK_TIMEOUT_MS}ms'")
             # Tables belong to their creator; create them as the role that
@@ -93,3 +96,12 @@ __all__ = [
     "ReleaseStartSchemaError",
     "converge_release_start_schema",
 ]
+
+
+def _already_started(conn, run_id: str) -> bool:
+    """Whether *run_id* started before; its first start converged the schema."""
+    row = conn.execute(
+        "SELECT started_at FROM deployment_runs WHERE id=%s", (run_id,)
+    ).fetchone()
+    conn.commit()
+    return row is not None and row[0] is not None

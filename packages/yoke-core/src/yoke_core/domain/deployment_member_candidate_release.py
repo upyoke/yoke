@@ -136,3 +136,68 @@ def release_failed_member(conn: Any, *, run_id: str, stage: str, item_id: int) -
     conn.commit()
     print(f"Released {ref} from run {run_id}: {reason}.")
     return True
+
+
+def release_replaced_members(
+    conn: Any,
+    run_id: str,
+    members: list[dict[str, Any]],
+    *,
+    unproven: dict[int, str] | None = None,
+) -> list[str]:
+    """Release only definite exclusions from the frozen candidate; name each.
+
+    Settlement passes members at their release wait; settlement and resume
+    both pass members marked ``reopened`` that left delivery readiness after
+    the run froze. Either is released when its recorded merge or active lane
+    head is outside the run's frozen lineage, bypassing the settled-QA guard
+    because the candidate this run carries is no longer the item's. Resolve
+    repository comparisons before taking the run row; re-check identities
+    under the workflow-binding locks so a concurrent landing cannot be removed
+    on an answer about a different commit. Unknown containment remains a
+    blocker and is collected in *unproven*.
+    """
+    from yoke_core.domain.dash_lane_head_staleness import active_lane_head
+    from yoke_core.domain.delivery_evidence_ladder import item_merge_identity
+    from yoke_core.domain.deployment_run_member_removal import (
+        REOPENED_REASON,
+        REOPENED_REMOVED_BY,
+        REPLACED_REASON,
+        SETTLEMENT_REMOVED_BY,
+        remove_members_on,
+    )
+    from yoke_core.domain.deployment_runs_lock import lock_run_with_stable_membership
+
+    excluded = candidate_exclusions(
+        conn, run_id, members, include_lane_head=True, unproven=unproven
+    )
+    if not excluded:
+        return []
+    reopened = {int(m["item_id"]) for m in members if m.get("reopened")}
+    status, held = lock_run_with_stable_membership(conn, run_id)
+    if status not in {"created", "executing", "failed"}:
+        conn.commit()
+        return []
+    current = [
+        item_id
+        for item_id, merge, head in excluded
+        if item_id in held
+        and item_merge_identity(conn, item_id) == merge
+        and active_lane_head(conn, item_id) == head
+    ]
+    released: list[str] = []
+    for removed_by, reason, ids in (
+        (REOPENED_REMOVED_BY, REOPENED_REASON, [i for i in current if i in reopened]),
+        (
+            SETTLEMENT_REMOVED_BY,
+            REPLACED_REASON,
+            [i for i in current if i not in reopened],
+        ),
+    ):
+        for ref in remove_members_on(
+            conn, run_id, ids, reason=reason, removed_by=removed_by
+        ).values():
+            print(f"Released {ref} from run {run_id}: {reason}.")
+            released.append(ref)
+    conn.commit()
+    return released

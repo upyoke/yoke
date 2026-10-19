@@ -91,7 +91,7 @@ def set_aside_reopened_members(
     containment is undetermined — and a notice naming those released.
     Contained reopened members stay and are neither refused nor named.
     """
-    from yoke_core.domain.deployment_run_member_removal import (
+    from yoke_core.domain.deployment_member_candidate_release import (
         release_replaced_members,
     )
 
