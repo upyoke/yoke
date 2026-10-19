@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import sys
 import time
+from functools import partial
 from typing import Any, Dict, List, Mapping, Optional
 
+from yoke_core.domain import deploy_pipeline_dispatch_readiness as readiness
 from yoke_core.domain.deploy_pipeline_gates import _check_ci_gate
 from yoke_core.domain.deploy_pipeline_github_workflow_lineage import (
     resolve_publish_sha as _lineage_resolve_publish_sha,
@@ -63,9 +65,10 @@ def _dispatch_github_actions_workflow(
     environment_name: str = "",
     bound_inputs: Optional[Mapping[str, str]] = None,
     preview_slug: str = "",
+    before_dispatch: Optional[readiness.Preparation] = None,
     sd: Optional[str] = None,
 ) -> tuple[int, str]:
-    """Dispatch the workflow and return its exit code and failure evidence."""
+    """Dispatch once CI and ``before_dispatch`` pass; return exit code and evidence."""
     sd = sd or _resolve_script_dir()
     workflow = str(config.get("workflow", "") or "")
     if not workflow:
@@ -117,8 +120,10 @@ def _dispatch_github_actions_workflow(
         diagnostic = "github-actions-workflow wait_for_ci must be a boolean"
         print(f"Error: {diagnostic}", file=sys.stderr)
         return 1, diagnostic
+    ci_gate = None
     if wait_for_ci:
-        ci_passed, ci_msg = _check_ci_gate(
+        ci_gate = partial(
+            _check_ci_gate,
             github_repo,
             project,
             timeout_sec,
@@ -126,12 +131,9 @@ def _dispatch_github_actions_workflow(
             head_sha=project_head_sha,
             sd=sd,
         )
-        if ci_msg:
-            print(ci_msg, file=sys.stderr if not ci_passed else sys.stdout)
-        if not ci_passed:
-            return 1, ci_msg or ""
-    else:
-        print("  CI gate: skipped by this deployment-flow stage")
+    ready = readiness.await_dispatch_readiness(ci_gate, before_dispatch)
+    if ready[0] != 0:
+        return ready
 
     head_sha = project_head_sha
     if publish_product:

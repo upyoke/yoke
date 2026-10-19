@@ -316,3 +316,18 @@ class TestRestoreListOmittingSchemas:
         # staged schema, failing the restore on a duplicate instead.
         with pytest.raises(RuntimeError, match="cannot be told to skip"):
             self._write(tmp_path, [STAGED_SCHEMA, "absent_schema"])
+
+
+def test_restore_runs_parallel_jobs(monkeypatch, tmp_path) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        transfer, "run_transfer", lambda argv, **_kwargs: calls.append(argv)
+    )
+    spec = SimpleNamespace(sock_dir=tmp_path, superuser="admin", bin_dir=None)
+    monkeypatch.setattr(transfer.postgres_cluster, "binary", lambda _s, name: name)
+
+    transfer.restore_copy(spec, "copy", tmp_path / "dump")
+
+    argv = calls[0]
+    assert argv[argv.index("--jobs") + 1] == str(transfer.RESTORE_JOBS)
+    assert argv[-1] == str(tmp_path / "dump")

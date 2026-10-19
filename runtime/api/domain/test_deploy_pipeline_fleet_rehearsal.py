@@ -5,7 +5,6 @@ from __future__ import annotations
 from unittest import mock
 
 from yoke_core.domain import deploy_pipeline_fleet_rehearsal as rehearsal
-from yoke_core.domain import deploy_pipeline_step_runners
 from yoke_core.domain import migration_preflight_receipt as receipt
 from runtime.api.domain.fleet_rehearsal_dispatch_test_helpers import (
     _DIGEST,
@@ -14,6 +13,7 @@ from runtime.api.domain.fleet_rehearsal_dispatch_test_helpers import (
     _covered,
     _declare,
     _dispatch,
+    _dispatch_through,
     _stable_commit,
     _stable_release,
     _stage,
@@ -53,11 +53,7 @@ def test_uncovered_release_rehearses_records_then_dispatches(monkeypatch) -> Non
 
     monkeypatch.setattr(rehearsal, "_coverage", coverage)
     monkeypatch.setattr(rehearsal, "_run_preflight", run_preflight)
-    monkeypatch.setattr(
-        deploy_pipeline_step_runners,
-        "_dispatch_github_actions_workflow",
-        dispatch,
-    )
+    _dispatch_through(monkeypatch, dispatch)
 
     assert _dispatch(_stage()) == (0, "")
     assert events == ["query", "rehearsal", "query", "dispatch"]
@@ -82,11 +78,7 @@ def test_unrehearsed_data_only_entry_rehearses_though_the_shape_is_covered(
     workflow = mock.Mock(return_value=(0, ""))
     monkeypatch.setattr(rehearsal, "_coverage", coverage)
     monkeypatch.setattr(rehearsal, "_run_preflight", run_preflight)
-    monkeypatch.setattr(
-        deploy_pipeline_step_runners,
-        "_dispatch_github_actions_workflow",
-        workflow,
-    )
+    _dispatch_through(monkeypatch, workflow)
 
     assert not receipt.uncovered_schema_shape("primary", _DIGEST, covered_before)
     assert _dispatch(_stage()) == (0, "")
@@ -100,11 +92,7 @@ def test_covered_release_skips_rehearsal_and_dispatches(monkeypatch) -> None:
     workflow = mock.Mock(return_value=(0, ""))
     monkeypatch.setattr(rehearsal, "_coverage", lambda *_a: (_covered(), ""))
     monkeypatch.setattr(rehearsal, "_run_preflight", run_preflight)
-    monkeypatch.setattr(
-        deploy_pipeline_step_runners,
-        "_dispatch_github_actions_workflow",
-        workflow,
-    )
+    _dispatch_through(monkeypatch, workflow)
 
     assert _dispatch(_stage()) == (0, "")
     run_preflight.assert_not_called()
@@ -132,11 +120,7 @@ def test_entry_covered_for_one_environment_rehearses_only_the_other(
 
     monkeypatch.setattr(rehearsal, "_coverage", coverage)
     monkeypatch.setattr(rehearsal, "_run_preflight", run_preflight)
-    monkeypatch.setattr(
-        deploy_pipeline_step_runners,
-        "_dispatch_github_actions_workflow",
-        mock.Mock(return_value=(0, "")),
-    )
+    _dispatch_through(monkeypatch, mock.Mock(return_value=(0, "")))
 
     assert _dispatch(_stage(), environment="prod") == (0, "")
     assert _dispatch(_stage(), environment="stage") == (0, "")
@@ -148,11 +132,7 @@ def test_rehearsal_failure_stops_before_workflow_dispatch(monkeypatch) -> None:
     workflow = mock.Mock(return_value=(0, ""))
     monkeypatch.setattr(rehearsal, "_coverage", lambda *_a: ({}, ""))
     monkeypatch.setattr(rehearsal, "_run_preflight", lambda _args: 7)
-    monkeypatch.setattr(
-        deploy_pipeline_step_runners,
-        "_dispatch_github_actions_workflow",
-        workflow,
-    )
+    _dispatch_through(monkeypatch, workflow)
 
     rc, diagnostic = _dispatch(_stage())
 
@@ -168,11 +148,7 @@ def test_passing_rehearsal_without_covering_receipt_stops_dispatch(
     workflow = mock.Mock(return_value=(0, ""))
     monkeypatch.setattr(rehearsal, "_coverage", lambda *_a: ({}, ""))
     monkeypatch.setattr(rehearsal, "_run_preflight", lambda _args: 0)
-    monkeypatch.setattr(
-        deploy_pipeline_step_runners,
-        "_dispatch_github_actions_workflow",
-        workflow,
-    )
+    _dispatch_through(monkeypatch, workflow)
 
     rc, diagnostic = _dispatch(_stage())
 
@@ -198,11 +174,7 @@ def test_unreadable_coverage_stops_dispatch_rather_than_rehearsing(
         lambda **_kwargs: ({}, "permission_denied: items.read"),
     )
     monkeypatch.setattr(rehearsal, "_run_preflight", run_preflight)
-    monkeypatch.setattr(
-        deploy_pipeline_step_runners,
-        "_dispatch_github_actions_workflow",
-        workflow,
-    )
+    _dispatch_through(monkeypatch, workflow)
 
     rc, diagnostic = _dispatch(_stage())
 
@@ -228,11 +200,7 @@ def test_unresolvable_history_stops_dispatch_rather_than_rehearsing(
     run_preflight = mock.Mock(return_value=0)
     monkeypatch.setattr(rehearsal, "_coverage", coverage)
     monkeypatch.setattr(rehearsal, "_run_preflight", run_preflight)
-    monkeypatch.setattr(
-        deploy_pipeline_step_runners,
-        "_dispatch_github_actions_workflow",
-        workflow,
-    )
+    _dispatch_through(monkeypatch, workflow)
 
     rc, diagnostic = _dispatch(_stage())
 
@@ -252,11 +220,7 @@ def test_coverage_is_read_for_the_environment_being_released(monkeypatch) -> Non
         return _covered(), ""
 
     monkeypatch.setattr(rehearsal, "read_coverage", read)
-    monkeypatch.setattr(
-        deploy_pipeline_step_runners,
-        "_dispatch_github_actions_workflow",
-        mock.Mock(return_value=(0, "")),
-    )
+    _dispatch_through(monkeypatch, mock.Mock(return_value=(0, "")))
 
     assert _dispatch(_stage()) == (0, "")
     assert asked == [

@@ -84,8 +84,8 @@ yoke watch preflight -- --project P [--model M] [--checkout PATH] \
 `--model` defaults to the capability's `default_model`. `--checkout` names the
 checkout a `named_databases` fleet converges from (default: the project's
 checkout registered on this machine). The live databases are
-only read: each is dumped, restored into the local embedded cluster, converged,
-verified, and dropped. A passing run with `--record-receipt` writes the
+only read: each is dumped, restored into the local embedded cluster with
+parallel `pg_restore` jobs, converged, verified, and dropped. A passing run with `--record-receipt` writes the
 covered history entry names and the schema-shape digest onto that project
 environment's own settings document under `release.fleet_rehearsal.<model>`,
 on the prod release-gate control plane. Coverage is the union of passing runs
@@ -138,7 +138,10 @@ skipped with its reason printed. An undeclared fleet refuses the dispatch with
 the declaration recipe. Otherwise the gate reads the release commit's history
 entries (from the model's `runner.config.modules_dir`) and schema-shape digest,
 and when the target environment's receipts do not cover both it rehearses
-exactly the release commit's code before dispatching: a `named_databases` fleet
+exactly the release commit's code before dispatching. The rehearsal runs while
+the stage's CI gate waits on the same commit, so it adds no wait of its own
+once CI is the longer one; dispatch still needs both the passing gate and the
+covering receipt, and a failed CI gate is the refusal reported. A `named_databases` fleet
 converges from a disposable checkout of that commit, and an `engine_tenants`
 fleet rehearses only after the dispatching engine's history bytes and schema
 shape are proven identical to the commit's (otherwise it refuses and names the

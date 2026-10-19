@@ -22,6 +22,9 @@ from yoke_core.domain.universe_portability_common import postgres_client_env
 DUMP_STALL_TIMEOUT_SECONDS = 300
 DUMP_PROGRESS_POLL_SECONDS = 5
 RESTORE_TIMEOUT_SECONDS = 900
+#: Parallel ``pg_restore`` workers: a custom-format dump on disk restores its
+#: table data and index builds concurrently into the local rehearsal cluster.
+RESTORE_JOBS = 4
 DUMP_ATTEMPTS = 3
 
 #: Copy failures worth another attempt: every connect-class marker the
@@ -234,6 +237,8 @@ def restore_copy(
         copy_name,
         "--no-owner",
         "--no-privileges",
+        "--jobs",
+        str(RESTORE_JOBS),
     ]
     if use_list is not None:
         argv += ["-L", str(use_list)]
