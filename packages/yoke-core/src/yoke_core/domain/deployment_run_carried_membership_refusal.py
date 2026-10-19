@@ -134,7 +134,10 @@ def carried_membership_refusal(
     needed = needed_member_ids(conn, run_id=run_id, item_ids=eligible)
     eligible = [item_id for item_id in eligible if item_id in needed]
     blocked = {
-        dependent for dependent, _, _ in unshipped_dependency_pairs(conn, eligible)
+        dependent
+        for dependent, _, _ in unshipped_dependency_pairs(
+            conn, eligible, member_ids=members
+        )
     }
     eligible = [item_id for item_id in eligible if item_id not in blocked]
     refusals = completion_flow_refusals(conn, eligible)

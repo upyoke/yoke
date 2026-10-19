@@ -1,0 +1,16 @@
+{
+ "id": "05",
+ "title": "Ship a dependent with its blocker",
+ "status": "observed",
+ "audience": "both",
+ "when": "When a release candidate carries an item whose closure or delivery edge waits on an item that has not shipped yet.",
+ "need": "Release composition skips a carried item while its blocking edge is unmet and names the blocker in its skipped notice; the first later release after the blocker ships enrolls it automatically. A blocker that the same run enrolls, or that is already a member, ships with its dependent, so both enroll together. A blocker the run holds back holds back its own dependents too. Coordination-only and satisfied edges never delay enrollment. Do not add-item a skipped dependent by hand; read the notice and wait for the blocker's release.",
+ "disclosure": "current cue",
+ "surface": "Carried-member enrollment at deployment start and validate-composition; skipped-candidate notice; carried-membership refusal",
+ "gap": "Proven in source and tests; a live release that enrolls a dependent with its same-run blocker is not yet recorded as evidence.",
+ "review": "Pending live proof on a release that carries both items.",
+ "recipes": ["yoke deployment-runs validate-composition --help", "yoke items dependency list --help"],
+ "plan_notes": ["JOURNEYS row 11"],
+ "sources": ["docs/public/verification/case-attachment.md", "docs/public/agents/rules/release-roles.md"],
+ "position": 4
+}

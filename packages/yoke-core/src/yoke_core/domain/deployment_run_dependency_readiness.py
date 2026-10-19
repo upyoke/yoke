@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from typing import Any, Iterable, Sequence
 
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.dependency_satisfaction import unsatisfied_dependency_pairs
@@ -22,14 +22,26 @@ def _delivered(delivery: dict[str, Any] | None) -> bool:
 
 
 def unshipped_dependency_pairs(
-    conn: Any, item_ids: Sequence[int]
+    conn: Any, item_ids: Sequence[int], *, member_ids: Iterable[int] = ()
 ) -> list[tuple[int, int, GateResult]]:
     """Read each edge's declared milestone or completed environment fact.
 
     Completion alone cannot clear an explicit environment edge, and a run's
-    success cannot substitute for an item's done milestone.
+    success cannot substitute for an item's done milestone. A blocker that
+    ships in the same run — an existing member, or a candidate that is not
+    itself held back — releases its dependent with it. Holding a candidate
+    back can strand its own dependents, so the set shrinks until it is stable.
     """
-    return unsatisfied_dependency_pairs(conn, item_ids)
+    members = {int(item_id) for item_id in member_ids}
+    shipping = {int(item_id) for item_id in item_ids}
+    while True:
+        pairs = unsatisfied_dependency_pairs(
+            conn, item_ids, co_scheduled_blocker_ids=shipping | members
+        )
+        still_shipping = shipping - {dependent for dependent, _, _ in pairs}
+        if still_shipping == shipping:
+            return pairs
+        shipping = still_shipping
 
 
 def blocker_holding_run(conn: Any, blocker_id: int) -> tuple[str, str] | None:
