@@ -23,9 +23,11 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list:
 
 
 def _agent(monkeypatch: pytest.MonkeyPatch, calls: list, replies: list) -> None:
-    def run(argv: list[str]) -> dict | None:
+    def run(argv: list[str], show=driver._show) -> dict | None:
         calls.append(("agent", argv))
-        return replies.pop(0)
+        reply = replies.pop(0)
+        show(reply)
+        return reply
 
     monkeypatch.setattr(driver, "_run_agent", run)
 
@@ -91,3 +93,44 @@ def test_a_browser_step_shows_the_link_and_match_code(
     )
     out = capsys.readouterr().out
     assert "Match code: K7F2" in out and "Open: http://server/a" in out
+
+
+def _browser(code: str) -> dict:
+    return {
+        "state": "browser",
+        "key": "connect.hosted_machine_approval",
+        "human": {"user_code": code, "url": "http://server/a", "instructions": "x"},
+        "wait": {"max_seconds": 600, "poll_interval_seconds": 5},
+    }
+
+
+def test_a_browser_step_is_asked_again_until_approval_moves_it_on(
+    monkeypatch: pytest.MonkeyPatch, calls: list, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(driver.time, "sleep", lambda _s: None)
+    _agent(
+        monkeypatch,
+        calls,
+        [
+            _browser("K7F2"),
+            _browser("K7F2"),
+            _browser("K7F2"),
+            _question("github.machine"),
+        ],
+    )
+
+    assert driver.drive("http://server", "github.machine", {}) == 0
+    assert calls[1:] == [("agent", []), ("agent", []), ("agent", [])]
+    assert capsys.readouterr().out.count("Match code: K7F2") == 1
+
+
+def test_a_browser_step_never_approved_fails_by_name(
+    monkeypatch: pytest.MonkeyPatch, calls: list, capsys: pytest.CaptureFixture[str]
+) -> None:
+    clock = iter(range(0, 10_000, 300))
+    monkeypatch.setattr(driver.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(driver.time, "sleep", lambda _s: None)
+    _agent(monkeypatch, calls, [_browser("K7F2")] * 5)
+
+    assert driver.drive("http://server", "github.machine", {}) == 1
+    assert "setup_agent_approval_not_finished" in capsys.readouterr().out

@@ -15,7 +15,6 @@ from runtime.api.cli.setup_agent_test_support import (
 )
 from yoke_cli.config import (
     github_machine,
-    hosted_machine_authorization,
     machine_config,
     onboard_apply_resume,
     onboard_wizard,
@@ -144,7 +143,6 @@ def test_review_is_never_answered_from_a_stored_answer(agent):
     assert fake.applied == []
 
 
-DEVICE_CODE = "device-code-never-shown"
 TOKEN = "token-never-shown"
 VERIFIED = {
     "ok": True,
@@ -152,70 +150,6 @@ VERIFIED = {
     "orgs": [{"name": "Acme"}],
     "projects": [],
 }
-
-
-@pytest.fixture
-def hosted_approval(monkeypatch):
-    from yoke_contracts.machine_authorization import (
-        HostedMachineCredential,
-        PendingMachineAuthorization,
-    )
-
-    pending = PendingMachineAuthorization(
-        platform_url="https://app.upyoke.com",
-        device_code=DEVICE_CODE,
-        user_code="K7F2",
-        verification_uri="https://app.upyoke.com/machine",
-        verification_uri_complete="https://app.upyoke.com/machine?code=K7F2",
-        expires_in=600,
-        interval=5,
-    )
-    credential = HostedMachineCredential(
-        api_url="https://app.upyoke.com/api/orgs/acme", org="acme", token=TOKEN
-    )
-    monkeypatch.setattr(
-        hosted_machine_authorization, "start", lambda *_a, **_k: pending
-    )
-    monkeypatch.setattr(
-        hosted_machine_authorization, "complete", lambda *_a, **_k: credential
-    )
-    monkeypatch.setattr(
-        hosted_machine_authorization,
-        "open_browser",
-        lambda *_a: pytest.fail("agent mode never opens a browser"),
-    )
-    monkeypatch.setattr(yoke_token_verify, "verify", lambda *_a, **_k: VERIFIED)
-    return pending
-
-
-def test_hosted_sign_in_prints_one_browser_line_then_continues(agent, hosted_approval):
-    drive, _ = agent
-    drive()
-
-    code, lines = drive("connect.destination=hosted")
-
-    assert code == 0
-    browser, question = lines[0], lines[-1]
-    assert [line["state"] for line in lines] == ["browser", "question"]
-    assert browser["human"]["url"] == hosted_approval.verification_uri_complete
-    assert browser["human"]["user_code"] == "K7F2"
-    assert "K7F2" in browser["human"]["instructions"]
-    assert browser["wait"]["max_seconds"] == 600
-    assert "Opening your browser" not in drive.stderr
-    assert "Waiting for browser approval" in drive.stderr
-    assert question["key"] == "github.machine"
-    stored = setup_agent_answers.store_path().read_text(encoding="utf-8")
-    for secret in (DEVICE_CODE, TOKEN):
-        assert secret not in json.dumps(lines)
-        assert secret not in drive.stderr
-        assert secret not in stored
-
-    # Browser approval saves the connection before the next agent invocation.
-    assert _last(drive())[1]["key"] == question["key"]
-    code, question = _last(drive("github.machine=skip"))
-    assert (code, question["key"]) == (0, "project.mode"), question
-    code, question = _last(drive("project.mode=machine-only"))
-    assert (code, question["key"]) == (0, "review.confirm"), question
 
 
 def test_saved_github_authorization_skips_the_github_question(agent, monkeypatch):

@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
+import time
 
 import pytest
 
@@ -38,6 +41,10 @@ def candidate(root: Path, version: str) -> Path:
         "        sys.stdin.readline()\n"
         "        import release_marker\n"
         "        print(release_marker.VERSION, flush=True)\n"
+        "    elif argv == ['hold']:\n"
+        "        import os\n"
+        "        print(os.getpid(), flush=True)\n"
+        "        sys.stdin.readline()\n"
         "    elif argv == ['--version']:\n"
         "        import release_marker\n"
         "        print(release_marker.VERSION)\n"
@@ -85,6 +92,37 @@ def test_update_retains_running_command_imports_and_next_command_uses_new_releas
         if running.poll() is None:
             running.kill()
             running.communicate()
+
+
+@pytest.mark.parametrize("stop", [signal.SIGTERM, signal.SIGKILL])
+def test_stopping_the_launcher_ends_its_command(tmp_path, stop):
+    root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
+    runtime.activate(root, candidate(root, "1.0"), bin_dir, "1.0")
+    launcher = subprocess.Popen(
+        [str(bin_dir / "yoke"), "hold"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        command = int(launcher.stdout.readline())
+        launcher.send_signal(stop)
+        launcher.wait(timeout=10)
+        deadline = time.monotonic() + 10
+        while _running(command) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert not _running(command), "the command outlived its launcher"
+    finally:
+        launcher.kill()
+        launcher.communicate()
+
+
+def _running(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
 
 
 def test_broken_candidate_preserves_public_command(tmp_path):

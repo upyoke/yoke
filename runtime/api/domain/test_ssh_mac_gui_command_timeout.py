@@ -165,7 +165,7 @@ def test_process_tree_stop_reports_what_survived(
 
     assert (stop.stopped, stop.survivors) == (stopped, survivors)
     assert "process_tree 77" in commands[0]
-    assert commands[0].index("-TERM") < commands[0].index("-KILL")
+    assert commands[0].index("stop TERM") < commands[0].index("stop KILL")
 
 
 @pytest.mark.parametrize(

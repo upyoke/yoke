@@ -20,7 +20,12 @@ import time
 INSTALL_ROOT = None
 RECOVERY = "rerun the public installer or yoke update to repair the CLI"
 RELEASE_ENTRY = """
-import sys
+import os, signal, sys, threading
+def end_with_launcher(fd):
+    while os.read(fd, 1):
+        pass
+    os.kill(os.getpid(), signal.SIGTERM)
+threading.Thread(target=end_with_launcher, args=(int(sys.argv[2]),), daemon=True).start()
 try:
     from yoke_cli.config.install_binding import detect
     binding = detect()
@@ -29,7 +34,7 @@ try:
     from yoke_cli.main import main
 except (ImportError, OSError) as exc:
     sys.exit('released_cli_unavailable: ' + str(exc) + '; ' + sys.argv[1])
-sys.exit(main(sys.argv[2:]) or 0)
+sys.exit(main(sys.argv[3:]) or 0)
 """
 
 
@@ -61,6 +66,22 @@ def locked(path: Path, *, shared: bool = False, nonblocking: bool = False):
             yield handle
         finally:
             fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+@contextmanager
+def _launcher_pipe():
+    """A pipe only this process holds open, for RELEASE_ENTRY's ``fd`` argument.
+
+    The released command waits on its read end; end of file means this process
+    is gone, however it was stopped, so the command ends too rather than running
+    on with its locks.
+    """
+    alive, held = os.pipe()
+    try:
+        yield alive
+    finally:
+        os.close(alive)
+        os.close(held)
 
 
 def _replace(path: Path, content: str, *, executable: bool = False) -> None:
@@ -149,19 +170,22 @@ def activate(root: Path, generation: Path, bin_dir: Path, version: str) -> None:
         ["--help"],
         ["github", "credential-helper", "refresh", "--json"],
     ):
-        result = subprocess.run(
-            [
-                str(executable.with_name("python3")),
-                "-I",
-                "-c",
-                RELEASE_ENTRY,
-                RECOVERY,
-                *arguments,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
+        with _launcher_pipe() as alive:
+            result = subprocess.run(
+                [
+                    str(executable.with_name("python3")),
+                    "-I",
+                    "-c",
+                    RELEASE_ENTRY,
+                    RECOVERY,
+                    str(alive),
+                    *arguments,
+                ],
+                pass_fds=(alive,),
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
         if result.returncode:
             raise RuntimeError(
                 f"cli_candidate_verification_failed: {result.stderr or result.stdout}"
@@ -220,10 +244,12 @@ def launch(root: Path, arguments: list[str]) -> int:
             lease = (generation / "lease").open("a+")
             fcntl.flock(lease, fcntl.LOCK_SH)
         python = generation / "tools" / "yoke-cli" / "bin" / "python3"
-        result = subprocess.run(
-            [str(python), "-I", "-c", RELEASE_ENTRY, RECOVERY, *arguments],
-            pass_fds=(lease.fileno(),),
-        )
+        with _launcher_pipe() as alive:
+            result = subprocess.run(
+                [str(python), "-I", "-c", RELEASE_ENTRY, RECOVERY, str(alive)]
+                + arguments,
+                pass_fds=(lease.fileno(), alive),
+            )
         return result.returncode if result.returncode >= 0 else 128 - result.returncode
     except KeyboardInterrupt:
         return 130

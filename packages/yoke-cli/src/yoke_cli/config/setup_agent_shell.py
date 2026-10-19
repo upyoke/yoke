@@ -6,8 +6,9 @@ those flows call — ``_goto``, ``_replace_current``, ``_run_checking``,
 ``run_worker`` and the rest — without a terminal. Presenting a screen either
 answers it (an answer given on this command line, then a stored one, then a
 preset) or stops and prints it as the one waiting question. Checks run in
-line, browser steps are printed for the person and never opened, and every
-outcome is one JSON line from :mod:`setup_agent_response`.
+line, browser steps are printed for the person and never opened, a browser
+approval ends the call and resumes on the next one (:mod:`setup_agent_approvals`),
+and every outcome is one JSON line from :mod:`setup_agent_response`.
 """
 
 from __future__ import annotations
@@ -18,8 +19,6 @@ import inspect
 import sys
 from typing import Any, Callable
 
-from yoke_contracts.designed_wait import announce_designed_wait, poll_every
-
 from yoke_cli.config import onboard_wizard_apply_prompts as apply_prompts
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import setup_agent_answers as answers
@@ -27,6 +26,11 @@ from yoke_cli.config import setup_agent_response as responses
 from yoke_cli.config.onboard_wizard_flows import SETUP_FLOWS, init_setup_state
 from yoke_cli.config.onboard_wizard_state import CopyTarget, _View
 from yoke_cli.config.setup_agent_answering import REVIEW_KEY, AnswerFlow, SetupRefusal
+from yoke_cli.config.setup_agent_approvals import (
+    MACHINE_KEY,
+    AgentApprovals,
+    ApprovalPending,
+)
 from yoke_cli.config.setup_prompt import SetupHuman, SetupPrompt
 
 
@@ -34,7 +38,7 @@ class _StepFailed(RuntimeError):
     """The flow reached a screen that asks nothing and leads nowhere."""
 
 
-class AgentShell(AnswerFlow):
+class AgentShell(AgentApprovals, AnswerFlow):
     """Shell primitives the setup flows call, implemented without Textual."""
 
     opens_browser = False
@@ -114,13 +118,13 @@ class AgentShell(AnswerFlow):
     ) -> None:
         if replace_current and self._history:
             self._history.pop()
-        if human is not None:
-            self._show_browser(step, f"check.{group}", human)
         _progress(f"{title} {message}")
 
         def finish() -> None:
             try:
                 result = work()
+            except ApprovalPending:
+                return  # the browser step is this call's outcome
             except Exception as exc:  # noqa: BLE001 - each check names its error route
                 on_error(exc)
                 return
@@ -136,12 +140,6 @@ class AgentShell(AnswerFlow):
             return
         self._browser_shown.add(marker)
         responses.emit(responses.browser(step, key, human))
-        if human.max_seconds:
-            announce_designed_wait(
-                "browser approval",
-                max_wait_seconds=float(human.max_seconds),
-                cadence=poll_every(float(human.poll_interval_seconds or 5)),
-            )
 
     def show_browser_step(self, line: str, targets: tuple[CopyTarget, ...]) -> None:
         url = next((t.value for t in targets if t.is_url), None)
@@ -243,12 +241,7 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
         if prompt.key == apply_prompts.APPLY_FAILED_KEY:
             self._finish_apply_failed(prompt)
             return
-        if (
-            prompt.human is not None
-            and len(prompt.choices) == 1
-            and not (prompt.input or prompt.fields)
-        ):
-            self._show_browser(prompt.step, prompt.key, prompt.human)
+        if prompt.key == MACHINE_KEY:
             view.on_select(prompt.choices[0].value)
             return
         if not prompt.answerable:
@@ -272,14 +265,18 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
     # ── outcomes ────────────────────────────────────────────
 
     def _stop_at(self, prompt: SetupPrompt) -> None:
+        self._refuse_unused_answers(prompt)
+        self._answers.flush(waiting_key=prompt.key)
+        self._final = responses.question(prompt)
+
+    def _refuse_unused_answers(self, prompt: SetupPrompt) -> None:
+        """Stopping with an answer left unused refuses at the stopping screen."""
         if self._cli or self._pending_refusal:
             reason, recovery = self._pending_refusal or (
                 "setup_answer_not_current",
                 "answer the current question shown here, by its key",
             )
             raise SetupRefusal(reason, recovery, prompt)
-        self._answers.flush(waiting_key=prompt.key)
-        self._final = responses.question(prompt)
 
     def _finish_apply_failed(self, prompt: SetupPrompt) -> None:
         self._answers.apply_failure = {

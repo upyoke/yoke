@@ -3,10 +3,14 @@
 Agent mode runs one question per invocation, so what was already answered has
 to outlive the process. The store keeps the preset flags the run started with,
 a ``key -> value`` map of accepted answers, the question the run stopped at,
-and the Apply failure an answer may resume. Answers are keyed by question, not
-by position, because saved machine state can skip whole steps on a later run.
-Secret values never reach this file: a secret answer is refused before it is
-staged. One invocation at a time holds the store's lock.
+the Apply failure an answer may resume, and a browser approval still pending.
+Answers are keyed by question, not by position, because saved machine state
+can skip whole steps on a later run. Secret answers never reach this file: a
+secret answer is refused before it is staged. The one exception is a pending
+browser approval's short-lived device code, which the next invocation needs to
+ask whether the person approved; it is deleted once that approval completes,
+fails or expires, and the file stays private (0600). One invocation at a time
+holds the store's lock.
 """
 
 from __future__ import annotations
@@ -74,6 +78,7 @@ class AnswerStore:
         self.answers: dict[str, str] = dict(record.get("answers") or {})
         self.waiting_key: str | None = record.get("waiting_key")
         self.apply_failure: dict[str, Any] | None = record.get("apply_failure")
+        self.pending_approval: dict[str, Any] | None = record.get("pending_approval")
         self._staged: dict[str, str] = {}
         self._dropped: set[str] = set()
         self._lock_fd: int | None = None
@@ -121,12 +126,26 @@ class AnswerStore:
         self._staged = {}
         self._dropped = set()
         self.waiting_key = waiting_key
+        self._write()
+
+    def keep_pending_approval(self, approval: dict[str, Any] | None) -> None:
+        """Save or clear the pending browser approval now, answers untouched.
+
+        Written at once, so a credential the server delivered is never polled
+        for again even when this invocation later ends in a refusal.
+        """
+        self.pending_approval = approval
+        if self.existed or approval is not None:
+            self._write()
+
+    def _write(self) -> None:
         record = {
             "version": STORE_VERSION,
             "presets": self.presets,
-            "answers": answers,
-            "waiting_key": waiting_key,
+            "answers": self.answers,
+            "waiting_key": self.waiting_key,
             "apply_failure": self.apply_failure,
+            "pending_approval": self.pending_approval,
         }
         _write_private(
             store_path(), json.dumps(record, indent=2, sort_keys=True) + "\n"
