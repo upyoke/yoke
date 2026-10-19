@@ -117,7 +117,7 @@ def _weigh(
         pools=pools,
         headroom_percent=binding.share_percent if binding else None,
         headroom_window=binding.window if binding else None,
-        live_workers=binding.workers if binding else 0,
+        live_workers=binding.workers if binding else None,
         blocked=(
             f"{empty.window} pool exhausted and {empty.extra_label} "
             f"(resets {empty.to_dict()['resets_at'] or 'unknown'})"
@@ -171,6 +171,7 @@ def _candidates(
                         context_window_tokens=None,
                         machine_id=None,
                         blocked=ineligible_reason(snapshot, surface, denials),
+                        machine_capacity=snapshot.machine_capacity,
                     )
                 )
             for machine in sorted(relays):
