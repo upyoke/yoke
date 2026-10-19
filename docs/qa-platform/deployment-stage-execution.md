@@ -118,12 +118,16 @@ active, either reaches it or refuses:
 - a copy that has not yet recorded a determinate verdict is corrected with the
   source, on the same correction-window rule — a case nobody has judged is a
   case, not a result, so nothing is rewritten;
-- a copy that has already answered, or that a live execution has frozen into
-  the roster it is being walked against, refuses the amendment as
-  `admitted_copy_in_flight` **before either row is written**, naming the copy,
-  its run, and the recovery: abort that execution, re-apply the amendment so
-  it reaches the copy, and start the stage again — or, for a copy that
-  answered, supersede it;
+- a copy a live execution froze into its roster but has not reached yet —
+  after the cursor, with no result recorded — is corrected too, and its roster
+  entry is rebuilt with it, so the walk runs it as corrected and keeps the
+  results of cases it already passed;
+- a copy that has already answered, or that a live walk has already reached,
+  refuses the amendment as `admitted_copy_in_flight` when the amendment would
+  change it, and no row is written, naming the copy, its run, and the
+  recovery: abort that execution, re-apply the amendment so it reaches the
+  copy, and start the stage again — or, for a copy that answered, supersede
+  it. A copy the amendment leaves unchanged never refuses;
 - a copy whose own obligation is already **settled** — waived, or superseded
   by a corrected case that carries the obligation now — is not reconciled and
   does not refuse. It no longer holds the source row still; both waiver and supersession
@@ -146,7 +150,8 @@ moved. A stage that cannot run the current definition says so by name; it
 never quietly runs the old one.
 
 Follow the refusal's source-specific recovery:
-- Allowlisted update fields: abort the frozen execution, re-apply the amendment.
+- Allowlisted update fields on a case the walk reached: abort the execution,
+  re-apply the amendment.
 - Plan-backed `instructions` / `expected_outcome`: `yoke qa plan rematerialize`
   refreshes source and reachable copy together; see [currency](plan-case-currency.md).
 - Plan-less prose has no update route: supersede with a corrected same-run/stage/

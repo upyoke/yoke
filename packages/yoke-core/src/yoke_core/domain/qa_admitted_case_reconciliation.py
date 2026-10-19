@@ -24,8 +24,10 @@ it is :mod:`qa_deployment_case_correction_window` applied to the copy -- until
 a case has answered it is a case nobody has judged, so correcting it rewrites
 no acceptance. That is what makes it safe mid-run.
 
-A copy that has answered, or that a live execution has already frozen into the
-roster it is being walked against, cannot be reached without rewriting
+A copy a live execution froze into its roster but has not reached yet is
+reached too, together with its roster entry, so the walk runs it as corrected
+(:mod:`qa_plan_execution_roster_correction`). A copy that has answered, or
+that the walk has already reached, cannot be reached without rewriting
 something real. So the amendment is refused **before any write**, naming the
 copy, the run, and the recovery the operator can actually take.
 """
@@ -44,15 +46,13 @@ from yoke_core.domain.qa_admitted_case_currency import (
     ANSWERED_COPY_RECOVERY,
     DEFINITION_COLUMNS,
     REACHABLE_FIELD_RECOVERY,
+    definition_value,
 )
 from yoke_core.domain.qa_deployment_case_correction_window import (
     determinate_verdict,
 )
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
-from yoke_core.domain.qa_plan_execution_store import (
-    live_plan_execution_id,
-    marker,
-)
+from yoke_core.domain.qa_plan_execution_store import marker
 from yoke_core.domain.runs import ACTIVE_RUN_STATUSES
 from yoke_core.domain.schema_common import _table_exists
 
@@ -79,31 +79,18 @@ class AdmittedCopy:
 
 
 def _live_execution_holds(conn: Any, row: Any) -> bool:
-    """True when a live execution is already walking this copy's subject.
+    """True when a live execution's walk has already reached this copy.
 
-    The roster of a live execution for this run, stage and member was built
-    from exactly this scope's cases, so the copy is inside it. Rewriting the
-    row underneath that walk is the drift its snapshot check exists to catch.
+    A copy the walk has not reached yet is still a case nobody has judged:
+    the correction reaches it and its roster entry together
+    (:mod:`qa_plan_execution_roster_correction`). A reached one is part of
+    what the walk judged, so rewriting it would move evidence.
     """
-    if not _table_exists(conn, "qa_plan_executions"):
-        return False
-    member = row["deployment_member_item_id"]
-    execution_id = live_plan_execution_id(
-        conn,
-        deployment_run_id=str(row["deployment_run_id"]),
-        deployment_stage=str(row["deployment_stage"] or ""),
-        deployment_member_item_id=int(member) if member is not None else None,
+    from yoke_core.domain.qa_plan_execution_roster_correction import (
+        reached_by_live_execution,
     )
-    if execution_id is None:
-        return False
-    if member is not None:
-        return True
-    execution = query_one(
-        conn,
-        f"SELECT execution_target_digest FROM qa_plan_executions WHERE id={marker(conn)}",
-        (execution_id,),
-    )
-    return execution["execution_target_digest"] == row["execution_target_digest"]
+
+    return reached_by_live_execution(conn, int(row["id"])) is not None
 
 
 def admitted_copies_in_flight(
@@ -181,7 +168,7 @@ def admitted_copies_in_flight(
             recovery = ANSWERED_COPY_RECOVERY.format(copy_id=copy_id)
         elif _live_execution_holds(conn, row):
             reason = (
-                "a live QA execution has already frozen it into the roster it "
+                "a live QA execution has already reached it in the roster it "
                 "is being walked against"
             )
             recovery = REACHABLE_FIELD_RECOVERY
@@ -239,7 +226,11 @@ def reconcile_admitted_copies(
     """
     if field not in DEFINITION_COLUMNS:
         return [], ""
-    copies = admitted_copies_in_flight(conn, int(source_requirement_id))
+    copies = [
+        copy
+        for copy in admitted_copies_in_flight(conn, int(source_requirement_id))
+        if not _already_holds(conn, copy.requirement_id, field, value)
+    ]
     if not copies:
         return [], ""
     refusal = unreachable_copy_refusal(int(source_requirement_id), copies)
@@ -254,7 +245,26 @@ def reconcile_admitted_copies(
             (value, copy.requirement_id),
         )
         updated.append(copy.requirement_id)
+    from yoke_core.domain.qa_plan_execution_roster_correction import (
+        correct_live_rosters,
+    )
+
+    correct_live_rosters(conn, updated)
     return updated, ""
+
+
+def _already_holds(conn: Any, copy_id: int, field: str, value: Any) -> bool:
+    """True when the copy already carries ``value``: nothing to reach.
+
+    An answered copy whose field is unchanged blocks nothing; only a copy the
+    amendment would actually rewrite has to be reachable.
+    """
+    row = query_one(
+        conn,
+        f"SELECT {field} FROM qa_requirements WHERE id={marker(conn)}",
+        (int(copy_id),),
+    )
+    return definition_value(field, row[field]) == definition_value(field, value)
 
 
 __all__ = [

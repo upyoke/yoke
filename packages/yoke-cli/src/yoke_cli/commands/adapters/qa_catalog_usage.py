@@ -188,22 +188,36 @@ refreshes that shared group's run-wide rows. The member's own plan refreshes
 only that member's rows, so a live run-wide walk of a shared plan does not
 block it.
 
+Live walks
+----------
+A live QA plan execution froze its roster from these rows. A case the walk
+has not reached yet -- after its cursor, with no result recorded -- takes the
+correction: its roster entry is rebuilt and the roster digest moves, so the
+cases already passed keep their results. The walking `yoke qa plan run` stops
+at its next check-in with qa_roster_corrected; run the same command again to
+resume on the corrected roster.
+
 Where it refuses instead
 ------------------------
-It will not move a row something else has already frozen a copy of, and it
-decides that before writing anything, so a refused refresh leaves every row
-exactly as it was.
+It will not move a row something else has already frozen a copy of. A refusal
+rolls the whole refresh back, so every row and roster stays exactly as it was.
 
-plan_execution_in_flight: a live QA plan execution is walking a roster built
-from these rows. The refusal names the execution and the full
-`yoke qa plan abort` invocation that reopens the refresh.
+qa_roster_case_reached: a changed case sits at or before a live walk's cursor,
+or recorded a result ahead, or an unreached case would be retired, reordered
+or retargeted. The refusal names the execution and the full
+`yoke qa plan abort` invocation; abort, rerun the refresh, run the plan again.
+
+plan_execution_in_flight: the refresh would add a case to a subject a live
+walk is running; its roster cannot carry the new case. Abort with the named
+`yoke qa plan abort` invocation, refresh, then run the plan again.
 
 shared_plan_refresh_selection: --member with a --plan that is neither a
 shared plan the member attaches nor one of its own materialized plans.
 
-admitted_copy_in_flight: an admitted deployment-stage copy of a row is on a
-run that is still executing and cannot be corrected. The refusal names the
-copy, its run, and the remedy available for that copy.
+admitted_copy_in_flight: the refresh would change an admitted deployment-stage
+copy that has answered or that a live walk has reached, on a run that is still
+executing. A copy the refresh leaves unchanged never refuses. The refusal names
+the copy, its run, and the remedy available for that copy.
 
 Reading drift without two bodies
 --------------------------------

@@ -26,8 +26,9 @@ from yoke_core.domain.qa_obligation_settlement import (
     requirement_retracted_at_select,
 )
 from yoke_core.domain.qa_plan_case_definition import case_baselines, plan_cases
+from yoke_core.domain.qa_plan_case_targets import case_applies_to_target
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder, _plan_row
-from yoke_core.domain.qa_plan_refresh_safety import require_no_live_execution
+from yoke_core.domain.qa_plan_refresh_safety import carry_into_live_rosters
 from yoke_core.domain.qa_plan_rematerialize import REPLACEMENT_RATIONALE
 from yoke_core.domain.qa_plan_requirement_snapshot import (
     existing_requirement_id,
@@ -80,9 +81,9 @@ def _pinned_target(rows: list[dict[str, Any]], *, subject: str) -> dict[str, Any
     digests = {str(row["execution_target_digest"] or "") for row in rows}
     if len(digests) != 1 or not next(iter(digests)):
         raise QaPlanError(
-            f"{subject} has ambiguous materialized target history "
-            f"({len(digests)} distinct targets); select an attaching --member or resolve it against the active "
-            "stage receipt before rematerializing"
+            f"{subject} has ambiguous materialized target history ({len(digests)} "
+            "distinct targets); select an attaching --member or resolve it against "
+            "the active stage receipt before rematerializing"
         )
     raw = rows[0]["execution_target_json"]
     if isinstance(raw, dict):
@@ -195,14 +196,6 @@ def rematerialize_for_deployment_stage(
             "the plan onto the stage first"
         )
     execution_target = _pinned_target(rows, subject=subject)
-    # Refused before the first write: half a refresh is worse than none.
-    require_no_live_execution(
-        conn,
-        subject=subject,
-        deployment_run_id=str(deployment_run_id),
-        deployment_stage=str(deployment_stage),
-        deployment_member_item_id=deployment_member_item_id,
-    )
 
     rows_by_plan: dict[int, list[dict[str, Any]]] = {}
     for row in rows:
@@ -244,8 +237,6 @@ def rematerialize_for_deployment_stage(
             groups.setdefault(
                 (base_case_key(row["plan_case_key"]), row["host_baseline"]), []
             ).append(row)
-        from yoke_core.domain.qa_plan_case_targets import case_applies_to_target
-
         cases = plan_cases(conn, plan_id)
         if not cases:
             raise QaPlanError(
@@ -333,6 +324,15 @@ def rematerialize_for_deployment_stage(
                 requirement_id,
             ),
         )
+    carry_into_live_rosters(
+        conn,
+        subject=subject,
+        rewritten=[*refreshed, *waived],
+        created=created,
+        deployment_run_id=str(deployment_run_id),
+        deployment_stage=str(deployment_stage),
+        deployment_member_item_id=deployment_member_item_id,
+    )
     if commit:
         conn.commit()
     return {

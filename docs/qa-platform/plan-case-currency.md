@@ -49,12 +49,20 @@ copies and reports `corrected_admitted_copy_ids`.
 
 Item rows use item/transition; stage rows use run/stage/member. These subjects
 are not interchangeable. Follow each receipt's exact recovery.
-All-or-nothing refusal precedes writes:
+
+A live walk takes corrections to cases it has not reached: an entry after the
+cursor with no result recorded is rebuilt from the corrected row and the
+roster digest moves, so passed cases keep their results. The walking
+`yoke qa plan run` stops at its next check-in with `qa_roster_corrected`; run
+the same command again to resume on the corrected roster.
+
+A refusal rolls the whole refresh back, so no row or roster changes:
 
 | Refusal/condition | Recovery |
 |---|---|
-| `plan_execution_in_flight` | Abort the named live execution with its complete `yoke qa plan abort` command, refresh, then restart. |
-| `admitted_copy_in_flight` | A live roster or determinate answer froze the copy; use [deployment-stage correction](deployment-stage-execution.md). |
+| `qa_roster_case_reached` | A changed case is at or before a live walk's cursor (or recorded ahead), or an unreached case would be retired, reordered or retargeted. Abort with the named `yoke qa plan abort` command, refresh, then run the plan again. |
+| `plan_execution_in_flight` | The refresh would add a case a live walk's roster cannot carry. Abort with the named command, refresh, then run the plan again. |
+| `admitted_copy_in_flight` | The refresh would change a copy that answered or that a live walk reached; use [deployment-stage correction](deployment-stage-execution.md). An unchanged copy never refuses. |
 | Answered deployment case | `yoke qa requirement supersede`; an acceptance result is immutable. |
 | Declaration-corrected target | `yoke qa requirement rebind-target` when environment/subject and resolved host authority remain the same; [rebind rules](execution-target-declaration-rebind.md) also cover stale identity labels with already-matching endpoints. A repointed host is a different target; live item requirements cannot be superseded. |
 

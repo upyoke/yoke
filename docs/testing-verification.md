@@ -103,8 +103,9 @@ consumes the union of all materialized outcomes. Where QA policy is optional ite
 
 A plan edit writes the plan alone and reports `requirements_behind_plan` — the
 already-materialized rows it did not reach. Bringing those current is one
-operation, which refuses rather than move a row a live walk or an in-flight
-admitted copy has frozen: [Plan case currency](qa-platform/plan-case-currency.md).
+operation. A case a live walk has not reached takes the correction in its
+roster; it refuses rather than move a case a walk already reached or an
+answered admitted copy: [Plan case currency](qa-platform/plan-case-currency.md).
 
 ```text
 yoke qa plan rematerialize --item <PREFIX-N> --transition <stage>

@@ -122,10 +122,12 @@ admitted copy or the source obligation from which it came.
 Explicit item plan rematerialization reaches both source-keyed direct copies
 and plan-backed copies on active runs. Plan copies match the source's plan,
 case, member, baseline and declared environment. An unjudged copy refreshes
-with its source; an answered copy or a copy held by a live execution refuses
-before either definition changes. Supersede an answered copy, or abort the
-live execution before retrying refresh. Discharged copies and copies on
-terminal runs retain their original definitions and acceptance history.
+with its source. A copy a live execution has not reached yet refreshes with
+its source and its roster entry; an answered copy or a copy the walk already
+reached refuses when the refresh would change it, and nothing is written.
+Supersede an answered copy, or abort the live execution before retrying
+refresh. Discharged copies and copies on terminal runs retain their original
+definitions and acceptance history.
 
 Refresh corrects eligible cases in the existing frozen selected plan in the
 same transaction as their requirement rows, under the run lock. It resolves
