@@ -60,8 +60,8 @@ tree refuses. Wrapper publishes lane commit/merge base, adopts conclusion.
 Remote exits: 0 pass, 1 fail, 2 pre-dispatch refusal, 3 timeout, 4 unreachable/
 dispatch refusal, 5 cancelled. `ci wait recorded for run N` means the verdict
 wakes this session with the printed command: if the watcher stops first, end
-the turn. Never poll GitHub; a `gh api`/`gh run view` loop with `sleep` is
-refused with no override. Drops machine-specific -n/numprocesses/rootdir.
+the turn. Never poll GitHub; a shell loop that sleeps between GitHub CLI run reads
+is refused with no override. Drops machine-specific -n/numprocesses/rootdir.
 --local or YOKE_PYTEST_LOCAL=1 is only short targeted/order/machine/CI-unreachable
 check; dirty tree never justifies long local sweep. Local worker budget waits
 and names holder. Unbounded triggers (non-Python/tooling/≥80% reachability over

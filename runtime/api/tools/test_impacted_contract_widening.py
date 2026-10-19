@@ -146,6 +146,20 @@ def test_repo_cleanliness_floor_names_its_global_widening_trigger(tmp_path):
     assert "repo_cleanliness_contract:*" in selection.telemetry()
 
 
+def test_every_selection_carries_the_host_github_cli_scan(tmp_path):
+    """Prose naming a host GitHub CLI command has no import edge to its scan."""
+    root = _tiny_repo(tmp_path)
+    payload = "packages/yoke-cli/src/yoke_cli/transport/control_plane_payload.py"
+    scan_test = "runtime/api/domain/test_no_gh_product_invariant.py"
+    _write(root, payload, "PAYLOAD_VERSION = 1\n")
+    _write(root, scan_test, "def test_no_host_gh_cli(): pass\n")
+
+    selection = select([payload], build_import_index(root))
+
+    assert selection.full_sweep is False
+    assert scan_test in selection.files
+
+
 def test_cursor_identity_dispatch_survives_bounded_tooling_deferral(tmp_path):
     root = _tiny_repo(tmp_path)
     cursor_payload = "packages/yoke-core/src/yoke_core/hooks/cursor_payload.py"
