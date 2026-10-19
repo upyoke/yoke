@@ -24,7 +24,10 @@ from yoke_core.domain.schema_read_scope import composition_operation
 from yoke_core.domain.deployment_source_reads import prepared_sources_only
 from yoke_core.domain.deployment_start_timing import timed_call
 from yoke_core.domain.json_helper import dumps_compact
-from yoke_core.domain.deployment_run_bound_source_consumption import consumed_stage
+from yoke_core.domain.deployment_run_bound_source_consumption import (
+    consumed_stage,
+    stage_dispatched,
+)
 from yoke_core.domain.workflow_item_binding_lock import lock_item_workflow_bindings
 from yoke_core.domain.deployment_run_contained_items import CandidateContainmentRefusal
 
@@ -80,6 +83,11 @@ def _prepare_bound_sources(conn: Any, run_id: str, stage_name: str) -> dict[str,
             f"bound_source_record_incomplete: {run_id} is missing {sorted(needed)}; compose a new run"
         )
     selected = [e for e in entries if e["project"] in needed]
+    # A re-drive of a stage this run already dispatched reattaches to that
+    # workflow with the inputs it sealed; branch movement since is irrelevant.
+    sealed = [e for e in selected if e.get("consumed_by") == stage_name]
+    if sealed and stage_dispatched(conn, run_id, stage_name):
+        selected = [e for e in selected if e.get("consumed_by") != stage_name]
     stale, unverified = timed_call(
         "bound_source_provider",
         _compare_to_branch_heads,

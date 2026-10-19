@@ -72,10 +72,12 @@ the run's own candidate, so the run delivers two projects, not one.
   writes and locks and retries with fresh preview and apply, at most three
   attempts. Exhaustion reports `candidate_containment_attestation_stale`;
   re-drive the same run. This retry does not repeat backup or rehearsal.
-  Once any stage consumed that
-  source, a moved branch still refuses — `stage 'S' was not dispatched: bound
-  source P SHA is stale (current SHA)` — and requires a new run. A retry copies
-  consumption and cannot reopen it. A crash after preparation keeps the source
+  Re-driving a stage this run already
+  dispatched reattaches to that workflow with its sealed inputs, however the
+  branch moved since. Any other stage dispatch on a consumed source whose
+  branch moved refuses — `stage 'S' was not dispatched: bound source P SHA is
+  stale (current SHA)` — and requires a new run. A retry copies consumption
+  but not the dispatch, so it cannot reopen it. A crash after preparation keeps the source
   consumed because a provider attempt may be ambiguous. Existing durable
   dispatch intent and later stage position also protect previously driven runs.
   Unreadable source or composition evidence refuses with its repair; no inputs
