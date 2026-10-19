@@ -134,7 +134,9 @@ def materialize_deployment_qa_stage(
                     ],
                     projection=projection,
                 )
-            private = [r for r in admitted if r.get("plan_id") is None]
+            private = [
+                r for r in admitted if r.get("plan_id") is None and r.get("method_id")
+            ]
             private_snapshots = [
                 snapshot for snapshot in snapshots if snapshot not in shared
             ]
