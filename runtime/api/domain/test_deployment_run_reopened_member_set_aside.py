@@ -24,6 +24,9 @@ from yoke_core.domain.dash_execution import record_dash_evidence
 from yoke_core.domain.deployment_run_member_removal import REOPENED_REMOVED_BY
 from yoke_core.domain.deployment_run_membership_removals import membership_removals
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
+from yoke_core.domain.deployment_run_frozen_composition import (
+    frozen_composition_verdict,
+)
 from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
 
 REOPENED = 9971
@@ -80,6 +83,24 @@ def _frozen_run_with_reopened_member(
     conn.commit()
 
 
+def _redrive_verdict(conn: Any) -> tuple[bool, str]:
+    """What an execution-context re-drive of the frozen run answers."""
+    verdict = frozen_composition_verdict(conn, RUN)
+    if verdict[0]:
+        conn.commit()
+    else:
+        conn.rollback()
+    return verdict
+
+
+#: Both resume paths: the full validator, and a re-drive of the frozen run.
+RESUMES = pytest.mark.parametrize(
+    "resume",
+    [lambda conn: cmd_validate_composition(RUN), _redrive_verdict],
+    ids=["validate_composition", "frozen_redrive"],
+)
+
+
 def _members(conn: Any) -> set[int]:
     return {
         int(row["item_id"])
@@ -89,15 +110,16 @@ def _members(conn: Any) -> set[int]:
     }
 
 
+@RESUMES
 @pytest.mark.parametrize("settled", [True, False])
 def test_resume_sets_aside_a_reopened_member_outside_the_lineage(
-    test_db, tmp_path, monkeypatch, settled
+    test_db, tmp_path, monkeypatch, settled, resume
 ):
     _frozen_run_with_reopened_member(
         test_db, tmp_path, monkeypatch, reopened_sha="correction", settled=settled
     )
 
-    ok, message = cmd_validate_composition(RUN)
+    ok, message = resume(test_db)
 
     assert ok, message
     assert "Set aside reopened members awaiting a later release" in message
@@ -129,22 +151,24 @@ def test_removal_notice_tells_a_reopened_owner_to_continue_rework():
     assert "Continue its rework" in body and "yoke merge item" in body
 
 
+@RESUMES
 def test_resume_keeps_a_reopened_member_whose_candidate_is_contained(
-    test_db, tmp_path, monkeypatch
+    test_db, tmp_path, monkeypatch, resume
 ):
     _frozen_run_with_reopened_member(
         test_db, tmp_path, monkeypatch, reopened_sha="frozen", settled=True
     )
 
-    ok, message = cmd_validate_composition(RUN)
+    ok, message = resume(test_db)
 
     assert ok, message
     assert _members(test_db) == {REOPENED, SIBLING}
     assert not membership_removals(test_db, RUN)
 
 
+@RESUMES
 def test_resume_refuses_a_reopened_member_with_undetermined_containment(
-    test_db, tmp_path, monkeypatch
+    test_db, tmp_path, monkeypatch, resume
 ):
     from yoke_core.domain import deployment_run_candidate_containment as containment
 
@@ -161,7 +185,7 @@ def test_resume_refuses_a_reopened_member_with_undetermined_containment(
 
     monkeypatch.setattr(containment.CandidateContainment, "contains", undetermined)
 
-    ok, message = cmd_validate_composition(RUN)
+    ok, message = resume(test_db)
 
     assert not ok
     assert "containment of its current candidate is undetermined" in message

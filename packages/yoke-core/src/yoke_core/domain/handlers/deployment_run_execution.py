@@ -131,9 +131,16 @@ def _record_and_compose(
 
     One connection keeps the branch heads the record resolved inside this
     operation's read scope, so validation reuses them instead of asking the
-    repository host again.
+    repository host again. A re-drive of a run whose composition is frozen
+    judges only the members that can still change.
     """
     from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.deployment_run_composition_guard import (
+        has_frozen_composition,
+    )
+    from yoke_core.domain.deployment_run_frozen_composition import (
+        frozen_composition_verdict,
+    )
     from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
 
     with connect() as conn:
@@ -142,13 +149,21 @@ def _record_and_compose(
         )
         if isinstance(bound_sources, HandlerOutcome):
             return bound_sources
-        verdict = timed_call(
-            "context_composition",
-            cmd_validate_composition,
-            run_id_value,
-            composition_result=composition_result,
-            connection=conn,
-        )
+        if has_frozen_composition(conn, run_id_value):
+            verdict = timed_call(
+                "context_frozen_composition",
+                frozen_composition_verdict,
+                conn,
+                run_id_value,
+            )
+        else:
+            verdict = timed_call(
+                "context_composition",
+                cmd_validate_composition,
+                run_id_value,
+                composition_result=composition_result,
+                connection=conn,
+            )
         if verdict[0]:
             conn.commit()
         else:
