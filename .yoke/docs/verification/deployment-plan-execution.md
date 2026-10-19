@@ -234,8 +234,9 @@ the cursor names no case, so a heartbeat records no check-in; an execution in
 `awaiting_agent_review` re-enters to its review bundle, never as a paused case.
 
 After an abort, rerun the same scoped command. The fresh execution leaves out
-each case whose newest run passed on this same target, including passes the
-aborted execution recorded, and starts at the first case still owed. A pass on
+each case whose newest run passed with its evidence on this same target,
+including passes the aborted execution recorded, and starts at the first case
+still owed; a multi-host member moves on to the next host. A pass on
 another target, such as a new release lineage, still requires a fresh run. When
 every case already passed, the whole roster runs again, because stage
 acceptance needs one completed scoped execution. A live execution keeps its

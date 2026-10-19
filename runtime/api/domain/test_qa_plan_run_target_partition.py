@@ -67,7 +67,12 @@ def _ids(execution: dict[str, Any]) -> list[int]:
 
 
 def _pass(
-    conn: Any, execution: dict[str, Any], ordinal: int, digest: str | None = None
+    conn: Any,
+    execution: dict[str, Any],
+    ordinal: int,
+    digest: str | None = None,
+    *,
+    evidence: bool = True,
 ) -> int:
     requirement_id = _ids(execution)[ordinal]
     config = conn.execute(
@@ -87,6 +92,12 @@ def _pass(
         "(%s,'worktree_run','plan_case','pass',%s,%s,%s,%s) RETURNING id",
         (requirement_id, raw, now, now, now),
     ).fetchone()[0]
+    if evidence:
+        conn.execute(
+            "INSERT INTO qa_artifacts(qa_run_id,artifact_type,content_type,"
+            "artifact_handle,created_at) VALUES (%s,'log','application/json',%s,%s)",
+            (run_id, f"evidence://case-{requirement_id}", now),
+        )
     advance_plan_execution(
         conn,
         execution,
@@ -132,6 +143,15 @@ def test_pass_recorded_on_another_target_still_runs(test_db) -> None:
     assert _ids(_begin(test_db)) == _ids(aborted)
 
 
+def test_pass_without_evidence_still_runs(test_db) -> None:
+    _seed(test_db)
+    aborted = _begin(test_db)
+    _pass(test_db, aborted, 0, evidence=False)
+    _abort(test_db, aborted)
+
+    assert _ids(_begin(test_db)) == _ids(aborted)
+
+
 def test_live_execution_keeps_its_roster(test_db) -> None:
     _seed(test_db)
     live = _begin(test_db)
@@ -152,3 +172,20 @@ def test_every_case_passed_keeps_the_whole_roster(test_db) -> None:
     _abort(test_db, aborted)
 
     assert _ids(_begin(test_db)) == _ids(aborted)
+
+
+def test_multi_host_rerun_after_abort_moves_to_the_next_host(
+    test_db, tmp_path, monkeypatch
+) -> None:
+    from runtime.api.domain import test_qa_member_machine_partitions as hosts
+
+    hosts._seed(test_db, tmp_path, monkeypatch)
+    aborted = hosts._begin(test_db)
+    assert [case["case_key"] for case in aborted["roster"]] == [hosts.MACHINES[0]]
+    _pass(test_db, aborted, 0)
+    _abort(test_db, aborted)
+
+    fresh = hosts._begin(test_db)
+
+    assert [case["case_key"] for case in fresh["roster"]] == [hosts.MACHINES[1]]
+    assert fresh["remaining_requirement_count"] == 0

@@ -45,7 +45,6 @@ from yoke_core.domain.qa_plan_execution_roster_change import (
     retire_unstarted_changed_roster,
 )
 from yoke_core.domain.qa_plan_item_target_partition import item_target_partition
-from yoke_core.domain.qa_plan_run_target_partition import run_target_partition
 
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
@@ -151,14 +150,7 @@ def begin_plan_execution(
 
     def without_settled(source: list[dict[str, Any]]) -> dict[str, Any] | None:
         if item_id is None:
-            reprint, kept = run_target_partition(
-                conn,
-                source,
-                deployment_run_id=str(deployment_run_id),
-                deployment_stage=deployment_stage,
-                deployment_member_item_id=deployment_member_item_id,
-                settle=settle,
-            )
+            reprint, kept = settle(source)
         else:
             reprint, kept, item_remaining[0] = item_target_partition(
                 conn,
