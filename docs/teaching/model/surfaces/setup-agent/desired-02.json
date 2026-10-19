@@ -3,7 +3,7 @@
  "title": "Resume the same setup engine with yoke setup --agent --answer KEY=VALUE.",
  "status": "observed",
  "form": "Do",
- "verification": "Regression tests cover destination replay after browser approval; live campaign proof pending.",
+ "verification": "Regression tests cover destination replay after browser approval, and resumed answers reusing the stored connection so one setup asks for one approval; live campaign proof pending.",
  "topics": ["installation/entry", "sessions/continuity"],
  "position": 8
 }
