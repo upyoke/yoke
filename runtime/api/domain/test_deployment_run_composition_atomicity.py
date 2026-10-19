@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
+from yoke_core.domain import deployment_requirement_snapshots as snapshots
 from yoke_core.domain import deployment_run_composition_freeze as composition
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_add_item, cmd_update
 
@@ -76,7 +77,7 @@ def test_interrupted_member_snapshot_rolls_back_the_whole_freeze(
             "commits": [],
         },
     )
-    real_snapshot = composition.snapshot_member_requirements
+    real_snapshot = snapshots.snapshot_member_requirements
     calls = 0
 
     def interrupted_snapshot(*args, **kwargs):
@@ -87,7 +88,7 @@ def test_interrupted_member_snapshot_rolls_back_the_whole_freeze(
         return real_snapshot(*args, **kwargs)
 
     monkeypatch.setattr(
-        composition, "snapshot_member_requirements", interrupted_snapshot
+        snapshots, "snapshot_member_requirements", interrupted_snapshot
     )
     with pytest.raises(RuntimeError, match="snapshot interrupted"):
         cmd_update("run-atomic", "status", "executing")

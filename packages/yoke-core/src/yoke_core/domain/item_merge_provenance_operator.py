@@ -101,9 +101,7 @@ def _item_state(conn: Any, item_id: int) -> tuple[str, datetime | None]:
 
 def _require_terminal(conn: Any, item_id: int, status: str, public_ref: str) -> None:
     from yoke_core.domain.item_terminal_resources import terminal_stage_ids
-    from yoke_core.domain.workflow_item_binding_validation import (
-        load_item_workflow_runtime,
-    )
+    from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
     runtime = load_item_workflow_runtime(conn, int(item_id))
     if status not in terminal_stage_ids(runtime):
