@@ -2,7 +2,7 @@
  "id": "reasoning-effort",
  "title": "Reasoning effort",
  "status": "observed",
- "text": "min_effort is the row threshold; actual effort resolves session membership. Effort order is none < minimal < low < medium < high < xhigh (extra-high) < max < ultra. Native embedded effort may fill missing facts; speed suffixes are ignored. Unknown models or unpublished efforts resolve no level and work claims/launches refuse session_below_intern; refresh catalog/native facts or select a supported model and effort before retrying.",
+ "text": "min_effort is the row threshold; actual effort resolves session membership. Effort order is none < minimal < low < medium < high < xhigh (extra-high) < max < ultra. Observed effort is read only from the harness artifact for the latest turn (Codex rereads its rollout on every hook, so mid-session changes land), never from configuration files or catalog defaults. An artifact naming no effort records not_reported, which takes the lowest level with reason session_effort_not_reported until the harness reports effort. Native embedded effort may fill missing facts; speed suffixes are ignored. Unknown models or unpublished efforts resolve no level and work claims/launches refuse session_below_intern; refresh catalog/native facts or select a supported model and effort before retrying.",
  "page": "levels",
  "position": 2
 }

@@ -10,13 +10,10 @@ from yoke_contracts.levels import (
     LevelsError,
     level_for_session,
     level_presentation,
+    level_reason,
     resolve_effective_levels,
-    unresolved_level_reason,
 )
-from yoke_contracts.session_level import (
-    UNRESOLVED_EXECUTION_LEVEL,
-    level_is_unresolved,
-)
+from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 from yoke_contracts.model_level_resolution import (
     routing_effort_of,
     routing_model_of,
@@ -87,11 +84,7 @@ def session_presentation(
         )
         or UNRESOLVED_EXECUTION_LEVEL
     )
-    reason = (
-        unresolved_level_reason(effective, model=model, effort=effort, records=records)
-        if level_is_unresolved(execution_level)
-        else None
-    )
+    reason = level_reason(effective, model=model, effort=effort, records=records)
     level = level_presentation(effective, execution_level, reason=reason)
     return {
         "execution_level": execution_level,

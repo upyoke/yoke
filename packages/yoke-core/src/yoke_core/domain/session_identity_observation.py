@@ -34,10 +34,15 @@ Two write rules keep the stored identity honest:
   that switched model mid-run heals here as it does at registration, and
   repeating one observation is write-free.
 * The local artifact read is taken only where the row still has the gap it
-  would fill. It is the expensive half, and a live local session that
+  would fill, or where the harness declares its served facts followed on
+  every hook
+  (:data:`yoke_contracts.session_served_effort_sources.SERVED_FACTS_FOLLOWED_EVERY_HOOK`).
+  Otherwise it is the expensive half, and a live local session that
   switched model is already refreshed every tool call by
   :func:`yoke_core.hooks.session_model_attestation_write.attest_served_model_facts`;
-  the gap this reader exists for is the turn that fired no such hook.
+  the gap this reader exists for is the turn that fired no such hook. A
+  followed harness's hook payload names the model but never the effort,
+  so its artifact reading is folded over what the wire carried.
 * The surface fills a gap only. It names the process the session runs in,
   fixed for that session's life, so a later differing reading is a
   different reader rather than a change.
@@ -50,6 +55,10 @@ from __future__ import annotations
 
 from typing import Any, Optional, Tuple
 
+from yoke_contracts.executor_labels import canonical_harness_id
+from yoke_contracts.session_served_effort_sources import (
+    follows_served_facts_every_hook,
+)
 from yoke_contracts.session_model_facts import (
     SERVED_FIELDS,
     SessionModelFacts,
@@ -132,6 +141,28 @@ def local_served_facts(payload: dict[str, Any], executor: str) -> SessionModelFa
         return SessionModelFacts()
 
 
+def _reads_artifact(
+    row: dict[str, Any], carried: SessionModelFacts, executor: str
+) -> bool:
+    """Whether a local evaluation should read this machine's artifact."""
+    if not carried.attested() and not _stored(row, "model"):
+        return True
+    try:
+        return follows_served_facts_every_hook(canonical_harness_id(executor))
+    except ValueError:
+        return False
+
+
+def _over(read: SessionModelFacts, carried: SessionModelFacts) -> SessionModelFacts:
+    """Each fact the artifact proved wins; the wire fills only what it left."""
+    return SessionModelFacts(
+        **{
+            field: getattr(read, field) or getattr(carried, field)
+            for field in SERVED_FIELDS
+        }
+    )
+
+
 def resolve_surface(executor: str, entrypoint: str) -> Optional[str]:
     """Return the registry surface label ``executor`` + ``entrypoint`` name.
 
@@ -184,8 +215,8 @@ def observed_identity(
     """
     payload = _payload(payload_json)
     facts = carried_served_facts(payload)
-    if local_evaluation and not facts.attested() and not _stored(row, "model"):
-        facts = local_served_facts(payload, executor)
+    if local_evaluation and _reads_artifact(row, facts, executor):
+        facts = _over(local_served_facts(payload, executor), facts)
     surface = None
     if not _stored(row, SURFACE_COLUMN):
         surface = observed_surface(payload, executor, local_evaluation=local_evaluation)

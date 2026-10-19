@@ -94,7 +94,12 @@ contract and prints its location with the correction command above.
 
 A session takes the highest level containing its model where its effort meets
 the minimum. Actual observed model/effort wins over launch stamps; requested
-facts fill gaps. Native Cursor selectors supply embedded effort when needed.
+facts fill gaps. Observed effort comes only from the harness artifact for the
+latest turn; Codex rereads its rollout on every hook, so a mid-session change
+lands. Configuration files and catalog defaults never supply it. A turn whose
+artifact names no effort records `not_reported`: the session takes the lowest
+level and shows `session_effort_not_reported` (effort not reported by the
+harness) until the harness reports an effort. Native Cursor selectors supply embedded effort when needed.
 Speed selectors such as `-fast` are stripped and ignored. Effort order is
 none < minimal < low < medium < high < xhigh (extra-high) < max < ultra.
 No model ranking table participates.

@@ -20,11 +20,12 @@ that genuinely exist are read:
   together (``cursor-grok-4.6-xhigh``), so the effort is read out of the
   requested name. Cursor exposes no separate context-window request.
 * **codex** — the model is requestable per invocation, but effort and
-  context window are configuration a Yoke launch does not carry and a hook
-  process cannot attribute to this session's ask. Both stay ``None``: a
-  designed gap, not a value to invent. Codex is also the one harness that
-  *declares* its served window, so the fact is recoverable on the truth
-  side rather than guessed on the request side.
+  context window are configuration a hook process cannot attribute to
+  this session's ask: ``~/.codex/config.toml`` is only a starting default
+  the session may override. Both stay ``None``: a designed gap, not a
+  value to invent. Codex states both facts per turn in its rollout, so
+  they are recovered on the truth side rather than guessed on the request
+  side.
 """
 
 from __future__ import annotations
