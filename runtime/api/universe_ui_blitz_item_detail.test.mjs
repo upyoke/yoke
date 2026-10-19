@@ -114,6 +114,7 @@ test("Blitz detail route renders the full execution-document composition", async
   }), root, "7", "ACM-22");
   await settle();
 
+  assert.match(itemText(root), /Owner Rae \(actor id: 7\)/);
   assert.deepEqual(
     requests.map((request) => request.function).sort(),
     // The verification rows also ask which of their reviews still wait on

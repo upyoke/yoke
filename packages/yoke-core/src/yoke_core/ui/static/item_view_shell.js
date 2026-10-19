@@ -56,12 +56,12 @@ export function itemHeading(documentNode, item) {
       claimFact.appendChild(relativeTime(documentNode, claim.claimed_at));
     }
     state.appendChild(claimFact);
-  } else if (item.owner) {
+  } else if (item.owner_actor_id != null) {
     state.appendChild(el(
       documentNode,
       "span",
       "item-muted",
-      `owned by ${item.owner}`,
+      `owned by ${item.owner_label}`,
     ));
   }
   block.appendChild(state);

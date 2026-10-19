@@ -130,7 +130,7 @@ export function factsPanel(documentNode, item) {
       item.level.level !== item.level.stage_level) {
     appendFact(documentNode, table, "Level", levelFact(documentNode, item.level));
   }
-  appendFact(documentNode, table, "Owner", item.owner || "unassigned");
+  appendFact(documentNode, table, "Owner", item.owner_label);
   const workflowId = String(item.workflow.id || "").toLowerCase();
   if (workflowId !== "epic") {
     appendFact(documentNode, table, "Claim", claimFact(documentNode, item.claim));

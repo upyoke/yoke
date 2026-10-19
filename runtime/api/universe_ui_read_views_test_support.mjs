@@ -14,7 +14,7 @@ export function twoProjectClient() {
     workflow_version_id: 1,
     status: "idea",
     stage_label: "Idea",
-    owner: "",
+    owner_actor_id: null, owner_name: null, owner_label: "unassigned",
     claimed_by: null,
   });
   const rowsByProject = {

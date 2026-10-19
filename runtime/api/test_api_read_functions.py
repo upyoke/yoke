@@ -114,7 +114,10 @@ class TestItemsGet(unittest.TestCase):
                 )
                 self.assertEqual(
                     outcome.result_payload["fields"][field],
-                    f"seeded-{field}",
+                    # owner renders as a label; non-numeric text names no actor.
+                    "unknown actor (stored owner: seeded-owner)"
+                    if field == "owner"
+                    else f"seeded-{field}",
                 )
 
     def test_accepts_structured_fields(self):
