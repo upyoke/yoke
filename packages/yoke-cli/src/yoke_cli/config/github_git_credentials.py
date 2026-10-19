@@ -235,13 +235,13 @@ def helper_command(
     config_path: str | Path | None,
     helper_path: str | Path | None = None,
 ) -> str:
-    """Return the git ``credential.helper`` command for this Python runtime."""
+    """Return a helper command that follows the installed CLI's current release."""
     selected_helper = (
         Path(helper_path) if helper_path is not None else install_stable_helper()
     )
     command = [
-        shlex.quote(sys.executable),
-        shlex.quote(str(selected_helper)),
+        shlex.quote(str(_current_release_path(Path(sys.executable)))),
+        shlex.quote(str(_current_release_path(selected_helper))),
     ]
     command.extend(
         [
@@ -250,6 +250,14 @@ def helper_command(
         ]
     )
     return "!" + " ".join(command)
+
+
+def _current_release_path(path: Path) -> Path:
+    for generation in path.parents:
+        releases = generation.parent
+        if releases.name == "releases" and releases.parent.name == "yoke-cli-releases":
+            return releases.parent / "current" / path.relative_to(generation)
+    return path
 
 
 def _helper_site_dir() -> Path:

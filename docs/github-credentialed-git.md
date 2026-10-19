@@ -160,6 +160,10 @@ helpers. Without stored authorization, the optional path may use the user's
 existing helper, without installing a new credential or substituting it for
 GitHub API authorization.
 
+For released CLI installs, newly configured helpers name both Python and the
+helper script through `yoke-cli-releases/current/`. Updating that link keeps
+the checkout's helper usable after the previous release is pruned.
+
 ## Adding a remote operation
 
 Call `credentialed_git.run(args, cwd=..., timeout=...)` with git's arguments
