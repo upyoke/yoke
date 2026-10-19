@@ -81,6 +81,10 @@ def resolve_model_level(levels, *, model, effort, records):
     ordinal = effort_ordinal(actual_effort)
     if record is None:
         return ModelLevelResolution(None, None, actual_effort, "session_model_unknown")
+    if not actual_effort:
+        return ModelLevelResolution(
+            None, record.model_id, actual_effort, "session_effort_unreported"
+        )
     published = {normalized_effort(value) for value in record.reasoning_efforts}
     if ordinal is None or actual_effort not in published:
         return ModelLevelResolution(

@@ -94,7 +94,8 @@ LOCAL TERMINAL HELPERS
  yoke items freeze PREFIX-N / yoke items thaw PREFIX-N
   Park/return an item, preserving lifecycle status. Cancel work that will never resume.
  yoke items cancel PREFIX-N --reason TEXT [--ref PREFIX-M]
-  Takes the claim; frozen items cancel in one step.
+  Takes the claim without a level check; frozen items cancel in one step.
+  A steering seat covering the item's project cancels from any project.
  yoke items block PREFIX-N --reason TEXT / yoke items unblock PREFIX-N
   Set/clear blocked flag/reason, preserving lifecycle. Takes the claim; refuses another holder.
  yoke board art variant create --ascii

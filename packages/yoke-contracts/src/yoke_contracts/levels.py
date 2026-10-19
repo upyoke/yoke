@@ -174,6 +174,7 @@ def level_for_session(levels, *, executor, model, reasoning_effort=None, records
 UNRESOLVED_LEVEL_REASONS = {
     "session_model_unreported": "model not reported yet",
     "session_model_unknown": "model not in the catalog",
+    "session_effort_unreported": "effort not reported yet",
     "session_effort_unpublished": "effort not published for its model",
     "session_older_model_bottom_class": "superseded model with no lower class",
     "session_demotion_target_unavailable": "no single lower-class model placed",

@@ -4,7 +4,9 @@
 dependency reconciliation and GitHub close/comment are not skipped. The
 work claim still governs the write with the same implicit acquire as the
 flag verbs: take-and-release when nobody holds it, refuse a foreign
-holder. Unlike freeze, a successful cancel also releases a claim the
+holder. Cancel is an administrative close, not work, so the implicit
+claim skips the model-level check and a live steering seat covering the
+item's project may cancel it from a session in any project. Unlike freeze, a successful cancel also releases a claim the
 caller already held, because the item is terminal. Cancellation of the
 item is cancellation of its lanes: the terminal close releases the
 item's own worktree lanes in the same transaction.
@@ -32,6 +34,7 @@ from yoke_core.domain.handlers.items_flags_claim import (
     _release_acquired,
 )
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
+from yoke_core.domain.sessions_analytics import SessionError
 
 
 class CancelRequest(BaseModel):
@@ -139,12 +142,18 @@ def handle_cancel(request: FunctionCallRequest) -> HandlerOutcome:
             public_ref,
             str(request.actor.session_id or ""),
             reason="item cancel",
+            close_only=True,
         )
     except _ClaimRefused as refused:
         return _error(
             "claim_held",
             f"{refused.public_ref} is claimed by session {refused.holder}; "
             "coordinate with the holder before cancelling it.",
+        )
+    except SessionError as refused:
+        return _error(
+            str(refused.code).lower(),
+            f"{public_ref} was not cancelled: {refused.message}",
         )
     try:
         from yoke_core.domain.backlog_close_op import execute_close
