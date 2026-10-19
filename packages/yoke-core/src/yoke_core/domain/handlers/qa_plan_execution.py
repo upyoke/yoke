@@ -228,9 +228,9 @@ def handle_plan_execution_heartbeat(
     conn, execution = owned
     validated = monotonic()
     try:
-        from yoke_core.domain.qa_plan_execution_state import heartbeat_plan_execution
+        from yoke_core.domain.qa_plan_execution_roster_change import checkin
 
-        heartbeat_plan_execution(conn, execution)
+        checkin(conn, execution)
         result = checkin_view(execution)
         result["timings_ms"] = {
             "validation": (validated - started) * 1000,

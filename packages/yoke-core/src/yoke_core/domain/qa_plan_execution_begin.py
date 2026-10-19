@@ -41,6 +41,9 @@ from yoke_core.domain.qa_plan_execution_target_snapshot import (
 from yoke_core.domain.qa_plan_execution_roster import (
     validate_roster_machine,
 )
+from yoke_core.domain.qa_plan_execution_roster_change import (
+    retire_unstarted_changed_roster,
+)
 from yoke_core.domain.qa_plan_item_target_partition import item_target_partition
 
 from yoke_core.domain.workflow_item_binding_lock import (
@@ -227,21 +230,23 @@ def begin_plan_execution(
         }:
             if same_owner(existing, actor_id=actor_id, session_id=session_id):
                 require_execution_target(existing)
-                return {
-                    **resume_owned_plan_execution(conn, existing, digest=digest),
-                    "remaining_requirement_count": remaining,
-                }
-            if not plan_execution_is_abandoned(conn, existing):
+                if not retire_unstarted_changed_roster(conn, existing, digest=digest):
+                    return {
+                        **resume_owned_plan_execution(conn, existing, digest=digest),
+                        "remaining_requirement_count": remaining,
+                    }
+            elif plan_execution_is_abandoned(conn, existing):
+                finish_plan_execution(
+                    conn,
+                    existing,
+                    state="aborted",
+                    reason=STALE_PLAN_EXECUTION_REASON,
+                )
+            else:
                 conn.rollback()
                 raise QaPlanExecutionStateError(
                     "another actor or session owns the active QA plan execution"
                 )
-            finish_plan_execution(
-                conn,
-                existing,
-                state="aborted",
-                reason=STALE_PLAN_EXECUTION_REASON,
-            )
 
             if item_id is not None:
                 lock_item_workflow_bindings(conn, (int(item_id),))
