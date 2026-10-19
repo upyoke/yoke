@@ -3,10 +3,11 @@
 The relay heartbeat carries what the machine measured about itself -- free
 memory, load, cores, and the lane cap it resolved from its own settings or
 total memory. The control plane pairs that with what it can see that the
-machine cannot: live Yoke-launched workers plus every launch already assigned
-there and not yet registered. Interactive MAIN sessions use no worker lane.
-Those are the lanes a new
-launch would join, and a launch is refused when they already fill the cap.
+machine cannot: live workers another session launched plus every such launch
+already assigned there and not yet registered. MAIN sessions, interactive or
+launched by the operator without a requester session, use no worker lane.
+Those are the lanes a new launch would join, and a launch is refused when they
+already fill the cap.
 
 A relay that publishes no reading carries no cap. That is an older relay,
 not a roomy machine, and the reading says so rather than passing silently.
@@ -118,10 +119,11 @@ def _live_lane_rows(conn: Any, now: datetime) -> tuple[str, tuple[Any, ...]]:
         "SELECT s.machine_id FROM harness_sessions s "
         "WHERE s.ended_at IS NULL AND s.terminated_at IS NULL "
         "AND EXISTS (SELECT 1 FROM session_launches linked "
-        "WHERE linked.registered_session_id = s.session_id) UNION ALL "
+        "WHERE linked.registered_session_id = s.session_id "
+        "AND linked.requester_session_id IS NOT NULL) UNION ALL "
         "SELECT assigned_machine_id AS machine_id FROM session_launches "
         f"WHERE state IN ({states}) AND registered_session_id IS NULL "
-        f"AND deadline_at > {p}",
+        f"AND requester_session_id IS NOT NULL AND deadline_at > {p}",
         (*IN_FLIGHT_LAUNCH_STATES, instant_parameter(conn, current)),
     )
 
