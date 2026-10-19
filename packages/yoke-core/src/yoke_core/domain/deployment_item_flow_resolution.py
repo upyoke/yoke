@@ -7,7 +7,7 @@ from yoke_core.domain import db_helpers
 from yoke_core.domain import workflow_project_defaults
 from yoke_core.domain.deployment_flow_state import FLOW_STATUS_ACTIVE
 from yoke_core.domain.deployment_flow_succession import succession_chains
-from yoke_core.domain.project_identity import render_item_ref, resolve_project
+from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.workflow_project_defaults import WorkflowProjectDefaultError
 
@@ -166,36 +166,6 @@ def item_closing_flows(conn: Any, item_id: int) -> frozenset[str]:
     return fact.closing_flows if fact else frozenset()
 
 
-def completion_flow_refusal(conn: Any, item_id: int) -> str:
-    """Explain why a delivery-ready item cannot enter a release composition."""
-    fact = item_completion_flow_facts(conn, (int(item_id),)).get(int(item_id))
-    if fact and fact.flow:
-        return ""
-    ref = render_item_ref(conn, int(item_id))
-    if fact and fact.source == FLOW_SOURCE_UNREADABLE:
-        return (
-            f"{ref} completion flow is unreadable; repair its project workflow "
-            "delivery default, then retry the deployment start"
-        )
-    if not _column_exists(conn, "items", "workflow_id"):
-        return (
-            f"{ref} completion flow cannot be resolved because items.workflow_id "
-            "has not converged; converge the item schema, then retry the "
-            "deployment start"
-        )
-    row = conn.execute(
-        "SELECT p.slug,i.workflow_id FROM items i JOIN projects p "
-        "ON p.id=i.project_id WHERE i.id=%s",
-        (int(item_id),),
-    ).fetchone()
-    project, workflow = str(row[0]), str(row[1])
-    return (
-        f"{ref} has no resolvable completion flow; select one with "
-        f"yoke workflows delivery-default set --project {project} "
-        f"--workflow {workflow} --flow FLOW, then retry the deployment start"
-    )
-
-
 def membership_closes_item(
     *,
     run_flow: str,
@@ -223,39 +193,6 @@ def membership_closes_item(
     if run_flow in closing:
         return True
     return int(run_project_id) != int(item_project_id) and bool(source_sha)
-
-
-def freeze_item_completion_flow(conn: Any, item_id: int) -> str:
-    """Pin the live default onto the item if it has no explicit flow.
-
-    Membership is the last write before a run can ship the item, so the
-    default that would close it is frozen here. A later project-default
-    change cannot retarget completion authority for an already-admitted
-    item.
-    """
-    if not _column_exists(conn, "items", "deployment_flow"):
-        return ""
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = conn.execute(
-        f"SELECT deployment_flow FROM items WHERE id = {marker}",
-        (int(item_id),),
-    ).fetchone()
-    if row is None:
-        return ""
-    pinned = str(
-        (row["deployment_flow"] if hasattr(row, "keys") else row[0]) or ""
-    ).strip()
-    if pinned:
-        return pinned
-    flow = item_completion_flow(conn, int(item_id))
-    if not flow:
-        return ""
-    conn.execute(
-        f"UPDATE items SET deployment_flow = {marker} "
-        f"WHERE id = {marker} AND COALESCE(deployment_flow, '') = ''",
-        (flow, int(item_id)),
-    )
-    return flow
 
 
 def lookup_item_project_and_flow(item_id: int) -> tuple:
@@ -334,11 +271,9 @@ __all__ = [
     "FLOW_SOURCE_NONE",
     "FLOW_SOURCE_PROJECT_DEFAULT",
     "FLOW_SOURCE_UNREADABLE",
-    "completion_flow_refusal",
     "ItemCompletionFlowFact",
     "NO_FLOW_HEAD",
     "describe_missing_flow",
-    "freeze_item_completion_flow",
     "item_completion_flow",
     "item_completion_flow_facts",
     "item_closing_flows",

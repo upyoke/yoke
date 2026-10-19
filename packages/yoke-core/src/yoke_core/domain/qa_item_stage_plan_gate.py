@@ -26,7 +26,7 @@ to items. A flow with no such stage, or none at all, is unaffected.
 
 **The flow is the one that will close the item, not the column.**
 ``items.deployment_flow`` holds an explicit pin, and
-:func:`yoke_core.domain.deployment_item_flow_resolution.freeze_item_completion_flow`
+:func:`yoke_core.domain.deployment_item_flow_admission.freeze_item_completion_flows`
 does not write the project default into it until the item is admitted to a
 run — which happens after the merge. Reading that column here therefore
 asked the question of almost nobody. The resolved answer travels on the item

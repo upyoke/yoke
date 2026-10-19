@@ -24,7 +24,7 @@ item from the run it was just attached to.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Iterable
 
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.json_helper import dumps_compact, loads_text
@@ -80,37 +80,44 @@ def _write(conn: Any, run_id: str, entries: list[dict[str, Any]]) -> None:
     )
 
 
-def record_membership_removal(
+def record_membership_removals(
     conn: Any,
     run_id: str,
-    item_id: int,
+    item_ids: Iterable[int],
     *,
     reason: str,
     session_id: str | None,
     actor_id: int | None,
-) -> None:
-    """Record one removal in the caller's transaction, replacing any earlier one."""
+) -> str:
+    """Record these removals in the caller's transaction, replacing earlier ones.
+
+    Returns the ``removed_at`` stamp every new entry carries.
+    """
     if not _column_exists(conn, "deployment_runs", MEMBERSHIP_REMOVALS_FIELD):
         raise ValueError(
             f"deployment_runs.{MEMBERSHIP_REMOVALS_FIELD} is not converged on "
             "this database; restart the serving API so its boot converge adds "
             "the column, then retry the removal"
         )
+    removed = sorted({int(item_id) for item_id in item_ids})
+    removed_at = iso8601_now()
     entries = [
         entry
         for entry in membership_removals(conn, run_id)
-        if int(entry["item_id"]) != int(item_id)
+        if int(entry["item_id"]) not in removed
     ]
-    entries.append(
+    entries.extend(
         {
-            "item_id": int(item_id),
+            "item_id": item_id,
             "reason": reason,
-            "removed_at": iso8601_now(),
+            "removed_at": removed_at,
             "session_id": session_id,
             "actor_id": actor_id,
         }
+        for item_id in removed
     )
     _write(conn, run_id, entries)
+    return removed_at
 
 
 def clear_membership_removal(conn: Any, run_id: str, item_id: int) -> bool:
@@ -127,6 +134,6 @@ __all__ = [
     "MEMBERSHIP_REMOVALS_FIELD",
     "clear_membership_removal",
     "membership_removals",
-    "record_membership_removal",
+    "record_membership_removals",
     "removed_item_ids",
 ]

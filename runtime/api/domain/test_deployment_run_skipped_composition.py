@@ -26,7 +26,7 @@ from runtime.api.fixtures.carried_release_candidate import (
     stage_environment,
 )
 from yoke_core.domain.deployment_run_composition_freeze import (
-    item_requires_release_membership,
+    items_requiring_release_membership,
 )
 from yoke_core.domain.deployment_run_membership_removals import (
     membership_removals,
@@ -105,7 +105,8 @@ def test_a_dash_is_release_ready_only_at_its_release_stage(
     insert_item(test_db, id=LANDED_ITEM_ID, workflow_id="dash", status=status)
     test_db.commit()
 
-    assert item_requires_release_membership(test_db, LANDED_ITEM_ID) is ready
+    required = items_requiring_release_membership(test_db, (LANDED_ITEM_ID,))
+    assert (LANDED_ITEM_ID in required) is ready
 
 
 def test_an_issue_rolled_back_to_implemented_stays_release_ready(
@@ -115,7 +116,9 @@ def test_an_issue_rolled_back_to_implemented_stays_release_ready(
     insert_item(test_db, id=LANDED_ITEM_ID, workflow_id="issue", status="implemented")
     test_db.commit()
 
-    assert item_requires_release_membership(test_db, LANDED_ITEM_ID) is True
+    assert items_requiring_release_membership(test_db, (LANDED_ITEM_ID,)) == {
+        LANDED_ITEM_ID
+    }
 
 
 @pytest.mark.parametrize("status", ["implementing", "reviewing-implementation"])

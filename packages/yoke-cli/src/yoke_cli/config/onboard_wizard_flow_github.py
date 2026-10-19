@@ -99,6 +99,7 @@ class MachineGithubFlow:
                 replace_profile=replace_profile,
                 browser_open=lambda url: setup_browser.open_after_notice(self, url),
                 notify=lambda event: github_progress.notify_from_worker(self, event),
+                device_authorize=getattr(self, "github_device_authorize", None),
             )
 
         self._run_checking(

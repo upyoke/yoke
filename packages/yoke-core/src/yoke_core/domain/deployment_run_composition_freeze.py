@@ -22,7 +22,7 @@ from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
 import json
-from typing import Any
+from typing import Any, Iterable
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_run_bound_sources import record_bound_sources
@@ -32,20 +32,19 @@ from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
 )
 from yoke_core.domain.deployment_requirement_snapshots import (
-    requirement_selection,
     snapshot_flow_requirements,
-    snapshot_member_requirements,
 )
 from yoke_core.domain.workflow_delivery_binding_validation import (
     COMPLETED_ITEM_STAGE_ID,
-    attached_item_binding_runtime_state,
+    attached_binding_runtime_state,
 )
 from yoke_core.domain.workflow_item_binding_validation import (
-    item_binding_runtime_state,
+    has_workflow_pin_schema,
+    read_pinned_items,
 )
 from yoke_core.domain.workflow_runtime import (
     ENGINE_TERMINAL_STAGE_IDS,
-    load_item_workflow_runtime,
+    WorkflowRuntime,
 )
 
 
@@ -73,8 +72,8 @@ def normalize_delivery_intent(value: Any) -> str | None:
     return normalized
 
 
-def _default_delivery_intent(conn: Any, item_id: int) -> str:
-    state = attached_item_binding_runtime_state(conn, int(item_id))
+def default_delivery_intent(state: tuple[WorkflowRuntime, str] | None) -> str:
+    """The intent a member with none stored delivers under, from its binding state."""
     if state is None:
         return DELIVERY_INTENT_FINAL
     runtime, status = state
@@ -96,14 +95,13 @@ def _default_delivery_intent(conn: Any, item_id: int) -> str:
     return DELIVERY_INTENT_FINAL
 
 
-def validate_delivery_intent_for_item(
-    conn: Any, item_id: int, intent: str | None
+def validate_delivery_intent(
+    intent: str | None, state: tuple[WorkflowRuntime, str] | None
 ) -> str | None:
-    """Validate an explicit progress intent against the pinned workflow."""
+    """Validate an explicit progress intent against the item's binding state."""
     normalized = normalize_delivery_intent(intent)
     if normalized != DELIVERY_INTENT_PROGRESS:
         return normalized
-    state = item_binding_runtime_state(conn, int(item_id))
     if state is None:
         raise ValueError("progress delivery requires a pinned item workflow")
     runtime, status = state
@@ -169,28 +167,31 @@ RELEASE_MEMBERSHIP_POLICIES = frozenset(
 )
 
 
-def item_requires_release_membership(conn: Any, item_id: int) -> bool:
-    row = conn.execute(
-        f"SELECT status FROM items WHERE id={_p(conn)}",
-        (int(item_id),),
-    ).fetchone()
-    if row is None:
-        return False
-    runtime = load_item_workflow_runtime(conn, int(item_id))
-    status = str(_cell(row, "status", 0))
-    if status in runtime.terminal_stage_ids or status in ENGINE_TERMINAL_STAGE_IDS:
-        # A done item owes no membership and could not take one: new
-        # admission of a terminal item is rejected, and its code reaches
-        # the environment under this run's pinned release lineage
-        # instead. Listing it would demand an attach that cannot happen.
-        return False
-    if str(runtime.policies.get("delivery")) not in RELEASE_MEMBERSHIP_POLICIES:
-        return False
+def items_requiring_release_membership(
+    conn: Any, item_ids: Iterable[int]
+) -> frozenset[int]:
+    """The items, of *item_ids*, a release run must deliver as members.
+
+    One read answers the whole set. A done item owes no membership and could
+    not take one: new admission of a terminal item is rejected, and its code
+    reaches the environment under the run's pinned release lineage instead.
+    Listing it would demand an attach that cannot happen.
+    """
     from yoke_core.domain.workflow_delivery_binding_validation import (
         delivery_ready_for_stage,
     )
 
-    return delivery_ready_for_stage(runtime, str(status))
+    required: set[int] = set()
+    for item_id, pinned in read_pinned_items(conn, item_ids).items():
+        runtime, status = pinned.require_runtime(conn, item_id), pinned.status
+        if (
+            status not in runtime.terminal_stage_ids
+            and status not in ENGINE_TERMINAL_STAGE_IDS
+            and str(runtime.policies.get("delivery")) in RELEASE_MEMBERSHIP_POLICIES
+            and delivery_ready_for_stage(runtime, status)
+        ):
+            required.add(item_id)
+    return frozenset(required)
 
 
 @composition_operation
@@ -269,40 +270,7 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
             f"QA requirement {requirement_id} "
             + UNBOUND_BEFORE_START_REPAIR.format(requirement_id=requirement_id)
         )
-    from yoke_core.domain.deployment_member_post_deploy_admission import (
-        admissible_post_deploy_requirement_ids,
-    )
-
-    for item_id in member_ids(conn, run_id):
-        member = conn.execute(
-            f"SELECT delivery_intent,requirement_selection "
-            f"FROM deployment_run_items "
-            f"WHERE run_id={marker} AND item_id={marker}",
-            (run_id, item_id),
-        ).fetchone()
-        # Preserve admission intent even if the item completed since admission.
-        intent = normalize_delivery_intent(_cell(member, "delivery_intent", 0))
-        intent = intent or _default_delivery_intent(conn, item_id)
-        selection = _cell(member, "requirement_selection", 1)
-        if not str(selection or "").strip():
-            # New obligations may arrive after admission; stored selections stay frozen.
-            selection = requirement_selection(
-                requirement_ids=admissible_post_deploy_requirement_ids(
-                    conn, run_id=run_id, item_id=item_id
-                )
-            )
-        snapshot = snapshot_member_requirements(
-            conn,
-            run_id=run_id,
-            item_id=item_id,
-            selection_json=selection,
-        )
-        conn.execute(
-            f"UPDATE deployment_run_items SET delivery_intent={marker},"
-            f"requirement_selection={marker},requirement_snapshot={marker} "
-            f"WHERE run_id={marker} AND item_id={marker}",
-            (intent, selection, snapshot, run_id, item_id),
-        )
+    _freeze_members(conn, run_id)
     frozen_at = parse_instant(utc_now())
     conn.execute(
         f"UPDATE deployment_runs SET composition_frozen_at={marker},"
@@ -314,3 +282,36 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
         ),
     )
     return {"run_id": run_id, "frozen_at": format_instant(frozen_at)}
+
+
+def _freeze_members(conn: Any, run_id: str) -> None:
+    """Write every member's concrete intent, selection and snapshot at once."""
+    from yoke_core.domain.deployment_member_snapshot_write import (
+        write_member_snapshots,
+    )
+
+    members = conn.execute(
+        "SELECT item_id,delivery_intent,requirement_selection "
+        "FROM deployment_run_items WHERE run_id=%s ORDER BY item_id",
+        (run_id,),
+    ).fetchall()
+    # Preserve admission intent even if the item completed since admission.
+    intents = {
+        int(m["item_id"]): normalize_delivery_intent(m["delivery_intent"])
+        for m in members
+    }
+    unset = [item_id for item_id, intent in intents.items() if intent is None]
+    pinned = read_pinned_items(conn, unset) if has_workflow_pin_schema(conn) else None
+    for item_id in unset:
+        intents[item_id] = default_delivery_intent(
+            None
+            if pinned is None
+            else attached_binding_runtime_state(conn, item_id, pinned.get(item_id))
+        )
+    # New obligations may arrive after admission; stored selections stay frozen.
+    write_member_snapshots(
+        conn,
+        run_id,
+        {int(m["item_id"]): m["requirement_selection"] for m in members},
+        intents=intents,
+    )

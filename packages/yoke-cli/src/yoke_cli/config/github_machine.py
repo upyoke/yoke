@@ -54,8 +54,13 @@ def connect(
     sleep: Callable[[float], None] | None = None,
     monotonic: Callable[[], float] | None = None,
     now: datetime | None = None,
+    device_authorize: Callable[..., github_device_flow.DeviceFlowResult] | None = None,
 ) -> dict[str, Any]:
-    """Authorize the App user, discover installations, and persist metadata."""
+    """Authorize the App user, discover installations, and persist metadata.
+
+    ``device_authorize`` replaces :func:`github_device_flow.authorize` for a
+    caller that runs the device step its own way (agent setup resumes it).
+    """
     try:
         github_git_credentials.refresh_installed_helper()
     except (OSError, github_git_credentials.GitHubCredentialBundleError) as exc:
@@ -132,7 +137,7 @@ def connect(
     if monotonic is not None:
         device_kwargs["monotonic"] = monotonic
     try:
-        device = github_device_flow.authorize(
+        device = (device_authorize or github_device_flow.authorize)(
             client_id=metadata["client_id"],
             web_url=metadata["web_url"],
             opener=device_opener,

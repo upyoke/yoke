@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Iterable
 
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
@@ -22,27 +22,32 @@ from yoke_core.domain.schema_common import _table_exists
 
 
 def abort_removed_member_executions(
-    conn: Any, *, run_id: str, item_id: int
-) -> tuple[int, int]:
-    """Abort only this run/member's live executions in the caller's transaction.
+    conn: Any, *, run_id: str, item_ids: Iterable[int]
+) -> tuple[frozenset[int], frozenset[int]]:
+    """Abort only these removed members' live executions in the caller's transaction.
 
-    Cancel every waiting-line entry before releasing any reservation: releasing
-    one host must never grant it to another cursor of the same removed member.
+    Run after the members' rows are deleted. A shared execution is aborted
+    too when no remaining member attaches its plan target. Cancel every
+    waiting-line entry before releasing any reservation: releasing one host
+    must never grant it to another cursor of the same removed members.
     Existing terminal evidence and other members' executions survive.
 
     An execution whose held host may be dirty is not finished here: it keeps
     custody and heartbeat authority under a recorded cooperative abort, and
     releases its host only after cleanup proof (`removal_cleanup_request`).
-    Returns how many executions it aborted and how many it left cleaning up.
+    Returns the removed members whose QA this call stopped, and those whose
+    stopped execution still holds its host for cleanup. A shared execution
+    counts for every removed member.
     """
-    if not _table_exists(conn, "qa_plan_executions"):
-        return 0, 0
+    ids = sorted({int(value) for value in item_ids})
+    if not ids or not _table_exists(conn, "qa_plan_executions"):
+        return frozenset(), frozenset()
     rows = query_rows(
         conn,
         "SELECT id FROM qa_plan_executions WHERE deployment_run_id=%s "
-        f"AND deployment_member_item_id=%s AND state IN ({LIVE_PLAN_EXECUTION_SQL}) "
+        f"AND deployment_member_item_id=ANY(%s) AND state IN ({LIVE_PLAN_EXECUTION_SQL}) "
         "ORDER BY id",
-        (run_id, item_id),
+        (run_id, ids),
     )
     executions = [lock_plan_execution(conn, str(row["id"])) for row in rows]
     shared_rows = query_rows(
@@ -51,51 +56,22 @@ def abort_removed_member_executions(
         f"AND deployment_member_item_id IS NULL AND state IN ({LIVE_PLAN_EXECUTION_SQL}) ORDER BY id",
         (run_id,),
     )
-    from yoke_core.domain.deployment_qa_shared_plans import resolve_shared_subject
-
     for row in shared_rows:
         execution = lock_plan_execution(conn, str(row["id"]))
         target = execution.get("execution_target") or {}
         shared = (target.get("deployment") or {}).get("shared_plan")
-        if not shared:
-            continue
-        retained = False
-        others = query_rows(
-            conn,
-            "SELECT item_id FROM deployment_run_items WHERE run_id=%s AND item_id<>%s",
-            (run_id, item_id),
-        )
-        for other in others:
-            try:
-                resolve_shared_subject(
-                    conn,
-                    run_id=run_id,
-                    stage_name=execution["deployment_stage"],
-                    plan_id=shared["plan_id"],
-                    member_item_id=int(other["item_id"]),
-                    expected_target=target,
-                    require_active=False,
-                )
-            except ValueError as exc:
-                if not str(exc).startswith(
-                    f"shared_plan_subject_unresolved: plan {shared['plan_id']} has 0 matching"
-                ):
-                    raise
-            else:
-                retained = True
-                break
-        if not retained:
+        if shared and not _shared_target_retained(conn, run_id, execution, shared):
             executions.append(execution)
     executions = [
         e for e in executions if e["state"] not in TERMINAL_PLAN_EXECUTION_STATES
     ]
     cancel_host_waits(conn, execution_ids=[str(e["id"]) for e in executions])
-    cleaning = 0
+    cleaning = []
     for execution in executions:
         request = removal_cleanup_request(conn, execution)
         if request is not None:
             record_abort_request(conn, execution, request)
-            cleaning += 1
+            cleaning.append(execution)
             continue
         finish_plan_execution(
             conn,
@@ -104,7 +80,15 @@ def abort_removed_member_executions(
             reason=MEMBER_REMOVED_REASON,
             commit=False,
         )
-    return len(executions) - cleaning, cleaning
+    return _owners(executions, ids), _owners(cleaning, ids)
+
+
+def _owners(executions: list[dict], removed: list[int]) -> frozenset[int]:
+    """The removed members these executions belong to; a shared one is everyone's."""
+    owners = {e.get("deployment_member_item_id") for e in executions}
+    if None in owners:
+        return frozenset(removed)
+    return frozenset(int(owner) for owner in owners)
 
 
 def removal_cleanup_request(conn: Any, execution: dict) -> dict | None:
@@ -129,6 +113,30 @@ def removal_cleanup_request(conn: Any, execution: dict) -> dict | None:
             None,
         )
     return None if request is None else {**request, "reason": MEMBER_REMOVED_REASON}
+
+
+def _shared_target_retained(
+    conn: Any, run_id: str, execution: dict, shared: dict
+) -> bool:
+    """Whether a remaining member still attaches this shared execution's target."""
+    from yoke_core.domain.deployment_qa_shared_plans import resolve_shared_subject
+
+    try:
+        resolve_shared_subject(
+            conn,
+            run_id=run_id,
+            stage_name=execution["deployment_stage"],
+            plan_id=shared["plan_id"],
+            expected_target=execution.get("execution_target") or {},
+            require_active=False,
+        )
+    except ValueError as exc:
+        if not str(exc).startswith(
+            f"shared_plan_subject_unresolved: plan {shared['plan_id']} has 0 matching"
+        ):
+            raise
+        return False
+    return True
 
 
 @presentation_operation

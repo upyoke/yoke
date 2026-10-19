@@ -13,9 +13,9 @@ from runtime.api.domain.test_deployment_qa_stage_execution import (
 from runtime.api.domain.test_deployment_qa_shared_plans import _attach
 from runtime.api.domain.test_deployment_shipping_reads import CountedConnection
 from runtime.api.fixtures.backlog_inserts import insert_qa_requirement
-from yoke_core.domain.deployment_admission_reads import (
-    read_enrollment_inputs,
-    read_snapshot_inputs,
+from yoke_core.domain.deployment_admission_reads import read_snapshot_inputs
+from yoke_core.domain.deployment_member_post_deploy_admission import (
+    post_deploy_admission_sets,
 )
 from yoke_core.domain.deployment_requirement_snapshots import (
     requirement_selection,
@@ -47,6 +47,22 @@ def admission_catalog(test_db):
     return plan, requirements
 
 
+def _admission_inputs(conn):
+    """The two set reads admission makes: derived selections, then snapshot facts."""
+    selected = {
+        member: split[0]
+        for member, split in post_deploy_admission_sets(
+            conn, run_id=RUN, item_ids=MEMBERS
+        ).items()
+    }
+    facts = read_snapshot_inputs(
+        conn,
+        item_ids=MEMBERS,
+        requirement_ids=[value for ids in selected.values() for value in ids],
+    )
+    return selected, facts
+
+
 def _snapshots(conn, selections, admission=None):
     return {
         member: json.loads(
@@ -74,7 +90,7 @@ def test_enrollment_reads_each_intake_and_plan_once_and_refreshes_after_rollback
     # Creation shares immutable repository facts across these two passes.
     # Mutable admission inputs must still be read again after its rollback.
     with composition_reads():
-        selected, inputs = read_enrollment_inputs(conn, run_id=RUN, item_ids=MEMBERS)
+        selected, inputs = _admission_inputs(conn)
         assert selected == selections
         assert _snapshots(conn, selected, inputs) == baseline
         queries = list(conn.queries)
@@ -98,7 +114,7 @@ def test_enrollment_reads_each_intake_and_plan_once_and_refreshes_after_rollback
             "UPDATE qa_plans SET name='New definition' WHERE id=%s", (plan,)
         )
         test_db.commit()
-        selected, inputs = read_enrollment_inputs(conn, run_id=RUN, item_ids=MEMBERS)
+        selected, inputs = _admission_inputs(conn)
         after = _snapshots(conn, selected, inputs)
         assert selected[MEMBERS[0]] == ()
         assert after[MEMBERS[0]]["requirements"] == []
@@ -212,41 +228,4 @@ def test_progress_handler_flushes_stderr_and_returns_same_records(capsys):
     assert all(
         record["run_id"] == RUN and record["source_sha"] == "a" * 40
         for record in records
-    )
-
-
-def test_completion_defaults_are_pinned_before_qa_selection(
-    test_db,
-    admission_catalog,
-    monkeypatch,
-):
-    from yoke_core.domain import workflow_project_defaults as defaults
-    from yoke_core.domain import deployment_member_post_deploy_admission as admission
-    from yoke_core.domain.deployment_item_flow_resolution import item_completion_flows
-
-    original_flow = f"flow-{RUN}"
-    default = [original_flow]
-    monkeypatch.setattr(
-        defaults, "get_delivery_default", lambda conn, **kwargs: default[0]
-    )
-    derive = admission.post_deploy_admission_sets
-
-    def changed_default(conn, **kwargs):
-        default[0] = "changed-after-enrollment-began"
-        return derive(conn, **kwargs)
-
-    monkeypatch.setattr(admission, "post_deploy_admission_sets", changed_default)
-    selected, _ = read_enrollment_inputs(test_db, run_id=RUN, item_ids=MEMBERS)
-    assert selected == {
-        member: (value,) for member, value in admission_catalog[1].items()
-    }
-    assert item_completion_flows(test_db, MEMBERS) == dict.fromkeys(
-        MEMBERS, original_flow
-    )
-    assert all(
-        row[0] == original_flow
-        for row in test_db.execute(
-            "SELECT deployment_flow FROM items WHERE id=ANY(%s)",
-            (list(MEMBERS),),
-        )
     )

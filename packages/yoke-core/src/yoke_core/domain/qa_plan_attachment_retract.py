@@ -22,17 +22,18 @@ def retract_requirements(
     source: str,
 ) -> None:
     """Retire the selected requirements in the caller's transaction, keeping rows."""
+    if not requirement_ids:
+        return
     now = instant_parameter(conn, utc_now())
-    for req_id in requirement_ids:
-        conn.execute(
-            "UPDATE qa_requirements SET retracted_at=%s, "
-            "retraction_rationale=%s, retraction_source=%s, "
-            "waived_at=NULL, waiver_rationale=NULL, waiver_source=NULL, "
-            "superseded_by_requirement_id=NULL, superseded_at=NULL, "
-            "supersession_rationale=NULL, supersession_source=NULL "
-            "WHERE id=%s",
-            (now, reason, source, req_id),
-        )
+    conn.execute(
+        "UPDATE qa_requirements SET retracted_at=%s, "
+        "retraction_rationale=%s, retraction_source=%s, "
+        "waived_at=NULL, waiver_rationale=NULL, waiver_source=NULL, "
+        "superseded_by_requirement_id=NULL, superseded_at=NULL, "
+        "supersession_rationale=NULL, supersession_source=NULL "
+        "WHERE id=ANY(%s)",
+        (now, reason, source, [int(req_id) for req_id in requirement_ids]),
+    )
 
 
 def retract_plan_from_item(

@@ -23,7 +23,7 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.coordination_claims import acquire, active_claim, release
 from yoke_core.domain.deployment_run_member_removal import remove_member_on
 from yoke_core.domain.deployment_run_membership_removals import (
-    record_membership_removal,
+    record_membership_removals,
 )
 from yoke_core.domain.handlers.qa_plan_execution import handle_plan_execution_abort
 from yoke_core.domain.qa_deployment_function_subject import resolve_run_qa_subject
@@ -168,8 +168,8 @@ def test_removed_holder_can_abort_legacy_residue_but_cannot_continue_it(test_db)
         "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
         (RUN, REMOVED),
     )
-    record_membership_removal(
-        test_db, RUN, REMOVED, reason="old removal", session_id=None, actor_id=1
+    record_membership_removals(
+        test_db, RUN, (REMOVED,), reason="old removal", session_id=None, actor_id=1
     )
     test_db.commit()
     request = _request(execution)

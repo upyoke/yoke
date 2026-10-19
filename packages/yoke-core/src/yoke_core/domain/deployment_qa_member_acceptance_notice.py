@@ -180,7 +180,7 @@ def notify_item_qa_accepted(
     withdraw_deployment_qa_wait_wakes(
         conn,
         run_id=str(run_id),
-        item_id=int(item_id),
+        item_ids=(int(item_id),),
         reason="member_stage_credited",
         now=now,
     )

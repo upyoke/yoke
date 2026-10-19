@@ -283,6 +283,31 @@ def snapshot_member_requirements(
     return _canonical(payload)
 
 
+def snapshot_members_requirements(
+    conn: Any, *, run_id: str, selections: Mapping[int, Any]
+) -> dict[int, str]:
+    """Snapshot every member's selection from one read of their mutable facts."""
+    from yoke_core.domain.deployment_admission_reads import read_snapshot_inputs
+
+    parsed = {int(item_id): _selection(raw) for item_id, raw in selections.items()}
+    admission = read_snapshot_inputs(
+        conn,
+        item_ids=parsed,
+        requirement_ids=[v for s in parsed.values() for v in s["requirement_ids"]],
+        plan_ids=[v for s in parsed.values() for v in s["plan_ids"]],
+    )
+    return {
+        item_id: snapshot_member_requirements(
+            conn,
+            run_id=run_id,
+            item_id=item_id,
+            selection_json=selections[item_id],
+            admission=admission,
+        )
+        for item_id in parsed
+    }
+
+
 def snapshot_flow_requirements(
     conn: Any,
     *,
@@ -319,5 +344,6 @@ __all__ = [
     "requirement_selection",
     "snapshot_flow_requirements",
     "snapshot_member_requirements",
+    "snapshot_members_requirements",
     "validate_flow_plan_references",
 ]

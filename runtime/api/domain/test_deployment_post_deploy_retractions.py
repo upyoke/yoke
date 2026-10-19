@@ -38,7 +38,7 @@ from yoke_core.domain.deployment_requirement_snapshots import (
     requirement_selection,
     snapshot_member_requirements,
 )
-from yoke_core.domain.deployment_run_carried_membership import admit_run_item
+from yoke_core.domain.deployment_run_member_admission import admit_run_item
 from yoke_core.domain.handlers.qa_item_plan_retract import handle_item_retract
 
 

@@ -71,8 +71,9 @@ OWN_MACHINE_AGENT = agent_case(
     captures=("match-code",),
     instructions="The scripted agent chooses this is my own machine and shows the match "
     "code; when the human gate asks, " + OWNER_STEP,
-    outcome="Agent setup keeps waiting through the owner's approval and reaches Connect "
-    "GitHub as the owner; the server holds one new machine for the owner.",
+    outcome="Each agent setup call ends at the browser step; after the owner's approval the "
+    "next call reaches Connect GitHub as the owner; the server holds one new machine for "
+    "the owner.",
 )
 TEAMMATE_INVITE_HUMAN = wizard_case(
     "teammate-invite-human",
@@ -153,8 +154,9 @@ COMPANY_SIGN_IN_AGENT = agent_case(
     captures=("match-code",),
     instructions="The scripted agent shows the approval link and match code; when the "
     "human gate asks, " + COMPANY_STEP,
-    outcome="Agent setup waits through the teammate's company sign-in and reaches Connect "
-    "GitHub as the teammate, linked to the company identity.",
+    outcome="Each agent setup call ends at the browser step; after the teammate's company "
+    "sign-in the next call reaches Connect GitHub as the teammate, linked to the company "
+    "identity.",
 )
 LOCAL_REFUSAL_HUMAN = admission_case(
     "local-refusal-human",

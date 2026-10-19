@@ -29,7 +29,7 @@ from typing import Any
 from yoke_core.domain.db_helpers import query_rows, query_scalar
 from yoke_core.domain.deployment_flow_policy import STAGE_KIND_QA
 from yoke_core.domain.deployment_run_composition_freeze import (
-    item_requires_release_membership,
+    items_requiring_release_membership,
     requires_release_admission,
 )
 from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
@@ -94,11 +94,11 @@ def owed_delivery_item_ids(conn: Any, run_id: str) -> tuple[int, ...]:
         (project_id, *terminal),
     )
     facts = item_completion_flow_facts(conn, [int(row[0]) for row in rows])
+    required = items_requiring_release_membership(conn, facts)
     unreadable = [
         item_id
         for item_id, fact in facts.items()
-        if fact.source == FLOW_SOURCE_UNREADABLE
-        and item_requires_release_membership(conn, item_id)
+        if fact.source == FLOW_SOURCE_UNREADABLE and item_id in required
     ]
     if unreadable:
         refs = ", ".join(render_item_ref(conn, item_id) for item_id in unreadable)
@@ -109,8 +109,7 @@ def owed_delivery_item_ids(conn: Any, run_id: str) -> tuple[int, ...]:
     candidates = [
         item_id
         for item_id, fact in facts.items()
-        if flow in fact.closing_flows
-        and item_requires_release_membership(conn, item_id)
+        if flow in fact.closing_flows and item_id in required
     ]
     custody = landing_custody(
         conn, project_id=project_id, item_ids=candidates, exclude_run_id=run_id

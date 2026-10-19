@@ -73,7 +73,7 @@ def enroll_creating_item(conn: Any, run_id: str, item_id: int) -> None:
     A takeover in the same transaction may already have moved this item onto
     the new run; that is the membership asked for, so it is not added twice.
     """
-    from yoke_core.domain.deployment_run_carried_membership import admit_run_item
+    from yoke_core.domain.deployment_run_member_admission import admit_run_item
     from yoke_core.domain.deployment_run_item_qa_membership import (
         require_item_qa_membership_possible,
     )

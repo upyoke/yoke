@@ -37,7 +37,7 @@ from yoke_core.domain.deployment_run_carried_membership import (
 )
 from yoke_core.domain.deployment_run_composition_freeze import (
     RELEASE_MEMBERSHIP_POLICIES,
-    item_requires_release_membership,
+    items_requiring_release_membership,
     member_ids,
 )
 from yoke_core.domain.deployment_run_dependency_readiness import (
@@ -181,13 +181,9 @@ def skipped_candidate_notice(
         - excluded
         - set(member_ids(conn, run_id))
     )
+    required = items_requiring_release_membership(conn, candidates)
     blocked = unshipped_dependency_pairs(
-        conn,
-        [
-            item_id
-            for item_id in candidates
-            if item_requires_release_membership(conn, item_id)
-        ],
+        conn, [item_id for item_id in candidates if item_id in required]
     )
     parts: list[str] = []
     if blocked:

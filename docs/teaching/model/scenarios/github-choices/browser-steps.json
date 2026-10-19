@@ -4,11 +4,11 @@
  "status": "observed",
  "audience": "both",
  "when": "Sign-in, device authorization, App installation and repository-access settings",
- "need": "Copy the code/link; finish human approval and return to the same waiting flow. Reuse valid saved authorization.",
+ "need": "Copy the code/link and finish human approval. In agent mode machine approval and GitHub sign-in end the call and the agent runs setup again once the person is done; the TUI returns to the same waiting flow. Reuse valid saved authorization.",
  "disclosure": "current cue",
  "surface": "TUI opening notice and copy targets; agent-mode setup browser lines; standalone connect --json and github connect --json",
  "gap": "Deployed installer-campaign proof remains pending.",
  "review": "Source and focused tests; no live pass asserted.",
- "sources": ["docs/public/start/install.md", "docs/public/github/index.md", "docs/public/start/agent-setup.md", "runtime/api/cli/test_setup_browser_presentation.py", "runtime/api/cli/test_setup_agent_flows.py"],
+ "sources": ["docs/public/start/install.md", "docs/public/github/index.md", "docs/public/start/agent-setup.md", "runtime/api/cli/test_setup_browser_presentation.py", "runtime/api/cli/test_setup_agent_flows.py", "runtime/api/cli/test_setup_agent_approvals.py"],
  "position": 6
 }

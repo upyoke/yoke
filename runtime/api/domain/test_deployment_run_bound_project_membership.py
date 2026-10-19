@@ -41,7 +41,7 @@ from yoke_core.domain.deployment_run_composition_freeze import (
 from yoke_core.domain.delivery_evidence_ladder import DISCHARGED, delivery_evidence
 from yoke_core.domain.item_merge_receipt_document import record_entry
 from yoke_core.domain.workflow_delivery_binding_validation import (
-    validate_deployment_run_item,
+    validate_deployment_run_members,
 )
 from yoke_core.domain.workflow_item_binding_validation import (
     WorkflowItemBindingError,
@@ -257,8 +257,8 @@ def test_an_item_whose_project_the_run_ships_no_source_for_is_refused(
     test_db.commit()
 
     with pytest.raises(WorkflowItemBindingError) as refusal:
-        validate_deployment_run_item(
-            test_db, run_id="run-candidate", item_id=UNBOUND_ITEM_ID
+        validate_deployment_run_members(
+            test_db, run_id="run-candidate", item_ids=(UNBOUND_ITEM_ID,), attached=False
         )
 
     assert "ships no source for" in str(refusal.value)
