@@ -46,7 +46,11 @@ def _current_text_case(source: dict[str, Any]) -> dict[str, Any]:
                 ),
                 # The expanded plan exceeds the 45-row host viewport. Inspect
                 # its saved-state lines and its controls in separate frames.
-                transition("expanded-plan-top", "Home"),
+                transition(
+                    "expanded-plan-top",
+                    "Home",
+                    ready_text=["Reuse this machine's existing Yoke API token"],
+                ),
                 action(
                     "pending-write-list",
                     ready_text=["Reuse this machine's existing Yoke API token"],
