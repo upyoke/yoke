@@ -159,3 +159,75 @@ def test_unconfirmed_pre_case_pause_reenters_exact_execution_from_saved_receipt(
             conn.execute("SELECT COUNT(*) FROM qa_plan_executions").fetchone()[0] == 1
         )
         conn.rollback()
+
+
+def test_review_wait_reenters_after_heartbeats_while_inflight_case_refuses():
+    from runtime.api.fixtures.pg_testdb import test_database
+    from runtime.api.domain.test_qa_plan_execution_fail_closed import ACTOR
+    from yoke_core.domain.handlers.qa_plan_execution import (
+        handle_plan_execution_heartbeat,
+    )
+
+    def call(function, execution_id, **payload):
+        return FunctionCallRequest(
+            function=function,
+            actor=ACTOR,
+            target=TargetRef(kind="item", item_id=4401),
+            payload={"execution_id": execution_id, **payload},
+        )
+
+    def resume(execution_id):
+        return handle_execution_reentry(
+            call("qa.plan_execution.resume", execution_id, transition_id="implemented")
+        )
+
+    with test_database() as conn:
+        _materialize_two_cases(conn, item_id=4401)
+        execution = begin_plan_execution(
+            conn,
+            item_id=4401,
+            transition_id="implemented",
+            actor_id=ACTOR.actor_id,
+            session_id=ACTOR.session_id,
+        )
+        execution_id = execution["id"]
+        checked = handle_plan_execution_heartbeat(
+            call("qa.plan_execution.heartbeat", execution_id)
+        )
+        assert checked.primary_success, checked.error
+        # A pre-case check-in may have begun its action; re-entry stays refused.
+        inflight = resume(execution_id)
+        assert not inflight.primary_success
+        assert "qa_pause_unconfirmed" in inflight.error.message
+        # The capture completed and now waits for review at the roster boundary,
+        # still carrying the earlier check-in cursor.
+        stale = 'qa-communication-outcome-unknown:{"checkin_cursor":2,"resumed":true}'
+        conn.execute(
+            "UPDATE qa_plan_executions SET state='awaiting_agent_review',"
+            "cursor_ordinal=2,release_reason=%s WHERE id=%s",
+            (stale, execution_id),
+        )
+        conn.commit()
+        assert resume(execution_id).primary_success
+        conn.execute(
+            "UPDATE qa_plan_executions SET release_reason=NULL WHERE id=%s",
+            (execution_id,),
+        )
+        conn.commit()
+        for _ in range(2):
+            checked = handle_plan_execution_heartbeat(
+                call("qa.plan_execution.heartbeat", execution_id)
+            )
+            assert checked.primary_success, checked.error
+            reentered = resume(execution_id)
+            assert reentered.primary_success, reentered.error
+            assert reentered.result_payload["state"] == "awaiting_agent_review"
+        # The boundary heartbeat names no case, so it records no check-in.
+        assert (
+            conn.execute(
+                "SELECT release_reason FROM qa_plan_executions WHERE id=%s",
+                (execution_id,),
+            ).fetchone()[0]
+            is None
+        )
+        conn.rollback()

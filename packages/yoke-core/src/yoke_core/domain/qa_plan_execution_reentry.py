@@ -140,9 +140,16 @@ def resume_execution(conn: Any, execution: dict) -> dict:
             )
     else:
         cursor = int(execution["cursor_ordinal"])
-        if evidence is not None and cursor in (
-            evidence.get("case_inflight"),
-            evidence.get("checkin_cursor"),
+        # A review wait holds a completed capture; no case action is in flight.
+        reviewing = execution["state"] == "awaiting_agent_review"
+        if (
+            not reviewing
+            and evidence is not None
+            and cursor
+            in (
+                evidence.get("case_inflight"),
+                evidence.get("checkin_cursor"),
+            )
         ):
             raise QaPlanExecutionStateError(
                 "qa_pause_unconfirmed: an active check-in has no confirmed safe pause; "
@@ -232,14 +239,20 @@ def record_case_admitted(conn, execution):
 
 
 def heartbeat_checkpoint(execution):
-    """A check-in renews liveness without asserting that its next action began."""
+    """A check-in renews liveness without asserting that its next action began.
+
+    Only a cursor that names a roster case records a pre-case check-in; the
+    completed-roster boundary has no case left to begin.
+    """
+    cursor = int(execution["cursor_ordinal"])
+    if cursor >= len(execution["roster"]):
+        return execution.get("release_reason")
     reason = str(execution.get("release_reason") or "")
     evidence = (
         json.loads(reason[len(PAUSE_REASON) :])
         if reason.startswith(PAUSE_REASON)
         else {}
     )
-    cursor = int(execution["cursor_ordinal"])
     if evidence.get("case_admitted") == cursor:
         evidence["case_inflight"] = cursor
     evidence.update(resumed=True, checkin_cursor=cursor)
