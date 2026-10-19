@@ -11,8 +11,11 @@ import subprocess
 from unittest import mock
 
 from yoke_core.engines import merge_audit
-from runtime.api.engines.merge_audit_test_schema import (
+from runtime.api.engines.merge_audit_test_seeds import (
+    complete_merge_audit_item,
+    seed_merge_audit_item,
     seed_merge_audit_lane,
+    seed_merge_audit_simulation,
     seed_merge_audit_task,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
@@ -42,8 +45,8 @@ class TestGenerateReport:
         """Report for an epic with unmerged branches includes branch table."""
         # Set up DB state
         conn = connect_test_db(tmp_db)
-        conn.execute(
-            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (100, 1, 100, 'Test Epic', 'implementing')"
+        seed_merge_audit_item(
+            conn, item_id=100, title="Test Epic", status="implementing"
         )
         seed_merge_audit_task(
             conn,
@@ -81,12 +84,8 @@ class TestGenerateReport:
     def test_epic_filter(self, tmp_db, fake_repo):
         """Report scoped to a single epic only includes that epic."""
         conn = connect_test_db(tmp_db)
-        conn.execute(
-            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (200, 1, 200, 'Epic A', 'implementing')"
-        )
-        conn.execute(
-            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (201, 1, 201, 'Epic B', 'implementing')"
-        )
+        seed_merge_audit_item(conn, item_id=200, title="Epic A", status="implementing")
+        seed_merge_audit_item(conn, item_id=201, title="Epic B", status="implementing")
         seed_merge_audit_task(
             conn,
             epic_id=200,
@@ -120,8 +119,8 @@ class TestGenerateReport:
     def test_all_tasks_done_warning(self, tmp_db, fake_repo):
         """When all tasks are done but epic is not, shows warning."""
         conn = connect_test_db(tmp_db)
-        conn.execute(
-            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (300, 1, 300, 'Epic Done', 'implementing')"
+        seed_merge_audit_item(
+            conn, item_id=300, title="Epic Done", status="implementing"
         )
         seed_merge_audit_task(
             conn,
@@ -147,9 +146,7 @@ class TestGenerateReport:
     def test_simulation_missing_warning(self, tmp_db, fake_repo):
         """When integration simulation is missing, shows warning."""
         conn = connect_test_db(tmp_db)
-        conn.execute(
-            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (400, 1, 400, 'No Sim', 'implementing')"
-        )
+        seed_merge_audit_item(conn, item_id=400, title="No Sim", status="implementing")
         seed_merge_audit_task(
             conn,
             epic_id=400,
@@ -174,9 +171,7 @@ class TestGenerateReport:
     def test_simulation_present(self, tmp_db, fake_repo):
         """When integration simulation exists, shows its result."""
         conn = connect_test_db(tmp_db)
-        conn.execute(
-            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (500, 1, 500, 'Has Sim', 'implementing')"
-        )
+        seed_merge_audit_item(conn, item_id=500, title="Has Sim", status="implementing")
         seed_merge_audit_task(
             conn,
             epic_id=500,
@@ -185,9 +180,7 @@ class TestGenerateReport:
             status="planned",
             branch="YOK-500",
         )
-        conn.execute(
-            "INSERT INTO epic_simulations (epic_id, phase, result) VALUES (500, 'integration', 'PASS')"
-        )
+        seed_merge_audit_simulation(conn, epic_id=500, result="CLEAN")
         conn.commit()
         conn.close()
 
@@ -198,14 +191,14 @@ class TestGenerateReport:
         ):
             report = merge_audit.generate_report()
 
-        assert "Simulation: PASS" in report
+        assert "Simulation: CLEAN" in report
         assert "Integration simulation missing" not in report
 
     def test_standalone_branches(self, tmp_db, fake_repo):
         """Standalone YOK-* branches with status done are reported."""
         conn = connect_test_db(tmp_db)
-        conn.execute(
-            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (50, 1, 50, 'Done Item', 'done')"
+        seed_merge_audit_item(
+            conn, item_id=50, title="Done Item", status="implementing"
         )
         seed_merge_audit_lane(
             conn,
@@ -214,6 +207,7 @@ class TestGenerateReport:
             lane_role="implementation",
             state="released",
         )
+        complete_merge_audit_item(conn, item_id=50)
         conn.commit()
         conn.close()
 
@@ -231,9 +225,7 @@ class TestGenerateReport:
     def test_standalone_not_shown_with_filter(self, tmp_db, fake_repo):
         """Standalone branches are not shown when filtering by epic."""
         conn = connect_test_db(tmp_db)
-        conn.execute(
-            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (51, 1, 51, 'Done', 'done')"
-        )
+        seed_merge_audit_item(conn, item_id=51, title="Done", status="done")
         conn.commit()
         conn.close()
 
@@ -249,8 +241,8 @@ class TestGenerateReport:
     def test_recommended_merge_order(self, tmp_db, fake_repo):
         """Report includes recommended merge order."""
         conn = connect_test_db(tmp_db)
-        conn.execute(
-            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (600, 1, 600, 'Merge Order', 'implementing')"
+        seed_merge_audit_item(
+            conn, item_id=600, title="Merge Order", status="implementing"
         )
         seed_merge_audit_task(
             conn,
@@ -276,9 +268,7 @@ class TestGenerateReport:
     def test_summary_counts(self, tmp_db, fake_repo):
         """Summary section includes correct ready/blocked counts."""
         conn = connect_test_db(tmp_db)
-        conn.execute(
-            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (700, 1, 700, 'Counts', 'implementing')"
-        )
+        seed_merge_audit_item(conn, item_id=700, title="Counts", status="implementing")
         seed_merge_audit_task(
             conn,
             epic_id=700,
@@ -312,11 +302,7 @@ class TestGenerateReport:
     def test_exit_code_always_zero(self, tmp_db, fake_repo):
         """CLI exits 0 even when there are warnings."""
         conn = connect_test_db(tmp_db)
-        conn.execute(
-            "INSERT INTO items "
-            "(id, title, status, project_id, project_sequence) "
-            "VALUES (800, 'Ex', 'implementing', 1, 800)"
-        )
+        seed_merge_audit_item(conn, item_id=800, title="Ex", status="implementing")
         seed_merge_audit_task(
             conn,
             epic_id=800,

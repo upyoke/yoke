@@ -15,7 +15,8 @@ class SnapshotResponse(BaseModel):
 
 
 def handle_snapshot(request: FunctionCallRequest) -> HandlerOutcome:
-    from yoke_core.domain.db_helpers import connect, query_rows, query_one
+    from yoke_core.domain.db_helpers import connect, query_rows
+    from yoke_core.domain.epic_resolution import latest_simulation
     from yoke_core.domain.function_target_resolution import resolve_project_context
     from yoke_core.domain.project_identity import render_item_ref
     from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS
@@ -56,12 +57,7 @@ def handle_snapshot(request: FunctionCallRequest) -> HandlerOutcome:
                     )
                     branch["total"] += 1
                     branch["done"] += int(task["status"] in terminal)
-            sim = query_one(
-                conn,
-                "SELECT result FROM epic_simulations WHERE epic_id=%s "
-                "AND phase='integration' ORDER BY created_at DESC LIMIT 1",
-                (row["id"],),
-            )
+            sim = latest_simulation(conn, row["id"], "integration")
             epics.append(
                 {
                     "id": row["id"],
@@ -70,7 +66,7 @@ def handle_snapshot(request: FunctionCallRequest) -> HandlerOutcome:
                     "status": row["status"],
                     "total": len(tasks),
                     "done": sum(t["status"] in terminal for t in tasks),
-                    "simulation": (sim["result"] or "UNKNOWN") if sim else "MISSING",
+                    "simulation": sim["result"] if sim else "MISSING",
                     "branches": branches,
                     "incomplete": [
                         dict(t) for t in tasks if t["status"] not in terminal

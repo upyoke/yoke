@@ -6,19 +6,28 @@ import subprocess
 import pytest
 
 from runtime.api.fixtures.file_test_db import init_test_db
-from runtime.api.engines.merge_audit_test_schema import apply_merge_audit_schema
+from runtime.api.engines.merge_audit_test_seeds import seed_merge_audit_item
+from runtime.api.fixtures.file_test_db import connect_test_db
 
 
 @pytest.fixture()
 def tmp_db(tmp_path, monkeypatch):
-    """Backend-aware DB with the merge-audit tables; yields its path.
+    """Production-schema DB holding items YOK-42 and YOK-999; yields its path.
 
     ``merge_audit.generate_report`` reads through the backend factory, so the
-    schema and seed must land in the same backend (the file on SQLite, the
-    repointed per-test database on Postgres).
+    seed lands in the repointed per-test database it reads.
     """
     monkeypatch.setenv("YOKE_PROJECT", "yoke")
-    with init_test_db(tmp_path, apply_schema=apply_merge_audit_schema) as path:
+    with init_test_db(tmp_path) as path:
+        conn = connect_test_db(path)
+        try:
+            for item_id in (42, 999):
+                seed_merge_audit_item(
+                    conn, item_id=item_id, title="No active lanes", status="idea"
+                )
+            conn.commit()
+        finally:
+            conn.close()
         yield path
 
 
