@@ -28,6 +28,18 @@ WSL it also warns when systemd is not PID 1. See
 [Yoke on Windows (WSL)](../start/windows-wsl.md) for the recovery steps. These machine
 checks report N/A on other operating systems.
 
+From a folder outside every project, Doctor runs only its machine-scope
+checks, which read this machine's harness homes, hooks, relay and
+connections. It reports each project-scope check it skipped as N/A with
+`project_required` and the recovery: rerun from a project folder or add
+`--project P`. A selection with no machine-scope check refuses
+`project_required`. Repair missing machine setup, such as the `yoke-global`
+skill or machine-wide harness hooks, from any folder:
+
+```bash
+yoke doctor run --only harness-setup --fix
+```
+
 Each check has a 45-second budget. Each PostgreSQL transaction arms the
 remaining budget as its statement timeout once, when it starts. The wall clock
 is checked at I/O boundaries and again when the check returns; running Python,
@@ -119,7 +131,8 @@ yoke doctor run --install --project P
 This checks machine registration, relay, hook version, unattended permissions,
 configured GitHub auth, native CLI sign-in, dashboard build, observed session
 hook registration, foreign install residue, installed guidance and instruction
-discovery. Each failure gives one next step. Intentional GitHub disablement is
+discovery. Outside a project it runs the machine checks and reports GitHub
+auth, residue, guidance and discovery as N/A. Each failure gives one next step. Intentional GitHub disablement is
 N/A; absent or unknown evidence is not a pass. Guidance checks prove installed
 configuration, while the session check requires both registration and confirmed
 hook delivery. Full-corpus audits remain in the full Doctor selection.

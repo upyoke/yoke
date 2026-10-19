@@ -3,7 +3,9 @@
 ``yoke doctor run`` is the Doctor surface for every transport and the
 command ``yoke watch doctor`` wraps. Exactly one scope flag (``--install`` | ``--session``
 | ``--quick`` | ``--full`` | ``--only NAMES``) is required; the explicit-scope rule
-mirrors the engine entrypoint and is enforced server-side.
+mirrors the engine entrypoint and is enforced server-side. Outside every
+project only the machine-scope checks run, and each project-scope check is
+named as not applicable (``doctor_machine_scope``).
 
 Both transports stream the same per-check progress lines while they
 work. A relayed run learns each verdict as its bounded batch returns and
@@ -156,11 +158,11 @@ def doctor_run(args: List[str]) -> int:
         return emit_doctor_response(
             failure, json_mode=parsed.json_mode, report_file=parsed.file
         )
+    only = _requested_only(parsed)
     try:
         project = required_project_context(parsed.project)
     except MissingProjectError as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
+        return _run_without_project(parsed, only, str(exc))
     payload: Dict[str, Any] = {
         "project": project,
         "quick": bool(parsed.quick),
@@ -168,16 +170,8 @@ def doctor_run(args: List[str]) -> int:
         "fix": bool(parsed.fix),
         "runtime": _runtime_for_active_connection(),
     }
-    if parsed.install:
-        from yoke_cli.commands.adapters.doctor_install import install_slugs
-
-        payload["only"] = ",".join(install_slugs())
-    elif parsed.session:
-        from yoke_cli.commands.adapters.doctor_install import session_slugs
-
-        payload["only"] = ",".join(session_slugs())
-    elif parsed.only:
-        payload["only"] = parsed.only
+    if only:
+        payload["only"] = only
     if parsed.db_path:
         payload["db_path"] = parsed.db_path
     # One sink for the whole run, whichever transport serves it: every
@@ -202,6 +196,43 @@ def doctor_run(args: List[str]) -> int:
             json_mode=parsed.json_mode,
             report_file=parsed.file,
         )
+
+
+def _requested_only(parsed: argparse.Namespace) -> str | None:
+    """The explicit roster a scope flag names, or ``None`` for quick/full."""
+    if parsed.install:
+        from yoke_cli.commands.adapters.doctor_install import install_slugs
+
+        return ",".join(install_slugs())
+    if parsed.session:
+        from yoke_cli.commands.adapters.doctor_install import session_slugs
+
+        return ",".join(session_slugs())
+    return parsed.only or None
+
+
+def _run_without_project(
+    parsed: argparse.Namespace, only: str | None, refusal: str
+) -> int:
+    """Run the machine-scope checks a project-less caller asked for."""
+    from yoke_cli.commands.adapters.doctor_machine_scope import (
+        requested_slugs,
+        run_without_project,
+    )
+
+    with stream_progress_to_stderr():
+        response, refused = run_without_project(
+            slugs=requested_slugs(only) if only else None,
+            quick=bool(parsed.quick),
+            fix=bool(parsed.fix),
+            refusal=refusal,
+        )
+    if response is None:
+        print(refused, file=sys.stderr)
+        return 2
+    return emit_doctor_response(
+        response, json_mode=parsed.json_mode, report_file=parsed.file
+    )
 
 
 def _dispatch_in_process(

@@ -94,7 +94,7 @@ def test_resident_check_is_registered_for_machine_local_execution():
     )
     assert resident_hc.SLUG in local_runtime_slugs()
     shape = DECLARATIONS[resident_hc.SLUG]
-    assert shape.project_scope == "any"
+    assert shape.project_scope == "machine"
     assert shape.runtimes == frozenset({"local"})
     local, source = requested_local_machine_slugs({"only": resident_hc.SLUG})
     assert local == [resident_hc.SLUG]

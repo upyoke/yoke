@@ -19,8 +19,10 @@ Five axes:
 ``project_scope``
     Whether the check targets this installation's own project
     (:data:`PROJECT_SCOPE_SELF`), only other projects
-    (:data:`PROJECT_SCOPE_EXTERNAL`), or any project
-    (:data:`PROJECT_SCOPE_ANY`).
+    (:data:`PROJECT_SCOPE_EXTERNAL`), any project
+    (:data:`PROJECT_SCOPE_ANY`), or no project at all because it reads only
+    this machine's own state (:data:`PROJECT_SCOPE_MACHINE`). Only
+    machine-scope checks run when the caller stands outside every project.
 
 ``requires_source_checkout``
     Whether the check reads the target project's source tree. Only a runner
@@ -70,11 +72,13 @@ CHECKOUT_BEARING_RUNTIMES = frozenset({RUNTIME_LOCAL})
 PROJECT_SCOPE_ANY = "any"
 PROJECT_SCOPE_SELF = "self"
 PROJECT_SCOPE_EXTERNAL = "external"
+PROJECT_SCOPE_MACHINE = "machine"
 PROJECT_SCOPES = frozenset(
     {
         PROJECT_SCOPE_ANY,
         PROJECT_SCOPE_SELF,
         PROJECT_SCOPE_EXTERNAL,
+        PROJECT_SCOPE_MACHINE,
     }
 )
 
@@ -226,6 +230,7 @@ __all__ = [
     "PROJECT_SCOPES",
     "PROJECT_SCOPE_ANY",
     "PROJECT_SCOPE_EXTERNAL",
+    "PROJECT_SCOPE_MACHINE",
     "PROJECT_SCOPE_SELF",
     "RUNTIMES",
     "RUNTIME_HOSTED",
