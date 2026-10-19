@@ -37,6 +37,6 @@ def shared_postgres_environment(env: Mapping[str, str]) -> dict[str, str]:
         root = Path(scratch).expanduser() if scratch else fallback_scratch_root()
         result["YOKE_PG_CLUSTER_ROOT"] = str(root.absolute() / "yoke-pgtest-cluster")
     binaries = home.absolute() / "postgres" / POSTGRES_VERSION / "bin"
-    if not result.get("YOKE_PG_BIN_DIR"):
+    if not result.get("YOKE_PG_BIN_DIR") and (binaries / "initdb").is_file():
         result["YOKE_PG_BIN_DIR"] = str(binaries)
     return result
