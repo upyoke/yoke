@@ -47,6 +47,18 @@ def _record(conn: Any) -> dict:
     )
 
 
+def _dispatch_intent(conn: Any, request_id: str, state: str) -> None:
+    from yoke_contracts.timestamps import utc_now
+
+    stamp = utc_now()
+    conn.execute(
+        "INSERT INTO github_workflow_dispatch_intents "
+        "(request_id,attempt,actor_id,authorization_scope,payload_checksum,repo,workflow,workflow_ref,inputs,correlation_id,state,created_at,updated_at) "
+        "VALUES (%s,1,'2','project','checksum','owner/repo','release.yml','main','{}','pending-token',%s,%s,%s)",
+        (request_id, state, stamp, stamp),
+    )
+
+
 def _move(release: dict) -> str:
     git(
         release["consumer_repo"],
@@ -94,6 +106,31 @@ def test_consumer_moving_after_consumption_still_refuses(
         prepare_bound_sources(test_db, "run-candidate", "hosted-release")
     test_db.rollback()
     assert _record(test_db) == before
+
+
+def test_redrive_of_a_dispatched_stage_reattaches_but_a_retry_refuses(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    release = two_project_release(test_db, tmp_path, monkeypatch)
+    record_bound_sources(test_db, "run-candidate")
+    sealed = prepare_bound_sources(test_db, "run-candidate", "hosted-release")
+    _dispatch_intent(test_db, "deploy:yoke:run-candidate:hosted-release", "completed")
+    test_db.commit()
+    before = _record(test_db)
+    _move(release)
+    result = prepare_bound_sources(test_db, "run-candidate", "hosted-release")
+    test_db.commit()
+    assert result["bound_sources"]["inputs"] == sealed["bound_sources"]["inputs"]
+    assert result["rebound"] == []
+    assert _record(test_db) == before
+    copy_bound_sources(test_db, "run-candidate", "run-previous")
+    test_db.execute(
+        "UPDATE deployment_runs SET status='created' WHERE id='run-previous'"
+    )
+    test_db.commit()
+    with pytest.raises(ValueError, match="cannot dispatch a stage on it"):
+        prepare_bound_sources(test_db, "run-previous", "hosted-release")
+    test_db.rollback()
 
 
 def test_refresh_after_unrelated_stage_admits_new_member_and_preserves_snapshots(
@@ -212,17 +249,9 @@ def test_preparation_is_idempotent_without_another_branch_move(
 def test_pending_dispatch_evidence_prevents_rebinding_without_telemetry(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from yoke_contracts.timestamps import utc_now
-
     release = two_project_release(test_db, tmp_path, monkeypatch)
     record_bound_sources(test_db, "run-candidate")
-    stamp = utc_now()
-    test_db.execute(
-        "INSERT INTO github_workflow_dispatch_intents "
-        "(request_id,attempt,actor_id,authorization_scope,payload_checksum,repo,workflow,workflow_ref,inputs,correlation_id,state,created_at,updated_at) "
-        "VALUES (%s,1,'2','project','checksum','owner/repo','release.yml','main','{}','pending-token','pending',%s,%s)",
-        ("deploy:yoke:run-candidate:hosted-release", stamp, stamp),
-    )
+    _dispatch_intent(test_db, "deploy:yoke:run-candidate:hosted-release", "pending")
     test_db.commit()
     before = _record(test_db)
     _move(release)
