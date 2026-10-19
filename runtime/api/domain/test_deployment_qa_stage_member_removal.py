@@ -15,7 +15,7 @@ from yoke_core.domain.deployment_qa_stage_dispatch import (
 )
 from yoke_core.domain.deployment_run_member_removal import remove_member_on
 from yoke_core.domain.deployment_run_membership_removals import (
-    record_membership_removal,
+    record_membership_removals,
 )
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 
@@ -118,8 +118,8 @@ def test_never_attached_member_still_refuses_with_removal_history(test_db):
 
 def test_recorded_removal_does_not_hide_attached_member_defect(test_db, monkeypatch):
     stage = _ready_run(test_db)
-    record_membership_removal(
-        test_db, RUN, REMOVED, reason="stale removal", session_id=None, actor_id=2
+    record_membership_removals(
+        test_db, RUN, (REMOVED,), reason="stale removal", session_id=None, actor_id=2
     )
     test_db.commit()
 

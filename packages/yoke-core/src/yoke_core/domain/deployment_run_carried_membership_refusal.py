@@ -16,9 +16,7 @@ from typing import Any
 
 from yoke_core.domain.deployment_run_member_targeting import needed_member_ids
 from yoke_core.domain import db_backend
-from yoke_core.domain.deployment_item_flow_resolution import (
-    completion_flow_refusal,
-)
+from yoke_core.domain.deployment_item_flow_admission import completion_flow_refusals
 from yoke_core.domain.deployment_run_carried_membership import (
     carried_enrollment_blocked,
     project_carried_sets,
@@ -31,7 +29,7 @@ from yoke_core.domain.deployment_run_enrollment_error import (
 )
 from yoke_core.domain.deployment_run_composition_freeze import (
     inherited_frozen_membership,
-    item_requires_release_membership,
+    items_requiring_release_membership,
     member_ids,
     requires_release_admission,
 )
@@ -123,13 +121,13 @@ def carried_membership_refusal(
         # candidate never promised, so the inherited answer stands.
         return None
     members = set(member_ids(conn, run_id))
+    carried = {
+        int(entry["item_id"])
+        for project_set in project_sets
+        for entry in project_set.get("items") or []
+    }
     eligible = sorted(
-        {
-            int(entry["item_id"])
-            for project_set in project_sets
-            for entry in project_set.get("items") or []
-            if item_requires_release_membership(conn, int(entry["item_id"]))
-        }
+        (carried & items_requiring_release_membership(conn, carried))
         - held_candidate_ids(conn, run_id, custody=custody)
         - removed_item_ids(conn, run_id)
     )
@@ -139,9 +137,10 @@ def carried_membership_refusal(
         dependent for dependent, _, _ in unshipped_dependency_pairs(conn, eligible)
     }
     eligible = [item_id for item_id in eligible if item_id not in blocked]
+    refusals = completion_flow_refusals(conn, eligible)
     for item_id in eligible:
-        if refusal := completion_flow_refusal(conn, item_id):
-            return f"deployment run {run_id!r} carries {refusal}"
+        if item_id in refusals:
+            return f"deployment run {run_id!r} carries {refusals[item_id]}"
     omitted = [item_id for item_id in eligible if item_id not in members]
     if not omitted:
         return None

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Iterable
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _column_exists, _table_exists
@@ -16,8 +17,9 @@ from yoke_core.domain.workflow_runtime import (
     ENGINE_TERMINAL_STAGE_IDS,
     ENGINE_WAIT_STAGE_IDS,
     WorkflowRuntime,
-    load_item_workflow_runtime,
+    workflow_runtime_from_row,
 )
+from yoke_core.domain.workflow_registry import WorkflowRegistryError
 from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_EPIC_TASK,
     TARGET_KIND_ITEM,
@@ -42,7 +44,7 @@ class WorkflowItemBindingError(ValueError):
     """A new binding is incompatible with the item's current workflow pin."""
 
 
-def _has_workflow_pin_schema(conn: Any) -> bool:
+def has_workflow_pin_schema(conn: Any) -> bool:
     return (
         _table_exists(conn, "items")
         and _table_exists(conn, "workflow_versions")
@@ -53,21 +55,87 @@ def _has_workflow_pin_schema(conn: Any) -> bool:
     )
 
 
+@dataclass(frozen=True)
+class PinnedItem:
+    """An item's stage, project and pinned workflow, read together."""
+
+    status: str
+    project_id: int
+    #: ``None`` when the item has no complete workflow-version pin.
+    runtime: WorkflowRuntime | None
+
+    def require_runtime(self, conn: Any, item_id: int) -> WorkflowRuntime:
+        """The pinned runtime, or the refusal loading it alone would raise."""
+        if self.runtime is None:
+            raise WorkflowRegistryError(
+                f"{render_item_ref(conn, item_id)} has no complete workflow-version pin"
+            )
+        return self.runtime
+
+
+def read_pinned_items(conn: Any, item_ids: Iterable[int]) -> dict[int, PinnedItem]:
+    """Read every item's status, project and pinned workflow in one statement.
+
+    An absent item is absent from the result; an incomplete pin refuses when
+    that item's runtime is required (:meth:`PinnedItem.require_runtime`).
+    """
+    ids = sorted({int(value) for value in item_ids})
+    if not ids:
+        return {}
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    rows = conn.execute(
+        "SELECT i.id, i.status, i.project_id, i.workflow_id, "
+        "i.workflow_version_id, v.version, v.definition_json, v.definition_digest "
+        "FROM items i LEFT JOIN workflow_versions v ON v.id = i.workflow_version_id "
+        f"WHERE i.id IN ({','.join(marker for _ in ids)})",
+        tuple(ids),
+    ).fetchall()
+    pinned: dict[int, PinnedItem] = {}
+    for row in sorted((dict(row) for row in rows), key=lambda row: int(row["id"])):
+        complete = all(
+            row[key] is not None
+            for key in ("workflow_id", "workflow_version_id", "version")
+        )
+        pinned[int(row["id"])] = PinnedItem(
+            str(row["status"]),
+            int(row["project_id"]),
+            workflow_runtime_from_row(row) if complete else None,
+        )
+    return pinned
+
+
+def item_binding_runtime_states(
+    conn: Any, item_ids: Iterable[int]
+) -> dict[int, tuple[WorkflowRuntime, str]]:
+    """Validated binding states for a set of items from one read.
+
+    Refuses on the first item, in id order, that a single-item check refuses.
+    Empty when this database has no workflow pins to validate.
+    """
+    if not has_workflow_pin_schema(conn):
+        return {}
+    ids = sorted({int(value) for value in item_ids})
+    pinned = read_pinned_items(conn, ids)
+    return {
+        item_id: binding_runtime_state(conn, item_id, pinned.get(item_id))
+        for item_id in ids
+    }
+
+
 def item_binding_runtime_state(
     conn: Any,
     item_id: int,
 ) -> tuple[WorkflowRuntime, str] | None:
-    if not _has_workflow_pin_schema(conn):
-        return None
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = conn.execute(
-        f"SELECT status FROM items WHERE id = {marker}",
-        (int(item_id),),
-    ).fetchone()
-    if row is None:
+    return item_binding_runtime_states(conn, (int(item_id),)).get(int(item_id))
+
+
+def binding_runtime_state(
+    conn: Any, item_id: int, pinned: PinnedItem | None
+) -> tuple[WorkflowRuntime, str]:
+    """Refuse a new binding on an absent, terminal or undeclared-stage item."""
+    if pinned is None:
         raise WorkflowItemBindingError(ITEM_NOT_FOUND)
-    runtime = load_item_workflow_runtime(conn, int(item_id))
-    status = str(row["status"] if hasattr(row, "keys") else row[0])
+    runtime, status = pinned.require_runtime(conn, item_id), pinned.status
     if status in runtime.terminal_stage_ids or status in ENGINE_TERMINAL_STAGE_IDS:
         raise WorkflowItemBindingError(
             f"{render_item_ref(conn, item_id)} is terminal at workflow stage {status!r}"
@@ -157,8 +225,13 @@ def validate_item_path_claim_scope(
 
 
 __all__ = [
+    "PinnedItem",
     "WorkflowItemBindingError",
+    "binding_runtime_state",
+    "has_workflow_pin_schema",
     "item_binding_runtime_state",
+    "item_binding_runtime_states",
+    "read_pinned_items",
     "validate_item_path_claim_scope",
     "validate_work_claim_target",
 ]

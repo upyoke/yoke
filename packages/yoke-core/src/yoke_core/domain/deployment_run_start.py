@@ -28,7 +28,7 @@ from yoke_core.domain.deployment_start_timing import timed_call
 from yoke_core.domain.deploy_target_occupancy import require_target_unoccupied
 from yoke_core.domain.schema_read_scope import composition_operation
 from yoke_core.domain.workflow_delivery_binding_validation import (
-    validate_deployment_run_items,
+    validate_deployment_run_members,
 )
 
 
@@ -98,7 +98,9 @@ def _admit(conn, run_id, candidate_containment):
         ):
             return refusal
         invalidate_run_source_facts(conn, run_id)
-        validate_deployment_run_items(conn, run_id=run_id, item_ids=item_ids)
+        validate_deployment_run_members(
+            conn, run_id=run_id, item_ids=item_ids, attached=True
+        )
         timed_call("target_occupancy", require_target_unoccupied, conn, run_id)
         timed_call("composition_freeze", freeze_run_composition, conn, run_id)
         record_attested_candidate_containment(conn, run_id, candidate_containment)

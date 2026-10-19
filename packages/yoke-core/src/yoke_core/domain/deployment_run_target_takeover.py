@@ -237,8 +237,11 @@ def take_over_waiting_run(
     ``apply=False`` only answers the containment question, so creation's
     unlocked pass pays the repository read without touching the older run.
     """
-    from yoke_core.domain.deployment_run_carried_membership import admit_run_item
-    from yoke_core.domain.deployment_run_member_removal import remove_member_on
+    from yoke_core.domain.deployment_run_member_admission import (
+        MemberAdmission,
+        admit_run_items,
+    )
+    from yoke_core.domain.deployment_run_member_removal import remove_members_on
     from yoke_core.domain.deployment_run_takeover_authority import (
         require_takeover_authority,
     )
@@ -283,23 +286,23 @@ def take_over_waiting_run(
         f"taken over by run {new_run_id}, whose candidate contains this run's; "
         "the member's QA continues there"
     )
-    for member in moving:
-        remove_member_on(
-            conn,
-            old_id,
-            int(member["item_id"]),
-            reason=reason,
-            session_id=session_id,
-            actor_id=actor_id,
-            removed_by=TAKEOVER_REMOVED_BY,
-        )
-    for member in moving:
-        admit_run_item(
-            conn,
-            run_id=new_run_id,
-            item_id=int(member["item_id"]),
-            delivery_intent=member["delivery_intent"],
-        )
+    remove_members_on(
+        conn,
+        old_id,
+        [int(member["item_id"]) for member in moving],
+        reason=reason,
+        session_id=session_id,
+        actor_id=actor_id,
+        removed_by=TAKEOVER_REMOVED_BY,
+    )
+    admit_run_items(
+        conn,
+        run_id=new_run_id,
+        members=[
+            MemberAdmission(int(member["item_id"]), member["delivery_intent"])
+            for member in moving
+        ],
+    )
     if shared or not _delivered_any(conn, old_id):
         terminalize_run_on(
             conn,

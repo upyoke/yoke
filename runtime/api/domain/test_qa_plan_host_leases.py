@@ -247,12 +247,12 @@ def test_removed_member_cleanup_releases_both_hosts_atomically(
     _seed(test_db, tmp_path, monkeypatch, simultaneous=True)
     execution = _begin(test_db)
     assert _case_begin(execution).primary_success
-    abort_removed_member_executions(test_db, run_id=RUN, item_id=MEMBER)
+    abort_removed_member_executions(test_db, run_id=RUN, item_ids=(MEMBER,))
     assert not execution_host_leases(test_db, execution)
     test_db.rollback()
     assert len(execution_host_leases(test_db, execution)) == 2
     assert lock_plan_execution(test_db, execution["id"])["state"] == "active"
-    abort_removed_member_executions(test_db, run_id=RUN, item_id=MEMBER)
+    abort_removed_member_executions(test_db, run_id=RUN, item_ids=(MEMBER,))
     test_db.commit()
     assert not execution_host_leases(test_db, execution)
     assert lock_plan_execution(test_db, execution["id"])["state"] == "aborted"

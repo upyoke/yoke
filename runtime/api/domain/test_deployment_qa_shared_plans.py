@@ -236,7 +236,7 @@ def test_removing_one_member_preserves_shared_execution_until_last_member_leaves
             "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
             (RUN, member),
         )
-        abort_removed_member_executions(test_db, run_id=RUN, item_id=member)
+        abort_removed_member_executions(test_db, run_id=RUN, item_ids=(member,))
         test_db.commit()
         actual = select_plan_execution(test_db, execution["id"], lock=False)
         assert actual["state"] == ("active" if index == 0 else "aborted")

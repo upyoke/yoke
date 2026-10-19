@@ -112,31 +112,3 @@ def read_snapshot_inputs(conn, *, item_ids, requirement_ids, plan_ids=()):
         )
     facts.plans = read_plan_rows(conn, plans, lock_plan=True)
     return facts
-
-
-def read_enrollment_inputs(conn, *, run_id, item_ids):
-    from yoke_core.domain.deployment_item_flow_resolution import (
-        freeze_item_completion_flow,
-    )
-    from yoke_core.domain.deployment_member_post_deploy_admission import (
-        post_deploy_admission_sets,
-    )
-
-    # Selection must use the completion pin admission will retain, even if a
-    # project default changes while later members are being validated.
-    for item_id in sorted(set(item_ids)):
-        freeze_item_completion_flow(conn, item_id)
-    selections = {
-        item_id: split[0]
-        for item_id, split in post_deploy_admission_sets(
-            conn,
-            run_id=run_id,
-            item_ids=item_ids,
-        ).items()
-    }
-    facts = read_snapshot_inputs(
-        conn,
-        item_ids=item_ids,
-        requirement_ids=[value for ids in selections.values() for value in ids],
-    )
-    return selections, facts

@@ -13,6 +13,9 @@ from typing import Any
 from unittest import mock
 
 from runtime.api.fixtures.backlog_inserts import insert_item
+from yoke_core.domain.deployment_item_flow_admission import (
+    freeze_item_completion_flows,
+)
 from yoke_core.domain.deployment_item_flow_resolution import (
     FLOW_SOURCE_ITEM,
     FLOW_SOURCE_NONE,
@@ -20,11 +23,10 @@ from yoke_core.domain.deployment_item_flow_resolution import (
     FLOW_SOURCE_UNREADABLE,
     NO_FLOW_HEAD,
     describe_missing_flow,
-    freeze_item_completion_flow,
     item_completion_flow,
     item_completion_flow_facts,
 )
-from yoke_core.domain.deployment_run_carried_membership import admit_run_item
+from yoke_core.domain.deployment_run_member_admission import admit_run_item
 from yoke_core.domain.flow_create import cmd_create
 from yoke_core.domain.workflow_project_defaults import set_delivery_default
 
@@ -35,12 +37,17 @@ def _patches(flow_ids, *, project_found=True, resolve_raises=None):
     conn.execute.return_value.fetchall.return_value = [
         (flow_id,) for flow_id in flow_ids
     ]
-    return conn, mock.patch(
-        "yoke_core.domain.db_helpers.connect", return_value=conn,
-    ), mock.patch(
-        "yoke_core.domain.deployment_item_flow_resolution.resolve_project",
-        side_effect=resolve_raises,
-        return_value=mock.MagicMock(id=7) if project_found else None,
+    return (
+        conn,
+        mock.patch(
+            "yoke_core.domain.db_helpers.connect",
+            return_value=conn,
+        ),
+        mock.patch(
+            "yoke_core.domain.deployment_item_flow_resolution.resolve_project",
+            side_effect=resolve_raises,
+            return_value=mock.MagicMock(id=7) if project_found else None,
+        ),
     )
 
 
@@ -82,7 +89,8 @@ def test_refusal_for_an_unknown_project_does_not_send_the_operator_to_declare():
 
 def test_refusal_survives_an_unresolvable_project():
     conn, connect, project = _patches(
-        [], resolve_raises=LookupError("slug names more than one project"),
+        [],
+        resolve_raises=LookupError("slug names more than one project"),
     )
     with connect, project:
         message = describe_missing_flow("YOK-42", "yoke")
@@ -97,7 +105,9 @@ def _active_flow(conn: Any, flow_id: str) -> None:
         "yoke",
         flow_id,
         "",
-        json.dumps([{"name": "deploy", "stage_kind": "execution", "step_runner": "auto"}]),
+        json.dumps(
+            [{"name": "deploy", "stage_kind": "execution", "step_runner": "auto"}]
+        ),
         status="active",
     )
 
@@ -127,16 +137,22 @@ def test_freeze_pins_the_live_default_so_a_later_default_cannot_retarget(
     _active_flow(test_db, "completion-beta")
     _unpinned_item(test_db, 9331)
     set_delivery_default(
-        test_db, project="yoke", workflow_id="blitz", flow_id="completion-alpha",
+        test_db,
+        project="yoke",
+        workflow_id="blitz",
+        flow_id="completion-alpha",
     )
     assert item_completion_flow(test_db, 9331) == "completion-alpha"
     assert _pinned_flow(test_db, 9331) == ""
 
-    assert freeze_item_completion_flow(test_db, 9331) == "completion-alpha"
+    assert freeze_item_completion_flows(test_db, (9331,)) == {9331: "completion-alpha"}
     assert _pinned_flow(test_db, 9331) == "completion-alpha"
 
     set_delivery_default(
-        test_db, project="yoke", workflow_id="blitz", flow_id="completion-beta",
+        test_db,
+        project="yoke",
+        workflow_id="blitz",
+        flow_id="completion-beta",
     )
     assert item_completion_flow(test_db, 9331) == "completion-alpha"
 
@@ -155,9 +171,12 @@ def test_freeze_keeps_an_explicit_pin_when_the_project_default_moves(
         deployment_flow="completion-pinned",
     )
     set_delivery_default(
-        test_db, project="yoke", workflow_id="blitz", flow_id="completion-moved",
+        test_db,
+        project="yoke",
+        workflow_id="blitz",
+        flow_id="completion-moved",
     )
-    assert freeze_item_completion_flow(test_db, 9332) == "completion-pinned"
+    assert freeze_item_completion_flows(test_db, (9332,)) == {9332: "completion-pinned"}
     assert _pinned_flow(test_db, 9332) == "completion-pinned"
     assert item_completion_flow(test_db, 9332) == "completion-pinned"
 
@@ -169,7 +188,10 @@ def test_admit_run_item_freezes_the_completion_flow_before_membership(
     _active_flow(test_db, "completion-later")
     _unpinned_item(test_db, 9333)
     set_delivery_default(
-        test_db, project="yoke", workflow_id="blitz", flow_id="completion-admit",
+        test_db,
+        project="yoke",
+        workflow_id="blitz",
+        flow_id="completion-admit",
     )
     test_db.execute(
         "INSERT INTO deployment_runs("
@@ -184,7 +206,10 @@ def test_admit_run_item_freezes_the_completion_flow_before_membership(
 
     assert _pinned_flow(test_db, 9333) == "completion-admit"
     set_delivery_default(
-        test_db, project="yoke", workflow_id="blitz", flow_id="completion-later",
+        test_db,
+        project="yoke",
+        workflow_id="blitz",
+        flow_id="completion-later",
     )
     assert item_completion_flow(test_db, 9333) == "completion-admit"
 
@@ -208,7 +233,9 @@ def test_facts_name_a_resolved_default_as_inherited(test_db: Any) -> None:
     _active_flow(test_db, "completion-default")
     _unpinned_item(test_db, 9335)
     set_delivery_default(
-        test_db, project="yoke", workflow_id="blitz",
+        test_db,
+        project="yoke",
+        workflow_id="blitz",
         flow_id="completion-default",
     )
     fact = item_completion_flow_facts(test_db, [9335])[9335]
@@ -230,6 +257,7 @@ def test_facts_name_an_unreadable_default(test_db: Any, monkeypatch) -> None:
         from yoke_core.domain.workflow_project_defaults import (
             WorkflowProjectDefaultError,
         )
+
         raise WorkflowProjectDefaultError("could not be read")
 
     monkeypatch.setattr(

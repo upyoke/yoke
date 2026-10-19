@@ -23,7 +23,7 @@ the whole creation over a member this run was never meant to carry.
 Three things it deliberately does not do:
 
 * It does not widen what "deliverable" means. Every candidate still passes
-  ``item_requires_release_membership`` — the same pinned-workflow delivery
+  ``items_requiring_release_membership`` — the same pinned-workflow delivery
   readiness check every other admission uses.
 * It does not enroll code this run is not shipping. Containment against the
   run's own pinned lineage is required, so a merge that landed after the
@@ -66,7 +66,7 @@ from yoke_core.domain.deployment_run_candidate_containment import (
     CandidateContainment,
 )
 from yoke_core.domain.deployment_run_composition_freeze import (
-    item_requires_release_membership,
+    items_requiring_release_membership,
 )
 from yoke_core.domain.deployment_run_project_sources import (
     carried_project_ids,
@@ -256,11 +256,9 @@ def _project_custody(
     conn: Any, run_id: str, *, project_id: int, lineage: str
 ) -> tuple[set[int], list[HeldCandidate]]:
     """One project's deliverable landings inside this candidate, split by holder."""
-    deliverable = [
-        int(record["id"])
-        for record in merged_open_items(conn, project_id)
-        if item_requires_release_membership(conn, int(record["id"]))
-    ]
+    merged = [int(record["id"]) for record in merged_open_items(conn, project_id)]
+    required = items_requiring_release_membership(conn, merged)
+    deliverable = [item_id for item_id in merged if item_id in required]
     needed = needed_member_ids(conn, run_id=run_id, item_ids=deliverable)
     deliverable = [item_id for item_id in deliverable if item_id in needed]
     if not deliverable:

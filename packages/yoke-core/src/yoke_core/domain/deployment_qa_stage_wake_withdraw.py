@@ -17,7 +17,7 @@ from __future__ import annotations
 from yoke_contracts.timestamps import parse_instant
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_qa_stage_wake import (
@@ -26,7 +26,7 @@ from yoke_core.domain.deployment_qa_stage_wake import (
 )
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_item_delivery_status import TERMINAL_RUN_STATUSES
-from yoke_core.domain.session_message_store import cancel_message_rows
+from yoke_core.domain.session_message_store import cancel_messages
 from yoke_core.domain.session_message_types import utc_now
 
 
@@ -171,7 +171,7 @@ def withdraw_deployment_qa_wait_wakes(
     conn: Any,
     *,
     run_id: str | None = None,
-    item_id: int | None = None,
+    item_ids: Iterable[int] | None = None,
     message_id: str | None = None,
     reason: str | None = None,
     now: datetime | str | None = None,
@@ -183,10 +183,9 @@ def withdraw_deployment_qa_wait_wakes(
     run and member facts. Already-recorded attempts are not rewritten.
     """
     now = parse_instant(utc_now() if now is None else now)
-    stamp = now if isinstance(now, datetime) else now
     wanted_run = str(run_id or "")
-    wanted_item = None if item_id is None else int(item_id)
-    withdrawn = 0
+    wanted_items = None if item_ids is None else {int(value) for value in item_ids}
+    settled: dict[str, list[str]] = {}
     for stored_id, key in _pending_wait_rows(conn, message_id=message_id):
         parsed = parse_deployment_qa_wait_key(key)
         if parsed is None:
@@ -194,22 +193,22 @@ def withdraw_deployment_qa_wait_wakes(
         parsed_run, _stage, parsed_item = parsed
         if wanted_run and parsed_run != wanted_run:
             continue
-        if wanted_item is not None and parsed_item != wanted_item:
+        if wanted_items is not None and parsed_item not in wanted_items:
             continue
         cancel_reason = reason or deployment_qa_wait_settled_reason(
             conn, idempotency_key=key
         )
-        if not cancel_reason:
-            continue
-        cancel_message_rows(
+        if cancel_reason:
+            settled.setdefault(cancel_reason, []).append(stored_id)
+    for cancel_reason, message_ids in settled.items():
+        cancel_messages(
             conn,
-            message_id=stored_id,
+            message_ids=message_ids,
             actor_id=None,
             reason=cancel_reason,
-            cancelled_at=stamp,
+            cancelled_at=now,
         )
-        withdrawn += 1
-    return withdrawn
+    return sum(len(message_ids) for message_ids in settled.values())
 
 
 __all__ = [
