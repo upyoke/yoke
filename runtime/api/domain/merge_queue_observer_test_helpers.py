@@ -120,6 +120,11 @@ def observer_connection():
           created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL,
           PRIMARY KEY (item_id, section_name)
         );
+        CREATE TABLE item_dependencies (
+          id INTEGER PRIMARY KEY, dependent_item_id INTEGER NOT NULL,
+          blocking_item_id INTEGER NOT NULL, gate_point TEXT NOT NULL,
+          satisfaction TEXT, created_at TIMESTAMPTZ
+        );
         ALTER TABLE items ADD COLUMN status TEXT DEFAULT 'reviewing-implementation';
         ALTER TABLE items ADD COLUMN merged_at TIMESTAMPTZ;
         ALTER TABLE items ADD COLUMN merge_queue_pr_number TEXT;
