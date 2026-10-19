@@ -76,10 +76,9 @@ def test_review_captures_the_write_names_and_backs_out_without_apply():
     by_step = {action["step"]: action for action in actions}
     assert by_step["show-all-changes"]["keys"] == ["Down", "Enter"]
     assert by_step["show-all-changes"]["ready_text"] == ["Show all changes"]
-    assert by_step["expanded-plan-top"]["keys"] == ["Home"]
     reuse_line = friendly_line("reuse-session-relay-token", "")
     assert by_step["pending-write-list"]["ready_text"] == [reuse_line]
-    assert by_step["review-controls"]["keys"] == ["End"]
+    assert by_step["review-controls"]["keys"] == ["Down"]
     assert by_step["expanded-review-controls"]["ready_text"] == ["Show summary"]
     assert "Show summary" in case["method_config"]["expected_text"]
     assert reuse_line in case["method_config"]["expected_text"]

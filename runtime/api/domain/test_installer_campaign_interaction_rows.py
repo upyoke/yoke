@@ -225,9 +225,8 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
         ("machine-github-backlog", backlog_keys),
         ("review-frame", ()),
         ("show-all-changes", ("Down", "Enter")),
-        ("expanded-plan-top", ("Home",)),
         ("pending-write-list", ()),
-        ("review-controls", ("End",)),
+        ("review-controls", ("Down",)),
         ("expanded-review-controls", ()),
         ("back-before-apply", ("Escape",)),
     ]
