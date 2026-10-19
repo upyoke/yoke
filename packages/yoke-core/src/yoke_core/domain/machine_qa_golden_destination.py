@@ -14,9 +14,14 @@ from pathlib import PurePosixPath
 from typing import Any
 
 from yoke_contracts.machine_config.test_machine import (
+    TEST_MACHINE_CAPABILITY_PREFIX,
     TestMachineCapabilityError,
     validate_golden_baseline_path,
     validate_test_machine_settings,
+)
+from yoke_contracts.machine_qa_host_control import (
+    KEPT_GOLDEN_PATHS_KEY,
+    KEPT_GOLDEN_PATHS_UNKNOWN_KEY,
 )
 
 from yoke_core.domain import db_backend
@@ -125,8 +130,49 @@ def record_captured_golden_baseline(
     return True
 
 
+def kept_golden_fields(
+    conn: Any,
+    *,
+    machine: str,
+    destination: str | None,
+) -> dict[str, Any]:
+    """Name every registered golden beside a capture so retention keeps it.
+
+    One physical machine can be registered in several projects, each with its
+    own golden in the same parent. Retention runs on the operator's machine and
+    can only see the capturing project, so the server names every project's
+    registered golden for this machine in that parent. A registration it cannot
+    read makes the answer unknown rather than incomplete.
+    """
+    if not destination:
+        return {}
+    parent = PurePosixPath(destination).parent
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    rows = conn.execute(
+        "SELECT c.project_id,COALESCE(c.settings,'{}') FROM project_capabilities c "
+        f"WHERE c.type={marker} ORDER BY c.project_id",
+        (TEST_MACHINE_CAPABILITY_PREFIX + machine,),
+    ).fetchall()
+    kept = {destination}
+    for project_id, settings in rows:
+        try:
+            path = json.loads(settings).get(GOLDEN_BASELINE_PATH_KEY)
+        except (TypeError, ValueError, AttributeError):
+            return {
+                KEPT_GOLDEN_PATHS_UNKNOWN_KEY: (
+                    f"project {project_id}'s registration of {machine!r} has "
+                    "unreadable settings, so its golden is unknown; repair it "
+                    "through yoke test-machine settings-replace"
+                )
+            }
+        if isinstance(path, str) and PurePosixPath(path).parent == parent:
+            kept.add(path)
+    return {KEPT_GOLDEN_PATHS_KEY: sorted(kept)}
+
+
 __all__ = [
     "GOLDEN_BASELINE_PATH_KEY",
+    "kept_golden_fields",
     "selected_test_machine_row",
     "dated_golden_directory_name",
     "record_captured_golden_baseline",

@@ -13,6 +13,7 @@ from yoke_harness.golden_snapshot_retention import (
     SnapshotRetentionError,
     apply_retention,
     removable_snapshot_names,
+    retain_after_verified_capture,
 )
 from yoke_harness.ssh_linux_baseline import ABSENT_HOME_PATHS, _ARCHIVE_PROGRAM
 from yoke_harness.ssh_mac_golden_capture_contract import (
@@ -49,7 +50,12 @@ def test_prune_leaves_only_the_registered_golden_on_a_user_root(tmp_path):
     (parent / "yoketest-home-20261014.probes").write_text("probes")
     (parent / "yoketest-home-20261014.manifest").write_text("manifest")
 
-    removed = apply_retention(_run, destination=str(registered), user="yoketest")
+    removed = apply_retention(
+        _run,
+        destination=str(registered),
+        user="yoketest",
+        kept_paths=[str(registered)],
+    )
 
     assert set(removed) == {
         "yoketest-home-20261001",
@@ -78,7 +84,7 @@ def test_a_shared_parent_keeps_another_users_golden():
             ".yoke-golden-temp",
             "notes",
         ),
-        registered_name="yoketest-home-20261014",
+        registered_names=["yoketest-home-20261014"],
         user="yoketest",
         parent_name="yoke-golden",
     )
@@ -87,6 +93,70 @@ def test_a_shared_parent_keeps_another_users_golden():
         "home-20261002",
         ".yoke-golden-temp",
     }
+
+
+def test_a_shared_machine_keeps_every_projects_registered_golden(tmp_path):
+    # Two projects register one machine and share its golden parent. A
+    # capture for one project prunes only snapshots no project registered.
+    parent = tmp_path / "yoke-golden"
+    parent.mkdir()
+    other_project = parent / "testy-home-20261013T1847Z"
+    superseded = parent / "testy-home-20261001"
+    registered = parent / "testy-home-20261014T1230Z"
+    for snapshot in (other_project, superseded, registered):
+        snapshot.mkdir()
+        for suffix in (".probes", ".manifest"):
+            (parent / (snapshot.name + suffix)).write_text(suffix)
+
+    removed = apply_retention(
+        _run,
+        destination=str(registered),
+        user="testy",
+        kept_paths=[str(other_project), str(registered), "/elsewhere/testy-home-x"],
+    )
+
+    assert set(removed) == {
+        "testy-home-20261001",
+        "testy-home-20261001.probes",
+        "testy-home-20261001.manifest",
+    }
+    assert set(os.listdir(parent)) == {
+        name + suffix
+        for name in (other_project.name, registered.name)
+        for suffix in ("", ".probes", ".manifest")
+    }
+
+
+def _verified(**fields):
+    return {
+        "status": "verified",
+        "golden_baseline_path": "/Users/Shared/yoke-golden/testy-home-new",
+        **fields,
+    }
+
+
+def test_a_server_without_kept_goldens_keeps_every_snapshot():
+    # An older server cannot name other projects' goldens, so nothing is
+    # deleted and the refusal says why and how to clean up by hand.
+    with pytest.raises(SnapshotRetentionError) as raised:
+        retain_after_verified_capture("golden_capture", True, _verified(), {})
+
+    assert raised.value.code == "golden_snapshot_retention_failed"
+    assert "kept_golden_paths" in raised.value.detail
+    assert "another project registered" in raised.value.recovery
+    assert "yoke test-machine get" in raised.value.recovery
+
+
+def test_an_unknown_registration_keeps_every_snapshot():
+    with pytest.raises(SnapshotRetentionError) as raised:
+        retain_after_verified_capture(
+            "golden_capture",
+            True,
+            _verified(kept_golden_paths_unknown="project 3 is unreadable"),
+            {},
+        )
+
+    assert "project 3 is unreadable" in raised.value.detail
 
 
 def test_a_symlink_blocks_removal_and_leaves_the_target(tmp_path):
@@ -101,7 +171,12 @@ def test_a_symlink_blocks_removal_and_leaves_the_target(tmp_path):
     registered.mkdir()
 
     with pytest.raises(SnapshotRetentionError) as raised:
-        apply_retention(_run, destination=str(registered), user="yoketest")
+        apply_retention(
+            _run,
+            destination=str(registered),
+            user="yoketest",
+            kept_paths=[str(registered)],
+        )
 
     assert raised.value.code == "golden_snapshot_retention_failed"
     assert "symlink" in raised.value.detail

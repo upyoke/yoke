@@ -5,8 +5,10 @@ rollback copy. A directory named for the test user is that user's golden
 root: every other child is a snapshot, including dated homes, mixed captures,
 ``.yoke-golden-*`` temporaries and retired browser profiles. A shared parent
 drops only this user's ``USER-home-*`` and ``home-*`` snapshots, so another
-user's baseline stays. The registered directory and its ``.probes`` and
-``.manifest`` sidecars stay. A symlink is never removed.
+user's baseline stays. One machine can be registered in several projects
+that share a parent, so every golden the server names as registered for this
+machine stays, with its ``.probes`` and ``.manifest`` sidecars, whichever
+project registered it. A symlink is never removed.
 """
 
 from __future__ import annotations
@@ -15,6 +17,10 @@ import shlex
 from pathlib import PurePosixPath
 from typing import Any, Sequence
 
+from yoke_contracts.machine_qa_host_control import (
+    KEPT_GOLDEN_PATHS_KEY,
+    KEPT_GOLDEN_PATHS_UNKNOWN_KEY,
+)
 
 RETENTION_FAILED = "golden_snapshot_retention_failed"
 SIDECAR_SUFFIXES = (".probes", ".manifest")
@@ -44,8 +50,10 @@ LINUX_CAPTURE_SPACE_CHECK = """\
             recovery=(
                 "Remove every snapshot under "
                 + str(baseline.parent)
-                + " except the registered golden and its .probes and "
-                ".manifest files, then retry: yoke test-machine golden-capture"
+                + " except each project's registered golden for this "
+                "machine (yoke test-machine get shows golden_baseline_path) "
+                "and their .probes and .manifest files, then retry: yoke "
+                "test-machine golden-capture"
             ),
         )
 """
@@ -61,22 +69,22 @@ class SnapshotRetentionError(Exception):
         self.recovery = recovery
 
 
-def kept_snapshot_names(registered_name: str) -> frozenset[str]:
-    """Return the registered golden and the sidecars restore still reads."""
+def kept_snapshot_names(registered_names: Sequence[str]) -> frozenset[str]:
+    """Return every registered golden and the sidecars restore still reads."""
     return frozenset(
-        {registered_name, *(registered_name + suffix for suffix in SIDECAR_SUFFIXES)}
+        name + suffix for name in registered_names for suffix in ("", *SIDECAR_SUFFIXES)
     )
 
 
 def removable_snapshot_names(
     names: Sequence[str],
     *,
-    registered_name: str,
+    registered_names: Sequence[str],
     user: str,
     parent_name: str,
 ) -> tuple[str, ...]:
     """Return sibling snapshot names that are safe to delete."""
-    kept = kept_snapshot_names(registered_name)
+    kept = kept_snapshot_names(registered_names)
     per_user_root = parent_name == user
     removable: list[str] = []
     for name in names:
@@ -137,17 +145,34 @@ def removal_script(parent: str, names: Sequence[str]) -> str:
 def _recovery(destination: str, parent: str) -> str:
     return (
         f"The registered golden {destination} is already recorded. "
-        f"Remove every other snapshot under {parent}, keep {destination} "
-        "and its .probes and .manifest files, and do not capture again "
-        "until those leftovers are gone."
+        f"Remove every other snapshot under {parent}, but keep {destination}, "
+        "every golden another project registered for this machine (yoke "
+        "test-machine get --project P --machine NAME names it as "
+        "golden_baseline_path), and their .probes and "
+        ".manifest files. Do not capture again until those leftovers are gone."
     )
 
 
-def apply_retention(run: Any, *, destination: str, user: str) -> list[str]:
-    """List ``destination``'s parent through ``run`` and delete retired snapshots."""
+def apply_retention(
+    run: Any,
+    *,
+    destination: str,
+    user: str,
+    kept_paths: Sequence[str],
+) -> list[str]:
+    """List ``destination``'s parent through ``run`` and delete retired snapshots.
+
+    ``kept_paths`` are every golden registered for this machine; each one in
+    this parent stays.
+    """
     parent_path = PurePosixPath(destination).parent
     parent = parent_path.as_posix()
     registered = PurePosixPath(destination).name
+    registered_names = {registered} | {
+        PurePosixPath(path).name
+        for path in kept_paths
+        if PurePosixPath(path).parent == parent_path
+    }
     if parent == "/" or not user or registered in {"", ".", ".."}:
         raise SnapshotRetentionError(
             f"Refusing to clean an unsafe golden parent for {destination}.",
@@ -164,7 +189,7 @@ def apply_retention(run: Any, *, destination: str, user: str) -> list[str]:
         )
     removable = removable_snapshot_names(
         names_from_find(parent, listed.stdout or ""),
-        registered_name=registered,
+        registered_names=sorted(registered_names),
         user=user,
         parent_name=parent_path.name,
     )
@@ -198,11 +223,31 @@ def retain_after_verified_capture(
         and destination
     ):
         return None
-    return retain_registered_golden(execution, destination)
+    parent = str(PurePosixPath(destination).parent)
+    unknown = payload.get(KEPT_GOLDEN_PATHS_UNKNOWN_KEY)
+    if isinstance(unknown, str) and unknown:
+        raise SnapshotRetentionError(
+            f"Retired snapshots under {parent} were kept: {unknown}.",
+            _recovery(destination, parent),
+        )
+    kept_paths = payload.get(KEPT_GOLDEN_PATHS_KEY)
+    if not isinstance(kept_paths, list) or destination not in kept_paths:
+        raise SnapshotRetentionError(
+            f"Retired snapshots under {parent} were kept: this server does not "
+            "name the goldens other projects registered for this machine "
+            f"({KEPT_GOLDEN_PATHS_KEY}), so deleting could remove one of them. "
+            "Retention needs a server from the release that adds that field.",
+            _recovery(destination, parent),
+        )
+    return retain_registered_golden(execution, destination, kept_paths)
 
 
-def retain_registered_golden(execution: dict[str, Any], destination: str) -> list[str]:
-    """Open the capture's host and delete snapshots other than ``destination``."""
+def retain_registered_golden(
+    execution: dict[str, Any],
+    destination: str,
+    kept_paths: Sequence[str],
+) -> list[str]:
+    """Open the capture's host and delete snapshots no project registered."""
     from yoke_contracts.machine_qa_execution import HostControlExecutionContract
     from yoke_harness.host_operations import host_operations_for
 
@@ -211,9 +256,7 @@ def retain_registered_golden(execution: dict[str, Any], destination: str) -> lis
     except Exception as exc:
         raise SnapshotRetentionError(
             "The capture contract could not be read to remove retired snapshots.",
-            f"The registered golden {destination} is already recorded. "
-            "Remove every other snapshot beside it, keep its .probes and "
-            ".manifest files, and do not capture again until they are gone.",
+            _recovery(destination, str(PurePosixPath(destination).parent)),
         ) from exc
     if contract.golden_destination != destination:
         raise SnapshotRetentionError(
@@ -226,6 +269,7 @@ def retain_registered_golden(execution: dict[str, Any], destination: str) -> lis
             operations._run,
             destination=destination,
             user=str(contract.settings["user"]),
+            kept_paths=kept_paths,
         )
     except SnapshotRetentionError:
         raise

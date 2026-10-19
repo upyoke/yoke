@@ -20,6 +20,10 @@ HOST_BASELINE_END_STATE = {
 # against the machine under its own name so the last one is always readable.
 RESET_OPERATION = "reset"
 GOLDEN_CAPTURE_OPERATION = "golden_capture"
+# A verified capture's result names every golden registered for its machine
+# beside it, across projects, so retention keeps them; or why that is unknown.
+KEPT_GOLDEN_PATHS_KEY = "kept_golden_paths"
+KEPT_GOLDEN_PATHS_UNKNOWN_KEY = "kept_golden_paths_unknown"
 BRIDGE_DIAGNOSE_OPERATION = "bridge_diagnose"
 VERIFY_OPERATION = "verify"
 SCREENSHOT_OPERATION = "screenshot"
