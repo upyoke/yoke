@@ -67,7 +67,7 @@ def test_a_failure_naming_the_frozen_commit_says_a_new_run_is_required(
     assert entry["current_sha"] == current
     assert entry["reason"].startswith(
         f"bound source {CONSUMER_PROJECT} {frozen} is stale (current {current}); "
-        "re-driving run-candidate cannot pass"
+        "re-driving run-candidate cannot dispatch a stage on it"
     )
     assert "create a new run" in entry["reason"]
 

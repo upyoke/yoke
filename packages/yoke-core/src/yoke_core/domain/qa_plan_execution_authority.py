@@ -169,7 +169,14 @@ def require_plan_execution_owner(
             "and run yoke qa plan adopt with the same subject and --execution-id "
             f"{execution.get('id', 'ID')} --reason TEXT, then retry"
         )
-    if execution.get("deployment_stage") is not None:
+    from yoke_core.domain.qa_plan_execution_abort_reason import (
+        member_removal_pending,
+    )
+
+    # A removed member's target left the run; its cleanup still reports here.
+    if execution.get("deployment_stage") is not None and not member_removal_pending(
+        dict(execution)
+    ):
         if conn is None:
             _fail("scoped deployment QA mutation requires database authority")
         from yoke_core.domain.deployment_qa_execution_target import (

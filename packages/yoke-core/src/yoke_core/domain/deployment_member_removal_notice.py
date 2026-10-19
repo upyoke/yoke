@@ -50,7 +50,36 @@ def red_requirement_ids(conn: Any, requirement_ids: Iterable[int]) -> tuple[int,
     )
 
 
+#: A removed execution whose host may be dirty keeps it until cleanup proof.
+HOST_CLEANUP_PENDING = (
+    " Its running QA execution keeps its Test Machine until that host is clean: "
+    "a host-control runner stops and records restore proof on its own; a "
+    "mission walk's session runs its dispatched `yoke qa mission walk-end`. "
+    "No other QA gets that machine before then."
+)
+
+
 def removal_notice_body(
+    *,
+    run_id: str,
+    public_ref: str,
+    reason: str,
+    removed_by: str,
+    red: tuple[int, ...] | None,
+    host_cleanup_pending: bool = False,
+) -> str:
+    """Name the owner's next step and any host cleanup the removal left owed."""
+    body = _next_step(
+        run_id=run_id,
+        public_ref=public_ref,
+        reason=reason,
+        removed_by=removed_by,
+        red=red,
+    )
+    return body + HOST_CLEANUP_PENDING if host_cleanup_pending else body
+
+
+def _next_step(
     *,
     run_id: str,
     public_ref: str,
@@ -111,6 +140,7 @@ def notify_removed_member(
     removed_by: str,
     removed_at: str,
     execution_aborted: bool = False,
+    host_cleanup_pending: bool = False,
     cancelled_requirement_ids: Iterable[int] = (),
 ) -> None:
     """Queue a notice with the removal, without risking its durable write.
@@ -118,6 +148,7 @@ def notify_removed_member(
     A takeover that aborted no running execution sends nothing: the new run's
     item-QA wake already names that run. A takeover that stopped a running
     execution still wakes the owner, and says QA continues on the new run.
+    An execution left holding its host names the cleanup that releases it.
     A red verdict among the cancelled requirements keeps the rework
     instruction unless the removal source already carries the member past
     this run. The caller commits. A send failure rolls back only this
@@ -141,6 +172,7 @@ def notify_removed_member(
             reason=reason,
             removed_by=removed_by,
             red=red,
+            host_cleanup_pending=host_cleanup_pending,
         )
         project = query_one(
             conn, "SELECT project_id FROM items WHERE id=%s", (item_id,)
@@ -160,6 +192,7 @@ def notify_removed_member(
             reason=reason,
             removed_by=removed_by,
             red=red,
+            host_cleanup_pending=host_cleanup_pending,
         )
         print(
             f"member_removal_notice_failed: {public_ref} on {run_id}: {exc}. "

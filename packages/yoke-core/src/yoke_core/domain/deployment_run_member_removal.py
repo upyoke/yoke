@@ -198,7 +198,9 @@ def remove_members_on(
     removed_at = record_membership_removals(
         conn, run_id, ids, reason=reason, session_id=session_id, actor_id=actor_id
     )
-    stopped = abort_removed_member_executions(conn, run_id=run_id, item_ids=ids)
+    stopped, cleaning = abort_removed_member_executions(
+        conn, run_id=run_id, item_ids=ids
+    )
     cancelled = retract_member_copies(conn, run_id, item_ids=ids, reason=reason)
     retract_orphaned_shared_copies(conn, run_id=run_id, reason=reason)
     withdraw_deployment_qa_wait_wakes(
@@ -214,6 +216,7 @@ def remove_members_on(
             removed_by=removed_by,
             removed_at=removed_at,
             execution_aborted=item_id in stopped,
+            host_cleanup_pending=item_id in cleaning,
             cancelled_requirement_ids=cancelled.get(item_id, ()),
         )
     return {item_id: ref(item_id) for item_id in ids}

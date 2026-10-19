@@ -37,9 +37,10 @@ def stale_bound_source_reason(
     """The one sentence a reader of the failure needs to act on it."""
     return (
         f"bound source {project} {frozen_sha} is stale (current {current_sha}); "
-        f"re-driving {run_id} cannot pass, and neither can a --retry-of run, "
-        "which copies the same frozen commit — leave it failed and create a "
-        "new run, which binds the current commit"
+        f"re-driving {run_id} cannot dispatch a stage on it, and neither can a "
+        "--retry-of run, which copies the same frozen commit — leave it failed "
+        "and create a new run, which binds the current commit. A re-drive of a "
+        "stage this run already dispatched reattaches regardless"
     )
 
 

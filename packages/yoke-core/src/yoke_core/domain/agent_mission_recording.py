@@ -208,10 +208,15 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
             actor_id=request.actor.actor_id,
             session_id=request.actor.session_id,
         )
-        if execution["state"] != "awaiting_agent_review":
-            from yoke_core.domain.qa_plan_execution_abort_reason import member_removed
+        from yoke_core.domain.qa_plan_execution_abort_reason import (
+            member_removal_pending,
+            member_removed,
+        )
 
-            if member_removed(execution):
+        if execution["state"] != "awaiting_agent_review" or member_removal_pending(
+            execution
+        ):
+            if member_removed(execution) or member_removal_pending(execution):
                 raise ValueError(
                     "mission_member_removed: this walk cannot resume; its original "
                     "session must run the dispatched yoke qa mission walk-end "

@@ -76,11 +76,14 @@ def require_cursor_case_current(conn: Any, execution: dict[str, Any]) -> None:
     or discharged after the roster froze is refused before it runs.
     """
     from yoke_core.domain.qa_obligation_settlement import unanswered_attempt_sql
+    from yoke_core.domain.qa_plan_execution_abort_state import abort_request
 
     roster = execution.get("roster") or []
     cursor = int(execution["cursor_ordinal"])
     if execution["state"] != "active" or cursor >= len(roster):
         return
+    if abort_request(execution) is not None:
+        return  # The check-in reports the abort; its retracted case cannot run.
     requirement_id = int(roster[cursor]["requirement_id"])
     row = conn.execute(
         f"SELECT 1 FROM qa_requirements WHERE id={marker(conn)} "

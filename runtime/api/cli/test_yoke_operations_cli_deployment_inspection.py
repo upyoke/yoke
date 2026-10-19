@@ -138,9 +138,7 @@ def test_failure_trace_human_output_names_terminal_cause_and_chain() -> None:
 
 
 def test_failure_trace_names_a_stale_bound_source_and_the_new_run() -> None:
-    reason = (
-        "bound source consumer aaa is stale (current bbb); re-driving run-x cannot pass"
-    )
+    reason = "bound source consumer aaa is stale (current bbb); re-driving run-x cannot dispatch a stage on it"
     result = {
         "deployment_run_id": "run-x",
         "stage": "hosted-release",
