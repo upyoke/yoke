@@ -106,10 +106,22 @@ def rerecord_hand_run(requirement: dict[str, Any], commit_sha: str) -> None:
     _mark_bound(requirement, commit_sha)
 
 
-def rerun_command_case(requirement_id: int) -> None:
+def rerun_command_case(
+    requirement_id: int, lane: dict[str, Any], commit_sha: str
+) -> None:
+    """Run the case in the merge source lane, pinned to the merging commit.
+
+    Naming the lane keeps a parent-level requirement on a multi-lane item
+    from resolving against every sibling lane.
+    """
     from yoke_core.domain.qa_case_execution import execute_case
 
-    execute_case(int(requirement_id))
+    execute_case(
+        int(requirement_id),
+        checkout_path=str(lane.get("path") or "").strip() or None,
+        expected_branch=str(lane.get("branch") or "").strip() or None,
+        expected_sha=commit_sha,
+    )
 
 
 def _runner_authority_refusal(
@@ -153,11 +165,12 @@ def recover_issues(
     commit_sha: str,
     *,
     rerecord: Optional[Callable[[dict[str, Any], str], None]] = None,
-    run_case: Optional[Callable[[int], None]] = None,
+    run_case: Optional[Callable[[int, dict[str, Any], str], None]] = None,
 ) -> str:
     """Apply recovery. Return an error string, or empty on success."""
     persist = rerecord or rerecord_hand_run
     execute = run_case or rerun_command_case
+    lane = merge_source_lane(item) or {}
     failures = []
     recovered = []
     for issue in issues:
@@ -171,7 +184,7 @@ def recover_issues(
         try:
             if runner_id in COMMAND_RUNNERS:
                 # The case records the head it tested; the recheck reads it.
-                execute(int(requirement["id"]))
+                execute(int(requirement["id"]), lane, commit_sha)
             elif not method_id and not runner_id:
                 with contextlib.redirect_stderr(diagnostic):
                     persist(requirement, commit_sha)
@@ -208,6 +221,10 @@ def at_lane_head(
     head = git.head_of(str(repo_root), branch)
     lane = merge_source_lane(item)
     if head and lane is not None:
+        queue = item.get("merge_queue") or {}
+        if queue.get("head_sha") and queue["head_sha"] == lane.get("commit_sha"):
+            # Keep the queued head naming this lane once it is rebound.
+            item["merge_queue"] = {**queue, "head_sha": head}
         lane["commit_sha"] = head
     return item
 
@@ -221,7 +238,7 @@ def recover_and_recheck(
     qa_error: str,
     reload: Callable[[], tuple[dict[str, Any], str]],
     rerecord: Optional[Callable[[dict[str, Any], str], None]] = None,
-    run_case: Optional[Callable[[int], None]] = None,
+    run_case: Optional[Callable[[int, dict[str, Any], str], None]] = None,
 ) -> tuple[str, str]:
     """Recover a commit-bound preflight refusal, then re-run preflight.
 

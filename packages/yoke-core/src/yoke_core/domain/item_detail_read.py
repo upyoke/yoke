@@ -29,6 +29,7 @@ from yoke_core.domain.item_detail_qa import qa_plan_attachments, qa_rows
 from yoke_core.domain.item_terminal_resources import terminal_stage_ids
 from yoke_core.domain.item_worktrees import list_item_worktrees
 from yoke_core.domain.merge_queue_landing_attempt import read_latest_attempt
+from yoke_core.domain.merge_queue_landing_record import read_landing_record
 from yoke_core.domain.render_body import build_body
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.shepherd_verdict_log import item_verdicts
@@ -64,6 +65,9 @@ def _merge_queue(conn: Any, item_id: int, row: dict[str, Any]) -> dict[str, Any]
     ``pr_number`` and the stamps name the current landing. ``attempt`` is
     the open re-land attempt, or the last closed one with its reason; the
     status label follows the open attempt, which is the landing in flight.
+    ``head_sha`` is the pull-request head the landing record last observed:
+    the candidate the queue holds or merged, which names the merge source
+    lane among several.
     """
     attempt = (
         read_latest_attempt(conn, item_id)
@@ -71,8 +75,14 @@ def _merge_queue(conn: Any, item_id: int, row: dict[str, Any]) -> dict[str, Any]
         else None
     )
     in_flight = attempt is not None and attempt["closed_at"] is None
+    record = (
+        read_landing_record(conn, item_id)
+        if _table_exists(conn, "merge_queue_landing_records")
+        else None
+    )
     return {
         "pr_number": str(row.get("merge_queue_pr_number") or ""),
+        "head_sha": record.head_sha if record is not None else "",
         "enqueued_at": row.get("merge_queue_enqueued_at"),
         "landed_at": row.get("merge_queue_landed_at"),
         "notified_at": row.get("merge_queue_notified_at"),
