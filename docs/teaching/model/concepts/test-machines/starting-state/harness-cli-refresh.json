@@ -1,0 +1,9 @@
+{
+ "id": "harness-cli-refresh",
+ "title": "Refresh a golden to the latest harness CLIs",
+ "status": "observed",
+ "page": "test-machine-starting-state",
+ "position": 2,
+ "sources": ["docs/testing-verification/test-machine-golden-baseline.md", "docs/public/verification/deployment-plan-execution.md"],
+ "summary": "A golden restores the harness CLIs it captured, so a QA plan's first golden reset on each Test Machine compares the versions recorded beside the golden with each vendor's latest release. A current golden costs one record read: no reset, install or capture. A golden that is behind, or has no record, is refreshed once for that plan under the plan's own host lease: reset, install the newer releases with each vendor's installer as the test user, capture through the ordinary golden capture (which keeps logins, keychains and cookies out), then begin the case again so every later reset restores the refreshed golden. Any failed step stops the plan with a golden_refresh_* reason and its repair before a case runs on stale CLIs. Agents and operators do not hand-update CLIs for QA; a hand-captured golden after an update remains the recovery when the serving control plane predates the plan_execution_id golden-capture argument."
+}

@@ -7,7 +7,7 @@ root: every other child is a snapshot, including dated homes, mixed captures,
 drops only this user's ``USER-home-*`` and ``home-*`` snapshots, so another
 user's baseline stays. One machine can be registered in several projects
 that share a parent, so every golden the server names as registered for this
-machine stays, with its ``.probes`` and ``.manifest`` sidecars, whichever
+machine stays, with its ``.probes``, ``.manifest`` and ``.harness-clis`` sidecars, whichever
 project registered it. A symlink is never removed.
 """
 
@@ -23,7 +23,7 @@ from yoke_contracts.machine_qa_host_control import (
 )
 
 RETENTION_FAILED = "golden_snapshot_retention_failed"
-SIDECAR_SUFFIXES = (".probes", ".manifest")
+SIDECAR_SUFFIXES = (".probes", ".manifest", ".harness-clis")
 LINUX_CAPTURE_SPACE_CHECK = """\
     try:
         free = shutil.disk_usage(baseline.parent).free
@@ -52,7 +52,7 @@ LINUX_CAPTURE_SPACE_CHECK = """\
                 + str(baseline.parent)
                 + " except each project's registered golden for this "
                 "machine (yoke test-machine get shows golden_baseline_path) "
-                "and their .probes and .manifest files, then retry: yoke "
+                "and their .probes, .manifest and .harness-clis files, then retry: yoke "
                 "test-machine golden-capture"
             ),
         )
@@ -148,8 +148,8 @@ def _recovery(destination: str, parent: str) -> str:
         f"Remove every other snapshot under {parent}, but keep {destination}, "
         "every golden another project registered for this machine (yoke "
         "test-machine get --project P --machine NAME names it as "
-        "golden_baseline_path), and their .probes and "
-        ".manifest files. Do not capture again until those leftovers are gone."
+        "golden_baseline_path), and their .probes, .manifest "
+        "and .harness-clis files. Do not capture again until those leftovers are gone."
     )
 
 

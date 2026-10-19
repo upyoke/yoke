@@ -1,4 +1,8 @@
-"""Native browser state and harness installations remain live across reset."""
+"""Native browser state, harness sign-ins and harness installations stay live.
+
+Each entry is left out of every captured golden and kept live through reset,
+so a reset never restores a rotated sign-in or an older harness install.
+"""
 
 SNAP_CHROMIUM_HOME_ENTRY = "snap/chromium/common/chromium"
 
@@ -12,6 +16,7 @@ live_home_entries = (
     ".local/share/claude", ".local/share/cursor-agent",
     ".local/lib/node_modules/@openai",
     ".codex/packages",
+    ".claude/.credentials.json", ".codex/auth.json", ".config/cursor/auth.json",
 )
 live_home_stashes = []
 live_home_stash_root = None

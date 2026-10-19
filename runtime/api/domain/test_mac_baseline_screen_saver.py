@@ -47,6 +47,7 @@ def test_screen_saver_assertion_reads_current_host_without_writing(
     assert capsys.readouterr() == ("", "")
 
 
+@pytest.mark.usefixtures("recorded_harness_clis")
 @pytest.mark.parametrize("restored_idle", [0, 1200])
 def test_capture_seals_screen_saver_check_and_reset_replays_it(
     monkeypatch, restored_idle

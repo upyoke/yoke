@@ -62,32 +62,30 @@ OperatorOperation = Literal[
 ]
 
 
-class TestMachineOperationBeginRequest(BaseModel):
+class TestMachineOperationShape(BaseModel):
+    """An operation's issued shape; submit and abort echo it so a wrong echo
+    fails the rebuilt contract's comparison instead of being trusted."""
+
     model_config = ConfigDict(extra="forbid")
 
     project: str
-    machine: str | None = None
     operation: OperatorOperation
     baseline: str | None = None
     destination: str | None = None
+    plan_execution_id: str | None = None
+
+
+class TestMachineOperationBeginRequest(TestMachineOperationShape):
+    machine: str | None = None
 
 
 class TestMachineOperationBeginResponse(BaseModel):
     execution: HostControlExecutionContract
 
 
-class TestMachineOperationSubmitRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    project: str
+class TestMachineOperationSubmitRequest(TestMachineOperationShape):
     lease_id: int = Field(ge=1)
     contract_digest: str = Field(min_length=1)
-    operation: OperatorOperation
-    # The issued shape, echoed back so submit rebuilds the same contract it
-    # compares against. A wrong echo fails that comparison rather than being
-    # taken on trust.
-    baseline: str | None = None
-    destination: str | None = None
     status: Literal["verified", "error"]
     checks: list[dict[str, Any]]
     error_code: str | None = None
@@ -168,6 +166,7 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
             project=parsed.project,
             actor=request.actor,
             machine=parsed.machine,
+            plan_execution_id=parsed.plan_execution_id,
             operation=_operation(parsed.operation),
             **operation_contract_shape(
                 parsed.operation,
@@ -221,6 +220,7 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
             actor=request.actor,
             operation=parsed.operation,
             baselines=shape["baselines"],
+            plan_execution_id=parsed.plan_execution_id,
         )
         lease, contract = validate_operation_submission(
             conn,
@@ -341,6 +341,7 @@ __all__ = [
     "TestMachineOperationBeginRequest",
     "TestMachineOperationBeginResponse",
     "TestMachineOperationResponse",
+    "TestMachineOperationShape",
     "TestMachineOperationSubmitRequest",
     "handle_operation_begin",
     "handle_operation_submit",

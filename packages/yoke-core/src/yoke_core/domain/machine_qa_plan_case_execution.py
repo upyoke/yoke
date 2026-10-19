@@ -9,6 +9,7 @@ from typing import Any, Mapping
 
 from yoke_contracts.api.function_call import ActorContext, TargetRef
 from yoke_contracts.machine_qa_failures import host_control_failure
+from yoke_core.domain.golden_harness_refresh import refreshed_case_contract
 
 
 class MachinePlanCaseDispatchError(RuntimeError):
@@ -96,6 +97,16 @@ def _dispatch(
         ) from exc
 
 
+def _begin(target: TargetRef, actor: ActorContext, request: dict) -> dict[str, Any]:
+    return _dispatch(
+        "test_machine.plan_case.begin",
+        target=target,
+        actor=actor,
+        payload=request,
+        host_contact_possible=False,
+    )
+
+
 def execute_plan_machine_case(
     case: Mapping[str, Any],
     *,
@@ -131,13 +142,7 @@ def execute_plan_machine_case(
         "requirement_id": requirement_id,
         **({"machine": machine} if machine else {}),
     }
-    begun = _dispatch(
-        "test_machine.plan_case.begin",
-        target=target,
-        actor=actor,
-        payload=request,
-        host_contact_possible=False,
-    )
+    begun = _begin(target, actor, request)
     if begun.get("state") == "blocked" and isinstance(begun.get("result"), dict):
         return dict(begun["result"])
     if begun.get("state") == "waiting":
@@ -148,6 +153,12 @@ def execute_plan_machine_case(
             "test_machine.plan_case.begin returned no execution contract"
         )
     _report_selection(begun, execution)
+    execution = refreshed_case_contract(
+        execution,
+        plan_execution_id=execution_id,
+        actor=actor,
+        begin=lambda: _begin(target, actor, request),
+    )
     submission = None
     uncertain = False
     try:
@@ -268,13 +279,7 @@ def execute_plan_agent_mission_case(
         "requirement_id": requirement_id,
         **({"machine": machine} if machine else {}),
     }
-    begun = _dispatch(
-        "test_machine.plan_case.begin",
-        target=target,
-        actor=actor,
-        payload=request,
-        host_contact_possible=False,
-    )
+    begun = _begin(target, actor, request)
     if begun.get("state") == "waiting":
         return _waiting_case(begun, requirement_id, runner_id="agent_mission")
     execution = begun.get("execution")
@@ -283,6 +288,12 @@ def execute_plan_agent_mission_case(
             "test_machine.plan_case.begin returned no mission contract"
         )
     _report_selection(begun, execution)
+    execution = refreshed_case_contract(
+        execution,
+        plan_execution_id=execution_id,
+        actor=actor,
+        begin=lambda: _begin(target, actor, request),
+    )
     try:
         from yoke_core.domain.machine_qa_local_execution import (
             prepare_agent_mission_contract,

@@ -83,11 +83,27 @@ def test_linux_capture_roundtrip_runs_after_probe_seal_and_before_success(monkey
             or HostActionResult(False, {}, "linux_golden_desktop_frame_failed")
         ),
     )
+    versions = {
+        "claude-code": "2.1.300",
+        "codex": "0.163.0",
+        "cursor": "2026.10.16-e3cb207",
+    }
     control = SimpleNamespace(
-        os="linux", upload_remote_text=lambda *a: calls.append("seal")
+        os="linux",
+        upload_remote_text=lambda path, text: calls.append("seal " + path),
+        run_command=lambda argv, timeout: (
+            calls.append("versions")
+            or subprocess.CompletedProcess(argv, 0, json.dumps(versions), "")
+        ),
     )
     outcome = baseline.capture_linux_golden(control, "/golden", None)
-    assert calls == ["archive", "seal", "roundtrip"]
+    assert calls == [
+        "archive",
+        "seal /golden.probes",
+        "versions",
+        "seal /golden.harness-clis",
+        "roundtrip",
+    ]
     assert not outcome.ok
     assert outcome.error_code == "linux_golden_desktop_frame_failed"
 

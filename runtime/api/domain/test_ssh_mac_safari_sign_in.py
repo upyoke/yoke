@@ -7,6 +7,8 @@ from pathlib import Path
 import shlex
 from types import SimpleNamespace
 
+import pytest
+
 from runtime.api.domain.ssh_mac_full_reset_test_support import (
     assignment,
     function_program,
@@ -171,6 +173,7 @@ def test_a_failed_exit_probe_is_not_read_as_safari_gone():
     assert result.evidence["probe"] == "exited"
 
 
+@pytest.mark.usefixtures("recorded_harness_clis")
 def test_capture_quits_safari_after_proving_probes_and_before_copying(monkeypatch):
     from yoke_harness import ssh_mac_golden_capture
     from yoke_harness.test_machine_types import HostActionResult
@@ -204,6 +207,7 @@ def test_capture_quits_safari_after_proving_probes_and_before_copying(monkeypatc
         control, destination="/Users/Shared/golden"
     )
     assert result.ok and result.evidence["sign_in_apps_quit"] == ["Safari"]
+    assert result.evidence["harness_cli_versions"]["codex"] == "0.163.0"
     assert order == ["probes", "quit:tester", "copy"]
 
 

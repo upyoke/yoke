@@ -186,6 +186,21 @@ FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] 
             "`yoke workflows item-posture amend PREFIX-N --key level`",
         ),
     },
+    **{
+        function_id: {
+            "plan_execution_id": ArgumentFloor(
+                "next-release",
+                "a golden refreshed outside the plan: install the latest harness "
+                "CLIs as the test user, then `yoke test-machine golden-capture "
+                "--project P --machine M`",
+            ),
+        }
+        for function_id in (
+            "test_machine.operation.begin",
+            "test_machine.operation.submit",
+            "test_machine.operation.abort",
+        )
+    },
     "session_control.launch.preview": {
         "level": ArgumentFloor(
             "next-release", "an exact selection with --surface S [--model M]"

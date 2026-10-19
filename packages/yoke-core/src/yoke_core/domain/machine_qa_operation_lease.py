@@ -30,9 +30,20 @@ from yoke_core.domain.schema_common import _table_exists
 
 
 def operation_mission(
-    conn: Any, *, lease_id: int, project: str, actor: Any, operation=None, baselines=()
+    conn: Any,
+    *,
+    lease_id: int,
+    project: str,
+    actor: Any,
+    operation=None,
+    baselines=(),
+    plan_execution_id: str | None = None,
 ) -> Any:
-    """Lock the durable mission before its host claim, matching plan close-out."""
+    """Lock the durable mission before its host claim, matching plan close-out.
+
+    A plan names itself with *plan_execution_id* to refresh its host's golden
+    under its own lease, before its machine case resets to that golden.
+    """
     try:
         lease = get_claim(conn, lease_id)
     except CoordinationClaimNotFoundError:
@@ -72,7 +83,14 @@ def operation_mission(
     if execution["state"] == "active":
         ordinal = int(execution["cursor_ordinal"])
         roster = execution["roster"]
-        if ordinal < len(roster) and roster[ordinal].get("runner_id") == "worktree_run":
+        runner = roster[ordinal].get("runner_id") if ordinal < len(roster) else None
+        if runner == "worktree_run":
+            return execution
+        if (
+            operation == "golden_capture"
+            and runner in {"host_control", "agent_mission"}
+            and plan_execution_id == str(execution["id"])
+        ):
             return execution
     missions = [
         case
@@ -83,14 +101,22 @@ def operation_mission(
         raise MachineQaProtocolError(
             f"mission_operation_unavailable: the lease on {machine} belongs to "
             f"your plan {execution['id']}, which is {execution['state']}; this "
-            "operation requires its active declared-host Command case or an "
-            "awaiting mission walk. Resume the scoped plan before retrying"
+            "operation requires its active declared-host Command case, an "
+            "awaiting mission walk, or a golden capture naming the plan as "
+            "plan_execution_id at its active machine case. Resume the scoped "
+            "plan before retrying"
         )
     return execution
 
 
 def begin_operation_execution(
-    conn: Any, *, actor: Any, project: str, machine: str | None, **shape: Any
+    conn: Any,
+    *,
+    actor: Any,
+    project: str,
+    machine: str | None,
+    plan_execution_id: str | None = None,
+    **shape: Any,
 ) -> Any:
     candidate = load_test_machine_contract(conn, project=project, machine=machine)
     lease = active_claim(conn, host_claim_target(candidate.settings["resource_name"]))
@@ -104,8 +130,16 @@ def begin_operation_execution(
             actor=actor,
             operation=shape.get("operation"),
             baselines=shape.get("baselines", ()),
+            plan_execution_id=plan_execution_id,
         )
     )
+    if mission is None and plan_execution_id is not None:
+        raise MachineQaProtocolError(
+            f"plan_golden_refresh_lease_missing: plan {plan_execution_id} does "
+            f"not hold the lease on {candidate.settings['resource_name']}; its "
+            "machine case must begin before it refreshes that host's golden. "
+            "Rerun the QA plan"
+        )
     if mission is None:
         return begin_host_control_execution(
             conn,
