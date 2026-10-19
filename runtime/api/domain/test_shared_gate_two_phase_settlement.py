@@ -160,40 +160,37 @@ def test_an_effects_failure_keeps_members_done_and_replay_finishes_it(
     _isolate_status_effects(monkeypatch)
     _five_ready_members(test_db)
     _executing_run(test_db, "run-effects")
-    retired: list[str] = []
+    from yoke_core.domain import standalone_item_merge
+
+    synced: list[int] = []
     monkeypatch.setattr(
         terminal_lane_cleanup,
         "sweep_managed_lanes",
         lambda **_kwargs: ((), {}),
     )
 
-    def _broken(item, envelope, **_kwargs):
-        raise RuntimeError("lane cleanup unavailable")
+    def _broken(item_id: int):
+        raise RuntimeError("GitHub sync unavailable")
 
-    monkeypatch.setattr(
-        terminal_lane_cleanup, "record_terminal_lane_close_out", _broken
-    )
+    monkeypatch.setattr(standalone_item_merge, "sync_item_to_github", _broken)
 
     refusal = cmd_update("run-effects", "status", "succeeded")
 
-    assert refusal is not None and "lane cleanup unavailable" in refusal
+    assert refusal is not None and "GitHub sync unavailable" in refusal
     assert "post-close effects did not finish" in refusal
     assert _run(test_db, "run-effects") == ("executing", True)
     for item_id in MEMBERS:
         assert _status(test_db, item_id) == "done"
         assert not _claim_held(test_db, item_id)
 
-    def _retire(item, envelope, **_kwargs):
-        retired.append(str(item["public_ref"]))
+    def _sync(item_id: int):
+        synced.append(int(item_id))
+        return None
 
-    monkeypatch.setattr(
-        terminal_lane_cleanup, "record_terminal_lane_close_out", _retire
-    )
+    monkeypatch.setattr(standalone_item_merge, "sync_item_to_github", _sync)
     assert cmd_update("run-effects", "status", "succeeded") is None
 
-    assert sorted(retired) == sorted(
-        render_item_ref(test_db, item_id) for item_id in MEMBERS
-    )
+    assert sorted(synced) == sorted(MEMBERS)
     assert _run(test_db, "run-effects") == ("succeeded", True)
 
 

@@ -52,7 +52,10 @@ from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
 )
 from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
-from yoke_core.domain.deployment_qa_presentation_facts import member_presentation
+from yoke_core.domain.deployment_qa_presentation_facts import (
+    member_presentation,
+    run_presentation,
+)
 
 
 def _p(conn: Any) -> str:
@@ -256,6 +259,8 @@ def member_qa_standings(
     return standing
 
 
+@presentation_operation
+@run_presentation
 def item_qa_acceptance_blockers(conn: Any, *, run_id: str, item_id: int) -> list[str]:
     """Every unsatisfied scoped QA verdict this item still owes in the run.
 

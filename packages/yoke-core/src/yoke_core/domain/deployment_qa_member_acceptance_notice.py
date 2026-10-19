@@ -35,6 +35,8 @@ from yoke_core.domain.db_optional_queries import rollback_savepoint
 from yoke_core.domain.deployment_qa_run_acceptance import (
     item_qa_acceptance_blockers,
 )
+from yoke_core.domain.deployment_qa_presentation_facts import run_presentation
+from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
 from yoke_core.domain.deployment_run_driver_notice import push_member_notice
 from yoke_core.domain.deployment_member_independent_close_out import (
     independent_member_delivery_ready,
@@ -42,6 +44,7 @@ from yoke_core.domain.deployment_member_independent_close_out import (
 from yoke_core.domain.merge_queue_landing_notice import HOLDER
 from yoke_core.domain.release_wait_ownership import item_at_release_wait
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.schema_read_scope import composition_operation
 from yoke_contracts.public_ref import format_item_ref
 
 #: One notice per item and the run whose item-scoped QA it accepted.
@@ -131,6 +134,28 @@ def _item_qa_cleared(conn: Any, *, run_id: str, item_id: int) -> bool:
         return False
 
 
+@presentation_operation
+@run_presentation
+def _member_close_out_route(
+    conn: Any, *, run_id: str, item_id: int
+) -> tuple[dict[str, Any], bool] | None:
+    """The parked member and whether its run delivered it, read before writes.
+
+    One QA evaluation answers the gate, the wait and the delivery route, so
+    the run's shared requirements resolve once per member rather than once
+    per reader. ``None`` means nobody is owed a close-out or notice.
+    """
+    if not _item_qa_cleared(conn, run_id=run_id, item_id=item_id):
+        return None
+    member = _release_wait_member(conn, int(item_id))
+    if member is None:
+        return None
+    return member, independent_member_delivery_ready(
+        conn, item_id=int(item_id), run_id=str(run_id)
+    )
+
+
+@composition_operation
 def notify_item_qa_accepted(
     conn: Any,
     *,
@@ -159,11 +184,10 @@ def notify_item_qa_accepted(
         reason="member_stage_credited",
         now=now,
     )
-    if not _item_qa_cleared(conn, run_id=run_id, item_id=item_id):
+    route = _member_close_out_route(conn, run_id=str(run_id), item_id=int(item_id))
+    if route is None:
         return ""
-    member = _release_wait_member(conn, int(item_id))
-    if member is None:
-        return ""
+    member, delivered_here = route
     from yoke_core.domain.deployment_run_other_target_members import (
         close_after_other_target_acceptance,
     )
@@ -174,9 +198,7 @@ def notify_item_qa_accepted(
 
     close_out_failure = ""
     public_ref = str(member["public_ref"])
-    if independent_member_delivery_ready(
-        conn, item_id=int(item_id), run_id=str(run_id)
-    ):
+    if delivered_here:
         closed = close_out_satisfied_delivery_member(
             conn, item_id=int(item_id), public_ref=public_ref, run_id=str(run_id)
         )

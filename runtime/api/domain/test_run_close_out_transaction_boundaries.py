@@ -58,7 +58,7 @@ def test_slow_lane_work_runs_with_every_connection_idle(
     observed: list[list[str]] = []
 
     def _retire(item, envelope, **_kwargs):
-        observed.append(_open_transactions(test_db))
+        raise AssertionError("a run member's lanes retire only through the sweep")
 
     def _sweep(**_kwargs):
         observed.append(_open_transactions(test_db))
@@ -74,7 +74,7 @@ def test_slow_lane_work_runs_with_every_connection_idle(
 
     assert cmd_update("run-idle-lanes", "status", "succeeded") is None
 
-    assert observed == [[] for _ in range(len(MEMBERS) + 1)]
+    assert observed == [[]]
     assert _run(test_db, "run-idle-lanes") == ("succeeded", True)
 
 

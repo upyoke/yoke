@@ -12,10 +12,10 @@ caller's connection. The caller commits one member, or a run's every member
 together.
 
 **Effects** run after that commit and are idempotent: the status write's
-post-commit receipt, GitHub sync, terminal lane cleanup, and ending holder
-sessions the release left empty. A failure here never reopens the member.
-They live in :mod:`delivery_member_close_effects`, which never holds a
-transaction across their file-system work.
+post-commit receipt, GitHub sync, and ending holder sessions the release
+left empty. A failure here never reopens the member. They live in
+:mod:`delivery_member_close_effects`, which never holds a transaction across
+network work; the run's one post-loop sweep retires member lanes.
 """
 
 from __future__ import annotations
