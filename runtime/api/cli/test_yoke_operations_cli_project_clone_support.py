@@ -173,7 +173,8 @@ def test_clone_token_fail_raises_clear_error_without_leaking_token(
         )
 
     message = str(exc.value)
-    assert "lacks access" in message or "not found" in message
+    assert "https://github.com/acme/widgets.git" in message
+    assert "yoke github connect --add-installation" in message
     # The encoded token (and the raw token) must never reach the error text.
     encoded = base64.b64encode(f"x-access-token:{token}".encode()).decode()
     assert token not in message
@@ -229,7 +230,7 @@ def test_clone_without_github_access_teaches_the_connection_step(
         )
 
     message = str(exc.value)
-    assert "connect the Yoke GitHub App" in message
+    assert "run `yoke github connect`" in message
     assert "network connection" in message
     assert "Zugriff verweigert" in message
 
