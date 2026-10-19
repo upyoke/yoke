@@ -85,10 +85,12 @@ unmerged, the attempt closes with the reason `pull request N closed without
 merging; the item keeps its previous landing`, the item's landing is
 unchanged. An armed attempt first sends its holder the stopped-landing notice
 and closes once that notice is delivered, so a failed notice is retried.
-The board label, the fleet landing readback, `github.merge_queue.readiness`
-and the waiting worker describe the open attempt. `yoke items detail get`
-shows the current landing under `merge_queue` and the open or last closed
-attempt, with its reason, under `merge_queue.attempt`.
+The board label, the fleet landing readback, `github.merge_queue.readiness`,
+`github.merge_queue.hold` and the waiting worker describe the open attempt, so
+holding a re-land holds and confirms its own pull request. Close-out records
+the landing under the pull request it went through, not the delivered one.
+`yoke items detail get` shows the current landing under `merge_queue` and the
+open or last closed attempt, with its reason, under `merge_queue.attempt`.
 
 The harness manifest determines whether the existing wake route can resume
 the holder automatically. Operator-driven surfaces need the operator to

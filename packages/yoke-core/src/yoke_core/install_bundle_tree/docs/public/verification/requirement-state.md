@@ -52,6 +52,12 @@ stays unbound and enters the existing commit-bound recovery: re-run the Command
 case or re-record methodless hand acceptance against the candidate. Epic task
 reviews use the epic review writer, retaining their full review body and binding
 `head_sha` to the candidate; item requirements use the general hand writer.
+A re-run Command case can rebase and publish the lane before it tests it, so
+the merge then reads the item again, binds to the branch head the case tested
+and re-runs the preflight on that run's own verdict. If that read fails, the
+merge refuses `commit_bound_recheck_unreadable` and lands nothing; restore the
+item read and retry. The landing refuses `lane_head_superseded` instead of
+force-pushing a candidate the branch has moved past; re-run the merge.
 `yoke merge item PREFIX-N` attempts each eligible recovery. If any write fails,
 `commit_bound_recovery_failed` lists each failed requirement id and reason plus
 successful ids; landing stays blocked. Inspect failed requirements with

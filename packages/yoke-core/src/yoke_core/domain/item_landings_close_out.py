@@ -114,7 +114,13 @@ def close_out_lane(
     )
     candidate_sha = str(lane.commit_sha or "").strip()
     merge_sha = str(lane.merge_sha or "").strip()
-    pr_number = str(queue_pr_number or getattr(outcome, "pr_num", "") or "").strip()
+    # The pull request this landing went through outranks the item's stored
+    # one, which on a re-land still names the landing delivered before; that
+    # landing's queue time then describes a different merge.
+    stored_pr = str(queue_pr_number or "").strip()
+    pr_number = str(getattr(outcome, "pr_num", "") or "").strip() or stored_pr
+    if pr_number != stored_pr:
+        queue_landed_at = None
     identity = merge_sha or candidate_sha
     if not identity:
         return lane, (

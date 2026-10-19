@@ -6,6 +6,12 @@ candidate: stamp methodless hand acceptance onto the merging commit, or
 re-execute SHA-bound Command cases against the lane head. Method-backed
 substrate evidence keeps its runner authority and refuses with its supported
 recovery path instead of being rebound by the merge.
+
+A Command case may move the lane before it tests it: the CI gate rebases the
+lane onto its base and publishes the result. The candidate the merge resolved
+before recovery is then superseded, so the recheck reads the item again and
+binds to the lane's current head rather than reporting the old commit as
+proven and landing it.
 """
 
 from __future__ import annotations
@@ -16,8 +22,10 @@ import io
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.qa_method_definitions import BUILTIN_QA_METHODS
 from yoke_core.domain.qa_terminal_settlement import BlockingRequirementIssue
+from yoke_core.domain.standalone_item_merge_lane import merge_source_lane
 from yoke_core.domain.standalone_item_merge_qa import evaluate, preflight
 
 
@@ -38,6 +46,11 @@ def _requirement(item: dict[str, Any], requirement_id: str) -> dict[str, Any] | 
         if str(row.get("id")) == str(requirement_id):
             return row
     return None
+
+
+def _runs_case(item: dict[str, Any], issue: BlockingRequirementIssue) -> bool:
+    requirement = _requirement(item, issue.requirement_id) or {}
+    return str(requirement.get("runner_id") or "").strip() in COMMAND_RUNNERS
 
 
 def _mark_bound(requirement: dict[str, Any], commit_sha: str) -> None:
@@ -157,8 +170,8 @@ def recover_issues(
         diagnostic = io.StringIO()
         try:
             if runner_id in COMMAND_RUNNERS:
+                # The case records the head it tested; the recheck reads it.
                 execute(int(requirement["id"]))
-                _mark_bound(requirement, commit_sha)
             elif not method_id and not runner_id:
                 with contextlib.redirect_stderr(diagnostic):
                     persist(requirement, commit_sha)
@@ -184,6 +197,21 @@ def recover_issues(
     return ""
 
 
+def at_lane_head(
+    item: dict[str, Any], *, repo_root: Path, branch: str
+) -> dict[str, Any]:
+    """Bind the merge source to what the branch carries now.
+
+    The gate's rebase skips head recording, so the item's lane row can still
+    name the commit the gate replaced; the branch ref is what it tested.
+    """
+    head = git.head_of(str(repo_root), branch)
+    lane = merge_source_lane(item)
+    if head and lane is not None:
+        lane["commit_sha"] = head
+    return item
+
+
 def recover_and_recheck(
     item: dict[str, Any],
     *,
@@ -191,10 +219,16 @@ def recover_and_recheck(
     repo_root: Path,
     branch: str,
     qa_error: str,
+    reload: Callable[[], tuple[dict[str, Any], str]],
     rerecord: Optional[Callable[[dict[str, Any], str], None]] = None,
     run_case: Optional[Callable[[int], None]] = None,
 ) -> tuple[str, str]:
-    """Recover a commit-bound preflight refusal, then re-run preflight."""
+    """Recover a commit-bound preflight refusal, then re-run preflight.
+
+    ``reload`` returns a fresh merge-phase item read, or why it failed. It is
+    used once a Command case ran, because that case's verdict and the lane
+    head it tested exist only in the records it wrote.
+    """
     commit_sha, issues, eval_error = evaluate(
         item,
         public_ref=public_ref,
@@ -212,6 +246,16 @@ def recover_and_recheck(
     )
     if recover_error:
         return commit_sha, f"{qa_error}\n{recover_error}"
+    if any(_runs_case(item, issue) for issue in issues):
+        fresh, read_error = reload()
+        if read_error:
+            return commit_sha, (
+                f"commit_bound_recheck_unreadable: the re-run case finished but "
+                f"{public_ref} could not be read again to bind the merge to the "
+                f"head it tested ({read_error}). Nothing was landed; restore the "
+                f"item read, then retry `yoke merge item {public_ref}`."
+            )
+        item = at_lane_head(fresh, repo_root=repo_root, branch=branch)
     return preflight(
         item,
         public_ref=public_ref,
@@ -223,6 +267,7 @@ def recover_and_recheck(
 __all__ = [
     "COMMAND_RUNNERS",
     "COMMIT_BOUND_STATES",
+    "at_lane_head",
     "is_commit_bound_refusal",
     "recover_and_recheck",
     "recover_issues",

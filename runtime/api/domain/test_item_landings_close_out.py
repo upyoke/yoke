@@ -104,6 +104,25 @@ def test_a_queue_landing_records_its_pull_request_and_the_moment_it_merged(
     assert payload["landed_at"] == QUEUE_LANDED_AT
 
 
+def test_a_re_land_records_its_own_pull_request_not_the_delivered_one(monkeypatch):
+    """The item's stored landing names the earlier merge and its queue time."""
+    sent = _recorded(monkeypatch)
+
+    landings.close_out_lane(
+        item_id="ITEM-44",
+        branch="ITEM-44",
+        target="main",
+        repo_root="/repo",
+        outcome=_outcome(pr_num="1290"),
+        queue_pr_number="1288",
+        queue_landed_at=QUEUE_LANDED_AT,
+    )
+
+    _, payload = sent[0]
+    assert payload["pr_number"] == "1290"
+    assert payload["landed_at"] == COMMIT_TIME
+
+
 def test_a_landing_with_no_distinct_merge_commit_is_keyed_on_what_landed(
     monkeypatch,
 ):

@@ -139,3 +139,33 @@ def test_close_out_before_promotion_takes_the_new_merge_time(conn):
 
     assert outcome.primary_success, outcome.error
     assert outcome.result_payload["merged_at"] == "2026-09-02T09:30:00.000000Z"
+
+
+def test_hold_targets_the_open_attempt_not_the_delivered_landing(conn, monkeypatch):
+    from yoke_core.domain import merge_queue_hold
+    from yoke_core.domain.handlers.github_merge_queue_hold import handle_hold
+    from yoke_core.domain.merge_queue_hold import LandingHold
+
+    point_item_at_pull_request(conn, ITEM_ID, "43", enqueued_at=ATTEMPT_ARMED_AT)
+    held: list[str] = []
+
+    def hold_landing(_ctx, *, pr_number, target):
+        held.append(pr_number)
+        return LandingHold(
+            outcome="held", held=True, pr_number=pr_number, target=target
+        )
+
+    monkeypatch.setattr(merge_queue_hold, "hold_landing", hold_landing)
+
+    outcome = handle_hold(
+        FunctionCallRequest(
+            function="github.merge_queue.hold",
+            actor=ActorContext(actor_id=None, session_id="s-attempt"),
+            target=TargetRef(kind="item", item_id=ITEM_ID),
+            payload={},
+        )
+    )
+
+    assert outcome.primary_success, outcome.error
+    assert held == ["43"]
+    assert outcome.result_payload["pr_number"] == "43"

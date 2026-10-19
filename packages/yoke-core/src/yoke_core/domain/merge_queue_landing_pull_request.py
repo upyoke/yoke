@@ -19,7 +19,9 @@ bare HTTP 422. A retry after a red train is the same gap with a twist:
 origin already has the branch, just not the new commits, and reporting
 ``ok`` with the new SHA while the queue stays armed on the old one is a
 silent divergence. The landing therefore publishes ``lane_head`` whenever
-origin does not already hold it.
+origin does not already hold it, unless the branch has moved past it: the
+gate rebases before it tests, so a superseded candidate is refused rather
+than force-pushed over the head that was tested.
 """
 
 from __future__ import annotations
@@ -82,6 +84,16 @@ def _publish_lane_head(ctx: MergeContext, *, lane_head: str) -> Optional[str]:
         already_published = bool(remote_sha)
     if already_published:
         return None
+    local_sha = git.head_of(ctx.repo_root, ctx.args.branch)
+    if lane_head and local_sha and not _same_commit(local_sha, lane_head):
+        # Force-pushing a superseded candidate would replace what the gate
+        # tested and published (the branch head) with a commit it never saw.
+        return (
+            f"lane_head_superseded: the landing candidate {lane_head} is not "
+            f"the current head of {ctx.args.branch!r} ({local_sha}); nothing "
+            "was published. Re-run `yoke merge item` so the merge proves and "
+            "lands the branch head."
+        )
     from yoke_core.domain.merge_queue_push_safety import LanePublishBlocked
     from yoke_core.domain.qa_case_ci_lane import push_lane
     from yoke_core.domain.qa_case_execution import QaCaseExecutionError
