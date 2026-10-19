@@ -37,11 +37,12 @@ from yoke_core.tools._watch_pytest_args import (
     format_would_widen_advisory,
     pytest_flag_consumes_value,
 )
-from yoke_core.tools.ci_shards import DURATIONS_PATH, OUTPUT_LOG, shard_number
-
-#: Every core of the runner, flat: the RAM-aware cliff the local runners
-#: apply protects a shared workstation, which a hosted runner is not.
-CI_WORKERS = "auto"
+from yoke_core.tools.ci_shards import (
+    DURATIONS_PATH,
+    OUTPUT_LOG,
+    XDIST_ARGS,
+    shard_number,
+)
 
 #: The dispatch and the checkout disagree, or there is nothing to run.
 #: Either is a usage defect of the workflow, not a test verdict.
@@ -113,18 +114,16 @@ def pytest_command(
     One shard of several adds the split the plan sized, through the same
     duration-balanced machinery and committed profile the full suite splits
     with: the selection each group collects is identical, so every selected
-    test is assigned to exactly one of them.
+    test is assigned to exactly one of them. Workers and scheduling are full
+    CI's own unless the caller chose a worker count.
     """
     argv = [sys.executable, "-m", "pytest", *paths, *passthrough]
     if not has_explicit_workers(passthrough):
-        argv.extend(["-n", CI_WORKERS])
+        argv.extend(XDIST_ARGS)
     if splits > 1:
-        argv.extend([
-            "--splits", str(splits),
-            "--group", str(group),
-            "--splitting-algorithm", "least_duration",
-            "--durations-path", DURATIONS_PATH,
-        ])
+        argv.extend(("--splits", str(splits), "--group", str(group)))
+        argv.extend(("--splitting-algorithm", "least_duration"))
+        argv.extend(("--durations-path", DURATIONS_PATH))
     return argv
 
 
@@ -158,14 +157,13 @@ def collects_anything(
     collects, the other groups carry it) from a selection that matches
     nothing here (every group reports the same, and it is a real failure).
     """
-    command = [
-        sys.executable, "-m", "pytest", *paths, *passthrough,
-        "--collect-only", "-q", "-n", "0",
-    ]
+    command = [sys.executable, "-m", "pytest", *paths, *passthrough]
+    command += ["--collect-only", "-q", "-n", "0"]
     print(f"$ {shlex.join(command)}", flush=True)
-    return subprocess.run(
-        command, cwd=str(root), capture_output=True, text=True, check=False,
-    ).returncode == 0
+    completed = subprocess.run(
+        command, cwd=str(root), capture_output=True, text=True, check=False
+    )
+    return completed.returncode == 0
 
 
 def empty_run_status(
@@ -247,9 +245,7 @@ def run_selection(
             log.write(line)
     status = process.wait()
     if status == EXIT_NO_TESTS_COLLECTED:
-        return empty_run_status(
-            root, paths, passthrough, splits=splits, group=group
-        )
+        return empty_run_status(root, paths, passthrough, splits=splits, group=group)
     return status
 
 
@@ -324,7 +320,6 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 __all__ = [
-    "CI_WORKERS",
     "EXIT_NO_TESTS_COLLECTED",
     "EXIT_USAGE",
     "add_dispatch_arguments",

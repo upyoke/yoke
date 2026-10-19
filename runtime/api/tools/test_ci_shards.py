@@ -35,6 +35,9 @@ def test_the_split_matches_the_fan_out_that_produced_the_group() -> None:
     assert command[command.index("--splits") + 1] == str(len(ci_shards.shard_list()))
     assert command[command.index("--dist") + 1] == "loadfile"
     assert "--no-loadscope-reorder" in command
+    assert command[command.index("-n") :][: len(ci_shards.XDIST_ARGS)] == list(
+        ci_shards.XDIST_ARGS
+    )
 
 
 def test_every_shard_the_fan_out_names_is_runnable() -> None:
