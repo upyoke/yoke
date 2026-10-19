@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.deployment_qa_presentation_facts import run_presentation
 from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
 from yoke_core.domain.deployment_qa_shared_copy_reads import member_owns_shared_copy
 from yoke_core.domain.post_deploy_verification_answer import answer_for_item
@@ -48,6 +49,7 @@ def recorded_no_obligation(conn: Any, item_id: int) -> bool:
 
 
 @presentation_operation
+@run_presentation
 def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
     """Whether this run settled the member's post-deploy QA obligations.
 

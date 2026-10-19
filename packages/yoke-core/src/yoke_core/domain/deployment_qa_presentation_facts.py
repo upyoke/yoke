@@ -31,6 +31,31 @@ def member_presentation(function):
     return run
 
 
+def run_presentation(function):
+    """Read every member of the keyword ``run_id``'s run as one set.
+
+    A gate answering for one member still resolves its siblings' plans, so
+    presenting the whole run keeps that member's reads one set read each,
+    however many members or requirements the run holds. Use it inside a
+    ``presentation_operation``, whose cache holds the set reads.
+    """
+
+    @wraps(function)
+    def run(conn, *args, run_id, **kwargs):
+        rows = query_rows(
+            conn,
+            "SELECT item_id FROM deployment_run_items WHERE run_id=%s ORDER BY item_id",
+            (str(run_id),),
+        )
+        subjects = [(str(run_id), int(row["item_id"]), "") for row in rows]
+        present = member_presentation(
+            lambda inner, _subjects: function(inner, *args, run_id=run_id, **kwargs)
+        )
+        return present(conn, subjects)
+
+    return run
+
+
 def attachment_rows(conn, member):
     """All attachment facts in one read; None keeps scalar callers unchanged."""
     scope = _MEMBERS.get()

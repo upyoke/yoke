@@ -35,6 +35,7 @@ from yoke_core.domain.db_optional_queries import rollback_savepoint
 from yoke_core.domain.deployment_qa_run_acceptance import (
     item_qa_acceptance_blockers,
 )
+from yoke_core.domain.deployment_qa_presentation_facts import run_presentation
 from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
 from yoke_core.domain.deployment_run_driver_notice import push_member_notice
 from yoke_core.domain.deployment_member_independent_close_out import (
@@ -134,6 +135,7 @@ def _item_qa_cleared(conn: Any, *, run_id: str, item_id: int) -> bool:
 
 
 @presentation_operation
+@run_presentation
 def _member_close_out_route(
     conn: Any, *, run_id: str, item_id: int
 ) -> tuple[dict[str, Any], bool] | None:
