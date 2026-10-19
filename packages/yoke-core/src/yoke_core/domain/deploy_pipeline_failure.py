@@ -126,7 +126,12 @@ def fail_pipeline_stage(
     sd: Optional[str],
     emit_event: Callable[..., None],
 ) -> int:
-    """Record one failed stage, explain its terminal cause, and return 1."""
+    """Record one failed stage, explain its terminal cause, and return 1.
+
+    The run's status is written before its stage. A refused status write
+    leaves both untouched, so the run never reads ``<stage>-failed`` while
+    still ``executing`` and live QA scoped to the stage keeps writing.
+    """
     if diagnostic:
         print(f"Step runner diagnostic: {diagnostic}", file=sys.stderr)
     context = {
@@ -144,13 +149,22 @@ def fail_pipeline_stage(
         project=project,
         sd=sd,
     )
+    try:
+        run_updates.update_run_field(run_id, "status", "failed")
+    except run_updates.DeployPipelineRunUpdateError as exc:
+        print(
+            f"Error: stage '{stage_name}' failed (exit code: {exit_code}), but "
+            f"run_failure_unrecorded: {exc}. The run's status and stage were "
+            "left unchanged.",
+            file=sys.stderr,
+        )
+        return EXIT_STAGE_FAILED
     reporting._set_deploy_stage(
         f"{stage_name}-failed",
         run_id,
         member_items,
         sd=sd,
     )
-    run_updates.update_run_field(run_id, "status", "failed")
     emit_event(
         "DeploymentRunFailed",
         "failed",

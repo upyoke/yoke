@@ -67,6 +67,67 @@ def test_failed_stage_reports_terminal_trace_after_recording_state(capsys) -> No
     assert "stage 'hosted-release' failed" in capsys.readouterr().err
 
 
+def _fail_stage(emit_event):
+    return deploy_pipeline_failure.fail_pipeline_stage(
+        exit_code=1,
+        diagnostic="failed:failure",
+        stage_name="item-qa",
+        run_id="run-20261019-007",
+        flow_id="yoke-hosted-prod",
+        member_items=["YOK-3974"],
+        project="yoke",
+        sd="/tmp/sd",
+        emit_event=emit_event,
+    )
+
+
+def test_status_is_recorded_before_the_failed_stage() -> None:
+    writes = []
+    with (
+        mock.patch.object(
+            deploy_pipeline_failure.reporting,
+            "_set_deploy_stage",
+            side_effect=lambda stage, *a, **k: writes.append(("stage", stage)),
+        ),
+        mock.patch.object(
+            run_updates,
+            "update_run_field",
+            side_effect=lambda run_id, field, value: writes.append((field, value)),
+        ),
+        mock.patch.object(deploy_pipeline_failure, "_report_failure_trace"),
+    ):
+        assert _fail_stage(mock.Mock()) == deploy_pipeline.EXIT_STAGE_FAILED
+
+    assert writes == [("status", "failed"), ("stage", "item-qa-failed")]
+
+
+def test_a_refused_status_write_leaves_the_stage_unchanged(capsys) -> None:
+    refusal = run_updates.DeployPipelineRunUpdateError(
+        "deployment run bookkeeping write status=failed on run-20261019-007 "
+        "refused (qa_abort_restore_required): host work in flight",
+        code="qa_abort_restore_required",
+    )
+    emit_event = mock.Mock()
+    with (
+        mock.patch.object(
+            deploy_pipeline_failure.reporting, "_set_deploy_stage"
+        ) as set_stage,
+        mock.patch.object(run_updates, "update_run_field", side_effect=refusal),
+        mock.patch.object(deploy_pipeline_failure, "_report_failure_trace") as trace,
+    ):
+        assert _fail_stage(emit_event) == deploy_pipeline.EXIT_STAGE_FAILED
+
+    set_stage.assert_not_called()
+    trace.assert_not_called()
+    assert [c.args[0] for c in emit_event.call_args_list] == [
+        "DeploymentRunStageFailed"
+    ]
+    err = capsys.readouterr().err
+    assert "run_failure_unrecorded" in err
+    assert "qa_abort_restore_required" in err
+    assert "status and stage were left unchanged" in err
+
+
 def test_failure_trace_uses_the_owning_https_control_plane(monkeypatch) -> None:
     monkeypatch.setenv("YOKE_ENV", "prod-db-admin")
     monkeypatch.delenv(

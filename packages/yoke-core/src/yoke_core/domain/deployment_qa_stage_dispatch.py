@@ -304,6 +304,10 @@ def dispatch_deployment_qa_stage(
     """
     from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_core.domain.deploy_pipeline_unknown_outcome import (
+        DeploymentOutcomeUnknown,
+        UNKNOWN_CODES,
+    )
 
     response = call_dispatcher(
         function_id=DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION,
@@ -312,6 +316,15 @@ def dispatch_deployment_qa_stage(
     )
     if not response.success:
         message = response.error.message if response.error else "request failed"
+        if response.error and response.error.code in UNKNOWN_CODES:
+            # A lost answer is not a failed stage: the driver stops resumably
+            # and leaves the run in this stage for the next re-drive.
+            raise DeploymentOutcomeUnknown(
+                run_id,
+                DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION,
+                response.request_id,
+                message,
+            )
         return 1, (
             f"deployment QA stage {stage.get('name')!r} could not be "
             f"dispatched: {message}"
