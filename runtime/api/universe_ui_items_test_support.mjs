@@ -113,8 +113,6 @@ export function detailItem(workflowId) {
       technical_plan: ["dash", "issue", "epic", "blitz"].includes(workflowId)
         ? "## Plan\n\nTouch the footer renderer first."
         : "",
-      shepherd_log: workflowId === "epic"
-        ? "## Verdict\n\nReady to execute." : "",
       worktree_plan: workflowId === "epic"
         ? "- Task lanes activate independently." : "",
       shepherd_caveats: workflowId === "epic"
@@ -123,6 +121,23 @@ export function detailItem(workflowId) {
       test_results: "",
       deploy_log: "",
     },
+    shepherd_verdicts: workflowId === "epic"
+      ? [{
+        transition: "planning_to_plan_drafted",
+        worker: "boss",
+        verdict: "CAVEATS",
+        attempt: 1,
+        caveats: "1. Split the reader.",
+        created_at: "2026-10-14T22:00:03.758088Z",
+      }, {
+        transition: "refined_idea_to_planning",
+        worker: "boss",
+        verdict: "READY",
+        attempt: 1,
+        caveats: "",
+        created_at: "2026-10-14T21:50:26.046650Z",
+      }]
+      : [],
     progress_log: {
       content: "## 2026-07-26 entry — renderer built\nReal values landed.",
     },

@@ -14,6 +14,7 @@ import {
   statePill,
 } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
+import { filledVerdictPanels } from "./item_view_verdicts.js";
 import {
   readablePolicyValue,
   workflowPanel,
@@ -283,6 +284,7 @@ function renderBlitzBody(context, main, item) {
     [
       executionPanel,
       ...filledNarrativePanels(documentNode, item),
+      ...filledVerdictPanels(documentNode, item),
       worktreeLanesPanel(documentNode, item),
       verificationPanel(context, item),
     ],

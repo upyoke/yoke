@@ -109,7 +109,7 @@ ITEMS_TABLE: dict[str, dict] = {
             "items.body is a virtual rendered field (use "
             "`items get PREFIX-N body` or read the structured-field columns "
             "directly): spec, design_spec, technical_plan, worktree_plan, "
-            "shepherd_log, shepherd_caveats, test_results, deploy_log, "
+            "shepherd_caveats, test_results, deploy_log, "
             "db_mutation_profile (`items.get.run` nests under "
             "`result.fields`; wrong guess: top-level `db_mutation_profile`), "
             "`qa_plan_attachments` and item claim evidence are composed by "

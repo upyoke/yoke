@@ -28,7 +28,7 @@ relevant work claim while writing its checkpoint. Correct genuinely
 changed spec/design/technical/test/deploy content through
 `items.structured_field.replace`, with nonempty/nonshrinking preconditions.
 Use the [typed envelopes](../idea/body-and-sync-functions.md).
-Graph fields `worktree_plan`, `shepherd_log`, `shepherd_caveats` are epic-only
+Graph fields `worktree_plan` and `shepherd_caveats` are epic-only
 and must never be written for `generated_children=none`.
 
 Execution continuity belongs in the timestamped Progress Log, rather than a

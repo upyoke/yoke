@@ -19,7 +19,6 @@ _ITEM_COLUMNS = (
     "design_spec TEXT",
     "technical_plan TEXT",
     "worktree_plan TEXT",
-    "shepherd_log TEXT",
     "shepherd_caveats TEXT",
     "test_results TEXT",
     "deploy_log TEXT",
@@ -70,7 +69,8 @@ def _insert_section(conn, item_id: int, section_name: str) -> None:
 
 def test_canonical_forms_only_pass(conn):
     _insert_item(
-        conn, 1,
+        conn,
+        1,
         spec="## Acceptance Criteria\n\n- foo\n\n## File Budget\n\n- bar",
         technical_plan="## Out of Scope\n\nnothing",
     )
@@ -81,7 +81,8 @@ def test_canonical_forms_only_pass(conn):
 
 def test_off_canon_structured_field_warns_with_surface_label(conn):
     _insert_item(
-        conn, 42,
+        conn,
+        42,
         spec="## Acceptance criteria\n\n- foo",
     )
     rec = _run(conn)
@@ -108,11 +109,9 @@ def test_off_canon_item_sections_warns_with_surface_label(conn):
 
 def test_mixed_canonical_and_off_canon_emits_only_off_canon(conn):
     _insert_item(
-        conn, 9,
-        spec=(
-            "## Acceptance Criteria\n\n- canonical\n\n"
-            "## File budget\n\n- off-canon"
-        ),
+        conn,
+        9,
+        spec=("## Acceptance Criteria\n\n- canonical\n\n## File budget\n\n- off-canon"),
     )
     rec = _run(conn)
     detail = rec.results[-1].detail

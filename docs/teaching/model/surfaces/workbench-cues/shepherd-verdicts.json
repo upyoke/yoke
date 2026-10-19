@@ -1,0 +1,10 @@
+{
+ "id": "shepherd-verdicts",
+ "title": "Shepherd verdicts on the item page",
+ "status": "observed",
+ "form": "State",
+ "verification": "Focused rendering tests cover newest-first verdicts with caveats, the epic empty state \"No shepherd verdict recorded.\", and non-epic items that show the panel only when verdicts exist. Served browser proof remains a deployment obligation.",
+ "topics": ["planning/artifacts"],
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/item_view_verdicts.js", "packages/yoke-core/src/yoke_core/domain/item_detail_read.py", "runtime/api/universe_ui_item_verdicts.test.mjs", "runtime/api/universe_ui_item_details.test.mjs"],
+ "position": 11
+}

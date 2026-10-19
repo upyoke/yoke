@@ -42,7 +42,7 @@ from yoke_core.domain.schema_common import (
     _get_columns as _schema_get_columns,
     _table_exists as _schema_table_exists,
 )
-from yoke_core.domain.shepherd import cmd_shepherd_log
+from yoke_core.domain.shepherd import cmd_verdict_log
 
 
 STRUCTURED_FIELDS = (
@@ -198,9 +198,9 @@ def build_body(conn: Any, item_id: int) -> Optional[str]:
 
     if _schema_table_exists(conn, "shepherd_verdicts"):
         try:
-            shepherd_log = cmd_shepherd_log(conn, render_item_ref(conn, item_id))
-            if len(shepherd_log.splitlines()) > 3:
-                chunks.append(shepherd_log.rstrip("\n"))
+            verdict_log = cmd_verdict_log(conn, render_item_ref(conn, item_id))
+            if len(verdict_log.splitlines()) > 3:
+                chunks.append(verdict_log.rstrip("\n"))
         except Exception:
             # Postgres aborts the whole transaction on a failed statement, so
             # roll back to keep later reads alive (SQLite no-op, read-only path).

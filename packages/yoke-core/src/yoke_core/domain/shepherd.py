@@ -17,7 +17,7 @@ from yoke_core.domain.shepherd_verdict_log import (
     VALID_DISPOSITIONS,
     cmd_caveat_disposition,
     cmd_caveat_dispositions,
-    cmd_shepherd_log,
+    cmd_verdict_log,
     cmd_verdict,
 )
 
@@ -26,7 +26,7 @@ __all__ = [
     "cmd_caveat_disposition",
     "cmd_caveat_dispositions",
     "cmd_init",
-    "cmd_shepherd_log",
+    "cmd_verdict_log",
     "cmd_verdict",
     "main",
 ]
@@ -37,7 +37,7 @@ Usage: shepherd <subcmd> [args...]
 Subcommands:
   init
   verdict <item> <transition> <worker> <verdict> [caveats] [session_id]
-  shepherd-log <item_id>
+  verdict-log <item_id>
   caveat-disposition <item> <transition> <attempt> <caveat_num> <caveat_text> <disposition> [resolution_details] [verdict_id]
   caveat-dispositions <item>
 """
@@ -82,10 +82,10 @@ def main(argv: Optional[List[str]] = None) -> None:
                 )
             caveats = rest[4] if len(rest) > 4 else None
             print(cmd_verdict(conn, rest[0], rest[1], rest[2], rest[3], caveats))
-        elif subcmd == "shepherd-log":
+        elif subcmd == "verdict-log":
             if not rest:
-                _cli_usage_error("Usage: shepherd shepherd-log <item_id>")
-            print(cmd_shepherd_log(conn, rest[0]))
+                _cli_usage_error("Usage: shepherd verdict-log <item_id>")
+            print(cmd_verdict_log(conn, rest[0]))
         elif subcmd == "caveat-disposition":
             if len(rest) < 6:
                 _cli_usage_error(

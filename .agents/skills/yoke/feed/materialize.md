@@ -17,7 +17,7 @@ Operator/debug adapter:
 
 Body is virtual. Fold changed ACs into their owning field; explicitly state
 subsumed/invalidated scope. Read effective generated-children posture before
-using graph fields; none prohibits worktree_plan/shepherd_caveats/shepherd_log.
+using graph fields; none prohibits worktree_plan/shepherd_caveats.
 If scope was absorbed, do NOT auto-cancel it inside feed; recommend cancellation
 with absorbed-by evidence, skipping writes only when cancellation is truthful.
 Read back each updated field, then `_updated_items.append` public ref/title,

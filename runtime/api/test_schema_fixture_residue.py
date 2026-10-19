@@ -64,38 +64,41 @@ _EXEMPT_HELPERS: dict[str, str] = {
     # validation-surface DB; production seeders are exercised in their
     # own test files. Adopting canonical shape is unnecessary surface
     # for this fixture's job.
-    _module_rel(migration_apply_test_helpers):
-        "validation-surface placeholder; intentional 3-column items table",
+    _module_rel(
+        migration_apply_test_helpers
+    ): "validation-surface placeholder; intentional 3-column items table",
     # Helper shares its ITEMS_SCHEMA via test_dependency_schema, which
     # deliberately omits CHECK constraints so a few API tests can seed
     # legacy/invalid statuses to verify startup guards.
-    "runtime/api/scheduler_test_fixtures.py":
-        "uses test_dependency_schema.ITEMS_SCHEMA (intentionally CHECK-less)",
+    "runtime/api/scheduler_test_fixtures.py": "uses test_dependency_schema.ITEMS_SCHEMA (intentionally CHECK-less)",
     # Doctor-DB health checks query a slim column subset and the tests
     # consuming this helper insert rows without created_at/updated_at;
     # canonical NOT NULL constraints would require coordinated edits to
     # sibling test setup.
-    _module_rel(_doctor_db_test_helpers):
-        "slim-shape items for doctor-DB HC tests; relaxed inserts",
+    _module_rel(
+        _doctor_db_test_helpers
+    ): "slim-shape items for doctor-DB HC tests; relaxed inserts",
     # Helper is consumed by test_doctor_hc_meta_full_migration, which
     # simulates pre-/post-migration column states via ALTER TABLE; that
     # simulation conflicts with canonical-shape DDL (governance columns
     # already present). Documented exemption pending coordinated test
     # refactor.
-    _module_rel(_doctor_hc_meta_full_test_helpers):
-        "pre-/post-migration column simulation conflicts with canonical shape",
+    _module_rel(
+        _doctor_hc_meta_full_test_helpers
+    ): "pre-/post-migration column simulation conflicts with canonical shape",
     # Resync helpers expose a minimal items shape for resync HC drift
     # tests; their consuming tests insert rows without canonical NOT
     # NULL fields.
-    _module_rel(_resync_test_helpers):
-        "slim-shape items for resync drift tests; relaxed inserts",
-    _module_rel(_resync_full_test_helpers):
-        "slim-shape items for resync_full drift tests; relaxed inserts",
+    _module_rel(
+        _resync_test_helpers
+    ): "slim-shape items for resync drift tests; relaxed inserts",
+    _module_rel(
+        _resync_full_test_helpers
+    ): "slim-shape items for resync_full drift tests; relaxed inserts",
     # Board fixtures expose a board-specific items shape (includes
     # ``progress`` and omits canonical structured fields) tuned to
     # widget rendering tests.
-    "runtime/api/board/tests/conftest.py":
-        "board-specific items shape; includes progress column",
+    "runtime/api/board/tests/conftest.py": "board-specific items shape; includes progress column",
 }
 
 
@@ -106,11 +109,10 @@ _EXEMPT_HELPERS: dict[str, str] = {
 # the documentation of past migrations.
 _RESIDUE_SCAN_EXCLUDES = (
     "runtime/api/fixtures/schema_ddl_items.py",  # the derivation home
-    "runtime/api/fixtures/schema_ddl.py",        # facade
+    "runtime/api/fixtures/schema_ddl.py",  # facade
 )
 _RESIDUE_SCAN_HELPERS = tuple(
-    path for path in _MIGRATED_HELPERS
-    if path not in _RESIDUE_SCAN_EXCLUDES
+    path for path in _MIGRATED_HELPERS if path not in _RESIDUE_SCAN_EXCLUDES
 )
 
 
@@ -134,7 +136,6 @@ def _is_long_form_realistic(body: str) -> bool:
         "spec ",
         "design_spec ",
         "technical_plan ",
-        "shepherd_log ",
         "test_results ",
         "deploy_log ",
         "db_mutation_profile ",
@@ -164,13 +165,9 @@ class TestResidueScan:
         """Each exempt helper must carry a non-empty reason."""
         assert _EXEMPT_HELPERS, "Exemption catalog cannot be empty"
         for path, reason in _EXEMPT_HELPERS.items():
-            assert reason.strip(), (
-                f"Residue exemption for {path!r} missing reason"
-            )
+            assert reason.strip(), f"Residue exemption for {path!r} missing reason"
             full = REPO_ROOT / path
-            assert full.exists(), (
-                f"Exempt helper path no longer exists: {path}"
-            )
+            assert full.exists(), f"Exempt helper path no longer exists: {path}"
 
     def test_helper_family_complete(self) -> None:
         """Every helper in the fixture-schema scope is either migrated or
@@ -195,6 +192,5 @@ class TestResidueScan:
         categorized = set(_MIGRATED_HELPERS) | set(_EXEMPT_HELPERS)
         uncategorized = [p for p in path_claim_files if p not in categorized]
         assert not uncategorized, (
-            "Fixture-schema helpers missing from categorization: "
-            f"{uncategorized}"
+            f"Fixture-schema helpers missing from categorization: {uncategorized}"
         )

@@ -31,7 +31,7 @@ _SCHEMA = """
 CREATE TABLE items (
     id INTEGER PRIMARY KEY,
     spec TEXT, design_spec TEXT, technical_plan TEXT,
-    worktree_plan TEXT, shepherd_log TEXT,
+    worktree_plan TEXT,
     shepherd_caveats TEXT, test_results TEXT, deploy_log TEXT,
     db_mutation_profile TEXT,
     db_compatibility_attestation TEXT,

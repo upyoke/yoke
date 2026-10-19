@@ -273,6 +273,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "item_view_primitives.js": "text/javascript; charset=utf-8",
     "item_view_shell.js": "text/javascript; charset=utf-8",
     "item_view_verification.js": "text/javascript; charset=utf-8",
+    "item_view_verdicts.js": "text/javascript; charset=utf-8",
     "item_view_requirement_card.js": "text/javascript; charset=utf-8",
     "strategy_view_primitives.js": "text/javascript; charset=utf-8",
     "strategy_view_summary.js": "text/javascript; charset=utf-8",

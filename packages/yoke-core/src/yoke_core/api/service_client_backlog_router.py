@@ -72,7 +72,7 @@ def cmd_backlog_cli(args: list[str]) -> int:
         )
         print(
             "  update <id-number> spec (--stdin | --body-file <path>)  — Replace structured field "
-            "(spec/design_spec/technical_plan/worktree_plan/shepherd_log/shepherd_caveats/test_results/deploy_log)",
+            "(spec/design_spec/technical_plan/worktree_plan/shepherd_caveats/test_results/deploy_log)",
             file=stream,
         )
         print(
@@ -185,7 +185,7 @@ def cmd_backlog_cli(args: list[str]) -> int:
             "\n"
             "Structured fields (whole-field replace via --stdin or --body-file):\n"
             "  spec, design_spec, technical_plan, worktree_plan,\n"
-            "  shepherd_log, shepherd_caveats, test_results, deploy_log\n"
+            "  shepherd_caveats, test_results, deploy_log\n"
             "\n"
             "Notes:\n"
             "  - Routes through ``items.structured_field.replace`` / "
