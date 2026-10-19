@@ -255,3 +255,29 @@ def test_one_corrected_case_cannot_silently_choose_between_original_hosts():
     ]
     with pytest.raises(ValueError, match="qa_resume_correction_hosts_conflict.*split"):
         corrected_case_machine(conn, 15)
+
+
+def test_wait_recipe_is_rendered_from_its_execution_instead_of_saved_text(monkeypatch):
+    from yoke_core.domain import qa_host_turns
+
+    monkeypatch.setattr(
+        qa_host_turns,
+        "query_one",
+        lambda *a, **k: {
+            "id": "walk",
+            "deployment_run_id": "run",
+            "deployment_stage": "item-qa",
+            "roster_json": json.dumps([{"project": "example"}]),
+        },
+    )
+    command = qa_host_turns._resume_command(
+        Mock(),
+        {
+            "qa_plan_execution_id": "walk",
+            "resume_command": "saved command --machine linux-lab",
+        },
+    )
+    assert (
+        command
+        == "yoke qa plan run --deployment-run-id run --project example --stage item-qa"
+    )
