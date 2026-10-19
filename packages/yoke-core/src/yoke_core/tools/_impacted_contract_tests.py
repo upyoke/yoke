@@ -41,6 +41,8 @@ REPO_CLEANLINESS_TESTS = (
     "runtime/api/test_doc_hygiene.py",
     # Scans every shipped message for internal item ids; no import reaches it.
     "runtime/api/domain/test_item_ref_message_text.py",
+    # Scans docs, skills and runtime prose for host GitHub CLI commands.
+    "runtime/api/domain/test_no_gh_product_invariant.py",
 )
 _ALWAYS_RUN_CONTRACTS = (
     (

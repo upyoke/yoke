@@ -46,7 +46,7 @@ decisions and terminal results; no progress mail.
 
 Suppression tokens (audit recorded): `# lint:no-main-check`,
 `# lint:no-lifecycle-mutation-check`, `# lint:no-polling-check` override their
-named guards. `# lint:no-monitor-watcher-tail-check` and
+named guards; none unblocks a GitHub polling loop. `# lint:no-monitor-watcher-tail-check` and
 `# lint:no-raw-pytest-check` are audit-only and do NOT unblock: use minted
 `yoke watch tail` and `yoke watch pytest`.
 

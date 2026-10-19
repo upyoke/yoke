@@ -5,7 +5,7 @@ Sibling of ``lint_long_command_polling`` (the hook entry point) and
 isolates everything that builds output:
 
 - ``_format_peek_reason`` / ``_format_sleep_reason`` /
-  ``_format_monitor_duplicate_reason`` — operator-facing reason text rendered with
+  ``_format_github_poll_loop_reason`` / ``_format_monitor_duplicate_reason`` — operator-facing reason text rendered with
   the verdict (``DENIED`` vs ``POLLING ANTI-PATTERN``).
 - ``_build_context`` — the structured context dict captured into the
   audit event.
@@ -28,7 +28,6 @@ from yoke_core.domain.lint_long_command_polling_constants import (
     HOOK_NAME,
     MONITOR_DUPLICATE_SUPPRESSION_TOKEN,
     PEEK_WINDOW_TURNS,
-    SUPPRESSION_TOKEN,
 )
 from yoke_core.domain.lint_long_command_polling_extract import _extract_command
 
@@ -67,7 +66,7 @@ def _format_peek_reason(
         "Options:\n"
         f"  1. Switch to Monitor — see runtime/harness/claude/rules/session.md '## Tool Constraints'\n"
         "  2. In verified background-wake mode, await its Monitor/completion wake\n"
-        f"  3. Override with `{SUPPRESSION_TOKEN}` if this is a post-capture inspection"
+        "  3. Once the owning command has exited, read `tail -80 <raw-capture>` once"
     )
 
 
@@ -77,8 +76,23 @@ def _format_sleep_reason(cadence: int, mode: str) -> str:
         f"{verb}: sleep {cadence} && (cat|tail|head) — progress polling with N < 60s.\n\n"
         f"Fallback cadence when no streaming surface exists is 60s -> 90s -> 120s -> max ~300s.\n"
         f"Never check faster than 60 seconds.\n\n"
-        "In verified background-wake mode, await Monitor/completion; otherwise keep the original foreground wait active.\n"
-        f"Override with `{SUPPRESSION_TOKEN}` only for genuine post-capture inspection."
+        "In verified background-wake mode, await Monitor/completion; otherwise keep the original foreground wait active."
+    )
+
+
+def _format_github_poll_loop_reason(mode: str) -> str:
+    verb = "DENIED" if mode == "deny" else "POLLING ANTI-PATTERN"
+    return (
+        f"{verb}: shell loop polling GitHub for a CI run.\n\n"
+        "A CI run Yoke dispatched for this session (`yoke watch pytest`, "
+        "`yoke qa case run`, `yoke merge item`) has a recorded wait: its "
+        "verdict wakes this session with the command that re-enters it. "
+        "A polling loop holds the turn, so steering messages and that wake "
+        "cannot reach you. This rule has no override.\n\n"
+        "Options:\n"
+        "  1. End the turn; the verdict wakes you\n"
+        "  2. To await one run by exact commit in this turn, run "
+        "`yoke watch ci-run -- REF`"
     )
 
 

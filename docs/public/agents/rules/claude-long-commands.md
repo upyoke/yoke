@@ -58,7 +58,10 @@ Each wrapper captures/classifies output and owns exit/sentinel. Ask its
 CI-declaring projects route pytest remotely: commit first; base checkout or dirty
 tree refuses. Wrapper publishes lane commit/merge base, adopts conclusion.
 Remote exits: 0 pass, 1 fail, 2 pre-dispatch refusal, 3 timeout, 4 unreachable/
-dispatch refusal, 5 cancelled. Drops machine-specific -n/numprocesses/rootdir.
+dispatch refusal, 5 cancelled. `ci wait recorded for run N` means the verdict
+wakes this session with the printed command: if the watcher stops first, end
+the turn. Never poll GitHub; a shell loop that sleeps between GitHub CLI run reads
+is refused with no override. Drops machine-specific -n/numprocesses/rootdir.
 --local or YOKE_PYTEST_LOCAL=1 is only short targeted/order/machine/CI-unreachable
 check; dirty tree never justifies long local sweep. Local worker budget waits
 and names holder. Unbounded triggers (non-Python/tooling/≥80% reachability over
@@ -130,7 +133,8 @@ lint_monitor_watcher_tail/lint_long_command_polling own configured modes.
 
 Tokens are audit evidence, never independent authority to violate project rules:
 `# lint:no-main-check`, `# lint:no-lifecycle-mutation-check` and
-`# lint:no-polling-check` name specific guards.
+`# lint:no-polling-check` name specific guards; the polling token never
+unblocks a GitHub polling loop.
 `# lint:no-monitor-watcher-tail-check`, `# lint:no-raw-pytest-check` and
 `# lint:no-subagent-background-check` are audit-only and do NOT unblock; use minted
 subscription/admitted pytest/foreground respectively. Full operation refusal
