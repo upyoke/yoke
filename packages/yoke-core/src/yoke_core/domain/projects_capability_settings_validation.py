@@ -23,6 +23,11 @@ from yoke_core.domain.migration_model_fleet import (
 
 def canonicalize_capability_settings(cap_type: str, raw_json: str) -> str:
     """Validate and canonicalize settings JSON for typed capabilities."""
+    if cap_type == "consumer-proof":
+        from yoke_core.domain.consumer_proof_policy import validate_json_string
+
+        return validate_json_string(raw_json)
+
     if cap_type == "migration_model":
         from yoke_core.domain.migration_model_capability import validate_json_string
 

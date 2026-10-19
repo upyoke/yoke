@@ -105,6 +105,10 @@ integration gate has nothing to run and a queued pull request never merges.
 
 ## Proving an exact producer candidate
 
+The merge gate runs [declared consumer proof](consumer-proof.md) automatically
+for matching producer contracts and records the consumer run on the item.
+Verification alone needs no consumer companion; consumer code changes do.
+
 Run the producer gate first. Hand the consumer only the full commit the gate
 actually pushed to the producer remote. Resolve that commit after the gate
 rebases and publishes; an earlier local commit may never reach the remote.
@@ -282,6 +286,7 @@ project operator to repair the named definition or target if it persists.
 - [Standalone plans](standalone-plans.md) — Run project plans and recover an interrupted or ambiguous execution.
 - [Success policy](success-policy.md) — Apply all-pass aggregation and attempt-local measurements.
 - [Case attachment](case-attachment.md) — Bind cases to authorized items, tasks and deployment targets.
+- [Consumer proof](consumer-proof.md) — Run declared consumer builds against exact producer candidates before merge.
 - [Starting state and activity](case-attachment-rules.md) — Declare Machine starting state and read case activity.
 - [Deployment plan execution](deployment-plan-execution.md) — Run frozen cases across members, machines and shared host turns.
 - [Browser targets](browser-targets.md) — Select Browser targets, methods, identities and viewport configuration.
