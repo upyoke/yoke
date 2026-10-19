@@ -73,13 +73,20 @@ def test_named_token_checks_distinguish_absence_and_permission_failures(
 def test_review_captures_the_write_names_and_backs_out_without_apply():
     case = next(case for case in _cases() if case["case_key"] == "review-frame")
     actions = case["method_config"]["actions"]
-    assert actions[-3]["keys"] == ["Down", "Enter"]
-    assert actions[-3]["ready_text"] == ["Show all changes"]
-    assert actions[-2]["step"] == "pending-write-list"
+    by_step = {action["step"]: action for action in actions}
+    assert by_step["show-all-changes"]["keys"] == ["Down", "Enter"]
+    assert by_step["show-all-changes"]["ready_text"] == ["Show all changes"]
+    assert by_step["expanded-plan-top"]["keys"] == ["Home"]
     reuse_line = friendly_line("reuse-session-relay-token", "")
-    assert reuse_line in actions[-2]["ready_text"]
+    assert by_step["pending-write-list"]["ready_text"] == [reuse_line]
+    assert by_step["review-controls"]["keys"] == ["End"]
+    assert by_step["expanded-review-controls"]["ready_text"] == ["Show summary"]
+    assert "Show summary" in case["method_config"]["expected_text"]
     assert reuse_line in case["method_config"]["expected_text"]
-    assert friendly_line("store-token-reference", "") not in actions[-2]["ready_text"]
+    assert (
+        friendly_line("store-token-reference", "")
+        not in by_step["pending-write-list"]["ready_text"]
+    )
     assert actions[-1]["keys"] == ["Escape"]
     assert "pending-write-list" in case["method_config"]["capture_checkpoints"]
     assert case["required_completion"] == "back-before-apply"

@@ -78,3 +78,72 @@ def test_long_label_and_hint_are_never_truncated(width):
     rendered = _option_row_text(SELF_HOST_ROW, selected=True, width=width)
     assert SELF_HOST_ROW.label in rendered.plain
     assert SELF_HOST_ROW.hint in rendered.plain
+
+
+def test_review_recipe_inspects_both_ends_of_a_long_plan_without_apply(monkeypatch):
+    from runtime.api.cli.onboard_wizard_test_helpers import make_app, stub_path_doctor
+    from yoke_cli.config.onboard_wizard_finish_flow import FinishBodyFlow
+    from yoke_core.domain.installer_campaign_current_text_cases import (
+        CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES,
+    )
+
+    stub_path_doctor(monkeypatch)
+    # A full pending plan and its first-work guidance exceed the host's 45 rows.
+    monkeypatch.setattr(
+        FinishBodyFlow,
+        "_review_status_lines",
+        lambda self: (
+            [f"Pending setup detail {i}" for i in range(45)]
+            if self._review_show_all
+            else []
+        ),
+    )
+    app, spy = make_app()
+    plan = {
+        "plan": {
+            "reuse": {"token_reference": True},
+            "steps": [
+                {"action": "reuse-session-relay-token", "target": "existing-api-token"},
+                {"action": "set-active-env", "target": "prod"},
+            ],
+        }
+    }
+    case = next(
+        case
+        for case in CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES
+        if case["case_key"] == "review-frame"
+    )
+    actions = case["method_config"]["actions"]
+    first = next(
+        i for i, action in enumerate(actions) if action["step"] == "show-all-changes"
+    )
+
+    def frame():
+        return "\n".join(strip.text for strip in app.screen._compositor.render_strips())
+
+    async def scenario():
+        async with app.run_test(size=(211, 45)) as pilot:
+            await pilot.pause()
+            app._show_finish({"plan": plan})
+            await app._apply_pending_swap()
+            await pilot.pause()
+            frames = {}
+            for action in actions[first:-1]:
+                for marker in action.get("ready_text", []):
+                    assert marker in frame(), (action["step"], marker, frame())
+                keys = [key.lower() for key in action.get("keys", [])]
+                if keys:
+                    await pilot.press(*keys)
+                await pilot.pause()
+                frames[action["step"]] = frame()
+            assert (
+                "Reuse this machine's existing Yoke API token"
+                in frames["pending-write-list"]
+            )
+            assert "Show summary" in frames["expanded-review-controls"]
+            assert "Show summary" not in frames["pending-write-list"]
+            await pilot.press("escape")
+            await pilot.pause()
+
+    asyncio.run(scenario())
+    assert spy.applied is None
