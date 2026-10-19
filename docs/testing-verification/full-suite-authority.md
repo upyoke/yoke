@@ -50,7 +50,8 @@ Local verification stays change-scoped:
   and publishes the matrix and split count, so shards cover it once and a
   failed shard is the run's verdict. Small selections plan one shard;
   each uploads `pytest-output-selection-N`. Selection CI installs the
-  same Node/tsc toolchain as full CI.
+  same Node/tsc toolchain, xdist arguments (`ci_shards.XDIST_ARGS`, with
+  `--dist loadfile`) and job timeout as full CI.
 
   It refuses rather than testing the wrong tree: an uncommitted tree (CI
   tests the pushed commit), and a checkout sitting on the base branch

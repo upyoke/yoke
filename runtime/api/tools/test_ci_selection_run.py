@@ -15,6 +15,7 @@ import pytest
 
 from yoke_core.domain.yaml_helper import load_document
 from yoke_core.tools import ci_selection_run as runner
+from yoke_core.tools import ci_shards
 from yoke_core.tools._impacted_changed_paths import changed_paths
 from yoke_core.tools._impacted_selection import Selection
 from yoke_core.tools._source_pythonpath import repo_root
@@ -23,7 +24,10 @@ from yoke_core.tools._watch_pytest_args import NO_SELECTED_TESTS
 
 def _git(root: Path, *args: str) -> str:
     return subprocess.run(
-        ["git", "-C", str(root), *args], check=True, capture_output=True, text=True,
+        ["git", "-C", str(root), *args],
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout.strip()
 
 
@@ -45,11 +49,17 @@ def test_positional_args_are_the_collection_targets() -> None:
     assert runner.positional_args(["-k", "a.py"]) == []
 
 
-def test_pytest_command_uses_every_runner_core_unless_told_otherwise() -> None:
+def test_pytest_command_schedules_workers_like_full_ci_unless_told_otherwise() -> None:
     assert runner.pytest_command(["a.py"], ["-q"]) == [
-        sys.executable, "-m", "pytest", "a.py", "-q", "-n", runner.CI_WORKERS,
+        sys.executable,
+        "-m",
+        "pytest",
+        "a.py",
+        "-q",
+        *ci_shards.XDIST_ARGS,
     ]
     assert runner.pytest_command([], ["-n", "0", "b.py"])[-3:] == ["-n", "0", "b.py"]
+    assert "--dist" not in runner.pytest_command([], ["-n", "0", "b.py"])
 
 
 def test_has_positional_args_ignores_flag_values() -> None:
@@ -60,7 +70,10 @@ def test_has_positional_args_ignores_flag_values() -> None:
 
 def test_wrong_checkout_is_refused(committed_repo: Path, capsys) -> None:
     code = runner.run_selection(
-        committed_repo, base_sha="", expected_head_sha="f" * 40, passthrough=["test_ok.py"],
+        committed_repo,
+        base_sha="",
+        expected_head_sha="f" * 40,
+        passthrough=["test_ok.py"],
     )
     assert code == runner.EXIT_USAGE
     assert "the dispatch named ffffffffffff" in capsys.readouterr().out
@@ -68,22 +81,32 @@ def test_wrong_checkout_is_refused(committed_repo: Path, capsys) -> None:
 
 def test_nothing_to_run_is_refused(committed_repo: Path, capsys) -> None:
     code = runner.run_selection(
-        committed_repo, base_sha="", expected_head_sha="", passthrough=["-q"],
+        committed_repo,
+        base_sha="",
+        expected_head_sha="",
+        passthrough=["-q"],
     )
     assert code == runner.EXIT_USAGE
     assert "nothing to run" in capsys.readouterr().out
 
 
-def test_empty_selection_runs_nothing_and_passes(committed_repo: Path, monkeypatch, capsys) -> None:
+def test_empty_selection_runs_nothing_and_passes(
+    committed_repo: Path, monkeypatch, capsys
+) -> None:
     monkeypatch.setattr(runner, "selection_paths", lambda root, base: None)
     code = runner.run_selection(
-        committed_repo, base_sha="b" * 40, expected_head_sha="", passthrough=[],
+        committed_repo,
+        base_sha="b" * 40,
+        expected_head_sha="",
+        passthrough=[],
     )
     assert code == 0
     assert NO_SELECTED_TESTS in capsys.readouterr().out
 
 
-def test_explicit_paths_run_and_mirror_into_the_log(committed_repo: Path, tmp_path: Path) -> None:
+def test_explicit_paths_run_and_mirror_into_the_log(
+    committed_repo: Path, tmp_path: Path
+) -> None:
     log = tmp_path / "out.txt"
     head = _git(committed_repo, "rev-parse", "HEAD")
     code = runner.run_selection(
@@ -97,19 +120,25 @@ def test_explicit_paths_run_and_mirror_into_the_log(committed_repo: Path, tmp_pa
     assert "1 passed" in log.read_text()
 
 
-def test_selection_paths_is_bounded_and_prints_the_advisory(monkeypatch, capsys, tmp_path) -> None:
+def test_selection_paths_is_bounded_and_prints_the_advisory(
+    monkeypatch, capsys, tmp_path
+) -> None:
     seen: dict = {}
 
     def fake_selection(base, *, bounded=False, root=None):
         seen.update(base=base, bounded=bounded, root=root)
         return Selection(
-            full_sweep=False, reason="unbounded", files=("runtime/api/test_a.py",),
-            fallback_rule="test_tooling_module", trigger_paths=("x.py",),
+            full_sweep=False,
+            reason="unbounded",
+            files=("runtime/api/test_a.py",),
+            fallback_rule="test_tooling_module",
+            trigger_paths=("x.py",),
             bounded_deferral=True,
         )
 
     monkeypatch.setattr(
-        "yoke_core.tools.watch_pytest_project_python.impacted_selection", fake_selection,
+        "yoke_core.tools.watch_pytest_project_python.impacted_selection",
+        fake_selection,
     )
     paths = runner.selection_paths(tmp_path, "b" * 40)
 
@@ -131,12 +160,14 @@ def test_selection_is_reproducible_from_the_merge_base_sha() -> None:
     root = repo_root(Path(__file__).resolve())
     merge_base = subprocess.run(
         ["git", "-C", str(root), "merge-base", "main", "HEAD"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     if merge_base.returncode != 0:
         merge_base = subprocess.run(
             ["git", "-C", str(root), "merge-base", "origin/main", "HEAD"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
     if merge_base.returncode != 0:
         pytest.skip("no main to measure this tree against")
@@ -156,25 +187,46 @@ def test_main_parses_shell_quoted_pytest_args(monkeypatch, tmp_path) -> None:
         return 0
 
     monkeypatch.setattr(runner, "run_selection", fake_run)
-    code = runner.main([
-        "--root", str(tmp_path), "--base-sha=" + "b" * 40, "--head-sha=" + "a" * 40,
-        "--pytest-args=-q -k 'x y'", "--splits=4", "--group=2",
-    ])
+    code = runner.main(
+        [
+            "--root",
+            str(tmp_path),
+            "--base-sha=" + "b" * 40,
+            "--head-sha=" + "a" * 40,
+            "--pytest-args=-q -k 'x y'",
+            "--splits=4",
+            "--group=2",
+        ]
+    )
     assert code == 0
     assert seen == {
-        "base_sha": "b" * 40, "expected_head_sha": "a" * 40,
-        "passthrough": ["-q", "-k", "x y"], "splits": 4, "group": 2,
+        "base_sha": "b" * 40,
+        "expected_head_sha": "a" * 40,
+        "passthrough": ["-q", "-k", "x y"],
+        "splits": 4,
+        "group": 2,
     }
 
 
-def test_an_unsharded_dispatch_leaves_the_split_values_empty(monkeypatch, tmp_path) -> None:
+def test_an_unsharded_dispatch_leaves_the_split_values_empty(
+    monkeypatch, tmp_path
+) -> None:
     """The plan sizes most selections at one shard, and passes empty strings."""
     seen: dict = {}
-    monkeypatch.setattr(runner, "run_selection", lambda root, **kwargs: seen.update(kwargs))
-    runner.main([
-        "--root", str(tmp_path), "--base-sha=", "--head-sha=", "--pytest-args=a.py",
-        "--splits=", "--group=",
-    ])
+    monkeypatch.setattr(
+        runner, "run_selection", lambda root, **kwargs: seen.update(kwargs)
+    )
+    runner.main(
+        [
+            "--root",
+            str(tmp_path),
+            "--base-sha=",
+            "--head-sha=",
+            "--pytest-args=a.py",
+            "--splits=",
+            "--group=",
+        ]
+    )
     assert (seen["splits"], seen["group"]) == (1, 1)
 
 
@@ -202,7 +254,8 @@ def _dispatched_argv(pytest_args: Sequence[str], tmp_path: Path) -> list[str]:
     """
     reporter = tmp_path / "report_argv.py"
     reporter.write_text(
-        "import json, sys\nprint(json.dumps(sys.argv[1:]))\n", encoding="utf-8",
+        "import json, sys\nprint(json.dumps(sys.argv[1:]))\n",
+        encoding="utf-8",
     )
     command = _selection_run_block().replace(
         MODULE_INVOCATION,
@@ -235,7 +288,8 @@ def _dispatched_argv(pytest_args: Sequence[str], tmp_path: Path) -> list[str]:
     ],
 )
 def test_dispatched_pytest_args_survive_the_workflow_boundary(
-    pytest_args: list[str], tmp_path: Path,
+    pytest_args: list[str],
+    tmp_path: Path,
 ) -> None:
     """Every dispatch shape reaches pytest meaning exactly what was sent.
 
@@ -274,6 +328,14 @@ def test_the_matrix_and_the_split_both_come_from_the_plan_job() -> None:
     assert run_step["env"]["SELECTION_GROUP"] == "${{ matrix.shard }}"
     assert re.search(r"--splits[= ]\d", workflow) is None
     assert re.search(r"shard:\s*\[", workflow) is None
+
+
+def test_a_selection_shard_has_the_full_suite_shard_budget() -> None:
+    full_ci = load_document(SELECTION_WORKFLOW.parent / "yoke-ci.yml")
+    assert (
+        _selection_workflow()["jobs"]["selection"]["timeout-minutes"]
+        == full_ci["jobs"]["test_shard"]["timeout-minutes"]
+    )
 
 
 def test_every_shard_reports_and_keeps_its_own_evidence() -> None:

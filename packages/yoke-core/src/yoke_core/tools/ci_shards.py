@@ -39,6 +39,11 @@ SHARD_COUNT = 8
 # package's top-level conftest and collection fails.
 SUITE_PATHS = ("runtime/api/", "runtime/harness/", "tests/")
 
+# How every CI pytest run, full shard or change-scoped selection, spreads over
+# one runner: every core, whole files per worker so file-scoped fixtures are
+# built once, and the duration-ordered file queue left as it is.
+XDIST_ARGS = ("-n", "auto", "--dist", "loadfile", "--no-loadscope-reorder")
+
 DURATIONS_PATH = ".test_durations"
 OUTPUT_LOG = "pytest-output.txt"
 JUNIT_REPORT = "pytest-report.xml"
@@ -214,11 +219,7 @@ def pytest_command(group: int) -> list[str]:
         "-m",
         "pytest",
         *SUITE_PATHS,
-        "-n",
-        "auto",
-        "--dist",
-        "loadfile",
-        "--no-loadscope-reorder",
+        *XDIST_ARGS,
         "--splits",
         str(SHARD_COUNT),
         "--group",

@@ -114,7 +114,9 @@ jobs:
           --pytest-args="$SELECTION_PYTEST_ARGS"
 
   selection:
-    timeout-minutes: 20
+    # Same budget as yoke-ci's test-shard: a selection may earn every shard
+    # the full suite has, so it may need as long as one.
+    timeout-minutes: 35
     name: selection (shard ${{ matrix.shard }})
     needs: plan
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
