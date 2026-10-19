@@ -44,13 +44,20 @@ def record_wait(
 
     The watcher streaming this process dies with the turn that started it,
     so a worker that stops here would otherwise never learn the conclusion.
-    Recording the wait hands that job to the control-plane sweep. It is
-    advisory: a run started outside a session records nothing, and a
-    control plane that refuses says so without stopping the run.
+    Recording the wait hands that job to the control-plane sweep, and the
+    line printed on success tells the caller it may end its turn instead of
+    holding it. It is advisory: a run started outside a session records
+    nothing, and a control plane that refuses says so without stopping the
+    run.
     """
-    from yoke_core.domain.session_ci_wait_record import record_ci_run_wait
+    from yoke_core.domain.session_ci_wait_record import (
+        ambient_session_id,
+        record_ci_run_wait,
+    )
     from yoke_core.domain.session_ci_wait_schema import CI_WAIT_SELECTION
 
+    if not ambient_session_id():
+        return
     warning = record_ci_run_wait(
         repo=repo,
         run_id=run_id,
@@ -60,6 +67,12 @@ def record_wait(
     )
     if warning:
         say(f"{warning}; this run's verdict will not wake a stopped turn")
+        return
+    say(
+        f"ci wait recorded for run {run_id}: if this watcher stops before the "
+        "verdict, end the turn and do not poll GitHub; the verdict wakes this "
+        f"session to run `{continue_command or 'the same command'}`"
+    )
 
 
 __all__ = ["record_wait", "relay_failed_log", "say"]

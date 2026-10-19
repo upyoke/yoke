@@ -110,6 +110,21 @@ def _has_suppression(command: str) -> bool:
     return SUPPRESSION_TOKEN in command
 
 
+# An `until`/`while` loop that sleeps between GitHub run reads: a
+# hand-rolled wait on a CI run whose verdict a recorded wait already
+# delivers. Lookaheads accept either order of the read and the sleep.
+_GITHUB_POLL_LOOP_RE = re.compile(
+    r"\b(?:until|while)\s"
+    r"(?=[\s\S]*?\bgh\s+(?:api|run\s+view)\b)"
+    r"(?=[\s\S]*?\bsleep\s+\d)"
+)
+
+
+def _is_github_poll_loop(command: str) -> bool:
+    """True if *command* loops on ``gh api``/``gh run view`` with ``sleep``."""
+    return _GITHUB_POLL_LOOP_RE.search(command) is not None
+
+
 def _has_monitor_duplicate_suppression(command: str) -> bool:
     """True if *command* carries the duplicate-Monitor token (audit-only)."""
     return MONITOR_DUPLICATE_SUPPRESSION_TOKEN in command

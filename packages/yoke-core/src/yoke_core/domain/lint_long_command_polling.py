@@ -2,8 +2,9 @@
 
 Detects and flags the anti-pattern where an agent manually polls the output
 of a long-running command (repeated same-capture ``tail``/``head`` peeks,
-duplicate ``Monitor`` arming, background waiters on an existing capture, or
-short ``sleep N && tail`` idioms with ``N < 60``).
+duplicate ``Monitor`` arming, background waiters on an existing capture,
+short ``sleep N && tail`` idioms with ``N < 60``, or ``until``/``while``
+loops that sleep between ``gh api``/``gh run view`` reads of a CI run).
 
 The canonical pattern agents should use instead: ``Bash(run_in_background=
 true)`` with ``Monitor`` tailing the capture file through a line-buffered
@@ -11,8 +12,10 @@ filter. When no streaming surface exists, the fallback cadence is
 ``60s -> 90s -> 120s -> max ~300s``.
 
 Bypass: add ``# lint:no-polling-check`` to a legitimate post-capture
-inspection command. Monitor duplicate and background-waiter suppression tokens
-are audit-only and still deny in ``deny`` mode.
+inspection command. It does not unblock a GitHub polling loop: a CI run
+Yoke dispatched has a recorded wait whose verdict wakes the session. Monitor
+duplicate and background-waiter suppression tokens are audit-only and still
+deny in ``deny`` mode.
 
 Modes (resolved from ``.yoke/lint-config`` via
 ``yoke_core.domain.lint_config``):
