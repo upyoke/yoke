@@ -8,9 +8,10 @@ live; never put their current state into a golden to repair a failed request.
 
 ## What survives
 
-Reset carries the verified native credential stores forward with their modes.
-It also renames these live installation entries out of the home before clearing
-and restores them afterward, using the same mechanism as native Chromium:
+Reset renames these live entries out of the home before clearing and restores
+them afterward with their modes, using the same mechanism as native Chromium:
+
+- `.claude/.credentials.json`, `.codex/auth.json`, `.config/cursor/auth.json`
 
 - `.local/bin/claude`, `.local/share/claude`
 - `.local/bin/codex`, `.local/lib/node_modules/@openai`, `.codex/packages`
@@ -37,14 +38,13 @@ another reset. Read the native process state and storage diagnostics. Disk
 sleep or I/O pressure alone does not prove a broken archive or missing install.
 
 Never reset, capture or clean recovery stashes while that process may be alive.
-An interrupted restore can temporarily remove executables and replace native
-credential paths with old sealed copies before carrying the live stores back.
+An interrupted restore can temporarily remove executables and native
+credential files before moving the live entries back.
 
-Finish the interrupted carry-forward through `test_machine.exec` under explicit
-repair authority: preserve the current old credential files as private side
-copies; identify each newest live stash by its native store structure without
-printing contents; restore its bytes atomically to that harness's native
-location with its original mode; compare digests. Keep all copies until proof
+Finish the interrupted restore through `test_machine.exec` under explicit
+repair authority: identify each retained live login stash by its native store
+structure without printing contents; move it back to that harness's native
+location with its original mode; compare digests. Keep every stash until proof
 passes. A restored credential is not a new sign-in.
 
 Recover retained Chromium or installation entries to their absent native paths

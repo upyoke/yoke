@@ -133,16 +133,12 @@ and unsettled job. Archive failures preserve bounded, redacted native exit,
 stdout and stderr through mission preparation, including malformed receipts.
 
 The SSH access needed to finish restore remains live. Linux/WSL reset never
-rolls a harness sign-in back (`yoke_harness.ssh_linux_sign_in_stores`). Before
-clearing, it runs the sealed `Claude real request`, `Codex real request` and
-`Cursor real request` probes against the live home. Each verified login is
-carried forward over the restore with its own mode. A failing login restores
-from the golden only when it has not changed since the seal; otherwise the
-reset refuses `test_machine_sign_in_newer_than_baseline` before clearing, naming
-the store, the probe and its diagnosed reason/recovery. The outer refusal
-retains quota or transport recovery instead of substituting sign-in advice.
-The newer-store guard uses file modification time; it does not establish who
-wrote the store or prove a new human login. Linux capture and reset first ask a
+rolls a harness sign-in back: the Claude, Codex and Cursor login files
+(`.claude/.credentials.json`, `.codex/auth.json`, `.config/cursor/auth.json`)
+are live-preserved entries (`yoke_harness.ssh_linux_preserved_entries`), left
+out of every capture and kept live with their modes through reset, as macOS
+keeps its logins. A copy an older golden sealed is never restored, and reset
+runs no sign-in probe before clearing. Linux capture and reset first ask a
 running desktop Chromium to quit and wait for it to exit
 (`yoke_harness.ssh_linux_browser_approval`), the same rule macOS applies to
 Safari, refusing `test_machine_sign_in_app_quit_not_proved` before copying or

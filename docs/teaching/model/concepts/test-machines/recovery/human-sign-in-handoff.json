@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "test-machine-recovery",
  "position": 3,
- "summary": "After the operator completes a sign-in on a test machine, save it with golden-capture, which proves real requests before recapturing. Diagnose native probe failures first: quota waits for provider capacity, transport waits for recovery, and sign-in advice requires actual authentication evidence. Unknown nonzero failures preserve the golden and direct local diagnosis. A changed-store reset refusal preserves the same diagnosed recovery. Store modification time protects newer credential state without proving a human login.",
- "sources": ["docs/testing-verification/test-machine-golden-baseline.md", "packages/yoke-harness/src/yoke_harness/ssh_linux_sign_in_stores.py"]
+ "summary": "After the operator completes a sign-in on a test machine, save it with golden-capture, which proves real requests before recapturing. Diagnose native probe failures first: quota waits for provider capacity, transport waits for recovery, and sign-in advice requires actual authentication evidence. Unknown nonzero failures preserve the golden and direct local diagnosis. Harness login files stay live through every reset on macOS, Linux and WSL, so a completed sign-in is never rolled back by a reset.",
+ "sources": ["docs/testing-verification/test-machine-golden-baseline.md", "packages/yoke-harness/src/yoke_harness/ssh_linux_preserved_entries.py"]
 }

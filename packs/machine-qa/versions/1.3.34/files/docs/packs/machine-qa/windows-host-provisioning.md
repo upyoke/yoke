@@ -298,11 +298,9 @@ Verify is **destructive**: it reaches both baselines and ends with Yoke
 installed in `shell-preconfigured`. The final reset restores only the clean
 signed-in `fresh-host`. It validates the seal, stops owned services/home
 writers, restores files/modes, proves product residue absent on Linux shells,
-and reruns declared probes. The Linux sign-in carry-forward applies in WSL:
-reset verifies the live Claude, Codex and Cursor logins with their sealed real
-requests and carries each verified one over the restore, and refuses
-`test_machine_sign_in_newer_than_baseline` before clearing when a login changed
-after the seal but fails its request. It never changes Windows credentials.
+and reruns declared probes. The Linux live sign-in rule applies in WSL: the
+Claude, Codex and Cursor login files never enter a golden and stay live through
+every reset. It never changes Windows credentials.
 Require new passing receipts and actual harness requests,
 plus independent Windows desktop proof. No such new roundtrip was run here.
 

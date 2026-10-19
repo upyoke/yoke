@@ -12,7 +12,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_harness.ssh_linux_sign_in_stores import NO_SIGN_IN_PLAN
 from yoke_contracts.machine_config.test_machine import validate_test_machine_settings
 from yoke_harness.ssh_linux_baseline import (
     ABSENT_HOME_PATHS,
@@ -105,7 +104,7 @@ def _archive_run(home: Path, golden: Path, operation: str):
     )
 
 
-def test_archive_roundtrip_restores_credentials_preserves_ssh_and_proves_absence(
+def test_archive_roundtrip_keeps_live_credentials_and_ssh_and_proves_absence(
     tmp_path,
 ):
     if os.getuid() == 0:
@@ -124,13 +123,13 @@ def test_archive_roundtrip_restores_credentials_preserves_ssh_and_proves_absence
     golden = tmp_path / "golden"
     captured = _archive_run(home, golden, "capture")
     assert captured.returncode == 0, captured.stderr
-    (home / ".claude/.credentials.json").write_text("expired")
+    (home / ".claude/.credentials.json").write_text("rotated-live-state")
     (home / ".ssh/authorized_keys").write_text("new-authorized-key")
     (home / ".yoke").mkdir()
     (home / ".yoke/config.json").write_text("residue")
     restored = _archive_run(home, golden, "reset")
     assert restored.returncode == 0, restored.stderr
-    assert (home / ".claude/.credentials.json").read_text() == "signed-in-state"
+    assert (home / ".claude/.credentials.json").read_text() == "rotated-live-state"
     assert not (home / ".claude/daemon.sock").is_symlink()
     assert (home / ".ssh/authorized_keys").read_text() == "new-authorized-key"
     assert not (home / ".yoke").exists()
@@ -166,7 +165,7 @@ def test_archive_operation_records_malformed_transport_receipt_as_named_failure(
     monkeypatch.setattr(
         ssh_linux_baseline,
         "archive_admission",
-        lambda *a: HostActionResult(True, {"sign_in_plan": NO_SIGN_IN_PLAN}),
+        lambda *a: HostActionResult(True, {}),
     )
     control = SimpleNamespace(
         home="/home/tester",

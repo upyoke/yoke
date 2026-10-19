@@ -125,7 +125,7 @@ def test_health_reads_verification_and_golden_capture_only(
     assert host_unhealthy(test_db, MACHINE) is not None
     _record(test_db, "golden_capture", "verified")
     assert host_unhealthy(test_db, MACHINE) is None
-    _record(test_db, "reset", "error", "test_machine_sign_in_newer_than_baseline")
+    _record(test_db, "reset", "error", "test_machine_sign_in_app_quit_not_proved")
     assert host_unhealthy(test_db, MACHINE) is None
 
 

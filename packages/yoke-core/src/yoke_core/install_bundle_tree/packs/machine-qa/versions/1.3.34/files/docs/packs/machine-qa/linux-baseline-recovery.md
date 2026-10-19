@@ -78,14 +78,12 @@ that stays open refuses `test_machine_sign_in_app_quit_not_proved` before
 anything is copied or cleared. This flushes the live browser store before
 preservation; its sign-in state must not come from the restored archive.
 
-Harness sign-ins are never rolled back. Before clearing, reset runs the sealed
-`Claude real request`, `Codex real request` and `Cursor real request` probes
-against the live home. Each verified login (`~/.claude/.credentials.json`,
-`~/.codex/auth.json`, `~/.config/cursor/auth.json`) is carried forward over the
-restore with its own mode; the receipt lists it in `preserved_entries`. A login
-that fails its request is restored from the golden only when it has not changed
-since the golden was sealed. If it changed after the seal, reset refuses
-`test_machine_sign_in_newer_than_baseline` before clearing anything. OS package
+Harness sign-ins are never rolled back. The login files
+(`~/.claude/.credentials.json`, `~/.codex/auth.json`,
+`~/.config/cursor/auth.json`) are left out of every captured golden and kept
+live through reset with their own modes; the receipt lists each present one in
+`preserved_entries`. A copy an older golden sealed is never restored. A failed
+login is repaired by signing in again on the host; no recapture is needed. OS package
 fixture journals outside the home are separate and may reverse mission changes;
 permanent desktop tools must remain baseline.
 
@@ -94,9 +92,8 @@ permanent desktop tools must remain baseline.
 | Refusal | Required recovery |
 | --- | --- |
 | `linux_desktop_stop_not_proved` | Repair termination of the named fixture desktop, then retry; other users are excluded |
-| `test_machine_sign_in_newer_than_baseline` | The named login changed after the seal and fails its request. Follow `probe_reason`: quota needs provider capacity, auth needs sign-in. Retry proof after recovery; a verified login can be carried forward, kept live without recapturing the golden |
 | `test_machine_sign_in_app_quit_not_proved` | Close every Chromium window on the fixture desktop, answering its prompts, then retry; `reason` names the helper's own refusal |
-| `linux_sign_in_store_unsafe` | Make the named login path a regular file owned by the test user, or recapture a golden whose copy of it is a regular file |
+| `linux_preserved_home_entry_unsafe` | Make the named live entry (a login file or harness installation) and its parents regular paths owned by the test user, then retry; the home was not cleared |
 | `linux_home_writers_stop_not_proved` | Stop the named test-home writer through its owner, then retry the sealed baseline |
 | `linux_golden_home_clear_failed` | Read refused entry, resolve writer/ownership, retry; never seal the mixed home |
 | `baseline_probe_failed` | Read cause/reason/recovery and sanitized native exit diagnostics. Quota waits for capacity; transport retries after recovery; only diagnosed auth calls for sign-in. Preserve the golden and failed capture; never reset credentials to clear quota |
