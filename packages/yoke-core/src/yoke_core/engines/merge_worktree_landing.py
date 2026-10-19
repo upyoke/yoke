@@ -50,6 +50,7 @@ def record_existing_landing(ctx: MergeContext, candidate_sha: str, target: str) 
         return 0
     from yoke_core.engines import merge_worktree as mw
 
+    pr_num = ""
     if ctx.args.local_merge:
         tip = mw._run_git(["rev-parse", target], cwd=ctx.repo_root, capture=True)
         if tip.returncode:
@@ -73,10 +74,22 @@ def record_existing_landing(ctx: MergeContext, candidate_sha: str, target: str) 
         except LandingUnverified as exc:
             mw._print(str(exc), err=True)
             return 1
+        # A queue landing re-entered after its landing notice still owes the
+        # queue close-out (merge-group CI evidence, receipt, landing stamp);
+        # the route converges on the recorded landing without re-arming.
+        from yoke_core.engines.merge_worktree_queue_landing import (
+            queue_lane_landing,
+        )
+
+        queued = queue_lane_landing(ctx)
+        if queued is not None:
+            if queued.exit_code is not None:
+                return queued.exit_code
+            pr_num = queued.pr_num
     return (
         0
         if record_worktree_landing(
-            ctx, candidate_sha=candidate_sha, target_sha=target_sha
+            ctx, candidate_sha=candidate_sha, target_sha=target_sha, pr_num=pr_num
         )
         else 5
     )

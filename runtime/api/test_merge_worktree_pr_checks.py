@@ -53,6 +53,8 @@ def _arm_pr_merge_environment(
         emitted.append((event_name, kw))
 
     monkeypatch.setattr(merge_worktree, "_emit_merge_event", _capture_event)
+    # These cases exercise the direct merge a project without a queue uses.
+    monkeypatch.setattr(merge_worktree_pr, "queue_lane_landing", lambda _ctx: None)
     monkeypatch.setattr(
         merge_worktree_pr, "_wait_for_ci", lambda *_a, **_kw: ci_outcome
     )
@@ -120,6 +122,7 @@ class TestRestCheckRunsBranches:
             lambda name, **kw: emitted.append((name, kw)),
         )
         from yoke_core.engines import merge_worktree_ci
+
         monkeypatch.setattr(
             merge_worktree_ci,
             "get_check_runs",
@@ -144,11 +147,13 @@ class TestRestCheckRunsBranches:
             lambda name, **kw: None,
         )
         from yoke_core.engines import merge_worktree_ci
+
         monkeypatch.setattr(
             merge_worktree_ci,
             "get_check_runs",
             lambda *_a, **_kw: (
-                None, "check-runs REST authorization failed: HTTP 403",
+                None,
+                "check-runs REST authorization failed: HTTP 403",
             ),
         )
 
@@ -165,13 +170,12 @@ class TestRestCheckRunsBranches:
             lambda name, **kw: None,
         )
         from yoke_core.engines import merge_worktree_ci
+
         monkeypatch.setattr(
             merge_worktree_ci,
             "get_check_runs",
             lambda *_a, **_kw: (
-                merge_worktree_ci_rest.CheckRunsState(
-                    states=("SUCCESS", "SUCCESS")
-                ),
+                merge_worktree_ci_rest.CheckRunsState(states=("SUCCESS", "SUCCESS")),
                 None,
             ),
         )
@@ -202,9 +206,12 @@ class TestClassifyTestResults:
     def test_error_signature_classifies_failed(self) -> None:
         from yoke_core.engines.merge_worktree_ci import _classify_test_results
 
-        assert _classify_test_results(
-            "tests/test_foo.py::test_bar ERROR\n=== 1 errors in 0.5s ==="
-        ) == "failed"
+        assert (
+            _classify_test_results(
+                "tests/test_foo.py::test_bar ERROR\n=== 1 errors in 0.5s ==="
+            )
+            == "failed"
+        )
 
     def test_unrecognized_output_classifies_empty(self) -> None:
         """Ambiguous text without a PASS verdict must fall through to empty."""
@@ -267,9 +274,7 @@ class TestSkippedCiGate:
         assert "MergePullRequestCiPassed" not in names
         assert "LocalVerificationAcceptedAsCiSubstitute" not in names
         block_event = next(
-            kw
-            for (name, kw) in emitted
-            if name == "MergeBlockedNoVerificationEvidence"
+            kw for (name, kw) in emitted if name == "MergeBlockedNoVerificationEvidence"
         )
         assert block_event["context"]["evidence_state"] == "failed"
 
