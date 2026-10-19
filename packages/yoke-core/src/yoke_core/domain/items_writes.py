@@ -50,7 +50,7 @@ def update_item_field(
             "Raw body writes are no longer supported. "
             "items.body is a rendered projection. Write to a structured field instead: "
             "spec, design_spec, technical_plan, worktree_plan, "
-            "shepherd_log, shepherd_caveats, test_results, deploy_log"
+            "shepherd_caveats, test_results, deploy_log"
         )
     _reject_workflow_controlled_fields({field})
 

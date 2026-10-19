@@ -14,7 +14,7 @@ Full envelope shape, claim-verification matrix, and the per-family function id r
 
 - **`items.body` is a virtual rendered field.** Not stored in the DB. Read via `yoke items get PREFIX-N body` (renders on demand from structured fields). Raw body writes are unsupported. All content flows through structured fields.
 
-- **Full-field replace (`items.structured_field.replace`):** writes complete content to `spec`, `design_spec`, `technical_plan`, `worktree_plan`, `shepherd_log`, `shepherd_caveats`, `test_results`, or `deploy_log`. Routes through the structured-write path (preserves empty/shrinkage/freeze guards, reports old/new line counts), and with matching `options` syncs the rendered body to GitHub. CLI adapter: `printf '%s' "$content" | yoke items structured-field replace PREFIX-N --field spec --stdin`.
+- **Full-field replace (`items.structured_field.replace`):** writes complete content to `spec`, `design_spec`, `technical_plan`, `worktree_plan`, `shepherd_caveats`, `test_results`, or `deploy_log`. Routes through the structured-write path (preserves empty/shrinkage/freeze guards, reports old/new line counts), and with matching `options` syncs the rendered body to GitHub. CLI adapter: `printf '%s' "$content" | yoke items structured-field replace PREFIX-N --field spec --stdin`.
 
   ```json
   {"function":"items.structured_field.replace","request_id":"<uuid>","actor":{"session_id":"<harness_sessions.session_id>"},"target":{"kind":"item","public_ref": "PREFIX-42"},"payload":{"field":"spec","content":"# Spec\n\n..."},"options":{"sync_github_body":true}}
@@ -24,7 +24,7 @@ Full envelope shape, claim-verification matrix, and the per-family function id r
 
 - **Epic-task content (`workflow_item.epic_task.*`):** body replace, split, reassign, add, remove, metadata update; progress notes via `workflow_item.epic_progress_note.append`. The dispatcher resolves the parent epic from `target.kind="epic_task"` and verifies the session holds the epic's work claim. CLI adapter: `printf '%s' "<task body>" | yoke workflow-item epic-task body-replace --epic PREFIX-833 --task-num 5 --stdin`.
 
-- **Do not misuse task-graph planning fields.** `shepherd_log`, `shepherd_caveats`, and `worktree_plan` are reserved for items whose pinned workflow policies generate `epic_tasks`. Writing them on a workflow with `generated_children=none` is misuse — readers will treat the content as authoritative planning output. For in-flight execution context on any item, use the **Progress Log** section (next bullet).
+- **Do not misuse task-graph planning fields.** `shepherd_caveats` and `worktree_plan` are reserved for items whose pinned workflow policies generate `epic_tasks`. Writing them on a workflow with `generated_children=none` is misuse — readers will treat the content as authoritative planning output. For in-flight execution context on any item, use the **Progress Log** section (next bullet).
 
 ## Progress Log
 
@@ -36,7 +36,7 @@ For session-continuity context on an item that future agents need to pick up aft
 
 CLI adapter: `yoke items progress-log append PREFIX-N --headline TEXT --content TEXT` (or `--content-file PATH`); `yoke items section get PREFIX-N --section "Progress Log"` to read. Destructive rewrite: `yoke items section upsert PREFIX-N --section "Progress Log" --content-file PATH --ordering 200`. Reading the existing Progress Log into a shell variable / temp file and piping back into `items section upsert` is structured-field-transform shell choreography that the PreToolUse lint refuses by default.
 
-Why this surface: `shepherd_log`/`shepherd_caveats` are epic architect verdicts; `spec`/`technical_plan`/`worktree_plan` are intent fields, not execution state; `epic_progress_notes` is the equivalent for epic *tasks* keyed `(epic_id, task_num)`; the rendered body is virtual and picks up section writes automatically.
+Why this surface: `shepherd_caveats` summarizes epic review caveats, and verdicts are `shepherd_verdicts` rows; `spec`/`technical_plan`/`worktree_plan` are intent fields, not execution state; `epic_progress_notes` is the equivalent for epic *tasks* keyed `(epic_id, task_num)`; the rendered body is virtual and picks up section writes automatically.
 
 Checkpoint unfinished work while its work claim is held, before a wait,
 handoff or release. Read live status after automatic completion: a terminal

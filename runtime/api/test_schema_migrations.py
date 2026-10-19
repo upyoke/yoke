@@ -85,7 +85,6 @@ class TestAddColumnMigrations:
             "design_spec",
             "technical_plan",
             "worktree_plan",
-            "shepherd_log",
             "shepherd_caveats",
             "test_results",
             "deploy_log",
@@ -95,7 +94,6 @@ class TestAddColumnMigrations:
 
 class TestQaExecutionStatus:
     """Current QA execution status constraints and immutable verdict evidence."""
-
 
     def _seed_qa_row(
         self,
@@ -130,7 +128,6 @@ class TestQaExecutionStatus:
             conn.close()
         assert "execution_status" in cols
 
-
     def test_check_constraint_rejects_bogus_value(self, tmp_path: Path) -> None:
         with init_test_db(tmp_path) as db_path:
             conn = _connect(db_path)
@@ -149,7 +146,6 @@ class TestQaExecutionStatus:
                     (req_id,),
                 )
             conn.close()
-
 
     def test_verdict_raw_result_immutable_after_verdict_set(
         self, tmp_path: Path

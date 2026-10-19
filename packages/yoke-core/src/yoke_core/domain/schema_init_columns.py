@@ -171,7 +171,6 @@ def apply_additive_schema(conn: Any) -> None:
     _add_column_if_not_exists(conn, "items", "design_spec", "TEXT")
     _add_column_if_not_exists(conn, "items", "technical_plan", "TEXT")
     _add_column_if_not_exists(conn, "items", "worktree_plan", "TEXT")
-    _add_column_if_not_exists(conn, "items", "shepherd_log", "TEXT")
     _add_column_if_not_exists(conn, "items", "shepherd_caveats", "TEXT")
     _add_column_if_not_exists(conn, "items", "test_results", "TEXT")
     _add_column_if_not_exists(conn, "items", "deploy_log", "TEXT")

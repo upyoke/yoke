@@ -49,7 +49,7 @@ _BYPASS_TOKEN = "# lint:no-structured-transform-check"
 # matches lines like ``db_router items get 42 spec`` or ``items get YOK-NN spec``.
 _ITEMS_GET_RE = re.compile(
     r"\bitems\s+get\b[^\n;|&]*?\b"
-    r"(spec|design_spec|technical_plan|worktree_plan|shepherd_log|"
+    r"(spec|design_spec|technical_plan|worktree_plan|"
     r"shepherd_caveats|test_results|deploy_log|"
     r"db_mutation_profile|db_compatibility_attestation)\b",
     re.IGNORECASE,

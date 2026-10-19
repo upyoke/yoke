@@ -57,7 +57,7 @@ _MAKE_CONN_DDL = """
             project_id INTEGER DEFAULT 1, project_sequence INTEGER,
             deployment_flow TEXT, deploy_stage TEXT,
             spec TEXT, design_spec TEXT, technical_plan TEXT,
-            worktree_plan TEXT, shepherd_log TEXT, shepherd_caveats TEXT,
+            worktree_plan TEXT, shepherd_caveats TEXT,
             test_results TEXT, deploy_log TEXT,
             spec_updated_at TIMESTAMPTZ, spec_updated_by TEXT,
             resolution TEXT, resolution_ref TEXT, resolution_comment TEXT

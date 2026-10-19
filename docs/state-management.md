@@ -131,7 +131,7 @@ See `.yoke/docs/databases/reference.md` for the `deployment_runs`,
 `deployment_run_items`, `deployment_run_qa`, `deployment_flows`, `sites`,
 `environments`, and `project_capabilities` table schemas.
 
-Specs, plans, and review artifacts live in structured item fields (`spec`, `technical_plan`, `worktree_plan`, `shepherd_log`, `test_results`, etc.). `items.body` is a virtual rendered field assembled on demand from these structured fields — not stored in the DB, not a write target.
+Specs, plans, and review artifacts live in structured item fields (`spec`, `technical_plan`, `worktree_plan`, `test_results`, etc.). `items.body` is a virtual rendered field assembled on demand from these structured fields — not stored in the DB, not a write target.
 
 ## Delivery Lifecycle
 

@@ -36,7 +36,7 @@ Field matrix for `get` (canonical YOKE backlog item columns):
            merge_queue_pr_number, merge_queue_enqueued_at,
            merge_queue_landed_at, merge_queue_notified_at
   structured: spec, design_spec, technical_plan, worktree_plan,
-              shepherd_log, shepherd_caveats, test_results, deploy_log
+              shepherd_caveats, test_results, deploy_log
   virtual: body (rendered from structured fields + sections),
            merge_queue_status (queue wait or landed close-out handoff)
 

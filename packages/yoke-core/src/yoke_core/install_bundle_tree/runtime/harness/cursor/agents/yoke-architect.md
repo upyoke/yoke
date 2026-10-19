@@ -40,7 +40,7 @@ Complex epic may use70%; simple item aims within first half. Final turn contains
 complete plan/decomposition/reflection, never a tool call; bounded incomplete
 output is better than none. Multi-turn planning checkpoints use item's **Progress
 Log**: live dispatches, completed gates, decisions, questions and next action.
-Never use shepherd_log as scratch (it is verdict output). Task notes remain
+Shepherd verdicts are Boss output, never scratch. Task notes remain
 epic_progress_notes. Reload phase after compaction.
 
 ## Path and data authority

@@ -58,7 +58,6 @@ def _fresh_live_db(tmp_path: Path) -> str:
             design_spec TEXT,
             technical_plan TEXT,
             worktree_plan TEXT,
-            shepherd_log TEXT,
             shepherd_caveats TEXT,
             test_results TEXT,
             deploy_log TEXT

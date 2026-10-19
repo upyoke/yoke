@@ -69,13 +69,16 @@ _CANONICAL_BY_LOWER = {h.lower(): h for h in CANONICAL_HEADINGS}
 
 # Narrative-content subset of STRUCTURED_FIELDS — operational fields contain
 # JSON, not markdown headings, so scanning them adds noise without signal.
-_NARRATIVE_STRUCTURED_FIELDS: Tuple[str, ...] = tuple(sorted(
-    STRUCTURED_FIELDS - {
-        "db_mutation_profile",
-        "db_compatibility_attestation",
-        "architecture_impact",
-    }
-))
+_NARRATIVE_STRUCTURED_FIELDS: Tuple[str, ...] = tuple(
+    sorted(
+        STRUCTURED_FIELDS
+        - {
+            "db_mutation_profile",
+            "db_compatibility_attestation",
+            "architecture_impact",
+        }
+    )
+)
 
 
 # Matches a level-2 markdown heading at the start of a line. Group 1 captures
@@ -124,9 +127,7 @@ def _scan_structured_fields(conn) -> List[Tuple[str, str, int, str]]:
             if not text:
                 continue
             for observed, canonical in _scan_text_for_off_canon(str(text)):
-                out.append(
-                    (f"structured_field:{field}", canonical, item_id, observed)
-                )
+                out.append((f"structured_field:{field}", canonical, item_id, observed))
     return out
 
 
@@ -147,13 +148,11 @@ def _scan_item_sections(conn) -> List[Tuple[str, str, int, str]]:
     return out
 
 
-def hc_heading_casing_canon(
-    conn, args: DoctorArgs, rec: RecordCollector
-) -> None:
+def hc_heading_casing_canon(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """Flag case-insensitive matches against canonical headings whose casing differs.
 
     Scans every item's narrative structured fields (`spec`, `design_spec`,
-    `technical_plan`, `worktree_plan`, `shepherd_log`, `shepherd_caveats`,
+    `technical_plan`, `worktree_plan`, `shepherd_caveats`,
     `test_results`, `deploy_log`) for ``## <heading>`` lines, and every
     ``item_sections.section_name`` row. Findings aggregate by canonical-form;
     each finding names the canonical form, the offending text, and the surface.
@@ -184,7 +183,8 @@ def hc_heading_casing_canon(
             remediation = _format_remediation("structured_field")
         else:
             remediation = (
-                _format_remediation("structured_field") + " "
+                _format_remediation("structured_field")
+                + " "
                 + _format_remediation("item_sections")
             )
         issues.append(
@@ -193,8 +193,7 @@ def hc_heading_casing_canon(
         )
         for item_id, observed, surface in entries[:10]:
             issues.append(
-                f"  - YOK-{item_id} [{surface}]: `## {observed}` "
-                f"-> `## {canonical}`"
+                f"  - YOK-{item_id} [{surface}]: `## {observed}` -> `## {canonical}`"
             )
         if len(entries) > 10:
             issues.append(f"  - ... and {len(entries) - 10} more")
@@ -213,5 +212,9 @@ from yoke_project_checks._declare import (  # noqa: E402
 )
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
-    ('heading-casing-canon', 'Canonical heading casing across item structured fields and sections', hc_heading_casing_canon),
+    (
+        "heading-casing-canon",
+        "Canonical heading casing across item structured fields and sections",
+        hc_heading_casing_canon,
+    ),
 )

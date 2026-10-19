@@ -242,7 +242,7 @@ if (
                     "BLOCKED: Raw body writes are no longer supported.\n"
                     "items.body is a rendered projection owned by the in-process render path.\n"
                     "Use the item's full public ref: yoke items structured-field replace PREFIX-N --field FIELD --content-file PATH\n"
-                    "Valid structured fields: spec, design_spec, technical_plan, worktree_plan, shepherd_log, shepherd_caveats, test_results, deploy_log.\n"
+                    "Valid structured fields: spec, design_spec, technical_plan, worktree_plan, shepherd_caveats, test_results, deploy_log.\n"
                     "For supplemental sections: yoke items section upsert PREFIX-N --section NAME --content-file PATH"
                 ),
             }

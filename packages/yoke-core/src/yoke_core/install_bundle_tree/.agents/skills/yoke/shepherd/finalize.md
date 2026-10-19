@@ -1,11 +1,9 @@
 # Shepherd — continuity and verified handoff
 
-Read the registered rendered shepherd_log projection. Empty or malformed
-(no ### subheading): preserve existing artifact; no write. Valid verdict data
-already renders through its owner; do not pipe that read back as a field replace.
-If a stored transition-log artifact needs refresh, use the same field-target
-section_upsert contract as caveats, heading3/exact edge/nonempty content and
-receipt verification, preserving every sibling subsection.
+Read the item's verdicts from `shepherd_verdicts` on
+`yoke items detail get ITEM --json` (`items.detail.get`), newest first.
+`shepherd.verdict.run` is their only writer; never copy a verdict into a
+structured field.
 
 After accepted transition, report edge/verdict/next and re-anchor:
 

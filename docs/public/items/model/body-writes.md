@@ -29,10 +29,10 @@ execute_structured_write() writes the structured field to DB
 Reading `items get PREFIX-N body` renders on demand from all structured fields. When you already have a real artifact file, the same command can read from a body file instead of stdin.
 
 Valid structured fields are `spec`, `design_spec`, `technical_plan`,
-`worktree_plan`, `shepherd_log`, `shepherd_caveats`, `test_results`, and
+`worktree_plan`, `shepherd_caveats`, `test_results`, and
 `deploy_log`.
 
-Shepherd subagents (PM, Architect) write structured content during lifecycle transitions (e.g., spec, technical plan, shepherd log/caveats) using the same path.
+Shepherd subagents (PM, Architect) write structured content during lifecycle transitions (e.g., spec, technical plan, shepherd caveats) using the same path.
 
 ### Error Propagation
 

@@ -28,7 +28,6 @@ VALID_STRUCTURED_FIELDS = frozenset(
         "design_spec",
         "technical_plan",
         "worktree_plan",
-        "shepherd_log",
         "shepherd_caveats",
         "test_results",
         "deploy_log",

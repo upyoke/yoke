@@ -10,10 +10,22 @@ def test_detail_read_returns_shepherd_verdicts_newest_first(monkeypatch):
         "INSERT INTO shepherd_verdicts (public_ref, transition, worker, "
         "verdict, caveats, attempt, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)",
         [
-            ("ACM-22", "refined_idea_to_planning", "boss", "CAVEATS",
-             "Name the owner.", "2026-10-14T21:50:26Z"),
-            ("ACM-22", "planning_to_plan_drafted", "boss", "CAVEATS",
-             "Split the reader.", "2026-10-14T22:00:03Z"),
+            (
+                "ACM-22",
+                "refined_idea_to_planning",
+                "boss",
+                "CAVEATS",
+                "Name the owner.",
+                "2026-10-14T21:50:26Z",
+            ),
+            (
+                "ACM-22",
+                "planning_to_plan_drafted",
+                "boss",
+                "CAVEATS",
+                "Split the reader.",
+                "2026-10-14T22:00:03Z",
+            ),
         ],
     )
     conn.commit()

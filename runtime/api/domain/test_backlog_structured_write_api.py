@@ -35,7 +35,7 @@ def _apply_fake_db_schema() -> None:
         conn.execute(
             "CREATE TABLE items (id INTEGER PRIMARY KEY, spec TEXT, "
             "design_spec TEXT, technical_plan TEXT, worktree_plan TEXT, "
-            "shepherd_log TEXT, shepherd_caveats TEXT, test_results TEXT, "
+            "shepherd_caveats TEXT, test_results TEXT, "
             "deploy_log TEXT, db_mutation_profile "
             "TEXT, db_compatibility_attestation TEXT, architecture_impact "
             "TEXT, updated_at TIMESTAMPTZ, spec_updated_at TIMESTAMPTZ, spec_updated_by TEXT)"

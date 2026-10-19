@@ -70,9 +70,7 @@ class TestJsonValidExpr:
 class TestJsonbColumns:
     def test_is_mapping(self) -> None:
         """JSONB_COLUMNS is exported for cross-module reuse."""
-        assert isinstance(JSONB_COLUMNS, dict) or hasattr(
-            JSONB_COLUMNS, "__getitem__"
-        )
+        assert isinstance(JSONB_COLUMNS, dict) or hasattr(JSONB_COLUMNS, "__getitem__")
 
     def test_has_events_envelope(self) -> None:
         assert "envelope" in JSONB_COLUMNS["events"]
@@ -103,7 +101,6 @@ class TestJsonbColumns:
             "design_spec",
             "technical_plan",
             "worktree_plan",
-            "shepherd_log",
             "shepherd_caveats",
             "test_results",
             "deploy_log",

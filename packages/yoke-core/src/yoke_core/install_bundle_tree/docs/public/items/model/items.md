@@ -48,7 +48,6 @@ spec TEXT -- PM spec content
 design_spec TEXT -- design spec content
 technical_plan TEXT -- architect technical plan
 worktree_plan TEXT -- worktree/epic task plan
-shepherd_log TEXT -- shepherd transition log
 shepherd_caveats TEXT -- shepherd caveats summary
 test_results TEXT -- test/QA results
 deploy_log TEXT -- deployment log

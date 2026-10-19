@@ -80,7 +80,7 @@ CORE_COMMANDS: list[dict] = [
             "merge_queue_notified_at, merge_queue_pr_number, "
             "merge_queue_status, merged_at, owner, priority, project, project_id, "
             "project_sequence, resolution, resolution_comment, "
-            "resolution_ref, shepherd_caveats, shepherd_log, "
+            "resolution_ref, shepherd_caveats, "
             "source, spec, spec_updated_at, spec_updated_by, status, "
             "technical_plan, test_results, title, updated_at, workflow_id, "
             "workflow_version_id, worktree_plan. "
