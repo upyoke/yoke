@@ -225,9 +225,31 @@ def test_evidence_cleanup_removes_stopped_cluster_data(tmp_path, monkeypatch, na
     assert tmp_path.exists()
 
 
-def test_missing_embedded_cache_remains_pinned_in_disposable_home(tmp_path):
-    env = shared_postgres_environment({"YOKE_MACHINE_HOME": str(tmp_path)})
-    assert env["YOKE_PG_BIN_DIR"] == str(tmp_path / "postgres/17.10.0/bin")
+@pytest.mark.parametrize("cache_directory", [False, True])
+def test_missing_initdb_keeps_binary_discovery_available(
+    tmp_path, monkeypatch, cache_directory
+):
+    machine = tmp_path / "disposable-machine"
+    if cache_directory:
+        (machine / "postgres/17.10.0/bin").mkdir(parents=True)
+    incoming = {"YOKE_MACHINE_HOME": str(machine)}
+    env = shared_postgres_environment(incoming)
+    assert "YOKE_PG_BIN_DIR" not in env
+    discovered = tmp_path / "available-binaries"
+    monkeypatch.setattr(
+        pg_testcluster.postgres_binaries, "installed_bin_dir", lambda: discovered
+    )
+    with source_machine_home.isolated_machine_home(env) as child:
+        assert "YOKE_PG_BIN_DIR" not in child
+        with monkeypatch.context() as isolated:
+            isolated.delenv("YOKE_PG_BIN_DIR", raising=False)
+            isolated.setenv("YOKE_MACHINE_HOME", child["YOKE_MACHINE_HOME"])
+            assert pg_testcluster._spec().bin_dir == discovered
+
+
+def test_explicit_binary_override_survives_missing_embedded_cache(tmp_path):
+    env = {"YOKE_MACHINE_HOME": str(tmp_path), "YOKE_PG_BIN_DIR": "/chosen/bin"}
+    assert shared_postgres_environment(env)["YOKE_PG_BIN_DIR"] == "/chosen/bin"
 
 
 def test_prune_does_not_touch_durable_cluster_names(tmp_path, monkeypatch):

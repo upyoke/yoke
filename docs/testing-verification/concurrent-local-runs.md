@@ -105,12 +105,13 @@ resource environment: `YOKE_PG_CLUSTER_ROOT` and `YOKE_PG_BIN_DIR`.
 `yoke dev run`, the pytest runner and candidate-bound Yoke Command QA supply
 these before home
 isolation. The cluster root stays independent of each run's evidence root;
-`YOKE_PG_BIN_DIR` points at the machine's pinned embedded PostgreSQL binaries,
-so an empty home does not select a different PostgreSQL major from PATH.
-If that cache is missing, startup refuses as `postgres_binaries_unavailable`;
-install with `env -u YOKE_PG_CLUSTER_ROOT -u YOKE_PG_BIN_DIR yoke local-postgres start`
-in the original home, then retry. CI with an explicit service DSN needs no
-local cluster or embedded cache.
+`YOKE_PG_BIN_DIR` points at the machine's pinned embedded PostgreSQL binaries
+only when that directory contains `initdb`. If the cache is absent or incomplete,
+the variable stays unset so normal binary discovery can resolve an available
+installation. An explicit `YOKE_PG_BIN_DIR` remains unchanged; if it has no
+`initdb`, startup refuses as `postgres_binaries_unavailable`. Repair that
+directory or unset the override and retry. CI with an explicit service DSN
+needs no local cluster or embedded cache.
 For a standalone disposable home, obtain the exports in the original home:
 
 ```bash
