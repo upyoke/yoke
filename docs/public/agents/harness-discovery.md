@@ -204,8 +204,8 @@ is skipped. Each manifest's
 `global_skill` field states its placement. `yoke uninstall` removes both
 paths, and any parent folder setup created for them once it is empty. An
 existing path Yoke did not create refuses as
-`global_skill_path_not_owned`; move it aside, then run
-`yoke doctor run --only harness-setup --fix`.
+`global_skill_path_not_owned`; move it aside, then run `yoke setup` again,
+which works outside a project.
 
 ## Guard scope
 

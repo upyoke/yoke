@@ -122,7 +122,7 @@ def test_a_folder_yoke_did_not_create_is_refused(home: Path) -> None:
     result = install.ensure_global_skill({"HOME": str(home)})
 
     assert result.refused and result.reason == install.NOT_OWNED
-    assert str(mine) in result.recovery and "harness-setup --fix" in result.recovery
+    assert str(mine) in result.recovery and "yoke setup" in result.recovery
     assert (mine / "SKILL.md").read_text() == "the user's own skill\n"
     assert ledger.read() == []
 
