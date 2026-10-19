@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_contracts.api_urls import HOSTED_STAGE_PLATFORM_URL
-from yoke_contracts.machine_authorization import retired_identity_notice
+from yoke_contracts.machine_authorization import (
+    MATCH_CODE_LABEL,
+    retired_identity_notice,
+)
 
 from yoke_cli.config import hosted_machine_authorization
 from yoke_cli.config.onboard_wizard_flow_machine_admission import approval_hint
@@ -52,7 +55,7 @@ class HostedMachineApprovalViews:
         return [
             *stage_warning,
             *retired,
-            f"Match code: {pending.user_code}",
+            f"{MATCH_CODE_LABEL} {pending.user_code}",
             approval_hint(pending.user_code),
             f"Open: {pending.verification_uri_complete}",
             browser_line,

@@ -115,7 +115,7 @@ def test_terminal_cases_use_current_stage_and_browser_approval_surfaces() -> Non
         "Next: bring your existing work into Yoke."
         in (handoff["method_config"]["expected_text"])
     )
-    assert "One-time code:" not in handoff["method_config"]["expected_text"]
+    assert "Match code:" not in handoff["method_config"]["expected_text"]
     assert "terminal_exit_code:0" in handoff["method_config"]["post_checks"]
 
     setup_ids = {
@@ -197,7 +197,7 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
     )
     assert "wait_seconds" not in hosted_actions["operator-browser-approval"]
     assert hosted_actions["browser-approval"]["ready_timeout_seconds"] == 180
-    assert "One-time code:" in hosted_actions["browser-approval"]["ready_text"]
+    assert "Match code:" in hosted_actions["browser-approval"]["ready_text"]
 
     handoff_actions = {
         action["step"]: action
@@ -215,7 +215,7 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
         action["step"]: action for action in connect_wait_config["actions"]
     }
     assert connect_wait_actions["connect-wait"]["ready_timeout_seconds"] == 180
-    assert "One-time code:" in connect_wait_actions["connect-wait"]["ready_text"]
+    assert "Match code:" in connect_wait_actions["connect-wait"]["ready_text"]
 
     review_config = cases["review-frame"]["method_config"]
     assert action_signature(review_config) == [
@@ -236,7 +236,7 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
     )
     review_actions = {action["step"]: action for action in review_config["actions"]}
     assert review_actions["browser-approval"]["ready_timeout_seconds"] == 180
-    assert "One-time code:" in review_actions["browser-approval"]["ready_text"]
+    assert "Match code:" in review_actions["browser-approval"]["ready_text"]
     assert review_actions["review-frame"]["ready_text"] == [
         "Review what Yoke will save.",
         "Apply",

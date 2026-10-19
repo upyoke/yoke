@@ -91,7 +91,7 @@ saved and again before execution. A step never types into a screen on a timer.
 When the installer stops showing a prompt, remove that step from the source
 cases and sync the saved plan; do not keep a step that waits for nothing. The
 browser-approval gate is the one exception: it waits for its own `Open:` and
-`One-time code:` context.
+`Match code:` context.
 
 A prompt that never appears fails its step as `terminal_action_not_ready`,
 with the evidence naming `step` and `waiting_for`. When the command under the
@@ -104,8 +104,8 @@ as it appears. macOS reads the recipe's exit-status file.
 ## Complete machine approval links
 
 ```text
-Open: https://example.invalid/connect?user_code=AB12-CD34
-One-time code: AB12-CD34
+Open: https://example.invalid/connect?user_code=K7F2
+Match code: K7F2
 ```
 
 The gate binds the complete link to the displayed code and the execution
@@ -119,7 +119,7 @@ With the dedicated-machine approval exception, the visible native browser
 helper (Safari on macOS, the desktop Chromium on a Linux test machine; one
 shared matcher in `yoke_harness.machine_browser_approval`) also accepts the
 declared origin's `/orgs/<org>/machine-approval/<code>` redirect from `/connect`.
-The code must match the displayed one-time code exactly. The redirect may carry
+The code must match the displayed Match code exactly. The redirect may carry
 one canonical `selection=all` or a comma-separated list of unique positive
 project IDs. Unknown, repeated, empty or encoded query parameters, extra path
 segments, fragments and other origins refuse.

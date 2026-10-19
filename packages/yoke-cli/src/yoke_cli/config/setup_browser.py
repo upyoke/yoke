@@ -10,6 +10,7 @@ from typing import Any, Callable, Mapping
 from yoke_cli.config.hosted_machine_browser import BrowserOpenResult, open_url
 from yoke_cli.config import github_response_safety
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
+from yoke_contracts.machine_authorization import MATCH_CODE_LABEL
 
 OPENING_NOTICE = "Opening your browser…"
 
@@ -93,9 +94,9 @@ def render_progress(event: Mapping[str, Any], *, json_mode: bool) -> None:
             flush=True,
         )
         if request.get("user_code"):
-            label = "Match code" if event.get("match_code") else "One-time code"
+            label = MATCH_CODE_LABEL if event.get("match_code") else "One-time code:"
             print(
-                f"{label}: {github_response_safety.safe_error_text(request['user_code'])}",
+                f"{label} {github_response_safety.safe_error_text(request['user_code'])}",
                 file=sys.stderr,
                 flush=True,
             )

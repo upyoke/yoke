@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
+from yoke_contracts.machine_authorization import MATCH_CODE_LABEL
 from yoke_cli.config.onboard_destinations import (
     DESTINATION_LOCAL,
     DESTINATION_OVERRIDE,
@@ -50,7 +51,7 @@ PATH_REPAIR_COMMAND = f"{YOKE_BIN} path fix --yes --json"
 BROWSER_APPROVAL_TEXT = (
     "Sign in and choose an organization.",
     "Approve this machine in your browser, then continue here.",
-    "One-time code:",
+    MATCH_CODE_LABEL,
     "Open:",
 )
 REVIEW_TEXT = (

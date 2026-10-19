@@ -12,6 +12,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from yoke_contracts.machine_approval_coordinates import machine_approval_coordinates
+from yoke_contracts.machine_authorization import MATCH_CODE_LABEL
 
 from yoke_core.domain.machine_qa_phase_heartbeat import (
     HEARTBEAT_SECONDS,
@@ -170,7 +171,7 @@ def run_machine_browser_approval_with_io(
     """
     transcript = read_transcript()
     url = _labeled_value(transcript, "Open:")
-    code = _labeled_value(transcript, "One-time code:")
+    code = _labeled_value(transcript, MATCH_CODE_LABEL)
     if url is None or code is None:
         exited = _exited(action, transcript, read_exit_code)
         if exited is not None:
@@ -229,7 +230,7 @@ def run_machine_browser_approval_with_io(
         )
     timeout_seconds = float(action["gate_timeout_seconds"])
     completion_text = tuple(action["completion_text"])
-    gate_code = _labeled_value(transcript, "One-time code:")
+    gate_code = _labeled_value(transcript, MATCH_CODE_LABEL)
     assert gate_code is not None
     started = time.monotonic()
     deadline = started + timeout_seconds

@@ -17,6 +17,8 @@ APPROVAL_RETURN_COOKIE = "yoke_machine_approval_return"
 MATCH_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 MATCH_CODE_LENGTH = 4
 MATCH_CODE_PATTERN = rf"[{MATCH_CODE_ALPHABET}]{{{MATCH_CODE_LENGTH}}}"
+# The terminal line that names a connecting machine's code; QA gates read it.
+MATCH_CODE_LABEL = "Match code:"
 # Refusal code for a machine id the registry retired, and the one recovery
 # every surface teaches: connecting again swaps in a new identity by itself.
 MACHINE_RETIRED = "machine_retired"
@@ -47,7 +49,7 @@ class HostedMachineAuthorizationCancelled(HostedMachineAuthorizationError):
     """The caller abandoned the approval wait; the pending code simply expires."""
 
 
-# Hosted pages that may present the one-time code approval: the dedicated
+# Hosted pages that may present the Match code approval: the dedicated
 # machine-approval page and the unified connect-machine page.
 BROWSER_VERIFICATION_PATHS = ("/connect", "/machine", APPROVAL_PAGE_PATH)
 
