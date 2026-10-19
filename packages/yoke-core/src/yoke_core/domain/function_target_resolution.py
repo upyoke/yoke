@@ -212,19 +212,20 @@ def _qa_method_session_project(
 ) -> tuple[int, str] | None:
     """Permission scope for a method read that omitted --project.
 
-    The handler fills the same session project. A session with no project
-    stays unresolved so the caller is told to pass --project.
+    Reads only the stored session project. The full session identity also
+    opens harness files, and this resolver runs inside server hook policy.
+    A session with no project stays unresolved so the caller passes --project.
     """
-    from yoke_core.domain.sessions import SessionError
-    from yoke_core.domain.sessions_identity_read import resolve_session_identity
-
-    try:
-        identity = resolve_session_identity(conn, request.actor.session_id)
-    except SessionError:
+    session_id = str(request.actor.session_id or "").strip()
+    if not session_id:
         return None
-    if identity.project_id is None:
+    row = conn.execute(
+        "SELECT project_id FROM harness_sessions WHERE session_id=%s",
+        (session_id,),
+    ).fetchone()
+    if row is None or row[0] is None:
         return None
-    project_id = int(identity.project_id)
+    project_id = int(row[0])
     return project_id, slug_for_project_id(conn, project_id)
 
 
