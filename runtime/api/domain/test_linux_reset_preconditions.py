@@ -1,4 +1,4 @@
-"""Linux reset ends the desktop first and keeps carried sign-ins through a failed clear."""
+"""Linux reset ends the desktop first and keeps live sign-ins through a failed clear."""
 
 import io
 import json
@@ -11,8 +11,6 @@ import sys
 import pytest
 
 from yoke_harness.ssh_linux_baseline import _ARCHIVE_PROGRAM
-
-CARRY_CLAUDE = json.dumps({"carry": [".claude/.credentials.json"], "unverified": {}})
 
 
 @pytest.fixture
@@ -49,7 +47,6 @@ def execute_reset(monkeypatch, home, golden, program=_ARCHIVE_PROGRAM):
             "reset",
             str(home),
             str(golden),
-            CARRY_CLAUDE,
         ],
     )
     monkeypatch.setattr(sys, "stdin", io.StringIO("[]"))
@@ -149,6 +146,9 @@ def test_symlinked_live_credential_refuses_before_teardown(
     with pytest.raises(SystemExit) as refused:
         execute_reset(monkeypatch, home, golden)
     assert refused.value.code == 64
-    assert json.loads(capsys.readouterr().out)["reason"] == "linux_sign_in_store_unsafe"
+    assert (
+        json.loads(capsys.readouterr().out)["reason"]
+        == "linux_preserved_home_entry_unsafe"
+    )
     assert (home / "settings").read_text() == "live"
     assert credential.read_bytes() == b"opaque-live-new-after-refresh"
