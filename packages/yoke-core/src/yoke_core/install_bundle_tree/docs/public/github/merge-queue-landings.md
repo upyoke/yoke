@@ -117,6 +117,21 @@ returns a named refusal, retains the lane, and leaves the item before landing.
 Repair routing or remote access and re-enter the same governed merge command.
 A project with no remote proves candidate ancestry on its local default branch.
 
+## Epic lanes
+
+In a project that declares the merge queue, `merge-worktree` lands each epic
+lane through the same queue route as `yoke merge item`, recorded on the epic
+item. The queue retests the lane against the base branch when its train
+forms, so items landing during the lane's checks cannot make it stale. After
+the first lane lands, each later lane's pull request is a re-land attempt
+(see above). A headless worker gets `landing_pending` with exit 9: the lane is
+armed, not landed. When the landing notice arrives, re-run the same
+`yoke watch merge merge-worktree` command to record the queue close-out, the
+lane landing and lane cleanup. A failing capability probe refuses with
+`merge_queue_probe_failed` rather than merging directly. Projects without the
+queue keep the direct pull-request merge, which refuses `MergeTargetStale` when
+the base moved during CI.
+
 ## Integration-lane merge refusals
 
 Integration-lane merges record the verified candidate's first carrying merge
