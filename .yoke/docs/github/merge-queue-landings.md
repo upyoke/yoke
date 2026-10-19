@@ -137,6 +137,13 @@ lane landing and lane cleanup. A failing capability probe refuses with
 queue keep the direct pull-request merge, which refuses `MergeTargetStale` when
 the base moved during CI.
 
+When an item has several active lanes, `yoke merge item` takes as its source
+the lane whose head is the landing record's pull-request head. It verifies QA
+at that commit, reruns parent-level Command cases in that lane, and keys the
+merge receipt on that lane's branch. With no lane at that head it takes the
+sole integration lane; otherwise it refuses, lists the lanes, and names the
+recovery.
+
 ## Integration-lane merge refusals
 
 Integration-lane merges record the verified candidate's first carrying merge

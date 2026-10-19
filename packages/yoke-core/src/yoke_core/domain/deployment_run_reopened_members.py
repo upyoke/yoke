@@ -128,3 +128,25 @@ def set_aside_reopened_members(
         else ""
     )
     return refused, notice
+
+
+def frozen_member_readiness(conn: Any, run_id: str) -> tuple[list[str], str]:
+    """Apply the set-aside rule to every member of a frozen run.
+
+    Returns the refusal labels and set-aside notice of
+    :func:`set_aside_reopened_members`; both are empty while every member is
+    still delivery-ready.
+    """
+    rows = query_rows(
+        conn,
+        "SELECT i.id, i.status FROM deployment_run_items dri "
+        "JOIN items i ON dri.item_id = i.id WHERE dri.run_id=%s",
+        (run_id,),
+    )
+    status_of = {int(row[0]): str(row[1]) for row in rows}
+    unready = unready_item_ids(conn, rows, allow_completed=True)
+    if not unready:
+        return [], ""
+    return set_aside_reopened_members(
+        conn, run_id, [(item_id, status_of[item_id]) for item_id in unready]
+    )

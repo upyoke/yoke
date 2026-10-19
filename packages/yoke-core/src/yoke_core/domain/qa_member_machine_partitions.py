@@ -9,6 +9,10 @@ from yoke_core.domain.machine_qa_case_machine import (
     resolve_case_machine,
 )
 from yoke_core.domain.machine_qa_case_hosts import case_machines
+from yoke_core.domain.qa_plan_run_target_partition import (
+    run_target_partition,
+    target_passed_requirements,
+)
 from yoke_core.domain.qa_plan_execution_store import (
     live_plan_execution_id,
     marker,
@@ -25,16 +29,24 @@ def member_machine_partition(
     deployment_member_item_id: int | None,
     machine: str | None,
 ) -> tuple[list[dict[str, Any]], int | None, dict[str, Any] | None]:
-    """Use completed scoped evidence to advance between serial host executions.
+    """Use scoped evidence to advance between serial host executions.
 
     A live roster stays immutable through capture and review. A completed
-    execution covers only its own requirements whose current scoped verdict
-    and artifacts still pass the stage's existing evidence checks.
+    execution covers its own requirements whose current scoped verdict and
+    artifacts still pass the stage's existing evidence checks; a current pass
+    on this target covers its requirement whichever execution recorded it,
+    including an aborted one. A single-host deployment roster drops those
+    passes through :func:`run_target_partition`.
     """
 
     def host_group(row):
         return resolve_case_machine(row, None), case_machines(row)
 
+    scope = dict(
+        deployment_run_id=deployment_run_id,
+        deployment_stage=deployment_stage,
+        deployment_member_item_id=deployment_member_item_id,
+    )
     host_sets = {host_group(row) for row in roster if case_machines(row)}
     if (
         not deployment_stage
@@ -49,14 +61,11 @@ def member_machine_partition(
             and not any(len(hosts) > 1 for _driver, hosts in host_sets)
         )
     ):
-        return roster, None, None
+        if not deployment_stage:
+            return roster, None, None
+        return run_target_partition(conn, roster, **scope), None, None
     for row in roster:
         resolve_case_machine(row, machine)
-    scope = dict(
-        deployment_run_id=deployment_run_id,
-        deployment_stage=deployment_stage,
-        deployment_member_item_id=deployment_member_item_id,
-    )
     from yoke_core.domain.deployment_qa_stage_case_failures import case_failures
 
     digest = str(roster[0]["execution_target_digest"])
@@ -87,6 +96,7 @@ def member_machine_partition(
             str(row["roster_json"] if hasattr(row, "keys") else row[1])
         )
     } - unresolved
+    covered |= target_passed_requirements(conn, roster, **scope)
     pending = [row for row in roster if int(row["requirement_id"]) not in covered]
     live_id = live_plan_execution_id(conn, **scope)
     if live_id:
@@ -104,10 +114,11 @@ def member_machine_partition(
             None,
         )
 
-    if not pending:
+    if not pending and history:
         row = history[0]
         execution_id = str(row["id"] if hasattr(row, "keys") else row[0])
         return [], 0, select_plan_execution(conn, execution_id, lock=False)
+    pending = pending or roster
     selected_hosts = next(
         (host_group(row) for row in pending if case_machines(row)), (None, ())
     )

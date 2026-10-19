@@ -33,7 +33,7 @@ def _fixture(conn: Any) -> None:
                     "source_stage": "deploy",
                 },
                 "verdict": {"mode": "agent_only"},
-            }
+            },
         ]
     )
     conn.execute(
@@ -87,9 +87,7 @@ def test_interrupted_member_snapshot_rolls_back_the_whole_freeze(
             raise RuntimeError("snapshot interrupted")
         return real_snapshot(*args, **kwargs)
 
-    monkeypatch.setattr(
-        snapshots, "snapshot_member_requirements", interrupted_snapshot
-    )
+    monkeypatch.setattr(snapshots, "snapshot_member_requirements", interrupted_snapshot)
     with pytest.raises(RuntimeError, match="snapshot interrupted"):
         cmd_update("run-atomic", "status", "executing")
 

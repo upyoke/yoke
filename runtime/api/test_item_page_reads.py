@@ -98,6 +98,7 @@ def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
     assert item["merge_queue"] == {
         "attempt": None,
         "pr_number": "42",
+        "head_sha": "",
         "enqueued_at": "2026-08-27T18:00:00Z",
         "landed_at": None,
         "notified_at": None,
@@ -137,6 +138,7 @@ def test_detail_read_projects_empty_queue_shape_before_schema_convergence(monkey
     assert item["merge_queue"] == {
         "attempt": None,
         "pr_number": "",
+        "head_sha": "",
         "enqueued_at": None,
         "landed_at": None,
         "notified_at": None,

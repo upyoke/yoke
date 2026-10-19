@@ -22,7 +22,7 @@ from yoke_core.domain.workflow_item_binding_validation import (
 )
 
 
-def validate_delivery_intent_for_item(conn: Any, item_id: int, intent):
+def _validated_intent(conn: Any, item_id: int, intent):
     """Admission validates intent against the binding state it already read."""
     return validate_delivery_intent(intent, item_binding_runtime_state(conn, item_id))
 
@@ -40,7 +40,7 @@ def _blitz(conn: Any, item_id: int, status: str) -> None:
 def test_progress_intent_is_valid_while_still_implementing(test_db: Any) -> None:
     _blitz(test_db, 9501, "implementing")
 
-    assert validate_delivery_intent_for_item(test_db, 9501, "progress") == "progress"
+    assert _validated_intent(test_db, 9501, "progress") == "progress"
 
 
 def test_progress_intent_is_valid_through_review_before_release(
@@ -48,7 +48,7 @@ def test_progress_intent_is_valid_through_review_before_release(
 ) -> None:
     _blitz(test_db, 9502, "reviewing-implementation")
 
-    assert validate_delivery_intent_for_item(test_db, 9502, "progress") == "progress"
+    assert _validated_intent(test_db, 9502, "progress") == "progress"
 
 
 def test_progress_intent_is_still_valid_at_the_release_stage(test_db: Any) -> None:
@@ -56,7 +56,7 @@ def test_progress_intent_is_still_valid_at_the_release_stage(test_db: Any) -> No
     forbid an explicit progress request — only the terminal stage does."""
     _blitz(test_db, 9503, "release")
 
-    assert validate_delivery_intent_for_item(test_db, 9503, "progress") == "progress"
+    assert _validated_intent(test_db, 9503, "progress") == "progress"
 
 
 def test_progress_intent_is_rejected_once_done(test_db: Any) -> None:
@@ -64,16 +64,16 @@ def test_progress_intent_is_rejected_once_done(test_db: Any) -> None:
     _blitz(test_db, 9504, "done")
 
     with pytest.raises(ValueError, match="terminal"):
-        validate_delivery_intent_for_item(test_db, 9504, "progress")
+        _validated_intent(test_db, 9504, "progress")
 
 
 def test_final_intent_is_always_valid_regardless_of_status(test_db: Any) -> None:
     _blitz(test_db, 9505, "implementing")
 
-    assert validate_delivery_intent_for_item(test_db, 9505, "final") == "final"
+    assert _validated_intent(test_db, 9505, "final") == "final"
 
 
 def test_no_explicit_intent_passes_through_unvalidated(test_db: Any) -> None:
     _blitz(test_db, 9506, "release")
 
-    assert validate_delivery_intent_for_item(test_db, 9506, None) is None
+    assert _validated_intent(test_db, 9506, None) is None

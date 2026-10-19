@@ -169,3 +169,18 @@ def test_hold_targets_the_open_attempt_not_the_delivered_landing(conn, monkeypat
     assert outcome.primary_success, outcome.error
     assert held == ["43"]
     assert outcome.result_payload["pr_number"] == "43"
+
+
+def test_item_read_carries_the_landing_records_pull_request_head(conn):
+    row = {"status": "release", "merge_queue_pr_number": "42"}
+    assert _merge_queue(conn, ITEM_ID, row)["head_sha"] == ""
+
+    conn.execute(
+        "INSERT INTO merge_queue_landing_records (item_id, project_id, "
+        "pr_number, state, head_sha, queue_holding, queue_entry_state, "
+        "merge_when_ready, observed_at, changed_at) VALUES "
+        "(%s, %s, '42', 'landed', %s, 'no', 'absent', 'consumed', %s, %s)",
+        (ITEM_ID, _project_id(conn), "d" * 40, FIRST_LANDED_AT, FIRST_LANDED_AT),
+    )
+
+    assert _merge_queue(conn, ITEM_ID, row)["head_sha"] == "d" * 40

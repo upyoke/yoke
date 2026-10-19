@@ -62,7 +62,11 @@ within a composition operation, and so are the repository reads: each bound
 branch head resolves once, and each project's commit comparison against its
 preceding release runs once however many readers ask. The execution context
 records bound sources and validates composition on one connection, so its
-validation reuses the heads the record resolved. A comparison whose preceding
+validation reuses the heads the record resolved. A re-drive of a run whose
+composition is frozen skips that validation. It only sets aside or refuses
+members that left delivery readiness since the freeze, and refuses a run left
+with no member its item-scoped QA can prove (timing step
+`context_frozen_composition`). A comparison whose preceding
 release changed is a different answer and is derived again. Catalog probes
 share table and column answers only inside that operation and only for the
 same connection. Exiting, including
@@ -71,7 +75,10 @@ Mutable member status/intent is read afresh. Freeze reuses one custody resolutio
 for both membership and completion-authority checks; unknown custody still refuses.
 
 Create validates provisionally before the creation lock, rolls that transaction
-back, then validates again under the lock. Each enrollment pass first pins
+back, then validates again under the lock. The locked pass reuses each
+project's carried-work comparison from the provisional pass when its commits and
+preceding release are unchanged; custody, membership and readiness are read
+again under the lock. Each enrollment pass first pins
 members' completion flows, reads their outstanding intake together, and locks selected requirements in ID
 order. It reads attachments together, locks distinct plans in ID order, and
 reads their cases once. Every member still passes the existing ownership,
@@ -182,6 +189,14 @@ attempt pending, with no retry, provider dispatch or failed transition. Inspect
 the request or provider attempt before re-driving the same run; never use
 `--fresh` to recover a lost response. The live attachment's phase and capture
 show preparation even while run status remains `created`.
+
+Scoped-QA stage dispatch follows the same rule: a lost answer leaves the run in
+its QA stage with status `executing`, so live QA executions keep writing, and
+the next re-drive continues that stage. A genuine stage failure records run
+status `failed` before the `<stage>-failed` stage. When that status write is
+refused, for example `qa_abort_restore_required` while host QA work is in
+flight, the driver reports `run_failure_unrecorded` with the refusal's recovery
+and leaves both status and stage unchanged.
 
 When the bounded scoped-QA wait ends with blockers, the driver returns
 awaiting QA (exit code 5). If the following fresh diagnostic report read fails,

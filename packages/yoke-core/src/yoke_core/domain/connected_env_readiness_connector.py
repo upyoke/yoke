@@ -65,7 +65,8 @@ SSH_KEEPALIVE_COUNT_MAX = 20
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1", "0.0.0.0"})
 
 # Substrings marking a libpq connection failure: tunnel down, refused, or a
-# connection that dropped mid-statement (the SSL/EOF wording). Matched
+# connection that dropped mid-statement (the SSL/EOF wording, or psycopg's own
+# "the connection is lost" when the socket closes under it). Matched
 # case-insensitively against the exception text.
 CONNECTION_FAILURE_MARKERS = (
     "connection refused",
@@ -83,6 +84,7 @@ CONNECTION_FAILURE_MARKERS = (
     "unexpected eof",
     "consuming input failed",
     "eof detected",
+    "the connection is lost",
 )
 
 # SSH options proven from the live operator tunnel. BatchMode keeps it
