@@ -130,7 +130,8 @@ def handle_qa_requirement_supersede(
                         "recovery": f"Correction is durable but wake failed: {exc}. Run "
                         f"`yoke watch qa-plan -- --deployment-run-id "
                         f"{declared['deployment_run_id']} --stage "
-                        f"{declared['deployment_stage']}{scope}`.",
+                        f"{declared['deployment_stage']}{scope} --machine NAME`; "
+                        "replace NAME with the host in the failed attempt's QA run evidence.",
                     }
                 return HandlerOutcome(
                     result_payload={**declared, "correction_notice": notice},

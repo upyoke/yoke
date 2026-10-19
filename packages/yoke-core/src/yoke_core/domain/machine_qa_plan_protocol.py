@@ -72,6 +72,9 @@ def continue_plan_host_control_execution(
         lease_id=lease_id,
         allow_released=False,
     )
+    from yoke_core.domain.machine_qa_case_platform import matching_platform_hosts
+
+    matching_platform_hosts([selected], cases)
     selected_name = selected.settings["resource_name"]
     if machine and machine != selected_name:
         raise MachineQaProtocolError(

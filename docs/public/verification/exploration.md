@@ -53,7 +53,11 @@ Write one case with broad instructions and an observable good outcome:
 }
 ```
 
-Omit `machine` when any registered host can run the mission. When present, it
+Omit `machine` to select a registered host matching the case OS. Execution
+checks the method, instructions, capabilities and executable steps before
+leasing a host; portable cases keep verification/name ordering. An unavailable
+platform refuses as `test_machine_platform_unavailable`: register and verify
+a matching host, then retry with its `--machine NAME`. When present, it
 is validated during plan authoring and becomes the case's durable
 <!-- qa:test-machine-capability -->`test-machine:<name>` capability constraint. Execution also reads the pin from
 `method_config` for direct requirements and their admitted deployment copies;
@@ -167,8 +171,12 @@ Machine still holds every bit of state the walk built. The way back in is a
 continuation:
 
 ```text
-yoke qa plan run --item PREFIX-N --transition T --continue-mission
+yoke qa plan run --item PREFIX-N --transition T --machine NAME --continue-mission
 ```
+
+Use the host name from the emitted continuation command; it comes from the
+settled execution's durable host evidence. Host-wait and correction-ready
+commands also carry `--machine NAME`; keep that pin when resuming.
 
 A continuation is an ordinary new execution over the same roster, recording
 its own runs, with one difference: it reaches no host baseline, so the host

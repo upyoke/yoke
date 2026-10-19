@@ -38,9 +38,7 @@ from yoke_core.domain.machine_qa_execution_contract import (
     HostControlOperation,
     issue_execution_contract,
 )
-from yoke_core.domain.machine_qa_capability import (
-    host_claim_key,
-)
+from yoke_core.domain.machine_qa_capability import host_claim_key
 from yoke_core.domain.host_control_submission_receipt import (
     host_control_submission_receipt,
     host_control_submission_receipt_matches,
@@ -174,6 +172,7 @@ def begin_host_control_execution(
     machine: str | None = None,
     select_any: bool = True,
     healthy_only: bool = False,
+    host_cases: Sequence[dict[str, Any]] | None = None,
 ) -> HostControlExecutionContract:
     """Validate settings and acquire the serial host claim."""
     if not str(session_id or "").strip():
@@ -193,6 +192,7 @@ def begin_host_control_execution(
             machine=machine,
             select_any=select_any,
             healthy_only=healthy_only,
+            cases=tuple(host_cases if host_cases is not None else cases),
         )
     except CoordinationClaimStaleHolderError as exc:
         raise MachineQaProtocolError(str(exc)) from None

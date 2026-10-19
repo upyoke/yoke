@@ -1,7 +1,8 @@
 {
  "id": "machine-selection",
  "title": "Machine selection",
- "status": "draft-copy",
+ "status": "observed",
  "page": "test-machines",
- "position": 0
+ "position": 0,
+ "description": "Host admission filters case methods, instructions, capabilities and executable steps by required OS before ranking verified hosts. An incompatible pin or missing platform refuses with registration and verification recovery."
 }

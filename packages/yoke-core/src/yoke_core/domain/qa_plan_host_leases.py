@@ -126,6 +126,11 @@ def begin_case_host_contract(
                 session_id=session_id,
                 machine=driver,
                 healthy_only=True,
+                host_cases=[
+                    row
+                    for row in execution["roster"]
+                    if row.get("runner_id") in {"host_control", "agent_mission"}
+                ],
                 **arguments,
             )
             set_plan_machine_lease(conn, execution, lease_id=contract.lease_id)
@@ -169,6 +174,7 @@ def begin_case_host_contract(
                 machine=name,
                 select_any=False,
                 healthy_only=True,
+                cases=(case,) if name == driver else (),
             )
             record_claim_reason(
                 conn,
