@@ -107,6 +107,25 @@ def test_an_unreadable_rollup_cannot_prove_an_ejection():
     assert observation.kind == WAITING
 
 
+def test_a_pull_request_github_is_mid_merge_on_is_waiting():
+    """Mid-merge GitHub clears the entry and arming but reports unknown."""
+    mid_merge = PrQueueMembership(in_queue=False, mergeable="")
+    observation = _classify(_state(merge_state_status="unknown"), mid_merge)
+    assert observation.kind == WAITING
+
+
+def test_an_unknown_merge_state_with_a_red_required_check_is_an_ejection():
+    observation = _classify(
+        _state(merge_state_status="unknown"), NOT_QUEUED, checks=(FAILED_REQUIRED,)
+    )
+    assert observation.kind == EJECTED
+
+
+def test_an_unknown_merge_state_with_a_conflict_is_an_ejection():
+    observation = _classify(_state(merge_state_status="unknown"), DROPPED)
+    assert observation.kind == EJECTED
+
+
 def test_arming_lost_without_a_merge_is_an_ejection():
     observation = _classify(_state(merge_state_status="clean"), NOT_QUEUED)
     assert observation.kind == EJECTED

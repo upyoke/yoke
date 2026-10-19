@@ -16,6 +16,8 @@ an armed, eligible pull request whose checks are still running is a
 landing in progress. The observation reads the same four fields the
 admission check reads — armed, queued, eligible, entry-gated — and
 reports a stop when admission is lost, including a retained UNMERGEABLE entry.
+An open pull request whose merge state GitHub reports unknown is not a stop:
+GitHub reports that mid-merge, after it clears the entry and the arming.
 """
 
 from __future__ import annotations
@@ -51,8 +53,11 @@ def classify_pending_landing(
     An unreadable pull request or an unreadable membership cannot prove an
     ejection, so both stay ``WAITING`` — the next poll asks again. So does
     a pull request GitHub is still holding, whether it has reached the
-    queue yet or is armed and waiting for its own checks. An UNMERGEABLE
-    entry is an ejection even before GitHub removes it from the queue.
+    queue yet or is armed and waiting for its own checks, and so does an
+    open pull request whose merge state GitHub reports unknown: GitHub
+    reports that while it recomputes, including mid-merge after it clears
+    the queue entry and merge-when-ready. An UNMERGEABLE entry is an
+    ejection even before GitHub removes it from the queue.
     """
     if readback.state is None:
         return LandingObservation(WAITING)
@@ -60,7 +65,7 @@ def classify_pending_landing(
         return LandingObservation(LANDED)
     if readback.membership is None:
         return LandingObservation(WAITING)
-    if readback.admitted():
+    if readback.admitted() or readback.undetermined():
         return LandingObservation(WAITING)
     return LandingObservation(
         EJECTED,
