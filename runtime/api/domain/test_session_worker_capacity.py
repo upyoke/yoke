@@ -26,14 +26,34 @@ def _counts(conn, expected):
     assert live_lane_counts(conn, now=now).get(MACHINE, 0) == expected
 
 
-def test_main_at_one_worker_cap_can_staff_first_worker_but_not_second():
+def _operator_launch(conn, key):
+    """A launch the operator started with no requesting session."""
+    launch = assigned_launch(conn, key=key, machine_id=MACHINE)
+    conn.execute(
+        "UPDATE session_launches SET requester_session_id=NULL WHERE launch_id=?",
+        (launch.launch_id,),
+    )
+    return launch
+
+
+@pytest.mark.parametrize("operator_launched", [False, True])
+def test_main_at_one_worker_cap_can_staff_first_worker_but_not_second(
+    operator_launched,
+):
     conn = launch_connection()
     add_relay(conn)
     conn.execute(
         "INSERT INTO harness_sessions (session_id, project_id, machine_id) "
-        "VALUES ('interactive-main', 10, ?)",
+        "VALUES ('main', 10, ?)",
         (MACHINE,),
     )
+    if operator_launched:
+        launch = _operator_launch(conn, "main")
+        conn.execute(
+            "UPDATE session_launches SET registered_session_id='main' "
+            "WHERE launch_id=?",
+            (launch.launch_id,),
+        )
     _publish_capacity(conn, max_worker_lanes=1)
     _counts(conn, 0)
     assert [relay.machine_id for relay in _eligibility(conn).relays] == [MACHINE]
@@ -95,3 +115,12 @@ def test_inflight_worker_reserves_only_until_its_deadline(state):
         (NOW, launch.launch_id),
     )
     _counts(conn, 0)
+
+
+def test_inflight_operator_launch_reserves_no_worker_lane():
+    conn = launch_connection()
+    add_relay(conn)
+    _operator_launch(conn, "operator-main")
+    _publish_capacity(conn, max_worker_lanes=1)
+    _counts(conn, 0)
+    assert [relay.machine_id for relay in _eligibility(conn).relays] == [MACHINE]
