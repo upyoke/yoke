@@ -13,6 +13,7 @@ already current costs one record read and no reset, install or capture.
 from __future__ import annotations
 
 import json
+import sys
 import urllib.request
 from typing import Any, Callable, Mapping
 
@@ -134,8 +135,17 @@ def refreshed_case_contract(
             f"{step} on {machine} raised {type(error).__name__}: {error}",
             f"Restore SSH access and /usr/bin/python3 on {machine}.",
         ) from error
-    _capture_golden(contract, plan_execution_id=plan_execution_id, actor=actor)
+    registered = _capture_golden(
+        contract, plan_execution_id=plan_execution_id, actor=actor
+    )
     _checked.add(key)
+    behind = ", ".join(f"{harness} {latest[harness]}" for harness in outdated)
+    print(
+        f"# qa plan run: refreshed the golden on {machine} to {behind}; "
+        f"resets now restore {registered}",
+        file=sys.stderr,
+        flush=True,
+    )
     begun = begin()
     if begun.get("state") != "ready" or not isinstance(begun.get("execution"), dict):
         raise _refused(
@@ -151,7 +161,7 @@ def _capture_golden(
     *,
     plan_execution_id: str,
     actor: ActorContext,
-) -> None:
+) -> str:
     """Capture and register the new golden under the plan's own host lease."""
     from yoke_core.domain.machine_qa_local_execution import (
         execute_host_operation_contract,
@@ -223,6 +233,7 @@ def _capture_golden(
         retain_after_verified_capture("golden_capture", True, submitted, execution)
     except SnapshotRetentionError as error:
         raise _refused(error.code, error.detail, error.recovery) from error
+    return str(submitted.get("golden_baseline_path"))
 
 
 __all__ = [
