@@ -50,6 +50,7 @@ def _dropping_handler(drops: int):
         _DROPPED,
         "SSL SYSCALL error: EOF detected",
         "server closed the connection unexpectedly",
+        "the connection is lost",
     ],
 )
 def test_mid_statement_drop_reads_as_a_connection_failure(text):

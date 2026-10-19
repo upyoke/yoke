@@ -181,6 +181,14 @@ the request or provider attempt before re-driving the same run; never use
 `--fresh` to recover a lost response. The live attachment's phase and capture
 show preparation even while run status remains `created`.
 
+Scoped-QA stage dispatch follows the same rule: a lost answer leaves the run in
+its QA stage with status `executing`, so live QA executions keep writing, and
+the next re-drive continues that stage. A genuine stage failure records run
+status `failed` before the `<stage>-failed` stage. When that status write is
+refused, for example `qa_abort_restore_required` while host QA work is in
+flight, the driver reports `run_failure_unrecorded` with the refusal's recovery
+and leaves both status and stage unchanged.
+
 When the bounded scoped-QA wait ends with blockers, the driver returns
 awaiting QA (exit code 5). If the following fresh diagnostic report read fails,
 it explicitly reports that fresh QA details are unavailable and retains the
