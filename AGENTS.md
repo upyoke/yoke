@@ -112,8 +112,9 @@ tail -80 <raw-capture>          # the capture a watcher prints, once it exits
 <!-- END YOKE MANAGED BLOCK -->
 <!-- KEEP IN SYNC: hand-copied, identical in the yoke and platform repos. Edit both together. -->
 ## Control-Plane Authority — Hard Rule (this installation)
-- **All non-testing control-plane operations run on prod** (`prod` / `prod-db-admin`) — releases, receipts, deployment-run and delivery records, GitHub relays — whichever environment is being deployed. **Stage exists only to test the live control plane:** nothing real routes through or depends on it; `stage-db-admin` holds only disposable rehearsal state.
-- **Platform's own database (`yoke_platform`) is readable here, read-only:** `yoke --env platform-prod-registry-db-admin db read "SELECT ..."` (stage: `platform-stage-registry-db-admin`; `yoke env list` shows connections). No writes.
+- **Non-testing control-plane operations run on prod** (`prod` / `prod-db-admin`) for every target environment: releases, receipts, deployment-run and delivery records, GitHub relays. **Stage only tests the live control plane:** nothing real routes through or depends on it; `stage-db-admin` holds disposable rehearsal state only.
+- **Yoke releases ship Platform** (via its pin). Merged PLAT items ride the next Yoke release; start a Platform flow only when none is in flight.
+- **Platform's database (`yoke_platform`) is read-only here:** `yoke --env platform-prod-registry-db-admin db read "SELECT ..."` (stage: `platform-stage-registry-db-admin`; connections: `yoke env list`).
 # Yoke Repo Internals
 Source-maintainer manifest contract: `runtime/harness/manifest-schema.md`.
 Sync install-bundle edits in the same commit: author public docs under `docs/public/`, run `yoke dev run -- python3 -m yoke_core.domain.install_bundle_tree_sync sync --target-root <checkout>`, then stage all changed paths.
@@ -121,4 +122,4 @@ Sync install-bundle edits in the same commit: author public docs under `docs/pub
 ## Source-Dev Doctrine
 Read [`docs/source-dev-doctrine.md`](docs/source-dev-doctrine.md) before tests, releases, renders, deploys, preflight or cleanup. Direct authority is source-dev/operator only; Yoke self-deploy and migration rehearsal use paired `prod-db-admin`. Missing registered mutations escalate through its audited operator-debug recovery.
 Lane checks: `yoke dev run -- <command>`. Post-deploy Command tests: `yoke watch pytest -- <paths>` directly, bound to candidate cwd. `--local` means a small targeted check expected to finish in about one minute; inject xdist `-n auto`; uncommitted work does not justify a slow local run. Iterate with `yoke watch pytest --impacted main --bounded` or targeted paths; run full CI once through the attached case: `yoke qa requirement list --item PREFIX-N`, then `yoke qa case run --requirement-id <id>`. The registered gate owns `yoke watch pytest -- runtime/api/ runtime/harness/ tests/`; execute it through the attached case. Lint: `yoke dev ruff-changed --base <ref>`.
-Yoke releases have two concurrent runs on one lineage: stage on HTTPS, production on paired `prod-db-admin`. Stage carries only members owing stage QA; completion needs both stage proof and production delivery. Ordinary projects may have a real stage promotion gate.
+A Yoke release runs stage (HTTPS) and production (paired `prod-db-admin`) concurrently on one lineage. Stage carries only members owing stage QA; completion needs stage proof and production delivery. Ordinary projects may gate production on stage promotion.
