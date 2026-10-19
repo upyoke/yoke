@@ -49,8 +49,6 @@ def handle_qa_requirement_list(request: FunctionCallRequest) -> HandlerOutcome:
         and request.target.kind == "item"
         and request.target.item_id is not None
     ):
-        # Relay shape: the --item filter rides the envelope target as a
-        # raw ref; the dispatcher resolved it into target.item_id.
         item_id = int(request.target.item_id)
     epic_id = payload.get("epic_id")
     deployment_run_id = payload.get("deployment_run_id")
@@ -61,8 +59,6 @@ def handle_qa_requirement_list(request: FunctionCallRequest) -> HandlerOutcome:
     ):
         deployment_run_id = str(request.target.deployment_run_id)
 
-    # Filter precedence mirrors cmd_requirement_list: item, then epic,
-    # then deployment run; no filter lists every row.
     where = "1=1"
     params: tuple = ()
     if item_id is not None:
@@ -138,6 +134,7 @@ class QaRunListRequest(BaseModel):
 
 class QaRunListResponse(BaseModel):
     rows: List[Dict[str, Any]]
+    current_run_id: Optional[int] = None
 
 
 class QaRunGetRequest(BaseModel):
@@ -175,13 +172,16 @@ def handle_qa_run_list(request: FunctionCallRequest) -> HandlerOutcome:
             f"WHERE {where.format(p=_p(conn))} ORDER BY id",
             params,
         )
-        rows = executions.current_first_run_history(rows, requirement_id)
+        rows, current_id = executions.run_history_with_current(rows, requirement_id)
     except ValueError as exc:
         return _error("qa_execution_order_ambiguous", str(exc))
     finally:
         conn.close()
     return HandlerOutcome(
-        result_payload={"rows": [qa_run_read_projection(row) for row in rows]},
+        result_payload={
+            "rows": [qa_run_read_projection(row) for row in rows],
+            "current_run_id": current_id,
+        },
         primary_success=True,
     )
 
@@ -319,8 +319,6 @@ def handle_qa_gate_summary(request: FunctionCallRequest) -> HandlerOutcome:
             jsonpath="$.payload.transition",
         )
 
-    # db_path=None selects the canonical Postgres authority, exactly like
-    # every other handler's bare connect().
     summary = render_gate_summary(
         gate_target,
         None,

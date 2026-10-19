@@ -17,7 +17,10 @@ PAUSE_REASON = "qa-communication-outcome-unknown:"
 
 
 def checkin_view(execution):
+    from yoke_core.domain.qa_plan_execution_abort_state import abort_request
+
     return {
+        "abort_requested": abort_request(execution) is not None,
         "execution_id": str(execution["id"]),
         **{
             key: execution.get(key)
@@ -98,6 +101,8 @@ def pause_execution(
                 "qa_recovery_receipt_consumed: this pause already resumed; inspect the current action outcome instead of reusing its receipt"
             )
         current = json.loads(evidence)
+        if previous.get("abort"):
+            current["abort"] = previous["abort"]
         if previous.get("attempts"):
             current["first_failure"] = previous.get("first_failure", previous)
         evidence = canonical(current)

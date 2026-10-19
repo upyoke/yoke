@@ -1,9 +1,11 @@
 {
  "id": "starting-state",
  "title": "Starting state",
- "status": "draft-copy",
+ "status": "observed",
  "commands": ["yoke test-machine golden-capture", "yoke test-machine reset"],
  "functions": ["test_machine.golden_capture", "test_machine.reset"],
  "page": "test-machines",
- "position": 1
+ "position": 1,
+ "note": "Source supports an as_is continuity_fingerprint of stable regular files, checked under the lease before setup and again before mission walking; continuity_lost refuses without starting on missing, changed or uncheckable state. This detects loss between leases; it does not reserve the host. macOS restore retries a failed captured-entry copy once, preserves the existing reset boundary, and refuses persistent failure with its unrestored-entry receipt. Live proof remains pending.",
+ "sources": ["docs/public/verification/case-attachment-rules.md", "packages/yoke-contracts/src/yoke_contracts/qa_continuity_fingerprint.py", "packages/yoke-harness/src/yoke_harness/qa_continuity_fingerprint.py", "packages/yoke-harness/src/yoke_harness/ssh_mac_full_reset_script.py"]
 }

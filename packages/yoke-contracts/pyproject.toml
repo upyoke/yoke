@@ -14,6 +14,7 @@ license = "FSL-1.1-ALv2"
 license-files = ["LICENSE.md"]
 requires-python = ">=3.11"
 dependencies = [
+    "filelock>=3.13,<4",
     "pydantic==2.13.4",
     "packaging>=24,<27",
     # board-art ASCII variant generation (FIGlet banners) — pure, client-safe.
@@ -50,4 +51,6 @@ where = ["src"]
     # Exact compiled UI contract bytes, importable by standalone Node consumers.
     "timestamps.mjs",
     "time_sql.mjs",
+    # The user-level yoke-global skill body, installed by global_skill_install.
+    "global_skill/SKILL.md",
 ]

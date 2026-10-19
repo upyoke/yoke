@@ -2,7 +2,7 @@
  "id": "starting-state",
  "title": "Starting state",
  "status": "draft-copy",
- "sources": ["docs/public/reference/qa-platform/case-attachment.md", "docs/public/reference/exploratory-qa.md"],
+ "sources": ["docs/public/verification/case-attachment.md", "docs/public/verification/exploration.md"],
  "commands": ["yoke qa requirement update"],
  "functions": ["qa.requirement.update"],
  "page": "qa-plans",

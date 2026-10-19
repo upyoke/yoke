@@ -1,0 +1,10 @@
+{
+ "id": "setup-next-action",
+ "title": "One next action in setup command replies",
+ "status": "observed",
+ "form": "State and recipe",
+ "verification": "Candidate source tests; installed delivery proof remains pending in setup-next-action-delivery-proof.",
+ "topics": ["projects/onboarding", "projects/onboarding/first-useful-work"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/setup_facts_summary.py"],
+ "position": 20
+}

@@ -1,5 +1,9 @@
 # Prune disposable universe records
 
+<!-- yoke:breadcrumbs -->
+[Yoke](index.md) > [Operations](operations/index.md) > Universe retention
+<!-- /yoke:breadcrumbs -->
+
 ```text
 yoke universe retention get
 yoke universe prune --dry-run

@@ -68,7 +68,7 @@ facts in the same composition step, before integration simulation dispatch:
   final names on each declared authoritative database; rehearsal receipts
   live on the control plane holding the item. Keep those sources distinct.
 - Rehearse the final modules through the governed recipe in
-  [DB rules](../../../../.yoke/docs/reference/agent-rules/databases.md), then
+  [DB rules](../../../../.yoke/docs/agents/rules/databases.md), then
   record final ordinals, old-to-final mapping, source commit/digests and the
   accepted migration_audit ids in BOTH the item's spec rollout section and
   its worktree plan through items.structured_field.section_upsert. Update

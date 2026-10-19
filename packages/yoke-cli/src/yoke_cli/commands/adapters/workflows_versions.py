@@ -11,6 +11,7 @@ from yoke_cli.commands._helpers import (
     add_session_arg,
     dispatch_and_emit,
     parse_or_usage_error,
+    usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
 
@@ -62,7 +63,25 @@ def workflows_current_set(args: List[str]) -> int:
     )
 
 
+def _one_argument_version_get(args: List[str]) -> str | None:
+    positionals = [arg for arg in args if not str(arg).startswith("-")]
+    if len(positionals) != 1:
+        return None
+    return (
+        "workflows_version_arguments: yoke workflows version get needs "
+        "WORKFLOW and VERSION. "
+        f"Got only {positionals[0]!r}. "
+        "WORKFLOW is the workflow slug (workflow_id). "
+        "VERSION is the version number from "
+        "`yoke workflows item get PREFIX-N` result.workflow_version, "
+        "not workflow_version_id."
+    )
+
+
 def workflows_version_get(args: List[str]) -> int:
+    shape = _one_argument_version_get(args)
+    if shape is not None:
+        return usage_error(shape)
     parser = argparse.ArgumentParser(
         prog="yoke workflows version get",
         description=WORKFLOWS_VERSION_GET_USAGE,

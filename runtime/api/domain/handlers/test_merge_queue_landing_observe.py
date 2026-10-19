@@ -267,3 +267,24 @@ def test_merged_pull_request_is_reported_within_two_refresh_intervals(
 
     assert reported_after is not None
     assert reported_after <= LANDING_RECORD_STALE_SECONDS + poll_seconds
+
+
+def test_unarmed_attempt_still_returns_the_completed_landing(monkeypatch):
+    from yoke_core.domain.merge_queue_landing_marker import point_item_at_pull_request
+
+    conn = observer_connection()
+    relay_sweep(conn, now=NOW, read_state=merged, read_membership=not_queued)
+    conn.execute(
+        "UPDATE items SET merge_queue_notified_at='2026-08-22T16:00:00Z' WHERE id=101"
+    )
+    conn.commit()
+    point_item_at_pull_request(conn, 101, "43")
+    reads = []
+    _observe_with(monkeypatch, conn, now=NOW, read_state=merged, reads=reads)
+
+    outcome = handler.handle_observe_landing(_request(101))
+
+    assert outcome.primary_success
+    assert outcome.result_payload["record"]["pr_number"] == "42"
+    assert outcome.result_payload["record"]["state"] == LANDED
+    assert reads == []

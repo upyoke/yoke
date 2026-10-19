@@ -1,8 +1,0 @@
-{
- "id": "global-hook-skill-removal",
- "title": "Uninstall cannot remove machine-wide light hooks or the global skill yet",
- "status": "observed",
- "text": "Machine uninstall reverts every harness setting recorded in the machine home's harness-settings-written.json and removes Yoke's machine-wide hooks from every harness's user config, with their Codex trust, through its own machine-wide hooks step. The yoke-global skill does not exist yet; when it lands it must record its writes in that file so uninstall removes it.",
- "work_items": ["YOK-3973", "YOK-3975"],
- "position": 18
-}

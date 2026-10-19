@@ -2,8 +2,8 @@
 
     yoke dev run -- python3 docs/teaching/tools/convert_model.py
 
-Existing record files without an array source are untouched. When an array is
-present, it is authoritative for its records. All destinations are checked
+Existing record files without an array source retain their data and receive
+canonical formatting. An array is authoritative for its records. All destinations are checked
 before any source is removed.
 """
 
@@ -97,6 +97,12 @@ def convert(root: Path) -> int:
             sources.append(path)
             for position, record in enumerate(json.loads(path.read_text())["records"]):
                 add(root / kind, record, position)
+
+    for path in sorted(root.rglob("*.json")):
+        if path not in writes and path not in sources:
+            text = dump(json.loads(path.read_text(encoding="utf-8")))
+            if path.read_text(encoding="utf-8") != text:
+                writes[path] = text
 
     for target, text in writes.items():
         target.parent.mkdir(parents=True, exist_ok=True)

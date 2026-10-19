@@ -273,6 +273,12 @@ def run_machine_browser_approval_with_io(
                 try:
                     progress_callback()
                 except Exception as error:
+                    from yoke_core.domain.machine_qa_phase_heartbeat import (
+                        MachineQaAborted,
+                    )
+
+                    if isinstance(error, MachineQaAborted):
+                        raise
                     if communication_unknown(error):
                         raise
                     return OperatorGateResult(

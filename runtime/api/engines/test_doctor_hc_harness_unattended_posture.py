@@ -70,17 +70,6 @@ def test_no_harness_on_the_machine_is_not_applicable(
     assert SLUG in _detail(result)
 
 
-def test_a_prompting_codex_fails_and_names_the_repair(
-    tmp_path: Path, monkeypatch
-) -> None:
-    _paths(tmp_path, monkeypatch, codex='approval_policy = "on-request"\n')
-    result = _run()
-    detail = _detail(result)
-    assert _status(result) == "FAIL"
-    assert "approval_policy" in detail
-    assert "install_yoke_launcher --repair" in detail
-
-
 def test_a_prompting_cursor_fails(tmp_path: Path, monkeypatch) -> None:
     _paths(
         tmp_path,

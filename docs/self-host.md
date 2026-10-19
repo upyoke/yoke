@@ -273,7 +273,7 @@ silently repoint an unrelated remote bundle.
 
 ## Take it back off
 
-For full machine removal, use [`yoke uninstall`](public/install.md#uninstall). `yoke self-host teardown` removes the server install. It always stops and removes the
+For full machine removal, use [`yoke uninstall`](public/start/uninstall.md#uninstall). `yoke self-host teardown` removes the server install. It always stops and removes the
 stack; everything further is opt-in and named for what it destroys. Run it
 from the directory that holds `yoke-server/`, or name the bundle with
 `--dir PATH` from anywhere:

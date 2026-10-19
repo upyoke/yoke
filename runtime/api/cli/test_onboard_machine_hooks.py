@@ -27,15 +27,18 @@ def test_plan_lists_one_step_per_installed_harness(tmp_path):
 def test_apply_installs_and_reports_each_harness(tmp_path):
     (_home(tmp_path) / ".claude").mkdir(parents=True)
     (_home(tmp_path) / ".cursor").mkdir(parents=True)
-    events, report = [], {}
-
-    harness_posture_install.apply_machine_hooks(
-        lambda action, target, status: events.append((action, target, status)), report
+    events = []
+    result = harness_posture_install.apply_reported(
+        include_posture=False,
+        progress=lambda action, target, status: events.append((action, target, status)),
     )
 
     assert (MACHINE_HOOKS_PLAN_ACTION, "~/.claude/settings.json", "done") in events
     assert (MACHINE_HOOKS_PLAN_ACTION, "~/.cursor/hooks.json", "done") in events
-    assert any(line.startswith("claude-code: installed ") for line in report["machine_hooks"])
+    assert any(
+        line.startswith("claude-code: machine_hooks written ")
+        for line in result.lines()
+    )
     settings = json.loads((_home(tmp_path) / ".claude" / "settings.json").read_text())
     assert "SessionStart" in settings["hooks"]
 
@@ -44,23 +47,60 @@ def test_apply_reports_a_malformed_config_as_failed_with_recovery(tmp_path):
     claude = _home(tmp_path) / ".claude"
     claude.mkdir(parents=True)
     (claude / "settings.json").write_text("{broken")
-    events, report = [], {}
-
-    harness_posture_install.apply_machine_hooks(
-        lambda action, target, status: events.append((action, target, status)), report
+    events = []
+    result = harness_posture_install.apply_reported(
+        include_posture=False,
+        progress=lambda action, target, status: events.append((action, target, status)),
     )
 
     assert (MACHINE_HOOKS_PLAN_ACTION, "~/.claude/settings.json", "failed") in events
-    [line] = report["machine_hooks"]
-    assert "machine_hooks_config_malformed" in line
-    assert "fix or move the file, then run `yoke setup` again" in line
+    line = next(
+        line
+        for line in result.lines()
+        if line.startswith("claude-code: machine_hooks refused ")
+    )
+    assert "malformed" in line
+    assert "yoke doctor run --only harness-setup --fix" in line
     assert (claude / "settings.json").read_text() == "{broken"
 
 
 def test_no_installed_harness_writes_nothing(tmp_path):
-    events, report = [], {}
-    harness_posture_install.apply_machine_hooks(
-        lambda action, target, status: events.append((action, target, status)), report
+    events = []
+    result = harness_posture_install.apply_reported(
+        include_posture=False,
+        progress=lambda action, target, status: events.append((action, target, status)),
     )
-    assert events == [] and report["machine_hooks"] == []
+    assert events == [] and all(
+        "skipped_not_installed" in line for line in result.lines()
+    )
     assert not _home(tmp_path).exists()
+
+
+def test_human_setup_shows_facet_failure_and_recovery():
+    from yoke_cli.config.onboard_report_render import render_human
+
+    from yoke_harness.harness_setup_reconcile import HarnessSetupResult, HarnessSetupRow
+
+    result = HarnessSetupResult(
+        (
+            HarnessSetupRow(
+                "config",
+                "codex",
+                "hook_trust",
+                "failed",
+                "invalid TOML",
+                "repair config; yoke doctor run --only harness-setup --fix",
+            ),
+        )
+    )
+    refusal = result.lines()[0]
+    report = {
+        "mode": "hosted",
+        "config_path": "config",
+        "applied": True,
+        "plan": {"steps": []},
+        "identity": {},
+        "next_steps": [],
+        "harness_setup": result.payload(),
+    }
+    assert refusal in render_human(report)

@@ -10,13 +10,13 @@ adoption :mod:`yoke_core.domain.qa_case_ci_covering_run` already knows how
 to do is reachable only when the pull-request run comes *first*.
 
 Every live CI lane the gate still has to examine reuses the landing
-gate's rebase step, then the runner publishes it once. For merge-queue projects the gate also opens the
-pull request and waits for the run that opening it produces. The landing
+gate's base update step, then the runner publishes it once. For merge-queue
+projects the gate also opens the pull request and waits for the run that opening it produces. The landing
 step later finds the same pull request open and green and simply enqueues
 it. Per-item cost becomes one entry suite plus the train's amortized share.
 
-Rebasing is safe before evidence exists, and tests the tree the train will
-build; a candidate a run already covers has evidence, so
+Updating the base is safe before evidence exists, and tests the tree the
+train will build; a candidate a run already covers has evidence, so
 :mod:`yoke_core.domain.qa_case_ci_resume` keeps it off this step.
 """
 
@@ -33,6 +33,7 @@ from yoke_contracts.git_hook_markers import HEAD_RECORDING_SKIP_ENV
 from yoke_cli.config import credentialed_git
 from yoke_core.domain import process_group_reaping
 from yoke_core.domain import (
+    authored_file_merge_preflight,
     qa_case_ci_covering_run,
     qa_case_ci_lane,
     qa_case_ci_progress,
@@ -111,14 +112,14 @@ def rebase_lane_onto_base(
     target: str,
     project: str,
 ) -> None:
-    """Replay the lane on top of ``origin/<target>`` before it is published.
+    """Bring the lane current with ``origin/<target>`` before publication.
 
     Uncommitted work goes through the merge engine's own safety-stash gate
     first, so nothing a rebase would disturb is unbacked; work the gate
     cannot classify as Yoke-managed stops the rebase rather than riding it.
     A lane that already contains the fetched base keeps its merge topology.
-    Otherwise, a conflict aborts and surfaces the conflicted paths, because
-    resolving them is the session's call — the same answer the landing gives
+    Merge-shaped lanes merge the base; linear lanes rebase. A conflict aborts
+    and surfaces the conflicted paths, because resolving them is the session's call — the same answer the landing gives
     when it cannot replay a branch on its own.
     """
     from yoke_core.engines.merge_worktree_prepare_state import (
@@ -141,7 +142,7 @@ def rebase_lane_onto_base(
             f"lane {branch!r} carries uncommitted work that is not "
             f"Yoke-managed; it is backed up in stash "
             f"'yoke-pre-rebase-{branch}'. Commit it before running the gate "
-            f"— the gate rebases the lane onto {target!r} and publishes it, "
+            f"— the gate updates the lane against {target!r} and publishes it, "
             "so only committed work is verified."
         )
     fetched = _git(
@@ -156,7 +157,7 @@ def rebase_lane_onto_base(
     if fetched.returncode != 0:
         detail = (fetched.stderr or fetched.stdout or "").strip()
         raise QaCaseExecutionError(
-            f"could not fetch origin/{target} before rebasing {branch!r}: "
+            f"could not fetch origin/{target} before updating {branch!r}: "
             f"{detail or 'fetch failed'}"
         )
     contains_base = _git(
@@ -172,41 +173,11 @@ def rebase_lane_onto_base(
         detail = (contains_base.stderr or contains_base.stdout or "").strip()
         raise QaCaseExecutionError(
             f"could not compare {branch!r} with origin/{target} before "
-            f"rebasing: {detail or 'merge-base failed'}"
+            f"updating: {detail or 'merge-base failed'}"
         )
-    try:
-        rebased = _git(checkout, "rebase", f"origin/{target}", timeout=600)
-    except subprocess.TimeoutExpired as exc:
-        aborted = _git(checkout, "rebase", "--abort")
-        if aborted.returncode == 0:
-            recovery = "The in-progress rebase was aborted and the lane restored."
-        else:
-            detail = (aborted.stderr or aborted.stdout or "abort failed").strip()
-            recovery = (
-                f"Automatic cleanup failed ({detail}); run `git -C {checkout} "
-                "rebase --abort` to restore the lane."
-            )
-        raise QaCaseExecutionError(
-            f"rebasing {branch!r} onto origin/{target} timed out after "
-            f"{exc.timeout}s. {recovery} Re-run the gate; replayed commits "
-            "already skip Yoke's post-commit snapshot sync."
-        ) from exc
-    if rebased.returncode == 0:
-        return
-    conflicts = _git(checkout, "diff", "--name-only", "--diff-filter=U")
-    paths = tuple(conflicts.stdout.split())
-    _git(checkout, "rebase", "--abort")
-    detail = (
-        ", ".join(paths)
-        if paths
-        else ((rebased.stderr or rebased.stdout or "").strip() or "rebase failed")
-    )
-    raise QaCaseExecutionError(
-        f"rebasing {branch!r} onto origin/{target} conflicts: {detail}. "
-        "Resolve the conflict on the lane and re-run the gate — the rebase "
-        "happens before any gate evidence exists, so nothing is invalidated "
-        "by redoing it."
-    )
+    from yoke_core.domain.qa_case_ci_lane_update import update_lane
+
+    update_lane(checkout, branch=branch, target=target, git=_git)
 
 
 def prepare_ci_lane(
@@ -216,7 +187,7 @@ def prepare_ci_lane(
     branch: str,
     lane_is_checked_out: bool,
 ) -> Optional[str]:
-    """Rebase a live CI lane, then return its queue target when applicable.
+    """Update a live CI lane, then return its queue target when applicable.
 
     A recovered or recorded commit still takes the pull-request path when
     the project uses the queue, but cannot be rebased after its lane was
@@ -233,11 +204,9 @@ def prepare_ci_lane(
         project=project,
     )
     if queue_routed:
-        from yoke_core.domain.authored_file_merge_preflight import (
-            enforce_authored_file_limit,
+        authored_file_merge_preflight.enforce_authored_file_limit(
+            checkout, target=target
         )
-
-        enforce_authored_file_limit(checkout, target=target)
         return target
     return None
 

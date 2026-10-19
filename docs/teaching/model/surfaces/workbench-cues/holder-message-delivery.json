@@ -1,0 +1,9 @@
+{
+ "id": "holder-message-delivery",
+ "title": "Holder rows teach when a message reaches the worker.",
+ "status": "observed",
+ "form": "State",
+ "verification": "Candidate fixture tests cover mid-turn, between-turn and parked holders, unsupported automatic wakes, unknown state and abnormal containment. Live receiving-context proof remains pending.",
+ "topics": ["sessions/lifecycle/heartbeat-and-liveness", "sessions/lifecycle/pause-and-park"],
+ "sources": ["docs/public/sessions/steering-report.md", "packages/yoke-core/src/yoke_core/domain/session_message_reachability.py", "runtime/api/domain/test_steering_fleet_report_idle_process_states.py", "runtime/api/domain/test_fleet_idle_holder_alarms.py"]
+}

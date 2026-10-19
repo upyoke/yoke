@@ -92,10 +92,14 @@ def docs_bundle_files(root: Path) -> List[Dict[str, str]]:
         raise InstallBundleError(
             f"docs source dir is missing from the server tree: {source}"
         )
+    from yoke_core.domain.install_bundle import validate_docs_for_bundle
+    from yoke_core.domain.install_bundle_docs_validation import public_corpus_files
+
+    validate_docs_for_bundle(root)
     entries: List[Dict[str, str]] = []
-    for path in sorted(
-        p for p in source.rglob("*") if p.is_file() and not is_bundle_junk_path(p)
-    ):
+    for path in public_corpus_files(source):
+        if is_bundle_junk_path(path):
+            continue
         content = _read_text(path)
         if content is None:
             raise InstallBundleError(f"docs source is missing or non-text: {path}")

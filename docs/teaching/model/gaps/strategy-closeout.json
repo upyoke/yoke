@@ -2,6 +2,9 @@
  "id": "strategy-closeout",
  "title": "Design initiative completion and archive",
  "status": "observed",
- "text": "No completed teaching home yet for completion audit, deferred scope, evidence and confirmed archive.",
- "position": 12
+ "text": "JOURNEYS owns the additional initiative completion audit: reconcile delivered scope, evidence and tracked deferrals before confirmed archive. Existing Steer close-out, session Wrapup and successful Blitz automatic execution-document archive keep their distinct contracts. The individual lesson asks how the new audit should coexist with them; no new confirmation, archive behavior or completed initiative proof is inferred here.",
+ "position": 12,
+ "owner": "JOURNEYS",
+ "topics": ["strategy/operation/close-an-initiative", "strategy/authoring/archive-and-restore"],
+ "sources": ["docs/teaching/model/scenarios/strategy/03.json", ".agents/skills/yoke/steer/close-out.md", ".agents/skills/yoke/blitz/SKILL.md"]
 }

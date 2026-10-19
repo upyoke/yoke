@@ -33,7 +33,7 @@ declared validation environment, not production control-plane mutation.
 Require evidence the real consumer built against the exact pushed candidate.
 Run the producer gate first, then hand the consumer the full commit the gate
 actually pushed to the producer remote; resolve it again after any rebase.
-See `.yoke/docs/qa.md`, “Proving an exact producer candidate”.
+See `.yoke/docs/verification/index.md#proving-an-exact-producer-candidate`, “Proving an exact producer candidate”.
 
 ## Branch evidence and ownership
 

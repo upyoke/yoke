@@ -35,9 +35,6 @@ from .item_ref_columns import render_column_item_ref, resolve_column_item_ref
 from .item_worktree_resolution import primary_item_worktree_branch_sql
 
 
-# --- SQL queries ---
-
-
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
@@ -50,7 +47,7 @@ SELECT d.id, d.dependent_item_id, d.blocking_item_id, d.gate_point, d.satisfacti
        {primary_item_worktree_branch_sql("bi.id")} AS blocking_worktree,
        bi.merged_at AS blocking_merged_at,
        bi.workflow_id, bi.workflow_version_id, wv.version,
-       wv.definition_json, wv.definition_digest
+       wv.definition_json, wv.definition_digest, d.created_at
 FROM item_dependencies d
 LEFT JOIN items bi ON bi.id = d.blocking_item_id
 LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
@@ -66,15 +63,12 @@ SELECT d.dependent_item_id, d.blocking_item_id, d.gate_point, d.satisfaction,
        {primary_item_worktree_branch_sql("bi.id")} AS blocking_worktree,
        bi.merged_at AS blocking_merged_at,
        bi.workflow_id, bi.workflow_version_id, wv.version,
-       wv.definition_json, wv.definition_digest, d.id
+       wv.definition_json, wv.definition_digest, d.id, d.created_at
 FROM item_dependencies d
 LEFT JOIN items bi ON bi.id = d.blocking_item_id
 LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
 WHERE d.gate_point = {p}
 """
-
-
-# --- Single-item gate evaluation ---
 
 
 def evaluate_item_gate(
@@ -119,6 +113,7 @@ def evaluate_item_gate(
             workflow_version,
             definition_json,
             definition_digest,
+            dependency_created_at,
         ) = row
 
         merge_fact = True if blk_merged_at else None
@@ -129,6 +124,8 @@ def evaluate_item_gate(
             blocking_status=blk_status,
             blocking_worktree=blk_worktree,
             blocking_merged=merge_fact,
+            blocking_merged_at=blk_merged_at,
+            dependency_created_at=dependency_created_at,
             workflow=workflow_from_joined_values(
                 workflow_id,
                 workflow_version_id,
@@ -156,9 +153,6 @@ def evaluate_item_gate(
         is_blocked=len(unsatisfied) > 0,
         unsatisfied_blockers=unsatisfied,
     )
-
-
-# --- Batch gate evaluation (frontier-oriented) ---
 
 
 def evaluate_batch_gates(
@@ -202,6 +196,7 @@ def evaluate_batch_gates(
             definition_json,
             definition_digest,
             dependency_id,
+            dependency_created_at,
         ) = row
 
         merge_fact = True if blk_merged_at else None
@@ -212,6 +207,8 @@ def evaluate_batch_gates(
             blocking_status=blk_status,
             blocking_worktree=blk_worktree,
             blocking_merged=merge_fact,
+            blocking_merged_at=blk_merged_at,
+            dependency_created_at=dependency_created_at,
             workflow=workflow_from_joined_values(
                 workflow_id,
                 workflow_version_id,
@@ -244,9 +241,6 @@ def evaluate_batch_gates(
         )
 
     return blocks
-
-
-# --- Topological ordering ---
 
 
 def _topological_sort(
@@ -284,9 +278,6 @@ def _topological_sort(
 
     cycle_items = [i for i in items if i not in set(ordered)]
     return ordered, cycle_items
-
-
-# --- Candidate-set planning ---
 
 
 def plan_candidate_set(

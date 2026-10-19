@@ -7,6 +7,13 @@ from typing import Any, Dict, List, Tuple
 
 import pytest
 
+from yoke_core.domain.deployment_failure_trace import (
+    FailedJob,
+    RunSnapshot,
+    github_run_ref,
+    walk_failure_chain,
+)
+
 from runtime.api.tools import promote_platform_release as promote
 from runtime.api.tools.follow_moved_platform_consumer import MOVED_AGAIN
 
@@ -123,7 +130,41 @@ def test_any_other_promotion_failure_is_reported_not_repeated(
 
     assert promote.main(ARGS) == 1
     assert len(calls["trigger"]) == 1
-    assert "did not succeed" in capsys.readouterr().err
+    captured = capsys.readouterr()
+    parent = github_run_ref("upyoke/yoke", "100")
+    proof = github_run_ref(promote.CONSUMER_REPO, "600")
+    downstream = github_run_ref(promote.CONSUMER_REPO, "701")
+    assert f"Platform promotion failed: {downstream.url} (failed)" in captured.err
+    assert "inspect that run, correct it, and retry the deployment run" in captured.err
+    log = "\n".join(
+        [
+            f"hosted consumer builds against this candidate: {proof.url}",
+            captured.out,
+            captured.err,
+            "##[error]Process completed with exit code 1.",
+        ]
+    )
+    inspected = []
+
+    def inspect(ref):
+        inspected.append(ref)
+        if ref == parent:
+            return RunSnapshot(ref, (FailedJob("1", "promote Platform", log),))
+        assert ref == downstream
+        return RunSnapshot(
+            ref,
+            (FailedJob("2", "publish pin", "##[error]registry rejected the pin"),),
+        )
+
+    def resolve_job(repo, job):
+        pytest.fail(f"unexpected job resolution: {repo} {job}")
+
+    trace = walk_failure_chain(parent, inspect_run=inspect, resolve_job=resolve_job)
+    assert trace["complete"] is True
+    assert trace["terminal_job"] == "publish pin"
+    assert trace["terminal_error"] == "registry rejected the pin"
+    assert [hop["url"] for hop in trace["chain"]] == [parent.url, downstream.url]
+    assert inspected == [parent, downstream]
 
 
 def test_retries_are_bounded(monkeypatch: pytest.MonkeyPatch) -> None:

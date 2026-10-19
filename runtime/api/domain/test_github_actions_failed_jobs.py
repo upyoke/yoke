@@ -78,12 +78,14 @@ def _http_error(status: int, body: bytes = b"") -> urllib.error.HTTPError:
     )
 
 
-def _install_job_listings(monkeypatch, pages: List[Dict[str, Any]]) -> List[str]:
+def _install_job_listings(monkeypatch, pages, conclusion="failure") -> List[str]:
     """Answer the run-jobs REST reads with *pages*, in order."""
     calls: List[str] = []
     iterator = iter(pages)
 
     def _fake(request, timeout=None):
+        if "/jobs?" not in request.full_url:
+            return _FakeResponse(json.dumps({"conclusion": conclusion}).encode())
         calls.append(request.full_url)
         return _FakeResponse(json.dumps(next(iterator)).encode("utf-8"))
 
@@ -321,3 +323,11 @@ class TestListRunJobs:
         with pytest.raises(RestTransportError) as exc_info:
             list_run_jobs("o/r", "123", token="ghs_x")
         assert "unreadable job listing" in str(exc_info.value)
+
+
+@pytest.mark.parametrize("conclusion", ["success", "cancelled", None])
+def test_collect_retains_run_conclusion_without_failed_jobs(monkeypatch, conclusion):
+    _install_job_listings(monkeypatch, [{"jobs": []}], conclusion=conclusion)
+    failures = collect_failed_jobs("o/r", "123", token="ghs_x")
+    assert failures.conclusion == (conclusion or "")
+    assert failures.failed == []

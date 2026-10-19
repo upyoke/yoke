@@ -9,6 +9,7 @@ the engine release that authored its teaching.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Optional
@@ -20,6 +21,7 @@ INSTALLED_LAYER_RECEIPT_REL = ".yoke-operating-layer.json"
 INSTALLED_LAYER_RECEIPT_SCHEMA = 1
 SOURCE_ENGINE_RELEASE_KEY = "source_engine_release"
 SOURCE_BUILD_KEY = "source_build"
+FULL_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 
 # Where the layer lands inside a project checkout: the destinations the
 # install bundle renders into, and the paths a pre-install checkout inspection
@@ -89,7 +91,12 @@ def render_installed_layer_receipt(
         "schema": INSTALLED_LAYER_RECEIPT_SCHEMA,
         SOURCE_ENGINE_RELEASE_KEY: release,
     }
-    build = str(source_build or "").strip()
+    build = str(source_build or "")
+    if build and not FULL_COMMIT_PATTERN.fullmatch(build):
+        raise ValueError(
+            "installed-layer source_build must be a full 40-character lowercase "
+            f"commit: {build}. Rebuild from the declared full candidate commit."
+        )
     if build:
         payload[SOURCE_BUILD_KEY] = build
     return json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
@@ -126,6 +133,7 @@ def _validated_receipt(
         and isinstance(release, str)
         and release.strip()
         and isinstance(build, str)
+        and (not build or FULL_COMMIT_PATTERN.fullmatch(build))
     ):
         return None
     return InstalledLayerReceipt(project_root, release.strip(), build.strip())
@@ -173,6 +181,7 @@ def read_installed_layer_receipt(start: Path) -> Optional[InstalledLayerReceipt]
 
 
 __all__ = [
+    "FULL_COMMIT_PATTERN",
     "CANONICAL_SKILLS_DEST",
     "CLAUDE_AGENTS_DEST",
     "CLAUDE_RULES_DEST",

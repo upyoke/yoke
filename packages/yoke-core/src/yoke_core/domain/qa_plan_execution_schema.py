@@ -60,7 +60,7 @@ QA_PLAN_EXECUTION_TARGET_COLUMNS = (
 #: execution built, so no case in this execution reaches a host baseline.
 QA_PLAN_EXECUTION_CONTINUATION_COLUMNS = ("continues_execution_id",)
 QA_PLAN_EXECUTION_ADDITIVE_COLUMNS = (
-    ("standalone_plan_id", "execution_order")
+    ("standalone_plan_id", "execution_order", "requesting_member_item_id")
     + QA_PLAN_EXECUTION_TARGET_COLUMNS
     + QA_PLAN_EXECUTION_CONTINUATION_COLUMNS
     + tuple(column for column, _definition in DEPLOYMENT_SCOPE_COLUMNS)
@@ -111,6 +111,7 @@ CREATE TABLE IF NOT EXISTS qa_plan_executions (
     release_reason TEXT,
     deployment_stage TEXT,
     deployment_member_item_id INTEGER,
+    requesting_member_item_id INTEGER,
     CONSTRAINT {EXECUTION_SUBJECT_CONSTRAINT}
         CHECK ({EXECUTION_SUBJECT_EXPRESSION})
 );
@@ -120,6 +121,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_plan_executions_active
         AND state IN ('active','waiting','awaiting_agent_review');
 {EXECUTION_SCOPE_INDEX_SQL}
 {STANDALONE_EXECUTION_INDEX_SQL}
+
+CREATE TABLE IF NOT EXISTS qa_plan_execution_adoptions (
+    id TEXT PRIMARY KEY,
+    execution_id TEXT NOT NULL REFERENCES qa_plan_executions(id),
+    item_id INTEGER NOT NULL,
+    work_claim_id INTEGER NOT NULL,
+    previous_actor_id TEXT,
+    previous_session_id TEXT NOT NULL,
+    actor_id TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    adopted_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_qa_plan_execution_adoptions_execution
+    ON qa_plan_execution_adoptions(execution_id, adopted_at);
 
 CREATE TABLE IF NOT EXISTS qa_plan_execution_results (
     execution_id TEXT NOT NULL,
@@ -157,7 +173,7 @@ def converge_qa_plan_execution_schema(conn: Any) -> None:
                     EXECUTION_ORDER_DEFINITION
                     if column == "execution_order"
                     else "INTEGER"
-                    if column == "standalone_plan_id"
+                    if column in {"standalone_plan_id", "requesting_member_item_id"}
                     else dict(DEPLOYMENT_SCOPE_COLUMNS).get(column, "TEXT")
                 )
                 conn.execute(
@@ -186,6 +202,21 @@ def assert_qa_plan_execution_subject_invariants(conn: Any) -> None:
 def assert_qa_plan_execution_schema_invariants(conn: Any) -> None:
     """Require both execution tables, their columns, and lookup indexes."""
     table_columns = (
+        (
+            "qa_plan_execution_adoptions",
+            (
+                "id",
+                "execution_id",
+                "item_id",
+                "work_claim_id",
+                "previous_actor_id",
+                "previous_session_id",
+                "actor_id",
+                "session_id",
+                "reason",
+                "adopted_at",
+            ),
+        ),
         (
             QA_PLAN_EXECUTION_TABLE,
             QA_PLAN_EXECUTION_COLUMNS + QA_PLAN_EXECUTION_ADDITIVE_COLUMNS,

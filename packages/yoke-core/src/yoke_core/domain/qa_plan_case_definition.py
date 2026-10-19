@@ -54,11 +54,9 @@ def require_runnable_case(
     """
     from yoke_core.domain.machine_qa_method_contracts import (
         MACHINE_METHODS,
-        MachineQaExecutionError,
         validate_machine_method_config,
     )
     from yoke_core.domain.qa_method_config_validation import (
-        QaMethodConfigError,
         validate_method_config,
     )
 
@@ -74,6 +72,9 @@ def require_runnable_case(
             conn=conn,
             project_id=project_id,
         )
+        from yoke_contracts.qa_continuity_fingerprint import require_continuity_state
+
+        require_continuity_state({**dict(case), "method_config": config})
         if str(case["method_id"]) in MACHINE_METHODS:
             validate_machine_method_config(
                 str(case["method_id"]),
@@ -82,7 +83,7 @@ def require_runnable_case(
                 required_completion=case.get("required_completion"),
                 host_baseline=host_baseline,
             )
-    except (QaMethodConfigError, MachineQaExecutionError) as exc:
+    except ValueError as exc:
         raise QaPlanError(f"case {str(case['case_key'])!r}: {exc}") from exc
     return config
 
@@ -165,8 +166,16 @@ def materialized_definition(
             f"case_target_not_selected: case {case['case_key']!r} does not name "
             "this execution environment. Select the case on a matching QA stage."
         )
-    if target_env is None and execution_target is not None and case_target_envs(case):
-        target_env = str((execution_target.get("environment") or {}).get("name") or "")
+    if (
+        target_env is None
+        and execution_target is not None
+        and (
+            case_target_envs(case)
+            or (execution_target.get("environment") or {}).get("kind")
+            == "persistent_environment"
+        )
+    ):
+        target_env = (execution_target.get("environment") or {}).get("name") or None
     definition["target_env"] = target_env
     if execution_target is not None:
         definition["execution_target_json"] = canonical_target(execution_target)

@@ -176,7 +176,7 @@ def undeclared_refusal(project: str, model_name: str) -> str:
         f"kind is `{FLEET_ENGINE_TENANTS}`, `{FLEET_NAMED_DATABASES}` (names, "
         f"converge_argv, schema_shape_sources), or `{FLEET_NONE}` with a "
         "reason. Contract: "
-        ".yoke/docs/reference/db-reference/migration-model-fleet.md."
+        ".yoke/docs/databases/migration-fleet.md."
     )
 
 

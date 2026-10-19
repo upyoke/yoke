@@ -76,7 +76,10 @@ def smoke(
         cwd=external_project,
         env=env,
     )
-    assert "Append a structured field-note" in help_result.stdout
+    assert (
+        "File a field note each time a recipe, help text or refusal is wrong"
+        in help_result.stdout
+    )
     assert "failed,new,unclear,observation" in help_result.stdout
     assert "≤4000 chars" in help_result.stdout
 

@@ -28,6 +28,12 @@ caller that cannot be woken is not.
 
 from __future__ import annotations
 
+from yoke_contracts.api.function_call import TargetRef
+from yoke_core.api.service_client_structured_api_adapter import (
+    build_actor,
+    call_dispatcher,
+)
+
 from dataclasses import dataclass
 import os
 from typing import Any, Callable, Literal, Mapping
@@ -137,11 +143,6 @@ def caller_is_headless_command(environ: Mapping[str, str] | None = None) -> bool
 
 def _current_session_row() -> Mapping[str, Any] | None:
     """Read the roster row that names which harness this caller runs in."""
-    from yoke_contracts.api.function_call import TargetRef
-    from yoke_core.api.service_client_structured_api_adapter import (
-        build_actor,
-        call_dispatcher,
-    )
 
     actor = build_actor()
     if not actor.session_id:

@@ -33,6 +33,10 @@ QA_PLAN_RUN_USAGE = (
     "[--allow-tree-mismatch] [--continue-mission] "
     "[--session-id S]"
 )
+QA_PLAN_ADOPT_USAGE = (
+    "yoke qa plan adopt (--item PREFIX-N | --deployment-run-id RUN) "
+    "--execution-id ID --reason TEXT [--session-id S] [--json]"
+)
 QA_PLAN_ABORT_USAGE = (
     "yoke qa plan abort (--item PREFIX-N | --deployment-run-id RUN | --project P) "
     "--execution-id ID --reason TEXT [--project P] [--session-id S]"
@@ -83,13 +87,25 @@ def qa_plan_run(args: List[str]) -> int:
     if show_delegate_help(
         args,
         QA_PLAN_RUN_USAGE,
-        "Requires the named immutable QA case or execution; item cases require the item work claim.",
+        "Requires the named immutable QA case or execution; item cases require the item work claim. "
+        "Host selection respects the case OS. Resume and correction commands keep --machine NAME.",
     ):
         return 0
     return _run_execution_module(
         "yoke_core.domain.qa_plan_execution_cli",
         args,
     )
+
+
+def qa_plan_adopt(args: List[str]) -> int:
+    if show_delegate_help(
+        args,
+        QA_PLAN_ADOPT_USAGE,
+        "Requires the execution item's current work claim and an ended predecessor session. "
+        "Preserves captured evidence; retry review-begin or the exact execution resume command after adoption.",
+    ):
+        return 0
+    return _run_execution_module("yoke_core.domain.qa_plan_execution_adopt_cli", args)
 
 
 def qa_plan_abort(args: List[str]) -> int:
@@ -239,6 +255,7 @@ def _run_execution_module(
 TOOL_COMMANDS = {
     ("qa", "case", "run"): qa_case_run,
     ("qa", "plan", "abort"): qa_plan_abort,
+    ("qa", "plan", "adopt"): qa_plan_adopt,
     ("qa", "plan", "review-submit"): qa_plan_review_submit,
     ("qa", "plan", "review-begin"): qa_plan_review_begin,
     ("qa", "plan", "run"): qa_plan_run,
@@ -250,6 +267,7 @@ TOOL_COMMANDS = {
 USAGE = {
     "yoke qa case run": QA_CASE_RUN_USAGE,
     "yoke qa plan abort": QA_PLAN_ABORT_USAGE,
+    "yoke qa plan adopt": QA_PLAN_ADOPT_USAGE,
     "yoke qa plan review-submit": QA_PLAN_REVIEW_SUBMIT_USAGE,
     "yoke qa plan review-begin": QA_PLAN_REVIEW_BEGIN_USAGE,
     "yoke qa plan run": QA_PLAN_RUN_USAGE,

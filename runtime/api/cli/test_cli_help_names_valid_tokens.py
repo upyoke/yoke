@@ -140,11 +140,11 @@ class TestItemFieldNames:
         [
             ("detail", "yoke items detail get"),
             ("workflow", "yoke workflows item get"),
+            ("progress_log", "yoke items progress-log get"),
         ],
     )
     def test_refusal_redirects_a_familiar_non_column(self, token, surface):
-        """The two tokens the field-notes recorded are not columns at all;
-        the refusal names the surface that does answer them."""
+        """A familiar non-column names the surface that answers it."""
         message = unknown_field_message(token)
         assert f"unknown items column {token!r}" in message
         assert surface in message
@@ -224,3 +224,14 @@ class TestWatchMergeSubcommands:
         for name in watch_merge.SUBCOMMAND_MODULES:
             assert name in out, name
         assert "yoke watch merge merge-item -- PREFIX-N" in out
+
+
+def test_version_get_one_argument_names_slug_and_version_number(capsys):
+    from yoke_cli.commands.adapters.workflows_versions import workflows_version_get
+
+    assert workflows_version_get(["730"]) == 2
+    err = capsys.readouterr().err
+    assert "workflows_version_arguments" in err
+    assert "workflow_id" in err
+    assert "workflow_version" in err
+    assert "workflow_version_id" in err

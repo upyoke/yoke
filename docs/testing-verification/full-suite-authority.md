@@ -2,7 +2,7 @@
 
 CI owns full-suite evidence; local execution stays targeted. Read the
 [source-dev doctrine](../source-dev-doctrine.md) for candidate-source wrappers
-and [verification rules](../public/reference/agent-rules/verification.md)
+and [verification rules](../public/agents/rules/verification.md)
 before selecting or re-entering a run. This source reference owns the CI
 adoption, queue and reachability mechanics.
 
@@ -165,9 +165,12 @@ the entry run GitHub mints when the landing pull request opens re-proves
 the same tree the dispatch just proved. Ordering fixes it. For a project
 declaring the `merge_queue` capability, the gate runs steps 1-3 as:
 
-1. **rebase** the lane onto `origin/<default branch>`, after the merge
+1. **update the base** against `origin/<default branch>`, after the merge
    engine's own safety-stash gate has classified any uncommitted work.
-   This is the only free moment to rebase — no gate evidence exists yet,
+   Merge-shaped lanes use `git merge --no-edit origin/<default branch>`;
+   linear lanes rebase. Conflicts abort and list paths: merge the base
+   on the lane, resolve and commit, then rerun the gate.
+   This is the only free moment to update the base — no gate evidence exists yet,
    so nothing is invalidated — and it makes the entry-run tree
    approximately the tree the queue's train will build;
 2. **push**, then **open the landing pull request** (or converge on the
@@ -181,7 +184,7 @@ declaring the `merge_queue` capability, the gate runs steps 1-3 as:
    verdict — an entry run cancelled by the workflow's concurrency group
    when the next push superseded it, for instance.
 
-Before rebasing an unexamined head, the gate checks its open landing PR.
+Before updating an unexamined head, the gate checks its open landing PR.
 `qa_ci_pull_request_conflicting` means that PR is `CONFLICTING`/`DIRTY` and
 GitHub cannot create the merge ref needed for its entry run. Merge the base
 branch into the lane, resolve and commit the conflicts, then rerun the gate
@@ -189,7 +192,7 @@ to publish the repaired head. A PR still reporting the old remote head's
 conflict does not block publication of the repaired local head.
 
 `--expected-sha` binds the caller's initial commit and is checked before
-preparation. If the gate cleanly rebases that commit, the rebased HEAD is
+preparation. If the gate cleanly updates that commit against the base, the new HEAD is
 the candidate it publishes and records; evidence retains `requested_sha`.
 The branch and selected-lane checks still apply after preparation.
 

@@ -274,7 +274,7 @@ def posture_plan_summary() -> str:
 
 #: One recovery line, shared by every surface that reports a prompting harness.
 POSTURE_RECOVERY = (
-    "Repair: `python3 -m yoke_core.tools.install_yoke_launcher --repair` "
+    "Repair: `yoke doctor run --only harness-setup --fix` "
     "writes the unattended posture into each detected harness's own config, "
     "leaving your other settings in place."
 )

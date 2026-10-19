@@ -2,8 +2,8 @@
  "id": "run-receipts-and-audit-history",
  "title": "Run receipts and audit history",
  "status": "observed",
- "page": "deployments",
+ "page": "deployment-recovery",
  "position": 4,
- "summary": "A refused promotion record fails the bridge with its named server reason. Recover the exact shipped receipt without repeating deployment; stale-pair diagnostics stop at their own refusal.",
- "sources": [".github/workflows/platform-release-bridge.yml", "packages/yoke-core/src/yoke_core/domain/deployment_failure_trace.py"]
+ "summary": "A refused promotion record fails the bridge with its named server reason. Recover the exact shipped receipt without repeating deployment; stale-pair diagnostics stop at their own refusal. A failed Platform promotion prints its exact run URL with the failure tracer's explicit failed marker, so tracing follows that run even when proof URLs also appear. Inspect the failing downstream job, correct it, then retry the deployment run.",
+ "sources": [".github/workflows/platform-release-bridge.yml", "packages/yoke-core/src/yoke_core/domain/deployment_failure_trace.py", "runtime/api/tools/promote_platform_release.py", "runtime/api/tools/test_promote_platform_release.py"]
 }

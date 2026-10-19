@@ -21,7 +21,15 @@ mistaken for a redirect operator.
 
 from __future__ import annotations
 
+import shlex
 from typing import Optional
+
+
+def tokenize_redirects(segment: str) -> list[str]:
+    """Split output operators from targets, including attached quoted paths."""
+    lexer = shlex.shlex(segment, posix=True, punctuation_chars="<>")
+    lexer.whitespace_split = True
+    return list(lexer)
 
 
 def extract_heredoc_redirect_target(segment: str) -> Optional[str]:
@@ -91,7 +99,13 @@ def extract_heredoc_redirect_target(segment: str) -> Optional[str]:
                 j += 1
             target_start = j
             while j < n and first_line[j] not in (
-                " ", "\t", "<", ">", "|", ";", "&",
+                " ",
+                "\t",
+                "<",
+                ">",
+                "|",
+                ";",
+                "&",
             ):
                 j += 1
             target = first_line[target_start:j].strip()

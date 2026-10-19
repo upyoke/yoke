@@ -32,6 +32,16 @@ from yoke_core.domain.merge_queue_landing_attempt import (
 from yoke_core.domain.merge_queue_landing_candidates import pending_landing_rows
 from yoke_core.domain.merge_queue_landing_marker import point_item_at_pull_request
 from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
+from yoke_core.domain.merge_queue_landing_record import (
+    from_readback,
+    read_landing_record,
+    write_landing_record,
+)
+from yoke_core.domain.merge_queue_enqueue_verification import LandingReadback
+from yoke_core.domain.handlers.merge_queue_landing_observe import (
+    _lane_pull_requests,
+    _stored_record,
+)
 
 
 FIRST_LANDED_AT = "2026-08-20T10:00:00.000000Z"
@@ -185,3 +195,28 @@ def test_an_armed_attempt_closed_unmerged_closes_once_its_holder_is_told():
         "43"
     )
     assert observe(conn, read_state=closed, read_membership=not_queued)["checked"] == 0
+
+
+def test_unarmed_attempt_preserves_the_observed_landing_after_it_closes():
+    conn = _landed_connection()
+    original = from_readback(
+        item_id=101,
+        project_id=1,
+        pr_number="42",
+        readback=LandingReadback(state=MERGED),
+        observed_at=FIRST_LANDED_AT,
+    )
+    write_landing_record(conn, original)
+    conn.commit()
+
+    point_item_at_pull_request(conn, 101, "43")
+    assert read_landing_record(conn, 101) == original
+    assert _stored_record(conn, 101, _lane_pull_requests(conn, 101, "42")) == original
+
+    observe(conn, read_state=lambda *_: (CLOSED_UNMERGED, None))
+    assert read_open_attempt(conn, 101) is None
+    assert read_landing_record(conn, 101) == original
+    assert _stored_record(conn, 101, _lane_pull_requests(conn, 101, "42")) == original
+
+    point_item_at_pull_request(conn, 101, "44", enqueued_at=INJECTED_TEXT)
+    assert read_landing_record(conn, 101) is None

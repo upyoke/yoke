@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke inbox list --help", "yoke workflows version get --help"],
  "plan_notes": ["FIRST-USER 35", "outside both"],
- "sources": ["docs/public/workflows.md", "packages/yoke-core/src/yoke_core/domain/approval_gate.py", ".agents/skills/yoke/approve/SKILL.md"],
+ "sources": ["docs/public/workflows/index.md", "packages/yoke-core/src/yoke_core/domain/approval_gate.py", ".agents/skills/yoke/approve/SKILL.md"],
  "position": 2
 }

@@ -95,7 +95,7 @@ def test_leased_job_survives_the_poll_cycle_that_leased_it(tmp_path) -> None:
     def cycle(*, state_dir=None, dispatch_job=None, **_kwargs) -> ServeOnceOutcome:
         cycles.append(1)
         if len(cycles) == 1:
-            dispatch_job(slow_job)
+            dispatch_job(slow_job, lambda reason: None)
         if len(cycles) == 3:
             release.set()
         return ServeOnceOutcome("dispatched", 1)
@@ -123,7 +123,7 @@ def test_termination_finishes_in_flight_work_before_returning(tmp_path) -> None:
         finished.append("wake")
 
     def cycle(*, state_dir=None, dispatch_job=None, **_kwargs) -> ServeOnceOutcome:
-        dispatch_job(job)
+        dispatch_job(job, lambda reason: None)
         assert started.wait(1)
         signal.raise_signal(signal.SIGTERM)
         return ServeOnceOutcome("dispatched", 1)
@@ -284,7 +284,8 @@ def test_async_report_failure_is_logged_with_its_error_code(tmp_path, caplog) ->
             lambda: ServeOnceJobOutcome(
                 "report_failed",
                 error_code="report_contract_rejected",
-            )
+            ),
+            lambda reason: None,
         )
         return ServeOnceOutcome("dispatched", 1)
 
@@ -312,7 +313,7 @@ def test_async_settlement_exception_logs_the_operation_and_exception(
         raise RuntimeError("checkpoint response was rejected")
 
     def cycle(*, dispatch_job=None, **_kwargs) -> ServeOnceOutcome:
-        dispatch_job(fail_settlement)
+        dispatch_job(fail_settlement, lambda reason: None)
         return ServeOnceOutcome("dispatched", 1)
 
     caplog.set_level(logging.WARNING, logger="yoke_harness.session_relay_failure_log")

@@ -122,8 +122,11 @@ def materialize_subject(
                 declared_none = answer.reasons
         existing.extend(bound_direct)
         for requirement in admitted:
-            if requirement.get("plan_id") is not None:
-                continue  # Its ordered cases are materialized through snapshots below.
+            if (
+                not requirement.get("method_id")
+                or requirement.get("plan_id") is not None
+            ):
+                continue  # Only executable, plan-less obligations need a copy.
             requirement_id, was_created = materialize_admitted_requirement(
                 conn,
                 subject=subject,

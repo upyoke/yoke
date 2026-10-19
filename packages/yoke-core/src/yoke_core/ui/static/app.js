@@ -35,7 +35,7 @@ import {
   createWorkbenchChrome,
   drillInProject,
   el,
-  emptyUniversePanel,
+  noProjectCue,
 } from "./universe_app_chrome.js";
 import {
   createHeldScopeController,
@@ -120,6 +120,8 @@ export function mountUniverseApp(rootNode, options = {}) {
     capabilities, screenPreferences: scopeSelections,
   };
   const disposeShippingRead = prefetchShippingOverview(context, windowNode, navigation);
+  const initialRoute = parseUniverseRoute(navigation.current(), navigation.basePath);
+  if (initialRoute.view === "shipping" && !initialRoute.detail) VIEW_RENDERERS.shipping.preload();
   const {
     brand, disposeChrome, header, main, navLinks, orgContext, scopeHost,
     setScopeVisible, shell,
@@ -138,7 +140,6 @@ export function mountUniverseApp(rootNode, options = {}) {
   const disposeBuildUpdate = mountBuildUpdate(main, windowNode, options);
   const disposeTelemetry = mountWorkbenchTelemetry(windowNode, options);
   main.replaceChildren(routeLoadingLine(documentNode));
-
   // The mark uses currentColor, so it must live in the DOM (an <img src>
   // would not inherit color); the brand container's ink flips in dark mode.
   loadWordmark(brand, WORDMARK_ASSET_URL, () => mounted);
@@ -261,7 +262,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     }
     if (scope === null) {
       const emptyHost = el(documentNode, "div", "view-host");
-      emptyHost.appendChild(emptyUniversePanel(documentNode));
+      emptyHost.replaceChildren(...noProjectCue(documentNode, projects));
       appendViewSection(entry, emptyHost);
       main.replaceChildren(createPageHead(documentNode, entry), emptyHost);
       return;
@@ -289,7 +290,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     const viewHost = el(documentNode, "div", "view-host"), aboveScope = el(documentNode, "div", "view-above-scope");
     const pageHead = createPageHead(documentNode, entry);
     main.replaceChildren(
-      pageHead, ...beforeScopeSections(entry), aboveScope, viewHost,
+      pageHead, ...beforeScopeSections(entry), ...noProjectCue(documentNode, projects), aboveScope, viewHost,
     );
     const handle = renderer(context, viewHost, scope, { aboveScope,
       tab: route.tab,

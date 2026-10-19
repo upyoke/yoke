@@ -44,23 +44,10 @@ class TestContentBuilders(unittest.TestCase):
     def test_short_block_is_footer_plus_newline(self) -> None:
         self.assertEqual(rri._build_short_block(), rft.FOOTER + "\n")
 
-    def test_long_block_contains_directive_and_basic_recipe(self) -> None:
-        block = rri._build_long_block()
-        self.assertIn(rft.DIRECTIVE, block)
-        self.assertIn(rft.BASIC_RECIPE, block)
-        self.assertIn(rft.HELP_POINTER, block)
-
-    def test_long_block_contains_every_failure_mode_title(self) -> None:
-        block = rri._build_long_block()
-        for mode in rft.FAILURE_MODES:
-            self.assertIn(mode.title, block)
-            self.assertIn(mode.example_evidence, block)
-            self.assertIn(mode.when_to_fire, block)
-
-    def test_content_for_path_dispatch(self) -> None:
+    def test_content_for_path_is_the_short_footer(self) -> None:
         self.assertEqual(
             rri._content_for_path(rri._SHARED_LONG_FORM_PATH),
-            rri._build_long_block(),
+            rri._build_short_block(),
         )
         self.assertEqual(
             rri._content_for_path(rri.INVENTORY[0]),
@@ -91,12 +78,8 @@ class TestRenderEndToEnd(unittest.TestCase):
         # Spot-check: short inventory file holds the FOOTER.
         sample = (self.root / rri.INVENTORY[0]).read_text(encoding="utf-8")
         self.assertIn(rft.FOOTER, sample)
-        # Spot-check: long-form file holds every failure-mode title.
-        long_file = (self.root / rri._SHARED_LONG_FORM_PATH).read_text(
-            encoding="utf-8"
-        )
-        for mode in rft.FAILURE_MODES:
-            self.assertIn(mode.title, long_file)
+        long_file = (self.root / rri._SHARED_LONG_FORM_PATH).read_text(encoding="utf-8")
+        self.assertIn(rft.FOOTER, long_file)
 
     def test_render_is_idempotent(self) -> None:
         _all_inventory_seeded_stale(self.root)
@@ -208,11 +191,14 @@ class TestPreCommitDispatchWiring(unittest.TestCase):
             def _inner():
                 order.append(name)
                 return rcs.get(name, 0)
+
             return _inner
 
         with (
             mock.patch.object(gpc, "_emit_diverged_warning", record("diverged")),
-            mock.patch.object(gpc, "_run_file_line_check_or_block", record("file_line")),
+            mock.patch.object(
+                gpc, "_run_file_line_check_or_block", record("file_line")
+            ),
             mock.patch.object(
                 gpc,
                 "_run_generated_block_renders_or_block",
@@ -223,9 +209,15 @@ class TestPreCommitDispatchWiring(unittest.TestCase):
                 "_run_harness_capability_render_or_block",
                 record("harness_capability"),
             ),
-            mock.patch.object(gpc, "_run_agent_render_check_or_block", record("agent_render")),
-            mock.patch.object(gpc, "_run_worktree_status_check_or_block", record("worktree")),
-            mock.patch.object(gpc, "_run_path_claim_coverage_check_or_block", record("path_claim")),
+            mock.patch.object(
+                gpc, "_run_agent_render_check_or_block", record("agent_render")
+            ),
+            mock.patch.object(
+                gpc, "_run_worktree_status_check_or_block", record("worktree")
+            ),
+            mock.patch.object(
+                gpc, "_run_path_claim_coverage_check_or_block", record("path_claim")
+            ),
         ):
             rc = gpc.run()
         return rc, order

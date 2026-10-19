@@ -16,7 +16,8 @@ def main(argv: list[str] | None = None) -> int:
         prog="yoke qa plan review-begin",
         description=__doc__,
         epilog="Retrieve the completed captures, then use the returned review-submit command. "
-        "An aborted or errored execution remains terminal after their review.",
+        "An aborted or errored execution remains terminal after their review. "
+        "After restaffing, acquire the item work claim and use yoke qa plan adopt first.",
     )
     subject = parser.add_mutually_exclusive_group(required=True)
     subject.add_argument("--item")

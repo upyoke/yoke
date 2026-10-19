@@ -39,6 +39,16 @@ fallback.
 
 from __future__ import annotations
 
+from yoke_contracts.api.function_call import TargetRef
+from yoke_core.api.service_client_structured_api_adapter import (
+    call_dispatcher,
+)
+from yoke_core.domain.deployment_run_driver_attachment import (
+    FOR_CAPTURE_FUNCTION_ID,
+    parse_attachment,
+)
+from yoke_core.domain.json_helper import dumps_compact
+
 import argparse
 import sys
 import time
@@ -73,16 +83,6 @@ DEFAULT_PROG = "watch_tail"
 def _live_driver(path: Path):
     """Live run driver that claimed *path*, or None when none is recorded."""
     try:
-        from yoke_contracts.api.function_call import TargetRef
-        from yoke_core.api.service_client_structured_api_adapter import (
-            call_dispatcher,
-        )
-        from yoke_core.domain.deployment_run_driver_attachment import (
-            FOR_CAPTURE_FUNCTION_ID,
-            parse_attachment,
-        )
-        from yoke_core.domain.json_helper import dumps_compact
-
         response = call_dispatcher(
             function_id=FOR_CAPTURE_FUNCTION_ID,
             target=TargetRef(kind="global"),

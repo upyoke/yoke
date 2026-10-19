@@ -6,9 +6,8 @@ argument-hint: "PREFIX-N [PREFIX-N ...] [--dry-run] [--merge-only] [--deploy-onl
 ---
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
+File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
 # /yoke usher PREFIX-N [PREFIX-N ...]
@@ -56,10 +55,10 @@ cleanup, user files and true failure; cancelled checks are no verdict.
 
 Usher owns implemented-to-done and manual delivery. Route A's done-transition
 skip-deploy is only verified no delivery; Route B closes through yoke merge item
-with selected-flow run evidence. Absorb exit7 into routing, never force done.
+with selected-flow run evidence. Absorb exit code 7 into routing, never force done.
 Only verified terminal success reports completion.
 
 Before a nonterminal stop, checkpoint current stage, committed/dirty work and
 next command. A handoff reason=level_change takes precedence over release wait;
-follow [stage-level routing](../../../../.yoke/docs/reference/session-level-routing.md)
+follow [stage-level routing](../../../../.yoke/docs/agents/levels.md)
 and its exact successor command. Release waits obey current claim/park mandate.

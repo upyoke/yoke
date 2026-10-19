@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke doctor run --help", "yoke doctor last-run get --help"],
  "plan_notes": ["outside both"],
- "sources": [".agents/skills/yoke/doctor/SKILL.md", "docs/public/events-doctor-ouroboros.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor.py", "packages/yoke-core/src/yoke_core/engines/doctor_applicability.py"],
+ "sources": [".agents/skills/yoke/doctor/SKILL.md", "docs/public/operations/doctor.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor.py", "packages/yoke-core/src/yoke_core/engines/doctor_applicability.py"],
  "position": 1
 }

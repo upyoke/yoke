@@ -12,12 +12,10 @@ caused the path-claim Bash guard to deny it as ambiguous. This splitter honours 
 double quotes, and backslash escapes — the splittable forms a real
 shell would actually treat as pipeline boundaries.
 
-Heredocs (``<<EOF``, ``<<-EOF``, ``<<'EOF'``, ``<<"EOF"``) remain
-intentionally fail-closed at the parser level via the
-``_FAIL_CLOSED_PREFIXES`` sweep and the heredoc detector. This
-splitter does NOT try to absorb a heredoc body into a single segment;
-the parser refuses heredoc-bearing commands wholesale before reaching
-this layer.
+The mutation parser removes quoted heredoc inputs through
+``shell_expansion_scan.strip_literal_heredocs`` before splitting. Redirects
+and following commands stay visible. Unquoted heredocs retain conservative
+parser handling; other splitter consumers receive their original source.
 """
 
 from __future__ import annotations
@@ -161,6 +159,15 @@ def has_unquoted_heredoc(segment: str) -> bool:
             continue
         if not in_single and not in_double and ch == "<" and segment[i + 1] == "<":
             return True
+        if (
+            not in_single
+            and not in_double
+            and ch == "#"
+            and (i == 0 or segment[i - 1].isspace())
+        ):
+            end = segment.find("\n", i)
+            i = n if end < 0 else end
+            continue
         i += 1
     return False
 

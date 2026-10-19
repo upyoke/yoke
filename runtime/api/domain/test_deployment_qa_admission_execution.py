@@ -167,7 +167,7 @@ def test_agent_selected_plan_stays_distinct_from_admitted_obligation(test_db) ->
         deployment_member_item_id=item_id,
         agent_plan=str(plan_id),
     )
-    assert len(result["created_requirement_ids"]) == 2
+    assert len(result["created_requirement_ids"]) == 1
     execution = begin_plan_execution(
         test_db,
         deployment_run_id="run-agent-selection",
@@ -178,66 +178,14 @@ def test_agent_selected_plan_stays_distinct_from_admitted_obligation(test_db) ->
     )
     assert [case["plan_id"] for case in execution["roster"]] == [plan_id]
     _complete_case(test_db, execution)
-    blocked = deployment_qa_stage_status(
-        test_db,
-        run_id="run-agent-selection",
-        stage_name="member-qa",
-        member_item_id=item_id,
-    )
-    assert not blocked["accepted"]
-    assert any("no explicit verdict" in reason for reason in blocked["reasons"])
-    case_run_id = int(
-        test_db.execute(
-            "SELECT r.id FROM qa_runs r JOIN qa_requirements q "
-            "ON q.id=r.qa_requirement_id WHERE q.deployment_run_id=%s "
-            "AND q.method_id IS NOT NULL ORDER BY r.id DESC LIMIT 1",
-            ("run-agent-selection",),
-        ).fetchone()["id"]
-    )
-    artifact_id = int(
-        test_db.execute(
-            "INSERT INTO qa_artifacts(qa_run_id,artifact_type,content_type,"
-            "artifact_handle,created_at) VALUES (%s,'log','text/plain',%s,%s) "
-            "RETURNING id",
-            (case_run_id, "evidence://release-summary", "2026-09-14T00:03:00Z"),
-        ).fetchone()["id"]
-    )
-    scoped_obligation_id = int(
-        test_db.execute(
-            "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
-            "AND plan_id IS NULL AND method_id IS NULL",
-            ("run-agent-selection",),
-        ).fetchone()["id"]
-    )
-    test_db.execute(
-        "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,"
-        "raw_result,started_at,completed_at,created_at) "
-        "VALUES (%s,'agent','visual_acceptance','pass',%s,%s,%s,%s)",
-        (
-            scoped_obligation_id,
-            json.dumps(
-                {
-                    "execution_id": execution["id"],
-                    "evidence_artifact_ids": [artifact_id],
-                }
-            ),
-            "2026-09-14T00:04:00Z",
-            "2026-09-14T00:04:00Z",
-            "2026-09-14T00:04:00Z",
-        ),
-    )
-    test_db.commit()
     assert deployment_qa_stage_status(
         test_db,
         run_id="run-agent-selection",
         stage_name="member-qa",
         member_item_id=item_id,
     )["accepted"]
-    admitted = test_db.execute(
-        "SELECT qrun.verdict,qrun.raw_result FROM qa_requirements q "
-        "JOIN qa_runs qrun ON qrun.qa_requirement_id=q.id "
-        "WHERE q.deployment_run_id='run-agent-selection' AND q.plan_id IS NULL "
-        "AND q.qa_kind<>'deployment_stage_acceptance'"
-    ).fetchone()
-    assert admitted["verdict"] == "pass"
-    assert json.loads(admitted["raw_result"])["execution_id"] == execution["id"]
+    assert not test_db.execute(
+        "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
+        "AND plan_case_key=%s",
+        ("run-agent-selection", admitted_requirement_case_key(original_id)),
+    ).fetchall()

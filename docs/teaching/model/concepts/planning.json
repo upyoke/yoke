@@ -2,7 +2,7 @@
  "id": "planning",
  "title": "Plans, task graphs and dependencies",
  "status": "draft-copy",
- "sources": [".agents/skills/yoke/shepherd/SKILL.md", ".agents/skills/yoke/amend/SKILL.md", "docs/public/reference/db-reference/items-and-epics.md"],
+ "sources": [".agents/skills/yoke/shepherd/SKILL.md", ".agents/skills/yoke/amend/SKILL.md", "docs/public/items/model/tasks.md", "docs/public/items/model/dependencies.md"],
  "skills": ["shepherd"],
  "page": "planning",
  "position": 28

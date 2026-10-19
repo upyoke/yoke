@@ -10,6 +10,6 @@
  "gap": "No full privacy/data-flow audit was performed. Reconcile the broad no-personal-data wording with documented actor/browser linkage rather than repeat an unchecked blanket claim.",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["outside both"],
- "sources": ["docs/public/nav.yaml", "docs/public/events-doctor-ouroboros.md"],
+ "sources": ["docs/public/nav.yaml", "docs/public/operations/events.md"],
  "position": 1
 }

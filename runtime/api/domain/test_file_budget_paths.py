@@ -94,23 +94,20 @@ class TestFunctionIdsInFileBudgetReproductionShape:
 
 class TestExtractFileBudgetPaths:
     def test_project_local_extensionless_picked_up(self):
-        spec = (
-            "## File Budget\n\n"
-            "- `.yoke/lint-config` — project lint policy.\n"
-        )
+        spec = "## File Budget\n\n- `.yoke/lint-config` — project lint policy.\n"
         assert extract_file_budget_paths(spec) == [".yoke/lint-config"]
 
     def test_extensioned_paths_still_extract(self):
         spec = (
             "## File Budget\n\n"
             "- `runtime/api/domain/foo.py` — helper.\n"
-            "- `.yoke/docs/reference/lifecycle.md` — operator note.\n"
+            "- `.yoke/docs/workflows/lifecycle.md` — operator note.\n"
             "- `runtime/harness/claude/settings.json` — hook wire-up.\n"
             "- `.yoke/strategy/WISPS.md` — flip state.\n"
         )
         assert extract_file_budget_paths(spec) == [
             "runtime/api/domain/foo.py",
-            ".yoke/docs/reference/lifecycle.md",
+            ".yoke/docs/workflows/lifecycle.md",
             "runtime/harness/claude/settings.json",
             ".yoke/strategy/WISPS.md",
         ]

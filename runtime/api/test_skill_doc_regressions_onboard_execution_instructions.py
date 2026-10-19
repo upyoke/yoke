@@ -13,7 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 STRATEGY_STEP = (
     REPO_ROOT / ".agents" / "skills" / "yoke" / "onboard" / "strategy-conversation.md"
 )
-PUBLIC_ONBOARD = REPO_ROOT / "docs" / "public" / "projects.md"
+PUBLIC_ONBOARD = REPO_ROOT / "docs" / "public" / "projects" / "index.md"
 
 _CONFIGURATORS = {
     "create": adapter._content_args,
@@ -80,7 +80,7 @@ def test_set_scope_binds_this_project_and_names_the_unscoped_default():
     assert "--workflow {workflow}" in set_scope
     assert "--project-id {project_id}" in set_scope
     assert "reaches no work, until `set-scope`" in section
-    assert "../../../../.yoke/docs/reference/execution-instructions.md" in section
+    assert "../../../../.yoke/docs/projects/execution-instructions.md" in section
 
 
 def test_public_onboarding_page_names_the_guidance_review():

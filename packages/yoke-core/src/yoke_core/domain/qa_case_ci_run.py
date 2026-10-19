@@ -18,7 +18,8 @@ from yoke_core.domain import (
     qa_case_ci_lane,
     qa_case_ci_never_started,
     qa_case_ci_progress,
-    qa_case_ci_resume,
+    qa_case_ci_resume as qa_case_ci_resume,
+    qa_case_ci_runtime,
     qa_case_ci_source,
     qa_case_ci_superseded_run,
     verification_tree_binding,
@@ -34,24 +35,7 @@ from yoke_core.domain.qa_case_execution import (
 
 EXECUTOR_ID = "ci_run"
 DEFAULT_CI_RUN_TIMEOUT_SECONDS = qa_case_budget.DEFAULT_CI_RUN_TIMEOUT_SECONDS
-
-
-def _resolve_checkout(case: dict, checkout_path: Optional[str | Path]) -> Path:
-    if case.get("deployment_run_id"):
-        raise QaCaseExecutionError(
-            "deployment_ci_candidate_unverified: command-ci verifies an item "
-            f"lane, not deployment run {case['deployment_run_id']!r}. No action was "
-            "produced. Replace this post-deploy case with the command method "
-            "and run the same stage/member QA plan; without --checkout-path "
-            "that runner checks out the run's pinned candidate."
-        )
-    from yoke_core.domain.qa_case_execution import _execution_checkout
-
-    source = checkout_path if checkout_path is not None else _execution_checkout(case)
-    checkout = Path(source).resolve()
-    if not checkout.is_dir():
-        raise QaCaseExecutionError(f"CI execution checkout does not exist: {checkout}")
-    return checkout
+_resolve_checkout = qa_case_ci_runtime.resolve_checkout
 
 
 def execute_ci_case(
@@ -63,6 +47,7 @@ def execute_ci_case(
     actor: Optional[ActorContext] = None,
     expected_branch: Optional[str] = None,
     expected_sha: Optional[str] = None,
+    _prepared: Optional[dict] = None,
 ) -> dict[str, Any]:
     """Push the lane, reuse or run its CI workflow, and record the verdict."""
     if case.get("standalone_execution_id"):
@@ -83,6 +68,7 @@ def execute_ci_case(
         expected_branch=expected_branch,
         expected_sha=expected_sha,
         explicit_checkout=checkout_path is not None,
+        previous_head_sha=(_prepared or {}).get("previous_head_sha"),
     )
     selected_budget = qa_case_budget.resolve_command_case_budget(
         case["method_config"],
@@ -105,8 +91,7 @@ def execute_ci_case(
         if checked_out_branch == branch
         else ""
     )
-    # Resume an existing proof before a rebase moves its candidate.
-    lane = qa_case_ci_resume.prepare_lane_preserving_covering_run(
+    lane = qa_case_ci_runtime.prepare_lane(
         checkout,
         project=project,
         repo=repo,
@@ -116,7 +101,23 @@ def execute_ci_case(
         requirement_id=requirement_id,
         timeout_seconds=budget,
         required_inputs=workflow_inputs,
+        prepared=_prepared,
     )
+    continued = qa_case_ci_runtime.continue_updated_source(
+        checkout,
+        previous_head_sha,
+        lane,
+        case,
+        timeout_seconds=timeout_seconds,
+        allow_tree_mismatch=allow_tree_mismatch,
+        actor=actor,
+        expected_branch=expected_branch,
+        expected_sha=expected_sha,
+        prepared=_prepared,
+    )
+    if continued is not None:
+        return continued
+    previous_head_sha = (_prepared or {}).get("previous_head_sha", previous_head_sha)
     qa_case_ci_source.require_source_agreement(
         case,
         checkout,
@@ -251,7 +252,6 @@ def execute_ci_case(
                     source=ci_run_source,
                 )
             if ci_run_source == qa_case_ci_covering_run.ADOPTED:
-                # Reuse the completed verdict without spending CI capacity twice.
                 known_conclusion = covering_run.conclusion
                 exit_code = 0 if known_conclusion == "success" else 1
                 poll_output = f"adopted completed run: {known_conclusion}"

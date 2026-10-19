@@ -7,5 +7,6 @@
  "current": "Research trace; requirements and source paths need live proof.",
  "review": "Older research may describe heavier onboarding. Apply minimum activation and optional-adoption boundaries first.",
  "questions": ["Can already-onboarded projects enter current work without restarting Onboard?", "Does the handoff reach one useful outcome, including mature-project and no-project branches?", "How do the dashboard Setup pill and onboarding modal agree with the agent's situation teaching?"],
- "related_scenarios": ["agent-context", "work-intent", "architecture-project-structure", "packs"]
+ "related_scenarios": ["agent-context", "work-intent", "architecture-project-structure", "packs"],
+ "sources": ["docs/public/projects/index.md", "docs/public/start/terminal-onboarding.md"]
 }

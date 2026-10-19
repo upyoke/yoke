@@ -31,6 +31,10 @@ underlying exit code — a remote run's mirrors the CI conclusion.
 
 from __future__ import annotations
 
+from yoke_core.tools.watch_pytest_project_python import pytest_argv
+from yoke_core.tools.watch_pytest_project_python import impacted_selection
+from yoke_core.tools.watch_pytest_project_python import impacted_tree
+
 import time
 import sys
 from pathlib import Path
@@ -83,7 +87,6 @@ DEFAULT_PROG = "watch_pytest"
 
 def _pytest_argv(args: Sequence[str], *, cwd: Path | None = None) -> list[str]:
     """Build the underlying pytest invocation."""
-    from yoke_core.tools.watch_pytest_project_python import pytest_argv
 
     return pytest_argv(args, cwd=cwd)
 
@@ -102,13 +105,11 @@ def _impacted_selection(
     root: Path | None = None,
 ):
     """Selection for the current change, or None when there are no files."""
-    from yoke_core.tools.watch_pytest_project_python import impacted_selection
 
     return impacted_selection(base, bounded=bounded, root=root)
 
 
 def _impacted_tree() -> Path:
-    from yoke_core.tools.watch_pytest_project_python import impacted_tree
 
     return impacted_tree()
 

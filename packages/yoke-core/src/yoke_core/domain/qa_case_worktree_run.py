@@ -55,6 +55,7 @@ def execute_worktree_case(
     checkout_path: Optional[str | Path] = None,
     allow_tree_mismatch: bool = False,
     actor: Optional[ActorContext] = None,
+    liveness=None,
 ) -> dict:
     """Run the case's command in its worktree and record the verdict."""
     config = case["method_config"]
@@ -175,6 +176,7 @@ def execute_worktree_case(
             cwd=str(checkout),
             env=command_env,
             timeout_seconds=process_timeout,
+            **({"liveness": liveness} if liveness is not None else {}),
             candidate_root=(
                 checkout
                 if not qa_case_tree_binding_scope.session_lane_binds_case(case)

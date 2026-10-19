@@ -1,7 +1,7 @@
 # Idea — Claim Conflict Resolution
 
 A draft cannot leave intake with an unrepresented coverage/overlap conflict.
-The [claims catalog](../../../../.yoke/docs/reference/db-reference/functions.md)
+The [claims catalog](../../../../.yoke/docs/functions/index.md)
 owns schemas; this phase owns decision order. Idea, Refine, the planning
 Architect, and any session holding the item's work claim attest coordination,
 using that skill as `source`. Engineer and Tester report a collision to their
@@ -76,7 +76,7 @@ Never turn a required file into exception scope to evade a holder.
 
 ## 6. Item blocked flag, last resort
 
-Only when2–5 cannot represent the conflict:
+Only when 2–5 cannot represent the conflict:
 ```bash
 yoke items block PREFIX-N --reason "<verbatim-refusal-and-needed-upstream-coordination>"
 ```

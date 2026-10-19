@@ -124,7 +124,7 @@ def test_core_packet_teaches_lifecycle_status_and_inventory_surface() -> None:
     assert "yoke lifecycle repair-status PREFIX-N" in body
     assert "function=lifecycle.transition target" not in body
     assert "--stdin < PATH" in body
-    assert ".yoke/docs/reference/db-reference/functions.md" in body
+    assert ".yoke/docs/functions/index.md" in body
     assert 'python3 -c "\nfrom runtime.api' not in body
 
 
@@ -144,7 +144,7 @@ def test_packets_do_not_teach_blocked_agent_surface_shapes() -> None:
         "localhost:8765",
         "127.0.0.1:8765",
         "POST /v1/functions/call",
-        "python3 -c \"\nfrom runtime.api",
+        'python3 -c "\nfrom runtime.api',
     )
     for token in banned:
         assert token not in packet
@@ -242,12 +242,12 @@ def test_project_topic_packet_avoids_phantom_columns() -> None:
     """Rewritten notes must not mention phantom columns."""
     body = sac.render_topic_packet("project", detail=PACKET_DETAIL_FULL)
     for phantom in (
-        "deployment_runs" ".item_id",
-        "deployment_runs" ".run_id",
-        "deployment_run_items" ".id",
-        "project_capabilities" ".key",
-        "project_capabilities" ".value",
-        "project_capabilities" ".capability",
+        "deployment_runs.item_id",
+        "deployment_runs.run_id",
+        "deployment_run_items.id",
+        "project_capabilities.key",
+        "project_capabilities.value",
+        "project_capabilities.capability",
     ):
         assert phantom not in body, f"phantom column '{phantom}' resurfaced"
 
@@ -265,9 +265,7 @@ def test_topic_packet_surfaces_canonical_live_names(topic: str) -> None:
 
 def test_seed_agrees_with_live_schema() -> None:
     drift = sac.detect_seed_drift()
-    assert drift == [], (
-        "seed disagrees with live schema:\n" + "\n".join(drift)
-    )
+    assert drift == [], "seed disagrees with live schema:\n" + "\n".join(drift)
 
 
 def test_db_router_help_lists_taught_commands() -> None:
@@ -275,7 +273,9 @@ def test_db_router_help_lists_taught_commands() -> None:
     if text is None:
         pytest.skip("db_router --help unavailable on this checkout")
     for fragment in ("items", "epic", "events", "qa"):
-        assert fragment in text, f"db_router --help missing subcommand fragment: {fragment}"
+        assert fragment in text, (
+            f"db_router --help missing subcommand fragment: {fragment}"
+        )
 
 
 def test_service_client_help_lists_path_claim_surface() -> None:

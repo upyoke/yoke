@@ -117,12 +117,21 @@ def exec_command_calls(source: str) -> list[dict[str, Optional[str]]]:
 
 def workdir_for_command(source: str, command: str) -> str:
     """Return the workdir of the invocation running ``command``, or ``""``."""
+    try:
+        direct = json.loads(source)
+    except ValueError:
+        direct = None
+    if isinstance(direct, dict):
+        workdir = direct.get("workdir")
+        return (
+            workdir.strip()
+            if direct.get("cmd") == command and isinstance(workdir, str)
+            else ""
+        )
     calls = exec_command_calls(source)
     matched = [
         call for call in calls if call["cmd"] is not None and call["cmd"] == command
     ]
-    if not matched and len(calls) == 1:
-        matched = calls
     workdirs = {call["workdir"] or "" for call in matched}
     return workdirs.pop().strip() if len(workdirs) == 1 else ""
 
@@ -181,6 +190,19 @@ def recent_command_workdir(transcript_path: str, command: str) -> str:
     call this hook belongs to; a neighbour's command never matches.
     """
     for payload in reversed(_payloads(_rollout_tail(transcript_path), "exec_command")):
+        if (
+            payload.get("type") == "function_call"
+            and payload.get("name", "").rsplit(".", 1)[-1] == "exec_command"
+        ):
+            arguments = payload.get("arguments")
+            if isinstance(arguments, str):
+                try:
+                    direct = json.loads(arguments)
+                except ValueError:
+                    continue
+                if isinstance(direct, dict) and direct.get("cmd") == command:
+                    return workdir_for_command(arguments, command)
+            continue
         if payload.get("type") != "custom_tool_call":
             continue
         source = payload.get("input")

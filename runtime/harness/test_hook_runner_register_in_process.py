@@ -41,9 +41,9 @@ def test_repeated_registration_preserves_real_refusals(
     monkeypatch.setattr(
         registration_in_process, "project_level_for_session", lambda *a, **k: None
     )
-    monkeypatch.setattr(
-        session_dispatch_orientation, "_orientation_base", lambda *a, **k: []
-    )
+    from yoke_core.domain import session_orientation
+
+    monkeypatch.setattr(session_orientation, "_startup_block_lines", lambda: [])
     facts = SessionModelFacts()
     for _ in range(2):
         error = registration_in_process._register_in_process(

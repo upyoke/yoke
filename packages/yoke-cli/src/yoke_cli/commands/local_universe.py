@@ -40,7 +40,7 @@ from yoke_cli.transport.https import TransportError, resolve_https_connection
 AdapterFn = Callable[[List[str]], int]
 
 INIT_USAGE = (
-    "yoke init --local [--admin-name NAME] [--org-name NAME] [--force] "
+    "yoke init --local [--admin-name NAME] [--org-name NAME] [--force] [--activate] "
     "[--config PATH] [--json]"
 )
 
@@ -90,6 +90,11 @@ def init(args: List[str]) -> int:
         help="Replace a conflicting existing 'local' machine-config connection.",
     )
     parser.add_argument(
+        "--activate",
+        action="store_true",
+        help="Make local active; otherwise preserve an existing active connection.",
+    )
+    parser.add_argument(
         "--config",
         dest="config_path",
         default=None,
@@ -112,6 +117,7 @@ def init(args: List[str]) -> int:
             org_name=parsed.org_name,
             admin_name=parsed.admin_name,
             force=parsed.force,
+            activate=parsed.activate,
             config_path=parsed.config_path,
             emit=emit,
         )
@@ -206,7 +212,11 @@ def local_postgres_status(args: List[str]) -> int:
 def _lifecycle_parse(verb: str, args: List[str]):
     parser = argparse.ArgumentParser(
         prog=f"yoke local-postgres {verb}",
-        description=f"{verb.capitalize()} the embedded local-universe Postgres.",
+        description=(
+            f"{verb.capitalize()} the embedded local-universe Postgres. "
+            "Start/stop refuse when YOKE_PG_CLUSTER_ROOT selects a test cluster; "
+            "use pg_testcluster for that cluster or unset the variable deliberately."
+        ),
     )
     parser.add_argument("--json", dest="json_mode", action="store_true")
     return parse_or_usage_error(

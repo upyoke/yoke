@@ -128,7 +128,10 @@ plan containing only its corrected case and name the failed requirement:
   yoke qa plan run --deployment-run-id RUN --stage STAGE [--member PREFIX-N] \\
       --plan CORRECTED_PLAN --project P --replaces CASE_KEY=FAILED_REQUIREMENT_ID
 
-The failed attempt remains history and leaves the execution roster. The new
+The selected --plan limits this invocation to that plan's correction rows,
+including within a shared group; original and unrelated cases do not replay.
+Replacement scopes stay frozen, so later materialization creates no private
+copy of a shared correction. The failed attempt remains history. The new
 blocking case keeps the stage waiting until its independent verdict passes;
 that pass supersedes the old row and resumes the run driver. A missing sibling
 case still blocks. Retries reuse the declaration. To correct a failed
@@ -142,6 +145,17 @@ requirement supersede --requirement-id FAILED_ID
 --superseded-by-requirement-id CORRECTED_ID --rationale 'corrected case'
 --declare-replacement`, then run the scoped plan without --plan. The old case
 leaves its roster immediately; the corrected case still needs a pass.
+
+Stopping a host case
+-------------------
+  yoke qa plan abort --deployment-run-id RUN --execution-id ID --reason TEXT
+
+An in-flight host abort records cancellation and returns qa_abort_restore_pending
+while custody remains held. Keep the runner connected: it stops between steps,
+finishes cleanup, restores the declared starting baseline and records proof.
+Retry abort after cleanup; success means restoration is confirmed and the lease
+released. Failed or unprovable restore retains custody and names operator
+recovery. A blocking reset finishes before cancellation is acted on.
 
 Failed member QA recovery
 -------------------------

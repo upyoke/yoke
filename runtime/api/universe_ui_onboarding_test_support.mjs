@@ -20,10 +20,6 @@ export function wizardSubmodules(done = {}, machineDetail = null) {
       done: Boolean(done.machine), detail: machineDetail,
     },
     { key: "github", label_key: "github", done: Boolean(done.github), detail: null },
-    {
-      key: "first_project", label_key: "first_project",
-      done: Boolean(done.project), detail: null,
-    },
     { key: "hosting", label_key: "hosting", done: Boolean(done.hosting), detail: null },
   ];
 }

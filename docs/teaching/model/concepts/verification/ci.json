@@ -6,5 +6,5 @@
  "functions": ["github_actions.check_ci", "github_actions.commit_runs.list", "github_actions.dispatch_tag.ensure", "github_actions.failed_log", "github_actions.run.jobs_count", "github_actions.run.rerun_failed", "github_actions.wait_run", "github_actions.workflow.dispatch", "github_actions.workflow.dispatch_once", "github_actions.workflow.find_run", "session_ci_wait.record", "session_ci_wait.resolve"],
  "page": "verification",
  "position": 2,
- "sources": ["docs/public/reference/agent-rules/verification.md", "packages/yoke-core/src/yoke_core/domain/function_target_resolution.py", "runtime/api/domain/test_item_target_dispatch_project.py"]
+ "sources": ["docs/public/agents/rules/verification.md", "packages/yoke-core/src/yoke_core/domain/function_target_resolution.py", "runtime/api/domain/test_item_target_dispatch_project.py"]
 }

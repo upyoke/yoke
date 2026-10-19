@@ -1,16 +1,16 @@
 {
  "id": "02",
  "title": "Settle before terminal closeout",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "agent",
  "when": "Before closing an item or release while an execution, verdict or review may remain unsettled.",
- "need": "An active, verdict-less or pending-review QA execution can still block closing work. Preserve the owning subject and resume/abort/settle through its registered surface.",
+ "need": "Run a correction with its selected plan and exact replacements: only its correction rows run, shared target identity remains, and frozen replacement scopes prevent private duplicates. In-flight host abort records cancellation, stops between steps, and retains custody until restore proof is recorded.",
  "disclosure": "current cue",
  "surface": "QA settlement gate documentation; existing finalization/recovery",
  "gap": "Review question: should completion output distinguish passed, waived/discharged, no-obligation and still-unanswered checks instead of a single done claim?",
- "review": "Pending exact recipe proof.",
+ "review": "Focused regression coverage verifies selected correction routing and host cancellation; deployed proof remains required.",
  "recipes": ["yoke qa gate-summary --help"],
  "plan_notes": ["FIRST-USER 35", "JOURNEYS row 12", "JOURNEYS row 15"],
- "sources": ["docs/testing-verification.md", "docs/public/reference/qa-platform/requirement-state-model.md", ".agents/skills/yoke/usher/finalize.md"],
+ "sources": ["docs/testing-verification.md", "docs/public/verification/requirement-state.md", ".agents/skills/yoke/usher/finalize.md", "docs/public/verification/deployment-plan-execution.md"],
  "position": 1
 }

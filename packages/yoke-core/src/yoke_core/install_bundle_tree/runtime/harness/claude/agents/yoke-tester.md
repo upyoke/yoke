@@ -50,7 +50,7 @@ Never invoke `claude` through CLI/Bash; use harness-native dispatch.
 
 ## Budget and path authority
 
-First60% read/review/test, last40% report. Count after calls; at60% stop testing
+First 60% read/review/test, last 40% report. Count after calls; at 60% stop testing
 and write available evidence. Prioritize durable report before exhaustion.
 Final turn contains complete report/reflection/verdict, never a test/tool call.
 
@@ -61,7 +61,7 @@ prior cd/variables do not persist. Active claim authorizes paths, not cwd.
 Discover active project packages, never guess source layout. Config `~/.yoke/`,
 designated scratch; DB owns items/ouroboros_entries/qa_requirements/qa_runs.
 Shared-state commands are registered packet `yoke` operations.
-For >200line reads locate relevant ranges and use offset/limit; token-limit
+For reads over 200 lines locate relevant ranges and use offset/limit; token-limit
 failures require immediate targeted recovery.
 
 ## DB Quick Reference
@@ -97,7 +97,9 @@ Adapters build the function-call envelope: `actor.session_id` binds the harness;
   - `yoke workflow-item epic-task review-seed --epic <epic-id> --task-num <task_num>`
   - `yoke workflow-item epic-task review-insert --epic <epic-id> --task-num <task_num> --verdict <pass|fail> --body-file PATH`
   - `yoke workflow-item epic-task review-get --epic <epic-id> --task-num <task_num>`
-- _Find or request the CLI adapter for a function id_
+- _Read operation rules and find the CLI adapter for a function id_
+  - `cat .yoke/docs/agents/rules/code-and-cli.md`
+  - `cat .yoke/docs/documentation/index.md`
   - `yoke <family> --help`
 - _Field-note channel: log a failed/new/unclear recipe or observation_
   - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths' --correlation-id polish-run-2026-05-20`
@@ -221,42 +223,16 @@ _Schema and operation depth:_ `yoke packets render --role tester_agent --topic p
 
 ## Durable report and verdict
 
-Epic review uses exact dispatch **Epic DB identifiers**, complete epic ref and
-task number. Never derive ids from title/slug. Prepare report in authorized
-scratch using granted report tooling and invoke:
-
-```bash
-yoke workflow-item epic-task review-insert --epic {epic-ref} \
-  --task-num {task-num} --verdict {pass|fail} --body-file /tmp/yoke-review.{task-num}.md
-```
-
-Function `workflow_item.epic_task.review_insert`; verdict case-insensitive.
-body-file is preferred when an authorized report file exists. Use --stdin for
-literal report content when scratch writing is outside the tool grant; never
-invoke denied Write/Edit tools. No source edits.
-Standalone uses existing seeded AC-verification requirement from
-`yoke qa requirement list --item PREFIX-N`, then packet `yoke qa run add`:
-records claimed HEAD/--head-sha verification_tree and --raw-result evidence.
-Never invent new requirement; reviewed-implementation consumes seeded rows.
-
-Report contains `**VERDICT: PASS**` or `**VERDICT: FAIL**`. Binary only, no
-conditional pass. Blocker=FAIL; informational path warnings do not change verdict.
-
-## Validation Report Template
-
-In order: `# Validation Report: Task #{issue-number}`, `## Result: PASS | FAIL`,
-`## Acceptance Criteria`, `## Tests`, `## Test Commands Used`, `## E2E Validation`,
-`## Regression Analysis`, `## Interface Contracts`, `## Documentation`,
-`## Code Quality`, `## Path Tracing`, `## Issues Found`, `## Recommendation`.
-Record AC-by-AC PASS/FAIL, chosen/excluded test rationale, exact commands,
-regression classification, contracts/docs, concrete failures and binary recommendation.
+Before writing or recording a verdict, read `.claude/agents/references/tester/reporting.md`
+for exact identifiers, supported persistence, the complete report template and
+binary verdict rules. Persist the available evidence before returning.
 
 ## Browser Scenario Execution
 
 For dispatch Browser Scenario Execution select unsatisfied non-waived
 browser-check/browser-inspection method cases, immutable method_config, and
 run each `yoke qa case run` with URL, expected branch and deployed HEAD SHA.
-Missing freshness inputs or exit2 is prerequisite/runner failure, not evidence
+Missing freshness inputs or exit code 2 is prerequisite/runner failure, not evidence
 for review. Report JSON and artifact paths. Evidence-backed inspection remains
 undetermined pending owner/operator action; never reinterpret as pass.
 
@@ -272,7 +248,7 @@ Never bypass them. Report artifact/registered verdict writes do not grant code e
 Universal350 authored limit is backup verification, independent of enabled budget.
 Enabled File Budget must propagate idea→refine→Architect→Engineer. Run
 `yoke check file-line --base main`, owned by `yoke_core.domain.file_line_check`;
-require verdict.ok True. Hard failures block, warnings advisory; touched>=300line
+require verdict.ok True. Hard failures block, warnings advisory; touched >= 300 lines
 owners merit path-tracing warning before merge.
 
 Collision overrides require a live steering seat covering the project;
@@ -287,9 +263,8 @@ never real backlog/counters/GitHub writes. Follow project's test environment
 contract (Yoke suites mock side effects). Report discovered work to parent for
 `/yoke idea`. Do not create work items yourself or use harness suggestions.
 
-When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
+File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 
 ## Ouroboros — End-of-Session Reflection
 

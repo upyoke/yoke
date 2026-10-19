@@ -5,5 +5,6 @@
  "situations": ["The user cannot find an item or wants the history/spec/evidence behind its card.", "Existing external tasks or documents should become useful Yoke work.", "A draft is incomplete, its spec changes, or its current checkpoint must be preserved."],
  "coverage": "catalogued",
  "current": "Research trace; requirements and source paths need live proof.",
- "questions": ["Trace item artifacts separately from QA artifacts, strategy renders and universe backups; similar names are not interchangeable.", "Audit what first-draft readiness failures explain to the human versus fetch for the agent."]
+ "questions": ["Trace item artifacts separately from QA artifacts, strategy renders and universe backups; similar names are not interchangeable.", "Audit what first-draft readiness failures explain to the human versus fetch for the agent."],
+ "sources": ["docs/public/items/index.md", "docs/public/functions/items.md"]
 }

@@ -10,8 +10,8 @@ and :mod:`yoke_core.domain.agents_render_codex`) calls
 :func:`expand_field_note_markers` on the canonical body before wrapping
 it for the Claude or Codex adapter. The single-line marker is replaced by
 :data:`yoke_contracts.field_note_text.FOOTER` rendered as a
-markdown block — three lines: directive, copy-paste recipe, ``--help``
-pointer. The marker itself is consumed by the replacement (unlike the
+markdown block — the directive, then the copy-paste recipe. The marker
+itself is consumed by the replacement (unlike the
 paired ``YOKE:DB-PACKET`` markers); canonical body remains the single
 source of truth on disk.
 
@@ -31,7 +31,6 @@ from yoke_contracts.field_note_text import (
     BASIC_RECIPE,
     DIRECTIVE,
     FOOTER,
-    HELP_POINTER,
 )
 
 
@@ -76,8 +75,8 @@ def detect_field_note_marker_drift(text: str, source_label: str) -> list[str]:
        marker — the renderer expands every occurrence, so duplicates would
        multi-render the footer.
     2. **Hand-authored copy alongside marker.** When the marker is present
-       and any line from the canonical FOOTER text (``DIRECTIVE``,
-       ``BASIC_RECIPE``, or ``HELP_POINTER``) also appears in the
+       and any line from the canonical FOOTER text (``DIRECTIVE`` or
+       ``BASIC_RECIPE``) also appears in the
        canonical body outside the marker line, the body has a stale copy
        shadowing the generated footer.
 
@@ -88,11 +87,10 @@ def detect_field_note_marker_drift(text: str, source_label: str) -> list[str]:
     marker_count = count_field_note_markers(text)
     if marker_count > 1:
         drift.append(
-            f"field-note: {source_label}: {marker_count} markers; "
-            "expected at most one"
+            f"field-note: {source_label}: {marker_count} markers; expected at most one"
         )
     if marker_count >= 1:
-        for stale in (DIRECTIVE, BASIC_RECIPE, HELP_POINTER):
+        for stale in (DIRECTIVE, BASIC_RECIPE):
             if stale in text:
                 drift.append(
                     f"field-note: {source_label}: hand-authored copy "

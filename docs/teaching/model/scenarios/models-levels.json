@@ -7,5 +7,6 @@
  "current": "Production Settings and the 18-row universe definition verified on 2026-10-13. Admission, native expansion and predecessor rules traced to current source; this record does not certify every external account or harness.",
  "desired": "Keep catalog facts separate from staffing thresholds; use live native listings and launch preview for placement.",
  "questions": ["Future model or native-provider changes need fresh catalog/listing evidence; the dated Settings capture does not prove universal launch readiness."],
- "concepts": ["levels/scheme/model-min-effort", "levels/options", "levels/capacity/quota-pools/cursor-quota-order", "workbench/destinations/levels"]
+ "concepts": ["levels/scheme/model-min-effort", "levels/options", "levels/capacity/quota-pools/cursor-quota-order", "workbench/destinations/levels"],
+ "sources": ["docs/public/agents/levels.md", "docs/public/agents/level-launches.md"]
 }

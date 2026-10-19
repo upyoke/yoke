@@ -27,6 +27,7 @@ SCOPED_RUN_FUNCTIONS = frozenset(
         "qa.plan.materialize",
         "qa.plan.rematerialize",
         "qa.plan_execution.begin",
+        "qa.plan_execution.adopt",
         "qa.plan_execution.heartbeat",
         "qa.plan_execution.pause",
         "qa.plan_execution.resume",
@@ -208,6 +209,7 @@ def resolve_run_qa_subject(
         if execution_id and request.function in {
             "qa.plan_review.begin",
             "qa.plan_review.submit",
+            "qa.plan_execution.adopt",
         }:
             row = conn.execute(
                 "SELECT state FROM qa_plan_executions WHERE id=%s", (execution_id,)

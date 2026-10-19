@@ -26,7 +26,7 @@
       "skill_source": ".agents/skills/yoke",
       "native_skill_entry": ".agents/skills/yoke",
       "minimum_engine_version": "0.161.0",
-      "recovery_doc": ".yoke/docs/reference/harness-discovery.md"
+      "recovery_doc": ".yoke/docs/agents/harness-discovery.md"
     }
   },
   "runtime_minimums": {
@@ -168,6 +168,16 @@
     "verified_on_surface": "codex-cli",
     "evidence": "Observed 2026-10-16: a codex-cli Conduct session ran an epic's task Engineers concurrently across lanes."
   },
+  "global_skill": {
+    "source": "yoke_contracts.harness_global_skill.HARNESS_GLOBAL_SKILLS",
+    "name": "yoke-global",
+    "harness_home": "$CODEX_HOME or ~/.codex",
+    "user_skills_dir": "~/.agents/skills",
+    "placement": "shared",
+    "shared_skill_dir": "~/.agents/skills/yoke-global",
+    "verified_on_surface": "codex-cli",
+    "evidence": "Observed 2026-10-17: codex-cli 0.161.0 started outside every project listed yoke-global installed in $HOME/.agents/skills."
+  },
   "turn_record": {
     "source": "yoke_contracts.harness_turn_record_capability.HARNESS_TURN_RECORD_CAPABILITIES",
     "turn_record": "readable",
@@ -220,7 +230,6 @@
     "config_path": ".codex/hooks.json",
     "operations": [
       "verify_hook_config",
-      "mirror_hook_trust",
       "verify_environment_export"
     ],
     "environment": {

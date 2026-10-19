@@ -14,6 +14,7 @@ from typing import Any, Sequence
 from rich.markup import escape
 from textual.widgets import Static
 
+from yoke_cli.config import onboard_global_skill
 from yoke_cli.config import onboard_machine_registry
 from yoke_cli.config.onboard_terminal import RICH_GLYPHS, glyphs
 from yoke_cli.config import onboard_session_relay
@@ -217,7 +218,8 @@ def apply_success_body_from_report(
         relay_lines=onboard_session_relay.report_complete_lines(relay),
         registry_lines=onboard_machine_registry.summary_lines(
             report.get("machine_registry")
-        ),
+        )
+        + onboard_global_skill.summary_lines(report.get("global_skill")),
         board_art_committed=board_art_committed,
     )
 

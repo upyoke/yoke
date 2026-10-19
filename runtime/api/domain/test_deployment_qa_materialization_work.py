@@ -1,5 +1,7 @@
 """Materialization bounds shared-member selection to one run/stage projection."""
 
+import pytest
+
 from collections import Counter
 from time import perf_counter
 
@@ -125,3 +127,63 @@ def test_shared_44_member_materialization_reuses_projection_and_discards_it(
         (changed["created_requirement_ids"][0],),
     ).fetchone()
     assert tuple(row) == (private, members[0])
+
+
+@pytest.mark.parametrize("already_materialized", [False, True])
+def test_methodless_member_obligation_keeps_shared_materialization(
+    test_db, already_materialized
+):
+    from runtime.api.domain.test_deployment_qa_admission_execution import (
+        _original_requirement,
+    )
+    from runtime.api.domain.test_deployment_qa_shared_plans import (
+        MEMBERS,
+        RUN,
+        _begin,
+        _materialize,
+        _seed,
+    )
+    from yoke_core.domain.deployment_requirement_snapshots import (
+        requirement_selection,
+        snapshot_member_requirements,
+    )
+
+    plan_id = _seed(test_db)
+    member = MEMBERS[1]
+    requirement_id = _original_requirement(test_db, item_id=member, method_id=None)
+    snapshot = snapshot_member_requirements(
+        test_db,
+        run_id=RUN,
+        item_id=member,
+        selection_json=requirement_selection(requirement_ids=(requirement_id,)),
+    )
+    test_db.execute(
+        "UPDATE deployment_run_items SET requirement_snapshot=%s "
+        "WHERE run_id=%s AND item_id=%s",
+        (snapshot, RUN, member),
+    )
+    test_db.commit()
+    prior = _materialize(test_db, MEMBERS[0]) if already_materialized else None
+
+    result = _materialize(test_db, member)
+    ids = result["created_requirement_ids"] + result["existing_requirement_ids"]
+    assert len(ids) == 1
+    if prior:
+        assert result["created_requirement_ids"] == []
+        assert ids == prior["created_requirement_ids"]
+    row = test_db.execute(
+        "SELECT plan_id,deployment_member_item_id FROM qa_requirements WHERE id=%s",
+        (ids[0],),
+    ).fetchone()
+    assert tuple(row) == (plan_id, None)
+    assert (
+        test_db.execute(
+            "SELECT count(*) FROM qa_requirements WHERE deployment_run_id=%s "
+            "AND deployment_member_item_id=%s",
+            (RUN, member),
+        ).fetchone()[0]
+        == 0
+    )
+    execution = _begin(test_db, member)
+    assert execution["deployment_member_item_id"] is None
+    assert [row["requirement_id"] for row in execution["roster"]] == ids

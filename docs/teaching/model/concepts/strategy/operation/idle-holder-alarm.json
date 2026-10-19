@@ -5,7 +5,7 @@
  "current": "The fleet watcher reads every live session's full roster row and emits a fleet ALARM idle-holder line for each work-claim holder silent past the idle threshold, parked or not. The line names the session, its items, idle minutes, mode, park reason, native process state (running, exited, resuming, or unknown from a roster that does not serve native_process_exited_at), surface and the item-addressed reach command. A healthy in-flight landing wait does not alarm. The alarm repeats hourly while the holder stays idle and emits one fleet CLEAR idle-holder line when activity resumes. Steering answers every alarm in the same turn with an action or a one-line disposition saying why the wait is still sound.",
  "commands": ["yoke watch fleet", "yoke sessions list", "yoke say"],
  "functions": ["sessions.list"],
- "sources": [".agents/skills/yoke/steer/fleet-findings.md", ".agents/skills/yoke/steer/watching.md", "docs/public/reference/db-reference/steering-fleet-report.md"],
+ "sources": [".agents/skills/yoke/steer/fleet-findings.md", ".agents/skills/yoke/steer/watching.md", "docs/public/sessions/steering-report.md"],
  "skills": ["steer"],
  "page": "strategy",
  "position": 6

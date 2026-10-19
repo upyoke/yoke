@@ -25,6 +25,11 @@ from yoke_core.domain.path_claim_bash_temp_vars import (
     is_temp_file_var_ref,
     temp_file_vars,
 )
+from yoke_core.domain.shell_expansion_scan import strip_literal_heredocs
+from yoke_core.domain.path_claim_bash_parser_redirect import (
+    extract_heredoc_redirect_target,
+    tokenize_redirects,
+)
 
 
 SUPPRESSION_TOKEN = "# lint:no-worktree-path-check"
@@ -101,7 +106,7 @@ def _extract_redirect_paths(segment: str) -> List[Mutation]:
     """Pull every ``>``/``>>`` target path from a segment."""
     out: List[Mutation] = []
     try:
-        tokens = shlex.split(segment, posix=True)
+        tokens = tokenize_redirects(segment)
     except ValueError:
         return [Mutation(verb="ambiguous", target_path=segment[:80])]
     i = 0
@@ -109,7 +114,7 @@ def _extract_redirect_paths(segment: str) -> List[Mutation]:
         tok = tokens[i]
         if tok in (">", ">>") and i + 1 < len(tokens):
             target = tokens[i + 1]
-            if target and not _is_tmp_path(target):
+            if target and not target.startswith("&") and not _is_tmp_path(target):
                 out.append(Mutation(verb="redirect", target_path=target))
             i += 2
             continue
@@ -293,10 +298,6 @@ def _extract_heredoc_aware_redirects(
     if not has_heredoc:
         return _extract_redirect_paths(stripped)
     try:
-        from yoke_core.domain.path_claim_bash_parser_redirect import (
-            extract_heredoc_redirect_target,
-        )
-
         target = extract_heredoc_redirect_target(stripped)
     except Exception:
         target = None
@@ -330,12 +331,13 @@ def extract_mutations(command: str, cwd: str = "") -> List[Mutation]:
     if not command or not isinstance(command, str):
         return []
 
+    command = strip_literal_heredocs(command)
     if SUPPRESSION_TOKEN in command:
         return [Mutation(verb="suppressed", target_path=SUPPRESSION_TOKEN)]
 
     tmp_vars = temp_file_vars(command)
     out: List[Mutation] = []
-    for segment in _split_pipeline(command):
+    for segment in _split_pipeline(command, shell_comments=True):
         out.extend(_classify_segment(segment, cwd))
     return [mut for mut in out if not is_temp_file_var_ref(mut.target_path, tmp_vars)]
 

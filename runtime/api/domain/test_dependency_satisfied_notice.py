@@ -21,7 +21,6 @@ from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain import dependency_satisfied_notice as notice
-from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.session_mode import SESSION_MODE_PARKED, set_session_mode
 from yoke_core.domain.work_claim_targets import make_item_target
@@ -41,7 +40,9 @@ def _items(conn: Any) -> None:
             workflow_id="dash",
             status="implementing",
         )
-    conn.execute("UPDATE items SET merged_at=%s WHERE id=%s", (iso8601_now(), BLOCKER))
+    conn.execute(
+        "UPDATE items SET merged_at=%s WHERE id=%s", ("2026-01-03T00:00:00Z", BLOCKER)
+    )
     conn.commit()
 
 
@@ -50,7 +51,7 @@ def _edge(conn: Any, blocker: int, gate_point: str, satisfaction: str) -> None:
         "INSERT INTO item_dependencies (dependent_item_id, blocking_item_id, "
         "gate_point, satisfaction, source, rationale, created_at) "
         "VALUES (%s, %s, %s, %s, 'test', '', %s)",
-        (DEPENDENT, blocker, gate_point, satisfaction, iso8601_now()),
+        (DEPENDENT, blocker, gate_point, satisfaction, "2026-01-02T00:00:00Z"),
     )
     conn.commit()
 
@@ -66,8 +67,13 @@ def _parked_dependent(conn: Any) -> None:
     set_session_mode(conn, HOLDER_A, SESSION_MODE_PARKED, "awaiting blocker merge")
 
 
-def _key(gate_point: str) -> str:
-    return notice.dependency_satisfied_key(DEPENDENT, BLOCKER, gate_point)
+def _key(conn: Any, gate_point: str) -> str:
+    row = conn.execute(
+        "SELECT id FROM item_dependencies WHERE dependent_item_id=%s "
+        "AND blocking_item_id=%s AND gate_point=%s",
+        (DEPENDENT, BLOCKER, gate_point),
+    ).fetchone()
+    return notice.dependency_satisfied_key(DEPENDENT, BLOCKER, gate_point, row[0])
 
 
 def test_landing_tells_the_parked_dependent_once(test_db: Any) -> None:
@@ -86,8 +92,8 @@ def test_landing_tells_the_parked_dependent_once(test_db: Any) -> None:
     assert [r["gate_point"] for r in reports] == ["activation"]
     assert reports[0]["delivery"] in ("delivered", "undelivered")
     assert len(again) == 1
-    assert _recipients(test_db, _key("activation")) == [HOLDER_A]
-    [body] = _bodies(test_db, _key("activation"))
+    assert _recipients(test_db, _key(test_db, "activation")) == [HOLDER_A]
+    [body] = _bodies(test_db, _key(test_db, "activation"))
     blocker_ref = render_item_ref(test_db, BLOCKER)
     assert body.startswith(f"{blocker_ref} merged; your activation gate fact:merged")
     assert "is satisfied — resume." in body
@@ -104,7 +110,7 @@ def test_partially_satisfied_dependent_is_told_what_remains(test_db: Any) -> Non
         test_db, blocking_item_id=BLOCKER, event=notice.EVENT_MERGED
     )
 
-    [body] = _bodies(test_db, _key("integration"))
+    [body] = _bodies(test_db, _key(test_db, "integration"))
     other_ref = render_item_ref(test_db, OTHER_BLOCKER)
     assert "resume" not in body
     assert f"Still unmet: {other_ref} activation gate status:done" in body
@@ -121,7 +127,7 @@ def test_coordination_only_and_unsatisfied_edges_send_nothing(test_db: Any) -> N
             test_db, blocking_item_id=blocker, event=notice.EVENT_MERGED
         )
         assert reports == []
-    assert _bodies(test_db, _key("coordination_only")) == []
+    assert _bodies(test_db, _key(test_db, "coordination_only")) == []
 
 
 def test_unheld_dependent_reaches_steering_with_staffing_text() -> None:
@@ -183,7 +189,7 @@ def test_transition_to_done_tells_the_dependent(test_db: Any) -> None:
     )
     run_post_commit_update_effects(test_db, receipt=receipt, out=io.StringIO())
 
-    [body] = _bodies(test_db, _key("closure"))
+    [body] = _bodies(test_db, _key(test_db, "closure"))
     assert " reached done; your closure gate status:done " in body
 
 
@@ -211,3 +217,40 @@ def test_unheld_notice_checks_remaining_activation_before_staffing(test_db, gate
     else:
         assert "Route normal staffing" in body
     assert f"{gate_point} gate status:done" in body
+
+
+def test_recreated_merge_wait_gets_a_fresh_notice(test_db):
+    _items(test_db)
+    _edge(test_db, BLOCKER, "integration", "fact:merged")
+    _parked_dependent(test_db)
+    notice.notify_after_commit(
+        test_db, blocking_item_id=BLOCKER, event=notice.EVENT_MERGED
+    )
+    old_key = _key(test_db, "integration")
+    test_db.execute(
+        "DELETE FROM item_dependencies WHERE dependent_item_id=%s", (DEPENDENT,)
+    )
+    _edge(test_db, BLOCKER, "integration", "fact:merged")
+    test_db.execute(
+        "UPDATE item_dependencies SET created_at=%s WHERE dependent_item_id=%s",
+        ("2026-01-04T00:00:00Z", DEPENDENT),
+    )
+    test_db.commit()
+    assert (
+        notice.notify_after_commit(
+            test_db, blocking_item_id=BLOCKER, event=notice.EVENT_MERGED
+        )[0]
+        == []
+    )
+    test_db.execute(
+        "UPDATE items SET merged_at=%s WHERE id=%s", ("2026-01-05T00:00:00Z", BLOCKER)
+    )
+    test_db.commit()
+    reports, advisory = notice.notify_after_commit(
+        test_db, blocking_item_id=BLOCKER, event=notice.EVENT_MERGED
+    )
+    assert advisory == ""
+    assert len(reports) == 1
+    assert _key(test_db, "integration") != old_key
+    assert len(_bodies(test_db, old_key)) == 1
+    assert len(_bodies(test_db, _key(test_db, "integration"))) == 1

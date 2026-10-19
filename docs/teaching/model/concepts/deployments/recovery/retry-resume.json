@@ -2,6 +2,6 @@
  "id": "retry-resume",
  "title": "Retry / resume",
  "status": "draft-copy",
- "page": "deployments",
+ "page": "deployment-recovery",
  "position": 1
 }

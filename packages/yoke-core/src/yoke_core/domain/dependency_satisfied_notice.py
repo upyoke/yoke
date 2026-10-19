@@ -37,13 +37,18 @@ def _p(conn: Any) -> str:
 
 
 def dependency_satisfied_key(
-    dependent_id: int, blocker_id: int, gate_point: str
+    dependent_id: int, blocker_id: int, gate_point: str, dependency_id: int
 ) -> str:
-    """One notice per dependent, blocker and gate, however often it re-fires."""
-    return f"dependency-satisfied:{int(dependent_id)}:{int(blocker_id)}:{gate_point}"
+    """One notice per durable edge, allowing a newly created wait to notify again."""
+    return (
+        f"dependency-satisfied:{int(dependent_id)}:{int(blocker_id)}:"
+        f"{gate_point}:{int(dependency_id)}"
+    )
 
 
-def _blocker_verdict(conn: Any, blocker_id: int, satisfaction: str) -> GateResult:
+def _blocker_verdict(
+    conn: Any, blocker_id: int, satisfaction: str, created_at: Any
+) -> GateResult:
     """Evaluate one gate against the blocker's recorded status and landing."""
     p = _p(conn)
     row = conn.execute(
@@ -66,22 +71,27 @@ def _blocker_verdict(conn: Any, blocker_id: int, satisfaction: str) -> GateResul
         satisfaction=satisfaction,
         blocking_status=str(row[0] or ""),
         blocking_merged=True if merged else None,
+        blocking_merged_at=row[1],
+        dependency_created_at=created_at,
         workflow=load_item_workflow_runtime(conn, int(blocker_id)),
     )
 
 
 def _ordering_edges(
     conn: Any, column: str, item_id: int
-) -> list[tuple[int, int, str, str]]:
+) -> list[tuple[int, int, str, str, Any, int]]:
     """Ordering edges touching ``item_id`` as ``column``; coordination excluded."""
     p = _p(conn)
     rows = conn.execute(
         "SELECT dependent_item_id, blocking_item_id, gate_point, "
-        f"COALESCE(satisfaction, 'status:done') FROM item_dependencies "
+        f"COALESCE(satisfaction, 'status:done'), created_at, id FROM item_dependencies "
         f"WHERE {column}={p} AND gate_point<>{p} ORDER BY id",
         (int(item_id), COORDINATION_ONLY),
     ).fetchall()
-    return [(int(r[0]), int(r[1]), str(r[2]), str(r[3]).strip()) for r in rows]
+    return [
+        (int(r[0]), int(r[1]), str(r[2]), str(r[3]).strip(), r[4], int(r[5]))
+        for r in rows
+    ]
 
 
 def _remaining_gates(
@@ -89,12 +99,12 @@ def _remaining_gates(
 ) -> list[dict[str, str]]:
     """Every other unmet gate on the dependent, named for its reader."""
     remaining = []
-    for _, other, gate_point, satisfaction in _ordering_edges(
+    for _, other, gate_point, satisfaction, created_at, _edge_id in _ordering_edges(
         conn, "dependent_item_id", dependent_id
     ):
         if other == blocker_id:
             continue
-        if not _blocker_verdict(conn, other, satisfaction).satisfied:
+        if not _blocker_verdict(conn, other, satisfaction, created_at).satisfied:
             remaining.append(
                 {
                     "blocker_ref": render_item_ref(conn, other),
@@ -162,10 +172,17 @@ def notify_satisfied_dependents(
     blocker_ref = render_item_ref(conn, blocking_item_id)
     now = utc_now()
     reports = []
-    for dependent_id, _, gate_point, satisfaction in _ordering_edges(
-        conn, "blocking_item_id", blocking_item_id
-    ):
-        if not _blocker_verdict(conn, blocking_item_id, satisfaction).satisfied:
+    for (
+        dependent_id,
+        _,
+        gate_point,
+        satisfaction,
+        created_at,
+        edge_id,
+    ) in _ordering_edges(conn, "blocking_item_id", blocking_item_id):
+        if not _blocker_verdict(
+            conn, blocking_item_id, satisfaction, created_at
+        ).satisfied:
             continue
         row = conn.execute(
             f"SELECT project_id, status FROM items WHERE id={_p(conn)}",
@@ -192,7 +209,7 @@ def notify_satisfied_dependents(
                 remaining=remaining,
             ),
             idempotency_key=dependency_satisfied_key(
-                dependent_id, blocking_item_id, gate_point
+                dependent_id, blocking_item_id, gate_point, edge_id
             ),
             now=now,
         )

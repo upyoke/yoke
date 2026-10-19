@@ -5,5 +5,7 @@
  "commands": ["yoke qa plan run", "yoke qa plan rematerialize", "yoke qa run complete"],
  "functions": ["qa.plan_execution.begin", "qa.plan.materialize", "qa.plan.rematerialize", "qa.run.complete"],
  "page": "qa-evidence",
+ "summary": "Members with a shared plan and only methodless plan-less requirements use the shared execution without selecting a plan again. Only executable plan-less requirements create private work; methodless standing rows stay on their item.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_qa_stage_materialization.py", "runtime/api/domain/test_deployment_qa_materialization_work.py"],
  "position": 2
 }

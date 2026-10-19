@@ -266,3 +266,34 @@ def test_apply_retains_recovery_until_commit_and_retry_converges(tmp_path, monke
     recovery.finish(tmp_path, recovery.pending(tmp_path))
     assert not recovery.pending(tmp_path)
     assert not checkout_gate.porcelain(tmp_path)
+
+
+@pytest.mark.parametrize("modified", [False, True])
+def test_upgrade_removes_released_doc_and_preserves_local_edit(
+    tmp_path, monkeypatch, modified
+):
+    from yoke_cli.project_install import released_bundle_files as released
+
+    monkeypatch.setattr(instruction_discovery.shutil, "which", lambda _: None)
+    old = make_bundle()
+    rel, content = ".yoke/docs/retired-example.md", "immutable released documentation\n"
+    old["files"] = [*old["files"], dict(path=rel, content=content)]
+    apply_bundle(tmp_path, old)
+    monkeypatch.setattr(released, "source_checkout_root", lambda _: None)
+    monkeypatch.setattr(
+        released,
+        "_catalogue",
+        lambda: {"docs/retired-example.md": [sha256_text(content)]},
+    )
+    assert released.ReleasedBundleFiles().proves(rel, content)
+    path = tmp_path / rel
+    if modified:
+        path.write_text("local documentation changes\n")
+        with pytest.raises(ProjectInstallError, match="install_drift_local_edits"):
+            apply_bundle(tmp_path, make_bundle())
+        assert path.read_text() == "local documentation changes\n"
+        assert not recovery.pending(tmp_path)
+    else:
+        report = apply_bundle(tmp_path, make_bundle())
+        assert rel in report["files_pruned"]
+        assert not path.exists()

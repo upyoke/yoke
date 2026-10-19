@@ -192,8 +192,12 @@ def test_main_accepts_the_selector_form_printed_by_refusals(
 ):
     captured = {}
 
-    def _run(command, *, lane):
-        captured.update(command=list(command), lane=lane)
+    def _run(command, *, lane, allow_real_machine_home):
+        captured.update(
+            command=list(command),
+            lane=lane,
+            allow_real_machine_home=allow_real_machine_home,
+        )
         return 0
 
     monkeypatch.setattr(source_dev_run, "run", _run)
@@ -213,6 +217,7 @@ def test_main_accepts_the_selector_form_printed_by_refusals(
     assert captured == {
         "command": ["--", "python3", "-c", "pass"],
         "lane": tmp_path,
+        "allow_real_machine_home": False,
     }
 
 

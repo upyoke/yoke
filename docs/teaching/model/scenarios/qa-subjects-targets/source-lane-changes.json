@@ -1,0 +1,13 @@
+{
+ "id": "source-lane-changes",
+ "title": "Continue a gate after its source lane changes",
+ "status": "observed",
+ "audience": "agent",
+ "when": "A source-backed CI gate rebases or merges the lane containing its own imported code.",
+ "need": "Let the gate continue in its fresh interpreter on the prepared candidate. If qa_ci_source_restart_failed appears, preserve the updated lane and rerun the same case; it checks for an existing CI run before another update.",
+ "disclosure": "current cue",
+ "surface": "QA CLI guidance and gate progress",
+ "review": "Source and subprocess regression coverage; deployed behavior is not yet proven.",
+ "sources": ["docs/public/verification/qa-cli.md", "packages/yoke-core/src/yoke_core/domain/qa_case_ci_runtime.py", "runtime/api/domain/test_qa_case_ci_runtime.py"],
+ "position": 5
+}

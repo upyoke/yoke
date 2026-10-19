@@ -26,7 +26,7 @@ The surface records provenance; authenticated caller and workflow checks
 still apply. Read `yoke dash --help`.
 
 For requested screenshot/deployed evidence, apply the posture selected by
-[Browser placement](../../../../.yoke/docs/reference/browser-scenarios.md#where-a-browser-case-runs):
+[Browser placement](../../../../.yoke/docs/verification/browser-targets.md#where-a-browser-case-runs):
 browser-inspection for a served change, approval-on-done where no server
 serves it. Put the posture on this same create.
 An operator-selected nondefault/shared release flow uses

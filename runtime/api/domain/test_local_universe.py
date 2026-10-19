@@ -42,40 +42,10 @@ def test_cluster_spec_shortens_overlong_unix_socket_path(tmp_path):
     assert spec.root == root
     assert spec.socket_dir is not None
     assert spec.sock_dir != root / "sock"
-    assert len(os.fsencode(socket_path)) <= lu._MAX_POSTGRES_SOCKET_PATH_BYTES
-    assert lu.local_dsn(spec) == f"host={spec.sock_dir} user=yoke dbname=yoke"
-
-
-def test_socket_path_at_platform_limit_stays_with_cluster_root():
-    socket_name = f".s.PGSQL.{postgres_cluster.SOCKET_PORT}"
-    suffix_size = len(os.fsencode(f"/sock/{socket_name}"))
-    root_size = lu._MAX_POSTGRES_SOCKET_PATH_BYTES - suffix_size
-    root = Path("/" + ("r" * (root_size - 1)))
-
-    assert len(os.fsencode(root / "sock" / socket_name)) == (
-        lu._MAX_POSTGRES_SOCKET_PATH_BYTES
+    assert len(os.fsencode(socket_path)) <= (
+        postgres_cluster._MAX_POSTGRES_SOCKET_PATH_BYTES
     )
-    assert lu._socket_dir_for_root(root) is None
-    assert lu._socket_dir_for_root(Path(f"{root}x")) is not None
-
-
-def test_socket_fallback_skips_unwritable_shorter_root(monkeypatch, tmp_path):
-    long_root = tmp_path / ("nested-machine-home-" * 8) / "local-universe"
-    with lu.tempfile.TemporaryDirectory(
-        prefix="yoke-fallback-test-", dir="/tmp"
-    ) as short_temp:
-        preferred = Path(short_temp)
-        monkeypatch.setattr(lu.tempfile, "gettempdir", lambda: str(preferred))
-        original_access = lu.os.access
-        monkeypatch.setattr(
-            lu.os,
-            "access",
-            lambda path, mode: (
-                False if Path(path) == Path("/tmp") else original_access(path, mode)
-            ),
-        )
-
-        assert lu._socket_dir_for_root(long_root).parent == preferred
+    assert lu.local_dsn(spec) == f"host={spec.sock_dir} user=yoke dbname=yoke"
 
 
 def test_birth_reports_prior_socket_dsn_for_same_cluster(monkeypatch, tmp_path):

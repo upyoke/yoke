@@ -6,5 +6,6 @@
  "coverage": "catalogued",
  "current": "Research trace; requirements and source paths need live proof.",
  "review": "Older research may describe heavier onboarding. Apply minimum activation and optional-adoption boundaries first.",
- "questions": ["Which project-structure facts are user-authored, inferred proposals or live observations?", "Do external projects receive enough explanation to resolve uncertain impact and model-doc drift?"]
+ "questions": ["Which project-structure facts are user-authored, inferred proposals or live observations?", "Do external projects receive enough explanation to resolve uncertain impact and model-doc drift?"],
+ "sources": ["docs/public/agents/rules/architecture-model.md", "docs/public/functions/project-configuration.md"]
 }

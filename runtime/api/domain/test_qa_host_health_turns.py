@@ -171,7 +171,12 @@ def test_unhealthy_host_queues_until_a_golden_capture_heals_it(
     waiting = _begin(execution, case)
     assert waiting["state"] == "waiting"
     assert HOST_UNHEALTHY_REASON in waiting["host_wait"]["rationale"]
-    assert "golden-capture" in waiting["host_wait"]["rationale"]
+    rationale = waiting["host_wait"]["rationale"]
+    assert f"QA must wait to acquire {MACHINE}" in rationale
+    assert "baseline_probe_failed" in rationale
+    assert "yoke test-machine verify" in rationale
+    assert "Keep the sealed baseline unchanged" in rationale
+    assert "golden-capture" not in rationale
     assert active_claim(test_db, target) is None
     assert notices == []
 

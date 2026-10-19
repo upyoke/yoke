@@ -2,7 +2,7 @@
  "id": "basics",
  "title": "What Yoke is",
  "status": "draft-copy",
- "sources": ["docs/public/index.md", "docs/public/concepts.md", "docs/OVERVIEW.md"],
+ "sources": ["docs/public/index.md", "docs/public/start/concepts.md", "docs/OVERVIEW.md"],
  "page": "basics",
  "position": 3
 }

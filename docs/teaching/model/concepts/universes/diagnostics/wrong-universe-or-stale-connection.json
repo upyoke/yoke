@@ -1,7 +1,9 @@
 {
  "id": "wrong-universe-or-stale-connection",
  "title": "Wrong universe or stale connection",
- "status": "draft-copy",
+ "status": "observed",
  "page": "universes",
- "position": 2
+ "position": 2,
+ "summary": "Local init repairs missing credential files and stale actor bindings without --force. Machine-local Doctor reports missing credential files and invalid operating actors with connection-specific recovery; a broken active connection yields an explicitly partial report.",
+ "sources": ["docs/public/verification/local-connection-repair.md", "packages/yoke-core/src/yoke_core/engines/doctor_hc_connections.py"]
 }

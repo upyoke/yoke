@@ -5,11 +5,12 @@ function ids. The implementation still lives in modules such as
 `yoke_core.domain.qa` and `yoke_core.domain.qa_gates`, but those module
 names are code references, not command recipes.
 
-Cross-link back from [qa-platform.md](../../.yoke/docs/reference/qa-platform.md) for the four-layer
+Cross-link back from [qa-platform.md](../../.yoke/docs/verification/platform.md) for the four-layer
 model, table schemas, success-policy types, and gating semantics that this CLI
-reads and writes. See [`.yoke/docs/reference/db-reference/functions.md`](../../.yoke/docs/reference/db-reference/functions.md)
-for the function-call envelope. The generated [Atlas](../atlas.md) indexes registered surfaces; regenerate it
-only through its source-dev owner and wrapper.
+reads and writes. See [`.yoke/docs/functions/index.md`](../../.yoke/docs/functions/index.md)
+for the function-call envelope. The local generated Atlas view (`docs/atlas.md`)
+indexes registered surfaces and is ignored by Git. Its [source renderer](../public/functions/index.md)
+must run through the source-dev owner and wrapper.
 
 ## Public QA Commands
 
@@ -20,7 +21,7 @@ single payload/discovery index; schema and method depth stays with its owner.
 yoke qa requirement add --item PREFIX-N --qa-kind implementation_review \
  --qa-phase verification --blocking-mode blocking --requirement-source explicit \
  --workflow-transition reviewed-implementation \
- --success-policy '{"type":"deterministic","criteria":"verdict_pass"}'
+ --success-policy all-pass
 yoke qa plan materialize --item PREFIX-N --transition reviewing-implementation
 yoke qa plan run --item PREFIX-N --transition reviewing-implementation
 yoke qa case run --requirement-id N

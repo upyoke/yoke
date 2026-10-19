@@ -162,3 +162,107 @@ def test_failed_verdict_is_not_a_commit_bound_recovery(tmp_path: Path, monkeypat
     assert code == 1
     merger.assert_not_called()
     rerecord.assert_not_called()
+
+
+@pytest.mark.parametrize("mixed", [False, True])
+def test_epic_reviews_use_epic_writer_then_land(tmp_path, monkeypatch, mixed):
+    from yoke_core.domain import db_helpers, epic_review, qa_execution
+
+    reviews = [
+        dict(
+            _requirement(verdict="pass", sha=EARLIER_SHA, requirement_id=number),
+            epic_id=10,
+            task_num=number - 76,
+            item_id=None,
+            evidence=f"Complete task review {number}",
+        )
+        for number in (77, 78)
+    ]
+    standalone = dict(
+        _requirement(verdict="pass", sha=EARLIER_SHA, requirement_id=79),
+        item_id=10,
+        epic_id=10,
+        task_num=3,
+        raw_result="Standalone acceptance",
+    )
+    item = _item(None)
+    item["qa_requirements"] = reviews + ([standalone] if mixed else [])
+    connection = mock.MagicMock()
+    connection.__enter__.return_value = connection
+    monkeypatch.setattr(epic_review, "_epic_connect", lambda: connection)
+    owners = {
+        row["id"]: {key: row.pop(key) for key in ("item_id", "epic_id", "task_num")}
+        for row in item["qa_requirements"]
+    }
+    monkeypatch.setattr(
+        db_helpers, "query_one", lambda conn, sql, params: owners[params[0]]
+    )
+    writer = mock.Mock()
+    general = mock.Mock()
+    monkeypatch.setattr(epic_review, "review_insert", writer)
+    monkeypatch.setattr(qa_execution, "cmd_run_add", general)
+
+    code, merger = _run_merge(
+        tmp_path, monkeypatch, item, rerecord=commit_bound.rerecord_hand_run
+    )
+
+    assert code == 0
+    assert writer.call_args_list == [
+        mock.call(
+            connection,
+            "10",
+            number - 76,
+            "PASS",
+            f"Complete task review {number}",
+            head_sha=MERGING_SHA,
+        )
+        for number in (77, 78)
+    ]
+    if mixed:
+        general.assert_called_once_with(
+            requirement_id=79,
+            performed_by="agent",
+            verdict="pass",
+            raw_result="Standalone acceptance",
+            head_sha=MERGING_SHA,
+        )
+    else:
+        general.assert_not_called()
+    assert all(
+        row["recorded_head_sha"] == MERGING_SHA for row in item["qa_requirements"]
+    )
+    merger.assert_called_once()
+
+
+@pytest.mark.parametrize("failure", [SystemExit(2), RuntimeError("write refused")])
+def test_recovery_reports_all_failed_requirements_and_continues(
+    tmp_path, monkeypatch, capsys, failure
+):
+    import sys
+
+    item = _item(None)
+    item["qa_requirements"] = [
+        _requirement(verdict="pass", sha=EARLIER_SHA, requirement_id=number)
+        for number in range(77, 81)
+    ]
+    attempted = []
+
+    def rerecord(requirement, commit_sha):
+        attempted.append(requirement["id"])
+        if requirement["id"] in (78, 79):
+            print("writer_refused: repair review evidence", file=sys.stderr)
+            raise failure
+        commit_bound._mark_bound(requirement, commit_sha)
+
+    code, merger = _run_merge(tmp_path, monkeypatch, item, rerecord=rerecord)
+
+    assert code == 1
+    assert attempted == [77, 78, 79, 80]
+    error = capsys.readouterr().err
+    assert "commit_bound_recovery_failed" in error
+    assert "requirement #78: writer_refused: repair review evidence" in error
+    assert "requirement #79: writer_refused: repair review evidence" in error
+    assert "Recovered requirement ids: 77, 80" in error
+    assert "retry `yoke merge item YOK-10`" in error
+    assert item["qa_requirements"][1]["recorded_head_sha"] == EARLIER_SHA
+    merger.assert_not_called()

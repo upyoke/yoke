@@ -27,6 +27,13 @@ QA_ADAPTERS: List[AdapterEntry] = [
         ),
     ),
     AdapterEntry(
+        function_id="qa.plan_execution.adopt",
+        cli_invocation=(
+            "yoke qa plan adopt (--item PREFIX-N | --deployment-run-id RUN) "
+            "--execution-id ID --reason TEXT [--session-id S] [--json]"
+        ),
+    ),
+    AdapterEntry(
         function_id="qa.plan_execution.abort",
         cli_invocation=(
             "yoke qa plan abort (--item PREFIX-N | --deployment-run-id RUN) "
@@ -198,7 +205,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
         "yoke qa requirement add (--item PREFIX-N | --deployment-run RUN-ID) "
         "(--qa-kind KIND | --method-id METHOD) "
         "--qa-phase PHASE [--target-env E] [--blocking-mode M] "
-        "[--requirement-source S] [--success-policy JSON-OR-TEXT] "
+        "[--requirement-source S] [--success-policy all-pass|JSON] "
         "[--required-capability KIND ...] [--suite-id ID] "
         "[--instructions TEXT | --instructions-file PATH | --stdin] "
         "[--expected-outcome TEXT | --expected-outcome-file PATH] "

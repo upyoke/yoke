@@ -6,5 +6,6 @@
  "coverage": "traced",
  "current": "Research trace; requirements and source paths need live proof.",
  "questions": ["Subject and target contracts/read surfaces inspected; delivery admission and machine configuration are other auditors scopes, not re-proven here.", "Command nodes, when present, were checked with installed CLI --help only; this proves parser/help availability, not serving-control-plane capability or successful execution."],
- "related_scenarios": ["environment_flows", "qa-execution-review"]
+ "related_scenarios": ["environment_flows", "qa-execution-review"],
+ "sources": ["docs/public/verification/deployment-plan-execution.md", "docs/public/verification/standalone-plans.md"]
 }

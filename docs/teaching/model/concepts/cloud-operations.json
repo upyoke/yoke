@@ -3,7 +3,7 @@
  "title": "Yoke Cloud and Platform internals",
  "status": "draft-copy",
  "audience": "Yoke maintainers",
- "sources": ["docs/public/reference/hosted-org-admin.md", "docs/public/actors-members-billing.md"],
+ "sources": ["docs/public/projects/hosted-org-admin.md", "docs/public/projects/actors-members-billing.md"],
  "private_sources": ["platform"],
  "page": "cloud-operations",
  "position": 6

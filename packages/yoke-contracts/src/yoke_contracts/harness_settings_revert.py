@@ -9,16 +9,16 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from yoke_contracts import harness_settings_ledger as ledger
 from yoke_contracts.codex_config_posture import (
-    CodexConfigUnreadable,
-    parse_config,
     remove_top_level_key,
     remove_trust_table,
 )
+from yoke_contracts.codex_hook_trust_toml import CodexHookTrustStoreError, mutate
 from yoke_contracts.harness_unattended_posture import (
     CODEX_PROJECTS_TABLE,
     CODEX_TRUST_LEVEL,
@@ -56,6 +56,10 @@ def revert_entry(entry: Dict[str, Any]) -> str:
             return ""
         target.unlink()
         return f"removed {target}"
+    if kind == "created_dir":
+        return _revert_created_dir(target)
+    if kind == "created_parent_dir":
+        return _revert_parent_dir(target)
     if not target.is_file():
         return ""
     if kind == "json":
@@ -67,6 +71,26 @@ def revert_entry(entry: Dict[str, Any]) -> str:
     if kind == "codex_trust":
         return _revert_codex_trust(target, entry["trust_key"])
     raise ValueError(f"unknown recorded setting kind {kind!r}")
+
+
+def _revert_created_dir(target: Path) -> str:
+    if target.is_symlink():
+        target.unlink()
+    elif target.is_dir():
+        shutil.rmtree(target)
+    else:
+        return ""
+    return f"removed {target}"
+
+
+def _revert_parent_dir(target: Path) -> str:
+    """Remove a folder Yoke made to hold its entries, but only once empty."""
+    if target.is_symlink() or not target.is_dir():
+        return ""
+    if any(target.iterdir()):
+        return f"kept {target}: it holds files Yoke did not put there"
+    target.rmdir()
+    return f"removed empty {target}"
 
 
 def _revert_json(target: Path, keys: List[str], value: Any, existing: int) -> str:
@@ -95,39 +119,41 @@ def _revert_json(target: Path, keys: List[str], value: Any, existing: int) -> st
 
 
 def _revert_codex_key(target: Path, key: str, value: str) -> str:
-    text = target.read_text(encoding="utf-8")
-    current = _codex_config(text).get(key, _MISSING)
-    if current is _MISSING:
-        return ""
-    if current != value:
-        return _left_alone(target, key, current)
-    updated = remove_top_level_key(text, key)
-    if updated is None:
-        return _left_alone(target, key, current)
-    _replace(target, updated)
-    return f"removed {key} from {target}"
+    def plan(text, document):
+        current = document.get(key, _MISSING)
+        if current is _MISSING:
+            return text, ""
+        if current != value:
+            return text, _left_alone(target, key, current)
+        updated = remove_top_level_key(text, key)
+        if updated is None:
+            return text, _left_alone(target, key, current)
+        return updated, f"removed {key} from {target}"
+
+    return _mutate_codex(target, plan)
 
 
 def _revert_codex_trust(target: Path, trust_key: str) -> str:
-    text = target.read_text(encoding="utf-8")
-    table = (_codex_config(text).get(CODEX_PROJECTS_TABLE) or {}).get(trust_key)
-    if not isinstance(table, dict) or CODEX_TRUST_LEVEL_KEY not in table:
-        return ""
-    dotted = f"{CODEX_PROJECTS_TABLE}[{trust_key}]"
-    if table != {CODEX_TRUST_LEVEL_KEY: CODEX_TRUST_LEVEL}:
-        return _left_alone(target, dotted, table)
-    updated = remove_trust_table(text, trust_key)
-    if updated is None:
-        return _left_alone(target, dotted, table)
-    _replace(target, updated)
-    return f"removed {dotted} from {target}"
+    def plan(text, document):
+        table = (document.get(CODEX_PROJECTS_TABLE) or {}).get(trust_key)
+        if not isinstance(table, dict) or CODEX_TRUST_LEVEL_KEY not in table:
+            return text, ""
+        dotted = f"{CODEX_PROJECTS_TABLE}[{trust_key}]"
+        if table != {CODEX_TRUST_LEVEL_KEY: CODEX_TRUST_LEVEL}:
+            return text, _left_alone(target, dotted, table)
+        updated = remove_trust_table(text, trust_key)
+        if updated is None:
+            return text, _left_alone(target, dotted, table)
+        return updated, f"removed {dotted} from {target}"
+
+    return _mutate_codex(target, plan)
 
 
-def _codex_config(text: str) -> Dict[str, Any]:
+def _mutate_codex(target, planner):
     try:
-        return parse_config(text)
-    except CodexConfigUnreadable as exc:
-        raise ValueError(f"not valid TOML ({exc})") from exc
+        return mutate(target, planner)
+    except CodexHookTrustStoreError as exc:
+        raise ValueError(str(exc)) from exc
 
 
 def _left_alone(target: Path, dotted: str, current: Any) -> str:

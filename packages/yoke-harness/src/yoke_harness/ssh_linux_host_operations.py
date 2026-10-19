@@ -52,10 +52,10 @@ class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
             control.secret_values = (*control.secret_values, control.desktop_password)
         return control
 
-    def capture_screenshot(self):
+    def capture_screenshot(self, *, focused_window: bool = False):
         from yoke_harness.ssh_machine_screenshot import capture_desktop
 
-        return capture_desktop(self)
+        return capture_desktop(self, focused_window=focused_window)
 
     def _host_facts(self) -> dict[str, Any]:
         script = "import os,json,platform; print(json.dumps(dict(home=os.environ['HOME'],shell=os.environ.get('SHELL','/bin/bash'),xdg_bin_home=os.environ.get('XDG_BIN_HOME'),uid=os.getuid(),os=platform.system())))"

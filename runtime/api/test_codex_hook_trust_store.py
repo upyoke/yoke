@@ -105,17 +105,15 @@ def test_install_mint_is_idempotent(tmp_path: Path):
     assert config.read_bytes() == before
 
 
-def test_install_mint_creates_missing_codex_config_home(tmp_path: Path):
+def test_install_mint_skips_missing_codex_config_home(tmp_path: Path):
     checkout = _checkout(tmp_path, "project")
     config = tmp_path / "new-codex-home/config.toml"
 
     result = mint_installed_checkout_trust(checkout, config_path=config)
 
-    assert result.changed is True
-    assert config.is_file()
-    assert inspect_hook_file_trust(
-        checkout / ".codex/hooks.json", config_path=config
-    ).approved
+    assert result.changed is False
+    assert result.skipped_reason == "codex_not_installed"
+    assert not config.parent.exists()
 
 
 def test_install_refuses_an_unreadable_config_with_the_path(tmp_path: Path):
@@ -213,3 +211,11 @@ def test_sweep_parses_equals_signs_inside_quoted_paths(tmp_path: Path):
     assert result.hook_entries_removed == 1
     assert result.project_entries_removed == 1
     assert str(gone) not in config.read_text(encoding="utf-8")
+
+
+def test_mint_does_not_create_absent_codex_home(tmp_path):
+    checkout = _checkout(tmp_path, "checkout")
+    home = tmp_path / "missing-codex"
+    result = mint_installed_checkout_trust(checkout, config_path=home / "config.toml")
+    assert result.skipped_reason == "codex_not_installed"
+    assert not home.exists()

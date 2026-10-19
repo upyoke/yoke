@@ -83,7 +83,7 @@ and [first-work handoff](../../.agents/skills/yoke/onboard/first-work.md) contra
 
 | Requirement | Declare | Refusal | Instead |
 |---|---|---|---|
-| Supported OS | Installer OS gate | Current one-liner | WSL walkthrough + link to `docs/public/install.md`; do not imply native Windows later |
+| Supported OS | Installer OS gate | Current one-liner | WSL walkthrough + link to `docs/public/start/install.md`; do not imply native Windows later |
 | PaaS environment | Execution profile hosting box | "No PaaS provider in the wizard; skip cloud apply" | Merge-only / empty default; keep Render as external deploy |
 | GitHub CI | App binding | Unreachable CI method names the reason | `command-ci` when `ci_workflow_file` exists; else local |
 

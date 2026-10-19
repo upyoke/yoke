@@ -28,6 +28,7 @@ The schema below is the only canonical source. Renderers, drift checks, and runt
 | `session_control` | object | Yes | Versioned per-surface facts used to compute session messaging and launch routes. See [Session control](#session-control). |
 | `agent_wake` | object | Yes | Whether the harness can resume an idle model turn, by which primitive, and on what evidence. See [Agent wake](#agent-wake). |
 | `parallel_subagents` | object | Yes | Whether the harness runs several sub-agents at once, by which primitive, and on what evidence. See [Parallel sub-agents](manifest-parallel-subagents.md). |
+| `global_skill` | object | Yes | Where the harness discovers the user-level `yoke-global` skill and how Yoke places it there. See [Global skill](manifest-global-skill.md). |
 | `turn_record` | object | Yes | Whether the harness leaves a readable record of how its last turn ended. See [Turn record](#turn-record). |
 | `session_transcripts` | object | Yes | Where the harness keeps local session transcripts and how one is tied to a checkout. See [Session transcripts](#session-transcripts). |
 | `machine_hooks` | object | Yes | Where the harness reads user-level hooks, which events Yoke installs there, and whether they need trust. See [Machine hooks](manifest-machine-hooks.md). |
@@ -59,7 +60,7 @@ load `AGENTS.md` and `.agents/skills/yoke` natively. Claude requires an embedded
 Code engine >=2.1.281 with its built-in AGENTS plugin enabled and instruction
 configuration allowing AGENTS. Its `.claude/skills/yoke` discovery entry links
 to the canonical tree. Install preflight refuses suppressed instructions and
-ambiguous legacy ownership; see `.yoke/docs/reference/harness-discovery.md`.
+ambiguous legacy ownership; see `.yoke/docs/agents/harness-discovery.md`.
 
 Installer PATH repair reads this manifest registry, resolves each installed
 command from the ambient installer PATH or a declared bundle candidate, and
@@ -293,7 +294,7 @@ it does not contain a harness-specific branch for each adapter.
 | Key | Type | Description |
 |-----|------|-------------|
 | `config_path` | string | Repo-relative native hook configuration path that the worktree must expose. |
-| `operations` | list[string] | Ordered enablement operations. Supported values are `verify_hook_config`, `mirror_hook_trust`, `seed_directory_approval`, and `verify_environment_export`. |
+| `operations` | list[string] | Ordered enablement operations: `verify_hook_config` and `verify_environment_export`. |
 | `environment` | object | Workspace export used by hook subprocesses. |
 | `command_byte_restrictions` | object | Optional. Byte sequences the harness's own hook-config loader mishandles inside a rendered command. |
 
@@ -304,10 +305,10 @@ The `environment` object has two required string keys:
 | `root_variable` | Environment variable containing the lane's workspace root (`YOKE_ROOT`). |
 | `root_expression` | Shell expression used to resolve that root from the harness payload or current directory. |
 
-An operation may be omitted when the harness does not need that local
-affordance. For example, Codex mirrors user-granted path trust while Claude
-seeds its existing per-directory approval; both still verify the native hook
-configuration and workspace export.
+Trust and permissions belong to the shared harness setup reconcile, called by
+setup, install/refresh, lane preparation, relay harness detection and doctor.
+Run `yoke doctor run --only harness-setup --fix` to repair all setup facets;
+the reconcile preserves absent homes and refuses modified lane hook content.
 
 `command_byte_restrictions` is present only for a harness whose hook-config
 loader corrupts its own file over particular byte sequences, and carries the
@@ -344,7 +345,6 @@ string boundaries.
 The schema in this file is the contract. When new fields are added:
 
 - Update this document first.
-- Update the manifest source dicts (or note the new field is optional and document the default).
-- Update doctor checks that read the affected field.
+- Update the manifest source dicts (or note the new field is optional and document the default), and the doctor checks that read the affected field.
 
-All three manifest files are generated artifacts: the substrate renderer (`yoke_core.domain.agents_render`) materializes them from the Python source dicts in `yoke_core.domain.agents_render_manifests` (`CLAUDE_MANIFEST` / `CODEX_MANIFEST` / `CURSOR_MANIFEST`) and stamps each with the `_generated` marker. The `session_control`, `agent_wake`, `parallel_subagents`, `turn_record`, `session_transcripts`, and `machine_hooks` objects are composed from `yoke_contracts.session_control`, `yoke_contracts.harness_wake_capability`, `yoke_contracts.harness_subagent_capability`, `yoke_contracts.harness_turn_record_capability`, `yoke_contracts.harness_session_transcripts`, and `yoke_contracts.harness_machine_hooks` respectively, so those facts are authored in their contracts rather than in the manifest dicts. Author changes in the source dicts or the contract they read, then re-render via the `agents.render.run` function id (operator adapter: `yoke agents render`); `agents.render.check` surfaces drift between the source and the on-disk files. Hand-edits to the JSON files are overwritten on the next render.
+All three manifest files are generated artifacts: the substrate renderer (`yoke_core.domain.agents_render`) materializes them from the Python source dicts in `yoke_core.domain.agents_render_manifests` (`CLAUDE_MANIFEST` / `CODEX_MANIFEST` / `CURSOR_MANIFEST`) and stamps each with the `_generated` marker. The `session_control`, `agent_wake`, `parallel_subagents`, `global_skill`, `turn_record`, `session_transcripts`, and `machine_hooks` objects are composed from `yoke_contracts.session_control`, `yoke_contracts.harness_wake_capability`, `yoke_contracts.harness_subagent_capability`, `yoke_contracts.harness_global_skill`, `yoke_contracts.harness_turn_record_capability`, `yoke_contracts.harness_session_transcripts`, and `yoke_contracts.harness_machine_hooks` respectively, so those facts are authored in their contracts rather than in the manifest dicts. Author changes in the source dicts or the contract they read, then re-render via the `agents.render.run` function id (operator adapter: `yoke agents render`); `agents.render.check` surfaces drift between the source and the on-disk files. Hand-edits to the JSON files are overwritten on the next render.

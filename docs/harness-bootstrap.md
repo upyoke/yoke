@@ -13,7 +13,7 @@ main-checkout identity, including linked worktrees and excluding independent
 nested repositories. Connection presence and DB files are not project proof.
 Remote RunControls carries authorized_project_id independently of stdin and
 payload_extra. Unmapped relay clients complete machine checks locally.
-See [guard scope](public/reference/harness-discovery.md#guard-scope) for the
+See [guard scope](public/agents/harness-discovery.md#guard-scope) for the
 registration, inventory and recovery route.
 
 ## Startup Reads
@@ -127,7 +127,7 @@ and deployment records use their registered owners. Raw service clients,
 db-router mutations or internal helpers are not alternative agent entrypoints.
 Diagnostic SELECTs use `yoke db read`; source-development break-glass retains
 the separate [source-dev doctrine](source-dev-doctrine.md) authority.
-The [function catalog](public/reference/db-reference/functions.md) and command
+The [function catalog](public/functions/index.md) and command
 `--help` provide exact targets, envelopes, claim policy and recovery.
 
 ## Session Identity Expectations
@@ -213,7 +213,7 @@ checkout. OS consent remains conditional on actual protected-content access.
 A local universe instead runs its installed launcher and has no served pin or
 distribution handshake. Missing launcher refuses with repair. Paired
 prod-flagged Postgres administration owns no second relay; the served HTTPS
-connection supplies it. [Linux relay](public/reference/linux-relay.md) owns its
+connection supplies it. [Linux relay](public/sessions/linux-relay.md) owns its
 user-service/login/logout/no-linger procedure and named systemd recovery.
 
 Fresh handshake alone triggers upgrade: install beside the active release,
@@ -278,8 +278,18 @@ retain existing-file and explicit-false behavior. Write only absent keys,
 preserve operator values and unrelated settings, and report each write or
 conflict. Inventory/Doctor report actual posture; config presence is not proof.
 
-Folder trust is separate and path-specific. Project install/lane creation write
-the exact checkout's declared trust; do not assume a parent covers a worktree.
+Folder trust is separate and path-specific. The shared
+`yoke_harness.harness_setup_reconcile` owns setup orchestration: folder trust,
+Codex hook trust, posture and machine-wide hooks through existing writers.
+Setup, project install/refresh, source launcher install and lane preparation
+call it; lane preparation scopes folder work to that lane. The relay detects
+installed-harness home changes and covers registered checkouts and Git lanes.
+Absent homes stay absent; malformed files are preserved and failures carry
+recovery while other facets continue. Repeated runs leave ready files intact.
+Run `yoke doctor run --only harness-setup --fix` for repair; omit `--fix` to
+inspect. The relay records failures in `harness-setup-reconcile.json`, retries
+after 15 minutes, and retries immediately on another harness-list change.
+Do not assume a parent covers a worktree.
 Command-prefix allowances cannot admit an enclosing shell loop/substitution.
 Repeat authorized calls plainly; do not weaken a gate to hide a prompt.
 

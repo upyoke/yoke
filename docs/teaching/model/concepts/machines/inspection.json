@@ -3,7 +3,7 @@
  "title": "Machine inspection",
  "status": "draft-copy",
  "surface_refs": ["global-orientation", "project-orientation", "resume-context"],
- "sources": ["docs/public/guides/terminal-onboarding.md"],
+ "sources": ["docs/public/start/terminal-onboarding.md"],
  "commands": ["yoke onboard checklist get"],
  "functions": ["onboard.checklist.get"],
  "page": "machines",

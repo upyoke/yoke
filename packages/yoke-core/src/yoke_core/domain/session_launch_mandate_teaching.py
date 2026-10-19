@@ -57,8 +57,8 @@ LEVEL_HANDOFF_TEACHING = (
 
 
 COMMITTED_GATE_TEACHING = (
-    "Commit; the verification gate rebases onto the base branch, pushes "
-    "once, and runs CI. Workers do not push the lane by hand."
+    "Commit; the verification gate merges the base into merge-shaped lanes, "
+    "rebases linear lanes, pushes once, and runs CI. Workers do not push the lane by hand."
 )
 
 

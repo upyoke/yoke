@@ -97,7 +97,7 @@ PROJECT_GITHUB_AGENT_GUIDANCE = (
     "Binding leaves issue sync off. Only if mirroring the backlog to GitHub "
     "Issues is useful for this project, explain it and offer a separate opt-in "
     "after setup. Enable only with their agreement, using the project update "
-    "recipe in .yoke/docs/reference/github-sync.md; never infer agreement from "
+    "recipe in .yoke/docs/github/sync.md; never infer agreement from "
     "connecting GitHub or approving setup."
 )
 PROJECT_MODE_AGENT_GUIDANCE = (

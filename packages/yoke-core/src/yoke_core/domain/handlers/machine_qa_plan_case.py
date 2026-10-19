@@ -131,7 +131,10 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
             replay=False,
             expected_runner=None,
         )
-        if case.get("runner_id") not in {"host_control", "agent_mission"}:
+        if case.get("runner_id") not in {"host_control", "agent_mission"} and not (
+            case.get("runner_id") == "worktree_run"
+            and (case.get("method_config") or {}).get("machine")
+        ):
             raise ValueError("the ordered plan case is not machine-backed")
         from yoke_core.domain.qa_plan_case_chain import (
             inherit_blocker,
@@ -202,20 +205,6 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
             "selection_new": selection_new,
         },
     )
-
-
-def _normalized_result(
-    case: dict[str, Any],
-    result: dict[str, Any],
-) -> dict[str, Any]:
-    return {
-        "plan_id": (int(case["plan_id"]) if case.get("plan_id") is not None else None),
-        "case_key": str(case["case_key"]),
-        "case_position": int(case["case_position"]),
-        "baseline_position": int(case["baseline_position"]),
-        "host_baseline": case.get("host_baseline"),
-        **result,
-    }
 
 
 def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
@@ -290,7 +279,11 @@ def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
         )
         if result is None:
             if not lease.is_active:
-                raise ValueError("released plan lease has no recorded case result")
+                from yoke_core.domain.machine_qa_lease_messages import (
+                    released_without_receipt,
+                )
+
+                raise ValueError(released_without_receipt(lease))
             with TemporaryDirectory(prefix="yoke-machine-qa-") as temp_dir:
                 result = record_submitted_case(
                     commit_deferred_connection(conn),
@@ -302,7 +295,9 @@ def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
                     contract_digest=parsed.contract_digest,
                     artifact_rollback=artifact_rollback,
                 )
-        normalized = _normalized_result(case, result)
+        from yoke_core.domain.machine_qa_plan_case_snapshot import normalized_result
+
+        normalized = normalized_result(case, result)
         advance_plan_execution(
             conn,
             execution,
@@ -311,7 +306,10 @@ def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
             result=normalized,
             commit=False,
         )
-        if lease.is_active:
+        from yoke_core.domain.qa_plan_execution_abort_state import settle_host_abort
+
+        settle_host_abort(conn, execution)
+        if lease.is_active and execution["state"] != "aborted":
             heartbeat(commit_deferred_connection(conn), lease.id)
         conn.commit()
         artifact_rollback.preserve()

@@ -14,6 +14,7 @@ from yoke_core.domain.qa_plan_execution_result_state import (
     plan_order as _plan_order,
 )
 from yoke_core.domain.qa_plan_execution_continuation import continuation_abort_reason
+from yoke_core.domain.qa_plan_command_case import begin_command_host, command_liveness
 from yoke_core.domain.qa_plan_host_free_cases import (
     run_host_free_cases_while_waiting,
     waiting_recovery,
@@ -69,6 +70,7 @@ def execute_begun_plan(
             checkout_path=checkout_path,
             allow_tree_mismatch=allow_tree_mismatch,
             actor=resolved_actor,
+            **command_liveness(requirement, _check_in),
         )
 
     def _check_in():
@@ -80,6 +82,10 @@ def execute_begun_plan(
         )
         if checked.get("delivery"):
             deliveries.append(checked["delivery"])
+        if checked.get("abort_requested"):
+            raise QaPlanExecutionError(
+                "qa_host_abort_requested: stop this walk; inspect restore evidence and retry abort"
+            )
 
     def _record(ordinal, normalized):
         _call_plan_function(
@@ -133,8 +139,20 @@ def execute_begun_plan(
                 )
                 advance_result = False
             else:
-                result = _execute_local(requirement)
-                advance_result = True
+                result = None
+                if requirement.get("runner_id") == "worktree_run" and (
+                    requirement.get("method_config") or {}
+                ).get("machine"):
+                    result = begin_command_host(
+                        requirement,
+                        execution_id=execution_id,
+                        ordinal=ordinal,
+                        target=target,
+                        actor=resolved_actor,
+                    )
+                advance_result = result is None
+                if advance_result:
+                    result = _execute_local(requirement)
             if int(result.get("requirement_id") or 0) != requirement_id:
                 raise QaPlanExecutionError(
                     f"case runner returned the wrong requirement for {requirement_id}"
@@ -182,8 +200,7 @@ def execute_begun_plan(
                 raise
             raised = True
             if member_removed(closed):
-                # The run removed this member mid-case; the case's error is
-                # that interruption, not a failure of its host.
+                # Membership removal interrupted the case.
                 results.append(
                     {
                         "requirement_id": requirement_id,
@@ -205,16 +222,12 @@ def execute_begun_plan(
             break
         results.append(normalized)
         state = _aggregate_state(state, normalized)
-        # A failed case's inheriting followers still pass through here: the
-        # server records each one blocked without touching the machine, and
-        # the next named-baseline or as-is chain runs from its own reset.
+        # Record inheriting followers as blocked; the next chain resets itself.
         if case_failed(normalized):
             failed_cases.append(requirement_id)
         if _aggregate_state("passed", normalized) == "waiting":
             if begun.host_free_cases_ahead:
-                # Queued for a host: run the host-free automatic cases first,
-                # then park. Their failures are recorded, not a reason to
-                # leave the line.
+                # Run host-free cases before parking, retaining the queue place.
                 ran, skipped = run_host_free_cases_while_waiting(
                     requirements=requirements,
                     after_ordinal=ordinal,

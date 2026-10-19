@@ -190,10 +190,12 @@ def test_cursor_session_start_carries_the_startup_block(project: Path) -> None:
     assert "yoke packets render --role main_agent" in out
 
 
-def test_cwd_outside_a_managed_project_is_not_oriented(tmp_path: Path) -> None:
-    # No .yoke dir: the agent is working somewhere Yoke does not manage, and
-    # orienting it toward a project that is not there would be misdirection.
-    assert so.orientation_for_hook("UserPromptSubmit", _payload(tmp_path)) is None
+def test_cwd_outside_a_managed_project_gets_global_orientation(tmp_path: Path) -> None:
+    # No .yoke dir: no project block, but the session still learns Yoke is
+    # here and that yoke-global leads to a project folder.
+    out = so.orientation_for_hook("UserPromptSubmit", _payload(tmp_path))
+    assert out is not None and "outside every Yoke project" in out
+    assert "Board available" not in out and "`yoke-global`" in out
 
 
 @pytest.mark.parametrize(

@@ -2,6 +2,6 @@
  "id": "failed-or-paused-stage",
  "title": "Failed or paused stage",
  "status": "draft-copy",
- "page": "deployments",
+ "page": "deployment-recovery",
  "position": 0
 }

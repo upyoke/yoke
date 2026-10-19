@@ -34,9 +34,13 @@ def onboarding_db():
     """
     with pg_testdb.test_database():
         from yoke_core.domain.db_helpers import connect, utc_now
+
         conn = connect()
         for project_id in (9, 10):
-            conn.execute("INSERT INTO projects (id,slug,name,created_at) VALUES (%s,%s,%s,%s)", (project_id, f"project-{project_id}", "Example", utc_now()))
+            conn.execute(
+                "INSERT INTO projects (id,slug,name,created_at) VALUES (%s,%s,%s,%s)",
+                (project_id, f"project-{project_id}", "Example", utc_now()),
+            )
         conn.commit()
         conn.close()
         yield
@@ -51,22 +55,41 @@ def _request(function: str, payload: dict) -> FunctionCallRequest:
     )
 
 
-@pytest.mark.parametrize("raw", ["{broken", "[]", '{"machines":[]}', '{"execution_profile":[]}'])
+@pytest.mark.parametrize(
+    "raw", ["{broken", "[]", '{"machines":[]}', '{"execution_profile":[]}']
+)
 def test_unreadable_saved_metadata_refuses_without_repairing_it(onboarding_db, raw):
     from yoke_core.domain.db_helpers import connect
 
-    first = onboard_checklist.handle_onboard_checklist_init(_request(
-        "onboard.checklist.init", {"project_id": 9},
-    )).result_payload
+    first = onboard_checklist.handle_onboard_checklist_init(
+        _request(
+            "onboard.checklist.init",
+            {"project_id": 9},
+        )
+    ).result_payload
     run_id = first["run_id"]
     conn = connect()
-    conn.execute("UPDATE project_onboarding_runs SET metadata_json = %s WHERE run_id = %s", (raw, run_id))
+    conn.execute(
+        "UPDATE project_onboarding_runs SET metadata_json = %s WHERE run_id = %s",
+        (raw, run_id),
+    )
     conn.commit()
-    for handler in (onboard_checklist.handle_onboard_checklist_get, onboard_checklist.handle_onboard_checklist_run):
-        result = handler(_request("onboard.checklist.get", {"project_id": 9, "run_id": run_id}))
+    for handler in (
+        onboard_checklist.handle_onboard_checklist_get,
+        onboard_checklist.handle_onboard_checklist_run,
+    ):
+        result = handler(
+            _request("onboard.checklist.get", {"project_id": 9, "run_id": run_id})
+        )
         assert result.primary_success is False
         assert result.error.code == "setup_saved_evidence_unreadable"
-    assert conn.execute("SELECT metadata_json FROM project_onboarding_runs WHERE run_id = %s", (run_id,)).fetchone()[0] == raw
+    assert (
+        conn.execute(
+            "SELECT metadata_json FROM project_onboarding_runs WHERE run_id = %s",
+            (run_id,),
+        ).fetchone()[0]
+        == raw
+    )
     conn.close()
 
 
@@ -201,24 +224,45 @@ def test_read_only_get_preserves_profile_and_rechecks_changed_settings(onboardin
     from yoke_core.domain import project_structure
 
     profile = {"hosting": "deferred", "delivery": "no-default"}
-    first = onboard_checklist.handle_onboard_checklist_init(_request(
-        "onboard.checklist.init",
-        {"project_id": 9, "metadata": {"execution_profile": profile},
-         "row_status": {"hosting-setup": "deferred"}},
-    )).result_payload
-    same = onboard_checklist.handle_onboard_checklist_get(_request(
-        "onboard.checklist.get", {"project_id": 9},
-    )).result_payload["run"]
+    first = onboard_checklist.handle_onboard_checklist_init(
+        _request(
+            "onboard.checklist.init",
+            {
+                "project_id": 9,
+                "metadata": {"execution_profile": profile},
+                "row_status": {"hosting-setup": "deferred"},
+            },
+        )
+    ).result_payload
+    same = onboard_checklist.handle_onboard_checklist_get(
+        _request(
+            "onboard.checklist.get",
+            {"project_id": 9},
+        )
+    ).result_payload["run"]
     assert same["execution_profile"] == profile
     assert same["profile_changed"] is False
     assert same["updated_at"] == first["updated_at"]
-    project_structure.apply_patch("9", ops=[{
-        "op": "put", "family": "hosting_posture", "attachment": "project",
-        "payload": {"posture": "no-yoke-managed-host", "provider": "existing-provider"},
-    }])
-    changed = onboard_checklist.handle_onboard_checklist_get(_request(
-        "onboard.checklist.get", {"project_id": 9},
-    )).result_payload["run"]
+    project_structure.apply_patch(
+        "9",
+        ops=[
+            {
+                "op": "put",
+                "family": "hosting_posture",
+                "attachment": "project",
+                "payload": {
+                    "posture": "no-yoke-managed-host",
+                    "provider": "existing-provider",
+                },
+            }
+        ],
+    )
+    changed = onboard_checklist.handle_onboard_checklist_get(
+        _request(
+            "onboard.checklist.get",
+            {"project_id": 9},
+        )
+    ).result_payload["run"]
     rows = {row["row_id"]: row for row in changed["rows"]}
     assert changed["profile_changed"] is True
     assert changed["execution_profile"] == profile
@@ -230,8 +274,10 @@ def test_read_only_get_preserves_profile_and_rechecks_changed_settings(onboardin
 
 def test_payload_cannot_escape_authorized_project(onboarding_db):
     request = FunctionCallRequest(
-        function="onboard.checklist.init", actor=ActorContext(session_id=""),
-        target=TargetRef(kind="global", project_id="9"), payload={"project_id": 10},
+        function="onboard.checklist.init",
+        actor=ActorContext(session_id=""),
+        target=TargetRef(kind="global", project_id="9"),
+        payload={"project_id": 10},
     )
     outcome = onboard_checklist.handle_onboard_checklist_init(request)
     assert outcome.primary_success is False
@@ -239,9 +285,35 @@ def test_payload_cannot_escape_authorized_project(onboarding_db):
 
 
 def test_missing_read_does_not_initialize_a_run(onboarding_db):
-    outcome = onboard_checklist.handle_onboard_checklist_get(_request(
-        "onboard.checklist.get", {"project_id": 9},
-    ))
+    outcome = onboard_checklist.handle_onboard_checklist_get(
+        _request(
+            "onboard.checklist.get",
+            {"project_id": 9},
+        )
+    )
     assert outcome.primary_success is True
     assert outcome.result_payload["exists"] is False
     assert outcome.result_payload["run"] is None
+
+
+def test_get_projects_next_action_from_current_rows(onboarding_db):
+    from yoke_core.domain.project_onboarding_next_action import select_next_action
+
+    initialized = onboard_checklist.handle_onboard_checklist_init(
+        _request(
+            "onboard.checklist.init",
+            {"project_id": 9},
+        )
+    )
+    assert initialized.primary_success
+    read = onboard_checklist.handle_onboard_checklist_get(
+        _request(
+            "onboard.checklist.get",
+            {"project_id": 9},
+        )
+    )
+    assert read.primary_success
+    run = read.result_payload["run"]
+    assert run["next_action"] == select_next_action(run["rows"], run["setup_readiness"])
+    assert run["next_action"]["row_id"] == "package-install"
+    assert initialized.result_payload["run"]["next_action"] == run["next_action"]

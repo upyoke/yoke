@@ -8,9 +8,8 @@ argument-hint: "\"spec\" | {PREFIX-N}"
 # /yoke dash
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
+File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
 Execute the complete stored spec end to end in this session: file or
@@ -25,6 +24,11 @@ for projects without a code repository, not a way to remove a selected gate;
 it refuses code projects.
 
 ## Phase map
+
+Before implementation, read `.yoke/docs/agents/rules/code-and-cli.md` for
+complete scope, portable behavior and durable-state ownership. Carry required
+consumer and teaching changes through the same work; follow
+`.yoke/docs/documentation/index.md` when updating guidance.
 
 | Phase | Read before acting |
 |---|---|
@@ -48,7 +52,7 @@ remains. No children or workflow conversion because the change is large;
 only an actual structural need or operator request routes to escalation.
 Done requires landed identity, result, passing proof, touched files and every
 selected gate. Honor level-change through the
-[worker handoff rule](../../../../.yoke/docs/reference/session-level-routing.md#stage-level-handoff).
+[worker handoff rule](../../../../.yoke/docs/agents/levels.md#stage-level-handoff).
 
 Stamp mode, then resolve/file:
 

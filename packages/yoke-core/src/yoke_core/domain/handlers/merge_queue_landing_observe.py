@@ -63,13 +63,17 @@ def _placeholder(conn: Any) -> str:
 def _lane_pull_requests(conn: Any, item_id: int, item_pr_number: str) -> set[str]:
     """The pull requests whose stored observation answers this lane.
 
-    An open re-land attempt is the landing in flight. Without one, the
+    An armed open re-land attempt is the landing in flight. Without one, the
     item's current landing answers, and so does the attempt that just
     closed: its last observation is how a waiter learns it closed unmerged
     instead of waiting on a pull request nobody will merge.
     """
     attempt = read_latest_attempt(conn, item_id)
-    if attempt is not None and attempt["closed_at"] is None:
+    if (
+        attempt is not None
+        and attempt["closed_at"] is None
+        and attempt["enqueued_at"] is not None
+    ):
         return {attempt["pr_number"]}
     lane = {item_pr_number}
     if attempt is not None:

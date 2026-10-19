@@ -1,7 +1,9 @@
 {
  "id": "local-postgres-authority",
  "title": "Local Postgres authority",
- "status": "draft-copy",
+ "status": "observed",
  "page": "universes",
- "position": 1
+ "position": 1,
+ "text": "local-postgres start/stop refuse local_postgres_test_cluster_override when YOKE_PG_CLUSTER_ROOT is set. Use pg_testcluster for the test cluster, or explicitly unset the variable to operate the durable local universe.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/local_universe_setup.py", "docs/testing-verification/concurrent-local-runs.md"]
 }

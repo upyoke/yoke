@@ -50,6 +50,9 @@ def load_config(path: str | Path | None = None) -> dict[str, Any]:
         raise MachineConfigError(f"{selected} is not valid JSON: {exc}") from exc
     if not isinstance(payload, dict):
         raise MachineConfigError(f"{selected} must contain a JSON object")
+    from yoke_contracts.machine_config.unknown_keys import warn_unknown_keys
+
+    warn_unknown_keys(payload, selected)
     return payload
 
 

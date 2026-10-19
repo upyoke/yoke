@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke deployment-flows stages FLOW-ID", "yoke deployment-flows validate --help"],
  "plan_notes": ["FIRST-USER 24", "JOURNEYS row 12"],
- "sources": [".agents/skills/yoke/onboard/profile-and-scaffold.md", "docs/public/reference/db-reference/projects-and-flows.md"],
+ "sources": [".agents/skills/yoke/onboard/profile-and-scaffold.md", "docs/public/databases/model/projects.md"],
  "position": 0
 }

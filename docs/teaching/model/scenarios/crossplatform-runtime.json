@@ -5,5 +5,6 @@
  "situations": ["A Windows user needs the supported Linux/WSL entry path.", "A Linux desktop/browser needs system packages or sandbox setup.", "A shell cannot find the installed launcher, or terminal/browser handoff fails."],
  "coverage": "catalogued",
  "current": "Research trace; requirements and source paths need live proof.",
- "questions": ["Do not treat WSLg expected-to-work notes as verified compatibility.", "Verify cross-platform examples against the installed release and preserve OS-specific recovery rather than making them mandatory branches."]
+ "questions": ["Do not treat WSLg expected-to-work notes as verified compatibility.", "Verify cross-platform examples against the installed release and preserve OS-specific recovery rather than making them mandatory branches."],
+ "sources": ["docs/public/start/windows-wsl.md", "docs/public/verification/linux-desktop-apps.md"]
 }

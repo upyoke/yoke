@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.deploy_pipeline_driver_client import attach_driver
+from yoke_core.domain.deploy_pipeline_driver_client import release_driver
+from yoke_core.domain.deploy_pipeline_control_plane import (
+    DeploymentControlPlaneError,
+)
+from yoke_core.domain.deploy_pipeline_driver_client import DriverLivenessPump
+
 import argparse
 import re
 import sys
@@ -227,14 +234,10 @@ def _extract_print_streaming_pair(argv: list[str]) -> tuple[list[str], bool]:
 
 
 def _hold_driver(run_id: str, *, phase: str, progress_capture: str = "") -> None:
-    from yoke_core.domain.deploy_pipeline_driver_client import attach_driver
-
     attach_driver(run_id, phase=phase, progress_capture=progress_capture)
 
 
 def _drop_driver(run_id: str) -> None:
-    from yoke_core.domain.deploy_pipeline_driver_client import release_driver
-
     release_driver(run_id)
 
 
@@ -281,11 +284,6 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     if refusal is not None:
         return _report_preflight_failure(refusal, raw_path, progress_path)
 
-    from yoke_core.domain.deploy_pipeline_control_plane import (
-        DeploymentControlPlaneError,
-    )
-    from yoke_core.domain.deploy_pipeline_driver_client import DriverLivenessPump
-
     capture = str(progress_path)
     run_id = passthrough[0]
     held = False
@@ -302,9 +300,10 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
                 run_id, phase=PHASE_FREEZING_SOURCE, progress_capture=capture
             ).running():
                 pinned_env = prepare_driver(run_id, raw_path, child_environment)
-        except DeployPinnedSourceError as exc:
+        except (DeployPinnedSourceError, DeploymentControlPlaneError) as exc:
+            reason = getattr(exc, "code", "") or type(exc).__name__
             return _report_preflight_failure(
-                f"watch_deploy: {exc}", raw_path, progress_path
+                f"watch_deploy: {reason}: {exc}", raw_path, progress_path
             )
         try:
             _hold_driver(run_id, phase=PHASE_EXECUTING, progress_capture=capture)

@@ -270,7 +270,7 @@ rather than shipping a placeholder. That placeholder would arrive as an
 with the unresolved sentinel rather than its configured grouping. Defence in
 depth sits on the server too: `resolve_execution_level` treats the sentinel
 like `default`, so an older client's placeholder yields to policy. Precedence:
-[`public/reference/session-level-routing.md`](public/reference/session-level-routing.md).
+[`public/agents/levels.md`](public/agents/levels.md).
 
 ## Session Reactivation and Work Claims
 

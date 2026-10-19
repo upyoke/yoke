@@ -17,6 +17,7 @@ from yoke_contracts.timestamps import (
     utc_now,
 )
 from yoke_core.domain.actor_render import render_actor_names
+from yoke_core.domain.session_message_reachability import message_reachability
 from yoke_core.domain.session_focus_attribution import focus_attribution
 from yoke_core.domain.session_list_fields import usage_fields
 from yoke_core.domain.session_native_process_observation import (
@@ -162,6 +163,9 @@ def render_session_roster_rows(
                 **presentation,
                 "mode": row.get("mode"),
                 "quiet_reason": row.get("quiet_reason"),
+                "message_delivery": message_reachability(
+                    row, resuming=session_id in resumes
+                ),
                 "keepalive_until": row.get("keepalive_until"),
                 "keepalive_reason": row.get("keepalive_reason"),
                 "actor_id": row.get("actor_id"),

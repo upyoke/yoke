@@ -15,14 +15,12 @@ Output format (when blocked, one line per unresolved blocker)::
 
 from __future__ import annotations
 
-import subprocess
 import sys
 from typing import Any, List, Optional, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import db_helpers
 from yoke_core.domain.dependency_satisfaction import evaluate_persisted_satisfaction
-from yoke_core.domain.dependency_types import deployed_environment
 from yoke_core.domain.dependency_workflow_context import (
     workflow_from_joined_values,
 )
@@ -30,15 +28,14 @@ from yoke_core.domain.item_ref_columns import render_column_item_ref
 from yoke_core.domain.item_worktree_resolution import (
     primary_item_worktree_branch_sql,
 )
-from yoke_core.domain.project_checkout_locations import checkout_for_project
 
 
 def _query_blockers(
     conn,
     item_id: int,
     gate_filter: Optional[str] = None,
-) -> List[Tuple[str, str, str]]:
-    """Return ``[(blocking_item, gate_point, satisfaction), ...]``.
+) -> List[Tuple[str, str, str, Any]]:
+    """Return ``[(blocking_item, gate_point, satisfaction, created_at), ...]``.
 
     ``blocking_item`` in the result is the public PREFIX-N display token.
     """
@@ -46,7 +43,7 @@ def _query_blockers(
     if gate_filter:
         rows = db_helpers.query_rows(
             conn,
-            "SELECT blocking_item_id, gate_point, satisfaction "
+            "SELECT blocking_item_id, gate_point, satisfaction, created_at "
             f"FROM item_dependencies WHERE dependent_item_id = {p} "
             f"AND gate_point = {p} ORDER BY blocking_item_id",
             (item_id, gate_filter),
@@ -54,7 +51,7 @@ def _query_blockers(
     else:
         rows = db_helpers.query_rows(
             conn,
-            "SELECT blocking_item_id, gate_point, satisfaction "
+            "SELECT blocking_item_id, gate_point, satisfaction, created_at "
             f"FROM item_dependencies WHERE dependent_item_id = {p} "
             "ORDER BY blocking_item_id",
             (item_id,),
@@ -64,6 +61,7 @@ def _query_blockers(
             render_column_item_ref(conn, row["blocking_item_id"]),
             row["gate_point"],
             row["satisfaction"],
+            row["created_at"],
         )
         for row in rows
     ]
@@ -102,51 +100,9 @@ def _query_item(conn, item_id: int) -> Optional[dict]:
     }
 
 
-def _query_project_repo_path(conn, project: Optional[str]) -> Optional[str]:
-    if not project:
-        return None
-    checkout = checkout_for_project(conn, project)
-    return str(checkout) if checkout is not None else None
-
-
-def _git_root() -> Optional[str]:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except Exception:
-        return None
-    if result.returncode != 0:
-        return None
-    root = result.stdout.strip()
-    return root if root else None
-
-
-def _branch_is_merged(repo: str, branch: str, base: str = "main") -> bool:
-    try:
-        result = subprocess.run(
-            ["git", "-C", repo, "merge-base", "--is-ancestor", branch, base],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-    except Exception:
-        return False
-    return result.returncode == 0
-
-
-def _evaluate_item_satisfaction(satisfaction: str, item: dict, conn):
+def _evaluate_item_satisfaction(satisfaction: str, item: dict, conn, created_at=None):
     status = item.get("status") or ""
     merged = True if item.get("merged_at") else None
-    if satisfaction == "fact:merged" or deployed_environment(satisfaction) is not None:
-        lane_branch = item.get("lane_branch")
-        if merged is None and lane_branch:
-            repo = _query_project_repo_path(conn, item.get("project")) or _git_root()
-            if repo and _branch_is_merged(repo, lane_branch):
-                merged = True
     return evaluate_persisted_satisfaction(
         conn,
         blocking_item_id=item.get("id"),
@@ -154,6 +110,8 @@ def _evaluate_item_satisfaction(satisfaction: str, item: dict, conn):
         blocking_status=status,
         blocking_worktree=item.get("lane_branch"),
         blocking_merged=merged,
+        blocking_merged_at=item.get("merged_at"),
+        dependency_created_at=created_at,
         workflow=item.get("workflow"),
     )
 
@@ -199,7 +157,7 @@ def _blocker_lines(
     )
     from yoke_core.domain.yok_n_parser import parse_item_id_or_none
 
-    for blocking_item, gate_point, satisfaction in blockers:
+    for blocking_item, gate_point, satisfaction, created_at in blockers:
         dep_num = parse_item_id_or_none(blocking_item, conn=conn)
         # Fail safe: a blocker ref that does not resolve to a live
         # item still reports as missing rather than silently
@@ -217,7 +175,7 @@ def _blocker_lines(
                 )
             )
             continue
-        verdict = _evaluate_item_satisfaction(satisfaction, dep_item, conn)
+        verdict = _evaluate_item_satisfaction(satisfaction, dep_item, conn, created_at)
         if verdict.satisfied:
             continue
         output.append(

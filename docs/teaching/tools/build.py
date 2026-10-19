@@ -156,7 +156,8 @@ def check_canonical_model(model, canonical: dict) -> None:
             model.problem(
                 "MODEL_NOT_CANONICAL",
                 path.relative_to(TEACHING_ROOT).as_posix(),
-                "formatting differs from the canonical layout",
+                "formatting differs from the canonical layout; run "
+                "`yoke dev run -- python3 docs/teaching/tools/convert_model.py`",
             )
 
 

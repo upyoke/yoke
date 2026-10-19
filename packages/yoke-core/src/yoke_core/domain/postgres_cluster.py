@@ -18,23 +18,29 @@ claimed.
 
 from __future__ import annotations
 
-from yoke_contracts import terminal_detached_process
 from yoke_contracts.machine_config.directories import create_private_directory
 
+import hashlib
 import os
 import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Tuple
+
+from yoke_core.domain.postgres_cluster_process import _env, _run, executable
 
 #: The in-socket-directory port suffix Postgres uses to name the socket
 #: file (``.s.PGSQL.<port>``). With ``listen_addresses=''`` no TCP socket
 #: is bound, so this never collides with another server: each managed
 #: cluster owns a private socket directory.
 SOCKET_PORT = 5432
+
+# sun_path is 104 bytes on macOS/BSD and 108 on Linux, including the trailing NUL.
+_MAX_POSTGRES_SOCKET_PATH_BYTES = 107 if sys.platform.startswith("linux") else 103
 
 
 class PostgresClusterError(RuntimeError):
@@ -72,42 +78,40 @@ class ClusterSpec:
         return self.root / "server.log"
 
 
-def executable(bin_dir: Optional[Path], name: str) -> str:
-    """Resolve one Postgres executable from an optional pinned bin dir.
-
-    ``None`` falls back to ``PATH`` (bare name); a directory pins the
-    tool. One resolution rule shared by the cluster lifecycle (via
-    :func:`binary`) and standalone tool invocations such as the
-    universe-export ``pg_dump``.
-    """
-    if bin_dir is None:
-        return name
-    return str(bin_dir / name)
+def socket_dir_for_root(root: Path) -> Optional[Path]:
+    """Return a stable short socket directory only when ``root / sock`` is too long."""
+    socket_name = f".s.PGSQL.{SOCKET_PORT}"
+    if len(os.fsencode(root / "sock" / socket_name)) <= _MAX_POSTGRES_SOCKET_PATH_BYTES:
+        return None
+    uid = getattr(os, "getuid", lambda: 0)()
+    digest = hashlib.sha256(os.fsencode(root.absolute())).hexdigest()[:12]
+    candidates = (Path(tempfile.gettempdir()), Path("/tmp"))
+    bases = {
+        os.fsencode(candidate): candidate
+        for candidate in candidates
+        if candidate.is_dir() and os.access(candidate, os.W_OK | os.X_OK)
+    }
+    if not bases:
+        raise PostgresClusterError(
+            "no writable temporary directory is available for a Postgres Unix "
+            f"socket (cluster root {root}). Create a writable temp directory and retry."
+        )
+    base = min(
+        bases.values(),
+        key=lambda candidate: (len(os.fsencode(candidate)), os.fsencode(candidate)),
+    )
+    fallback = base / f"yoke-pg-{uid}-{digest}"
+    if len(os.fsencode(fallback / socket_name)) > _MAX_POSTGRES_SOCKET_PATH_BYTES:
+        raise PostgresClusterError(
+            "cluster root and temp directory are too long for a Postgres Unix "
+            f"socket (cluster root {root}). Choose a shorter cluster root and retry."
+        )
+    return fallback
 
 
 def binary(spec: ClusterSpec, name: str) -> str:
     """Resolve one Postgres executable per the spec's binary source."""
     return executable(spec.bin_dir, name)
-
-
-def _env() -> dict:
-    # LC_ALL=C avoids the macOS "postmaster became multithreaded during
-    # startup" FATAL that fires when the cluster inherits an unset/invalid
-    # locale.
-    return {**os.environ, "LC_ALL": "C", "LANG": "C"}
-
-
-def _run(argv, *, env: dict | None = None, **kw) -> subprocess.CompletedProcess:
-    # initdb, pg_ctl and psql run while setup's wizard may own the terminal;
-    # detached, they can neither read it nor take its foreground, and the
-    # server pg_ctl starts is not tied to the terminal's session.
-    return terminal_detached_process.run(
-        argv,
-        env=env if env is not None else _env(),
-        text=True,
-        capture_output=True,
-        **kw,
-    )
 
 
 def dsn(spec: ClusterSpec, dbname: str = "postgres") -> str:
@@ -329,6 +333,7 @@ __all__ = [
     "log_tail",
     "psql",
     "server_options",
+    "socket_dir_for_root",
     "start_server",
     "stop",
 ]

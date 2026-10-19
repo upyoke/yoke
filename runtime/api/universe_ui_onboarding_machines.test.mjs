@@ -6,6 +6,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { ADD_PROJECT_CUE } from "../../packages/yoke-core/src/yoke_core/ui/static/add_project_cue.js";
 import { byClass, response, visibleText } from "./universe_ui_dom_test_support.mjs";
 import {
   activationAnswer,
@@ -34,7 +35,7 @@ async function mountMachines(t, { harnessState, machines, wizardMachines }) {
     },
     extras: {
       finish_installation_wizard: {
-        submodules: wizardSubmodules({ machine: true, project: true }).map(
+        submodules: wizardSubmodules({ machine: true }).map(
           (submodule) => (
             submodule.key === "machine_universe"
               ? { ...submodule, machines: wizardMachines || [] } : submodule
@@ -207,6 +208,22 @@ test("the in-progress harness module lists project directories", async (t) => {
   assert.equal(textOf(rows[0]), "yoke · /Users/dev/yoke · cd /Users/dev/yoke");
   // A project with no known directory lists without one.
   assert.equal(textOf(rows[1]), "quiet");
+  mounted.unmount();
+});
+
+test("with no project yet, the harness module routes to the agent", async (t) => {
+  stubFetch(t);
+  const answer = activationAnswer({
+    states: {
+      finish_installation_wizard: "activated", connect_harness: "in_progress",
+    },
+    extras: { connect_harness: { machines: [], projects: [] } },
+  });
+  const { root, mounted } = await mountWorkbench(activationClient(answer));
+
+  const harness = byClass(root, "activation-module")[1];
+  assert.ok(textOf(harness).includes(ADD_PROJECT_CUE));
+  assert.ok(!textOf(harness).includes("project directory"));
   mounted.unmount();
 });
 

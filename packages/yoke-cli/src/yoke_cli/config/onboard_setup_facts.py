@@ -23,6 +23,7 @@ def collect(
     config_path: str | Path | None = None,
     checkout_path: str | Path | None = None,
     project_id: int | None = None,
+    machine_only: bool = False,
 ) -> dict[str, Any]:
     # Project installation imports the onboarding dispatcher during bootstrap.
     from yoke_cli.project_install.files import ProjectInstallError, load_manifest
@@ -51,6 +52,8 @@ def collect(
         "machine-profile": _fact(True, "machine-config"),
         "yoke-connection": _fact(bool(connection), "active-product-connection"),
     }
+    if machine_only:
+        return {"machine_id": identity, "observations": observations}
     root = Path(checkout_path or Path.cwd()).expanduser().resolve()
     try:
         entry = machine_config.project_entry(root, selected)

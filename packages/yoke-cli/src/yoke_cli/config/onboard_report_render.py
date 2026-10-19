@@ -7,6 +7,7 @@ from yoke_cli.config.onboard_path_plan import shell_change_lines
 from typing import Any, Dict
 
 from yoke_cli.config import (
+    onboard_global_skill,
     onboard_machine_registry,
     onboard_project,
     onboard_reuse_feedback,
@@ -46,6 +47,7 @@ def render_human(report: Dict[str, Any]) -> str:
             lines.append(f"  {label}:")
             lines.extend(f"    - {line}" for line in grouped_lines)
     lines.extend(shell_change_lines(report.get("path_repair")))
+    _append_harness_setup(lines, report)
     identity = report["identity"]
     if identity.get("checked"):
         lines.extend(["", f"Identity check: {identity.get('status')}"])
@@ -54,7 +56,7 @@ def render_human(report: Dict[str, Any]) -> str:
         lines.extend(["", f"Machine GitHub: {machine_github.get('choice')}"])
     registry_lines = onboard_machine_registry.summary_lines(
         report.get("machine_registry")
-    )
+    ) + onboard_global_skill.summary_lines(report.get("global_skill"))
     if registry_lines:
         lines.append("")
         lines.extend(f"  {line}" for line in registry_lines)
@@ -112,6 +114,19 @@ def _append_project_handoff(lines: list[str], project_report: dict[str, Any]) ->
         lines.append(f"  next: {handoff.get('agent_command')}")
     _append_clone_resume(lines, project_report)
     _append_hook_trust(lines, project_report)
+    if isinstance(project_report.get("install"), dict):
+        _append_harness_setup(lines, project_report["install"])
+
+
+def _append_harness_setup(lines: list[str], report: dict[str, Any]) -> None:
+    setup = report.get("harness_setup") or {}
+    if not setup.get("rows"):
+        return
+    from yoke_harness.harness_setup_reconcile import HarnessSetupRow
+
+    rows = [HarnessSetupRow(**row).line() for row in setup.get("rows", [])]
+    if rows:
+        lines.extend(["", "Harness setup:", *(f"  {row}" for row in rows)])
 
 
 def _append_hook_trust(lines: list[str], project_report: dict[str, Any]) -> None:

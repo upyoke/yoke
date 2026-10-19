@@ -26,13 +26,30 @@ DEFAULT_RUN_LIST_LIMIT = 20
 MAX_RUN_LIST_LIMIT = 1000
 
 
-def get_run(run_id: str, db_path: Optional[str] = None) -> dict[str, str | None] | None:
+def get_run(
+    run_id: str, db_path: Optional[str] = None, *, fields: Optional[list[str]] = None
+) -> dict[str, str | None] | None:
     """Project a run without serializing field boundaries into its content."""
+    selected = list(RUN_FIELDS) if fields is None else fields
+    invalid = [name for name in selected if name not in RUN_FIELDS]
+    if invalid:
+        raise ValueError(
+            f"invalid fields: {', '.join(invalid)}. Select from: {', '.join(RUN_FIELDS)}"
+        )
+    expressions = {
+        "project": "(SELECT p.slug FROM projects p WHERE p.id = deployment_runs.project_id)",
+        "target_environment": "(SELECT e.name FROM environments e WHERE e.id = deployment_runs.target_environment_id)",
+    }
+    columns = (
+        _RUN_SELECT
+        if fields is None
+        else ", ".join(expressions.get(name, name) for name in selected)
+    )
     conn = connect(db_path)
     try:
         row = query_one(
             conn,
-            f"SELECT {_RUN_SELECT} FROM deployment_runs WHERE id=%s",
+            f"SELECT {columns} FROM deployment_runs WHERE id=%s",
             (run_id,),
         )
         if row is None:
@@ -45,7 +62,7 @@ def get_run(run_id: str, db_path: Optional[str] = None) -> dict[str, str | None]
                 if isinstance(value, datetime)
                 else str(value)
             )
-            for name, value in zip(RUN_FIELDS, row, strict=True)
+            for name, value in zip(selected, row, strict=True)
         }
     finally:
         conn.close()

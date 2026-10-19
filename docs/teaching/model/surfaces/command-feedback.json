@@ -6,10 +6,10 @@
  "audience": "Human + agent",
  "encounter": "Every command response; teaching when relevant",
  "location": "CLI/API operation result, compact projection and exact deeper read",
- "basis": "Existing mechanism · clearer output planned",
+ "basis": "Inspected candidate human reply and refusal implementation",
  "note": "Useful feedback is a high-contact teaching surface. It must agree with the same operation contract used by help and packets.",
- "current": "Existing source references; delivered content is not yet proved.",
+ "current": "Candidate source labels ordinary values and empty results, preserves named refusal causes, saves complete redacted oversized evidence and retains immediate recovery, warnings and workflow handoffs. Public cli/help.md teaches the same contracts; bounded-replies and project-selection retain their scoped fixture evidence. Live receiving proof remains pending.",
  "desired": "State actual result or refusal plus supported recovery; preserve data contracts and required facts.",
  "plan_notes": ["FIRST-USER 35/P6", "JOURNEYS exact recovery links"],
- "sources": ["packages/yoke-contracts/src/yoke_contracts/hook_runner/hook_ordering.py:264", "packages/yoke-core/src/yoke_core/hooks/registration.py:1", "packages/yoke-contracts/src/yoke_contracts/hook_context_compose.py:114", "packages/yoke-core/src/yoke_core/hooks/hook_context_compose.py:14", "packages/yoke-cli/src/yoke_cli/commands/adapters/hook_config_dedup.py:139", "packages/yoke-cli/src/yoke_cli/command_router.py", "packages/yoke-cli/src/yoke_cli/commands/group_help.py", "packages/yoke-cli/src/yoke_cli/commands/registry.py", "docs/public/reference/commands.md"]
+ "sources": ["docs/public/cli/help.md", "packages/yoke-cli/src/yoke_cli/transport/public_ref_display.py", "packages/yoke-cli/src/yoke_cli/transport/response_evidence.py", "runtime/api/cli/test_cli_reply_delivery.py"]
 }

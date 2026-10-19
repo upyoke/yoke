@@ -1,0 +1,10 @@
+{
+ "id": "machine-setup-facts",
+ "title": "Machine setup outside a project",
+ "status": "observed",
+ "form": "State and recipe",
+ "verification": "Candidate source tests; installed delivery proof remains pending in setup-next-action-delivery-proof.",
+ "topics": ["projects/onboarding", "projects/onboarding/first-useful-work"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/global_orientation.py"],
+ "position": 20
+}

@@ -50,6 +50,7 @@ from yoke_harness.session_relay_report_retry import retry_pending_reports
 from yoke_harness.session_relay_resume_settlement import settle_finished_native_resumes
 from yoke_harness.session_relay_runtime import RelayAdapterResult, run_registered_job
 from yoke_harness.session_relay_supervision import refreshing_inventory
+from yoke_harness.session_relay_job_release import release_claimed_job
 from yoke_harness.session_relay_schedule import (
     poll_is_due,
     record_next_poll,
@@ -64,7 +65,9 @@ CREDENTIAL_REJECTED = "credential_rejected"
 
 Dispatcher = Callable[..., Any]
 JobRunner = Callable[[Mapping[str, Any]], RelayAdapterResult]
-JobDispatch = Callable[[Callable[[], "ServeOnceJobOutcome"]], None]
+JobDispatch = Callable[
+    [Callable[[], ServeOnceJobOutcome], Callable[[str], ServeOnceJobOutcome]], None
+]
 
 
 def _error_code(response: Any) -> str:
@@ -238,12 +241,17 @@ def _poll(
             state_dir=state_dir,
         )
         if dispatch_job is not None:
-            dispatch_job(settle)
+            release = partial(
+                release_claimed_job,
+                inventory,
+                job,
+                dispatcher=dispatcher,
+                state_dir=state_dir,
+            )
+            dispatch_job(settle, release)
             continue
         outcomes.append(settle())
     if dispatch_job is not None:
-        # The jobs outlive this cycle by design, so their outcomes are not
-        # this cycle's to report; the caller settles them.
         return ServeOnceOutcome("dispatched", next_poll)
     settled = tuple(outcomes)
     state = (
@@ -267,12 +275,7 @@ def run_serve_cycle(
     broker_lease_id: str | None = None,
     dispatch_job: JobDispatch | None = None,
 ) -> ServeOnceOutcome:
-    """Run one cadence-respecting batch inside a run lock the caller holds.
-
-    Split from :func:`serve_once` so a caller holding the lock for many cycles
-    reuses one body. The lock keeps two relays off one machine's jobs; taking
-    it per cycle would let a second process interleave between cycles.
-    """
+    """Run one batch under the caller's lock, held across polls by the daemon."""
     started_at = clock()
     if not broker_only and not poll_is_due(state_dir, now=started_at):
         return ServeOnceOutcome("backoff")

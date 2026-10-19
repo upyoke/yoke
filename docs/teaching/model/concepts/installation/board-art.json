@@ -1,0 +1,12 @@
+{
+ "id": "board-art",
+ "title": "Board header variants",
+ "status": "observed",
+ "page": "installation",
+ "position": 6,
+ "commands": ["yoke board art variant create --ascii|--mixed|--image PATH"],
+ "summary": "Board art is optional customization after project installation. Choose --ascii, --mixed or --image with a PNG/JPEG path; the command previews a variant and offers append or reroll. --apply appends the first generated variant without prompting. It does not establish project readiness.",
+ "recipes": ["yoke board art variant create --help", "yoke board art variant create --ascii", "yoke board art variant create --image ./logo.png --display-name \"Example App\""],
+ "sources": ["docs/public/start/terminal-onboarding.md", "docs/public/agents/commands.md"],
+ "verification": "Source help inspected; no variant was generated or applied, and no receiving-context behavior is verified here."
+}

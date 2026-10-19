@@ -78,7 +78,7 @@ def test_doctor_hc_discovery_empty_when_no_python_paths(tmp_path: Path) -> None:
         task_num=1,
         file_budget_paths=_file_budget_paths(
             "runtime/agents/architect.md",
-            ".yoke/docs/reference/lifecycle.md",
+            ".yoke/docs/workflows/lifecycle.md",
         ),
         repo_root=root,
     )
@@ -279,6 +279,4 @@ def test_module_basename_drives_doctor_hc_match(
         file_budget_paths=_file_budget_paths(fb_path),
         repo_root=root,
     )
-    assert (
-        f"runtime/api/engines/doctor_hc_{expected_basename}.py" in result.doctor_hcs
-    )
+    assert f"runtime/api/engines/doctor_hc_{expected_basename}.py" in result.doctor_hcs

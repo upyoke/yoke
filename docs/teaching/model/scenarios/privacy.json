@@ -6,5 +6,6 @@
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
  "questions": ["Trace actual redaction at each UI/CLI/packet boundary separately; doc assertions do not prove it.", "Where should the human-facing privacy/support explanation be linked before a guard fires?"],
- "related_scenarios": ["capabilities", "browser_identities", "people-access"]
+ "related_scenarios": ["capabilities", "browser_identities", "people-access"],
+ "sources": ["docs/public/projects/capabilities.md", "docs/public/operations/events.md"]
 }

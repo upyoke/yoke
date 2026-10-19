@@ -4,12 +4,12 @@
  "status": "observed",
  "audience": "both",
  "when": "Later harness install, upgrade or unsupported operation",
- "need": "Install/repair only relevant native integration. Capability truth is the manifest for the installed release; do not assume every harness supports the same loading or wake behavior.",
+ "need": "Install/repair only relevant native integration. A newly present harness home triggers the shared reconcile for registered checkouts and Git lanes. Repair or inspect with doctor harness-setup. Capability truth remains the installed release manifest; loading and wake capabilities differ by harness.",
  "disclosure": "current cue",
  "surface": "Harness reconcile and release-matched manifest",
- "gap": "Managed release manifests are published at .yoke/harness/<harness>/manifest.json. Automated install/refresh and byte identity are covered; real receiving-harness proof waits for release.",
+ "gap": "Managed release manifests are published at .yoke/harness/<harness>/manifest.json. Automated install/refresh and byte identity are covered; real receiving-harness proof waits for release. Source tests and a scripted campaign case cover late-install reconciliation, absent homes, idempotence and durable retry state.",
  "review": "CLI versions never block installation. Install and preview reports expose harness_health separately from operational warnings. Every supported CLI reports version, floor, status ok/below_floor/probe_failed/absent, effect and next step; human output has its own health section. Runtime-health tests cover admission and both output forms; live receiving proof remains separate.",
  "plan_notes": ["FIRST-USER 18", "FIRST-USER D"],
- "sources": ["docs/public/reference/harness-discovery.md", "runtime/harness/manifest-schema.md", "runtime/api/domain/test_project_install_runtime_health.py"],
+ "sources": ["docs/public/agents/harness-discovery.md", "runtime/harness/manifest-schema.md", "runtime/api/domain/test_project_install_runtime_health.py", "runtime/harness/test_harness_setup_reconcile.py", "packages/yoke-core/src/yoke_core/domain/installer_campaign_harness_setup_cases.py"],
  "position": 1
 }

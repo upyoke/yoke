@@ -228,6 +228,9 @@ def validate_payload(
     from yoke_contracts.machine_config.retired_keys import retired_key_issues
 
     issues.extend(retired_key_issues(raw))
+    from yoke_contracts.machine_config.unknown_keys import unknown_key_issues
+
+    issues.extend(unknown_key_issues(raw))
     return issues
 
 

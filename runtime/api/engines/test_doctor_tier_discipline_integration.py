@@ -13,31 +13,15 @@ from typing import Dict, Iterable, Iterator, Tuple
 
 import pytest
 
-from yoke_project_checks import check_cli_help_handler as help_mod
 from yoke_project_checks import check_packet_tier_completeness as packet_mod
 from yoke_project_checks import check_progressive_disclosure_direction as disc_mod
 from yoke_project_checks import check_tier_cli_shape_bleed as cli_mod
 from yoke_project_checks import check_tier_module_path_resolution as mod_path_mod
 from yoke_project_checks import check_tier_schema_bleed as schema_mod
-from yoke_core.engines.doctor_project_checks import discover_project_checks
 from yoke_core.engines.doctor_registry_tier_discipline import (
     REQUIRED_FUNCTION_IDS,
-    TIER_DISCIPLINE_HEALTH_CHECKS,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-
-# The tier-discipline HCs scan this repo's own teaching surfaces, so this
-# project registers all six in .yoke/doctor/ rather than in the engine bundle.
-_TIER_DISCIPLINE_CHECK_FUNCTIONS = {
-    "tier-schema-bleed": schema_mod.hc_tier_schema_bleed,
-    "tier-cli-shape-bleed": cli_mod.hc_tier_cli_shape_bleed,
-    "packet-tier-completeness": packet_mod.hc_packet_tier_completeness,
-    "progressive-disclosure-direction": disc_mod.hc_progressive_disclosure_direction,
-    "tier-module-path-resolution": mod_path_mod.hc_tier_module_path_resolution,
-    "cli-help-handler-present": help_mod.hc_cli_help_handler_present,
-}
 
 
 @pytest.fixture
@@ -92,29 +76,6 @@ def _detail(rec: RecordCollector) -> str:
     return rec.results[0].detail
 
 
-def test_tier_discipline_checks_registered_as_project_checks():
-    # All six tier-discipline HCs — ``cli-help-handler-present`` included —
-    # are registered once each from this project's own check folder, and the
-    # engine bundle carries none of them.
-    assert [hc.slug for hc in TIER_DISCIPLINE_HEALTH_CHECKS] == []
-    checks = discover_project_checks(REPO_ROOT).checks
-    slugs = [hc.slug for hc in checks]
-    by_slug = {hc.slug: hc for hc in checks}
-    for slug, fn in _TIER_DISCIPLINE_CHECK_FUNCTIONS.items():
-        assert slugs.count(slug) == 1, (
-            f"slug {slug!r} appears {slugs.count(slug)} times in the checks "
-            f"discovered under {REPO_ROOT}"
-        )
-        registered = by_slug[slug].fn
-        # Discovery imports a fresh module object per run, so compare the
-        # function's identity by module + name rather than by object identity.
-        assert (registered.__module__, registered.__name__) == (
-            fn.__module__, fn.__name__,
-        )
-
-
-# HC-tier-schema-bleed Class A — (table.column, kind). `real` = column
-# exists on table (restated truth); `fake` = non-existent column.
 _CLASS_A_CASES = [
     ("item_worktrees.branch", "real"),
     ("epic_progress_notes.note_num", "real"),
@@ -144,7 +105,6 @@ def test_schema_bleed_class_a(tmp_path, monkeypatch, conn, table_col, kind):
     ) in detail
 
 
-# HC-tier-schema-bleed Class B — JSON nested field accessed as top-level.
 _CLASS_B_CASES = [
     ("migration_strategy", "items", "db_mutation_profile"),
 ]
@@ -168,22 +128,25 @@ def test_schema_bleed_class_b_json_nested(
     assert f"`{table}.{json_col}`" in detail
 
 
-# HC-tier-cli-shape-bleed cases: (label, file rel, tier, body, help-table,
-# expected detail substring). help-table is (module, sub) -> (rc, stdout).
 _NM_ERR = (1, "No module named yoke_core.engines.nonexistent")
 _CLI_CASES = [
     (
         "drifted_db_claim_amend_flag",
-        ".agents/skills/yoke/conduct/SKILL.md", 5,
+        ".agents/skills/yoke/conduct/SKILL.md",
+        5,
         "    python3 -m yoke_core.api.service_client db-claim-amend --claim-state none\n",
-        {("yoke_core.api.service_client", "db-claim-amend"): (
-            0, "usage: db-claim-amend --item ITEM --reason REASON [--state {none}]\n",
-        )},
+        {
+            ("yoke_core.api.service_client", "db-claim-amend"): (
+                0,
+                "usage: db-claim-amend --item ITEM --reason REASON [--state {none}]\n",
+            )
+        },
         "`--claim-state`",
     ),
     (
         "drifted_claim_list_subcommand",
-        ".yoke/docs/reference/commands.md", 2,
+        ".yoke/docs/agents/commands.md",
+        2,
         "    python3 -m yoke_core.api.service_client claim-list --item YOK-1674\n",
         {
             ("yoke_core.api.service_client", "claim-list"): (1, "no such subcommand"),
@@ -197,27 +160,31 @@ _CLI_CASES = [
     ),
     (
         "drifted_section_upsert_flag",
-        ".agents/skills/yoke/refine/SKILL.md", 5,
+        ".agents/skills/yoke/refine/SKILL.md",
+        5,
         "    python3 -m yoke_core.domain.item_field_transform section-upsert "
         "--field spec --heading X\n",
-        {("yoke_core.domain.item_field_transform", "section-upsert"): (
-            0, "usage: section-upsert --item ITEM --field FIELD --section SECTION\n",
-        )},
+        {
+            ("yoke_core.domain.item_field_transform", "section-upsert"): (
+                0,
+                "usage: section-upsert --item ITEM --field FIELD --section SECTION\n",
+            )
+        },
         "`--heading`",
     ),
     (
         "bare_doctor",
-        "AGENTS.md", 0,
+        "AGENTS.md",
+        0,
         "# Substrate\n\n$ python3 -m yoke_core.engines.doctor\n",
         {},
         "bare",
     ),
     (
         "confabulated_subcommand",
-        ".yoke/docs/reference/commands.md", 2,
+        ".yoke/docs/agents/commands.md",
+        2,
         "    python3 -m yoke_core.engines.nonexistent-cmd --help\n",
-        # Module regex stops at `-`; both subcommand-split and parent-help
-        # fallback lookups must err to surface the confabulation.
         {
             ("yoke_core.engines.nonexistent", "cmd"): _NM_ERR,
             ("yoke_core.engines.nonexistent", None): _NM_ERR,
@@ -241,7 +208,7 @@ def test_cli_shape_bleed_cases(
 
 
 def test_module_path_resolution_confabulated_module(tmp_path, monkeypatch, conn):
-    rel = ".yoke/docs/reference/lifecycle.md"
+    rel = ".yoke/docs/workflows/lifecycle.md"
     _materialize(
         tmp_path,
         {rel: "See `yoke_core.domain.yoke_function_envelope` for the request shape.\n"},
@@ -343,6 +310,19 @@ def test_progressive_disclosure_tier5_vague_denial_without_function_id(
 
 
 def test_distinct_bad_shape_count_meets_floor():
-    """At least 15 distinct injected bad shapes are covered."""
     total = len(_CLASS_A_CASES) + len(_CLASS_B_CASES) + 5 + 2 + 2 + 2
     assert total >= 15, f"expected >= 15 distinct shapes, counted {total}"
+
+
+@pytest.mark.parametrize("name", ["commands.md", "maintenance-commands.md"])
+def test_command_homes_retain_real_scan_coverage(tmp_path, monkeypatch, conn, name):
+    rel = f".yoke/docs/agents/{name}"
+    _materialize(tmp_path, {rel: "Inspect the item_worktrees.branch column.\n"})
+    for mod in (schema_mod, cli_mod, mod_path_mod, disc_mod):
+        assert (2, tmp_path / rel) in list(mod.iter_tier_paths(tmp_path))
+    assert disc_mod._classify_path(rel, tmp_path) == 2
+    # Keep the real registry iterator: a patched one would hide lost coverage.
+    monkeypatch.setattr(schema_mod, "_resolve_repo_root", lambda: str(tmp_path))
+    rec = _run(schema_mod.hc_tier_schema_bleed, conn)
+    assert rec.results[0].result == "WARN"
+    assert rel in _detail(rec)

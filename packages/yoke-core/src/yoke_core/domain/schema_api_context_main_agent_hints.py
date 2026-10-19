@@ -53,7 +53,17 @@ RELEASE_ROLE_HINT = (
     "substitute. Depth: those commands' `--help`."
 )
 
-MAIN_AGENT_HINTS = (DEPLOYMENT_RUN_QUERY_HINT, RELEASE_ROLE_HINT)
+SETUP_FACTS_HINT = (
+    "**Setup facts:** `yoke onboard checklist get --json` serves "
+    "`run.next_action` (recipe and installed home) and `run.setup_readiness`. "
+    "Configured means present; verified means checked; deferred means chosen later; "
+    "not-needed means explicitly unnecessary; unknown means unconfirmed; blocked "
+    "names a required repair. Orientation shows relevant unsettled facts once, "
+    "and suppresses setup after readiness and first-work activation. Optional "
+    "rows never force setup. Follow next_action instead of deriving a step."
+)
+
+MAIN_AGENT_HINTS = (DEPLOYMENT_RUN_QUERY_HINT, RELEASE_ROLE_HINT, SETUP_FACTS_HINT)
 
 __all__ = [
     "DEPLOYMENT_RUN_QUERY_HINT",

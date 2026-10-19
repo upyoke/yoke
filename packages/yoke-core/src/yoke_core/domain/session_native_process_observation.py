@@ -127,7 +127,7 @@ def _exited_normally(evidence: Mapping[str, Any]) -> bool:
     code = evidence.get(NATIVE_EXIT_CODE_KEY)
     if isinstance(code, bool) or not isinstance(code, int):
         return False
-    return code == NORMAL_NATIVE_EXIT_CODE
+    return code == NORMAL_NATIVE_EXIT_CODE and not evidence.get("containment_reason")
 
 
 def _current_waiting_turn(row: Mapping[str, Any]) -> bool:

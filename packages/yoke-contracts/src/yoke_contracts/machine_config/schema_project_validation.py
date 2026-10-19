@@ -37,14 +37,6 @@ def validate_projects(projects: Any) -> list[ValidationIssue]:
                 )
             )
             continue
-        for key in sorted(set(entry) - {"checkout", "project_id"}):
-            issues.append(
-                _error(
-                    "project_key_invalid",
-                    f"project entry does not support {key!r}",
-                    path=f"{prefix}.{key}",
-                )
-            )
         checkout = entry.get("checkout")
         project_id = normalize_project_id(entry.get("project_id"))
         if not _is_nonempty_str(checkout):

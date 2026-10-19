@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke inbox list --help"],
  "plan_notes": ["JOURNEYS row 12", "outside both"],
- "sources": ["docs/public/items-and-sessions.md", "docs/public/workflows.md"],
+ "sources": ["docs/public/sessions/inbox.md", "docs/public/workflows/index.md"],
  "position": 0
 }

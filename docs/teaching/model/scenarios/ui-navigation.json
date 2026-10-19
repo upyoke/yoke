@@ -5,5 +5,6 @@
  "situations": ["A terminal user wants to open the correct dashboard.", "A new user is overwhelmed by pages and raw status.", "A user sees no projects, cannot find an action or follows a stale deep link."],
  "coverage": "catalogued",
  "current": "Research trace; requirements and source paths need live proof.",
- "questions": ["Avoid duplicating work-progress lessons; this family owns opening/orientation/routing only.", "Board art is an optional customization exposed in help, not a readiness gate; FIRST-USER 25 already skips its setup step."]
+ "questions": ["Avoid duplicating work-progress lessons; this family owns opening/orientation/routing only.", "Board art is an optional customization exposed in help, not a readiness gate; FIRST-USER 25 already skips its setup step."],
+ "sources": ["docs/public/cli/index.md", "docs/public/start/concepts.md"]
 }

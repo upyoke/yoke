@@ -6,9 +6,8 @@ argument-hint: "{PREFIX-N} [--no-worktree] [--force] [--qa-bypass]"
 ---
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
+File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
 # /yoke implement {PREFIX-N}
@@ -24,6 +23,11 @@ The immutable workflow pin owns stages, gates and half-open bindings;
 act only inside this binding. Its through-stage is a fresh skill/claim boundary.
 
 ## Phase map
+
+Before changing behavior, read `.yoke/docs/agents/rules/code-and-cli.md` for
+complete scope, portable implementation and durable-state ownership. Update
+affected teaching through its existing owner; the standard and concise derived
+pointer rule live in `.yoke/docs/documentation/index.md`.
 
 | Phase | Read before acting |
 |---|---|
@@ -44,6 +48,6 @@ yoke sessions touch --mode implement
 ```
 
 A level-change handoff takes priority over release wait. Follow the
-[Stage-level routing rule](../../../../.yoke/docs/reference/session-level-routing.md);
+[Stage-level routing rule](../../../../.yoke/docs/agents/levels.md);
 workers may launch their own successor. At a fresh binding boundary, obey the
 current mandate: continued delivery needs the newly bound skill and its claim.

@@ -18,9 +18,11 @@ from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.config import hosted_machine_authorization
 from yoke_cli.config import server_connect, team_server_authorization
 from yoke_cli.config import setup_browser
+from yoke_cli.transport.dispatcher import _resolve_session_id
 from yoke_contracts.api_urls import HOSTED_PLATFORM_URL, HOSTED_STAGE_PLATFORM_URL
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 from yoke_contracts.machine_authorization import retired_identity_notice
+from yoke_contracts.harness_sandbox_recovery import running_harness_family
 
 AdapterFn = Callable[[List[str]], int]
 
@@ -46,7 +48,9 @@ def connect(args: List[str]) -> int:
             "normal shape and is required for every network server. Plain "
             "http:// is accepted only for a numeric loopback endpoint "
             "(for example, http://127.0.0.1:8765). Other schemes and "
-            "non-loopback plaintext endpoints are refused. No browser is opened. "
+            "non-loopback plaintext endpoints are refused. A human terminal opens the "
+            "approval link after a notice; agent, non-TTY and --json runs print "
+            "the link only. "
             "With --json, authorization link/code/instructions arrive as JSON "
             "lines on stderr before polling; present them to the person."
         ),
@@ -211,10 +215,23 @@ def _connect_hosted(parsed: argparse.Namespace) -> int:
             write=lambda line: print(line, file=stream, flush=True),
         )
 
+    def _open_browser(url: str) -> hosted_machine_authorization.BrowserOpenResult:
+        print(setup_browser.OPENING_NOTICE, flush=True)
+        print(f"Open {url}", flush=True)
+        return setup_browser.open_url(url)
+
+    human_terminal = (
+        not parsed.json_mode
+        and sys.stdin.isatty()
+        and sys.stdout.isatty()
+        and not _resolve_session_id()
+        and running_harness_family() is None
+    )
     try:
         credential = hosted_machine_authorization.authorize(
             platform_url,
             notify=_notify,
+            browser_open=_open_browser if human_terminal else None,
             self_host=parsed.self_host,
         )
         report = server_connect.connect_server(

@@ -1,7 +1,8 @@
 {
  "id": "resume-the-same-obligation",
  "title": "Resume the same obligation",
- "status": "draft-copy",
+ "status": "observed",
  "page": "test-machine-recovery",
- "position": 4
+ "position": 4,
+ "description": "Host-wait, settled-mission continuation and correction-ready commands preserve --machine from the waited host or durable QA run evidence; corrected cases retain their failed attempt host."
 }

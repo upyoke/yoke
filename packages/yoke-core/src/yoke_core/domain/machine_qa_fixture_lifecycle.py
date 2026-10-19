@@ -230,6 +230,8 @@ def execute_case_with_fixture_lifecycle(
     primary_failed = False
     primary_error: BaseException | None = None
     try:
+        if execution.progress_callback is not None:
+            execution.progress_callback()
         try:
             setup = fixture.execute_setup_operations(config.get("setup_operations", []))
         except Exception:
@@ -238,6 +240,8 @@ def execute_case_with_fixture_lifecycle(
                 error_code="fixture_setup_failed",
             )
         if setup.ok:
+            if execution.progress_callback is not None:
+                execution.progress_callback()
             try:
                 primary = execution.execute(
                     method_id=case.method_id,
@@ -262,7 +266,9 @@ def execute_case_with_fixture_lifecycle(
                     )
     finally:
         if not communication_unknown(primary_error):
-            with heartbeat_during("fixture_cleanup", execution.progress_callback):
+            with heartbeat_during(
+                "fixture_cleanup", execution.progress_callback, propagate_abort=False
+            ):
                 cleanup_attempts = _close_with_retry(fixture)
 
     lifecycle = _lifecycle_evidence(

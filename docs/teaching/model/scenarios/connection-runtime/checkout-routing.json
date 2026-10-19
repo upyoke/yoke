@@ -8,6 +8,6 @@
  "disclosure": "current cue",
  "surface": "Project register help, work-claim folder refusal and public machine-config guidance.",
  "review": "Candidate-source regressions cover colliding IDs, --env precedence, reassignment, inert legacy reads and shared-checkout cleanup. No live two-universe execution is claimed.",
- "sources": ["docs/public/cli-and-config.md", "runtime/api/domain/test_machine_config_project_mapping.py", "runtime/api/cli/test_yoke_operations_cli_config_write_projects.py"],
+ "sources": ["docs/public/cli/machine-config.md", "runtime/api/domain/test_machine_config_project_mapping.py", "runtime/api/cli/test_yoke_operations_cli_config_write_projects.py"],
  "position": 3
 }

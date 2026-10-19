@@ -127,10 +127,10 @@ def test_implement_skill_does_not_depend_on_private_strategy_files() -> None:
 @pytest.mark.parametrize(
     ("document", "target"),
     (
-        ("docs/qa-platform/cli-reference.md", ".yoke/docs/reference/qa-platform.md"),
+        ("docs/qa-platform/cli-reference.md", ".yoke/docs/verification/platform.md"),
         (
             "docs/qa-platform/cli-reference.md",
-            ".yoke/docs/reference/db-reference/functions.md",
+            ".yoke/docs/functions/index.md",
         ),
     ),
 )
@@ -147,9 +147,9 @@ class TestSameSessionWorktreeScopeDocs:
     def docs(self) -> dict[str, Path]:
         return {
             "agents": REPO / "AGENTS.md",
-            "commands": REPO / ".yoke" / "docs" / "reference" / "commands.md",
+            "commands": REPO / ".yoke" / "docs" / "agents" / "commands.md",
             "harness": REPO / "docs" / "harness-substrate.md",
-            "lifecycle": REPO / ".yoke" / "docs" / "reference" / "lifecycle.md",
+            "lifecycle": REPO / ".yoke" / "docs" / "workflows" / "lifecycle.md",
             "implement": SKILLS / "implement" / "SKILL.md",
             "implement_worktree": SKILLS / "implement" / "worktree.md",
             "conduct": SKILLS / "conduct" / "SKILL.md",

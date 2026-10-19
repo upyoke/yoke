@@ -16,6 +16,7 @@ from yoke_core.domain.agent_mission_browser_identities import (
     walker_identity_dispatch,
 )
 from yoke_core.domain.dispatch_descriptors import DispatchDescriptor
+from yoke_core.domain.qa_mission_stop_settlement import stopped_mission_guidance
 from yoke_core.domain.qa_review_evidence import case_artifact_read_commands
 from yoke_core.domain.qa_plan_review_subject import subject_flag as review_subject_flag
 from yoke_core.domain.qa_review_verdict_modes import (
@@ -298,7 +299,8 @@ def agent_mission_dispatch_contract(
             "only while it holds the host lease. "
             "Keep the fresh target free of a source checkout; the informed "
             "walker uses controller context and installed target guidance. "
-            "Review every non-mission case yourself from its transcript and "
+            + stopped_mission_guidance(subject_flag, execution_id)
+            + "Review every non-mission case yourself from its transcript and "
             "artifact-read commands. Aggregate each ranked written mission "
             "report, choose every final verdict, and submit exactly one row "
             f"for each of the {len(cases)} bundle cases in one complete batch. "

@@ -6,6 +6,7 @@ from yoke_cli.config import onboard_relay_supervisor
 from yoke_contracts import harness_machine_hooks, harness_unattended_posture
 from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_github_copy
+from yoke_cli.config import onboard_global_skill
 from yoke_cli.config import onboard_machine_registry
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_publication
@@ -96,6 +97,11 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
         return "Reuse this machine's existing Yoke API token"
     if action == onboard_machine_registry.REGISTER_ACTION:
         return "Register this machine in the machine registry"
+    if action == onboard_global_skill.INSTALL_ACTION:
+        return (
+            f"Install the yoke-global skill at {target} for sessions outside a "
+            "project (Claude Code links it from ~/.claude/skills)"
+        )
     if action == "project-source-choice":
         mode, _, outcome = target.partition(":")
         if mode == onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE:

@@ -1,12 +1,6 @@
-"""Continue a mission walk whose execution was settled while it was parked.
+"""Continue stale-settled mission walks without resetting their preserved host.
 
-A continuation is the way back in. It is an ordinary new execution over the
-same roster, recording its own runs, with one difference carried on the row
-itself: ``continues_execution_id`` names the settled execution it resumes,
-and no case in a continuation reaches a host baseline. The prior execution
-stays as history with the reason it ended; the continuation's own run becomes
-the requirement's latest, which is what supersedes the swept error verdict on
-every projection that reads the latest run.
+The prior execution stays as history; continuation runs supersede its verdict.
 """
 
 from __future__ import annotations
@@ -45,7 +39,6 @@ def contract_baselines(
     execution: Mapping[str, Any],
     case: Mapping[str, Any],
 ) -> tuple[str, ...]:
-    """Return the case's reset unless the continuation keeps the prior host."""
     from yoke_contracts.qa_case_starting_state import reset_baselines
 
     return tuple(reset_baselines(case, continues=skips_host_baseline(execution)))
@@ -231,7 +224,6 @@ def resolve_continuation_source(
     deployment_stage: str | None = None,
     deployment_member_item_id: int | None = None,
 ) -> str:
-    """Return the settled execution id a requested continuation resumes."""
     try:
         if live_execution_id is not None:
             raise QaPlanExecutionStateError(
@@ -252,7 +244,9 @@ def resolve_continuation_source(
     return str(prior["id"])
 
 
-def continuation_recipe(conn: Any, execution: Mapping[str, Any]) -> str:
+def continuation_recipe(
+    conn: Any, execution: Mapping[str, Any], *, machine: str | None = None
+) -> str:
     """Render the exact command that continues *execution*'s walk."""
     if execution.get("item_id") is not None:
         from yoke_core.domain.project_identity import render_item_ref
@@ -268,7 +262,9 @@ def continuation_recipe(conn: Any, execution: Mapping[str, Any]) -> str:
         )
     else:
         stage = str(execution.get("deployment_stage") or "")
-        member = execution.get("deployment_member_item_id")
+        member = execution.get("requesting_member_item_id") or execution.get(
+            "deployment_member_item_id"
+        )
         scope = f" --stage {stage}" if stage else ""
         if member is not None:
             from yoke_core.domain.project_identity import render_item_ref
@@ -279,7 +275,11 @@ def continuation_recipe(conn: Any, execution: Mapping[str, Any]) -> str:
             f"--deployment-run-id {str(execution.get('deployment_run_id') or '')}"
             f"{plan} --project {_project_slug(execution)}{scope}"
         )
-    return f"yoke qa plan run {subject} {CONTINUATION_FLAG}"
+    from yoke_core.domain.qa_resume_machine import execution_machine
+
+    machine = machine or execution_machine(conn, execution)
+    pin = f" --machine {machine}" if machine else ""
+    return f"yoke qa plan run {subject}{pin} {CONTINUATION_FLAG}"
 
 
 def mission_access_refusal(conn: Any, execution: Mapping[str, Any]) -> str:

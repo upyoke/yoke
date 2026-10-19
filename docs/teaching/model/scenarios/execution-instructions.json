@@ -5,5 +5,6 @@
  "situations": ["The user repeats the same instruction for every item.", "A team rule should apply only to one project, workflow or part of the work.", "Project guidance must reach the agents doing the selected work.", "The user states a lasting rule once."],
  "coverage": "traced",
  "current": "Research trace; requirements and source paths need live proof.",
- "questions": ["Inspected documented delivery events and intake instruction; no UI interaction or live resolver call performed.", "Command nodes, when present, were checked with installed CLI --help only; this proves parser/help availability, not serving-control-plane capability or successful execution.", "What exact supported preference record, if any, will JOURNEYS use for a remembered user dismissal?", "Do edited execution instructions reach every intended custom workflow/launch consumer in deployed builds?"]
+ "questions": ["Inspected documented delivery events and intake instruction; no UI interaction or live resolver call performed.", "Command nodes, when present, were checked with installed CLI --help only; this proves parser/help availability, not serving-control-plane capability or successful execution.", "What exact supported preference record, if any, will JOURNEYS use for a remembered user dismissal?", "Do edited execution instructions reach every intended custom workflow/launch consumer in deployed builds?"],
+ "sources": ["docs/public/projects/execution-instructions.md"]
 }

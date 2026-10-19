@@ -86,13 +86,9 @@ def _holder_lines(holders: tuple[ClaimHolder, ...], *, idle: bool = False) -> li
             line += f", {holder.quiet_reason}"
         if holder.hand_started:
             line += "  hand-started (no launch record)"
-        if phrase := holder.process_phrase():
-            line += f"  {phrase}"
-        elif idle:
-            line += (
-                "  idle, process running — message it "
-                f"`yoke say --item {holder.public_ref} --stdin`"
-            )
+        line += f"  {holder.message_delivery}"
+        if idle:
+            line += f"  message it `yoke say --item {holder.public_ref} --stdin`"
         lines.append(line)
     return capped(lines, len(holders))
 
