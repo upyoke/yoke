@@ -78,6 +78,17 @@ def cmd_requirement_add_batch(
                     label=f"row {len(inserted_ids)}",
                     qa_phase=row.get("qa_phase"),
                 )
+            from yoke_core.domain.qa_requirement_proof import proof_refusal
+
+            refusal = proof_refusal(
+                row,
+                subject=f"row {len(inserted_ids)}",
+                conn=conn,
+                item_id=binding_item_id,
+            )
+            if refusal:
+                conn.rollback()
+                _exit(refusal)
             if row.get("deployment_run_id") is not None:
                 try:
                     require_stage_scoped_requirement(

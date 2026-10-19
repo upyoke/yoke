@@ -323,11 +323,11 @@ def test_optional_item_qa_rejects_release_and_teaches_review_transition():
     assert "--workflow-transition reviewing-implementation" in outcome.error.message
 
 
-def test_domain_cli_deployment_run_requirement_needs_no_transition():
+def test_domain_cli_deployment_run_requirement_requires_executable_credit():
     with test_database():
-        requirement_id = qa.cmd_requirement_add(
-            deployment_run_id="run-unbound",
-            qa_kind="post_deploy",
-            qa_phase="post_deploy",
-        )
-    assert requirement_id > 0
+        with pytest.raises(SystemExit, match="2"):
+            qa.cmd_requirement_add(
+                deployment_run_id="run-unbound",
+                qa_kind="post_deploy",
+                qa_phase="post_deploy",
+            )

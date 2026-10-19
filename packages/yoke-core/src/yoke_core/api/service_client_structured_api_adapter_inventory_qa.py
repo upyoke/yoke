@@ -143,6 +143,11 @@ QA_ADAPTERS: List[AdapterEntry] = [
         "--deployment-run-id RUN --stage S [--member PREFIX-N] [--plan P])",
     ),
     AdapterEntry(
+        "qa.requirement.transfer",
+        "yoke qa requirement transfer --requirement-id N --to-item PREFIX-N "
+        "--workflow-transition STAGE --rationale TEXT [--json]",
+    ),
+    AdapterEntry(
         "qa.requirement.update",
         "yoke qa requirement update --requirement-id N --field FIELD "
         "(--value VALUE | --content-file PATH | --stdin | --null) "

@@ -186,14 +186,19 @@ class TestRequirementUpdate:
         assert decoded["steps"][0]["route"] == "/login"
         assert decoded["steps"][1]["duration"] == 3000
 
-    def test_update_qa_phase(self, db_path: str, req_id: int) -> None:
-        qa.cmd_requirement_update(req_id, "qa_phase", "post_deploy", db_path=db_path)
+    def test_update_qa_phase_refuses_losing_manual_credit(
+        self, db_path: str, req_id: int
+    ) -> None:
+        with pytest.raises(SystemExit):
+            qa.cmd_requirement_update(
+                req_id, "qa_phase", "post_deploy", db_path=db_path
+            )
         conn = connect_test_db(db_path)
         row = conn.execute(
             "SELECT qa_phase FROM qa_requirements WHERE id = %s", (req_id,)
         ).fetchone()
         conn.close()
-        assert row[0] == "post_deploy"
+        assert row[0] == "verification"
 
     def test_update_rejects_qa_kind(self, db_path: str, req_id: int) -> None:
         """Qa_kind is excluded explicitly — the error must call it out."""

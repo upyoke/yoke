@@ -1,15 +1,4 @@
-"""Correct live QA case configuration without replacing the requirement.
-
-Frozen deployment-run rows and historical ``qa_runs`` stay immutable. An
-in-place ``method_config`` change records a revision marker; a later green
-satisfies only when it recorded that live executable config at run start.
-
-Several fields need more than a validated write and live in sibling modules:
-``target_env`` resolves an environment name into an immutable endpoint
-snapshot, ``workflow_transition_id`` revalidates the lifecycle binding
-exactly as a fresh attachment would, and ``starting_state`` rewrites its three
-agreeing columns only while nothing has run the case.
-"""
+"""Correct live case configuration while preserving frozen run history."""
 
 from __future__ import annotations
 
@@ -193,7 +182,7 @@ def apply_requirement_update(
     )
     existing = query_one(
         conn,
-        "SELECT id, qa_kind, qa_phase, item_id, epic_id, task_num, "
+        "SELECT id, qa_kind, qa_phase, blocking_mode, item_id, epic_id, task_num, instructions, expected_outcome, workflow_transition_id, "
         f"deployment_run_id, plan_id, method_id, method_config{digest_col} "
         f"FROM qa_requirements WHERE id = {marker}",
         (int(req_id),),
@@ -255,8 +244,23 @@ def apply_requirement_update(
                 jsonpath="$.payload.value",
             )
         value = prepared_transition
-    # Reach this amendment's in-flight admitted copies or refuse by name,
-    # before either row is written.
+    if field in {"blocking_mode", "qa_phase", "workflow_transition_id"}:
+        from yoke_core.domain.qa_requirement_proof import proof_refusal
+
+        refusal = proof_refusal(
+            {**dict(existing), field: value},
+            subject=f"requirement {req_id}",
+            conn=conn,
+            item_id=existing["item_id"] or existing["epic_id"],
+        )
+        if refusal:
+            return _fail(
+                code="requirement_proof_required",
+                message=refusal,
+                req_id=req_id,
+                field=field,
+            )
+    # Validate admitted copies before either row changes.
     if not existing["deployment_run_id"] and field != STARTING_STATE_FIELD:
         reached, refusal = reconcile_admitted_copies(
             conn, source_requirement_id=int(req_id), field=field, value=value

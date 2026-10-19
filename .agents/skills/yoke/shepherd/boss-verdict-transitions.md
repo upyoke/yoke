@@ -48,3 +48,8 @@ Browser/command/machine methods come from attached plans or explicit method-back
 requirements; never infer/duplicate them here. Inspect each write/readback;
 a failed seed stops with named requirement/recovery, never swallowed green.
 Next: [finalize.md](finalize.md).
+
+Manual acceptance-criteria review credits verification rows at their pinned item QA gate.
+A methodless blocking post_deploy requirement has no such item-review credit
+path: attach the executable plan case that proves it, or author a registered
+method case. `requirement_proof_required` names the criterion and recovery.
