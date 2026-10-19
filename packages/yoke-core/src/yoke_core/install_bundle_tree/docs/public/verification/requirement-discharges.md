@@ -94,6 +94,16 @@ For a plan copy the source is the member's own plan row: the notice says to
 correct the plan case, then run the named `yoke qa plan rematerialize`, which
 supersedes that row by the corrected case's row.
 
+A live execution keeps the roster it froze. When its owning session runs the
+plan again after a supersession, replacement or new requirement changed that
+roster, an execution that has run no case is aborted with
+`qa-roster-changed-before-start` and a fresh one starts on the current
+requirements. One that already ran cases refuses `qa_roster_changed` with the
+exact `yoke qa plan abort --execution-id ID --item PREFIX-N --reason TEXT`
+(or `--deployment-run-id RUN`); abort it, then run the plan again. Before each
+case the runner's check-in refuses `qa_case_superseded` for a case that no
+longer owes an attempt, with the same abort command, so a superseded case never
+runs.
 
 All blocking cases discharged → subject reports discharged, accepted for gating
 but distinct from accepted passing proof. A carried cross-project member owes
