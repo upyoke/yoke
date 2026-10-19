@@ -1,9 +1,9 @@
-"""An item-QA stage closes each accepted member as the walk accepts it.
+"""An item-QA stage wakes every waiting member before any close-out.
 
-Deferring every close-out until the whole member walk ended left accepted
-members at release wait for the full pass, then closed them one after
-another. Each accepted member now commits its stage result and runs its
-close-out before the walk reads the next member.
+A close-out (GitHub sync, branch deletion, worktree prune) can take minutes.
+Closing each accepted member inline held every later member's wake behind
+it. The walk now gates and wakes every member, committing each accepted
+member's stage result, then closes the accepted members in the same pass.
 """
 
 from __future__ import annotations
@@ -42,6 +42,7 @@ class _Conn:
 
     def __init__(self) -> None:
         self.commits = 0
+        self.rollbacks = 0
 
     def execute(self, sql: str, params: tuple = ()) -> _Rows:
         if "JOIN projects" in sql:
@@ -61,7 +62,7 @@ class _Conn:
         self.commits += 1
 
     def rollback(self) -> None:
-        pass
+        self.rollbacks += 1
 
 
 def _status(conn, *, run_id, stage_name, member_item_id, notify_acceptance=True):
@@ -75,7 +76,7 @@ def _status(conn, *, run_id, stage_name, member_item_id, notify_acceptance=True)
     }
 
 
-def test_an_accepted_member_closes_before_the_walk_moves_on() -> None:
+def test_every_waiting_member_wakes_before_an_accepted_member_closes() -> None:
     events: list[tuple[str, int]] = []
     conn = _Conn()
     with (
@@ -104,8 +105,8 @@ def test_an_accepted_member_closes_before_the_walk_moves_on() -> None:
     )
     assert f"member {member_ref}" in message
     assert f"member {WAITING_MEMBER}" not in message
-    # The settled member sorts first and closes before the next is walked.
-    assert events == [("close", SETTLED_MEMBER), ("wake", WAITING_MEMBER)]
+    # The settled member sorts first, yet the later member's wake goes first.
+    assert events == [("wake", WAITING_MEMBER), ("close", SETTLED_MEMBER)]
     assert conn.commits >= 2
 
 
@@ -116,6 +117,7 @@ def test_a_later_member_error_still_closes_members_accepted_before_it() -> None:
         return _status(conn, member_item_id=member_item_id, **kw)
 
     closed: list[int] = []
+    conn = _Conn()
     with (
         patch.object(gate, "deployment_qa_stage_status", side_effect=failing),
         patch.object(dispatch, "removed_item_ids", return_value=set()),
@@ -127,11 +129,13 @@ def test_a_later_member_error_still_closes_members_accepted_before_it() -> None:
         ),
     ):
         code, message = dispatch.materialize_and_gate_deployment_qa_stage(
-            _Conn(), STAGE, run_id=RUN_ID
+            conn, STAGE, run_id=RUN_ID
         )
 
     assert (code, message) == (1, "pinned plan is invalid")
     assert closed == [SETTLED_MEMBER]
+    # The failed member's uncommitted work is discarded before close-out commits.
+    assert conn.rollbacks == 1
 
 
 def test_the_gate_leaves_acceptance_to_a_caller_that_defers_it() -> None:
