@@ -1,3 +1,4 @@
+import { addProjectCue } from "./add_project_cue.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import {
   callFunction,
@@ -77,6 +78,7 @@ export function renderProjectsView(context, main, includeRetired = false) {
             : "not started",
         },
       ], "no projects yet");
+      body.appendChild(addProjectCue(documentNode));
     },
   );
 }

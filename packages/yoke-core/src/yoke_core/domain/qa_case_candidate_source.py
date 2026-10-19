@@ -63,8 +63,13 @@ def candidate_source(
         yield None
         return
     root = root.resolve()
+    # Each runner reads its own declaration; an enclosing case cannot supply it.
+    from yoke_core.tools.source_postgres_environment import shared_postgres_environment
+
+    incoming = shared_postgres_environment(env)
+    incoming.pop(source_python_environment.QA_SOURCE_ENVIRONMENT_ENV, None)
     try:
-        environment = source_python_environment.resolve(root, env)
+        environment = source_python_environment.resolve(root, incoming)
     except source_python_environment.SourceEnvironmentRefusal as exc:
         reason = f"QA-CANDIDATE-ENVIRONMENT REFUSAL: {exc}"
         yield CandidateSource(root, dict(env), {"refusal": reason}, reason)
@@ -79,6 +84,10 @@ def candidate_source(
         )
         launcher.chmod(0o755)
         bound = source.with_source_pythonpath(environment.env, root)
+        bound[source_python_environment.QA_SOURCE_ENVIRONMENT_ENV] = json.dumps(
+            {"root": str(root), "declaration": environment.evidence["declaration"]},
+            sort_keys=True,
+        )
         bound["PATH"] = directory + os.pathsep + bound["PATH"]
         binding = CandidateSource(
             root,

@@ -28,9 +28,13 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 __all__ = [
-    "packets_render", "packets_check", "packets_budget_get",
+    "packets_render",
+    "packets_check",
+    "packets_budget_get",
     "packets_startup_delivery_get",
-    "PACKETS_RENDER_USAGE", "PACKETS_CHECK_USAGE", "PACKETS_BUDGET_GET_USAGE",
+    "PACKETS_RENDER_USAGE",
+    "PACKETS_CHECK_USAGE",
+    "PACKETS_BUDGET_GET_USAGE",
     "PACKETS_STARTUP_DELIVERY_GET_USAGE",
 ]
 
@@ -49,14 +53,25 @@ def packets_render(args: List[str]) -> int:
     is what a compact block's closing pointer sends an agent here for.
     """
     parser = argparse.ArgumentParser(
-        prog="yoke packets render", description=PACKETS_RENDER_USAGE,
+        prog="yoke packets render",
+        description=PACKETS_RENDER_USAGE,
     )
-    parser.add_argument("--role", required=True,
-                        help="Packet role (e.g. 'main_agent', 'engineer_agent').")
-    parser.add_argument("--topic", default=None,
-                        help="Render one topic of that role instead of all of them.")
-    parser.add_argument("--detail", default=None,
-                        help="compact (default) or full; full adds the notes.")
+    parser.add_argument(
+        "--role",
+        required=True,
+        help="Packet role (e.g. 'main_agent', 'engineer_agent').",
+    )
+    parser.add_argument(
+        "--topic",
+        default=None,
+        help=(
+            "Render one topic of that role instead of all of them. "
+            "Valid topics: core, claims, auth, qa, project, packs."
+        ),
+    )
+    parser.add_argument(
+        "--detail", default=None, help="compact (default) or full; full adds the notes."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PACKETS_RENDER_USAGE)
@@ -100,10 +115,15 @@ def packets_check(args: List[str]) -> int:
     rule that does not reach the model is not in force.
     """
     parser = argparse.ArgumentParser(
-        prog="yoke packets check", description=PACKETS_CHECK_USAGE,
+        prog="yoke packets check",
+        description=PACKETS_CHECK_USAGE,
     )
-    parser.add_argument("--target-root", dest="target_root", default=None,
-                        help="Checkout to measure; defaults to this one.")
+    parser.add_argument(
+        "--target-root",
+        dest="target_root",
+        default=None,
+        help="Checkout to measure; defaults to this one.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PACKETS_CHECK_USAGE)
@@ -123,9 +143,7 @@ def packets_check(args: List[str]) -> int:
     )
 
 
-PACKETS_BUDGET_GET_USAGE = (
-    "yoke packets budget get [--session-id S] [--json]"
-)
+PACKETS_BUDGET_GET_USAGE = "yoke packets budget get [--session-id S] [--json]"
 
 
 def _packet_budget_writer(response, stdout, _stderr) -> None:
@@ -174,7 +192,8 @@ def packets_budget_get(args: List[str]) -> int:
     seed edit needs to see.
     """
     parser = argparse.ArgumentParser(
-        prog="yoke packets budget get", description=PACKETS_BUDGET_GET_USAGE,
+        prog="yoke packets budget get",
+        description=PACKETS_BUDGET_GET_USAGE,
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -193,8 +212,7 @@ def packets_budget_get(args: List[str]) -> int:
 
 
 PACKETS_STARTUP_DELIVERY_GET_USAGE = (
-    "yoke packets startup-delivery get [--target-root PATH] [--session-id S] "
-    "[--json]"
+    "yoke packets startup-delivery get [--target-root PATH] [--session-id S] [--json]"
 )
 
 
@@ -231,13 +249,15 @@ def packets_startup_delivery_get(args: List[str]) -> int:
         prog="yoke packets startup-delivery get",
         description=PACKETS_STARTUP_DELIVERY_GET_USAGE,
     )
-    parser.add_argument("--target-root", dest="target_root", default=None,
-                        help="Checkout to measure; defaults to this one.")
+    parser.add_argument(
+        "--target-root",
+        dest="target_root",
+        default=None,
+        help="Checkout to measure; defaults to this one.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
-    parsed = parse_or_usage_error(
-        parser, args, PACKETS_STARTUP_DELIVERY_GET_USAGE
-    )
+    parsed = parse_or_usage_error(parser, args, PACKETS_STARTUP_DELIVERY_GET_USAGE)
     if parsed is None:
         return 2
     payload: Dict[str, Any] = {}

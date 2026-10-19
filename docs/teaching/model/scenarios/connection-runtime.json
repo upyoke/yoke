@@ -6,5 +6,6 @@
  "coverage": "catalogued",
  "current": "Research trace; requirements and source paths need live proof.",
  "questions": ["Verify core build/start/upgrade audience rather than inferring it from a command namespace.", "Trace self-host sign-in, service upgrade/teardown and auth removal without treating them as everyday first-use steps."],
- "related_scenarios": ["universe-choice", "machine-access", "updates"]
+ "related_scenarios": ["universe-choice", "machine-access", "updates"],
+ "sources": ["docs/public/cli/https-connection-diagnostics.md", "docs/public/sessions/linux-relay.md"]
 }

@@ -250,7 +250,7 @@ def _expire_at_deadline(
         closure_reason=closure_reason,
         relay_id=launch.assigned_relay_id,
         machine_id=launch.assigned_machine_id,
-        started_at=launch.awaiting_registration_at or launch.launching_at,
+        started_at=launch.launching_at,
         now=now,
     )
     if unacknowledged:

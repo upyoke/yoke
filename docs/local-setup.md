@@ -1,9 +1,8 @@
 # Local Setup
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
+File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
 Yoke has two local setup lanes:
@@ -94,7 +93,7 @@ The repo connection is optional per project: set
 `github_sync_mode=disabled` on a project row and its backlog stays
 DB-only — every issue-sync surface skips it and no GitHub App token is resolved.
 Full semantics, the flip commands, and the safe ordering for changing a
-project's `github_repo` live in [github-sync.md](../.yoke/docs/reference/github-sync.md).
+project's `github_repo` live in [github-sync.md](../.yoke/docs/github/sync.md).
 
 Manage the embedded server directly when needed (after a restart, served commands, export and fleet rehearsal start an initialized server themselves):
 

@@ -4,7 +4,7 @@
  "status": "observed",
  "commands": ["yoke deployment-runs timings"],
  "functions": ["deployment_runs.timings", "deployment_runs.timings.record"],
- "sources": ["docs/public/reference/deployment-start.md", "docs/public/reference/db-reference/deployment-run-records.md"],
+ "sources": ["docs/public/deployments/start-diagnostics.md", "docs/public/deployments/model/stage-receipts.md"],
  "page": "observability",
  "position": 5
 }

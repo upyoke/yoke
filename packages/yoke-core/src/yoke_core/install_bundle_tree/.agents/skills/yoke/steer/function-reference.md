@@ -1,7 +1,7 @@
 # Steer — registered operation lookup
 
 Read selected command help for exact envelope/limits; strategy write depth is
-.yoke/docs/reference/db-reference/functions-project-configuration.md. This is
+.yoke/docs/functions/project-configuration.md. This is
 lookup, not a phase. No feed. All launches go through Yoke; --machine takes
 registered name/id, machine_unresolved is not absent relay.
 

@@ -50,6 +50,7 @@ from yoke_core.engines.git_worktree_registry import (
 )
 from yoke_core.engines.lane_residue_declared_paths import declared_disposable_roots
 from yoke_core.engines.merge_worktree_cleanliness import clear_lane_residue
+from yoke_core.engines.merge_landed_lane_cleanup import release_lane_row
 from yoke_core.engines.remote_branch_cleanup import (
     delete_remote_branch_if_merged,
     unmerged_remote_note,
@@ -173,10 +174,8 @@ def prune_managed_worktrees(
     Unreachable DB authority skips pruning; incomplete remote cleanup keeps
     the local retry lane. Every kept lane is named with its reason.
 
-    A lane whose directory is already gone is swept, not refused: the sweep
-    still walks the whole registry, and the reclaimable lanes behind the
-    absent one are still reclaimed. Its branch rejoins the branch pass
-    below, so an unlanded branch is still no one's to delete.
+    Absent directories retire their rows too; their branches retain the
+    independent landing proof in the branch pass.
     """
     git = run_git or _runtime_git()
     say = emit or _runtime_emit()
@@ -234,6 +233,13 @@ def prune_managed_worktrees(
             else:
                 removed.append(str(entry.path))
             continue
+        if not (item_ref := verdict.get("item_ref")):
+            keep(
+                entry.path,
+                "prune_owner_identity_unavailable: update the serving "
+                "control plane to return item_ref, then retry the sweep",
+            )
+            continue
         if entry.lock_reason is not None:
             keep(
                 entry.path,
@@ -241,13 +247,9 @@ def prune_managed_worktrees(
             )
             continue
         if not entry.path.is_dir():
-            # An absent lane directory is the state this sweep is trying to
-            # reach, so it counts as swept. Reading it as a refusal aborted
-            # the whole sweep on the first stale registration git still
-            # listed, leaving every other reclaimable lane behind and
-            # repeating the same warning on the next landing.
             say(f"Pruned registration for an absent worktree: {entry.path}")
             git(["worktree", "prune"], cwd=repo_root, capture=True)
+            release_lane_row(item_ref, entry.branch, emit=say)
             removed.append(str(entry.path))
             checked_out.discard(entry.branch)
             continue
@@ -278,6 +280,7 @@ def prune_managed_worktrees(
         if not removal.removed:
             keep(entry.path, f"removal refused: {removal.reason}")
             continue
+        release_lane_row(item_ref, entry.branch, emit=say)
         say(f"Pruned terminal merged worktree: {entry.path}")
         if removal.reason:
             say(f"WARNING: {removal.reason}", err=True)

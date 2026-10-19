@@ -46,8 +46,8 @@ project checkout before relaying activation, including HTTPS. Register a
 missing mapping with `yoke project register <checkout> --project-id <id>`
 and retry from that machine.
 
-Exit0 means completed/no claims; exit1 means unresolved checkout/head or
-incomplete activation and preserves named outcomes/recovery; exit2 is usage.
+Exit code 0 means completed/no claims; exit code 1 means unresolved checkout/head or
+incomplete activation and preserves named outcomes/recovery; exit code 2 is usage.
 Resolve the actual refusal before retry.
 
 Read its `--help` for session overrides and result shape. Never inline a
@@ -55,7 +55,7 @@ service-client activation or raw SQL mutation.
 
 A refusal stops before lane creation/status mutation. Follow the actual
 dependency direction and attested overlap remediation in the
-[claim rules](../../../../.yoke/docs/reference/agent-rules/lanes-and-claims.md);
+[claim rules](../../../../.yoke/docs/agents/rules/lanes-and-claims.md);
 a coordination-only edge differs from a directional activation dependency.
 When the refusal is an independent path overlap, this session holds the work
 claim: read both specs, run `yoke claims path coordination-decision-build`,

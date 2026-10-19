@@ -3,7 +3,7 @@
  "title": "Delivery execution and evidence",
  "status": "draft-copy",
  "audience": "Maintainers",
- "sources": ["docs/state-management/delivery-internals.md", "docs/public/reference/db-reference/deployment-run-records.md"],
+ "sources": ["docs/state-management/delivery-internals.md", "docs/public/deployments/model/runs.md"],
  "page": "runtime-evidence",
  "position": 5
 }

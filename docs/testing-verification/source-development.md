@@ -38,6 +38,18 @@ the declaration lookup, so disposable checkouts need no machine checkout
 mapping or manual ambient project export. Select it with `--project P` on
 the QA command; an absent selection and mapping still produce a named refusal.
 
+Inside a candidate-bound Command case, use `yoke watch pytest -- <test paths>`
+even when the case deliberately empties `HOME` and `YOKE_MACHINE_HOME`. The
+runner passes its verified declaration in `YOKE_QA_SOURCE_ENVIRONMENT`, bound
+to the `YOKE_QA_CANDIDATE_TREE` root, and records that same declaration with
+its environment evidence. Watchers reuse it without a control-plane read;
+lock, Python and package-origin checks still run. Preserve both variables
+when isolating the home, along with the runner-provided
+`YOKE_PG_CLUSTER_ROOT` and `YOKE_PG_BIN_DIR` test-resource paths. A malformed or mismatched handoff refuses with
+`SOURCE-ENVIRONMENT-QA-DECLARATION`; rerun the candidate-bound QA case to
+regenerate it. Outside candidate QA, source checks still require the connected
+declaration and refuse with `SOURCE-ENVIRONMENT-DECLARATION` when unreadable.
+
 Before any source import probe or child starts, `dev run` creates a private,
 disposable machine-home snapshot. It copies machine settings, secrets, and referenced
 files under that home, rebases machine-home paths, and supplies private default
@@ -45,7 +57,11 @@ cache and temp paths. It does not clone caches, runtimes or live relay state.
 Source config writes affect only the snapshot, which is removed after the
 command finishes or refuses. Watcher captures use the printed separate
 `source evidence root` through `YOKE_SCRATCH_ROOT`, so proof survives snapshot
-cleanup; empty evidence roots are removed. The caller's connected-environment selection
+cleanup; empty evidence roots are removed. Test clusters inside that evidence
+root are stopped and destroyed on exit or interrupt. The shared cluster and
+pinned embedded binaries retain their original paths through
+`YOKE_PG_CLUSTER_ROOT` and `YOKE_PG_BIN_DIR`; see
+[cluster cleanup](concurrent-local-runs.md#disposable-homes-and-orphan-clusters). The caller's connected-environment selection
 and project mappings remain available; isolation does not change which
 control plane or database the command uses. Put an explicit selection on
 the outer command so the lane-sourced child inherits it:

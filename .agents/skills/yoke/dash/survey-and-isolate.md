@@ -119,7 +119,10 @@ needs a linked companion and the scope decision in escalation.
 
 ## Activate or resume
 
-Read workflows.item.get and its exact workflows.version.get.
+Read `yoke workflows item get ITEM --json`, then
+`yoke workflows version get WORKFLOW VERSION --json`.
+WORKFLOW is result.workflow_id. VERSION is result.workflow_version,
+the version number, not workflow_version_id.
 LIVE_STAGE comes from status; NEXT_STAGE is the unique declared forward edge
 from it, using stage order to separate rework. Confirm the live half-open Dash
 binding. Missing/ambiguous edge refuses workflow_next_stage_ambiguous; ask the

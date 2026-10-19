@@ -51,3 +51,17 @@ def case_positions(
 
 
 __all__ = ["case_positions"]
+
+
+def normalized_result(
+    case: dict[str, Any],
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "plan_id": (int(case["plan_id"]) if case.get("plan_id") is not None else None),
+        "case_key": str(case["case_key"]),
+        "case_position": int(case["case_position"]),
+        "baseline_position": int(case["baseline_position"]),
+        "host_baseline": case.get("host_baseline"),
+        **result,
+    }

@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke projects capability-settings get --project P --cap-type migration_model --json", "yoke migration rehearse --help"],
  "plan_notes": ["JOURNEYS slimming onboard", "outside both"],
- "sources": [".agents/skills/yoke/onboard/governed-database.md", "docs/public/reference/db-reference/migration-model-capabilities.md"],
+ "sources": [".agents/skills/yoke/onboard/governed-database.md", "docs/public/databases/migration-model.md", "docs/public/databases/migration-model-pairing.md"],
  "position": 2
 }

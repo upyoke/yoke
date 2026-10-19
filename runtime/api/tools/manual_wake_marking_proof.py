@@ -34,7 +34,7 @@ def call(*args):
 def fail(code, detail):
     sys.exit(
         f"{code}: {detail}. Mark it with the steps in "
-        "docs/public/reference/qa-platform/standalone-plans.md#cases-that-wait-for-real-traffic "
+        "docs/public/verification/standalone-plans.md#cases-that-wait-for-real-traffic "
         "and rerun this case."
     )
 

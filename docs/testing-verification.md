@@ -57,10 +57,10 @@ clean JSON authoring document in `$VISUAL`, `$EDITOR`, or `vi` and compare-and-s
 metadata plus the complete ordered case set. The document carries every case
 field, including `target_envs` and `stage_reason` (required when a case targets
 an environment without `role.production: true`; see
-[case environment obligations](public/reference/qa-platform/standalone-plans.md#case-environment-obligations)),
+[case environment obligations](public/verification/standalone-plans.md#case-environment-obligations)),
 and `wake_path`/`wake_evidence` (`manual` for a case whose owner checks real-traffic
 evidence before running it; see
-[cases that wait for real traffic](public/reference/qa-platform/standalone-plans.md#cases-that-wait-for-real-traffic)).
+[cases that wait for real traffic](public/verification/standalone-plans.md#cases-that-wait-for-real-traffic)).
 Invalid JSON, an editor failure, a concurrent
 edit, or a save that would reset a stored case field the document left out
 (`qa_plan_edit_unedited_field_changed`) preserves the temporary document and
@@ -72,7 +72,7 @@ that already hold a numeric plan id and intentionally replace cases only.
 Retire a plan nothing depends on any more with
 `yoke qa plan retire <slug> --reason "<why>"` from a session holding a steering
 seat on the plan's project; see
-[retire a plan](public/reference/qa-platform/standalone-plans.md#retire-a-plan).
+[retire a plan](public/verification/standalone-plans.md#retire-a-plan).
 
 Attach a reusable plan as a project default for one workflow transition:
 
@@ -220,51 +220,37 @@ Schema-callable reuse and per-test setup are covered in
 
 ## Which tree a run verified
 
-A green says nothing until the tree it came from is named. A pytest run
-rooted outside the calling session's claim-bound worktree is refused,
-because it reports a pass for code nobody changed. The refusal names the
-claimed worktree and the tree the run would have used. A session with no
-claimed lane (inline skill work, main-checkout source-dev) passes through
-untouched.
+A green must name its tree. Pytest refuses a run rooted outside the calling
+session's claim-bound worktree, names both trees, and exits 3 before collection
+or cluster startup. Sessions without a claimed lane (inline skill work or
+main-checkout source-dev) pass through unchanged.
 
-The check lives at the pytest startup layer, in the repo root
-`conftest.py`, so the shape of the invocation does not matter: the
-watcher wrapper, `run_tests`, the `worktree_run` QA case runner, a bare
-`python3 -m pytest`, and an IDE run button all inherit it. The three
-entry points above still judge the tree first, so their refusal arrives
-before pytest starts at all; each hands the child process a marker so the
-startup check costs no second lookup, and the xdist workers inherit that
-same answer. A refused run stops before collection — one line on stderr,
-exit status 3, nothing collected and no cluster started.
+The repo-root `conftest.py` startup check covers the watcher, `run_tests`,
+`worktree_run` QA runner, bare `python3 -m pytest`, and IDE runs. The first
+three also judge the tree before pytest starts and mark the child process to
+avoid a second lookup; xdist workers inherit that answer.
 
 ```bash
 yoke watch pytest --allow-tree-mismatch --impacted main --bounded
 python3 -m pytest --allow-tree-mismatch runtime/api/domain
 ```
 
-`--allow-tree-mismatch` is the deliberate cross-tree run, accepted by the
-wrapper, by pytest itself, and by `yoke qa case run` / `yoke qa plan run`,
-which run the gate through the same guard: it proceeds and prints one line
-naming both trees, so the result stays attributable. The flag every refusal
-advertises is real on every surface that can raise the refusal.
+`--allow-tree-mismatch` deliberately permits a cross-tree run and prints both
+trees. Every surface advertising the flag accepts it: the wrapper, pytest,
+`yoke qa case run`, and `yoke qa plan run` use the same guard.
 
-A claimed lane whose directory no longer exists gets its own refusal. A
-merge retires the lane row in the same act that removes its directory
-(`item_worktrees.release_merged_lane`), so this state means the row was
-stranded rather than retired; telling that reader to `cd` into the recorded
-path would name a directory that is gone. The refusal instead names the two
-recoveries that work — re-materialize the lane with
-`yoke direct-workflow worktree prepare <item> --workflow <workflow>`, or
-pass `--allow-tree-mismatch` to verify the tree as it stands.
+A missing claimed-lane directory gets a separate refusal. A merge normally
+retires the lane row while removing its directory
+(`item_worktrees.release_merged_lane`); a remaining row is stranded. Recovery
+names working actions instead of suggesting `cd` into a missing path:
+re-materialize with `yoke direct-workflow worktree prepare <item> --workflow
+<workflow>`, or verify the existing tree with `--allow-tree-mismatch`.
 
-Records carry the same fact. A QA run's `raw_result` and a Dash execution
-evidence section both hold a `verification_tree` of worktree root plus
-HEAD sha, so a green produced against the wrong tree cannot be recorded
-indistinguishably from one produced against the right tree. The client
-resolves that identity — only the machine holding the checkout can — and
-`yoke direct-workflow dash evidence` accepts `--tree-root` /
-`--tree-head-sha` when evidence is recorded from somewhere other than the
-tree that was verified.
+A QA run's `raw_result` and a Dash execution evidence section record the same
+`verification_tree`: worktree root and HEAD sha. The client resolves that
+identity because only the checkout's machine can. To record evidence elsewhere,
+`yoke direct-workflow dash evidence` accepts `--tree-root` and `--tree-head-sha`;
+a pass from another tree cannot become indistinguishable from this candidate.
 
 ## Full-suite authority: CI
 

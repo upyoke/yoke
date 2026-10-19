@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.machine_qa_lease_messages import (
+    conflicting_lease,
+    held_host,
+    invalid_lease,
+)
+
 import hmac
 from typing import Any, Sequence
 
@@ -32,9 +38,7 @@ from yoke_core.domain.machine_qa_execution_contract import (
     HostControlOperation,
     issue_execution_contract,
 )
-from yoke_core.domain.machine_qa_capability import (
-    host_claim_key,
-)
+from yoke_core.domain.machine_qa_capability import host_claim_key
 from yoke_core.domain.host_control_submission_receipt import (
     host_control_submission_receipt,
     host_control_submission_receipt_matches,
@@ -57,7 +61,7 @@ class MachineQaProtocolLeaseHeld(MachineQaProtocolError):
         machine: str,
         contention: ClaimContention | None = None,
     ) -> None:
-        super().__init__(f"test machine {machine!r} is in use by another execution")
+        super().__init__(held_host(lease, machine))
         self.lease = lease
         self.machine = machine
         self.contention = contention
@@ -120,8 +124,7 @@ def _issue(
 ) -> HostControlExecutionContract:
     settings = dict(machine.settings)
     if operation == "golden_capture":
-        # Capture's output updates these pointers while a mission still owns
-        # the lease. They are not inputs to capture and must not spoil retries.
+        # Capture changes this output pointer; excluding it keeps retries stable.
         from yoke_core.domain.machine_qa_golden_destination import (
             GOLDEN_BASELINE_PATH_KEY,
         )
@@ -169,6 +172,7 @@ def begin_host_control_execution(
     machine: str | None = None,
     select_any: bool = True,
     healthy_only: bool = False,
+    host_cases: Sequence[dict[str, Any]] | None = None,
 ) -> HostControlExecutionContract:
     """Validate settings and acquire the serial host claim."""
     if not str(session_id or "").strip():
@@ -188,6 +192,7 @@ def begin_host_control_execution(
             machine=machine,
             select_any=select_any,
             healthy_only=healthy_only,
+            cases=tuple(host_cases if host_cases is not None else cases),
         )
     except CoordinationClaimStaleHolderError as exc:
         raise MachineQaProtocolError(str(exc)) from None
@@ -230,11 +235,13 @@ def _validate_lease_owner(
         lease = _lock_submission_claim(conn, int(lease_id))
     except CoordinationClaimNotFoundError as exc:
         raise MachineQaProtocolError(
-            f"host-control lease {lease_id} was not issued"
+            invalid_lease(lease_id, "no lease was issued with that id")
         ) from exc
     machine_id = lease.target.machine_id
     if machine_id is None:
-        raise MachineQaProtocolError("host-control lease does not name a machine")
+        raise MachineQaProtocolError(
+            invalid_lease(lease_id, "it does not name a machine")
+        )
     machine = load_test_machine_contract(
         conn,
         project=project,
@@ -243,19 +250,23 @@ def _validate_lease_owner(
     resource_name = machine.settings["resource_name"]
     if lease.is_active and lease.key != host_claim_key(resource_name):
         raise MachineQaProtocolError(
-            "host-control lease does not match the submitted target"
+            conflicting_lease(
+                lease, resource_name, "the lease names a different target"
+            )
         )
     if lease.session_id != str(session_id or ""):
         raise MachineQaProtocolError(
-            "host-control lease belongs to a different session"
+            conflicting_lease(lease, resource_name, "a different session owns it")
         )
     expected_actor = str(lease.actor_id) if lease.actor_id is not None else None
     submitted_actor = str(actor_id) if actor_id is not None else None
     if expected_actor != submitted_actor:
-        raise MachineQaProtocolError("host-control lease belongs to a different actor")
+        raise MachineQaProtocolError(
+            conflicting_lease(lease, resource_name, "a different actor owns it")
+        )
     if not lease.is_active and not allow_released:
         raise MachineQaProtocolError(
-            f"host-control lease {lease.id} is no longer active"
+            conflicting_lease(lease, resource_name, "the lease is no longer active")
         )
     return lease, machine
 

@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+import pytest
+
 
 from runtime.api.domain.github_actions_job_log_samples import (
     FIRST_ASSERTION,
@@ -175,3 +177,27 @@ class TestBuildFailedJobReport:
         report = _report([_failed("build", "\n\n")])
 
         assert "(this job's log is empty)" in report.output
+
+
+@pytest.mark.parametrize(
+    "conclusion", ["success", "cancelled", "", "ci_job_not_started", "failure"]
+)
+def test_zero_failed_jobs_report_uses_run_conclusion(conclusion):
+    report = build_failed_job_report(
+        RunFailures(conclusion=conclusion),
+        repo="o/r",
+        run_id="123",
+        max_lines=200,
+    )
+    assert report.failed_job_count == 0
+    if conclusion == "success":
+        assert "run concluded success; no failed jobs" in report.output
+        assert "no verdict" not in report.output
+        assert "Re-dispatch" not in report.output
+    elif conclusion == "failure":
+        assert "concluded failure" in report.output
+        assert "no verdict" not in report.output
+        assert "annotations" in report.output
+    else:
+        assert "no verdict" in report.output
+        assert "Re-dispatch" in report.output

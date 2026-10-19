@@ -1,0 +1,9 @@
+{
+ "id": "current-ci-covers-earlier-candidates",
+ "title": "Rebase with earlier passing CI requirements",
+ "status": "observed",
+ "audience": "both",
+ "when": "An item rebases after one or more CI requirements passed on earlier candidates.",
+ "need": "Run the current command-ci case. Its newer passing requirement and run cover older passes only within the same item, transition and verification phase, and only for stale commit identity. History stays readable; missing proof, other failures and other methods still refuse.",
+ "sources": ["docs/public/verification/success-policy.md", "packages/yoke-core/src/yoke_core/domain/qa_ci_candidate_coverage.py", "runtime/api/domain/test_qa_ci_candidate_coverage.py"]
+}

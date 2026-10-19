@@ -64,8 +64,8 @@ yoke dev run -- python3 docs/teaching/tools/convert_model.py
 
 The converter removes consumed arrays, preserves ids and content, and can be
 rerun safely. An upstream array is authoritative for its converted records;
-existing record files without an array source stay untouched. Rebuild and
-check afterwards.
+existing record files without an array source retain their data and receive
+canonical formatting. Rebuild and check afterwards.
 
 Commands, functions and skills are never copied here. Concept records name
 them, and the check resolves every name against the live registries. The
@@ -137,10 +137,10 @@ Fix the named records, rebuild, then run `--check`:
 | `UNKNOWN_STATUS` | Use one of the seven statuses above |
 | `DUPLICATE_ID`, `DANGLING_PARENT` | Make ids unique; add the missing parent record |
 | `DANGLING_REFERENCE` | Fix each named field's id or add its missing record; remove retired registry names |
-| `DANGLING_SOURCE` | Cite a tracked repository-relative path |
+| `DANGLING_SOURCE` | For an untracked file, stage it with `git add -- <path>`; for a missing file, create and stage it or cite an existing tracked path |
 | `RETIRED_PLAN_MIRROR` | Delete `model/plan/` or the record's `plan_refs`; move any lasting fact into a scenario, surface, boundary or gap |
 | `DANGLING_ANCHOR`, `DANGLING_LINK` | Fix the target id or path, then rebuild |
-| `MODEL_NOT_CANONICAL` | Format the named JSON record to match its peers, then check again |
+| `MODEL_NOT_CANONICAL` | Run `yoke dev run -- python3 docs/teaching/tools/convert_model.py`, then rebuild and check |
 | `MODEL_RECORD_ID` | Store one record with an `id` matching its filename |
 | `LINE_LIMIT` | Shorten the record or separate distinct topics, then rebuild |
 | `PRIVATE_MATERIAL` | Remove the private path or id |

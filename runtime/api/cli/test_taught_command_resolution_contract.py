@@ -58,8 +58,8 @@ def test_every_taught_yoke_recipe_resolves_and_parses() -> None:
                 f"{row.source}:{row.line_number} semantic_unverifiable: {semantic.detail}"
             )
     for relative, count in (
-        ("docs/public/reference/exploratory-qa.md", 3),
-        ("docs/public/reference/qa-platform/deployment-plan-execution.md", 1),
+        ("docs/public/verification/exploration.md", 3),
+        ("docs/public/verification/deployment-plan-execution.md", 1),
     ):
         text = (REPO_ROOT / relative).read_text()
         assert text.count("<!-- qa:test-machine-capability -->") == count
@@ -77,8 +77,8 @@ def test_audit_reads_the_surfaces_that_teach_commands() -> None:
     sources = {row.source for row in audit.surfaces}
     for expected in (
         "AGENTS.md",
-        "docs/public/guides/codex-harness.md",
-        "docs/public/guides/cursor-harness.md",
+        "docs/public/agents/codex.md",
+        "docs/public/agents/cursor.md",
         "runtime/harness/claude/rules/session.md",
     ):
         assert expected in sources, f"{expected} teaches commands but is unread"

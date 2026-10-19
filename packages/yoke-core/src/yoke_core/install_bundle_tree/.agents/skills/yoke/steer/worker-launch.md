@@ -1,7 +1,7 @@
 # Worker launch and settlement
 
 A level_change handoff precedes release wait: use Stage-level handoff in
-.yoke/docs/reference/session-level-routing.md; workers may launch successor.
+.yoke/docs/agents/levels.md; workers may launch successor.
 Read effective level/pin and charge.schedule's rendered `entrypoint`; launch
 mandate uses the same entrypoint mapping. One assigned item/live bound skills,
 never copied workflow chain. Read yoke workflows version get <workflow> <version> --json.
@@ -15,6 +15,13 @@ re-entry nobody could make; the control-plane landing notice is what closes
 that gap for the declared stopped-session path. Follow the selected wait mode.
 
 ## Preview, create, confirm
+
+Before staffing, ensure the worker can reach the operation homes it needs:
+`.yoke/docs/agents/rules/code-and-cli.md` owns portable execution and
+`.yoke/docs/documentation/index.md` owns teaching. Keep private facts scoped;
+the classification and delivery contract is
+`.yoke/docs/projects/execution-instructions.md`. A pointer in the producer's
+source is not evidence that the launched worker received it.
 
 Preview every steering-staffed item or itemless session. Do not create until
 preview returns launchable=true. Only session_control.launch.create: no native
@@ -117,6 +124,8 @@ A merge that lands your item at its pinned release wait is a completed merge tha
 Steering does not gate your landing — it vets your work after it lands and before the item is admitted to a release. If that vetting finds a problem, steering tells you what to correct and asks you to move the item back to implementing — that transition is yours, because `lifecycle.transition` requires the calling session to hold the item's work claim and you are the holder. That is a rework leg on the SAME item, not a new one and not a refusal to argue with: correct it, re-verify, re-land through the same merge command, and re-enter the release wait. Previous evidence covered the revision it was taken on and does not carry over to the corrected one. Escalate instead only when you cannot do the correction, naming what blocks you.
 
 `yoke merge item` refuses with `integration_dependency_blocked` while an integration predecessor has not merged, on the direct and merge-queue routes alike, before it arms, enqueues or merges anything. A dependency gate is not yours to poll or to have steering watch. When an item you depend on merges or reaches done, the control plane sends you one notice naming the blocker, the gate of yours it satisfied, and any gates still unmet. Before a new wait on another item, record its edge: `yoke items dependency add <ITEM> <BLOCKER> <SOURCE> --gate-point integration --satisfaction fact:merged --rationale "needs blocker merged"` (SOURCE is your active skill). For delivery use closure and fact:deployed:<environment>, with the blocker's registered environment. Reuse an existing edge only if it records that actual wait. Only after the edge succeeds, checkpoint and park with the blocker named: `yoke sessions touch --mode parked --reason "awaiting <BLOCKER> <gate>"`. Keep your work claim and lane; do not release or end the session; the notice wakes you as holder. When the notice says no gates remain, resume at the live stage; when it names gates still unmet, re-park. Do not ask steering to message you when a blocker lands. A dependency_cycle refusal names both waits and recovery; resolve the order with steering before parking. Your own item's release wait needs no self-edge. See delivery.md under agent-rules for the recipe.
+
+A blocker at done always satisfies fact:merged regardless of edge age; an unfinished blocker requires a recorded landing strictly after edge creation. Create the edge before the landing you need; for another landing after an already satisfied wait, remove and re-add the edge because updates preserve its creation time.
 
 You are a headless command that cannot be prompted again, so a merge-queue landing is not yours to wait out: it outlasts your turn, and a wait that dies with the turn leaves the branch landed and the item open. Your merge arms the landing and returns landing_pending=true with the pull request named, whether or not you passed --wait. That is the handoff, not a failure. Report the pull request, stop deliberately, and say you are waiting on landing. The control-plane landing notice wakes you: re-run the same `yoke merge item` command then and it completes close-out. A stopped landing arrives the same way and names its recovery (usually rebase, re-run the verification gate, re-run the command); a stale server landing record names its last refresh and repair step. Never replace either with local GitHub polling, and never report a landing you did not read. A separate check uses `yoke github merge-queue readiness PREFIX-N --json`: the named queue-entry state decides whether null arming was consumed or cleared.
 

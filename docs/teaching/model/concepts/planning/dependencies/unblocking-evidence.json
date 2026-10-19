@@ -1,7 +1,9 @@
 {
  "id": "unblocking-evidence",
  "title": "Unblocking evidence",
- "status": "draft-copy",
+ "status": "observed",
+ "current": "A blocker at done always satisfies fact:merged regardless of edge age. For an unfinished blocker, fact:merged requires its recorded merged_at strictly after the edge’s created_at. Earlier landings, branch ancestry and other lifecycle statuses cannot clear an unfinished blocker’s newly declared wait. Create a new edge before a needed re-landing; updates preserve the clock. Each durable edge owns its dependency notice identity.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/dependency_satisfaction.py", "packages/yoke-core/src/yoke_core/domain/dependency_merge_fact.py", "runtime/api/domain/test_dependency_merge_fact.py", "docs/public/items/model/dependencies.md"],
  "page": "planning",
  "position": 4
 }

@@ -4,5 +4,5 @@
  "status": "observed",
  "topics": ["environments/identity/health-endpoint"],
  "current": "Health immediately returns the last snapshot. Before the first completed refresh it reports not ready; failed refreshes retain the answer and name recovery in server logs. CLI reachability retries once before reporting server_unreachable.",
- "sources": ["docs/public/reference/health-readiness.md"]
+ "sources": ["docs/public/verification/health-readiness.md"]
 }

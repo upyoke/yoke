@@ -211,7 +211,11 @@ def landed_without_closeout(
                     item_id in flows and flows[item_id].flow in active_flows
                 ),
                 holder_native_process_gone=bool(holder and holder.native_process_gone),
-                holder_process_phrase=holder.process_phrase() if holder else "",
+                holder_process_phrase=(
+                    holder.message_delivery
+                    if holder and (holder.native_process_gone or holder.resuming)
+                    else ""
+                ),
                 holder_resumable=bool(holder and holder.resumable_from_transcript),
                 delivered_to=delivered_to,
                 owed_elsewhere=tuple((o.requirement_id, o.target) for o in owed),

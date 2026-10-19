@@ -7,7 +7,13 @@ case catalog, flow engine or hidden stages.
 
 ## Placement and suitable item flow
 
-Follow [Where a Browser case runs](../../../../.yoke/docs/reference/browser-scenarios.md#where-a-browser-case-runs):
+Preserve requested evidence and every receiving context in the item. Read
+`.yoke/docs/agents/rules/code-and-cli.md` before declaring coverage; a producer
+check alone does not prove a real consumer or delivered teaching. Use the
+standard at `.yoke/docs/documentation/index.md` for the intake's concise
+action teaching and exact deeper pointers.
+
+Follow [Where a Browser case runs](../../../../.yoke/docs/verification/browser-targets.md#where-a-browser-case-runs):
 visibility determines verification/post_deploy phase, target and declared
 transition; no served surface selects approval_on_done. A screenshot specializes
 a case, not a new flow if existing sequence/verdict already fits.

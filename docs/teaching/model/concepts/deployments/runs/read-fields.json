@@ -1,0 +1,8 @@
+{
+ "id": "read-fields",
+ "title": "Run field selection and bounded summary pages",
+ "status": "observed",
+ "commands": ["yoke deployment-runs get", "yoke deployment-runs list"],
+ "functions": ["deployment_runs.get", "deployment_runs.list"],
+ "page": "deployments"
+}

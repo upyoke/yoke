@@ -21,7 +21,10 @@ Leave clustering, promotion and archiving to `/yoke curate`.
 
 ## 7–8. Authoritative continuity
 
-Hold each relevant work claim while writing its checkpoint. Correct genuinely
+Read each item's live status first. For a terminal item, use its recorded
+completion result and evidence; skip the Progress Log append and do not
+reacquire a claim for a final checkpoint. For unfinished items, hold each
+relevant work claim while writing its checkpoint. Correct genuinely
 changed spec/design/technical/test/deploy content through
 `items.structured_field.replace`, with nonempty/nonshrinking preconditions.
 Use the [typed envelopes](../idea/body-and-sync-functions.md).
@@ -29,7 +32,8 @@ Graph fields `worktree_plan`, `shepherd_log`, `shepherd_caveats` are epic-only
 and must never be written for `generated_children=none`.
 
 Execution continuity belongs in the timestamped Progress Log, rather than a
-plan field or separate report store. Append a current-state checkpoint:
+plan field or separate report store. For each unfinished item, append a
+current-state checkpoint before releasing its claim:
 
 ```sh
 yoke items progress-log append PREFIX-N \

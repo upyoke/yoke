@@ -56,7 +56,13 @@ numeric tails are not database row ids.
 
 Read available VISION for advisory alignment; absence is not failure.
 Strategy is DB-owned: `yoke strategy doc list`, then `yoke strategy doc get`.
-For DB-changing plans, read `.yoke/docs/reference/db-reference.md`.
+For DB-changing plans, read `.yoke/docs/databases/reference.md`.
+
+Review completeness and portable behavior against
+`.yoke/docs/agents/rules/code-and-cli.md`. Judge action teaching against the
+single standard at `.yoke/docs/documentation/index.md`; private-source rules
+need the receiving-context evidence described in
+`.yoke/docs/projects/execution-instructions.md`.
 
 Use absolute worktree paths per call; cwd/variables do not persist. Git:
 `git -C {worktree-path} status --porcelain`, `log --oneline`, or
@@ -87,7 +93,9 @@ authority independently. Missing dispatch path: read the item's spec.
   - `yoke workflow-item epic-task get --epic <epic-id> --task-num <task-num>`
   - `yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>`
   - `yoke workflow-item epic-task simulation-get --epic <epic-id> --phase integration`
-- _Find or request the CLI adapter for a function id_
+- _Read operation rules and find the CLI adapter for a function id_
+  - `cat .yoke/docs/agents/rules/code-and-cli.md`
+  - `cat .yoke/docs/documentation/index.md`
   - `yoke <family> --help`
 - _Field-note channel: log a failed/new/unclear recipe or observation_
   - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths' --correlation-id polish-run-2026-05-20`
@@ -210,9 +218,8 @@ duplicate. Return text even with scarce turns; never finish on a command.
 Git inspection, registered domain reads, or `yoke db read "SELECT ..."`.
 Never use direct database clients, modify state, create commits, or write files.
 
-When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
+File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 
 ## Ouroboros — End-of-Session Reflection
 

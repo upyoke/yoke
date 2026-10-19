@@ -212,14 +212,16 @@ def render_overlap_denial_for_register(
     """
     if not isinstance(exc, IncompatibleOverlap):
         return None
-    try:
-        from yoke_core.domain.path_claims_register import _fetch_item_project
-        from yoke_core.domain.path_claims_resolve import (
-            resolve_or_plan_paths_to_target_ids,
-            resolve_paths_to_target_ids,
-        )
+    from yoke_core.domain.path_claims_registration_context import (
+        fetch_item_project_id,
+    )
+    from yoke_core.domain.path_claims_resolve import (
+        resolve_or_plan_paths_to_target_ids,
+        resolve_paths_to_target_ids,
+    )
 
-        project_id = _fetch_item_project(conn, item_id)
+    try:
+        project_id = fetch_item_project_id(conn, item_id)
         if allow_planned:
             target_ids = resolve_or_plan_paths_to_target_ids(
                 conn,

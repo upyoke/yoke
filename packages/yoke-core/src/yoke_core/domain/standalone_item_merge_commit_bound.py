@@ -10,6 +10,9 @@ recovery path instead of being rebound by the merge.
 
 from __future__ import annotations
 
+import contextlib
+import io
+
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -54,13 +57,39 @@ def rerecord_hand_run(requirement: dict[str, Any], commit_sha: str) -> None:
         or requirement.get("raw_result")
         or "re-recorded against the merging commit"
     )
-    cmd_run_add(
-        requirement_id=int(requirement["id"]),
-        performed_by="agent",
-        verdict="pass",
-        raw_result=evidence,
-        head_sha=commit_sha,
-    )
+    from yoke_core.domain.db_helpers import query_one
+    from yoke_core.domain.epic_review import _epic_connect, review_insert
+
+    # Item detail does not project ownership; read the writer's canonical row.
+    with _epic_connect() as conn:
+        owner = query_one(
+            conn,
+            "SELECT item_id, epic_id, task_num FROM qa_requirements WHERE id = %s",
+            (int(requirement["id"]),),
+        )
+        if owner is None:
+            raise ValueError(f"requirement #{requirement['id']} no longer exists")
+        if (
+            not owner["item_id"]
+            and owner["epic_id"] is not None
+            and owner["task_num"] is not None
+        ):
+            review_insert(
+                conn,
+                str(owner["epic_id"]),
+                int(owner["task_num"]),
+                "PASS",
+                evidence,
+                head_sha=commit_sha,
+            )
+        else:
+            cmd_run_add(
+                requirement_id=int(requirement["id"]),
+                performed_by="agent",
+                verdict="pass",
+                raw_result=evidence,
+                head_sha=commit_sha,
+            )
     _mark_bound(requirement, commit_sha)
 
 
@@ -116,22 +145,42 @@ def recover_issues(
     """Apply recovery. Return an error string, or empty on success."""
     persist = rerecord or rerecord_hand_run
     execute = run_case or rerun_command_case
+    failures = []
+    recovered = []
     for issue in issues:
         requirement = _requirement(item, issue.requirement_id)
         if requirement is None:
-            return f"cannot recover requirement #{issue.requirement_id}: not on item"
+            failures.append(f"requirement #{issue.requirement_id}: not on item")
+            continue
         method_id = str(requirement.get("method_id") or "").strip()
         runner_id = str(requirement.get("runner_id") or "").strip()
+        diagnostic = io.StringIO()
         try:
             if runner_id in COMMAND_RUNNERS:
                 execute(int(requirement["id"]))
                 _mark_bound(requirement, commit_sha)
             elif not method_id and not runner_id:
-                persist(requirement, commit_sha)
+                with contextlib.redirect_stderr(diagnostic):
+                    persist(requirement, commit_sha)
             else:
-                return _runner_authority_refusal(item, requirement, commit_sha)
-        except Exception as exc:
-            return f"commit-bound recovery failed for #{issue.requirement_id}: {exc}"
+                failures.append(
+                    _runner_authority_refusal(item, requirement, commit_sha)
+                )
+                continue
+            recovered.append(str(issue.requirement_id))
+        except (Exception, SystemExit) as exc:
+            reason = diagnostic.getvalue().strip() or str(exc)
+            failures.append(f"requirement #{issue.requirement_id}: {reason}")
+    if failures:
+        public_ref = str(item.get("public_ref") or "<public-ref-unavailable>")
+        return (
+            "commit_bound_recovery_failed: "
+            + "; ".join(failures)
+            + f". Recovered requirement ids: {', '.join(recovered) or 'none'}. "
+            "Repair the named refusals, inspect each failed requirement with "
+            "`yoke qa run list --requirement-id <id>`, then retry "
+            f"`yoke merge item {public_ref}`; successful writes remain recorded."
+        )
     return ""
 
 

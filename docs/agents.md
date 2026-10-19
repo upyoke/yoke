@@ -33,7 +33,8 @@ supported on Claude and Codex; capability truth is the installed release manifes
 
 Shepherd and Conduct run inline as skills, invoking roles; Usher owns delivery
 inline too. They are not agents. The item's immutable workflow pin selects phase,
-gates and bindings: [lifecycle](../.yoke/docs/reference/lifecycle.md). Project
+gates and bindings: [lifecycle](../.yoke/docs/workflows/lifecycle.md) and
+[skill boundaries](../.yoke/docs/workflows/transitions.md). Project
 verification anchors are its `.yoke/test-inventory.md`, never a copied repo layout.
 
 ## Role owners and tool boundaries
@@ -136,7 +137,7 @@ exclusions, broaden for shared/core/schema risk, and never treat equal failure
 totals as regression proof. Unexpected untracked test artifacts are a leak/FAIL.
 The current selection owner does not grant a blanket documentation-only waiver.
 
-Conduct externalizes the complete relevant diff above300 lines to captured file
+Conduct externalizes the complete relevant diff above 300 lines to captured file
 plus `--stat`; at/below300 it inlines the whole diff. Task-start and retry diffs
 stay distinct; Tester reads actual file for detail. Budget reserves reporting
 before exhaustion; use foreground watcher continuation, not a detached atomic

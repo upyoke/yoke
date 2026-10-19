@@ -5,5 +5,5 @@
  "page": "universes",
  "position": 0,
  "summary": "Init preserves the selected connection even when repairing or force-replacing local; it selects local only if none is active or --activate is explicit.",
- "sources": ["docs/public/reference/local-connection-repair.md", "packages/yoke-cli/src/yoke_cli/config/local_universe_setup.py"]
+ "sources": ["docs/public/verification/local-connection-repair.md", "packages/yoke-cli/src/yoke_cli/config/local_universe_setup.py"]
 }

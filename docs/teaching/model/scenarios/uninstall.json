@@ -6,5 +6,6 @@
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
  "questions": ["Verify preservation/cleanup across modified managed files and later-installed harnesses; machine-wide light hooks and the global skill have no removal yet."],
- "related_scenarios": ["portability", "project-lifecycle", "machine-access"]
+ "related_scenarios": ["portability", "project-lifecycle", "machine-access"],
+ "sources": ["docs/public/start/uninstall.md"]
 }

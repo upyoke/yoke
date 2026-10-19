@@ -5,5 +5,6 @@
  "situations": ["Add a teammate or change their authority.", "A member can sign in but cannot act on a project.", "Disable a person or retire a service identity.", "A signed-in member sees a different hosted project count or an unavailable inventory."],
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
- "questions": ["Trace each mode from no account to project access, including who can create project grants.", "Check permission-denied responses for exact role/owner recovery without disclosure beyond authorized scope."]
+ "questions": ["Trace each mode from no account to project access, including who can create project grants.", "Check permission-denied responses for exact role/owner recovery without disclosure beyond authorized scope."],
+ "sources": ["docs/public/projects/actors-members-billing.md", "docs/public/cli/machine-authorization.md"]
 }

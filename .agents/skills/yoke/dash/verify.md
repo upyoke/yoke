@@ -64,7 +64,10 @@ Read plan-run help for continuation/abort; no guessed gate substitute.
 
 ## Resolve and execute the pinned roster
 
-Refresh workflows.item.get and its exact workflows.version.get.
+Refresh with `yoke workflows item get ITEM --json`, then
+`yoke workflows version get WORKFLOW VERSION --json`.
+WORKFLOW is result.workflow_id. VERSION is result.workflow_version,
+the version number, not workflow_version_id.
 Choose LIVE_STAGE from status and NEXT_STAGE from the unique forward edge,
 ordered by stages; confirm the live Dash half-open binding.
 Ambiguous/absent route is workflow_next_stage_ambiguous for its owner.
@@ -76,9 +79,10 @@ gates. Project defaults apply only where the workflow QA policy declares them.
 Dash optional_item_attachment ignores defaults and does not invent a
 definition-owned verification gate; selected premerge item posture enforces
 its explicitly attached review cases. Plan selection records only the choice;
-it attaches nothing. Attach review verification explicitly before materializing:
+it attaches nothing. Select the plan, then attach review verification, before materializing:
 
 ```text
+yoke workflows item-posture amend PREFIX-N --verification-plan ID_OR_SLUG --reason TEXT
 yoke qa item-plan attach --item ITEM --project P --plan-id <id> --transition reviewing-implementation --qa-phase verification
 ```
 
@@ -98,7 +102,7 @@ accepted verdict. Empty optional QA is honest absence, not a guessed
 command or handwritten run. Independent Browser/mission review remains a
 required continuation of the runner's returned bundle; capture is not a pass.
 
-[Browser placement](../../../../.yoke/docs/reference/browser-scenarios.md#where-a-browser-case-runs)
+[Browser placement](../../../../.yoke/docs/verification/browser-targets.md#where-a-browser-case-runs)
 owns phase/target/transition. Release-bound postdeploy proof runs after
 delivery, not here. A premerge target must serve the committed candidate:
 

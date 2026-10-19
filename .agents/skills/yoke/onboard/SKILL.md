@@ -8,9 +8,8 @@ argument-hint: "[--project P] [--run-id RUN]"
 # /yoke onboard
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
+File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
 Take a wired project from its existing work to its first item done: scan
@@ -38,7 +37,7 @@ new session there. Settled choices from that conversation are reused, not re-ask
 Wire-up belongs to `yoke setup`: missing machine/account/GitHub/project binding
 stops with that recovery. The person runs `yoke setup` in a terminal, or this
 session runs `yoke setup --agent` and relays each question
-(`.yoke/docs/guides/agent-setup.md`). Harness connection is detect-only;
+(`.yoke/docs/start/agent-setup.md`). Harness connection is detect-only;
 never install one. The web views and steers; it never invokes.
 No web button runs this skill.
 
@@ -77,5 +76,6 @@ that item's workflow and delivery require nothing more. The checklist's
 Report project/checkout/run, open rows, docs written/kept, what the first work
 needed and what was deferred, Pack versions, redacted capabilities,
 environments/flows or explicit absence, the steering handoff and blockers.
-`setup_readiness.unmet_rows` names required unknown/blocked prerequisites;
-unexamined optional capabilities stay unknown.
+`run.next_action` supplies the next required recipe and its installed deeper
+home; follow it. Optional deferred, not-needed or unknown capabilities never
+force setup. An absent field on an older server supplies no Next line.

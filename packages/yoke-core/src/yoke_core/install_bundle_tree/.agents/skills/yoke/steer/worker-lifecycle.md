@@ -5,7 +5,7 @@ Bind only under the paired seat/doc; workers never acquire/release either half.
 ## Quiet is not absent
 
 Before parking on another item's merge or delivery, record the dependency
-edge and require success; follow [the delivery wait recipe](../../../../.yoke/docs/reference/agent-rules/delivery.md#wait-on-another-items-merge-or-delivery).
+edge and require success; follow [the delivery wait recipe](../../../../.yoke/docs/agents/rules/delivery.md#wait-on-another-items-merge-or-delivery).
 A cycle refusal requires resolving the order before parking. The item's own
 release wait needs no self-edge.
 

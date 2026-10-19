@@ -5,5 +5,5 @@
  "page": "environments",
  "position": 2,
  "note": "Health reads the last background-refreshed readiness answer; startup is not ready until a probe completes. CLI reachability uses two attempts with ten seconds per attempt. Live latency proof remains release-bound.",
- "sources": ["docs/public/reference/health-readiness.md"]
+ "sources": ["docs/public/verification/health-readiness.md"]
 }

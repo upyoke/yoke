@@ -12,12 +12,17 @@ Require a complete public ref. Standalone and routed invocations both advance
 on success through the item's exact pinned refine segment.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
+File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
 ## Boundaries from the first action
+
+Before reviewing scope and interfaces, read
+`.yoke/docs/agents/rules/code-and-cli.md` and the teaching standard at
+`.yoke/docs/documentation/index.md`. Classify portable guidance and private
+policy by `.yoke/docs/projects/execution-instructions.md`; a private instruction
+never proves that an external worker receives the rule.
 
 No worktree, implementation-code edits or commits. Hold the item work claim
 before artifact, File Budget, path-claim or GitHub-body writes. Identity is not
@@ -57,4 +62,4 @@ Blitz activation owns atomic document-claim acquisition.
 
 Start with workflow-context. A `handoff` with `reason=level_change` takes
 precedence over release wait; follow
-`.yoke/docs/reference/session-level-routing.md`. Workers may launch a successor.
+`.yoke/docs/agents/levels.md`. Workers may launch a successor.

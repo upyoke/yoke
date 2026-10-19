@@ -18,7 +18,7 @@ branch. Supported triples:
 
 Postgres needs existing owning Pulumi stack/output coordinates. Other kinds,
 including mysql, are recognized but refused by name: no supported rehearsal runner.
-Read [model capabilities](../../../../.yoke/docs/reference/db-reference/migration-model-capabilities.md)
+Read [model capabilities](../../../../.yoke/docs/databases/migration-model.md)
 for the exact model/location/provisioning/runner schema before writing.
 History directory, connection variable and ledger are project facts, never
 borrowed Yoke defaults.

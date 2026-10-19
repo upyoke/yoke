@@ -24,20 +24,13 @@ from runtime.api.test_dependency_schema import create_dependency_test_db
 from yoke_core.domain.dependencies import (
     GatePoint,
     Satisfaction,
-    evaluate_satisfaction as _evaluate_satisfaction,
     query_frontier_blocks,
     query_unsatisfied_at_gate,
 )
-from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 
 TEST_ITEM_ID = 4242
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
-TEST_WORKFLOW = builtin_workflow_runtime("issue")
-
-
-def evaluate_satisfaction(*args, **kwargs):
-    return _evaluate_satisfaction(*args, workflow=TEST_WORKFLOW, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -73,13 +66,19 @@ def _stored_item_id(value):
     return value if isinstance(value, int) else int(str(value).rsplit("-", 1)[-1])
 
 
-def _insert_dep(conn, dependent, blocking,
-                gate_point="activation", satisfaction="status:done"):
+def _insert_dep(
+    conn, dependent, blocking, gate_point="activation", satisfaction="status:done"
+):
     conn.execute(
         "INSERT INTO item_dependencies "
         "(dependent_item_id, blocking_item_id, gate_point, satisfaction, source, created_at) "
         "VALUES (%s, %s, %s, %s, 'test', '2026-01-01T00:00:00Z')",
-        (_stored_item_id(dependent), _stored_item_id(blocking), gate_point, satisfaction),
+        (
+            _stored_item_id(dependent),
+            _stored_item_id(blocking),
+            gate_point,
+            satisfaction,
+        ),
     )
 
 
@@ -123,90 +122,6 @@ class TestEnums:
 # ---------------------------------------------------------------------------
 
 
-class TestEvaluateSatisfaction:
-    """Satisfaction condition evaluation."""
-
-    # --- status:done ---
-
-    def test_status_done_satisfied(self):
-        result = evaluate_satisfaction("status:done", "done")
-        assert result.satisfied is True
-
-    def test_status_done_not_satisfied(self):
-        for status in ("idea", "implementing", "reviewing-implementation", "implemented", "release"):
-            result = evaluate_satisfaction("status:done", status)
-            assert result.satisfied is False, f"status={status} should not satisfy status:done"
-
-    # --- status:implemented ---
-
-    def test_status_implemented_satisfied_by_implemented(self):
-        result = evaluate_satisfaction("status:implemented", "implemented")
-        assert result.satisfied is True
-
-    def test_status_implemented_satisfied_by_release(self):
-        result = evaluate_satisfaction("status:implemented", "release")
-        assert result.satisfied is True
-
-    def test_status_implemented_satisfied_by_done(self):
-        result = evaluate_satisfaction("status:implemented", "done")
-        assert result.satisfied is True
-
-    def test_status_implemented_not_satisfied(self):
-        for status in ("idea", "implementing", "reviewing-implementation"):
-            result = evaluate_satisfaction("status:implemented", status)
-            assert result.satisfied is False
-
-    # --- fact:merged ---
-
-    def test_fact_merged_satisfied_by_explicit_flag(self):
-        result = evaluate_satisfaction(
-            "fact:merged",
-            "implementing",
-            TEST_ITEM_REF,
-            blocking_merged=True,
-        )
-        assert result.satisfied is True
-
-    def test_fact_merged_not_satisfied_by_explicit_flag(self):
-        result = evaluate_satisfaction(
-            "fact:merged",
-            "implementing",
-            TEST_ITEM_REF,
-            blocking_merged=False,
-        )
-        assert result.satisfied is False
-
-    def test_fact_merged_fallback_release_status(self):
-        """When blocking_merged is None, release/done status implies merge."""
-        result = evaluate_satisfaction("fact:merged", "release")
-        assert result.satisfied is True
-
-    def test_fact_merged_fallback_done_status(self):
-        result = evaluate_satisfaction("fact:merged", "done")
-        assert result.satisfied is True
-
-    def test_fact_merged_fallback_implementing_not_satisfied(self):
-        result = evaluate_satisfaction("fact:merged", "implementing")
-        assert result.satisfied is False
-
-    # --- unknown ---
-
-    def test_unknown_satisfaction_fails_safe(self):
-        result = evaluate_satisfaction("unknown:condition", "done")
-        assert result.satisfied is False
-
-    # --- reasons ---
-
-    def test_reason_contains_status(self):
-        result = evaluate_satisfaction("status:done", "implementing")
-        assert "implementing" in result.reason
-
-
-# ---------------------------------------------------------------------------
-# Gate-point query tests
-# ---------------------------------------------------------------------------
-
-
 class TestQueryUnsatisfiedAtGate:
     """Gate-point-aware dependency queries."""
 
@@ -220,7 +135,9 @@ class TestQueryUnsatisfiedAtGate:
         conn = _create_test_db()
         _insert_item(conn, 1)
         _insert_item(conn, 2, status="done")
-        _insert_dep(conn, "YOK-1", "YOK-2", gate_point="activation", satisfaction="status:done")
+        _insert_dep(
+            conn, "YOK-1", "YOK-2", gate_point="activation", satisfaction="status:done"
+        )
         results = query_unsatisfied_at_gate(conn, "YOK-1", "activation")
         assert results == []
 
@@ -228,7 +145,9 @@ class TestQueryUnsatisfiedAtGate:
         conn = _create_test_db()
         _insert_item(conn, 1)
         _insert_item(conn, 2, status="implementing")
-        _insert_dep(conn, "YOK-1", "YOK-2", gate_point="activation", satisfaction="status:done")
+        _insert_dep(
+            conn, "YOK-1", "YOK-2", gate_point="activation", satisfaction="status:done"
+        )
         results = query_unsatisfied_at_gate(conn, "YOK-1", "activation")
         assert len(results) == 1
         edge, gate_result = results[0]
@@ -241,8 +160,12 @@ class TestQueryUnsatisfiedAtGate:
         _insert_item(conn, 1)
         _insert_item(conn, 2, status="implementing")
         _insert_item(conn, 3, status="implementing")
-        _insert_dep(conn, "YOK-1", "YOK-2", gate_point="activation", satisfaction="status:done")
-        _insert_dep(conn, "YOK-1", "YOK-3", gate_point="integration", satisfaction="fact:merged")
+        _insert_dep(
+            conn, "YOK-1", "YOK-2", gate_point="activation", satisfaction="status:done"
+        )
+        _insert_dep(
+            conn, "YOK-1", "YOK-3", gate_point="integration", satisfaction="fact:merged"
+        )
         # Only activation gate
         results = query_unsatisfied_at_gate(conn, "YOK-1", "activation")
         assert len(results) == 1
@@ -256,13 +179,12 @@ class TestQueryUnsatisfiedAtGate:
         conn = _create_test_db()
         _insert_item(conn, 1)
         _insert_item(conn, 2, status="implementing")
-        conn.execute(
-            "UPDATE items SET merged_at = '2026-01-02T00:00:00Z' WHERE id = 2"
+        conn.execute("UPDATE items SET merged_at = '2026-01-02T00:00:00Z' WHERE id = 2")
+        _insert_dep(
+            conn, "YOK-1", "YOK-2", gate_point="integration", satisfaction="fact:merged"
         )
-        _insert_dep(conn, "YOK-1", "YOK-2", gate_point="integration", satisfaction="fact:merged")
         results = query_unsatisfied_at_gate(conn, "YOK-1", "integration")
         assert results == []
-
 
 
 # ---------------------------------------------------------------------------
@@ -282,7 +204,9 @@ class TestQueryFrontierBlocks:
         conn = _create_test_db()
         _insert_item(conn, 1)
         _insert_item(conn, 2, status="implementing")
-        _insert_dep(conn, "YOK-1", "YOK-2", gate_point="activation", satisfaction="status:done")
+        _insert_dep(
+            conn, "YOK-1", "YOK-2", gate_point="activation", satisfaction="status:done"
+        )
         blocks = query_frontier_blocks(conn, "activation")
         assert "YOK-1" in blocks
         assert len(blocks["YOK-1"]) == 1
@@ -294,7 +218,9 @@ class TestQueryFrontierBlocks:
         conn = _create_test_db()
         _insert_item(conn, 1)
         _insert_item(conn, 2, status="done")
-        _insert_dep(conn, "YOK-1", "YOK-2", gate_point="activation", satisfaction="status:done")
+        _insert_dep(
+            conn, "YOK-1", "YOK-2", gate_point="activation", satisfaction="status:done"
+        )
         blocks = query_frontier_blocks(conn, "activation")
         assert blocks == {}
 
@@ -302,7 +228,9 @@ class TestQueryFrontierBlocks:
         conn = _create_test_db()
         _insert_item(conn, 1)
         _insert_item(conn, 2, status="implementing")
-        _insert_dep(conn, "YOK-1", "YOK-2", gate_point="integration", satisfaction="fact:merged")
+        _insert_dep(
+            conn, "YOK-1", "YOK-2", gate_point="integration", satisfaction="fact:merged"
+        )
         # Activation gate should not see integration deps
         blocks = query_frontier_blocks(conn, "activation")
         assert blocks == {}
@@ -315,26 +243,35 @@ class TestQueryFrontierBlocks:
         conn = _create_test_db()
         _insert_item(conn, 1)
         _insert_item(conn, 2, status="implemented")
-        _insert_dep(conn, "YOK-1", "YOK-2", gate_point="activation", satisfaction="status:implemented")
+        _insert_dep(
+            conn,
+            "YOK-1",
+            "YOK-2",
+            gate_point="activation",
+            satisfaction="status:implemented",
+        )
         blocks = query_frontier_blocks(conn, "activation")
         assert blocks == {}
 
-    def test_fact_merged_fallback(self):
-        """fact:merged without explicit merge check falls back to status heuristic."""
+    def test_fact_merged_recorded_landing_with_release_status(self):
+        """A recorded landing clears the dated integration wait."""
         conn = _create_test_db()
         _insert_item(conn, 1)
-        _insert_item(conn, 2, status="release")  # release implies merge
-        _insert_dep(conn, "YOK-1", "YOK-2", gate_point="integration", satisfaction="fact:merged")
+        _insert_item(conn, 2, status="release")
+        conn.execute("UPDATE items SET merged_at='2026-01-02T00:00:00Z' WHERE id=2")
+        _insert_dep(
+            conn, "YOK-1", "YOK-2", gate_point="integration", satisfaction="fact:merged"
+        )
         blocks = query_frontier_blocks(conn, "integration")
-        assert blocks == {}  # release status satisfies fact:merged via fallback
+        assert blocks == {}
 
     def test_fact_merged_uses_merged_at(self):
         conn = _create_test_db()
         _insert_item(conn, 1)
         _insert_item(conn, 2, status="implementing")
-        conn.execute(
-            "UPDATE items SET merged_at = '2026-01-02T00:00:00Z' WHERE id = 2"
+        conn.execute("UPDATE items SET merged_at = '2026-01-02T00:00:00Z' WHERE id = 2")
+        _insert_dep(
+            conn, "YOK-1", "YOK-2", gate_point="integration", satisfaction="fact:merged"
         )
-        _insert_dep(conn, "YOK-1", "YOK-2", gate_point="integration", satisfaction="fact:merged")
         blocks = query_frontier_blocks(conn, "integration")
         assert blocks == {}

@@ -12,6 +12,7 @@ from yoke_core.domain.handlers.deployment_common import error, run_id
 class DeploymentRunGetRequest(BaseModel):
     include_member_closure: bool = False
     field: Optional[str] = None
+    fields: Optional[List[str]] = None
     run_id: Optional[str] = None
 
 
@@ -38,15 +39,39 @@ def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
             jsonpath="$.payload.field",
         )
 
+    fields = payload.get("fields")
+    if fields is not None and (
+        not isinstance(fields, list)
+        or not fields
+        or any(not isinstance(name, str) or not name for name in fields)
+        or field is not None
+        or payload.get("include_member_closure")
+    ):
+        return error(
+            "payload_invalid",
+            "fields must be a nonempty list of row field names; remove field and include_member_closure",
+            jsonpath="$.payload.fields",
+        )
+    if fields is not None:
+        fields = list(dict.fromkeys(fields))
+
     from yoke_core.domain.deployment_runs_crud_query import cmd_get, get_run
     from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
 
     try:
         raw = (
-            cmd_get(resolved_run_id, field=field) if field else get_run(resolved_run_id)
+            get_run(resolved_run_id, fields=fields)
+            if fields is not None
+            else cmd_get(resolved_run_id, field=field)
+            if field
+            else get_run(resolved_run_id)
         )
     except ValueError as exc:
-        return error("invalid_field", str(exc), jsonpath="$.payload.field")
+        return error(
+            "invalid_field",
+            str(exc),
+            jsonpath="$.payload.fields" if fields is not None else "$.payload.field",
+        )
     if raw is None:
         return error(
             "not_found",
@@ -60,6 +85,11 @@ def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
                 "field": field,
                 "value": raw,
             },
+            primary_success=True,
+        )
+    if fields is not None:
+        return HandlerOutcome(
+            result_payload={"run_id": resolved_run_id, "fields": fields, "run": raw},
             primary_success=True,
         )
     parsed = raw

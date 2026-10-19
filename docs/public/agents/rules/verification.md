@@ -1,0 +1,130 @@
+# Verification, test execution, and command output
+
+<!-- yoke:breadcrumbs -->
+[Yoke](../../index.md) > [Agents](../index.md) > [Operation homes](index.md) > Verification
+<!-- /yoke:breadcrumbs -->
+
+The rules file every session loads carries the short normative form of each rule. This document is the deep home the rules file points at: the same rules with the reasoning, the worked failure modes, the flag matrices, and the edge cases that decide close calls. Read the section you need before the action it governs — nothing here is optional background, it is simply longer than a startup channel can carry.
+
+## Command output
+
+Before running a verification command, read
+[Command output](shell-and-cli.md#command-output).
+
+## Run a project QA plan on demand
+
+`yoke qa plan run --plan PLAN --project P` records standalone evidence without
+an item or deployment gate. Commands require a clean `--checkout-path` at
+`--expected-sha FULL_SHA`; CI also requires `--expected-branch REF` at that
+published commit and the case's named workflow. Manual CI carries declared inputs
+and never publishes or rebases a lane. Machine and browser methods keep their
+target, lease, capture, and review contracts.
+Abort with `yoke qa plan abort --project P --execution-id ID --reason TEXT`.
+Read `yoke qa plan run --help` before selecting source and continuation options.
+
+For a lost plan response, keep its execution and custody. Re-enter with the
+original scoped command plus `--resume-execution-id ID`; follow
+[check-in recovery](../../verification/standalone-plans.md#recover-a-lost-check-in-response)
+before any host reset or one-shot action replay. An unknown reply is not failure.
+
+After failed QA, classify and act: product defect -> return to implementation; setup failure -> record the blocker; unclear cause -> investigate now.
+
+## Testing
+
+- **No hardcoded drifting IDs in tests.** Tests must never contain literal `PREFIX-N`-style work item IDs that drift over time. Use variables, dynamically generated values, or pattern matchers instead.
+- **One canonical verification execution — the QA case run IS the final full gate.** Test output capture + streaming is governed by `## Command Output — Hard Rule` above, identically for merges, deploys, syncs, QA, renders, installs, and builds. While implementing, iterate freely and often with the cheap layers: the single failing test, the changed module's paths, and `yoke watch pytest --impacted main --bounded` (impacted selection over the branch diff, owned by `yoke_core.tools.impacted_tests`) — that is the recommended iteration loop and nothing here discourages it, and for a project declaring `ci_workflow_file` that loop runs on CI by default, so iterating costs the workstation nothing (`--local` is only a small targeted check expected to finish in about one minute for the entire invocation — one file or a small test count does not prove a fast runtime; uncommitted work does not justify a slow local run. If a local check exceeds that, interrupt it cleanly, keep the capture as incomplete, commit, and run the selection on CI; do not repeat or background the slow local selection). `--impacted` is bounded by default: when a change touches something reachability cannot bound (the test tooling or any non-Python file — a conftest or fixture plugin instead selects the tests requesting its fixtures, and a handler change selects the tests naming its function id), it reports `selection unbounded (<rule>) — deferring full coverage to the final QA gate` and runs the subset it could still compute. `--bounded` is a no-op. An unbounded verdict mid-iteration means *keep testing what you judge relevant* — the final QA case run covers the rest. Use `--local --impacted main --widen` for the local full sweep (CI-outage fallback only). Remote selection refuses redundant unfiltered full-root requests before push/dispatch when a registered full CI gate is available. Targeted files/node IDs, nonempty `-k`/`-m` filters and collect-only remain available. Find the attached gate with `yoke qa requirement list --item PREFIX-N`. Either way the run prints a greppable `impacted-selection scope=… rule=… triggers=… tests=…` telemetry line into its captures, naming which changed files forced a widening. When the work is ready, the **full** run happens exactly once, through the item's attached Command case: `yoke qa case run --requirement-id <id>`. That single execution produces both the green and the recorded verdict. That Command case is the item's own gate: a requirement already bound to an item-scoped deployment stage is refused, and the output names `yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N`. **Never run a project's full sweep by hand and then re-execute the same tree through QA.** The gate re-runs the identical registered command, so the hand-run buys nothing while doubling compute and shared admission-queue pressure for every concurrent session — one observed session paid 8m16s / 21,371 tests twice on one tree. The case runner streams the command live to stderr and names its raw capture file before the command starts, so an agent is not blind during that one big run; on completion it restates `verdict=… exit_code=… capture=…` on stderr and leaves stdout machine-readable. Re-running a case after **the tree changes** — a fix, a new commit, the post-rebase merge-time run — is a different execution and stays required; only same-tree full duplication is banned. **The gate runs where the project's suite already runs.** A project declaring a `ci_workflow_file` capability gets its registered `quick`/`full` scopes bound to the `command-ci` method (`ci_run` runner): the case run pushes the item's lane branch, dispatches that workflow against it with a correlation id, waits for the run, and records the conclusion as the verdict with the run URL and head sha as evidence — so **commit before running the gate**, since item branches otherwise stay local until merge. **A gate whose watcher was killed did not lose its CI run.** Before it rebases anything, the gate asks GitHub about the exact commit the lane is on: a run that already concluded there is adopted as the verdict, one still in flight is rejoined, and only an unexamined commit is updated against the base and dispatched — matching is exact-sha, and `ci_run_source` on the outcome line and the recorded row says which happened. The lookup leads the rebase because it is re-entry that needs it: rebasing first moves an unchanged candidate onto an advanced base, which force-cancels the run still answering for it and buys the same verdict a second time. The merge boundary's own post-rebase CI run reuses the same lookup, so a candidate the gate just verified is not verified again. **A turn that ends on a CI run is woken with the verdict.** This requires a healthy relay running on the session's machine in every mode; [CI wake-up prerequisites](../../github/index.md#ci-verdicts-and-session-wake-ups) own machine and Linux login/linger guidance. Every CI dispatch — the gate and `yoke watch pytest`'s remote selection alike — records the run against the dispatching session, and once the turn watching it has ended the control-plane sweep pushes one message carrying the verdict, the run URL, the commit, and the command that resumes the wait (a session still mid-turn is left alone, because it is reading the run itself). So a silent watcher is answered rather than guessed at: read the verdict when it arrives, or grep the raw capture for `interrupted by signal 15` and re-run `yoke qa case run`, which costs one lookup, not another suite. **A quiet watcher is not a dead one.** The gate outlives a single tool-call budget, so a harness that moves the call to a background task or hands back a continuation handle has not interrupted it — the child is still polling. Continue that invocation through the continuation surface your harness declares and re-run only once the process is really gone; the runner says which case you are in on its own progress stream. Taught exception for an overlong *local* test check only: interrupt that test process cleanly once it has exceeded about one minute, retain the capture as incomplete, commit, and continue on CI. Do not interrupt a CI-routed watcher or background the slow local selection to keep waiting. A project also declaring `merge_queue` verifies pull-request-first: the gate merges the base branch into merge-shaped lanes and rebases linear lanes, opens the landing pull request, and records that pull request's own entry run as the verdict — one suite instead of a dispatch plus an entry run on the same tree — and the landing then enqueues the pull request the gate opened. Two items gate concurrently because both route to CI; the admission slot is a local-machine resource and never serializes CI runs. Deployed-environment scopes (`e2e`, `smoke`) stay local — they assert against a running site behind a base URL CI cannot reach — and a project with no declared workflow, or any offline operation, keeps the local `command` method (`worktree_run`); that is an explicit plan-case choice, never a silent runtime downgrade, and an unreachable CI case fails with a named reason instead of quietly running the suite on the machine the routing exists to keep free. **Every local full-suite execution takes the machine-wide admission slot:** `yoke watch pytest` and the generic runner both arbitrate for it, so a QA gate and a hand-run watcher sweep cannot execute at once on one machine, while a bare `python3 -m pytest <dirs>` takes nothing and stays invisible to the runs that queue politely — `lint-raw-pytest-full-suite` denies that whole-surface shape outside the wrapper and advises on any other directory sweep (suppression `# lint:no-raw-pytest-check` is audit-only). A queued gate names who holds the slot and how many runs are behind it.
+
+## Visual evidence
+
+Raw-pytest admission is per executable invocation. Quoted search patterns and
+wrapper names are data; a separate raw test never inherits a sibling wrapper's
+admission. Executable shell payloads and substitutions retain inspection.
+Unknown syntax receives no blanket wrapper exemption; whole-surface deny,
+narrow-sweep advisory and audit-only suppression remain unchanged.
+
+- **A rendered capture must name the universe that produced it.** Screenshots are the vetting currency for a UI change, and a reviewer cannot see a capture's data source in the image: the page renders, the layout is right, the rows are real items, and nothing says which control plane answered. Only a diff that happens to add a field the deployed build lacks shows the difference at all, so a pure-CSS or pure-layout change produces captures indistinguishable from correct ones. Render against a database you control by naming its env on the command that serves the view — `YOKE_ENV=<local-env> yoke ui up`, with `yoke env list` naming this machine's connections and `yoke ui down` stopping it. Three things then hold together: the daemon pins that env into the serving process, the view server refuses any connection whose reads it would answer from elsewhere (naming the env to switch to), and the page footer carries the env name into the frame a screenshot captures. So the capture reports its own provenance and a reviewer reads it rather than trusting it. Seed the universe you named through that same env, and the rows you seeded are the rows in the picture. `yoke ui up` never prints admission URLs and does not open a browser from an agent session. For a human review, run it from your own terminal on a machine with a display. Automated Browser cases use their declared candidate server and private browser admission; keep admission tokens out of command output and agent context. Once admitted, drive `exec step` against bare paths on the same daemon and profile. Put a `delay` step before the screenshot — the board fetches its rows after the shell mounts, so a capture taken the moment navigation completes photographs `Loading...`. A navigation that lands on an authentication refusal fails the step by name rather than photographing the refusal, and each view names its session cookie after its own port, so a disposable render view and the machine daemon serve at once without logging each other out.
+- **Optional local UI preview is a self-check (Yoke source repo only).** `yoke dev run -- env YOKE_ENV=render-proof python3 -m runtime.api.tools.serve_workbench_for_review` serves the lane against a disposable local universe and refuses prod and remote connections. It is never a merge or QA requirement. Formal Browser QA runs post-deploy on production.
+
+## Failed CI job recovery
+
+Inspect the failed jobs with `yoke github-actions failed-log <owner/repo> <run-id> --project <project>`.
+For a transient infrastructure failure, the worker holding the item claim runs
+`yoke github-actions run rerun-failed ITEM RUN-ID`, then resumes the same CI/QA
+wait. The registered `github_actions.run.rerun_failed` mutation derives the
+repository and landing PR from the item, requires the run to match the PR's
+current head and be the newest run of that workflow on the PR branch, and
+records intent and outcome in the item's Progress Log. A stale head or
+superseded run refuses and names the current identity to inspect; never rerun
+an older run through another tool because it can cancel newer CI work.
+Cancelled terminal runs use the same command. Never-started jobs trigger a
+full run rerun; jobs that started use failed-job recovery. Cancellation
+recovery stops at three total run attempts: inspect job annotations and fix
+runner capacity, labels or workflow limits before a fresh declared attempt.
+Merge re-entry also recovers eligible cancelled checks on an already-armed,
+unadmitted PR without arming it twice. Active, successful and superseded runs
+are protected. Acceptance is not a passing check: resume the exact-head wait.
+A fresh `workflow_dispatch` is a new attempt; verify its head and that GitHub
+replaced the required checks before treating it as recovery.
+Repair test failures in the item and commit before retrying verification.
+A lost POST response reports `ci_rerun_ambiguous`: inspect the run's attempt
+and status before retrying. If GitHub accepted the rerun but receipt recording
+failed, restore item writes and append the returned receipt; resume the wait
+without another rerun. An older serving engine names the required serving
+floor; the control-plane operator must provide a serving release carrying the
+function before this recovery is available.
+
+## Verification failure ownership
+
+- **Current-item verification failures belong to the current item.** A future/planned item, planned path claim, or cleanup work item owning a touched file is not a waiver. If the current branch has a failing registered command, gate, or regression, fix it here — unless there's a live active-session conflict or explicit operator waiver.
+- **Use dependency and claim reconciliation before override.** If the fix touches a file outside the current claim, use the sanctioned surfaces first: widen the claim, add/verify the serial dependency, wait for or release a live holder, or reconcile the future claim. Do not use `path-claim-override` for a planned future claim when reconciliation works — override is last resort for irreducible live collisions and requires a live steering seat covering the project.
+- **A consumer test this item did not change that fails against a new producer source is evidence against the producer.** Never edit, skip or weaken it to go green. Name the producer commit range or item and route the failure to steering (`yoke say --steering`) or to the producer's companion item. Current-item ownership covers what this item changed, not a regression the producer shipped.
+- **Verification summaries are evidence-bound.** A failing registered command can't be reported green by pointing at a future work item. Record the failure, the dependency/claim action, and the rerun evidence that made the item green.
+
+## Health checks
+
+- **Every check declares what it applies to; the runner derives the rest.** A check states its `project_scope` (`any` / `self` / `external`), whether it reads the target project's source tree, which deployment runtimes (`local` / `server` / `hosted`) it runs under, and which project capabilities it needs. The runner resolves the live context — target project, runtime, machine-local checkout, declared capabilities — and derives the applicable set from those declarations. That derived set **is** the per-project default; there is no separate roster to maintain. Never branch on the literal project slug: the self project is whichever mapped checkout *is* the Yoke source tree, so a renamed self project still resolves, and a run uses an explicit project, `YOKE_PROJECT`, or its caller's mapped checkout (`default_project_for_directory`). An unmapped directory supplies no project: refuse with `project_required`, teach `--project P`, and list projects over the caller's own connection.
+- **Passed, failed, and not-applicable are three different answers.** A check outside the applicable set is reported `N/A` with its reason in the report's `## Not Applicable` section and the `na_count` field — never counted as a pass, never dropped silently. A source-tree scan on a runner with no checkout finds nothing; reporting that as `PASS` is a lie the model exists to prevent.
+- **Project-local checks live in the project.** A project's own checks go in `.yoke/doctor/`, discovered pytest-style (`check_*.py` files, `hc_*` functions, or an explicit `PROJECT_HEALTH_CHECKS` list) by a runner that holds the checkout, with the same declarations and reporting as engine checks. They import under the `yoke_project_checks` package namespace, so a check can share helpers with a sibling. A module that fails to import is a FAIL, not a skip. Yoke's own source-dev checks live there, not in the engine: the engine roster holds only what is true of every project. Hosted and custom checks are data-driven assertions over the control plane, never arbitrary code in the engine.
+
+## Command case source
+
+Candidate-bound source cases that isolate `HOME` and `YOKE_MACHINE_HOME` still
+run `yoke watch pytest -- <test paths>`. Keep `YOKE_QA_CANDIDATE_TREE` and the
+runner-provided `YOKE_QA_SOURCE_ENVIRONMENT`, plus `YOKE_PG_CLUSTER_ROOT` and
+`YOKE_PG_BIN_DIR` for the shared test cluster and pinned binaries: the watcher reuses the recorded
+declaration without reading a connection from the empty home. Lock and Python
+checks still run. `SOURCE-ENVIRONMENT-QA-DECLARATION` names an invalid handoff;
+rerun the same candidate-bound case to regenerate it. Outside candidate QA,
+source checks continue to read the connected declaration.
+
+Select an exact worker for an item case when several lanes are registered:
+
+```text
+yoke qa case run --requirement-id N --checkout-path PATH --expected-branch BRANCH --expected-sha FULL_SHA
+```
+
+The server selects one registered lane authorized by the matching item/task
+claim and returns its branch, path and commit together. A missing commit on
+that lane stays missing; another worker's commit never fills it. Ambiguous or
+unclaimed selection refuses with `qa_source_lane_unresolved`. CI checks explicit
+checkout, branch and SHA agreement before preparation and again before any
+publication; `qa_ci_source_mismatch` names the disagreement and recovery. Use
+the selected worker's current identity and rerun the normal gate. Preserve
+existing branches; conflicting remote work needs registered reconciliation.
+
+CI publishes an immutable commit. It records that commit as the lane's durable
+head only after proving the selected live checkout is on the published branch,
+clean, and at that exact commit. A missing lane or another checkout never gets
+stamped. `qa_published_head_unproven` preserves publication but names why the
+stamp was refused. To repair a stale stamp after a passing gate, verify the
+claimed checkout is clean and at the published candidate, then run
+`yoke project snapshot sync PATH --project P --head-only`; no new commit or
+passed-gate rerun is needed. Snapshot ownership and claim checks still apply.
+
+
+Direct pre-merge Yoke lane checks use `yoke dev run -- <command>`. For post-deploy Command source tests, run `yoke watch pytest -- <test paths>` directly: the runner supplies the candidate cwd and the watcher binds it to source. Candidate-bound commands inherit `YOKE_QA_CANDIDATE_TREE` as JSON with `root` and `head_sha`; source wrappers refuse switching to another root. In candidate-bound Yoke cases, bare `python3` and `yoke` import the candidate packages and the candidate's declared locked .venv through the shared source/environment resolver. Disposable candidate checkouts use the existing test-environment provisioning surface; other checks validate without syncing or rewriting locks. Missing, stale, or incompatible environments refuse with SOURCE-ENVIRONMENT-* and exact checkout-local uv sync --locked recovery. The runner records interpreter identity and origins before and after execution and records `QA-CANDIDATE-IMPORT-ORIGIN` refusal evidence instead of a pass when packages are missing or outside the candidate. Lane cases, external projects, and endpoint-only cases using `--allow-tree-mismatch` keep product imports.
+
+## Related
+
+- [Operating with agents](../index.md)
+- [Agent operation homes](index.md)

@@ -43,24 +43,20 @@ TIER_GLOBS: dict[int, tuple[str, ...]] = {
     # Tier 2 — orientation docs, read on demand.
     2: (
         "docs/OVERVIEW.md",
-        ".yoke/docs/reference/lifecycle.md",
-        ".yoke/docs/reference/commands.md",
+        ".yoke/docs/workflows/lifecycle.md",
+        ".yoke/docs/workflows/transitions.md",
+        ".yoke/docs/agents/commands.md",
+        ".yoke/docs/agents/maintenance-commands.md",
         "docs/harness-substrate.md",
         "docs/harness-bootstrap.md",
     ),
     # Tier 4 — canonical agent bodies. Rendered harness adapters derive
     # from these and are not scanned independently.
-    4: (
-        "runtime/agents/*.md",
-    ),
+    4: ("runtime/agents/*.md",),
     # Tier 5 — skill prose (top-level SKILL.md plus skill-internal subdocs).
-    5: (
-        ".agents/skills/yoke/**/*.md",
-    ),
+    5: (".agents/skills/yoke/**/*.md",),
     # Tier 6 — archive decision records (callers opt in explicitly).
-    6: (
-        "docs/archive/**/*.md",
-    ),
+    6: ("docs/archive/**/*.md",),
 }
 
 
@@ -75,9 +71,7 @@ CROSS_REFERENCE_PREFIXES: tuple[str, ...] = (
 
 # Archive-root prefixes — repo-relative paths starting with any entry
 # here are exempt by default from every tier-discipline HC.
-TIER_6_ARCHIVE_PREFIXES: tuple[str, ...] = (
-    "docs/archive/",
-)
+TIER_6_ARCHIVE_PREFIXES: tuple[str, ...] = ("docs/archive/",)
 
 
 # Tier 1 — the in-memory rendered `schema_api_context` packet (no
@@ -90,14 +84,23 @@ TIER_1_GLOBS: tuple[str, ...] = ()
 TIER_3_GLOBS: tuple[str, ...] = (
     "docs/atlas.md",
     "docs/event-catalog.md",
-    ".yoke/docs/reference/db-reference.md",
-    ".yoke/docs/reference/db-reference/*.md",
+    ".yoke/docs/databases/*.md",
+    ".yoke/docs/databases/model/*.md",
+    ".yoke/docs/deployments/model/*.md",
+    ".yoke/docs/functions/*.md",
+    ".yoke/docs/operations/model/*.md",
     "docs/state-management.md",
-    ".yoke/docs/reference/charge-frontier.md",
+    ".yoke/docs/strategy/charge-frontier.md",
+    ".yoke/docs/strategy/charge-dispatch.md",
+    ".yoke/docs/items/model/*.md",
+    ".yoke/docs/sessions/model/*.md",
+    ".yoke/docs/workflows/model/*.md",
+    ".yoke/docs/sessions/steering-report*.md",
+    ".yoke/docs/sessions/fleet-policy.md",
     # The deep homes the rules files point at. Each is read before the
     # operation it governs rather than at startup, which is what makes it a
     # tier-3 reference rather than tier-0 rules text.
-    ".yoke/docs/reference/agent-rules/*.md",
+    ".yoke/docs/agents/rules/*.md",
     "docs/source-dev-doctrine.md",
 )
 
@@ -107,7 +110,7 @@ TIER_3_GLOBS: tuple[str, ...] = (
 # mention — which would spend delivered bytes on what the reader already knows.
 BARE_NAME_CITATION_FAMILIES: tuple[str, ...] = (
     "docs/archive/decisions",
-    ".yoke/docs/reference/agent-rules",
+    ".yoke/docs/agents/rules",
 )
 
 
@@ -187,8 +190,7 @@ def _build_health_checks() -> List[HealthCheck]:
     if _TIER_DISCIPLINE_HEALTH_CHECKS is not None:
         return _TIER_DISCIPLINE_HEALTH_CHECKS
 
-    _TIER_DISCIPLINE_HEALTH_CHECKS = [
-    ]
+    _TIER_DISCIPLINE_HEALTH_CHECKS = []
     return _TIER_DISCIPLINE_HEALTH_CHECKS
 
 

@@ -65,6 +65,7 @@ def build_plan_execution_target(
             project_id=project,
         ),
         {
+            **({"plan": plan} if plan else {}),
             **({"deployment_stage": deployment_stage} if deployment_stage else {}),
             **({"deployment_member": deployment_member} if deployment_member else {}),
         },

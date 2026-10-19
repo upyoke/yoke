@@ -1,0 +1,130 @@
+# Databases and migrations
+
+<!-- yoke:breadcrumbs -->
+[Yoke](../index.md) > Databases
+<!-- /yoke:breadcrumbs -->
+
+Workbench path: **Delivery → Databases**.
+
+## What you see
+
+Declared database / migration models, compatibility posture, and apply
+records for the project's governed mutation story.
+
+## Operator model
+
+- Pure **additive** schema (new tables/columns) converges on boot — no
+  special migration module required for net-new additive shape.
+- **Data-transforming** changes (drops, backfills, rewrites) go through the
+  ordered migration history, rehearsal, and boot apply.
+- Every item carries a **DB claim** (`db_claim.amend`). Default `none` means
+  no governed mutation declared.
+
+## Authoring posture
+
+When an item mutates a declared authoritative DB:
+
+1. Amend the DB claim (profile + compatibility attestation as required)
+2. Author the migration module in history
+3. Rehearse from the configured local-Postgres authority that owns the item
+   with `yoke --env <name> migration rehearse PREFIX-N` (holds the live
+   migration lease until the merge lands). If none is configured, escalate to the control-plane
+   operator; rehearsal executes project-local code and is not relayed over HTTPS.
+4. Ship; boot converge applies pending entries fail-hard
+
+Never apply destructive migrations without a named restore point. Never use
+ad hoc write SQL against a declared authoritative DB.
+
+## Migration invariants
+
+A module's optional `invariants(conn)` hook is a permanent claim, not a
+post-apply snapshot. It re-runs on every fleet preflight against a copy of a
+live database, so it may assert only what the entry owes forever — the schema
+shape it produced, or a data fact no live writer can undo. Asserting the row
+state the apply happened to leave behind fails from the first legitimate write
+onward and blocks the release train. It must also hold after this entry's own
+`apply(conn)`, since rehearsal runs the entry alone against a validation
+surface that may predate everything before it — assert only a shape this entry
+establishes. Correcting a mis-stated invariant is
+always a new history entry declaring `RETIRES_INVARIANTS`: an applied entry's
+bytes are recorded in every ledger that ran it, so editing the module in place
+makes those databases refuse to boot on a content mismatch.
+
+A new entry always takes the next number, and the sequence number is the
+only order: an entry always runs after every lower-numbered entry. An entry
+cannot reorder the history — one declaring an ordering override such as
+`PRECEDES` is refused with `migration_ordering_override`. Work an earlier
+entry needs before it can apply belongs in that entry's own refusal and
+recovery.
+
+## Item vs fleet
+
+Rehearsal against the validation surface does not prove every live database.
+Each migration model declares its fleet in the project's `migration_fleet`
+capability — the engine's tenant databases, databases the project names and
+converges with its own boot command, or `none` with a reason — and `yoke watch preflight -- --project P <environment>`
+rehearses exactly that fleet for every project
+([databases/migration-fleet.md](migration-fleet.md)).
+Fleet copy admission is automatic at the shared rehearsal kernel: an exclusive
+OS file lock identifies the physical local cluster and disposable database name.
+It refuses immediately with `rehearsal_copy_busy`, holder diagnostics and a retry
+after the holder finishes; the refused runner neither copies nor cleans up.
+Admission covers dump, restore, the entire pending-history batch, invariants or
+diagnostic callbacks, connection close and cleanup. Transfer and declared-command
+children retain admission if their parent dies, until the children stop. Stable
+lock files are retained; metadata is diagnostic and never decides ownership.
+Distinct clusters and copy names proceed independently. This protects callers of
+the kernel, including `yoke watch preflight`, not manual/ad hoc database operations.
+The persistent `yoke migration rehearse ITEM` validation database and its existing
+migration-territory claim remain reusable and unchanged.
+
+Fleet preflight exists for release trains carrying a history entry or a
+schema shape no current receipt covers for the target environment; after converging each
+throwaway copy of a live database it also re-runs callable invariants for
+every shipped entry that already has ledger membership so a green membership
+row cannot hide a historical verification failure. A passing run records what
+it covered on the rehearsed environment's own settings document, so coverage
+is durable state rather than telemetry that can expire out from under a build
+that was already rehearsed. The pre-tag release gate refuses unless both the
+history names and this build's schema-shape digest are covered for the target
+environment, and every project's release dispatch runs the rehearsal itself
+when it finds either uncovered. Both ask the same question, because an entry that only
+rewrites rows moves no schema shape — so a shape-only check reports the
+riskiest entry as already covered.
+
+Each tenant is copied in full even when its migration ledger has no pending
+entry. A large `pg_dump` may run longer than an hour while its archive keeps
+growing; the copy has no total time limit. If the archive stops growing for
+five minutes, preflight kills the stalled copy, removes the partial archive,
+and names the source database or SSH tunnel to check before rerunning. A
+dropped tunnel still gets the existing connection recovery and retry path.
+
+Fleet preflight and validation-copy rehearsal pass database passwords through
+`PGPASSWORD` in each client's environment. Connection strings containing
+passwords stay out of process arguments; fleet dumps use the shared libpq
+environment mapping, while local copy clients name only the socket, user, and
+database in their arguments. Dump failure diagnostics redact the password.
+
+An `engine_tenants` fleet is tenant databases only. Names carrying the reserved
+`yoke_test_run` scratch prefix are disposable by construction — a test or
+rehearsal run created them and nothing owns them once it exits — so the
+enumeration skips them and reports how many it skipped. Converging one
+proves nothing about any tenant, and two strays on a cluster were once
+enough to fail a release's rehearsal against the ledger of a run that had
+already gone. The reported count is the signal to clean them up: the skip
+keeps them out of the fleet, it does not hide that they are there.
+
+Deep reference: [databases/reference.md](reference.md),
+`databases/migration-model.md`, and
+`databases/migration-fleet.md`.
+
+<!-- yoke:contents -->
+- [Database reference](reference.md) — Read diagnostic columns, packet ownership and current data-model homes.
+- [Migration conventions](migrations.md) — Use timestamp, query-clock and migration-audit conventions.
+- [Migration models](migration-model.md) — Declare migration models, validate their payloads and run migrations.
+- [Migration pairing](migration-model-pairing.md) — Configure migration audit bootstrap, environment pairing and Webapp Packs.
+- [Migration fleets](migration-fleet.md) — Declare and rehearse every live database a release must cover.
+- [Operator data repair](operator-data-repair.md) — Review and apply bounded guarded repairs with audited authority.
+- [Machine-local evidence](machine-local-evidence.md) — Retrieve bounded relay logs, watcher captures and diagnostics from their owner.
+- [Projects and capabilities](model/projects.md) — Read project identity, Project Structure and capability schemas.
+<!-- /yoke:contents -->

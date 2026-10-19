@@ -6,7 +6,7 @@ metadata.
 
 ## Choose where the case runs
 
-[Where a Browser case runs](../../../../../.yoke/docs/reference/browser-scenarios.md#where-a-browser-case-runs)
+[Where a Browser case runs](../../../../../.yoke/docs/verification/browser-targets.md#where-a-browser-case-runs)
 owns the phase, target, and transition for every Browser case, and names the
 approval that replaces one when no server serves the change. Author the case
 it selects.
@@ -57,5 +57,5 @@ item's verification contract, add nothing. The absence is explicit rather than
 derived from a separate browser-testability field.
 
 For one-shot mutations, arm timing and captures first; follow
-[action budgets and failure evidence](../../../../../.yoke/docs/reference/browser-action-evidence.md)
+[action budgets and failure evidence](../../../../../.yoke/docs/verification/browser-action-evidence.md)
 before recovering a response timeout or missing capture.

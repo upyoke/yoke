@@ -106,9 +106,11 @@ What this does NOT reach
 ------------------------
 Replacing cases writes the plan. Rows already materialized from it keep the
 body they were materialized with, so the result reports
-requirements_behind_plan: every such row, the fields that moved, and the
+requirements_behind_plan: each actionable row, the fields that moved, and the
 `yoke qa plan rematerialize` invocation that reaches that exact row. An empty
-list means nothing is behind the plan. Read it — a correction that stops at
+list means no active subject is behind the plan. Done/cancelled items and
+finished standalone walks stay as history, counted once in
+historical_requirements_excluded_count. Read it — a correction that stops at
 the plan is a correction the case that actually runs never received.
 """
 
@@ -210,8 +212,8 @@ current, stale with plan_diverging_fields, orphaned, or unreadable.
 """
 
 USAGE_BY_FUNCTION_ID = {
-    "qa.method.list": "yoke qa method list --project P",
-    "qa.method.get": "yoke qa method get METHOD --project P",
+    "qa.method.list": "yoke qa method list [--project P]",
+    "qa.method.get": "yoke qa method get METHOD [--project P]",
     "qa.project_method.register": (
         "yoke qa project-method register --project P --slug SLUG --name NAME "
         "--description TEXT --runner worktree_run "

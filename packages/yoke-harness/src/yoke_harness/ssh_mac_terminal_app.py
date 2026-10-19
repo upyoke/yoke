@@ -108,7 +108,8 @@ def set_terminal_app_window_bounds(
     window_id: int,
     bounds: tuple[int, int, int, int],
 ) -> tuple[int, int, int, int] | None:
-    """Un-minimize one window, request *bounds*, and report what it took."""
+    """Un-minimize one window, raise it frontmost, request *bounds*, and
+    report what it took."""
     left, top, right, bottom = bounds
     result = run_osascript(
         run,
@@ -117,6 +118,8 @@ def set_terminal_app_window_bounds(
             f'if not (exists window id {window_id}) then return ""',
             f"set targetWindow to window id {window_id}",
             "set miniaturized of targetWindow to false",
+            "activate",
+            "set index of targetWindow to 1",
             f"set bounds of targetWindow to {{{left}, {top}, {right}, {bottom}}}",
             "set observed to bounds of targetWindow",
             'return ((item 1 of observed) as text) & "," & '

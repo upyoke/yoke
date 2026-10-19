@@ -11,9 +11,8 @@ Guided SML refresh, source-backed research, proposal, operator approval and audi
 Strategy compass owns coherence; Feed owns dependency ordering, scheduler staffing.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
+File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
 ## Authority and context
@@ -35,7 +34,7 @@ SML_SLUGS="MISSION LANDSCAPE VISION MASTER-PLAN CURRENT-PLAN"
 
 `--model MODEL` overrides; empty means session default.
 Before strategy writes read selected command help; exact envelopes live in
-`.yoke/docs/reference/db-reference/functions-project-configuration.md`.
+`.yoke/docs/functions/project-configuration.md`.
 
 ## Phase map — read when reached
 

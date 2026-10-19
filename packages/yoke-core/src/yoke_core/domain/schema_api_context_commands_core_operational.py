@@ -75,7 +75,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
         "notes": (
             "Same shape for any non-terminal transition. Status "
-            "vocabulary in .yoke/docs/reference/lifecycle.md. The function id "
+            "vocabulary in .yoke/docs/workflows/lifecycle.md. The function id "
             "`lifecycle.transition.execute` fires status gates, "
             "cascades, and GitHub sync."
         ),
@@ -103,11 +103,18 @@ OPERATIONAL_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
-        "purpose": "Find or request the CLI adapter for a function id",
-        "recipe": "yoke <family> --help",
+        "purpose": "Read operation rules and find the CLI adapter for a function id",
+        "recipe": (
+            "cat .yoke/docs/agents/rules/code-and-cli.md\n"
+            "cat .yoke/docs/documentation/index.md\n"
+            "yoke <family> --help"
+        ),
         "notes": (
-            "`.yoke/docs/reference/db-reference/functions.md` links the registered "
-            "function catalogs per family, and the matching `yoke <subcommand> "
+            "`.yoke/docs/functions/index.md` links the registered "
+            "function catalogs per family. Read the operation home before acting; "
+            "complete scope and portable behavior live in "
+            "`.yoke/docs/agents/rules/code-and-cli.md`; the teaching standard "
+            "lives in `.yoke/docs/documentation/index.md`. The matching `yoke <subcommand> "
             "--help` carries that adapter's variants and flag matrix. The "
             "CLI grammar is reversible — dots become spaces, underscores "
             "become hyphens, a terminal `.run`/`.execute` drops — so a "
@@ -121,11 +128,13 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "missing. The receipt prints after the command has run, so "
             "`--json` is a flag for an invocation that needs the whole "
             "envelope, never a reason to repeat a write you already made. "
-            "**When you hit a recipe gap, fire `yoke ouroboros "
-            "field-note append` immediately — before retrying, before "
-            "moving on.** Run "
-            "`yoke ouroboros field-note append --help` for the "
-            "worked failure modes and decision tree. Do not start the "
+            "File a field note each time a recipe, help text or refusal is "
+            "wrong or missing, or you spot a bug outside your task — before "
+            "moving on. If you already filed the same problem, add "
+            "`--correlation-id <that note's id>`: "
+            "`yoke ouroboros field-note append --kind "
+            "<failed|new|unclear|observation> --evidence '...'`. "
+            "Do not start the "
             "function-call HTTP "
             "server or call the dispatcher from an ad-hoc Python "
             "one-liner to work around a missing adapter."
@@ -207,13 +216,14 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "--correlation-id polish-run-2026-05-20"
         ),
         "notes": (
-            "**When you hit a recipe gap, fire `yoke ouroboros "
-            "field-note append` immediately — before retrying, before "
-            "moving on.** Kind: failed (recipe ran, wrong result), new "
-            "(recipe missing), unclear (recipe present, unclear "
-            "purpose). Run "
-            "`yoke ouroboros field-note append --help` for the "
-            "worked failure modes and decision tree. Surfaces in "
+            "File a field note each time a recipe, help text or refusal is "
+            "wrong or missing, or you spot a bug outside your task — before "
+            "moving on. Link a repeat with `--correlation-id <first note's "
+            "id>`. Kinds: failed — a recipe, help text or refusal gave a "
+            "wrong result; new — no recipe or help covered what you needed; "
+            "unclear — two surfaces disagree, or the guidance is ambiguous; "
+            "observation — a bug or oddity outside your current task. "
+            "Surfaces in "
             "/yoke curate via OuroborosFieldNoteAppended events."
         ),
     },

@@ -71,7 +71,11 @@ test("a pending review survives its own item's history being cut short", async (
     // back — it fell outside the per-item bound.
     rows: [activityRow({ requirement_id: 26134 })],
     selection: { per_item_limit: 20, truncated_public_refs: ["BUZ-1896"] },
-    pending: [itemReviewRow({ id: 4500 })],
+    pending: [itemReviewRow({ id: 4500, subject_context: {
+      ...itemReviewRow().subject_context, subject: {
+        ...itemReviewRow().subject_context.subject, deployment_run_id: RUN_ID,
+      },
+    } })],
   });
   const { card } = await cardFor(documentNode, [member(1896, "BUZ-1896")], client);
   await settle();
@@ -88,7 +92,11 @@ test("an item with no shown checks but a waiting review still draws it", async (
   const client = readingClient({
     // Nothing relevant to this run came back at all.
     rows: [activityRow({ deployment_run_id: "run-20260910-003" })],
-    pending: [itemReviewRow({ id: 4502 })],
+    pending: [itemReviewRow({ id: 4502, subject_context: {
+      ...itemReviewRow().subject_context, subject: {
+        ...itemReviewRow().subject_context.subject, deployment_run_id: RUN_ID,
+      },
+    } })],
   });
   const { card } = await cardFor(documentNode, [member(1896, "BUZ-1896")], client);
   await settle();

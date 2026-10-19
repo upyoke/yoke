@@ -26,11 +26,8 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import replace
-import hashlib
 import os
 from pathlib import Path
-import sys
-import tempfile
 from typing import Any, Callable, Dict, Iterator, Optional
 
 from yoke_contracts.machine_config import runtime as machine_runtime
@@ -51,12 +48,6 @@ LOCAL_UNIVERSE_DIR_NAME = "local-universe"
 #: so no password exists to manage.
 LOCAL_SUPERUSER = "yoke"
 LOCAL_DBNAME = "yoke"
-
-# sockaddr_un.sun_path holds 104 bytes on macOS/BSD and 108 on Linux, including
-# the trailing NUL. Preserve every path that the current platform can bind;
-# durable data remains under the machine home while only an actually overlong
-# socket moves beneath the shortest writable machine temp root.
-_MAX_POSTGRES_SOCKET_PATH_BYTES = 107 if sys.platform.startswith("linux") else 103
 
 
 class LocalUniverseError(RuntimeError):
@@ -82,39 +73,8 @@ def cluster_spec(
         superuser=LOCAL_SUPERUSER,
         bin_dir=bin_dir,
         stop_mode="fast",
-        socket_dir=_socket_dir_for_root(resolved_root),
+        socket_dir=postgres_cluster.socket_dir_for_root(resolved_root),
     )
-
-
-def _socket_dir_for_root(root: Path) -> Optional[Path]:
-    """Return a stable short socket directory only when the root is too long."""
-    default = root / "sock"
-    socket_name = f".s.PGSQL.{postgres_cluster.SOCKET_PORT}"
-    if len(os.fsencode(default / socket_name)) <= _MAX_POSTGRES_SOCKET_PATH_BYTES:
-        return None
-    uid = getattr(os, "getuid", lambda: 0)()
-    digest = hashlib.sha256(os.fsencode(root.absolute())).hexdigest()[:12]
-    candidates = (Path(tempfile.gettempdir()), Path("/tmp"))
-    bases = {
-        os.fsencode(candidate): candidate
-        for candidate in candidates
-        if candidate.is_dir() and os.access(candidate, os.W_OK | os.X_OK)
-    }
-    if not bases:
-        raise LocalUniverseError(
-            "no writable temporary directory is available for an embedded "
-            "Postgres Unix socket"
-        )
-    base = min(
-        bases.values(),
-        key=lambda candidate: (len(os.fsencode(candidate)), os.fsencode(candidate)),
-    )
-    fallback = base / f"yoke-pg-{uid}-{digest}"
-    if len(os.fsencode(fallback / socket_name)) > _MAX_POSTGRES_SOCKET_PATH_BYTES:
-        raise LocalUniverseError(
-            "the machine paths are too long for an embedded Postgres Unix socket"
-        )
-    return fallback
 
 
 def ensure_engine_binaries(

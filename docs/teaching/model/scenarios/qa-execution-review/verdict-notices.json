@@ -1,0 +1,12 @@
+{
+ "id": "verdict-notices",
+ "title": "A resolved human review reaches the responsible session",
+ "status": "observed",
+ "audience": "agent",
+ "when": "After a human resolves a QA evidence review outside a deployment run.",
+ "need": "The current item claim holder receives the requirement, outcome, reviewer note and next step. A missing holder routes to steering for staffing; queued messages remain in its undelivered view. If no session is addressable, resolution reports manual staffing while preserving the verdict. Deployment reviews retain their run/stage recipients.",
+ "disclosure": "current cue",
+ "surface": "Session verdict notice; steering undelivered messages; QA requirement detail",
+ "review": "Source and regression coverage; live delivery remains unverified until release.",
+ "sources": ["docs/public/verification/requirement-state.md", "packages/yoke-core/src/yoke_core/domain/qa_verdict_notice.py", "runtime/api/domain/test_qa_verdict_notice.py"]
+}

@@ -255,7 +255,7 @@ same session to keep its organization scope through re-registration.
 `outside-project-first-work` creates an isolated project and task item. The
 outside session must read organization scope with no project; its claim outside
 must refuse `CLAIM_FOLDER_MISMATCH` naming the item and the
-`yoke project register` recovery; from the registered folder it must refuse
+`yoke --env CONNECTION project register CHECKOUT --project-id N` recovery; from the registered folder it must refuse
 `SESSION_MACHINE_SCOPE_WORK_REFUSED` naming the item and that folder. A session
 opened there must read project scope and either claim the item or refuse only
 with a named non-scope reason such as model admission.

@@ -11,7 +11,7 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke items dependency list --help"],
  "plan_notes": ["JOURNEYS row 11", "JOURNEYS row 14"],
- "sources": [".agents/skills/yoke/idea/infer-and-create.md", ".agents/skills/yoke/idea/path-claim-blocking.md", "docs/public/frontier.md", "docs/public/reference/lifecycle-gates.md", ".agents/skills/yoke/steer/loop.md"],
+ "sources": [".agents/skills/yoke/idea/infer-and-create.md", ".agents/skills/yoke/idea/path-claim-blocking.md", "docs/public/strategy/frontier.md", "docs/public/workflows/gates.md", ".agents/skills/yoke/steer/loop.md"],
  "position": 0,
  "surface_notes": ["Always encode item blockers as proper dependency edges so that the system knows when things move to ready."]
 }

@@ -27,7 +27,7 @@ KEYS = (
 )
 FOLDER_REFUSAL = (
     "CLAIM_FOLDER_MISMATCH: No local checkout is mapped to project scope-proof for "
-    "SCP-1 (Scope proof). Recovery: run `yoke project register CHECKOUT "
+    "SCP-1 (Scope proof). Recovery: run `yoke --env local project register CHECKOUT "
     "--project-id 7`, then open a session there; sessions never switch projects."
 )
 
@@ -57,6 +57,7 @@ class FakeCli:
         tmp_path,
         *,
         outside_claim_refuses=True,
+        folder_refusal=FOLDER_REFUSAL,
         folder_refusal_names_folder=True,
         worker_claim=(0, ""),
     ):
@@ -65,6 +66,8 @@ class FakeCli:
         self.scopes = {}
         self.checkout = None
         self.outside_claim_refuses = outside_claim_refuses
+        self.folder_refusal = folder_refusal
+        self.registration_env = None
         self.folder_refusal_names_folder = folder_refusal_names_folder
         self.worker_claim = worker_claim
         self.calls = []
@@ -83,7 +86,10 @@ class FakeCli:
         rows = []
         for sid in self.scopes:
             ended = sid in self.ended
-            probe = ended and self.ended[sid] - self.begun[sid] <= PROBE_MAX_LIFETIME_SECONDS
+            probe = (
+                ended
+                and self.ended[sid] - self.begun[sid] <= PROBE_MAX_LIFETIME_SECONDS
+            )
             if (state == "ended") != ended or probe or wanted not in (None, sid):
                 continue
             rows.append({"session_id": sid})
@@ -98,7 +104,11 @@ class FakeCli:
 
     def run(self, argv, *, cwd, env, **_kwargs):
         session = env.get("YOKE_SESSION_ID", "")
-        command = argv[1:4]
+        args = argv[1:]
+        if args[:1] == ["--env"]:
+            self.registration_env = args[1]
+            args = args[2:]
+        command = args[:3]
         self.calls.append(command)
         if command[:2] == ["sessions", "begin"]:
             in_project = str(cwd) == self.checkout
@@ -125,7 +135,7 @@ class FakeCli:
         if str(cwd) != self.checkout:
             if not self.outside_claim_refuses:
                 return self._ok({})
-            return CompletedProcess(argv, 1, stdout="", stderr=FOLDER_REFUSAL)
+            return CompletedProcess(argv, 1, stdout="", stderr=self.folder_refusal)
         folder = self.checkout if self.folder_refusal_names_folder else "elsewhere"
         return self._refused(
             argv,
@@ -200,8 +210,12 @@ def test_first_work_refuses_outside_then_admits_a_folder_session(
     fake = cli()
     _probe(monkeypatch, "first-work")
     assert fake.calls.count(["claims", "work", "acquire"]) == 3
+    assert fake.registration_env == "local"
     assert sorted(fake.scopes.values(), key=str) == [(7, None), (None, 1)]
-    assert "admission and claimed the item" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert FOLDER_REFUSAL in output
+    assert "claim SCP-1 exit 1:" in output
+    assert "admission and claimed the item" in output
 
 
 def test_first_work_accepts_a_named_model_admission_refusal(cli, monkeypatch, capsys):
@@ -214,6 +228,18 @@ def test_first_work_accepts_a_named_model_admission_refusal(cli, monkeypatch, ca
     ("options", "reason"),
     [
         ({"outside_claim_refuses": False}, "first_work_refusal_missing:"),
+        (
+            {"folder_refusal": FOLDER_REFUSAL.replace("SCP-1", "SCP-2")},
+            "first_work_refusal_missing:",
+        ),
+        (
+            {
+                "folder_refusal": FOLDER_REFUSAL.replace(
+                    "project register", "project remove"
+                )
+            },
+            "first_work_refusal_missing:",
+        ),
         ({"folder_refusal_names_folder": False}, "first_work_scope_refusal_missing:"),
         ({"worker_claim": (1, "")}, "first_work_recovery_failed: an unnamed"),
         (

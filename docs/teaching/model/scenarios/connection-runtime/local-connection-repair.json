@@ -8,6 +8,6 @@
  "disclosure": "Init repair output, init --activate help, and Doctor connection findings.",
  "surface": "init and doctor connections",
  "review": "Candidate source regression tests cover repair and active connection preservation; deployed proof remains pending.",
- "sources": ["docs/public/reference/local-connection-repair.md", "runtime/api/cli/test_local_connection_repair.py", "runtime/api/engines/test_doctor_connections.py"],
+ "sources": ["docs/public/verification/local-connection-repair.md", "runtime/api/cli/test_local_connection_repair.py", "runtime/api/engines/test_doctor_connections.py"],
  "position": 3
 }

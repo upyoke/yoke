@@ -10,6 +10,6 @@
  "gap": "The additive registry and atomic store are present. Human CLI redemption and Team navigation are separate, unfinished teaching surfaces; see gap teammate-invite-human-route.",
  "review": "Disposable-database tests cover form selection, org-admin authority, refusal guidance and secret replay/debug protection; deployed human-route proof remains open.",
  "plan_notes": ["FIRST-USER item 33", "FIRST-USER item 27"],
- "sources": ["docs/public/actors-members-billing.md", "docs/public/reference/machine-authorization.md", "runtime/api/domain/test_teammate_invite_forms.py", "runtime/api/domain/test_teammate_invite_functions.py"],
+ "sources": ["docs/public/projects/actors-members-billing.md", "docs/public/cli/machine-authorization.md", "runtime/api/domain/test_teammate_invite_forms.py", "runtime/api/domain/test_teammate_invite_functions.py"],
  "position": 2
 }

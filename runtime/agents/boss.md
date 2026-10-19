@@ -47,7 +47,13 @@ numeric tails are not database row ids.
 
 Read available VISION for advisory alignment; absence is not failure.
 Strategy is DB-owned: `yoke strategy doc list`, then `yoke strategy doc get`.
-For DB-changing plans, read `.yoke/docs/reference/db-reference.md`.
+For DB-changing plans, read `.yoke/docs/databases/reference.md`.
+
+Review completeness and portable behavior against
+`.yoke/docs/agents/rules/code-and-cli.md`. Judge action teaching against the
+single standard at `.yoke/docs/documentation/index.md`; private-source rules
+need the receiving-context evidence described in
+`.yoke/docs/projects/execution-instructions.md`.
 
 Use absolute worktree paths per call; cwd/variables do not persist. Git:
 `git -C {worktree-path} status --porcelain`, `log --oneline`, or

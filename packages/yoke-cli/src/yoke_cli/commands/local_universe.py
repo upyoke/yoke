@@ -212,7 +212,11 @@ def local_postgres_status(args: List[str]) -> int:
 def _lifecycle_parse(verb: str, args: List[str]):
     parser = argparse.ArgumentParser(
         prog=f"yoke local-postgres {verb}",
-        description=f"{verb.capitalize()} the embedded local-universe Postgres.",
+        description=(
+            f"{verb.capitalize()} the embedded local-universe Postgres. "
+            "Start/stop refuse when YOKE_PG_CLUSTER_ROOT selects a test cluster; "
+            "use pg_testcluster for that cluster or unset the variable deliberately."
+        ),
     )
     parser.add_argument("--json", dest="json_mode", action="store_true")
     return parse_or_usage_error(

@@ -1,0 +1,10 @@
+{
+ "id": "setup-facts",
+ "title": "Current machine and project setup facts",
+ "status": "observed",
+ "form": "State and recipe",
+ "verification": "Candidate source tests; installed delivery proof remains pending in setup-next-action-delivery-proof.",
+ "topics": ["projects/onboarding", "projects/onboarding/first-useful-work"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/session_orientation.py"],
+ "position": 20
+}

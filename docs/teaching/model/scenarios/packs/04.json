@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke packs relink --help", "yoke packs update --help"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/projects.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/packs.py", "packs/webapp-scaffold/versions/1.1.5/files/docs/packs/webapp-scaffold/README.md"],
+ "sources": ["docs/public/projects/index.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/packs.py", "packs/webapp-scaffold/versions/1.1.5/files/docs/packs/webapp-scaffold/README.md"],
  "position": 3
 }

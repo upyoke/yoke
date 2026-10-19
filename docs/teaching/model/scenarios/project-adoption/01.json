@@ -10,6 +10,6 @@
  "gap": "Release proof is pending for the default-config project recipes and projectless refusals.",
  "review": "Candidate tests execute create, import and onboard with default machine config and disabled GitHub adoption; direct install refuses non-Git folders before mutation.",
  "plan_notes": ["FIRST-USER 1", "FIRST-USER P6", "JOURNEYS 4", "JOURNEYS 5", "JOURNEYS 6"],
- "sources": ["docs/public/projects.md", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_existing_project_detected.py", "runtime/api/cli/test_public_project_recipes.py", "runtime/api/cli/test_projectless_operation_boundaries.py"],
+ "sources": ["docs/public/projects/index.md", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_existing_project_detected.py", "runtime/api/cli/test_public_project_recipes.py", "runtime/api/cli/test_projectless_operation_boundaries.py"],
  "position": 0
 }

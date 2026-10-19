@@ -21,14 +21,7 @@ PACKAGED_SKILLS = (
     / "skills"
     / "yoke"
 )
-SOURCE_FUNCTION_REFERENCE = (
-    REPO_ROOT
-    / ".yoke"
-    / "docs"
-    / "reference"
-    / "db-reference"
-    / "functions-worktrees.md"
-)
+SOURCE_FUNCTION_REFERENCE = REPO_ROOT / ".yoke" / "docs" / "functions" / "worktrees.md"
 PACKAGED_FUNCTION_REFERENCE = (
     REPO_ROOT
     / "packages"
@@ -38,9 +31,8 @@ PACKAGED_FUNCTION_REFERENCE = (
     / "install_bundle_tree"
     / "docs"
     / "public"
-    / "reference"
-    / "db-reference"
-    / "functions-worktrees.md"
+    / "functions"
+    / "worktrees.md"
 )
 RECIPE_PATHS = (
     "implement/SKILL.md",

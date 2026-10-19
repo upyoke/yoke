@@ -4,5 +4,8 @@
  "status": "observed",
  "audience": "Documentation authors / maintainers",
  "page": "documentation-structure",
- "position": 1
+ "position": 1,
+ "sources": ["docs/public/cli/help.md", ".agents/skills/yoke/help/SKILL.md"],
+ "summary": "General agent help gives the overview; topic help reads the actual command or skill and gives the complete applicable recipe plus its exact installed deeper home. CLI root/category/command help narrows one level at a time. Outside a project, public docs and command --help remain reachable; the separate global skill/orientation delivery is still pending.",
+ "verification": "Direct source/help homes inspected; observed teaching is not proof of a live answer or installed receiving context."
 }

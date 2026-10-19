@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke strategy doc get --help"],
  "plan_notes": ["FIRST-USER 24", "JOURNEYS row 9", "JOURNEYS row 10"],
- "sources": ["docs/public/strategy.md", ".agents/skills/yoke/onboard/strategy-conversation.md", ".agents/skills/yoke/strategize/propose.md", ".agents/skills/yoke/strategize/approve.md"],
+ "sources": ["docs/public/strategy/index.md", ".agents/skills/yoke/onboard/strategy-conversation.md", ".agents/skills/yoke/strategize/propose.md", ".agents/skills/yoke/strategize/approve.md"],
  "position": 0
 }

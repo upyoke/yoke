@@ -81,8 +81,8 @@ source, read or final receipt is missing evidence: halt dispatch, name the
 access/rehearsal recovery and supply the corrected packet. When no permanent
 migration is composed, explicitly record that this block is not applicable.
 
-Phase A uses ONLY prompt evidence, no tools: preliminary verdict and at most3
-candidate gaps. Phase B optionally verifies via at most5 named file reads and
+Phase A uses ONLY prompt evidence, no tools: preliminary verdict and at most 3
+candidate gaps. Phase B optionally verifies via at most 5 named file reads and
 specific-file diffs. No broad branch diff, ls/find/glob enumeration, unnamed
 files or git archaeology unless explicitly requested. Final report has severity,
 category, path/trigger/consequence/root cause/fix and recommendation.
@@ -94,7 +94,7 @@ Initialize _local_result=""; parse SIMULATION: CLEAN/GAPS FOUND, with a local
 fallback token only for output diagnosis. Persistence still validates identity
 and canonical headers; substring parsing cannot authorize handoff.
 
-No result enters [retry-budgets.md](retry-budgets.md). At retry1 distinguish
+No result enters [retry-budgets.md](retry-budgets.md). At retry 1 distinguish
 formatting_omission from context_exhaustion; ambiguous is formatting_omission.
 Formatting retry explicitly demands SIMULATION: then EPIC: ${_epic_ref} first.
 Compressed aggressive retry repeats SIMULATION: then EPIC: ${_epic_ref}, bounded

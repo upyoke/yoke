@@ -11,18 +11,16 @@ asks about the folder itself before it asks about anything in it.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import List, Optional
 
 from yoke_contracts.harness_unattended_posture import codex_config_path
 from yoke_contracts.codex_config_posture import (
-    CodexConfigUnreadable,
     changed,
     plan,
-    read_config_text,
     record_written,
 )
+from yoke_contracts.codex_hook_trust_toml import CodexHookTrustStoreError, mutate
 
 
 def configure_codex_unattended_posture(
@@ -36,26 +34,17 @@ def configure_codex_unattended_posture(
     unattended.
     """
     target = config_path if config_path is not None else codex_config_path()
-    text = read_config_text(target)
-    if text is None:
+    if not target.parent.is_dir():
         return []
     try:
-        updated, record = plan(text, str(checkout) if checkout else None)
-    except CodexConfigUnreadable as exc:
-        return [
-            f"codex: {target} is not valid TOML ({exc}); Codex reads no "
-            "posture from it and will keep asking. Repair the file, then "
-            "rerun the installer."
-        ]
+        record = mutate(
+            target,
+            lambda text, document: plan(text, str(checkout) if checkout else None),
+        )
+    except CodexHookTrustStoreError as exc:
+        return [f"codex: {exc}"]
     actions: List[str] = []
     if changed(record):
-        target.parent.mkdir(parents=True, exist_ok=True)
-        tmp = target.with_suffix(target.suffix + ".yoke-tmp")
-        try:
-            tmp.write_text(updated, encoding="utf-8")
-            os.replace(str(tmp), str(target))
-        except OSError as exc:
-            return [f"codex: {target} could not be updated ({exc})"]
         granted = list(record["set_keys"])
         if record["trusted_checkout"]:
             granted.append(f"trusted {record['trusted_checkout']}")

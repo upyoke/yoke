@@ -16,6 +16,6 @@
  "authority_and_reuse": "Keep command names/usages generated from the existing registry. Preserve the exhaustive catalog behind an explicit discoverable route; decide that route rather than inventing a flag in documentation. Keep help usable offline without mandatory server reads.",
  "proposal_status": "New presentation proposal using existing command/help mechanisms",
  "plan_notes": ["FIRST-USER 35: short readable output", "FIRST-USER P6: projectless CLI refusals", "JOURNEYS principle 4: exact deep pointers"],
- "sources": ["packages/yoke-cli/src/yoke_cli/command_router.py", "packages/yoke-cli/src/yoke_cli/commands/group_help.py", "packages/yoke-cli/src/yoke_cli/commands/registry.py", "docs/public/reference/commands.md"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/command_router.py", "packages/yoke-cli/src/yoke_cli/commands/group_help.py", "packages/yoke-cli/src/yoke_cli/commands/registry.py", "docs/public/agents/commands.md"],
  "position": 4
 }

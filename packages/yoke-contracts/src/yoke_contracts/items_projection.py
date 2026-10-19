@@ -110,6 +110,7 @@ _NON_FIELD_REDIRECTS: dict[str, str] = {
     "worktree": "yoke item-worktrees get ITEM --lane-role implementation",
     "worktrees": "yoke item-worktrees get ITEM --lane-role implementation",
     "dependencies": "yoke items dependency list ITEM",
+    "progress_log": "yoke items progress-log get ITEM",
 }
 
 

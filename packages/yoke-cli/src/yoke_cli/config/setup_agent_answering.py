@@ -187,22 +187,30 @@ class AnswerFlow:
                 f"Check this session is ready: run `{readiness}` and give each "
                 "failed check's next step to the person, then rerun it."
             )
-            next_steps.append(
-                "When every check passes, ask the person once whether to start "
-                "/yoke onboard, then run it in this session."
-            )
         elif checkout:
             next_steps.append(f"Open Claude Code, Codex or Cursor in {checkout}.")
             next_steps.append(
-                "Run /yoke onboard in that session; it checks the session is "
-                "ready first."
+                f"Check that session with `{readiness}` before taking its next action."
             )
         else:
             next_steps.append(
                 "To add a project later, run `yoke setup --agent` again and "
                 "choose the folder its code lives in."
             )
+        setup = None
+        if checkout:
+            from yoke_cli.config.setup_facts_summary import read_project, next_line
+
+            setup = read_project(checkout)
+            action = setup["next_action"]
+            if action:
+                next_steps.append(
+                    "After session readiness passes: " + next_line(action)
+                )
+            elif setup["lines"]:
+                next_steps.extend(setup["lines"])
         return {
+            "next_action": setup["next_action"] if setup else None,
             "detail": [f"Run report: {self.report_path}"] if self.report_path else [],
             "report": summary if isinstance(summary, dict) else None,
             "install_health": report.get("install_health"),

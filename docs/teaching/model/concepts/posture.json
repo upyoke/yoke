@@ -2,7 +2,7 @@
  "id": "posture",
  "title": "Execution posture and policies",
  "status": "draft-copy",
- "sources": ["packages/yoke-core/src/yoke_core/domain/workflow_definition_validation.py", "packages/yoke-core/src/yoke_core/domain/item_posture_amend.py", "docs/public/workflows.md"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/workflow_definition_validation.py", "packages/yoke-core/src/yoke_core/domain/item_posture_amend.py", "docs/public/workflows/index.md"],
  "page": "posture",
  "position": 29
 }

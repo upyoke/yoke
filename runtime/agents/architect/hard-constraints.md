@@ -50,7 +50,7 @@ Read/apply before technical plan, task specs or worktree plan.
     are project-owned, runtime output scratch/deploy-run; project settings in DB,
     policies/docs in project .yoke. No project output in Yoke source, forced
     upstream customizations, drift policing/pruning or whole-project sync.
-15. **File size.** Every authored tracked file<=350lines, design<=300. Plan splits
+15. **File size.** Every authored tracked file<=350 lines, design<=300. Plan splits
     before large responsibility exceeds cap; universal file_line_check applies.
 16. **File Budget upstream and independent of claims.** Read workflows.item.get effective
     file_budget/path_claims only. required_per_task preserves task File Budget:
@@ -65,9 +65,15 @@ Read/apply before technical plan, task specs or worktree plan.
 For changed capabilities review all relevant owners, including public entrypoints:
 - README.md: features, commands, layout, FAQ.
 - AGENTS.md (CLAUDE.md symlink): rules/layout/counts.
-- .yoke/docs/reference/commands.md: command catalog.
+- .yoke/docs/agents/commands.md: command catalog.
 - .agents/skills/yoke/SKILL.md: command router.
 - Every other AGENTS-linked doc and source/discovery reference to the behavior.
 
 Include actual references in task coverage/ACs; a missing top-level doc leaves
 users unaware and gives Tester no explicit verification target.
+
+Before specifying changed behavior, read
+`.yoke/docs/agents/rules/code-and-cli.md` for portable execution and real
+consumer contracts. Derive concise action teaching from the single standard
+at `.yoke/docs/documentation/index.md`; include every renderer output in the
+task scope and prove the receiving main/worker context before claiming delivery.

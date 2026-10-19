@@ -1,9 +1,8 @@
 # Source-Dev Worktree Cleanup
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately -- before retrying, before moving on.
+File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
 Use this only for source-dev/admin cleanup of Yoke checkout worktrees. Product
@@ -95,6 +94,17 @@ deletes the exact remote ref (or proves it already absent) via the shared
 `delete_remote_branch_if_merged` helper; only then is the proved-clean worktree
 removed, followed by normal `git branch -d`. Incomplete remote cleanup
 preserves the local worktree and branch for a later safe retry.
+
+Each successfully removed lane also retires its `item_worktrees` row through
+`item_worktrees.release_merged_lane`, including a registered lane whose folder
+is already absent. A finished worker can retire while its parent item stays
+open; released rows cannot compete with the surviving lane as a merge source.
+The authority verdict supplies the owner's public `item_ref`. If an older
+server omits it, `prune_owner_identity_unavailable` preserves the lane: update
+the serving control plane, then retry the sweep. A failed row release prints
+the stranded branch and cause; restore control-plane access and ask the
+control-plane operator to retry `item_worktrees.release_merged_lane` for that
+item and branch. Preserved folders retain their active rows.
 
 Removal is resumable, because `git worktree remove` deletes files one by one
 and drops git's record last: killed midway, it stranded a registered,

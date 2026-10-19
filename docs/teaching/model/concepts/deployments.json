@@ -2,7 +2,7 @@
  "id": "deployments",
  "title": "Deployment flows and runs",
  "status": "draft-copy",
- "sources": ["docs/public/delivery.md", "docs/public/reference/deployment-start.md", "docs/public/reference/db-reference/deployment-run-records.md", "docs/public/reference/db-reference/release-delivery.md"],
+ "sources": ["docs/public/deployments/index.md", "docs/public/deployments/start-diagnostics.md", "docs/public/deployments/model/runs.md", "docs/public/deployments/model/run-members.md", "docs/public/deployments/model/stage-receipts.md", "docs/public/deployments/model/flows.md", "docs/public/deployments/model/release-notices.md", "docs/public/deployments/model/releases.md"],
  "surface_refs": ["manual-overview"],
  "skills": ["usher"],
  "page": "deployments",

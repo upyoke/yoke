@@ -186,7 +186,7 @@ def run(args: List[str]) -> int:
     parser.add_argument("--base-url", default="")
     parser.add_argument(
         "--machine",
-        help="Pin Machine QA cases to one registered Test Machine.",
+        help="Pin Machine QA cases to a registered host matching their required OS. Keep the emitted --machine pin when resuming or running corrections.",
     )
     parser.add_argument("--expected-branch")
     parser.add_argument("--expected-sha")

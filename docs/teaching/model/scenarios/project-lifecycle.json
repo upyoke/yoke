@@ -5,5 +5,6 @@
  "situations": ["A project moves to a new checkout or its repository binding changes.", "The installed project layer or registered snapshot needs refresh.", "A team retires a project and later restores it."],
  "coverage": "catalogued",
  "current": "Research trace; requirements and source paths need live proof.",
- "questions": ["Which rename/move/rebind operations are actually supported and which must refuse?", "Trace preservation and reconciliation rules before teaching a one-command repair."]
+ "questions": ["Which rename/move/rebind operations are actually supported and which must refuse?", "Trace preservation and reconciliation rules before teaching a one-command repair."],
+ "sources": ["docs/public/projects/index.md", "docs/public/functions/project-configuration.md"]
 }

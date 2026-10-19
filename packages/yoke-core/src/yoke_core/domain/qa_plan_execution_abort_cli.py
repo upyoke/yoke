@@ -12,7 +12,11 @@ from yoke_core.domain.qa_plan_execution import QaPlanExecutionError, _call_plan_
 
 
 def run(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke qa plan abort")
+    parser = argparse.ArgumentParser(
+        prog="yoke qa plan abort",
+        description="Stop an ordered QA execution. In-flight host work retains custody until restore proof is recorded.",
+        epilog="qa_abort_restore_pending means cancellation is recorded: keep the runner connected through cleanup, then retry. Failed restoration retains the lease and names operator recovery. See yoke qa plan run --help.",
+    )
     subject = parser.add_mutually_exclusive_group()
     subject.add_argument("--item")
     subject.add_argument("--deployment-run-id")

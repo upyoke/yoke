@@ -5,5 +5,5 @@
  "page": "qa-plans",
  "position": 6,
  "summary": "Source-generated shared cases sync from clean, merged source and retain the full source revision. Deployment QA uses frozen candidate definitions and refuses source newer than the candidate. Exact failed-requirement correction isolates one host baseline; lanes use item-scoped or run-bound proof. A whole-plan edit (`yoke qa plan edit`) reads only the named plan, refuses a retired plan as plan_retired before the editor opens, shows every case field, including target_envs and stage_reason, and saves the document back whole; a save that leaves out an existing case's field and would reset its stored value is refused as qa_plan_edit_unedited_field_changed, naming each case and field.",
- "sources": ["docs/testing-verification/installer-campaign.md", "docs/public/reference/qa-platform/standalone-plans.md"]
+ "sources": ["docs/testing-verification/installer-campaign.md", "docs/public/verification/standalone-plans.md"]
 }

@@ -46,6 +46,11 @@ from yoke_contracts.machine_qa_host_control import (
     HostControlOperation,
 )
 
+from yoke_contracts.qa_continuity_fingerprint import (
+    execution_protocol,
+    require_continuity_state,
+)
+
 
 class MachineQaCaseContract(BaseModel):
     """Immutable database snapshot needed to execute and persist one case."""
@@ -62,7 +67,7 @@ class MachineQaCaseContract(BaseModel):
     case_key: str
     method_id: str
     method_name: str
-    runner_id: Literal["host_control", "agent_mission"]
+    runner_id: Literal["host_control", "agent_mission", "worktree_run"]
     required_capability_kinds: list[str]
     verdict_path: str
     qa_kind: str
@@ -125,7 +130,14 @@ class MachineQaCaseContract(BaseModel):
         if not hmac.compare_digest(self.execution_target_digest, expected_digest):
             raise ValueError("Machine QA execution target digest is invalid")
         require_case_execution_target(self)
-        require_materialized_starting_state(self)
+        if self.runner_id == "worktree_run":
+            if not self.method_config.get("machine"):
+                raise ValueError(
+                    "Command host admission requires method_config.machine"
+                )
+        else:
+            require_materialized_starting_state(self)
+        require_continuity_state(self)
         return self
 
 
@@ -134,7 +146,9 @@ class HostControlExecutionContract(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    protocol: Literal["host-control-v1"] = HOST_CONTROL_PROTOCOL
+    protocol: Literal["host-control-v1", "host-control-continuity-v1"] = (
+        HOST_CONTROL_PROTOCOL
+    )
     operation: HostControlOperation
     lease_id: int = Field(ge=1)
     lease_key: str
@@ -222,6 +236,10 @@ class HostControlExecutionContract(BaseModel):
         for case in self.cases:
             if case.project_id != self.project_id or case.project != self.project:
                 raise ValueError("case project does not match execution project")
+        if self.protocol != execution_protocol(self.cases):
+            raise ValueError(
+                "continuity_runner_required: upgrade the CLI and reissue the continuity contract"
+            )
         expected = execution_contract_digest(self)
         if not hmac.compare_digest(self.contract_digest, expected):
             raise ValueError("host-control execution contract digest is invalid")
@@ -280,8 +298,9 @@ def issue_execution_contract(
     baseline_position: int | None = None,
 ) -> HostControlExecutionContract:
     """Build and digest one normalized server-authoritative contract."""
+    normalized_cases = [_validated_case(case) for case in (cases or [])]
     provisional = HostControlExecutionContract.model_construct(
-        protocol=HOST_CONTROL_PROTOCOL,
+        protocol=execution_protocol(normalized_cases),
         operation=operation,
         lease_id=int(lease_id),
         lease_key=str(lease_key),
@@ -291,7 +310,7 @@ def issue_execution_contract(
         selection_reason=selection_reason,
         checks=list(checks or []),
         baselines=list(baselines or []),
-        cases=[_validated_case(case) for case in (cases or [])],
+        cases=normalized_cases,
         golden_destination=golden_destination,
         plan_execution_id=plan_execution_id,
         continues_execution_id=continues_execution_id,

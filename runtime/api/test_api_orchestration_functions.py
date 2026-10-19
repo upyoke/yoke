@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from yoke_core.domain import schema_api_context_seed as seed
 from yoke_core.domain.handlers import orchestration
 from yoke_core.domain.handlers import orchestration_packets, orchestration_agents
 from yoke_contracts.api.function_call import (
@@ -36,7 +37,8 @@ class TestBoardRebuild(unittest.TestCase):
             board_path = yoke_root / "BOARD.md"
             board_path.write_text("line1\nline2\nline3\n", encoding="utf-8")
             with patch(
-                "yoke_core.domain.rebuild_board.rebuild", return_value=0,
+                "yoke_core.domain.rebuild_board.rebuild",
+                return_value=0,
             ):
                 with patch(
                     "yoke_core.domain.rebuild_board.resolve_main_repo_root",
@@ -56,7 +58,8 @@ class TestBoardRebuild(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             yoke_root = Path(tmp)
             with patch(
-                "yoke_core.domain.rebuild_board.rebuild", return_value=1,
+                "yoke_core.domain.rebuild_board.rebuild",
+                return_value=1,
             ):
                 with patch(
                     "yoke_core.domain.rebuild_board.resolve_main_repo_root",
@@ -83,7 +86,8 @@ class TestBoardRebuild(unittest.TestCase):
                 "Python board renderer failed: kaboom",
             )
             with patch(
-                "yoke_core.domain.rebuild_board.rebuild", return_value=result,
+                "yoke_core.domain.rebuild_board.rebuild",
+                return_value=result,
             ):
                 with patch(
                     "yoke_core.domain.rebuild_board.resolve_main_repo_root",
@@ -150,13 +154,31 @@ class TestPacketsRender(unittest.TestCase):
         self.assertEqual(outcome.result_payload["detail"], "full")
 
     def test_rejects_an_unknown_depth_by_name(self):
-        req = _request(
-            "packets.render.run", {"role": "main_agent", "detail": "terse"}
-        )
+        req = _request("packets.render.run", {"role": "main_agent", "detail": "terse"})
         outcome = orchestration_packets.handle_packets_render(req)
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "payload_invalid")
         self.assertIn("terse", outcome.error.message)
+
+    def test_unknown_topic_lists_valid_topics_closest_first(self):
+        req = _request(
+            "packets.render.run",
+            {"role": "main_agent", "topic": "cliam"},
+        )
+        outcome = orchestration_packets.handle_packets_render(req)
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "payload_invalid")
+        message = outcome.error.message
+        self.assertIn("unknown topic: cliam", message)
+        self.assertIn(
+            "Retry: yoke packets render --role main_agent --topic claims",
+            message,
+        )
+        listed = message.split("valid topics (closest first): ", 1)[1]
+        names = listed.split(".", 1)[0].split(", ")
+        self.assertEqual(names[0], "claims")
+        self.assertCountEqual(names, seed.TOPICS)
+        self.assertEqual(len(names), len(set(names)))
 
 
 class TestPacketsCheck(unittest.TestCase):
@@ -219,7 +241,8 @@ class TestAgentsRenderRun(unittest.TestCase):
             side_effect=RuntimeError("renderer kaboom"),
         ):
             req = _request(
-                "agents.render.run", {"target_root": "/tmp/x"},
+                "agents.render.run",
+                {"target_root": "/tmp/x"},
             )
             outcome = orchestration_agents.handle_agents_render_run(req)
         self.assertFalse(outcome.primary_success)
@@ -235,7 +258,8 @@ class TestAgentsRenderCheck(unittest.TestCase):
             return_value=["drift: .claude/agents/yoke-engineer.md"],
         ):
             req = _request(
-                "agents.render.check", {"target_root": "/tmp/y"},
+                "agents.render.check",
+                {"target_root": "/tmp/y"},
             )
             outcome = orchestration_agents.handle_agents_render_check(req)
         self.assertTrue(outcome.primary_success)
@@ -247,7 +271,8 @@ class TestAgentsRenderCheck(unittest.TestCase):
             side_effect=RuntimeError("seed mismatch"),
         ):
             req = _request(
-                "agents.render.check", {"target_root": "/tmp/y"},
+                "agents.render.check",
+                {"target_root": "/tmp/y"},
             )
             outcome = orchestration_agents.handle_agents_render_check(req)
         self.assertFalse(outcome.primary_success)

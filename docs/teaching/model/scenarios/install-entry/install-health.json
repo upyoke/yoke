@@ -9,5 +9,5 @@
  "surface": "Doctor install selection and final agent setup report",
  "topics": ["installation/entry"],
  "plan_notes": ["FIRST-USER E"],
- "sources": ["docs/public/events-doctor-ouroboros.md", "packages/yoke-core/src/yoke_core/engines/doctor_install.py"]
+ "sources": ["docs/public/operations/doctor.md", "packages/yoke-core/src/yoke_core/engines/doctor_install.py"]
 }

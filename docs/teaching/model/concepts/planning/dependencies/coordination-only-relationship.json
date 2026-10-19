@@ -5,5 +5,5 @@
  "page": "planning",
  "position": 2,
  "summary": "Coordination-only edges permit overlap without ordering. Ordering edges also permit overlap once their persisted satisfaction is met, while retaining their stored gate point; unresolved conditions still serialize the dependent.",
- "sources": ["docs/public/reference/db-reference/path-claims.md"]
+ "sources": ["docs/public/sessions/model/path-claims.md"]
 }

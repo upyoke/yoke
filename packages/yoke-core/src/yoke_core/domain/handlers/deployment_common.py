@@ -138,6 +138,8 @@ class DeploymentRunStartForItemResponse(BaseModel):
 
 
 class DeploymentRunListRequest(BaseModel):
+    summary: Optional[bool] = None
+    cursor: Optional[str] = None
     project: Optional[str] = None
     status: Optional[str] = None
     limit: Optional[int] = None
@@ -146,6 +148,7 @@ class DeploymentRunListRequest(BaseModel):
 
 
 class DeploymentRunListResponse(BaseModel):
+    detail_recipe: Optional[str] = None
     fields: List[str]
     rows: List[Dict[str, Any]]
     limit: int

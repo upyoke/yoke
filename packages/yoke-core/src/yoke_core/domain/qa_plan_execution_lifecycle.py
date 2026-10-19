@@ -129,6 +129,18 @@ def finish_plan_execution(
             "QA plan execution is already terminal as "
             f"{current_state!r}; transition to {state!r} refused"
         )
+    if state in {"aborted", "error"}:
+        from yoke_core.domain.qa_plan_execution_abort_state import require_host_restored
+
+        require_host_restored(conn, execution, reason=reason, commit=commit)
+    if state == "completed":
+        from yoke_core.domain.qa_plan_execution_abort_state import abort_request
+
+        if abort_request(execution):
+            raise QaPlanExecutionStateError(
+                "qa_abort_requested: completion is refused; keep the runner connected "
+                "through cleanup and finish cancellation with yoke qa plan abort"
+            )
     if state == "completed" and int(execution["cursor_ordinal"]) != len(
         execution["roster"]
     ):
@@ -141,6 +153,12 @@ def finish_plan_execution(
         from yoke_core.domain.qa_plan_review import begin_plan_review
 
         cancel_host_waits(conn, execution_ids=[str(execution["id"])])
+        if state in {"aborted", "error"}:
+            from yoke_core.domain.qa_mission_stop_settlement import (
+                settle_stopped_mission_dockets,
+            )
+
+            settle_stopped_mission_dockets(conn, execution, reason=reason)
         if state in {"aborted", "error"} and any(
             case.get("verdict_path") == "agent"
             for case in execution.get("roster") or []

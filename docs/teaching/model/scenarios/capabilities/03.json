@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke projects capability-settings get --help", "yoke project-structure get --help", "yoke status"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/projects.md", "docs/public/capabilities.md", "docs/public/cli-and-config.md", "packages/yoke-core/src/yoke_core/domain/project_structure.py"],
+ "sources": ["docs/public/projects/index.md", "docs/public/projects/capabilities.md", "docs/public/cli/machine-config.md", "packages/yoke-core/src/yoke_core/domain/project_structure.py"],
  "position": 2
 }

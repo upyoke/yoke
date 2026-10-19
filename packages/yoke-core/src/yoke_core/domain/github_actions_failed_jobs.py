@@ -61,10 +61,11 @@ class FailedJob:
 
 @dataclass(frozen=True)
 class RunFailures:
-    """Every finished failed job of a run, plus the jobs still running."""
+    """Run conclusion, every finished failed job, and jobs still running."""
 
     failed: List[FailedJob] = field(default_factory=list)
     unfinished_job_count: int = 0
+    conclusion: str = ""
 
 
 @dataclass(frozen=True)
@@ -127,6 +128,12 @@ def collect_failed_jobs(
     token: str,
 ) -> RunFailures:
     """Read every finished failed job of *run_id* by its own job id."""
+    run = rest_get(f"/repos/{repo}/actions/runs/{run_id}", token=token)
+    if not isinstance(run, dict):
+        raise RestTransportError(
+            f"GitHub returned an unreadable run {run_id}; check the run id "
+            "and repository access, then re-run the read",
+        )
     jobs = list_run_jobs(repo, run_id, token=token)
     failed = [
         _failed_job(repo, job, token=token)
@@ -134,7 +141,11 @@ def collect_failed_jobs(
         if str(job.get("conclusion") or "") in FAILED_JOB_CONCLUSIONS
     ]
     unfinished = sum(1 for job in jobs if str(job.get("status") or "") != "completed")
-    return RunFailures(failed=failed, unfinished_job_count=unfinished)
+    return RunFailures(
+        failed=failed,
+        unfinished_job_count=unfinished,
+        conclusion=str(run.get("conclusion") or ""),
+    )
 
 
 def resolve_log_downloads(

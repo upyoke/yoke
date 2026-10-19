@@ -17,7 +17,8 @@ yoke onboard checklist init --project {project} --checkout {checkout} --json
 Reentry evaluates each live skip predicate; it never blindly re-applies.
 Omit --run-id to resolve only this project's saved run. A foreign run refuses
 before a write. Read `run.execution_profile`, `profile_changed` and
-`setup_readiness`; shared decisions survive, while machine rows describe the
+`run.setup_readiness` and `run.next_action`; follow the returned command and
+home. Shared decisions survive, while machine rows describe the
 requesting machine. Missing local checks never inherit another machine's proof.
 Requested reconfigure shows the proposed delta and uses the same ordinary
 confirmation/approval gate. Every gate leaves a coherent resumable partial state.

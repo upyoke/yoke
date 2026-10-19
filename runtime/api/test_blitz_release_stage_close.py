@@ -13,7 +13,7 @@ from runtime.api.skill_doc_regressions_test_helpers import _read_skill_corpus
 ROOT = Path(__file__).parents[2]
 BLITZ = ROOT / ".agents" / "skills" / "yoke" / "blitz"
 HELP = ROOT / ".agents" / "skills" / "yoke" / "help" / "SKILL.md"
-WORKFLOWS = ROOT / "docs" / "public" / "workflows.md"
+WORKFLOWS = ROOT / "docs" / "public" / "workflows" / "index.md"
 ARCHIVE = (
     ROOT
     / "packages"

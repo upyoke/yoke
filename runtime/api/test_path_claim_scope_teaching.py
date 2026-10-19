@@ -22,8 +22,7 @@ class TestNoDescopeForActivePathClaims:
         idea = SKILLS / "idea"
         return {
             "agents": REPO / "AGENTS.md",
-            "claims_reference": REPO
-            / ".yoke/docs/reference/agent-rules/lanes-and-claims.md",
+            "claims_reference": REPO / ".yoke/docs/agents/rules/lanes-and-claims.md",
             "idea_skill": idea / "SKILL.md",
             "idea_path_closure": idea / "path-closure.md",
             "idea_infer": idea / "infer-and-create.md",

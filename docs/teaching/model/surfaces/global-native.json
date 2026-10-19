@@ -6,10 +6,11 @@
  "audience": "Agent",
  "encounter": "Native session load",
  "location": "Supported harness user-level instructions · delivery path to choose",
- "basis": "New proposal",
- "note": "A tiny recognition-and-routing seed. FIRST-USER P4 plans hook orientation and a global skill; it does not yet choose this native publisher.",
- "current": "No universal Yoke-native publisher established by the audit. Existing harness-native project rules are a separate surface.",
+ "basis": "Superseded unconditional native publisher; global hook/skill delivery pending",
+ "note": "Keep this unconditional native publisher superseded. Approved global work uses the global-orientation surface and its own delivery owner; no second native startup block is authorized.",
+ "current": "No universal unconditional native startup publisher is established. The required global hook orientation and user-level yoke-global appearance are also not proved by project-native rules or public docs; YOK-3975 owns that delivery and its actual receiving evidence.",
  "desired": "P4 explicitly adds no unconditional native startup publisher.",
  "plan_notes": ["FIRST-USER P4/D", "New delivery proposal"],
- "sources": ["docs/public/reference/harness-discovery.md:3", ".agents/skills/yoke/SKILL.md:7", "packages/yoke-core/src/yoke_core/domain/main_agent_packet.py", "packages/yoke-contracts/src/yoke_contracts/connection_authority_teaching.py", "packages/yoke-contracts/src/yoke_contracts/session_control/teaching.py"]
+ "sources": ["docs/public/agents/harness-discovery.md", "docs/public/cli/help.md", ".agents/skills/yoke/SKILL.md"],
+ "work_items": ["YOK-3975"]
 }

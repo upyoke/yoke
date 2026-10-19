@@ -1,0 +1,7 @@
+{
+ "id": "command-host-custody-live-proof",
+ "title": "Prove declared-host Command custody after deployment",
+ "status": "observed",
+ "text": "Candidate tests prove that a local Command declares a host, acquires its plan lease and begins nested reset or screenshot operations as the owner. The deployed candidate still needs scoped reset-case proof on its declared Linux and macOS hosts; fixture success is not a live reset verdict.",
+ "sources": ["runtime/api/domain/test_command_host_custody.py", "docs/testing-verification/test-machine-operations.md"]
+}

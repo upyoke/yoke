@@ -99,7 +99,7 @@ def handle_plan_execution_begin(
         else:
             if any(
                 (
-                    parsed.plan,
+                    parsed.plan if item_id is not None else None,
                     parsed.source_revision,
                     parsed.source_ref,
                 )
@@ -118,6 +118,7 @@ def handle_plan_execution_begin(
                 expected_branch=parsed.expected_branch,
                 machine=parsed.machine,
                 continue_mission=parsed.continue_mission,
+                plan=parsed.plan,
                 actor_id=request.actor.actor_id,
                 session_id=request.actor.session_id,
             )

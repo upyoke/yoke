@@ -153,7 +153,8 @@ def point_item_at_pull_request(
     The merge boundary's writer. An item that already landed keeps its
     current landing: a different pull request is recorded as a re-land
     attempt and returned with the same four facts, landing and notification
-    empty. Otherwise the columns are repointed. ``None`` when the item does
+    empty. A never-armed attempt preserves the prior landing observation;
+    arming replaces its episode. Otherwise the columns are repointed. ``None`` when the item does
     not exist.
     """
     marker = read_landing_marker(conn, item_id)
@@ -166,7 +167,7 @@ def point_item_at_pull_request(
         attempt, reset = record_attempt(
             conn, int(item_id), pr_number, enqueued_at=supplied
         )
-        if reset:
+        if reset and attempt["enqueued_at"] is not None:
             delete_landing_record(conn, int(item_id))
         conn.commit()
         return {

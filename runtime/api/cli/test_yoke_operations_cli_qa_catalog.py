@@ -334,3 +334,13 @@ def test_registered_command_maps_environment_and_runtime_base_url_targets() -> N
     assert result == 0
     assert runtime.payload["requires_base_url"] is True
     assert "target_environment" not in runtime.payload
+
+
+def test_method_reads_omit_project_for_the_session() -> None:
+    result, request = _run("qa", "method", "list")
+    assert result == 0
+    assert request.function == "qa.method.list"
+    assert request.payload == {}
+    result, request = _run("qa", "method", "get", "command")
+    assert result == 0
+    assert request.payload == {"method_id": "command"}

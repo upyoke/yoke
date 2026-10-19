@@ -47,6 +47,8 @@ residue check does not flag its own example text.
 
 from __future__ import annotations
 
+import subprocess
+
 import argparse
 import re
 import sys
@@ -233,7 +235,6 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
 def _resolve_repo_root(override: Path | None) -> Path:
     if override is not None:
         return override.resolve()
-    import subprocess
 
     try:
         result = subprocess.run(

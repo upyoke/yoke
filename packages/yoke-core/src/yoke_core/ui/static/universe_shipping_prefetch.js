@@ -31,4 +31,3 @@ export function prefetchShippingOverview(context, windowNode, navigation) {
     windowNode.removeEventListener(ROUTE_NAVIGATION_EVENT, discard);
   };
 }
-

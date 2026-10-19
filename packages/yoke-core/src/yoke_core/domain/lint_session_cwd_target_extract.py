@@ -74,7 +74,12 @@ def glued_file_redirect_target(token: str) -> str | None:
 
 
 def _tool_input(payload: Mapping[str, Any]) -> Mapping[str, Any]:
-    value = payload.get("tool_input") or payload.get("toolInput") or {}
+    value = (
+        payload.get("tool_input")
+        or payload.get("toolInput")
+        or payload.get("input")
+        or {}
+    )
     return value if isinstance(value, Mapping) else {}
 
 
@@ -186,6 +191,8 @@ class PayloadWriteTargets:
 
 def analyze_payload_write_targets(
     payload: Mapping[str, Any],
+    *,
+    protected_roots: Tuple[str, ...] = (),
 ) -> PayloadWriteTargets:
     """Return write-position paths for a payload with resolution detail."""
     if not isinstance(payload, Mapping):
@@ -206,11 +213,14 @@ def analyze_payload_write_targets(
 
     shell_targets, unresolved = _extract_shell_write_targets(command)
     out.extend(shell_targets)
-    python_writes = analyze_python_heredoc_writes(command)
+    python_writes = analyze_python_heredoc_writes(
+        command, protected_roots=protected_roots
+    )
     out.extend(python_writes.targets)
     return PayloadWriteTargets(
         _dedupe_paths(out),
-        unresolved,
+        unresolved
+        or (python_writes.free_writes and not python_writes.unresolved_writes),
         python_writes.unresolved_writes,
     )
 

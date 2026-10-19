@@ -5,5 +5,9 @@
  "commands": ["yoke qa plan-cases replace", "yoke qa plan-cases sync"],
  "functions": ["qa.plan_cases.replace", "qa.plan_cases.sync"],
  "page": "qa-plans",
- "position": 1
+ "position": 1,
+ "sources": ["docs/testing-verification/installer-campaign.md", "docs/public/functions/qa.md"],
+ "summary": "For a source-authored plan, export cases from a clean merged source using its declared target; retain the exporter's full source_revision with cases. Sync that export to replace future definitions, then reread and check the plan against source. Existing requirements, runs and evidence keep their admitted copies; requirements_behind_plan names the refresh/rematerialize recovery. Older engines may refuse qa_plan_source_binding_unavailable before writing.",
+ "recipes": ["yoke qa plan-cases sync --help", "yoke qa plan-cases sync --project P --plan-id N --cases-file SOURCE_EXPORT --json"],
+ "verification": "The canonical installer-campaign maintenance home owns export and post-sync checks. Source help inspected; no saved plan, requirement or execution changed."
 }

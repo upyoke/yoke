@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import importlib
 from yoke_cli.commands._helpers import show_delegate_help
 from typing import List
@@ -21,28 +22,39 @@ def source_dev_run(args: List[str]) -> int:
     return _source_runner().main(args)
 
 
+def _run_check(module: str, args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog=f"yoke dev {module.replace('_', '-')}", add_help=False, allow_abbrev=False
+    )
+    selector = parser.add_mutually_exclusive_group()
+    selector.add_argument("--lane", dest="selected_lane", metavar="PATH")
+    selector.add_argument("--workdir", dest="selected_lane", metavar="PATH")
+    parsed, command_args = parser.parse_known_args(args)
+    command = ["python3", "-m", f"yoke_core.tools.{module}", *command_args]
+    runner = _source_runner()
+    if parsed.selected_lane is None:
+        return runner.run(command)
+    return runner.run(command, lane=parsed.selected_lane)
+
+
 def ruff_changed(args: List[str]) -> int:
     if show_delegate_help(
         args,
-        "yoke dev ruff-changed [--base REF] [--workdir PATH] [--fix-format | --format-check]",
-        "Run from the registered claimed source lane; checks use its locked environment.",
+        "yoke dev ruff-changed --base REF [--lane PATH | --workdir PATH] [--fix-format | --format-check]",
+        "Select a live claimed source lane with --lane or --workdir when several exist; checks use its locked environment.",
     ):
         return 0
-    return _source_runner().run(
-        ["python3", "-m", "yoke_core.tools.ruff_changed", *args]
-    )
+    return _run_check("ruff_changed", args)
 
 
 def import_check(args: List[str]) -> int:
     if show_delegate_help(
         args,
-        "yoke dev import-check MODULE [MODULE ...]",
-        "Run from the registered claimed source lane; checks use its locked environment.",
+        "yoke dev import-check [--lane PATH | --workdir PATH] MODULE [MODULE ...]",
+        "Select a live claimed source lane with --lane or --workdir when several exist; checks use its locked environment.",
     ):
         return 0
-    return _source_runner().run(
-        ["python3", "-m", "yoke_core.tools.import_check", *args]
-    )
+    return _run_check("import_check", args)
 
 
 __all__ = ["import_check", "ruff_changed", "source_dev_run"]

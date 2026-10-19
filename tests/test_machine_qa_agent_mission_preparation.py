@@ -297,3 +297,27 @@ def test_delivery_evidence_accepts_the_holders_new_deployed_preparation(
     proof_run_id = "older-delivery"
     with pytest.raises(ValueError, match="Ask the holder to execute"):
         reader.verify(args)
+
+
+def test_lost_continuity_blocks_mission_before_scratch_or_package_changes(
+    mission, monkeypatch
+):
+    contract, execution, _ = mission
+    contract.baselines = []
+    contract.cases[0].host_baseline = None
+    contract.cases[0].method_config = {
+        "continuity_fingerprint": {"~/conversation.json": "a" * 64}
+    }
+    execution.control.run_command = lambda *a, **k: SimpleNamespace(
+        returncode=1, stdout='{"ok":false,"failures":[]}'
+    )
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("mission setup must not run after continuity loss")
+
+    monkeypatch.setattr(local, "create_mission_scratch", forbidden)
+    monkeypatch.setattr(qa_host_package_fixture, "restore_host_packages", forbidden)
+    payload = local.prepare_agent_mission_contract({})
+    assert payload["preparation"]["ok"] is False
+    assert payload["preparation"]["error_code"] == "continuity_lost"
+    assert payload["preparation"]["evidence"]["scratch_created"] is False

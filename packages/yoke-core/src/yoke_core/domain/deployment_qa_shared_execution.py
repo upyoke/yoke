@@ -39,10 +39,37 @@ def route_shared_plan_execution(begin):
         )
         target = deployment_qa_execution_target(conn, subject)
         groups = member_plan_subjects(conn, subject, target)
+        selected = kwargs.get("plan")
+        plan_filter = ""
+        plan_params = ()
+        if selected is not None:
+            plan_filter = (
+                " AND plan_id IN (SELECT id FROM qa_plans "
+                "WHERE slug=%s OR CAST(id AS TEXT)=%s)"
+            )
+            plan_params = (str(selected), str(selected))
+            selected_targets = {
+                str(row[0])
+                for row in conn.execute(
+                    "SELECT DISTINCT execution_target_digest FROM qa_requirements "
+                    "WHERE deployment_run_id=%s AND deployment_stage=%s "
+                    "AND deployment_member_item_id IS NULL" + plan_filter,
+                    (run_id, stage, *plan_params),
+                ).fetchall()
+            }
+            groups = [
+                group
+                for group in groups
+                if target_digest(deployment_qa_execution_target(conn, group))
+                in selected_targets
+            ]
         if not groups:
             return begin(conn, **kwargs)
         pending, completed = [], None
         for group in groups:
+            if selected is not None:
+                pending.append(group)
+                continue
             group_target = deployment_qa_execution_target(conn, group)
             acceptance = stage_acceptance(
                 conn,
@@ -73,8 +100,9 @@ def route_shared_plan_execution(begin):
         private = conn.execute(
             "SELECT COUNT(*) FROM qa_requirements WHERE deployment_run_id=%s AND deployment_stage=%s "
             "AND deployment_member_item_id=%s AND method_id IS NOT NULL "
-            f"AND NOT {settled_obligation_sql(conn)} AND {unanswered_attempt_sql(conn)}",
-            (run_id, stage, member),
+            f"AND NOT {settled_obligation_sql(conn)} AND {unanswered_attempt_sql(conn)}"
+            + plan_filter,
+            (run_id, stage, member, *plan_params),
         ).fetchone()[0]
         if private:
             private_accepted = stage_acceptance(
@@ -114,6 +142,7 @@ def route_shared_plan_execution(begin):
                 **{
                     **kwargs,
                     "deployment_member_item_id": None,
+                    "_requesting_member_item_id": member,
                     "_deployment_subject": pending[0],
                 },
             )
@@ -125,11 +154,13 @@ def route_shared_plan_execution(begin):
                     conn.execute(
                         "SELECT COUNT(*) FROM qa_requirements WHERE deployment_run_id=%s AND deployment_stage=%s "
                         "AND deployment_member_item_id IS NULL AND execution_target_digest=%s AND method_id IS NOT NULL "
-                        f"AND waived_at IS NULL AND {unanswered_attempt_sql(conn)}",
+                        f"AND waived_at IS NULL AND {unanswered_attempt_sql(conn)}"
+                        + plan_filter,
                         (
                             run_id,
                             stage,
                             target_digest(deployment_qa_execution_target(conn, group)),
+                            *plan_params,
                         ),
                     ).fetchone()[0]
                     for group in pending[1:]

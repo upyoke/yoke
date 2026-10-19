@@ -144,6 +144,47 @@ class LinuxTerminal:
         )
         raise LinuxTerminalWindowError("linux_terminal_window_unavailable", evidence)
 
+    def capture_window(self) -> dict:
+        """Raise this session's window, prove it is frontmost, capture only it.
+
+        Another window, such as Chromium after a browser approval, can cover
+        the terminal; a desktop capture would then show that window instead.
+        """
+        from yoke_harness.linux_desktop_session import desktop_command
+
+        activated = desktop_command(
+            self.control,
+            ["xdotool", "search", "--name", self.session, "windowactivate", "--sync"],
+            timeout=10,
+        )
+        active = desktop_command(
+            self.control, ["xdotool", "getactivewindow", "getwindowname"], timeout=10
+        )
+        if (
+            activated.returncode
+            or active.returncode
+            or self.session not in active.stdout
+        ):
+            raise LinuxTerminalWindowError(
+                "linux_terminal_window_not_frontmost",
+                {
+                    "session": self.session,
+                    "windowactivate": {
+                        "returncode": activated.returncode,
+                        "stderr": activated.stderr,
+                    },
+                    "active_window": {
+                        "returncode": active.returncode,
+                        "name": active.stdout.strip(),
+                        "stderr": active.stderr,
+                    },
+                    "recovery": "Close the window named in active_window on the "
+                    "test desktop, confirm `xdotool windowactivate` works in the "
+                    "XFCE session, then rerun.",
+                },
+            )
+        return self.control.capture_terminal_checkpoint(focused_window=True)
+
     def wait_for(
         self, text: str, deadline: float, progress_callback=None
     ) -> str | None:
@@ -222,7 +263,11 @@ def run_linux_terminal_case(
                 )
             if str(step["key"]) in capture_checkpoints:
                 try:
-                    rows[-1].update(control.capture_terminal_checkpoint())
+                    rows[-1].update(terminal.capture_window())
+                except LinuxTerminalWindowError as exc:
+                    return HostActionResult(
+                        False, {**exc.evidence, "steps": rows}, exc.code
+                    )
                 except RuntimeError as exc:
                     return HostActionResult(
                         False,

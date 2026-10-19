@@ -5,5 +5,6 @@
  "situations": ["Move local work to hosted or self-hosted.", "Keep a backup before uninstalling.", "Restore onto a fresh machine or replace a local universe."],
  "coverage": "partial",
  "current": "Research trace; requirements and source paths need live proof.",
- "questions": ["What exact checklist teaches which external repositories, services and machine-local secrets are outside the universe move?", "Can a user reach the export/restore route before deciding to uninstall in each mode?"]
+ "questions": ["What exact checklist teaches which external repositories, services and machine-local secrets are outside the universe move?", "Can a user reach the export/restore route before deciding to uninstall in each mode?"],
+ "sources": ["docs/public/start/modes.md", "docs/public/cli/machine-authorization.md"]
 }

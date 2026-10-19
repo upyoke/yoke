@@ -113,7 +113,7 @@ QA_RUN_ADD_USAGE = (
     "[--qa-kind KIND] [--verdict V] [--verdict-reason REASON] "
     f"[--execution-status {EXECUTION_STATUS_USAGE_TOKEN}] "
     "[--capture-degraded-reason TEXT] "
-    "[--raw-result TEXT] [--duration-ms N] [--session-id S] [--json]"
+    "[--raw-result TEXT] [--head-sha SHA] [--duration-ms N] [--session-id S] [--json]"
 )
 
 
@@ -177,6 +177,7 @@ def qa_run_add(args: List[str]) -> int:
         default=None,
         help="Optional duration in milliseconds.",
     )
+    parser.add_argument("--head-sha", help="Full commit SHA this evidence verifies.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_RUN_ADD_USAGE)
@@ -190,6 +191,7 @@ def qa_run_add(args: List[str]) -> int:
         "execution_status",
         "capture_degraded_reason",
         "raw_result",
+        "head_sha",
     ):
         value = getattr(parsed, key)
         if value is not None:

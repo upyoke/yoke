@@ -21,14 +21,14 @@ def _remote_png(control, remote):
     return screenshot_png("".join(read.stdout.split()))
 
 
-def _linux_capture(control, remote):
+def _linux_capture(control, remote, scrot):
     from yoke_harness.linux_desktop_session import desktop_command
     from yoke_harness.linux_desktop_state import (
         DESKTOP_POLL_INTERVAL_SECONDS,
         DESKTOP_READY_TIMEOUT_SECONDS,
     )
 
-    captured = desktop_command(control, ["scrot", "--overwrite", remote], timeout=30)
+    captured = desktop_command(control, scrot, timeout=30)
     session = captured.desktop_session
     deadline = time.monotonic() + DESKTOP_READY_TIMEOUT_SECONDS
     while not captured.returncode:
@@ -43,20 +43,28 @@ def _linux_capture(control, remote):
                 raise
         # XFCE can exist before its first frame; reuse that same desktop.
         time.sleep(DESKTOP_POLL_INTERVAL_SECONDS)
-        captured = desktop_command(
-            control, ["scrot", "--overwrite", remote], timeout=30
-        )
+        captured = desktop_command(control, scrot, timeout=30)
         captured.desktop_session = session
     return captured, None
 
 
-def capture_desktop(control) -> HostActionResult:
-    """Capture one test desktop and carry its bytes to the operation submitter."""
+def capture_desktop(control, *, focused_window: bool = False) -> HostActionResult:
+    """Capture one test desktop and carry its bytes to the operation submitter.
+
+    *focused_window* narrows a Linux capture to the window that holds focus, so
+    a caller that has just raised a window gets that window and nothing over it.
+    """
     remote = "/tmp/yoke-desktop-" + uuid4().hex + ".png"
+    scope = "focused_window" if focused_window else "desktop"
     session_evidence = {}
     linux_png = None
     try:
         if control.os == "macos":
+            if focused_window:
+                raise ValueError(
+                    "desktop_window_capture_unsupported: capture macOS terminal "
+                    "windows through the Terminal.app window screenshot"
+                )
             from yoke_harness.ssh_mac_gui_session import run_terminal_app_command
             from yoke_harness.ssh_mac_host_session_state import (
                 display_lock_recovery,
@@ -88,7 +96,10 @@ def capture_desktop(control) -> HostActionResult:
                 timeout=30,
             )
         elif control.os in {"linux", "windows"}:
-            captured, linux_png = _linux_capture(control, remote)
+            scrot = ["scrot", "--overwrite", remote]
+            if focused_window:
+                scrot.insert(1, "--focused")
+            captured, linux_png = _linux_capture(control, remote, scrot)
             session_evidence = {"desktop_session": captured.desktop_session}
         else:
             raise ValueError(
@@ -110,6 +121,7 @@ def capture_desktop(control) -> HostActionResult:
             {
                 "os": control.os,
                 **session_evidence,
+                "capture_scope": scope,
                 "sha256": hashlib.sha256(content).hexdigest(),
                 "width": width,
                 "height": height,

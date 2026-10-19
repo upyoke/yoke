@@ -16,6 +16,9 @@ Observability never raises: every probe degrades to an empty answer.
 
 from __future__ import annotations
 
+from yoke_core.tools import gate_admission
+import psycopg
+
 import os
 import re
 import subprocess
@@ -123,12 +126,9 @@ def _command_for_pid(pid: int) -> str:
 def _read_slot_parties() -> tuple[list[str], list[str]]:
     """Open a short-lived observer connection; empty on any failure."""
     try:
-        from yoke_core.tools import gate_admission
-
         dsn = gate_admission._maintenance_dsn()
         if dsn is None:
             return ([], [])
-        import psycopg
 
         with psycopg.connect(dsn, autocommit=True) as conn:
             return slot_parties(conn)

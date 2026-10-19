@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke workflows item-posture amend --help"],
  "plan_notes": ["FIRST-USER 35"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/item_posture_amend_guards.py", "docs/public/reference/db-reference/functions-workflows.md"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/item_posture_amend_guards.py", "docs/public/functions/workflows.md"],
  "position": 2
 }

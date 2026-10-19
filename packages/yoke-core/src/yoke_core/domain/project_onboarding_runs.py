@@ -202,6 +202,9 @@ def get_run(
             project_id=run["project_id"],
             project_access=project_access,
         )
+        from yoke_core.domain.project_onboarding_next_action import select_next_action
+
+        next_action = select_next_action(row_payloads, readiness)
         run_summary = summary(row_payloads)
         project = project_payload(run)
         local = (metadata.get("machines") or {}).get(machine_id, {})
@@ -221,6 +224,7 @@ def get_run(
             "project": project,
             "machine_id": machine_id,
             "setup_readiness": readiness,
+            "next_action": next_action,
             "execution_profile": metadata.get("execution_profile"),
             "profile_changed": bool(
                 metadata.get("execution_profile")

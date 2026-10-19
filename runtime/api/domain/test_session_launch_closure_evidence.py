@@ -102,6 +102,8 @@ def test_lease_expiry_records_phase_and_diagnostics_on_the_open_attempt() -> Non
     assert evidence["relay_id"] == RELAY_ID
     assert evidence["machine_id"] == MACHINE_ID
     assert evidence["duration_ms"] == 301_000
+    assert evidence["attempt_claimed_at"] == NOW
+    assert "native_started_at" not in evidence
 
 
 def test_lease_expiry_surfaces_the_terminal_result_code_on_the_launch_row() -> None:
@@ -263,3 +265,26 @@ def test_lease_expiry_keeps_what_the_relay_already_reported() -> None:
     # The closure's terminal code wins where the two documents overlap.
     assert evidence["result_code"] == "launch_lease_expired"
     assert evidence["closure_reason"] == "launch_lease_expiry"
+
+
+def test_registration_timeout_records_claim_time_instead_of_native_start() -> None:
+    from yoke_core.domain.session_relay import report_relay_job
+
+    conn = relay_connection()
+    launch = _claimed_launch(conn, key="registration-claim-time")
+    report_relay_job(
+        conn,
+        actor_id=1,
+        relay_id=RELAY_ID,
+        job_kind="launch",
+        job_id=launch.launch_id,
+        lease_id=_open_lease(conn, launch.launch_id),
+        result_code="native_created",
+        native_session_id="native-awaiting-hook",
+        now="2026-08-22T12:00:20.000000Z",
+    )
+    settle_launch_deadlines(conn, now="2026-08-22T12:30:00.000000Z")
+    stored = get_launch(conn, launch.launch_id)
+    evidence = json.loads(stored.result_evidence)
+    assert evidence["attempt_claimed_at"] == NOW
+    assert "native_started_at" not in evidence

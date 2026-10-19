@@ -15,9 +15,9 @@ nothing but the wheels installed:
 
 * **No ``runtime.*`` imports.** That tree is the Yoke source repo and is
   absent from every managed project.
-* **No database.** Orientation is built from the hook payload, the
-  filesystem, and ``git``; a project whose control plane is unreachable
-  still gets oriented rather than getting nothing.
+* **No database access here.** The client supplies optional setup facts through
+  its registered transport. The hook payload, filesystem and ``git`` still
+  orient a project whose control plane is unreachable.
 
 Orientation is short by construction. It carries the facts a session cannot
 look up — its own id, this checkout, this machine's advisories — and then the
@@ -59,6 +59,8 @@ ORIENTATION_REDELIVERED_MARKER = "YOKE_ORIENTATION_REDELIVERED"
 # marker so it consumes the shared body directly only when no client body is
 # already waiting to be merged into its SessionStart reply.
 CLIENT_ORIENTATION_PRESENT_KEY = "_yoke_client_orientation_present"
+SETUP_LINES_KEY = "_yoke_setup_lines"
+REQUIRED_LINES_KEY = "_yoke_required_lines"
 
 _GIT_TIMEOUT_S = 5
 
@@ -171,6 +173,7 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
             f"Root: {root}",
         ]
     )
+    lines.extend(payload.get(REQUIRED_LINES_KEY) or [])
     branch = _git_line(root, ["branch", "--show-current"])
     branch_lines = [f"Current branch: {branch}"] if branch else []
     # One commit, not three: this block rides the inline hook channel, which
@@ -186,11 +189,15 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
     # context before it can crowd the authority/trust instructions out of
     # the smallest harness channel; the checkout identity remains intact.
     budget = min(INLINE_CONTEXT_BYTES.values())
-    for metadata in (branch_lines + commit_lines, branch_lines, []):
-        rendered = "\n".join(lines + metadata + tail).rstrip() + "\n"
-        if len(rendered.encode("utf-8")) <= budget:
-            return rendered
-    return rendered
+    from yoke_core.domain.session_orientation_setup import render_with_setup
+
+    return render_with_setup(
+        lines,
+        [branch_lines + commit_lines, branch_lines, []],
+        tail,
+        payload.get(SETUP_LINES_KEY) or [],
+        budget,
+    )
 
 
 def orientation_for_hook(
@@ -270,7 +277,11 @@ def _orientation_for_hook(
 
         block = render_global_orientation(session_id, Path(cwd))
     else:
-        block = render_orientation(payload, root)
+        from yoke_cli.config.setup_facts_summary import orientation_lines
+
+        block = render_orientation(
+            {**payload, SETUP_LINES_KEY: orientation_lines(root)}, root
+        )
     if not block:
         return None
     if event_name == startup_event and not lost_earlier:

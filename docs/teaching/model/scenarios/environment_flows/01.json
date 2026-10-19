@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke deployment-flows get FLOW-ID --json", "yoke deployment-flows stages FLOW-ID"],
  "plan_notes": ["JOURNEYS row 12"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/flow_target.py", "packages/yoke-core/src/yoke_core/domain/deployment_flow_stage_references.py", "docs/public/reference/agent-rules/delivery.md", ".agents/skills/yoke/onboard/hosting-and-environments.md"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/flow_target.py", "packages/yoke-core/src/yoke_core/domain/deployment_flow_stage_references.py", "docs/public/agents/rules/delivery.md", ".agents/skills/yoke/onboard/hosting-and-environments.md"],
  "position": 0
 }

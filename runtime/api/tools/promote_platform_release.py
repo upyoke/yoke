@@ -201,7 +201,7 @@ def promote(args: argparse.Namespace) -> int:
             )
             continue
         print(
-            f"promotion run {run_id} did not succeed "
+            f"Platform promotion failed: https://github.com/{CONSUMER_REPO}/actions/runs/{run_id} "
             f"({result.get('conclusion') or result.get('state') or 'unread'}); "
             "inspect that run, correct it, and retry the deployment run",
             file=sys.stderr,

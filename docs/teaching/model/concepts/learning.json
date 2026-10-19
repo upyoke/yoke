@@ -2,7 +2,7 @@
  "id": "learning",
  "title": "Ouroboros and learning",
  "status": "draft-copy",
- "sources": ["docs/public/events-doctor-ouroboros.md", ".agents/skills/yoke/curate/SKILL.md", ".agents/skills/yoke/wrapup/SKILL.md"],
+ "sources": ["docs/public/operations/ouroboros.md", ".agents/skills/yoke/curate/SKILL.md", ".agents/skills/yoke/wrapup/SKILL.md"],
  "page": "learning",
  "position": 19
 }

@@ -1,0 +1,10 @@
+{
+ "id": "setup-next-action",
+ "title": "Follow the shared required setup action",
+ "status": "observed",
+ "form": "State and recipe",
+ "verification": "Candidate source tests; installed delivery proof remains pending in setup-next-action-delivery-proof.",
+ "topics": ["projects/onboarding", "projects/onboarding/first-useful-work"],
+ "sources": [".agents/skills/yoke/onboard/SKILL.md"],
+ "position": 20
+}

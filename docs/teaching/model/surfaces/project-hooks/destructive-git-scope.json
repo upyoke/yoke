@@ -5,6 +5,6 @@
  "form": "Rule",
  "verification": "Candidate regression tests run both guards against real repositories: path-limited restore, staged-only restore, checkout of a revision path, mid-rebase conflict resolution and whole-tree restore; no deployed proof yet.",
  "topics": ["context/hooks"],
- "sources": ["packages/yoke-contracts/src/yoke_contracts/hook_runner/destructive_git_rules.py", "runtime/api/domain/test_destructive_git_rules.py", "docs/public/reference/agent-rules/lanes-and-claims.md"],
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/hook_runner/destructive_git_rules.py", "runtime/api/domain/test_destructive_git_rules.py", "docs/public/agents/rules/lanes-and-claims.md"],
  "position": 9
 }
