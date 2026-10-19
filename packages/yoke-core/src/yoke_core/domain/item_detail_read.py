@@ -30,6 +30,7 @@ from yoke_core.domain.item_worktrees import list_item_worktrees
 from yoke_core.domain.merge_queue_landing_attempt import read_latest_attempt
 from yoke_core.domain.render_body import build_body
 from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.shepherd_verdict_log import item_verdicts
 from yoke_core.domain.workflow_behavior import worktree_lane_policy
 from yoke_core.domain.workflow_effective_policies import (
     resolve_effective_workflow_policies,
@@ -43,7 +44,6 @@ _NARRATIVE_FIELDS = (
     "design_spec",
     "technical_plan",
     "worktree_plan",
-    "shepherd_log",
     "shepherd_caveats",
     "test_results",
     "deploy_log",
@@ -273,6 +273,7 @@ def get_item_detail(item_id: int, *, include: Sequence[str] = ()) -> dict[str, A
                 public_ref, narrative=stored, progress_log=progress_log
             ),
             "progress_log": (progress_log if "progress_log" in wanted else None),
+            "shepherd_verdicts": item_verdicts(conn, public_ref),
             "source_field_note": source_field_note_for_dash(conn, item_id),
             "qa_requirements": qa_requirements,
             "gate_satisfactions": read_rungs(conn, item_id),

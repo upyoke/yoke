@@ -1,4 +1,4 @@
-"""Verdict, shepherd-log, and caveat disposition commands."""
+"""Verdict, verdict-log, and caveat disposition commands."""
 
 from __future__ import annotations
 
@@ -82,7 +82,33 @@ def cmd_verdict(
     return str(verdict_id)
 
 
-def cmd_shepherd_log(conn, item: str) -> str:
+def item_verdicts(conn, item: str) -> list[dict]:
+    """Return the item's shepherd verdicts, newest first."""
+    p = _placeholder(conn)
+    rows = query_rows(
+        conn,
+        "SELECT transition, worker, verdict, attempt, "
+        "COALESCE(caveats, ''), created_at "
+        f"FROM shepherd_verdicts WHERE public_ref={p} "
+        "ORDER BY created_at DESC, id DESC",
+        (item,),
+    )
+    return [
+        {
+            "transition": str(transition),
+            "worker": str(worker),
+            "verdict": str(verdict),
+            "attempt": int(attempt),
+            "caveats": str(caveats),
+            "created_at": format_instant(created_at),
+        }
+        for transition, worker, verdict, attempt, caveats, created_at in (
+            tuple(row) for row in rows
+        )
+    ]
+
+
+def cmd_verdict_log(conn, item: str) -> str:
     p = _placeholder(conn)
     rows = query_rows(
         conn,

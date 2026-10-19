@@ -263,7 +263,7 @@ def cmd_item_render(args: list[str]) -> int:
     Usage: item-render <item-id>
 
     Output: rendered body assembled from structured fields, item_sections,
-    and shepherd-log data. Exit 0 on success, 1 on not found, 2 on usage error.
+    and shepherd verdict data. Exit 0 on success, 1 on not found, 2 on usage error.
     """
     if len(args) < 1:
         print("Usage: item-render <item-id>", file=sys.stderr)

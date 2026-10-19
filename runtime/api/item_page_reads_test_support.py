@@ -56,7 +56,6 @@ def _connection() -> sqlite3.Connection:
           design_spec TEXT,
           technical_plan TEXT,
           worktree_plan TEXT,
-          shepherd_log TEXT,
           shepherd_caveats TEXT,
           test_results TEXT,
           deploy_log TEXT,
@@ -64,6 +63,11 @@ def _connection() -> sqlite3.Connection:
           project_sequence INTEGER,
           workflow_id TEXT,
           workflow_version_id INTEGER
+        );
+        CREATE TABLE shepherd_verdicts (
+          id INTEGER PRIMARY KEY, public_ref TEXT, transition TEXT,
+          worker TEXT, verdict TEXT, caveats TEXT, attempt INTEGER,
+          created_at TEXT
         );
         CREATE TABLE work_claims (
           id INTEGER PRIMARY KEY,
@@ -236,7 +240,7 @@ def _connection() -> sqlite3.Connection:
 
           ## File Budget
           - `packages/web/footer.js`', '', '', '', '', '', '',
-          '', 7, 22, 'dash', 11
+          7, 22, 'dash', 11
         )
         """
     )
