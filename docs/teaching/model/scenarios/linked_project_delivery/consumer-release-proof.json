@@ -1,0 +1,12 @@
+{
+ "id": "consumer-release-proof",
+ "title": "Prove consumer compatibility at release",
+ "status": "observed",
+ "audience": "agent",
+ "when": "Authoring a producer contract item or diagnosing a failed release pair",
+ "need": "Use the existing configured release-time exact-pair gate. Do not generate a separate consumer-build requirement before each item merge or a verification-only companion. The release gate proves both commits before tagging. On failure, inspect its producer item references and commit interval with the failed consumer job; real consumer code changes still need their linked companion.",
+ "disclosure": "current cue",
+ "surface": "AC authoring instructions, release refusal and consumer-proof guide",
+ "review": "Candidate source tests cover history attribution; actual release execution is not claimed.",
+ "sources": ["docs/public/verification/consumer-proof.md", "runtime/agents/product-manager.md", "runtime/api/tools/test_consumer_failure_attribution.py"]
+}

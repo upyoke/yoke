@@ -37,6 +37,11 @@ Insert one qa_requirements row against the subject you name.
                           --requirement-id N`; do not add-item onto a
                           frozen run and do not attach a plan.
 
+Manual AC review credits verification requirements at their pinned item QA
+gate. A blocking post_deploy row without an executable method refuses as
+requirement_proof_required: attach the proving executable plan case, or name a
+registered method with complete instructions, expected outcome and config.
+
 Worked examples:
 
   yoke qa requirement add --item YOK-N \\

@@ -34,19 +34,20 @@ class TestRequirementAdd:
             db_path=db_path,
             epic_id=5,
             task_num=3,
-            qa_kind="integration_test",
-            qa_phase="post_deploy",
+            qa_kind="implementation_review",
+            qa_phase="verification",
         )
         assert rid > 0
 
-    def test_add_with_deployment_run_id(self, db_path: str) -> None:
-        rid = qa.cmd_requirement_add(
-            db_path=db_path,
-            deployment_run_id="run-abc",
-            qa_kind="smoke_test",
-            qa_phase="manual_acceptance",
-        )
-        assert rid > 0
+    def test_add_with_deployment_run_id(self, db_path):
+        with pytest.raises(SystemExit) as exc:
+            qa.cmd_requirement_add(
+                db_path=db_path,
+                deployment_run_id="run-unbound",
+                qa_kind="ac_verification",
+                qa_phase="post_deploy",
+            )
+        assert exc.value.code == 2
 
     def test_missing_qa_kind_exits(self, db_path: str) -> None:
         with pytest.raises(SystemExit) as exc:

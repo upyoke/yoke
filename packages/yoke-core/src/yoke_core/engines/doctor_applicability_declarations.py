@@ -11,6 +11,9 @@ The shapes:
 
 ``_DB``
     Control-plane database only. Applies to every project on every runtime.
+``_MACHINE``
+    Reads only this machine's own state on the local runtime. It needs no
+    project, so it is the set Doctor runs from a folder outside every project.
 ``_SRC``
     Reads the target project's source tree. Only a runner holding that
     checkout can answer it.
@@ -32,6 +35,7 @@ from typing import Dict, List
 from yoke_core.engines.doctor_applicability import (
     CheckApplicability,
     PROJECT_SCOPE_EXTERNAL,
+    PROJECT_SCOPE_MACHINE,
     RUNTIME_LOCAL,
     UNIVERSAL,
 )
@@ -39,6 +43,10 @@ from yoke_core.engines.doctor_applicability import (
 
 _DB = UNIVERSAL
 _LOCAL = CheckApplicability(runtimes=frozenset({RUNTIME_LOCAL}))
+_MACHINE = CheckApplicability(
+    project_scope=PROJECT_SCOPE_MACHINE,
+    runtimes=frozenset({RUNTIME_LOCAL}),
+)
 _LOCAL_SRC = CheckApplicability(
     runtimes=frozenset({RUNTIME_LOCAL}),
     requires_source_checkout=True,
@@ -206,7 +214,7 @@ _SHAPES = (
         ),
     ),
     (
-        _LOCAL,
+        _MACHINE,
         (
             "connections",
             "administered-scratch-databases",
@@ -219,12 +227,17 @@ _SHAPES = (
             "session-hook-registration",
             "session-harness-cli-auth",
             "session-harness-unattended-posture",
-            "install-residue",
-            "installed-guidance",
-            "instruction-discovery",
             "machine-registry",
             "session-relay-orphans",
             "session-relay",
+        ),
+    ),
+    (
+        _LOCAL,
+        (
+            "install-residue",
+            "installed-guidance",
+            "instruction-discovery",
         ),
     ),
     (
@@ -281,6 +294,15 @@ def source_checkout_slugs() -> frozenset[str]:
     )
 
 
+def machine_scope_slugs() -> frozenset[str]:
+    """Slugs that read only this machine's state and need no project."""
+    return frozenset(
+        slug
+        for slug, shape in DECLARATIONS.items()
+        if shape.project_scope == PROJECT_SCOPE_MACHINE
+    )
+
+
 def local_runtime_slugs() -> frozenset[str]:
     """Slugs that must execute on the operator's own machine."""
     return frozenset(
@@ -294,6 +316,7 @@ __all__ = [
     "DECLARATIONS",
     "applicability_for",
     "local_runtime_slugs",
+    "machine_scope_slugs",
     "source_checkout_slugs",
     "undeclared_slugs",
 ]

@@ -210,6 +210,10 @@ def classify(
             "",
         )
     if state != "success":
+        from runtime.api.tools.consumer_failure_attribution import (
+            producer_failure_context,
+        )
+
         conclusion = str(result.get("conclusion") or state or "unknown")
         against = proven or consumer_sha or "an unnamed revision"
         return (
@@ -217,7 +221,8 @@ def classify(
             (
                 f"the hosted consumer refused this candidate: product "
                 f"{candidate_sha} against consumer {against} concluded "
-                f"{conclusion} — {where}. Land the paired consumer adaptation, "
+                f"{conclusion} — {where}. {producer_failure_context(candidate_sha)} "
+                "Fix the producer regression or land the paired consumer adaptation, "
                 f"which is a linked companion item in the {CONSUMER_PROJECT} "
                 "project; an instruction that excludes redesigning the consumer "
                 "never waives adapting it."

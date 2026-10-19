@@ -1,9 +1,5 @@
 """Discharge a broken frozen QA case with a corrected one that passed.
 
-A deployment-run requirement row is an immutable acceptance snapshot that
-cannot be corrected in place, and a waiver records "we chose not to require
-this" -- not a claim to attach to a case a corrected sibling proved.
-
 Supersession is the honest alternative. A second case bound to the same
 obligation -- the same run, stage, member and execution target for a
 run-bound case; the same item, transition, phase and execution target for an
@@ -15,20 +11,11 @@ is, so the history of what went wrong survives; what changes is that the
 stage gate reads its obligation as met by the named passing row rather
 than as unmet.
 
-The gate never has to trust the link on its own: the superseding row is in
-the same evaluated scope, so it is graded on its own evidence in the same
-pass. A link to a row that later stops passing therefore cannot launder a
-failure through -- that row fails for itself.
+A standing source may also name its own passing frozen deployment copy.
+The copy must retain the same plan case or direct admission identity.
 
-What superseding an admitted copy deliberately does NOT do is reach the
-item requirement the copy was frozen from. That row is a real outstanding
-obligation and discharging it from here would drop it forever. But leaving
-it unmentioned was how a correction failed to stick: the next release
-admitted a fresh copy of the same defective body. So the receipt names that
-row and the command that retires it, at the one moment the operator holds
-the corrected body. Retiring it is its own explicit supersession of the
-source by a corrected item requirement
-(:mod:`yoke_core.domain.qa_requirement_source_retirement`).
+Superseding an admitted copy leaves its item source outstanding; the receipt
+names that source and the explicit retirement recovery.
 """
 
 from __future__ import annotations
@@ -115,6 +102,13 @@ def requirement_scope(row: dict[str, Any]) -> tuple[str, ...]:
 
 def same_scope(broken: dict[str, Any], corrected: dict[str, Any]) -> list[str]:
     """Every way the two rows fail to answer for the same obligation."""
+    from yoke_core.domain.qa_requirement_run_proof import (
+        is_run_proof,
+        run_proof_mismatches,
+    )
+
+    if is_run_proof(broken, corrected):
+        return run_proof_mismatches(broken, corrected)
     if is_source_retirement(broken):
         broken, corrected = map(source_retirement_scope, (broken, corrected))
     mismatches: list[str] = []
@@ -173,7 +167,8 @@ def record_supersession(
     from yoke_core.domain.qa_requirement_scope import lock_requirement_scope
     from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 
-    lock_requirement_scope(conn, requirement_id)
+    for locked_id in sorted({requirement_id, superseded_by_requirement_id}):
+        lock_requirement_scope(conn, locked_id)
     broken = _requirement(conn, requirement_id, label="superseded")
     corrected = _requirement(conn, superseded_by_requirement_id, label="superseding")
 
@@ -207,7 +202,9 @@ def record_supersession(
                 "rather than chaining through an earlier attempt."
             )
     run_answer: dict[str, Any] = {}
-    if is_source_retirement(broken):
+    from yoke_core.domain.qa_requirement_run_proof import is_run_proof
+
+    if is_source_retirement(broken) and not is_run_proof(broken, corrected):
         run_answer = source_retirement_answer(
             conn, broken, corrected_id=int(superseded_by_requirement_id)
         )

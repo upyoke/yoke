@@ -44,28 +44,10 @@ def _setup_readiness(report: dict, kwargs: dict) -> dict:
         project_report = report.get("project_onboarding") or {}
         project = str((project_report.get("project") or {}).get("id") or "")
     if not project:
+        from yoke_cli.commands.adapters.doctor_machine_scope import machine_scope_rows
+
+        rows = machine_scope_rows(install_slugs(), quick=False, fix=False)
         compose = importlib.import_module("yoke_core.engines.doctor_https_compose")
-        machine_slugs = [
-            s
-            for s in install_slugs()
-            if s
-            not in {
-                "project-gh-auth",
-                "install-residue",
-                "installed-guidance",
-                "instruction-discovery",
-            }
-        ]
-        rows = compose.run_local_runtime_checks(
-            project="", quick=False, fix=False, slugs=machine_slugs
-        )
-        rows.append(
-            {
-                "hc": "install-project",
-                "severity": "N/A",
-                "detail": "Machine-only setup selected no project; run `yoke doctor run --install --project P` after installing a project.",
-            }
-        )
         result = {"results": rows, **compose.recount(rows)}
     else:
         from yoke_cli.commands.adapters.doctor import doctor_run
@@ -83,7 +65,7 @@ def _setup_readiness(report: dict, kwargs: dict) -> dict:
         except ValueError:
             result = {"error": {"code": "INSTALL_DOCTOR_UNAVAILABLE"}, "results": []}
         result["exit_code"] = code
-    expected = set(install_slugs()) if project else set(machine_slugs)
+    expected = set(install_slugs())
     rows = result.get("results") or []
     observed = {str(row.get("hc") or "").removeprefix("HC-") for row in rows}
     if expected - observed and not result.get("error"):

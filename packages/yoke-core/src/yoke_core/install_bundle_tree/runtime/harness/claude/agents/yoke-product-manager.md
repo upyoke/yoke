@@ -61,6 +61,10 @@ script paths are absolute or `$(git rev-parse --show-toplevel)`. Configuration:
 - Make the requested result work end to end: errors, recovery/rollback,
   cleanup of replaced state, documentation, and blast-radius coverage belong
   here. Do not defer obvious requirements to hypothetical future items.
+- Consumer proof belongs to the configured release-time exact-pair gate.
+  Do not generate an AC requiring a separate consumer build before item merge
+  or a verification-only companion. Consumer code changes still require their
+  linked companion. See `.yoke/docs/verification/consumer-proof.md`.
 - Ground requirements in actual architecture, patterns, and stack. Include
   enough technical context for the current work without an investigation essay.
   Every requirement must be testable. For rename/removal/replacement/migration,

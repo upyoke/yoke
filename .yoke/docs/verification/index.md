@@ -105,10 +105,11 @@ integration gate has nothing to run and a queued pull request never merges.
 
 ## Proving an exact producer candidate
 
-Run the producer gate first. Hand the consumer only the full commit the gate
-actually pushed to the producer remote. Resolve that commit after the gate
-rebases and publishes; an earlier local commit may never reach the remote.
-Consumer proof must name the exact pushed candidate.
+The configured release-time exact-pair [consumer proof](consumer-proof.md)
+gate owns this proof. Item merges need no separate consumer build or
+verification-only companion; consumer code changes still need their companion.
+When an explicitly requested consumer case uses a producer candidate, hand it
+the full commit the producer gate actually pushed after any rebase.
 
 A CI run normally proves one fact: the commit it checked out. Verifying a
 pushed producer candidate before release needs a second one, and it rides
@@ -282,6 +283,7 @@ project operator to repair the named definition or target if it persists.
 - [Standalone plans](standalone-plans.md) — Run project plans and recover an interrupted or ambiguous execution.
 - [Success policy](success-policy.md) — Apply all-pass aggregation and attempt-local measurements.
 - [Case attachment](case-attachment.md) — Bind cases to authorized items, tasks and deployment targets.
+- [Consumer proof](consumer-proof.md) — Use the release-time exact-pair gate and diagnose producer failures.
 - [Starting state and activity](case-attachment-rules.md) — Declare Machine starting state and read case activity.
 - [Deployment plan execution](deployment-plan-execution.md) — Run frozen cases across members, machines and shared host turns.
 - [Browser targets](browser-targets.md) — Select Browser targets, methods, identities and viewport configuration.

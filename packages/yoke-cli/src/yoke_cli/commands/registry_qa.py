@@ -18,12 +18,17 @@ from yoke_cli.commands.adapters import qa_crud_batch as _qa_crud_batch
 from yoke_cli.commands.adapters import qa_read as _qa_read
 from yoke_cli.commands.adapters import (
     qa_requirement_rebind as _qa_rebind,
+    qa_requirement_transfer as _qa_transfer,
     qa_requirement_supersede as _qa_supersede,
 )
 
 AdapterFn = Callable[[List[str]], int]
 
 QA_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
+    ("qa", "requirement", "transfer"): (
+        "qa.requirement.transfer",
+        _qa_transfer.qa_requirement_transfer,
+    ),
     ("qa", "requirement", "update"): (
         "qa.requirement.update",
         _qa.qa_requirement_update,

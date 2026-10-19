@@ -10,7 +10,24 @@ Derive requirements from acceptance criteria and settle obligations through expl
 
 ac_derived records an AC-derived case. Nullable suite_id links future stable
 suite membership: define AC, derive case, graduate a stable case to a suite.
-The metadata itself is no passing result.
+The metadata itself is no passing result. Manual AC review credits methodless
+verification requirements at their pinned item QA gate. A blocking post_deploy row
+without an executable method has no such item-review credit path and
+refuses as `requirement_proof_required`, naming its item and criterion. Attach
+the executable plan case that proves it, or author a registered method case.
+Simulation and explicit review kinds retain their domain-owned verdict paths.
+
+`qa.requirement.transfer` moves an unexecuted direct requirement between open
+items in the same project. Hold both claims and name the destination's stage:
+
+```text
+yoke qa requirement transfer --requirement-id {requirement_id} --to-item PREFIX-N --workflow-transition {stage} --rationale "Destination owns this check"
+```
+
+The same row moves; both items retain an ownership receipt. A blocking case
+must retain its method or a destination with manual review credit. Executed,
+settled, plan-owned and admitted cases keep their original subject. A transfer
+records no pass.
 
 ## Discharges: waiver, supersession, and retraction
 
@@ -42,8 +59,11 @@ waives: that waiver is the graph error's named repair. Read
 `yoke qa requirement waive --help`.
 
 **Supersession:** corrected blocking case needs same run/stage/member/target
-(item: same item/transition/phase/target) and its own qualifying pass. History
-is untouched. Declared replacement via plan run/materialize --replaces records
+(item: same item/transition/phase/target) and its own qualifying pass. A standing item source may instead name its own run-scoped passing copy:
+match its plan/case or direct admission identity, member item, method, phase,
+baseline and target environment; a frozen source digest must also match.
+Unrelated run passes refuse. The successor still needs a current qualified
+pass. History is untouched. Declared replacement via plan run/materialize --replaces records
 replacement_requirement_id after same-scope/acyclic validation. Predecessor
 immediately leaves grading/roster; only terminal successor answers, even pending
 or failing. Review bundle includes newly captured cases only. Independent pass

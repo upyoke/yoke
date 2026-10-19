@@ -68,15 +68,15 @@ class TestRequirementAdd:
         )
         assert req_id >= 1
 
-    def test_add_deployment_run_requirement(self, db_path, capsys):
-        req_id = qa.cmd_requirement_add(
-            db_path=db_path,
-            item_id=None,
-            deployment_run_id="run-test-001",
-            qa_kind="e2e",
-            qa_phase="post_deploy",
-        )
-        assert req_id >= 1
+    def test_add_deployment_run_requirement(self, db_path):
+        with pytest.raises(SystemExit) as exc:
+            qa.cmd_requirement_add(
+                db_path=db_path,
+                deployment_run_id="run-unbound",
+                qa_kind="ac_verification",
+                qa_phase="post_deploy",
+            )
+        assert exc.value.code == 2
 
     def test_add_no_target_exits(self, db_path):
         with pytest.raises(SystemExit):

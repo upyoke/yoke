@@ -57,6 +57,7 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `qa.requirement.list` | `none` |
 | `qa.requirement.rebind_target` | `qa_subject` |
 | `qa.requirement.supersede` | `qa_subject` |
+| `qa.requirement.transfer` | `qa_subject` |
 | `qa.requirement.update` | `qa_subject` |
 | `qa.requirement.waive` | `qa_subject` |
 | `qa.run.add` | `qa_subject` |
@@ -84,6 +85,13 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `test_machine.screenshot` | `none` |
 | `test_machine.settings_replace` | `none` |
 | `test_machine.verify` | `none` |
+
+## Transfer a direct case
+
+`qa.requirement.transfer` moves one unexecuted direct case to an open item in
+the same project. Hold both work claims, name the destination's pinned stage,
+and give a rationale; both items retain the receipt. Read
+`yoke qa requirement transfer --help` and [requirement discharges](../verification/requirement-discharges.md).
 
 ## Adopt captured QA after restaffing
 

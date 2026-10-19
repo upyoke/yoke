@@ -159,6 +159,16 @@ def cmd_requirement_add(
             "suite_id": suite_id,
             "workflow_transition_id": workflow_transition_id,
         }
+        from yoke_core.domain.qa_requirement_proof import proof_refusal
+
+        refused = proof_refusal(
+            row,
+            subject="QA requirement",
+            conn=conn,
+            item_id=binding_item_id,
+        )
+        if refused:
+            _exit_policy_errors([refused])
         owner_id = item_id if item_id is not None else epic_id
         if owner_id is not None:
             from yoke_core.domain.qa_environment_execution_target import (

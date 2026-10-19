@@ -292,6 +292,7 @@ root:
         - {title: "Standalone plans", summary: "Run project plans and recover an interrupted or ambiguous execution.", path: "verification/standalone-plans.md"}
         - {title: "Success policy", summary: "Apply all-pass aggregation and attempt-local measurements.", path: "verification/success-policy.md"}
         - {title: "Case attachment", summary: "Bind cases to authorized items, tasks and deployment targets.", path: "verification/case-attachment.md"}
+        - {title: "Consumer proof", summary: "Use the release-time exact-pair gate and diagnose producer failures.", path: "verification/consumer-proof.md"}
         - {title: "Starting state and activity", summary: "Declare Machine starting state and read case activity.", path: "verification/case-attachment-rules.md"}
         - {title: "Deployment plan execution", summary: "Run frozen cases across members, machines and shared host turns.", path: "verification/deployment-plan-execution.md"}
         - {title: "Browser targets", summary: "Select Browser targets, methods, identities and viewport configuration.", path: "verification/browser-targets.md"}

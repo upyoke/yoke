@@ -20,7 +20,7 @@ updated lane and rerun the same case to rejoin any existing CI run.
 Python owner: `yoke_core.domain.qa`. Public command examples use the installed
 Yoke CLI, which dispatches the registered `qa.*` function ids:
 
-- `yoke qa requirement add|add-batch|list|get|update|waive ...`
+- `yoke qa requirement add|add-batch|list|get|update|waive|transfer ...`
 - `yoke qa plan materialize --item PREFIX-N --transition T`
 - `yoke qa plan run --deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN] --project P` — `--plan` only for a stage that names no cases; one already naming its own refuses it
 - `yoke qa plan run --deployment-run-id RUN --plan PLAN --project P` — run-wide, and refused on a run pinning any QA stage
@@ -57,6 +57,9 @@ yoke qa requirement add \
  --instructions "Open the released home route." \
  --expected-outcome "The home page renders the new build." \
  --method-config '{"steps":[{"action":"navigate","route":"/"}]}'
+
+# Move an unexecuted direct requirement; hold both work claims.
+yoke qa requirement transfer --requirement-id {requirement_id} --to-item PREFIX-N --workflow-transition {stage} --rationale "Destination owns this check"
 
 # List requirements
 yoke qa requirement list --item PREFIX-N

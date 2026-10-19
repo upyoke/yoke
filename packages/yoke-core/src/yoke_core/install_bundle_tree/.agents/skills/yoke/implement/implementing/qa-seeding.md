@@ -36,3 +36,8 @@ For an explicit Browser contract, follow [browser-seeding.md](browser-seeding.md
 reuse a plan or author a method case. Do not seed free-form quick/full/e2e/smoke
 requirements or inspect structure command settings as a substitute for plan
 defaults. The transition router materializes project-owned cases.
+
+Manual acceptance-criteria review credits verification rows at their pinned item QA gate.
+A methodless blocking post_deploy requirement has no such item-review credit
+path: attach the executable plan case that proves it, or author a registered
+method case. `requirement_proof_required` names the criterion and recovery.
