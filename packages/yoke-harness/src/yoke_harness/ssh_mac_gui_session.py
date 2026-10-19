@@ -157,7 +157,7 @@ def _stop_timed_out_command(
     window: _GuiWindow,
     timeout: int,
 ) -> subprocess.CompletedProcess[str]:
-    """Stop the command the wait gave up on before its output is deleted.
+    """Stop the command the wait gave up on and return what it had printed.
 
     A command left running keeps writing into files the cleanup removed and
     keeps whatever it holds, such as a setup lock, until its own wait ends.
@@ -187,8 +187,13 @@ def _stop_timed_out_command(
             f"stays at {' '.join(window.paths)}. Stop it on the host "
             f"(pid {pid_text or 'unknown'}), read those files, then retry."
         )
+    # What the command printed before the deadline, such as an approval URL,
+    # is often the answer the caller timed out waiting to act on.
+    stdout = _read_remote_text(run, window.paths[0]) or ""
+    stderr = _read_remote_text(run, window.paths[1]) or ""
+    stderr = f"{stderr.rstrip()}\n{message}" if stderr.strip() else message
     return subprocess.CompletedProcess(
-        argv, GUI_COMMAND_TIMEOUT_EXIT_CODE, stdout="", stderr=message
+        argv, GUI_COMMAND_TIMEOUT_EXIT_CODE, stdout=stdout, stderr=stderr
     )
 
 

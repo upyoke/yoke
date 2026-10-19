@@ -1,4 +1,4 @@
-"""A GUI-session command that times out is stopped before its output is removed."""
+"""A GUI-session command that times out is stopped and returns what it printed."""
 
 from __future__ import annotations
 
@@ -32,8 +32,10 @@ class GuiHost:
         pid: str | None = "4242",
         stop: tuple[int, str] = (0, ""),
         closes: bool = True,
+        printed: tuple[str, str] = ("out", "out"),
     ) -> None:
         self.finishes, self.pid, self.stop, self.closes = finishes, pid, stop, closes
+        self.printed = dict(zip((".stdout", ".stderr"), printed))
         self.commands: list[str] = []
 
     def __call__(self, command: str, **_kwargs) -> subprocess.CompletedProcess:
@@ -49,7 +51,8 @@ class GuiHost:
                 return _done(
                     command, stdout=base64.b64encode(self.pid.encode()).decode()
                 )
-            return _done(command, stdout=base64.b64encode(b"out").decode())
+            text = next(v for k, v in self.printed.items() if k in command)
+            return _done(command, stdout=base64.b64encode(text.encode()).decode())
         if command.startswith("process_tree()"):
             return _done(command, self.stop[0], stdout=self.stop[1])
         if "set ttyPaths to tty of every tab" in command:
@@ -81,7 +84,7 @@ def test_a_timed_out_command_is_stopped_before_its_output_is_removed() -> None:
     result = _run(host)
 
     assert result.returncode == GUI_COMMAND_TIMEOUT_EXIT_CODE
-    assert result.stderr.startswith(GUI_COMMAND_TIMEOUT_STOPPED)
+    assert result.stderr.splitlines()[-1].startswith(GUI_COMMAND_TIMEOUT_STOPPED)
     assert "pid 4242" in result.stderr
     stop = next(
         i for i, c in enumerate(host.commands) if c.startswith("process_tree()")
@@ -92,6 +95,28 @@ def test_a_timed_out_command_is_stopped_before_its_output_is_removed() -> None:
     # The wrapper shell dies with the window before the files go, so it cannot
     # write the stopped command's exit status after the cleanup.
     assert stop < close < remove
+
+
+@pytest.mark.parametrize("stop", [(0, ""), (1, "4242\n")])
+def test_a_timed_out_command_returns_what_it_printed_before_the_deadline(
+    stop: tuple[int, str],
+) -> None:
+    # A command that prints its approval line, then waits past the timeout.
+    host = GuiHost(stop=stop, printed=('{"approve_url": "https://x"}\n', "waiting\n"))
+
+    result = _run(host)
+
+    assert result.returncode == GUI_COMMAND_TIMEOUT_EXIT_CODE
+    assert result.stdout == '{"approve_url": "https://x"}\n'
+    assert result.stderr.splitlines()[0] == "waiting"
+    assert "did not finish within 1s" in result.stderr.splitlines()[-1]
+
+
+def test_a_silent_timed_out_command_returns_only_the_timeout_message() -> None:
+    result = _run(GuiHost(printed=("", "")))
+
+    assert result.stdout == ""
+    assert result.stderr.startswith(GUI_COMMAND_TIMEOUT_STOPPED)
 
 
 @pytest.mark.parametrize(
@@ -108,7 +133,7 @@ def test_an_unconfirmed_stop_keeps_the_output_and_names_its_paths(
     result = _run(host)
 
     assert result.returncode == GUI_COMMAND_TIMEOUT_EXIT_CODE
-    assert result.stderr.startswith(GUI_COMMAND_TIMEOUT_NOT_STOPPED)
+    assert result.stderr.splitlines()[-1].startswith(GUI_COMMAND_TIMEOUT_NOT_STOPPED)
     assert named in result.stderr
     assert ".stdout" in result.stderr and ".pid" in result.stderr
     assert host.removed() == []
