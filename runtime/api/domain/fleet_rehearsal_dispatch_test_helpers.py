@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
+from typing import Callable, Iterator
 
+from yoke_core.domain import deploy_pipeline_dispatch_readiness as readiness
 from yoke_core.domain import deploy_pipeline_fleet_rehearsal as rehearsal
 from yoke_core.domain import deploy_pipeline_step_runners
 from yoke_core.domain import migration_preflight_receipt as receipt
@@ -71,6 +72,25 @@ def _dispatch(
         gate_branch="main",
         release_lineage=_RELEASE_SHA,
         sd=None,
+    )
+
+
+def _dispatch_through(monkeypatch, workflow: Callable[..., tuple[int, str]]) -> None:
+    """Stand in for the GitHub dispatch past its readiness wait.
+
+    The step runner hands the rehearsal to the dispatch as ``before_dispatch``;
+    this runs it through the real readiness wait with the CI gate skipped and
+    calls ``workflow`` only when the dispatch would actually go out.
+    """
+
+    def dispatch(config, *, before_dispatch, **kwargs):
+        ready = readiness.await_dispatch_readiness(None, before_dispatch)
+        if ready[0] != 0:
+            return ready
+        return workflow(config, **kwargs)
+
+    monkeypatch.setattr(
+        deploy_pipeline_step_runners, "_dispatch_github_actions_workflow", dispatch
     )
 
 
