@@ -33,7 +33,8 @@ def executing_shell(payload: dict) -> str:
     ).name
 
 
-def _without_heredoc_bodies(command: str) -> str:
+def without_heredoc_bodies(command: str) -> str:
+    """Drop heredoc body lines and join the remaining lines with ``;``."""
     kept: list[str] = []
     delimiter = ""
     for line in command.splitlines():
@@ -52,7 +53,7 @@ def shell_segments(command: str) -> list[list[str]]:
     """Split shell operators without treating quoted text as an operator."""
     try:
         lexer = shlex.shlex(
-            _without_heredoc_bodies(command), posix=True, punctuation_chars=";&|"
+            without_heredoc_bodies(command), posix=True, punctuation_chars=";&|"
         )
         lexer.whitespace_split = True
         tokens = list(lexer)
@@ -317,4 +318,5 @@ __all__ = [
     "is_compound",
     "ripgrep_replace_repair",
     "shell_segments",
+    "without_heredoc_bodies",
 ]
