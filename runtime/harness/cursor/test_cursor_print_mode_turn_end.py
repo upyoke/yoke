@@ -23,6 +23,7 @@ from yoke_contracts.session_control import (
 from yoke_contracts.hook_runner.project_scope import HookProjectScope
 from yoke_contracts.turn_end_evidence import PAYLOAD_KEY, extract_from_jsonl
 from yoke_core.domain import turn_end_promised_work_gate as gate
+from yoke_core.domain.turn_end_relay_continuation import REASON_RELAY_WAKE_QUEUED
 from yoke_core.hooks.types import HookContext, Outcome
 from yoke_harness.hooks import local_subset
 from yoke_harness.hooks.deadline import start_hook_deadline
@@ -92,12 +93,20 @@ def _ctx(payload: dict, *, family: str = "cursor") -> HookContext:
     )
 
 
-def _patch_db(monkeypatch, *, continuation: bool = False) -> list[dict]:
+def _patch_db(
+    monkeypatch, *, continuation: bool = False, relay: bool = True
+) -> list[dict]:
     monkeypatch.setattr("yoke_core.domain.db_helpers.connect", lambda: _Conn())
     monkeypatch.setattr(
         gate, "_live_claim", lambda conn, sid: {"item_id": 7, "status": "implementing"}
     )
-    monkeypatch.setattr(gate, "session_was_relay_launched", lambda conn, sid: True)
+    monkeypatch.setattr(gate, "session_was_relay_launched", lambda conn, sid: relay)
+    monkeypatch.setattr(gate, "_at_reinjection_cap", lambda *args: False)
+    monkeypatch.setattr(
+        gate,
+        "continue_relay_worker",
+        lambda *args, **kwargs: REASON_RELAY_WAKE_QUEUED,
+    )
     monkeypatch.setattr(gate, "session_parked", lambda conn, sid: False)
     monkeypatch.setattr(
         gate,
@@ -123,15 +132,25 @@ def test_session_end_chain_runs_the_gate_before_lifecycle_dispatch() -> None:
     assert gate_at < chain.index("yoke_core.hooks.session_dispatch")
 
 
-def test_print_mode_session_end_records_the_turn_end_deferral(
+def test_print_mode_session_end_wakes_the_relay_worker(
     monkeypatch, transcript: Path
 ) -> None:
     emitted = _patch_db(monkeypatch)
     payload = _with_client_evidence(_session_end_payload(transcript), transcript)
     decision = gate.evaluate(_ctx(payload))
     assert decision.outcome is Outcome.ALLOW
-    assert [e["reason"] for e in emitted] == [gate.REASON_CONTINUATION_UNSUPPORTED]
+    assert [e["reason"] for e in emitted] == [REASON_RELAY_WAKE_QUEUED]
     assert emitted[0]["item_id"] == 7
+
+
+def test_operator_session_end_records_the_turn_end_deferral(
+    monkeypatch, transcript: Path
+) -> None:
+    emitted = _patch_db(monkeypatch, relay=False)
+    payload = _with_client_evidence(_session_end_payload(transcript), transcript)
+    decision = gate.evaluate(_ctx(payload))
+    assert decision.outcome is Outcome.ALLOW
+    assert [e["reason"] for e in emitted] == [gate.REASON_CONTINUATION_UNSUPPORTED]
 
 
 def test_session_end_never_denies_even_where_stop_could_continue(
@@ -141,7 +160,7 @@ def test_session_end_never_denies_even_where_stop_could_continue(
     payload = _with_client_evidence(_session_end_payload(transcript), transcript)
     decision = gate.evaluate(_ctx(payload))
     assert decision.outcome is Outcome.ALLOW
-    assert [e["reason"] for e in emitted] == [gate.REASON_CONTINUATION_UNSUPPORTED]
+    assert [e["reason"] for e in emitted] == [REASON_RELAY_WAKE_QUEUED]
 
 
 def test_session_end_on_a_stop_surface_is_untouched(

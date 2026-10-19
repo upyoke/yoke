@@ -8,6 +8,7 @@ import pytest
 
 from yoke_core.domain import turn_end_promised_work_gate as gate
 from yoke_core.domain import turn_end_unfinished_work as unfinished
+from yoke_core.domain.turn_end_relay_continuation import REASON_RELAY_WAKE_QUEUED
 from yoke_core.domain.session_relay_launch_context import (
     session_was_relay_launched,
 )
@@ -158,26 +159,80 @@ def test_relay_launched_claude_cli_stops_holding_at_the_cap(monkeypatch) -> None
         ("cursor", "cursor-cli"),
     ],
 )
-def test_relay_worker_allows_stop_and_records_deferred_work(
+def test_relay_worker_allows_stop_and_queues_its_continuation_wake(
     monkeypatch,
     executor: str,
     entrypoint: str,
 ) -> None:
     emitted: list[dict] = []
+    woken: list[dict] = []
     _patch_live_claim(monkeypatch, emitted, relay_launched=True)
+    monkeypatch.setattr(gate, "session_parked", lambda *_args: False)
+    monkeypatch.setattr(gate, "_at_reinjection_cap", lambda *_args: False)
+    monkeypatch.setattr(
+        gate,
+        "continue_relay_worker",
+        lambda _conn, **kw: woken.append(kw) or REASON_RELAY_WAKE_QUEUED,
+    )
 
     decision = gate.evaluate(_context(executor, entrypoint))
 
     assert decision.outcome is Outcome.ALLOW
+    assert woken == [
+        {
+            "session_id": "sess-1",
+            "claim": {"item_id": 42, "status": "implementing"},
+            "at_cap": False,
+        }
+    ]
     assert emitted == [
         {
             "conn": emitted[0]["conn"],
             "session_id": "sess-1",
             "item_id": 42,
-            "reason": gate.REASON_CONTINUATION_UNSUPPORTED,
+            "reason": REASON_RELAY_WAKE_QUEUED,
             "cap_reached": False,
             "claim": {"item_id": 42, "status": "implementing"},
         }
+    ]
+
+
+def test_relay_worker_at_the_cap_records_the_cap_and_is_not_woken(
+    monkeypatch,
+) -> None:
+    emitted: list[dict] = []
+    _patch_live_claim(monkeypatch, emitted, relay_launched=True)
+    monkeypatch.setattr(gate, "session_parked", lambda *_args: False)
+    monkeypatch.setattr(gate, "_at_reinjection_cap", lambda *_args: True)
+    monkeypatch.setattr(
+        gate,
+        "continue_relay_worker",
+        lambda _conn, **kw: gate.REASON_CAP_REACHED if kw["at_cap"] else "woken",
+    )
+
+    decision = gate.evaluate(_context("codex", "codex-cli"))
+
+    assert decision.outcome is Outcome.ALLOW
+    assert [(entry["reason"], entry["cap_reached"]) for entry in emitted] == [
+        (gate.REASON_CAP_REACHED, True)
+    ]
+
+
+def test_operator_session_without_continuation_is_never_woken(monkeypatch) -> None:
+    emitted: list[dict] = []
+    _patch_live_claim(monkeypatch, emitted, relay_launched=False)
+    monkeypatch.setattr(gate, "session_parked", lambda *_args: False)
+    monkeypatch.setattr(
+        gate,
+        "continue_relay_worker",
+        lambda *_args, **_kw: pytest.fail("an operator's session was woken"),
+    )
+
+    decision = gate.evaluate(_context("cursor", "cursor-desktop"))
+
+    assert decision.outcome is Outcome.ALLOW
+    assert [entry["reason"] for entry in emitted] == [
+        gate.REASON_CONTINUATION_UNSUPPORTED
     ]
 
 

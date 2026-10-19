@@ -2,7 +2,8 @@
 
 The gate runs on each surface's declared turn-end event. A surface whose
 native fires no ``Stop`` (Cursor print mode) declares ``SessionEnd``; that
-event can never continue the turn, so there it only records the deferral.
+event can never continue the turn. There an operator's session records the
+deferral; a relay worker is woken once the turn ends, within the same cap.
 """
 
 from __future__ import annotations
@@ -23,6 +24,11 @@ from yoke_contracts.session_control import (
     turn_end_events,
 )
 from yoke_core.domain.session_relay_launch_context import session_was_relay_launched
+from yoke_core.domain.turn_end_relay_continuation import (
+    REASON_CAP_REACHED,
+    REASON_RELAY_WAKE_REFUSED,
+    continue_relay_worker,
+)
 from yoke_core.domain.turn_end_session_state import (
     monitor_waiter_armed,
     session_parked,
@@ -42,7 +48,6 @@ REINJECTION_COOLDOWN = timedelta(minutes=30)
 REINJECTION_CEILING = 3
 CHECK_ID = "turn_end_promised_work_gate"
 REASON_REINJECTED = "promised_work_reinjected"
-REASON_CAP_REACHED = "reinjection_cap_reached"
 REASON_MONITOR_ARMED = "monitor_waiter_live"
 REASON_CONTINUATION_UNSUPPORTED = "stop_denial_continuation_unsupported"
 REASON_SESSION_PARKED = "session_parked"
@@ -180,7 +185,10 @@ def _emit_deferred(
 
     state = chain_pending_state(conn, session_id)
     extras: dict[str, Any] = {}
-    if cap_reached or reason == REASON_CONTINUATION_UNSUPPORTED:
+    if cap_reached or reason in (
+        REASON_CONTINUATION_UNSUPPORTED,
+        REASON_RELAY_WAKE_REFUSED,
+    ):
         held = claim or {"item_id": item_id}
         extras = {
             "unfinished_work": unfinished_work_name(held),
@@ -266,17 +274,26 @@ def evaluate(record: HookContext) -> HookDecision:
                 claim=claim,
             )
             return _allow()
+        relay_launched = session_was_relay_launched(conn, session_id)
         if record.event_name != "Stop" or not stop_denial_continuation_supported(
-            record.executor_family,
-            _surface(record),
-            relay_launched=session_was_relay_launched(conn, session_id),
+            record.executor_family, _surface(record), relay_launched=relay_launched
         ):
+            # Nothing can hold this turn open, so a relay worker is woken
+            # after it ends instead; an operator's own session is left alone.
+            reason = REASON_CONTINUATION_UNSUPPORTED
+            if relay_launched:
+                reason = continue_relay_worker(
+                    conn,
+                    session_id=session_id,
+                    claim=claim,
+                    at_cap=_at_reinjection_cap(conn, session_id, claim["item_id"]),
+                )
             _emit_deferred(
                 conn=conn,
                 session_id=session_id,
                 item_id=claim["item_id"],
-                reason=REASON_CONTINUATION_UNSUPPORTED,
-                cap_reached=False,
+                reason=reason,
+                cap_reached=reason == REASON_CAP_REACHED,
                 claim=claim,
             )
             return _allow()

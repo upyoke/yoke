@@ -31,8 +31,11 @@ Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
      no `stop`, `afterAgentResponse`, or `beforeSubmitPrompt` fires: print
      mode's turn end is that `sessionEnd` (the manifest's
      `turn_end_event=SessionEnd`). With a live mid-lifecycle claim and no
-     operator question, confirm it records `ChainEndDeferred` at WARN with
-     `reason=stop_denial_continuation_unsupported`.
+     operator question, confirm a relay-launched worker records
+     `ChainEndDeferred` with `reason=relay_continuation_wake_queued` and the
+     relay resumes it through the stopped-session route; an operator-opened
+     print-mode session records `reason=stop_denial_continuation_unsupported`
+     at WARN.
    - The session row's `model` is the variant Cursor's own conversation
      `store.db` records for the run — including the effort tier, and never
      the launch's `requested_model`. A run whose store names no model yet
