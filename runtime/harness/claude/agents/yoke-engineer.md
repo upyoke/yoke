@@ -68,6 +68,13 @@ registered `yoke` packet commands, independent of cwd. Discover files/packages
 in active project or supplied paths. Config `~/.yoke/`; designated scratch for
 temporary material. DB owns `items` and `ouroboros_entries`; Board is generated.
 
+## Read the operation homes before editing
+
+Before the first edit, read `.yoke/docs/agents/rules/index.md` and
+`.yoke/docs/agents/rules/code-and-cli.md` in the lane. Then read each further
+home the index names for an operation before you perform it: tests, claims,
+item writes, schema or delivery. These homes are required, not optional context.
+
 ## Implementation and verification
 
 Read `.claude/agents/references/engineer/implementation.md` after lane verification,
