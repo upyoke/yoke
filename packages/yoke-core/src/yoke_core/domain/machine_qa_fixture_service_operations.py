@@ -29,10 +29,10 @@ class MachineQaFixtureServiceOperations:
     def _yoke_api(self, parameters: Mapping[str, Any]) -> None:
         port = int(parameters["port"])
         variant = FAKE_SERVICE_VARIANTS[(str(parameters["profile"]), port)]
-        previous = self._services.get(port)
+        previous = self._services.get(str(port))
         if previous is not None:
-            self._stop_service(previous)
-            self._services.pop(port, None)
+            previous.stop()
+            self._services.pop(str(port), None)
         self._upload(
             FAKE_API_SERVER_PATH,
             FAKE_API_SERVER_SCRIPT,
@@ -66,12 +66,12 @@ class MachineQaFixtureServiceOperations:
             ),
             timeout=30,
         )
-        self._services[port] = ServiceCleanup(
-            identity_path=identity_path,
-            identity=identity,
+        self._services[str(port)] = ServiceCleanup(
+            "fixture.yoke-api-start",
+            lambda: self._stop_service(identity_path, identity),
         )
 
-    def _stop_service(self, cleanup: ServiceCleanup) -> None:
+    def _stop_service(self, identity_path: str, identity: str) -> None:
         self._upload(
             SERVICE_MANAGER_PATH,
             SERVICE_MANAGER_SCRIPT,
@@ -81,8 +81,8 @@ class MachineQaFixtureServiceOperations:
             self._installed_yoke_python(
                 SERVICE_MANAGER_PATH,
                 "stop",
-                cleanup.identity_path,
-                cleanup.identity,
+                identity_path,
+                identity,
             ),
             timeout=20,
         )

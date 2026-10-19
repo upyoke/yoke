@@ -89,6 +89,7 @@ def action(
     capture: bool = True,
     completion_text: Sequence[str] = (),
     gate_timeout_seconds: float | None = None,
+    human_purpose: str | None = None,
     operator_gate: str | None = None,
     ready_text: Sequence[str] = (),
     ready_timeout_seconds: float | None = None,
@@ -102,6 +103,8 @@ def action(
         row["capture"] = False
     if operator_gate is not None:
         row["operator_gate"] = operator_gate
+    if human_purpose is not None:
+        row["human_purpose"] = human_purpose
     if completion_text:
         row["completion_text"] = list(completion_text)
     if gate_timeout_seconds is not None:
@@ -126,6 +129,7 @@ def transition(
     *keys: str,
     completion_text: Sequence[str] = (),
     gate_timeout_seconds: float | None = None,
+    human_purpose: str | None = None,
     operator_gate: str | None = None,
     ready_text: Sequence[str] = (),
     ready_timeout_seconds: float | None = None,
@@ -138,6 +142,7 @@ def transition(
         capture=False,
         completion_text=completion_text,
         gate_timeout_seconds=gate_timeout_seconds,
+        human_purpose=human_purpose,
         operator_gate=operator_gate,
         ready_text=ready_text,
         ready_timeout_seconds=ready_timeout_seconds,

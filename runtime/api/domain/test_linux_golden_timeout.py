@@ -34,6 +34,7 @@ def _control():
     return control
 
 
+@pytest.mark.usefixtures("recorded_harness_clis")
 @pytest.mark.parametrize("operation", ["capture", "reset"])
 def test_archive_exceeding_old_bound_succeeds_and_capture_seals_probes(
     monkeypatch, operation

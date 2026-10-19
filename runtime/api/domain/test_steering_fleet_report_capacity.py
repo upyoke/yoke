@@ -18,6 +18,7 @@ from runtime.api.steering_fleet_test_helpers import (
     ACTOR_ID,
     NOW,
     PROJECT_ID,
+    STEERING_SESSION,
     WORKER_SESSION,
     compose as _compose,
     seed_session,
@@ -68,12 +69,13 @@ def fleet(test_db):
     )
     conn.execute(
         "INSERT INTO session_launches "
-        "(launch_id, requester_actor_id, project_id, requested_surface, selected_surface, "
-        "allow_surface_fallback, message_id, state, deadline_at, created_at, origin, "
-        "assigned_machine_id, registered_session_id) "
-        "VALUES ('worker-launch', %s, %s, 'codex-cli', 'codex-cli', 0, "
+        "(launch_id, requester_actor_id, requester_session_id, project_id, "
+        "requested_surface, selected_surface, allow_surface_fallback, message_id, "
+        "state, deadline_at, created_at, origin, assigned_machine_id, "
+        "registered_session_id) "
+        "VALUES ('worker-launch', %s, %s, %s, 'codex-cli', 'codex-cli', 0, "
         "'worker-message', 'awaiting_registration', %s, %s, 'steering', %s, %s)",
-        (ACTOR_ID, PROJECT_ID, NOW, NOW, MACHINE, WORKER_SESSION),
+        (ACTOR_ID, STEERING_SESSION, PROJECT_ID, NOW, NOW, MACHINE, WORKER_SESSION),
     )
     conn.commit()
     return conn
@@ -132,12 +134,19 @@ def test_launches_already_assigned_there_count_against_the_cap(fleet):
     )
     fleet.execute(
         "INSERT INTO session_launches "
-        "(launch_id, requester_actor_id, project_id, requested_surface, "
-        "selected_surface, allow_surface_fallback, message_id, state, "
-        "deadline_at, created_at, origin, assigned_machine_id) "
-        "VALUES ('launch-inflight', %s, %s, 'codex-cli', 'codex-cli', 0, "
+        "(launch_id, requester_actor_id, requester_session_id, project_id, "
+        "requested_surface, selected_surface, allow_surface_fallback, message_id, "
+        "state, deadline_at, created_at, origin, assigned_machine_id) "
+        "VALUES ('launch-inflight', %s, %s, %s, 'codex-cli', 'codex-cli', 0, "
         "'msg-inflight', 'assigned', %s, %s, 'steering', %s)",
-        (ACTOR_ID, PROJECT_ID, "2026-08-26T13:00:00.000000Z", NOW, MACHINE),
+        (
+            ACTOR_ID,
+            STEERING_SESSION,
+            PROJECT_ID,
+            "2026-08-26T13:00:00.000000Z",
+            NOW,
+            MACHINE,
+        ),
     )
     fleet.commit()
 

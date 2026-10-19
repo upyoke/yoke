@@ -285,18 +285,22 @@ def test_native_lane_deadline_comparison_preserves_exact_microseconds(
             "ended_at TIMESTAMPTZ, terminated_at TIMESTAMPTZ)"
         )
         conn.execute(
-            "CREATE TABLE session_launches (assigned_machine_id TEXT, state TEXT, registered_session_id TEXT, deadline_at TIMESTAMPTZ)"
+            "CREATE TABLE session_launches (assigned_machine_id TEXT, state TEXT, "
+            "registered_session_id TEXT, requester_session_id TEXT, "
+            "deadline_at TIMESTAMPTZ)"
         )
         conn.execute(
             "INSERT INTO harness_sessions VALUES ('worker', %s, NULL, NULL)", (MACHINE,)
         )
         conn.execute(
-            "INSERT INTO session_launches VALUES (%s, 'registered', 'worker', %s)",
+            "INSERT INTO session_launches "
+            "VALUES (%s, 'registered', 'worker', 'main', %s)",
             (MACHINE, anchor),
         )
         for delta in (-1, 0, 1):
             conn.execute(
-                "INSERT INTO session_launches VALUES (%s, 'assigned', NULL, %s)",
+                "INSERT INTO session_launches "
+                "VALUES (%s, 'assigned', NULL, 'main', %s)",
                 (MACHINE, anchor + timedelta(microseconds=delta)),
             )
         assert live_lane_count(conn, machine_id=MACHINE, now=supplied) == 2

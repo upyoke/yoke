@@ -115,14 +115,22 @@ def _amend(conn: Any, source_id: int) -> Any:
     )
 
 
-def _start_live_execution(conn: Any) -> None:
+def _start_live_execution(conn: Any, copy_id: int) -> None:
+    """A live walk whose cursor sits on the copy: the walk has reached it."""
     conn.execute(
         "INSERT INTO qa_plan_executions(id,deployment_run_id,deployment_stage,"
         "deployment_member_item_id,actor_id,session_id,roster_digest,"
         "roster_json,cursor_ordinal,state,created_at,heartbeat_at) VALUES "
         "('exec-currency',%s,%s,%s,'operator','session-currency','digest',"
-        "'[]',0,'active',%s,%s)",
-        (RUN_ID, STAGE, ITEM_ID, NOW, NOW),
+        "%s,0,'active',%s,%s)",
+        (
+            RUN_ID,
+            STAGE,
+            ITEM_ID,
+            json.dumps([{"ordinal": 0, "requirement_id": copy_id}]),
+            NOW,
+            NOW,
+        ),
     )
     conn.commit()
 
@@ -195,11 +203,11 @@ class TestAmendmentRefusesByName:
         assert _method_config(test_db, source_id) == RETRACTED
         assert _method_config(test_db, copy_id) == RETRACTED
 
-    def test_a_copy_a_live_execution_froze_refuses_with_the_abort_recovery(
+    def test_a_copy_a_live_walk_already_reached_refuses_with_the_abort_recovery(
         self, test_db: Any
     ) -> None:
         source_id, copy_id = _seed(test_db)
-        _start_live_execution(test_db)
+        _start_live_execution(test_db, copy_id)
         result = _amend(test_db, source_id)
         assert not result.ok
         assert result.error_code == ADMITTED_COPY_IN_FLIGHT_CODE

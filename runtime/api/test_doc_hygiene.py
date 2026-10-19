@@ -128,7 +128,11 @@ def test_no_install_sh_in_active_md_docs():
         exclude_archive=True,
         exclude_strategy=True,
     )
-    hits = [hit for hit in hits if "https://claude.ai/install.sh" not in hit]
+    vendor_installers = (
+        "https://claude.ai/install.sh",
+        "https://chatgpt.com/codex/install.sh",
+    )
+    hits = [hit for hit in hits if not any(url in hit for url in vendor_installers)]
     assert not hits, (
         "Active markdown docs must not reference install.sh (retired shell wrapper).\n"
         + "\n".join(hits[:20])

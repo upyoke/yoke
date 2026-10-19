@@ -144,3 +144,44 @@ def test_caller_family_rides_the_payload_over_the_relay(
     from yoke_core.hooks.types import Outcome
 
     assert lint_db_cmd.evaluate(context).outcome is Outcome.NOOP
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "grep -rn x runtime/harness/claude/agents",
+        "grep -rn x \\\n  runtime/harness/claude",
+        "rg -n engineer \\\n  .yoke/harness/claude \\\n  runtime/harness/claude",
+        "ls runtime/harness/claude; echo runtime/harness/claude",
+        "cat > /tmp/note <<'EOF'\nclaude -p hi\nruntime/harness/claude\nEOF",
+        'echo "x; claude -p hi"',
+        "# claude -p hi\nls",
+    ],
+)
+def test_claude_named_only_as_text_or_path_argument_is_allowed(
+    command: str,
+) -> None:
+    assert run_hook(_payload(command, "claude-code")) == ""
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "ls && claude -p hi",
+        "ls\nclaude -p hi",
+        "echo $(claude -p hi)",
+        "(claude -p hi)",
+        "FOO=1 claude -p hi",
+        "grep -rn x \\\n  runtime/harness/claude && ~/.local/bin/claude -p hi",
+    ],
+)
+def test_claude_in_command_position_is_still_denied(command: str) -> None:
+    decision = _decision(run_hook(_payload(command, "claude-code")))
+
+    assert decision["check_id"] == NESTED_CLAUDE_CLI_CHECK_ID
+
+
+def test_claude_invocations_returns_each_binary_with_its_own_words() -> None:
+    assert lint_nested_claude_cli.claude_invocations(
+        "A=1 claude --help | claude -p 'x y'"
+    ) == [["claude", "--help"], ["claude", "-p", "x y"]]

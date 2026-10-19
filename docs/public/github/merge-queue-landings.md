@@ -39,7 +39,10 @@ the stop is still reported if a later rerun passed without restoring arming.
 An `UNMERGEABLE` entry reports a conflict even while GitHub retains it behind
 other entries: rebase onto the base and re-run verification before merge re-entry.
 An unreadable queue membership proves no stop and is retried on the next
-observation. A merged pull request receives the normal completion notice.
+observation. So does an open pull request whose merge state GitHub reports as
+unknown: GitHub reports that while it recomputes, including mid-merge after it
+clears the queue entry and merge-when-ready, so the observation stays pending
+until a later read shows the merge or a known refusal. A merged pull request receives the normal completion notice.
 
 Recovery belongs to the holder: address the named check or protection rule
 and re-run the same governed `yoke merge item` command. If the lane or base
@@ -133,6 +136,13 @@ lane landing and lane cleanup. A failing capability probe refuses with
 `merge_queue_probe_failed` rather than merging directly. Projects without the
 queue keep the direct pull-request merge, which refuses `MergeTargetStale` when
 the base moved during CI.
+
+When an item has several active lanes, `yoke merge item` takes as its source
+the lane whose head is the landing record's pull-request head. It verifies QA
+at that commit, reruns parent-level Command cases in that lane, and keys the
+merge receipt on that lane's branch. With no lane at that head it takes the
+sole integration lane; otherwise it refuses, lists the lanes, and names the
+recovery.
 
 ## Integration-lane merge refusals
 

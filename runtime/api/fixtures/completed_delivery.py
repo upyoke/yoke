@@ -63,6 +63,7 @@ def seed_selected_requirement_run(
     item_id: int,
     requirement_id: int,
     environment: str = "stage",
+    also_selected: tuple[int, ...] = (),
 ) -> None:
     _environment(conn)
     if environment != "stage":
@@ -117,7 +118,9 @@ def seed_selected_requirement_run(
         conn,
         run_id=run_id,
         item_id=item_id,
-        selection_json=requirement_selection(requirement_ids=(requirement_id,)),
+        selection_json=requirement_selection(
+            requirement_ids=(requirement_id, *also_selected)
+        ),
     )
     conn.execute(
         "INSERT INTO deployment_run_items(run_id,item_id,added_at,requirement_snapshot) "

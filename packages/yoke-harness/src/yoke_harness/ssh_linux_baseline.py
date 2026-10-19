@@ -14,7 +14,6 @@ from yoke_harness.ssh_linux_reset_preconditions import (
     DESKTOP_PROGRAM,
     archive_admission,
 )
-from yoke_harness.ssh_linux_sign_in_stores import SIGN_IN_PROGRAM
 from yoke_harness.ssh_linux_preserved_entries import PRESERVED_HOME_PROGRAM
 from yoke_harness.ssh_linux_reset_services import YOKE_SERVICE_PATTERNS
 from yoke_harness.ssh_test_machine_transport import SSH_TIMEOUT_DIAGNOSTIC
@@ -51,8 +50,6 @@ _ARCHIVE_PROGRAM = (
     r"""
 import fnmatch, hashlib, json, os, pathlib, shutil, stat, sys, tarfile, tempfile
 operation, expected_home, golden = sys.argv[1:4]
-sign_in_plan = json.loads(sys.argv[4]) if len(sys.argv) > 4 else {"carry": [], "unverified": {}}
-stashes = []
 home = pathlib.Path(os.environ["HOME"])
 baseline = pathlib.Path(golden)
 absent = json.loads(sys.stdin.read())
@@ -156,11 +153,9 @@ else:
         refuse("golden_baseline_identity_mismatch")
     with tarfile.open(baseline / "home.tar.gz", "r:gz") as archive:
         members = validate_archive(archive)
-        refuse_newer_unverified(sign_in_plan)
         # Desktop provisioning can follow the clean golden's capture. Keep its
         # terminal selection, not other live desktop or browser preferences.
         terminal_selection = [line for line in terminal_preference_lines() if selects_terminal(line)]
-        stashes = stash_sign_ins(sign_in_plan)
         try:
             stash_live_home_entries()
             try:
@@ -188,7 +183,6 @@ else:
             refuse("linux_golden_restore_failed", recovery="Repair the sealed archive or destination permissions, then retry; never capture the mixed home.")
         finally:
             restore_live_home_entries()
-            restore_sign_ins(stashes)
     if terminal_selection:
         lines = [line for line in terminal_preference_lines() if not selects_terminal(line)]
         preferences = home / terminal_preferences_path
@@ -200,12 +194,12 @@ else:
     for value in absent:
         if (home / value).exists() or (home / value).is_symlink(): refuse("reset_absence_not_proved")
 print(json.dumps({"ok":True, "operation":operation, "golden_baseline_path":str(baseline),
-                  "preserved_entries":[".ssh"] + [stash[0] for stash in stashes] + [name for name in (*kept_live[1:], *live_home_entries) if (home / name).exists()], "absent_paths":absent if operation == "reset" else [],
+                  "preserved_entries":[".ssh"] + [name for name in (*kept_live[1:], *live_home_entries) if (home / name).exists()], "absent_paths":absent if operation == "reset" else [],
                   "desktop_terminal_preference_preserved":bool(locals().get("terminal_selection")),
                   "service_cleanup": locals().get("service_cleanup")}))
 """.replace("__YOKE_SERVICE_PATTERNS__", repr(YOKE_SERVICE_PATTERNS))
     .replace("__LIVE_IDENTITY_STORE__", repr(LIVE_IDENTITY_STORE_HOME_ENTRY))
-    .replace("# RESET_PRECONDITION_FUNCTIONS", DESKTOP_PROGRAM + SIGN_IN_PROGRAM)
+    .replace("# RESET_PRECONDITION_FUNCTIONS", DESKTOP_PROGRAM)
     .replace("# BROWSER_SIGN_IN_FUNCTIONS", PRESERVED_HOME_PROGRAM)
     .replace("# LINUX_CAPTURE_SPACE_CHECK", LINUX_CAPTURE_SPACE_CHECK)
 )
@@ -232,7 +226,6 @@ def archive_operation(
     admitted = archive_admission(control, operation, destination)
     if not admitted.ok:
         return admitted
-    sign_in_plan = admitted.evidence["sign_in_plan"]
     command = shlex.join(
         [
             "/usr/bin/python3",
@@ -246,7 +239,6 @@ def archive_operation(
             operation,
             control.home,
             destination,
-            json.dumps(sign_in_plan),
         ]
     )
     started = time.monotonic()
@@ -329,6 +321,14 @@ def capture_linux_golden(
             },
             "golden_probes_write_failed",
         )
+    from yoke_harness.golden_harness_clis import record_golden_harness_clis
+
+    recorded = record_golden_harness_clis(control, destination)
+    if not recorded.ok:
+        return HostActionResult(
+            False, {**captured.evidence, **recorded.evidence}, recorded.error_code
+        )
+    captured = HostActionResult(True, {**captured.evidence, **recorded.evidence})
     if getattr(control, "os", "linux") == "linux":
         from yoke_harness.ssh_linux_baseline_desktop import prove_capture_roundtrip
 

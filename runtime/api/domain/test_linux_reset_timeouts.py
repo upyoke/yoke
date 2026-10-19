@@ -7,7 +7,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_harness.ssh_linux_sign_in_stores import NO_SIGN_IN_PLAN
 from yoke_contracts.machine_qa_failures import MACHINE_QA_DIAGNOSTIC_LIMIT
 from yoke_contracts.systemd_service import (
     SERVICE_OPERATION_TIMEOUT_SECONDS,
@@ -114,7 +113,7 @@ def _failed_archive(monkeypatch, completed):
     monkeypatch.setattr(
         baseline,
         "archive_admission",
-        lambda *a: HostActionResult(True, {"sign_in_plan": NO_SIGN_IN_PLAN}),
+        lambda *a: HostActionResult(True, {}),
     )
     return baseline.archive_operation(control, "reset", "/sealed/golden")
 

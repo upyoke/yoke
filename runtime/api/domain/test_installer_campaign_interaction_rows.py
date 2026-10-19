@@ -53,6 +53,7 @@ def test_user_facing_terminal_cases_use_the_native_terminal_app_mode() -> None:
                     "stale-reinstall",
                     "uninstall",
                     "late-harness-discovery",
+                    "local-refusal-agent",
                 }
                 else "terminal"
             )
@@ -125,6 +126,7 @@ def test_terminal_cases_use_current_stage_and_browser_approval_surfaces() -> Non
         for operation in config.get("setup_operations", [])
     }
     assert setup_ids == {
+        "fixture.machine-admission-prepare",
         "installer.current-release-prepare",
         "machine.path-prepare",
         "machine.yoke-auth-clear",

@@ -113,7 +113,7 @@ def _command_case_merge(tmp_path, monkeypatch, *, verdict="pass"):
     ran = []
     lane_head = [MERGING_SHA]
 
-    def run_case(requirement_id):
+    def run_case(requirement_id, _lane, _commit_sha):
         ran.append(requirement_id)
         lane_head[0] = REBASED_SHA
         requirement.update(run_id=89, verdict=verdict, recorded_head_sha=REBASED_SHA)
@@ -159,7 +159,7 @@ def test_unreadable_recheck_refuses_with_its_recovery(
         monkeypatch,
         item,
         rerecord=mock.Mock(),
-        run_case=lambda _id: None,
+        run_case=lambda _id, _lane, _sha: None,
         resolve=lambda *_a: next(reads),
     )
     assert code == 1

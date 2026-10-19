@@ -1,12 +1,14 @@
-"""In-process stub OpenID Connect provider for sign-in door tests.
+"""In-process stub OpenID Connect provider.
 
-A threaded ``http.server`` serving the three provider surfaces the door
-consumes — discovery, JWKS, and the token endpoint — signing id_tokens
+A threaded ``http.server`` serving the three provider surfaces the sign-in
+door consumes — discovery, JWKS, and the token endpoint — signing id_tokens
 RS256 with an RSA keypair minted in-process, so the full
-start -> provider -> callback flow is exercised without any network or
-real provider.
+start -> provider -> callback flow runs without any network or real
+provider. Sign-in door tests, review servers and the Machine QA admission
+fixture use it as a disposable identity provider; it never stands in for a
+real provider account.
 
-Test driver surface:
+Driver surface:
 
 * ``issue_code(claims)`` registers an authorization code the token
   endpoint will redeem for an id_token carrying exactly ``claims``.
@@ -16,11 +18,7 @@ Test driver surface:
   tests can assert on redirect_uri / client authentication.
 * ``auto_approve_claims`` turns on an ``/authorize`` endpoint that signs
   in a real browser without a login screen: it issues a code for those
-  claims (plus the request's nonce) and redirects straight back. Review
-  servers use it to put a signed-in workbench in front of browser QA.
-
-The module name carries the ``_test_helpers`` suffix so pytest collects
-nothing from it.
+  claims (plus the request's nonce) and redirects straight back.
 """
 
 from __future__ import annotations

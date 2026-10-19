@@ -1,4 +1,4 @@
-"""A session-less mutating call is attributed, not anonymous.
+"""A session-less mutating call or viewer-scoped read is attributed.
 
 Item creation resolved the operating actor for itself. Doing it once in
 the identity binder makes it true of every session-optional function,
@@ -31,12 +31,11 @@ def _entry(
     *,
     side_effects=("write",),
     ambient_session_required: bool = False,
+    function_id: str = "project_structure.patch.apply",
 ) -> RegistryEntry:
     return RegistryEntry(
-        function_id="project_structure.patch.apply",
-        handler=lambda request: HandlerOutcome(
-            result_payload={}, primary_success=True
-        ),
+        function_id=function_id,
+        handler=lambda request: HandlerOutcome(result_payload={}, primary_success=True),
         request_model=_Model,
         response_model=_Model,
         stability="stable",
@@ -59,9 +58,7 @@ def _request(actor_id: Optional[str] = None) -> FunctionCallRequest:
 
 
 def _with_operating_actor(actor_id: Optional[str]):
-    return mock.patch.object(
-        binding, "operating_actor_id", return_value=actor_id
-    )
+    return mock.patch.object(binding, "operating_actor_id", return_value=actor_id)
 
 
 def test_binds_the_operating_actor_when_the_envelope_carries_none():
@@ -85,13 +82,16 @@ def test_an_unresolvable_actor_leaves_the_request_exactly_as_it_was():
 
 def test_the_binder_attributes_a_session_less_mutating_call():
     with mock.patch.object(
-        identity, "bind_operating_actor",
+        binding,
+        "bind_operating_actor",
         side_effect=lambda request: request.model_copy(
             update={"actor": request.actor.model_copy(update={"actor_id": "4"})}
         ),
     ):
         result = identity.bind_actor_identity(
-            _entry(), _request(), ambient_session_id="",
+            _entry(),
+            _request(),
+            ambient_session_id="",
         )
     assert result.error is None
     assert result.bound_request is not None
@@ -101,19 +101,37 @@ def test_the_binder_attributes_a_session_less_mutating_call():
 def test_the_binder_leaves_read_only_calls_alone():
     called = []
     with mock.patch.object(
-        identity, "bind_operating_actor",
+        binding,
+        "bind_operating_actor",
         side_effect=lambda request: called.append(request) or request,
     ):
         identity.bind_actor_identity(
-            _entry(side_effects=()), _request(), ambient_session_id="",
+            _entry(side_effects=()),
+            _request(),
+            ambient_session_id="",
         )
     assert called == []
+
+
+def test_the_binder_attributes_a_read_answered_for_its_viewer():
+    # A local plain terminal must learn the read's own answer (for example
+    # that machine approval does not apply here), not actor_required.
+    for function_id in ("machine_authorization.pending", "teammate_invites.list"):
+        with _with_operating_actor("4"):
+            result = identity.bind_actor_identity(
+                _entry(side_effects=(), function_id=function_id),
+                _request(),
+                ambient_session_id="",
+            )
+        assert result.bound_request is not None
+        assert result.bound_request.actor.actor_id == "4"
 
 
 def test_a_session_requiring_function_still_refuses_rather_than_binding():
     called = []
     with mock.patch.object(
-        identity, "bind_operating_actor",
+        binding,
+        "bind_operating_actor",
         side_effect=lambda request: called.append(request) or request,
     ):
         result = identity.bind_actor_identity(

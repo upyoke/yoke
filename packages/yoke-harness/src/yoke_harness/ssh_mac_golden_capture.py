@@ -318,10 +318,18 @@ def capture_golden_baseline(
     )
     if not captured.ok:
         return captured
+    from yoke_harness.golden_harness_clis import record_golden_harness_clis
+
+    recorded = record_golden_harness_clis(control, destination)
+    if not recorded.ok:
+        return HostActionResult(
+            False, {**captured.evidence, **recorded.evidence}, recorded.error_code
+        )
     return HostActionResult(
         True,
         {
             **captured.evidence,
+            **recorded.evidence,
             **quit_apps.evidence,
             "user_equivalence": proven.evidence,
         },

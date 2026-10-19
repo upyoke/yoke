@@ -56,10 +56,10 @@ class RemoteTextUploader(Protocol):
 
 @dataclass(frozen=True)
 class ServiceCleanup:
-    """Identity needed to stop one runner-owned remote service."""
+    """One runner-owned remote service and the operation that started it."""
 
-    identity_path: str
-    identity: str
+    operation_id: str
+    stop: Callable[[], None]
 
 
 @dataclass
@@ -140,7 +140,7 @@ class MachineQaFixtureRuntime:
             raise MachineQaFixtureOperationError(
                 "fixture launcher escapes the bounded host home"
             )
-        self._services: dict[int, ServiceCleanup] = {}
+        self._services: dict[str, ServiceCleanup] = {}
         self._restores: list[TokenRestore | AuthStateRestore] = []
         self._accepting = True
         self._closed = False
@@ -152,25 +152,15 @@ class MachineQaFixtureRuntime:
             return HostActionResult(True, {"operations": []})
         rows: list[dict[str, str]] = []
         failed = False
-        for port, cleanup in reversed(tuple(self._services.items())):
+        for key, cleanup in reversed(tuple(self._services.items())):
             try:
-                self._stop_service(cleanup)
+                cleanup.stop()
             except RemoteFixtureFailure:
-                rows.append(
-                    {
-                        "id": "fixture.yoke-api-start",
-                        "outcome": "failed",
-                    }
-                )
+                rows.append({"id": cleanup.operation_id, "outcome": "failed"})
                 failed = True
             else:
-                rows.append(
-                    {
-                        "id": "fixture.yoke-api-start",
-                        "outcome": "passed",
-                    }
-                )
-                self._services.pop(port, None)
+                rows.append({"id": cleanup.operation_id, "outcome": "passed"})
+                self._services.pop(key, None)
         for restore in reversed(tuple(self._restores)):
             operation_id = (
                 "machine.token-file-prepare"

@@ -35,6 +35,27 @@ def communication_unknown(error):
     return None
 
 
+def stop_if_told(checked, execution):
+    """Stop the walk when its check-in says the walk must not go on.
+
+    An operator abort stops it outright. A moved roster digest means a case
+    this walk has not reached was corrected after it began; the copy this
+    walker holds is stale, and resuming reads the corrected one.
+    """
+    if checked.get("abort_requested"):
+        raise QaPlanExecutionError(
+            "qa_host_abort_requested: stop this walk; inspect restore evidence and retry abort"
+        )
+    current = checked.get("roster_digest")
+    if current and current != execution.get("roster_digest"):
+        raise QaPlanExecutionError(
+            f"qa_roster_corrected: a case execution {execution['execution_id']} "
+            "had not reached yet was corrected after this walk began. Run the "
+            "same `yoke qa plan run` command again: it resumes at the cursor "
+            "with the corrected cases and keeps every recorded result."
+        )
+
+
 def deliver_plan_function(*, function_id, target, payload, actor):
     from yoke_core.domain.qa_composed_dispatch import call_qa_function
 

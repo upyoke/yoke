@@ -6,6 +6,9 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from yoke_core.domain.host_control_runner import HostActionResult
+from yoke_core.domain.machine_qa_fixture_admission import (
+    MachineQaFixtureAdmissionOperations,
+)
 from yoke_core.domain.machine_qa_fixture_credential_operations import (
     MachineQaFixtureCredentialOperations,
 )
@@ -33,6 +36,7 @@ from yoke_core.domain.machine_qa_fixture_validation import (
 
 
 class MachineQaFixtureOperationRunner(
+    MachineQaFixtureAdmissionOperations,
     MachineQaFixtureCredentialOperations,
     MachineQaFixtureMachineOperations,
     MachineQaFixtureRepositoryOperations,
@@ -77,8 +81,11 @@ class MachineQaFixtureOperationRunner(
         for operation_id, parameters in operations:
             try:
                 handlers[operation_id](parameters)
-            except RemoteFixtureFailure:
-                rows.append({"id": operation_id, "outcome": "failed"})
+            except RemoteFixtureFailure as failure:
+                row = {"id": operation_id, "outcome": "failed"}
+                if str(failure):
+                    row["reason"] = str(failure)
+                rows.append(row)
                 return HostActionResult(
                     ok=False,
                     evidence={"operations": rows},
@@ -94,6 +101,7 @@ class MachineQaFixtureOperationRunner(
             "fixture.apply-resume-report-prepare": self._apply_resume_report,
             "fixture.git-checkout-prepare": self._git_checkout,
             "fixture.git-remote-prepare": self._git_remote,
+            "fixture.machine-admission-prepare": self._machine_admission,
             "fixture.project-registrations-prepare": (self._project_registrations),
             "fixture.source-dev-checkout-prepare": self._source_dev_checkout,
             "fixture.source-dev-remote-prepare": self._source_dev_remote,
@@ -115,6 +123,7 @@ class MachineQaFixtureOperationRunner(
         self,
     ) -> Mapping[str, Callable[[Mapping[str, Any]], None]]:
         return {
+            "fixture.machine-admission-state-assert": self._machine_admission_state,
             "source-dev.checkout-state-assert": self._checkout_state_assert,
         }
 

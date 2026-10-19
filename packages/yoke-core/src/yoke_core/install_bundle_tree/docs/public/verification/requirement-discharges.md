@@ -125,6 +125,14 @@ case the runner's check-in refuses `qa_case_superseded` for a case that no
 longer owes an attempt, with the same abort command, so a superseded case never
 runs.
 
+A correction reaches a live roster without an abort when the walk has not
+reached the case: `yoke qa plan rematerialize` or a reachable admitted-copy
+amendment rebuilds the entry after the cursor and moves the roster digest,
+keeping every recorded result. The runner stops at its next check-in with
+`qa_roster_corrected`; run the same `yoke qa plan run` command again to
+resume. A changed case at or before the cursor refuses
+`qa_roster_case_reached` with the abort command.
+
 All blocking cases discharged → subject reports discharged, accepted for gating
 but distinct from accepted passing proof. A carried cross-project member owes
 no item QA only when its own completion flow declares none and no explicit

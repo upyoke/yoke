@@ -6,6 +6,6 @@
  "desired": "A live installer campaign run on a synced saved plan in which every keyed step records its ready text, and a setup that exits early is reported by its own exit code and refusal.",
  "sources": ["docs/testing-verification/installer-campaign.md", "packages/yoke-core/src/yoke_core/domain/machine_qa_action_readiness_contract.py", "packages/yoke-core/src/yoke_core/domain/machine_qa_setup_exit.py"],
  "gaps": ["installer-campaign-live-proof"],
- "page": "test-machines",
+ "page": "test-machine-execution",
  "position": 6
 }

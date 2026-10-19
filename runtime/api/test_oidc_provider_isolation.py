@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from runtime.api import oidc_provider_test_helpers
-from runtime.api.oidc_provider_test_helpers import StubOidcProvider
+from yoke_core.api import oidc_stub_provider
+from yoke_core.api.oidc_stub_provider import StubOidcProvider
 from yoke_core.api import oidc_client
 from yoke_core.api.oidc_config import OidcConfig
 
@@ -26,7 +26,7 @@ def _verified_claims(provider: StubOidcProvider) -> dict:
 
 
 def test_recycled_provider_address_uses_its_own_signing_key(monkeypatch):
-    server_type = oidc_provider_test_helpers.http.server.ThreadingHTTPServer
+    server_type = oidc_stub_provider.http.server.ThreadingHTTPServer
     monkeypatch.setattr(server_type, "allow_reuse_address", True)
     first = StubOidcProvider()
     try:
@@ -40,7 +40,7 @@ def test_recycled_provider_address_uses_its_own_signing_key(monkeypatch):
         return server_type(address, handler)
 
     monkeypatch.setattr(
-        oidc_provider_test_helpers.http.server,
+        oidc_stub_provider.http.server,
         "ThreadingHTTPServer",
         recycled_server,
     )

@@ -3,11 +3,11 @@
 Preparing, signing in, saving, restoring and repairing a Test Machine has one
 complete ordered procedure per OS in the Machine QA Pack:
 
-- [macOS](../../packs/machine-qa/versions/1.3.25/files/docs/packs/machine-qa/macos-host-provisioning.md)
-- [Linux](../../packs/machine-qa/versions/1.3.25/files/docs/packs/machine-qa/linux-host-provisioning.md)
-- [Windows/WSL2](../../packs/machine-qa/versions/1.3.25/files/docs/packs/machine-qa/windows-host-provisioning.md)
+- [macOS](../../packs/machine-qa/versions/1.3.34/files/docs/packs/machine-qa/macos-host-provisioning.md)
+- [Linux](../../packs/machine-qa/versions/1.3.34/files/docs/packs/machine-qa/linux-host-provisioning.md)
+- [Windows/WSL2](../../packs/machine-qa/versions/1.3.34/files/docs/packs/machine-qa/windows-host-provisioning.md)
 
-The [provisioning index](../../packs/machine-qa/versions/1.3.25/files/docs/packs/machine-qa/host-provisioning.md) installs
+The [provisioning index](../../packs/machine-qa/versions/1.3.34/files/docs/packs/machine-qa/host-provisioning.md) installs
 as `docs/packs/machine-qa/host-provisioning.md`. This page explains the model
 behind its evidence, without providing a second preparation procedure.
 
@@ -88,7 +88,7 @@ Before it writes, capture compares free space on the destination filesystem
 with the home's file bytes. `golden_capture_insufficient_space` names that
 parent and the recovery: remove every other snapshot there, keep each
 project's registered golden for this machine (`yoke test-machine get` shows
-`golden_baseline_path`) and their `.probes` and `.manifest` files, then retry
+`golden_baseline_path`) and their `.probes`, `.manifest` and `.harness-clis` files, then retry
 `yoke test-machine golden-capture`. A check that cannot read the home or the
 filesystem refuses `golden_capture_space_check_failed` instead of a traceback.
 After the new golden is registered, capture deletes retired snapshots beside
@@ -107,22 +107,38 @@ server cannot name the other projects' goldens (`kept_golden_paths` absent or
 `kept_golden_paths_unknown` set), nothing is deleted and the refusal says why. Windows/WSL capture uses this same Linux archive, so the
 same check and retention apply there.
 
+A golden carries the harness CLIs a reset restores, so it also records them.
+Capture runs each CLI's `--version` as the test user (searching `~/.local/bin`
+first) and writes `GOLDEN.harness-clis`, which the capture receipt repeats as
+`harness_cli_versions`; a CLI whose version cannot be read refuses
+`golden_harness_cli_version_unreadable`. A QA plan's first reset on each Test
+Machine compares that record with each vendor's latest release
+(`yoke_contracts.harness_cli_releases`). A current golden costs one record read.
+A golden that is behind, or has no record, is refreshed once for that plan:
+reset to it, install the newer releases with the vendor installers
+(`yoke_harness.golden_harness_clis`), then capture through
+`test_machine.operation.begin` with `plan_execution_id`, which borrows the
+plan's own host lease, and begin the case again so every later reset restores
+the refreshed golden (`yoke_core.domain.golden_harness_refresh`). The capture
+prunes preserved logins, keychains and cookies as above. A refresh that cannot
+read a release channel, reset, install, verify the installed version or
+capture stops the plan with `golden_refresh_*` and the step to repair, so no
+case runs on stale CLIs. A server older than the `plan_execution_id` argument
+refuses with its floor; capture by hand with
+`yoke test-machine golden-capture` after updating the CLIs.
+
 Linux user-service mutations share the relay's 180-second operation budget;
 inventory probes retain a 30-second limit. Timeout receipts name the command
 and unsettled job. Archive failures preserve bounded, redacted native exit,
 stdout and stderr through mission preparation, including malformed receipts.
 
 The SSH access needed to finish restore remains live. Linux/WSL reset never
-rolls a harness sign-in back (`yoke_harness.ssh_linux_sign_in_stores`). Before
-clearing, it runs the sealed `Claude real request`, `Codex real request` and
-`Cursor real request` probes against the live home. Each verified login is
-carried forward over the restore with its own mode. A failing login restores
-from the golden only when it has not changed since the seal; otherwise the
-reset refuses `test_machine_sign_in_newer_than_baseline` before clearing, naming
-the store, the probe and its diagnosed reason/recovery. The outer refusal
-retains quota or transport recovery instead of substituting sign-in advice.
-The newer-store guard uses file modification time; it does not establish who
-wrote the store or prove a new human login. Linux capture and reset first ask a
+rolls a harness sign-in back: the Claude, Codex and Cursor login files
+(`.claude/.credentials.json`, `.codex/auth.json`, `.config/cursor/auth.json`)
+are live-preserved entries (`yoke_harness.ssh_linux_preserved_entries`), left
+out of every capture and kept live with their modes through reset, as macOS
+keeps its logins. A copy an older golden sealed is never restored, and reset
+runs no sign-in probe before clearing. Linux capture and reset first ask a
 running desktop Chromium to quit and wait for it to exit
 (`yoke_harness.ssh_linux_browser_approval`), the same rule macOS applies to
 Safari, refusing `test_machine_sign_in_app_quit_not_proved` before copying or
@@ -226,7 +242,7 @@ checks. Its existing retained host-command keeps the candidate terminal alive;
 `yoke qa browser setup` and `yoke qa browser step` drive candidate Chromium one
 observed step at a time. Read those commands' `--help` before execution. Do not
 add an approval command or extend the scripted terminal recipe contract.
-Follow the Machine QA Pack's [setup responsibilities](../../packs/machine-qa/versions/1.3.25/files/docs/packs/machine-qa/setup-responsibilities.md).
+Follow the Machine QA Pack's [setup responsibilities](../../packs/machine-qa/versions/1.3.34/files/docs/packs/machine-qa/setup-responsibilities.md).
 Agents complete every software-capable setup step and system permission prompt.
 Only browser sign-in and OS permissions that software cannot grant need the
 operator. Product code alone enters passwords from stored secrets; nobody types

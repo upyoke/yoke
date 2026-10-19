@@ -1,11 +1,14 @@
-"""Linux reset carries verified live sign-ins forward and never rolls a newer one back."""
+"""Linux harness sign-ins stay live through reset and never enter a golden."""
 
 from __future__ import annotations
 
+import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import shlex
+import tarfile
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -14,19 +17,15 @@ import pytest
 
 from yoke_harness.baseline_probe_failure_causes import PROBE_EXIT_CODES
 from yoke_harness.ssh_linux_baseline import _ARCHIVE_PROGRAM, archive_operation
-from yoke_harness.ssh_linux_reset_preconditions import reset_preflight
 from yoke_harness.ssh_mac_sign_in_apps import SIGN_IN_APP_QUIT_NOT_PROVED
-from yoke_harness.ssh_linux_sign_in_stores import (
-    SIGN_IN_NEWER_THAN_BASELINE,
-    SIGN_IN_STORES,
-)
-from yoke_harness.standard_baseline_probes import (
-    SAVE_BASELINE_COMMAND,
-    standard_probes,
-)
+from yoke_harness.standard_baseline_probes import standard_probes
 
 SEALED_PROBES = standard_probes("linux")
-CLAUDE, CODEX, CURSOR = SIGN_IN_STORES.values()
+CLAUDE, CODEX, CURSOR = SIGN_INS = (
+    ".claude/.credentials.json",
+    ".codex/auth.json",
+    ".config/cursor/auth.json",
+)
 SIGNED_OUT = PROBE_EXIT_CODES["probe_harness_exit_nonzero"]
 
 
@@ -70,28 +69,18 @@ def sealed_host(home: Path, signed_in: set[str]) -> SimpleNamespace:
     return host
 
 
-def test_preflight_verifies_each_sealed_sign_in_by_its_standard_name():
-    # Standard probes run through python3; matching by executable name never
-    # found Claude, so every reset restored the golden's rotated credential.
-    host = sealed_host(Path("/home/tester"), {"Claude real request"})
-    plan = reset_preflight(host, "/golden").evidence["sign_in_plan"]
-    assert plan["carry"] == [CLAUDE]
-    assert set(plan["unverified"]) == {CODEX, CURSOR}
-    assert plan["unverified"][CODEX]["probe"] == "Codex real request"
-    assert host.probed == list(SIGN_IN_STORES)
-
-
 @pytest.fixture
 def signed_in_home(tmp_path):
     if os.getuid() == 0:
         pytest.skip("archive requires the non-root test user")
     home, golden = tmp_path / "home", tmp_path / "golden"
-    for relative in (CLAUDE, CODEX, CURSOR):
+    for relative in SIGN_INS:
         path = home / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("sealed " + relative)
         path.chmod(0o600)
     (home / CURSOR).chmod(0o644)
+    (home / ".codex/config.toml").write_text("golden config")
     (home / "settings").write_text("golden")
     captured = subprocess.run(
         [sys.executable, "-c", _ARCHIVE_PROGRAM, "capture", str(home), str(golden)],
@@ -101,54 +90,72 @@ def signed_in_home(tmp_path):
         env={**os.environ, "HOME": str(home)},
     )
     assert captured.returncode == 0, captured.stdout + captured.stderr
-    sealed_at = (golden / "manifest.json").stat().st_mtime
-    for relative in (CLAUDE, CODEX, CURSOR):
-        # The operator signed in again after the seal.
+    for relative in SIGN_INS:
+        # The harness rotated its token after the seal.
         (home / relative).write_text("live " + relative)
-        os.utime(home / relative, (sealed_at + 60, sealed_at + 60))
     (home / "settings").write_text("live")
     return home, golden
 
 
-def test_sign_in_then_reset_keeps_every_verified_sign_in(signed_in_home):
+def test_capture_leaves_every_sign_in_out_of_the_golden(signed_in_home):
+    _home, golden = signed_in_home
+    with tarfile.open(golden / "home.tar.gz") as archive:
+        names = set(archive.getnames())
+    assert not names & set(SIGN_INS)
+    assert ".codex/config.toml" in names
+
+
+def test_reset_keeps_every_live_sign_in_without_probing_it(signed_in_home):
     home, golden = signed_in_home
-    host = sealed_host(home, set(SIGN_IN_STORES))
+    host = sealed_host(home, set())
     for _ in range(2):
         result = archive_operation(host, "reset", str(golden))
         assert result.ok, result.evidence
-        assert "ok" not in result.evidence
-    for relative in (CLAUDE, CODEX, CURSOR):
+    for relative in SIGN_INS:
         assert (home / relative).read_text() == "live " + relative
         assert relative in result.evidence["preserved_entries"]
     assert (home / CURSOR).stat().st_mode & 0o777 == 0o644
     assert (home / CLAUDE).stat().st_mode & 0o777 == 0o600
+    assert (home / ".codex/config.toml").read_text() == "golden config"
     assert (home / "settings").read_text() == "golden"
+    assert host.probed == []
 
 
-def test_newer_unverified_sign_in_refuses_before_clearing(signed_in_home):
+def test_rotated_refresh_tokens_are_never_rolled_back(signed_in_home):
+    # Every harness rotates its refresh token on use, so a sealed token is dead
+    # once the live one refreshes (HTTP 401 refresh_token_reused on Codex).
     home, golden = signed_in_home
-    host = sealed_host(home, {"Claude real request", "Cursor real request"})
-    result = archive_operation(host, "reset", str(golden))
-    assert not result.ok and result.error_code == SIGN_IN_NEWER_THAN_BASELINE
-    assert result.evidence["refused_entry"] == CODEX
-    assert result.evidence["probe"] == "Codex real request"
-    assert SAVE_BASELINE_COMMAND in result.evidence["recovery"]
-    assert (home / "settings").read_text() == "live"
-    assert (home / CODEX).read_text() == "live " + CODEX
+    host = sealed_host(home, set())
+    for rotation in (1, 2):
+        for relative in SIGN_INS:
+            (home / relative).write_text(f"refresh-token-{rotation} {relative}")
+        result = archive_operation(host, "reset", str(golden))
+        assert result.ok, result.evidence
+        for relative in SIGN_INS:
+            assert (
+                home / relative
+            ).read_text() == f"refresh-token-{rotation} {relative}"
 
 
-def test_unverified_sign_in_unchanged_since_the_seal_restores_the_golden(
-    signed_in_home,
-):
+def test_a_sign_in_an_older_golden_sealed_is_never_restored(signed_in_home):
     home, golden = signed_in_home
-    sealed_at = (golden / "manifest.json").stat().st_mtime
-    os.utime(home / CODEX, (sealed_at - 60, sealed_at - 60))
-    host = sealed_host(home, {"Claude real request", "Cursor real request"})
-    result = archive_operation(host, "reset", str(golden))
+    sealed = golden.parent / "sealed-store"
+    sealed.write_text("sealed " + CODEX)
+    with tarfile.open(golden / "home.tar.gz", "r:gz") as old:
+        members = [(m, old.extractfile(m).read() if m.isfile() else None) for m in old]
+    with tarfile.open(golden / "home.tar.gz", "w:gz") as archive:
+        for member, content in members:
+            archive.addfile(member, None if content is None else io.BytesIO(content))
+        archive.add(sealed, arcname=CODEX)
+    manifest = json.loads((golden / "manifest.json").read_text())
+    manifest["sha256"] = hashlib.sha256(
+        (golden / "home.tar.gz").read_bytes()
+    ).hexdigest()
+    (golden / "manifest.json").write_text(json.dumps(manifest))
+    (home / CODEX).unlink()
+    result = archive_operation(sealed_host(home, set()), "reset", str(golden))
     assert result.ok, result.evidence
-    assert (home / CODEX).read_text() == "sealed " + CODEX
-    assert (home / CLAUDE).read_text() == "live " + CLAUDE
-    assert CODEX not in result.evidence["preserved_entries"]
+    assert not (home / CODEX).exists()
 
 
 def test_symlinked_sign_in_refuses_before_clearing(signed_in_home):
@@ -156,32 +163,11 @@ def test_symlinked_sign_in_refuses_before_clearing(signed_in_home):
     outside = home.parent / "outside"
     (home / CLAUDE).rename(outside)
     (home / CLAUDE).symlink_to(outside)
-    host = sealed_host(home, set(SIGN_IN_STORES))
+    host = sealed_host(home, set())
     result = archive_operation(host, "reset", str(golden))
     assert host.archive_runs == 1
-    assert not result.ok and result.error_code == "linux_sign_in_store_unsafe"
+    assert not result.ok and result.error_code == "linux_preserved_home_entry_unsafe"
     assert (home / "settings").read_text() == "live"
-
-
-def test_rotated_refresh_tokens_are_never_rolled_back(signed_in_home):
-    # Every harness rotates its refresh token on use, so the sealed token is
-    # dead once the live one refreshes; restoring it would break the harness
-    # for good (HTTP 401 refresh_token_reused on Codex).
-    home, golden = signed_in_home
-    host = sealed_host(home, set(SIGN_IN_STORES))
-    for rotation in (1, 2):
-        sealed_at = (golden / "manifest.json").stat().st_mtime
-        for relative in (CLAUDE, CODEX, CURSOR):
-            (home / relative).write_text(f"refresh-token-{rotation} {relative}")
-            later = sealed_at + 60 * (rotation + 1)
-            os.utime(home / relative, (later, later))
-        result = archive_operation(host, "reset", str(golden))
-        assert result.ok, result.evidence
-        for relative in (CLAUDE, CODEX, CURSOR):
-            assert (home / relative).read_text() == (
-                f"refresh-token-{rotation} {relative}"
-            )
-            assert "sealed" not in (home / relative).read_text()
 
 
 def test_chromium_quits_before_capture_or_reset_touches_the_home(
@@ -190,7 +176,7 @@ def test_chromium_quits_before_capture_or_reset_touches_the_home(
     # Chromium writes its cookie store when it quits; a capture taken while it
     # runs can miss the operator's newest sign-in.
     home, golden = signed_in_home
-    host = sealed_host(home, set(SIGN_IN_STORES))
+    host = sealed_host(home, set())
     captured = archive_operation(host, "capture", str(tmp_path / "recaptured"))
     assert captured.ok, captured.evidence
     result = archive_operation(host, "reset", str(golden))
@@ -200,7 +186,7 @@ def test_chromium_quits_before_capture_or_reset_touches_the_home(
 
 def test_chromium_that_does_not_quit_refuses_before_clearing(signed_in_home):
     home, golden = signed_in_home
-    host = sealed_host(home, set(SIGN_IN_STORES))
+    host = sealed_host(home, set())
     host.chromium_quit = json.dumps(
         {
             "ok": False,
@@ -215,59 +201,3 @@ def test_chromium_that_does_not_quit_refuses_before_clearing(signed_in_home):
     assert result.evidence["recovery"] == "Close Chromium."
     assert host.archive_runs == 0
     assert (home / "settings").read_text() == "live"
-
-
-def test_quota_refusal_retains_probe_recovery_without_clearing_newer_store(
-    signed_in_home,
-):
-    from yoke_harness.baseline_harness_requests import harness_request
-
-    home, golden = signed_in_home
-    host = sealed_host(home, set(SIGN_IN_STORES))
-    run_other = host.run_command
-    record = harness_request(["/bin/claude"]).reply_rejection(
-        json.dumps(
-            {
-                "type": "assistant",
-                "error": "rate_limit",
-                "message": {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": "You've hit your weekly limit private-account@example.com",
-                        }
-                    ]
-                },
-            }
-        ),
-        exit_code=1,
-    )
-    record["harness_exit_code"] = 1
-    claude_argv = next(
-        p["argv"] for p in SEALED_PROBES if p["name"] == "Claude real request"
-    )
-
-    def run_command(argv, timeout=None):
-        if argv == claude_argv:
-            return subprocess.CompletedProcess(
-                argv, PROBE_EXIT_CODES["probe_quota_exhausted"], json.dumps(record), ""
-            )
-        return run_other(argv, timeout=timeout)
-
-    host.run_command = run_command
-    before = {
-        relative: ((home / relative).read_bytes(), (home / relative).stat().st_mode)
-        for relative in (*SIGN_IN_STORES.values(), "settings")
-    }
-    result = archive_operation(host, "reset", str(golden))
-    assert not result.ok and result.error_code == SIGN_IN_NEWER_THAN_BASELINE
-    assert result.evidence["refused_entry"] == CLAUDE
-    assert "quota window" in result.evidence["probe_recovery"]
-    assert result.evidence["probe_recovery"] in result.evidence["recovery"]
-    assert "Sign in again" not in result.evidence["recovery"]
-    assert "private-account" not in json.dumps(result.evidence)
-    for relative, expected in before.items():
-        assert (
-            (home / relative).read_bytes(),
-            (home / relative).stat().st_mode,
-        ) == expected

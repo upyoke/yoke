@@ -34,7 +34,8 @@ Route a required override with `yoke say --steering`; read
 1. Read complete task: description, ACs, test plan, interfaces, docs and files
    touched. Verify provided/consumed dependency interfaces exist with exact
    types, signatures and behavior before implementing. Mismatch blocks; no guesses.
-2. Read project docs and AGENTS conventions. Scope searches to relevant paths,
+2. Read project docs, AGENTS conventions and the operation homes the agent
+   definition requires before the first edit. Scope searches to relevant paths,
    excluding node_modules/.git/dist/build/.next/__pycache__/.worktrees. For
    large files (>200 lines), locate relevant ranges and use offset/limit rather
    than whole-file reads. Scope/exclude noise explicitly in Explore dispatches.

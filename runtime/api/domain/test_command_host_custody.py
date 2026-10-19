@@ -199,3 +199,67 @@ def test_declared_command_acquires_lease_and_can_begin_nested_operation(
     assert admitted.result_payload["state"] == "ready"
     nested = begin(operation)
     assert nested.primary_success, nested.error
+
+
+OWNER = SimpleNamespace(actor_id="1", session_id="owner")
+
+
+@pytest.mark.parametrize("runner", ["host_control", "agent_mission"])
+def test_machine_case_plan_borrows_its_lease_to_refresh_the_golden(owned_plan, runner):
+    conn, execution = owned_plan
+    execution["roster"][0]["runner_id"] = runner
+    borrowed = operations.operation_mission(
+        conn,
+        lease_id=8,
+        project="yoke",
+        actor=OWNER,
+        operation="golden_capture",
+        plan_execution_id="plan-execution",
+    )
+    assert borrowed is execution
+
+
+@pytest.mark.parametrize(
+    "operation,plan_execution_id",
+    [
+        ("golden_capture", None),
+        ("golden_capture", "another-plan"),
+        ("reset", "plan-execution"),
+    ],
+)
+def test_machine_case_lease_lends_only_the_named_golden_refresh(
+    owned_plan, operation, plan_execution_id
+):
+    conn, execution = owned_plan
+    execution["roster"][0]["runner_id"] = "host_control"
+    with pytest.raises(
+        operations.MachineQaProtocolError, match="mission_operation_unavailable"
+    ):
+        operations.operation_mission(
+            conn,
+            lease_id=8,
+            project="yoke",
+            actor=OWNER,
+            operation=operation,
+            plan_execution_id=plan_execution_id,
+        )
+
+
+def test_golden_refresh_refuses_when_the_plan_holds_no_lease(monkeypatch):
+    monkeypatch.setattr(
+        operations,
+        "load_test_machine_contract",
+        lambda *_, **__: SimpleNamespace(settings={"resource_name": "linux-lab"}),
+    )
+    monkeypatch.setattr(operations, "active_claim", lambda *_: None)
+    with pytest.raises(
+        operations.MachineQaProtocolError, match="plan_golden_refresh_lease_missing"
+    ):
+        operations.begin_operation_execution(
+            None,
+            actor=OWNER,
+            project="yoke",
+            machine="linux-lab",
+            plan_execution_id="plan-execution",
+            operation="golden_capture",
+        )
