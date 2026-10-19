@@ -11,6 +11,9 @@ from __future__ import annotations
 
 from typing import Dict, List
 from yoke_core.api.service_client_retention_inventory import RETENTION_ADAPTERS
+from yoke_core.api.service_client_structured_api_adapter_inventory_admission import (
+    ADMISSION_ADAPTERS,
+)
 
 from yoke_core.api.service_client_structured_api_adapter_inventory_claims import (
     CLAIMS_ADAPTERS,
@@ -185,20 +188,6 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     _read_entry(function_id="projects.list", cli_invocation="yoke projects list"),
     *PROJECT_ADAPTERS,
     *ORGANIZATION_ADAPTERS,
-    # Sign-in admission admin family (org-admin-gated at dispatch).
-    AdapterEntry(
-        function_id="identity.invite.create",
-        cli_invocation="yoke identity invite create EMAIL --role ROLE",
-        notes="pending invite admits the next verified OIDC sign-in with that email",
-    ),
-    _read_entry(
-        function_id="identity.invite.list",
-        cli_invocation="yoke identity invite list --status pending",
-    ),
-    AdapterEntry(
-        function_id="identity.invite.revoke",
-        cli_invocation="yoke identity invite revoke INVITE_ID",
-    ),
     AdapterEntry(
         function_id="identity.link.set",
         cli_invocation="yoke identity link set --actor ACTOR --issuer I --subject S",
@@ -231,6 +220,7 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     # readiness, item-dependency, ephemeral-env, strategy-carry/checkpoint,
     # events/ouroboros) + onboard-checklist; parity-synced into the inventory.
     *OPS_ADAPTERS,
+    *ADMISSION_ADAPTERS,
     *GITHUB_ACTIONS_ADAPTERS,
     AdapterEntry(
         function_id="github.release.create_commit_tag",

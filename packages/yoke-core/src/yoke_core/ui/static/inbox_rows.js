@@ -23,9 +23,7 @@ export function createDecisionResolver(context, reload) {
     if (note) resolution.note = note;
     let result;
     try {
-      result = await callFunction(
-        context.client, "decision_requests.resolve", resolution,
-      );
+      result = await callFunction(context.client, "decision_requests.resolve", resolution);
     } catch (error) {
       result = {
         status: 0,

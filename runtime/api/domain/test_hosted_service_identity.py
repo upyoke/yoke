@@ -4,13 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.decision_request_test_support import (
-    decision_request_connection,
-)
 from yoke_core.api.http_auth import HttpAuthContext
 from yoke_core.api.routes.functions import _service_token_guard_response
 from yoke_core.domain import api_tokens_cli, json_helper
-from yoke_core.domain import machine_approval_requests as approvals
 from yoke_core.domain.actor_permissions import (
     PERM_HOSTED_SERVICE_DELIVER,
     PERM_PROJECT_ADMIN,
@@ -191,77 +187,3 @@ def test_guard_ignores_functions_without_the_service_guardrail(registry) -> None
         )
         is None
     )
-
-
-@pytest.fixture()
-def approvals_conn():
-    with decision_request_connection() as value:
-        yield value
-
-
-def _pending(conn) -> None:
-    approvals.apply_machine_approval_lifecycle(
-        conn,
-        auth_request_id="5b234860-c927-46ab-b19a-9fb36df056aa",
-        org_id=1,
-        state="pending",
-        occurred_at="2026-07-28T12:00:00Z",
-        actor_id=6,
-        context={"expires_at": "2026-07-28T12:10:00Z"},
-    )
-
-
-@pytest.mark.parametrize("state", ("expired", "withdrawn"))
-def test_service_identity_ends_machine_approval_without_org_admin(
-    approvals_conn, state
-) -> None:
-    _pending(approvals_conn)
-    withdrawn, _, applied = approvals.apply_machine_approval_lifecycle(
-        approvals_conn,
-        auth_request_id="5b234860-c927-46ab-b19a-9fb36df056aa",
-        org_id=1,
-        state=state,
-        occurred_at="2026-07-28T12:05:00Z",
-        actor_id=6,
-        context={},
-        reason=f"authorization {state}",
-    )
-    assert withdrawn is not None
-    assert (withdrawn["status"], applied) == ("withdrawn", True)
-    actors = approvals_conn.execute(
-        "SELECT actor_id FROM events WHERE event_name = 'DecisionRequestWithdrawn'"
-    ).fetchall()
-    assert [row[0] for row in actors] == [6]
-
-
-@pytest.mark.parametrize("state", ("approved", "denied"))
-def test_service_identity_cannot_decide_a_machine_approval(
-    approvals_conn, state
-) -> None:
-    _pending(approvals_conn)
-    with pytest.raises(PermissionError):
-        approvals.apply_machine_approval_lifecycle(
-            approvals_conn,
-            auth_request_id="5b234860-c927-46ab-b19a-9fb36df056aa",
-            org_id=1,
-            state=state,
-            occurred_at="2026-07-28T12:05:00Z",
-            actor_id=6,
-            context={},
-        )
-
-
-def test_member_without_admin_still_cannot_end_machine_approval(
-    approvals_conn,
-) -> None:
-    _pending(approvals_conn)
-    with pytest.raises(PermissionError, match="not authorized"):
-        approvals.apply_machine_approval_lifecycle(
-            approvals_conn,
-            auth_request_id="5b234860-c927-46ab-b19a-9fb36df056aa",
-            org_id=1,
-            state="expired",
-            occurred_at="2026-07-28T12:05:00Z",
-            actor_id=1,
-            context={},
-        )

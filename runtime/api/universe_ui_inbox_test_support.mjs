@@ -127,26 +127,6 @@ export {
   unsettledEffectRequestRow,
 } from "./universe_ui_deployment_request_fixtures.mjs";
 
-export function machineRequestRow(overrides = {}) {
-  return requestRow({
-    id: 13,
-    kind: "machine_approval",
-    subject_type: "machine_auth_request",
-    subject_key: "5b234860-c927-46ab-b19a-9fb36df056aa",
-    project_id: null,
-    org_id: 1,
-    originator_actor_label: "dana",
-    authority_reason: "org admin",
-    actions: ["deny", "approve"],
-    subject_context: {
-      code: "WXYZ-1234",
-      machine: "studio-mini",
-      expires_at: "2026-09-04T12:10:00Z",
-    },
-    ...overrides,
-  });
-}
-
 export function messageRow(overrides = {}) {
   return {
     message_id: "msg-19",

@@ -20,7 +20,7 @@ const renderItemDetailView = deferredRenderer(() => import("./universe_views_ite
 const renderItemsView = deferredRenderer(() => import("./universe_views_items.js"), "renderItemsView");
 const renderOrganizationView = deferredRenderer(() => import("./universe_views_organization.js"), "renderOrganizationView");
 const renderLevelsView = deferredRenderer(() => import("./universe_views_levels.js"), "renderLevelsView");
-const renderActorsView = deferredRenderer(() => import("./universe_views_actors.js"), "renderActorsView");
+const renderTeamView = deferredRenderer(() => import("./universe_views_team.js"), "renderTeamView");
 const renderProfileView = deferredRenderer(() => import("./universe_views_profile.js"), "renderProfileView");
 const renderOuroborosEntryDetailView = deferredRenderer(() => import("./universe_views_ouroboros.js"), "renderOuroborosEntryDetailView");
 const renderOuroborosView = deferredRenderer(() => import("./universe_views_ouroboros.js"), "renderOuroborosView");
@@ -114,7 +114,7 @@ export const VIEW_RENDERERS = {
 
   organization: renderOrganizationView,
   levels: renderLevelsView,
-  actors: renderActorsView,
+  team: renderTeamView,
   workflows: renderWorkflowsView,
   projects: renderProjectsView,
   github: renderGithubView,

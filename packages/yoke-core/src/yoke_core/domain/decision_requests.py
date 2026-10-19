@@ -18,13 +18,11 @@ from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain.decision_request_contract import (
     DECISION_KINDS,
     LIFECYCLE_TRANSITION_APPROVAL,
-    MACHINE_APPROVAL,
     REQUEST_CREATED_EVENT,
 )
 from yoke_core.domain.decision_request_events import append_decision_event
 from yoke_core.domain.decision_request_rows import request_row
 from yoke_core.domain.decision_request_subject_context import validate_subject_context
-from yoke_core.domain.decision_machine_clocks import machine_context_wire
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     rollback_workflow_binding_write_errors,
@@ -115,8 +113,6 @@ def create_decision_request(
     stamp = parse_instant(created_at) if created_at is not None else utc_now()
     stored_stamp = instant_parameter(conn, stamp)
     context = dict(subject_context or {})
-    if kind == MACHINE_APPROVAL:
-        context = machine_context_wire(context)
     if kind not in DECISION_KINDS:
         raise ValueError(f"unknown decision request kind {kind!r}")
     spec = DECISION_KINDS[kind]

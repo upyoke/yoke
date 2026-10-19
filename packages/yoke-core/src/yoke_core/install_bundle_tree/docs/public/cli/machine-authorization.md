@@ -9,16 +9,15 @@ Cloud and self-hosted servers share the device-code wire contract in
 
 ## Connect
 
-Run `yoke connect https://<server>` and approve your own machine in the signed-in
-workbench. The setup wizard's **A team server** option discovers the server's
-sign-in method before showing browser approval or API-token entry. Without
-company sign-in, a first machine uses `yoke connect https://<server> --token-stdin`
-or `--token-file PATH`; the first-boot admin token remains the bootstrap. Your
-own next machine runs `yoke connect https://<server>` and you approve its code
-from a machine you already connected with
-`yoke machine-authorization resolve CODE --action approve`. The approved
-machine receives the approver's identity, so approve only your own codes; the
-wizard therefore keeps a teammate without company sign-in on API-token entry.
+Run `yoke connect https://<server>` and compare the four-character **Match code**
+with your own machine's request. Approve it from a machine already connected to
+that server with `yoke machines approve K7F2`, or use **Machines → Waiting for
+approval** in the signed-in workbench. Approve only your own codes: approval
+grants your identity. The wizard's **A team server** discovers the sign-in method.
+Without company sign-in, teammates choose **Enter invite code** and enter the
+private code from their administrator. For bootstrap or recovery, use
+`yoke connect https://<server> --token-stdin` or `--token-file PATH`;
+the first-boot admin token connects the first machine.
 
 A person running `yoke connect` in a terminal sees an opening notice before
 Yoke opens the approval link in the default browser. Approve there, then return
@@ -59,18 +58,23 @@ open, use the printed link yourself.
 
 ## Approval and delivery
 
-The shared `/machine-approval[/CODE]` workbench page calls
-`machine_authorization.get` and `machine_authorization.resolve` through its
-normal function client. The read returns `authorization` with code, machine
-name/ID, platform, expiry, and decision; resolve takes `{code, action: approve|deny}`
-and returns that decision. A host consuming the core wheel supplies its normal
-client and owns its pending-code store; Cloud's companion integration maps
-these calls to its store, where organization selection occurs at approval.
+`yoke machines pending` lists code, machine, requested-by identity and expiry for
+the signed-in organization. `yoke machines approve CODE` and
+`yoke machines deny CODE` show the viewer and machine before recording a decision;
+codes accept either case. `--json` emits structured function replies. A local
+universe instead explains that other computers cannot connect and points to
+`yoke self-host init`.
 
-Self-host accepts decisions only from active org members. The signed-in person
-claims the code and approves their own machine through a named-actor decision
-request; other actors cannot take it over. Cloud's existing org-admin requests
-retain their role authority. Credential issuance remains engine-owned atomic
+The CLI and shared `/machine-approval[/CODE]` workbench page use
+`machine_authorization.get` and `machine_authorization.resolve`. The read returns
+`authorization` with code, machine name/ID, platform, expiry, decision, current
+state, viewer and requested-by identity; resolve takes `{code, action: approve|deny}`
+and returns that decision. The pending function is `machine_authorization.pending`.
+Hosted routing selects the organization and hands its code to the engine store.
+
+Only an active human org member can approve their own machine. The first decision
+binds the code to that person; another actor cannot take it over. An identical
+decision can be repeated, while an opposite decision refuses. Credential issuance remains engine-owned atomic
 machine registration/rotation. Consumption and issuance commit together; one
 poll receives the raw credential and no raw credential is stored in the code
 record. Network loss after delivery requires starting a new code.
@@ -100,6 +104,24 @@ org membership, or disabled actor refuses with its recovery step. A database
 failure before issuance leaves delivery retryable. Cookies authorize browser
 functions only with the workbench's existing same-origin CSRF protection.
 
+## Waiting for approval
+
+Machines shows **Waiting for approval** above the roster when requests are
+waiting. Match the code to your terminal, then choose **Review** to open the
+shared approval card inline. The URL becomes `/machine-approval/CODE` without
+adding a history entry. Approve only a machine you are connecting yourself.
+The list shows its name, full machine ID, requester when known and local expiry;
+an unbound request says **Not signed in yet**. Expired rows cannot be reviewed.
+
+The approval route without a code lists waiting requests without an entry form.
+A selected link shows **Other machines waiting** below its card. Lists refresh
+every 30 seconds while a card is open and when the page becomes visible; after
+a decision the next read removes the row and keeps the card's outcome visible.
+An empty approval route teaches `yoke connect <server>` on the new machine.
+Roster or relay failures leave pending requests usable. A failed pending read
+offers **Try again**; an older server directs you to the link your terminal
+printed. Local mode shows the reachability notice without a pending read.
+
 ## Retired and foreign-owned machines
 
 Start refuses a `machine_id` the registry retired with HTTP 409
@@ -124,11 +146,18 @@ computer.
 
 ## Approval page
 
-The page shows a single card headed **Approve this machine**, with the real
-machine name (omitted when absent), platform and full machine ID, one-time code,
-organization name, and the viewer's local expiry time and zone. The UTC instant
-stays in the time element. Approve only if the code matches your terminal.
+The selected request shows one shared card headed **Approve this machine**.
+It shows the real machine name (omitted when absent), platform and full machine
+ID, uppercase **Match code**, **Requested by** when bound, organization,
+**Approving as**, and the viewer's local expiry time and zone. Identities use
+the supplied name and actor number; **This machine will act as you** explains
+the approval. An older server without viewer facts shows **your signed-in
+account** and asks its operator to upgrade. The UTC instant stays in the time
+element. Approve only if the code matches your terminal.
 **Approve machine** is the primary action; **Deny** authorizes nothing.
+The card can also be embedded beside a request list, where its heading receives
+focus. A direct approval link focuses **Approve machine**. Neither an absent
+URL code nor an unavailable code offers a manual code-entry form.
 
 A first organization connection shows four setup steps, with Connect machine
 active and the preceding steps complete. The same visit shows every step
@@ -140,25 +169,40 @@ orange **Return to your terminal** callout. The approved facts omit expiry
 and the code-matching hint. A denied request says **Nothing was authorized**.
 Expired requests show their local expiry when their stored facts remain
 available; no client promises a replacement code automatically. Start a new
-connection from the terminal. An unavailable code offers code entry again.
+connection with `yoke connect` from the terminal. A consumed request says it
+was already answered and directs you to Machines or a fresh connection.
+Membership refusals name sign-in recovery, and a failed write keeps the actions
+available for retry without reporting success.
+An owner mismatch says the connection was already handled by the bound person,
+using a name only when an existing read supplied it, otherwise **another person
+in your org**. If that was not you, ask them or an admin to retire the machine,
+then run `yoke connect` again. The refusal never discloses a new identity.
 The installer and connect wait stop on expiry; neither rotates codes silently.
+
+In a local universe the page makes no approval reads. It explains that other
+people and computers cannot reach this universe, gives `yoke self-host init`,
+and links to the [Self-host guide](https://github.com/upyoke/yoke/blob/main/docs/self-host.md).
+The shared notice also has a token variant: a token does not make a local
+universe reachable from another computer.
 
 Inspection may read an expired or consumed record to display its outcome,
 but resolve and poll still refuse expired or consumed codes. A record removed
 by pending-store expiry cleanup is unavailable; membership and ownership still
 protect reads. Light and dark themes share the same card and narrow layouts.
 
-## Inspect as the signed-in actor
+## Decide as the signed-in actor
 
-Run `yoke machine-authorization get CODE` to read a code, then
-`yoke machine-authorization resolve CODE --action approve` (or `deny`) to
-record your personal decision. Read the returned decision and finish polling
+Run `yoke machines pending` to see waiting requests, then
+`yoke machines approve CODE` or `yoke machines deny CODE` to record your personal
+decision. Read the returned decision and approver, and finish polling
 from the original machine. These operations never accept a caller-supplied
 owner, org, or credential.
 
-On a hosted connection (`https://app.upyoke.com/api/orgs/<slug>`) Platform answers
-both calls from its own code store, and an org admin decides any code waiting
-for that org. See [Hosted org administration](../projects/hosted-org-admin.md).
+On a hosted connection (`https://app.upyoke.com/api/orgs/<slug>`), the selected
+organization scopes the request. See [Hosted org administration](../projects/hosted-org-admin.md).
+An older server refuses a missing command with `function_version_skew` and its
+minimum serving version. Connect with an explicit token using
+`yoke connect <server> --token-stdin`, or ask the server operator to upgrade.
 
 ## Shared schema
 
@@ -216,6 +260,9 @@ Handoff takes `{device_code_sha256, user_code, machine_id, machine_name,
 platform, expires_at, org_id}`. The digest is lowercase hex SHA-256 of the
 original device secret; never send the raw secret to handoff. `user_code` is
 four characters from `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`, such as `K7F2`.
+Inspect and resolve trim surrounding whitespace and accept lowercase input.
+Other formats refuse `authorization_code_invalid` without changing the request;
+run `yoke connect` on the connecting machine for a new code.
 Machine ID is a UUID; name and platform are nonempty, at most 150 and 80
 characters. Expiry is qualified RFC3339, after now and within the engine's
 ten-minute code TTL. Org ID is the positive **engine** organization ID,

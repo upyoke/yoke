@@ -55,9 +55,9 @@ def _stub_browser_approval(monkeypatch) -> list[str]:
         return hosted_machine_authorization.PendingMachineAuthorization(
             platform_url=url,
             device_code="device-secret",
-            user_code="ABCD-2345",
+            user_code="K7F2",
             verification_uri=f"{url}/connect",
-            verification_uri_complete=f"{url}/connect?user_code=ABCD-2345",
+            verification_uri_complete=f"{url}/connect?user_code=K7F2",
             expires_in=600,
             interval=1,
         )

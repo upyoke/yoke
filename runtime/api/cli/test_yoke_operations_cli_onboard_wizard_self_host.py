@@ -67,15 +67,13 @@ def _app(tmp_path):
 
 async def _open_preview(pilot) -> None:
     await advance_past_path(pilot)
-    await pilot.press("down", "down")
-    await pilot.press("enter")
+    await pilot.press("down", "down", "enter")
 
 
 async def _start(pilot) -> None:
     """Start, then answer the first-admin name prompt it opens."""
     await _open_preview(pilot)
-    await pilot.press("enter")
-    await pilot.press("enter")  # Start fresh
+    await pilot.press("enter", "enter")  # Preview -> Start fresh
     await type_text(pilot, "Ada Lovelace")
     await pilot.press("enter")
 
@@ -283,13 +281,15 @@ def test_existing_server_url_and_token_failure_both_teach_the_new_route(
             await pilot.press("enter")  # discover the server's sign-in method
             await app.workers.wait_for_complete()
             await pilot.pause()
-            await pilot.press("enter")
-            await pilot.press("enter")
+            assert app._history[-1].prompt.key == "connect.machine_admission"
+            await pilot.press("down", "down", "enter", "enter", "enter")
             await type_text(pilot, RAW_TOKEN)
             await pilot.press("enter")
             text = await _wait_for_text(app, pilot, "could not be verified")
             assert "Yoke token could not be verified" in text
             assert flow.NO_SERVER_GUIDANCE in text
+            assert "credential rejected" in text
+            assert RAW_TOKEN not in text
 
     asyncio.run(scenario())
 

@@ -1,15 +1,15 @@
 {
  "id": "01",
  "title": "Separate person, membership, role and machine credential",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "both",
  "when": "Before granting access or explaining a permission refusal",
- "need": "Org roles admin/operator/viewer and project grants are distinct. Cloud membership/billing is platform-fed; machine-only service roles are not human roles. Machine admission does not automatically grant unrelated authority.",
+ "need": "Team invites default to operator and explain the selected org role. An explicit null invite role grants none. Org roles and project grants are distinct; Cloud membership/billing is platform-fed. Machine-only roles are not human roles, and machine admission does not grant unrelated authority.",
  "disclosure": "current cue",
- "surface": "Docs sidebar -> Actors/Members/Billing -> documented Actors and Machines surfaces.",
- "review": "Pending exact recipe proof.",
+ "surface": "Docs sidebar -> Team/Members/Billing -> documented Team and Machines surfaces.",
+ "review": "Source form and row contracts are tested; deployed journey proof remains pending.",
  "recipes": ["yoke actors role set --help"],
  "plan_notes": ["FIRST-USER item 33"],
- "sources": ["docs/public/nav.yaml", "docs/public/projects/actors-members-billing.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/actors.py"],
+ "sources": ["docs/public/nav.yaml", "docs/public/projects/actors-members-billing.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/actors.py", "runtime/api/universe_ui_actor_invites.test.mjs"],
  "position": 0
 }

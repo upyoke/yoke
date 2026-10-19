@@ -13,7 +13,6 @@ sees.
 
 from __future__ import annotations
 
-from dataclasses import asdict
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
@@ -25,7 +24,6 @@ from yoke_contracts.api.function_call import (
 )
 
 from yoke_contracts.api_urls import HOSTED_PLATFORM_URL
-from yoke_contracts.timestamps import temporal_wire
 
 from yoke_core.domain.universe_startup_lock import (
     hosted_tenant_container_process,
@@ -85,10 +83,10 @@ def _hosted_refusal() -> Optional[HandlerOutcome]:
             code=HOSTED_INVITES_PLATFORM_OWNED,
             message=(
                 "on a hosted universe Platform owns invites; run `yoke "
-                "identity invite ...` from a machine connected to this org "
+                "invite` or `yoke invites` from a machine connected to this org "
                 f"with `yoke setup --connect {HOSTED_PLATFORM_URL}`, whose "
                 "hosted connection Platform answers, or use the org's "
-                "Members page"
+                "Team page"
             ),
         ),
     )
@@ -185,7 +183,11 @@ def handle_identity_invite_create(request: FunctionCallRequest) -> HandlerOutcom
 
 
 def handle_identity_invite_list(request: FunctionCallRequest) -> HandlerOutcome:
-    from yoke_core.domain.actor_invites import InviteError, list_invites
+    from yoke_core.domain.actor_invites import (
+        InviteError,
+        list_invites,
+        serialize_invites,
+    )
     from yoke_core.domain.db_helpers import connect
 
     hosted = _hosted_refusal()
@@ -205,6 +207,7 @@ def handle_identity_invite_list(request: FunctionCallRequest) -> HandlerOutcome:
                 org_id=org_id,
                 status=parsed.status or None,
             )
+            rows = serialize_invites(conn, invites)
         except InviteError as exc:
             return HandlerOutcome(
                 primary_success=False,
@@ -213,9 +216,7 @@ def handle_identity_invite_list(request: FunctionCallRequest) -> HandlerOutcome:
     finally:
         conn.close()
     return HandlerOutcome(
-        result_payload={
-            "invites": [temporal_wire(asdict(invite)) for invite in invites]
-        },
+        result_payload={"invites": rows},
         primary_success=True,
     )
 

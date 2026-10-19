@@ -79,9 +79,9 @@ def test_hosted_url_preset_starts_browser_approval_without_token_entry(
     pending = hosted_machine_authorization.PendingMachineAuthorization(
         platform_url="https://app.upyoke.com",
         device_code="device-secret",
-        user_code="ABCD-2345",
+        user_code="K7F2",
         verification_uri="https://app.upyoke.com/connect",
-        verification_uri_complete="https://app.upyoke.com/connect?user_code=ABCD-2345",
+        verification_uri_complete="https://app.upyoke.com/connect?user_code=K7F2",
         expires_in=600,
         interval=2,
     )
@@ -110,7 +110,7 @@ def test_hosted_url_preset_starts_browser_approval_without_token_entry(
             await app.workers.wait_for_complete()
             body = _body_text(app)
             assert "Sign in and choose an organization." in body
-            assert "ABCD-2345" in body
+            assert "K7F2" in body
             assert "Provide your Yoke API token" not in body
             assert app.result.token is None
             assert starts == ["https://app.upyoke.com"]
@@ -128,9 +128,9 @@ def test_hosted_pick_persists_browser_approval_before_project_flow(
     pending = hosted_machine_authorization.PendingMachineAuthorization(
         platform_url="https://app.upyoke.com",
         device_code="device-secret",
-        user_code="ABCD-2345",
+        user_code="K7F2",
         verification_uri="https://app.upyoke.com/connect",
-        verification_uri_complete="https://app.upyoke.com/connect?user_code=ABCD-2345",
+        verification_uri_complete="https://app.upyoke.com/connect?user_code=K7F2",
         expires_in=600,
         interval=2,
     )
@@ -169,7 +169,7 @@ def test_hosted_pick_persists_browser_approval_before_project_flow(
             await pilot.press("up", "enter")
             await app.workers.wait_for_complete()
             assert "Sign in and choose an organization." in _body_text(app)
-            assert "ABCD-2345" in _body_text(app)
+            assert "K7F2" in _body_text(app)
             assert app.query_one(Stepper).active == STEP_CONNECT
             await pilot.press("enter")
             await app.workers.wait_for_complete()

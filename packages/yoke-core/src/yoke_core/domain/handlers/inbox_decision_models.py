@@ -2,15 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any, Dict, List, Optional
-from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator, model_validator
-from yoke_contracts.timestamps import parse_instant
-from yoke_core.domain.machine_approval_requests import (
-    MachineApprovalLifecycleStatus,
-)
+from pydantic import BaseModel, Field, field_validator
 
 
 class InboxListRequest(BaseModel):
@@ -20,9 +14,6 @@ class InboxListRequest(BaseModel):
 
 class InboxListResponse(BaseModel):
     needs_decision: List[Dict[str, Any]]
-    # Machine approvals are answered on the Machines page, beside the
-    # machine they admit, rather than in the Inbox panels.
-    machine_approvals: List[Dict[str, Any]] = Field(default_factory=list)
     messages: List[Dict[str, Any]] = Field(default_factory=list)
     pending_actor_message_count: int = 0
 
@@ -65,39 +56,6 @@ class DecisionMutationResponse(BaseModel):
     created: Optional[bool] = None
 
 
-class MachineApprovalLifecycleRequest(BaseModel):
-    authorization_id: UUID
-    state: MachineApprovalLifecycleStatus
-    occurred_at: datetime
-    expires_at: Optional[datetime] = None
-    reason: Optional[str] = Field(default=None, min_length=1, max_length=1000)
-    # What an approver reads before answering: the code the person at that
-    # machine is looking at, and the machine's own name. Both are optional
-    # because a delivery may know neither yet; the approval surface shows
-    # what it was told and says plainly when it was told nothing.
-    code: Optional[str] = Field(default=None, min_length=1, max_length=64)
-    machine: Optional[str] = Field(default=None, min_length=1, max_length=200)
-
-    @field_validator("occurred_at", "expires_at", mode="before")
-    @classmethod
-    def qualified_instant(cls, value: Any):
-        return parse_instant(value) if value is not None else None
-
-    @model_validator(mode="after")
-    def require_state_evidence(self):
-        if self.state == "pending" and self.expires_at is None:
-            raise ValueError("pending machine authorization requires expires_at")
-        if self.state == "withdrawn" and not self.reason:
-            raise ValueError("withdrawn machine authorization requires a reason")
-        return self
-
-
-class MachineApprovalLifecycleResponse(BaseModel):
-    request: Optional[Dict[str, Any]] = None
-    created: bool
-    applied: bool
-
-
 class DecisionResolveRequest(BaseModel):
     request_id: int
     action: str
@@ -130,6 +88,4 @@ __all__ = [
     "DecisionWithdrawRequest",
     "InboxListRequest",
     "InboxListResponse",
-    "MachineApprovalLifecycleRequest",
-    "MachineApprovalLifecycleResponse",
 ]

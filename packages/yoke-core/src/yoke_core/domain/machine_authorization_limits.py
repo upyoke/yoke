@@ -8,6 +8,7 @@ from yoke_core.domain import db_backend
 RATE_WINDOW_SECONDS = 60
 START_REQUESTS = 6
 POLL_REQUESTS = 120
+INVITE_REDEEM_REQUESTS = 6
 CLIENT_PENDING_CODES = 8
 SERVER_PENDING_CODES = 128
 
@@ -18,7 +19,11 @@ def admit_client(conn, *, client: str, operation: str, now=None) -> tuple[str, i
     Use the transport peer, after the server's trusted proxy handling. Headers
     and the caller's machine UUID never select the admission identity.
     """
-    limit = {"start": START_REQUESTS, "poll": POLL_REQUESTS}[operation]
+    limit = {
+        "start": START_REQUESTS,
+        "poll": POLL_REQUESTS,
+        "invite_redeem": INVITE_REDEEM_REQUESTS,
+    }[operation]
     now = int(time.time() if now is None else now)
     window = now - now % RATE_WINDOW_SECONDS
     key = hashlib.sha256(client.encode()).hexdigest()

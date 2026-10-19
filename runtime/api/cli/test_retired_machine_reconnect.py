@@ -24,9 +24,9 @@ from runtime.api.fixtures.machine_config_test import select_machine_config_file
 RETIRED_ID = "0b6f3f4e-41d5-4c3e-9e57-2f1f0c3d9a11"
 STARTED = {
     "device_code": "device-secret",
-    "user_code": "ABCD-2345",
+    "user_code": "K7F2",
     "verification_uri": "https://app.upyoke.com/connect",
-    "verification_uri_complete": "https://app.upyoke.com/connect?user_code=ABCD-2345",
+    "verification_uri_complete": "https://app.upyoke.com/connect?user_code=K7F2",
     "expires_in": 60,
     "interval": 1,
 }
@@ -83,7 +83,7 @@ def test_start_replaces_a_retired_identity_once_and_requests_a_fresh_code(
     assert replacement != RETIRED_ID and str(uuid.UUID(replacement)) == replacement
     assert [body["machine_id"] for body in sent] == [RETIRED_ID, replacement]
     assert pending.retired_machine_id == RETIRED_ID
-    assert pending.user_code == "ABCD-2345"
+    assert pending.user_code == "K7F2"
 
 
 def test_a_second_retired_refusal_stops_by_name(monkeypatch, config_path):

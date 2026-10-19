@@ -76,6 +76,8 @@ test("Inbox renders its sections, the served counts, and one card shape", async 
     [["YOK-1907", "/items/YOK-1907?project=10"]],
   );
   assert.equal(byClass(card, "gate-details").length, 0);
+  assert.equal(client.requests.some((request) => request.function === "machine_authorization.pending"), false);
+  assert.doesNotMatch(main.textContent, /Approving as/);
   assert.ok(!card.textContent.includes("What changed on the branch"));
 });
 
@@ -253,7 +255,7 @@ test("message acknowledgement failures stay visible and retryable", async () => 
   assert.equal(acknowledge.disabled, false);
 });
 
-test("all four request kinds link to their one subject home", () => {
+test("work and QA request kinds link to their one subject home", () => {
   const cases = [
     ["deployment_stage_approval", "deployment_stage", {}, "/deployments/runs?project=10"],
     [
@@ -263,7 +265,6 @@ test("all four request kinds link to their one subject home", () => {
       "/qa-plans/7?project=10",
     ],
     ["lifecycle_transition_approval", "item_transition", { item_ref: "YOK-7" }, "/items/YOK-7?project=10"],
-    ["machine_approval", "machine_auth_request", {}, "/machines"],
   ];
   for (const [kind, subjectType, subjectContext, expected] of cases) {
     assert.equal(inboxPresentation.subjectHref(requestRow({

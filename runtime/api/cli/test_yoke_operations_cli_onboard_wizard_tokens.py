@@ -261,6 +261,7 @@ async def _advance_to_token(app, pilot) -> None:
     await pilot.press("enter")  # URL -> server sign-in discovery
     await app.workers.wait_for_complete()
     await pilot.pause()
+    await pilot.press("down", "down", "enter")  # Use an API token
     await pilot.press("enter")  # server URL -> token-source selector
     await pilot.press("enter")  # Paste token -> credential field
 

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { renderActorsView } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_actors.js";
-import { FakeDocument, allNodes, byClass } from "./universe_ui_dom_test_support.mjs";
+import { renderTeamView } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_team.js";
+import { FakeDocument, allNodes, byClass, settle } from "./universe_ui_dom_test_support.mjs";
 
 function actor(status, tokens = [], overrides = {}) {
   return {
@@ -45,7 +45,6 @@ function fixture(rosters, screenPreferences) {
 
 const button = (main, text) => allNodes(main).find((node) => node.tagName === "BUTTON" && node.textContent === text);
 const names = (main) => byClass(main, "actors-name").map((node) => node.textContent);
-const settle = () => new Promise((resolve) => setImmediate(resolve));
 
 test("disabled actors are hidden behind a counted toggle that survives an enable", async () => {
   const initial = {
@@ -60,7 +59,7 @@ test("disabled actors are hidden behind a counted toggle that survives an enable
     rows: [actor("active"), actor("active", [], { id: 3, name: "Other" })],
   };
   const { context, main, calls } = fixture([initial, refreshed]);
-  await renderActorsView(context, main);
+  await renderTeamView(context, main);
   assert.deepEqual(names(main), ["Other"]);
   assert.match(main.textContent, /Show disabled \(1\)/);
   const toggle = allNodes(main).find((node) => node.tagName === "INPUT" && node.type === "checkbox");
@@ -81,11 +80,11 @@ test("disabled actors are hidden behind a counted toggle that survives an enable
   assert.doesNotMatch(main.textContent, /Show disabled/);
 });
 
-test("Actors renders an empty roster without stale controls", async () => {
+test("Team renders an empty roster without stale controls", async () => {
   const { context, main } = fixture([{
     current_actor_id: 1, can_manage_actors: false, rows: [],
   }]);
-  await renderActorsView(context, main);
+  await renderTeamView(context, main);
   assert.match(main.textContent, /No actors are registered/);
   assert.equal(allNodes(main).filter((node) => node.tagName === "BUTTON").length, 0);
 });
@@ -101,7 +100,7 @@ test("disabling names the actor and requires confirmation, with cancel and retry
     }
     return original(request);
   };
-  await renderActorsView(context, main);
+  await renderTeamView(context, main);
   button(main, "Disable").dispatchEvent(new Event("click"));
   assert.match(main.textContent, /Disable Member\? Their API keys will be revoked\./);
   assert.equal(attempts, 0);
@@ -118,7 +117,7 @@ test("disabling names the actor and requires confirmation, with cancel and retry
   assert.deepEqual(calls.find((call) => call.function === "actors.state.set").payload, { actor_id: 2, enabled: false });
 });
 
-test("columns sort through the shared header and save under the actors screen", async () => {
+test("columns sort through the shared header and save under the actors roster preference", async () => {
   const roster = {
     current_actor_id: 1, can_manage_actors: false,
     rows: [
@@ -128,7 +127,7 @@ test("columns sort through the shared header and save under the actors screen", 
   };
   const saved = preferences({ column: "email", direction: "desc" });
   const { context, main } = fixture([roster], saved);
-  await renderActorsView(context, main);
+  await renderTeamView(context, main);
   assert.deepEqual(names(main), ["Alpha", "beta"]);
   const actorSort = () => allNodes(main).find((node) => node.getAttribute?.("data-sort-column") === "name");
   actorSort().dispatchEvent(new Event("click"));
@@ -153,7 +152,7 @@ test("a server that does not save the actors sort keeps the header sort without 
   context.client.call = async (request) => ({
     status: 200, envelope: { success: true, result: request.function === "actors.roster" ? roster : await olderServer() },
   });
-  await renderActorsView(context, main);
+  await renderTeamView(context, main);
   allNodes(main).find((node) => node.getAttribute?.("data-sort-column") === "name").dispatchEvent(new Event("click"));
   await settle();
   assert.deepEqual(names(main), ["beta", "Alpha"]);
@@ -164,17 +163,17 @@ test("a server that does not save the actors sort keeps the header sort without 
 
 const PERSON_ROLES = ["admin", "operator", "viewer"];
 const roleSelect = (main) => allNodes(main).find((node) => node.tagName === "SELECT");
+const manageableRoster = (rows = [actor("active")]) => ({
+  current_actor_id: 1, can_manage_actors: true, person_org_roles: PERSON_ROLES, rows,
+});
 
 test("an org admin changes a person's one org role and the roster reloads", async () => {
-  const roster = {
-    current_actor_id: 1, can_manage_actors: true, person_org_roles: PERSON_ROLES,
-    rows: [actor("active")],
-  };
+  const roster = manageableRoster();
   const promoted = { ...roster, rows: [actor("active", [], {
     roles: { org: [{ org: "Test", role: "admin" }], projects: [] },
   })] };
   const { context, main, calls } = fixture([roster, promoted], preferences());
-  await renderActorsView(context, main);
+  await renderTeamView(context, main);
   const select = roleSelect(main);
   assert.equal(select.value, "operator");
   assert.deepEqual(select.children.map((option) => option.value), PERSON_ROLES);
@@ -189,10 +188,7 @@ test("an org admin changes a person's one org role and the roster reloads", asyn
 });
 
 test("a refused role change names the reason and restores the current role", async () => {
-  const roster = {
-    current_actor_id: 1, can_manage_actors: true, person_org_roles: PERSON_ROLES,
-    rows: [actor("active")],
-  };
+  const roster = manageableRoster();
   const { context, main } = fixture([roster], preferences());
   const original = context.client.call;
   context.client.call = async (request) => (
@@ -201,7 +197,7 @@ test("a refused role change names the reason and restores the current role", asy
       envelope: { success: false, error: { message: "actor 2 is the last active admin of the org" } },
     }
   );
-  await renderActorsView(context, main);
+  await renderTeamView(context, main);
   const select = roleSelect(main);
   select.value = "viewer";
   select.dispatchEvent(new Event("change"));
@@ -218,21 +214,18 @@ test("an older server without person_org_roles shows every org grant read-only",
       roles: { org: [{ org: "Test", role: "admin" }, { org: "Test", role: "operator" }], projects: [] },
     })],
   }], preferences());
-  await renderActorsView(context, main);
+  await renderTeamView(context, main);
   assert.equal(roleSelect(main), undefined);
   assert.match(main.textContent, /admin/);
   assert.match(main.textContent, /operator/);
 });
 
 test("a person still holding several org roles shows them and asks for one", async () => {
-  const roster = {
-    current_actor_id: 1, can_manage_actors: true, person_org_roles: PERSON_ROLES,
-    rows: [actor("active", [], {
-      roles: { org: [{ org: "Test", role: "admin" }, { org: "Test", role: "operator" }], projects: [] },
-    })],
-  };
+  const roster = manageableRoster([actor("active", [], {
+    roles: { org: [{ org: "Test", role: "admin" }, { org: "Test", role: "operator" }], projects: [] },
+  })]);
   const { context, main } = fixture([roster], preferences());
-  await renderActorsView(context, main);
+  await renderTeamView(context, main);
   const select = roleSelect(main);
   assert.equal(select.value, "");
   assert.equal(select.children[0].textContent, "admin, operator");
@@ -259,7 +252,7 @@ const grantTexts = (main) => byClass(main, "actors-grant").map((node) => node.te
 
 test("machine grants name scope, role, how it is held and what it allows", async () => {
   const { context, main } = fixture([{ current_actor_id: 1, rows: MACHINES, ...GRANT_ROSTER_FIELDS }], preferences());
-  await renderActorsView(context, main);
+  await renderTeamView(context, main);
   assert.deepEqual(grantTexts(main), [
     "Orghosted_servicemachine-onlybootstrap-grantedDeliver hosted lifecycle.",
     "Orgmigration_verification_cimachine-onlyVerify migration content.",
@@ -272,7 +265,7 @@ test("an older server's roster still lists each grant's scope and role", async (
   for (const missing of [...Object.keys(GRANT_ROSTER_FIELDS), "all"]) {
     const fields = missing === "all" ? {} : { ...GRANT_ROSTER_FIELDS, [missing]: undefined };
     const { context, main } = fixture([{ current_actor_id: 1, rows: MACHINES, ...fields }], preferences());
-    await renderActorsView(context, main);
+    await renderTeamView(context, main);
     const [hosted, verify, deploy] = grantTexts(main);
     assert.ok(deploy.startsWith("Project · yokedeployment_ci"), missing);
     assert.equal(hosted.includes("bootstrap-granted"), !["bootstrap_only_roles", "all"].includes(missing));
@@ -289,7 +282,7 @@ test("every org role reaches all projects and project grants read as roles", asy
     current_actor_id: 1, ...GRANT_ROSTER_FIELDS,
     rows: [person(334, ["operator"]), person(5, ["viewer"], [{ project: "yoke", role: "owner" }]), person(6, [])],
   }], preferences());
-  await renderActorsView(context, main);
+  await renderTeamView(context, main);
   const access = allNodes(main).filter((node) => node.getAttribute?.("data-label") === "Project access")
     .map((cell) => cell.textContent);
   assert.deepEqual(access, ["All projects · from org vieweryoke · owner", "—", "All projects · from org operator"]);
@@ -299,9 +292,9 @@ test("every org role reaches all projects and project grants read as roles", asy
 test("grants sort machine accounts and an unknown saved column falls back to name", async () => {
   const rows = [machine(2, "zeta", ["migration_verification_ci"], []), machine(3, "alpha", [], [])];
   const sorted = fixture([{ current_actor_id: 1, rows }], preferences({ column: "grants", direction: "desc" }));
-  await renderActorsView(sorted.context, sorted.main);
+  await renderTeamView(sorted.context, sorted.main);
   assert.deepEqual(names(sorted.main), ["zeta", "alpha"]);
   const stale = fixture([{ current_actor_id: 1, rows }], preferences({ column: "retired", direction: "asc" }));
-  await renderActorsView(stale.context, stale.main);
+  await renderTeamView(stale.context, stale.main);
   assert.deepEqual(names(stale.main), ["alpha", "zeta"]);
 });

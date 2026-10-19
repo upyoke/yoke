@@ -4,8 +4,8 @@ Discovery answers two facts. ``device_code`` says the server takes
 ``yoke connect URL`` approvals at all; ``company_sign_in`` says a person can
 approve their own machine by signing in with the company identity provider.
 Without company sign-in only an already-connected machine can approve, and
-the credential binds to that approver, so a teammate's first machine still
-connects with an API token. A server that predates ``company_sign_in``
+the credential binds to that approver; a teammate's first machine instead
+redeems their private invite code. A server that predates ``company_sign_in``
 offered device codes only with company sign-in, so its absence reads as
 ``device_code``.
 """

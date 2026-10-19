@@ -11,6 +11,7 @@ from runtime.api.domain.machine_registry_test_support import MACHINE_ID
 from yoke_contracts.api.function_call import FunctionCallRequest
 from yoke_contracts.timestamps import format_instant, utc_now
 from yoke_core.domain import machine_authorization_codes as codes
+from yoke_core.domain import machine_authorization_decisions as decisions
 from yoke_core.domain.auth_schema import create_auth_tables
 from yoke_core.domain.external_identity_schema import create_external_identity_tables
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
@@ -92,7 +93,7 @@ def test_registered_handoff_then_approval_and_poll_uses_selected_org(
     result = handle_handoff(request(body))
     assert result.primary_success
     assert result.result_payload["authorization"]["user_code"] == "K7F2"
-    assert codes.inspect(conn, code="K7F2", actor_id=1)["machine"] == "Laptop"
+    assert decisions.inspect(conn, code="K7F2", actor_id=1)["machine"] == "Laptop"
     with pytest.raises(codes.MachineAuthorizationError, match="authorization_pending"):
         codes.poll(
             conn,
@@ -101,7 +102,7 @@ def test_registered_handoff_then_approval_and_poll_uses_selected_org(
             machine_name="Laptop",
             origin="https://team.example",
         )
-    codes.resolve(conn, code="K7F2", actor_id=1, action="approve")
+    decisions.resolve(conn, code="K7F2", actor_id=1, action="approve")
     credential = codes.poll(
         conn,
         device_code="hosted-device-secret",
@@ -150,6 +151,10 @@ def test_collisions_refuse_without_replacing_original(conn, updates, reason):
         ({"expires_at": "2000-01-01T00:00:00Z"}, "authorization_expired"),
         ({"expires_at": "2026-01-01"}, "authorization_expiry_invalid"),
         ({"machine_id": "invalid"}, "authorization_handoff_invalid"),
+        ({"user_code": "ABCDE-12345"}, "authorization_handoff_invalid"),
+        ({"user_code": "ABCDEF1234"}, "authorization_handoff_invalid"),
+        ({"user_code": "K7F"}, "authorization_handoff_invalid"),
+        ({"user_code": "0O1I"}, "authorization_handoff_invalid"),
         ({"org_id": 999}, "authorization_org_unknown"),
     ],
 )
@@ -223,7 +228,8 @@ def test_disabled_service_cannot_handoff(conn):
         handoff(conn, **payload(), actor_id=6)
 
 
-def test_identical_pending_handoff_replay_returns_the_existing_row(conn):
+@pytest.mark.parametrize("state", ["approve", "deny", "consumed"])
+def test_identical_pending_handoff_replay_returns_the_existing_row(conn, state):
     body = payload()
     first = handoff(conn, **body, actor_id=6)
     assert handoff(conn, **body, actor_id=6) == first
@@ -231,9 +237,29 @@ def test_identical_pending_handoff_replay_returns_the_existing_row(conn):
         conn.execute("SELECT count(*) FROM machine_authorization_codes").fetchone()[0]
         == 1
     )
-    codes.resolve(conn, code=body["user_code"], actor_id=1, action="approve")
+    decisions.resolve(
+        conn,
+        code=body["user_code"],
+        actor_id=1,
+        action="approve" if state == "consumed" else state,
+    )
+    if state == "consumed":
+        codes.poll(
+            conn,
+            device_code="hosted-device-secret",
+            machine_id=MACHINE_ID,
+            machine_name="Laptop",
+            origin="https://team.example",
+        )
+    original = tuple(
+        conn.execute("SELECT * FROM machine_authorization_codes").fetchone()
+    )
     with pytest.raises(codes.MachineAuthorizationError, match="device_code_taken"):
         handoff(conn, **body, actor_id=6)
+    assert (
+        tuple(conn.execute("SELECT * FROM machine_authorization_codes").fetchone())
+        == original
+    )
 
 
 @pytest.mark.parametrize(

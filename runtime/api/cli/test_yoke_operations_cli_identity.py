@@ -52,54 +52,31 @@ def _run_capture(*argv: str) -> tuple[int, str, str]:
 def test_registry_maps_identity_tokens_to_function_ids() -> None:
     from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
 
-    assert SUBCOMMAND_REGISTRY[("identity", "invite", "create")][0] == (
-        "identity.invite.create"
-    )
-    assert SUBCOMMAND_REGISTRY[("identity", "invite", "list")][0] == (
-        "identity.invite.list"
-    )
-    assert SUBCOMMAND_REGISTRY[("identity", "invite", "revoke")][0] == (
-        "identity.invite.revoke"
-    )
-    assert SUBCOMMAND_REGISTRY[("identity", "link", "set")][0] == (
-        "identity.link.set"
-    )
+    for action in ("create", "list", "revoke"):
+        assert ("identity", "invite", action) not in SUBCOMMAND_REGISTRY
+    assert SUBCOMMAND_REGISTRY[("identity", "link", "set")][0] == ("identity.link.set")
 
 
-def test_invite_create_dispatches_email_role_actor_org() -> None:
-    rc, _out, _err = _run_capture(
-        "identity", "invite", "create", "dev@example.com",
-        "--role", "viewer", "--actor", "casey", "--org", "default",
-    )
-    assert rc == 0
-    req = _CAPTURED_REQUESTS[-1]
-    assert req.function == "identity.invite.create"
-    assert req.target.kind == "global"
-    assert req.payload == {
-        "email": "dev@example.com",
-        "role": "viewer",
-        "actor": "casey",
-        "org": "default",
-    }
-
-
-def test_invite_list_and_revoke_dispatch() -> None:
-    rc, _out, _err = _run_capture(
-        "identity", "invite", "list", "--status", "pending",
-    )
-    assert rc == 0
-    assert _CAPTURED_REQUESTS[-1].payload == {"status": "pending"}
-
-    rc, _out, _err = _run_capture("identity", "invite", "revoke", "7")
-    assert rc == 0
-    assert _CAPTURED_REQUESTS[-1].payload == {"invite_id": 7}
+@pytest.mark.parametrize("action", ["create", "list", "revoke"])
+def test_retired_invite_spelling_refuses_without_dispatch(action) -> None:
+    rc, _out, _err = _run_capture("identity", "invite", action)
+    assert rc == 2
+    assert _CAPTURED_REQUESTS == []
 
 
 def test_link_set_identity_shape_dispatches() -> None:
     rc, _out, _err = _run_capture(
-        "identity", "link", "set", "--actor", "3",
-        "--issuer", "https://issuer.example", "--subject", "sub-1",
-        "--email", "dev@example.com",
+        "identity",
+        "link",
+        "set",
+        "--actor",
+        "3",
+        "--issuer",
+        "https://issuer.example",
+        "--subject",
+        "sub-1",
+        "--email",
+        "dev@example.com",
     )
     assert rc == 0
     req = _CAPTURED_REQUESTS[-1]

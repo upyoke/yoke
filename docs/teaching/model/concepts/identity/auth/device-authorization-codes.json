@@ -1,9 +1,10 @@
 {
  "id": "device-authorization-codes",
  "title": "Device authorization codes",
- "status": "draft-copy",
+ "status": "observed",
  "page": "identity",
  "position": 4,
- "sources": ["docs/public/cli/machine-authorization.md"],
+ "text": "A connecting machine receives a four-character match code such as K7F2. The shared contracts module owns its alphabet, length and pattern for every mode. Codes use 32 uppercase letters and digits without 0, O, 1 or I, accept lowercase input and surrounding whitespace, and expire after ten minutes. Other formats refuse authorization_code_invalid without changing a binding or decision; run yoke connect for a new code. An active human organization member approves or denies the code, binding the decision to that person. Repeating the same decision is safe; another person or the opposite decision is refused. Polling delivers the credential once.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/machine_authorization.py", "packages/yoke-core/src/yoke_core/domain/machine_match_codes.py", "packages/yoke-core/src/yoke_core/domain/machine_authorization_decisions.py", "docs/public/cli/machine-authorization.md"],
  "functions": ["machine_authorization.handoff", "machine_authorization.handoff_poll"]
 }

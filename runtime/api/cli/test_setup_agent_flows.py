@@ -164,9 +164,9 @@ def hosted_approval(monkeypatch):
     pending = PendingMachineAuthorization(
         platform_url="https://app.upyoke.com",
         device_code=DEVICE_CODE,
-        user_code="ABCD-EFGH",
+        user_code="K7F2",
         verification_uri="https://app.upyoke.com/machine",
-        verification_uri_complete="https://app.upyoke.com/machine?code=ABCD-EFGH",
+        verification_uri_complete="https://app.upyoke.com/machine?code=K7F2",
         expires_in=600,
         interval=5,
     )
@@ -198,8 +198,8 @@ def test_hosted_sign_in_prints_one_browser_line_then_continues(agent, hosted_app
     browser, question = lines[0], lines[-1]
     assert [line["state"] for line in lines] == ["browser", "question"]
     assert browser["human"]["url"] == hosted_approval.verification_uri_complete
-    assert browser["human"]["user_code"] == "ABCD-EFGH"
-    assert "ABCD-EFGH" in browser["human"]["instructions"]
+    assert browser["human"]["user_code"] == "K7F2"
+    assert "K7F2" in browser["human"]["instructions"]
     assert browser["wait"]["max_seconds"] == 600
     assert "Opening your browser" not in drive.stderr
     assert "Waiting for browser approval" in drive.stderr

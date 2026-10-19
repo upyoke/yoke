@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from runtime.api.domain.decision_request_test_support import (
@@ -36,14 +34,12 @@ def _request(
     subject_context: dict,
     actor_id: int = 2,
 ):
-    project_scope = kind != "machine_approval"
     return create_decision_request(
         conn,
         kind=kind,
         subject_type=subject_type,
         subject_key=subject_key,
-        project_id=10 if project_scope else None,
-        org_id=None if project_scope else 1,
+        project_id=10,
         named_actor_ids=[actor_id],
         subject_context=subject_context,
         created_at="2026-07-28T12:00:00Z",
@@ -311,38 +307,3 @@ def test_qa_withdraw_requires_conclusive_or_waived_requirement(conn) -> None:
         )["status"]
         == "withdrawn"
     )
-
-
-def test_machine_expiry_is_withdrawn_explicitly_and_audited(conn) -> None:
-    request = _request(
-        conn,
-        kind="machine_approval",
-        subject_type="machine_auth_request",
-        subject_key="machine-request-1",
-        subject_context={"expires_at": "2026-07-28T13:00:00Z"},
-    )
-    with pytest.raises(ValueError, match="subject has not ended"):
-        withdraw_decision_request(
-            conn,
-            request["id"],
-            actor_id=2,
-            reason="not expired",
-            withdrawn_at="2026-07-28T12:30:00Z",
-        )
-
-    withdrawn = withdraw_decision_request(
-        conn,
-        request["id"],
-        actor_id=2,
-        reason="device code expired",
-        withdrawn_at="2026-07-28T13:00:00Z",
-    )
-    assert withdrawn["status"] == "withdrawn"
-    event = conn.execute(
-        "SELECT actor_id, envelope FROM events "
-        "WHERE event_name = 'DecisionRequestWithdrawn'"
-    ).fetchone()
-    assert event[0] == 2
-    context = json.loads(event[1])["context"]
-    assert context["reason"] == "device code expired"
-    assert "expired at" in context["subject_end_evidence"]

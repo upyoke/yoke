@@ -38,6 +38,8 @@ class TestRegistrationShape:
             "overview.module.dismiss",
             "overview.module.restore",
             "profile.token.create",
+            "identity.invite.create",
+            "teammate_invites.create",
             "profile.token.revoke",
             "profile.preference.set",
             "profile.onboarding.reset",

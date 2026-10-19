@@ -144,39 +144,6 @@ def test_connect_server_sign_in_discovery() -> None:
     )
 
 
-def test_connect_token_method() -> None:
-    app = make_app(token=None)  # no token forces the token-method screen
-
-    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
-        a._goto_token_source()
-
-    assert_golden(
-        "connect_token_method", render(app, drive, title="yoke setup · Account")
-    )
-
-
-def test_connect_token_paste() -> None:
-    app = make_app(token=None)
-
-    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
-        a._after_token_source("prompt")
-
-    assert_golden(
-        "connect_token_paste", render(app, drive, title="yoke setup · Account")
-    )
-
-
-def test_connect_token_file_input() -> None:
-    app = make_app(token=None)
-
-    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
-        a._after_token_source("file")
-
-    assert_golden(
-        "connect_token_file_input", render(app, drive, title="yoke setup · Account")
-    )
-
-
 def test_connect_token_error() -> None:
     app = make_app(token=None)
 
