@@ -73,12 +73,12 @@ def human_data(human: SetupHuman | None) -> dict[str, Any] | None:
     }
 
 
-def wait_data(human: SetupHuman) -> dict[str, Any]:
+def wait_data(human: SetupHuman, *, silence_expected: bool = True) -> dict[str, Any]:
     return {
         "reason": "human_browser_approval",
         "max_seconds": human.max_seconds,
         "poll_interval_seconds": human.poll_interval_seconds,
-        "silence_expected": True,
+        "silence_expected": silence_expected,
     }
 
 
@@ -162,6 +162,27 @@ def browser(step: str, key: str, human: SetupHuman) -> dict[str, Any]:
     )
 
 
+def approval_pending(step: str, key: str, human: SetupHuman) -> dict[str, Any]:
+    """Browser approval this call stopped at; the next call checks it once."""
+    return response(
+        STATE_BROWSER,
+        step=step,
+        key=key,
+        human=human_data(human),
+        wait=wait_data(human, silence_expected=False),
+        answer_command=f"{yoke_executable()} setup --agent",
+        guidance=(
+            "Show the person this link and the match code and ask them to "
+            "approve in their browser. This call has ended; when they say they "
+            "are done, run answer_command. The same browser step again means "
+            "approval is not finished yet. The code lapses after "
+            "wait.max_seconds; setup then asks to start a fresh one. To choose "
+            "another home instead, run `yoke setup --agent --discard` and "
+            "start again."
+        ),
+    )
+
+
 def refused(reason: str, recovery: str, prompt: SetupPrompt | None) -> dict[str, Any]:
     current = question_fields(prompt) if prompt is not None else {}
     return response(STATE_REFUSED, reason=reason, recovery=recovery, **current)
@@ -194,6 +215,7 @@ __all__ = [
     "STATE_QUESTION",
     "STATE_REFUSED",
     "answer_command",
+    "approval_pending",
     "browser",
     "emit",
     "failed",

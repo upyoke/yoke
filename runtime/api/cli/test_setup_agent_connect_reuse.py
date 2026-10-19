@@ -60,7 +60,7 @@ def approvals(monkeypatch) -> list[str]:
     )
     monkeypatch.setattr(hosted_machine_authorization, "start", start)
     monkeypatch.setattr(
-        hosted_machine_authorization, "complete", lambda *_a, **_k: credential
+        hosted_machine_authorization, "poll_once", lambda *_a, **_k: credential
     )
     monkeypatch.setattr(
         hosted_machine_authorization,
@@ -91,9 +91,14 @@ def _answer_to_review(drive: AgentDriver) -> None:
 def test_first_connect_prints_one_approval_and_later_answers_reuse_it(agent, approvals):
     code, lines = agent(flags=CONNECT)
 
-    assert (code, _states(lines)) == (0, ["browser", "question"]), lines
+    assert (code, _states(lines)) == (0, ["browser"]), lines
     assert lines[0]["human"]["user_code"] == "CODE-1"
-    assert lines[-1]["key"] == "github.machine"
+    code, lines = agent()
+    assert (code, _states(lines), lines[-1]["key"]) == (
+        0,
+        ["question"],
+        "github.machine",
+    ), lines
 
     _answer_to_review(agent)
     assert approvals == ["CODE-1"]

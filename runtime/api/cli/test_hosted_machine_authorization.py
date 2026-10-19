@@ -4,6 +4,7 @@ from collections import deque
 
 import pytest
 
+from yoke_contracts.machine_authorization import RETRYABLE_POLL_ERRORS
 from yoke_cli.config import hosted_machine_authorization as auth
 from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpResponse,
@@ -131,11 +132,11 @@ def test_browser_authorization_rejects_malformed_pending_response(monkeypatch) -
     "answer",
     [
         BoundedJsonHttpResponse(payload={"error": error}, status=status, headers={})
-        for status, error in auth.RETRYABLE_POLL_ERRORS.items()
+        for status, error in RETRYABLE_POLL_ERRORS.items()
     ]
     + [
         BoundedJsonHttpStatusError(status, {"error": error})
-        for status, error in auth.RETRYABLE_POLL_ERRORS.items()
+        for status, error in RETRYABLE_POLL_ERRORS.items()
     ],
 )
 def test_browser_authorization_retries_typed_transient_answers(
