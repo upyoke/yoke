@@ -48,7 +48,10 @@ the complete requirements.
 
 Source-generated plans record their exporter commit with
 `yoke qa plan-cases sync --project P --plan-id N --cases-file SOURCE_EXPORT`.
-The commit must be on the project's verified default branch. Once bound, a plan
+The commit must be on the project's verified default branch. A source-bound
+plan whose cases the Yoke build itself generates also converges when a server
+running that build boots, moving forward to the build commit; every other
+source-bound plan moves only through sync. Once bound, a plan
 requires provenance on every replacement and refuses the interactive editor;
 manual one-off correction plans remain separate. Source sync against a serving
 build without this field refuses before writing and names the required release.
