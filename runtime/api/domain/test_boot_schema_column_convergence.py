@@ -105,8 +105,9 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # scope batch and sequence, step, phase, clock and record are born with it.
 # Teammate invite codes introduce a net-new hash-only table; its actor, role,
 # request identity and lifecycle clocks are all born with that table.
+# QA execution adoption receipts add one table; its full audit row is born with it.
 _BORN_WITH_COLUMN_DIGEST = (
-    "ce51b94efb751b47861e996fa8060d8f303d38e77231597f2ca61baa50ad59bd"
+    "a6eabeca3c848149ed084fee9b90af9a4b2f530b3d77077f687773a86f025d3a"
 )
 
 
