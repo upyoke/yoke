@@ -24,6 +24,10 @@ import { workflowPanel } from "./workflow_view_primitives.js";
 import { itemClaimantPanel } from "./item_view_claimant.js";
 import { itemDeliveryPanel } from "./item_view_delivery.js";
 import { itemLandingsPanel } from "./item_view_landings.js";
+import {
+  filledVerdictPanels,
+  shepherdVerdictsPanel,
+} from "./item_view_verdicts.js";
 
 // Who holds an item is a fact about the item, not about one workflow, so
 // every detail shape carries the holder's own session card when a live claim
@@ -54,6 +58,7 @@ function issuePanels(context, documentNode, item) {
         "No acceptance criteria recorded.",
       ),
       ...filledNarrativePanels(documentNode, item),
+      ...filledVerdictPanels(documentNode, item),
     ],
     [
       factsPanel(documentNode, item),
@@ -110,12 +115,7 @@ function epicPanels(context, documentNode, item) {
     documentNode,
     [
       tasks,
-      textPanel(
-        documentNode,
-        "Shepherd log",
-        item.narrative.shepherd_log,
-        "No shepherd verdict recorded.",
-      ),
+      shepherdVerdictsPanel(documentNode, item),
       textPanel(
         documentNode,
         "Worktree plan",
@@ -125,7 +125,7 @@ function epicPanels(context, documentNode, item) {
       ...filledNarrativePanels(
         documentNode,
         item,
-        ["shepherd_log", "worktree_plan"],
+        ["worktree_plan"],
       ),
     ],
     [
@@ -179,6 +179,7 @@ function dashPanels(context, documentNode, item) {
         "No spec recorded.",
       ),
       ...filledNarrativePanels(documentNode, item),
+      ...filledVerdictPanels(documentNode, item),
       verificationPanel(context, item),
     ],
     [
@@ -206,6 +207,7 @@ function taskPanels(context, documentNode, item) {
         "No spec recorded.",
       ),
       ...filledNarrativePanels(documentNode, item),
+      ...filledVerdictPanels(documentNode, item),
     ],
     [
       factsPanel(documentNode, item),
@@ -231,6 +233,7 @@ function fallbackPanels(context, documentNode, item) {
     [
       ...primary,
       ...filledNarrativePanels(documentNode, item),
+      ...filledVerdictPanels(documentNode, item),
     ],
     [
       factsPanel(documentNode, item),

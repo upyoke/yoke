@@ -51,8 +51,11 @@ test("Epic detail reports task completion and its narrower fact spine", async ()
 
   const rendered = itemText(root);
   assert.match(rendered, /Tasks · 2 1 of 2 done/);
-  assert.match(rendered, /Shepherd log/);
-  assert.match(rendered, /Ready to execute/);
+  assert.match(rendered, /Shepherd verdicts/);
+  assert.match(
+    rendered,
+    /planning_to_plan_drafted · 2026-10-14[\s\S]*CAVEATS\s+· boss · attempt 1[\s\S]*Split the reader[\s\S]*refined_idea_to_planning · 2026-10-14/,
+  );
   assert.match(rendered, /Worktree plan/);
   assert.doesNotMatch(rendered, /intent · lanes activate per task at conduct/);
   assert.match(rendered, /Technical plan/);

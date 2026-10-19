@@ -173,7 +173,6 @@ const EXTRA_NARRATIVE_FIELDS = [
   ["design_spec", "Design spec"],
   ["technical_plan", "Technical plan"],
   ["worktree_plan", "Worktree plan"],
-  ["shepherd_log", "Shepherd log"],
   ["shepherd_caveats", "Shepherd caveats"],
   ["test_results", "Test results"],
   ["deploy_log", "Deploy log"],
