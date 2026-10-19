@@ -51,10 +51,7 @@ def _session_actor(conn: Any, session_id: str) -> int | None:
 def _item_ref(conn: Any, item_id: Any) -> str:
     from yoke_core.domain.project_identity import render_item_ref
 
-    try:
-        return render_item_ref(conn, int(item_id)) or f"item {item_id}"
-    except Exception:
-        return f"item {item_id}"
+    return render_item_ref(conn, int(item_id))
 
 
 def continuation_notice(ref: str, claim: Mapping[str, Any], attempt: int) -> str:
