@@ -73,7 +73,7 @@ These are operator CLI helpers, distinct from lifecycle slash commands:
 
 | Command | Purpose |
 |---|---|
-| `yoke dash TITLE SPEC` / `yoke task TITLE SPEC` | File direct work after resolving execution instructions; Dash owns a lane; Task is laneless and merge-free, and refuses projects with a code repository (code project work -> `yoke dash`) |
+| `yoke dash --title TEXT --spec-file PATH` / `yoke task --title TEXT --spec-file PATH` (or `--stdin`) | File direct work after resolving execution instructions; Dash owns a lane; Task is laneless and merge-free, and refuses projects with a code repository (code project work -> `yoke dash`) |
 | `yoke board art variant create` | Create and preview board-art variants |
 | `yoke project snapshot sync [CHECKOUT]` | Sync committed path inventory |
 | `yoke git pre-commit` | Installed commit gate hook |

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from io import StringIO
 from unittest import mock
 
 import pytest
@@ -43,6 +44,9 @@ def test_direct_work_filing_without_harness_session(
     monkeypatch.delenv("YOKE_ACTOR_ID", raising=False)
     if workflow == "task":
         remove_code_repository(tmp_db)
+    monkeypatch.setattr(
+        "sys.stdin", StringIO("File direct work from a plain terminal.")
+    )
     real_resolver = backlog_create_op.resolve_item_source_actor
 
     with (
@@ -55,8 +59,9 @@ def test_direct_work_filing_without_harness_session(
     ):
         result = file_command(
             [
+                "--title",
                 f"Terminal {workflow}",
-                "File direct work from a plain terminal.",
+                "--stdin",
                 "--project",
                 "yoke",
                 "--execution-instructions-considered",

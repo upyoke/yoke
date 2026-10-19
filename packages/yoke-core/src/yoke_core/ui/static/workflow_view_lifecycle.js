@@ -18,7 +18,7 @@ const ENTRY_SURFACE_COPY = {
     },
     cli: {
       title: "CLI",
-      command: 'yoke dash "<title>" "<spec>"',
+      command: 'yoke dash --title "<title>" --spec-file <path>',
     },
     harness_skill: {
       title: "Harness",

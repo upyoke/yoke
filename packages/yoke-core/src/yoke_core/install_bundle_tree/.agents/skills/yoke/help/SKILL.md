@@ -86,7 +86,7 @@ LOCAL TERMINAL HELPERS
   Verify machine/env/credential/checkout bindings.
  yoke dev setup [CHECKOUT]
   Explicit Yoke source-dev/admin setup.
- yoke dash TITLE SPEC / yoke task TITLE SPEC
+ yoke dash --title TEXT --spec-file PATH / yoke task (same flags)
   File direct work; Task is laneless and merge-free, and refuses projects
   with a code repository: code project work -> yoke dash.
  /yoke idea --workflow issue|epic|blitz|task {title}

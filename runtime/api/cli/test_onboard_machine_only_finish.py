@@ -64,7 +64,7 @@ def test_machine_only_finish_shows_account_scope(screen, has_projects):
                         in text
                     )
                     assert "You can file and browse work from any folder:" in text
-                    assert 'yoke dash "Title" "what to do"' in text
+                    assert 'yoke dash --title "Title" --spec-file spec.md' in text
                     assert "--project yoke --execution-instructions-considered" in text
                     assert (
                         "yoke workflow execution-instruction resolve --workflow dash"

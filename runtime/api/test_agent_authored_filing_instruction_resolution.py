@@ -45,7 +45,8 @@ def test_dash_resolves_before_filing_and_before_escalation_authoring() -> None:
     _ordered(
         filing,
         f"{RESOLVER} --workflow dash --project PROJECT",
-        'yoke dash "<specific title>" --project PROJECT --spec-file /tmp/dash-spec.txt '
+        'yoke dash --title "<specific title>" --project PROJECT '
+        "--spec-file /tmp/dash-spec.txt "
         f"{ATTESTATION} --json",
     )
 
@@ -86,8 +87,8 @@ def test_curate_resolves_both_cluster_outputs_and_quick_promotion() -> None:
         in cluster
     )
     assert (
-        'yoke items create "{title}" issue --spec-file {spec_file} --project {project}'
-        in cluster
+        'yoke items create --title "{title}" --workflow issue '
+        "--spec-file {spec_file} --project {project}" in cluster
     )
     filing = cluster.split("## 3. Validate and propose", 1)[1]
     _ordered(filing, RESOLVER, "## 4. Produce approved outputs")
@@ -99,7 +100,7 @@ def test_curate_resolves_both_cluster_outputs_and_quick_promotion() -> None:
     _ordered(
         filing,
         f"{RESOLVER} --workflow issue --project {{project}}",
-        'yoke items create "{title}" issue',
+        'yoke items create --title "{title}" --workflow issue',
     )
 
     router = _read("curate/SKILL.md")
@@ -128,7 +129,7 @@ def test_every_filing_recipe_attests_the_resolved_instructions(recipe) -> None:
     text = _read(recipe)
     for line in text.splitlines():
         stripped = line.strip()
-        if stripped.startswith(("yoke items create", 'yoke dash "')) or (
-            "$(yoke items create" in stripped
-        ):
+        if stripped.startswith(
+            ("yoke items create", "yoke dash --title", "yoke task --title")
+        ) or ("$(yoke items create" in stripped):
             assert ATTESTATION in stripped, (recipe, stripped)

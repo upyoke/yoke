@@ -31,7 +31,7 @@ def test_any_workflow_accepts_multiline_spec_and_title_file(
     title = tmp_path / "title.txt"
     title.write_text("File the outcome\n")
     spec = "Keep `ticks` and $(shell) literal.\n\nSecond paragraph.\n"
-    args = [workflow, "--title-file", str(title), "--project", "acme"]
+    args = ["--workflow", workflow, "--title-file", str(title), "--project", "acme"]
     if source == "file":
         path = tmp_path / "spec.txt"
         path.write_text(spec)
@@ -60,8 +60,13 @@ def test_shortcut_and_canonical_have_identical_payloads(
         "acme",
         "--execution-instructions-considered",
     ]
-    assert shortcut(["Outcome", *common]) == 0
-    assert items_create.items_create(["Outcome", workflow, *common]) == 0
+    assert shortcut(["--title", "Outcome", *common]) == 0
+    assert (
+        items_create.items_create(
+            ["--title", "Outcome", "--workflow", workflow, *common]
+        )
+        == 0
+    )
     assert calls[0] == calls[1]
 
 
@@ -74,7 +79,10 @@ def test_shortcut_and_canonical_have_identical_payloads(
     ],
 )
 def test_invalid_spec_source_refuses_before_dispatch(calls, flags, capsys):
-    assert items_create.items_create(["Outcome", "task", *flags]) == 2
+    assert (
+        items_create.items_create(["--title", "Outcome", "--workflow", "task", *flags])
+        == 2
+    )
     assert calls == []
     assert "--spec-file" in capsys.readouterr().err
 
@@ -82,7 +90,14 @@ def test_invalid_spec_source_refuses_before_dispatch(calls, flags, capsys):
 def test_unreadable_title_names_title_file(calls, capsys):
     assert (
         items_create.items_create(
-            ["task", "--title-file", "missing.txt", "--spec-file", "spec.txt"]
+            [
+                "--workflow",
+                "task",
+                "--title-file",
+                "missing.txt",
+                "--spec-file",
+                "spec.txt",
+            ]
         )
         == 2
     )
@@ -94,15 +109,34 @@ def test_invalid_utf8_refuses_with_source_flag(calls, tmp_path, capsys):
     path = tmp_path / "spec.txt"
     path.write_bytes(b"\xff")
     assert (
-        items_create.items_create(["Outcome", "issue", "--spec-file", str(path)]) == 2
+        items_create.items_create(
+            ["--title", "Outcome", "--workflow", "issue", "--spec-file", str(path)]
+        )
+        == 2
     )
     assert calls == []
     assert "ITEM_TEXT_SOURCE_INVALID" in capsys.readouterr().err
 
 
-def test_shortcut_rejects_extra_text_with_title_file(calls, tmp_path, capsys):
-    title = tmp_path / "title.txt"
-    title.write_text("Outcome")
-    assert task.task_file(["Spec", "unconsumed extra", "--title-file", str(title)]) == 2
+@pytest.mark.parametrize(
+    "adapter,args,command",
+    [
+        (dash_file.dash_file, ["Outcome", "/tmp/spec.md"], "yoke dash"),
+        (task.task_file, ["Outcome", "--stdin"], "yoke task"),
+        (items_create.items_create, ["Outcome", "dash"], "yoke items create"),
+    ],
+)
+def test_positional_text_refuses_with_flag_recipe(
+    calls, capsys, adapter, args, command
+):
+    assert adapter(args) == 2
     assert calls == []
-    assert "SPEC_SOURCE_AMBIGUOUS" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "ITEM_TEXT_POSITIONAL_RETIRED" in err
+    assert f"{command} --title TEXT" in err
+    assert "--spec-file PATH (or --stdin)" in err
+
+
+def test_spec_text_has_no_inline_flag(calls, capsys):
+    assert dash_file.dash_file(["--title", "Outcome", "--spec", "text"]) == 2
+    assert calls == []

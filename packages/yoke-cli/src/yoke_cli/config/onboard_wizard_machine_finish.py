@@ -51,7 +51,7 @@ def machine_finish_lines(result) -> list[str]:
                 "  Before filing, read the project's execution instructions:",
                 "  yoke workflow execution-instruction resolve --workflow dash \\",
                 f"    --project {project_arg} --full",
-                '  yoke dash "Title" "what to do" \\',
+                '  yoke dash --title "Title" --spec-file spec.md \\',
                 f"    --project {project_arg} --execution-instructions-considered",
                 f"  yoke items list --project {project_arg}",
             ]

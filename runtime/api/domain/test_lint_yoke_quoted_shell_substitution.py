@@ -27,7 +27,7 @@ def _eval(command: str):
 
 
 def test_double_quoted_backtick_in_yoke_arg_denies():
-    result = _eval('yoke dash TITLE "run `yoke items get` next"')
+    result = _eval('yoke dash --title "run `yoke items get` next"')
 
     assert result is not None
     mode, reason, outcome = result
@@ -41,19 +41,19 @@ def test_double_quoted_backtick_in_yoke_arg_denies():
 
 
 def test_double_quoted_dollar_paren_in_yoke_arg_denies():
-    result = _eval('yoke dash TITLE "output $(whoami)"')
+    result = _eval('yoke dash --title "output $(whoami)"')
 
     assert result is not None
     assert result[0] == "deny"
 
 
 def test_single_quoted_substitution_markers_allow():
-    assert _eval("yoke dash TITLE 'run `yoke items get` and $(whoami)'") is None
+    assert _eval("yoke dash --title 'run `yoke items get` and $(whoami)'") is None
 
 
 def test_quoted_heredoc_stdin_allows_body_substitution_markers():
     command = (
-        "yoke dash TITLE --stdin --execution-instructions-considered <<'EOF'\n"
+        "yoke dash --title TITLE --stdin --execution-instructions-considered <<'EOF'\n"
         "run `yoke items get` and $(whoami)\n"
         "EOF"
     )
@@ -62,7 +62,7 @@ def test_quoted_heredoc_stdin_allows_body_substitution_markers():
 
 def test_piped_stdin_allows_upstream_double_quotes():
     command = (
-        'printf %s "run `whoami`" | yoke dash TITLE --stdin '
+        'printf %s "run `whoami`" | yoke dash --title TITLE --stdin '
         "--execution-instructions-considered"
     )
     assert _eval(command) is None
@@ -70,8 +70,7 @@ def test_piped_stdin_allows_upstream_double_quotes():
 
 def test_captured_variable_passed_to_yoke_allows():
     command = (
-        "sha=$(git rev-parse HEAD); "
-        'yoke deployment-runs create --source-ref "$sha"'
+        'sha=$(git rev-parse HEAD); yoke deployment-runs create --source-ref "$sha"'
     )
     assert _eval(command) is None
 
@@ -81,25 +80,24 @@ def test_non_yoke_command_allows_double_quoted_substitution():
 
 
 def test_yoke_cli_binary_name_is_not_a_yoke_invocation():
-    assert _eval('yoke-cli dash TITLE "run `whoami`"') is None
+    assert _eval('yoke-cli dash --title "run `whoami`"') is None
 
 
 def test_non_bash_tool_allows():
-    payload = _payload('yoke dash TITLE "run `whoami`"', tool_name="Read")
+    payload = _payload('yoke dash --title "run `whoami`"', tool_name="Read")
     with mock.patch.object(lint, "_read_mode", return_value="deny"):
         assert lint.evaluate_payload(payload) is None
 
 
 def test_suppression_is_audit_only():
     command = (
-        'yoke dash TITLE "run `whoami`"  '
-        "# lint:no-yoke-quoted-substitution-check"
+        'yoke dash --title "run `whoami`"  # lint:no-yoke-quoted-substitution-check'
     )
-    with mock.patch.object(lint, "_read_mode", return_value="deny"), \
-         mock.patch.object(lint, "_emit_audit_event") as emit_mock:
-        decision = lint.evaluate(
-            lint._build_context_from_payload(_payload(command))
-        )
+    with (
+        mock.patch.object(lint, "_read_mode", return_value="deny"),
+        mock.patch.object(lint, "_emit_audit_event") as emit_mock,
+    ):
+        decision = lint.evaluate(lint._build_context_from_payload(_payload(command)))
 
     assert decision.outcome is Outcome.DENY
     assert decision.next is Next.STOP
@@ -131,11 +129,11 @@ _FIELD_NOTE_PROSE = (
     "The taught command for reading a Fleet message body does not print the "
     "body, and the shape that does buries it under an unbounded "
     "delivery-attempt log.  `yoke messages get --help` teaches, in its own "
-    "top-level Fleet workflow block: \"yoke messages get MESSAGE-ID && yoke "
-    "messages acknowledge MESSAGE-ID  # The body\". Run bare, that command "
+    'top-level Fleet workflow block: "yoke messages get MESSAGE-ID && yoke '
+    'messages acknowledge MESSAGE-ID  # The body". Run bare, that command '
     "prints a header, a one-line `Body excerpt` truncated at roughly 70 "
     "characters, a RECIPIENTS table, and then a DELIVERY ATTEMPTS table with "
-    "one row per attempt. The reader learns \"who tried to deliver it\" and "
+    'one row per attempt. The reader learns "who tried to deliver it" and '
     "nothing about what it says."
 )
 
@@ -151,8 +149,7 @@ def test_recorded_quoted_heredoc_denial_now_allows():
 
 def test_recorded_single_quoted_argument_denial_now_allows():
     command = (
-        "yoke ouroboros field-note append --kind new --evidence "
-        f"'{_FIELD_NOTE_PROSE}'"
+        f"yoke ouroboros field-note append --kind new --evidence '{_FIELD_NOTE_PROSE}'"
     )
     assert _eval(command) is None
 
@@ -194,10 +191,7 @@ def test_heredoc_body_does_not_leak_into_a_later_command():
 
 
 def test_yoke_invocation_on_a_later_line_is_still_scanned():
-    command = (
-        "git status\n"
-        'yoke dash TITLE "run `yoke items get` next"'
-    )
+    command = 'git status\nyoke dash --title "run `yoke items get` next"'
     result = _eval(command)
 
     assert result is not None
@@ -211,16 +205,14 @@ def test_yoke_named_inside_another_command_argument_allows():
 
 
 def test_here_string_is_not_read_as_a_heredoc():
-    assert _eval('yoke dash TITLE --stdin <<<"literal text"') is None
+    assert _eval('yoke dash --title TITLE --stdin <<<"literal text"') is None
 
 
 def test_merge_item_denial_names_a_form_the_command_accepts():
-    result = _eval(
-        'yoke merge item YOK-1 --result "ran `whoami`" --verification ok'
-    )
+    result = _eval('yoke merge item YOK-1 --result "ran `whoami`" --verification ok')
 
     assert result is not None
     reason = result[1]
     assert "yoke merge item PREFIX-N --result" in reason
     assert "--verification" in reason
-    assert "yoke dash TITLE --stdin" not in reason
+    assert "yoke dash --title TITLE --stdin" not in reason
