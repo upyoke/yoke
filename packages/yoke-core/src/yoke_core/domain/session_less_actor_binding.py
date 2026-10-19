@@ -1,4 +1,4 @@
-"""Attribute an actor-less mutating call to the actor that operates this universe.
+"""Attribute an actor-less call to the actor that operates this universe.
 
 A mutating call can reach in-process dispatch with no actor: a
 session-optional function
@@ -11,7 +11,11 @@ the one org (:mod:`yoke_core.domain.local_operating_actor`).
 
 Binding that actor is what keeps the write attributed rather than
 anonymous. Doing it once in the dispatcher's identity binder makes it
-true of every mutating function instead of the ones that remembered.
+true of every mutating function instead of the ones that remembered. A
+read answered for its viewer (actor-session or org scope, such as pending
+machine approvals or teammate invites) binds the same actor, so a local
+universe's plain terminal gets the read's own answer instead of
+``actor_required``.
 
 Naming the actor is also what makes the call answerable to the permission
 gate, which refuses a side-effecting call with no numeric actor
@@ -33,6 +37,7 @@ from typing import Optional
 
 from yoke_core.domain import db_backend
 from yoke_contracts.api.function_call import FunctionCallRequest
+from yoke_core.domain.yoke_function_registry import RegistryEntry
 
 
 def operating_actor_id() -> Optional[str]:
@@ -90,4 +95,38 @@ def bind_operating_actor(request: FunctionCallRequest) -> FunctionCallRequest:
     return request.model_copy(update={"actor": actor})
 
 
-__all__ = ["bind_operating_actor", "operating_actor_id"]
+def needs_operating_actor(entry: RegistryEntry, *, read_only: bool) -> bool:
+    """Whether an actor-less call to *entry* is answered for a person.
+
+    Writes need an author. A read scoped to its viewer (the caller's own
+    session or their org) needs one too: without it a local universe's
+    plain terminal could not even learn that the read does not apply here.
+    """
+    if not read_only:
+        return True
+    from yoke_core.domain.function_authz_scope import classify, permission_key_for
+    from yoke_core.domain.function_authz_types import ACTOR_SESSION, ORG
+
+    spec = classify(
+        entry.function_id,
+        side_effects=bool(entry.side_effects),
+        project_permission=permission_key_for(entry),
+    )
+    return spec.scope in (ACTOR_SESSION, ORG)
+
+
+def bind_operating_actor_if_needed(
+    entry: RegistryEntry, request: FunctionCallRequest, *, read_only: bool
+) -> FunctionCallRequest:
+    """Bind the operating actor when :func:`needs_operating_actor` says so."""
+    if needs_operating_actor(entry, read_only=read_only):
+        return bind_operating_actor(request)
+    return request
+
+
+__all__ = [
+    "bind_operating_actor",
+    "bind_operating_actor_if_needed",
+    "needs_operating_actor",
+    "operating_actor_id",
+]

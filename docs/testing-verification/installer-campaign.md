@@ -100,10 +100,11 @@ contract refuses `keys`, `ready_text` and `wait_seconds` on it, so the
 preceding step waits for the screen. It prints one `machine_qa.operator_gate`
 line (`kind: human_action`, `self_approving: false`) naming the purpose, where
 to act and what to do, then waits up to `gate_timeout_seconds` (1..1800) for
-`completion_text`. A machine approval names the displayed code and
-`yoke machine-authorization resolve CODE --action approve` for the person's
-already-connected machine; an invite is typed privately into the named
-terminal and never reaches the run. Failures are `human_action_context_missing`,
+`completion_text`. A machine approval names the displayed match code and
+`yoke machines approve CODE` for the person's already-connected machine;
+company sign-in names the code the teammate approves in the browser; the
+inviter issues `yoke invite NAME` and the teammate types the code privately
+into the named terminal, so it never reaches the run. Failures are `human_action_context_missing`,
 `human_action_rejected`, `human_action_timed_out`,
 `human_action_heartbeat_failed` or `terminal_setup_exited`, each with a
 recovery. On Linux only browser approval and company sign-in start the desktop
@@ -162,18 +163,21 @@ list every refusal and its recovery.
 `python -m yoke_core.domain.machine_qa_admission_host start MODE` on the test
 machine, so the exact candidate serves the journey. `self-hosted` (port 19121)
 and `self-hosted-company-sign-in` (port 19122) boot the unchanged self-host
-server entrypoint on loopback against a disposable embedded Postgres under
+server entrypoint on loopback, as `YOKE_SERVER_MODE=self-host` like the
+bundle, against a disposable embedded Postgres under
 `/tmp/yoke-machine-qa-fixtures/machine-admission/MODE`. Its real first boot
 creates the owner (`Fixture Owner`) and the owner's token, saved owner-only
 with an approver config: run owner commands with
 `YOKE_MACHINE_HOME=…/MODE/approver`. Company sign-in adds a disposable stub
-provider whose only identity is the teammate, and the owner invites that
-email first. `local` runs the real `yoke init --local` in `…/local/home`.
+provider whose only identity is the teammate, and the owner runs
+`yoke invite` for that email first. `local` runs the real `yoke init --local` in `…/local/home`.
 The fixture never approves, invites a machine or redeems anything.
 
 `fixture.machine-admission-state-assert` compares the universe's people,
-machines, active credentials and linked identities with the baseline recorded
-at start: `owner-admitted`, `teammate-admitted` or `nothing-admitted`.
+machines, active credentials, linked identities and consumed teammate invites
+with the baseline recorded at start: `owner-admitted`, `teammate-admitted`
+(on `self-hosted`, exactly one invite consumed by the new machine) or
+`nothing-admitted`.
 A mismatch fails as `machine_admission_state_mismatch` with the changed rows;
 start, birth and cleanup failures name their reason and recovery in the
 operation row. Cleanup stops the server, removes the cluster and the root.

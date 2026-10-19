@@ -134,25 +134,22 @@ def test_machine_approval_announces_the_code_and_waits_for_the_person(
     beats: list[bool] = []
     result = _run(
         [
-            "Earlier run\nMachine connected.\nOne-time code: ab12-cd34\nWaiting",
-            "One-time code: AB12-CD34\nWaiting",
-            "One-time code: AB12-CD34\nMachine connected.",
+            "Earlier run\nMachine connected.\nOne-time code: k7f2\nWaiting",
+            "One-time code: K7F2\nWaiting",
+            "One-time code: K7F2\nMachine connected.",
         ],
         progress=lambda: beats.append(True),
     )
     assert result.ok, result
     assert result.browser_evidence is None
     assert result.step_evidence["self_approving"] is False
-    assert result.step_evidence["code"] == "AB12-CD34"
+    assert result.step_evidence["code"] == "K7F2"
     lines = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
     announcement = lines[0]
     assert announcement["event"] == "machine_qa.operator_gate"
     assert announcement["kind"] == "human_action"
     assert announcement["self_approving"] is False
-    assert (
-        "yoke machine-authorization resolve AB12-CD34 --action approve"
-        in announcement["instructions"]
-    )
+    assert "yoke machines approve K7F2" in announcement["instructions"]
     assert lines[1]["event"] == "machine_qa.heartbeat"
     assert lines[1]["human_purpose"] == "machine_approval"
     assert beats == [True]
@@ -192,9 +189,7 @@ def test_wait_is_bounded_and_names_the_purpose(clock: list[float]) -> None:
 
 
 def test_denial_and_exit_end_the_wait_by_name(clock: list[float]) -> None:
-    denied = _run(
-        ["One-time code: AB12-CD34", "One-time code: AB12-CD34\nAuthorization expired"]
-    )
+    denied = _run(["One-time code: K7F2", "One-time code: K7F2\nAuthorization expired"])
     assert denied.error_code == "human_action_rejected"
     exited = _run(
         ["Company sign-in", "Company sign-in\nsetup_refused: no"],
@@ -209,5 +204,5 @@ def test_lost_lease_renewal_stops_the_wait(clock: list[float]) -> None:
     def renew() -> None:
         raise RuntimeError("lease lost")
 
-    result = _run(["One-time code: AB12-CD34"], progress=renew)
+    result = _run(["One-time code: K7F2"], progress=renew)
     assert result.error_code == "human_action_heartbeat_failed"

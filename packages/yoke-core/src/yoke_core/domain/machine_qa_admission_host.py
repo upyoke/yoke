@@ -35,6 +35,8 @@ import subprocess
 import sys
 import time
 
+from yoke_contracts.machine_config.paths import HOME_ENV as MACHINE_HOME_ENV
+
 from yoke_core.domain.machine_qa_fixture_paths import FIXTURE_ROOT
 
 MODULE = "yoke_core.domain.machine_qa_admission_host"
@@ -75,12 +77,25 @@ def universe_spec(mode: str, *, bin_dir: Path | None = None):
     """The disposable cluster this mode's journey reads and writes."""
     from yoke_core.domain import local_universe, postgres_binaries
 
-    selected = bin_dir or postgres_binaries.installed_bin_dir()
-    if mode == "local":
-        root = mode_root(mode) / "home" / local_universe.LOCAL_UNIVERSE_DIR_NAME
-    else:
-        root = mode_root(mode) / "universe"
-    return local_universe.cluster_spec(root=root, bin_dir=selected)
+    if mode != "local":
+        selected = bin_dir or postgres_binaries.installed_bin_dir()
+        return local_universe.cluster_spec(
+            root=mode_root(mode) / "universe", bin_dir=selected
+        )
+    # yoke init --local fetched its engine into the fixture machine home.
+    home = mode_root(mode) / "home"
+    previous = os.environ.get(MACHINE_HOME_ENV)
+    os.environ[MACHINE_HOME_ENV] = str(home)
+    try:
+        selected = bin_dir or postgres_binaries.installed_bin_dir()
+    finally:
+        if previous is None:
+            os.environ.pop(MACHINE_HOME_ENV, None)
+        else:
+            os.environ[MACHINE_HOME_ENV] = previous
+    return local_universe.cluster_spec(
+        root=home / local_universe.LOCAL_UNIVERSE_DIR_NAME, bin_dir=selected
+    )
 
 
 def universe_dsn(mode: str) -> str:
@@ -156,7 +171,7 @@ def _birth_local(mode: str) -> None:
         [str(launcher), "init", "--local", "--admin-name", OWNER_NAME],
         env={
             **{key: value for key, value in os.environ.items() if key != "YOKE_ENV"},
-            "YOKE_MACHINE_HOME": str(mode_root(mode) / "home"),
+            MACHINE_HOME_ENV: str(mode_root(mode) / "home"),
         },
         stdin=subprocess.DEVNULL,
         capture_output=True,

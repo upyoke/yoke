@@ -14,6 +14,7 @@ import re
 import time
 from typing import Any
 
+from yoke_contracts.machine_authorization import MATCH_CODE_PATTERN
 from yoke_harness.machine_browser_approval import BrowserApprovalResult
 from yoke_harness.ssh_mac_browser_approval import approve_machine_in_safari
 
@@ -42,7 +43,8 @@ from yoke_core.domain.ssh_mac_terminal_recipe_support import (
 )
 
 
-_DISPLAYED_CODE = re.compile(r"[A-Z0-9]{4,8}-[A-Z0-9]{4,8}")
+_MATCH_CODE = re.compile(MATCH_CODE_PATTERN)
+_CODED_PURPOSES = frozenset({"company_sign_in", "machine_approval"})
 
 
 def human_action_instructions(
@@ -51,21 +53,21 @@ def human_action_instructions(
     """Name the one human step and where it happens, without any secret."""
     if purpose == "machine_approval":
         return (
-            f"Approve one-time code {code} as the person who owns this "
+            f"Approve match code {code} as the person who owns this "
             "connection, from their already-connected machine: "
-            f"yoke machine-authorization resolve {code} --action approve. "
-            "The run never approves it."
+            f"yoke machines approve {code}. The run never approves it."
         )
     if purpose == "private_invite_entry":
         return (
-            f"Type the invite code privately into the terminal at "
+            "As the inviter, run yoke invite NAME on an already-connected "
+            "machine, then type the code privately into the terminal at "
             f"{terminal_location}. The run sends no keys and never receives "
             "the code."
         )
     return (
         "Sign in as the teammate in the browser the terminal opened on the "
-        "test machine, then finish the admission step in the terminal at "
-        f"{terminal_location}."
+        f"test machine, confirm match code {code} and approve this machine; "
+        f"the terminal at {terminal_location} continues by itself."
     )
 
 
@@ -102,9 +104,9 @@ def run_human_action_gate_with_io(
     }
     transcript = read_transcript()
     code: str | None = None
-    if purpose == "machine_approval":
+    if purpose in _CODED_PURPOSES:
         code = (labeled_value(transcript, "One-time code:") or "").upper()
-        if not _DISPLAYED_CODE.fullmatch(code):
+        if not _MATCH_CODE.fullmatch(code):
             exited = gate_exit_result(action, transcript, read_exit_code)
             if exited is not None:
                 return exited
@@ -112,7 +114,7 @@ def run_human_action_gate_with_io(
                 "human_action_context_missing",
                 transcript,
                 evidence,
-                "The terminal showed no one-time code to approve. Make the "
+                "The terminal showed no match code to approve. Make the "
                 "preceding step wait for the code screen, then rerun the case.",
             )
         evidence["code"] = code

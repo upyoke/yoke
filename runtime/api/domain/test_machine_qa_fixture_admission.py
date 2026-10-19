@@ -22,6 +22,7 @@ import httpx
 import pytest
 
 from yoke_contracts.machine_authorization import POLL_PATH, START_PATH
+from yoke_contracts.teammate_invite_wire import INVITE_REDEEM_PATH
 from yoke_core.domain.machine_qa_admission_host import (
     api_url,
     approver_home,
@@ -34,8 +35,10 @@ LOCK = Path("/tmp/yoke-machine-qa-admission-test.lock")
 
 
 def _clean_env(**extra: str) -> dict[str, str]:
-    """A test machine's environment: no ambient Yoke authority."""
-    env = {k: v for k, v in os.environ.items() if not k.startswith("YOKE_")}
+    """A test machine's environment: no ambient Yoke authority or test run."""
+    env = {
+        k: v for k, v in os.environ.items() if not k.startswith(("YOKE_", "PYTEST_"))
+    }
     return {**env, **extra}
 
 
@@ -91,27 +94,51 @@ def _assert_state(mode: str, expect: str) -> subprocess.CompletedProcess[str]:
     return _host("assert", mode, expect)
 
 
+def _cli(machine_home: Path, *argv: str) -> subprocess.CompletedProcess[str]:
+    """Run the real CLI as the person whose machine home this is."""
+    return subprocess.run(
+        [sys.executable, "-m", "yoke_cli.main", *argv],
+        env=_clean_env(YOKE_MACHINE_HOME=str(machine_home)),
+        cwd=machine_home,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+
+
+def test_a_teammate_invite_admits_one_machine_once() -> None:
+    with _fixture("self-hosted"):
+        issued = _cli(
+            approver_home("self-hosted"), "invite", "Fixture Teammate", "--json"
+        )
+        assert issued.returncode == 0, issued.stderr
+        invite_code = json.loads(issued.stdout)["result"]["code"]
+        machine = _start_code("self-hosted")
+        redeem = {
+            key: machine[key] for key in ("machine_id", "machine_name", "platform")
+        }
+        redeem["invite_code"] = invite_code
+        first = httpx.post(api_url("self-hosted") + INVITE_REDEEM_PATH, json=redeem)
+        assert first.status_code == 200, first.text
+        again = httpx.post(
+            api_url("self-hosted") + INVITE_REDEEM_PATH,
+            json={**redeem, "machine_id": str(uuid.uuid4())},
+        )
+        assert again.status_code != 200
+        proved = _assert_state("self-hosted", "teammate-admitted")
+        assert proved.returncode == 0, proved.stderr
+        assert invite_code not in proved.stdout
+        assert _assert_state("self-hosted", "owner-admitted").returncode == 1
+
+
 def test_owner_approval_admits_the_machine_to_its_owner_only() -> None:
     with _fixture("self-hosted") as started:
         assert started["baseline"] == {"active_tokens": 1, "humans": 1, "machines": 0}
         code = _start_code("self-hosted")
         assert _poll("self-hosted", code).status_code != 200
-        approval = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "yoke_cli.main",
-                "machine-authorization",
-                "resolve",
-                code["user_code"],
-                "--action",
-                "approve",
-            ],
-            env=_clean_env(YOKE_MACHINE_HOME=str(approver_home("self-hosted"))),
-            capture_output=True,
-            text=True,
-            timeout=120,
-            check=False,
+        approval = _cli(
+            approver_home("self-hosted"), "machines", "approve", code["user_code"]
         )
         assert approval.returncode == 0, approval.stderr
         credential = _poll("self-hosted", code)
@@ -153,6 +180,9 @@ def test_local_mode_births_a_disposable_universe_and_admits_nobody() -> None:
     with _fixture("local") as started:
         assert started["machine_home"] == str(mode_root("local") / "home")
         assert started["baseline"]["humans"] == 1
+        refused = _cli(mode_root("local") / "home", "invite", "Fixture Teammate")
+        assert refused.returncode != 0
+        assert "invite_local_universe" in refused.stdout + refused.stderr
         proved = _assert_state("local", "nothing-admitted")
         assert proved.returncode == 0, proved.stderr
         unknown = _assert_state("local", "owner-admitted")
@@ -165,6 +195,7 @@ BASE = {
     "machines": {},
     "tokens": [[1, None]],
     "identities": {},
+    "consumed_invites": [],
 }
 
 
@@ -192,6 +223,16 @@ BASE = {
             "expected one active credential",
         ),
         ({**BASE, "machines": {"m": 1, "n": 1}}, "owner-admitted", "exactly one"),
+        (
+            {
+                **BASE,
+                "humans": [1, 2],
+                "machines": {"m": 2},
+                "tokens": [[1, None], [2, "m"]],
+            },
+            "teammate-admitted",
+            "consumed by m",
+        ),
     ],
 )
 def test_state_proof_names_the_wrong_subject(current, expect, message) -> None:

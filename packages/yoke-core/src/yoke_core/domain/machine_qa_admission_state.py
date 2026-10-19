@@ -4,8 +4,9 @@
 born; the post-state assertion compares the universe's actual rows with it,
 rather than trusting the journey's success text. It reads only who exists,
 which machines are registered to whom, which credentials are active for
-which actor and machine, and which provider subjects are linked. It never
-reads or prints a credential value.
+which actor and machine, which provider subjects are linked, and which
+teammate invites were consumed for which person and machine. It never reads
+or prints a credential or invite value.
 """
 
 from __future__ import annotations
@@ -48,6 +49,10 @@ def snapshot(mode: str) -> dict[str, Any]:
             "SELECT actor_id, machine_id FROM api_tokens "
             "WHERE status = 'active' ORDER BY id"
         ).fetchall()
+        invites = conn.execute(
+            "SELECT actor_id, consumed_machine_id FROM teammate_invite_codes "
+            "WHERE consumed_at IS NOT NULL ORDER BY id"
+        ).fetchall()
         identities = conn.execute(
             "SELECT subject, actor_id FROM actor_external_identities ORDER BY id"
         ).fetchall()
@@ -58,6 +63,7 @@ def snapshot(mode: str) -> dict[str, Any]:
         "machines": {machine_id: owner for machine_id, owner in machines},
         "tokens": [[actor_id, machine_id] for actor_id, machine_id in tokens],
         "identities": {subject: actor_id for subject, actor_id in identities},
+        "consumed_invites": [list(row) for row in invites],
     }
 
 
@@ -128,6 +134,13 @@ def expectation_failures(
             and current["identities"].get(TEAMMATE_SUBJECT) != owner
         ):
             failures.append("the company identity is not linked to the teammate")
+        if mode == "self-hosted" and current["consumed_invites"] != [
+            [owner, machine_id]
+        ]:
+            failures.append(
+                f"expected one invite for {owner} consumed by {machine_id}, "
+                f"found {current['consumed_invites']}"
+            )
     if tokens != [[owner, machine_id]]:
         failures.append(
             f"expected one active credential for {owner} on {machine_id}, "

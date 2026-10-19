@@ -21,11 +21,13 @@ import time
 
 from yoke_contracts.control_plane_locality import PG_DSN_ENV
 from yoke_contracts.first_admin_name import ADMIN_NAME_ENV
+from yoke_contracts.machine_config.paths import HOME_ENV as MACHINE_HOME_ENV
 from yoke_contracts.self_host_bootstrap_output import (
     API_PUBLISH_ENV,
     FIRST_BOOT_TOKEN_FD_ENV,
     FIRST_BOOT_TOKEN_HOST_PATH_ENV,
 )
+from yoke_contracts.server_mode import SERVER_MODE_ENV, SERVER_MODE_SELF_HOST
 from yoke_contracts.self_host_handoff import HANDOFF_ACK, HANDOFF_TIMEOUT_SECONDS
 
 from yoke_core.domain.machine_qa_admission_host import (
@@ -98,12 +100,8 @@ def invite_teammate_identity() -> None:
             sys.executable,
             "-m",
             "yoke_cli.main",
-            "identity",
             "invite",
-            "create",
             TEAMMATE_EMAIL,
-            "--role",
-            "operator",
         ],
         env=environment,
         stdin=subprocess.DEVNULL,
@@ -137,6 +135,8 @@ def run_server(mode: str) -> int:
         PG_DSN_ENV: local_universe.local_dsn(spec),
         ADMIN_NAME_ENV: OWNER_NAME,
         API_PUBLISH_ENV: f"127.0.0.1:{MODE_PORTS[mode]}",
+        # The self-host bundle declares its mode the same way.
+        SERVER_MODE_ENV: SERVER_MODE_SELF_HOST,
     }
     provider = (
         _company_sign_in(mode, env) if mode == "self-hosted-company-sign-in" else None
@@ -165,7 +165,7 @@ def run_server(mode: str) -> int:
         receive_owner_token(host_end, token_path)
         # This supervisor is the approver's machine; the server child already
         # holds its own environment.
-        os.environ["YOKE_MACHINE_HOME"] = str(approver)
+        os.environ[MACHINE_HOME_ENV] = str(approver)
         try:
             writer.set_connection(
                 APPROVER_ENV,
