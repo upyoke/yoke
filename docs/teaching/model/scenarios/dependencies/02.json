@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "When the requested outcome touches multiple project repositories or changes a reusable producer contract.",
- "need": "Each project retains its own item and lane; companion items express a real cross-project dependency and consumer proof against the exact pushed producer candidate. Related does not automatically mean shared deployment. Run the producer gate before consumer handoff. Send the full commit the gate actually pushed, resolving it again after any rebase; a local pre-gate SHA may never be published.",
+ "need": "Each project retains its own item and lane; companion items express real cross-project code changes. The configured release-time exact-pair gate owns consumer compatibility proof, not a separate build before item merge or a verification-only companion. Related does not automatically mean shared deployment. An explicitly requested consumer case uses the full producer commit its gate actually pushed after any rebase; a local pre-gate SHA may never be published.",
  "disclosure": "current cue",
  "surface": "Intake cross-project handling; project/document steering scope",
  "gap": "JOURNEYS 14 says link them but lacks a beginner procedure. Review question: should its guide distinguish shared context, dependent work and shared delivery as separate needs?",
