@@ -125,6 +125,9 @@ def cancel_run_workflows(conn: Any, run_id: str) -> List[Dict[str, str]]:
     try:
         dispatches = _recorded_dispatches(conn, run_id)
     except Exception as exc:  # noqa: BLE001 - the close stands; report instead
+        # Only the failed read is undone: callers run this after their commit,
+        # and an aborted transaction would refuse their next statement.
+        conn.rollback()
         _LOG.warning(
             "deployment run %s ended but its dispatched workflows could not be "
             "read (%s); inspect its GitHub Actions runs and cancel any still "

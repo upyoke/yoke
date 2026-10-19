@@ -214,3 +214,29 @@ def test_a_rejected_stage_cancels_after_the_resolution_commits(test_db, monkeypa
         is None
     )
     assert cancelled == [RUN]
+
+
+def test_an_unreadable_dispatch_store_leaves_the_connection_usable(test_db):
+    class _Broken:
+        def __init__(self, conn):
+            self._conn = conn
+            self.rolled_back = False
+
+        def execute(self, sql, params=()):
+            if "github_workflow_dispatch_intents" in sql:
+                self._conn.execute("SELECT * FROM table_that_does_not_exist")
+            return self._conn.execute(sql, params)
+
+        def rollback(self):
+            self.rolled_back = True
+            self._conn.rollback()
+
+    _seed_run(test_db, RUN)
+    test_db.commit()
+    broken = _Broken(test_db)
+
+    (result,) = cancellation.cancel_run_workflows(broken, RUN)
+
+    assert result["outcome"] == "cancel_failed"
+    assert broken.rolled_back
+    assert test_db.execute("SELECT 1").fetchone()[0] == 1
