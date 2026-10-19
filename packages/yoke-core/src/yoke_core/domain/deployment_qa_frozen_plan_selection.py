@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from yoke_core.domain.deployment_requirement_snapshots import _plan_snapshot
+from yoke_core.domain.deployment_qa_source_plan_refresh import source_refreshed_plan
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
 from yoke_core.domain.qa_plan_attachment_reads import retracted_item_plan_ids
@@ -13,6 +14,9 @@ from yoke_core.domain.qa_deployment_member_attached_plans import (
     attached_member_plan_ids,
     stage_environment_id_for_plan_selection,
 )
+
+
+Refresh = Callable[[dict[str, Any]], dict[str, Any]]
 
 
 def requirement_applies(
@@ -68,10 +72,10 @@ def member_requirements(
     ]
 
 
-def _flow_plan(subject: Mapping[str, Any]) -> list[dict[str, Any]]:
+def _flow_plan(subject: Mapping[str, Any], refresh: Refresh) -> list[dict[str, Any]]:
     stage = str(subject["stage"]["name"])
     return [
-        dict(selection)
+        refresh(dict(selection))
         for selection in subject["flow_snapshot"].get("selections") or []
         if isinstance(selection, Mapping) and str(selection.get("stage") or "") == stage
     ]
@@ -82,6 +86,7 @@ def _member_plans(
     subject: Mapping[str, Any],
     *,
     target: Mapping[str, Any],
+    refresh: Refresh,
 ) -> list[dict[str, Any]]:
     snapshot = subject.get("member_snapshot")
     if not isinstance(snapshot, Mapping):
@@ -109,6 +114,7 @@ def _member_plans(
         if int(plan["id"]) in withdrawn_plans:
             continue
         require_complete_snapshot(value)
+        value = refresh(dict(value))
         from yoke_core.domain.qa_plan_case_targets import (
             case_applies_to_target,
             case_target_envs,
@@ -139,7 +145,29 @@ def frozen_stage_plans(
     lock_plans: bool = True,
 ) -> list[dict[str, Any]]:
     """Keep plan-owned obligations on their plan's ordered snapshot path."""
-    frozen = [*_flow_plan(subject), *_member_plans(conn, subject, target=target)]
+    from yoke_core.domain.deployment_qa_snapshot_selection import (
+        incomplete_snapshot,
+        materialized_plan_ids,
+        require_complete_snapshot,
+    )
+
+    historical: set[int] | None = None
+
+    def materialized() -> set[int]:
+        nonlocal historical
+        if historical is None:
+            historical = materialized_plan_ids(conn, subject)
+        return historical
+
+    def refresh(value: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(value.get("plan"), Mapping):
+            return value
+        return source_refreshed_plan(conn, subject, value, materialized=materialized)
+
+    frozen = [
+        *_flow_plan(subject, refresh),
+        *_member_plans(conn, subject, target=target, refresh=refresh),
+    ]
     selected_ids = {int(snapshot["plan"]["id"]) for snapshot in frozen}
     project_id = int(subject.get("member_project_id") or subject["project_id"])
     wanted = {int(r["plan_id"]) for r in admitted if r.get("plan_id") is not None}
@@ -151,26 +179,17 @@ def frozen_stage_plans(
                 environment_id=stage_environment_id_for_plan_selection(conn, target),
             )
         )
-    from yoke_core.domain.deployment_qa_snapshot_selection import (
-        incomplete_snapshot,
-        materialized_plan_ids,
-        require_complete_snapshot,
-    )
-
     for snapshot in frozen:
         require_complete_snapshot(snapshot)
     declared = subject["stage"].get("cases")
     if isinstance(declared, Mapping):
         wanted.add(int(declared["plan_id"]))
-    historical = None
     for plan_id in sorted(wanted - selected_ids):
         if any(r.get("plan_id") == plan_id for r in admitted) or (
             isinstance(declared, Mapping) and int(declared["plan_id"]) == plan_id
         ):
             incomplete_snapshot(plan_id, "admitted selection has no frozen plan")
-        if historical is None:
-            historical = materialized_plan_ids(conn, subject)
-        if plan_id in historical:
+        if plan_id in materialized():
             incomplete_snapshot(
                 plan_id, "previously materialized selection has no frozen plan"
             )
