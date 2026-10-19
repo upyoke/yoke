@@ -31,20 +31,17 @@ class TestIsPathToken:
         assert is_path_token(">/dev/null") is False
         assert is_path_token("2>&1") is False
 
-    def test_top_level_allcaps_markdown_accepted(self):
-        assert is_path_token("AGENTS.md") is True
-        assert is_path_token("CLAUDE.md") is True
-
     def test_top_level_dotfile_accepted(self):
         assert is_path_token(".gitignore") is True
         assert is_path_token(".prettierrc") is True
 
-    def test_top_level_build_config_accepted(self):
-        assert is_path_token("pyproject.toml") is True
-        assert is_path_token("package.json") is True
+    def test_top_level_file_with_extension_accepted(self):
+        for name in ("leaves.md", "AGENTS.md", "pyproject.toml", "uv.lock"):
+            assert is_path_token(name) is True, name
 
-    def test_lowercase_top_level_markdown_rejected(self):
-        assert is_path_token("readme.md") is False
+    def test_top_level_dotted_name_without_extension_rejected(self):
+        assert is_path_token("a.b.c") is False
+        assert is_path_token("process.env") is False
 
     def test_empty_rejected(self):
         assert is_path_token("") is False
@@ -283,22 +280,20 @@ class TestYOK1710ReproductionShape:
         assert "runtime/api/domain/retired_command.py" in paths
 
 
-class TestYOK1902ReproductionShape:
-    """YOK-1902 claims root `pyproject.toml` in the File Budget.
+class TestRootFilesVisibleToConsistencyCheck:
+    """Root files with an extension extract; dotted function ids do not."""
 
-    Lowercase dotted function ids must stay filtered, but known root
-    build/config files need to be visible to claim/budget consistency.
-    """
-
-    def test_pyproject_visible_to_consistency_check(self):
+    def test_root_files_visible_to_consistency_check(self):
         spec = (
             "## File Budget\n\n"
             "- `pyproject.toml` — root package metadata.\n"
+            "- `leaves.md` — root notes file.\n"
             "- `items.section.upsert` — function id, must not extract.\n"
             "- `runtime/api/domain/file_budget_paths.py` — parser fix.\n"
         )
         paths = extract_file_budget_paths_set(spec)
         assert "pyproject.toml" in paths
+        assert "leaves.md" in paths
         assert "runtime/api/domain/file_budget_paths.py" in paths
         assert "items.section.upsert" not in paths
 
@@ -312,6 +307,8 @@ class TestYOK1902ReproductionShape:
         (".gitignore", True),
         ("pyproject.toml", True),
         ("package.json", True),
+        ("leaves.md", True),
+        ("readme.md", True),
         (".", False),
         ("..", False),
         ("runtime/api/", False),

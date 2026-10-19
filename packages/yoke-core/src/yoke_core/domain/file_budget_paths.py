@@ -19,19 +19,16 @@ Rules (single source of truth):
       ``app/@modal/page.tsx`` and ``routes/+page.svelte`` are paths,
     * AND it contains ``/`` and does not end with ``/``,
     * OR it is a top-level dotfile (``.gitignore``, ``.prettierrc``),
-    * OR it is a top-level ALLCAPS markdown filename
-      (``AGENTS.md``, ``CLAUDE.md``, etc.).
-    * OR it is a known top-level build/config filename
-      (``pyproject.toml``, ``package.json``, etc.).
+    * OR it is a top-level filename whose last suffix is a known file
+      extension (``leaves.md``, ``AGENTS.md``, ``pyproject.toml``).
 - Extensionless files such as ``.yoke/lint-config`` are accepted on equal
-  footing with extensioned files.
+  footing with extensioned files when they contain ``/``.
 
 Filtered out:
-- Lowercase dotted identifiers (function ids, event names, module dotted
-  paths) such as ``items.section.upsert`` or ``db_claim.amend`` unless they
-  are explicit top-level build/config filenames. Operational references are
-  never file paths; the explicit carve-out keeps the intent visible to the
-  next consumer.
+- Dotted identifiers (function ids, event names, module dotted paths)
+  such as ``items.section.upsert`` or ``db_claim.amend``: their last
+  suffix is not a file extension. Operational references are never file
+  paths.
 - Inline symbol tokens that lack ``/`` (``release_item_claim``).
 - Directory tokens that end in ``/``.
 - Shell fragments such as ``>/dev/null 2>&1 || true`` and tokens with
@@ -55,24 +52,52 @@ _BACKTICKED = re.compile(r"`([^`]+)`")
 FILE_BUDGET_PATH_CHARS = r"[\w./_\-\[\]()@+]"
 _SAFE_PATH = re.compile(rf"^{FILE_BUDGET_PATH_CHARS}+$")
 _TOP_LEVEL_DOTFILE = re.compile(r"^\.[A-Za-z0-9][\w.-]*$")
-_TOP_LEVEL_ALLCAPS_MD = re.compile(r"^[A-Z][A-Z0-9_]*\.md$")
-_DOTTED_IDENTIFIER = re.compile(r"^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)+$")
-_TOP_LEVEL_BUILD_CONFIG_FILES = frozenset(
+# Extensions that mark a top-level token as a filename. One-letter
+# extensions are left out: ``a.b.c`` reads as an identifier, not a file.
+_FILE_EXTENSIONS = frozenset(
     {
-        "package-lock.json",
-        "package.json",
-        "pnpm-lock.yaml",
-        "pyproject.toml",
-        "pytest.ini",
-        "requirements.txt",
-        "ruff.toml",
-        "setup.cfg",
-        "setup.py",
-        "tox.ini",
-        "tsconfig.json",
-        "uv.lock",
-        "vite.config.ts",
-        "yarn.lock",
+        "bash",
+        "cfg",
+        "cjs",
+        "css",
+        "csv",
+        "go",
+        "graphql",
+        "hcl",
+        "html",
+        "ini",
+        "java",
+        "js",
+        "json",
+        "jsonl",
+        "jsx",
+        "kt",
+        "lock",
+        "md",
+        "mdx",
+        "mjs",
+        "php",
+        "proto",
+        "py",
+        "pyi",
+        "rb",
+        "rs",
+        "rst",
+        "scss",
+        "sh",
+        "sql",
+        "svelte",
+        "swift",
+        "tf",
+        "toml",
+        "ts",
+        "tsx",
+        "txt",
+        "vue",
+        "xml",
+        "yaml",
+        "yml",
+        "zsh",
     }
 )
 _NO_REPO_SCOPE = re.compile(
@@ -124,11 +149,8 @@ def is_path_token(candidate: str) -> bool:
         return True
     if _TOP_LEVEL_DOTFILE.match(candidate):
         return True
-    if candidate in _TOP_LEVEL_BUILD_CONFIG_FILES:
-        return True
-    if _DOTTED_IDENTIFIER.match(candidate):
-        return False
-    return bool(_TOP_LEVEL_ALLCAPS_MD.match(candidate))
+    stem, dot, extension = candidate.rpartition(".")
+    return bool(dot and stem) and extension.lower() in _FILE_EXTENSIONS
 
 
 def extract_section_paths(text: str, heading: str) -> List[str]:
