@@ -1,0 +1,11 @@
+{
+ "id": "ended-run-workflow-cancellation",
+ "title": "Ended runs cancel their workflows",
+ "status": "observed",
+ "page": "deployment-recovery",
+ "position": 3,
+ "summary": "A run that ends failed or cancelled, by terminalization, a failed stage, a rejected approval or takeover, asks GitHub to cancel every correlated workflow it dispatched once the close commits. Terminalize prints each outcome; a miss names its recovery command and never reopens the run. The release bridge runs one per environment and its last step cancels the Platform promotion it started.",
+ "commands": ["yoke deployment-runs terminalize", "yoke github-actions run cancel"],
+ "functions": ["deployment_runs.terminalize", "github_actions.run.cancel"],
+ "sources": [".github/workflows/platform-release-bridge.yml", "packages/yoke-core/src/yoke_core/domain/deployment_run_workflow_cancellation.py", "runtime/api/domain/test_deployment_run_workflow_cancellation.py", "runtime/api/domain/test_platform_release_bridge_cancellation.py"]
+}

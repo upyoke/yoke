@@ -27,6 +27,9 @@ from yoke_cli.commands.adapters.github_actions_failed_log import (
 
 
 from yoke_cli.commands.adapters.github_actions_rerun import github_actions_rerun_failed
+from yoke_cli.commands.adapters.github_actions_run_cancel import (
+    github_actions_run_cancel,
+)
 
 
 from yoke_cli.commands.adapters.github_actions_dispatch_receipt import (
@@ -41,6 +44,10 @@ GITHUB_ACTIONS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]]
     ("github-actions", "dispatch-receipt", "get"): (
         "github_actions.dispatch_receipt.get",
         github_actions_dispatch_receipt_get,
+    ),
+    ("github-actions", "run", "cancel"): (
+        "github_actions.run.cancel",
+        github_actions_run_cancel,
     ),
     ("github-actions", "run", "rerun-failed"): (
         "github_actions.run.rerun_failed",

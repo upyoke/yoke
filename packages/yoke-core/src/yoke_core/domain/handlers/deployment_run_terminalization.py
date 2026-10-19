@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -27,6 +27,10 @@ class DeploymentRunTerminalizeResponse(BaseModel):
     terminalized_by_actor_id: Optional[int]
     terminalized_by_session_id: str
     event_id: str
+    #: One outcome per GitHub workflow the run dispatched: ``cancel_requested``,
+    #: ``already_completed``, ``run_unidentified`` or ``cancel_failed`` with
+    #: its recovery in ``detail``. The close stands whatever they say.
+    workflow_cancellations: List[Dict[str, str]] = []
 
 
 def handle_deployment_run_terminalize(
@@ -87,6 +91,7 @@ def handle_deployment_run_terminalize(
             "terminalized_by_actor_id": result.terminalized_by_actor_id,
             "terminalized_by_session_id": result.terminalized_by_session_id,
             "event_id": result.event_id,
+            "workflow_cancellations": list(result.workflow_cancellations),
         },
         primary_success=True,
     )

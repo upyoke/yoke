@@ -46,6 +46,13 @@ permissions:
   actions: write
   contents: read
 
+# One release per environment at a time. A second bridge for the same
+# environment waits rather than racing the first; neither is cancelled here,
+# because the deployment run that owns a bridge cancels it when the run ends.
+concurrency:
+  group: platform-release-bridge-${{ inputs.target_environment }}
+  cancel-in-progress: false
+
 jobs:
   dispatch-platform-release:
     # This bridge targets upstream's hosted service and Platform repository.
@@ -244,7 +251,8 @@ jobs:
             --proven-consumer-sha "$PROVEN_CONSUMER_SHA" \
             --product-ref "$PRODUCT_REF" --release-mode "$RELEASE_MODE" \
             --target-environment "$TARGET_ENVIRONMENT" \
-            --request-id "bridge:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}:${OUTER_DISPATCH_ID}"
+            --request-id "bridge:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}:${OUTER_DISPATCH_ID}" \
+            --started-runs-file "$RUNNER_TEMP/platform-promotion-runs.txt"
 
       - name: Record desired pin after successful Platform release
         env:
@@ -301,3 +309,31 @@ jobs:
             echo "::error title=release_output_unrecorded::This promotion shipped. Recover its exact receipt using the named command above; QA cannot credit a missing promotion identity. Do not repeat deployment."
             exit "$record_status"
           fi
+
+      # A bridge cancelled by its ended deployment run, or failing, must not
+      # leave the promotion it dispatched to deploy on its own later. Ordinary
+      # cancellation of this bridge still runs this step; a promotion that
+      # already finished answers already_completed.
+      - name: Cancel the Platform promotion this bridge started
+        if: cancelled() || failure()
+        env:
+          STARTED_RUNS: ${{ runner.temp }}/platform-promotion-runs.txt
+        run: |
+          if [ ! -s "$STARTED_RUNS" ]; then
+            echo "This bridge started no Platform promotion; nothing to cancel."
+            exit 0
+          fi
+          printf '%s' "$YOKE_PLATFORM_RELEASE_API_TOKEN" | yoke connection set prod \
+            --transport https \
+            --prod \
+            --api-url "$YOKE_API_BASE" \
+            --token-stdin >/dev/null
+          status=0
+          while read -r run_id; do
+            yoke github-actions run cancel upyoke/platform "$run_id" \
+              --project platform || status=$?
+          done < "$STARTED_RUNS"
+          if [ "$status" -ne 0 ]; then
+            echo "::error title=platform_promotion_not_cancelled::Cancel the Platform promotion runs listed above in upyoke/platform before starting another release."
+          fi
+          exit "$status"

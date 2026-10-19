@@ -9,15 +9,21 @@ nothing open. :func:`terminalize_run_on` is the same close against a
 connection the caller already holds, so a decision that closes a run can do
 it in the transaction that recorded the decision rather than in a second one
 that could commit without it.
+
+Closing a run also cancels the GitHub workflows it dispatched
+(:mod:`yoke_core.domain.deployment_run_workflow_cancellation`). That talks to
+GitHub, so it happens only after the close commits: :func:`terminalize_run`
+does it itself, and a caller of :func:`terminalize_run_on` does it after its
+own commit.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 
 from yoke_contracts.timestamps import as_utc, format_instant, utc_now
-from typing import Any, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from yoke_core.domain.db_helpers import connect, instant_parameter, query_one
 from yoke_core.domain.events import build_envelope
@@ -44,6 +50,8 @@ class RunTerminalization:
     terminalized_by_actor_id: Optional[int]
     terminalized_by_session_id: str
     event_id: str
+    #: One outcome per workflow the run dispatched, filled after the commit.
+    workflow_cancellations: Tuple[Dict[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "terminalized_at", as_utc(self.terminalized_at))
@@ -192,7 +200,7 @@ def terminalize_run(
     actor_id: Optional[int],
     session_id: str,
 ) -> RunTerminalization:
-    """Close one active run and append its audit event atomically."""
+    """Close one active run atomically, then cancel its dispatched workflows."""
     conn = connect()
     try:
         result = terminalize_run_on(
@@ -204,12 +212,19 @@ def terminalize_run(
             session_id=session_id,
         )
         conn.commit()
-        return result
     except Exception:
         conn.rollback()
+        conn.close()
         raise
+    try:
+        from yoke_core.domain.deployment_run_workflow_cancellation import (
+            cancel_run_workflows,
+        )
+
+        cancellations = cancel_run_workflows(conn, run_id)
     finally:
         conn.close()
+    return replace(result, workflow_cancellations=tuple(cancellations))
 
 
 __all__ = [

@@ -17,6 +17,11 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
         notes="Read the durable original inputs and run identity in the authorized project; absent requests return found=false. Rejoin with the original payload.",
     ),
     AdapterEntry(
+        function_id="github_actions.run.cancel",
+        cli_invocation="yoke github-actions run cancel REPO RUN-ID --project P",
+        notes="Ordinary cancellation of one run in the project's bound repository; its cancelled() steps still run, and a finished run answers already_completed.",
+    ),
+    AdapterEntry(
         function_id="github_actions.run.rerun_failed",
         cli_invocation="yoke github-actions run rerun-failed ITEM RUN-ID",
         notes="Claimed-item CI recovery: current PR head and newest workflow run only; intent and outcome persist in the item Progress Log.",

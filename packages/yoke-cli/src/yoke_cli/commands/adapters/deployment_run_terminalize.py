@@ -11,6 +11,9 @@ from yoke_cli.commands._helpers import (
     dispatch_and_emit,
     parse_or_usage_error,
 )
+from yoke_cli.commands.adapters.github_actions_run_cancel import (
+    print_workflow_cancellation,
+)
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.deployment_itemless_teaching import (
     INTERRUPTED_RUN_RECOVERY,
@@ -30,7 +33,8 @@ def deployment_runs_terminalize(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=(
             "Close an active deployment run with a permanent failed or "
-            "cancelled audit event. An interrupted driver whose GitHub "
+            "cancelled audit event, then cancel every GitHub workflow the "
+            "run dispatched. An interrupted driver whose GitHub "
             "workflow is still running or already succeeded is recovered "
             "by re-driving the same run, not by terminalize."
         ),
@@ -38,22 +42,26 @@ def deployment_runs_terminalize(args: List[str]) -> int:
     )
     parser.add_argument("run_id")
     parser.add_argument(
-        "--disposition", required=True, choices=("failed", "cancelled"),
+        "--disposition",
+        required=True,
+        choices=("failed", "cancelled"),
     )
     parser.add_argument(
-        "--reason", required=True,
+        "--reason",
+        required=True,
         help="Operator rationale retained in the permanent audit event.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, DEPLOYMENT_RUNS_TERMINALIZE_USAGE,
+        parser,
+        args,
+        DEPLOYMENT_RUNS_TERMINALIZE_USAGE,
     )
     if parsed is None:
         return 2
 
     def _human_writer(response, stdout, stderr) -> None:
-        del stderr
         result = response.result or {}
         print(
             f"Terminalized {result.get('run_id', parsed.run_id)}: "
@@ -61,11 +69,15 @@ def deployment_runs_terminalize(args: List[str]) -> int:
             f"{result.get('final_status', parsed.disposition)}",
             file=stdout,
         )
+        # A serving build older than workflow cancellation omits the list.
+        for entry in result.get("workflow_cancellations") or []:
+            print_workflow_cancellation(entry, stdout=stdout, stderr=stderr)
 
     return dispatch_and_emit(
         function_id="deployment_runs.terminalize",
         target=TargetRef(
-            kind="workflow_run", workflow_run_id=parsed.run_id,
+            kind="workflow_run",
+            workflow_run_id=parsed.run_id,
         ),
         payload={
             "disposition": parsed.disposition,

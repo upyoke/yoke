@@ -46,6 +46,13 @@ RELEASE_CI_AUTHZ_BY_ID = {
         PROJECT,
         PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
     ),
+    # Whoever may start a project's workflow may stop it: the release bridge
+    # cancels the promotion it dispatched when it is itself cancelled or
+    # failing, so that promotion never deploys after its owner is gone.
+    "github_actions.run.cancel": AuthzSpec(
+        PROJECT,
+        PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
+    ),
     # The dispatch tag exists only to name the commit a dispatch runs at,
     # and the handler writes nothing outside the yoke-deploy/ namespace
     # and never moves a tag, so it rides the dispatch permission.
