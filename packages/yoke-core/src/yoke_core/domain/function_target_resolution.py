@@ -201,8 +201,31 @@ def resolve_project_context(
             entry_project = None
         if entry_project is not None:
             return entry_project
+    if entry.function_id in {"qa.method.list", "qa.method.get"}:
+        return _qa_method_session_project(conn, request)
     # An unresolved target is denied upstream.
     return None
+
+
+def _qa_method_session_project(
+    conn: Any, request: FunctionCallRequest
+) -> tuple[int, str] | None:
+    """Permission scope for a method read that omitted --project.
+
+    The handler fills the same session project. A session with no project
+    stays unresolved so the caller is told to pass --project.
+    """
+    from yoke_core.domain.sessions import SessionError
+    from yoke_core.domain.sessions_identity_read import resolve_session_identity
+
+    try:
+        identity = resolve_session_identity(conn, request.actor.session_id)
+    except SessionError:
+        return None
+    if identity.project_id is None:
+        return None
+    project_id = int(identity.project_id)
+    return project_id, slug_for_project_id(conn, project_id)
 
 
 def _resolve_github_actions_project_context(
