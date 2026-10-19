@@ -39,6 +39,7 @@ from yoke_core.domain.deployment_run_project_carried_work import (
 from yoke_core.domain.function_target_row_project import slug_for_project_id
 from yoke_core.domain.json_helper import dumps_compact, loads_text
 from yoke_core.domain.deployment_source_reads import SourcePreparationChanged
+from yoke_core.domain.schema_read_scope import shared_read
 
 
 CARRIED_WORK_FIELD = "carried_work"
@@ -109,8 +110,18 @@ def previous_release_run(conn: Any, run_id: str, project_id: int, environment_id
 def _shared_project_carried_work(
     conn: Any, run_id: str, *, previous: Any, **comparison: Any
 ) -> dict[str, Any]:
-    """Reuse repository facts while rereading current ownership evidence."""
-    return derive_project_carried_work(conn, run_id, previous=previous, **comparison)
+    """Derive a comparison once per operation; it depends on the commits and
+    preceding release, not the asking run, so a create's locked pass reuses it."""
+    previous_id = str(_cell(previous, "id", 0)) if previous is not None else ""
+    key = ("project_carried_work", previous_id, *sorted(comparison.items()))
+
+    def derive() -> dict[str, Any]:
+        return derive_project_carried_work(
+            conn, run_id, previous=previous, **comparison
+        )
+
+    payload = shared_read(conn, key, derive)
+    return dict(payload, derivation={**payload["derivation"], "run_id": run_id})
 
 
 def derive_carried_work(

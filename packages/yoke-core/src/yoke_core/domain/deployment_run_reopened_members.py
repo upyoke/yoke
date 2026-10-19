@@ -128,3 +128,44 @@ def set_aside_reopened_members(
         else ""
     )
     return refused, notice
+
+
+def frozen_member_readiness(conn: Any, run_id: str) -> tuple[list[str], str]:
+    """Apply the set-aside rule to every member of a frozen run.
+
+    Returns the refusal labels and set-aside notice of
+    :func:`set_aside_reopened_members`; both are empty while every member is
+    still delivery-ready.
+    """
+    rows = query_rows(
+        conn,
+        "SELECT i.id, i.status FROM deployment_run_items dri "
+        "JOIN items i ON dri.item_id = i.id WHERE dri.run_id=%s",
+        (run_id,),
+    )
+    status_of = {int(row[0]): str(row[1]) for row in rows}
+    unready = unready_item_ids(conn, rows, allow_completed=True)
+    if not unready:
+        return [], ""
+    return set_aside_reopened_members(
+        conn, run_id, [(item_id, status_of[item_id]) for item_id in unready]
+    )
+
+
+def frozen_composition_verdict(conn: Any, run_id: str) -> tuple[bool, str]:
+    """Judge a re-driven run whose composition is already frozen.
+
+    Freezing validated the membership, carried work and custody, and none of
+    them can change afterwards, so a re-drive repeats only what can: a member
+    that left delivery readiness since. The verdict has the shape and wording
+    of ``cmd_validate_composition``.
+    """
+    refused, notice = frozen_member_readiness(conn, run_id)
+    if refused:
+        text = "Items not delivery-ready for their pinned workflow: " + ", ".join(
+            refused
+        )
+        return False, "FAIL: Composition validation failed:\n" + "\n".join(
+            part for part in (text, notice) if part
+        )
+    return True, f"OK; {notice}" if notice else "OK"
