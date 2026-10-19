@@ -131,3 +131,40 @@ def test_transfer_invalid_destination_stage_preserves_owner(test_db, monkeypatch
         )
         is None
     )
+
+
+def test_review_credit_survives_methodless_ownership_transfer(test_db, monkeypatch):
+    from runtime.api.fixtures.backlog_inserts import insert_item
+    from yoke_core.domain.qa_workflow_binding_validation import item_transition_for_gate
+
+    for item_id in (2390, 2391):
+        insert_item(test_db, id=item_id, title="Manual acceptance", workflow_id="epic")
+    transition = item_transition_for_gate(
+        test_db, item_id=2391, gate_id="qa_verification"
+    )
+    rid = test_db.execute(
+        "INSERT INTO qa_requirements(item_id,qa_kind,qa_phase,blocking_mode,workflow_transition_id,created_at) VALUES (2390,'ac_verification','verification','blocking',%s,now()) RETURNING id",
+        (transition,),
+    ).fetchone()[0]
+    ref = test_db.execute(
+        "SELECT public_ref FROM item_refs WHERE item_id=2391"
+    ).fetchone()[0]
+    monkeypatch.setattr(
+        transfer, "get_claim_for_work_unit", lambda *a, **k: {"session_id": "owner"}
+    )
+    receipt = transfer.transfer_requirement(
+        test_db,
+        requirement_id=rid,
+        destination=ref,
+        transition=transition,
+        rationale="Destination owns the manual review",
+        session_id="owner",
+        request_id="manual-transfer",
+    )
+    assert receipt["to_item_id"] == 2391
+    assert (
+        test_db.execute(
+            "SELECT method_id FROM qa_requirements WHERE id=%s", (rid,)
+        ).fetchone()[0]
+        is None
+    )

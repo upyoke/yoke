@@ -58,6 +58,9 @@ yoke qa requirement add \
  --expected-outcome "The home page renders the new build." \
  --method-config '{"steps":[{"action":"navigate","route":"/"}]}'
 
+# Move an unexecuted direct requirement; hold both work claims.
+yoke qa requirement transfer --requirement-id {requirement_id} --to-item PREFIX-N --workflow-transition {stage} --rationale "Destination owns this check"
+
 # List requirements
 yoke qa requirement list --item PREFIX-N
 
@@ -80,11 +83,11 @@ yoke qa requirement update --requirement-id 4309 --field starting_state --value 
 yoke qa run add \
  --requirement-id 1 --performed-by agent --qa-kind implementation_review --verdict pass
 
-# Execute the method case that proves the acceptance criterion.
-yoke qa case run --requirement-id REQUIREMENT_ID
-
-# Move an unexecuted direct case; hold both item claims in one project.
-yoke qa requirement transfer --requirement-id REQUIREMENT_ID --to-item PREFIX-N --workflow-transition QA_STAGE --rationale "Destination owns this check"
+# Record evidence for a method-less acceptance requirement at an explicit commit.
+# qa_kind must match the requirement; raw-result holds the actual evidence.
+yoke qa run add --requirement-id 1 --performed-by agent \
+ --qa-kind ac_verification --verdict pass --head-sha FULL_COMMIT_SHA \
+ --raw-result 'Evidence and result for every acceptance criterion'
 
 # Epic-task review verdicts use the workflow-item helper path
 yoke workflow-item epic-task review-insert \

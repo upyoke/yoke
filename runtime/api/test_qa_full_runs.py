@@ -16,7 +16,7 @@ import pytest
 from yoke_core.domain import qa, qa_artifacts
 from yoke_core.domain import qa_cli
 from runtime.api.qa_full_test_helpers import conn_with_rows, make_qa_db_file
-from runtime.api.qa_transition_test_support import seed_historical_requirement
+from runtime.api.qa_transition_test_support import add_bound_requirement
 
 
 @pytest.fixture()
@@ -33,7 +33,7 @@ class TestRunAdd:
     """cmd_run_add: insert QA runs."""
 
     def test_add_run(self, db_path, capsys):
-        req_id = seed_historical_requirement(
+        req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
             qa_kind="smoke",
@@ -56,7 +56,7 @@ class TestRunAdd:
         monkeypatch,
         capsys,
     ):
-        req_id = seed_historical_requirement(
+        req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
             qa_kind="smoke",
@@ -113,7 +113,7 @@ class TestRunAdd:
 
     def test_add_run_without_verdict(self, db_path, capsys):
         """Inserting without verdict (in-progress run)."""
-        req_id = seed_historical_requirement(
+        req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
             qa_kind="smoke",
@@ -135,7 +135,7 @@ class TestRunAdd:
         assert row["completed_at"] is None
 
     def test_add_run_with_score(self, db_path, capsys):
-        req_id = seed_historical_requirement(
+        req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
             qa_kind="smoke",
@@ -161,7 +161,7 @@ class TestRunAdd:
 
     def test_agent_runner_rejected_for_browser_method(self, db_path, capsys):
         """Agent runner is not allowed for Browser method cases."""
-        req_id = seed_historical_requirement(
+        req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
             qa_kind="plan_case",
@@ -188,7 +188,7 @@ class TestRunAdd:
 
     def test_agent_runner_rejected_for_screenshot_evidence(self, db_path, capsys):
         """agent runner not allowed for ac_verification with screenshot evidence."""
-        req_id = seed_historical_requirement(
+        req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
             qa_kind="ac_verification",
@@ -206,7 +206,7 @@ class TestRunAdd:
 
     def test_epic_task_review_guard(self, db_path, capsys):
         """epic-task review runs need YOKE_INTERNAL_EPIC_REVIEW_WRITE."""
-        req_id = seed_historical_requirement(
+        req_id = add_bound_requirement(
             db_path=db_path,
             item_id=None,
             epic_id=50,
@@ -231,7 +231,7 @@ class TestRunAdd:
 
     def test_epic_task_review_with_env_var(self, db_path, capsys):
         """With YOKE_INTERNAL_EPIC_REVIEW_WRITE=1, review runs succeed."""
-        req_id = seed_historical_requirement(
+        req_id = add_bound_requirement(
             db_path=db_path,
             item_id=None,
             epic_id=50,
@@ -262,7 +262,7 @@ class TestRunAdd:
         self, db_path, capsys, tmp_path, monkeypatch
     ):
         """one-step artifact helper writes item screenshots into canonical storage."""
-        req_id = seed_historical_requirement(
+        req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
             qa_kind="plan_case",

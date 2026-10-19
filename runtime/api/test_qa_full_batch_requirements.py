@@ -34,14 +34,14 @@ class TestRequirementAddBatch:
         payload = [
             {
                 "item_id": 100,
-                "qa_kind": "implementation_review",
+                "qa_kind": "ac_verification",
                 "qa_phase": "verification",
                 "success_policy": "all-pass",
                 "workflow_transition_id": QA_GATED_TRANSITION,
             },
             {
                 "item_id": 100,
-                "qa_kind": "implementation_review",
+                "qa_kind": "ac_verification",
                 "qa_phase": "verification",
                 "success_policy": "all-pass",
                 "workflow_transition_id": QA_GATED_TRANSITION,
@@ -81,7 +81,7 @@ class TestRequirementAddBatch:
         payload = [
             {
                 "item_id": 100,
-                "qa_kind": "implementation_review",
+                "qa_kind": "ac_verification",
                 "qa_phase": "verification",
                 "success_policy": "all-pass",
                 "workflow_transition_id": QA_GATED_TRANSITION,
@@ -157,7 +157,7 @@ class TestRequirementAddBatch:
         payload = [
             {
                 "item_id": 100,
-                "qa_kind": "implementation_review",
+                "qa_kind": "ac_verification",
                 "qa_phase": "verification",
                 "blocking_mode": "blocking",
                 "success_policy": "all-pass",
@@ -165,7 +165,7 @@ class TestRequirementAddBatch:
             },
             {
                 "item_id": 100,
-                "qa_kind": "implementation_review",
+                "qa_kind": "ac_verification",
                 "qa_phase": "verification",
                 "blocking_mode": "invalid_mode",
                 "success_policy": "all-pass",
@@ -190,14 +190,14 @@ class TestRequirementAddBatch:
         payload = [
             {
                 "item_id": 100,
-                "qa_kind": "implementation_review",
+                "qa_kind": "ac_verification",
                 "qa_phase": "verification",
                 "success_policy": "all-pass",
                 "workflow_transition_id": QA_GATED_TRANSITION,
             },
             {
                 "item_id": 100,
-                "qa_kind": "implementation_review",
+                "qa_kind": "ac_verification",
                 "qa_phase": "verification",
                 "success_policy": "all-pass",
                 "workflow_transition_id": QA_GATED_TRANSITION,
@@ -230,7 +230,7 @@ class TestRequirementAddBatch:
             {
                 "epic_id": 50,
                 "task_num": 1,
-                "qa_kind": "simulation",
+                "qa_kind": "integration",
                 "qa_phase": "verification",
                 "success_policy": "all-pass",
                 "workflow_transition_id": QA_GATED_TRANSITION,

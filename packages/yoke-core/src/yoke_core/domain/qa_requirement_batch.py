@@ -78,6 +78,17 @@ def cmd_requirement_add_batch(
                     label=f"row {len(inserted_ids)}",
                     qa_phase=row.get("qa_phase"),
                 )
+            from yoke_core.domain.qa_requirement_proof import proof_refusal
+
+            refusal = proof_refusal(
+                row,
+                subject=f"row {len(inserted_ids)}, item {binding_item_id or row.get('deployment_run_id')}",
+                conn=conn,
+                item_id=binding_item_id,
+            )
+            if refusal:
+                conn.rollback()
+                _exit(refusal)
             if row.get("deployment_run_id") is not None:
                 try:
                     require_stage_scoped_requirement(
@@ -167,14 +178,6 @@ def _validate_row(row, index: int) -> None:
     if targets > 1:
         _exit(f"row {index} must specify exactly one attachment target")
 
-    from yoke_core.domain.qa_requirement_proof import proof_refusal
-
-    refused = proof_refusal(
-        row,
-        subject=f"row {index}, item {row.get('item_id') or row.get('epic_id') or row.get('deployment_run_id')}",
-    )
-    if refused:
-        _exit(refused)
     row["qa_phase"] = qa_phase
     row["qa_kind"] = qa_kind
     try:

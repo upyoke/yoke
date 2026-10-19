@@ -65,7 +65,7 @@ class TestRequirementAddBatch(unittest.TestCase):
                                 conn,
                                 42,
                                 {
-                                    "qa_kind": "implementation_review",
+                                    "qa_kind": "ac_verification",
                                     "qa_phase": "verification",
                                 },
                             ),
@@ -115,7 +115,7 @@ class TestRequirementAddBatch(unittest.TestCase):
                                 conn,
                                 42,
                                 {
-                                    "qa_kind": "implementation_review",
+                                    "qa_kind": "ac_verification",
                                     "qa_phase": "verification",
                                 },
                             ),
@@ -152,7 +152,7 @@ class TestRequirementAddBatch(unittest.TestCase):
                     "rows": [
                         {
                             "public_ref": "YOK-43",
-                            "qa_kind": "implementation_review",
+                            "qa_kind": "ac_verification",
                             "qa_phase": "verification",
                         },
                     ],

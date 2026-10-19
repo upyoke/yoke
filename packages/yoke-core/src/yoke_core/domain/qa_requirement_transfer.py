@@ -84,7 +84,10 @@ def transfer_requirement(
                 "Hold both item work claims before transferring",
             )
     refusal = proof_refusal(
-        row, subject=f"item {source_id}, requirement {requirement_id}"
+        row,
+        subject=f"item {source_id}, requirement {requirement_id}",
+        conn=conn,
+        item_id=source_id,
     )
     if refusal:
         raise ValueError(refusal)
@@ -135,6 +138,14 @@ def transfer_requirement(
         method_id=row.get("method_id"),
         qa_phase=row["qa_phase"],
     )
+    refusal = proof_refusal(
+        dict(row, workflow_transition_id=bound),
+        subject=destination,
+        conn=conn,
+        item_id=destination_id,
+    )
+    if refusal:
+        raise ValueError(refusal)
     conn.execute(
         "UPDATE qa_requirements SET item_id=%s,workflow_transition_id=%s WHERE id=%s",
         (destination_id, bound, requirement_id),

@@ -15,7 +15,7 @@ from runtime.api.qa_test_helpers import (
     make_basic_requirement,
     make_qa_db_file,
 )
-from runtime.api.qa_transition_test_support import seed_historical_requirement
+from runtime.api.qa_transition_test_support import add_bound_requirement
 
 
 @pytest.fixture()
@@ -177,7 +177,7 @@ class TestRunAdd:
     def test_agent_not_allowed_for_browser_method(
         self, db_path: str, method_id: str
     ) -> None:
-        rid = seed_historical_requirement(
+        rid = add_bound_requirement(
             db_path=db_path,
             item_id=10,
             qa_kind="plan_case",
@@ -200,7 +200,7 @@ class TestRunAdd:
         assert exc.value.code == 2
 
     def test_agent_not_allowed_for_screenshot_evidence(self, db_path: str) -> None:
-        rid = seed_historical_requirement(
+        rid = add_bound_requirement(
             db_path=db_path,
             item_id=10,
             qa_kind="ac_verification",

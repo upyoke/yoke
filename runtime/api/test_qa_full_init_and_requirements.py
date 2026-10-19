@@ -50,7 +50,7 @@ class TestRequirementAdd:
         req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
-            qa_kind="implementation_review",
+            qa_kind="smoke",
             qa_phase="verification",
         )
         assert req_id >= 1
@@ -63,27 +63,27 @@ class TestRequirementAdd:
             item_id=None,
             epic_id=50,
             task_num=1,
-            qa_kind="simulation",
+            qa_kind="integration",
             qa_phase="verification",
         )
         assert req_id >= 1
 
-    def test_add_deployment_run_requirement(self, db_path, capsys):
-        req_id = qa.cmd_requirement_add(
-            db_path=db_path,
-            item_id=None,
-            deployment_run_id="run-test-001",
-            qa_kind="implementation_review",
-            qa_phase="post_deploy",
-        )
-        assert req_id >= 1
+    def test_add_deployment_run_requirement(self, db_path):
+        with pytest.raises(SystemExit) as exc:
+            qa.cmd_requirement_add(
+                db_path=db_path,
+                deployment_run_id="run-unbound",
+                qa_kind="ac_verification",
+                qa_phase="post_deploy",
+            )
+        assert exc.value.code == 2
 
     def test_add_no_target_exits(self, db_path):
         with pytest.raises(SystemExit):
             add_bound_requirement(
                 db_path=db_path,
                 item_id=None,
-                qa_kind="implementation_review",
+                qa_kind="smoke",
                 qa_phase="verification",
             )
 
@@ -94,7 +94,7 @@ class TestRequirementAdd:
                 item_id=100,
                 epic_id=50,
                 task_num=1,
-                qa_kind="implementation_review",
+                qa_kind="smoke",
                 qa_phase="verification",
             )
 
@@ -104,7 +104,7 @@ class TestRequirementAdd:
                 db_path=db_path,
                 item_id=None,
                 epic_id=50,
-                qa_kind="implementation_review",
+                qa_kind="smoke",
                 qa_phase="verification",
             )
 
@@ -112,7 +112,7 @@ class TestRequirementAdd:
         req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
-            qa_kind="implementation_review",
+            qa_kind="e2e",
             qa_phase="verification",
             blocking_mode="non_blocking",
         )
@@ -128,7 +128,7 @@ class TestRequirementAdd:
         req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
-            qa_kind="implementation_review",
+            qa_kind="smoke",
             qa_phase="verification",
             success_policy=policy,
         )
@@ -145,22 +145,13 @@ class TestRequirementList:
 
     def test_list_by_item(self, db_path, capsys):
         add_bound_requirement(
-            db_path=db_path,
-            item_id=100,
-            qa_kind="implementation_review",
-            qa_phase="verification",
+            db_path=db_path, item_id=100, qa_kind="smoke", qa_phase="verification"
         )
         add_bound_requirement(
-            db_path=db_path,
-            item_id=100,
-            qa_kind="implementation_review",
-            qa_phase="verification",
+            db_path=db_path, item_id=100, qa_kind="e2e", qa_phase="verification"
         )
         add_bound_requirement(
-            db_path=db_path,
-            item_id=200,
-            qa_kind="implementation_review",
-            qa_phase="verification",
+            db_path=db_path, item_id=200, qa_kind="smoke", qa_phase="verification"
         )
 
         capsys.readouterr()  # clear previous output
@@ -173,7 +164,7 @@ class TestRequirementList:
             item_id=None,
             epic_id=50,
             task_num=1,
-            qa_kind="implementation_review",
+            qa_kind="smoke",
             qa_phase="verification",
         )
         capsys.readouterr()
@@ -182,16 +173,10 @@ class TestRequirementList:
 
     def test_list_all(self, db_path, capsys):
         add_bound_requirement(
-            db_path=db_path,
-            item_id=100,
-            qa_kind="implementation_review",
-            qa_phase="verification",
+            db_path=db_path, item_id=100, qa_kind="smoke", qa_phase="verification"
         )
         add_bound_requirement(
-            db_path=db_path,
-            item_id=200,
-            qa_kind="implementation_review",
-            qa_phase="verification",
+            db_path=db_path, item_id=200, qa_kind="smoke", qa_phase="verification"
         )
         capsys.readouterr()
         lines = qa.cmd_requirement_list(db_path=db_path)
@@ -210,13 +195,13 @@ class TestRequirementGet:
         req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
-            qa_kind="implementation_review",
+            qa_kind="smoke",
             qa_phase="verification",
         )
         capsys.readouterr()
         line = qa.cmd_requirement_get(req_id, db_path=db_path)
         assert str(req_id) in line
-        assert "implementation_review" in line
+        assert "smoke" in line
 
     def test_get_not_found_exits(self, db_path):
         with pytest.raises(SystemExit):
@@ -230,7 +215,7 @@ class TestRequirementWaive:
         req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
-            qa_kind="implementation_review",
+            qa_kind="smoke",
             qa_phase="verification",
             blocking_mode="non_blocking",
         )
@@ -243,7 +228,7 @@ class TestRequirementWaive:
         req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
-            qa_kind="implementation_review",
+            qa_kind="smoke",
             qa_phase="verification",
             blocking_mode="blocking",
         )
@@ -255,7 +240,7 @@ class TestRequirementWaive:
         req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
-            qa_kind="implementation_review",
+            qa_kind="smoke",
             qa_phase="verification",
             blocking_mode="blocking",
         )
@@ -268,7 +253,7 @@ class TestRequirementWaive:
         req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
-            qa_kind="implementation_review",
+            qa_kind="smoke",
             qa_phase="verification",
             blocking_mode="non_blocking",
         )

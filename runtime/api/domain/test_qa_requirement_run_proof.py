@@ -53,11 +53,21 @@ def test_other_obligations_cannot_discharge_standing_case(field, value):
     assert run_proof_mismatches(_source(), dict(_answer(), **{field: value}))
 
 
-def test_run_scoped_pass_supersedes_direct_standing_source(test_db):
+@pytest.mark.parametrize("plan_backed", [False, True])
+def test_run_scoped_pass_supersedes_standing_source(test_db, plan_backed):
     _insert_dash(test_db, item_id=2390, status="release")
     source, copy, _ = deliver_with_failing_admitted_copy(
         test_db, item_id=2390, run_id="run-standing-proof", corrected=False
     )
+    if plan_backed:
+        from runtime.api.domain.test_deployment_qa_stage_execution import _plan
+
+        plan_id = _plan(test_db, "standing-copy-proof")
+        test_db.execute(
+            "UPDATE qa_requirements SET plan_id=%s,plan_case_key='command-smoke' WHERE id IN (%s,%s)",
+            (plan_id, source, copy),
+        )
+        test_db.commit()
     record_case_verdict(test_db, copy, "pass", evidence=True)
     receipt, _ = record_supersession(
         test_db,

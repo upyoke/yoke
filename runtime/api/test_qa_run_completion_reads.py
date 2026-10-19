@@ -6,7 +6,7 @@ import pytest
 
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.qa_test_helpers import make_basic_requirement, make_qa_db_file
-from runtime.api.qa_transition_test_support import seed_historical_requirement
+from runtime.api.qa_transition_test_support import add_bound_requirement
 from yoke_core.domain import qa
 
 
@@ -78,7 +78,7 @@ class TestRunListGet:
 
     def test_run_list_filter(self, db_path: str, req_id: int) -> None:
         qa.cmd_run_add(db_path=db_path, requirement_id=req_id, performed_by="a")
-        second_id = seed_historical_requirement(
+        second_id = add_bound_requirement(
             db_path=db_path, item_id=99, qa_kind="z", qa_phase="verification"
         )
         qa.cmd_run_add(db_path=db_path, requirement_id=second_id, performed_by="b")

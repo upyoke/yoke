@@ -9,7 +9,7 @@ import pytest
 from yoke_core.domain import qa
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.qa_test_helpers import make_qa_db_file
-from runtime.api.qa_transition_test_support import seed_historical_requirement
+from runtime.api.qa_transition_test_support import add_bound_requirement
 
 
 _FIXTURE_ITEM_REF = f"YOK-{42}"
@@ -50,7 +50,7 @@ class TestCLI:
     def test_requirement_list_via_cli(
         self, db_path: str, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        seed_historical_requirement(
+        add_bound_requirement(
             db_path=db_path, item_id=42, qa_kind="test", qa_phase="verification"
         )
         monkeypatch.setenv("YOKE_DB", db_path)

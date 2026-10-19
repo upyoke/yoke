@@ -122,7 +122,10 @@ def execute_insert(
     from yoke_core.domain.qa_requirement_proof import proof_refusal
 
     refusal = proof_refusal(
-        row, subject=f"item {subject.item_id or subject.deployment_run_id}"
+        row,
+        subject=f"item {subject.item_id or subject.deployment_run_id}",
+        conn=conn,
+        item_id=subject.item_id,
     )
     if refusal:
         raise ValueError(refusal)

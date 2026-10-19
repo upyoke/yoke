@@ -19,7 +19,7 @@ def qa_requirement_transfer(args: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement transfer",
         description=QA_REQUIREMENT_TRANSFER_USAGE,
-        epilog="Hold both item work claims in one project. Only an unexecuted direct case can move; frozen plan/run cases and settled history retain their subject. A blocking case must retain its registered method. The receipt is recorded on both items; this command records no pass.",
+        epilog="Hold both item work claims in one project. Only an unexecuted direct case can move; frozen plan/run cases and settled history retain their subject. A blocking case must retain an executable method or a destination with manual review credit. The receipt is recorded on both items; this command records no pass.",
     )
     parser.add_argument("--requirement-id", type=int, required=True)
     parser.add_argument("--to-item", required=True)

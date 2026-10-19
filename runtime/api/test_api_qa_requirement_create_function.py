@@ -49,7 +49,7 @@ def _bound_row(conn, item_id: int, payload: dict) -> dict:
 
 
 class TestRequirementAdd(unittest.TestCase):
-    def test_refuses_methodless_acceptance_derived_from_criterion(self):
+    def test_inserts_item_attached_row(self):
         with test_database() as conn:
             insert_item(conn, id=42, title="T", status="implementing")
             conn.commit()
@@ -69,12 +69,18 @@ class TestRequirementAdd(unittest.TestCase):
                     ),
                 ),
             )
-            self.assertFalse(outcome.primary_success)
-            self.assertEqual(outcome.error.code, "requirement_proof_required")
-            self.assertIn("Attach the plan case", outcome.error.message)
-            self.assertEqual(
-                conn.execute("SELECT count(*) FROM qa_requirements").fetchone()[0], 0
-            )
+            self.assertTrue(outcome.primary_success, outcome.error)
+            req_id = outcome.result_payload["requirement_id"]
+            row = conn.execute(
+                "SELECT item_id, qa_kind, qa_phase, blocking_mode, "
+                "requirement_source FROM qa_requirements WHERE id = %s",
+                (req_id,),
+            ).fetchone()
+        self.assertEqual(int(row[0]), 42)
+        self.assertEqual(row[1], "ac_verification")
+        self.assertEqual(row[2], "verification")
+        self.assertEqual(row[3], "blocking")
+        self.assertEqual(row[4], "ac_derived")
 
     def test_inserts_method_backed_browser_case(self):
         with test_database() as conn:
@@ -116,6 +122,7 @@ class TestRequirementAdd(unittest.TestCase):
         self.assertEqual(row["method_id"], "browser-check")
         self.assertEqual(row["instructions"], "Check the login page.")
         self.assertIn('"route": "/login"', row["method_config"])
+
 
     def test_missing_target_rejected(self):
         outcome = qa_requirement_create.handle_qa_requirement_add(

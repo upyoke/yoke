@@ -3,7 +3,7 @@
 import pytest
 
 from runtime.api.qa_full_test_helpers import conn_with_rows, make_qa_db_file
-from runtime.api.qa_transition_test_support import seed_historical_requirement
+from runtime.api.qa_transition_test_support import add_bound_requirement
 from yoke_core.domain import qa
 
 
@@ -19,7 +19,7 @@ def _conn(db_path: str):
 
 class TestRunComplete:
     def test_complete_run(self, db_path, capsys):
-        req_id = seed_historical_requirement(
+        req_id = add_bound_requirement(
             db_path=db_path, item_id=100, qa_kind="smoke", qa_phase="verification"
         )
         run_id = qa.cmd_run_add(
@@ -40,7 +40,7 @@ class TestRunComplete:
         assert row["completed_at"] is not None
 
     def test_complete_with_raw_result(self, db_path, capsys):
-        req_id = seed_historical_requirement(
+        req_id = add_bound_requirement(
             db_path=db_path, item_id=100, qa_kind="smoke", qa_phase="verification"
         )
         run_id = qa.cmd_run_add(
@@ -64,7 +64,7 @@ class TestRunComplete:
         assert "assertion error" in row["raw_result"]
 
     def test_complete_with_duration(self, db_path, capsys):
-        req_id = seed_historical_requirement(
+        req_id = add_bound_requirement(
             db_path=db_path, item_id=100, qa_kind="smoke", qa_phase="verification"
         )
         run_id = qa.cmd_run_add(
@@ -92,7 +92,7 @@ class TestRunComplete:
 
 class TestRunList:
     def test_list_all(self, db_path, capsys):
-        req_id = seed_historical_requirement(
+        req_id = add_bound_requirement(
             db_path=db_path, item_id=100, qa_kind="smoke", qa_phase="verification"
         )
         for verdict in ("pass", "fail"):
@@ -107,10 +107,10 @@ class TestRunList:
         assert len(qa.cmd_run_list(db_path=db_path)) == 2
 
     def test_list_by_requirement(self, db_path, capsys):
-        r1 = seed_historical_requirement(
+        r1 = add_bound_requirement(
             db_path=db_path, item_id=100, qa_kind="smoke", qa_phase="verification"
         )
-        r2 = seed_historical_requirement(
+        r2 = add_bound_requirement(
             db_path=db_path, item_id=200, qa_kind="e2e", qa_phase="verification"
         )
         qa.cmd_run_add(
@@ -137,7 +137,7 @@ class TestRunList:
 
 class TestRunGet:
     def test_get_existing(self, db_path, capsys):
-        req_id = seed_historical_requirement(
+        req_id = add_bound_requirement(
             db_path=db_path, item_id=100, qa_kind="smoke", qa_phase="verification"
         )
         run_id = qa.cmd_run_add(

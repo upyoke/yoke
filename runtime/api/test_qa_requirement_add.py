@@ -23,7 +23,7 @@ class TestRequirementAdd:
         rid = add_bound_requirement(
             db_path=db_path,
             item_id=10,
-            qa_kind="implementation_review",
+            qa_kind="unit_test",
             qa_phase="verification",
         )
         assert isinstance(rid, int)
@@ -35,18 +35,19 @@ class TestRequirementAdd:
             epic_id=5,
             task_num=3,
             qa_kind="implementation_review",
-            qa_phase="post_deploy",
+            qa_phase="verification",
         )
         assert rid > 0
 
-    def test_add_with_deployment_run_id(self, db_path: str) -> None:
-        rid = qa.cmd_requirement_add(
-            db_path=db_path,
-            deployment_run_id="run-abc",
-            qa_kind="implementation_review",
-            qa_phase="manual_acceptance",
-        )
-        assert rid > 0
+    def test_add_with_deployment_run_id(self, db_path):
+        with pytest.raises(SystemExit) as exc:
+            qa.cmd_requirement_add(
+                db_path=db_path,
+                deployment_run_id="run-unbound",
+                qa_kind="ac_verification",
+                qa_phase="post_deploy",
+            )
+        assert exc.value.code == 2
 
     def test_missing_qa_kind_exits(self, db_path: str) -> None:
         with pytest.raises(SystemExit) as exc:
@@ -62,7 +63,7 @@ class TestRequirementAdd:
         with pytest.raises(SystemExit) as exc:
             add_bound_requirement(
                 db_path=db_path,
-                qa_kind="implementation_review",
+                qa_kind="unit_test",
                 qa_phase="verification",
             )
         assert exc.value.code == 2
@@ -73,7 +74,7 @@ class TestRequirementAdd:
                 db_path=db_path,
                 item_id=10,
                 deployment_run_id="run-abc",
-                qa_kind="implementation_review",
+                qa_kind="unit_test",
                 qa_phase="verification",
             )
         assert exc.value.code == 2
@@ -83,7 +84,7 @@ class TestRequirementAdd:
             add_bound_requirement(
                 db_path=db_path,
                 epic_id=5,
-                qa_kind="implementation_review",
+                qa_kind="unit_test",
                 qa_phase="verification",
             )
         assert exc.value.code == 2
@@ -92,7 +93,7 @@ class TestRequirementAdd:
         rid = add_bound_requirement(
             db_path=db_path,
             item_id=10,
-            qa_kind="implementation_review",
+            qa_kind="unit_test",
             qa_phase="verification",
             target_env="stage",
             blocking_mode="non_blocking",
@@ -118,7 +119,7 @@ class TestRequirementAdd:
             add_bound_requirement(
                 db_path=db_path,
                 item_id=10,
-                qa_kind="implementation_review",
+                qa_kind="unit_test",
                 qa_phase="verification",
                 capability_requirements=value,
             )
@@ -131,7 +132,7 @@ class TestRequirementAdd:
             add_bound_requirement(
                 db_path=db_path,
                 item_id=10,
-                qa_kind="implementation_review",
+                qa_kind="unit_test",
                 qa_phase="verification",
                 requirement_source="agent",
             )

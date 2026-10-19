@@ -162,7 +162,10 @@ def cmd_requirement_add(
         from yoke_core.domain.qa_requirement_proof import proof_refusal
 
         refused = proof_refusal(
-            row, subject=f"item {binding_item_id or deployment_run_id}"
+            row,
+            subject=f"item {binding_item_id or deployment_run_id}",
+            conn=conn,
+            item_id=binding_item_id,
         )
         if refused:
             _exit_policy_errors([refused])

@@ -43,7 +43,10 @@ def insert_params(
     from yoke_core.domain.qa_requirement_proof import proof_refusal
 
     refusal = proof_refusal(
-        row, subject=f"item {item_id or epic_id or deployment_run_id}"
+        row,
+        subject=f"item {item_id or epic_id or deployment_run_id}",
+        conn=conn,
+        item_id=item_id or epic_id,
     )
     if refusal:
         raise ValueError(refusal)

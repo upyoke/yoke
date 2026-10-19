@@ -37,6 +37,14 @@ def validate_workflow_transition(
             jsonpath=f"{jsonpath}.workflow_transition_id",
         )
     row["workflow_transition_id"] = transition_id
+    from yoke_core.domain.qa_requirement_proof import proof_refusal
+    from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
+    refusal = proof_refusal(
+        row, subject=item_ref_for_id(item_id), conn=conn, item_id=item_id
+    )
+    if refusal:
+        return _error("requirement_proof_required", refusal, jsonpath=jsonpath)
     return None
 
 
