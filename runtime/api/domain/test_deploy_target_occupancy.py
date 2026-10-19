@@ -1,6 +1,9 @@
 # ruff: noqa: F811
 """A run occupies the server origins it deploys to until its QA settles.
 
+A run still before its first QA stage is deploying and occupies them
+whatever its QA would owe, including a memberless run that owes none.
+
 Exercised through the real start transition (``status -> executing``) on the
 shared deployment-runs fixture, with a second project whose environment
 record names the same host under a different spelling.
@@ -55,6 +58,15 @@ def _start(db_path: str, run_id: str):
     return dr.cmd_update(run_id, "status", "executing", db_path=db_path)
 
 
+def _at_stage(db_path: str, run_id: str, stage: str) -> None:
+    conn = connect_test_db(db_path)
+    conn.execute(
+        "UPDATE deployment_runs SET current_stage=%s WHERE id=%s", (stage, run_id)
+    )
+    conn.commit()
+    conn.close()
+
+
 def _qa_open(monkeypatch: pytest.MonkeyPatch, lines: tuple[str, ...]) -> None:
     monkeypatch.setattr(
         outstanding,
@@ -84,6 +96,7 @@ def test_second_run_on_an_occupied_origin_refuses_naming_the_holder(
     _qa_open(monkeypatch, ("member WEB-1: verdict not recorded",))
     holder = dr.cmd_create_run("externalwebapp", "web-stage", db_path=db_path)
     assert _start(db_path, holder) is None
+    _at_stage(db_path, holder, "item-qa")
     second = dr.cmd_create_run("yoke", "yoke-stage", db_path=db_path)
 
     refusal = _start(db_path, second)
@@ -102,10 +115,32 @@ def test_occupancy_releases_once_qa_settles(
     _qa_open(monkeypatch, ("member WEB-1: verdict not recorded",))
     holder = dr.cmd_create_run("externalwebapp", "web-stage", db_path=db_path)
     assert _start(db_path, holder) is None
+    _at_stage(db_path, holder, "item-qa")
     second = dr.cmd_create_run("yoke", "yoke-stage", db_path=db_path)
     assert _start(db_path, second) is not None
 
     _qa_open(monkeypatch, ())
+
+    assert _start(db_path, second) is None
+
+
+def test_a_memberless_run_still_deploying_occupies_until_its_deploy_is_done(
+    db_path: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(db_path)
+    _qa_open(monkeypatch, ())
+    holder = dr.cmd_create_run("externalwebapp", "web-stage", db_path=db_path)
+    assert _start(db_path, holder) is None
+    _at_stage(db_path, holder, "deploy")
+    second = dr.cmd_create_run("yoke", "yoke-stage", db_path=db_path)
+
+    refusal = _start(db_path, second)
+
+    assert refusal is not None and "target_occupied" in refusal
+    assert holder in refusal and "deploying: stage deploy" in refusal
+    assert dr.cmd_get(second, field="status", db_path=db_path) == "created"
+
+    _at_stage(db_path, holder, "complete")
 
     assert _start(db_path, second) is None
 

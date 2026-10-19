@@ -3,9 +3,12 @@
 A run's QA walks the build it froze. Deploying a different build to the
 same server while that walk is open makes every verdict it records describe
 a build nobody is serving any more. So a run *occupies* each server it
-targets from the moment it starts executing until its QA stages settle or
-the run reaches a terminal status, and a second run that would deploy to an
-occupied server refuses before it changes anything.
+targets from the moment it starts executing until its cursor reaches its QA
+stages and they settle, or the run reaches a terminal status, and a second
+run that would deploy to an occupied server refuses before it changes
+anything. A run still in a stage before its first QA stage is deploying, so
+it occupies its servers whatever its QA would later owe: a memberless run
+whose QA owes nothing still holds them until its deploy stages are done.
 
 The unit is the server's origin (``scheme://host[:port]``), not the
 environment record and not the project: two environment records in two
@@ -126,22 +129,27 @@ def _open_qa_lines(
     """QA lines *target* still waits on; empty once every QA stage settled.
 
     ``None`` means the run has no QA stage, so only a terminal status
-    releases it. A stage that cannot be evaluated counts as open: an
-    unreadable answer is not a settled one.
+    releases it. A run whose cursor has not reached its first QA stage is
+    still deploying and answers that one line. A stage that cannot be
+    evaluated counts as open: an unreadable answer is not a settled one.
     """
     from yoke_core.domain.deployment_qa_stage_outstanding import (
         qa_stage_outstanding,
         first_waiting_qa_stage,
     )
 
+    names = [str(stage.get("name") or "") for stage in target.stages]
     qa_stages = [
-        str(stage.get("name") or "")
-        for stage in target.stages
+        name
+        for name, stage in zip(names, target.stages)
         if stage.get("stage_kind") == STAGE_KIND_QA
         and stage.get("step_runner") == QA_STEP_RUNNER
     ]
     if not qa_stages:
         return None
+    current = target.current_stage
+    if current not in names or names.index(current) < names.index(qa_stages[0]):
+        return (f"deploying: stage {current or 'not started'}",)
     lines: list[str] = []
     for name in qa_stages:
         read_stage = first_waiting_qa_stage if first_wait else qa_stage_outstanding
@@ -231,8 +239,9 @@ def occupied_refusal(run_id: str, held: list[Occupancy]) -> str:
     """The refusal naming each holder, its open QA, and the recovery."""
     lines = [
         f"deployment run {run_id} refused: target_occupied. Another run is "
-        "still being verified on a server this run would deploy to, and "
-        "deploying now would replace the build its QA is walking."
+        "still deploying to or being verified on a server this run would "
+        "deploy to, and deploying now would replace the build it is putting "
+        "there or the build its QA is walking."
     ]
     for occupancy in held:
         lines.append(
@@ -245,7 +254,8 @@ def occupied_refusal(run_id: str, held: list[Occupancy]) -> str:
             lines.append(f"    … {len(occupancy.open_requirements) - 10} more")
     holders = sorted({occupancy.run_id for occupancy in held})
     lines.append(
-        "Recovery: re-run this start once the holder's QA settles "
+        "Recovery: re-run this start once the holder finishes deploying and "
+        "its QA settles "
         f"(`yoke deployment-runs stages {holders[0]}` shows it). A holder on "
         "this run's flow and target that now waits only on item QA is taken "
         "over during creation only when its remaining stages are QA, approval, "
