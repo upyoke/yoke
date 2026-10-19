@@ -52,7 +52,7 @@ from yoke_core.domain.project_identity import (
 )
 from yoke_core.domain.deployment_run_composition_guard import has_frozen_composition
 from yoke_core.domain.deployment_run_reopened_members import (
-    set_aside_reopened_members,
+    frozen_member_readiness,
     unready_item_ids,
 )
 
@@ -175,32 +175,26 @@ def cmd_validate_composition(
             )
 
         # Check 2: Every item is delivery-ready for its pinned workflow.
-        delivery_candidates = query_rows(
-            conn,
-            "SELECT i.id, i.status "
-            "FROM deployment_run_items dri "
-            "JOIN items i ON dri.item_id = i.id "
-            "WHERE dri.run_id=%s",
-            (run_id,),
-        )
         # A frozen run already deployed its members' landed code; one that
         # reopened since is set aside or refused by name, never re-admitted.
-        status_of = {int(row[0]): str(row[1]) for row in delivery_candidates}
-        unready = unready_item_ids(conn, delivery_candidates, allow_completed=True)
         set_aside = ""
-        if unready and has_frozen_composition(conn, run_id):
-            not_passed, set_aside = set_aside_reopened_members(
-                conn, run_id, [(i, status_of[i]) for i in unready]
-            )
+        if has_frozen_composition(conn, run_id):
+            not_passed, set_aside = frozen_member_readiness(conn, run_id)
             delivery_candidates = query_rows(
                 conn,
                 "SELECT item_id, '' FROM deployment_run_items WHERE run_id=%s",
                 (run_id,),
             )
         else:
-            not_passed = [
-                _item_label(conn, i, f"status={status_of[i]}") for i in unready
-            ]
+            delivery_candidates = query_rows(
+                conn,
+                "SELECT i.id, i.status FROM deployment_run_items dri "
+                "JOIN items i ON dri.item_id = i.id WHERE dri.run_id=%s",
+                (run_id,),
+            )
+            not_passed = _not_delivery_ready(
+                conn, delivery_candidates, allow_completed=True
+            )
         if not_passed:
             errors.append(
                 "Items not delivery-ready for their pinned workflow: "
@@ -226,7 +220,11 @@ def cmd_validate_composition(
         if composition_result is not None:
             composition_result["enrolled"] = enrolled
         carried_refusal = carried_membership_refusal(
-            conn, run_id, custody=custody, enrollment_error=enrollment_error
+            conn,
+            run_id,
+            carried_work=carried,
+            custody=custody,
+            enrollment_error=enrollment_error,
         )
         if carried_refusal:
             errors.append(carried_refusal)

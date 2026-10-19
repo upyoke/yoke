@@ -5,8 +5,9 @@ host, which takes seconds to minutes. Creation serializes on a global lock, so
 those reads ran once per create while every concurrent create waited. Now the
 same validator runs twice inside one read scope: once before the lock on a
 provisional row that is rolled back, and once under the lock on the real row.
-The locked pass reuses the branch heads and comparisons the first pass
-resolved and re-checks only database facts.
+The locked pass reuses the branch heads, comparisons and per-project carried
+work the first pass resolved, and re-reads custody, membership and readiness,
+which are the facts the lock protects.
 """
 
 from __future__ import annotations

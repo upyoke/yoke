@@ -52,6 +52,19 @@ def member_removed(execution: Any) -> bool:
     )
 
 
+def member_removal_pending(execution: Any) -> bool:
+    """Whether a removed member's execution still holds its host for cleanup.
+
+    Removal records a cooperative abort instead of finishing an execution
+    whose host may be dirty; the execution stays live under that request
+    until its runner's restore proof or walk-end teardown settles it.
+    """
+    from yoke_core.domain.qa_plan_execution_abort_state import abort_request
+
+    request = abort_request(execution) if isinstance(execution, dict) else None
+    return abort_reason_code((request or {}).get("reason")) == MEMBER_REMOVED_REASON
+
+
 def case_failed_reason(requirement_ids: list[int]) -> str:
     """Name the failed cases, listing as many as the reason column holds."""
     prefix = f"{CASE_FAILED_REASON}{REASON_DETAIL_SEPARATOR}requirements "
@@ -76,5 +89,6 @@ __all__ = [
     "UNUSABLE_BEGIN_REASON",
     "abort_reason_code",
     "case_failed_reason",
+    "member_removal_pending",
     "member_removed",
 ]

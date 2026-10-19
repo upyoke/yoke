@@ -29,7 +29,6 @@ def consumed_stage(
         if current == "complete" or (position >= 0 and index < position):
             return name
         # Pending provider ambiguity already consumes the source.
-        request_id = workflow_dispatch_request_id(str(owner), run_id, name)
         if not _table_exists(conn, "github_workflow_dispatch_intents"):
             if not current:
                 continue
@@ -37,12 +36,35 @@ def consumed_stage(
                 f"bound_source_consumption_unverified: {run_id} has no durable dispatch store; "
                 "create a new run rather than changing a potentially consumed source"
             )
-        if conn.execute(
-            "SELECT 1 FROM github_workflow_dispatch_intents WHERE (request_id=%s OR LEFT(request_id,%s)=%s) AND state<>'rejected' LIMIT 1",
-            (request_id, len(request_id) + 1, request_id + ":"),
-        ).fetchone():
+        if _dispatch_recorded(conn, str(owner), run_id, name):
             return name
     return ""
+
+
+def _dispatch_recorded(conn: Any, owner: str, run_id: str, stage_name: str) -> bool:
+    request_id = workflow_dispatch_request_id(owner, run_id, stage_name)
+    return bool(
+        conn.execute(
+            "SELECT 1 FROM github_workflow_dispatch_intents WHERE (request_id=%s OR LEFT(request_id,%s)=%s) AND state<>'rejected' LIMIT 1",
+            (request_id, len(request_id) + 1, request_id + ":"),
+        ).fetchone()
+    )
+
+
+def stage_dispatched(conn: Any, run_id: str, stage_name: str) -> bool:
+    """Whether this run itself recorded a provider dispatch for the stage.
+
+    A re-drive of that stage reattaches to the started workflow, so its sealed
+    inputs stay authoritative however the bound branch moved since. A retry
+    run copies consumption but never this run's dispatch intent.
+    """
+    if not _table_exists(conn, "github_workflow_dispatch_intents"):
+        return False
+    owner = conn.execute(
+        "SELECT p.slug FROM deployment_runs dr JOIN projects p ON p.id=dr.project_id WHERE dr.id=%s",
+        (run_id,),
+    ).fetchone()[0]
+    return _dispatch_recorded(conn, str(owner), run_id, stage_name)
 
 
 def source_consumed_by(conn: Any, run_id: str, entry: dict[str, Any]) -> str:

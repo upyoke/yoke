@@ -6,6 +6,7 @@ from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
 from yoke_core.domain.qa_plan_attachment_retract import retract_requirements
+from yoke_core.domain.qa_plan_execution_abort_state import abort_request
 from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
 from yoke_core.domain.qa_plan_execution_schema import (
     LIVE_PLAN_EXECUTION_SQL,
@@ -16,7 +17,10 @@ from yoke_core.domain.schema_common import _table_exists
 
 
 def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> None:
-    """Abort live cursors and retract unfulfilled run obligations without committing."""
+    """Abort live cursors and retract unfulfilled run obligations without committing.
+
+    A cursor already settling through a recorded abort is left to that abort.
+    """
     executions = [
         lock_plan_execution(conn, str(row["id"]))
         for row in (
@@ -30,8 +34,12 @@ def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> None:
             else []
         )
     ]
+    # An execution already under a cooperative abort keeps its held host
+    # until its own cleanup proof settles it (a removed member's walk, say).
     executions = [
-        e for e in executions if e["state"] not in TERMINAL_PLAN_EXECUTION_STATES
+        e
+        for e in executions
+        if e["state"] not in TERMINAL_PLAN_EXECUTION_STATES and abort_request(e) is None
     ]
     # Clear queue intents together before a released host can grant the next
     # cursor from this same closed run.

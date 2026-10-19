@@ -60,7 +60,11 @@ within a composition operation, and so are the repository reads: each bound
 branch head resolves once, and each project's commit comparison against its
 preceding release runs once however many readers ask. The execution context
 records bound sources and validates composition on one connection, so its
-validation reuses the heads the record resolved. A comparison whose preceding
+validation reuses the heads the record resolved. A re-drive of a run whose
+composition is frozen skips that validation. It only sets aside or refuses
+members that left delivery readiness since the freeze, and refuses a run left
+with no member its item-scoped QA can prove (timing step
+`context_frozen_composition`). A comparison whose preceding
 release changed is a different answer and is derived again. Catalog probes
 share table and column answers only inside that operation and only for the
 same connection. Exiting, including
@@ -69,7 +73,10 @@ Mutable member status/intent is read afresh. Freeze reuses one custody resolutio
 for both membership and completion-authority checks; unknown custody still refuses.
 
 Create validates provisionally before the creation lock, rolls that transaction
-back, then validates again under the lock. Each enrollment pass first pins
+back, then validates again under the lock. The locked pass reuses each
+project's carried-work comparison from the provisional pass when its commits and
+preceding release are unchanged; custody, membership and readiness are read
+again under the lock. Each enrollment pass first pins
 members' completion flows, reads their outstanding intake together, and locks selected requirements in ID
 order. It reads attachments together, locks distinct plans in ID order, and
 reads their cases once. Every member still passes the existing ownership,
