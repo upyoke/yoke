@@ -3,7 +3,8 @@
 The Account step opens on one picker of local, existing/new team-server, and
 hosted homes. The answer changes only the connection lane: local swaps sign-in
 for the universe summary (birth runs at Apply), an existing server collects a
-URL then discovers company sign-in or token entry; hosted rows use browser approval. The closing test
+URL then offers company sign-in or own-machine/invite/token choices; hosted rows
+use browser approval. The closing test
 drives the real apply seam end to end (picker → local → Apply) against a
 scratch machine home with the embedded-Postgres engine stubbed, and proves
 the written config matches what ``yoke init --local`` lands.
@@ -175,10 +176,17 @@ def test_server_pick_discovers_sign_in_before_explicit_token_entry() -> None:
             await pilot.press("enter")
             text = _body_text(app)
             assert "Connect to your team server." in text
-            assert "company sign-in or API tokens" in text
+            assert "checks how this machine can join your team" in text
             await type_text(pilot, "https://yoke.acme.test")
             await pilot.press("enter")  # URL -> sign-in discovery
             await app.workers.wait_for_complete()
+            await pilot.pause()
+            text = _body_text(app)
+            assert "How should this machine join your team server?" in text
+            assert "This is my own machine" in text
+            assert "Enter invite code" in text
+            assert "Use an API token" in text
+            await pilot.press("down", "down", "enter")
             await pilot.pause()
             text = _body_text(app)
             assert "Connect to your Yoke team server." in text

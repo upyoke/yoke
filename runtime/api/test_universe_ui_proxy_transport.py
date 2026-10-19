@@ -79,6 +79,14 @@ ARTIFACT_ENVELOPE = {
     "payload": {"artifact_id": 18718},
 }
 
+TEAM_MACHINE_FUNCTIONS = (
+    "identity.invite.list",
+    "teammate_invites.list",
+    "machine_authorization.pending",
+    "identity.invite.create",
+    "teammate_invites.create",
+)
+
 
 def test_an_artifact_read_goes_to_the_server_over_https(relayed):
     """The failure this prevents: evidence the control plane serves fine
@@ -112,11 +120,39 @@ def test_a_local_connection_still_dispatches_in_process(local):
     assert kwargs["ambient_session_id"] == ""
 
 
-def test_the_local_operator_still_fills_an_actor_bound_read(local):
-    function_proxy.proxy_function_call({"function": "inbox.list", "payload": {}})
+@pytest.mark.parametrize("function_id", ("inbox.list", *TEAM_MACHINE_FUNCTIONS))
+def test_actor_scoped_calls_bind_the_local_operator(local, function_id):
+    _, status = function_proxy.proxy_function_call(
+        {
+            "function": function_id,
+            "payload": {},
+            "actor": {"actor_id": "999", "session_id": "forged-session"},
+        }
+    )
 
-    _, request, _ = local.calls[0]
+    assert status == 200
+    _, request, kwargs = local.calls[0]
     assert request.actor.actor_id == "2"
+    assert request.actor.session_id == ""
+    assert kwargs["ambient_session_id"] == ""
+
+
+@pytest.mark.parametrize("function_id", TEAM_MACHINE_FUNCTIONS)
+def test_actor_scoped_calls_refuse_without_an_operator(local, monkeypatch, function_id):
+    monkeypatch.setattr(
+        "yoke_core.ui.local_operator_actor.resolve_local_operator_actor",
+        lambda: None,
+    )
+    payload, status = function_proxy.proxy_function_call(
+        {
+            "function": function_id,
+            "payload": {},
+            "actor": {"actor_id": "999", "session_id": "forged-session"},
+        }
+    )
+    assert status == 403
+    assert payload["error"]["code"] == "operator_actor_unresolved"
+    assert local.calls == []
 
 
 def test_level_capacity_binds_a_numeric_local_operator(local):
@@ -164,13 +200,15 @@ def test_a_function_off_the_roster_is_refused_on_either_transport(
     assert relayed.calls == []
 
 
-def test_a_caller_supplied_actor_never_travels_to_the_server(relayed):
+@pytest.mark.parametrize("function_id", ("qa.artifact.read", *TEAM_MACHINE_FUNCTIONS))
+def test_a_caller_supplied_actor_never_travels_to_the_server(relayed, function_id):
     """A loopback session token stands for a machine, not a person. An
     actor named in the envelope is a claim, and the relay's own credential
     is the only identity the server may act on."""
     function_proxy.proxy_function_call(
         {
-            **ARTIFACT_ENVELOPE,
+            **(ARTIFACT_ENVELOPE if function_id == "qa.artifact.read" else {}),
+            "function": function_id,
             "actor": {"actor_id": "999", "session_id": "forged-session"},
         }
     )
