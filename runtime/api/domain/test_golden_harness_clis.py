@@ -17,9 +17,11 @@ class FakeHost:
         self.installs_update = installs_update
         self.files = {}
         self.commands = []
+        self.contexts = []
 
-    def run_command(self, argv, timeout):
+    def run_command(self, argv, timeout, **context):
         self.commands.append(list(argv))
+        self.contexts.append(context)
         if argv[0] == "/usr/bin/python3":
             return subprocess.CompletedProcess(argv, 0, json.dumps(self.versions), "")
         if self.install_exit == 0 and self.installs_update:
@@ -103,3 +105,13 @@ def test_install_refuses_when_the_latest_cli_does_not_resolve(host, code):
     assert not installed.ok
     assert installed.error_code == code
     assert installed.evidence["recovery"]
+
+
+@pytest.mark.parametrize("os_name,context", [("macos", "gui"), ("linux", None)])
+def test_macos_reads_versions_in_the_gui_session(os_name, context):
+    # Cursor's agent refuses even --version over plain SSH on macOS while the
+    # login keychain is locked to that session.
+    host = FakeHost(LATEST)
+    host.os = os_name
+    assert clis.probe_harness_cli_versions(host) == LATEST
+    assert host.contexts[0].get("required_session_context") == context

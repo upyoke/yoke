@@ -17,6 +17,7 @@ from yoke_contracts.harness_cli_releases import (
     VERSION_TOKEN_PATTERN,
     outdated_harness_clis,
 )
+from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
 from yoke_harness.test_machine_types import HostActionResult
 
 GOLDEN_HARNESS_CLIS_SUFFIX = ".harness-clis"
@@ -47,8 +48,14 @@ print(json.dumps(versions))
 
 
 def probe_harness_cli_versions(control: Any) -> dict[str, str | None]:
-    """Return each harness id's live CLI version on the host, or None."""
+    """Return each harness id's live CLI version on the host, or None.
+
+    macOS keychain-backed CLIs (Cursor's agent) refuse even ``--version`` over
+    plain SSH with a locked-keychain error, so a macOS host answers from its
+    logged-in GUI session, as its baseline probes do.
+    """
     harnesses = [[r.harness_id, list(r.executables)] for r in HARNESS_CLI_RELEASES]
+    gui = getattr(control, "os", None) == "macos"
     result = control.run_command(
         [
             "/usr/bin/python3",
@@ -58,6 +65,7 @@ def probe_harness_cli_versions(control: Any) -> dict[str, str | None]:
             json.dumps(harnesses),
         ],
         timeout=VERSION_PROBE_TIMEOUT_SECONDS,
+        **({"required_session_context": GUI_SESSION_CONTEXT} if gui else {}),
     )
     if result.returncode != 0:
         raise RuntimeError(
@@ -65,7 +73,8 @@ def probe_harness_cli_versions(control: Any) -> dict[str, str | None]:
             f"CLI versions (exit {result.returncode}); repair SSH and "
             "/usr/bin/python3 on the host, then retry"
         )
-    observed = json.loads(result.stdout)
+    lines = result.stdout.strip().splitlines()
+    observed = json.loads(lines[-1] if lines else "")
     return {r.harness_id: observed.get(r.harness_id) for r in HARNESS_CLI_RELEASES}
 
 
