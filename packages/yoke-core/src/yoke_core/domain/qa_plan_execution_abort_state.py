@@ -42,6 +42,12 @@ def require_host_restored(conn, execution, *, reason, commit):
     prior = str(execution.get("release_reason") or "")
     if not request and not prior.startswith(PAUSE_REASON):
         return  # Admission alone never starts credential-local host work.
+    if not request:
+        checkpoint = json.loads(prior[len(PAUSE_REASON) :])
+        if not any(
+            key in checkpoint for key in ("case_inflight", "checkin_cursor", "phase")
+        ):
+            return  # Admission without a runner check-in never starts host work.
     ordinal = (
         int(request["ordinal"])
         if request

@@ -225,8 +225,9 @@ request, proves recovery. Reset retains custody; abort performs normal capture,
 review and lease settlement. A stale or failed reset cannot release custody.
 Without a declared baseline, recover the runner's no-restore cleanup receipt.
 Preserve the execution, capture and restore diagnostics. A liveness heartbeat
-does not mark an unstarted case in flight; host-case admission records that
-boundary only after acquiring the host.
+does not mark the next case in flight. Host-case admission identifies its
+cursor; only a subsequent check-in for that admitted cursor marks host work
+in flight. Admission alone does not require restoration.
 
 ## Recover communication on the frozen execution
 

@@ -182,7 +182,13 @@ def resume_execution(conn: Any, execution: dict) -> dict:
 
 
 def resume_if_paused(conn, execution):
-    if not str(execution.get("release_reason") or "").startswith(PAUSE_REASON):
+    reason = str(execution.get("release_reason") or "")
+    if not reason.startswith(PAUSE_REASON):
+        return False
+    checkpoint = json.loads(reason[len(PAUSE_REASON) :])
+    if checkpoint.get("resumed") is True and not any(
+        key in checkpoint for key in ("case_inflight", "checkin_cursor")
+    ):
         return False
     resume_execution(conn, execution)
     return True
@@ -207,9 +213,16 @@ def inflight_checkpoint(execution):
     return PAUSE_REASON + canonical(evidence)
 
 
-def record_case_started(conn, execution):
-    """Persist action uncertainty only after the case acquires its host."""
-    checkpoint = inflight_checkpoint(execution)
+def record_case_admitted(conn, execution):
+    """Remember which cursor acquired the host without claiming it ran."""
+    reason = str(execution.get("release_reason") or "")
+    evidence = (
+        json.loads(reason[len(PAUSE_REASON) :])
+        if reason.startswith(PAUSE_REASON)
+        else {}
+    )
+    evidence.update(resumed=True, case_admitted=int(execution["cursor_ordinal"]))
+    checkpoint = PAUSE_REASON + canonical(evidence)
     conn.execute(
         f"UPDATE qa_plan_executions SET release_reason={marker(conn)} WHERE id={marker(conn)}",
         (checkpoint, str(execution["id"])),
@@ -226,5 +239,8 @@ def heartbeat_checkpoint(execution):
         if reason.startswith(PAUSE_REASON)
         else {}
     )
-    evidence.update(resumed=True, checkin_cursor=int(execution["cursor_ordinal"]))
+    cursor = int(execution["cursor_ordinal"])
+    if evidence.get("case_admitted") == cursor:
+        evidence["case_inflight"] = cursor
+    evidence.update(resumed=True, checkin_cursor=cursor)
     return PAUSE_REASON + canonical(evidence)

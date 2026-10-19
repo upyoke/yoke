@@ -84,7 +84,17 @@ def failed_restore(test_db, tmp_path, monkeypatch):
     assert ready.primary_success, ready.error
     issued = ready.result_payload["execution"]
     current = lock_plan_execution(test_db, execution["id"])
+    assert "case_inflight" not in json.loads(current["release_reason"].split(":", 1)[1])
+    heartbeat_plan_execution(test_db, current)
     assert json.loads(current["release_reason"].split(":", 1)[1])["case_inflight"] == 0
+    with pytest.raises(QaPlanExecutionStateError, match="qa_pause_unconfirmed"):
+        begin_plan_execution(
+            test_db,
+            item_id=item_id,
+            transition_id="reviewing-implementation",
+            actor_id=ACTOR.actor_id,
+            session_id=ACTOR.session_id,
+        )
     submitted = handle_plan_case_submit(
         _request(
             "test_machine.plan_case.submit",

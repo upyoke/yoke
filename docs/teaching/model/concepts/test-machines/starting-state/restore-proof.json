@@ -5,5 +5,5 @@
  "page": "test-machines",
  "position": 2,
  "sources": ["docs/public/verification/deployment-plan-execution.md"],
- "summary": "A pending host abort retains custody until cleanup is proven. After stopping a failed runner, its lease holder or a covering steering seat may reset every held host to the interrupted baseline. Only successful same-lease, same-machine reset receipts after cancellation permit normal abort settlement; heartbeat alone never marks an unstarted case in flight."
+ "summary": "A pending host abort retains custody until cleanup is proven. After stopping a failed runner, its lease holder or a covering steering seat may reset every held host to the interrupted baseline. Only successful same-lease, same-machine reset receipts after cancellation permit normal abort settlement; pre-case heartbeat never marks the next case in flight. Host admission binds the cursor; its subsequent check-in marks host work in flight, while admission alone requires no restoration."
 }
