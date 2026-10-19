@@ -40,13 +40,9 @@ def notify_correction(
     scope = (
         f" --member {render_item_ref(conn, int(member))}" if member is not None else ""
     )
-    from yoke_core.domain.qa_resume_machine import correction_machine
-
-    machine = correction_machine(conn, replacements)
-    pin = f" --machine {machine}" if machine else ""
     command = (
         f"yoke watch qa-plan -- --deployment-run-id {run_id} --stage {stage}"
-        f"{scope} --project {project.slug}{pin}"
+        f"{scope} --project {project.slug}"
     )
     body = (
         f"Corrected QA requirement(s) {', '.join(map(str, ids))} are ready "

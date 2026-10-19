@@ -171,12 +171,15 @@ Machine still holds every bit of state the walk built. The way back in is a
 continuation:
 
 ```text
-yoke qa plan run --item PREFIX-N --transition T --machine NAME --continue-mission
+yoke qa plan run --item PREFIX-N --transition T --continue-mission
 ```
 
-Use the host name from the emitted continuation command; it comes from the
-settled execution's durable host evidence. Host-wait and correction-ready
-commands also carry `--machine NAME`; keep that pin when resuming.
+Host-wait and continuation commands omit `--machine`. The scheduler recovers
+each platform's original host from the execution's recorded leases and runs,
+including its continuation source. A platform not used before selects a fresh
+eligible host; a global pin cannot represent a roster using several hosts.
+Correction-ready commands also omit the pin; scheduling recovers each corrected
+case's failed attempt host from its requirement replacement history.
 
 A continuation is an ordinary new execution over the same roster, recording
 its own runs, with one difference: it reaches no host baseline, so the host

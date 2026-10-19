@@ -244,9 +244,7 @@ def resolve_continuation_source(
     return str(prior["id"])
 
 
-def continuation_recipe(
-    conn: Any, execution: Mapping[str, Any], *, machine: str | None = None
-) -> str:
+def continuation_recipe(conn: Any, execution: Mapping[str, Any]) -> str:
     """Render the exact command that continues *execution*'s walk."""
     if execution.get("item_id") is not None:
         from yoke_core.domain.project_identity import render_item_ref
@@ -275,11 +273,7 @@ def continuation_recipe(
             f"--deployment-run-id {str(execution.get('deployment_run_id') or '')}"
             f"{plan} --project {_project_slug(execution)}{scope}"
         )
-    from yoke_core.domain.qa_resume_machine import execution_machine
-
-    machine = machine or execution_machine(conn, execution)
-    pin = f" --machine {machine}" if machine else ""
-    return f"yoke qa plan run {subject}{pin} {CONTINUATION_FLAG}"
+    return f"yoke qa plan run {subject} {CONTINUATION_FLAG}"
 
 
 def mission_access_refusal(conn: Any, execution: Mapping[str, Any]) -> str:

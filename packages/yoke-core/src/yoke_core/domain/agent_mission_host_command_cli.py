@@ -129,7 +129,7 @@ def run(args: list[str]) -> int:
             "heartbeating, and if the park outlives the session the stale "
             "sweep settles the execution. This command then refuses with "
             "agent_mission_access_failed, and that refusal carries the exact "
-            "`yoke qa plan run ... --machine NAME --continue-mission` command that resumes "
+            "`yoke qa plan run ... --continue-mission` command that resumes "
             "the walk on the same host without re-running its baseline. Run "
             "the command the refusal names; do not start a fresh plan run, "
             "which resets the host and destroys the state you walked into."

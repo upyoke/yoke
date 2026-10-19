@@ -113,7 +113,7 @@ def test_execution_honors_case_machine_with_or_without_specific_capability_snaps
         None,
     )
     assert resolve_case_machine(context, None) == "mac-mini-lab"
-    assert resolve_plan_machine([context], None) == "mac-mini-lab"
+    assert resolve_plan_machine([context], None) is None
     with pytest.raises(MachineConstraintError, match=MACHINE_CONSTRAINT_MISMATCH):
         begin_plan_execution(
             test_db,
@@ -190,23 +190,15 @@ def test_run_pin_must_satisfy_case_and_roster_constraints() -> None:
     assert resolve_case_machine(case, None) == "mac-mini-lab"
     with pytest.raises(MachineConstraintError, match=MACHINE_CONSTRAINT_MISMATCH):
         resolve_case_machine(case, "mac-studio-lab")
-    with pytest.raises(
-        MachineConstraintError,
-        match="test_machine_plan_constraints_conflict",
-    ):
+    assert (
         resolve_plan_machine(
-            [
-                case,
-                {
-                    "case_key": "newer-generation-check",
-                    "required_capability_kinds": ["test-machine:mac-studio-lab"],
-                },
-            ],
-            None,
+            [case, {"required_capability_kinds": ["test-machine:mac-studio-lab"]}], None
         )
+        is None
+    )
 
 
-def test_configured_machine_conflicts_are_refused_without_a_run_pin() -> None:
+def test_configured_hosts_are_scheduled_without_a_global_pin() -> None:
     case = {
         "case_key": "configured-host-check",
         "required_capability_kinds": ["test-machine"],
@@ -220,9 +212,9 @@ def test_configured_machine_conflicts_are_refused_without_a_run_pin() -> None:
             {**case, "required_capability_kinds": ["test-machine:windows-lab"]},
             None,
         )
-    with pytest.raises(
-        MachineConstraintError, match="test_machine_plan_constraints_conflict"
-    ):
+    assert (
         resolve_plan_machine(
             [case, {"method_config": {"machine": "windows-lab"}}], None
         )
+        is None
+    )

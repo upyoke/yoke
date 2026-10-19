@@ -299,9 +299,9 @@ def record_host_wait(
         target,
         session_id=str(execution["session_id"]),
         actor_id=int(execution["actor_id"]),
-        resume_command=continuation_recipe(
-            conn, execution, machine=machine
-        ).removesuffix(" --continue-mission"),
+        resume_command=continuation_recipe(conn, execution).removesuffix(
+            " --continue-mission"
+        ),
         rationale=rationale,
         execution_id=execution_id,
     )

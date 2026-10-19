@@ -152,9 +152,11 @@ through the current bundle's `yoke qa plan review-submit ... --stdin`:
 
 Submit this object alone. It records no verdict or human review request,
 retains the old capture and bundle as history, and queues a new capture against
-the identical immutable target. The emitted scoped plan-run command resumes it
-with `--machine NAME` naming the waited host. Keep that pin on host-ready and
-correction-ready commands so a free host cannot replace the original one.
+the identical immutable target. Host-ready and continuation commands omit
+`--machine`, so every platform in a multi-host roster can resume. The scheduler
+returns each previously used platform to its recorded host; only a new platform
+selects a fresh eligible host. Correction-ready commands also omit the pin; scheduling retains each corrected
+case’s failed attempt host through its requirement replacement history.
 Use a verdict only after the required host was available and the walk ran.
 
 Exploratory mission `method_config` can declare an apt package fixture:
