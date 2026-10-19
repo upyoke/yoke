@@ -128,9 +128,9 @@ learns the other's part from its own skill. The split is the whole rule:
   while sibling QA holds the run open. Run QA or run approval holds
   every final member through all item QA, shared gates, and run success. This
   automatic close-out needs no delivery wake and ends an otherwise empty
-  holder session. Each member closes as the item QA walk accepts it, not
-  after the whole walk. A refused automatic close-out wakes the owner with
-  the refusal's headline and each blocking record line (bounded, with the
+  holder session. The item QA walk wakes every waiting member first, then
+  closes the members it accepted in the same pass. A refused automatic
+  close-out wakes the owner with the refusal's headline and each blocking record line (bounded, with the
   `yoke qa gate-summary --item PREFIX-N --target implemented` read), and it
   retries by itself when that blocking record settles: a recorded verdict, a
   waiver, a supersession, a plan withdrawal, or a plan execution's end re-runs
