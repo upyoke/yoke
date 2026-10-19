@@ -1,0 +1,8 @@
+{
+ "id": "setup-agent-github-sign-in-wait",
+ "title": "GitHub sign-in during agent setup's Apply still waits inside one call",
+ "status": "observed",
+ "text": "Machine browser approval in yoke setup --agent ends each call and resumes on the next. The GitHub device sign-in that Apply runs still prints a browser line and waits in the same command until the person finishes, so a caller that stops that call loses the sign-in. Making it resumable needs Apply to persist its own pending device flow; that is a separate decision routed to steering.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_github_progress.py", "packages/yoke-cli/src/yoke_cli/config/github_device_flow.py", "docs/public/start/agent-setup.md"],
+ "position": 62
+}
