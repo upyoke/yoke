@@ -63,7 +63,7 @@ def test_start_approve_poll_binds_credential_to_signed_in_member(
     assert consumed.json()["error"] == "authorization_consumed"
     assert (
         db_conn.execute(
-            "SELECT count(*) FROM decision_requests WHERE kind='machine_auth_request'"
+            "SELECT count(*) FROM decision_requests WHERE subject_type='machine_auth_request'"
         ).fetchone()[0]
         == 0
     )

@@ -12,12 +12,12 @@ Cloud and self-hosted servers share the device-code wire contract in
 Run `yoke connect https://<server>` and compare the four-character **Match code**
 with your own machine's request. Approve it from a machine already connected to
 that server with `yoke machines approve K7F2`, or use **Machines → Waiting for
-approval** in the signed-in workbench. The setup wizard's **A team server** option discovers the server's
-sign-in method before showing browser approval or API-token entry. Without
-company sign-in, a first machine uses `yoke connect https://<server> --token-stdin`
-or `--token-file PATH`; the first-boot admin token remains the bootstrap.
-Approval grants your identity, so approve only your own codes. The wizard keeps
-a teammate without company sign-in on API-token entry.
+approval** in the signed-in workbench. Approve only your own codes: approval
+grants your identity. The wizard's **A team server** discovers the sign-in method.
+Without company sign-in, teammates choose **Enter invite code** and enter the
+private code from their administrator. For bootstrap or recovery, use
+`yoke connect https://<server> --token-stdin` or `--token-file PATH`;
+the first-boot admin token connects the first machine.
 
 A person running `yoke connect` in a terminal sees an opening notice before
 Yoke opens the approval link in the default browser. Approve there, then return
