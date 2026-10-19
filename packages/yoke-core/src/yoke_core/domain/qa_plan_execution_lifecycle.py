@@ -48,18 +48,22 @@ def heartbeat_plan_execution(
     execution: dict[str, Any],
 ) -> None:
     """Refresh execution and held-machine liveness together."""
-    if execution["state"] not in {"active", "awaiting_agent_review"}:
+    from yoke_core.domain.qa_plan_execution_abort_state import abort_request
+
+    if execution["state"] not in {"active", "awaiting_agent_review"} and not (
+        execution["state"] == "waiting" and abort_request(execution)
+    ):
         raise QaPlanExecutionStateError("QA plan execution cannot heartbeat")
     require_execution_target(execution)
     from yoke_core.domain.qa_plan_execution_reentry import (
         require_execution_custody,
-        inflight_checkpoint,
+        heartbeat_checkpoint,
     )
 
     require_execution_custody(conn, execution)
     placeholder = marker(conn)
     now = utc_now()
-    checkpoint = inflight_checkpoint(execution)
+    checkpoint = heartbeat_checkpoint(execution)
     conn.execute(
         "UPDATE qa_plan_executions SET heartbeat_at="
         f"{placeholder},release_reason={placeholder} WHERE id={placeholder}",

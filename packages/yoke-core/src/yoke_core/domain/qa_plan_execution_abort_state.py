@@ -2,6 +2,8 @@
 
 import json
 
+from yoke_contracts.timestamps import format_instant, utc_now
+
 from yoke_core.domain.qa_plan_execution_store import (
     QaPlanExecutionStateError,
     canonical,
@@ -60,11 +62,12 @@ def require_host_restored(conn, execution, *, reason, commit):
             "abort` for this execution's item, deployment run or standalone "
             "project and keep its runner connected through cleanup. Retry only "
             "after cleanup proof is recorded; if the runner is gone or cleanup "
-            "fails, ask the control-plane operator to recover the host and record "
-            "verified cleanup evidence. No caller changes were committed."
+            "fails, have the lease holder or a covering steering seat reset the "
+            "host to the interrupted case's declared baseline, then retry abort. No caller changes were committed."
         )
     checkpoint = json.loads(inflight_checkpoint(execution)[len(PAUSE_REASON) :])
     checkpoint["abort"] = request or {"reason": reason, "ordinal": ordinal}
+    checkpoint["abort"].setdefault("requested_at", format_instant(utc_now()))
     encoded = PAUSE_REASON + canonical(checkpoint)
     conn.execute(
         f"UPDATE qa_plan_executions SET release_reason={marker(conn)} WHERE id={marker(conn)}",
@@ -78,8 +81,12 @@ def require_host_restored(conn, execution, *, reason, commit):
         "A declared baseline requires restored=true; an as_is case or a case "
         "without a baseline records that no restoration is required. Keep the "
         "runner connected and retry only after that proof is recorded. If the "
-        "runner is gone or cleanup fails, ask the control-plane operator to recover "
-        "the host and record verified cleanup evidence before releasing custody."
+        "runner is gone or cleanup fails, stop that runner, then have the lease "
+        "holder or a covering steering seat run `yoke test-machine reset --project P "
+        "--machine NAME --baseline BASELINE` with the interrupted case's declared "
+        "baseline, and retry this abort. The reset must succeed after cancellation "
+        "was recorded; it retains the lease until abort settles. Without a declared "
+        "baseline, recover the runner's no-restore cleanup receipt instead."
     )
 
 
@@ -107,6 +114,10 @@ def host_cleanup_proven(conn, execution, ordinal):
                 return True
         elif restore:
             return True
+    if restore_required:
+        from yoke_core.domain.qa_plan_abort_reset import reset_cleanup_proven
+
+        return reset_cleanup_proven(conn, execution, baseline)
     return False
 
 

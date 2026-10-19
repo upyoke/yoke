@@ -1,15 +1,6 @@
-"""Two-phase authority for every operator-run test-machine operation.
+"""Issue, validate and record operator-run test-machine operations.
 
-Begin takes the machine's lease and issues a digest-bound contract; the
-credential-owning client executes it; submit validates the result against the
-contract it issued and records the receipt. One pair serves verify, reset,
-golden capture, and bridge diagnosis, because the authority question is
-identical for all four and four copies of it would drift.
-
-Where the receipt lands is the one thing that differs. Verification decides
-whether the machine is usable at all, so it writes the verification row every
-availability surface reads; the other three record what was last done to the
-machine without touching its readiness.
+Verification records readiness; other operations record what last ran.
 """
 
 from __future__ import annotations
@@ -210,28 +201,36 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.machine_qa_execution_protocol import (
         MachineQaProtocolError,
         commit_deferred_connection,
-        validate_host_control_submission,
+    )
+    from yoke_core.domain.qa_plan_abort_reset import (
+        validate_operation_submission,
     )
 
     conn = db_helpers.connect()
     try:
-        mission = operation_mission(
-            conn, lease_id=parsed.lease_id, project=parsed.project, actor=request.actor
+        shape = operation_contract_shape(
+            parsed.operation,
+            baseline=parsed.baseline,
+            golden_destination=parsed.destination,
         )
-        lease, contract = validate_host_control_submission(
+        mission = operation_mission(
+            conn,
+            lease_id=parsed.lease_id,
+            project=parsed.project,
+            actor=request.actor,
+            operation=parsed.operation,
+            baselines=shape["baselines"],
+        )
+        lease, contract = validate_operation_submission(
             conn,
             project=parsed.project,
-            session_id=request.actor.session_id,
-            actor_id=request.actor.actor_id,
+            mission=mission,
+            actor=request.actor,
             lease_id=parsed.lease_id,
             contract_digest=parsed.contract_digest,
             operation=_operation(parsed.operation),
             allow_recorded_replay=True,
-            **operation_contract_shape(
-                parsed.operation,
-                baseline=parsed.baseline,
-                golden_destination=parsed.destination,
-            ),
+            **shape,
         )
         validate_operation_result(parsed, contract)
         machine = contract.settings["resource_name"]

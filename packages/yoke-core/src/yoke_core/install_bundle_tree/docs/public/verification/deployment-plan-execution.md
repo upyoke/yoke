@@ -211,9 +211,22 @@ Blocking resets finish before the runner acts on cancellation. Retry abort
 only after cleanup proof is recorded; success confirms the lease is released.
 
 If cleanup or a required restore fails, or the runner is gone, custody stays
-held. Ask the control-plane operator to recover the machine and record
-verified cleanup evidence before release. Preserve the execution, capture and
-restore diagnostics; retrying without new proof cannot settle the abort.
+held. Stop the old runner before recovery. The lease-holding session or a live
+steering seat covering the project can reset each retained machine to the
+interrupted case's declared baseline:
+
+```text
+yoke test-machine reset --project P --machine NAME --baseline BASELINE
+```
+
+Then retry the same scoped abort command. Only a successful reset receipt for
+the same machine and lease, matching that baseline and recorded after the abort
+request, proves recovery. Reset retains custody; abort performs normal capture,
+review and lease settlement. A stale or failed reset cannot release custody.
+Without a declared baseline, recover the runner's no-restore cleanup receipt.
+Preserve the execution, capture and restore diagnostics. A liveness heartbeat
+does not mark an unstarted case in flight; host-case admission records that
+boundary only after acquiring the host.
 
 ## Recover communication on the frozen execution
 

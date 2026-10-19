@@ -190,6 +190,9 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 conn, execution, machine=unhealthy.machine, rationale=str(unhealthy)
             )
             return HandlerOutcome(primary_success=True, result_payload=waiting)
+        from yoke_core.domain.qa_plan_execution_reentry import record_case_started
+
+        record_case_started(conn, execution)
     except (MachineQaProtocolError, TestMachineCapabilityError, ValueError) as exc:
         conn.rollback()
         return _failure("test_machine_plan_case_begin_failed", str(exc))

@@ -84,7 +84,12 @@ PROJECT_CAPABILITIES_TABLE: dict[str, object] = {
         "helpers from projects_capabilities (wrong guess — that module owns "
         "capability listings and secrets). There are NO `project`, "
         "`capability_type`, `capability`, `key`, or `value` columns; those are "
-        "stale guesses for this table."
+        "stale guesses for this table. Test Machine source fixtures use "
+        "yoke_core.domain.machine_qa_capability_settings.replace_test_machine_settings "
+        "with explicit base_settings=None for an absent row or its as-read JSON "
+        "for compare-and-swap; omitting base_settings is a wrong guess that raises "
+        "TypeError before registration. Operation receipts require the matching "
+        "registered project_capabilities row for their machine."
     ),
 }
 

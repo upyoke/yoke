@@ -154,8 +154,12 @@ An in-flight host abort records cancellation and returns qa_abort_restore_pendin
 while custody remains held. Keep the runner connected: it stops between steps,
 finishes cleanup, restores the declared starting baseline and records proof.
 Retry abort after cleanup; success means restoration is confirmed and the lease
-released. Failed or unprovable restore retains custody and names operator
-recovery. A blocking reset finishes before cancellation is acted on.
+released. Failed restore retains custody: stop the runner, then the lease holder
+or a covering steering seat runs yoke test-machine reset --project P --machine
+NAME --baseline BASELINE using the interrupted case's declared baseline. Retry
+abort after this successful reset; older or failed receipts cannot settle it.
+A case without a baseline still needs its runner's no-restore cleanup receipt.
+A blocking reset finishes before cancellation is acted on.
 
 Failed member QA recovery
 -------------------------
