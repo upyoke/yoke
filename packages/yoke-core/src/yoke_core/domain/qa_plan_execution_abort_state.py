@@ -24,30 +24,31 @@ def abort_request(execution):
     return checkpoint.get("abort")
 
 
-def require_host_restored(conn, execution, *, reason, commit):
-    """Persist cancellation before refusing an unproven host release."""
-    from yoke_core.domain.qa_plan_execution_reentry import (
-        PAUSE_REASON,
-        inflight_checkpoint,
-    )
+def owed_host_abort(conn, execution, *, reason):
+    """Return the abort request held hosts still owe cleanup for, or None.
+
+    A recorded agent_mission request stays owed while the mission holds its
+    machine lease: only its walk-end teardown releases that host.
+    """
+    from yoke_core.domain.qa_plan_execution_reentry import PAUSE_REASON
     from yoke_core.domain.qa_plan_host_leases import execution_host_leases
 
     if not execution.get("machine_lease_id") and not execution_host_leases(
         conn, execution
     ):
-        return
+        return None
     roster = execution.get("roster") or []
     cursor = int(execution["cursor_ordinal"])
     request = abort_request(execution)
     prior = str(execution.get("release_reason") or "")
     if not request and not prior.startswith(PAUSE_REASON):
-        return  # Admission alone never starts credential-local host work.
+        return None  # Admission alone never starts credential-local host work.
     if not request:
         checkpoint = json.loads(prior[len(PAUSE_REASON) :])
         if not any(
             key in checkpoint for key in ("case_inflight", "checkin_cursor", "phase")
         ):
-            return  # Admission without a runner check-in never starts host work.
+            return None  # Admission without a runner check-in never starts host work.
     ordinal = (
         int(request["ordinal"])
         if request
@@ -56,10 +57,51 @@ def require_host_restored(conn, execution, *, reason, commit):
             len(roster) - 1,
         )
     )
-    if roster[ordinal].get("runner_id") != "host_control":
-        return
+    runner = roster[ordinal].get("runner_id")
+    if runner == "agent_mission" and request:
+        return request if execution.get("machine_lease_id") else None
+    if runner != "host_control":
+        return None
     if host_cleanup_proven(conn, execution, ordinal):
+        return None
+    return request or {"reason": reason, "ordinal": ordinal}
+
+
+def record_abort_request(conn, execution, request):
+    """Record cancellation in the checkpoint; custody and state stay as they are."""
+    from yoke_core.domain.qa_plan_execution_reentry import (
+        PAUSE_REASON,
+        inflight_checkpoint,
+    )
+
+    checkpoint = json.loads(inflight_checkpoint(execution)[len(PAUSE_REASON) :])
+    checkpoint["abort"] = dict(request)
+    checkpoint["abort"].setdefault("requested_at", format_instant(utc_now()))
+    encoded = PAUSE_REASON + canonical(checkpoint)
+    conn.execute(
+        f"UPDATE qa_plan_executions SET release_reason={marker(conn)} WHERE id={marker(conn)}",
+        (encoded, str(execution["id"])),
+    )
+    execution["release_reason"] = encoded
+
+
+_MISSION_WALK_END = (
+    "qa_abort_walk_end_required: this mission's cancellation is recorded and it "
+    "keeps its Test Machine lease until teardown. Its original session must run "
+    "the dispatched `yoke qa mission walk-end` command, which removes staged "
+    "secrets, restores starting state and releases the host; the abort settles "
+    "there. Nothing else releases this lease."
+)
+
+
+def require_host_restored(conn, execution, *, reason, commit):
+    """Persist cancellation before refusing an unproven host release."""
+    request = owed_host_abort(conn, execution, reason=reason)
+    if request is None:
         return
+    ordinal = int(request["ordinal"])
+    if execution["roster"][ordinal].get("runner_id") == "agent_mission":
+        raise QaPlanExecutionStateError(_MISSION_WALK_END)
     if not commit:
         raise QaPlanExecutionStateError(
             "qa_abort_restore_required: in-flight host work must stop and record "
@@ -71,16 +113,8 @@ def require_host_restored(conn, execution, *, reason, commit):
             "fails, have the lease holder or a covering steering seat reset the "
             "host to the interrupted case's declared baseline, then retry abort. No caller changes were committed."
         )
-    checkpoint = json.loads(inflight_checkpoint(execution)[len(PAUSE_REASON) :])
-    checkpoint["abort"] = request or {"reason": reason, "ordinal": ordinal}
-    checkpoint["abort"].setdefault("requested_at", format_instant(utc_now()))
-    encoded = PAUSE_REASON + canonical(checkpoint)
-    conn.execute(
-        f"UPDATE qa_plan_executions SET release_reason={marker(conn)} WHERE id={marker(conn)}",
-        (encoded, str(execution["id"])),
-    )
+    record_abort_request(conn, execution, request)
     conn.commit()
-    execution["release_reason"] = encoded
     raise QaPlanExecutionStateError(
         "qa_abort_restore_pending: cancellation is recorded; host custody is retained "
         "until the runner stops and records starting_state_restore cleanup proof. "

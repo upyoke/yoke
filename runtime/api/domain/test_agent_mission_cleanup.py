@@ -1,4 +1,4 @@
-"""Removed missions keep owner-only teardown without reviving their walk."""
+"""Removed missions keep their host for owner-only teardown without reviving their walk."""
 
 from types import SimpleNamespace
 
@@ -22,7 +22,11 @@ from yoke_core.domain.agent_mission_recording import (
     handle_agent_mission_access,
     handle_agent_mission_ready,
 )
-from yoke_core.domain.coordination_claims import acquire, get_claim, release
+from yoke_core.domain.coordination_claims import (
+    CoordinationClaimHeldError,
+    acquire,
+    get_claim,
+)
 from yoke_core.domain.deployment_run_member_removal import remove_member_on
 from yoke_core.domain.handlers.machine_qa_plan_case import handle_plan_case_begin
 from yoke_core.domain.host_control_runner import (
@@ -35,6 +39,9 @@ from yoke_core.domain.qa_plan_execution_state import (
     begin_plan_execution,
     lock_plan_execution,
 )
+from yoke_core.domain.qa_plan_execution_abort_reason import member_removal_pending
+from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
+from yoke_core.domain.qa_plan_execution_store import QaPlanExecutionStateError
 from yoke_core.domain.qa_plan_review import begin_plan_review
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
@@ -98,7 +105,12 @@ def removed_mission(test_db, tmp_path, monkeypatch):
     control.existing_paths.add(mission_scratch_path(execution_id) + "/staged-token")
     remove_member_on(test_db, RUN, ITEM, reason="later release")
     test_db.commit()
-    assert not get_claim(test_db, original["lease_id"]).is_active
+    # Removal keeps the walk's dirty host until its walk-end teardown.
+    assert get_claim(test_db, original["lease_id"]).is_active
+    current = lock_plan_execution(test_db, execution_id)
+    test_db.rollback()
+    assert current["state"] == "awaiting_agent_review"
+    assert member_removal_pending(current)
     cleanup = request.model_copy(
         update={
             "function": "test_machine.mission.access",
@@ -134,7 +146,7 @@ def test_removed_member_walk_end_clears_staged_secrets_and_restores_start(
     assert (
         contract["settings"]["resource_name"] == original["settings"]["resource_name"]
     )
-    assert contract["lease_id"] != original["lease_id"]
+    assert contract["lease_id"] == original["lease_id"]
     restored = []
 
     def restore(name):
@@ -211,27 +223,32 @@ def test_cleanup_refuses_wrong_owner_docket_and_normal_walk(removed_mission, cha
     assert not outcome.primary_success
 
 
-def test_cleanup_never_steals_a_host_and_can_retry(removed_mission, test_db):
+def test_removed_mission_host_is_held_until_walk_end(removed_mission, test_db):
     request, _, original = removed_mission
     host = original["settings"]["resource_name"]
-    held = acquire(
-        test_db,
-        make_qa_admission_target(host),
-        ACTOR.session_id,
-        reason="another execution",
-    )
-    denied = handle_agent_mission_access(request)
-    assert not denied.primary_success
-    assert get_claim(test_db, held.id).is_active
-    release(test_db, held.id, "other execution finished")
+    with pytest.raises(CoordinationClaimHeldError):
+        acquire(
+            test_db,
+            make_qa_admission_target(host),
+            "another-session",
+            reason="another execution",
+        )
+    test_db.rollback()
+    execution = lock_plan_execution(test_db, request.payload["execution_id"])
+    with pytest.raises(QaPlanExecutionStateError, match="qa_abort_walk_end_required"):
+        finish_plan_execution(test_db, execution, state="aborted", reason="operator")
+    test_db.rollback()
+    walk = dict(request.payload)
+    walk.pop("cleanup")
+    walk.pop("run_id")
+    refused = handle_agent_mission_access(request.model_copy(update={"payload": walk}))
+    assert "mission_member_removed" in refused.error.message
     acquired = handle_agent_mission_access(request)
     assert acquired.primary_success, acquired.error
     replay = handle_agent_mission_access(request)
     assert replay.primary_success, replay.error
-    assert (
-        replay.result_payload["execution"]["lease_id"]
-        == acquired.result_payload["execution"]["lease_id"]
-    )
+    assert replay.result_payload["execution"]["lease_id"] == original["lease_id"]
+    assert get_claim(test_db, original["lease_id"]).is_active
 
 
 @pytest.mark.parametrize("local_failure", [False, True])

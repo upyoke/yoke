@@ -1,4 +1,9 @@
-"""Owner-only host custody for teardown after deployment membership ends."""
+"""Owner-only host custody for teardown after deployment membership ends.
+
+Removal leaves a walk holding its machine live under a recorded abort; its
+walk-end teardown is the cleanup proof, so finishing it releases the host
+and settles that abort in one transaction.
+"""
 
 from __future__ import annotations
 
@@ -7,8 +12,16 @@ import json
 from typing import Any
 
 from yoke_contracts.api.function_call import HandlerOutcome, TargetRef
-from yoke_core.domain.qa_plan_execution_abort_reason import member_removed
+from yoke_core.domain.qa_plan_execution_abort_reason import (
+    MEMBER_REMOVED_REASON,
+    member_removal_pending,
+    member_removed,
+)
 from yoke_core.domain.qa_plan_execution_store import same_owner
+
+
+def removed_execution(execution: dict) -> bool:
+    return member_removed(execution) or member_removal_pending(execution)
 
 
 def cleanup_request(request: Any) -> bool:
@@ -23,7 +36,7 @@ def cleanup_authority(request: Any, execution: dict) -> bool:
         require_plan_execution_subject,
     )
 
-    if not cleanup_request(request) or not member_removed(execution):
+    if not cleanup_request(request) or not removed_execution(execution):
         return False
     require_plan_execution_subject(
         execution,
@@ -115,6 +128,15 @@ def _finish(
         f"UPDATE qa_plan_executions SET machine_lease_id=NULL WHERE id={marker(conn)}",
         (execution["id"],),
     )
+    execution["machine_lease_id"] = None
+    if member_removal_pending(execution):
+        from yoke_core.domain.qa_plan_execution_lifecycle import (
+            finish_plan_execution,
+        )
+
+        finish_plan_execution(
+            conn, execution, state="aborted", reason=MEMBER_REMOVED_REASON
+        )
     conn.commit()
     if parsed.restore is not None:
         from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
@@ -162,7 +184,7 @@ def handle_cleanup(request: Any, parsed: Any) -> HandlerOutcome | None:
     conn = connect()
     try:
         execution = lock_plan_execution(conn, parsed.execution_id)
-        if not member_removed(execution):
+        if not removed_execution(execution):
             if parsed.cleanup == "finish":
                 raise ValueError(
                     "mission_cleanup_not_removed: only removed missions release a cleanup lease"

@@ -8,6 +8,10 @@ from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
 from yoke_core.domain.qa_host_turns import cancel_host_waits
 from yoke_core.domain.qa_plan_execution_abort_reason import MEMBER_REMOVED_REASON
+from yoke_core.domain.qa_plan_execution_abort_state import (
+    owed_host_abort,
+    record_abort_request,
+)
 from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
 from yoke_core.domain.qa_plan_execution_schema import (
     LIVE_PLAN_EXECUTION_SQL,
@@ -17,16 +21,22 @@ from yoke_core.domain.qa_plan_execution_store import lock_plan_execution
 from yoke_core.domain.schema_common import _table_exists
 
 
-def abort_removed_member_executions(conn: Any, *, run_id: str, item_id: int) -> int:
+def abort_removed_member_executions(
+    conn: Any, *, run_id: str, item_id: int
+) -> tuple[int, int]:
     """Abort only this run/member's live executions in the caller's transaction.
 
     Cancel every waiting-line entry before releasing any reservation: releasing
     one host must never grant it to another cursor of the same removed member.
     Existing terminal evidence and other members' executions survive.
-    Returns how many executions this call aborted.
+
+    An execution whose held host may be dirty is not finished here: it keeps
+    custody and heartbeat authority under a recorded cooperative abort, and
+    releases its host only after cleanup proof (`removal_cleanup_request`).
+    Returns how many executions it aborted and how many it left cleaning up.
     """
     if not _table_exists(conn, "qa_plan_executions"):
-        return 0
+        return 0, 0
     rows = query_rows(
         conn,
         "SELECT id FROM qa_plan_executions WHERE deployment_run_id=%s "
@@ -80,7 +90,13 @@ def abort_removed_member_executions(conn: Any, *, run_id: str, item_id: int) -> 
         e for e in executions if e["state"] not in TERMINAL_PLAN_EXECUTION_STATES
     ]
     cancel_host_waits(conn, execution_ids=[str(e["id"]) for e in executions])
+    cleaning = 0
     for execution in executions:
+        request = removal_cleanup_request(conn, execution)
+        if request is not None:
+            record_abort_request(conn, execution, request)
+            cleaning += 1
+            continue
         finish_plan_execution(
             conn,
             execution,
@@ -88,7 +104,31 @@ def abort_removed_member_executions(conn: Any, *, run_id: str, item_id: int) -> 
             reason=MEMBER_REMOVED_REASON,
             commit=False,
         )
-    return len(executions)
+    return len(executions) - cleaning, cleaning
+
+
+def removal_cleanup_request(conn: Any, execution: dict) -> dict | None:
+    """The abort a removed execution's held host owes before release, or None.
+
+    In-flight host_control work owes its restore proof; an awaiting
+    agent_mission walk holding its machine owes its walk-end teardown. An
+    earlier cancellation keeps its time and case but now names the removal.
+    """
+    request = owed_host_abort(conn, execution, reason=MEMBER_REMOVED_REASON)
+    if (
+        request is None
+        and execution["state"] == "awaiting_agent_review"
+        and execution.get("machine_lease_id")
+    ):
+        request = next(
+            (
+                {"ordinal": ordinal}
+                for ordinal, case in enumerate(execution.get("roster") or [])
+                if case.get("runner_id") == "agent_mission"
+            ),
+            None,
+        )
+    return None if request is None else {**request, "reason": MEMBER_REMOVED_REASON}
 
 
 @presentation_operation

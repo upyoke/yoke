@@ -58,8 +58,12 @@ learns the other's part from its own skill. The split is the whole rule:
   direction and named-environment delivery facts. A wrongly composed member of a run still
   `created` comes out with `yoke deployment-runs remove-item RUN-ID PREFIX-N
   --reason R`: the reason is recorded on the run,
-  removal also aborts this run/member's live QA executions and releases queued
-  host reservations and held leases in the same transaction. A removed member's
+  removal also aborts this run/member's live QA executions and cancels queued
+  host reservations in the same transaction. Held leases release with them,
+  except where host work may have left the machine dirty: an execution whose
+  runner checked in on a host case, or a mission walk holding its machine,
+  keeps its lease under a recorded abort until its cleanup proof or `yoke qa
+  mission walk-end` releases it. A removed member's
   holder may abort its own leftover execution with `yoke qa plan abort
   --deployment-run-id RUN --execution-id ID --reason R --project P`; read its
   `--help` first. Composition never re-enrolls it, its code still ships, and a later release

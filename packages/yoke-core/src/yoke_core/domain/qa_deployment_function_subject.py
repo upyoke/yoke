@@ -163,14 +163,20 @@ def resolve_run_qa_subject(
         and member_id in removed_item_ids(conn, run_id)
     )
     from yoke_core.domain.agent_mission_cleanup import cleanup_request
-    from yoke_core.domain.qa_plan_execution_abort_reason import member_removed
+    from yoke_core.domain.qa_plan_execution_abort_reason import (
+        member_removal_pending,
+        member_removed,
+    )
 
     removed_cleanup = False
-    if execution_id and cleanup_request(request):
+    if execution_id:
         from yoke_core.domain.qa_plan_execution_store import select_plan_execution
 
-        removed_cleanup = member_removed(
-            select_plan_execution(conn, execution_id, lock=False)
+        # A removed member's execution still cleaning its held host keeps
+        # its runner's calls; the handlers still check ownership and state.
+        removed = select_plan_execution(conn, execution_id, lock=False)
+        removed_cleanup = member_removal_pending(removed) or (
+            cleanup_request(request) and member_removed(removed)
         )
     if removed_cleanup:
         project_id, slug = _checkin_project(conn, execution_id, member_id)
