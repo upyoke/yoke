@@ -159,7 +159,7 @@ def test_unreadable_recheck_refuses_with_its_recovery(
         monkeypatch,
         item,
         rerecord=mock.Mock(),
-        run_case=lambda _id: None,
+        run_case=lambda _id, _lane, _sha: None,
         resolve=lambda *_a: next(reads),
     )
     assert code == 1
