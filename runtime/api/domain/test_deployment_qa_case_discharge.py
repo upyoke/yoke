@@ -63,14 +63,8 @@ def _execute_stage(
     conn: Any,
     run_id: str,
     verdicts: dict[int, str],
-    *,
-    evidence_for: set[int] | None = None,
 ) -> None:
-    """Run the member's scoped execution, recording one verdict per case.
-
-    ``evidence_for`` narrows which passing cases attach artifacts, standing
-    in for a later execution that re-graded a case without re-capturing it.
-    """
+    """Run the member's scoped execution, recording one verdict per case."""
     execution = begin_plan_execution(
         conn,
         deployment_run_id=run_id,
@@ -82,10 +76,9 @@ def _execute_stage(
     for ordinal, entry in enumerate(execution["roster"]):
         requirement_id = int(entry["requirement_id"])
         verdict = verdicts[requirement_id]
-        attaches = verdict == "pass" and (
-            evidence_for is None or requirement_id in evidence_for
+        qa_run_id = _record_verdict(
+            conn, requirement_id, verdict, evidence=verdict == "pass"
         )
-        qa_run_id = _record_verdict(conn, requirement_id, verdict, evidence=attaches)
         advance_plan_execution(
             conn,
             execution,
@@ -301,14 +294,10 @@ def test_corrected_case_latest_attempt_needs_its_own_evidence(test_db) -> None:
     corrected_id = _corrected_case(test_db, broken_id=broken_id)
     # The corrected case passes with evidence here...
     _execute_stage(test_db, run_id, {broken_id: "fail", corrected_id: "pass"})
-    # ...and a later execution re-grades without capturing again, so the
-    # subject's newest execution holds no evidence for it.
-    _execute_stage(
-        test_db,
-        run_id,
-        {broken_id: "fail", corrected_id: "pass"},
-        evidence_for=set(),
-    )
+    # ...and a later attempt re-grades it without capturing again, so its
+    # newest attempt holds no evidence.
+    _record_verdict(test_db, corrected_id, "pass", evidence=False)
+    test_db.commit()
 
     supersede_requirement(
         test_db,
