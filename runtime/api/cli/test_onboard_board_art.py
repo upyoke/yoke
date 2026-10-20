@@ -9,6 +9,7 @@ pytest.importorskip("textual")
 
 from yoke_cli.config.onboard_wizard import WizardResult  # noqa: E402
 from yoke_cli.config.onboard_wizard_flow_board_art import BoardArtFlow  # noqa: E402
+from yoke_cli.config.setup_run_facts import RunFacts  # noqa: E402
 from yoke_contracts.project_contract.board_art import (  # noqa: E402
     MAX_ART_WORD_LEN,
     generate_default_variants,
@@ -107,6 +108,7 @@ class _Shell(BoardArtFlow):
             project_public_item_prefix="EXT",
             **kwargs,
         )
+        self._run_facts = RunFacts()
         self.hosting_visits = 0
 
     def _goto_hosting(self):
