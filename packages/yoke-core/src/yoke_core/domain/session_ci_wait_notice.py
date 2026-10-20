@@ -58,7 +58,13 @@ def ci_run_message(
         f"has concluded.",
         run_url(repo, run_id),
     ]
-    if conclusion not in ("success", "failure"):
+    if conclusion == "cancelled":
+        lines.append(
+            "No verdict: this run was cancelled. Check the current lane head "
+            "and its CI evidence; continue with the current candidate rather "
+            "than re-dispatching this cancelled commit."
+        )
+    elif conclusion not in ("success", "failure"):
         lines.append(
             f"No verdict: this run tested nothing it can be judged on "
             f"({conclusion}). "
