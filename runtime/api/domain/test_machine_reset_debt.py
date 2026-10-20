@@ -311,3 +311,33 @@ def test_debt_writer_preserves_the_callers_transaction(test_db, tmp_path, monkey
     test_db.rollback()
     assert test_db.execute("SELECT count(*) FROM reset_debt_probe").fetchone()[0] == 0
     assert reset_owed(test_db, MACHINE) is None
+
+
+def test_lost_savepoint_is_not_treated_as_an_artifact_failure(
+    test_db, removed_mission, monkeypatch
+):
+    from yoke_core.domain.db_savepoint import SavepointLostError
+
+    request, _, original = removed_mission
+    assert handle_agent_mission_access(request).primary_success
+
+    def lost(*args):
+        raise SavepointLostError("transaction lost")
+
+    monkeypatch.setattr(
+        "yoke_core.domain.handlers.qa_artifact_add.handle_qa_artifact_add", lost
+    )
+    with pytest.raises(SavepointLostError):
+        handle_agent_mission_access(
+            request.model_copy(
+                update={
+                    "payload": {
+                        **request.payload,
+                        "cleanup": "finish",
+                        "lease_id": original["lease_id"],
+                        "restore": {"restored": True, "baseline": "fresh-host"},
+                    }
+                }
+            )
+        )
+    assert get_claim(test_db, original["lease_id"]).is_active

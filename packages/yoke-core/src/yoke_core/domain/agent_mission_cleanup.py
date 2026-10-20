@@ -123,6 +123,8 @@ def _finish(
         raise ValueError(
             "mission_cleanup_owner_required: cleanup lease belongs to another session"
         )
+    from yoke_core.domain.db_savepoint import SavepointLostError
+
     outcome = None
     try:
         if parsed.restore is not None:
@@ -150,6 +152,8 @@ def _finish(
                 }
             )
             outcome = handle_qa_artifact_add(artifact_request)
+    except SavepointLostError:
+        raise
     except Exception:
         from yoke_core.domain.handlers.machine_qa import _failure
 
