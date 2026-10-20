@@ -2,9 +2,9 @@
 
 A mission names its identities in ``method_config.browser_identities`` or uses
 the project declarations covering its target origin. The walker proves each
-one signed in, site by site, on the Test Machine after setup and before browsing; an expired site is a human gate
-naming the identity, the site and the account, resumed by
-``yoke browser authorize --identity NAME`` on that host.
+one signed in, site by site, on the Test Machine after setup and before browsing.
+The walker reauthorizes expired sites; only prohibited password or credential
+entry is a human gate naming the identity, site, account and resume state.
 """
 
 from __future__ import annotations
@@ -100,11 +100,13 @@ def walker_identity_dispatch(
         "succeeds and before browsing, check each identity with "
         + "; ".join(f"`{command}`" for command in commands)
         + ", and pass `--identity NAME` to every step acting as that identity. "
-        "A site the check reports expired is WALK_STATUS: HUMAN_GATE naming the "
-        "identity, the site and the account from that report; the resume action "
-        "is `yoke browser authorize --project PROJECT --identity NAME "
-        "--declarations-json DECLARATIONS_JSON` on this host, which opens a "
-        "window only for the expired sites. Sign-ins live in the host's "
+        "For an expired site, run `yoke browser authorize --project PROJECT "
+        "--identity NAME --declarations-json DECLARATIONS_JSON` on this host, "
+        "which opens a window only for the expired sites. Re-sign in yourself "
+        "or route an approval to steering. Return WALK_STATUS: HUMAN_GATE only "
+        "when re-signing in needs a password or credential the agent may not "
+        "type, naming that one entry, the identity, the site and the account "
+        "from the report, and resume state. Sign-ins live in the host's "
         "identity store and survive walk-end; there is nothing to save or "
         "restore. "
     )

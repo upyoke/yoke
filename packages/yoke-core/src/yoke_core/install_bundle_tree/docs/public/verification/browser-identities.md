@@ -124,8 +124,11 @@ Any mission with selected identities
 uses the managed browser even when it installs nothing; host-browser access
 is reserved for missions naming none that have not installed Yoke.
 The dispatch gives the walker an exact
-`yoke browser verify` per identity to run before browsing, and an expired site
-is a human gate naming the identity, site and account.
+`yoke browser verify` per identity to run before browsing. For an expired site,
+the walker runs `yoke browser authorize` on that host and re-signs in itself,
+or routes an approval to steering. Only a password or credential entry the
+agent may not type returns `WALK_STATUS: HUMAN_GATE`, naming that one entry,
+the identity, site, account and resume state.
 
 ## Identities on test machines
 

@@ -4,7 +4,7 @@
  "status": "observed",
  "audience": "both",
  "when": "Test needs authenticated behavior or more than one account",
- "need": "Declare personas and each target origin with signed-in probes in browser-control. A mission may set method_config.browser_identities, such as [\"operator\"]; its list wins. Otherwise dispatch supplies project identities covering the immutable target origin, and the walker picks the needed account. Selected identities use managed setup, verification and steps even without installing Yoke; expired sites return a human gate naming identity, site and account. API/CLI credentials stay separate.",
+ "need": "Declare personas and each target origin with signed-in probes in browser-control. A mission may set method_config.browser_identities, such as [\"operator\"]; its list wins. Otherwise dispatch supplies project identities covering the immutable target origin, and the walker picks the needed account. Selected identities use managed setup, verification and steps even without installing Yoke; the walker reauthorizes expired sites itself or routes approvals to steering. Only password or credential entry the agent may not type returns a human gate naming that entry, identity, site, account and resume state. API/CLI credentials stay separate.",
  "disclosure": "current cue",
  "surface": "Browser scenario method configuration → browser-identities reference.",
  "gap": "Live signed-in prod mission proof remains a release obligation.",
