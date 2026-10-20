@@ -300,8 +300,7 @@ def print_verdict(verdict: CheckVerdict, *, as_json: bool) -> None:
         print(line)
     if not verdict.ok:
         print(
-            "Fix the offending file(s) or, for pre-commit only, bypass with "
-            "`git commit --no-verify`."
+            "Split or shorten each file named above, then re-run the check."
         )
 
 
@@ -318,8 +317,7 @@ def _cli_description(limit: int) -> str:
         "Temporary exceptions are fully exempt.\n"
         "Byte budgets: `file_byte_budget=PATH:BYTES` in .yoke/project.config "
         "fails a changed file past its budget.\n\n"
-        "Escape hatch: `git commit --no-verify` bypasses the pre-commit "
-        "invocation."
+        "Recovery: split an oversized file by responsibility, or shorten it."
     )
 
 

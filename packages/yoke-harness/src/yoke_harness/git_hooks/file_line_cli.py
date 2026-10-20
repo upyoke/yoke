@@ -85,8 +85,8 @@ def print_verdict(
         print(line)
     if not verdict.ok:
         print(
-            "Fix the offending file(s) or bypass pre-commit with "
-            "`git commit --no-verify`."
+            "Split or shorten each file named above, then re-run "
+            "`yoke check file-line --staged`."
         )
 
 

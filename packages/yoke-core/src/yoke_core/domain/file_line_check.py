@@ -13,8 +13,7 @@ hard-fails. The product-safe checker in ``yoke_harness`` is the canonical
 enforcement surface for installed projects; this source-dev checker mirrors
 the same repo-local policy reader for manual scans.
 
-Operator escape hatch: ``git commit --no-verify`` bypasses the pre-commit
-invocation.
+Recovery for a hard-fail is splitting or shortening the named file.
 
 CLI:
 

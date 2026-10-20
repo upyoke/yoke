@@ -42,6 +42,8 @@ from yoke_core.tools.pytest_remote_selection_report import say as _say
 #: Wall-clock ceiling for one selection run: queue wait, runner setup, and
 #: a selection that is a small fraction of the suite.
 DEFAULT_TIMEOUT_SECONDS = 1800
+#: Each selection shard uploads its own output as pytest-output-selection-N.
+OUTPUT_ARTIFACT_PATTERN = "pytest-output-selection-*"
 #: How a run came to be the one this invocation reports on.
 DISPATCHED = "dispatched"
 REJOINED = "rejoined"
@@ -263,8 +265,9 @@ def run(
         )
     _say(
         f"concluded {conclusion} exit={exit_code} run={run_id} {url} "
-        f"ci_run_source={source}; full pytest output is the run's "
-        f"pytest-output artifact{recovery}"
+        f"ci_run_source={source}; full pytest output is one artifact per "
+        f"shard: gh run download {run_id} -p '{OUTPUT_ARTIFACT_PATTERN}'"
+        f"{recovery}"
     )
     return exit_code
 

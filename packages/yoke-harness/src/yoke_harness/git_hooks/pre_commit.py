@@ -45,8 +45,7 @@ def _format_warning(files: list[str]) -> str:
     ]
     lines.extend(f"  {path}" for path in files)
     lines.append(
-        "\nRun 'git add <file>' to stage latest content, "
-        "or 'git commit --no-verify' to skip this check."
+        "\nRun 'git add <file>' to stage the latest content, then commit again."
     )
     return "\n".join(lines) + "\n"
 
@@ -104,11 +103,11 @@ def _format_file_line_summary(
     lines.append("Run `yoke check file-line --staged` to re-inspect.")
     lines.append(
         (
-            "Split the file into smaller modules"
+            "Split each file into smaller modules by responsibility"
             if verdict.hard_fails
             else "Fix each byte budget as its line says"
         )
-        + ", or use `git commit --no-verify` to bypass."
+        + ", then commit again."
     )
     return "\n".join(lines) + "\n"
 
@@ -128,7 +127,8 @@ def _run_file_line_check_or_block() -> int:
         _write_diagnostic(
             "ERROR: file-line-limit gate could not inspect staged files: "
             f"{verdict.summary}\n"
-            "Use `git commit --no-verify` to bypass this check.\n"
+            "Run `yoke check file-line --staged` to see the cause, fix it, "
+            "and commit again.\n"
         )
         return 1
     _write_diagnostic(_format_file_line_summary(verdict, limit=policy.limit))
