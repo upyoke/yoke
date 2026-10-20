@@ -2,13 +2,17 @@
 
 Evidence lives in the store of the build serving the universe, because that
 build answers every reviewer's read. A capture run through a `*-db-admin`
-connection relays its evidence writes (`qa.artifact.add`,
-`qa.artifact.presign`) to the paired https connection — `prod-db-admin`
-writes through `prod` — so a hosted Inbox or Shipping view shows the real
+connection relays its evidence operations (`qa.artifact.add`,
+`qa.artifact.presign`, `qa.artifact.rehome`, `qa.artifact.read` and
+`qa.plan_review.begin`) to the paired HTTPS connection — `prod-db-admin`
+reads and writes through `prod` — so a hosted Inbox or Shipping view shows the real
 screenshots. A door with no paired https connection refuses with
 `evidence_plane_unresolved` and names the `yoke connection set` repair, and
-a local write through such a door refuses with `evidence_not_portable`. A
-local universe keeps storing and rendering evidence on its own disk.
+a local write through such a door refuses with `evidence_not_portable`. An
+unreachable relay refuses instead of falling back to a local store. Unrelated
+admin operations, including metadata-only `qa.artifact.get`, stay direct. A
+local universe keeps storing and reading evidence on its own disk; a
+self-hosted universe uses its own declared serving connection.
 
 No human review request is created while an artifact it would show is
 unreadable where the reviewer looks; the refusal names each artifact and the

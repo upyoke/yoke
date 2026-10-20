@@ -289,6 +289,8 @@ yoke qa plan review-begin --item PREFIX-N --execution-id ID
 ```
 
 For a run use `--deployment-run-id RUN`; for a standalone plan use `--project P`.
+Review-begin and the returned artifact-read commands use the universe's serving
+evidence plane; see [reading a capture](browser-evidence.md#reading-a-capture).
 Use the returned `review-submit` command to judge the captures independently;
 unwalked cases remain unfulfilled and the execution remains terminal.
 Incomplete captures without review authority settle as errors.

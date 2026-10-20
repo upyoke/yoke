@@ -123,7 +123,10 @@ handoff. Missing/out-of-scope authority refuses.
 
 Artifact add accepts one typed handle or exclusive inline bytes/filename.
 Hosted evidence uses the paired portable evidence plane; unresolved/nonportable
-storage refuses. Rehome stores recorded bytes and CAS-updates the same artifact,
+storage refuses. Artifact read and plan review-begin use that same paired
+plane as captures; local universes retain local reads. A missing pair names
+`evidence_plane_unresolved` and the connection repair; a failed relay never
+falls back to local storage. Rehome stores recorded bytes and CAS-updates the same artifact,
 retaining run, verdict, review and old-handle/hash metadata; object-store evidence
 reports unchanged. Read returns recorded local path when server cannot serve it.
 
