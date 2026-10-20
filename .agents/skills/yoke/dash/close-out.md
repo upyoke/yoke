@@ -58,6 +58,11 @@ Run the stage and member together:
 yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P
 ```
 
+Shared cursor contention returns waiting with the execution id and owner.
+Keep the claim and park; shared settlement credits attaching members or wakes
+those still owing QA to retry their own stage/member command.
+See [shared plan credit](../../../../.yoke/docs/verification/deployment-plan-execution.md#shared-plan-credit).
+
 If your host is busy or unhealthy, let the plan runner queue you, then park;
 you are woken when it is your turn. Its `Queued for QA host` line names your
 place and the park command. Write no host hold of your own.

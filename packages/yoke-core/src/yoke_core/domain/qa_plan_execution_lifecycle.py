@@ -229,6 +229,12 @@ def finish_plan_execution(
             )
 
             settle_execution(conn, execution)
+        if state in {"aborted", "error"} and execution.get("deployment_stage"):
+            from yoke_core.domain.deployment_qa_shared_wait import (
+                wake_shared_stage_waiters,
+            )
+
+            wake_shared_stage_waiters(conn, execution)
         if terminal_settlement and execution.get("item_id") is not None:
             # This row may be the one thing holding a member's close-out or
             # a settling run open. Its terminalization is the event that

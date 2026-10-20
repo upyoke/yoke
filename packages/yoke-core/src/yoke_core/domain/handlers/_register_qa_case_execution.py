@@ -7,6 +7,7 @@ from yoke_core.domain.handlers import qa_plan_execution as _plan
 from yoke_core.domain.handlers import qa_plan_review as _review
 from yoke_core.domain.handlers.qa_plan_execution_models import (
     PlanExecutionCheckinResponse,
+    PlanExecutionBeginResponse,
 )
 
 
@@ -88,6 +89,8 @@ def register(registry) -> None:
             (
                 PlanExecutionCheckinResponse
                 if function_id == "qa.plan_execution.heartbeat"
+                else PlanExecutionBeginResponse
+                if function_id == "qa.plan_execution.begin"
                 else _plan.PlanExecutionStateResponse
             ),
             stability="stable",

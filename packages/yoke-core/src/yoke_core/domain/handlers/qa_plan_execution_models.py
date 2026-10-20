@@ -1,7 +1,7 @@
 """Typed payload and response models for ordered QA execution."""
 
-from typing import Any
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Any, Literal
+from pydantic import BaseModel, ConfigDict, Field, RootModel
 from yoke_core.domain import qa_plan_execution_abort_reason as abort_reasons
 
 
@@ -60,6 +60,22 @@ class PlanExecutionStateResponse(BaseModel):
     results: list[dict[str, Any]]
     #: Absent from servers that only accept results at the cursor.
     host_free_cases_ahead: bool = False
+
+
+class SharedExecutionWaitResponse(BaseModel):
+    state: Literal["waiting"]
+    deployment_run_id: str
+    deployment_stage: str
+    deployment_member_item_id: int
+    shared_execution_wait: dict[str, Any]
+    reason: Literal["shared_plan_execution_waiting"]
+    recovery: str
+
+
+class PlanExecutionBeginResponse(
+    RootModel[PlanExecutionStateResponse | SharedExecutionWaitResponse]
+):
+    pass
 
 
 class PlanExecutionCheckinResponse(BaseModel):

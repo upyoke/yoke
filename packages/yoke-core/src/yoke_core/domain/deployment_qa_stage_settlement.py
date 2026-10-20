@@ -51,9 +51,13 @@ def settle_execution(conn: Any, execution: Mapping[str, Any]) -> dict[str, Any] 
     if subject.get("shared_plan"):
         from yoke_core.domain.deployment_qa_shared_acceptance import settle_shared_group
 
-        return settle_shared_group(
+        result = settle_shared_group(
             conn, subject, deployment_qa_execution_target(conn, subject)
         )
+        from yoke_core.domain.deployment_qa_shared_wait import wake_shared_stage_waiters
+
+        wake_shared_stage_waiters(conn, execution)
+        return result
     return settle_subject(
         conn,
         run_id=run_id,

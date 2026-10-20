@@ -153,7 +153,10 @@ remain separate. Unscoped execution is refused when a stage is pinned:
 yoke qa plan run --deployment-run-id {RUN_ID} --stage {STAGE} --member PREFIX-N --plan {PLAN} --project {PROJECT}
 ```
 
-Run scope omits --member. A direct case uses qa.requirement.add targeted at
+Run scope omits --member. [Shared cursor waits](deployment-plan-execution.md#shared-plan-credit)
+name the execution and owner; keep the claim and park for settlement credit or
+a wake to retry your own member command.
+A direct case uses qa.requirement.add targeted at
 the run; [case attachment](case-attachment.md) owns authoring and
 refusals. No synthetic item: immutable roster, serial Test Machine lease,
 runs/artifacts/verdicts stay bound to deployment_run_id. Plan/activity/browser
