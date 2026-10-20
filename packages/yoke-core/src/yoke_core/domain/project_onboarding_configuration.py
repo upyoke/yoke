@@ -8,6 +8,8 @@ from typing import Any
 from yoke_contracts.hosting_posture import POSTURE_NO_YOKE_MANAGED_HOST
 from yoke_contracts.onboard_checklist import (
     FIRST_ITEM_DONE_ROW_ID,
+    SETUP_HANDOFF_ROW_ID,
+    STATUS_BLOCKED,
     STATUS_CONFIGURED,
     STATUS_UNKNOWN,
     STATUS_NOT_NEEDED,
@@ -180,5 +182,46 @@ def first_item_done_fact(
             },
             "reason": "",
             "recovery": "",
+        }
+    }
+
+
+def repaired_handoff_fact(
+    conn: Any, project_id: int | None, stored: Any | None
+) -> dict[str, dict[str, Any]]:
+    """Clear a handoff row setup blocked on its snapshot once one has landed.
+
+    Setup blocks the row when its snapshot sync failed and names
+    ``yoke project snapshot sync`` as the repair. A path snapshot built after
+    the row was blocked is that repair's durable proof, so the row reads
+    configured from then on, however the snapshot arrived.
+    """
+    if (
+        project_id is None
+        or stored is None
+        or stored["status"] != STATUS_BLOCKED
+        or not _table_exists(conn, "path_snapshots")
+    ):
+        return {}
+    p = _p(conn)
+    row = conn.execute(
+        "SELECT id, commit_sha FROM path_snapshots "
+        f"WHERE project_id = {p} AND built_at > {p} "
+        "ORDER BY built_at DESC LIMIT 1",
+        (project_id, stored["updated_at"]),
+    ).fetchone()
+    if row is None:
+        return {}
+    return {
+        SETUP_HANDOFF_ROW_ID: {
+            "status": STATUS_CONFIGURED,
+            "evidence": {
+                "source": "path_snapshots",
+                "snapshot_id": int(row[0]),
+                "commit_sha": str(row[1]),
+            },
+            "reason": "",
+            "recovery": "",
+            "blocker": "",
         }
     }

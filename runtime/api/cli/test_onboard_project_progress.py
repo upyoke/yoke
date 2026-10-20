@@ -67,6 +67,8 @@ def test_project_apply_progress_events_follow_real_substeps(
         ("project-install-scaffold", "", "running"),
         ("project-checkout-register", str(checkout), "running"),
         ("project-checkout-register", str(checkout), "done"),
+        ("project-setup-publication", "", "running"),
+        ("project-setup-publication", "", "skipped"),
         ("project-install-scaffold", "", "done"),
         ("project-github-auth-choice", "disabled", "skipped"),
     ]
