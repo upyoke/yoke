@@ -118,3 +118,37 @@ def test_automatic_reentry_mints_contents_write_and_pull_requests_write(monkeypa
     monkeypatch.setattr(queue_mod, "graphql_with_auth", lambda *_a, **_kw: ({}, None))
     assert queue_mod.enter_merge_queue(ctx(), "7", expected_head_sha="a" * 40).success
     assert scopes == [{"metadata": "read", "contents": "write", "pull_requests": "write"}]
+
+
+def test_serving_observer_compares_failed_inputs_without_a_checkout(monkeypatch):
+    from dataclasses import replace
+
+    scopes, requests = [], []
+    def auth(_ctx, permissions):
+        scopes.append(dict(permissions))
+        return SimpleNamespace(repo="example/project", token="token"), None
+    def read(request, **kwargs):
+        requests.append(request.path)
+        if "/git/commits/" in request.path:
+            return SimpleNamespace(body={"parents": [{"sha": BASE}, {"sha": LANE_SHA}]})
+        return SimpleNamespace(body={"sha": BASE})
+    monkeypatch.setattr(failed, "resolve_auth_detail", auth)
+    monkeypatch.setattr(failed, "request_with_retry", read)
+    error = failed.unchanged_failed_train_refusal(
+        replace(ctx(), repo_root=""), "42", lane_head=LANE_SHA,
+        base_branch="feature/base", train=TrainRun(
+            conclusion="failure", head_sha="4" * 40, url=RUN_URL,
+        ),
+    )
+    assert "failed-train-unchanged" in error
+    assert requests[-1] == "/repos/example/project/commits/feature%2Fbase"
+    assert all(scope == {"contents": "read"} for scope in scopes)
+
+
+def test_serving_observer_ancestry_uses_github_compare(monkeypatch):
+    from dataclasses import replace
+
+    monkeypatch.setattr(failed, "_github_commit_read", lambda *_: {"status": "ahead"})
+    assert failed._base_covers_train(replace(ctx(), repo_root=""), BASE, "4" * 40)
+    monkeypatch.setattr(failed, "_github_commit_read", lambda *_: {})
+    assert not failed._base_covers_train(replace(ctx(), repo_root=""), BASE, "4" * 40)

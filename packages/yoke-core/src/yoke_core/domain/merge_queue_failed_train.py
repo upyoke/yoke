@@ -9,9 +9,10 @@ Uncertainty fails open: an unreadable train is not a known outcome.
 from __future__ import annotations
 
 from typing import Optional
+from urllib.parse import quote
 
 from yoke_contracts.github_app_installation_permissions import (
-    GITHUB_METADATA_READ_PERMISSION_LEVELS as METADATA_READ,
+    GITHUB_CONTENTS_READ_PERMISSION_LEVELS as CONTENTS_READ,
 )
 from yoke_core.domain.gh_rest_transport import (
     RestRequest,
@@ -26,22 +27,26 @@ from yoke_core.engines.merge_worktree_prepare import MergeContext
 FAILED_TRAIN_UNCHANGED = "failed-train-unchanged"
 
 
-def _commit_parents(ctx: MergeContext, sha: str) -> list[str]:
-    auth, error = resolve_auth_detail(ctx, METADATA_READ)
-    if error or auth is None or not sha:
-        return []
+def _github_commit_read(ctx: MergeContext, resource: str) -> dict:
+    """Serving observers have no checkout; read commit identity from GitHub."""
+    auth, error = resolve_auth_detail(ctx, CONTENTS_READ)
+    if error or auth is None:
+        return {}
     owner, repo = split_repo(auth.repo)
     try:
         response = request_with_retry(
-            RestRequest(
-                method="GET",
-                path=f"/repos/{owner}/{repo}/git/commits/{sha}",
-            ),
+            RestRequest(method="GET", path=f"/repos/{owner}/{repo}/{resource}"),
             token=auth.token,
         )
     except RestTransportError:
+        return {}
+    return response.body if isinstance(response.body, dict) else {}
+
+
+def _commit_parents(ctx: MergeContext, sha: str) -> list[str]:
+    if not sha:
         return []
-    body = response.body if isinstance(response.body, dict) else {}
+    body = _github_commit_read(ctx, f"git/commits/{sha}")
     parents = []
     for parent in body.get("parents") or []:
         if not isinstance(parent, dict):
@@ -56,7 +61,8 @@ def _current_base_sha(ctx: MergeContext, base_branch: str) -> str:
     from yoke_core.domain import standalone_item_merge_git as git
 
     if not ctx.repo_root:
-        return ""
+        body = _github_commit_read(ctx, f"commits/{quote(base_branch, safe='')}")
+        return str(body.get("sha") or "").strip()
     return git.git_out(
         ctx.repo_root,
         "rev-parse",
@@ -67,8 +73,11 @@ def _current_base_sha(ctx: MergeContext, base_branch: str) -> str:
 def _base_covers_train(ctx: MergeContext, base_sha: str, train_sha: str) -> bool:
     from yoke_core.domain import standalone_item_merge_git as git
 
-    if not ctx.repo_root or not base_sha or not train_sha:
+    if not base_sha or not train_sha:
         return False
+    if not ctx.repo_root:
+        body = _github_commit_read(ctx, f"compare/{base_sha}...{train_sha}")
+        return body.get("status") in {"ahead", "identical"}
     return git.is_ancestor(ctx.repo_root, base_sha, train_sha)
 
 
@@ -152,6 +161,7 @@ def unchanged_failed_train_refusal(
     if not head or head != trained_head:
         return None
     current_base = (base_sha or _current_base_sha(ctx, base_branch)).strip()
+
     def refusal():
         if retry_flake.strip():
             from yoke_core.domain.merge_queue_flake_retry import claim_retry
