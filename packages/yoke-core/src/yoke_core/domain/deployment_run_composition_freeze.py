@@ -46,6 +46,7 @@ from yoke_core.domain.workflow_runtime import (
     ENGINE_TERMINAL_STAGE_IDS,
     WorkflowRuntime,
 )
+from yoke_core.domain.deployment_run_proposed_membership import run_items
 
 
 DELIVERY_INTENT_PROGRESS = "progress"
@@ -132,8 +133,7 @@ def requires_release_admission(conn: Any, run_id: str) -> bool:
 
 def member_ids(conn: Any, run_id: str) -> tuple[int, ...]:
     rows = conn.execute(
-        f"SELECT item_id FROM deployment_run_items WHERE run_id={_p(conn)} "
-        "ORDER BY item_id",
+        f"SELECT item_id FROM {run_items()} WHERE run_id={_p(conn)} ORDER BY item_id",
         (run_id,),
     ).fetchall()
     return tuple(int(_cell(row, "item_id", 0)) for row in rows)
@@ -149,7 +149,7 @@ def inherited_frozen_membership(conn: Any, run_id: str) -> bool:
     retry — and the reason its membership is read rather than derived again.
     """
     row = conn.execute(
-        f"SELECT COUNT(*) FROM deployment_run_items WHERE run_id={_p(conn)} "
+        f"SELECT COUNT(*) FROM {run_items()} WHERE run_id={_p(conn)} "
         "AND COALESCE(requirement_snapshot,'')<>''",
         (run_id,),
     ).fetchone()

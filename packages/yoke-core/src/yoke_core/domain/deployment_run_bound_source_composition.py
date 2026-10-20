@@ -1,11 +1,12 @@
 """Preview source-dependent delivery facts, then apply them without source I/O."""
 
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
 from typing import Any
+from yoke_core.domain.deployment_run_carried_enrollment import CarriedEnrollment
 from yoke_core.domain.deployment_run_carried_membership import (
-    CarriedEnrollment,
+    apply_carried_enrollment,
     enroll_carried_members,
     project_carried_sets,
 )
@@ -15,7 +16,10 @@ from yoke_core.domain.deployment_run_carried_work import (
 )
 from yoke_core.domain.deployment_run_bound_sources import bound_project_shas
 from yoke_core.domain.deployment_run_composition_guard import has_frozen_composition
-from yoke_core.domain.deployment_member_snapshot_write import write_member_snapshots
+from yoke_core.domain.deployment_member_snapshot_write import (
+    store_member_snapshots,
+    write_member_snapshots,
+)
 from yoke_core.domain.deployment_run_unheld_candidates import (
     candidate_custody,
     CustodyResolution,
@@ -159,6 +163,129 @@ def _preview_containment(
     return {"basis_digest": basis["basis_digest"], "answers": answers}
 
 
+@dataclass(frozen=True)
+class PlannedRecomposition:
+    """A recomposition judged before the run lock, for the record being bound.
+
+    ``snapshots`` are the frozen run's new members' rows, as
+    ``(selections, snapshots, requirement_ids, plan_ids)``; ``verdict`` is the
+    composition judgement ``cmd_validate_composition`` would give after the
+    writes. ``further`` is the enrollment that judgement would make of the
+    carried items outside the rebound projects; its reads are covered by the
+    rebound enrollment's basis, so confirming that one confirms both.
+    """
+
+    snapshots: tuple[dict, dict, tuple[int, ...], tuple[int, ...]] | None
+    verdict: tuple[bool, str]
+    further: CarriedEnrollment | None = None
+
+    @property
+    def row_ids(self) -> tuple[tuple[int, ...], tuple[int, ...]]:
+        """The requirement and plan rows this plan read unlocked."""
+        requirements, plans = set(), set()
+        if self.snapshots is not None:
+            requirements.update(self.snapshots[2])
+            plans.update(self.snapshots[3])
+        if self.further is not None and self.further.admission is not None:
+            requirements.update(self.further.admission.requirement_ids)
+            plans.update(self.further.admission.plan_ids)
+        return tuple(sorted(requirements)), tuple(sorted(plans))
+
+
+def plan_recomposition(
+    conn: Any,
+    run_id: str,
+    record: dict[str, Any],
+    preview: BoundSourceComposition,
+    enrollment: CarriedEnrollment | None,
+) -> PlannedRecomposition | None:
+    """Judge the recomposed run before the lock, without writing it.
+
+    The judgement reads the rebound *record*, the preview's carried work and
+    the rows *enrollment* would insert. ``None`` sends the caller to the
+    locked recomposition: a schema or state this pass cannot stand in for.
+    """
+    from yoke_core.domain.deployment_member_snapshot_write import (
+        read_member_snapshots,
+        snapshot_row_ids,
+    )
+    from yoke_core.domain.deployment_run_carried_membership import (
+        carried_enrollment_blocked,
+        plan_carried_enrollment,
+    )
+    from yoke_core.domain.deployment_run_project_sources import (
+        proposed_run_source_facts,
+    )
+    from yoke_core.domain.deployment_run_proposed_membership import (
+        proposed_membership,
+    )
+    from yoke_core.domain.deployment_runs_composition_judgement import (
+        judge_composition,
+    )
+    from yoke_core.domain.schema_read_scope import reads_active
+
+    if not reads_active() or (enrollment is not None and enrollment.refusal):
+        return None
+    rows = dict(enrollment.proposed_rows) if enrollment is not None else {}
+    snapshots = None
+    if has_frozen_composition(conn, run_id):
+        if conn.execute(
+            "SELECT 1 FROM deployment_run_items WHERE run_id=%s "
+            "AND COALESCE(requirement_snapshot,'')='' LIMIT 1",
+            (run_id,),
+        ).fetchone():
+            return None
+        stored = {
+            item_id: row["requirement_selection"] for item_id, row in rows.items()
+        }
+        selections, frozen = read_member_snapshots(conn, run_id, stored, lock=False)
+        snapshots = (selections, frozen, *snapshot_row_ids(selections, frozen))
+        for item_id in rows:
+            rows[item_id] = dict(
+                rows[item_id],
+                requirement_selection=selections[item_id],
+                requirement_snapshot=frozen[item_id],
+            )
+    project_id = conn.execute(
+        "SELECT project_id FROM deployment_runs WHERE id=%s", (run_id,)
+    ).fetchone()[0]
+    with (
+        proposed_membership(conn, run_id, rows),
+        proposed_run_source_facts(conn, run_id, dumps_compact(record)),
+    ):
+        carried = further = None
+        if not carried_enrollment_blocked(conn, run_id):
+            carried = preview.carried
+            try:
+                further = plan_carried_enrollment(
+                    conn, run_id, carried_work=carried, custody=preview.custody
+                )
+            except (LookupError, ValueError):
+                # The locked judgement reports this refusal in its own words.
+                return None
+    if further is not None and further.refusal is not None:
+        return None
+    rows.update(further.proposed_rows if further is not None else {})
+    with (
+        proposed_membership(conn, run_id, rows),
+        proposed_run_source_facts(conn, run_id, dumps_compact(record)),
+    ):
+        verdict = judge_composition(
+            conn,
+            run_id,
+            int(project_id),
+            errors=[],
+            enrolled=further.refs if further is not None else (),
+            carried=carried,
+            custody=preview.custody,
+            enrollment_error=None,
+            allow_pending_pair_merges=False,
+            composition_result=None,
+            require_item_qa_members=True,
+        )
+    return PlannedRecomposition(snapshots, verdict, further)
+
+
 def recompose_bound_sources(
     conn: Any,
     run_id: str,
@@ -166,11 +293,13 @@ def recompose_bound_sources(
     preview: BoundSourceComposition,
     *,
     enrollment: CarriedEnrollment | None = None,
+    planned: PlannedRecomposition | None = None,
 ) -> None:
     """Keep existing contracts and admit newly carried work in the transaction.
 
     *enrollment* is the decision made before the run lock and confirmed under
-    it; without one, enrollment decides here.
+    it; without one, enrollment decides here. *planned*, judged with it before
+    the lock, replaces the locked snapshot reads and composition judgement.
     """
     conn.execute(
         "UPDATE deployment_runs SET carried_work=%s WHERE id=%s",
@@ -184,18 +313,31 @@ def recompose_bound_sources(
         rebound_project_ids=project_ids,
         enrollment=enrollment,
     )
-    rows = (
-        conn.execute(
-            "SELECT item_id,requirement_selection FROM deployment_run_items WHERE run_id=%s AND COALESCE(requirement_snapshot,'')=''",
-            (run_id,),
-        ).fetchall()
-        if has_frozen_composition(conn, run_id)
-        else ()
-    )
-    write_member_snapshots(conn, run_id, {int(row[0]): row[1] for row in rows})
-    valid, reason = cmd_validate_composition(
-        run_id, connection=conn, custody=preview.custody
-    )
+    if planned is not None:
+        if planned.snapshots is not None:
+            store_member_snapshots(conn, run_id, *planned.snapshots[:2])
+        valid, reason = planned.verdict
+        if planned.further is not None:
+            outcome = apply_carried_enrollment(
+                conn, run_id, replace(planned.further, confirmed=True)
+            )
+            if not outcome.as_planned or outcome.error is not None:
+                valid, reason = cmd_validate_composition(
+                    run_id, connection=conn, custody=preview.custody
+                )
+    else:
+        rows = (
+            conn.execute(
+                "SELECT item_id,requirement_selection FROM deployment_run_items WHERE run_id=%s AND COALESCE(requirement_snapshot,'')=''",
+                (run_id,),
+            ).fetchall()
+            if has_frozen_composition(conn, run_id)
+            else ()
+        )
+        write_member_snapshots(conn, run_id, {int(row[0]): row[1] for row in rows})
+        valid, reason = cmd_validate_composition(
+            run_id, connection=conn, custody=preview.custody
+        )
     if not valid:
         raise ValueError(
             f"bound_source_composition_invalid: {reason}; repair the named obligation, then re-drive {run_id}"

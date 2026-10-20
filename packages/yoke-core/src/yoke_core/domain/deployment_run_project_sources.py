@@ -17,6 +17,7 @@ for the pin.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from typing import Any, Mapping
 from yoke_core.domain.time_parse import parse_timestamp_utc
 
@@ -129,6 +130,27 @@ def run_source_facts(conn: Any, run_id: str) -> dict[str, Any] | None:
         }
 
     return shared_read(conn, (_RUN_SOURCE_FACTS_KEY, str(run_id)), read)
+
+
+@contextmanager
+def proposed_run_source_facts(conn: Any, run_id: str, bound_sources: str):
+    """Answer this operation's source reads from *bound_sources* meanwhile.
+
+    For a judgement made before the run lock about sources the caller writes
+    under it. Needs an active composition read scope; the shared answer is
+    discarded on exit so later reads see the row again.
+    """
+    from yoke_core.domain.schema_read_scope import shared_read
+
+    invalidate_run_source_facts(conn, run_id)
+    facts = run_source_facts(conn, run_id)
+    invalidate_run_source_facts(conn, run_id)
+    proposed = None if facts is None else {**facts, BOUND_SOURCES_FIELD: bound_sources}
+    shared_read(conn, (_RUN_SOURCE_FACTS_KEY, str(run_id)), lambda: proposed)
+    try:
+        yield
+    finally:
+        invalidate_run_source_facts(conn, run_id)
 
 
 def run_source_sha(conn: Any, run_id: str, project_id: int) -> str:
@@ -261,6 +283,7 @@ __all__ = [
     "carrying_runs_for_project",
     "delivered_source_sha",
     "environment_name",
+    "proposed_run_source_facts",
     "recorded_source_sha",
     "run_delivered_sha",
     "run_recorded_and_delivered_shas",

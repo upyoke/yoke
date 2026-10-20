@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.qa_obligation_settlement import requirement_retracted_at_select
+from yoke_core.domain.schema_common import _table_exists
 
 
 def _digest(select: str, order: str) -> str:
@@ -21,7 +21,17 @@ def _digest(select: str, order: str) -> str:
 
 def run_qa_fingerprint(conn: Any, run_id: str) -> str:
     """The digest of every fact a QA writer's unlocked read depended on."""
-    parts = (
+    # A table a schema has not created yet holds no facts to change.
+    present = {
+        table: _table_exists(conn, table)
+        for table in (
+            "qa_plan_item_attachments",
+            "qa_requirements",
+            "qa_runs",
+            "deployment_stage_receipts",
+        )
+    }
+    parts = [
         _digest(
             "SELECT status,current_stage,settling_at,requirement_snapshot "
             "FROM deployment_runs WHERE id=%s",
@@ -32,29 +42,39 @@ def run_qa_fingerprint(conn: Any, run_id: str) -> str:
             "WHERE run_id=%s",
             "t.item_id",
         ),
-        _digest(
-            "SELECT a.* FROM qa_plan_item_attachments a "
-            "JOIN deployment_run_items m ON m.item_id=a.item_id WHERE m.run_id=%s",
-            "t.item_id,t.plan_id,t.transition_id,t.qa_phase",
-        ),
-        _digest(
-            "SELECT id,deployment_stage,deployment_member_item_id,plan_id,"
-            "execution_target_digest,waived_at,superseded_by_requirement_id,"
-            f"replacement_requirement_id,{requirement_retracted_at_select(conn)} "
-            "FROM qa_requirements WHERE deployment_run_id=%s",
-            "t.id",
-        ),
-        _digest(
-            "SELECT r.id FROM qa_runs r JOIN qa_requirements q "
-            "ON q.id=r.qa_requirement_id WHERE q.deployment_run_id=%s",
-            "t.id",
-        ),
-        _digest(
-            "SELECT id,stage_name,attempt_number,status "
-            "FROM deployment_stage_receipts WHERE run_id=%s",
-            "t.id",
-        ),
-    )
+    ]
+    if present["qa_plan_item_attachments"]:
+        parts.append(
+            _digest(
+                "SELECT a.* FROM qa_plan_item_attachments a "
+                "JOIN deployment_run_items m ON m.item_id=a.item_id WHERE m.run_id=%s",
+                "t.item_id,t.plan_id,t.transition_id,t.qa_phase",
+            )
+        )
+    if present["qa_requirements"]:
+        parts.append(
+            _digest(
+                # Whole rows: any column a schema carries is a fact read.
+                "SELECT * FROM qa_requirements WHERE deployment_run_id=%s",
+                "t.id",
+            )
+        )
+        if present["qa_runs"]:
+            parts.append(
+                _digest(
+                    "SELECT r.id FROM qa_runs r JOIN qa_requirements q "
+                    "ON q.id=r.qa_requirement_id WHERE q.deployment_run_id=%s",
+                    "t.id",
+                )
+            )
+    if present["deployment_stage_receipts"]:
+        parts.append(
+            _digest(
+                "SELECT id,stage_name,attempt_number,status "
+                "FROM deployment_stage_receipts WHERE run_id=%s",
+                "t.id",
+            )
+        )
     row = conn.execute(
         f"SELECT md5(concat_ws(',',{','.join(parts)}))", (str(run_id),) * len(parts)
     ).fetchone()

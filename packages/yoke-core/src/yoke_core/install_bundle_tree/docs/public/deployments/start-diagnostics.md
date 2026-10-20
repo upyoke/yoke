@@ -229,10 +229,11 @@ they cannot split its fields or displace source identities and timestamps.
 Timing records distinguish `start_source_preparation`, `start_admission_reads`,
 `start_item_run_locks`, `start_admission_recheck`, `start_source_refresh`,
 `target_occupancy`, `composition_freeze`, `bound_source_provider`,
-`bound_source_composition`, `bound_source_enrollment`,
+`bound_source_composition`, `bound_source_enrollment`, `bound_source_judgement`,
 `bound_source_item_run_locks`, `bound_source_recheck`, `bound_source_commit`
-and `executing_stamp`. The `start_admission_reads`, `bound_source_composition`
-and `bound_source_enrollment` steps read every member before the run row lock;
+and `executing_stamp`. The `start_admission_reads`, `bound_source_composition`,
+`bound_source_enrollment` and `bound_source_judgement` steps read every member,
+and judge the members enrollment would add, before the run row lock;
 the two `_recheck` steps prove those reads current under it, and a changed
 input repeats the reads while the lock is held. A lock timeout names the phase,
 not an invented blocker; missing response/timing evidence stays unknown. Real-run verification must name

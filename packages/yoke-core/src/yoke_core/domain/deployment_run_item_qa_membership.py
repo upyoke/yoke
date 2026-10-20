@@ -36,6 +36,7 @@ from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
 from yoke_core.domain.json_helper import loads_text
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_runtime import ENGINE_TERMINAL_STAGE_IDS
+from yoke_core.domain.deployment_run_proposed_membership import run_items
 
 #: The named result an item-scoped QA stage reports when no member owes it.
 NO_MEMBER_OWES_TARGET = (
@@ -182,7 +183,7 @@ def item_qa_membership_verdict(
         return "", ""
     custody = requires_release_admission(conn, run_id)
     members = query_scalar(
-        conn, "SELECT COUNT(*) FROM deployment_run_items WHERE run_id = %s", (run_id,)
+        conn, f"SELECT COUNT(*) FROM {run_items()} WHERE run_id = %s", (run_id,)
     )
     if int(members or 0) or removed_item_ids(conn, run_id):
         return ("" if custody else _custody_refusal(flow, project, stages)), ""

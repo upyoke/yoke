@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from yoke_core.domain.deployment_run_proposed_membership import run_items
 from typing import Any
 
 
@@ -193,7 +194,7 @@ def covering_holder_pairs(
         "SELECT dri.run_id,dri.item_id,dri.requirement_snapshot,dri.requirement_selection,"
         "re.name AS run_environment,dr.project_id,dr.release_lineage,dr.bound_sources,"
         "i.project_id AS item_project_id "
-        "FROM deployment_run_items dri JOIN deployment_runs dr ON dr.id=dri.run_id "
+        f"FROM {run_items('dri')} JOIN deployment_runs dr ON dr.id=dri.run_id "
         "JOIN items i ON i.id=dri.item_id "
         "JOIN deployment_flows df ON df.id=dr.flow "
         "LEFT JOIN environments re ON re.id=COALESCE(dr.target_environment_id,df.target_environment_id) "
@@ -255,7 +256,8 @@ def member_selected_requirement_ids(
     conn: Any, *, run_id: str, item_id: int
 ) -> frozenset[int]:
     rows = conn.execute(
-        "SELECT run_id,item_id,requirement_snapshot,requirement_selection FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
+        "SELECT run_id,item_id,requirement_snapshot,requirement_selection "
+        f"FROM {run_items()} WHERE run_id=%s AND item_id=%s",
         (run_id, item_id),
     ).fetchall()
     return _selected_sets(conn, rows).get((run_id, item_id), frozenset())

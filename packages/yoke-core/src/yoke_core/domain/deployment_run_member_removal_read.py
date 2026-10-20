@@ -36,6 +36,10 @@ class RemovalRead:
 
 def shared_group_stages(conn: Any, run_id: str) -> list[str]:
     """Stages holding memberless shared-group rows, whose owners a removal asks."""
+    from yoke_core.domain.schema_common import _table_exists
+
+    if not _table_exists(conn, "qa_requirements"):
+        return []
     return [
         str(row["deployment_stage"])
         for row in conn.execute(
@@ -47,8 +51,6 @@ def shared_group_stages(conn: Any, run_id: str) -> list[str]:
     ]
 
 
-@presentation_operation
-@run_presentation
 def read_removal(
     conn: Any, *, run_id: str, item_ids: Iterable[int] = (), guard: bool = True
 ) -> RemovalRead:
@@ -58,15 +60,30 @@ def read_removal(
     if row is None:
         raise LookupError(f"deployment run '{run_id}' not found")
     read = RemovalRead(projection, str(row["status"]))
-    for stage_name in shared_group_stages(conn, run_id):
-        projection.stage_groups(stage_name)
     if guard:
         try:
             for item_id in item_ids:
                 _require_removable(conn, run_id, int(item_id), read.status)
         except ValueError as exc:
             read.refusal = exc
+    _read_groups(conn, run_id=run_id, projection=projection)
     return read
+
+
+@presentation_operation
+@run_presentation
+def _read_groups(conn: Any, *, run_id: str, projection: Any) -> None:
+    for stage_name in shared_group_stages(conn, run_id):
+        projection.stage_groups(stage_name)
+
+
+@presentation_operation
+@run_presentation
+def _item_qa_answer(conn: Any, *, run_id: str, **subject: Any) -> Any:
+    """The member's item QA answer, its siblings read as one set per fact."""
+    from yoke_core.domain.deployment_qa_run_acceptance import current_item_qa
+
+    return current_item_qa(conn, run_id=run_id, **subject)
 
 
 def _require_removable(conn: Any, run_id: str, item_id: int, status: str) -> None:
@@ -80,10 +97,7 @@ def _require_removable(conn: Any, run_id: str, item_id: int, status: str) -> Non
             f"deployment run '{run_id}' is {status}; removal is allowed only while "
             "status='created', executing at item QA, or failed at item-qa-failed. Use a later release."
         )
-    from yoke_core.domain.deployment_qa_run_acceptance import (
-        current_item_qa,
-        pinned_stages,
-    )
+    from yoke_core.domain.deployment_qa_run_acceptance import pinned_stages
 
     row = query_one(
         conn,
@@ -136,7 +150,7 @@ def _require_removable(conn: Any, run_id: str, item_id: int, status: str) -> Non
         raise ValueError(
             f"member {render_item_ref(conn, item_id)} is already closed; retain its delivery evidence."
         )
-    answer = current_item_qa(
+    answer = _item_qa_answer(
         conn,
         run_id=run_id,
         item_id=item_id,
