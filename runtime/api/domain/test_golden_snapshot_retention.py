@@ -13,6 +13,7 @@ from yoke_harness.golden_snapshot_retention import (
     SnapshotRetentionError,
     apply_retention,
     removable_snapshot_names,
+    removal_order,
     retain_after_verified_capture,
 )
 from yoke_harness.ssh_linux_baseline import ABSENT_HOME_PATHS, _ARCHIVE_PROGRAM
@@ -244,6 +245,56 @@ def test_a_symlink_blocks_removal_and_leaves_the_target(tmp_path):
     assert str(registered) in raised.value.recovery
     assert not (parent / "old").exists()
     assert (outside / "kept").read_text() == "safe"
+
+
+def test_a_failed_removal_keeps_that_name_and_removes_the_rest(tmp_path):
+    parent = tmp_path / "yoketest"
+    parent.mkdir()
+    for name in ("home-1", "home-2-broken", "home-3"):
+        (parent / name).mkdir()
+        (parent / (name + ".manifest")).write_text("m")
+    registered = parent / "current"
+    registered.mkdir()
+
+    def run_with_one_failing_rm(command, **kwargs):
+        # The host refuses one folder, as a deny-delete ACL or busy mount would.
+        failing_rm = (
+            'rm() { case "$*" in *broken) echo "rm: denied" >&2; return 1 ;; '
+            'esac; command rm "$@"; }\n'
+        )
+        return _run(failing_rm + command, **kwargs)
+
+    with pytest.raises(SnapshotRetentionError) as raised:
+        apply_retention(
+            run_with_one_failing_rm,
+            destination=str(registered),
+            user="yoketest",
+            kept_paths=[str(registered)],
+        )
+
+    assert set(os.listdir(parent)) == {"current", "home-2-broken"}
+    detail = raised.value.detail
+    assert "Kept: home-2-broken (failed)." in detail
+    removed = detail.split("Removed: ", 1)[1].split(". Kept:", 1)[0].split(", ")
+    assert set(removed[:3]) == {
+        "home-1.manifest",
+        "home-2-broken.manifest",
+        "home-3.manifest",
+    }
+    assert set(removed[3:]) == {"home-1", "home-3"}
+    assert "rm: denied" in detail
+
+
+def test_sidecars_are_removed_before_their_folders():
+    assert removal_order(
+        ("home-1", "home-1.probes", "home-2", "home-2.manifest", "home-1.harness-clis")
+    ) == (
+        "home-1.probes",
+        "home-2.manifest",
+        "home-1.harness-clis",
+        "home-1",
+        "home-2",
+    )
 
 
 def test_low_disk_refuses_with_the_named_reason(tmp_path, monkeypatch):

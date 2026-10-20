@@ -176,6 +176,7 @@ def _capture_golden(
     from yoke_harness.golden_snapshot_retention import (
         SnapshotRetentionError,
         retain_after_verified_capture,
+        retention_summary,
     )
 
     machine = str(contract.settings["resource_name"])
@@ -239,13 +240,22 @@ def _capture_golden(
         )
     registered = str(submitted.get("golden_baseline_path"))
     try:
-        retain_after_verified_capture("golden_capture", True, submitted, execution)
+        removed = retain_after_verified_capture(
+            "golden_capture", True, submitted, execution
+        )
     except SnapshotRetentionError as error:
         # The new golden is verified and registered, and the next capture's
         # space check refuses if leftovers crowd the disk, so the plan goes on.
         print(
             f"# qa plan run: warning {error.code} on {machine}: {error.detail} "
             f"{error.recovery}",
+            file=sys.stderr,
+            flush=True,
+        )
+    else:
+        print(
+            f"# qa plan run: golden retention on {machine}: "
+            + retention_summary(removed or [], []),
             file=sys.stderr,
             flush=True,
         )
