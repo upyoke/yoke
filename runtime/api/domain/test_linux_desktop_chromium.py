@@ -186,29 +186,28 @@ def _alternative(tmp_path, target):
     return link
 
 
-def _snap_chromium(tmp_path):
-    snap = tmp_path / "usr/bin/snap"
-    snap.parent.mkdir(parents=True)
-    snap.write_text("")
-    chromium = tmp_path / "snap/bin/chromium"
-    chromium.parent.mkdir(parents=True)
-    chromium.symlink_to(snap)
-    return chromium
+def _wrapper(tmp_path):
+    wrapper = tmp_path / "usr/bin/chromium-browser"
+    wrapper.parent.mkdir(parents=True)
+    wrapper.write_text("#!/bin/sh\nexec /snap/bin/chromium \"$@\"\n")
+    return wrapper
 
 
-def test_default_browser_stops_at_the_snap_chromium_launcher(tmp_path):
-    chromium = _snap_chromium(tmp_path)
-    assert host._default_browser(_alternative(tmp_path, chromium)) == chromium
+def test_default_browser_resolves_to_the_chromium_wrapper(tmp_path):
+    wrapper = _wrapper(tmp_path)
+    assert _resolve(_alternative(tmp_path, wrapper)) == wrapper
 
 
-@pytest.mark.parametrize("target", ["firefox", None])
+@pytest.mark.parametrize("target", ["firefox", "snap", None])
 def test_prepare_refuses_when_x_www_browser_is_not_chromium(
     monkeypatch, tmp_path, target
 ):
     link = tmp_path / "x-www-browser"
     if target:
         (tmp_path / target).write_text("")
-        link = _alternative(tmp_path, tmp_path / target)
+        launcher = tmp_path / "chromium"
+        launcher.symlink_to(tmp_path / target)
+        link = _alternative(tmp_path, launcher)
     monkeypatch.setattr(host, "_default_browser", lambda: _resolve(link))
     with pytest.raises(host.ChromiumRefusal) as refusal:
         host.prepare()
@@ -227,7 +226,7 @@ def test_prepare_names_a_missing_chromium(monkeypatch, tmp_path):
 
 
 def test_prepare_restarts_a_running_chromium_with_a_devtools_port(monkeypatch, tmp_path):
-    chromium = _snap_chromium(tmp_path)
+    chromium = _wrapper(tmp_path)
     ports = iter([None, None, 9222])
     launched = []
     monkeypatch.setattr(host, "_default_browser", lambda: chromium)
@@ -255,7 +254,7 @@ def test_prepare_restarts_a_running_chromium_with_a_devtools_port(monkeypatch, t
 
 
 def test_prepare_reuses_a_debuggable_chromium(monkeypatch):
-    monkeypatch.setattr(host, "_default_browser", lambda: Path("/snap/bin/chromium"))
+    monkeypatch.setattr(host, "_default_browser", lambda: Path("/usr/bin/chromium-browser"))
     monkeypatch.setattr(host, "devtools_port", lambda: 9222)
     monkeypatch.setattr(host, "quit_chromium", lambda: pytest.fail("restarted"))
     assert host.prepare() == {"chromium": "reused"}

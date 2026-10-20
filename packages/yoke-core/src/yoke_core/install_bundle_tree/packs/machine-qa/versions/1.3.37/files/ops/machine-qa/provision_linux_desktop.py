@@ -20,7 +20,10 @@ TERMINAL_SELECTION = "TerminalEmulator=xfce4-terminal"
 # Browser approval gates drive this Chromium; the installer under test opens
 # its approval link in the default browser, which must therefore be it.
 CHROMIUM_DESKTOP_ENTRY = "chromium_chromium.desktop"
-CHROMIUM_SNAP = "/snap/bin/chromium"
+# Ubuntu's chromium-browser package wraps the snap in this script and registers
+# it as x-www-browser. A direct /snap/bin/chromium link cannot be that: snap
+# picks the app from the name it is called by and refuses "x-www-browser".
+CHROMIUM_WRAPPER = "/usr/bin/chromium-browser"
 CHROMIUM_NAMES = ("chromium", "chromium-browser")
 # XFCE's exo-open falls back to debian-sensible-browser, which runs this.
 BROWSER_ALTERNATIVE = Path("/usr/bin/x-www-browser")
@@ -214,9 +217,11 @@ def provision(home: Path, port: int = DEFAULT_RDP_PORT) -> None:
     )
     print("linux-desktop: installing Chromium as the default browser", flush=True)
     command(["sudo", "-n", "snap", "install", "chromium"])
-    alternatives = ["sudo", "-n", "update-alternatives"]
-    command([*alternatives, "--install", str(BROWSER_ALTERNATIVE), "x-www-browser", CHROMIUM_SNAP, "200"])
-    command([*alternatives, "--set", "x-www-browser", CHROMIUM_SNAP])
+    command(
+        ["sudo", "-n", "env", "DEBIAN_FRONTEND=noninteractive"]
+        + ["apt-get", "install", "-y", "chromium-browser"]
+    )
+    command(["sudo", "-n", "update-alternatives", "--set", "x-www-browser", CHROMIUM_WRAPPER])
     defaults = home / ".config/mimeapps.list"
     defaults.write_text(
         browser_defaults(defaults.read_text() if defaults.exists() else "")
@@ -227,17 +232,13 @@ def provision(home: Path, port: int = DEFAULT_RDP_PORT) -> None:
 
 
 def resolved_default_browser(link: Path = BROWSER_ALTERNATIVE) -> str:
-    """Follow x-www-browser to the browser desktop links actually open."""
-    path = link
-    for _ in range(8):
-        if path.name in CHROMIUM_NAMES or not path.is_symlink():
-            break
-        path = path.parent / os.readlink(path)
+    """Resolve x-www-browser to the program desktop links actually run."""
+    path = link.resolve()
     if path.name not in CHROMIUM_NAMES or not path.exists():
         found = str(path) if path.exists() else "nothing"
         raise ProvisionFailure(
             f"linux_desktop_default_browser_not_selected: x-www-browser resolves to {found}; "
-            "rerun provisioning to register Chromium as x-www-browser"
+            "rerun provisioning to install chromium-browser and select it as x-www-browser"
         )
     return str(path)
 

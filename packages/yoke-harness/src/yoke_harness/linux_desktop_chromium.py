@@ -23,7 +23,7 @@ TAB_WAIT_SECONDS = 15
 CONTROL_ATTEMPTS = 40
 NAVIGATION_ATTEMPTS = 40
 POLL_SECONDS = 0.25
-PROVISION = "Provision the desktop with the Machine QA Pack's ops/machine-qa/provision_linux_desktop.py (linux-host-provisioning.md section 4); it installs Chromium and registers it as x-www-browser. Then rerun."
+PROVISION = "Provision the desktop with the Machine QA Pack's ops/machine-qa/provision_linux_desktop.py (linux-host-provisioning.md section 4); it installs Chromium with Ubuntu's chromium-browser wrapper and selects that as x-www-browser. Then rerun."
 
 
 ChromiumRefusal = native_processes.ChromiumRefusal
@@ -95,13 +95,12 @@ def _desktop_env():
 
 
 def _default_browser(link=BROWSER_ALTERNATIVE):
-    """Follow x-www-browser to the browser desktop links actually open."""
-    path = link
-    for _ in range(8):
-        if path.name in CHROMIUM_NAMES or not path.is_symlink():
-            break
-        path = path.parent / os.readlink(path)
-    return path
+    """Resolve x-www-browser to the program desktop links actually run.
+
+    A link straight to /snap/bin/chromium resolves to the snap launcher, which
+    refuses to run as x-www-browser, so only a Chromium program counts.
+    """
+    return link.resolve()
 
 
 def prepare():

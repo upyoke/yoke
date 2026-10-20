@@ -297,24 +297,25 @@ def _browser_alternative(tmp_path, target):
     return link
 
 
-def test_verify_follows_x_www_browser_to_the_snap_chromium(provisioners, tmp_path):
+def test_verify_resolves_x_www_browser_to_the_chromium_wrapper(provisioners, tmp_path):
     linux, _ = provisioners
-    (tmp_path / "snap").write_text("")
-    chromium = tmp_path / "chromium"
-    chromium.symlink_to(tmp_path / "snap")
-    link = _browser_alternative(tmp_path, chromium)
-    assert linux.resolved_default_browser(link) == str(chromium)
+    wrapper = tmp_path / "chromium-browser"
+    wrapper.write_text("#!/bin/sh\nexec /snap/bin/chromium \"$@\"\n")
+    link = _browser_alternative(tmp_path, wrapper)
+    assert linux.resolved_default_browser(link) == str(wrapper)
 
 
-@pytest.mark.parametrize("target", ["firefox", None])
+@pytest.mark.parametrize("target", ["firefox", "snap", None])
 def test_verify_refuses_an_x_www_browser_that_is_not_chromium(
     provisioners, tmp_path, target
 ):
+    """A direct /snap/bin/chromium link resolves to snap, which cannot run as x-www-browser."""
     linux, _ = provisioners
     link = tmp_path / "x-www-browser"
     if target:
         (tmp_path / target).write_text("")
-        link = _browser_alternative(tmp_path, tmp_path / target)
+        (tmp_path / "chromium").symlink_to(tmp_path / target)
+        link = _browser_alternative(tmp_path, tmp_path / "chromium")
     with pytest.raises(
         linux.ProvisionFailure, match="default_browser_not_selected"
     ) as refusal:
