@@ -83,6 +83,15 @@ def _attempt(row: Any) -> dict[str, Any]:
 
 _COLUMNS = "pr_number,enqueued_at,opened_at,closed_at,closed_reason"
 
+#: Joins an item row aliased ``i`` to its open attempt, aliased ``open_attempt``,
+#: for set-shaped in-flight readers that cannot call :func:`read_open_attempt`.
+OPEN_ATTEMPT_JOIN = (
+    "LEFT JOIN merge_queue_landing_attempts open_attempt "
+    "ON open_attempt.item_id = i.id AND open_attempt.closed_at IS NULL"
+)
+#: Select-list term naming when the open attempt was armed in the queue.
+OPEN_ATTEMPT_ENQUEUED_AT = "open_attempt.enqueued_at AS open_attempt_enqueued_at"
+
 
 def read_open_attempt(conn: Any, item_id: int) -> dict[str, Any] | None:
     """The item's in-flight re-land attempt, or ``None``."""

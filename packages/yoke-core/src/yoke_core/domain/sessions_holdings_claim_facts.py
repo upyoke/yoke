@@ -16,6 +16,10 @@ from typing import Any, Dict, Iterable, List
 from yoke_contracts.public_ref import format_item_ref
 from yoke_contracts.session_holdings import pair_steering_document_slugs
 from yoke_core.domain import db_backend
+from yoke_core.domain.merge_queue_landing_attempt import (
+    OPEN_ATTEMPT_ENQUEUED_AT,
+    OPEN_ATTEMPT_JOIN,
+)
 from yoke_core.domain.turn_end_unfinished_work import waiting_on_landing
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
@@ -65,9 +69,9 @@ def claimed_item_facts(
             "i.workflow_id AS workflow_id, i.merged_at AS merged_at, "
             "i.merge_queue_enqueued_at AS merge_queue_enqueued_at, "
             "i.merge_queue_landed_at AS merge_queue_landed_at, "
-            "p.public_item_prefix AS prefix "
+            f"{OPEN_ATTEMPT_ENQUEUED_AT}, p.public_item_prefix AS prefix "
             "FROM items i JOIN projects p ON p.id = i.project_id "
-            f"WHERE i.id IN ({placeholders})",
+            f"{OPEN_ATTEMPT_JOIN} WHERE i.id IN ({placeholders})",
             tuple(distinct),
         ).fetchall()
     except db_backend.database_error_types(conn):
