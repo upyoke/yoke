@@ -41,32 +41,7 @@ All top-level fields are required for every harness manifest. Optional structure
 
 ## Native CLI
 
-The canonical source is `yoke_contracts.harness_cli_manifest`; renderers and
-runtime consumers use that one registry rather than spelling harness commands
-again.
-
-| Key | Type | Description |
-|-----|------|-------------|
-| `surface_id` | string | Session surface served by this native command (for example, `codex-cli`). |
-| `quota_source` | string | Relay quota adapter: `anthropic_oauth_usage`, `codex_account_rate_limits`, or `cursor_dashboard_usage`. Credentials stay on the executing machine; heartbeat readings carry values and named failure reasons. |
-| `executable` | string | Command name the vendor installs (for example, `cursor-agent`). |
-| `version_args` | list[string] | Arguments used by the bounded version probe. |
-| `bundled_candidates` | list[string] | Optional absolute executable paths inside a vendor application bundle. Empty when no supported bundled command exists. |
-| `authentication` | object | Bounded status arguments, the optional JSON boolean sign-in key, and the native login arguments. Doctor records only the verdict, never the private native auth document. |
-| `project_discovery` | object | Canonical instruction file, skill source, required native skill entry, minimum embedded engine version (nullable), and installed recovery document. Instruction-file discovery is independent of skill discovery. |
-
-`project_discovery` applies to every surface in the family: Codex and Cursor
-load `AGENTS.md` and `.agents/skills/yoke` natively. Claude requires an embedded
-Code engine >=2.1.281 with its built-in AGENTS plugin enabled and instruction
-configuration allowing AGENTS. Its `.claude/skills/yoke` discovery entry links
-to the canonical tree. Install preflight refuses suppressed instructions and
-ambiguous legacy ownership; see `.yoke/docs/agents/harness-discovery.md`.
-
-Installer PATH repair reads this manifest registry, resolves each installed
-command from the ambient installer PATH or a declared bundle candidate, and
-adds the resolved parent directory to both login and non-login/SSH startup
-surfaces. Missing commands remain a reported, re-runnable state; the standard
-Yoke tool directory is still added for later installs.
+See [Native CLI launch and discovery](manifest-native-cli.md).
 
 ## Runtime minimums
 

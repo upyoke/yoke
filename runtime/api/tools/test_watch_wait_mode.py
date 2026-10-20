@@ -194,7 +194,9 @@ def test_the_continuation_directive_names_the_hand_back_and_the_recovery() -> No
     assert "the command is still running" in directive
     assert "continue that same call" in directive
     assert "Reading the background task's output continues the call" in directive
-    assert "only ending the turn kills this watcher" in directive
+    assert "does not extend" in directive
+    assert "cli.launch_environment" in directive
+    assert "background-time-limit notice means incomplete work" in directive
     assert "Never start a second invocation beside a live one" in directive
 
 

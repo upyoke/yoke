@@ -1,7 +1,8 @@
 {
  "id": "continuation-without-duplicate-work",
  "title": "Continuation without duplicate work",
- "status": "draft-copy",
+ "status": "observed",
  "page": "verification",
- "position": 4
+ "position": 4,
+ "sources": ["docs/public/agents/rules/claude-long-commands.md", "packages/yoke-contracts/src/yoke_contracts/harness_cli_manifest.py"]
 }

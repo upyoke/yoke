@@ -5,6 +5,10 @@
     "surface_id": "claude-cli",
     "executable": "claude",
     "quota_source": "anthropic_oauth_usage",
+    "launch_environment": {
+      "BASH_DEFAULT_TIMEOUT_MS": "3600000"
+    },
+    "background_time_limit": "Unattended text-prompt -p runs default to 10 minutes after backgrounding. BASH_DEFAULT_TIMEOUT_MS=3600000 raises the default to one hour, including moved foreground commands and subagents. Explicit background timeout selects its own lifetime. Docs checked 2026-10-20: https://code.claude.com/docs/en/tools-reference",
     "version_args": [
       "--version"
     ],

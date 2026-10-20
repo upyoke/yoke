@@ -1,16 +1,11 @@
-"""PreToolUse Bash: require documented timeout on headless watcher calls.
+"""Require an explicit foreground timeout on headless Claude watcher calls.
 
-When timeout is omitted, Claude's 120s default auto-backgrounds a
-still-running in-turn watcher. The already-taught repair is
-``timeout: 600000`` on that Bash tool call. This guard requires it when
-omitted or set below that floor, for Claude headless watcher invocations
-only — not a blanket Bash timeout.
-
-Headless is the same relay launch/resume env the watcher wait-mode uses,
-observed on the client machine and read from its
-:data:`~yoke_contracts.hook_runner.client_facts.HEADLESS_LAUNCH_KEY` fact.
-Commands that outlive even that ceiling still auto-background; continue
-the same call until it exits. Stop after that PostToolUse is not held.
+The relay's CLI manifest sets BASH_DEFAULT_TIMEOUT_MS=3600000 before
+Claude starts, inherited by subagents. A per-call timeout of 600000 keeps
+shorter watcher waits foreground; it does not extend a moved command's
+background lifetime. Explicit background calls need their own long timeout.
+Headless scope is observed on the client and sent as HEADLESS_LAUNCH_KEY;
+the evaluating server's process environment is never session evidence.
 """
 
 from __future__ import annotations
@@ -117,14 +112,13 @@ def _read_mode(payload: object | None = None) -> str:
 def _format_reason(timeout_ms: Optional[int], suppression_seen: bool, mode: str) -> str:
     if timeout_ms is None:
         observed = (
-            "Observed timeout: omitted. Claude's 120s default auto-backgrounds "
-            "the still-running watcher; ending the turn kills it with no verdict."
+            "Observed timeout: omitted; the watcher call has no explicit "
+            "foreground timeout."
         )
     else:
         observed = (
             f"Observed timeout: {timeout_ms}ms, below the documented "
-            f"{IN_TURN_WATCHER_TIMEOUT_MS}ms floor. Ending the turn kills "
-            "the still-running watcher with no verdict."
+            f"{IN_TURN_WATCHER_TIMEOUT_MS}ms foreground floor."
         )
     body = (
         "BLOCKED: headless in-turn watcher Bash is missing the documented "
@@ -132,11 +126,17 @@ def _format_reason(timeout_ms: Optional[int], suppression_seen: bool, mode: str)
         f"{observed}\n\n"
         f"Repair: set timeout: {IN_TURN_WATCHER_TIMEOUT_MS} (milliseconds) "
         "on this headless watcher Bash call, not a blanket Bash rule. "
-        "Interactive sessions and other "
-        "commands are unchanged.\n\n"
-        "If it outlives that ceiling, continue the same backgrounded call "
-        "until it exits. Do not Stop. Do not relaunch. "
-        "Existing Stop evidence cannot hold after that PostToolUse completion."
+        "This timeout alone does not extend background lifetime. "
+        "Relay launches set BASH_DEFAULT_TIMEOUT_MS=3600000 before Claude "
+        "starts, inherited by subagents; a text-prompt -p worker without "
+        "that setting kills moved commands after 10 minutes. If the setting "
+        "is missing, have the launcher relaunch the worker with it before "
+        "starting a long wait. Exporting it inside Bash is too late. "
+        "For an explicit background call, use run_in_background: true with "
+        "timeout: 3600000; subagents must use foreground Bash. "
+        "See .yoke/docs/agents/rules/claude-long-commands.md. "
+        "A moved call is not evidence that its lifetime is sufficient; "
+        "never start a duplicate while it is running."
     )
     if mode == "warn":
         body += "\n\n[mode=warn] this hook would block in deny mode."

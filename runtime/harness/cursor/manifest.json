@@ -5,6 +5,8 @@
     "surface_id": "cursor-cli",
     "executable": "cursor-agent",
     "quota_source": "cursor_dashboard_usage",
+    "launch_environment": {},
+    "background_time_limit": "Designed deferral: no equivalent unattended background time limit is documented for Cursor CLI print mode. No Claude timeout variable is applied. Docs checked 2026-10-20: https://cursor.com/docs/cli/headless",
     "version_args": [
       "--version"
     ],

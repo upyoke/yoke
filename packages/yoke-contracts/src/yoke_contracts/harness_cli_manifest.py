@@ -21,12 +21,16 @@ class HarnessCliManifest:
     auth_args: tuple[str, ...] = ()
     auth_signed_in_key: str = ""
     login_args: tuple[str, ...] = ("login",)
+    launch_environment: tuple[tuple[str, str], ...] = ()
+    background_time_limit: str = ""
 
     def to_json(self) -> dict[str, object]:
         return {
             "surface_id": self.surface_id,
             "executable": self.executable,
             "quota_source": self.quota_source,
+            "launch_environment": dict(self.launch_environment),
+            "background_time_limit": self.background_time_limit,
             "version_args": list(self.version_args),
             "bundled_candidates": list(self.bundled_candidates),
             "authentication": {
@@ -58,6 +62,15 @@ HARNESS_CLI_MANIFESTS = (
         auth_args=("auth", "status", "--json"),
         auth_signed_in_key="loggedIn",
         login_args=("auth", "login"),
+        launch_environment=(("BASH_DEFAULT_TIMEOUT_MS", "3600000"),),
+        background_time_limit=(
+            "Unattended text-prompt -p runs default to 10 minutes after "
+            "backgrounding. BASH_DEFAULT_TIMEOUT_MS=3600000 raises the "
+            "default to one hour, including moved foreground commands and "
+            "subagents. Explicit background timeout selects its own lifetime. "
+            "Docs checked 2026-10-20: "
+            "https://code.claude.com/docs/en/tools-reference"
+        ),
     ),
     HarnessCliManifest(
         "codex",
@@ -67,6 +80,13 @@ HARNESS_CLI_MANIFESTS = (
         "0.161.0",
         bundled_candidates=("/Applications/ChatGPT.app/Contents/Resources/codex",),
         auth_args=("login", "status"),
+        background_time_limit=(
+            "Designed deferral: no equivalent unattended background time limit "
+            "is documented. Codex uses long-lived exec_command sessions and "
+            "write_stdin continuations; no Claude timeout variable is applied. "
+            "Docs checked 2026-10-20: https://developers.openai.com/cookbook/"
+            "examples/gpt-5/codex_prompting_guide"
+        ),
     ),
     HarnessCliManifest(
         "cursor",
@@ -76,6 +96,12 @@ HARNESS_CLI_MANIFESTS = (
         "2026.10.01",
         auth_args=("status", "--format", "json"),
         auth_signed_in_key="isAuthenticated",
+        background_time_limit=(
+            "Designed deferral: no equivalent unattended background time limit "
+            "is documented for Cursor CLI print mode. No Claude timeout "
+            "variable is applied. Docs checked 2026-10-20: "
+            "https://cursor.com/docs/cli/headless"
+        ),
     ),
 )
 
