@@ -76,7 +76,8 @@ def build_failed_job_report(
             lead = f"Run {run_id}: run concluded success; no failed jobs — {run_url}"
         elif failures.conclusion == "cancelled":
             lead = (
-                f"No failed jobs in run {run_id}: {CANCELLED_RECOVERY}. Open {run_url}."
+                f"No failed jobs in run {run_id}: no verdict; "
+                f"{CANCELLED_RECOVERY}. Open {run_url}."
             )
         elif failures.conclusion in ("", CI_JOB_NOT_STARTED):
             lead = (
