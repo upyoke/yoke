@@ -4,7 +4,7 @@
 [Yoke](../index.md) > [Functions](index.md) > Runtime
 <!-- /yoke:breadcrumbs -->
 
-Read [envelope and authority](index.md) first. `none` means no dispatcher work-claim check; handler permissions still apply. Read command help for the live payload and serving floor.
+Read [envelope and authority](index.md). `none` skips only the claim check.
 
 ## Registered functions
 
@@ -206,6 +206,7 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `sessions.reclaim_stale` | `none` |
 | `sessions.steering_groups.list` | `none` |
 | `sessions.touch` | `none` |
+| `sessions.watcher_activity` | `none` |
 | `steering.report.get` | `none` |
 | `teammate_invites.create` | `none` |
 | `teammate_invites.list` | `none` |

@@ -72,7 +72,7 @@ class LandedItem:
     holder_parked: bool = False
     #: The parked holder's own words for what it waits on, when it left any.
     holder_quiet_reason: str = ""
-    #: Seconds since that holder's last tool call. Quiet past the report's
+    #: Seconds since that holder's latest tool call or heartbeat. Quiet past the report's
     #: idle threshold after landing means a holder is not driving close-out;
     #: a declared release wait expects tool silence.
     holder_idle_seconds: int = 0

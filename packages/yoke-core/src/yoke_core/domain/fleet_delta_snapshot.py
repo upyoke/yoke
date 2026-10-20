@@ -62,10 +62,20 @@ class SessionRow:
     terminated: bool
     activity_at: datetime | None
     last_tool_call_at: datetime | None = None
+    claimed_at: datetime | None = None
     claimed_items: tuple[str, ...] = ()
     landing_waits: tuple[str, ...] = ()
     quiet_reason: str = ""  # the park reason, or empty
     message_delivery: str = DELIVERY_UNKNOWN
+
+    @property
+    def work_activity_at(self) -> datetime | None:
+        """Tool work, including watcher pulses; liveness alone is not progress.
+
+        Older roster responses may omit the tool clock. Preserve their prior
+        activity interpretation until that serving build is upgraded.
+        """
+        return self.last_tool_call_at or self.claimed_at or self.activity_at
 
     @property
     def lifecycle(self) -> str:
@@ -172,6 +182,11 @@ def session_rows(result: Mapping[str, Any]) -> dict[str, SessionRow]:
             terminated=bool(raw.get("terminated_at")),
             activity_at=parse_timestamp(raw.get("activity_at")),
             last_tool_call_at=parse_timestamp(raw.get("last_tool_call_at")),
+            claimed_at=min((
+                stamp for claim in raw.get("claims") or []
+                if isinstance(claim, Mapping) and claim.get("target_kind") == "item"
+                if (stamp := parse_timestamp(claim.get("claimed_at"))) is not None
+            ), default=None),
             claimed_items=tuple(ref for ref, _ in claims),
             landing_waits=tuple(ref for ref, landing in claims if landing),
             quiet_reason=str(raw.get("quiet_reason") or ""),

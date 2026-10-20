@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_cli.commands import flag_adapters as _adapters
+from yoke_cli.commands.adapters.session_watcher_activity import watcher_activity
 from yoke_cli.commands.adapters.sessions_maintenance import (
     sessions_end_if_empty,
     sessions_reclaim_stale,
@@ -15,6 +16,7 @@ from yoke_cli.commands.adapters.sessions_read import (
 
 
 SESSIONS_SUBCOMMAND_REGISTRY = {
+    ("sessions", "watcher-activity"): ("sessions.watcher_activity", watcher_activity),
     ("sessions", "begin"): ("sessions.begin", _adapters.sessions_begin),
     ("sessions", "identity"): (
         "sessions.identity",

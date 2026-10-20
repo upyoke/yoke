@@ -174,6 +174,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     # Actor/session: caller operating on its own session/orchestration.
     "sessions.begin": AuthzSpec(ACTOR_SESSION, None),
     "sessions.touch": AuthzSpec(ACTOR_SESSION, None),
+    "sessions.watcher_activity": AuthzSpec(ACTOR_SESSION, None),
     "sessions.checkpoint": AuthzSpec(ACTOR_SESSION, None),
     "sessions.checkpoint_read": AuthzSpec(ACTOR_SESSION, None),
     "sessions.end_if_empty": AuthzSpec(ACTOR_SESSION, None),
