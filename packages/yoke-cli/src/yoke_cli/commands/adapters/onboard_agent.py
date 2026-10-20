@@ -173,7 +173,7 @@ def run(
     try:
         refusal = _apply_presets(parsed, defaults, store)
         if refusal is not None:
-            cli_answers = {}
+            return _refuse(*refusal, key=store.waiting_key)
         prepared = onboard_resume.prepare_run(parsed)
         if prepared.error:
             return _usage(prepared.error)
@@ -188,7 +188,6 @@ def run(
             ),
             store=store,
             cli_answers=cli_answers,
-            refusal=refusal,
         )
         code = setup.run()
     except KeyboardInterrupt:
@@ -278,8 +277,8 @@ def _agent_setup() -> Callable[..., Any]:
     return AgentSetup
 
 
-def _refuse(reason: str, recovery: str) -> int:
-    responses.emit(responses.refused(reason, recovery, None))
+def _refuse(reason: str, recovery: str, *, key: str | None = None) -> int:
+    responses.emit({**responses.refused(reason, recovery, None), "key": key})
     return responses.EXIT_CODES[responses.STATE_REFUSED]
 
 
