@@ -75,3 +75,20 @@ def test_lookup_drop_stops_driver_without_failure_write(monkeypatch, capsys):
     assert preserve_unknown_outcome(driver_identity_operation(drive))("run-test") == 1
     drive.assert_not_called()
     assert "deployment_outcome_unknown" in capsys.readouterr().err
+
+
+def test_driver_does_not_misclassify_a_query_defect_as_an_actor_drop(monkeypatch):
+    monkeypatch.setattr(
+        identity, "_load_actor_lookup", lambda _: identity.ActorLookup("2", True)
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.session_ambient_identity.resolve_ambient_session_id",
+        lambda: "driver",
+    )
+
+    @driver_identity_operation
+    def drive(run_id):
+        raise psycopg.errors.UndefinedTable("a query names an absent table")
+
+    with pytest.raises(psycopg.errors.UndefinedTable):
+        drive("run-test")

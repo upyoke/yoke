@@ -79,7 +79,7 @@ def test_execution_context_member_reads_are_batched(test_db):
     assert all(member["public_ref"].startswith("YOK-") for member in members)
 
 
-def test_wait_fingerprint_tracks_execution_completion_and_verdict_updates(test_db):
+def test_wait_fingerprint_tracks_execution_completion_and_new_attempts(test_db):
     from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
     from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
     from yoke_core.domain.deployment_run_qa_fingerprint import run_qa_fingerprint
@@ -97,7 +97,43 @@ def test_wait_fingerprint_tracks_execution_completion_and_verdict_updates(test_d
     requirement = _complete_case(test_db, execution)
     after = run_qa_fingerprint(test_db, "run-progress", include_progress=True)
     assert before != after
-    test_db.execute(
-        "UPDATE qa_runs SET verdict='fail' WHERE qa_requirement_id=%s", (requirement,)
+    from runtime.api.domain.test_steering_fleet_report_deployment_run_facts import (
+        _record_verdict,
     )
+
+    _record_verdict(test_db, requirement_id=requirement, verdict="fail")
     assert run_qa_fingerprint(test_db, "run-progress", include_progress=True) != after
+
+
+def test_member_closeout_reads_the_acceptance_just_written(test_db, monkeypatch):
+    from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
+    from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_active
+
+    stage = _seed(test_db, "run-closeout-current", (9201,))
+    execution = begin_plan_execution(
+        test_db,
+        deployment_run_id="run-closeout-current",
+        deployment_stage="item-qa",
+        deployment_member_item_id=9201,
+        actor_id="2",
+        session_id="closeout-test",
+    )
+    _complete_case(test_db, execution)
+    closed = []
+
+    def close(conn, **kwargs):
+        assert not presentation_active()
+        closed.append(kwargs["item_id"])
+
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_qa_member_acceptance_notice.notify_item_qa_accepted",
+        close,
+    )
+    assert (
+        materialize_and_gate_deployment_qa_stage(
+            test_db, stage, run_id="run-closeout-current"
+        )[0]
+        == 0
+    )
+    assert closed == [9201]

@@ -33,19 +33,27 @@ def driver_identity_operation(function):
 
         token = _LOOKUPS.set({})
         try:
-            session = resolve_ambient_session_id() or ""
-            if not session or not _default_actor_id_resolver(session).actor_id:
-                operating_actor_id()
-            return function(run_id, *args, **kwargs)
-        except Exception as exc:
-            if not (
-                is_connection_unavailable_error(exc)
-                or isinstance(exc, db_backend.operational_error_types())
-            ):
-                raise
-            raise DeploymentOutcomeUnknown(
-                run_id, "driver actor/database lookup", "", str(exc)
-            ) from exc
+            try:
+                session = resolve_ambient_session_id() or ""
+                if not session or not _default_actor_id_resolver(session).actor_id:
+                    operating_actor_id()
+            except Exception as exc:
+                if not (
+                    is_connection_unavailable_error(exc)
+                    or isinstance(exc, db_backend.operational_error_types())
+                ):
+                    raise
+                raise DeploymentOutcomeUnknown(
+                    run_id, "driver actor lookup", "", str(exc)
+                ) from exc
+            try:
+                return function(run_id, *args, **kwargs)
+            except Exception as exc:
+                if not is_connection_unavailable_error(exc):
+                    raise
+                raise DeploymentOutcomeUnknown(
+                    run_id, "driver database connection", "", str(exc)
+                ) from exc
         finally:
             _LOOKUPS.reset(token)
 

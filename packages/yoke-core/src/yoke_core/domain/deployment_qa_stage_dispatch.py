@@ -14,7 +14,10 @@ from typing import Any
 
 from yoke_core.domain.project_identity import resolve_project_slug
 from yoke_core.domain.item_ref_render import render_item_ref_lookup
-from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
+from yoke_core.domain.deployment_qa_presentation_reads import (
+    presentation_operation,
+    uncached_presentation,
+)
 from yoke_core.domain.deployment_qa_presentation_facts import run_presentation
 from yoke_core.domain.schema_read_scope import composition_operation
 from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
@@ -243,8 +246,7 @@ def _gate_members(
             for reason in status["reasons"]:
                 print(f"Run {run_id!r} stage {stage['name']!r} {label}: {reason}")
             if member is not None:
-                # Commit the result now; close out after the walk, so a slow
-                # close-out never holds a later member's wake.
+                # Wake every waiting owner before closing accepted members.
                 conn.commit()
                 accepted.append(member)
         if not status["accepted"]:
@@ -294,9 +296,10 @@ def _gate_members(
                         label=label,
                     )
             waiting.extend(f"{label}: {reason}" for reason in status["reasons"])
-    for member in accepted:
-        notify_item_qa_accepted(conn, run_id=run_id, item_id=member)
-        conn.commit()
+    with uncached_presentation():
+        for member in accepted:
+            notify_item_qa_accepted(conn, run_id=run_id, item_id=member)
+            conn.commit()
     if failure:
         return 1, failure
     if waiting:
@@ -317,8 +320,7 @@ def dispatch_deployment_qa_stage(
         redispatch_after_connection_loss,
     )
 
-    # A lost answer is re-sent (the dispatch is idempotent); past the last
-    # send it stops the driver resumably, never as a failed stage.
+    # Lost idempotent dispatches retry, then stop the driver resumably.
     response = redispatch_after_connection_loss(
         lambda: call_dispatcher(
             function_id=DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION,

@@ -73,7 +73,7 @@ class ActorLookup:
 
     ``session_found`` is ``True`` when a row exists, ``False`` when the
     lookup positively found no row, and ``None`` when the lookup could
-    not run (no session id, DB unavailable) — only a positive ``False``
+    not run (no session id or local authority) — only a positive ``False``
     may drive provenance marking.
     """
 

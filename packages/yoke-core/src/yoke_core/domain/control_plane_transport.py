@@ -40,10 +40,10 @@ def local_connection_or_none(
     """Open a direct connection, or report that there is no local authority.
 
     Runs under :func:`local_authority_exempt` because attempting the direct
-    connection IS this function's job: a refusal here would answer the
-    question the attempt is asking. So the attempt runs for real, and any
-    failure means the same thing — no local authority — and returns None so
-    the caller relays.
+    connection IS this function's job. A missing local authority returns
+    None so the caller relays. Identity binding sets connection_errors_raise
+    to preserve a database outage as a failed lookup rather than an absent
+    actor; database and connection failures then propagate.
     """
     try:
         with local_authority_exempt():
