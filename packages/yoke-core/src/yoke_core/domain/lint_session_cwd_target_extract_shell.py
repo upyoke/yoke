@@ -6,6 +6,8 @@ import re
 import shlex
 from typing import List, Mapping, Optional, Tuple
 
+from yoke_core.domain.lint_shell_script_arguments import non_path_argument_indexes
+
 from yoke_core.domain.lint_session_cwd_gh_repo_selector import (
     extract_gh_repo_selector_targets,
 )
@@ -117,7 +119,6 @@ def _is_yoke_payload_path_segment(command_base: str, tokens: List[str]) -> bool:
     )
 
 
-_SED_SCRIPT_FLAGS = ("-e", "-f", "--expression", "--file")
 REDIRECT_OPERATORS = frozenset({">", ">>", "1>", "1>>", "2>", "2>>", "&>", "&>>"})
 #: The operand of a descriptor duplication or close -- ``2>&1``, ``>&2``,
 #: ``2>&-``. Trailing shell punctuation is part of the match because a
@@ -154,16 +155,6 @@ def _segment_command_base(tokens: List[str]) -> str:
     return ""
 
 
-def _sed_script_positional_index(command_base: str, tokens: List[str]) -> int:
-    """Index of the positional that is an inline ``sed`` script, or ``-1``."""
-    if command_base != "sed":
-        return -1
-    for tok in tokens[1:]:
-        if tok in _SED_SCRIPT_FLAGS or tok.startswith("-e") or tok.startswith("-f"):
-            return -1
-    return 0
-
-
 def _extract_segment_targets(
     tokens: List[str],
     bindings: Mapping[str, str],
@@ -179,12 +170,11 @@ def _extract_segment_targets(
     remote_resource_indexes = _remote_resource_indexes(command_base, tokens)
     is_search = command_base in _SEARCH_COMMANDS
     skip_arg_targets = is_search or command_base in STDOUT_REPORTERS
-    sed_script_index = _sed_script_positional_index(command_base, tokens)
+    non_path_indexes = non_path_argument_indexes(command_base, tokens)
 
     out: List[str] = []
     unresolved = False
     seen_command_name = False
-    positional_index = -1
 
     i = 0
     n = len(tokens)
@@ -204,7 +194,7 @@ def _extract_segment_targets(
                     out.append(target)
             i += 2
             continue
-        if i in remote_resource_indexes:
+        if i in remote_resource_indexes or i in non_path_indexes:
             i += 1
             continue
         if not skip_arg_targets:
@@ -234,8 +224,7 @@ def _extract_segment_targets(
             i += 1
             continue
         if seen_command_name and not tok.startswith("-"):
-            positional_index += 1
-            if not skip_arg_targets and positional_index != sed_script_index:
+            if not skip_arg_targets:
                 target = path_target_from_token(tok, bindings)
                 if target is None and tok.startswith("~"):
                     target = tok

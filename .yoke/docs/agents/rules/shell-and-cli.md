@@ -32,10 +32,13 @@ use the documented `# lint:allow-lane-main-write` authority. Read
 [lane rules](lanes-and-claims.md) before resolving an overlap or exception.
 
 Another item's live lane allows reads and refuses writes (`foreign_lane`).
-Use one plain read-verb `git -C LANE ...`: status/diff/log/show/ls-files/ls-tree/
+Use read-verb `git -C LANE ...`: status/diff/log/show/ls-files/ls-tree/
 rev-parse/blame/describe/shortlog, or listing-only branch/remote/config without
-positional arguments. `cat`, `ls` and native Read also work. No redirect, chain,
-`--output`, write or state-changing verb. Inspect a neighbor's shared-file diff
+positional arguments. `cat`, `ls` and native Read also work. Chains and
+pipelines may combine these Git reads, simple file reads and
+`cd PATH` when every segment is read-only. Redirects, substitutions,
+`--output`, writes and state-changing verbs retain ordinary authority checks.
+Inspect a neighbor's shared-file diff
 with a plain `git -C LANE diff -- PATH`.
 
 ### zsh and input hazards

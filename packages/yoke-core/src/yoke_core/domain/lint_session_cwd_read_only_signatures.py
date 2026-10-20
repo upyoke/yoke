@@ -90,7 +90,7 @@ def _classify_harness_sessions(args: List[str]) -> Optional[str]:
     return None
 
 
-_GIT_VALUE_FLAGS = frozenset({"-C", "--git-dir", "--work-tree"})
+_GIT_VALUE_FLAGS = frozenset({"-C", "-c", "--config-env", "--git-dir", "--work-tree"})
 # Subcommands that only ever report: no argument turns one of these into a
 # repository mutation.
 GIT_INSPECTION_SUBS = frozenset(

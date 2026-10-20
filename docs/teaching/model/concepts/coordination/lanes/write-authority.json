@@ -1,7 +1,9 @@
 {
  "id": "write-authority",
  "title": "Write authority",
- "status": "draft-copy",
+ "status": "observed",
  "page": "coordination-lanes",
- "position": 5
+ "position": 5,
+ "summary": "Lane inspection permits chained read-only Git calls, simple file reads and directory changes. Every segment is checked; mixed writes, redirects and command substitutions retain ordinary lane authority. Inline sed/awk programs are data, while input and script files remain path operands.",
+ "sources": ["docs/public/agents/rules/shell-and-cli.md", "packages/yoke-core/src/yoke_core/domain/lint_session_cwd_foreign_lane.py"]
 }
