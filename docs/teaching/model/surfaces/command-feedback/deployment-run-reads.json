@@ -2,7 +2,7 @@
  "id": "deployment-run-reads",
  "title": "Run reads teach field selection and continuation",
  "status": "observed",
- "current": "CLI list returns byte-bounded summary rows with next_cursor and a detail recipe. Multi-field get selects only named columns; single-field get returns its scalar. Shipping overview remains an explicit rich read. Failed start-timing records carry reason_code from the typed refusal or exception type in both raw capture and persisted timings. Older serving contracts refuse with the required read capability and individual-field recovery.",
+ "current": "CLI list returns byte-bounded summary rows with next_cursor and a detail recipe. Multi-field get selects only named columns; single-field get returns its scalar. Shipping overview remains an explicit rich read. Failed start-timing records carry reason_code from the typed refusal or exception type in both raw capture and persisted timings. Older serving contracts refuse with the required read capability and individual-field recovery. Creation collects timing records into start_timings on local and HTTPS transports; the compact CLI receipt saves them to complete private evidence instead of streaming and repeating the table.",
  "verification": "Source tests cover exact field selection, default JSON and human output bytes, Unicode byte paging, stable equal-timestamp continuation, restricted visibility and older-server refusal.",
  "topics": ["deployments/runs/read-fields", "context/bounded-command-reads", "deployments/runs/containment-basis"]
 }

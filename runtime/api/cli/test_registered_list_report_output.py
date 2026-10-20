@@ -17,7 +17,7 @@ from runtime.api.steering_fleet_test_helpers import (
     seed_steering_scope,
 )
 from runtime.api.tools.read_function_catalog import registered_read_ids
-from yoke_cli.transport.output_limit import READ_OUTPUT_LIMIT_BYTES
+from yoke_cli.transport.output_limit import REPLY_LIMIT_BYTES
 from yoke_cli.transport.public_ref_display import emit_response
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -108,7 +108,7 @@ def test_default_read_outputs_fit_fixed_universe(entry, read_universe, capsys):
         result = emit_response(response, json_mode=json_mode)
         rendered = capsys.readouterr()
         assert result == (0 if outcome.primary_success else 1), entry.function_id
-        assert len((rendered.out + rendered.err).encode()) <= READ_OUTPUT_LIMIT_BYTES
+        assert len((rendered.out + rendered.err).encode()) <= REPLY_LIMIT_BYTES
 
 
 def test_size_gate_rejects_oversized_fixture(capsys):
@@ -116,9 +116,9 @@ def test_size_gate_rejects_oversized_fixture(capsys):
         function="qa.plan.list",
         version="v1",
         success=True,
-        result={"rows": [{"description": "x" * READ_OUTPUT_LIMIT_BYTES}]},
+        result={"rows": [{"description": "x" * REPLY_LIMIT_BYTES}]},
     )
-    assert emit_response(response, json_mode=True) == 1
+    assert emit_response(response, json_mode=True) == 0
     rendered = json.loads(capsys.readouterr().out)
-    assert rendered["error"]["code"] == "read_output_limit_exceeded"
-    assert rendered["result"] == {}
+    assert rendered["success"] is True
+    assert rendered["saved_response"]

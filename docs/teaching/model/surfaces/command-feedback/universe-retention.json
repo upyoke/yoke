@@ -3,7 +3,7 @@
  "title": "Preview, one-run apply, progress line and short summary",
  "status": "observed",
  "form": "CLI help and output",
- "verification": "Lane-source help and focused disposable-database tests cover one-run completion, pass-deadline resume, table-limit skips, the fixed cutoff, prune beside message expiry and the concise output; no deployed run proof yet.",
+ "verification": "Source help and disposable-database tests cover completion, deadlines, skips, cutoff, expiry coordination and output; deployed proof is pending. JSON keeps complete small results inline and saves oversized detail with actionable counts and an omitted-table count; --full --json serves complete data.",
  "topics": ["universes/universe/retention", "security/privacy/retention-and-removal"],
  "commands": ["yoke universe retention get", "yoke universe prune"],
  "functions": ["universe.retention.get", "universe.prune.run"],

@@ -156,8 +156,13 @@ def github_actions_failed_log(args: List[str]) -> int:
     if not parsed.full:
         if parsed.json_mode:
             return emit_response(response, json_mode=True)
-        print(response.result.get("output") or "")
-        return 0
+        return emit_response(
+            response,
+            json_mode=False,
+            human_writer=lambda value, out, err: print(
+                value.result.get("output") or "", file=out
+            ),
+        )
     return _emit_with_full_logs(response, json_mode=parsed.json_mode)
 
 
@@ -181,10 +186,13 @@ def _emit_with_full_logs(response: Any, *, json_mode: bool) -> int:
     if json_mode:
         emit_response(response, json_mode=True)
     else:
-        print(result.get("output") or "")
-        if captures:
-            print()
-            print(render_captures(captures, jobs))
+
+        def writer(value, out, err):
+            print(result.get("output") or "", file=out)
+            if captures:
+                print(render_captures(captures, jobs), file=out)
+
+        emit_response(response, json_mode=False, human_writer=writer)
     return 1 if any(not capture.path for capture in captures) else 0
 
 

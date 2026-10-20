@@ -23,6 +23,15 @@ from __future__ import annotations
 
 
 PYTHON_HELPERS_TABLES: dict[str, dict] = {
+    "yoke_cli.transport.response_evidence": {
+        "columns": [("wrapped_lines", "callable"), ("save_response", "callable")],
+        "notes": (
+            "wrapped_lines measures authored teaching text at80 columns; install "
+            "bundle and documentation validators import it. Wrong guess: retiring "
+            "the human reply line budget makes this shared measurement unused. "
+            "Retain it; command replies and server pages share yoke_contracts.read_detail.REPLY_LIMIT_BYTES."
+        ),
+    },
     "yoke_harness.hooks.machine_hooks": {
         "columns": [("ensure_machine_hooks_for_executor", "callable")],
         "notes": (

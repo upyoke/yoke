@@ -8,8 +8,8 @@ from collections.abc import Iterator
 
 from yoke_contracts.registered_reads import READ_FUNCTION_IDS
 
-# Explicit structured reads use a byte bound; human replies have a line budget.
-READ_OUTPUT_LIMIT_BYTES = 28_000
+from yoke_contracts.read_detail import REPLY_LIMIT_BYTES
+
 _FULL_OUTPUT = ContextVar("full_read_output", default=False)
 _READ_FUNCTION = ContextVar("registered_read_function", default=None)
 
@@ -31,10 +31,13 @@ def output_exceeds_limit(
     function: str, stdout: str, stderr: str, *, full: bool = False
 ) -> bool:
     return (
-        function in READ_FUNCTION_IDS
-        and not (full or _FULL_OUTPUT.get())
-        and len((stdout + stderr).encode("utf-8")) > READ_OUTPUT_LIMIT_BYTES
+        not (full or _FULL_OUTPUT.get())
+        and len((stdout + stderr).encode("utf-8")) > REPLY_LIMIT_BYTES
     )
+
+
+def reply_exceeds_limit(text: str) -> bool:
+    return len(text.encode("utf-8")) > REPLY_LIMIT_BYTES
 
 
 def full_output_requested() -> bool:
@@ -57,6 +60,11 @@ def read_recovery(function: str) -> str:
         else tuple(function.replace("_", "-").split("."))
     )
     command = "yoke " + " ".join(tokens)
+    if function not in READ_FUNCTION_IDS:
+        return (
+            "The operation already ran. Read the saved response.result before "
+            f"repeating it; {command} --help names its result inspection recipe."
+        )
     return (
         f"Narrow {command} with its field/filter flags or a smaller --limit "
         f"where supported; run {command} --help for the exact recipe, "

@@ -6,15 +6,17 @@ import json
 import os
 from pathlib import Path
 import tempfile
+
+
 from rich.console import Console
 from rich.text import Text
 
 
-HUMAN_LINE_LIMIT = 350
 _MEASUREMENT_CONSOLE = Console(width=80, color_system=None)
 
 
 def wrapped_lines(text: str) -> int:
+    """Measure teaching text for the authored-file validation contract."""
     return sum(
         max(
             1, len(Text.from_ansi(line).wrap(_MEASUREMENT_CONSOLE, 80, overflow="fold"))

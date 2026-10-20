@@ -8,7 +8,7 @@ import pytest
 
 from yoke_cli.commands.command_tree import command_routes
 from yoke_cli.transport.public_ref_display import emit_response
-from yoke_cli.transport.response_evidence import wrapped_lines
+from yoke_cli.transport.output_limit import REPLY_LIMIT_BYTES
 from yoke_contracts.api.function_call import (
     FunctionCallResponse,
     FunctionError,
@@ -41,7 +41,7 @@ def test_each_registered_response_boundary(route, function, capsys):
         assert emit_response(response(function, result), json_mode=False) == 0
         output = capsys.readouterr()
         assert expected in output.out, route
-        assert wrapped_lines(output.out + output.err) <= 350
+        assert len((output.out + output.err).encode()) <= REPLY_LIMIT_BYTES
         assert emit_response(response(function, result), json_mode=True, full=True) == 0
         assert json.loads(capsys.readouterr().out)["result"] == result
     denied = response(function, {}).model_copy(
@@ -59,10 +59,10 @@ def test_each_registered_response_boundary(route, function, capsys):
     assert "permission_denied" in output.err
     assert "Ask the project owner" in output.err
     assert "project_required" not in output.err
-    large = {"body": "record\n" * 400}
+    large = {"body": "record\n" * 800}
     assert emit_response(response(function, large), json_mode=False) == 0
     output = capsys.readouterr()
-    assert wrapped_lines(output.out + output.err) <= 350, route
+    assert len((output.out + output.err).encode()) <= REPLY_LIMIT_BYTES, route
     artifact = Path(re.search(r"Complete reply saved: (.+)", output.out)[1])
     assert json.loads(artifact.read_text())["response"]["result"] == large
     artifact.unlink()
@@ -73,7 +73,7 @@ def test_each_registered_response_boundary(route, function, capsys):
 def test_large_receipt_saves_complete_evidence_and_preserves_instructions(capsys):
     payload = {
         "public_ref": "APP-7",
-        "rows": [{"name": str(i)} for i in range(500)],
+        "rows": [{"name": str(i)} for i in range(1000)],
         "execution_instructions": [
             {"content": "Read the pinned workflow before advancing."}
         ],
@@ -92,7 +92,7 @@ def test_large_receipt_saves_complete_evidence_and_preserves_instructions(capsys
     )
     assert emit_response(receipt, json_mode=False) == 0
     output = capsys.readouterr()
-    assert wrapped_lines(output.out + output.err) <= 350
+    assert len((output.out + output.err).encode()) <= REPLY_LIMIT_BYTES
     assert "Read the pinned workflow" in output.err
     assert "/yoke polish APP-7" in output.err
     assert "Publication remains pending." in output.err
@@ -145,7 +145,7 @@ def test_multiline_delivery_counts_wrapping(capsys):
     assert emit_response(response("items.create", payload), json_mode=False) == 0
     output = capsys.readouterr()
     assert "Complete reply saved:" in output.out
-    assert wrapped_lines(output.out + output.err) <= 350
+    assert len((output.out + output.err).encode()) <= REPLY_LIMIT_BYTES
     artifact = Path(re.search(r"Complete reply saved: (.+)", output.out)[1])
     assert json.loads(artifact.read_text())["response"]["result"] == payload
     artifact.unlink()
@@ -181,10 +181,10 @@ def test_local_report_owners_preserve_large_and_machine_replies(owner, capsys):
 
     module = import_module("yoke_cli.commands.adapters." + owner)
     emit = module._emit if owner == "project_onboard" else module._emit_report
-    payload = {"rows": [{"name": str(i)} for i in range(500)]}
+    payload = {"rows": [{"name": str(i)} for i in range(2000)]}
     emit(payload, False)
     output = capsys.readouterr()
-    assert wrapped_lines(output.out + output.err) <= 350
+    assert len((output.out + output.err).encode()) <= REPLY_LIMIT_BYTES
     artifact = Path(re.search(r"Complete local result saved: (.+)", output.out)[1])
     assert json.loads(artifact.read_text())["response"] == payload
     artifact.unlink()
@@ -213,11 +213,6 @@ def test_prd_report_owner_keeps_warning_and_refusal(capsys):
     assert "Publication pending." in output.err
 
 
-def test_display_measurement_uses_terminal_cells():
-    assert wrapped_lines("界" * 80) == 2
-    assert wrapped_lines("\x1b[31m" + "x" * 80 + "\x1b[0m") == 1
-
-
 def test_delimiter_in_a_value_keeps_unambiguous_field_labels(capsys):
     assert (
         emit_response(
@@ -240,7 +235,7 @@ def test_local_core_logs_keep_complete_evidence_and_immediate_recovery(capsys):
     payload = {
         "ok": False,
         "action": "logs",
-        "logs": {"api": "entry\n" * 500},
+        "logs": {"api": "entry\n" * 1000},
         "issues": [
             {
                 "code": "runtime_missing",
@@ -251,7 +246,7 @@ def test_local_core_logs_keep_complete_evidence_and_immediate_recovery(capsys):
     }
     assert _emit(payload, False) == 1
     output = capsys.readouterr()
-    assert wrapped_lines(output.out + output.err) <= 350
+    assert len((output.out + output.err).encode()) <= REPLY_LIMIT_BYTES
     assert "runtime_missing" in output.out
     assert "Install the runtime" in output.out
     artifact = Path(re.search(r"Complete local result saved: (.+)", output.out)[1])
@@ -279,3 +274,10 @@ def test_refusal_retains_partial_state(capsys):
     assert "written: yes" in output.out
     assert "public ref: APP-7" in output.out
     assert "publish_pending" in output.err
+
+
+def test_authored_teaching_measurement_uses_terminal_cells():
+    from yoke_cli.transport.response_evidence import wrapped_lines
+
+    assert wrapped_lines("界" * 80) == 2
+    assert wrapped_lines("\x1b[31m" + "x" * 80 + "\x1b[0m") == 1

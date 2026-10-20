@@ -254,10 +254,11 @@ Creation uses the same timing format for `create_source`,
 `create_commit`, `create_takeover_settlement` and
 `create_response`. Source refresh attempts have their own marker. Long phases
 emit the same thirty-second pending heartbeat; member validation also reports
-record/completed counts. The creation handler flushes these diagnostics to
-stderr while it runs and returns them in `start_timings`. Local callers see
-stderr immediately; HTTPS callers receive the records with the response, while
-the server's stderr retains in-flight progress. Nested phase durations overlap
+record/completed counts. The creation handler collects these diagnostics and returns them in
+`start_timings` on both local and HTTPS transports. The CLI saves the timing
+records to complete private evidence and prints its path beside the compact
+creation receipt; it does not repeat the records as an inline table. Deployment
+execution keeps its streamed driver timings. Nested phase durations overlap
 and must not be added as independent wall time. A missing response or end marker
 does not authorize another create; keep the request's idempotency key and
 reconcile the existing attempt.

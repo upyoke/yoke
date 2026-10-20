@@ -13,7 +13,7 @@ from yoke_core.domain.deployment_run_summary_read import (
     list_run_summaries,
     summary_page,
 )
-from yoke_cli.transport.output_limit import READ_OUTPUT_LIMIT_BYTES
+from yoke_contracts.read_detail import REPLY_LIMIT_BYTES
 
 
 def _row(index, label="release"):
@@ -39,16 +39,17 @@ def test_default_summary_fits_complete_json_and_human_output():
     from yoke_cli.transport.human_values import write_human
 
     page = summary_page([_row(index) for index in range(21)], 20)
-    assert len(page["rows"]) == 20
-    assert decode_cursor(page["next_cursor"])[1] == "run-0019"
+    assert 0 < len(page["rows"]) < 20
+    assert decode_cursor(page["next_cursor"])[1] == page["rows"][-1]["id"]
+    assert page["rows"] == [_row(index) for index in range(len(page["rows"]))]
     assert "get RUN-ID FIELD ..." in page["detail_recipe"]
     encoded = json.dumps(
         {"success": True, "function": "deployment_runs.list", "result": page}, indent=2
     )
     output = StringIO()
     write_human(page, output)
-    assert len(encoded.encode()) < READ_OUTPUT_LIMIT_BYTES
-    assert len(output.getvalue().encode()) < READ_OUTPUT_LIMIT_BYTES
+    assert len(encoded.encode()) < REPLY_LIMIT_BYTES
+    assert len(output.getvalue().encode()) < REPLY_LIMIT_BYTES
 
 
 def test_byte_bound_keeps_whole_unicode_rows_and_last_emitted_cursor():

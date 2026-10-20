@@ -21,6 +21,7 @@ from yoke_cli.commands._helpers import (
     item_target,
     parse_or_usage_error,
     usage_error,
+    add_full_arg,
 )
 from yoke_cli.commands.adapters.workflow_execution_instructions import (
     render_execution_instruction_block,
@@ -77,6 +78,7 @@ def items_get(args: List[str]) -> int:
             "body field; requires exactly one field argument."
         ),
     )
+    add_full_arg(parser, "all item fields and operator instruction prose")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEMS_GET_USAGE)
@@ -105,7 +107,7 @@ def items_get(args: List[str]) -> int:
         rules = result.get("execution_instructions") or []
         stdout.write(
             render_item_instruction_summary(rules, parsed.item)
-            if requested_fields or parsed.section is not None
+            if not parsed.full
             else render_execution_instruction_block(rules)
         )
         if parsed.section is not None:
@@ -133,7 +135,7 @@ def items_get(args: List[str]) -> int:
                 if not text.endswith("\n"):
                     stdout.write("\n")
             return None
-        human_result = compact_item_result(result, parsed.item)
+        human_result = compact_item_result(result, parsed.item, full=parsed.full)
         write_human(human_result, stdout)
         return None
 

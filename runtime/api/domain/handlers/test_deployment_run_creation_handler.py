@@ -8,6 +8,8 @@ authorized session may create a run.
 from __future__ import annotations
 
 import unittest
+import io
+from contextlib import redirect_stderr
 from unittest.mock import patch
 
 from runtime.api.domain.handlers.deployment_handler_test_support import (
@@ -33,7 +35,9 @@ class TestDeploymentRunCreation(unittest.TestCase):
             "created_at": "2026-06-16T00:00:00Z",
             "created_by": "operator",
         }
+        captured = io.StringIO()
         with (
+            redirect_stderr(captured),
             patch(
                 "yoke_core.domain.deployment_runs_crud_mutate.create_run",
                 return_value=CreatedRun("run-20260616-002", False, None),
@@ -55,6 +59,8 @@ class TestDeploymentRunCreation(unittest.TestCase):
                 ),
             )
         self.assertTrue(outcome.primary_success)
+        self.assertTrue(outcome.result_payload["start_timings"])
+        self.assertNotIn("Deployment start timing:", captured.getvalue())
         cmd_create.assert_called_once_with(
             "yoke",
             "yoke-hosted-prod",

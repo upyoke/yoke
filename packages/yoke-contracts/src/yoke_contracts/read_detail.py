@@ -23,6 +23,9 @@ from typing import Literal
 DETAIL_SUMMARY = "summary"
 DETAIL_FULL = "full"
 
+# Shared by server summary pages and client reply delivery.
+REPLY_LIMIT_BYTES = 4_000
+
 #: Request-field vocabulary shared by every read that has both shapes.
 ReadDetail = Literal["summary", "full"]
 
@@ -42,6 +45,7 @@ __all__ = [
     "DETAIL_FULL",
     "DETAIL_SUMMARY",
     "ReadDetail",
+    "REPLY_LIMIT_BYTES",
     "SUMMARY_EXCERPT_CHARACTERS",
     "excerpt",
 ]
