@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import datetime, timezone
+from pathlib import PurePosixPath
 import urllib.request
 from typing import Any, Callable, Mapping
 
@@ -182,6 +184,11 @@ def _capture_golden(
         "operation": "golden_capture",
         "plan_execution_id": plan_execution_id,
     }
+    # A day can hold several refreshes, so the dated default name can already
+    # be the registered golden; a UTC second stamp keeps each capture new.
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    golden = PurePosixPath(str(contract.settings["golden_baseline_path"]))
+    destination = str(golden.parent / f"{contract.settings['user']}-home-{stamp}")
 
     def call(function_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         return deliver_plan_function(
@@ -192,9 +199,10 @@ def _capture_golden(
         )
 
     try:
-        execution = call("test_machine.operation.begin", {**shape, "machine": machine})[
-            "execution"
-        ]
+        execution = call(
+            "test_machine.operation.begin",
+            {**shape, "machine": machine, "destination": destination},
+        )["execution"]
         echo = {**shape, "destination": execution.get("golden_destination")}
         try:
             submission = execute_host_operation_contract(execution)

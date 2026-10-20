@@ -121,7 +121,8 @@ A golden that is behind, or has no record, is refreshed once for that plan:
 reset to it, install the newer releases with the vendor installers
 (`yoke_harness.golden_harness_clis`), then capture through
 `test_machine.operation.begin` with `plan_execution_id`, which borrows the
-plan's own host lease, and begin the case again so every later reset restores
+plan's own host lease, into a UTC-stamped sibling (`USER-home-YYYYMMDDTHHMMSSZ`,
+so a second refresh on one day never collides with the registered golden), and begin the case again so every later reset restores
 the refreshed golden (`yoke_core.domain.golden_harness_refresh`). The capture
 prunes preserved logins, keychains and cookies as above. A refresh that cannot
 read a release channel, reset, install, verify the installed version or
