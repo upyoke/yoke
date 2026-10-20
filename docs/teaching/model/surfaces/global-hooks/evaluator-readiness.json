@@ -1,10 +1,10 @@
 {
  "id": "evaluator-readiness",
- "title": "Install checks the evaluator before the first hook; timing stays in diagnostics.",
+ "title": "Setup and install warm the evaluator before the first hook; a cold one still answers inside the hook budget; timing stays in diagnostics.",
  "status": "observed",
  "form": "Do",
  "verification": "Candidate source and process-level tests; deployed proof remains release-owned.",
  "topics": ["context/hooks/evaluator-lifecycle", "maintenance/updates"],
- "sources": ["docs/hooks.md", "docs/public/start/install.md", "runtime/api/cli/test_hook_resident_lifecycle.py"],
+ "sources": ["docs/hooks.md", "docs/public/start/install.md", "runtime/api/cli/test_hook_resident_lifecycle.py", "packages/yoke-cli/src/yoke_cli/config/onboard_hook_resident.py", "runtime/api/cli/test_yoke_hook_resident_budget.py"],
  "position": 6
 }
