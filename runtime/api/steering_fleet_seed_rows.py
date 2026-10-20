@@ -53,7 +53,7 @@ def seed_session(conn, session_id: str, **columns) -> None:
             PROJECT_ID,
             columns.get("mode", "wait"),
             _clock(conn, NOW),
-            _clock(conn, NOW),
+            _clock(conn, columns.get("last_heartbeat", columns.get("last_tool_call_at") or NOW)),
             ACTOR_ID,
             columns.get("executor_surface", SURFACE),
             columns.get("machine_id", "machine-1"),
