@@ -74,8 +74,8 @@ def test_running_release_stays_until_a_later_install(tmp_path):
         [
             sys.executable,
             "-c",
-            "import fcntl, os, sys; fd=os.open(sys.argv[1], os.O_RDONLY); "
-            "fcntl.flock(fd, fcntl.LOCK_SH); print('ready', flush=True); sys.stdin.read()",
+            "import pathlib, sys; print('ready', flush=True); sys.stdin.read(); "
+            "(pathlib.Path(sys.argv[1]) / '.yoke-relay-release.json').read_text()",
             str(oldest),
         ],
         stdin=subprocess.PIPE,
@@ -93,6 +93,7 @@ def test_running_release_stays_until_a_later_install(tmp_path):
         }
     finally:
         process.communicate(timeout=5)
+    assert process.returncode == 0
     # Reusing the installed pin retries cleanup without rotating rollback.
     install(instance, THIRD_RELEASE)
     assert set((instance.state_dir / "releases").iterdir()) == {previous, current}
