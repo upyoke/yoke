@@ -234,11 +234,10 @@ def handle_post_rebase_requirement(request: FunctionCallRequest) -> HandlerOutco
     """Resolve local verification for the item's integrated candidate tree.
 
     Any QA plan attached to the supplied transition is materialized first
-    (checking avoids manufacturing a requirement where none is attached). Once any
-    attached plan is snapshotted, prefer the registered ``full`` command and
-    fall back to ``quick``. Both local and CI-routed Command cases retain this
-    project-owned command in their immutable method configuration, so the
-    merge engine can deliberately execute it against the local candidate tree.
+    (checking avoids manufacturing a requirement where none is attached), then
+    the registered ``full`` command is preferred over ``quick``. Local and
+    CI-routed Command cases keep this command in their immutable method
+    configuration, so the merge engine can run it on the candidate tree.
 
     A project that attested no test suite answers ``no_tests_reason`` with no
     command. Otherwise a missing command and every materialization/read
