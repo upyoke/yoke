@@ -92,7 +92,7 @@ def _member_item_ids(run_id: str) -> tuple[int, ...]:
         conn.close()
 
 
-@timed_handler(progress=True)
+@timed_handler
 def handle_deployment_run_create(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
