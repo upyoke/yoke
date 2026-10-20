@@ -1,9 +1,13 @@
 """Closed declarative contract for Machine QA operator gates.
 
-``machine_browser_approval`` is the dedicated-machine exception: the run's
-browser helper approves the displayed code itself. ``human_action`` is the
-non-self-approving gate: the run announces one typed human step, sends no
-input, carries no secret, and only waits for the person to finish it.
+The run performs every step an agent physically can. ``machine_browser_approval``
+approves the displayed code in the test machine's already-open browser tab.
+``admission_owner_approval`` approves the displayed match code as the
+admission fixture's owner with ``yoke machines approve``.
+``admission_invite_entry`` issues the fixture owner's invite and types its code
+into the terminal. ``human_action`` is the one gate a person finishes: entering
+a password or credential the agent may not type. It announces that one step,
+sends no input, carries no secret, and only waits for the person to finish it.
 """
 
 from __future__ import annotations
@@ -13,22 +17,36 @@ from typing import Any
 
 
 MACHINE_BROWSER_APPROVAL = "machine_browser_approval"
+ADMISSION_OWNER_APPROVAL = "admission_owner_approval"
+ADMISSION_INVITE_ENTRY = "admission_invite_entry"
 HUMAN_ACTION = "human_action"
-HUMAN_ACTION_PURPOSES = frozenset(
-    {"company_sign_in", "machine_approval", "private_invite_entry"}
+PASSWORD_ENTRY = "password_entry"
+HUMAN_ACTION_PURPOSES = frozenset({PASSWORD_ENTRY})
+AGENT_GATES = frozenset(
+    {ADMISSION_INVITE_ENTRY, ADMISSION_OWNER_APPROVAL, MACHINE_BROWSER_APPROVAL}
 )
 OPERATOR_GATE_FIELDS = frozenset(
     {"completion_text", "gate_timeout_seconds", "human_purpose", "operator_gate"}
 )
-_GATE_TIMEOUT_MAX_SECONDS = {MACHINE_BROWSER_APPROVAL: 600, HUMAN_ACTION: 1800}
+_GATE_TIMEOUT_MAX_SECONDS = {
+    MACHINE_BROWSER_APPROVAL: 600,
+    ADMISSION_OWNER_APPROVAL: 600,
+    ADMISSION_INVITE_ENTRY: 600,
+    HUMAN_ACTION: 1800,
+}
+MISCLASSIFIED_HUMAN_STEP = (
+    "human_action_misclassified: a human gate is only a password or credential "
+    "entry the agent may not type (human_purpose password_entry). The run does "
+    "every other step itself: use machine_browser_approval to approve a code in "
+    "the test machine's signed-in browser, admission_owner_approval to approve "
+    "a match code with yoke machines approve, or admission_invite_entry to "
+    "issue and type an invite code"
+)
 
 
 def gate_needs_desktop_browser(action: Mapping[str, Any]) -> bool:
     """Return whether this gate's step happens in the test machine's browser."""
-    gate = action.get("operator_gate")
-    return gate == MACHINE_BROWSER_APPROVAL or (
-        gate == HUMAN_ACTION and action.get("human_purpose") == "company_sign_in"
-    )
+    return action.get("operator_gate") == MACHINE_BROWSER_APPROVAL
 
 
 def _normalize_human_action(
@@ -47,9 +65,7 @@ def _normalize_human_action(
         )
     purpose = action.get("human_purpose")
     if purpose not in HUMAN_ACTION_PURPOSES:
-        raise ValueError(
-            f"human_action human_purpose must be one of {sorted(HUMAN_ACTION_PURPOSES)}"
-        )
+        raise ValueError(MISCLASSIFIED_HUMAN_STEP)
     normalized_action["human_purpose"] = purpose
 
 
@@ -79,8 +95,15 @@ def normalize_operator_gate(
         _normalize_human_action(action, normalized_action)
     elif "human_purpose" in action:
         raise ValueError("human_purpose belongs only to the human_action gate")
-    elif normalized_action["keys"] != ["Enter"]:
-        raise ValueError("machine_browser_approval must immediately send Enter")
+    elif operator_gate == MACHINE_BROWSER_APPROVAL:
+        if normalized_action["keys"] not in ([], ["Enter"]):
+            raise ValueError(
+                "machine_browser_approval sends at most Enter before approving"
+            )
+    elif normalized_action["keys"]:
+        raise ValueError(
+            f"{operator_gate} types only the input it produces; remove keys"
+        )
     completion_text = strings(
         action.get("completion_text"),
         field="action completion_text",
@@ -105,10 +128,15 @@ def normalize_operator_gate(
 
 
 __all__ = [
+    "ADMISSION_INVITE_ENTRY",
+    "ADMISSION_OWNER_APPROVAL",
+    "AGENT_GATES",
     "HUMAN_ACTION",
     "HUMAN_ACTION_PURPOSES",
     "MACHINE_BROWSER_APPROVAL",
+    "MISCLASSIFIED_HUMAN_STEP",
     "OPERATOR_GATE_FIELDS",
+    "PASSWORD_ENTRY",
     "gate_needs_desktop_browser",
     "normalize_operator_gate",
 ]

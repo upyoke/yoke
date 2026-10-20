@@ -11,15 +11,15 @@ embedded Postgres cluster under the fixture root and boot the real self-host
 server entrypoint against it on loopback. The real first boot creates the
 universe, its first admin (the fixture owner) and the owner's one-time token,
 delivered over the same private handoff a self-host bundle uses; this module
-saves it owner-only beside an approver machine config, so the person can act
-as the already-connected owner with ``YOKE_MACHINE_HOME`` set to that
-directory. Company sign-in adds the disposable stub identity provider, whose
+saves it owner-only beside an approver machine config, so the run acts as
+the already-connected owner with ``YOKE_MACHINE_HOME`` set to that directory
+(``machine_qa_admission_gate``). Company sign-in adds the disposable stub identity provider, whose
 only identity is the teammate,
 and the owner invites that email as the journey's precondition. ``local`` creates a disposable local universe
 with the real ``yoke init --local`` in a fixture-only machine home.
 
-Nothing here approves, invites or redeems anything; the journey under test
-does that. ``stop`` ends the server, removes the cluster and deletes the
+Nothing here approves, invites or redeems anything; the journey's gates
+do that. ``stop`` ends the server, removes the cluster and deletes the
 fixture root.
 """
 
@@ -47,6 +47,7 @@ MODE_PORTS = {
     "self-hosted-company-sign-in": 19122,
 }
 OWNER_NAME = "Fixture Owner"
+TEAMMATE_NAME = "Fixture Teammate"
 TEAMMATE_SUBJECT = "machine-qa-teammate"
 TEAMMATE_EMAIL = "teammate@machine-qa.invalid"
 APPROVER_ENV = "fixture"

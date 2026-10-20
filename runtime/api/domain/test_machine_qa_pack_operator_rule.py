@@ -16,8 +16,9 @@ def test_latest_pack_publishes_one_rule_and_links_every_provisioning_guide(monke
     rule_path = "docs/packs/machine-qa/setup-responsibilities.md"
     assert rule_path in {row["target"] for row in version["files"]}
     rule = (source / rule_path).read_text()
-    assert "Agents do every setup step software can do" in rule
-    assert "permission the OS refuses to let software grant" in rule
+    assert "Agents do every step an agent physically can" in rule
+    assert "only to enter their own password or credential" in rule
+    assert "permission the OS refuses to let software grant" not in rule
     assert "product code from stored secrets, never typed by hand" in rule
     guides = [
         source / "docs/packs/machine-qa" / name

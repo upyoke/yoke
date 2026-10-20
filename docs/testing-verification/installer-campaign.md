@@ -109,22 +109,25 @@ cases and sync the saved plan; do not keep a step that waits for nothing. The
 browser-approval gate is the one keyed exception: it waits for its own `Open:`
 and `Match code:` context.
 
-A step only the person may do uses `operator_gate: human_action` with a
-`human_purpose` of `machine_approval`, `private_invite_entry` or
-`company_sign_in`. The gate never approves, types or carries a secret: the
-contract refuses `keys`, `ready_text` and `wait_seconds` on it, so the
-preceding step waits for the screen. It prints one `machine_qa.operator_gate`
-line (`kind: human_action`, `self_approving: false`) naming the purpose, where
-to act and what to do, then waits up to `gate_timeout_seconds` (1..1800) for
-`completion_text`. A machine approval names the displayed match code and
-`yoke machines approve CODE` for the person's already-connected machine;
-company sign-in names the code the teammate approves in the browser; the
-inviter issues `yoke invite NAME` and the teammate types the code privately
-into the named terminal, so it never reaches the run. Failures are `human_action_context_missing`,
-`human_action_rejected`, `human_action_timed_out`,
-`human_action_heartbeat_failed` or `terminal_setup_exited`, each with a
-recovery. On Linux only browser approval and company sign-in start the desktop
-Chromium.
+The run performs every step an agent physically can through a typed
+`operator_gate`. `machine_browser_approval` approves the shown code in the
+test machine's signed-in browser tab (sending at most `Enter` first); a case
+that prepares the admission fixture may approve on that fixture's own
+loopback server, which is how company sign-in admits the teammate.
+`admission_owner_approval` runs `yoke machines approve CODE` as the admission
+fixture's owner; `admission_invite_entry` runs the owner's `yoke invite NAME`
+and types the code into the terminal without writing it to evidence. Each
+prints one `machine_qa.operator_gate` line (`self_approving: true`) and waits up
+to `gate_timeout_seconds` (1..600) for `completion_text`; failures name the
+gate (`admission_owner_approval_failed`, `admission_invite_issue_failed`,
+`<gate>_rejected`, `<gate>_timed_out`, `terminal_setup_exited`) with a recovery.
+
+`operator_gate: human_action` is only for a password or credential the agent
+may not type: `human_purpose` must be `password_entry`, and any other purpose
+refuses as `human_action_misclassified`. The gate refuses `keys`,
+`ready_text` and `wait_seconds`, prints one line (`kind: human_action`,
+`self_approving: false`) naming the step and where to type, then waits up to
+1800 seconds. On Linux only browser approval starts the desktop Chromium.
 
 A prompt that never appears fails its step as `terminal_action_not_ready`,
 with the evidence naming `step` and `waiting_for`. When the command under the
@@ -142,11 +145,12 @@ Match code: K7F2
 ```
 
 The gate binds the complete link to the displayed code and the execution
-target's declared HTTPS origin. Only one matching user_code is accepted;
+target's declared HTTPS origin, or a declared loopback HTTP origin such as the
+admission fixture's server. Only one matching user_code is accepted;
 unknown parameters, other origins, credentials and fragments refuse as
 machine_browser_approval_context_invalid with recovery. Self-hosted
 machine/code links preserve the exact wizard-opened path. Coordinate validation
-does not grant approval authority; keep the selected human/fixture boundary.
+does not grant approval authority; keep the selected fixture boundary.
 
 With the dedicated-machine approval exception, the visible native browser
 helper (Safari on macOS, the desktop Chromium on a Linux test machine; one
@@ -183,11 +187,11 @@ server entrypoint on loopback, as `YOKE_SERVER_MODE=self-host` like the
 bundle, against a disposable embedded Postgres under
 `/tmp/yoke-machine-qa-fixtures/machine-admission/MODE`. Its real first boot
 creates the owner (`Fixture Owner`) and the owner's token, saved owner-only
-with an approver config: run owner commands with
+with an approver config; the run's admission gates act as the owner with
 `YOKE_MACHINE_HOME=…/MODE/approver`. Company sign-in adds a disposable stub
 provider whose only identity is the teammate, and the owner runs
 `yoke invite EMAIL --role operator` first. `local` runs the real `yoke init --local` in `…/local/home`.
-The fixture never approves, invites a machine or redeems anything.
+The fixture never approves, invites a machine or redeems anything; the gates do.
 
 `fixture.machine-admission-state-assert` compares the universe's people,
 machines, active credentials, linked identities and consumed teammate invites
@@ -204,13 +208,13 @@ operation row. Cleanup stops the server, removes the cluster and the root.
 Positions 30-37 run own-machine approval, teammate invite, company sign-in and
 local refusal, each in the full-screen wizard and in agent mode
 (`machine_qa_setup_agent_driver` plays the agent). Each starts the fixture
-above and ends with its state assertion. Stay at the test machine: every
-human gate prints what to do. Owner steps use
-`YOKE_MACHINE_HOME=/tmp/yoke-machine-qa-fixtures/machine-admission/self-hosted/approver`
-(`yoke machines approve CODE`, `yoke invite 'Fixture Teammate'`); type an
-invite only into the wizard, and in the agent invite journey press Ctrl-C after
-the wizard connects so the agent resumes. Company sign-in signs in as the
-fixture teammate in the test machine's browser. Local refusal needs no person.
+above and ends with its state assertion. No step waits on a person. The run
+approves the match code as the owner (`yoke machines approve CODE`), issues
+`yoke invite 'Fixture Teammate'` and types the code only into the wizard, and in
+the agent invite journey presses Ctrl-C after the wizard connects so the agent
+resumes. For company sign-in the wizard, or the agent driver with
+`--open-link`, opens the link in the test machine's browser; the stub provider
+signs in as the fixture teammate and the browser gate approves the machine.
 
 ## Local universe birth
 
@@ -265,7 +269,9 @@ yoke watch qa-plan -- --plan installer-exploration --project P
 The mission chooses its route through real Claude, Codex and Cursor sessions,
 permission modes and representative project archetypes. It requires received
 context evidence and meaningful first work reaching its real done state.
-The human opens interactive sessions and handles personal approvals. A missing
+The walker opens interactive sessions through the native GUI/desktop route,
+chooses permission modes and approves codes in the signed-in browser itself;
+only a password entry is a human gate. A missing
 mode, readiness check, context receipt or terminal outcome remains unproven;
 it never passes because configuration files exist. Preserve failed evidence
 and add each new failure to the scripted campaign before rerunning after

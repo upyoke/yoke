@@ -159,8 +159,6 @@ def test_active_machine_pack_pointer_is_portable_and_retains_sign_in_boundary() 
     for os_name in ("linux", "macos", "windows"):
         text = (payload / f"{os_name}-host-provisioning.md").read_text()
         assert "project-owned sign-in policy" in text
-        assert (
-            "personal\n   credentials and completes personal approval prompts" in text
-        )
+        assert "only types their own\n   password or credential" in text
         assert "https://github.com/upyoke/yoke/blob/" not in text
         assert "docs/public/" not in text

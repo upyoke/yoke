@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from yoke_core.domain.machine_qa_admission_host import MODE_PORTS
+from yoke_core.domain.machine_qa_admission_host import MODE_PORTS, api_url
 from yoke_core.domain.machine_qa_admission_state import EXPECTATIONS
 from yoke_core.domain.machine_qa_fixture_validation_common import (
     Validator,
@@ -47,7 +47,22 @@ ADMISSION_SETUP_VALIDATORS: dict[str, Validator] = {PREPARE: _validate_prepare}
 ADMISSION_POST_VALIDATORS: dict[str, Validator] = {STATE_ASSERT: _validate_state_assert}
 
 
+def admission_operator_urls(config: Mapping[str, Any]) -> tuple[str, ...]:
+    """The loopback servers a recipe's admission fixture serves for approval.
+
+    A browser approval gate may approve only on a declared origin; a case that
+    prepares an admission server declares that server's origin this way.
+    """
+    return tuple(
+        api_url(str(row["parameters"]["mode"]))
+        for row in config.get("setup_operations") or ()
+        if row.get("id") == PREPARE
+        and MODE_PORTS.get(str(row["parameters"]["mode"])) is not None
+    )
+
+
 __all__ = [
+    "admission_operator_urls",
     "ADMISSION_POST_VALIDATORS",
     "ADMISSION_SETUP_VALIDATORS",
     "PREPARE",

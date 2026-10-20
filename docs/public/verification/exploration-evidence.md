@@ -78,8 +78,9 @@ lease-routed `yoke qa browser setup` materializes the packaged runtime and
 step at a time. Without identities or a Yoke install, use the host browser
 (Safari on macOS; desktop default elsewhere) through screenshots and keystrokes.
 Never install Yoke on a Test Machine to get a browser.
-Agents complete steps that do not need the user; personal credentials, MFA,
-passkeys and permissions return a human gate naming host, substrate and resume state.
+Agents do every step an agent physically can, including permission prompts and
+code approvals in the signed-in browser. Only the user's own password, MFA code
+or passkey returns a human gate naming that entry, host, substrate and resume state.
 Case `method_config.browser_identities` wins; otherwise dispatch supplies project
 identities covering the target origin. The walker picks the needed account,
 verifies identities and uses `--identity NAME` for its steps. See

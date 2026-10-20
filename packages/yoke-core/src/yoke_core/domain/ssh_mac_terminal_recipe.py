@@ -56,6 +56,7 @@ def _run_interactive_recipe(
     terminal_size: tuple[int, int] | None,
     progress_callback: Callable[[], None] | None,
     allowed_operator_urls: tuple[str, ...],
+    yoke_bin: str,
 ) -> HostActionResult:
     """Run one interactive recipe after its files are staged."""
     backend = detect_terminal_backend(run)
@@ -133,7 +134,7 @@ def _run_interactive_recipe(
             ready_text = tuple(action.get("ready_text", ()))
             ready_transcript: str | None = None
             browser_evidence: dict[str, Any] | None = None
-            human_evidence: dict[str, Any] | None = None
+            gate_evidence: dict[str, Any] | None = None
             operator_gate = action.get("operator_gate")
             if operator_gate is not None:
                 gate_result = run_multiplexer_operator_gate(
@@ -144,10 +145,11 @@ def _run_interactive_recipe(
                     action=action,
                     progress_callback=progress_callback,
                     allowed_base_urls=allowed_operator_urls,
+                    yoke_bin=yoke_bin,
                 )
                 ready_transcript = gate_result.transcript
                 browser_evidence = gate_result.browser_evidence
-                human_evidence = gate_result.step_evidence
+                gate_evidence = gate_result.step_evidence
                 if not gate_result.ok:
                     captures.append(
                         {
@@ -244,8 +246,8 @@ def _run_interactive_recipe(
             }
             if browser_evidence is not None:
                 capture["browser_approval"] = browser_evidence
-            if operator_gate == "human_action":
-                capture["human_action"] = human_evidence
+            if gate_evidence is not None:
+                capture["gate_evidence"] = gate_evidence
             captures.append(capture)
             reached.append(key)
             if action["capture"] and key in config["capture_checkpoints"]:

@@ -43,12 +43,12 @@ KEYS = (
     "local-refusal-agent",
 )
 PROOF = {
-    "own-machine": ("self-hosted", "owner-admitted", "machine_approval"),
-    "teammate-invite": ("self-hosted", "teammate-admitted", "private_invite_entry"),
+    "own-machine": ("self-hosted", "owner-admitted", "admission_owner_approval"),
+    "teammate-invite": ("self-hosted", "teammate-admitted", "admission_invite_entry"),
     "company-sign-in": (
         "self-hosted-company-sign-in",
         "teammate-admitted",
-        "company_sign_in",
+        "machine_browser_approval",
     ),
     "local-refusal": ("local", "nothing-admitted", None),
 }
@@ -96,18 +96,21 @@ def test_each_journey_validates_and_proves_the_servers_real_rows() -> None:
         )
 
 
-def test_only_the_person_acts_at_gates_and_no_secret_is_scripted() -> None:
+def test_the_run_does_every_step_and_no_person_gate_remains() -> None:
     for case in _admission():
-        _mode, _expect, purpose = PROOF[case["case_key"].rsplit("-", 1)[0]]
+        _mode, _expect, gate = PROOF[case["case_key"].rsplit("-", 1)[0]]
         actions = case["method_config"]["actions"]
         gates = [row for row in actions if row.get("operator_gate")]
-        assert [row.get("human_purpose") for row in gates] == (
-            [purpose] if purpose else []
-        )
-        assert all(row["operator_gate"] == "human_action" for row in gates)
-        assert all(not row.get("keys") for row in gates)
+        assert [row["operator_gate"] for row in gates] == ([gate] if gate else [])
+        assert not any("human_purpose" in row for row in gates)
+        assert all(row.get("keys", []) in ([], ["Enter"]) for row in gates)
         assert "invite_code=" not in case["entry_surface"]
         assert "--token" not in case["entry_surface"]
+        assert "human gate" not in case["instructions"]
+    company_agent = next(
+        case for case in _admission() if case["case_key"] == "company-sign-in-agent"
+    )
+    assert "--open-link" in company_agent["entry_surface"]
 
 
 def test_journeys_wait_for_the_screens_setup_actually_shows() -> None:

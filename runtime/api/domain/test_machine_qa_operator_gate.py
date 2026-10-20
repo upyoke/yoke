@@ -83,6 +83,7 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
         action=_gate_action(),
         progress_callback=lambda: heartbeats.append(True),
         allowed_base_urls=("https://app.stage.upyoke.com",),
+        yoke_bin="yoke",
     )
 
     assert result.ok is True
