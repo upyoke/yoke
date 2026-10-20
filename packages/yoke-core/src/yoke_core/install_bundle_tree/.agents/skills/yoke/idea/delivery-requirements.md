@@ -16,4 +16,5 @@ Set `--workflow-transition` to the stage owning that phase; never bind
 
 A screenshot does **not** add approval. "Have me approve it" needs
 `required_human` on the item-scoped QA stage, operator in `actors`,
-`mode=all`. Use `human_if_unsure` only for explicitly conditional approval.
+`mode=all`. Read that stage's target kind (`persistent_environment` or
+`run_preview`); never assume one. Use `human_if_unsure` only for explicitly conditional approval.

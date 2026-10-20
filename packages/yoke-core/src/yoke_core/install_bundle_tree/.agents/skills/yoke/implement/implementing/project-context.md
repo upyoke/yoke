@@ -12,5 +12,6 @@ title, spec or AC by name or keyword:
 - testing: test, spec, e2e, assertion, fixture, mock
 - deployment: deploy, ci, cd, workflow, infra, vps, nginx, docker
 
+No entries or a missing configured file is an advisory: warn and continue.
 A failed read stops; never treat it as empty. Start
 discovery from the paths these docs name.

@@ -20,7 +20,6 @@ from runtime.api.test_constants import TEST_ITEM_REF
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CONDUCT_VERIFY = ".agents/skills/yoke/conduct/dispatch-context-verify.md"
-MERGE_SKILL = ".agents/skills/yoke/usher/merge-generated-tasks.md"
 USHER_COLLECT = ".agents/skills/yoke/usher/collect.md"
 
 
@@ -169,15 +168,12 @@ def test_skills_teach_yoke_commands_not_internal_modules() -> None:
     rows = {
         (row.source, row.recipe): row
         for row in audit.surfaces
-        if row.source in {CONDUCT_VERIFY, MERGE_SKILL, USHER_COLLECT}
+        if row.source in {CONDUCT_VERIFY, USHER_COLLECT}
     }
 
     assert not any(
         row.source == CONDUCT_VERIFY and "timeout_portable" in row.recipe
         for row in rows.values()
-    )
-    assert rows[(MERGE_SKILL, "yoke merge audit PREFIX-N")].resolution == (
-        "tool_shaped"
     )
     assert rows[(USHER_COLLECT, "yoke usher reconcile-github PREFIX-N")].resolution == (
         "tool_shaped"

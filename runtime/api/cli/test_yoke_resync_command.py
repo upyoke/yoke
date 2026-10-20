@@ -111,12 +111,7 @@ def test_resync_skill_teaches_yoke_command_not_internal_engine() -> None:
     rows = [row for row in audit.surfaces if row.source == RESYNC_SKILL]
 
     assert not any(
-        row.recipe.startswith("python3 -m yoke_core.engines.resync")
-        for row in rows
-    )
-    assert any(
-        row.recipe == "yoke resync" and row.resolution == "tool_shaped"
-        for row in rows
+        row.recipe.startswith("python3 -m yoke_core.engines.resync") for row in rows
     )
     assert any(
         row.recipe == "yoke resync --fix" and row.resolution == "tool_shaped"

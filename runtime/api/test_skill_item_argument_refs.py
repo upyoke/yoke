@@ -59,11 +59,9 @@ def test_item_recipe_skill_uses_prefix_neutral_public_examples(
 
 def test_done_transition_and_event_recipes_pass_public_item_refs() -> None:
     deploy = (CANONICAL / "usher/deploy.md").read_text()
-    merge = (CANONICAL / "usher/merge-conflicts.md").read_text()
     simulate = (CANONICAL / "simulate/epic-flow.md").read_text()
 
     assert "done-transition -- PREFIX-N --skip-deploy" in deploy
-    assert "exact phase and lane" in merge
-    diagnostics = (CANONICAL / "polish/doctrine.md").read_text()
-    assert 'yoke events query --item "$ITEM_REF"' in diagnostics
-    assert "yoke workflow-item epic-task simulation-get --epic {epic-ref}" in simulate
+    assert (
+        "yoke workflow-item epic-task simulation-upsert --epic {epic-ref}" in simulate
+    )

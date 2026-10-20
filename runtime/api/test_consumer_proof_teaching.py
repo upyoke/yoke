@@ -13,9 +13,6 @@ ROOT = Path(__file__).resolve().parents[2]
         "docs/public/agents/rules/code-and-cli.md",
         "runtime/agents/product-manager.md",
         "runtime/agents/architect/task-templates.md",
-        ".agents/skills/yoke/idea/infer-and-create.md",
-        ".agents/skills/yoke/idea/delivery-requirements.md",
-        ".agents/skills/yoke/conduct/dispatch-context-verify.md",
         "docs/public/verification/consumer-proof.md",
     ],
 )

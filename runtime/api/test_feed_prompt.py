@@ -17,49 +17,37 @@ class TestFeedSkillContract:
     """Feed should preserve the richer manual workflow semantics."""
 
     def test_skill_supports_optional_item_scope(self):
-        text = _read(_FEED_DIR / "SKILL.md") + _read(_FEED_DIR / "entry.md")
+        text = _read(_FEED_DIR / "SKILL.md")
         assert "[PREFIX-N ...]" in text
-        assert "_scope_ids" in text
-        assert "stale-work-item refresh" in text
+        assert "`PREFIX-N` args set the focus" in text
 
-    def test_gather_reads_structured_fields_and_recent_landings(self):
+    def test_gather_reads_strategy_and_recent_landings(self):
         text = _read(_FEED_DIR / "gather.md")
-        assert "items get PREFIX-N body" in text
-        assert "items get PREFIX-N design_spec" in text
-        assert "items get PREFIX-N technical_plan" in text
-        assert "items get PREFIX-N worktree_plan" in text
-        assert 'git log --oneline -30' in text
-        assert 'git log --oneline --since="3 days ago"' in text
-        assert "git diff <commit>~1..<commit> --stat" in text
-        assert "These work items need updating because X landed and changed Y." in text
+        assert "yoke strategy doc get MASTER-PLAN" in text
+        assert "List which items recent landings made stale, and why." in text
 
-    def test_decide_requires_recent_landing_update_assessment(self):
+    def test_decide_classifies_outcomes_and_honors_no_new_items(self):
         text = _read(_FEED_DIR / "decide.md")
-        assert "_items_to_update" in text
-        assert "Did any recently landed work change a file" in text
-        assert "_decision_outcomes" in text
-        assert "Split/materialization work was suppressed by --no-new-items." in text
+        for outcome in (
+            "refresh_only",
+            "sharpen_frontier",
+            "materialize_new",
+            "leave_in_sml",
+        ):
+            assert f"`{outcome}`" in text
+        assert "`--no-new-items` blocks creates and splits." in text
 
     def test_materialize_updates_existing_items_via_structured_fields(self):
         text = _read(_FEED_DIR / "materialize.md")
-        assert 'yoke items structured-field replace PREFIX-N' in text
-        assert "printf '%s\\n' \"<updated field content>\"" in text
-        assert "_updated_items.append" in text
-        assert "do NOT auto-cancel it inside feed" in text
-        assert "Prefer the matching structured field" in text
+        assert "yoke items structured-field replace PREFIX-N" in text
+        assert "Never cancel; recommend it." in text
 
-    def test_reconcile_tracks_exact_rows_for_report(self):
+    def test_reconcile_touches_only_feed_rows(self):
         text = _read(_FEED_DIR / "reconcile.md")
-        assert "_edge_mutations.append" in text
-        assert "_edge_mutations" in text
+        assert "Never touch non-Feed rows." in text
+        assert "Read back; record mismatches." in text
 
-    def test_summarize_reports_manual_feed_sections(self):
-        text = _read(_FEED_DIR / "summarize.md")
-        assert "What landed and what it changed:" in text
-        assert "Work items that need updating:" in text
-        assert "Decision outcomes:" in text
-        assert "Dependency rows added/updated/removed:" in text
-        assert "Coding waves:" in text
-        assert "Required merge order:" in text
-        assert "Readiness callouts:" in text
-        assert "Residual uncertainty:" in text
+    def test_summarize_reports_exact_refs(self):
+        text = " ".join(_read(_FEED_DIR / "summarize.md").split())
+        assert "Report exact refs: landings, item and edge changes" in text
+        assert "`--no-new-items` suppression" in text

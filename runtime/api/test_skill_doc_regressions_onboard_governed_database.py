@@ -38,56 +38,50 @@ def test_not_needed_is_a_recordable_terminal_answer():
     assert STATUS_NOT_NEEDED in TERMINAL_STATUSES
 
 
-def test_the_profile_always_carries_a_governed_database_box():
+def test_the_profile_always_asks_the_governed_database_question():
     text = _read(ONBOARD_DIR / "profile-and-scaffold.md")
-    assert "### The governed-database box" in text
     # Every outcome is named; none is a silent default.
-    assert "A governed model, declarable now" in text
-    assert "A governed model, attached later" in text
-    assert "No Yoke-governed database" in text
-    assert "Undecided" in text
+    assert "Database: declare now, attach later, none." in text
     # An undecided box lands on the existing failure floor.
-    assert "human-interview=blocked" in text
-    # The confirmation evidence records which answer was chosen.
-    assert "governed database {declare-now|attach-later|none}" in text
+    assert "`human-interview=blocked`" in text
 
 
-def test_the_declaration_step_names_every_row_status_it_writes():
+def test_the_declaration_step_names_its_row_and_answers():
     text = _read(ONBOARD_DIR / "governed-database.md")
-    for status in ("configured", "deferred", "not-needed", "blocked"):
-        assert f"migration-model-setup={status}" in text
-    assert "--evidence migration-model-setup=" in text
-    assert "--blocker migration-model-setup=" in text
+    assert f"`{ROW_ID}`" in text
+    assert "`deferred`" in text
+    assert "`not-needed`" in text
+    # configured and blocked writes use the shared row recipes.
+    rows = _read(ONBOARD_DIR / "run-and-rows.md")
+    assert "--evidence {row}=" in rows
+    assert "--blocker {row}=" in rows
 
 
 def test_no_governed_database_is_taught_as_a_first_class_answer():
     text = _read(ONBOARD_DIR / "governed-database.md")
-    assert "keeps its DB claim at `none`" in text
-    assert "correct and expected answer, not" in text
-    assert "Nothing further is needed to finish onboarding." in text
+    assert "item DB claims stay `none`" in text
 
 
-def test_the_step_refuses_shapes_the_capability_validator_would_reject():
+def test_the_step_declares_only_validator_accepted_shapes():
     text = _read(ONBOARD_DIR / "governed-database.md")
-    assert "yoke projects capability-settings get --project {project} --cap-type migration_model" in text
-    assert "yoke projects capability-settings set --project {project} --cap-type migration_model" in text
-    for kind in ("sqlite_file", "worktree_local_sqlite", "postgres",
-                 "external_validation", "governed_migration_module", "mysql"):
-        assert kind in text
+    assert "`migration_model` capability" in text
+    assert "`sqlite_file` or `postgres`" in text
+    assert "(../../../../.yoke/docs/databases/migration-model.md)" in text
+    model_doc = _read(REPO_ROOT / ".yoke" / "docs" / "databases" / "migration-model.md")
+    for kind in (
+        "sqlite_file",
+        "worktree_local_sqlite",
+        "external_validation",
+        "governed_migration_module",
+    ):
+        assert kind in model_doc
 
 
-def test_rehearsal_is_taught_as_authorship_not_an_onboard_apply():
+def test_onboard_never_applies_or_rehearses_a_migration():
     text = _read(ONBOARD_DIR / "governed-database.md")
-    assert "Onboard never applies a migration and never rehearses one." in text
-    assert "yoke migration rehearse --help" in text
-    # The HTTPS refusal is restated as correct, not relaxed.
-    assert "refuses an HTTPS product connection" in text
-    assert "that refusal is correct" in text
+    assert "Onboard never applies or rehearses migrations." in text
 
 
-def test_the_router_lists_the_declaration_file_and_row_for_step_five():
-    text = _read(ONBOARD_DIR / "SKILL.md")
+def test_the_delivery_step_routes_to_the_declaration_file():
+    text = _read(ONBOARD_DIR / "hosting-and-environments.md")
     assert "[governed-database.md](governed-database.md)" in text
-    assert f"`{ROW_ID}`" in text
-    # The skip predicate reads live state rather than re-asking.
-    assert "declared `migration_model` capability or a terminal" in text

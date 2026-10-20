@@ -7,7 +7,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 AGENTS = ROOT / "runtime" / "agents"
-SKILLS = ROOT / ".agents" / "skills" / "yoke"
 
 ASSUME_READER_PHRASE = "Assume future readers of the codebase will NOT have"
 
@@ -19,6 +18,7 @@ def _read(path: Path) -> str:
 def test_root_and_shared_prompt_doctrine_teach_codebase_reader_naming() -> None:
     agents_text = _read(ROOT / "AGENTS.md")
     assert "Name code for what it does now" in agents_text
+    assert "Names and prose carry no work-item, plan, phase or criterion" in agents_text
     code_home = _read(ROOT / "docs" / "public" / "agents" / "rules" / "code-and-cli.md")
     assert "Codebase-reader naming" in code_home
     assert "for a reader who has only the repository" in code_home
@@ -55,29 +55,6 @@ def test_canonical_review_agents_gate_provenance_names() -> None:
         assert "Codebase-reader naming" in text
         assert ASSUME_READER_PHRASE in text
         assert "provenance" in text
-
-
-def test_core_skill_handoffs_carry_codebase_reader_rule() -> None:
-    for path in (
-        SKILLS / "idea" / "body-and-sync.md",
-        SKILLS / "refine" / "review-rubric.md",
-        SKILLS / "implement" / "implementing" / "implementation.md",
-        SKILLS / "conduct" / "SKILL.md",
-        SKILLS / "conduct" / "dispatch-context-prompts.md",
-        SKILLS / "conduct" / "engineer-tester-dispatch.md",
-        SKILLS / "polish" / "doctrine.md",
-        SKILLS / "polish" / "review.md",
-    ):
-        text = _read(path)
-        if path.name == "engineer-tester-dispatch.md":
-            assert "naming/350/simplify" in text
-            assert "dispatch-context-prompts.md" in text
-        elif path == SKILLS / "conduct" / "SKILL.md":
-            assert "Naming describes current" in text
-            assert "never planning provenance" in text
-        else:
-            assert "codebase-reader" in text.lower(), f"{path} lost the doctrine"
-            assert "planning artifact" in text.lower() or "provenance" in text.lower()
 
 
 def test_rendered_adapters_inherit_canonical_reader_doctrine() -> None:

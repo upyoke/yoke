@@ -1,6 +1,6 @@
 # Dash — file and claim
 
-Resolve the project; never assume this checkout. Obey its instructions, then file the spec unchanged (put requested delivery or approval posture on the same create):
+Resolve the project; never assume this checkout. Obey its instructions, then file the spec unchanged (put requested delivery or approval posture on the same create: [delivery requirements](../idea/delivery-requirements.md)):
 
 ```text
 yoke workflow execution-instruction resolve --workflow dash --project PROJECT --full

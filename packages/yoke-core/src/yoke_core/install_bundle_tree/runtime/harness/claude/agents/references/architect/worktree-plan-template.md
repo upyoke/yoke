@@ -17,9 +17,8 @@ Copy exact downstream headings. Plan includes:
 - Optional `## Cross-Task Merge Plan` only for sibling code needed before Engineer
   dispatch: predecessor branches and per-task merge order, reviewed-implementation+
   predecessors. Each predecessor is also a dependency of the consuming task;
-  Conduct halts a predecessor named only here. Conduct S6f consumes it; exact
-  example is in `.agents/skills/yoke/conduct/entry-activation-resolution.md`
-  S6f step4a.
+  Conduct halts a predecessor named only here. Conduct merges each predecessor
+  before dispatch (`.agents/skills/yoke/conduct/entry-activation-resolution.md`).
 
 Every shared-path pair gets decision-build evaluation before final output:
 coordination_only for attested independence, directional activation when ordered,
