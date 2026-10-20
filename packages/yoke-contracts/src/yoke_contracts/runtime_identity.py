@@ -75,7 +75,10 @@ def build_runtime_identity(
     if not resolved_version:
         resolved_version = SOURCE_VERSION_LABEL
     resolved_build = (
-        build if build is not None else os.environ.get("YOKE_BUILD_SHA", "")
+        build
+        if build is not None
+        else os.environ.get("YOKE_BUILD_SHA", "")
+        or str(install_info.get("source_commit") or "")
     )
     mode = portability_mode or PORTABILITY_LOCAL
     return {
