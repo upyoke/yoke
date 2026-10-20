@@ -7,7 +7,9 @@ each requirement whose newest run passed, still proves the live method
 config, and recorded the roster's own execution target digest. Any execution
 may have recorded that pass, including an aborted one. A pass recorded
 against another target (a new lineage or run) proves nothing here, and a
-pass the stage still grades unresolved (no evidence) stays owed.
+pass the stage still grades unresolved (no evidence) stays owed. A passed case
+stays while a later case of its chain still owes a verdict, so the chain
+still runs from its opener.
 
 A live execution keeps its own immutable roster. When every case already
 passed, the roster stays whole: stage acceptance needs a completed scoped
@@ -19,6 +21,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.qa_latest_execution import latest_executions
+from yoke_core.domain.qa_plan_case_chain import settled_chain_tails
 from yoke_core.domain.qa_plan_execution_store import (
     live_plan_execution_id,
     select_plan_execution,
@@ -91,6 +94,7 @@ def run_target_partition(
     if live_id is not None:
         live = select_plan_execution(conn, live_id, lock=False)
         passed -= {int(row["requirement_id"]) for row in live["roster"]}
+    passed = settled_chain_tails(roster, passed)
     open_rows = [row for row in roster if int(row["requirement_id"]) not in passed]
     if len(open_rows) == len(roster) or not open_rows:
         return roster

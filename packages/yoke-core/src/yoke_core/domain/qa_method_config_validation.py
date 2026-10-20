@@ -21,6 +21,15 @@ COMMAND_SHELL_CONTRACT = (
     "`import` is ImageMagick's import(1), not Python."
 )
 
+#: A Command that reaches a Test Machine must take that host's queue turn.
+HOST_COMMAND_NEEDS_MACHINE = (
+    "method_config.command calls `yoke test-machine`, but the case declares "
+    "no method_config.machine, so it runs without the host's queue turn and "
+    "is refused while another run leases the host. Set method_config.machine "
+    "to the Test Machine the command reaches; the case then waits for its "
+    "turn and runs under the plan's lease."
+)
+
 _PYTHON_BODY_PREFIXES = (
     "import ",
     "from ",
@@ -127,6 +136,12 @@ def validate_method_config(
         config["command"] = command.strip()
         if looks_like_python_command_body(config["command"]):
             raise QaMethodConfigError(COMMAND_SHELL_CONTRACT)
+        if (
+            config_contract_id == "command"
+            and machine is None
+            and "yoke test-machine" in config["command"]
+        ):
+            raise QaMethodConfigError(HOST_COMMAND_NEEDS_MACHINE)
         timeout = config.get("timeout_seconds")
         if timeout is not None and (
             not isinstance(timeout, int) or timeout < 1 or timeout > 7200
@@ -293,6 +308,7 @@ def _terminal_actions(config: dict[str, Any]) -> list[Any]:
 
 __all__ = [
     "COMMAND_SHELL_CONTRACT",
+    "HOST_COMMAND_NEEDS_MACHINE",
     "QaMethodConfigError",
     "looks_like_python_command_body",
     "validate_method_config",

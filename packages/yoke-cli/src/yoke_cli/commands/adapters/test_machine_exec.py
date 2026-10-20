@@ -45,7 +45,10 @@ def _lease_refusal(detail: dict[str, Any], session_id: str) -> int | None:
         f"{detail.get('machine')} is serially leased by {holder}, and an ad "
         "hoc command could disturb the run it holds the host for",
         "Wait for that lease to release, or ask its holder to run the "
-        "command; a QA mission walker uses `yoke qa mission host-command`.",
+        "command; a QA mission walker uses `yoke qa mission host-command`. "
+        "A Command QA case that runs this command declares the host as "
+        "`method_config.machine` (`yoke qa requirement update`) so it waits "
+        "for its turn in the host's queue.",
     )
 
 
