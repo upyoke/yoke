@@ -2,6 +2,6 @@
  "id": "brevity",
  "title": "Complete and extremely concise",
  "status": "approved",
- "text": "Recipe first. Teaching files have a hard 350-line ceiling; default command replies have one global 4,000-byte UTF-8 ceiling and save complete evidence when larger. Smaller teaching targets prompt review, not arbitrary compression.",
+ "text": "Recipe first. Teaching files have a hard 350-line ceiling, and agent-loaded rule files also carry per-file byte budgets that fail growth; default command replies have one global 4,000-byte UTF-8 ceiling and save complete evidence when larger. A change updates the owning surface, teaches elsewhere only where it helps that reader, and deletes text it makes wrong or redundant. Smaller teaching targets prompt review, not arbitrary compression.",
  "position": 2
 }

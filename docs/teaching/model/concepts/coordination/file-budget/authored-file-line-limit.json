@@ -4,6 +4,6 @@
  "status": "draft-copy",
  "page": "coordination",
  "position": 4,
- "summary": "Project-owned file-line limits and exception globs live in .yoke/project.config; installation adds exceptions for its managed output.",
- "sources": ["packages/yoke-cli/src/yoke_cli/project_install/file_line_managed_exceptions.py"]
+ "summary": "Project-owned file-line limits, exception globs and per-file byte budgets live in .yoke/project.config; installation adds exceptions for its managed output. A byte budget fails a changed file past it, so prose cannot grow sideways inside the line limit.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/project_install/file_line_managed_exceptions.py", "packages/yoke-contracts/src/yoke_contracts/project_contract/file_byte_budget.py"]
 }
