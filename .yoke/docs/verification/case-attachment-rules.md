@@ -19,7 +19,10 @@ state. Authoring, `qa.requirement.add`, and materialization refuse missing state
   `yoke qa plan run` or materialize; the correction plan retains its case key.
 - `"starting_state": "inherit"`: start on the machine exactly as the case
   directly before it in the plan left it, at the same baseline position. The
-  first case cannot inherit, nor can a case follow or be a mission.
+  first case cannot inherit, and no case may inherit after a mission. A mission
+  may inherit only at the chain's tail, on the same driver, in an isolated
+  execution; [Machine partitions](deployment-plan-execution.md#machine-partitions)
+  explains host custody and the standalone plan boundary.
 - `"starting_state": "as_is"` with `"starting_state_reason"`: run on the
   machine as found, for the stated reason.
 
