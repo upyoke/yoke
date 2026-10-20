@@ -194,3 +194,24 @@ def test_an_unverified_capture_refuses_and_registers_nothing(monkeypatch):
     assert refused.value.error_code == "golden_refresh_capture_failed"
     assert "golden_harness_cli_version_unreadable" in str(refused.value)
     assert ("retain", GOLDEN + "-2") not in world.calls
+
+
+def test_a_retention_failure_warns_and_the_case_begins_again(monkeypatch, capsys):
+    world = World(monkeypatch, {**LATEST, "codex": "0.149.1"})
+
+    def leftovers(*args):
+        raise golden_snapshot_retention.SnapshotRetentionError(
+            "Retired snapshots were not removed. rm: Operation not permitted",
+            "Remove the leftovers by hand.",
+        )
+
+    monkeypatch.setattr(
+        golden_snapshot_retention, "retain_after_verified_capture", leftovers
+    )
+    assert world.run(contract()) == {"refreshed": True}
+    assert world.calls[-1] == ("plan_case.begin",)
+    warning = capsys.readouterr().err
+    assert "golden_snapshot_retention_failed" in warning
+    assert "rm: Operation not permitted" in warning
+    assert "Remove the leftovers by hand." in warning
+    assert f"resets now restore {GOLDEN}-2" in warning
