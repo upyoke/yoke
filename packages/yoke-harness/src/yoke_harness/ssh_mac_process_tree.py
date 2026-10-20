@@ -7,12 +7,16 @@ timeout stops the whole tree, deepest first, plus every process group a tree
 member leads, which reaches descendants already re-parented away from the
 tree. It reports which processes, if any, survived both signals. A process is
 alive while ``ps`` still lists it (zombies excepted); ``kill -0`` would call a
-process this user may not signal dead.
+process this user may not signal dead, and a ``ps`` that fails counts every
+process as alive. The script runs under ``/bin/sh`` whatever the remote login
+shell is: zsh does not split an unquoted ``$var`` into words, so every kill and
+liveness check would see one argument holding all the PIDs.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+import shlex
 from typing import Callable
 
 # Prints PID and every descendant, deepest first, so a parent never respawns
@@ -41,9 +45,10 @@ def _stop_script(pid: int) -> str:
         '[ "$(/bin/ps -o pgid= -p "$p" | /usr/bin/tr -d " ")" = "$p" ] && echo "$p"; '
         "done); "
         'members() { echo $pids; for g in $groups; do /usr/bin/pgrep -g "$g"; done; }; '
-        "alive() { for p in $1; do "
-        's=$(/bin/ps -o stat= -p "$p") || continue; '
-        'case "$s" in Z*) ;; *) echo "$p";; esac; done; }; '
+        "alive() { t=$(/bin/ps -A -o pid=,stat=) || { echo $1; return; }; "
+        'echo "$t" | /usr/bin/awk -v want="$1" '
+        '\'BEGIN { n = split(want, w, " "); for (i = 1; i <= n; i++) k[w[i]] = 1 } '
+        "($1 in k) && $2 !~ /^Z/ { print $1 }'; }; "
         "stop() { /bin/kill -$1 $2 2>/dev/null; "
         'for g in $groups; do /bin/kill -$1 -- "-$g" 2>/dev/null; done; }; '
         'stop TERM "$pids"; i=0; '
@@ -58,7 +63,10 @@ def _stop_script(pid: int) -> str:
 
 def stop_process_tree(run: Callable[..., object], pid: int) -> ProcessTreeStop:
     """TERM the tree under *pid*, KILL what remains, and report survivors."""
-    result = run(_stop_script(pid), timeout=TERM_WAIT_SECONDS + 20)
+    result = run(
+        shlex.join(("/bin/sh", "-c", _stop_script(pid))),
+        timeout=TERM_WAIT_SECONDS + 20,
+    )
     if result.returncode == 0:
         return ProcessTreeStop(True)
     words = (result.stdout or "").split()
