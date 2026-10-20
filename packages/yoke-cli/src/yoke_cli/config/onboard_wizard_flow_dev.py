@@ -8,6 +8,7 @@ from yoke_cli.config import yoke_dev_detect as dev_detect
 from yoke_cli.config import onboard_wizard_apply_facts as apply_facts
 from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT
 from yoke_cli.config.setup_prompt import TONE_ERROR, SelectionRow, SetupPrompt
+from yoke_cli.config.setup_run_facts import APPLY_NEW_FOLDER
 
 if TYPE_CHECKING:  # pragma: no cover
     from yoke_cli.config.onboard_wizard_state import _View
@@ -19,6 +20,7 @@ _CLONE_SOURCE = "clone"
 class _Shell(Protocol):
     result: Any
     _preset_dev_checkout: str | None
+    _run_facts: Any
 
     def _goto(self, view: "_View") -> None: ...
     def _selection_view(
@@ -136,9 +138,14 @@ class DevFlow:
         )
 
     def _use_dev_checkout(self: _Shell, checkout: str) -> None:
-        error = dev_detect.preflight_dev_checkout(
-            checkout,
-            cloning=bool(self.result.project_remote_url),
+        # A folder this run's Apply cloned into was checked when it was chosen.
+        error = (
+            None
+            if self._run_facts.names_folder(APPLY_NEW_FOLDER, checkout)
+            else dev_detect.preflight_dev_checkout(
+                checkout,
+                cloning=bool(self.result.project_remote_url),
+            )
         )
         if error is not None:
             self._goto_dev_error(error)
