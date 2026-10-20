@@ -41,7 +41,10 @@ Subagents run long commands foreground in one Bash sequence, never
 `Bash(run_in_background: true)` plus Monitor and return. Tighten dispatch if its
 budget cannot fit the check. Watcher wrappers capture and classify output;
 read the deep home's inventory before fallback. Digests ride the next wake
-rather than waking; relay them whole to your own visible output. Fleet mail is for actionable red gates, blockers, conflicts,
+rather than waking. On each wake, write one plain sentence in your own visible
+output saying what changed that the user cares about (item, PR, failing test,
+terminal state), folding any digest into it; write nothing when nothing did.
+Never paste raw lines or reports. Fleet mail is for actionable red gates, blockers, conflicts,
 decisions and terminal results; no progress mail.
 
 Suppression tokens (audit recorded): `# lint:no-main-check`,
