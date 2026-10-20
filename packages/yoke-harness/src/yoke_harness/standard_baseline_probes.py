@@ -99,18 +99,25 @@ def standard_probes(os_name: str) -> list[dict]:
             source
             + "\n"
             + f"""
-import json, os, shutil, subprocess, sys
+import json, os, shutil, subprocess, sys, time
 from pathlib import Path
 search = os.pathsep.join([str(Path.home() / '.local/bin'), os.environ.get('PATH', '')])
 executable = next((p for x in {executables!r} if (p := shutil.which(x, path=search))), None)
 if not executable: sys.exit(EXIT['probe_executable_missing'])
 request = harness_request([executable])
-try:
-    result = subprocess.run(request.argv, cwd=REQUEST_WORKSPACE, capture_output=True, text=True, timeout=110)
-except subprocess.TimeoutExpired:
-    sys.exit(EXIT['probe_request_timed_out'])
-except OSError:
-    sys.exit(EXIT['probe_launch_failed'])
+deadline = time.monotonic() + 110
+def attempt():
+    try:
+        return subprocess.run(request.argv, cwd=REQUEST_WORKSPACE, capture_output=True, text=True, timeout=max(1, deadline - time.monotonic()))
+    except subprocess.TimeoutExpired:
+        sys.exit(EXIT['probe_request_timed_out'])
+    except OSError:
+        sys.exit(EXIT['probe_launch_failed'])
+result = attempt()
+# Cursor ask mode cannot disable tools: an exact OK whose only fault is one
+# tool call retries once inside the same budget, so a rare call does not fail.
+if result.returncode == 0 and request.only_tool_call_rejected(result.stdout):
+    result = attempt()
 if result.returncode != 0:
     refusal = request.native_refusal(result.stdout, result.stderr)
     rejection = request.reply_rejection(result.stdout, exit_code=result.returncode)

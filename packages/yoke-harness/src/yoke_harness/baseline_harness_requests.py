@@ -62,6 +62,16 @@ class HarnessRequest:
             "recovery": recovery,
         }
 
+    def only_tool_call_rejected(self, stdout: str) -> bool:
+        """True when a Cursor stream's sole fault is a non-inspection tool call.
+
+        The reply was otherwise an exact OK with a successful completion, so
+        one retry tells a rare tool call from a steady one.
+        """
+        return self.name == "Cursor" and self._reply_review(stdout, 0)[0] == [
+            "tool_call_event"
+        ]
+
     def reply_rejection(
         self, stdout: str, *, exit_code: int = 0
     ) -> dict[str, Any] | None:
@@ -69,20 +79,27 @@ class HarnessRequest:
 
         Cursor may call read-only tools before that reply. Write, shell, and
         any other tool call still reject, and ``tool_use`` stays true on the
-        record whenever a tool call was present. The record is sanitized:
-        event types, the final event's shape and booleans, never reply text,
-        account output or a transcript.
+        record whenever a tool call was present. A ``tool_call`` event type
+        names its payload kind (``tool_call:shellToolCall``). The record is
+        sanitized: event types, the final event's shape and booleans, never
+        reply text, account output or a transcript.
         """
+        return self._reply_review(stdout, exit_code)[1]
+
+    def _reply_review(
+        self, stdout: str, exit_code: int
+    ) -> tuple[list[str], dict[str, Any] | None]:
+        """Return every distinct rejection branch, in order, and the record."""
         lines = [line for line in stdout.splitlines() if line.strip()]
         types: list[str] = []
-        rejection = None if lines else "no_events"
+        branches = [] if lines else ["no_events"]
         answer = None
         completed = degraded = tool_use = False
         final: dict[str, Any] | None = None
 
         def reject(branch: str) -> None:
-            nonlocal rejection
-            rejection = rejection or branch
+            if branch not in branches:
+                branches.append(branch)
 
         for line in lines:
             try:
@@ -100,6 +117,7 @@ class HarnessRequest:
                 reject(kind.replace(".", "_") + "_event")
             if kind == "tool_call":
                 tool_use = True
+                types[-1] = _tool_call_label(event)
                 if self.name != "Cursor" or not _cursor_tool_call_is_read_only(event):
                     reject("tool_call_event")
             if kind in {"item.started", "item.completed"}:
@@ -139,11 +157,11 @@ class HarnessRequest:
             reject("reply_not_exact")
         if exit_code:
             reject("native_exit_nonzero")
-        if rejection is None:
-            return None
-        return {
+        if not branches:
+            return branches, None
+        return branches, {
             "harness": self.name,
-            "rejection": rejection,
+            "rejection": branches[0],
             "event_count": len(lines),
             "event_types": types[:REJECTION_EVENT_TYPE_LIMIT],
             "final_event": None
@@ -170,6 +188,14 @@ def _cursor_tool_call_is_read_only(event: dict) -> bool:
     if not isinstance(payload, dict) or not payload:
         return False
     return set(payload) <= _CURSOR_READ_ONLY_TOOL_CALLS
+
+
+def _tool_call_label(event: dict) -> str | None:
+    """Name a tool call event by its payload kind, such as ``tool_call:readToolCall``."""
+    payload = event.get("tool_call")
+    if not isinstance(payload, dict) or not payload:
+        return "tool_call"
+    return _token("tool_call:" + ".".join(sorted(str(key) for key in payload)))
 
 
 def _token(value: object) -> str | None:
