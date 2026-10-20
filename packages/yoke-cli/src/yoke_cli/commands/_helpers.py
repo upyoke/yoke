@@ -191,7 +191,7 @@ def parse_or_usage_error(
         parser.add_argument(
             "--full",
             action="store_true",
-            help="Full read detail. Large human replies save complete evidence.",
+            help="Full read detail; bypass the oversized human-read safety net.",
         )
     try:
         return parser.parse_args(args)

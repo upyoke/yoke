@@ -215,14 +215,7 @@ def _emit(payload: dict[str, Any], json_mode: bool) -> int:
     if json_mode:
         print(json.dumps(payload, sort_keys=True))
     else:
-        write_local(
-            payload,
-            sys.stdout,
-            writer=_emit_human,
-            essential_writer=lambda value, stream: _emit_human(
-                {**value, "logs": {}}, stream
-            ),
-        )
+        write_local(payload, sys.stdout, writer=_emit_human)
     return 0 if payload.get("ok") else 1
 
 

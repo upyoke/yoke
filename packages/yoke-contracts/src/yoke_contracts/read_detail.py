@@ -23,8 +23,8 @@ from typing import Literal
 DETAIL_SUMMARY = "summary"
 DETAIL_FULL = "full"
 
-# Shared by server summary pages and client reply delivery.
-REPLY_LIMIT_BYTES = 4_000
+# Safety net for unusually large human reads; routine size belongs to each projection.
+REPLY_LIMIT_BYTES = 28_000
 
 #: Request-field vocabulary shared by every read that has both shapes.
 ReadDetail = Literal["summary", "full"]

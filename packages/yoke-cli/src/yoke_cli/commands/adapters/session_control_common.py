@@ -174,7 +174,19 @@ def write_message_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
 def write_message_detail_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
     """The authorized read of one message, where the body is the answer."""
     del stderr
-    write_human_message_result(response.result or {}, stdout, with_body=True)
+    from yoke_cli.transport.output_limit import full_output_requested, registered_read_requested
+    from yoke_contracts.read_detail import excerpt
+
+    result = response.result or {}
+    if full_output_requested() or not registered_read_requested():
+        write_human_message_result(result, stdout, with_body=True)
+        return
+    message = result.get("message") or {}
+    print(f"Message: {message.get('message_id')}; state: {message.get('state')}", file=stdout)
+    print(f"Body preview: {excerpt(message.get('body'))}", file=stdout)
+    print(f"Read the complete body before acting: yoke messages get {message.get('message_id')} body", file=stdout)
+    if message.get("acknowledgement_command"):
+        print(message["acknowledgement_command"], file=stdout)
 
 
 def write_launch_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:

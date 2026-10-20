@@ -45,7 +45,7 @@ ITEMS_DETAIL_GET_USAGE = (
 ITEMS_DETAIL_GET_DESCRIPTION = (
     "Read compact item status, workflow and lane facts. Name content sections "
     "with --include, or --full for all fields and operator instruction prose. "
-    "JSON returns the response envelope or a saved-response pointer when large."
+    "JSON always returns the complete response envelope."
 )
 
 

@@ -55,6 +55,13 @@ def _replacement_for(
     exact_scope: bool = False,
 ) -> dict[str, Any]:
     rows = [row for row in (_row(conn, rid) for rid in candidates) if row]
+    if any(int(row["id"]) == int(failed["id"]) and row["plan_case_key"] == case_key for row in rows):
+        raise QaReplacementError(
+            f"replacement_case_corrected_in_place: requirement {failed['id']} "
+            f"already owns corrected case key {case_key!r}. Re-run without "
+            "--replaces or --replaces-requirement so content refresh links the "
+            "correction, or use a new plan or case key."
+        )
     matches = [
         row
         for row in rows
@@ -333,15 +340,3 @@ def announce_discharges(
     """Emit supersession telemetry after the discharging verdict committed."""
     for receipt, row in discharged:
         emit_supersession_event(conn, receipt, row)
-
-
-__all__ = [
-    "DISCHARGE_RATIONALE",
-    "QaReplacementError",
-    "announce_discharges",
-    "declare_replacements",
-    "declare_existing_replacement",
-    "discharge_declared_replacements",
-    "point_at_replacement",
-    "replacement_note",
-]

@@ -58,6 +58,20 @@ def _write_launch_detail(
     deduplicated: Any = None,
     item_level: Mapping[str, Any] | None = None,
 ) -> None:
+    from yoke_cli.transport.output_limit import full_output_requested, registered_read_requested
+
+    if registered_read_requested() and not full_output_requested():
+        write_summary("LAUNCH", nonempty_rows([
+            ("Launch ID", launch.get("launch_id")),
+            ("State / result", _launch_status(launch)),
+            ("Registered session", launch.get("registered_session_id")),
+            ("Identity correlation", _launch_identity(launch)),
+            ("Instruction delivery", _instruction_delivery(launch)),
+            ("Message ID", launch.get("message_id")),
+            ("Recovery", _launch_recovery(launch)),
+            ("Details", f"yoke session-control launch get {launch.get('launch_id')} --full"),
+        ]), stdout)
+        return
     fields: list[tuple[str, Any]] = [
         ("Launch ID", launch.get("launch_id")),
         ("State / result", _launch_status(launch)),

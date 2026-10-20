@@ -1,15 +1,10 @@
-"""Atomic output refusal and registry coverage for CLI reads."""
+"""Complete machine/write delivery and atomic human-read safety net."""
 
 import json
-import re
-from pathlib import Path
 
 import pytest
 
-from yoke_cli.transport.output_limit import (
-    REPLY_LIMIT_BYTES,
-    read_output_scope,
-)
+from yoke_cli.transport.output_limit import REPLY_LIMIT_BYTES, read_output_scope
 from yoke_cli.transport.public_ref_display import emit_response
 from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_contracts.registered_reads import READ_FUNCTION_IDS
@@ -26,49 +21,38 @@ def test_read_catalog_matches_all_registrations():
     assert READ_FUNCTION_IDS == registered_read_ids()
 
 
-@pytest.mark.parametrize("json_mode", [True, False])
-@pytest.mark.parametrize("function", ["qa.plan.list", "onboard.checklist.get"])
-def test_oversized_read_refuses_without_partial_answer(capsys, json_mode, function):
-    raw = response(function, {"rows": [{"secret_marker": "x" * REPLY_LIMIT_BYTES}]})
-    assert emit_response(raw, json_mode=json_mode) == 0
-    output = capsys.readouterr()
-    artifact = (
-        Path(json.loads(output.out)["saved_response"])
-        if json_mode
-        else Path(re.search(r"Complete reply saved: (.+)", output.out)[1])
-    )
-    assert json.loads(artifact.read_text())["response"]["result"] == raw.result
-    assert len((output.out + output.err).encode()) <= REPLY_LIMIT_BYTES
-    assert "--full" in output.out
-    artifact.unlink()
+@pytest.mark.parametrize("size", [4_001, 28_001, 80_000])
+@pytest.mark.parametrize("function", ["qa.plan.list", "items.create"])
+def test_json_always_returns_complete_envelope(capsys, size, function):
+    raw = response(function, {"body": "x" * size})
+    assert emit_response(raw, json_mode=True) == 0
+    rendered = json.loads(capsys.readouterr().out)
+    assert rendered["result"] == raw.result
+    assert "saved_response" not in rendered
 
 
-def test_human_writer_stderr_is_bounded_atomically(capsys):
-    def writer(raw, stdout, stderr):
-        print("partial answer", file=stdout)
-        print("é" * REPLY_LIMIT_BYTES, file=stderr)
-
-    assert emit_response(response(), json_mode=False, human_writer=writer) == 1
-    output = capsys.readouterr()
-    assert "partial answer" not in output.out
-    assert "essential_output_limit_exceeded" in output.err
+def test_human_write_is_always_complete(capsys):
+    value = "m" * (REPLY_LIMIT_BYTES + 1)
+    assert emit_response(response("items.create", {"body": value}), json_mode=False) == 0
+    assert value in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("json_mode", [True, False])
-@pytest.mark.parametrize("function", ["qa.plan.list", "onboard.checklist.get"])
-def test_full_returns_every_byte(capsys, json_mode, function):
+def test_large_human_read_refuses_without_partial_answer(capsys):
+    raw = response(result={"body": "marker" * REPLY_LIMIT_BYTES})
+    assert emit_response(raw, json_mode=False) == 1
+    out = capsys.readouterr()
+    assert "marker" not in out.out
+    assert "read_output_limit_exceeded" in out.err
+    assert "28000" in out.err
+    assert "--full" in out.err
+
+
+@pytest.mark.parametrize("scope", [False, True])
+def test_full_returns_whole_human_read(capsys, scope):
     value = "z" * (REPLY_LIMIT_BYTES + 1)
-    with read_output_scope(["--full"]):
-        assert (
-            emit_response(response(function, {"body": value}), json_mode=json_mode) == 0
-        )
-    output = capsys.readouterr().out
-    if json_mode:
-        assert value in output
-    else:
-        artifact = Path(re.search(r"Complete reply saved: (.+)", output)[1])
-        assert json.loads(artifact.read_text())["response"]["result"]["body"] == value
-        artifact.unlink()
+    with read_output_scope(["--full"] if scope else []):
+        assert emit_response(response(result={"body": value}), json_mode=False, full=not scope) == 0
+    assert value in capsys.readouterr().out
 
 
 def test_full_does_not_escape_its_invocation():
@@ -81,14 +65,15 @@ def test_full_does_not_escape_its_invocation():
         assert not full_output_requested()
 
 
-def test_mutation_receipt_is_saved_without_repeating_the_write(capsys):
-    value = "m" * (REPLY_LIMIT_BYTES + 1)
-    assert emit_response(response("items.create", {"body": value}), json_mode=True) == 0
-    pointer = json.loads(capsys.readouterr().out)
-    assert pointer["success"] is True
-    artifact = Path(pointer["saved_response"])
-    assert json.loads(artifact.read_text())["response"]["result"]["body"] == value
-    artifact.unlink()
+def test_combined_streams_count_utf8_bytes(capsys):
+    def writer(raw, stdout, stderr):
+        stdout.write("partial")
+        stderr.write("é" * 14_000)
+
+    assert emit_response(response(), json_mode=False, human_writer=writer) == 1
+    out = capsys.readouterr()
+    assert "partial" not in out.out
+    assert "read_output_limit_exceeded" in out.err
 
 
 def test_registered_read_help_teaches_full_without_requesting_it():
@@ -102,60 +87,6 @@ def test_registered_read_help_teaches_full_without_requesting_it():
     assert "--full" in parser.format_help()
 
 
-def test_reply_budget_is_below_recorded_harness_caps():
-    # Claude official tools reference: 30,000 characters by default.
-    # Codex functions.exec documentation: 10,000 aggregate tokens by default.
-    # UTF-8 bytes conservatively bound characters; bytes are not token estimates.
+def test_safety_net_below_character_cap():
+    assert REPLY_LIMIT_BYTES == 28_000
     assert REPLY_LIMIT_BYTES < 30_000
-    assert REPLY_LIMIT_BYTES < 10_000
-
-
-def test_reply_budget_counts_multibyte_utf8():
-    from yoke_cli.transport.output_limit import reply_exceeds_limit
-
-    assert not reply_exceeds_limit("é" * (REPLY_LIMIT_BYTES // 2))
-    assert reply_exceeds_limit("é" * (REPLY_LIMIT_BYTES // 2 + 1))
-
-
-def test_mutation_pointer_never_teaches_read_only_full_flag(capsys):
-    raw = response("items.create", {"body": "x" * REPLY_LIMIT_BYTES})
-    assert emit_response(raw, json_mode=True) == 0
-    pointer = json.loads(capsys.readouterr().out)
-    assert "already ran" in pointer["read"]
-    assert "--full" not in pointer["read"]
-    Path(pointer["saved_response"]).unlink()
-
-
-def test_prune_json_keeps_actionable_counts_and_complete_saved_detail(capsys):
-    from yoke_cli.commands.adapters.universe_retention_output import (
-        compact_json_response,
-    )
-
-    result = {
-        "policy": {"description": "p" * REPLY_LIMIT_BYTES},
-        "tables": [
-            {"table": "events", "eligible": 3, "eligible_partial": True, "deleted": {}},
-            {
-                "table": "inactive",
-                "eligible": 0,
-                "eligible_partial": False,
-                "deleted": {},
-            },
-        ],
-        "deleted": {"events": 7},
-        "unfinished": [],
-    }
-    raw = response("universe.prune.run", result)
-    projected = compact_json_response(raw)
-    assert emit_response(projected, json_mode=True) == 0
-    rendered = json.loads(capsys.readouterr().out)
-    summary = rendered["result"]
-    assert summary["tables"] == [
-        {"table": "events", "eligible": 3, "eligible_partial": True}
-    ]
-    assert summary["deleted"]["events"] == 7
-    assert summary["tables_omitted"] == 1
-    artifact = Path(summary["detail_evidence"])
-    assert json.loads(artifact.read_text())["response"]["result"] == result
-    assert raw.result == result
-    artifact.unlink()

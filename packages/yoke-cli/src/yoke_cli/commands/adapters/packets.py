@@ -45,6 +45,22 @@ PACKETS_RENDER_USAGE = (
 )
 
 
+def write_packet_summary(response, stdout, stderr) -> None:
+    from yoke_cli.transport.output_limit import full_output_requested
+
+    result = response.result or {}
+    body = result.get("body") or ""
+    if full_output_requested():
+        print(body, file=stdout)
+        return
+    print(f"Packet: {result.get('role')}; topic: {result.get('topic')}; detail: {result.get('detail')}", file=stdout)
+    for line in body.splitlines():
+        if line.startswith("#"):
+            print(line, file=stdout)
+    topic = f" --topic {result['topic']}" if result.get("topic") else ""
+    print(f"Read the packet before operating: yoke packets render --role {result.get('role')}{topic} --full", file=stdout)
+
+
 def packets_render(args: List[str]) -> int:
     """Render one packet role, or one topic within it, at a chosen depth.
 
@@ -88,6 +104,7 @@ def packets_render(args: List[str]) -> int:
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
+        human_writer=write_packet_summary,
         local_only=True,
     )
 
