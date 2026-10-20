@@ -166,6 +166,29 @@ def resolve_item_id_by_worktree_name(conn: Any, name: str) -> Optional[int]:
     return int(value)
 
 
+def item_id_for_lane_name(conn: Any, name: str) -> Optional[int]:
+    """Return the ``items.id`` a lane branch or directory NAME belongs to.
+
+    A ``trial/`` part is stripped first. A recorded lane wins; otherwise the
+    name resolves as a public ``PREFIX-N`` ref of whichever project owns the
+    prefix. The number in the name is a project sequence, never ``items.id``,
+    so nothing here reads it as one. Returns ``None`` when neither resolves.
+    """
+    clean = (name or "").strip().strip("/")
+    clean = clean.removeprefix("trial/")
+    if not clean or conn is None:
+        return None
+    found = resolve_item_id_by_worktree_name(conn, clean)
+    if found is not None:
+        return found
+    from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
+
+    try:
+        return resolve_item_ref_or_none(conn, clean)
+    except Exception:  # noqa: BLE001 - minimal schema / unreadable identity
+        return None
+
+
 def resolve_live_branch(path: str, fallback: str) -> str:
     """Return the checked-out branch when the lane exists locally."""
     if not is_git_worktree(path):
@@ -193,6 +216,7 @@ def _complete_lane(
 
 __all__ = [
     "ACTIVE_LANE_ORDER_SQL",
+    "item_id_for_lane_name",
     "primary_item_worktree_branch_sql",
     "recorded_item_worktree_value_sql",
     "recorded_item_worktree_lanes",
