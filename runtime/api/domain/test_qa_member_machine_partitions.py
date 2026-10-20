@@ -166,7 +166,11 @@ def _case_begin(execution, ordinal=0):
         FunctionCallRequest(
             function="test_machine.plan_case.begin",
             actor=ActorContext(actor_id="1", session_id=SESSION),
-            target=TargetRef(kind="deployment_run", deployment_run_id=RUN),
+            target=(
+                TargetRef(kind="global", project_id="yoke")
+                if execution.get("standalone_plan_id")
+                else TargetRef(kind="deployment_run", deployment_run_id=RUN)
+            ),
             payload={
                 "execution_id": execution["id"],
                 "ordinal": ordinal,

@@ -66,6 +66,11 @@ def test_standalone_mission_chain_requires_its_own_plan(
     test_db, tmp_path, monkeypatch, trailing
 ):
     _seed(test_db, tmp_path, monkeypatch, inherit=True, mission=True, trailing=trailing)
+    test_db.execute(
+        "UPDATE qa_plans SET target_environment_id=(SELECT id FROM environments "
+        "WHERE project_id=1 AND name='stage') WHERE slug='host-check-0'"
+    )
+    test_db.commit()
 
     def begin():
         return begin_standalone_execution(
@@ -106,6 +111,11 @@ def test_an_independent_chain_can_expand_custody_before_its_opener(
     from yoke_core.domain.qa_plan_host_leases import execution_host_leases
 
     _seed(test_db, tmp_path, monkeypatch)
+    test_db.execute(
+        "UPDATE qa_plans SET target_environment_id=(SELECT id FROM environments "
+        "WHERE project_id=1 AND name='stage') WHERE slug='host-check-0'"
+    )
+    test_db.commit()
     plan_id = test_db.execute(
         "SELECT id FROM qa_plans WHERE slug='host-check-0'"
     ).fetchone()[0]
