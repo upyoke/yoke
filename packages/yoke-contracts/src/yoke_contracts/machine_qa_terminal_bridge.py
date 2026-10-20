@@ -72,6 +72,29 @@ TERMINAL_TRANSCRIPT_TIMEOUT_ERROR_CODE = "terminal_transcript_timeout"
 # Terminal was told to close it; every such window adds to the accumulation.
 TERMINAL_WINDOW_CLOSE_FAILED_ERROR_CODE = "terminal_window_close_failed"
 
+# A capture that still produced an image the reviewer cannot trust: the
+# Terminal window that issues the capture covered the window being captured,
+# or the bounds needed to rule that out could not be read. The image is kept
+# and the run records one of these as its capture_degraded_reason.
+TERMINAL_CAPTURE_WINDOW_OVERLAPS_APP_REASON = "terminal_capture_window_overlaps_app"
+TERMINAL_CAPTURE_WINDOW_BOUNDS_UNREADABLE_REASON = (
+    "terminal_capture_window_bounds_unreadable"
+)
+TERMINAL_CAPTURE_DEGRADED_RECOVERY = {
+    TERMINAL_CAPTURE_WINDOW_OVERLAPS_APP_REASON: (
+        "the capture window stayed over the captured window after it was moved "
+        "and minimized, so judge this checkpoint from its transcript; close "
+        "stray Terminal windows with `yoke test-machine reset` and re-run the "
+        "case for a clean image"
+    ),
+    TERMINAL_CAPTURE_WINDOW_BOUNDS_UNREADABLE_REASON: (
+        "Terminal did not report the capture or captured window's bounds, so "
+        "the image may hide part of the app; judge this checkpoint from its "
+        "transcript and run `yoke test-machine bridge-diagnose` before "
+        "re-running the case"
+    ),
+}
+
 TERMINAL_BRIDGE_RECOVERY = {
     TERMINAL_APP_CONTROL_UNAVAILABLE_ERROR_CODE: (
         "run `yoke test-machine bridge-diagnose` against this machine; it "
@@ -206,6 +229,9 @@ __all__ = [
     "TERMINAL_APP_CONTROL_UNAVAILABLE_ERROR_CODE",
     "TERMINAL_AUTOMATION_UNAVAILABLE_ERROR_CODE",
     "TERMINAL_BRIDGE_CHECKS",
+    "TERMINAL_CAPTURE_DEGRADED_RECOVERY",
+    "TERMINAL_CAPTURE_WINDOW_BOUNDS_UNREADABLE_REASON",
+    "TERMINAL_CAPTURE_WINDOW_OVERLAPS_APP_REASON",
     "TERMINAL_BRIDGE_RECOVERY",
     "TERMINAL_CONSOLE_USER_MISMATCH_ERROR_CODE",
     "TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE",

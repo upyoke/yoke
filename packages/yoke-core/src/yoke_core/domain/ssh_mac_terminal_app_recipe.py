@@ -276,6 +276,9 @@ def run_terminal_app_recipe(
                     display_frame=display_frame,
                 )
                 screenshot = capture_result.path
+                capture["screenshot_diagnostics"] = capture_result.diagnostics
+                if capture_result.degraded_detail is not None:
+                    degraded.append(f"{key}: {capture_result.degraded_detail}")
                 if screenshot is None:
                     degraded.append(
                         f"{key}: screenshot capture blocked "

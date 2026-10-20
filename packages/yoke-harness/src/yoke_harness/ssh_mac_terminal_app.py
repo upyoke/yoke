@@ -122,22 +122,30 @@ def set_terminal_app_window_bounds(
             "set index of targetWindow to 1",
             f"set bounds of targetWindow to {{{left}, {top}, {right}, {bottom}}}",
             "set observed to bounds of targetWindow",
-            'return ((item 1 of observed) as text) & "," & '
-            '((item 2 of observed) as text) & "," & '
-            '((item 3 of observed) as text) & "," & '
-            "((item 4 of observed) as text)",
+            "return " + _BOUNDS_TEXT,
             "end tell",
         ],
     )
-    if result.returncode:
-        return None
-    parts = result.stdout.strip().split(",")
+    return None if result.returncode else parse_window_bounds(result.stdout)
+
+
+def parse_window_bounds(text: str) -> tuple[int, int, int, int] | None:
+    """Read the `left,top,right,bottom` text AppleScript returns for bounds."""
+    parts = text.strip().split(",")
     if len(parts) != 4:
         return None
     try:
         return tuple(int(float(part.strip())) for part in parts)  # type: ignore[return-value]
     except ValueError:
         return None
+
+
+_BOUNDS_TEXT = (
+    '((item 1 of observed) as text) & "," & '
+    '((item 2 of observed) as text) & "," & '
+    '((item 3 of observed) as text) & "," & '
+    "((item 4 of observed) as text)"
+)
 
 
 @dataclass(frozen=True)
@@ -148,6 +156,7 @@ class TerminalWindowLaunch:
     returncode: int
     stdout: str
     stderr: str
+    bounds: tuple[int, int, int, int] | None = None
 
     @property
     def diagnostics(self) -> dict[str, object]:
@@ -169,7 +178,9 @@ def open_terminal_app_window(
 
     Callers that will capture the window pass bounds derived from the live
     display; a window opened without them keeps whatever frame Terminal
-    restored, which is only safe when nothing reads its pixels.
+    restored, which is only safe when nothing reads its pixels. The window is
+    placed and read back before *command* starts, or a capture command runs
+    while it still sits at the restored frame, often over the captured window.
     """
     lines = [
         'tell application "Terminal"',
@@ -184,25 +195,40 @@ def open_terminal_app_window(
                 f"set number of rows of targetWindow to {terminal_size[1]}",
             ]
         )
+    answer = "return id of targetWindow"
+    if bounds is not None:
+        left, top, right, bottom = bounds
+        lines.extend(
+            [
+                "set miniaturized of targetWindow to false",
+                "set index of targetWindow to 1",
+                f"set bounds of targetWindow to {{{left}, {top}, {right}, {bottom}}}",
+                "set observed to bounds of targetWindow",
+            ]
+        )
+        answer = 'return (id of targetWindow as text) & "|" & ' + _BOUNDS_TEXT
     lines.extend(
         [
             "delay 0.5",
             f"do script {json.dumps(command)} in targetTab",
-            "return id of targetWindow",
+            answer,
             "end tell",
         ]
     )
     result = run_osascript(run, lines)
+    identity, _separator, observed = (result.stdout or "").strip().partition("|")
     try:
-        window_id = int(result.stdout.strip())
-    except (AttributeError, TypeError, ValueError):
+        window_id: int | None = int(identity)
+    except ValueError:
         window_id = None
     if result.returncode or (window_id is not None and window_id <= 0):
         window_id = None
-    if window_id is not None and bounds is not None:
-        set_terminal_app_window_bounds(run, window_id=window_id, bounds=bounds)
     return TerminalWindowLaunch(
-        window_id, result.returncode, result.stdout, result.stderr
+        window_id,
+        result.returncode,
+        result.stdout,
+        result.stderr,
+        parse_window_bounds(observed) if window_id is not None else None,
     )
 
 
@@ -315,6 +341,7 @@ __all__ = [
     "TerminalWindowLaunch",
     "capture_terminal_app_transcript",
     "open_terminal_app_window",
+    "parse_window_bounds",
     "run_osascript",
     "set_terminal_app_window_bounds",
     "send_terminal_app_keys",

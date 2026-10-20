@@ -1,0 +1,10 @@
+{
+ "id": "terminal-capture-clearance",
+ "title": "Terminal capture clearance",
+ "status": "observed",
+ "current": "A macOS terminal-inspection screenshot is issued from its own Terminal window. That window is placed and its bounds read back before its command starts, and the capture command waits behind a gate until the capture and app windows' bounds are read back again. An overlap is moved clear of the app window, then minimized. An overlap that persists, or bounds that cannot be read, keep the image and record capture_degraded_reason as terminal_capture_window_overlaps_app or terminal_capture_window_bounds_unreadable, with both bounds and the recovery; the step's screenshot_diagnostics.capture_window_clearance holds the observed bounds and corrections.",
+ "desired": "Every terminal-inspection capture on a live macOS Test Machine shows the app unobstructed, and a degraded capture is judged from its transcript.",
+ "sources": ["docs/public/verification/case-attachment-rules.md", "packages/yoke-harness/src/yoke_harness/ssh_mac_capture_clearance.py", "packages/yoke-harness/src/yoke_harness/ssh_mac_terminal_screenshot.py", "packages/yoke-contracts/src/yoke_contracts/machine_qa_terminal_bridge.py"],
+ "page": "test-machine-execution",
+ "position": 8
+}
