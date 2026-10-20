@@ -25,7 +25,7 @@ def _mirror_hook_trust(*checkouts: Path) -> None:
     config.write_text(config.read_text() + blocks)
 
 
-def test_uninstall_removes_root_and_lane_trust(installed):
+def test_uninstall_removes_root_and_lane_trust(installed):  # noqa: F811
     root, other, config = installed
     lane = root / ".worktrees" / "lane-one"
     lane.mkdir(parents=True)
