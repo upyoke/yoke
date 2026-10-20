@@ -31,6 +31,13 @@ REDISPATCH_RECOVERY = (
     "on the same commit"
 )
 
+#: Cancellation is terminal; its recovery never assumes the commit is current.
+CANCELLED_RECOVERY = (
+    "this run was cancelled; check the current lane head and its CI evidence "
+    "and continue with the current candidate rather than re-dispatching "
+    "this cancelled commit"
+)
+
 #: Job conclusions that are a red answer from a job that ran.
 _RED_JOB_CONCLUSIONS = frozenset({"failure", "timed_out"})
 #: Job conclusions a job can carry without ever having started.
@@ -110,6 +117,7 @@ def with_effective_conclusion(
 
 __all__ = [
     "CI_JOB_NOT_STARTED",
+    "CANCELLED_RECOVERY",
     "REDISPATCH_RECOVERY",
     "effective_conclusion",
     "job_never_started",

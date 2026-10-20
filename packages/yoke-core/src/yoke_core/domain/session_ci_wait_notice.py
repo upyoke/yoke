@@ -13,7 +13,11 @@ from datetime import datetime
 from typing import Any
 
 from yoke_contracts.session_control.models import RecipientSelector
-from yoke_core.domain.ci_job_outcome import CI_JOB_NOT_STARTED, REDISPATCH_RECOVERY
+from yoke_core.domain.ci_job_outcome import (
+    CANCELLED_RECOVERY,
+    CI_JOB_NOT_STARTED,
+    REDISPATCH_RECOVERY,
+)
 from yoke_core.domain.session_explicit_wake import mark_explicit_stopped_wake
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_store import message_details
@@ -59,11 +63,7 @@ def ci_run_message(
         run_url(repo, run_id),
     ]
     if conclusion == "cancelled":
-        lines.append(
-            "No verdict: this run was cancelled. Check the current lane head "
-            "and its CI evidence; continue with the current candidate rather "
-            "than re-dispatching this cancelled commit."
-        )
+        lines.append(f"No verdict: {CANCELLED_RECOVERY}.")
     elif conclusion not in ("success", "failure"):
         lines.append(
             f"No verdict: this run tested nothing it can be judged on "

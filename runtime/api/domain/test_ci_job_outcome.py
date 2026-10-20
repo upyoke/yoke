@@ -278,3 +278,20 @@ def test_cancelled_notice_points_to_current_candidate_without_a_redispatch_comma
     assert "current lane head" in body
     assert "Re-dispatch with:" not in body
     assert "yoke watch pytest" not in body
+
+
+def test_cancelled_failed_log_report_never_teaches_redispatch():
+    from yoke_core.domain.github_actions_failed_job_report import (
+        build_failed_job_report,
+    )
+    from yoke_core.domain.github_actions_failed_jobs import RunFailures
+
+    report = build_failed_job_report(
+        RunFailures(conclusion="cancelled"),
+        repo="acme/widgets",
+        run_id="1",
+        max_lines=10,
+    )
+    assert "current lane head" in report.output
+    assert "Re-dispatch:" not in report.output
+    assert "re-run the command" not in report.output
