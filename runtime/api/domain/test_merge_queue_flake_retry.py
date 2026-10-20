@@ -152,3 +152,15 @@ def test_serving_observer_ancestry_uses_github_compare(monkeypatch):
     assert failed._base_covers_train(replace(ctx(), repo_root=""), BASE, "4" * 40)
     monkeypatch.setattr(failed, "_github_commit_read", lambda *_: {})
     assert not failed._base_covers_train(replace(ctx(), repo_root=""), BASE, "4" * 40)
+
+
+def test_retry_write_failure_preserves_the_callers_transaction(monkeypatch):
+    conn = observer_connection()
+    conn.execute("UPDATE items SET merge_queue_pr_number='caller write' WHERE id=101")
+    def fail(*args, **kwargs):
+        conn.execute("UPDATE items SET merge_queue_pr_number='partial helper write' WHERE id=101")
+        raise RuntimeError("storage unavailable")
+    monkeypatch.setattr(handler, "upsert_json_section", fail)
+    with pytest.raises(RuntimeError, match="storage unavailable"):
+        handler.reserve_retry(conn, 101, body(), "worker")
+    assert conn.execute("SELECT merge_queue_pr_number FROM items WHERE id=101").fetchone()[0] == "caller write"

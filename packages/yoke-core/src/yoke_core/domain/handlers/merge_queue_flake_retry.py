@@ -10,6 +10,7 @@ from yoke_contracts.api.function_call import FunctionError, HandlerOutcome
 from yoke_contracts.timestamps import format_instant, utc_now
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.item_json_sections import upsert_json_section
+from yoke_core.domain.db_savepoint import SavepointLostError, savepoint
 from yoke_core.domain.merge_queue_flake_retry import RETRY_EXHAUSTED, RETRY_SECTION
 
 
@@ -57,9 +58,10 @@ def reserve_retry(conn, item_id, body, session_id):
         **body.model_dump(), "session_id": session_id,
         "recorded_at": format_instant(utc_now()),
     })
-    upsert_json_section(
-        conn, item_id=item_id, section=RETRY_SECTION, payload=history, ordering=210
-    )
+    with savepoint(conn, "merge_train_retry", owns=False):
+        upsert_json_section(
+            conn, item_id=item_id, section=RETRY_SECTION, payload=history, ordering=210
+        )
     return True
 
 
@@ -79,6 +81,8 @@ def handle_claim_retry(request):
             conn.commit()
     except ValidationError as exc:
         return _error("payload_invalid", f"Correct the retry claim fields: {exc}")
+    except SavepointLostError:
+        raise
     except Exception as exc:  # noqa: BLE001 - fail closed on unreadable history
         return _error(
             "merge_train_flake_retry_unrecorded",
