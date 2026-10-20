@@ -270,7 +270,7 @@ class TestPreCommitDispatchWiring(unittest.TestCase):
         self.assertEqual(rc, 1)
         err = buf.getvalue()
         self.assertIn("render_field_note_inline", err)
-        self.assertIn("--no-verify", err)
+        self.assertNotIn("--no-verify", err)
 
     def test_helper_passes_on_clean_tree(self) -> None:
         """When every family's render(--check) reports no change, rc=0."""
