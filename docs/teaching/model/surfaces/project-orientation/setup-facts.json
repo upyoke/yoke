@@ -3,8 +3,13 @@
  "title": "Current machine and project setup facts",
  "status": "observed",
  "form": "State and recipe",
- "verification": "Candidate source tests; installed delivery proof remains pending in setup-next-action-delivery-proof.",
- "topics": ["projects/onboarding", "projects/onboarding/first-useful-work"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/session_orientation.py"],
+ "verification": "Actual new-project receiving exposed hidden blocked handoff rows. The shared summary retains every blocked or needed row, including after first work, while preserving the server-selected next action. Corrected installed receiving remains pending in setup-next-action-delivery-proof.",
+ "topics": [
+  "projects/onboarding",
+  "projects/onboarding/first-useful-work"
+ ],
+ "sources": [
+  "packages/yoke-core/src/yoke_core/domain/session_orientation.py"
+ ],
  "position": 20
 }

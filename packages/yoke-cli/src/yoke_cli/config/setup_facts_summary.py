@@ -25,6 +25,7 @@ def summary_lines(report: Mapping[str, Any], *, orientation: bool = False) -> li
     if (
         orientation
         and (run.get("setup_readiness") or {}).get("ready")
+        and not any(row["status"] in ("blocked", "needed") for row in rows)
         and any(
             row["row_id"] == FIRST_ITEM_DONE_ROW_ID
             and row["status"] in (STATUS_CONFIGURED, STATUS_VERIFIED)
@@ -41,7 +42,7 @@ def summary_lines(report: Mapping[str, Any], *, orientation: bool = False) -> li
             if row["status"] == status
             and (
                 not orientation
-                or status in ("deferred", "not-needed")
+                or status in ("deferred", "not-needed", "blocked", "needed")
                 or row["row_id"] in REQUIRED_SETUP_ROW_IDS
                 or row["row_id"] == FIRST_ITEM_DONE_ROW_ID
             )
