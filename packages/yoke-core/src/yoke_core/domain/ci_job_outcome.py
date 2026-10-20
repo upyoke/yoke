@@ -12,7 +12,7 @@ This is the one classifier every reader of a run applies — the run poll,
 the wait and find reads, the CI check, and the control-plane wait sweep.
 Each reads the run where the project's GitHub credentials live and
 reports its *effective conclusion*: GitHub's conclusion, except
-:data:`CI_JOB_NOT_STARTED` for a run whose jobs never started. That is a
+:data:`CI_JOB_NOT_STARTED` for a failed run whose jobs never started. That is a
 named "no verdict", never ``failure``, and its recovery is to dispatch a
 fresh run on the same commit.
 """
@@ -29,6 +29,14 @@ REDISPATCH_RECOVERY = (
     "no job got a runner, so this run reached no verdict about the tree; "
     "re-dispatch it: re-run the same command, which dispatches a fresh run "
     "on the same commit"
+)
+
+#: Cancellation is terminal; its recovery never assumes the commit is current.
+CANCELLED_RECOVERY = (
+    "this run was cancelled; check the current lane head and its CI evidence "
+    "and continue with the current candidate rather than re-dispatching "
+    "this cancelled commit. Re-dispatch only the current candidate if it "
+    "still lacks CI evidence"
 )
 
 #: Job conclusions that are a red answer from a job that ran.
@@ -61,7 +69,7 @@ def effective_conclusion(
     keeps the run red however many others never started — red is a real
     answer about the tree.
     """
-    if conclusion in ("", "success"):
+    if conclusion not in ("failure", "startup_failure"):
         return conclusion
     if conclusion == "startup_failure":
         return CI_JOB_NOT_STARTED
@@ -82,15 +90,18 @@ def with_effective_conclusion(
 ) -> Optional[dict[str, Any]]:
     """Copy of a run payload whose ``conclusion`` is the effective one.
 
-    Jobs are read only for a completed run that did not succeed, so an
-    in-flight or green run costs no extra request.
+    Jobs are read only for a completed failure or startup failure; explicit
+    cancellation and other terminal conclusions stand without another request.
     """
     if not isinstance(run, Mapping):
         return None
     copied = dict(run)
     conclusion = str(copied.get("conclusion") or "").strip()
     run_id = copied.get("id")
-    if str(copied.get("status") or "") != "completed" or conclusion in ("", "success"):
+    if str(copied.get("status") or "") != "completed" or conclusion not in (
+        "failure",
+        "startup_failure",
+    ):
         return copied
     from yoke_core.domain.gh_rest_transport import RestTransportError
     from yoke_core.domain.github_actions_failed_jobs import list_run_jobs
@@ -107,6 +118,7 @@ def with_effective_conclusion(
 
 __all__ = [
     "CI_JOB_NOT_STARTED",
+    "CANCELLED_RECOVERY",
     "REDISPATCH_RECOVERY",
     "effective_conclusion",
     "job_never_started",

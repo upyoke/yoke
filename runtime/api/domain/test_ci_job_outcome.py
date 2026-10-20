@@ -88,8 +88,10 @@ def test_startup_failure_and_jobless_failure_are_not_started():
     assert effective_conclusion("failure", []) == CI_JOB_NOT_STARTED
 
 
-def test_a_run_cancelled_after_its_jobs_started_stays_cancelled():
-    assert effective_conclusion("cancelled", [CANCELLED_MID_RUN]) == "cancelled"
+@pytest.mark.parametrize("jobs", [[PLAN_NEVER_STARTED], [CANCELLED_MID_RUN], [], None])
+@pytest.mark.parametrize("conclusion", ["cancelled", "timed_out", "neutral", "skipped"])
+def test_other_terminal_conclusions_stand_regardless_of_job_start(conclusion, jobs):
+    assert effective_conclusion(conclusion, jobs) == conclusion
 
 
 def test_unreadable_jobs_leave_the_github_conclusion_standing():
@@ -262,3 +264,34 @@ def test_selection_run_never_relays_failed_logs_for_a_not_started_run(
     assert relayed == []
     assert f"concluded {CI_JOB_NOT_STARTED}" in out
     assert "re-dispatch" in out
+
+
+def test_cancelled_notice_points_to_current_candidate_without_a_redispatch_command():
+    body = ci_run_message(
+        conclusion="cancelled",
+        repo="acme/widgets",
+        run_id="1",
+        head_sha="a" * 40,
+        kind="selection",
+        continue_command="yoke watch pytest -- tests/x.py",
+    )
+    assert "current lane head" in body
+    assert "Re-dispatch with:" not in body
+    assert "yoke watch pytest" not in body
+
+
+def test_cancelled_failed_log_report_never_teaches_redispatch():
+    from yoke_core.domain.github_actions_failed_job_report import (
+        build_failed_job_report,
+    )
+    from yoke_core.domain.github_actions_failed_jobs import RunFailures
+
+    report = build_failed_job_report(
+        RunFailures(conclusion="cancelled"),
+        repo="acme/widgets",
+        run_id="1",
+        max_lines=10,
+    )
+    assert "current lane head" in report.output
+    assert "Re-dispatch:" not in report.output
+    assert "re-run the command" not in report.output
