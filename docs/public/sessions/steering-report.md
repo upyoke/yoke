@@ -139,6 +139,16 @@ Every row names machine evidence: `yoke session-control evidence get --session
 SESSION-ID`, plus --evidence-id when diagnostic reference exists; see
 [machine-local-evidence.md](../databases/machine-local-evidence.md).
 
+## Steering mail awaiting a seat
+
+Lists each open role-addressed message no live seat acts on: parked with no
+covering seat, or held by a seat that ended or released its claim. Each row
+names the message, its sending item and the covering seat scope. A scope
+another session could take ends with its `yoke claims steering acquire`
+command, which hands the message over. A scope you already hold drops that
+advice and names `yoke messages get MESSAGE-ID` instead. Acknowledged,
+cancelled and expired mail stays out.
+
 ## Stopped sessions and launches
 
 Vendor-stopped rows use stored native turn record on readable-manifest surfaces,

@@ -19,6 +19,17 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.handlers.steering_report import handle_get
 from yoke_core.domain.steering_fleet_report import FleetReport
+from yoke_core.domain.steering_fleet_report_awaiting_seat import AwaitingSeatMessage
+
+_ALPHA_MAIL = (
+    AwaitingSeatMessage(
+        message_id="msg-alpha",
+        item_ref=None,
+        scope_label="alpha",
+        acquire_command="yoke claims steering acquire --project 1",
+        held=True,
+    ),
+)
 
 
 class _KeepOpenConnection:
@@ -167,7 +178,7 @@ def test_read_delta_is_durable_and_keeps_full_facts(test_db, monkeypatch) -> Non
         "yoke_core.domain.steering_fleet_report.compose_report",
         lambda _conn, *, project_id, now, **_kwargs: replace(
             _empty_report(project_id, now),
-            messages_awaiting_seat=int(project_id == PROJECT_ALPHA),
+            messages_awaiting_seat=_ALPHA_MAIL if project_id == PROJECT_ALPHA else (),
         ),
     )
     changed = handle_get(request)

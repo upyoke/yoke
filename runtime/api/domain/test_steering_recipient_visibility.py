@@ -11,13 +11,15 @@ one holds it.
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_core.domain.session_message_queries import get_message
 from yoke_core.domain.session_message_service import preview_message
 from yoke_core.domain.steering_message_drain import drain_to_seat
 from yoke_core.domain.steering_message_recipients import (
     STATE_AWAITING_SEAT,
     STATE_DELIVERED,
-    awaiting_seat_count,
+    awaiting_seat_rows,
 )
 from runtime.api.domain.test_steering_role_addressed_messages import (
     PROJECT_SCOPE,
@@ -30,6 +32,15 @@ from runtime.api.domain.test_session_message_support import (
     message_connection,
     selector,
 )
+
+
+@pytest.fixture(autouse=True)
+def _read_before_the_mail_expires(monkeypatch) -> None:
+    """Read on the clock the fixture mail was sent on; expired mail settles."""
+    from yoke_core.domain import session_message_page, session_message_queries
+
+    monkeypatch.setattr(session_message_page, "utc_now", lambda: NOW)
+    monkeypatch.setattr(session_message_queries, "utc_now", lambda: NOW)
 
 
 def test_preview_reports_the_scope_and_whether_it_would_park() -> None:
@@ -182,8 +193,10 @@ def test_a_project_seat_inherits_a_report_no_document_covers() -> None:
     _say_steering(conn)
     plan_scope = {"project_id": 1, "document": "CURRENT-PLAN"}
 
-    assert awaiting_seat_count(conn, project_id=1, scope=plan_scope) == 0
-    assert awaiting_seat_count(conn, project_id=1, scope=PROJECT_SCOPE) == 1
+    assert len(awaiting_seat_rows(conn, project_id=1, scope=plan_scope, now=NOW)) == 0
+    assert (
+        len(awaiting_seat_rows(conn, project_id=1, scope=PROJECT_SCOPE, now=NOW)) == 1
+    )
 
     _seat(conn, claim_id=12, session_id="s2")
     handoff = drain_to_seat(

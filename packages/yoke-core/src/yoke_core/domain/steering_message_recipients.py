@@ -11,16 +11,19 @@ covered it -- the message is parked, not lost, and no session was asked to
 receive it. ``delivered`` names the seat that holds it now; that seat also
 holds an ordinary session receipt, so the delivery hook injects it. ``acknowledged``
 records that seat acting on it and settles the row for every later handoff.
-A seat that ends without acknowledging or answering leaves its delivered
-row drainable again: the message outlives the session, so the successor
-picks it up rather than the operator re-sending it.
+A seat that ends, or releases its claim, without acknowledging or answering
+leaves its delivered row drainable again: the message outlives the seat, so
+the successor picks it up rather than the operator re-sending it. A message
+cancelled or past its expiry settles its row in every read, whatever the
+stored state says.
 """
 
 from __future__ import annotations
 
-from yoke_contracts.timestamps import parse_instant
+from yoke_contracts.timestamps import parse_instant, utc_now
 
 from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.session_message_receipt_expiry import steering_open_sql
 
 import json
 from datetime import datetime
@@ -123,12 +126,6 @@ def record_steering_recipient(
     )
 
 
-def _seat_still_live(row: Mapping[str, Any]) -> bool:
-    if not row.get("seat_session_id"):
-        return False
-    return not (row.get("seat_ended_at") or row.get("seat_terminated_at"))
-
-
 def _seat_answered(conn: Any, row: Mapping[str, Any]) -> bool:
     """Did the seat that held this row reply to the sender afterwards?
 
@@ -149,14 +146,21 @@ def _seat_answered(conn: Any, row: Mapping[str, Any]) -> bool:
     )
 
 
-def _drainable_candidates(
+def awaiting_seat_rows(
     conn: Any,
     *,
     scope: Mapping[str, Any],
     project_id: int,
+    now: datetime | None = None,
 ) -> list[dict[str, Any]]:
-    """Unsettled rows this scope covers, without fetching message bodies."""
-    rows = load_unsettled_steering_rows(conn, project_id, scope)
+    """Open rows this scope covers that no live seat acts on, without bodies.
+
+    A delivered row whose seat is still live was already dropped in SQL;
+    what remains of it here is a seat that ended or released its claim.
+    """
+    rows = load_unsettled_steering_rows(
+        conn, project_id, scope, now=utc_now() if now is None else now
+    )
     if not rows:
         return []
     item_ids = [
@@ -171,10 +175,7 @@ def _drainable_candidates(
             scope, row_coverage_target(conn, row, links=links)
         ):
             continue
-        if row["state"] == STATE_AWAITING_SEAT:
-            drainable.append(row)
-            continue
-        if _seat_still_live(row) or _seat_answered(conn, row):
+        if row["state"] != STATE_AWAITING_SEAT and _seat_answered(conn, row):
             continue
         drainable.append(row)
     return drainable
@@ -185,30 +186,39 @@ def drainable_rows(
     *,
     scope: Mapping[str, Any],
     project_id: int,
+    now: datetime | None = None,
 ) -> list[dict[str, Any]]:
     """Role-addressed rows in this scope that no live seat is acting on.
 
     Parked rows are the obvious case. The other is an unacknowledged row
-    whose seat ended without answering: the sender is waiting on a reply
-    that can no longer arrive. Acknowledgement settles the row permanently.
+    whose seat ended or released without answering: the sender is waiting
+    on a reply that can no longer arrive. Acknowledgement, cancellation and
+    expiry settle the row permanently.
     """
     return attach_message_bodies(
-        conn, _drainable_candidates(conn, scope=scope, project_id=project_id)
+        conn,
+        awaiting_seat_rows(conn, scope=scope, project_id=project_id, now=now),
     )
 
 
-def session_awaiting_seat_reply(conn: Any, session_id: str) -> dict[str, Any] | None:
+def session_awaiting_seat_reply(
+    conn: Any, session_id: str, *, now: datetime | None = None
+) -> dict[str, Any] | None:
     """The unanswered question this session asked the steering role, if any.
 
     Asked, not merely said. A worker's terminal report is the overwhelmingly
     common thing to send a seat and it waits on nothing, so counting it would
     keep every finished worker's row alive forever -- the opposite of what
     reading this predicate is for. :func:`message_asks` draws that line, and
-    an acknowledged row or an answer that already came back settles the rest.
+    an acknowledged row, a cancelled or expired message, or an answer that
+    already came back settles the rest.
     """
     from yoke_core.domain.steering_fleet_report_dead_waits import message_asks
 
     marker = _marker(conn)
+    still_open, open_params = steering_open_sql(
+        marker, instant_parameter(conn, utc_now() if now is None else now)
+    )
     rows = conn.execute(
         "SELECT r.message_id AS message_id, r.state AS state, "
         "m.body AS body, m.created_at AS sent_at, "
@@ -217,9 +227,9 @@ def session_awaiting_seat_reply(conn: Any, session_id: str) -> dict[str, Any] | 
         f"FROM {TABLE} r "
         "JOIN session_messages m ON m.message_id = r.message_id "
         f"WHERE r.recipient_kind = {marker} AND m.sender_session_id = {marker} "
-        f"AND m.cancelled_at IS NULL AND r.state <> {marker} "
+        f"AND {still_open} AND r.state <> {marker} "
         "ORDER BY m.created_at DESC, r.message_id DESC",
-        (STEERING_KIND, str(session_id), STATE_ACKNOWLEDGED),
+        (STEERING_KIND, str(session_id), *open_params, STATE_ACKNOWLEDGED),
     ).fetchall()
     for raw in rows:
         row = dict(raw)
@@ -229,11 +239,6 @@ def session_awaiting_seat_reply(conn: Any, session_id: str) -> dict[str, Any] | 
             continue
         return {"message_id": str(row["message_id"]), "state": str(row["state"])}
     return None
-
-
-def awaiting_seat_count(conn: Any, *, project_id: int, scope: Mapping[str, Any]) -> int:
-    """How many role-addressed messages in this scope have no live seat."""
-    return len(_drainable_candidates(conn, scope=scope, project_id=project_id))
 
 
 def acknowledge_steering_recipient(
@@ -296,7 +301,7 @@ __all__ = [
     "STEERING_KIND",
     "TABLE",
     "acknowledge_steering_recipient",
-    "awaiting_seat_count",
+    "awaiting_seat_rows",
     "decode_steering_scope",
     "drainable_rows",
     "holding_seat_session_id",

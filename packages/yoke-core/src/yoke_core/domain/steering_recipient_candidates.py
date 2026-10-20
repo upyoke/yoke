@@ -1,8 +1,11 @@
 """Unsettled role-addressed rows, loaded without walking settled history.
 
 A project's steering recipient table keeps every report it ever received.
-Most of those rows are finished: cancelled messages, acknowledged seats,
-and mail still sitting with a live seat. Membership and reply checks are
+Most of those rows are finished: cancelled or expired messages,
+acknowledged seats, and mail still sitting with a live seat. A seat is live
+while its session runs AND the claim it was handed the row under is
+unreleased: a session that released the seat and kept working is no longer
+acting on the seat's mail. Membership and reply checks are
 only meaningful for the rest, so this read drops the finished set in SQL
 before any of that work runs. Bodies stay off this query; the drain path
 attaches them to the few rows it will actually hand over.
@@ -10,9 +13,12 @@ attaches them to the few rows it will actually hand over.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Mapping, Sequence
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.session_message_receipt_expiry import steering_open_sql
 from yoke_core.domain.actor_message_recipient_schema import (
     TABLE as RECIPIENT_TABLE,
 )
@@ -30,7 +36,8 @@ _CANDIDATE_COLUMNS = (
     "r.project_id AS project_id, r.seat_session_id AS seat_session_id, "
     "r.created_at AS created_at, m.sender_session_id AS sender_session_id, "
     "m.created_at AS sent_at, seat.ended_at AS seat_ended_at, "
-    "seat.terminated_at AS seat_terminated_at"
+    "seat.terminated_at AS seat_terminated_at, "
+    "seat_claim.released_at AS seat_claim_released_at"
 )
 
 
@@ -55,22 +62,31 @@ def _scope_rows_clause(
 
 
 def load_unsettled_steering_rows(
-    conn: Any, project_id: int, scope: Mapping[str, Any]
+    conn: Any, project_id: int, scope: Mapping[str, Any], *, now: datetime
 ) -> list[dict[str, Any]]:
-    """Steering recipients this scope may cover, not yet settled or live-held."""
+    """Steering recipients this scope may cover, still open and not live-held."""
     marker = _marker(conn)
     scoped, scoped_params = _scope_rows_clause(marker, project_id, scope)
+    still_open, open_params = steering_open_sql(marker, instant_parameter(conn, now))
     rows = conn.execute(
         f"SELECT {_CANDIDATE_COLUMNS} "
         f"FROM {RECIPIENT_TABLE} r "
         "JOIN session_messages m ON m.message_id = r.message_id "
         "LEFT JOIN harness_sessions seat ON seat.session_id = r.seat_session_id "
+        "LEFT JOIN work_claims seat_claim ON seat_claim.id = r.seat_claim_id "
         f"WHERE r.recipient_kind = {marker} AND {scoped} "
-        f"AND m.cancelled_at IS NULL AND r.state <> {marker} "
+        f"AND {still_open} AND r.state <> {marker} "
         f"AND NOT (r.state = {marker} AND r.seat_session_id IS NOT NULL "
-        "AND seat.ended_at IS NULL AND seat.terminated_at IS NULL) "
+        "AND seat.ended_at IS NULL AND seat.terminated_at IS NULL "
+        "AND seat_claim.id IS NOT NULL AND seat_claim.released_at IS NULL) "
         "ORDER BY m.created_at DESC, r.message_id DESC",
-        (STEERING_KIND, *scoped_params, STATE_ACKNOWLEDGED, STATE_DELIVERED),
+        (
+            STEERING_KIND,
+            *scoped_params,
+            *open_params,
+            STATE_ACKNOWLEDGED,
+            STATE_DELIVERED,
+        ),
     ).fetchall()
     return [dict(row) for row in rows]
 

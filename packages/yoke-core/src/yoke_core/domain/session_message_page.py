@@ -21,21 +21,19 @@ from yoke_core.domain.session_message_list_row import message_list_row
 from yoke_core.domain.session_message_page_rows import page_summaries
 from yoke_core.domain.session_message_queries import message_with_actor_context
 from yoke_core.domain.session_message_reads import message_recipient_match_clause
-from yoke_core.domain.session_message_receipt_expiry import OPEN_SESSION_STATES
+from yoke_core.domain.session_message_receipt_expiry import (
+    OPEN_SESSION_STATES,
+    STEERING_OPEN_STATES,
+)
 from yoke_core.domain.session_message_types import (
     utc_now,
 )
 from yoke_core.domain.session_message_visibility import visible_clause
-from yoke_core.domain.steering_message_recipients import (
-    STATE_AWAITING_SEAT,
-    STATE_DELIVERED,
-    STEERING_KIND,
-)
+from yoke_core.domain.steering_message_recipients import STEERING_KIND
 
 
 DEFAULT_SETTLED_LIMIT = 50
 MAX_SETTLED_LIMIT = 500
-OPEN_STEERING_STATES = (STATE_AWAITING_SEAT, STATE_DELIVERED)
 
 
 def _p(conn: Any) -> str:
@@ -80,7 +78,7 @@ def _actionable_clause(conn: Any, now: Any) -> tuple[str, list[Any]]:
     """
     p = _p(conn)
     session_slots = ",".join(p for _ in OPEN_SESSION_STATES)
-    steering_slots = ",".join(p for _ in OPEN_STEERING_STATES)
+    steering_slots = ",".join(p for _ in STEERING_OPEN_STATES)
     return (
         f"(m.cancelled_at IS NULL AND m.expires_at>{p} AND (EXISTS (SELECT 1 "
         "FROM session_message_recipients ao WHERE ao.message_id=m.message_id "
@@ -95,7 +93,7 @@ def _actionable_clause(conn: Any, now: Any) -> tuple[str, list[Any]]:
             *OPEN_SESSION_STATES,
             ACTOR_KIND,
             STEERING_KIND,
-            *OPEN_STEERING_STATES,
+            *STEERING_OPEN_STATES,
         ],
     )
 

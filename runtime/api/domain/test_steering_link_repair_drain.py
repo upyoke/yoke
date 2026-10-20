@@ -79,8 +79,7 @@ def _row(conn, message_id: str) -> dict:
 
 def _session_row(conn, message_id: str, session_id: str) -> dict | None:
     row = conn.execute(
-        "SELECT * FROM session_message_recipients "
-        "WHERE message_id=? AND session_id=?",
+        "SELECT * FROM session_message_recipients WHERE message_id=? AND session_id=?",
         (message_id, session_id),
     ).fetchone()
     return dict(row) if row else None
@@ -174,8 +173,8 @@ def test_concurrent_acknowledgement_is_not_undone(monkeypatch) -> None:
     sent = _say(conn)
     original = steering_message_drain._item_unacked_rows
 
-    def racing_read(db, item_id):
-        rows = original(db, item_id)
+    def racing_read(db, item_id, **clock):
+        rows = original(db, item_id, **clock)
         acknowledge_message(db, message_id=sent["message_id"], session_id="s3", now=NOW)
         return rows
 

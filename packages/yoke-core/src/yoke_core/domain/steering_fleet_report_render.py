@@ -14,6 +14,7 @@ from yoke_core.domain.steering_fleet_report_test_machines import test_machine_li
 from yoke_core.domain.machine_registry import display_name
 from yoke_core.domain.steering_fleet_report_labels import label_text
 from yoke_core.domain.steering_fleet_report import ClaimHolder, FleetReport
+from yoke_core.domain.steering_fleet_report_awaiting_seat import awaiting_seat_lines
 from yoke_core.domain.steering_fleet_report_balance import launch_balance_lines
 from yoke_core.domain.steering_fleet_report_levels import (
     level_override_lines,
@@ -149,21 +150,6 @@ def _dead_wait_lines(report: FleetReport) -> list[str]:
     return capped(lines, len(report.dead_waits))
 
 
-def _awaiting_seat_lines(report: FleetReport) -> list[str]:
-    """One line for unacknowledged mail no live seat holds.
-
-    Rendered only when there is some: a zero line would be noise on every
-    healthy report, and the point of the line is that work addressed to the
-    seat is otherwise invisible while no seat exists to be addressed.
-    """
-    if not report.messages_awaiting_seat:
-        return []
-    return [
-        f"{report.messages_awaiting_seat} steering message(s) awaiting a seat"
-        " — acknowledged reports stay settled; acquiring this scope hands the rest over"
-    ]
-
-
 def _section(heading: str, lines: list[str]) -> list[str]:
     return [heading + ":", *lines] if lines else []
 
@@ -257,7 +243,7 @@ def _scope_work_lines(report: FleetReport, shared: ProjectRows) -> list[str]:
             _run_lines(shared.deployment_runs),
         ),
         *_section(MANUAL_WAKE_HEADING, manual_wake_lines(shared.deployment_runs)),
-        *_awaiting_seat_lines(report),
+        *awaiting_seat_lines(report.messages_awaiting_seat),
         *_section(CLAIMS_HEADING, _holder_lines(unlisted_holders(report))),
     ]
 

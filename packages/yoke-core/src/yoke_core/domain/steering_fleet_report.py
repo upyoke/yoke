@@ -1,11 +1,9 @@
 """What the steering seat cannot see from inside its own turn.
 
-Composes only the requested report view; it decides and launches nothing.
-The staffing threshold bounds how long runnable work may sit unclaimed,
-allowing the brief claim handoff at lifecycle boundaries.
+Composes only the requested view and decides nothing. The staffing threshold
+bounds how long runnable work may sit unclaimed past a lifecycle handoff.
 
-``idle_after_seconds`` answers "how long must a claim holder be quiet before
-it is presumed stuck": a judgment about a worker mid-task, legitimately longer.
+``idle_after_seconds`` is how long a holder stays quiet before presumed stuck.
 
 Quiet is not the same as stuck
 ------------------------------
@@ -23,11 +21,11 @@ landings appear under their document seat, or in the unattended finding.
 A deliberately held item is the operator's flag to set
 ------------------------------------------------------
 An item an operator is holding on purpose would otherwise read as available
-forever. The report does not guess at intent: the frontier composition it
-reads already drops frozen and operator-blocked items before they reach it,
-so ``yoke items freeze`` and ``yoke items block`` are the whole hold
-mechanism. Work that will never resume is ``yoke items cancel``, not
-freeze. Inferring a hold from age would hide real unstaffed work.
+forever. The report does not guess at intent: the frontier composition it reads
+already drops frozen and operator-blocked items before they reach it, so ``yoke
+items freeze`` and ``yoke items block`` are the whole hold mechanism. Work that
+will never resume is ``yoke items cancel``, not freeze. Inferring a hold from
+age would hide real unstaffed work.
 """
 
 from __future__ import annotations
@@ -85,7 +83,7 @@ from yoke_core.domain.steering_fleet_report_scope import (
 from yoke_core.domain.steering_fleet_report_stranded import StrandedSession
 from yoke_core.domain.steering_fleet_report_undelivered import UndeliveredMessages
 from yoke_core.domain.steering_fleet_report_vendor_errors import VendorErrorSession
-from yoke_core.domain.steering_message_recipients import awaiting_seat_count
+from yoke_core.domain import steering_fleet_report_awaiting_seat as awaiting
 from yoke_core.domain import steering_fleet_report_waiting_chains as chains
 
 
@@ -130,9 +128,8 @@ class FleetReport:
     #: not this.
     stranded: tuple[StrandedSession, ...] = ()
     relay_health: tuple[RelayHealthCondition, ...] = ()
-    #: Role-addressed messages in this scope no live seat is acting on: a
-    #: report addressed to an ended seat is nobody's until a seat drains it.
-    messages_awaiting_seat: int = 0
+    #: Open role-addressed mail in this scope no live seat is acting on.
+    messages_awaiting_seat: tuple[awaiting.AwaitingSeatMessage, ...] = ()
     #: Open landing pull requests, with the queue entry and arming read together.
     landings: tuple[FleetLandingReadback, ...] = ()
     #: Every live deployment run, healthy ones without an alarm, so a
@@ -331,10 +328,13 @@ def compose_report(
         level_overrides=read_level_overrides(conn, refs)
         if request.include_inventory
         else (),
-        messages_awaiting_seat=awaiting_seat_count(
+        messages_awaiting_seat=awaiting.read_awaiting_seat(
             conn,
             project_id=int(project_id),
             scope=seat_scope,
+            session_id=session_id,
+            now=now,
+            reads=request,
         ),
     )
 

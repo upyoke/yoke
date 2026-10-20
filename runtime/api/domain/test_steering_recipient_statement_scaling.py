@@ -31,7 +31,7 @@ from yoke_core.domain.session_message_receipts import acknowledge_message
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.steering_message_drain import drain_to_seat
 from yoke_core.domain.steering_message_recipients import (
-    awaiting_seat_count,
+    awaiting_seat_rows,
     drainable_rows,
 )
 
@@ -99,7 +99,7 @@ def _insert_acknowledged(conn, count: int, *, project_id: int = 1) -> None:
 def _drainable_ids(conn, *, scope=PROJECT_SCOPE, project_id: int = 1) -> list[str]:
     return [
         str(row["message_id"])
-        for row in drainable_rows(conn, scope=scope, project_id=project_id)
+        for row in drainable_rows(conn, scope=scope, project_id=project_id, now=NOW)
     ]
 
 
@@ -110,7 +110,9 @@ def _count_sql(counting: CountingConnection, fragment: str) -> int:
 
 def _measure(conn, *, scope=PROJECT_SCOPE, project_id: int = 1) -> dict[str, int]:
     counting = CountingConnection(conn)
-    count = awaiting_seat_count(counting, project_id=project_id, scope=scope)
+    count = len(
+        awaiting_seat_rows(counting, project_id=project_id, scope=scope, now=NOW)
+    )
     return {
         "count": count,
         "statements": counting.count,
@@ -146,11 +148,14 @@ def test_the_count_path_does_not_fetch_bodies_the_drain_path_still_does() -> Non
     sent = _say_steering(conn, body="Blocked: need a seat for this one.")
 
     counted = CountingConnection(conn)
-    assert awaiting_seat_count(counted, project_id=1, scope=PROJECT_SCOPE) == 1
+    assert (
+        len(awaiting_seat_rows(counted, project_id=1, scope=PROJECT_SCOPE, now=NOW))
+        == 1
+    )
     assert _count_sql(counted, " as body") == 0
 
     drained = CountingConnection(conn)
-    rows = drainable_rows(drained, scope=PROJECT_SCOPE, project_id=1)
+    rows = drainable_rows(drained, scope=PROJECT_SCOPE, project_id=1, now=NOW)
     assert [row["body"] for row in rows] == ["Blocked: need a seat for this one."]
     assert [row["message_id"] for row in rows] == [sent["message_id"]]
     assert _count_sql(drained, " as body") == 0
@@ -202,7 +207,9 @@ def test_cancelled_live_held_and_answered_rows_stay_out_of_the_count() -> None:
     assert live["message_id"] not in ids
     assert answered["message_id"] not in ids
     assert acknowledged["message_id"] not in ids
-    assert awaiting_seat_count(conn, project_id=1, scope=PROJECT_SCOPE) == 2
+    assert (
+        len(awaiting_seat_rows(conn, project_id=1, scope=PROJECT_SCOPE, now=NOW)) == 2
+    )
 
 
 def test_item_linked_unlinked_and_cross_project_scopes_stay_distinct() -> None:
@@ -221,10 +228,15 @@ def test_item_linked_unlinked_and_cross_project_scopes_stay_distinct() -> None:
         now=NOW,
     )
 
-    assert awaiting_seat_count(conn, project_id=1, scope=PROJECT_SCOPE) == 0
-    assert awaiting_seat_count(conn, project_id=1, scope=SCOPE_AREA) == 2
-    assert awaiting_seat_count(conn, project_id=1, scope=SCOPE_PLAN) == 0
-    assert awaiting_seat_count(conn, project_id=2, scope={"project_id": 2}) == 1
+    assert (
+        len(awaiting_seat_rows(conn, project_id=1, scope=PROJECT_SCOPE, now=NOW)) == 0
+    )
+    assert len(awaiting_seat_rows(conn, project_id=1, scope=SCOPE_AREA, now=NOW)) == 2
+    assert len(awaiting_seat_rows(conn, project_id=1, scope=SCOPE_PLAN, now=NOW)) == 0
+    assert (
+        len(awaiting_seat_rows(conn, project_id=2, scope={"project_id": 2}, now=NOW))
+        == 1
+    )
     area_ids = set(_drainable_ids(conn, scope=SCOPE_AREA))
     assert {unlinked["message_id"], linked["message_id"]} <= area_ids
     assert other["message_id"] not in area_ids

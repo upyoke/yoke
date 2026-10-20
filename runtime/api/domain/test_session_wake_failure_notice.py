@@ -141,7 +141,7 @@ def test_exhausted_retry_budget_parks_a_named_notice_for_the_next_seat() -> None
     conn.execute("UPDATE session_message_recipients SET wake_attempt_count=3")
     conn.commit()
     assert wake_eligible_recipients(conn, now=SWEEP + ACK_GRACE) == []
-    rows = drainable_rows(conn, scope={"project_id": 1}, project_id=1)
+    rows = drainable_rows(conn, scope={"project_id": 1}, project_id=1, now=NOW)
     assert len(rows) == 1
     assert rows[0]["sender_item_id"] == 101
     assert "wake_attempts_exhausted" in rows[0]["body"]
@@ -231,7 +231,7 @@ def test_wake_escalates_when_a_later_hook_left_it_unacknowledged(result) -> None
     )
     conn.commit()
     wake_eligible_recipients(conn, now=later)
-    notices = drainable_rows(conn, scope={"project_id": 1}, project_id=1)
+    notices = drainable_rows(conn, scope={"project_id": 1}, project_id=1, now=NOW)
     assert len(notices) == 1
     assert result in notices[0]["body"]
 
@@ -262,7 +262,7 @@ def test_operator_driven_wake_skip_never_escalates_on_its_own(acknowledged) -> N
     row = dict(candidate, last_tool_call_at=later.isoformat(), wake_attempt_count=3)
     assert notify_failed_wake(conn, row, now=later, max_attempts=3) is None
     wake_eligible_recipients(conn, now=later)
-    assert drainable_rows(conn, scope={"project_id": 1}, project_id=1) == []
+    assert drainable_rows(conn, scope={"project_id": 1}, project_id=1, now=NOW) == []
 
 
 def test_failure_notice_reaches_the_steering_seat_and_not_the_sender() -> None:

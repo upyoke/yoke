@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
-
 import pytest
 
 from runtime.api.steering_fleet_test_helpers import (
@@ -28,6 +26,10 @@ from yoke_core.domain.steering_fleet_report_render import report_body
 from yoke_core.domain.steering_message_drain import DIGEST_BEGIN
 
 
+#: Past both the fixture clock and the real clock an acquire drains at.
+OPEN_UNTIL = "2099-01-01T00:00:00.000000Z"
+
+
 @pytest.fixture
 def steering_scope(test_db):
     return seed_steering_scope(test_db)
@@ -40,7 +42,7 @@ def _park_role_message(conn, message_id: str, *, sender: str = WORKER_SESSION) -
         "selector_snapshot, created_at, expires_at) "
         "VALUES (%s, %s, %s, 'Blocked: the gate went red on converge.', 'sha', "
         "%s, %s, %s)",
-        (message_id, ACTOR_ID, sender, json.dumps({}), LONG_AGO, NOW),
+        (message_id, ACTOR_ID, sender, json.dumps({}), LONG_AGO, OPEN_UNTIL),
     )
     conn.execute(
         "INSERT INTO actor_message_recipients "
@@ -93,7 +95,7 @@ def test_acquiring_the_seat_hands_over_the_scope_parked_mail(steering_scope):
     )
 
     handoff = claim["message_handoff"]
-    assert handoff["drained_count"] == report.messages_awaiting_seat
+    assert handoff["drained_count"] == len(report.messages_awaiting_seat)
     assert handoff["drained_count"] == 1
     assert handoff["parked_count"] == 1
     assert handoff["digest"].startswith(DIGEST_BEGIN)
@@ -111,10 +113,6 @@ def test_handed_over_mail_injects_into_the_seat_like_a_live_send(steering_scope)
     """The handover writes the seat's session receipt, so the hook leases it."""
     seed_session(steering_scope, "successor-seat")
     _park_role_message(steering_scope, "msg-parked")
-    steering_scope.execute(
-        "UPDATE session_messages SET expires_at = %s WHERE message_id = 'msg-parked'",
-        (datetime.now(timezone.utc) + timedelta(hours=1),),
-    )
     _release_the_seat(steering_scope)
     acquire_steering(
         steering_scope,
@@ -154,23 +152,23 @@ def test_a_clean_acquire_reports_no_handoff(steering_scope):
     }
 
 
-def test_the_report_counts_mail_no_seat_has_taken(steering_scope):
+def test_the_report_names_mail_no_seat_has_taken(steering_scope):
     """Work addressed to the seat is otherwise invisible while none exists."""
     _park_role_message(steering_scope, "msg-parked")
 
     report = _compose(steering_scope)
 
-    assert report.messages_awaiting_seat == 1
+    assert [e.message_id for e in report.messages_awaiting_seat] == ["msg-parked"]
     assert report.actionable is True
     rendered = report_body(report)
     assert "1 steering message(s) awaiting a seat" in rendered
-    assert "acknowledged reports stay settled" in rendered
+    assert "msg-parked  no item" in rendered
 
 
 def test_the_report_stays_quiet_when_every_message_has_a_seat(steering_scope):
     report = _compose(steering_scope)
 
-    assert report.messages_awaiting_seat == 0
+    assert report.messages_awaiting_seat == ()
     assert "awaiting a seat" not in report_body(report)
 
 
@@ -194,7 +192,7 @@ def test_acknowledged_mail_is_absent_from_report_and_successor_handoff(
     steering_scope.commit()
 
     report = _compose(steering_scope, session_id="successor-seat")
-    assert report.messages_awaiting_seat == 0
+    assert report.messages_awaiting_seat == ()
     assert "awaiting a seat" not in report_body(report)
 
     claim = acquire_steering(
