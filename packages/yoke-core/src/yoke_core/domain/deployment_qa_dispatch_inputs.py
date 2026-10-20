@@ -3,6 +3,9 @@
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import wraps
+from typing import Any
+
+from yoke_contracts.release_pin import RELEASE_PIN_CAPABILITY
 
 _SOURCE_CONNECTION = ContextVar("deployment_qa_source_connection", default=None)
 
@@ -60,7 +63,7 @@ def prepare_release_inputs(conn, stage, *, run_id):
     rows = conn.execute(
         "SELECT c.project_id FROM project_capabilities c WHERE c.type=%s "
         f"AND c.project_id IN ({projects}) ORDER BY c.project_id",
-        ("release_pin", run_id),
+        (RELEASE_PIN_CAPABILITY, run_id),
     ).fetchall()
     if not rows:
         return
@@ -72,3 +75,21 @@ def prepare_release_inputs(conn, stage, *, run_id):
             _persistent_target(
                 conn, project_id, str(target.get("environment") or ""), run_id
             )
+
+
+def run_context(conn: Any, run_id: str) -> tuple[int | None, str, str]:
+    """This run's project, configured target tier, and revision."""
+    row = conn.execute(
+        "SELECT project_id, target_tier, release_lineage "
+        "FROM deployment_runs WHERE id=%s",
+        (run_id,),
+    ).fetchone()
+    if row is None:
+        return None, "", ""
+    get = (lambda key, i: row[key]) if hasattr(row, "keys") else (lambda key, i: row[i])
+    project_id = get("project_id", 0)
+    return (
+        int(project_id) if project_id is not None else None,
+        str(get("target_tier", 1) or ""),
+        str(get("release_lineage", 2) or ""),
+    )

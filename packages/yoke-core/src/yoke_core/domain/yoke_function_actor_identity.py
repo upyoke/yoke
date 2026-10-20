@@ -159,6 +159,11 @@ def _load_actor_lookup(session_id: str) -> ActorLookup:
         return ActorLookup()
     try:
         return _read_actor_lookup(conn, session_id)
+    except db_backend.operational_error_types(conn) as exc:
+        # This owned lookup also serves bootstrap schemas without session storage.
+        if getattr(exc, "sqlstate", None) == "42P01":
+            return ActorLookup()
+        raise
     except (AttributeError, RuntimeError, TypeError):
         return ActorLookup()
     finally:
@@ -170,10 +175,6 @@ def _load_actor_lookup(session_id: str) -> ActorLookup:
 
 def _read_actor_lookup(conn: Any, session_id: str) -> ActorLookup:
     """Resolve ``(actor_id, row-exists)``; database errors propagate to binding."""
-    from yoke_core.domain.schema_common import _table_exists
-
-    if not _table_exists(conn, "harness_sessions"):
-        return ActorLookup()
     p = _placeholder(conn)
     row = conn.execute(
         f"SELECT actor_id FROM harness_sessions WHERE session_id = {p}",

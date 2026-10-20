@@ -10,7 +10,10 @@ the control plane can address their recipients.
 from __future__ import annotations
 
 from yoke_core.domain.deployment_qa_transaction_recovery import rollback_after_error
-from yoke_core.domain.deployment_qa_dispatch_inputs import dispatch_input_operation
+from yoke_core.domain.deployment_qa_dispatch_inputs import (
+    dispatch_input_operation,
+    run_context,
+)
 
 from collections.abc import Mapping
 from typing import Any
@@ -37,24 +40,6 @@ from yoke_core.domain.deployment_qa_stage_wake import (
 )
 
 DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION = "deployment_runs.qa_stage.dispatch"
-
-
-def _run_context(conn: Any, run_id: str) -> tuple[int | None, str, str]:
-    """This run's project, configured target tier, and revision."""
-    row = conn.execute(
-        "SELECT project_id, target_tier, release_lineage "
-        "FROM deployment_runs WHERE id=%s",
-        (run_id,),
-    ).fetchone()
-    if row is None:
-        return None, "", ""
-    get = (lambda key, i: row[key]) if hasattr(row, "keys") else (lambda key, i: row[i])
-    project_id = get("project_id", 0)
-    return (
-        int(project_id) if project_id is not None else None,
-        str(get("target_tier", 1) or ""),
-        str(get("release_lineage", 2) or ""),
-    )
 
 
 def _notify_stage_wait(
@@ -133,7 +118,7 @@ def materialize_and_gate_deployment_qa_stage(
     """
     from yoke_core.domain.deployment_qa_dispatch_inputs import prepare_release_inputs
 
-    project_id, target_tier, revision = _run_context(conn, run_id)
+    project_id, target_tier, revision = run_context(conn, run_id)
     if stage.get("scope") == "item":
         rows = conn.execute(
             "SELECT item_id FROM deployment_run_items WHERE run_id=%s ORDER BY item_id",
@@ -149,7 +134,11 @@ def materialize_and_gate_deployment_qa_stage(
         members = [None]
     from yoke_core.domain.deployment_qa_dispatch_preparation import prepare_members
 
-    prepare_release_inputs(conn, stage, run_id=run_id)
+    try:
+        prepare_release_inputs(conn, stage, run_id=run_id)
+    except (LookupError, ValueError) as exc:
+        rollback_after_error(conn, exc)
+        return 1, str(exc)
     errors = prepare_members(conn, stage, run_id=run_id, members=members)
     return _gate_members(
         conn,

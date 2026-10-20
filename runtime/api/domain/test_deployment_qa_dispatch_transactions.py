@@ -116,16 +116,22 @@ def test_failed_rollback_keeps_original_error_in_lost_connection_outcome():
     assert raised.value.__cause__ is original
 
 
-def test_unprepared_external_read_refuses_before_starting_a_subprocess(test_db, monkeypatch):
+def test_unprepared_external_read_refuses_before_starting_a_subprocess(
+    test_db, monkeypatch
+):
     from yoke_core.domain.deployment_qa_dispatch_inputs import dispatch_input_operation
     from yoke_core.domain.project_file_at_commit import read_project_file
 
     subprocess = Mock()
-    monkeypatch.setattr("yoke_core.domain.project_file_at_commit.subprocess.run", subprocess)
+    monkeypatch.setattr(
+        "yoke_core.domain.project_file_at_commit.subprocess.run", subprocess
+    )
     test_db.execute("SELECT 1")
+
     @dispatch_input_operation
     def read(conn):
         return read_project_file(conn, 1, "a" * 40, PIN_FILE)
+
     with pytest.raises(ValueError, match="deployment_qa_source_inputs_changed"):
         read(test_db)
     subprocess.assert_not_called()
@@ -133,12 +139,46 @@ def test_unprepared_external_read_refuses_before_starting_a_subprocess(test_db, 
 
 def test_rollback_loss_envelope_surfaces_the_triggering_timeout():
     from runtime.api.domain.test_session_less_actor_binding import _entry, _request
-    from yoke_core.domain.function_connection_loss import name_connection_loss, CONNECTION_LOST_CODE
+    from yoke_core.domain.function_connection_loss import (
+        name_connection_loss,
+        CONNECTION_LOST_CODE,
+    )
 
     conn = Mock()
     conn.rollback.side_effect = psycopg.OperationalError("the connection is closed")
-    original = psycopg.errors.IdleInTransactionSessionTimeout("terminating connection due to idle-in-transaction timeout")
-    outcome = name_connection_loss(_entry(), _request(), lambda *args: rollback_after_error(conn, original))
+    original = psycopg.errors.IdleInTransactionSessionTimeout(
+        "terminating connection due to idle-in-transaction timeout"
+    )
+    outcome = name_connection_loss(
+        _entry(), _request(), lambda *args: rollback_after_error(conn, original)
+    )
     assert outcome.error.code == CONNECTION_LOST_CODE
     assert "original IdleInTransactionSessionTimeout" in outcome.error.message
     assert "idle-in-transaction timeout" in outcome.error.message
+
+
+def test_unpublished_prepared_input_returns_the_named_stage_failure(
+    test_db, monkeypatch, tmp_path
+):
+    stages = _stages(_plan(test_db))
+    _seed_run(test_db, run_id="run-unpublished-input", stages=stages, members=(9401,))
+    _pin_capability(test_db, candidate_pin_file=PIN_FILE)
+    _stage(test_db)
+    monkeypatch.setattr(
+        "yoke_core.domain.project_checkout_locations.checkout_for_project_id",
+        lambda _: tmp_path,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.project_file_at_commit.subprocess.run",
+        lambda *a, **k: SimpleNamespace(
+            returncode=0, stdout=PINNED.encode(), stderr=b""
+        ),
+    )
+    monkeypatch.setattr("urllib.request.urlopen", lambda *a, **k: io.BytesIO(b"[]"))
+    code, reason = materialize_and_gate_deployment_qa_stage(
+        test_db, stages[-1], run_id="run-unpublished-input"
+    )
+    assert code == 1
+    assert "deployment_qa_release_unpublished" in reason
+    assert "publish Yoke" in reason
+    assert "re-run the QA stage" in reason
