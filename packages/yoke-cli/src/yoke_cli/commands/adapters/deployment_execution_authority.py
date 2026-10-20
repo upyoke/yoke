@@ -68,7 +68,7 @@ def _run(run_id: str) -> Mapping[str, object]:
     response = call_dispatcher(
         function_id="deployment_runs.get",
         target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
-        payload={},
+        payload={"fields": ["project", "target_environment"]},
     )
     if not response.success:
         detail = response.error.message if response.error else "request failed"

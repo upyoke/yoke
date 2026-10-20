@@ -21,8 +21,38 @@ DEPLOYMENT_RUNS_LIST_USAGE = (
 )
 
 
-def _require_projection(expected_fields=None, summary=False):
+#: Server-computed get fields; an older server refuses them as invalid_field.
+COMPUTED_RUN_FIELDS = ("member_items", "membership_removals")
+
+
+def _floor_refusal(response, message):
+    return response.model_copy(
+        update={
+            "success": False,
+            "result": None,
+            "error": FunctionError(
+                code="deployment_run_read_projection_unavailable", message=message
+            ),
+        }
+    )
+
+
+def _require_projection(expected_fields=None, summary=False, requested=()):
     def validate(response, _actor):
+        computed = [name for name in requested if name in COMPUTED_RUN_FIELDS]
+        if (
+            not response.success
+            and computed
+            and response.error is not None
+            and response.error.code == "invalid_field"
+        ):
+            return _floor_refusal(
+                response,
+                f"Serving floor: computed run fields ({', '.join(computed)}). "
+                "Ask the control-plane operator to install a release carrying "
+                "them; until then read members with `yoke deployment-runs list "
+                "--relevance overview --json`.",
+            )
         if not response.success:
             return response
         result = response.result or {}
@@ -36,19 +66,11 @@ def _require_projection(expected_fields=None, summary=False):
         )
         if valid:
             return response
-        return response.model_copy(
-            update={
-                "success": False,
-                "result": None,
-                "error": FunctionError(
-                    code="deployment_run_read_projection_unavailable",
-                    message=(
-                        "Serving floor: deployment-run field selection and summary pagination. "
-                        "Ask the control-plane operator to install a release carrying this read contract; "
-                        "use get RUN-ID FIELD for individual fields meanwhile."
-                    ),
-                ),
-            }
+        return _floor_refusal(
+            response,
+            "Serving floor: deployment-run field selection and summary pagination. "
+            "Ask the control-plane operator to install a release carrying this read contract; "
+            "use get RUN-ID FIELD for individual fields meanwhile.",
         )
 
     return validate
@@ -57,10 +79,18 @@ def _require_projection(expected_fields=None, summary=False):
 def deployment_runs_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs get",
-        description=DEPLOYMENT_RUNS_GET_USAGE,
+        description=DEPLOYMENT_RUNS_GET_USAGE
+        + " Computed fields: member_items (attached members, removed ones"
+        " excluded) and membership_removals (reason, removed_at, later_run_id)."
+        " carried_work is recorded at composition freeze; before that get"
+        " derives it live and it stays unrecorded.",
     )
     parser.add_argument("run_id")
-    parser.add_argument("fields", nargs="*", help="Return only these row fields.")
+    parser.add_argument(
+        "fields",
+        nargs="*",
+        help="Return only these row or computed fields.",
+    )
     parser.add_argument(
         "--include-member-closure",
         action="store_true",
@@ -94,7 +124,8 @@ def deployment_runs_get(args: List[str]) -> int:
         json_mode=parsed.json_mode,
         human_writer=_human_writer,
         response_recovery=_require_projection(
-            parsed.fields if len(parsed.fields) > 1 else None
+            parsed.fields if len(parsed.fields) > 1 else None,
+            requested=parsed.fields,
         ),
     )
 

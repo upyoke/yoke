@@ -120,7 +120,7 @@ def _run_status(run_id: str) -> tuple[str, str]:
         response = call_dispatcher(
             function_id=RUN_STATUS_FUNCTION_ID,
             target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
-            payload={},
+            payload={"fields": ["status"]},
         )
     except Exception as exc:  # noqa: BLE001 - unreachable authority == keep it
         return "", f"{RUN_STATUS_FUNCTION_ID} was unreachable ({exc})"

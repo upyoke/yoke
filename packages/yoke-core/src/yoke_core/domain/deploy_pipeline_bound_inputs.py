@@ -44,7 +44,7 @@ def bound_inputs_for_dispatch(
         observed = call_dispatcher(
             function_id="deployment_runs.get",
             target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
-            payload={},
+            payload={"fields": ["status", "current_stage", "bound_sources"]},
         )
         run = (observed.result or {}).get("run") or {}
         record = parse_bound_sources(run.get("bound_sources"))

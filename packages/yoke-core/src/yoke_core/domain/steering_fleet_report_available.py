@@ -25,6 +25,7 @@ from typing import Any, Sequence
 from yoke_core.domain.frontier_landing_wait import landing_wait_reason
 from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.domain.scheduler import compute_schedule
+from yoke_core.domain.session_launch_assignment import assignment_ref
 from yoke_core.domain.scheduler_types import ClaimState, NextStep
 from yoke_core.domain.steering_fleet_report_detectors import age_seconds, marker
 from yoke_core.domain.work_claim_targets import scope_int_sql
@@ -135,12 +136,6 @@ def staffing_clocks(
     return clocks
 
 
-def _assignment_ref(session_name: str) -> str:
-    """The item ref ``assignment_session_name`` stores ahead of the colon."""
-    name = session_name.strip()
-    return name.split(":", 1)[0].strip() if name else ""
-
-
 def _staffing_launches(
     conn: Any, project_id: int
 ) -> dict[str, tuple[str, str, datetime | None]]:
@@ -158,7 +153,7 @@ def _staffing_launches(
     assigned: dict[str, tuple[str, str, datetime | None]] = {}
     for row in rows:
         record = dict(row)
-        ref = _assignment_ref(str(record.get("session_name") or ""))
+        ref = assignment_ref(record.get("session_name"))
         if not ref or ref in assigned:
             continue
         assigned[ref] = (

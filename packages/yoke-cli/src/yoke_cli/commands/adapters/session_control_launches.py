@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from typing import Any, get_args, List
+from typing import Any, List
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
@@ -26,7 +26,6 @@ from yoke_cli.commands.adapters.session_control_launch_selection import (
     selector_payload,
 )
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.session_control.models import LaunchState
 from yoke_contracts.session_control.sender_surface import CLI_SENDER_SURFACE
 
 
@@ -50,10 +49,6 @@ SESSIONS_CREATE_USAGE = (
     "[--presentation P] [--list-models] [--json]"
 )
 LAUNCH_GET_USAGE = "yoke session-control launch get LAUNCH-ID [--json]"
-LAUNCH_LIST_USAGE = (
-    "yoke session-control launch list --project P [--state STATE] "
-    "[--surface SURFACE] [--machine MACHINE] [--limit N] [--cursor CURSOR] [--json]"
-)
 LAUNCH_CANCEL_USAGE = "yoke session-control launch cancel LAUNCH-ID [--json]"
 LAUNCH_RETRY_USAGE = "yoke session-control launch retry LAUNCH-ID [--json]"
 LAUNCH_RECONCILE_USAGE = (
@@ -251,38 +246,6 @@ def sessions_create(args: List[str]) -> int:
     return _create(args, alias=True)
 
 
-def session_launch_list(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke session-control launch list",
-        description=LAUNCH_LIST_USAGE,
-    )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--state", choices=get_args(LaunchState), default=None)
-    parser.add_argument("--surface", default=None)
-    parser.add_argument("--machine", default=None)
-    parser.add_argument("--limit", type=int, default=50)
-    parser.add_argument(
-        "--cursor",
-        default=None,
-        help="continuation cursor from a previous page's next_cursor",
-    )
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, LAUNCH_LIST_USAGE)
-    if parsed is None:
-        return 2
-    payload: dict[str, Any] = {"project": parsed.project, "limit": parsed.limit}
-    for name in ("state", "surface", "machine", "cursor"):
-        chosen = getattr(parsed, name)
-        if chosen:
-            payload[name] = chosen
-    return _dispatch_launch(
-        parsed,
-        function_id="session_control.launch.list",
-        payload=payload,
-    )
-
-
 def _launch_by_id(args: List[str], operation: str) -> int:
     usage = {
         "get": LAUNCH_GET_USAGE,
@@ -333,7 +296,6 @@ __all__ = [
     "LAUNCH_CANCEL_USAGE",
     "LAUNCH_CREATE_USAGE",
     "LAUNCH_GET_USAGE",
-    "LAUNCH_LIST_USAGE",
     "LAUNCH_PREVIEW_USAGE",
     "LAUNCH_RECONCILE_USAGE",
     "LAUNCH_RETRY_USAGE",
@@ -341,7 +303,6 @@ __all__ = [
     "session_launch_cancel",
     "session_launch_create",
     "session_launch_get",
-    "session_launch_list",
     "session_launch_preview",
     "session_launch_reconcile",
     "session_launch_retry",

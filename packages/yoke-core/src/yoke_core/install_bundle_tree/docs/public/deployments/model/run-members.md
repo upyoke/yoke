@@ -6,7 +6,11 @@
 
 Read deployment membership, target occupancy and run-bound QA authority before changing a release membership.
 
-## Member completion diagnostics
+## Member reads and completion diagnostics
+
+`yoke deployment-runs get RUN member_items membership_removals` lists attached
+members and each audited removal (`reason`, `removed_at`, `later_run_id`).
+`carried_work` is recorded at freeze; until then get derives it live, unrecorded.
 
 `yoke deployment-runs get RUN --include-member-closure` explicitly requests
 `member_closure` beside the run fields. Ordinary full and field reads skip this

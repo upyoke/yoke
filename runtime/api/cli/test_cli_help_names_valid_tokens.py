@@ -130,6 +130,10 @@ class TestItemFieldNames:
         for field in sorted(ALLOWED_GET_FIELDS):
             assert field in out, field
 
+    def test_help_names_the_claim_holder_read(self, capsys):
+        out = _help_text(items_get, ["--help"], capsys)
+        assert "yoke claims work holder-get" in out
+
     def test_refusal_lists_every_accepted_field(self):
         message = unknown_field_message("nonesuch")
         for field in sorted(ALLOWED_GET_FIELDS):
@@ -141,6 +145,16 @@ class TestItemFieldNames:
             ("detail", "yoke items detail get"),
             ("workflow", "yoke workflows item get"),
             ("progress_log", "yoke items progress-log get"),
+            *(
+                (token, "yoke claims work holder-get")
+                for token in (
+                    "claim",
+                    "holder",
+                    "claim_holder",
+                    "claimed_by",
+                    "session",
+                )
+            ),
         ],
     )
     def test_refusal_redirects_a_familiar_non_column(self, token, surface):

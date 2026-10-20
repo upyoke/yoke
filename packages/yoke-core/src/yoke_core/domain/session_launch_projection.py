@@ -109,6 +109,7 @@ _COMPACT_FIELDS = (
     "created_at",
     "completed_at",
     "registered_session_id",
+    "session_name",
 )
 
 
@@ -116,7 +117,10 @@ def compact_launch_record(
     launch: LaunchRecord, project: str | None = None
 ) -> dict[str, Any]:
     """Project one launch as a list row, labelled with its project."""
+    from yoke_core.domain.session_launch_assignment import assignment_ref
+
     row = {field: getattr(launch, field) for field in _COMPACT_FIELDS}
+    row["item"] = assignment_ref(launch.session_name) or None
     row["project"] = project
     return temporal_wire(row)
 
