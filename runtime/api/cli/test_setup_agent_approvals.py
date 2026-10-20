@@ -158,30 +158,6 @@ def test_a_denial_mints_one_fresh_code_then_asks(drive, server):
     assert server.started == ["CODE-1", "CODE-2"]
 
 
-def test_an_expired_code_asks_for_a_fresh_one_without_the_server(drive, monkeypatch):
-    monkeypatch.setattr(
-        hosted_machine_authorization, "start", lambda *_a, **_k: _pending("CODE-1")
-    )
-    monkeypatch.setattr(
-        hosted_machine_authorization,
-        "request_json",
-        lambda *_a, **_k: pytest.fail("an expired code is never polled"),
-    )
-    drive()
-    _only_browser(drive("connect.destination=hosted"))
-    record = _saved()
-    record["pending_approval"]["expires_at"] = 0
-    setup_agent_answers._write_private(
-        setup_agent_answers.store_path(), json.dumps(record)
-    )
-
-    code, lines = drive()
-
-    assert (code, lines[-1]["key"]) == (0, "connect.hosted_machine_error"), lines
-    assert "authorization_expired" in " ".join(lines[-1]["detail"])
-    assert _saved()["pending_approval"] is None
-
-
 @pytest.mark.parametrize(
     ("status", "payload", "approved"),
     [

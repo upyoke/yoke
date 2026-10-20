@@ -2,7 +2,7 @@
  "id": "expired-authorization",
  "title": "Expired authorization",
  "status": "observed",
- "text": "An expired approval card shows its local expiry time when known and says nothing was authorized. Run yoke connect again for a new code; the page does not rotate it automatically. A consumed request is already answered: check Machines, or start a fresh connection on the new machine.",
+ "text": "An expired approval card shows its local expiry time when known and says nothing was authorized. Run yoke connect again for a new code; the page does not rotate it automatically. A consumed request is already answered: check Machines, or start a fresh connection on the new machine. An approval made before expiry stays collectable for ten minutes after it; if the machine never collects it, the card reports that your machine never collected the approval and that nothing was authorized.",
  "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_approval.js", "runtime/api/universe_ui_machine_approval.test.mjs"],
  "page": "identity",
  "position": 0

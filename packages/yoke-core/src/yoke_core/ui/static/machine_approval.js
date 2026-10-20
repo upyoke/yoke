@@ -155,13 +155,17 @@ export async function renderApprovalCard(context, main, code, { embedded = false
     head.replaceChildren();
     card.replaceChildren();
     const decision = authorization?.decision;
-    const approved = decision === "approve" && !["consumed", "expired"].includes(authorization?.state);
+    const approved = decision === "approve" && !["consumed", "expired", "uncollected"].includes(authorization?.state);
     const expired = authorization && (authorization.state === "expired" || !decision && Date.parse(authorization.expires_at) <= Date.now());
     const pending = authorization && !decision && !expired && authorization.state !== "consumed";
     title(approved ? "Machine connected" : pending ? "Approve this machine" : "Connect your machine", true);
     if (firstRun && !embedded) head.appendChild(progress(doc, approved));
     if (!authorization) return;
     if (authorization.state === "consumed") { refusal({ code: "authorization_consumed" }); return; }
+    if (authorization.state === "uncollected") {
+      outcome(doc, card, "Your machine never collected this approval", "You approved it in time, but the machine did not check back afterward. Nothing was authorized. Run `yoke connect` again for a new code.");
+      return;
+    }
     if (expired) { refusal({ code: "authorization_expired" }); return; }
     if (decision === "deny") { outcome(doc, card, "Request denied", "Nothing was authorized."); return; }
     if (approved) {

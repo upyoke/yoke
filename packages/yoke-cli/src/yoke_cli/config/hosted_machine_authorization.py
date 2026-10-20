@@ -184,8 +184,15 @@ def complete(
         if isinstance(outcome, HostedMachineCredential):
             return outcome
         delay = outcome
+    # Expiry ends the wait, not an approval made in time: ask once more.
+    outcome = _poll(
+        authorization, machine_identity, opener=opener, timeout_seconds=timeout_seconds
+    )
+    if isinstance(outcome, HostedMachineCredential):
+        return outcome
     raise HostedMachineAuthorizationError(
-        "hosted authorization expired before approval"
+        "authorization_expired: hosted authorization expired before approval; "
+        "start a fresh connection"
     )
 
 
@@ -196,17 +203,12 @@ def poll_once(
     timeout_seconds: float = 15.0,
 ) -> HostedMachineCredential | None:
     """Ask once whether the browser approved; None while approval is pending.
-    ``expires_in`` is the time left: a lapsed code refuses without the server."""
-    if authorization.expires_in <= 0:
-        raise HostedMachineAuthorizationError(
-            "authorization_expired: the match code expired before approval; "
-            "start a fresh connection"
-        )
+    A lapsed code still asks: only the server knows it was approved in time."""
     outcome = _poll(
         authorization,
         _machine_identity(),
         opener=opener,
-        timeout_seconds=min(timeout_seconds, float(authorization.expires_in)),
+        timeout_seconds=timeout_seconds,
     )
     return outcome if isinstance(outcome, HostedMachineCredential) else None
 
@@ -243,9 +245,8 @@ def _poll(
             "authorization_denied: authorization denied in the browser; start a fresh connection"
         )
     if error in {"authorization_expired", "authorization_consumed"}:
-        raise HostedMachineAuthorizationError(
-            f"{error}: {str(error).replace('_', ' ')}; start a fresh connection"
-        )
+        reason = recovery(response).removeprefix(f"{error}: ")
+        raise HostedMachineAuthorizationError(f"{error}: {reason}")
     if error == "machine_identity_required":
         raise HostedMachineAuthorizationError(
             f"machine_identity_required: {recovery(response)}; run `yoke status` to inspect this "

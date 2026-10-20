@@ -17,6 +17,7 @@ from yoke_core.domain.machine_authorization_codes import (
     SERVER_PENDING_CODES,
     _now,
     _p,
+    purge_cutoff,
     refuse_retired_machine,
 )
 
@@ -126,7 +127,7 @@ def handoff(
         }
     conn.execute(
         f"DELETE FROM machine_authorization_codes WHERE expires_at<={p}",
-        (instant_parameter(conn, now),),
+        (instant_parameter(conn, purge_cutoff(now)),),
     )
     if conn.execute(
         f"SELECT 1 FROM machine_authorization_codes WHERE user_code={p}", (user_code,)

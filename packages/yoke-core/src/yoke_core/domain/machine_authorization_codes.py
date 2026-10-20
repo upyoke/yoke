@@ -11,11 +11,12 @@ from uuid import UUID
 from yoke_contracts.machine_authorization import (
     APPROVAL_PAGE_PATH,
     CODE_TTL_SECONDS,
+    COLLECT_GRACE_SECONDS,
     MACHINE_RETIRED,
     POLL_INTERVAL_SECONDS,
     RETIRED_MACHINE_RECOVERY,
 )
-from yoke_contracts.timestamps import parse_instant, utc_now
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_state import ActorDisabledError, require_actor_active
@@ -44,6 +45,11 @@ def _p(conn: Any) -> str:
 
 def _hash(code: str) -> str:
     return hashlib.sha256(code.encode()).hexdigest()
+
+
+def purge_cutoff(now: datetime) -> datetime:
+    """Codes that expired before this instant are past every collection window."""
+    return now - timedelta(seconds=COLLECT_GRACE_SECONDS)
 
 
 def refuse_retired_machine(conn: Any, machine_id: str) -> None:
@@ -81,12 +87,13 @@ def start(
         )
     conn.execute(
         f"DELETE FROM machine_authorization_codes WHERE expires_at <= {p}",
-        (instant_parameter(conn, now),),
+        (instant_parameter(conn, purge_cutoff(now)),),
     )
     # The same transaction lock covers both capacity checks and insertion.
+    live = f"consumed_at IS NULL AND expires_at > {p}"
     count = conn.execute(
-        f"SELECT count(*) FROM machine_authorization_codes WHERE client_key={p} AND consumed_at IS NULL",
-        (client_key,),
+        f"SELECT count(*) FROM machine_authorization_codes WHERE client_key={p} AND {live}",
+        (client_key, instant_parameter(conn, now)),
     ).fetchone()[0]
     if count >= CLIENT_PENDING_CODES:
         raise MachineAuthorizationError(
@@ -95,7 +102,8 @@ def start(
             429,
         )
     count = conn.execute(
-        "SELECT count(*) FROM machine_authorization_codes WHERE consumed_at IS NULL"
+        f"SELECT count(*) FROM machine_authorization_codes WHERE {live}",
+        (instant_parameter(conn, now),),
     ).fetchone()[0]
     if count >= SERVER_PENDING_CODES:
         raise MachineAuthorizationError(
@@ -134,8 +142,37 @@ def start(
     }
 
 
+def _refuse_lapsed(row: dict[str, Any], *, collect: bool) -> None:
+    """Refuse an expired code, except an approval waiting for its machine."""
+    expires, now = parse_instant(row["expires_at"]), _now()
+    if expires > now:
+        return
+    if collect and row["decision"] == "approve":
+        # A delivered approval falls through to the consumed refusal.
+        if row["consumed_at"] or now <= expires + timedelta(
+            seconds=COLLECT_GRACE_SECONDS
+        ):
+            return
+        raise MachineAuthorizationError(
+            "authorization_expired",
+            "approval_uncollected: this code was approved before it expired at "
+            f"{format_instant(expires)}, but this machine did not collect it within "
+            f"{COLLECT_GRACE_SECONDS // 60} minutes; start a fresh connection code",
+            410,
+        )
+    raise MachineAuthorizationError(
+        "authorization_expired", "start a fresh connection code", 410
+    )
+
+
 def _row(
-    conn: Any, key: str, value: str, *, lock: bool = False, inspect_closed: bool = False
+    conn: Any,
+    key: str,
+    value: str,
+    *,
+    lock: bool = False,
+    inspect_closed: bool = False,
+    collect: bool = False,
 ) -> dict[str, Any]:
     # The key is selected by our two callers, never by request data.
     suffix = " FOR UPDATE" if lock and db_backend.connection_is_postgres(conn) else ""
@@ -162,10 +199,12 @@ def _row(
             "check the code in your terminal and try again",
             404,
         )
-    if row is None or (not inspect_closed and parse_instant(row[3]) <= _now()):
+    if row is None:
         raise MachineAuthorizationError(
             "authorization_expired", "start a fresh connection code", 410
         )
+    if not inspect_closed:
+        _refuse_lapsed(dict(zip(names, row)), collect=collect)
     if row[7] and not inspect_closed:
         raise MachineAuthorizationError(
             "authorization_consumed",
@@ -210,7 +249,7 @@ def poll(
             "machine_identity_required",
             "restore this machine's configured UUID, then reconnect",
         ) from None
-    row = _row(conn, "device_hash", _hash(device_code), lock=True)
+    row = _row(conn, "device_hash", _hash(device_code), lock=True, collect=True)
     if row["machine_id"] and row["machine_id"] != machine_id:
         raise MachineAuthorizationError(
             "machine_identity_mismatch",
