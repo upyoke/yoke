@@ -40,8 +40,9 @@ def cursor_release(home, version, text):
 
 
 @pytest.mark.parametrize("previous", [True, False])
+@pytest.mark.parametrize("installer_exit", [0, 1])
 def test_cursor_installer_success_requires_a_runnable_binary(
-    tmp_path, monkeypatch, previous
+    tmp_path, monkeypatch, previous, installer_exit
 ):
     local_bin = tmp_path / ".local/bin"
     local_bin.mkdir(parents=True)
@@ -55,7 +56,7 @@ def test_cursor_installer_success_requires_a_runnable_binary(
         LATEST["cursor"],
         "echo 'dyld: Symbol not found: libc++' >&2; exit 134",
     )
-    installer = f'ln -sf "{broken}" "$HOME/.local/bin/agent"'
+    installer = f'ln -sf "{broken}" "$HOME/.local/bin/agent"; exit {installer_exit}'
     monkeypatch.setitem(
         clis.HARNESS_CLI_RELEASE_BY_ID,
         "cursor",
@@ -70,11 +71,19 @@ def test_cursor_installer_success_requires_a_runnable_binary(
         assert "dyld: Symbol not found" in result.evidence["held_back"][0]
         assert (local_bin / "agent").resolve() == (local_bin / "cursor-agent").resolve()
     else:
-        assert result.error_code == "harness_cli_install_unverified"
-        assert "cursor 2026.10.19-6bbf2c4 exit 134" in result.evidence["detail"]
+        assert result.error_code == (
+            "harness_cli_install_failed"
+            if installer_exit
+            else "harness_cli_install_unverified"
+        )
+        assert "cursor 2026.10.19-6bbf2c4" in result.evidence["detail"]
         assert "dyld: Symbol not found" in result.evidence["detail"]
     probe = clis.probe_harness_cli_versions(host)["cursor"]
-    assert probe["exit_code"] == (0 if previous else 134)
+    if previous:
+        assert probe == "2026.09.01-bbbbbbb"
+    else:
+        assert probe["exit_code"] == 134
+        assert "dyld: Symbol not found" in probe["stderr"]
 
 
 @pytest.mark.parametrize(

@@ -52,8 +52,8 @@ def _host_program(control: Any, action: str, payload: Any, timeout: int) -> Any:
     return json.loads(lines[-1] if lines else "")
 
 
-def probe_harness_cli_versions(control: Any) -> dict[str, dict[str, Any]]:
-    """Return versions and unreadable CLI exit codes/stderr, in macOS GUI context."""
+def probe_harness_cli_versions(control: Any) -> dict[str, str | dict[str, Any]]:
+    """Return version strings, or unreadable CLI exit codes/stderr, in GUI context."""
     return _host_program(
         control,
         "probe",
@@ -67,7 +67,7 @@ def record_golden_harness_clis(control: Any, destination: str) -> HostActionResu
     sidecar = destination + GOLDEN_HARNESS_CLIS_SUFFIX
     try:
         probes = probe_harness_cli_versions(control)
-        versions = {h: p["version"] for h, p in probes.items()}
+        versions = {h: p if isinstance(p, str) else None for h, p in probes.items()}
     except (RuntimeError, ValueError) as error:
         return HostActionResult(
             False,
@@ -149,13 +149,21 @@ def install_harness_clis(
                 f"this host: {diagnostic['stderr']} (exit {diagnostic['exit_code']}); "
                 f"using {probe['version']}"
             )
-        failed_install = receipt["install_exit_code"] != 0
+        failed_install = receipt["install_exit_code"] != 0 and not receipt.get(
+            "held_back"
+        )
         if failed_install:
             detail = (
-                f"{harness_id} {latest[harness_id]} installer exit "
+                f"{detail}; installer exit "
                 f"{receipt['install_exit_code']}: {receipt['install_stderr']}"
             )
         behind = harness_id in outdated_harness_clis(observed, latest)
+        if behind and probe["version"] and not receipt.get("held_back"):
+            detail = (
+                f"{harness_id} expected {latest[harness_id]} but resolves "
+                f"{probe['version']} at {probe.get('executable', 'PATH')}; "
+                "remove the stale executable from the test user's PATH"
+            )
         if failed_install or (behind and not receipt.get("held_back")):
             return HostActionResult(
                 False,

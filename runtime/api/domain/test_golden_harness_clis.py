@@ -24,8 +24,9 @@ class FakeHost:
         self.contexts.append(context)
         if argv[4] == "probe":
             probes = {
-                h: {
-                    "version": v,
+                h: v
+                or {
+                    "version": None,
                     "exit_code": 0 if v else -6,
                     "stderr": "" if v else "dyld: Symbol not found",
                 }
@@ -122,7 +123,5 @@ def test_macos_reads_versions_in_the_gui_session(os_name, context):
     # login keychain is locked to that session.
     host = FakeHost(LATEST)
     host.os = os_name
-    assert {
-        h: p["version"] for h, p in clis.probe_harness_cli_versions(host).items()
-    } == LATEST
+    assert clis.probe_harness_cli_versions(host) == LATEST
     assert host.contexts[0].get("required_session_context") == context

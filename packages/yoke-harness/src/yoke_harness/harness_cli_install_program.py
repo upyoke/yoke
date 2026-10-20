@@ -1,7 +1,7 @@
 """Host-side probe and verified installer, run as the test user without Yoke."""
 
 HOST_PROGRAM = r'''
-import json, os, re, shutil, subprocess, sys, tempfile
+import filecmp, json, os, re, shutil, subprocess, sys, tempfile
 from pathlib import Path
 pattern = re.compile(sys.argv[1])
 search = os.pathsep.join([str(Path.home() / '.local/bin'), os.environ.get('PATH', '')])
@@ -43,7 +43,7 @@ def install(harness, names, script, wanted):
             receipt = dict(install_exit_code=None, install_stderr=str(error)[:400])
         observed = probe(resolve(names))
         receipt['probe'] = observed
-        if receipt['install_exit_code'] != 0 or observed['version']:
+        if observed['version']:
             return receipt
         receipt['failed_probe'] = observed
         candidates = []
@@ -53,9 +53,11 @@ def install(harness, names, script, wanted):
             candidates = sorted(versions.glob('*/cursor-agent'), reverse=True)
         if before['version']:
             original.parent.mkdir(parents=True, exist_ok=True)
-            if original.is_symlink():
-                original.unlink()
-            shutil.copy2(saved, original)
+            if (original.is_symlink() or not original.is_file()
+                    or not filecmp.cmp(saved, original, shallow=False)):
+                if original.is_symlink():
+                    original.unlink()
+                shutil.copy2(saved, original)
             candidates.append(original)
         for candidate in dict.fromkeys(candidates):
             if not probe(str(candidate))['version']:
@@ -76,7 +78,8 @@ def install(harness, names, script, wanted):
         return receipt
 
 if sys.argv[2] == 'probe':
-    output = {h: probe(resolve(names)) for h, names in json.loads(sys.argv[3])}
+    records = {h: probe(resolve(names)) for h, names in json.loads(sys.argv[3])}
+    output = {h: record['version'] or record for h, record in records.items()}
 else:
     output = install(*json.loads(sys.argv[3]))
 print(json.dumps(output))
