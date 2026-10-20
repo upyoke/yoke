@@ -47,6 +47,7 @@ is fast and reads with the command the operator actually typed.
 from __future__ import annotations
 
 import importlib
+import os
 import shutil
 import subprocess
 import sys
@@ -57,6 +58,7 @@ from yoke_contracts.install_binding import is_yoke_source_checkout
 from yoke_contracts.uv_project import (
     UV_EXECUTABLE,
     uv_project_root,
+    project_own_environment,
     uv_run_argv,
 )
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS
@@ -139,6 +141,7 @@ def project_env_imports(wrapper_module: str) -> bool:
     try:
         completed = subprocess.run(
             uv_run_argv(["-c", f"import {wrapper_module}"]),
+            env=project_own_environment(os.environ),
             capture_output=True,
             timeout=PROBE_TIMEOUT_SECONDS,
             check=False,
@@ -205,7 +208,9 @@ def _run(wrapper_module: str, cli_form: str, args: List[str]) -> int:
     if argv is None:
         return int(wrapper_main(args))
     try:
-        return subprocess.run(argv, check=False).returncode
+        return subprocess.run(
+            argv, env=project_own_environment(os.environ), check=False
+        ).returncode
     except OSError as exc:
         sys.stderr.write(
             f"{cli_form}: could not run '{' '.join(argv[:3])}' "

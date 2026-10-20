@@ -8,7 +8,6 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-from types import SimpleNamespace
 
 import pytest
 
@@ -67,41 +66,53 @@ def test_an_unpatched_posture_pass_writes_only_the_isolated_home(tmp_path: Path)
     assert json.loads(posture.cursor_config_path().read_text()) != {}
 
 
-def _session() -> SimpleNamespace:
-    config = SimpleNamespace(
-        stash=pytest.Stash(),
-        pluginmanager=SimpleNamespace(get_plugin=lambda name: None),
+def test_the_guard_records_each_kind_of_real_home_write(tmp_path: Path):
+    real = tmp_path / "real-home"
+    guard = isolation.RealHomeWriteGuard(real, exempt=[real / "checkout"])
+    guard.start()
+    guard.audit("open", (str(real / ".claude/settings.json"), "w", 0))
+    guard.audit("open", (str(real / ".cursor/cli-config.json"), None, os.O_WRONLY))
+    guard.audit(
+        "os.rename", (str(tmp_path / "x.tmp"), str(real / ".codex/config.toml"))
     )
-    return SimpleNamespace(config=config, exitstatus=pytest.ExitCode.OK)
+    guard.audit("os.mkdir", (str(real / ".codex/rules"), 0o777, None))
+    guard.audit("open", (str(real / ".gitconfig"), "r", 0))
+    guard.audit("open", (str(real / "checkout/conftest.py"), "w", 0))
+    guard.audit("os.remove", (3, None))
+    assert guard.stop() == [
+        ("open", str(real / ".claude/settings.json")),
+        ("open", str(real / ".cursor/cli-config.json")),
+        ("os.rename", str(real / ".codex/config.toml")),
+        ("os.mkdir", str(real / ".codex/rules")),
+    ]
 
 
-def test_a_run_that_writes_a_real_home_setup_file_fails(tmp_path, capsys):
-    session = _session()
-    isolation.pytest_sessionstart(session)
-    settings = posture.claude_settings_path()
-    settings.parent.mkdir(parents=True)
-    settings.write_text('{"permissions": {"allow": ["Bash(yoke:*)"]}}\n')
-    isolation.pytest_sessionfinish(session)
-    assert session.exitstatus == pytest.ExitCode.TESTS_FAILED
-    reported = capsys.readouterr().out
-    assert "real_home_written" in reported
-    assert str(settings) in reported
+def test_the_guard_is_quiet_outside_a_test(tmp_path: Path):
+    guard = isolation.RealHomeWriteGuard(tmp_path)
+    guard.audit("open", (str(tmp_path / "f"), "w", 0))
+    assert guard.writes == []
 
 
-def test_a_run_that_leaves_the_real_home_alone_keeps_its_status(tmp_path):
-    settings = posture.claude_settings_path()
-    settings.parent.mkdir(parents=True)
-    settings.write_text("{}\n")
-    session = _session()
-    isolation.pytest_sessionstart(session)
-    settings.write_text("{}\n")
-    isolation.pytest_sessionfinish(session)
-    assert session.exitstatus == pytest.ExitCode.OK
+def test_the_installed_guard_sees_a_real_write_this_process_makes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """A path captured before HOME moved still reaches the real home: caught."""
+    real = tmp_path / "real-home"
+    real.mkdir()
+    monkeypatch.setattr(isolation.GUARD, "home", str(real))
+    captured_at_import = real / ".claude" / "settings.json"
+    captured_at_import.parent.mkdir()
+    captured_at_import.write_text("{}\n")
+    seen = list(isolation.GUARD.writes)
+    isolation.GUARD.writes.clear()
+    assert ("os.mkdir", str(captured_at_import.parent)) in seen
+    assert ("open", str(captured_at_import)) in seen
 
 
-def test_the_fingerprint_covers_every_setup_file():
-    files = isolation.real_home_setup_files()
-    assert posture.cursor_config_path() in files
-    assert posture.claude_config_path() in files
-    for spec in HARNESS_MACHINE_HOOKS.values():
-        assert spec.user_config_path() in files
+def test_the_violation_names_every_path_and_the_fix():
+    message = isolation.real_home_violation(
+        [("open", "/home/dev/.claude/settings.json")] * 2
+    )
+    assert message.startswith("real_home_written:")
+    assert message.count("/home/dev/.claude/settings.json") == 1
+    assert "Resolve the path at call time" in message

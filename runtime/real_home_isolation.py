@@ -7,25 +7,120 @@ into another module, and every subprocess the test starts — lands in that
 folder. A test that needs a file a real home would hold (a git identity, a
 machine config) writes it into the isolated home itself.
 
-The session also fingerprints the real-home files Yoke's machine-wide setup
-writes, before the first test and after the last. A changed fingerprint
-fails the run and names the file, because a test that escaped the isolation
-has already edited the developer's harness configuration.
+A path captured before the test started (a module constant built from
+``Path.home()`` at import, a fixture that pins a machine folder) still names
+the real home. So a Python audit hook watches every write the test's own
+process makes while the test runs, and fails the test with
+``real_home_written`` naming each real-home path it created, changed or
+removed. The checkout, its environment and the interpreter are exempt: they
+often live inside the home folder and tests legitimately write them.
 """
 
 from __future__ import annotations
 
-import hashlib
 import os
 from pathlib import Path
-from typing import Dict, Optional
+import sys
+from typing import Iterable, List, Sequence, Tuple
 
 import pytest
 
 #: The variables, besides ``HOME``, that point a home resolver elsewhere.
 HOME_REDIRECT_ENVS = ("XDG_CONFIG_HOME",)
 
-_REAL_HOME_FINGERPRINT = pytest.StashKey[Dict[str, Optional[str]]]()
+#: Audit events that write the filesystem, with the argument positions that
+#: name the written path. ``open`` is judged separately by its mode.
+WRITE_EVENTS = {
+    "os.chmod": (0,),
+    "os.link": (1,),
+    "os.mkdir": (0,),
+    "os.remove": (0,),
+    "os.rename": (0, 1),
+    "os.rmdir": (0,),
+    "os.symlink": (1,),
+    "os.truncate": (0,),
+    "os.utime": (0,),
+    "shutil.copyfile": (1,),
+    "shutil.copytree": (1,),
+    "shutil.rmtree": (0,),
+}
+_WRITE_FLAGS = os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_TRUNC | os.O_APPEND
+
+
+def _written_by_open(args: Sequence[object]) -> bool:
+    mode = args[1] if len(args) > 1 else None
+    flags = args[2] if len(args) > 2 else 0
+    if isinstance(mode, str) and any(char in mode for char in "wax+"):
+        return True
+    return isinstance(flags, int) and bool(flags & _WRITE_FLAGS)
+
+
+class RealHomeWriteGuard:
+    """Record the real-home writes one process makes while a test runs."""
+
+    def __init__(self, home: Path, exempt: Iterable[Path] = ()) -> None:
+        self.home = str(home)
+        self.exempt: Tuple[str, ...] = tuple(str(path) for path in exempt)
+        self.active = False
+        self.writes: List[Tuple[str, str]] = []
+
+    def _under(self, path: str, root: str) -> bool:
+        return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
+
+    def _record(self, event: str, target: object) -> None:
+        if isinstance(target, int) or target is None:
+            return
+        try:
+            path = os.path.abspath(os.fsdecode(os.fspath(target)))
+        except (TypeError, ValueError):
+            return
+        if self._under(path, self.home) and not any(
+            self._under(path, root) for root in self.exempt
+        ):
+            self.writes.append((event, path))
+
+    def audit(self, event: str, args: Sequence[object]) -> None:
+        if not self.active:
+            return
+        if event == "open":
+            if args and _written_by_open(args):
+                self._record(event, args[0])
+            return
+        for position in WRITE_EVENTS.get(event, ()):
+            if position < len(args):
+                self._record(event, args[position])
+
+    def start(self) -> None:
+        self.writes = []
+        self.active = True
+
+    def stop(self) -> List[Tuple[str, str]]:
+        self.active = False
+        return list(self.writes)
+
+
+#: The process-wide guard; its real home is read before any test changes it.
+GUARD = RealHomeWriteGuard(Path(os.path.expanduser("~")))
+sys.addaudithook(GUARD.audit)
+
+
+def real_home_violation(writes: Sequence[Tuple[str, str]]) -> str:
+    """The failure a test reports when it wrote the developer's real home."""
+    listing = "\n".join(f"  {event}: {path}" for event, path in sorted(set(writes)))
+    return (
+        "real_home_written: this test wrote the developer's real home:\n"
+        f"{listing}\n"
+        "The path was resolved before the test's isolated HOME took effect, "
+        "usually a module constant built from Path.home() at import or a "
+        "fixture that pins a machine folder. Resolve the path at call time, "
+        "or point the fixture inside tmp_path, then restore the named file."
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    # The interpreter may itself live under the home folder (a uv-managed
+    # Python), and a lazy import writes bytecode beside its standard library.
+    GUARD.exempt = (str(config.rootpath), sys.prefix, sys.base_prefix)
 
 
 def isolated_home(tmp_path: Path) -> Path:
@@ -41,8 +136,8 @@ def _redirect_envs() -> tuple:
 
 
 @pytest.fixture(autouse=True)
-def _isolate_real_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Point ``HOME`` at an empty per-test folder for the whole test.
+def _isolate_real_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Point ``HOME`` at an empty per-test folder and fail real-home writes.
 
     The folder is not created: a harness counts as installed when its home
     exists, so a test creates the harness home it means to exercise.
@@ -51,7 +146,11 @@ def _isolate_real_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("HOME", str(home))
     for name in _redirect_envs():
         monkeypatch.delenv(name, raising=False)
-    return home
+    GUARD.start()
+    yield home
+    writes = GUARD.stop()
+    if writes:
+        pytest.fail(real_home_violation(writes), pytrace=False)
 
 
 @pytest.fixture(autouse=True)
@@ -69,81 +168,3 @@ def _isolate_harness_settings_ledger(tmp_path, monkeypatch: pytest.MonkeyPatch):
         "ledger_path",
         lambda: tmp_path / "ledger" / harness_settings_ledger.LEDGER_NAME,
     )
-
-
-def real_home_setup_files() -> tuple:
-    """Every real-home file Yoke's machine-wide harness setup writes."""
-    from yoke_contracts import harness_settings_ledger
-    from yoke_contracts import harness_unattended_posture as posture
-    from yoke_contracts.harness_machine_hooks import HARNESS_MACHINE_HOOKS
-
-    hook_configs = (spec.user_config_path() for spec in HARNESS_MACHINE_HOOKS.values())
-    return tuple(
-        sorted(
-            {
-                *hook_configs,
-                posture.codex_config_path(),
-                posture.cursor_config_path(),
-                posture.claude_settings_path(),
-                posture.claude_config_path(),
-                harness_settings_ledger.ledger_path(),
-            }
-        )
-    )
-
-
-def fingerprint(paths) -> Dict[str, Optional[str]]:
-    """Each path's content digest, or ``None`` while it does not exist."""
-    prints: Dict[str, Optional[str]] = {}
-    for path in paths:
-        try:
-            prints[str(path)] = hashlib.sha256(Path(path).read_bytes()).hexdigest()
-        except FileNotFoundError:
-            prints[str(path)] = None
-    return prints
-
-
-def changed_files(before, after) -> list:
-    """The paths whose fingerprint differs between two readings."""
-    return sorted(path for path in before if before[path] != after.get(path))
-
-
-def real_home_violation(changed) -> str:
-    """The failure a run reports when it changed a real-home setup file."""
-    listing = "\n".join(f"  {path}" for path in changed)
-    return (
-        "real_home_written: the test run changed these files in the real home:\n"
-        f"{listing}\n"
-        "A test resolved the developer's home instead of its isolated HOME. "
-        "Find it by re-running the suspect modules with `-p no:xdist`, compare "
-        "each file against its version control or backup, and restore it. If "
-        "another live harness session on this machine rewrote the file, "
-        "re-run the suite."
-    )
-
-
-def _is_controller(config: pytest.Config) -> bool:
-    return not hasattr(config, "workerinput")
-
-
-def pytest_sessionstart(session: pytest.Session) -> None:
-    if _is_controller(session.config) and os.environ.get("HOME"):
-        session.config.stash[_REAL_HOME_FINGERPRINT] = fingerprint(
-            real_home_setup_files()
-        )
-
-
-def pytest_sessionfinish(session: pytest.Session) -> None:
-    before = session.config.stash.get(_REAL_HOME_FINGERPRINT, None)
-    if before is None:
-        return
-    changed = changed_files(before, fingerprint(before))
-    if not changed:
-        return
-    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
-    message = real_home_violation(changed)
-    if reporter is not None:
-        reporter.write_line(message, red=True)
-    else:
-        print(message)
-    session.exitstatus = pytest.ExitCode.TESTS_FAILED

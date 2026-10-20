@@ -14,11 +14,18 @@ clears `CODEX_HOME` and `XDG_CONFIG_HOME`, so `Path.home()`, `expanduser`, a
 harness config path imported by name into another module, and every
 subprocess resolve inside the test's `tmp_path`. A test that needs a file a
 real home would hold writes it into that folder itself; never point a test
-back at the real home. The session also fingerprints the real-home files the
-machine-wide harness setup writes (hook configs, posture configs, the Claude
-desktop config and the harness-settings record) before the first test and
-after the last; a changed file fails the run with `real_home_written` and
-names it.
+back at the real home. A path captured before the test started still names
+the real home, so a Python audit hook watches the writes the test's own
+process makes and fails the test with `real_home_written`, naming each path.
+The checkout, its environment and the interpreter are exempt. Fix the
+reported path by resolving it at call time or pointing the fixture inside
+`tmp_path`. Subprocesses are covered by the inherited `HOME`, not the hook.
+
+Lane provisioning and the `yoke watch` re-exec run uv under
+`yoke_contracts.uv_project.project_own_environment`, which drops
+`UV_PROJECT_ENVIRONMENT` and `VIRTUAL_ENV`. Without it, a test that syncs a
+stub project from inside the checkout's environment installs that stub's
+empty lock into the running `.venv`.
 
 **Browsers.** Every test path that could open one is required to inject a
 fake opener; the repo-wide conftest fails the test rather than letting the

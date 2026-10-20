@@ -36,6 +36,7 @@ from yoke_contracts.uv_project import (
     PROJECT_FILE_NAME,
     UV_EXECUTABLE,
     is_uv_project,
+    project_own_environment,
 )
 from yoke_core.domain import runtime_settings
 from yoke_core.domain import verification_tree_binding_pytest_startup as _tree_binding
@@ -80,19 +81,8 @@ class TestEnvironmentReport:
         return not self.error
 
 
-#: Variables that point uv at an environment other than the project's own.
-#: A caller already inside another checkout's environment carries them, and
-#: inheriting them would sync this project's lock into that environment.
-FOREIGN_ENVIRONMENT_VARIABLES = ("UV_PROJECT_ENVIRONMENT", "VIRTUAL_ENV")
-
-
 def _run(cmd: Sequence[str], cwd: Path, timeout: int) -> subprocess.CompletedProcess:
     """Run *cmd*, turning a launch failure into a captured failing result."""
-    env = {
-        key: value
-        for key, value in os.environ.items()
-        if key not in FOREIGN_ENVIRONMENT_VARIABLES
-    }
     try:
         return subprocess.run(
             list(cmd),
@@ -100,7 +90,9 @@ def _run(cmd: Sequence[str], cwd: Path, timeout: int) -> subprocess.CompletedPro
             text=True,
             timeout=timeout,
             cwd=str(cwd),
-            env=_tree_binding.with_binding_evaluated(env),
+            env=_tree_binding.with_binding_evaluated(
+                project_own_environment(os.environ)
+            ),
         )
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
         return subprocess.CompletedProcess(
