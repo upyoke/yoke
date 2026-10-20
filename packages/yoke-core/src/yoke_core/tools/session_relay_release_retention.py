@@ -42,7 +42,7 @@ def prune_relay_releases(state_dir: Path) -> None:
     # Direct release interpreters and children can predate the stable launcher.
     # Never emit the process table: command lines may contain credentials.
     result = subprocess.run(
-        ["ps", "eww", "-ax", "-o", "command="],
+        ["ps", "axeww", "-o", "command="],
         capture_output=True,
         text=True,
         check=False,
