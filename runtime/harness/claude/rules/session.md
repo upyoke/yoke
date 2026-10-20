@@ -10,7 +10,7 @@ Shared rules: `AGENTS.md`. Hooks, session end and recovery:
   disables all hooks.
 - A transient SessionEnd never releases claims. On a `SESSION_ENDED` refusal, run its recovery.
 - `AskUserQuestion` needs at least two options; prefer inline chat.
-- Bash keeps cwd between calls; use absolute paths.
+- Bash keeps sticky cwd; use absolute paths.
 
 ## Long commands and waits
 
