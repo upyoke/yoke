@@ -20,6 +20,10 @@ from yoke_core.engines import merge_worktree_tree_coverage
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
+#: Resolver scope for a project that attested it has no test suite.
+NO_TESTS_ATTESTED = "no_tests_attested"
+
+
 def _parent():
     from yoke_core.engines import merge_worktree as _mw
 
@@ -179,15 +183,13 @@ def _registered_verification_command(
 ) -> Optional[Tuple[str, str, list]]:
     """Return ``(scope, command, covering_runs)`` for the candidate tree.
 
-    The transport-aware internal function resolves the owning project's
-    registered ``full``/``quick`` Command case server-side and materializes
-    any QA plan attached to the post-rebase transition. ``covering_runs``
-    lists passing QA evidence (run id + covered head sha) that may waive a
-    same-tree re-execution; a server predating that field yields an empty
-    list so the suite runs. Every dispatcher, materialization, or
-    response-shape failure is merge-blocking. Only an ad-hoc, non-project
-    merge with no item identity may use the legacy local runner detection
-    below.
+    The server resolves the project's registered ``full``/``quick`` Command
+    case after materializing any post-rebase QA plan. ``covering_runs`` lists
+    passing evidence (run id + covered head sha) that may waive a same-tree
+    re-execution. A project that attested no suite yields
+    ``NO_TESTS_ATTESTED`` with no command. Every dispatcher, materialization,
+    or response-shape failure is merge-blocking. Only an ad-hoc merge with no
+    item identity may use the legacy local runner detection below.
     """
     item_id_raw = getattr(ctx, "public_ref", None) or getattr(ctx, "item_id", None)
     item_id = str(item_id_raw) if item_id_raw else None
@@ -216,6 +218,12 @@ def _registered_verification_command(
             ) from exc
         if resp.success:
             result = resp.result or {}
+            if result.get("no_tests_reason"):
+                _parent()._print(
+                    "[phase:tests] project attested no test suite "
+                    f"({result['no_tests_reason']}); no verification to run"
+                )
+                return NO_TESTS_ATTESTED, "", []
             scope = str(result.get("scope") or "").strip()
             command = str(result.get("command") or "").strip()
             if scope not in {"full", "quick"} or not command:
@@ -241,6 +249,22 @@ def _registered_verification_command(
     )
 
 
+def _outcome(
+    rc: int, transcript: str, timeout: int, failed: str
+) -> Optional[Tuple[int, str]]:
+    """Report one suite run: ``None`` on success, else the merge failure."""
+    _print = _parent()._print
+    if rc == 0:
+        return None
+    if rc == -1:
+        _print(f"Error: Test execution timed out after {timeout}s.", err=True)
+    else:
+        _print(failed, err=True)
+    if transcript:
+        _print(transcript, err=True)
+    return (1, "test timeout" if rc == -1 else "tests failed")
+
+
 def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     """Run project or generic tests. Returns (1, msg) on failure, None on success."""
     from yoke_core.domain import runtime_settings
@@ -260,6 +284,8 @@ def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         return (1, "test command unavailable")
     if registered is not None:
         scope, command, covering_runs = registered
+        if scope == NO_TESTS_ATTESTED:
+            return None
         receipt = merge_worktree_tree_coverage.covering_run_receipt(
             cwd,
             covering_runs,
@@ -285,19 +311,7 @@ def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:
             timeout=generic_test_timeout,
             prefix="[verification]",
         )
-        if rc == -1:
-            _print(
-                f"Error: Test execution timed out after {generic_test_timeout}s.",
-                err=True,
-            )
-            if transcript:
-                _print(transcript, err=True)
-            return (1, "test timeout")
-        if rc != 0:
-            _print("Tests failed after integration.", err=True)
-            if transcript:
-                _print(transcript, err=True)
-            return (1, "tests failed")
+        return _outcome(rc, transcript, generic_test_timeout, "Tests failed after integration.")
     elif (Path(cwd) / "package.json").is_file():
         _print("[phase:tests] npm test")
         rc, transcript = _run_streaming(
@@ -305,19 +319,7 @@ def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:
             cwd=cwd,
             timeout=generic_test_timeout,
         )
-        if rc == -1:
-            _print(
-                f"Error: Test execution timed out after {generic_test_timeout}s.",
-                err=True,
-            )
-            if transcript:
-                _print(transcript, err=True)
-            return (1, "test timeout")
-        if rc != 0:
-            _print("Tests failed after rebase:", err=True)
-            if transcript:
-                _print(transcript, err=True)
-            return (1, "tests failed")
+        return _outcome(rc, transcript, generic_test_timeout, "Tests failed after rebase:")
     elif (Path(cwd) / "Makefile").is_file():
         makefile = (Path(cwd) / "Makefile").read_text()
         if re.search(r"^test:", makefile, re.MULTILINE):
@@ -327,19 +329,7 @@ def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:
                 cwd=cwd,
                 timeout=generic_test_timeout,
             )
-            if rc == -1:
-                _print(
-                    f"Error: Test execution timed out after {generic_test_timeout}s.",
-                    err=True,
-                )
-                if transcript:
-                    _print(transcript, err=True)
-                return (1, "test timeout")
-            if rc != 0:
-                _print("Tests failed after rebase:", err=True)
-                if transcript:
-                    _print(transcript, err=True)
-                return (1, "tests failed")
+            return _outcome(rc, transcript, generic_test_timeout, "Tests failed after rebase:")
         else:
             _print("(No test runner detected \u2014 skipping)")
     else:
