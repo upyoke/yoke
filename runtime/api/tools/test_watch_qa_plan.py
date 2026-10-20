@@ -46,6 +46,18 @@ class TestPlanClassifier:
             is LineClass.URGENT
         )
 
+    def test_only_a_human_gate_is_urgent(self) -> None:
+        human = (
+            '{"event": "machine_qa.operator_gate", "kind": "human_action", '
+            '"self_approving": false}'
+        )
+        machine = (
+            '{"code": "BSFG", "event": "machine_qa.operator_gate", '
+            '"kind": "machine_browser_approval", "self_approving": true}'
+        )
+        assert watch_qa_plan.classify_qa_plan_line(human).cls is LineClass.URGENT
+        assert watch_qa_plan.classify_qa_plan_line(machine).cls is LineClass.PROGRESS
+
     def test_unrelated_lines_are_noise(self) -> None:
         assert watch_qa_plan.classify_qa_plan_line("debug spam").cls is LineClass.NOISE
 

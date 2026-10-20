@@ -48,7 +48,13 @@ def approve_run(
     session_id: str = "",
     note: Optional[str] = None,
 ) -> RunApproval:
-    """Record this actor's stage decision without moving run state."""
+    """Record this actor's stage decision without moving run state.
+
+    The run row lock never covers the gate's per-member reads. The stage
+    gate takes and releases it around its own write; this then re-takes it
+    only to re-check that the run still waits at the approved stage and to
+    record the decision, whose commit releases it.
+    """
     from yoke_core.domain.decision_request_resolution import (
         resolve_decision_request,
     )
@@ -65,16 +71,12 @@ def approve_run(
             "FROM deployment_runs dr "
             "JOIN projects p ON p.id = dr.project_id "
             "JOIN deployment_flows df ON df.id = dr.flow "
-            "WHERE dr.id=%s FOR UPDATE",
+            "WHERE dr.id=%s",
             (run_id,),
         )
         if run is None:
             raise LookupError(f"deployment run '{run_id}' not found")
-        if run["status"] != "executing":
-            raise RunApprovalRejected(
-                f"deployment run '{run_id}' has status '{run['status']}'; "
-                "only executing runs can be approved"
-            )
+        _require_executing(run_id, str(run["status"]))
         approved_stage = str(run["current_stage"] or "")
         if not approved_stage:
             raise RunApprovalRejected(f"deployment run '{run_id}' has no current stage")
@@ -108,6 +110,7 @@ def approve_run(
                 f"{approved_stage!r} is {verdict.reason} "
                 f"(decision request {verdict.request_id})"
             )
+        _relock_at_stage(conn, run_id, approved_stage)
         request = resolve_decision_request(
             conn,
             int(verdict.request_id),
@@ -135,6 +138,33 @@ def approve_run(
         raise
     finally:
         conn.close()
+
+
+def _require_executing(run_id: str, status: str) -> None:
+    if status != "executing":
+        raise RunApprovalRejected(
+            f"deployment run '{run_id}' has status '{status}'; "
+            "only executing runs can be approved"
+        )
+
+
+def _relock_at_stage(conn, run_id: str, approved_stage: str) -> None:
+    """Lock the run and refuse when it left the stage after the gate's read."""
+    row = query_one(
+        conn,
+        "SELECT status, current_stage FROM deployment_runs WHERE id=%s FOR UPDATE",
+        (run_id,),
+    )
+    if row is None:
+        raise LookupError(f"deployment run '{run_id}' not found")
+    _require_executing(run_id, str(row["status"]))
+    if str(row["current_stage"] or "") != approved_stage:
+        raise RunApprovalRejected(
+            f"deployment run '{run_id}' moved from stage {approved_stage!r} to "
+            f"{row['current_stage']!r} while this approval was evaluated; "
+            f"re-read it with `yoke deployment-runs stages {run_id}` and "
+            "approve the stage it is waiting at"
+        )
 
 
 def emit_run_approval(

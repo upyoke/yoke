@@ -77,6 +77,17 @@ def test_parent_help_does_not_expand_descendants(capsys):
     assert "options:" in text
 
 
+def test_strategy_doc_help_names_the_link_that_moves_an_item(capsys):
+    link = "yoke strategy execution link ITEM --project P --slug SLUG"
+    assert main(["strategy", "doc", "--help"]) == 0
+    assert link in capsys.readouterr().out
+    try:
+        main(["dash", "--help"])
+    except SystemExit:
+        pass
+    assert link in " ".join(capsys.readouterr().out.split())
+
+
 def test_root_contains_convenience_routes(capsys):
     assert main(["help"]) == 0
     text = capsys.readouterr().out

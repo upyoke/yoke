@@ -5,16 +5,12 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 from yoke_core.domain.db_helpers import connect, query_one, query_rows
-from yoke_core.domain.deployment_run_composition_guard import (
-    frozen_mutation_refusal,
-    has_frozen_composition,
-)
+from yoke_core.domain.deployment_run_member_removal_read import read_removal
 from yoke_core.domain.deployment_run_membership_removals import (
     record_membership_removals,
 )
 from yoke_core.domain.deployment_runs_lock import lock_run
 from yoke_core.domain.item_ref_render import render_item_ref_lookup
-from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_plan_attachment_retract import retract_requirements
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
 from yoke_core.domain.schema_common import _table_exists
@@ -30,91 +26,6 @@ REPLACED_REASON = "current candidate is not contained in this run's frozen linea
 #: froze and whose current candidate is outside the frozen lineage.
 REOPENED_REMOVED_BY = "reopened for rework"
 REOPENED_REASON = "left delivery readiness after this run froze and its current candidate is not contained in the frozen lineage; awaiting a later release"
-
-
-def _require_removable(conn: Any, run_id: str, item_id: int) -> str:
-    """Keep ordinary composition mutable; narrow frozen edits to owed item QA."""
-    status = lock_run(conn, run_id)
-    if status is None:
-        raise LookupError(f"deployment run '{run_id}' not found")
-    if status == "created":
-        if has_frozen_composition(conn, run_id):
-            raise ValueError(frozen_mutation_refusal(run_id, "membership")[7:])
-        return status
-    if status not in {"executing", "failed"}:
-        raise ValueError(
-            f"deployment run '{run_id}' is {status}; removal is allowed only while "
-            "status='created', executing at item QA, or failed at item-qa-failed. Use a later release."
-        )
-    from yoke_core.domain.deployment_qa_run_acceptance import (
-        current_item_qa,
-        pinned_stages,
-    )
-
-    row = query_one(
-        conn,
-        "SELECT current_stage,settling_at FROM deployment_runs WHERE id=%s",
-        (run_id,),
-    )
-    stages = pinned_stages(conn, run_id)
-    stage_name = str(row["current_stage"] or "")
-    if status == "failed":
-        if stage_name != "item-qa-failed":
-            raise ValueError(
-                f"deployment run '{run_id}' failed at {stage_name!r}; removal is "
-                "allowed only at item-qa-failed for a failed run. Repair the failed stage or use a later release."
-            )
-        stage_name = stage_name.removesuffix("-failed")
-    current = next((s for s in stages if s.get("name") == stage_name), {})
-    if (
-        row["settling_at"]
-        or current.get("step_runner") != "qa"
-        or current.get("scope") != "item"
-    ):
-        boundary = (
-            "run is at a shared run-level gate; the member is part of the shared result"
-            if current.get("scope") == "run"
-            and current.get("step_runner") in {"qa", "human-approval"}
-            else "frozen membership cannot be removed at this boundary"
-        )
-        raise ValueError(
-            f"run {run_id} is not at an item-scoped QA stage: {boundary}. "
-            "Settle the current gate or repair settlement, then deliver the member through a later release."
-        )
-    if any(
-        s.get("step_runner") == "human-approval"
-        or (s.get("step_runner") == "qa" and s.get("scope") == "run")
-        for s in stages
-    ):
-        raise ValueError(
-            f"run {run_id} has shared run-level QA or approval; the member is part "
-            "of the shared result. Settle the shared gates instead of removing it."
-        )
-    item = query_one(conn, "SELECT status FROM items WHERE id=%s", (item_id,))
-    member = query_one(
-        conn,
-        "SELECT 1 FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
-        (run_id, item_id),
-    )
-    if member is None:
-        return status  # The shared write reports the public non-member identity.
-    if item["status"] in {"done", "cancelled", "stopped"}:
-        raise ValueError(
-            f"member {render_item_ref(conn, item_id)} is already closed; retain its delivery evidence."
-        )
-    answer = current_item_qa(
-        conn,
-        run_id=run_id,
-        item_id=item_id,
-        current_stage=stage_name,
-        stages=stages,
-    )
-    if answer is None or answer.accepted:
-        reason = "already settled" if answer is not None else "QA cannot be evaluated"
-        raise ValueError(
-            f"member {render_item_ref(conn, item_id)}: {reason}; retain its evidence and inspect `yoke deployment-runs get {run_id}`."
-        )
-    return status
 
 
 def retract_member_copies(
@@ -162,6 +73,7 @@ def remove_members_on(
     session_id: str | None = None,
     actor_id: int | None = None,
     removed_by: str = "steering",
+    projection: Any = None,
 ) -> dict[int, str]:
     """Apply the audited removals and retract the members' unsettled run copies.
 
@@ -169,9 +81,12 @@ def remove_members_on(
     Every step is one statement for the whole set, so removing many members
     costs what removing one does; only owners owed a notice get one each.
 
-    Caller owns the locks and transaction. Retracted copies keep their verdict
-    history; standing item plans survive and the next release materializes
-    fresh run-bound copies. Returns each removed member's public ref.
+    Caller owns the locks and transaction. ``projection`` holds the run's
+    shared groups read before the caller's run lock (:func:`read_removal`);
+    without it they are read here, as one set per fact, after the deletion.
+    Retracted copies keep their verdict history; standing item plans survive
+    and the next release materializes fresh run-bound copies. Returns each
+    removed member's public ref.
     """
     from yoke_core.domain.deployment_member_removal_notice import notify_removed_member
     from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
@@ -201,11 +116,24 @@ def remove_members_on(
     removed_at = record_membership_removals(
         conn, run_id, ids, reason=reason, session_id=session_id, actor_id=actor_id
     )
+    gone = ids
+    if projection is not None:
+        # Every member the projection saw that no longer belongs, including
+        # an earlier batch removed in this same transaction.
+        remaining = {
+            int(row["item_id"])
+            for row in conn.execute(
+                "SELECT item_id FROM deployment_run_items WHERE run_id=%s", (run_id,)
+            ).fetchall()
+        }
+        gone = sorted({int(row["item_id"]) for row in projection.members()} - remaining)
     stopped, cleaning = abort_removed_member_executions(
-        conn, run_id=run_id, item_ids=ids
+        conn, run_id=run_id, item_ids=ids, projection=projection, removed=gone
     )
     cancelled = retract_member_copies(conn, run_id, item_ids=ids, reason=reason)
-    retract_orphaned_shared_copies(conn, run_id=run_id, reason=reason)
+    retract_orphaned_shared_copies(
+        conn, run_id=run_id, reason=reason, projection=projection, removed=gone
+    )
     withdraw_deployment_qa_wait_wakes(
         conn, run_id=run_id, item_ids=ids, reason="member_removed"
     )
@@ -234,6 +162,7 @@ def remove_member_on(
     session_id: str | None = None,
     actor_id: int | None = None,
     removed_by: str = "steering",
+    projection: Any = None,
 ) -> str:
     """Remove one member; see :func:`remove_members_on`."""
     return remove_members_on(
@@ -244,6 +173,7 @@ def remove_member_on(
         session_id=session_id,
         actor_id=actor_id,
         removed_by=removed_by,
+        projection=projection,
     )[int(item_id)]
 
 
@@ -257,7 +187,11 @@ def cmd_remove_item(
     actor_id: int | None = None,
     db_path: str | None = None,
 ) -> str:
-    """Remove a created member or one owing executing/failed independent item QA."""
+    """Remove a created member or one owing executing/failed independent item QA.
+
+    The guard and the run's shared groups are read before the run row lock;
+    the lock covers the fingerprint check and the removal's writes.
+    """
     reason = str(reason or "").strip()
     if not reason:
         raise ValueError(
@@ -266,7 +200,13 @@ def cmd_remove_item(
     conn = connect(db_path)
     try:
         lock_item_workflow_bindings(conn, (int(item_id),))
-        status = _require_removable(conn, run_id, int(item_id))
+        read = read_removal(conn, run_id=run_id, item_ids=(int(item_id),))
+        lock_run(conn, run_id)
+        if not read.projection.holds(conn):
+            read = read_removal(conn, run_id=run_id, item_ids=(int(item_id),))
+        if read.refusal is not None:
+            raise read.refusal
+        status = read.status
         ref = remove_member_on(
             conn,
             run_id,
@@ -274,6 +214,7 @@ def cmd_remove_item(
             reason=reason,
             session_id=session_id,
             actor_id=actor_id,
+            projection=read.projection,
         )
         conn.commit()
         recovery = f"Re-attach while created with `yoke deployment-runs add-item {run_id} {ref}`."

@@ -38,33 +38,28 @@ def _p(conn: Any) -> str:
 
 
 def start_identity_expectation(
-    conn: Any, *, run_id: str, stage_name: str, member_item_id: Optional[int]
+    conn: Any, execution: Mapping[str, Any]
 ) -> Optional[dict[str, Any]]:
-    """What the stage's persistent target should be serving, or ``None``.
+    """What the begun execution's persistent target should be serving, or ``None``.
 
-    ``None`` for a run-preview target: a preview is named for its run and
-    never shared, so it has no other deployment to drift to.
+    The subject comes from the execution's own frozen target, so a shared
+    item-QA execution (no member item of its own) resolves the same way a
+    private one does. ``None`` for a run-preview target: a preview is named
+    for its run and never shared, so it has no other deployment to drift to.
     """
     from yoke_core.domain.deployment_qa_execution_target import (
         deployment_qa_execution_target,
     )
-    from yoke_core.domain.deployment_qa_stage_contract import (
-        deployment_qa_stage_subject,
-    )
+    from yoke_core.domain.deployment_qa_shared_plans import execution_subject
     from yoke_core.domain.deployment_qa_target_project import target_project
     from yoke_core.domain.deployment_run_project_sources import run_delivered_sha
     from yoke_core.domain.deployment_target_identity_config import (
         persistent_identity_path,
     )
 
+    run_id = str(execution["deployment_run_id"])
     try:
-        subject = deployment_qa_stage_subject(
-            conn,
-            run_id=str(run_id),
-            stage_name=stage_name,
-            member_item_id=member_item_id,
-            require_active=False,
-        )
+        subject = execution_subject(conn, execution, require_active=False)
         target = deployment_qa_execution_target(conn, subject)
     except (LookupError, ValueError) as exc:
         # The execution is already begun; an unreadable expectation is
@@ -89,7 +84,7 @@ def start_identity_expectation(
             identity_path=configured.path,
             identity_error=configured.error,
         ).as_payload(),
-        "expected_sha": run_delivered_sha(conn, str(run_id), project_id).strip(),
+        "expected_sha": run_delivered_sha(conn, run_id, project_id).strip(),
         "project": str(project.get("slug") or ""),
     }
 

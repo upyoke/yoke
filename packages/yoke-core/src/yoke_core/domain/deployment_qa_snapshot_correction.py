@@ -16,9 +16,20 @@ from yoke_core.domain.deployment_qa_snapshot_selection import (
 
 
 def selected_plan_owners(
-    conn, *, run_id, stage, plan_id, member_item_id=None, shared_target_digest=None
+    conn,
+    *,
+    run_id,
+    stage,
+    plan_id,
+    member_item_id=None,
+    shared_target_digest=None,
+    group_digests=None,
 ):
-    """Lock existing selection owners for one private or exact shared subject."""
+    """Lock existing selection owners for one private or exact shared subject.
+
+    A shared subject names ``group_digests``: each member's shared group
+    digests, read with the run's other facts before the run lock.
+    """
     run = conn.execute(
         "SELECT requirement_snapshot FROM deployment_runs WHERE id=%s FOR UPDATE",
         (run_id,),
@@ -50,13 +61,7 @@ def selected_plan_owners(
         ).fetchall()
         for member in members:
             if shared_target_digest:
-                from yoke_core.domain.deployment_qa_shared_plans import (
-                    member_group_digests,
-                )
-
-                if shared_target_digest not in member_group_digests(
-                    conn, run_id, stage, int(member["item_id"])
-                ):
+                if shared_target_digest not in group_digests(int(member["item_id"])):
                     continue
             owners.append(
                 (
@@ -105,6 +110,7 @@ def refresh_selected_cases(
     cases,
     allow_added=False,
     shared_target_digest=None,
+    group_digests=None,
 ):
     """Correct only eligible cases, preserving owner and admission provenance."""
     owners = selected_plan_owners(
@@ -114,6 +120,7 @@ def refresh_selected_cases(
         plan_id=plan_id,
         member_item_id=member_item_id,
         shared_target_digest=shared_target_digest,
+        group_digests=group_digests,
     )
     for owner in owners:
         _refresh_selected_cases(

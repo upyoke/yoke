@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.workflow_runtime import (
     ENGINE_TERMINAL_STAGE_IDS,
     ENGINE_WAIT_STAGE_IDS,
@@ -52,6 +53,27 @@ def waiting_on_landing(claim: dict[str, Any]) -> bool:
     return bool(claim.get("merge_queue_enqueued_at")) and not landed_but_open(claim)
 
 
+def landing_notice_pending(claim: dict[str, Any]) -> bool:
+    """Whether a queue landing's holder has yet to act on its landing notice.
+
+    After a queued PR merges, the landing observer messages the claim holder
+    and stamps ``merge_queue_notified_at``. Until the holder has been active
+    (``last_tool_call_at``) after that notice, its silence is the notice in
+    flight, not an idle worker. Once it acts, or the item closes, normal idle
+    rules apply again. With no notice recorded nothing excuses the silence,
+    so a notice that was never delivered still alarms.
+    """
+    if not claim.get("merge_queue_landed_at"):
+        return False
+    if str(claim.get("status") or "").strip() in _HOLD_EXEMPT_STATUSES:
+        return False
+    notified = claim.get("merge_queue_notified_at")
+    if not notified:
+        return False
+    active = claim.get("last_tool_call_at")
+    return not active or parse_instant(active) <= parse_instant(notified)
+
+
 def stop_is_legitimate(claim: dict[str, Any]) -> bool:
     """Whether ending the turn on this claim needs no reminder."""
     if str(claim.get("status") or "").strip() in _HOLD_EXEMPT_STATUSES:
@@ -86,6 +108,7 @@ __all__ = [
     "UNFINISHED_CLAIMED_ITEM",
     "UNFINISHED_CLOSE_OUT",
     "landed_but_open",
+    "landing_notice_pending",
     "recovery_for",
     "stop_is_legitimate",
     "unfinished_work_name",

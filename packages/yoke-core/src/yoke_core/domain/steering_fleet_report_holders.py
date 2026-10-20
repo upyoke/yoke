@@ -37,7 +37,10 @@ from yoke_core.domain.session_resume_in_flight import (
 )
 from yoke_core.domain.sessions_holdings_claim_facts import clear_failed_read
 from yoke_core.domain.steering_fleet_report_detectors import age_seconds
-from yoke_core.domain.turn_end_unfinished_work import waiting_on_landing
+from yoke_core.domain.turn_end_unfinished_work import (
+    landing_notice_pending,
+    waiting_on_landing,
+)
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
@@ -73,6 +76,9 @@ class ClaimHolder:
     #: The holder's own surface resumes a stopped native from its transcript
     #: when messaged (its declared ``message_stopped`` operation).
     resumable_from_transcript: bool = False
+    #: The item's queued PR landed and the holder has not acted since the
+    #: landing notice, so its silence is not yet idleness.
+    landing_notice_pending: bool = False
 
     @property
     def requires_immediate_alarm(self) -> bool:
@@ -122,9 +128,11 @@ def _held_item_rows(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
         rows = conn.execute(
             f"SELECT {item_id} AS item_id, wc.session_id AS session_id, "
             "wc.claimed_at AS claimed_at, "
-            "i.project_sequence AS project_sequence, i.merged_at AS merged_at, "
+            "i.project_sequence AS project_sequence, i.status AS status, "
+            "i.merged_at AS merged_at, "
             "i.merge_queue_enqueued_at AS merge_queue_enqueued_at, "
             "i.merge_queue_landed_at AS merge_queue_landed_at, "
+            "i.merge_queue_notified_at AS merge_queue_notified_at, "
             f"{OPEN_ATTEMPT_ENQUEUED_AT}, p.public_item_prefix AS prefix, "
             "hs.mode AS mode, hs.quiet_reason AS quiet_reason, "
             "hs.last_tool_call_at AS last_tool_call_at, "
@@ -224,6 +232,7 @@ def claim_holders(
                 resumable_from_transcript=resumable_from_transcript(
                     row.get("executor_surface"), row.get("executor_version")
                 ),
+                landing_notice_pending=landing_notice_pending(row),
             )
         )
     return tuple(holders)

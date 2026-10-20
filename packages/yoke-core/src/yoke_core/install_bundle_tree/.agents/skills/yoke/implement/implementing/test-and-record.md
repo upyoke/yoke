@@ -13,6 +13,8 @@ by hand or substitute a smaller one.
 
 - Exit 12: dispatch the returned review bundle now; submit its verdicts.
 - `HUMAN_GATE`: checkpoint, route to steering or the owner, resume after.
+- A `machine_qa.operator_gate` line with `self_approving: true` needs no
+  action; never forward its code.
 - Agent-verifiable requirements: commit, then record real evidence.
   Call `no_tests_declared` agent-attested, never tests run.
 

@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.project_identity import render_item_ref, resolve_project_slug
+from yoke_core.domain.schema_read_scope import composition_operation
 from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
 from yoke_core.domain import deployment_run_item_qa_membership as item_qa
 
@@ -117,13 +118,15 @@ def _notify_stage_wait(
         )
 
 
+@composition_operation
 def materialize_and_gate_deployment_qa_stage(
     conn: Any, stage: Mapping[str, Any], *, run_id: str
 ) -> tuple[int, str]:
     """Materialize and gate every subject; ``-4`` means durable QA wait.
 
     Server-side implementation: the caller already holds a connection to
-    the database that serves this control plane.
+    the database that serves this control plane. Schema facts are read once
+    for the whole walk; each member's reads are batched across the run.
     """
     from yoke_core.domain.deployment_qa_member_acceptance_notice import (
         notify_item_qa_accepted,

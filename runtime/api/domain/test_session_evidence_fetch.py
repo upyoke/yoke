@@ -68,7 +68,9 @@ def _connection():
     return conn
 
 
-def _pending_fetch(conn, *, diagnostic_ref: str | None = None) -> None:
+def _pending_fetch(
+    conn, *, diagnostic_ref: str | None = None, kind: str | None = "diagnostic"
+) -> None:
     conn.execute(
         "INSERT INTO session_evidence_fetches "
         "(fetch_id,target_session_id,project_id,machine_id,kind,diagnostic_ref,"
@@ -79,7 +81,7 @@ def _pending_fetch(conn, *, diagnostic_ref: str | None = None) -> None:
             TARGET_SESSION_ID,
             10,
             OWNING_MACHINE,
-            "diagnostic" if diagnostic_ref else None,
+            kind if diagnostic_ref else None,
             diagnostic_ref,
             200,
             NOW,
@@ -140,6 +142,22 @@ def test_capture_round_trips_from_the_machine_that_owns_it() -> None:
     assert answer["files"][0]["kind"] == "diagnostic"
     # A settled answer has nothing left to read back.
     assert answer["recovery"] is None
+
+
+def test_an_evidence_id_selects_exactly_that_diagnostic() -> None:
+    """``--evidence-id`` alone stores no kind or file; the id still selects."""
+    conn = _connection()
+    _pending_fetch(conn, diagnostic_ref=DIAGNOSTIC_REF, kind=None)
+
+    job = claim_relay_job(
+        conn, _heartbeat(), wait_seconds=0, now_provider=lambda: NOW
+    ).jobs[0]
+
+    # Without a selection the relay answers with its newest file, which is
+    # usually relay.stderr.log rather than the diagnostic that was named.
+    assert job.evidence_request["file_name"] == DIAGNOSTIC_REF
+    assert job.evidence_request["kind"] == "diagnostic"
+    assert job.evidence_request["diagnostic_refs"] == [DIAGNOSTIC_REF]
 
 
 def test_only_the_owning_machine_may_lease_the_read() -> None:

@@ -14,6 +14,7 @@ from yoke_core.domain.deployment_run_project_sources import (
 from yoke_core.domain.item_ref_render import render_item_ref_lookup
 from yoke_core.domain.qa_item_stage_plan_gate import item_scoped_qa_stage_names
 from yoke_core.domain import db_backend
+from yoke_core.domain.deployment_run_proposed_membership import run_items
 
 
 def member_run_coverages(conn, *, run_id, item_ids):
@@ -81,7 +82,7 @@ def final_open_member_ids(conn, run_id):
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = conn.execute(
         "SELECT dri.item_id,COALESCE(dri.delivery_intent,''),i.status "
-        "FROM deployment_run_items dri JOIN items i ON i.id=dri.item_id "
+        f"FROM {run_items('dri')} JOIN items i ON i.id=dri.item_id "
         f"WHERE dri.run_id={marker} ORDER BY dri.item_id",
         (run_id,),
     ).fetchall()

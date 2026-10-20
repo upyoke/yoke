@@ -138,7 +138,7 @@ def test_dead_landing_retains_idle_holder(fleet, monkeypatch):
     assert report.landings_needing_action()
 
 
-def test_merged_landing_retains_idle_holder_even_before_completion_wake(
+def test_merged_landing_excuses_the_holder_until_it_acts_after_the_notice(
     fleet, monkeypatch
 ):
     claim_work(fleet, session_id=WORKER_SESSION, target=make_item_target(1))
@@ -149,6 +149,7 @@ def test_merged_landing_retains_idle_holder_even_before_completion_wake(
     )
     fleet.commit()
 
+    # No notice recorded: nothing excuses the silence.
     assert len(compose(fleet).idle) == 1
 
     fleet.execute(
@@ -157,4 +158,14 @@ def test_merged_landing_retains_idle_holder_even_before_completion_wake(
     )
     fleet.commit()
 
+    # Notice delivered, holder not yet active since: the notice is in flight.
+    assert compose(fleet).idle == ()
+
+    fleet.execute(
+        "UPDATE harness_sessions SET last_tool_call_at=%s WHERE session_id=%s",
+        ("2026-08-26T11:02:00.000000Z", WORKER_SESSION),
+    )
+    fleet.commit()
+
+    # Acted after the notice and silent past the threshold since: idle again.
     assert len(compose(fleet).idle) == 1

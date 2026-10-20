@@ -17,6 +17,7 @@ from yoke_core.domain.deployment_qa_start_identity import (
     DRIFT_CODE,
     START_IDENTITY_FIELD,
     require_start_identity,
+    start_identity_expectation,
 )
 from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
 
@@ -126,3 +127,49 @@ def test_drift_refuses_before_the_roster_reaches_a_host_reset() -> None:
     assert DRIFT_CODE in str(refused.value)
     assert execute.call_count == 0
     assert "qa.plan_execution.abort" in calls
+
+
+def test_a_shared_item_qa_resume_resolves_its_target() -> None:
+    """A shared execution has no member item; its frozen target names the plan."""
+    execution = {
+        "deployment_run_id": "run-1",
+        "deployment_stage": "item-qa",
+        "deployment_member_item_id": None,
+        "execution_target": {"deployment": {"shared_plan": {"plan_id": 7}}},
+    }
+    conn = mock.Mock()
+    conn.execute.return_value.fetchone.return_value = {
+        "url": "https://app.stage.example.test"
+    }
+    domain = "yoke_core.domain."
+    with (
+        mock.patch(
+            domain + "deployment_qa_shared_plans.resolve_shared_subject",
+            return_value={"id": "run-1", "stage": {"name": "item-qa"}},
+        ) as shared,
+        mock.patch(
+            domain + "deployment_qa_execution_target.deployment_qa_execution_target",
+            return_value={
+                "environment": {"kind": "persistent_environment", "name": "stage"}
+            },
+        ),
+        mock.patch(
+            domain + "deployment_qa_target_project.target_project",
+            return_value={"id": 3, "slug": "webapp"},
+        ),
+        mock.patch(
+            domain + "deployment_run_project_sources.run_delivered_sha",
+            return_value=DELIVERED,
+        ),
+        mock.patch(
+            domain + "deployment_target_identity_config.persistent_identity_path",
+            return_value=mock.Mock(path="/candidate-revision", error=""),
+        ),
+        mock.patch(domain + "db_backend.connection_is_postgres", return_value=False),
+    ):
+        expectation = start_identity_expectation(conn, execution)
+    assert shared.call_args.kwargs["plan_id"] == 7
+    assert expectation is not None
+    assert not expectation["target"].get("unresolved")
+    assert expectation["target"]["environment"] == "stage"
+    assert expectation["expected_sha"] == DELIVERED

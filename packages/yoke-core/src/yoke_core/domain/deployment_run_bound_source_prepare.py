@@ -10,12 +10,25 @@ from yoke_core.domain.deployment_run_bound_sources import (
     declared_bindings,
 )
 from yoke_core.domain.deployment_run_stale_bound_sources import _compare_to_branch_heads
-from yoke_core.domain.deployment_run_project_sources import invalidate_run_source_facts
+from yoke_core.domain.deployment_run_project_sources import (
+    carried_project_ids,
+    invalidate_run_source_facts,
+)
 from yoke_core.domain.deployment_run_bound_source_composition import (
+    plan_recomposition,
     recompose_bound_sources,
     preview_bound_source_composition,
     revalidate_bound_source_composition,
 )
+from yoke_core.domain.deployment_run_carried_enrollment import CarriedEnrollment
+from yoke_core.domain.deployment_run_carried_membership import (
+    plan_carried_enrollment,
+)
+from yoke_core.domain.deployment_run_composition_basis import (
+    lock_snapshot_rows,
+    read_composition_basis,
+)
+from yoke_core.domain.deployment_run_composition_freeze import member_ids
 from yoke_core.domain.deployment_runs_lock import (
     bounded_run_write,
     lock_run_with_stable_membership,
@@ -128,6 +141,18 @@ def _prepare_bound_sources(conn: Any, run_id: str, stage_name: str) -> dict[str,
     project_ids = frozenset(
         int(e["project_id"]) for e in selected if e["project"] in changes
     )
+    # Taken before the composition reads, so an equal basis under the lock
+    # proves the preview and the enrollment decided from it still current.
+    basis = (
+        read_composition_basis(
+            conn,
+            run_id,
+            item_ids=member_ids(conn, run_id),
+            project_ids=carried_project_ids(conn, run_id),
+        )
+        if changes
+        else None
+    )
     preview = (
         timed_call(
             "bound_source_composition",
@@ -140,9 +165,28 @@ def _prepare_bound_sources(conn: Any, run_id: str, stage_name: str) -> dict[str,
         if changes
         else None
     )
+    enrollment = planned = None
     with bounded_run_write(conn, run_id), prepared_sources_only():
         if preview is not None:
             lock_item_workflow_bindings(conn, preview.lock_item_ids)
+            enrollment = timed_call(
+                "bound_source_enrollment",
+                plan_carried_enrollment,
+                conn,
+                run_id,
+                carried_work=preview.carried,
+                custody=preview.custody,
+                rebound_project_ids=project_ids,
+            )
+            planned = timed_call(
+                "bound_source_judgement",
+                plan_recomposition,
+                conn,
+                run_id,
+                record,
+                preview,
+                enrollment,
+            )
         locked_status, _ = timed_call(
             "bound_source_item_run_locks", lock_run_with_stable_membership, conn, run_id
         )
@@ -160,9 +204,18 @@ def _prepare_bound_sources(conn: Any, run_id: str, stage_name: str) -> dict[str,
                 f"bound_source_preparation_changed: {run_id} changed during preparation; re-drive the same run"
             )
         if changes:
+            # Before any write: whether the unlocked reads are still current.
+            current = timed_call(
+                "bound_source_recheck",
+                _current_reads,
+                conn,
+                basis,
+                enrollment,
+                planned,
+            )
             # Preserve the original pins until every mutable input is revalidated.
             fresh = revalidate_bound_source_composition(
-                conn, run_id, record, project_ids, preview
+                conn, run_id, record, project_ids, preview, current=current is not None
             )
             if set(fresh.lock_item_ids) - set(preview.lock_item_ids):
                 raise ValueError(
@@ -173,7 +226,14 @@ def _prepare_bound_sources(conn: Any, run_id: str, stage_name: str) -> dict[str,
                 (dumps_compact(record), run_id),
             )
             invalidate_run_source_facts(conn, run_id)
-            recompose_bound_sources(conn, run_id, project_ids, fresh)
+            recompose_bound_sources(
+                conn,
+                run_id,
+                project_ids,
+                fresh,
+                enrollment=current,
+                planned=planned if current is not None else None,
+            )
         for entry in selected:
             entry.setdefault("consumed_by", stage_name)
             entry.setdefault("consumed_at", stamp)
@@ -189,3 +249,19 @@ def _prepare_bound_sources(conn: Any, run_id: str, stage_name: str) -> dict[str,
             for change in stale
         ],
     }
+
+
+def _current_reads(conn, basis, enrollment, planned):
+    """Under the run lock: the confirmed enrollment, or ``None`` to read again.
+
+    No decision means nothing was left to enroll; an empty confirmed one
+    stands for that, so recomposition does not decide again under the lock.
+    The planned snapshots' rows are locked before the basis is compared.
+    """
+    if planned is not None:
+        lock_snapshot_rows(conn, *planned.row_ids)
+    if basis is None or not basis.unchanged(conn):
+        return None
+    if enrollment is None:
+        return CarriedEnrollment(basis, (), (), (), None, None, True)
+    return enrollment.confirm(conn)

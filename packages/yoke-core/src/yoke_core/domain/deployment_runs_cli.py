@@ -47,10 +47,10 @@ from yoke_core.domain.deployment_runs_preview import (
     cmd_preview_release,
 )
 from yoke_core.domain.deployment_runs_schema import cmd_init
-from yoke_core.domain.deployment_runs_validation import (
+from yoke_core.domain.deployment_runs_batch_compatibility import (
     cmd_check_batch_compatibility,
-    cmd_validate_composition,
 )
+from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
 from yoke_core.engines.runs_start_for_item import start_for_item
 
 

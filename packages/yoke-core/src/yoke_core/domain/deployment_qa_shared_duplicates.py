@@ -3,7 +3,6 @@
 import json
 
 from yoke_core.domain.db_helpers import query_rows
-from yoke_core.domain.deployment_qa_shared_plans import group_members
 from yoke_core.domain.qa_execution_environment_target import canonical_target
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
 from yoke_core.domain.qa_plan_attachment_retract import retract_requirements
@@ -11,8 +10,11 @@ from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
 from yoke_core.domain.qa_plan_management import QaPlanError
 
 
-def retire_member_copies(conn, subject, target, shared_ids, *, projection=None):
-    """Keep captures as history; never rewrite a roster somebody is executing."""
+def retire_member_copies(conn, subject, target, shared_ids, *, members):
+    """Keep captures as history; never rewrite a roster somebody is executing.
+
+    ``members`` attach this exact group, read before the run lock.
+    """
     rows = query_rows(
         conn,
         "SELECT q.id,q.deployment_member_item_id,q.execution_target_json "
@@ -23,11 +25,7 @@ def retire_member_copies(conn, subject, target, shared_ids, *, projection=None):
     )
     if not rows:
         return
-    members = set(
-        group_members(conn, subject, target)
-        if projection is None
-        else projection.group_members(subject, target)
-    )
+    members = set(members)
     redundant = []
     owners = set()
     for row in rows:

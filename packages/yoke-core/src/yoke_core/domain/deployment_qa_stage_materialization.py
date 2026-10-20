@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Any
 
+from yoke_core.domain.deployment_qa_presentation_facts import run_presentation
+from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
 from yoke_core.domain.qa_plan_management import QaPlanError
 from yoke_core.domain.schema_read_scope import composition_operation
 
@@ -47,39 +50,70 @@ def _require_member_still_attached(
         )
 
 
-@composition_operation
-def materialize_deployment_qa_stage(
+@dataclass
+class _StageRead:
+    """Everything the write needs, read unlocked as one set for the run."""
+
+    projection: Any
+    subject: dict
+    target: dict
+    admitted: list
+    snapshots: list
+    # (snapshot, group subject, group target, members attaching the group)
+    shared: list = field(default_factory=list)
+    corrections: list = field(default_factory=list)
+    private: list = field(default_factory=list)
+    private_snapshots: list = field(default_factory=list)
+    # Whether a member owing no case withdrew every group it still owed.
+    withdrawn_discharge: bool | None = None
+
+
+def _plans_with_member_copies(conn, run_id, stage, plan_ids) -> set[int]:
+    """Shared plans whose unsettled member copies a group write would retire."""
+    from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+
+    if not plan_ids:
+        return set()
+    rows = conn.execute(
+        "SELECT DISTINCT q.plan_id FROM qa_requirements q WHERE q.deployment_run_id=%s "
+        "AND q.deployment_stage=%s AND q.plan_id=ANY(%s) "
+        f"AND q.deployment_member_item_id IS NOT NULL AND NOT {settled_obligation_sql(conn, 'q')}",
+        (run_id, str(stage), sorted(set(plan_ids))),
+    ).fetchall()
+    return {int(row["plan_id"]) for row in rows}
+
+
+@presentation_operation
+@run_presentation
+def _read_stage(
     conn: Any,
     *,
-    deployment_run_id: str,
+    run_id: str,
     deployment_stage: str,
-    deployment_member_item_id: int | None = None,
-    agent_plan: str | None = None,
-    commit: bool = True,
-    replacement_keys: set[str] | None = None,
-    replaced_requirement_ids: frozenset[int] = frozenset(),
-    replacement_scopes: dict[str, list[dict]] | None = None,
-) -> dict[str, Any]:
-    """Create each selected plan once for its source and deployed target."""
-    from yoke_core.domain.deployment_qa_stage_contract import (
-        deployment_qa_stage_subject,
-    )
+    deployment_member_item_id: int | None,
+    agent_plan: str | None,
+    replacement_keys: set[str] | None,
+    replaced_requirement_ids: frozenset[int],
+    replacement_scopes: dict[str, list[dict]] | None,
+) -> _StageRead:
     from yoke_core.domain.deployment_qa_execution_target import (
         deployment_qa_execution_target,
     )
     from yoke_core.domain.deployment_qa_frozen_plan_selection import member_requirements
-    from yoke_core.domain.deployment_qa_plan_selection import selected_plans
-    from yoke_core.domain.deployment_qa_shared_plans import (
-        shared_subject,
-        shareable_snapshots,
+    from yoke_core.domain.deployment_qa_materialization_projection import (
+        MaterializationProjection,
     )
-    from yoke_core.domain.deployment_qa_subject_materialization import (
-        materialize_subject,
+    from yoke_core.domain.deployment_qa_plan_selection import selected_plans
+    from yoke_core.domain.deployment_qa_shared_corrections import correction_subjects
+    from yoke_core.domain.deployment_qa_shared_plans import shared_subject
+    from yoke_core.domain.deployment_qa_stage_contract import (
+        deployment_qa_stage_subject,
     )
 
+    projection = MaterializationProjection(conn, run_id)
     subject = deployment_qa_stage_subject(
         conn,
-        run_id=deployment_run_id,
+        run_id=run_id,
         stage_name=deployment_stage,
         member_item_id=deployment_member_item_id,
     )
@@ -99,6 +133,84 @@ def materialize_deployment_qa_stage(
             replacement_scopes=replacement_scopes,
         )
     )
+    read = _StageRead(projection, subject, target, admitted, snapshots)
+    if not snapshots and not any(r.get("method_id") for r in admitted):
+        from yoke_core.domain.deployment_qa_shared_copy_reads import (
+            withdrawn_member_discharge,
+        )
+
+        read.withdrawn_discharge = withdrawn_member_discharge(conn, subject, target)
+    shared = projection.shareable(subject, target, snapshots)
+    if not shared:
+        return read
+    copied = _plans_with_member_copies(
+        conn, run_id, deployment_stage, [int(s["plan"]["id"]) for s in shared]
+    )
+    for snapshot in shared:
+        group = shared_subject(subject, target, snapshot)
+        group_target = deployment_qa_execution_target(conn, group)
+        # Only a plan with member copies left to retire asks every member.
+        members = (
+            projection.group_members(group, group_target)
+            if int(snapshot["plan"]["id"]) in copied
+            else []
+        )
+        read.shared.append((snapshot, group, group_target, members))
+    read.private = [
+        r for r in admitted if r.get("plan_id") is None and r.get("method_id")
+    ]
+    corrections, read.private_snapshots = correction_subjects(
+        conn,
+        subject,
+        [snapshot for snapshot in snapshots if snapshot not in shared],
+        replaced_requirement_ids,
+        projection=projection,
+    )
+    read.corrections = [
+        (group, deployment_qa_execution_target(conn, group), snapshot)
+        for group, snapshot in corrections
+    ]
+    return read
+
+
+@composition_operation
+def materialize_deployment_qa_stage(
+    conn: Any,
+    *,
+    deployment_run_id: str,
+    deployment_stage: str,
+    deployment_member_item_id: int | None = None,
+    agent_plan: str | None = None,
+    commit: bool = True,
+    replacement_keys: set[str] | None = None,
+    replaced_requirement_ids: frozenset[int] = frozenset(),
+    replacement_scopes: dict[str, list[dict]] | None = None,
+) -> dict[str, Any]:
+    """Create each selected plan once for its source and deployed target.
+
+    Every run-wide read happens first, unlocked and batched; the run row
+    lock covers only the writes. A change committed in between is caught by
+    the projection's fingerprint and the read is repeated under the lock.
+    """
+    from yoke_core.domain.deployment_qa_shared_duplicates import retire_member_copies
+    from yoke_core.domain.deployment_qa_snapshot_selection import freeze_selected_plans
+    from yoke_core.domain.deployment_qa_subject_materialization import (
+        materialize_subject,
+    )
+
+    def read() -> _StageRead:
+        return _read_stage(
+            conn,
+            run_id=deployment_run_id,
+            deployment_stage=deployment_stage,
+            deployment_member_item_id=deployment_member_item_id,
+            agent_plan=agent_plan,
+            replacement_keys=replacement_keys,
+            replaced_requirement_ids=replaced_requirement_ids,
+            replacement_scopes=replacement_scopes,
+        )
+
+    stage_read = read()
     try:
         conn.execute(
             "SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE",
@@ -107,98 +219,56 @@ def materialize_deployment_qa_stage(
         _require_member_still_attached(
             conn, deployment_run_id, deployment_member_item_id
         )
-        from yoke_core.domain.deployment_qa_materialization_projection import (
-            MaterializationProjection,
-        )
+        if not stage_read.projection.holds(conn):
+            stage_read = read()
+        subject, target = stage_read.subject, stage_read.target
+        freeze_selected_plans(conn, subject, stage_read.snapshots)
 
-        from yoke_core.domain.deployment_qa_snapshot_selection import (
-            freeze_selected_plans,
-        )
-
-        freeze_selected_plans(conn, subject, snapshots)
-        projection = MaterializationProjection(
-            conn, deployment_run_id, deployment_stage
-        )
-        shared = shareable_snapshots(
-            conn, subject, target, snapshots, projection=projection
-        )
-        if not shared:
-            result = materialize_subject(
+        def write(group, group_target, admitted, snapshots):
+            return materialize_subject(
                 conn,
-                subject=subject,
-                target=target,
+                subject=group,
+                target=group_target,
                 admitted=admitted,
                 snapshots=snapshots,
                 commit=False,
                 replaced_requirement_ids=replaced_requirement_ids,
             )
+
+        if not stage_read.shared:
+            result = materialize_subject(
+                conn,
+                subject=subject,
+                target=target,
+                admitted=stage_read.admitted,
+                snapshots=stage_read.snapshots,
+                commit=False,
+                replaced_requirement_ids=replaced_requirement_ids,
+                withdrawn_discharge=stage_read.withdrawn_discharge,
+            )
         else:
             results = []
-            for snapshot in shared:
-                group = shared_subject(subject, target, snapshot)
-                results.append(
-                    materialize_subject(
-                        conn,
-                        subject=group,
-                        target=deployment_qa_execution_target(conn, group),
-                        admitted=[],
-                        snapshots=[snapshot],
-                        commit=False,
-                        replaced_requirement_ids=replaced_requirement_ids,
-                    )
-                )
-                from yoke_core.domain.deployment_qa_shared_duplicates import (
-                    retire_member_copies,
-                )
-
+            for snapshot, group, group_target, members in stage_read.shared:
+                results.append(write(group, group_target, [], [snapshot]))
                 retire_member_copies(
                     conn,
                     group,
-                    deployment_qa_execution_target(conn, group),
+                    group_target,
                     [
                         *results[-1]["created_requirement_ids"],
                         *results[-1]["existing_requirement_ids"],
                     ],
-                    projection=projection,
+                    members=members,
                 )
-            private = [
-                r for r in admitted if r.get("plan_id") is None and r.get("method_id")
-            ]
-            private_snapshots = [
-                snapshot for snapshot in snapshots if snapshot not in shared
-            ]
-            from yoke_core.domain.deployment_qa_shared_corrections import (
-                correction_subjects,
-            )
-
-            corrections, private_snapshots = correction_subjects(
-                conn,
-                subject,
-                private_snapshots,
-                replaced_requirement_ids,
-            )
-            for group, snapshot in corrections:
+            for group, group_target, snapshot in stage_read.corrections:
+                results.append(write(group, group_target, [], [snapshot]))
+            if stage_read.private or stage_read.private_snapshots:
                 results.append(
-                    materialize_subject(
-                        conn,
-                        subject=group,
-                        target=deployment_qa_execution_target(conn, group),
-                        admitted=[],
-                        snapshots=[snapshot],
-                        commit=False,
-                        replaced_requirement_ids=replaced_requirement_ids,
-                    )
-                )
-            if private or private_snapshots:
-                results.append(
-                    materialize_subject(
-                        conn,
-                        subject=subject,
-                        target=target,
-                        admitted=private,
-                        snapshots=private_snapshots,
-                        commit=False,
-                        replaced_requirement_ids=replaced_requirement_ids,
+                    write(
+                        subject,
+                        target,
+                        stage_read.private,
+                        stage_read.private_snapshots,
                     )
                 )
             result = {

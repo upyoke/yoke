@@ -125,3 +125,38 @@ def test_exhausted_preparations_name_the_missing_source_key(
     assert "still new after 8 unlocked preparations" in result
     assert len(prepared) == 7
     assert conn.rollbacks == 8
+
+
+def test_resuming_a_failed_run_clears_its_completion_time(
+    test_db: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from runtime.api.fixtures.backlog_inserts import insert_deployment_run
+    from yoke_core.domain import qa_deployment_run_settlement
+
+    insert_deployment_run(
+        test_db,
+        id="run-1",
+        status="failed",
+        started_at="2026-10-20T15:00:00Z",
+        completed_at="2026-10-20T15:30:00Z",
+    )
+    monkeypatch.setattr(
+        deployment_run_start,
+        "lock_run_with_stable_membership",
+        lambda conn, run_id: ("failed", []),
+    )
+    for name in (
+        "invalidate_run_source_facts",
+        "validate_deployment_run_members",
+        "require_target_unoccupied",
+        "freeze_run_composition",
+        "record_attested_candidate_containment",
+    ):
+        monkeypatch.setattr(deployment_run_start, name, lambda *a, **k: None)
+    monkeypatch.setattr(
+        qa_deployment_run_settlement, "restore_retry_obligations", lambda *a: None
+    )
+    read = "SELECT status, completed_at FROM deployment_runs WHERE id='run-1'"
+    assert test_db.execute(read).fetchone()[1] is not None
+    assert deployment_run_start._admit(test_db, "run-1", None) is None
+    assert tuple(test_db.execute(read).fetchone()) == ("executing", None)

@@ -207,6 +207,13 @@ refused, for example `qa_abort_restore_required` while host QA work is in
 flight, the driver reports `run_failure_unrecorded` with the refusal's recovery
 and leaves both status and stage unchanged.
 
+A scoped-QA dispatch whose database lock wait is cancelled or times out, for
+example when an operator cancels a statement stuck behind a held run row, is
+not a stage failure either. It answers `qa_stage_dispatch_interrupted`, naming
+the SQLSTATE and the current `deployment_runs` lock holder. Members settled
+before the interruption keep their result, the run stays `executing` at its QA
+stage, and the driver re-dispatches that stage inside its bounded QA wait.
+
 When the bounded scoped-QA wait ends with blockers, the driver returns
 awaiting QA (exit code 5). If the following fresh diagnostic report read fails,
 it explicitly reports that fresh QA details are unavailable and retains the
@@ -219,11 +226,17 @@ Whole-run reads project each stored field directly. Shell pipes, newlines and
 quotes in frozen member instructions remain part of the complete receipt;
 they cannot split its fields or displace source identities and timestamps.
 
-Timing records distinguish `start_source_preparation`, `start_item_run_locks`,
-`start_source_refresh`, `target_occupancy`, `composition_freeze`, `bound_source_provider`,
-`bound_source_composition`, `bound_source_item_run_locks`, `bound_source_commit`
-and `executing_stamp`. A lock timeout names the phase, not an invented blocker;
-missing response/timing evidence stays unknown. Real-run verification must name
+Timing records distinguish `start_source_preparation`, `start_admission_reads`,
+`start_item_run_locks`, `start_admission_recheck`, `start_source_refresh`,
+`target_occupancy`, `composition_freeze`, `bound_source_provider`,
+`bound_source_composition`, `bound_source_enrollment`, `bound_source_judgement`,
+`bound_source_item_run_locks`, `bound_source_recheck`, `bound_source_commit`
+and `executing_stamp`. The `start_admission_reads`, `bound_source_composition`,
+`bound_source_enrollment` and `bound_source_judgement` steps read every member,
+and judge the members enrollment would add, before the run row lock;
+the two `_recheck` steps prove those reads current under it, and a changed
+input repeats the reads while the lock is held. A lock timeout names the phase,
+not an invented blocker; missing response/timing evidence stays unknown. Real-run verification must name
 the exact deployed source and representative members; a small fixture is a
 regression check, not proof of production startup time.
 

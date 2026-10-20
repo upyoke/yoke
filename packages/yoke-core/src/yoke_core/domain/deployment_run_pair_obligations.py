@@ -28,6 +28,7 @@ from typing import Any
 
 from yoke_core.domain.dependency_satisfaction import unsatisfied_dependency_pairs
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.deployment_run_proposed_membership import run_items
 
 
 PAIR_GATE_POINT = "integration"
@@ -103,8 +104,7 @@ def split_pending_pair_merges(
 def run_item_ids(conn: Any, run_id: str) -> list[int]:
     """Return the item ids enrolled in *run_id*."""
     rows = conn.execute(
-        "SELECT item_id FROM deployment_run_items WHERE run_id=%s "
-        "ORDER BY item_id",
+        f"SELECT item_id FROM {run_items()} WHERE run_id=%s ORDER BY item_id",
         (run_id,),
     ).fetchall()
     return [int(row["item_id"] if hasattr(row, "keys") else row[0]) for row in rows]
@@ -120,7 +120,7 @@ def prepared_runs_awaiting_item(conn: Any, item_id: int) -> list[str]:
     """
     rows = conn.execute(
         "SELECT DISTINCT dr.id FROM deployment_runs dr "
-        "JOIN deployment_run_items dri ON dri.run_id = dr.id "
+        f"JOIN {run_items('dri')} ON dri.run_id = dr.id "
         "WHERE dr.status='created' AND ("
         "  dri.item_id=%s"
         "  OR EXISTS ("
@@ -161,8 +161,10 @@ def split_runs_by_target_environment(
             (run_id,),
         ).fetchone()
         environment = (
-            row["target_environment_id"] if hasattr(row, "keys") else row[0]
-        ) if row is not None else None
+            (row["target_environment_id"] if hasattr(row, "keys") else row[0])
+            if row is not None
+            else None
+        )
         by_environment.setdefault(environment, []).append(run_id)
     distinct: list[str] = []
     duplicates: list[list[str]] = []

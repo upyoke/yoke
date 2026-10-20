@@ -40,6 +40,12 @@ QA_PLAN_URGENT_RE = re.compile(
     r"(^yoke qa plan run:|TREE-BINDING REFUSAL|"
     r"status relay is temporarily unavailable)",
 )
+#: A gate a human must answer. Gate lines are sorted-key JSON, so ``event``
+#: precedes ``self_approving``. Self-approving gates print the same event with
+#: ``"self_approving": true``; they resolve on their own and stay progress.
+QA_PLAN_HUMAN_GATE_RE = re.compile(
+    r"machine_qa\.operator_gate.*\"self_approving\": false",
+)
 QA_PLAN_SUMMARY_RE = re.compile(
     r"(^#\s*qa plan run:|awaiting_agent_review|"
     r"QA capture complete|"
@@ -68,11 +74,13 @@ def classify_qa_plan_line(line: str) -> Classification:
     """Classify one plan-run output line.
 
     URGENT first so a failure that also carries a plan token still
-    emits immediately. SUMMARY before PROGRESS so the restated
-    outcome and the ``awaiting_agent_review`` handoff are not
-    throttled as ordinary progress.
+    emits immediately, and so does an operator gate a human must
+    answer. A self-approving gate is informational progress: it needs
+    no action and its code is never forwarded. SUMMARY before PROGRESS
+    so the restated outcome and the ``awaiting_agent_review`` handoff
+    are not throttled as ordinary progress.
     """
-    if QA_PLAN_URGENT_RE.search(line):
+    if QA_PLAN_URGENT_RE.search(line) or QA_PLAN_HUMAN_GATE_RE.search(line):
         return Classification(LineClass.URGENT)
     if QA_PLAN_SUMMARY_RE.search(line):
         return Classification(LineClass.SUMMARY)

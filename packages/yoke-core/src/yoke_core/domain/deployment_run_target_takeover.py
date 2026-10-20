@@ -39,7 +39,6 @@ from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.domain_refusal import DomainRefusal
-from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.schema_common import _column_exists
 
 SUPERSEDED_BY_COLUMN = "superseded_by_run_id"
@@ -151,57 +150,6 @@ def takeover_will_succeed(conn: Any, old_id: str) -> bool:
     )
 
 
-def _not_contained_refusal(
-    conn: Any, old: Mapping[str, Any], new_lineage: str, verdict: Any, moving: list
-) -> str:
-    old_id = str(old["id"])
-    detail = f" ({verdict.reason}: {verdict.recovery})" if verdict.reason else ""
-    refs = [render_item_ref(conn, int(m["item_id"])) for m in moving]
-    lines = [
-        f"run {old_id} on this flow and target is waiting "
-        f"only on item QA, and this candidate ({new_lineage or 'unpinned'}) is "
-        f"not known to contain its candidate ({old['release_lineage'] or 'unpinned'})"
-        f"{detail}. Taking it over would replace a build whose members this "
-        "candidate may not carry, so nothing was created or changed.",
-        "Recovery: create from a candidate that contains "
-        f"{old['release_lineage'] or 'the older run'}'s commit, or release its "
-        "waiting members by hand:",
-    ]
-    if has_shared_gates(old["stages"]):
-        lines.append(
-            f"  {old_id} has run-level QA or approval holding every member, so "
-            f"end it: yoke deployment-runs terminalize {old_id} --disposition "
-            'cancelled --reason "<why>"; the next start enrolls ' + ", ".join(refs)
-        )
-    else:
-        lines.extend(
-            f'  yoke deployment-runs remove-item {old_id} {ref} --reason "<why>"'
-            for ref in refs
-        )
-    return "\n".join(lines)
-
-
-def _require_containment(
-    conn: Any, new_run: Mapping[str, Any], old: Mapping[str, Any], moving: list
-) -> None:
-    from yoke_core.domain.deployment_run_candidate_containment import (
-        candidate_contains_commit,
-    )
-
-    new_lineage = str(new_run["release_lineage"] or "").strip()
-    verdict = candidate_contains_commit(
-        conn,
-        int(new_run["project_id"]),
-        candidate_lineage=new_lineage,
-        commit_sha=str(old["release_lineage"] or ""),
-    )
-    if not verdict.contained:
-        raise TakeoverRefused(
-            NOT_CONTAINED_CODE,
-            _not_contained_refusal(conn, old, new_lineage, verdict, moving),
-        )
-
-
 def _retract_memberless(conn: Any, old_id: str, reason: str) -> None:
     """Retract shared-plan copies and run-level requirements nobody passed."""
     from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
@@ -245,6 +193,11 @@ def take_over_waiting_run(
     from yoke_core.domain.deployment_run_takeover_authority import (
         require_takeover_authority,
     )
+    from yoke_core.domain.deployment_run_takeover_read import (
+        current_takeover_read,
+        read_takeover,
+        require_contained,
+    )
     from yoke_core.domain.deployment_run_takeover_settlement import (
         succeed_taken_over_run,
     )
@@ -274,7 +227,7 @@ def take_over_waiting_run(
     shared = has_shared_gates(old["stages"])
     if not apply:
         moving = _moving_members(conn, old)
-        _require_containment(conn, new_run, old, moving)
+        require_contained(conn, new_run, old, moving)
         conn.execute(
             "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s)",
             (old_id, [int(member["item_id"]) for member in moving]),
@@ -287,12 +240,16 @@ def take_over_waiting_run(
             ],
         )
         return old_id
+    # The comparison and the removal's shared groups are read before the
+    # older run's lock; under it, a constant re-check repeats only what moved.
+    read = read_takeover(conn, new_run, old)
     status, _held = lock_run_with_stable_membership(conn, old_id)
     if status != "executing":
         return None
     moving = _moving_members(conn, old)
     require_takeover_authority(conn, old_id, int(new_run["project_id"]), session_id)
-    _require_containment(conn, new_run, old, moving)
+    read = current_takeover_read(conn, read, new_run, old)
+    require_contained(conn, new_run, old, moving, read.verdict)
 
     reason = (
         f"taken over by run {new_run_id}, whose candidate contains this run's; "
@@ -306,6 +263,7 @@ def take_over_waiting_run(
         session_id=session_id,
         actor_id=actor_id,
         removed_by=TAKEOVER_REMOVED_BY,
+        projection=read.projection,
     )
     admit_run_items(
         conn,
