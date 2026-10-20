@@ -185,6 +185,10 @@ Exploratory mission `method_config` can declare an apt package fixture:
 }
 ```
 
+A Command case whose command calls `yoke test-machine` must declare
+`method_config.machine`; without it the case would run outside the host's queue
+and meet `test_machine_leased`, so authoring refuses it naming that field.
+
 `method_config.machine` selects that registered host even when this direct
 requirement has only the generic <!-- qa:test-machine-capability -->`test-machine` capability. Admitted deployment
 copies retain the pin; omitting `--machine` does not permit another host, and a
@@ -284,7 +288,11 @@ the cursor names no case, so a heartbeat records no check-in; an execution in
 After an abort, rerun the same scoped command. The fresh execution leaves out
 each case whose newest run passed with its evidence on this same target,
 including passes the aborted execution recorded, and starts at the first case
-still owed; a multi-host member moves on to the next host. A pass on
+still owed; a multi-host member moves on to the next host. A passed case
+stays while a later case of its chain is still owed, so the chain runs again
+from its opener. A case whose review lands after the roster froze is recorded
+`retained` when it and every later case of its chain now pass, instead of
+running or blocking its followers. A pass on
 another target, such as a new release lineage, still requires a fresh run. When
 every case already passed, the whole roster runs again, because stage
 acceptance needs one completed scoped execution. A live execution keeps its

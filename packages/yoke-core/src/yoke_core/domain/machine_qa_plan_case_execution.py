@@ -143,7 +143,7 @@ def execute_plan_machine_case(
         **({"machine": machine} if machine else {}),
     }
     begun = _begin(target, actor, request)
-    if begun.get("state") == "blocked" and isinstance(begun.get("result"), dict):
+    if begun.get("state") in {"blocked", "retained"}:
         return dict(begun["result"])
     if begun.get("state") == "waiting":
         return _waiting_case(begun, requirement_id, runner_id="host_control")
@@ -280,6 +280,8 @@ def execute_plan_agent_mission_case(
         **({"machine": machine} if machine else {}),
     }
     begun = _begin(target, actor, request)
+    if begun.get("state") in {"blocked", "retained"}:
+        return dict(begun["result"])
     if begun.get("state") == "waiting":
         return _waiting_case(begun, requirement_id, runner_id="agent_mission")
     execution = begun.get("execution")

@@ -5,6 +5,10 @@ A case that starts from a named baseline or runs ``as_is`` opens a chain; the
 baseline position, continue on the machine it left. The roster runs every
 case of a baseline position before the next position, so a chain is always a
 contiguous run of roster rows.
+
+A chain leaves the roster only whole from its tail: a passed case stays while
+any case after it in its chain still owes a verdict, because that case needs
+the machine state the earlier cases build.
 """
 
 from __future__ import annotations
@@ -29,6 +33,34 @@ def ends_chain(roster: Sequence[Mapping[str, Any]], ordinal: int) -> bool:
     if ordinal + 1 >= len(roster):
         return True
     return not _continues(roster[ordinal], roster[ordinal + 1])
+
+
+def _chain_end(roster: Sequence[Mapping[str, Any]], ordinal: int) -> int:
+    while not ends_chain(roster, ordinal):
+        ordinal += 1
+    return ordinal
+
+
+def settled_chain_tails(
+    roster: Sequence[Mapping[str, Any]], passed: set[int]
+) -> set[int]:
+    """The *passed* requirements no later case in their chain still needs.
+
+    Within each chain only the passes after its last unsettled case may leave
+    the roster; every earlier case stays so the chain still runs from its
+    opener.
+    """
+    settled: set[int] = set()
+    start = 0
+    while start < len(roster):
+        end = _chain_end(roster, start)
+        for ordinal in range(end, start - 1, -1):
+            requirement_id = int(roster[ordinal]["requirement_id"])
+            if requirement_id not in passed:
+                break
+            settled.add(requirement_id)
+        start = end + 1
+    return settled
 
 
 def _plan_predecessor_id(conn: Any, case: Mapping[str, Any]) -> int | None:
@@ -133,6 +165,81 @@ def inherit_blocker(
     return blocker
 
 
+def record_retained_pass(
+    conn: Any,
+    execution: dict[str, Any],
+    case: dict[str, Any],
+    *,
+    ordinal: int,
+) -> dict[str, Any] | None:
+    """Record a case as a retained pass when its chain no longer needs it.
+
+    A frozen roster can name a case whose review landed after the roster
+    froze. When this case and every later case of its chain now hold a
+    current pass on the execution's target, the case is answered without
+    touching the machine and *execution* carries the advanced cursor.
+    """
+    from yoke_core.domain.qa_latest_execution import latest_verdict_executions
+    from yoke_core.domain.qa_plan_execution_result_state import plan_order
+    from yoke_core.domain.qa_plan_execution_state import advance_plan_execution
+    from yoke_core.domain.qa_plan_run_target_partition import (
+        target_passed_requirements,
+    )
+
+    roster = execution["roster"]
+    rows = list(roster[ordinal : _chain_end(roster, ordinal) + 1])
+    passed = target_passed_requirements(
+        conn,
+        rows,
+        deployment_run_id=execution.get("deployment_run_id"),
+        deployment_stage=execution.get("deployment_stage"),
+        deployment_member_item_id=execution.get("deployment_member_item_id"),
+    )
+    if any(int(row["requirement_id"]) not in passed for row in rows):
+        return None
+    requirement_id = int(case["requirement_id"])
+    run = latest_verdict_executions(conn, [requirement_id])[requirement_id]
+    result = {
+        **plan_order(case),
+        "requirement_id": requirement_id,
+        "runner_id": case.get("runner_id"),
+        "verdict": "pass",
+        "case_outcome": "passed",
+        "retained_pass_run_id": int(run["id"]),
+    }
+    advance_plan_execution(
+        conn,
+        execution,
+        ordinal=ordinal,
+        requirement_id=requirement_id,
+        result=result,
+        commit=False,
+    )
+    return result
+
+
+def settle_without_machine(
+    conn: Any,
+    execution: dict[str, Any],
+    case: dict[str, Any],
+    *,
+    ordinal: int,
+) -> tuple[str, dict[str, Any]] | None:
+    """Answer a case that needs no machine turn: ``retained`` or ``blocked``.
+
+    ``None`` means the case runs. *execution* carries the advanced cursor.
+    """
+    retained = record_retained_pass(conn, execution, case, ordinal=ordinal)
+    if retained is not None:
+        return "retained", retained
+    blocker = inherit_blocker(conn, execution, case, ordinal=ordinal)
+    if blocker is None:
+        return None
+    return "blocked", record_blocked_case(
+        conn, execution, case, ordinal=ordinal, blocker=blocker
+    )
+
+
 def record_blocked_case(
     conn: Any,
     execution: dict[str, Any],
@@ -188,4 +295,7 @@ __all__ = [
     "ends_chain",
     "inherit_blocker",
     "record_blocked_case",
+    "record_retained_pass",
+    "settle_without_machine",
+    "settled_chain_tails",
 ]

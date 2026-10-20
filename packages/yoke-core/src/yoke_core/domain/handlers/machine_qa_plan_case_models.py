@@ -24,12 +24,13 @@ class TestMachinePlanCaseBeginRequest(BaseModel):
 
 
 class TestMachinePlanCaseBeginResponse(BaseModel):
-    state: Literal["ready", "waiting", "blocked"]
+    state: Literal["ready", "waiting", "blocked", "retained"]
     execution_id: str
     cursor_ordinal: int
     execution: HostControlExecutionContract | None = None
-    #: A ``blocked`` case was recorded without touching the machine: it
-    #: inherits a predecessor that did not pass in this plan run.
+    #: A ``blocked`` or ``retained`` case was recorded without touching the
+    #: machine: it inherits a predecessor that did not pass in this plan run,
+    #: or it and the rest of its chain already hold a current pass.
     result: dict[str, Any] | None = None
     lease_context: dict[str, Any] | None = None
     #: A ``waiting`` case's place in its host's line; the next turn wakes it.

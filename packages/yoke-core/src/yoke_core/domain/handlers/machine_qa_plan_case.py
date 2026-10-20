@@ -134,24 +134,18 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
             and (case.get("method_config") or {}).get("machine")
         ):
             raise ValueError("the ordered plan case is not machine-backed")
-        from yoke_core.domain.qa_plan_case_chain import (
-            inherit_blocker,
-            record_blocked_case,
-        )
+        from yoke_core.domain.qa_plan_case_chain import settle_without_machine
 
-        blocker = inherit_blocker(conn, execution, case, ordinal=parsed.ordinal)
-        if blocker is not None:
-            blocked = record_blocked_case(
-                conn, execution, case, ordinal=parsed.ordinal, blocker=blocker
-            )
+        settled = settle_without_machine(conn, execution, case, ordinal=parsed.ordinal)
+        if settled is not None:
             conn.commit()
             return HandlerOutcome(
                 primary_success=True,
                 result_payload={
-                    "state": "blocked",
+                    "state": settled[0],
                     "execution_id": str(execution["id"]),
                     "cursor_ordinal": int(execution["cursor_ordinal"]),
-                    "result": blocked,
+                    "result": settled[1],
                 },
             )
         previous_lease_id = execution.get("machine_lease_id")
