@@ -9,5 +9,5 @@ yoke qa case run --requirement-id {requirement_id} --base-url {URL} --expected-b
 
 No capability: warn and skip. Create once per branch and dispatch. Trigger
 `flow` uses start-for-item; `github-push` uses `yoke github-actions find-run`
-and `wait-run`. Failure sets URL=none; halt only if a blocking Browser case
+and `yoke github-actions wait-run`. Failure sets URL=none; halt only if a blocking Browser case
 needs it. After the Tester returns: `yoke ephemeral-env update {env_id} status stopped`.

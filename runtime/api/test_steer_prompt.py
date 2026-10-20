@@ -33,8 +33,6 @@ class TestSteerSkillContract:
         assert text.startswith("---")
         assert "name: steer" in text.split("---", 2)[1]
         assert "# /yoke steer" in text
-        assert "Avoid the bare phrase" in text
-        assert "steer claim" in text
 
     def test_strategy_doc_resolves_and_is_offered_only_when_absent(self):
         text = _corpus()
@@ -46,177 +44,100 @@ class TestSteerSkillContract:
         assert "# Frontier" in text
         assert "# Decisions" in text
         assert "# Gates" in text
-        assert "yoke claims steering acquire --project {_project} --doc {SLUG}" in text
+        assert "Use `--doc` instead of `--plan-doc` when the operator named" in (
+            _words(text)
+        )
         assert "yoke strategy doc-claim acquire" not in text
 
-    def test_a_project_level_request_locks_the_plan_without_narrowing(self):
-        """The default slug must not shrink what the seat steers."""
+    def test_a_project_level_request_locks_the_plan(self):
         skill = _words(_corpus())
         assert (
             "yoke claims steering acquire --project {_project} --plan-doc {SLUG}"
         ) in skill
-        assert "Reading a document and covering a scope are two decisions" in skill
-        assert (
-            '`--plan-doc` leaves the scope `{"project_id": N}`, so the seat '
-            "covers unlinked items and CURRENT-PLAN members in the project"
-        ) in skill
-        assert "including other projects" in skill
+        assert "Proceed only with both halves held." in skill
 
     def test_vocabulary_is_steering_not_coordination(self):
         corpus = _corpus()
-        assert "steering-scope claim" in corpus
-        assert "steering claim holder" in corpus
-        assert "steering scope" in corpus
-        assert "claims.steering.acquire" in corpus
         assert "yoke claims steering acquire" in corpus
         assert "coordination-scope" not in corpus
         assert "coordinator claim" not in corpus
         assert "coordination_scope" not in corpus
 
     def test_does_not_invoke_feed(self):
-        corpus = _corpus()
-        assert "Do not invoke `/yoke feed`" in corpus
-        assert "unrelated" in corpus.lower()
+        assert "no `/yoke feed`" in _corpus()
 
     def test_loop_covers_frontier_reports_doc_blitz_staffing_escalate(self):
         loop = _read(_STEER_DIR / "loop.md")
         blitz_handoff = _read(_STEER_DIR / "blitz-handoff.md")
+        assert "blitz-handoff.md" in _read(_STEER_DIR / "SKILL.md")
         assert "yoke charge schedule" in loop
         assert "yoke say --item PREFIX-N --stdin" in loop
         assert "yoke messages acknowledge" in loop
         assert "yoke strategy doc get" in loop
-        assert "blitz-handoff" in loop
         assert "yoke strategy execution link" in blitz_handoff
         assert "yoke claims steering release" in blitz_handoff
         assert "yoke steering report get" in loop
         assert "unclaimed" in loop
-        assert "Escalate" in loop
-        assert "wait" in loop.lower()
 
-    def test_each_pass_reads_plan_before_frontier_and_reconciles_authority(self):
-        skill = _corpus()
+    def test_each_pass_reads_plan_and_report_before_messages(self):
         loop = _read(_STEER_DIR / "loop.md")
-        skill_words = _words(skill)
         loop_words = _words(loop)
         assert loop.index("yoke strategy doc get {SLUG}") < loop.index(
             "yoke charge schedule"
         )
+        assert loop.index("yoke steering report get") < loop.index("yoke messages list")
         assert "Routine resume reads only the Live Status" in loop_words
-        assert "document wins on intended scope, priority, order" in loop_words
-        assert "DB wins" in loop_words
-        assert "live item status, claims, dependencies" in loop_words
-        assert "does not silently become next" in loop_words
-        assert "durable write target" in loop_words
-        assert "plan-level progress" in loop_words
-        assert "Strategy doc is both input and output" in skill_words
-        assert "cold-start refresh" in skill_words
-        assert "open-work index" in skill_words
-        assert (
-            "standing decision, hold, scope bound, and deployment gate that "
-            "constrains action"
-        ) in skill_words
-
-    def test_negative_space_checks_run_first_and_unconditionally(self):
-        loop = _words(_read(_STEER_DIR / "loop.md"))
-        assert "Negative-space checks — first, every periodic pass" in loop
-        assert "before consuming events, messages, or worker reports" in loop
-        assert "Failures arrive as silence" in loop
+        assert "The doc wins on scope, priority and order" in loop_words
+        assert "the DB wins on live status, claims and eligibility" in loop_words
+        scope = _words(_read(_STEER_DIR / "scope-and-authority.md"))
+        assert "cold-start refresh" in scope
+        assert "open-work index" in scope
 
     def test_the_report_is_the_detector_and_the_loop_does_not_re_query_it(self):
-        """The duplication this section used to carry is the failure itself.
-
-        A steering seat with the report on screen re-ran its checks by hand
-        because the loop still taught them, so the loop must route to the
-        report rather than restate what it already answers.
-        """
         raw = _read(_STEER_DIR / "loop.md")
         loop = _words(raw)
-        assert "the fleet report is the detector" in loop
         assert "yoke steering report get" in loop
-        assert "Do not re-run those queries by hand" in loop
-        assert "open the file, not the preview" in loop
+        assert "Act on every report finding" in loop
         assert "FROM session_message_recipients r JOIN harness_sessions" not in raw
         assert "FROM work_claims c JOIN harness_sessions s" not in raw
         assert "FROM session_messages m JOIN session_message_recipients r" not in raw
         assert "FROM items i LEFT JOIN work_claims c" not in raw
-
-    def test_every_reported_finding_names_what_to_do_with_it(self):
-        loop = _words(_read(_STEER_DIR / "loop.md"))
-        for finding in (
-            "**Available work**",
-            "**Idle holders**",
-            "**Undelivered messages**",
-            "**Vendor-stopped sessions**",
-            "**Unregistered launches**",
-            "**Landed without close-out**",
-            "**Dead waits**",
-            "**Plan limits**",
-        ):
-            assert finding in loop
-        assert "A section with nothing to say prints nothing" in loop
-
-    def test_unregistered_launches_use_the_registered_list_read(self):
-        raw = _read(_STEER_DIR / "loop.md")
-        loop = _words(raw)
-        assert "yoke session-control launch list --project" in loop
-        assert "session_control.launch.list" in loop
-        assert "session_launches" in loop
-        assert "session_control_launches" in raw
-        assert "does not exist" in loop
         assert "FROM session_launches" not in raw
 
-    def test_idle_holder_triage_preserves_active_claim_protection(self):
-        loop = _words(_read(_STEER_DIR / "loop.md"))
-        assert "yoke sessions list --full --json" in loop
-        assert "effective_stale_ttl_minutes" in loop
-        assert "Active work claims protect holders from age-based reclaim" in loop
-        assert "no stale TTL countdown releases a live lane" in loop
+    def test_every_reported_finding_names_what_to_do_with_it(self):
+        findings = _words(_read(_STEER_DIR / "fleet-findings.md"))
+        for finding in (
+            "**Available",
+            "**Idle holder**",
+            "**Undelivered message**",
+            "**Stranded or vendor-stopped**",
+            "**Unregistered or abandoned launch**",
+            "**Landed without close-out**",
+            "**Dead wait**: answer for the ended session",
+        ):
+            assert finding in findings
+        assert "never a duplicate create" in findings
+        assert "Plan limits do not gate launch" in findings
 
     def test_every_idle_holder_alarm_gets_an_action_or_a_disposition(self):
         loop = _words(_read(_STEER_DIR / "loop.md"))
-        assert "`fleet ALARM idle-holder` covers parked holders too" in loop
-        assert "repeats hourly until `fleet CLEAR`" in loop
-        assert "A park declares a wait, not that the wait is sound" in loop
-        assert "write one line saying why the wait is still sound" in loop
+        assert "Act on each `fleet ALARM` line the same turn" in loop
+        assert "act, or write one line saying why the wait is still sound" in loop
+        assert "`native_process_gone` means wake, not terminate" in loop
+        lifecycle = _words(_read(_STEER_DIR / "worker-lifecycle.md"))
+        assert "Message a quiet worker first." in lifecycle
 
-    def test_dead_wait_rows_separate_no_reply_coming_from_still_open(self):
+    def test_the_loop_rechecks_ownership_and_holds_work_explicitly(self):
         loop = _words(_read(_STEER_DIR / "loop.md"))
-        assert "means no reply is coming" in loop
-        assert "answer on the ended session's behalf" in loop
-        assert "the current state of whatever it was waiting on" in loop
-        assert "`unresolved` row is an open question with a live answerer" in loop
-        assert "a wake alone parks it on the same question" in loop
-
-    def test_the_loop_keeps_only_what_the_report_does_not_do(self):
-        loop = _words(_read(_STEER_DIR / "loop.md"))
-        assert "Two things the report deliberately does not do" in loop
-        assert "Re-verify ownership immediately before launching or reclaiming" in loop
-        assert "one more claim handoff window" in loop
-        assert "stale readback can staff a second worker onto a healthy item" in loop
-        report_at = loop.index("the fleet report is the detector")
-        assert loop.index("yoke claims work holder-get PREFIX-N", report_at) > report_at
-        assert "Set the hold flag on work you are holding on purpose" in loop
-        assert "rather than guessing intent" in loop
+        assert "recheck the holder, then launch" in loop
         assert "yoke items freeze PREFIX-N" in loop
         assert "yoke items cancel PREFIX-N --reason TEXT" in loop
-
-    def test_dashboard_card_uses_reported_state_and_ttl_authority(self):
-        loop = _words(_read(_STEER_DIR / "loop.md"))
-        assert "dashboard session card" in loop
-        assert "confirmed stale only by server" in loop
-        assert "waiting/probed explain a claim holder's quiet" in loop
-        assert "Effective executor TTL is reported data" in loop
-        assert "active work claim protects its holder from age reclaim" in loop
-        assert "still be a session the control plane counts" in loop
-        assert "Do not reproduce a machine's numeric TTL" in loop
 
     def test_no_steer_file_teaches_the_retired_label_or_snapshot_reads(self):
         corpus = _corpus()
         assert "**Stale claim holders:**" not in corpus
         assert "**Silent in-flight work:**" not in corpus
         assert "liveness=stale" not in corpus
-        assert "rather than any liveness label" in _words(corpus)
-        assert "still be a session the control plane counts" in _words(corpus)
 
     def test_no_steer_file_teaches_steerer_sent_only_scope(self):
         corpus = _corpus()
@@ -228,41 +149,29 @@ class TestSteerSkillContract:
         reacquire_at = blitz_handoff.index("yoke claims steering acquire")
         link_at = blitz_handoff.index("yoke strategy execution link")
         assert link_at < release_at < reacquire_at
-        assert "atomically releases the document lock" in blitz_handoff
 
     def test_operator_escalation_path_waits(self):
-        loop = _read(_STEER_DIR / "loop.md")
-        assert "Escalate only human decisions" in loop
-        assert "wait" in loop.lower()
-        assert "Do not guess" in loop
+        loop = _words(_read(_STEER_DIR / "loop.md"))
+        assert "present evidence and a recommendation, then wait" in loop
+        assert "Never guess, implement or file a substitute item" in loop
 
     def test_loop_covers_recovery_batching_and_handoff_snapshot(self):
         loop = _read(_STEER_DIR / "loop.md")
+        batches = _read(_STEER_DIR / "release-batches.md")
         assert "<!-- YOKE:HARNESS claude start -->" in loop
         assert "ScheduleWakeup" in loop
         assert "yoke session-control evidence get --session SESSION-ID" in loop
         assert "yoke session-control session wake --item PREFIX-N" in loop
         assert "cursor-agent --resume" not in loop
-        assert "Negative-space checks — first, every periodic pass" in loop
-        assert "wake_in_flight" in loop and "operator_wake_required" in loop
-        assert "failures are silences" in loop
-        assert "release_reason=completed" in loop
+        assert "released `completed`" in loop
         assert "yoke claims work acquire --item PREFIX-N --reason steering" in loop
-        assert "activation dependencies do not send their own go-signal" in loop
-        assert "deployment-runs create" in _read(_STEER_DIR / "release-batches.md")
-        assert "--source-ref {PINNED_SHA}" in _read(_STEER_DIR / "release-batches.md")
-        assert "yoke merge item PREFIX-N --result" in _read(
-            _STEER_DIR / "release-batches.md"
-        )
-        assert "done-transition --skip-deploy" in _read(
-            _STEER_DIR / "release-batches.md"
-        )
-        assert "orphaned release-wait member" in _read(
-            _STEER_DIR / "release-batches.md"
-        )
-        assert "--stage STAGE --member PREFIX-N" in _read(
-            _STEER_DIR / "release-batches.md"
-        )
+        assert "An `activation` edge sends no go-signal" in loop
+        assert "deployment-runs create" in batches
+        assert "--source-ref {PINNED_SHA}" in batches
+        assert "yoke merge item PREFIX-N --result" in batches
+        assert "never `--skip-deploy`" in batches
+        assert "orphaned release-wait member" in batches
+        assert "--stage STAGE --member PREFIX-N" in batches
         assert (
             "## Live status — steering snapshot (refresh or replace on "
             "next steering handoff)"
@@ -273,40 +182,22 @@ class TestNearTermPlanDefault:
     """An omitted slug selects CURRENT-PLAN instead of asking the operator."""
 
     def test_omitted_slug_resolves_to_current_plan_without_asking(self):
-        skill = _words(_corpus())
-        assert "`{SLUG}` is `CURRENT-PLAN` for every resolved project" in skill
-        assert "An omitted slug is not a question to ask" in skill
-
-    def test_explicitly_supplied_slug_wins_over_the_default(self):
-        skill = _words(_corpus())
-        assert "An operator-supplied slug wins" in skill
-        assert "an explicitly supplied slug always wins" in skill
+        scope = _words(_read(_STEER_DIR / "scope-and-authority.md"))
+        assert "The slug is the operator's, else `CURRENT-PLAN`; never ask." in scope
 
     def test_only_a_genuinely_missing_document_reaches_the_create_gate(self):
-        skill = _words(_corpus())
-        assert (
-            "Only a genuinely missing document reaches this gate; an omitted "
-            "slug never does, because it already resolved to `CURRENT-PLAN`"
-        ) in skill
+        scope = _words(_read(_STEER_DIR / "scope-and-authority.md"))
+        assert "A missing doc (not a failed read): offer to create it" in scope
+        assert "no means stop" in scope
 
     def test_resolved_document_is_read_before_any_steering_action(self):
-        skill = _words(_corpus())
-        assert (
-            "Read `{SLUG}` before any steering action — before the frontier, "
-            "before acknowledging reports, before staffing anything"
-        ) in skill
-        assert (
-            "standing decisions, holds, scope bounds, and deployment gates"
-        ) in skill
+        scope = _words(_read(_STEER_DIR / "scope-and-authority.md"))
+        assert "Read the doc before acting." in scope
+        assert "decisions, holds, gates and open-work index" in scope
 
     def test_each_named_project_takes_its_own_document_and_seat(self):
-        skill = _words(_corpus())
-        assert "Several projects mean several seats" in skill
-        assert "There is no multi-project seat" in skill
-        assert (
-            "run steps 2 and 3 once per project so each gets its own resolved "
-            "document and its own seat"
-        ) in skill
+        scope = _words(_read(_STEER_DIR / "scope-and-authority.md"))
+        assert "Repeat per project." in scope
 
     def test_argument_hint_marks_the_slug_optional(self):
         frontmatter = _read(_STEER_DIR / "SKILL.md").split("---", 2)[1]

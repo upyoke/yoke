@@ -12,4 +12,6 @@ Fix level: plan|code|mixed. Uncertainty is GAPS FOUND.
 Plan: spec, plans and task bodies. Integration: each task's worktree_path and
 diff (main is only the base), excluded tasks, and Conduct's migration evidence.
 Compressed integration sends diff stats and allows at most 3 candidate gaps
-and at most 5 selective file reads.
+and at most 5 selective file reads. It also carries every shim re-export,
+private names included, from the shim import list, and a parent-supplied
+`git log --oneline -- {file}` line per separate-commit AC.

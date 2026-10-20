@@ -9,42 +9,33 @@ ONBOARD = SKILLS / "onboard"
 BUNDLE = REPO / "packages" / "yoke-core" / "src" / "yoke_core" / "install_bundle_tree"
 
 
-def test_profile_accepts_native_commands_and_review_only_suites() -> None:
-    text = _read(ONBOARD / "profile-and-scaffold.md")
+def _flat(text: str) -> str:
+    return " ".join(text.split())
 
-    for outcome in (
-        "surveyed-command",
-        "scaffold-suite",
-        "review-only-suite",
-        "attested-no-tests",
-    ):
-        assert outcome in text
-    for command in ("mvn -q -DskipITs test", "vendor/bin/phpunit", "xcodebuild"):
-        assert command in text
-    assert "separate `test_roots` entry" in text
-    for evidence_field in (
-        "roots {test_roots}",
-        "quick {quick_argv|not-applicable}",
-        "full {full_argv|same-as-quick|not-applicable}",
-        "suite health {suite_health}",
-        "because {runner_rationale}",
-    ):
-        assert evidence_field in text
+
+def test_profile_accepts_native_commands_and_review_only_suites() -> None:
+    text = _flat(_read(ONBOARD / "profile-and-scaffold.md"))
+    hosting = _flat(_read(ONBOARD / "hosting-and-environments.md"))
+
+    assert (
+        "Tests: surveyed command, scaffold suite, review-only, attested no-tests, "
+        "or stop." in text
+    )
+    assert "add one `test_roots` entry per test tree" in hosting
 
 
 def test_binding_keeps_non_actions_and_legacy_suites_honest() -> None:
-    binding = _read(ONBOARD / "verification-binding.md")
-    hosting = _read(ONBOARD / "hosting-and-environments.md")
-    handoff = _read(ONBOARD / "first-work.md")
+    binding = _flat(_read(ONBOARD / "verification-binding.md"))
+    handoff = _flat(_read(ONBOARD / "first-work.md"))
+    doc = _flat(_read(REPO / ".yoke" / "docs" / "verification" / "index.md"))
 
-    assert "one keyed `put` operation per surveyed test tree" in hosting
-    assert "Jenkins, GitLab CI, Bitbucket" in binding
-    assert "not `ci_workflow_file`" in binding
-    assert "blocking `implementation_review` requirement" in binding
-    assert "--qa-kind implementation_review" in handoff
-    assert "--method-id command" in handoff
-    assert "--blocking-mode non_blocking" in handoff
-    assert '"command":"{legacy_argv}"' in handoff
+    assert "Jenkins, GitLab CI, Bitbucket Pipelines" in doc
+    assert "they are not `ci_workflow_file` declarations" in doc
+    assert "Declare an Actions test workflow" in binding
+    assert (
+        "Review-only suites add blocking `implementation_review` plus advisory "
+        "`command`." in handoff
+    )
 
 
 def test_public_map_covers_non_pytest_and_multi_suite_realities() -> None:

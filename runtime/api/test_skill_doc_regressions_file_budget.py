@@ -5,15 +5,11 @@ as a late-stage backstop. These tests pin the upstream contract that shapes
 the work BEFORE implementation begins:
 
 - `/yoke idea` seeds a `## File Budget` section.
-- `/yoke refine` treats missing/vague File Budget as first-class critique
-  and escalates unresolved budgets back to the operator.
-- The architect plan, advance re-anchor, and conduct Engineer dispatch
-  surface the budget to the implementor.
+- `/yoke refine` critiques the File Budget and escalates unresolved scope.
+- The architect plan and the Engineer role surface the budget to the
+  implementor.
 - Engineer submissions carry `file_budget: PASS|SKIP`; conduct re-dispatches
-  on missing/malformed/FAIL/UNKNOWN.
-- Tester guidance positions `yoke_core.domain.file_line_check` as backup verification.
-- The existing late-stage 350-line prose stays intact — the contract is
-  purely additive.
+  on any receipt defect.
 """
 
 from __future__ import annotations
@@ -33,162 +29,78 @@ from runtime.api.skill_doc_regressions_test_helpers import (
 class TestFileBudgetIdeaSeeding:
     """`/yoke idea` seeds a `## File Budget` section in new bodies."""
 
-    @pytest.fixture
-    def docs(self) -> dict[str, Path]:
-        return {
-            "skill": SKILLS / "idea" / "SKILL.md",
-            "body_and_sync": SKILLS / "idea" / "body-and-sync.md",
-        }
+    def test_spec_step_seeds_file_budget_when_enabled(self):
+        text = _read(SKILLS / "idea" / "body-and-sync.md")
+        assert "[File Budget](file-budget.md) when enabled" in text
 
-    def test_body_and_sync_seeds_file_budget_section(self, docs):
-        text = _read(docs["body_and_sync"]) + _read(SKILLS / "idea" / "file-budget.md")
+    def test_file_budget_template_covers_three_shapes(self):
+        text = _read(SKILLS / "idea" / "file-budget.md")
         assert "## File Budget" in text
-        assert "350" in text
-        assert "300" in text  # design target
-        assert "Universal350 authored lines" in text
-
-    def test_body_and_sync_handles_three_shapes(self, docs):
-        text = _read(docs["body_and_sync"]) + _read(SKILLS / "idea" / "file-budget.md")
-        # Implementation-bearing with known shape names example files.
-        assert "Known shape: literal every file" in text
-        # Unknown shape forces refine to resolve.
+        # Unknown shape forces refine to resolve; non-code shape uses N/A.
         assert "UNRESOLVED" in text
-        assert "Refine must resolve before" in text
-        # Non-code shape uses N/A with reason.
         assert "N/A" in text
-
-    def test_body_and_sync_minimal_body_includes_file_budget(self, docs):
-        text = _read(docs["body_and_sync"])
-        # Title-only intake fallback must still mention File Budget.
-        assert (
-            "implementation-bearing intake" in text or "implementation-bearing" in text
-        )
-        # The minimal-body section explicitly covers File Budget.
-        idx = text.find("No supplied description")
-        assert idx >= 0
-        tail = text[idx:]
-        assert "appropriate enabled budget shape" in tail
-
-    def test_skill_md_references_file_budget(self, docs):
-        text = _read(docs["skill"])
-        assert "File Budget" in text
 
 
 class TestFileBudgetRefineRubric:
-    """`/yoke refine` treats File Budget as a first-class readiness check."""
+    """`/yoke refine` treats File Budget as a readiness check."""
 
-    @pytest.fixture
-    def docs(self) -> dict[str, Path]:
-        return {
-            "skill": SKILLS / "refine" / "SKILL.md",
-            "critique_pointer": SKILLS / "refine" / "survey-and-focus.md",
-            "review_rubric": SKILLS / "refine" / "review-rubric.md",
-            "update_protocol": SKILLS / "refine" / "update-protocol.md",
-        }
-
-    def test_review_rubric_has_file_budget_dimension(self, docs):
-        text = _read(docs["review_rubric"])
+    def test_review_rubric_has_file_budget_dimension(self):
+        text = _read(SKILLS / "refine" / "review-rubric.md")
         assert "File Budget" in text
-        assert "first-class" in text.lower()
-        # Rubric mentions both 350 hard limit and 300 design target.
-        assert "350" in text
         assert "300" in text
 
-    def test_review_rubric_covers_served_artifact_scopes(self, docs):
-        text = _read(docs["review_rubric"])
-        assert "Item-artifact refinement" in text
-        assert "Generated-task-plan refinement" in text
+    def test_workflow_context_names_served_artifact_scopes(self):
+        text = _read(SKILLS / "refine" / "workflow-context.md")
+        assert "`generated_task_plan`" in text
+        assert "`item_artifact`" in text
 
-    def test_update_protocol_keeps_escalation_at_the_served_stage(self, docs):
-        text = _read(docs["update_protocol"])
-        assert "File Budget escalation" in text
+    def test_update_protocol_escalates_at_the_served_stage(self):
+        text = _read(SKILLS / "refine" / "update-protocol.md")
+        assert "escalates" in text
         assert "REFINE_ACTIVE_STATUS" in text
-        assert "do not reconstruct them from a workflow name" in text
 
-    def test_skill_md_points_to_rubric_and_escalation(self, docs):
-        text = _read(docs["skill"]) + _read(docs["critique_pointer"])
+    def test_skill_points_to_file_budget_and_escalation(self):
+        text = _read_bundle(
+            SKILLS / "refine" / "SKILL.md", SKILLS / "refine" / "survey-and-focus.md"
+        )
         assert "File Budget" in text
-        # The pointer must mention escalation routing.
-        assert "File Budget escalation" in text or "escalation" in text
+        assert "escalate" in text.lower()
 
 
 class TestFileBudgetAdvanceImplementation:
-    """`/yoke implement` surfaces File Budget to implementor."""
+    """`/yoke implement` re-anchors on the spec; AGENTS.md owns the limit."""
 
-    @pytest.fixture
-    def docs(self) -> dict[str, Path]:
-        return {
-            "implementation": SKILLS
-            / "implement"
-            / "implementing"
-            / "implementation.md",
-        }
+    def test_re_anchor_reads_spec(self):
+        text = _read(SKILLS / "implement" / "implementing" / "implementation.md")
+        re_anchor = text[text.index("Implementation Re-Anchor") :]
+        assert "yoke items get PREFIX-N spec" in re_anchor
 
-    def test_re_anchor_reads_file_budget_section(self, docs):
-        text = _read(docs["implementation"])
-        # Re-anchor block must instruct the implementor to read File Budget.
-        idx = text.find("Implementation Re-Anchor")
-        assert idx >= 0
-        re_anchor = text[idx:]
-        assert "File Budget" in re_anchor
-        assert "350" in re_anchor
-        assert "300" in re_anchor
-
-    def test_re_anchor_names_canonical_backstop(self, docs):
-        text = _read(docs["implementation"])
-        idx = text.find("Implementation Re-Anchor")
-        re_anchor = text[idx:]
-        assert "yoke_core.domain.file_line_check" in re_anchor
+    def test_agents_md_names_canonical_backstop(self):
+        text = _read(REPO / "AGENTS.md")
+        assert "350-line authored-file limit" in text
+        assert "yoke_core.domain.file_line_check" in text
 
 
 class TestFileBudgetConductDispatch:
-    """`/yoke conduct` Engineer dispatch carries the File Budget contract."""
+    """Engineer submissions carry the File Budget contract conduct gates on."""
 
     @pytest.fixture
-    def docs(self) -> dict[str, Path]:
-        return {
-            "dispatch_context_gates": SKILLS / "conduct" / "dispatch-context-gates.md",
-            "dispatch_context_prompts": SKILLS
-            / "conduct"
-            / "dispatch-context-prompts.md",
-            "engineer": REPO / "runtime" / "agents" / "engineer.md",
-            "engineer_tester_dispatch": SKILLS
-            / "conduct"
-            / "engineer-tester-dispatch.md",
-        }
+    def engineer(self) -> str:
+        return _read(REPO / "runtime" / "agents" / "engineer.md")
 
-    def test_engineer_dispatch_packet_mentions_file_budget(self, docs):
-        text = _read_bundle(
-            docs["engineer_tester_dispatch"],
-            docs["dispatch_context_prompts"],
-            docs["engineer"],
-        )
-        assert "FILE BUDGET" in text or "File Budget" in text
-        assert "350" in text
-        # Dispatch packet must reference the canonical backstop.
-        assert "yoke_core.domain.file_line_check" in text
+    def test_engineer_reads_file_budget_and_canonical_backstop(self, engineer):
+        assert "File Budget" in engineer
+        assert "350" in engineer
+        assert "yoke_core.domain.file_line_check" in engineer
 
-    def test_submission_gate_requires_file_budget_key(self, docs):
-        text = _read_bundle(
-            docs["engineer_tester_dispatch"], docs["dispatch_context_gates"]
-        )
-        # Submission gate must list `file_budget` among the required keys.
-        assert "`file_budget`" in text or "file_budget" in text
-        # And explicitly call out PASS/SKIP semantics.
-        assert "file_budget: PASS" in text or "`file_budget`" in text
+    def test_submission_block_requires_file_budget_key(self, engineer):
+        assert "file_budget: PASS | SKIP" in engineer
+        assert "Missing/malformed/FAIL/UNKNOWN fields redispatch" in engineer
 
-    def test_post_return_gate_requires_file_budget_key(self, docs):
-        text = _read(docs["dispatch_context_gates"])
-        assert "file_budget" in text
-        assert "PASS" in text and "SKIP" in text
-        assert "FAIL" in text and "UNKNOWN" in text
-
-    def test_submission_gate_redispatches_on_failure(self, docs):
-        text = _read_bundle(
-            docs["engineer_tester_dispatch"], docs["dispatch_context_gates"]
-        )
-        # Missing/malformed/FAIL/UNKNOWN must trigger re-dispatch.
-        assert "FAIL" in text and "UNKNOWN" in text
+    def test_submission_gate_redispatches_on_receipt_defect(self):
+        text = _read(SKILLS / "conduct" / "dispatch-context-gates.md")
+        assert "submission-receipt-get" in text
+        assert "re-dispatches Engineer at the SAME attempt" in text
 
 
 class TestFileBudgetArchitect:

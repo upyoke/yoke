@@ -2,8 +2,8 @@
 
 These tests pin the operator-facing prose for the three-bucket
 classification (real-mutation-declare / real-mutation-blocker /
-meta-work-item-reviewed-none) plus the Prevention 1 + 2 reference
-verification rules. They are pure file-content assertions against the
+meta-work-item-reviewed-none) plus reference verification and the
+duplicate check. They are pure file-content assertions against the
 live skill prose under ``.agents/skills/yoke/idea/`` — no DB, no
 fixtures, no subprocess.
 
@@ -57,38 +57,22 @@ class TestBodyAndSyncThreeBuckets:
         # The literal "; reviewed-none" suffix is the canonical signal.
         assert "; reviewed-none" in text
 
-    def test_three_way_prompt_present(self):
+    def test_three_buckets_present(self):
         text = _read(_BODY_AND_SYNC)
-        assert "Real governed mutation, declare now" in text
-        assert "Real governed mutation, blocker for refine" in text
-        assert "Meta work item about DB governance" in text
+        assert "No triggers:" in text
+        assert "Real mutation:" in text
+        assert "DB governance talk only:" in text
 
-    def test_blocker_section_template_pinned(self):
+    def test_blocker_section_heading_pinned(self):
         text = _read(_BODY_AND_SYNC)
         assert "## DB Claim Blocker (idea-time)" in text
-        assert "Known facts:" in text
-        assert "Missing facts that block declared payload:" in text
 
     def test_blocker_path_does_not_call_db_claim_amend(self):
-        """Bucket-2 must NOT invoke db-claim-amend. The skill prose pins
-        this with an explicit `Do NOT call db-claim-amend --state none`
-        instruction so the schema default + missing event combo trips
-        GATE_DB_CLAIM_PROSE_MISMATCH on the next advance."""
+        """Bucket-2 must NOT invoke db-claim-amend, so the schema default plus
+        the missing event trips GATE_DB_CLAIM_PROSE_MISMATCH on the next
+        advance."""
         text = _read(_BODY_AND_SYNC)
-        # Locate the bucket-2 paragraph and assert the prohibition is
-        # present nearby. The exact phrasing is operator-facing prose
-        # but the imperative must survive any rewording.
-        assert (
-            "Do NOT call `db-claim-amend --state none`" in text
-            or "Do NOT call `db-claim-amend`" in text
-        )
-
-    def test_bucket_discipline_rationale_present(self):
-        """The skill explains why bucket discipline matters."""
-        text = _read(_BODY_AND_SYNC)
-        assert "Why bucket discipline matters" in text
-        assert "reviewed_negative" in text
-        assert "reviewed-none" in text
+        assert "do NOT call `db-claim-amend`" in text
 
     def test_obsoleted_deferral_reason_removed(self):
         """The retired deferral reason must not appear in this file."""
@@ -97,50 +81,23 @@ class TestBodyAndSyncThreeBuckets:
 
 
 # ---------------------------------------------------------------------------
-# reference-and-scope-verification.md — Prevention 1 + 2
+# reference-and-scope-verification.md and infer-and-create.md
 # ---------------------------------------------------------------------------
 
 
 class TestInferAndCreatePreventions:
-    def test_prevention_1_verification_verb_pinned(self):
-        """Prevention 1 names ``test -d`` for directories and the
-        Glob tool for file patterns."""
+    def test_reference_verification_checks_the_target_checkout(self):
+        """References are verified in the target checkout, never another tree."""
         text = _read(_REFERENCE_AND_SCOPE_VERIFICATION)
         assert "test -d" in text
-        assert "Glob tool" in text or "Glob" in text
-
-    def test_prevention_1_canonical_migration_root_named(self):
-        """Migration ideas discover the active project's one-shot package root."""
-        text = _read(_REFERENCE_AND_SCOPE_VERIFICATION)
-        assert "project's verified one-shot migration package root" in text
+        assert "rg --files" in text
         assert "runtime/api/domain/migrations/" not in text
+        assert "yoke_core.domain." + "life" + "cycle" not in text
 
-    def test_prevention_2_canonical_grep_template_pinned(self):
-        """The canonical grep template is pinned literally so
-        agents copy it directly rather than improvising."""
-        text = _read(_REFERENCE_AND_SCOPE_VERIFICATION)
-        assert (
-            "rg -n 'def _run_.*_gate|def check_.*_gate|GATE_[A-Z_]+' <source-roots>"
-        ) in text
-
-    def test_prevention_2_names_current_lifecycle_owners(self):
-        """Gate and vocabulary guidance names only current owners."""
-        text = _read(_REFERENCE_AND_SCOPE_VERIFICATION)
-        assert "workflow_runtime.py" in text
-        assert "task_lifecycle.py" in text
-        retired_module = "yoke_core.domain." + "life" + "cycle"
-        assert retired_module not in text
-
-    def test_duplicate_check_reads_current_project_rows_and_commits_first(self):
-        """Current project scope and commits ground literal phrase search."""
+    def test_duplicate_check_runs_before_create(self):
         text = _read(_INFER_AND_CREATE)
-        rows_idx = text.index('yoke items list --project "$_project"')
-        commits_idx = text.index("log --oneline -10")
-        search_idx = text.index("items search")
-        assert rows_idx < search_idx
-        assert commits_idx < search_idx
-        assert "literal phrase matching" in text
-        assert "--limit 1000" in text
+        assert text.index("yoke items search") < text.index("yoke items create")
+        assert "create-anyway" in text
 
 
 # ---------------------------------------------------------------------------

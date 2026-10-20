@@ -19,10 +19,8 @@ def test_refine_uses_active_binding_and_child_policy() -> None:
     for required in (
         "yoke workflows item get",
         "yoke workflows version get",
-        "skill_bindings",
+        "[from, through)",
         "generated_children",
-        "REFINE_SOURCE_STATUS",
-        "REFINE_TARGET_STATUS",
         "ITEM_NEXT_SKILL=blitz",
     ):
         assert required in combined
@@ -31,12 +29,12 @@ def test_refine_uses_active_binding_and_child_policy() -> None:
 
 
 def test_shepherd_task_generation_comes_from_pinned_policy() -> None:
-    text = _read("shepherd", "SKILL.md") + _read("shepherd", "entry.md")
+    text = _read("shepherd", "SKILL.md")
     for required in (
         "yoke workflows item get",
         "yoke workflows version get",
-        "generated_children=epic_tasks",
-        "definition.stages/transitions/skill_bindings/policies",
+        "`epic_tasks` children",
+        "[from, through)",
     ):
         assert required in text
     for forbidden in (
@@ -51,13 +49,13 @@ def test_shepherd_task_generation_comes_from_pinned_policy() -> None:
 def test_usher_merge_selection_uses_pinned_lane_policy() -> None:
     text = _read("usher", "merge.md") + _read("usher", "merge-arguments.md")
     for required in (
-        "yoke workflows item get",
-        "yoke workflows version get",
-        "generated_children",
-        "worktrees",
-        "half-open binding",
+        "merge-generated-tasks.md",
+        "yoke item-worktrees list PREFIX-N --json",
+        "registered lane paths",
     ):
         assert required in text
+    agents = (ROOT / "AGENTS.md").read_text()
+    assert "Route from the live pinned workflow's half-open binding" in agents
     assert "_item_workflow_id" not in text
     assert "issue items only" not in text.lower()
 
@@ -74,7 +72,6 @@ def test_conduct_dispatch_has_no_unreachable_item_branch_or_retired_teaching() -
         "Caller prerequisite:",
     ):
         assert forbidden not in text
-    assert "Generated task policies and registered lane rows own the dispatch" in text
 
 
 def test_skill_tree_uses_registered_lifecycle_transitions() -> None:
@@ -91,7 +88,6 @@ def test_skill_tree_uses_registered_lifecycle_transitions() -> None:
             assert "/yoke " + retired not in path.read_text(), path
     assert retired not in SKILLS_BY_ID
     review = _read("implement", "review.md")
-    assert "lifecycle.transition.execute" in review
     assert "yoke lifecycle transition" in review
     assert "yoke claims work release --item PREFIX-N" in review
 

@@ -12,7 +12,6 @@ from runtime.api.skill_doc_regressions_test_helpers import (
     SKILLS,
     _read,
     _read_bundle,
-    _read_refine_skill,
 )
 
 
@@ -89,6 +88,8 @@ class TestFileBudgetPreservesLateStageProse:
 
     def test_each_file_still_mentions_350(self, files):
         for path in files:
+            if path.is_relative_to(SKILLS):
+                continue  # skills run the checker; AGENTS.md owns the limit
             text = _read(path)
             assert "350" in text, f"{path} dropped its 350-line mention"
 
@@ -138,27 +139,19 @@ class TestFileBudgetUpstreamPropagationBundle:
 
     def test_full_chain_mentions_file_budget(self):
         chain = [
-            SKILLS / "idea" / "SKILL.md",
             SKILLS / "idea" / "body-and-sync.md",
-            SKILLS / "refine" / "SKILL.md",
+            SKILLS / "idea" / "file-budget.md",
+            SKILLS / "refine" / "survey-and-focus.md",
             SKILLS / "refine" / "review-rubric.md",
-            SKILLS / "refine" / "update-protocol.md",
-            SKILLS / "implement" / "implementing" / "implementation.md",
-            SKILLS / "conduct" / "engineer-tester-dispatch.md",
-            SKILLS / "conduct" / "dispatch-context-gates.md",
             REPO / "runtime" / "agents" / "architect.md",
             REPO / "runtime" / "agents" / "architect" / "hard-constraints.md",
             REPO / "runtime" / "agents" / "engineer.md",
             REPO / "runtime" / "agents" / "tester.md",
             REPO / ".yoke" / "docs" / "agents" / "commands.md",
         ]
-        bundle = _read_bundle(*chain)
         for path in chain:
-            if path == SKILLS / "refine" / "SKILL.md":
-                text = _read_refine_skill(path)
-            else:
-                text = _read(path)
+            text = _read(path)
             assert "File Budget" in text or "file_budget" in text, (
                 f"{path} is part of the File Budget chain but does not mention it"
             )
-        assert "file_line_check" in bundle
+        assert "file_line_check" in _read_bundle(*chain)

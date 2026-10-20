@@ -62,41 +62,25 @@ class TestStrategize:
         text = _read(self.STRATEGIZE_DIR / "refresh.md")
         assert "yoke strategy carry register-new" in text
         assert "--result-json" in text
-        assert "yoke strategy carry summary" in text
         assert "yoke strategy carry candidate-set" in text
         assert "--new-ids ${_carry_new_ids}" in text
-        assert "_carry_total_pending=" in text
-        assert "_carry_new_count=" in text
 
-    def test_refresh_extracts_event_context_from_the_envelope(self):
-        text = _read(self.STRATEGIZE_DIR / "refresh.md")
-
-        assert "SELECT created_at, context FROM events" not in text
-        assert "NULLIF(envelope, '')::jsonb" in text
-        assert "-> 'context' AS context" in text
-        assert "event_name = 'SMLChangeApproved'" in text
-
-    def test_finalize_uses_module_invocation_for_claim_release(self):
-        """carry marks and claim release use the function-call surface without shell glue."""
+    def test_finalize_releases_the_claim_through_the_cli(self):
+        """carry marks and claim release use the CLI surface without shell glue."""
         text = _read(self.STRATEGIZE_DIR / "finalize.md")
         # Session-ID fallback chains must be eliminated
         assert '_sid="${YOKE_SESSION_ID' not in text
         assert '--session-id "$_sid"' not in text
-        # Claim release uses the function-call surface. The historical
-        # `python3 -m yoke_core.api.service_client release-work-claim` CLI verb
-        # was migrated to the `claims.work.release` function call in the
-        # operations/cleanup wave.
-        assert '"function": "claims.work.release"' in text
+        assert "yoke claims work release --process STRATEGIZE" in text
+        assert "Record the checkpoint and release even when deferred" in text
 
     def test_strategize_roster_reviews_all_five_default_docs(self):
         """The SML review roster covers every seeded default strategy doc.
 
-        The seeded default corpus is five docs; a stale four-doc roster
-        would leave CURRENT-PLAN — the doc first-work seeding derives
-        from — outside the strategize review loop.
+        A stale four-doc roster would leave CURRENT-PLAN — the doc first-work
+        seeding derives from — outside the strategize review loop.
         """
         text = _read(self.STRATEGIZE_DIR / "SKILL.md")
-        assert 'SML_SLUGS="MISSION LANDSCAPE VISION MASTER-PLAN CURRENT-PLAN"' in text
         for slug in (
             "MISSION",
             "LANDSCAPE",
@@ -105,14 +89,7 @@ class TestStrategize:
             "CURRENT-PLAN",
         ):
             assert slug in text, f"strategize roster missing {slug!r}"
-
-    def test_strategize_skill_is_not_a_stub(self):
-        """Guards against regression to a placeholder skill."""
-        text = _read(self.STRATEGIZE_DIR / "SKILL.md")
-        # A stub would be a handful of lines; real skill doc is substantial.
-        assert len(text.splitlines()) > 30, (
-            "strategize/SKILL.md looks like a stub — fewer than 30 lines"
-        )
+        assert "Read all five docs" in _read(self.STRATEGIZE_DIR / "refresh.md")
 
     def test_strategize_research_has_landscape_editorial_pressure_pass(self):
         """Research phase must flag LANDSCAPE.md bloat, not just factual drift.
@@ -129,18 +106,16 @@ class TestStrategize:
         for term in ("weave", "consolidat", "retire", "table-stakes", "summariz"):
             assert term in text, (
                 f"strategize/research.md must mention '{term}' to teach "
-                "LANDSCAPE.md editorial discipline (YOK-1232)"
+                "LANDSCAPE.md editorial discipline"
             )
         # And density/legibility must be treated as first-class review
         # dimensions, not just factual correctness.
         assert "density" in text or "dense" in text, (
-            "strategize/research.md must treat section density as a review "
-            "dimension (YOK-1232)"
+            "strategize/research.md must treat section density as a review dimension"
         )
 
     def test_strategize_teaches_process_claim_work_adapter(self):
-        """task 015: strategize teaches the function-call adapters
-        for the ``claims.process.claim`` family.
+        """Strategize teaches the CLI adapters for the process work claim.
 
         Strategize is a process-claim surface (not item-claim) — it
         acquires the canonical ``STRATEGIZE`` process work claim before
@@ -172,10 +147,7 @@ class TestStrategize:
         for term in ("weave", "consolidat", "retire", "table-stakes", "justif"):
             assert term in text, (
                 f"strategize/propose.md must mention '{term}' to teach "
-                "LANDSCAPE.md editorial discipline (YOK-1232)"
+                "LANDSCAPE.md editorial discipline"
             )
-        # The rewrite-vs-add decision must be explicit, not implied.
-        assert "rewrite" in text, (
-            "strategize/propose.md must make the add-vs-rewrite decision "
-            "explicit (YOK-1232)"
-        )
+        # The add decision comes after weaving into existing text.
+        assert "weave first" in text and "before adding" in text

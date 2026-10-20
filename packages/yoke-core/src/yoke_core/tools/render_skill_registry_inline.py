@@ -135,9 +135,7 @@ def _render_argument_hints(target_root: Path, *, check: bool) -> RenderResult:
             continue
         end = lines.index("---\n", 1)
         header = [
-            line
-            for line in lines[1:end]
-            if not line.startswith("argument-hint:")
+            line for line in lines[1:end] if not line.startswith("argument-hint:")
         ]
         header.append("argument-hint: " + dumps_compact(skill.arguments) + "\n")
         rewritten = "".join([lines[0], *header, *lines[end:]])

@@ -11,4 +11,4 @@ yoke qa registered-command set --project {project} --scope quick --command "{qui
 ```
 
 Review-only: no default command; never manufacture a green or a permanently
-failing blocking gate. No suite: `yoke qa no-tests attest`.
+failing blocking gate. No suite: `yoke qa no-tests attest`, then write the row `configured`.

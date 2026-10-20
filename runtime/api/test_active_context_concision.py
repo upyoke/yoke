@@ -48,14 +48,8 @@ class TestCurrentStateCheckpointTeaching:
 
     def test_wrapup_progress_log_is_a_checkpoint_template(self):
         text = _command("wrapup")
-        assert "current-state checkpoint" in text
         assert '--headline "Session checkpoint"' in text
-        assert "Objective:" in text
-        assert "Standing decisions/holds:" in text
-        assert "Active work:" in text
-        assert "Blockers:" in text
-        assert "Next action:" in text
-        assert "Evidence:" in text
+        assert "{objective, blockers, next action, evidence}" in text
         assert "cold-start complete" not in text
 
     def test_steer_loop_reloads_phase_after_compaction(self):

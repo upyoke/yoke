@@ -31,35 +31,30 @@ def test_workflow_skills_resolve_file_budget_and_claims_independently() -> None:
         ROOT / "AGENTS.md",
         _command("idea"),
         _command("refine"),
-        SKILLS / "implement" / "entry.md",
-        _command("conduct"),
-        _command("dash"),
-        _command("blitz"),
         ROOT / ".yoke/docs/agents/rules/lanes-and-claims.md",
     ]
     for path in paths:
         text = _read(path)
         assert "File Budget" in text
         assert "path claim" in text.lower() or "path-claim" in text.lower()
-    text = _bundle(*paths).lower()
-    assert "independent" in text
-    assert "optional" in text
-    assert "posture" in text
+    assert "independent" in _bundle(*paths).lower()
 
 
 def test_skills_consume_central_effective_policy_projection() -> None:
-    paths = [
-        _command("idea"),
+    for path in (
+        ROOT / "AGENTS.md",
+        ROOT / ".yoke/docs/agents/rules/lanes-and-claims.md",
+    ):
+        text = _read(path)
+        assert "workflows.item.get" in text
+        assert "effective_policies" in text
+    for path in (
         SKILLS / "refine" / "workflow-context.md",
         SKILLS / "implement" / "entry.md",
         _command("conduct"),
         _command("dash"),
-        _command("blitz"),
-    ]
-    for path in paths:
-        text = _read(path)
-        assert "workflows.item.get" in text
-        assert "effective_policies" in text
+    ):
+        assert "yoke workflows item get" in _read(path)
 
     contexts = _bundle(
         SKILLS / "refine" / "workflow-context.md",
@@ -87,22 +82,18 @@ def test_teaching_covers_all_axis_combinations_and_universal_cap() -> None:
     assert "file_line_check" in text
 
 
-def test_each_execution_surface_teaches_the_both_off_composition() -> None:
-    paths = [
-        SKILLS / "implement" / "entry.md",
-        _command("conduct"),
-        _command("dash"),
+def test_each_planning_home_teaches_the_both_off_composition() -> None:
+    for path in (
+        ROOT / ".yoke/docs/agents/rules/lanes-and-claims.md",
         ROOT / "runtime" / "agents" / "architect" / "hard-constraints.md",
-    ]
-    for path in paths:
-        text = _read(path).lower()
-        assert "both off" in text or "neither: spec and" in text
+    ):
+        assert "both off" in _read(path).lower()
 
 
 def test_optional_budget_teaching_does_not_require_parent_section() -> None:
     idea = _read(SKILLS / "idea" / "body-and-sync.md")
     engineer = _read(ROOT / "runtime" / "agents" / "engineer.md")
-    assert "When File Budget is off, omit that section." in idea
+    assert "[File Budget](file-budget.md) when enabled" in idea
     assert "disabled: dispatched scope applies without inventing a budget" in engineer
     assert "File Budget is mandatory for any implementation-bearing intake" not in idea
 

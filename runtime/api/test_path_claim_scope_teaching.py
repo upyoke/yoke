@@ -23,29 +23,29 @@ class TestNoDescopeForActivePathClaims:
         return {
             "agents": REPO / "AGENTS.md",
             "claims_reference": REPO / ".yoke/docs/agents/rules/lanes-and-claims.md",
-            "idea_skill": idea / "SKILL.md",
+            "idea_path_blocking": idea / "path-claim-blocking.md",
             "idea_path_closure": idea / "path-closure.md",
-            "idea_infer": idea / "infer-and-create.md",
         }
 
-    def test_claims_home_has_path_claims_section(self, docs):
-        text = _read(docs["claims_reference"])
-        assert "## Path claims" in text
+    def test_agents_has_path_claims_hard_rule_section(self, docs):
+        text = _read(docs["agents"])
+        assert "## Path Claims — Hard Rule" in text
 
     def test_agents_forbids_scope_narrowing_for_claimed_paths(self, docs):
         text = _read(docs["agents"])
-        assert "Path claims never narrow scope" in text
-        assert "every required file stays in the item and its File Budget" in text
+        assert "Claimed paths do not narrow scope" in text
+        assert "Every required file stays in the item" in text
+        assert "never omit, descope, or rewrite away a required file" in text
 
-    def test_claims_home_states_path_claims_are_coordination_facts(self, docs):
-        text = _read(docs["claims_reference"])
+    def test_agents_states_path_claims_are_coordination_facts(self, docs):
+        text = _read(docs["agents"])
         assert "coordination/dependency/blocking facts" in text
-        assert "never narrow scope" in text
+        assert "never omit, descope, or rewrite away a required file" in text
 
     def test_agents_requires_reference_that_enumerates_accepted_remediations(
         self, docs
     ):
-        assert "`lanes-and-claims.md`: lanes, project scope, overlaps" in _read(
+        assert "Read `lanes-and-claims.md` before resolving any overlap" in _read(
             docs["agents"]
         )
         text = _read(docs["claims_reference"])
@@ -64,15 +64,8 @@ class TestNoDescopeForActivePathClaims:
                 f"missing accepted-remediation phrase in lanes-and-claims.md: {phrase!r}"
             )
 
-    def test_idea_skill_phase_3_preserves_claimed_files(self, docs):
-        text = _read(docs["idea_skill"]) + _read(docs["idea_path_closure"])
-        assert "Claim overlap does NOT narrow scope" in text
-        assert "the file stays in the File Budget" in text
-        assert "coordination/dependency/blocking facts" in text
-
-    def test_idea_infer_create_states_no_descope_rule(self, docs):
-        text = _read(docs["idea_infer"])
-        assert "claimed paths do not narrow work item scope" in text
-        assert "do **not** remove the file from the work item" in text
-        assert "coordination/dependency/blocking facts" in text
-        assert "path-claims rule in `.yoke/docs/agents/rules/lanes-and-claims.md`" in text
+    def test_idea_overlap_resolution_keeps_required_files(self, docs):
+        assert "Never drop a required file" in _read(docs["idea_path_blocking"])
+        closure = _read(docs["idea_path_closure"])
+        assert "list every required file by name" in closure
+        assert "[path-claim-blocking.md](path-claim-blocking.md)" in closure

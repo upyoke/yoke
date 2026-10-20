@@ -11,7 +11,7 @@ Shared with Conduct. Without `--auto-fix`, ask before each pass.
   every task body. Write back only what it changed (no change:
   `simulation_fix_no_change`):
   ```text
-  yoke workflow-item epic-task body-replace --epic PREFIX-N --task-num N --stdin
+  yoke workflow-item epic-task body-replace --epic PREFIX-N --task-num {task_num} --stdin
   yoke items structured-field replace PREFIX-N --field worktree_plan --source simulate --stdin
   ```
   Re-simulate; verified CLEAN: `AUTOFIX_CLEAN`.

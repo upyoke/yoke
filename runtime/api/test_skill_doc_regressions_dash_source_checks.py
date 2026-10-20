@@ -2,20 +2,12 @@
 
 from __future__ import annotations
 
-from runtime.api.skill_doc_regressions_test_helpers import SKILLS, _read
+from runtime.api.skill_doc_regressions_test_helpers import REPO, SKILLS, _read
 
 
-def test_dash_scopes_source_checks_before_teaching_commands() -> None:
-    text = _read(SKILLS / "dash" / "implement.md")
-    scope = "Only on a claimed Yoke source lane with changed Python"
-    for command in ("yoke dev import-check", "yoke dev ruff-changed"):
-        assert text.index(scope) < text.index(command)
-    assert "skip it when there are none" in text
-    assert (
-        "For other projects, run their own declared lint, format, and import smoke"
-        in text
-    )
-    assert "A change with no Python" in text
+def test_source_lint_is_taught_only_under_yoke_repo_internals() -> None:
+    text = _read(REPO / "AGENTS.md")
+    assert text.index("# Yoke Repo Internals") < text.index("yoke dev ruff-changed")
 
 
 def test_workflow_source_check_recipes_have_explicit_level_scope() -> None:

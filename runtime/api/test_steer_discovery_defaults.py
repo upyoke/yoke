@@ -4,10 +4,9 @@ from runtime.api.skill_doc_regressions_test_helpers import REPO, _read
 
 
 class TestNearTermPlanDefaultAcrossTeachingSurfaces:
-    """Router, help, command reference, and packet teach the same default."""
+    """Help, command reference, bootstrap, and packet teach the same default."""
 
     SURFACES = (
-        REPO / ".agents" / "skills" / "yoke" / "SKILL.md",
         REPO / ".agents" / "skills" / "yoke" / "help" / "SKILL.md",
         REPO / "docs" / "public" / "agents" / "commands.md",
         REPO / ".yoke" / "docs" / "agents" / "commands.md",

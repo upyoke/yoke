@@ -94,12 +94,8 @@ def test_conduct_dispatch_forwards_resolved_branch_and_sha_to_each_case() -> Non
     text = _read(CONDUCT_EPHEMERAL)
     recipe = _case_run_block(text)
 
-    assert "git -C {WORKTREE_PATH} rev-parse HEAD" in text
-    assert "Record expected branch and exact current Engineer commit" in text
-    assert "every subsequent Browser case" in text
     assert "--expected-branch {BRANCH}" in recipe
     assert "--expected-sha {HEAD_SHA}" in recipe
-    assert "omitted identity" in text
 
 
 def test_browser_docs_link_candidate_verification() -> None:

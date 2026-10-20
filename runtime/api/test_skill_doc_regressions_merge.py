@@ -3,39 +3,24 @@
 from runtime.api.skill_doc_regressions_test_helpers import SKILLS, _read
 
 
-def test_merge_argument_validation_preserves_public_ref_before_task_reads() -> None:
-    text = _read(SKILLS / "usher" / "merge-arguments.md")
+def test_merge_preflight_reuses_registered_rows_without_raw_sql() -> None:
+    lanes = _read(SKILLS / "usher" / "merge-arguments.md")
+    preflight = _read(SKILLS / "usher" / "merge-preflight.md")
 
-    resolve = text.index("yoke workflows item get PREFIX-N --json")
-    task_read = text.index("yoke epic-tasks list --epic PREFIX-N --json")
-    assert resolve < task_read
-    assert "supplied complete public ref unchanged" in text
-    assert "SELECT COUNT(*) FROM epic_tasks" not in text
-    assert "epic_id={epic-id}'" not in text
-
-
-def test_merge_preflight_reuses_registered_epic_task_rows() -> None:
-    text = _read(SKILLS / "usher" / "merge-preflight.md")
-
-    assert "simulation-get --epic PREFIX-N --phase integration --json" in text
-    assert "yoke epic-tasks list --epic PREFIX-N --json" in text
-    assert "yoke items get PREFIX-N worktree_plan" in text
-    assert "SELECT task_num, title, status FROM epic_tasks" not in text
-    assert "SELECT DISTINCT worktree FROM epic_tasks" not in text
-    assert "epic_id={epic-id}'" not in text
+    assert "yoke item-worktrees list PREFIX-N --json" in lanes
+    assert "simulation-get --epic PREFIX-N --phase integration --json" in preflight
+    assert "any FAIL or unfinished task stops" in preflight
+    for text in (lanes, preflight):
+        assert "FROM epic_tasks" not in text
+        assert "epic_id={epic-id}'" not in text
 
 
 def test_reviewed_lane_catch_up_stays_at_landing_under_existing_claim() -> None:
-    for path in (
-        SKILLS / "conduct" / "engineer-tester-closeout.md",
-        SKILLS / "usher" / "merge-lanes.md",
-    ):
-        text = _read(path)
-        assert "reviewed task stays reviewed" in text
-        assert "existing claim" in text
-        assert (
-            "review FAIL or a real change to item scope or acceptance criteria" in text
-        )
-        assert "unshipped migrations" in text
-        assert "consumer path" in text
-        assert "lane freshness alone does not" in text
+    closeout = " ".join(
+        _read(SKILLS / "conduct" / "engineer-tester-closeout.md").split()
+    )
+    assert "lagging main never un-reviews a task" in closeout
+
+    lanes = " ".join(_read(SKILLS / "usher" / "merge-lanes.md").split())
+    assert "keeps a reviewed task reviewed under the existing claim" in lanes
+    assert "only review FAIL or a real scope or criteria change reopens it" in lanes

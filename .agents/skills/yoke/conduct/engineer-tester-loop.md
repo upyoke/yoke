@@ -9,7 +9,8 @@ yoke workflow-item epic-progress-note list --epic PREFIX-N --task-num {task_num}
 yoke workflow-item epic-task review-list --epic PREFIX-N --task-num {task_num}
 ```
 
-Record TASK_BASELINE once, ATTEMPT_BASELINE per attempt. Add prior reviews
+Record TASK_BASELINE once; per attempt record ATTEMPT_BASELINE and
+NOTE_COUNT (the progress-note count). Add prior reviews
 and notes as `## Prior Attempts` (over 3000 characters: latest 3 notes, 2
 reviews). Build [context](dispatch-context.md), then dispatch Engineer
 ([dispatch-context-prompts.md](dispatch-context-prompts.md)). On return capture

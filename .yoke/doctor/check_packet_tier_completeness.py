@@ -68,14 +68,12 @@ SKILL_SCAN_TARGETS: Dict[str, Tuple[str, ...]] = {
         ".agents/skills/yoke/idea/SKILL.md",
     ),
     "engineer_agent": (
-        ".agents/skills/yoke/conduct/engineer-tester-dispatch.md",
         ".agents/skills/yoke/conduct/engineer-tester-loop.md",
         ".agents/skills/yoke/conduct/engineer-tester-closeout.md",
         ".agents/skills/yoke/conduct/dispatch-context-prompts.md",
         ".agents/skills/yoke/implement/SKILL.md",
     ),
     "tester_agent": (
-        ".agents/skills/yoke/conduct/engineer-tester-dispatch.md",
         ".agents/skills/yoke/conduct/engineer-tester-loop.md",
         ".agents/skills/yoke/conduct/engineer-tester-closeout.md",
         ".agents/skills/yoke/conduct/dispatch-context-prompts.md",

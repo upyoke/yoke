@@ -2,15 +2,7 @@
 
 from __future__ import annotations
 
-import re
-
 from runtime.api.skill_doc_regressions_test_helpers import REPO, SKILLS, _read
-
-
-def _prompt_block(text: str, start_marker: str, end_marker: str) -> str:
-    start = text.index(start_marker)
-    end = text.index(end_marker, start)
-    return text[start:end]
 
 
 class TestShepherdFileBackedInputContract:
@@ -45,63 +37,20 @@ class TestShepherdFileBackedInputContract:
         assert "PREFIX-${_num}" not in text
         assert 'printf \'%s\' "$_pre_pm_spec" >"$_pm_input_path"' in text
 
-    def test_pm_prompt_names_input_path_and_requires_read(self) -> None:
-        block = _prompt_block(
-            self.text,
-            " Write a structured spec for backlog epic PREFIX-{N}.",
-            "Capture the PM's output as `_worker_output`.",
-        )
-        # The prompt must direct the PM to Read the named input file and not
-        # rely on any inline content.
-        assert "{_pre_pm_context_block if non-empty}" in block
-        assert "MUST Read" in block
-        assert "do not rely on any inline copy" in block
-        assert "Do not attempt to run DB or" in block
-        assert "python3 -m yoke_core.cli.db_router" not in block
-
-    def test_pm_context_block_advertises_file_path_to_agent(self) -> None:
-        text = self.text
-        # The dispatch prompt's context block (substituted at runtime) must
-        # advertise the absolute path and the MUST-Read contract, with a
-        # fail-closed branch when the path is unreadable.
-        assert (
-            "Your input ${_pre_pm_source} for ${_item_ref} is at ${_pm_input_path}"
-            in text
-        )
-        assert "If the path is unreadable" in text
-        assert "stop from that premise" in text
+    def test_pm_dispatch_names_the_input_file(self) -> None:
+        assert "dispatches product-manager with that file" in self.text
 
     def test_pm_guard_skips_write_after_destructive_rewrite(self) -> None:
-        # FR-A2b byte-loss guard remains in place — preserved alongside the
-        # file-backed contract; the two are complementary.
+        # The byte-loss guard complements the file-backed contract.
         text = self.text
         assert "_pm_destructive_rewrite=1" in text
-        assert 'if [ "${_pm_destructive_rewrite:-0}" != "1" ]; then' in text
+        assert "NOT_READY, no write" in text
 
     def test_designer_orchestrator_writes_input_to_stable_file(self) -> None:
-        text = self.text
-        assert "_pd_input_path=" in text
-        assert 'printf \'%s\' "$_pre_designer_spec" >"$_pd_input_path"' in text
-
-    def test_designer_prompt_names_input_path_and_requires_read(self) -> None:
-        block = _prompt_block(
-            self.text,
-            " Create a UX/design spec for PREFIX-{N}.",
-            "Write the Designer's output to the `items.design_spec` structured field.",
-        )
-        assert "{_pre_designer_context_block if non-empty}" in block
-        assert "MUST Read" in block
-        assert "do not rely on any inline copy" in block
-        assert "Do not attempt to run DB or" in block
-        assert "python3 -m yoke_core.cli.db_router" not in block
-
-    def test_designer_context_block_advertises_file_path_to_agent(self) -> None:
-        text = self.text
         assert (
-            "Your input ${_pre_designer_source} for ${_item_ref} is at ${_pd_input_path}"
-            in text
-        )
-        assert "If the path is unreadable" in text
+            "printf '%s' \"$_pre_designer_spec\" "
+            '>"${_pm_input_dir}/product-designer-spec.md"'
+        ) in self.text
 
     def test_doc_does_not_re_introduce_inline_data_fences(self) -> None:
         """Regression: re-introducing the `<pre_pm_spec ...>` or
@@ -127,13 +76,6 @@ class TestShepherdFileBackedInputContract:
                 "claim 'embedded below'."
             )
 
-    def test_doc_still_carries_read_only_tool_contract(self) -> None:
-        """PM and PD remain `Read, Grep, Glob` only; the file-backed contract
-        works inside that grant (the orchestrator owns the DB read and the file
-        write, both agents Read the resulting path)."""
-        text = self.text
-        assert re.search(r"Read, Grep, Glob.*no Bash, no DB packet", text)
-
 
 class TestPMAgentBodyTeachesFileBackedContract:
     """The PM and PD agent bodies must teach the path-Read contract so that the
@@ -149,6 +91,7 @@ class TestPMAgentBodyTeachesFileBackedContract:
     def test_pm_body_names_input_file_contract(self) -> None:
         body = self._agent_body("product-manager")
         assert "Input File Contract" in body
+        assert "Tools: `Read, Grep, Glob`; no Bash" in body
         # Parent-dispatch tests above cover scratch resolution. The role's
         # action is the first Read of its absolute inherited-content path.
         assert "absolute input-spec path as your first action" in " ".join(body.split())
@@ -164,6 +107,7 @@ class TestPMAgentBodyTeachesFileBackedContract:
     def test_pd_body_names_input_file_contract(self) -> None:
         body = self._agent_body("product-designer")
         assert "Input File Contract" in body
+        assert "Tools: `Read, Grep, Glob`; no Bash" in body
         assert "absolute input-spec path as your first action" in " ".join(body.split())
         assert "Missing/empty/unreadable/bad-encoding input" in body
         assert "MUST Read" in body
@@ -182,8 +126,7 @@ class TestLargeSpecPreservationByConstruction:
     inherited content is written to a file and the dispatch prompt names the
     path, so there is no inline content to truncate. A doc-regression check
     proves the construction: the file-write step uses the full ``_pre_pm_spec``
-    variable, and the prompt-template substitution surface (``{_pre_pm_context_block ...}``)
-    no longer carries the inherited content inline.
+    variable, and no other line carries the inherited content inline.
     """
 
     @property
@@ -201,26 +144,12 @@ class TestLargeSpecPreservationByConstruction:
             )
 
     def test_pd_file_write_uses_full_pre_designer_spec(self) -> None:
-        text = self.text
-        assert 'printf \'%s\' "$_pre_designer_spec" >"$_pd_input_path"' in text
+        assert "printf '%s' \"$_pre_designer_spec\" >" in self.text
 
-    def test_pm_prompt_does_not_inline_spec_variable(self) -> None:
-        """The PM prompt template must not interpolate ``$_pre_pm_spec`` or
-        ``${_pre_pm_spec}`` directly; the file-backed path is the only surface
-        that carries the inherited content into the dispatch."""
-        block = _prompt_block(
-            self.text,
-            " Write a structured spec for backlog epic PREFIX-{N}.",
-            "Capture the PM's output as `_worker_output`.",
-        )
-        assert "$_pre_pm_spec" not in block
-        assert "${_pre_pm_spec}" not in block
-
-    def test_pd_prompt_does_not_inline_spec_variable(self) -> None:
-        block = _prompt_block(
-            self.text,
-            " Create a UX/design spec for PREFIX-{N}.",
-            "Write the Designer's output to the `items.design_spec` structured field.",
-        )
-        assert "$_pre_designer_spec" not in block
-        assert "${_pre_designer_spec}" not in block
+    def test_inherited_spec_reaches_agents_only_through_the_file_write(self) -> None:
+        """The inherited spec variables appear only in their file-write lines,
+        so no dispatch prompt can carry the content inline."""
+        for variable in ("_pre_pm_spec", "_pre_designer_spec"):
+            lines = [line for line in self.text.splitlines() if variable in line]
+            assert len(lines) == 1, (variable, lines)
+            assert lines[0].startswith("printf '%s' "), lines[0]
