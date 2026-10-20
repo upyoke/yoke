@@ -153,6 +153,7 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
         "harness-unattended-posture",
         "register-machine",
         "install-yoke-global-skill",
+        "restart-hook-evaluator",
         "project-refresh-scaffold",
         "project-install-agent-rules",
         "project-install-tool-permissions",

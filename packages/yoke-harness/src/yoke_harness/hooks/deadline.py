@@ -7,24 +7,19 @@ import time
 from dataclasses import dataclass
 from typing import Callable
 
+from yoke_contracts.hook_budget import (
+    TOTAL_TIMEOUT_DEFAULT_MS,
+    TOTAL_TIMEOUT_ENV,
+    hook_budget_ms,
+)
 
-TOTAL_TIMEOUT_DEFAULT_MS = 10000
-TOTAL_TIMEOUT_ENV = "YOKE_HOOK_TOTAL_TIMEOUT_MS"
 
 Clock = Callable[[], float]
 
 
 def resolve_total_timeout_ms() -> int:
     """Return the product hook wait budget in milliseconds."""
-    raw = os.environ.get(TOTAL_TIMEOUT_ENV, "").strip()
-    if raw:
-        try:
-            value = int(raw)
-        except ValueError:
-            value = TOTAL_TIMEOUT_DEFAULT_MS
-        if value > 0:
-            return value
-    return TOTAL_TIMEOUT_DEFAULT_MS
+    return hook_budget_ms(os.environ)
 
 
 @dataclass(frozen=True)

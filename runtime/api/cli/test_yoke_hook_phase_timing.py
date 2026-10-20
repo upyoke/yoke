@@ -50,6 +50,10 @@ def test_a_degraded_hook_logs_its_phases_without_chat_noise(
     from yoke_cli.commands.adapters import hooks
     from yoke_cli.hook_resident_client import ResidentUnavailable
 
+    # A fresh hook process: the resident wait leaves most of its budget.
+    monkeypatch.setattr("yoke_cli.hook_client_wall._process_age", lambda: 0.0)
+    monkeypatch.setenv("YOKE_HOOK_TOTAL_TIMEOUT_MS", "10000")
+
     def refuse(*_args, **_kwargs):
         raise ResidentUnavailable(
             "YOKE_HOOK_RESIDENT_UNREACHABLE",

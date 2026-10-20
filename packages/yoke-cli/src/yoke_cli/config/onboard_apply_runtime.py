@@ -8,6 +8,7 @@ from typing import Any, Mapping
 from yoke_contracts import harness_unattended_posture
 from yoke_cli.config import harness_posture_install
 from yoke_cli.config import onboard_global_skill
+from yoke_cli.config import onboard_hook_resident
 from yoke_cli.config import onboard_machine_setup
 from yoke_cli.config import onboard_apply_progress
 from yoke_cli.config import onboard_machine_registry
@@ -44,6 +45,8 @@ def apply(
     )
     onboard_machine_registry.apply(config_path, progress=progress, report=report)
     onboard_global_skill.apply(progress=progress, report=report)
+    # Last, so the first harness session meets a warm evaluator.
+    onboard_hook_resident.apply(progress=progress, report=report)
 
 
 __all__ = ["apply"]

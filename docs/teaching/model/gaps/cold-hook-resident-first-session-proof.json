@@ -1,0 +1,8 @@
+{
+ "id": "cold-hook-resident-first-session-proof",
+ "title": "Prove a cold first session registers on a small machine",
+ "status": "observed",
+ "text": "Source tests prove the resident listens before it loads the evaluator, that a loading, never-listening or exiting resident holds the hook client no longer than YOKE_HOOK_TOTAL_TIMEOUT_MS (capped below the shortest harness hook timeout), and that a spent budget answers hook_budget_exhausted with yoke hook resident restart as recovery. yoke setup now restarts the resident before the first harness session. Still owed: a live check on a 2 vCPU, 1 GB Linux test machine that Cursor's first turn after yoke setup registers its session, and that a first hook after the ten-minute idle retirement answers inside Cursor's 30-second hook timeout.",
+ "surfaces": ["global-hooks"],
+ "sources": ["docs/hooks.md", "packages/yoke-cli/src/yoke_cli/hook_resident_client.py", "packages/yoke-harness/src/yoke_harness/hook_resident.py", "runtime/api/cli/test_yoke_hook_resident_budget.py"]
+}

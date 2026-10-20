@@ -46,7 +46,7 @@ def test_doctor_reports_down_even_with_suppressed_warning(paths):
     assert result.result == "FAIL"
     assert "YOKE_HOOK_RESIDENT_UNREACHABLE" in result.detail
     assert str(paths.log) in result.detail
-    assert "new harness session" in result.detail
+    assert "yoke hook resident restart" in result.detail
     assert not paths.socket.exists()  # Doctor must not start a resident.
 
 

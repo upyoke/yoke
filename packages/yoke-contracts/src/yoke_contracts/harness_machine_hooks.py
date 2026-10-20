@@ -76,6 +76,10 @@ class HarnessMachineHooks:
     project_config_in_ancestors: bool
     events: tuple[MachineHookEvent, ...]
     trust: TrustKind
+    # Seconds the harness lets one hook command run before it kills it: the
+    # value Yoke writes into the hook entry, or the harness default when Yoke
+    # writes none. Every hook budget stays below the shortest of these.
+    hook_timeout_seconds: int
     deferrals: tuple[str, ...] = ()
 
     def home_path(self, environ: Optional[Mapping[str, str]] = None) -> Path:
@@ -116,6 +120,7 @@ class HarnessMachineHooks:
             "project_config_in_ancestors": self.project_config_in_ancestors,
             "events": [event.to_json() for event in self.events],
             "trust": self.trust,
+            "hook_timeout_seconds": self.hook_timeout_seconds,
             "deferrals": list(self.deferrals),
         }
 
@@ -137,6 +142,8 @@ HARNESS_MACHINE_HOOKS: Mapping[str, HarnessMachineHooks] = {
             MachineHookEvent("SessionEnd", "SessionEnd"),
         ),
         trust="none",
+        # Claude Code's default command-hook timeout; Yoke writes none.
+        hook_timeout_seconds=600,
     ),
     "codex": HarnessMachineHooks(
         harness_id="codex",
@@ -153,6 +160,8 @@ HARNESS_MACHINE_HOOKS: Mapping[str, HarnessMachineHooks] = {
             MachineHookEvent("Stop", "Stop"),
         ),
         trust="codex_trusted_hash",
+        # Codex's default command-hook timeout; Yoke writes none.
+        hook_timeout_seconds=600,
         deferrals=(
             "SessionEnd: codex-cli 0.161.0 fires a SessionEnd hook, but Yoke's "
             "Codex project hooks do not wire it; the machine-wide set matches "
@@ -175,6 +184,9 @@ HARNESS_MACHINE_HOOKS: Mapping[str, HarnessMachineHooks] = {
             MachineHookEvent("sessionEnd", "SessionEnd"),
         ),
         trust="none",
+        # Written into every Cursor hook entry; the platform default is
+        # undocumented.
+        hook_timeout_seconds=30,
     ),
 }
 

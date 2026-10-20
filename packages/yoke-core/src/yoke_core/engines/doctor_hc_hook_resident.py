@@ -27,7 +27,8 @@ def hc_hook_resident(conn: Any, args: DoctorArgs, rec: RecordCollector) -> None:
             TITLE,
             "FAIL",
             f"YOKE_HOOK_RESIDENT_STATE_UNREADABLE: {type(exc).__name__}. "
-            "Repair the machine cache directory permissions and start a new session.",
+            "Repair the machine cache directory permissions, then run "
+            "yoke hook resident restart.",
         )
         return
     if problem:
@@ -35,8 +36,8 @@ def hc_hook_resident(conn: Any, args: DoctorArgs, rec: RecordCollector) -> None:
             SLUG,
             TITLE,
             "FAIL",
-            f"{problem}. Start a new harness session to load the installed build; "
-            f"if it persists, inspect {paths.log}.",
+            f"{problem}. Run yoke hook resident restart to start the installed "
+            f"build and prove it answers; if that fails, inspect {paths.log}.",
         )
         return
     rec.record(SLUG, TITLE, "PASS", "Resident runs the installed build.")

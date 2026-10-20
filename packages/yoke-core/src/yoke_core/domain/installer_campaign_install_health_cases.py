@@ -61,7 +61,7 @@ with TemporaryDirectory(prefix="install-health-") as directory:
         ("guidance-unknown", "yoke project install"),
         ("instruction-pointer-missing", "yoke project install"),
         ("machine-unregistered", "yoke setup"),
-        ("resident-stale", "new harness session"),
+        ("resident-stale", "yoke hook resident restart"),
     ])
     fn, reason, patches = cases[scenario]
     with ExitStack() as stack:

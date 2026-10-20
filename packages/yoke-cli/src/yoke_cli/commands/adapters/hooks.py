@@ -29,6 +29,13 @@ __all__ = ["HOOK_EVALUATE_USAGE", "hook_evaluate"]
 
 
 HOOK_EVALUATE_USAGE = "yoke hook evaluate <event> [--dry-run]"
+# Below this much remaining budget an in-process fallback cannot finish, so
+# the hook refuses by name instead of starting one.
+MINIMUM_FALLBACK_MS = 2000
+
+
+class HookBudgetExhausted(RuntimeError):
+    """The resident failed with too little hook budget left for a fallback."""
 
 
 def _read_stdin() -> str:
@@ -164,6 +171,24 @@ def _dispatch_hook(args: List[str], stdin_data: str | None = None) -> int:
             client_started_monotonic=client_timing.started_monotonic,
         )
     except ResidentUnavailable as exc:
+        from yoke_contracts.hook_budget import TOTAL_TIMEOUT_ENV, hook_budget_ms
+
+        remaining_ms = hook_budget_ms(os.environ) - client_timing.elapsed_ms()
+        # Refuse only when waiting on the resident spent the budget; with no
+        # resident to wait on, the in-process evaluator is the only path.
+        if exc.resident_wait_ms > 0 and remaining_ms < MINIMUM_FALLBACK_MS:
+            _report_phase_timing(
+                resident_wait_ms=exc.resident_wait_ms,
+                fallback_ms=None,
+                client_timing=client_timing,
+                fallback_reason=exc.code,
+                always=True,
+            )
+            raise HookBudgetExhausted(
+                f"hook_budget_exhausted: {exc.code}: {exc.detail}; the hook "
+                "evaluator is starting or stuck. Retry; if it persists run "
+                f"yoke hook resident restart and inspect {exc.log_path}"
+            ) from None
         if claim_fallback_warning(exc.log_path.parent):
             sys.stderr.write(
                 f"WARNING: {exc.code}: {exc.detail}; using canonical in-process "
@@ -171,15 +196,24 @@ def _dispatch_hook(args: List[str], stdin_data: str | None = None) -> int:
                 "check: yoke watch doctor -- --only hook-resident)\n"
             )
         fallback_ms: list[int] = []
-        exit_code = _evaluate_inprocess(
-            parsed.event_name,
-            stdin_data,
-            dry_run=False,
-            cursor_invocation=cursor_invocation,
-            fallback_reason=exc.code,
-            client_timing=client_timing,
-            elapsed_ms=fallback_ms,
-        )
+        # The fallback spends only what is left of this process's budget.
+        configured = os.environ.get(TOTAL_TIMEOUT_ENV)
+        os.environ[TOTAL_TIMEOUT_ENV] = str(max(1, remaining_ms))
+        try:
+            exit_code = _evaluate_inprocess(
+                parsed.event_name,
+                stdin_data,
+                dry_run=False,
+                cursor_invocation=cursor_invocation,
+                fallback_reason=exc.code,
+                client_timing=client_timing,
+                elapsed_ms=fallback_ms,
+            )
+        finally:
+            if configured is None:
+                os.environ.pop(TOTAL_TIMEOUT_ENV, None)
+            else:
+                os.environ[TOTAL_TIMEOUT_ENV] = configured
         # Keep the phase evidence in diagnostics, outside harness chat.
         _report_phase_timing(
             resident_wait_ms=exc.resident_wait_ms,
@@ -233,6 +267,7 @@ def hook_evaluate(args: List[str]) -> int:
         with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
             code = _dispatch_hook(args, raw)
     except (
+        HookBudgetExhausted,
         OSError,
         ValueError,
         ImportError,
@@ -247,7 +282,9 @@ def hook_evaluate(args: List[str]) -> int:
             event,
             payload,
             executor,
-            f"hook_infrastructure_unavailable: {type(exc).__name__}",
+            str(exc)
+            if isinstance(exc, HookBudgetExhausted)
+            else f"hook_infrastructure_unavailable: {type(exc).__name__}",
         )
         if code == 2 and not executor.startswith(("codex", "cursor")):
             sys.stderr.write(format_hook_diagnostic(event, text) + "\n")

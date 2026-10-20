@@ -65,6 +65,7 @@ def _serve_test_resident(socket_path: str, ready, mode: str) -> None:
     lock_path = Path(socket_path).with_suffix(".lock")
     lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
     server = _ResidentServer(socket_path, lock_fd)
+    server.load_evaluator()
     if mode == "context":
         server.evaluate_inprocess = _context_evaluator(threading.Barrier(2))
     ready.send(server.loaded_revision)
@@ -252,6 +253,9 @@ def test_guarded_tools_remain_relayed(tool: str) -> None:
 
 def test_client_falls_back_with_named_reason(monkeypatch, tmp_path, capsys) -> None:
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setenv("YOKE_HOOK_TOTAL_TIMEOUT_MS", "10000")
+    # A fresh hook process: its whole budget is still ahead of it.
+    monkeypatch.setattr("yoke_cli.hook_client_wall._process_age", lambda: 0.0)
     monkeypatch.setattr(sys, "stdin", io.StringIO("{}"))
 
     def unavailable(*_args, **_kwargs):
@@ -269,11 +273,18 @@ def test_client_falls_back_with_named_reason(monkeypatch, tmp_path, capsys) -> N
     monkeypatch.setattr(
         hooks,
         "_evaluate_inprocess",
-        lambda *args, **kwargs: captured.update(kwargs) or 7,
+        lambda *args, **kwargs: captured.update(
+            kwargs, budget=os.environ["YOKE_HOOK_TOTAL_TIMEOUT_MS"]
+        )
+        or 7,
     )
     assert hooks.hook_evaluate(["PreToolUse"]) == 7
     assert captured["fallback_reason"] == "YOKE_HOOK_RESIDENT_UNREACHABLE"
     assert "using canonical in-process fallback" in capsys.readouterr().err
+    # The fallback evaluates inside what is left of this process's budget,
+    # and the process's own setting is restored afterwards.
+    assert 0 < int(captured["budget"]) <= 10000
+    assert os.environ["YOKE_HOOK_TOTAL_TIMEOUT_MS"] == "10000"
 
 
 def test_message_probe_interval_is_bounded() -> None:

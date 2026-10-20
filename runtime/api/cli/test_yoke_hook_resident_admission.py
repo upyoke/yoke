@@ -1,27 +1,15 @@
-"""Request admission and the connect budget hold up while telemetry fails.
+"""Request admission holds up while telemetry fails.
 
 Every session on a machine shares one resident, so anything the accept
-loop waits on between requests is paid by every hook on the machine. The
-same is true of the client's connect grace: a budget checked only at the
-top of a retry loop is not a budget.
+loop waits on between requests is paid by every hook on the machine.
 """
 
 from __future__ import annotations
 
-import socket
 import threading
 import time
 from unittest.mock import Mock
 
-import pytest
-
-from yoke_cli.hook_resident_client import (
-    RESIDENT_CONNECT_GRACE_SECONDS,
-    ResidentUnavailable,
-    _connect_timeout_seconds,
-    _result_timeout_seconds,
-    evaluate_with_resident,
-)
 from yoke_harness.hook_resident import (
     RESTART_FOR_INSTALLED_REVISION,
     RETIRED_WHILE_IDLE,
@@ -68,47 +56,3 @@ def test_a_busy_resident_keeps_serving() -> None:
 
     assert _exit_reason(server) is None
 
-
-def test_connect_timeout_refuses_once_the_grace_is_spent() -> None:
-    with pytest.raises(socket.timeout):
-        _connect_timeout_seconds(time.monotonic() - 0.1)
-
-    assert _connect_timeout_seconds(time.monotonic() + 10) <= 0.1
-
-
-def test_the_response_wait_shrinks_by_what_the_connect_phase_spent() -> None:
-    environment = {"YOKE_HOOK_TOTAL_TIMEOUT_MS": "10000"}
-    ceiling = _result_timeout_seconds(environment, None)
-    after_grace = _result_timeout_seconds(
-        environment, time.monotonic() - RESIDENT_CONNECT_GRACE_SECONDS
-    )
-
-    assert ceiling == pytest.approx(12.0)
-    assert after_grace == pytest.approx(10.0, abs=0.2)
-    # However long was already spent, a real evaluation keeps a floor.
-    assert _result_timeout_seconds(environment, time.monotonic() - 600) == 1.0
-
-
-def test_a_resident_that_only_ever_restarts_gives_up_inside_the_grace(
-    monkeypatch,
-) -> None:
-    # Exercise the retry deadline without a scheduler-dependent socket server.
-    monkeypatch.setattr(
-        "yoke_cli.hook_resident_client._round_trip",
-        lambda *_args, **_kwargs: {
-            "status": "restart",
-            "loaded_revision": "aaaaaaaaaaaa",
-            "requested_revision": "bbbbbbbbbbbb",
-        },
-    )
-
-    started = time.monotonic()
-    with pytest.raises(ResidentUnavailable) as raised:
-        evaluate_with_resident("PreToolUse", "{}")
-    elapsed = time.monotonic() - started
-    assert elapsed < RESIDENT_CONNECT_GRACE_SECONDS + 0.5, f"waited {elapsed:.2f}s"
-    assert raised.value.code == "YOKE_HOOK_RESIDENT_UNREACHABLE"
-    # Both revisions are named, so a stuck upgrade reads from one line.
-    assert "aaaaaaaaaaaa" in raised.value.detail
-    assert "bbbbbbbbbbbb" in raised.value.detail
-    assert raised.value.resident_wait_ms > 0

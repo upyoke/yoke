@@ -67,6 +67,7 @@ def test_short_lived_client_reports_wall_time_after_resident_response(
     response = _round_trip(
         paths,
         request,
+        time.monotonic() + 5,
         client_started_monotonic=time.monotonic() - 0.01,
     )
     thread.join(timeout=2)
