@@ -51,7 +51,10 @@ def run_operator_gate(control, terminal, action, rows, allowed_operator_urls, pr
         approve_browser=lambda url, code: approve_machine_in_desktop_chromium(
             control, verification_url=url, user_code=code
         ),
-        run_yoke=yoke_runner(control._run, control.path_state.yoke_bin),
+        # Only admission gates run yoke, so only they need the resolved binary.
+        run_yoke=lambda arguments: yoke_runner(
+            control._run, control.path_state.yoke_bin
+        )(arguments),
         terminal_location=(
             "the terminal window on the test machine's desktop "
             f"(tmux attach-session -t {terminal.session})"
