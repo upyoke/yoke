@@ -60,6 +60,37 @@ def test_flags_non_yoke_prefixes(tmp_path: Path) -> None:
     assert len(hits) == 2
 
 
+def test_flags_single_project_ref_regexes(tmp_path: Path) -> None:
+    # Each recognizes one project's refs and skips every other project.
+    _write(
+        tmp_path,
+        "packages/pkg/src/lanes.py",
+        'A = re.compile(r"^YOK-(\\d+)$")\n'
+        'B = re.findall(r"BUZ-\\d+", text)\n'
+        'C = re.compile(r"PLAT-[0-9]+")\n',
+    )
+    hits = scan(tmp_path, _PREFIXES)
+    assert [hit.line for hit in hits] == [1, 2, 3]
+
+
+def test_prefix_regex_needs_a_word_boundary(tmp_path: Path) -> None:
+    _write(tmp_path, "packages/pkg/src/other.py", 'X = r"SUBYOK-(\\d+)"\n')
+    assert scan(tmp_path, _PREFIXES) == []
+
+
+def test_flags_match_group_number_read_as_item_id(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        "packages/pkg/src/gate.py",
+        "item_id = int(match.group(1))\n"
+        'row = conn.execute("SELECT status FROM items WHERE id = %s", '
+        "(int(m.group(1)),))\n"
+        "width = int(match.group(2))\n",
+    )
+    hits = scan_parser_policy(tmp_path)
+    assert [hit.line for hit in hits] == [1, 2]
+
+
 def test_variable_prefix_helper_is_not_flagged(tmp_path: Path) -> None:
     # The canonical formatter builds from a variable prefix — no literal token.
     _write(
