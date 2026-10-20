@@ -35,6 +35,12 @@ from yoke_cli.config.path_state_contract import (
 
 
 _VERIFY_TIMEOUT_S = 10
+# uv exits non-zero when the tool directory is missing from the current PATH
+# but every startup file it manages already adds it.
+_UV_ALREADY_CONFIGURED = "configuration files are already up-to-date"
+# sshd starts the remote command with SSH_CLIENT set and no SHLVL; bash reads
+# ~/.bashrc for a non-interactive command only then.
+_SSH_CLIENT_PROBE = "127.0.0.1 0 22"
 
 
 @dataclass(frozen=True)
@@ -90,6 +96,8 @@ def update_shell(*, env: dict[str, str] | None = None) -> str:
         raise OSError(
             f"uv_shell_update_failed: {exc}; run `uv tool update-shell`."
         ) from exc
+    if result.returncode and _UV_ALREADY_CONFIGURED in result.stderr:
+        return f"Shell startup files already add {tool_bin_dir(environ)} to PATH.\n"
     if result.returncode:
         raise OSError(
             f"uv_shell_update_failed: {result.stderr.strip()}; "
@@ -167,7 +175,12 @@ def verify_ssh_command(
     env: dict[str, str] | None = None,
     managed_path_dirs: Sequence[str] | None = None,
 ) -> list[ToolResolution]:
-    return _verify_shell("-c", shell, env=env, managed_path_dirs=managed_path_dirs)
+    environ = dict(os.environ if env is None else env)
+    environ.setdefault("SSH_CLIENT", _SSH_CLIENT_PROBE)
+    environ.pop("SHLVL", None)
+    return _verify_shell(
+        "-c", shell, env=environ, managed_path_dirs=managed_path_dirs
+    )
 
 
 def _resolves_required_tools(

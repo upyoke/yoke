@@ -197,6 +197,33 @@ def test_fresh_login_probe_observes_operator_rc(tmp_path):
     assert {row.name: row.path for row in ssh}["yoke"] is None
 
 
+def test_ssh_probe_reads_bashrc_like_sshd(tmp_path):
+    bash = shutil.which("bash")
+    if not bash:
+        pytest.skip("bash is required to exercise the ssh command probe")
+    home = tmp_path / "home"
+    home.mkdir()
+    tool_dir = tmp_path / "xdg-bin"
+    tool_dir.mkdir()
+    yoke = tool_dir / "yoke"
+    yoke.write_text("#!/bin/sh\nexit 0\n")
+    yoke.chmod(0o755)
+    (home / ".bashrc").write_text(f'export PATH="{tool_dir}:$PATH"\n')
+    env = {
+        "HOME": str(home),
+        "SHELL": bash,
+        "SHLVL": "1",
+        "PATH": "/usr/bin:/bin",
+        "XDG_BIN_HOME": str(tool_dir),
+    }
+
+    diag = doctor.diagnose(env=env, home=home)
+
+    assert diag.ssh_startup_file == str(home / ".bashrc")
+    assert {row.name: row.path for row in diag.ssh_resolved}["yoke"] == str(yoke)
+    assert diag.ssh_needs_fix is False
+
+
 def test_path_check_json_is_parseable(capsys):
     assert cli.path_check(["--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
