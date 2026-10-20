@@ -119,8 +119,8 @@ def configure_claude_cli_permission_mode(
     if current is not None:
         return [
             f"claude-code: left your own setting in place — "
-            f"{claude_settings_problems(data)[0]}; the CLI will keep asking "
-            "until you change it"
+            f"{claude_settings_problems(data)[0]}; the CLI asks before "
+            "commands its allowlist does not name"
         ]
     permissions[CLAUDE_SETTINGS_PERMISSION_MODE_KEY] = CLAUDE_SETTINGS_PERMISSION_MODE
     data[CLAUDE_PERMISSIONS_CONTAINER] = permissions

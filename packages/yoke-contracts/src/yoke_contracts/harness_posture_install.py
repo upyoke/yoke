@@ -7,6 +7,11 @@ stop and ask, so a fresh install leaves a stranger approving each ``yoke``
 call by hand. This pass closes that gap for each harness actually present,
 from the single posture declaration the launch route already reads.
 
+Where the operator already chose a mode, it is kept, and the pass instead
+adds the one ``yoke`` allow entry to the harness's machine-wide allowlist
+(:mod:`yoke_contracts.harness_yoke_allow`), so Yoke runs before any project
+exists without widening anything else.
+
 It is deliberately loud. Widening what a harness will run without asking is
 the operator's business, so each write is named in the installer's output,
 anything the operator has set differently is reported and left alone, and
@@ -42,6 +47,7 @@ def configure_harness_unattended_posture(
     from yoke_contracts.cursor_posture_install import (
         configure_cursor_unattended_posture,
     )
+    from yoke_contracts.harness_yoke_allow import configure_yoke_allow
 
     out = stream if stream is not None else sys.stdout
     actions: List[str] = []
@@ -64,6 +70,8 @@ def configure_harness_unattended_posture(
             else []
         )
         + (list(configure_cursor_unattended_posture()) if "cursor" in harnesses else [])
+        # Last, so a mode the operator kept above still lets yoke run.
+        + [line for harness in harnesses for line in configure_yoke_allow(harness)]
     )
     for line in reported:
         out.write(f"{line}\n")

@@ -22,6 +22,7 @@ from yoke_contracts.harness_folder_trust import claude_state_path, cursor_trust_
 from yoke_contracts.harness_folder_trust_grant import grant_folder_trust
 from yoke_contracts.harness_machine_hooks import HARNESS_MACHINE_HOOKS
 from yoke_contracts.harness_posture_install import configure_harness_unattended_posture
+from yoke_contracts.harness_yoke_allow import yoke_posture
 from yoke_contracts.machine_config.checkout import (
     main_checkout,
     registered_worktree_paths,
@@ -108,21 +109,17 @@ def _posture(harness: str) -> tuple[bool, str]:
             raise ValueError(
                 f"harness_config_malformed: {target}: {key} is not an object"
             )
-    problems = list(posture.posture_problems(harness, doc))
     if harness == "claude-code":
-        settings = posture.claude_settings_path()
-        settings_doc = _document(settings)
+        target = posture.claude_settings_path()
+        settings_doc = _document(target)
         if "permissions" in settings_doc and not isinstance(
             settings_doc["permissions"], dict
         ):
             raise ValueError(
-                f"harness_config_malformed: {settings}: permissions is not an object"
+                f"harness_config_malformed: {target}: permissions is not an object"
             )
-        problems.extend(posture.claude_settings_problems(settings_doc))
-        # Desktop preferences apply only when the desktop has created its config.
-        if not target.exists():
-            problems = list(posture.claude_settings_problems(_document(settings)))
-        target = settings
+    verdict = yoke_posture(harness)
+    problems = verdict.blocking if verdict else (f"no {harness} config",)
     return not problems, f"harness_posture_missing: {target}: {'; '.join(problems)}"
 
 
