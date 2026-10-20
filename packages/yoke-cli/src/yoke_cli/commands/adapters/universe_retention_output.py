@@ -161,9 +161,12 @@ def _write_detail(result, out):
 
 def compact_json_response(response):
     """Keep actionable counts inline and preserve every detail without rerunning."""
+    from yoke_cli.transport.output_limit import reply_exceeds_limit
     from yoke_cli.transport.response_evidence import save_response
 
     complete = response.model_dump(mode="json")
+    if not reply_exceeds_limit(json.dumps(complete, sort_keys=True) + "\n"):
+        return response
     evidence = save_response(complete, json.dumps(complete), "")
     result = dict(complete["result"])
     tables = result["tables"]
