@@ -5,8 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Protocol
 
 from yoke_cli.config import yoke_dev_detect as dev_detect
+from yoke_cli.config import onboard_wizard_apply_facts as apply_facts
 from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT
 from yoke_cli.config.setup_prompt import TONE_ERROR, SelectionRow, SetupPrompt
+from yoke_cli.config.setup_run_facts import APPLY_NEW_FOLDER
 
 if TYPE_CHECKING:  # pragma: no cover
     from yoke_cli.config.onboard_wizard_state import _View
@@ -18,9 +20,12 @@ _CLONE_SOURCE = "clone"
 class _Shell(Protocol):
     result: Any
     _preset_dev_checkout: str | None
+    _run_facts: Any
 
     def _goto(self, view: "_View") -> None: ...
-    def _selection_view(self, key, step, title, subtitle, rows, on_select) -> "_View": ...
+    def _selection_view(
+        self, key, step, title, subtitle, rows, on_select
+    ) -> "_View": ...
     def _goto_input(
         self,
         key,
@@ -62,6 +67,7 @@ class DevFlow:
         )
 
     def _show_dev_checkout(self: _Shell, checkouts: Any) -> None:
+        checkouts = apply_facts.without_own_folder(self, list(checkouts))
         if len(checkouts) == 1:
             self._use_dev_checkout(str(checkouts[0]))
             return
@@ -132,9 +138,14 @@ class DevFlow:
         )
 
     def _use_dev_checkout(self: _Shell, checkout: str) -> None:
-        error = dev_detect.preflight_dev_checkout(
-            checkout,
-            cloning=bool(self.result.project_remote_url),
+        # A folder this run's Apply cloned into was checked when it was chosen.
+        error = (
+            None
+            if self._run_facts.names_folder(APPLY_NEW_FOLDER, checkout)
+            else dev_detect.preflight_dev_checkout(
+                checkout,
+                cloning=bool(self.result.project_remote_url),
+            )
         )
         if error is not None:
             self._goto_dev_error(error)
@@ -152,10 +163,14 @@ class DevFlow:
                     step=STEP_PROJECT,
                     title="Yoke source is not ready.",
                     message=message,
-                    detail_lines=tuple([
-                        "Choose an existing Yoke source checkout, or an empty folder plus its clone URL."
-                    ]),
-                    choices=tuple([SelectionRow("back", "Back", "choose the source again")]),
+                    detail_lines=tuple(
+                        [
+                            "Choose an existing Yoke source checkout, or an empty folder plus its clone URL."
+                        ]
+                    ),
+                    choices=tuple(
+                        [SelectionRow("back", "Back", "choose the source again")]
+                    ),
                     tone=TONE_ERROR,
                 ),
                 lambda _choice: self._step_back(),

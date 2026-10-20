@@ -7,6 +7,7 @@ import pytest
 from yoke_cli.config import onboard_backup as backup
 from yoke_cli.config import onboard_self_host_server as server
 from yoke_cli.config.onboard_destinations import DESTINATION_LOCAL
+from yoke_cli.config.setup_run_facts import RunFacts
 
 
 def shell(tmp_path):
@@ -16,7 +17,8 @@ def shell(tmp_path):
             env_name="local",
             destination=DESTINATION_LOCAL,
             admin_name=None,
-        )
+        ),
+        _run_facts=RunFacts(),
     )
 
 

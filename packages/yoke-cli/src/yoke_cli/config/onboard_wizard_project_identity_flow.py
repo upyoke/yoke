@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_cli.config import existing_project_lookup
+from yoke_cli.config import onboard_wizard_apply_facts as apply_facts
 from yoke_cli.config import onboard_existing_project
 from yoke_cli.config import onboard_local_checkout_identity
 from yoke_cli.config import onboard_project
@@ -51,6 +52,8 @@ class ProjectIdentityFlow:
                 retry=lambda: self._after_local_checkout_source(value),
             )
             return
+        if local_ref is not None and apply_facts.own_project_reference(self, value):
+            local_ref = None  # this run's Apply wrote it
         if local_ref is not None and not self._project_link_unlinked(local_ref, value):
             self._lookup_recorded_project(local_ref, value)
             return
@@ -243,7 +246,7 @@ class ProjectIdentityFlow:
         match_source: str | None = None,
         local_source: str | None = None,
     ) -> None:
-        if project is None:
+        if project is None or apply_facts.own_project(self, project):
             self._goto_project_details()
             return
         if (

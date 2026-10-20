@@ -8,7 +8,9 @@ answers it (an answer given on this command line, then a stored one, then a
 preset) or stops and prints it as the one waiting question. Checks run in
 line, browser steps are printed for the person and never opened, a browser
 approval ends the call and resumes on the next one (:mod:`setup_agent_approvals`),
-and every outcome is one JSON line from :mod:`setup_agent_response`.
+steps that already changed the machine are read back from the run facts in the
+store (:mod:`setup_run_facts`), and every outcome is one JSON line from
+:mod:`setup_agent_response`.
 """
 
 from __future__ import annotations
@@ -32,6 +34,7 @@ from yoke_cli.config.setup_agent_approvals import (
     ApprovalPending,
 )
 from yoke_cli.config.setup_prompt import SetupHuman, SetupPrompt
+from yoke_cli.config.setup_run_facts import RunFacts
 
 
 class _StepFailed(RuntimeError):
@@ -47,15 +50,6 @@ class AgentShell(AgentApprovals, AnswerFlow):
         _progress("Checking install…")
         self._checking = self._checking_blocks_quit = True
         self._finish_install(*self._check_install())
-
-    def _start_connect(self) -> None:
-        # Approval saves machine credentials before Apply. Resume the chosen
-        # destination instead of inserting a new saved-connection question
-        # ahead of the question this setup already printed.
-        if self._answers.value("connect.destination") is not None:
-            self._goto_destination_picker()
-            return
-        super()._start_connect()
 
     # ── flow control ────────────────────────────────────────
 
@@ -178,7 +172,12 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
         cli_answers: dict[str, str],
         refusal: tuple[str, str] | None = None,
     ) -> None:
-        init_setup_state(self, defaults=defaults, apply_report=apply_report)
+        init_setup_state(
+            self,
+            defaults=defaults,
+            apply_report=apply_report,
+            run_facts=RunFacts(store.facts, on_change=store.keep_facts),
+        )
         self._answers = store
         self._cli = dict(cli_answers)
         self._pending_refusal = refusal

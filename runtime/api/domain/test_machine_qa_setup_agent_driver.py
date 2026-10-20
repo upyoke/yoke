@@ -53,6 +53,24 @@ def test_answers_only_scripted_choices_and_reports_the_stop(
     assert "agent-presentation-reached: github.machine" in capsys.readouterr().out
 
 
+def test_a_journey_without_connect_starts_at_the_destination_question(
+    monkeypatch: pytest.MonkeyPatch, calls: list
+) -> None:
+    _agent(
+        monkeypatch,
+        calls,
+        [_question("connect.destination"), _question("review.confirm")],
+    )
+
+    code = driver.drive(None, "review.confirm", {"connect.destination": "local"})
+
+    assert code == 0
+    assert calls == [
+        ("agent", []),
+        ("agent", ["--answer", "connect.destination=local"]),
+    ]
+
+
 def test_a_secret_question_goes_to_the_person_in_the_wizard_then_resumes(
     monkeypatch: pytest.MonkeyPatch, calls: list
 ) -> None:

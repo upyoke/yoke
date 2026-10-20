@@ -17,6 +17,7 @@ from yoke_cli.config.onboard_wizard_checkout_inspection_screen import (
     inspection_prompt,
 )
 from yoke_cli.config.project_onboard_support import ProjectOnboardError
+from yoke_cli.config.setup_run_facts import RunFacts
 
 from runtime.api.cli.onboard_checkout_inspection_fixtures import (
     clean_repo as _clean_repo,
@@ -96,6 +97,7 @@ class _InspectionShell(inspection.CheckoutInspectionFlow):
             existing_project_id=None,
             machine_github_api_url=None,
         )
+        self._run_facts = RunFacts()
         self.views: list = []
         self.outcome_visits = 0
         self.existing_project_visits = 0

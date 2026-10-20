@@ -3,7 +3,8 @@
 Agent mode runs one question per invocation, so what was already answered has
 to outlive the process. The store keeps the preset flags the run started with,
 a ``key -> value`` map of accepted answers, the question the run stopped at,
-the Apply failure an answer may resume, and a browser approval still pending.
+the Apply failure an answer may resume, a browser approval still pending, and
+the run facts its effectful steps recorded (:mod:`setup_run_facts`).
 Answers are keyed by question, not by position, because saved machine state
 can skip whole steps on a later run. Secret answers never reach this file: a
 secret answer is refused before it is staged. The one exception is a pending
@@ -79,6 +80,7 @@ class AnswerStore:
         self.waiting_key: str | None = record.get("waiting_key")
         self.apply_failure: dict[str, Any] | None = record.get("apply_failure")
         self.pending_approval: dict[str, Any] | None = record.get("pending_approval")
+        self.facts: dict[str, Any] = dict(record.get("facts") or {})
         self._staged: dict[str, str] = {}
         self._dropped: set[str] = set()
         self._lock_fd: int | None = None
@@ -138,6 +140,15 @@ class AnswerStore:
         if self.existed or approval is not None:
             self._write()
 
+    def keep_facts(self, facts: dict[str, Any]) -> None:
+        """Save the run facts now, answers untouched.
+
+        A step's effect already happened when it records its fact, so the fact
+        is written even when this invocation later ends in a refusal.
+        """
+        self.facts = dict(facts)
+        self._write()
+
     def _write(self) -> None:
         record = {
             "version": STORE_VERSION,
@@ -146,6 +157,7 @@ class AnswerStore:
             "waiting_key": self.waiting_key,
             "apply_failure": self.apply_failure,
             "pending_approval": self.pending_approval,
+            "facts": self.facts,
         }
         _write_private(
             store_path(), json.dumps(record, indent=2, sort_keys=True) + "\n"
