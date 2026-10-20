@@ -140,6 +140,7 @@ def deployment_runs_list(args: List[str]) -> int:
                         key: row[key]
                         for key in (
                             "id",
+                            "project",
                             "target_environment",
                             "status",
                             "current_stage",
