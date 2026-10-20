@@ -8,7 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Callable
 
 from yoke_cli import main as yoke_operations_cli
 from yoke_cli.commands.adapters import onboard_apply, onboard_interactive
@@ -37,12 +37,15 @@ class FakeApply:
         self.applied: list[dict[str, Any]] = []
         self.options: list[dict[str, Any]] = []
         self.fail_next: Exception | None = None
+        self.effects: Callable[[dict], None] | None = None
 
     def __call__(self, kwargs: dict, tui_progress=None, **options: Any) -> dict:
         if not kwargs.get("apply"):
             return {"plan": {"steps": [{"action": "register-machine", "target": ""}]}}
         self.applied.append(kwargs)
         self.options.append(options)
+        if self.effects is not None:
+            self.effects(kwargs)
         if self.fail_next is not None:
             failure, self.fail_next = self.fail_next, None
             raise failure
@@ -68,6 +71,29 @@ class AgentDriver:
         captured = self._capsys.readouterr()
         self.stderr = captured.err
         return code, [json.loads(line) for line in captured.out.splitlines() if line]
+
+    def replayed(self, answer: str | None = None) -> dict:
+        """Answer, then replay from the store alone: both stop at the same place.
+
+        A question must come back unchanged from a bare call, which rebuilds
+        the run from its stored answers and run facts. A browser step is the
+        one outcome a bare call moves past, by checking the approval.
+        """
+        code, lines = self(*([answer] if answer else []))
+        line = lines[-1]
+        assert code == 0, (answer, line)
+        assert line["state"] in {"question", "browser", "done"}, (answer, line)
+        if line["state"] == "question":
+            replay_code, replay = self()
+            assert (replay_code, replay[-1]) == (code, line), (answer, replay[-1])
+        return line
+
+    def replay_each(self, answers: tuple[str, ...]) -> dict:
+        """Start setup, then give each answer, replaying after every one."""
+        line = self.replayed()
+        for answer in answers:
+            line = self.replayed(answer)
+        return line
 
     def walk(self, answers: tuple[str, ...]) -> tuple[int, list[dict]]:
         result = self()
@@ -120,3 +146,13 @@ def git_checkout(path: Path) -> Path:
         check=True,
     )
     return path
+
+
+def fake_clone(parent, name: str, remote: str, **_kwargs: Any) -> None:
+    """Clone stand-in: a git repo whose origin is ``remote``, carrying a Yoke layer."""
+    root = Path(parent) / name
+    root.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init", "-q", "-b", "main", str(root)], check=True)
+    subprocess.run(["git", "-C", str(root), "remote", "add", "origin", remote], check=True)
+    (root / ".yoke").mkdir()
+    (root / ".yoke" / "layer.md").write_text("installed layer\n")
