@@ -60,6 +60,11 @@ def read_recovery(function: str) -> str:
         else tuple(function.replace("_", "-").split("."))
     )
     command = "yoke " + " ".join(tokens)
+    if function not in READ_FUNCTION_IDS:
+        return (
+            "The operation already ran. Read the saved response.result before "
+            f"repeating it; {command} --help names its result inspection recipe."
+        )
     return (
         f"Narrow {command} with its field/filter flags or a smaller --limit "
         f"where supported; run {command} --help for the exact recipe, "

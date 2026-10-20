@@ -115,3 +115,12 @@ def test_reply_budget_counts_multibyte_utf8():
 
     assert not reply_exceeds_limit("é" * (REPLY_LIMIT_BYTES // 2))
     assert reply_exceeds_limit("é" * (REPLY_LIMIT_BYTES // 2 + 1))
+
+
+def test_mutation_pointer_never_teaches_read_only_full_flag(capsys):
+    raw = response("items.create", {"body": "x" * REPLY_LIMIT_BYTES})
+    assert emit_response(raw, json_mode=True) == 0
+    pointer = json.loads(capsys.readouterr().out)
+    assert "already ran" in pointer["read"]
+    assert "--full" not in pointer["read"]
+    Path(pointer["saved_response"]).unlink()
