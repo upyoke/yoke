@@ -90,7 +90,7 @@ def _seed(
                     "instructions": "Run a host-specific check.",
                     "expected_outcome": "The check passes.",
                     "method_config": {
-                        **_terminal_recipe(),
+                        **({} if mission and position == 2 else _terminal_recipe()),
                         "machine": MACHINES[0] if inherit else machine,
                         **(
                             {"executor": "informed_subagent"}
