@@ -51,6 +51,7 @@ def _seed(
     inherit=False,
     mission=False,
     trailing=False,
+    run_scope=False,
 ):
     configure_test_machine(conn, tmp_path, monkeypatch)
     replace_test_machine_settings(
@@ -133,7 +134,16 @@ def _seed(
             qa_phase="post_deploy",
         )
     stages = _stages(plans[0])
-    stages[1].pop("cases")
+    if run_scope:
+        stages[1].update(
+            scope="run",
+            cases={
+                "plan_id": plans[0],
+                "case_keys": [*MACHINES, *(["independent"] if trailing else [])],
+            },
+        )
+    else:
+        stages[1].pop("cases")
     _seed_run(
         conn,
         run_id=RUN,
@@ -145,7 +155,7 @@ def _seed(
         conn,
         deployment_run_id=RUN,
         deployment_stage="item-qa",
-        deployment_member_item_id=MEMBER,
+        deployment_member_item_id=None if run_scope else MEMBER,
     )
 
 
@@ -154,7 +164,7 @@ def _begin(conn, **kwargs):
         conn,
         deployment_run_id=RUN,
         deployment_stage="item-qa",
-        deployment_member_item_id=MEMBER,
+        deployment_member_item_id=kwargs.pop("deployment_member_item_id", MEMBER),
         actor_id="1",
         session_id=SESSION,
         **kwargs,
@@ -289,14 +299,18 @@ def test_an_unscoped_pass_does_not_cover_a_required_host(
     assert first["roster"][0]["case_key"] == MACHINES[0]
 
 
-@pytest.mark.parametrize("mission,trailing", [(False, False), (True, False), (True, True)])
+@pytest.mark.parametrize(
+    "mission,trailing", [(False, False), (True, False), (True, True)]
+)
 def test_inherit_chain_holds_its_host_union_before_the_opener(
     test_db, tmp_path, monkeypatch, mission, trailing
 ):
     from yoke_core.domain.qa_plan_host_leases import execution_host_leases
     from yoke_core.domain.qa_plan_execution_state import advance_plan_execution
 
-    _seed(test_db, tmp_path, monkeypatch, inherit=True, mission=mission, trailing=trailing)
+    _seed(
+        test_db, tmp_path, monkeypatch, inherit=True, mission=mission, trailing=trailing
+    )
     first = _begin(test_db)
     assert first["remaining_requirement_count"] == int(trailing)
     assert len(first["roster"]) == 2

@@ -173,3 +173,30 @@ def test_an_independent_chain_can_expand_custody_before_its_opener(
     assert test_db.execute(
         "SELECT released_at FROM work_claims WHERE id=%s", (old_lease,)
     ).fetchone()[0]
+
+
+def test_run_scoped_mission_chain_excludes_later_captures(
+    test_db, tmp_path, monkeypatch
+):
+    from runtime.api.domain.test_qa_member_machine_partitions import (
+        MACHINES,
+        _begin,
+        _case_begin,
+    )
+    from yoke_core.domain.qa_plan_host_leases import execution_host_leases
+
+    _seed(
+        test_db,
+        tmp_path,
+        monkeypatch,
+        inherit=True,
+        mission=True,
+        trailing=True,
+        run_scope=True,
+    )
+    execution = _begin(test_db, deployment_member_item_id=None)
+    assert [row["case_key"] for row in execution["roster"]] == list(MACHINES)
+    assert execution["remaining_requirement_count"] == 1
+    response = _case_begin(execution)
+    assert response.primary_success, response.error
+    assert len(execution_host_leases(test_db, execution)) == 2

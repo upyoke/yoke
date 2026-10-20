@@ -61,6 +61,7 @@ def member_machine_partition(
             and not (
                 (roster[0].get("execution_target") or {}).get("deployment") or {}
             ).get("shared_plan")
+            and not any(isolated for _driver, _hosts, isolated in host_sets)
         )
         or (
             len(host_sets) < 2
