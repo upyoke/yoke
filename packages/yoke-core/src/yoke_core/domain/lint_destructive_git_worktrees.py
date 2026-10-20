@@ -3,49 +3,9 @@
 from __future__ import annotations
 
 import os
-import re
-import shlex
 from glob import glob
 from pathlib import Path
 from typing import Any, Iterable
-
-_SEP_RE = re.compile(r"\s*(?:&&|\|\||;|\|)\s*")
-_ENV_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
-
-
-def parse_rm_rf_invocations(command: str) -> list[list[str]]:
-    out: list[list[str]] = []
-    for stmt in _SEP_RE.split(command or ""):
-        if not stmt.strip():
-            continue
-        try:
-            tokens = shlex.split(stmt, posix=True)
-        except ValueError:
-            continue
-        i = 0
-        while i < len(tokens) and _ENV_RE.match(tokens[i]):
-            i += 1
-        if i >= len(tokens) or tokens[i].rsplit("/", 1)[-1] != "rm":
-            continue
-        i += 1
-        flags: list[str] = []
-        targets: list[str] = []
-        while i < len(tokens):
-            token = tokens[i]
-            if token == "--":
-                targets.extend(tokens[i + 1 :])
-                break
-            if token.startswith("-") and token != "-":
-                flags.append(token)
-            else:
-                targets.append(token)
-            i += 1
-        joined = "".join(flags)
-        has_recursive = "r" in joined or "R" in joined or "--recursive" in flags
-        has_force = "f" in joined or "--force" in flags
-        if has_recursive and has_force and targets:
-            out.append(targets)
-    return out
 
 
 def _resolve_shell_path(raw: str, cwd: str) -> str:

@@ -269,7 +269,8 @@ GUARD_CATALOG: Tuple[GuardSpec, ...] = (
         "lint_destructive_git",
         f"{_MODULE_PREFIX}lint_destructive_git",
         True,
-        "Refuse git verbs that would wipe uncommitted/untracked local state.",
+        "Refuse git verbs that wipe uncommitted/untracked local state, and "
+        "recursive deletes of unresolved targets or shared temp roots.",
         check_id="lint-destructive-git",
     ),
 )
