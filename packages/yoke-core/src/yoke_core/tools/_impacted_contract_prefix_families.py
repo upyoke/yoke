@@ -35,7 +35,6 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_canonical_xdist_teaching.py",
     "runtime/api/test_direct_workflow_skills.py",
     "runtime/api/test_file_budget_workflow_teaching.py",
-    "runtime/api/test_headless_landing_wait_teaching.py",
     "runtime/api/test_idea_db_claim_recipe_fail_closed.py",
     "runtime/api/test_onboard_deferred_hosting.py",
     "runtime/api/test_onboard_delivery_choice.py",
