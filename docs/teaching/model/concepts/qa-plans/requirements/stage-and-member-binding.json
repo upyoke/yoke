@@ -2,7 +2,7 @@
  "id": "stage-and-member-binding",
  "title": "Stage and member binding",
  "status": "observed",
- "summary": "Shared QA contention waits for its owner; settlement credits members or wakes their stage commands.",
+ "summary": "Sessions walk shared QA groups concurrently; a member whose owed groups are all held waits, and settlement credits members or wakes their stage commands.",
  "page": "qa-plans",
  "position": 4
 }

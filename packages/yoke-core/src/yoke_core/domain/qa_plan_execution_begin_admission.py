@@ -48,17 +48,21 @@ def admit_member(
     conn: Any,
     run_id: str,
     stage: str | None,
-    member: int,
+    member: int | None,
     inputs: str | None,
 ) -> bool:
     """Lock the run for ``member``; report whether ``inputs`` still hold.
 
-    ``None`` means the caller already read under this lock, so there is
-    nothing to compare.
+    ``None`` inputs mean the caller already read under this lock, so there is
+    nothing to compare. A stage-wide begin without a member locks the run alone.
     """
+    from yoke_core.domain.deployment_runs_lock import lock_run
     from yoke_core.domain.qa_plan_execution_authority import lock_member_admission
 
-    lock_member_admission(conn, run_id, member)
+    if member is None:
+        lock_run(conn, str(run_id))
+    else:
+        lock_member_admission(conn, run_id, member)
     return inputs is None or begin_inputs(conn, run_id, stage) == inputs
 
 
@@ -140,7 +144,7 @@ def prepare_roster(
     if reprint:
         return reprint
     roster, remaining, completed = member_machine_partition(
-        conn, roster, **scope, machine=machine
+        conn, roster, **scope, machine=machine, session_id=session_id
     )
     if completed is not None:
         return {**completed, "remaining_requirement_count": remaining}

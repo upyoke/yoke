@@ -199,14 +199,25 @@ def require_no_live_execution(
 
     if not _table_exists(conn, "qa_plan_executions"):
         return
-    execution_id = live_plan_execution_id(
-        conn,
-        item_id=item_id,
-        transition_id=transition_id,
-        deployment_run_id=deployment_run_id,
-        deployment_stage=deployment_stage,
-        deployment_member_item_id=deployment_member_item_id,
-    )
+    if deployment_stage and deployment_member_item_id is None:
+        from yoke_core.domain.qa_stage_execution_holders import live_stage_executions
+
+        # Every session's stage-wide walk froze rows from this subject.
+        live = live_stage_executions(
+            conn,
+            deployment_run_id=str(deployment_run_id),
+            deployment_stage=deployment_stage,
+        )
+        execution_id = str(live[0]["id"]) if live else None
+    else:
+        execution_id = live_plan_execution_id(
+            conn,
+            item_id=item_id,
+            transition_id=transition_id,
+            deployment_run_id=deployment_run_id,
+            deployment_stage=deployment_stage,
+            deployment_member_item_id=deployment_member_item_id,
+        )
     if execution_id is None:
         return
     raise QaPlanError(

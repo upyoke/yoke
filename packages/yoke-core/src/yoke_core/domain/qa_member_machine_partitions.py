@@ -29,8 +29,9 @@ def member_machine_partition(
     deployment_stage: str | None,
     deployment_member_item_id: int | None,
     machine: str | None,
+    session_id: str,
 ) -> tuple[list[dict[str, Any]], int | None, dict[str, Any] | None]:
-    """Use scoped evidence to advance between serial host executions.
+    """Use scoped evidence to advance between host executions.
 
     A live roster stays immutable through capture and review. A completed
     execution covers its own requirements whose current scoped verdict and
@@ -39,9 +40,18 @@ def member_machine_partition(
     including an aborted one. A covered case stays while a later case of its
     chain is still owed. A single-host deployment roster drops those passes
     through :func:`run_target_partition`.
+
+    A stage-wide roster's groups run concurrently, one live execution per
+    session: a group holding a requirement another session's live roster
+    holds is claimed, and :class:`StageRosterHeld` refuses when no owed
+    group is free.
     """
 
     from yoke_core.domain.qa_plan_chain_hosts import chain_host_groups
+    from yoke_core.domain.qa_stage_execution_holders import (
+        StageRosterHeld,
+        held_requirements,
+    )
 
     groups = chain_host_groups(roster)
 
@@ -52,6 +62,21 @@ def member_machine_partition(
         deployment_run_id=deployment_run_id,
         deployment_stage=deployment_stage,
         deployment_member_item_id=deployment_member_item_id,
+    )
+    live_id = (
+        live_plan_execution_id(conn, **scope, session_id=session_id)
+        if deployment_stage
+        else None
+    )
+    held = (
+        held_requirements(
+            conn,
+            deployment_run_id=str(deployment_run_id),
+            deployment_stage=deployment_stage,
+            session_id=session_id,
+        )
+        if deployment_stage and deployment_member_item_id is None and not live_id
+        else {}
     )
     host_sets = {
         host_group(row) for row in roster if case_machines(row) or host_group(row)[2]
@@ -73,7 +98,18 @@ def member_machine_partition(
     ):
         if not deployment_stage:
             return roster, None, None
-        return run_target_partition(conn, roster, **scope), None, None
+        open_rows = run_target_partition(conn, roster, **scope, session_id=session_id)
+        holder = next(
+            (
+                held[int(r["requirement_id"])]
+                for r in open_rows
+                if int(r["requirement_id"]) in held
+            ),
+            None,
+        )
+        if holder is not None:
+            raise StageRosterHeld(holder)
+        return open_rows, None, None
     for row in roster:
         resolve_case_machine(row, machine)
     from yoke_core.domain.deployment_qa_stage_case_failures import case_failures
@@ -109,7 +145,6 @@ def member_machine_partition(
     covered |= target_passed_requirements(conn, roster, **scope)
     covered = settled_chain_tails(roster, covered)
     pending = [row for row in roster if int(row["requirement_id"]) not in covered]
-    live_id = live_plan_execution_id(conn, **scope)
     if live_id:
         live = select_plan_execution(conn, live_id, lock=False)
         ids = {int(row["requirement_id"]) for row in live["roster"]}
@@ -130,19 +165,19 @@ def member_machine_partition(
         execution_id = str(row["id"] if hasattr(row, "keys") else row[0])
         return [], 0, select_plan_execution(conn, execution_id, lock=False)
     pending = pending or roster
+    claimed = {host_group(row) for row in roster if int(row["requirement_id"]) in held}
+    free = [row for row in pending if host_group(row) not in claimed]
+    if held and not free:
+        raise StageRosterHeld(next(iter(held.values())))
     selected_hosts = next(
-        (
-            host_group(row)
-            for row in pending
-            if case_machines(row) or host_group(row)[2]
-        ),
+        (host_group(row) for row in free if case_machines(row) or host_group(row)[2]),
         (None, (), None),
     )
     selected = [
         {**row, "ordinal": ordinal}
         for ordinal, row in enumerate(
             row
-            for row in pending
+            for row in free
             if host_group(row) == selected_hosts
             or (selected_hosts[2] is None and host_group(row) == (None, (), None))
         )

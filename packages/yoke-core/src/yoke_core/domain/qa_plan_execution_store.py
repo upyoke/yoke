@@ -116,8 +116,9 @@ def live_plan_execution_id(
     deployment_run_id: str | None = None,
     deployment_stage: str | None = None,
     deployment_member_item_id: int | None = None,
+    session_id: str | None = None,
 ) -> str | None:
-    """Return the current live execution id across supported row factories."""
+    """Return the live execution id; a stage-wide subject resolves per session."""
     placeholder = marker(conn)
     if (item_id is None) == (deployment_run_id is None):
         raise QaPlanExecutionStateError(
@@ -137,6 +138,11 @@ def live_plan_execution_id(
             deployment_stage or "",
             deployment_member_item_id or 0,
         )
+        if deployment_stage and deployment_member_item_id is None:
+            if not session_id:
+                raise QaPlanExecutionStateError("stage-wide lookup needs a session")
+            where += f" AND session_id={placeholder}"
+            params += (str(session_id),)
     cursor = conn.execute(
         "SELECT id FROM qa_plan_executions "
         f"WHERE {where} "
@@ -249,6 +255,7 @@ def converge_plan_execution_insert_race(
         deployment_run_id=deployment_run_id,
         deployment_stage=deployment_stage,
         deployment_member_item_id=deployment_member_item_id,
+        session_id=session_id,
     )
     if concurrent_id is None:
         conn.rollback()

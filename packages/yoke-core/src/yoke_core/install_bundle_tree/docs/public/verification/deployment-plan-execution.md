@@ -52,8 +52,8 @@ reviews. Completing that private roster ends this invocation; it does not
 start an attached shared campaign. Private evidence alone does not accept a
 member that still owes shared evidence. Once private acceptance is complete,
 the same command selects the next unfinished shared group and reuses
-completed group evidence. A shared execution owned by another session, or a
-different group using the stage's cursor, returns `state=waiting` with
+completed group evidence. When other sessions' live executions hold every
+group you still owe, it returns `state=waiting` with
 `shared_execution_wait.execution_id` and `owner_session_id`. Keep the work claim
 and park with `yoke sessions touch --mode parked --reason "waiting for shared QA"`.
 The deployment's member stage
@@ -87,10 +87,11 @@ must finish or abort it before retrying; conversion makes no partial changes.
 
 ## Machine partitions
 
-For a deployment member whose cases require several Test Machines, the scoped
-command automatically executes one immutable roster per machine. Each roster
-holds its own lease and participates in that host's FIFO. It keeps the same
-run, stage and frozen private-member or shared-plan target.
+When a deployment member's cases require several Test Machines, the scoped
+command executes one immutable roster per machine group, each with its own
+lease in that host's FIFO and the same run, stage and frozen target. Sessions
+walk a stage-wide roster's groups concurrently, one live execution each: begin
+skips a group another session holds and aborts an abandoned holder.
 A waiting host or independent review stops the command. Re-enter the same
 scoped command while review is pending to reprint that bundle without
 recapturing. Once a verdict batch is recorded, the same command reprints

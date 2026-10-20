@@ -42,6 +42,7 @@ from yoke_core.domain.qa_plan_execution_target_snapshot import (
 from yoke_core.domain.qa_plan_execution_roster_change import (
     retire_unstarted_changed_roster,
 )
+from yoke_core.domain.qa_stage_execution_holders import abort_abandoned_holders
 
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
@@ -141,7 +142,14 @@ def begin_plan_execution(
         if deployment_member_item_id is not None
         else _requesting_member_item_id
     )
-    locks_run = deployment_run_id is not None and admitted is not None
+    # Stage-wide executions run one per session; the run lock keeps them disjoint.
+    stage_wide = deployment_stage is not None and deployment_member_item_id is None
+    locks_run = deployment_run_id is not None and (admitted is not None or stage_wide)
+    run_inputs = (
+        begin_inputs(conn, str(deployment_run_id), deployment_stage)
+        if locks_run and admitted is None
+        else _run_inputs
+    )
 
     def prepare() -> PreparedRoster | dict[str, Any]:
         return prepare_roster(
@@ -166,9 +174,14 @@ def begin_plan_execution(
     if not isinstance(prepared, PreparedRoster):
         return prepared
     if locks_run and not admit_member(
-        conn, str(deployment_run_id), deployment_stage, int(admitted), _run_inputs
+        conn, str(deployment_run_id), deployment_stage, admitted, run_inputs
     ):
-        raise BeginInputsChanged(deployment_run_id)
+        if admitted is not None:
+            raise BeginInputsChanged(deployment_run_id)
+        prepared = prepare()  # read again, now under the run lock
+        if not isinstance(prepared, PreparedRoster):
+            conn.rollback()
+            return prepared
     existing_id = live_plan_execution_id(
         conn,
         item_id=item_id,
@@ -176,6 +189,7 @@ def begin_plan_execution(
         deployment_run_id=deployment_run_id,
         deployment_stage=deployment_stage,
         deployment_member_item_id=deployment_member_item_id,
+        session_id=session_id,
     )
     continues_execution_id = (
         resolve_continuation_source(
@@ -186,10 +200,12 @@ def begin_plan_execution(
             deployment_run_id=deployment_run_id,
             deployment_stage=deployment_stage,
             deployment_member_item_id=deployment_member_item_id,
+            session_id=session_id,
         )
         if continue_mission
         else None
     )
+    retired = False
     if existing_id is not None:
         existing = lock_plan_execution(conn, existing_id)
         if existing["state"] in {
@@ -220,25 +236,34 @@ def begin_plan_execution(
                 raise QaPlanExecutionStateError(
                     "another actor or session owns the active QA plan execution"
                 )
-
-            # Retiring the live execution committed; read the roster again first.
-            if item_id is not None:
-                lock_item_workflow_bindings(conn, (int(item_id),))
-            inputs = (
-                begin_inputs(conn, str(deployment_run_id), deployment_stage)
-                if locks_run
-                else None
-            )
+            retired = True
+    if stage_wide and abort_abandoned_holders(
+        conn,
+        prepared.roster,
+        deployment_run_id=str(deployment_run_id),
+        deployment_stage=str(deployment_stage),
+        session_id=session_id,
+    ):
+        retired = True
+    if retired:
+        # Retiring a live execution committed; read the roster again first.
+        if item_id is not None:
+            lock_item_workflow_bindings(conn, (int(item_id),))
+        inputs = (
+            begin_inputs(conn, str(deployment_run_id), deployment_stage)
+            if locks_run
+            else None
+        )
+        prepared = prepare()
+        if not isinstance(prepared, PreparedRoster):
+            return prepared
+        if locks_run and not admit_member(
+            conn, str(deployment_run_id), deployment_stage, admitted, inputs
+        ):
             prepared = prepare()
             if not isinstance(prepared, PreparedRoster):
+                conn.rollback()
                 return prepared
-            if locks_run and not admit_member(
-                conn, str(deployment_run_id), deployment_stage, int(admitted), inputs
-            ):
-                prepared = prepare()
-                if not isinstance(prepared, PreparedRoster):
-                    conn.rollback()
-                    return prepared
 
     roster, remaining, digest = prepared.roster, prepared.remaining, prepared.digest
     execution_target = prepared.execution_target

@@ -210,8 +210,8 @@ QA_COMMANDS: list[dict] = [
         ),
         "notes": (
             "Registered writes qa.plan.materialize and qa.plan_execution.begin. "
-            "Shared cursor contention returns state=waiting with the execution id "
-            "and owner in shared_execution_wait. Keep the claim and park; shared "
+            "Sessions walk shared groups concurrently; all owed groups held returns "
+            "state=waiting with shared_execution_wait. Keep the claim and park; shared "
             "settlement credits attaching members or wakes those still owing QA "
             "to retry their own stage/member command. "
             "The stage must be the run's active pinned schema-2 QA stage. A "

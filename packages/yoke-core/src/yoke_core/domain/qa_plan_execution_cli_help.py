@@ -46,8 +46,9 @@ target, ordering, host prerequisites and reviews. Completing that private roster
 ends this invocation without starting a shared campaign; shared acceptance is
 still required. Once private acceptance is complete, the same command reuses
 completed group evidence and continues its next unfinished shared group.
-A shared cursor owned by another session, or busy with another group, returns
-state=waiting with shared_execution_wait.execution_id and owner_session_id.
+Each session walks its own group; when other sessions' walks hold every group
+you owe, it returns state=waiting with shared_execution_wait.execution_id and
+owner_session_id.
 Keep the claim and park with
 yoke sessions touch --mode parked --reason "waiting for shared QA". Passing shared
 evidence credits attaching members; settlement wakes members still owing QA
