@@ -196,3 +196,19 @@ def test_installed_launcher_holds_selected_release_until_exit(tmp_path):
         os.close(descriptor)
     install(instance, THIRD_RELEASE)
     assert not oldest.exists()
+
+
+def test_existing_install_receipts_converge_before_reuse_cleanup(tmp_path):
+    instance = relay_instance(tmp_path)
+    previous = install(instance, RELEASE)
+    current = install(instance, NEXT_RELEASE)
+    receipt_path = current / ".yoke-relay-release.json"
+    receipt = json.loads(receipt_path.read_text())
+    del receipt["previous_release"]
+    receipt_path.write_text(json.dumps(receipt))
+    unused = instance.state_dir / "releases" / "unverified"
+    unused.mkdir()
+
+    assert install(instance, NEXT_RELEASE) == current
+    assert set((instance.state_dir / "releases").iterdir()) == {previous, current}
+    assert json.loads(receipt_path.read_text())["previous_release"] == str(previous)

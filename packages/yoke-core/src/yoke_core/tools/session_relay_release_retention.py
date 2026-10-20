@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import fcntl
+import json
 import os
 from pathlib import Path
 import re
@@ -14,9 +15,11 @@ from typing import Iterator
 
 from yoke_core.tools.session_relay_release import (
     RELAY_RELEASE_INSTALL_FAILED,
+    RELAY_RELEASE_RECEIPT_NAME,
     RelayReleaseError,
     relay_active_release_path,
     relay_release_receipt,
+    write_release_json,
 )
 
 
@@ -28,6 +31,21 @@ def prune_relay_releases(state_dir: Path) -> None:
     releases = (state_dir / "releases").resolve()
     current = relay_active_release_path(state_dir).resolve(strict=True)
     receipt = relay_release_receipt(state_dir)
+    # Converge receipts written by the installer that shipped before retention.
+    # Installation receipts supply the order; unverified directories do not.
+    if "previous_release" not in receipt:
+        installed = []
+        for path in releases.iterdir():
+            if path.is_symlink() or not path.is_dir() or path.resolve() == current:
+                continue
+            try:
+                prior = json.loads((path / RELAY_RELEASE_RECEIPT_NAME).read_text())
+            except (FileNotFoundError, ValueError):
+                continue
+            if isinstance(prior, dict) and prior.get("installed_at"):
+                installed.append((str(prior["installed_at"]), str(path.resolve())))
+        receipt["previous_release"] = max(installed)[1] if installed else None
+        write_release_json(current / RELAY_RELEASE_RECEIPT_NAME, receipt)
     previous = receipt.get("previous_release")
     keep = {current}
     if previous:
