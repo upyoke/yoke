@@ -13,8 +13,10 @@ from yoke_harness.test_machine_types import HostActionResult
 
 RECOVERY = (
     "Finish or abort the owning mission, then run `yoke test-machine reset "
-    "--project PROJECT --machine MACHINE`; expand the host disk if reset "
-    "cannot restore the declared minimum free space, and retry QA."
+    "--project PROJECT --machine MACHINE`; if reset cannot restore the "
+    "declared minimum free space, grow the disk online as the Machine QA "
+    "Pack's docs/packs/machine-qa/host-provisioning.md#disk-sizing-and-online-resize "
+    "describes, then retry QA."
 )
 
 

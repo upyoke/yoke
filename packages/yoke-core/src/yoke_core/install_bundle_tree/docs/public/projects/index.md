@@ -55,7 +55,9 @@ existing local checkout. Disabled GitHub adoption needs no GitHub sign-in.
 Import reads a private GitHub repository through this machine's connected
 GitHub App. Run `yoke github connect` first; when the App cannot see the
 repository, add it with `yoke github connect --add-installation` and check
-`yoke github status` before you retry.
+`yoke github status` before you retry. A new empty repository imports
+too: the checkout stays on its default branch until install adds the first
+commit.
 
 ## Install the operating layer
 

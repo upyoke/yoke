@@ -54,7 +54,9 @@ def prepare_status_transition(
     """Materialize QA and evaluate approval against one workflow snapshot.
 
     ``commit=False`` leaves every write in the caller's open transaction,
-    for a status write whose caller commits it together with others.
+    for a status write whose caller commits it together with others; a
+    refusal then returns without rolling back, so the caller's earlier
+    writes stay and the caller decides the transaction's fate.
     """
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     lock_item_workflow_bindings(conn, (int(item_id),))
@@ -65,7 +67,8 @@ def prepare_status_transition(
     if item is None:
         from yoke_core.domain.project_identity import render_item_ref
 
-        conn.rollback()
+        if commit:
+            conn.rollback()
         return StatusTransitionPreflight(
             workflow_version_id=0,
             source_status="",
@@ -81,7 +84,8 @@ def prepare_status_transition(
             WORKFLOW_STATUS_PRECONDITION_FAILED,
         )
 
-        conn.rollback()
+        if commit:
+            conn.rollback()
         return StatusTransitionPreflight(
             workflow_version_id=0,
             source_status=current_status,
@@ -98,7 +102,8 @@ def prepare_status_transition(
     workflow = load_item_workflow_runtime(conn, item_id)
     if not workflow.accepts_stage(target_status):
         valid = ", ".join(workflow.stage_ids)
-        conn.rollback()
+        if commit:
+            conn.rollback()
         return StatusTransitionPreflight(
             workflow_version_id=int(workflow.workflow_version_id),
             source_status=current_status,
@@ -127,7 +132,8 @@ def prepare_status_transition(
             to_stage_id=target_status,
         )
         if edge_refusal:
-            conn.rollback()
+            if commit:
+                conn.rollback()
             return StatusTransitionPreflight(
                 workflow_version_id=int(workflow.workflow_version_id),
                 source_status=current_status,

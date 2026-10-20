@@ -16,7 +16,10 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_contracts.harness_cli_manifest import harness_cli_manifest
-from yoke_core.engines import doctor_hc_harness_unattended_posture as posture
+from yoke_contracts.harness_unattended_posture import (
+    claude_settings_path,
+    managed_config_paths,
+)
 from yoke_core.engines import doctor_install
 from yoke_core.engines import doctor_session as checks
 from yoke_core.engines.doctor_applicability_declarations import local_runtime_slugs
@@ -61,24 +64,13 @@ def clis(monkeypatch, *harness_ids: str) -> None:
 
 
 def configs(tmp_path: Path, monkeypatch, **payloads: str) -> None:
-    resolved = {}
-    for harness, name in (
-        ("claude-code", "claude/claude_desktop_config.json"),
-        ("claude-cli", "claude/settings.json"),
-        ("codex", "codex/config.toml"),
-        ("cursor", "cursor/cli-config.json"),
-    ):
-        target = tmp_path / name
-        if harness in payloads:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(payloads[harness], encoding="utf-8")
-        if harness == "claude-cli":
-            monkeypatch.setattr(
-                posture, "claude_settings_path", lambda target=target: target
-            )
-        else:
-            resolved[harness] = target
-    monkeypatch.setattr(posture, "managed_config_paths", lambda: resolved)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    resolved = {**managed_config_paths(), "claude-cli": claude_settings_path()}
+    for harness, payload in payloads.items():
+        resolved[harness].parent.mkdir(parents=True, exist_ok=True)
+        resolved[harness].write_text(payload, encoding="utf-8")
 
 
 def test_the_session_roster_is_registered_and_machine_local() -> None:

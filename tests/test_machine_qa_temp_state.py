@@ -135,6 +135,7 @@ def test_low_disk_refuses_before_scratch_or_packages(tmp_path, monkeypatch):
     assert preparation["error_code"] == "test_machine_disk_space_low"
     failure = preparation["evidence"]["preparation_failure"]
     assert failure["phase"] == "disk_preflight" and "reset" in failure["recovery"]
+    assert "#disk-sizing-and-online-resize" in failure["recovery"]
     assert preparation["evidence"]["scratch_created"] is False
 
 

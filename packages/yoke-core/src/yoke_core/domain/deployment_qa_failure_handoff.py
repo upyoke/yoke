@@ -5,6 +5,7 @@ from __future__ import annotations
 from yoke_contracts.timestamps import utc_now
 from typing import Any, Mapping
 
+from yoke_core.domain.db_savepoint import SavepointLostError, savepoint
 from yoke_core.domain.deployment_run_driver_notice import push_member_notice
 from yoke_core.domain.json_helper import loads_text
 from yoke_core.domain.merge_queue_landing_notice import resolve_lane_recipient
@@ -117,28 +118,25 @@ def notify_member_qa_failure(
     key = failure_handoff_key(
         run_id, stage, item_id, str(status.get("target_digest") or ""), latest
     )
-    savepoint = "_yoke_member_qa_failure_notice"
     try:
-        conn.execute(f"SAVEPOINT {savepoint}")
-        delivery = push_member_notice(
-            conn,
-            item_id=item_id,
-            project_id=project_id,
-            body_for_route=lambda route: failure_handoff_message(
-                run_id=run_id,
-                stage=stage,
-                item_ref=item_ref,
-                requirement_ids=requirement_ids,
-            ),
-            idempotency_key=key,
-            now=utc_now(),
-        )
-        conn.execute(f"RELEASE SAVEPOINT {savepoint}")
+        with savepoint(conn, "_yoke_member_qa_failure_notice", owns=False):
+            delivery = push_member_notice(
+                conn,
+                item_id=item_id,
+                project_id=project_id,
+                body_for_route=lambda route: failure_handoff_message(
+                    run_id=run_id,
+                    stage=stage,
+                    item_ref=item_ref,
+                    requirement_ids=requirement_ids,
+                ),
+                idempotency_key=key,
+                now=utc_now(),
+            )
         conn.commit()
+    except SavepointLostError:
+        raise
     except Exception as exc:  # noqa: BLE001 - preserve the failed QA verdict
-        from yoke_core.domain.db_optional_queries import rollback_savepoint
-
-        rollback_savepoint(conn, savepoint)
         return f"failed: {exc}; inspect run {run_id} stage {stage!r}"
     if not delivery:
         return (

@@ -17,6 +17,7 @@ import shlex
 from pathlib import PurePosixPath
 from typing import Any, Sequence
 
+from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 from yoke_contracts.machine_qa_host_control import (
     KEPT_GOLDEN_PATHS_KEY,
     KEPT_GOLDEN_PATHS_UNKNOWN_KEY,
@@ -124,6 +125,9 @@ def removal_script(parent: str, names: Sequence[str]) -> str:
     """Return a POSIX script that deletes only the named direct children.
 
     Symlinks are refused before any removal, so a link is never followed.
+    Capture seals a golden read-only and keeps macOS deny-delete ACLs, so
+    each target's ACLs are cleared (``chmod -N``, macOS only) and its
+    directories made owner-writable before ``rm``.
     """
     quoted = " ".join(shlex.quote(name) for name in names)
     return "\n".join(
@@ -135,7 +139,14 @@ def removal_script(parent: str, names: Sequence[str]) -> str:
             '  case "$name" in ""|"."|".."|*/*) printf "%s\\n" "rejected $name"; exit 1 ;; esac',
             '  target="$parent/$name"',
             '  if [ -L "$target" ]; then printf "%s\\n" "symlink $target"; skipped=1; continue; fi',
-            '  if [ -d "$target" ]; then rm -rf -- "$target"; elif [ -e "$target" ]; then rm -f -- "$target"; fi',
+            '  if [ -d "$target" ]; then',
+            '    chmod -RN "$target" 2>/dev/null || :',
+            '    chmod -R u+rwx "$target"',
+            '    rm -rf -- "$target"',
+            '  elif [ -e "$target" ]; then',
+            '    chmod -N "$target" 2>/dev/null || :',
+            '    rm -f -- "$target"',
+            "  fi",
             "done",
             'exit "$skipped"',
         )
@@ -197,7 +208,7 @@ def apply_retention(
         return []
     removed = run(removal_script(parent, removable), timeout=300)
     if getattr(removed, "returncode", 1) != 0:
-        detail = (removed.stdout or removed.stderr or "").strip()
+        detail = bounded_machine_qa_diagnostic(removed.stderr or removed.stdout)
         raise SnapshotRetentionError(
             f"Retired snapshots under {parent} were not removed."
             + (f" {detail}" if detail else ""),

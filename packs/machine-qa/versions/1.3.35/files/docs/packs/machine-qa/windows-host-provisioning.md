@@ -184,7 +184,7 @@ Read `--help`. Install FreeRDP's visible SDL client on the executing workstation
 The product opens the SSH forward and supplies the fixture credential on stdin,
 with the existing XFCE dimensions and color depth so xrdp reconnects that display.
 It creates no password file. Close the viewer or interrupt the retained command
-to close its forward. The user types only their own password or credential.
+to close its forward. The user supplies only personal application sign-in.
 Tests use agent captures; human viewing is never a test acceptance check.
 A connected viewer counts as human adoption: baseline reset/capture must wait
 until it closes, even when automation originally started XFCE.
@@ -247,11 +247,11 @@ clean-home golden.
    --identity NAME` as the test user in the real headed desktop; read
    `--help`. It checks every declared site first and opens a window only for
    the expired ones, naming the identity, the site and the account; no
-   automated browser runs while it is open. The user only types their own
-   password or credential; agents drive every other prompt in that window
-   through desktop control, prepare the desktop and run the declared checks; use project-approved test accounts
+   automated browser runs while it is open. The user supplies personal
+   credentials and completes personal approval prompts. Agents prepare the
+   desktop and run the declared checks; use project-approved test accounts
    and follow project-owned sign-in policy. Keep profile data on the host.
-4. Agents close each authorization window once signed in; the command checks each site
+4. The user closes every authorization window; the command checks each site
    again and fails naming any still signed out. The identity's profile path
    links into the store, so the sign-in already lives there: nothing is
    captured, sealed or restored.
@@ -317,8 +317,7 @@ Linux capture/restore permits20minutes. A timeout/disconnected SSH does not
 prove the remote process stopped: wait for or stop that exact process before
 retry. A partially restored home is never a new baseline, and an unsealed
 archive/edited manifest cannot earn proof. Never export auth material to repair
-a check. When a sign-in expires, agents rerun the login, the operator types only
-their password, and agents save it at once
+a check. When a sign-in expires, the operator signs in, then saves it at once
 with `yoke test-machine golden-capture`, which proves the real requests and
 seals a new clean golden.
 

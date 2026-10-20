@@ -54,11 +54,9 @@ recovery. The mission's printed `yoke qa mission walk-end` command then
 removes secret staging with plain OS commands and restores the starting state.
 Walk missions one at a time; they share the plan's one Test Machine.
 
-Walkers are atomic. Agents do every step an agent physically can: drive the
-leased desktop, open harnesses, choose permission modes, type codes and approve
-codes in the signed-in browser or with `yoke machines approve`. Only entering
-the user's password or credential is a human gate. There a walker returns that
-one entry and the resume state and does not send Fleet mail.
+Walkers are atomic. Agents complete setup and application steps that do not
+need the user; the user completes personal credential steps. At a human gate a
+walker returns the exact action and resume state and does not send Fleet mail.
 The main agent records it in the item's Progress Log, asks a live covering
 steering seat or else the item's human owner, then dispatches a fresh walker. Routine perception is discarded. A mission may
 not exceed the runtime-supplied artifact limit across its run.
@@ -111,9 +109,8 @@ snapshot to preserve host state. Read `yoke qa plan run --help` before executing
 The installer example covers real agent sessions, received context and first
 meaningful work reaching its actual done state. The walker chooses its route
 through representative new and mature projects, resume and a second machine.
-The walker opens interactive sessions through the native GUI/desktop route
-and chooses each permission mode itself; only a password entry is a human
-gate. Report missing modes, unavailable behavior and password gates explicitly;
+A human opens interactive sessions and grants personal approvals. Report
+missing modes, unavailable behavior and required human steps explicitly;
 installed files and a merge alone do not establish the promised outcome.
 
 Linux hosts finish with [Linux baseline capture and recovery](linux-baseline-recovery.md):

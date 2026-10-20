@@ -20,12 +20,6 @@ COPY pyproject.toml ./
 COPY .git_archival.txt ./
 COPY runtime ./runtime
 COPY packages ./packages
-COPY AGENTS.md ./
-
-# Standalone release inputs share the install-bundle source declaration.
-RUN PYTHONPATH=/build/packages/yoke-contracts/src:/build/packages/yoke-cli/src:/build/packages/yoke-harness/src:/build/packages/yoke-core/src \
-        python -m yoke_core.tools.container_bundle_validation \
-        stage-source-files /build /bundle-source-files
 
 # Portability runs pg_restore/pg_dump inside the server. Fetch the same
 # checksum-verified PostgreSQL build that local mode pins in product code.
@@ -71,8 +65,9 @@ RUN if [ -n "$YOKE_ENGINE_VERSION" ]; then \
 
 FROM ${PYTHON_IMAGE} AS runtime
 
-# The git short sha this image was built from; /v1/health serves it as
-# `build` so deploy gates can assert WHICH code is answering.
+# The commit this image was built from; /v1/health serves it as `build` so
+# deploy gates can assert WHICH code is answering. A full 40-character commit
+# also attributes rendered install bundles (`source_build`) to this build.
 ARG YOKE_BUILD_SHA=""
 ARG YOKE_ENGINE_VERSION=""
 
@@ -81,7 +76,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     YOKE_API_HOST=0.0.0.0 \
     YOKE_API_PORT=8765 \
     YOKE_MACHINE_HOME=/var/lib/yoke \
-    YOKE_SERVER_TREE_ROOT=/srv/yoke-tree \
     YOKE_BUILD_SHA=${YOKE_BUILD_SHA}
 
 WORKDIR /app
@@ -97,21 +91,6 @@ RUN addgroup --system yoke \
 
 COPY --chown=yoke:yoke --from=builder /var/lib/yoke/postgres /var/lib/yoke/postgres
 
-# Bundle sources live OUTSIDE the runtime package, so the wheel install
-# cannot serve them; install-bundle and template routes read them from
-# the declared server tree (YOKE_SERVER_TREE_ROOT) with repo layout.
-COPY packs /srv/yoke-tree/packs
-COPY .agents /srv/yoke-tree/.agents
-COPY runtime/harness/claude/agents /srv/yoke-tree/runtime/harness/claude/agents
-COPY runtime/harness/claude/rules /srv/yoke-tree/runtime/harness/claude/rules
-COPY runtime/harness/codex/agents /srv/yoke-tree/runtime/harness/codex/agents
-COPY runtime/harness/cursor/agents /srv/yoke-tree/runtime/harness/cursor/agents
-COPY --from=builder /bundle-source-files /srv/yoke-tree
-# Install-bundle docs resolve from docs/public (DOCS_SOURCE) under the
-# server tree. .yoke/docs stays for dogfood source-tree teaching mirrors.
-COPY docs/public /srv/yoke-tree/docs/public
-COPY .yoke/docs /srv/yoke-tree/.yoke/docs
-
 COPY --from=builder /wheels /wheels
 
 RUN python -m pip install --no-cache-dir --no-index --find-links=/wheels \
@@ -122,8 +101,10 @@ RUN python -m pip install --no-cache-dir --no-index --find-links=/wheels \
 # This deliberately runs after source and wheels have left the runtime stage.
 RUN python -m yoke_core.tools.product_wheel_validation
 
-# Exercise the actual server tree, not the wheel's complete fallback snapshot.
-RUN python -m yoke_core.tools.container_bundle_validation verify /srv/yoke-tree
+# The installed wheel's packaged tree is the server tree: install-bundle and
+# Pack routes read it, and its bundles carry this image's build as their
+# receipt `source_build`. Render one project bundle from it here.
+RUN python -m yoke_core.tools.container_bundle_validation verify
 
 # Every image consumer inherits this build-time release-identity gate. An
 # explicit release version must match the installed wheel metadata exactly;

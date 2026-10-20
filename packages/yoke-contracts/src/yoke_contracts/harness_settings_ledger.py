@@ -11,6 +11,9 @@ revert. Each entry is one of:
 
 - ``{"kind": "json", "file", "keys", "value", "existing_depth"}`` — a JSON
   leaf at ``keys``;
+- ``{"kind": "json_list_item", "file", "keys", "value", "existing_depth"}``
+  — one string Yoke appended to the JSON list at ``keys``; ``existing_depth``
+  counts the containers on that path, the list included, that predate it;
 - ``{"kind": "codex_key", "file", "key", "value"}`` — a top-level Codex key;
 - ``{"kind": "codex_trust", "file", "trust_key"}`` — a Codex trust table;
 - ``{"kind": "created_file", "file"}`` — a file Yoke created whole;
@@ -86,6 +89,16 @@ def json_entry(
     }
 
 
+def json_list_item_entry(
+    file: Path, keys: List[str], value: Any, *, existing_depth: int
+) -> Dict[str, Any]:
+    """One value appended to the list at ``keys``; revert removes only it."""
+    return {
+        **json_entry(file, keys, value, existing_depth=existing_depth),
+        "kind": "json_list_item",
+    }
+
+
 def existing_depth(payload: Any, containers: List[str]) -> int:
     """How many of *containers*, walked from *payload*, already exist."""
     depth = 0
@@ -143,6 +156,7 @@ __all__ = [
     "created_parent_dir_entry",
     "existing_depth",
     "json_entry",
+    "json_list_item_entry",
     "ledger_path",
     "mutation",
     "read",

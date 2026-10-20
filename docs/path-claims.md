@@ -161,7 +161,10 @@ Holder-only manual ending uses `yoke claims path release --item PREFIX-N
 --claim-id N --reason TEXT` or `yoke claims path cancel` with the same flags.
 Before reopening landed work or editing its lane, register fresh coverage with
 `yoke claims path register --item PREFIX-N --paths ... --allow-planned`, then
-prepare the lane. Terminal claims cannot be widened or reactivated.
+prepare the lane. A per-task Epic adds `--task-num N` for the landed task the
+rework changes; task coverage counts tasks released at landing as covered, so
+only unlanded tasks need full File Budget coverage. Terminal claims cannot be
+widened or reactivated.
 Released coverage remains evidence for the merge boundary.
 
 ## No-touch-shrink rule

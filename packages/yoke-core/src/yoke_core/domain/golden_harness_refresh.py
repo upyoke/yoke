@@ -229,11 +229,19 @@ def _capture_golden(
             f"{submitted.get('checks')}",
             "Repair the failed capture check named in the receipt.",
         )
+    registered = str(submitted.get("golden_baseline_path"))
     try:
         retain_after_verified_capture("golden_capture", True, submitted, execution)
     except SnapshotRetentionError as error:
-        raise _refused(error.code, error.detail, error.recovery) from error
-    return str(submitted.get("golden_baseline_path"))
+        # The new golden is verified and registered, and the next capture's
+        # space check refuses if leftovers crowd the disk, so the plan goes on.
+        print(
+            f"# qa plan run: warning {error.code} on {machine}: {error.detail} "
+            f"{error.recovery}",
+            file=sys.stderr,
+            flush=True,
+        )
+    return registered
 
 
 __all__ = [

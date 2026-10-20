@@ -2,17 +2,11 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from typing import Any, Sequence
 
 from yoke_core.domain import db_backend
-
-
-def rollback_savepoint(conn: Any, savepoint: str) -> None:
-    try:
-        conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
-        conn.execute(f"RELEASE SAVEPOINT {savepoint}")
-    except Exception:
-        pass
+from yoke_core.domain.db_savepoint import savepoint as open_savepoint
 
 
 def fetch_optional_rows(
@@ -22,19 +16,21 @@ def fetch_optional_rows(
     *,
     savepoint: str,
 ) -> list:
-    """Fetch rows from an optional relation without poisoning Postgres state."""
-    use_savepoint = db_backend.connection_is_postgres(conn)
+    """Fetch rows from an optional relation without poisoning Postgres state.
+
+    A missing relation reads as no rows; the caller's open transaction keeps
+    its earlier writes.
+    """
+    guard = (
+        open_savepoint(conn, savepoint, owns=False)
+        if db_backend.connection_is_postgres(conn)
+        else nullcontext()
+    )
     try:
-        if use_savepoint:
-            conn.execute(f"SAVEPOINT {savepoint}")
-        rows = conn.execute(sql, tuple(params)).fetchall()
-        if use_savepoint:
-            conn.execute(f"RELEASE SAVEPOINT {savepoint}")
-        return rows
+        with guard:
+            return conn.execute(sql, tuple(params)).fetchall()
     except db_backend.operational_error_types(conn):
-        if use_savepoint:
-            rollback_savepoint(conn, savepoint)
         return []
 
 
-__all__ = ["fetch_optional_rows", "rollback_savepoint"]
+__all__ = ["fetch_optional_rows"]

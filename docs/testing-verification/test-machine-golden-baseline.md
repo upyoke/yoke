@@ -3,11 +3,11 @@
 Preparing, signing in, saving, restoring and repairing a Test Machine has one
 complete ordered procedure per OS in the Machine QA Pack:
 
-- [macOS](../../packs/machine-qa/versions/1.3.34/files/docs/packs/machine-qa/macos-host-provisioning.md)
-- [Linux](../../packs/machine-qa/versions/1.3.34/files/docs/packs/machine-qa/linux-host-provisioning.md)
-- [Windows/WSL2](../../packs/machine-qa/versions/1.3.34/files/docs/packs/machine-qa/windows-host-provisioning.md)
+- [macOS](../../packs/machine-qa/versions/1.3.35/files/docs/packs/machine-qa/macos-host-provisioning.md)
+- [Linux](../../packs/machine-qa/versions/1.3.35/files/docs/packs/machine-qa/linux-host-provisioning.md)
+- [Windows/WSL2](../../packs/machine-qa/versions/1.3.35/files/docs/packs/machine-qa/windows-host-provisioning.md)
 
-The [provisioning index](../../packs/machine-qa/versions/1.3.34/files/docs/packs/machine-qa/host-provisioning.md) installs
+The [provisioning index](../../packs/machine-qa/versions/1.3.35/files/docs/packs/machine-qa/host-provisioning.md) installs
 as `docs/packs/machine-qa/host-provisioning.md`. This page explains the model
 behind its evidence, without providing a second preparation procedure.
 
@@ -100,8 +100,11 @@ One machine can be registered in several projects that share a golden parent.
 The capture result's `kept_golden_paths` names every project's registered
 golden for this machine in that parent, and each one stays with its sidecars;
 only snapshots no project registers are deleted. A symlink is left in place.
+Capture seals each golden read-only and keeps macOS deny-delete ACLs, so
+removal first clears a snapshot's ACLs and makes its directories
+owner-writable.
 `golden_snapshot_retention_failed` means the new golden is already registered
-and the named leftovers are still there; remove them, keep every project's
+and the named leftovers are still there, with the host's own error; remove them, keep every project's
 registered golden, and do not capture again until they are gone. When the
 server cannot name the other projects' goldens (`kept_golden_paths` absent or
 `kept_golden_paths_unknown` set), nothing is deleted and the refusal says why. Windows/WSL capture uses this same Linux archive, so the
@@ -123,7 +126,10 @@ the refreshed golden (`yoke_core.domain.golden_harness_refresh`). The capture
 prunes preserved logins, keychains and cookies as above. A refresh that cannot
 read a release channel, reset, install, verify the installed version or
 capture stops the plan with `golden_refresh_*` and the step to repair, so no
-case runs on stale CLIs. A server older than the `plan_execution_id` argument
+case runs on stale CLIs. Leftover old snapshots after a verified refresh
+capture do not stop the plan: it prints a `golden_snapshot_retention_failed`
+warning with the host's error and the cleanup, and continues, because the next
+capture's space check still refuses a crowded disk. A server older than the `plan_execution_id` argument
 refuses with its floor; capture by hand with
 `yoke test-machine golden-capture` after updating the CLIs.
 
@@ -242,7 +248,7 @@ checks. Its existing retained host-command keeps the candidate terminal alive;
 `yoke qa browser setup` and `yoke qa browser step` drive candidate Chromium one
 observed step at a time. Read those commands' `--help` before execution. Do not
 add an approval command or extend the scripted terminal recipe contract.
-Follow the Machine QA Pack's [setup responsibilities](../../packs/machine-qa/versions/1.3.34/files/docs/packs/machine-qa/setup-responsibilities.md).
+Follow the Machine QA Pack's [setup responsibilities](../../packs/machine-qa/versions/1.3.35/files/docs/packs/machine-qa/setup-responsibilities.md).
 Agents complete every software-capable setup step and system permission prompt.
 Only browser sign-in and OS permissions that software cannot grant need the
 operator. Product code alone enters passwords from stored secrets; nobody types

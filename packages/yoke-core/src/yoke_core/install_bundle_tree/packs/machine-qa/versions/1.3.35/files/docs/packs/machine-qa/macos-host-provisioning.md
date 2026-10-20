@@ -10,8 +10,10 @@ name and project slug; these values and credentials are project-owned.
 
 ## 1. Dedicated account and identity
 
-Create one dedicated test user and choose its short name before registering
-the capability. Set a deliberate computer name. Never rename the test user or
+Use a Mac with at least 40 GiB on its system volume
+([disk sizing](host-provisioning.md#disk-sizing-and-online-resize)). Create one
+dedicated test user and choose its short name before registering the
+capability. Set a deliberate computer name. Never rename the test user or
 enumerate, capture, restore, or log out another operator account.
 Check `id -un`, `scutil --get ComputerName`, `scutil --get LocalHostName`, and
 `stat -f %Su /dev/console`; the graphical console must belong to the test user.
@@ -171,11 +173,10 @@ Before probing GUI-session commands, read the mandatory
 [macOS automation diagnostics](browser-identities.md#macos-automation-diagnostics)
 for denial, timeout and Terminal-window recovery.
 
-## 8. Harness sign-in and acceptance set
+## 8. Operator sign-in and acceptance set
 
-Agents start each required harness's vendor login flow from the test user's
-**GUI Terminal** and approve its device code in the signed-in browser; the
-operator types only their password where the vendor asks. Follow the [browser identity procedure](#11-live-browser-identities)
+Sign in each required harness from the test user's **GUI Terminal** using its
+vendor login flow. Follow the [browser identity procedure](#11-live-browser-identities)
 for password-free native authorization and personal sign-in handoffs. [Codex device auth](https://developers.openai.com/codex/auth)
 requires account/workspace permission. [Cursor auth](https://cursor.com/docs/cli/reference/authentication)
 is separate from app presence. A login-status line or credential file is
@@ -294,9 +295,8 @@ before clearing when Safari will not quit. Recheck screen saver 0 and
 the GUI keychain after the roundtrip, with Screen Sharing disconnected.
 
 Require passing operation receipts bound to the new golden, standard checks,
-and real desktop/input evidence. If authentication expires, agents rerun the
-GUI login (the operator types only the password) and save it with
-`yoke test-machine golden-capture`; the next
+and real desktop/input evidence. If authentication expires, the operator signs
+in in the GUI and saves it with `yoke test-machine golden-capture`; the next
 reset keeps that login. Never recapture a mixed home
 after a failed restore. Capture then verify/reset is one ordered saved-state
 proof; an old receipt or a successful capture alone cannot replace it.
@@ -315,8 +315,8 @@ is no desktop opt-out. Confirm release-matched help and operation receipts
 before relying on an installed release. Before running it, read the complete
 [desktop browser checks](browser-identities.md#desktop-browser-checks) procedure.
 
-1. Apply the project-owned sign-in policy. The human only types their own
-   password or credential; agents complete every other prompt.
+1. Apply the project-owned sign-in policy. The human enters personal
+   credentials and completes personal approval prompts.
 
 Before sign-in, follow the complete [macOS sign-in
 procedure](browser-identities.md#macos-sign-in-procedure).

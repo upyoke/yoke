@@ -20,7 +20,9 @@ def run(root: Path, *args: str):
 
     with isolated_network_git_env(()) as env:
         return run_network_git(
-            ["git", *args], cwd=root, env=env,
+            ["git", *args],
+            cwd=root,
+            env=env,
             timeout_seconds=LOCAL_GIT_TIMEOUT_SECONDS,
             maximum_output_bytes=LOCAL_GIT_OUTPUT_MAX_BYTES,
         )
@@ -40,10 +42,7 @@ def current_branch(cwd: Path) -> str:
             "could not resolve the current git branch within its safety boundary"
         ) from exc
     branch = result.stdout.strip()
-    if (
-        result.returncode != 0
-        or not project_git_branch.is_valid(branch)
-    ):
+    if result.returncode != 0 or not project_git_branch.is_valid(branch):
         detail = result.stderr.strip() or result.stdout.strip() or "no branch"
         raise ProjectOnboardError(
             f"could not resolve the current git branch in {cwd}: {detail}"
@@ -51,9 +50,25 @@ def current_branch(cwd: Path) -> str:
     return branch
 
 
+def has_commit(cwd: Path) -> bool:
+    """Return whether ``HEAD`` names a commit; an empty repository's is unborn."""
+
+    try:
+        project_git_prerequisite.require_git_available()
+        result = run(cwd, "rev-parse", "--quiet", "--verify", "HEAD")
+    except project_git_prerequisite.MissingGitError as exc:
+        raise ProjectOnboardError(str(exc)) from exc
+    except (OSError, NetworkGitBoundaryError) as exc:
+        raise ProjectOnboardError(
+            "the local Git HEAD probe exceeded its safety boundary"
+        ) from exc
+    return result.returncode == 0
+
+
 __all__ = [
     "LOCAL_GIT_OUTPUT_MAX_BYTES",
     "LOCAL_GIT_TIMEOUT_SECONDS",
     "current_branch",
+    "has_commit",
     "run",
 ]

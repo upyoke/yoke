@@ -11,8 +11,10 @@ endpoint, project slug, passwords and baseline paths remain project-owned.
 ## 1. Host, tools and account
 
 Declare cloud resources through project IaC, or record an explicit operator
-exception before provisioning. Use Ubuntu 24.04 and one dedicated non-root
-user. The administrator installs base tools and creates that account:
+exception before provisioning. Use Ubuntu 24.04, a root volume of at least
+40 GiB ([disk sizing](host-provisioning.md#disk-sizing-and-online-resize)) and
+one dedicated non-root user. The administrator installs base tools and creates
+that account:
 
 ```text
 sudo apt-get update
@@ -44,7 +46,7 @@ golden. Do not record QA package changes as the permanent machine baseline.
 
 Ubuntu24.04 restricts unprivileged user namespaces by default. Keep
 `kernel.apparmor_restrict_unprivileged_userns=1`. If a harmless command in the
-Codex session opened through the desktop fails before execution with
+human-opened Codex session fails before execution with
 `bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`, inspect fresh
 kernel audit events as administrator:
 
@@ -76,7 +78,7 @@ sysctl kernel.apparmor_restrict_unprivileged_userns
 sudo aa-status
 ```
 
-Require the global sysctl still1 and `codex_bwrap` loaded. In the SAME desktop-opened Codex
+Require the global sysctl still1 and `codex_bwrap` loaded. In the SAME human-opened Codex
 session, request a harmless normal sandboxed pwd/printf command. Require
 actual exit code 0 and output, then inspect fresh audit events for renewed
 namespace/capability denial. Do not escalate the probe, change Codex
@@ -124,7 +126,7 @@ personal sign-in handoff with a visible FreeRDP SDL viewer, add `--view`; the
 product supplies the password on stdin and closes its forward with the viewer.
 Read `--help` for the required client. Agent captures prove test rendering.
 
-## 3. Harness installation and sign-in
+## 3. Harness installation and operator sign-in
 
 Use each vendor's supported installer as the test user, with `.local/bin` on
 login and SSH PATH. These commands are provisioning actions, not audit probes:
@@ -261,11 +263,11 @@ clean-home golden.
    --identity NAME` as the test user in the real headed desktop; read
    `--help`. It checks every declared site first and opens a window only for
    the expired ones, naming the identity, the site and the account; no
-   automated browser runs while it is open. The user only types their own
-   password or credential; agents drive every other prompt in that window
-   through desktop control, prepare the desktop and run the declared checks; use project-approved test accounts
+   automated browser runs while it is open. The user supplies personal
+   credentials and completes personal approval prompts. Agents prepare the
+   desktop and run the declared checks; use project-approved test accounts
    and follow project-owned sign-in policy. Keep profile data on the host.
-4. Agents close each authorization window once signed in; the command checks each site
+4. The user closes every authorization window; the command checks each site
    again and fails naming any still signed out. The identity's profile path
    links into the store, so the sign-in already lives there: nothing is
    captured, sealed or restored.
@@ -295,8 +297,7 @@ so its approval link opens there. The gate then
 presses **Approve machine** only in the exact installer-opened tab on the
 declared origin with the displayed code, revalidates the tab first, accepts
 only a same-origin navigation away from it, and attaches a desktop screenshot
-to the step. Agents open the app sign-in once in this Chromium; the operator
-types only their password. Keep
+to the step. The operator signs in to the app once in this Chromium. Keep
 that browser sign-in live outside the golden and prove it survives reset
 through the [baseline procedure](linux-baseline-recovery.md); golden capture
 saves the remaining fixture state, never the desktop browser sign-in store.

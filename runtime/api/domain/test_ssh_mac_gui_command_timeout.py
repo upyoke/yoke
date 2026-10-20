@@ -53,7 +53,7 @@ class GuiHost:
                 )
             text = next(v for k, v in self.printed.items() if k in command)
             return _done(command, stdout=base64.b64encode(text.encode()).decode())
-        if command.startswith("process_tree()"):
+        if command.startswith("/bin/sh -c 'process_tree()"):
             return _done(command, self.stop[0], stdout=self.stop[1])
         if "set ttyPaths to tty of every tab" in command:
             return _done(command, stdout="closed\n" if self.closes else "open\n")
@@ -87,7 +87,9 @@ def test_a_timed_out_command_is_stopped_before_its_output_is_removed() -> None:
     assert result.stderr.splitlines()[-1].startswith(GUI_COMMAND_TIMEOUT_STOPPED)
     assert "pid 4242" in result.stderr
     stop = next(
-        i for i, c in enumerate(host.commands) if c.startswith("process_tree()")
+        i
+        for i, c in enumerate(host.commands)
+        if c.startswith("/bin/sh -c 'process_tree()")
     )
     assert "process_tree 4242" in host.commands[stop]
     remove = host.commands.index(host.removed()[0])
@@ -164,6 +166,7 @@ def test_process_tree_stop_reports_what_survived(
     stop = stop_process_tree(run, 77)
 
     assert (stop.stopped, stop.survivors) == (stopped, survivors)
+    assert commands[0].startswith("/bin/sh -c ")
     assert "process_tree 77" in commands[0]
     assert commands[0].index("stop TERM") < commands[0].index("stop KILL")
 

@@ -1,7 +1,7 @@
 # Linux live harness installations and reset recovery
 
 Install Claude, Codex and Cursor as the dedicated test user using the supported
-installers in [Linux provisioning](linux-host-provisioning.md#3-harness-installation-and-sign-in).
+installers in [Linux provisioning](linux-host-provisioning.md#3-harness-installation-and-operator-sign-in).
 Keep `.local/bin` on both login and SSH PATH. Require a real request from all
 three before restoring the clean baseline. Sign-ins and installations stay
 live; never put their current state into a golden to repair a failed request.
@@ -54,8 +54,7 @@ stashes use `store`. Preserve them when provenance is ambiguous; ask the
 operator before selecting between competing live copies.
 
 Run each sealed real-request probe again. Only a restored live credential that
-still reports expired/sign-in-required needs a vendor login in which agents
-drive every step and the operator types only their password. Name that harness,
+still reports expired/sign-in-required needs human login. Name that harness,
 machine and test user; preserve the golden. Quota and transport failures use
 their diagnosed recovery, with no credential reset or golden capture.
 

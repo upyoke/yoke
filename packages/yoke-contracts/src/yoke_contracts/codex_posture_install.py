@@ -55,7 +55,7 @@ def configure_codex_unattended_posture(
     for conflict in record["conflicts"]:
         actions.append(
             f"codex: left your own setting in place — {conflict}; "
-            "Codex will keep asking until you change it"
+            "Codex asks before commands its rules do not allow"
         )
     return actions
 

@@ -72,11 +72,11 @@ clean-home golden.
    --identity NAME` as the test user in the real headed desktop; read
    `--help`. It checks every declared site first and opens a window only for
    the expired ones, naming the identity, the site and the account; no
-   automated browser runs while it is open. The user only types their own
-   password or credential; agents drive every other prompt in that window
-   through desktop control, prepare the desktop and run the declared checks; use project-approved test accounts
+   automated browser runs while it is open. The user supplies personal
+   credentials and completes personal approval prompts. Agents prepare the
+   desktop and run the declared checks; use project-approved test accounts
    and follow project-owned sign-in policy. Keep profile data on the host.
-4. Agents close each authorization window once signed in; the command checks each site
+4. The user closes every authorization window; the command checks each site
    again and fails naming any still signed out. The identity's profile path
    links into the store, so the sign-in already lives there: nothing is
    captured, sealed or restored.
