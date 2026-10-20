@@ -9,7 +9,6 @@ import pytest
 from yoke_core.domain import lint_long_command_polling_evaluate as lint
 from yoke_core.domain.lint_long_command_polling_constants import SUPPRESSION_TOKEN
 from yoke_core.domain.lint_long_command_polling_decide import (
-    _format_peek_reason,
     _format_sleep_reason,
 )
 from yoke_core.domain.lint_long_command_polling_test_helpers import (
@@ -67,6 +66,5 @@ def test_non_bash_tool_is_not_a_poll_loop() -> None:
     assert lint.evaluate_payload(payload) is None
 
 
-def test_peek_and_sleep_refusals_offer_no_override() -> None:
-    assert SUPPRESSION_TOKEN not in _format_peek_reason("/tmp/run.out", 2, "deny")
+def test_sleep_refusal_offers_no_override() -> None:
     assert SUPPRESSION_TOKEN not in _format_sleep_reason(10, "deny")

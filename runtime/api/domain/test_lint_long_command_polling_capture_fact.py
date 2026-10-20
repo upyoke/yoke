@@ -2,12 +2,12 @@
 
 The hook client observes each capture with
 :func:`yoke_contracts.watch_capture.capture_state` and ships it as the
-``CAPTURE_FILES_KEY`` fact; ``evaluate_payload`` reads only that fact. These
+``CAPTURE_FILES_KEY`` fact. These
 tests build the fact from real watcher capture pairs to prove:
 
   (a) a post-completion peek on a finished watcher passes WITHOUT a
       suppression token, even though the raw capture was just written, and
-  (b) a repeated mid-run peek (no sentinel yet) is still denied.
+  (b) a repeated read also passes without a completion sentinel.
 """
 
 from __future__ import annotations
@@ -63,16 +63,12 @@ class TestEvaluatePayloadFromObservedCapture(CapturePairHelpers, unittest.TestCa
             "post-completion peek must be allowed without suppression",
         )
 
-    def test_midrun_repeated_peek_still_denied(self) -> None:
+    def test_repeated_read_without_sentinel_allowed(self) -> None:
         raw, progress = self._make_pair("merge")
         self._write(raw, "partial merge output\n")
         self._write(progress, "merge step 3\n")  # no sentinel yet
         result = self._evaluate_after_prior_peek(raw)
-        self.assertIsNotNone(result, "mid-run peek must still be denied")
-        assert result is not None
-        verdict, _reason, ctx = result
-        self.assertEqual(verdict, "deny")
-        self.assertEqual(ctx.get("capture_file"), raw)
+        self.assertIsNone(result)
 
     def test_stale_capture_without_sentinel_allowed(self) -> None:
         raw, progress = self._make_pair("merge")

@@ -1,7 +1,8 @@
 {
  "id": "raw-capture",
  "title": "Raw capture",
- "status": "draft-copy",
+ "status": "observed",
  "page": "verification",
- "position": 1
+ "position": 1,
+ "description": "Raw captures preserve command output for inspection. Reading captures, finished task output or agent-written files needs no polling suppression. Short sleeps before reads of session-registered captures are refused; duplicate Monitors, GitHub polling loops and background waiters remain guarded."
 }

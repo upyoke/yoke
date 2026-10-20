@@ -1,9 +1,8 @@
 """PreToolUse hook: flag manual progress polling on long commands.
 
 Detects and flags the anti-pattern where an agent manually polls the output
-of a long-running command (repeated same-capture ``tail``/``head`` peeks,
-duplicate ``Monitor`` arming, background waiters on an existing capture,
-short ``sleep N && tail`` idioms with ``N < 60``, or ``until``/``while``
+of a long-running command (duplicate ``Monitor`` arming, background waiters on an existing capture,
+short sleeps before reads of registered captures with ``N < 60``, or ``until``/``while``
 loops that sleep between ``gh api``/``gh run view`` reads of a CI run).
 
 The canonical pattern agents should use instead: ``Bash(run_in_background=
@@ -11,8 +10,8 @@ true)`` with ``Monitor`` tailing the capture file through a line-buffered
 filter. When no streaming surface exists, the fallback cadence is
 ``60s -> 90s -> 120s -> max ~300s``.
 
-Bypass: add ``# lint:no-polling-check`` to a legitimate post-capture
-inspection command. It does not unblock a GitHub polling loop: a CI run
+Capture reads need no suppression token. ``# lint:no-polling-check``
+suppresses the short-sleep rule. It does not unblock a GitHub polling loop: a CI run
 Yoke dispatched has a recorded wait whose verdict wakes the session. Monitor
 duplicate and background-waiter suppression tokens are audit-only and still
 deny in ``deny`` mode.
@@ -42,7 +41,7 @@ is always ``0`` (fail-open).
 
 This module owns the hook entry point. Public constants
 (``DEFAULT_MODE``, ``VALID_MODES``, ``CHECK_ID``,
-``HOOK_NAME``, ``SUPPRESSION_TOKEN``, plus the cadence / window
+``HOOK_NAME``, ``SUPPRESSION_TOKEN``, plus the cadence
 thresholds) live in the leaf ``lint_long_command_polling_constants``
 sibling and are re-exported here. The
 machine-config reader lives in ``lint_long_command_polling_config`` and
@@ -64,8 +63,6 @@ from yoke_core.domain.lint_long_command_polling_constants import (  # noqa: F401
     DEFAULT_MODE,
     HOOK_NAME,
     MONITOR_DUPLICATE_SUPPRESSION_TOKEN,
-    MTIME_ACTIVE_THRESHOLD_SECONDS,
-    PEEK_WINDOW_TURNS,
     RECENT_EVENT_LOOKBACK_SECONDS,
     SLEEP_CADENCE_FLOOR_SECONDS,
     SUPPRESSION_TOKEN,

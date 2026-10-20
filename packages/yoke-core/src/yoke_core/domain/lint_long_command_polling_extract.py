@@ -192,28 +192,6 @@ def _extract_peek_capture_file(command: str, roots: Sequence[str]) -> Optional[s
     return m.group(2)
 
 
-def _peek_read_in_command_substitution(command: str, roots: Sequence[str]) -> bool:
-    """True iff the peek-verb match sits inside a ``$(...)`` substitution.
-
-    ``OUT=$(cat /tmp/ptr.txt); cd "$OUT" && ...`` consumes the file's
-    bytes as input to the rest of the command (the pointer-file idiom
-    that persists a mktemp path across Bash subshells) — the read never
-    reaches the transcript, so on its own it is not a progress peek.
-    Callers MUST pair this with the session capture-registration check:
-    a file some session command redirected into (or named via
-    ``--raw-capture``/``--progress-capture``) stays a peek even when
-    read through a substitution.
-    """
-    m = capture_patterns(tuple(roots)).peek_verb.search(command)
-    if not m:
-        return False
-    prefix = command[: m.start()]
-    open_idx = prefix.rfind("$(")
-    # Enclosed iff a `$(` opens before the verb with no `)` in between
-    # (a closed earlier substitution does not enclose the read).
-    return open_idx != -1 and ")" not in prefix[open_idx + 2 :]
-
-
 def _extract_sleep_cadence(command: str) -> Optional[int]:
     """Return the ``sleep N`` seconds value before a tail/head/cat, if present."""
     m = _SLEEP_THEN_PEEK_RE.search(command)
@@ -254,3 +232,11 @@ def _extract_background_capture_files(command: str, roots: Sequence[str]) -> lis
         match.group(1) for match in _WATCHER_CAPTURE_ARG_RE.finditer(command)
     )
     return list(dict.fromkeys(captures))
+
+
+def _extract_sleep_capture_file(command: str, roots: Sequence[str]) -> Optional[str]:
+    """Return the capture read after a sleep, ignoring earlier reads."""
+    match = _SLEEP_THEN_PEEK_RE.search(command)
+    return (
+        _extract_peek_capture_file(command[match.start() :], roots) if match else None
+    )

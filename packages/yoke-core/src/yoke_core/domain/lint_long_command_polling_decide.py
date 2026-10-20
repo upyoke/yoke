@@ -4,7 +4,7 @@ Sibling of ``lint_long_command_polling`` (the hook entry point) and
 ``lint_long_command_polling_evaluate`` (the verdict logic). This module
 isolates everything that builds output:
 
-- ``_format_peek_reason`` / ``_format_sleep_reason`` /
+- ``_format_sleep_reason`` /
   ``_format_github_poll_loop_reason`` / ``_format_monitor_duplicate_reason`` — operator-facing reason text rendered with
   the verdict (``DENIED`` vs ``POLLING ANTI-PATTERN``).
 - ``_build_context`` — the structured context dict captured into the
@@ -27,7 +27,6 @@ from yoke_core.domain.lint_long_command_polling_constants import (
     CHECK_ID,
     HOOK_NAME,
     MONITOR_DUPLICATE_SUPPRESSION_TOKEN,
-    PEEK_WINDOW_TURNS,
 )
 from yoke_core.domain.lint_long_command_polling_extract import _extract_command
 
@@ -47,34 +46,10 @@ def _raw_capture_hint(progress_capture: str) -> str:
     return progress_capture
 
 
-def _format_peek_reason(
-    capture_file: str,
-    prior_peeks: int,
-    mode: str,
-) -> str:
-    verb = "DENIED" if mode == "deny" else "POLLING ANTI-PATTERN"
-    return (
-        f"{verb}: Manual progress peek on long command.\n\n"
-        f"Target: {capture_file}\n"
-        f"Prior peeks in last {PEEK_WINDOW_TURNS}-turn window: {prior_peeks}\n\n"
-        "The canonical pattern for monitoring long commands is:\n"
-        "  1. Kick off with Bash(run_in_background: true) writing to the capture file\n"
-        "  2. Start a Monitor tailing that file with a line-buffered progress/failure filter\n"
-        "  3. On Monitor wakes, write one plain sentence on what changed for the user"
-        " (item, PR, failing test, terminal state), or nothing; never paste raw reports\n\n"
-        "If no streaming surface exists, use the fallback cadence: 60s -> 90s -> 120s -> max ~300s.\n"
-        "Never peek faster than 60 seconds.\n\n"
-        "Options:\n"
-        f"  1. Switch to Monitor — see runtime/harness/claude/rules/session.md '## Tool Constraints'\n"
-        "  2. In verified background-wake mode, await its Monitor/completion wake\n"
-        "  3. Once the owning command has exited, read `tail -80 <raw-capture>` once"
-    )
-
-
 def _format_sleep_reason(cadence: int, mode: str) -> str:
     verb = "DENIED" if mode == "deny" else "POLLING ANTI-PATTERN"
     return (
-        f"{verb}: sleep {cadence} && (cat|tail|head) — progress polling with N < 60s.\n\n"
+        f"{verb}: sleep {cadence} followed by a registered capture read — progress polling with N < 60s.\n\n"
         f"Fallback cadence when no streaming surface exists is 60s -> 90s -> 120s -> max ~300s.\n"
         f"Never check faster than 60 seconds.\n\n"
         "In verified background-wake mode, await Monitor/completion; otherwise keep the original foreground wait active."

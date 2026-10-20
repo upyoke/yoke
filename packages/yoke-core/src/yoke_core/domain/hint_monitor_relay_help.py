@@ -83,10 +83,9 @@ What you DO do during a Monitor-armed background command:
   A side-effect-free command probes nothing and relays nothing.
   Do not Stop after arming Monitor while a claim is live: ending the
   turn closes the reader and the waiter dies with no wake.
-- Avoid repeated peeks at the capture file
-  (tail/head/cat/wc/grep/egrep/fgrep/rg/ls/awk/sed/less/more/file/stat/nl/cut/sort/uniq)
-  while the owning command is running. The matched lines ARE the
-  signal; the capture is for post-completion inspection.
+- Use matched lines for progress. Reads of captures, completed task output
+  and agent-written files need no suppression token. A sleep below 60s
+  followed by reading a session-registered capture is refused.
 - Do not spawn another `Bash(run_in_background)` whose body is
   `tail -f <capture>`, `sleep N && tail/cat <capture>`,
   `while [ ! -f <sentinel> ]; do sleep; done`, or another
@@ -94,7 +93,8 @@ What you DO do during a Monitor-armed background command:
   armed Monitor IS the waiter.
 - `/private/tmp/claude-<uid>/<project-hash>/tasks/<id>.output` is
   also a capture file - `TaskOutput` artifacts live there. The
-  peek/waiter rules apply to those paths identically.
+  background-waiter rules apply to those paths identically; ordinary
+  reads are allowed.
 - Do not infer state that wasn't in a matched line. If the line
   says "[ 65%]", say the run is at 65% - not "65%, all green".
 

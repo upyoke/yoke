@@ -1,17 +1,4 @@
-"""Verdict logic for the long-command polling lint.
-
-Owns ``evaluate_payload`` plus the I/O-touching helpers it consumes:
-
-- session-scoped DB lookup (``_db_available``,
-  ``_recent_bash_commands``, ``_count_prior_peeks_in_window``)
-- the client-observed "owning command still running" signal
-  (``_owning_command_still_running``)
-
-Pure command/payload introspection helpers live on the extract sibling.
-Reason formatters, audit emission, and the deny envelope live on the
-decide sibling. Mode/config reads (``_read_lint_mode``) stay on the
-entry-point — this module imports them.
-"""
+"""Polling verdicts and session-scoped capture registration lookup."""
 
 from __future__ import annotations
 
@@ -21,33 +8,28 @@ from yoke_core.domain.db_helpers import instant_parameter
 from typing import Optional, Sequence
 
 from yoke_contracts.hook_runner.client_facts import (
-    capture_file_state,
     capture_roots,
 )
 
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.lint_long_command_polling_config import _read_lint_mode
 from yoke_core.domain.lint_long_command_polling_constants import (
-    MTIME_ACTIVE_THRESHOLD_SECONDS,
-    PEEK_WINDOW_TURNS,
     RECENT_EVENT_LOOKBACK_SECONDS,
     SLEEP_CADENCE_FLOOR_SECONDS,
 )
 from yoke_core.domain.lint_long_command_polling_decide import (
     _build_context,
     _format_github_poll_loop_reason,
-    _format_peek_reason,
     _format_sleep_reason,
 )
 from yoke_core.domain.lint_long_command_polling_extract import (
     _extract_background_capture_files,
     _extract_command,
-    _extract_peek_capture_file,
     _extract_sleep_cadence,
+    _extract_sleep_capture_file,
     _extract_tool_name,
     _has_suppression,
     _is_github_poll_loop,
-    _peek_read_in_command_substitution,
 )
 from yoke_core.domain.lint_long_command_polling_monitor_duplicate import (
     evaluate_duplicate_monitor,
@@ -107,34 +89,6 @@ def _recent_bash_commands(
     return out
 
 
-def _count_prior_peeks_in_window(
-    recent: list[tuple[str, datetime | None, str]],
-    capture_file: str,
-    current_tool_use_id: str,
-    roots: Sequence[str],
-    window_turns: int = PEEK_WINDOW_TURNS,
-) -> int:
-    """Count prior Bash peeks targeting *capture_file* in the last *window_turns*.
-
-    "Window" is measured as distinct ``tool_use_id``s immediately preceding
-    the current one. The current invocation is NOT counted — callers add 1
-    to ask "is this the Nth peek."
-    """
-    seen: list[str] = []
-    count = 0
-    for tool_use_id, _created_at, command in recent:
-        if not tool_use_id or tool_use_id == current_tool_use_id:
-            continue
-        if tool_use_id not in seen:
-            seen.append(tool_use_id)
-            if len(seen) > window_turns:
-                break
-        peek_target = _extract_peek_capture_file(command, roots)
-        if peek_target == capture_file:
-            count += 1
-    return count
-
-
 def _capture_registered_in_session(
     recent: list[tuple[str, datetime | None, str]],
     capture_file: str,
@@ -152,27 +106,6 @@ def _capture_registered_in_session(
         capture_file in _extract_background_capture_files(cmd, roots)
         for _tool_use_id, _created_at, cmd in recent
     )
-
-
-def _owning_command_still_running(payload: dict, capture_file: str) -> bool:
-    """Return True if *capture_file*'s owning command is still running.
-
-    Reads the client's observation of the capture
-    (:func:`yoke_contracts.watch_capture.capture_state`): once the watcher
-    exit sentinel is written the command has exited regardless of mtime, so
-    the single sanctioned post-completion ``tail -80 <raw-capture>`` is
-    allowed. Otherwise a capture touched within
-    :data:`MTIME_ACTIVE_THRESHOLD_SECONDS` is still being appended to, so a
-    genuine mid-run peek stays denied. A capture the client did not report,
-    or that does not exist there, is not running.
-    """
-    state = capture_file_state(payload, capture_file)
-    if state is None or state.get("completed") is True:
-        return False
-    age_seconds = state.get("age_seconds")
-    if not isinstance(age_seconds, (int, float)):
-        return False
-    return age_seconds < MTIME_ACTIVE_THRESHOLD_SECONDS
 
 
 def evaluate_payload(payload: dict) -> Optional[tuple[str, str, dict]]:
@@ -221,48 +154,17 @@ def evaluate_payload(payload: dict) -> Optional[tuple[str, str, dict]]:
     if waiter_verdict is not None:
         return waiter_verdict
 
-    # sleep N && peek with N below the floor
+    # Only a short wait followed by a read of a session-owned capture polls.
     cadence = _extract_sleep_cadence(command)
-    if cadence is not None and cadence < SLEEP_CADENCE_FLOOR_SECONDS:
-        ctx = _build_context(tool_name or "Bash", command, None)
-        return (mode, _format_sleep_reason(cadence, mode), ctx)
-
-    roots = capture_roots(payload)
-    capture_file = _extract_peek_capture_file(command, roots)
-
-    # Capture-file peek: check if owning command still running and whether
-    # this is a repeated peek within the window.
-    if capture_file is not None:
-        still_running = _owning_command_still_running(payload, capture_file)
-        if not still_running:
-            # Owning command completed — post-capture inspection is allowed.
-            return None
-
-        session_id = payload.get("session_id") or ""
-        current_tool_use_id = (
-            payload.get("tool_use_id")
-            or payload.get("turn_id")
-            or payload.get("message_id")
-            or ""
-        )
-        recent = _recent_bash_commands("", session_id) if _db_available() else []
-
-        # Pointer-file carve-out: a command-substitution read of a file
-        # no session command owns as a capture is content consumption,
-        # not a progress peek (the mtime heuristic alone cannot tell a
-        # freshly written pointer note from a live capture).
-        if _peek_read_in_command_substitution(
-            command, roots
-        ) and not _capture_registered_in_session(recent, capture_file, roots):
-            return None
-
-        prior_peeks = _count_prior_peeks_in_window(
-            recent, capture_file, current_tool_use_id, roots
-        )
-
-        if prior_peeks >= 1:
-            ctx = _build_context(tool_name or "Bash", command, capture_file)
-            return (mode, _format_peek_reason(capture_file, prior_peeks, mode), ctx)
+    if cadence is None or cadence >= SLEEP_CADENCE_FLOOR_SECONDS:
         return None
-
-    return None
+    roots = capture_roots(payload)
+    capture_file = _extract_sleep_capture_file(command, roots)
+    if capture_file is None:
+        return None
+    session_id = payload.get("session_id") or ""
+    recent = _recent_bash_commands("", session_id) if _db_available() else []
+    if not _capture_registered_in_session(recent, capture_file, roots):
+        return None
+    ctx = _build_context(tool_name or "Bash", command, capture_file)
+    return (mode, _format_sleep_reason(cadence, mode), ctx)

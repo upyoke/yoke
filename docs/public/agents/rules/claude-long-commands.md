@@ -123,9 +123,10 @@ Renderer puts role env on all four background-tool hook matchers from universal
 HOOK_ORDERING, so new guards propagate without per-adapter copies.
 
 One armed subscription is background progress; original call is in-turn waiter.
-No duplicate Monitor, same-capture loop, background waiter, bare watcher tail-f/F
-or short sleep-and-tail. Use minted watch tail; completion notice only after
-reported background-wake. One completed raw tail -80 is fine. Truly unwrapped
+No duplicate Monitor, background waiter, bare watcher tail-f/F
+or short sleep followed by reading a session-registered capture. Use minted watch tail; completion notice only after
+reported background-wake. Capture reads, finished task output and agent-written
+files need no polling suppression token. One completed raw tail -80 is fine. Truly unwrapped
 fallback cadence: 60s → 90s → 120s → max~300s, never faster than 60s.
 lint_monitor_watcher_tail/lint_long_command_polling own configured modes.
 
