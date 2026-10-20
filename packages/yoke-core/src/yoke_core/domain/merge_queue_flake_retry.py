@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.public_item_target import public_item_target
 
 RETRY_SECTION = "Merge train retries"
@@ -11,7 +10,12 @@ RETRY_EXHAUSTED = "merge_train_flake_retry_exhausted"
 
 def claim_retry(public_ref, pr_number, head, base, run_url, reason, *, dispatch=None):
     """Reserve before arming; uncertainty never authorizes another retry."""
-    dispatch = dispatch or call_dispatcher
+    if dispatch is None:
+        return (
+            "merge_train_flake_retry_unrecorded: no control-plane dispatcher; "
+            "use the governed yoke merge item command to reserve the retry; "
+            "no re-enqueue was sent."
+        )
     try:
         response = dispatch(
             function_id="merge_queue.flake_retry.claim",
