@@ -12,7 +12,9 @@ from yoke_core.domain.deployment_run_bound_sources import (
     parse_bound_sources,
 )
 from yoke_core.domain.deployment_run_project_sources import recorded_source_sha
-from yoke_core.domain.item_finished_times import finished_times_in_window
+from yoke_core.domain.item_finished_times import finished_times_since
+from yoke_core.domain.deployment_run_carried_work import previous_release_run
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.json_helper import dumps_compact
 from yoke_core.domain.release_delivery_summary import recorded_merge_shas_for_items
 from yoke_core.domain.project_identity import render_item_ref
@@ -37,8 +39,8 @@ def _carried_project_ids(run: Mapping[str, Any]) -> tuple[int, ...]:
     return (project_id, *sorted(bound))
 
 
-def _visibility_item_ids(conn: Any, project_id: int) -> tuple[int, ...]:
-    """Items a live delivery box could name: open, or finished today."""
+def _delivery_item_ids(conn: Any, project_id: int, since) -> tuple[int, ...]:
+    """Merged open items and finishers not covered by the preceding release."""
     marker = _p(conn)
     if (
         conn.execute(
@@ -48,7 +50,7 @@ def _visibility_item_ids(conn: Any, project_id: int) -> tuple[int, ...]:
     ):
         return ()
     found = {int(record["id"]) for record in merged_open_items(conn, project_id)}
-    finished = finished_times_in_window(conn)
+    finished = finished_times_since(conn, since)
     if finished:
         ids = sorted(finished)
         holes = ", ".join(marker for _ in ids)
@@ -79,7 +81,7 @@ def candidate_containment_basis(
     marker = _p(conn)
     row = conn.execute(
         f"SELECT project_id,release_lineage,bound_sources,"
-        f"{stored_column} AS {CANDIDATE_CONTAINMENT_FIELD} "
+        f"{stored_column} AS {CANDIDATE_CONTAINMENT_FIELD},target_environment_id "
         f"FROM deployment_runs WHERE id={marker}",
         (run_id,),
     ).fetchone()
@@ -102,6 +104,16 @@ def candidate_containment_basis(
         if bound_sources is not None
         else _cell(row, "bound_sources", 2),
     }
+    previous = previous_release_run(
+        conn, run_id, run["project_id"], _cell(row, "target_environment_id", 4)
+    )
+    anchor = None
+    if previous is not None:
+        started = conn.execute(
+            f"SELECT started_at FROM deployment_runs WHERE id={marker}",
+            (_cell(previous, "id", 0),),
+        ).fetchone()[0]
+        anchor = parse_instant(started) if started is not None else None
     project_ids = _carried_project_ids(run)
     holes = ", ".join(marker for _ in project_ids)
     slug_rows = query_rows(
@@ -112,7 +124,7 @@ def candidate_containment_basis(
     slugs = {int(row["id"]): str(row["slug"]) for row in slug_rows}
     projects: list[dict[str, Any]] = []
     for project_id in project_ids:
-        item_ids = _visibility_item_ids(conn, project_id)
+        item_ids = _delivery_item_ids(conn, project_id, anchor)
         merges = recorded_merge_shas_for_items(conn, item_ids)
         items = [
             {

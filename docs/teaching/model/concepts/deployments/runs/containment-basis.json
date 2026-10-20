@@ -1,0 +1,7 @@
+{
+ "id": "containment-basis",
+ "title": "Recorded containment basis",
+ "status": "observed",
+ "summary": "Containment asks about merged open items and finishers since the latest succeeded release started on the same project and target. Before the first success, all recorded finishers remain eligible. The carrier release anchor also covers bound projects and bound-source revalidation. The Done band's 24-hour display window cannot change the basis digest.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_run_containment_basis.py", "runtime/api/domain/test_candidate_containment_history.py", "docs/public/deployments/start-diagnostics.md"]
+}

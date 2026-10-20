@@ -268,13 +268,19 @@ def test_another_sessions_live_driver_refuses(test_db, monkeypatch):
     assert _members(test_db, OLD) == {PASSED, WAITING}
 
 
-def test_the_unlocked_creation_pass_only_asks_containment(test_db, monkeypatch):
+def test_the_unlocked_creation_pass_projects_members_then_rolls_back(
+    test_db, monkeypatch
+):
     _seed_old(test_db, run_qa=False)
     _seed_new(test_db)
     _contains(monkeypatch)
 
     assert take_over_waiting_run(test_db, NEW, apply=False) == OLD
-    test_db.commit()
+    assert _members(test_db, OLD) == set()
+    assert _members(test_db, NEW) == {PASSED, WAITING}
+    assert _run(test_db, OLD)["status"] == "executing"
+    assert removed_item_ids(test_db, OLD) == set()
+    test_db.rollback()
     assert _members(test_db, OLD) == {PASSED, WAITING}
     assert _members(test_db, NEW) == set()
     assert _run(test_db, OLD)["superseded_by_run_id"] is None

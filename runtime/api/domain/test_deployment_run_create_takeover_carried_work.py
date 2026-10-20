@@ -15,6 +15,7 @@ from yoke_core.domain import deployment_run_candidate_range as candidate_range
 from yoke_core.domain import deployment_run_carried_work_repository as provider
 from yoke_core.domain import deployment_run_create_composition as composition
 from yoke_core.domain import deployment_run_create_write as create_write
+from yoke_core.domain import deployment_runs_validation as validate
 from yoke_core.domain.deployment_run_carried_work import (
     carried_work_for_enrollment,
     parse_carried_work,
@@ -138,6 +139,14 @@ def test_a_takeover_create_prepares_the_settled_release_base_in_one_pass(
         monkeypatch.setattr(module, "run_target", lambda *_: tuple(target))
         monkeypatch.setattr(module, "refuse_run_that_cannot_execute", lambda *_: None)
 
+    validation_members = []
+    original_validate = validate.cmd_validate_composition
+
+    def check_members(run_id, **kwargs):
+        validation_members.append(takeover_case._members(test_db, run_id))
+        return original_validate(run_id, **kwargs)
+
+    monkeypatch.setattr(validate, "cmd_validate_composition", check_members)
     steps = []
     timed = create_write.timed_preparation
 
@@ -162,6 +171,12 @@ def test_a_takeover_create_prepares_the_settled_release_base_in_one_pass(
         release_lineage=NEW_LINEAGE,
         session_id=DRIVER_SESSION,
     )
+    expected_members = (
+        {takeover_case.WAITING}
+        if delivered
+        else {takeover_case.PASSED, takeover_case.WAITING}
+    )
+    assert validation_members == [expected_members, expected_members]
     assert steps.count("create_lock") == 1
     assert "create_source_refresh" not in steps
 
