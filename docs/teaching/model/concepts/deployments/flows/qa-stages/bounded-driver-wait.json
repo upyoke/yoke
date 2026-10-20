@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "deployments",
  "position": 1,
- "summary": "At a scoped QA stage the deployment driver re-dispatches the stage in-process until QA settles or its timeout passes. The announcement names the poll cadence, a status-line cadence and the deadline; every four polls it prints elapsed time and the outstanding blocker count, so a silent capture means stuck. Each re-dispatch gets only the time left on that deadline; a dispatch still unanswered then ends the wait with the named timeout, exit 5 and the re-drive recovery. No other write gains a deadline.",
+ "summary": "At a scoped QA stage the deployment driver polls a cheap QA fingerprint and re-dispatches in-process only on changed facts or at the deadline. An unchanged fingerprint retains the previous blocker result. The announcement names the poll cadence, a status-line cadence and the deadline; every four polls it prints elapsed time and the outstanding blocker count, so a silent capture means stuck. Each fingerprint read and re-dispatch gets only the time left on that deadline; a dispatch still unanswered then ends the wait with the named timeout, exit 5 and the re-drive recovery. No other write gains a deadline.",
  "sources": ["packages/yoke-core/src/yoke_core/domain/deploy_pipeline_qa_wait.py", "runtime/api/domain/test_deploy_pipeline_qa_wait.py", "packages/yoke-contracts/src/yoke_contracts/deployment_itemless_teaching.py", "docs/public/deployments/start-diagnostics.md", "docs/public/agents/rules/claude-long-commands.md", ".agents/skills/yoke/steer/release-batches.md"]
 }

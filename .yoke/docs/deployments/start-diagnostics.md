@@ -214,12 +214,12 @@ the SQLSTATE and the current `deployment_runs` lock holder. Members settled
 before the interruption keep their result, the run stays `executing` at its QA
 stage, and the driver re-dispatches that stage inside its bounded QA wait.
 
-The scoped-QA wait announces its poll and status cadence and its deadline,
-then prints `Still waiting for scoped QA` with elapsed time and blocker count
-every four polls (one minute by default). Each re-dispatch gets only the time
-left on that deadline: a dispatch still unanswered then, blocked on a lock or a
-hung connection, ends the wait as a timeout that says the last dispatch had no
-answer. When the bounded scoped-QA wait ends with blockers, the driver returns
+The scoped-QA wait polls a run fingerprint every 15 seconds and re-dispatches
+only when QA facts change, plus once at the deadline. It announces its poll
+and status cadence and deadline, then prints `Still waiting for scoped QA` with elapsed time and blocker count
+every four polls (one minute by default). Each fingerprint read or re-dispatch
+gets only the time left on that deadline: a read or dispatch still unanswered
+then ends the wait with a named timeout. When the bounded scoped-QA wait ends with blockers, the driver returns
 awaiting QA (exit code 5). If the following fresh diagnostic report read fails,
 it explicitly reports that fresh QA details are unavailable and retains the
 last known blocker diagnostic. That read failure does not change the established
@@ -281,9 +281,7 @@ and must not be added as independent wall time. A missing response or end marker
 does not authorize another create; keep the request's idempotency key and
 reconcile the existing attempt.
 
-Scoped QA polls a run fingerprint every 15 seconds and re-dispatches only when
-QA facts change, with one final dispatch at the wait deadline. An unchanged
-fingerprint retains the previous blocker result. A dispatch reads gate facts
+An unchanged fingerprint retains the previous blocker result. A dispatch reads gate facts
 once across the run's members; acceptance writes re-check their own subject
 under the run lock. The local driver resolves its actor at startup and reuses
 that binding until it exits. A closed database connection, including a failed

@@ -35,7 +35,8 @@ recovery.
 
 SCOPED_QA_WAIT_GUIDANCE = """\
 At a scoped QA stage the driver waits in-process up to its timeout, prints
-a status line to the raw capture every minute, and gives each re-dispatch
+a status line to the raw capture every minute, and re-dispatches only when
+QA facts change or at the deadline. Fingerprint reads and re-dispatches get
 only the time left. A capture silent for longer than that is stuck. Exit 5
 (awaiting QA) names the blockers: settle or waive them, then re-drive the
 same run id.

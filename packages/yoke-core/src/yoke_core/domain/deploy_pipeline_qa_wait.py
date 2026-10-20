@@ -45,7 +45,12 @@ def _dispatch_within(
         except BaseException as exc:  # noqa: BLE001 - re-raised on the caller
             outcome["error"] = exc
 
-    worker = threading.Thread(target=copy_context().run, args=(run,), name="deployment-qa-dispatch", daemon=True)
+    worker = threading.Thread(
+        target=copy_context().run,
+        args=(run,),
+        name="deployment-qa-dispatch",
+        daemon=True,
+    )
     worker.start()
     worker.join(max(0.0, seconds))
     if worker.is_alive():
@@ -103,6 +108,7 @@ def dispatch_until_qa_resolves(
     unanswered = ""
     while monotonic() < deadline:
         sleep(min(interval, max(0.0, deadline - monotonic())))
+
         def poll():
             nonlocal observed
             current = fingerprint()

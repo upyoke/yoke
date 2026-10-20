@@ -275,3 +275,42 @@ def test_changed_fingerprint_dispatches_and_resolves_before_deadline():
     )
     assert result == (0, "accepted")
     assert calls == [0, 30]
+
+
+def test_bounded_worker_retains_driver_identity_context():
+    from contextvars import ContextVar
+    from yoke_core.domain.deploy_pipeline_qa_wait import _dispatch_within
+
+    actor = ContextVar("test_driver_actor", default="missing")
+    token = actor.set("resolved")
+    try:
+        assert _dispatch_within(1, lambda: (0, actor.get()), (), {}) == (0, "resolved")
+    finally:
+        actor.reset(token)
+
+
+def test_a_blocked_fingerprint_read_cannot_extend_the_qa_wait():
+    release = threading.Event()
+    reads = 0
+
+    def fingerprint():
+        nonlocal reads
+        reads += 1
+        if reads > 1:
+            release.wait()
+        return "unchanged"
+
+    started = time.monotonic()
+    try:
+        result = dispatch_until_qa_resolves(
+            lambda: (AWAITING_SCOPED_QA, "pending"),
+            fingerprint=fingerprint,
+            timeout_seconds=0.3,
+            poll_interval_seconds=0.05,
+            write=lambda _: None,
+        )
+    finally:
+        release.set()
+    assert result[0] == AWAITING_SCOPED_QA
+    assert time.monotonic() - started < 0.8
+    assert "had no answer when the deadline passed" in result[1]
