@@ -56,7 +56,7 @@ def record_test_machine_operation(
     """Persist one server-accepted, secret-free operation receipt."""
     if operation not in RECORDED_OPERATIONS:
         raise ValueError(f"{operation!r} does not record an operation receipt")
-    ensure_test_machine_schema(conn)
+    ensure_test_machine_schema(conn, commit=commit)
     marker = _marker(conn)
     capability_type = test_machine_capability_type(machine)
     now = utc_now()

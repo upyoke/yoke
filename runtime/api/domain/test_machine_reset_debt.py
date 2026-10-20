@@ -292,3 +292,22 @@ def test_debt_changes_fleet_actionability_fingerprint_and_render(
     assert report_dict(report)["reset_debts"][0]["machine"] == machine
     assert "machine_needs_repair" in report_body(report)
     assert "yoke test-machine reset" in scope_actionable_digest(report)
+
+
+def test_debt_writer_preserves_the_callers_transaction(test_db, tmp_path, monkeypatch):
+    from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
+    from runtime.api.domain.machine_operation_test_support import MACHINE
+
+    configure_test_machine(test_db, tmp_path, monkeypatch)
+    test_db.execute("CREATE TEMP TABLE reset_debt_probe (value INTEGER)")
+    test_db.commit()
+    test_db.execute("INSERT INTO reset_debt_probe VALUES (1)")
+    record_reset_owed(
+        test_db,
+        case={"project_id": 1, "host_baseline": None},
+        machine=MACHINE,
+        lease_id=77,
+    )
+    test_db.rollback()
+    assert test_db.execute("SELECT count(*) FROM reset_debt_probe").fetchone()[0] == 0
+    assert reset_owed(test_db, MACHINE) is None
