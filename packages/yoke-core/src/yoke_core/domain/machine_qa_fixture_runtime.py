@@ -88,6 +88,14 @@ class RemoteFixtureFailure(RuntimeError):
     """A remote fixture command or upload failed."""
 
 
+def failed_row(operation_id: str, failure: RemoteFixtureFailure) -> dict[str, str]:
+    """One failed operation row that keeps the failure's named reason."""
+    row = {"id": operation_id, "outcome": "failed"}
+    if str(failure):
+        row["reason"] = str(failure)
+    return row
+
+
 def shell_command(*argv: object) -> str:
     """Build one safely quoted runner-authored remote command."""
     return shlex.join([str(value) for value in argv])
@@ -155,8 +163,8 @@ class MachineQaFixtureRuntime:
         for key, cleanup in reversed(tuple(self._services.items())):
             try:
                 cleanup.stop()
-            except RemoteFixtureFailure:
-                rows.append({"id": cleanup.operation_id, "outcome": "failed"})
+            except RemoteFixtureFailure as failure:
+                rows.append(failed_row(cleanup.operation_id, failure))
                 failed = True
             else:
                 rows.append({"id": cleanup.operation_id, "outcome": "passed"})
@@ -172,21 +180,11 @@ class MachineQaFixtureRuntime:
                     self._restore_token(restore)
                 else:
                     self._restore_auth_state(restore)
-            except RemoteFixtureFailure:
-                rows.append(
-                    {
-                        "id": operation_id,
-                        "outcome": "failed",
-                    }
-                )
+            except RemoteFixtureFailure as failure:
+                rows.append(failed_row(operation_id, failure))
                 failed = True
             else:
-                rows.append(
-                    {
-                        "id": operation_id,
-                        "outcome": "passed",
-                    }
-                )
+                rows.append({"id": operation_id, "outcome": "passed"})
                 self._restores.remove(restore)
         self._closed = not self._services and not self._restores
         return HostActionResult(
@@ -334,6 +332,7 @@ __all__ = [
     "RemoteTextUploader",
     "ServiceCleanup",
     "TokenRestore",
+    "failed_row",
     "path_is_within",
     "shell_command",
 ]
