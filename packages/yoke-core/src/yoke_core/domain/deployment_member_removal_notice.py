@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 from yoke_core.domain.db_helpers import query_one
-from yoke_core.domain.db_optional_queries import rollback_savepoint
+from yoke_core.domain.db_savepoint import SavepointLostError, savepoint
 from yoke_core.domain.deployment_member_candidate_release import (
     CORRECTION_RELEASE_REMOVED_BY,
 )
@@ -153,7 +153,8 @@ def notify_removed_member(
     instruction unless the removal source already carries the member past
     this run. The caller commits. A send failure rolls back only this
     savepoint and names the manual recovery; it never reverses removal or
-    grants a pass.
+    grants a pass. A send that ended the caller's transaction raises
+    ``SavepointLostError``, so the removal fails loudly instead.
     """
     takeover = removed_by == TAKEOVER_REMOVED_BY
     if takeover and not execution_aborted:
@@ -163,29 +164,30 @@ def notify_removed_member(
         red = ()
     body = ""
     try:
-        conn.execute(f"SAVEPOINT {_SEND_SAVEPOINT}")
-        if red is None:
-            red = red_requirement_ids(conn, cancelled_requirement_ids)
-        body = removal_notice_body(
-            run_id=run_id,
-            public_ref=public_ref,
-            reason=reason,
-            removed_by=removed_by,
-            red=red,
-            host_cleanup_pending=host_cleanup_pending,
-        )
-        project = query_one(
-            conn, "SELECT project_id FROM items WHERE id=%s", (item_id,)
-        )
-        delivery = push_member_notice(
-            conn,
-            item_id=item_id,
-            project_id=int(project["project_id"]),
-            body_for_route=lambda _route: body,
-            idempotency_key=f"removed-member:{run_id}:{item_id}:{removed_at}",
-        )
+        with savepoint(conn, _SEND_SAVEPOINT, owns=False):
+            if red is None:
+                red = red_requirement_ids(conn, cancelled_requirement_ids)
+            body = removal_notice_body(
+                run_id=run_id,
+                public_ref=public_ref,
+                reason=reason,
+                removed_by=removed_by,
+                red=red,
+                host_cleanup_pending=host_cleanup_pending,
+            )
+            project = query_one(
+                conn, "SELECT project_id FROM items WHERE id=%s", (item_id,)
+            )
+            delivery = push_member_notice(
+                conn,
+                item_id=item_id,
+                project_id=int(project["project_id"]),
+                body_for_route=lambda _route: body,
+                idempotency_key=f"removed-member:{run_id}:{item_id}:{removed_at}",
+            )
+    except SavepointLostError:
+        raise
     except Exception as exc:  # noqa: BLE001 - removal survives a notice failure
-        rollback_savepoint(conn, _SEND_SAVEPOINT)
         body = body or removal_notice_body(
             run_id=run_id,
             public_ref=public_ref,
@@ -200,7 +202,6 @@ def notify_removed_member(
             flush=True,
         )
         return
-    conn.execute(f"RELEASE SAVEPOINT {_SEND_SAVEPOINT}")
     if not delivery:
         print(
             f"member_removal_notice_unaddressable: {public_ref} on {run_id}; "

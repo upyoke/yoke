@@ -73,6 +73,18 @@ carries a named allowance in
 replacement is in flight is listed as pending and reported as WARN; an
 allowance that no longer matches fails the check.
 
+## Writes inside a caller's transaction
+
+A function that can run on a caller's open transaction (`commit=False`, or a
+borrowed `conn=`) never commits or rolls it back: a full rollback discards the
+caller's earlier writes while the caller reports success. Wrap the function's
+own writes in `yoke_core.domain.db_savepoint.savepoint(conn, name, owns=...)`.
+With `owns=False` an error rolls back only the savepoint and re-raises; a
+savepoint that has disappeared raises `SavepointLostError` (`savepoint_lost`)
+rather than being absorbed. A best-effort step that catches its own failure
+re-raises `SavepointLostError` before its broad `except`. A refusal returned
+without raising rolls back only when the function owns the transaction.
+
 ## Source-dev doctrine
 
 ### Direct database authority for source development and operators

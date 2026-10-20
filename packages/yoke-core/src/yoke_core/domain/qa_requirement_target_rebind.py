@@ -21,6 +21,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_one
+from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.qa_events import emit_qa_requirement_event
 from yoke_core.domain.qa_execution_environment_target import (
     canonical_target,
@@ -169,31 +170,33 @@ def rebind_requirement(
     now = utc_now()
     from_target_json = canonical_target(stored)
     delta_json = json.dumps(delta, sort_keys=True, separators=(",", ":"))
-    conn.execute(
-        "UPDATE qa_requirements SET execution_target_json=%s,"
-        "execution_target_digest=%s,rebound_at=%s,rebound_from_digest=%s,"
-        "rebound_from_target_json=%s,rebind_endpoint_delta_json=%s,"
-        "rebind_rationale=%s,rebind_actor_id=%s WHERE id=%s",
-        (
-            new_json,
-            new_digest,
-            instant_parameter(conn, now),
-            old_digest,
-            from_target_json,
-            delta_json,
-            rationale,
-            actor_id,
-            int(requirement_id),
-        ),
-    )
-    from yoke_core.domain.qa_replacement_scope_guard import linked_scope_refusal
+    # A refused rebind undoes only its own write; a caller-owned transaction
+    # (commit=False) keeps the caller's earlier writes.
+    with savepoint(conn, "_yoke_qa_requirement_rebind", owns=commit):
+        conn.execute(
+            "UPDATE qa_requirements SET execution_target_json=%s,"
+            "execution_target_digest=%s,rebound_at=%s,rebound_from_digest=%s,"
+            "rebound_from_target_json=%s,rebind_endpoint_delta_json=%s,"
+            "rebind_rationale=%s,rebind_actor_id=%s WHERE id=%s",
+            (
+                new_json,
+                new_digest,
+                instant_parameter(conn, now),
+                old_digest,
+                from_target_json,
+                delta_json,
+                rationale,
+                actor_id,
+                int(requirement_id),
+            ),
+        )
+        from yoke_core.domain.qa_replacement_scope_guard import linked_scope_refusal
 
-    refusal = linked_scope_refusal(
-        conn, (int(requirement_id),), change="rebinding the execution target"
-    )
-    if refusal:
-        conn.rollback()
-        raise QaRebindError(refusal)
+        refusal = linked_scope_refusal(
+            conn, (int(requirement_id),), change="rebinding the execution target"
+        )
+        if refusal:
+            raise QaRebindError(refusal)
     if commit:
         conn.commit()
     emit_qa_requirement_event(

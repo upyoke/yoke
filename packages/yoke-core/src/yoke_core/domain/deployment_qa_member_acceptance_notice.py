@@ -31,7 +31,7 @@ from typing import Any, Optional
 from yoke_core.domain.deployment_close_out_failure_summary import (
     close_out_failure_summary,
 )
-from yoke_core.domain.db_optional_queries import rollback_savepoint
+from yoke_core.domain.db_savepoint import SavepointLostError, savepoint
 from yoke_core.domain.deployment_qa_run_acceptance import (
     item_qa_acceptance_blockers,
 )
@@ -214,30 +214,27 @@ def notify_item_qa_accepted(
         return ""
     stamp = now
     try:
-        conn.execute(f"SAVEPOINT {_SEND_SAVEPOINT}")
+        with savepoint(conn, _SEND_SAVEPOINT, owns=False):
+            delivery = push_member_notice(
+                conn,
+                item_id=int(member["item_id"]),
+                project_id=int(member["project_id"]),
+                body_for_route=lambda route, ref=public_ref: item_qa_accepted_message(
+                    public_ref=ref,
+                    run_id=str(run_id),
+                    route=route,
+                    close_out_failure=close_out_failure,
+                ),
+                idempotency_key=item_qa_accepted_idempotency_key(
+                    int(member["item_id"]), str(run_id), close_out_failure
+                ),
+                now=stamp,
+            )
+    except SavepointLostError:
+        raise
     except Exception as exc:  # noqa: BLE001 - reported, never reverses acceptance
         return f"failed: {exc}"
     try:
-        delivery = push_member_notice(
-            conn,
-            item_id=int(member["item_id"]),
-            project_id=int(member["project_id"]),
-            body_for_route=lambda route, ref=public_ref: item_qa_accepted_message(
-                public_ref=ref,
-                run_id=str(run_id),
-                route=route,
-                close_out_failure=close_out_failure,
-            ),
-            idempotency_key=item_qa_accepted_idempotency_key(
-                int(member["item_id"]), str(run_id), close_out_failure
-            ),
-            now=stamp,
-        )
-    except Exception as exc:  # noqa: BLE001 - reported, never reverses acceptance
-        rollback_savepoint(conn, _SEND_SAVEPOINT)
-        return f"failed: {exc}"
-    try:
-        conn.execute(f"RELEASE SAVEPOINT {_SEND_SAVEPOINT}")
         conn.commit()
     except Exception as exc:  # noqa: BLE001 - reported, never reverses acceptance
         return f"failed: {exc}"

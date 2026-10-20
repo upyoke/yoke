@@ -7,6 +7,7 @@ from typing import Any
 from yoke_core.domain.coordination_claims import heartbeat, release
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.qa_capture_settlement import (
     record_inflight_case_failure,
     settle_unreviewed_execution_captures,
@@ -86,24 +87,30 @@ def set_plan_machine_lease(
     *,
     lease_id: int,
 ) -> None:
-    """Attach the server-acquired Test Machine lease to the durable plan."""
+    """Attach the server-acquired Test Machine lease to the durable plan.
+
+    This is the commit point of the caller's lease acquisition: the lease
+    release, acquisition and host-wait writes the caller left open commit
+    here together with the attach, and a refused attach rolls all of them
+    back so no acquired lease outlives a plan that cannot hold it.
+    """
     from yoke_core.domain.qa_host_turns import cancel_host_waits
 
-    cancel_host_waits(conn, execution_ids=[str(execution["id"])])
-    placeholder = marker(conn)
-    now = utc_now()
-    cursor = conn.execute(
-        "UPDATE qa_plan_executions SET machine_lease_id="
-        f"{placeholder},heartbeat_at={placeholder} WHERE id={placeholder} "
-        "AND state='active' AND machine_lease_id IS NULL",
-        (int(lease_id), instant_parameter(conn, now), str(execution["id"])),
-    )
-    if cursor.rowcount != 1:
-        conn.rollback()
-        raise QaPlanExecutionStateError(
-            "QA plan execution cannot attach the machine lease"
+    with savepoint(conn, "_yoke_plan_machine_lease", owns=True):
+        cancel_host_waits(conn, execution_ids=[str(execution["id"])])
+        placeholder = marker(conn)
+        now = utc_now()
+        cursor = conn.execute(
+            "UPDATE qa_plan_executions SET machine_lease_id="
+            f"{placeholder},heartbeat_at={placeholder} WHERE id={placeholder} "
+            "AND state='active' AND machine_lease_id IS NULL",
+            (int(lease_id), instant_parameter(conn, now), str(execution["id"])),
         )
-    conn.commit()
+        if cursor.rowcount != 1:
+            raise QaPlanExecutionStateError(
+                "QA plan execution cannot attach the machine lease"
+            )
+        conn.commit()
     execution["machine_lease_id"] = int(lease_id)
     execution["heartbeat_at"] = now
 
