@@ -154,6 +154,8 @@ def _correlated_run(payload: Any, intent: DispatchIntent, token: str) -> Any:
 
 
 def _exact_run_classification(payload: Any, intent: DispatchIntent, token: str) -> str:
+    """``active``, ``verdict`` (success or failure) or ``no_verdict``."""
+    from yoke_core.domain.ci_run_redispatch import VERDICT_CONCLUSIONS
     from yoke_core.domain.github_actions_rest import rest_get
 
     run = rest_get(
@@ -168,10 +170,10 @@ def _exact_run_classification(payload: Any, intent: DispatchIntent, token: str) 
     conclusion = str(run.get("conclusion") or "").strip()
     if status in {"queued", "pending", "waiting", "requested", "in_progress"}:
         return "active"
-    if status == "completed" and conclusion == "success":
-        return "success"
+    if status == "completed" and conclusion in VERDICT_CONCLUSIONS:
+        return "verdict"
     if status == "completed" and conclusion:
-        return "failed"
+        return "no_verdict"
     raise ValueError(
         "exact workflow run lookup returned an unknown state "
         f"(status={status!r}, conclusion={conclusion!r})"
@@ -328,9 +330,9 @@ def dispatch_workflow_with_intent(
                 )
             intent = _complete_from_run(intent, run)
         classification = _exact_run_classification(payload, intent, token)
-        if classification != "failed" or not owns:
-            # Non-owner reuses the read (failure included); only the owner
-            # auto-retriggers a mutation it actually owns.
+        if classification != "no_verdict" or not owns:
+            # Every reader reuses a run in flight or with a verdict; only the
+            # owner retriggers a no-verdict run it actually owns.
             return _response(intent, dispatched=False)
         return _mutate(intent.attempt + 1)
     except DispatchIntentStoreError as exc:
