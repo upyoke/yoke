@@ -69,6 +69,11 @@ GROUP_TEACHING: dict[tuple[str, ...], str] = {
         "surface: `yoke projects list` for every registered project, "
         "`yoke projects checkout-context` for the one owning this checkout."
     ),
+    ("strategy", "doc"): (
+        "Moving an item between strategy documents is an execution link, not "
+        "a doc command: `yoke strategy execution link ITEM --project P "
+        "--slug SLUG`."
+    ),
     ("sessions",): (
         "Liveness: there is no standalone heartbeat command. "
         "`yoke sessions touch`, "

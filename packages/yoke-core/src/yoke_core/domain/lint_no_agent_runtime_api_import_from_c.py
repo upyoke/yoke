@@ -68,14 +68,20 @@ _FORBIDDEN_IMPORT_RE = re.compile(
     rf")"
 )
 _PYTHON_TOKEN_RE = re.compile(r"^python(?:3(?:\.\d+)?)?$")
-#: The tokens immediately ahead of an interpreter that ``yoke dev run --``
-#: wraps. Source-dev doctrine mandates that wrapper for lane source, so the
-#: interpreter it launches is the sanctioned shape rather than a reach-in.
-_SOURCE_RUN_PREFIX = ["dev", "run", "--"]
+#: Shell control operators ``shlex`` leaves inside or as tokens. A wrapper
+#: before one of them belongs to an earlier command, not to this interpreter.
+_SHELL_SEPARATOR_RE = re.compile(r"(?:;|&&|\|\||\||&)$")
 
 
 def _is_registered_source_run(tokens: List[str], python_index: int) -> bool:
-    """True when ``yoke dev run --`` launches the interpreter at *python_index*.
+    """True when ``yoke ... dev run ... --`` launches the interpreter here.
+
+    Source-dev doctrine mandates that wrapper for lane source, so the
+    interpreter it launches is the sanctioned shape rather than a reach-in.
+    The ``--`` must sit directly before the interpreter; walking back from it
+    to the nearest ``yoke``, ``dev run`` must lie between. Global flags
+    (``yoke --env prod-db-admin dev run --``) and run flags
+    (``yoke dev run --lane /x --``) are allowed, a shell separator is not.
 
     The exemption belongs to one invocation, not to the command body. Reading
     it off the body's LINES recognised only a single-line invocation, so the
@@ -83,13 +89,19 @@ def _is_registered_source_run(tokens: List[str], python_index: int) -> bool:
     another command ran ahead of it — and, in the other direction, a wrapper
     at the start of the body exempted an unwrapped reach-in further along.
     """
-    start = python_index - len(_SOURCE_RUN_PREFIX) - 1
-    if start < 0:
+    dash = python_index - 1
+    if dash < 0 or tokens[dash] != "--":
         return False
-    return (
-        os.path.basename(tokens[start]) == "yoke"
-        and tokens[start + 1 : python_index] == _SOURCE_RUN_PREFIX
-    )
+    for start in range(dash - 1, -1, -1):
+        token = tokens[start]
+        if _SHELL_SEPARATOR_RE.search(token):
+            return False
+        if os.path.basename(token) == "yoke":
+            between = tokens[start + 1 : dash]
+            return any(
+                between[k : k + 2] == ["dev", "run"] for k in range(len(between))
+            )
+    return False
 
 
 def _extract_tool_name(payload: dict) -> str:

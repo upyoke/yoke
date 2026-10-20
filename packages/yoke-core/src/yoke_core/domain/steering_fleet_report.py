@@ -255,7 +255,9 @@ def compose_report(
         in_flight=split.in_flight,
         reads=request,
     )
-    waiting = {row.item_id for row in landings if landing_wait_pending(row.to_dict())}
+    waiting = {
+        row.item_id for row in landings if landing_wait_pending(row.to_dict())
+    } | {holder.item_id for holder in holders if holder.landing_notice_pending}
     idle = tuple(
         holder
         for holder in split.idle

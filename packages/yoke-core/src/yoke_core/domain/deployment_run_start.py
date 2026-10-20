@@ -184,8 +184,11 @@ def _admit(conn, run_id, candidate_containment):
             )
 
             restore_retry_obligations(conn, run_id)
+        # A resumed failed run is executing again, so its old completion
+        # time no longer describes it.
         conn.execute(
-            "UPDATE deployment_runs SET status=%s, started_at=%s WHERE id=%s",
+            "UPDATE deployment_runs SET status=%s, started_at=%s, "
+            "completed_at=NULL WHERE id=%s",
             ("executing", instant_parameter(conn, utc_now()), run_id),
         )
         timed_call("executing_stamp", conn.commit)

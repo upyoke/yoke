@@ -83,7 +83,9 @@ def items_create(args: list[str], *, shortcut: str | None = None) -> int:
     parser.add_argument("--owner", help="Numeric owner actor, defaulting to source.")
     parser.add_argument(
         "--strategy-doc",
-        help="Link the item to this project strategy document at creation.",
+        help="Link the item to this project strategy document at creation. To "
+        "move an existing item to another document later, run `yoke strategy "
+        "execution link ITEM --project P --slug SLUG`.",
     )
     parser.add_argument(
         "--entry-surface",

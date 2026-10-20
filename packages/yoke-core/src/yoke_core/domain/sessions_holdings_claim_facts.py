@@ -21,7 +21,10 @@ from yoke_core.domain.merge_queue_landing_attempt import (
     OPEN_ATTEMPT_JOIN,
 )
 from yoke_core.domain.release_wait_ownership import item_at_release_wait
-from yoke_core.domain.turn_end_unfinished_work import waiting_on_landing
+from yoke_core.domain.turn_end_unfinished_work import (
+    landing_notice_pending,
+    waiting_on_landing,
+)
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
@@ -40,7 +43,9 @@ def clear_failed_read(conn: Any) -> None:
 
 #: Whether the claimed item's remaining work belongs to something other than
 #: its holder: armed in the merge queue and not landed yet, so GitHub drives
-#: it, or standing at its pinned release wait, so a deployment run drives it.
+#: it; landed with the holder not yet active since the landing notice, so the
+#: notice drives it; or standing at its pinned release wait, so a deployment
+#: run drives it.
 ITEM_AWAITING_LANDING_KEY = "item_awaiting_landing"
 
 
@@ -62,6 +67,7 @@ def claimed_item_facts(
         return {}
     marker = param_marker(conn)
     placeholders = ", ".join(marker for _ in distinct)
+    claimed_item = scope_int_sql(conn, "wc.scope", "item_id")
     try:
         rows = conn.execute(
             "SELECT i.id AS id, i.project_id AS project_id, i.title AS title, "
@@ -71,6 +77,11 @@ def claimed_item_facts(
             "i.workflow_id AS workflow_id, i.merged_at AS merged_at, "
             "i.merge_queue_enqueued_at AS merge_queue_enqueued_at, "
             "i.merge_queue_landed_at AS merge_queue_landed_at, "
+            "i.merge_queue_notified_at AS merge_queue_notified_at, "
+            "(SELECT MAX(hs.last_tool_call_at) FROM work_claims wc "
+            "JOIN harness_sessions hs ON hs.session_id = wc.session_id "
+            "WHERE wc.target_kind = 'item' AND wc.released_at IS NULL "
+            f"AND {claimed_item} = i.id) AS last_tool_call_at, "
             "i.workflow_version_id AS workflow_version_id, "
             "v.version AS version, v.definition_json AS definition_json, "
             "v.definition_digest AS definition_digest, "
@@ -100,6 +111,7 @@ def claimed_item_facts(
             "item_blocked_reason": row["blocked_reason"],
             "item_workflow_id": row["workflow_id"],
             ITEM_AWAITING_LANDING_KEY: waiting_on_landing(dict(row))
+            or landing_notice_pending(dict(row))
             or item_at_release_wait(row, str(row["status"] or "")),
         }
     return facts
