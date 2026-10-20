@@ -219,9 +219,7 @@ def plan_recomposition(
     from yoke_core.domain.deployment_run_proposed_membership import (
         proposed_membership,
     )
-    from yoke_core.domain.deployment_runs_composition_judgement import (
-        judge_composition,
-    )
+    from yoke_core.domain.deployment_runs_validation import judge_composition
     from yoke_core.domain.schema_read_scope import reads_active
 
     if not reads_active() or (enrollment is not None and enrollment.refusal):
