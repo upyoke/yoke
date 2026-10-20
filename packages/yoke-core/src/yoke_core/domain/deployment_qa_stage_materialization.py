@@ -23,7 +23,6 @@ class QaCasesNotSelectedError(QaPlanError):
     """
 
 
-@composition_operation
 def _require_member_still_attached(
     conn: Any, run_id: str, member_item_id: int | None
 ) -> None:
@@ -48,6 +47,7 @@ def _require_member_still_attached(
         )
 
 
+@composition_operation
 def materialize_deployment_qa_stage(
     conn: Any,
     *,
