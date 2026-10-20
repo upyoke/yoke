@@ -115,7 +115,9 @@ def yoke_posture(
     surfaces read the ``yoke`` allow entry from the same settings file.
     """
     if harness_id == CLAUDE_FAMILY:
-        if not claude_settings_path().parent.is_dir():
+        if not (
+            claude_settings_path().parent.is_dir() or claude_config_path().exists()
+        ):
             return None
         desktop, _reason = read_posture_config(harness_id, claude_config_path())
         settings, reason = read_posture_config(harness_id, claude_settings_path())

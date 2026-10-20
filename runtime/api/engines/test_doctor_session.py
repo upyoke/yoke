@@ -20,7 +20,6 @@ from yoke_contracts.harness_unattended_posture import (
     claude_settings_path,
     managed_config_paths,
 )
-from yoke_core.engines import doctor_hc_harness_unattended_posture as posture
 from yoke_core.engines import doctor_install
 from yoke_core.engines import doctor_session as checks
 from yoke_core.engines.doctor_applicability_declarations import local_runtime_slugs
