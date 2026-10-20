@@ -5,7 +5,7 @@ structural guards work. Companion to
 [`docs/testing-verification.md`](../testing-verification.md).
 
 A test runs on a real workstation, and a few of its resources are shared with
-everything else on that machine. Three are guarded structurally, because
+everything else on that machine. Four are guarded structurally, because
 per-test discipline had already failed for each.
 
 **The home folder.** The repo-wide pytest plugin
@@ -21,11 +21,15 @@ The checkout, its environment and the interpreter are exempt. Fix the
 reported path by resolving it at call time or pointing the fixture inside
 `tmp_path`. Subprocesses are covered by the inherited `HOME`, not the hook.
 
-Lane provisioning and the `yoke watch` re-exec run uv under
+**The running environment.** The source runner starts pytest with
+`UV_PROJECT_ENVIRONMENT` naming the checkout's `.venv`. A test that inherits
+it and syncs a fixture project installs that fixture's lock into the running
+environment and removes every package the suite needs, so
+`runtime/running_environment_isolation.py` clears it for every test. Product
+code that launches uv for another project (lane provisioning, the
+`yoke watch` re-exec) runs it under
 `yoke_contracts.uv_project.project_own_environment`, which drops
-`UV_PROJECT_ENVIRONMENT` and `VIRTUAL_ENV`. Without it, a test that syncs a
-stub project from inside the checkout's environment installs that stub's
-empty lock into the running `.venv`.
+`UV_PROJECT_ENVIRONMENT` and `VIRTUAL_ENV`.
 
 **Browsers.** Every test path that could open one is required to inject a
 fake opener; the repo-wide conftest fails the test rather than letting the
