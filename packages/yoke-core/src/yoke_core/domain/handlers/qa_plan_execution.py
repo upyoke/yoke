@@ -13,7 +13,7 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 
-
+from yoke_core.domain.qa_deployment_execution_cleanup import abort_reason
 from yoke_core.domain.handlers.qa_plan_execution_models import (
     PlanExecutionBeginRequest,
     PlanExecutionStateRequest,
@@ -312,7 +312,7 @@ def _finish_execution(
             conn,
             execution,
             state="completed" if complete else "aborted",
-            reason=reason,
+            reason=reason if complete else abort_reason(conn, execution, reason),
         )
         result = plan_execution_view(conn, execution)
         result["release_reason"] = execution.get("release_reason")

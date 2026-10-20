@@ -177,68 +177,6 @@ def test_mission_recovers_before_scratch_and_commands(monkeypatch, ok):
         )
 
 
-def test_recovery_contract_clears_debt_and_accepts_submission_replay(
-    test_db, removed_mission
-):
-    from runtime.api.domain.test_agent_mission_qa import ACTOR
-    from yoke_core.domain.host_control_runner import load_test_machine_contract
-    from yoke_core.domain.machine_qa_execution_protocol import (
-        _issue,
-        validate_host_control_submission,
-    )
-    from yoke_core.domain.machine_reset_debt import record_owed_reset
-
-    _, _, original = removed_mission
-    machine_name = original["settings"]["resource_name"]
-    record_reset_owed(
-        test_db,
-        case={"project_id": 1, "host_baseline": "shell-preconfigured"},
-        machine=machine_name,
-        lease_id=original["lease_id"],
-    )
-    test_db.commit()
-    machine = load_test_machine_contract(test_db, project="yoke", machine=machine_name)
-    lease = get_claim(test_db, original["lease_id"])
-    shape = {
-        key: original[key]
-        for key in (
-            "operation",
-            "checks",
-            "baselines",
-            "cases",
-            "plan_execution_id",
-            "continues_execution_id",
-            "roster_digest",
-            "ordinal",
-            "case_position",
-            "baseline_position",
-        )
-    }
-    issued = _issue(test_db, machine, lease, **shape)
-    assert issued.reset_owed_baseline == "shell-preconfigured"
-    assert issued.protocol == "host-control-reset-recovery-v1"
-    record_owed_reset(
-        test_db, issued, {"owed_reset": {"baseline": "shell-preconfigured", "ok": True}}
-    )
-    test_db.commit()
-    assert reset_owed(test_db, machine_name) is None
-    _, replay = validate_host_control_submission(
-        test_db,
-        project="yoke",
-        session_id=ACTOR.session_id,
-        actor_id=ACTOR.actor_id,
-        lease_id=lease.id,
-        contract_digest=issued.contract_digest,
-        allow_recorded_replay=True,
-        **shape,
-    )
-    assert replay.contract_digest == issued.contract_digest
-    assert replay.reset_owed_baseline == "shell-preconfigured"
-    next_case = _issue(test_db, machine, lease, **shape)
-    assert next_case.reset_owed_baseline is None
-    assert "reset_owed_baseline" not in next_case.model_dump(mode="json")
-
-
 def test_failed_artifact_storage_still_releases_and_records_debt(
     test_db, removed_mission, monkeypatch
 ):

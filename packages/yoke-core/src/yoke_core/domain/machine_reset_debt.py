@@ -106,37 +106,53 @@ def record_owed_reset(conn, contract, evidence):
     )
 
 
-def recovered_submission_contract(conn, machine, lease_id, digest, expected):
-    """Reconstruct only the exact contract whose recovery already committed."""
+def recovered_submission_contract(conn, lease_id, digest, expected):
+    """Reconstruct an accepted contract from its durable capture identity."""
     import hmac
-    from yoke_contracts.machine_qa_execution import execution_contract_digest
-    from yoke_core.domain.machine_operation_recording import (
-        recorded_test_machine_operation,
+    from yoke_contracts.machine_qa_execution import (
+        execution_contract_digest,
+        HOST_BASELINES,
     )
+    from yoke_contracts.qa_continuity_fingerprint import execution_protocol
+    from yoke_core.domain.host_control_submission_receipt import (
+        host_control_submission_receipt_matches,
+    )
+    from yoke_core.domain.machine_qa_submission_recording import _json_object
 
-    receipt = recorded_test_machine_operation(
-        conn,
-        machine.project_id,
-        machine=machine.settings["resource_name"],
-        operation="reset",
-        lease_id=lease_id,
-        contract_digest=digest,
-    )
-    if not receipt or receipt["status"] != "verified" or receipt["error_code"]:
-        return None
-    baseline = receipt["checks"][0]["name"]
-    recovered = expected.model_copy(
-        update={
-            "reset_owed_baseline": baseline,
-            "protocol": "host-control-reset-recovery-v1",
-            "contract_digest": digest,
-        }
-    )
-    return (
-        recovered
-        if hmac.compare_digest(execution_contract_digest(recovered), digest)
-        else None
-    )
+    for case in expected.cases:
+        rows = conn.execute(
+            "SELECT raw_result FROM qa_runs WHERE qa_requirement_id=%s "
+            "AND performed_by IN ('host_control','agent_mission') ORDER BY id",
+            (case.requirement_id,),
+        ).fetchall()
+        for row in rows:
+            raw = _json_object(row["raw_result"])
+            evidence = _json_object(raw.get("evidence"))
+            receipt = raw.get("host_control_submission") or evidence.get(
+                "host_control_submission"
+            )
+            if not host_control_submission_receipt_matches(
+                receipt, lease_id=lease_id, contract_digest=digest
+            ):
+                continue
+            baseline = receipt.get("reset_owed_baseline")
+            if baseline is not None and baseline not in HOST_BASELINES:
+                return None
+            recovered = expected.model_copy(
+                update={
+                    "reset_owed_baseline": baseline,
+                    "contract_digest": digest,
+                    "protocol": "host-control-reset-recovery-v1"
+                    if baseline
+                    else execution_protocol(expected.cases),
+                }
+            )
+            return (
+                recovered
+                if hmac.compare_digest(execution_contract_digest(recovered), digest)
+                else None
+            )
+    return None
 
 
 def record_execution_reset_debt(conn, execution, leases):

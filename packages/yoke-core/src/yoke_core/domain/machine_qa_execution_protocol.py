@@ -307,9 +307,7 @@ def validate_host_control_submission(
         from yoke_core.domain.machine_reset_debt import recovered_submission_contract
 
         recovered = (
-            recovered_submission_contract(
-                conn, machine, lease.id, contract_digest, expected
-            )
+            recovered_submission_contract(conn, lease.id, contract_digest, expected)
             if allow_recorded_replay
             else None
         )

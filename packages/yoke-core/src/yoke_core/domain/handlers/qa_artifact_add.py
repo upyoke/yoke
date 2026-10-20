@@ -113,10 +113,6 @@ def _store_inline_bytes(
     )
 
 
-def _present(payload: dict[str, Any], key: str) -> bool:
-    return key in payload and payload.get(key) not in (None, "")
-
-
 def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.db_helpers import (
         connect,
@@ -164,7 +160,7 @@ def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
             f"storage_path is retired; {BARE_PATH_GUIDANCE}",
             jsonpath="$.payload.storage_path",
         )
-    has_handle = _present(payload, "artifact_handle")
+    has_handle = payload.get("artifact_handle") not in (None, "")
     has_inline = (
         "content_base64" in payload and payload.get("content_base64") is not None
     )
@@ -298,6 +294,12 @@ def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
                 return _error(exc.code, str(exc))
             except ValueError as exc:
                 return _error("target_invalid", str(exc))
+        if artifact_type == "starting_state_restore":
+            from yoke_core.domain.machine_restore_debt import record_restore_artifact
+
+            record_restore_artifact(
+                conn, int(req_id), run_id, inline_content, request.actor
+            )
         # ensure_artifact_capacity holds FOR UPDATE on this qa_runs row
         # until commit, so a retry racing a still-running writer waits,
         # then sees the inserted handle. No extra unique index.

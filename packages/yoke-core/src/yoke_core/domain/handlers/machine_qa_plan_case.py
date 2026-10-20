@@ -1,7 +1,5 @@
 """Plan-scoped Machine QA under one uninterrupted server-owned lease."""
 
-from __future__ import annotations
-
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -293,7 +291,11 @@ def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
             with TemporaryDirectory(prefix="yoke-machine-qa-") as temp_dir:
                 result = record_submitted_case(
                     commit_deferred_connection(conn),
-                    case=case,
+                    case={
+                        **case,
+                        "ends_chain": contract.cases[0].ends_chain,
+                        "reset_owed_baseline": contract.reset_owed_baseline,
+                    },
                     result=submitted,
                     resource_name=contract.settings["resource_name"],
                     artifact_root=Path(temp_dir),

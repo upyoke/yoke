@@ -111,7 +111,7 @@ def handle_agent_mission_ready(request: FunctionCallRequest) -> HandlerOutcome:
             run_id, result = insert_mission_docket(
                 conn,
                 execution=execution,
-                case=case,
+                case={**case, "reset_owed_baseline": contract.reset_owed_baseline},
                 preparation=preparation,
                 lease_id=lease.id,
                 contract_digest=parsed.contract_digest,
@@ -303,6 +303,7 @@ def register(registry: Any) -> None:
                 "coordination_claim_acquire",
                 "coordination_claim_release",
                 "qa_artifacts_insert",
+                "verification_write",
             ],
             emitted_event_names=events,
             guardrails=[

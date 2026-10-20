@@ -53,6 +53,12 @@ lease; finishing it releases the host and settles the execution aborted with
 `host-command` are refused with `mission_member_removed`, and no other abort
 releases that lease (`qa_abort_walk_end_required`).
 
+After a deployment run fails or otherwise ends, the original session can still
+run the dispatched `walk-end` command on its recorded host. Teardown removes
+scratch, records starting-state restore, releases its cleanup lease and settles
+a pending abort with the run status in the release reason. Other sessions
+cannot take over this cleanup path.
+
 The lease holder owns every Yoke project it creates: it appends each slug to
 the item's Progress Log as created, so a replacement can finish the cleanup,
 and before returning retires each with its own control-plane CLI (`yoke

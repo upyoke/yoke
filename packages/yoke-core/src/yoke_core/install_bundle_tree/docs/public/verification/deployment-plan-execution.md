@@ -206,7 +206,12 @@ The next holder resets first, including an agent mission, `as_is` case or
 case without a baseline. Failed recovery records `machine_needs_repair` and
 the exact `yoke test-machine reset` command; the steering report shows that
 machine and command until a later successful reset receipt clears the debt.
-A cleanup finish always releases its lease, even without restore proof, and
+A failed ordinary case restore or current holder's mission restore artifact
+also records this debt before custody ends. A terminal case missing its
+restore receipt records debt too; an intermediate successful case keeps
+its chain state, and an intentional `as_is` no-restore receipt remains proof
+that its declared cleanup finished. A cleanup finish always releases its
+lease, even without restore proof, and
 records restore evidence before committing the release. A deliberate manual
 QA_HOST release also records reset debt for every released execution host,
 using its case baseline or `fresh-host`, while preserving cancellation and
@@ -237,6 +242,11 @@ blocks execution. Continuations preserve the existing walk and journal.
 yoke qa plan abort --deployment-run-id RUN --execution-id EXECUTION_ID \
     --reason 'Stop this host case'
 ```
+
+The execution owner can abort after its deployment run ends; the abort records
+the terminal run status in its release reason. An already-settled execution
+reports its recorded state. A failed run does not require returning to an
+active stage to settle an execution.
 
 An in-flight host abort first records cancellation. Until the interrupted
 case's cleanup proof is recorded, it refuses with `qa_abort_restore_pending`
