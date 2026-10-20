@@ -19,13 +19,20 @@ def _digest(select: str, order: str) -> str:
 
 
 def approval_inputs_fingerprint(conn: Any, run_id: str, stage: str) -> str:
-    """The digest of every fact the approval gate's unlocked read depended on."""
+    """The digest of every fact the approval gate's unlocked read depended on.
+
+    Optional columns are read through ``to_jsonb``, where a column a schema
+    has not created yet reads as null instead of failing the statement.
+    """
     run_id = str(run_id)
     parts = (
         (
             _digest(
-                "SELECT dr.status,dr.current_stage,dr.flow,dr.target_tier,"
-                "dr.target_environment_id,dr.release_lineage,dr.created_by,"
+                "SELECT dr.status,dr.current_stage,dr.flow,"
+                "to_jsonb(dr)->'target_tier' AS tier,"
+                "to_jsonb(dr)->'target_environment_id' AS environment,"
+                "to_jsonb(dr)->'release_lineage' AS lineage,"
+                "to_jsonb(dr)->'created_by' AS creator,"
                 "df.stages FROM deployment_runs dr "
                 "JOIN deployment_flows df ON df.id=dr.flow WHERE dr.id=%s",
                 "t.status",
@@ -34,9 +41,11 @@ def approval_inputs_fingerprint(conn: Any, run_id: str, stage: str) -> str:
         ),
         (
             _digest(
-                "SELECT m.item_id,m.delivery_intent,i.status,i.title,"
-                "i.project_id,i.project_sequence,i.workflow_id,"
-                "i.workflow_version_id,i.workflow_posture "
+                "SELECT m.item_id,to_jsonb(m)->'delivery_intent' AS intent,"
+                "i.status,i.title,i.project_id,i.project_sequence,"
+                "to_jsonb(i)->'workflow_id' AS workflow,"
+                "to_jsonb(i)->'workflow_version_id' AS workflow_version,"
+                "to_jsonb(i)->'workflow_posture' AS posture "
                 "FROM deployment_run_items m JOIN items i ON i.id=m.item_id "
                 "WHERE m.run_id=%s",
                 "t.item_id",
@@ -45,7 +54,8 @@ def approval_inputs_fingerprint(conn: Any, run_id: str, stage: str) -> str:
         ),
         (
             _digest(
-                "SELECT r.id,r.status,r.resolution_action,r.consumed_at "
+                "SELECT r.id,r.status,to_jsonb(r)->'resolution_action' AS action,"
+                "to_jsonb(r)->'consumed_at' AS consumed "
                 "FROM decision_requests r JOIN deployment_run_items m "
                 "ON r.subject_key=m.item_id::text || ':done' "
                 "WHERE r.subject_type='item_transition' AND m.run_id=%s",
@@ -55,9 +65,9 @@ def approval_inputs_fingerprint(conn: Any, run_id: str, stage: str) -> str:
         ),
         (
             _digest(
-                "SELECT id,status,resolution_action,consumed_at "
-                "FROM decision_requests "
-                "WHERE subject_type='deployment_stage' AND subject_key=%s",
+                "SELECT r.id,r.status,to_jsonb(r)->'resolution_action' AS action,"
+                "to_jsonb(r)->'consumed_at' AS consumed FROM decision_requests r "
+                "WHERE r.subject_type='deployment_stage' AND r.subject_key=%s",
                 "t.id",
             ),
             (f"{run_id}:{stage}",),
