@@ -6,7 +6,6 @@ import pytest
 
 from runtime.api.domain import test_qa_member_machine_partitions as support
 from runtime.api.domain.machine_qa_host_test_support import TEST_MACHINE_SETTINGS
-from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
 from yoke_core.domain.qa_plan_execution_state import lock_plan_execution
 from yoke_core.domain.qa_plan_host_leases import execution_host_leases
 from yoke_core.domain.qa_resume_machine import execution_machine
@@ -21,6 +20,11 @@ def _seed_case(test_db, tmp_path, monkeypatch, *, simultaneous, instructions, li
         return replace_cases(conn, **kwargs)
 
     monkeypatch.setattr(support, "replace_plan_cases", with_instructions)
+    if linux:
+        monkeypatch.setattr(
+            "runtime.api.domain.machine_qa_host_test_support.TEST_MACHINE_SETTINGS",
+            {**TEST_MACHINE_SETTINGS, "os": "linux"},
+        )
     support._seed(
         test_db,
         tmp_path,
@@ -28,14 +32,6 @@ def _seed_case(test_db, tmp_path, monkeypatch, *, simultaneous, instructions, li
         simultaneous=simultaneous,
         driver=support.MACHINES[1],
     )
-    if linux:
-        replace_test_machine_settings(
-            test_db,
-            project="yoke",
-            machine=support.MACHINES[0],
-            settings={**TEST_MACHINE_SETTINGS, "os": "linux"},
-            base_settings=None,
-        )
 
 
 @pytest.mark.parametrize("instructions", ["Inspect linux-lab.", "Run a Linux check."])
