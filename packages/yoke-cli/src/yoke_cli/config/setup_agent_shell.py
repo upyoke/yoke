@@ -32,6 +32,7 @@ from yoke_cli.config.setup_agent_approvals import (
     ApprovalPending,
 )
 from yoke_cli.config.setup_prompt import SetupHuman, SetupPrompt
+from yoke_cli.config.setup_run_facts import RunFacts
 
 
 class _StepFailed(RuntimeError):
@@ -180,6 +181,7 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
     ) -> None:
         init_setup_state(self, defaults=defaults, apply_report=apply_report)
         self._answers = store
+        self._run_facts = RunFacts(store.facts, on_change=store.keep_facts)
         self._cli = dict(cli_answers)
         self._pending_refusal = refusal
         waiting = store.waiting_key

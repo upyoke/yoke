@@ -215,6 +215,11 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow, CloneOutcomeFlow):
         # A target that already holds a matching clone may be resumed, but it is
         # user-owned until an apply report proves Yoke created it. Never offer
         # deletion at this pre-apply screen.
+        if self._run_facts.cloned_here(value):
+            # This run made the clone; asking to resume it would be asking about
+            # its own work. Fetching again reuses it.
+            self._materialize_and_inspect_checkout()
+            return
         remote = self.result.project_remote_url
         target = Path(value).expanduser()
         if remote and clone_support.existing_clone_matches(

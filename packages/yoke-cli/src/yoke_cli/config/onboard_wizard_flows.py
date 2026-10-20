@@ -36,6 +36,7 @@ from yoke_cli.config.onboard_wizard_flow_publish import PublishFlow
 from yoke_cli.config.onboard_wizard_flow_publish_manual import ManualPublishFlow
 from yoke_cli.config.onboard_wizard_path import PathFlow
 from yoke_cli.config.onboard_wizard_state import _View
+from yoke_cli.config.setup_run_facts import RunFacts
 from yoke_cli.config.onboard_wizard_stored_connection import StoredConnectionHydration
 from yoke_cli.config.onboard_wizard_view_helpers import ViewHelpers
 from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT_LABEL
@@ -68,6 +69,7 @@ def init_setup_state(
 ) -> None:
     """Seed the answers, presets and progress state every setup shell reads."""
     shell._apply_report = apply_report
+    shell._run_facts = RunFacts()
     shell.cancelled = False
     shell.exit_code = 0
     shell.last_error = None

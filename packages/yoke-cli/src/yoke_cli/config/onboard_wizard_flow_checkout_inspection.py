@@ -25,6 +25,7 @@ from yoke_cli.config.onboard_wizard import github_connected
 from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT
 from yoke_cli.config.project_clone_support import ClonePlan
 from yoke_cli.config.setup_prompt import TONE_ERROR, SetupPrompt
+from yoke_cli.config.setup_run_facts import CLONED_CHECKOUT, checkout_key
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.onboard_wizard_state import _View
@@ -32,6 +33,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 class _Shell(Protocol):  # pragma: no cover - structural typing only
     result: Any
+    _run_facts: Any
 
     def _goto(self, view: "_View") -> None: ...
     def _run_checking(self, **kwargs) -> None: ...
@@ -61,7 +63,7 @@ class CheckoutInspectionFlow:
     def _materialize_checkout(self: _Shell) -> layer.InstalledLayerScan:
         """Clone into the chosen folder, reusing a clone already there."""
         root = Path(str(self.result.project_checkout)).expanduser()
-        project_onboard_clone.resumable_clone_with_machine_access(
+        reused = project_onboard_clone.resumable_clone_with_machine_access(
             root,
             str(self.result.project_remote_url or ""),
             plan=ClonePlan(
@@ -72,6 +74,8 @@ class CheckoutInspectionFlow:
             service_api_url=self.result.api_url or None,
             local_connection_selected=not self.result.api_url,
         )
+        if not reused:
+            self._run_facts.record(CLONED_CHECKOUT, checkout_key(root))
         return layer.scan(root)
 
     def _show_checkout_inspection(self: _Shell, scan: layer.InstalledLayerScan) -> None:

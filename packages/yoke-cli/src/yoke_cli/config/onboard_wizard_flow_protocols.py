@@ -10,6 +10,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 class CloneFlowShell(Protocol):  # pragma: no cover - structural typing only
     result: Any
+    _run_facts: Any
 
     def _goto(self, view: "_View") -> None: ...
     def _selection_view(self, key, step, title, subtitle, rows, on_select) -> "_View": ...
