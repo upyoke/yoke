@@ -221,7 +221,16 @@ def provision(home: Path, port: int = DEFAULT_RDP_PORT) -> None:
         ["sudo", "-n", "env", "DEBIAN_FRONTEND=noninteractive"]
         + ["apt-get", "install", "-y", "chromium-browser"]
     )
-    command(["sudo", "-n", "update-alternatives", "--set", "x-www-browser", CHROMIUM_WRAPPER])
+    command(
+        [
+            "sudo",
+            "-n",
+            "update-alternatives",
+            "--set",
+            "x-www-browser",
+            CHROMIUM_WRAPPER,
+        ]
+    )
     defaults = home / ".config/mimeapps.list"
     defaults.write_text(
         browser_defaults(defaults.read_text() if defaults.exists() else "")
