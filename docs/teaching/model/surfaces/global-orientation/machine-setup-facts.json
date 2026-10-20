@@ -1,9 +1,9 @@
 {
  "id": "machine-setup-facts",
  "title": "Machine setup outside a project",
- "status": "observed",
+ "status": "verified-live",
  "form": "State and recipe",
- "verification": "Shared hook routing distinguishes the machine state directory from project installs, including nested folders across harness composers. Source regressions cover scope and required recovery; corrected installed receiving proof remains pending in setup-next-action-delivery-proof.",
+ "verification": "Released native Claude, Codex and Cursor sessions outside projects received machine-only facts, one next action with a public home, no repeated summary, and complete payloads within their installed budgets. Project and second-machine acceptance remain separate in setup-next-action-delivery-proof.",
  "topics": ["projects/onboarding", "projects/onboarding/first-useful-work"],
  "sources": ["packages/yoke-core/src/yoke_core/domain/global_orientation.py"],
  "position": 20
