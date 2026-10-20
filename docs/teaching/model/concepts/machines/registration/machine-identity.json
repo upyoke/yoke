@@ -2,7 +2,7 @@
  "id": "machine-identity",
  "title": "Machine identity",
  "status": "observed",
- "page": "machines",
+ "page": "machine-registration",
  "position": 0,
  "text": "Start sends the configured UUID, the OS display hostname and platform before polling. Hosted routing preserves these facts with the code when selecting the organization and supplies the actual engine org_id, never a registry org ID or inferred default. Compare machine, uppercase Match code, Requested by when bound, organization, Approving as and local expiry before personal approval. Actor facts use the supplied name and actor number. The machine will act as the approver. The page omits an absent machine name instead of showing a placeholder.",
  "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_approval.js", "docs/public/cli/machine-authorization.md"]

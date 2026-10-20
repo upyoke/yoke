@@ -6,6 +6,6 @@
  "commands": ["yoke settings get", "yoke settings set", "yoke settings unset"],
  "functions": ["universe.levels.get", "universe.levels.set", "universe.levels.reset"],
  "sources": ["docs/public/agents/levels.md", "packages/yoke-core/src/yoke_core/domain/universe_levels.py"],
- "page": "levels",
+ "page": "level-scheme",
  "position": 3
 }

@@ -162,9 +162,21 @@ def load() -> Model:
             _register(model, owners, owner["id"], owner, relative(path))
             for child_path, record in _records(model, path.with_suffix("")):
                 full = f"{owner['id']}/{record['id']}"
-                record.update(full_id=full, owner=owner["id"], page=path.stem)
+                record.update(
+                    full_id=full, owner=owner["id"], page=record.get("page", path.stem)
+                )
                 _register(model, parts, full, record, relative(child_path))
                 owner["parts"].append(full)
+        page_owner = {owner["page"]: oid for oid, owner in owners.items()}
+        for full, record in parts.items():
+            holder = page_owner.setdefault(record["page"], record["owner"])
+            if holder != record["owner"]:
+                model.problem(
+                    "PAGE_COLLISION",
+                    record["file"],
+                    f"page {record['page']!r} already belongs to {holder!r}; "
+                    "choose a page name no other surface or scenario uses",
+                )
     for path, group in _records(model, MODEL_ROOT / "evidence"):
         group.update(stem=path.stem, records=[])
         model.evidence_files.append(group)

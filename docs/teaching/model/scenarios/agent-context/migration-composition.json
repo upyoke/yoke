@@ -2,6 +2,7 @@
  "id": "migration-composition",
  "title": "Integrate permanent migrations after upstream consumed their ordinals",
  "status": "observed",
+ "page": "agent-context-lanes",
  "audience": "agent",
  "when": "Conduct composes or renumbers permanent migrations before integration simulation.",
  "need": "Record the old-to-final names, candidate commit/digests and accepted final rehearsal audit ids in the spec and worktree plan in the same composition step. Supply ledger rows per declared authority and rehearsal rows from the item control plane, plus adoption provenance and explicit empty reads.",

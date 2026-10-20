@@ -2,6 +2,7 @@
  "id": "spec-input",
  "title": "File with independent title and spec inputs through the shared create operation.",
  "status": "observed",
+ "page": "command-feedback-cases",
  "form": "Do",
  "verification": "Candidate source tests prove title/spec file and stdin handling, atomic storage and older-server refusal. Deployed proof is pending.",
  "topics": ["items/creation/spec-input", "items/content/spec"],

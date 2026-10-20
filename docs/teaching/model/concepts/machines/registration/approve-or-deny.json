@@ -2,7 +2,7 @@
  "id": "approve-or-deny",
  "title": "Approve or deny",
  "status": "observed",
- "page": "machines",
+ "page": "machine-registration",
  "position": 2,
  "commands": ["yoke machines pending", "yoke machines approve", "yoke machines deny"],
  "text": "Approve personally only when the four-character code matches your terminal and the machine and organization are yours. yoke machines approve CODE shows the deciding identity and machine; yoke machines deny CODE refuses the request. Approval grants the approving person's identity; service routing grants no approval authority. Success has a separate Return to your terminal callout. Denial and expiry authorize nothing; unavailable codes show waiting machines. Expiry does not renew a code.",

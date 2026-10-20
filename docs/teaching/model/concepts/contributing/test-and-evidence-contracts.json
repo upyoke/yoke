@@ -4,6 +4,6 @@
  "status": "draft-copy",
  "audience": "Maintainers",
  "sources": ["docs/testing-verification.md", "docs/testing-verification/source-development.md", "docs/testing-verification/full-suite-authority.md", "docs/testing-verification/concurrent-local-runs.md", "docs/testing-verification/machine-shared-resources.md", "docs/testing-verification/evidence-portability.md", "docs/testing-verification/installer-campaign.md", "docs/testing-verification/product-smoke.md", "docs/testing-verification/real-harness.md", "docs/testing-verification/test-machine-golden-baseline.md"],
- "page": "contributing-guides",
+ "page": "test-and-evidence-contracts",
  "position": 7
 }

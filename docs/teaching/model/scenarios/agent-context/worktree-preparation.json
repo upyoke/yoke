@@ -2,6 +2,7 @@
  "id": "worktree-preparation",
  "title": "Prepare an Epic before task lanes exist",
  "status": "observed",
+ "page": "agent-context-lanes",
  "audience": "agent",
  "when": "Conduct begins in the registered main checkout with an item claim and no task checkout.",
  "need": "Use registered preparation on the running Yoke interpreter. Shared ownership, path, upstream and lane checks still apply. Re-entry reuses registered lanes; source execution requires an existing claimed lane.",
