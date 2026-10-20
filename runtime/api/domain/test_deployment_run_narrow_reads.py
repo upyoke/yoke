@@ -88,7 +88,15 @@ def test_member_closure_is_explicit_and_preserves_the_diagnostic(monkeypatch):
     monkeypatch.setattr(completion, "run_completion_diagnostics", read)
     from yoke_core.domain import deployment_runs_crud_query
 
+    from yoke_core.domain import deployment_run_get_members
+
     monkeypatch.setattr(deployment_runs_crud_query, "get_run", lambda _: {"id": RUN})
+    monkeypatch.setattr(
+        deployment_run_get_members,
+        "run_membership",
+        lambda _: {"member_items": [], "membership_removals": []},
+    )
+    monkeypatch.setattr(deployment_run_get_members, "live_carried_work", lambda _: {})
     outcome = handle_deployment_run_get(
         deployment_request(
             function="deployment_runs.get",

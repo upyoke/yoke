@@ -12,6 +12,9 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_core.domain.handlers import deployment_run_get, deployment_runs
 
 
+_NO_MEMBERS = {"member_items": [], "membership_removals": []}
+
+
 class TestDeploymentRunHandlers(unittest.TestCase):
     def _run_target(self) -> TargetRef:
         return TargetRef(
@@ -38,9 +41,15 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             '{"schema":1,"items":[],"commits":[]}',
         ]
         raw = {name: value or None for name, value in zip(RUN_FIELDS, values)}
-        with patch(
-            "yoke_core.domain.deployment_runs_crud_query.get_run",
-            return_value=raw,
+        with (
+            patch(
+                "yoke_core.domain.deployment_runs_crud_query.get_run",
+                return_value=raw,
+            ),
+            patch(
+                "yoke_core.domain.deployment_run_get_members.run_membership",
+                return_value=_NO_MEMBERS,
+            ),
         ):
             outcome = deployment_run_get.handle_deployment_run_get(
                 _request(
@@ -60,6 +69,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             1,
         )
         self.assertEqual(outcome.result_payload["attestation_warnings"], [])
+        self.assertEqual(outcome.result_payload["run"]["member_items"], [])
 
     def test_run_get_projects_attestation_warnings_beside_carried_work(self):
         from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
@@ -87,9 +97,15 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             carried,
         ]
         raw = {name: value or None for name, value in zip(RUN_FIELDS, values)}
-        with patch(
-            "yoke_core.domain.deployment_runs_crud_query.get_run",
-            return_value=raw,
+        with (
+            patch(
+                "yoke_core.domain.deployment_runs_crud_query.get_run",
+                return_value=raw,
+            ),
+            patch(
+                "yoke_core.domain.deployment_run_get_members.run_membership",
+                return_value=_NO_MEMBERS,
+            ),
         ):
             outcome = deployment_run_get.handle_deployment_run_get(
                 _request(

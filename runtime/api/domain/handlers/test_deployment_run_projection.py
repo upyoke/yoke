@@ -16,6 +16,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import deploy_pipeline_bound_inputs as driver
+from yoke_core.domain import deployment_run_get_members as run_get_members
 from yoke_core.domain import deployment_runs_crud_query as reads
 from yoke_core.domain.deployment_run_bound_sources import (
     BOUND_SOURCES_PREPARE_FUNCTION_ID,
@@ -94,6 +95,11 @@ def test_shell_pipeline_receipt_round_trip_recovers_exact_committed_request(
         )
         proxy = SimpleNamespace(execute=conn.execute, close=lambda: None)
         monkeypatch.setattr(reads, "connect", lambda *_: proxy)
+        monkeypatch.setattr(
+            run_get_members,
+            "run_membership",
+            lambda _: {"member_items": [], "membership_removals": []},
+        )
         outcome = handle_deployment_run_get(
             deployment_request(
                 function="deployment_runs.get",
@@ -108,7 +114,11 @@ def test_shell_pipeline_receipt_round_trip_recovers_exact_committed_request(
             result=outcome.result_payload,
         )
         readback = FunctionCallResponse.model_validate_json(response.model_dump_json())
-        assert readback.result["run"] == expected
+        assert readback.result["run"] == {
+            **expected,
+            "member_items": [],
+            "membership_removals": [],
+        }
         assert json.loads(readback.result["run"]["bound_sources"]) == bound
         assert readback.result["attestation_warnings"] == []
 

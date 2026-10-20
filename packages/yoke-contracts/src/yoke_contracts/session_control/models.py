@@ -183,8 +183,10 @@ class LaunchListRequest(BaseModel):
 
     ``surface`` matches either the requested or the selected surface, and
     ``machine`` either the requested or the assigned machine, because a launch
-    carries both and the list renders both. ``limit`` and ``cursor`` page the
-    completed history only; the operational set is always returned complete.
+    carries both and the list renders both. ``item`` keeps launches whose
+    session name starts with that item ref, which is how an assignment launch
+    names the item it staffs. ``limit`` and ``cursor`` page the completed
+    history only; the operational set is always returned complete.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -192,6 +194,7 @@ class LaunchListRequest(BaseModel):
     state: Optional[LaunchState] = None
     surface: Optional[str] = None
     machine: Optional[str] = None
+    item: Optional[str] = None
     limit: int = Field(default=50, ge=1, le=100)
     cursor: Optional[str] = None
 

@@ -31,7 +31,11 @@ version with a level-less stage, with its exact
 ```text
 yoke session-control launch preview --project P --level SENIOR [--machine M] --json
 yoke session-control launch create --project P --item PREFIX-N --idempotency-key K
+yoke session-control launch list --project P --item PREFIX-N   # launches that staffed the item
 ```
+
+An item-bound launch names its session `PREFIX-N: title`; the list's ITEM
+column and `--item` filter read that prefix.
 
 Placement expands each model row through its manifest's selection source at its minimum
 effort. Machine access, lane capacity and quota rules remain authoritative.

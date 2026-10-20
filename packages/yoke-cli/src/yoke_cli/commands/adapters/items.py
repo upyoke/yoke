@@ -54,7 +54,8 @@ __all__ = [
 
 ITEMS_GET_USAGE = (
     "yoke items get <PREFIX-N> [field1 field2 ...] "
-    '[--section "## Heading"] [--session-id S] [--json]'
+    '[--section "## Heading"] [--session-id S] [--json]. '
+    "Claim holder: yoke claims work holder-get <PREFIX-N>"
 )
 
 

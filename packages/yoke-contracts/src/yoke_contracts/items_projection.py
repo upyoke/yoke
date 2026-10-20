@@ -101,11 +101,22 @@ DEFAULT_GET_FIELDS: tuple[str, ...] = (
 # Names an agent is most likely to reach for that are not columns at all.
 # Each maps to the surface that does answer the question, so a wrong guess
 # ends in a command rather than another guess.
+CLAIM_HOLDER_READ = "yoke claims work holder-get ITEM"
+
 _NON_FIELD_REDIRECTS: dict[str, str] = {
     "detail": "yoke items detail get ITEM --json",
     "workflow": "yoke workflows item get ITEM --json",
-    "claim": "yoke claims work holder-get ITEM",
-    "claims": "yoke claims work holder-get ITEM",
+    **{
+        name: CLAIM_HOLDER_READ
+        for name in (
+            "claim",
+            "claims",
+            "holder",
+            "claim_holder",
+            "claimed_by",
+            "session",
+        )
+    },
     "worktree": "yoke item-worktrees get ITEM --lane-role implementation",
     "worktrees": "yoke item-worktrees get ITEM --lane-role implementation",
     "dependencies": "yoke items dependency list ITEM",
@@ -126,6 +137,7 @@ def render_field_catalog(*, indent: str = "  ") -> str:
     ]
     for label, names in groups:
         lines.append(f"{indent}{label}: {', '.join(names)}")
+    lines.append(f"Who holds the item (not a field): {CLAIM_HOLDER_READ}")
     return "\n".join(lines)
 
 
@@ -158,6 +170,7 @@ __all__ = [
     "ADDITIONAL_VIRTUAL_FIELDS",
     "ALLOWED_GET_FIELDS",
     "CANONICAL_COLUMNS",
+    "CLAIM_HOLDER_READ",
     "DEFAULT_GET_FIELDS",
     "DEFAULT_SEARCH_LIMIT",
     "STRUCTURED_FIELDS",

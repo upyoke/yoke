@@ -8,6 +8,7 @@ import json
 import sys
 from types import SimpleNamespace
 
+from yoke_cli.commands.adapters import session_control_launch_list as launch_list
 from yoke_cli.commands.adapters import session_control_launches as launches
 from yoke_cli.commands.adapters import session_control_relay as relay
 from yoke_cli.commands.registry_session_control import (
@@ -82,14 +83,15 @@ def test_sessions_create_preview_and_create_use_registered_functions(
 
 def test_launch_lifecycle_adapters_build_typed_payloads(monkeypatch) -> None:
     calls = []
-    monkeypatch.setattr(
-        launches,
-        "dispatch_and_emit",
-        lambda **kwargs: calls.append(kwargs) or 0,
-    )
+    for module in (launches, launch_list):
+        monkeypatch.setattr(
+            module,
+            "dispatch_and_emit",
+            lambda **kwargs: calls.append(kwargs) or 0,
+        )
     assert launches.session_launch_get(["launch-1"]) == 0
     assert (
-        launches.session_launch_list(
+        launch_list.session_launch_list(
             [
                 "--project",
                 "yoke",
@@ -99,6 +101,8 @@ def test_launch_lifecycle_adapters_build_typed_payloads(monkeypatch) -> None:
                 "codex-cli",
                 "--machine",
                 "machine-1",
+                "--item",
+                "YOK-12",
                 "--limit",
                 "4",
                 "--cursor",
@@ -132,6 +136,7 @@ def test_launch_lifecycle_adapters_build_typed_payloads(monkeypatch) -> None:
         "state": "outcome_unknown",
         "surface": "codex-cli",
         "machine": "machine-1",
+        "item": "YOK-12",
         "limit": 4,
         "cursor": "opaque-cursor",
     }

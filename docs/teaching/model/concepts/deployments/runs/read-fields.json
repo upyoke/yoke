@@ -4,5 +4,7 @@
  "status": "observed",
  "commands": ["yoke deployment-runs get", "yoke deployment-runs list"],
  "functions": ["deployment_runs.get", "deployment_runs.list"],
- "page": "deployments"
+ "page": "deployments",
+ "summary": "get also serves computed member_items and membership_removals; carried_work is derived live, unrecorded, until composition freeze.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_run_get_members.py", "packages/yoke-core/src/yoke_core/domain/handlers/deployment_run_get.py", "runtime/api/domain/handlers/test_deployment_run_get_members.py", "docs/public/deployments/model/run-members.md"]
 }

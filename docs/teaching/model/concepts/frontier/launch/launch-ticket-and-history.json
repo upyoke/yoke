@@ -1,7 +1,11 @@
 {
  "id": "launch-ticket-and-history",
  "title": "Launch ticket and history",
- "status": "draft-copy",
+ "status": "observed",
+ "commands": ["yoke session-control launch list"],
+ "functions": ["session_control.launch.list"],
  "page": "frontier",
- "position": 4
+ "position": 4,
+ "summary": "Scope: which launch staffed an item. An item-bound launch names its session PREFIX-N: title; launch list shows that prefix as the ITEM column and filters on it with --item PREFIX-N. An older server refuses --item with a named serving floor.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/session_launch_history_page.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/session_control_launch_list.py", "runtime/api/domain/test_session_launch_item_filter.py", "docs/public/agents/level-launches.md"]
 }

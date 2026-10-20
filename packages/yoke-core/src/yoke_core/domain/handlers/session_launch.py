@@ -192,6 +192,23 @@ def handle_launch_get(request: FunctionCallRequest) -> HandlerOutcome:
         conn.close()
 
 
+def _launch_item_ref(conn: Any, item: str | None, project_id: int) -> str | None:
+    """The canonical ref for an item filter, refusing an item not in the project."""
+    if not item:
+        return None
+    from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
+    from yoke_core.domain.project_identity import render_item_ref
+
+    item_id = resolve_item_ref_or_none(conn, item, project=project_id)
+    if item_id is None:
+        raise SessionLaunchError(
+            "item_not_found",
+            f"item {item!r} is not in this project; pass a PREFIX-N ref "
+            "from `yoke items list --project P`",
+        )
+    return render_item_ref(conn, item_id, required=True)
+
+
 def handle_launch_list(request: FunctionCallRequest) -> HandlerOutcome:
     parsed = _parse(LaunchListRequest, request)
     if isinstance(parsed, HandlerOutcome):
@@ -213,6 +230,7 @@ def handle_launch_list(request: FunctionCallRequest) -> HandlerOutcome:
                 state=parsed.state,
                 surface=parsed.surface,
                 machine=parsed.machine,
+                item=_launch_item_ref(conn, parsed.item, project_id),
                 limit=parsed.limit,
                 cursor=parsed.cursor,
             )

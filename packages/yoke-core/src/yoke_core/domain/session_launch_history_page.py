@@ -22,6 +22,7 @@ from yoke_core.domain.session_launch_cursor import (
 from typing import Any, Optional, Sequence
 
 from yoke_core.domain.project_identity import resolve_project_slug
+from yoke_core.domain.session_launch_assignment import assignment_name_prefix
 from yoke_core.domain.session_launch_delivery_state import IN_FLIGHT_LAUNCH_STATES
 from yoke_core.domain.session_launch_projection import compact_launch_records
 from yoke_core.domain.session_launch_store import (
@@ -52,6 +53,7 @@ def _criteria(
     state: Optional[str],
     surface: Optional[str],
     machine: Optional[str],
+    item: Optional[str],
 ) -> tuple[list[str], list[Any]]:
     p = marker(conn)
     clauses = [f"project_id = {p}"]
@@ -65,6 +67,10 @@ def _criteria(
     if machine:
         clauses.append(f"(requested_machine_id = {p} OR assigned_machine_id = {p})")
         params.extend([machine, machine])
+    if item:
+        prefix = assignment_name_prefix(item)
+        clauses.append(f"substr(session_name, 1, {p}) = {p}")
+        params.extend([len(prefix), prefix])
     return clauses, params
 
 
@@ -103,6 +109,7 @@ def read_launch_page(
     state: Optional[str] = None,
     surface: Optional[str] = None,
     machine: Optional[str] = None,
+    item: Optional[str] = None,
     limit: int = DEFAULT_HISTORY_LIMIT,
     cursor: Optional[str] = None,
 ) -> dict[str, Any]:
@@ -112,6 +119,7 @@ def read_launch_page(
     which is what an all-project browser scope needs to merge several of these
     pages and still say where each row came from.
 
+    *item* is a canonical item ref; it keeps the launches that staff it.
     Criteria are applied before both selections and before both counts, so a
     filtered view never reports a number it is not showing. Continuation
     requests carry completed history only — the caller already holds the
@@ -125,6 +133,7 @@ def read_launch_page(
         state=state,
         surface=surface,
         machine=machine,
+        item=item,
     )
     decoded = decode_launch_cursor(cursor)
 

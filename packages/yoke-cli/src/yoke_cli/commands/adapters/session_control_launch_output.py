@@ -123,6 +123,7 @@ _LIST_COLUMNS: tuple[Column, ...] = (
     ("LAUNCH", lambda row: row.get("launch_id"), None),
     ("STATE / RESULT", _launch_status, 28),
     ("PROJECT", lambda row: row.get("project") or row.get("project_id"), 14),
+    ("ITEM", lambda row: row.get("item"), 14),
     ("REQUESTED", lambda row: row.get("requested_surface"), 18),
     ("SELECTED", lambda row: row.get("selected_surface"), 18),
     (

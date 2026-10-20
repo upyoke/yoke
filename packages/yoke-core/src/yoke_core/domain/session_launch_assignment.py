@@ -190,12 +190,25 @@ def assignment_session_name(
             "assignment_title_missing",
             "assignment item needs a title before it can launch a session",
         )
-    name = f"{render_item_ref(conn, item_id, required=True)}: {title}"
+    name = f"{assignment_name_prefix(render_item_ref(conn, item_id, required=True))} {title}"
     return name[:MAX_SESSION_NAME_LENGTH]
+
+
+def assignment_ref(session_name: str | None) -> str:
+    """The item ref ``assignment_session_name`` stores ahead of the colon."""
+    name = (session_name or "").strip()
+    return name.split(":", 1)[0].strip() if ":" in name else ""
+
+
+def assignment_name_prefix(ref: str) -> str:
+    """The session-name prefix every launch staffing *ref* starts with."""
+    return f"{ref}:"
 
 
 __all__ = [
     "MAX_SESSION_NAME_LENGTH",
+    "assignment_name_prefix",
+    "assignment_ref",
     "assignment_session_name",
     "lock_assigned_item",
     "refuse_held_assigned_item",
