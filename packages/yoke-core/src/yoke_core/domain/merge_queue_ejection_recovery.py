@@ -7,6 +7,7 @@ from typing import Any
 
 from yoke_contracts.timestamps import parse_instant
 
+from yoke_core.domain.merge_queue_failed_train import unchanged_failed_train_refusal
 from yoke_core.domain.merge_queue_landing_episode import clear_episode, restore_episode
 from yoke_core.engines.merge_worktree_pr_files import read_pr_changed_files
 from yoke_core.engines.merge_worktree_pr_queue import (
@@ -42,13 +43,13 @@ def recovery_instruction(readback: Any, *, target: str) -> str:
             "if CONFLICTING, rebase the lane onto "
             + target
             + ", re-run the verification gate "
-            "and re-run `yoke merge item`; if MERGEABLE, wait for the entries ahead."
+            "and re-run `yoke merge item`; if MERGEABLE, re-run `yoke merge item` after the entries ahead leave; a failed train still requires a correction or one recorded --retry-flake claim."
         )
     if member is not None and member.entry_state == "UNMERGEABLE":
         return (
             "queue_conflict: mergeable against the base; wait for entries ahead "
             "to land or leave, then re-read mergeable. If CONFLICTING, rebase, "
-            "re-verify and re-run `yoke merge item`; if MERGEABLE, re-enqueue unchanged."
+            "re-verify and re-run `yoke merge item`; if MERGEABLE, re-run `yoke merge item`; a failed train requires a correction or one recorded --retry-flake claim."
         )
     return ""
 
@@ -91,6 +92,7 @@ def recover_ejection(
     read_files=read_pr_changed_files,
     enqueue=enter_merge_queue,
     reread=None,
+    failed_train=unchanged_failed_train_refusal,
 ):
     """Snapshot predecessors while queued; recover only the same unchanged head.
 
@@ -202,6 +204,13 @@ def recover_ejection(
                 "message": "queue_recovery_checks_unreadable: restore required-check reads and retry observation; no re-enqueue was sent.",
             },
         )
+    refusal = failed_train(
+        ctx, pr_number, lane_head=state.head_sha, base_branch=ctx.args.target
+    )
+    if refusal:
+        return replace(readback, queue_recovery={
+            **recovery, "action": "blocked", "message": refusal,
+        })
     outcome = enqueue(ctx, pr_number, expected_head_sha=state.head_sha)
     if not outcome.success:
         return replace(
@@ -209,9 +218,12 @@ def recover_ejection(
             queue_recovery={
                 **recovery,
                 "action": "blocked",
-                "message": f"queue_reenqueue_failed: {outcome.error_detail}; repair GitHub admission and re-run `yoke merge item`.",
+                "message": f"queue_reenqueue_failed: {outcome.error_detail}; restore GitHub App Contents: write and Pull requests: write installation permissions and token scopes, then re-run `yoke merge item`.",
             },
         )
+    from yoke_core.domain.merge_queue_reentry_receipt import record_reentry
+
+    record_reentry(conn, int(row["id"]), pr_number, state.head_sha, now)
     # Record the new arming episode before any subsequent read can fail.
     if row.get("merge_queue_enqueued_at"):
         clear_episode(conn, row, parse_instant(row["merge_queue_enqueued_at"]))

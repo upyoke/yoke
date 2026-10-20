@@ -47,7 +47,9 @@ def test_unchanged_head_and_base_after_a_failed_train_is_refused():
     assert BASE_SHA in error
     assert "Inspect that identified failed run first" in error
     assert "correct the actual cause" in error
-    assert "only after the relevant lane head or base changes" in error
+    assert "--retry-flake" in error
+    assert "yoke say --steering" in error
+    assert "test and CI run URL" in error
     print(error)
 
 

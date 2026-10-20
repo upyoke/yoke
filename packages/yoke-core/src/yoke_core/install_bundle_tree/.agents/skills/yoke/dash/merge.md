@@ -15,3 +15,5 @@ yoke watch merge --print-streaming-pair merge-item -- ITEM --wait --result "<res
 Selected deployment posture: merge with `yoke merge item ITEM --skip-status --json`, then deliver through the item's flow (`.yoke/docs/agents/rules/delivery.md`). A steering-batched worker starts no run.
 
 Next: [close-out](close-out.md).
+
+Flakes: `.yoke/docs/github/merge-queue-landings.md#failed-merge-trains`.

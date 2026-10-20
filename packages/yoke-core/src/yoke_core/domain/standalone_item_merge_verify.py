@@ -102,6 +102,7 @@ def verify_and_land(
         resume_command=_timeout.merge_item_resume_command(public_ref, args),
         wait_for_landing=bool(getattr(args, "wait", False)),
         relay_launched=calling_session_is_relay_launched(),
+        retry_flake=str(getattr(args, "retry_flake", "")),
     ), ""
 
 

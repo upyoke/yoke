@@ -54,7 +54,7 @@ def record(conn, readback):
     return value
 
 
-def recovery(conn, readback, members, *, enqueue=None, read_files=None):
+def recovery(conn, readback, members, *, enqueue=None, read_files=None, failed_train=None):
     from yoke_core.domain.merge_queue_landing_attempt import read_open_attempt
 
     attempt = read_open_attempt(conn, 101)
@@ -77,6 +77,7 @@ def recovery(conn, readback, members, *, enqueue=None, read_files=None):
         ctx,
         readback,
         now=NOW,
+        failed_train=failed_train or (lambda *_a, **_kw: None),
         read_queue=lambda *args, **kwargs: (members, None),
         read_files=read_files or (lambda ctx, pr: (("shared.py",), None)),
         enqueue=enqueue or (lambda *args: pytest.fail("must not re-enqueue")),
@@ -260,3 +261,31 @@ def test_waiter_consumes_waiting_record_then_landed_record():
     )
     assert refusal is None
     assert any("PR #41" in line and "shared.py" in line for line in lines)
+
+
+def test_automatic_conflict_recovery_does_not_replay_a_failed_train():
+    conn = observer_connection()
+    original = facts(queued=True, unmergeable=True)
+    record(conn, recovery(conn, original, [QueueMember("41", "ahead"), QueueMember("42", "own")]))
+    blocked = recovery(
+        conn, facts(), [],
+        failed_train=lambda *_a, **_kw: "failed-train-unchanged: claim --retry-flake",
+    )
+    assert blocked.queue_recovery["action"] == "blocked"
+    assert "--retry-flake" in blocked.queue_recovery["message"]
+
+
+def test_automatic_reentry_receipt_survives_observation_replacement():
+    import json
+    from yoke_core.domain.merge_queue_reentry_receipt import record_reentry, REENTRY_SECTION
+
+    conn = observer_connection()
+    record_reentry(conn, 101, "42", "a" * 40, NOW)
+    record(conn, facts())
+    receipt = json.loads(conn.execute(
+        "SELECT content FROM item_sections WHERE item_id=? AND section_name=?",
+        (101, REENTRY_SECTION),
+    ).fetchone()[0])["receipts"][0]
+    assert receipt["automatic"] is True
+    assert receipt["pr_number"] == "42"
+    assert receipt["accepted_at"]

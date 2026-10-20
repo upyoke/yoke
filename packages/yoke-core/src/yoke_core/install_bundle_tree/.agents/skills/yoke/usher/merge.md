@@ -21,3 +21,5 @@ yoke claims work release --item PREFIX-N --reason usher-halt-merge-failure --jso
 ```
 
 Cancelled checks: rerun the same merge on the same head.
+
+Flakes: `.yoke/docs/github/merge-queue-landings.md#failed-merge-trains`.

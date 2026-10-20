@@ -115,6 +115,18 @@ class MergeQueueReadiness:
 
     def describe(self) -> str:
         """Render the facts without treating a consumed arming as cleared."""
+        recovery = ""
+        if self.failed_checks:
+            from yoke_core.domain.merge_queue_entry_checks import regate_instruction
+
+            recovery = "; " + regate_instruction(self.failed_checks)
+        elif self.landing_state == NOT_IN_FLIGHT:
+            recovery = (
+                "; re-run `yoke merge item`; for a failed train, inspect its run, "
+                "message `yoke say --steering` with the test and CI run URL, then "
+                "claim at most one unexplained failure with --retry-flake; "
+                "a second failure on the same inputs belongs to the item"
+            )
         return (
             f"pull request {self.pr_number or 'not recorded'}: "
             f"landing={self.landing_state}, queue-holding={self.queue_holding}, "
@@ -123,7 +135,7 @@ class MergeQueueReadiness:
             f"merged={_truth(self.merged)}, "
             f"state={_open_state(self.closed)}, "
             f"mergeStateStatus={self.merge_state_status or 'unreported'}, "
-            f"failed-required-checks={describe_failed_checks(self.failed_checks)}"
+            f"failed-required-checks={describe_failed_checks(self.failed_checks)}{recovery}"
         )
 
     def to_dict(self) -> dict[str, object]:

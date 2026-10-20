@@ -17,6 +17,7 @@ from yoke_contracts.timestamps import InvalidInstant
 from yoke_core.engines.merge_worktree_landing_state import PrLandingState
 
 from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_CONTENTS_WRITE_PERMISSION_LEVELS as CONTENTS_WRITE,
     GITHUB_PULL_REQUESTS_READ_PERMISSION_LEVELS as PR_READ,
     GITHUB_PULL_REQUESTS_WRITE_PERMISSION_LEVELS as PR_WRITE,
 )
@@ -170,8 +171,12 @@ def _mutate_pull_request(
     required_authority: str = GITHUB_AUTHORITY_INSTALLATION,
 ) -> QueueEntryResult:
     """Mutate one PR with installation authority unless explicitly overridden."""
+    permissions = (
+        {**PR_WRITE, **CONTENTS_WRITE}
+        if mutation == _ENABLE_AUTO_MERGE_MUTATION else PR_WRITE
+    )
     auth, auth_err = resolve_auth_detail(
-        ctx, PR_WRITE, required_authority=required_authority
+        ctx, permissions, required_authority=required_authority
     )
     if auth_err or auth is None:
         return QueueEntryResult(success=False, pr_num=pr_num, error_detail=auth_err)
@@ -185,7 +190,7 @@ def _mutate_pull_request(
         auth,
         query=mutation,
         variables=variables,
-        required_permissions=PR_WRITE,
+        required_permissions=permissions,
     )
     if mutation_err:
         return QueueEntryResult(success=False, pr_num=pr_num, error_detail=mutation_err)

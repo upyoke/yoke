@@ -1,8 +1,8 @@
 """Refuse queue re-entry that would replay a known failed train.
 
-A train that already failed for this pull request's current head and the
-current base will fail the same way. Re-entering burns another full suite
-to reproduce a known verdict. A change to either input is a new train.
+A failed train needs a correction or one recorded flake claim. The retry
+budget belongs to the item and its exact head/base inputs, not the worker
+process or CI run. A change to either input is a new train.
 Uncertainty fails open: an unreadable train is not a known outcome.
 """
 
@@ -103,7 +103,12 @@ def _refusal(
         f"failed train for these unchanged inputs; {identity}; {compared}. "
         f"{inspect}; correct the actual cause, then re-enter `yoke merge item` "
         "only after the relevant lane head or base changes. Unchanged inputs "
-        "remain refused; do not use empty commits or bypasses to replay them."
+        "remain refused unless the failure cannot be explained by this change: "
+        "first message `yoke say --steering` naming the test and CI run URL, "
+        "then re-run the same `yoke merge item` command with "
+        "`--retry-flake 'TEST: why the change cannot explain the failure'`. "
+        "One recorded retry is allowed per head/base; a second failure belongs "
+        "to this item. Do not use empty commits to reset the budget."
     )
 
 
@@ -116,6 +121,9 @@ def unchanged_failed_train_refusal(
     train: Optional[TrainRun] = None,
     parents: Optional[list[str]] = None,
     base_sha: str = "",
+    retry_flake: str = "",
+    public_ref: str = "",
+    dispatch=None,
 ) -> Optional[str]:
     """Named refusal, or ``None`` when re-entry is allowed."""
     observed = train
@@ -144,24 +152,25 @@ def unchanged_failed_train_refusal(
     if not head or head != trained_head:
         return None
     current_base = (base_sha or _current_base_sha(ctx, base_branch)).strip()
-    if trained_base:
-        if current_base and current_base == trained_base:
-            return _refusal(
-                pr_num,
-                observed,
-                lane_head=head,
-                base_sha=current_base,
-                trained_base=trained_base,
+    def refusal():
+        if retry_flake.strip():
+            from yoke_core.domain.merge_queue_flake_retry import claim_retry
+
+            return claim_retry(
+                public_ref, pr_num, head, current_base, observed.url,
+                retry_flake, dispatch=dispatch,
             )
-        return None
-    if current_base and _base_covers_train(ctx, current_base, train_sha):
         return _refusal(
-            pr_num,
-            observed,
-            lane_head=head,
-            base_sha=current_base,
+            pr_num, observed, lane_head=head, base_sha=current_base,
             trained_base=trained_base,
         )
+
+    if trained_base:
+        if current_base and current_base == trained_base:
+            return refusal()
+        return None
+    if current_base and _base_covers_train(ctx, current_base, train_sha):
+        return refusal()
     return None
 
 

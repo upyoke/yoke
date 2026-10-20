@@ -108,6 +108,7 @@ PRODUCT_AUTHZ_BY_ID = {
     "merge_receipt.commits.attest": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge_queue.landing.observe": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge_queue.landing_pull_request.record": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    "merge_queue.flake_retry.claim": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge_queue.landing_pending.mark": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge_queue.landing_pending.clear": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     # Pipeline member-item stamps (deploy_stage / deployed_to). Claim-free
