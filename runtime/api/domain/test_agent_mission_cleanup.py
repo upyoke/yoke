@@ -51,7 +51,9 @@ RUN = "run-mission-teardown"
 
 @pytest.fixture
 def removed_mission(test_db, tmp_path, monkeypatch, request):
-    restored_before_removal = getattr(request, "param", False)
+    setup = getattr(request, "param", "removed")
+    restored_before_removal = setup is True
+    end_kind = setup if isinstance(setup, str) else "removed"
     configure_test_machine(test_db, tmp_path, monkeypatch)
     requirement = _materialize_mission(test_db, item_id=ITEM)
     execution = begin_plan_execution(
@@ -109,28 +111,56 @@ def removed_mission(test_db, tmp_path, monkeypatch, request):
         import json
         from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
 
-        outcome = handle_qa_artifact_add(request.model_copy(update={
-            "function": "qa.artifact.add",
-            "target": TargetRef(kind="qa_requirement", qa_requirement_id=requirement),
-            "payload": {
-                "run_id": ready.result_payload["result"]["run_id"],
-                "artifact_type": "starting_state_restore",
-                "filename": "starting-state-restore.json",
-                "content_type": "application/json",
-                "content_base64": base64.b64encode(json.dumps({
-                    "restored": True, "baseline": "fresh-host",
-                }).encode()).decode(),
-            },
-        }))
+        outcome = handle_qa_artifact_add(
+            request.model_copy(
+                update={
+                    "function": "qa.artifact.add",
+                    "target": TargetRef(
+                        kind="qa_requirement", qa_requirement_id=requirement
+                    ),
+                    "payload": {
+                        "run_id": ready.result_payload["result"]["run_id"],
+                        "artifact_type": "starting_state_restore",
+                        "filename": "starting-state-restore.json",
+                        "content_type": "application/json",
+                        "content_base64": base64.b64encode(
+                            json.dumps(
+                                {
+                                    "restored": True,
+                                    "baseline": "fresh-host",
+                                }
+                            ).encode()
+                        ).decode(),
+                    },
+                }
+            )
+        )
         assert outcome.primary_success, outcome.error
-    remove_member_on(test_db, RUN, ITEM, reason="later release")
+    if end_kind == "removed":
+        remove_member_on(test_db, RUN, ITEM, reason="later release")
+    else:
+        from yoke_core.domain.qa_plan_execution_abort_state import record_abort_request
+        from yoke_core.domain.qa_deployment_run_settlement import (
+            settle_unsuccessful_run,
+        )
+
+        current = lock_plan_execution(test_db, execution_id)
+        record_abort_request(test_db, current, {"reason": "stop mission", "ordinal": 0})
+        test_db.execute(
+            "UPDATE deployment_runs SET status=%s WHERE id=%s", (end_kind, RUN)
+        )
+        settle_unsuccessful_run(test_db, RUN, reason="run ended")
     test_db.commit()
     # Removal keeps the walk's dirty host until its walk-end teardown.
     assert get_claim(test_db, original["lease_id"]).is_active != restored_before_removal
     current = lock_plan_execution(test_db, execution_id)
     test_db.rollback()
-    assert current["state"] == ("aborted" if restored_before_removal else "awaiting_agent_review")
-    assert member_removal_pending(current) != restored_before_removal
+    assert current["state"] == (
+        "aborted" if restored_before_removal else "awaiting_agent_review"
+    )
+    assert member_removal_pending(current) == (
+        end_kind == "removed" and not restored_before_removal
+    )
     cleanup = request.model_copy(
         update={
             "function": "test_machine.mission.access",
