@@ -29,6 +29,11 @@ before any host reset or one-shot action replay. An unknown reply is not failure
 
 After failed QA, classify and act: product defect -> return to implementation; setup failure -> record the blocker; unclear cause -> investigate now.
 
+Judge a QA result against the item's user outcome first, then the case
+wording. A case step the product cannot meet, while the user outcome holds,
+is a case defect: repair the case through its registered write and rerun. A
+case that passes while the user outcome fails is a product defect.
+
 ## Testing
 
 - **No hardcoded drifting IDs in tests.** Tests must never contain literal `PREFIX-N`-style work item IDs that drift over time. Use variables, dynamically generated values, or pattern matchers instead.

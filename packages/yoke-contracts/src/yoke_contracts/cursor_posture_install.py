@@ -110,7 +110,7 @@ def configure_cursor_unattended_posture(
     for conflict in record["conflicts"]:
         actions.append(
             f"cursor: left your own setting in place — {conflict}; "
-            "Cursor will keep asking until you change it"
+            "Cursor asks before commands its allowlist does not name"
         )
     return actions
 

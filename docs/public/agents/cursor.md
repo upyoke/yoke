@@ -66,17 +66,18 @@ Cursor is a harness adapter, not a replacement for Yoke core. Routing decisions,
 
 ## Approvals and the network sandbox
 
-Cursor decides whether an agent command runs unprompted at three layers. Two are project files Yoke installs and keeps merged; the third is machine-level and yours to set. Getting only the first two right still leaves you approving commands one at a time.
+Cursor decides whether an agent command runs unprompted at three layers. Two are project files Yoke installs and keeps merged; the third is machine-level. Setup seeds Run Everything there only when you have not chosen a mode, and always adds `Shell(yoke *)` to the machine-wide allowlist, so `yoke` runs without asking even before a project exists.
 
 | Layer | Where | Who owns it |
 |-------|-------|-------------|
 | Command approvals | `.cursor/cli.json` → `permissions.allow` | Yoke installs and merges its region |
 | Network sandbox | `.cursor/sandbox.json` → `networkPolicy` | Yoke installs and merges its region |
-| Approval / execution mode | Cursor's own settings (Approvals, Execution mode) | You — no project file can reach it |
+| Approval / execution mode | `~/.cursor/cli-config.json` → `approvalMode`, `sandbox.mode` | You; setup seeds them only when unset |
+| Machine-wide `yoke` approval | `~/.cursor/cli-config.json` → `permissions.allow` | Setup adds `Shell(yoke *)` only; `yoke uninstall` removes exactly it |
 
 **Recommended posture: zero prompts.** Set Execution mode to **Run Everything**. That matches how Yoke machines already run every other harness, and the rationale is the same: Yoke owns enforcement through its `PreToolUse` hook chain and lint fleet, so a harness approval prompt is redundant friction rather than a safety layer. Hooks keep firing in this mode — a hook deny holds even under `--force`. If you prefer to keep Auto-review, the closest zero-prompt composite is `yoke *`, `git *`, and `gh *` in the command allowlist plus a network mode that allows the origins already listed in `.cursor/sandbox.json`.
 
-Confirm your chosen mode on the first session of a new machine: run one network-touching `yoke` read and check that it completes with no prompt **and** that hook telemetry recorded the call. `yoke doctor` reports the machine-level posture it can see (`HC-cursor-approval-posture`) and prints the exact settings to change.
+Confirm your chosen mode on the first session of a new machine: run one network-touching `yoke` read and check that it completes with no prompt **and** that hook telemetry recorded the call. `yoke doctor` reports the machine-level posture it can see (`HC-harness-unattended-posture`) and names the missing setting.
 
 **Do not request full-network permission.** Cursor treats an explicit `required_permissions: full_network` request as an escalation and prompts even for hosts the network policy already allows. Once `.cursor/sandbox.json` allows the control-plane origins, retry inside the sandbox instead — requesting the escalation causes the very per-command prompting these files exist to remove.
 

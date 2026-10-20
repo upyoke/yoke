@@ -66,6 +66,10 @@ def revert_entry(entry: Dict[str, Any]) -> str:
         return _revert_json(
             target, list(entry["keys"]), entry["value"], int(entry["existing_depth"])
         )
+    if kind == "json_list_item":
+        return _revert_json_list_item(
+            target, list(entry["keys"]), entry["value"], int(entry["existing_depth"])
+        )
     if kind == "codex_key":
         return _revert_codex_key(target, entry["key"], entry["value"])
     if kind == "codex_trust":
@@ -116,6 +120,31 @@ def _revert_json(target: Path, keys: List[str], value: Any, existing: int) -> st
         del parents[depth][keys[depth]]
     _replace(target, json.dumps(payload, indent=2) + "\n")
     return f"removed {dotted} from {target}"
+
+
+def _revert_json_list_item(
+    target: Path, keys: List[str], value: Any, existing: int
+) -> str:
+    """Remove the one appended value; drop the containers Yoke created."""
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    path: List[Any] = [payload]
+    for key in keys:
+        node = path[-1]
+        child = node.get(key) if isinstance(node, dict) else None
+        if not isinstance(child, (dict, list)):
+            return ""
+        path.append(child)
+    items = path[-1]
+    if not isinstance(items, list) or value not in items:
+        return ""
+    items.remove(value)
+    # path[d + 1] is the container at keys[d]; keep every one that predated.
+    for depth in range(len(keys) - 1, existing - 1, -1):
+        if path[depth + 1]:
+            break
+        del path[depth][keys[depth]]
+    _replace(target, json.dumps(payload, indent=2) + "\n")
+    return f"removed {value!r} from {'.'.join(keys)} in {target}"
 
 
 def _revert_codex_key(target: Path, key: str, value: str) -> str:

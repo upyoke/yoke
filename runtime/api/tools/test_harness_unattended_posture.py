@@ -130,6 +130,7 @@ def test_the_pass_prints_every_action_exactly_once(tmp_path: Path, monkeypatch):
     import yoke_contracts.codex_posture_install as codex_module
     from yoke_contracts import harness_posture_install as pass_module
     import yoke_contracts.cursor_posture_install as cursor_module
+    import yoke_contracts.harness_yoke_allow as allow_module
 
     monkeypatch.setattr(
         codex_module, "codex_config_path", lambda: _codex_home(tmp_path)
@@ -145,6 +146,7 @@ def test_the_pass_prints_every_action_exactly_once(tmp_path: Path, monkeypatch):
         claude_module, "configure_claude_cli_permission_mode",
         lambda **_kwargs: [],
     )
+    monkeypatch.setattr(allow_module, "configure_yoke_allow", lambda _harness: [])
     stream = io.StringIO()
     actions = pass_module.configure_harness_unattended_posture(
         checkout=Path(CHECKOUT), stream=stream
@@ -257,19 +259,23 @@ def test_running_family_refuses_to_guess_between_two_stamps(monkeypatch) -> None
     assert posture.sandbox_recovery() is None
 
 
-def test_posture_state_reports_each_outcome(tmp_path: Path) -> None:
-    configured = _codex_home(tmp_path / "yes", UNATTENDED_CODEX_TEXT)
-    prompting = _codex_home(tmp_path / "no", 'approval_policy = "on-request"\n')
+def test_posture_state_reports_each_outcome(tmp_path: Path, monkeypatch) -> None:
     from yoke_contracts.harness_unattended_posture import (
         POSTURE_ABSENT,
         POSTURE_PROMPTS,
         POSTURE_UNATTENDED,
-        posture_state,
     )
+    from yoke_contracts.harness_yoke_allow import posture_state
 
-    assert posture_state("codex", configured) == POSTURE_UNATTENDED
-    assert posture_state("codex", prompting) == POSTURE_PROMPTS
-    assert posture_state("codex", tmp_path / "gone" / "config.toml") == POSTURE_ABSENT
+    for home, text, state in (
+        ("yes", UNATTENDED_CODEX_TEXT, POSTURE_UNATTENDED),
+        ("no", 'approval_policy = "on-request"\n', POSTURE_PROMPTS),
+        ("gone", None, POSTURE_ABSENT),
+    ):
+        monkeypatch.setenv("CODEX_HOME", str(tmp_path / home / ".codex"))
+        if text is not None:
+            _codex_home(tmp_path / home, text)
+        assert posture_state("codex") == state
 
 
 def test_the_wizard_step_names_every_harness_file_and_key():

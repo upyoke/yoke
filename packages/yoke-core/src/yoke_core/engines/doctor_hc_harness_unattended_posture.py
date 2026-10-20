@@ -8,6 +8,9 @@ since been rewritten, still asks — and the symptom is a stranger approving
 every ``yoke`` call by hand, including the recovery commands Yoke tells them
 to run when something breaks.
 
+A harness whose operator kept their own mode still passes when its
+machine-wide allowlist names ``yoke`` (:mod:`yoke_contracts.harness_yoke_allow`).
+
 One record per harness the machine actually has. A harness that is not
 installed is N/A, not a pass: there is no posture to report.
 """
@@ -23,10 +26,13 @@ from yoke_contracts.harness_unattended_posture import (
     CURSOR_FAMILY,
     POSTURE_RECOVERY,
     claude_settings_path,
-    claude_settings_problems,
     managed_config_paths,
-    posture_problems,
     read_posture_config,
+)
+from yoke_contracts.harness_yoke_allow import (
+    YOKE_COMMAND_ALLOW,
+    yoke_allow_path,
+    yoke_posture,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
@@ -41,6 +47,8 @@ def harness_posture(
 
     A harness with no config file and no CLI on PATH is not set up here, so
     it has no posture to report; one that is installed but unreadable fails.
+    A mode the operator kept passes while the ``yoke`` allow entry stands;
+    without that entry every ``yoke`` call asks, which fails.
     """
     cli_settings = harness_id == CLAUDE_FAMILY and surface_id == "claude-cli"
     if harness_id == CLAUDE_FAMILY and surface_id not in (
@@ -56,18 +64,20 @@ def harness_posture(
     path = (
         claude_settings_path() if cli_settings else managed_config_paths()[harness_id]
     )
-    config, reason = read_posture_config(harness_id, path)
-    if config is None:
+    verdict = yoke_posture(harness_id, surface_id)
+    if verdict is None:
+        _config, reason = read_posture_config(harness_id, path)
         if path.exists() or installed:
             return "FAIL", f"HARNESS_POSTURE_UNVERIFIED: {harness_id}: {reason}"
         return "N/A", reason
-    problems = (
-        claude_settings_problems(config)
-        if cli_settings
-        else posture_problems(harness_id, config)
-    )
-    if problems:
-        return "FAIL", f"{harness_id} ({path}): {'; '.join(problems)}"
+    if verdict.blocking:
+        return "FAIL", f"{harness_id} ({path}): {'; '.join(verdict.blocking)}"
+    if verdict.kept:
+        return "PASS", (
+            f"{harness_id} (your mode kept: {'; '.join(verdict.kept)}; "
+            f"{YOKE_COMMAND_ALLOW[harness_id]} allowed in "
+            f"{yoke_allow_path(harness_id)})"
+        )
     return "PASS", harness_id
 
 
@@ -98,7 +108,8 @@ def hc_harness_unattended_posture(
             SLUG,
             TITLE,
             "FAIL",
-            "Unattended permission configuration is missing, unreadable, or still prompts.\n  "
+            "yoke still asks for approval: neither the unattended mode nor "
+            "the yoke allow entry is set, or the config is unreadable.\n  "
             + "\n  ".join(prompting)
             + f"\n  {POSTURE_RECOVERY}",
         )

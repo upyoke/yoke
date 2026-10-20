@@ -17,6 +17,8 @@ from yoke_contracts.harness_unattended_posture import (
     CURSOR_SANDBOX_CONTAINER,
     CURSOR_SANDBOX_MODE,
     CURSOR_SANDBOX_MODE_KEY,
+    claude_settings_path,
+    managed_config_paths,
 )
 from yoke_core.engines.doctor_hc_harness_unattended_posture import (
     SLUG,
@@ -28,21 +30,24 @@ from yoke_core.engines import doctor_hc_harness_unattended_posture as mod
 UNATTENDED_CODEX = 'approval_policy = "never"\nsandbox_mode = "danger-full-access"\n'
 
 
-def _paths(tmp_path: Path, monkeypatch, *, codex=None, cursor=None, claude=None):
-    """Point the check at temp config files, creating only what is given."""
+def _paths(
+    tmp_path: Path, monkeypatch, *, codex=None, cursor=None, claude=None, cli=None
+):
+    """Point the check at a temp home, creating only the config given."""
     monkeypatch.setattr(mod, "resolve_harness_clis", lambda path: [])
-    resolved = {}
-    for harness, name, payload in (
-        ("codex", "codex/config.toml", codex),
-        ("cursor", "cursor/cli-config.json", cursor),
-        ("claude-code", "claude/claude_desktop_config.json", claude),
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    resolved = managed_config_paths()
+    for target, payload in (
+        (resolved["codex"], codex),
+        (resolved["cursor"], cursor),
+        (resolved["claude-code"], claude),
+        (claude_settings_path(), cli),
     ):
-        target = tmp_path / name
         if payload is not None:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(payload, encoding="utf-8")
-        resolved[harness] = target
-    monkeypatch.setattr(mod, "managed_config_paths", lambda: resolved)
     return resolved
 
 
@@ -95,6 +100,7 @@ def test_every_configured_harness_passes(tmp_path: Path, monkeypatch) -> None:
             }
         ),
         claude=json.dumps({"preferences": {CLAUDE_BYPASS_KEY: True}}),
+        cli=json.dumps({"permissions": {"defaultMode": "bypassPermissions"}}),
     )
     result = _run()
     detail = _detail(result)
@@ -124,3 +130,33 @@ def test_installed_harness_without_posture_fails(tmp_path, monkeypatch):
     result = _run()
     assert result.result == "FAIL"
     assert "HARNESS_POSTURE_UNVERIFIED" in result.detail
+
+
+def test_a_kept_mode_with_yoke_allowed_passes(tmp_path: Path, monkeypatch) -> None:
+    _paths(
+        tmp_path,
+        monkeypatch,
+        cursor=json.dumps(
+            {
+                CURSOR_APPROVAL_MODE_KEY: "allowlist",
+                "permissions": {"allow": ["Shell(yoke *)"], "deny": []},
+            }
+        ),
+    )
+    result = _run()
+    assert _status(result) == "PASS"
+    assert "your mode kept" in _detail(result)
+
+
+def test_a_kept_mode_without_yoke_allowed_fails_naming_the_entry(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _paths(
+        tmp_path,
+        monkeypatch,
+        cli=json.dumps({"permissions": {"defaultMode": "auto", "allow": ["Bash(ls)"]}}),
+    )
+    result = _run()
+    assert _status(result) == "FAIL"
+    assert "Bash(yoke:*) is not in" in _detail(result)
+    assert "doctor run --only harness-setup --fix" in _detail(result)

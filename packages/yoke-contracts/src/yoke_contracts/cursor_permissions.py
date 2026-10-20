@@ -42,9 +42,11 @@ CURSOR_SANDBOX_REL = ".cursor/sandbox.json"
 # Command families Yoke's own flows execute. Cursor's entry grammar is
 # ``Shell(<command pattern>)`` / ``Read(<glob>)`` / ``Write(<glob>)``.
 # File-level policy stays with the hook chain, which sees every Read and
-# Write regardless of what this list allows.
+# Write regardless of what this list allows. The ``yoke`` entry alone is also
+# written machine-wide (:mod:`yoke_contracts.harness_yoke_allow`).
+CURSOR_YOKE_ALLOW = "Shell(yoke *)"
 CURSOR_CLI_ALLOW: Tuple[str, ...] = (
-    "Shell(yoke *)",
+    CURSOR_YOKE_ALLOW,
     "Shell(git *)",
     "Shell(gh *)",
     "Read(**)",
@@ -201,6 +203,7 @@ __all__ = [
     "CURSOR_CONFIG_RELS",
     "CURSOR_PERMISSIONS_MANIFEST_KEY",
     "CURSOR_SANDBOX_REL",
+    "CURSOR_YOKE_ALLOW",
     "CursorConfigRegion",
     "NETWORK_POLICY_DEFAULT",
     "control_plane_origins",
