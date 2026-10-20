@@ -116,39 +116,44 @@ def _detect_worktree_root(cwd: str) -> Optional[str]:
     return None
 
 
-def expected_worktree_path(main_root: str, item_id: int) -> str:
-    """Return the canonical worktree path for *item_id* under *main_root*.
-
-    The branch convention is ``YOK-N`` followed by an optional
-    ``-<slug>`` suffix; this helper returns the base ``YOK-N`` directory
-    inside ``.worktrees/`` — callers that need slug-aware matching should
-    use prefix comparisons against the result.
-    """
-    return str(Path(main_root) / ".worktrees" / f"YOK-{int(item_id)}")
+def expected_worktree_path(main_root: str, lane_name: str) -> str:
+    """Return the canonical worktree path for *lane_name* under *main_root*."""
+    return str(Path(main_root) / ".worktrees" / lane_name)
 
 
-def _branch_for_item(item_id: Optional[int]) -> Optional[str]:
+def _lane_name_for_item(conn: Any, item_id: Optional[int]) -> Optional[str]:
+    """The item's lane name (its public ref), or ``None`` when unresolved."""
     if item_id is None:
         return None
-    return f"YOK-{int(item_id)}"
+    from yoke_core.domain.worktree_naming import (
+        ItemWorktreeIdentityUnresolved,
+        worktree_name_for_item,
+    )
+
+    try:
+        return worktree_name_for_item(conn, item_id)
+    except ItemWorktreeIdentityUnresolved:
+        return None
 
 
-def _resolve_current_item(
+def _read_item_and_lane(
     conn: Optional[Any], session_id: str
-) -> Optional[int]:
-    """Look up the session's current_item_id, opening a connection if needed."""
+) -> tuple[Optional[int], Optional[str]]:
+    """Read the session's current item and its lane name in one connection."""
     if conn is not None:
-        return _fetch_current_item_id(conn, session_id)
+        item_id = _fetch_current_item_id(conn, session_id)
+        return item_id, _lane_name_for_item(conn, item_id)
     try:
         from yoke_core.domain import db_helpers
     except ImportError:
-        return None
+        return None, None
     try:
         opened = db_helpers.connect()
     except Exception:
-        return None
+        return None, None
     try:
-        return _fetch_current_item_id(opened, session_id)
+        item_id = _fetch_current_item_id(opened, session_id)
+        return item_id, _lane_name_for_item(opened, item_id)
     finally:
         try:
             opened.close()
@@ -187,11 +192,10 @@ def resolve_active_worktree_context(
     actual = cwd if cwd is not None else os.getcwd()
     main_root = _detect_worktree_root(actual)
     is_inside = main_root is not None
-    item_id = _resolve_current_item(conn, sid)
-    branch = _branch_for_item(item_id)
+    item_id, branch = _read_item_and_lane(conn, sid)
     expected_root: Optional[str] = None
-    if main_root and item_id is not None:
-        expected_root = expected_worktree_path(main_root, item_id)
+    if main_root and branch is not None:
+        expected_root = expected_worktree_path(main_root, branch)
     return WorktreeInvariantContext(
         session_id=sid,
         item_id=item_id,
