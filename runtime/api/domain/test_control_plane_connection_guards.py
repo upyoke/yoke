@@ -21,7 +21,7 @@ from psycopg.conninfo import conninfo_to_dict
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain import deployment_runs as dr
 from yoke_core.domain import postgres_control_plane_connection as guards
-from yoke_core.domain.deployment_runs_lock import lock_run_bounded
+from yoke_core.domain.deployment_runs_lock import lock_run
 from yoke_core.domain.postgres_control_plane_connection import (
     IDLE_IN_TRANSACTION_SESSION_TIMEOUT,
     IDLE_IN_TRANSACTION_SETTING,
@@ -117,7 +117,7 @@ def test_an_abandoned_transaction_releases_its_run_row_lock(
         assert "idle-in-transaction timeout" in str(raised.value)
 
         # The lock went with the backend, so the next driver simply proceeds.
-        assert lock_run_bounded(waiting, run_id) == "created"
+        assert lock_run(waiting, run_id) == "created"
     finally:
         waiting.rollback()
         waiting.close()

@@ -31,7 +31,7 @@ from yoke_core.domain.deployment_run_driver_attachment import (
     PHASE_EXECUTING,
     PHASE_FREEZING_SOURCE,
 )
-from yoke_core.domain.deployment_runs_lock import RUN_ROW_LOCK_BLOCKED_PREFIX
+from yoke_core.domain.deployment_runs_lock import RUN_BUSY_CODE
 from yoke_core.tools import _watch_runner, watch_preflight
 from yoke_core.tools.deploy_start_preflight import prepare_driver
 from yoke_core.tools._watch_designed_waits import DEPLOY_WATCH_KIND
@@ -84,9 +84,10 @@ DEPLOY_PROGRESS_RE = re.compile(r"(Workflow run ID:|completed successfully)")
 # without waking the user before the run reaches an outcome.
 DEPLOY_RELAY_UNAVAILABLE_RE = re.compile(r"status relay is temporarily unavailable")
 # A skipped liveness write is the one thing a stalled deploy can still say, and
-# the release path wraps it in its own warning text, so match it anywhere on
-# the line rather than at the start.
-DEPLOY_ROW_LOCK_BLOCKED_RE = re.compile(re.escape(RUN_ROW_LOCK_BLOCKED_PREFIX))
+# the release path wraps it in its own warning text, so match the refusal at
+# the line start or after a wrapper's colon. A re-dispatch line quotes the
+# refusal after a period and stays in the raw capture: the driver is retrying.
+DEPLOY_RUN_BUSY_RE = re.compile(rf"(?:^|: ){re.escape(RUN_BUSY_CODE)}: ")
 FLEET_SCHEMA_REHEARSAL_START_RE = re.compile(r"^\s*Fleet schema rehearsal: uncovered\b")
 FLEET_SCHEMA_REHEARSAL_COVERED_RE = re.compile(
     r"^\s*Fleet schema rehearsal: (?:covered\b|receipt covers\b)"
@@ -103,7 +104,7 @@ def classify_deploy_line(line: str) -> Classification:
     """
     if is_python_exception_line(line):
         return Classification(LineClass.URGENT)
-    if DEPLOY_ROW_LOCK_BLOCKED_RE.search(line):
+    if DEPLOY_RUN_BUSY_RE.search(line):
         return Classification(LineClass.URGENT)
     for prefix in DEPLOY_URGENT_PREFIXES:
         if line.startswith(prefix):

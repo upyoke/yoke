@@ -25,6 +25,7 @@ from datetime import datetime
 from yoke_contracts.timestamps import as_utc, format_instant, utc_now
 from typing import Any, Dict, Optional, Tuple
 
+from yoke_core.domain.deployment_runs_lock import lock_run
 from yoke_core.domain.db_helpers import connect, instant_parameter, query_one
 from yoke_core.domain.events import build_envelope
 from yoke_core.domain.events_insert_sql import _INSERT_SQL
@@ -130,6 +131,7 @@ def terminalize_run_on(
     if not clean_reason:
         raise RunTerminalizationRejected("reason must be non-empty")
 
+    lock_run(conn, run_id)
     run = query_one(
         conn,
         "SELECT dr.id, dr.project_id, p.slug AS project, dr.status, "

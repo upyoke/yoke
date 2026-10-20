@@ -50,6 +50,14 @@ def local_connection_or_none(connect: Callable[[], Any]) -> Optional[Any]:
         return None
 
 
+class ControlPlaneRefused(RuntimeError):
+    """A relayed operation was refused; ``code`` is the serving error code."""
+
+    def __init__(self, message: str, *, code: str = "") -> None:
+        super().__init__(message)
+        self.code = code
+
+
 def relay(
     function_id: str,
     payload: dict,
@@ -90,7 +98,9 @@ def relay(
             if response.error is not None
             else f"{function_id} failed"
         )
-        raise RuntimeError(message)
+        raise ControlPlaneRefused(
+            message, code=response.error.code if response.error is not None else ""
+        )
     return response.result or {}
 
 
@@ -124,6 +134,7 @@ def serving_authority(
 
 
 __all__ = [
+    "ControlPlaneRefused",
     "ServingControlPlaneUnresolved",
     "local_connection_or_none",
     "relay",

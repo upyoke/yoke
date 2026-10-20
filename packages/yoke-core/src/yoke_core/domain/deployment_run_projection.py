@@ -7,6 +7,7 @@ import json
 from typing import Any, Mapping
 
 from yoke_contracts.timestamps import InvalidInstant, parse_instant, temporal_wire
+from yoke_core.domain.deployment_runs_lock import lock_run
 from yoke_core.domain.db_helpers import connect, instant_parameter
 from yoke_core.domain.deployment_run_carried_work import parse_carried_work
 from yoke_core.domain.deployment_runs_schema import (
@@ -87,6 +88,7 @@ def _row_snapshot(row: Any) -> dict[str, Any]:
 
 def _locked_existing(conn: Any, run_id: str) -> dict[str, Any] | None:
     columns, env_join = _run_named_columns()
+    lock_run(conn, run_id)
     row = conn.execute(
         f"SELECT {columns} "
         "FROM deployment_runs dr JOIN projects p ON p.id=dr.project_id "

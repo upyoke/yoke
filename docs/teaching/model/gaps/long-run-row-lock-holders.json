@@ -1,0 +1,7 @@
+{
+ "id": "long-run-row-lock-holders",
+ "title": "Shorten transactions that hold a deployment run row for minutes",
+ "status": "observed",
+ "text": "Waiters on a deployment run row now refuse as run_busy within 2 seconds and retry, but the holders are unchanged: QA materialize, rematerialize and qa_stage.dispatch transactions held one run row for 10 to 30+ minutes on 2026-10-20, and every retry against such a holder is refused until it commits. QA progress on that run stalls for the whole hold. Still owed: find the long work inside those transactions and commit or move it outside the run row lock, then choose a write deadline from the per-function duration_ms the dashboard Performance page already records.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_runs_lock.py", "packages/yoke-core/src/yoke_core/domain/qa_plan_rematerialize_deployment.py", "packages/yoke-core/src/yoke_core/domain/deployment_qa_stage_materialization.py", "docs/public/functions/index.md"]
+}

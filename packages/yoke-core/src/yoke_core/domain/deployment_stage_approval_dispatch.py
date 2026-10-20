@@ -27,6 +27,8 @@ def dispatch_deployment_stage_approval(
     """
     from yoke_contracts.api.function_call import TargetRef
     from yoke_core.domain.control_plane_transport import serving_authority
+    from yoke_core.domain.deploy_pipeline_qa_wait import RETRY_NEXT_CHECK
+    from yoke_core.domain.function_lock_refusal import RETRYABLE_LOCK_CODES
 
     try:
         result = serving_authority(
@@ -35,6 +37,9 @@ def dispatch_deployment_stage_approval(
             TargetRef(kind="workflow_run", workflow_run_id=run_id),
         )
     except RuntimeError as exc:
+        if getattr(exc, "code", "") in RETRYABLE_LOCK_CODES:
+            # Another transaction held the run: ask again on the next check.
+            return RETRY_NEXT_CHECK, str(exc)
         return 1, (
             f"deployment stage {stage_name!r} approval could not be "
             f"evaluated on the serving control plane: {exc}"

@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import sys
 import time
 from uuid import uuid4
 
+from yoke_core.domain.function_lock_refusal import (
+    LOCK_RETRY_DELAYS_SECONDS,
+    RETRYABLE_LOCK_CODES,
+)
 from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
@@ -64,7 +69,12 @@ def deliver_plan_function(*, function_id, target, payload, actor):
     # Only liveness may retry. The same request id reconciles a late success
     # through the existing durable ledger before another check-in executes.
     count = 2 if function_id == "qa.plan_execution.heartbeat" else 1
-    for attempt in range(count):
+    # A busy answer is definite and ran nothing, so it repeats on the shared
+    # backoff under a fresh request id rather than failing the walk.
+    busy_delays = iter(LOCK_RETRY_DELAYS_SECONDS)
+    busy_attempts = 0
+    attempt = 0
+    while attempt < count:
         if attempt:
             time.sleep(0.25)
         response = call_qa_function(
@@ -91,11 +101,30 @@ def deliver_plan_function(*, function_id, target, payload, actor):
         code = response.error.code if response.error else "unknown"
         message = response.error.message if response.error else ""
         recovery = response.error.recovery_hint if response.error else ""
+        if code in RETRYABLE_LOCK_CODES:
+            busy_attempts += 1
+            delay = next(busy_delays, None)
+            if delay is None:
+                raise QaPlanExecutionError(
+                    f"run_busy_retries_exhausted: {function_id} was refused as "
+                    f"busy on all {busy_attempts} attempts ({code}): {message} "
+                    "Re-run the same command once the holder named above finishes."
+                )
+            print(
+                f"{function_id} answered {code}; asking again in {delay:g}s "
+                f"(attempt {busy_attempts + 1} of {len(LOCK_RETRY_DELAYS_SECONDS) + 1})",
+                file=sys.stderr,
+                flush=True,
+            )
+            time.sleep(delay)
+            request_id = str(uuid4())
+            continue
         if code != "https_transport_failed":
             raise QaPlanExecutionError(
                 f"{function_id} failed ({code}): {message}. {recovery or ''}"
             )
         attempts.append({"outcome": code, "message": message})
+        attempt += 1
     unknown = QaPlanCommunicationUnknown(
         function_id=function_id, request_id=request_id, attempts=attempts
     )

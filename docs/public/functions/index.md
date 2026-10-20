@@ -86,6 +86,29 @@ dispatch as on the HTTPS route, never a raw traceback. The HTTPS server logs
 traceback's frame locations (file, line, function), never the message or
 payload, so an operator can find the failing line.
 
+## Locks a handler could not take
+
+Every write that serializes on a deployment run takes the run row through one
+bounded lock: it waits at most 2 seconds, then refuses `run_busy` with the
+holder's pid, its state and how long it has held the lock. Dispatch answers
+three lock outcomes by name instead of `handler_exception`, because each means
+another transaction held what this call needed and this call's open
+transaction did not commit:
+
+| Code | Cause |
+|---|---|
+| `run_busy` | The deployment run row stayed locked past its 2-second bound. |
+| `lock_timeout` | Another lock wait outlived a `lock_timeout`. |
+| `statement_cancelled` | An operator cancelled the statement, or a server timeout ended it. |
+
+Callers retry these instead of failing. The deploy driver re-dispatches a QA or
+approval stage on its 15-second check, and repeats other run calls after 15s,
+30s, then 60s. If the run stays busy past the cap it stops with
+`deployment_run_stayed_busy`, leaving the run unchanged and unfailed;
+re-run `yoke watch deploy -- RUN-ID`. `yoke qa plan run` and `yoke qa case
+run`, and so `yoke watch qa-plan` and `yoke watch qa-case`, back off on the same
+schedule. They stop with `run_busy_retries_exhausted` after seven attempts.
+
 ## Claim verification
 
 | Catalog value | Dispatcher obligation |

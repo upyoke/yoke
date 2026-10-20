@@ -1,4 +1,4 @@
-"""Preserve uncertain deployment writes until their durable owner answers."""
+"""Stop the deploy driver resumably when a write has no answer or the run stays busy."""
 
 from functools import wraps
 import sys
@@ -20,6 +20,24 @@ class DeploymentOutcomeUnknown(RuntimeError):
             "the preparation receipt or reconcile the existing provider attempt before re-driving "
             "this same run. Do not use --fresh for response loss."
         )
+
+
+class DeploymentRunStayedBusy(DeploymentOutcomeUnknown):
+    """Every retry found the run busy; stop resumably and change nothing.
+
+    A subclass so every path that already leaves the run and its pending
+    receipt untouched for an unknown outcome does the same here.
+    """
+
+    def __init__(self, run_id, function_id, attempts, detail):
+        RuntimeError.__init__(
+            self,
+            f"deployment_run_stayed_busy: {function_id} on run {run_id} was refused "
+            f"as busy on all {attempts} attempts: {detail} The run was left "
+            "unchanged in its current stage and was not failed. Re-drive it with "
+            f"`yoke watch deploy -- {run_id}` once the holder named above finishes.",
+        )
+        self.code = "deployment_run_stayed_busy"
 
 
 def preserve_unknown_outcome(function):

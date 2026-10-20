@@ -164,7 +164,7 @@ def test_a_refused_release_reports_the_reason_and_lets_shutdown_finish(
     monkeypatch, capsys
 ):
     """A busy row at exit must not take the watcher's exit sentinel with it."""
-    message = "deploy run row lock blocked: re-run `yoke watch deploy -- run-driver`"
+    message = "run_busy: deployment run 'run-driver' row was not free within 2000ms"
     monkeypatch.setattr(
         driver_client,
         "call_dispatcher",

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.deployment_runs_lock import lock_run
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.deployment_run_project_sources import run_delivered_sha
 from yoke_core.domain.qa_deployment_case_content_refresh import (
@@ -89,10 +90,7 @@ def materialize_subject(
     now = utc_now()
     try:
         # Serializes first materialization without adding another ledger/index.
-        conn.execute(
-            "SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE",
-            (str(deployment_run_id),),
-        )
+        lock_run(conn, str(deployment_run_id))
         from yoke_core.domain.deployment_qa_snapshot_selection import (
             freeze_selected_plans,
         )

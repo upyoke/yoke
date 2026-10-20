@@ -21,7 +21,7 @@ from yoke_core.domain.deployment_run_driver_attachment import (
     live_attachment_for_capture,
     release_driver,
 )
-from yoke_core.domain.deployment_runs_lock import DeploymentRunRowLockBusy
+from yoke_core.domain.deployment_runs_lock import DeploymentRunBusy
 from yoke_core.domain.handlers.deployment_common import error, require_global, run_id
 
 
@@ -103,7 +103,7 @@ def handle_attach_driver(request: FunctionCallRequest) -> HandlerOutcome:
         except DriverAlreadyAttached as exc:
             conn.rollback()
             return _already_attached(exc)
-        except DeploymentRunRowLockBusy as exc:
+        except DeploymentRunBusy as exc:
             conn.rollback()
             return error(ROW_LOCK_BUSY_CODE, str(exc))
         except ValueError as exc:
@@ -135,7 +135,7 @@ def handle_release_driver(request: FunctionCallRequest) -> HandlerOutcome:
     with connect() as conn:
         try:
             released = release_driver(conn, resolved, session_id=session_id, pid=pid)
-        except DeploymentRunRowLockBusy as exc:
+        except DeploymentRunBusy as exc:
             conn.rollback()
             return error(ROW_LOCK_BUSY_CODE, str(exc))
         conn.commit()

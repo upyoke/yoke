@@ -311,10 +311,10 @@ def dispatch_deployment_qa_stage(
     """
     from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-    from yoke_core.domain.deploy_pipeline_unknown_outcome import (
-        DeploymentOutcomeUnknown,
-        UNKNOWN_CODES,
-    )
+    from yoke_core.domain.deploy_pipeline_unknown_outcome import UNKNOWN_CODES
+    from yoke_core.domain.deploy_pipeline_unknown_outcome import DeploymentOutcomeUnknown
+    from yoke_core.domain.deploy_pipeline_qa_wait import RETRY_NEXT_CHECK
+    from yoke_core.domain.function_lock_refusal import RETRYABLE_LOCK_CODES
 
     response = call_dispatcher(
         function_id=DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION,
@@ -323,6 +323,8 @@ def dispatch_deployment_qa_stage(
     )
     if not response.success:
         message = response.error.message if response.error else "request failed"
+        if response.error and response.error.code in RETRYABLE_LOCK_CODES:
+            return RETRY_NEXT_CHECK, message  # held run: ask on the next check
         if response.error and response.error.code in UNKNOWN_CODES:
             # A lost answer is not a failed stage: the driver stops resumably
             # and leaves the run in this stage for the next re-drive.

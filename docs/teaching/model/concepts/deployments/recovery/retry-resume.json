@@ -4,6 +4,6 @@
  "status": "draft-copy",
  "page": "deployment-recovery",
  "position": 1,
- "summary": "Resuming a failed run restores the QA copies its failure retired only for shared rows and current members. Removing a member takes over its copies the failure retired, so a removed member's QA never returns to hold the run.",
- "sources": ["packages/yoke-core/src/yoke_core/domain/qa_deployment_run_settlement.py", "packages/yoke-core/src/yoke_core/domain/deployment_run_member_removal.py", "runtime/api/domain/test_deployment_run_redrive_removed_member.py", "docs/public/deployments/model/runs.md"]
+ "summary": "Resuming a failed run restores the QA copies its failure retired only for shared rows and current members. Removing a member takes over its copies the failure retired, so a removed member's QA never returns to hold the run. A stage dispatch refused as run_busy, lock_timeout or statement_cancelled is not a failure: the driver re-dispatches it on its 15-second check, repeats other busy calls after 15s, 30s, then 60s, and past that cap stops with deployment_run_stayed_busy, leaving the run unchanged for `yoke watch deploy -- RUN-ID`.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/qa_deployment_run_settlement.py", "packages/yoke-core/src/yoke_core/domain/deployment_run_member_removal.py", "runtime/api/domain/test_deployment_run_redrive_removed_member.py", "docs/public/deployments/model/runs.md", "packages/yoke-core/src/yoke_core/domain/deploy_pipeline_qa_wait.py", "runtime/api/domain/test_run_busy_client_retries.py"]
 }
