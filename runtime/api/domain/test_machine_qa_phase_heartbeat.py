@@ -68,8 +68,10 @@ def test_failed_heartbeat_is_named_and_the_phase_still_finishes(
     assert "yoke qa plan run" in str(failure["recovery"])
 
 
-def test_unknown_heartbeat_delivery_is_raised_after_the_phase(
+@pytest.mark.parametrize("propagate_abort", [False, True])
+def test_unknown_heartbeat_delivery_is_captured_without_blocking_the_phase(
     capsys: pytest.CaptureFixture[str],
+    propagate_abort: bool,
 ) -> None:
     finished: list[bool] = []
 
@@ -78,9 +80,16 @@ def test_unknown_heartbeat_delivery_is_raised_after_the_phase(
             function_id="qa.plan_execution.heartbeat", request_id="r-1", attempts=1
         )
 
-    with pytest.raises(QaPlanCommunicationUnknown):
-        with heartbeat_during("starting_state_reset", beat, interval_seconds=0.01):
-            finished.append(True)
+    with heartbeat_during(
+        "starting_state_restore",
+        beat,
+        interval_seconds=0.01,
+        propagate_abort=propagate_abort,
+    ):
+        finished.append(True)
 
     assert finished == [True]
-    capsys.readouterr()
+    failure = _lines(capsys)[-1]
+    assert failure["error_code"] == "qa_communication_outcome_unknown"
+    assert "r-1" in failure["diagnostic"]
+    assert "submit the case result" in failure["recovery"]

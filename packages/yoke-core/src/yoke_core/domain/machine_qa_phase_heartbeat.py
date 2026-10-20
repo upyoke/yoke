@@ -63,7 +63,8 @@ def heartbeat_during(
     """Beat every ``interval_seconds`` while the enclosed host phase runs.
 
     A heartbeat failure stops beating and prints the named reason. Blocking
-    phases finish before cancellation or unknown delivery is raised. Cleanup
+    phases finish before cancellation is raised. Unknown heartbeat delivery
+    stays in the capture and never blocks case result submission. Cleanup
     callers suppress cancellation until restoration and proof submission finish.
     """
     stop = threading.Event()
@@ -78,16 +79,23 @@ def heartbeat_during(
                     check_abort(progress_callback)
                 except Exception as error:
                     failures.append(error)
+                    unknown = communication_unknown(error)
                     emit_heartbeat_line(
                         phase,
                         time.monotonic() - started,
                         error_code="qa_host_abort_requested"
                         if isinstance(error, MachineQaAborted)
+                        else "qa_communication_outcome_unknown"
+                        if unknown
                         else "machine_qa_heartbeat_failed",
                         diagnostic=f"{type(error).__name__}: {error}",
                         recovery=(
                             "Keep the runner connected through cleanup and restore proof; retry yoke qa plan abort afterward."
                             if isinstance(error, MachineQaAborted)
+                            else "Continue cleanup and submit the case result; "
+                            "check the control-plane connection. If submission "
+                            "also fails, preserve its saved request evidence."
+                            if unknown
                             else "The plan execution may lose its host lease; "
                             "check the control-plane connection, then rerun "
                             "the plan with `yoke qa plan run`."
@@ -104,10 +112,7 @@ def heartbeat_during(
     finally:
         stop.set()
         thread.join()
-    if failures and (
-        communication_unknown(failures[0])
-        or (propagate_abort and isinstance(failures[0], MachineQaAborted))
-    ):
+    if failures and propagate_abort and isinstance(failures[0], MachineQaAborted):
         raise failures[0]
 
 

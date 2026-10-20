@@ -108,8 +108,11 @@ renewing leases. An unconfirmed pause retains the last known state; keep its
 owner parked. For an unconfirmed pre-case pause, add the returned
 --recovery-file PATH to reapply that receipt once connectivity returns.
 A consumed receipt or changed cursor refuses. Re-entry revalidates the frozen target, actor/session and live
-custody. A case that has not durably advanced refuses automatic re-entry until
-its captured outcome is reconciled. Do not reset hosts, replay one-shot actions,
+custody. A case that has not durably advanced refuses automatic re-entry. Preserve its
+saved result and request evidence and ask the control-plane operator to inspect
+the durable cursor; no command replays an unrecorded case submission. A lost
+heartbeat during cleanup is captured and does not block result submission;
+if submission also loses its response, its payload is saved as outcome_unknown. Do not reset hosts, replay one-shot actions,
 create a new campaign or revive terminal history to recover communication.
 Pause/resume requires a serving release carrying those registered functions;
 a version-skew refusal names that floor and the control-plane operator.
