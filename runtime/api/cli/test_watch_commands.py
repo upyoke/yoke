@@ -223,3 +223,20 @@ def test_help_renders_under_the_command_the_operator_typed(
     assert adapter(["--help"]) == 0
 
     assert "usage: yoke watch pytest" in capsys.readouterr().out
+
+
+def test_the_project_probe_runs_uv_in_the_projects_own_environment(monkeypatch):
+    """A caller inside another checkout's environment cannot redirect the probe."""
+    seen = {}
+
+    def run(argv, **kwargs):
+        seen.update(kwargs["env"])
+        return watchers.subprocess.CompletedProcess(argv, 0)
+
+    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", "/caller/.venv")
+    monkeypatch.setenv("VIRTUAL_ENV", "/caller/.venv")
+    monkeypatch.setattr(watchers.subprocess, "run", run)
+    assert watchers.project_env_imports("yoke_core.tools.watch_pytest") is True
+    assert "UV_PROJECT_ENVIRONMENT" not in seen
+    assert "VIRTUAL_ENV" not in seen
+    assert seen["HOME"] == watchers.os.environ["HOME"]

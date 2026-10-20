@@ -12,7 +12,12 @@ from typing import List
 
 from yoke_contracts.install_binding import is_yoke_source_checkout
 from yoke_contracts.session_execution import is_subagent_execution
-from yoke_contracts.uv_project import UV_EXECUTABLE, uv_project_root, uv_run_argv
+from yoke_contracts.uv_project import (
+    UV_EXECUTABLE,
+    project_own_environment,
+    uv_project_root,
+    uv_run_argv,
+)
 
 
 PREPARE_BROKER_FLAG = "--prepare-broker"
@@ -113,7 +118,7 @@ def session_control_acceptance_run(args: List[str]) -> int:
     project_root = project_root.resolve()
     if shutil.which(UV_EXECUTABLE) is None:
         return _refuse("acceptance_runtime_unavailable")
-    environment = os.environ.copy()
+    environment = project_own_environment(os.environ)
     environment.pop("PYTHONPATH", None)
     environment.pop("PYTHONHOME", None)
     command = uv_run_argv(["-m", _RUNTIME_MODULE, *_runtime_args(parsed)])

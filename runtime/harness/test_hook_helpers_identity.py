@@ -24,6 +24,17 @@ from yoke_core.hooks.helpers import (
 )
 
 
+#: The isolation every test runs under; a cleared environment keeps it, or
+#: ``Path.home()`` falls back to the account's real home folder.
+_ISOLATION_KEYS = ("HOME", "YOKE_SCRATCH_ROOT")
+
+
+def _environ_only(values):
+    """Patch ``os.environ`` to exactly *values* plus the test's isolation."""
+    kept = {key: os.environ[key] for key in _ISOLATION_KEYS if key in os.environ}
+    return mock.patch.dict(os.environ, {**kept, **values}, clear=True)
+
+
 # ---------------------------------------------------------------------------
 # detect_executor
 # ---------------------------------------------------------------------------
@@ -37,82 +48,58 @@ class TestDetectExecutor:
     def test_codex_coarse_fallback(self):
         # Coarse fallback path — Codex thread with no
         # originator env probe resolves to the coarse `codex` value.
-        with mock.patch.dict(
-            os.environ,
-            {"CODEX_THREAD_ID": "t123"},
-            clear=True,
-        ):
+        with _environ_only({"CODEX_THREAD_ID": "t123"}):
             assert detect_executor() == "codex"
 
     def test_claude_coarse_fallback(self):
         # Coarse fallback path — Claude Code with no
         # CLAUDE_CODE_ENTRYPOINT resolves to the coarse `claude-code` value.
-        with mock.patch.dict(os.environ, {}, clear=True):
+        with _environ_only({}):
             assert detect_executor() == "claude-code"
 
     def test_claude_desktop_entrypoint(self):
         # CLAUDE_CODE_ENTRYPOINT=claude-desktop produces
         # `claude-desktop` in the executor column.
-        with mock.patch.dict(
-            os.environ,
-            {"CLAUDE_CODE_ENTRYPOINT": "claude-desktop"},
-            clear=True,
-        ):
+        with _environ_only({"CLAUDE_CODE_ENTRYPOINT": "claude-desktop"}):
             assert detect_executor() == "claude-desktop"
 
     def test_claude_vscode_entrypoint(self):
         # CLAUDE_CODE_ENTRYPOINT=claude-vscode produces
         # `claude-vscode` in the executor column.
-        with mock.patch.dict(
-            os.environ,
-            {"CLAUDE_CODE_ENTRYPOINT": "claude-vscode"},
-            clear=True,
-        ):
+        with _environ_only({"CLAUDE_CODE_ENTRYPOINT": "claude-vscode"}):
             assert detect_executor() == "claude-vscode"
 
     def test_claude_cli_entrypoint_gets_family_prefix(self):
         # A bare `cli` entrypoint (hypothetical future CLI surface) is
         # promoted to the `claude-cli` surface value.
-        with mock.patch.dict(
-            os.environ,
-            {"CLAUDE_CODE_ENTRYPOINT": "cli"},
-            clear=True,
-        ):
+        with _environ_only({"CLAUDE_CODE_ENTRYPOINT": "cli"}):
             assert detect_executor() == "claude-cli"
 
     def test_codex_originator_override_env(self):
         # Codex env-probe (CODEX_INTERNAL_ORIGINATOR_OVERRIDE)
         # produces `codex-{surface}` values.
-        with mock.patch.dict(
-            os.environ,
+        with _environ_only(
             {
                 "CODEX_THREAD_ID": "t123",
                 "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "codex_cli",
-            },
-            clear=True,
+            }
         ):
             assert detect_executor() == "codex-cli"
 
     def test_codex_originator_env_fallback(self):
         # Env probe also consults CODEX_ORIGINATOR.
-        with mock.patch.dict(
-            os.environ,
+        with _environ_only(
             {
                 "CODEX_THREAD_ID": "t123",
                 "CODEX_ORIGINATOR": "codex_vscode",
-            },
-            clear=True,
+            }
         ):
             assert detect_executor() == "codex-vscode"
 
     def test_codex_executor_uses_full_entrypoint_resolver(self):
         # When env signals miss, executor detection still
         # consults the transcript/cache-backed resolver.
-        with mock.patch.dict(
-            os.environ,
-            {"CODEX_THREAD_ID": "t123"},
-            clear=True,
-        ):
+        with _environ_only({"CODEX_THREAD_ID": "t123"}):
             with mock.patch(
                 "yoke_core.hooks.codex_model.resolve_entrypoint",
                 return_value="codex-desktop",
@@ -122,13 +109,11 @@ class TestDetectExecutor:
 
     def test_codex_unknown_surface_falls_back_to_family(self):
         # Unknown originator values do not mint persisted surface labels.
-        with mock.patch.dict(
-            os.environ,
+        with _environ_only(
             {
                 "CODEX_THREAD_ID": "t123",
                 "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "jetbrains",
-            },
-            clear=True,
+            }
         ):
             assert detect_executor() == "codex"
 
@@ -140,15 +125,15 @@ class TestDetectExecutor:
 
 class TestDetectNativeThreadId:
     def test_captures_codex_thread_id(self):
-        with mock.patch.dict(os.environ, {"CODEX_THREAD_ID": "thread-42"}, clear=True):
+        with _environ_only({"CODEX_THREAD_ID": "thread-42"}):
             assert detect_native_thread_id() == "thread-42"
 
     def test_none_when_unset(self):
-        with mock.patch.dict(os.environ, {}, clear=True):
+        with _environ_only({}):
             assert detect_native_thread_id() is None
 
     def test_none_when_blank(self):
-        with mock.patch.dict(os.environ, {"CODEX_THREAD_ID": "   "}, clear=True):
+        with _environ_only({"CODEX_THREAD_ID": "   "}):
             assert detect_native_thread_id() is None
 
 
@@ -162,25 +147,25 @@ class TestDetectProvider:
         # because YOKE_PROVIDER is a real override and a shell that exports
         # one (any live harness session does) would otherwise fail this
         # locally while CI, which exports none, stays green.
-        with mock.patch.dict(os.environ, {}, clear=True):
+        with _environ_only({}):
             assert detect_provider("codex") == "openai"
 
     def test_codex_surface_returns_openai(self):
         # is_codex predicate returns True for any codex-* surface,
         # so the provider stays `openai`.  Clear env so a stray
         # YOKE_PROVIDER override from a sibling test cannot mask the result.
-        with mock.patch.dict(os.environ, {}, clear=True):
+        with _environ_only({}):
             assert detect_provider("codex-desktop") == "openai"
             assert detect_provider("codex-vscode") == "openai"
             assert detect_provider("codex-cli") == "openai"
 
     def test_claude_surface_returns_anthropic(self):
-        with mock.patch.dict(os.environ, {}, clear=True):
+        with _environ_only({}):
             assert detect_provider("claude-desktop") == "anthropic"
             assert detect_provider("claude-vscode") == "anthropic"
 
     def test_default_anthropic(self):
-        with mock.patch.dict(os.environ, {}, clear=True):
+        with _environ_only({}):
             assert detect_provider() == "anthropic"
 
 
@@ -235,33 +220,23 @@ class TestDetectEntrypointCodexAndClaude:
     """Entrypoint resolution coverage for Claude, Codex, and empty signals."""
 
     def test_claude_entrypoint(self):
-        with mock.patch.dict(
-            os.environ,
-            {"CLAUDE_CODE_ENTRYPOINT": "claude-desktop"},
-            clear=True,
-        ):
+        with _environ_only({"CLAUDE_CODE_ENTRYPOINT": "claude-desktop"}):
             assert detect_entrypoint() == "claude-desktop"
 
     def test_codex_entrypoint_via_env_probe(self):
         # Codex sessions resolve an entrypoint via the env probe so
         # HarnessSessionStarted.envelope.context.entrypoint is populated when
         # the executor column is specific.
-        with mock.patch.dict(
-            os.environ,
+        with _environ_only(
             {
                 "CODEX_THREAD_ID": "t123",
                 "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "codex_cli",
-            },
-            clear=True,
+            }
         ):
             assert detect_entrypoint() == "codex-cli"
 
     def test_codex_entrypoint_uses_full_entrypoint_resolver(self):
-        with mock.patch.dict(
-            os.environ,
-            {"CODEX_THREAD_ID": "t123"},
-            clear=True,
-        ):
+        with _environ_only({"CODEX_THREAD_ID": "t123"}):
             with mock.patch(
                 "yoke_core.hooks.codex_model.resolve_entrypoint",
                 return_value="codex-desktop",
@@ -270,15 +245,11 @@ class TestDetectEntrypointCodexAndClaude:
                 resolver.assert_called_once_with()
 
     def test_returns_none_when_no_signal(self):
-        with mock.patch.dict(os.environ, {}, clear=True):
+        with _environ_only({}):
             assert detect_entrypoint() is None
 
     def test_treats_empty_string_as_unset(self):
-        with mock.patch.dict(
-            os.environ,
-            {"CLAUDE_CODE_ENTRYPOINT": ""},
-            clear=True,
-        ):
+        with _environ_only({"CLAUDE_CODE_ENTRYPOINT": ""}):
             assert detect_entrypoint() is None
 
 

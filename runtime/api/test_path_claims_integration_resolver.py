@@ -25,6 +25,7 @@ from yoke_core.domain.path_claims_integration_resolver import (
     resolve_integration_head_with_divergence_check,
 )
 
+
 def _git(repo: Path, *args: str) -> str:
     proc = subprocess.run(
         ["git", "-C", str(repo), *args],
@@ -62,6 +63,9 @@ def _seed_origin_clone(repo: Path, tmp_path: Path) -> Path:
     """Clone ``repo`` into a sibling, then add origin pointing back."""
     clone = tmp_path / "clone"
     _git(repo, "clone", "-q", "--no-local", str(repo), str(clone))
+    # A clone keeps no identity of its own, and the per-test home holds none.
+    _git(clone, "config", "user.email", "test@example.com")
+    _git(clone, "config", "user.name", "Test")
     return clone
 
 

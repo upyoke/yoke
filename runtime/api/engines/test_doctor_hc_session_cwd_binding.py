@@ -169,11 +169,13 @@ def silenced_emit(monkeypatch):
     monkeypatch.setattr(hc_module, "emit_health_check_failed", _capture)
     # Empty the free-path allowlist so pytest tmp paths (under /var/folders
     # on macOS) don't accidentally pass validation. The HC validates against
-    # the live FREE_PATH_PREFIXES; tests want a clean slate.
-    from yoke_core.domain import lint_session_cwd_validate
+    # the live free-path allowlist; tests want a clean slate.
+    from yoke_core.domain import lint_session_cwd_path_authority
 
     monkeypatch.delenv("TMPDIR", raising=False)
-    monkeypatch.setattr(lint_session_cwd_validate, "FREE_PATH_PREFIXES", ())
+    monkeypatch.setattr(
+        lint_session_cwd_path_authority, "_STATIC_FREE_PATH_PREFIXES", ()
+    )
     return captured
 
 

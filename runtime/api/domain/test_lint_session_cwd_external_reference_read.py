@@ -27,7 +27,10 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
 )
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
-from yoke_core.domain import lint_session_cwd, lint_session_cwd_validate
+from yoke_core.domain import (
+    lint_session_cwd,
+    lint_session_cwd_path_authority,
+)
 
 
 ITEM_ID = 4181
@@ -46,7 +49,9 @@ def _tmp_paths_are_not_free(monkeypatch):
     assertion here green while proving nothing.
     """
     monkeypatch.delenv("TMPDIR", raising=False)
-    monkeypatch.setattr(lint_session_cwd_validate, "FREE_PATH_PREFIXES", ())
+    monkeypatch.setattr(
+        lint_session_cwd_path_authority, "_STATIC_FREE_PATH_PREFIXES", ()
+    )
 
 
 @pytest.fixture

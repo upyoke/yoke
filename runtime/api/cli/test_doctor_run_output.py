@@ -207,6 +207,13 @@ class TestRelayedRunStreams:
                 "machine_has_checkout_for",
                 return_value=False,
             ),
+            # The relay is what this measures; this machine's own checks
+            # would otherwise report on whatever home the test runs under.
+            patch(
+                "yoke_cli.commands.adapters.doctor_https_compose."
+                "run_local_runtime_checks",
+                return_value=[],
+            ),
             patch(
                 "yoke_cli.commands.adapters.doctor_https_receipt."
                 "persist_composed_receipt",

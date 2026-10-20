@@ -25,11 +25,23 @@ from yoke_core.domain.lint_lane_main_write_classify import is_write_operation
 from yoke_core.domain.lint_session_cwd_read_only_signatures import (
     match_read_only_signature,
 )
-from yoke_core.domain.lint_session_cwd_path_authority import FREE_PATH_PREFIXES
+from yoke_core.domain.lint_session_cwd_path_authority import free_path_prefixes
 from yoke_core.domain.lint_session_cwd_target_extract import (
     extract_command_targets,
     extract_payload_write_targets,
 )
+
+
+#: A home outside every OS temp root, like a real machine's. The isolated
+#: per-test HOME lives under the temp root, which is itself a free path, so
+#: refusals of home paths could never be observed there. Nothing is written
+#: under it: ``/`` is not writable, so a stray write fails loudly.
+NON_TEMP_HOME = "/__yoke_test_home__"
+
+
+@pytest.fixture(autouse=True)
+def _home_outside_temp_roots(monkeypatch):
+    monkeypatch.setenv("HOME", NON_TEMP_HOME)
 
 
 HOLDER = "sid-holder"
@@ -174,8 +186,8 @@ class TestPrintArgumentsAreNotWrites:
 
 class TestSanctionedReadPaths:
     def test_attachment_and_config_prefixes_are_registered(self):
-        assert "~/.codex/attachments" in FREE_PATH_PREFIXES
-        assert "~/.yoke/config.json" in FREE_PATH_PREFIXES
+        assert "~/.codex/attachments" in free_path_prefixes()
+        assert "~/.yoke/config.json" in free_path_prefixes()
 
     def test_codex_attachment_read_allowed_with_lane_claim(self, conn, repo):
         _seed_lane(conn, repo, session_id="sid-lane")

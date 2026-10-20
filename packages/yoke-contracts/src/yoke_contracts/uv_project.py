@@ -12,11 +12,17 @@ once per caller.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import Dict, List, Mapping, Optional, Sequence
 
 UV_EXECUTABLE = "uv"
 PROJECT_FILE_NAME = "pyproject.toml"
 LOCKFILE_NAME = "uv.lock"
+
+#: Variables that point uv at an environment other than the project's own.
+#: A caller already inside another checkout's environment carries them, and
+#: a ``uv sync`` or ``uv run`` that inherited them would install the
+#: discovered project's lock into that other environment.
+FOREIGN_ENVIRONMENT_VARIABLES = ("UV_PROJECT_ENVIRONMENT", "VIRTUAL_ENV")
 
 
 def is_uv_project(directory: Path) -> bool:
@@ -51,11 +57,22 @@ def uv_run_argv(trailing: Sequence[str]) -> List[str]:
     return [UV_EXECUTABLE, "run", "--frozen", "python3", *trailing]
 
 
+def project_own_environment(env: Mapping[str, str]) -> Dict[str, str]:
+    """A copy of *env* under which uv uses the discovered project's ``.venv``."""
+    return {
+        key: value
+        for key, value in env.items()
+        if key not in FOREIGN_ENVIRONMENT_VARIABLES
+    }
+
+
 __all__ = [
+    "FOREIGN_ENVIRONMENT_VARIABLES",
     "LOCKFILE_NAME",
     "PROJECT_FILE_NAME",
     "UV_EXECUTABLE",
     "is_uv_project",
+    "project_own_environment",
     "uv_project_root",
     "uv_run_argv",
 ]

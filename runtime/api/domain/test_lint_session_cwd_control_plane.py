@@ -25,7 +25,7 @@ from yoke_contracts.hook_runner.client_facts import SOURCE_ROOT_KEY, client_fact
 from yoke_core.domain import (
     lint_session_cwd,
     lint_session_cwd_control_plane,
-    lint_session_cwd_validate,
+    lint_session_cwd_path_authority,
 )
 
 
@@ -50,8 +50,8 @@ def fake_yoke_root(monkeypatch):
     # free-path allowlist.
     monkeypatch.delenv("TMPDIR", raising=False)
     monkeypatch.setattr(
-        lint_session_cwd_validate,
-        "FREE_PATH_PREFIXES",
+        lint_session_cwd_path_authority,
+        "_STATIC_FREE_PATH_PREFIXES",
         ("/tmp", "/private/tmp", "/dev"),
     )
     return yoke_root

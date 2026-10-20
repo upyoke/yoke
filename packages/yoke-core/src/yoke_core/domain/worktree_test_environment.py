@@ -36,6 +36,7 @@ from yoke_contracts.uv_project import (
     PROJECT_FILE_NAME,
     UV_EXECUTABLE,
     is_uv_project,
+    project_own_environment,
 )
 from yoke_core.domain import runtime_settings
 from yoke_core.domain import verification_tree_binding_pytest_startup as _tree_binding
@@ -89,7 +90,9 @@ def _run(cmd: Sequence[str], cwd: Path, timeout: int) -> subprocess.CompletedPro
             text=True,
             timeout=timeout,
             cwd=str(cwd),
-            env=_tree_binding.with_binding_evaluated(os.environ),
+            env=_tree_binding.with_binding_evaluated(
+                project_own_environment(os.environ)
+            ),
         )
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
         return subprocess.CompletedProcess(
@@ -130,9 +133,7 @@ def uv_projects(worktree_path: Path) -> List[Path]:
 
 def runs_pytest(project_dir: Path) -> bool:
     """True when *project_dir* carries a pytest surface worth proving."""
-    return (project_dir / "conftest.py").is_file() or (
-        project_dir / "tests"
-    ).is_dir()
+    return (project_dir / "conftest.py").is_file() or (project_dir / "tests").is_dir()
 
 
 def provision_test_environment(
@@ -271,7 +272,9 @@ def _sync_failure_narrative(
     argv = " ".join(declaration.sync_argv())
     inspect = ""
     if declaration.selection_flags():
-        inspect = f" Inspect the declaration with {declaration.capability_get_recipe()}."
+        inspect = (
+            f" Inspect the declaration with {declaration.capability_get_recipe()}."
+        )
     return (
         f"Lane test environment could not be installed in {project}:\n"
         f"{_detail(completed)}\n"

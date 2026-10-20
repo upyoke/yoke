@@ -13,6 +13,9 @@ def test_embedded_executables_remain_available_after_machine_home_isolation(
 ):
     home = tmp_path / "machine"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+    # The runner exports the administering machine's binaries; discovery is
+    # what this test exercises.
+    monkeypatch.delenv("YOKE_PG_BIN_DIR", raising=False)
     binaries = postgres_binaries.version_dir() / "bin"
     binaries.mkdir(parents=True)
     for name in ("initdb", "pg_isready"):

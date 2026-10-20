@@ -47,7 +47,10 @@ def lane_claimed_session(conn, tmp_path):
     (repo_path / ".worktrees" / f"YOK-{ITEM_ID}").mkdir(parents=True)
     register_machine_checkout(tmp_path / "machine-config", repo_path, 1)
     seed_item(
-        conn, item_id=ITEM_ID, branch=f"YOK-{ITEM_ID}", repo_path=repo_path,
+        conn,
+        item_id=ITEM_ID,
+        branch=f"YOK-{ITEM_ID}",
+        repo_path=repo_path,
     )
     seed_item_claim(conn, SESSION, item_id=ITEM_ID)
     return SESSION
@@ -129,11 +132,23 @@ class TestStagedRecoveryCopy:
         with mock.patch("tempfile.gettempdir", return_value=str(outside)):
             assert is_free_path(str(recovery_copy_root()))
 
-    def test_capture_tree_home_shape_is_not_readable(self):
+    def test_capture_tree_home_shape_is_not_readable(self, monkeypatch):
         """Why the copy exists: the capture root is a home dot-directory."""
+        # A real home sits outside the OS temp roots; the per-test HOME does not.
+        monkeypatch.setenv("HOME", "/__yoke_test_home__")
         capture = (
-            Path.home() / ".yoke" / "tmp" / "yoke" / "sessions" / "s" / "runs"
-            / "r" / "storage" / "qa-artifacts" / "9" / ARTIFACT_FILENAME
+            Path.home()
+            / ".yoke"
+            / "tmp"
+            / "yoke"
+            / "sessions"
+            / "s"
+            / "runs"
+            / "r"
+            / "storage"
+            / "qa-artifacts"
+            / "9"
+            / ARTIFACT_FILENAME
         )
         assert not is_free_path(str(capture))
 
@@ -145,7 +160,9 @@ class TestUploadFailureRecipe:
         assert Path(operand).read_text() == EVIDENCE
 
     def test_recipe_operand_is_runnable_from_a_claimed_lane(
-        self, conn, lane_claimed_session,
+        self,
+        conn,
+        lane_claimed_session,
     ):
         operand = _recovery_operand(_upload_failure_message())
         verdict = validate_targets(
@@ -173,7 +190,8 @@ class TestDecidedVerdictSurvivesTheUploadFailure:
     def test_the_run_is_completed_with_the_decided_verdict(self):
         _, calls = _upload_failure()
         completions = [
-            payload for function_id, payload in calls
+            payload
+            for function_id, payload in calls
             if function_id == "qa.run.complete"
         ]
         assert len(completions) == 1

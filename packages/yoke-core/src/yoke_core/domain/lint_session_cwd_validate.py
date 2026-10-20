@@ -13,13 +13,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Sequence
 
-from yoke_contracts.free_paths import free_path_prefixes as machine_free_path_prefixes
 from yoke_core.domain.lane_occupancy import LaneOccupant, occupying_claim
 from yoke_core.domain.lint_session_cwd_control_plane import (
     is_under_yoke_control_plane,
 )
 from yoke_core.domain.lint_session_cwd_path_authority import (
-    FREE_PATH_PREFIXES,
     TOOL_DIR_PREFIXES,
     derive_repo_roots as _derive_repo_roots,
     free_path_prefixes as _free_path_prefixes,
@@ -300,12 +298,7 @@ def _is_free_path(
     claude_job_tmp_root: str,
     machine_home: str | None,
 ) -> bool:
-    # Keep the static roots monkeypatchable; add live TMPDIR at evaluation.
-    prefixes = (
-        machine_free_path_prefixes(FREE_PATH_PREFIXES)
-        if machine_home is None
-        else _free_path_prefixes(machine_home)
-    )
+    prefixes = _free_path_prefixes(machine_home)
     if _path_is_free_path(target, prefixes=prefixes, machine_home=machine_home):
         return True
     if claude_job_tmp_root and _is_inside(target, claude_job_tmp_root):
@@ -341,7 +334,6 @@ def _matching_claim(
 
 
 __all__ = [
-    "FREE_PATH_PREFIXES",
     "SCOPE_FAILURE_CLASS",
     "TOOL_DIR_PREFIXES",
     "ValidationVerdict",

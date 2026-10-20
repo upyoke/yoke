@@ -3,6 +3,8 @@
  "title": "Concurrent machine resources",
  "status": "draft-copy",
  "audience": "Maintainers",
+ "sources": ["docs/testing-verification/machine-shared-resources.md", "runtime/real_home_isolation.py", "tests/test_real_home_isolation.py", "packages/yoke-contracts/src/yoke_contracts/uv_project.py"],
  "page": "contributing-guides",
- "position": 3
+ "position": 3,
+ "summary": "Tests never reach the operator's shared workstation resources: browsers and launchd are refused structurally, and every test runs with HOME set to an empty per-test folder. A test whose own process writes under the real home fails with real_home_written and names each path; uv syncs and runs ignore a caller's UV_PROJECT_ENVIRONMENT and VIRTUAL_ENV."
 }

@@ -43,7 +43,8 @@ def _isolate_engines_from_live_config(_engines_isolated_repo_root, monkeypatch):
 
     The isolation shares ``monkeypatch``'s undo stack with the test's own
     ``monkeypatch.setenv`` calls, so teardown unwinds them in reverse order and
-    no test's temporary ``HOME`` survives into the next test. Per-test
+    no test's temporary environment survives into the next test. ``HOME`` is
+    the repo-wide per-test home from ``runtime.real_home_isolation``. Per-test
     overrides via ``with patch(...)`` or ``monkeypatch`` still win.
     """
     repo_root, config_path = _engines_isolated_repo_root
@@ -53,7 +54,6 @@ def _isolate_engines_from_live_config(_engines_isolated_repo_root, monkeypatch):
     )
     monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", config_path)
     monkeypatch.setenv("YOKE_MACHINE_HOME", "")
-    monkeypatch.setenv("HOME", repo_root)
 
 
 @pytest.fixture()

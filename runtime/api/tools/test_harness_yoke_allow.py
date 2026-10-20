@@ -13,14 +13,12 @@ from pathlib import Path
 
 import pytest
 
-from yoke_contracts import claude_posture_install
 from yoke_contracts import harness_settings_ledger as ledger
 from yoke_contracts.harness_posture_install import configure_harness_unattended_posture
 from yoke_contracts.harness_settings_revert import revert_recorded
 from yoke_contracts.harness_unattended_posture import (
     POSTURE_PROMPTS,
     POSTURE_UNATTENDED,
-    claude_config_path,
     claude_settings_path,
     codex_config_path,
     cursor_config_path,
@@ -55,9 +53,6 @@ def machine(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
     monkeypatch.setenv("YOKE_HOME", str(tmp_path / ".yoke"))
     monkeypatch.delenv("CODEX_HOME", raising=False)
-    monkeypatch.setattr(
-        claude_posture_install, "CLAUDE_APP_CONFIG_PATH", claude_config_path()
-    )
     for path, text in (
         (claude_settings_path(), json.dumps(RESTRICTIVE_CLAUDE)),
         (cursor_config_path(), json.dumps(RESTRICTIVE_CURSOR)),
