@@ -20,6 +20,13 @@ TERMINAL_SELECTION = "TerminalEmulator=xfce4-terminal"
 # Browser approval gates drive this Chromium; the installer under test opens
 # its approval link in the default browser, which must therefore be it.
 CHROMIUM_DESKTOP_ENTRY = "chromium_chromium.desktop"
+# Ubuntu's chromium-browser package wraps the snap in this script and registers
+# it as x-www-browser. A direct /snap/bin/chromium link cannot be that: snap
+# picks the app from the name it is called by and refuses "x-www-browser".
+CHROMIUM_WRAPPER = "/usr/bin/chromium-browser"
+CHROMIUM_NAMES = ("chromium", "chromium-browser")
+# XFCE's exo-open falls back to debian-sensible-browser, which runs this.
+BROWSER_ALTERNATIVE = Path("/usr/bin/x-www-browser")
 DEFAULTS_SECTION = "[Default Applications]"
 BROWSER_TYPES = ("x-scheme-handler/http", "x-scheme-handler/https", "text/html")
 
@@ -210,6 +217,11 @@ def provision(home: Path, port: int = DEFAULT_RDP_PORT) -> None:
     )
     print("linux-desktop: installing Chromium as the default browser", flush=True)
     command(["sudo", "-n", "snap", "install", "chromium"])
+    command(
+        ["sudo", "-n", "env", "DEBIAN_FRONTEND=noninteractive"]
+        + ["apt-get", "install", "-y", "chromium-browser"]
+    )
+    command(["sudo", "-n", "update-alternatives", "--set", "x-www-browser", CHROMIUM_WRAPPER])
     defaults = home / ".config/mimeapps.list"
     defaults.write_text(
         browser_defaults(defaults.read_text() if defaults.exists() else "")
@@ -219,37 +231,16 @@ def provision(home: Path, port: int = DEFAULT_RDP_PORT) -> None:
     command(["sudo", "-n", "systemctl", "restart", "xrdp"])
 
 
-def resolved_default_browser() -> str:
-    mark = "YOKE_DESKTOP_BROWSER:"
-    script = (
-        "browser=$(xdg-settings get default-web-browser); "
-        f'printf "{mark}%s:%s" "$?" "$browser"'
-    )
-    unavailable = (
-        "linux_desktop_session_environment_unavailable: install bash so a "
-        "login shell can run xdg-settings, then rerun"
-    )
-    try:
-        result = subprocess.run(
-            ["bash", "-lc", script], capture_output=True, text=True, timeout=10
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise ProvisionFailure(unavailable) from exc
-    body = result.stdout.rsplit(mark, 1)
-    if result.returncode != 0 or len(body) != 2 or ":" not in body[1]:
-        raise ProvisionFailure(unavailable)
-    status, chosen = body[1].split(":", 1)
-    chosen = chosen.strip()
-    if status != "0" or chosen not in {
-        "chromium.desktop",
-        "chromium-browser.desktop",
-        CHROMIUM_DESKTOP_ENTRY,
-    }:
+def resolved_default_browser(link: Path = BROWSER_ALTERNATIVE) -> str:
+    """Resolve x-www-browser to the program desktop links actually run."""
+    path = link.resolve()
+    if path.name not in CHROMIUM_NAMES or not path.exists():
+        found = str(path) if path.exists() else "nothing"
         raise ProvisionFailure(
-            "linux_desktop_default_browser_not_selected: login-shell xdg-settings "
-            f"reports {chosen or 'unset'}; rerun provisioning to select Chromium"
+            f"linux_desktop_default_browser_not_selected: x-www-browser resolves to {found}; "
+            "rerun provisioning to install chromium-browser and select it as x-www-browser"
         )
-    return chosen
+    return str(path)
 
 
 def verify(home: Path, port: int = DEFAULT_RDP_PORT) -> dict:

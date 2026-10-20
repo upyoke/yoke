@@ -186,13 +186,28 @@ It requires Ubuntu24.04 and passwordless sudo, installs XFCE, xfce4-terminal,
 xorgxrdp/xrdp, dbus-x11, scrot, xdotool and venv support, refuses another
 `.xsession` choice, and proves active services and loopback-only RDP. It sets
 `TerminalEmulator=xfce4-terminal` while preserving other helpers.rc choices.
-It installs the Chromium snap and selects `chromium_chromium.desktop` for web
-links in `~/.config/mimeapps.list`, keeping the user's other default
-applications. `--verify` reads that default the way the approval gate does:
-`xdg-settings get default-web-browser` inside a login shell (`bash -lc`), not
-the bare SSH environment. It refuses
-`linux_desktop_chromium_not_proved`, `linux_desktop_default_browser_not_selected`,
-or `linux_desktop_session_environment_unavailable` until Chromium is that default.
+It installs the Chromium snap, selects `chromium_chromium.desktop` for web
+links in `~/.config/mimeapps.list` (keeping the user's other default
+applications) and makes Chromium the system default browser:
+
+```text
+sudo apt-get install -y chromium-browser
+sudo update-alternatives --set x-www-browser /usr/bin/chromium-browser
+```
+
+On the XFCE desktop, `xdg-open` hands links to `exo-open`, which falls back to
+`debian-sensible-browser` and runs `x-www-browser`; `mimeapps.list` alone
+leaves links failing with "Failed to execute default Web Browser". Ubuntu's
+`chromium-browser` package wraps the snap in `/usr/bin/chromium-browser` and
+registers it as `x-www-browser`. Never point `x-www-browser` at
+`/snap/bin/chromium`: snap picks the app from the name it is called by and
+fails with `unknown command`.
+`--verify` resolves `/usr/bin/x-www-browser` to the program it runs, the same
+check the approval gate makes, so an SSH session sees what the desktop opens.
+It refuses `linux_desktop_chromium_not_proved` or
+`linux_desktop_default_browser_not_selected` until that program is Chromium.
+To confirm on the desktop, run `xdg-open https://upyoke.com` in its terminal;
+Chromium opens the page.
 An existing customization requires an operator decision before provisioning.
 Tools/services are system baseline; session selection is captured home state.
 Do not install scrot/xdotool as a mission-journaled package delta: another reset
@@ -288,9 +303,9 @@ step 4, never a dummy display.
 
 A recipe step with `operator_gate: machine_browser_approval` approves the
 installer's one-time code in this desktop's Chromium, under the same contract
-as Safari on macOS. The gate reads the default browser inside a login shell
-and starts Chromium with that shell's `XDG_DATA_DIRS`, so a bare SSH
-environment cannot report a different browser than the desktop session. Before
+as Safari on macOS. The gate requires `/usr/bin/x-www-browser` to resolve to
+a Chromium program, the browser desktop links open, and starts it with a login shell's
+`XDG_DATA_DIRS` so it matches the desktop session. Before
 the installer starts, the gate starts or reuses the fixture desktop and Chromium
 with a loopback-only DevTools port, restarting a running Chromium gracefully
 when it lacks one; the installer's tmux session carries the desktop's DISPLAY,

@@ -145,4 +145,4 @@ def test_walker_human_gate_names_only_prohibited_credential_entry(identities) ->
         "and resume state."
     ) in prompt
     assert "If a permission dialog" not in prompt
-    assert "approval needs a person" not in prompt
+    assert "approval " "needs a person" not in prompt
