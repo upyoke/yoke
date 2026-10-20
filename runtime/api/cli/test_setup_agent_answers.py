@@ -62,7 +62,9 @@ def test_an_answer_for_another_question_is_not_current(agent):
     drive.walk(MACHINE_ONLY_ANSWERS[:3])
     before = _store_bytes()
 
-    _refused(drive("project.mode=machine-only"), "setup_answer_not_current", "github.machine")
+    _refused(
+        drive("project.mode=machine-only"), "setup_answer_not_current", "github.machine"
+    )
 
     assert _store_bytes() == before
 
@@ -72,7 +74,9 @@ def test_a_value_outside_the_choices_is_not_allowed(agent):
     drive.walk(MACHINE_ONLY_ANSWERS[:3])
     before = _store_bytes()
 
-    line = _refused(drive("github.machine=maybe"), "setup_answer_not_allowed", "github.machine")
+    line = _refused(
+        drive("github.machine=maybe"), "setup_answer_not_allowed", "github.machine"
+    )
 
     assert {row["value"] for row in line["answers"]} >= {"connect", "skip"}
     assert _store_bytes() == before
@@ -98,7 +102,13 @@ def test_an_input_runs_the_screens_own_validation(agent, tmp_path: Path):
 def test_an_invalid_form_field_names_the_field(agent, tmp_path: Path):
     drive, _ = agent
     checkout = git_checkout(tmp_path / "demo")
-    drive.walk((*MACHINE_ONLY_ANSWERS[:4], "project.mode=local-checkout", f"project.folder={checkout}"))
+    drive.walk(
+        (
+            *MACHINE_ONLY_ANSWERS[:4],
+            "project.mode=local-checkout",
+            f"project.folder={checkout}",
+        )
+    )
     before = _store_bytes()
 
     line = _refused(
@@ -147,7 +157,9 @@ def test_a_secret_input_never_takes_an_answer(agent, no_company_sign_in):
     assert b"s3cret" not in before
 
 
-def test_the_token_file_route_survives_a_fresh_invocation(agent, no_company_sign_in, monkeypatch, tmp_path):
+def test_the_token_file_route_survives_a_fresh_invocation(
+    agent, no_company_sign_in, monkeypatch, tmp_path
+):
     from yoke_cli.config import onboard_wizard_flow_connect
 
     drive, _ = agent
@@ -164,7 +176,9 @@ def test_the_token_file_route_survives_a_fresh_invocation(agent, no_company_sign
         "orgs": [{"name": "Acme"}],
         "projects": [{"slug": "demo", "public_item_prefix": "DMO"}],
     }
-    monkeypatch.setattr(onboard_wizard_flow_connect, "verify_yoke_token", lambda *_a: verified)
+    monkeypatch.setattr(
+        onboard_wizard_flow_connect, "verify_yoke_token", lambda *_a: verified
+    )
 
     code, lines = drive(f"connect.server.credential={token_file}")
 
@@ -181,7 +195,9 @@ def test_changed_presets_refuse_and_keep_the_stored_ones(agent):
     drive.walk(MACHINE_ONLY_ANSWERS[:2])
     before = _store_bytes()
 
-    line = _refused(drive(flags=("--yes",)), "setup_agent_flags_changed", "connect.admin_name")
+    line = _refused(
+        drive(flags=("--yes",)), "setup_agent_flags_changed", "connect.admin_name"
+    )
 
     assert "--discard" in line["recovery"]
     assert _store_bytes() == before
@@ -205,7 +221,11 @@ def test_a_second_invocation_refuses_while_one_runs(agent):
     finally:
         held.release()
 
-    assert (code, lines[-1]["state"], lines[-1]["reason"]) == (2, "refused", "setup_agent_busy")
+    assert (code, lines[-1]["state"], lines[-1]["reason"]) == (
+        2,
+        "refused",
+        "setup_agent_busy",
+    )
 
 
 def test_a_store_with_loose_permissions_is_refused(agent):
@@ -231,3 +251,19 @@ def test_a_stored_answer_the_screen_now_rejects_is_asked_again(agent):
     code, lines = drive()
 
     assert (code, lines[-1]["key"]) == (0, "connect.local_universe")
+
+
+def test_a_run_fact_is_saved_at_once_and_survives_a_refusal(agent):
+    drive, _ = agent
+    drive()
+    store = setup_agent_answers.open_store()
+    try:
+        store.keep_facts({"cloned_checkout": "/tmp/demo"})
+    finally:
+        store.release()
+
+    code, lines = drive("project.mode=machine-only")
+
+    assert lines[-1]["reason"] == "setup_answer_not_current"
+    record = json.loads(setup_agent_answers.store_path().read_text(encoding="utf-8"))
+    assert record["facts"] == {"cloned_checkout": "/tmp/demo"}

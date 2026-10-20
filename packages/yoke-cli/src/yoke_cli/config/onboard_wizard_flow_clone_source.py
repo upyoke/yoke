@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from yoke_cli.config import existing_project_lookup
+from yoke_cli.config import onboard_wizard_apply_facts as apply_facts
 from yoke_cli.config import onboard_wizard_clone_git_copy as clone_git_copy
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import project_git_prerequisite
 from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT
 from yoke_cli.config.setup_prompt import TONE_ERROR, SetupPrompt
+from yoke_cli.config.setup_run_facts import GIT_INSTALL_STARTED
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.onboard_wizard_state import _View
@@ -24,6 +26,7 @@ class CloneRemoteCheck:
 
 class _Shell(Protocol):  # pragma: no cover - structural typing only
     result: object
+    _run_facts: Any
     _history: list["_View"]
 
     def _goto(self, view: "_View") -> None: ...
@@ -184,7 +187,7 @@ class CloneSourceFlow:
         self._goto_clone_folder()
 
     def _after_clone_existing_project_lookup(self: _Shell, project: object) -> None:
-        if project is not None:
+        if project is not None and not apply_facts.own_project(self, project):
             self._record_existing_project(
                 project,
                 match_source=existing_project_lookup.MATCH_SOURCE_GITHUB_REPO,
@@ -240,8 +243,12 @@ class CloneSourceFlow:
             return
         self._step_back()
 
-    def _install_clone_git(self: _Shell, value: str) -> None:
+    def _install_clone_git(self: _Shell, value: str, *, relaunch: bool = False) -> None:
         advice = project_git_prerequisite.install_advice()
+        if not relaunch and self._run_facts.get(GIT_INSTALL_STARTED):
+            # This run already opened the installer: wait on it, not open it again.
+            self._goto_clone_git_install_handoff(value, advice)
+            return
         self._run_checking(
             step=STEP_PROJECT,
             title="Installing Git.",
@@ -262,6 +269,7 @@ class CloneSourceFlow:
         result: object,
     ) -> None:
         if getattr(result, "requires_user_completion", False):
+            self._run_facts.record(GIT_INSTALL_STARTED, True)
             self._goto_clone_git_install_handoff(value, result)
             return
         self._after_remote(value)
@@ -276,13 +284,20 @@ class CloneSourceFlow:
         self._goto(
             _View(
                 clone_git_copy.install_handoff_prompt(advice),
-                lambda choice: self._on_clone_git_handoff(choice, value),
+                lambda choice: (
+                    self._install_clone_git(value, relaunch=True)
+                    if choice == "install"
+                    else self._on_clone_missing_git(choice, value)
+                ),
             )
         )
 
     def _on_clone_git_handoff(self: _Shell, choice: str, value: str) -> None:
         if choice == "retry":
             self._finalize_clone_git_handoff(value)
+            return
+        if choice == "install":
+            self._install_clone_git(value, relaunch=True)
             return
         self._on_clone_missing_git(choice, value)
 
@@ -308,7 +323,11 @@ class CloneSourceFlow:
         self._goto(
             _View(
                 clone_git_copy.install_error_prompt(str(exc)),
-                lambda choice: self._on_clone_missing_git(choice, value),
+                lambda choice: (
+                    self._install_clone_git(value, relaunch=True)
+                    if choice == "install"
+                    else self._on_clone_missing_git(choice, value)
+                ),
             )
         )
 

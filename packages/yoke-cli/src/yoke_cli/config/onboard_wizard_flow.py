@@ -22,6 +22,7 @@ from yoke_cli.config import (
 from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_input_validation as input_validation
 from yoke_cli.config import onboard_project
+from yoke_cli.config.setup_run_facts import APPLY_NEW_FOLDER
 from yoke_cli.config.onboard_error_friendly import friendly_permission_error
 
 from yoke_cli.config import onboard_wizard_steps as steps
@@ -81,15 +82,17 @@ class WizardFlow(
             self._stored_project_attempted = True
             self._goto_stored_project_picker()
             return
-        self._goto(self._selection_view(
-            "project.mode",
-            STEP_PROJECT,
-            "Set up a project.",
-            "Where's the code? You can change this later.",
-            steps.MODE_ROWS,
-            self._on_project_mode,
-            guidance=onboard_github_copy.PROJECT_MODE_AGENT_GUIDANCE,
-        ))
+        self._goto(
+            self._selection_view(
+                "project.mode",
+                STEP_PROJECT,
+                "Set up a project.",
+                "Where's the code? You can change this later.",
+                steps.MODE_ROWS,
+                self._on_project_mode,
+                guidance=onboard_github_copy.PROJECT_MODE_AGENT_GUIDANCE,
+            )
+        )
 
     def _on_project_mode(self: _Shell, mode: str) -> None:
         if not getattr(self, "_preserve_project_fields_once", False):
@@ -158,6 +161,7 @@ class WizardFlow(
         if (
             self.result.project_mode == onboard_project.PROJECT_MODE_CREATE_REPO
             and is_existing_project_dir(Path(value).expanduser())
+            and not self._run_facts.names_folder(APPLY_NEW_FOLDER, value)
         ):
             self.result.project_mode = onboard_project.PROJECT_MODE_LOCAL_CHECKOUT
             self._goto_existing_dir_redirect(value)
@@ -242,9 +246,7 @@ class WizardFlow(
         self._review_show_all = False
         self._review_problems = list(getattr(checks, "problems", []) or [])
         self._review_notes = list(getattr(checks, "notes", []) or [])
-        self._goto(_View(
-            self._finish_prompt(), self._on_confirm, self._build_finish
-        ))
+        self._goto(_View(self._finish_prompt(), self._on_confirm, self._build_finish))
 
     def _goto_finish_error(self: _Shell, exc: BaseException) -> None:
         self._goto(
@@ -275,9 +277,9 @@ class WizardFlow(
     def _on_confirm(self, choice: str) -> None:
         if choice == "show-all":
             self._review_show_all = not getattr(self, "_review_show_all", False)
-            self._replace_current(_View(
-                self._finish_prompt(), self._on_confirm, self._build_finish
-            ))
+            self._replace_current(
+                _View(self._finish_prompt(), self._on_confirm, self._build_finish)
+            )
             return
         if choice == "back":
             # Pre-flight blocked Apply: step back to the offending step so the

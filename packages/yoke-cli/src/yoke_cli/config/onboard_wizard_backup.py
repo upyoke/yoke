@@ -111,7 +111,7 @@ def _apply(shell, archive, setup) -> None:
         imported = (
             bool(setup.raw_token)
             if setup
-            else getattr(shell, "_backup_local_imported", False)
+            else "owner_id" in backup.import_record(shell)
         )
         if not imported:
             current = backup.validate(shell.result.config_path, archive)
@@ -131,7 +131,7 @@ def _apply(shell, archive, setup) -> None:
         title="Restoring your backup.",
         message="Restoring the database, connecting, and reading its projects.",
         work=restore,
-        on_success=lambda rows: _complete(shell, rows),
+        on_success=lambda rows: _complete(shell, rows, setup),
         on_error=lambda exc: _failure(
             shell, exc, lambda: _apply(shell, archive, setup)
         ),
@@ -140,12 +140,32 @@ def _apply(shell, archive, setup) -> None:
     )
 
 
-def _complete(shell, rows) -> None:
-    shell._restored_projects = rows
+def _complete(shell, rows, setup) -> None:
+    backup.record_restored(shell, rows)
+    if setup is not None:
+        from yoke_cli.config import onboard_wizard_run_connection as run_connection
+
+        run_connection.record_self_host(shell, setup, kind=run_connection.KIND_RESTORED)
+    resume_restored(shell)
+
+
+def resume_restored(shell) -> None:
+    """Offer this run's restored projects; the restore itself never repeats."""
+    shell._restored_projects = backup.import_record(shell)["projects"]
     shell._restored_projects_offered = False
     # A completed restore is durable; Back cannot revisit old import consent.
     shell._history.clear()
     shell._goto_machine_github()
+
+
+def resume_local_restore(shell) -> bool:
+    """Continue past this run's finished local restore instead of offering it again."""
+    record = backup.import_record(shell)
+    if record.get("destination") != "local" or "projects" not in record:
+        return False
+    shell.result.admin_name = None
+    resume_restored(shell)
+    return True
 
 
 def _failure(shell, exc, retry) -> None:

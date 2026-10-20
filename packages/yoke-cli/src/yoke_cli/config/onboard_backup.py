@@ -12,6 +12,7 @@ from pathlib import Path
 from yoke_contracts.self_host_bootstrap_output import redact_api_tokens
 from yoke_cli.config import machine_config, existing_project_lookup
 from yoke_cli.config import onboard_self_host_server as server
+from yoke_cli.config.setup_run_facts import BACKUP_IMPORT
 from yoke_cli.self_host import runtime
 from yoke_contracts import terminal_detached_process
 
@@ -86,8 +87,22 @@ def validate(config_path: str, value: str) -> dict:
     return report
 
 
+def import_record(shell) -> dict:
+    """This run's backup import: destination, owner, uncertainty, restored projects."""
+    return shell._run_facts.get(BACKUP_IMPORT) or {}
+
+
+def _record_import(shell, **values) -> None:
+    shell._run_facts.record(BACKUP_IMPORT, {**import_record(shell), **values})
+
+
+def record_restored(shell, rows: list[dict]) -> None:
+    """The restore finished; its projects are what setup offers next."""
+    _record_import(shell, projects=rows)
+
+
 def restore_local(shell, archive: str) -> None:
-    if not getattr(shell, "_backup_local_imported", False):
+    if "owner_id" not in import_record(shell):
         command(
             shell.result.config_path,
             "init",
@@ -107,10 +122,10 @@ def restore_local(shell, archive: str) -> None:
             archive,
             "--yes",
         )
-        shell._backup_local_imported = True
-        shell._backup_owner_id = receipt.get("actor_id")
-        if not isinstance(shell._backup_owner_id, int) or shell._backup_owner_id <= 0:
-            shell._backup_import_uncertain = True
+        owner_id = receipt.get("actor_id")
+        _record_import(shell, destination="local", owner_id=owner_id)
+        if not isinstance(owner_id, int) or owner_id <= 0:
+            _record_import(shell, uncertain=True)
             raise BackupSetupError(
                 "backup_owner_missing: restore returned no local owner; inspect "
                 "the restored actors and bind the intended actor before continuing."
@@ -122,7 +137,7 @@ def restore_local(shell, archive: str) -> None:
         "config",
         "bind-actor",
         "--actor-id",
-        str(shell._backup_owner_id),
+        str(import_record(shell)["owner_id"]),
         "--config",
         shell.result.config_path,
         json_output=False,
@@ -133,6 +148,15 @@ def restore_local(shell, archive: str) -> None:
 def restore_server(shell, setup, archive: str) -> None:
     prerequisites = server.check_docker_prerequisites()
     if not setup.raw_token:
+        if import_record(shell).get("destination") == "server":
+            # The import ran in an earlier call of this setup; its credential
+            # lived only in that process. Importing again would replace the
+            # restored database.
+            raise BackupSetupError(
+                "backup_credential_missing: this setup already imported the "
+                "backup; run yoke self-host import --recover-credential for "
+                f"{setup.directory}, then run setup again."
+            )
         # This bootstrap identity is replaced before core first boot.
         setup.admin_name = getpass.getuser()
         server._ensure_wizard_bundle(setup)
@@ -146,9 +170,10 @@ def restore_server(shell, setup, archive: str) -> None:
             str(setup.directory),
             "--yes",
         )
+        _record_import(shell, destination="server")
         raw_token = receipt.get("raw_token")
         if not isinstance(raw_token, str) or not raw_token:
-            shell._backup_import_uncertain = True
+            _record_import(shell, uncertain=True)
             raise BackupSetupError(
                 "backup_credential_missing: no admin credential; run yoke "
                 "self-host import --recover-credential for this bundle."
@@ -156,13 +181,13 @@ def restore_server(shell, setup, archive: str) -> None:
         setup.raw_token = raw_token
     runtime.start_bundle(directory=setup.directory, executable=prerequisites.executable)
     server.retry_connection(setup)
-    from yoke_cli.config.onboard_wizard_self_host import _select_connection
+    from yoke_cli.config.onboard_wizard_self_host import select_connection
 
-    _select_connection(shell, setup)
+    select_connection(shell, setup)
 
 
 def _import(shell, config_path, *args):
-    if getattr(shell, "_backup_import_uncertain", False):
+    if import_record(shell).get("uncertain"):
         raise BackupSetupError(
             "backup_import_outcome_unknown: inspect the destination and recover "
             "its credential or actor binding, then restart setup. Import will "
@@ -179,7 +204,7 @@ def _import(shell, config_path, *args):
                 "backup_receipt_invalid",
             )
         ):
-            shell._backup_import_uncertain = True
+            _record_import(shell, uncertain=True)
         raise
 
 

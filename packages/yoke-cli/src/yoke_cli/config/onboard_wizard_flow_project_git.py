@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from yoke_cli.config import project_git_prerequisite
 from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT
 from yoke_cli.config.setup_prompt import TONE_ERROR, TONE_OK, SelectionRow, SetupPrompt
+from yoke_cli.config.setup_run_facts import GIT_INSTALL_STARTED
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.onboard_wizard_state import _View
@@ -63,6 +64,8 @@ def _git_handoff_rows() -> list[SelectionRow]:
 
 
 class _Shell(Protocol):  # pragma: no cover - structural typing only
+    _run_facts: Any
+
     def _goto(self, view: "_View") -> None: ...
     def _step_back(self) -> None: ...
     def _after_project_git_ready(self, mode: str) -> None: ...
@@ -101,7 +104,9 @@ class ProjectGitFlow:
                     step=STEP_PROJECT,
                     title="Git is required for project setup.",
                     message=project_git_prerequisite.required_summary(),
-                    detail_lines=tuple(project_git_prerequisite.missing_git_detail_lines()),
+                    detail_lines=tuple(
+                        project_git_prerequisite.missing_git_detail_lines()
+                    ),
                     choices=tuple(_git_missing_rows()),
                     tone=TONE_ERROR,
                 ),
@@ -118,8 +123,14 @@ class ProjectGitFlow:
             return
         self._step_back()
 
-    def _install_project_git(self: _Shell, mode: str) -> None:
+    def _install_project_git(
+        self: _Shell, mode: str, *, relaunch: bool = False
+    ) -> None:
         advice = project_git_prerequisite.install_advice()
+        if not relaunch and self._run_facts.get(GIT_INSTALL_STARTED):
+            # This run already opened the installer: wait on it, not open it again.
+            self._goto_project_git_install_handoff(mode, advice)
+            return
         self._run_checking(
             step=STEP_PROJECT,
             title="Installing Git.",
@@ -140,6 +151,7 @@ class ProjectGitFlow:
         result: object,
     ) -> None:
         if getattr(result, "requires_user_completion", False):
+            self._run_facts.record(GIT_INSTALL_STARTED, True)
             self._goto_project_git_install_handoff(mode, result)
             return
         self._check_project_git(mode)
@@ -158,7 +170,9 @@ class ProjectGitFlow:
                     step=STEP_PROJECT,
                     title="Finish Apple's installer.",
                     message="The Command Line Tools installer should be open.",
-                    detail_lines=tuple(project_git_prerequisite.install_handoff_detail_lines(advice)),
+                    detail_lines=tuple(
+                        project_git_prerequisite.install_handoff_detail_lines(advice)
+                    ),
                     choices=tuple(_git_handoff_rows()),
                     tone=TONE_OK,
                 ),
@@ -170,7 +184,10 @@ class ProjectGitFlow:
         if choice == "retry":
             self._finalize_project_git_handoff(mode)
             return
-        self._on_project_git_missing(choice, mode)
+        if choice == "install":
+            self._install_project_git(mode, relaunch=True)
+            return
+        self._step_back()
 
     def _finalize_project_git_handoff(self: _Shell, mode: str) -> None:
         self._run_checking(
@@ -203,7 +220,11 @@ class ProjectGitFlow:
                     choices=tuple(_git_install_error_rows()),
                     tone=TONE_ERROR,
                 ),
-                lambda choice: self._on_project_git_missing(choice, mode),
+                lambda choice: (
+                    self._install_project_git(mode, relaunch=True)
+                    if choice == "install"
+                    else self._on_project_git_missing(choice, mode)
+                ),
             )
         )
 

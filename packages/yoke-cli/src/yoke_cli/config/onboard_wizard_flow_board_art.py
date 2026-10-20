@@ -8,6 +8,7 @@ from typing import Any
 from yoke_cli.config import onboard_apply_report
 from yoke_cli.config import onboard_wizard_board_art_apply as art_apply
 from yoke_cli.config.onboard_wizard import WizardApplyError
+from yoke_cli.config.setup_run_facts import BOARD_ART_SEED
 from yoke_contracts.project_contract.board_art import (
     generate_default_variants,
     resolve_project_art_word,
@@ -23,7 +24,11 @@ class BoardArtFlow:
                 short_code=self.result.project_public_item_prefix,
             )
         if not self.result.board_art_seed:
-            self.result.board_art_seed = secrets.token_hex(16)
+            # One seed per run: a replayed Project step shows the same art
+            # Review showed, and Apply writes that art.
+            seed = self._run_facts.get(BOARD_ART_SEED) or secrets.token_hex(16)
+            self._run_facts.record(BOARD_ART_SEED, seed)
+            self.result.board_art_seed = seed
         if not self.result.board_art_variants:
             self.result.board_art_variants = generate_default_variants(
                 self.result.board_art_word, seed_text=self.result.board_art_seed

@@ -13,7 +13,13 @@ same terminal, then resumes ``yoke setup --agent``. It never reads, receives
 or types a secret.
 
     python -m yoke_core.domain.machine_qa_setup_agent_driver \\
-        --connect URL --stop-at KEY [--open-link] [--answer KEY=VALUE ...]
+        [--connect URL] --stop-at KEY [--open-link] [--answer KEY=VALUE ...]
+
+Without ``--connect`` the journey starts at the destination question, so a
+local journey scripts ``connect.destination=local`` like any other answer.
+Every call after an answer rebuilds setup from its saved answers, so a
+journey through a step that changes the machine (the Project step's clone)
+proves the next answer is still the one setup accepts.
 
 It prints ``agent-presentation-reached: KEY`` when setup asks ``--stop-at``
 and exits 0; a refusal, failure or unexpected end prints its reason and
@@ -125,9 +131,14 @@ def _open_link(line: dict[str, Any]) -> None:
 
 
 def drive(
-    connect: str, stop_at: str, answers: dict[str, str], *, open_link: bool = False
+    connect: str | None,
+    stop_at: str,
+    answers: dict[str, str],
+    *,
+    open_link: bool = False,
 ) -> int:
-    line = _run_agent(["--connect", connect])
+    preset = ["--connect", connect] if connect else []
+    line = _run_agent(preset)
     for _turn in range(_MAX_TURNS):
         if line is None:
             print("setup_agent_no_answer: setup printed no JSON line; rerun the case.")
@@ -149,7 +160,7 @@ def drive(
                 "`yoke setup --tui`, then quit the wizard to return here.",
                 flush=True,
             )
-            subprocess.run([_yoke(), "setup", "--tui", "--connect", connect])
+            subprocess.run([_yoke(), "setup", "--tui", *preset])
             line = _run_agent([])
             continue
         if key not in answers:
@@ -166,7 +177,7 @@ def drive(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--connect", required=True)
+    parser.add_argument("--connect")
     parser.add_argument("--stop-at", required=True)
     parser.add_argument("--open-link", action="store_true")
     parser.add_argument("--answer", action="append", default=[])

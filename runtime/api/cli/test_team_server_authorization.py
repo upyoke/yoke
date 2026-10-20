@@ -5,6 +5,7 @@ import json
 import pytest
 from yoke_cli.config import hosted_machine_authorization as auth
 from yoke_cli.config import team_server_authorization as team
+from yoke_cli.config.setup_run_facts import RunFacts
 from yoke_cli.commands import connect as command
 from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpResponse,
@@ -235,7 +236,10 @@ def test_invite_choice_uses_teammate_identity_and_private_persistence(
     )
 
     class Shell(TeamServerConnectFlow, ViewHelpers):
-        result = argparse.Namespace(api_url=ORIGIN, config_path=config)
+        result = argparse.Namespace(
+            api_url=ORIGIN, config_path=config, destination="server"
+        )
+        _run_facts = RunFacts()
 
         def _goto(self, view):
             self.view = view

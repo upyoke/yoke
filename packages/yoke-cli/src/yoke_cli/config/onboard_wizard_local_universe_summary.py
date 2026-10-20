@@ -6,6 +6,14 @@ from typing import Any
 
 from yoke_cli.config import local_universe_setup
 from yoke_cli.config.setup_prompt import SelectionRow
+from yoke_cli.config.setup_run_facts import LOCAL_UNIVERSE_CREATED
+
+
+def current_state(shell: Any) -> dict[str, Any]:
+    """The universe as this run found it: one this run's Apply created reads as new."""
+    if shell._run_facts.get(LOCAL_UNIVERSE_CREATED):
+        return {"state": local_universe_setup.LOCAL_UNIVERSE_CREATE}
+    return local_universe_setup.inspect_local_state(shell.result.config_path)
 
 
 def local_universe_summary_lines(state: dict[str, Any]) -> list[str]:
@@ -51,4 +59,8 @@ def local_universe_summary_rows(state: dict[str, Any]) -> list[SelectionRow]:
     return START_ROWS
 
 
-__all__ = ["local_universe_summary_lines", "local_universe_summary_rows"]
+__all__ = [
+    "current_state",
+    "local_universe_summary_lines",
+    "local_universe_summary_rows",
+]

@@ -91,11 +91,13 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow, CloneOutcomeFlow):
             self._goto_private_repo_empty()
             return
         prompt = project_screens.repo_picker_prompt(repos)
-        self._goto(_View(
-            prompt,
-            self._on_private_repo_pick,
-            lambda: project_screens.searchable_picker_body(prompt),
-        ))
+        self._goto(
+            _View(
+                prompt,
+                self._on_private_repo_pick,
+                lambda: project_screens.searchable_picker_body(prompt),
+            )
+        )
 
     def _on_private_repo_pick(self: _Shell, choice: str) -> None:
         self._after_remote(choice)
@@ -115,12 +117,14 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow, CloneOutcomeFlow):
                     step=STEP_PROJECT,
                     title="No private repositories are available to Yoke.",
                     message="The connected GitHub App cannot currently access a private repo.",
-                    detail_lines=tuple([
-                        setup_browser.status_line(self),
-                        "Choose private repositories in the App installation, then "
-                        "return here and check again.",
-                        f"GitHub App access URL: {access_url}",
-                    ]),
+                    detail_lines=tuple(
+                        [
+                            setup_browser.status_line(self),
+                            "Choose private repositories in the App installation, then "
+                            "return here and check again.",
+                            f"GitHub App access URL: {access_url}",
+                        ]
+                    ),
                     choices=tuple(steps.PRIVATE_REPO_EMPTY_ROWS),
                     tone=TONE_ERROR,
                 ),
@@ -158,10 +162,12 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow, CloneOutcomeFlow):
                     step=STEP_PROJECT,
                     title="Couldn't load private repos.",
                     message=str(exc),
-                    detail_lines=tuple([
-                        "Check GitHub App authorization, GitHub availability, "
-                        "and the network connection."
-                    ]),
+                    detail_lines=tuple(
+                        [
+                            "Check GitHub App authorization, GitHub availability, "
+                            "and the network connection."
+                        ]
+                    ),
                     choices=tuple(steps.PROBE_RETRY_ROWS),
                     tone=TONE_ERROR,
                 ),
@@ -215,6 +221,11 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow, CloneOutcomeFlow):
         # A target that already holds a matching clone may be resumed, but it is
         # user-owned until an apply report proves Yoke created it. Never offer
         # deletion at this pre-apply screen.
+        if self._run_facts.cloned_here(value):
+            # This run made the clone; asking to resume it would be asking about
+            # its own work. Fetching again reuses it.
+            self._materialize_and_inspect_checkout()
+            return
         remote = self.result.project_remote_url
         target = Path(value).expanduser()
         if remote and clone_support.existing_clone_matches(
@@ -227,10 +238,12 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow, CloneOutcomeFlow):
         self._materialize_and_inspect_checkout()
 
     def _goto_resume_or_choose_folder(self: _Shell, checkout: str) -> None:
-        self._goto(_View(
-            project_screens.resume_existing_clone_prompt(checkout),
-            self._on_resume_or_choose_folder,
-        ))
+        self._goto(
+            _View(
+                project_screens.resume_existing_clone_prompt(checkout),
+                self._on_resume_or_choose_folder,
+            )
+        )
 
     def _on_resume_or_choose_folder(self: _Shell, choice: str) -> None:
         if choice != "resume":
