@@ -296,7 +296,7 @@ class TestDecide:
         )
         assert rc == 1
         assert "extra.py" in msg
-        assert "path-claims widen" in msg
+        assert "yoke claims path widen" in msg
         assert " 7 " in msg  # positional claim_id
 
     def test_suppression_token_allows_commit(
