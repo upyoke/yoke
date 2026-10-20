@@ -8,6 +8,7 @@ from typing import List
 
 from yoke_cli.commands.adapters.workflow_execution_instructions import (
     render_execution_instruction_block,
+    render_item_instruction_summary,
 )
 from yoke_cli.commands._helpers import (
     add_json_arg,
@@ -42,11 +43,9 @@ ITEMS_DETAIL_GET_USAGE = (
     "[--include narrative,body,progress_log] [--full] [--json]"
 )
 ITEMS_DETAIL_GET_DESCRIPTION = (
-    "Read one item's workflow-aware detail. The spec and the operator "
-    "execution instructions come with the default read; the rendered body "
-    "and the Progress Log do not, because item.content_index already names "
-    "every stored section with its size and the exact command that returns "
-    "it. Name sections with --include, or --full for all of them."
+    "Read compact item status, workflow and lane facts. Name content sections "
+    "with --include, or --full for all fields and operator instruction prose. "
+    "JSON returns the response envelope or a saved-response pointer when large."
 )
 
 
@@ -196,7 +195,43 @@ def items_detail_get(args: List[str]) -> int:
         # carrying the same text inside the printed result would send it
         # twice. The content index still names the count and the read.
         instructions = result.pop("execution_instructions", None) or []
-        stdout.write(render_execution_instruction_block(instructions))
+        stdout.write(
+            render_execution_instruction_block(instructions)
+            if parsed.full
+            else render_item_instruction_summary(instructions, parsed.item)
+        )
+        if not parsed.full:
+            item = result.get("item") or {}
+            result = {
+                "item": {
+                    key: item[key]
+                    for key in (
+                        "public_ref",
+                        "title",
+                        "status",
+                        "priority",
+                        "workflow",
+                        "claim",
+                        "worktrees",
+                        "blocked",
+                        "blocked_reason",
+                    )
+                    if key in item
+                },
+                "read": f"yoke items detail get {parsed.item} --full",
+            }
+            workflow = item.get("workflow") or {}
+            result["item"]["workflow"] = {
+                key: workflow[key]
+                for key in ("id", "version", "stage_id", "next_skill_id")
+                if key in workflow
+            }
+            if parsed.include is not None:
+                result["content"] = {
+                    key: item[key]
+                    for key in ("narrative", "body", "progress_log", "content_index")
+                    if key in item
+                }
         write_human(result, stdout)
         return None
 

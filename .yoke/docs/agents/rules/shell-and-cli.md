@@ -108,10 +108,11 @@ Want part of an answer? Ask the narrow question — every read has a shape that 
 
 Human replies label values and preserve complete oversized results in a named
 private evidence file. Entry instructions, handoffs and warnings stay immediate.
-See [help and replies](../../cli/help.md). Structured registered reads retain the
-28,000-byte output limit. Oversized structured reads print no partial answer:
-`read_output_limit_exceeded` names the narrower recipe and the explicit `--full`
-opt-in. `--json` selects format; it does not bypass the limit. Lists serve
+See [help and replies](../../cli/help.md). Default human and JSON replies share a 4,000-byte UTF-8 limit. Oversized
+replies save the complete response and name its path plus a narrower read.
+JSON returns a pointer preserving the original success, not a partial result.
+`--full --json` opts into complete inline structured output; human detail
+still saves oversized replies. Read saved operator instructions before acting. Lists serve
 summary pages: QA plans require `--project P`, and QA/session lists default to
 25 rows. Use `--limit N --offset N` for pages, or `--full` for complete rows
 and the uncapped catalog. Steering JSON computes complete facts; add `--full`

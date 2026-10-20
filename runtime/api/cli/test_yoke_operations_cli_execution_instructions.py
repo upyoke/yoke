@@ -224,27 +224,16 @@ def test_item_reads_deliver_operator_prose_once(fields):
     with patch.object(items, "dispatch_and_emit", side_effect=dispatch):
         assert items.items_get(["EX-1", *fields]) == 0
     rendered = output.getvalue()
-    assert rendered.count(prose.rstrip()) == (0 if fields else 1)
-    if fields:
-        assert (
-            rendered.splitlines()[0]
-            == "Execution instructions 4 apply; full text: `yoke items get EX-1 --json`."
-        )
+    assert prose.rstrip() not in rendered
+    assert (
+        rendered.splitlines()[0]
+        == "Execution instructions 4 apply; full text: `yoke items get EX-1 --full --json`."
+    )
     assert len(rendered) <= len(prose) + 750
     assert instruction["content"] == prose
     if not fields:
-        lines = rendered.splitlines()
-        header = next(i for i, line in enumerate(lines) if "on every read" in line)
-        descriptor = dict(
-            zip(
-                (cell.strip() for cell in lines[header].split("|")),
-                (cell.strip() for cell in lines[header + 1].split("|")),
-            )
-        )
-        assert descriptor["id"] == "4"
-        assert descriptor["content characters"] == str(len(prose))
-        assert descriptor["read"] == "yoke items get EX-1 --json"
-        assert descriptor["on every read"] == "yes"
+        assert "yoke items get EX-1 FIELD ..." in rendered
+        assert "Specification" not in rendered
 
 
 def test_json_item_read_retains_the_complete_instruction_envelope(monkeypatch, capsys):
@@ -307,7 +296,7 @@ def test_section_and_log_reads_name_rules_without_repeating_prose(
     monkeypatch.setattr(items_section, "dispatch_and_emit", dispatch)
     assert getattr(items_section, function)(args) == 0
     assert output.getvalue() == (
-        "Execution instructions 4 apply; full text: `yoke items get EX-1 --json`.\nCheckpoint\n"
+        "Execution instructions 4 apply; full text: `yoke items get EX-1 --full --json`.\nCheckpoint\n"
     )
 
 
@@ -329,7 +318,7 @@ def test_default_item_output_size_excludes_empty_fields():
         "fields": fields,
         "sections": [{"name": "Progress Log", "content": "Checkpoint."}],
     }
-    output = json.dumps(compact_item_result(result, "EX-1"), sort_keys=True)
+    output = json.dumps(compact_item_result(result, "EX-1", full=True), sort_keys=True)
     assert len(output) <= 7000
     assert output.count(scope) == 1
     assert output.count(plan) == 1

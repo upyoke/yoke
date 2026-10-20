@@ -3,6 +3,6 @@
  "title": "Human replies label values and empty states. Oversized replies name complete private evidence instead of dropping fields.",
  "status": "observed",
  "form": "State",
- "verification": "Candidate response fixtures in runtime/api/cli/test_cli_reply_delivery.py cover registered response boundaries, named refusal causes, complete saved receipts, warnings, workflow instructions, handoffs, 80-column wrapping and explicit JSON. Source owners are packages/yoke-cli/src/yoke_cli/transport/public_ref_display.py and response_evidence.py. Fixture proof does not claim a live transport run.",
+ "verification": "Candidate shared response boundary uses a global 4,000-byte UTF-8 default for human and JSON replies, saving complete redacted evidence and naming narrow reads. Large operator instruction blocks require reading their saved field before continuing. Source fixtures and live transport proof must be distinguished.",
  "topics": ["context/disclosure", "reference/commands", "documentation/disclosure/reactive-help"]
 }

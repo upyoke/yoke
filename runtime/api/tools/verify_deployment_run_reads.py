@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+from yoke_cli.transport.output_limit import REPLY_LIMIT_BYTES
 
 
 def read(*arguments: str) -> dict:
@@ -21,11 +22,15 @@ def read(*arguments: str) -> dict:
             + completed.stderr
             + "; inspect the named serving refusal and retry this same QA case"
         )
-    if len((completed.stdout + completed.stderr).encode()) > 28_000:
+    if len((completed.stdout + completed.stderr).encode()) > REPLY_LIMIT_BYTES:
         raise RuntimeError(
             "deployment_run_read_probe_oversized: repair page budgeting and rerun this case"
         )
     response = json.loads(completed.stdout)
+    if response.get("saved_response"):
+        from pathlib import Path
+
+        response = json.loads(Path(response["saved_response"]).read_text())["response"]
     if not response.get("success"):
         raise RuntimeError(
             "deployment_run_read_probe_refused: inspect the recorded response and rerun this case"

@@ -213,11 +213,28 @@ def usage_error(message: str) -> int:
 
 
 def run_id_receipt(response: Any, stdout: TextIO, stderr: TextIO) -> None:
-    del stderr
     result = response.result or {}
     from yoke_cli.transport.human_values import write_human
 
-    write_human(result, stdout)
+    timings = result.get("start_timings")
+    write_human(
+        {key: value for key, value in result.items() if key != "start_timings"}, stdout
+    )
+    if timings:
+        from yoke_cli.transport.response_evidence import save_response
+
+        try:
+            evidence = save_response(response.model_dump(mode="json"), "", "")
+        except OSError as exc:
+            print(
+                f"error (response_evidence_unavailable): {exc}. Restore writable temporary storage; inspect the run before repeating creation.",
+                file=stderr,
+            )
+            raise SystemExit(1) from exc
+        print(
+            f"Timing detail saved: {evidence}; read response.result.start_timings.",
+            file=stdout,
+        )
 
 
 # Every call that can leave an item terminal, so the machine-local lanes it

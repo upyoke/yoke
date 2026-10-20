@@ -7,6 +7,7 @@ from typing import List
 from yoke_cli.transport.human_values import write_human
 from yoke_cli.commands._helpers import (
     add_json_arg,
+    add_full_arg,
     add_session_arg,
     dispatch_and_emit,
     parse_or_usage_error,
@@ -119,6 +120,7 @@ def deployment_runs_list(args: List[str]) -> int:
         help="Maximum number of recent runs to return.",
     )
     parser.add_argument("--cursor", help="Continue the summary page using next_cursor.")
+    add_full_arg(parser, "all returned summary columns")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_LIST_USAGE)
@@ -126,7 +128,38 @@ def deployment_runs_list(args: List[str]) -> int:
         return 2
 
     def _human_writer(response, stdout, stderr) -> None:
-        write_human(response.result or {}, stdout)
+        result = response.result or {}
+        if parsed.full or parsed.relevance:
+            write_human(result, stdout)
+            return
+        rows = result.get("rows") or []
+        write_human(
+            {
+                "runs": [
+                    {
+                        key: row[key]
+                        for key in (
+                            "id",
+                            "target_environment",
+                            "status",
+                            "current_stage",
+                        )
+                        if key in row
+                    }
+                    for row in rows
+                ]
+            },
+            stdout,
+        )
+        if result.get("next_cursor"):
+            print(
+                f"Next page: yoke deployment-runs list --project {parsed.project or 'P'} --cursor {result['next_cursor']}",
+                file=stdout,
+            )
+        print(
+            "More columns: --full; one run: yoke deployment-runs get RUN-ID FIELD ...",
+            file=stdout,
+        )
 
     if parsed.cursor and parsed.relevance:
         parser.error("--cursor cannot combine with --relevance; remove one")

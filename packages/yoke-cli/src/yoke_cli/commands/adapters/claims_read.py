@@ -1,16 +1,4 @@
-"""Read-only claim adapters: work holders, path-claim list/get, conflicts.
-
-* ``claims.work.holder_get`` — fetch the active work-claim holder for
-  an item, or for whatever lane contains a given path.
-* ``claims.work.holder_list`` — list active work-claim holders by
-  item-id or session-id filter.
-* ``claims.path.list`` — rich projections of an item's path claims.
-* ``claims.path.get`` — one path-claim projection by claim id.
-* ``claims.path.coordination_decision_build`` — evidence for resolving an
-  unresolved overlap before authoring a coordination edge.
-* ``path_claims.conflicts.list`` — list cross-claim conflicts, optionally
-  scoped to an integration target and / or an item filter.
-"""
+"""Read work holders, path claims and conflict coordination evidence."""
 
 from __future__ import annotations
 
@@ -20,6 +8,7 @@ from typing import Any, Dict, List
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
+    add_full_arg,
     add_session_arg,
     client_project_context,
     dispatch_and_emit,
@@ -106,6 +95,7 @@ def claims_path_get(args: List[str]) -> int:
         description=CLAIMS_PATH_GET_USAGE,
     )
     parser.add_argument("claim_id", help="Path-claim id (integer).")
+    add_full_arg(parser, "targets, bindings and amendment history")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, CLAIMS_PATH_GET_USAGE)
@@ -115,12 +105,36 @@ def claims_path_get(args: List[str]) -> int:
         claim_id = int(parsed.claim_id)
     except ValueError:
         return usage_error("CLAIM_ID must be an integer")
+
+    def writer(response, out, err):
+        from yoke_cli.transport.human_values import write_human
+
+        result = response.result or {}
+        if parsed.full:
+            write_human(result, out)
+            return
+        claim = result.get("claim", result)
+        write_human(
+            {
+                key: value
+                for key, value in claim.items()
+                if key
+                not in {"declared_targets", "amendments", "task_bindings", "target_ids"}
+            },
+            out,
+        )
+        print(
+            f"Full targets and history: yoke claims path get {claim_id} --full",
+            file=out,
+        )
+
     return dispatch_and_emit(
         function_id="claims.path.get",
         target=TargetRef(kind="path_claim", path_claim_id=claim_id),
         payload={},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
+        human_writer=writer,
     )
 
 

@@ -31,18 +31,18 @@ the actual reason and its recovery. Only missing required project selection
 reports `project_required`. Access, ambiguity and capability failures retain
 their own meanings.
 
-Large human replies save the complete already-redacted envelope and both
+Replies exceeding the global 4,000-byte default save the complete already-redacted envelope and both
 rendered output streams to a private temporary JSON file. The reply names its
 exact path and says what it holds. Open that file to read the result without
-repeating the operation. Workflow entry instructions, successor handoffs,
-warnings and refusal recovery remain immediate. If those essentials cannot
+repeating the operation. Successor handoffs, warnings and refusal recovery remain immediate. Large
+operator instruction blocks name the saved instruction field to read before continuing. If those essentials cannot
 fit, `essential_output_limit_exceeded` refuses continuation and points to the
 complete saved evidence. Restore writable temporary storage if
 `response_evidence_unavailable` prevents saving. Inspect the operation's result
 through its read command before retrying a mutation.
 
-Displayed human output has a hard maximum of 350 lines after wrapping at 80
-columns, across stdout and stderr. Suggested root/category/command targets of
+Human and JSON default replies share one 4,000 UTF-8 byte ceiling across
+stdout and stderr. Complete saved files retain every returned field. Suggested root/category/command targets of
 40/80/120 lines and 2,400/4,800/7,200 characters prompt readability review.
 Routine replies target 40 lines and 2,400 characters. These targets are advisory.
 
@@ -54,9 +54,10 @@ yoke items get APP-7 body --section "## Acceptance Criteria"
 yoke qa plan list --project example --limit 25 --offset 25
 ```
 
-`--json` preserves the response envelope. Registered reads retain their
-28,000-byte limit. The named refusal teaches a narrower read or explicit
-`--full`. `--full` requests complete structured data. Human output still uses
+`--json` preserves the response envelope when it fits. Larger replies return
+a JSON pointer with the original success, function, saved path and narrower
+read recipe. The saved file holds the entire response envelope. `--full`
+requests complete structured data explicitly. Human output still uses
 complete saved evidence when it exceeds the display ceiling. Database line
 format, credential helpers, tool protocols and watcher capture streams keep
 their explicit machine contracts.

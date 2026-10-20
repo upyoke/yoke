@@ -8,8 +8,8 @@ from collections.abc import Iterator
 
 from yoke_contracts.registered_reads import READ_FUNCTION_IDS
 
-# Explicit structured reads use a byte bound; human replies have a line budget.
-READ_OUTPUT_LIMIT_BYTES = 28_000
+# One default budget for rendered human and structured replies.
+REPLY_LIMIT_BYTES = 4_000
 _FULL_OUTPUT = ContextVar("full_read_output", default=False)
 _READ_FUNCTION = ContextVar("registered_read_function", default=None)
 
@@ -31,10 +31,13 @@ def output_exceeds_limit(
     function: str, stdout: str, stderr: str, *, full: bool = False
 ) -> bool:
     return (
-        function in READ_FUNCTION_IDS
-        and not (full or _FULL_OUTPUT.get())
-        and len((stdout + stderr).encode("utf-8")) > READ_OUTPUT_LIMIT_BYTES
+        not (full or _FULL_OUTPUT.get())
+        and len((stdout + stderr).encode("utf-8")) > REPLY_LIMIT_BYTES
     )
+
+
+def reply_exceeds_limit(text: str) -> bool:
+    return len(text.encode("utf-8")) > REPLY_LIMIT_BYTES
 
 
 def full_output_requested() -> bool:

@@ -12,17 +12,17 @@ def write_local(
     """Bound a client-local receipt and save every oversized value."""
     import io
     from yoke_cli.transport.response_evidence import (
-        HUMAN_LINE_LIMIT,
         save_response,
-        wrapped_lines,
     )
+
+    from yoke_cli.transport.output_limit import reply_exceeds_limit
 
     output = io.StringIO()
     if writer:
         writer(value, output)
     else:
         write_human(value, output)
-    if wrapped_lines(output.getvalue()) <= HUMAN_LINE_LIMIT:
+    if not reply_exceeds_limit(output.getvalue()):
         stream.write(output.getvalue())
         return
     try:
@@ -41,7 +41,7 @@ def write_local(
     )
     if essential_writer:
         essential_writer(value, delivered)
-    if wrapped_lines(delivered.getvalue()) > HUMAN_LINE_LIMIT:
+    if reply_exceeds_limit(delivered.getvalue()):
         print(
             f"error (essential_output_limit_exceeded): immediate recovery exceeds the display limit. Read the complete local result at {evidence} before continuing.",
             file=stream,

@@ -13,9 +13,7 @@ from typing import Any, TextIO
 
 from yoke_cli.transport.human_values import write_human
 from yoke_cli.transport.response_evidence import (
-    HUMAN_LINE_LIMIT,
     save_response,
-    wrapped_lines,
 )
 from yoke_contracts.api.function_call import FunctionCallResponse
 
@@ -42,8 +40,11 @@ def emit_response(
 ) -> int:
     from yoke_cli.transport.dispatcher import response_to_dict
 
-    from yoke_cli.transport.output_limit import output_exceeds_limit, read_recovery
-    from yoke_contracts.api.function_call import FunctionError
+    from yoke_cli.transport.output_limit import (
+        output_exceeds_limit,
+        read_recovery,
+        reply_exceeds_limit,
+    )
 
     stdout, stderr = io.StringIO(), io.StringIO()
     if json_mode:
@@ -69,7 +70,7 @@ def emit_response(
             message = f"warning: {warning.code} ({warning.step}): {warning.detail}"
             if message not in stderr.getvalue():
                 print(message, file=stderr)
-        if wrapped_lines(stdout.getvalue() + stderr.getvalue()) > HUMAN_LINE_LIMIT:
+        if reply_exceeds_limit(stdout.getvalue() + stderr.getvalue()):
             try:
                 evidence = save_response(
                     response_to_dict(prepare_human_response(response)),
@@ -91,17 +92,24 @@ def emit_response(
                     render_execution_instruction_block,
                 )
 
-                essential.write(
-                    render_execution_instruction_block(result["execution_instructions"])
+                instructions = render_execution_instruction_block(
+                    result["execution_instructions"]
                 )
+                if reply_exceeds_limit(instructions):
+                    essential.write(
+                        f"Operator execution instructions apply: read {evidence} response.result.execution_instructions before continuing.\n"
+                    )
+                else:
+                    essential.write(instructions)
             if result.get("handoff"):
                 write_human({"handoff": result["handoff"]}, essential)
             essential.write(stderr.getvalue())
             summary = (
                 f"{response.function}: {'completed' if response.success else 'refused'}. Complete reply saved: {evidence}\n"
                 f"Read {evidence} for all result fields, instructions, stdout and stderr. The command already ran.\n"
+                f"{read_recovery(response.function)}\n"
             )
-            if wrapped_lines(summary + essential.getvalue()) > HUMAN_LINE_LIMIT:
+            if reply_exceeds_limit(summary + essential.getvalue()):
                 print(
                     f"error (essential_output_limit_exceeded): recovery or warnings exceed the display limit. Read the complete reply at {evidence}; resolve its named cause before continuing.",
                     file=sys.stderr,
@@ -110,23 +118,38 @@ def emit_response(
             sys.stdout.write(summary)
             sys.stderr.write(essential.getvalue())
             return 0 if response.success else 1
-    if (json_mode or machine_mode) and output_exceeds_limit(
-        response.function, stdout.getvalue(), stderr.getvalue(), full=full
-    ):
-        refusal = response.model_copy(
-            update={
-                "success": False,
-                "result": {},
-                "warnings": [],
-                "event_ids": [],
-                "error": FunctionError(
-                    code="read_output_limit_exceeded",
-                    message="The rendered read exceeds the 28000-byte CLI output limit; no partial answer was printed.",
-                    recovery_hint=read_recovery(response.function),
-                ),
-            }
+    if (
+        json_mode
+        and not machine_mode
+        and output_exceeds_limit(
+            response.function, stdout.getvalue(), stderr.getvalue(), full=full
         )
-        return emit_response(refusal, json_mode=json_mode, full=True)
+    ):
+        try:
+            evidence = save_response(
+                response_to_dict(prepare_human_response(response)),
+                stdout.getvalue(),
+                stderr.getvalue(),
+            )
+        except OSError as exc:
+            print(
+                f"error (response_evidence_unavailable): {exc}. Restore writable temporary storage; inspect the result before repeating a mutation.",
+                file=sys.stderr,
+            )
+            return 1
+        pointer = {
+            "success": response.success,
+            "function": response.function,
+            "saved_response": str(evidence),
+            "read": read_recovery(response.function),
+        }
+        if response.error:
+            pointer["error"] = response.error.code
+            pointer["recovery"] = (
+                "Read saved_response response.error before continuing."
+            )
+        print(json.dumps(pointer, ensure_ascii=False))
+        return 0 if response.success else 1
     sys.stdout.write(stdout.getvalue())
     sys.stderr.write(stderr.getvalue())
     return 0 if response.success else 1
