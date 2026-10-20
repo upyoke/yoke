@@ -9,6 +9,16 @@ from yoke_contracts.hook_evaluator_protocol import (
 
 # Capture when this resident loads, rather than rereading replaced wheel metadata.
 _LOADED_VERSION = installed_engine_version()
+_UNKNOWN_REVISIONS = frozenset({"", "unknown"})
+
+
+def same_revision(left: str, right: str) -> bool:
+    """Whether a caller's revision is the one this resident loaded."""
+    left = left.strip().lower()
+    right = right.strip().lower()
+    if left in _UNKNOWN_REVISIONS or right in _UNKNOWN_REVISIONS:
+        return True
+    return left == right or left.startswith(right) or right.startswith(left)
 
 
 def answer_probe(peer, frame: dict, loaded_revision: str) -> bool:

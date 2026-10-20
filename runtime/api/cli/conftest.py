@@ -77,3 +77,11 @@ def stub_onboard_browser_setup(monkeypatch):
         onboard_machine_setup, "setup_browser", lambda *args, **kwargs: None
     )
     return original
+
+
+@pytest.fixture(autouse=True)
+def stub_onboard_hook_resident(monkeypatch):
+    """Generic onboarding tests must not start a real hook evaluator."""
+    from yoke_cli.config import onboard_hook_resident
+
+    monkeypatch.setattr(onboard_hook_resident, "restart_resident", lambda: None)

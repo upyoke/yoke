@@ -16,7 +16,8 @@ from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 
 LIFECYCLE_USAGE = "yoke hook resident {restart|stop}"
 _STOP_SECONDS = 20.0
-_START_SECONDS = 20.0
+# Covers a cold evaluator import on a small machine; setup and installs wait here.
+_START_SECONDS = 60.0
 _RETRY_SECONDS = 0.05
 
 
@@ -139,7 +140,7 @@ def restart_resident() -> None:
         last_error = "the evaluator has not answered"
         while time.monotonic() < deadline:
             try:
-                response = client._round_trip(paths, request, connect_deadline=deadline)
+                response = client._round_trip(paths, request, deadline)
                 if response.get("status") == "restart":
                     last_error = client._restart_detail(response)
                 else:

@@ -86,34 +86,35 @@ function a server-run policy reaches for local reads (subprocess, environment,
 filesystem, cwd, home, `__file__`); each needs a new home, a named fact, or a
 written reason in `local_read_reasons.py`.
 
-The client starts the resident on demand. It retires after ten idle minutes;
-a request for a different installed revision closes acceptance and re-execs,
-with both revisions named in the handshake. In-flight non-daemon handlers join
-before close. Neither retirement nor upgrade waits indefinitely for telemetry:
-shutdown drains retained observations once for two seconds, warns on timeout,
-and continues.
+Setup, every public install and `yoke hook resident restart` start the resident
+and prove it with a dry evaluation, so a first session meets a warm evaluator;
+otherwise the client starts it on demand. It binds its socket before importing
+the evaluator, so callers during a cold start queue and are answered once it
+loads. It retires after ten idle minutes; a request for a different installed
+revision closes acceptance and re-execs, naming both revisions. In-flight
+handlers join before close; shutdown drains observations once for two seconds,
+warns on timeout, and continues.
 
-Socket/protocol/startup/crash failures use the canonical in-process evaluator
-for that invocation. A named stderr warning is rate-limited across processes to
-once per five minutes in the existing evaluator state directory. An unwritable
-warning marker stays quiet without skipping evaluation. `HookDispatchTelemetry`
-names `evaluator=inprocess` and the fallback reason. A missing resident never
-manufactures an allow. Inspect with:
-
-```text
-yoke watch doctor -- --only hook-resident
-```
-
-The check runs on client machines for local/HTTPS, reports down as WARN with log
-and startup recovery, and is N/A on server/hosted runtimes. An idle retirement is
-normal; the next hook retries startup.
+Socket/protocol/startup/crash failures use the canonical in-process evaluator,
+limited to the budget left. A named stderr warning is rate-limited across
+processes to once per five minutes (an unwritable marker stays quiet and still
+evaluates); `HookDispatchTelemetry` names
+`evaluator=inprocess` and the reason. A missing resident never manufactures an
+allow. `yoke watch doctor -- --only hook-resident` (client machines only) reports
+a down or stale resident as FAIL with `yoke hook resident restart` and the log;
+an idle retirement is normal, and the next hook restarts it.
 
 ### Deadlines and degradation
 
-`RESIDENT_CONNECT_GRACE_SECONDS` (2s) is one absolute budget for connect, startup
-and restart handshakes, enforced on every socket operation. Once sending begins,
-response wait uses `YOKE_HOOK_TOTAL_TIMEOUT_MS` plus two seconds for resident
-settlement, measured from client process start; retries never extend the budget.
+One hook process has one budget: `YOKE_HOOK_TOTAL_TIMEOUT_MS` (default 10000ms)
+from the process's own start, capped 5 seconds below the shortest manifest
+`machine_hooks.hook_timeout_seconds` (`yoke_contracts.hook_budget`). Connecting,
+starting, restart handshakes and the answer all spend it; the resident evaluates
+inside what is left. A launched resident that exits before listening ends the
+wait (`YOKE_HOOK_RESIDENT_START_FAILED`). With under two seconds left the hook
+skips the fallback and answers `hook_budget_exhausted` with the reason, log and
+`yoke hook resident restart`: lifecycle events degrade to an allow with that
+warning, tool events refuse.
 
 The shared `hook_runner_total_timeout_ms` ceiling (default 10000ms;
 `yoke_core.domain.hook_runner_deadline`) spans both chain halves. Client policies

@@ -22,6 +22,7 @@ here: nothing is written and the result names `<harness>_not_installed`.
 | `project_config_in_ancestors` | boolean | `true` reads project configs in each folder from the session folder up to the repository root; `false` reads only the folder the harness opened. |
 | `events` | array | `{native_event, verb, matcher?}` entries installed in the user config. |
 | `trust` | string | `none`, or `codex_trusted_hash` when the harness runs a hooks file only after trusting each handler. |
+| `hook_timeout_seconds` | integer | Seconds the harness lets one hook command run: the `timeout` Yoke writes (Cursor), or the harness default when Yoke writes none (Claude Code, Codex). The hook budget stays below the shortest of these. |
 | `deferrals` | array | Events the harness offers that the set leaves out on purpose, each with its reason. |
 
 ## Step-aside rule

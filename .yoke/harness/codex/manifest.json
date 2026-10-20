@@ -222,6 +222,7 @@
       }
     ],
     "trust": "codex_trusted_hash",
+    "hook_timeout_seconds": 600,
     "deferrals": [
       "SessionEnd: codex-cli 0.161.0 fires a SessionEnd hook, but Yoke's Codex project hooks do not wire it; the machine-wide set matches the project set so one Yoke evaluation runs per native event."
     ]

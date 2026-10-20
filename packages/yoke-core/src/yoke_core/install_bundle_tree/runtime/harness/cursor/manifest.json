@@ -200,6 +200,7 @@
       }
     ],
     "trust": "none",
+    "hook_timeout_seconds": 30,
     "deferrals": []
   },
   "worktree_hook_enablement": {

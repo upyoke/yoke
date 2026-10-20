@@ -30,37 +30,27 @@ from yoke_contracts.hook_process_context import (
     activate_process_context,
     install_process_context,
 )
-from yoke_harness.hook_resident_probe import receive_request
+from yoke_harness.hook_resident_probe import receive_request, same_revision
 from yoke_contracts.hook_resident_routing import (
     is_read_only_tool_event,
     message_probe_key,
 )
 
 
-_UNKNOWN_REVISIONS = frozenset({"", "unknown"})
 _SERVER_POLL_SECONDS = 0.25
 RESTART_FOR_INSTALLED_REVISION = "restart"
 RETIRED_WHILE_IDLE = "idle"
-
-
-def _same_revision(left: str, right: str) -> bool:
-    left = left.strip().lower()
-    right = right.strip().lower()
-    if left in _UNKNOWN_REVISIONS or right in _UNKNOWN_REVISIONS:
-        return True
-    return left == right or left.startswith(right) or right.startswith(left)
 
 
 class _ResidentServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
     daemon_threads = False
     block_on_close = True
     allow_reuse_address = True
+    # Hooks that connect while the evaluator loads wait here, not in a fallback.
+    request_queue_size = 128
 
     def __init__(self, socket_path: str, lock_fd: int) -> None:
         install_process_context()
-        from yoke_harness.hook_resident_http import ResidentHttpOpener
-        from yoke_harness.hook_resident_observations import ObservationQueue
-
         self.socket_path = socket_path
         self.lock_fd = lock_fd
         self.loaded_revision = str(
@@ -74,14 +64,22 @@ class _ResidentServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer
         self.last_message_probes: dict[str, float] = {}
         self.stop_event = threading.Event()
         self.restart_event = threading.Event()
+        # Bind before the slow evaluator import, so a cold start is reachable
+        # at once and its first callers queue for the answer.
+        super().__init__(socket_path, _ResidentHandler)
+        self.timeout = _SERVER_POLL_SECONDS
+
+    def load_evaluator(self) -> None:
+        """Import the canonical evaluator; queued hooks are answered after it."""
+        from yoke_harness.hook_resident_http import ResidentHttpOpener
+        from yoke_harness.hook_resident_observations import ObservationQueue
+
         self.http_opener = ResidentHttpOpener()
         self.observations = ObservationQueue(self.http_opener)
         # Process facades must exist before importing the canonical evaluator.
         from yoke_cli.commands.adapters.hook_inprocess import evaluate_inprocess
 
         self.evaluate_inprocess = evaluate_inprocess
-        super().__init__(socket_path, _ResidentHandler)
-        self.timeout = _SERVER_POLL_SECONDS
 
     def begin_request(self) -> None:
         with self.state_lock:
@@ -202,7 +200,7 @@ class _ResidentHandler(socketserver.BaseRequestHandler):
                 request = receive_request(self.request, self.server.loaded_revision)
                 if request is None:
                     return
-                if not _same_revision(request.revision, self.server.loaded_revision):
+                if not same_revision(request.revision, self.server.loaded_revision):
                     send_frame(
                         self.request,
                         {
@@ -297,6 +295,7 @@ def _serve(socket_path: Path, lock_fd: int) -> bool:
     signal.signal(signal.SIGINT, stop)
     restart = False
     try:
+        server.load_evaluator()
         while not server.stop_event.is_set():
             reason = _exit_reason(server)
             if reason is not None:
@@ -307,11 +306,12 @@ def _serve(socket_path: Path, lock_fd: int) -> bool:
         # In-flight evaluations finish first: handler threads are non-daemon
         # and ``block_on_close`` joins them here.
         server.server_close()
-        if not server.observations.close(drain_timeout=2.0):
-            from yoke_harness.hook_observation_delivery import drain_timeout_warning
+        if hasattr(server, "observations"):  # the evaluator finished loading
+            if not server.observations.close(drain_timeout=2.0):
+                from yoke_harness import hook_observation_delivery as delivery
 
-            sys.stderr.write(drain_timeout_warning())
-        server.http_opener.close()
+                sys.stderr.write(delivery.drain_timeout_warning())
+            server.http_opener.close()
         _unlink_socket(socket_path)
     return restart
 

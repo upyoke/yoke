@@ -18,6 +18,7 @@ from collections.abc import Mapping
 from typing import Any, Optional
 
 from yoke_contracts.harness_machine_hooks import (
+    HARNESS_MACHINE_HOOKS,
     RETIRED_USER_HOOK_MARKERS,
     HarnessMachineHooks,
     entry_commands,
@@ -47,7 +48,7 @@ _IDENTITY_ENV: Mapping[str, str] = {
 
 #: Cursor kills an entry after ``timeout`` seconds; an explicit ceiling keeps
 #: a slow transport from meeting an undocumented platform default.
-CURSOR_HOOK_TIMEOUT_S = 30
+CURSOR_HOOK_TIMEOUT_S = HARNESS_MACHINE_HOOKS["cursor"].hook_timeout_seconds
 
 # Worktree path segments the Cursor fallback peels, held in variables so the
 # rendered command never spells a JSONC comment delimiter.

@@ -12,6 +12,7 @@ from pathlib import Path
 
 from yoke_cli import hook_resident_paths as _resident_paths
 from yoke_contracts import platform_file_lock
+from yoke_contracts.hook_budget import TOTAL_TIMEOUT_ENV, hook_budget_ms
 from yoke_contracts.execution_provenance import collect_execution_provenance
 from yoke_contracts.hook_evaluator_protocol import (
     HookClientWallReport,
@@ -29,14 +30,11 @@ resident_transport_available = _resident_paths.resident_transport_available
 machine_config = _resident_paths.machine_config
 
 
-# Total time this process may spend reaching a usable resident: connecting,
-# starting one, and re-trying after a restart handshake. An absolute
-# deadline imposed on every socket operation, not a loop-top glance.
-RESIDENT_CONNECT_GRACE_SECONDS = 2.0
 _CONNECT_ATTEMPT_SECONDS = 0.1
 _START_RETRY_SECONDS = 0.025
-# The floor a legitimate evaluation keeps however much the grace spent.
-_MINIMUM_RESULT_SECONDS = 1.0
+# What the resident keeps back from the caller's remaining budget, so its
+# answer arrives before the caller stops listening.
+_SETTLEMENT_SECONDS = 0.5
 
 
 @dataclass(frozen=True)
@@ -65,32 +63,16 @@ class ResidentUnavailable(RuntimeError):
         super().__init__(f"{code}: {detail}")
 
 
-def _result_ceiling_seconds(environment: dict[str, str]) -> float:
-    """The hook's own total budget, plus slack for the resident to self-stop."""
-    raw = environment.get("YOKE_HOOK_TOTAL_TIMEOUT_MS", "").strip()
-    try:
-        timeout_ms = int(raw) if raw else 10000
-    except ValueError:
-        timeout_ms = 10000
-    return max(1.0, timeout_ms / 1000.0 + 2.0)
-
-
-def _result_timeout_seconds(
-    environment: dict[str, str],
-    client_started_monotonic: float | None,
+def _budget_deadline(
+    environment: dict[str, str], client_started_monotonic: float | None
 ) -> float:
-    """Bound the response wait by what is left of the hook's total budget.
-
-    A legitimate evaluation still gets its intended deadline — at send
-    time a healthy hook has spent milliseconds. What this removes is the
-    case where connect retries burn the grace and a full ceiling then
-    starts counting from there, so one call could outlast its own budget.
-    """
-    ceiling = _result_ceiling_seconds(environment)
-    if client_started_monotonic is None:
-        return ceiling
-    spent = max(0.0, time.monotonic() - client_started_monotonic)
-    return max(_MINIMUM_RESULT_SECONDS, ceiling - spent)
+    """When this hook process's budget ends, measured from its own start."""
+    started = (
+        time.monotonic()
+        if client_started_monotonic is None
+        else client_started_monotonic
+    )
+    return started + hook_budget_ms(environment) / 1000.0
 
 
 def _request(
@@ -112,48 +94,61 @@ def _request(
     )
 
 
-def _connect_timeout_seconds(connect_deadline: float | None) -> float:
-    """Never wait past the grace merely to open the socket."""
-    if connect_deadline is None:
-        return _CONNECT_ATTEMPT_SECONDS
-    remaining = connect_deadline - time.monotonic()
+def _connect(paths: ResidentPaths, deadline: float) -> socket.socket:
+    """One connect attempt that never waits past the budget."""
+    remaining = deadline - time.monotonic()
     if remaining <= 0:
-        raise socket.timeout("resident connect grace is exhausted")
-    return min(_CONNECT_ATTEMPT_SECONDS, remaining)
+        raise socket.timeout("hook budget is exhausted")
+    peer = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        peer.settimeout(min(_CONNECT_ATTEMPT_SECONDS, remaining))
+        peer.connect(str(paths.socket))
+    except BaseException:
+        peer.close()
+        raise
+    return peer
+
+
+def _exchange(
+    peer: socket.socket,
+    request: HookEvaluatorRequest,
+    deadline: float,
+    client_started_monotonic: float | None = None,
+) -> dict:
+    """Send one request; the resident evaluates inside what is left."""
+    remaining = deadline - time.monotonic()
+    payload = request.to_mapping()
+    payload["environment"] = {
+        **request.environment,
+        TOTAL_TIMEOUT_ENV: str(max(1, int((remaining - _SETTLEMENT_SECONDS) * 1000))),
+    }
+    peer.settimeout(max(0.001, remaining))
+    send_frame(peer, payload)
+    response = receive_frame(peer)
+    if (
+        response.get("status") == "ok"
+        and request.client_timing_id
+        and client_started_monotonic is not None
+    ):
+        report = HookClientWallReport(
+            event_id=request.client_timing_id,
+            client_wall_ms=max(
+                0, int((time.monotonic() - client_started_monotonic) * 1000)
+            ),
+        )
+        try:
+            send_frame(peer, report.to_mapping())
+        except (HookEvaluatorProtocolError, OSError, socket.timeout):
+            pass
+    return response
 
 
 def _round_trip(
-    paths: ResidentPaths,
-    request: HookEvaluatorRequest,
-    *,
-    client_started_monotonic: float | None = None,
-    connect_deadline: float | None = None,
+    paths: ResidentPaths, request: HookEvaluatorRequest, deadline: float
 ) -> dict:
-    peer = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    peer = _connect(paths, deadline)
     try:
-        peer.settimeout(_connect_timeout_seconds(connect_deadline))
-        peer.connect(str(paths.socket))
-        peer.settimeout(
-            _result_timeout_seconds(request.environment, client_started_monotonic)
-        )
-        send_frame(peer, request.to_mapping())
-        response = receive_frame(peer)
-        if (
-            response.get("status") == "ok"
-            and request.client_timing_id
-            and client_started_monotonic is not None
-        ):
-            report = HookClientWallReport(
-                event_id=request.client_timing_id,
-                client_wall_ms=max(
-                    0, int((time.monotonic() - client_started_monotonic) * 1000)
-                ),
-            )
-            try:
-                send_frame(peer, report.to_mapping())
-            except (HookEvaluatorProtocolError, OSError, socket.timeout):
-                pass
-        return response
+        return _exchange(peer, request, deadline)
     finally:
         peer.close()
 
@@ -169,14 +164,17 @@ def _open_start_lock(path: Path) -> int | None:
     return descriptor
 
 
-def _start_resident(paths: ResidentPaths, environment: dict[str, str]) -> None:
+def _start_resident(
+    paths: ResidentPaths, environment: dict[str, str]
+) -> subprocess.Popen | None:
+    """Launch a resident unless another caller holds the start lock."""
     lock_fd = _open_start_lock(paths.lock)
     if lock_fd is None:
-        return
+        return None
     log_fd = -1
     try:
         log_fd = os.open(paths.log, os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600)
-        subprocess.Popen(
+        return subprocess.Popen(
             [
                 sys.executable,
                 "-m",
@@ -265,7 +263,13 @@ def evaluate_with_resident(
     client_timing_id: str = "",
     client_started_monotonic: float | None = None,
 ) -> ResidentEvaluation:
-    """Evaluate through the resident or raise a named fallback reason."""
+    """Evaluate through the resident inside the hook budget, or raise why not.
+
+    The resident listens before it loads the evaluator, so a cold one is
+    reachable at once: the caller waits on it rather than loading a second
+    evaluator beside it. A launched resident that exits before listening
+    ends the wait at once.
+    """
     paths = resident_paths()
     if not resident_transport_available():
         raise ResidentUnavailable(
@@ -274,52 +278,62 @@ def evaluate_with_resident(
             log_path=paths.log,
         )
     request = _request(event_name, stdin_data, dry_run, client_timing_id)
+    deadline = _budget_deadline(request.environment, client_started_monotonic)
     started = time.monotonic()
-    deadline = started + RESIDENT_CONNECT_GRACE_SECONDS
+    launched: subprocess.Popen | None = None
     start_attempted = False
     last_error = "socket is unreachable"
 
     def waited_ms() -> int:
         return max(0, int((time.monotonic() - started) * 1000))
 
-    while time.monotonic() < deadline:
+    def unavailable(code: str, detail: str) -> ResidentUnavailable:
+        return ResidentUnavailable(
+            code, detail, log_path=paths.log, resident_wait_ms=waited_ms()
+        )
+
+    while True:
         try:
-            response = _round_trip(
-                paths,
-                request,
-                client_started_monotonic=client_started_monotonic,
-                connect_deadline=deadline,
-            )
-        except HookEvaluatorProtocolError as exc:
-            raise ResidentUnavailable(
-                "YOKE_HOOK_RESIDENT_PROTOCOL_ERROR",
-                str(exc),
-                log_path=paths.log,
-                resident_wait_ms=waited_ms(),
-            ) from None
-        except (ConnectionError, OSError, socket.timeout) as exc:
+            peer = _connect(paths, deadline)
+        except OSError as exc:
             last_error = f"socket unavailable ({type(exc).__name__})"
             if not start_attempted:
-                _start_resident(paths, request.environment)
+                launched = _start_resident(paths, request.environment)
                 start_attempted = True
+            elif launched is not None and launched.poll() is not None:
+                raise unavailable(
+                    "YOKE_HOOK_RESIDENT_START_FAILED",
+                    f"resident exited with status {launched.returncode} "
+                    "before it listened",
+                ) from None
         else:
-            if response.get("status") != "restart":
+            try:
+                response = _exchange(peer, request, deadline, client_started_monotonic)
+            except HookEvaluatorProtocolError as exc:
+                raise unavailable("YOKE_HOOK_RESIDENT_PROTOCOL_ERROR", str(exc)) from None
+            except socket.timeout:
+                raise unavailable(
+                    "YOKE_HOOK_RESIDENT_TIMEOUT",
+                    "resident did not answer inside the hook budget",
+                ) from None
+            except OSError as exc:
+                # A resident closing for an upgrade resets queued callers.
+                response = {}
+                last_error = f"resident connection reset ({type(exc).__name__})"
+            finally:
+                peer.close()
+            if response and response.get("status") != "restart":
                 return _validated_result(response, paths, waited_ms())
-            last_error = _restart_detail(response)
-        # Every retry is spent inside the grace, so a resident that keeps
+            if response:
+                last_error = _restart_detail(response)
+        # Every retry is spent inside the budget, so a resident that keeps
         # answering "restart" cannot amplify into an unbounded wait.
         if deadline - time.monotonic() <= _START_RETRY_SECONDS:
-            break
+            raise unavailable("YOKE_HOOK_RESIDENT_UNREACHABLE", last_error)
         time.sleep(_START_RETRY_SECONDS)
-    raise ResidentUnavailable(
-        "YOKE_HOOK_RESIDENT_UNREACHABLE",
-        last_error,
-        log_path=paths.log,
-        resident_wait_ms=waited_ms(),
-    )
+
 
 __all__ = [
-    "RESIDENT_CONNECT_GRACE_SECONDS",
     "ResidentEvaluation",
     "ResidentPaths",
     "ResidentUnavailable",
