@@ -28,7 +28,7 @@ def call(args, session, cwd, as_json=True):
         env.pop(name, None)
     if session:
         env['YOKE_SESSION_ID'] = session
-    argv = [binary] + list(args) + (['--json'] if as_json else [])
+    argv = [binary] + list(args) + (['--json', '--full'] if as_json else [])
     try:
         result = subprocess.run(argv, capture_output=True, text=True, timeout=120, cwd=cwd, env=env)
     except (OSError, subprocess.TimeoutExpired):
@@ -109,9 +109,10 @@ elif mode == 'first-work':
     spec = os.path.join(outside, 'spec.md')
     with open(spec, 'w') as handle:
         handle.write('Prove first project work refuses outside its folder.\n')
-    result, _ = call(['items', 'create', 'Scope proof', 'task', '--spec-file', spec, '--execution-instructions-considered', '--project', 'scope-proof'], session, outside)
+    result, _ = call(['items', 'create', '--title', 'Scope proof', '--workflow', 'task', '--spec-file', spec, '--execution-instructions-considered', '--project', 'scope-proof'], session, outside)
     found = re.search(r'SCP-[0-9]+', result.stdout)
     if result.returncode or found is None:
+        print('items create exit ' + str(result.returncode) + ':', result.stdout, result.stderr, sep='\n', flush=True)
         sys.exit('first_work_fixture_item_failed: retain the item create output and repair item creation before retrying')
     ref = found.group(0)
     code, text, named = claim(ref, session, outside)

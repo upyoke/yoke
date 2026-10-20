@@ -110,6 +110,8 @@ class FakeCli:
             args = args[2:]
         command = args[:3]
         self.calls.append(command)
+        # A JSON read without --full can come back as a saved-response pointer.
+        assert "--json" not in argv or "--full" in argv
         if command[:2] == ["sessions", "begin"]:
             in_project = str(cwd) == self.checkout
             self.scopes.setdefault(session, (7, None) if in_project else (None, 1))
@@ -127,6 +129,10 @@ class FakeCli:
         if command[:2] in (["projects", "create"], ["project", "register"]):
             return self._ok({})
         if command[:2] == ["items", "create"]:
+            if args[2:6] != ["--title", "Scope proof", "--workflow", "task"]:
+                return CompletedProcess(
+                    argv, 2, stdout="", stderr=f"{ITEM_CREATE_REFUSAL} {args[2:4]}"
+                )
             return self._ok({"public_ref": "SCP-1"})
         assert command == ["claims", "work", "acquire"]
         if self.scopes[session][0] == 7:
@@ -153,6 +159,9 @@ class FakeCli:
     def _ok(result):
         body = json.dumps({"success": True, "result": result})
         return CompletedProcess([], 0, stdout=body, stderr="")
+
+
+ITEM_CREATE_REFUSAL = "yoke items create: error: unrecognized arguments:"
 
 
 @pytest.fixture
@@ -255,6 +264,27 @@ def test_first_work_fails_closed_without_each_positive_fact(
     with pytest.raises(SystemExit) as caught:
         _probe(monkeypatch, "first-work")
     assert str(caught.value).startswith(reason)
+
+
+def test_a_failed_item_create_prints_its_output_before_refusing(
+    cli, monkeypatch, capsys
+):
+    fake = cli()
+    real_run = fake.run
+
+    def refused_create(argv, **kwargs):
+        if argv[1:3] == ["items", "create"]:
+            return CompletedProcess(
+                argv, 2, stdout="partial", stderr=ITEM_CREATE_REFUSAL
+            )
+        return real_run(argv, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", refused_create)
+    with pytest.raises(SystemExit) as caught:
+        _probe(monkeypatch, "first-work")
+    assert str(caught.value).startswith("first_work_fixture_item_failed:")
+    output = capsys.readouterr().out
+    assert f"items create exit 2:\npartial\n{ITEM_CREATE_REFUSAL}" in output
 
 
 def test_outside_session_without_org_scope_kind_fails_closed(cli, monkeypatch):
