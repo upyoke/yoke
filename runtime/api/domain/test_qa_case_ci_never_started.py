@@ -138,3 +138,13 @@ def test_real_failure_is_not_redispatched(monkeypatch):
     dispatch.assert_not_called()
     cancel.assert_not_called()
     assert resolved == [{"run_id": "77", "conclusion": "failure"}]
+
+
+def test_cancelled_run_is_not_redispatched(monkeypatch):
+    result, dispatch, cancel, resolved = _await(monkeypatch, [(1, "failed:cancelled")])
+
+    assert result.run_id == "77"
+    assert result.exit_code == 1
+    dispatch.assert_not_called()
+    cancel.assert_not_called()
+    assert resolved == [{"run_id": "77", "conclusion": "cancelled"}]

@@ -209,6 +209,13 @@ def _insert(
             f"AND run_id={p} AND notified_at IS NULL",
             (session_id, body.supersedes_run_id),
         )
+    if body.head_sha:
+        conn.execute(
+            f"DELETE FROM session_ci_run_waits WHERE session_id={p} "
+            f"AND project_id={p} AND repo={p} AND kind={p} "
+            f"AND head_sha <> {p} AND head_sha <> '' AND notified_at IS NULL",
+            (session_id, project_id, body.repo, body.kind, body.head_sha),
+        )
     existing: Optional[Any] = conn.execute(
         f"SELECT id FROM session_ci_run_waits WHERE session_id={p} AND run_id={p}",
         (session_id, body.run_id),

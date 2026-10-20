@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional
 
-from yoke_core.domain.ci_job_outcome import CI_JOB_NOT_STARTED
+from yoke_core.domain.ci_job_outcome import CANCELLED_RECOVERY, CI_JOB_NOT_STARTED
 from yoke_core.domain.github_actions_failed_jobs import (
     LOG_AVAILABLE,
     FailedJob,
@@ -74,11 +74,16 @@ def build_failed_job_report(
             lead = f"No failed jobs yet in run {run_id} — {run_url}"
         elif failures.conclusion == "success":
             lead = f"Run {run_id}: run concluded success; no failed jobs — {run_url}"
-        elif failures.conclusion in ("", "cancelled", CI_JOB_NOT_STARTED):
+        elif failures.conclusion == "cancelled":
+            lead = (
+                f"No failed jobs in run {run_id}: no verdict; "
+                f"{CANCELLED_RECOVERY}. Open {run_url}."
+            )
+        elif failures.conclusion in ("", CI_JOB_NOT_STARTED):
             lead = (
                 f"No failed jobs in run {run_id}: nothing it ran reported a "
-                "failure, so the run reached no verdict (cancelled, or "
-                f"{CI_JOB_NOT_STARTED} when its jobs never started). "
+                "failure, so the run reached no verdict "
+                f"({CI_JOB_NOT_STARTED} when its jobs never started). "
                 f"Re-dispatch: re-run the command that started it — open {run_url}."
             )
         else:

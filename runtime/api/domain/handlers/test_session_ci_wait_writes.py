@@ -128,3 +128,73 @@ def test_record_names_why_a_session_cannot_hold_a_ci_wait(
     assert outcome.error.code == code
     assert recovery in outcome.error.message
     assert "re-register" not in outcome.error.message
+
+
+@pytest.mark.parametrize(
+    ("old_session", "old_repo", "old_kind", "old_sha", "notified", "dropped"),
+    [
+        (SESSION, "acme/widgets", "selection", "a" * 40, None, True),
+        ("s2", "acme/widgets", "selection", "a" * 40, None, False),
+        (SESSION, "acme/other", "selection", "a" * 40, None, False),
+        (SESSION, "acme/widgets", "qa_case", "a" * 40, None, False),
+        (SESSION, "acme/widgets", "selection", "b" * 40, None, False),
+        (SESSION, "acme/widgets", "selection", "", None, False),
+        (SESSION, "acme/widgets", "selection", "a" * 40, "2026-09-04T17:50:00Z", False),
+    ],
+)
+def test_record_new_candidate_drops_only_its_superseded_pending_waits(
+    waiting_connection,  # noqa: F811 - pytest fixture reuse
+    monkeypatch,
+    old_session,
+    old_repo,
+    old_kind,
+    old_sha,
+    notified,
+    dropped,
+):
+    from runtime.api.domain.test_session_ci_wait_observer import NOW
+    from yoke_core.domain.session_ci_wait_observer import observe_pending_ci_runs
+
+    conn = waiting_connection
+    conn.execute(
+        "UPDATE session_ci_run_waits SET session_id=?, repo=?, kind=?, "
+        "head_sha=?, notified_at=? WHERE run_id=?",
+        (old_session, old_repo, old_kind, old_sha, notified, RUN_ID),
+    )
+    conn.commit()
+    monkeypatch.setattr(writes, "_connect_rw", lambda: _ConnCM(conn))
+    request = _record_request(SESSION)
+    request.payload.update(run_id="new-run", head_sha="b" * 40)
+
+    outcome = writes.handle_record_ci_wait(request)
+
+    assert outcome.primary_success is True
+    assert outcome.result_payload["recorded"] is True
+    old = conn.execute(
+        "SELECT id FROM session_ci_run_waits WHERE run_id=?", (RUN_ID,)
+    ).fetchone()
+    assert (old is None) is dropped
+    reads = []
+
+    def read_run(_project, _repo, run_id):
+        reads.append(run_id)
+        return "completed", "cancelled", ""
+
+    observe_pending_ci_runs(conn, [1], now=NOW, read_run=read_run)
+    if dropped:
+        assert reads == ["new-run"]
+    elif notified is None:
+        assert RUN_ID in reads
+
+
+def test_record_without_commit_does_not_drop_a_pending_candidate(
+    waiting_connection,  # noqa: F811 - pytest fixture reuse
+    monkeypatch,
+):
+    conn = waiting_connection
+    monkeypatch.setattr(writes, "_connect_rw", lambda: _ConnCM(conn))
+    request = _record_request(SESSION)
+    request.payload["run_id"] = "unknown-commit"
+
+    assert writes.handle_record_ci_wait(request).primary_success is True
+    assert conn.execute("SELECT COUNT(*) FROM session_ci_run_waits").fetchone()[0] == 2
