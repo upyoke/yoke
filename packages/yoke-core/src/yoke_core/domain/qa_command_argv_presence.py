@@ -13,7 +13,10 @@ machine runs the suite, which is often not the machine registering it — an
 operator on a laptop binding `mvn verify` for a repository whose CI has Maven
 is doing exactly the right thing, and refusing that would make the honest case
 impossible. So a bare name that resolves on PATH is reported as verified, and
-one that does not is reported as unverified-here rather than wrong.
+one that does not is reported as unverified-here rather than wrong. A bare
+interpreter (`python3`, `node`, `sh`) is always unverified-here: this process
+runs beside one, so finding it on PATH says nothing about the machine that will
+run the suite or the script it is handed.
 
 Nothing here asks whether the command is a *good* gate. That judgement belongs
 to the operator, and when the honest answer is "there is no suite", the
@@ -25,6 +28,7 @@ command gets registered in the first place.
 
 from __future__ import annotations
 
+import re
 import shlex
 import shutil
 from dataclasses import dataclass
@@ -36,6 +40,13 @@ from pathlib import Path
 REFUSING_REASON_CODES = frozenset({
     "empty_command", "unparsable_command", "argv_absent_from_repo",
 })
+
+
+#: Interpreters found on nearly every PATH, the checking process's included.
+_BARE_INTERPRETER = re.compile(
+    r"(?:python|pypy|node|deno|bun|ruby|perl|php|sh|bash|zsh|dash|uv|npx|env)"
+    r"[0-9.]*"
+)
 
 
 @dataclass(frozen=True)
@@ -111,6 +122,19 @@ def check_argv_presence(command: str, *, checkout: Path | None) -> ArgvPresence:
                 f"actually runs, or — when it has no suite at all — attest "
                 f"that with `yoke qa no-tests attest --project <project> "
                 f"--reason <why>`."
+            ),
+        )
+    if _BARE_INTERPRETER.fullmatch(token):
+        return ArgvPresence(
+            verified=False,
+            reason_code="interpreter_unverifiable_here",
+            token=token,
+            message=(
+                f"{token!r} is a bare interpreter, so finding it on this "
+                f"machine's PATH does not show that {text!r} runs where the "
+                f"suite runs; it was not verified here and is not a refusal. "
+                f"To get the repository check, register the script it runs "
+                f"by its repository path (for example `./scripts/test.sh`)."
             ),
         )
     if shutil.which(token):
