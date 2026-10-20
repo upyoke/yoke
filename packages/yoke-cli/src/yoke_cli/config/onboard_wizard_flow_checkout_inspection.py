@@ -149,11 +149,13 @@ class CheckoutInspectionFlow:
                     step=STEP_PROJECT,
                     title="Couldn't fetch the repository.",
                     message=str(exc),
-                    detail_lines=tuple([
-                        "Check the repository URL, your GitHub access, and the "
-                        "network connection.",
-                        "Choosing a different folder starts the fetch again.",
-                    ]),
+                    detail_lines=tuple(
+                        [
+                            "Check the repository URL, your GitHub access, and the "
+                            "network connection.",
+                            "Choosing a different folder starts the fetch again.",
+                        ]
+                    ),
                     choices=tuple(screen.FETCH_ERROR_ROWS),
                     tone=TONE_ERROR,
                 ),

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from yoke_cli.config import machine_config
+from yoke_cli.config import onboard_wizard_apply_facts as apply_facts
 from yoke_cli.config import onboard_wizard_stored_github
 from yoke_cli.config.onboard_destinations import (
     DEFAULT_SIGN_IN_ENV,
@@ -96,9 +97,12 @@ class StoredConnectionHydration:
 
     def _hydrate_stored_project_checkouts(self: _Shell) -> None:
         try:
-            self._stored_project_checkouts = machine_config.configured_projects(
-                self.result.config_path,
-                existing_only=True,
+            self._stored_project_checkouts = apply_facts.without_own_registration(
+                self,
+                machine_config.configured_projects(
+                    self.result.config_path,
+                    existing_only=True,
+                ),
             )
         except (OSError, RuntimeError, ValueError):
             self._stored_project_checkouts = []

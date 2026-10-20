@@ -148,7 +148,7 @@ def _run_provision(
             "for the server to become healthy.",
         ],
         work=lambda: server.provision(setup, prerequisites),
-        on_success=lambda ready: _goto_complete(shell, ready),
+        on_success=lambda ready: goto_complete(shell, ready),
         on_error=lambda exc: _goto_failure(shell, setup, _safe_error(exc)),
         group="onboard-self-host-provision",
         blocks_quit=True,
@@ -168,7 +168,7 @@ def _run_connect_retry(shell: _Shell, setup: server.SelfHostSetup) -> None:
             f"{setup.url} to answer."
         ],
         work=lambda: server.retry_connection(setup),
-        on_success=lambda ready: _goto_complete(shell, ready),
+        on_success=lambda ready: goto_complete(shell, ready),
         on_error=lambda exc: _goto_failure(shell, setup, _safe_error(exc)),
         group="onboard-self-host-connect",
         blocks_quit=False,
@@ -222,10 +222,12 @@ def _on_failure(
     _run_preflight(shell, setup)
 
 
-def _goto_complete(shell: _Shell, setup: server.SelfHostSetup) -> None:
+def goto_complete(shell: _Shell, setup: server.SelfHostSetup) -> None:
+    from yoke_cli.config import onboard_wizard_run_connection as run_connection
     from yoke_cli.config.onboard_wizard_state import _View
 
-    _select_connection(shell, setup)
+    select_connection(shell, setup)
+    run_connection.record_self_host(shell, setup)
     shell._goto(
         _View(
             SetupPrompt(
@@ -289,7 +291,7 @@ def machine_may_sleep(
         return False
 
 
-def _select_connection(shell: _Shell, setup: server.SelfHostSetup) -> None:
+def select_connection(shell: _Shell, setup: server.SelfHostSetup) -> None:
     shell.result.destination = DESTINATION_SERVER
     shell.result.api_url = setup.url
     shell.result.env_name = setup.env_name
@@ -328,6 +330,8 @@ __all__ = [
     "NO_SERVER_GUIDANCE",
     "PREVIEW_ROWS",
     "SLEEP_WARNING",
+    "goto_complete",
     "goto_self_host_server",
     "machine_may_sleep",
+    "select_connection",
 ]

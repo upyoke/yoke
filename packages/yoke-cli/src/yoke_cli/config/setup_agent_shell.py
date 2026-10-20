@@ -49,15 +49,6 @@ class AgentShell(AgentApprovals, AnswerFlow):
         self._checking = self._checking_blocks_quit = True
         self._finish_install(*self._check_install())
 
-    def _start_connect(self) -> None:
-        # Approval saves machine credentials before Apply. Resume the chosen
-        # destination instead of inserting a new saved-connection question
-        # ahead of the question this setup already printed.
-        if self._answers.value("connect.destination") is not None:
-            self._goto_destination_picker()
-            return
-        super()._start_connect()
-
     # ── flow control ────────────────────────────────────────
 
     def _goto(self, view: _View) -> None:
@@ -179,9 +170,13 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
         cli_answers: dict[str, str],
         refusal: tuple[str, str] | None = None,
     ) -> None:
-        init_setup_state(self, defaults=defaults, apply_report=apply_report)
+        init_setup_state(
+            self,
+            defaults=defaults,
+            apply_report=apply_report,
+            run_facts=RunFacts(store.facts, on_change=store.keep_facts),
+        )
         self._answers = store
-        self._run_facts = RunFacts(store.facts, on_change=store.keep_facts)
         self._cli = dict(cli_answers)
         self._pending_refusal = refusal
         waiting = store.waiting_key

@@ -80,7 +80,7 @@ class AnswerStore:
         self.waiting_key: str | None = record.get("waiting_key")
         self.apply_failure: dict[str, Any] | None = record.get("apply_failure")
         self.pending_approval: dict[str, Any] | None = record.get("pending_approval")
-        self.facts: dict[str, str] = dict(record.get("facts") or {})
+        self.facts: dict[str, Any] = dict(record.get("facts") or {})
         self._staged: dict[str, str] = {}
         self._dropped: set[str] = set()
         self._lock_fd: int | None = None
@@ -140,7 +140,7 @@ class AnswerStore:
         if self.existed or approval is not None:
             self._write()
 
-    def keep_facts(self, facts: dict[str, str]) -> None:
+    def keep_facts(self, facts: dict[str, Any]) -> None:
         """Save the run facts now, answers untouched.
 
         A step's effect already happened when it records its fact, so the fact

@@ -16,6 +16,7 @@ from textual.css.query import NoMatches
 from textual.widgets import Static
 
 from yoke_cli.config import onboard_wizard_steps as steps
+from yoke_cli.config import onboard_wizard_apply_facts as apply_facts
 from yoke_cli.config.github_repository_create import REPOSITORY_CONTENT_MISMATCH
 from yoke_cli.config.onboard_error_friendly import (
     friendly_permission_error,
@@ -38,6 +39,7 @@ class ApplyFlow:
         instead it runs in a worker thread so the loop keeps painting, and each
         build_report progress event flips one Applying row in place.
         """
+        apply_facts.record(self)
         self._apply_steps = self._applying_step_model()
         self._applying = True
         self._goto_applying()
@@ -224,11 +226,13 @@ class ApplyFlow:
             report_path=self.report_path,
             checkout_path=_preservable_checkout_path(run_id),
         )
-        self._goto(_View(
-            prompts.apply_different_folder_prompt(**state),
-            self._on_apply_different_folder,
-            lambda: steps.apply_different_folder_body(**state),
-        ))
+        self._goto(
+            _View(
+                prompts.apply_different_folder_prompt(**state),
+                self._on_apply_different_folder,
+                lambda: steps.apply_different_folder_body(**state),
+            )
+        )
 
     def _on_apply_different_folder(self, choice: str) -> None:
         if choice == "cancel":
@@ -262,11 +266,13 @@ class ApplyFlow:
         self._goto_apply_failure()
 
     def _goto_apply_success(self) -> None:
-        self._replace_current(_View(
-            prompts.apply_success_prompt(self.report_path),
-            self._on_apply_success,
-            self._build_apply_success,
-        ))
+        self._replace_current(
+            _View(
+                prompts.apply_success_prompt(self.report_path),
+                self._on_apply_success,
+                self._build_apply_success,
+            )
+        )
 
     def _on_apply_success(self, choice: str) -> None:
         if choice == "show-report":

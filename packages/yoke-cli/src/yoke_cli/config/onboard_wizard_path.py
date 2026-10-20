@@ -11,6 +11,7 @@ from yoke_cli.config.onboard_wizard_path_screens import (
     path_apply_error_prompt,
 )
 from yoke_cli.config.onboard_wizard_widgets import STEP_INSTALL
+from yoke_cli.config.setup_run_facts import PATH_CHANGED_FILES
 
 
 class PathFlow:
@@ -29,9 +30,18 @@ class PathFlow:
         self._checking = False
         self._checking_blocks_quit = False
         previous = self.result.path_repair or {}
-        plan["changed_files"] = sorted(
-            set([*previous.get("changed_files", []), *plan.get("changed_files", [])])
+        # A later pass finds the shell files already repaired; the run fact
+        # keeps the files this run changed so the done screen still names them.
+        changed = sorted(
+            {
+                *(self._run_facts.get(PATH_CHANGED_FILES) or []),
+                *previous.get("changed_files", []),
+                *plan.get("changed_files", []),
+            }
         )
+        if changed:
+            self._run_facts.record(PATH_CHANGED_FILES, changed)
+        plan["changed_files"] = changed
         self.result.path_repair = plan
         if self._history and self._history[-1].step == STEP_INSTALL:
             self._history.pop()

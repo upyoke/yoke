@@ -66,10 +66,15 @@ def init_setup_state(
     *,
     defaults: WizardDefaults,
     apply_report: Callable[..., Any],
+    run_facts: RunFacts | None = None,
 ) -> None:
-    """Seed the answers, presets and progress state every setup shell reads."""
+    """Seed the answers, presets and progress state every setup shell reads.
+
+    ``run_facts`` carries what earlier calls of this run already did; the
+    wizard runs in one process and starts with none.
+    """
     shell._apply_report = apply_report
-    shell._run_facts = RunFacts()
+    shell._run_facts = run_facts if run_facts is not None else RunFacts()
     shell.cancelled = False
     shell.exit_code = 0
     shell.last_error = None

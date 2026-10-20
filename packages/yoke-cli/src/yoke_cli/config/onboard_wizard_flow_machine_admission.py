@@ -3,6 +3,7 @@
 from yoke_cli.config import hosted_machine_authorization as authorization
 from yoke_cli.config import local_reachability, teammate_invite_redemption
 from yoke_cli.config import writer, yoke_token_verify
+from yoke_cli.config import onboard_wizard_run_connection as run_connection
 
 
 def approval_hint(code: str) -> str:
@@ -35,6 +36,7 @@ def accept_machine_credential(shell, value):
     shell.result.token_file = token_file
     shell.result.token_source_kind = "token_file"
     shell.result.yoke_token_verification = verification
+    run_connection.record_approved(shell)
     shell._goto_yoke_verify_success(verification)
 
 

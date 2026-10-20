@@ -13,7 +13,9 @@ class CloneFlowShell(Protocol):  # pragma: no cover - structural typing only
     _run_facts: Any
 
     def _goto(self, view: "_View") -> None: ...
-    def _selection_view(self, key, step, title, subtitle, rows, on_select) -> "_View": ...
+    def _selection_view(
+        self, key, step, title, subtitle, rows, on_select
+    ) -> "_View": ...
     def _goto_input(
         self,
         key,

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Protocol
 
 from yoke_cli.config import yoke_dev_detect as dev_detect
+from yoke_cli.config import onboard_wizard_apply_facts as apply_facts
 from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT
 from yoke_cli.config.setup_prompt import TONE_ERROR, SelectionRow, SetupPrompt
 
@@ -20,7 +21,9 @@ class _Shell(Protocol):
     _preset_dev_checkout: str | None
 
     def _goto(self, view: "_View") -> None: ...
-    def _selection_view(self, key, step, title, subtitle, rows, on_select) -> "_View": ...
+    def _selection_view(
+        self, key, step, title, subtitle, rows, on_select
+    ) -> "_View": ...
     def _goto_input(
         self,
         key,
@@ -62,6 +65,7 @@ class DevFlow:
         )
 
     def _show_dev_checkout(self: _Shell, checkouts: Any) -> None:
+        checkouts = apply_facts.without_own_folder(self, list(checkouts))
         if len(checkouts) == 1:
             self._use_dev_checkout(str(checkouts[0]))
             return
@@ -152,10 +156,14 @@ class DevFlow:
                     step=STEP_PROJECT,
                     title="Yoke source is not ready.",
                     message=message,
-                    detail_lines=tuple([
-                        "Choose an existing Yoke source checkout, or an empty folder plus its clone URL."
-                    ]),
-                    choices=tuple([SelectionRow("back", "Back", "choose the source again")]),
+                    detail_lines=tuple(
+                        [
+                            "Choose an existing Yoke source checkout, or an empty folder plus its clone URL."
+                        ]
+                    ),
+                    choices=tuple(
+                        [SelectionRow("back", "Back", "choose the source again")]
+                    ),
                     tone=TONE_ERROR,
                 ),
                 lambda _choice: self._step_back(),

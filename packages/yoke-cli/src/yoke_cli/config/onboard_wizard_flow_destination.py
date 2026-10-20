@@ -18,6 +18,8 @@ from typing import Any, Protocol
 
 from yoke_cli.config import local_universe_setup
 from yoke_cli.config import onboard_wizard_admin_name as admin_name
+from yoke_cli.config import onboard_wizard_backup as backup_flow
+from yoke_cli.config import onboard_wizard_run_connection as run_connection
 from yoke_cli.config.local_universe_setup import LOCAL_ENV
 from yoke_cli.config.onboard_destinations import (
     DEFAULT_SIGN_IN_ENV,
@@ -35,6 +37,7 @@ from yoke_cli.config.onboard_destination_rows import (
     SELF_HOST_SERVER_ROW,
 )
 from yoke_cli.config.onboard_wizard_local_universe_summary import (
+    current_state,
     local_universe_summary_lines,
     local_universe_summary_rows,
 )
@@ -47,6 +50,7 @@ from yoke_cli.config.onboard_github_copy import DESTINATION_AGENT_GUIDANCE
 from yoke_cli.config.onboard_wizard_state import _View
 from yoke_cli.config.setup_prompt import TONE_ERROR, TONE_OK, SelectionRow, SetupPrompt
 from yoke_cli.config.setup_prompt_render import render
+from yoke_cli.config.setup_run_facts import CONNECTION
 
 _STORED_DESTINATION = "stored"
 
@@ -58,6 +62,7 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     _destination_preset: bool
     _api_url_preset: bool
     _stored_yoke_token_available: bool
+    _run_facts: Any
 
     def _goto(self, view: "_View") -> None: ...
     def _selection_view(
@@ -97,6 +102,10 @@ class DestinationFlow:
             )
             return
         if self._stored_yoke_token_available and self.result.api_url:
+            if run_connection.is_current(self):
+                # This run saved that connection; its picker answer stands.
+                self._route_destination(self._run_facts.get(CONNECTION)["choice"])
+                return
             self._goto_stored_destination_picker()
             return
         self._goto_destination_picker()
@@ -192,6 +201,9 @@ class DestinationFlow:
 
     def _route_destination(self: _Shell, choice: str) -> None:
         self._machine_authorization_server = None
+        self._destination_row = choice
+        if run_connection.resume(self, choice):
+            return
         if choice == SELF_HOST_SERVER_ROW:
             self.result.destination = DESTINATION_SERVER
             self._account_step_label = STEP_CONNECT_LABEL
@@ -261,7 +273,9 @@ class DestinationFlow:
         self.result.yoke_token_verification = None
 
     def _goto_local_universe_summary(self: _Shell) -> None:
-        state = local_universe_setup.inspect_local_state(self.result.config_path)
+        if backup_flow.resume_local_restore(self):
+            return
+        state = current_state(self)
         ok = state.get("state") != local_universe_setup.LOCAL_UNIVERSE_UNAVAILABLE
         self._goto(
             _View(
