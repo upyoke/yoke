@@ -100,6 +100,7 @@ def stage_wait_message(
     names_cases: bool,
     discharge: str | None = None,
     shared_plans: tuple[str, ...] = (),
+    owes_run: bool = True,
 ) -> str:
     """Name the run, stage, target/revision, item, and who this reaches.
 
@@ -111,6 +112,10 @@ def stage_wait_message(
     ``discharge`` is the recorded no-obligation (or waiver-backed none)
     statement. When it is set, this member has nothing to run, so the
     body names that fact instead of handing ``yoke qa plan run``.
+
+    ``owes_run=False`` means ``reasons`` are blockers no case run can clear
+    (a pending review, an unsettled acceptance): the body names them and
+    their own next commands instead of the run recipe.
     """
     context = _execution_context(target_tier=target_tier, revision=revision)
     addressed = (
@@ -133,6 +138,16 @@ def stage_wait_message(
         if shared_plans
         else ""
     )
+    if not owes_run:
+        return (
+            f"Deployment run {run_id} is waiting at item-scoped QA stage "
+            f"{stage_name!r} for {context}. Reaching {addressed}: {item_ref} "
+            f"has no case left to run; its stage is blocked on: {reasons}. Run "
+            "the next command each blocker names. Re-running `yoke qa plan "
+            "run` cannot clear these; with nothing owed it refuses with "
+            f"qa_plan_nothing_owed. Check 'yoke deployment-runs get {run_id}' "
+            "for the current state."
+        )
     return (
         f"Deployment run {run_id} reached item-scoped QA stage {stage_name!r} "
         f"for {context}. Reaching {addressed}: {item_ref} still needs to "
@@ -194,6 +209,7 @@ def notify_item_scoped_qa_wait(
     revision: str = "",
     target_digest: str = "",
     now: Optional[datetime] = None,
+    owes_run: bool = True,
 ) -> str:
     """Wake the item's claim holder (or steering) that its QA stage is waiting.
 
@@ -234,6 +250,7 @@ def notify_item_scoped_qa_wait(
             names_cases=names_cases,
             discharge=discharge,
             shared_plans=shared_plans,
+            owes_run=owes_run,
         ),
         idempotency_key=stage_wait_idempotency_key(
             run_id, stage_name, item_id, target_digest

@@ -85,10 +85,14 @@ def nothing_owed(
         )
     return QaPlanNothingOwed(
         compose_refusal(
-            f"{NOTHING_OWED_CODE}: nothing owed; re-running the plan cannot "
-            "clear this stage",
+            f"{NOTHING_OWED_CODE}: nothing owed; this plan run has no case "
+            "left to capture and would only replay passed work",
             evaluated=f"{evaluated}. Stage blockers: " + " | ".join(blockers),
-            recovery="run the next command each stage blocker names",
+            recovery=(
+                "run the next command each stage blocker names; a case with no "
+                "verdict yet runs through the stage/member `yoke qa plan run` "
+                "command, without a `--plan` selection that leaves it out"
+            ),
         )
     )
 

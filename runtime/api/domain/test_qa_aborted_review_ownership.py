@@ -21,7 +21,7 @@ from yoke_core.domain.qa_deployment_run_settlement import (
 )
 from yoke_core.domain.qa_pending_agent_review import (
     pending_review_for_requirement,
-    stopped_review_requirements,
+    pending_review_requirements,
 )
 from yoke_core.domain.qa_plan_settled_review import (
     withdraw_settled_agent_review_wakes,
@@ -58,7 +58,7 @@ def test_failed_run_abort_keeps_the_review_visible_and_wakes_its_owner(test_db):
     assert pending is not None and pending.state == "aborted"
     assert pending.bundle_id == bundle["bundle_id"]
     assert _review_begin(run_id, execution) in pending.next_action()
-    assert set(stopped_review_requirements(test_db, [requirement_id])) == {
+    assert set(pending_review_requirements(test_db, [requirement_id])) == {
         requirement_id
     }
     acceptance = _acceptance(test_db, run_id, "item")

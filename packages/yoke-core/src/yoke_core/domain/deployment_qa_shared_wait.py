@@ -108,15 +108,26 @@ def wake_shared_stage_waiters(conn: Any, execution: Mapping[str, Any]) -> None:
             f"could not be read; inspect yoke deployment-runs get {run_id} and "
             "re-drive its QA stage through the control-plane operator"
         )
-    for member in outstanding.waiting_members:
+    from yoke_core.domain.deployment_qa_stage_acceptance import (
+        STAGE_CASES_UNRESOLVED,
+        STAGE_NOT_RUN,
+    )
+
+    for member, (state, lines) in outstanding.member_blockers().items():
         if member is not None:
+            # The wake names what this member's stage still waits on; only a
+            # stage still owed cases is handed the run recipe.
             delivery = notify_item_scoped_qa_wait(
                 conn,
                 run_id=run_id,
                 stage_name=stage,
                 item_id=member,
                 project_id=int(row["project_id"]),
-                reasons=f"shared execution {execution['id']} settled {execution['state']}",
+                reasons=(
+                    f"shared execution {execution['id']} settled "
+                    f"{execution['state']}; " + "; ".join(lines)
+                ),
+                owes_run=state in {STAGE_NOT_RUN, STAGE_CASES_UNRESOLVED},
                 names_cases=True,
                 revision=str(row["release_lineage"] or ""),
                 target_digest=f"shared-settled:{execution['id']}:{execution['state']}",

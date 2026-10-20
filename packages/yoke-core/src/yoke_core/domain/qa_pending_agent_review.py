@@ -110,21 +110,22 @@ def pending_review_for_requirement(
     return None
 
 
-def stopped_review_requirements(
-    conn: Any, requirement_ids: Iterable[int]
+def pending_review_requirements(
+    conn: Any, requirement_ids: Iterable[int], *, stopped_only: bool = False
 ) -> dict[int, PendingAgentReview]:
-    """Requirements an aborted or errored execution's pending review still owns.
+    """The pending review that owns each of these requirements' verdicts.
 
-    A new roster leaves these out: their verdict comes only from that review,
-    so recapturing them would race it.
+    ``stopped_only`` keeps only reviews an aborted or errored execution
+    left: a new roster leaves those requirements out, since recapturing
+    them would race that review.
     """
     wanted = {int(value) for value in requirement_ids}
     if not wanted:
         return {}
+    stopped = " AND e.state IN ('aborted','error')" if stopped_only else ""
     held: dict[int, PendingAgentReview] = {}
     rows = conn.execute(
-        f"{_PENDING_REVIEW_SQL} AND e.state IN ('aborted','error') "
-        "ORDER BY e.created_at, e.id"
+        f"{_PENDING_REVIEW_SQL}{stopped} ORDER BY e.created_at, e.id"
     ).fetchall()
     for row in rows:
         for requirement_id in _bundle_requirement_ids(row["bundle_json"]) & wanted:
@@ -212,8 +213,8 @@ __all__ = [
     "capture_verdict_refusal",
     "pending_review_for_requirement",
     "pending_review_for_stage",
+    "pending_review_requirements",
     "pending_review_verdict_refusal",
     "review_scope_flag",
     "stage_review_pending_blocker",
-    "stopped_review_requirements",
 ]

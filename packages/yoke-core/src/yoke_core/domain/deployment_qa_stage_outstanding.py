@@ -76,7 +76,8 @@ class QaStageOutstanding:
     an item-scoped stage, ``None`` for the run itself on a run-scoped one.
     ``blocker_counts`` is parallel to it: how many wait lines each subject
     contributed, so a report can show one counted line per member instead
-    of every line.
+    of every line. ``member_states`` is parallel too: each waiting subject's
+    acceptance state, which tells a wake whether running cases can help.
     """
 
     lines: tuple[str, ...]
@@ -85,6 +86,18 @@ class QaStageOutstanding:
     waiting_members: tuple[int | None, ...] = ()
     no_obligation_lines: tuple[str, ...] = ()
     blocker_counts: tuple[int, ...] = ()
+    member_states: tuple[str, ...] = ()
+
+    def member_blockers(self) -> dict[int | None, tuple[str, tuple[str, ...]]]:
+        """Each waiting subject's acceptance state and its own wait lines."""
+        found: dict[int | None, tuple[str, tuple[str, ...]]] = {}
+        start = 0
+        for member, count, state in zip(
+            self.waiting_members, self.blocker_counts, self.member_states
+        ):
+            found[member] = (state, self.lines[start : start + count])
+            start += count
+        return found
 
 
 @presentation_operation
@@ -198,8 +211,8 @@ def _unselected_reason(
 
 def _member_lines(
     conn: Any, *, run_id: str, stage: Mapping[str, Any], member: int | None, label: str
-) -> tuple[list[str], list[str]]:
-    """Driver-shaped wait lines and exemption notes, without writes."""
+) -> tuple[list[str], list[str], str]:
+    """Driver-shaped wait lines, exemption notes and acceptance state."""
     subject = deployment_qa_stage_subject(
         conn,
         run_id=run_id,
@@ -209,14 +222,14 @@ def _member_lines(
     )
     member_answer = member_post_deploy_answer(conn, subject)
     if member_answer.verdict == NOT_REQUIRED:
-        return [], [f"{label}: {reason}" for reason in member_answer.reasons]
+        return [], [f"{label}: {reason}" for reason in member_answer.reasons], ""
     target = deployment_qa_execution_target(conn, subject)
     if not _has_method_id(
         conn, run_id=run_id, stage_name=str(stage["name"]), member=member
     ):
         unselected = _unselected_reason(conn, subject, target=target)
         if unselected:
-            return [f"{label}: {unselected}"], []
+            return [f"{label}: {unselected}"], [], STAGE_NOT_RUN
     acceptance = stage_acceptance(
         conn,
         subject=subject,
@@ -224,10 +237,11 @@ def _member_lines(
         acceptance_qa_kind=ACCEPTANCE_QA_KIND,
     )
     if acceptance.accepted:
-        return [], []
+        return [], [], acceptance.state
     if acceptance.state == STAGE_NOT_RUN and member_answer.discharges_without_cases:
-        return [], []
-    return [f"{label}: {reason}" for reason in acceptance.blockers], []
+        return [], [], acceptance.state
+    lines = [f"{label}: {reason}" for reason in acceptance.blockers]
+    return lines, [], acceptance.state
 
 
 def member_ref_lookup(conn: Any, members: Iterable[int | None]) -> ItemRefLookup:
@@ -263,13 +277,13 @@ def _evaluate(
     # Every member's facts are read as one set for the walk, not per member.
     @member_presentation
     def walk(connection, subjects):
-        found: list[tuple[int | None, list[str], list[str]]] = []
+        found: list[tuple[int | None, list[str], list[str], str]] = []
         for member in members:
             label = f"member {member_ref(member)}" if member is not None else "run"
-            member_lines, notes = _member_lines(
+            member_lines, notes, state = _member_lines(
                 connection, run_id=run_id, stage=stage, member=member, label=label
             )
-            found.append((member, member_lines, notes))
+            found.append((member, member_lines, notes, state))
             if member_lines and stop_at_first_waiting:
                 break
         return found
@@ -278,13 +292,15 @@ def _evaluate(
     lines: list[str] = []
     waiting_members: list[int | None] = []
     blocker_counts: list[int] = []
+    member_states: list[str] = []
     no_obligation_lines: list[str] = []
     subjects = [(run_id, member, stage_name) for member in members if member]
-    for member, member_lines, notes in walk(conn, subjects):
+    for member, member_lines, notes, state in walk(conn, subjects):
         no_obligation_lines.extend(notes)
         if member_lines:
             waiting_members.append(member)
             blocker_counts.append(len(member_lines))
+            member_states.append(state)
             lines.extend(member_lines)
     return QaStageOutstanding(
         lines=tuple(lines),
@@ -293,6 +309,7 @@ def _evaluate(
         waiting_members=tuple(waiting_members),
         no_obligation_lines=tuple(no_obligation_lines),
         blocker_counts=tuple(blocker_counts),
+        member_states=tuple(member_states),
     )
 
 

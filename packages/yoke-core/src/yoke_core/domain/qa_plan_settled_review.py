@@ -160,13 +160,13 @@ def open_unsettled_roster(
     """
     if not roster or not _review_tables(conn):
         return None, roster
-    from yoke_core.domain.qa_pending_agent_review import stopped_review_requirements
+    from yoke_core.domain.qa_pending_agent_review import pending_review_requirements
     from yoke_core.domain.qa_plan_execution_target_snapshot import (
         execution_target_for_roster,
     )
 
-    held = stopped_review_requirements(
-        conn, [int(row["requirement_id"]) for row in roster]
+    held = pending_review_requirements(
+        conn, [int(row["requirement_id"]) for row in roster], stopped_only=True
     )
     if held:
         # A stopped walk's pending review owns these verdicts; recapturing
