@@ -14,6 +14,10 @@ from typing import Any
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
+from yoke_core.domain.merge_queue_landing_attempt import (
+    OPEN_ATTEMPT_ENQUEUED_AT,
+    OPEN_ATTEMPT_JOIN,
+)
 from yoke_core.domain.session_message_reachability import (
     DELIVERY_UNKNOWN,
     message_reachability,
@@ -121,7 +125,7 @@ def _held_item_rows(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
             "i.project_sequence AS project_sequence, i.merged_at AS merged_at, "
             "i.merge_queue_enqueued_at AS merge_queue_enqueued_at, "
             "i.merge_queue_landed_at AS merge_queue_landed_at, "
-            "p.public_item_prefix AS prefix, "
+            f"{OPEN_ATTEMPT_ENQUEUED_AT}, p.public_item_prefix AS prefix, "
             "hs.mode AS mode, hs.quiet_reason AS quiet_reason, "
             "hs.last_tool_call_at AS last_tool_call_at, "
             "hs.last_heartbeat AS last_heartbeat, "
@@ -138,6 +142,7 @@ def _held_item_rows(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
             "FROM work_claims wc "
             f"JOIN items i ON i.id = {item_id} "
             "JOIN projects p ON p.id = i.project_id "
+            f"{OPEN_ATTEMPT_JOIN} "
             "JOIN harness_sessions hs ON hs.session_id = wc.session_id "
             "WHERE wc.released_at IS NULL AND wc.target_kind = 'item' "
             f"AND i.project_id = {marker} "

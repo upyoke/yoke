@@ -90,7 +90,12 @@ unchanged. An armed attempt first sends its holder the stopped-landing notice
 and closes once that notice is delivered, so a failed notice is retried.
 The board label, the fleet landing readback, `github.merge_queue.readiness`,
 `github.merge_queue.hold` and the waiting worker describe the open attempt, so
-holding a re-land holds and confirms its own pull request. Close-out records
+holding a re-land holds and confirms its own pull request. An armed open
+attempt also counts as the holder's landing wait: the turn-end Stop gate lets
+the holder stop without a continuation or steering alarm, and the session
+roster and fleet idle-holder check treat it as awaiting landing. An attempt
+that is open but not armed, or closed, leaves the earlier landing in charge,
+so the holder still owes close-out. Close-out records
 the landing under the pull request it went through, not the delivered one.
 `yoke items detail get` shows the current landing under `merge_queue` and the
 open or last closed attempt, with its reason, under `merge_queue.attempt`.

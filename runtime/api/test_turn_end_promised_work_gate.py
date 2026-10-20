@@ -112,6 +112,30 @@ def test_no_live_claim_is_unaffected(monkeypatch) -> None:
     assert captured == []
 
 
+def test_relay_worker_waiting_on_an_armed_reland_is_not_continued(monkeypatch) -> None:
+    monkeypatch.setattr(gate, "_evidence_for", lambda ctx: _present())
+    captured = _patch_db(
+        monkeypatch,
+        claim={
+            "item_id": 7,
+            "status": "reviewing-implementation",
+            "merged_at": "2026-10-19T20:00:00Z",
+            "merge_queue_landed_at": "2026-10-19T20:00:00Z",
+            "merge_queue_enqueued_at": "2026-10-19T19:50:00Z",
+            "open_attempt_enqueued_at": "2026-10-19T22:04:48Z",
+        },
+    )
+    monkeypatch.setattr(gate, "session_was_relay_launched", lambda conn, sid: True)
+    monkeypatch.setattr(
+        gate,
+        "continue_relay_worker",
+        lambda *args, **kwargs: pytest.fail("a landing wait must not be continued"),
+    )
+    decision = gate.evaluate(_ctx(executor_family="codex"))
+    assert decision.outcome is Outcome.ALLOW
+    assert captured == []
+
+
 def test_cap_allows_and_records(monkeypatch) -> None:
     monkeypatch.setattr(gate, "_evidence_for", lambda ctx: _present())
     captured = _patch_db(

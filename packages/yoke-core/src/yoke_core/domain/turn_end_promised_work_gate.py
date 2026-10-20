@@ -23,6 +23,10 @@ from yoke_contracts.session_control import (
     stop_denial_continuation_supported,
     turn_end_events,
 )
+from yoke_core.domain.merge_queue_landing_attempt import (
+    OPEN_ATTEMPT_ENQUEUED_AT,
+    OPEN_ATTEMPT_JOIN,
+)
 from yoke_core.domain.session_relay_launch_context import session_was_relay_launched
 from yoke_core.domain.turn_end_relay_continuation import (
     REASON_CAP_REACHED,
@@ -39,7 +43,7 @@ from yoke_core.domain.turn_end_unfinished_work import (
     stop_is_legitimate,
     unfinished_work_name,
 )
-from yoke_core.domain.session_message_types import utc_now
+from yoke_core.domain.session_message_types import row_dict, utc_now
 from yoke_core.domain.session_recovery_facts import record_promised_work_hold
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
@@ -108,9 +112,11 @@ def _live_claim(conn: Any, session_id: str) -> Optional[dict[str, Any]]:
     item_id_scope = scope_int_sql(conn, "wc.scope", "item_id")
     row = conn.execute(
         f"""SELECT i.id AS item_id, i.status, i.merged_at,
-                    i.merge_queue_landed_at, i.merge_queue_enqueued_at
+                    i.merge_queue_landed_at, i.merge_queue_enqueued_at,
+                    {OPEN_ATTEMPT_ENQUEUED_AT}
               FROM work_claims wc
               JOIN items i ON i.id = {item_id_scope}
+              {OPEN_ATTEMPT_JOIN}
              WHERE wc.session_id = {placeholder}
                AND wc.target_kind = 'item'
                AND wc.released_at IS NULL
@@ -118,15 +124,7 @@ def _live_claim(conn: Any, session_id: str) -> Optional[dict[str, Any]]:
              LIMIT 1""",
         (session_id,),
     ).fetchone()
-    if row is None:
-        return None
-    return {
-        "item_id": row["item_id"],
-        "status": row["status"],
-        "merged_at": row["merged_at"],
-        "merge_queue_landed_at": row["merge_queue_landed_at"],
-        "merge_queue_enqueued_at": row["merge_queue_enqueued_at"],
-    }
+    return row_dict(row) if row is not None else None
 
 
 def _reinjection_history(
