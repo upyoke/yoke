@@ -22,6 +22,8 @@ from yoke_contracts.harness_unattended_posture import (
     CODEX_FAMILY,
     CURSOR_FAMILY,
     POSTURE_RECOVERY,
+    claude_settings_path,
+    claude_settings_problems,
     managed_config_paths,
     posture_problems,
     read_posture_config,
@@ -32,19 +34,38 @@ SLUG = "harness-unattended-posture"
 TITLE = "Every installed harness runs yoke without approval prompts"
 
 
-def harness_posture(harness_id: str, *, installed: bool) -> tuple[str, str]:
+def harness_posture(
+    harness_id: str, *, installed: bool, surface_id: str | None = None
+) -> tuple[str, str]:
     """One harness's posture verdict: ``PASS``, ``FAIL`` or ``N/A`` and why.
 
     A harness with no config file and no CLI on PATH is not set up here, so
     it has no posture to report; one that is installed but unreadable fails.
     """
-    path = managed_config_paths()[harness_id]
+    cli_settings = harness_id == CLAUDE_FAMILY and surface_id == "claude-cli"
+    if harness_id == CLAUDE_FAMILY and surface_id not in (
+        None,
+        "claude-cli",
+        "claude-desktop",
+    ):
+        return "FAIL", (
+            f"HARNESS_POSTURE_UNVERIFIED: {surface_id} has no verified posture "
+            "reader. Report the surface to Yoke support before onboarding; "
+            "changing Desktop settings cannot verify it."
+        )
+    path = (
+        claude_settings_path() if cli_settings else managed_config_paths()[harness_id]
+    )
     config, reason = read_posture_config(harness_id, path)
     if config is None:
         if path.exists() or installed:
             return "FAIL", f"HARNESS_POSTURE_UNVERIFIED: {harness_id}: {reason}"
         return "N/A", reason
-    problems = posture_problems(harness_id, config)
+    problems = (
+        claude_settings_problems(config)
+        if cli_settings
+        else posture_problems(harness_id, config)
+    )
     if problems:
         return "FAIL", f"{harness_id} ({path}): {'; '.join(problems)}"
     return "PASS", harness_id
