@@ -15,7 +15,9 @@ def recovery(public_ref: str) -> str:
         "Before lane edits, register the complete rework touch set with "
         f"`yoke claims path register --item {public_ref} "
         "--paths <comma-separated paths> --allow-planned`, then prepare the lane "
-        "to activate it. Released claims cannot be widened or reactivated."
+        "to activate it. A per-task Epic adds `--task-num <N>` for the landed "
+        "task the rework changes; its other landed tasks need no new claim. "
+        "Released claims cannot be widened or reactivated."
     )
 
 

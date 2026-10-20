@@ -184,6 +184,11 @@ set, then prepare the lane to activate it:
 yoke claims path register --item PREFIX-N --paths path/to/file,path/to/other --allow-planned
 ```
 
+A per-task Epic adds `--task-num N` for the landed task the rework changes.
+Task coverage counts a task whose coverage was released at landing as
+covered, so rework claims only its own touch set; a task that never landed
+still needs claims covering its whole File Budget.
+
 The lifecycle rework gate and shared Bash/edit guards refuse missing fresh
 coverage as `path_claim_rework_coverage_required`; the merge boundary still
 checks the committed touched files. Use `--help` for release/cancel variants.
