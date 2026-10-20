@@ -5,8 +5,10 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+from dataclasses import asdict
 from typing import Optional, Sequence
 
+from yoke_contracts.project_contract.file_byte_budget import failure_lines
 from yoke_harness.git_hooks import file_line_check as flc
 
 
@@ -60,6 +62,7 @@ def print_verdict(
             "hard_fails": [_change_to_dict(c) for c in verdict.hard_fails],
             "warnings": [_change_to_dict(c) for c in verdict.warnings],
             "pre_existing": [_change_to_dict(c) for c in verdict.pre_existing],
+            "byte_budget_fails": [asdict(f) for f in verdict.byte_budget_fails],
             "summary": verdict.summary,
         }
         print(json.dumps(payload, indent=2))
@@ -80,6 +83,8 @@ def print_verdict(
             f"  PRE-EXISTING {change.path}  {change.new_line_count} lines "
             "(outside this item's delta; non-blocking)"
         )
+    for line in failure_lines(verdict.byte_budget_fails):
+        print(line)
     if not verdict.ok:
         print(
             "Fix the offending file(s) or bypass pre-commit with "

@@ -24,6 +24,8 @@ blocks, privacy and the hard 350-line maximum after wrapping at 80 columns.
 Pages above the advisory 20,000-character target need readability review;
 that target alone does not refuse publication. Use the render `measure` command
 for those review notes. Scenario checks still establish whether teaching works.
+A project can cap a file's bytes with `file_byte_budget=PATH:BYTES` in
+`.yoke/project.config`; `yoke check file-line --help` owns the rule.
 
 Sync validates the complete source before writing anything. Its drift check
 compares every installed and packaged file with source and measures generated

@@ -7,6 +7,7 @@ import sys
 from typing import Iterable
 
 from yoke_contracts.hook_diagnostics import format_hook_diagnostic
+from yoke_contracts.project_contract.file_byte_budget import failure_lines
 
 from yoke_harness.git_hooks import file_line_check
 from yoke_contracts import terminal_detached_process
@@ -84,7 +85,7 @@ def _format_file_line_summary(
     lines = [
         "ERROR: file-line-limit gate blocked this commit.",
         "",
-        "Hard fails:",
+        "Hard fails:" if verdict.hard_fails else "Byte-budget fails:",
     ]
     for change in verdict.hard_fails:
         removal = change.new_line_count - limit
@@ -98,11 +99,13 @@ def _format_file_line_summary(
             f"current {change.new_line_count}, limit {limit}, remove {removal} line(s)"
         )
         lines.append(f"  - {change.path}: {detail}")
+    lines.extend(failure_lines(verdict.byte_budget_fails))
     lines.append("")
     lines.append("Run `yoke check file-line --staged` to re-inspect.")
     lines.append(
-        "Split the file into smaller modules, or use "
-        "`git commit --no-verify` to bypass."
+        ("Split the file into smaller modules" if verdict.hard_fails
+         else "Fix each byte budget as its line says")
+        + ", or use `git commit --no-verify` to bypass."
     )
     return "\n".join(lines) + "\n"
 
@@ -118,7 +121,7 @@ def _run_file_line_check_or_block() -> int:
     policy = file_line_check.resolved_policy(pathlib.Path(repo_root))
     if verdict.ok:
         return 0
-    if not verdict.hard_fails:
+    if not verdict.hard_fails and not verdict.byte_budget_fails:
         _write_diagnostic(
             "ERROR: file-line-limit gate could not inspect staged files: "
             f"{verdict.summary}\n"

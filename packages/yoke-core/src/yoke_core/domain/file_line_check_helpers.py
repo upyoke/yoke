@@ -7,9 +7,13 @@ import fnmatch
 import json
 import pathlib
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 
+from yoke_contracts.project_contract.file_byte_budget import (
+    ByteBudgetFail,
+    failure_lines,
+)
 from yoke_contracts.project_contract.install_manifest import (
     is_install_bundle_generated_path,
 )
@@ -93,6 +97,7 @@ class CheckVerdict:
     warnings: list[ChangedFile]
     summary: str
     pre_existing: list[ChangedFile] = field(default_factory=list)
+    byte_budget_fails: list[ByteBudgetFail] = field(default_factory=list)
 
 
 def run_git(
@@ -268,6 +273,7 @@ def print_verdict(verdict: CheckVerdict, *, as_json: bool) -> None:
             "hard_fails": [change_to_dict(c) for c in verdict.hard_fails],
             "warnings": [change_to_dict(c) for c in verdict.warnings],
             "pre_existing": [change_to_dict(c) for c in verdict.pre_existing],
+            "byte_budget_fails": [asdict(f) for f in verdict.byte_budget_fails],
             "summary": verdict.summary,
         }
         print(json.dumps(payload, indent=2))
@@ -290,6 +296,8 @@ def print_verdict(verdict: CheckVerdict, *, as_json: bool) -> None:
             f"  PRE-EXISTING {change.path}  {change.new_line_count} lines "
             "(outside this item's delta)"
         )
+    for line in failure_lines(verdict.byte_budget_fails):
+        print(line)
     if not verdict.ok:
         print(
             "Fix the offending file(s) or, for pre-commit only, bypass with "
@@ -307,7 +315,9 @@ def _cli_description(limit: int) -> str:
         f"  1. New authored file > {limit} lines.\n"
         "  2. Existing oversized authored file grows.\n"
         f"  3. Authored file crosses the {limit}-line limit upward.\n"
-        "Temporary exceptions are fully exempt.\n\n"
+        "Temporary exceptions are fully exempt.\n"
+        "Byte budgets: `file_byte_budget=PATH:BYTES` in .yoke/project.config "
+        "fails a changed file past its budget.\n\n"
         "Escape hatch: `git commit --no-verify` bypasses the pre-commit "
         "invocation."
     )
