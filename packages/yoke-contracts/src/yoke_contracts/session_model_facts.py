@@ -28,7 +28,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from yoke_contracts.harness_family_identity import CURSOR_FAMILY
+from yoke_contracts.harness_family_identity import (
+    CLAUDE_FAMILY,
+    CODEX_FAMILY,
+    CURSOR_FAMILY,
+)
 
 
 #: Reasoning-effort levels any supported harness names. Claude spells them
@@ -77,6 +81,15 @@ def is_placeholder_model(value: object) -> bool:
     if normalized in PLACEHOLDER_MODEL_VALUES:
         return True
     return normalized.startswith("<") and normalized.endswith(">")
+
+
+#: What a harness's placeholder selection hides, for a refusal of a session
+#: whose model is unnamed. Each is that harness's default when no model is set.
+PLACEHOLDER_MODEL_GUIDANCE = {
+    CURSOR_FAMILY: "Cursor Auto hides the model; choose a named model in the model picker",
+    CLAUDE_FAMILY: "Claude's default selection hides the model; choose a named model with /model",
+    CODEX_FAMILY: "Codex's default selection hides the model; choose a named model with /model",
+}
 
 
 #: The served half, in the order every serializer and column list uses.
@@ -300,7 +313,7 @@ __all__ = [
     "MODEL_FACT_FIELDS",
     "NAME_ENCODED_EFFORT_HARNESSES",
     "NOT_REPORTED_EFFORT",
-    "PLACEHOLDER_MODEL_VALUES",
+    "PLACEHOLDER_MODEL_GUIDANCE",
     "REQUESTED_LABEL",
     "UNKNOWN_MODEL_DISPLAY",
     "PLACEHOLDER_MODEL_VALUES",

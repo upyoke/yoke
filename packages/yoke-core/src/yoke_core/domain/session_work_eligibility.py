@@ -12,6 +12,11 @@ from yoke_contracts.model_level_resolution import (
     routing_effort_of,
     routing_model_of,
 )
+from yoke_contracts.executor_labels import canonical_harness_id
+from yoke_contracts.session_model_facts import (
+    PLACEHOLDER_MODEL_GUIDANCE,
+    is_placeholder_model,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_model_catalog import current_model_records
 from yoke_core.domain.sessions_analytics import SessionError
@@ -43,12 +48,25 @@ def require_work_selection(conn, *, project_id, executor, model, reasoning_effor
             "SESSION_BELOW_INTERN",
             f"{resolution.reason} ({UNRESOLVED_LEVEL_REASONS.get(resolution.reason, 'unresolved')}): "
             "selection meets no configured execution level; model or effort "
-            "is unknown, or both are below every option. Recovery: choose a "
+            f"is unknown, or both are below every option.{_placeholder_note(executor, model)} "
+            "Recovery: choose a "
             "known model and effort meeting a configured level, or ask an org "
             "admin to publish the missing catalog facts and approve Levels. "
             "Steering without item claims remains available.",
         )
     return level
+
+
+def _placeholder_note(executor, model) -> str:
+    """Name what the harness's placeholder selection hides, when the model is unnamed."""
+    if not is_placeholder_model(model):
+        return ""
+    try:
+        harness = canonical_harness_id(executor)
+    except ValueError:
+        return ""
+    guidance = PLACEHOLDER_MODEL_GUIDANCE.get(harness)
+    return f" {guidance}." if guidance else ""
 
 
 def _session_and_item(conn, session_id, item_id):
