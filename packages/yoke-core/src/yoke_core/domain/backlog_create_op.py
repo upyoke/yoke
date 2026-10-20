@@ -185,7 +185,7 @@ def execute_create(
             title=title,
             workflow=workflow_runtime,
             priority=priority,
-            project=project,
+            project=project_identity.slug,
             deployment_flow=deployment_flow,
             flow_project=flow_project,
             status=status,

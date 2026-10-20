@@ -111,6 +111,27 @@ class TestCreateItem:
         data = resp.json()
         assert data["deployment_flow"] == "test-approval-flow"
 
+    def test_create_item_with_numeric_project_and_same_project_flow(self, client, test_db):
+        resp = client.post(
+            "/v1/items",
+            json={
+                "title": "Numeric project flow item",
+                "spec": "Agreed outcome: the item is filed with this spec.",
+                "workflow": "dash",
+                "project": "1",
+                "deployment_flow": "test-approval-flow",
+            },
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["project"] == "yoke"
+        assert resp.json()["deployment_flow"] == "test-approval-flow"
+
+    def test_create_item_with_unknown_project_is_refused(self, client, test_db):
+        body = {"title": "Lost item", "spec": "Agreed outcome.", "workflow": "dash"}
+        resp = client.post("/v1/items", json={**body, "project": "no-such-project"})
+        assert resp.status_code == 422
+        assert "no-such-project" in resp.text
+
     def test_create_item_rejects_retired_epic_field(self, client, test_db):
         """POST /v1/items rejects the retired epic field."""
         resp = client.post(

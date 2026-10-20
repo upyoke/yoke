@@ -15,7 +15,7 @@ from yoke_core.domain.mutations import (
     prepare_create,
     prepare_update,
 )
-from yoke_core.domain.project_identity import render_item_ref, resolve_project_id
+from yoke_core.domain.project_identity import render_item_ref, resolve_project
 from yoke_core.domain.project_title_policy import resolve_title_max_length
 from yoke_core.api.service_client import _resolve_deploy_envs
 from yoke_core.api.routes.item_delivery_binding_update import (
@@ -52,7 +52,7 @@ def _translate_project_write(conn, writes: Dict[str, Any]) -> None:
     project = required_project(
         writes.pop("project"), operation="setting an item's project"
     )
-    writes["project_id"] = resolve_project_id(conn, project)
+    writes["project_id"] = resolve_project(conn, project).id
 
 
 def _next_project_sequence(conn, project_id: int) -> int:
@@ -74,7 +74,6 @@ def create_item(request: Request, req: _main.CreateItemRequest):
         normalize_deployment_flow_value,
         validate_and_lookup_flow_project,
     )
-
     from yoke_core.domain.workflow_registry import (
         WorkflowRegistryError,
         resolve_current_workflow_pin,
@@ -83,6 +82,10 @@ def create_item(request: Request, req: _main.CreateItemRequest):
     deployment_flow = normalize_deployment_flow_value(req.deployment_flow)
     conn = _main.get_db_readonly()
     try:
+        try:
+            item_project = req.project and resolve_project(conn, req.project)
+        except LookupError as exc:
+            return _main._error_response(422, "VALIDATION_ERROR", str(exc))
         flow_project, flow_err = validate_and_lookup_flow_project(
             conn, deployment_flow, req.project
         )
@@ -110,7 +113,7 @@ def create_item(request: Request, req: _main.CreateItemRequest):
         title=req.title,
         workflow=workflow,
         priority=req.priority,
-        project=req.project,
+        project=item_project.slug if item_project else None,
         deployment_flow=deployment_flow,
         flow_project=flow_project,
         title_max_length=title_limit,
@@ -146,10 +149,7 @@ def create_item(request: Request, req: _main.CreateItemRequest):
         p = _p(conn)
         if deployment_flow:
             _locked_project, flow_err = validate_and_lookup_flow_project(
-                conn,
-                deployment_flow,
-                req.project,
-                lock_binding=True,
+                conn, deployment_flow, req.project, lock_binding=True
             )
             if flow_err:
                 return _main._error_response(422, "VALIDATION_ERROR", flow_err)
