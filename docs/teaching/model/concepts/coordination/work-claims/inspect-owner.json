@@ -1,7 +1,10 @@
 {
  "id": "inspect-owner",
  "title": "Inspect owner",
- "status": "draft-copy",
+ "status": "observed",
+ "commands": ["yoke claims work holder-get", "yoke items get"],
  "page": "coordination",
- "position": 1
+ "position": 1,
+ "summary": "Scope: who holds an item is read with claims work holder-get. items get names it in its field catalog and usage, and redirects claim, claims, holder, claim_holder, claimed_by and session there instead of guessing a column.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/items_projection.py", "runtime/api/cli/test_cli_help_names_valid_tokens.py"]
 }
