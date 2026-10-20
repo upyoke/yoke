@@ -7,8 +7,10 @@ parses the number as the storage key lands on the wrong row and fails.
 
 from __future__ import annotations
 
-from typing import Any
+import contextlib
+from typing import Any, Iterator
 
+from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_core.domain.db_helpers import iso8601_now
 
 BUZZ_PROJECT_ID = 7
@@ -51,4 +53,30 @@ def seed_item(
     )
 
 
-__all__ = ["BUZZ_PROJECT_ID", "seed_buzz_project", "seed_item"]
+@contextlib.contextmanager
+def lane_ref_db(tmp_path: Any) -> Iterator[str]:
+    """Yield a DB where ``YOK-60`` is item 600 and ``BUZ-60`` is item 800.
+
+    Item 60 also exists (as ``YOK-9060``), so reading the number in either
+    ref as ``items.id`` attributes to the wrong item.
+    """
+    with init_test_db(tmp_path) as db_path:
+        conn = connect_test_db(db_path)
+        try:
+            seed_buzz_project(conn)
+            seed_item(conn, 600, project_id=1, sequence=60, status="implementing")
+            seed_item(conn, 60, project_id=1, sequence=9060, status="done")
+            seed_item(
+                conn,
+                800,
+                project_id=BUZZ_PROJECT_ID,
+                sequence=60,
+                status="implementing",
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        yield db_path
+
+
+__all__ = ["BUZZ_PROJECT_ID", "lane_ref_db", "seed_buzz_project", "seed_item"]

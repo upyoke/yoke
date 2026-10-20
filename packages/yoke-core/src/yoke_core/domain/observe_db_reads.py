@@ -104,37 +104,65 @@ def repo_root_for_attribution(db_path: str, project_dir: str) -> Optional[str]:
 def worktree_path_item_id(file_path: str, db_path: Optional[str]) -> Optional[int]:
     """Attribute a file path under ``.worktrees/<name>/`` to its owning item.
 
-    Reverse-looks up the recorded worktree/branch name so both the public-ref
-    scheme and the legacy ``YOK-{internal_id}`` scheme resolve to the correct
-    internal id; falls back to a bare legacy-name parse when no DB is
-    available (attribution without a connection).
+    The lane name resolves through the recorded lane or its public ref in
+    any project. Without a control-plane read there is no attribution: the
+    number in the name is a project sequence, not ``items.id``.
     """
     import re
 
     match = re.search(r"\.worktrees/([^/]+)/", file_path or "")
-    if not match:
+    if not match or not db_path:
         return None
-    name = match.group(1)
-    if db_path:
-        from yoke_core.domain.item_worktree_resolution import (
-            resolve_item_id_by_worktree_name,
-        )
+    from yoke_core.domain.item_worktree_resolution import item_id_for_lane_name
 
+    try:
+        conn = connect_observe_read_db(db_path)
         try:
-            conn = connect_observe_read_db(db_path)
-            found = resolve_item_id_by_worktree_name(conn, name)
+            return item_id_for_lane_name(conn, match.group(1))
+        finally:
             conn.close()
-        except Exception:
-            found = None
-        if found is not None:
-            return found
-    legacy = re.fullmatch(r"YOK-(\d+)", name)
-    return int(legacy.group(1)) if legacy else None
+    except Exception:  # noqa: BLE001 - attribution is best-effort telemetry
+        return None
+
+
+def public_ref_item_ids(command: str, db_path: Optional[str]) -> set[str]:
+    """Return the ``items.id`` of every public ref (any prefix) in COMMAND.
+
+    Tokens that name no item, such as ``SHA-256``, resolve to nothing. Ids
+    come back as strings to match the other explicit-ref sets.
+    """
+    import re
+
+    from yoke_contracts.public_ref import parse_public_item_ref
+
+    tokens = {
+        token
+        for token in re.findall(r"\b[A-Z][A-Z0-9]*-\d+\b", command or "")
+        if parse_public_item_ref(token)[0] is not None
+    }
+    if not tokens or not db_path:
+        return set()
+    from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
+
+    found: set[str] = set()
+    try:
+        conn = connect_observe_read_db(db_path)
+        try:
+            for token in tokens:
+                item_id = resolve_item_ref_or_none(conn, token)
+                if item_id is not None:
+                    found.add(str(item_id))
+        finally:
+            conn.close()
+    except Exception:  # noqa: BLE001 - attribution is best-effort telemetry
+        return set()
+    return found
 
 
 __all__ = [
     "connect_observe_read_db",
     "measure_tool_call_duration",
+    "public_ref_item_ids",
     "repo_root_for_attribution",
     "worktree_path_item_id",
 ]
