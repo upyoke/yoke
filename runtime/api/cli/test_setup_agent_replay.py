@@ -48,7 +48,9 @@ FIRST_ANSWERS = {
 @pytest.fixture
 def agent(tmp_path: Path, monkeypatch, capsys):
     fake = isolate_agent_setup(tmp_path, monkeypatch)
-    monkeypatch.setattr(project_onboard_clone, "clone_with_connected_access", fake_clone)
+    monkeypatch.setattr(
+        project_onboard_clone, "clone_with_connected_access", fake_clone
+    )
     monkeypatch.setattr(
         CloneSourceFlow,
         "_probe_clone_remote",

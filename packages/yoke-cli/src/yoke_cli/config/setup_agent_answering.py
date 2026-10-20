@@ -35,6 +35,19 @@ INVOCATION_ONLY_KEYS = frozenset(
 )
 
 
+# Reopening the git installer is an action, not a choice to remember: a
+# replayed answer waits on the installer this run already opened.
+INVOCATION_ONLY_ANSWERS = frozenset(
+    (key, "install")
+    for key in (
+        "project.project_git_install_handoff",
+        "project.project_git_install_error",
+        "project.clone_git_install_handoff",
+        "project.clone_git_install_error",
+    )
+)
+
+
 class SetupRefusal(Exception):
     """A named refusal plus its recovery, raised at the screen it concerns."""
 
@@ -165,7 +178,9 @@ class AnswerFlow:
             self._cli.pop(name, None)
         if prompt.key == apply_prompts.APPLY_FAILED_KEY:
             self._answers.apply_failure = None
-        if prompt.key not in INVOCATION_ONLY_KEYS:
+        if prompt.key in INVOCATION_ONLY_KEYS:
+            return
+        if (prompt.key, staged.get(prompt.key)) not in INVOCATION_ONLY_ANSWERS:
             self._answers.stage(staged)
 
     def _done_fields(self) -> dict[str, Any]:
@@ -251,6 +266,7 @@ def _not_current(prompt: SetupPrompt) -> SetupRefusal:
 __all__ = [
     "APPLY_CHOICE",
     "AnswerFlow",
+    "INVOCATION_ONLY_ANSWERS",
     "INVOCATION_ONLY_KEYS",
     "REVIEW_KEY",
     "SetupRefusal",

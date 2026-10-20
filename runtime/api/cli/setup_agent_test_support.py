@@ -63,7 +63,9 @@ class AgentDriver:
         self._capsys = capsys
         self.stderr = ""
 
-    def __call__(self, *answers: str, flags: tuple[str, ...] = ()) -> tuple[int, list[dict]]:
+    def __call__(
+        self, *answers: str, flags: tuple[str, ...] = ()
+    ) -> tuple[int, list[dict]]:
         args = ["setup", "--agent", *flags]
         for answer in answers:
             args.extend(["--answer", answer])
@@ -114,12 +116,17 @@ def isolate_agent_setup(tmp_path: Path, monkeypatch) -> FakeApply:
     monkeypatch.setattr(
         PathFlow,
         "_check_install",
-        lambda _self: ({"login_verified": True, "login_resolved": {"yoke": "/tmp/bin/yoke"}}, ""),
+        lambda _self: (
+            {"login_verified": True, "login_resolved": {"yoke": "/tmp/bin/yoke"}},
+            "",
+        ),
     )
     monkeypatch.setattr(
         onboard_session_relay,
         "install",
-        lambda **_k: onboard_session_relay.RelayInstallOutcome(installed=True, reused=False),
+        lambda **_k: onboard_session_relay.RelayInstallOutcome(
+            installed=True, reused=False
+        ),
     )
     monkeypatch.setattr(
         onboard_preflight,
@@ -129,7 +136,9 @@ def isolate_agent_setup(tmp_path: Path, monkeypatch) -> FakeApply:
     monkeypatch.setattr(
         onboard_interactive, "finish_pending_source_install", lambda *_a, **_k: None
     )
-    monkeypatch.setattr(BoardArtFlow, "_board_art_after_apply", lambda _self, _report: False)
+    monkeypatch.setattr(
+        BoardArtFlow, "_board_art_after_apply", lambda _self, _report: False
+    )
     fake = FakeApply()
     monkeypatch.setattr(onboard_apply, "apply_with_durable_report", fake)
     return fake
@@ -140,8 +149,18 @@ def git_checkout(path: Path) -> Path:
     subprocess.run(["git", "init", "-q", "-b", "main", str(path)], check=True)
     subprocess.run(
         [
-            "git", "-C", str(path), "-c", "user.email=t@example.invalid",
-            "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "init",
+            "git",
+            "-C",
+            str(path),
+            "-c",
+            "user.email=t@example.invalid",
+            "-c",
+            "user.name=t",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "init",
         ],
         check=True,
     )
@@ -153,6 +172,8 @@ def fake_clone(parent, name: str, remote: str, **_kwargs: Any) -> None:
     root = Path(parent) / name
     root.mkdir(parents=True, exist_ok=True)
     subprocess.run(["git", "init", "-q", "-b", "main", str(root)], check=True)
-    subprocess.run(["git", "-C", str(root), "remote", "add", "origin", remote], check=True)
+    subprocess.run(
+        ["git", "-C", str(root), "remote", "add", "origin", remote], check=True
+    )
     (root / ".yoke").mkdir()
     (root / ".yoke" / "layer.md").write_text("installed layer\n")
