@@ -33,6 +33,14 @@ use it to close a run whose workflow succeeded — re-driving is the
 recovery.
 """
 
+SCOPED_QA_WAIT_GUIDANCE = """\
+At a scoped QA stage the driver waits in-process up to its timeout, prints
+a status line to the raw capture every minute, and gives each re-dispatch
+only the time left. A capture silent for longer than that is stuck. Exit 5
+(awaiting QA) names the blockers: settle or waive them, then re-drive the
+same run id.
+"""
+
 CREATE_RETRY_GUIDANCE = """\
 Create is safe to repeat under one --idempotency-key. A create that yielded
 or went quiet is usually still running: continue that same invocation and
@@ -207,6 +215,7 @@ __all__ = [
     "INTERRUPTED_RUN_RECOVERY",
     "ITEMLESS_RELEASE_RECIPE",
     "RESOLVE_TARGET_DESCRIPTION",
+    "SCOPED_QA_WAIT_GUIDANCE",
     "WATCH_DEPLOY_DESCRIPTION",
     "execute_created_run_note",
     "replayed_run_note",

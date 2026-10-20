@@ -7,7 +7,8 @@ following a watcher — cannot tell such a wait from a hang, so they
 interrupt healthy work or spend effort investigating it. One line at the
 start of the wait answers the question once: what is awaited, how often it
 is checked, and when the wait gives up. Per-poll repetition is not the fix;
-the bound is.
+the bound is. A long wait that prints its own periodic status line says so
+instead of promising silence, so a quiet capture there reads as stuck.
 
 Every such line starts with :data:`DESIGNED_WAIT_PREFIX`, so watcher
 wrappers pass it through to their reader even when they suppress routine
@@ -48,18 +49,24 @@ def poll_every(seconds: float) -> str:
 
 
 def designed_wait_line(
-    subject: str, *, max_wait_seconds: float, cadence: Optional[str] = None
+    subject: str,
+    *,
+    max_wait_seconds: float,
+    cadence: Optional[str] = None,
+    silent: bool = True,
 ) -> str:
     """The announcement for a wait on *subject* bounded by *max_wait_seconds*.
 
     *cadence* says how the wait checks its subject (see :func:`poll_every`);
-    omit it for a wait that blocks on one call rather than polling.
+    omit it for a wait that blocks on one call rather than polling. Pass
+    ``silent=False`` for a wait whose cadence names its own status lines.
     """
     parts = [f"{DESIGNED_WAIT_PREFIX} {subject}"]
     if cadence:
         parts.append(cadence)
     parts.append(f"gives up after {format_duration(max_wait_seconds)}")
-    return "; ".join(parts) + ". Silence until then is expected."
+    line = "; ".join(parts) + "."
+    return f"{line} Silence until then is expected." if silent else line
 
 
 def _write_stderr(line: str) -> None:
@@ -72,6 +79,7 @@ def announce_designed_wait(
     *,
     max_wait_seconds: float,
     cadence: Optional[str] = None,
+    silent: bool = True,
     write: Optional[Callable[[str], None]] = None,
 ) -> str:
     """Write the announcement once and return it.
@@ -81,7 +89,7 @@ def announce_designed_wait(
     Pass a command's own output sink when it has one.
     """
     line = designed_wait_line(
-        subject, max_wait_seconds=max_wait_seconds, cadence=cadence
+        subject, max_wait_seconds=max_wait_seconds, cadence=cadence, silent=silent
     )
     (write or _write_stderr)(line)
     return line

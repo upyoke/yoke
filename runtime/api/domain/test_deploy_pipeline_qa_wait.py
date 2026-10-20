@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import threading
+import time
+
+import pytest
+
 from yoke_core.domain.deploy_pipeline_qa_wait import (
     AWAITING_SCOPED_QA,
     dispatch_until_qa_resolves,
@@ -94,6 +99,81 @@ def test_zero_timeout_performs_one_probe() -> None:
     assert result[0] == AWAITING_SCOPED_QA
     assert calls == 1
     assert clock.sleeps == []
+
+
+def test_a_dispatch_blocked_past_the_deadline_ends_the_wait_named() -> None:
+    release = threading.Event()
+    calls = 0
+
+    def dispatch() -> tuple[int, str]:
+        nonlocal calls
+        calls += 1
+        if calls > 1:
+            release.wait()
+        return AWAITING_SCOPED_QA, "member 42 has no passing run"
+
+    started = time.monotonic()
+    try:
+        result = dispatch_until_qa_resolves(
+            dispatch,
+            timeout_seconds=0.3,
+            poll_interval_seconds=0.05,
+            write=lambda _line: None,
+        )
+    finally:
+        release.set()
+    elapsed = time.monotonic() - started
+
+    assert result[0] == AWAITING_SCOPED_QA
+    assert elapsed < 0.3 + 0.5
+    assert "member 42 has no passing run" in result[1]
+    assert "timed out after 0.3s awaiting scoped QA" in result[1]
+    assert "had no answer when the deadline passed" in result[1]
+    assert "re-drive this deployment run from the QA stage" in result[1]
+
+
+def test_a_dispatch_failure_inside_the_wait_reaches_the_driver() -> None:
+    calls = 0
+
+    def dispatch() -> tuple[int, str]:
+        nonlocal calls
+        calls += 1
+        if calls > 1:
+            raise RuntimeError("deployment_outcome_unknown: lost on all sends")
+        return AWAITING_SCOPED_QA, "pending"
+
+    with pytest.raises(RuntimeError, match="deployment_outcome_unknown"):
+        dispatch_until_qa_resolves(
+            dispatch,
+            timeout_seconds=30,
+            poll_interval_seconds=0.01,
+            write=lambda _line: None,
+        )
+
+
+def test_status_lines_appear_every_few_polls() -> None:
+    clock = _Clock()
+    lines: list[str] = []
+
+    result = dispatch_until_qa_resolves(
+        lambda: (AWAITING_SCOPED_QA, "member A: no run; member B: no run"),
+        timeout_seconds=120,
+        poll_interval_seconds=15,
+        monotonic=clock.monotonic,
+        sleep=clock.sleep,
+        write=lines.append,
+    )
+
+    assert result[0] == AWAITING_SCOPED_QA
+    assert lines[0] == (
+        "Waiting by design: scoped QA obligations on this deployment run to "
+        "settle; checks every 15s; prints a status line every 60s; gives up "
+        "after 2m."
+    )
+    assert lines[1:] == [
+        "Still waiting for scoped QA: 60s elapsed of 2m; 2 blocker(s) outstanding.",
+        "Still waiting for scoped QA: 2m elapsed of 2m; 2 blocker(s) outstanding.",
+    ]
 
 
 def test_pipeline_scoped_qa_park_is_a_designed_watcher_wait(
