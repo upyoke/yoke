@@ -31,3 +31,5 @@ Landing releases item-owned path claims with reason `landed`. Delivery retains
 the work claim. Before reopened lane edits, register fresh coverage with
 `yoke claims path register --item PREFIX-N --paths ... --allow-planned` and
 prepare the lane to activate it; released claims cannot be widened or reactivated.
+A per-task Epic adds `--task-num N` for the landed task the rework changes; its
+other landed tasks need no new claim, and unlanded tasks keep full coverage.

@@ -98,6 +98,22 @@ def _claim_rows(conn: Any, item_id: int) -> list[Any]:
     )
 
 
+def _landed_tasks(conn: Any, item_id: int) -> set[int]:
+    """Tasks whose bound coverage a recorded landing released.
+
+    Their work already merged, so rework needs fresh coverage only for its
+    own touch set; ``needs_rework_coverage`` still requires that claim.
+    """
+    rows = conn.execute(
+        "SELECT DISTINCT b.task_num FROM path_claim_task_bindings b "
+        "JOIN path_claims pc ON pc.id = b.claim_id "
+        f"WHERE b.epic_id = {_p(conn)} AND pc.state = 'released' "
+        "AND pc.release_reason = 'landed'",
+        (int(item_id),),
+    ).fetchall()
+    return {int(_value(row, "task_num", 0)) for row in rows}
+
+
 def path_root_covers(root: str, candidate: str, *, kind: str) -> bool:
     """Whether a declared claim target covers one task-budget path."""
     normalized_root = root.strip().replace("\\", "/").strip("/")
@@ -110,7 +126,12 @@ def path_root_covers(root: str, candidate: str, *, kind: str) -> bool:
 
 
 def evaluate_task_coverage(conn: Any, item_id: int) -> TaskCoverageResult:
-    """Require every generated task budget to have bound claim coverage."""
+    """Require every unlanded generated task budget to have bound coverage.
+
+    A task whose bound coverage was released at landing counts as covered;
+    any fresh claim bound to it is rework coverage and joins the satisfying
+    set without having to span the task's historical budget.
+    """
     required = (
         "epic_tasks",
         "path_claims",
@@ -141,6 +162,7 @@ def evaluate_task_coverage(conn: Any, item_id: int) -> TaskCoverageResult:
             no_tasks=True,
         )
     budgets = _budgets(conn, item_id)
+    landed = _landed_tasks(conn, item_id)
     claims: dict[int, dict[int, dict[str, Any]]] = {}
     for row in _claim_rows(conn, item_id):
         task_num = int(_value(row, "task_num", 0))
@@ -162,6 +184,14 @@ def evaluate_task_coverage(conn: Any, item_id: int) -> TaskCoverageResult:
     satisfying: set[int] = set()
     for task_num in tasks:
         task_claims = claims.get(task_num, {})
+        if task_num in landed:
+            satisfying.update(
+                cid
+                for cid, data in task_claims.items()
+                if data["targets"]
+                or (data["mode"] == "exception" and data["reason"].strip())
+            )
+            continue
         budget = budgets.get(task_num, ())
         exceptions = {
             cid
