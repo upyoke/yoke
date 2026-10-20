@@ -35,8 +35,9 @@ Mutation commands (return structured JSON for shell adapters to apply):
         Returns JSON with preflight_only=true, field_writes, and events.
         Deprecated alias: update-item.
 
-    item-next-id
-        Return the next display ID (``YOK-N``) without side effects.
+    item-next-id <project>
+        Return the next public ref (``PREFIX-N``) PROJECT would issue,
+        without side effects.
 
     execute-batch-update <field> <value> <item-id>...
         Apply one update across multiple items through the Python backlog domain.

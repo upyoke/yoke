@@ -15,7 +15,11 @@ from typing import Any, Optional
 
 from . import db_backend
 from yoke_core.domain.db_helpers import connect
-from yoke_core.domain.project_identity import resolve_project
+from yoke_contracts.public_ref import format_item_ref
+from yoke_core.domain.project_identity import (
+    allocate_project_sequence,
+    resolve_project,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -215,14 +219,22 @@ def _query_item_field(
     return row[0] if row else None
 
 
-def get_next_display_id(db_path: Optional[str] = None) -> str:
-    """Return the next available backlog item display ID."""
+def get_next_display_id(project: str, db_path: Optional[str] = None) -> str:
+    """Return the public ref the next item filed in PROJECT would receive.
+
+    Raises ``LookupError`` when PROJECT (a slug or id) names no project.
+    """
     if db_path is None:
         db_path = _resolve_write_db_path()
     _assert_write_db_ready(db_path)
     conn = connect(db_path)
     try:
-        return f"YOK-{_get_next_id(conn)}"
+        ident = resolve_project(conn, project, required=True)
+        return format_item_ref(
+            ident.slug,
+            ident.public_item_prefix,
+            allocate_project_sequence(conn, ident.id),
+        )
     finally:
         conn.close()
 

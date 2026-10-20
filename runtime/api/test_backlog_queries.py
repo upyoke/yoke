@@ -21,6 +21,8 @@ import io
 import os
 from unittest import mock
 
+import pytest
+
 from yoke_core.domain import backlog
 from runtime.api.test_backlog import (
     _item_field,
@@ -36,12 +38,20 @@ from runtime.api.test_backlog import (
 
 
 class TestNextDisplayId:
-    def test_returns_display_id(self, tmp_db):
-        _seed_item(tmp_db, id=1)
-        _seed_item(tmp_db, id=2)
+    def test_returns_each_projects_own_prefix_and_sequence(self, tmp_db):
+        # items.id runs ahead of both projects' sequences.
+        _seed_item(tmp_db, id=40, project_sequence=5)
+        _seed_item(tmp_db, id=41, project_sequence=6)
+        _seed_item(tmp_db, id=42, project="externalwebapp", project_sequence=1)
 
         with mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
-            assert backlog.get_next_display_id() == "YOK-3"
+            assert backlog.get_next_display_id("yoke") == "YOK-7"
+            assert backlog.get_next_display_id("externalwebapp") == "EXT-2"
+
+    def test_unknown_project_refuses(self, tmp_db):
+        with mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+            with pytest.raises(LookupError):
+                backlog.get_next_display_id("no-such-project")
 
 
 class TestDedupSearch:
