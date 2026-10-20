@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
+from runtime.api.domain import test_agent_mission_cleanup as mission_support
 from runtime.api.domain.test_qa_member_machine_partitions import (
     MACHINES, _begin, _case_begin, _seed,
 )
@@ -16,7 +17,7 @@ from yoke_core.domain.qa_plan_host_leases import execution_host_leases
 from yoke_core.domain.sessions_lifecycle_claim_release import release_claim_by_id
 
 
-pytest_plugins = ["runtime.api.domain.test_agent_mission_cleanup"]
+removed_mission = mission_support.removed_mission
 
 
 @pytest.mark.parametrize("removed_mission", [True], indirect=True)
