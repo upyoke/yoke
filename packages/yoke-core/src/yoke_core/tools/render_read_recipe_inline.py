@@ -3,8 +3,7 @@
 Build-time mechanism that propagates the canonical text from
 :mod:`yoke_contracts.adapter_read_recipes` into the read-raw markdown
 surfaces an agent reads *while deciding how to invoke a command* — the
-root rules file, the CLI deep home, the Claude session rules, and the
-Engineer's large-output reference. Drift is structurally impossible: the
+root rules file and the Engineer's large-output reference. Drift is structurally impossible: the
 :data:`INVENTORY` tuple is the contract, and ``--check`` mode runs in the
 pre-commit hook. The marker mechanics live in
 :mod:`yoke_core.tools.generated_block_render`, shared with the field-note
@@ -52,16 +51,10 @@ BEGIN_MARKER: str = begin_marker(SLUG)
 END_MARKER: str = end_marker(SLUG)
 REPAIR_COMMAND: str = "python3 -m yoke_core.tools.render_read_recipe_inline"
 
-# The CLI deep home carries the worked catalog; every other inventory file
-# carries the short stanza, which is what fits beside a rule.
-_CATALOG_PATH: str = "docs/public/agents/rules/shell-and-cli.md"
-
-
 # Inventory of every file that participates in the generated-block render.
 # One entry per surface where a reader is choosing how to invoke a command.
 INVENTORY: tuple[str, ...] = (
     "AGENTS.md",
-    "docs/public/agents/rules/shell-and-cli.md",
     "runtime/agents/engineer/large-output.md",
 )
 
@@ -76,27 +69,6 @@ def _build_short_block() -> str:
     return "\n".join(lines)
 
 
-def _build_catalog_block() -> str:
-    """Long form: one row per thing a caller is after, and its shape."""
-    lines: list[str] = [
-        arr.DIRECTIVE,
-        "",
-        "| What you want | The shape that serves it |",
-        "| --- | --- |",
-    ]
-    for recipe in arr.RECIPES:
-        shape = f"`{recipe.recipe}` — {recipe.note}"
-        lines.append(f"| {recipe.want} | {shape} |")
-    lines.append("")
-    return "\n".join(lines)
-
-
-def _content_for_path(rel_path: str) -> str:
-    if rel_path == _CATALOG_PATH:
-        return _build_catalog_block()
-    return _build_short_block()
-
-
 def render(
     target_root: pathlib.Path,
     *,
@@ -107,7 +79,7 @@ def render(
         target_root,
         slug=SLUG,
         inventory=INVENTORY,
-        content_for_path=_content_for_path,
+        content_for_path=lambda _rel_path: _build_short_block(),
         check=check,
     )
 
