@@ -310,3 +310,37 @@ def test_github_poll_once_refuses_a_lapsed_code_without_github(monkeypatch):
         github_device_flow.poll_once(
             device, client_id="c", web_url="https://github.com"
         )
+
+
+@pytest.mark.parametrize("kind", ["machine", "github"])
+def test_new_approval_survives_a_later_refusal(drive, server, github, monkeypatch, kind):
+    from yoke_cli.config.setup_agent_answering import SetupRefusal
+    from yoke_cli.config.setup_agent_shell import AgentSetup
+
+    if kind == "github":
+        _to_github(drive)
+    else:
+        drive()
+    before = _saved()["answers"]
+
+    def refuse(_self, prompt):
+        raise SetupRefusal("setup_answer_not_current", "answer the current key", prompt)
+
+    original = AgentSetup._refuse_unused_answers
+    monkeypatch.setattr(AgentSetup, "_refuse_unused_answers", refuse)
+    answer = "github.machine=connect" if kind == "github" else "connect.destination=hosted"
+    code, lines = drive(answer)
+
+    assert (code, lines[-1]["reason"]) == (2, "setup_answer_not_current")
+    saved = _saved()
+    assert saved["pending_approval"]["kind"] == kind
+    expected = "gh-device-1" if kind == "github" else "device-CODE-1"
+    assert saved["pending_approval"]["device_code"] == expected
+    assert saved["answers"] == before
+
+    monkeypatch.setattr(AgentSetup, "_refuse_unused_answers", original)
+    server.polls = github.polls = [None]
+    drive()  # Re-ask the unanswered choice before replaying the saved approval.
+    browser = _only_browser(drive(answer))
+    assert browser["human"]["user_code"] == saved["pending_approval"]["user_code"]
+    assert len(server.started if kind == "machine" else github.started) == 1

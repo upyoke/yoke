@@ -195,11 +195,46 @@ def test_changed_presets_refuse_and_keep_the_stored_ones(agent):
     drive.walk(MACHINE_ONLY_ANSWERS[:2])
     before = _store_bytes()
 
-    line = _refused(
-        drive(flags=("--yes",)), "setup_agent_flags_changed", "connect.admin_name"
+    code, lines = drive(flags=("--yes",))
+    line = lines[-1]
+    assert (code, line["reason"], line["key"]) == (
+        2, "setup_agent_flags_changed", "connect.admin_name"
     )
 
     assert "--discard" in line["recovery"]
+    assert _store_bytes() == before
+
+
+@pytest.mark.parametrize("approval_started", [False, True])
+def test_changed_presets_stop_before_machine_setup(agent, monkeypatch, approval_started):
+    from unittest.mock import Mock
+
+    from runtime.api.cli.test_setup_agent_approvals import _pending
+    from yoke_cli.commands.adapters import onboard_agent
+    from yoke_cli.config import hosted_machine_authorization
+
+    drive, _ = agent
+    start = Mock(return_value=_pending("FIRST"))
+    monkeypatch.setattr(hosted_machine_authorization, "start", start)
+    drive()
+    if approval_started:
+        drive("connect.destination=hosted")
+        start.reset_mock()
+    before = _store_bytes()
+    prepare = Mock(side_effect=AssertionError("refused setup must stop before prepare"))
+    monkeypatch.setattr(onboard_agent.onboard_resume, "prepare_run", prepare)
+    monkeypatch.setattr(onboard_agent.onboard_machine_setup, "prepare", prepare)
+    monkeypatch.setattr(onboard_agent, "_agent_setup", prepare)
+
+    code, lines = drive(flags=("--yes",))
+
+    assert code == 2
+    assert len(lines) == 1
+    assert lines[0]["reason"] == "setup_agent_flags_changed"
+    assert lines[0]["key"] == json.loads(before)["waiting_key"]
+    assert "https://" not in json.dumps(lines) + drive.stderr
+    start.assert_not_called()
+    prepare.assert_not_called()
     assert _store_bytes() == before
 
 

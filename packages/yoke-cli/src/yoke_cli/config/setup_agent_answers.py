@@ -70,7 +70,8 @@ class AnswerStore:
     """One invocation's view of the store: saved answers plus staged ones.
 
     Accepted answers are staged and reach disk only through :meth:`flush`, so
-    an invocation that ends in a refusal leaves the store exactly as it was.
+    a refusal saves no answer. Pending approvals and completed effects are
+    recorded immediately, even when the invocation later refuses.
     """
 
     def __init__(self, record: dict[str, Any], *, existed: bool) -> None:

@@ -155,8 +155,8 @@ class AgentApprovals:
     def _wait_for_approval(
         self, record: dict[str, Any], step: str, key: str, pending: Pending | Device
     ) -> None:
+        self._answers.keep_pending_approval(record)
         self._refuse_unused_answers(self._history[-1].prompt)
-        self._answers.pending_approval = record
         self._answers.flush(waiting_key=key)
         if record["kind"] == "machine":
             human, instead = self._approval_human(pending), MACHINE_INSTEAD
