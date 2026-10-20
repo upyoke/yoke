@@ -241,6 +241,25 @@ the same stage/member plan to check the pinned candidate.
 See [deployment plan execution](deployment-plan-execution.md) for shared plan
 credit, machine partitions, host turns and starting-state recovery.
 
+## Command case source
+
+A candidate-bound source case that isolates `HOME` and `YOKE_MACHINE_HOME`
+still runs `yoke watch pytest -- <test paths>`. Keep `YOKE_QA_CANDIDATE_TREE`,
+`YOKE_QA_SOURCE_ENVIRONMENT`, `YOKE_PG_CLUSTER_ROOT` and `YOKE_PG_BIN_DIR` in its
+environment. `SOURCE-ENVIRONMENT-QA-DECLARATION` names a broken handoff: rerun
+the same case.
+
+With several registered lanes, pick the exact worker:
+
+```text
+yoke qa case run --requirement-id N --checkout-path PATH --expected-branch BRANCH --expected-sha FULL_SHA
+```
+
+`qa_published_head_unproven` keeps the publication but did not stamp the lane
+head. After a passing gate, check the claimed checkout is clean and at the
+published commit, then run
+`yoke project snapshot sync PATH --project P --head-only`. No rerun is needed.
+
 ## Related
 
 - [Starting state and activity](case-attachment-rules.md)
