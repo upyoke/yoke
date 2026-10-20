@@ -304,14 +304,20 @@ def validate_host_control_submission(
         expected.contract_digest,
         str(contract_digest),
     ):
-        from yoke_core.domain.machine_reset_debt import recovery_receipt_matches
+        from yoke_core.domain.machine_reset_debt import recovered_submission_contract
 
-        if not allow_recorded_replay or not recovery_receipt_matches(
-            conn, machine, lease.id, contract_digest
-        ):
+        recovered = (
+            recovered_submission_contract(
+                conn, machine, lease.id, contract_digest, expected
+            )
+            if allow_recorded_replay
+            else None
+        )
+        if recovered is None:
             raise MachineQaProtocolError(
                 "host-control target changed after execution began"
             )
+        expected = recovered
     return lease, expected
 
 

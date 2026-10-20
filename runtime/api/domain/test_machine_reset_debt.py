@@ -4,19 +4,23 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.test_agent_mission_cleanup import removed_mission  # noqa: F401
+from runtime.api.domain import test_agent_mission_cleanup as cleanup_support
 from runtime.api.domain.machine_operation_test_support import run_operation
 from yoke_core.domain.agent_mission_recording import handle_agent_mission_access
 from yoke_core.domain.coordination_claims import get_claim
 from yoke_core.domain.machine_reset_debt import record_reset_owed, reset_owed
 from yoke_core.domain.qa_plan_execution_state import lock_plan_execution
 
+removed_mission = cleanup_support.removed_mission
+
 
 @pytest.mark.parametrize(
     "restore", [None, {"restored": False}, {"restored": True, "baseline": "other"}]
 )
 def test_unproven_finish_releases_and_records_owed_baseline(
-    test_db, removed_mission, restore  # noqa: F811
+    test_db,
+    removed_mission,
+    restore,
 ):
     request, _, original = removed_mission
     acquired = handle_agent_mission_access(request)
@@ -171,3 +175,120 @@ def test_mission_recovers_before_scratch_and_commands(monkeypatch, ok):
             "yoke test-machine reset"
             in result["preparation"]["evidence"]["preparation_failure"]["recovery"]
         )
+
+
+def test_recovery_contract_clears_debt_and_accepts_submission_replay(
+    test_db, removed_mission
+):
+    from runtime.api.domain.test_agent_mission_qa import ACTOR
+    from yoke_core.domain.host_control_runner import load_test_machine_contract
+    from yoke_core.domain.machine_qa_execution_protocol import (
+        _issue,
+        validate_host_control_submission,
+    )
+    from yoke_core.domain.machine_reset_debt import record_owed_reset
+
+    _, _, original = removed_mission
+    machine_name = original["settings"]["resource_name"]
+    record_reset_owed(
+        test_db,
+        case={"project_id": 1, "host_baseline": "shell-preconfigured"},
+        machine=machine_name,
+        lease_id=original["lease_id"],
+    )
+    test_db.commit()
+    machine = load_test_machine_contract(test_db, project="yoke", machine=machine_name)
+    lease = get_claim(test_db, original["lease_id"])
+    shape = {
+        key: original[key]
+        for key in (
+            "operation",
+            "checks",
+            "baselines",
+            "cases",
+            "plan_execution_id",
+            "continues_execution_id",
+            "roster_digest",
+            "ordinal",
+            "case_position",
+            "baseline_position",
+        )
+    }
+    issued = _issue(test_db, machine, lease, **shape)
+    assert issued.reset_owed_baseline == "shell-preconfigured"
+    assert issued.protocol == "host-control-reset-recovery-v1"
+    record_owed_reset(
+        test_db, issued, {"owed_reset": {"baseline": "shell-preconfigured", "ok": True}}
+    )
+    test_db.commit()
+    assert reset_owed(test_db, machine_name) is None
+    _, replay = validate_host_control_submission(
+        test_db,
+        project="yoke",
+        session_id=ACTOR.session_id,
+        actor_id=ACTOR.actor_id,
+        lease_id=lease.id,
+        contract_digest=issued.contract_digest,
+        allow_recorded_replay=True,
+        **shape,
+    )
+    assert replay.contract_digest == issued.contract_digest
+    assert replay.reset_owed_baseline == "shell-preconfigured"
+    next_case = _issue(test_db, machine, lease, **shape)
+    assert next_case.reset_owed_baseline is None
+    assert "reset_owed_baseline" not in next_case.model_dump(mode="json")
+
+
+def test_failed_artifact_storage_still_releases_and_records_debt(
+    test_db, removed_mission, monkeypatch
+):
+    request, _, original = removed_mission
+    acquired = handle_agent_mission_access(request)
+    assert acquired.primary_success, acquired.error
+
+    def unavailable(*args):
+        raise OSError("artifact store unavailable")
+
+    monkeypatch.setattr(
+        "yoke_core.domain.handlers.qa_artifact_add.handle_qa_artifact_add", unavailable
+    )
+    finished = handle_agent_mission_access(
+        request.model_copy(
+            update={
+                "payload": {
+                    **request.payload,
+                    "cleanup": "finish",
+                    "lease_id": original["lease_id"],
+                    "restore": {"restored": True, "baseline": "fresh-host"},
+                }
+            }
+        )
+    )
+    assert not finished.primary_success
+    assert finished.error.code == "mission_restore_evidence_failed"
+    assert not get_claim(test_db, original["lease_id"]).is_active
+    assert reset_owed(test_db, original["settings"]["resource_name"]) == "fresh-host"
+
+
+def test_debt_changes_fleet_actionability_fingerprint_and_render(
+    test_db, tmp_path, monkeypatch
+):
+    from runtime.api.steering_fleet_test_helpers import compose, seed_steering_scope
+    from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
+    from yoke_core.domain.steering_fleet_report_render import (
+        report_body,
+        scope_actionable_digest,
+    )
+    from yoke_core.domain.steering_fleet_report_projection import report_dict
+
+    seed_steering_scope(test_db)
+    configure_test_machine(test_db, tmp_path, monkeypatch)
+    before = compose(test_db)
+    machine = _debt(test_db)
+    report = compose(test_db)
+    assert report.actionable
+    assert report.fingerprint() != before.fingerprint()
+    assert report.reset_debts[0][0] == machine
+    assert report_dict(report)["reset_debts"][0]["machine"] == machine
+    assert "machine_needs_repair" in report_body(report)
+    assert "yoke test-machine reset" in scope_actionable_digest(report)

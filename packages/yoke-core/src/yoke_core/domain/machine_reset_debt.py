@@ -28,7 +28,7 @@ def reset_command(project, machine, baseline):
     )
 
 
-def reset_owed(conn, machine, *, include_resolved=False):
+def reset_owed(conn, machine):
     """Physical hosts share debt across projects, just as they share custody."""
     p = _marker(conn)
     rows = conn.execute(
@@ -51,7 +51,7 @@ def reset_owed(conn, machine, *, include_resolved=False):
         and parse_instant(r["performed_at"]) > parse_instant(owed["performed_at"])
         for r in receipts
     )
-    return owed["checks"][0]["name"] if include_resolved or not cleared else None
+    return owed["checks"][0]["name"] if not cleared else None
 
 
 def record_reset_owed(conn, *, case, machine, lease_id, contract_digest=""):
@@ -75,18 +75,30 @@ def record_owed_reset(conn, contract, evidence):
     if not baseline:
         return
     receipt = evidence.get("owed_reset") or {}
+    unstarted = evidence.get("case_started") is False or bool(
+        evidence.get("preparation_failure")
+    )
+    if not receipt and unstarted:
+        return
     if receipt.get("baseline") != baseline:
         raise ValueError(
             "machine_reset_proof_missing: rerun the case to record its owed reset"
         )
     ok = receipt.get("ok") is True
+    if not ok and not unstarted:
+        raise ValueError(
+            "machine_needs_repair: failed owed reset cannot authorize case work; run "
+            + reset_command(
+                contract.project, contract.settings["resource_name"], baseline
+            )
+        )
     record_test_machine_operation(
         conn,
         contract.project_id,
         machine=contract.settings["resource_name"],
         operation="reset",
         status="verified" if ok else "error",
-        checks=[{"name": baseline, "ok": ok, **receipt}],
+        checks=[{**receipt, "name": baseline, "ok": ok}],
         error_code=None if ok else "machine_needs_repair",
         lease_id=contract.lease_id,
         contract_digest=contract.contract_digest,
@@ -94,7 +106,10 @@ def record_owed_reset(conn, contract, evidence):
     )
 
 
-def recovery_receipt_matches(conn, machine, lease_id, digest):
+def recovered_submission_contract(conn, machine, lease_id, digest, expected):
+    """Reconstruct only the exact contract whose recovery already committed."""
+    import hmac
+    from yoke_contracts.machine_qa_execution import execution_contract_digest
     from yoke_core.domain.machine_operation_recording import (
         recorded_test_machine_operation,
     )
@@ -107,6 +122,18 @@ def recovery_receipt_matches(conn, machine, lease_id, digest):
         lease_id=lease_id,
         contract_digest=digest,
     )
-    return bool(
-        receipt and receipt["status"] == "verified" and not receipt["error_code"]
+    if not receipt or receipt["status"] != "verified" or receipt["error_code"]:
+        return None
+    baseline = receipt["checks"][0]["name"]
+    recovered = expected.model_copy(
+        update={
+            "reset_owed_baseline": baseline,
+            "protocol": "host-control-reset-recovery-v1",
+            "contract_digest": digest,
+        }
+    )
+    return (
+        recovered
+        if hmac.compare_digest(execution_contract_digest(recovered), digest)
+        else None
     )
