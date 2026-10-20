@@ -88,3 +88,78 @@ def test_standalone_mission_chain_requires_its_own_plan(
         execution = begin()
         assert len(execution["roster"]) == 2
         assert execution["roster"][-1]["starting_state"] == "inherit"
+
+
+def test_an_independent_chain_can_expand_custody_before_its_opener(
+    test_db, tmp_path, monkeypatch
+):
+    from runtime.api.domain.machine_qa_host_test_support import _terminal_recipe
+    from runtime.api.domain.test_qa_member_machine_partitions import (
+        MACHINES,
+        _case_begin,
+    )
+    from yoke_core.domain.qa_plan_management import replace_plan_cases
+    from yoke_core.domain.qa_plan_execution_state import (
+        advance_plan_execution,
+        lock_plan_execution,
+    )
+    from yoke_core.domain.qa_plan_host_leases import execution_host_leases
+
+    _seed(test_db, tmp_path, monkeypatch)
+    plan_id = test_db.execute(
+        "SELECT id FROM qa_plans WHERE slug='host-check-0'"
+    ).fetchone()[0]
+    replace_plan_cases(
+        test_db,
+        plan_id=plan_id,
+        cases=[
+            {
+                "case_key": key,
+                "position": position,
+                "method_id": "terminal-check",
+                "instructions": "Run a host check.",
+                "expected_outcome": "Check passes.",
+                "method_config": {
+                    **_terminal_recipe(),
+                    "machine": MACHINES[0],
+                    **({"machines": list(MACHINES)} if position == 3 else {}),
+                },
+                "entry_surface": "printf done",
+                "required_completion": "complete",
+                "starting_state": "inherit" if position == 3 else "as_is",
+                "starting_state_reason": None
+                if position == 3
+                else "Read host identity.",
+            }
+            for position, key in enumerate(["independent", "opener", "follower"], 1)
+        ],
+    )
+    execution = begin_standalone_execution(
+        test_db,
+        plan="host-check-0",
+        project="yoke",
+        actor_id="1",
+        session_id=SESSION,
+        source_revision="a" * 40,
+        checkout_path=str(tmp_path),
+    )
+    assert _case_begin(execution).primary_success
+    current = lock_plan_execution(test_db, execution["id"])
+    old_lease = current["machine_lease_id"]
+    opener = current["roster"][0]
+    advance_plan_execution(
+        test_db,
+        current,
+        ordinal=0,
+        requirement_id=opener["requirement_id"],
+        result={"requirement_id": opener["requirement_id"], "case_outcome": "passed"},
+    )
+    response = _case_begin(current, 1)
+    assert response.primary_success, response.error
+    current = lock_plan_execution(test_db, execution["id"])
+    assert {
+        lease.target.machine_id for lease in execution_host_leases(test_db, current)
+    } == set(MACHINES)
+    assert test_db.execute(
+        "SELECT released_at FROM work_claims WHERE id=%s", (old_lease,)
+    ).fetchone()[0]

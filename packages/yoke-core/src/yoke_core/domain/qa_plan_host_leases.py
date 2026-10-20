@@ -138,9 +138,14 @@ def begin_case_host_contract(
     ]
     names = chain_hosts or case_machines(case, driver)
     lease_id = execution.get("machine_lease_id")
-    if (
-        lease_id is not None
-        and get_claim(conn, int(lease_id)).target.machine_id != driver
+    held_hosts = {
+        claim.target.machine_id for claim in execution_host_leases(conn, execution)
+    }
+    if lease_id is not None:
+        held_hosts.add(get_claim(conn, int(lease_id)).target.machine_id)
+    if lease_id is not None and (
+        get_claim(conn, int(lease_id)).target.machine_id != driver
+        or (case.get("starting_state") != "inherit" and held_hosts != set(names))
     ):
         release_execution_hosts(conn, execution, reason="qa-case-host-change")
         release(conn, int(lease_id), "qa-case-host-change", commit=False)
