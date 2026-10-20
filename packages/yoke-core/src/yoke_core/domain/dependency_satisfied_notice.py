@@ -134,14 +134,14 @@ def satisfied_message(
         f" Still unmet: {'; '.join(descriptions)} — keep waiting on those; "
         "another notice follows when each clears."
         if remaining
-        else " No other gates remain."
+        else " No other dependency gates remain."
     )
     if route == HOLDER:
         lead = (
             f"{blocker_ref} {event}; your {gate_point} gate {satisfaction} on "
             f"{dependent_ref} is satisfied"
         )
-        action = " — resume." if not remaining else "."
+        action = " — continue the step this gate held." if not remaining else "."
         return lead + action + still
     activation = [
         gate["blocker_ref"]
