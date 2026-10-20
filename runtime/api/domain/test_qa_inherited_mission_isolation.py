@@ -95,10 +95,14 @@ def test_standalone_mission_chain_requires_its_own_plan(
         assert execution["roster"][-1]["starting_state"] == "inherit"
 
 
-def test_an_independent_chain_can_expand_custody_before_its_opener(
+def test_later_chain_hosts_are_reserved_before_the_first_capture(
     test_db, tmp_path, monkeypatch
 ):
-    from runtime.api.domain.machine_qa_host_test_support import _terminal_recipe
+    from runtime.api.domain.machine_qa_host_test_support import (
+        TEST_MACHINE_SETTINGS,
+        _terminal_recipe,
+    )
+    from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
     from runtime.api.domain.test_qa_member_machine_partitions import (
         MACHINES,
         _case_begin,
@@ -111,6 +115,14 @@ def test_an_independent_chain_can_expand_custody_before_its_opener(
     from yoke_core.domain.qa_plan_host_leases import execution_host_leases
 
     _seed(test_db, tmp_path, monkeypatch)
+    third = "mac-pro-lab"
+    replace_test_machine_settings(
+        test_db,
+        project="yoke",
+        machine=third,
+        settings={**TEST_MACHINE_SETTINGS, "resource_name": third},
+        base_settings=None,
+    )
     test_db.execute(
         "UPDATE qa_plans SET target_environment_id=(SELECT id FROM environments "
         "WHERE project_id=1 AND name='stage') WHERE slug='host-check-0'"
@@ -132,7 +144,16 @@ def test_an_independent_chain_can_expand_custody_before_its_opener(
                 "method_config": {
                     **_terminal_recipe(),
                     "machine": MACHINES[0],
-                    **({"machines": list(MACHINES)} if position == 3 else {}),
+                    **(
+                        {
+                            "machines": [
+                                MACHINES[0],
+                                MACHINES[1] if position == 2 else third,
+                            ]
+                        }
+                        if position > 1
+                        else {}
+                    ),
                 },
                 "entry_surface": "printf done",
                 "required_completion": "complete",
@@ -156,6 +177,7 @@ def test_an_independent_chain_can_expand_custody_before_its_opener(
     assert _case_begin(execution).primary_success
     current = lock_plan_execution(test_db, execution["id"])
     old_lease = current["machine_lease_id"]
+    assert len(execution_host_leases(test_db, current)) == 3
     opener = current["roster"][0]
     advance_plan_execution(
         test_db,
@@ -169,10 +191,23 @@ def test_an_independent_chain_can_expand_custody_before_its_opener(
     current = lock_plan_execution(test_db, execution["id"])
     assert {
         lease.target.machine_id for lease in execution_host_leases(test_db, current)
-    } == set(MACHINES)
-    assert test_db.execute(
+    } == {*MACHINES, third}
+    assert current["machine_lease_id"] == old_lease
+    assert not test_db.execute(
         "SELECT released_at FROM work_claims WHERE id=%s", (old_lease,)
     ).fetchone()[0]
+
+    opener = current["roster"][1]
+    advance_plan_execution(
+        test_db,
+        current,
+        ordinal=1,
+        requirement_id=opener["requirement_id"],
+        result={"requirement_id": opener["requirement_id"], "case_outcome": "passed"},
+    )
+    response = _case_begin(current, 2)
+    assert response.primary_success, response.error
+    assert len(execution_host_leases(test_db, current)) == 3
 
 
 def test_run_scoped_mission_chain_excludes_later_captures(

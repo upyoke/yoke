@@ -66,7 +66,7 @@ def require_case_host_leases(
         str(claim.target.machine_id): claim
         for claim in execution_host_leases(conn, execution)
     }
-    if set(leases) != set(names):
+    if not set(names).issubset(leases):
         raise ValueError(
             "test_machine_set_lease_lost: this case no longer holds every declared "
             "machine; abort the execution and rerun its scoped QA command"
@@ -133,19 +133,22 @@ def begin_case_host_contract(
     driver = resolve_case_machine(case, retained or machine)
     from yoke_core.domain.qa_plan_chain_hosts import chain_host_groups
 
-    _, chain_hosts, _ = chain_host_groups(execution["roster"])[
-        int(case["requirement_id"])
-    ]
-    names = chain_hosts or case_machines(case, driver)
+    groups = chain_host_groups(execution["roster"])
+    declared_driver = groups[int(case["requirement_id"])][0]
+    names = tuple(
+        sorted(
+            {
+                name
+                for group_driver, hosts, _isolated in groups.values()
+                if group_driver == declared_driver
+                for name in hosts
+            }
+        )
+    ) or case_machines(case, driver)
     lease_id = execution.get("machine_lease_id")
-    held_hosts = {
-        claim.target.machine_id for claim in execution_host_leases(conn, execution)
-    }
-    if lease_id is not None:
-        held_hosts.add(get_claim(conn, int(lease_id)).target.machine_id)
-    if lease_id is not None and (
-        get_claim(conn, int(lease_id)).target.machine_id != driver
-        or (case.get("starting_state") != "inherit" and held_hosts != set(names))
+    if (
+        lease_id is not None
+        and get_claim(conn, int(lease_id)).target.machine_id != driver
     ):
         release_execution_hosts(conn, execution, reason="qa-case-host-change")
         release(conn, int(lease_id), "qa-case-host-change", commit=False)

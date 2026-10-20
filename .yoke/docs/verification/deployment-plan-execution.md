@@ -112,7 +112,10 @@ partial acquisitions on contention, and retains the full set through case
 execution and mission review. Completion or abort releases the set; [completed captures remain reviewable](requirement-state.md). Independent cases with different driving hosts or declared sets use separate
 execution rosters. An `inherit` chain uses its head's driver and the union of
 all its hosts as one execution group. The runner acquires that full union
-before the opener, retaining every lease until completion, review or abort;
+before the opener, retaining every lease until completion, review or abort.
+When an execution contains independent chains on the same driver, admission
+reserves their combined hosts before its first capture, so a later chain
+never expands a held set or hides lost custody by reacquiring a missing host;
 contention before the opener releases partial acquisitions and queues the
 chain. Definition-time validation refuses `inherited_driver_mismatch` when
 an inheriting case changes its predecessor's driving host: use the same
