@@ -35,17 +35,22 @@ from __future__ import annotations
 
 from typing import Optional
 
-from yoke_core.domain import db_backend
 from yoke_contracts.api.function_call import FunctionCallRequest
 from yoke_core.domain.yoke_function_registry import RegistryEntry
 
 
 def operating_actor_id() -> Optional[str]:
+    """Resolve once within a deploy driver's identity scope."""
+    from yoke_core.domain.deployment_driver_identity import identity_read
+
+    return identity_read("operating_actor", _load_operating_actor_id)
+
+
+def _load_operating_actor_id() -> Optional[str]:
     """Return this universe's operating actor id, or ``None``.
 
-    ``None`` covers every miss the caller treats identically: no local
-    control plane to ask (an https client), a database that cannot
-    answer, or a universe whose operating actor is absent or ambiguous.
+    ``None`` means no local authority or an absent/ambiguous operating actor.
+    A database error propagates so binding reports connection loss.
     """
     try:
         from yoke_core.domain import db_helpers
@@ -60,15 +65,13 @@ def operating_actor_id() -> Optional[str]:
         )
     except Exception:  # noqa: BLE001 — import-time miss is a resolution miss
         return None
-    conn = local_connection_or_none(db_helpers.connect)
+    conn = local_connection_or_none(db_helpers.connect, connection_errors_raise=True)
     if conn is None:
         return None
     try:
         binding = resolve_operating_actor(conn)
         if binding.actor_id is not None and converge_operating_actor_grant(conn):
             conn.commit()
-    except db_backend.operational_error_types():
-        return None
     except (AttributeError, RuntimeError, TypeError):
         return None
     finally:

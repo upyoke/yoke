@@ -52,6 +52,14 @@ class _Conn:
                     for member in params
                 ]
             )
+        if "SELECT DISTINCT deployment_member_item_id" in sql:
+            return _Rows(many=[(SETTLED_MEMBER,), (WAITING_MEMBER,)])
+        if "SELECT item_id FROM deployment_run_items" in sql:
+            return _Rows(
+                many=[{"item_id": SETTLED_MEMBER}, {"item_id": WAITING_MEMBER}]
+            )
+        if "SELECT slug FROM projects" in sql:
+            return _Rows(one=(PROJECT_SLUG,))
         if "FROM deployment_runs" in sql:
             return _Rows(one=(1, "persistent", "a" * 40))
         if "FROM deployment_run_items" in sql:

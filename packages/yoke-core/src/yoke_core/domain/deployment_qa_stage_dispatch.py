@@ -12,7 +12,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from yoke_core.domain.project_identity import render_item_ref, resolve_project_slug
+from yoke_core.domain.project_identity import resolve_project_slug
+from yoke_core.domain.item_ref_render import render_item_ref_lookup
+from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
+from yoke_core.domain.deployment_qa_presentation_facts import run_presentation
 from yoke_core.domain.schema_read_scope import composition_operation
 from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
 from yoke_core.domain import deployment_run_item_qa_membership as item_qa
@@ -128,15 +131,6 @@ def materialize_and_gate_deployment_qa_stage(
     the database that serves this control plane. Schema facts are read once
     for the whole walk; each member's reads are batched across the run.
     """
-    from yoke_core.domain.deployment_qa_member_acceptance_notice import (
-        notify_item_qa_accepted,
-    )
-    from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
-    from yoke_core.domain.deployment_qa_stage_materialization import (
-        QaCasesNotSelectedError,
-        materialize_deployment_qa_stage,
-    )
-
     project_id, target_tier, revision = _run_context(conn, run_id)
     if stage.get("scope") == "item":
         rows = conn.execute(
@@ -151,25 +145,45 @@ def materialize_and_gate_deployment_qa_stage(
             return (1, refusal) if refusal else (0, item_qa.NO_MEMBER_OWES_TARGET)
     else:
         members = [None]
+    from yoke_core.domain.deployment_qa_dispatch_preparation import prepare_members
+
+    errors = prepare_members(conn, stage, run_id=run_id, members=members)
+    return _gate_members(
+        conn,
+        stage,
+        run_id=run_id,
+        members=members,
+        errors=errors,
+        project_id=project_id,
+        target_tier=target_tier,
+        revision=revision,
+    )
+
+
+@presentation_operation
+@run_presentation
+def _gate_members(
+    conn, stage, *, run_id, members, errors, project_id, target_tier, revision
+):
+    from yoke_core.domain.deployment_qa_member_acceptance_notice import (
+        notify_item_qa_accepted,
+    )
+    from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
+    from yoke_core.domain.deployment_qa_stage_materialization import (
+        QaCasesNotSelectedError,
+    )
+
+    refs = render_item_ref_lookup(conn, (m for m in members if m is not None))
+    project_slug = (
+        resolve_project_slug(conn, project_id) if project_id is not None else ""
+    )
     waiting: list[str] = []
     accepted: list[int] = []
     failure = ""
     for member in members:
         try:
-            existing = conn.execute(
-                "SELECT 1 FROM qa_requirements WHERE deployment_run_id=%s "
-                "AND deployment_stage=%s "
-                "AND COALESCE(deployment_member_item_id,0)=%s "
-                "AND method_id IS NOT NULL LIMIT 1",
-                (run_id, str(stage["name"]), member or 0),
-            ).fetchone()
-            if existing is None:
-                materialize_deployment_qa_stage(
-                    conn,
-                    deployment_run_id=run_id,
-                    deployment_stage=str(stage["name"]),
-                    deployment_member_item_id=member,
-                )
+            if member in errors:
+                raise errors[member]
             status = deployment_qa_stage_status(
                 conn,
                 run_id=run_id,
@@ -178,16 +192,7 @@ def materialize_and_gate_deployment_qa_stage(
                 notify_acceptance=False,
             )
         except QaCasesNotSelectedError as exc:
-            # The default story, not a failure: this stage names no cases
-            # and nobody has selected any yet. It is a durable wait, and
-            # the agent responsible for the subject is the one who can end
-            # it — so wake them instead of failing the stage out from
-            # under them.
-            label = (
-                f"member {render_item_ref(conn, member)}"
-                if member is not None
-                else "run"
-            )
+            label = f"member {refs(member)}" if member is not None else "run"
             waiting.append(f"{label}: {exc}")
             if project_id is not None:
                 _notify_stage_wait(
@@ -215,16 +220,10 @@ def materialize_and_gate_deployment_qa_stage(
                 ).fetchone()
                 if attached is None:
                     continue
-            # Every other refusal is a real stage failure: an invalid
-            # pinned plan, an unresolvable target identity, a permission
-            # denial. None of those becomes truer by waiting. Members
-            # accepted earlier on this pass still close out below.
             failure = str(exc)
             conn.rollback()
             break
-        label = (
-            f"member {render_item_ref(conn, member)}" if member is not None else "run"
-        )
+        label = f"member {refs(member)}" if member is not None else "run"
         if project_id is not None:
             report_stage_result(
                 conn,
@@ -233,6 +232,9 @@ def materialize_and_gate_deployment_qa_stage(
                 member=member,
                 project_id=project_id,
                 outcome=str(status.get("outcome") or ""),
+                subject=refs(member)
+                if member is not None
+                else "the whole release batch",
                 target_tier=target_tier,
                 revision=revision,
                 target_digest=str(status.get("target_digest") or ""),
@@ -269,7 +271,7 @@ def materialize_and_gate_deployment_qa_stage(
                         run_id=run_id,
                         stage_name=str(stage["name"]),
                         item_ids=(member,),
-                        project_slug=resolve_project_slug(conn, project_id),
+                        project_slug=project_slug,
                     )
                 ):
                     for miss in wake_manual_requirement_owners(

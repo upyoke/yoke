@@ -51,6 +51,9 @@ from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.function_actor_connection_loss import (
+    name_identity_connection_loss,
+)
 from yoke_core.domain.session_ambient_identity import (
     format_actor_session_missing,
     resolve_ambient_session_id,
@@ -131,22 +134,15 @@ def _error_response(
 
 
 def _default_actor_id_resolver(session_id: str) -> ActorLookup:
-    """Canonical lookup surface for function-call actor identity.
+    """Resolve identity; a database error must never become a missing actor."""
+    from yoke_core.domain.deployment_driver_identity import identity_read
 
-    Reads ``harness_sessions.actor_id`` keyed on session_id via the
-    canonical control-plane DB. ``session_found=False`` is a positive
-    no-row finding (the provenance-marking signal); transient DB errors
-    report ``session_found=None`` so a broken lookup never marks a
-    registered session unverified.
+    return identity_read(
+        ("session", session_id), lambda: _load_actor_lookup(session_id)
+    )
 
-    A sibling private helper exists at
-    ``yoke_core.domain.migration_apply_audit._resolve_session_actor_id``
-    for audit-row enrichment (best-effort, silently ignores misses). The
-    semantic contract differs: this helper drives denial/provenance
-    decisions in the dispatcher, while the audit helper is opportunistic.
-    The two are deliberately not extracted to a shared surface; the SQL
-    literal is the only overlap.
-    """
+
+def _load_actor_lookup(session_id: str) -> ActorLookup:
     if not session_id:
         return ActorLookup()
     try:
@@ -158,13 +154,11 @@ def _default_actor_id_resolver(session_id: str) -> ActorLookup:
         return ActorLookup()
     # Never bare-connect on an https client: attempt local authority,
     # otherwise leave actor unbound (dispatcher provenance path).
-    conn = local_connection_or_none(db_helpers.connect)
+    conn = local_connection_or_none(db_helpers.connect, connection_errors_raise=True)
     if conn is None:
         return ActorLookup()
     try:
         return _read_actor_lookup(conn, session_id)
-    except db_backend.operational_error_types():
-        return ActorLookup()
     except (AttributeError, RuntimeError, TypeError):
         return ActorLookup()
     finally:
@@ -175,15 +169,12 @@ def _default_actor_id_resolver(session_id: str) -> ActorLookup:
 
 
 def _read_actor_lookup(conn: Any, session_id: str) -> ActorLookup:
-    """Resolve ``(actor_id, row-exists)`` for ``session_id``; never raises."""
-    try:
-        p = _placeholder(conn)
-        row = conn.execute(
-            f"SELECT actor_id FROM harness_sessions WHERE session_id = {p}",
-            (session_id,),
-        ).fetchone()
-    except db_backend.operational_error_types(conn):
-        return ActorLookup()
+    """Resolve ``(actor_id, row-exists)``; database errors propagate to binding."""
+    p = _placeholder(conn)
+    row = conn.execute(
+        f"SELECT actor_id FROM harness_sessions WHERE session_id = {p}",
+        (session_id,),
+    ).fetchone()
     if row is None:
         return ActorLookup(actor_id=None, session_found=False)
     try:
@@ -195,6 +186,7 @@ def _read_actor_lookup(conn: Any, session_id: str) -> ActorLookup:
     return ActorLookup(actor_id=str(value), session_found=True)
 
 
+@name_identity_connection_loss
 def bind_actor_identity(
     entry: RegistryEntry,
     request: FunctionCallRequest,

@@ -220,6 +220,7 @@ def report_stage_result(
     target_tier: str,
     revision: str,
     target_digest: str,
+    subject: str | None = None,
 ) -> None:
     """Report a settled result to the audience the stage configured.
 
@@ -232,7 +233,7 @@ def report_stage_result(
         return
     from yoke_core.domain.project_identity import render_item_ref
 
-    subject = (
+    subject = subject or (
         render_item_ref(conn, member)
         if member is not None
         else "the whole release batch"

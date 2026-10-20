@@ -31,6 +31,7 @@ def test_returns_an_immediate_non_waiting_result_without_sleeping() -> None:
 
     result = dispatch_until_qa_resolves(
         lambda: (0, "passed"),
+        fingerprint=lambda: str(clock.now),
         timeout_seconds=30,
         monotonic=clock.monotonic,
         sleep=clock.sleep,
@@ -46,6 +47,7 @@ def test_repolls_until_scoped_qa_passes() -> None:
 
     result = dispatch_until_qa_resolves(
         lambda: next(outcomes),
+        fingerprint=lambda: str(clock.now),
         timeout_seconds=30,
         poll_interval_seconds=15,
         monotonic=clock.monotonic,
@@ -67,6 +69,7 @@ def test_timeout_returns_the_wait_code_with_recovery() -> None:
 
     result = dispatch_until_qa_resolves(
         pending,
+        fingerprint=lambda: str(clock.now),
         timeout_seconds=31,
         poll_interval_seconds=15,
         monotonic=clock.monotonic,
@@ -91,6 +94,7 @@ def test_zero_timeout_performs_one_probe() -> None:
 
     result = dispatch_until_qa_resolves(
         pending,
+        fingerprint=lambda: str(clock.now),
         timeout_seconds=0,
         monotonic=clock.monotonic,
         sleep=clock.sleep,
@@ -116,6 +120,7 @@ def test_a_dispatch_blocked_past_the_deadline_ends_the_wait_named() -> None:
     try:
         result = dispatch_until_qa_resolves(
             dispatch,
+            fingerprint=lambda: str(time.monotonic()),
             timeout_seconds=0.3,
             poll_interval_seconds=0.05,
             write=lambda _line: None,
@@ -145,6 +150,7 @@ def test_a_dispatch_failure_inside_the_wait_reaches_the_driver() -> None:
     with pytest.raises(RuntimeError, match="deployment_outcome_unknown"):
         dispatch_until_qa_resolves(
             dispatch,
+            fingerprint=lambda: str(time.monotonic()),
             timeout_seconds=30,
             poll_interval_seconds=0.01,
             write=lambda _line: None,
@@ -157,6 +163,7 @@ def test_status_lines_appear_every_few_polls() -> None:
 
     result = dispatch_until_qa_resolves(
         lambda: (AWAITING_SCOPED_QA, "member A: no run; member B: no run"),
+        fingerprint=lambda: str(clock.now),
         timeout_seconds=120,
         poll_interval_seconds=15,
         monotonic=clock.monotonic,
@@ -235,3 +242,36 @@ def test_pipeline_scoped_qa_park_is_a_designed_watcher_wait(
     assert wait is not None
     assert f"for run {run_id}" in wait.cause
     assert run_id in wait.continuation
+
+
+def test_unchanged_fingerprint_dispatches_only_initially_and_at_deadline():
+    clock = _Clock()
+    calls = []
+    result = dispatch_until_qa_resolves(
+        lambda: calls.append(clock.now) or (AWAITING_SCOPED_QA, "still pending"),
+        fingerprint=lambda: "same",
+        timeout_seconds=31,
+        monotonic=clock.monotonic,
+        sleep=clock.sleep,
+    )
+    assert calls == [0, 31]
+    assert result[0] == AWAITING_SCOPED_QA
+
+
+def test_changed_fingerprint_dispatches_and_resolves_before_deadline():
+    clock = _Clock()
+    calls = []
+
+    def dispatch():
+        calls.append(clock.now)
+        return (0, "accepted") if clock.now else (AWAITING_SCOPED_QA, "pending")
+
+    result = dispatch_until_qa_resolves(
+        dispatch,
+        fingerprint=lambda: "changed" if clock.now >= 30 else "same",
+        timeout_seconds=60,
+        monotonic=clock.monotonic,
+        sleep=clock.sleep,
+    )
+    assert result == (0, "accepted")
+    assert calls == [0, 30]

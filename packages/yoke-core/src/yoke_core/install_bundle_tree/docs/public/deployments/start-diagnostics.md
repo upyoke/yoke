@@ -280,3 +280,14 @@ execution keeps its streamed driver timings. Nested phase durations overlap
 and must not be added as independent wall time. A missing response or end marker
 does not authorize another create; keep the request's idempotency key and
 reconcile the existing attempt.
+
+Scoped QA polls a run fingerprint every 15 seconds and re-dispatches only when
+QA facts change, with one final dispatch at the wait deadline. An unchanged
+fingerprint retains the previous blocker result. A dispatch reads gate facts
+once across the run's members; acceptance writes re-check their own subject
+under the run lock. The local driver resolves its actor at startup and reuses
+that binding until it exits. A closed database connection, including a failed
+actor lookup, reports `control_plane_connection_lost`; a lost write answer
+leaves the run resumable with its pending receipt preserved. Restore the
+control-plane connection, inspect the run and its driver capture, then re-drive
+the same run using `yoke watch deploy -- RUN-ID`.

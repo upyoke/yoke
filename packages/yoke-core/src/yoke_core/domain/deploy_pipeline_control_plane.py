@@ -168,6 +168,28 @@ def update_run_field(
         )
 
 
+def qa_fingerprint(run_id: str) -> str:
+    try:
+        result = _call(
+            "deployment_runs.execution.qa_pending", run_id, {"fingerprint_only": True}
+        )
+    except DeploymentControlPlaneError as exc:
+        raise DeploymentOutcomeUnknown(
+            run_id, "deployment_runs.execution.qa_pending", "", str(exc)
+        ) from exc
+    fingerprint = result.get("fingerprint")
+    if not isinstance(fingerprint, str) or not fingerprint:
+        raise DeploymentOutcomeUnknown(
+            run_id,
+            "deployment_runs.execution.qa_pending",
+            "",
+            "qa_fingerprint_unavailable: the control plane does not provide the cheap QA "
+            "fingerprint read; upgrade the serving control plane before re-driving this run "
+            "over HTTPS. A self-deploy uses its declared local admin connection.",
+        )
+    return fingerprint
+
+
 def unresolved_qa(run_id: str) -> List[str]:
     """Return every blocking QA obligation that still prevents completion."""
     values = _call("deployment_runs.execution.qa_pending", run_id, {}).get("unresolved")

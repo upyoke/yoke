@@ -59,3 +59,17 @@ def recorded_source_presentation(*, enabled=True):
 
 def presentation_requires_candidate_source():
     return not _RECORDED_SOURCE.get()
+
+
+@contextmanager
+def uncached_presentation():
+    """Acceptance writes re-read their own subject under its lock, outside the snapshot."""
+    from yoke_core.domain.deployment_qa_presentation_facts import _MEMBERS
+
+    cache = _PRESENTATION.set(None)
+    members = _MEMBERS.set(None)
+    try:
+        yield
+    finally:
+        _MEMBERS.reset(members)
+        _PRESENTATION.reset(cache)

@@ -34,7 +34,9 @@ from yoke_cli.transport.serving_plane import (
 from yoke_contracts.control_plane_locality import local_authority_exempt
 
 
-def local_connection_or_none(connect: Callable[[], Any]) -> Optional[Any]:
+def local_connection_or_none(
+    connect: Callable[[], Any], *, connection_errors_raise: bool = False
+) -> Optional[Any]:
     """Open a direct connection, or report that there is no local authority.
 
     Runs under :func:`local_authority_exempt` because attempting the direct
@@ -46,7 +48,17 @@ def local_connection_or_none(connect: Callable[[], Any]) -> Optional[Any]:
     try:
         with local_authority_exempt():
             return connect()
-    except Exception:  # noqa: BLE001 - no local authority is the relay's cue
+    except Exception as exc:  # noqa: BLE001 - no local authority is the relay's cue
+        if connection_errors_raise:
+            from yoke_core.domain.connected_env_readiness import (
+                is_connection_unavailable_error,
+            )
+            from yoke_core.domain import db_backend
+
+            if is_connection_unavailable_error(exc) or isinstance(
+                exc, db_backend.operational_error_types()
+            ):
+                raise
         return None
 
 

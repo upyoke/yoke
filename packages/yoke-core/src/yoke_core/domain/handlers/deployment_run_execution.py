@@ -173,29 +173,33 @@ def _record_and_compose(
 
 def _member_rows(run_id_value: str, *, connection: Any = None) -> List[Dict[str, Any]]:
     from yoke_core.domain.db_helpers import connect, query_rows
-    from yoke_core.domain.item_worktrees import primary_item_worktree
-    from yoke_core.domain.project_identity import render_item_ref
+    from yoke_core.domain.item_ref_render import render_item_ref_lookup
+    from yoke_core.domain.item_worktree_resolution import (
+        primary_item_worktree_branch_sql,
+    )
 
     with connect() if connection is None else nullcontext(connection) as conn:
         rows = query_rows(
             conn,
             "SELECT dri.item_id,dri.delivery_intent,dri.requirement_snapshot,"
-            "i.status,i.deployed_to FROM deployment_run_items dri "
+            "i.status,i.deployed_to,"
+            f"{primary_item_worktree_branch_sql('i.id')} AS branch "
+            "FROM deployment_run_items dri "
             "JOIN items i ON i.id=dri.item_id WHERE dri.run_id=%s "
             "ORDER BY dri.item_id",
             (run_id_value,),
         )
+        refs = render_item_ref_lookup(conn, (row["item_id"] for row in rows))
         members = []
         for row in rows:
             item_id = int(row["item_id"])
-            lane = primary_item_worktree(conn, item_id) or {}
             members.append(
                 {
                     "item_id": item_id,
-                    "public_ref": render_item_ref(conn, item_id),
+                    "public_ref": refs(item_id),
                     "status": str(row["status"]),
                     "deployed_to": str(row.get("deployed_to") or ""),
-                    "branch": str(lane.get("branch") or ""),
+                    "branch": str(row.get("branch") or ""),
                     "delivery_intent": row["delivery_intent"],
                     "requirement_snapshot": row["requirement_snapshot"],
                 }

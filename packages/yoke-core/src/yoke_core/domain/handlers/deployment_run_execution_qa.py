@@ -16,12 +16,14 @@ from yoke_core.domain.handlers.deployment_run_execution import (
 
 class DeploymentExecutionQaPendingRequest(BaseModel):
     stage_name: Optional[str] = None
+    fingerprint_only: bool = False
 
 
 class DeploymentExecutionQaPendingResponse(BaseModel):
     run_id: str
     unresolved: List[str]
     held_report: Optional[List[str]] = None
+    fingerprint: Optional[str] = None
 
 
 class DeploymentExecutionEphemeralQaReadyRequest(BaseModel):
@@ -50,7 +52,20 @@ def handle_deployment_execution_qa_pending(
 
     stage_name = str((request.payload or {}).get("stage_name") or "")
     with connect() as conn:
-        result = _qa_pending(conn, resolved, stage_name)
+        if (request.payload or {}).get("fingerprint_only"):
+            from yoke_core.domain.deployment_run_qa_fingerprint import (
+                run_qa_fingerprint,
+            )
+
+            result = {
+                "run_id": resolved,
+                "unresolved": [],
+                "fingerprint": run_qa_fingerprint(
+                    conn, resolved, include_progress=True
+                ),
+            }
+        else:
+            result = _qa_pending(conn, resolved, stage_name)
     return HandlerOutcome(
         result_payload=result,
         primary_success=True,
