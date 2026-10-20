@@ -49,11 +49,11 @@ from yoke_core.domain.qa_plan_case_definition import (
 )
 from yoke_core.domain.qa_obligation_settlement import obligation_settled
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder, _plan_row
-from yoke_core.domain.qa_plan_refresh_safety import (
-    carry_into_live_rosters,
+from yoke_core.domain.qa_admitted_copy_correction import (
     correct_admitted_copies,
     lock_admitted_copies,
 )
+from yoke_core.domain.qa_plan_refresh_safety import carry_into_live_rosters
 from yoke_core.domain.qa_plan_requirement_snapshot import (
     existing_requirement_id,
     insert_requirement,
@@ -126,7 +126,7 @@ def rematerialize_for_item(
             "waived_requirement_ids": [],
         }
     subject = f"{render_item_ref(conn, item_id)} transition {transition_id!r}"
-    lock_admitted_copies(conn, [int(row["id"]) for row in rows])
+    projections = lock_admitted_copies(conn, [int(row["id"]) for row in rows])
     rows_by_plan: dict[int, list[Any]] = {}
     for row in rows:
         rows_by_plan.setdefault(int(row["plan_id"]), []).append(row)
@@ -188,6 +188,7 @@ def rematerialize_for_item(
                             correct_admitted_copies(
                                 conn,
                                 source_requirement_id=requirement_id,
+                                projections=projections,
                                 definition=materialized_definition(
                                     plan=plan,
                                     case=case,
@@ -237,6 +238,7 @@ def rematerialize_for_item(
                             conn,
                             source_requirement_id=requirement_id,
                             definition=definition,
+                            projections=projections,
                         )
                     )
                 retained_requirement_ids.add(requirement_id)

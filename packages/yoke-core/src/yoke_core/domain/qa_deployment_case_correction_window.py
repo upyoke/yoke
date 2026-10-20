@@ -31,7 +31,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.db_helpers import query_one
+from yoke_core.domain.db_helpers import query_one, query_rows
 
 
 #: Verdicts that settle a case. Anything else left the question open, so it
@@ -61,6 +61,22 @@ def determinate_verdict(conn: Any, requirement_id: int) -> str:
     return str(row["verdict"] or "")
 
 
+def determinate_verdicts(conn: Any, requirement_ids) -> dict[int, str]:
+    """Each case's settled verdict in one read; a missing id has recorded none."""
+    ids = sorted({int(value) for value in requirement_ids})
+    if not ids:
+        return {}
+    placeholders = ",".join(["%s"] * len(DETERMINATE_VERDICTS))
+    rows = query_rows(
+        conn,
+        "SELECT DISTINCT ON (qa_requirement_id) qa_requirement_id,verdict "
+        f"FROM qa_runs WHERE qa_requirement_id=ANY(%s) AND verdict IN ({placeholders}) "
+        "ORDER BY qa_requirement_id,created_at DESC,id DESC",
+        (ids, *DETERMINATE_VERDICTS),
+    )
+    return {int(row["qa_requirement_id"]): str(row["verdict"] or "") for row in rows}
+
+
 def correction_window_open(conn: Any, requirement_id: int) -> bool:
     """True while this run-bound case may still be corrected in place."""
     return not determinate_verdict(conn, int(requirement_id))
@@ -77,4 +93,5 @@ __all__ = [
     "correction_window_closed_reason",
     "correction_window_open",
     "determinate_verdict",
+    "determinate_verdicts",
 ]
