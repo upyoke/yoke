@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "installation",
  "position": 1,
- "summary": "Session readiness verifies registration and confirmed orientation in the registered scope: project scratch for project sessions, authority-scoped machine scratch outside every project. Explicit project selection must match registration; missing delivery and observation failures keep distinct reasons.",
+ "summary": "Session readiness verifies registration and confirmed orientation in the registered scope: project scratch for project sessions, authority-scoped machine scratch outside every project. Explicit project selection must match registration; missing delivery and observation failures keep distinct reasons. The registered surface selects Claude CLI user settings or Desktop app posture; unverified surfaces never borrow Desktop proof.",
  "commands": ["yoke doctor run", "yoke sessions identity"]
 }

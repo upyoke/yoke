@@ -148,6 +148,12 @@ that its own harness CLI is signed in and runs `yoke` without approval
 prompts. Other installed harnesses do not block it. Agent setup ends with this
 check and `/yoke onboard` runs it first.
 
+Claude CLI sessions read `~/.claude/settings.json` for
+`permissions.defaultMode`; Claude Desktop sessions read the app preference.
+The registered session surface chooses the check, so CLI readiness does not
+require a Desktop installation. An unknown or unsupported Claude surface
+reports unverified posture instead of borrowing Desktop settings.
+
 The session check also works outside every project: registration and confirmed
 orientation use the selected authority's machine scope. An explicit `--project`
 still requires that same project registration. Missing delivery, a project

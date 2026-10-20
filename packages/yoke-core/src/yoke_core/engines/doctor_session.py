@@ -39,8 +39,8 @@ UNKNOWN_HARNESS = (
 )
 
 
-def session_harness() -> str | None:
-    """The canonical harness id registered for this session, or ``None``."""
+def session_harness() -> tuple[str, str | None] | None:
+    """The registered harness family and surface, or ``None``."""
     session_id = build_actor().session_id
     if not session_id:
         return None
@@ -48,16 +48,18 @@ def session_harness() -> str | None:
         identity = relay("sessions.identity", {})
         if identity.get("session_id") != session_id:
             return None
-        return canonical_harness_id(identity.get("executor"))
+        harness_id = canonical_harness_id(identity.get("executor"))
+        return (harness_id, identity.get("executor_surface")) if harness_id else None
     except Exception:  # an unread identity is an unknown harness, not a guess
         return None
 
 
 def hc_session_harness_cli_auth(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    harness_id = session_harness()
-    if harness_id is None:
+    harness = session_harness()
+    if harness is None:
         rec.record(AUTH_SLUG, AUTH_TITLE, "FAIL", UNKNOWN_HARNESS)
         return
+    harness_id, _surface_id = harness
     manifest = harness_cli_manifest(harness_id)
     executable = installed_harness_clis().get(harness_id)
     if executable is None:
@@ -78,12 +80,29 @@ def hc_session_harness_cli_auth(conn, args: DoctorArgs, rec: RecordCollector) ->
 def hc_session_harness_unattended_posture(
     conn, args: DoctorArgs, rec: RecordCollector
 ) -> None:
-    harness_id = session_harness()
-    if harness_id is None:
+    harness = session_harness()
+    if harness is None:
         rec.record(POSTURE_SLUG, POSTURE_TITLE, "FAIL", UNKNOWN_HARNESS)
         return
+    harness_id, surface_id = harness
+    if harness_id == "claude-code" and not surface_id:
+        rec.record(
+            POSTURE_SLUG,
+            POSTURE_TITLE,
+            "FAIL",
+            "SESSION_HARNESS_SURFACE_UNKNOWN: this Claude session's surface "
+            "is not registered. Restore hook registration and rerun "
+            "`yoke doctor run --session`.",
+        )
+        return
     # The session is running this harness, so a missing config is a failure.
-    verdict, detail = harness_posture(harness_id, installed=True)
+    verdict, detail = harness_posture(harness_id, installed=True, surface_id=surface_id)
+    if harness_id == "claude-code" and surface_id not in (
+        "claude-cli",
+        "claude-desktop",
+    ):
+        rec.record(POSTURE_SLUG, POSTURE_TITLE, verdict, detail)
+        return
     if verdict == "PASS":
         rec.record(
             POSTURE_SLUG, POSTURE_TITLE, "PASS", f"{harness_id} runs yoke unattended."

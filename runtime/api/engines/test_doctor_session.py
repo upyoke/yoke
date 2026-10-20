@@ -15,6 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_contracts.harness_cli_manifest import harness_cli_manifest
 from yoke_core.engines import doctor_hc_harness_unattended_posture as posture
 from yoke_core.engines import doctor_install
 from yoke_core.engines import doctor_session as checks
@@ -23,6 +24,8 @@ from yoke_core.engines.doctor_registry import HEALTH_CHECKS
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 UNATTENDED_CODEX = 'approval_policy = "never"\nsandbox_mode = "danger-full-access"\n'
+UNATTENDED_CLAUDE_CLI = '{"permissions":{"defaultMode":"bypassPermissions"}}'
+UNATTENDED_CLAUDE_DESKTOP = '{"preferences":{"bypassPermissionsModeEnabled":true}}'
 
 
 def run(fn):
@@ -32,11 +35,18 @@ def run(fn):
     return rec.results[0]
 
 
-def registered_as(monkeypatch, executor: str | None) -> None:
+def registered_as(
+    monkeypatch, executor: str | None, surface: str | None = None
+) -> None:
     monkeypatch.setattr(
         checks, "build_actor", lambda: SimpleNamespace(session_id="session")
     )
-    identity = {"session_id": "session" if executor else "other", "executor": executor}
+    identity = {
+        "session_id": "session" if executor else "other",
+        "executor": executor,
+        "executor_surface": surface
+        or (harness_cli_manifest(executor).surface_id if executor else None),
+    }
     monkeypatch.setattr(checks, "relay", lambda *a: identity)
 
 
@@ -54,14 +64,20 @@ def configs(tmp_path: Path, monkeypatch, **payloads: str) -> None:
     resolved = {}
     for harness, name in (
         ("claude-code", "claude/claude_desktop_config.json"),
+        ("claude-cli", "claude/settings.json"),
         ("codex", "codex/config.toml"),
         ("cursor", "cursor/cli-config.json"),
     ):
         target = tmp_path / name
         if harness in payloads:
-            target.parent.mkdir(parents=True)
+            target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(payloads[harness], encoding="utf-8")
-        resolved[harness] = target
+        if harness == "claude-cli":
+            monkeypatch.setattr(
+                posture, "claude_settings_path", lambda target=target: target
+            )
+        else:
+            resolved[harness] = target
     monkeypatch.setattr(posture, "managed_config_paths", lambda: resolved)
 
 
@@ -137,6 +153,62 @@ def test_a_session_harness_without_config_fails(tmp_path, monkeypatch):
     result = run(checks.hc_session_harness_unattended_posture)
     assert result.result == "FAIL"
     assert "HARNESS_POSTURE_UNVERIFIED" in result.detail
+
+
+@pytest.mark.parametrize(
+    "surface,cli,desktop,expected",
+    [
+        ("claude-cli", UNATTENDED_CLAUDE_CLI, None, "PASS"),
+        ("claude-cli", UNATTENDED_CLAUDE_CLI, "malformed", "PASS"),
+        (
+            "claude-cli",
+            '{"permissions":{"defaultMode":"default"}}',
+            UNATTENDED_CLAUDE_DESKTOP,
+            "FAIL",
+        ),
+        ("claude-cli", None, UNATTENDED_CLAUDE_DESKTOP, "FAIL"),
+        ("claude-desktop", None, UNATTENDED_CLAUDE_DESKTOP, "PASS"),
+        ("claude-desktop", UNATTENDED_CLAUDE_CLI, "{}", "FAIL"),
+    ],
+)
+def test_claude_readiness_uses_only_the_registered_surface_config(
+    tmp_path, monkeypatch, surface, cli, desktop, expected
+):
+    registered_as(monkeypatch, "claude-code", surface)
+    payloads = {}
+    if cli is not None:
+        payloads["claude-cli"] = cli
+    if desktop is not None:
+        payloads["claude-code"] = desktop
+    configs(tmp_path, monkeypatch, **payloads)
+    result = run(checks.hc_session_harness_unattended_posture)
+    assert result.result == expected
+    if surface == "claude-cli" and expected == "FAIL":
+        assert "claude_desktop_config" not in result.detail
+
+
+@pytest.mark.parametrize("surface", [None, "claude-vscode"])
+def test_unverified_claude_surface_cannot_borrow_desktop_posture(
+    tmp_path, monkeypatch, surface
+):
+    registered_as(monkeypatch, "claude-code")
+    monkeypatch.setattr(
+        checks,
+        "relay",
+        lambda *a: {
+            "session_id": "session",
+            "executor": "claude-code",
+            "executor_surface": surface,
+        },
+    )
+    configs(tmp_path, monkeypatch, **{"claude-code": UNATTENDED_CLAUDE_DESKTOP})
+    result = run(checks.hc_session_harness_unattended_posture)
+    assert result.result == "FAIL"
+    assert (
+        "SURFACE_UNKNOWN" in result.detail
+        or "no verified posture reader" in result.detail
+    )
+    assert "harness-setup --fix" not in result.detail
 
 
 def test_unproven_registration_names_new_session_and_hook_approval(monkeypatch):
