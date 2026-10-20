@@ -7,7 +7,6 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain import item_ref_resolution, project_identity
 from yoke_core.domain.handlers import session_launch as handlers
 from yoke_core.domain.session_launch_assignment import assignment_ref
 from yoke_core.domain.session_launch_history_page import read_launch_page
@@ -32,6 +31,22 @@ def _named(conn, key: str, session_name: str | None, state: str) -> str:
 
 def _seeded():
     conn = launch_connection()
+    conn.executescript(
+        """
+        ALTER TABLE projects ADD COLUMN name TEXT NOT NULL DEFAULT '';
+        ALTER TABLE projects ADD COLUMN public_item_prefix TEXT;
+        UPDATE projects SET name='Launch project', public_item_prefix='YOK'
+        WHERE id=10;
+        INSERT INTO projects (id, slug, name, public_item_prefix)
+        VALUES (20, 'other-project', 'Other project', 'OTHER');
+        CREATE TABLE items (
+            id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL,
+            project_sequence INTEGER NOT NULL
+        );
+        INSERT INTO items (id, project_id, project_sequence)
+        VALUES (312, 10, 12), (420, 10, 120), (999, 20, 99999);
+        """
+    )
     add_relay(conn)
     ids = {
         "staffed": _named(conn, "a", "YOK-12: Fix the thing", "succeeded"),
@@ -88,10 +103,6 @@ def _list(monkeypatch, conn, item: str):
 
 def test_handler_filters_by_the_canonical_item_ref(monkeypatch) -> None:
     conn, ids = _seeded()
-    monkeypatch.setattr(
-        item_ref_resolution, "resolve_item_ref_or_none", lambda *_a, **_k: 12
-    )
-    monkeypatch.setattr(project_identity, "render_item_ref", lambda *_a, **_k: "YOK-12")
     outcome = _list(monkeypatch, conn, "yok-12")
     assert outcome.primary_success, outcome.error
     assert [row["launch_id"] for row in outcome.result_payload["history"]] == [
@@ -101,9 +112,6 @@ def test_handler_filters_by_the_canonical_item_ref(monkeypatch) -> None:
 
 def test_handler_refuses_an_item_outside_the_project(monkeypatch) -> None:
     conn, _ids = _seeded()
-    monkeypatch.setattr(
-        item_ref_resolution, "resolve_item_ref_or_none", lambda *_a, **_k: None
-    )
     outcome = _list(monkeypatch, conn, "YOK-99999")
     assert not outcome.primary_success
     assert outcome.error.code == "item_not_found"
