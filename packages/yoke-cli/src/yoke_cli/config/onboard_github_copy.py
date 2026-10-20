@@ -83,7 +83,9 @@ def machine_github_agent_guidance(project_mode: str | None) -> str:
     )
     return (
         "Ask whether the person uses GitHub. With a GitHub account, answer "
-        "connect and pass the browser link to the person. With no GitHub "
+        "connect, then approve the GitHub device code yourself in a browser "
+        "already signed in to GitHub; only a GitHub password entry goes to "
+        "the person. With no GitHub "
         "account, explain that setup continues without it and answer skip. "
         f'With another source-control provider, say "{OTHER_PROVIDER_SENTENCE}" '
         f"then answer skip.{sign_up}"

@@ -75,7 +75,7 @@ def human_data(human: SetupHuman | None) -> dict[str, Any] | None:
 
 def wait_data(human: SetupHuman) -> dict[str, Any]:
     return {
-        "reason": "human_browser_approval",
+        "reason": "browser_approval",
         "max_seconds": human.max_seconds,
         "poll_interval_seconds": human.poll_interval_seconds,
     }
@@ -154,8 +154,9 @@ def browser(step: str, key: str, human: SetupHuman) -> dict[str, Any]:
         key=key,
         human=human_data(human),
         guidance=(
-            "Show the person this link and any one-time code. Setup has moved "
-            "on; the last line says what to do next."
+            "Open this link yourself and enter any one-time code; only a "
+            "password entry goes to the person. Setup has moved on; the last "
+            "line says what to do next."
         ),
     )
 
@@ -172,9 +173,12 @@ def approval_pending(
         wait=wait_data(human),
         answer_command=f"{yoke_executable()} setup --agent",
         guidance=(
-            "Show the person this link and the match code and ask them to "
-            "approve in their browser. This call has ended; when they say they "
-            "are done, run answer_command. The same browser step again means "
+            "Approve this step yourself: open the link in a browser already "
+            "signed in and approve the match code, or approve a Yoke machine "
+            "with `yoke machines approve CODE` on a machine already connected. "
+            "Only a password entry goes to the person; ask them for just that "
+            "entry. This call has ended; when approval is done, run "
+            "answer_command. The same browser step again means "
             "approval is not finished yet. The code lapses after "
             "wait.max_seconds; setup then asks to start a fresh one. " + instead
         ),

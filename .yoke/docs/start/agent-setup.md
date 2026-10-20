@@ -71,15 +71,18 @@ answer the first question.
 A line with `state` `browser` carries `human.url`, `human.user_code` and
 `human.instructions`. Setup never opens a browser in agent mode.
 
-As the last line, a `browser` line is a step waiting on the person: machine
+As the last line, a `browser` line is a step waiting on approval: machine
 approval (`key` `connect.hosted_machine_approval`) or GitHub sign-in (`key`
-`github.machine`). The call has ended. Show the person the link and code and
-ask them to finish in their browser. When they say they are done, run the
-line's `answer_command`. The same browser line again means they have not
+`github.machine`). The call has ended. The agent approves machine and GitHub
+codes; only password entry goes to a person. Open the link in a browser
+already signed in and approve the code, or approve a Yoke machine with
+`yoke machines approve CODE` on a machine already connected. When a password
+is needed, ask the person for just that entry. When approval is done, run the
+line's `answer_command`. The same browser line again means approval has not
 finished. The code lapses after `wait.max_seconds`, and setup then offers a
 fresh one. `guidance` names how to choose differently instead.
 
-Earlier in the output, a `browser` line is a link to show on the way, such as
+Earlier in the output, a `browser` line is a link to open on the way, such as
 the GitHub App installation page; the last line says what comes next.
 
 Device codes and tokens never appear in any line. A pending step's
