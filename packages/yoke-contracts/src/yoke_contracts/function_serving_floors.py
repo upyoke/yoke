@@ -14,6 +14,7 @@ from typing import Any, Mapping
 
 #: function_id -> minimum serving version. Do not copy already-served ids here.
 FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
+    "merge_queue.flake_retry.claim": "next-release",
     "sessions.watcher_activity": "next-release",
     "worktree.classify_dirty": "next-release",
     "machine.access.get": "next-release",
