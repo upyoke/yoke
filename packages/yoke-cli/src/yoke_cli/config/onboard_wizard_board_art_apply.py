@@ -7,7 +7,8 @@ module owns the whole close-out: write ``.yoke/board-art``, rebuild the initial
 ``BOARD.md``, commit the art, prove no installer-written path was left
 uncommitted, and record what happened on the durable apply report. Without the
 commit the operator's first ``git status`` in a brand-new checkout reports the
-installer's own output as their uncommitted change.
+installer's own output as their uncommitted change. Publishing the art commit
+belongs to ``onboard_board_art_publication``.
 """
 
 from __future__ import annotations
@@ -93,7 +94,7 @@ def commit_board_art(
         [art_rel],
         message=BOARD_ART_COMMIT_MESSAGE,
     )
-    install = _install_report(onboarding_report)
+    install = install_report(onboarding_report)
     verified = [art_rel]
     # An install that did not commit (``--no-commit``, or a checkout git does
     # not own) left its own writes uncommitted on purpose; only the art this
@@ -123,7 +124,7 @@ def record_board_art_done(
     """
     from yoke_cli.config import onboard_apply_late_steps
 
-    path = _apply_report_path(onboarding_report) or report_path
+    path = apply_report_path(onboarding_report) or report_path
     if not path:
         return {}
     commit = receipt.get("commit")
@@ -150,7 +151,7 @@ def mark_board_art_failed(
     """Mark the board-art step failed on the durable receipt."""
     from yoke_cli.config import onboard_apply_late_steps, onboard_apply_report
 
-    path = _apply_report_path(onboarding_report) or report_path
+    path = apply_report_path(onboarding_report) or report_path
     if not path:
         return {}
     try:
@@ -166,7 +167,7 @@ def mark_board_art_failed(
         }
 
 
-def _apply_report_path(onboarding_report: Any) -> str | None:
+def apply_report_path(onboarding_report: Any) -> str | None:
     summary = (
         onboarding_report.get("apply_report")
         if isinstance(onboarding_report, Mapping)
@@ -177,7 +178,7 @@ def _apply_report_path(onboarding_report: Any) -> str | None:
     return str(summary.get("path") or "") or None
 
 
-def _install_report(onboarding_report: Any) -> Mapping[str, Any]:
+def install_report(onboarding_report: Any) -> Mapping[str, Any]:
     if not isinstance(onboarding_report, Mapping):
         return {}
     onboarding = onboarding_report.get("project_onboarding")
@@ -216,8 +217,10 @@ def rebuild_board(repo_root: Path) -> Path:
 __all__ = [
     "BOARD_ART_COMMIT_MESSAGE",
     "BOARD_ART_STEP_ACTION",
+    "apply_report_path",
     "board_art_exists",
     "commit_board_art",
+    "install_report",
     "mark_board_art_failed",
     "rebuild_board",
     "record_board_art_done",

@@ -30,6 +30,18 @@ def complete_report_path(
     return writer.summary()
 
 
+def record_publication_path(
+    path: str | Path,
+    report: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Re-record setup's publication step after a late step published more."""
+    from yoke_cli.config import onboard_publication
+
+    writer = _writer(path)
+    writer.finish(onboard_publication.record_outcome(writer, report))
+    return writer.summary()
+
+
 def fail_report_path(
     path: str | Path,
     error: BaseException,
@@ -62,4 +74,4 @@ def _step_id_for_action(
     return None
 
 
-__all__ = ["complete_report_path", "fail_report_path"]
+__all__ = ["complete_report_path", "fail_report_path", "record_publication_path"]
