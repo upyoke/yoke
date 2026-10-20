@@ -15,3 +15,4 @@ Read in order: [workflow-context.md](workflow-context.md),
 [review-rubric.md](review-rubric.md), [update-protocol.md](update-protocol.md).
 Also [`readiness-repair.md`](readiness-repair.md), and
 [blitz-execution-document.md](blitz-execution-document.md) if `ITEM_NEXT_SKILL=blitz`.
+A `level_change` handoff beats a release wait: `.yoke/docs/agents/levels.md`.

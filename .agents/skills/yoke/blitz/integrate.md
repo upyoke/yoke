@@ -8,6 +8,9 @@ Postgres; check `yoke item-worktrees list ITEM --json`:
 yoke item-worktrees create ITEM --lane-role worker --branch BRANCH
 ```
 
+Merge worker commits only inside the integration lane; a queued integration
+branch takes no commits until it lands.
+
 Per slice: change, check, commit, re-survey changed files, merge, log:
 
 ```text

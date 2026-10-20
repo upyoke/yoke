@@ -1,6 +1,7 @@
 # Blitz — review and close
 
-Run the full suite, then add to the document:
+Run the full suite, then revise the linked document
+(`yoke strategy doc replace --help`) to add:
 
 ```markdown
 ## Blitz Completion

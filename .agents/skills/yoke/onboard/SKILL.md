@@ -6,14 +6,16 @@ argument-hint: "[--project P] [--run-id RUN]"
 
 # /yoke onboard
 
-Unless it just passed, check the session and relay each failure's fix:
+Unless it just passed, check the session; relay each failure's fix, rerun, and
+continue only when all pass:
 
 ```text
 yoke doctor run --session --project {project}
 ```
 
 Never switch projects or install a harness. Missing wire-up: `yoke setup`.
-Secrets go through `--value-stdin` only.
+Secrets go through `--value-stdin` only. The checklist read is authority; never
+edit its rendered local view.
 
 Read [run-and-rows.md](run-and-rows.md); follow `run.next_action`. Steps 2–7 run only for what the
 first work needs; otherwise write their rows `deferred`.

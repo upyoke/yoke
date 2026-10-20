@@ -25,4 +25,5 @@ yoke conduct epic proceed-triage-handoff --epic PREFIX-N --recommendation PROCEE
 2. --no-auto-fix: halt.
 3. Else run [Simulate's auto-fix loop](../simulate/autofix-loop.md),
    caller=conduct. AUTOFIX_CODE_GAPS: one [amend cycle](simulation-autofix-verification.md).
-   AUTOFIX_NOT_REQUIRED without PROCEED: halt.
+   AUTOFIX_CLEAN: go to CLEAN. AUTOFIX_HALTED: cleanup HALTED.
+   AUTOFIX_NOT_REQUIRED: branch 1 if PROCEED with zero CRITICAL, else halt.

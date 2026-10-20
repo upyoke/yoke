@@ -8,7 +8,8 @@
    ```
 
 2. Ask before filing each follow-up through `/yoke idea`.
-3. Checkpoint each unfinished item while holding its claim; skip terminal items:
+3. Checkpoint each unfinished item while holding its claim, before any release;
+   skip terminal items. Live release-wait claims stay with their owning skill:
 
    ```text
    yoke items progress-log append PREFIX-N --headline "Session checkpoint" --content "{objective, blockers, next action, evidence}" --source wrapup

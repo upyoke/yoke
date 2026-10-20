@@ -1,7 +1,7 @@
 # Usher — delivery
 
-Merge-only stops here. Route A, only for a flow that delivers nothing (exit 7:
-use Route B):
+Merge-only stops here and keeps the claim at the delivery wait. Route A,
+only for a flow that delivers nothing (exit 7: use Route B):
 
 ```text
 yoke watch merge done-transition -- PREFIX-N --skip-deploy
@@ -25,5 +25,8 @@ yoke --env CONTROL_PLANE watch deploy -- RUN-ID
 yoke merge item PREFIX-N --result "what shipped" --verification "RUN-ID, stages and QA"
 ```
 
-Exit 2 waits for approval. Exit 1 or 3: release
-`usher-halt-deploy-stage-failure` or `usher-halt-deploy-infra-failure`. Next: [finalize](finalize.md).
+Exit 2 waits for the operator's approval; never approve it yourself.
+A preview lineage or preview claim with no registered mutation: stop as
+`preview_lineage_mutation_unavailable`; escalate to the control-plane operator.
+Exit 1 or 3: release `usher-halt-deploy-stage-failure` or
+`usher-halt-deploy-infra-failure`. Next: [finalize](finalize.md).

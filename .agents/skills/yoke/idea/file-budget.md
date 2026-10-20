@@ -7,4 +7,4 @@ One row per file created, edited or deleted, project-relative:
 - `src/consumer.py` — current 120 lines; remaining headroom 230; at-or-over-limit: false; responsibility: validate requests.
 ```
 
-At 330+ lines name the extraction sibling. Unknown shape: `UNRESOLVED`.
+At 330+ lines name the extraction sibling. Unknown shape: `UNRESOLVED`. No code growth: `N/A` with the reason.

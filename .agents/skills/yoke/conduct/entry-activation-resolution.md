@@ -26,5 +26,7 @@ yoke workflow-item epic-dispatch-chain refresh-activation --epic PREFIX-N --work
 
 A task branch with no lane: `yoke item-worktrees create`, then
 `yoke workflow-item epic-task reassign`, then `yoke item-worktrees path-record`.
-Merge each Cross-Task Merge Plan predecessor; one not in the task's
-dependencies halts `task_dependency_missing`.
+Merge each Cross-Task Merge Plan predecessor; one not reviewed or done, or a
+conflict, halts for authoring repair; one not in the task's dependencies halts
+`task_dependency_missing`. Dispatch Engineer only when the task reads
+implementing or reviewing-implementation.

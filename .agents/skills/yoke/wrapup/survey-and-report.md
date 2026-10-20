@@ -3,6 +3,7 @@
 ```text
 yoke sessions touch --mode wrapup
 yoke items overview list --json
+yoke events anomalies --since "4 hours ago"
 ```
 
 1. Show uncommitted paths; ask whether to commit, stash or continue.

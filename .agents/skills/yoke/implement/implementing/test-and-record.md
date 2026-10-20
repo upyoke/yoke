@@ -1,6 +1,8 @@
 # Tests and QA records
 
 ```text
+yoke qa plan materialize --item PREFIX-N --transition <verification-stage>
+yoke qa requirement list --item PREFIX-N --json
 yoke qa plan run --item PREFIX-N --transition <verification-stage>
 yoke qa case run --requirement-id <id>
 ```
@@ -11,7 +13,13 @@ by hand or substitute a smaller one.
 
 - Exit 12: dispatch the returned review bundle now; submit its verdicts.
 - `HUMAN_GATE`: checkpoint, route to steering or the owner, resume after.
-- Commit before `yoke qa run add`. Call `no_tests_declared` agent-attested.
+- Agent-verifiable requirements: commit, then record real evidence.
+  Call `no_tests_declared` agent-attested, never tests run.
+
+  ```text
+  yoke qa run add --requirement-id <id> --performed-by agent --qa-kind ac_verification --verdict pass --raw-result "<evidence>"
+  ```
+
 - Migration modules: `yoke migration rehearse PREFIX-N` before review.
   Exception modules calling `record_audit_fingerprint`: run their CLI on
   validation and authoritative surfaces yourself before review.

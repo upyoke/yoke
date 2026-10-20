@@ -6,8 +6,6 @@ argument-hint: "[STRATEGY-DOC-SLUG] [--project P ...]"
 
 # /yoke steer [STRATEGY-DOC-SLUG] [--project P ...]
 
-# /yoke steer [STRATEGY-DOC-SLUG] [--project P ...]
-
 Steer one claimed strategy doc per project (default `CURRENT-PLAN`): staff
 workers and keep plan state. The steerer never implements.
 
@@ -35,8 +33,9 @@ workers and keep plan state. The steerer never implements.
 - File new work with `yoke dash ... --strategy-doc SLUG`.
 - Workers merge; only the steerer creates deployment runs.
 - Confirm a run carried a commit before calling it live.
+- Check infrastructure is in use before taking work on it.
 - Every operator-visible reply lists each outstanding operator action and what
-  it unblocks.
+  it unblocks, inside the normal reply; never a separate nag turn.
 - Ask only at the missing-doc gate or a reserved operator decision.
 
 Start: [scope-and-authority.md](scope-and-authority.md).

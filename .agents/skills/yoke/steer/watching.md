@@ -26,4 +26,5 @@ Act on each `fleet ALARM` line the same turn ([fleet-findings.md](fleet-findings
 On a `FLEET WATCHER ALERT`, run the re-arm command it names.
 
 **Stop looping**: park with reason `operator paused steering` and stop the
-watcher; resume with `yoke sessions touch --mode steer` and re-arm.
+watcher. Only an operator resume ends the pause: run
+`yoke sessions touch --mode steer` and re-arm.

@@ -1,6 +1,9 @@
 # Idea — Infer Deployment Flow
 
+Workflow `delivery_defaults` win over the project default:
+
 ```text
+yoke workflows mechanics get --json
 yoke project-structure deploy-defaults get --project "$_project"
 ```
 

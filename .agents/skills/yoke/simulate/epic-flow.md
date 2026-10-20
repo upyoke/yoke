@@ -7,5 +7,6 @@ yoke workflow-item epic-task simulation-upsert --epic {epic-ref} --phase {phase}
 ```
 
 All tasks planned: plan phase. All completed: integration (compressed unless
-`sim_force_standard_integration`). Mixed: wait. Task lanes hold the code.
+`sim_force_standard_integration`). Mixed: wait, unless
+`--force-integration` names the excluded incomplete tasks. Task lanes hold the code.
 Persist every report; claim CLEAN only from a `verified=true` receipt.

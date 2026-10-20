@@ -10,4 +10,4 @@ argument-hint: "RUN-ID [--note \"...\"]"
 yoke deployment-runs approve RUN-ID --json
 ```
 
-If `stage_approved` is false, report the outstanding approvers and stop; if true, resume the run from `current_stage`.
+Pass the user's `--note` when given. If `stage_approved` is false, report the outstanding approvers and stop; if true, resume the run from `current_stage`. Create no other run, item update or approval record.

@@ -5,4 +5,4 @@ yoke workflow-item epic-task simulation-get --epic PREFIX-N --phase integration 
 ```
 
 No passing simulation: run `/yoke simulate PREFIX-N`. Check each acceptance
-criterion in the lanes; any FAIL stops. Next: [lanes](merge-lanes.md).
+criterion in the lanes; any FAIL or unfinished task stops. Next: [lanes](merge-lanes.md).

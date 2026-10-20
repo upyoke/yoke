@@ -2,6 +2,12 @@
 
 ## Dependencies
 
+Encode every real blocker as an edge before staffing:
+
+```text
+yoke items dependency list PREFIX-N --json
+```
+
 Prefer `coordination_only` over `integration` over `activation`, and
 `fact:merged` over `status:done`. Shared files alone need `coordination_only`.
 

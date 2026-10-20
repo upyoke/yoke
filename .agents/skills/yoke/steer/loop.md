@@ -42,10 +42,12 @@ yoke messages acknowledge MESSAGE-ID
 ```
 
 Read each full message, acknowledge it, then act, record a hold, or surface
-the decision this pass. `DONE PREFIX-N` means verify the item is terminal:
+the decision this pass. `DONE PREFIX-N` means verify the item is terminal and its last work claim
+released `completed`; workers may finish without mail:
 
 ```text
 yoke items get PREFIX-N status --json
+yoke db read "SELECT release_reason FROM work_claims WHERE target_kind = 'item' AND scope::jsonb->>'item_id' = (SELECT item_id::text FROM item_refs WHERE public_ref = 'PREFIX-N') ORDER BY id DESC LIMIT 1"
 ```
 
 ## 3. Staff everything
@@ -55,6 +57,7 @@ Before ending a pass, launch every runnable unclaimed scoped item
 
 ```text
 yoke claims work acquire --item PREFIX-N --reason steering
+yoke items structured-field replace PREFIX-N --field FIELD --stdin < CONTENT_FILE
 yoke claims work release --item PREFIX-N --reason "steering spec write complete"
 ```
 
@@ -68,6 +71,7 @@ git -C {CHECKOUT} diff {BASE_SHA}...{LANDED_SHA}
 Never select `merge_candidate_review`. Problems stay out of the release; route
 [rework](worker-launch.md#rework). Then [release-batches.md](release-batches.md),
 including [manual-wake member QA](release-batches.md#manual-wake-member-qa).
+After a QA failure, confirm the owner started rework or recorded a blocker.
 
 ## 5. Live status
 
@@ -81,4 +85,5 @@ Carry seats, owners, blockers, next steps and operator actions. Do not copy
 historical status sections.
 
 Conflicts, new scope or a reserved decision: present evidence and a
-recommendation, then wait. Stop: [close-out.md](close-out.md).
+recommendation, then wait. Never guess, implement or file a substitute item
+to get past the gate; keep independent work moving. Stop: [close-out.md](close-out.md).

@@ -11,7 +11,7 @@ yoke qa plan materialize --item ITEM --transition NEXT_STAGE --json
 yoke qa case run --requirement-id <requirement-id>
 ```
 
-A capture is not a pass: submit the returned review bundle. Browser placement: `.yoke/docs/verification/browser-targets.md`.
+A requested screenshot selects `--verification-method browser-inspection` on the same amend. A capture is not a pass: submit the returned review bundle. Browser placement: `.yoke/docs/verification/browser-targets.md`.
 
 If the completion flow has item-scoped QA, answer it before merge: attach a plan at the release stage with `--qa-phase post_deploy`, or record that nothing is observable.
 

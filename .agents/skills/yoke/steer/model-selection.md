@@ -14,3 +14,6 @@ yoke session-control launch create --project P --item PREFIX-N --level JUNIOR --
 2. Second failure or a spec misunderstanding: one level up.
 3. Only mechanical work left: one level down.
 4. PRINCIPAL fails or no capacity: ask the operator.
+
+Change a running worker's level only by
+[restaff](worker-lifecycle.md#restaff-on-a-different-model).

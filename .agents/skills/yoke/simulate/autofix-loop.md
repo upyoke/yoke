@@ -7,9 +7,14 @@ Shared with Conduct. Without `--auto-fix`, ask before each pass.
 - The iteration limit is **3**. Never reset iteration.
 - Missing `Fix level:`: `AUTOFIX_HALTED` (`simulation_fix_level_missing`).
 - Only code gaps left: `AUTOFIX_CODE_GAPS`.
-- Else the Architect fixes task bodies. Only update task bodies it changed,
-  via `workflow_item.epic_task.body_replace`. No change:
-  `simulation_fix_no_change`. Re-simulate; verified CLEAN: `AUTOFIX_CLEAN`.
+- Else dispatch yoke-architect with `Fix mode.`, the ref, the report and
+  every task body. Write back only what it changed (no change:
+  `simulation_fix_no_change`):
+  ```text
+  yoke workflow-item epic-task body-replace --epic PREFIX-N --task-num N --stdin
+  yoke items structured-field replace PREFIX-N --field worktree_plan --source simulate --stdin
+  ```
+  Re-simulate; verified CLEAN: `AUTOFIX_CLEAN`.
 - Limit hit with plan gaps: `simulation_fix_iterations_exhausted`.
 
 Never repeat an uncertain write. The caller separately owns its gated

@@ -6,7 +6,7 @@ argument-hint: ""
 
 # /yoke help
 
-Answer only the asked scope; read that command's `--help` or skill first. General help: `yoke --help`. Docs: `.yoke/docs/index.md`, else `https://upyoke.com/docs`.
+Answer only the asked scope; read that command's `--help` or skill first. General help: `yoke --help`. Docs: `.yoke/docs/index.md`, else `https://upyoke.com/docs`. Setup from an agent session: `yoke setup --agent`, relaying each question.
 
 <!-- BEGIN GENERATED: skill-registry -->
 | Skill | Kind | Session mode | Autonomy | Purpose |

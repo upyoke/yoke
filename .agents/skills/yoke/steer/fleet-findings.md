@@ -14,7 +14,10 @@ yoke items dependency update DEPENDENT BLOCKING --match-gate-point GATE --gate-p
 - **Waiting to land / in flight**: do not staff; quiet is expected.
 - **Unattended linked work / mail awaiting a seat**: take the named seat.
 - **Idle holder**: message it; `native_process_gone` means wake, not terminate.
-- **Undelivered message**: wake only if no attempt is moving.
+- **Undelivered message**: wake only if no attempt is moving. An ended
+  recipient: handle or re-address its work, then `yoke messages cancel MESSAGE-ID`.
+- **Unregistered or abandoned launch**: read its failure, then reconcile or
+  retry it ([worker-launch.md](worker-launch.md)); never a duplicate create.
 - **Stranded or vendor-stopped**: never wake; restaff with headroom.
 - **Landed without close-out**: holder reruns `yoke merge item PREFIX-N`; never
   merge twice.

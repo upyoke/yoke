@@ -8,6 +8,6 @@ yoke claims work acquire --item PREFIX-N --reason usher_collect --json
 ```
 
 Never land an item with `merged_at` again. Stop the batch on
-`integration_gate.is_blocked`, any `user_authored` file or any
-`claim_conflict`. Order blockers first. Dry run claims nothing.
+`integration_gate.is_blocked` or an absent gate (no local fallback), any
+`user_authored` file or any `claim_conflict`. Order blockers first. Dry run claims nothing.
 A failed `deploy_stage` that passed on GitHub: `yoke usher reconcile-github PREFIX-N`.

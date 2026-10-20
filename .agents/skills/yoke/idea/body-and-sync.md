@@ -11,7 +11,8 @@ yoke items structured-field replace "$ITEM_REF" --field spec --source idea --std
 yoke claims path register --item "$ITEM_REF" --paths <every-required-path> --allow-planned
 ```
 
-Overlap: [path-claim-blocking.md](path-claim-blocking.md).
+Register only when path claims are on; `required_per_task` registers per
+task later. Overlap: [path-claim-blocking.md](path-claim-blocking.md).
 
 ## 10. Readiness and release
 

@@ -1,11 +1,15 @@
 # Onboard Steps 4–5: Hosting And Delivery
 
-No cloud writes before the step-7 yes.
+No cloud writes before the step-7 yes. Rows: `hosting-setup`, `capability-setup`;
+step 5 `environment-registration`, `project-structure-setup`, `delivery-setup`.
+Old CI, scripts and `.yoke/deployment-flows.json` are hints: never edit or depend on them.
 
 ## Step 4: Hosting
 
 Read `hosting_posture`; if empty, ask once and write it. For AWS, import only
-missing keys through stdin, after explicit approval. Never store a GitHub token.
+missing keys through stdin, after explicit approval. Not `ready`: write
+`hosting-setup=blocked` and stop; never re-request a saved pair or use ambient
+credentials. Never store a GitHub token.
 
 ```text
 yoke aws admin-status --project {project} --json
@@ -15,7 +19,7 @@ yoke aws admin-status --project {project} --json
 
 Pick exactly one branch; a failed managed step never falls back to no-host.
 
-- **Managed:** register site and environments, validate the flow
+- **Managed:** register site and environments (never overwrite an existing one), validate the flow
   (`execution_supported=false` creates it disabled, no default), create it.
 - **Merge-only:** a flow with two `auto` stages, `merged` and `complete`,
   and no tier or environment; its `target_tier` read must print nothing.

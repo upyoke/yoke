@@ -3,6 +3,7 @@
 Pipe the non-empty spec in; a failed read stops here.
 
 ```text
+yoke items get "$ITEM_REF" spec
 yoke db-claim prose-check --stdin --public-ref "$ITEM_REF" --json
 ```
 

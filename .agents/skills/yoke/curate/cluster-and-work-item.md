@@ -4,6 +4,7 @@
 
 ```text
 yoke ouroboros field-note list --unreviewed --limit 50 --offset 0
+yoke ouroboros entry list --unreviewed --limit 50 --offset 0
 ```
 
 Page; group by root cause; skip promoted entries.

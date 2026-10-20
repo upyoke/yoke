@@ -6,7 +6,8 @@ yoke items structured-field append-addendum "$ITEM_REF" --field spec --heading "
 ```
 Diff against the original before each write; re-read after. One verified
 missing owner in scope: add its budget row (widen if claims are on); more
-than one, or changed scope, escalates.
+than one, or changed scope, escalates. Write `worktree_plan` and
+`shepherd_caveats` only in `generated_task_plan` scope.
 
 Advance only on a full `pass`, then release:
 ```bash

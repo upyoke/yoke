@@ -8,11 +8,13 @@ Flags: --max-attempts N (default 5), --no-chain (stop after this task),
 yoke workflows item get PREFIX-N --json
 yoke workflows version get WORKFLOW {version} --json
 yoke items get PREFIX-N spec
+yoke items get PREFIX-N body
 yoke advance preflight hard-blocks PREFIX-N --gate-point activation
 ```
 
 Use the skill_bindings row with from_stage_id ≤ live stage < through_stage_id;
-else halt `conduct_binding_unavailable` or `conduct_skill_not_bound`. No
+else halt `conduct_binding_unavailable` or `conduct_skill_not_bound`. Read body
+only when spec is absent. No
 Acceptance Criteria: halt `acceptance_criteria_missing`. Hard-blocks nonzero:
 halt with its BLOCKED rows.
 
