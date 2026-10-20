@@ -15,8 +15,8 @@ pre-commit gate and the doctor health checks consume.
 This module owns the mechanics — marker location, orphan detection, the
 inventory walk, and the drift summary. A block family supplies only its slug,
 its inventory of repo-relative paths, and a callable returning the content for
-one path. :mod:`yoke_core.tools.render_field_note_inline` and
-:mod:`yoke_core.tools.render_harness_capability_inline` are the two families.
+one path. :data:`FAMILY_MODULES` lists the families; the harness wake capability family
+(:mod:`yoke_core.tools.render_harness_capability_inline`) runs its own gate.
 """
 
 from __future__ import annotations
@@ -211,6 +211,7 @@ def format_drift_summary(
 #: :func:`check_families` because each family imports this module.
 FAMILY_MODULES: tuple[str, ...] = (
     "yoke_core.tools.render_field_note_inline",
+    "yoke_core.tools.render_harness_role_spawn_inline",
     "yoke_core.tools.render_read_recipe_inline",
     "yoke_core.tools.render_skill_registry_inline",
     "yoke_core.tools.render_user_writing_inline",

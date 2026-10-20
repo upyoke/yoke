@@ -1,6 +1,6 @@
 # Conduct — Engineer prompt and Tester diffs
 
-Render DispatchDescriptor(role="engineer"); no isolation. One per task:
+Spawn `yoke-engineer` ([role spawn](../shared/role-spawn.md)); no isolation. One per task:
 
 ```text
 Implement PREFIX-{N} task {_task_id}: {task title}
