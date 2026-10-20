@@ -114,7 +114,17 @@ def run_check(*, channel: str | None = None) -> dict[str, Any]:
 
 def _server_engine(cli_version: str) -> tuple[str, str, str]:
     """``(env, destination, engine version)`` of the active connection."""
-    connection = machine_config.active_connection()
+    try:
+        connection = machine_config.active_connection()
+    except (
+        machine_config.MachineConfigError,
+        machine_config.contract.MachineConfigContractError,
+    ) as exc:
+        raise self_update.SelfUpdateError(
+            f"active_connection_unavailable: {exc}. Pick a connection with "
+            "`yoke env use <env>` (list them with `yoke env list`), then rerun "
+            "`yoke update --check`."
+        ) from exc
     env_name = str(connection.get("env") or "")
     if str(connection.get("transport") or "") != TRANSPORT_HTTPS:
         # The local universe runs this process's own engine.
