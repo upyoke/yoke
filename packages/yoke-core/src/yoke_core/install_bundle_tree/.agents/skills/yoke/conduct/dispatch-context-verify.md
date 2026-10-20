@@ -51,8 +51,8 @@ for irreducible live collision with explicit approval. No green claim by pointin
 at future work or an old baseline. A permitted live conflict/explicit waiver
 names its evidence and remaining obligation.
 An unchanged consumer test failing against new producer source is evidence
-against the producer: never edit or weaken it; route it per AGENTS
-Verification Failure Ownership.
+against the producer: never edit or weaken it; route it per the failure-ownership rule in
+`.yoke/docs/agents/rules/verification.md`.
 
 ## Durable verdict
 

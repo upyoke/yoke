@@ -48,5 +48,5 @@ def test_dispatched_subagent_body_has_no_run_in_background(agent_name: str) -> N
     assert FORBIDDEN_SUBSTRING not in text, (
         f"{body_path} teaches `{FORBIDDEN_SUBSTRING}` — dispatched subagent "
         "turns must use foreground watcher wrappers (see "
-        "runtime/harness/claude/rules/session.md `## Tool Constraints`)."
+        "runtime/harness/claude/rules/session.md `## Long commands and waits`)."
     )

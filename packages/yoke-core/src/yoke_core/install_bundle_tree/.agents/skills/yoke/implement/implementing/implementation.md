@@ -18,7 +18,7 @@ verified; otherwise correct the actual gap or escalate.
 For bulk edits use a unique minimal pattern, grouped variations and a residue
 search. Avoid fragile giant context replacements.
 
-Apply AGENTS.md's Simplify — three-axis doctrine: name relevant reuse,
+Apply the Simplify rules in `.yoke/docs/agents/rules/code-and-cli.md`: name relevant reuse,
 smallest AC-satisfying shape, extension-vs-create justification and future
 concepts around shared authority, leases, claims, evidence and approvals.
 Apply codebase-reader naming before every first write: names/headings explain

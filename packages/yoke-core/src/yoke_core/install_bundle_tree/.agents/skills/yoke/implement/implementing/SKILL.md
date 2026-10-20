@@ -21,7 +21,7 @@ large file, load only relevant ranges. Test collection must use that lane;
 `watch_pytest` refuses wrong cwd. [Implementation](implementation.md)
 owns the Step 0 anchor and source-dev wrapper rules.
 
-Apply AGENTS.md's Simplify doctrine during authoring. Before each slice and
+Apply the Simplify rules in `.yoke/docs/agents/rules/code-and-cli.md` during authoring. Before each slice and
 every previously unnamed sibling edit, check coverage:
 
 ```bash

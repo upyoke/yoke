@@ -54,8 +54,8 @@ is the sole direct verification exception. Never simulate integration yourself.
 
 Each cold dispatch needs exact item/task identity, absolute registered paths,
 specs, current diff captures, QA and test commands. Naming describes current
-function/mechanics/domain, never planning provenance. Apply AGENTS.md's reuse,
-quality, efficiency and future-concept lenses. Failures are systemic evidence:
+function/mechanics/domain, never planning provenance. Apply the Simplify lenses in
+`code-and-cli.md`: reuse, quality, efficiency and future concepts. Failures are systemic evidence:
 query yoke events tail --limit 20, file a field-note before retry and name the
 missing contract or recovery, never blame an agent.
 
