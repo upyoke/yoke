@@ -219,16 +219,13 @@ def format_deny(
     lines.append("")
     lines.append("Remediation — widen the active claim:")
     lines.append("")
-    lines.append("  python3 -m yoke_core.cli.db_router path-claims widen \\")
-    lines.append(f"      {claim_id} \\")
-    paths_csv = ",".join(missing_paths)
-    lines.append(f"      --paths '{paths_csv}' \\")
-    lines.append("      --reason '<why this widen is needed>'")
-    lines.append("")
+    import shlex
+
+    paths_csv = shlex.quote(",".join(missing_paths))
     lines.append(
-        "Operator escape hatch: include "
-        f"'{_SUPPRESSION_TOKEN}' in the commit message body, or "
-        "use 'git commit --no-verify'."
+        f"  yoke claims path widen --claim-id {claim_id} "
+        f"--add-paths {paths_csv} --item {public_ref} "
+        "--reason 'cover staged paths'"
     )
     return "\n".join(lines) + "\n"
 

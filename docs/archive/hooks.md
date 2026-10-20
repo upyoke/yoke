@@ -376,10 +376,8 @@ WARNING: These staged files have unstaged changes -- commit may not match workin
   <file1>
   <file2>
 
-Run 'git add <file>' to stage latest content, or 'git commit --no-verify' to skip this check.
+Run 'git add <file>' to stage latest content before committing.
 ```
-
-**Bypass:** `git commit --no-verify` suppresses the hook entirely.
 
 **Worktree behavior:** Git worktrees share the main repo's `.git/hooks/` directory, so the hook fires automatically for commits in all worktrees. No per-worktree installation is needed.
 

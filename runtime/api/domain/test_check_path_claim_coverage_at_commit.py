@@ -178,18 +178,18 @@ class TestFormatDeny:
             missing_paths=["new.py", "extra.py"],
             declared_paths=[],
         )
-        assert "path-claims widen" in text
-        assert " 99 " in text  # positional claim_id
-        assert "--paths 'new.py,extra.py'" in text
+        assert "yoke claims path widen" in text
+        assert "--claim-id 99 " in text
+        assert "--add-paths new.py,extra.py" in text
         assert "--reason" in text
 
-    def test_mentions_suppression_token_and_no_verify(self):
+    def test_never_teaches_bypass(self):
         text = mod.format_deny(
             item_id=1, claim_id=1,
             missing_paths=["x"], declared_paths=["y"],
         )
-        assert "[no-path-claim-check]" in text
-        assert "--no-verify" in text
+        assert "[no-path-claim-check]" not in text
+        assert "--no-verify" not in text
 
 
 # ---------------------------------------------------------------------------
