@@ -4,7 +4,7 @@
 [Yoke](../index.md) > [Functions](index.md) > Runtime
 <!-- /yoke:breadcrumbs -->
 
-Read [envelope and authority](index.md). `none` skips the dispatcher claim check; handler permissions still apply. Command help owns payloads and serving floors.
+Read [envelope and authority](index.md). `none` skips only the claim check.
 
 ## Registered functions
 
