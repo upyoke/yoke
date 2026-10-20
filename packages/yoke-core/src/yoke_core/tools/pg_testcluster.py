@@ -86,21 +86,13 @@ def _root() -> Path:
     return global_scratch_root() / "yoke-pgtest-cluster"
 
 
-def bin_dir() -> Path | None:
-    """Keep the pinned binaries available when tests replace their home."""
-    override = os.environ.get("YOKE_PG_BIN_DIR")
-    if not override:
-        return postgres_binaries.installed_bin_dir()
-    return Path(override)
-
-
 def _spec() -> ClusterSpec:
     root = _root()
     return ClusterSpec(
         root=root,
         superuser=PGUSER,
         server_settings=DISPOSABLE_SERVER_SETTINGS,
-        bin_dir=bin_dir(),
+        bin_dir=postgres_binaries.pinned_bin_dir(),
         stop_mode="immediate",  # throwaway data: skip the shutdown checkpoint
         socket_dir=postgres_cluster.socket_dir_for_root(root),
     )
@@ -221,9 +213,9 @@ def destroy() -> int:
 
 def env_block() -> str:
     values = {"YOKE_PG_CLUSTER_ROOT": str(_root()), "YOKE_PG_DSN": dsn()}
-    binaries = bin_dir()
+    binaries = postgres_binaries.pinned_bin_dir()
     if binaries is not None:
-        values["YOKE_PG_BIN_DIR"] = str(binaries)
+        values[postgres_binaries.BIN_DIR_ENV] = str(binaries)
     return "\n".join(
         f"export {key}={shlex.quote(value)}" for key, value in values.items()
     )

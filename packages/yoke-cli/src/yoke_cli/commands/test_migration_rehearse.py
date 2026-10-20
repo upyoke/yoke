@@ -48,7 +48,7 @@ def test_help_names_every_binding_rehearsal_needs(capsys) -> None:
     assert "rehearsal_source_lane_invalid" in rendered
 
 
-def test_unexpected_failure_stays_redacted_but_points_at_the_preflight(
+def test_unexpected_failure_names_its_cause_without_passwords(
     monkeypatch, capsys
 ) -> None:
     monkeypatch.setattr(subject, "local_authority_is_pinned", lambda: False)
@@ -68,6 +68,7 @@ def test_unexpected_failure_stays_redacted_but_points_at_the_preflight(
     assert subject.migration_rehearse(["YOK-2"]) == 1
     reported = capsys.readouterr().err
     assert "top-secret" not in reported
+    assert "RuntimeError: host=authority password=***" in reported
     assert subject.PREFLIGHT_HELP_COMMAND in reported
 
 

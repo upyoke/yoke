@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from yoke_contracts.machine_config.directories import create_private_directory
 
+import os
 import platform
 import shutil
 import tarfile
@@ -48,6 +49,10 @@ RELEASE_BASE_URL = "https://github.com/theseus-rs/postgresql-binaries/releases/d
 #: Directory under the machine runtime dir holding fetched engines,
 #: one subdirectory per version.
 BINARIES_DIR_NAME = "postgres"
+
+#: Pins the engine bin directory when a command isolates its machine home;
+#: source isolation sets it to the real machine's fetched engine.
+BIN_DIR_ENV = "YOKE_PG_BIN_DIR"
 
 _FETCH_TIMEOUT_S = 120
 
@@ -137,6 +142,14 @@ def installed_bin_dir(version: str = POSTGRES_VERSION) -> Optional[Path]:
     if (candidate / "initdb").is_file():
         return candidate
     return None
+
+
+def pinned_bin_dir() -> Optional[Path]:
+    """The engine bin directory: ``YOKE_PG_BIN_DIR``, else the fetched one."""
+    override = os.environ.get(BIN_DIR_ENV)
+    if override:
+        return Path(override)
+    return installed_bin_dir()
 
 
 def ensure_binaries(
@@ -247,6 +260,7 @@ def _unpack_release(tarball: Path, staging: Path, dest: Path) -> None:
 
 
 __all__ = [
+    "BIN_DIR_ENV",
     "BINARIES_DIR_NAME",
     "POSTGRES_VERSION",
     "PostgresBinariesError",
@@ -255,6 +269,7 @@ __all__ = [
     "ensure_binaries",
     "fetch_binaries",
     "installed_bin_dir",
+    "pinned_bin_dir",
     "platform_target",
     "release_asset_name",
     "release_asset_url",

@@ -7,9 +7,8 @@ import tempfile
 
 import pytest
 
-from yoke_core.domain import postgres_cluster
+from yoke_core.domain import postgres_binaries, postgres_cluster
 from yoke_core.domain.postgres_cluster import ClusterSpec
-from yoke_core.tools import pg_testcluster
 from yoke_core.tools import pg_testcluster_reclaim as reclaim
 from yoke_core.tools.source_machine_home import isolated_machine_home
 
@@ -23,7 +22,7 @@ def _spec(root):
     return ClusterSpec(
         root=root,
         superuser="yoketest",
-        bin_dir=pg_testcluster.bin_dir(),
+        bin_dir=postgres_binaries.pinned_bin_dir(),
         server_settings=(("fsync", "off"),),
         stop_mode="immediate",
     )
