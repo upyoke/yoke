@@ -196,11 +196,11 @@ def _reason(
         return "worker active again"
     if (
         session is not None
-        and session.activity_at is not None
+        and session.work_activity_at is not None
         and snapshot is not None
         and idle_limit is not None
     ):
-        if (snapshot.taken_at - session.activity_at).total_seconds() < idle_limit:
+        if (snapshot.taken_at - session.work_activity_at).total_seconds() < idle_limit:
             return "worker active again"
     if _item_rows(scope, "in_flight", row.subject):
         return "holder now inside a long-running call"

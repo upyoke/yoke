@@ -1,5 +1,6 @@
 """Usage catalog for session and frontier commands."""
 
+from yoke_cli.commands.adapters.session_watcher_activity import WATCHER_ACTIVITY_USAGE
 from yoke_cli.commands.adapters.frontier_read import FRONTIER_LIST_USAGE
 from yoke_cli.commands.adapters.sessions import (  # noqa: F401
     CHARGE_SCHEDULE_USAGE,
@@ -26,6 +27,7 @@ from yoke_cli.commands.adapters.session_control_usage import (
 
 
 USAGE_BY_FUNCTION_ID = {
+    "sessions.watcher_activity": WATCHER_ACTIVITY_USAGE,
     "sessions.begin": SESSIONS_BEGIN_USAGE,
     "sessions.identity": SESSIONS_IDENTITY_USAGE,
     "sessions.list": SESSIONS_LIST_USAGE,

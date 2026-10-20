@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.handlers import session_watcher_activity as _swa
 from yoke_core.domain.handlers import sessions_begin as _sb
 from yoke_core.domain.handlers import sessions_list as _sl
 from yoke_core.domain.handlers import sessions_charge_schedule as _scs
@@ -14,6 +15,21 @@ from yoke_core.domain.handlers import sessions_steering_groups as _ssg
 
 
 def register(registry) -> None:
+    registry.register(
+        "sessions.watcher_activity",
+        _swa.handle_watcher_activity,
+        _swa.WatcherActivityRequest,
+        _swa.WatcherActivityResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.session_watcher_activity",
+        target_kinds=["global"],
+        side_effects=["harness_sessions_update", "work_claims_update"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["active_session_required"],
+        adapter_status="live",
+        claim_required_kind=None,
+        minimum_serving_version="next-release",
+    )
     registry.register(
         "sessions.hook_overhead",
         _sho.handle_sessions_hook_overhead,

@@ -11,14 +11,9 @@ Watchers maintain two distinct output artifacts:
    ``watch_tail`` follows this already-filtered file; direct callers see
    the same stream on wrapper stdout.
 
-Each command-shaped wrapper (``watch_pytest``, ``watch_merge``, ...)
-ships only its line classifier — see
-:mod:`yoke_core.tools._watch_throttle` for the class taxonomy and
-:mod:`yoke_core.tools._watch_digest` for the batching window.
-
-Watched children inherit ``PYTHONUNBUFFERED=1``. Python otherwise block-
-buffers stdout when the watcher replaces its terminal with a pipe, hiding
-progress until the child exits.
+Wrappers supply classifiers; ``_watch_throttle`` owns their taxonomy and
+``_watch_digest`` owns batching. Children inherit ``PYTHONUNBUFFERED=1``
+so piped Python output stays visible before exit.
 """
 
 from __future__ import annotations
@@ -35,6 +30,7 @@ from typing import Callable, Optional, Sequence, TextIO
 
 from yoke_core.domain import process_group_reaping
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
+from yoke_core.domain.watcher_activity import refresh_watcher_activity
 
 # Re-exported so wrappers keep importing one watcher entrypoint.
 from yoke_core.tools._watch_capture_binding import (  # noqa: F401
@@ -133,21 +129,21 @@ def run_watcher(
     child starts, not while a caller waits for an external admission gate.
 
     ``header_metadata`` and ``footer_metadata`` supply wrapper-specific
-    evidence around the child run. ``liveness`` keeps the session
-    that started this command from going
-    stale while it waits: a long gate run is activity, and without the
-    refresh a claimless session can age out mid-run; an active work claim
-    remains protected independently of the heartbeat.
+    evidence around the child run. The default pump reports watcher work
+    while the bound command runs; ``liveness`` can supply a test pump.
 
     ``exit_metadata`` adds recovery text before any standard exit sentinel,
     including launch failures, interrupts, and early drain aborts.
 
-    ``outcome_only`` suppresses watcher metadata and routine progress,
-    defers summaries until a zero child exit, and reports a final result
-    with the raw-capture path on either outcome.
+    ``outcome_only`` suppresses routine output and defers summaries until success;
+    the final result always names the raw capture.
     """
     out: TextIO = stdout_stream or sys.stdout
-    pump = liveness if liveness is not None else SessionLivenessPump()
+    pump = liveness if liveness is not None else SessionLivenessPump(
+        refresh_activity=lambda session_id: refresh_watcher_activity(
+            session_id, progress_capture=progress_capture
+        )
+    )
 
     raw_capture.parent.mkdir(parents=True, exist_ok=True)
     progress_capture.parent.mkdir(parents=True, exist_ok=True)

@@ -28,7 +28,7 @@ from yoke_core.domain.session_mode import session_is_parked
 
 #: A live work-claim holder silent this long is probed and revived. Its
 #: liveness label stays ``active`` far past this point, so the age of the
-#: latest tool call or running command heartbeat is the activity signal.
+#: latest tool-work activity, including watcher pulses, is the signal.
 IDLE_HOLDER_MINUTES = 20
 #: A still-idle holder's alarm repeats this often until it clears.
 IDLE_HOLDER_REPEAT_MINUTES = 60
@@ -142,7 +142,7 @@ def idle_holder_candidates(current: FleetSnapshot) -> list[SessionRow]:
     return [
         row
         for row in _holding_sessions(current)
-        if (minutes_since(row.activity_at, current.taken_at) or 0)
+        if (minutes_since(row.work_activity_at, current.taken_at) or 0)
         >= IDLE_HOLDER_MINUTES
     ]
 
@@ -167,7 +167,7 @@ def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
     for row in idle_holder_candidates(current):
         if any(ref in current.landing_waits for ref in row.claimed_items):
             continue
-        idle = minutes_since(row.activity_at, current.taken_at)
+        idle = minutes_since(row.work_activity_at, current.taken_at)
         key = f"idle-holder:session={identifier(row.session_id)}"
         live.add(key)
         reason = repr(row.quiet_reason) if row.quiet_reason else "none"

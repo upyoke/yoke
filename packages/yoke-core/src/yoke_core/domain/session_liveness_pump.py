@@ -76,7 +76,9 @@ class SessionLivenessPump:
         session_id: Optional[str] = None,
         interval_seconds: float = HEARTBEAT_INTERVAL_SECONDS,
         clock: Callable[[], float] = time.monotonic,
+        refresh_activity: Callable[[str], bool] | None = None,
     ) -> None:
+        self._refresh_activity = refresh_activity
         self._interval = float(interval_seconds)
         if self._interval <= 0:
             raise ValueError("interval_seconds must be positive")
@@ -100,6 +102,8 @@ class SessionLivenessPump:
         session_id = self._session()
         if not session_id:
             return False
+        if self._refresh_activity is not None:
+            return self._refresh_activity(session_id)
         return refresh_session_heartbeat(session_id)
 
     def wait(
