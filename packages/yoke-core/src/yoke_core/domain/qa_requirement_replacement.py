@@ -55,13 +55,6 @@ def _replacement_for(
     exact_scope: bool = False,
 ) -> dict[str, Any]:
     rows = [row for row in (_row(conn, rid) for rid in candidates) if row]
-    if any(int(row["id"]) == int(failed["id"]) and row["plan_case_key"] == case_key for row in rows):
-        raise QaReplacementError(
-            f"replacement_case_corrected_in_place: requirement {failed['id']} "
-            f"already owns corrected case key {case_key!r}. Re-run without "
-            "--replaces or --replaces-requirement so content refresh links the "
-            "correction, or use a new plan or case key."
-        )
     matches = [
         row
         for row in rows
@@ -71,6 +64,13 @@ def _replacement_for(
         and not row["replacement_requirement_id"]
         and (not exact_scope or not same_scope(failed, row))
     ]
+    if not matches and any(int(row["id"]) == int(failed["id"]) and row["plan_case_key"] == case_key for row in rows):
+        raise QaReplacementError(
+            f"replacement_case_corrected_in_place: requirement {failed['id']} "
+            f"already owns corrected case key {case_key!r}. Re-run without "
+            "--replaces or --replaces-requirement so content refresh links the "
+            "correction, or use a new plan or case key."
+        )
     if len(matches) != 1:
         found = ", ".join(str(row["id"]) for row in matches) or "none"
         raise QaReplacementError(

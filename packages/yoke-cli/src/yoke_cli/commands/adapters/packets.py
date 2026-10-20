@@ -50,13 +50,17 @@ def write_packet_summary(response, stdout, stderr) -> None:
 
     result = response.result or {}
     body = result.get("body") or ""
-    if full_output_requested():
+    if full_output_requested() or result.get("detail") == "full":
         print(body, file=stdout)
         return
     print(f"Packet: {result.get('role')}; topic: {result.get('topic')}; detail: {result.get('detail')}", file=stdout)
     for line in body.splitlines():
         if line.startswith("#"):
             print(line, file=stdout)
+        elif line.startswith("**"):
+            print(line.split("**", 2)[1].rstrip(":"), file=stdout)
+        elif line.startswith("- _"):
+            print(line.removeprefix("- _").removesuffix("_"), file=stdout)
     topic = f" --topic {result['topic']}" if result.get("topic") else ""
     print(f"Read the packet before operating: yoke packets render --role {result.get('role')}{topic} --full", file=stdout)
 

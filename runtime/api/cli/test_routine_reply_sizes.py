@@ -67,3 +67,13 @@ def test_other_measured_routine_reply_sizes(command, budget, monkeypatch):
     else:
         write_human(result, out)
     assert len(out.getvalue().encode()) <= budget
+
+
+def test_explicit_full_packet_detail_is_complete():
+    from yoke_cli.commands.adapters.packets import write_packet_summary
+
+    body = "Packet schema detail " * 2_000
+    out = io.StringIO()
+    with read_output_scope([], "packets.render.run"):
+        write_packet_summary(SimpleNamespace(result={"body": body, "detail": "full"}), out, io.StringIO())
+    assert out.getvalue() == body + "\n"
