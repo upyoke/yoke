@@ -1,4 +1,4 @@
-"""Operator-facing narrative for the destructive-git guards.
+"""Operator-facing narrative for the destructive-git and recursive-rm guards.
 
 The engine guard and the client-local guard render the same refusal from
 here: the shape label, the threatened-state summary, the remediation, and
@@ -62,6 +62,28 @@ SHAPES = {
 }
 
 
+_TEMP_CLEANUP = (
+    "To clean up a `mktemp -d` directory, remove it in the same Bash call "
+    "that creates it: `T=$(mktemp -d); trap 'rm -rf \"$T\"' EXIT`, or write "
+    "into the session scratch root instead."
+)
+
+# shape -> (operator-facing label, remediation sentence)
+RM_SHAPES = {
+    "rm_unresolved_target": (
+        "rm -r with a target built from $(...), backticks or a variable",
+        "Shell variables reset between calls, so the guard cannot see what "
+        "this deletes. Write the literal absolute path you created. "
+        + _TEMP_CLEANUP,
+    ),
+    "rm_shared_temp": (
+        "rm -r of a shared temp root, its parent, or a glob directly under it",
+        "Shared temp roots hold other sessions' files. Name the exact path "
+        "you created. " + _TEMP_CLEANUP,
+    ),
+}
+
+
 def _threat_block(shape: str, threatened: list[str]) -> str:
     listed = "\n  ".join(threatened[:10]) + (
         f"\n  ... and {len(threatened) - 10} more" if len(threatened) > 10 else ""
@@ -106,6 +128,27 @@ def format_reason(
         f"Shape: {label}\n{_threat_block(shape, threatened)}\n\n"
         f"Remediation: {remediation}\n"
         f"Doctrine: `.yoke/docs/agents/rules/lanes-and-claims.md` → Destructive operation discipline"
+        f"{config_line}{_suffix(suppression_seen, mode)}",
+        check_id=RULE_ID,
+    )
+
+
+def format_recursive_rm_reason(
+    shape: str,
+    targets: list[str],
+    suppression_seen: bool,
+    mode: str,
+    config_note: str = "",
+) -> str:
+    """Render the denial/warn narrative for a refused recursive ``rm``."""
+    label, remediation = RM_SHAPES.get(shape, (shape, DEFAULT_REMEDIATION))
+    listed = "\n  ".join(targets[:10])
+    config_line = f"\n{config_note}" if config_note else ""
+    return attach_check_id(
+        "BLOCKED: recursive delete could remove files this session did not "
+        f"create.\n\nShape: {label}\nTargets:\n  {listed}\n\n"
+        f"Remediation: {remediation}\n"
+        "Doctrine: `.yoke/docs/agents/rules/shell-and-cli.md` → Shell calls and path authority"
         f"{config_line}{_suffix(suppression_seen, mode)}",
         check_id=RULE_ID,
     )

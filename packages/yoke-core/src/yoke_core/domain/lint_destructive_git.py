@@ -1,4 +1,5 @@
-"""PreToolUse Bash hook: block destructive git that wipes uncommitted work.
+"""PreToolUse Bash hook: block destructive git that wipes uncommitted work,
+and recursive deletes of unresolved targets or shared temp roots.
 
 Typed entry: ``evaluate(record: HookContext) -> HookDecision``. The CLI
 ``__main__`` form (stdin -> payload -> HookContext -> evaluate) is
@@ -15,6 +16,7 @@ from typing import Optional, Tuple
 
 from yoke_contracts.hook_runner import destructive_git_messages as messages
 from yoke_contracts.hook_runner import destructive_git_rules as rules
+from yoke_contracts.hook_runner import recursive_rm_guard
 from yoke_core.domain import lint_destructive_git_commands as command_checks
 from yoke_core.domain import lint_destructive_git_worktrees as worktree_checks
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
@@ -132,7 +134,19 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
         outcome = "suppression_attempted" if suppression_seen else "denied"
         return (mode, reason, outcome)
     cwd = _resolve_worktree("", payload)
-    for targets in worktree_checks.parse_rm_rf_invocations(command):
+    refusal = recursive_rm_guard.recursive_rm_refusal(command, cwd)
+    if refusal is not None:
+        mode = _read_mode(payload, root=cwd)
+        reason = messages.format_recursive_rm_reason(
+            refusal.shape,
+            list(refusal.targets),
+            suppression_seen,
+            mode,
+            config_note=_config_note(mode, root=cwd),
+        )
+        outcome = "suppression_attempted" if suppression_seen else "denied"
+        return (mode, reason, outcome)
+    for targets in recursive_rm_guard.recursive_rm_invocations(command):
         resolved_targets = worktree_checks.resolve_rm_targets(targets, cwd)
         if not resolved_targets:
             continue

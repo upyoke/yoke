@@ -7,7 +7,11 @@ import os
 import re
 from pathlib import Path
 
-from yoke_contracts.hook_runner import destructive_git_messages, destructive_git_rules
+from yoke_contracts.hook_runner import (
+    destructive_git_messages,
+    destructive_git_rules,
+    recursive_rm_guard,
+)
 from yoke_contracts.hook_runner.local_privacy_guard import classify_shell_command
 from yoke_contracts.hook_runner.local_privacy_messages import (
     LIVE_ADVISORY,
@@ -20,6 +24,7 @@ from yoke_harness.hooks.local_policy_common import (
     NOOP,
     PolicyResult,
     command_from_payload,
+    cwd_from_payload,
     git,
     git_invocations,
     repo_cwd,
@@ -45,8 +50,22 @@ _GREP_LIKE_RE = re.compile(
 
 
 def lint_destructive_git(payload: dict) -> PolicyResult:
-    """Apply the shared destructive-git rules; ``worktree remove`` is engine-only."""
+    """Apply the shared destructive-git and recursive-rm rules.
+
+    ``worktree remove`` and the claimed-worktree ``rm`` check are engine-only.
+    """
     command = command_from_payload(payload)
+    suppression_seen = destructive_git_messages.SUPPRESSION_TOKEN in command
+    refusal = recursive_rm_guard.recursive_rm_refusal(
+        command, cwd_from_payload(payload)
+    )
+    if refusal is not None:
+        return PolicyResult(
+            DENY,
+            destructive_git_messages.format_recursive_rm_reason(
+                refusal.shape, list(refusal.targets), suppression_seen, "deny"
+            ),
+        )
     for args, repo_path in git_invocations(command):
         cwd = repo_cwd(payload, repo_path)
         shape = destructive_git_rules.classify_shape(args, cwd)
@@ -60,7 +79,7 @@ def lint_destructive_git(payload: dict) -> PolicyResult:
             destructive_git_messages.format_reason(
                 shape,
                 threatened,
-                destructive_git_messages.SUPPRESSION_TOKEN in command,
+                suppression_seen,
                 "deny",
             ),
         )

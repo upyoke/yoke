@@ -87,7 +87,7 @@ _POLICY_HOMES: dict[str, PolicyPlacement] = {
     # Client: each reads the client's checkout, git state or home directly.
     _D + "db_error_hook": _CLIENT,  # stray-DB scan of the client repo root
     _D + "hint_file_line_limit_approach": _CLIENT,  # counts target file lines
-    _D + "lint_destructive_git": _CLIENT,  # git status / stash inspection
+    _D + "lint_destructive_git": _CLIENT,  # git state; client temp roots
     _D + "lint_local_privacy": _CLIENT,  # the client's home and cwd
     _D + "lint_python_runtime_import_in_tmp": _CLIENT,  # walks target parents
     _D + "lint_shell_backtick_search": _CLIENT,  # machine guard, no project

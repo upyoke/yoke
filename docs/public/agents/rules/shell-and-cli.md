@@ -14,6 +14,8 @@
 - Another item's lane is read-only (`foreign_lane`): use read-only `git -C LANE` verbs, `cat`,
   `ls` or native Read.
 - Unresolved home paths refuse; use a literal absolute path on the executing machine.
+- Remove a `mktemp -d` dir in the call that made it: `T=$(mktemp -d); trap 'rm -rf "$T"' EXIT`.
+  Recursive `rm` refuses unresolved targets and shared temp-root sweeps; name the exact path.
 
 ### zsh and input hazards
 
