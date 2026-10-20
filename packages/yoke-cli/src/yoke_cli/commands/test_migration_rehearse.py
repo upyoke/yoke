@@ -57,13 +57,14 @@ def test_unexpected_failure_names_its_cause_without_passwords(
         "active_connection",
         lambda **_kwargs: {"transport": "local-postgres"},
     )
-    monkeypatch.setattr(
-        subject.importlib,
-        "import_module",
-        lambda _name: (_ for _ in ()).throw(
-            RuntimeError("host=authority password=top-secret")
-        ),
-    )
+    real_import = subject.importlib.import_module
+
+    def import_module(name):
+        if name == "yoke_core.domain.migration_apply":
+            raise RuntimeError("host=authority password=top-secret")
+        return real_import(name)
+
+    monkeypatch.setattr(subject.importlib, "import_module", import_module)
 
     assert subject.migration_rehearse(["YOK-2"]) == 1
     reported = capsys.readouterr().err
