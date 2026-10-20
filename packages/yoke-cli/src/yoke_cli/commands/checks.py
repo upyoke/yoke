@@ -7,9 +7,7 @@ from typing import Callable, Dict, List, Tuple
 
 AdapterFn = Callable[[List[str]], int]
 
-FILE_LINE_USAGE = (
-    "yoke check file-line [--base REF | --staged] [--repo PATH] [--json]"
-)
+FILE_LINE_USAGE = "yoke check file-line [--base REF | --staged] [--repo PATH] [--json]"
 
 _FILE_LINE_HELP = """\
 usage: yoke check file-line [--base REF | --staged] [--repo PATH] [--json]

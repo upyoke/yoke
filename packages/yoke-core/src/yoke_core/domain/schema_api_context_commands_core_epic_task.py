@@ -12,6 +12,13 @@ from __future__ import annotations
 
 EPIC_TASK_COMMANDS: list[dict] = [
     {
+        "startup_roles": (
+            "engineer_agent",
+            "tester_agent",
+            "architect_agent",
+            "simulator_agent",
+            "boss_agent",
+        ),
         "topic": "core",
         "purpose": "Read epic task row / body / simulation",
         "recipe": (
@@ -30,7 +37,7 @@ EPIC_TASK_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent", "architect_agent"),
+        "startup_roles": ("architect_agent",),
         "topic": "core",
         "purpose": "Write epic task body / metadata via CLI adapters",
         "recipe": (
@@ -48,7 +55,7 @@ EPIC_TASK_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent", "tester_agent"),
+        "startup_roles": ("tester_agent",),
         "topic": "core",
         "purpose": "Tester: seed / insert / get review verdict for an epic task",
         "recipe": (
@@ -71,7 +78,7 @@ EPIC_TASK_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent", "engineer_agent"),
+        "startup_roles": ("engineer_agent",),
         "topic": "core",
         "purpose": "Engineer: append a progress note to an epic task",
         "recipe": (
@@ -90,7 +97,7 @@ EPIC_TASK_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent",),
+        "startup_roles": (),
         "topic": "core",
         "purpose": "Update epic-task status / metadata field via CLI",
         "recipe": (
@@ -125,7 +132,7 @@ EPIC_TASK_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent",),
+        "startup_roles": (),
         "topic": "core",
         "purpose": "Read or refresh an epic dispatch chain",
         "recipe": (

@@ -151,7 +151,7 @@ def test_compact_topic_is_a_strict_subset_of_full() -> None:
         full = render_topic_packet("core", role=role, detail=PACKET_DETAIL_FULL)
         assert len(compact.encode("utf-8")) < len(full.encode("utf-8"))
         for line in compact.splitlines():
-            if line.strip() and not line.startswith("_Schema and operation depth:"):
+            if line.strip() and not line.startswith("_Depth:_"):
                 assert line in full, line
 
 
@@ -166,8 +166,9 @@ def test_compact_topic_keeps_catalog_and_role_discovers_it() -> None:
     from yoke_core.domain import schema_api_context_seed as seed
 
     compact = render_role_packet("main_agent", detail=PACKET_DETAIL_COMPACT)
+    others = compact.split("_Other topics (", 1)[1].split(")", 1)[0].split(", ")
     for topic in seed.ROLE_TOPICS["main_agent"]:
-        assert f"--topic {topic} --detail full" in compact
+        assert f"--topic {topic} --detail full" in compact or topic in others
         depth = render_topic_packet(topic, detail=PACKET_DETAIL_COMPACT)
         for table in seed.TOPIC_TABLES[topic]:
             assert f"`{table}`" in depth, table

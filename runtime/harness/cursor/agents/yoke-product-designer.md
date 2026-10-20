@@ -19,7 +19,7 @@ receiving context before claiming a main agent or worker received the rule.
 
 ## Fleet Communication
 
-In-process subagents receive no Fleet delivery at all: message envelopes and fleet reports reach the registered top-level session only, so a subagent never sees its parent's inbox. They communicate with the parent through the harness-native parent/subagent channel, and never send, acknowledge, or cancel Fleet messages, and never handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.
+In-process subagents receive no Fleet delivery at all. Talk to the parent through the harness-native parent/subagent channel; never send, acknowledge or cancel Fleet messages or handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.
 
 ## Input File Contract
 

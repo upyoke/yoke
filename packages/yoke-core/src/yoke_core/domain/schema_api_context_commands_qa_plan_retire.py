@@ -9,6 +9,7 @@ from __future__ import annotations
 
 QA_PLAN_RETIRE_COMMANDS: list[dict] = [
     {
+        "startup_roles": (),
         "topic": "qa",
         "purpose": "Retire a project QA plan nothing depends on any more",
         "recipe": 'yoke qa plan retire PLAN --project P --reason "why"',

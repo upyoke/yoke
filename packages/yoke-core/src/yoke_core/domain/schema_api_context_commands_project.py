@@ -12,7 +12,7 @@ from __future__ import annotations
 
 PROJECT_COMMANDS: list[dict] = [
     {
-        "startup_roles": ("main_agent", "engineer_agent"),
+        "startup_roles": (),
         "topic": "project",
         "purpose": "Inspect, get, or update a project Pack",
         "recipe": "yoke packs <list|get|update> --help",
@@ -45,7 +45,7 @@ PROJECT_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent",),
+        "startup_roles": (),
         "topic": "project",
         "purpose": "Read the project's default deployment flow",
         "recipe": ("yoke project-structure deploy-defaults get --project <project>"),
@@ -56,7 +56,7 @@ PROJECT_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent",),
+        "startup_roles": (),
         "topic": "project",
         "purpose": "Update an ephemeral environment row field",
         "recipe": "yoke ephemeral-env update <env-id> status healthy",
@@ -149,7 +149,7 @@ PROJECT_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent",),
+        "startup_roles": (),
         "topic": "project",
         "purpose": "Init a checkout and create a private GitHub remote",
         "recipe": "yoke project git bootstrap CHECKOUT --project <project> --yes",

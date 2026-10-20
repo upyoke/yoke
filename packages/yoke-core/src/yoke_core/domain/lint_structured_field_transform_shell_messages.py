@@ -46,11 +46,10 @@ REMEDIATION_TEXT = (
 
 
 REMEDIATION_API_FIRST: str = (
-    "Use the registered yoke adapter on the selected connection. Run "
-    "yoke --help for its command family and --help for flags. If no adapter "
-    "serves the operation, ask the control-plane operator to provide it; "
-    "retain the request and current connection. Direct database, runtime "
-    "imports and HTTP requests are not an agent recovery path."
+    "Use the registered yoke command on the selected connection "
+    "(`yoke --help`, then `<command> --help`). If none serves the operation, "
+    "ask the control-plane operator for one; keep the request and connection. "
+    "Direct database, runtime imports and HTTP requests are not a recovery."
 )
 
 

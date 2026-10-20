@@ -1,29 +1,8 @@
-"""``core`` topic operational-primitives recipes for the agent packet.
+"""``core`` topic operational recipes: how an agent reaches Yoke.
 
-Sibling of :mod:`schema_api_context_commands_core`. Holds the
-operational primitives surfaced by live friction: how to read the current
-session_id / actor_id, how to find the CLI adapter for a function id,
-where to put a Python script that imports `runtime.*`, how to re-render
-the agent files after editing a packet seed, and the 350-line
-authored-file cap discovery recipe.
-
-These are *operational* (how the agent reaches Yoke) rather than
-*structural* (DB columns / function ids). Splitting them out keeps
-:mod:`schema_api_context_commands_core` under the 350-line cap while
-preserving the merged ``CORE_COMMANDS`` export the renderer consumes.
-
-Recipe shape doctrine (current):
-    The core function ids (`items.get.run`, `items.structured_field.replace`,
-    `items.progress_log.append`, `lifecycle.transition.execute`,
-    `lifecycle.repair_status.execute`,
-    `events.query.run`, `claims.work.*`, `claims.path.{register,widen}`,
-    `ouroboros.field_note.append`) use the strict ``yoke <subcommand>``
-    grammar. Session-lifecycle CLIs, the `agents_render` renderer, the
-    `yoke check file-line`, and `yoke db read`. Session-lifecycle CLIs,
-    Atlas tooling, and the `db_router query` module form retain their
-    multi-module shape as source-dev/operator-debug fallbacks.
-
-Pure data only — no I/O or DB connections.
+Lifecycle, Progress Log, rules homes, field notes, Fleet messaging, scripts
+and lane-source checks. Registered function ids use the strict
+``yoke <subcommand>`` grammar. Pure data only — no I/O or DB connections.
 """
 
 from __future__ import annotations
@@ -44,14 +23,12 @@ OPERATIONAL_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent",),
         "topic": "core",
-        "purpose": "Cancel / stop / fail a work item (terminal-exceptional)",
+        "purpose": "Cancel or stop an item",
         "recipe": (
             "yoke items cancel PREFIX-N --reason 'superseded by PREFIX-X' "
             "--ref PREFIX-X\n"
             "yoke lifecycle transition PREFIX-N --to stopped "
-            "--reason 'paused'\n"
-            "yoke lifecycle transition PREFIX-N --to failed "
-            "--reason 'blocked'"
+            "--reason 'paused'"
         ),
         "notes": (
             "`items.cancel.run` takes the claim, cancels a frozen item in "
@@ -64,9 +41,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent",),
         "topic": "core",
-        "purpose": (
-            "Move a work item forward in lifecycle (claim → transition → release)"
-        ),
+        "purpose": ("Move an item forward (claim, transition, release)"),
         "recipe": (
             "yoke claims work acquire --item PREFIX-N --reason transition\n"
             "yoke lifecycle transition PREFIX-N --to refined-idea\n"
@@ -83,7 +58,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent",),
         "topic": "core",
-        "purpose": "Append to a work item's Progress Log (canonical agent shape)",
+        "purpose": "Append to a work item's Progress Log",
         "recipe": (
             "yoke claims work acquire --item PREFIX-N "
             "--reason progress-log-append\n"
@@ -102,8 +77,16 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": (
+            "architect_agent",
+            "engineer_agent",
+            "tester_agent",
+            "qa_walker_agent",
+            "simulator_agent",
+            "boss_agent",
+        ),
         "topic": "core",
-        "purpose": "Read operation rules and find the CLI adapter for a function id",
+        "purpose": "Read the rules home before acting",
         "recipe": (
             "cat .yoke/docs/agents/rules/code-and-cli.md\n"
             "cat .yoke/docs/documentation/index.md\n"
@@ -204,6 +187,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": (),
         "topic": "core",
         "purpose": (
             "Field-note channel: log a failed/new/unclear recipe or observation"
@@ -230,9 +214,9 @@ OPERATIONAL_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent", "engineer_agent"),
         "topic": "core",
-        "purpose": "Apply a structural patch without duplicate or stale hunks",
+        "purpose": "Structural patches",
         "recipe": (
-            "Use one `*** Update File:` operation per path per patch; "
+            "# Use one `*** Update File:` operation per path per patch; "
             "consolidate every hunk for that path under the same operation."
         ),
         "notes": (
@@ -241,6 +225,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": (),
         "topic": "core",
         "purpose": "Top-level Fleet messaging: discover, send, receive, acknowledge",
         "roles": ("main_agent",),
@@ -262,7 +247,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Subagent communication through its registered parent",
         "exclude_roles": ("main_agent",),
-        "recipe": SUBAGENT_FLEET_GUIDANCE,
+        "recipe": f"# {SUBAGENT_FLEET_GUIDANCE}",
         "notes": (
             "Fleet messages belong to the registered top-level session. "
             f"{TOP_LEVEL_FLEET_OWNERSHIP}"
@@ -271,8 +256,8 @@ OPERATIONAL_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent", "engineer_agent"),
         "topic": "core",
-        "purpose": "Where to put a project Python script",
-        "recipe": "# put it under the project's tracked tools directory — never /tmp/*.py",
+        "purpose": "Project Python scripts",
+        "recipe": "# Put them in the project's tracked tools directory, never /tmp/*.py.",
         "notes": (
             "Python's `sys.path[0]` for `python3 /tmp/foo.py` is /tmp, "
             "not cwd, so project imports may fail. Use a tracked project "
@@ -299,12 +284,11 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent",),
+        "startup_roles": (),
         "topic": "core",
         "purpose": "Re-render agent files after editing packet seeds",
         "recipe": (
-            "uv run --frozen python3 -m yoke_core.domain.agents_render "
-            "render --target-root <checkout>"
+            "yoke dev run -- yoke agents render --target-root <absolute-checkout>"
         ),
         "notes": (
             "After editing any `schema_api_context_*.py` seed file "
@@ -320,7 +304,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent", "engineer_agent"),
+        "startup_roles": (),
         "topic": "core",
         "purpose": "authored-file line limit (file_line_check)",
         "recipe": "yoke check file-line --staged",

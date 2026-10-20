@@ -13,13 +13,18 @@ from yoke_core.domain.git_pre_commit import _format_file_line_summary
 from yoke_harness.git_hooks import file_line_check as harness_check
 
 CHECKERS = pytest.mark.parametrize(
-    "checker", [core_check, harness_check], ids=["source-dev", "product-safe"],
+    "checker",
+    [core_check, harness_check],
+    ids=["source-dev", "product-safe"],
 )
 
 
 def _git(repo: Path, *args: str) -> str:
     result = subprocess.run(
-        ["git", "-C", str(repo), *args], check=True, capture_output=True, text=True,
+        ["git", "-C", str(repo), *args],
+        check=True,
+        capture_output=True,
+        text=True,
     )
     return result.stdout.strip()
 

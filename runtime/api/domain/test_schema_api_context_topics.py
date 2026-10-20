@@ -172,11 +172,7 @@ def test_taught_items_get_fields_match_handler_allowlist() -> None:
     from yoke_contracts.items_projection import ALLOWED_GET_FIELDS
     from yoke_core.domain.schema_api_context_commands_core import CORE_COMMANDS
 
-    entry = next(
-        row
-        for row in CORE_COMMANDS
-        if row["purpose"] == "Read structured item field(s) — concrete examples"
-    )
+    entry = next(row for row in CORE_COMMANDS if row["purpose"] == "Read item fields")
     taught_segment = (
         entry["notes"].split("Valid fields: ", 1)[1].split(". For body-section", 1)[0]
     )
@@ -254,12 +250,14 @@ def test_main_agent_role_includes_packs_and_deployment_run_hint() -> None:
     assert body.strip(), "main_agent packet body must be non-empty"
     assert sac._TOPIC_HEADERS["core"] in body
     assert sac._TOPIC_HEADERS["claims"] in body
-    assert sac._TOPIC_HEADERS["auth"] in body
     assert sac._TOPIC_HEADERS["qa"] in body
-    assert sac._TOPIC_HEADERS["packs"] in body
     assert sac._TOPIC_HEADERS["project"] not in body
     assert "deployment_runs" not in body
-    assert "yoke packets render --role main_agent --topic project --detail full" in body
+    # Topics with nothing to act on at startup are named once, one read away.
+    assert (
+        "_Other topics (auth, packs, project):_ "
+        "`yoke packets render --role main_agent --topic T`." in body
+    )
     depth = sac.render_topic_packet("project", detail=PACKET_DETAIL_FULL)
     assert "deployment_runs" in depth
     assert "deployment_run_items" in depth

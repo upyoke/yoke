@@ -112,7 +112,9 @@ def _project_config_entries(repo_root: Path | str) -> list[tuple[str, str]]:
     return entries
 
 
-def read_project_config(repo_root: Path | str) -> tuple[dict[str, str], tuple[str, ...]]:
+def read_project_config(
+    repo_root: Path | str,
+) -> tuple[dict[str, str], tuple[str, ...]]:
     """Return the scalar keys and the repeated ``file_line_exception`` globs.
 
     Repeated keys (``file_line_exception``, ``file_byte_budget``) are not

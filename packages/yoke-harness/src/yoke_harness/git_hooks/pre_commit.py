@@ -103,8 +103,11 @@ def _format_file_line_summary(
     lines.append("")
     lines.append("Run `yoke check file-line --staged` to re-inspect.")
     lines.append(
-        ("Split the file into smaller modules" if verdict.hard_fails
-         else "Fix each byte budget as its line says")
+        (
+            "Split the file into smaller modules"
+            if verdict.hard_fails
+            else "Fix each byte budget as its line says"
+        )
         + ", or use `git commit --no-verify` to bypass."
     )
     return "\n".join(lines) + "\n"

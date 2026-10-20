@@ -235,14 +235,7 @@ def has_command(module: str, fragment: str) -> bool:
     return fragment in text
 
 
-_TOPIC_HEADERS = {
-    "core": "DB Quick Reference — core (control plane + structured fields)",
-    "claims": "DB Quick Reference — claims (sessions, work, paths)",
-    "auth": "DB Quick Reference — auth (roles, permissions, org/project grants)",
-    "qa": "DB Quick Reference — qa (requirements, runs, gate preview)",
-    "packs": "DB Quick Reference — packs (catalog and receipt projection)",
-    "project": "DB Quick Reference — project (test commands, project_structure)",
-}
+_TOPIC_HEADERS = {topic: f"DB Quick Reference — {topic}" for topic in seed.TOPICS}
 
 
 def render_topic_packet(
@@ -252,13 +245,10 @@ def render_topic_packet(
     detail: str = PACKET_DETAIL_COMPACT,
     include_schema: bool = True,
 ) -> str:
-    """Return the role-aware markdown body for a single topic packet.
+    """Return one topic's markdown body; compact ends naming its full form.
 
-    The body is what lives between the marker pair in the canonical agent
-    prompts. Caller wraps with ``agents_render_context`` if marker framing
-    is desired. ``detail`` selects the rendering depth described in
-    :mod:`schema_api_context_render`; compact is what ships, and a compact
-    body ends by naming the command that renders its own full form.
+    ``include_schema=False`` is the startup rendering embedded between the
+    ``agents_render_context`` markers and composed into role packets.
     """
     if topic not in seed.TOPICS:
         raise ValueError(unknown_topic_message(topic, role=role))
@@ -291,8 +281,8 @@ def render_topic_packet(
             startup=not include_schema,
         )
     )
-    parts.append("")
     if include_schema:
+        parts.append("")
         parts.extend(render_table_block(topic, _resolve_columns, detail=detail))
     json_block = render_json_nested_schema_block(topic) if include_schema else []
     if json_block:
@@ -309,12 +299,24 @@ def render_role_packet(role: str, *, detail: str = PACKET_DETAIL_COMPACT) -> str
     """Return role action recipes; explicit topic reads carry schema detail."""
     if role not in seed.ROLE_TOPICS:
         raise ValueError(f"unknown role: {role}")
+    # A topic with nothing to act on at startup is one read away, named once.
+    acted = [
+        t
+        for t in seed.ROLE_TOPICS[role]
+        if t == "core" or render_command_block(t, role=role, startup=True)
+    ]
     chunks = [
         render_topic_packet(t, role=role, detail=detail, include_schema=False)
-        for t in seed.ROLE_TOPICS[role]
+        for t in acted
     ]
+    elsewhere = [t for t in seed.ROLE_TOPICS[role] if t not in acted]
     if role == "main_agent":
-        chunks.append(packet_detail_pointer(role, "project"))
+        elsewhere.append("project")
+    if elsewhere:
+        chunks.append(
+            f"_Other topics ({', '.join(elsewhere)}):_ "
+            f"`yoke packets render --role {role} --topic T`."
+        )
     return "\n".join(chunks).rstrip() + "\n"
 
 

@@ -47,17 +47,21 @@ def parse_byte_budgets(
         except ValueError:
             limit = 0
         if not path or limit <= 0:
-            broken.append(ByteBudgetFail(
-                entry or "(empty)",
-                "file_byte_budget_malformed",
-                "write file_byte_budget=PATH:BYTES with a positive byte count",
-            ))
+            broken.append(
+                ByteBudgetFail(
+                    entry or "(empty)",
+                    "file_byte_budget_malformed",
+                    "write file_byte_budget=PATH:BYTES with a positive byte count",
+                )
+            )
         elif path in budgets:
-            broken.append(ByteBudgetFail(
-                path,
-                "file_byte_budget_duplicate",
-                "keep one file_byte_budget entry per path",
-            ))
+            broken.append(
+                ByteBudgetFail(
+                    path,
+                    "file_byte_budget_duplicate",
+                    "keep one file_byte_budget entry per path",
+                )
+            )
         else:
             budgets[path] = limit
     return budgets, broken
@@ -77,25 +81,32 @@ def byte_budget_failures(
     budgets, failures = parse_byte_budgets(entries)
     for path, limit in sorted(budgets.items()):
         if size_of(path) is None:
-            failures.append(ByteBudgetFail(
-                path,
-                "file_byte_budget_stale",
-                "the budgeted file does not exist; remove its file_byte_budget entry",
-            ))
+            failures.append(
+                ByteBudgetFail(
+                    path,
+                    "file_byte_budget_stale",
+                    "the budgeted file does not exist; remove its file_byte_budget entry",
+                )
+            )
     for path in sorted(set(changed_paths) & set(budgets)):
         size = size_of(path)
         if size is not None and size > budgets[path]:
-            failures.append(ByteBudgetFail(
-                path,
-                "file_byte_budget_exceeded",
-                f"{size} bytes, budget {budgets[path]} "
-                f"(over by {size - budgets[path]}); {RECOVERY}",
-            ))
+            failures.append(
+                ByteBudgetFail(
+                    path,
+                    "file_byte_budget_exceeded",
+                    f"{size} bytes, budget {budgets[path]} "
+                    f"(over by {size - budgets[path]}); {RECOVERY}",
+                )
+            )
     return failures
 
 
 def new_size_reader(
-    repo_root: Path, *, staged: bool, run_git: Callable[..., Any],
+    repo_root: Path,
+    *,
+    staged: bool,
+    run_git: Callable[..., Any],
 ) -> Callable[[str], Optional[int]]:
     """Read a path's new size: the staged blob, or the working-tree file."""
 

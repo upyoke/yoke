@@ -34,9 +34,7 @@ def _lines_to_remove(change: flc.ChangedFile, limit: int) -> int:
     return max(0, change.new_line_count - limit)
 
 
-def print_report(
-    entries: list[flc.FileEntry], *, limit: int, as_json: bool
-) -> None:
+def print_report(entries: list[flc.FileEntry], *, limit: int, as_json: bool) -> None:
     if as_json:
         payload = {
             "limit": limit,
@@ -47,14 +45,14 @@ def print_report(
     print(f"# file_line_check report - limit={limit} - {len(entries)} file(s)")
     print(f"{'lines':>6}  {'classification':<22}  path")
     for entry in entries:
-        print(
-            f"{entry.line_count:>6}  {entry.classification.value:<22}  "
-            f"{entry.path}"
-        )
+        print(f"{entry.line_count:>6}  {entry.classification.value:<22}  {entry.path}")
 
 
 def print_verdict(
-    verdict: flc.CheckVerdict, *, limit: int, as_json: bool,
+    verdict: flc.CheckVerdict,
+    *,
+    limit: int,
+    as_json: bool,
 ) -> None:
     if as_json:
         payload = {

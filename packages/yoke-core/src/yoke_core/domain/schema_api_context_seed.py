@@ -205,43 +205,17 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 }
 
 
-# Ratchet budgets for the rendered packet corpus. Every number is the
-# measured size of the compact body that ships today, rounded up to a round
-# figure so ordinary editing does not trip the gate — not a prose target, and
-# not a claim about where any harness truncates. Growth past one of these is
-# a decision with a number attached rather than a drift back toward an
-# undeliverable payload.
-#
-# Two axes, because one of them bounds nothing that matters on its own. A
-# packet can sit under a line cap while spending six figures of bytes, since
-# nothing stops a single line from carrying thousands; the byte axis is what
-# a delivery channel measures. Lines stay budgeted because they keep the
-# rendered body readable.
-#
-# Per-role and aggregate line budgets cover the compact body's table and
-# command listings — every table, every column name, and every registered
-# recipe. The long-form per-table and per-command notes are rendered only at
-# ``--detail full``, read deliberately at the moment they apply, and carry no
-# budget at all.
-PACKET_LINE_BUDGET_PER_ROLE: int = 340
-PACKET_LINE_BUDGET_AGGREGATE: int = 2100
-PACKET_BYTE_BUDGET_PER_ROLE: int = 32000
-# Compact retract recipe plus three qa_requirements retract columns on
-# every qa-topic role spent ~700 extra bytes. Listing
-# takes_delivery_custody on the three project-topic roles spent 48 more;
-# 198000 is that measured aggregate rounded up so the next ordinary
-# edit still has headroom.
-PACKET_BYTE_BUDGET_AGGREGATE: int = 198000
+# Ratchet budgets: the measured compact role packets (the startup recipes
+# every role carries) rounded up a little, so growth is a decision with a
+# number attached. Bytes bound delivery; lines keep the body readable. Topic
+# reads (``--topic T``, ``--detail full``) are deliberate lookups and carry no
+# budget. Shrink a packet, or move a recipe to its topic read, before raising
+# one of these.
+PACKET_LINE_BUDGET_PER_ROLE: int = 60
+PACKET_LINE_BUDGET_AGGREGATE: int = 280
+PACKET_BYTE_BUDGET_PER_ROLE: int = 5500
+PACKET_BYTE_BUDGET_AGGREGATE: int = 27000
 
-# Ratchet budget for one rendered subagent body: the condensed role prose
-# plus its compact packet. A subagent body is read from a file rather than
-# composed into a hook reply, so no observed truncation point bounds it —
-# this is purely the measured figure that keeps it from regrowing. Measured:
-# the largest body spends 64,070 bytes, down from 168,187 when every role
-# carried the full packet plus its conditional references inline. The figure
-# rose from 58,981 when the engineer's submission contract came back inline:
-# the receipt an agent must emit and the checks that gate it are not a
-# reference it looks up, so carving them out was the wrong call and the
-# submission-gate tests said so. Six qa_requirements rebind columns pushed
-# the largest Claude body to 66,104 bytes; 67,000 is that measurement rounded up.
-AGENT_PROMPT_BYTE_BUDGET: int = 67000
+# Ratchet budget for one rendered subagent body (role prose plus its compact
+# packet), measured at 13,817 bytes and rounded up.
+AGENT_PROMPT_BYTE_BUDGET: int = 16000

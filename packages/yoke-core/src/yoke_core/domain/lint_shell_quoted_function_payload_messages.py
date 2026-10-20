@@ -36,16 +36,14 @@ from yoke_core.api.service_client_structured_api_adapter_inventory import (
 
 
 CONCRETE_READ_EXAMPLE: str = (
-    "Concrete copy-pasteable read examples (no shell choreography needed):\n\n"
-    "  # Targeted read by structured field — small, fast, no pipes:\n"
-    "  yoke items get PREFIX-N spec\n"
-    "  yoke items get PREFIX-N spec --json\n\n"
-    "  # Read one named body section without shell capture:\n"
-    "  yoke items get PREFIX-N body "
-    '--section "## File Budget"\n\n'
-    "  # Complete content: use --full and read the saved response file\n"
-    "  # when the adapter names one.\n"
-    "  yoke items get PREFIX-N body --full"
+    "Narrow reads need no shell: `yoke items get PREFIX-N spec`, or one section "
+    'with `yoke items get PREFIX-N body --section "## File Budget"`; the whole '
+    "body with `yoke items get PREFIX-N body --full`."
+)
+
+_OVERRIDE_NOTE = (
+    "Override `# lint:no-shell-json-payload-check` is audit-only; the rule "
+    "still denies."
 )
 
 
@@ -133,17 +131,14 @@ def build_adapter_index() -> Tuple[Dict[str, str], Dict[str, List[str]]]:
 
 def build_payload_remediation() -> str:
     body = (
-        "BLOCKED: hand-quoted JSON payload to yoke_core.api.service_client.\n\n"
-        "Detected pattern: a Bash command building a JSON envelope inline "
-        "(via ``printf '{...}'`` or ``--payload '<json>'``) and piping or "
-        "passing it to service_client. Hand-quoted JSON in shell is brittle "
-        "(quoting/escaping/empty-content) and bypasses the type system that "
-        "validates FunctionCallRequest envelopes.\n\n"
+        "BLOCKED: hand-quoted JSON payload to yoke_core.api.service_client "
+        "(``printf '{...}'`` or ``--payload '<json>'``). Shell quoting breaks "
+        "it and it skips FunctionCallRequest validation.\n\n"
         + REMEDIATION_API_FIRST
         + "\n\n"
         + CONCRETE_READ_EXAMPLE
-        + "\n\nOverride: add `# lint:no-shell-json-payload-check` to the "
-        "command body (audit-only; the rule still denies in deny mode)."
+        + "\n\n"
+        + _OVERRIDE_NOTE
     )
     # Wrap here as defense-in-depth; the parent ``lint_shell_quoted_function_payload``
     # emit site also calls ``attach_check_id`` and the helper is
@@ -155,27 +150,20 @@ def build_choreography_remediation(adapter_key: str, function_id: str) -> str:
     lane_renderer = ""
     if function_id == "agents.render.run":
         lane_renderer = (
-            "\n\nLane-source renderer validation has an explicit source-dev/admin "
-            "shape that uses the checked-out implementation and targets the lane:\n"
-            "  yoke dev run -- yoke agents render --target-root .\n"
-            "Run it bare; the renderer reports its own result without a pipe."
+            "\n\nRender lane source bare, with an absolute root: "
+            "`yoke dev run -- yoke agents render --target-root <absolute-checkout>`."
         )
     return (
         "BLOCKED: registry-covered Yoke CLI wrapped with shell "
-        f"choreography.\n\n"
-        f"Detected adapter: ``{adapter_key}`` (covered by function id "
-        f"``{function_id}``). The wrapping shell choreography (redirection, "
-        "status probes, pipes, heredocs, tee, or shell-variable capture) "
-        "is unnecessary terminal soup -- the adapter already supports "
-        "``--json`` returning a typed FunctionCallResponse envelope, and "
-        "the registered command preserves the selected connection for "
-        "machine callers.\n\n"
+        f"choreography. ``{adapter_key}`` (``{function_id}``) runs under redirection, "
+        "a pipe, a heredoc, tee or variable capture. Run it bare; add "
+        "``--json`` for the typed envelope.\n\n"
         + REMEDIATION_API_FIRST
         + lane_renderer
         + "\n\n"
         + CONCRETE_READ_EXAMPLE
-        + "\n\nOverride: add `# lint:no-shell-json-payload-check` to the "
-        "command body (audit-only; the rule still denies in deny mode)."
+        + "\n\n"
+        + _OVERRIDE_NOTE
     )
 
 
@@ -208,10 +196,7 @@ def build_domain_remediation(
         + sub_block
         + "\nUse the registered yoke adapter for the operation. If none exists, "
         "ask the control-plane operator to provide it; keep the original "
-        "connection and request.\n\n"
-        + CONCRETE_READ_EXAMPLE
-        + "\n\nOverride: add `# lint:no-shell-json-payload-check` to the "
-        "command body (audit-only; the rule still denies in deny mode)."
+        "connection and request.\n\n" + CONCRETE_READ_EXAMPLE + "\n\n" + _OVERRIDE_NOTE
     )
 
 

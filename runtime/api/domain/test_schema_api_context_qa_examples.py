@@ -150,7 +150,7 @@ def test_qa_packet_carries_run_add_agent_ac_verification_example() -> None:
 
 def test_qa_packet_carries_per_requirement_browser_case_run_example() -> None:
     body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
-    assert "Execute one materialized Browser method case" in body
+    assert "Run one QA case" in body
     assert (
         "yoke qa case run --requirement-id R "
         "--base-url https://preview.example "

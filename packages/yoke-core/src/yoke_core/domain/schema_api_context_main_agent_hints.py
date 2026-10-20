@@ -2,68 +2,37 @@
 
 from __future__ import annotations
 
-#: Column shapes a raw deployment-run diagnostic SELECT gets wrong, named so a
-#: main session does not confabulate `target_env` or `deployment_runs.item_id`.
+#: Column shapes a raw deployment-run SELECT gets wrong.
 DEPLOYMENT_RUN_QUERY_HINT = (
     "**Deployment-run raw-query hint:** "
-    "`deployment_flows.target_environment_id` references "
-    "`environments.id` (JOIN environments for the display name); "
+    "`deployment_flows.target_environment_id` references `environments.id`; "
     "`target_tier` is persistent/ephemeral/NULL. `deployment_runs.status` and "
-    "`deployment_runs.current_stage` record progress. Join through `deployment_run_items` "
-    "for item-bound runs. `deployment_runs.carried_work` records "
-    "resolved items and unresolved bare commits; a warning that "
-    "changes what the run can attest is `deployment_runs.get` "
-    "`attestation_warnings` (reason, cost, recovery), not a parse "
-    "of that JSON column."
+    "`deployment_runs.current_stage` record progress. Join through "
+    "`deployment_run_items` for item-bound runs. Read warnings from "
+    "`deployment_runs.get` `attestation_warnings`, not by parsing "
+    "`deployment_runs.carried_work`."
 )
 
-#: Which release-time command belongs to the seat driving a run and which to
-#: the member owner parked at its release wait. The two act on the same run
-#: from different sessions, so neither learns the other's part from its own
-#: skill; substituting one for the other is what leaves a stage uncredited or
-#: an item unclosed.
+#: The delivery seat and a parked member owner act on the same run from
+#: different sessions, so neither learns the other's part from its own skill.
 RELEASE_ROLE_HINT = (
-    "**Release-time commands by role:** the seat driving delivery "
-    "pins one source SHA and owns `deployment-runs create` plus "
-    "`watch deploy` for each run, taking no claim (a run occupies its "
-    "target servers until its QA settles, and a create on its flow and "
-    "target takes over one waiting only on item QA) -- the start enrolls "
-    "every delivery-ready item the "
-    "candidate carries that no live or succeeded release already "
-    "holds, and applies the composition check itself. `add-item` is "
-    "for an item whose code the candidate does not carry but which "
-    "the run should still deliver; `validate-composition` composes "
-    "the run now and reports what enrolled or why it refused. That "
-    "seat never "
-    "runs a member's item QA and never closes a member out. The member "
-    "owner stays parked at its release wait holding its own claim; "
-    "when the deployment wake asks for its stage (an operator-woken "
-    "desktop owner is re-entered by its operator or a steering seat "
-    "instead, and an item owing nothing closes with no re-entry) it "
-    "credits that "
-    "stage with `yoke qa plan run --deployment-run-id RUN --stage "
-    "STAGE --member PREFIX-N --project P` (a stage "
-    "credits only requirements bound to its own name, so the "
-    "run-wide form is refused). A shared cursor held by another session or "
-    "group returns waiting with its execution id and owner: keep the claim "
-    "and park; shared settlement credits the member or wakes its own command. "
-    "Add `--plan PLAN` only for a "
-    "stage the wake says names no cases -- one that already names "
-    "its own refuses it. A delivery wake names the one "
-    "agent-facing close-out `yoke merge item PREFIX-N --result ... "
-    "--verification ...` only when automatic close-out could not "
-    "finish. There is no internal done engine to "
-    "substitute. Depth: those commands' `--help`."
+    "**Release-time commands by role:** the delivery seat pins one source SHA "
+    "and runs `deployment-runs create` and `watch deploy` for each run, with no "
+    "claim; it never runs a member's item QA or closes a member out. A member "
+    "owner stays parked at its release wait, holding its claim. When the "
+    "deployment wake asks for its stage, it runs `yoke qa plan run "
+    "--deployment-run-id RUN --stage STAGE --member PREFIX-N --project P` "
+    "(add `--plan PLAN` only when the wake says the stage names no cases). A "
+    "stage held by another session returns waiting: keep the claim and park. "
+    "Run `yoke merge item PREFIX-N --result ... --verification ...` only when "
+    "a delivery wake names it. Depth: each command's `--help`."
 )
 
 SETUP_FACTS_HINT = (
     "**Setup facts:** `yoke onboard checklist get --json` serves "
-    "`run.next_action` (recipe and installed home) and `run.setup_readiness`. "
-    "Configured means present; verified means checked; deferred means chosen later; "
-    "not-needed means explicitly unnecessary; unknown means unconfirmed; blocked "
-    "names a required repair. Orientation shows relevant unsettled facts once, "
-    "and suppresses setup after readiness and first-work activation. Optional "
-    "rows never force setup. Follow next_action instead of deriving a step."
+    "`run.next_action` and `run.setup_readiness`. Configured, verified, "
+    "deferred, not-needed and unknown are states; blocked names a required "
+    "repair. Follow next_action instead of deriving a step."
 )
 
 MAIN_AGENT_HINTS = (DEPLOYMENT_RUN_QUERY_HINT, RELEASE_ROLE_HINT, SETUP_FACTS_HINT)

@@ -41,8 +41,7 @@ PACKET_DETAILS: tuple[str, ...] = (PACKET_DETAIL_COMPACT, PACKET_DETAIL_FULL)
 def packet_detail_pointer(role: str, topic: str) -> str:
     """Return the one line naming where a compact block's notes live."""
     return (
-        f"_Schema and operation depth:_ "
-        f"`yoke packets render --role {role} --topic {topic} --detail full`."
+        f"_Depth:_ `yoke packets render --role {role} --topic {topic} --detail full`."
     )
 
 
@@ -75,79 +74,43 @@ def unknown_topic_message(topic: str, *, role: str) -> str:
 
 def render_invariant_block() -> list[str]:
     return [
-        "**Control-plane DB invariant:** authority is Postgres, never a "
-        "constructed worktree DB path. Use registered `yoke <subcommand>` "
-        'and diagnostic `yoke db read "SELECT ..."`. Normal prod authority '
-        "is HTTPS/API; retain it on retry. Escalate missing mutations to "
-        "the control-plane operator with the operation and surfaces checked.",
+        "**Control-plane DB invariant:** use registered `yoke` commands; read "
+        'diagnostics only with `yoke db read "SELECT ..."`; never construct a '
+        "DB path. Keep the selected connection on retry. Escalate a missing "
+        "mutation to the control-plane operator.",
     ]
 
 
 def render_package_roots_block() -> list[str]:
-    """Where a module actually lives, and how to look it up.
-
-    An agent that greps for a module by guessing a directory named after
-    the package finds nothing and concludes the code is missing. The
-    roots are per-project, so this teaches the lookup rather than any one
-    project's layout — the packet ships verbatim into every project Yoke
-    installs into, where concrete paths from another repo would be worse
-    than none.
-    """
+    """Teach the per-project package-root lookup, never one repo's layout."""
     return [
-        "**Package roots:** read "
-        "`yoke project-structure get --project P --family architecture_model "
-        "--json`. A package name never implies a directory at the repo root; "
-        "one package may declare several roots. Check every `package_roots` "
-        "entry: `package_under_root` "
-        "holds the package directory; `package_is_root` is that directory.",
+        "**Package roots:** `yoke project-structure get --project P --family "
+        "architecture_model --json` lists every `package_roots` entry "
+        "(`package_under_root` or `package_is_root`). A package may have "
+        "several roots; its name never implies a directory at the repo root.",
     ]
 
 
 def render_item_entry_surface_block() -> list[str]:
-    """Workflow entry-surface doctrine taught in the ``core`` topic.
-
-    Both the top-level ``main_agent`` packet and every Bash-capable
-    ``*_agent`` packet inherit ``core`` so every Yoke agent sees this
-    rule before creating work items. Enforcement owners:
-    ``yoke_core.domain.item_entry_surface`` (typed surface + attestation)
-    and the ``yoke items create`` adapter (scaffolding gate).
-    """
+    """Work-item filing rule; ``yoke_core.domain.item_entry_surface`` enforces it."""
     return [
-        "**Work-item entry surfaces:** every create names a workflow and "
-        "a typed entry surface (`web_form`, `cli`, `harness_skill`, or "
-        "`promotion`). The selected immutable workflow version must allow "
-        "that surface. File through `/yoke idea` (the skill-owned "
-        "`harness_skill` path), `yoke items create --title TEXT --workflow W "
-        "--spec-file PATH`, or the thin `yoke dash` / `yoke task` shortcuts "
-        "that take the same flags without --workflow; "
-        "code project work -> `yoke dash`, because Task refuses projects "
-        "with a code repository. "
-        "Title and spec are flags only: `--title` or `--title-file` for title, "
-        "`--spec-file` or `--stdin` for spec; positional text refuses. Planned intake refuses a live harness session that is not "
-        "in idea mode — the entry-surface token is caller-asserted and "
-        "skips skill-side scaffolding. Operator/debug, `--dry-run`, and "
-        "test isolation retain the low-level adapter. `/yoke idea` "
-        "attests Before creation with `--execution-instructions-considered` after `yoke "
-        "workflow execution-instruction resolve --workflow W --project P "
-        "--full`; "
-        "Non-web creation requires that attestation; adapters never set it.",
+        "**Work-item entry surfaces:** file with `/yoke idea` (`harness_skill`) "
+        "or `yoke items create --title TEXT --workflow W --spec-file PATH`; the "
+        "`yoke dash` / `yoke task` shortcuts drop --workflow (code projects: "
+        "`yoke dash`). Title and spec are flags; positional text refuses. "
+        "Outside idea mode, a live session's planned intake refuses.",
     ]
 
 
 def render_function_call_surface_block() -> list[str]:
     """Registered write identities and canonical harness ids for CLI callers."""
     return [
-        "**Registered writes** (use their `yoke` CLI adapters): "
+        "**Registered writes:** "
         + ", ".join(f"`{fid}`" for fid in seed.AGENT_WRITE_FUNCTION_IDS)
-        + ". CLI grammar: "
-        "(dots→spaces, underscores→hyphens).",
-        "Adapters build the function-call envelope: `actor.session_id` "
-        "binds the harness; optional `actor_id` resolves server-side and "
-        "must agree if supplied. `target` selects the subject; `preconditions` "
-        "guard the write and `options` carry execution choices.",
-        "",
-        "**`harness_sessions.executor`:** `claude-code | codex | cursor`; "
-        "surface variants normalize to these ids.",
+        + ". Run each as `yoke` with dots→spaces, underscores→hyphens. "
+        "Adapters build the envelope (`actor.session_id`, optional `actor_id`, "
+        "`target`, `preconditions`, `options`).",
+        "**`harness_sessions.executor`:** `claude-code | codex | cursor`.",
     ]
 
 
@@ -202,6 +165,8 @@ def render_command_block(
     ]
     if not rows:
         return []
+    if startup:
+        return ["**Commands** (flags: `--help`):", *map(_startup_line, rows)]
     out: list[str] = ["**Wrapper commands (prefer over raw SQL):**", ""]
     for row in rows:
         out.append(f"- _{row['purpose']}_")
@@ -210,6 +175,19 @@ def render_command_block(
         if detail == PACKET_DETAIL_FULL and row.get("notes"):
             out.append(f"  - {row['notes']}")
     return out
+
+
+def _startup_line(row: dict) -> str:
+    """One line per startup row: its purpose and every command it teaches.
+
+    Comment lines are topic-read depth; a row made only of comments keeps
+    its text, because that text is the rule.
+    """
+    commands = recipe_commands(str(row["recipe"]))
+    shown = [c for c in commands if not c.lstrip().startswith("#")]
+    if shown:
+        return f"- {row['purpose']}: " + " · ".join(f"`{c}`" for c in shown)
+    return f"- {row['purpose']}: " + " ".join(c.lstrip("# ") for c in commands)
 
 
 def recipe_commands(recipe: str) -> list[str]:

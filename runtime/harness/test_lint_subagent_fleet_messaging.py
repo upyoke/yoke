@@ -40,7 +40,6 @@ def test_subagent_fleet_mutations_are_denied(command: str) -> None:
     assert decision.outcome is Outcome.DENY
     assert decision.block is True
     assert "receive no Fleet delivery at all" in decision.message
-    assert "never sees its parent's inbox" in decision.message
     assert "harness-native parent/subagent channel" in decision.message
 
 
@@ -72,7 +71,5 @@ def test_subagent_non_fleet_command_is_unchanged() -> None:
     ],
 )
 def test_subagent_help_is_not_a_fleet_mutation(command: str) -> None:
-    decision = lint.evaluate(
-        _context(command, payload={"agent_type": "engineer"})
-    )
+    decision = lint.evaluate(_context(command, payload={"agent_type": "engineer"}))
     assert decision.outcome is Outcome.NOOP

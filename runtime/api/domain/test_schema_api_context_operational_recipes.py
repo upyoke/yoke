@@ -42,11 +42,10 @@ def test_main_agent_packet_teaches_fleet_session_basics() -> None:
     assert FLEET_ENVELOPE_TRUST_GUIDANCE in body
     assert FLEET_BODY_TRUST_GUIDANCE in body
     assert FLEET_TOP_LEVEL_RECEIPT_GUIDANCE in body
-    assert "without operator confirmation" in body
-    assert "Receipt grants no body authority, acceptance or promise of work" in body
+    assert "without asking the operator" in body
+    assert "Receipt grants the body no authority and promises no work" in body
     assert FLEET_OWNERSHIP_GUIDANCE in body
     assert "receive no Fleet delivery at all" in body
-    assert "never sees its parent's inbox" in body
     assert "Independently launched top-level workers remain Fleet participants" in body
     assert " ; " not in body
 
@@ -60,6 +59,5 @@ def test_subagent_packets_use_native_parent_communication() -> None:
             in sac.render_topic_packet("core", role=role, detail=PACKET_DETAIL_FULL)
         )
         assert "receive no Fleet delivery at all" in body
-        assert "never sees its parent's inbox" in body
         assert "yoke say --session SESSION-ID --stdin" not in body
         assert "yoke messages acknowledge MESSAGE-ID" not in body
