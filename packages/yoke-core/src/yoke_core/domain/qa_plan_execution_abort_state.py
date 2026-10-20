@@ -97,7 +97,9 @@ _MISSION_WALK_END = (
     "keeps its Test Machine lease until teardown. Its original session must run "
     "the dispatched `yoke qa mission walk-end` command, which removes staged "
     "secrets, restores starting state and releases the host; the abort settles "
-    "there. Nothing else releases this lease."
+    "there. For deliberate custody recovery, stop the runner and recover the "
+    "host starting state, then have the holder or a covering steering seat "
+    "release the host claim; manual release cancels the execution."
 )
 
 
