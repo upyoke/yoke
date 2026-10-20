@@ -1,4 +1,4 @@
-"""Owner-only host custody for teardown after deployment membership ends.
+"""Owner-only host custody after deployment membership or a run ends.
 
 Removal leaves a walk holding its machine live under a recorded abort; its
 walk-end teardown is the cleanup proof, so finishing it releases the host
@@ -20,8 +20,14 @@ from yoke_core.domain.qa_plan_execution_abort_reason import (
 from yoke_core.domain.qa_plan_execution_store import same_owner
 
 
-def removed_execution(execution: dict) -> bool:
-    return member_removed(execution) or member_removal_pending(execution)
+def cleanup_execution(conn: Any, execution: dict) -> bool:
+    from yoke_core.domain.qa_deployment_execution_cleanup import terminal_run_status
+
+    return (
+        member_removed(execution)
+        or member_removal_pending(execution)
+        or bool(terminal_run_status(conn, execution))
+    )
 
 
 def cleanup_request(request: Any) -> bool:
@@ -30,13 +36,13 @@ def cleanup_request(request: Any) -> bool:
     ).get("cleanup") in ("begin", "finish")
 
 
-def cleanup_authority(request: Any, execution: dict) -> bool:
-    """The removed execution grants only its original session teardown."""
+def cleanup_authority(conn: Any, request: Any, execution: dict) -> bool:
+    """An ended deployment grants only its original session teardown."""
     from yoke_core.domain.qa_plan_execution_authority import (
         require_plan_execution_subject,
     )
 
-    if not cleanup_request(request) or not removed_execution(execution):
+    if not cleanup_request(request) or not cleanup_execution(conn, execution):
         return False
     require_plan_execution_subject(
         execution,
@@ -59,7 +65,7 @@ def cleanup_claim_authority(request: Any) -> bool:
         execution = select_plan_execution(
             conn, request.payload.get("execution_id"), lock=False
         )
-        return cleanup_authority(request, execution)
+        return cleanup_authority(conn, request, execution)
     except (LookupError, ValueError):
         return False
     finally:
@@ -129,13 +135,29 @@ def _finish(
         (execution["id"],),
     )
     execution["machine_lease_id"] = None
-    if member_removal_pending(execution):
+    from yoke_core.domain.qa_plan_execution_abort_state import abort_request
+    from yoke_core.domain.qa_plan_execution_schema import TERMINAL_PLAN_EXECUTION_STATES
+    from yoke_core.domain.qa_deployment_execution_cleanup import abort_reason
+
+    if execution["state"] not in TERMINAL_PLAN_EXECUTION_STATES:
         from yoke_core.domain.qa_plan_execution_lifecycle import (
             finish_plan_execution,
         )
 
         finish_plan_execution(
-            conn, execution, state="aborted", reason=MEMBER_REMOVED_REASON
+            conn,
+            execution,
+            state="aborted",
+            commit=False,
+            reason=abort_reason(
+                conn,
+                execution,
+                MEMBER_REMOVED_REASON
+                if member_removal_pending(execution)
+                else (abort_request(execution) or {}).get(
+                    "reason", "mission-teardown-finished"
+                ),
+            ),
         )
     conn.commit()
     if parsed.restore is not None:
@@ -184,13 +206,13 @@ def handle_cleanup(request: Any, parsed: Any) -> HandlerOutcome | None:
     conn = connect()
     try:
         execution = lock_plan_execution(conn, parsed.execution_id)
-        if not removed_execution(execution):
+        if not cleanup_execution(conn, execution):
             if parsed.cleanup == "finish":
                 raise ValueError(
-                    "mission_cleanup_not_removed: only removed missions release a cleanup lease"
+                    "mission_cleanup_not_ended: cleanup custody requires member removal or a terminal run; inspect the execution's deployment run"
                 )
             return None
-        if not cleanup_authority(request, execution):
+        if not cleanup_authority(conn, request, execution):
             raise ValueError(
                 "mission_cleanup_owner_required: only the execution's original "
                 f"session {execution['session_id']} may run walk-end; ask that "

@@ -162,10 +162,12 @@ def resolve_run_qa_subject(
         and execution_id
         and member_id in removed_item_ids(conn, run_id)
     )
-    from yoke_core.domain.agent_mission_cleanup import cleanup_request
+    from yoke_core.domain.agent_mission_cleanup import (
+        cleanup_execution,
+        cleanup_request,
+    )
     from yoke_core.domain.qa_plan_execution_abort_reason import (
         member_removal_pending,
-        member_removed,
     )
 
     removed_cleanup = False
@@ -176,7 +178,7 @@ def resolve_run_qa_subject(
         # its runner's calls; the handlers still check ownership and state.
         removed = select_plan_execution(conn, execution_id, lock=False)
         removed_cleanup = member_removal_pending(removed) or (
-            cleanup_request(request) and member_removed(removed)
+            cleanup_request(request) and cleanup_execution(conn, removed)
         )
     if removed_cleanup:
         project_id, slug = _checkin_project(conn, execution_id, member_id)
@@ -232,7 +234,12 @@ def resolve_run_qa_subject(
 
                 execution = select_plan_execution(conn, execution_id, lock=False)
                 subject = execution_subject(
-                    conn, execution, require_active=not reviewing_terminal
+                    conn,
+                    execution,
+                    require_active=not (
+                        reviewing_terminal
+                        or request.function == "qa.plan_execution.abort"
+                    ),
                 )
             elif request.function == "qa.browser_context.get":
                 from yoke_core.domain.deployment_qa_shared_plans import (

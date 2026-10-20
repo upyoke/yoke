@@ -4,13 +4,13 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "When the expected outcome requires assertions, visual judgment or exploratory observation.",
- "need": "Command/CI and Browser check use automatic results; Browser inspection captures evidence for agent judgment. Pack-added methods and exploratory missions have additional contracts. A screenshot is not a pass. Exploratory missions use informed_subagent from the controller; fresh targets stay free of a source checkout. Unsupported executors require a saved-case correction and rematerialization. When a deployment member is removed mid-walk, its original session still runs walk-end for teardown on the recorded host; it must retry a busy host and confirm scratch removal and starting-state restore without reopening the execution.",
+ "need": "Command/CI and Browser check use automatic results; Browser inspection captures evidence for agent judgment. Pack-added methods and exploratory missions have additional contracts. A screenshot is not a pass. Exploratory missions use informed_subagent from the controller; fresh targets stay free of a source checkout. Unsupported executors require a saved-case correction and rematerialization. When a deployment member is removed mid-walk, its original session still runs walk-end for teardown on the recorded host; it must retry a busy host and confirm scratch removal and starting-state restore without reopening the execution. A terminal deployment run also preserves the original session’s walk-end cleanup on the recorded host; cleanup settles a pending abort and records the run status.",
  "disclosure": "current cue",
  "surface": "Method definitions; Browser reference; exploratory QA dispatch",
  "gap": "Review question: should verification planning offer the relevant method in plain language and fetch its reference only after selection?",
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke qa method get --help"],
  "plan_notes": ["JOURNEYS row 13"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/qa_method_definitions.py", "docs/public/verification/browser-scenarios.md", "docs/public/verification/exploration.md", "runtime/api/domain/test_agent_mission_cleanup.py"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/qa_method_definitions.py", "docs/public/verification/browser-scenarios.md", "docs/public/verification/exploration.md", "runtime/api/domain/test_agent_mission_cleanup.py", "runtime/api/domain/test_deployment_qa_terminal_cleanup.py"],
  "position": 1
 }

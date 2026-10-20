@@ -2,8 +2,8 @@
  "id": "cancellation-and-hold",
  "title": "Cancellation and hold",
  "status": "observed",
- "summary": "Host abort retains custody until the interrupted case records starting_state_restore cleanup evidence. A declared baseline requires restored=true for that baseline; an as_is case or chain without a baseline settles on its no-restore receipt. Other roster cases do not impose restore requirements. Missing proof, failed cleanup or failed required restoration retains custody and names operator recovery. Member removal and run takeover record the same abort instead of finishing such an execution, and run cancellation leaves an abort already recorded to its own cleanup; a removed mission walk holding its machine settles only through its walk-end teardown (qa_abort_walk_end_required).",
- "sources": ["docs/public/verification/deployment-plan-execution.md", "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_abort_state.py", "runtime/api/domain/test_machine_qa_plan_abort.py", "packages/yoke-core/src/yoke_core/domain/qa_deployment_member_removal.py", "packages/yoke-core/src/yoke_core/domain/agent_mission_cleanup.py"],
- "page": "qa-evidence",
+ "summary": "Abort holds the host until the interrupted case records starting_state_restore. Declared baselines require restored=true; as_is or no-baseline cases use a no-restore receipt. Other cases add no restore obligations. Missing proof or failed cleanup/restoration retains custody and names recovery. Removal and takeover record this abort; run cancellation leaves recorded aborts to their cleanup. A removed mission releases its host only through walk-end (qa_abort_walk_end_required). After a terminal deployment run, the original session can abort or finish walk-end; the release reason records run status. Settled executions report their state. Ordinary writes require the active stage.",
+ "sources": ["docs/public/verification/deployment-plan-execution.md", "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_abort_state.py", "runtime/api/domain/test_machine_qa_plan_abort.py", "packages/yoke-core/src/yoke_core/domain/qa_deployment_member_removal.py", "packages/yoke-core/src/yoke_core/domain/agent_mission_cleanup.py", "runtime/api/domain/test_deployment_qa_terminal_cleanup.py"],
+ "page": "qa-evidence-cancellation",
  "position": 4
 }
