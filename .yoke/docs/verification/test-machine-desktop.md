@@ -22,12 +22,8 @@ running its host operations. A missing or expired lease requires fresh admission
 a released lease with an unknown receipt requires inspecting the retained
 capture, rather than repeating the operation.
 
-A simultaneous machine-QA case declares its driver in `method_config.machine`
-and all hosts in `method_config.machines`. Each host uses its registered OS;
-the case's inferred platform must occur somewhere in the admitted set, rather
-than on the driver alone. A Linux companion therefore does not move a macOS
-driver. Resuming keeps the declared driver and reserves the full set again.
-Single-host cases still require their host to match the case's platform.
+Simultaneous machine-QA cases keep their declared driver and check platforms
+across the full host set; see [host-set authoring](exploration.md#authoring-shape).
 
 When verification marks a host unhealthy, repair the named failure and run
 `yoke test-machine verify --project P --machine NAME` to wake the waiting line.

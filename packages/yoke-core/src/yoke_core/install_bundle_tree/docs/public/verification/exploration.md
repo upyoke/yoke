@@ -65,7 +65,9 @@ omitting `--machine` preserves that pin, and a conflicting run pin is refused.
 
 For a mission that needs two hosts at once, also declare
 `"machines":["linux-example","macos-example"]` with `"machine":"macos-example"` naming the
-driving host. Every name must be registered and listed once. The plan runner
+driving host. Every name must be registered and listed once. Each host uses its
+registered OS; the inferred case platform must match at least one host in the
+set. Platform words in instructions do not change the declared driver. The plan runner
 acquires the complete set in sorted name order through each host's FIFO;
 contention releases partial acquisitions before waiting. Both leases remain
 held and heartbeated through the walk and independent review. Mission access
@@ -174,8 +176,9 @@ continuation:
 yoke qa plan run --item PREFIX-N --transition T --continue-mission
 ```
 
-Host-wait and continuation commands omit `--machine`. The scheduler recovers
-each platform's original host from the execution's recorded leases and runs,
+Host-wait and continuation commands omit `--machine`. Simultaneous cases keep
+their declared driver and full host set. For single-host cases, the scheduler
+recovers each platform's original host from the execution's recorded leases and runs,
 including its continuation source. A platform not used before selects a fresh
 eligible host; a global pin cannot represent a roster using several hosts.
 Correction-ready commands also omit the pin; scheduling recovers each corrected

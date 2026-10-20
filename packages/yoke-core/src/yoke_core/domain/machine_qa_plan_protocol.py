@@ -74,7 +74,7 @@ def continue_plan_host_control_execution(
     )
     from yoke_core.domain.machine_qa_case_platform import matching_platform_hosts
     from yoke_core.domain.machine_qa_case_hosts import case_machines
-    from yoke_core.domain.machine_qa_capability import load_test_machine_contract
+    from yoke_core.domain.host_control_runner import load_test_machine_contract
     from yoke_core.domain.qa_plan_host_leases import require_case_host_leases
 
     hosts = {selected.settings["resource_name"]: selected}
