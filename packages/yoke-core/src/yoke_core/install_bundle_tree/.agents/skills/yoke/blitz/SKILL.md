@@ -1,47 +1,17 @@
 ---
 name: blitz
 description: "Execute a substantial document-led Blitz as integrated slices with continuous plan evidence."
-# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "{PREFIX-N}"
 ---
 
 # /yoke blitz {PREFIX-N}
 
-Execute one refined Blitz from its single linked strategy document: the live
-plan, progress log, handoff, completion and parent-reconciliation record.
-The item owns identity, claims, lifecycle, worktrees, QA and delivery.
+Execute one Blitz from its linked strategy document; create no child items.
 
-<!-- BEGIN GENERATED: field-note-directive -->
-File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
-yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-<!-- END GENERATED: field-note-directive -->
+```text
+yoke sessions touch --mode blitz
+```
 
-## Phase map
-
-| Phase | Read when reached |
-|---|---|
-| Read, bounded survey, isolate | [read-and-survey.md](read-and-survey.md) |
-| Map and integrate slices | [integrate.md](integrate.md) |
-| Whole review and close | [review-and-complete.md](review-and-complete.md) |
-| Exact operation lookup | [function-reference.md](function-reference.md) |
-
-## Invariants
-
-- Complete public ref, resolving to Blitz at `refined-idea`, `implementing`,
-  `reviewing-implementation`, or `release`.
-- Refine must already link exactly one execution document. Keep it authoritative;
-  create no child items or copy into the item body.
-- The item work claim owns execution; its item-owned document claim owns revision.
-  Other sessions use only append-only `Slice Log` and `Live Status`.
-- Default File Budget/path claims are off; read their independent effective
-  policies. Always obey the 350-line limit, survey before activation and every
-  slice merge, judge each contact proceed/yield, and write only in registered
-  isolated lanes. Prepare immediately after minimal path discovery, before
-  deeper reading or edits.
-- Main session owns slice boundaries/order, full verification, document
-  completion and parent reconciliation. Migration, capability, security,
-  approval and run-record invariants hold on every action.
-
-Start: `yoke sessions touch --mode blitz`, then follow the first phase.
-A `handoff` with `reason=level_change` takes precedence over release wait:
-follow `.yoke/docs/agents/levels.md`; workers may launch successors.
+Phases: [read-and-survey](read-and-survey.md), [integrate](integrate.md),
+[review-and-complete](review-and-complete.md). A `level_change` handoff beats
+a release wait: `.yoke/docs/agents/levels.md`.

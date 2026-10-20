@@ -130,10 +130,7 @@ def render_for_harness(descriptor: DispatchDescriptor, harness_id: str) -> str:
 
 
 def _render_claude(descriptor: DispatchDescriptor) -> str:
-    """Render the Claude `Agent`-tool prose snippet.
-
-    Matches the hand-authored shape in
-    `.agents/skills/yoke/conduct/dispatch-context-prompts.md`: an `Agent tool:`
+    """Render the Claude `Agent`-tool prose snippet: an `Agent tool:`
     header, a `subagent_type:` line, optional `model:` override from `extras`,
     and a `prompt: |` block placeholder the caller fills in.
     """

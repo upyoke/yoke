@@ -1,35 +1,25 @@
 # Conduct — Engineer/Tester loop
 
-Input _task_ids contains local task numbers; _epic_ref is always the parent.
-One member uses [engineer-tester-dispatch.md](engineer-tester-dispatch.md), then
-[engineer-tester-closeout.md](engineer-tester-closeout.md). For several _task_ids,
-use [dispatch-context-dispatch.md](dispatch-context-dispatch.md) and
-[dispatch-context-prompts.md](dispatch-context-prompts.md): Engineers dispatch
-together, and each return runs its own gates, Tester and lane advance at once.
+Several tasks: [dispatch-context-dispatch.md](dispatch-context-dispatch.md).
+Each task keeps its own lane, baselines and counters.
 
-Hydrate each task's _worktree_branch_${_task_id}, _worktree_path_${_task_id},
-TASK_BASELINE_${_task_id}, ATTEMPT_BASELINE_${_task_id}, _attempt_${_task_id},
-_tester_output_failures_${_task_id} and feedback before its closeout; write
-updates back to that task's state. Never reuse another task's lane or counters.
-Task baseline survives retries; attempt baseline refreshes each attempt.
+```text
+yoke claims work acquire --epic PREFIX-N --task-num {task_num} --reason "engineer dispatch"
+yoke workflow-item epic-progress-note list --epic PREFIX-N --task-num {task_num}
+yoke workflow-item epic-task review-list --epic PREFIX-N --task-num {task_num}
+```
 
-Apply closeout per task. PASS advances its chain independently; FAIL retries
-only that task. Unparseable/exhausted output halts the affected task, preserving
-reviewed siblings. Fresh entry enumerates registered head_dispatch again,
-including prior notes/reviews; no absent-field or source-import fallback.
-The parent reaches integration only after every chain is reviewed/done.
+Record TASK_BASELINE once, ATTEMPT_BASELINE per attempt. Add prior reviews
+and notes as `## Prior Attempts` (over 3000 characters: latest 3 notes, 2
+reviews). Build [context](dispatch-context.md), then dispatch Engineer
+([dispatch-context-prompts.md](dispatch-context-prompts.md)). On return capture
+[reflections](dispatch-context-artifacts.md), run
+[dispatch-context-gates.md](dispatch-context-gates.md), merge the target
+(conflicts go back to Engineer; unresolved halts this task), then dispatch Tester:
 
-## Per-task work-claim re-entry semantics
+```text
+git -C {WORKTREE_PATH} merge {INTEGRATION_TARGET} --no-edit
+yoke claims work acquire --epic PREFIX-N --task-num {task_num} --reason "tester dispatch"
+```
 
-| Case | Action |
-|---|---|
-| Same-session re-acquire | Idempotent already_owned=true; verify active exact task claim before dispatch. |
-| Other-session-held | claim_conflict names holder; classify with head_dispatch, skip affected task, no lane write. |
-| Stale-by-absent-session | Only authoritative acquire/reclaim may decide prior custody ended; retain its receipt. Protected live ownership is not reclaimed by age. |
-
-The parent item claim coordinates the epic; each epic_task claim authorizes its
-registered lane. Reads are diagnostic; exact acquire is the final dispatch gate.
-Each Tester closeout releases only its task claim, and retry reacquires it.
-
-No-chain or exhausted attempt goes to [cleanup-report.md](cleanup-report.md).
-All tasks reviewed/done goes to [simulation-gate.md](simulation-gate.md).
+Next: [engineer-tester-closeout.md](engineer-tester-closeout.md).

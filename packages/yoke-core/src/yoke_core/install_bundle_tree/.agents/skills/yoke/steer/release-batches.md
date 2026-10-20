@@ -1,159 +1,43 @@
-# Steer — batch delivery of verified merged work
+# Steer — batch delivery
 
-Workers merge, never create/dispatch runs. Steerer uses prod control plane even
-for stage target; ordinary external delivery is HTTPS. Yoke self-deploy first
-reads [source-dev-delivery.md](source-dev-delivery.md).
-
-## Stacked migration entries
-
-When several open items each carry a migration entry, assign ordinals up
-front. Each later item rebases its lane onto the previous item's branch
-(`git fetch origin && git rebase origin/<previous-item-branch>`), so the
-top branch carries every entry in order, and the top item's DB claim lists
-every stacked module. One `yoke migration rehearse` on the top item records
-each module's receipt and holds `LIVE_DB_MIGRATION:<model>` until that top
-item lands; a lower item's evidence gate accepts the receipt for its own
-module. Land in order — each later item rebases onto main after the one
-before lands — and ship the stack in one release with one fleet preflight
-per environment.
-
-## Compose exact code/selected flow
-
-```text
-yoke items get PREFIX-N deployment_flow project --json
-yoke deployment-flows stages {FLOW}
-```
-
-No claim is taken. A run occupies its target servers from start until its QA
-settles or it is terminal; a start aimed at an occupied server refuses
-`target_occupied` naming the holding run and its open QA. Wait for it, or
-terminalize a holder nobody will finish. Read each selected flow/bound projects; same-project final delivery uses its
-member flow. Cross-project carrying run closes only recorded bound source it
-actually ships. Differing selections need their selected run or deliberate
-reconciliation+composition validation, never silent rewrite.
-
-Pin one CI-proven SHA for stage/production. CI-gated production create omits
-source-ref: newest tested first-parent on gate branch, or its dispatched CI
-candidate if no run exists. release_source_off_lineage/untested refuses with
-actual commits; unresolved gate names recovery through new run, not hand dispatch.
-Read production release_lineage and give stage that exact source; missing lineage
-refuses. Other projects retain declared stage ordering.
+Workers merge; the steerer creates runs on the prod control plane. Yoke
+self-deploy: read [source-dev-delivery.md](source-dev-delivery.md) first.
 
 ```text
 yoke --env CONTROL_PLANE deployment-runs create {_project} {PROD_FLOW} --environment prod --idempotency-key PROD_KEY
 yoke --env CONTROL_PLANE deployment-runs get {RUN_ID} release_lineage
 yoke --env CONTROL_PLANE deployment-runs create {_project} {FLOW} --environment {ENV} --project-repo-path {CHECKOUT} --source-ref {PINNED_SHA} --idempotency-key STAGE_KEY
-yoke --env CONTROL_PLANE deployment-runs validate-composition {RUN_ID}
 yoke --env CONTROL_PLANE watch deploy -- {RUN_ID}
 ```
 
-Creation freezes source and provisionally composes candidate-carried ready items
-not held by live/succeeded release, including earlier landings. Validation
-refuses independently detectable blockers before run id; start validates again.
-Skipped held/rework/removed members are named. Production holds prod; exact same
-SHA stage still enrolls owed stage QA, other SHA skips with pinned commit named.
+Stage uses production's exact `release_lineage`. Retry a lost create with the
+same key. Re-drive an interrupted run with the same `watch deploy`; recreating
+it is not recovery. Stacked migrations follow `databases.md`.
 
-Input_bindings records another registered project's source at composition.
-Before first consumption, the runner re-binds a moved branch and re-derives
-members and source evidence. A consumed source stays fixed; a later consumer
-merge needs another run. Read stages before planning either project's delivery.
+## Member QA
 
-```text
-yoke --env CONTROL_PLANE deployment-runs add-item {RUN_ID} PREFIX-N
-yoke --env CONTROL_PLANE deployment-runs remove-item {RUN_ID} PREFIX-N --reason REASON
-yoke --env CONTROL_PLANE deployment-runs create {_project} {FLOW} --retry-of {RUN_ID} --idempotency-key RETRY_KEY
-```
-
-Add is intentional noncarried member only under same hold/created run, valid
-project/source/flow. Mistaken created membership removes with recorded reason
-and no auto re-enroll, not pair cancellation. Red member QA removal can release
-an independent run under remove-item --help's lineage/removal evidence; never
-pretend candidate code is absent. Settlement releases members whose current
-candidate is outside the frozen lineage, through its recorded authority.
-
-Yielded create still runs: continue its handle. Only exited-without-id retries
-verbatim SAME key to recover original; new key deliberately means new run.
-Retry copies source history and consumption. Re-drive refreshes a stale unused
-source; a consumed stale source requires a new run. Preserve run history.
-
-## Member and run QA are distinct ownership
-
-Member owner runs exact stage+member requirements after its deployment wake.
-Operator-wake desktop requires that operator; don't resume it natively. A live
-holder stays owned, never acquire its claim or run its QA for it.
+The member's owner runs its QA; never take a live holder's claim.
 
 ```text
 yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage STAGE --member PREFIX-N --project {_project}
 ```
 
-Broadcast this form, not unscoped qa plan or requirement-only qa case: those
-cannot credit stage/member. A busy or unhealthy Test Machine queues the member
-in its host line and wakes it on its turn; never notify a waiter by hand, and
-tell an owner holding free-text instead to run this command and park. Add --plan PLAN only if stage names no cases.
-Correction-only plan may name --replaces CASE_KEY=FAILED_REQUIREMENT_ID even
-for admitted cases; supersession occurs when reviewed correction passes,
-never manual replacement. System-owned missing wake is a defect to repair.
-Accepted scoped QA opens configured review; settled/red/continuation failure
-notifies driver, individual member while others owe stays in report. Re-drive
-same pinned run after notice without replaying passing stages.
-
 ### Manual-wake member QA
 
-For each open `wake_path: manual` requirement the stage driver wakes the
-member's owner (or, with no live holder, this steering seat) with a notice
-naming its `wake_evidence`: check it with registered reads (`yoke
-deployment-runs get`, `yoke qa requirement list`, `yoke db read`), run the
-member's cases if it exists, otherwise ask the operator to waive or remove the
-case. Each release/QA loop pass, read the report's "waiting on manual wake"
-section; the member's line shows its wake state.
+Do the owner's check yourself or staff it. If the run cannot produce the
+evidence, ask the operator to waive or remove the case; never waive it.
 
-1. A notice that reached you: do the owner's check yourself, or staff the
-   item. Never run the case on time passed or a guess.
-2. This run cannot produce the evidence: ask the operator one decision,
-   waive or remove the case, with the run, requirement and evidence named.
-   Never waive it yourself.
-
-The row leaves the section once the owner's run is recorded.
-
-Driver owns run-scoped visual inspection (or explicitly assigned capable QA):
+The run driver owns run-scoped QA:
 
 ```text
 yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage STAGE --project {_project}
 ```
 
-Same optional-plan/correction rules apply. Member evidence cannot credit this
-run subject. Re-drive pinned runner afterward.
+## Orphans
 
-## Automatic selected-flow close-out and orphan recovery
-
-Without run QA/approval, final member closes from landing plus its own final
-production QA or explicit post_deploy_no_obligation discharge while siblings
-can still hold run. With run QA/approval all final members wait for every item
-gate/shared gate/run success. Bound-source carrying flow owns only source it
-ships. Automatic close-out ends otherwise empty holder; no redundant merge
-for accepted QA. Refused/interrupted settlement remains executing with owed
-claims/lanes; re-drive existing run's settlement, never false succeeded.
-done-transition --skip-deploy misrecords selected-flow delivery as out-of-band
-and refuses covered success. Never substitute internal done engine.
-
-Only ORPHANED member explicitly handed to seat by stale recovery is yours:
+Finish only an orphan handed to this seat; never `--skip-deploy`:
 
 ```text
 yoke claims work acquire --item PREFIX-N --reason "orphaned release-wait member"
 yoke merge item PREFIX-N --result "what shipped" --verification "run evidence"
 ```
-
-Release only if close-out did not already release. Release-wait path claims/
-dependencies remain until done. A run whose driver died needs no release: its
-attachment lapses after ten minutes and the same `watch deploy` re-drives it.
-
-
-For startup or takeover refusal, read the holding run and its exact open item,
-requirement, phase and target. Item QA followed only by gates and final `auto`
-completion allows takeover; remaining execution does not. Recreating the run
-alone is not recovery. Delivered members may still owe another target's manual
-acceptance; leave that requirement unmet and the item open. On
-`deployment_outcome_unknown`, preserve run/receipt state, read the exact
-preparation receipt or existing provider attempt before retrying, and do not
-use `--fresh`. [Deployment start diagnostics](../../../../.yoke/docs/deployments/start-diagnostics.md)
-explains source preparation, bounded locks and the phase timing evidence.

@@ -1,72 +1,18 @@
 # Wrapup — Record and Close
 
-## 5. Observations
+1. One entry per observation (problem, friction, idea, cross-critique,
+   metric, pattern):
 
-Write one Ouroboros entry per distinct observation, 1–3 concrete actionable
-sentences. Use current UTC ISO-8601 time and stdin for the body:
+   ```text
+   yoke ouroboros entry insert --stdin --timestamp "{UTC ISO 8601}" --agent conduct --context wrapup --category "{category}"
+   ```
 
-```sh
-yoke ouroboros entry insert --stdin --timestamp "{current UTC ISO 8601}" --agent conduct --context wrapup --category "{category}"
-```
+2. Ask before filing each follow-up through `/yoke idea`.
+3. Checkpoint each unfinished item while holding its claim, before any release;
+   skip terminal items. Live release-wait claims stay with their owning skill:
 
-Categories: `problem` (failure), `friction` (harder than needed), `idea`
-(improvement), `cross-critique` (tool/role feedback), `metric` (measurement),
-`pattern` (confirmed recurrence). Keep unrelated observations separate.
+   ```text
+   yoke items progress-log append PREFIX-N --headline "Session checkpoint" --content "{objective, blockers, next action, evidence}" --source wrapup
+   ```
 
-## 6. Actionable follow-up
-
-For each worthwhile problem/friction ask “File a work item for this?” with
-its summary. On approval use `/yoke idea`; skip when none warrants an item.
-Leave clustering, promotion and archiving to `/yoke curate`.
-
-## 7–8. Authoritative continuity
-
-Read each item's live status first. For a terminal item, use its recorded
-completion result and evidence; skip the Progress Log append and do not
-reacquire a claim for a final checkpoint. For unfinished items, hold each
-relevant work claim while writing its checkpoint. Correct genuinely
-changed spec/design/technical/test/deploy content through
-`items.structured_field.replace`, with nonempty/nonshrinking preconditions.
-Use the [typed envelopes](../idea/body-and-sync-functions.md).
-Graph fields `worktree_plan` and `shepherd_caveats` are epic-only
-and must never be written for `generated_children=none`.
-
-Execution continuity belongs in the timestamped Progress Log, rather than a
-plan field or separate report store. For each unfinished item, append a
-current-state checkpoint before releasing its claim:
-
-```sh
-yoke items progress-log append PREFIX-N \
-  --headline "Session checkpoint" \
-  --content "Objective: ...
-Standing decisions/holds: ...
-Active work: ...
-Blockers: ...
-Next action: ...
-Evidence: ..." \
-  --source wrapup
-```
-
-For observations outside an item, append a field-note with the appropriate
-kind and concrete evidence:
-
-```sh
-yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence "..."
-```
-
-Record paths, next actions and evidence links; history stays in existing item
-records and revisions. This checkpoint replaces a separate report artifact.
-
-## 9. Summary
-
-Display concise accomplishments/status changes, logged entry counts by
-category, filed item refs/titles (or none), and unfinished business (or none).
-State that continuity is in item Progress Logs and field-notes.
-
-## 10. Artifacts
-
-Commit any authored wrapup artifacts; the report is session output and needs
-no generated file. Stage only intended paths, then commit when staged changes
-exist. Preserve active work and release waits under their owning skill.
-
-Keep each entry body at or below 4,096 UTF-8 bytes; write only what changed and the next step, and move evidence to artifacts or field-notes.
+4. Summarize and commit authored artifacts.

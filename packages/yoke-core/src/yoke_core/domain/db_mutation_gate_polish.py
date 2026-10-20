@@ -125,7 +125,7 @@ def _ci_routed_case_satisfies(conn: Any, item_id: int) -> bool:
 def _check_test_results_evidence(item: dict, conn: Any) -> Optional[str]:
     """Symmetric upstream half of the merge-engine verification gate.
 
-    Polish doctrine (`.agents/skills/yoke/polish/verify-and-commit.md`)
+    Polish doctrine (`.agents/skills/yoke/polish/fixes.md`)
     requires polish to capture passing pytest output into
     ``items.test_results`` before advancing past
     ``polishing-implementation``. The merge engine's
@@ -168,7 +168,7 @@ def _check_test_results_evidence(item: dict, conn: Any) -> Optional[str]:
             "project's quick Command-plan case "
             "and write the capture via the `items.structured_field.replace` "
             'function call with `payload.field="test_results"` '
-            "(see `.agents/skills/yoke/polish/verify-and-commit.md`)."
+            "(see `.agents/skills/yoke/polish/fixes.md`)."
         )
     return (
         "items.test_results is empty — polish must capture a passing "
@@ -176,7 +176,7 @@ def _check_test_results_evidence(item: dict, conn: Any) -> Optional[str]:
         "Run the project's quick Command-plan case "
         "and write the capture via the `items.structured_field.replace` "
         'function call with `payload.field="test_results"` '
-        "(see `.agents/skills/yoke/polish/verify-and-commit.md`)."
+        "(see `.agents/skills/yoke/polish/fixes.md`)."
     )
 
 
