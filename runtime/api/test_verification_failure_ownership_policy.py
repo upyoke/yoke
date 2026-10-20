@@ -20,16 +20,15 @@ def _read(rel_path: str) -> str:
     return (REPO / rel_path).read_text(encoding="utf-8")
 
 
-def test_project_rules_define_current_item_verification_ownership():
-    text = _read("AGENTS.md")
+def test_verification_home_defines_current_item_verification_ownership():
+    text = _read("docs/public/agents/rules/verification.md")
 
-    assert "## Verification Failure Ownership" in text
+    assert "## Verification failure ownership" in text
     assert "Current-item verification failures belong to the current item" in text
-    assert "planned path claim" in text
-    assert "not a waiver" in text
+    assert "planned path claim is not a waiver" in text
     assert "Use dependency and claim reconciliation before override" in text
     assert "Do not use `path-claim-override` for a planned future claim" in text
-    assert "require a live steering seat covering the project" in text
+    assert "requires a live steering seat covering the project" in text
 
 
 def test_lifecycle_verification_surfaces_reference_global_policy():
@@ -57,14 +56,12 @@ def test_lifecycle_verification_surfaces_reference_global_policy():
 def test_unchanged_consumer_test_failure_routes_to_the_producer():
     bundle = "packages/yoke-core/src/yoke_core/install_bundle_tree/"
     rule_homes = [
-        "AGENTS.md",
-        f"{bundle}AGENTS.md",
         "docs/public/agents/rules/verification.md",
         f"{bundle}docs/public/agents/rules/verification.md",
         ".yoke/docs/agents/rules/verification.md",
     ]
     for rel_path in rule_homes:
-        text = _read(rel_path)
+        text = " ".join(_read(rel_path).split())
         assert (
             "A consumer test this item did not change that fails against a new "
             "producer source is evidence against the producer" in text
