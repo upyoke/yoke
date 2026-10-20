@@ -105,14 +105,24 @@ def removed_mission(test_db, tmp_path, monkeypatch, request):
     test_db.commit()
     control.existing_paths.add(mission_scratch_path(execution_id) + "/staged-token")
     if restored_before_removal:
-        from yoke_core.domain.machine_qa_mission_walk import record_mission_restore
+        import base64
+        import json
+        from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
 
-        assert record_mission_restore(
-            requirement_id=requirement,
-            run_id=ready.result_payload["result"]["run_id"],
-            restore={"restored": True, "baseline": "fresh-host"},
-            actor=ACTOR,
-        ) is None
+        outcome = handle_qa_artifact_add(request.model_copy(update={
+            "function": "qa.artifact.add",
+            "target": TargetRef(kind="qa_requirement", qa_requirement_id=requirement),
+            "payload": {
+                "run_id": ready.result_payload["result"]["run_id"],
+                "artifact_type": "starting_state_restore",
+                "filename": "starting-state-restore.json",
+                "content_type": "application/json",
+                "content_base64": base64.b64encode(json.dumps({
+                    "restored": True, "baseline": "fresh-host",
+                }).encode()).decode(),
+            },
+        }))
+        assert outcome.primary_success, outcome.error
     remove_member_on(test_db, RUN, ITEM, reason="later release")
     test_db.commit()
     # Removal keeps the walk's dirty host until its walk-end teardown.

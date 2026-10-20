@@ -1,5 +1,6 @@
 """Manual custody loss and pre-removal walk-end receipts settle QA executions."""
 
+from contextlib import nullcontext
 from unittest.mock import patch
 
 import pytest
@@ -29,10 +30,14 @@ def test_walk_end_recorded_before_removal_releases_review_host(test_db, removed_
 
 
 @pytest.mark.parametrize("surface", ["holder", "steering", "claim-id"])
-def test_manual_release_settles_dirty_mission_review(test_db, removed_mission, surface):
+def test_manual_release_settles_dirty_mission_review(test_db, removed_mission, surface, monkeypatch):
     request, _, original = removed_mission
     lease_id = original["lease_id"]
     if surface == "holder":
+        monkeypatch.setattr(
+            "yoke_core.domain.handlers.claims_coordination_claim._connect_rw",
+            lambda: nullcontext(test_db),
+        )
         outcome = handle_release(request.model_copy(update={
             "function": "claims.coordination_claim.release",
             "payload": {"claim_id": lease_id, "reason": "stop host work"},
