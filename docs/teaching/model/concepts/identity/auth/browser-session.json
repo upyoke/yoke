@@ -2,6 +2,6 @@
  "id": "browser-session",
  "title": "Browser session",
  "status": "draft-copy",
- "page": "identity",
+ "page": "identity-auth",
  "position": 0
 }

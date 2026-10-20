@@ -2,6 +2,7 @@
  "id": "deployment-read-deadline",
  "title": "Deploy pinning reads only project and release lineage; read deadlines name the slow composition and recovery.",
  "status": "observed",
+ "page": "command-feedback-cases",
  "current": "Driver preparation captures DeploymentControlPlaneError as a named refusal in raw and progress captures. Pinning and retry guards request only immutable row fields. Ordinary full run reads omit member closure; --include-member-closure requests that expensive diagnostic explicitly.",
  "verification": "Disposable settling-run fixture with 24 members and 192 requirements and watcher refusal tests cover the source behavior; merged-main recovery of a blocked production run remains operator proof.",
  "topics": ["deployments/runs/completion-and-done", "deployments/runs/stage-execution"]

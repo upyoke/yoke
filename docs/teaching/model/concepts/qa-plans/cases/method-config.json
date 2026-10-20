@@ -2,7 +2,7 @@
  "id": "method-config",
  "title": "Method config",
  "status": "observed",
- "page": "qa-plans",
+ "page": "qa-cases",
  "position": 2,
  "summary": "Each case's method_config is checked against its method's contract when it is saved. A Test Machine case also passes the runner's own recipe check at plan authoring, `qa.requirement.add` and materialization: a Terminal case must name entry_surface (the first command the Terminal runs) and required_completion (the step that proves it finished), or the save refuses terminal_case_fields_missing naming each missing field, with the `yoke qa plan edit` and `yoke qa plan rematerialize` fix. A requirement saved before that check refuses machine_qa_recipe_invalid before its starting-state reset, so the host is never touched. Authoring stores the normalized config the validator returns, the same form materialization copies (an integer ready timeout is stored as 180.0), and a deployment refresh compares each plan case in that derived form, so a plan stored by an older build never reads as changed content.",
  "commands": ["yoke qa plan edit", "yoke qa plan rematerialize"],

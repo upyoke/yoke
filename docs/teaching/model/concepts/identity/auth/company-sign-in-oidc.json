@@ -2,6 +2,6 @@
  "id": "company-sign-in-oidc",
  "title": "Company sign-in / OIDC",
  "status": "draft-copy",
- "page": "identity",
+ "page": "identity-auth",
  "position": 1
 }

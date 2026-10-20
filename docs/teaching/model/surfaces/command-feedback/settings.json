@@ -2,6 +2,7 @@
  "id": "settings",
  "title": "Typed settings and authority recovery",
  "status": "observed",
+ "page": "command-feedback-cases",
  "audience": "both",
  "when": "Reading, changing or removing a non-sensitive key-value setting",
  "need": "Show the key, scope, typed value, stored/default source and meaning. Unknown names suggest the closest key; invalid values refuse before writing. Machine changes stay local and locked; shared writes retain the project/org admin checks. Unset follows defaults.",

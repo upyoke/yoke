@@ -2,6 +2,7 @@
  "id": "universe-retention",
  "title": "Preview, one-run apply, progress line and short summary",
  "status": "observed",
+ "page": "command-feedback-cases",
  "form": "CLI help and output",
  "verification": "Source help and disposable-database tests cover completion, deadlines, skips, cutoff, expiry coordination and output; deployed proof is pending. JSON always serves the complete result inline, including every table and policy; --full adds human detail.",
  "topics": ["universes/universe/retention", "security/privacy/retention-and-removal"],

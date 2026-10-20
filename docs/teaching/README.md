@@ -51,8 +51,10 @@ their owner (`setup-agent/desired-01`), stored at
 `model/surfaces/setup-agent/desired-01.json`. Each filename matches its
 record's local `id`. Add a record by creating its file; claim that concrete
 path without changing or claiming its parent record. Optional `position`
-sets display order (then filename); concept `page` keeps large branches on
-separate generated pages. Evidence collection metadata lives at
+sets display order (then filename). `page` names the generated page a record
+renders on: give a large concept branch its own page by setting `page` on the
+child and each descendant; surface and scenario parts move the same way.
+Evidence collection metadata lives at
 `model/evidence/<collection>.json`, with records in the matching directory.
 `docs-graph.json` remains the documentation graph configuration.
 
@@ -142,7 +144,8 @@ Fix the named records, rebuild, then run `--check`:
 | `DANGLING_ANCHOR`, `DANGLING_LINK` | Fix the target id or path, then rebuild |
 | `MODEL_NOT_CANONICAL` | Run `yoke dev run -- python3 docs/teaching/tools/convert_model.py`, then rebuild and check |
 | `MODEL_RECORD_ID` | Store one record with an `id` matching its filename |
-| `LINE_LIMIT` | Shorten the record or separate distinct topics, then rebuild |
+| `LINE_LIMIT` | For a view, move a large child branch or part group to its own page with `page`; for another file, split it at a meaningful boundary. Keep record content; rebuild |
+| `PAGE_COLLISION` | Give the part a `page` name no other surface or scenario uses |
 | `PRIVATE_MATERIAL` | Remove the private path or id |
 
 Every file here obeys the shared 350-line hard limit, counted at 80 columns;

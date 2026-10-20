@@ -2,7 +2,7 @@
  "id": "queue-gate",
  "title": "Queue gate",
  "status": "observed",
- "page": "verification",
+ "page": "verification-ci",
  "position": 2,
  "summary": "A source-backed CI gate continues in a fresh interpreter after its lane update changes its own source. It retains the authorized case, prepared queue target and original requested source identity, then publishes and records the new candidate once.",
  "sources": ["packages/yoke-core/src/yoke_core/domain/qa_case_ci_runtime.py", "runtime/api/domain/test_qa_case_ci_runtime.py", "docs/public/verification/qa-cli.md"]

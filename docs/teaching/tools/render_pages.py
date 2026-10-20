@@ -149,11 +149,26 @@ class Pages:
             body = self.heading("h2", oid, owner) + self.details(
                 here, owner, {"title", "status"}
             )
+            moved = {}
             for part_id in owner["parts"]:
                 part = parts[part_id]
+                if part["page"] != owner["page"]:
+                    there = f"{kind}/{part['page']}.html"
+                    moved.setdefault(there, []).append(part_id)
+                    body += wrap(
+                        f"<h3>{link(here, there, part['title'], part_id)}"
+                        " (own page)</h3>"
+                    )
+                    continue
                 body += self.heading("h3", part_id, part)
                 body += self.details(here, part, {"title", "status"})
             views[here] = page(here, owner["title"], body)
+            for there, part_ids in moved.items():
+                body = wrap(f"<p>Continues {link(there, here, owner['title'], oid)}</p>")
+                for part_id in part_ids:
+                    body += self.heading("h3", part_id, parts[part_id])
+                    body += self.details(there, parts[part_id], {"title", "status"})
+                views[there] = page(there, f"{owner['title']} (continued)", body)
         views[f"{kind}.html"] = page(f"{kind}.html", title, index)
 
     # Evidence ---------------------------------------------------------------

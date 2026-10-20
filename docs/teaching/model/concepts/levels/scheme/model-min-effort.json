@@ -5,6 +5,6 @@
  "text": "The shipped scheme has 5 INTERN low rows, 7 JUNIOR rows (Grok/Terra/Sonnet high; Opus/Sol/Fable/Astra low), 4 SENIOR medium rows (Opus/Sol/Fable/Astra), and 2 PRINCIPAL xhigh rows (Fable/Astra). Speed does not change membership. Published catalog efforts constrain writes.",
  "evidence": "Production QA run 45473 / artifact 32323 and universe.levels.get, 2026-10-13.",
  "related": "levels/options/reasoning-effort",
- "page": "levels",
+ "page": "level-scheme",
  "position": 7
 }

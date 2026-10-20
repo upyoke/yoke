@@ -2,6 +2,7 @@
  "id": "project-selection",
  "title": "Missing project selection names accessible choices; explicit authority and ambiguity refusals keep their real causes.",
  "status": "observed",
+ "page": "command-feedback-cases",
  "form": "Do",
  "verification": "Candidate scope and refusal tests include unknown QA capture IDs, which retain permission_denied without a project roster; serving release proof is pending. Session registration is not a selection case: a missing project registers the session in its organization, while an unknown project still refuses with recovery.",
  "topics": ["projects/identity", "reference/commands"],
