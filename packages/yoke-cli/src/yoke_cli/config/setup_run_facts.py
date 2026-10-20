@@ -85,10 +85,6 @@ class RunFacts:
         self._facts[name] = value
         self._changed()
 
-    def forget(self, name: str) -> None:
-        if self._facts.pop(name, None) is not None:
-            self._changed()
-
     def get(self, name: str) -> Any:
         return self._facts.get(name)
 
@@ -100,9 +96,6 @@ class RunFacts:
     def cloned_here(self, folder: str | Path) -> bool:
         """True when this run itself cloned the repository into ``folder``."""
         return self.names_folder(CLONED_CHECKOUT, folder)
-
-    def as_record(self) -> dict[str, Any]:
-        return dict(self._facts)
 
     def _changed(self) -> None:
         if self._on_change is not None:
