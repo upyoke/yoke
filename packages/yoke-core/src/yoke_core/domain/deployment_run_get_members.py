@@ -9,9 +9,10 @@ freeze; until then the read derives it live, unrecorded.
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from typing import Any, Mapping
 
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.deployment_run_carried_work import parse_carried_work
 from yoke_core.domain.deployment_run_carried_work_read import read_carried_work
 from yoke_core.domain.deployment_run_member_presentation import (
     _member_items,
@@ -20,37 +21,56 @@ from yoke_core.domain.deployment_run_member_presentation import (
 
 
 COMPUTED_RUN_FIELDS = ("member_items", "membership_removals")
-LIVE_RUN_FIELDS = ("carried_work",)
 
 
-def computed_run_fields(run_id: str, names: Iterable[str]) -> dict[str, Any]:
-    """Answer each requested computed or live field for an existing run."""
-    wanted = set(names)
+def run_membership(run_id: str) -> dict[str, list[dict[str, Any]]]:
+    """Attached members without the removed ones, and every recorded removal."""
     conn = connect()
     try:
         row = conn.execute(
-            "SELECT id, status, release_lineage, bound_sources, carried_work, "
-            "created_at, membership_removals FROM deployment_runs WHERE id=%s",
+            "SELECT id, created_at, membership_removals FROM deployment_runs "
+            "WHERE id=%s",
             (run_id,),
         ).fetchone()
         if row is None:
             raise LookupError(f"deployment run '{run_id}' not found")
-        run = dict(row)
-        values: dict[str, Any] = {}
-        if wanted & set(COMPUTED_RUN_FIELDS):
-            removed = removed_member_items(conn, [run]).get(run_id, [])
-            excluded = {entry["id"] for entry in removed}
-            values["member_items"] = [
-                member
-                for member in _member_items(conn, [run_id]).get(run_id, [])
-                if member["id"] not in excluded
-            ]
-            values["membership_removals"] = removed
-        if "carried_work" in wanted:
-            values["carried_work"] = read_carried_work(conn, run)
-        return {name: values[name] for name in wanted if name in values}
+        removed = removed_member_items(conn, [dict(row)]).get(run_id, [])
+        excluded = {entry["id"] for entry in removed}
+        members = [
+            member
+            for member in _member_items(conn, [run_id]).get(run_id, [])
+            if member["id"] not in excluded
+        ]
+        return {"member_items": members, "membership_removals": removed}
     finally:
         conn.close()
 
 
-__all__ = ["COMPUTED_RUN_FIELDS", "LIVE_RUN_FIELDS", "computed_run_fields"]
+def live_carried_work(run_id: str) -> dict[str, Any]:
+    """The recorded carried work, or the live derivation before freeze."""
+    conn = connect()
+    try:
+        row = conn.execute(
+            "SELECT id, status, release_lineage, bound_sources, carried_work "
+            "FROM deployment_runs WHERE id=%s",
+            (run_id,),
+        ).fetchone()
+        if row is None:
+            raise LookupError(f"deployment run '{run_id}' not found")
+        return read_carried_work(conn, dict(row))
+    finally:
+        conn.close()
+
+
+def carried_work_for(run_id: str, stored: Mapping[str, Any]) -> dict[str, Any]:
+    """Prefer the record already read; derive only when it is unrecorded."""
+    recorded = parse_carried_work(stored.get("carried_work"))
+    return recorded if recorded is not None else live_carried_work(run_id)
+
+
+__all__ = [
+    "COMPUTED_RUN_FIELDS",
+    "carried_work_for",
+    "live_carried_work",
+    "run_membership",
+]

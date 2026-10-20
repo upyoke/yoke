@@ -55,32 +55,28 @@ def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
     if fields is not None:
         fields = list(dict.fromkeys(fields))
 
-    from yoke_core.domain.deployment_run_get_members import (
-        COMPUTED_RUN_FIELDS,
-        LIVE_RUN_FIELDS,
-        computed_run_fields,
-    )
+    from yoke_core.domain import deployment_run_get_members as computed
     from yoke_core.domain.deployment_runs_crud_query import cmd_get, get_run
     from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
 
-    derived = (*COMPUTED_RUN_FIELDS, *LIVE_RUN_FIELDS)
     requested = fields if fields is not None else [field] if field else None
-    stored = (
-        None
-        if requested is None
-        else [name for name in requested if name not in derived] or ["id"]
-    )
+    member_names = [
+        name for name in requested or () if name in computed.COMPUTED_RUN_FIELDS
+    ]
+    stored = [name for name in requested or () if name not in member_names]
     try:
         raw = (
-            cmd_get(resolved_run_id, field=field)
-            if field and field not in derived
-            else get_run(resolved_run_id, fields=stored)
+            get_run(resolved_run_id)
+            if requested is None
+            else cmd_get(resolved_run_id, field=field)
+            if field and stored
+            else get_run(resolved_run_id, fields=stored or ["id"])
         )
     except ValueError as exc:
         return error(
             "invalid_field",
             f"{str(exc).rstrip('.')}. Computed fields: "
-            f"{', '.join(COMPUTED_RUN_FIELDS)}.",
+            f"{', '.join(computed.COMPUTED_RUN_FIELDS)}.",
             jsonpath="$.payload.fields" if fields is not None else "$.payload.field",
         )
     if raw is None:
@@ -89,27 +85,25 @@ def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
             f"deployment run '{resolved_run_id}' not found",
             jsonpath="$.target.workflow_run_id",
         )
-    if field and field not in derived:
-        return HandlerOutcome(
-            result_payload={
-                "run_id": resolved_run_id,
-                "field": field,
-                "value": raw,
-            },
-            primary_success=True,
-        )
-    values = computed_run_fields(
-        resolved_run_id, derived if requested is None else requested
+    values: Dict[str, Any] = (
+        computed.run_membership(resolved_run_id)
+        if requested is None or member_names
+        else {}
     )
     if field:
+        value = (
+            values[field]
+            if field in values
+            else computed.carried_work_for(resolved_run_id, {"carried_work": raw})
+            if field == "carried_work"
+            else raw
+        )
         return HandlerOutcome(
-            result_payload={
-                "run_id": resolved_run_id,
-                "field": field,
-                "value": values[field],
-            },
+            result_payload={"run_id": resolved_run_id, "field": field, "value": value},
             primary_success=True,
         )
+    if requested is None or "carried_work" in requested:
+        values["carried_work"] = computed.carried_work_for(resolved_run_id, raw)
     if fields is not None:
         run = {name: values[name] if name in values else raw[name] for name in fields}
         return HandlerOutcome(
@@ -129,7 +123,7 @@ def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
     return HandlerOutcome(
         result_payload={
             "run_id": resolved_run_id,
-            "fields": [*RUN_FIELDS, *COMPUTED_RUN_FIELDS],
+            "fields": [*RUN_FIELDS, *computed.COMPUTED_RUN_FIELDS],
             "run": parsed,
             "attestation_warnings": attestation_warnings(parsed.get("carried_work")),
             **diagnostics,
