@@ -4,12 +4,7 @@
  "status": "verified-live",
  "form": "State and recipe",
  "verification": "Released native Claude, Codex and Cursor sessions outside projects received machine-only facts, one next action with a public home, no repeated summary, and complete payloads within their installed budgets. Project and second-machine acceptance remain separate in setup-next-action-delivery-proof.",
- "topics": [
-  "projects/onboarding",
-  "projects/onboarding/first-useful-work"
- ],
- "sources": [
-  "packages/yoke-core/src/yoke_core/domain/global_orientation.py"
- ],
+ "topics": ["projects/onboarding", "projects/onboarding/first-useful-work"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/global_orientation.py"],
  "position": 20
 }
