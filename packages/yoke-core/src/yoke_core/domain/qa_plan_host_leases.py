@@ -131,20 +131,12 @@ def begin_case_host_contract(
             f"but --machine names {machine!r}; omit --machine to resume on its recorded host"
         )
     driver = resolve_case_machine(case, retained or machine)
-    from yoke_core.domain.qa_plan_chain_hosts import chain_host_groups
-
-    groups = chain_host_groups(execution["roster"])
-    declared_driver = groups[int(case["requirement_id"])][0]
-    names = tuple(
-        sorted(
-            {
-                name
-                for group_driver, hosts, _isolated in groups.values()
-                if group_driver == declared_driver
-                for name in hosts
-            }
-        )
-    ) or case_machines(case, driver)
+    declared_driver = resolve_case_machine(case, None)
+    hosts = set(case_machines(case, driver))
+    for row in execution["roster"]:
+        if resolve_case_machine(row, None) == declared_driver:
+            hosts.update(case_machines(row))
+    names = tuple(sorted(hosts))
     lease_id = execution.get("machine_lease_id")
     if (
         lease_id is not None
