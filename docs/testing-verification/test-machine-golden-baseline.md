@@ -3,11 +3,11 @@
 Preparing, signing in, saving, restoring and repairing a Test Machine has one
 complete ordered procedure per OS in the Machine QA Pack:
 
-- [macOS](../../packs/machine-qa/versions/1.3.34/files/docs/packs/machine-qa/macos-host-provisioning.md)
-- [Linux](../../packs/machine-qa/versions/1.3.34/files/docs/packs/machine-qa/linux-host-provisioning.md)
-- [Windows/WSL2](../../packs/machine-qa/versions/1.3.34/files/docs/packs/machine-qa/windows-host-provisioning.md)
+- [macOS](../../packs/machine-qa/versions/1.3.35/files/docs/packs/machine-qa/macos-host-provisioning.md)
+- [Linux](../../packs/machine-qa/versions/1.3.35/files/docs/packs/machine-qa/linux-host-provisioning.md)
+- [Windows/WSL2](../../packs/machine-qa/versions/1.3.35/files/docs/packs/machine-qa/windows-host-provisioning.md)
 
-The [provisioning index](../../packs/machine-qa/versions/1.3.34/files/docs/packs/machine-qa/host-provisioning.md) installs
+The [provisioning index](../../packs/machine-qa/versions/1.3.35/files/docs/packs/machine-qa/host-provisioning.md) installs
 as `docs/packs/machine-qa/host-provisioning.md`. This page explains the model
 behind its evidence, without providing a second preparation procedure.
 
@@ -242,7 +242,7 @@ checks. Its existing retained host-command keeps the candidate terminal alive;
 `yoke qa browser setup` and `yoke qa browser step` drive candidate Chromium one
 observed step at a time. Read those commands' `--help` before execution. Do not
 add an approval command or extend the scripted terminal recipe contract.
-Follow the Machine QA Pack's [setup responsibilities](../../packs/machine-qa/versions/1.3.34/files/docs/packs/machine-qa/setup-responsibilities.md).
+Follow the Machine QA Pack's [setup responsibilities](../../packs/machine-qa/versions/1.3.35/files/docs/packs/machine-qa/setup-responsibilities.md).
 Agents complete every software-capable setup step and system permission prompt.
 Only browser sign-in and OS permissions that software cannot grant need the
 operator. Product code alone enters passwords from stored secrets; nobody types

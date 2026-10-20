@@ -4,13 +4,13 @@
  "status": "draft-copy",
  "audience": "agent",
  "when": "Machine absent, ambiguous, leased, low on disk or desktop/auth proof fails",
- "need": "Use registered get/list and exact OS recovery. Wait for a live host lease; preserve private baselines and identities. Golden failure never licenses editing its seal. Named diagnostics distinguish auth, permissions, copying and desktop proof. Desktop access reports started/reused/restarted; an orphan older than sesman is ended before a replacement starts. Close a connected RDP client before orphan repair. Missing viewer executable asks for installation; remote logoff points to the sesman log, and other client failures preserve their logged reason and log path.",
+ "need": "Use registered get/list and exact OS recovery. Wait for a live host lease; on low disk reset, then grow the disk online per the Pack disk sizing section; preserve private baselines and identities. Golden failure never licenses editing its seal. Named diagnostics distinguish auth, permissions, copying and desktop proof. Desktop access reports started/reused/restarted; an orphan older than sesman is ended before a replacement starts. Close a connected RDP client before orphan repair. Missing viewer executable asks for installation; remote logoff points to the sesman log, and other client failures preserve their logged reason and log path.",
  "disclosure": "current cue",
  "surface": "Machine selection source; Pack recovery sections; test-machine desktop reference.",
  "gap": "Zero-machine selection currently says only no test-machine capability. Proposed refusal should link the installed Pack/setup entry and supported choices, rather than force source search.",
  "review": "Desktop viewer source and focused candidate tests cover SSH trust, retained client reasons and orphan-session recovery; deployed recipe proof remains pending.",
  "recipes": ["yoke test-machine list --project P --json", "yoke test-machine get --project P --machine NAME --json"],
  "plan_notes": ["JOURNEYS row 13"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/machine_qa_capability_rows.py", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/host-provisioning.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/macos-host-provisioning.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/linux-host-provisioning.md", "docs/public/verification/test-machine-desktop.md"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/machine_qa_capability_rows.py", "packs/machine-qa/versions/1.3.35/files/docs/packs/machine-qa/host-provisioning.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/macos-host-provisioning.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/linux-host-provisioning.md", "docs/public/verification/test-machine-desktop.md"],
  "position": 3
 }
