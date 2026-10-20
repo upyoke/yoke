@@ -4,12 +4,12 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "Updating an ordinary installed client",
- "need": "yoke update reuses the machine distribution origin/channel, reports verified old/new versions and repairs the credential helper. Distribution is not the active control-plane connection. Missing records need explicit distribution selection.",
+ "need": "yoke update reuses the machine distribution origin/channel, reports verified old/new versions and repairs the credential helper. Distribution is not the active control-plane connection. Missing records need explicit distribution selection. yoke update --check proves the exact installed build: the CLI wheel's full source commit (scm_version.json) must equal the release manifest's source_commit, and the release's published wheel sha256 values are listed; a mismatch refuses installed_build_mismatch with the exact-version reinstall command. yoke --version prints only the version.",
  "disclosure": "current cue",
  "surface": "Install -> upgrade instructions -> CLI/config -> distribution help.",
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke update --help", "yoke settings set distribution --help", "yoke status"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/start/install.md", "docs/public/cli/machine-config.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/self_update.py", "packages/yoke-cli/src/yoke_cli/config/distribution.py"],
+ "sources": ["docs/public/start/install.md", "docs/public/cli/machine-config.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/self_update.py", "packages/yoke-cli/src/yoke_cli/config/distribution.py", "packages/yoke-cli/src/yoke_cli/config/release_build.py"],
  "position": 0
 }

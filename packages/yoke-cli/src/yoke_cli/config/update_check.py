@@ -12,6 +12,10 @@ the answer also says who can bring them current:
 - ``hosted``: upyoke.com; releases deploy to hosted servers, so the engine
   arrives with the hosted release.
 
+It also proves the installed build: the CLI wheel's full source commit must
+equal the commit its release manifest names, and the release's published
+wheel sha256 values are reported (:mod:`release_build`).
+
 The channel's latest release comes from :func:`self_update.resolve_target`;
 the server engine version comes from the manifest response header the active
 HTTPS env already serves. No server function is involved.
@@ -22,7 +26,12 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_cli import manifest
-from yoke_cli.config import install_binding, machine_config, self_update
+from yoke_cli.config import (
+    install_binding,
+    machine_config,
+    release_build,
+    self_update,
+)
 from yoke_cli.config.onboard_destinations import destination_for_api_url
 from yoke_contracts.deployment_destination import (
     DESTINATION_HOSTED,
@@ -66,7 +75,7 @@ _NEXT_STEP = {
 
 
 def run_check(*, channel: str | None = None) -> dict[str, Any]:
-    """Compare the installed CLI and the active server to the channel latest."""
+    """Prove the installed build, then compare it and the server to the latest."""
     try:
         binding = install_binding.require_packaged_install("yoke update --check")
     except install_binding.SourceCheckoutError as exc:
@@ -79,12 +88,22 @@ def run_check(*, channel: str | None = None) -> dict[str, Any]:
             "sh) before running `yoke update --check`"
         )
     target = self_update.resolve_target(channel=channel)
+    try:
+        wheels = release_build.verify_installed(
+            version=cli_version,
+            source_commit=binding["source_commit"],
+            base_url=target.base_url,
+        )
+    except release_build.ReleaseBuildError as exc:
+        raise self_update.SelfUpdateError(str(exc)) from exc
     env_name, destination, server_version = _server_engine(cli_version)
     behind = _behind(cli_version, server_version, target.version)
     return {
         "channel": target.channel,
         "latest_version": target.version,
         "cli_version": cli_version,
+        "source_commit": binding["source_commit"],
+        "wheels": wheels,
         "env": env_name,
         "destination": destination,
         "server_engine_version": server_version,
