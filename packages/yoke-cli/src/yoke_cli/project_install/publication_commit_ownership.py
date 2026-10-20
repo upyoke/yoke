@@ -130,11 +130,12 @@ def read_local_only_commits(
     read as "the operator owns nothing here", which is exactly the answer
     that permits replacing their work, so the failure is carried instead.
     """
+    # No remote tip (an empty remote): every local commit is one it lacks.
     listed = checkout_gate.run_git(
         repo_root,
         "log",
         "--format=%H%x00%s",
-        f"{remote_sha}..{local_sha}",
+        f"{remote_sha}..{local_sha}" if remote_sha else local_sha,
     )
     if listed.returncode != 0:
         detail = (
@@ -145,7 +146,8 @@ def read_local_only_commits(
         return (
             (),
             False,
-            f"could not read the commits {remote_sha[:12]} lacks: {detail}",
+            f"could not read the commits {remote_sha[:12] or 'the remote'} "
+            f"lacks: {detail}",
         )
     commits: list[LocalCommit] = []
     for line in listed.stdout.splitlines():

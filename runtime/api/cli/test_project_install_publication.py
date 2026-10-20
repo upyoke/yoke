@@ -85,7 +85,7 @@ def test_no_publish_keeps_the_commit_local_by_request(
     bind_bundle(monkeypatch)
     before = world.remote_tip()
 
-    report = runner.install(world.checkout, project_id=7, publish=False)
+    report = runner.install(world.checkout, project_id=7, publish_skip_reason="--no-publish")
 
     assert report["publication"] == {
         "status": publication_outcome.SKIPPED,

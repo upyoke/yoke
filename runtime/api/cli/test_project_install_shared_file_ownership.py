@@ -69,7 +69,7 @@ def test_an_installer_subject_editing_a_shared_file_is_neither_reset_nor_publish
 ) -> None:
     world = remote_world(tmp_path)
     bind_bundle(monkeypatch)
-    report = runner.install(world.checkout, project_id=7, publish=False)
+    report = runner.install(world.checkout, project_id=7, publish_skip_reason="--no-publish")
     ours = str(report["commit"]["sha"])
     territory = ownership.installer_territory(
         world.checkout, own_commits=(ours,),

@@ -113,7 +113,7 @@ def test_reconcile_regenerates_current_content_over_the_older_sides(
 ) -> None:
     world = remote_world(tmp_path)
     bind_bundle(monkeypatch, managed_bundle())
-    report = runner.install(world.checkout, project_id=7, publish=False)
+    report = runner.install(world.checkout, project_id=7, publish_skip_reason="--no-publish")
     installer_commit = _commit_stale_layer(world.checkout)
     world.advance_remote(
         path="AGENTS.md",

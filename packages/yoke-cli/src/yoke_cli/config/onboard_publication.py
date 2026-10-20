@@ -1,19 +1,74 @@
-"""Read-only setup-commit publication preview for onboarding Review."""
+"""Setup-commit publication: the Review preview and the Apply outcome.
+
+Review names what the existing publisher will do. Apply records what it did
+on the same step, so the run report never reads done for a commit that did
+not reach the remote.
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
 import shlex
-from typing import Any
+from typing import Any, Mapping
 
 from yoke_cli.config import github_credentials, github_repo_config, machine_config
 from yoke_cli.config.project_git_transport import (
     https_remote,
     is_configured_github_remote,
 )
-from yoke_cli.project_install import publication_reconcile
+from yoke_cli.project_install import publication_outcome, publication_reconcile
 
 PLAN_ACTION = "project-setup-publication"
+FINAL_STATUS_PENDING = "publication-pending"
+FINAL_STATUS_SKIPPED = "publication-skipped"
+_STEP_STATUS = {
+    publication_outcome.PUBLISHED: "done",
+    publication_outcome.ALREADY_PUBLISHED: "done",
+    publication_outcome.SKIPPED: "skipped",
+}
+_UNRECORDED = {
+    "status": publication_outcome.SKIPPED,
+    "reason": "setup recorded no publication outcome for this run",
+}
+
+
+def step_status(publication: Mapping[str, Any] | None) -> str:
+    """The apply step status for a publication outcome.
+
+    A commit left local — pending, or proposed for review — is
+    ``incomplete``: the step named a push that did not happen, and a resumed
+    run tries it again.
+    """
+    status = str((publication or {}).get("status") or "")
+    return _STEP_STATUS.get(status, "incomplete")
+
+
+def record_outcome(writer: Any, report: Mapping[str, Any]) -> str:
+    """Record Apply's publication outcome on its step; return the final status.
+
+    ``final_status`` is plain ``done`` only when the setup commit reached the
+    remote, or when this run planned no publication step at all.
+    """
+    if not writer.has_step(PLAN_ACTION):
+        return "done"
+    outcome = _applied_outcome(report) or _UNRECORDED
+    status = step_status(outcome)
+    writer.step_result(
+        PLAN_ACTION,
+        status,
+        detail=outcome,
+        error=str(outcome.get("recovery") or "") if status == "incomplete" else None,
+    )
+    if status == "done":
+        return "done"
+    return FINAL_STATUS_SKIPPED if status == "skipped" else FINAL_STATUS_PENDING
+
+
+def _applied_outcome(report: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    onboarding = report.get("project_onboarding")
+    install = onboarding.get("install") if isinstance(onboarding, Mapping) else None
+    outcome = install.get("publication") if isinstance(install, Mapping) else None
+    return outcome if isinstance(outcome, Mapping) else None
 
 
 def plan_step(inputs: dict[str, Any], config_path: Path) -> dict[str, str]:

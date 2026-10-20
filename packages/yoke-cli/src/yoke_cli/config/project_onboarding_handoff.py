@@ -12,11 +12,11 @@ from yoke_contracts.onboard_checklist import (
     BRANCH_LOCAL_CHECKOUT,
     BRANCH_SOURCE_DEV_ADMIN,
     SETUP_HANDOFF_ROW_ID,
-    STATUS_BLOCKED,
     STATUS_CONFIGURED,
     STATUS_DEFERRED,
     STATUS_VERIFIED,
 )
+from yoke_cli.config import onboard_handoff_snapshot
 from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_DISABLED
 from yoke_cli.config.onboard_setup_facts import collect
 from yoke_contracts.onboard_checklist import SCHEMA_VERSION
@@ -125,7 +125,6 @@ def _row_updates(
         "project-identity": STATUS_VERIFIED,
         "checkout-binding": STATUS_VERIFIED,
         "deterministic-repo-substrate": STATUS_VERIFIED,
-        SETUP_HANDOFF_ROW_ID: STATUS_CONFIGURED,
     }
     evidence: dict[str, Any] = {
         "project-source-choice": {"operation": operation},
@@ -134,15 +133,15 @@ def _row_updates(
             "project_id": int(install["project_id"]),
         },
         "deterministic-repo-substrate": {"manifest": install.get("manifest")},
-        SETUP_HANDOFF_ROW_ID: {"snapshot_sync": install.get("snapshot_sync")},
     }
     blocker: dict[str, str] = {}
     _apply_github_row(row_status, evidence, github_adoption)
-    snapshot = install.get("snapshot_sync") or {}
-    if snapshot.get("status") != "ok":
-        row_status[SETUP_HANDOFF_ROW_ID] = STATUS_BLOCKED
-        repair = snapshot.get("repair_command") or "yoke project snapshot sync"
-        blocker[SETUP_HANDOFF_ROW_ID] = f"Run `{repair}` before path-claim flows."
+    status, evidence[SETUP_HANDOFF_ROW_ID], handoff_blocker = (
+        onboard_handoff_snapshot.row_update(install.get("snapshot_sync"))
+    )
+    row_status[SETUP_HANDOFF_ROW_ID] = status
+    if handoff_blocker:
+        blocker[SETUP_HANDOFF_ROW_ID] = handoff_blocker
     return row_status, evidence, blocker
 
 

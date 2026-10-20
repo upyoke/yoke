@@ -5,6 +5,7 @@ from __future__ import annotations
 from yoke_cli.config import onboard as onboard_config
 from yoke_cli.config import onboard_apply_lock
 from yoke_cli.config import onboard_apply_report
+from yoke_cli.config import onboard_publication
 from yoke_cli.config import onboard_wizard
 from yoke_cli.config import path_doctor
 from yoke_cli.config import path_repair_plan
@@ -66,6 +67,8 @@ def _run_locked_apply(
             writer.step_done(action, target)
         elif status == "skipped":
             writer.step_skipped(action, target)
+        elif status == "incomplete":
+            writer.step_incomplete(action, target)
         if tui_progress is not None:
             tui_progress(action, target, status)
 
@@ -85,7 +88,7 @@ def _run_locked_apply(
 
         report["install_health"] = setup_readiness(report, kwargs)
         writer.payload["install_health"] = report["install_health"]
-    writer.finish()
+    writer.finish(onboard_publication.record_outcome(writer, report))
     report["apply_report"] = writer.summary()
     return report
 

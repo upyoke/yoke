@@ -67,7 +67,7 @@ def test_a_commit_that_created_the_co_owned_file_is_still_ours(
     """
     world = remote_world(tmp_path)
     bind_bundle(monkeypatch, managed_bundle())
-    runner.install(world.checkout, project_id=7, publish=False)
+    runner.install(world.checkout, project_id=7, publish_skip_reason="--no-publish")
     territory = ownership.installer_territory(world.checkout)
     git(world.checkout, "rm", "-q", "AGENTS.md")
     git(world.checkout, "commit", "-q", "-m", "operator drops the file")
@@ -100,7 +100,7 @@ def test_an_unreadable_parent_refuses_rather_than_claiming_creation(
     """
     world = remote_world(tmp_path)
     bind_bundle(monkeypatch, managed_bundle())
-    runner.install(world.checkout, project_id=7, publish=False)
+    runner.install(world.checkout, project_id=7, publish_skip_reason="--no-publish")
     territory = ownership.installer_territory(world.checkout)
     (world.checkout / "AGENTS.md").write_text(
         agents_markdown(STALE_BLOCK), encoding="utf-8",
@@ -172,7 +172,7 @@ def test_an_unresolvable_parent_on_a_non_root_commit_refuses(
     """
     world = remote_world(tmp_path)
     bind_bundle(monkeypatch, managed_bundle())
-    runner.install(world.checkout, project_id=7, publish=False)
+    runner.install(world.checkout, project_id=7, publish_skip_reason="--no-publish")
     territory = ownership.installer_territory(world.checkout)
     rewrite = world.checkout / "AGENTS.md"
     rewrite.write_text(agents_markdown(STALE_BLOCK), encoding="utf-8")

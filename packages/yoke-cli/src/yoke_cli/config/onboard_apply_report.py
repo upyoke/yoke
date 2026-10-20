@@ -36,6 +36,8 @@ STATUS_RUNNING = "running"
 STATUS_DONE = "done"
 STATUS_SKIPPED = "skipped"
 STATUS_FAILED = "failed"
+# Ran without raising but did not achieve what the step named; resume reruns it.
+STATUS_INCOMPLETE = "incomplete"
 
 
 class OnboardApplyReportError(RuntimeError):
@@ -129,6 +131,12 @@ class ApplyReportWriter:
     def step_skipped(self, action: str, target: str = "") -> None:
         self._set_status(action, target, STATUS_SKIPPED)
 
+    def step_incomplete(self, action: str, target: str = "") -> None:
+        self._set_status(action, target, STATUS_INCOMPLETE)
+
+    def has_step(self, action: str) -> bool:
+        return self._find_step(action, "") is not None
+
     def fail(self, error: BaseException, *, step_id: str | None = None) -> None:
         # The failure point is the last running step (build_report can mark a
         # coarse pair running together before a blocking call); earlier running
@@ -152,12 +160,12 @@ class ApplyReportWriter:
         self.payload["updated_at"] = _now_iso()
         self.write()
 
-    def finish(self) -> None:
+    def finish(self, final_status: str = "done") -> None:
         for step in self._steps.values():
             if step.get("status") == STATUS_PENDING:
                 step["status"] = STATUS_DONE
                 step["finished_at"] = _now_iso()
-        self.payload["final_status"] = "done"
+        self.payload["final_status"] = final_status
         self.payload["updated_at"] = _now_iso()
         self.write()
 
@@ -173,6 +181,25 @@ class ApplyReportWriter:
         step["status"] = STATUS_DONE
         step["finished_at"] = _now_iso()
         step["error"] = None
+        step["detail"] = dict(detail)
+        self.payload["updated_at"] = _now_iso()
+        self.write()
+
+    def step_result(
+        self,
+        action: str,
+        status: str,
+        *,
+        detail: Mapping[str, Any],
+        error: str | None = None,
+    ) -> None:
+        """Set one step's final status and attach what it actually did."""
+        step = self._find_step(action, "")
+        if step is None:
+            return
+        step["status"] = status
+        step["finished_at"] = _now_iso()
+        step["error"] = sanitize_text(error) if error else None
         step["detail"] = dict(detail)
         self.payload["updated_at"] = _now_iso()
         self.write()
@@ -211,7 +238,7 @@ class ApplyReportWriter:
             step["started_at"] = (
                 now if prior_start is None else format_instant(prior_start)
             )
-        if status in (STATUS_DONE, STATUS_SKIPPED, STATUS_FAILED):
+        if status in (STATUS_DONE, STATUS_SKIPPED, STATUS_FAILED, STATUS_INCOMPLETE):
             step["finished_at"] = now
         self.payload["updated_at"] = now
         self.write()
@@ -306,6 +333,7 @@ __all__ = [
     "SCHEMA_VERSION",
     "STATUS_DONE",
     "STATUS_FAILED",
+    "STATUS_INCOMPLETE",
     "STATUS_PENDING",
     "STATUS_RUNNING",
     "STATUS_SKIPPED",

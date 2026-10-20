@@ -54,7 +54,9 @@ yours. A commit it did not just make that touches one of those is reported —
 never pushed, and never rewritten while reconciling with the remote. And a
 checkout with no remote is a local-only project: publication is skipped, not
 failed, as it is for `--no-commit`. Pass `--no-publish` to commit without
-pushing.
+pushing. A remote that has no such branch yet — a new empty repository —
+is not an unreadable remote: the install commit becomes its first push. Setup
+installs with publication deferred, then publishes as its own final step.
 
 An unreachable remote does **not** stop the install, which is the one place
 it differs from starting other work. Creating a worktree refuses an

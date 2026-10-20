@@ -57,7 +57,10 @@ GitHub App. Run `yoke github connect` first; when the App cannot see the
 repository, add it with `yoke github connect --add-installation` and check
 `yoke github status` before you retry. A new empty repository imports
 too: the checkout stays on its default branch until install adds the first
-commit.
+commit, which publication pushes as the remote's first branch. Setup records
+the checkout's path snapshot after that commit; if the setup checklist still
+shows `setup-checklist-handoff` blocked, `yoke project snapshot sync` repairs
+the snapshot and clears that row.
 
 ## Install the operating layer
 

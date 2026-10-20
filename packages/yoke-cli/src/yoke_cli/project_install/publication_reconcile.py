@@ -146,17 +146,28 @@ def read_remote_state(
     fetched = upstream_git.fetch_branch(str(repo_root), resolved, branch)
     local_sha = _rev_parse(repo_root, branch)
     if fetched.returncode != 0:
-        detail = upstream_git.reason(fetched)
-        lowered = detail.lower()
-        missing = any(
-            signature in lowered for signature in _MISSING_REF_SIGNATURES
+        missing = _missing_ref_line(fetched)
+        if not missing:
+            return RemoteState(
+                FETCH_FAILED,
+                remote=resolved,
+                branch=branch,
+                local_sha=local_sha,
+                detail=upstream_git.reason(fetched),
+            )
+        # The remote was read and has no such branch — an empty remote's
+        # first push. Every local commit is then one the remote lacks.
+        commits, commits_read, commits_detail = ownership.read_local_only_commits(
+            repo_root, "", local_sha,
         )
         return RemoteState(
-            REMOTE_BRANCH_MISSING if missing else FETCH_FAILED,
+            REMOTE_BRANCH_MISSING,
             remote=resolved,
             branch=branch,
             local_sha=local_sha,
-            detail=detail,
+            detail=commits_detail or missing,
+            local_only=commits,
+            commits_read=commits_read,
         )
     tracking = upstream_git.tracking_ref(resolved, branch)
     remote_sha = _rev_parse(repo_root, tracking)
@@ -301,6 +312,17 @@ def reconcile_by_regeneration(
         "regenerated_report": report,
         "commit": commit,
     }
+
+
+def _missing_ref_line(result: subprocess.CompletedProcess) -> str:
+    """Git's line saying the remote lacks the ref; a credential attribution
+    line follows git's output, so the last line alone cannot classify it."""
+    text = f"{result.stderr or ''}\n{result.stdout or ''}"
+    for line in text.splitlines():
+        lowered = line.lower()
+        if any(signature in lowered for signature in _MISSING_REF_SIGNATURES):
+            return line.strip()
+    return ""
 
 
 def _rev_parse(repo_root: Path, revision: str) -> str:

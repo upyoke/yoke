@@ -3,8 +3,8 @@
  "title": "Applying the reviewed operations",
  "status": "observed",
  "surface_refs": ["setup-tui"],
- "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_apply_steps.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_apply.py", "packages/yoke-cli/src/yoke_cli/config/onboard_relay_supervisor.py", "runtime/api/cli/test_onboard_wizard_applying_summary.py", "runtime/api/cli/test_onboard_relay_supervisor.py"],
- "current": "Apply retains totals and renders each reviewed operation with pending, running, complete, skipped or failed marks. Plain terminals use ASCII marks. The running row scrolls into view; relay paths use the selected connection’s actual instance name.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_apply_steps.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_apply.py", "packages/yoke-cli/src/yoke_cli/config/onboard_relay_supervisor.py", "runtime/api/cli/test_onboard_wizard_applying_summary.py", "runtime/api/cli/test_onboard_relay_supervisor.py", "packages/yoke-cli/src/yoke_cli/config/onboard_publication.py", "runtime/api/cli/test_onboard_apply_publication_report.py"],
+ "current": "Apply retains totals and renders each reviewed operation with pending, running, complete, skipped or failed marks; an incomplete operation, such as a setup commit left unpushed, shows the failed mark and does not count as complete. Plain terminals use ASCII marks. The running row scrolls into view; relay paths use the selected connection’s actual instance name. The run report records the publication outcome on its own step, and its final status is done only when setup was published or planned no publication.",
  "page": "installation",
  "position": 90
 }

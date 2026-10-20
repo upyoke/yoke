@@ -21,6 +21,7 @@ from yoke_cli.project_snapshot import (
     plan_sync,
 )
 from yoke_cli.commands.adapters.project_snapshot_incremental import sync_snapshots
+from yoke_cli.config import onboard_handoff_snapshot
 from yoke_cli.transport.dispatcher import (
     build_actor,
     call_dispatcher,
@@ -140,11 +141,10 @@ def project_snapshot_sync(args: List[str]) -> int:
                 file=sys.stderr,
             )
         return 0
-    return emit_response(
-        response,
-        json_mode=parsed.json_mode,
-        human_writer=_write_human,
-    )
+    code = emit_response(response, json_mode=parsed.json_mode, human_writer=_write_human)
+    if response.success and not parsed.head_only:
+        onboard_handoff_snapshot.clear_blocked_row(project)
+    return code
 
 
 def sync_local_snapshot_for_write(

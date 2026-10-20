@@ -72,7 +72,8 @@ then apply that reviewed plan with `--apply`. An installed Pack uses
 `docs/packs/webapp-scaffold/README.md` for boundaries and conflict recovery.
 
 Review names the setup commit's remote and branch before Apply. With stored
-GitHub authorization, Apply commits Yoke setup and attempts to push it; branch
+GitHub authorization, Apply commits Yoke setup and attempts to push it; an
+empty remote takes that commit as its first push, and branch
 protection can require a review proposal instead. Without that authorization,
 Review names an optional push with your own git credentials and the exact
 command to push later. If no helper or SSH key works, Apply completes with the
@@ -81,8 +82,15 @@ GitHub shows no GitHub App binding in Review; it disables GitHub automation,
 and does not change the existing setup-publication behavior. Cancel at Review
 to leave Apply's writes undone.
 
+The run report records what publication did on its own step: complete when
+the commit reached the remote, skipped with its reason, or incomplete with the
+recovery command when the commit stayed local. The report's `final_status` is
+`done` only when setup was published (or had nothing to publish);
+otherwise it reads `publication-pending` or `publication-skipped`.
+
 During Apply, each reviewed operation shows its status: ○ pending, ◐ running,
-✔ complete, ⊘ skipped or ✗ failed. Plain terminals use `o`, `~`, `+`, `-` and
+✔ complete, ⊘ skipped or ✗ failed; an incomplete operation, such as a setup
+commit left unpushed, also shows ✗. Plain terminals use `o`, `~`, `+`, `-` and
 `x`. Overall and group counts summarize completion; the list follows the running
 operation and supports PageUp/PageDown. Relay steps name the actual plist or
 user-service file for the selected connection, including its instance suffix.

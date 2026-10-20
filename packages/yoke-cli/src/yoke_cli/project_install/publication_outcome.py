@@ -25,6 +25,7 @@ ELIGIBLE = "eligible"
 
 LOCAL_ONLY_REASON = "local-only checkout: no git remote to publish to"
 DISABLED_REASON = "--no-publish"
+DEFERRED_REASON = "publication deferred to setup"
 SOURCE_DEV_REASON = "source-dev/admin local-source apply publishes nothing by design"
 
 PROTECTED = "protected"
@@ -164,6 +165,7 @@ def announce(report: dict[str, Any] | None) -> None:
 
 __all__ = [
     "ALREADY_PUBLISHED",
+    "DEFERRED_REASON",
     "DENIED",
     "DISABLED_REASON",
     "ELIGIBLE",
