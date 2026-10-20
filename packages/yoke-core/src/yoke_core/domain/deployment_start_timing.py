@@ -197,8 +197,9 @@ def start_step(step, *, heartbeat=False, record_count=None):
     outcome = "ok"
     try:
         yield progress
-    except BaseException:
+    except BaseException as exc:
         outcome = "failed"
+        progress["reason_code"] = str(getattr(exc, "code", "") or type(exc).__name__)
         raise
     finally:
         stopped.set()

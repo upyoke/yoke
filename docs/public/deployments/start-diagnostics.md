@@ -40,6 +40,11 @@ A normal driver start builds its execution context once. Composition completes
 and validates membership before the driver reads it, and returns that pass’s
 enrolled references. Branch verification and QA seeding use those members.
 The driver reuses the context’s containment basis when starting the run.
+That basis includes merged open items and items finished since the latest
+succeeded release started on the same project and target environment; before
+the first success, it includes all recorded finishers. The same anchor covers
+bound projects and bound-source revalidation. Elapsed time alone never changes
+the question set; the Done band's 24-hour display window is separate.
 
 The executing transition still locks stable membership, validates mutable item
 bindings, freezes requirements and intent, verifies the containment digest,
@@ -103,7 +108,9 @@ answer. Accepted QA and a preflight stamp alone do not mean the item completed.
 The driver raw capture contains `Deployment start timing: ` JSON lines from
 preflight pin reading onward. Each step has a UTC start/end timestamp, monotonic
 elapsed milliseconds, outcome, run ID, source SHA, member count, and transport.
-SHA and member count remain explicitly unset until their authoritative reads.
+Failed steps also record `reason_code`: the refusal's code when present,
+otherwise the exception type, so a planned retry remains distinguishable from
+a defect. SHA and member count remain unset until their authoritative reads.
 Pin reading, worktree retirement/ensure, child launch, context substeps, branch
 verification, QA seed, containment attestation, freeze, and executing stamp are
 named separately. HTTPS returns server substeps with its response for the driver
@@ -160,8 +167,10 @@ key; nothing was dispatched, so re-drive the same run.
 Creation prepares
 against the waiting run when its takeover would settle that run succeeded;
 a cancelled takeover keeps the preceding succeeded release as its base. This
-unlocked prediction changes no waiting-run state, and the locked pass rechecks
-it. If creation exhausts source preparation, repeat the original
+unlocked prediction moves unclosed members into provisional membership so
+validation prepares their source questions too. Rollback restores the waiting
+run without removal audits, notices or settlement; the locked pass rechecks
+and applies the takeover. If creation exhausts source preparation, repeat the original
 `yoke deployment-runs create` or `yoke deployment-runs start-for-item` command
 with the same arguments and idempotency key, if supplied; no new run was
 created.

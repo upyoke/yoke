@@ -107,3 +107,24 @@ def test_running_phase_keeps_identity_counts_and_failure(monkeypatch):
     assert running["outcome"] == "pending" and running["record_count"] == 9
     assert running["run_id"] == "run-copy" and running["source_sha"] == "b" * 40
     assert records[-1]["outcome"] == "failed" and records[-1]["completed_count"] == 4
+
+
+@pytest.mark.parametrize("named", [True, False])
+def test_failed_step_records_refusal_code_or_exception_type(monkeypatch, named):
+    from yoke_core.domain.deployment_run_contained_items import (
+        CandidateContainmentRefusal,
+    )
+
+    monkeypatch.setattr(timing, "_transport", lambda: "https")
+    exc = (
+        CandidateContainmentRefusal(
+            "candidate_containment_attestation_stale", "changed", "retry"
+        )
+        if named
+        else ValueError("broken")
+    )
+    with timing.timing_scope("run-timing", collect=True) as records:
+        with pytest.raises(type(exc)), timing.start_step("executing_stamp"):
+            raise exc
+    assert records[-1]["outcome"] == "failed"
+    assert records[-1]["reason_code"] == (exc.code if named else "ValueError")

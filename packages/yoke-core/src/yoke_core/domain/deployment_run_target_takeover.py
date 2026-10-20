@@ -234,8 +234,8 @@ def take_over_waiting_run(
 
     Returns the superseded run's id, or ``None`` when no run waits. The caller
     owns the transaction: a refusal rolls back the new run with everything here.
-    ``apply=False`` only answers the containment question, so creation's
-    unlocked pass pays the repository read without touching the older run.
+    ``apply=False`` projects membership in the provisional transaction.
+    The caller must roll it back; no removal audit or settlement is emitted.
     """
     from yoke_core.domain.deployment_run_member_admission import (
         MemberAdmission,
@@ -273,7 +273,19 @@ def take_over_waiting_run(
     old_id = str(old["id"])
     shared = has_shared_gates(old["stages"])
     if not apply:
-        _require_containment(conn, new_run, old, _moving_members(conn, old))
+        moving = _moving_members(conn, old)
+        _require_containment(conn, new_run, old, moving)
+        conn.execute(
+            "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s)",
+            (old_id, [int(member["item_id"]) for member in moving]),
+        )
+        admit_run_items(
+            conn,
+            run_id=new_run_id,
+            members=[
+                MemberAdmission(int(m["item_id"]), m["delivery_intent"]) for m in moving
+            ],
+        )
         return old_id
     status, _held = lock_run_with_stable_membership(conn, old_id)
     if status != "executing":

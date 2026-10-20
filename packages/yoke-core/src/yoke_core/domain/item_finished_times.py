@@ -52,7 +52,7 @@ _FINISHING_TRANSITION_SQL = (
     "FROM item_status_transitions t "
     "JOIN items i ON i.id = t.item_id "
     "WHERE t.task_num IS NULL AND t.to_status = i.status "
-    "AND t.created_at >= {marker} "
+    "{cutoff_clause}"
     "GROUP BY t.item_id"
 )
 
@@ -163,11 +163,20 @@ def finished_times_in_window(
     changed stage recently are returned too and cost nothing; the caller
     resolves finished-ness against each item's own definition.
     """
+    return finished_times_since(conn, window_cutoff(window))
+
+
+def finished_times_since(
+    conn: Any,
+    since: datetime | None,
+) -> Dict[int, datetime]:
+    """Return finishing instants since a recorded anchor, or all history."""
     if not _history_present(conn):
         return {}
+    cutoff = f"AND t.created_at >= {_marker(conn)} " if since is not None else ""
     cursor = conn.execute(
-        _FINISHING_TRANSITION_SQL.format(marker=_marker(conn)),
-        (_cutoff_parameter(conn, window),),
+        _FINISHING_TRANSITION_SQL.format(cutoff_clause=cutoff),
+        (instant_parameter(conn, since),) if since is not None else (),
     )
     times: Dict[int, datetime] = {}
     for row in cursor.fetchall():
@@ -184,6 +193,7 @@ __all__ = [
     "finished_stage_ids",
     "finished_status_clause",
     "finished_times_in_window",
+    "finished_times_since",
     "finished_window_clause",
     "is_finished",
     "window_cutoff",
