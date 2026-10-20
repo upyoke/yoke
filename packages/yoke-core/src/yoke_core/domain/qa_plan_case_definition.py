@@ -154,6 +154,7 @@ def materialized_definition(
         "expected_outcome": str(case["expected_outcome"]),
         "method_config": _json(method_config),
     }
+    from yoke_core.domain.deployment_stage_receipts import TARGET_KINDS
     from yoke_core.domain.qa_plan_case_targets import (
         case_target_envs,
         case_applies_to_target,
@@ -166,13 +167,16 @@ def materialized_definition(
             f"case_target_not_selected: case {case['case_key']!r} does not name "
             "this execution environment. Select the case on a matching QA stage."
         )
+    # Every deployment-stage target (persistent or run preview) labels the
+    # row with its environment, as an admitted copy on that stage is labelled,
+    # so a correction keeps the scope of the case it replaces. An item-scoped
+    # target carries no kind and stays unlabelled unless the case names it.
     if (
         target_env is None
         and execution_target is not None
         and (
             case_target_envs(case)
-            or (execution_target.get("environment") or {}).get("kind")
-            == "persistent_environment"
+            or (execution_target.get("environment") or {}).get("kind") in TARGET_KINDS
         )
     ):
         target_env = (execution_target.get("environment") or {}).get("name") or None
