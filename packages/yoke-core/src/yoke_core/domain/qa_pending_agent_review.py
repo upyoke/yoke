@@ -122,11 +122,18 @@ def pending_review_requirements(
     wanted = {int(value) for value in requirement_ids}
     if not wanted:
         return {}
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
+
     stopped = " AND e.state IN ('aborted','error')" if stopped_only else ""
     held: dict[int, PendingAgentReview] = {}
-    rows = conn.execute(
-        f"{_PENDING_REVIEW_SQL}{stopped} ORDER BY e.created_at, e.id"
-    ).fetchall()
+    # One read per presentation: a stage walk asks once per member.
+    rows = presentation_read(
+        conn,
+        ("qa_pending_review_rows", stopped_only),
+        lambda: conn.execute(
+            f"{_PENDING_REVIEW_SQL}{stopped} ORDER BY e.created_at, e.id"
+        ).fetchall(),
+    )
     for row in rows:
         for requirement_id in _bundle_requirement_ids(row["bundle_json"]) & wanted:
             held.setdefault(requirement_id, _pending(conn, row))

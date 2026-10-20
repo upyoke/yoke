@@ -164,9 +164,14 @@ def member_machine_partition(
         row = history[0]
         execution_id = str(row["id"] if hasattr(row, "keys") else row[0])
         return [], 0, select_plan_execution(conn, execution_id, lock=False)
-    if not pending:
-        from yoke_core.domain.qa_plan_nothing_owed import nothing_owed
+    from yoke_core.domain.qa_plan_nothing_owed import (
+        nothing_owed,
+        scoped_execution_recorded,
+    )
 
+    if not pending and not scoped_execution_recorded(conn, roster, **scope):
+        pending = roster
+    if not pending:
         raise nothing_owed(
             conn,
             roster_size=len(roster),
