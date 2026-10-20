@@ -16,9 +16,10 @@ filtered by the same admission rules below.
 what enrollment could not resolve still stops the run, so nothing is waived by
 silence, and it makes the same subtraction so the two can never disagree.
 
-:func:`~yoke_core.domain.deployment_run_member_admission.admit_run_items`
-is the single connection-scoped write every entrance shares; enrollment
-admits its whole candidate set through one call.
+Enrollment decides before the run row lock: :func:`plan_carried_enrollment`
+locks the carried items, then reads everything that grows with them and
+validates the rows through the admission every entrance shares. Under the run
+lock a constant re-check proves that decision current, or it is made again.
 
 Enrollment checks each shipped project's recorded commit. Membership still
 names one item in one project; the run may close items across bound projects.
@@ -35,6 +36,7 @@ contracts and every other project's recorded source facts.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass, replace
 from typing import Any, Iterable
 
 from yoke_core.domain.deployment_run_member_targeting import needed_member_ids
@@ -51,10 +53,18 @@ from yoke_core.domain.deployment_run_composition_freeze import (
 from yoke_core.domain.deployment_run_composition_guard import (
     has_frozen_composition,
 )
+from yoke_core.domain.deployment_run_composition_basis import (
+    CompositionBasis,
+    lock_snapshot_rows,
+    read_composition_basis,
+)
 from yoke_core.domain.deployment_run_member_admission import (
     MemberAdmission,
-    admit_run_items,
+    RunItemsAdmission,
+    insert_run_items,
+    prepare_run_items,
 )
+from yoke_core.domain.deployment_run_project_sources import carried_project_ids
 from yoke_core.domain.deployment_run_membership_removals import (
     removed_item_ids,
 )
@@ -99,31 +109,57 @@ def carried_enrollment_blocked(
     return ""
 
 
-def enroll_carried_members(
+@dataclass(frozen=True)
+class CarriedEnrollment:
+    """An enrollment decided before the run row lock.
+
+    ``refusal`` is the inadmissible candidate's error, raised only once the
+    locked run is still composable. ``confirmed`` marks a decision its caller
+    already proved current under the run lock.
+    """
+
+    basis: CompositionBasis | None
+    member_ids: tuple[int, ...]
+    carried: tuple[int, ...]
+    candidates: tuple[int, ...]
+    admission: RunItemsAdmission | None
+    refusal: Exception | None
+    confirmed: bool = False
+
+    def confirm(self, conn: Any) -> CarriedEnrollment | None:
+        """Under the run lock: this decision if nothing it read has changed."""
+        if self.confirmed:
+            return self
+        if self.basis is None:
+            return None
+        if self.admission is not None:
+            lock_snapshot_rows(
+                conn, self.admission.requirement_ids, self.admission.plan_ids
+            )
+        if member_ids(conn, self.basis.run_id) != self.member_ids:
+            return None
+        if not self.basis.unchanged(conn):
+            return None
+        return replace(self, confirmed=True)
+
+
+def plan_carried_enrollment(
     conn: Any,
     run_id: str,
     *,
     carried_work: Mapping[str, Any] | None = None,
     custody: CustodyResolution | None = None,
     rebound_project_ids: frozenset[int] = frozenset(),
-) -> tuple[str, ...]:
-    """Attach every delivery-ready carried item the run does not already own.
+) -> CarriedEnrollment | None:
+    """Lock the carried items, then decide their enrollment without the run row.
 
-    Returns the public references actually added, in item order, so the caller
-    can print exactly what the deployment gained. Raises
-    ``CarriedEnrollmentError`` naming the item, its cause and recovery when a
-    carried item is genuinely inadmissible —
-    an incompatible flow, or a binding its own workflow refuses — because a
-    run that cannot carry the obligation must not start pretending it does.
-
-    Pass *custody* to reuse a resolution the caller already walked. Resolving
-    it here is still done before any lock below is taken, because the walk
-    reaches GitHub and the run row must never be held across a network call.
+    ``None`` means there is nothing to enroll. Resolving *custody* here is
+    still done before any lock, because the walk reaches GitHub.
     """
     if carried_enrollment_blocked(
         conn, run_id, refreshing_bound_sources=bool(rebound_project_ids)
     ):
-        return ()
+        return None
     row = conn.execute(
         "SELECT COALESCE(release_lineage,'') FROM deployment_runs WHERE id=%s",
         (run_id,),
@@ -131,7 +167,7 @@ def enroll_carried_members(
     if row is None:
         raise LookupError(f"deployment run {run_id!r} not found")
     if not str(row[0] or "").strip():
-        return ()
+        return None
     payload = dict(carried_work or carried_work_for_enrollment(conn, run_id))
     resolved = (custody or resolve_candidate_custody(conn, run_id)).require()
     # An underivable carried set names no items to enroll. The refusal owner
@@ -152,7 +188,7 @@ def enroll_carried_members(
         - removed_item_ids(conn, run_id)
     )
     if not carried:
-        return ()
+        return None
     # Item workflow bindings first, then the run row: the same order
     # ``lock_run_with_stable_membership`` and ``cmd_add_item`` take, so a
     # manual admission and this one can never hold each other's next lock.
@@ -160,19 +196,32 @@ def enroll_carried_members(
     # because eligibility is exactly what the lock has to hold still — an
     # item this read called terminal could otherwise become deliverable
     # between the decision and the insert.
-    lock_item_workflow_bindings(conn, carried + list(member_ids(conn, run_id)))
-    allowed_statuses = (
-        {"created", "executing", "failed"} if rebound_project_ids else {"created"}
+    members = member_ids(conn, run_id)
+    lock_item_workflow_bindings(conn, carried + list(members))
+    basis = read_composition_basis(
+        conn,
+        run_id,
+        item_ids=(*carried, *members),
+        project_ids=carried_project_ids(conn, run_id),
     )
-    if lock_run(conn, run_id) not in allowed_statuses:
-        # Membership is mutable only while a run is composable, and the run
-        # row now says it is not. Nothing was written.
-        return ()
-    if carried_enrollment_blocked(
-        conn, run_id, refreshing_bound_sources=bool(rebound_project_ids)
-    ):
-        return ()
-    members = set(member_ids(conn, run_id))
+    return _decide(conn, run_id, basis, members, tuple(carried), rebound_project_ids)
+
+
+def _decide(
+    conn: Any,
+    run_id: str,
+    basis: CompositionBasis | None,
+    members: tuple[int, ...],
+    carried_ids: tuple[int, ...],
+    rebound_project_ids: frozenset[int],
+    *,
+    lock_reads: bool = False,
+) -> CarriedEnrollment:
+    """Which carried items this run admits, and their validated rows.
+
+    ``lock_reads`` decides under the run lock, holding the rows it reads.
+    """
+    carried = list(carried_ids)
     needed = needed_member_ids(conn, run_id=run_id, item_ids=carried)
     if rebound_project_ids:
         rows = conn.execute(
@@ -190,23 +239,92 @@ def enroll_carried_members(
     blocked = {
         dependent
         for dependent, _, _ in unshipped_dependency_pairs(
-            conn, candidates, member_ids=members
+            conn, candidates, member_ids=set(members)
         )
     }
     candidates = [item_id for item_id in candidates if item_id not in blocked]
-    with start_step(
-        "enrollment_members", heartbeat=True, record_count=len(candidates)
-    ) as progress:
-        enrolled = admit_run_items(
+    admission = refusal = None
+    try:
+        admission = prepare_run_items(
             conn,
             run_id=run_id,
             members=[MemberAdmission(item_id) for item_id in candidates],
             refused=lambda item_id, exc: CarriedEnrollmentError(
                 run_id, render_item_ref(conn, item_id), exc
             ),
+            lock_reads=lock_reads,
         )
+    except (LookupError, ValueError) as exc:
+        refusal = exc
+    found = tuple(candidates)
+    return CarriedEnrollment(
+        basis, members, carried_ids, found, admission, refusal, lock_reads
+    )
+
+
+def enroll_carried_members(
+    conn: Any,
+    run_id: str,
+    *,
+    carried_work: Mapping[str, Any] | None = None,
+    custody: CustodyResolution | None = None,
+    rebound_project_ids: frozenset[int] = frozenset(),
+    enrollment: CarriedEnrollment | None = None,
+) -> tuple[str, ...]:
+    """Attach every delivery-ready carried item the run does not already own.
+
+    Returns the public references actually added, in item order, so the caller
+    can print exactly what the deployment gained. Raises
+    ``CarriedEnrollmentError`` naming the item, its cause and recovery when a
+    carried item is genuinely inadmissible —
+    an incompatible flow, or a binding its own workflow refuses — because a
+    run that cannot carry the obligation must not start pretending it does.
+
+    Pass *custody* to reuse a resolution the caller already walked, and
+    *enrollment* to reuse a decision :func:`plan_carried_enrollment` made.
+    """
+    if enrollment is None:
+        enrollment = plan_carried_enrollment(
+            conn,
+            run_id,
+            carried_work=carried_work,
+            custody=custody,
+            rebound_project_ids=rebound_project_ids,
+        )
+    if enrollment is None or not enrollment.candidates:
+        return ()
+    allowed_statuses = (
+        {"created", "executing", "failed"} if rebound_project_ids else {"created"}
+    )
+    if lock_run(conn, run_id) not in allowed_statuses:
+        # Membership is mutable only while a run is composable, and the run
+        # row now says it is not. Nothing was written.
+        return ()
+    if carried_enrollment_blocked(
+        conn, run_id, refreshing_bound_sources=bool(rebound_project_ids)
+    ):
+        return ()
+    current = enrollment.confirm(conn)
+    if current is None:
+        # Something the decision read changed before the lock; decide again
+        # holding it, which is how a racing writer is honoured.
+        current = _decide(
+            conn,
+            run_id,
+            enrollment.basis,
+            member_ids(conn, run_id),
+            enrollment.carried,
+            rebound_project_ids,
+            lock_reads=True,
+        )
+    with start_step(
+        "enrollment_members", heartbeat=True, record_count=len(current.candidates)
+    ) as progress:
+        if current.refusal is not None:
+            raise current.refusal
+        enrolled = insert_run_items(conn, run_id, current.admission)
         progress["completed_count"] = len(enrolled)
-    return tuple(enrolled[item_id] for item_id in candidates)
+    return tuple(enrolled[item_id] for item_id in current.candidates)
 
 
 def describe_enrollment(enrolled: Iterable[str]) -> str:
@@ -222,6 +340,8 @@ def describe_enrollment(enrolled: Iterable[str]) -> str:
 
 
 __all__ = [
+    "CarriedEnrollment",
+    "plan_carried_enrollment",
     "project_carried_sets",
     "carried_enrollment_blocked",
     "describe_enrollment",

@@ -195,8 +195,16 @@ def items_requiring_release_membership(
 
 
 @composition_operation
-def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
-    """Freeze member intent/requirements and candidate evidence once."""
+def freeze_run_composition(
+    conn: Any, run_id: str, *, plan: Any = None
+) -> dict[str, Any]:
+    """Freeze member intent/requirements and candidate evidence once.
+
+    *plan* is a :class:`~yoke_core.domain.deployment_run_composition_plan.CompositionPlan`
+    read before the run lock and proven current by the caller. It stands in
+    for the custody, refusal and member reads while the carried-work record
+    it was derived from is unchanged; otherwise those reads run here.
+    """
     if not requires_release_admission(conn, run_id):
         return {"run_id": run_id, "frozen_at": None}
     marker = _p(conn)
@@ -213,9 +221,6 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
     if frozen_at not in (None, ""):
         return {"run_id": run_id, "frozen_at": format_instant(frozen_at)}
     from yoke_core.domain.deployment_run_lineage_rebind import is_full_commit
-    from yoke_core.domain.deployment_run_carried_membership_refusal import (
-        carried_membership_refusal,
-    )
 
     lineage = str(_cell(row, "release_lineage", 1) or "")
     if not is_full_commit(lineage):
@@ -233,22 +238,13 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
     # Attribution must see the recorded source commits.
     record_bound_sources(conn, run_id)
     carried_work = record_carried_work(conn, run_id)
-    from yoke_core.domain.deployment_run_unheld_candidates import (
-        resolve_candidate_custody,
-    )
-
-    # Drift refuses: the driver already seeded its fixed member list.
-    custody = resolve_candidate_custody(conn, run_id)
-    if refusal := carried_membership_refusal(
-        conn, run_id, carried_work=carried_work, custody=custody
-    ):
-        raise ValueError(refusal)
-    from yoke_core.domain.deployment_member_run_coverage import (
-        unclosable_final_member_refusal,
-    )
-
-    if refusal := unclosable_final_member_refusal(conn, run_id, custody=custody):
-        raise ValueError(refusal)
+    if plan is not None and plan.carried_work != carried_work:
+        plan = None
+    if plan is not None:
+        if plan.refusal is not None:
+            raise plan.refusal
+    else:
+        _refuse_unresolved_membership(conn, run_id, carried_work)
     from yoke_core.domain.deployment_qa_admission_materialization import (
         ADMITTED_REQUIREMENT_CASE_PREFIX,
     )
@@ -270,7 +266,10 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
             f"QA requirement {requirement_id} "
             + UNBOUND_BEFORE_START_REPAIR.format(requirement_id=requirement_id)
         )
-    _freeze_members(conn, run_id)
+    if plan is not None:
+        plan.write_members(conn, run_id)
+    else:
+        _freeze_members(conn, run_id)
     frozen_at = parse_instant(utc_now())
     conn.execute(
         f"UPDATE deployment_runs SET composition_frozen_at={marker},"
@@ -282,6 +281,29 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
         ),
     )
     return {"run_id": run_id, "frozen_at": format_instant(frozen_at)}
+
+
+def _refuse_unresolved_membership(
+    conn: Any, run_id: str, carried_work: dict[str, Any]
+) -> None:
+    from yoke_core.domain.deployment_member_run_coverage import (
+        unclosable_final_member_refusal,
+    )
+    from yoke_core.domain.deployment_run_carried_membership_refusal import (
+        carried_membership_refusal,
+    )
+    from yoke_core.domain.deployment_run_unheld_candidates import (
+        resolve_candidate_custody,
+    )
+
+    # Drift refuses: the driver already seeded its fixed member list.
+    custody = resolve_candidate_custody(conn, run_id)
+    if refusal := carried_membership_refusal(
+        conn, run_id, carried_work=carried_work, custody=custody
+    ):
+        raise ValueError(refusal)
+    if refusal := unclosable_final_member_refusal(conn, run_id, custody=custody):
+        raise ValueError(refusal)
 
 
 def _freeze_members(conn: Any, run_id: str) -> None:

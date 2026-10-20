@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import json
 from typing import Any
 from yoke_core.domain.deployment_run_carried_membership import (
+    CarriedEnrollment,
     enroll_carried_members,
     project_carried_sets,
 )
@@ -50,8 +51,14 @@ def preview_bound_source_composition(
     return _read_composition(conn, run_id, record, project_ids)
 
 
-def revalidate_bound_source_composition(conn, run_id, record, project_ids, preview):
-    """Reject raced landings, then reread mutable facts using prepared sources."""
+def revalidate_bound_source_composition(
+    conn, run_id, record, project_ids, preview, *, current=False
+):
+    """Reject raced landings, then reread mutable facts using prepared sources.
+
+    *current* says the caller proved, under the run lock, that nothing the
+    preview read has changed; the preview then stands without a reread.
+    """
     if preview.containment is not None:
         basis = candidate_containment_basis(conn, run_id, bound_sources=record)
         if basis["basis_digest"] != preview.containment["basis_digest"]:
@@ -60,6 +67,8 @@ def revalidate_bound_source_composition(conn, run_id, record, project_ids, previ
                 f"candidate attribution changed while preparing {run_id}",
                 f"re-drive {run_id} to prepare the current landing facts",
             )
+    if current:
+        return preview
     return _read_composition(conn, run_id, record, project_ids)
 
 
@@ -151,9 +160,18 @@ def _preview_containment(
 
 
 def recompose_bound_sources(
-    conn: Any, run_id: str, project_ids: frozenset[int], preview: BoundSourceComposition
+    conn: Any,
+    run_id: str,
+    project_ids: frozenset[int],
+    preview: BoundSourceComposition,
+    *,
+    enrollment: CarriedEnrollment | None = None,
 ) -> None:
-    """Keep existing contracts and admit newly carried work in the transaction."""
+    """Keep existing contracts and admit newly carried work in the transaction.
+
+    *enrollment* is the decision made before the run lock and confirmed under
+    it; without one, enrollment decides here.
+    """
     conn.execute(
         "UPDATE deployment_runs SET carried_work=%s WHERE id=%s",
         (dumps_compact(preview.carried), run_id),
@@ -164,6 +182,7 @@ def recompose_bound_sources(
         carried_work=preview.carried,
         custody=preview.custody,
         rebound_project_ids=project_ids,
+        enrollment=enrollment,
     )
     rows = (
         conn.execute(

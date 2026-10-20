@@ -31,9 +31,19 @@ def lock_admitted_copies(conn: Any, requirement_ids: list[int]) -> dict[str, Any
         for requirement_id in requirement_ids
         for copy in admitted_copies_in_flight(conn, int(requirement_id))
     ]
+    run_ids = sorted({copy.run_id for copy in copies})
+    # Every run is read before any run is locked, then locked in id order.
+    reads = {run_id: _read_projection(conn, run_id) for run_id in run_ids}
     projections: dict[str, Any] = {}
-    for run_id in sorted({copy.run_id for copy in copies}):
-        _locked_projection(conn, projections, run_id)
+    for run_id in run_ids:
+        query_one(
+            conn, "SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE", (run_id,)
+        )
+    for run_id in run_ids:
+        projection = reads[run_id]
+        if not projection.holds(conn):
+            projection = _read_projection(conn, run_id)
+        projections[run_id] = projection
     for requirement_id in requirement_ids:
         for copy in admitted_copies_in_flight(conn, int(requirement_id)):
             _correct_selected_copy(
@@ -46,14 +56,12 @@ def lock_admitted_copies(conn: Any, requirement_ids: list[int]) -> dict[str, Any
     return projections
 
 
-def _locked_projection(conn, projections, run_id):
-    """Read the run's groups unlocked, lock it, and re-read only if it moved."""
+def _read_projection(conn, run_id):
+    """The run's shared groups at every stage holding its requirements."""
     from yoke_core.domain.deployment_qa_materialization_projection import (
         read_run_projection,
     )
 
-    if run_id in projections:
-        return projections[run_id]
     stages = [
         row["deployment_stage"]
         for row in conn.execute(
@@ -62,10 +70,17 @@ def _locked_projection(conn, projections, run_id):
             (run_id,),
         ).fetchall()
     ]
-    projection = read_run_projection(conn, run_id=run_id, stages=stages)
+    return read_run_projection(conn, run_id=run_id, stages=stages)
+
+
+def _locked_projection(conn, projections, run_id):
+    """A run first reached by a copy written in this refresh: read, then lock."""
+    if run_id in projections:
+        return projections[run_id]
+    projection = _read_projection(conn, run_id)
     query_one(conn, "SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE", (run_id,))
     if not projection.holds(conn):
-        projection = read_run_projection(conn, run_id=run_id, stages=stages)
+        projection = _read_projection(conn, run_id)
     projections[run_id] = projection
     return projection
 

@@ -284,9 +284,9 @@ def snapshot_member_requirements(
 
 
 def snapshot_members_requirements(
-    conn: Any, *, run_id: str, selections: Mapping[int, Any]
+    conn: Any, *, run_id: str, selections: Mapping[int, Any], lock: bool = True
 ) -> dict[int, str]:
-    """Snapshot every member's selection from one read of their mutable facts."""
+    """Snapshot every member's selection from one read; ``lock`` holds its rows."""
     from yoke_core.domain.deployment_admission_reads import read_snapshot_inputs
 
     parsed = {int(item_id): _selection(raw) for item_id, raw in selections.items()}
@@ -295,6 +295,7 @@ def snapshot_members_requirements(
         item_ids=parsed,
         requirement_ids=[v for s in parsed.values() for v in s["requirement_ids"]],
         plan_ids=[v for s in parsed.values() for v in s["plan_ids"]],
+        lock=lock,
     )
     return {
         item_id: snapshot_member_requirements(

@@ -64,6 +64,23 @@ class _StageRead:
     corrections: list = field(default_factory=list)
     private: list = field(default_factory=list)
     private_snapshots: list = field(default_factory=list)
+    # Whether a member owing no case withdrew every group it still owed.
+    withdrawn_discharge: bool | None = None
+
+
+def _plans_with_member_copies(conn, run_id, stage, plan_ids) -> set[int]:
+    """Shared plans whose unsettled member copies a group write would retire."""
+    from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+
+    if not plan_ids:
+        return set()
+    rows = conn.execute(
+        "SELECT DISTINCT q.plan_id FROM qa_requirements q WHERE q.deployment_run_id=%s "
+        "AND q.deployment_stage=%s AND q.plan_id=ANY(%s) "
+        f"AND q.deployment_member_item_id IS NOT NULL AND NOT {settled_obligation_sql(conn, 'q')}",
+        (run_id, str(stage), sorted(set(plan_ids))),
+    ).fetchall()
+    return {int(row["plan_id"]) for row in rows}
 
 
 @presentation_operation
@@ -117,13 +134,27 @@ def _read_stage(
         )
     )
     read = _StageRead(projection, subject, target, admitted, snapshots)
+    if not snapshots and not any(r.get("method_id") for r in admitted):
+        from yoke_core.domain.deployment_qa_shared_copy_reads import (
+            withdrawn_member_discharge,
+        )
+
+        read.withdrawn_discharge = withdrawn_member_discharge(conn, subject, target)
     shared = projection.shareable(subject, target, snapshots)
     if not shared:
         return read
+    copied = _plans_with_member_copies(
+        conn, run_id, deployment_stage, [int(s["plan"]["id"]) for s in shared]
+    )
     for snapshot in shared:
         group = shared_subject(subject, target, snapshot)
         group_target = deployment_qa_execution_target(conn, group)
-        members = projection.group_members(group, group_target)
+        # Only a plan with member copies left to retire asks every member.
+        members = (
+            projection.group_members(group, group_target)
+            if int(snapshot["plan"]["id"]) in copied
+            else []
+        )
         read.shared.append((snapshot, group, group_target, members))
     read.private = [
         r for r in admitted if r.get("plan_id") is None and r.get("method_id")
@@ -205,7 +236,16 @@ def materialize_deployment_qa_stage(
             )
 
         if not stage_read.shared:
-            result = write(subject, target, stage_read.admitted, stage_read.snapshots)
+            result = materialize_subject(
+                conn,
+                subject=subject,
+                target=target,
+                admitted=stage_read.admitted,
+                snapshots=stage_read.snapshots,
+                commit=False,
+                replaced_requirement_ids=replaced_requirement_ids,
+                withdrawn_discharge=stage_read.withdrawn_discharge,
+            )
         else:
             results = []
             for snapshot, group, group_target, members in stage_read.shared:

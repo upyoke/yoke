@@ -169,6 +169,12 @@ stage credits.
 only the requirement rows are wanted. A run-scoped stage takes `--stage`
 alone; `--member` without `--stage` is refused.
 
+Materialize and rematerialize read the whole run's plan groups first, without
+holding the run, then hold the `deployment_runs` row only for the writes.
+Members materializing at the same time no longer queue behind each other's
+reads. A membership or QA change committed in between is detected under the
+row lock, and the read repeats there before anything is written.
+
 Matching member attachments share plan/source/target evidence; see
 [deployment plan execution](deployment-plan-execution.md) for credit and recovery.
 

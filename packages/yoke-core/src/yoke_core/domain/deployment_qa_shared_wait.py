@@ -3,11 +3,20 @@
 from typing import Any, Mapping
 import json
 
+from yoke_core.domain.deployment_qa_presentation_facts import run_presentation
+from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
 
+
+@presentation_operation
+@run_presentation
 def shared_plan_names(
-    conn: Any, run_id: str, stage: str, member: int
+    conn: Any, *, run_id: str, stage: str, member: int
 ) -> tuple[str, ...]:
-    """Name only the shared groups this member's frozen stage actually owes."""
+    """Name only the shared groups this member's frozen stage actually owes.
+
+    Read as one set per fact across the run's members, since resolving this
+    member's groups asks every sibling what it attaches.
+    """
     targets = conn.execute(
         "SELECT execution_target_json FROM qa_requirements WHERE deployment_run_id=%s "
         "AND deployment_stage=%s AND deployment_member_item_id IS NULL AND plan_id IS NOT NULL",

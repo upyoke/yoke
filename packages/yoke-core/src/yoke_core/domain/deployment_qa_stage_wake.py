@@ -215,7 +215,9 @@ def notify_item_scoped_qa_wait(
     from yoke_core.domain.deployment_qa_shared_wait import shared_plan_names
 
     shared_plans = (
-        () if discharge else shared_plan_names(conn, run_id, stage_name, item_id)
+        ()
+        if discharge
+        else shared_plan_names(conn, run_id=run_id, stage=stage_name, member=item_id)
     )
     return push_notice(
         conn,

@@ -15,7 +15,11 @@ PLAN_EXECUTION_STALE_SECONDS = 30 * 60
 
 
 def lock_member_admission(conn: Any, run_id: str | None, member: int | None) -> None:
-    """Serialize member cursor admission with audited membership removal."""
+    """Serialize member cursor admission with audited membership removal.
+
+    Callers read everything they need first; this lock covers only their
+    re-check and write.
+    """
     if run_id is None or member is None:
         return
     from yoke_core.domain.deployment_runs_lock import lock_run
@@ -23,6 +27,13 @@ def lock_member_admission(conn: Any, run_id: str | None, member: int | None) -> 
 
     lock_item_workflow_bindings(conn, (int(member),))
     lock_run(conn, str(run_id))
+    require_member_attached(conn, run_id, member)
+
+
+def require_member_attached(conn: Any, run_id: str | None, member: int | None) -> None:
+    """Refuse a member that has left the run; under the run lock this holds."""
+    if run_id is None or member is None:
+        return
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     if (
         conn.execute(

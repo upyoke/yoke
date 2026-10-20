@@ -8,11 +8,7 @@ from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_run_release_effect import derive_release_effect
 from yoke_core.domain.deployment_stage_position import stage_position
-from yoke_core.domain.decision_requests import (
-    create_decision_request,
-    list_subject_requests,
-)
-from yoke_core.domain.decision_related_evidence import related_screenshot_evidence
+from yoke_core.domain.decision_requests import list_subject_requests
 from yoke_core.domain.events_bounded_emit import emit_bounded
 
 EVALUATE_STAGE_APPROVAL_FUNCTION = "deployment_runs.stage_approval.evaluate"
@@ -162,106 +158,24 @@ def evaluate_deployment_stage_approval(
     A caller that let the run choose would evaluate whichever stage the run
     happened to reach, which is a different gate than the one it asked
     about.
+
+    The run row lock covers only a cheap re-check and the write; every read
+    that grows with the run happens before it, as
+    :mod:`yoke_core.domain.deployment_run_approval_stage_gate` describes.
     """
-    from yoke_core.domain.approval import parse_flow_stages, resolve_approval
-    from yoke_core.domain.approval_gate import (
-        ApprovalGateVerdict,
-        role_authorities_for,
-        verdict_from_request_history,
-    )
-    from yoke_core.domain.flow_validation import (
-        MISSING_STAGE_APPROVALS,
-        parse_stage_approvals,
+    from yoke_core.domain.deployment_run_approval_stage_gate import (
+        evaluate_stage_gate,
     )
 
     requested_stage = str(stage or "").strip()
     if not requested_stage:
         raise ValueError("an exact stage name is required")
-    run = _run(conn, run_id, for_update=True)
-    if run["status"] != "executing" or not run["current_stage"]:
-        raise ValueError(
-            f"deployment run {run_id!r} is not waiting at an executing stage"
-        )
-    stage = str(run["current_stage"])
-    if stage != requested_stage:
-        raise ValueError(
-            f"deployment run {run_id!r} is waiting at stage {stage!r}, not "
-            f"{requested_stage!r}; re-read the run with "
-            f"`yoke deployment-runs stages {run_id}` and evaluate the stage "
-            "it is actually waiting at"
-        )
-    stages = parse_flow_stages(str(run["stages"]))
-    resolution = resolve_approval(stages, stage)
-    if not resolution.approved:
-        raise ValueError(resolution.error or "stage does not accept approval")
-    stage_def = next(entry for entry in stages if entry.name == stage)
-    if "approvals" not in stage_def.config:
-        raise ValueError(MISSING_STAGE_APPROVALS.format(name=stage))
-    policy = parse_stage_approvals(
-        stage_def.config.get("approvals"),
-        path=f"stage {stage!r} approvals",
-    )
-    from yoke_core.domain.deployment_run_member_approvals import shared_approval_blocker
-
-    if blocked := shared_approval_blocker(conn, run_id):
-        return blocked
-    target = str(run["target_environment"] or run["target_tier"] or "merge-only")
-    subject_context = _deployment_subject_context(conn, run, stages, stage, target)
-    waiting = "the stage is waiting for a human decision"
-    verdict = verdict_from_request_history(
+    return evaluate_stage_gate(
         conn,
-        list_subject_requests(conn, "deployment_stage", f"{run_id}:{stage}"),
-        snapshot_matches=lambda request: _matches_deployment_snapshot(
-            request,
-            {
-                field: subject_context[field]
-                for field in ("run_id", "flow", "stage", "batch", "shipping")
-            },
-        ),
+        run_id=run_id,
+        requested_stage=requested_stage,
+        originator_actor_id=originator_actor_id,
         session_id=session_id,
-        stale_reason="deployment run flow or target changed",
-        reraise_after_reject=False,
-        waiting_reason=waiting,
-        approved_reason="the declared approval was resolved",
-        rejected_reason="the stage was rejected",
-    )
-    if verdict is not None:
-        conn.commit()
-        return verdict
-    # Freeze the git-derived release facts only for a new request.
-    subject_context["carried"] = _release_contents(conn, run_id)
-    subject_context["evidence"] = related_screenshot_evidence(
-        conn,
-        deployment_run_id=run_id,
-        expected_revision=subject_context["shipping"]["release_lineage"],
-    )
-    originator = _existing_actor_id(
-        conn,
-        originator_actor_id if originator_actor_id is not None else run["created_by"],
-    )
-    request, _ = create_decision_request(
-        conn,
-        kind="deployment_stage_approval",
-        subject_type="deployment_stage",
-        subject_key=f"{run_id}:{stage}",
-        project_id=int(run["project_id"]),
-        originator_actor_id=originator,
-        role_authorities=role_authorities_for(
-            project_id=int(run["project_id"]),
-            org_id=run["org_id"],
-            role_names=policy.roles,
-        ),
-        named_actor_ids=policy.actors,
-        approval_mode=policy.mode,
-        subject_context=subject_context,
-        session_id=session_id,
-    )
-    return ApprovalGateVerdict(
-        False,
-        int(request["id"]),
-        "pending",
-        None,
-        waiting,
     )
 
 
