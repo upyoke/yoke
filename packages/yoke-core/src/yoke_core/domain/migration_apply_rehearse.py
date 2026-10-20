@@ -133,17 +133,20 @@ def _rehearse_inner(
     # Compute pre-counts against the validation surface up front so
     # each module's baseline verify has a stable baseline.
     val_conn = connect_db_target(validation_target)
+    step = "validation row counts"
     try:
         pre_counts_validation = _row_count_map(val_conn, affected_tables)
+        step = "validation restore point"
         backup_path = establish(
             val_conn, backup_root=worktree_path / ".yoke" / "backups",
             backup_target_dsn=validation_target.target, external_restore_point=None,
         )
         if not Path(backup_path).is_file() or Path(backup_path).stat().st_size == 0:
             raise MigrationApplyError("validation restore-point archive is missing or empty")
-    except Exception:
+    except Exception as exc:
         migration_territory_claim.leave(control_conn, lease.id, "rehearsal-backup-failed")
-        raise
+        # The dump already removed the connection password from its stderr.
+        raise MigrationApplyError(f"{step} failed: {exc}") from exc
     finally:
         val_conn.close()
 

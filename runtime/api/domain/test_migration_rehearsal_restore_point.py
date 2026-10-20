@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 import os
+import subprocess
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -204,3 +205,31 @@ def test_archive_disappearance_refuses_the_next_module(apply_env, monkeypatch):
     assert not result.all_succeeded
     assert dispatch.call_count == 1
     assert result.modules[1].error == "validation restore-point archive is missing or empty"
+
+
+def test_failed_restore_point_dump_names_its_step_and_cause(apply_env, monkeypatch):
+    from yoke_core.domain import postgres_dump_restore_point as dump, universe_portability
+
+    _seed_apply_item(apply_env["control_db"], item_id=5001)
+    monkeypatch.setattr(
+        universe_portability, "postgres_client_env",
+        lambda _dsn: {"PGPASSWORD": "s3cret-pw"},
+    )
+    monkeypatch.setattr(
+        dump.terminal_detached_process, "run",
+        lambda *_a, **_k: subprocess.CompletedProcess(
+            [], 1, stderr="pg_dump: error: aborting because of server version "
+            "mismatch (password s3cret-pw)",
+        ),
+    )
+    dispatch = Mock()
+    monkeypatch.setattr(runner, "dispatch_handle", dispatch)
+
+    with pytest.raises(MigrationApplyError) as raised:
+        _run(apply_env)
+
+    message = str(raised.value)
+    assert message.startswith("validation restore point failed: pg_dump backup failed")
+    assert "server version mismatch" in message
+    assert "s3cret-pw" not in message and "<redacted-secret>" in message
+    dispatch.assert_not_called()

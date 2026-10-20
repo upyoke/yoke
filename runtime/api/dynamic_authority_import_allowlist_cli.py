@@ -259,6 +259,10 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.domain.migration_apply",
     ): ("source_dev_admin", "CLI adapter delegates migration rehearsal"),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/migration_rehearse.py",
+        "yoke_core.domain.connected_env_readiness_connector",
+    ): ("source_dev_admin", "migration rehearsal failure message redaction"),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_https_compose.py",
         "yoke_core.engines.doctor_https_compose",
     ): (

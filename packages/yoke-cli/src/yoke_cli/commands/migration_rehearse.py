@@ -68,9 +68,13 @@ def migration_rehearse(args: List[str]) -> int:
         module = importlib.import_module("yoke_core.domain.migration_apply")
         return int(module.main(["rehearse", parsed.public_ref]))
     except Exception as exc:  # noqa: BLE001 - redact authority details
+        connector = importlib.import_module(
+            "yoke_core.domain.connected_env_readiness_connector"
+        )
         print(
             "yoke migration rehearse failed "
-            f"({type(exc).__name__}); inspect the selected authority with "
+            f"({type(exc).__name__}: {connector.redact(str(exc))}); "
+            "inspect the selected authority with "
             f"`yoke status --json` and the preflight with "
             f"`{PREFLIGHT_HELP_COMMAND}`.",
             file=sys.stderr,

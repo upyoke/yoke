@@ -61,7 +61,10 @@ cleanup; empty evidence roots are removed. Test clusters inside that evidence
 root are stopped and destroyed on exit or interrupt. The shared cluster and
 pinned embedded binaries retain their original paths through
 `YOKE_PG_CLUSTER_ROOT` and `YOKE_PG_BIN_DIR`; see
-[cluster cleanup](concurrent-local-runs.md#disposable-homes-and-orphan-clusters). The caller's connected-environment selection
+[cluster cleanup](concurrent-local-runs.md#disposable-homes-and-orphan-clusters).
+Standalone clients such as the rehearsal restore-point `pg_dump` also resolve
+through `YOKE_PG_BIN_DIR`, so a source run uses the same client version as the
+installed CLI rather than an older one on `PATH`. The caller's connected-environment selection
 and project mappings remain available; isolation does not change which
 control plane or database the command uses. Put an explicit selection on
 the outer command so the lane-sourced child inherits it:
