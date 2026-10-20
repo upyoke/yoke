@@ -51,7 +51,7 @@ def publish_installed_layer(
     operation: str,
     regenerate: Callable[[], dict[str, Any]] | None = None,
     project_slug: str | None = None,
-    publish: bool = True,
+    skip_reason: str = "",
 ) -> dict[str, Any]:
     """Push (or propose) the installer commit, and name the outcome.
 
@@ -61,13 +61,11 @@ def publish_installed_layer(
     bundle in hand passes ``None`` and gets the pending outcome with its
     recovery instead of a reconcile. When a reconcile does replace the
     commit, ``report`` is updated with the regenerated content so the caller
-    reports what it actually published.
+    reports what it actually published. A non-empty ``skip_reason`` publishes
+    nothing and reports that reason as the skipped outcome.
     """
-    if not publish:
-        return {
-            "status": outcome_layer.SKIPPED,
-            "reason": outcome_layer.DISABLED_REASON,
-        }
+    if skip_reason:
+        return {"status": outcome_layer.SKIPPED, "reason": skip_reason}
     if commit.get("status") == outcome_layer.SKIPPED:
         return {
             "status": outcome_layer.SKIPPED,

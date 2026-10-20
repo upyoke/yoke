@@ -39,6 +39,7 @@ APPLY_STATUS_GLYPHS = {
     "done": RICH_GLYPHS.apply_done,
     "skipped": RICH_GLYPHS.apply_skipped,
     "failed": RICH_GLYPHS.apply_failed,
+    "incomplete": RICH_GLYPHS.apply_failed,
 }
 
 
@@ -52,6 +53,7 @@ def apply_step_line(step: dict[str, Any]) -> str:
         "done": marks.apply_done,
         "skipped": marks.apply_skipped,
         "failed": marks.apply_failed,
+        "incomplete": marks.apply_failed,
     }.get(status, marks.apply_pending)
     return f"  {glyph} {escape(str(step.get('label', '')))}"
 

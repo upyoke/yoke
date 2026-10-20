@@ -60,7 +60,10 @@ def test_agent_apply_persists_readiness_before_finishing(monkeypatch):
     class Writer:
         payload = {}
 
-        def finish(self):
+        def has_step(self, action):
+            return False
+
+        def finish(self, final_status="done"):
             assert self.payload["install_health"] == {"ready": False}
 
         def summary(self):

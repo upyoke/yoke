@@ -7,6 +7,7 @@ from typing import Any
 
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_apply_progress
+from yoke_cli.config import onboard_publication
 from yoke_cli.config import project_onboard_progress as progress_steps
 from yoke_cli.config import project_git_prerequisite
 from yoke_cli.config import writer as machine_writer
@@ -95,14 +96,23 @@ def finish_after_dispatch(
             # just-inited tree with leftover install dirt.
             force=True,
             # Onboarding owns final publication after install convergence.
-            publish=False,
+            publish_skip_reason=publication_outcome.DEFERRED_REASON,
         )
         # Onboarding leaves the operator with a checkout whose layer is on the
         # remote, not one carrying an unpushed commit they never made.
+        onboard_apply_progress.emit(
+            progress, onboard_publication.PLAN_ACTION, "", "running"
+        )
         install["publication"] = publication.publish_onboarded_layer(
             root,
             install,
             default_branch=str((install.get("checkout") or {}).get("branch") or ""),
+        )
+        onboard_apply_progress.emit(
+            progress,
+            onboard_publication.PLAN_ACTION,
+            "",
+            onboard_publication.step_status(install["publication"]),
         )
         publication_outcome.announce(install)
     except Exception:

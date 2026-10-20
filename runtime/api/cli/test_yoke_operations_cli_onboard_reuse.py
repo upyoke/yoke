@@ -165,6 +165,8 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
     ]
     assert project_events == [
         ("project-refresh-scaffold", "", "running"),
+        ("project-setup-publication", "", "running"),
+        ("project-setup-publication", "", "skipped"),
         ("project-refresh-scaffold", "", "done"),
         ("project-github-auth-choice", "existing-project", "skipped"),
     ]

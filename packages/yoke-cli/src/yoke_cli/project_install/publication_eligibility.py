@@ -7,6 +7,10 @@ that could not be read, and a branch carrying commits that are not provably
 this installer's — including the case where the commit list itself could not
 be read, which fails closed rather than reading as "the operator owns
 nothing".
+
+A remote that was read and has no such branch — an empty remote — is the
+first push, not an unreadable remote: it is eligible once every local commit
+is provably this installer's.
 """
 
 from __future__ import annotations

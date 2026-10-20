@@ -12,6 +12,7 @@ from yoke_contracts.onboard_checklist import (
     SCHEMA_NAME,
     SCHEMA_VERSION,
     ROW_IDS,
+    SETUP_HANDOFF_ROW_ID,
 )
 from yoke_core.domain.project_onboarding_schema import (
     _ensure_columns,
@@ -37,6 +38,7 @@ from yoke_core.domain.project_onboarding_facts import (
 from yoke_core.domain.project_onboarding_configuration import (
     first_item_done_fact,
     project_facts,
+    repaired_handoff_fact,
 )
 
 OPERATION_RUN = f"{OPERATION}.run"
@@ -198,7 +200,17 @@ def get_run(
             machine_id=machine_id,
             observations=observations or {},
             facts=facts,
-            activation=first_item_done_fact(selected, run["project_id"]),
+            activation={
+                **first_item_done_fact(selected, run["project_id"]),
+                **repaired_handoff_fact(
+                    selected,
+                    run["project_id"],
+                    next(
+                        (row for row in rows if row["row_id"] == SETUP_HANDOFF_ROW_ID),
+                        None,
+                    ),
+                ),
+            },
             project_id=run["project_id"],
             project_access=project_access,
         )

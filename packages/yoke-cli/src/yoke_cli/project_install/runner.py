@@ -57,7 +57,7 @@ def install(
     force: bool = False,
     commit: bool = True,
     require_default_branch: bool = True,
-    publish: bool = True,
+    publish_skip_reason: str = "",
 ) -> Dict[str, Any]:
     """Install (or refresh — same code path) the project-local layer.
 
@@ -65,8 +65,9 @@ def install(
     setup now routes to ``yoke dev setup``.
 
     The run generates against current upstream, commits the paths it owns,
-    and then publishes that commit to the branch's remote. ``publish=False``
-    keeps the commit local for onboarding's final publication. GitHub sign-in
+    and then publishes that commit to the branch's remote. A non-empty
+    ``publish_skip_reason`` keeps the commit local and reports that reason:
+    ``--no-publish``, or setup deferring publication to its own final step. GitHub sign-in
     converges before upstream reads and publication on every install or refresh.
     """
     root = files_layer.resolve_repo_root(repo_root)
@@ -157,12 +158,6 @@ def install(
     report["files_recovered"] = recovered_paths
     if upstream.get("warning"):
         report.setdefault("warnings", []).append(upstream["warning"])
-    report["snapshot_sync"] = sync_local_snapshot_for_write(
-        project=str(resolved_id),
-        repo_root=str(root),
-        integration_target=None,
-        session_id=None,
-    )
     from yoke_harness.harness_setup_reconcile import reconcile_harness_setup
 
     setup = reconcile_harness_setup(paths=[root])
@@ -190,6 +185,14 @@ def install(
     )
     if commit:
         checkout_gate.assert_paths_committed(root, recovered_paths)
+    # After the commit: a just-cloned empty repository has no HEAD to read
+    # until the installer's first commit exists.
+    report["snapshot_sync"] = sync_local_snapshot_for_write(
+        project=str(resolved_id),
+        repo_root=str(root),
+        integration_target=None,
+        session_id=None,
+    )
     report["publication"] = publication.publish_installed_layer(
         root,
         report,
@@ -198,7 +201,7 @@ def install(
         operation=operation,
         regenerate=regenerate,
         project_slug=str(bundle.get("project_slug") or "") or None,
-        publish=publish,
+        skip_reason=publish_skip_reason,
     )
     if commit:
         from yoke_cli.project_install.installed_output_paths import owned_paths
@@ -219,7 +222,7 @@ def refresh(
     force: bool = False,
     commit: bool = True,
     require_default_branch: bool = True,
-    publish: bool = True,
+    publish_skip_reason: str = "",
 ) -> Dict[str, Any]:
     return install(
         repo_root,
@@ -231,7 +234,7 @@ def refresh(
         force=force,
         commit=commit,
         require_default_branch=require_default_branch,
-        publish=publish,
+        publish_skip_reason=publish_skip_reason,
     )
 
 

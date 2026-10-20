@@ -78,7 +78,7 @@ def test_an_installer_subject_over_unowned_changes_is_not_treated_as_ours(
     """
     world = remote_world(tmp_path)
     bind_bundle(monkeypatch)
-    runner.install(world.checkout, project_id=7, publish=False)
+    runner.install(world.checkout, project_id=7, publish_skip_reason="--no-publish")
     territory = ownership.installer_territory(world.checkout)
     (world.checkout / "operator_notes.md").write_text("mine\n", encoding="utf-8")
     git(world.checkout, "add", "-A")
@@ -112,7 +112,7 @@ def test_an_unreadable_commit_list_refuses_instead_of_reading_as_empty(
     """No commits and unreadable commits are different answers."""
     world = remote_world(tmp_path)
     bind_bundle(monkeypatch)
-    runner.install(world.checkout, project_id=7, publish=False)
+    runner.install(world.checkout, project_id=7, publish_skip_reason="--no-publish")
     world.advance_remote(
         path="teammate.md",
         content="theirs\n",
@@ -152,7 +152,7 @@ def test_a_change_outside_the_managed_block_is_the_operators_not_ours(
     """
     world = remote_world(tmp_path)
     bind_bundle(monkeypatch, managed_bundle())
-    runner.install(world.checkout, project_id=7, publish=False)
+    runner.install(world.checkout, project_id=7, publish_skip_reason="--no-publish")
     territory = ownership.installer_territory(world.checkout)
     assert "AGENTS.md" in territory.managed_regions
     assert "AGENTS.md" not in territory.whole_files
@@ -193,7 +193,7 @@ def test_a_change_confined_to_the_managed_block_stays_ours(
     """The proof must not refuse the install's own block rewrite."""
     world = remote_world(tmp_path)
     bind_bundle(monkeypatch, managed_bundle())
-    runner.install(world.checkout, project_id=7, publish=False)
+    runner.install(world.checkout, project_id=7, publish_skip_reason="--no-publish")
     territory = ownership.installer_territory(world.checkout)
     (world.checkout / "AGENTS.md").write_text(
         agents_markdown(STALE_BLOCK),

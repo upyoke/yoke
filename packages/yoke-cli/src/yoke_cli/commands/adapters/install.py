@@ -133,11 +133,15 @@ def _run_install(args: List[str], usage: str, prog: str, operation: str) -> int:
             mode=None,
             force=parsed.force,
             commit=not parsed.no_commit,
-            publish=not parsed.no_publish,
+            publish_skip_reason=_publish_skip_reason(parsed),
         ),
         json_mode=parsed.json_mode,
         config_path=parsed.config_path,
     )
+
+
+def _publish_skip_reason(parsed: argparse.Namespace) -> str:
+    return publication_outcome.DISABLED_REASON if parsed.no_publish else ""
 
 
 def project_install(args: List[str]) -> int:
@@ -189,7 +193,7 @@ def project_refresh(args: List[str]) -> int:
             mode=None,
             force=parsed.force,
             commit=not parsed.no_commit,
-            publish=not parsed.no_publish,
+            publish_skip_reason=_publish_skip_reason(parsed),
         ),
         json_mode=parsed.json_mode,
         config_path=parsed.config_path,
