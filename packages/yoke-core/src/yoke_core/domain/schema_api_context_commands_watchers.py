@@ -50,27 +50,20 @@ WATCHERS_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent",),
         "topic": "core",
-        "purpose": "Run pytest with a wake-routed watcher",
+        "purpose": "Run pytest (main session)",
         "recipe": (
             "yoke watch pytest "
             "--impacted main --bounded\n"
-            "# Default change-scoped check (--bounded is a no-op). Runs on "
-            "the project's CI when it declares ci_workflow_file; --local "
-            "is only a small targeted check expected to finish in about one "
-            "minute. Full sweep "
-            "(CI's job; local --widen / CI-outage fallback) — pass your "
-            "project's test anchors:\n"
+            "# Change-scoped check; it runs on the project's CI when the "
+            "project declares ci_workflow_file. --local is only for a check "
+            "expected to finish in about a minute. The full sweep is CI's "
+            "job; its local fallback passes your project's test anchors:\n"
             "yoke watch pytest "
             "--print-streaming-pair -- <project test anchors>\n"
-            "# The wrapper only prints \u2014 run the command it prints. "
-            "background-wake emits the bound pair; in-turn emits one "
-            "foreground command to hold open until exit; after a "
-            "background-wake completion, tail -80 <raw-capture>.\n"
-            "# Every watcher a headless relay-launched worker starts also "
-            "prints a headless_continuation line: if the harness moves that "
-            "call to a background task or hands back a continuation handle, "
-            "the command is still running \u2014 continue the same call "
-            "until it exits, and never start a second one beside it."
+            "# It only prints: run the printed command and continue that call "
+            "until it exits, even when the harness hands it back as a "
+            "background task or headless_continuation handle. Never start a "
+            "second one beside it."
         ),
         "notes": (
             "The impacted selection is the default change-scoped check and "
@@ -137,7 +130,7 @@ WATCHERS_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent",),
+        "startup_roles": (),
         "topic": "core",
         "purpose": "Run doctor with a wake-routed watcher",
         "recipe": (
@@ -157,7 +150,7 @@ WATCHERS_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent",),
         "topic": "core",
-        "purpose": ("Run merge or done-transition with watcher (main session)"),
+        "purpose": "Merge or land with a watcher",
         "recipe": (
             "yoke watch merge "
             "--print-streaming-pair merge-worktree -- PREFIX-N\n"
@@ -185,10 +178,8 @@ WATCHERS_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent",),
         "topic": "core",
-        "purpose": "Wait on a commit's CI runs with watcher (main session)",
-        "recipe": (
-            "yoke watch ci-run\nyoke watch ci-run -- <branch-or-sha> --workflow <name>"
-        ),
+        "purpose": "Wait on CI runs",
+        "recipe": ("yoke watch ci-run -- <branch-or-sha> --workflow <name>"),
         "notes": (
             "Owns the CI filter; never hand-author one. Resolves the ref with "
             "`git rev-parse <ref>^{commit}`, matches that exact head SHA, and "
@@ -218,7 +209,7 @@ WATCHERS_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent",),
+        "startup_roles": (),
         "topic": "core",
         "purpose": "Run doctor focused on specific HC rules",
         "recipe": (

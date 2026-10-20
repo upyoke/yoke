@@ -38,8 +38,7 @@ if "awk" in command:
                     "permissionDecisionReason": (
                         "BLOCKED: awk program contains %s!%s%s — BSD awk (macOS) "
                         "does not support !variable as boolean negation. "
-                        "Use %s%s==0%s instead of %s!%s%s.\n"
-                        "See AGENTS.md: \"BSD awk: skip==0{print} not !skip{print}\""
+                        "Use %s%s==0%s instead of %s!%s%s."
                     ) % (sq, varname, sq, sq, varname, sq, sq, varname, sq),
                 }
             }
@@ -107,8 +106,7 @@ for script, alternative in guarded_scripts.items():
                             "BLOCKED: Do not call %s directly. "
                             "Use %s instead.\n"
                             "Direct invocation bypasses skill-layer business logic "
-                            "(dedup, lifecycle validation, worktree management).\n"
-                            "See AGENTS.md and runtime/harness/claude/rules/session.md."
+                            "(dedup, lifecycle validation, worktree management)."
                         ) % (script, alternative),
                     }
                 }

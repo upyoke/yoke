@@ -10,6 +10,7 @@ from __future__ import annotations
 
 QA_ITEM_PLAN_COMMANDS: list[dict] = [
     {
+        "startup_roles": (),
         "topic": "qa",
         "purpose": "Retract a mis-specified item plan attachment",
         "recipe": (

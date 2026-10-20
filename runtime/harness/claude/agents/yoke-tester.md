@@ -68,138 +68,68 @@ failures require immediate targeted recovery.
 
 <!-- YOKE:DB-PACKET role=tester_agent topic=core start -->
 
-### DB Quick Reference — core (control plane + structured fields)
+### DB Quick Reference — core
 
-**Control-plane DB invariant:** authority is Postgres, never a constructed worktree DB path. Use registered `yoke <subcommand>` and diagnostic `yoke db read "SELECT ..."`. Normal prod authority is HTTPS/API; retain it on retry. Escalate missing mutations to the control-plane operator with the operation and surfaces checked.
+**Control-plane DB invariant:** use registered `yoke` commands; read diagnostics only with `yoke db read "SELECT ..."`; never construct a DB path. Keep the selected connection on retry. Escalate a missing mutation to the control-plane operator.
 
-**Package roots:** read `yoke project-structure get --project P --family architecture_model --json`. A package name never implies a directory at the repo root; one package may declare several roots. Check every `package_roots` entry: `package_under_root` holds the package directory; `package_is_root` is that directory.
+**Package roots:** `yoke project-structure get --project P --family architecture_model --json` lists every `package_roots` entry (`package_under_root` or `package_is_root`). A package may have several roots; its name never implies a directory at the repo root.
 
-**Registered writes** (use their `yoke` CLI adapters): `items.structured_field.replace`, `items.progress_log.append`, `lifecycle.transition.execute`, `claims.work.acquire`, `claims.work.release`, `claims.path.register`, `db_claim.amend`. CLI grammar: (dots→spaces, underscores→hyphens).
-Adapters build the function-call envelope: `actor.session_id` binds the harness; optional `actor_id` resolves server-side and must agree if supplied. `target` selects the subject; `preconditions` guard the write and `options` carry execution choices.
+**Registered writes:** `items.structured_field.replace`, `items.progress_log.append`, `lifecycle.transition.execute`, `claims.work.acquire`, `claims.work.release`, `claims.path.register`, `db_claim.amend`. Run each as `yoke` with dots→spaces, underscores→hyphens. Adapters build the envelope (`actor.session_id`, optional `actor_id`, `target`, `preconditions`, `options`).
+**`harness_sessions.executor`:** `claude-code | codex | cursor`.
 
-**`harness_sessions.executor`:** `claude-code | codex | cursor`; surface variants normalize to these ids.
+**Commands** (flags: `--help`):
+- Read item fields: `yoke items get PREFIX-N status title workflow_id github_issue` · `yoke items get PREFIX-N spec`
+- Inspect a Yoke item's rendered body, whole or one section (GitHub issue surrogate): `yoke items get PREFIX-N body` · `yoke items get PREFIX-N body --section "## Section Name"`
+- List item dependencies (both directions): `yoke items dependency list PREFIX-N`
+- Read epic task row / body / simulation: `yoke workflow-item epic-task get --epic <epic-id> --task-num <task-num>` · `yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>` · `yoke workflow-item epic-task simulation-get --epic <epic-id> --phase integration`
+- Tester: seed / insert / get review verdict for an epic task: `yoke workflow-item epic-task review-seed --epic <epic-id> --task-num <task_num>` · `yoke workflow-item epic-task review-insert --epic <epic-id> --task-num <task_num> --verdict <pass|fail> --body-file PATH` · `yoke workflow-item epic-task review-get --epic <epic-id> --task-num <task_num>`
+- Read the rules home before acting: `cat .yoke/docs/agents/rules/code-and-cli.md` · `cat .yoke/docs/documentation/index.md` · `yoke <family> --help`
+- Subagent communication through its registered parent: In-process subagents receive no Fleet delivery at all. Talk to the parent through the harness-native parent/subagent channel; never send, acknowledge or cancel Fleet messages or handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.
+- Verify Python imports/tests against linked worktree source: `yoke dev import-check yoke_core` · `yoke dev run -- yoke watch pytest --local -- <project-test-path> -q`
+- Run pytest foreground inside one tool call (subagent): `yoke watch pytest -- <project-test-path>/test_my_module.py -q`
 
-**Wrapper commands (prefer over raw SQL):**
-
-- _Read structured item field(s) — concrete examples_
-  - `yoke items get PREFIX-N status title workflow_id github_issue`
-  - `yoke items get PREFIX-N spec`
-- _Inspect a Yoke item's rendered body, whole or one section (GitHub issue surrogate)_
-  - `yoke items get PREFIX-N body`
-  - `yoke items get PREFIX-N body --section "## Section Name"`
-- _List item dependencies (both directions)_
-  - `yoke items dependency list PREFIX-N`
-- _Read epic task row / body / simulation_
-  - `yoke workflow-item epic-task get --epic <epic-id> --task-num <task-num>`
-  - `yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>`
-  - `yoke workflow-item epic-task simulation-get --epic <epic-id> --phase integration`
-- _Tester: seed / insert / get review verdict for an epic task_
-  - `yoke workflow-item epic-task review-seed --epic <epic-id> --task-num <task_num>`
-  - `yoke workflow-item epic-task review-insert --epic <epic-id> --task-num <task_num> --verdict <pass|fail> --body-file PATH`
-  - `yoke workflow-item epic-task review-get --epic <epic-id> --task-num <task_num>`
-- _Read operation rules and find the CLI adapter for a function id_
-  - `cat .yoke/docs/agents/rules/code-and-cli.md`
-  - `cat .yoke/docs/documentation/index.md`
-  - `yoke <family> --help`
-- _Field-note channel: log a failed/new/unclear recipe or observation_
-  - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths' --correlation-id ROOT_NOTE_ID`
-- _Subagent communication through its registered parent_
-  - `In-process subagents receive no Fleet delivery at all: message envelopes and fleet reports reach the registered top-level session only, so a subagent never sees its parent's inbox. They communicate with the parent through the harness-native parent/subagent channel, and never send, acknowledge, or cancel Fleet messages, and never handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.`
-- _Verify Python imports/tests against linked worktree source_
-  - `yoke dev import-check yoke_core`
-  - `yoke dev run -- yoke watch pytest --local -- <project-test-path> -q`
-- _Run pytest foreground inside one tool call (subagent)_
-  - `yoke watch pytest -- <project-test-path>/test_my_module.py -q`
-  - `# Blocks within the same tool call; the wrapper mints raw + progress captures via project_scratch_dir.watcher_capture_path under the machine temp root's watcher-captures directory and prints them; tail -80 <raw-capture> on failure.`
-
-
-_Schema and operation depth:_ `yoke packets render --role tester_agent --topic core --detail full`.
+_Depth:_ `yoke packets render --role tester_agent --topic core --detail full`.
 
 <!-- YOKE:DB-PACKET end -->
 
 <!-- YOKE:DB-PACKET role=tester_agent topic=claims start -->
 
-### DB Quick Reference — claims (sessions, work, paths)
+### DB Quick Reference — claims
 
-**Wrapper commands (prefer over raw SQL):**
+**Commands** (flags: `--help`):
+- Live claim holder: `yoke claims work holder-get PREFIX-N`
+- Acquire a work claim (item, epic task or process): `yoke claims work acquire --item PREFIX-N --reason draft-in-progress` · `yoke claims work acquire --epic PREFIX-833 --task-num 5 --reason engineer-dispatch` · `yoke claims work acquire --process DOCTOR --project P --reason scheduled-run`
+- Release a work claim: `yoke claims work release --item PREFIX-N --reason TEXT` · `yoke claims work release --claim-id <id> --reason TEXT` · `yoke claims work release --epic PREFIX-N --task-num K --reason TEXT` · `yoke claims work release --all-mine`
+- List path claims for an item: `yoke claims path list --item PREFIX-N`
 
-- _Lookup live claim holder for an item_
-  - `yoke claims work holder-get PREFIX-N`
-- _Acquire a work claim (canonical agent shape — target variants)_
-  - `yoke claims work acquire --item PREFIX-N --reason draft-in-progress`
-  - `yoke claims work acquire --epic PREFIX-833 --task-num 5 --reason engineer-dispatch`
-  - `yoke claims work acquire --process DOCTOR --project P --reason scheduled-run`
-- _Release a work claim + manual spec-rewrite pattern_
-  - `# Canonical agent shape — release the calling session's active claim:`
-  - `yoke claims work release --item PREFIX-N --reason TEXT`
-  - `yoke claims work release --claim-id <id> --reason TEXT`
-  - `yoke claims work release --epic PREFIX-N --task-num K --reason TEXT`
-  - `yoke claims work release --all-mine`
-  - `# Manual spec-rewrite pattern (acquire → edit → release):`
-  - `yoke claims work acquire --item PREFIX-N --reason rewrite-in-progress`
-  - `yoke items structured-field replace PREFIX-N --field spec --stdin < PATH`
-  - `yoke claims work release --item PREFIX-N --reason rewrite-complete`
-- _List path claims for an item_
-  - `yoke claims path list --item PREFIX-N`
-- _List / get path claims_
-  - `yoke claims path list --item PREFIX-N`
-  - `yoke claims path get 138`
-- _Summary of path-claim conflicts on a branch_
-  - `yoke path-claims conflicts list --integration-target main --project P`
-
-
-_Schema and operation depth:_ `yoke packets render --role tester_agent --topic claims --detail full`.
+_Depth:_ `yoke packets render --role tester_agent --topic claims --detail full`.
 
 <!-- YOKE:DB-PACKET end -->
 
 <!-- YOKE:DB-PACKET role=tester_agent topic=qa start -->
 
-### DB Quick Reference — qa (requirements, runs, gate preview)
+### DB Quick Reference — qa
 
-**Wrapper commands (prefer over raw SQL):**
+**Commands** (flags: `--help`):
+- List QA requirements: `yoke qa requirement list --item PREFIX-N`
+- List QA runs for a requirement: `yoke qa run list --requirement-id <id>`
+- Add a QA run verdict — agent × ac_verification (inline raw_result): `yoke qa run add --requirement-id R --performed-by agent --qa-kind ac_verification --verdict pass --head-sha <commit> --raw-result 'SUMMARY'`
+- Execute immutable QA plans for an item, deployment, or project: `yoke qa plan run --item PREFIX-N --transition TRANSITION --base-url https://preview.example`
+- Run one QA case: `yoke qa case run --requirement-id R --base-url https://preview.example --expected-branch BRANCH --expected-sha SHA`
+- Unsatisfied QA requirements: `yoke qa gate-summary --item PREFIX-N --target {reviewed-implementation,implemented}`
 
-- _List QA requirements for an item or epic_
-  - `yoke qa requirement list --item PREFIX-N`
-- _List QA runs for a requirement_
-  - `yoke qa run list --requirement-id <id>`
-- _Get one QA run by id_
-  - `yoke qa run get --run-id <id> [--project <slug>]`
-- _Add a QA run verdict — agent × ac_verification (inline raw_result)_
-  - `yoke qa run add --requirement-id R --performed-by agent --qa-kind ac_verification --verdict pass --head-sha <commit> --raw-result 'Full backend pytest passed: N passed, K skipped.'`
-- _Execute immutable QA plans for an item, deployment, or project_
-  - `yoke qa plan run --item PREFIX-N --transition TRANSITION --base-url https://preview.example`
-- _Execute one materialized Browser method case_
-  - `yoke qa case run --requirement-id R --base-url https://preview.example --expected-branch BRANCH --expected-sha SHA`
-- _Preview the reviewed-implementation gate verdict_
-  - `yoke qa gate-summary --item PREFIX-N --target reviewed-implementation`
-- _Summarize unsatisfied QA requirements (read-only)_
-  - `yoke qa gate-summary --item PREFIX-N --target {reviewed-implementation,implemented}`
-- _Inspect events for an item (canonical agent shape)_
-  - `yoke events query --item PREFIX-N --limit 20`
-- _Epic dispatch chain (list / advance / inspect)_
-  - `yoke epic-tasks list --epic PREFIX-1704`
-  - `yoke workflow-item epic-task body-get --epic PREFIX-1704 --task-num 5`
-  - `yoke workflow-item epic-dispatch-chain list --epic PREFIX-1704`
-  - `yoke workflow-item epic-dispatch-chain get --epic PREFIX-1704 --worktree branch-name`
-- _Retire a project QA plan nothing depends on any more_
-  - `yoke qa plan retire PLAN --project P --reason "why"`
-
-
-_Schema and operation depth:_ `yoke packets render --role tester_agent --topic qa --detail full`.
+_Depth:_ `yoke packets render --role tester_agent --topic qa --detail full`.
 
 <!-- YOKE:DB-PACKET end -->
 
 <!-- YOKE:DB-PACKET role=tester_agent topic=project start -->
 
-### DB Quick Reference — project (test commands, project_structure)
+### DB Quick Reference — project
 
-**Wrapper commands (prefer over raw SQL):**
+**Commands** (flags: `--help`):
+- Read one branch preview environment: `yoke ephemeral-env get <project> <branch> --json`
 
-- _Read one branch preview environment_
-  - `yoke ephemeral-env get <project> <branch> --json`
-
-
-_Schema and operation depth:_ `yoke packets render --role tester_agent --topic project --detail full`.
+_Depth:_ `yoke packets render --role tester_agent --topic project --detail full`.
 
 <!-- YOKE:DB-PACKET end -->
 

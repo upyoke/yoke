@@ -135,3 +135,17 @@ Preserve the exact run and receipt, repair the named reader or source-access
 refusal, and rerun receipt recording. Do not redispatch an already shipped
 promotion. General-purpose release-output callers keep their existing
 behavior.
+
+## Consumer-compatibility advisory
+
+Each merged commit's main push starts the exact-pair advisory on its own. To
+check a branch head by hand:
+
+```text
+yoke github-actions trigger upyoke/yoke consumer-compatibility-advisory.yml --ref BRANCH --request-id ID --correlation-input yoke_dispatch_id --project yoke
+yoke github-actions dispatch-receipt get REQUEST-ID --project yoke --json
+```
+
+A `dispatch_receipt_unauthorized` refusal means the serving engine predates the
+`deployment_ci` read grant: ask the control-plane operator for a release that
+carries it. Never grant project admin to a release identity.

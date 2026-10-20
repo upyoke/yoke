@@ -123,7 +123,6 @@ def test_core_packet_teaches_lifecycle_status_and_inventory_surface() -> None:
     assert "lifecycle.repair_status.execute" in body
     assert "yoke lifecycle repair-status PREFIX-N" in body
     assert "function=lifecycle.transition target" not in body
-    assert "--stdin < PATH" in body
     assert ".yoke/docs/functions/index.md" in body
     assert 'python3 -c "\nfrom runtime.api' not in body
 

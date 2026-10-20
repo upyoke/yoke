@@ -62,6 +62,10 @@ from yoke_core.domain.file_line_check_pack_versions import (
 from yoke_contracts.project_contract.changed_path_scope import (
     changed_scope_for_check,
 )
+from yoke_contracts.project_contract.file_byte_budget import (
+    byte_budget_failures,
+    new_size_reader,
+)
 from yoke_contracts.project_contract.file_line_git_scope import (
     resolve_file_line_git_scope,
 )
@@ -281,13 +285,20 @@ def changed_files_check(
                         delta=new - old,
                     )
                 )
-    ok = not hard_fails
+    budget_fails = byte_budget_failures(
+        policy.byte_budget_entries,
+        paths,
+        size_of=new_size_reader(repo_root, staged=staged, run_git=run_git),
+    )
+    ok = not hard_fails and not budget_fails
     if ok and not warnings:
         summary = f"ok: no authored file violations across {len(paths)} changed paths"
     elif ok:
         summary = f"ok with {len(warnings)} warning(s)"
     else:
         summary = f"{len(hard_fails)} hard-fail(s), {len(warnings)} warning(s)"
+        if budget_fails:
+            summary += f", {len(budget_fails)} byte-budget failure(s)"
     if pre_existing:
         summary += f", {len(pre_existing)} pre-existing over-limit file(s)"
     if not staged:
@@ -298,6 +309,7 @@ def changed_files_check(
         warnings=warnings,
         summary=summary,
         pre_existing=pre_existing,
+        byte_budget_fails=budget_fails,
     )
 
 

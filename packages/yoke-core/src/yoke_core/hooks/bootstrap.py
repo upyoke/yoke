@@ -194,8 +194,7 @@ def list_skills(root: Path) -> List[str]:
 
     The result always begins with the root router skill ``yoke`` (whose
     ``SKILL.md`` lives directly at the skills root). Named subdirectories are
-    included when they contain a ``SKILL.md`` at their top level — this matches
-    the convention described in ``AGENTS.md`` ("File Layout") and is how
+    included when they contain a ``SKILL.md`` at their top level — this is how
     operator commands are defined. Phase sub-files (e.g. ``implement/entry.md``)
     are not standalone skills and are deliberately excluded.
 

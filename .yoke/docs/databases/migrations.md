@@ -87,6 +87,19 @@ receipt in `migration_audit` on the control plane that holds the item, and
 holds the `LIVE_DB_MIGRATION:<model>` coordination claim until the merge lands so
 a second item cannot enter migration territory meanwhile; failure releases it.
 
+## Breakage policy and migration strategy
+
+`projects.breakage_policy` is `founder_cutover` (default) or
+`compatibility_required`. A DB claim declares `migration_strategy`
+(`additive_only`, `hard_cutover`, `expand_contract`); the gates combine them:
+
+| Policy | Strategy | Result |
+|---|---|---|
+| any | `additive_only` | allowed |
+| `founder_cutover` | `hard_cutover` | allowed for `pre_merge_safe` or `pre_merge_breaking` |
+| `founder_cutover` | `expand_contract` | needs `migration_strategy_justification` |
+| `compatibility_required` | `hard_cutover` | needs `migration_strategy_justification` |
+
 ## Related
 
 - [Reference](reference.md)

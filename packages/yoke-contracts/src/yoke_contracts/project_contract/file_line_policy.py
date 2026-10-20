@@ -10,6 +10,7 @@ that the project install seeds into every repo::
 
     file_line_limit=350
     file_line_exception=docs/generated-reference/**
+    file_byte_budget=AGENTS.md:4000
 
 The policy rides the repo and needs no database or network, which is what
 lets the pre-commit hook enforce it offline, in a fresh clone, before any
@@ -24,6 +25,7 @@ from pathlib import Path
 DEFAULT_LIMIT = 350
 FILE_LINE_LIMIT_KEY = "file_line_limit"
 FILE_LINE_EXCEPTION_KEY = "file_line_exception"
+FILE_BYTE_BUDGET_KEY = "file_byte_budget"
 PROJECT_CONFIG_REL = ".yoke/project.config"
 ITEM_BASE_CONFIG_SUFFIX = "yokeItemBase"
 TRACKED_GENERATED_VIEWS: tuple[str, ...] = (
@@ -67,6 +69,7 @@ DEFAULT_EXCEPTION_GLOBS: tuple[str, ...] = ()
 class FileLinePolicy:
     limit: int
     exception_globs: tuple[str, ...]
+    byte_budget_entries: tuple[str, ...] = ()
 
 
 def default_exception_globs() -> tuple[str, ...]:
@@ -86,36 +89,55 @@ def item_base_config_key(branch: str) -> str:
     return f"branch.{branch}.{ITEM_BASE_CONFIG_SUFFIX}"
 
 
-def read_project_config(repo_root: Path | str) -> tuple[dict[str, str], tuple[str, ...]]:
-    """Parse ``.yoke/project.config`` into scalars and exception globs.
+def _project_config_entries(repo_root: Path | str) -> list[tuple[str, str]]:
+    """Parse ``.yoke/project.config`` into ordered ``(key, value)`` pairs.
 
-    ``file_line_exception`` repeats, one glob per line; every other key is
-    a scalar. A trailing ``# comment`` documents a value, so it is stripped.
+    A trailing ``# comment`` documents a value, so it is stripped.
     """
     path = Path(repo_root) / PROJECT_CONFIG_REL
     if not path.is_file():
-        return {}, ()
+        return []
     try:
         text = path.read_text(encoding="utf-8", errors="ignore")
     except OSError:
-        return {}, ()
-    scalars: dict[str, str] = {}
-    exceptions: list[str] = []
+        return []
+    entries: list[tuple[str, str]] = []
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
         key, separator, value = line.partition("=")
-        if not separator:
-            continue
-        key = key.strip()
-        value = value.split("#", 1)[0].strip()
+        if separator:
+            entries.append((key.strip(), value.split("#", 1)[0].strip()))
+    return entries
+
+
+def read_project_config(
+    repo_root: Path | str,
+) -> tuple[dict[str, str], tuple[str, ...]]:
+    """Return the scalar keys and the repeated ``file_line_exception`` globs.
+
+    Repeated keys (``file_line_exception``, ``file_byte_budget``) are not
+    scalars; every other key keeps its last value.
+    """
+    scalars: dict[str, str] = {}
+    exceptions: list[str] = []
+    for key, value in _project_config_entries(repo_root):
         if key == FILE_LINE_EXCEPTION_KEY:
             if value:
                 exceptions.append(value)
-        else:
+        elif key != FILE_BYTE_BUDGET_KEY:
             scalars[key] = value
     return scalars, tuple(exceptions)
+
+
+def project_byte_budget_entries(repo_root: Path | str) -> tuple[str, ...]:
+    """Raw ``file_byte_budget=PATH:BYTES`` values, one per budgeted file."""
+    return tuple(
+        value
+        for key, value in _project_config_entries(repo_root)
+        if key == FILE_BYTE_BUDGET_KEY
+    )
 
 
 def project_limit(repo_root: Path | str) -> int:
@@ -142,12 +164,14 @@ def resolve_file_line_policy(repo_root: Path | str) -> FileLinePolicy:
     return FileLinePolicy(
         limit=project_limit(root),
         exception_globs=default_exception_globs() + project_exception_globs(root),
+        byte_budget_entries=project_byte_budget_entries(root),
     )
 
 
 __all__ = (
     "DEFAULT_EXCEPTION_GLOBS",
     "DEFAULT_LIMIT",
+    "FILE_BYTE_BUDGET_KEY",
     "FILE_LINE_EXCEPTION_KEY",
     "FILE_LINE_LIMIT_KEY",
     "FileLinePolicy",
@@ -158,6 +182,7 @@ __all__ = (
     "default_exception_globs",
     "generated_path_globs",
     "item_base_config_key",
+    "project_byte_budget_entries",
     "project_exception_globs",
     "project_limit",
     "read_project_config",

@@ -162,6 +162,19 @@ orientation use the selected authority's machine scope. An explicit `--project`
 still requires that same project registration. Missing delivery, a project
 mismatch and an unreadable authority retain their own failure reasons.
 
+## Writing a health check
+
+- Each check declares its `project_scope` (`any`, `self`, `external`), whether
+  it reads the source tree, its runtimes (`local`, `server`, `hosted`) and the
+  capabilities it needs. The runner derives the applicable set; never branch
+  on a project slug. No mapped project refuses `project_required`.
+- A check outside the applicable set reports `N/A` with its reason (in
+  `## Not Applicable` and `na_count`), never `PASS`.
+- Project checks live in `.yoke/doctor/` (`check_*.py`, `hc_*` functions or
+  `PROJECT_HEALTH_CHECKS`) and import as `yoke_project_checks`. A module that
+  fails to import is a FAIL. The engine roster holds only checks true of every
+  project.
+
 ## Related
 
 - [Events](events.md)

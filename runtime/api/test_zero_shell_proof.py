@@ -63,7 +63,8 @@ def test_public_installer_is_only_tracked_shell_script() -> None:
 
 def test_operator_docs_point_at_python_entrypoints() -> None:
     doctrine = _read(AGENTS_DOC)
-    assert "Prefer Python for stateful helpers" in doctrine
+    code_home = _read(REPO_ROOT / "docs/public/agents/rules/code-and-cli.md")
+    assert "Write stateful helpers and hooks in Python" in code_home
     assert "docs/source-dev-doctrine.md" in doctrine
     source = _read(REPO_ROOT / "docs/source-dev-doctrine.md")
     assert "python3 -m yoke_core.tools.run_tests" in source

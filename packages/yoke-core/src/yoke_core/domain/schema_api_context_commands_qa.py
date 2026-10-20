@@ -8,7 +8,7 @@ QA_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent", "engineer_agent", "tester_agent"),
         "topic": "qa",
-        "purpose": "List QA requirements for an item or epic",
+        "purpose": "List QA requirements",
         "recipe": "yoke qa requirement list --item PREFIX-N",
         "notes": (
             "Registered read qa.requirement.list (works over https). "
@@ -22,7 +22,7 @@ QA_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent", "engineer_agent", "tester_agent"),
+        "startup_roles": ("engineer_agent", "tester_agent"),
         "topic": "qa",
         "purpose": "List QA runs for a requirement",
         "recipe": "yoke qa run list --requirement-id <id>",
@@ -38,7 +38,7 @@ QA_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent", "engineer_agent", "tester_agent"),
+        "startup_roles": (),
         "topic": "qa",
         "purpose": "Get one QA run by id",
         "recipe": "yoke qa run get --run-id <id> [--project <slug>]",
@@ -51,7 +51,7 @@ QA_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent",),
+        "startup_roles": (),
         "topic": "qa",
         "purpose": "Add a QA requirement — ac_verification variant",
         "recipe": (
@@ -100,7 +100,7 @@ QA_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent",),
+        "startup_roles": (),
         "topic": "qa",
         "purpose": "Materialize attached QA plan cases for a transition",
         "recipe": (
@@ -130,7 +130,7 @@ QA_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent",),
+        "startup_roles": (),
         "topic": "qa",
         "purpose": "Edit a project QA plan as one compare-and-swap document",
         "recipe": "yoke qa plan edit release-readiness",
@@ -147,7 +147,7 @@ QA_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent", "tester_agent"),
+        "startup_roles": ("tester_agent",),
         "topic": "qa",
         "purpose": "Add a QA run verdict — agent × ac_verification (inline raw_result)",
         "recipe": (
@@ -155,7 +155,7 @@ QA_COMMANDS: list[dict] = [
             "--requirement-id R --performed-by agent "
             "--qa-kind ac_verification --verdict pass "
             "--head-sha <commit> "
-            "--raw-result 'Full backend pytest passed: N passed, K skipped.'"
+            "--raw-result 'SUMMARY'"
         ),
         "notes": (
             "Registered write qa.run.add — item claims remain required for "
@@ -171,7 +171,7 @@ QA_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent", "tester_agent"),
+        "startup_roles": ("tester_agent",),
         "topic": "qa",
         "purpose": "Execute immutable QA plans for an item, deployment, or project",
         "recipe": (
@@ -203,10 +203,10 @@ QA_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent",),
         "topic": "qa",
-        "purpose": "Execute one frozen deployment QA stage subject",
+        "purpose": "Run one deployment QA stage",
         "recipe": (
             "yoke qa plan run --deployment-run-id RUN --stage STAGE "
-            "[--member PREFIX-N] [--plan AGENT_SELECTED_PLAN] --project PROJECT"
+            "[--member PREFIX-N] [--plan PLAN] --project P"
         ),
         "notes": (
             "Registered writes qa.plan.materialize and qa.plan_execution.begin. "
@@ -228,7 +228,7 @@ QA_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent", "tester_agent"),
         "topic": "qa",
-        "purpose": "Execute one materialized Browser method case",
+        "purpose": "Run one QA case",
         "recipe": (
             "yoke qa case run --requirement-id R "
             "--base-url https://preview.example "
@@ -281,7 +281,7 @@ QA_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent", "tester_agent"),
+        "startup_roles": (),
         "topic": "qa",
         "purpose": "Preview the reviewed-implementation gate verdict",
         "recipe": (
@@ -298,7 +298,7 @@ QA_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent", "tester_agent"),
         "topic": "qa",
-        "purpose": "Summarize unsatisfied QA requirements (read-only)",
+        "purpose": "Unsatisfied QA requirements",
         "recipe": (
             "yoke qa gate-summary "
             "--item PREFIX-N --target {reviewed-implementation,implemented}"
@@ -315,7 +315,7 @@ QA_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent", "engineer_agent", "tester_agent"),
+        "startup_roles": (),
         "topic": "qa",
         "purpose": "Inspect events for an item (canonical agent shape)",
         "recipe": ("yoke events query --item PREFIX-N --limit 20"),
@@ -329,7 +329,7 @@ QA_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent", "engineer_agent", "tester_agent"),
+        "startup_roles": (),
         "topic": "qa",
         "purpose": "Epic dispatch chain (list / advance / inspect)",
         "recipe": (

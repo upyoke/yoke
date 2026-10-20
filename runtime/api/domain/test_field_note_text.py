@@ -36,7 +36,7 @@ def test_footer_is_directive_and_recipe() -> None:
 
 def test_denial_footer_canonical_text() -> None:
     assert fnt.DENIAL_FOOTER == (
-        "If this fix is wrong, file a field note before moving on:\n"
+        "If this fix is wrong, file a field note: "
         "yoke ouroboros field-note append --kind failed --evidence '...'"
     )
 

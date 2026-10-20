@@ -61,62 +61,34 @@ AC/FR/branch/lane provenance names unless runtime/domain concept.
 
 <!-- YOKE:DB-PACKET role=simulator_agent topic=core start -->
 
-### DB Quick Reference — core (control plane + structured fields)
+### DB Quick Reference — core
 
-**Control-plane DB invariant:** authority is Postgres, never a constructed worktree DB path. Use registered `yoke <subcommand>` and diagnostic `yoke db read "SELECT ..."`. Normal prod authority is HTTPS/API; retain it on retry. Escalate missing mutations to the control-plane operator with the operation and surfaces checked.
+**Control-plane DB invariant:** use registered `yoke` commands; read diagnostics only with `yoke db read "SELECT ..."`; never construct a DB path. Keep the selected connection on retry. Escalate a missing mutation to the control-plane operator.
 
-**Package roots:** read `yoke project-structure get --project P --family architecture_model --json`. A package name never implies a directory at the repo root; one package may declare several roots. Check every `package_roots` entry: `package_under_root` holds the package directory; `package_is_root` is that directory.
+**Package roots:** `yoke project-structure get --project P --family architecture_model --json` lists every `package_roots` entry (`package_under_root` or `package_is_root`). A package may have several roots; its name never implies a directory at the repo root.
 
-**Wrapper commands (prefer over raw SQL):**
+**Commands** (flags: `--help`):
+- Read item fields: `yoke items get PREFIX-N status title workflow_id github_issue` · `yoke items get PREFIX-N spec`
+- Inspect a Yoke item's rendered body, whole or one section (GitHub issue surrogate): `yoke items get PREFIX-N body` · `yoke items get PREFIX-N body --section "## Section Name"`
+- List item dependencies (both directions): `yoke items dependency list PREFIX-N`
+- Read epic task row / body / simulation: `yoke workflow-item epic-task get --epic <epic-id> --task-num <task-num>` · `yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>` · `yoke workflow-item epic-task simulation-get --epic <epic-id> --phase integration`
+- Read the rules home before acting: `cat .yoke/docs/agents/rules/code-and-cli.md` · `cat .yoke/docs/documentation/index.md` · `yoke <family> --help`
+- Subagent communication through its registered parent: In-process subagents receive no Fleet delivery at all. Talk to the parent through the harness-native parent/subagent channel; never send, acknowledge or cancel Fleet messages or handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.
+- Read migration composition ledger and rehearsal evidence: `yoke db read "SELECT migration_name, applied_at, applied_by, minimum_serving_version, content_sha256 FROM applied_migrations WHERE migration_name IN ('OLD_NAME', 'FINAL_NAME') ORDER BY migration_name"` · `yoke db read "SELECT id, migration_name, project_id, model_name, state, source_commit, source_fingerprint, rehearsed_at, failure_reason FROM migration_audit WHERE project_id = PROJECT_ID AND model_name = 'MODEL' AND migration_name IN ('OLD_NAME', 'FINAL_NAME') ORDER BY id"` · `yoke db read "SELECT migration_name, content_sha256, artifact_engine_version, source_artifact, source_sha256, source_commit, manifest_sha256, adopted_by, adopted_at FROM migration_content_adoptions WHERE migration_name IN ('OLD_NAME', 'FINAL_NAME') ORDER BY migration_name"`
 
-- _Read structured item field(s) — concrete examples_
-  - `yoke items get PREFIX-N status title workflow_id github_issue`
-  - `yoke items get PREFIX-N spec`
-- _Inspect a Yoke item's rendered body, whole or one section (GitHub issue surrogate)_
-  - `yoke items get PREFIX-N body`
-  - `yoke items get PREFIX-N body --section "## Section Name"`
-- _List item dependencies (both directions)_
-  - `yoke items dependency list PREFIX-N`
-- _Read epic task row / body / simulation_
-  - `yoke workflow-item epic-task get --epic <epic-id> --task-num <task-num>`
-  - `yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>`
-  - `yoke workflow-item epic-task simulation-get --epic <epic-id> --phase integration`
-- _Read operation rules and find the CLI adapter for a function id_
-  - `cat .yoke/docs/agents/rules/code-and-cli.md`
-  - `cat .yoke/docs/documentation/index.md`
-  - `yoke <family> --help`
-- _Field-note channel: log a failed/new/unclear recipe or observation_
-  - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths' --correlation-id ROOT_NOTE_ID`
-- _Subagent communication through its registered parent_
-  - `In-process subagents receive no Fleet delivery at all: message envelopes and fleet reports reach the registered top-level session only, so a subagent never sees its parent's inbox. They communicate with the parent through the harness-native parent/subagent channel, and never send, acknowledge, or cancel Fleet messages, and never handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.`
-- _Read migration composition ledger and rehearsal evidence_
-  - `yoke db read "SELECT migration_name, applied_at, applied_by, minimum_serving_version, content_sha256 FROM applied_migrations WHERE migration_name IN ('OLD_NAME', 'FINAL_NAME') ORDER BY migration_name"`
-  - `yoke db read "SELECT id, migration_name, project_id, model_name, state, source_commit, source_fingerprint, rehearsed_at, failure_reason FROM migration_audit WHERE project_id = PROJECT_ID AND model_name = 'MODEL' AND migration_name IN ('OLD_NAME', 'FINAL_NAME') ORDER BY id"`
-  - `yoke db read "SELECT migration_name, content_sha256, artifact_engine_version, source_artifact, source_sha256, source_commit, manifest_sha256, adopted_by, adopted_at FROM migration_content_adoptions WHERE migration_name IN ('OLD_NAME', 'FINAL_NAME') ORDER BY migration_name"`
-
-
-_Schema and operation depth:_ `yoke packets render --role simulator_agent --topic core --detail full`.
+_Depth:_ `yoke packets render --role simulator_agent --topic core --detail full`.
 
 <!-- YOKE:DB-PACKET end -->
 
 <!-- YOKE:DB-PACKET role=simulator_agent topic=claims start -->
 
-### DB Quick Reference — claims (sessions, work, paths)
+### DB Quick Reference — claims
 
-**Wrapper commands (prefer over raw SQL):**
+**Commands** (flags: `--help`):
+- List path claims for an item: `yoke claims path list --item PREFIX-N`
+- Summary of path-claim conflicts on a branch: `yoke path-claims conflicts list --integration-target main --project P`
 
-- _Lookup live claim holder for an item_
-  - `yoke claims work holder-get PREFIX-N`
-- _List path claims for an item_
-  - `yoke claims path list --item PREFIX-N`
-- _List / get path claims_
-  - `yoke claims path list --item PREFIX-N`
-  - `yoke claims path get 138`
-- _Summary of path-claim conflicts on a branch_
-  - `yoke path-claims conflicts list --integration-target main --project P`
-
-
-_Schema and operation depth:_ `yoke packets render --role simulator_agent --topic claims --detail full`.
+_Depth:_ `yoke packets render --role simulator_agent --topic claims --detail full`.
 
 <!-- YOKE:DB-PACKET end -->
 

@@ -186,7 +186,7 @@ def test_renderer_denial_names_a_lane_source_command_that_targets_the_worktree()
         "yoke_core.domain.agents_render render", "agents.render.run"
     )
     assert "yoke dev run -- yoke agents render" in reason
-    assert "render --target-root ." in reason
+    assert "render --target-root <absolute-checkout>" in reason
 
 
 def test_explicit_temp_capture_cleanup_is_not_destructive_git() -> None:

@@ -9,10 +9,8 @@ stays under the 350-line authoring cap.
 - Working ``yoke claims work release`` invocations for item,
   claim-id, epic-task, and session-scoped release appear in the claims
   commands block.
-- The manual spec-rewrite claim pattern (``claims work acquire
-  --reason rewrite-in-progress`` -> edit ->
-  ``claims work release --reason rewrite-complete``) is taught as a
-  working example, not as a new skill.
+- The claim -> edit -> release pattern is taught as a working example,
+  not as a new skill.
 """
 
 from __future__ import annotations
@@ -48,17 +46,11 @@ def test_claims_packet_teaches_release_work_claim_variants() -> None:
     assert "yoke claims work release --all-mine" in body
 
 
-def test_claims_packet_teaches_spec_rewrite_pattern() -> None:
-    """The spec rewrite pattern uses canonical ``yoke`` commands.
-
-    Acquire → structured-field replace → release sequence, all via the
-    Tier-1 grammar (current).
-    """
+def test_claims_packet_teaches_claim_edit_release_pattern() -> None:
+    """The edit pattern is acquire → structured-field replace → release."""
     body = sac.render_topic_packet("claims", detail=PACKET_DETAIL_FULL)
-    assert (
-        "yoke claims work acquire --item PREFIX-N --reason rewrite-in-progress" in body
-    )
-    assert "yoke claims work release --item PREFIX-N --reason rewrite-complete" in body
+    assert "yoke claims work acquire --item PREFIX-N --reason edit" in body
+    assert "yoke claims work release --item PREFIX-N --reason edit-complete" in body
     # Doctrine sentence — no new skill.
     assert "no new skill" in body.lower()
 

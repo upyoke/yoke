@@ -90,8 +90,7 @@ def _dollar_dollar_reason() -> str:
         'causing "file not found" errors.\n\n'
         "Fix: use mktemp in Bash first to get a concrete path, then Write to it:\n"
         "  _tmpfile=$(mktemp /tmp/my-prefix.XXXXXX)\n"
-        'Then use the Write tool with file_path="$_tmpfile".\n\n'
-        'See AGENTS.md: "Temp files" rule.'
+        'Then use the Write tool with file_path="$_tmpfile".'
     )
 
 

@@ -140,7 +140,11 @@ def _provenance_lines(manifest_path: str) -> list[str]:
 
 def build_compact_block() -> str:
     """Return the short per-harness list used by working documents."""
-    lines = [*_provenance_lines(".yoke/harness/<harness-dir>/manifest.json"), ""]
+    lines = [
+        f"Source: `{MANIFEST_FIELD}` in `.yoke/harness/<harness-dir>/manifest.json`, "
+        f"from `{CANONICAL_MODULE}`.",
+        "",
+    ]
     for harness_id, cap in HARNESS_WAKE_CAPABILITIES.items():
         lines.append(_harness_line(harness_id, cap))
     return "\n".join(lines) + "\n"

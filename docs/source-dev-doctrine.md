@@ -1,287 +1,139 @@
 # Source-dev doctrine — working on Yoke itself
 
-The repo rules file carries the short normative form of each rule here.
-This is the deep home it points at: the same rules with the reasoning,
-the release-train shape, the flag matrices, and the incidents that
-produced them. Repo-internal — it is not part of the install bundle,
-because none of it is true of a project that merely uses Yoke.
+Rules for changing this repository. They are repo-internal and never ship in the install bundle.
+Each section names the owner that holds the detail.
 
-[Native instant storage](native-instant-storage.md) describes timestamp
-binding, strict decoding and relevance filtering for release evidence.
+## Run source and tests
 
-## Worktree cleanup
+- Run lane commands as `yoke dev run -- <command>`. It binds the claimed lane's source and locked
+  `.venv`, runs in a disposable machine home, and refuses partial binding. Owner:
+  [source command guide](testing-verification/source-development.md).
+- Plain `yoke` runs the installed release. `YOKE_SOURCE_DEV=1 yoke <command>` is an explicit
+  per-command operator opt-in.
+- Iterate with `yoke watch pytest --impacted main --bounded` or targeted paths. It runs on CI and
+  refuses an uncommitted tree: commit first.
+- `--local` is only a small targeted check expected to finish in about one minute; uncommitted
+  work does not justify a slow local run. Both shapes inject xdist `-n auto`. Use `-- -n 0` for
+  order-sensitive debugging.
+- The full gate is `yoke watch pytest -- runtime/api/ runtime/harness/ tests/`. Run it once
+  through the attached case: `yoke qa requirement list --item PREFIX-N`, then
+  `yoke qa case run --requirement-id <id>`. Owner:
+  [full-suite authority](testing-verification/full-suite-authority.md).
+- Post-deploy Command cases run `yoke watch pytest -- <paths>` directly; the runner binds the
+  candidate. Keep `YOKE_QA_CANDIDATE_TREE` and the runner's environment when you replace `HOME`.
+- Lint: `yoke dev ruff-changed --base <ref>`. Smoke-import lane modules with
+  `yoke dev import-check <module>`. The generic runner is
+  `uv run --frozen python3 -m yoke_core.tools.run_tests`. Recipes:
+  [testing and verification](testing-verification.md).
+- Never set `YOKE_DRY_RUN=1` in tests; suites mock their own GitHub side effects.
 
-- **Lane and deploy-run worktree retirement is one contract:** what makes a
-  directory disposable, why a project must declare its rendered gitignored
-  views, how a self-deploy run's detached driver tree is retired from its run
-  status, which lanes `max_active_worktrees` counts (landed lanes do not), and
-  what its refusal tells you to do about each kind. [`docs/source-dev-worktree-cleanup.md`](source-dev-worktree-cleanup.md).
+## Database authority
 
-## CLA signatures branch — Hard Rule
-- **`origin/cla-signatures` is permanent governance state, not a leftover lane.** Both CLA workflow jobs run only in `upyoke/yoke`; forks and other copies skip upstream's CLA. The CLA Assistant workflow appends signatures there and the required `signature-check` status reads them. Never delete, force-push, reset, or prune it during cleanup — divergence from `main` with no merge-base is expected — and leave it unprotected so the workflow can write.
+- HTTPS `prod` owns normal registered operations. The paired `prod-db-admin` connection reaches
+  the same control plane directly and is for source-dev/operator work only. Every real record
+  stays on prod, including stage-targeted receipts. Stage is disposable test state. List
+  connections with `yoke env list`.
+- Raw query is read-only. A sanctioned row repair with no domain command uses
+  `yoke operator data-repair --content-file repair.json --reviewed-sha256 SHA --dry-run` from a
+  live steering seat after the operator approves the digest; then rerun without `--dry-run`.
+  Owner: [repair contract](public/databases/operator-data-repair.md).
+- Only source-dev/admin setup creates admin profiles (see `yoke dev db-admin --help`). Never
+  print or store a DSN:
 
-## Serving catalog regeneration
+  ```text
+  yoke dev db-admin setup prod --control-plane-env prod --yes
+  yoke dev db-admin setup stage --project P --database MODEL --yes
+  yoke dev db-admin exec P-stage-MODEL-db-admin --dsn-var APP_DSN -- <command>
+  ```
+- Rehearse migrations from the claimed lane:
+  `yoke --env prod-db-admin dev run -- yoke migration rehearse PREFIX-N`. With several lanes add
+  `--lane <registered-worker-path>` after `dev run`. Keep the fleet-preflight receipt and the
+  `LIVE_DB_MIGRATION:<model>` hold; the merge releases it.
+- Tenant-fleet content-identity adoption is an attested operator step: read
+  `python3 -m yoke_core.tools.adopt_migration_content_identity --help`.
+- After schema declaration changes, regenerate the serving catalog and commit it with the change:
+  `yoke dev run -- python3 -m runtime.api.tools.schema_catalog_render --target-root <checkout>`.
 
-After changing schema declarations, regenerate the serving catalog from the
-complete source initialization chain in a disposable local test database:
+## Release Yoke
 
-```text
-yoke dev run -- python3 -m runtime.api.tools.schema_catalog_render --target-root <claimed-checkout>
-```
+- Steering drives releases: follow
+  [source-dev delivery](../.agents/skills/yoke/steer/source-dev-delivery.md).
+- A release is two concurrent runs on one lineage. Create both over HTTPS `prod`. Create
+  production without `--source-ref`, then pass its `release_lineage` to stage as `--source-ref`.
+  Production drives on paired `prod-db-admin`; stage drives on HTTPS. Done needs production
+  delivery and every owed stage proof. This concurrency holds only because stage here tests the
+  live control plane.
+- A correction merged during a stage run needs a new stage/production pair on the corrected
+  commit; the old stage receipt does not prove it.
+- Author item QA against production. A case targets stage only with a declared `stage_reason`.
+- Hosted routes: `yoke-hosted-stage-release-qa`, `yoke-hosted-production-release-qa`,
+  `yoke-hosted-production-hotfix-release`. Never hand-create release tags, hand-edit
+  `yoke-release-pin.txt` or dispatch component deploy workflows. Pin owner:
+  [release pin recording](release-pin-recording.md).
+- One Yoke release ships Platform at the `main` commit the run bound at start; delivery-ready
+  PLAT items in that commit ride as members. Platform work merged later needs its own run.
+  Re-read the pin after any Yoke release before you start a Platform run.
+- Consumer proof belongs to release. The bridge runs `platform-release-pin-check.yml` on the
+  exact Yoke/Platform pair before tagging. A failed pair names the producer commit range; inspect
+  it before you assign the fix. Why:
+  [consumer compatibility](archive/decisions/consumer-compatibility-before-contract-delivery.md).
+- Fleet preflight: `yoke watch preflight -- --project <project> <environment>`; read its
+  `--help` for models and receipts. Owner: [migration fleet](public/databases/migration-fleet.md).
+- Release diagnostics and the operator CLI update:
+  [start diagnostics](public/deployments/start-diagnostics.md).
 
-The tool checks every classified instant is native, excludes derived views,
-and writes only the explicit checkout's generated catalog declaration. It
-never reads or changes a live universe. Re-run the born-universe serving check
-and commit the regenerated source alongside the schema change.
+### Creation bootstrap
 
-## Repo file layout
-
-Repo-relative paths:
-- API: engine source is `packages/yoke-core/src/yoke_core/` (`yoke_core.cli.db_router`, `yoke_core.api.service_client`, `yoke_core.engines.*`, internal test runner, API server), and `runtime/api/` is `yoke_core`'s second declared root where the root IS the package — its tests, fixtures, helpers, and in-tree tools, importable as `runtime.api.*` too. An importable name never implies a directory at the repo root: `yoke_harness` splits the same way across `packages/yoke-harness/src/` and `runtime/harness/`, so resolve any module through the complete `package_roots` mapping your DB packet renders from `architecture_model` rather than guessing from the name. Agent recipes via `yoke <subcommand>` unless a packet marks a retained tool shape.
-- Skills: `.agents/skills/yoke/{command}/SKILL.md` (`.claude/skills/yoke/` native discovery symlink). Agents: `runtime/agents/{agent}.md`; Claude adapters `runtime/harness/claude/agents/yoke-*.md` via `yoke agents render`; `.claude/agents` symlinks there. Prompt philosophy: `docs/prompt-philosophy.md`. Backlog: `yoke items get YOK-N body` (virtual; no generated `.md` bodies).
-- Browser: packaged under `packages/yoke-harness/src/yoke_harness/browser_runtime/`, materialized to `~/.yoke/browser-runtime/` (`yoke_harness.browser_*` / `yoke_core.domain.browser_*`). Harness adapters: `runtime/harness/{harness-id}/`; Codex via `.codex/hooks.json` and `codex app <repo>`.
-- Machine config `~/.yoke/config.json`; the machine id it carries is registered in the control-plane `machines` row that every relay poll, launch, plan-limit and surface-policy row names, and whose `access` document decides which actors may spend that machine's capacity (`yoke machine list|show|register|settings`, [`docs/machine-registry.md`](machine-registry.md)); project surfaces `.yoke/`; docs `docs/`; design specs in `items.design_spec`. Hook sources: `runtime/harness/claude/settings.json` materialized at `.claude/settings.json`, plus `runtime/harness/codex/hooks.json` through the `.codex` link.
-
-## Teaching-model upkeep
-
-Read `docs/teaching/README.md` when planning and before finishing a change to
-what Yoke teaches. Review the affected concept, surface and scenario records;
-keep stable ids, distinguish current evidence from desired behavior, and name
-the owner and evidence for unfinished teaching. Commit model changes in the
-item's own lane and report changed node ids. Build the views with
-`yoke dev run -- python3 docs/teaching/tools/build.py`, then run it with
-`--check`; generated `views/` stays untracked. Steering connects the affected
-gaps to existing work or files the necessary item. Strategy changes use the
-README's fresh registered-read reconciliation recipe.
-
-The model belongs to this source repository and never ships as a requirement
-for installed projects. A consumer project requests model changes through a
-linked Yoke item naming exact node ids, desired changes and evidence, preserving
-private evidence behind its authorized access. This contributor procedure is
-separate from the public teaching standard and receiving-context delivery proof.
-
-## Product code never branches on a project name
-
-Product code runs for every install, so it reads the declared fact a project
-name would stand in for: a capability or environment setting, the
-installation's self project, or a property of the checkout.
-`HC-project-name-literal` scans for the registered project names in
-comparisons, project keywords, constants, dict entries, project-named calls
-and returns, SQL parameters, and SQL slug tests. A legitimate remaining site
-carries a named allowance in
-`yoke_core.domain.lint_project_name_literal_allowances`; a site whose
-replacement is in flight is listed as pending and reported as WARN; an
-allowance that no longer matches fails the check.
-
-## Writes inside a caller's transaction
-
-A function that can run on a caller's open transaction (`commit=False`, or a
-borrowed `conn=`) never commits or rolls it back: a full rollback discards the
-caller's earlier writes while the caller reports success. Wrap the function's
-own writes in `yoke_core.domain.db_savepoint.savepoint(conn, name, owns=...)`.
-With `owns=False` an error rolls back only the savepoint and re-raises; a
-savepoint that has disappeared raises `SavepointLostError` (`savepoint_lost`)
-rather than being absorbed. A best-effort step that catches its own failure
-re-raises `SavepointLostError` before its broad `except`. A refusal returned
-without raising rolls back only when the function owns the transaction.
-
-## Source-dev doctrine
-
-### Direct database authority for source development and operators
-
-Discover configured connections with `yoke env list`. HTTPS `prod` owns normal
-registered operations. The paired `prod-db-admin` connection administers that
-same control plane directly; every real durable record stays on prod, including
-stage-targeted release and rehearsal receipts. Stage is disposable test state.
-
-When a sanctioned operator row repair has no domain command, use
-`yoke operator data-repair --content-file repair.json --reviewed-sha256 SHA --dry-run`
-from the released CLI in a session holding a live steering seat on the
-document's project, acting for an org administrator, once the operator has
-approved the digest. Review the simulation audit, then omit `--dry-run` to apply the same
-reviewed document. No item or source lane is required. The
-[repair contract](public/databases/operator-data-repair.md) owns document guards and
-durable evidence. Raw query is read-only. Schema and broader data changes
-still require migration history and rehearsal.
-For a function the serving API predates, use an existing served command or the
-paired authority only when the operator already holds this control plane.
-
-Only source-dev/admin setup creates these machine-local profiles:
+If run creation needs a merged fix the serving API predates, steering may bootstrap creation from
+a clean checkout at that exact reviewed commit with its own green CI run. Use the explicit
+launcher script, not a `yoke` console entrypoint. Run it with `deployment-runs create --help`
+first: it must print `source authority: explicit operator opt-in`. Keep the same idempotency key
+on retries. Workers report the need to steering; they do not run it.
 
 ```text
-yoke dev db-admin setup prod --control-plane-env prod --yes
-yoke dev db-admin setup stage --project P --database MODEL --yes
-yoke dev db-admin exec P-stage-MODEL-db-admin --dsn-var APP_DSN -- <command>
-```
-
-Control-plane setup reads `current_database()` through the exact named HTTPS
-connection's tenant route; deploy environment settings supply stack, region,
-endpoint, and secret ARN, not the tenant database identity. Project database
-setup instead reads the `migration_model` declaration's `authoritative_db`
-(`database_name`, `endpoint_output`, `secret_arn_output`) and the environment's
-stack, bastion, and region. Profiles store only the managed secret ARN. `exec`
-resolves that secret through the project's `aws-admin` capability, opens the SSH
-forward, and passes the DSN to one subprocess. Never print, log, or store the DSN;
-named refusals identify the missing profile, capability, secret, or connection
-and its recovery. Product setup does not create these operator profiles.
-
-Rehearse Yoke migrations from the claimed lane through the paired authority:
-
-```text
-yoke --env prod-db-admin dev run -- yoke migration rehearse PREFIX-N
-```
-
-With multiple claimed lanes, select the migration's worker:
-
-```text
-yoke --env prod-db-admin dev run --lane <registered-worker-path> -- yoke migration rehearse PREFIX-N
-```
-
-Rehearsal validates that source root as the item's active registered lane
-under the caller's matching item/task work claim, then uses that exact tree.
-`rehearsal_source_lane_invalid` names the failed binding and claim recovery.
-Without a source binding, the ordinary item-lane default still wins over cwd.
-
-The item and durable lease/audit receipts live on prod. Migration code runs only
-against the separately bound disposable validation database, whose live cluster
-and database identity must differ from the authority. Preserve each
-environment's fleet-preflight receipt and the rehearsal's
-`LIVE_DB_MIGRATION:<model>` hold, which the item's merge landing releases.
-Yoke self-deploys use the same paired authority because they replace the API
-that otherwise serves run state. Follow the release-pair rule below and the
-steering skill's source-dev delivery guide; ordinary projects deliver over HTTPS.
-
-Tenant-fleet content-identity adoption is also an attested operator operation:
-
-```text
-python3 -m yoke_core.tools.adopt_migration_content_identity stage-db-admin \
-  --wheel <attested-yoke-core-wheel> \
-  --manifest <attested-migration-history.json> \
-  --release-evidence <attested-migration-history-record.json> \
-  --repository owner/example-project --source-commit <full-commit> \
-  --manifest-sha256 <sha256> --adopted-by operator:<name> --prepare
-```
-
-Select the fleet's configured admin environment, then authenticate the exact
-wheel, manifest, and release record before opening any database. Missing or
-mismatched attestation refuses; retain the secret-free identity receipt.
-Evidence writes from admin connections relay to their configured HTTPS evidence
-plane so hosted reviewers can open captures. GitHub status and local merge
-authorization likewise prove through that paired HTTPS plane.
-
-### Source execution and release rules
-
-`yoke dev run -- <command>` creates a disposable copy of machine settings, secrets and
-referenced machine-home files before source probes or commands execute. Source
-writes stay in that private home; it is removed when the run exits. The named
-`--allow-real-machine-home` flag explicitly permits real machine-home writes.
-Installed-release commands retain their normal machine home. The
-[source command guide](testing-verification/source-development.md) owns snapshot
-contents, connected-environment selection and failure recovery.
-
-Ordinary run creation, composition validation and takeover use HTTPS `prod`,
-including production-targeted runs. Only the production `watch deploy`/execute
-driver needs paired `prod-db-admin` when it replaces the API serving its own
-control plane, so creating such a run over HTTPS refuses on a machine without
-that paired connection: nobody there could drive it. Both connections address the same prod records.
-
-If run creation itself needs a merged correction that the serving API predates,
-the control-plane operator can bootstrap creation from that verified source
-checkout through the existing explicit operator launcher and paired authority.
-This launcher requires no item lane:
-
-```text
-source_checkout=/absolute/source/checkout
-env YOKE_SOURCE_DEV=1 YOKE_HOME="$source_checkout" \
-  "$source_checkout/.venv/bin/python3" \
-  "$source_checkout/packages/yoke-core/src/yoke_core/tools/yoke_launcher.py" \
+c=/absolute/source/checkout
+env YOKE_SOURCE_DEV=1 YOKE_HOME="$c" "$c/.venv/bin/python3" \
+  "$c/packages/yoke-core/src/yoke_core/tools/yoke_launcher.py" \
   --env prod-db-admin deployment-runs create yoke FLOW --environment prod \
   --source-ref FULL_SHA --idempotency-key KEY
 ```
 
-Use a clean checkout at the exact reviewed, merged commit with its own
-successful branch CI run and its locked source environment. First use this
-same launcher prefix with `deployment-runs create --help`; it must print
-`source authority: explicit operator opt-in` naming that checkout. A uv console
-entrypoint named `yoke` may ignore the opt-in, so use the explicit script.
-`dev run` selects a claimed lane and is not this itemless operator route.
-Pass this checkout's full verified commit as `FULL_SHA`. The registered
-creation command retains candidate, source, membership, target,
-lineage, custody and live-driver checks. Review its named recovery and receipt
-before driving anything. Creation runs before the normal driver's candidate
-re-exec, so the driver's re-exec alone cannot repair a creation-time reader.
-Keep the intended idempotency key on retries. Workers report this route and
-its focused regression evidence to steering; steering reviews and executes it.
-No cancellation, historical QA rewrite or direct database repair is implied.
+## Code rules for this repo
 
-Build local teaching views from the mapped main checkout with
-`yoke dev run -- python3 docs/teaching/tools/build.py`. This registered scanner
-needs no work claim and writes only ignored output; `--check` validates in memory
-and `--live` also writes ignored live pages. Edit the model in a claimed lane.
+- Product code never branches on a project name. Read the declared fact instead.
+  `HC-project-name-literal` enforces it; allowances live in
+  `yoke_core.domain.lint_project_name_literal_allowances`.
+- A function that runs on a caller's transaction (`commit=False` or a borrowed `conn=`) never
+  commits or rolls back. Wrap its writes in `yoke_core.domain.db_savepoint.savepoint`, and re-raise
+  `SavepointLostError` before any broad `except`.
+- Repo-tree writers take an explicit `target_root` and call the workspace-authority guard. Add new
+  writers to `IN_SCOPE_WRITERS`. Owner: [harness substrate](harness-substrate.md).
+- A Bash-capable agent needs a `*_agent` packet role and marker pairs. Regenerate with
+  `agents.render.run`, check with `agents.render.check`. Owner: [agents](agents.md).
+- When a Yoke-owned surface fails with `no such column`, `cannot import name` or
+  `unexpected keyword argument`, the same PR names the real surface in its
+  `schema_api_context_tables_*.py` entry with a `notes` clause naming the wrong guess.
+- Never export session env vars to self-bootstrap identity. Owner:
+  [session identity](session-identity-contract.md).
+- Scripts that import `runtime.*` live in-tree under `runtime/api/tools/`, never in `/tmp`.
+- Client packages (`yoke_contracts`, `yoke_cli`, `yoke_harness`) never import core helpers.
 
-Every Yoke self-release run — the stage run over HTTPS and the production run on
-paired `prod-db-admin` alike — re-execs its driver into the detached release
-commit, syncs runtime dependencies from that candidate's `uv.lock` and executes
-its checkout-owned Python, including when started by an older installed CLI. The
-fleet rehearsal therefore runs the migrations the release ships, and a release
-that adds a migration needs no pre-release local install. Before that re-exec the
-installed CLI reads only each `projects` entry's `checkout` and `project_id` from
-the raw machine config, so a release that changes the machine-config contract
-still locates its own source; the candidate validates the config under its own
-rules. Both direct execute and the deploy watcher use this preparation; failures
-name `DEPLOY-DRIVER-ENVIRONMENT` and the same-run recovery.
+## Repo layout
 
-The operator's installed CLI follows the machine's `active_env` — `prod` on an
-operator machine — never the `prod: true` marker, which only `*-db-admin`
-connections carry. That connection's relay re-execs into each release it
-observes its plane serving and, on that start, runs the official installer for
-exactly that release, recording the outcome in the relay log and
-`operator-cli-follow.json` in its state directory; relays for other envs leave
-the CLI alone. A CLI still behind warns once per command sent to the active
-env, naming that command.
-See [deployment start diagnostics](public/deployments/start-diagnostics.md).
+- Engine: `packages/yoke-core/src/yoke_core/`. `runtime/api/` and `runtime/harness/` hold tests,
+  fixtures and tools for the same packages. Resolve modules through the packet's `package_roots`.
+- Skills: `.agents/skills/yoke/`. Agents: `runtime/agents/`; adapters via `yoke agents render`.
+- Hooks: `runtime/harness/claude/settings.json` and `runtime/harness/codex/hooks.json`.
+- Machine config: `~/.yoke/config.json`; machines: [machine registry](machine-registry.md).
 
-Doctor's launcher check excludes only the source runner's temporary `.venv/bin`
-when its source-root marker matches the running interpreter prefix. It still
-checks persistent machine PATH shadows, login-shell resolution and hook commands;
-ordinary virtual-environment activation receives no exemption.
+## Review, teaching and cleanup
 
-- **Corrected release candidates.** A correction merged while an earlier Stage run is executing needs a new Stage/Production pair pinned to the corrected candidate; the old Stage receipt does not prove the new build.
-- **Environment behavior is declared, never inferred from the name.** Endpoints, QA execution gating, release membership, the paired admin connection, the warm-up serving connection, observability, and the production role live on that environment's settings document (`yoke projects environment-settings`). A missing declaration is a named refusal, not an empty mapping and not production behavior borrowed from a conventional name.
-- The generic runner is the source-dev `uv run --frozen python3 -m yoke_core.tools.run_tests` helper; use project-provided commands or the retained watcher wrappers when they are named in your packet. `uv run --frozen` makes a clean worktree use its locked development dependencies and its own source packages without requiring an activated virtualenv. Run `yoke dev ruff-changed --base <ref>` for changed-path lint; add `--fix-format` to write the formatting CI checks, or `--format-check` to only report it. `yoke dev import-check <module> ...` imports named modules from the lane and names the file that answered each one, which is the sanctioned shape for smoke-testing source you are editing. Both check commands accept `--lane <claimed-path>` or `--workdir <claimed-path>` to select the source checkout and its environment when this session owns several lanes. Detailed recipes: [`docs/testing-verification.md`](testing-verification.md).
-- The local verification default for Yoke code is the impacted selection: `yoke watch pytest --impacted main --bounded` (reverse-import + string-reference reachability over the branch diff, plus conftest fixture-use and function-registry dispatch edges and an always-run contract-test floor; `--impacted` reports an unbounded verdict instead of widening; `--bounded` is a no-op and `--widen` takes the local full sweep). **That selection executes on CI, not on this machine.** Yoke declares a `ci_workflow_file` capability, so `yoke watch pytest` and the generic runner behind it push the lane commit, dispatch `.github/workflows/yoke-tests-selection.yml` against it with the merge base the change is measured against, and adopt that run's conclusion as the verdict — the workstation serves sessions while CI runs tests. `--local` (or `YOKE_PYTEST_LOCAL=1` for a whole shell) is only a small targeted check expected to finish in about one minute, and every local run takes its xdist workers from one machine-wide budget. A remote run refuses an uncommitted tree and a checkout on the base branch (commit, then run on CI — uncommitted work does not justify `--local`), and drops `-n`/`--numprocesses`/`--rootdir`, which describe this machine. The registered full CI definition is `yoke watch pytest -- runtime/api/ runtime/harness/ tests/`. For full coverage, read `yoke qa requirement list --item PREFIX-N`, then run the attached `command-ci` case once with `yoke qa case run --requirement-id <id>`. Remote selection refuses redundant unfiltered full-root requests before push/dispatch when the registered full CI gate is available; targeted files/node IDs, nonempty `-k`/`-m` filters and collect-only remain valid. The three-anchor sweep belongs to that registered gate and ordinary CI; use an explicit `--local` full sweep only for a documented CI outage. Both shapes inject xdist `-n auto` unless `-n` is passed; a CI selection shard adds full CI's `--dist loadfile --no-loadscope-reorder`. Use `-- -n 0` for sequential order-sensitive debugging. A CI failure on a test the impacted run skipped is a selector defect — see [`docs/testing-verification/full-suite-authority.md`](testing-verification/full-suite-authority.md) for triage and the one-full-execution contract.
-- Harness coverage is Python-owned under files such as `runtime/harness/test_hook_runner_runner.py`, `runtime/harness/test_hook_runner_telemetry.py`, `runtime/api/test_service_client.py`, and `runtime/api/test_sessions.py`. Never set `YOKE_DRY_RUN=1` in tests; the suites mock their own GitHub side effects.
-- **Hosted release flows are project-local; Platform owns promotion.** The bridge workflow runs only in `upyoke/yoke`; forks and other copies skip upstream hosted delivery. The active Yoke hosted routes are `yoke-hosted-stage-release-qa` (stage, after its engine revision is installed), `yoke-hosted-production-release-qa` (the normal production release), and `yoke-hosted-production-hotfix-release` (production hotfix). A referenced definition is immutable; changing a route creates a successor and disables its predecessor. The Yoke bridge allocates the annotated release tag, waits for the wheel and server-image factories, and dispatches Platform's single promotion boundary. Each promotion publishes the release only to its target environment's distribution index, so a wheel is resolvable only for an environment whose flow has run. It passes the registered `stage` or `prod` environment name resolved from the run's typed environment reference (the `{target_environment}` stage-input placeholder) unchanged through the Platform boundary. Each route uses a `warm-up` stage that pays the rolled box's cold start before the run reports success, so the first heavy relayed call after a release is not the operator's. Platform items use `platform-stage-commit-delivery-hosted`, `platform-prod-commit-delivery-hosted`, or `platform-prod-commit-hotfix-hosted` and dispatch the Platform train directly. Do not hand-create release tags, hand-edit `yoke-release-pin.txt`, or dispatch component deploy workflows as the normal path. **One Yoke release deploys both repos.** Every hosted route's `hosted-release` stage binds `consumer_sha` to Platform `main`'s tip as the run starts, and the bridge hands that exact commit to Platform's `yoke-release-promote.yml` as `proven_consumer_sha` — so a Yoke release ships Platform at whatever `main` pointed at when the run resolved the binding, and a Platform change merged before that moment is already live once the run succeeds. **Membership follows that code:** the run records the Platform commit it resolved, and start-time enrollment admits the delivery-ready PLAT items that commit carries as ordinary members — membership row, requirement snapshot, item-scoped QA wake, close-out — so a Platform item the Yoke release shipped is closed by the run that shipped it. No Platform-only run is needed to record a delivery that already happened. Still check the ordering: Platform work merged after the run resolved the binding is not in the recorded commit, did not ride, and genuinely needs its own run. Desired pin authority is `environments.settings.release.yoke_pin` on Platform's `yoke-api-stage` / `yoke-api-prod`; environment branches materialize the pin for builds. Promotion restores that materialization when deploy fails and records the desired pin only after success — verify with `yoke release-pin verify`. **That materialization push is a commit the release itself wrote,** so the bridge reads the correlated promotion attempt's immutable `promotion-receipt-RUN_ID-RUN_ATTEMPT` artifact and records its exact `platform_sha` against its own run (`yoke deployment-runs release-output record <run-id> --project platform --commit SHA --promotion-receipt-file PATH`) right after the pin receipt; a refused release-output record fails the bridge with the named refusal and receipt-only recovery, preserving the shipped result without repeating deployment; carried-work attribution reads that record for any commit no item claimed, which identifies it as recorded release output; unowned commits also ship freely as commits made outside Yoke. A Platform ref captured before a pin bump can still roll the engine backward; re-read the pin branch (or desired pin) after any Yoke release before starting a Platform run. **A release is not published until the hosted host has been built against it.** Each hosted-release stage declares an `input_bindings` map (`consumer_sha` bound from Platform `main`), resolved exactly once when the run starts — via a plain `git ls-remote` against Platform's registered checkout, or that project's authorized repository binding on a host holding no checkout, never a not-yet-served field of the release it is gating — and recorded on the run in `deployment_runs.bound_sources`. Every stage dispatch reads that recorded candidate, so a retry cannot drift. Served-identity QA instead requires the promotion attempt's verified deployed SHA, including no-ops; missing or mismatched promotion identity refuses before QA credit. Generic release-output callers retain their bound-source/output behavior. Before the bridge allocates the annotated tag — the first irreversible act — `runtime/api/tools/require_platform_consumer_compatibility.py` takes that exact `--consumer-sha` and dispatches Platform's existing required `platform-release-pin-check.yml` at the immutable tag `yoke-deploy/consumer-<consumer-sha>` (`yoke github-actions dispatch-tag ensure`, sessionless, riding the dispatch permission), so a moved `main` cannot change the workflow source. The check still refuses any result naming a different consumer commit. The main push of each merged commit already started this identical exact-pair request (`consumer-compat:<candidate>:yoke-deploy/consumer-<consumer>:platform-release-pin-check.yml`), overlapping main verification, the wheel and server-image factories and release preparation, so the release joins that run while it runs or after it passed; it dispatches again only when Platform `main` moved since the push (a different pair) or the joined run failed (the original dispatching identity retries it). Savings equal the actual overlap, not the whole proof. A refused tag (`consumer_dispatch_ref_unavailable` or `consumer_dispatch_ref_unverified`) names its recovery and dispatches nothing. It dispatches with `product_ref` set to the exact release commit, which redirects that check's build onto the candidate source instead of the pinned wheel, and adopts its conclusion — refusing when proof is missing, failed, or names no revision it proved. It then hands promotion the consumer revision it read, so promotion refuses to ship against a different one. Platform `main` can still move during the tag and factory waits, so right before dispatch `runtime/api/tools/promote_platform_release.py` re-reads it through `yoke github branch head main --since <proven> --project platform` (`github.branch.head`, served by the control plane's repository binding): unchanged hands on the proven revision; a descendant is proven again against the exact candidate and that head is handed on instead; a rewritten or rewound trunk refuses by name and needs a new deployment run. A promotion that refuses only because `main` moved again before it bound is re-followed and re-dispatched, at most twice; any other promotion failure is reported, never repeated. A control plane that does not yet serve the read leaves the proven revision unchanged with a `consumer_trunk_unread` warning. Platform's promotion-time check stays the final backstop. Every upstream PR, main push and manual candidate is checked earlier by the independent `consumer-compatibility-advisory.yml` workflow; merge-queue groups do not dispatch one. A main push or manual run passes `--exact-pair`: it reads Platform main once and starts the exact-pair proof above, in a per-commit concurrency group that a newer push never cancels. Start a manual exact-pair run of a branch head with `yoke github-actions trigger upyoke/yoke consumer-compatibility-advisory.yml --ref BRANCH --request-id ID --correlation-input yoke_dispatch_id --project yoke`. For a PR, `runtime/api/tools/consumer_compatibility_advisory.py` reads the candidate tree and Platform main commit once, then keys the advisory by that content pair. It recovers the first dispatch's original candidate input and run from the durable intent, verifies that candidate's tree, and joins the same run even after a rebase changes only the commit identity. Successful and failed evidence are reused; a different tree or consumer commit needs a new run. A main movement between reading and dispatch produces an unproven advisory instead of crediting a different consumer commit. No path filter can omit a PR. Missing scoped credentials or unavailable evidence report NOT CHECKED with recovery in the advisory's logs, warnings and job summary. Read the original request with `yoke github-actions dispatch-receipt get REQUEST-ID --project P --json` (`github_actions.dispatch_receipt.get`); retry dispatch with its original inputs, because a changed payload under the same key refuses. Until that read's serving floor lands, the advisory names the unavailable floor and asks the control-plane operator to serve it; the release bridge's existing proof remains usable. The read authorizes on `github_actions.run.read`, which the release identity's `deployment_ci` role carries; an engine serving below that grant refuses it as project admin, and the advisory reports `dispatch_receipt_unauthorized` asking the control-plane operator to serve a release carrying the grant — never grant project admin to a release identity. Required QA adopts only `yoke-ci.yml`'s conclusion, so advisory failure, cancellation, and timeout cannot turn required QA into an error or block landing. Job-level continue-on-error inside a reusable call cannot provide this isolation when the job times out. The scoped credential is bound to the single advisory step, and the job runs only in `upyoke/yoke`; forks and other copies skip this upstream hosted check. An upstream PR without the credential says the pair was not checked. Why: [`docs/archive/decisions/consumer-compatibility-before-contract-delivery.md`](archive/decisions/consumer-compatibility-before-contract-delivery.md).
-- **Control-plane connection authority.** HTTPS `prod` is normal product/API authority, including guarded human row repairs. `prod-db-admin` is the paired local-Postgres connection to the same universe for sanctioned source-dev/admin work. Raw queries are read-only. Ordinary creation, composition and takeover use HTTPS `prod`; creating a self-deploy run there needs the machine's paired `prod-db-admin` to drive it, or it refuses. Production execution through `watch deploy`/execute uses paired admin when it replaces the API serving this control plane; source-dev migration rehearsal also uses paired admin. The explicit source-operator creation bootstrap above applies only when the serving API predates a required creation correction. Ordinary projects deploy over their configured HTTPS connection. Neither Yoke nor Platform deploys from a branch push; Platform's deploy runbook owns the cross-repository release train.
-- **A release here is two concurrent runs on one lineage.** Stage and production start minutes apart and overlap for most of both runs. Stage drives on the HTTPS control-plane connection; production drives on the paired `prod-db-admin` connection. Create and validate both runs through HTTPS `prod`. Both share one commit that has its own `yoke-ci.yml` run: create the CI-gated production run without `--source-ref` so it binds the newest such commit on `main`, then pass that run's `release_lineage` as the stage run's `--source-ref` (stage refuses a missing lineage). Drive them together. That concurrency is correct here because this installation declares stage exists only to test the live control plane, and stage membership owes stage-targeted proof rather than production promotion. Both runs record on prod: stage item QA observes the deployed stage target; production remains final delivery authority, and done requires both obligations. An item owing stage QA rides the stage run even though the production half already holds it — production custody covers only the production target — and its stage proof closes against production because both runs pinned the same commit; a stage run on any other commit skips an item a production run holds, naming that commit, since proof there could never credit. Author item QA against production by default: a case targets stage only with a declared `stage_reason` (`creates_or_destroys_data` or `changes_infrastructure`), so read-only checks never enroll an item on the stage run. An item without a stage obligation stays off the stage run; when no item owes one, the stage run carries no member and its item-scoped QA stage passes with the named `item_qa_no_member_owes_target` result. Composition refuses a memberless item-QA run (`item_qa_run_without_members`) only when its flow is the completion flow for delivery-ready items no other release holds by landing custody — the production run, never the stage run — and dispatch and later stages re-ask it, failing closed. Activate the stage QA successor only after its engine revision is installed; the prior memberless definition remains disabled history. In a project where stage is a real pre-production gate carrying members, driving production alongside it would promote before stage verified anything.
-- **Stage identity for item QA.** The registered stage origin is `https://app.stage.upyoke.com`; its `qa.identity_path` is `/api/orgs/upyoke-stage-1/v1/health`. Configure these through `yoke projects environment update --project yoke --environment stage --url https://app.stage.upyoke.com` and `yoke projects environment-settings merge --project yoke --environment stage --set qa.identity_path=/api/orgs/upyoke-stage-1/v1/health` on prod. The endpoint must report the deployed candidate before stage item QA starts.
-- **Fleet migration preflight — one path, each model's declared fleet.** Run `yoke watch preflight -- --project <project> [--model <model>] <environment> [db ...] [--record-receipt ...]` (`--help` for the complete usage). The fleet each model declares in the project's `migration_fleet` capability decides what it rehearses ([`docs/public/databases/migration-fleet.md`](public/databases/migration-fleet.md)): Yoke's own model declares `engine_tenants`, so for `--project yoke` it converges a throwaway copy of every tenant database on a connected cluster through the real boot sequence, reads the live databases and nothing more, streams through the sentinel-aware unbuffered watcher, and exits with the preflight's status. The fleet is narrower than every Yoke-schema database on the cluster — the Platform catalog, abandoned scratch databases, and the validation database rehearsal applies history into and leaves behind are each owned by something other than a tenant — so the run rosters every candidate before copying any of them, naming member or not and why; read that roster rather than assuming the fleet. A `named_databases` model (Platform's `registry`) converges the databases it names through its own declared boot command, run from that project's checkout registered on this machine. The positional is the project's registered environment; the paired admin connection is that environment's `release.admin_connection` setting, not a name suffix. `--engine-wheel` is optional. `--record-receipt` writes the receipt the release gates read for the project environment whose fleet the positional named (one environment's receipt never satisfies another; `--receipt-env` names the control plane that records it, not the fleet; the receipt states whether it rehearsed the source tree or a wheel). The receipt is durable state, not telemetry: it lands on that environment's own `environments.settings` document under `release.fleet_rehearsal.<model>`, one leaf per covered history entry and one per covered schema-shape digest, each naming the rehearsal run whose identity sits beside them — so coverage cannot expire, coverage read for one environment can only ever have been written for that environment, and one model's coverage never stands in for a sibling model's. A receipt claims the model's whole declared fleet, so a run narrowed to named databases cannot record one. The release dispatch rehearses exactly the release commit's code: a named-database fleet from a disposable checkout of that commit, the engine fleet only after proving the dispatching engine identical to it. A receipt is stale for an environment when that environment's document does not record something the release commit carries — a history entry name or the schema-shape digest — never merely because the shape moved: a data-only entry rewrites rows without moving the shape at all, and it is the entry rehearsal exists for. Every project's release dispatch runs the rehearsal itself when it finds either uncovered, so the two gates decide on the same axis. Both release gates read it through the registered `projects.environment_settings.get` projection, which authorizes on the project read, so a deploy identity that lacks that permission is told it cannot check rather than told the build is unrehearsed. Why each rule exists: [`docs/archive/decisions/workflow-definitions-are-universe-data.md`](archive/decisions/workflow-definitions-are-universe-data.md) (canonical-serializer drift caused a fleet-wide boot refusal), [`docs/archive/decisions/fleet-preflight-release-gate.md`](archive/decisions/fleet-preflight-release-gate.md) (why the release gate stops the release instead of the fleet), [`docs/archive/decisions/ordered-cumulative-migrations.md`](archive/decisions/ordered-cumulative-migrations.md) (the stage-fleet outage both gaps caused together).
-- **Consumer proof belongs to release.** Item merges do not require a separate consumer build or verification-only
-companion. The existing release bridge runs `platform-release-pin-check.yml`
-with `product_ref` against the bound Yoke/Platform commit pair before tagging.
-A failed pair reports the producer interval since the prior annotated release
-and item references from its commit subjects. Inspect that range and the
-consumer job before assigning the fix; attribution is not a proven single
-culprit. Consumer code changes still need a linked companion.
-
-- **Substrate names — read the packet, don't restate.** The `harness_id` enum, the function-call dispatch entrypoint, and the request/response models are rendered by the `main_agent` (and `*_agent`) packets at session start; read them there. Regenerate via `agents.render.run`; check drift via `agents.render.check`.
-- **Same-PR packet teaching on Yoke-surface gap failures.** When an agent in a Yoke `/yoke` work item hits a `no such column`, `cannot import name`, or `unexpected keyword argument` failure against a Yoke-owned surface (any `runtime.api.*`, `runtime.harness.*`, or a Yoke DB table / column / Python helper), the SAME PR that observes the failure ships the matching packet teaching: name the real surface in the relevant `schema_api_context_tables_*.py` entry AND add a `notes` clause that names the wrong guess the agent made. The seed catches the gap; the packet rendering surfaces the canonical name to the next agent.
-- **Layer-explicit packet names.** Every LLM-facing packet role uses an `*_agent` suffix: `main_agent` (top-level session) plus the five Bash-capable subagents `architect_agent`/`engineer_agent`/`tester_agent`/`simulator_agent`/`boss_agent`. The substrate manifest contract (hooks, identity, cwd binding, render format, supported commands, parity limits) is documented separately as `harness_contract` in [`docs/harness-bootstrap.md`](harness-bootstrap.md) + [`runtime/harness/manifest-schema.md`](../runtime/harness/manifest-schema.md) — deliberately NOT a `schema_api_context` role.
-- **Tier-discipline doctrine.** The seven teaching tiers and their backstop HCs (`HC-tier-schema-bleed`, `-tier-cli-shape-bleed`, `-packet-tier-completeness`, `-progressive-disclosure-direction`, `-tier-module-path-resolution`) are documented at [`docs/archive/decisions/teaching-tier-discipline-audit.md`](archive/decisions/teaching-tier-discipline-audit.md).
-- **Subagent DB context:** Role prompts carry generated `<!-- YOKE:DB-PACKET role=<role>_agent topic=T … -->` marker pairs filled by `schema_api_context`. Main startup uses `main_agent_packet` and the role's needed-here composition. Read `yoke packets render --role ROLE --topic T --detail full` for authoritative schema/recipe depth before a diagnostic action; never hand-copy a cheat sheet or infer schema from skill prose. Regenerate through `agents.render.run`, check with `agents.render.check`. Portable holder lookup is `yoke claims work holder-get PREFIX-N`; source-only `python3 -m yoke_core.hooks.sessions_cli who-claims <item-id> --current-episode` distinguishes current/inherited/unknown episode scope and its boundary. Typed claims use `target_kind` and exactly that kind's canonical `scope` keys, not specialized columns. The packet owns the complete live kind list; drift gates reject stale owner/claim/session guesses.
-- **Bash-capable ⇒ packet-capable.** Granting Bash to an agent requires a `*_agent` packet role in `seed.ROLE_TOPICS` + marker pairs in its prompt. Product Manager and Product Designer stay non-Bash by design (tools: `Read, Grep, Glob`; orchestrators pass them context via dispatch prompts) — if they ever gain Bash, they gain packet roles in the same slice. Canonical bodies may carry harness-conditional blocks `<!-- YOKE:HARNESS <id> … -->`; the renderer (`agents_render_conditional`) keeps the matching harness id and elides the rest (known ids `claude`/`codex` from one constant; nested/orphan/unknown surface via `HC-harness-substrate-drift`). Use these to fence primitives a harness does not declare (`Monitor`, `Bash(run_in_background)`, `ScheduleWakeup`, `TaskOutput`, `TaskStop`, `PreToolUse`) so the wrong-harness adapter never inherits them — check `agent_wake` in the target manifest rather than assuming a wake primitive is Claude-only.
-- **Workspace-anchored writers.** Repo-tree writers (renderers/generators landing tracked files under `runtime/` or `docs/`) MUST take an explicit `target_root: Path` kwarg; resolving the target from ambient cwd (`git rev-parse`, `Path.cwd()`, bare relative consts) in the hot path is forbidden. Only the CLI resolves `target_root` (`--target-root`/`$YOKE_RENDER_TARGET_ROOT`, else repo-root helper when no anchor and not in a worktree). Primary guard: `workspace_authority.assert_target_under_session_work_authority(target)` — reads the session's live `work_claims`, refuses targets outside the claimed worktree/allowlist (replaced the stale `$YOKE_BOUND_WORKSPACE` snapshot). Tracked-source writers call it before writing; `HC-workspace-anchored-writer-authority` enforces against the canonical `IN_SCOPE_WRITERS` list (`.yoke/doctor/check_workspace_anchored_writer_authority.py`) — add new writers there. Untracked generated-view writers (e.g. `rebuild_board.rebuild_one`, which renders project-local `.yoke/BOARD.md` on explicit request) are out of scope (refusing them would break `yoke board rebuild`) but still call `assert_seed_source_under_target_root(...)` to catch a seed/schema module loaded from a different checkout than `target_root`. Legacy cwd check: lint `lint_workspace_cwd_match.py`.
-- **Session identity resolution:** ambient session id resolves automatically — `$YOKE_SESSION_ID` first, then the channels belonging to the harness family this process actually runs under: that family's own session env vars, the hook-written process-anchor registry, and for Cursor the hook-written conversation mapping (`session_ambient_identity`). The owning family is the nearest harness ancestor in the process tree, because every harness session env var is inherited by whatever that harness starts — so a harness launched from inside another harness's shell resolves to its own session, or to nothing when its own channel is out of reach, never to its launcher's. The anchor walk stops at a harness process that hosts many conversations under one pid, on the read side as well as the write side: an anchor above such a host names a *different* session, and resolving through it would act with that session's authority. A harness that neither stamps the env chain nor can be anchored identifies through the conversation mapping instead; never export session env vars to self-bootstrap (`actor_session_missing` inside a harness = infrastructure bug, report it; from a plain terminal the same refusal names the harness-session path instead, and the operations a person runs before any session exists are session-optional by declaration — `terminal_reachable_functions`). Actor id = `harness_sessions.actor_id` keyed by `session_id`, and authority follows the person: a session a person opened binds that person, while a session another session LAUNCHED binds the launching actor transitively (the launch's `requester_actor_id`, read at registration through the authenticated launch side channel, outranks both the machine's OS login and a relay's bearer token; an unreadable launch refuses registration rather than falling back to either). Every action one session takes on another — message, wake, keep-alive, terminate, launch — writes a `SessionActionPerformed` row into the TARGET session's history carrying the ACTING actor (`yoke events query --session <target> --event-name SessionActionPerformed`), and is role-checked against the target's project by `session_action_authority`: project membership to message, wake, hold alive, or terminate a launched worker; project owner or org admin to terminate another actor's interactive session, with refusals naming the actor, the roles it holds, and the action (`docs/archive/decisions/session-actor-follows-the-person.md`). No `get_active_session_id` exists — pass `{"session_id": ...}` alone; dispatcher fills actor_id server-side; `--session-id` = operator-debug override. Scripts importing `runtime.*` live in-tree (`runtime/api/tools/<name>.py`), never `/tmp`; or `pip install -e .` once (`lint_python_runtime_import_in_tmp.py`). Core shell compatibility tools use `yoke_core.domain.json_helper` for JSON and `yoke_core.domain.yaml_helper` for YAML. Client packages (`yoke_contracts`, `yoke_cli`, `yoke_harness`) must not import core helpers; use their existing standard-library JSON parsing. The package boundary is enforced by `tests/import_graph/test_skeletons_importable.py`.
-- **Worktree-dev (editing Yoke itself):** ordinary `yoke` runs the installed released CLI, including fleet and steering commands. The source launcher resolves the immutable CLI launcher under the uv tool directory, runs its release with isolated Python and refuses missing or source-bound releases. Install the release with `curl -fsSL https://upyoke.com/install | sh`, then repair the source launcher from the registered main checkout with `python3 -m yoke_core.tools.install_yoke_launcher --repair`. `YOKE_HOME` only selects a source root when an operator explicitly runs `YOKE_SOURCE_DEV=1 yoke <command>`; keep that opt-in per command. Bare `python3 -m ...` follows its interpreter's install. Before merge, run direct lane-source commands through `yoke dev run -- <command>`; it derives every source root from the claimed checkout, runs there regardless of caller cwd on its declared locked .venv, validates the lock/environment without syncing, reports Python/environment identity and all Yoke package and `runtime` import origins, and refuses partial or outside-tree resolution. A nested `yoke <subcommand>` binds too: dev run executes the CLI on the interpreter whose origins it just reported rather than handing the command to the installed launcher, which would resolve the released CLI — so pre-merge `yoke dev run -- yoke watch qa-case -- --requirement-id N` verifies lane code. Inside a post-deploy Command case, run `yoke watch pytest -- <test paths>` directly: the QA runner supplies candidate cwd and the watcher binds it to source. Candidate-bound commands export `YOKE_QA_CANDIDATE_TREE` (JSON root and head_sha), and source wrappers refuse switching to a different root. Candidate-bound Yoke cases bind bare `python3` and `yoke` to candidate packages using the shared source resolver and a temporary Python CLI launcher. The runner records import origins before and after execution; missing or outside-candidate origins record a `QA-CANDIDATE-IMPORT-ORIGIN` refusal instead of a pass. Lane, external-project, and endpoint-only `--allow-tree-mismatch` cases retain product imports. The `watch_pytest`/`run_tests` wrappers already self-bind through the same `yoke_core.tools._source_pythonpath` resolver. Yoke control-plane authority is Postgres; use registered `yoke <subcommand>` surfaces for state access, and treat the retired `worktree paths db` mode as a refusal guard rather than a connection recipe. To look at a lane's UI — or to give a pre-merge Browser case a target that can prove which commit it serves — run `yoke dev run -- python3 -m runtime.api.tools.serve_workbench_for_review`: it starts a second server from the claimed checkout, prints a token-free URL and opens private browser admission from a human terminal. Automated review supplies an explicit fixture token with `--token`; keep it in the browser admission request, not output. Agents or unavailable browsers receive a named reason and human-terminal recovery. The tool leaves the machine's own `yoke ui` daemon serving the installed build untouched, and publishes that checkout's commit at `/served-build`, which is what `yoke qa case run --expected-branch/--expected-sha` asks the target for. Commit first: an uncommitted tree publishes `<sha>-dirty` and fails that match closed. To review the workbench a self-hosted server serves itself, browser sign-in included, run `yoke dev run -- env YOKE_ENV=render-proof python3 -m runtime.api.tools.serve_self_host_workbench_for_review`: it serves the claimed checkout as a Yoke server on a port it picks, with sign-in pointed at an in-process provider that approves without a login screen, and prints the sign-in URL that lands a browser on the workbench as the review universe's operator actor.
-
-Isolated-home candidate Command cases also use `yoke watch pytest -- <test paths>`.
-Preserve `YOKE_QA_CANDIDATE_TREE` and the runner's `YOKE_QA_SOURCE_ENVIRONMENT`
-and the shared test-resource paths `YOKE_PG_CLUSTER_ROOT` and `YOKE_PG_BIN_DIR`
-when replacing `HOME` and `YOKE_MACHINE_HOME`: the watcher reuses the recorded
-declaration without a connection, while still checking the candidate lock,
-interpreter and imports. The [source command guide](testing-verification/source-development.md)
-owns handoff refusal and recovery.
-
-- **Render-proof setup:** select the registered disposable local connection before setup: `yoke dev run -- env YOKE_ENV=render-proof python3 -m runtime.api.tools.serve_workbench_for_review --prepare-only`. This runs the API boot convergence (additive schema plus permanent migration history) before seeding; starting the same tool without `--prepare-only` converges again before serving. Never initialize a render universe with the relaxed unit-test fixture DDL or a copied schema-init sequence. Remote and prod-flagged connections refuse before database access; convergence failure prevents the review server from starting. Existing universes keep their data and the history retains its restore-point requirements.
-
-The engine fleet gate also runs the post-boot sessions/frontier/board/launch/message-attempt/item readers on each converged copy. The copy admission covers them through cleanup; reader refusals fail the release gate. [The fleet contract](public/databases/migration-fleet.md) owns diagnostic-only exclusions.
+- Serve a lane's UI: `yoke dev run -- python3 -m runtime.api.tools.serve_workbench_for_review`.
+  Commit first; a dirty tree fails the served-commit match. With `env YOKE_ENV=render-proof`,
+  add `--prepare-only` to prepare a render universe. Self-hosted sign-in review uses
+  `serve_self_host_workbench_for_review` the same way.
+- Teaching model: read `docs/teaching/README.md` before changing what Yoke teaches. Build with
+  `yoke dev run -- python3 docs/teaching/tools/build.py` and `--check`.
+- Worktree cleanup: [worktree cleanup](source-dev-worktree-cleanup.md).
+- `origin/cla-signatures` is permanent governance state. Never delete, force-push, reset, prune or
+  protect it.

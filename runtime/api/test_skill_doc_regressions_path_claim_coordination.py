@@ -43,6 +43,7 @@ IDEA_INFER_AND_CREATE = SKILLS / "idea" / "infer-and-create.md"
 REFINE_SURVEY_AND_FOCUS = SKILLS / "refine" / "survey-and-focus.md"
 REFINE_READINESS_REPAIR = SKILLS / "refine" / "readiness-repair.md"
 AGENTS_MD = REPO / "AGENTS.md"
+CLAIMS_HOME = REPO / "docs" / "public" / "agents" / "rules" / "lanes-and-claims.md"
 
 
 DOCS_WITH_COORDINATION_GUIDANCE = (
@@ -51,7 +52,7 @@ DOCS_WITH_COORDINATION_GUIDANCE = (
     IDEA_INFER_AND_CREATE,
     REFINE_READINESS_REPAIR,
     REFINE_SURVEY_AND_FOCUS,
-    AGENTS_MD,
+    CLAIMS_HOME,
 )
 
 
@@ -75,7 +76,9 @@ class TestPathClaimBlockingClassificationFirst:
         # the doc now requires. It must come AFTER the first
         # coordination_only mention.
         activation_index = text.find("--gate-point activation")
-        assert coord_index >= 0, "coordination_only must be taught in path-claim-blocking.md"
+        assert coord_index >= 0, (
+            "coordination_only must be taught in path-claim-blocking.md"
+        )
         assert activation_index >= 0, (
             "explicit --gate-point activation example must be present so "
             "the default isn't silently activation"
@@ -108,14 +111,17 @@ class TestPathClaimConflictDocsRequireExplicitGatePoint:
     `items dependency add YOK-A YOK-B idea` shape that silently defaults to
     activation."""
 
-    @pytest.mark.parametrize("doc", [
-        PATH_CLAIM_BLOCKING,
-        IDEA_BODY_AND_SYNC,
-        IDEA_PATH_CLOSURE,
-        IDEA_INFER_AND_CREATE,
-        REFINE_READINESS_REPAIR,
-        REFINE_SURVEY_AND_FOCUS,
-    ])
+    @pytest.mark.parametrize(
+        "doc",
+        [
+            PATH_CLAIM_BLOCKING,
+            IDEA_BODY_AND_SYNC,
+            IDEA_PATH_CLOSURE,
+            IDEA_INFER_AND_CREATE,
+            REFINE_READINESS_REPAIR,
+            REFINE_SURVEY_AND_FOCUS,
+        ],
+    )
     def test_no_bare_dependency_add_block(self, doc):
         """A multi-line `items dependency add` invocation must always carry
         `--gate-point` in the same code block. The pattern we forbid is
@@ -132,7 +138,7 @@ class TestPathClaimConflictDocsRequireExplicitGatePoint:
                 continue
             # Look at this line plus a small forward window for the
             # --gate-point flag.
-            window = "\n".join(lines[idx:idx + 6])
+            window = "\n".join(lines[idx : idx + 6])
             if "--gate-point" in window:
                 continue
             pytest.fail(
@@ -170,15 +176,18 @@ class TestNoAmbiguousDepEdgeWording:
     naming the gate-point classification) is the regression vector this class
     pins against."""
 
-    @pytest.mark.parametrize("doc", [
-        PATH_CLAIM_BLOCKING,
-        IDEA_BODY_AND_SYNC,
-        IDEA_PATH_CLOSURE,
-        IDEA_INFER_AND_CREATE,
-        REFINE_READINESS_REPAIR,
-        REFINE_SURVEY_AND_FOCUS,
-        AGENTS_MD,
-    ])
+    @pytest.mark.parametrize(
+        "doc",
+        [
+            PATH_CLAIM_BLOCKING,
+            IDEA_BODY_AND_SYNC,
+            IDEA_PATH_CLOSURE,
+            IDEA_INFER_AND_CREATE,
+            REFINE_READINESS_REPAIR,
+            REFINE_SURVEY_AND_FOCUS,
+            AGENTS_MD,
+        ],
+    )
     def test_no_unqualified_dep_edge_via_dependency_add(self, doc):
         text = _read(doc)
         # The forbidden shape is the literal "dep-edge via
@@ -189,7 +198,7 @@ class TestNoAmbiguousDepEdgeWording:
             re.IGNORECASE,
         )
         for match in ambiguous.finditer(text):
-            window = text[match.start():match.start() + 250]
+            window = text[match.start() : match.start() + 250]
             if "--gate-point" in window or "coordination_only" in window:
                 # The doc qualifies the dep-edge with gate-point or
                 # coordination classification — not a regression.

@@ -10,7 +10,6 @@ AGENTS = ROOT / "runtime" / "agents"
 SKILLS = ROOT / ".agents" / "skills" / "yoke"
 
 ASSUME_READER_PHRASE = "Assume future readers of the codebase will NOT have"
-CURRENT_FUNCTION_PHRASE = "current function, purpose, mechanics"
 
 
 def _read(path: Path) -> str:
@@ -19,10 +18,10 @@ def _read(path: Path) -> str:
 
 def test_root_and_shared_prompt_doctrine_teach_codebase_reader_naming() -> None:
     agents_text = _read(ROOT / "AGENTS.md")
-    assert "Codebase-reader naming" in agents_text
-    assert ASSUME_READER_PHRASE in agents_text
-    assert "Planning artifacts are scaffolding" in agents_text
-    assert CURRENT_FUNCTION_PHRASE in agents_text
+    assert "Name code for what it does now" in agents_text
+    code_home = _read(ROOT / "docs" / "public" / "agents" / "rules" / "code-and-cli.md")
+    assert "Codebase-reader naming" in code_home
+    assert "for a reader who has only the repository" in code_home
 
     prompt_text = _read(ROOT / "docs" / "prompt-philosophy.md")
     assert "future codebase readers" in prompt_text
@@ -112,7 +111,9 @@ def test_codebase_reader_rule_enumerates_full_provenance_token_set() -> None:
     """The master rule must explicitly name every purged provenance class, so a
     future agent cannot read it and think tiers, stages, slices, waves, field-notes,
     work-item/epic refs, or functional requirements are exempt."""
-    agents_text = _read(ROOT / "AGENTS.md")
+    agents_text = _read(
+        ROOT / "docs" / "public" / "agents" / "rules" / "code-and-cli.md"
+    )
     marker = "Codebase-reader naming"
     assert marker in agents_text
     start = agents_text.index(marker)

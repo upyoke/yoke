@@ -52,7 +52,6 @@ def test_choreography_remediation_teaches_full_body_shape() -> None:
     assert '--section "## File Budget"' in text
     assert "yoke items get PREFIX-N spec" in text
     assert "yoke items get PREFIX-N body --full" in text
-    assert "saved response file" in text
     assert "render_body" not in text
     assert "yoke_function_dispatch.dispatch" not in text
 

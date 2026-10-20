@@ -104,7 +104,7 @@ def format_reason(
         "the parent orchestrator for a tighter dispatch scope. Growing "
         "the budget to fit a self-armed background pattern is not a "
         "workaround. See `runtime/harness/claude/rules/session.md` "
-        "`## Tool Constraints` for the full rule."
+        "`## Long commands and waits` for the full rule."
     )
     text = f"{verb}: " + body + guidance
     if suppressed:

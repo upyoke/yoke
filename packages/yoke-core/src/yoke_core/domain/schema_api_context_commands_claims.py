@@ -9,8 +9,9 @@ from __future__ import annotations
 
 CLAIMS_COMMANDS: list[dict] = [
     {
+        "startup_roles": ("engineer_agent", "tester_agent", "architect_agent"),
         "topic": "claims",
-        "purpose": "Lookup live claim holder for an item",
+        "purpose": "Live claim holder",
         "recipe": ("yoke claims work holder-get PREFIX-N"),
         "notes": (
             "Registered read surface (function id "
@@ -29,7 +30,7 @@ CLAIMS_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent", "engineer_agent", "tester_agent"),
         "topic": "claims",
-        "purpose": "Acquire a work claim (canonical agent shape — target variants)",
+        "purpose": "Acquire a work claim (item, epic task or process)",
         "recipe": (
             "yoke claims work acquire --item PREFIX-N "
             "--reason draft-in-progress\n"
@@ -90,9 +91,9 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent", "architect_agent"),
+        "startup_roles": ("architect_agent",),
         "topic": "claims",
-        "purpose": "Claim → mutate → release (generic plan-stage edit)",
+        "purpose": "Claim, edit, release",
         "recipe": (
             "yoke claims work acquire --item PREFIX-N --reason edit\n"
             "printf '%s' \"$NEW_CONTENT\" | yoke items structured-field "
@@ -129,24 +130,15 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent", "engineer_agent", "tester_agent"),
+        "startup_roles": ("engineer_agent", "tester_agent"),
         "topic": "claims",
-        "purpose": "Release a work claim + manual spec-rewrite pattern",
+        "purpose": "Release a work claim",
         "recipe": (
-            "# Canonical agent shape — release the calling session's "
-            "active claim:\n"
             "yoke claims work release --item PREFIX-N --reason TEXT\n"
             "yoke claims work release --claim-id <id> --reason TEXT\n"
             "yoke claims work release --epic PREFIX-N --task-num K "
             "--reason TEXT\n"
-            "yoke claims work release --all-mine\n"
-            "# Manual spec-rewrite pattern (acquire → edit → release):\n"
-            "yoke claims work acquire --item PREFIX-N "
-            "--reason rewrite-in-progress\n"
-            "yoke items structured-field replace PREFIX-N --field spec "
-            "--stdin < PATH\n"
-            "yoke claims work release --item PREFIX-N "
-            "--reason rewrite-complete"
+            "yoke claims work release --all-mine"
         ),
         "notes": (
             "The acquire → structured-field replace → release sequence "
@@ -158,7 +150,7 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent",),
+        "startup_roles": (),
         "topic": "claims",
         "purpose": (
             "Release a work claim when this session is ending and a "
@@ -183,7 +175,7 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent",),
+        "startup_roles": (),
         "topic": "claims",
         "purpose": (
             "Controlled handoff to a fresh session (Progress Log "
@@ -226,6 +218,14 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": (
+            "main_agent",
+            "engineer_agent",
+            "tester_agent",
+            "architect_agent",
+            "simulator_agent",
+            "boss_agent",
+        ),
         "topic": "claims",
         "purpose": "List path claims for an item",
         "recipe": ("yoke claims path list --item PREFIX-N"),
@@ -236,13 +236,10 @@ CLAIMS_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent", "architect_agent"),
         "topic": "claims",
-        "purpose": "Register a path claim (canonical agent shape)",
+        "purpose": "Register a path claim",
         "recipe": (
-            "yoke claims path register \\\n"
-            "  --item PREFIX-N \\\n"
-            "  --paths <project-source-path>/path_claim_targets.py,"
-            "<project-test-path>/test_path_claim_targets.py,docs/event-catalog.md \\\n"
-            "  --integration-target main --mode exclusive --allow-planned"
+            "yoke claims path register --item PREFIX-N --paths a.py,b.py "
+            "--integration-target main --mode exclusive --allow-planned"
         ),
         "notes": (
             "--allow-planned for files not yet committed. --mode "
@@ -252,14 +249,10 @@ CLAIMS_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent", "engineer_agent"),
         "topic": "claims",
-        "purpose": "Widen a path claim (canonical agent shape)",
+        "purpose": "Widen a path claim",
         "recipe": (
-            "yoke claims path widen --claim-id 138 "
-            "--item PREFIX-N \\\n"
-            "  --add-paths <project-source-path>/service_client_backlog_router.py,"
-            "<project-test-path>/test_backlog_github_backfill_oversized.py \\\n"
-            "  --reason 'backfill subcommand wiring touches "
-            "router + new test file'"
+            "yoke claims path widen --claim-id ID --item PREFIX-N "
+            "--add-paths c.py --reason TEXT"
         ),
         "notes": (
             "<claim-id> is the path_claims.id from path-claim-register "
@@ -281,6 +274,7 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": (),
         "topic": "claims",
         "purpose": "List / get path claims",
         "recipe": ("yoke claims path list --item PREFIX-N\nyoke claims path get 138"),
@@ -290,6 +284,7 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("architect_agent", "simulator_agent"),
         "topic": "claims",
         "purpose": "Summary of path-claim conflicts on a branch",
         "recipe": (

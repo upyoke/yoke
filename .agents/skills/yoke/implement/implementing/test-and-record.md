@@ -67,8 +67,8 @@ before retry. Do not use `path-claim-override` for a planned future claim;
 override is last resort for an irreducible live collision and requires
 explicit operator approval.
 An unchanged consumer test failing against new producer source is evidence
-against the producer: never edit or weaken it; route it per AGENTS
-Verification Failure Ownership.
+against the producer: never edit or weaken it; route it per the failure-ownership rule in
+`.yoke/docs/agents/rules/verification.md`.
 
 ## Governed DB evidence
 

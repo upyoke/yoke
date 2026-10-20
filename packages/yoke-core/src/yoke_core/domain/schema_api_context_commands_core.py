@@ -33,11 +33,8 @@ CORE_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent",),
         "topic": "core",
-        "purpose": "Read one item's posture, then the content you need",
-        "recipe": (
-            "yoke items detail get PREFIX-N --json\n"
-            "yoke items detail get PREFIX-N --full --json"
-        ),
+        "purpose": "Read item posture",
+        "recipe": ("yoke items detail get PREFIX-N --json"),
         "notes": (
             "The detail read answers what the item IS — status, workflow, "
             "effective policies, claim, lanes, QA, merge queue — and serves "
@@ -61,7 +58,7 @@ CORE_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
-        "purpose": "Read structured item field(s) — concrete examples",
+        "purpose": "Read item fields",
         "recipe": (
             "yoke items get PREFIX-N status title workflow_id github_issue\n"
             "yoke items get PREFIX-N spec"
@@ -89,6 +86,14 @@ CORE_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": (
+            "engineer_agent",
+            "tester_agent",
+            "architect_agent",
+            "qa_walker_agent",
+            "simulator_agent",
+            "boss_agent",
+        ),
         "topic": "core",
         "purpose": (
             "Inspect a Yoke item's rendered body, whole or one section "
@@ -118,16 +123,11 @@ CORE_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent",),
         "topic": "core",
-        "purpose": "Inspect open work via registered reads + diagnostic SQL",
+        "purpose": "Inspect open work",
         "recipe": (
             "# Recent item scan:\n"
             'yoke items list --project all --fields "id,status,title" '
             "--limit 20\n"
-            "# All active work claims (diagnostic SQL fallback):\n"
-            'yoke db read "SELECT '
-            "id, session_id, target_kind, scope, "
-            "claim_type, claimed_at FROM work_claims WHERE released_at IS "
-            'NULL"\n'
             "# Recent events on a work item:\n"
             "yoke events query --item PREFIX-N --limit 20"
         ),
@@ -144,12 +144,10 @@ CORE_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent", "architect_agent"),
         "topic": "core",
-        "purpose": "Write structured item field (canonical agent shape)",
+        "purpose": "Write an item field",
         "recipe": (
             "yoke items structured-field replace PREFIX-N "
-            "--field spec --content-file PATH\n"
-            "yoke items structured-field replace PREFIX-N "
-            "--field test_results --stdin < PATH"
+            "--field spec --content-file PATH"
         ),
         "notes": (
             "Dispatches items.structured_field.replace, runs render-body "
@@ -158,7 +156,7 @@ CORE_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent", "architect_agent"),
+        "startup_roles": ("architect_agent",),
         "topic": "core",
         "purpose": "Apply additive structured-field transform",
         "recipe": (
@@ -184,6 +182,14 @@ CORE_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": (
+            "engineer_agent",
+            "tester_agent",
+            "architect_agent",
+            "qa_walker_agent",
+            "simulator_agent",
+            "boss_agent",
+        ),
         "topic": "core",
         "purpose": "List item dependencies (both directions)",
         "recipe": ("yoke items dependency list PREFIX-N"),
@@ -210,7 +216,7 @@ CORE_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent", "engineer_agent"),
+        "startup_roles": ("engineer_agent",),
         "topic": "core",
         "purpose": "Amend DB-mutation claim on an item",
         "recipe": (
@@ -240,7 +246,7 @@ CORE_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent",),
+        "startup_roles": (),
         "topic": "core",
         "purpose": "Read / write item sections (Progress Log, custom sections)",
         "recipe": (
@@ -257,7 +263,7 @@ CORE_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent",),
+        "startup_roles": (),
         "topic": "core",
         "purpose": "Backlog GitHub sync",
         "recipe": "yoke items github-sync PREFIX-N",
@@ -268,7 +274,7 @@ CORE_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent",),
+        "startup_roles": (),
         "topic": "core",
         "purpose": "Backlog mutation family (CLI adapter)",
         "recipe": ("yoke items scalar update PREFIX-N --field priority --value medium"),

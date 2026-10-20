@@ -105,7 +105,7 @@ def format_reason(
         f"BLOCKED: destructive git command would wipe uncommitted changes.\n\n"
         f"Shape: {label}\n{_threat_block(shape, threatened)}\n\n"
         f"Remediation: {remediation}\n"
-        f"Doctrine: AGENTS.md `## Destructive Operation Discipline`"
+        f"Doctrine: `.yoke/docs/agents/rules/lanes-and-claims.md` → Destructive operation discipline"
         f"{config_line}{_suffix(suppression_seen, mode)}",
         check_id=RULE_ID,
     )

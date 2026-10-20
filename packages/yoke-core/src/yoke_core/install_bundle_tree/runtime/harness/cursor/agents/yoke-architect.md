@@ -59,86 +59,45 @@ Epic arguments/targets use complete public refs, never bare numeric tails.
 
 <!-- YOKE:DB-PACKET role=architect_agent topic=core start -->
 
-### DB Quick Reference — core (control plane + structured fields)
+### DB Quick Reference — core
 
-**Control-plane DB invariant:** authority is Postgres, never a constructed worktree DB path. Use registered `yoke <subcommand>` and diagnostic `yoke db read "SELECT ..."`. Normal prod authority is HTTPS/API; retain it on retry. Escalate missing mutations to the control-plane operator with the operation and surfaces checked.
+**Control-plane DB invariant:** use registered `yoke` commands; read diagnostics only with `yoke db read "SELECT ..."`; never construct a DB path. Keep the selected connection on retry. Escalate a missing mutation to the control-plane operator.
 
-**Package roots:** read `yoke project-structure get --project P --family architecture_model --json`. A package name never implies a directory at the repo root; one package may declare several roots. Check every `package_roots` entry: `package_under_root` holds the package directory; `package_is_root` is that directory.
+**Package roots:** `yoke project-structure get --project P --family architecture_model --json` lists every `package_roots` entry (`package_under_root` or `package_is_root`). A package may have several roots; its name never implies a directory at the repo root.
 
-**Work-item entry surfaces:** every create names a workflow and a typed entry surface (`web_form`, `cli`, `harness_skill`, or `promotion`). The selected immutable workflow version must allow that surface. File through `/yoke idea` (the skill-owned `harness_skill` path), `yoke items create --title TEXT --workflow W --spec-file PATH`, or the thin `yoke dash` / `yoke task` shortcuts that take the same flags without --workflow; code project work -> `yoke dash`, because Task refuses projects with a code repository. Title and spec are flags only: `--title` or `--title-file` for title, `--spec-file` or `--stdin` for spec; positional text refuses. Planned intake refuses a live harness session that is not in idea mode — the entry-surface token is caller-asserted and skips skill-side scaffolding. Operator/debug, `--dry-run`, and test isolation retain the low-level adapter. `/yoke idea` attests Before creation with `--execution-instructions-considered` after `yoke workflow execution-instruction resolve --workflow W --project P --full`; Non-web creation requires that attestation; adapters never set it.
+**Work-item entry surfaces:** file with `/yoke idea` (`harness_skill`) or `yoke items create --title TEXT --workflow W --spec-file PATH`; the `yoke dash` / `yoke task` shortcuts drop --workflow (code projects: `yoke dash`). Title and spec are flags; positional text refuses. Outside idea mode, a live session's planned intake refuses.
 
-**Registered writes** (use their `yoke` CLI adapters): `items.structured_field.replace`, `items.progress_log.append`, `lifecycle.transition.execute`, `claims.work.acquire`, `claims.work.release`, `claims.path.register`, `db_claim.amend`. CLI grammar: (dots→spaces, underscores→hyphens).
-Adapters build the function-call envelope: `actor.session_id` binds the harness; optional `actor_id` resolves server-side and must agree if supplied. `target` selects the subject; `preconditions` guard the write and `options` carry execution choices.
+**Registered writes:** `items.structured_field.replace`, `items.progress_log.append`, `lifecycle.transition.execute`, `claims.work.acquire`, `claims.work.release`, `claims.path.register`, `db_claim.amend`. Run each as `yoke` with dots→spaces, underscores→hyphens. Adapters build the envelope (`actor.session_id`, optional `actor_id`, `target`, `preconditions`, `options`).
+**`harness_sessions.executor`:** `claude-code | codex | cursor`.
 
-**`harness_sessions.executor`:** `claude-code | codex | cursor`; surface variants normalize to these ids.
+**Commands** (flags: `--help`):
+- Read item fields: `yoke items get PREFIX-N status title workflow_id github_issue` · `yoke items get PREFIX-N spec`
+- Inspect a Yoke item's rendered body, whole or one section (GitHub issue surrogate): `yoke items get PREFIX-N body` · `yoke items get PREFIX-N body --section "## Section Name"`
+- Write an item field: `yoke items structured-field replace PREFIX-N --field spec --content-file PATH`
+- Apply additive structured-field transform: `yoke items structured-field append-addendum PREFIX-N --field spec --heading "Implementation Notes" --content-file PATH --json` · `yoke items structured-field section-upsert PREFIX-N --section "Acceptance Criteria" --content-file PATH --json`
+- List item dependencies (both directions): `yoke items dependency list PREFIX-N`
+- Read epic task row / body / simulation: `yoke workflow-item epic-task get --epic <epic-id> --task-num <task-num>` · `yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>` · `yoke workflow-item epic-task simulation-get --epic <epic-id> --phase integration`
+- Write epic task body / metadata via CLI adapters: `yoke workflow-item epic-task body-replace --epic PREFIX-1704 --task-num 5 --body-file PATH` · `yoke workflow-item epic-task metadata-update --epic PREFIX-1704 --task-num 5 --fields-json '{"max_attempts": 2}'`
+- Read the rules home before acting: `cat .yoke/docs/agents/rules/code-and-cli.md` · `cat .yoke/docs/documentation/index.md` · `yoke <family> --help`
+- Subagent communication through its registered parent: In-process subagents receive no Fleet delivery at all. Talk to the parent through the harness-native parent/subagent channel; never send, acknowledge or cancel Fleet messages or handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.
 
-**Wrapper commands (prefer over raw SQL):**
-
-- _Read structured item field(s) — concrete examples_
-  - `yoke items get PREFIX-N status title workflow_id github_issue`
-  - `yoke items get PREFIX-N spec`
-- _Inspect a Yoke item's rendered body, whole or one section (GitHub issue surrogate)_
-  - `yoke items get PREFIX-N body`
-  - `yoke items get PREFIX-N body --section "## Section Name"`
-- _Write structured item field (canonical agent shape)_
-  - `yoke items structured-field replace PREFIX-N --field spec --content-file PATH`
-  - `yoke items structured-field replace PREFIX-N --field test_results --stdin < PATH`
-- _Apply additive structured-field transform_
-  - `# Other additive transforms:`
-  - `yoke items structured-field append-addendum PREFIX-N --field spec --heading "Implementation Notes" --content-file PATH --json`
-  - `yoke items structured-field section-upsert PREFIX-N --section "Acceptance Criteria" --content-file PATH --json`
-- _List item dependencies (both directions)_
-  - `yoke items dependency list PREFIX-N`
-- _Read epic task row / body / simulation_
-  - `yoke workflow-item epic-task get --epic <epic-id> --task-num <task-num>`
-  - `yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>`
-  - `yoke workflow-item epic-task simulation-get --epic <epic-id> --phase integration`
-- _Write epic task body / metadata via CLI adapters_
-  - `yoke workflow-item epic-task body-replace --epic PREFIX-1704 --task-num 5 --body-file PATH`
-  - `yoke workflow-item epic-task metadata-update --epic PREFIX-1704 --task-num 5 --fields-json '{"max_attempts": 2}'`
-- _Read operation rules and find the CLI adapter for a function id_
-  - `cat .yoke/docs/agents/rules/code-and-cli.md`
-  - `cat .yoke/docs/documentation/index.md`
-  - `yoke <family> --help`
-- _Field-note channel: log a failed/new/unclear recipe or observation_
-  - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths' --correlation-id ROOT_NOTE_ID`
-- _Subagent communication through its registered parent_
-  - `In-process subagents receive no Fleet delivery at all: message envelopes and fleet reports reach the registered top-level session only, so a subagent never sees its parent's inbox. They communicate with the parent through the harness-native parent/subagent channel, and never send, acknowledge, or cancel Fleet messages, and never handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.`
-
-
-_Schema and operation depth:_ `yoke packets render --role architect_agent --topic core --detail full`.
+_Depth:_ `yoke packets render --role architect_agent --topic core --detail full`.
 
 <!-- YOKE:DB-PACKET end -->
 
 <!-- YOKE:DB-PACKET role=architect_agent topic=claims start -->
 
-### DB Quick Reference — claims (sessions, work, paths)
+### DB Quick Reference — claims
 
-**Wrapper commands (prefer over raw SQL):**
+**Commands** (flags: `--help`):
+- Live claim holder: `yoke claims work holder-get PREFIX-N`
+- Claim, edit, release: `yoke claims work acquire --item PREFIX-N --reason edit` · `printf '%s' "$NEW_CONTENT" | yoke items structured-field replace PREFIX-N --field spec --stdin` · `yoke claims work release --item PREFIX-N --reason edit-complete`
+- List path claims for an item: `yoke claims path list --item PREFIX-N`
+- Register a path claim: `yoke claims path register --item PREFIX-N --paths a.py,b.py --integration-target main --mode exclusive --allow-planned`
+- Summary of path-claim conflicts on a branch: `yoke path-claims conflicts list --integration-target main --project P`
+- Classify a path-claim overlap before authoring a coordination edge: `yoke claims path coordination-decision-build --item PREFIX-N --conflicting-claim CLAIM_ID --paths a.py,b.py`
 
-- _Lookup live claim holder for an item_
-  - `yoke claims work holder-get PREFIX-N`
-- _Claim → mutate → release (generic plan-stage edit)_
-  - `yoke claims work acquire --item PREFIX-N --reason edit`
-  - `printf '%s' "$NEW_CONTENT" | yoke items structured-field replace PREFIX-N --field spec --stdin`
-  - `yoke claims work release --item PREFIX-N --reason edit-complete`
-- _List path claims for an item_
-  - `yoke claims path list --item PREFIX-N`
-- _Register a path claim (canonical agent shape)_
-  - `yoke claims path register \
-  --item PREFIX-N \
-  --paths <project-source-path>/path_claim_targets.py,<project-test-path>/test_path_claim_targets.py,docs/event-catalog.md \
-  --integration-target main --mode exclusive --allow-planned`
-- _List / get path claims_
-  - `yoke claims path list --item PREFIX-N`
-  - `yoke claims path get 138`
-- _Summary of path-claim conflicts on a branch_
-  - `yoke path-claims conflicts list --integration-target main --project P`
-- _Classify a path-claim overlap before authoring a coordination edge_
-  - `yoke claims path coordination-decision-build --item PREFIX-N --conflicting-claim CLAIM_ID --paths a.py,b.py`
-
-
-_Schema and operation depth:_ `yoke packets render --role architect_agent --topic claims --detail full`.
+_Depth:_ `yoke packets render --role architect_agent --topic claims --detail full`.
 
 <!-- YOKE:DB-PACKET end -->
 

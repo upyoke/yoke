@@ -1,8 +1,5 @@
 <!-- BEGIN GENERATED: harness-wake-capability -->
-Wake capability is a manifest fact, not prose. Source of truth:
-`agent_wake` in `.yoke/harness/<harness-dir>/manifest.json`, rendered from
-`yoke_contracts.harness_wake_capability`. Change the contract and re-render; never
-restate one of these facts on a document's own authority.
+Source: `agent_wake` in `.yoke/harness/<harness-dir>/manifest.json`, from `yoke_contracts.harness_wake_capability`.
 
 - `claude-code` — idle wake: supported (`Monitor`), each subscription ending within 30 minutes (`timeout_ms`); re-arm the same tail on the expiry notice; timer wake: supported (`ScheduleWakeup`). Verified on claude-cli.
 - `codex` — idle wake: none; timer wake: none. Verified on codex-cli.

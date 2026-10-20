@@ -7,9 +7,7 @@ from typing import Callable, Dict, List, Tuple
 
 AdapterFn = Callable[[List[str]], int]
 
-FILE_LINE_USAGE = (
-    "yoke check file-line [--base REF | --staged] [--repo PATH] [--json]"
-)
+FILE_LINE_USAGE = "yoke check file-line [--base REF | --staged] [--repo PATH] [--json]"
 
 _FILE_LINE_HELP = """\
 usage: yoke check file-line [--base REF | --staged] [--repo PATH] [--json]
@@ -19,6 +17,12 @@ Enforce Yoke's 350-line authored-file limit from a sanctioned local
 CLI surface. The default mode checks branch-vs-base changes; use
 --staged for the pre-commit shape. The report mode prints the tracked
 file inventory.
+
+Byte budgets: each `file_byte_budget=PATH:BYTES` line in
+.yoke/project.config caps that file's bytes. A changed file over its
+budget fails with file_byte_budget_exceeded; shrink it or move the text
+to the surface that owns it. A malformed, duplicate or stale entry fails
+every check until it is fixed.
 
 Implementation owner: yoke_harness.git_hooks.file_line_check."""
 

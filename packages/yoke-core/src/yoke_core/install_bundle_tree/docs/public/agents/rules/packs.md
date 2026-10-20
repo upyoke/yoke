@@ -4,32 +4,29 @@
 [Yoke](../../index.md) > [Agents](../index.md) > [Operation homes](index.md) > Packs
 <!-- /yoke:breadcrumbs -->
 
-Read this home before adding or updating reusable capabilities, project configuration or credential references.
+## Packs
 
-## Pack-first capabilities
+- Package a reusable capability as a Pack: `packs/<slug>/` with immutable versions. Improve
+  the Pack and publish a new version; each project chooses when to update.
+- Installed Pack files belong to the project. `.yoke/packs.json` records the baseline for a
+  three-way update (`yoke packs update --help`).
+- An unreleased version installs with `--catalog commit:SHA`; served-catalog updates refuse
+  with `pack-source-unreleased` until a release carries it.
+- Config lives in DB settings (`project_capabilities`, `sites.settings`,
+  `environments.settings`) or project `.yoke/` policy, not in the Pack.
 
-- **If your project distributes reusable capabilities, package them as Packs.** Reusable ops workflows, deployment tooling, and infrastructure patterns live in a focused `packs/<slug>/` bundle with immutable versions, explicit files, settings, dependencies, documentation, and verification.
-- **Installed Pack files belong to the project.** They land in the target project repo and may be customized there. Yoke records the installed baseline in `.yoke/packs.json` only so that project owners can preview and apply one Pack update with a three-way merge; it does not police drift, prune files, or synchronize the whole project.
-- **Improve the Pack when the general capability evolves.** Publish a new Pack version, then let each project choose whether and when to update it. Project-only behavior remains project-owned and need not flow back into the Pack.
-- **Install a Pack version before its release with `--catalog`.** `yoke dev run -- yoke packs get|update ...` reads the lane's Pack catalog; `--catalog commit:SHA` adopts a version merged into the Yoke default branch but not yet released. `.yoke/packs.json` records that source, and an update from the served catalog refuses (`pack-source-unreleased`) until a release carries that exact version.
-- **Project config lives in DB settings/capabilities or project-local `.yoke/` policy docs.** Use `project_capabilities`, `sites.settings`, and `environments.settings` for credentials and runtime config. Pack install settings only specialize generic source for the target project; runtime-generated files land in scratch/deploy-run output or the target project repo.
-- **Provider credentials are capability-owned, not ambient shell.** For AWS, the source of truth is the project `aws-admin` capability: non-secret settings in `project_capabilities`, while secret material lives in machine-local capability secret files under `~/.yoke/secrets/capability-secrets/<project>/aws-admin/`. The `capability_secrets` table is not the storage shape for `aws-admin` secrets. A naked `aws ...` command may fail even when the project is correctly configured because the credentials are not exported into the shell. Use Yoke-owned capability resolver surfaces to materialize credentials into a subprocess env without printing secret values; when a resolver has not yet been wrapped, treat it as a source-dev/admin helper rather than an agent recipe. Verify by listing keys/settings or redacted evidence; never log raw secret values.
+## Credentials
+
+Provider credentials belong to a project capability, not the shell; a bare `aws ...` may fail
+for that reason. Use the Yoke capability resolver to pass them to a subprocess. Verify by
+listing keys or redacted evidence; never print a secret.
+Storage: [capabilities](../../projects/capabilities.md).
 
 ## Declared infrastructure
 
-Stand up or change external resources through the project's declared
-infrastructure-as-code surface in the same source change: resources, policies,
-DNS, scheduled jobs, integrations and provider settings must be reviewable and
-reproducible. A provider-console or ad hoc CLI result is not a declaration.
-Preserve investigation evidence; reconcile a temporary resource by importing it
-into that declaration or removing it through authorized cleanup. Emergency
-live changes require the operator's authority and prompt source reconciliation.
-Reusable infrastructure belongs in the focused Pack; project values retain
-their project-owned settings and credentials.
-
-Plan authoring and intake materialization may record another environment on the
-control plane. Standalone QA dispatch still obeys the runtime execution
-restriction; deployment QA uses the run receipt to authorize its deployed target.
+Create or change an external resource only through the project's infrastructure-as-code
+declaration, in the same change. A console or ad hoc CLI result is not a declaration: import it
+or remove it. Reusable infrastructure belongs in a Pack.
 
 ## Related
 

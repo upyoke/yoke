@@ -33,7 +33,7 @@ BASIC_RECIPE: str = (
 FOOTER: str = f"{DIRECTIVE}\n{BASIC_RECIPE}"
 
 DENIAL_FOOTER: str = (
-    "If this fix is wrong, file a field note before moving on:\n"
+    "If this fix is wrong, file a field note: "
     "yoke ouroboros field-note append --kind failed --evidence '...'"
 )
 

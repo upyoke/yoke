@@ -107,7 +107,7 @@ def _format_reason(flag: str, suppression_seen: bool, mode: str) -> str:
         f"`git stash list` is the operator's only audit surface — the rationale is lost.\n\n"
         f"Safe shape: `{safe}`\n"
         "Rule: `-m` / `--message` must appear BEFORE `--`. Tokens after `--` are pathspecs.\n"
-        "Doctrine: AGENTS.md `## Destructive Operation Discipline`"
+        "Doctrine: `.yoke/docs/agents/rules/lanes-and-claims.md` → Destructive operation discipline"
     )
     if mode == "warn":
         body = body + "\n\n[mode=warn] this hook would block in deny mode."

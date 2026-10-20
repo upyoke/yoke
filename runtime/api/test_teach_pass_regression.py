@@ -128,7 +128,7 @@ def test_function_call_stanza_names_registered_writes_and_cli(body: str) -> None
     assert "Registered writes" in body
     for function in sac.seed.AGENT_WRITE_FUNCTION_IDS:
         assert f"`{function}`" in body
-    assert "CLI grammar" in body
+    assert "dots→spaces, underscores→hyphens" in body
     assert "yoke_core.domain.yoke_function_dispatch" not in body
 
 

@@ -86,8 +86,9 @@ class TestCurrentStateCheckpointTeaching:
 
     def test_session_continuity_rule_is_a_checkpoint(self):
         text = _words(_read("AGENTS.md"))
-        assert "Progress Log entries are current-state checkpoints" in text
         assert "reload the current-phase skill" in text
+        home = _words(_read("docs/public/agents/rules/item-writes.md"))
+        assert "Each entry is a current-state checkpoint" in home
         assert "dead ends, gotchas" not in text
 
     def test_canonical_agent_bodies_drop_cold_start_complete(self):

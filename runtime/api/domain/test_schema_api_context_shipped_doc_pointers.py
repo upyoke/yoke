@@ -83,7 +83,8 @@ def test_the_pointer_pattern_recognizes_both_shipped_and_source_paths() -> None:
 
 
 def test_every_role_receives_portable_rule_reads_before_action() -> None:
-    for role in seed.ROLE_TOPICS:
+    # The main session reads the homes from AGENTS.md (asserted below).
+    for role in set(seed.ROLE_TOPICS) - {"main_agent"}:
         packet = sac.render_role_packet(role)
         for home in PORTABLE_HOMES:
             assert f"`cat {home}`" in packet, (role, home)
@@ -99,12 +100,17 @@ def test_packet_shipped_targets_exist_in_the_canonical_bundle() -> None:
             assert target.is_file(), (role, relative)
 
 
-def test_native_main_entry_and_claude_rules_teach_the_same_homes() -> None:
-    for relative in ("AGENTS.md", "runtime/harness/claude/rules/session.md"):
-        text = (ROOT / relative).read_text()
-        for home in PORTABLE_HOMES:
-            assert f"`{home}`" in text, (relative, home)
-        assert ".yoke/docs/projects/execution-instructions.md" in text
+def test_native_main_entry_routes_to_the_portable_homes() -> None:
+    agents = (ROOT / "AGENTS.md").read_text()
+    assert "`.yoke/docs/agents/rules/`" in agents
+    assert "`code-and-cli.md`: code, naming, teaching" in agents
+    assert (
+        "Shared rules: `AGENTS.md`"
+        in (ROOT / "runtime/harness/claude/rules/session.md").read_text()
+    )
+    code_home = (ROOT / "docs/public/agents/rules/code-and-cli.md").read_text()
+    assert "(../../documentation/index.md)" in code_home
+    assert "(../../projects/execution-instructions.md)" in code_home
 
 
 def test_public_extraction_contract_keeps_private_rollback_and_delivery() -> None:

@@ -69,7 +69,7 @@ requested wait with explicit activation and satisfaction: blocker's pinned
 status (normally status:done) for item closeout, fact:merged for trunk code,
 fact:deployed:ENV for a real live-environment need. Explain detected dependencies.
 
-Per **## Path Claims — Hard Rule**, claimed paths do not narrow work item scope:
+Per the path-claims rule in `.yoke/docs/agents/rules/lanes-and-claims.md`, claimed paths do not narrow work item scope:
 they are coordination/dependency/blocking facts. If another holder covers a
 required file, do **not** remove the file from the work item or enabled budget;
 resolve overlap through [path closure](path-closure.md) before readiness.
