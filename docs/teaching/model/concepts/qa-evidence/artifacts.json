@@ -1,9 +1,11 @@
 {
  "id": "artifacts",
  "title": "Evidence",
- "status": "draft-copy",
+ "status": "observed",
  "commands": ["yoke direct-workflow dash evidence", "yoke qa artifact add", "yoke qa artifact get", "yoke qa artifact presign", "yoke qa artifact read", "yoke qa artifact rehome", "yoke test-machine screenshot"],
  "functions": ["direct_workflow.dash.evidence", "qa.artifact.add", "qa.artifact.get", "qa.artifact.presign", "qa.artifact.read", "qa.artifact.rehome", "test_machine.screenshot"],
  "page": "qa-evidence",
- "position": 1
+ "position": 1,
+ "summary": "Artifact byte reads, writes and plan review-begin use the evidence store of the build serving the universe. Admin connections route these operations through their paired HTTPS connection; metadata-only artifact get and unrelated operations stay direct. Local universes keep local evidence. A missing serving connection refuses with evidence_plane_unresolved and the connection repair, and an unavailable relay never falls back to local storage.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/qa_evidence_plane.py", "runtime/api/domain/test_qa_evidence_plane.py", "docs/public/verification/browser-evidence.md"]
 }

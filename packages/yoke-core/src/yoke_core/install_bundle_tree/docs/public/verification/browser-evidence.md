@@ -44,6 +44,15 @@ size), so a finding can name the region it was seen in. A region falling
 outside the image, an unreadable scale, and a non-image artifact each refuse
 by name and say where the recorded bytes landed.
 
+Artifact reads and `yoke qa plan review-begin` use the same evidence plane as
+captures. From a `*-db-admin` connection they use its paired HTTPS connection
+(for example, `prod-db-admin` reads through `prod`); other admin operations
+stay on the database. Local-only universes keep reading local evidence, and
+self-hosted universes use their own serving connection. A missing pair refuses
+with `evidence_plane_unresolved`: configure the named connection with
+`yoke connection set <env> --api-url ...`, then retry. An unavailable serving
+connection refuses; it never falls back to this machine's store.
+
 A read checks that stored evidence still exists before handing it out. When
 the object a capture recorded has been deleted from the store, the read
 reports `evidence_missing` with the address it looked for, rather than a link
