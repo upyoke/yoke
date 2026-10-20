@@ -5,7 +5,7 @@ under the 350-line limit. ``evaluate(record)`` lives on the entry-point
 module (``lint``); the verdict logic it delegates to lives on the
 evaluate sibling (``lint_eval``). Patches that target ``_read_lint_mode``
 or any helper invoked inside ``evaluate_payload``
-(``_owning_command_still_running``, ``_db_available``,
+(``_db_available``,
 ``_recent_bash_commands``) must hit the evaluate sibling because that is
 where the function lookup happens at call time.
 
@@ -37,6 +37,15 @@ def _record_for(payload: dict) -> "lint.HookContext":
 
 
 class TestEvaluate(unittest.TestCase):
+    def setUp(self):
+        for name, value in (
+            ("_db_available", True),
+            ("_recent_bash_commands", [("owner", None, "check > /tmp/foo.out")]),
+        ):
+            patch = mock.patch.object(lint_eval, name, return_value=value)
+            patch.start()
+            self.addCleanup(patch.stop)
+
     def test_invalid_payload_returns_noop(self) -> None:
         # Non-dict payload (defensive shape) -> no verdict, NOOP decision.
         record = lint.HookContext(
@@ -57,8 +66,10 @@ class TestEvaluate(unittest.TestCase):
 
     def test_warn_mode_returns_warn_decision_emits_event(self) -> None:
         payload = _bash_payload("sleep 10 && tail -20 /tmp/foo.out")
-        with mock.patch.object(lint_eval, "_read_lint_mode", return_value="warn"), \
-             mock.patch.object(lint, "_emit_audit_event") as emit_mock:
+        with (
+            mock.patch.object(lint_eval, "_read_lint_mode", return_value="warn"),
+            mock.patch.object(lint, "_emit_audit_event") as emit_mock,
+        ):
             decision = lint.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.WARN)
         self.assertEqual(decision.message, "")
@@ -71,15 +82,18 @@ class TestEvaluate(unittest.TestCase):
 
     def test_deny_mode_returns_deny_decision_with_envelope(self) -> None:
         payload = _bash_payload("sleep 10 && tail -20 /tmp/foo.out")
-        with mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"), \
-             mock.patch.object(lint, "_emit_audit_event") as emit_mock:
+        with (
+            mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"),
+            mock.patch.object(lint, "_emit_audit_event") as emit_mock,
+        ):
             decision = lint.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
         parsed = json.loads(decision.message)
         self.assertEqual(
-            parsed["hookSpecificOutput"]["permissionDecision"], "deny",
+            parsed["hookSpecificOutput"]["permissionDecision"],
+            "deny",
         )
         self.assertIn(
             "sleep",
@@ -91,10 +105,10 @@ class TestEvaluate(unittest.TestCase):
 
     def test_deny_event_check_id_and_tool_preserved(self) -> None:
         payload = _bash_payload("sleep 10 && tail -20 /tmp/foo.out")
-        with mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"), \
-             mock.patch(
-                "yoke_core.hooks.telemetry.emit_denial_event"
-             ) as emit_mock:
+        with (
+            mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"),
+            mock.patch("yoke_core.hooks.telemetry.emit_denial_event") as emit_mock,
+        ):
             decision = lint.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
         emit_mock.assert_called_once()
@@ -106,10 +120,10 @@ class TestEvaluate(unittest.TestCase):
 
     def test_schedule_wakeup_payload_allowed(self) -> None:
         payload = _non_bash_payload("ScheduleWakeup", turn_id="turn-9")
-        with mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"), \
-             mock.patch(
-                "yoke_core.hooks.telemetry.emit_denial_event"
-             ) as emit_mock:
+        with (
+            mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"),
+            mock.patch("yoke_core.hooks.telemetry.emit_denial_event") as emit_mock,
+        ):
             decision = lint.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.NOOP)
         self.assertEqual(decision.message, "")
@@ -121,10 +135,10 @@ class TestEvaluate(unittest.TestCase):
             tool_input={"task_id": "bg-123"},
             turn_id="turn-5",
         )
-        with mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"), \
-             mock.patch(
-                "yoke_core.hooks.telemetry.emit_denial_event"
-             ) as emit_mock:
+        with (
+            mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"),
+            mock.patch("yoke_core.hooks.telemetry.emit_denial_event") as emit_mock,
+        ):
             decision = lint.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.NOOP)
         self.assertEqual(decision.message, "")

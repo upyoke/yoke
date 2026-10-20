@@ -89,16 +89,6 @@ class TestEvaluatePayload(unittest.TestCase):
             )
         )
 
-    def test_sleep_short_cadence_flagged(self) -> None:
-        result = lint.evaluate_payload(
-            _bash_payload("sleep 10 && tail -20 /tmp/foo.out")
-        )
-        self.assertIsNotNone(result)
-        assert result is not None
-        verdict, reason, _ctx = result
-        self.assertEqual(verdict, "warn")
-        self.assertIn("sleep", reason.lower())
-
     def test_sleep_cadence_at_floor_allowed(self) -> None:
         # sleep 60 is exactly the fallback cadence floor — not flagged
         self.assertIsNone(
@@ -150,24 +140,6 @@ class TestEvaluatePayload(unittest.TestCase):
                 )
             )
 
-    def test_second_peek_while_running_flagged(self) -> None:
-        recent = [
-            ("turn-0", "2026-04-24T12:00:00", "tail -80 /tmp/foo.out"),
-        ]
-        with (
-            mock.patch.object(lint, "_db_available", return_value=True),
-            mock.patch.object(lint, "_recent_bash_commands", return_value=recent),
-        ):
-            result = lint.evaluate_payload(
-                _bash_payload("tail -80 /tmp/foo.out", turn_id="turn-1", captures=LIVE)
-            )
-        self.assertIsNotNone(result)
-        assert result is not None
-        verdict, reason, ctx = result
-        self.assertEqual(verdict, "warn")
-        self.assertIn("/tmp/foo.out", reason)
-        self.assertEqual(ctx.get("capture_file"), "/tmp/foo.out")
-
     def test_repeated_peeks_on_different_files_not_flagged(self) -> None:
         # Two peeks, different capture files — the guard is scoped to one capture.
         recent = [
@@ -184,48 +156,6 @@ class TestEvaluatePayload(unittest.TestCase):
                     )
                 )
             )
-
-    def test_peek_outside_5_turn_window_not_flagged(self) -> None:
-        # Prior peek at turn-0, current turn far later. The window is 5 turns
-        # of intervening other Bash activity.
-        recent = [
-            ("turn-6", "2026-04-24T12:05:00", "git status"),
-            ("turn-5", "2026-04-24T12:04:00", "ls"),
-            ("turn-4", "2026-04-24T12:03:00", "pwd"),
-            ("turn-3", "2026-04-24T12:02:00", "git diff"),
-            ("turn-2", "2026-04-24T12:01:30", "git log"),
-            ("turn-1", "2026-04-24T12:01:00", "git branch"),
-            ("turn-0", "2026-04-24T12:00:00", "tail -80 /tmp/foo.out"),
-        ]
-        with (
-            mock.patch.object(lint, "_db_available", return_value=True),
-            mock.patch.object(lint, "_recent_bash_commands", return_value=recent),
-        ):
-            # The oldest peek at turn-0 is beyond the 5-turn window — should pass.
-            self.assertIsNone(
-                lint.evaluate_payload(
-                    _bash_payload(
-                        "tail -80 /tmp/foo.out", turn_id="turn-7", captures=LIVE
-                    )
-                )
-            )
-
-    def test_deny_mode_yields_deny_verdict(self) -> None:
-        recent = [
-            ("turn-0", "2026-04-24T12:00:00", "tail -80 /tmp/foo.out"),
-        ]
-        with (
-            mock.patch.object(lint, "_read_lint_mode", return_value="deny"),
-            mock.patch.object(lint, "_db_available", return_value=True),
-            mock.patch.object(lint, "_recent_bash_commands", return_value=recent),
-        ):
-            result = lint.evaluate_payload(
-                _bash_payload("tail -80 /tmp/foo.out", turn_id="turn-1", captures=LIVE)
-            )
-        self.assertIsNotNone(result)
-        assert result is not None
-        verdict, _reason, _ctx = result
-        self.assertEqual(verdict, "deny")
 
     def test_progress_peek_description_with_active_bg_allowed(self) -> None:
         # Description text alone no longer blocks unrelated Bash calls.

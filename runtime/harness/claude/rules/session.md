@@ -35,7 +35,8 @@ watcher it was holding. Reading the background task's output is how you
 continue the call, not how you end the turn: keep reading until the command
 exits and you have its outcome. A relay-launched worker has no second chance
 here; prepare by naming the continuation before the command starts. Read the
-completed raw capture once.
+completed raw capture once. Reads of task output and agent-written files
+need no polling suppression; short sleeps to re-read registered captures refuse.
 
 Subagents run long commands foreground in one Bash sequence, never
 `Bash(run_in_background: true)` plus Monitor and return. Tighten dispatch if its

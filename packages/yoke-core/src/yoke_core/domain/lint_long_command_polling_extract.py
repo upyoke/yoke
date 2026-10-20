@@ -13,6 +13,7 @@ effects.
 from __future__ import annotations
 
 import re
+import shlex
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Optional, Sequence
@@ -24,6 +25,13 @@ from yoke_core.domain.lint_long_command_polling_constants import (
 from yoke_core.domain.lint_command_extract import (  # noqa: F401
     extract_command as _extract_command,
 )
+from yoke_core.domain.lint_raw_pytest_full_suite_shell import strip_heredoc_bodies
+from yoke_core.domain.lint_raw_pytest_invocations import (
+    executable_argv,
+    _piped_shell_sources,
+)
+from yoke_core.domain.path_claim_bash_splitter import split_pipeline
+from yoke_core.domain.path_claim_bash_substitution import executable_substitutions
 
 
 #: Matches nothing: with no client scratch roots no path counts as a capture.
@@ -110,19 +118,59 @@ def _has_suppression(command: str) -> bool:
     return SUPPRESSION_TOKEN in command
 
 
-# An `until`/`while` loop that sleeps between GitHub run reads: a
-# hand-rolled wait on a CI run whose verdict a recorded wait already
-# delivers. Lookaheads accept either order of the read and the sleep.
-_GITHUB_POLL_LOOP_RE = re.compile(
-    r"\b(?:until|while)\s"
-    r"(?=[\s\S]*?\bgh\s+(?:api|run\s+view)\b)"
-    r"(?=[\s\S]*?\bsleep\s+\d)"
-)
-
-
-def _is_github_poll_loop(command: str) -> bool:
-    """True if *command* loops on ``gh api``/``gh run view`` with ``sleep``."""
-    return _GITHUB_POLL_LOOP_RE.search(command) is not None
+def _is_github_poll_loop(command: str, *, depth: int = 0) -> bool:
+    """Inspect executable shell sources, never ordinary argv or Python text."""
+    if depth > 20:
+        return False
+    outer, bodies = executable_substitutions(strip_heredoc_bodies(command))
+    if any(
+        _is_github_poll_loop(body, depth=depth + 1)
+        for body in [*bodies, *_piped_shell_sources(outer)]
+    ):
+        return True
+    loops: list[set[str]] = []
+    for segment in split_pipeline(outer, split_background=True, shell_comments=True):
+        source = segment.strip().lstrip("({")
+        if re.match(r"(?:while|until)\s", source):
+            loops.append(set())
+        try:
+            tokens = shlex.split(source.rstrip(")}"), comments=True)
+            argv = executable_argv(list(tokens))
+        except ValueError:
+            continue
+        if tokens and tokens[0] == "done" and loops:
+            loops.pop()
+        if not argv:
+            continue
+        program = argv[0].rsplit("/", 1)[-1]
+        signal = None
+        if program == "gh" and (argv[1:2] == ["api"] or argv[1:3] == ["run", "view"]):
+            signal = "github"
+        elif program == "sleep" and len(argv) > 1 and re.match(r"\d", argv[1]):
+            signal = "sleep"
+        if signal:
+            for loop in loops:
+                loop.add(signal)
+                if loop == {"github", "sleep"}:
+                    return True
+        sources = []
+        if program == "eval":
+            sources.append(" ".join(argv[1:]))
+        elif program in {"sh", "bash", "zsh", "dash", "ksh"}:
+            for index, option in enumerate(argv[1:], 1):
+                if (
+                    option.startswith("-")
+                    and not option.startswith("--")
+                    and "c" in option[1:]
+                ):
+                    if index + 1 < len(argv):
+                        sources.append(argv[index + 1])
+                    break
+            if "<<<" in argv and argv.index("<<<") + 1 < len(argv):
+                sources.append(argv[argv.index("<<<") + 1])
+        if any(_is_github_poll_loop(text, depth=depth + 1) for text in sources):
+            return True
+    return False
 
 
 def _has_monitor_duplicate_suppression(command: str) -> bool:
@@ -192,28 +240,6 @@ def _extract_peek_capture_file(command: str, roots: Sequence[str]) -> Optional[s
     return m.group(2)
 
 
-def _peek_read_in_command_substitution(command: str, roots: Sequence[str]) -> bool:
-    """True iff the peek-verb match sits inside a ``$(...)`` substitution.
-
-    ``OUT=$(cat /tmp/ptr.txt); cd "$OUT" && ...`` consumes the file's
-    bytes as input to the rest of the command (the pointer-file idiom
-    that persists a mktemp path across Bash subshells) — the read never
-    reaches the transcript, so on its own it is not a progress peek.
-    Callers MUST pair this with the session capture-registration check:
-    a file some session command redirected into (or named via
-    ``--raw-capture``/``--progress-capture``) stays a peek even when
-    read through a substitution.
-    """
-    m = capture_patterns(tuple(roots)).peek_verb.search(command)
-    if not m:
-        return False
-    prefix = command[: m.start()]
-    open_idx = prefix.rfind("$(")
-    # Enclosed iff a `$(` opens before the verb with no `)` in between
-    # (a closed earlier substitution does not enclose the read).
-    return open_idx != -1 and ")" not in prefix[open_idx + 2 :]
-
-
 def _extract_sleep_cadence(command: str) -> Optional[int]:
     """Return the ``sleep N`` seconds value before a tail/head/cat, if present."""
     m = _SLEEP_THEN_PEEK_RE.search(command)
@@ -254,3 +280,11 @@ def _extract_background_capture_files(command: str, roots: Sequence[str]) -> lis
         match.group(1) for match in _WATCHER_CAPTURE_ARG_RE.finditer(command)
     )
     return list(dict.fromkeys(captures))
+
+
+def _extract_sleep_capture_file(command: str, roots: Sequence[str]) -> Optional[str]:
+    """Return the capture read after a sleep, ignoring earlier reads."""
+    match = _SLEEP_THEN_PEEK_RE.search(command)
+    return (
+        _extract_peek_capture_file(command[match.start() :], roots) if match else None
+    )

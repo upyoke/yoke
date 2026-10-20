@@ -13,16 +13,14 @@ sibling, eliminates the cycle. The entry-point re-exports each constant
 (``DEFAULT_MODE``, ``VALID_MODES``,
 ``CHECK_ID``, ``HOOK_NAME``, ``SUPPRESSION_TOKEN``,
 ``MONITOR_DUPLICATE_SUPPRESSION_TOKEN``, ``BG_WAITER_SUPPRESSION_TOKEN``,
-and the cadence / window thresholds) so callers continue to import them from
+and the cadence thresholds) so callers continue to import them from
 ``yoke_core.domain.lint_long_command_polling``.
 """
 
 from __future__ import annotations
 
 
-PEEK_WINDOW_TURNS = 5
 RECENT_EVENT_LOOKBACK_SECONDS = 600  # 10 minutes — bounds the DB scan
-MTIME_ACTIVE_THRESHOLD_SECONDS = 30
 SLEEP_CADENCE_FLOOR_SECONDS = 60
 SUPPRESSION_TOKEN = "# lint:no-polling-check"
 MONITOR_DUPLICATE_SUPPRESSION_TOKEN = "# lint:no-monitor-duplicate-check"

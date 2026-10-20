@@ -9,7 +9,6 @@ import pytest
 from yoke_core.domain import lint_long_command_polling_evaluate as lint
 from yoke_core.domain.lint_long_command_polling_constants import SUPPRESSION_TOKEN
 from yoke_core.domain.lint_long_command_polling_decide import (
-    _format_peek_reason,
     _format_sleep_reason,
 )
 from yoke_core.domain.lint_long_command_polling_test_helpers import (
@@ -67,6 +66,40 @@ def test_non_bash_tool_is_not_a_poll_loop() -> None:
     assert lint.evaluate_payload(payload) is None
 
 
-def test_peek_and_sleep_refusals_offer_no_override() -> None:
-    assert SUPPRESSION_TOKEN not in _format_peek_reason("/tmp/run.out", 2, "deny")
+def test_sleep_refusal_offers_no_override() -> None:
     assert SUPPRESSION_TOKEN not in _format_sleep_reason(10, "deny")
+
+
+POLL_LOOP = "while true; do gh run view 1; sleep 10; done"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"python3 - <<'PY'\nfixture = {POLL_LOOP!r}\nPY",
+        f"python3 -c {POLL_LOOP!r}",
+        f"printf '%s' {POLL_LOOP!r}",
+        f"rg {POLL_LOOP!r} tests",
+        f"# {POLL_LOOP}\necho finished",
+        "while read -r line; do echo line; done; gh run view 1; sleep 10",
+        "while true; do echo 'gh run view 1; sleep 10'; done",
+    ],
+)
+def test_quoted_data_and_unrelated_commands_pass(command):
+    assert lint.evaluate_payload(_bash_payload(command)) is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"bash -c {POLL_LOOP!r}",
+        f"env bash -lc {POLL_LOOP!r}",
+        f"eval {POLL_LOOP!r}",
+        f"echo {POLL_LOOP!r} | sh",
+        f'echo "$({POLL_LOOP})"',
+        f"python3 - <<PY\nfixture = '$({POLL_LOOP})'\nPY",
+        f"sh <<'SH'\n{POLL_LOOP}\nSH",
+    ],
+)
+def test_executable_shell_payloads_still_refuse(command):
+    assert lint.evaluate_payload(_bash_payload(command)) is not None

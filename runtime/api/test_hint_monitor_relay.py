@@ -92,7 +92,7 @@ def test_monitor_payload_emits_pretooluse_hookspecificoutput() -> None:
 
 def test_default_reminder_anchored_on_observed_failure_modes() -> None:
     text = hint_monitor_relay.HELP_REMINDER
-    assert "tail" in text.lower(), "must warn against capture-file peeks"
+    assert "tail" in text.lower(), "must describe the existing capture waiter"
     assert "filler" in text.lower(), "must warn against filler text between wakes"
     assert "matched line" in text.lower(), (
         "must anchor on the relay-the-matched-line rule"
@@ -206,20 +206,14 @@ REMINDER_SOURCE_ROOT = REMINDER_REPO_ROOT / "packages" / "yoke-core" / "src"
 class TestDefaultReminderContent(unittest.TestCase):
     """The widened reminder mirrors the deny-side coverage."""
 
-    def test_widened_peek_verb_enumeration_present(self) -> None:
+    def test_capture_reads_need_no_suppression(self) -> None:
+        text = " ".join(HELP_REMINDER.split())
         self.assertIn(
-            "tail/head/cat/wc/grep/egrep/fgrep/rg/ls/awk/sed/less/more/file/stat/nl/cut/sort/uniq",
-            HELP_REMINDER,
-        )
-
-    def test_legacy_three_verb_phrasing_replaced(self) -> None:
-        # The old "(tail/head/cat) while the owning command is
-        # running" wording must be removed (replacement, not addition).
-        text = HELP_REMINDER
-        self.assertNotIn(
-            "(tail/head/cat) while the owning command is running",
+            "Reads of captures, completed task output and agent-written files need no suppression token",
             text,
         )
+        self.assertIn("sleep below 60s", text)
+        self.assertIn("session-registered capture is refused", text)
 
     def test_bg_waiter_prohibition_present(self) -> None:
         # The four waiter shapes are named.
@@ -235,8 +229,8 @@ class TestDefaultReminderContent(unittest.TestCase):
         # The Claude private-tmp capture root is named explicitly.
         text = HELP_REMINDER
         self.assertIn("/private/tmp/claude-", text)
-        # And the prose links it to the existing peek/waiter rules.
-        self.assertIn("peek", text)
+        # Task artifacts retain the waiter guard and allow ordinary reads.
+        self.assertIn("reads are allowed", text)
         self.assertIn("waiter", text)
         self.assertNotIn("pgrep -f <pattern>", text)
 
@@ -270,9 +264,9 @@ class TestReminderModuleSize(unittest.TestCase):
 class TestReminderSingleSourceOfTruth(unittest.TestCase):
     """``DEFAULT_REMINDER`` is the only canonical reminder source.
 
-    A grep for the ``"Avoid repeated peeks at the capture file"`` substring across
+    A grep for the ``"Use matched lines for progress. Reads of captures"`` substring across
     ``packages/yoke-core/src`` returns exactly one hit (the canonical
-    constant in ``hint_monitor_relay.py``).
+    constant in ``hint_monitor_relay_help.py``).
     """
 
     def test_only_one_canonical_definition(self) -> None:
@@ -288,7 +282,7 @@ class TestReminderSingleSourceOfTruth(unittest.TestCase):
                     "--exclude-dir=__pycache__",
                     "-l",
                     "--exclude-dir=__pycache__",
-                    "Avoid repeated peeks at the capture file",
+                    "Use matched lines for progress. Reads of captures",
                     str(REMINDER_SOURCE_ROOT),
                 ],
                 check=False,

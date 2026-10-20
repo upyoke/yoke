@@ -16,7 +16,7 @@ from __future__ import annotations
 import unittest
 
 from yoke_core.domain import (
-    lint_long_command_polling_evaluate as lint_eval,
+    lint_long_command_polling_extract as lint_eval,
 )
 from yoke_core.domain.lint_long_command_polling_test_helpers import (
     CAPTURE_ROOTS as ROOTS,

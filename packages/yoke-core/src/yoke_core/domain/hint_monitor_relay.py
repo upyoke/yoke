@@ -6,7 +6,7 @@ wake is shaped exactly like a normal turn, so the trained "I have a turn -
 produce useful output" drive routes the wake into commentary, repeated
 capture-file peeks, or confabulated detail beyond the matched line. The
 denial-side rules name same-capture duplicate Monitor/background
-waiter/repeated-peek shapes and refuse them; this hint is the additive twin
+waiter and short sleep-and-read shapes and refuse them; this hint is the additive twin
 that lands a short positive constraint at the moment Monitor is armed.
 
 The hook reads the PreToolUse JSON payload from stdin, returns
@@ -49,7 +49,7 @@ TARGET_TOOL = "Monitor"
 DEFAULT_REMINDER = """\
 <system-reminder>
 Monitor is a SUBSCRIPTION, not a poll. Arm once per background capture;
-matched lines arrive as wakes. Do not re-arm, peek the capture, spawn a
+matched lines arrive as wakes. Do not re-arm, sleep to re-read the capture, spawn a
 waiter, or Stop while the command runs. On each wake, write one plain
 sentence in your own visible output saying what changed that the user cares
 about (item, PR, failing test, terminal state); write nothing if nothing did.
