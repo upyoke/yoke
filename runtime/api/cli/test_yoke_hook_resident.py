@@ -273,13 +273,18 @@ def test_client_falls_back_with_named_reason(monkeypatch, tmp_path, capsys) -> N
     monkeypatch.setattr(
         hooks,
         "_evaluate_inprocess",
-        lambda *args, **kwargs: captured.update(kwargs) or 7,
+        lambda *args, **kwargs: captured.update(
+            kwargs, budget=os.environ["YOKE_HOOK_TOTAL_TIMEOUT_MS"]
+        )
+        or 7,
     )
     assert hooks.hook_evaluate(["PreToolUse"]) == 7
     assert captured["fallback_reason"] == "YOKE_HOOK_RESIDENT_UNREACHABLE"
     assert "using canonical in-process fallback" in capsys.readouterr().err
-    # The fallback evaluates inside what is left of this process's budget.
-    assert 0 < int(os.environ["YOKE_HOOK_TOTAL_TIMEOUT_MS"]) <= 10000
+    # The fallback evaluates inside what is left of this process's budget,
+    # and the process's own setting is restored afterwards.
+    assert 0 < int(captured["budget"]) <= 10000
+    assert os.environ["YOKE_HOOK_TOTAL_TIMEOUT_MS"] == "10000"
 
 
 def test_message_probe_interval_is_bounded() -> None:

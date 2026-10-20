@@ -189,8 +189,6 @@ def _dispatch_hook(args: List[str], stdin_data: str | None = None) -> int:
                 "evaluator is starting or stuck. Retry; if it persists run "
                 f"yoke hook resident restart and inspect {exc.log_path}"
             ) from None
-        # The fallback spends only what is left of this process's budget.
-        os.environ[TOTAL_TIMEOUT_ENV] = str(max(1, remaining_ms))
         if claim_fallback_warning(exc.log_path.parent):
             sys.stderr.write(
                 f"WARNING: {exc.code}: {exc.detail}; using canonical in-process "
@@ -198,15 +196,24 @@ def _dispatch_hook(args: List[str], stdin_data: str | None = None) -> int:
                 "check: yoke watch doctor -- --only hook-resident)\n"
             )
         fallback_ms: list[int] = []
-        exit_code = _evaluate_inprocess(
-            parsed.event_name,
-            stdin_data,
-            dry_run=False,
-            cursor_invocation=cursor_invocation,
-            fallback_reason=exc.code,
-            client_timing=client_timing,
-            elapsed_ms=fallback_ms,
-        )
+        # The fallback spends only what is left of this process's budget.
+        configured = os.environ.get(TOTAL_TIMEOUT_ENV)
+        os.environ[TOTAL_TIMEOUT_ENV] = str(max(1, remaining_ms))
+        try:
+            exit_code = _evaluate_inprocess(
+                parsed.event_name,
+                stdin_data,
+                dry_run=False,
+                cursor_invocation=cursor_invocation,
+                fallback_reason=exc.code,
+                client_timing=client_timing,
+                elapsed_ms=fallback_ms,
+            )
+        finally:
+            if configured is None:
+                os.environ.pop(TOTAL_TIMEOUT_ENV, None)
+            else:
+                os.environ[TOTAL_TIMEOUT_ENV] = configured
         # Keep the phase evidence in diagnostics, outside harness chat.
         _report_phase_timing(
             resident_wait_ms=exc.resident_wait_ms,
