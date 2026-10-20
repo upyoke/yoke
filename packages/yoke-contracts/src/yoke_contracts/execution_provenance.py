@@ -13,8 +13,13 @@ import subprocess
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
+from yoke_contracts.install_binding import distribution_source_commit_for_module
+
 
 PROVENANCE_KEYS = ("source_sha", "install_kind", "install_path")
+
+#: The distribution that owns this module; its wheel records the build commit.
+CONTRACTS_DISTRIBUTION_NAME = "yoke-contracts"
 
 
 def _git_sha(root: Path) -> str:
@@ -55,6 +60,9 @@ def _collect_execution_provenance(
             break
     if kind == "unknown" and "uv/tools" in install_path:
         kind = "uv_tool"
+    if not sha and kind != "source_checkout":
+        # An installed wheel records the commit it was built from.
+        sha = distribution_source_commit_for_module(CONTRACTS_DISTRIBUTION_NAME, path)
     if not sha:
         sha = "unknown"
     return {

@@ -1,7 +1,8 @@
 {
  "id": "engineer",
  "title": "Engineer",
- "status": "draft-copy",
+ "status": "observed",
+ "note": "Dispatching skills name the `yoke-engineer` agent and point to the shared role-spawn page, whose generated block shows each harness's invocation (Codex: the installed custom agent of that name).",
  "page": "agents",
  "position": 4
 }

@@ -47,6 +47,34 @@ def test_unknown_or_below_all_options_refuses_with_recovery(configured, model, e
     assert "Recovery:" in str(refusal.value)
 
 
+@pytest.mark.parametrize(
+    "executor,model,expected",
+    [
+        ("cursor-cli", "auto", "Cursor Auto hides the model; choose a named model"),
+        ("cursor", None, "Cursor Auto hides the model; choose a named model"),
+        ("claude-code", "default", "choose a named model with /model"),
+        ("codex-cli", None, "choose a named model with /model"),
+    ],
+)
+def test_placeholder_model_refusal_names_the_hidden_model(
+    configured, executor, model, expected
+):
+    with pytest.raises(SessionError) as refusal:
+        admission.require_work_selection(
+            None, project_id=1, executor=executor, model=model, reasoning_effort=None
+        )
+    assert refusal.value.code == "SESSION_BELOW_INTERN"
+    assert expected in str(refusal.value)
+
+
+def test_named_unknown_model_refusal_carries_no_placeholder_note(configured):
+    with pytest.raises(SessionError) as refusal:
+        admission.require_work_selection(
+            None, project_id=1, executor="cursor", model="grok-4.7", reasoning_effort=None
+        )
+    assert "hides the model" not in str(refusal.value)
+
+
 def test_steering_process_claim_never_reads_model_facts():
     from yoke_core.domain.work_claim_targets import make_steering_target
 

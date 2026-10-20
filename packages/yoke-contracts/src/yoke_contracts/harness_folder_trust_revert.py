@@ -15,15 +15,27 @@ from yoke_contracts.harness_unattended_posture import (
     codex_config_path,
 )
 from yoke_contracts.codex_config_posture import parse_config
+from yoke_contracts.codex_hook_trust_toml import (
+    CodexHookTrustStoreError,
+    all_hook_entries,
+    filter_tables,
+    hook_path,
+    mutate,
+)
 
 
-def revert_folder_trust(checkout: Path, *, exclusive_reason: str = "") -> list[dict]:
+def revert_folder_trust(
+    checkout: Path, *, exclusive_reason: str = "", lanes_dir: Path | None = None
+) -> list[dict]:
     """Consume successful exact-entry reverts; retain unresolved ownership evidence.
 
-    Shared approval posture and whole user configuration files are never selected.
-    Older created-file records lack content identity and cannot authorize removal.
+    Entries owned by the checkout or by a lane under ``lanes_dir`` are selected,
+    plus the Codex hook trust mirrored onto those lanes. Shared approval posture
+    and whole user configuration files are never selected. Older created-file
+    records lack content identity and cannot authorize removal.
     """
     root = str(checkout.resolve())
+    lanes = lanes_dir.expanduser().resolve() if lanes_dir is not None else None
     results = []
     try:
         with ledger.mutation() as entries:
@@ -33,7 +45,10 @@ def revert_folder_trust(checkout: Path, *, exclusive_reason: str = "") -> list[d
                 if scope is None:
                     continue
                 owner, family = scope
-                if Path(owner).expanduser().resolve() != checkout.resolve():
+                owner_path = Path(owner).expanduser().resolve()
+                if owner_path != checkout.resolve() and not (
+                    lanes is not None and owner_path.is_relative_to(lanes)
+                ):
                     continue
                 matched.add(
                     (family, str(Path(entry["file"]).expanduser().resolve()), owner)
@@ -86,7 +101,42 @@ def revert_folder_trust(checkout: Path, *, exclusive_reason: str = "") -> list[d
         results.append(
             _result("ledger", "failed", "trust_ledger_unreadable", root, str(exc))
         )
+    if lanes_dir is not None and not exclusive_reason:
+        results.extend(_revert_lane_hook_trust(lanes_dir, root))
     return results
+
+
+def _revert_lane_hook_trust(lanes_dir: Path, root: str) -> list[dict]:
+    """Remove the Codex hook trust lane provisioning mirrored under ``lanes_dir``.
+
+    Mirroring writes no ledger entry: a hooks path under this checkout's lanes
+    directory is itself the ownership proof. Codex keys literal paths, so both
+    the stated and the resolved spelling of the directory match.
+    """
+    config = codex_config_path()
+    if not config.is_file():
+        return []
+    stated = lanes_dir.expanduser()
+    prefixes = (f"{stated}/", f"{stated.resolve()}/")
+
+    def plan(text: str, document: dict) -> tuple[str, int]:
+        keys = {
+            key
+            for key in all_hook_entries(document)
+            if (hook_path(key) or "").startswith(prefixes)
+        }
+        updated, count, _ = filter_tables(text, keys, set())
+        if count != len(keys):
+            raise CodexHookTrustStoreError(
+                "lane hook trust uses an unsupported inline TOML layout"
+            )
+        return updated, count
+
+    try:
+        removed = mutate(config, plan)
+    except CodexHookTrustStoreError as exc:
+        return [_result("codex", "failed", "lane_hook_trust_unreadable", root, str(exc))]
+    return [_result("codex", "removed", "lane_hook_trust", root)] if removed else []
 
 
 def _scope(entry: dict) -> tuple[str, str] | None:

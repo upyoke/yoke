@@ -1,9 +1,10 @@
 {
  "id": "no-test-suite",
  "title": "No test suite",
- "status": "draft-copy",
+ "status": "observed",
  "commands": ["yoke qa no-tests attest", "yoke qa no-tests clear"],
  "functions": ["qa.no_tests.attest", "qa.no_tests.clear"],
+ "note": "An attested project merges with no integration verification command. A project with neither a registered full or quick command nor an attestation is refused at merge, and the refusal names both `yoke qa registered-command set` and `yoke qa no-tests attest`.",
  "page": "verification",
  "position": 2
 }

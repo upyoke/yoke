@@ -10,6 +10,7 @@ from yoke_contracts.harness_folder_trust_revert import revert_folder_trust
 from yoke_contracts.harness_folder_trust import cursor_trust_file
 from yoke_contracts.machine_config.checkout import main_checkout
 from yoke_contracts.machine_config.schema_projects import normalize_projects
+from yoke_contracts.machine_config.settings_keys import MACHINE_SETTING_KEYS
 from yoke_contracts.machine_config import schema as contract
 from yoke_cli.config import machine_config, machine_config_file
 from yoke_cli.config.machine_config_mutation import (
@@ -68,6 +69,13 @@ def cleanup(root: Path, manifest: dict, config_path) -> dict:
         }
 
 
+def _lanes_dir(root: Path, payload: dict) -> Path:
+    """The checkout's linked-worktree directory, as lane provisioning names it."""
+    settings = payload.get("settings") if isinstance(payload, dict) else None
+    configured = settings.get("worktrees_dir") if isinstance(settings, dict) else None
+    return root / str(configured or MACHINE_SETTING_KEYS["worktrees_dir"].default)
+
+
 @serialized_mutation
 def _cleanup(root: Path, manifest: dict, *, path=None) -> dict:
     payload, cfg = load_payload(path)
@@ -90,7 +98,9 @@ def _cleanup(root: Path, manifest: dict, *, path=None) -> dict:
         or _config_reason(manifest, cfg)
         or _shared_reason(root, all_projects, manifest.get("project_id"))
     )
-    trust = revert_folder_trust(root, exclusive_reason=reason)
+    trust = revert_folder_trust(
+        root, exclusive_reason=reason, lanes_dir=_lanes_dir(root, payload)
+    )
     record = manifest.get(REGISTRATION_KEY)
     exact = [
         entry

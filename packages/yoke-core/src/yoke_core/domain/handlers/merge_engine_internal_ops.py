@@ -16,17 +16,14 @@ against a local Postgres connection, or over https server-side) while the
 merge engine keeps every git and filesystem operation — worktree removal,
 branch deletion, test execution — local.
 
-Each handler is a thin wrapper over unchanged domain state: the prune
-verdict wraps the unchanged
+The prune verdict wraps the fail-closed
 :func:`yoke_core.engines.merge_prune_authority.terminal_owner` /
-:func:`~yoke_core.engines.merge_prune_authority.has_active_authority`
-fail-closed logic, and the post-rebase read wraps
-:func:`yoke_core.domain.qa_plan_attachments.materialize_for_item` plus the
-registered project Command-plan reader. The prune/keep
-decision and every engine-side narrative stay client-side; these handlers
-return only the raw verdict data. They are ``adapter_status='internal'``
-(merge glue, never an agent CLI surface), so they carry no CLI adapter
-inventory row.
+:func:`~yoke_core.engines.merge_prune_authority.has_active_authority` logic;
+the post-rebase read wraps
+:func:`yoke_core.domain.qa_plan_attachments.materialize_for_item`, the
+registered Command-plan reader and the project's no-tests attestation. Every
+engine-side decision stays client-side. They are ``adapter_status='internal'``
+(merge glue, never an agent CLI surface), so they carry no CLI adapter row.
 """
 
 from __future__ import annotations
@@ -79,6 +76,8 @@ class PostRebaseRequirementResponse(BaseModel):
     scope: str
     command: str
     covering_runs: list[dict[str, Any]] = Field(default_factory=list)
+    # Set when the project attested no suite: scope/command stay empty.
+    no_tests_reason: Optional[str] = None
 
 
 def _covering_runs(
@@ -147,10 +146,10 @@ def _covering_runs(
     return covering
 
 
-def _err(code: str, message: str) -> HandlerOutcome:
+def _err(code: str, message: str, recovery: Optional[str] = None) -> HandlerOutcome:
     return HandlerOutcome(
         primary_success=False,
-        error=FunctionError(code=code, message=message),
+        error=FunctionError(code=code, message=message, recovery_hint=recovery),
     )
 
 
@@ -234,19 +233,15 @@ def _prune_verdict(conn: Any, lane: PruneAuthorityRequest) -> dict[str, Any]:
 def handle_post_rebase_requirement(request: FunctionCallRequest) -> HandlerOutcome:
     """Resolve local verification for the item's integrated candidate tree.
 
-    Any effective QA plan attached to the supplied transition is materialized
-    before command resolution. Workflows without that transition commonly
-    have no attachment there; checking first avoids manufacturing a transition
-    requirement just to run the project-wide integration gate. Once any
-    attached plan is snapshotted, prefer the registered ``full`` command and
-    fall back to ``quick``. Both local and CI-routed Command cases retain this
-    project-owned command in their immutable method configuration, so the
-    merge engine can deliberately execute it against the local candidate tree.
+    Any QA plan attached to the supplied transition is materialized first
+    (checking avoids manufacturing a requirement where none is attached), then
+    the registered ``full`` command is preferred over ``quick``. Local and
+    CI-routed Command cases keep this command in their immutable method
+    configuration, so the merge engine can run it on the candidate tree.
 
-    Missing command configuration and every materialization/read failure are
-    structured failures. The client treats every failed dispatcher response as
-    merge-blocking, so a registered project can never advance without an
-    executable verification contract.
+    A project that attested no test suite answers ``no_tests_reason`` with no
+    command. Otherwise a missing command and every materialization/read
+    failure are merge-blocking structured failures.
     """
     item_id = request.target.item_id
     if item_id is None:
@@ -260,6 +255,10 @@ def handle_post_rebase_requirement(request: FunctionCallRequest) -> HandlerOutco
 
     from yoke_core.domain import db_backend
     from yoke_core.domain.db_helpers import query_one
+    from yoke_core.domain.project_verification_posture import (
+        attestation_reason,
+        attests_no_tests,
+    )
     from yoke_core.domain.qa_command_plans import (
         list_registered_commands_for_project_id,
     )
@@ -302,25 +301,28 @@ def handle_post_rebase_requirement(request: FunctionCallRequest) -> HandlerOutco
                 None,
             )
             covering = (
-                _covering_runs(
-                    conn,
-                    marker,
-                    int(item_id),
-                    selected[0],
-                    selected[1],
-                )
+                _covering_runs(conn, marker, int(item_id), *selected)
                 if selected is not None
                 else []
+            )
+            no_tests = (
+                attestation_reason(conn, project_id) or "no reason recorded"
+                if attests_no_tests(conn, project_id)
+                else None
             )
     except Exception as exc:  # noqa: BLE001 - materialize failure blocks the merge
         return _err("post_rebase_requirement_failed", str(exc))
 
-    if selected is None:
+    if selected is None and no_tests is None:
         return _err(
             "post_rebase_verification_missing",
             f"project {project!r} has no executable registered full or quick command",
+            f"Register the project's suite with `yoke qa registered-command set "
+            f"--project {project} --scope full --command '<command>'`, or, when "
+            f"it has none, `yoke qa no-tests attest --project {project} --reason "
+            f"'<why>'`; then rerun the merge.",
         )
-    scope, command = selected
+    scope, command = selected if selected is not None else ("", "")
     return HandlerOutcome(
         result_payload={
             "requirement_id": None,
@@ -328,6 +330,7 @@ def handle_post_rebase_requirement(request: FunctionCallRequest) -> HandlerOutco
             "scope": scope,
             "command": command,
             "covering_runs": covering,
+            "no_tests_reason": no_tests if selected is None else None,
         },
         primary_success=True,
     )

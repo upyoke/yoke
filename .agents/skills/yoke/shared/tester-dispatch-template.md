@@ -1,6 +1,6 @@
 # Tester dispatch template
 
-Render `DispatchDescriptor(role="tester")`; a task uses its own lane.
+Spawn `yoke-tester` ([role spawn](role-spawn.md)); a task uses its own lane.
 
 ```text
 Validate {public_ref}{ task {task_num}}: {title}

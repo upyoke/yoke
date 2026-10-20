@@ -172,7 +172,8 @@ def test_uninstall_preserves_checkout_used_by_another_connection(tmp_path, monke
     monkeypatch.setattr(
         owned_cleanup,
         "revert_folder_trust",
-        lambda root, exclusive_reason: reasons.append(exclusive_reason) or [],
+        lambda root, exclusive_reason, lanes_dir: reasons.append(exclusive_reason)
+        or [],
     )
     before = config.read_bytes()
     result = owned_cleanup.cleanup(tmp_path, {"project_id": 1}, config)

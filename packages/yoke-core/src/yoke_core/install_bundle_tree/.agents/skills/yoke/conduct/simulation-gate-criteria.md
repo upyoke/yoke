@@ -1,6 +1,6 @@
 # Conduct — Simulator dispatch and receipt
 
-Render DispatchDescriptor(role="simulator"). The reply starts
+Spawn `yoke-simulator` ([role spawn](../shared/role-spawn.md)). The reply starts
 `SIMULATION: CLEAN` or `SIMULATION: GAPS FOUND`, then `EPIC: PREFIX-N`. Empty _epic_ref halts first.
 Compressed two-phase mode unless sim_force_standard_integration is true.
 Code authority is each task's registered worktree or diff, not main.

@@ -149,6 +149,7 @@ class TestPostRebaseRequirement:
             "scope": "full",
             "command": "python3 verify_tree.py",
             "covering_runs": [],
+            "no_tests_reason": None,
         }
         ops.PostRebaseRequirementResponse(**outcome.result_payload)
 
@@ -175,6 +176,8 @@ class TestPostRebaseRequirement:
         assert outcome.primary_success is False
         assert outcome.error is not None
         assert outcome.error.code == "post_rebase_verification_missing"
+        assert "yoke qa registered-command set" in outcome.error.recovery_hint
+        assert "yoke qa no-tests attest" in outcome.error.recovery_hint
 
     def test_quick_command_is_fallback_when_full_is_retired(self, db):
         item_id = 9413
