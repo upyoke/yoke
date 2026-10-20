@@ -6,9 +6,9 @@ root: every other child is a snapshot, including dated homes, mixed captures,
 ``.yoke-golden-*`` temporaries and retired browser profiles. A shared parent
 drops only this user's ``USER-home-*`` and ``home-*`` snapshots, so another
 user's baseline stays. One machine can be registered in several projects
-that share a parent, so every golden the server names as registered for this
-machine stays, with its ``.probes``, ``.manifest`` and ``.harness-clis`` sidecars, whichever
-project registered it. A symlink is never removed.
+that share a parent, so every golden registered for this machine stays with
+its ``.probes``, ``.manifest`` and ``.harness-clis`` sidecars. A symlink, or a
+name whose removal fails, is kept and named while the rest still go.
 """
 
 from __future__ import annotations
@@ -121,35 +121,68 @@ def names_from_find(parent: str, output: str) -> tuple[str, ...]:
     return tuple(names)
 
 
+def removal_order(names: Sequence[str]) -> tuple[str, ...]:
+    """Put every sidecar before any folder, so no sidecar outlives its golden."""
+    return tuple(sorted(names, key=lambda name: not name.endswith(SIDECAR_SUFFIXES)))
+
+
 def removal_script(parent: str, names: Sequence[str]) -> str:
     """Return a POSIX script that deletes only the named direct children.
 
-    Symlinks are refused before any removal, so a link is never followed.
-    Capture seals a golden read-only and keeps macOS deny-delete ACLs, so
-    each target's ACLs are cleared (``chmod -N``, macOS only) and its
-    directories made owner-writable before ``rm``.
+    A failed name is kept and the loop goes on; each name prints ``removed N``
+    or ``kept N REASON`` (``N`` is its 1-based position), and any kept name
+    exits 1. A symlink is kept, never followed. Capture seals a golden with
+    macOS deny-delete ACLs, so ACLs are cleared (``chmod -N``, macOS only)
+    and directories made owner-writable before ``rm``.
     """
     quoted = " ".join(shlex.quote(name) for name in names)
     return "\n".join(
         (
-            "set -eu",
-            "skipped=0",
+            "set -u",
+            "kept=0 index=0",
             f"parent={shlex.quote(parent)}",
             f"for name in {quoted}; do",
-            '  case "$name" in ""|"."|".."|*/*) printf "%s\\n" "rejected $name"; exit 1 ;; esac',
+            "  index=$((index + 1))",
+            '  case "$name" in ""|"."|".."|*/*) printf "kept %s rejected\\n" "$index"; kept=1; continue ;; esac',
             '  target="$parent/$name"',
-            '  if [ -L "$target" ]; then printf "%s\\n" "symlink $target"; skipped=1; continue; fi',
-            '  if [ -d "$target" ]; then',
-            '    chmod -RN "$target" 2>/dev/null || :',
-            '    chmod -R u+rwx "$target"',
-            '    rm -rf -- "$target"',
-            '  elif [ -e "$target" ]; then',
-            '    chmod -N "$target" 2>/dev/null || :',
-            '    rm -f -- "$target"',
+            '  if [ -L "$target" ]; then printf "kept %s symlink\\n" "$index"; kept=1; continue; fi',
+            "  if (",
+            '    if [ -d "$target" ]; then chmod -RN "$target" 2>/dev/null',
+            '      chmod -R u+rwx "$target" && rm -rf -- "$target"',
+            '    else chmod -N "$target" 2>/dev/null; rm -f -- "$target"; fi',
+            "  ); then",
+            '    printf "removed %s\\n" "$index"',
+            "  else",
+            '    printf "kept %s failed\\n" "$index"',
+            "    kept=1",
             "  fi",
             "done",
-            'exit "$skipped"',
+            'exit "$kept"',
         )
+    )
+
+
+def removal_outcome(names: Sequence[str], stdout: str) -> tuple[list[str], list[str]]:
+    """Split ``removal_script`` output into removed names and kept names with reasons."""
+    reported: dict[int, str] = {}
+    for line in stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[0] in {"removed", "kept"} and parts[1].isdigit():
+            reason = parts[0] if parts[0] == "removed" else (parts[2:] or ["failed"])[0]
+            reported[int(parts[1]) - 1] = reason
+    removed = [name for i, name in enumerate(names) if reported.get(i) == "removed"]
+    kept = [
+        f"{name} ({reported.get(i, 'unreported')})"
+        for i, name in enumerate(names)
+        if reported.get(i) != "removed"
+    ]
+    return removed, kept
+
+
+def retention_summary(removed: Sequence[str], kept: Sequence[str]) -> str:
+    """Name what retention removed and kept, for capture and refresh output."""
+    return (
+        f"Removed: {', '.join(removed) or 'none'}. Kept: {', '.join(kept) or 'none'}."
     )
 
 
@@ -206,15 +239,18 @@ def apply_retention(
     )
     if not removable:
         return []
-    removed = run(removal_script(parent, removable), timeout=300)
-    if getattr(removed, "returncode", 1) != 0:
-        detail = bounded_machine_qa_diagnostic(removed.stderr or removed.stdout)
+    ordered = removal_order(removable)
+    result = run(removal_script(parent, ordered), timeout=300)
+    removed, kept = removal_outcome(ordered, result.stdout or "")
+    if kept or getattr(result, "returncode", 1) != 0:
+        detail = bounded_machine_qa_diagnostic(result.stderr or "")
         raise SnapshotRetentionError(
-            f"Retired snapshots under {parent} were not removed."
+            f"Retired snapshots under {parent} were not all removed. "
+            + retention_summary(removed, kept)
             + (f" {detail}" if detail else ""),
             _recovery(destination, parent),
         )
-    return list(removable)
+    return removed
 
 
 def retain_after_verified_capture(
@@ -300,7 +336,10 @@ __all__ = [
     "kept_snapshot_names",
     "names_from_find",
     "removable_snapshot_names",
+    "removal_order",
+    "removal_outcome",
     "removal_script",
     "retain_after_verified_capture",
     "retain_registered_golden",
+    "retention_summary",
 ]

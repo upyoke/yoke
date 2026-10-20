@@ -9,6 +9,7 @@ from yoke_core.domain.machine_qa_case_machine import (
     resolve_case_machine,
 )
 from yoke_core.domain.machine_qa_case_hosts import case_machines
+from yoke_core.domain.qa_plan_case_chain import settled_chain_tails
 from yoke_core.domain.qa_plan_run_target_partition import (
     run_target_partition,
     target_passed_requirements,
@@ -35,8 +36,9 @@ def member_machine_partition(
     execution covers its own requirements whose current scoped verdict and
     artifacts still pass the stage's existing evidence checks; a current pass
     on this target covers its requirement whichever execution recorded it,
-    including an aborted one. A single-host deployment roster drops those
-    passes through :func:`run_target_partition`.
+    including an aborted one. A covered case stays while a later case of its
+    chain is still owed. A single-host deployment roster drops those passes
+    through :func:`run_target_partition`.
     """
 
     from yoke_core.domain.qa_plan_chain_hosts import chain_host_groups
@@ -105,6 +107,7 @@ def member_machine_partition(
         )
     } - unresolved
     covered |= target_passed_requirements(conn, roster, **scope)
+    covered = settled_chain_tails(roster, covered)
     pending = [row for row in roster if int(row["requirement_id"]) not in covered]
     live_id = live_plan_execution_id(conn, **scope)
     if live_id:

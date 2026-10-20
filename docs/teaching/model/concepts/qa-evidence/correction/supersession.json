@@ -3,5 +3,8 @@
  "title": "Supersession",
  "status": "draft-copy",
  "page": "qa-evidence",
- "position": 2
+ "position": 2,
+ "summary": "Supersession answers a case that already recorded a verdict. A case with no determinate verdict yet takes configuration fixes in place with yoke qa requirement update; instructions and expected_outcome are not updatable, so record the corrected case with yoke qa requirement add and retire the unjudged one with yoke qa requirement waive.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/qa_requirement_supersede.py"],
+ "commands": ["yoke qa requirement supersede", "yoke qa requirement update", "yoke qa requirement add", "yoke qa requirement waive"]
 }

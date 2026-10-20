@@ -46,7 +46,7 @@ def begin_command_host(
         return _waiting_case(
             begun, int(case["requirement_id"]), runner_id="worktree_run"
         )
-    if begun.get("state") == "blocked":
+    if begun.get("state") in {"blocked", "retained"}:
         return dict(begun["result"])
     if begun.get("state") != "ready" or not isinstance(begun.get("execution"), dict):
         raise ValueError("declared-host Command admission returned no lease contract")

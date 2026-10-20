@@ -219,6 +219,20 @@ def test_a_retention_failure_warns_and_the_case_begins_again(monkeypatch, capsys
     assert f"resets now restore {GOLDEN}-2" in warning
 
 
+def test_a_verified_refresh_prints_the_removed_snapshots(monkeypatch, capsys):
+    world = World(monkeypatch, {**LATEST, "codex": "0.149.1"})
+    monkeypatch.setattr(
+        golden_snapshot_retention,
+        "retain_after_verified_capture",
+        lambda *args: ["testy-home-1.probes", "testy-home-1"],
+    )
+    assert world.run(contract()) == {"refreshed": True}
+    assert (
+        "golden retention on test-mac: Removed: testy-home-1.probes, "
+        "testy-home-1. Kept: none." in capsys.readouterr().err
+    )
+
+
 def test_each_refresh_captures_to_a_new_stamped_sibling(monkeypatch):
     # Today's dated default name may already be the registered golden.
     world = World(monkeypatch, None)
