@@ -135,7 +135,9 @@ def yoke_posture(
         return YokePosture((), ())
     if yoke_allowed(harness_id):
         return YokePosture((), mode)
-    missing = f"{YOKE_COMMAND_ALLOW[harness_id]} is not in {yoke_allow_path(harness_id)}"
+    missing = (
+        f"{YOKE_COMMAND_ALLOW[harness_id]} is not in {yoke_allow_path(harness_id)}"
+    )
     return YokePosture((*mode, missing), ())
 
 
@@ -154,9 +156,7 @@ def configure_yoke_allow(harness_id: str) -> List[str]:
     entry is already there.
     """
     target = yoke_allow_path(harness_id)
-    home = (
-        codex_config_path().parent if harness_id == CODEX_FAMILY else target.parent
-    )
+    home = codex_config_path().parent if harness_id == CODEX_FAMILY else target.parent
     if not home.is_dir() or yoke_allowed(harness_id):
         return []
     try:
@@ -214,9 +214,10 @@ def _merge_json_allow(harness_id: str, target: Path) -> List[Dict[str, Any]]:
     ):
         recorded.append(
             ledger.json_entry(
-                target, deny_keys, [], existing_depth=ledger.existing_depth(
-                    payload, deny_keys[:-1]
-                )
+                target,
+                deny_keys,
+                [],
+                existing_depth=ledger.existing_depth(payload, deny_keys[:-1]),
             )
         )
     container = payload.setdefault(ALLOW_KEYS[0], {})

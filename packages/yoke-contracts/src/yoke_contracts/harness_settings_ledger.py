@@ -93,8 +93,10 @@ def json_list_item_entry(
     file: Path, keys: List[str], value: Any, *, existing_depth: int
 ) -> Dict[str, Any]:
     """One value appended to the list at ``keys``; revert removes only it."""
-    return {**json_entry(file, keys, value, existing_depth=existing_depth),
-            "kind": "json_list_item"}
+    return {
+        **json_entry(file, keys, value, existing_depth=existing_depth),
+        "kind": "json_list_item",
+    }
 
 
 def existing_depth(payload: Any, containers: List[str]) -> int:

@@ -139,11 +139,13 @@ def test_the_pass_prints_every_action_exactly_once(tmp_path: Path, monkeypatch):
         cursor_module, "cursor_config_path", lambda: tmp_path / "gone" / "x.json"
     )
     monkeypatch.setattr(
-        claude_module, "configure_claude_app_bypass_permissions",
+        claude_module,
+        "configure_claude_app_bypass_permissions",
         lambda **_kwargs: False,
     )
     monkeypatch.setattr(
-        claude_module, "configure_claude_cli_permission_mode",
+        claude_module,
+        "configure_claude_cli_permission_mode",
         lambda **_kwargs: [],
     )
     monkeypatch.setattr(allow_module, "configure_yoke_allow", lambda _harness: [])
@@ -290,8 +292,11 @@ def test_the_wizard_step_names_every_harness_file_and_key():
 
     line = friendly_line(POSTURE_PLAN_ACTION, "detected")
     assert "Unattended harness posture" in line
-    for named in (CLAUDE_SETTINGS_PATH, CODEX_CONFIG_DISPLAY_PATH,
-                  CURSOR_CLI_CONFIG_PATH):
+    for named in (
+        CLAUDE_SETTINGS_PATH,
+        CODEX_CONFIG_DISPLAY_PATH,
+        CURSOR_CLI_CONFIG_PATH,
+    ):
         assert named in line
     for key in ("permissions.defaultMode", "approval_policy", "approvalMode"):
         assert key in line
