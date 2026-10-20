@@ -111,8 +111,8 @@ from the process's own start, capped 5 seconds below the shortest manifest
 `machine_hooks.hook_timeout_seconds` (`yoke_contracts.hook_budget`). Connecting,
 starting, restart handshakes and the answer all spend it; the resident evaluates
 inside what is left. A launched resident that exits before listening ends the
-wait (`YOKE_HOOK_RESIDENT_START_FAILED`). With under two seconds left the hook
-skips the fallback and answers `hook_budget_exhausted` with the reason, log and
+wait (`YOKE_HOOK_RESIDENT_START_FAILED`). If waiting on it left under two
+seconds, the hook skips the fallback: `hook_budget_exhausted` with reason, log and
 `yoke hook resident restart`: lifecycle events degrade to an allow with that
 warning, tool events refuse.
 

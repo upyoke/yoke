@@ -174,7 +174,9 @@ def _dispatch_hook(args: List[str], stdin_data: str | None = None) -> int:
         from yoke_contracts.hook_budget import TOTAL_TIMEOUT_ENV, hook_budget_ms
 
         remaining_ms = hook_budget_ms(os.environ) - client_timing.elapsed_ms()
-        if remaining_ms < MINIMUM_FALLBACK_MS:
+        # Refuse only when waiting on the resident spent the budget; with no
+        # resident to wait on, the in-process evaluator is the only path.
+        if exc.resident_wait_ms > 0 and remaining_ms < MINIMUM_FALLBACK_MS:
             _report_phase_timing(
                 resident_wait_ms=exc.resident_wait_ms,
                 fallback_ms=None,
@@ -188,7 +190,7 @@ def _dispatch_hook(args: List[str], stdin_data: str | None = None) -> int:
                 f"yoke hook resident restart and inspect {exc.log_path}"
             ) from None
         # The fallback spends only what is left of this process's budget.
-        os.environ[TOTAL_TIMEOUT_ENV] = str(remaining_ms)
+        os.environ[TOTAL_TIMEOUT_ENV] = str(max(1, remaining_ms))
         if claim_fallback_warning(exc.log_path.parent):
             sys.stderr.write(
                 f"WARNING: {exc.code}: {exc.detail}; using canonical in-process "

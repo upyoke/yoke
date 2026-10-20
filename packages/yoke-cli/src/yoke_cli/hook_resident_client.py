@@ -144,11 +144,14 @@ def _exchange(
 
 
 def _round_trip(
-    paths: ResidentPaths, request: HookEvaluatorRequest, deadline: float
+    paths: ResidentPaths,
+    request: HookEvaluatorRequest,
+    deadline: float,
+    client_started_monotonic: float | None = None,
 ) -> dict:
     peer = _connect(paths, deadline)
     try:
-        return _exchange(peer, request, deadline)
+        return _exchange(peer, request, deadline, client_started_monotonic)
     finally:
         peer.close()
 

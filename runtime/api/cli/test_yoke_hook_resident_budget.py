@@ -213,6 +213,7 @@ def test_a_spent_budget_refuses_by_name_instead_of_falling_back(
             "YOKE_HOOK_RESIDENT_TIMEOUT",
             "resident did not answer inside the hook budget",
             log_path=tmp_path / "resident.log",
+            resident_wait_ms=1000,
         )
 
     monkeypatch.setattr(client, "evaluate_with_resident", timed_out)
