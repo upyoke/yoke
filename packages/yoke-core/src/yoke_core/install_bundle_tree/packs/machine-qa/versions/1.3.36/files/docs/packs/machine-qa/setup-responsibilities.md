@@ -7,5 +7,5 @@ as macOS permission prompts, opening harnesses through the desktop, choosing
 permission modes, typing codes into wizards and approving machine-connect or
 device codes in an already signed-in browser or with `yoke machines approve`.
 The operator is needed only to enter their own password or credential, such as
-a Google or GitHub password. Machine passwords are entered only by product
-code from stored secrets, never typed by hand.
+a Google or GitHub password.
+Machine passwords are entered only by product code from stored secrets, never typed by hand.
