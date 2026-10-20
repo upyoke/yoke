@@ -300,3 +300,33 @@ class TestExecuteCreate:
         attribution = _session_attribution(tmp_db)
         assert attribution["current_item_id"] == "10"
         assert attribution["recent_item_id"] == str(result["item_id"])
+
+    def test_create_with_numeric_project_and_same_project_flow(self, tmp_db):  # noqa: F811
+        """A numeric project id matches its own project's delivery flow."""
+        conn = _conn(tmp_db)
+        conn.execute(
+            "INSERT INTO deployment_flows (id, project_id, name, stages, created_at, "
+            "definition_schema_version) VALUES ('numeric-project-flow', 1, "
+            f"'Numeric', {_p(conn)}, '2026-10-20T00:00:00Z', 2)",
+            ('[{"name": "complete", "stage_kind": "execution", "step_runner": "auto"}]',),
+        )
+        conn.commit()
+        conn.close()
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
+            ),
+        ):
+            result = backlog.execute_create(
+                project="1",
+                title="Numeric project item",
+                spec="Agreed outcome for Numeric project item.",
+                workflow="issue",
+                deployment_flow="numeric-project-flow",
+                out=io.StringIO(),
+            )
+        assert result["success"] is True, result
+        flow = _item_field(tmp_db, result["item_id"], "deployment_flow")
+        assert flow == "numeric-project-flow"
