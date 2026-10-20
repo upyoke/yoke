@@ -34,6 +34,7 @@ class HookDenialAuditRequest(BaseModel):
     session_id: str = ""
     tool_use_id: str = ""
     turn_id: str = ""
+    agent_type: str = ""
 
 
 @router.post("/hooks/denial-audit")
@@ -55,6 +56,7 @@ def post_hooks_denial_audit(
             session_id=request.session_id,
             tool_use_id=request.tool_use_id,
             turn_id=request.turn_id,
+            agent=request.agent_type,
             command_snippet=request.command_snippet,
             guard_key=request.guard_key,
             mode=request.mode,

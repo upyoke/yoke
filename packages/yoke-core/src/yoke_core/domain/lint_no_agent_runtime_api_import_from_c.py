@@ -244,6 +244,7 @@ def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> No
             check_id=CHECK_ID,
             reason=audit_reason,
             session_id=sid if isinstance(sid, str) else "",
+            agent=str(payload.get("agent_type") or ""),
             tool_use_id=tu if isinstance(tu, str) else "",
             turn_id=turn if isinstance(turn, str) else "",
             command_snippet=_extract_command(payload),

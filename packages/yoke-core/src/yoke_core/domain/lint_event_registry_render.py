@@ -84,6 +84,7 @@ def emit_denial(decision: "Decision") -> None:
                 tool_use_id=decision.hook_meta.tool_use_id,
                 turn_id=decision.hook_meta.turn_id,
                 command_snippet=decision.hook_meta.command_snippet,
+                agent=decision.hook_meta.agent,
             )
     except Exception:
         # Fail-open: telemetry is never allowed to convert an otherwise

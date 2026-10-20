@@ -75,6 +75,7 @@ def _denial_audit(module_id: str, mode: str, payload: dict, reason: str) -> dict
     session_id = payload.get("session_id") or ""
     tool_use_id = payload.get("tool_use_id") or ""
     turn_id = payload.get("turn_id") or payload.get("message_id") or ""
+    agent_type = payload.get("agent_type") or ""
     return {
         "hook": module_id,
         "check_id": RIPGREP_REPLACE_CHECK_ID
@@ -87,6 +88,7 @@ def _denial_audit(module_id: str, mode: str, payload: dict, reason: str) -> dict
         "session_id": session_id if isinstance(session_id, str) else "",
         "tool_use_id": tool_use_id if isinstance(tool_use_id, str) else "",
         "turn_id": turn_id if isinstance(turn_id, str) else "",
+        "agent_type": agent_type if isinstance(agent_type, str) else "",
     }
 
 
@@ -153,8 +155,11 @@ def evaluate_local_subset(
     ``project_scope`` it already resolved for the request; a standalone
     evaluation resolves it here from its own payload.
     """
-    _ = agent_type
     payload = _parse_payload(stdin_data)
+    # The server merges the relayed agent type into the payload the same way,
+    # so local and server policies and their denial audits read one field.
+    if agent_type:
+        payload["agent_type"] = agent_type
     if project_scope is None:
         project_scope = resolve_hook_project_scope(payload)
     if lint_config_snapshot:

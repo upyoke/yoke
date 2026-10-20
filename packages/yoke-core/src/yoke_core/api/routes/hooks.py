@@ -255,6 +255,7 @@ def _emit_route_denial(
             client_revision=str(client_revision),
             server_revision=str(server_revision),
             guard_version_skew=guard_version_skew,
+            agent=(request.agent_type or "").strip(),
             close_tool_call=close_tool_call,
         )
     except Exception:

@@ -254,6 +254,7 @@ def _emit_denial(payload: dict, reason: str, *, outcome: str = "denied") -> None
             check_id="shell_quoted_function_payload",
             reason=reason,
             session_id=_s(payload.get("session_id")),
+            agent=str(payload.get("agent_type") or ""),
             tool_use_id=_s(payload.get("tool_use_id")),
             turn_id=_s(payload.get("turn_id") or payload.get("message_id")),
             command_snippet=_extract_command(payload),

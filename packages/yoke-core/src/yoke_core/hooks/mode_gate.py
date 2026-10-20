@@ -87,6 +87,7 @@ def _emit_downgrade(module_id: str, context: Optional[HookContext]) -> None:
                 f".yoke/lint-config policy"
             ),
             session_id=_s(context.session_id if context else ""),
+            agent=_s(payload.get("agent_type")),
             tool_use_id=_s(payload.get("tool_use_id")),
             turn_id=_s(payload.get("turn_id") or payload.get("message_id")),
             command_snippet=_s(command),

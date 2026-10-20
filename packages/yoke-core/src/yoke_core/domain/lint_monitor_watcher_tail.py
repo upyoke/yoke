@@ -105,6 +105,7 @@ def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> No
             check_id=CHECK_ID,
             reason=f"[mode={mode}] {reason}" if mode == "warn" else reason,
             session_id=str(payload.get("session_id") or ""),
+            agent=str(payload.get("agent_type") or ""),
             tool_use_id=str(payload.get("tool_use_id") or ""),
             turn_id=str(payload.get("turn_id") or payload.get("message_id") or ""),
             command_snippet=_extract_command(payload),

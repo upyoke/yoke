@@ -273,6 +273,7 @@ def _emit_denial(payload: dict, reason: str) -> None:
             check_id="lint-tc-label",
             reason=reason,
             session_id=session_id if isinstance(session_id, str) else "",
+            agent=str(payload.get("agent_type") or ""),
             tool_use_id=tool_use_id if isinstance(tool_use_id, str) else "",
             turn_id=turn_id if isinstance(turn_id, str) else "",
             command_snippet=command_snippet,
