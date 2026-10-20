@@ -71,7 +71,7 @@ def harness_posture(
             return "FAIL", f"HARNESS_POSTURE_UNVERIFIED: {harness_id}: {reason}"
         return "N/A", reason
     if verdict.blocking:
-        return "FAIL", f"{harness_id} ({path}): {'; '.join(verdict.blocking)}"
+        return "FAIL", f"{harness_id}: {'; '.join(verdict.blocking)}"
     if verdict.kept:
         return "PASS", (
             f"{harness_id} (your mode kept: {'; '.join(verdict.kept)}; "

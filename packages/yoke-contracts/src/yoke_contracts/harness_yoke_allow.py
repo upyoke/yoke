@@ -40,6 +40,7 @@ from yoke_contracts.harness_unattended_posture import (
     claude_settings_problems,
     codex_config_path,
     cursor_config_path,
+    managed_config_paths,
     posture_problems,
     read_posture_config,
 )
@@ -98,7 +99,11 @@ def yoke_allowed(harness_id: str) -> bool:
 
 
 class YokePosture(NamedTuple):
-    """Why ``yoke`` still prompts (``blocking``), and operator modes kept."""
+    """Why ``yoke`` still prompts (``blocking``), and operator modes kept.
+
+    Each entry names the file it was read from, so a reader never has to
+    guess which of a harness's files holds the problem.
+    """
 
     blocking: Tuple[str, ...]
     kept: Tuple[str, ...]
@@ -115,16 +120,15 @@ def yoke_posture(
     surfaces read the ``yoke`` allow entry from the same settings file.
     """
     if harness_id == CLAUDE_FAMILY:
-        if not (
-            claude_settings_path().parent.is_dir() or claude_config_path().exists()
-        ):
+        desktop_path, settings_path = claude_config_path(), claude_settings_path()
+        if not (settings_path.parent.is_dir() or desktop_path.exists()):
             return None
-        desktop, _reason = read_posture_config(harness_id, claude_config_path())
-        settings, reason = read_posture_config(harness_id, claude_settings_path())
-        if settings is None and claude_settings_path().exists():
+        desktop, _reason = read_posture_config(harness_id, desktop_path)
+        settings, reason = read_posture_config(harness_id, settings_path)
+        if settings is None and settings_path.exists():
             return YokePosture((reason,), ())
-        app = posture_problems(harness_id, desktop or {})
-        cli = claude_settings_problems(settings or {})
+        app = _sourced(desktop_path, posture_problems(harness_id, desktop or {}))
+        cli = _sourced(settings_path, claude_settings_problems(settings or {}))
         mode = {"claude-cli": cli, "claude-desktop": app}.get(
             surface_id or "", (app if desktop else ()) + cli
         )
@@ -132,7 +136,9 @@ def yoke_posture(
         config, _reason = read_posture_config(harness_id)
         if config is None:
             return None
-        mode = posture_problems(harness_id, config)
+        mode = _sourced(
+            managed_config_paths()[harness_id], posture_problems(harness_id, config)
+        )
     if not mode:
         return YokePosture((), ())
     if yoke_allowed(harness_id):
@@ -141,6 +147,11 @@ def yoke_posture(
         f"{YOKE_COMMAND_ALLOW[harness_id]} is not in {yoke_allow_path(harness_id)}"
     )
     return YokePosture((*mode, missing), ())
+
+
+def _sourced(source: Path, problems: Tuple[str, ...]) -> Tuple[str, ...]:
+    """Prefix each problem with the file it was read from."""
+    return tuple(f"{source}: {problem}" for problem in problems)
 
 
 def posture_state(harness_id: str) -> str:
