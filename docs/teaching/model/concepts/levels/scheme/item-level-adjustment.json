@@ -2,7 +2,7 @@
  "id": "item-level-adjustment",
  "title": "Item level adjustment",
  "status": "observed",
- "page": "levels",
+ "page": "level-scheme",
  "position": 5,
  "text": "An item may shift or bound its workflow stage default. Item details shows Level only for an effective difference, labeling Default and Override with the adjustment and reason. Stored bounds resolving to the default remain supported but show no row; level is separate from execution posture. The item's claim holder or a covering live steering seat may amend it, so steering can restaff a held item.",
  "sources": ["docs/public/agents/levels.md", "packages/yoke-core/src/yoke_core/ui/static/item_view_facts.js"]

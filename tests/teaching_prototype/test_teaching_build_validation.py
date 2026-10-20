@@ -119,3 +119,67 @@ def test_untracked_source_recovery_stages_the_named_file(monkeypatch, tmp_path):
     source.unlink()
     monkeypatch.setattr(inventory, "tracked_files", lambda: [])
     assert "is missing; create and git-add" in validate()[0].message
+
+
+def test_over_limit_view_refusal_names_the_page_field(monkeypatch, tmp_path):
+    monkeypatch.syspath_prepend(str(TOOLS))
+    import build
+    import model
+
+    monkeypatch.setattr(build, "TEACHING_ROOT", tmp_path)
+    (tmp_path / "notes.md").write_text("line\n" * 351)
+    loaded = model.Model()
+    build.limits_and_privacy(loaded, {"concepts/topic.html": "line\n" * 351})
+    by_where = {problem.where: problem for problem in loaded.problems}
+    view = by_where["docs/teaching/views/concepts/topic.html"]
+    assert view.code == "LINE_LIMIT"
+    assert "`page`" in view.message
+    assert '"page": "qa-cases"' in view.message
+    note = by_where["docs/teaching/notes.md"]
+    assert "`page`" not in note.message
+    assert "split it into a new file" in note.message
+
+
+def _owned_model(monkeypatch, tmp_path, part_page):
+    monkeypatch.syspath_prepend(str(TOOLS))
+    import model
+
+    root = tmp_path / "docs" / "teaching"
+    monkeypatch.setattr(model, "TEACHING_ROOT", root)
+    monkeypatch.setattr(model, "MODEL_ROOT", root / "model")
+    surfaces = root / "model" / "surfaces"
+    (root / "model" / "concepts").mkdir(parents=True)
+    (surfaces / "help").mkdir(parents=True)
+    (root / "model" / "docs-graph.json").write_text("{}")
+    for stem in ("help", "other"):
+        (surfaces / f"{stem}.json").write_text(
+            f'{{"id": "{stem}", "title": "{stem.title()}", "status": "observed"}}'
+        )
+    for stem, page in (("core", None), ("case", part_page)):
+        record = {"id": stem, "title": stem.title(), "status": "observed"}
+        if page:
+            record["page"] = page
+        (surfaces / "help" / f"{stem}.json").write_text(model.json.dumps(record))
+    return model.load()
+
+
+def test_surface_part_page_renders_on_its_own_page(monkeypatch, tmp_path):
+    loaded = _owned_model(monkeypatch, tmp_path, "help-cases")
+    assert loaded.problems == []
+    from render_pages import Pages
+
+    views = {}
+    pages = Pages(loaded, {}, {}, {}, lambda _path: None)
+    pages.owned_pages(views, "surfaces", loaded.surfaces, loaded.teaching, "S")
+    assert 'id="help/core"' in views["surfaces/help.html"]
+    assert 'id="help/case"' not in views["surfaces/help.html"]
+    assert 'href="help-cases.html#help/case"' in views["surfaces/help.html"]
+    assert 'id="help/case"' in views["surfaces/help-cases.html"]
+    assert "Help (continued)" in views["surfaces/help-cases.html"]
+
+
+def test_surface_part_page_cannot_take_another_surface_page(monkeypatch, tmp_path):
+    loaded = _owned_model(monkeypatch, tmp_path, "other")
+    assert [problem.code for problem in loaded.problems] == ["PAGE_COLLISION"]
+    assert "'other'" in loaded.problems[0].message
+    assert loaded.problems[0].where.endswith("surfaces/help/case.json")

@@ -3,7 +3,7 @@
  "title": "QA machine baselines",
  "status": "observed",
  "audience": "Maintainers",
- "page": "contributing-guides",
+ "page": "test-and-evidence-contracts",
  "position": 7,
  "sources": ["docs/testing-verification/test-machine-golden-baseline.md", "packages/yoke-harness/src/yoke_harness/baseline_native_failures.py", "packages/yoke-harness/src/yoke_harness/standard_baseline_probes.py", "runtime/api/domain/test_baseline_native_failures.py"]
 }

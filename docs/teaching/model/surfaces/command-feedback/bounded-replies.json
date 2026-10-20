@@ -2,6 +2,7 @@
  "id": "bounded-replies",
  "title": "Human replies label values and empty states; JSON and write receipts remain complete.",
  "status": "observed",
+ "page": "command-feedback-cases",
  "form": "State",
  "verification": "Routine replies use concise command-specific projections and pages. JSON envelopes and write replies remain complete. Only oversized registered human reads refuse atomically above 28,000 UTF-8 bytes; narrow the read or use --full for complete human detail.",
  "topics": ["context/disclosure", "reference/commands", "documentation/disclosure/reactive-help"]

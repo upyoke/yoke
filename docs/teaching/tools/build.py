@@ -44,6 +44,13 @@ INTRO = (
     "scenarios that need it, boundaries, evidence and gaps. Mapped means a "
     "direct teaching link; it never proves the teaching works."
 )
+PAGE_SPLIT = (
+    "move a large child branch to its own page by setting the record field "
+    "`page` on that child and its descendants (or on surface and scenario "
+    'parts), e.g. "page": "qa-cases" in model/concepts/qa-plans/cases.json; '
+    "keep record content unchanged"
+)
+FILE_SPLIT = "split it into a new file at a meaningful boundary"
 _HREF = re.compile(r'href="([^"]*)"')
 _ID = re.compile(r'id="([^"]*)"')
 
@@ -188,8 +195,8 @@ def limits_and_privacy(model, views: dict[str, str]) -> None:
             model.problem(
                 "LINE_LIMIT",
                 f"docs/teaching/{rel}",
-                f"{lines} lines at 80 columns exceeds {LINE_LIMIT}; split it at a "
-                "named child (model) or into a new model file (view)",
+                f"{lines} lines at 80 columns exceeds {LINE_LIMIT}; "
+                + (PAGE_SPLIT if rel.startswith("views/") else FILE_SPLIT),
             )
         for number, line in enumerate(text.splitlines(), start=1):
             for label, pattern in privacy.PATTERNS:

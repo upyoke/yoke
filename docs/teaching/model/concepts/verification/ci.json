@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "commands": ["yoke github-actions check-ci", "yoke github-actions commit-runs list", "yoke github-actions dispatch-tag ensure", "yoke github-actions failed-log", "yoke github-actions find-run", "yoke github-actions jobs-count", "yoke github-actions poll", "yoke github-actions run jobs-count", "yoke github-actions run rerun-failed", "yoke github-actions trigger", "yoke github-actions trigger-once", "yoke github-actions wait-run", "yoke github-actions workflow dispatch", "yoke github-actions workflow dispatch-once", "yoke github-actions workflow find-run"],
  "functions": ["github_actions.check_ci", "github_actions.commit_runs.list", "github_actions.dispatch_tag.ensure", "github_actions.failed_log", "github_actions.run.jobs_count", "github_actions.run.rerun_failed", "github_actions.wait_run", "github_actions.workflow.dispatch", "github_actions.workflow.dispatch_once", "github_actions.workflow.find_run", "session_ci_wait.record", "session_ci_wait.resolve"],
- "page": "verification",
+ "page": "verification-ci",
  "position": 2,
  "sources": ["docs/public/agents/rules/verification.md", "packages/yoke-core/src/yoke_core/domain/function_target_resolution.py", "runtime/api/domain/test_item_target_dispatch_project.py"]
 }
