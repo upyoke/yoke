@@ -168,6 +168,8 @@ def retract_orphaned_shared_copies(conn: Any, *, run_id: str, reason: str) -> li
 
     Run after the member row is deleted. A group another member still attaches
     keeps its rows; an orphaned group would otherwise stay a run-wide blocker.
+    Rows the failed run already retired are taken over so a retry cannot
+    restore them.
     """
     from yoke_core.domain.deployment_qa_shared_plans import shared_target_identity
     from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
@@ -179,7 +181,8 @@ def retract_orphaned_shared_copies(conn: Any, *, run_id: str, reason: str) -> li
         conn,
         "SELECT id,deployment_stage,plan_id,execution_target_json FROM qa_requirements "
         "WHERE deployment_run_id=%s AND deployment_member_item_id IS NULL "
-        f"AND plan_id IS NOT NULL AND NOT {settled_obligation_sql(conn)} ORDER BY id",
+        f"AND plan_id IS NOT NULL AND (NOT {settled_obligation_sql(conn)} "
+        "OR retraction_source='deployment_run') ORDER BY id",
         (run_id,),
     )
     groups: dict[tuple[str, int], list[int]] = {}
