@@ -16,7 +16,9 @@ it is not recovery. Stacked migrations follow `databases.md`.
 
 ## Member QA
 
-The member's owner runs its QA; never take a live holder's claim.
+The member's owner runs its QA; never take a live holder's claim. The waiting
+driver logs `Still waiting for scoped QA` each minute and exits 5 at its
+timeout; longer silence means stuck: let it time out, then re-drive.
 
 ```text
 yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage STAGE --member PREFIX-N --project {_project}

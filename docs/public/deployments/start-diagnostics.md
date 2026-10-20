@@ -214,7 +214,12 @@ the SQLSTATE and the current `deployment_runs` lock holder. Members settled
 before the interruption keep their result, the run stays `executing` at its QA
 stage, and the driver re-dispatches that stage inside its bounded QA wait.
 
-When the bounded scoped-QA wait ends with blockers, the driver returns
+The scoped-QA wait announces its poll and status cadence and its deadline,
+then prints `Still waiting for scoped QA` with elapsed time and blocker count
+every four polls (one minute by default). Each re-dispatch gets only the time
+left on that deadline: a dispatch still unanswered then, blocked on a lock or a
+hung connection, ends the wait as a timeout that says the last dispatch had no
+answer. When the bounded scoped-QA wait ends with blockers, the driver returns
 awaiting QA (exit code 5). If the following fresh diagnostic report read fails,
 it explicitly reports that fresh QA details are unavailable and retains the
 last known blocker diagnostic. That read failure does not change the established

@@ -21,6 +21,7 @@ from yoke_cli.commands.adapters.deployment_execution_authority import (
 from yoke_contracts.deployment_itemless_teaching import (
     FINALIZATION_PENDING_PREFIX,
     ITEMLESS_RELEASE_RECIPE,
+    SCOPED_QA_WAIT_GUIDANCE,
     WATCH_DEPLOY_DESCRIPTION,
 )
 from yoke_core.domain.deploy_pipeline_pinned_source import (
@@ -172,7 +173,7 @@ def _parse_args(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=WATCH_DEPLOY_DESCRIPTION,
         epilog=(
-            f"{ITEMLESS_RELEASE_RECIPE}\n\n"
+            f"{ITEMLESS_RELEASE_RECIPE}\n{SCOPED_QA_WAIT_GUIDANCE}\n"
             "Routine progress and watcher metadata are suppressed. "
             "Terminal errors and the final result are delivered immediately; "
             "the raw capture retains full output."

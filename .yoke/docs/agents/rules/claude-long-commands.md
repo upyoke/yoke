@@ -23,7 +23,9 @@ Apply only your tier. Unsure? You are a subagent.
 
 `yoke watch --help` lists them; each `--help` owns its recipe, flags and exit codes. Prefer
 `yoke watch pytest --impacted main --bounded` while iterating; the attached QA case owns the
-full run. Read the raw capture once, after exit.
+full run. Read the raw capture once, after exit. A wait that announces a status-line cadence
+(`watch deploy` at a scoped QA stage) is stuck when its capture stays silent longer; its
+deadline still ends it.
 
 With no wrapper, capture to a temp file and Monitor a line-buffered progress-and-failure
 filter on it. Re-read no faster than every 60 seconds. File the missing wrapper as a field note.
