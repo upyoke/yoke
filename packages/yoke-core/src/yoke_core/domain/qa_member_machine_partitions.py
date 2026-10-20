@@ -127,7 +127,12 @@ def member_machine_partition(
         return [], 0, select_plan_execution(conn, execution_id, lock=False)
     pending = pending or roster
     selected_hosts = next(
-        (host_group(row) for row in pending if case_machines(row)), (None, (), None)
+        (
+            host_group(row)
+            for row in pending
+            if case_machines(row) or host_group(row)[2]
+        ),
+        (None, (), None),
     )
     selected = [
         {**row, "ordinal": ordinal}

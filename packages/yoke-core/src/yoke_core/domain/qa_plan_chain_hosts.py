@@ -11,7 +11,7 @@ from yoke_core.domain.qa_plan_case_chain import ends_chain
 def chain_host_groups(
     roster: Sequence[Mapping[str, Any]],
 ) -> dict[int, tuple[str | None, tuple[str, ...], int | None]]:
-    """Map each requirement to its chain head's driver and sorted host union."""
+    """Map requirements to (head driver, host union, isolated mission chain id)."""
     groups = {}
     chain = []
     hosts: set[str] = set()
