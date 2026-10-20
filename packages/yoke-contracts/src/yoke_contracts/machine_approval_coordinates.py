@@ -7,6 +7,8 @@ from yoke_contracts.machine_authorization import MATCH_CODE_PATTERN
 
 
 _ENTRY_PATHS = frozenset({"/connect", "/machine"})
+# A self-host server on this machine's loopback serves plain HTTP.
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 _CODE_PATTERN = re.compile(MATCH_CODE_PATTERN)
 
 
@@ -25,15 +27,19 @@ def machine_approval_coordinates(
     code = user_code.strip().upper()
     if _CODE_PATTERN.fullmatch(code) is None:
         raise ValueError("machine approval code has an invalid shape")
+    secure = parsed.scheme == "https" or (
+        parsed.scheme == "http" and parsed.hostname in _LOOPBACK_HOSTS
+    )
     if (
-        parsed.scheme != "https"
+        not secure
         or not parsed.hostname
         or parsed.username is not None
         or parsed.password is not None
         or parsed.fragment
     ):
         raise ValueError(
-            "machine approval needs an HTTPS entry without credentials or a fragment"
+            "machine approval needs an HTTPS (or loopback HTTP) entry without "
+            "credentials or a fragment"
         )
     origin = f"{parsed.scheme}://{parsed.netloc}"
     if parsed.path == f"/machine/{code}" and not parsed.query:

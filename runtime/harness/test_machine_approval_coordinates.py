@@ -31,6 +31,13 @@ def test_invalid_code_shapes_are_refused(code):
         machine_approval_coordinates("https://example.invalid/connect", code)
 
 
+def test_a_loopback_self_host_may_use_plain_http():
+    coordinates = machine_approval_coordinates(
+        "http://127.0.0.1:19122/machine/K7F2", "K7F2"
+    )
+    assert coordinates.origin == "http://127.0.0.1:19122"
+
+
 def test_self_hosted_code_path_is_preserved_for_the_wizard_opened_tab():
     complete = "https://example.invalid/machine/K7F2"
     assert approval_url(complete, "K7F2")[0] == complete
@@ -40,6 +47,7 @@ def test_self_hosted_code_path_is_preserved_for_the_wizard_opened_tab():
     "uri",
     [
         "http://example.invalid/connect",
+        "http://192.168.1.4/connect",
         "https://user:password@example.invalid/connect",
         "https://example.invalid/anything",
         "https://example.invalid/connect#fragment",

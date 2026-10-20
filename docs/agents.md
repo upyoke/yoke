@@ -159,8 +159,9 @@ Walk one mission sequence chosen at runtime as an informed subagent driving
 the target from the controller without adding a source checkout. Main retains
 item/Progress Log/human-request/report/final verdict.
 Walker returns ranked findings and unverified areas; its turn is atomic.
-Permission dialog, interactive sign-in or approval returns `WALK_STATUS: HUMAN_GATE`
-with exact needed action/resume state, no Fleet mail. Main records handoff, routes
+The walker opens sessions, answers permission dialogs and approves codes itself;
+only a password or credential entry returns `WALK_STATUS: HUMAN_GATE` naming that
+one entry and the resume state, no Fleet mail. Main records handoff, routes
 to live covering steering or human owner and dispatches a fresh walker;
 acknowledgement is not sign-in proof. Discard routine screen perception, attach
 only deliberate finding proof within runtime artifact limit. macOS window-server/

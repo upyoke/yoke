@@ -142,8 +142,13 @@ The walker never issues the verdict. Its turn returns one status:
 
 ## Human-Gate Handoff
 
-The walker returns `WALK_STATUS: HUMAN_GATE` with the action, why, observed
-state, and resume point, then stops. It never sends Fleet mail. The parent
+The walker does every step an agent physically can: it drives the leased
+GUI/desktop session (opening harnesses, choosing permission modes, typing codes
+into wizards), approves machine-connect and device codes in the host's already
+signed-in browser or with `yoke machines approve CODE`, and follows approval
+links. Only entering a password or credential it may not type is a human gate.
+There it returns `WALK_STATUS: HUMAN_GATE` naming exactly that one entry, why,
+observed state, and resume point, then stops. It never sends Fleet mail. The parent
 records that on the Progress Log and reads this run for host, browser
 substrate, project profile, URL, and access route — not a Test Machine list.
 Managed sign-in is `yoke browser authorize --identity NAME` on that host;
@@ -154,7 +159,7 @@ not delivery — cancel it, then `yoke say --preview --actor` and `--actor` for
 the human owner: `yoke items get PREFIX-N owner` prints `NAME (actor id: N)`.
 An `unassigned`, `unknown actor`, nonhuman, or refused owner is a named recovery. `--item` returns the answer to the holder. Acknowledgement
 is not proof. Dispatch a fresh walker, continuing when the held host must keep its state.
-A mission that needs a session a person opens (a sign-in, approval or permission that must survive) declares `"starting_state":"as_is"` with a reason, so no reset erases it, and requests that human action only while it holds the host lease: released, the host's next turn may reset it first. A case requiring earlier files also declares `method_config.continuity_fingerprint`; the [starting-state contract](case-attachment-rules.md#machine-case-starting-state) explains recording hashes and the `continuity_lost` refusal before setup or walking. Re-declare an unrun case with `yoke qa requirement update --field starting_state` ([case attachment](case-attachment-rules.md#machine-case-starting-state)).
+A mission that needs state that must survive — a sign-in, a session opened through the native GUI/desktop route, or a granted permission — declares `"starting_state":"as_is"` with a reason, so no reset erases it, and requests any password entry only while it holds the host lease: released, the host's next turn may reset it first. A case requiring earlier files also declares `method_config.continuity_fingerprint`; the [starting-state contract](case-attachment-rules.md#machine-case-starting-state) explains recording hashes and the `continuity_lost` refusal before setup or walking. Re-declare an unrun case with `yoke qa requirement update --field starting_state` ([case attachment](case-attachment-rules.md#machine-case-starting-state)).
 
 ## Holding a Walk, and Continuing a Settled One
 
