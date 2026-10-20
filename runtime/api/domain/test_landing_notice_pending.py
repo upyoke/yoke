@@ -51,7 +51,7 @@ LANDED = {
     [
         ({}, True),
         ({"last_tool_call_at": BEFORE_THAT}, True),
-        ({"merge_queue_notified_at": None, "last_tool_call_at": JUST_NOW}, True),
+        ({"merge_queue_notified_at": None}, False),
         ({"last_tool_call_at": JUST_NOW}, False),
         ({"merge_queue_landed_at": None}, False),
         ({"status": "done"}, False),

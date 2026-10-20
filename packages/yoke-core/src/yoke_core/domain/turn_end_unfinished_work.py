@@ -60,8 +60,8 @@ def landing_notice_pending(claim: dict[str, Any]) -> bool:
     and stamps ``merge_queue_notified_at``. Until the holder has been active
     (``last_tool_call_at``) after that notice, its silence is the notice in
     flight, not an idle worker. Once it acts, or the item closes, normal idle
-    rules apply again; a landing whose notice never lands stays visible as a
-    landed-open item.
+    rules apply again. With no notice recorded nothing excuses the silence,
+    so a notice that was never delivered still alarms.
     """
     if not claim.get("merge_queue_landed_at"):
         return False
@@ -69,7 +69,7 @@ def landing_notice_pending(claim: dict[str, Any]) -> bool:
         return False
     notified = claim.get("merge_queue_notified_at")
     if not notified:
-        return True
+        return False
     active = claim.get("last_tool_call_at")
     return not active or parse_instant(active) <= parse_instant(notified)
 
