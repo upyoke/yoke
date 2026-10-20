@@ -1,17 +1,10 @@
 ---
 name: models
 description: Research and publish effective-dated model catalog revisions, then propose the level changes they imply.
-# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "lookup MODEL_ID | get | validate | diff | publish | revisions | restore | level-proposal"
 ---
 
-
 # /yoke models
-
-<!-- BEGIN GENERATED: field-note-directive -->
-File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
-yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-<!-- END GENERATED: field-note-directive -->
 
 Reads need no item; a refresh without a claimed item files `/yoke dash` first.
 

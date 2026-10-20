@@ -81,7 +81,6 @@ def test_argument_hints_have_one_authoring_source():
     for skill in SKILLS:
         header = (ROOT / skill.body_path).read_text().split("---", 2)[1]
         assert parse_document(header)["argument-hint"] == skill.arguments
-        assert render_skill_registry_inline.ARGUMENT_HINT_NOTICE in header
     by_id = {skill.id: skill for skill in SKILLS}
     assert '"spec"' in by_id["dash"].display
     assert "--no-new-items" in by_id["feed"].display

@@ -28,7 +28,6 @@ from typing import Sequence
 
 from yoke_core.domain.agents_render_workspace import resolve_target_root_for_cli
 from yoke_contracts import field_note_text as rft
-from yoke_contracts.skill_registry import SKILLS
 from yoke_core.tools.generated_block_render import (
     FileRenderOutcome,
     RenderResult,
@@ -57,8 +56,10 @@ REPAIR_COMMAND: str = "python3 -m yoke_core.tools.render_field_note_inline"
 _SHARED_LONG_FORM_PATH: str = "runtime/agents/_shared/ouroboros-field-note.md"
 
 
-# Skill bodies share the runtime inventory.
-INVENTORY: tuple[str, ...] = tuple(skill.body_path for skill in SKILLS) + (
+# Every /yoke subcommand is read through the root router, so the skill tree
+# carries the directive once there.
+INVENTORY: tuple[str, ...] = (
+    ".agents/skills/yoke/SKILL.md",
     "README.md",
     "AGENTS.md",
     "docs/OVERVIEW.md",

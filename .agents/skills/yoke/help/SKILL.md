@@ -1,24 +1,14 @@
 ---
 name: help
 description: Show the Yoke command reference and quick-start guide.
-# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: ""
 ---
 
 # /yoke help
 
-<!-- BEGIN GENERATED: field-note-directive -->
-File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
-yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-<!-- END GENERATED: field-note-directive -->
-
 Answer only the asked scope; read that command's `--help` or skill first. General help: `yoke --help`. Docs: `.yoke/docs/index.md`, else `https://upyoke.com/docs`.
 
 <!-- BEGIN GENERATED: skill-registry -->
-Skill metadata is generated from `yoke_contracts.skill_registry`.
-Change that source and run `yoke dev run -- python3 -m
-yoke_core.tools.render_skill_registry_inline --target-root CHECKOUT`.
-
 | Skill | Kind | Session mode | Autonomy | Purpose |
 |---|---|---|---|---|
 | `/yoke blitz {PREFIX-N}` | stage | `blitz` | autonomous execution | execute document-led work |
