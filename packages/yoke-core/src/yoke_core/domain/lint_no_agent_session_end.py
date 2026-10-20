@@ -128,8 +128,8 @@ def _format_reason(suppression_seen: bool, mode: str) -> str:
         "`agent_handoff_session_scoped` is recorded on each "
         "WorkReleased event and on the aggregate "
         "HarnessSessionEndReleasedClaims envelope.\n\n"
-        "Doctrine: AGENTS.md `## Code Conventions` → Operational "
-        "primitives. Skill prose, agent bodies, and dispatch context "
+        "Doctrine: `.yoke/docs/agents/rules/claude-sessions.md` → Session "
+        "end and recovery. Skill prose, agent bodies, and dispatch context "
         "teach the release primitive; the harness owns the session."
     )
     if mode == "warn":

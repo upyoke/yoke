@@ -33,7 +33,7 @@ if "sqlite3" in command and "|" in command:
                             "Use the Python DB router instead. Examples:\n"
                             "  yoke items get PREFIX-N status\n"
                             "  yoke db read \"SELECT ...\"\n"
-                            "See AGENTS.md § Code Conventions (DB rules)."
+                            "See `.yoke/docs/agents/rules/databases.md`."
                         ),
                     }
                 }
@@ -100,7 +100,7 @@ if "sqlite3" in command_stripped:
                                 "Use the Python DB router instead. Examples:\n"
                                 "  yoke items get PREFIX-N status\n"
                                 "  yoke db read \"SELECT ...\"\n"
-                                "See AGENTS.md § Code Conventions (DB rules)."
+                                "See `.yoke/docs/agents/rules/databases.md`."
                             ),
                         }
                     }
@@ -176,7 +176,7 @@ if "sqlite3" in command_stripped:
                         "Use the Python DB router instead. Examples:\n"
                         "  yoke items get PREFIX-N status\n"
                         "  yoke db read \"SELECT ...\"\n"
-                        "See AGENTS.md § Code Conventions (DB rules)."
+                        "See `.yoke/docs/agents/rules/databases.md`."
                     ),
                 }
             }
@@ -295,7 +295,7 @@ for regex, display in patterns:
                         "BLOCKED: command contains escaped operator \"%s\". "
                         "Use unescaped operators (>=, <=, >, <) or <> for not-equal — "
                         "backslash is literal SQL text. "
-                        "See AGENTS.md § Code Conventions (DB rules)."
+                        "See `.yoke/docs/agents/rules/databases.md`."
                     ) % display,
                 }
             }

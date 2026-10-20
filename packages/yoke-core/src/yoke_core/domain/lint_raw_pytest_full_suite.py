@@ -154,7 +154,7 @@ def _format_reason(
         "The item's blocking gate is its QA case run, not a hand-run sweep:\n"
         "  yoke qa case run --requirement-id <id>\n"
         "Admission is per invocation; quoted wrapper names do not exempt raw tests.\n"
-        "Doctrine: AGENTS.md `## Testing`"
+        "Doctrine: `.yoke/docs/agents/rules/verification.md` → Testing"
     )
     if mode == "warn" or severity != "full":
         body += "\n\n[advisory] narrow, deliberate sweeps are legitimate."

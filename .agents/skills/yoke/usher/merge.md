@@ -101,8 +101,8 @@ declared postdeploy/manual-acceptance posture. Current-item failures are fixed
 here, not waived by future items or planned claims. Never substitute raw
 done-transition or another entrypoint when lint refuses.
 An unchanged consumer test failing against new producer source is evidence
-against the producer: never edit or weaken it; route it per AGENTS
-Verification Failure Ownership.
+against the producer: never edit or weaken it; route it per the failure-ownership rule in
+`.yoke/docs/agents/rules/verification.md`.
 
 Queue projects never fall back to local landing. Exit code 9 is admission/ejection/
 record-wait coordination: report named reason and requeue after it clears.

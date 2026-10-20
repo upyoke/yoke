@@ -14,7 +14,7 @@ Two failure modes are flagged:
    is a missing attestation.
 
 ``mode='exception'`` claims are SKIPPED — the operator-override path
-is a sanctioned exception per AGENTS.md ``## Path Claims — Hard Rule``
+is a sanctioned exception per ``.yoke/docs/agents/rules/lanes-and-claims.md``
 and must not trigger an HC failure.
 
 PASS when no rows match either failure mode; otherwise WARN with a

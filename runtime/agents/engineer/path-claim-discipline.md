@@ -24,8 +24,8 @@ not scope. Verification fixes and main merges also require widening first.
    `path-claim-override` is last resort for irreducible live collisions and
    requires explicit operator approval; never self-authorize.
 
-Apply AGENTS Verification Failure Ownership to test repairs; planned future
-claims are not failure waivers or grounds for bypassing reconciliation.
+Apply the failure-ownership rule in `.yoke/docs/agents/rules/verification.md`
+to test repairs; planned future claims are not failure waivers or grounds for bypassing reconciliation.
 
 Landing releases item-owned path claims with reason `landed`. Delivery retains
 the work claim. Before reopened lane edits, register fresh coverage with

@@ -256,7 +256,7 @@ for py_code in extract_python_payloads(original_command):
                     "Examples:\n"
                     "  yoke db read \"SELECT ...\"\n"
                     "  yoke items get PREFIX-N status\n"
-                    "See AGENTS.md \"Worktree DB Authority\" rule."
+                    "See `.yoke/docs/agents/rules/databases.md`."
                 ),
             }
         }

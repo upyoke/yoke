@@ -20,7 +20,7 @@ case, and active overrides all silence the cluster. Only truly
 The default repair path is evidence-returning and non-mutating: the
 helper returns ``CoordinationContext`` packets plus suggested commands,
 and the agent calls ``yoke items dependency add ... --gate-point ...``
-itself per ``AGENTS.md`` ``## Path Claims — Hard Rule``. ``auto_attest``
+itself per ``.yoke/docs/agents/rules/lanes-and-claims.md``. ``auto_attest``
 is reserved for future workflows that have already proven independence
 via ``classify_inter_item_edges``.
 """
@@ -103,7 +103,7 @@ def attempt_cross_item_overlap_repair(
     Default (``auto_attest=False``) is read-only: build a
     ``CoordinationContext`` per cluster and return them. ``auto_attest``
     is reserved for future workflows — the decision is agent-attested
-    per ``AGENTS.md ## Path Claims — Hard Rule``.
+    per ``.yoke/docs/agents/rules/lanes-and-claims.md``.
     """
     if auto_attest:
         return CrossItemRepairResult(

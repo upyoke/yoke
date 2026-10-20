@@ -75,4 +75,4 @@ class TestNoDescopeForActivePathClaims:
         assert "claimed paths do not narrow work item scope" in text
         assert "do **not** remove the file from the work item" in text
         assert "coordination/dependency/blocking facts" in text
-        assert "## Path Claims — Hard Rule" in text
+        assert "path-claims rule in `.yoke/docs/agents/rules/lanes-and-claims.md`" in text

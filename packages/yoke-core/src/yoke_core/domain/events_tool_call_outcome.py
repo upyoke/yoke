@@ -30,7 +30,7 @@ lint guardrails via ``emit_denial_event``, never by the classifier):
 * ``suppression_attempted`` — operator placed a ``# lint:no-*-check``
   suppression token on the command body. The guardrail still denied; the
   token is honoured ONLY as audit evidence so reviewers can grep bypass
-  attempts. CLAUDE.md ``## Destructive Operation Discipline`` documents
+  attempts. ``.yoke/docs/agents/rules/lanes-and-claims.md`` documents
   the symmetry.
 
 The classifier is a pure function: no I/O, no DB, no side effects. Neither
