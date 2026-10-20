@@ -29,12 +29,11 @@ class _Route:
     completed: Any = None
     private_first: bool = False
     no_groups: bool = False
-    wait: Any = None
 
 
 @presentation_operation
 @run_presentation
-def _read_route(conn, *, run_id, stage, member, selected, actor_id, session_id):
+def _read_route(conn, *, run_id, stage, member, selected, session_id):
     from yoke_core.domain.deployment_qa_execution_target import (
         deployment_qa_execution_target,
     )
@@ -85,8 +84,24 @@ def _read_route(conn, *, run_id, stage, member, selected, actor_id, session_id):
     if not groups:
         route.no_groups = True
         return route
+    from yoke_core.domain.qa_plan_execution_store import (
+        live_plan_execution_id,
+        select_plan_execution,
+    )
+
+    # The caller's own live walk resumes first, whatever its group's state.
+    own_id = live_plan_execution_id(
+        conn, deployment_run_id=run_id, deployment_stage=stage, session_id=session_id
+    )
+    own = (
+        select_plan_execution(conn, own_id, lock=False)["execution_target_digest"]
+        if own_id
+        else None
+    )
+    order = sorted(range(len(groups)), key=lambda i: digests[i] != own)
+    groups, digests = [groups[i] for i in order], [digests[i] for i in order]
     for group, digest in zip(groups, digests):
-        if selected is not None:
+        if selected is not None or digest == own:
             route.pending.append(group)
             route.pending_digests.append(digest)
             continue
@@ -134,22 +149,6 @@ def _read_route(conn, *, run_id, stage, member, selected, actor_id, session_id):
         # must not start a shared campaign as a client-side continuation.
         route.private_first = True
         return route
-    if route.pending:
-        from yoke_core.domain.qa_plan_execution_store import (
-            live_plan_execution_id,
-            same_owner,
-            select_plan_execution,
-        )
-
-        live_id = live_plan_execution_id(
-            conn, deployment_run_id=run_id, deployment_stage=stage
-        )
-        if live_id:
-            live = select_plan_execution(conn, live_id, lock=False)
-            if live["execution_target_digest"] != route.pending_digests[
-                0
-            ] or not same_owner(live, actor_id=actor_id, session_id=session_id):
-                route.wait = live
     return route
 
 
@@ -163,29 +162,30 @@ def _begin_routed(conn, begin, kwargs, *, locked):
         stage=stage,
         member=member,
         selected=kwargs.get("plan"),
-        actor_id=kwargs.get("actor_id"),
         session_id=kwargs.get("session_id"),
     )
     inputs = None if locked else route.inputs
     if route.no_groups or route.private_first:
         return begin(conn, **{**kwargs, "_run_inputs": inputs})
-    if route.wait is not None:
-        from yoke_core.domain.deployment_qa_shared_wait import shared_execution_wait
+    from yoke_core.domain.qa_stage_execution_holders import StageRosterHeld
 
-        return shared_execution_wait(
-            route.wait, member=member, desired_target_digest=route.pending_digests[0]
-        )
-    if route.pending:
-        result = begin(
-            conn,
-            **{
-                **kwargs,
-                "deployment_member_item_id": None,
-                "_requesting_member_item_id": member,
-                "_deployment_subject": route.pending[0],
-                "_run_inputs": inputs,
-            },
-        )
+    held = None
+    for index, group in enumerate(route.pending):
+        try:
+            result = begin(
+                conn,
+                **{
+                    **kwargs,
+                    "deployment_member_item_id": None,
+                    "_requesting_member_item_id": member,
+                    "_deployment_subject": group,
+                    "_run_inputs": inputs,
+                },
+            )
+        except StageRosterHeld as exc:
+            # Another session walks every owed case of this group; try the next.
+            held = held or (exc.execution, route.pending_digests[index])
+            continue
         own_remaining = result.get("remaining_requirement_count") or 0
         return {
             **result,
@@ -198,9 +198,16 @@ def _begin_routed(conn, begin, kwargs, *, locked):
                     + route.plan_filter,
                     (run_id, stage, digest, *route.plan_params),
                 ).fetchone()[0]
-                for digest in route.pending_digests[1:]
+                for other, digest in enumerate(route.pending_digests)
+                if other != index
             ),
         }
+    if held is not None:
+        from yoke_core.domain.deployment_qa_shared_wait import shared_execution_wait
+
+        return shared_execution_wait(
+            held[0], member=member, desired_target_digest=held[1]
+        )
     if route.completed is not None:
         return {**route.completed, "remaining_requirement_count": 0}
     from yoke_core.domain.qa_plan_empty_roster import QaPlanRosterDischarged

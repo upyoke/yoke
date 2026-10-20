@@ -90,8 +90,23 @@ def test_peer_waits_without_taking_shared_execution_and_reuses_passing_evidence(
     assert test_db.execute("SELECT COUNT(*) FROM qa_plan_executions").fetchone()[0] == 1
 
 
+def test_other_group_runs_concurrently_in_its_own_session(test_db):
+    _seed(test_db)
+    other = _plan(test_db, "other-shared")
+    for member in MEMBERS:
+        _attach(test_db, member, other)
+        _materialize(test_db, member)
+    first = _begin(test_db, MEMBERS[0], "member-9901")
+    second = _begin(test_db, MEMBERS[1], "member-9902", plan="other-shared")
+    assert first["state"] == second["state"] == "active"
+    assert second["session_id"] == "member-9902"
+    assert {row["plan_id"] for row in second["roster"]} == {other}
+    assert _begin(test_db, MEMBERS[0], "member-9901")["id"] == first["id"]
+    assert _begin(test_db, MEMBERS[1], "member-9902")["id"] == second["id"]
+
+
 @pytest.mark.parametrize("settlement", ["completed", "aborted", "error"])
-def test_other_group_waits_on_durable_membership_and_receives_settlement_wake(
+def test_held_group_waits_on_durable_membership_and_receives_settlement_wake(
     test_db, settlement
 ):
     _seed(test_db)
@@ -101,10 +116,10 @@ def test_other_group_waits_on_durable_membership_and_receives_settlement_wake(
         _attach(test_db, member, other)
         _materialize(test_db, member)
     first = _begin(test_db, MEMBERS[0], "member-9901")
-    waiting = _begin(test_db, MEMBERS[1], "member-9902", plan="other-shared")
+    waiting = _begin(test_db, MEMBERS[1], "member-9902", plan="release-smoke")
     assert waiting["state"] == "waiting"
-    assert not waiting["shared_execution_wait"]["same_target"]
-    assert "queued" in waiting["recovery"]
+    assert waiting["shared_execution_wait"]["execution_id"] == first["id"]
+    assert "park" in waiting["recovery"]
     if settlement == "completed":
         _complete_case(test_db, first)
     else:
@@ -115,9 +130,8 @@ def test_other_group_waits_on_durable_membership_and_receives_settlement_wake(
     assert {row["session_id"] for row in notices} == {"member-9901", "member-9902"}
     assert all("Shared group evidence comes from" in row["body"] for row in notices)
     assert all("--member YOK-" in row["body"] for row in notices)
-    second = _begin(test_db, MEMBERS[1], "member-9902", plan="other-shared")
+    second = _begin(test_db, MEMBERS[1], "member-9902", plan="release-smoke")
     assert second["state"] == "active"
-    assert {row["plan_id"] for row in second["roster"]} == {other}
     assert second["session_id"] == "member-9902"
 
 

@@ -107,8 +107,9 @@ def latest_plan_execution(
     deployment_run_id: str | None = None,
     deployment_stage: str | None = None,
     deployment_member_item_id: int | None = None,
+    session_id: str | None = None,
 ) -> dict[str, Any] | None:
-    """Return the most recent execution recorded for one QA subject."""
+    """Return a QA subject's latest execution; a stage-wide one per session."""
     placeholder = marker(conn)
     if standalone_plan_id is not None:
         row = conn.execute(
@@ -135,6 +136,9 @@ def latest_plan_execution(
             deployment_stage or "",
             deployment_member_item_id or 0,
         )
+        if deployment_stage and deployment_member_item_id is None:
+            where += f" AND session_id={placeholder}"
+            params += (str(session_id or ""),)
     row = conn.execute(
         f"SELECT id FROM qa_plan_executions WHERE {where} "
         "ORDER BY created_at DESC, id DESC LIMIT 1",
@@ -155,6 +159,7 @@ def require_continuable_execution(
     deployment_run_id: str | None = None,
     deployment_stage: str | None = None,
     deployment_member_item_id: int | None = None,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     """Return the settled mission execution a continuation may resume.
 
@@ -170,6 +175,7 @@ def require_continuable_execution(
         deployment_run_id=deployment_run_id,
         deployment_stage=deployment_stage,
         deployment_member_item_id=deployment_member_item_id,
+        session_id=session_id,
     )
     if prior is None:
         raise QaPlanExecutionStateError(
@@ -223,6 +229,7 @@ def resolve_continuation_source(
     deployment_run_id: str | None = None,
     deployment_stage: str | None = None,
     deployment_member_item_id: int | None = None,
+    session_id: str | None = None,
 ) -> str:
     try:
         if live_execution_id is not None:
@@ -237,6 +244,7 @@ def resolve_continuation_source(
             deployment_run_id=deployment_run_id,
             deployment_stage=deployment_stage,
             deployment_member_item_id=deployment_member_item_id,
+            session_id=session_id,
         )
     except QaPlanExecutionStateError:
         conn.rollback()

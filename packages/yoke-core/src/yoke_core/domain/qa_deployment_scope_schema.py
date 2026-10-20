@@ -83,7 +83,7 @@ _EXECUTION_INDEX_SPECS = (
     ),
     (
         "idx_qa_plan_executions_deployment_stage_active",
-        ("deployment_run_id", "deployment_stage"),
+        ("deployment_run_id", "deployment_stage", "session_id"),
         "deployment_run_id IS NOT NULL AND deployment_stage IS NOT NULL "
         "AND deployment_member_item_id IS NULL",
     ),
@@ -98,7 +98,8 @@ _EXECUTION_INDEX_SPECS = (
 _REQUIREMENT_INDEX_SPECS = tuple(
     (
         requirement_name,
-        execution_spec[1]
+        # Requirements key on the subject alone: (run), (run, stage), (run, stage, member).
+        execution_spec[1][: position + 1]
         + ("plan_id", "plan_case_key", "COALESCE(host_baseline, '')")
         + (() if position == 0 else ("execution_target_digest",)),
         execution_spec[2] + " AND plan_id IS NOT NULL",

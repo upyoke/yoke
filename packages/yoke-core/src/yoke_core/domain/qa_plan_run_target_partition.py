@@ -82,15 +82,19 @@ def run_target_partition(
     deployment_run_id: str | None,
     deployment_stage: str | None,
     deployment_member_item_id: int | None,
+    session_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """The roster still owed on this target, renumbered from ordinal 0."""
+    """The roster still owed on this target, renumbered from ordinal 0.
+
+    ``session_id`` names whose live roster stays whole on a stage-wide subject.
+    """
     scope = dict(
         deployment_run_id=deployment_run_id,
         deployment_stage=deployment_stage,
         deployment_member_item_id=deployment_member_item_id,
     )
     passed = target_passed_requirements(conn, roster, **scope)
-    live_id = live_plan_execution_id(conn, **scope)
+    live_id = live_plan_execution_id(conn, **scope, session_id=session_id)
     if live_id is not None:
         live = select_plan_execution(conn, live_id, lock=False)
         passed -= {int(row["requirement_id"]) for row in live["roster"]}
