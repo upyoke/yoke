@@ -288,41 +288,35 @@ def test_chromium_becomes_the_default_browser_without_erasing_other_defaults(
     assert not linux.browser_selected(existing)
 
 
-def test_verify_reads_the_default_browser_in_a_login_shell(provisioners, monkeypatch):
+def _browser_alternative(tmp_path, target):
+    """Lay out /usr/bin/x-www-browser -> /etc/alternatives -> target like dpkg."""
+    (tmp_path / "alternatives").mkdir()
+    (tmp_path / "alternatives/x-www-browser").symlink_to(target)
+    link = tmp_path / "x-www-browser"
+    link.symlink_to(tmp_path / "alternatives/x-www-browser")
+    return link
+
+
+def test_verify_follows_x_www_browser_to_the_snap_chromium(provisioners, tmp_path):
     linux, _ = provisioners
-    calls = []
-
-    def run(argv, **kwargs):
-        calls.append(argv)
-        return subprocess.CompletedProcess(
-            argv, 0, "YOKE_DESKTOP_BROWSER:0:chromium_chromium.desktop", ""
-        )
-
-    monkeypatch.setattr(linux.subprocess, "run", run)
-    assert linux.resolved_default_browser() == "chromium_chromium.desktop"
-    assert calls[0][:2] == ["bash", "-lc"]
-    assert "xdg-settings get default-web-browser" in calls[0][2]
+    (tmp_path / "snap").write_text("")
+    chromium = tmp_path / "chromium"
+    chromium.symlink_to(tmp_path / "snap")
+    link = _browser_alternative(tmp_path, chromium)
+    assert linux.resolved_default_browser(link) == str(chromium)
 
 
-def test_login_shell_refuses_a_non_chromium_default(provisioners, monkeypatch):
+@pytest.mark.parametrize("target", ["firefox", None])
+def test_verify_refuses_an_x_www_browser_that_is_not_chromium(
+    provisioners, tmp_path, target
+):
     linux, _ = provisioners
-
-    def run(argv, **kwargs):
-        return subprocess.CompletedProcess(
-            argv, 0, "YOKE_DESKTOP_BROWSER:0:xfce4-web-browser.desktop", ""
-        )
-
-    monkeypatch.setattr(linux.subprocess, "run", run)
-    with pytest.raises(linux.ProvisionFailure, match="default_browser_not_selected"):
-        linux.resolved_default_browser()
-
-
-def test_missing_login_shell_names_the_session_environment(provisioners, monkeypatch):
-    linux, _ = provisioners
-
-    def run(argv, **kwargs):
-        raise OSError("bash missing")
-
-    monkeypatch.setattr(linux.subprocess, "run", run)
-    with pytest.raises(linux.ProvisionFailure, match="session_environment_unavailable"):
-        linux.resolved_default_browser()
+    link = tmp_path / "x-www-browser"
+    if target:
+        (tmp_path / target).write_text("")
+        link = _browser_alternative(tmp_path, tmp_path / target)
+    with pytest.raises(
+        linux.ProvisionFailure, match="default_browser_not_selected"
+    ) as refusal:
+        linux.resolved_default_browser(link)
+    assert (target or "nothing") in str(refusal.value)
