@@ -2,7 +2,6 @@
 
 from typing import Any
 
-from yoke_core.domain.coordination_claims import get_claim, release
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
@@ -18,6 +17,7 @@ def release_host_claim(
     This is the holder/steering recovery boundary. Internal case handoffs and
     teardown use ordinary release and keep their own execution lifecycle.
     """
+    from yoke_core.domain.coordination_claims import get_claim, release
     from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
     from yoke_core.domain.qa_plan_host_leases import (
         HOST_SET_REASON,
