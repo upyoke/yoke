@@ -1,0 +1,10 @@
+{
+ "id": "run-recovery-recipes",
+ "title": "CI run recovery recipes",
+ "status": "observed",
+ "commands": ["yoke github-actions failed-log", "yoke github-actions run cancel"],
+ "text": "When a QA case attaches to a CI run it names the run, then teaches only registered commands: `yoke github-actions failed-log` for each failed job and `yoke github-actions run cancel` to cancel. It prints no `gh` watch or force-cancel recipe; the running `yoke qa case run` invocation is the watch. The gate itself force-cancels a run that never starts and redispatches it, and a stalled-dispatch detail and the cancel refusal say so. Observed in source and tests; deployed proof is pending.",
+ "page": "verification-ci",
+ "position": 6,
+ "sources": ["packages/yoke-core/src/yoke_core/domain/qa_case_ci_progress.py", "packages/yoke-core/src/yoke_core/domain/github_actions_run_stall.py", "packages/yoke-core/src/yoke_core/domain/handlers/github_actions_run_cancel.py", "docs/qa-platform/cli-reference.md", "runtime/api/domain/test_qa_case_ci_progress.py"]
+}

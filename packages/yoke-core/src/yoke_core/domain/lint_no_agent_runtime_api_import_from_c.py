@@ -36,7 +36,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import shlex
 import sys
 from typing import List, Optional, Tuple
 
@@ -45,6 +44,14 @@ from yoke_core.domain.lint_no_agent_runtime_api_import_from_c_messages import (
 )
 from yoke_core.domain.lint_no_agent_runtime_api_import_from_c_readonly import (
     is_read_only_import_probe,
+)
+from yoke_core.domain.lint_session_cwd_target_extract_shell import (
+    strip_env_prefixes,
+    strip_heredoc_syntax,
+)
+from yoke_core.domain.lint_shell_target_tokens import (
+    command_operand_tokens,
+    shell_command_segments,
 )
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
@@ -68,9 +75,6 @@ _FORBIDDEN_IMPORT_RE = re.compile(
     rf")"
 )
 _PYTHON_TOKEN_RE = re.compile(r"^python(?:3(?:\.\d+)?)?$")
-#: Shell control operators ``shlex`` leaves inside or as tokens. A wrapper
-#: before one of them belongs to an earlier command, not to this interpreter.
-_SHELL_SEPARATOR_RE = re.compile(r"(?:;|&&|\|\||\||&)$")
 
 
 def _is_registered_source_run(tokens: List[str], python_index: int) -> bool:
@@ -81,7 +85,8 @@ def _is_registered_source_run(tokens: List[str], python_index: int) -> bool:
     The ``--`` must sit directly before the interpreter; walking back from it
     to the nearest ``yoke``, ``dev run`` must lie between. Global flags
     (``yoke --env prod-db-admin dev run --``) and run flags
-    (``yoke dev run --lane /x --``) are allowed, a shell separator is not.
+    (``yoke dev run --lane /x --``) are allowed. ``tokens`` is one
+    invocation's argv, so a wrapper in an earlier command never reaches it.
 
     The exemption belongs to one invocation, not to the command body. Reading
     it off the body's LINES recognised only a single-line invocation, so the
@@ -94,8 +99,6 @@ def _is_registered_source_run(tokens: List[str], python_index: int) -> bool:
         return False
     for start in range(dash - 1, -1, -1):
         token = tokens[start]
-        if _SHELL_SEPARATOR_RE.search(token):
-            return False
         if os.path.basename(token) == "yoke":
             between = tokens[start + 1 : dash]
             return any(
@@ -125,32 +128,39 @@ def _read_mode(payload: object | None = None) -> str:
 def _iter_python_c_bodies(command: str):
     """Yield ``(ordinal, interpreter, body)`` per ``python(3)? -c`` invocation.
 
-    Uses ``shlex.split`` for argument-aware tokenisation so the body is
-    extracted post-shell-quoting. Returns the literal quoted body so the
-    caller can scan it for ``runtime.*`` imports. An invocation the
+    Only an interpreter in command position runs: the shared quote-aware
+    splitter yields each invocation's argv, and heredoc bodies are dropped
+    first because they are stdin data for whatever command reads them, so
+    prose that quotes an import one-liner is never an invocation. The body
+    is the post-quoting ``-c`` argument. An invocation the
     ``yoke dev run --`` wrapper launches is skipped, because that wrapper is
     the sanctioned way to run this checkout's own source.
 
     ``ordinal`` counts interpreter invocations from 1 across the whole
     command, so a refusal can say which one of a compound command it means.
     """
-    try:
-        tokens = shlex.split(command, posix=True)
-    except ValueError:
-        return
-    n = len(tokens)
     ordinal = 0
-    for i, tok in enumerate(tokens):
-        base = os.path.basename(tok)
-        if not _PYTHON_TOKEN_RE.match(base):
+    for segment in shell_command_segments(strip_heredoc_syntax(command)):
+        tokens = strip_env_prefixes(command_operand_tokens(segment))
+        if tokens[:1] == ["env"]:
+            tokens = strip_env_prefixes(tokens[1:])
+        if "--" in tokens:
+            wrapped = tokens.index("--") + 1
+            if (
+                wrapped < len(tokens)
+                and _PYTHON_TOKEN_RE.match(os.path.basename(tokens[wrapped]))
+                and _is_registered_source_run(tokens, wrapped)
+            ):
+                ordinal += 1
+                continue
+        if not tokens or not _PYTHON_TOKEN_RE.match(os.path.basename(tokens[0])):
             continue
         ordinal += 1
-        if _is_registered_source_run(tokens, i):
-            continue
-        for j in range(i + 1, n):
+        n = len(tokens)
+        for j in range(1, n):
             arg = tokens[j]
             if arg == "-c" and j + 1 < n:
-                yield ordinal, tok, tokens[j + 1]
+                yield ordinal, tokens[0], tokens[j + 1]
                 break
             if arg.startswith("-") and arg not in (
                 "-W",

@@ -1,0 +1,10 @@
+{
+ "id": "command-position",
+ "title": "Guards judge what actually runs",
+ "status": "observed",
+ "surface_refs": ["global-hooks", "project-hooks"],
+ "text": "Bash guards split a command with the shared quote-aware splitter and judge only the word in command position. A quoted search pattern such as `rg 'a|pytest|b'` and a heredoc body fed to a typed `yoke` command are data, so neither is a writer or a `python -c` invocation. `git stash list` and `git stash show` are reads; other stash actions still change state. `yoke watch <kind> --print-streaming-pair` before `--` only prints its pair, so it needs no watcher timeout. The argv a direct `yoke qa mission host-command ... --` call ships runs on the Test Machine, so the path-claim guard does not fail closed on an `sh -c` there; a redirect or substitution still runs locally and stays enforced. Observed in source and tests; deployed harness proof is pending.",
+ "page": "context",
+ "position": 10,
+ "sources": ["packages/yoke-core/src/yoke_core/domain/lint_shell_target_tokens.py", "packages/yoke-core/src/yoke_core/domain/lint_workspace_cwd_match.py", "packages/yoke-core/src/yoke_core/domain/lint_no_agent_runtime_api_import_from_c.py", "packages/yoke-core/src/yoke_core/domain/lint_shell_path_use.py", "packages/yoke-core/src/yoke_core/domain/lint_headless_watcher_timeout.py", "packages/yoke-core/src/yoke_core/domain/path_claim_bash_parser.py", "runtime/api/domain/test_lint_workspace_cwd_match_command_position.py", "runtime/api/domain/test_lint_no_agent_runtime_api_import_from_c_command_position.py", "runtime/api/domain/test_lint_lane_main_write_git_stash.py", "runtime/api/domain/test_path_claim_bash_guard_host_command.py"]
+}

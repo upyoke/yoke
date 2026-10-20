@@ -92,15 +92,13 @@ def announce_run(
     )
     _emit(
         f"inspect every failed job, as soon as it finishes, with "
-        f"`yoke github-actions failed-log {repo} {run_id} --project <project>`; "
-        f"watch with "
-        f"`gh run watch {run_id} --repo {repo}`",
+        f"`yoke github-actions failed-log {repo} {run_id} --project <project>`",
         stream=stream,
     )
     _emit(
-        "if cancellation stalls, force-cancel with "
-        f"`gh api --method POST repos/{repo}/actions/runs/{run_id}/"
-        "force-cancel`",
+        f"cancel with `yoke github-actions run cancel {repo} {run_id} "
+        "--project <project>`; this gate force-cancels a run that never "
+        "starts and redispatches it",
         stream=stream,
     )
     # A backgrounded invocation reads exactly like an interrupted one, and

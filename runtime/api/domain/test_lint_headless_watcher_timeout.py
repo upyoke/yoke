@@ -92,6 +92,32 @@ class TestScope(unittest.TestCase):
     def test_global_env_flag_before_watch_is_in_scope(self):
         self.assertIsNotNone(_eval("yoke --env prod watch pytest"))
 
+    def test_print_only_merge_pair_is_clean(self):
+        self.assertIsNone(
+            _eval(
+                "yoke watch merge --print-streaming-pair merge-item -- "
+                "YOK-4395 --wait"
+            )
+        )
+
+    def test_print_only_pytest_pair_is_clean(self):
+        self.assertIsNone(
+            _eval(
+                "yoke watch pytest --print-streaming-pair --local -- "
+                "runtime/api/domain/test_x.py"
+            )
+        )
+
+    def test_print_flag_after_separator_still_needs_the_timeout(self):
+        self.assertIsNotNone(_eval("yoke watch pytest -- --print-streaming-pair"))
+
+    def test_print_flag_on_another_segment_still_needs_the_timeout(self):
+        command = (
+            "yoke watch pytest --print-streaming-pair; "
+            "yoke watch pytest --impacted main --bounded"
+        )
+        self.assertIsNotNone(_eval(command))
+
     def test_non_bash_is_clean(self):
         payload = _payload()
         payload["tool_name"] = "Read"

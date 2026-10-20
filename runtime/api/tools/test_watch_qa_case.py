@@ -73,17 +73,17 @@ class TestGateClassifier:
             "# qa case run: requirement=15582 waiting for a covering run on "
             "o/r@aac38c7b5f2f; no run id yet; next poll=10s",
             "# qa case run: inspect failures with "
-            "`yoke github-actions failed-log o/r 1 --project <project>`; watch "
-            "with `gh run watch 1 --repo o/r`",
-            "# qa case run: if cancellation stalls, force-cancel with "
-            "`gh api --method POST repos/o/r/actions/runs/1/force-cancel`",
+            "`yoke github-actions failed-log o/r 1 --project <project>`",
+            "# qa case run: cancel with `yoke github-actions run cancel o/r 1 "
+            "--project <project>`; this gate force-cancels a run that never "
+            "starts and redispatches it",
         ],
     )
     def test_run_announcements_are_metadata_not_summary(self, line: str) -> None:
         """A hint about a run must never stand in for the run's outcome.
 
         These share the outcome line's prefix, so a prefix-only summary
-        class reports the last hint — how to force-cancel — as the result
+        class reports the last hint — how to cancel — as the result
         of a run that passed.
         """
         assert classify(line).cls is LineClass.METADATA

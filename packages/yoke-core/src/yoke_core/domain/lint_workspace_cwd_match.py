@@ -27,12 +27,19 @@ from __future__ import annotations
 import json
 import os
 import re
-import shlex
 import sys
 from pathlib import PurePath
 from typing import Optional, Tuple
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_core.domain.command_workdir import command_execution_cwd
+from yoke_core.domain.lint_session_cwd_target_extract_shell import (
+    strip_heredoc_syntax,
+)
+from yoke_core.domain.lint_shell_target_tokens import (
+    command_operand_tokens,
+    shell_command_segments,
+)
 from yoke_core.domain.session_ambient_identity import session_id_from_hook_payload
 from yoke_core.domain.workspace_authority import resolve_session_worktree_paths
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
@@ -43,9 +50,6 @@ CHECK_ID = "lint-workspace-cwd-match"
 HOOK_NAME = "lint-workspace-cwd-match"
 SUPPRESSION_TOKEN = "# lint:no-workspace-cwd-check"
 
-# Statement separators used by the path_claim_bash_guard sibling. Same shape
-# so writer-class verbs anywhere in a compound command are detected.
-_SEP_RE = re.compile(r"\s*(?:&&|\|\||;|\|)\s*")
 _ENV_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 _ENV_OPTIONS_WITH_ARG = {"-u", "--unset", "-C", "--chdir"}
 
@@ -65,14 +69,6 @@ _WRITER_VERBS = (
 
 def _extract_tool_name(payload: dict) -> str:
     for k in ("tool_name", "toolName"):
-        v = payload.get(k)
-        if isinstance(v, str) and v:
-            return v
-    return ""
-
-
-def _extract_cwd(payload: dict) -> str:
-    for k in ("cwd", "workspace", "project_dir"):
         v = payload.get(k)
         if isinstance(v, str) and v:
             return v
@@ -116,15 +112,15 @@ def _matches_writer_verb(tokens: list[str]) -> bool:
 
 
 def _statements(command: str) -> list[list[str]]:
+    """Return each invocation's argv, command word first.
+
+    The shared quote-aware splitter keeps a quoted search pattern such as
+    ``rg 'a|pytest|b'`` one operand, and heredoc bodies are data, so only a
+    word in command position can name a writer.
+    """
     out: list[list[str]] = []
-    for stmt in _SEP_RE.split(command or ""):
-        if not stmt.strip():
-            continue
-        try:
-            tokens = shlex.split(stmt, posix=True)
-        except ValueError:
-            continue
-        tokens = _strip_env_prefix(tokens)
+    for segment in shell_command_segments(strip_heredoc_syntax(command or "")):
+        tokens = _strip_env_prefix(command_operand_tokens(segment))
         if tokens:
             out.append(tokens)
     return out
@@ -189,7 +185,9 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     command = _extract_command(payload)
     if not command:
         return None
-    cwd = _extract_cwd(payload)
+    # The call's declared workdir and any leading ``cd`` decide where the
+    # writer runs, exactly as the shell will.
+    cwd = command_execution_cwd(payload)
     if not cwd:
         return None
     if any(_is_under(cwd, workspace) for workspace in workspaces):

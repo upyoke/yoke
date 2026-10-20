@@ -84,12 +84,15 @@ def _is_yoke_watch_invocation(tokens: List[str]) -> bool:
     ``--env`` are not mistaken for the subcommand. Nested
     ``yoke dev run -- <command>`` is the documented lane-source wrapper;
     the remainder is another invocation, not operand prose.
+    ``--print-streaming-pair`` before any ``--`` only prints the pair and
+    runs nothing, so that call needs no watcher timeout.
     """
     argv = strip_env_prefixes(list(tokens))
     if not argv or not _is_yoke_executable(argv[0]):
         return False
     if _is_watch_subcommand(argv):
-        return True
+        own = argv[: argv.index("--")] if "--" in argv else argv
+        return "--print-streaming-pair" not in own
     if "--" not in argv:
         return False
     return _is_yoke_watch_invocation(argv[argv.index("--") + 1 :])

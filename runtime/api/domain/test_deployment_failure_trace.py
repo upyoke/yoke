@@ -231,8 +231,9 @@ def test_stalled_dispatch_is_the_bridge_cause_not_a_downstream_failure() -> None
     diagnostic = (
         "stalled_dispatch waiting_on=pending_zero_jobs_stall "
         "failure_reason=ci_run_never_started run=20 status=pending jobs=0; "
-        "force-cancel with `gh api --method POST repos/owner/consumer/"
-        "actions/runs/20/force-cancel`|"
+        "the QA case gate force-cancels a run that never starts and "
+        "redispatches it; otherwise cancel with `yoke github-actions run "
+        "cancel owner/consumer 20 --project <project>`|"
         "https://github.com/owner/consumer/actions/runs/20"
     )
     snapshot = RunSnapshot(

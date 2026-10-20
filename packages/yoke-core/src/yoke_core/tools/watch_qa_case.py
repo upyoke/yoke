@@ -92,7 +92,7 @@ QA_CASE_WORKFLOW_STATUS_RE = re.compile(
 # artifacts. The outcome line is matched by its ``verdict=`` field and not
 # by its prefix alone: the gate's live CI announcements share that prefix,
 # and a class that swallows them makes the last hint of a finished run —
-# how to force-cancel it — the summary reported for a run that passed.
+# how to cancel it — the summary reported for a run that passed.
 QA_CASE_SUMMARY_RE = re.compile(
     r"(^#\s*qa case run:\s*verdict=|^\{.*\"verdict\":)",
 )
