@@ -35,7 +35,8 @@ REDISPATCH_RECOVERY = (
 CANCELLED_RECOVERY = (
     "this run was cancelled; check the current lane head and its CI evidence "
     "and continue with the current candidate rather than re-dispatching "
-    "this cancelled commit"
+    "this cancelled commit. Re-dispatch only the current candidate if it "
+    "still lacks CI evidence"
 )
 
 #: Job conclusions that are a red answer from a job that ran.
