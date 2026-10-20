@@ -1,8 +1,10 @@
 """Machine QA fixture operations for real machine admission on a test machine.
 
 ``fixture.machine-admission-prepare`` runs the installed candidate's own
-``machine_qa_admission_host start MODE`` on the controlled machine, so the
-exact candidate serves a disposable universe; cleanup runs its ``stop``.
+``machine_qa_admission_host start MODE`` on the controlled machine with the
+current CLI release's interpreter (the ``yoke`` launcher runs on uv's base
+Python, which cannot import the release), so the exact candidate serves a
+disposable universe; cleanup runs its ``stop``.
 ``fixture.machine-admission-state-assert`` proves the universe's actual
 people, machines and credentials against the recorded baseline.
 """
@@ -15,10 +17,12 @@ from typing import Any
 from yoke_core.domain.machine_qa_fixture_runtime import (
     RemoteFixtureFailure,
     ServiceCleanup,
+    shell_command,
 )
 from yoke_core.domain.machine_qa_fixture_validation_admission import PREPARE
 
 HOST_MODULE = "yoke_core.domain.machine_qa_admission_host"
+RELEASE_PYTHON = ".local/share/uv/tools/yoke-cli-releases/current/tools/yoke-cli/bin/python3"
 _START_TIMEOUT_SECONDS = 420
 _STOP_TIMEOUT_SECONDS = 120
 
@@ -28,7 +32,9 @@ class MachineQaFixtureAdmissionOperations:
 
     def _admission_host(self, *argv: str, timeout: int) -> None:
         """Run one host action; a refusal keeps the host's named reason."""
-        command = self._installed_yoke_python("-m", HOST_MODULE, *argv)
+        command = shell_command(
+            f"{self.home}/{RELEASE_PYTHON}", "-m", HOST_MODULE, *argv
+        )
         try:
             result = self._run_remote(command, timeout=timeout)
             returncode = int(result.returncode)
@@ -68,4 +74,4 @@ class MachineQaFixtureAdmissionOperations:
         )
 
 
-__all__ = ["HOST_MODULE", "MachineQaFixtureAdmissionOperations"]
+__all__ = ["HOST_MODULE", "RELEASE_PYTHON", "MachineQaFixtureAdmissionOperations"]

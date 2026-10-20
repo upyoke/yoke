@@ -228,7 +228,11 @@ def test_admission_cleanup_is_owed_even_when_start_fails_and_retries() -> None:
     first = runner.close()
     assert not first.ok
     assert first.evidence["operations"] == [
-        {"id": "fixture.machine-admission-prepare", "outcome": "failed"}
+        {
+            "id": "fixture.machine-admission-prepare",
+            "outcome": "failed",
+            "reason": "machine_admission_server_not_ready: read server.log",
+        }
     ]
     assert runner.close().ok
     stops = [c for c, _t in remote.commands if "machine_qa_admission_host stop" in c]

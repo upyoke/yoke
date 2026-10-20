@@ -180,9 +180,10 @@ list every refusal and its recovery.
 ## Real machine admission fixture
 
 `fixture.machine-admission-prepare` runs the installed candidate's own
-`python -m yoke_core.domain.machine_qa_admission_host start MODE` on the test
-machine, so the exact candidate serves the journey. `self-hosted` (port 19121)
-and `self-hosted-company-sign-in` (port 19122) boot the unchanged self-host
+`machine_qa_admission_host start MODE` on the test machine with the current
+release's `tools/yoke-cli/bin/python3` (the `yoke` launcher's Python cannot
+import the release); a failed step records its reason in the case evidence.
+`self-hosted` (port 19121) and `self-hosted-company-sign-in` (port 19122) boot the unchanged self-host
 server entrypoint on loopback, as `YOKE_SERVER_MODE=self-host` like the
 bundle, against a disposable embedded Postgres under
 `/tmp/yoke-machine-qa-fixtures/machine-admission/MODE`. Its real first boot

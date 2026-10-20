@@ -1,9 +1,17 @@
-"""A failed fixture step keeps its named, redacted reason in case evidence."""
+"""Fixture steps reach the candidate and keep their named, redacted reasons."""
 
 from __future__ import annotations
 
+import shlex
+
+from runtime.api.domain.machine_qa_fixture_test_support import (
+    FakeRemote,
+    fixture_runner,
+    operation,
+)
 from runtime.api.domain.machine_qa_fixture_lifecycle_test_support import run_lifecycle
 from yoke_core.domain.host_control_runner import HostActionResult
+from yoke_core.domain.machine_qa_fixture_admission import HOST_MODULE
 from yoke_core.domain.machine_qa_fixture_runtime import (
     MachineQaFixtureRuntime,
     RemoteFixtureFailure,
@@ -55,4 +63,24 @@ def test_runtime_close_keeps_the_cleanup_failure_reason() -> None:
             "outcome": "failed",
             "reason": "machine_admission_host_failed: exit 1",
         }
+    ]
+
+
+def test_admission_host_runs_on_the_current_release_interpreter() -> None:
+    remote = FakeRemote()
+    runner = fixture_runner(remote)
+
+    result = runner.execute_setup_operations(
+        [operation("fixture.machine-admission-prepare", mode="self-hosted")]
+    )
+    runner.close()
+
+    assert result.ok, result.evidence
+    release_python = (
+        "/Users/tester/.local/share/uv/tools/yoke-cli-releases/current/"
+        "tools/yoke-cli/bin/python3"
+    )
+    assert [shlex.split(command) for command, _timeout in remote.commands] == [
+        [release_python, "-m", HOST_MODULE, "stop" if step else "start", "self-hosted"]
+        for step in (False, True)
     ]
