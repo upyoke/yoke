@@ -8,12 +8,15 @@ from runtime.api.cli.project_clone_test_support import allow_local_clone
 from runtime.api.cli.project_onboarding_test_helpers import (
     ProjectOnboardApi,
     git_output,
+    run_git,
     seed_remote,
     write_https_config,
 )
 from yoke_cli.config import onboard
 from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_project
+from yoke_cli.config import project_clone_support
+from yoke_cli.config import project_onboard_clone
 from yoke_cli import main as yoke_operations_cli
 
 
@@ -155,3 +158,68 @@ def test_onboard_existing_project_clone_uses_project_id_without_create(
         {"checkout": str(checkout.resolve()), "project_id": 37}
     ]
     assert (checkout / ".yoke/install-manifest.json").is_file()
+
+
+def test_project_import_adopts_empty_private_remote_through_install(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
+    remote = tmp_path / "empty.git"
+    run_git(tmp_path, "init", "--bare", "--initial-branch", "main", str(remote))
+    allow_local_clone(monkeypatch)
+    # A private repo clones through the connected credential, whose clone runs
+    # --no-checkout; the empty remote leaves HEAD on an unborn branch.
+    monkeypatch.setattr(
+        project_clone_support, "is_configured_github_remote", lambda *a, **k: True
+    )
+    monkeypatch.setattr(
+        project_onboard_clone,
+        "machine_token_provider",
+        lambda *a, **k: lambda: "ghu_fixture",
+    )
+    checkout = tmp_path / "checkouts" / "empty"
+
+    with ProjectOnboardApi(
+        project={
+            "id": 43,
+            "slug": "empty",
+            "name": "Empty",
+            "github_repo": "owner/empty",
+            "default_branch": "main",
+            "public_item_prefix": "EMP",
+        },
+    ) as api:
+        config = write_https_config(tmp_path, "product-token", api.url)
+        rc = yoke_operations_cli.main(
+            [
+                "project",
+                "import",
+                str(remote),
+                str(checkout),
+                "--slug",
+                "empty",
+                "--name",
+                "Empty",
+                "--github-repo",
+                "owner/empty",
+                "--default-branch",
+                "main",
+                "--public-item-prefix",
+                "EMP",
+                "--github-adoption",
+                "disabled",
+                "--config",
+                str(config),
+                "--yes",
+                "--json",
+            ]
+        )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["checkout"]["registered"] is True
+    assert payload["install"]["project_id"] == 43
+    assert (checkout / ".yoke/install-manifest.json").is_file()
+    assert git_output(checkout, "symbolic-ref", "--short", "HEAD") == "main"
+    assert git_output(checkout, "status", "--porcelain") == ""
+    assert git_output(checkout, "rev-list", "--count", "HEAD") != "0"

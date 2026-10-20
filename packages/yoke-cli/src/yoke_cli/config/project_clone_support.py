@@ -28,7 +28,7 @@ from typing import Callable
 from yoke_contracts import github_origin
 from yoke_cli.config import project_clone_resume as clone_resume
 from yoke_cli.config.project_clone_progress import clone_progress_lines
-from yoke_cli.config import project_clone_runner
+from yoke_cli.config import project_clone_runner, project_local_git
 from yoke_cli.config.project_clone_resume import (
     existing_clone_matches,
     origin_is,
@@ -224,10 +224,11 @@ def clone_with_connected_access(
         # The token traveled only through URL-scoped GIT_CONFIG_*; reset origin
         # to the clean HTTPS URL so no credential is persisted in the remote.
         run_git(parent / name, "remote", "set-url", "origin", https_url)
-        # The authenticated clone deliberately used --no-checkout: checkout runs
-        # in this second, token-free process so hooks and content filters can
-        # never inherit the ephemeral Authorization config.
-        run_git(parent / name, "checkout", "-f")
+        # The authenticated clone used --no-checkout: checkout runs in this
+        # token-free process so hooks and filters never inherit the header. An
+        # empty remote leaves HEAD unborn on its default branch: nothing to check out.
+        if project_local_git.has_commit(parent / name):
+            run_git(parent / name, "checkout", "-f")
         return CloneOutcome(used_token=True, origin_url=https_url)
     anonymous = _run_clone(
         parent,
