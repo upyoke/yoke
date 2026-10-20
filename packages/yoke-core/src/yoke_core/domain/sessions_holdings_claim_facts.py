@@ -20,6 +20,7 @@ from yoke_core.domain.merge_queue_landing_attempt import (
     OPEN_ATTEMPT_ENQUEUED_AT,
     OPEN_ATTEMPT_JOIN,
 )
+from yoke_core.domain.release_wait_ownership import item_at_release_wait
 from yoke_core.domain.turn_end_unfinished_work import waiting_on_landing
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
@@ -37,8 +38,9 @@ def clear_failed_read(conn: Any) -> None:
         pass
 
 
-#: Whether the claimed item is armed in the merge queue and has not landed,
-#: so the holder's remaining work belongs to GitHub rather than to it.
+#: Whether the claimed item's remaining work belongs to something other than
+#: its holder: armed in the merge queue and not landed yet, so GitHub drives
+#: it, or standing at its pinned release wait, so a deployment run drives it.
 ITEM_AWAITING_LANDING_KEY = "item_awaiting_landing"
 
 
@@ -69,8 +71,12 @@ def claimed_item_facts(
             "i.workflow_id AS workflow_id, i.merged_at AS merged_at, "
             "i.merge_queue_enqueued_at AS merge_queue_enqueued_at, "
             "i.merge_queue_landed_at AS merge_queue_landed_at, "
+            "i.workflow_version_id AS workflow_version_id, "
+            "v.version AS version, v.definition_json AS definition_json, "
+            "v.definition_digest AS definition_digest, "
             f"{OPEN_ATTEMPT_ENQUEUED_AT}, p.public_item_prefix AS prefix "
             "FROM items i JOIN projects p ON p.id = i.project_id "
+            "JOIN workflow_versions v ON v.id = i.workflow_version_id "
             f"{OPEN_ATTEMPT_JOIN} WHERE i.id IN ({placeholders})",
             tuple(distinct),
         ).fetchall()
@@ -93,7 +99,8 @@ def claimed_item_facts(
             "item_blocked": bool(row["blocked"]),
             "item_blocked_reason": row["blocked_reason"],
             "item_workflow_id": row["workflow_id"],
-            ITEM_AWAITING_LANDING_KEY: waiting_on_landing(dict(row)),
+            ITEM_AWAITING_LANDING_KEY: waiting_on_landing(dict(row))
+            or item_at_release_wait(row, str(row["status"] or "")),
         }
     return facts
 

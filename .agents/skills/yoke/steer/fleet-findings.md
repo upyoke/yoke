@@ -36,7 +36,9 @@ or plan note. Nothing acknowledged is automatically completed.
   or ended-seat mail; acknowledged receipts never inherit. Plan unfinished actions.
 - **Idle holders**: process running→message; exited→message resumes transcript;
   resuming now→let start. `fleet ALARM idle-holder` covers parked holders too,
-  names mode, reason and process, and repeats hourly until `fleet CLEAR`. Answer
+  except one whose item waits at its release wait or armed landing. It names
+  mode, reason and process; a parked holder alarms once, an unparked one repeats
+  hourly until `fleet CLEAR`. Answer
   every one in the same turn: act (message, answer its question, clear its
   blocker, restaff) or write one line saying why the wait is still sound, e.g.
   its blocker is still open. A park declares a wait, not that the wait is sound;

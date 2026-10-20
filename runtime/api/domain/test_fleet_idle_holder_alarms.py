@@ -1,4 +1,4 @@
-"""Idle-holder alarms: parked holders, process state, repeat cadence, clear."""
+"""Idle-holder alarms: parked holders alarm once, unparked repeat, then clear."""
 
 from __future__ import annotations
 
@@ -67,6 +67,15 @@ def test_parked_holder_past_threshold_alarms_with_its_reason() -> None:
     [line] = idle_holder_alarms(_snapshot(parked), DeltaState())
     assert "session=p" in line
     assert "mode=parked reason='waiting on YOK-3965'" in line
+
+
+def test_parked_holder_alarms_once_rather_than_on_the_cadence() -> None:
+    state = DeltaState()
+    parked = _session("p", mode="parked", parked=True)
+    assert len(idle_holder_alarms(_snapshot(parked), state)) == 1
+
+    later = NOW + timedelta(minutes=3 * IDLE_HOLDER_REPEAT_MINUTES)
+    assert idle_holder_alarms(_snapshot(parked, at=later), state) == []
 
 
 def test_between_turns_holder_alarms_with_message_wake() -> None:
