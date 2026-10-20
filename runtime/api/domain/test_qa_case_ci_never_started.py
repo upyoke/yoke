@@ -147,4 +147,4 @@ def test_cancelled_run_is_not_redispatched(monkeypatch):
     assert result.exit_code == 1
     dispatch.assert_not_called()
     cancel.assert_not_called()
-    assert resolved == []
+    assert resolved == [{"run_id": "77", "conclusion": "cancelled"}]
