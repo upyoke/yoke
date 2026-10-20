@@ -170,16 +170,6 @@ def test_a_blocked_liveness_write_reaches_the_user_facing_stream():
     )
 
 
-def test_a_busy_re_dispatch_stays_in_the_raw_capture():
-    """The driver is already retrying, so each 15s attempt is not news."""
-    line = (
-        "Dispatch refused while the run was busy; retrying in 15s. "
-        f"{RUN_BUSY_CODE}: deployment run 'run-1' row was not free within 2000ms"
-    )
-
-    assert _line_class(line) is not LineClass.URGENT
-
-
 def test_wrapper_uses_the_execute_adapter_authority_check(monkeypatch):
     monkeypatch.setattr(
         watch_deploy,

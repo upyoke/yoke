@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from yoke_core.domain.deployment_runs_lock import lock_run
 from yoke_core.domain.deployment_qa_presentation_facts import run_presentation
 from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
 from yoke_core.domain.qa_plan_management import QaPlanError
@@ -212,10 +213,7 @@ def materialize_deployment_qa_stage(
 
     stage_read = read()
     try:
-        conn.execute(
-            "SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE",
-            (deployment_run_id,),
-        )
+        lock_run(conn, str(deployment_run_id))
         _require_member_still_attached(
             conn, deployment_run_id, deployment_member_item_id
         )

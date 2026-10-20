@@ -85,8 +85,7 @@ DEPLOY_PROGRESS_RE = re.compile(r"(Workflow run ID:|completed successfully)")
 DEPLOY_RELAY_UNAVAILABLE_RE = re.compile(r"status relay is temporarily unavailable")
 # A skipped liveness write is the one thing a stalled deploy can still say, and
 # the release path wraps it in its own warning text, so match the refusal at
-# the line start or after a wrapper's colon. A re-dispatch line quotes the
-# refusal after a period and stays in the raw capture: the driver is retrying.
+# the line start or after a wrapper's colon.
 DEPLOY_RUN_BUSY_RE = re.compile(rf"(?:^|: ){re.escape(RUN_BUSY_CODE)}: ")
 FLEET_SCHEMA_REHEARSAL_START_RE = re.compile(r"^\s*Fleet schema rehearsal: uncovered\b")
 FLEET_SCHEMA_REHEARSAL_COVERED_RE = re.compile(

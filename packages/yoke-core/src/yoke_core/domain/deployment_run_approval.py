@@ -152,6 +152,7 @@ def _require_executing(run_id: str, status: str) -> None:
 
 def _relock_at_stage(conn, run_id: str, approved_stage: str) -> None:
     """Lock the run and refuse when it left the stage after the gate's read."""
+    lock_run(conn, run_id)
     row = query_one(
         conn,
         "SELECT status, current_stage FROM deployment_runs WHERE id=%s FOR UPDATE",

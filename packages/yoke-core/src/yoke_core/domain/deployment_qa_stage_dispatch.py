@@ -314,8 +314,6 @@ def dispatch_deployment_qa_stage(
     from yoke_core.domain.deploy_pipeline_unknown_outcome import (
         redispatch_after_connection_loss,
     )
-    from yoke_core.domain.deploy_pipeline_qa_wait import RETRY_NEXT_CHECK
-    from yoke_core.domain.function_lock_refusal import RETRYABLE_LOCK_CODES
 
     # A lost answer is re-sent (the dispatch is idempotent); past the last
     # send it stops the driver resumably, never as a failed stage.
@@ -330,8 +328,6 @@ def dispatch_deployment_qa_stage(
     )
     if not response.success:
         message = response.error.message if response.error else "request failed"
-        if response.error and response.error.code in RETRYABLE_LOCK_CODES:
-            return RETRY_NEXT_CHECK, message  # held run: ask on the next check
         return 1, (
             f"deployment QA stage {stage.get('name')!r} could not be "
             f"dispatched: {message}"
