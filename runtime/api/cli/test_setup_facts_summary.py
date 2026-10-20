@@ -100,6 +100,39 @@ def test_settled_orientation_is_suppressed():
     assert summary.summary_lines(run)
 
 
+@pytest.mark.parametrize("status", ["blocked", "needed"])
+def test_unsettled_handoff_remains_visible_after_first_work(monkeypatch, status):
+    action = {
+        "row_id": "human-interview",
+        "command": "/yoke onboard",
+        "reason": "setup_required",
+        "home": ".yoke/docs/start/terminal-onboarding.md",
+    }
+    install_read(
+        monkeypatch,
+        SimpleNamespace(
+            success=True,
+            result={
+                "schema_version": 2,
+                "run": {
+                    "rows": [
+                        {"row_id": "setup-checklist-handoff", "status": status},
+                        {"row_id": "lifecycle-readiness", "status": "verified"},
+                        {"row_id": "capability-setup", "status": "unknown"},
+                    ],
+                    "setup_readiness": {"ready": True},
+                    "next_action": action,
+                },
+            },
+        ),
+    )
+    result = summary.read_project(Path("/unrelated"), orientation=True)
+    assert f"{status} setup-checklist-handoff" in result["lines"][0]
+    assert "capability-setup" not in result["lines"][0]
+    assert result["next_action"] == action
+    assert result["lines"][1] == summary.next_line(action)
+
+
 def test_global_summary_has_only_this_machine_facts(monkeypatch):
     def collect(**kwargs):
         assert kwargs == {"machine_only": True}

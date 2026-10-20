@@ -68,7 +68,17 @@ def test_source_composers_use_same_summary(monkeypatch, harness):
     monkeypatch.setattr(
         setup_facts_summary,
         "orientation_lines",
-        lambda _: ["Setup: unknown checkout-binding"],
+        lambda _: setup_facts_summary.summary_lines(
+            {
+                "rows": [{"row_id": "setup-checklist-handoff", "status": "blocked"}],
+                "next_action": {
+                    "command": "/yoke onboard",
+                    "reason": "setup_required",
+                    "home": ".yoke/docs/start/terminal-onboarding.md",
+                },
+            },
+            orientation=True,
+        ),
     )
     monkeypatch.setattr(orientation, "_advisory_lines", lambda _: [])
     monkeypatch.setattr(orientation, "_git_line", lambda *_: "")
@@ -84,7 +94,9 @@ def test_source_composers_use_same_summary(monkeypatch, harness):
         body = source._render_claude_orientation(
             "session", "/external", "", "claude-code", SessionModelFacts()
         )
-    assert body.count("Setup: unknown checkout-binding") == 1
+    assert body.count("Setup:") == body.count("Next:") == 1
+    assert "blocked setup-checklist-handoff" in body
+    assert "Next: /yoke onboard (setup_required)" in body
     assert len(body.encode()) <= min(INLINE_CONTEXT_BYTES.values())
 
 

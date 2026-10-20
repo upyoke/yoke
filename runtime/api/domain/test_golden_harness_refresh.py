@@ -241,3 +241,34 @@ def test_each_refresh_captures_to_a_new_stamped_sibling(monkeypatch):
     assert begin.startswith("/Users/Shared/yoke-golden/testy-home-")
     assert begin.endswith("Z") and "T" in begin.rsplit("-", 1)[-1]
     assert begin != GOLDEN
+
+
+def test_held_back_cursor_is_captured_and_the_plan_continues(monkeypatch, capsys):
+    world = World(monkeypatch, {**LATEST, "cursor": "2026.08.25-aaaaaaa"})
+    held = "held back: cursor 2026.10.16-e3cb207 does not run on this host: dyld: Symbol not found; using 2026.08.25-aaaaaaa"
+    monkeypatch.setattr(
+        golden_harness_clis,
+        "install_harness_clis",
+        lambda *args: HostActionResult(True, {"held_back": [held]}),
+    )
+    assert world.run(contract()) == {"refreshed": True}
+    assert held in capsys.readouterr().err
+    assert ("test_machine.operation.submit", "plan-1") in world.calls
+
+
+def test_refresh_error_keeps_the_harness_diagnostic_before_large_evidence(monkeypatch):
+    world = World(monkeypatch, None)
+    detail = "cursor 2026.10.16-e3cb207 exit 134: dyld: Symbol not found"
+    monkeypatch.setattr(
+        golden_harness_clis,
+        "install_harness_clis",
+        lambda *args: HostActionResult(
+            False,
+            {"installs": "x" * 1000, "detail": detail},
+            "harness_cli_install_unverified",
+        ),
+    )
+    with pytest.raises(MachinePlanCaseDispatchError) as caught:
+        world.run(contract())
+    assert detail in str(caught.value)[:200]
+    assert "x" * 1000 in str(caught.value)

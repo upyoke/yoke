@@ -22,16 +22,26 @@ class FakeHost:
     def run_command(self, argv, timeout, **context):
         self.commands.append(list(argv))
         self.contexts.append(context)
-        if argv[0] == "/usr/bin/python3":
-            return subprocess.CompletedProcess(argv, 0, json.dumps(self.versions), "")
+        if argv[4] == "probe":
+            probes = {
+                h: v
+                or {
+                    "version": None,
+                    "exit_code": 0 if v else -6,
+                    "stderr": "" if v else "dyld: Symbol not found",
+                }
+                for h, v in self.versions.items()
+            }
+            return subprocess.CompletedProcess(argv, 0, json.dumps(probes), "")
+        harness, names, script, wanted = json.loads(argv[5])
         if self.install_exit == 0 and self.installs_update:
-            harness = next(
-                r.harness_id
-                for r in clis.HARNESS_CLI_RELEASES
-                if r.install_script == argv[2]
-            )
-            self.versions[harness] = argv[4]
-        return subprocess.CompletedProcess(argv, self.install_exit, "", "")
+            self.versions[harness] = wanted
+        receipt = {
+            "install_exit_code": self.install_exit,
+            "install_stderr": "installer error",
+            "probe": {"version": self.versions[harness], "exit_code": 0, "stderr": ""},
+        }
+        return subprocess.CompletedProcess(argv, 0, json.dumps(receipt), "")
 
     def upload_remote_text(self, path, text):
         self.files[path] = text
@@ -56,7 +66,7 @@ def test_probe_searches_local_bin_and_each_executable_name():
     argv = host.commands[0]
     assert argv[:2] == ["/usr/bin/python3", "-c"]
     assert ".local/bin" in argv[2]
-    assert json.loads(argv[4]) == [
+    assert json.loads(argv[5]) == [
         ["claude-code", ["claude"]],
         ["codex", ["codex"]],
         ["cursor", ["agent", "cursor-agent"]],
@@ -81,9 +91,9 @@ def test_install_runs_each_vendor_installer_with_the_latest_version():
     installed = clis.install_harness_clis(host, LATEST, ["codex"])
     assert installed.ok, installed.evidence
     install = host.commands[0]
-    assert install[:2] == ["/bin/sh", "-c"]
-    assert "chatgpt.com/codex/install.sh" in install[2]
-    assert install[4] == "0.163.0"
+    assert install[:2] == ["/usr/bin/python3", "-c"]
+    assert "chatgpt.com/codex/install.sh" in json.loads(install[5])[2]
+    assert json.loads(install[5])[3] == "0.163.0"
     assert installed.evidence["harness_cli_versions"]["codex"] == "0.163.0"
 
 

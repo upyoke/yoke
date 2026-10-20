@@ -131,7 +131,17 @@ the refreshed golden (`yoke_core.domain.golden_harness_refresh`). The capture
 prunes preserved logins, keychains and cookies as above. A refresh that cannot
 read a release channel, reset, install, verify the installed version or
 capture stops the plan with `golden_refresh_*` and the step to repair, so no
-case runs on stale CLIs. Leftover old snapshots after a verified refresh
+case runs with an unreadable CLI. After each install, refresh runs `--version`
+in the same context as capture (the GUI session on macOS). When a new binary
+cannot run, it restores a runnable prior executable; Cursor selects the newest
+runnable retained release and re-points its CLI links. Refresh prints
+`held back: HARNESS VERSION does not run on this host` with the exit code,
+stderr and selected version, then captures that host-supported version and
+continues. The ordinary sidecar records actual runnable versions; a later
+plan may retry the published release, without a persistent hold setting.
+No runnable version stops refresh naming that harness and its stderr. Full
+refresh diagnostics remain in the runner error even if execution abort refuses;
+the durable abort reason retains a bounded opening diagnosis. Leftover old snapshots after a verified refresh
 capture do not stop the plan: it prints a `golden_snapshot_retention_failed`
 warning with the removed and kept names, the host's error and the cleanup, and continues, because the next
 capture's space check still refuses a crowded disk. A server older than the `plan_execution_id` argument

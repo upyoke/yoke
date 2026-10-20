@@ -134,3 +134,59 @@ class _NoTables:
 
     def execute(self, *_args, **_kwargs):  # pragma: no cover - not reached
         raise AssertionError("the pre-host branch answers without a query")
+
+
+def test_refused_abort_preserves_the_original_refresh_error(monkeypatch):
+    from types import SimpleNamespace
+    import pytest
+    from yoke_core.domain import machine_qa_plan_case_execution as machine
+    from yoke_core.domain.qa_plan_execution_run import execute_begun_plan
+    from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
+
+    diagnostic = "golden refresh stopped: cursor 2026.10.19-6bbf2c4 exit 134: dyld: Symbol not found"
+
+    def fail_case(*args, **kwargs):
+        raise RuntimeError(diagnostic)
+
+    monkeypatch.setattr(machine, "execute_plan_machine_case", fail_case)
+    reasons = []
+
+    def call(**kwargs):
+        if kwargs["function_id"] == "qa.plan_execution.abort":
+            reasons.append(kwargs["payload"]["reason"])
+            raise QaPlanExecutionError("abort refused: restore proof required")
+        return {}
+
+    begun = SimpleNamespace(
+        requirements=[
+            {
+                "requirement_id": 11,
+                "runner_id": "host_control",
+                "case_key": "refresh",
+                "case_position": 1,
+                "baseline_position": 1,
+            }
+        ],
+        cursor=0,
+        resolved_base_url=None,
+        recorded_results=[],
+        recorded_ordinals=[],
+        selected_machine=None,
+    )
+    with pytest.raises(QaPlanExecutionError) as caught:
+        execute_begun_plan(
+            execution={"execution_id": "execution"},
+            begun=begun,
+            target=None,
+            resolved_actor=None,
+            transition_id="reviewing",
+            expected_branch=None,
+            expected_sha=None,
+            timeout_seconds=60,
+            checkout_path=None,
+            allow_tree_mismatch=False,
+            call_plan_function=call,
+        )
+    assert diagnostic in str(caught.value)
+    assert "abort refused: restore proof required" in str(caught.value)
+    assert "cursor 2026.10.19-6bbf2c4 exit 134: dyld" in reasons[0]
