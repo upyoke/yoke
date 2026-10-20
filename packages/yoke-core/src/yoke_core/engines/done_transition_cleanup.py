@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from yoke_core.domain.public_item_target import public_item_target
 
-import re
 import sys
 from pathlib import Path
+
+from yoke_contracts.public_ref import parse_public_item_ref
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.backlog_session_attribution import _current_session_id
@@ -17,6 +18,7 @@ from yoke_core.engines.branch_landed_evidence import (
 from yoke_core.engines.merge_landed_lane_cleanup import prune_landed_lane
 from yoke_core.engines.remote_branch_cleanup import delete_remote_branch_if_merged
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+from yoke_core.domain.worktree_naming import candidate_worktree_names
 
 
 def _parent():
@@ -25,7 +27,7 @@ def _parent():
     return _dt
 
 
-def _has_foreign_claim(item_id: int) -> bool:
+def _has_foreign_claim(item_id: int | str) -> bool:
     """Treat another owner or an unreadable claim registry as active.
 
     Relays ``claims.work.holder_list`` (its item filter is the exact active
@@ -156,20 +158,41 @@ def _cleanup_stale_branches(
     return not preserved
 
 
+def _trial_patterns(item_id: int) -> list[str] | None:
+    """``trial/<name>`` for every name the item's lane could carry."""
+    try:
+        with _parent()._connect() as conn:
+            names = candidate_worktree_names(conn, item_id)
+    except Exception as exc:  # noqa: BLE001 - cleanup must fail closed
+        print(f"  Preserving trial branches: lane names unreadable ({exc}).")
+        return None
+    return [f"trial/{name}" for name in sorted(names)]
+
+
 def _cleanup_trial_branches(project_repo: Path, item_id: int | None = None) -> bool:
-    """Delete only trial refs whose tips are already retained by ``HEAD``."""
-    pattern = f"trial/YOK-{item_id}" if item_id is not None else "trial/*"
+    """Delete only trial refs whose tips are already retained by ``HEAD``.
+
+    With ``item_id`` the refs are that item's lane names; without it every
+    ``trial/PREFIX-N`` ref in any project is a candidate, read by its ref.
+    """
+    patterns = ["trial/*"] if item_id is None else _trial_patterns(item_id)
+    if patterns is None:
+        return False
+    if not patterns:
+        return True
     branches = _parent()._run_git(
-        ["-C", str(project_repo), "branch", "--list", pattern],
+        ["-C", str(project_repo), "branch", "--list", *patterns],
         capture=True,
     )
     complete = branches.returncode == 0
     for line in (branches.stdout or "").splitlines():
         ref = line.strip().lstrip("* ")
-        match = re.fullmatch(r"trial/YOK-(\d+)", ref)
-        if not match:
-            continue
-        trial_item = ref.removeprefix("trial/")
+        trial_item = item_id
+        if trial_item is None:
+            name = ref.removeprefix("trial/")
+            if name == ref or parse_public_item_ref(name)[0] is None:
+                continue
+            trial_item = name
         if _parent()._query_item_field(trial_item, "status") != "done":
             complete = False
             continue
