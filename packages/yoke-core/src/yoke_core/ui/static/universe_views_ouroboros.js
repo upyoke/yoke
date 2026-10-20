@@ -167,6 +167,24 @@ export function renderOuroborosEntryDetailView(
         emptyText: "No evidence recorded.",
         demoteHeadings: true,
       }));
+      if (entry.correlation_id) {
+        body.appendChild(actionLink(documentNode, `Root note #${entry.correlation_id}`,
+          buildUniverseRoute("ouroboros", projectId, entry.correlation_id)));
+      }
+      if (entry.repeat_count) {
+        body.appendChild(el(documentNode, "h3", "", `Repeated evidence (${entry.repeat_count})`));
+        for (const repeat of entry.repeats || []) {
+          const row = el(documentNode, "p", "item-muted");
+          row.appendChild(actionLink(documentNode, `Note #${repeat.id}`,
+            buildUniverseRoute("ouroboros", projectId, repeat.id)));
+          row.appendChild(documentNode.createTextNode(` · ${repeat.preview}`));
+          body.appendChild(row);
+        }
+        if (entry.repeat_count > (entry.repeats || []).length) {
+          body.appendChild(el(documentNode, "p", "item-muted",
+            "Showing the latest 20 repeats; use the field-note list to page through all evidence."));
+        }
+      }
       if (entry.promoted_dash) {
         const outcome = el(documentNode, "div", "item-detail-state");
         outcome.appendChild(el(

@@ -78,6 +78,15 @@ not evidence of death. Effective executor TTL is reported data; an active work
 claim protects its holder from age reclaim. An idle session can still be a
 session the control plane counts. Do not reproduce a machine's numeric TTL.
 
+### Weekly learning review
+
+Curation is operator-run. Check the claimed document's last curation date for
+each project each pass. If absent or at least seven days old, ask the operator
+to run `/yoke curate` and keep that action in the live snapshot until settled.
+Record review date, remaining unreviewed count and next review date there.
+Follow [Ouroboros](../../../../.yoke/docs/operations/ouroboros.md) for the queue
+and archive contract; no scheduler or automatic item filing is implied.
+
 ## 2. Read, acknowledge, dispose
 
 ```text

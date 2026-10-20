@@ -1,10 +1,11 @@
 {
  "id": "curation",
  "title": "Curation",
- "status": "draft-copy",
+ "status": "observed",
  "commands": ["yoke ouroboros entry get", "yoke ouroboros entry insert", "yoke ouroboros entry list", "yoke ouroboros entry mark-archived", "yoke ouroboros entry mark-reviewed", "yoke ouroboros field-note promote"],
  "functions": ["ouroboros.entry.get", "ouroboros.entry.insert", "ouroboros.entry.list", "ouroboros.entry.mark_archived", "ouroboros.entry.mark_reviewed", "ouroboros.field_note.promote"],
  "skills": ["curate"],
  "page": "learning",
- "position": 1
+ "position": 1,
+ "summary": "Curation is operator-run weekly. Steering tracks review and next-review dates per project, surfaces overdue reviews, and retains remaining queue counts in its claimed document. Verify shipped causes and record covering items before archiving handled notes."
 }

@@ -32,6 +32,23 @@ def apply_ouroboros_columns(conn: Any) -> None:
         "project_override",
         "TEXT DEFAULT NULL",
     )
+    for name, declaration in (
+        ("correlation_id", "INTEGER DEFAULT NULL"),
+        ("session_id", "TEXT DEFAULT NULL"),
+    ):
+        _add_column_if_not_exists(conn, "ouroboros_entries", name, declaration)
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ouroboros_session "
+        "ON ouroboros_entries (session_id)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ouroboros_correlation "
+        "ON ouroboros_entries (correlation_id)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ouroboros_recent_author "
+        "ON ouroboros_entries (project_id, agent, created_at)"
+    )
     conn.commit()
 
 

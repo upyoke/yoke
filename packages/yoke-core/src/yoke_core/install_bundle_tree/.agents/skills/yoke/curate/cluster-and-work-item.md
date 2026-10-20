@@ -30,7 +30,9 @@ warn and skip.
 Group the same root cause or improvement across contexts; unrelated signals
 stand alone. Already-promoted entries have their output; skip them.
 A correction's `corrects` link supersedes the older note: cluster the correction
-rather than both. Unlinked duplicate/restatement notes belong together and
+rather than both. Root rows carry `repeat_count` and the latest 20 `repeats`; open repeat ids
+for complete evidence. Correlated repeats stay out of the unreviewed count.
+Unlinked duplicate/restatement notes belong together and
 are both reviewed when handled.
 
 Optional current Progress Logs/field-notes may supply context; proceed when
@@ -125,6 +127,8 @@ yoke ouroboros entry mark-reviewed {id}
 yoke ouroboros entry mark-archived --all-reviewed
 ```
 
+Record the covering shipped item and exact handled ids for each resolved set
+in the review evidence before marking them.
 Review timestamps prevent repeated processing; archive immediately and retain
 DB history. A named id is authorized by its own project. Unnamed selectors
 (`--all-reviewed`, `--before`, `--field-notes-before`) target the checkout

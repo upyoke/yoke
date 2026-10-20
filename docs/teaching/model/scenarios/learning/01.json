@@ -1,10 +1,10 @@
 {
  "id": "01",
  "title": "Record evidence where it can be found again",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "agent",
  "when": "A recipe, help text or refusal is wrong or missing, or a bug sits outside the task",
- "need": "File one field note for that problem before moving on, with the kind that matches it. Link a repeat to the first note. A note is a supporting learning record, not automatically an executable work item.",
+ "need": "File each distinct wrong or missing recipe or outside-scope defect. Link repeats to the first note id; durable correlation keeps them under one root. Append deduplicates normalized 200-character prefixes for 24 hours per project/author and caps sessions at ten distinct roots, with a warning at eight. Correlated evidence remains available; unrelated excess findings go to the item Progress Log for operator review.",
  "disclosure": "current cue",
  "surface": "Generated AGENTS/skill directive -> field-note append help; public Ouroboros page.",
  "review": "Pending exact recipe proof.",

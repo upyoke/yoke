@@ -88,7 +88,7 @@ def _dispatch_field_note(
     kind: str,
     evidence: str,
     session_id: str,
-    correlation_id: Optional[str],
+    capture_key: Optional[str],
     project: Optional[str] = None,
     agent: Optional[str] = None,
 ) -> Optional[str]:
@@ -117,8 +117,6 @@ def _dispatch_field_note(
         pass
 
     payload = {"kind": kind, "evidence": evidence}
-    if correlation_id:
-        payload["correlation_id"] = correlation_id
     if project:
         payload["project"] = project
     if agent:
@@ -129,7 +127,7 @@ def _dispatch_field_note(
         request_id=str(
             uuid.uuid5(
                 uuid.NAMESPACE_URL,
-                repr((session_id, project, correlation_id, kind, evidence)),
+                repr((session_id, project, capture_key, kind, evidence)),
             )
         ),
         actor=ActorContext(session_id=session_id),
@@ -151,7 +149,7 @@ def dispatch_markers_for_entry(
     agent: str,
     context: str,
     session_id: str,
-    correlation_id: Optional[str] = None,
+    capture_key: Optional[str] = None,
     errors: Optional[List[str]] = None,
     project: Optional[str] = None,
 ) -> int:
@@ -177,7 +175,7 @@ def dispatch_markers_for_entry(
                     kind=raw_value,
                     evidence=evidence,
                     session_id=session_id,
-                    correlation_id=correlation_id,
+                    capture_key=capture_key,
                     project=project,
                     agent=agent,
                 )

@@ -91,7 +91,7 @@ _EXPECTED_SCHEMA_STR = (
     "|migration_content_adoptions:migration_name/TEXT,content_sha256/TEXT,artifact_engine_version/TEXT,source_artifact/TEXT,source_sha256/TEXT,source_commit/TEXT,manifest_sha256/TEXT,adopted_by/TEXT,adopted_at/TIMESTAMPTZ"
     "|model_reference_revisions:revision_id/TEXT,effective_at/TIMESTAMPTZ,published_at/TIMESTAMPTZ,published_by_actor_id/INTEGER,catalog_json/TEXT,source_note/TEXT,source_revision_id/TEXT"
     "|organizations:id/INTEGER,slug/TEXT,name/TEXT,domain/TEXT,settings/TEXT,created_at/TIMESTAMPTZ,events_signing_key/TEXT"
-    "|ouroboros_entries:id/INTEGER,timestamp/TIMESTAMPTZ,agent/TEXT,context/TEXT,category/TEXT,body/TEXT,reviewed_at/TIMESTAMPTZ,archived_at/TIMESTAMPTZ,created_at/TIMESTAMPTZ,project_id/INTEGER,target_project_id/INTEGER"
+    "|ouroboros_entries:id/INTEGER,timestamp/TIMESTAMPTZ,agent/TEXT,context/TEXT,category/TEXT,body/TEXT,reviewed_at/TIMESTAMPTZ,archived_at/TIMESTAMPTZ,created_at/TIMESTAMPTZ,project_id/INTEGER,target_project_id/INTEGER,correlation_id/INTEGER,session_id/TEXT"
     "|ouroboros_entry_corrections:correction_entry_id/INTEGER,corrected_entry_id/INTEGER,created_at/TIMESTAMPTZ"
     "|ouroboros_entry_dispositions:entry_id/INTEGER,disposition_kind/TEXT,state/TEXT,item_id/INTEGER,title/TEXT,instruction/TEXT,requested_by_actor_id/INTEGER,requested_by_session_id/TEXT,project_override/TEXT,failure_reason/TEXT,created_at/TIMESTAMPTZ,updated_at/TIMESTAMPTZ"
     "|overview_activation_facts:id/INTEGER,module_key/TEXT,activated_at/TIMESTAMPTZ"

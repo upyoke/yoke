@@ -1,10 +1,10 @@
 {
  "id": "02",
  "title": "Curate deliberately rather than auto-file everything",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "both",
  "when": "Repeated notes or observations suggest a system problem",
- "need": "Curate clusters unreviewed evidence, verifies the current cause, chooses the work shape and archives handled entries. It is operator-invoked, not an automatic background policy.",
+ "need": "The operator runs Curate weekly for each open project queue. Steering tracks review date, next review date and remaining count, and surfaces overdue reviews. Curate groups root notes with their repeats, verifies current causes against shipped items, records the covering item for each set, and archives handled entries without erasing history.",
  "disclosure": "current cue",
  "surface": "Help/native skill catalog -> Curate; public Ouroboros section -> /yoke curate.",
  "review": "Pending exact recipe proof.",

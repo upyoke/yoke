@@ -51,14 +51,22 @@ def test_help_body_canonical_text() -> None:
         "- failed: a recipe, help text or refusal gave a wrong result\n"
         "- new: no recipe or help covered what you needed\n"
         "- unclear: two surfaces disagree, or the guidance is ambiguous\n"
-        "- observation: a bug or oddity outside your current task"
+        "- observation: a bug or oddity outside your current task\n"
+        "\n"
+        "The same project and author reuse an existing id for the first 200 "
+        "body characters (case and whitespace normalized) within 24 hours. "
+        "Correlated evidence is stored under the root note and excluded from "
+        "unreviewed counts. Sessions warn at eight distinct notes and cap at "
+        "ten; duplicate retries and correlated evidence remain available. "
+        "Put unrelated excess findings in the item Progress Log for operator review. "
+        "Do not file progress or a routine recovery that worked."
     )
 
 
 def test_correlation_id_help_canonical_text() -> None:
     assert fnt.CORRELATION_ID_HELP == (
-        "Groups related notes: the id of the first note when this is the same "
-        "problem again, or a run id (polish, doctor)."
+        "Integer id of the first field note for this problem in this project. "
+        "Find it with yoke ouroboros field-note list. Run labels are not root ids."
     )
 
 

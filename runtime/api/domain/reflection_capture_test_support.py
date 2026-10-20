@@ -33,6 +33,8 @@ REFLECTION_DB_DDL = """\
         archived_at TIMESTAMPTZ,
         project_id INTEGER,
         target_project_id INTEGER,
+        correlation_id INTEGER,
+        session_id TEXT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 """
