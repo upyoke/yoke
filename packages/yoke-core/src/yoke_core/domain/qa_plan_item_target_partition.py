@@ -26,6 +26,7 @@ from yoke_core.domain.qa_plan_execution_store import (
     live_plan_execution_id,
     select_plan_execution,
 )
+from yoke_core.domain.qa_plan_case_chain import settled_chain_tails
 from yoke_core.domain.qa_requirement_pass_currency import (
     current_passing_requirements,
 )
@@ -70,6 +71,7 @@ def item_target_partition(
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]], int]:
     """Return (settled reprint, one-target roster, remaining requirement count)."""
     candidate, passed = candidate_passed_requirements(conn, roster, item_id=item_id)
+    passed = settled_chain_tails(roster, passed)
     live_id = live_plan_execution_id(
         conn, item_id=int(item_id), transition_id=str(transition_id)
     )

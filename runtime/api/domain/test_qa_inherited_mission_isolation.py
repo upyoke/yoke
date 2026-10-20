@@ -29,12 +29,13 @@ def _roster():
     ]
 
 
-def test_item_execution_isolates_a_mission_chain_on_the_same_target():
+@pytest.mark.parametrize("passed", [set(), {1}])
+def test_item_execution_isolates_a_mission_chain_on_the_same_target(passed):
     roster = _roster()
     module = "yoke_core.domain.qa_plan_item_target_partition"
     with (
         patch(
-            f"{module}.candidate_passed_requirements", return_value=("a" * 40, set())
+            f"{module}.candidate_passed_requirements", return_value=("a" * 40, passed)
         ),
         patch(f"{module}.live_plan_execution_id", return_value=None),
     ):

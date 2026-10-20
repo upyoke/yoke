@@ -116,7 +116,7 @@ def chain_baselines(
 
     ``cases`` are in plan position order and carry ``case_key``,
     ``runner_id``, ``host_baselines``, ``starting_state`` and
-    ``starting_state_reason``. A ``baseline`` case fans out across its named
+    ``starting_state_reason`` and ``method_config``. A ``baseline`` case fans out across its named
     baselines, an ``as_is`` case materializes once, and an ``inherit`` case
     follows its predecessor's fan-out so each of its rows continues the row
     at the same baseline position.
