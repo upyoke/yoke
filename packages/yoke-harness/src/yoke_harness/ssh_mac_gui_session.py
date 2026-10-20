@@ -25,6 +25,7 @@ GUI_COMMAND_TIMEOUT_EXIT_CODE = 124
 GUI_COMMAND_TIMEOUT_STOPPED = "gui_command_timeout_stopped"
 GUI_COMMAND_TIMEOUT_NOT_STOPPED = "gui_command_timeout_not_stopped"
 GUI_COMMAND_WINDOW_NOT_CLOSED = "gui_command_window_not_closed"
+GUI_COMMAND_OUTPUT_MISSING = "gui_command_output_missing"
 GUI_SESSION_UNAVAILABLE_REASON = (
     "macOS GUI-session context was not obtained through Terminal.app"
 )
@@ -242,12 +243,19 @@ def _drive_window(
         )
     stdout = _read_remote_text(run, stdout_path)
     stderr = _read_remote_text(run, stderr_path)
-    if stdout is None or stderr is None:
-        return _bridge_failure(
-            argv, detail="Terminal.app command output was unavailable"
+    missing = [
+        name for name, text in (("stdout", stdout), ("stderr", stderr)) if text is None
+    ]
+    if missing:
+        # The exit status is the command's real answer; only its text is lost.
+        note = (
+            f"{GUI_COMMAND_OUTPUT_MISSING}: the command exited {exit_code}, but "
+            f"its {' and '.join(missing)} could not be read back from the host; "
+            "rerun the command to see its output."
         )
+        stderr = f"{stderr.rstrip()}\n{note}" if stderr and stderr.strip() else note
     return subprocess.CompletedProcess(
-        args=argv, returncode=exit_code, stdout=stdout, stderr=stderr
+        args=argv, returncode=exit_code, stdout=stdout or "", stderr=stderr
     )
 
 
@@ -319,6 +327,7 @@ def run_terminal_app_command(
 
 
 __all__ = [
+    "GUI_COMMAND_OUTPUT_MISSING",
     "GUI_COMMAND_TIMEOUT_EXIT_CODE",
     "GUI_COMMAND_TIMEOUT_NOT_STOPPED",
     "GUI_COMMAND_TIMEOUT_STOPPED",

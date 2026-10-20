@@ -78,6 +78,34 @@ def test_terminal_app_command_returns_output_and_exit_code(
     assert any("close window id 445" in command for command in commands)
 
 
+def test_terminal_command_keeps_real_exit_code_when_output_is_missing() -> None:
+    def run(command: str, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        if "return id of targetWindow" in command:
+            return _completed(command, stdout="445")
+        if command.startswith("if /bin/test -f "):
+            return _completed(command, stdout="3\n")
+        if "set ttyPaths to tty of every tab" in command:
+            return _completed(command, stdout="closed\n")
+        if command.startswith("/usr/bin/base64 < "):
+            if command.endswith(".stdout"):
+                return _completed(command, returncode=1)
+            return _completed(
+                command, stdout=base64.b64encode(b"warning\n").decode()
+            )
+        return _completed(command)
+
+    result = run_terminal_app_command(run, argv=("/usr/bin/false",))
+
+    assert result.returncode == 3
+    assert result.stdout == ""
+    assert result.stderr.startswith("warning\n")
+    assert (
+        f"{ssh_mac_gui_session.GUI_COMMAND_OUTPUT_MISSING}: the command exited 3, "
+        "but its stdout could not be read back" in result.stderr
+    )
+    assert "rerun the command" in result.stderr
+
+
 def test_terminal_command_launch_failure_names_osascript_cause():
     def run(command, **_kwargs):
         return _completed(
