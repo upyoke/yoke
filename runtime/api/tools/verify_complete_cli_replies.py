@@ -27,4 +27,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
+        raise SystemExit(
+            f"cli_reply_probe_failed: {type(exc).__name__}. Check CLI connectivity "
+            "and candidate installation, then rerun member QA."
+        ) from None
