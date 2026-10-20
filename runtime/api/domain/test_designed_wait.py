@@ -53,6 +53,20 @@ def test_a_blocking_wait_omits_the_cadence() -> None:
     )
 
 
+def test_a_wait_with_status_lines_drops_the_silence_promise() -> None:
+    line = designed_wait_line(
+        "scoped QA",
+        max_wait_seconds=1800,
+        cadence="checks every 15s; prints a status line every 60s",
+        silent=False,
+    )
+
+    assert line == (
+        "Waiting by design: scoped QA; checks every 15s; prints a status line "
+        "every 60s; gives up after 30m."
+    )
+
+
 def test_the_default_sink_is_flushed_stderr(capsys) -> None:
     line = announce_designed_wait("a lock", max_wait_seconds=20)
 
