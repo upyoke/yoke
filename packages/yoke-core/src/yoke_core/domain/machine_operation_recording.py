@@ -51,6 +51,7 @@ def record_test_machine_operation(
     error_code: str | None,
     lease_id: int,
     contract_digest: str,
+    commit: bool = True,
 ) -> dict[str, Any]:
     """Persist one server-accepted, secret-free operation receipt."""
     if operation not in RECORDED_OPERATIONS:
@@ -87,7 +88,8 @@ def record_test_machine_operation(
             instant_parameter(conn, now),
         ),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     return {
         "operation": operation,
         "status": status,

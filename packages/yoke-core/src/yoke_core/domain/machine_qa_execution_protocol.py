@@ -11,17 +11,13 @@ from yoke_core.domain.machine_qa_lease_messages import (
 import hmac
 from typing import Any, Sequence
 
-from yoke_core.domain import db_backend
+from yoke_core.domain.machine_qa_submission_lease import lock_submission_claim
 from yoke_core.domain.coordination_claim_record import (
-    FROM_CLAUSE,
-    SELECT_COLUMNS,
     CoordinationClaim,
-    row_to_claim,
 )
 from yoke_core.domain.coordination_claims import (
     CoordinationClaimNotFoundError,
     CoordinationClaimStaleHolderError,
-    get_claim,
     release,
 )
 from yoke_core.domain.coordination_claim_contention import ClaimContention
@@ -87,23 +83,6 @@ def commit_deferred_connection(conn: Any) -> Any:
     return _CommitDeferredConnection(conn)
 
 
-def _lock_submission_claim(conn: Any, claim_id: int) -> CoordinationClaim:
-    if not db_backend.connection_is_postgres(conn):
-        if not bool(getattr(conn, "in_transaction", False)):
-            conn.execute("BEGIN IMMEDIATE")
-        return get_claim(conn, claim_id)
-    marker = "%s"
-    row = conn.execute(
-        f"SELECT {SELECT_COLUMNS} {FROM_CLAUSE} WHERE wc.id={marker} FOR UPDATE OF wc",
-        (claim_id,),
-    ).fetchone()
-    if row is None:
-        raise CoordinationClaimNotFoundError(
-            f"Coordination claim id={claim_id} not found"
-        )
-    return row_to_claim(row)
-
-
 def _issue(
     conn: Any,
     machine: TestMachineContract,
@@ -132,7 +111,11 @@ def _issue(
         settings.pop(GOLDEN_BASELINE_PATH_KEY, None)
     from yoke_core.domain.machine_qa_execution_contract import public_case_snapshots
 
+    from yoke_core.domain.machine_reset_debt import reset_owed
+
+    owed = reset_owed(conn, settings["resource_name"]) if cases else None
     return issue_execution_contract(
+        reset_owed_baseline=owed,
         operation=operation,
         lease_id=lease.id,
         lease_key=lease.key,
@@ -232,7 +215,7 @@ def _validate_lease_owner(
     allow_released: bool,
 ) -> tuple[CoordinationClaim, TestMachineContract]:
     try:
-        lease = _lock_submission_claim(conn, int(lease_id))
+        lease = lock_submission_claim(conn, int(lease_id))
     except CoordinationClaimNotFoundError as exc:
         raise MachineQaProtocolError(
             invalid_lease(lease_id, "no lease was issued with that id")
@@ -321,9 +304,14 @@ def validate_host_control_submission(
         expected.contract_digest,
         str(contract_digest),
     ):
-        raise MachineQaProtocolError(
-            "host-control target changed after execution began"
-        )
+        from yoke_core.domain.machine_reset_debt import recovery_receipt_matches
+
+        if not allow_recorded_replay or not recovery_receipt_matches(
+            conn, machine, lease.id, contract_digest
+        ):
+            raise MachineQaProtocolError(
+                "host-control target changed after execution began"
+            )
     return lease, expected
 
 

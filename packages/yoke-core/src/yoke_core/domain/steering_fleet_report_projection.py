@@ -232,6 +232,10 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
                 "staffing_after_seconds": report.staffing_after_seconds,
                 "idle_after_seconds": report.idle_after_seconds,
                 "actionable": report.actionable,
+                "reset_debts": [
+                    dict(machine=name, recovery=command)
+                    for name, command in report.reset_debts
+                ],
                 "fingerprint": report.fingerprint(),
                 "available": [_entry_dict(entry, now) for entry in report.available],
                 "landing_waits": [w.__dict__ for w in report.landing_waits],

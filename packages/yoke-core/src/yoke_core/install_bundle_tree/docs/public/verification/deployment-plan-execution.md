@@ -191,8 +191,20 @@ failed refresh stops the plan with a `golden_refresh_*` reason and its repair.
 Old snapshots left after a verified refresh capture only warn
 (`golden_snapshot_retention_failed`, with the host's error and the cleanup).
 
-Only an explicitly declared host baseline restores the golden home. A mission
-declared `as_is` keeps the home it finds and, absent `host_starting_state`, leaves
+A declared host baseline restores the golden home. Before new case work, an
+unproven mission cleanup also requires a reset: its `reset_owed` machine receipt
+names the failed cleanup's baseline, or `fresh-host` when none was declared.
+The next holder resets first, including an agent mission, `as_is` case or
+case without a baseline. Failed recovery records `machine_needs_repair` and
+the exact `yoke test-machine reset` command; the steering report shows that
+machine and command until a later successful reset receipt clears the debt.
+A cleanup finish always releases its lease, even without restore proof, and
+records restore evidence before committing the release. Recovery contracts
+require a runner supporting `host-control-reset-recovery-v1`; an older runner
+refuses before host work and must be upgraded before retrying.
+
+A mission declared `as_is` otherwise keeps the home it finds and, absent
+`host_starting_state`, leaves
 packages and their journal untouched. A named baseline or explicit fixture
 undoes only the preceding mission's journal-attributed package delta, applies the declaration and
 records proof before walking. Linux and WSL fixtures use apt; a declaration on another OS

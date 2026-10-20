@@ -76,6 +76,20 @@ def prepare_mission(
         execution = execution_factory(contract, progress_callback=progress_callback)
         secrets = tuple(execution.material.secrets.values())
         from yoke_harness.qa_continuity_fingerprint import check_continuity
+        from yoke_core.domain.machine_reset_recovery import recover_owed_reset
+
+        phase = "owed_reset"
+        with heartbeat_during(phase, progress_callback):
+            owed = recover_owed_reset(contract, execution)
+        if owed is not None:
+            preparation["evidence"]["owed_reset"] = owed
+            if not owed["ok"]:
+                raise HostControlLocalError(
+                    code="machine_needs_repair",
+                    phase=phase,
+                    detail="The owed host reset failed; do not walk this mission",
+                    recovery_hint=owed["recovery"],
+                )
 
         if (
             not baseline_name

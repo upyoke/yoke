@@ -287,6 +287,9 @@ def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
                 )
 
                 raise ValueError(released_without_receipt(lease))
+            from yoke_core.domain.machine_reset_debt import record_owed_reset
+
+            record_owed_reset(conn, contract, submitted.evidence)
             with TemporaryDirectory(prefix="yoke-machine-qa-") as temp_dir:
                 result = record_submitted_case(
                     commit_deferred_connection(conn),

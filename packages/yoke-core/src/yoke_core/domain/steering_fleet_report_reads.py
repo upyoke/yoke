@@ -26,7 +26,10 @@ from typing import Any, Callable, Mapping
 
 from yoke_core.domain.dependency_cycles import DependencyCycle
 from yoke_core.domain.dependency_cycles_read import cycles_in, live_blocking_edges
-from yoke_core.domain.steering_fleet_report_test_machines import read_test_machines
+from yoke_core.domain.steering_fleet_report_test_machines import (
+    read_test_machines,
+    read_reset_debts,
+)
 from yoke_core.domain.machine_registry import machine_names
 from yoke_core.domain.merge_queue_read_reuse import MergeQueueReads
 from yoke_core.domain.session_launch_capacity import MachineCapacity
@@ -119,6 +122,7 @@ class ProjectFleetFacts:
     relay_health: tuple[RelayHealthCondition, ...]
     machine_names: Mapping[str, str]
     test_machines: tuple[tuple[str, str], ...] = ()
+    reset_debts: tuple[tuple[str, str], ...] = ()
     levels: LevelReadout | None = None
     deadlocks: tuple[DependencyCycle, ...] = ()
     waiting_chains: tuple[WaitingChain, ...] = ()
@@ -211,6 +215,7 @@ def read_project_facts(
         ),
         machine_names=registered_names,
         test_machines=read_test_machines(conn, project_id) if inventory else (),
+        reset_debts=read_reset_debts(conn, project_id),
         levels=read_level_readout(
             conn, project_id=project_id, session_id=session_id, now=now
         )

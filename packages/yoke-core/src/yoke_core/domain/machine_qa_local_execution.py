@@ -114,23 +114,6 @@ def execute_host_operation_contract(
     )
 
 
-def _unstarted_reset_failure(case: Any, machine: str, reset: dict[str, Any]) -> Any:
-    from yoke_core.domain.machine_qa_case_result import MachineCaseResult
-
-    return MachineCaseResult(
-        case_outcome="blocked_on_precondition",
-        verdict="blocked",
-        evidence={
-            "runner_id": "host_control",
-            "machine": machine,
-            "baseline": case.host_baseline,
-            "case_started": False,
-            "starting_state_reset": reset,
-        },
-        error_code=STARTING_STATE_RESET_FAILED,
-    )
-
-
 def execute_machine_case_contract(
     raw_contract: dict[str, Any],
     *,
@@ -169,10 +152,26 @@ def execute_machine_case_contract(
     secret_values = tuple(execution.material.secrets.values())
     started = time.monotonic()
     reset = None
+    from yoke_core.domain.machine_reset_recovery import (
+        recover_owed_reset,
+        MachineResetFailed,
+        unstarted_reset_failure,
+    )
+
+    owed_reset = None
     from yoke_core.domain.machine_qa_continuity import continuity_failure
 
     continuity_succeeded = False
     try:
+        with heartbeat_during("owed_reset", progress_callback):
+            owed_reset = recover_owed_reset(contract, execution)
+        if owed_reset is not None and not owed_reset["ok"]:
+            raise MachineResetFailed(
+                code="machine_needs_repair",
+                phase="owed_reset",
+                detail="The owed host reset failed; no case was started",
+                recovery_hint=owed_reset["recovery"],
+            )
         if contract.baselines:
             with heartbeat_during("starting_state_reset", progress_callback):
                 reset = baseline_receipt(
@@ -186,10 +185,14 @@ def execute_machine_case_contract(
         if continuity is not None:
             result = continuity
         elif reset is not None and not reset["ok"]:
-            result = _unstarted_reset_failure(case, machine, reset)
+            result = unstarted_reset_failure(case, machine, reset)
         else:
             result = execute_case_with_fixture_lifecycle(execution, case)
         check_abort(progress_callback)
+    except MachineResetFailed:
+        result = unstarted_reset_failure(
+            case, machine, owed_reset, error_code="machine_needs_repair"
+        )
     except MachineQaAborted as exc:
         from yoke_core.domain.machine_qa_case_result import MachineCaseResult
 
@@ -215,9 +218,11 @@ def execute_machine_case_contract(
         exc.add_note(restore_summary(restore))
         raise
     evidence = dict(result.evidence)
+    if owed_reset is not None:
+        evidence["owed_reset"] = owed_reset
     if "continuity_fingerprint" in case.method_config and continuity_succeeded:
         evidence["continuity_fingerprint"] = {"ok": True}
-    if restore_due(
+    if (owed_reset is None or owed_reset["ok"]) and restore_due(
         case, result.case_outcome, error_code=result.error_code, verdict=result.verdict
     ):
         with heartbeat_during(STARTING_STATE_RESTORE, callback, propagate_abort=False):

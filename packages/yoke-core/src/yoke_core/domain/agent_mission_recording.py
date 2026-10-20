@@ -105,6 +105,9 @@ def handle_agent_mission_ready(request: FunctionCallRequest) -> HandlerOutcome:
         else:
             preparation = parsed.preparation.model_dump(mode="json")
             ensure_secret_free_result(preparation)
+            from yoke_core.domain.machine_reset_debt import record_owed_reset
+
+            record_owed_reset(conn, contract, preparation["evidence"])
             run_id, result = insert_mission_docket(
                 conn,
                 execution=execution,

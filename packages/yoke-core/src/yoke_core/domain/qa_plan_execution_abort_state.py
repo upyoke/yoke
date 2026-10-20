@@ -130,6 +130,10 @@ def require_host_restored(conn, execution, *, reason, commit):
     )
 
 
+def restore_cleanup_proven(restore, baseline):
+    return restore.get("restored") is True and restore.get("baseline") == baseline
+
+
 def host_cleanup_proven(conn, execution, ordinal):
     case = execution["roster"][ordinal]
     baseline = case.get("host_baseline")
@@ -150,7 +154,7 @@ def host_cleanup_proven(conn, execution, ordinal):
         ) or {}
         restore = evidence.get("starting_state_restore") or {}
         if restore_required:
-            if restore.get("restored") is True and restore.get("baseline") == baseline:
+            if restore_cleanup_proven(restore, baseline):
                 return True
         elif restore:
             return True

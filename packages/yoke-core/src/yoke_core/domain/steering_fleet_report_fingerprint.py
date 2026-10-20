@@ -125,6 +125,7 @@ def project_payload(rows: ProjectRows) -> dict[str, Any]:
         "landed_open": sorted(
             (entry.item_id, entry.custody_state) for entry in rows.visible_landed()
         ),
+        "reset_debts": rows.reset_debts,
         "deployment_runs": sorted(
             (
                 entry.run_id,
