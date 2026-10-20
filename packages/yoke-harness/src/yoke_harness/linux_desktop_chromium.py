@@ -3,8 +3,6 @@
 import json
 import os
 from pathlib import Path
-import shlex
-import shutil
 import signal as signal
 import subprocess
 import sys
@@ -16,19 +14,16 @@ from yoke_harness.linux_devtools_page import DevToolsPage  # host: prepended sou
 from yoke_harness.machine_browser_approval import CONNECTED_CONFIRMATION
 from yoke_harness import linux_chromium_processes as native_processes
 
-CHROMIUM_EXECUTABLES = ("chromium", "chromium-browser", "/snap/bin/chromium")
-CHROMIUM_DESKTOP_ENTRIES = (
-    "chromium.desktop",
-    "chromium-browser.desktop",
-    "chromium_chromium.desktop",
-)
+CHROMIUM_NAMES = ("chromium", "chromium-browser")
+# XFCE's exo-open falls back to debian-sensible-browser, which runs this.
+BROWSER_ALTERNATIVE = Path("/usr/bin/x-www-browser")
 DEVTOOLS_READY_SECONDS = 20
 QUIT_WAIT_SECONDS = 30
 TAB_WAIT_SECONDS = 15
 CONTROL_ATTEMPTS = 40
 NAVIGATION_ATTEMPTS = 40
 POLL_SECONDS = 0.25
-PROVISION = "Provision the desktop with the Machine QA Pack's ops/machine-qa/provision_linux_desktop.py (linux-host-provisioning.md section 4); it installs Chromium and makes it the default browser. Then rerun."
+PROVISION = "Provision the desktop with the Machine QA Pack's ops/machine-qa/provision_linux_desktop.py (linux-host-provisioning.md section 4); it installs Chromium with Ubuntu's chromium-browser wrapper and selects that as x-www-browser. Then rerun."
 
 
 ChromiumRefusal = native_processes.ChromiumRefusal
@@ -64,11 +59,8 @@ def quit_chromium():
 
 _DESKTOP_XDG_MARK = "YOKE_DESKTOP_XDG:"
 _SESSION = (
-    "Install bash so a login shell can run xdg-settings (bash -lc), then rerun. "
-    "The desktop session resolves its default browser there; the bare SSH environment does not."
-)
-_DISPATCHERS = frozenset(
-    {"sensible-browser", "x-www-browser", "xdg-open", "exo-open", "gio", "gnome-open"}
+    "Install bash so a login shell can print XDG_DATA_DIRS (bash -lc), then rerun. "
+    "Chromium starts with the desktop session's data dirs; the bare SSH environment lacks them."
 )
 
 
@@ -102,116 +94,32 @@ def _desktop_env():
     return env
 
 
-def _default_browser():
-    mark = "YOKE_DESKTOP_BROWSER:"
-    body = _marked(
-        _login(
-            "browser=$(xdg-settings get default-web-browser); "
-            f'printf "{mark}%s:%s" "$?" "$browser"'
-        ),
-        mark,
-    )
-    if ":" not in body:
-        raise ChromiumRefusal("linux_desktop_session_environment_unavailable", _SESSION)
-    status, chosen = body.split(":", 1)
-    return chosen.strip() if status == "0" else ""
+def _default_browser(link=BROWSER_ALTERNATIVE):
+    """Resolve x-www-browser to the program desktop links actually run.
 
-
-def _desktop_exec(name, env):
-    if not name or Path(name).name != name:
-        return None
-    roots = [
-        Path(env.get("XDG_DATA_HOME") or Path.home() / ".local/share"),
-        Path("/var/lib/snapd/desktop"),
-    ]
-    roots += [
-        Path(part)
-        for part in env.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share").split(":")
-        if part
-    ]
-    for root in roots:
-        entry = root / "applications" / name
-        if not entry.is_file():
-            continue
-        lines = entry.read_text(errors="replace").splitlines()
-        if any(line.strip().lower() == "hidden=true" for line in lines):
-            return []
-        exec_line = next(
-            (line.strip()[5:] for line in lines if line.strip().startswith("Exec=")), ""
-        )
-        return (
-            [
-                part
-                for part in shlex.split(exec_line)
-                if part and not part.startswith("%")
-            ]
-            if exec_line
-            else []
-        )
-    return None
-
-
-def _chromium_launcher(found):
-    return (
-        found
-        if found and Path(found).name in {"chromium", "chromium-browser"}
-        else None
-    )
-
-
-def _chromium_from(command, env):
-    if not command:
-        return None
-    path = env.get("PATH")
-    found = shutil.which(command[0], path=path)
-    launched = _chromium_launcher(found)
-    if launched:
-        return launched
-    names = (
-        {Path(command[0]).name, Path(found).name} if found else {Path(command[0]).name}
-    )
-    if names.isdisjoint(_DISPATCHERS):
-        return None
-    return _chromium_launcher(shutil.which("x-www-browser", path=path))
-
-
-def _session_chromium(default):
-    if default in CHROMIUM_DESKTOP_ENTRIES:
-        return next(filter(None, map(shutil.which, CHROMIUM_EXECUTABLES)), None)
-    env = os.environ
-    command = _desktop_exec(default, env)
-    if command is None:
-        env = _desktop_env()
-        command = _desktop_exec(default, env)
-    if not command:
-        command = next(
-            (
-                hit
-                for name in CHROMIUM_DESKTOP_ENTRIES
-                if (hit := _desktop_exec(name, env))
-            ),
-            None,
-        )
-    return _chromium_from(command, env)
+    A link straight to /snap/bin/chromium resolves to the snap launcher, which
+    refuses to run as x-www-browser, so only a Chromium program counts.
+    """
+    return link.resolve()
 
 
 def prepare():
-    default = _default_browser()
-    executable = _session_chromium(default)
-    if executable is None and default not in CHROMIUM_DESKTOP_ENTRIES:
+    executable = _default_browser()
+    if executable.name not in CHROMIUM_NAMES:
+        found = executable if executable.exists() else "nothing"
         raise ChromiumRefusal(
             "linux_desktop_default_browser_not_chromium",
-            f"The installer opens approval links in the desktop's default browser, which is {default or 'unset'}. {PROVISION}",
+            f"The installer opens approval links through x-www-browser, which resolves to {found}. {PROVISION}",
         )
     if devtools_port() is not None:
         return {"chromium": "reused"}
-    if executable is None:
+    if not executable.exists():
         raise ChromiumRefusal("linux_desktop_chromium_missing", PROVISION)
     restarted = quit_chromium()
     for directory in user_data_dirs():
         (directory / "DevToolsActivePort").unlink(missing_ok=True)
     subprocess.Popen(
-        [executable, "--remote-debugging-port=0"],
+        [str(executable), "--remote-debugging-port=0"],
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

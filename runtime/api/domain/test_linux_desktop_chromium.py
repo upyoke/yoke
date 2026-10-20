@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import os
+from pathlib import Path
 import shlex
 import socket
 import struct
@@ -16,6 +16,8 @@ import pytest
 from yoke_harness import linux_desktop_chromium as host
 from yoke_harness import ssh_linux_browser_approval as controller
 from yoke_harness.linux_devtools_page import DevToolsPage
+
+_resolve = host._default_browser
 
 START = "https://app.example/connect?user_code=AB12-CD34"
 
@@ -174,84 +176,61 @@ def test_missing_tab_is_reported_without_pressing(monkeypatch):
     assert host.approve([START], "Approve machine") == {"state": "browser_tab_missing"}
 
 
-def test_prepare_refuses_when_the_default_browser_is_not_chromium(monkeypatch):
-    monkeypatch.setattr(host, "_default_browser", lambda: "firefox.desktop")
-    monkeypatch.setattr(host, "_desktop_env", lambda: dict(os.environ))
+def _alternative(tmp_path, target):
+    """Lay out /usr/bin/x-www-browser -> /etc/alternatives -> target like dpkg."""
+    alternatives = tmp_path / "etc/alternatives"
+    alternatives.mkdir(parents=True)
+    (alternatives / "x-www-browser").symlink_to(target)
+    link = tmp_path / "x-www-browser"
+    link.symlink_to(alternatives / "x-www-browser")
+    return link
+
+
+def _wrapper(tmp_path):
+    wrapper = tmp_path / "usr/bin/chromium-browser"
+    wrapper.parent.mkdir(parents=True)
+    wrapper.write_text("#!/bin/sh\nexec /snap/bin/chromium \"$@\"\n")
+    return wrapper
+
+
+def test_default_browser_resolves_to_the_chromium_wrapper(tmp_path):
+    wrapper = _wrapper(tmp_path)
+    assert _resolve(_alternative(tmp_path, wrapper)) == wrapper
+
+
+@pytest.mark.parametrize("target", ["firefox", "snap", None])
+def test_prepare_refuses_when_x_www_browser_is_not_chromium(
+    monkeypatch, tmp_path, target
+):
+    link = tmp_path / "x-www-browser"
+    if target:
+        (tmp_path / target).write_text("")
+        launcher = tmp_path / "chromium"
+        launcher.symlink_to(tmp_path / target)
+        link = _alternative(tmp_path, launcher)
+    monkeypatch.setattr(host, "_default_browser", lambda: _resolve(link))
     with pytest.raises(host.ChromiumRefusal) as refusal:
         host.prepare()
     assert refusal.value.reason == "linux_desktop_default_browser_not_chromium"
     assert "provision_linux_desktop.py" in refusal.value.recovery
+    assert (str(tmp_path / target) if target else "nothing") in refusal.value.recovery
 
 
-def _sensible_desktop(tmp_path, monkeypatch):
-    applications = tmp_path / "applications"
-    applications.mkdir()
-    (applications / "debian-sensible-browser.desktop").write_text(
-        "[Desktop Entry]\nExec=sensible-browser %u\n"
-    )
-    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "home"))
-    monkeypatch.setenv("XDG_DATA_DIRS", str(tmp_path))
-    monkeypatch.setattr(host, "_default_browser", lambda: "debian-sensible-browser.desktop")
-
-
-def _launch(monkeypatch, which):
-    launched = []
-    ports = iter([None, 9222])
-    monkeypatch.setattr(host.shutil, "which", which)
-    monkeypatch.setattr(host, "devtools_port", lambda: next(ports))
-    monkeypatch.setattr(host, "quit_chromium", lambda: False)
-    monkeypatch.setattr(host, "_desktop_env", lambda: {"DISPLAY": ":11"})
-    monkeypatch.setattr(host.subprocess, "Popen", lambda argv, **kw: launched.append(argv))
-    monkeypatch.setattr(host.time, "sleep", lambda _s: None)
-    return launched
-
-
-def test_prepare_follows_debian_sensible_browser_to_chromium(monkeypatch, tmp_path):
-    _sensible_desktop(tmp_path, monkeypatch)
-    chromium = tmp_path / "chromium"
-    chromium.write_text("")
-    launched = _launch(
-        monkeypatch,
-        lambda name, path=None: str(chromium) if name == "x-www-browser" else "/usr/bin/sensible-browser" if name == "sensible-browser" else None,
-    )
-    assert host.prepare() == {"chromium": "started"}
-    assert launched == [[str(chromium), "--remote-debugging-port=0"]]
-
-
-def test_prepare_uses_the_snap_desktop_entry_when_the_named_file_is_absent(monkeypatch, tmp_path):
-    apps = tmp_path / "applications"
-    apps.mkdir()
-    (apps / "chromium_chromium.desktop").write_text("[Desktop Entry]\nExec=/snap/bin/chromium %U\n")
-    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "home"))
-    monkeypatch.setenv("XDG_DATA_DIRS", str(tmp_path))
-    monkeypatch.setattr(host, "_default_browser", lambda: "debian-sensible-browser.desktop")
-    launched = _launch(monkeypatch, lambda name, path=None: "/snap/bin/chromium" if name == "/snap/bin/chromium" else None)
-    monkeypatch.setattr(host, "_desktop_env", lambda: dict(os.environ))
-    assert host.prepare() == {"chromium": "started"}
-    assert launched == [["/snap/bin/chromium", "--remote-debugging-port=0"]]
-
-
-def test_prepare_refuses_a_dispatcher_that_does_not_launch_chromium(monkeypatch, tmp_path):
-    _sensible_desktop(tmp_path, monkeypatch)
-    firefox = tmp_path / "firefox"
-    firefox.write_text("")
-    monkeypatch.setattr(host.shutil, "which", lambda name, path=None: "/usr/bin/sensible-browser" if name == "sensible-browser" else str(firefox) if name == "x-www-browser" else None)
+def test_prepare_names_a_missing_chromium(monkeypatch, tmp_path):
+    link = _alternative(tmp_path, tmp_path / "chromium")
+    monkeypatch.setattr(host, "_default_browser", lambda: _resolve(link))
+    monkeypatch.setattr(host, "devtools_port", lambda: None)
     with pytest.raises(host.ChromiumRefusal) as refusal:
         host.prepare()
-    assert refusal.value.reason == "linux_desktop_default_browser_not_chromium"
-    assert "debian-sensible-browser.desktop" in refusal.value.recovery
+    assert refusal.value.reason == "linux_desktop_chromium_missing"
 
 
 def test_prepare_restarts_a_running_chromium_with_a_devtools_port(monkeypatch, tmp_path):
+    chromium = _wrapper(tmp_path)
     ports = iter([None, None, 9222])
     launched = []
-    monkeypatch.setattr(host, "_default_browser", lambda: "chromium.desktop")
+    monkeypatch.setattr(host, "_default_browser", lambda: chromium)
     monkeypatch.setattr(host, "devtools_port", lambda: next(ports))
-    monkeypatch.setattr(
-        host.shutil,
-        "which",
-        lambda name: "/usr/bin/chromium" if name == "chromium" else None,
-    )
     monkeypatch.setattr(host, "quit_chromium", lambda: True)
     monkeypatch.setattr(host, "user_data_dirs", lambda: (tmp_path,))
     monkeypatch.setattr(
@@ -268,14 +247,14 @@ def test_prepare_restarts_a_running_chromium_with_a_devtools_port(monkeypatch, t
     assert host.prepare() == {"chromium": "restarted"}
     assert launched == [
         (
-            ["/usr/bin/chromium", "--remote-debugging-port=0"],
+            [str(chromium), "--remote-debugging-port=0"],
             {"XDG_DATA_DIRS": "/snap/data", "DISPLAY": ":11"},
         )
     ]
 
 
 def test_prepare_reuses_a_debuggable_chromium(monkeypatch):
-    monkeypatch.setattr(host, "_default_browser", lambda: "chromium.desktop")
+    monkeypatch.setattr(host, "_default_browser", lambda: Path("/usr/bin/chromium-browser"))
     monkeypatch.setattr(host, "devtools_port", lambda: 9222)
     monkeypatch.setattr(host, "quit_chromium", lambda: pytest.fail("restarted"))
     assert host.prepare() == {"chromium": "reused"}
@@ -302,27 +281,6 @@ def test_quit_is_graceful_and_names_a_chromium_that_stays(monkeypatch):
     assert "not force-killed" in refusal.value.recovery
 
 
-def test_default_browser_reads_xdg_settings_in_a_login_shell(monkeypatch):
-    calls = []
-
-    def run(argv, **kwargs):
-        calls.append(argv)
-        return subprocess.CompletedProcess(
-            argv, 0, "banner\nYOKE_DESKTOP_BROWSER:0:chromium_chromium.desktop", ""
-        )
-
-    monkeypatch.setattr(host.subprocess, "run", run)
-    assert host._default_browser() == "chromium_chromium.desktop"
-    assert calls == [
-        [
-            "bash",
-            "-lc",
-            "browser=$(xdg-settings get default-web-browser); "
-            'printf "YOKE_DESKTOP_BROWSER:%s:%s" "$?" "$browser"',
-        ]
-    ]
-
-
 def test_chromium_launch_env_uses_the_login_shell_data_dirs(monkeypatch):
     def run(argv, **kwargs):
         return subprocess.CompletedProcess(argv, 0, "YOKE_DESKTOP_XDG:/snap/data", "")
@@ -340,6 +298,6 @@ def test_missing_login_shell_names_the_session_environment(monkeypatch):
 
     monkeypatch.setattr(host.subprocess, "run", run)
     with pytest.raises(host.ChromiumRefusal) as refusal:
-        host._default_browser()
+        host._desktop_env()
     assert refusal.value.reason == "linux_desktop_session_environment_unavailable"
     assert "bash -lc" in refusal.value.recovery
