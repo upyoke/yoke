@@ -1,7 +1,5 @@
 """Plan-scoped Machine QA under one uninterrupted server-owned lease."""
 
-from __future__ import annotations
-
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -287,10 +285,17 @@ def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
                 )
 
                 raise ValueError(released_without_receipt(lease))
+            from yoke_core.domain.machine_reset_debt import record_owed_reset
+
+            record_owed_reset(conn, contract, submitted.evidence)
             with TemporaryDirectory(prefix="yoke-machine-qa-") as temp_dir:
                 result = record_submitted_case(
                     commit_deferred_connection(conn),
-                    case=case,
+                    case={
+                        **case,
+                        "ends_chain": contract.cases[0].ends_chain,
+                        "reset_owed_baseline": contract.reset_owed_baseline,
+                    },
                     result=submitted,
                     resource_name=contract.settings["resource_name"],
                     artifact_root=Path(temp_dir),

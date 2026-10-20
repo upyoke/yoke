@@ -13,12 +13,19 @@ from yoke_core.domain.handlers import qa_artifact_metadata as _metadata
 
 def register(registry) -> None:
     registry.register(
-        "qa.artifact.get", _metadata.handle_artifact_get,
-        _metadata.ArtifactGetRequest, _metadata.ArtifactGetResponse,
-        stability="stable", owner_module="yoke_core.domain.handlers.qa_artifact_metadata",
-        target_kinds=["qa_requirement"], side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"], guardrails=["metadata_only"],
-        adapter_status="live", claim_required_kind=None, ambient_session_required=False,
+        "qa.artifact.get",
+        _metadata.handle_artifact_get,
+        _metadata.ArtifactGetRequest,
+        _metadata.ArtifactGetResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.qa_artifact_metadata",
+        target_kinds=["qa_requirement"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["metadata_only"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
         minimum_serving_version="next-release",
     )
     registry.register(
@@ -29,7 +36,7 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.qa_artifact_add",
         target_kinds=["qa_requirement"],
-        side_effects=["qa_artifacts_insert"],
+        side_effects=["qa_artifacts_insert", "verification_write"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["claim_required"],
         adapter_status="live",

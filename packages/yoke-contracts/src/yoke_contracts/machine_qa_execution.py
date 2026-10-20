@@ -7,26 +7,19 @@ import hmac
 import json
 from typing import Any, Literal
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    ValidationError,
-    model_validator,
-)
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
+from yoke_contracts.machine_qa_case_contract import MachineQaCaseContract
 from yoke_contracts.machine_config.test_machine import (
     validate_golden_baseline_path,
     validate_test_machine_settings,
 )
 from yoke_contracts.machine_qa_case_target import (
     MachineQaCaseTargetError,
-    require_case_execution_target,
 )
 
 
 from yoke_contracts.qa_case_starting_state import (
-    require_materialized_starting_state,
     reset_baselines,
 )
 from yoke_contracts.machine_qa_host_control import (
@@ -48,97 +41,7 @@ from yoke_contracts.machine_qa_host_control import (
 
 from yoke_contracts.qa_continuity_fingerprint import (
     execution_protocol,
-    require_continuity_state,
 )
-
-
-class MachineQaCaseContract(BaseModel):
-    """Immutable database snapshot needed to execute and persist one case."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    requirement_id: int = Field(ge=1)
-    public_ref: str | None = None
-    deployment_run_id: str | None = None
-    standalone_execution_id: str | None = Field(default=None, min_length=1)
-    deployment_stage: str | None = None
-    deployment_member_public_ref: str | None = None
-    plan_id: int | None
-    case_key: str
-    method_id: str
-    method_name: str
-    runner_id: Literal["host_control", "agent_mission", "worktree_run"]
-    required_capability_kinds: list[str]
-    verdict_path: str
-    qa_kind: str
-    instructions: str
-    expected_outcome: str
-    method_config: dict[str, Any]
-    host_baseline: str | None
-    starting_state: Literal["baseline", "inherit", "as_is"] | None = None
-    starting_state_reason: str | None = None
-    #: False only while the next case of the same plan run inherits this
-    #: case's machine; the runner restores the chain's starting state after
-    #: a case that ends its chain, or after one that did not pass.
-    ends_chain: bool = True
-    entry_surface: str | None
-    required_completion: str | None
-    workflow_transition_id: str | None
-    project_id: int = Field(ge=1)
-    project: str
-    execution_target: dict[str, Any]
-    execution_target_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
-    lane_branch: str | None
-    case_position: int | None = Field(default=None, ge=1)
-    baseline_position: int | None = Field(default=None, ge=1)
-
-    @model_validator(mode="after")
-    def _one_subject(self) -> "MachineQaCaseContract":
-        if (
-            sum(
-                value is not None
-                for value in (
-                    self.public_ref,
-                    self.deployment_run_id,
-                    self.standalone_execution_id,
-                )
-            )
-            != 1
-        ):
-            raise ValueError(
-                "Machine QA case requires one item, deployment-run, or standalone subject"
-            )
-        if self.deployment_run_id is None and (
-            self.deployment_stage is not None
-            or self.deployment_member_public_ref is not None
-        ):
-            raise ValueError(
-                "non-deployment Machine QA cases cannot name deployment scope"
-            )
-        if self.standalone_execution_id is not None and self.plan_id is None:
-            raise ValueError("standalone Machine QA cases require a saved plan")
-        if self.deployment_member_public_ref is not None and not self.deployment_stage:
-            raise ValueError(
-                "deployment member Machine QA cases require a deployment stage"
-            )
-        encoded_target = json.dumps(
-            self.execution_target,
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode("utf-8")
-        expected_digest = hashlib.sha256(encoded_target).hexdigest()
-        if not hmac.compare_digest(self.execution_target_digest, expected_digest):
-            raise ValueError("Machine QA execution target digest is invalid")
-        require_case_execution_target(self)
-        if self.runner_id == "worktree_run":
-            if not self.method_config.get("machine"):
-                raise ValueError(
-                    "Command host admission requires method_config.machine"
-                )
-        else:
-            require_materialized_starting_state(self)
-        require_continuity_state(self)
-        return self
 
 
 class HostControlExecutionContract(BaseModel):
@@ -146,9 +49,11 @@ class HostControlExecutionContract(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    protocol: Literal["host-control-v1", "host-control-continuity-v1"] = (
-        HOST_CONTROL_PROTOCOL
-    )
+    protocol: Literal[
+        "host-control-v1",
+        "host-control-continuity-v1",
+        "host-control-reset-recovery-v1",
+    ] = HOST_CONTROL_PROTOCOL
     operation: HostControlOperation
     lease_id: int = Field(ge=1)
     lease_key: str
@@ -156,6 +61,9 @@ class HostControlExecutionContract(BaseModel):
     project: str
     settings: dict[str, str]
     selection_reason: str | None = None
+    reset_owed_baseline: Literal["fresh-host", "shell-preconfigured"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     checks: list[str] = Field(default_factory=list)
     baselines: list[str] = Field(default_factory=list)
     cases: list[MachineQaCaseContract] = Field(default_factory=list)
@@ -236,7 +144,12 @@ class HostControlExecutionContract(BaseModel):
         for case in self.cases:
             if case.project_id != self.project_id or case.project != self.project:
                 raise ValueError("case project does not match execution project")
-        if self.protocol != execution_protocol(self.cases):
+        expected_protocol = (
+            "host-control-reset-recovery-v1"
+            if self.reset_owed_baseline
+            else execution_protocol(self.cases)
+        )
+        if self.protocol != expected_protocol:
             raise ValueError(
                 "continuity_runner_required: upgrade the CLI and reissue the continuity contract"
             )
@@ -246,19 +159,14 @@ class HostControlExecutionContract(BaseModel):
         return self
 
 
-def _digest_payload(contract: HostControlExecutionContract) -> dict[str, Any]:
-    return contract.model_dump(
-        mode="json",
-        exclude={"contract_digest", "selection_reason"},
-    )
-
-
 def execution_contract_digest(
     contract: HostControlExecutionContract,
 ) -> str:
     """Return the canonical digest binding every server-issued field."""
     encoded = json.dumps(
-        _digest_payload(contract),
+        contract.model_dump(
+            mode="json", exclude={"contract_digest", "selection_reason"}
+        ),
         sort_keys=True,
         separators=(",", ":"),
     ).encode("utf-8")
@@ -286,6 +194,7 @@ def issue_execution_contract(
     project: str,
     settings: dict[str, str],
     selection_reason: str | None = None,
+    reset_owed_baseline: str | None = None,
     checks: list[str] | None = None,
     baselines: list[str] | None = None,
     cases: list[dict[str, Any]] | None = None,
@@ -300,7 +209,12 @@ def issue_execution_contract(
     """Build and digest one normalized server-authoritative contract."""
     normalized_cases = [_validated_case(case) for case in (cases or [])]
     provisional = HostControlExecutionContract.model_construct(
-        protocol=execution_protocol(normalized_cases),
+        protocol=(
+            "host-control-reset-recovery-v1"
+            if reset_owed_baseline
+            else execution_protocol(normalized_cases)
+        ),
+        reset_owed_baseline=reset_owed_baseline,
         operation=operation,
         lease_id=int(lease_id),
         lease_key=str(lease_key),

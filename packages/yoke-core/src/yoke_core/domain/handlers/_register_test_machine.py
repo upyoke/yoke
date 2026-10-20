@@ -50,6 +50,7 @@ def register(registry) -> None:
             "coordination_claim_heartbeat",
             "qa_run_write",
             "qa_artifact_write",
+            "verification_write",
         ],
         emitted_event_names=[
             "LeaseHeartbeated",
@@ -133,6 +134,7 @@ def register(registry) -> None:
             "coordination_claim_release",
             "qa_run_write",
             "qa_artifact_write",
+            "verification_write",
         ],
         emitted_event_names=["LeaseReleased", "QARunCompleted", "YokeFunctionCalled"],
         guardrails=[

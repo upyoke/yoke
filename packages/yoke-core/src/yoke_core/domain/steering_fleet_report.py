@@ -1,31 +1,8 @@
-"""What the steering seat cannot see from inside its own turn.
+"""Compose steering facts without deciding how to staff or repair them.
 
-Composes only the requested view and decides nothing. The staffing threshold
-bounds how long runnable work may sit unclaimed past a lifecycle handoff.
-
-``idle_after_seconds`` is how long a holder stays quiet before presumed stuck.
-
-Quiet is not the same as stuck
-------------------------------
-A worker inside one long foreground call records no new tool call while that
-call runs, so the quiet threshold alone reads a working merge wait as stuck.
-:mod:`steering_fleet_report_in_flight` partitions the quiet holders so the
-idle alarm keeps meaning "nobody is driving this". Healthy queue landings
-also exclude idle holders until their completion wake is delivered.
-
-Stale claims stay held until the stale-session sweep releases them, so they
-are never available work. Holders exclude ended and terminated sessions; idle
-uses ``last_tool_call_at``, excluding declared parks and landing waits. Linked
-landings appear under their document seat, or in the unattended finding.
-
-A deliberately held item is the operator's flag to set
-------------------------------------------------------
-An item an operator is holding on purpose would otherwise read as available
-forever. The report does not guess at intent: the frontier composition it reads
-already drops frozen and operator-blocked items before they reach it, so ``yoke
-items freeze`` and ``yoke items block`` are the whole hold mechanism. Work that
-will never resume is ``yoke items cancel``, not freeze. Inferring a hold from
-age would hide real unstaffed work.
+Quiet holders inside long calls and declared waits are not idle alarms.
+Stale claims remain held until the session sweep releases them. Explicit
+operator holds come from freeze/block facts; age never implies a hold.
 """
 
 from __future__ import annotations
@@ -118,6 +95,7 @@ class FleetReport:
     #: shows the name its operator gave the box rather than a bare UUID.
     machine_names: tuple[tuple[str, str], ...] = ()
     test_machines: tuple[tuple[str, str], ...] = ()
+    reset_debts: tuple[tuple[str, str], ...] = ()
     origin_counts: tuple[tuple[str, int], ...] = ()
     #: Live sessions whose last turn the model provider ended. Every other
     #: detector reads one of these as a worker quietly thinking.
@@ -211,6 +189,7 @@ class FleetReport:
             or self.runs_needing_action()
             or self.relay_health
             or self.messages_awaiting_seat
+            or self.reset_debts
             or self.deadlocks
         )
 
@@ -321,6 +300,7 @@ def compose_report(
         landings=landings,
         machine_names=tuple(sorted(facts.machine_names.items())),
         test_machines=facts.test_machines,
+        reset_debts=facts.reset_debts,
         relay_health=facts.relay_health,
         deadlocks=tuple(seat_cycles(conn, facts.deadlocks, members)),
         waiting_chains=chains.seat_chains(facts.waiting_chains, members),

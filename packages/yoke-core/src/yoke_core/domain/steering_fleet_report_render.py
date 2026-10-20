@@ -9,7 +9,10 @@ from __future__ import annotations
 
 from yoke_contracts.timestamps import format_instant
 
-from yoke_core.domain.steering_fleet_report_test_machines import test_machine_lines
+from yoke_core.domain.steering_fleet_report_test_machines import (
+    test_machine_lines,
+    reset_debt_lines,
+)
 
 from yoke_core.domain.machine_registry import display_name
 from yoke_core.domain.steering_fleet_report_labels import label_text
@@ -243,6 +246,7 @@ def _scope_work_lines(report: FleetReport, shared: ProjectRows) -> list[str]:
             _run_lines(shared.deployment_runs),
         ),
         *_section(MANUAL_WAKE_HEADING, manual_wake_lines(shared.deployment_runs)),
+        *reset_debt_lines(shared.reset_debts),
         *awaiting_seat_lines(report.messages_awaiting_seat),
         *_section(CLAIMS_HEADING, _holder_lines(unlisted_holders(report))),
     ]

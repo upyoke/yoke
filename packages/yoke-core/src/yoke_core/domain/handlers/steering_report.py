@@ -58,6 +58,7 @@ class SteeringReportGetResponse(BaseModel):
     levels: Optional[Dict[str, Any]] = None
     level_overrides: List[Dict[str, Any]] = Field(default_factory=list)
     scopes: List[Dict[str, Any]] = Field(default_factory=list)
+    reset_debts: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 def _error(code: str, message: str, jsonpath: str = "$.payload") -> HandlerOutcome:

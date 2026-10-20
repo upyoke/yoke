@@ -19,6 +19,7 @@ HOST_BASELINE_END_STATE = {
 # The destructive operations a person runs against one machine, each recorded
 # against the machine under its own name so the last one is always readable.
 RESET_OPERATION = "reset"
+RESET_OWED_OPERATION = "reset_owed"
 GOLDEN_CAPTURE_OPERATION = "golden_capture"
 # A verified capture's result names every golden registered for its machine
 # beside it, across projects, so retention keeps them; or why that is unknown.
@@ -41,7 +42,9 @@ TEST_MACHINE_OPERATIONS = (
 )
 
 RECORDED_TEST_MACHINE_OPERATIONS = tuple(
-    operation for operation in TEST_MACHINE_OPERATIONS if operation != VERIFY_OPERATION
+    operation
+    for operation in (*TEST_MACHINE_OPERATIONS, RESET_OWED_OPERATION)
+    if operation != VERIFY_OPERATION
 )
 
 HostControlOperation = Literal[

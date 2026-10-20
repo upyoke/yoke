@@ -166,9 +166,29 @@ def record_submitted_case(
         target_dir=artifact_root,
     )
     evidence[HOST_CONTROL_SUBMISSION_RECEIPT_KEY] = host_control_submission_receipt(
-        lease_id, contract_digest
+        lease_id, contract_digest, reset_owed_baseline=case.get("reset_owed_baseline")
     )
     ensure_secret_free_result(evidence)
+    from yoke_core.domain.machine_qa_chain_restore import capture_allows_chain
+
+    reset_blocked = (
+        evidence.get("case_started") is False
+        and result.error_code == "machine_needs_repair"
+    )
+    if not reset_blocked and (
+        "starting_state_restore" in evidence
+        or case.get("ends_chain")
+        or not capture_allows_chain(result.model_dump(mode="json"))
+    ):
+        from yoke_core.domain.machine_restore_debt import record_unproven_restore
+
+        record_unproven_restore(
+            conn,
+            case=case,
+            machine=resource_name,
+            lease_id=lease_id,
+            restore=evidence.get("starting_state_restore"),
+        )
     return record_machine_case_result(
         conn,
         case=case,

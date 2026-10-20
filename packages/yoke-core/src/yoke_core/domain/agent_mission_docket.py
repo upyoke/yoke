@@ -39,6 +39,7 @@ def insert_mission_docket(
         "host_control_submission": host_control_submission_receipt(
             lease_id,
             contract_digest,
+            reset_owed_baseline=case.get("reset_owed_baseline"),
         ),
     }
     from yoke_core.domain.qa_run_verdict_record import insert_qa_run

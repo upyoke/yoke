@@ -21,6 +21,7 @@ def release_host_claim(
     from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
     from yoke_core.domain.qa_plan_host_leases import (
         HOST_SET_REASON,
+        execution_host_leases,
         release_execution_hosts,
     )
 
@@ -29,8 +30,9 @@ def release_host_claim(
         executions = []
         if claim.target.machine_id and _table_exists(conn, "qa_plan_executions"):
             companion = (
-                str(claim.reason)[len(HOST_SET_REASON):]
-                if str(claim.reason or "").startswith(HOST_SET_REASON) else ""
+                str(claim.reason)[len(HOST_SET_REASON) :]
+                if str(claim.reason or "").startswith(HOST_SET_REASON)
+                else ""
             )
             rows = query_rows(
                 conn,
@@ -40,6 +42,16 @@ def release_host_claim(
                 (claim_id, companion),
             )
             executions = [lock_plan_execution(conn, str(row["id"])) for row in rows]
+        from yoke_core.domain.machine_reset_debt import record_execution_reset_debt
+
+        for execution in executions:
+            leases = {
+                lease.id: lease for lease in execution_host_leases(conn, execution)
+            }
+            primary = execution.get("machine_lease_id")
+            if primary is not None:
+                leases[primary] = get_claim(conn, int(primary))
+            record_execution_reset_debt(conn, execution, leases.values())
         released = release(conn, claim_id, reason, commit=False, **kwargs)
         for execution in executions:
             release_execution_hosts(conn, execution, reason=reason)

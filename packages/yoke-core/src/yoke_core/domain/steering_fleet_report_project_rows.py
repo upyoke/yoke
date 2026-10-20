@@ -41,6 +41,7 @@ T = TypeVar("T")
 class ProjectRows:
     """One project's project-wide sections; empty for a seat that omits them."""
 
+    reset_debts: tuple[tuple[str, str], ...] = ()
     deployment_runs: tuple[DeploymentRunProgress, ...] = ()
     landed_open: tuple[LandedItem, ...] = ()
     undelivered: tuple[UndeliveredMessages, ...] = ()
@@ -77,6 +78,7 @@ def merged_project_rows(reports: Sequence[FleetReport]) -> ProjectRows:
     """Every seat's project-wide rows for one project, each row once."""
     first = reports[0]
     return ProjectRows(
+        reset_debts=first.reset_debts,
         deployment_runs=first.deployment_runs,
         landed_open=_unique(
             (entry for report in reports for entry in report.landed_open),

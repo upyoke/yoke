@@ -7,11 +7,13 @@ from typing import Any, Mapping
 def host_control_submission_receipt(
     lease_id: int,
     contract_digest: str,
+    *,
+    reset_owed_baseline: str | None = None,
 ) -> dict[str, Any]:
-    return {
-        "lease_id": int(lease_id),
-        "contract_digest": str(contract_digest),
-    }
+    receipt = {"lease_id": int(lease_id), "contract_digest": str(contract_digest)}
+    if reset_owed_baseline is not None:
+        receipt["reset_owed_baseline"] = reset_owed_baseline
+    return receipt
 
 
 def host_control_submission_receipt_matches(

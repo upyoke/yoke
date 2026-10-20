@@ -129,6 +129,55 @@ def _finish(
         raise ValueError(
             "mission_cleanup_owner_required: cleanup lease belongs to another session"
         )
+    from yoke_core.domain.db_savepoint import SavepointLostError
+
+    outcome = None
+    try:
+        if parsed.restore is not None:
+            from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
+            from yoke_core.domain.machine_qa_submission_artifacts import (
+                ensure_secret_free_result,
+            )
+
+            ensure_secret_free_result(parsed.restore)
+            artifact_request = request.model_copy(
+                update={
+                    "function": "qa.artifact.add",
+                    "target": TargetRef(
+                        kind="qa_requirement", qa_requirement_id=parsed.requirement_id
+                    ),
+                    "payload": {
+                        "run_id": run_id,
+                        "artifact_type": "starting_state_restore",
+                        "filename": "starting-state-restore.json",
+                        "content_type": "application/json",
+                        "content_base64": base64.b64encode(
+                            json.dumps(parsed.restore, sort_keys=True).encode()
+                        ).decode(),
+                    },
+                }
+            )
+            outcome = handle_qa_artifact_add(artifact_request)
+    except SavepointLostError:
+        raise
+    except Exception:
+        from yoke_core.domain.handlers.machine_qa import _failure
+
+        outcome = _failure(
+            "mission_restore_evidence_failed",
+            "Restore evidence could not be stored; inspect artifact storage and "
+            "run yoke test-machine reset before using this machine again",
+        )
+    from yoke_core.domain.machine_reset_debt import record_reset_owed
+    from yoke_core.domain.qa_plan_execution_abort_state import restore_cleanup_proven
+
+    _, case, _ = _mission(conn, execution, parsed.requirement_id)
+    if not restore_cleanup_proven(parsed.restore or {}, case.get("host_baseline")) or (
+        outcome is not None and not outcome.primary_success
+    ):
+        record_reset_owed(
+            conn, case=case, machine=lease.target.machine_id, lease_id=lease.id
+        )
     release(conn, lease.id, "mission-teardown-finished", commit=False)
     conn.execute(
         f"UPDATE qa_plan_executions SET machine_lease_id=NULL WHERE id={marker(conn)}",
@@ -160,34 +209,7 @@ def _finish(
             ),
         )
     conn.commit()
-    if parsed.restore is not None:
-        from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
-        from yoke_core.domain.machine_qa_submission_artifacts import (
-            ensure_secret_free_result,
-        )
-
-        ensure_secret_free_result(parsed.restore)
-        artifact_request = request.model_copy(
-            update={
-                "function": "qa.artifact.add",
-                "target": TargetRef(
-                    kind="qa_requirement", qa_requirement_id=parsed.requirement_id
-                ),
-                "payload": {
-                    "run_id": run_id,
-                    "artifact_type": "starting_state_restore",
-                    "filename": "starting-state-restore.json",
-                    "content_type": "application/json",
-                    "content_base64": base64.b64encode(
-                        json.dumps(parsed.restore, sort_keys=True).encode()
-                    ).decode(),
-                },
-            }
-        )
-        outcome = handle_qa_artifact_add(artifact_request)
-        if not outcome.primary_success:
-            return outcome
-    return None
+    return outcome if outcome is not None and not outcome.primary_success else None
 
 
 def handle_cleanup(request: Any, parsed: Any) -> HandlerOutcome | None:

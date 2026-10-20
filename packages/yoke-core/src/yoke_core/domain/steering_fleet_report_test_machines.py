@@ -30,3 +30,22 @@ def test_machine_lines(rows: tuple[tuple[str, str], ...]) -> list[str]:
     if not rows:
         return []
     return ["Test Machines: " + "; ".join(f"{name} (OS: {os})" for name, os in rows)]
+
+
+def read_reset_debts(conn, project_id):
+    from yoke_core.domain.machine_reset_debt import reset_command, reset_owed
+
+    if not _table_exists(conn, "test_machine_operation_receipts"):
+        return ()
+    return tuple(
+        (name, reset_command(project_id, name, baseline))
+        for name, _ in read_test_machines(conn, project_id)
+        if (baseline := reset_owed(conn, name)) is not None
+    )
+
+
+def reset_debt_lines(rows):
+    return [
+        f"Test Machine {name}: machine_needs_repair; run `{command}`"
+        for name, command in rows
+    ]
