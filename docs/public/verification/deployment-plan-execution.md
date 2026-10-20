@@ -109,8 +109,21 @@ registered, unique, and include the driving host. Run this case through
 `yoke qa plan run`; direct case execution refuses it. The
 runner acquires every host through its FIFO in sorted name order, releases
 partial acquisitions on contention, and retains the full set through case
-execution and mission review. Completion or abort releases the set; [completed captures remain reviewable](requirement-state.md). Cases
-with different driving hosts or declared sets use separate execution rosters.
+execution and mission review. Completion or abort releases the set; [completed captures remain reviewable](requirement-state.md). Independent cases with different driving hosts or declared sets use separate
+execution rosters. An `inherit` chain uses its head driver and the union of
+its hosts as one execution group. Admission reserves all chains' hosts for
+that driver before the first capture and retains them through completion,
+review or abort. Contention releases partial acquisitions and queues the
+chain; a retry never reacquires lost custody. Definition-time validation
+refuses `inherited_driver_mismatch` for a changed driver: use the predecessor's
+`method_config.machine`, or start a new baseline / `as_is` chain.
+
+An exploratory mission walks after captures and may inherit only at a chain's
+tail; no case may inherit after it. Item and deployment scopes isolate the
+whole chain so no later capture disturbs its state. Standalone mixed plans
+refuse `inherited_mission_requires_isolated_plan`: put the chain in its own
+plan or use item/deployment attachment. Declare `inherit` to preserve
+preparation; `as_is` opens a separate chain.
 
 ## Shared host turns and starting state
 

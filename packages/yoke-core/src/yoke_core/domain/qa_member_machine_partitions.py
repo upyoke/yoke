@@ -41,15 +41,21 @@ def member_machine_partition(
     through :func:`run_target_partition`.
     """
 
+    from yoke_core.domain.qa_plan_chain_hosts import chain_host_groups
+
+    groups = chain_host_groups(roster)
+
     def host_group(row):
-        return resolve_case_machine(row, None), case_machines(row)
+        return groups[int(row["requirement_id"])]
 
     scope = dict(
         deployment_run_id=deployment_run_id,
         deployment_stage=deployment_stage,
         deployment_member_item_id=deployment_member_item_id,
     )
-    host_sets = {host_group(row) for row in roster if case_machines(row)}
+    host_sets = {
+        host_group(row) for row in roster if case_machines(row) or host_group(row)[2]
+    }
     if (
         not deployment_stage
         or (
@@ -57,10 +63,12 @@ def member_machine_partition(
             and not (
                 (roster[0].get("execution_target") or {}).get("deployment") or {}
             ).get("shared_plan")
+            and not any(isolated for _driver, _hosts, isolated in host_sets)
         )
         or (
             len(host_sets) < 2
-            and not any(len(hosts) > 1 for _driver, hosts in host_sets)
+            and not any(isolated for _driver, _hosts, isolated in host_sets)
+            and not any(len(hosts) > 1 for _driver, hosts, _isolated in host_sets)
         )
     ):
         if not deployment_stage:
@@ -123,12 +131,20 @@ def member_machine_partition(
         return [], 0, select_plan_execution(conn, execution_id, lock=False)
     pending = pending or roster
     selected_hosts = next(
-        (host_group(row) for row in pending if case_machines(row)), (None, ())
+        (
+            host_group(row)
+            for row in pending
+            if case_machines(row) or host_group(row)[2]
+        ),
+        (None, (), None),
     )
     selected = [
         {**row, "ordinal": ordinal}
         for ordinal, row in enumerate(
-            row for row in pending if host_group(row) in {(None, ()), selected_hosts}
+            row
+            for row in pending
+            if host_group(row) == selected_hosts
+            or (selected_hosts[2] is None and host_group(row) == (None, (), None))
         )
     ]
     return selected, len(pending) - len(selected), None

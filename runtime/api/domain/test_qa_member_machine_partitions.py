@@ -41,7 +41,17 @@ SESSION = "session-machine-plan"
 
 
 def _seed(
-    conn, tmp_path, monkeypatch, *, split_plans=False, simultaneous=False, driver=None
+    conn,
+    tmp_path,
+    monkeypatch,
+    *,
+    split_plans=False,
+    simultaneous=False,
+    driver=None,
+    inherit=False,
+    mission=False,
+    trailing=False,
+    run_scope=False,
 ):
     configure_test_machine(conn, tmp_path, monkeypatch)
     replace_test_machine_settings(
@@ -66,6 +76,8 @@ def _seed(
             if split_plans
             else MACHINES
         )
+        if trailing:
+            machines = (*machines, "independent")
         replace_plan_cases(
             conn,
             plan_id=int(plan["id"]),
@@ -73,19 +85,34 @@ def _seed(
                 {
                     "case_key": machine,
                     "position": position,
-                    "method_id": "terminal-check",
+                    "method_id": "exploratory-mission"
+                    if mission and position == 2
+                    else "terminal-check",
                     "instructions": "Run a host-specific check.",
                     "expected_outcome": "The check passes.",
                     "method_config": {
-                        **_terminal_recipe(),
-                        "machine": machine,
-                        **({"machines": list(MACHINES)} if simultaneous else {}),
+                        **({} if mission and position == 2 else _terminal_recipe()),
+                        "machine": MACHINES[0] if inherit else machine,
+                        **(
+                            {"executor": "informed_subagent"}
+                            if mission and position == 2
+                            else {}
+                        ),
+                        **(
+                            {"machines": list(MACHINES)}
+                            if simultaneous or (inherit and position == 2)
+                            else {}
+                        ),
                     },
                     "entry_surface": "printf done",
                     "required_completion": "complete",
-                    "starting_state": "as_is",
+                    "starting_state": "inherit"
+                    if inherit and position == 2
+                    else "as_is",
                     "starting_state_reason": (
-                        "The check reads host identity only and needs no reset."
+                        None
+                        if inherit and position == 2
+                        else "The check reads host identity only and needs no reset."
                     ),
                 }
                 for position, machine in enumerate(machines, 1)
@@ -107,7 +134,16 @@ def _seed(
             qa_phase="post_deploy",
         )
     stages = _stages(plans[0])
-    stages[1].pop("cases")
+    if run_scope:
+        stages[1].update(
+            scope="run",
+            cases={
+                "plan_id": plans[0],
+                "case_keys": [*MACHINES, *(["independent"] if trailing else [])],
+            },
+        )
+    else:
+        stages[1].pop("cases")
     _seed_run(
         conn,
         run_id=RUN,
@@ -119,7 +155,7 @@ def _seed(
         conn,
         deployment_run_id=RUN,
         deployment_stage="item-qa",
-        deployment_member_item_id=MEMBER,
+        deployment_member_item_id=None if run_scope else MEMBER,
     )
 
 
@@ -128,23 +164,27 @@ def _begin(conn, **kwargs):
         conn,
         deployment_run_id=RUN,
         deployment_stage="item-qa",
-        deployment_member_item_id=MEMBER,
+        deployment_member_item_id=kwargs.pop("deployment_member_item_id", MEMBER),
         actor_id="1",
         session_id=SESSION,
         **kwargs,
     )
 
 
-def _case_begin(execution):
+def _case_begin(execution, ordinal=0):
     return handle_plan_case_begin(
         FunctionCallRequest(
             function="test_machine.plan_case.begin",
             actor=ActorContext(actor_id="1", session_id=SESSION),
-            target=TargetRef(kind="deployment_run", deployment_run_id=RUN),
+            target=(
+                TargetRef(kind="global", project_id="yoke")
+                if execution.get("standalone_plan_id")
+                else TargetRef(kind="deployment_run", deployment_run_id=RUN)
+            ),
             payload={
                 "execution_id": execution["id"],
-                "ordinal": 0,
-                "requirement_id": execution["roster"][0]["requirement_id"],
+                "ordinal": ordinal,
+                "requirement_id": execution["roster"][ordinal]["requirement_id"],
             },
         )
     )
@@ -257,3 +297,40 @@ def test_an_unscoped_pass_does_not_cover_a_required_host(
     first = _begin(test_db)
     assert first["remaining_requirement_count"] == 1
     assert first["roster"][0]["case_key"] == MACHINES[0]
+
+
+@pytest.mark.parametrize(
+    "mission,trailing", [(False, False), (True, False), (True, True)]
+)
+def test_inherit_chain_holds_its_host_union_before_the_opener(
+    test_db, tmp_path, monkeypatch, mission, trailing
+):
+    from yoke_core.domain.qa_plan_host_leases import execution_host_leases
+    from yoke_core.domain.qa_plan_execution_state import advance_plan_execution
+
+    _seed(
+        test_db, tmp_path, monkeypatch, inherit=True, mission=mission, trailing=trailing
+    )
+    first = _begin(test_db)
+    assert first["remaining_requirement_count"] == int(trailing)
+    assert len(first["roster"]) == 2
+    response = _case_begin(first)
+    assert response.primary_success, response.error
+    current = lock_plan_execution(test_db, first["id"])
+    leases = execution_host_leases(test_db, current)
+    assert [claim.target.machine_id for claim in leases] == list(MACHINES)
+    opener = current["roster"][0]
+    advance_plan_execution(
+        test_db,
+        current,
+        ordinal=0,
+        requirement_id=opener["requirement_id"],
+        result={"requirement_id": opener["requirement_id"], "case_outcome": "passed"},
+    )
+    assert _begin(test_db)["id"] == first["id"]
+    response = _case_begin(current, 1)
+    assert response.primary_success, response.error
+    assert response.result_payload["state"] == "ready"
+    assert [claim.id for claim in execution_host_leases(test_db, current)] == [
+        claim.id for claim in leases
+    ]
