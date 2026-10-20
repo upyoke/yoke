@@ -30,6 +30,9 @@ import hashlib
 import json
 from typing import TYPE_CHECKING, Any
 
+from yoke_core.domain.steering_fleet_report_awaiting_seat import (
+    awaiting_seat_fingerprint,
+)
 from yoke_core.domain.steering_fleet_report_deadlocks import deadlock_fingerprint
 from yoke_core.domain.steering_fleet_report_waiting_chains import (
     waiting_chain_fingerprint,
@@ -81,7 +84,9 @@ def seat_payload(report: "FleetReport") -> dict[str, Any]:
             (entry.session_id, entry.answerer_session_id, entry.reason)
             for entry in report.dead_waits
         ),
-        "messages_awaiting_seat": report.messages_awaiting_seat,
+        "messages_awaiting_seat": awaiting_seat_fingerprint(
+            report.messages_awaiting_seat
+        ),
         "deadlocks": deadlock_fingerprint(report),
         "waiting_chains": waiting_chain_fingerprint(report),
     }

@@ -15,8 +15,11 @@ from yoke_core.domain.actor_message_recipients import (
 from yoke_core.domain.actor_render import render_actor_name
 from yoke_core.domain.session_message_receipt_expiry import (
     OPEN_SESSION_STATES,
+    STEERING_OPEN_STATES,
     actor_state_sql,
     session_state_sql,
+    steering_open_sql,
+    steering_settled_sql,
 )
 from yoke_core.domain.session_message_types import (
     SessionMessageError,
@@ -141,24 +144,34 @@ def _actor_state_clause(
 
 #: How a session-recipient state filter reads against a role-addressed row.
 #: A steering row is unacknowledged while it is parked or sitting with a
-#: seat, and settled once that seat acknowledges it; the delivery-mechanics
-#: states have no counterpart on a role address at all.
-_STEERING_STATES_BY_FILTER: dict[str, tuple[str, ...]] = {
-    "unacknowledged": (STATE_AWAITING_SEAT, STATE_DELIVERED),
+#: seat and its message is still open, settled once that seat acknowledges
+#: it, and expired once its message is cancelled or past expiry -- the one
+#: rule in :mod:`yoke_core.domain.session_message_receipt_expiry`. The
+#: delivery-mechanics states have no counterpart on a role address at all.
+_STEERING_OPEN_BY_FILTER: dict[str, tuple[str, ...]] = {
+    "unacknowledged": STEERING_OPEN_STATES,
     "pending": (STATE_AWAITING_SEAT,),
     "injected": (STATE_DELIVERED,),
-    "acknowledged": (STATE_ACKNOWLEDGED,),
 }
 
 
-def _steering_state_clause(marker: str, state: str | None) -> tuple[str, list[Any]]:
+def _steering_state_clause(
+    marker: str, state: str | None, now: Any
+) -> tuple[str, list[Any]]:
     if state is None:
         return "1=1", []
-    states = _STEERING_STATES_BY_FILTER.get(state)
-    if not states:
+    if state == STATE_ACKNOWLEDGED:
+        return f"sr.state={marker}", [STATE_ACKNOWLEDGED]
+    if state == "expired":
+        states = STEERING_OPEN_STATES
+        message, params = steering_settled_sql(marker, now)
+    elif state in _STEERING_OPEN_BY_FILTER:
+        states = _STEERING_OPEN_BY_FILTER[state]
+        message, params = steering_open_sql(marker, now)
+    else:
         return "1=0", []
     slots = ",".join(marker for _ in states)
-    return f"sr.state IN ({slots})", list(states)
+    return f"(sr.state IN ({slots}) AND {message})", [*states, *params]
 
 
 def message_recipient_match_clause(
@@ -175,10 +188,11 @@ def message_recipient_match_clause(
     open past its message's expiry matches ``expired`` rather than its
     stored state, so the filter agrees with what the rows display.
 
-    The steering branch is unconditional: a role-addressed row has a
-    recipient whether or not any session is holding it -- ``awaiting_seat``
-    with no seat at all, or ``delivered`` to a seat that was handed it on
-    acquire and never got a session-recipient row of its own. Narrowing to
+    The steering branch does not depend on a session row: a role-addressed
+    row has a recipient whether or not any session is holding it --
+    ``awaiting_seat`` with no seat at all, or ``delivered`` to a seat that
+    was handed it on acquire and never got a session-recipient row of its
+    own. A cancelled or expired steering message is settled, never open. Narrowing to
     ``sr.seat_session_id`` only kicks in when the caller filtered to one
     exact session, matching the plain session-recipient branch above it.
     """
@@ -192,7 +206,7 @@ def message_recipient_match_clause(
         f"r.message_id=m.message_id AND {session_state}{session_filter})"
     ]
     params = list(session_params)
-    steering_state, steering_params = _steering_state_clause(marker, state)
+    steering_state, steering_params = _steering_state_clause(marker, state, now)
     seat_filter = ""
     seat_params: list[Any] = []
     if session_id is not None:

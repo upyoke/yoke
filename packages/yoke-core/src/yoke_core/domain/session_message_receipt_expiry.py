@@ -7,8 +7,12 @@ writes. Persisting the state is the relay claim cycle's set-based sweep
 (:func:`yoke_core.domain.session_message_delivery.expire_due_recipients`),
 which converges the stored rows to exactly what these reads already show.
 
-Steering rows are not covered here: their table has no ``expired`` state,
-so readers judge a steering row's staleness from the message instead.
+A steering (role-addressed) row follows one rule too: it is open only while
+its message is neither cancelled nor expired. Its table has no ``expired``
+state and no sweep writes one, so every reader -- the list filter, the
+handoff candidates, the projections below -- applies
+:func:`steering_open_sql` or :func:`project_due_receipts`, and an expired or
+cancelled steering message reads as settled everywhere.
 """
 
 from __future__ import annotations
@@ -70,11 +74,25 @@ def actor_state_sql(marker: str, state: str, now: Any) -> tuple[str, list[Any]]:
     return f"ar.state={marker}", [state]
 
 
+STEERING_OPEN_STATES: tuple[str, ...] = ("awaiting_seat", "delivered")
+
+
+def steering_open_sql(marker: str, now: Any) -> tuple[str, list[Any]]:
+    """Match messages (alias ``m``) whose steering row can still be acted on."""
+    return f"(m.cancelled_at IS NULL AND m.expires_at>{marker})", [now]
+
+
+def steering_settled_sql(marker: str, now: Any) -> tuple[str, list[Any]]:
+    """Match messages (alias ``m``) cancelled or expired: their row is settled."""
+    return f"(m.cancelled_at IS NOT NULL OR m.expires_at<={marker})", [now]
+
+
 def project_due_receipts(message: dict[str, Any], *, now: datetime) -> None:
     """Read every open receipt on a message past its expiry as expired.
 
     ``message`` carries its stored ``expires_at``/``cancelled_at`` and its
-    ``recipients``/``actor_recipients`` lists; the receipts change in place.
+    ``recipients``/``actor_recipients`` lists and its ``steering_recipient``;
+    the receipts change in place.
     ``expired_at`` reads as the instant the receipt became due.
     """
     expires_at = message.get("expires_at")
@@ -93,11 +111,21 @@ def project_due_receipts(message: dict[str, Any], *, now: datetime) -> None:
             if receipt.get("state") == "pending":
                 receipt["state"] = "expired"
                 receipt["expired_at"] = cancelled_at if not due else expires_at
+        steering = message.get("steering_recipient")
+        if steering and steering.get("state") in STEERING_OPEN_STATES:
+            steering["state"] = "expired"
+            ended = "cancelled" if cancelled_at is not None and not due else "expired"
+            steering["summary"] = (
+                f"{ended} before any steering seat acknowledged it; nothing is owed"
+            )
 
 
 __all__ = [
     "OPEN_SESSION_STATES",
+    "STEERING_OPEN_STATES",
     "actor_state_sql",
     "project_due_receipts",
     "session_state_sql",
+    "steering_open_sql",
+    "steering_settled_sql",
 ]

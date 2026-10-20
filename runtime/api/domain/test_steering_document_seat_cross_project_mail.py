@@ -24,7 +24,7 @@ from yoke_core.domain.steering_message_recipients import (
     STATE_ACKNOWLEDGED,
     STATE_AWAITING_SEAT,
     STATE_DELIVERED,
-    awaiting_seat_count,
+    awaiting_seat_rows,
 )
 
 
@@ -103,7 +103,9 @@ def test_the_document_seat_counts_and_drains_linked_mail_from_another_project() 
     conn = message_connection()
     message_id = _cross_project_report(conn)
 
-    assert awaiting_seat_count(conn, project_id=1, scope=DOCUMENT_SCOPE) == 1
+    assert (
+        len(awaiting_seat_rows(conn, project_id=1, scope=DOCUMENT_SCOPE, now=NOW)) == 1
+    )
     handoff = _drain(conn, DOCUMENT_SCOPE)
 
     assert handoff["drained_count"] == 1
@@ -111,7 +113,9 @@ def test_the_document_seat_counts_and_drains_linked_mail_from_another_project() 
     assert "the linked change landed" in handoff["digest"]
     assert _row(conn, message_id)["state"] == STATE_DELIVERED
     assert _row(conn, message_id)["seat_session_id"] == SEAT
-    assert awaiting_seat_count(conn, project_id=1, scope=DOCUMENT_SCOPE) == 0
+    assert (
+        len(awaiting_seat_rows(conn, project_id=1, scope=DOCUMENT_SCOPE, now=NOW)) == 0
+    )
 
     acknowledge_message(conn, message_id=message_id, session_id=SEAT, now=NOW)
     conn.commit()
@@ -122,7 +126,10 @@ def test_the_sender_projects_seat_does_not_take_document_linked_mail() -> None:
     conn = message_connection()
     message_id = _cross_project_report(conn)
 
-    assert awaiting_seat_count(conn, project_id=2, scope=SENDER_PROJECT_SCOPE) == 0
+    assert (
+        len(awaiting_seat_rows(conn, project_id=2, scope=SENDER_PROJECT_SCOPE, now=NOW))
+        == 0
+    )
     handoff = _drain(conn, SENDER_PROJECT_SCOPE)
 
     assert handoff["drained_count"] == 0
@@ -133,7 +140,13 @@ def test_another_document_seat_in_the_owning_project_does_not_take_it() -> None:
     conn = message_connection()
     message_id = _cross_project_report(conn)
 
-    assert awaiting_seat_count(conn, project_id=1, scope=OTHER_DOCUMENT_SCOPE) == 0
-    assert awaiting_seat_count(conn, project_id=1, scope={"project_id": 1}) == 0
+    assert (
+        len(awaiting_seat_rows(conn, project_id=1, scope=OTHER_DOCUMENT_SCOPE, now=NOW))
+        == 0
+    )
+    assert (
+        len(awaiting_seat_rows(conn, project_id=1, scope={"project_id": 1}, now=NOW))
+        == 0
+    )
     assert _drain(conn, OTHER_DOCUMENT_SCOPE)["drained_count"] == 0
     assert _row(conn, message_id)["state"] == STATE_AWAITING_SEAT

@@ -123,7 +123,7 @@ def test_only_a_session_nobody_is_coming_for_makes_the_report_actionable():
         landed_open=(),
         suspected_orphaned_waiters=(),
         dead_waits=(),
-        messages_awaiting_seat=0,
+        messages_awaiting_seat=(),
     )
 
     handled = replace(quiet, vendor_errors=(_stopped(status="waiting_backoff"),))

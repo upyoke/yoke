@@ -233,7 +233,8 @@ def test_page_counts_a_row_delivered_by_drain_as_actionable() -> None:
 
 def test_an_expired_steering_message_reads_settled_not_actionable(monkeypatch) -> None:
     """A steering row cannot itself carry ``expired``; the message's own
-    expiry is what must settle it once nobody can act on it anymore."""
+    expiry settles it, so it leaves the unacknowledged list and reads as
+    expired."""
     from datetime import timedelta as _timedelta
 
     from yoke_core.domain import session_message_page
@@ -249,5 +250,9 @@ def test_an_expired_steering_message_reads_settled_not_actionable(monkeypatch) -
     )
 
     assert page["actionable_count"] == 0
-    assert [row["message_id"] for row in page["messages"]] == [sent["message_id"]]
-    assert page["messages"][0]["needs_attention"] is False
+    assert page["messages"] == []
+    expired = read_message_page(
+        conn, actor_id=11, caller_session_id=None, state="expired"
+    )
+    assert [row["message_id"] for row in expired["messages"]] == [sent["message_id"]]
+    assert expired["messages"][0]["needs_attention"] is False
