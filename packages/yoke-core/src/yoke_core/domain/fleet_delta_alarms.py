@@ -6,8 +6,8 @@ that went quiet, an in-flight item nobody picked back up, an envelope
 that was never delivered. Each is a *level* condition rather than an
 edge, so each fires when it starts and clears once when it stops —
 re-firing every pass is how a report becomes noise the reader skims.
-An idle holder alone repeats on a slow cadence: a wait that stays stuck
-for hours must not scroll out of view after its one line.
+An unparked idle holder alone repeats on a slow cadence: work that stays
+stuck for hours must not scroll out of view after its one line.
 
 The thresholds belong to the steering loop; they are restated here as
 the constants the detectors read.
@@ -24,6 +24,7 @@ from yoke_core.domain.fleet_delta_snapshot import (
     FleetSnapshot,
     SessionRow,
 )
+from yoke_core.domain.session_mode import session_is_parked
 
 #: A live work-claim holder silent this long is probed and revived. Its
 #: liveness label stays ``active`` far past this point, so the age of the
@@ -149,13 +150,17 @@ def idle_holder_candidates(current: FleetSnapshot) -> list[SessionRow]:
 def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
     """Live claim holders silent past the idle threshold, parked or not.
 
+    A holder whose item waits on a live source is excluded: an armed,
+    unlanded landing the queue drives, or a pinned release wait a
+    deployment run drives. Once that source is gone the idle threshold
+    applies again.
+
     A park declares a wait but does not prove the wait is still sound: a
     parked holder whose blocker cleared, whose question went unanswered or
     whose process exited stays stuck until someone looks. The line carries
-    mode, park reason and message delivery state so the reader can judge the wait,
-    and repeats every :data:`IDLE_HOLDER_REPEAT_MINUTES` while it holds.
-    A healthy in-flight landing declares work the queue is driving and is
-    excluded; once it is recorded as merged, the idle threshold applies.
+    mode, park reason and message delivery state so the reader can judge
+    the wait. A parked holder alarms once, since its wait was declared; an
+    unparked one repeats every :data:`IDLE_HOLDER_REPEAT_MINUTES`.
     """
     lines: list[str] = []
     live: set[str] = set()
@@ -166,18 +171,20 @@ def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
         key = f"idle-holder:session={identifier(row.session_id)}"
         live.add(key)
         reason = repr(row.quiet_reason) if row.quiet_reason else "none"
+        line = (
+            f"{LINE_PREFIX} ALARM idle-holder "
+            f"session={identifier(row.session_id)} "
+            f"items={','.join(row.claimed_items)} idle={idle}m "
+            f"mode={row.mode or 'none'} reason={reason} "
+            f"delivery={row.message_delivery!r} surface={row.executor_surface} "
+            f"reach={address_recipe(row.session_id, current)!r}"
+        )
+        if session_is_parked(row.mode):
+            lines.extend(_raise_once(state, key, line))
+            continue
         lines.extend(
             _raise_repeating(
-                state,
-                key,
-                f"{LINE_PREFIX} ALARM idle-holder "
-                f"session={identifier(row.session_id)} "
-                f"items={','.join(row.claimed_items)} idle={idle}m "
-                f"mode={row.mode or 'none'} reason={reason} "
-                f"delivery={row.message_delivery!r} surface={row.executor_surface} "
-                f"reach={address_recipe(row.session_id, current)!r}",
-                current.taken_at,
-                IDLE_HOLDER_REPEAT_MINUTES,
+                state, key, line, current.taken_at, IDLE_HOLDER_REPEAT_MINUTES
             )
         )
     return lines + _clear(state, live, "idle-holder")
