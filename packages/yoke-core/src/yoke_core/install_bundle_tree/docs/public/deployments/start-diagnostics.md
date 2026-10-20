@@ -289,3 +289,12 @@ actor lookup, reports `control_plane_connection_lost`; a lost write answer
 leaves the run resumable with its pending receipt preserved. Restore the
 control-plane connection, inspect the run and its driver capture, then re-drive
 the same run using `yoke watch deploy -- RUN-ID`.
+
+Before a dispatch begins its database writes, it resolves each project's
+immutable release pin and published installer record with autocommit reads,
+so Git, GitHub contents and HTTP work hold no database transaction open. The
+answers are reused for that dispatch. A newly changed source input refuses as
+`deployment_qa_source_inputs_changed`; re-drive the same QA stage to refresh
+its inputs. If a connection drops while handling another error, the driver
+reports both the original error and the rollback loss as a resumable connection
+loss. An idle-in-transaction timeout is named as the original cause.

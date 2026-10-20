@@ -86,6 +86,7 @@ CONNECTION_FAILURE_MARKERS = (
     "eof detected",
     "the connection is lost",
     "the connection is closed",
+    "idle-in-transaction timeout",
 )
 
 # SSH options proven from the live operator tunnel. BatchMode keeps it

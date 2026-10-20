@@ -9,6 +9,9 @@ the control plane can address their recipients.
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_qa_transaction_recovery import rollback_after_error
+from yoke_core.domain.deployment_qa_dispatch_inputs import dispatch_input_operation
+
 from collections.abc import Mapping
 from typing import Any
 
@@ -69,16 +72,9 @@ def _notify_stage_wait(
     target_digest: str,
     label: str,
 ) -> None:
-    """Wake the right recipient for one waiting subject, and log the miss.
+    """Wake this waiting subject; notification misses preserve its QA status.
 
-    A wake failure is not a QA-status failure: the stage is genuinely
-    still waiting either way, so a notification hiccup degrades to "not
-    woken" rather than aborting the dispatch and losing the wait result
-    already computed.
-
-    ``names_cases`` decides whether the recipe the notice prints carries
-    ``--plan``: only the subject that materialized nothing is being asked
-    to select cases, and the two waits below are exactly that distinction.
+    names_cases selects the recovery recipe for existing versus missing cases.
     """
     if item_scoped and member is not None:
         no_recipient = "no live claim holder and no covering project steering seat"
@@ -117,7 +113,7 @@ def _notify_stage_wait(
                 "manually."
             )
     except Exception as exc:  # noqa: BLE001 - degrade, don't abort
-        conn.rollback()
+        rollback_after_error(conn, exc)
         print(
             f"Warning: could not wake a recipient for run {run_id!r} stage "
             f"{stage_name!r} ({label}): {exc}"
@@ -125,6 +121,7 @@ def _notify_stage_wait(
 
 
 @composition_operation
+@dispatch_input_operation
 def materialize_and_gate_deployment_qa_stage(
     conn: Any, stage: Mapping[str, Any], *, run_id: str
 ) -> tuple[int, str]:
@@ -134,6 +131,8 @@ def materialize_and_gate_deployment_qa_stage(
     the database that serves this control plane. Schema facts are read once
     for the whole walk; each member's reads are batched across the run.
     """
+    from yoke_core.domain.deployment_qa_dispatch_inputs import prepare_release_inputs
+
     project_id, target_tier, revision = _run_context(conn, run_id)
     if stage.get("scope") == "item":
         rows = conn.execute(
@@ -150,6 +149,7 @@ def materialize_and_gate_deployment_qa_stage(
         members = [None]
     from yoke_core.domain.deployment_qa_dispatch_preparation import prepare_members
 
+    prepare_release_inputs(conn, stage, run_id=run_id)
     errors = prepare_members(conn, stage, run_id=run_id, members=members)
     return _gate_members(
         conn,
@@ -176,7 +176,7 @@ def _gate_members(
         QaCasesNotSelectedError,
     )
 
-    refs = render_item_ref_lookup(conn, (m for m in members if m is not None))
+    item_refs = render_item_ref_lookup(conn, (m for m in members if m is not None))
     project_slug = (
         resolve_project_slug(conn, project_id) if project_id is not None else ""
     )
@@ -195,7 +195,7 @@ def _gate_members(
                 notify_acceptance=False,
             )
         except QaCasesNotSelectedError as exc:
-            label = f"member {refs(member)}" if member is not None else "run"
+            label = f"member {item_refs(member)}" if member is not None else "run"
             waiting.append(f"{label}: {exc}")
             if project_id is not None:
                 _notify_stage_wait(
@@ -224,9 +224,9 @@ def _gate_members(
                 if attached is None:
                     continue
             failure = str(exc)
-            conn.rollback()
+            rollback_after_error(conn, exc)
             break
-        label = f"member {refs(member)}" if member is not None else "run"
+        label = f"member {item_refs(member)}" if member is not None else "run"
         if project_id is not None:
             report_stage_result(
                 conn,
@@ -235,7 +235,7 @@ def _gate_members(
                 member=member,
                 project_id=project_id,
                 outcome=str(status.get("outcome") or ""),
-                subject=refs(member)
+                subject=item_refs(member)
                 if member is not None
                 else "the whole release batch",
                 target_tier=target_tier,

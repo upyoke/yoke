@@ -1,5 +1,6 @@
 """Apply a prepared QA subject under its run lock, then release the lock."""
 
+from yoke_core.domain.deployment_qa_transaction_recovery import rollback_after_error
 from yoke_core.domain.deployment_runs_lock import lock_run
 
 
@@ -97,7 +98,7 @@ def write_prepared_stage(
         if commit:
             conn.commit()
         return result
-    except Exception:
+    except Exception as exc:
         if commit:
-            conn.rollback()
+            rollback_after_error(conn, exc)
         raise

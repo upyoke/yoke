@@ -13,6 +13,8 @@ resolved against the run's own stored flow rather than trusted verbatim.
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_qa_transaction_recovery import rollback_after_error
+
 import json
 from typing import Any, Dict, List, Union
 
@@ -70,7 +72,9 @@ def interrupted_dispatch_wait(
     cause = (
         f"SQLSTATE {sqlstate}"
         if sqlstate
-        else RUN_BUSY_CODE if isinstance(exc, DeploymentRunBusy) else type(exc).__name__
+        else RUN_BUSY_CODE
+        if isinstance(exc, DeploymentRunBusy)
+        else type(exc).__name__
     )
     return (
         f"qa_stage_dispatch_interrupted: run {run_id!r} stage {stage_name!r} "
@@ -166,7 +170,7 @@ def handle_deployment_qa_stage_dispatch(
                 conn, stage, run_id=resolved
             )
         except LOCK_WAIT_INTERRUPTIONS as exc:
-            conn.rollback()
+            rollback_after_error(conn, exc)
             code, message = (
                 AWAITING_SCOPED_QA,
                 interrupted_dispatch_wait(

@@ -154,7 +154,7 @@ def _load_actor_lookup(session_id: str) -> ActorLookup:
         return ActorLookup()
     # Never bare-connect on an https client: attempt local authority,
     # otherwise leave actor unbound (dispatcher provenance path).
-    conn = local_connection_or_none(db_helpers.connect, connection_errors_raise=True)
+    conn = local_connection_or_none(db_helpers.connect)
     if conn is None:
         return ActorLookup()
     try:
@@ -170,6 +170,10 @@ def _load_actor_lookup(session_id: str) -> ActorLookup:
 
 def _read_actor_lookup(conn: Any, session_id: str) -> ActorLookup:
     """Resolve ``(actor_id, row-exists)``; database errors propagate to binding."""
+    from yoke_core.domain.schema_common import _table_exists
+
+    if not _table_exists(conn, "harness_sessions"):
+        return ActorLookup()
     p = _placeholder(conn)
     row = conn.execute(
         f"SELECT actor_id FROM harness_sessions WHERE session_id = {p}",

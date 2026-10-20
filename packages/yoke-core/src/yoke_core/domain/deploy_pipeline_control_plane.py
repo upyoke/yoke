@@ -168,7 +168,9 @@ def update_run_field(
         )
 
 
-def qa_fingerprint(run_id: str) -> str:
+def qa_fingerprint(run_id: str, stage: Dict[str, Any]) -> str:
+    if stage.get("step_runner") != "qa":
+        return ""
     try:
         result = _call(
             "deployment_runs.execution.qa_pending", run_id, {"fingerprint_only": True}

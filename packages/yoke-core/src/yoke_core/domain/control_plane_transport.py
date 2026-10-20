@@ -34,31 +34,24 @@ from yoke_cli.transport.serving_plane import (
 from yoke_contracts.control_plane_locality import local_authority_exempt
 
 
-def local_connection_or_none(
-    connect: Callable[[], Any], *, connection_errors_raise: bool = False
-) -> Optional[Any]:
+def local_connection_or_none(connect: Callable[[], Any]) -> Optional[Any]:
     """Open a direct connection, or report that there is no local authority.
 
     Runs under :func:`local_authority_exempt` because attempting the direct
     connection IS this function's job. A missing local authority returns
-    None so the caller relays. Identity binding sets connection_errors_raise
-    to preserve a database outage as a failed lookup rather than an absent
-    actor; database and connection failures then propagate.
+    None so the caller relays. A database outage is not absent authority:
+    database and connection failures propagate, preserving the named cause
+    instead of becoming an absent actor or empty result.
     """
     try:
         with local_authority_exempt():
             return connect()
     except Exception as exc:  # noqa: BLE001 - no local authority is the relay's cue
-        if connection_errors_raise:
-            from yoke_core.domain.connected_env_readiness import (
-                is_connection_unavailable_error,
-            )
-            from yoke_core.domain import db_backend
+        from yoke_core.domain.connected_env_readiness import is_connection_unavailable_error
+        from yoke_core.domain import db_backend
 
-            if is_connection_unavailable_error(exc) or isinstance(
-                exc, db_backend.operational_error_types()
-            ):
-                raise
+        if is_connection_unavailable_error(exc) or isinstance(exc, db_backend.operational_error_types()):
+            raise
         return None
 
 

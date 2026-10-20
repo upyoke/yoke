@@ -21,6 +21,8 @@ hear it.
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_qa_transaction_recovery import rollback_after_error
+
 from yoke_contracts.timestamps import parse_instant, utc_now
 
 from collections.abc import Mapping
@@ -254,7 +256,7 @@ def report_stage_result(
         )
         conn.commit()
     except Exception as exc:  # noqa: BLE001 - degrade, don't abort
-        conn.rollback()
+        rollback_after_error(conn, exc)
         print(
             f"Warning: could not report run {run_id!r} stage "
             f"{str(stage['name'])!r} result to its notification audience: {exc}"

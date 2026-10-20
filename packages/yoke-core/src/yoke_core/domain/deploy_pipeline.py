@@ -262,7 +262,7 @@ def run_pipeline(
             stage_receipt.dispatch_step_runner_with_receipt,
             stage,
             timeout_seconds=timeout_min * 60,
-            fingerprint=lambda: control_plane.qa_fingerprint(run_id),
+            fingerprint=lambda: control_plane.qa_fingerprint(run_id, stage),
             stages=stages,
             run_id=run_id,
             member_items=member_items,

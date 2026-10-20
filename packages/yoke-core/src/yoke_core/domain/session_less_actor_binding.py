@@ -65,7 +65,7 @@ def _load_operating_actor_id() -> Optional[str]:
         )
     except Exception:  # noqa: BLE001 — import-time miss is a resolution miss
         return None
-    conn = local_connection_or_none(db_helpers.connect, connection_errors_raise=True)
+    conn = local_connection_or_none(db_helpers.connect)
     if conn is None:
         return None
     try:

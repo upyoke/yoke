@@ -43,7 +43,8 @@ def prepare_members(conn, stage, *, run_id, members):
     reads, errors = _read_missing(
         conn, stage, run_id=run_id, members=[m for m in members if m not in existing]
     )
-    for member, read in reads.items():
+    for member in (m for m in members if m not in existing):
+        read = reads.get(member)
         try:
             from yoke_core.domain.deployment_qa_stage_materialization import (
                 materialize_deployment_qa_stage,
@@ -57,6 +58,7 @@ def prepare_members(conn, stage, *, run_id, members):
                 prepared_read=read,
                 advance_projection=True,
             )
+            errors.pop(member, None)
         except (LookupError, ValueError) as exc:
             errors[member] = exc
     return errors

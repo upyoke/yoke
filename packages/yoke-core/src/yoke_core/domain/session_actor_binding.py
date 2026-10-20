@@ -91,21 +91,11 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _rollback_quietly(conn: Any) -> None:
-    """Clear the aborted-transaction state a failed probe leaves on Postgres."""
-    try:
-        conn.rollback()
-    except Exception:  # noqa: BLE001 — the probe result is the whole product
-        pass
-
-
 def _actors_readable(conn: Any) -> bool:
-    try:
-        conn.execute("SELECT 1 FROM actors LIMIT 1").fetchone()
-    except db_backend.operational_error_types(conn):
-        _rollback_quietly(conn)
-        return False
-    return True
+    """A missing bootstrap table is absent; a failed database read propagates."""
+    from yoke_core.domain.schema_common import _table_exists
+
+    return _table_exists(conn, "actors")
 
 
 def _human_actor_count(conn: Any) -> int:
@@ -138,11 +128,9 @@ def explicit_actor_binding(conn: Any, actor_id: Any) -> ActorBinding:
         )
     from yoke_core.domain.actors import validate_actor_id
 
-    try:
-        present = validate_actor_id(conn, candidate)
-    except db_backend.operational_error_types(conn):
-        _rollback_quietly(conn)
+    if not _actors_readable(conn):
         return _identity_unavailable()
+    present = validate_actor_id(conn, candidate)
     if present:
         return ActorBinding(actor_id=candidate)
     return ActorBinding(

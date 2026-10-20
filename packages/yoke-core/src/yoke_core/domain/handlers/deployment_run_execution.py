@@ -189,14 +189,14 @@ def _member_rows(run_id_value: str, *, connection: Any = None) -> List[Dict[str,
             "ORDER BY dri.item_id",
             (run_id_value,),
         )
-        refs = render_item_ref_lookup(conn, (row["item_id"] for row in rows))
+        item_refs = render_item_ref_lookup(conn, (row["item_id"] for row in rows))
         members = []
         for row in rows:
             item_id = int(row["item_id"])
             members.append(
                 {
                     "item_id": item_id,
-                    "public_ref": refs(item_id),
+                    "public_ref": item_refs(item_id),
                     "status": str(row["status"]),
                     "deployed_to": str(row.get("deployed_to") or ""),
                     "branch": str(row.get("branch") or ""),
