@@ -40,7 +40,7 @@ from typing import Any, Optional
 from yoke_core.domain.deployment_close_out_failure_summary import (
     close_out_failure_summary,
 )
-from yoke_core.domain.db_optional_queries import rollback_savepoint
+from yoke_core.domain.db_savepoint import SavepointLostError, savepoint
 from yoke_core.domain.gate_satisfier_facts import FactVerdict
 from yoke_core.domain.gate_satisfier_item_facts import (
     ITEM_DEPLOYMENT_RUN_SUCCEEDED,
@@ -175,30 +175,27 @@ def _send(
     """
     public_ref = str(member["public_ref"])
     try:
-        conn.execute(f"SAVEPOINT {_SEND_SAVEPOINT}")
+        with savepoint(conn, _SEND_SAVEPOINT, owns=False):
+            delivery = push_notice(
+                conn,
+                item_id=int(member["item_id"]),
+                project_id=int(member["project_id"]),
+                body_for_route=lambda route, ref=public_ref: delivery_cleared_message(
+                    public_ref=ref,
+                    run_id=run_id,
+                    route=route,
+                    close_out_failure=close_out_failure,
+                ),
+                idempotency_key=delivery_cleared_idempotency_key(
+                    int(member["item_id"]), run_id
+                ),
+                now=stamp,
+            )
+    except SavepointLostError:
+        raise
     except Exception as exc:  # noqa: BLE001 - reported, never reverses delivery
         return f"failed: {exc}"
     try:
-        delivery = push_notice(
-            conn,
-            item_id=int(member["item_id"]),
-            project_id=int(member["project_id"]),
-            body_for_route=lambda route, ref=public_ref: delivery_cleared_message(
-                public_ref=ref,
-                run_id=run_id,
-                route=route,
-                close_out_failure=close_out_failure,
-            ),
-            idempotency_key=delivery_cleared_idempotency_key(
-                int(member["item_id"]), run_id
-            ),
-            now=stamp,
-        )
-    except Exception as exc:  # noqa: BLE001 - reported, never reverses delivery
-        rollback_savepoint(conn, _SEND_SAVEPOINT)
-        return f"failed: {exc}"
-    try:
-        conn.execute(f"RELEASE SAVEPOINT {_SEND_SAVEPOINT}")
         conn.commit()
     except Exception as exc:  # noqa: BLE001 - reported, never reverses delivery
         return f"failed: {exc}"

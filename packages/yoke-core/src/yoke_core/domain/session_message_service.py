@@ -14,6 +14,7 @@ from yoke_contracts.session_control.sender_surface import (
 from yoke_contracts.session_control.terminal_report import (
     terminal_report_idempotency_key,
 )
+from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.actor_message_recipients import (
     ResolvedActorRecipient,
     actor_message_limits,
@@ -193,7 +194,9 @@ def send_message(
         if refusal:
             raise SessionMessageError("sender_session_forbidden", refusal)
     begin_message_mutation(conn)
-    try:
+    # A caller-owned transaction (commit=False) keeps its earlier writes when
+    # this send fails; only the send's own writes roll back.
+    with savepoint(conn, "_yoke_send_message", owns=commit):
         reported_item = resolve_terminal_report_item(
             conn, sender_session_id=sender_session_id, body=body
         )
@@ -310,9 +313,6 @@ def send_message(
         if steering is not None:
             result["steering_recipient"] = steering
         return result
-    except Exception:
-        conn.rollback()
-        raise
 
 
 def _record_steering_row(

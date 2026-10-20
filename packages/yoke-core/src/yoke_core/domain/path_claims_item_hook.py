@@ -25,6 +25,7 @@ from __future__ import annotations
 from typing import Any, List, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_optional_queries import fetch_optional_rows
 
 
 _TERMINAL_STATES = ("cancelled", "stopped")
@@ -35,25 +36,14 @@ def _p(conn: Any) -> str:
 
 
 def _non_terminal_claim_ids_for_item(conn: Any, item_id: int) -> List[int]:
-    savepoint = "path_claims_terminal_lookup"
-    try:
-        conn.execute(f"SAVEPOINT {savepoint}")
-        p = _p(conn)
-        rows = conn.execute(
-            "SELECT id FROM path_claims "
-            f"WHERE owner_kind = 'item' AND owner_item_id = {p} "
-            "AND state IN "
-            "('planned', 'blocked', 'active')",
-            (item_id,),
-        ).fetchall()
-        conn.execute(f"RELEASE SAVEPOINT {savepoint}")
-    except db_backend.operational_error_types(conn):
-        try:
-            conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
-            conn.execute(f"RELEASE SAVEPOINT {savepoint}")
-        except db_backend.database_error_types(conn):
-            conn.rollback()
-        return []
+    rows = fetch_optional_rows(
+        conn,
+        "SELECT id FROM path_claims "
+        f"WHERE owner_kind = 'item' AND owner_item_id = {_p(conn)} "
+        "AND state IN ('planned', 'blocked', 'active')",
+        (item_id,),
+        savepoint="path_claims_terminal_lookup",
+    )
     return [int(r[0]) for r in rows]
 
 

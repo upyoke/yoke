@@ -130,6 +130,41 @@ def test_send_failure_keeps_removal_and_retraction(test_db, monkeypatch, capsys)
     assert "Notify its holder manually" in output
 
 
+def test_message_store_failure_keeps_removal(test_db, monkeypatch, capsys):
+    from yoke_core.domain import session_message_service
+
+    _project(test_db)
+    _red_member(test_db)
+    _parked_owner(test_db, HOLDER_A, ITEM)
+    release_seeded_driver(test_db, RUN)
+
+    def fail(conn, **_kwargs):
+        conn.execute("SELECT nonexistent_message_store_column FROM items")
+
+    monkeypatch.setattr(session_message_service, "resolve_terminal_report_item", fail)
+    cmd_remove_item(RUN, ITEM, reason=REASON)
+
+    assert not _still_member(test_db)
+    assert "member_removal_notice_failed" in capsys.readouterr().out
+
+
+def test_notice_that_ends_the_transaction_fails_the_removal(test_db, monkeypatch):
+    from yoke_core.domain.db_savepoint import SavepointLostError
+
+    _red_member(test_db)
+    release_seeded_driver(test_db, RUN)
+
+    def end_transaction(conn, **_kwargs):
+        conn.rollback()
+        raise RuntimeError("notice store failed")
+
+    monkeypatch.setattr(notice, "push_member_notice", end_transaction)
+    with pytest.raises(SavepointLostError, match="savepoint_lost"):
+        cmd_remove_item(RUN, ITEM, reason=REASON)
+
+    assert _still_member(test_db)
+
+
 def test_done_gate_ignores_retracted_run_qa_without_calling_it_passed(
     test_db, monkeypatch
 ):
