@@ -37,6 +37,9 @@ from yoke_core.domain.github_app_schema import create_github_app_tables
 from yoke_core.domain.harness_machine_schema import ensure_harness_machine_schema
 from yoke_core.domain.health_runs_schema import ensure_doctor_runs_schema
 from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
+from yoke_core.domain.merge_queue_landing_record_schema import (
+    ensure_merge_queue_landing_record_schema,
+)
 from yoke_core.domain.model_reference_store import create_model_reference_table
 from yoke_core.domain.ouroboros_entry_corrections import (
     ensure_ouroboros_entry_corrections_schema,
@@ -114,6 +117,7 @@ def _create_in_dependency_order(conn: Any) -> None:
     creation steps precede it.
     """
     create_core_tables(conn)
+    ensure_merge_queue_landing_record_schema(conn)
     create_model_reference_table(conn)
     create_universe_settings_table(conn)
     apply_work_claim_scope_column(conn)

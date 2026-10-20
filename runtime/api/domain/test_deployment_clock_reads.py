@@ -78,6 +78,11 @@ def native_clocks(clocks, monkeypatch):
         "created_at timestamptz NOT NULL,updated_at timestamptz NOT NULL,"
         "PRIMARY KEY(item_id,section_name))"
     )
+    from yoke_core.domain.merge_queue_landing_record_schema import (
+        ensure_merge_queue_landing_record_schema,
+    )
+
+    ensure_merge_queue_landing_record_schema(clocks)
     clocks.execute(DEPLOYMENT_STAGE_RECEIPTS_SQL.replace("TIMESTAMPTZ", "TEXT"))
     proxy = SimpleNamespace(
         execute=clocks.execute,

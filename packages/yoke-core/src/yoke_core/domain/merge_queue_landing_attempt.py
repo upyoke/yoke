@@ -104,6 +104,21 @@ def read_open_attempt(conn: Any, item_id: int) -> dict[str, Any] | None:
     return _attempt(row) if row is not None else None
 
 
+def read_open_attempts(conn: Any, item_ids) -> dict[int, dict[str, Any]]:
+    """Read a release's open attempts in one control-plane round trip."""
+    ids = tuple(sorted({int(value) for value in item_ids}))
+    if not ids:
+        return {}
+    marker = _p(conn)
+    slots = ",".join(marker for _ in ids)
+    rows = conn.execute(
+        f"SELECT item_id,{_COLUMNS} FROM merge_queue_landing_attempts "
+        f"WHERE item_id IN ({slots}) AND closed_at IS NULL",
+        ids,
+    ).fetchall()
+    return {int(row_dict(row)["item_id"]): _attempt(row) for row in rows}
+
+
 def read_latest_attempt(conn: Any, item_id: int) -> dict[str, Any] | None:
     """The open attempt, else the most recently closed one with its reason."""
     p = _p(conn)
@@ -239,6 +254,7 @@ __all__ = [
     "item_has_landing",
     "read_latest_attempt",
     "read_open_attempt",
+    "read_open_attempts",
     "record_attempt",
     "superseded_reason",
     "write_attempt_episode",

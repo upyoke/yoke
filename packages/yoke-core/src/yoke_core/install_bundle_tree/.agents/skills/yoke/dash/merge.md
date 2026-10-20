@@ -105,7 +105,8 @@ and holder fact beside stdout's envelope. Exit0 alone is not done.
   landing_already_recorded names its receipt. Read status/identity; done needs
   no new claim/transition. Continue denial reporting.
 - **landing stopped** — exit 9: follow the named recovery. A base conflict
-  requires rebase and verification; a queue-only conflict names the PRs ahead
+  requires you to rebase the lane onto the base branch and re-run the
+  verification gate; a queue-only conflict names the PRs ahead
   and shared files. Wait for those entries to land or leave, then rebase only
   if base mergeability is CONFLICTING, or re-enqueue unchanged if MERGEABLE.
   The explicit waiter follows this recovery through the server record.

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.merge_queue_landing_record_schema import (
+    ensure_merge_queue_landing_record_schema,
+)
 from yoke_core.domain.stored_instant_columns import STORED_INSTANT_COLUMNS
 
 from typing import Optional
@@ -135,6 +138,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 else "TEXT"
             )
             _add_column_if_not_exists(conn, "deployment_runs", column, declaration)
+        ensure_merge_queue_landing_record_schema(conn)
         conn.execute(KEY_INDEX_SQL)
         for column, declaration in (
             ("delivery_intent", DELIVERY_INTENT_COLUMN_SQL),
