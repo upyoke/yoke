@@ -79,7 +79,9 @@ drop in a state-changing function, returns `control_plane_connection_lost`
 (HTTP 500, so the HTTPS client does not resend it). Its recovery is to re-read
 the targeted state and rerun once `yoke env list` shows the control plane
 reachable; the deploy driver adds `yoke watch deploy -- RUN-ID`, because a run
-resumes where it stopped. Any other exception a handler raises answers
+resumes where it stopped. The one call the driver re-sends itself is QA stage
+dispatch, which is idempotent: a lost answer is sent again up to three times,
+5s then 15s apart, and a refusal is never re-sent. Any other exception a handler raises answers
 `handler_exception` with the function id and exception class, on in-process
 dispatch as on the HTTPS route, never a raw traceback. The HTTPS server logs
 `function_call_handler_failed` with the request id, exception class and the

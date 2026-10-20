@@ -311,29 +311,27 @@ def dispatch_deployment_qa_stage(
     """
     from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-    from yoke_core.domain.deploy_pipeline_unknown_outcome import UNKNOWN_CODES
-    from yoke_core.domain.deploy_pipeline_unknown_outcome import DeploymentOutcomeUnknown
+    from yoke_core.domain.deploy_pipeline_unknown_outcome import (
+        redispatch_after_connection_loss,
+    )
     from yoke_core.domain.deploy_pipeline_qa_wait import RETRY_NEXT_CHECK
     from yoke_core.domain.function_lock_refusal import RETRYABLE_LOCK_CODES
 
-    response = call_dispatcher(
+    # A lost answer is re-sent (the dispatch is idempotent); past the last
+    # send it stops the driver resumably, never as a failed stage.
+    response = redispatch_after_connection_loss(
+        lambda: call_dispatcher(
+            function_id=DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION,
+            target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
+            payload={"stage_name": str(stage.get("name") or "")},
+        ),
+        run_id=run_id,
         function_id=DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION,
-        target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
-        payload={"stage_name": str(stage.get("name") or "")},
     )
     if not response.success:
         message = response.error.message if response.error else "request failed"
         if response.error and response.error.code in RETRYABLE_LOCK_CODES:
             return RETRY_NEXT_CHECK, message  # held run: ask on the next check
-        if response.error and response.error.code in UNKNOWN_CODES:
-            # A lost answer is not a failed stage: the driver stops resumably
-            # and leaves the run in this stage for the next re-drive.
-            raise DeploymentOutcomeUnknown(
-                run_id,
-                DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION,
-                response.request_id,
-                message,
-            )
         return 1, (
             f"deployment QA stage {stage.get('name')!r} could not be "
             f"dispatched: {message}"
