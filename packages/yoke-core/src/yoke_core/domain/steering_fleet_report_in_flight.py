@@ -1,12 +1,7 @@
 """Whether a quiet claim holder is stuck or sitting inside one long call.
 
-Idleness is measured from the last recorded tool call, which reads a worker
-mid-command as silent: a session holding one foreground merge wait or CI-routed
-QA gate makes no new call for fifteen to twenty-five minutes and every pass of
-the report called it idle. The seat then probed, woke, or restaffed a worker
-that was working.
-
-So a holder whose newest open ``session_tool_calls`` row invokes a known
+Tool calls and running command heartbeats measure activity. When neither has
+advanced recently, a holder whose newest open ``session_tool_calls`` row invokes a known
 long-running shape -- the watcher wrappers and the inline merge-queue landing
 wait -- is reported as in flight rather than counted toward the idle alarm.
 Four facts must hold together, because each alone has been observed lying:
