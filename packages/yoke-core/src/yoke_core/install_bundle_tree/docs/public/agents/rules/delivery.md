@@ -9,6 +9,8 @@ Model: [delivery](../../deployments/index.md); occupancy, takeover and drivers:
 
 ## Deployment runs
 
+- Merge before release; the hosted flow owns the exact commits and proof. Remote changes start
+  from a local commit.
 - Creating or driving a run takes no claim. `/yoke usher PREFIX-N` uses
   `yoke deployment-runs start-for-item`; drive with `yoke watch deploy -- RUN_ID`.
 - A run occupies its target servers until its QA settles. `target_occupied` names the holder:

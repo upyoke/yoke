@@ -16,7 +16,8 @@ Model: [verification](../../verification/index.md).
 - `selection unbounded` means keep testing what you judge relevant; the final gate covers the
   rest. `--local --impacted main --widen` is the CI-outage fallback only.
 - Run the full suite once, through the attached case: `yoke qa requirement list --item PREFIX-N`,
-  then `yoke qa case run --requirement-id <id>`. Commit before it. Never hand-run the full suite
+  then `yoke qa case run --requirement-id <id>`. Commit before it; workers never push by hand.
+  Never hand-run the full suite
   and then gate the same tree; rerun only after the tree changes.
 - A quiet or backgrounded gate is still running: continue it. If its watcher was killed, rerun
   `yoke qa case run`; it rejoins or adopts the CI run for that commit.
@@ -36,6 +37,8 @@ Model: [verification](../../verification/index.md).
   rerun. A pass while the outcome fails is a product defect.
 - After failed QA: product defect, return to implementation; setup failure, record the blocker;
   unclear cause, investigate now.
+- A plan may record another environment, but standalone QA runs only where the runtime allows;
+  deployment QA targets what the run receipt authorizes.
 - Standalone plans: read `yoke qa plan run --help`. After a lost response, rerun the same command
   with `--resume-execution-id ID` per
   [check-in recovery](../../verification/standalone-plans.md#recover-a-lost-check-in-response);
