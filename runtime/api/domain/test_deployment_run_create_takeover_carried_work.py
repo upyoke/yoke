@@ -143,7 +143,7 @@ def test_a_takeover_create_prepares_the_settled_release_base_in_one_pass(
     original_validate = validate.cmd_validate_composition
 
     def check_members(run_id, **kwargs):
-        validation_members.append(takeover_case._members(test_db, run_id))
+        validation_members.append(takeover_case._members(kwargs["connection"], run_id))
         return original_validate(run_id, **kwargs)
 
     monkeypatch.setattr(validate, "cmd_validate_composition", check_members)

@@ -51,6 +51,7 @@ def _prior(
         project=project,
         status="succeeded",
         target_environment_id=environment,
+        target_tier="persistent",
         started_at=started,
         created_at=started,
         completed_at=started + timedelta(hours=1),
