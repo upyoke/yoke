@@ -126,3 +126,14 @@ closing one shell while other sessions remain does not stop the relay.
 [systemd service documentation](https://github.com/systemd/systemd/blob/main/man/systemd.service.xml)
 and [loginctl documentation](https://github.com/systemd/systemd/blob/main/man/loginctl.xml)
 describe restart and linger behavior.
+
+## Release retention
+
+After a new release verifies and becomes the active pin, the installer removes
+older release directories, retaining the current pin and its previous directory.
+A release used by a running process stays until a later install can remove it.
+The stable launcher holds its selected release for its lifetime, so imports stay
+available across pin changes. Direct release commands also prevent removal.
+A failed candidate install preserves the working pin and does not prune releases.
+If pruning fails, relay status records the cause and relay install reports recovery;
+repair the named cause and retry relay install to finish cleanup.
