@@ -110,6 +110,10 @@ For a source checkout, resolve `git rev-parse HEAD` to a full 40-character
 lowercase commit and verify it as a commit. The served checkout must be clean
 and its HEAD must equal the declared candidate. An installed corpus receipt
 must record the same `source_build` and the release as `source_engine_release`.
+A bundle rendered from the packaged wheel tree records the installed wheel's
+loaded build commit (`YOKE_BUILD_SHA`, baked into the server image) as
+`source_build`, only when it is a full 40-character lowercase commit. A custom
+`YOKE_SERVER_TREE_ROOT` or unknown build records no `source_build`.
 Never infer corpus identity from ambient package metadata, a wheel filename's
 version or an older corpus on the machine.
 
