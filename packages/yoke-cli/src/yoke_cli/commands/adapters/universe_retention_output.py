@@ -157,3 +157,31 @@ def _write_detail(result, out):
         "Committed deletion totals: " + json.dumps(result["deleted"], sort_keys=True),
         file=out,
     )
+
+
+def compact_json_response(response):
+    """Keep actionable counts inline and preserve every detail without rerunning."""
+    from yoke_cli.transport.response_evidence import save_response
+
+    complete = response.model_dump(mode="json")
+    evidence = save_response(complete, json.dumps(complete), "")
+    result = dict(complete["result"])
+    tables = result["tables"]
+    active = [
+        row for row in tables if row["eligible"] or result["deleted"].get(row["table"])
+    ]
+    result["tables"] = [
+        {
+            key: row[key]
+            for key in ("table", "eligible", "eligible_partial", "protected")
+            if key in row
+        }
+        for row in active
+    ]
+    result.pop("policy", None)
+    result["tables_omitted"] = len(tables) - len(active)
+    result["detail_evidence"] = str(evidence)
+    result["read"] = (
+        "Read response.result in detail_evidence for every table and the complete policy; the operation already ran."
+    )
+    return response.model_copy(update={"result": result})

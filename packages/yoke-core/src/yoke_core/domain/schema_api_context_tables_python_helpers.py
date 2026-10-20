@@ -29,7 +29,7 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "wrapped_lines measures authored teaching text at80 columns; install "
             "bundle and documentation validators import it. Wrong guess: retiring "
             "the human reply line budget makes this shared measurement unused. "
-            "Retain it; command replies use output_limit.REPLY_LIMIT_BYTES."
+            "Retain it; command replies and server pages share yoke_contracts.read_detail.REPLY_LIMIT_BYTES."
         ),
     },
     "yoke_harness.hooks.machine_hooks": {

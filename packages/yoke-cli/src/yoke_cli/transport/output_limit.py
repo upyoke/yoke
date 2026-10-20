@@ -8,8 +8,8 @@ from collections.abc import Iterator
 
 from yoke_contracts.registered_reads import READ_FUNCTION_IDS
 
-# One default budget for rendered human and structured replies.
-REPLY_LIMIT_BYTES = 4_000
+from yoke_contracts.read_detail import REPLY_LIMIT_BYTES
+
 _FULL_OUTPUT = ContextVar("full_read_output", default=False)
 _READ_FUNCTION = ContextVar("registered_read_function", default=None)
 

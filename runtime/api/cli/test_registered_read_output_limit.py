@@ -124,3 +124,38 @@ def test_mutation_pointer_never_teaches_read_only_full_flag(capsys):
     assert "already ran" in pointer["read"]
     assert "--full" not in pointer["read"]
     Path(pointer["saved_response"]).unlink()
+
+
+def test_prune_json_keeps_actionable_counts_and_complete_saved_detail(capsys):
+    from yoke_cli.commands.adapters.universe_retention_output import (
+        compact_json_response,
+    )
+
+    result = {
+        "policy": {"description": "p" * REPLY_LIMIT_BYTES},
+        "tables": [
+            {"table": "events", "eligible": 3, "eligible_partial": True, "deleted": {}},
+            {
+                "table": "inactive",
+                "eligible": 0,
+                "eligible_partial": False,
+                "deleted": {},
+            },
+        ],
+        "deleted": {"events": 7},
+        "unfinished": [],
+    }
+    raw = response("universe.prune.run", result)
+    projected = compact_json_response(raw)
+    assert emit_response(projected, json_mode=True) == 0
+    rendered = json.loads(capsys.readouterr().out)
+    summary = rendered["result"]
+    assert summary["tables"] == [
+        {"table": "events", "eligible": 3, "eligible_partial": True}
+    ]
+    assert summary["deleted"]["events"] == 7
+    assert summary["tables_omitted"] == 1
+    artifact = Path(summary["detail_evidence"])
+    assert json.loads(artifact.read_text())["response"]["result"] == result
+    assert raw.result == result
+    artifact.unlink()

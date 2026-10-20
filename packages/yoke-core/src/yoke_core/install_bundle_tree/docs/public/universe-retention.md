@@ -47,7 +47,9 @@ line: rows deleted so far, the largest table still being pruned, and elapsed
 time. The final summary gives the total deleted, deletions for each table
 that changed, the duration, and each table not finished with its reason and
 recovery. `--full` adds per-table eligible, deleted and protected detail and
-the policy digest; `--json` returns the complete result. Preview runs one
+the policy digest. `--json` returns actionable table counts and a private
+`detail_evidence` path holding the complete result; `--full --json` requests
+complete inline data. Omitted inactive tables are counted explicitly. Preview runs one
 cycle and lists eligible counts.
 
 There is no overall invocation timeout, timer, background worker, saved run,

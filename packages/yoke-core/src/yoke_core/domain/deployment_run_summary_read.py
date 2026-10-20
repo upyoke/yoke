@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_contracts.timestamps import format_instant
+from yoke_contracts.read_detail import REPLY_LIMIT_BYTES
 from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
 from yoke_core.domain.db_helpers import connect, instant_parameter
 from yoke_core.domain.deployment_run_history_read import decode_cursor, encode_cursor
@@ -22,8 +23,8 @@ SUMMARY_FIELDS = (
     "created_at",
     "release_lineage",
 )
-# Leave room for the response envelope and CLI indentation within 28,000 bytes.
-SUMMARY_PAGE_BYTES = 16_000
+# Leave room for the response envelope and CLI indentation.
+SUMMARY_PAGE_BYTES = REPLY_LIMIT_BYTES - 1_000
 
 
 def summary_page(rows: list[dict[str, Any]], limit: int) -> dict[str, Any]:
