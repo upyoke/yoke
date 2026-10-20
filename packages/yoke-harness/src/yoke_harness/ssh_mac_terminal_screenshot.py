@@ -12,6 +12,7 @@ from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_SCREEN_CAPTURE_FAILED_ERROR_CODE,
     TERMINAL_WINDOW_OFF_SCREEN_ERROR_CODE,
 )
+from yoke_harness.ssh_mac_capture_clearance import Clearance, clear_capture_window
 from yoke_harness.ssh_mac_display_frame import (
     DisplayFrame,
     RunRemote,
@@ -26,6 +27,10 @@ _CAPTURE_TOOL = "/usr/sbin/screencapture"
 _CROP_TOOL = "/usr/bin/sips"
 _CAPTURE_TIMEOUT_SECONDS = 20
 _CAPTURE_SETTLE_SECONDS = "0.5"
+# How long the capture command waits for the caller to finish clearing its
+# window before it gives up: 300 polls of 0.1s.
+_GATE_POLLS = 300
+CAPTURE_GATE_NOT_RELEASED = "capture_gate_not_released"
 _STDERR_EVIDENCE_LIMIT = 500
 
 
@@ -36,15 +41,21 @@ class RegionCapture:
     payload: str | None
     diagnostics: dict[str, Any] = field(default_factory=dict)
     error_code: str | None = None
+    degraded_detail: str | None = None
 
 
 @dataclass(frozen=True)
 class ScreenCapture:
-    """A retained screenshot, or the named reason there is none."""
+    """A retained screenshot, or the named reason there is none.
+
+    `degraded_detail` names why a retained image cannot be trusted, with the
+    window bounds observed and the recovery.
+    """
 
     path: Path | None
     error_code: str | None = None
     diagnostics: dict[str, Any] = field(default_factory=dict)
+    degraded_detail: str | None = None
 
 
 def capture_terminal_app_region(
@@ -114,26 +125,58 @@ def capture_terminal_app_region(
         remote,
     ]
     diagnostics["command"] = shlex.join(capture_argv) + " && " + shlex.join(crop_argv)
+    gate = remote + ".gate"
+    clearance: list[Clearance] = []
+
+    def clear_then_release(capture_window_id: int) -> None:
+        try:
+            clearance.append(
+                clear_capture_window(
+                    run,
+                    capture_window_id=capture_window_id,
+                    app_window_id=window_id,
+                    frame=frame,
+                )
+            )
+        finally:
+            run(f"/usr/bin/touch {shlex.quote(gate)}", timeout=10)
+
     # The capture runs inside Terminal.app so macOS applies Terminal's Screen
     # Recording grant, and through the command runner so its exit code and
-    # stderr survive as evidence. The helper window is laid out clear of the
-    # captured rectangle, and the settle delay lets the window server finish
-    # compositing that placement.
-    result = run_terminal_app_command(
-        run,
-        argv=[
-            "/bin/sh",
-            "-c",
-            f"/bin/sleep {_CAPTURE_SETTLE_SECONDS}; "
-            + shlex.join(capture_argv)
-            + " && "
-            + shlex.join(crop_argv)
-            + " >/dev/null",
-        ],
-        timeout=_CAPTURE_TIMEOUT_SECONDS,
-        bounds=layout.helper,
+    # stderr survive as evidence. Its window opens at the helper bounds, and
+    # the command then holds at the gate until both windows' bounds have been
+    # read back and the helper cleared off the captured window; the settle
+    # delay lets the window server finish compositing that placement.
+    held = (
+        f"i=0; while [ ! -e {shlex.quote(gate)} ]; do i=$((i+1)); "
+        f"if [ $i -gt {_GATE_POLLS} ]; then "
+        f"echo {CAPTURE_GATE_NOT_RELEASED} >&2; exit 1; fi; /bin/sleep 0.1; done; "
     )
-    run(f"rm -f {shlex.quote(whole_display)}", timeout=10)
+    try:
+        result = run_terminal_app_command(
+            run,
+            argv=[
+                "/bin/sh",
+                "-c",
+                held
+                + f"/bin/sleep {_CAPTURE_SETTLE_SECONDS}; "
+                + shlex.join(capture_argv)
+                + " && "
+                + shlex.join(crop_argv)
+                + " >/dev/null",
+            ],
+            timeout=_CAPTURE_TIMEOUT_SECONDS + _GATE_POLLS // 10,
+            bounds=layout.helper,
+            on_window_open=clear_then_release,
+        )
+    finally:
+        run(f"rm -f {shlex.quote(whole_display)} {shlex.quote(gate)}", timeout=10)
+    degraded = clearance[0] if clearance else None
+    if degraded is not None:
+        diagnostics["capture_window_clearance"] = {
+            "degraded_reason": degraded.degraded_reason,
+            **degraded.evidence,
+        }
     diagnostics["exit_code"] = result.returncode
     diagnostics["stderr"] = (result.stderr or "").strip()[:_STDERR_EVIDENCE_LIMIT]
     if result.returncode:
@@ -154,7 +197,12 @@ def capture_terminal_app_region(
             diagnostics,
             TERMINAL_SCREEN_CAPTURE_FAILED_ERROR_CODE,
         )
-    return RegionCapture(encoded.stdout, diagnostics, None)
+    return RegionCapture(
+        encoded.stdout,
+        diagnostics,
+        None,
+        degraded.detail if degraded is not None else None,
+    )
 
 
 def capture_terminal_app_screen(
@@ -190,10 +238,11 @@ def capture_terminal_app_screen(
         run(f"rm -f {shlex.quote(remote)}", timeout=10)
     path = evidence_root / f"{key}.png"
     path.write_bytes(payload)
-    return ScreenCapture(path, None, capture.diagnostics)
+    return ScreenCapture(path, None, capture.diagnostics, capture.degraded_detail)
 
 
 __all__ = [
+    "CAPTURE_GATE_NOT_RELEASED",
     "RegionCapture",
     "ScreenCapture",
     "capture_terminal_app_region",

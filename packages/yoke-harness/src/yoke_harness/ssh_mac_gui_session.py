@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import shlex
 import subprocess
 import time
-from typing import Sequence
+from typing import Callable, Sequence
 from uuid import uuid4
 
 from yoke_harness.ssh_mac_process_tree import ProcessTreeStop, stop_process_tree
@@ -208,6 +208,7 @@ def _drive_window(
     window: _GuiWindow,
     timeout: int,
     bounds: tuple[int, int, int, int] | None,
+    on_window_open: Callable[[int], None] | None,
 ) -> subprocess.CompletedProcess[str]:
     stdout_path, stderr_path = window.paths[:2]
     launch = open_terminal_app_window(run, command=wrapped, bounds=bounds)
@@ -218,6 +219,8 @@ def _drive_window(
             detail=f"Terminal.app launch failed (osascript exit {launch.returncode}): "
             f"{launch.stderr or launch.stdout or 'no window id returned'}",
         )
+    if on_window_open is not None:
+        on_window_open(window.window_id)
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         status = run(
@@ -265,8 +268,14 @@ def run_terminal_app_command(
     argv: Sequence[str],
     timeout: int = 60,
     bounds: tuple[int, int, int, int] | None = None,
+    on_window_open: Callable[[int], None] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """Execute argv through Terminal.app, preserving empty option values."""
+    """Execute argv through Terminal.app, preserving empty option values.
+
+    *on_window_open* receives the new window's id before the wait for the
+    command begins, for a command that holds its work until the caller has
+    checked where the window landed.
+    """
     normalized = tuple(str(value) for value in argv)
     if not normalized or not normalized[0]:
         raise ValueError("GUI-session command requires a non-empty executable")
@@ -304,6 +313,7 @@ def run_terminal_app_command(
             window=window,
             timeout=timeout,
             bounds=bounds,
+            on_window_open=on_window_open,
         )
     finally:
         # Closing first kills the wrapper shell, which would otherwise write

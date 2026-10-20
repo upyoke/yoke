@@ -19,6 +19,9 @@ SECURE_KEYBOARD_ENTRY_COMMAND = "/usr/bin/defaults read com.apple.Terminal"
 #: The visible-window count and the force-close script.
 VISIBLE_WINDOW_COUNT_MARKER = "every window whose visible is true"
 WINDOW_CLOSE_MARKER = "set ttyPaths to tty of every tab"
+#: The capture-window clearance read-back and minimize scripts.
+WINDOW_STATE_MARKER = "set observedState to (miniaturized of targetWindow)"
+MINIMIZE_MARKER = "to true"
 REACHABILITY_PROBES = {
     "system_events": 'tell application "System Events" to count processes',
     "terminal": 'tell application "Terminal" to count windows',
@@ -69,6 +72,9 @@ class ScriptedMacHost:
         self.window_ids: list[int] = []
         self.requested_bounds: list[tuple[int, int, int, int]] = []
         self.placed_bounds: list[tuple[int, int, int, int]] = []
+        #: Each window's current bounds and minimized state, as read back.
+        self.window_bounds: dict[int, tuple[int, int, int, int]] = {}
+        self.minimized: set[int] = set()
         self._next_window_id = first_window_id
         self._placement_attempts: dict[int, int] = {}
         self._pending_frame_probe = False
@@ -126,9 +132,17 @@ class ScriptedMacHost:
             self._next_window_id += 1
             self.window_ids.append(self._next_window_id)
             self._pending_frame_probe = DISPLAY_FRAME_PROBE_MARKER in command
-            return str(self._next_window_id)
+            if "set bounds of targetWindow to {" not in command:
+                return str(self._next_window_id)
+            placed = self._place(command, self._next_window_id)
+            return f"{self._next_window_id}|{placed}"
         if "set bounds of targetWindow to {" in command:
             return self._place(command)
+        if WINDOW_STATE_MARKER in command:
+            return self._window_state(command)
+        if "set miniaturized of window id" in command and MINIMIZE_MARKER in command:
+            self.minimized.add(_window_id_after(command, "window id "))
+            return ""
         if command.startswith("if /bin/test -f "):
             return (
                 "0\n"
@@ -185,10 +199,20 @@ class ScriptedMacHost:
             return _encode("execution error: no display is attached")
         return ""
 
-    def _place(self, command: str) -> str:
-        window_id = int(
-            command.split("set targetWindow to window id ")[1].split("\n")[0].strip()
-        )
+    def window_state(self, window_id: int) -> str | None:
+        """Report `minimized|l,t,r,b` for one window; override to fail reads."""
+        bounds = self.window_bounds.get(window_id)
+        if bounds is None:
+            return None
+        state = "true" if window_id in self.minimized else "false"
+        return f"{state}|" + ",".join(str(value) for value in bounds)
+
+    def _window_state(self, command: str) -> str:
+        return self.window_state(_window_id_after(command, "exists window id ")) or ""
+
+    def _place(self, command: str, window_id: int | None = None) -> str:
+        if window_id is None:
+            window_id = _window_id_after(command, "set targetWindow to window id ")
         raw = command.split("set bounds of targetWindow to {")[1].split("}")[0]
         requested = tuple(int(part.strip()) for part in raw.split(","))
         self.requested_bounds.append(requested)  # type: ignore[arg-type]
@@ -196,6 +220,8 @@ class ScriptedMacHost:
         self._placement_attempts[window_id] = attempt + 1
         placed = self.place(requested, attempt)  # type: ignore[arg-type]
         self.placed_bounds.append(placed)
+        self.window_bounds[window_id] = placed
+        self.minimized.discard(window_id)
         return ",".join(str(value) for value in placed)
 
     # --- assertions helpers ----------------------------------------------
@@ -212,6 +238,11 @@ class ScriptedMacHost:
         return rectangles
 
 
+def _window_id_after(command: str, marker: str) -> int:
+    digits = command.split(marker)[1]
+    return int("".join(c for c in digits.split()[0] if c.isdigit()))
+
+
 def _encode(value: str) -> str:
     return base64.b64encode(value.encode()).decode()
 
@@ -225,4 +256,5 @@ __all__ = [
     "ScriptedMacHost",
     "VISIBLE_WINDOW_COUNT_MARKER",
     "WINDOW_CLOSE_MARKER",
+    "WINDOW_STATE_MARKER",
 ]

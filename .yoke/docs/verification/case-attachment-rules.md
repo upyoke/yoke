@@ -80,6 +80,16 @@ PLAN_SLUG` and `yoke qa plan rematerialize`. A requirement materialized before
 this check refuses `machine_qa_recipe_invalid` before its starting-state
 reset, so the host is never touched.
 
+On macOS a `terminal-inspection` capture is issued from its own Terminal
+window. That window is placed before its command starts, and the capture waits
+until the capture and app windows' bounds are read back; an overlap is moved
+clear, then minimized. If the overlap persists or the bounds cannot be read,
+the image is kept and the run records `capture_degraded_reason` naming
+`terminal_capture_window_overlaps_app` or
+`terminal_capture_window_bounds_unreadable`, with both bounds and the recovery.
+Judge that checkpoint from its transcript, and read the step's
+`screenshot_diagnostics.capture_window_clearance` for the observed bounds.
+
 
 A named-baseline or as-is case opens a chain; the inheriting cases behind it
 extend it. `yoke qa plan run` runs every case at one baseline position before
