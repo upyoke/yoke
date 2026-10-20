@@ -58,21 +58,21 @@ QA_COMMANDS: list[dict] = [
             "yoke qa requirement add "
             "--item PREFIX-N --qa-kind ac_verification --qa-phase verification "
             "--blocking-mode blocking --requirement-source ac_derived "
-            "--workflow-transition reviewed-implementation\n"
+            "--workflow-transition STAGE\n"
             "# Several rows in one transaction — every row must include "
             "`workflow_transition_id`:\n"
             "yoke qa requirement add-batch --item PREFIX-N --stdin\n"
-            "# Epic-task attachment (operator-debug; requires the item "
-            "binding):\n"
-            "python3 -m yoke_core.domain.qa requirement-add "
-            "--epic-id PREFIX-N --task-num K --workflow-transition STAGE ..."
+            "# Epic task: seed its blocking implementation-review case:\n"
+            "yoke workflow-item epic-task review-seed --epic PREFIX-N --task-num K"
         ),
         "notes": (
             "Registered write qa.requirement.add. With `--item` it is "
             "item-claim-gated and item-attached, and "
             "`--workflow-transition` is required and must "
             "name a stage in the item's pinned workflow that carries or "
-            "precedes a qa_verification gate. ac_verification omits "
+            "precedes a qa_verification gate; read STAGE from the stages of "
+            "`yoke workflows item get PREFIX-N --json` (Dash: "
+            "reviewing-implementation). ac_verification omits "
             "`--success-policy` "
             "by default; the accepted form is "
             "`all-pass`. Several rows in one "
@@ -90,10 +90,9 @@ QA_COMMANDS: list[dict] = [
             "target (`--deployment-stage` for frozen run/stage authority, "
             "or `--target-env`). Unbound existing member cases recover on "
             "`yoke qa case run --requirement-id N`; do not add-item onto a "
-            "frozen run and do not attach a plan. Epic-task attachment is "
-            "operator-debug only and requires the item binding: "
-            "`python3 -m yoke_core.domain.qa requirement-add "
-            "--epic-id PREFIX-N --task-num K --workflow-transition STAGE ...`. "
+            "frozen run and do not attach a plan. An epic task's verification "
+            "case is its implementation review: `yoke workflow-item epic-task "
+            "review-seed --epic PREFIX-N --task-num K` seeds it idempotently. "
             "Wrong guesses: that a release case needs a plan to be "
             "visible, and that deployment-run attachment is operator-debug "
             "only."
@@ -105,10 +104,11 @@ QA_COMMANDS: list[dict] = [
         "purpose": "Materialize attached QA plan cases for a transition",
         "recipe": (
             "yoke qa plan materialize --item PREFIX-N "
-            "--transition reviewed-implementation"
+            "--transition STAGE"
         ),
         "notes": (
-            "Registered write qa.plan.materialize. Materialization is "
+            "Registered write qa.plan.materialize; STAGE is the attachment's "
+            "pinned-workflow stage. Materialization is "
             "idempotent and snapshots each attached plan case into one "
             "qa_requirements row carrying method_id, instructions, "
             "expected_outcome, method_config snapshot, and the plan's "
@@ -116,7 +116,7 @@ QA_COMMANDS: list[dict] = [
             "result with `yoke qa requirement list --item PREFIX-N`; "
             "standard materialization never rewrites an existing case snapshot. "
             "For a corrected definition, run `yoke qa plan rematerialize "
-            "--item PREFIX-N --transition reviewed-implementation`; it refreshes "
+            "--item PREFIX-N --transition STAGE`; it refreshes "
             "matching requirements without losing runs, adds new cases, and waives "
             "removed cases. On a workflow whose QA policy is optional item "
             "attachment (Dash), premerge attach and materialize accept only the "
@@ -283,16 +283,16 @@ QA_COMMANDS: list[dict] = [
     {
         "startup_roles": (),
         "topic": "qa",
-        "purpose": "Preview the reviewed-implementation gate verdict",
+        "purpose": "Preview the verification gate verdict",
         "recipe": (
             "yoke qa gate-summary --item PREFIX-N --target reviewed-implementation"
         ),
         "notes": (
-            "Registered read qa.gate_summary.run. Use --item for a standalone "
-            "issue, or --epic-id PREFIX-N --task-num K for an epic task. The summary "
-            "is diagnostic only — even with passing tests, move the item with "
-            "`yoke lifecycle transition PREFIX-N --to reviewed-implementation` "
-            "(never raw items update), which evaluates the gate."
+            "Registered read qa.gate_summary.run; `--target` names a gate, not "
+            "a stage. Use --item, or --epic PREFIX-N --task-num K for an epic "
+            "task. Diagnostic only — move the item with `yoke lifecycle "
+            "transition PREFIX-N --from LIVE_STAGE --to STAGE` (STAGE: the next "
+            "pinned-workflow stage; never raw items update), which evaluates the gate."
         ),
     },
     {
@@ -307,10 +307,10 @@ QA_COMMANDS: list[dict] = [
             "Registered read qa.gate_summary.run (works over https — "
             "replaces the checkout-shaped db_router gate-summary "
             "agent leg). Diagnostic only — never mutates "
-            "qa_runs/qa_requirements. Run before a transition into "
-            "reviewed-implementation or implemented to see which "
-            "blocking requirements still need passing runs. Use "
-            "--epic-id PREFIX-N --task-num K for epic tasks; the bare call "
+            "qa_runs/qa_requirements. Run before a transition through the "
+            "verification (reviewed-implementation) or implemented gate to see "
+            "which blocking requirements still need passing runs. Use "
+            "--epic PREFIX-N --task-num K for epic tasks; the bare call "
             "prints the summary JSON."
         ),
     },

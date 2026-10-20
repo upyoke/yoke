@@ -108,9 +108,8 @@ method case still missing its target refuses `freeze_run_composition` (run
 start → executing) with `yoke qa requirement update --requirement-id N
 --field target_env --value <environment>`.
 
-Epic-task attachment remains operator-debug only, through
-`python3 -m yoke_core.domain.qa requirement-add --epic PREFIX-N --task-num K
---workflow-transition STAGE ...`.
+An epic task's case is its implementation review: seed it with
+`yoke workflow-item epic-task review-seed --epic PREFIX-N --task-num K`.
 
 ## Naming where a case runs
 

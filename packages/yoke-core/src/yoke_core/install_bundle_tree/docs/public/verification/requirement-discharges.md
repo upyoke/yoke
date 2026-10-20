@@ -97,7 +97,7 @@ yoke qa requirement add --item PREFIX-N --target-env {ENVIRONMENT} --method-id {
 yoke qa requirement supersede --requirement-id {SOURCE_ID} --superseded-by-requirement-id {CORRECTED_ID} --rationale "corrected source definition"
 ```
 
-Declare the corrected body through requirement-add's --help contract for the
+Declare the corrected body through `yoke qa requirement add --help` for the
 same item/transition/phase/resolved environment; snapshot digest may differ.
 Neither source executes. While a run the item still belongs to holds an
 admitted source copy, require one replaced or superseded through a chain whose

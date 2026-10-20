@@ -30,7 +30,7 @@ _REQUIRED_ADD_RECIPE = (
     "yoke qa requirement add --item PREFIX-N "
     "--qa-kind ac_verification --qa-phase verification "
     "--blocking-mode blocking --requirement-source ac_derived "
-    "--workflow-transition reviewed-implementation"
+    "--workflow-transition STAGE"
 )
 
 
@@ -45,7 +45,7 @@ def test_runner_packet_creation_recipes_are_transition_bound(
     assert _REQUIRED_ADD_RECIPE in body
     assert "every row must include `workflow_transition_id`" in body
     assert (
-        "requirement-add --epic-id PREFIX-N --task-num K --workflow-transition STAGE"
+        "yoke workflow-item epic-task review-seed --epic PREFIX-N --task-num K"
     ) in body
 
 
