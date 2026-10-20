@@ -164,14 +164,52 @@ def test_live_execution_keeps_its_roster(test_db) -> None:
     assert _ids(resumed) == _ids(live)
 
 
-def test_every_case_passed_keeps_the_whole_roster(test_db) -> None:
+def test_nothing_owed_refuses_and_names_the_stage_blocker(test_db) -> None:
+    import pytest
+
+    from yoke_core.domain.qa_plan_nothing_owed import QaPlanNothingOwed
+
     _seed(test_db)
     aborted = _begin(test_db)
     for ordinal in range(3):
         _pass(test_db, aborted, ordinal)
     _abort(test_db, aborted)
+    test_db.commit()
+    count = "SELECT COUNT(*) FROM qa_plan_executions"
+    before = test_db.execute(count).fetchone()[0]
 
-    assert _ids(_begin(test_db)) == _ids(aborted)
+    with pytest.raises(QaPlanNothingOwed) as refused:
+        _begin(test_db)
+
+    test_db.rollback()
+    assert "qa_plan_nothing_owed: nothing owed" in str(refused.value)
+    assert "re-drive the deployment run" in str(refused.value)
+    assert test_db.execute(count).fetchone()[0] == before
+
+
+def test_passes_across_stopped_walks_settle_the_stage_without_a_replay(
+    test_db,
+) -> None:
+    from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
+
+    _seed(test_db)
+    first = _begin(test_db)
+    _pass(test_db, first, 0)
+    _abort(test_db, first)
+    second = _begin(test_db)
+    _pass(test_db, second, 0)
+    _pass(test_db, second, 1)
+    _abort(test_db, second)
+
+    status = deployment_qa_stage_status(
+        test_db, run_id=RUN, stage_name="item-qa", member_item_id=MEMBER
+    )
+
+    assert status["accepted"], status["reasons"]
+    completed = test_db.execute(
+        "SELECT COUNT(*) FROM qa_plan_executions WHERE state='completed'"
+    ).fetchone()[0]
+    assert completed == 0
 
 
 def test_multi_host_rerun_after_abort_moves_to_the_next_host(

@@ -12,8 +12,10 @@ stays while a later case of its chain still owes a verdict, so the chain
 still runs from its opener.
 
 A live execution keeps its own immutable roster. When every case already
-passed, the roster stays whole: stage acceptance needs a completed scoped
-execution, and an empty roster has no target to run against.
+passed, nothing is owed: the run refuses with ``qa_plan_nothing_owed`` and
+names the stage's real blockers instead of replaying the roster, because
+stage acceptance anchors on the newest stopped execution once every case
+passed.
 """
 
 from __future__ import annotations
@@ -100,7 +102,16 @@ def run_target_partition(
         passed -= {int(row["requirement_id"]) for row in live["roster"]}
     passed = settled_chain_tails(roster, passed)
     open_rows = [row for row in roster if int(row["requirement_id"]) not in passed]
-    if len(open_rows) == len(roster) or not open_rows:
+    if not open_rows:
+        from yoke_core.domain.qa_plan_nothing_owed import nothing_owed
+
+        raise nothing_owed(
+            conn,
+            roster_size=len(roster),
+            deployment_run_id=deployment_run_id,
+            deployment_stage=deployment_stage,
+        )
+    if len(open_rows) == len(roster):
         return roster
     return [{**row, "ordinal": index} for index, row in enumerate(open_rows)]
 

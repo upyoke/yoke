@@ -28,6 +28,7 @@ from yoke_core.domain.deployment_qa_acceptance_reads import (
     acceptance_waived,
     completed_execution,
     existing_acceptance_requirement,
+    stopped_case_execution,
 )
 
 
@@ -67,7 +68,7 @@ def unsettled_acceptance_blocker(*, execution_id: object, digest: str) -> str:
     return compose_refusal(
         "stage acceptance was never settled against this deployment target",
         evaluated=(
-            f"completed scoped execution {execution_id} matches digest "
+            f"settling scoped execution {execution_id} matches digest "
             f"{digest}; no case failed"
         ),
         recovery=(
@@ -126,6 +127,10 @@ def stage_acceptance(
     creates one, because creating it is the active stage's job and a missing
     one means the stage was never settled at all.
 
+    Every case passing on the target without a completed execution settles
+    against the newest stopped execution that recorded those passes, so no
+    one has to replay a passed roster to obtain a completed one.
+
     One walk answers both shapes a caller needs. A gate wants the sentences,
     a card wants the word, and deriving either from the other -- by matching
     on blocker text, or by walking the ladder twice -- is how the two
@@ -174,6 +179,14 @@ def stage_acceptance(
             return StageAcceptance(STAGE_DISCHARGED, ())
         if member_post_deploy_answer(conn, subject).discharges_without_cases:
             return StageAcceptance(STAGE_DISCHARGED, ())
+        execution = None if failures else stopped_case_execution(
+            conn,
+            run_id=run_id,
+            stage_name=stage_name,
+            member_item_id=member_item_id,
+            execution_target_digest=digest,
+        )
+    if execution is None:
         state, reason = missing_execution_blocker(
             conn, run_id, stage_name, member_item_id, digest
         )

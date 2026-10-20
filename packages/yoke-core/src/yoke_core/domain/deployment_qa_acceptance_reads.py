@@ -190,6 +190,36 @@ def completed_execution(
     return select_plan_execution(conn, str(execution_id), lock=False)
 
 
+def stopped_case_execution(
+    conn: Any,
+    *,
+    run_id: str,
+    stage_name: str,
+    member_item_id: int | None,
+    execution_target_digest: str,
+) -> dict[str, Any] | None:
+    """The newest aborted or errored execution on this exact target.
+
+    Callers read it only once every case already passed on the target: the
+    passes may come from several stopped walks, and replaying the roster to
+    obtain a completed one would prove nothing new.
+    """
+    from yoke_core.domain.qa_plan_execution_store import select_plan_execution
+
+    row = conn.execute(
+        "SELECT id FROM qa_plan_executions WHERE deployment_run_id=%s "
+        "AND deployment_stage=%s "
+        "AND COALESCE(deployment_member_item_id,0)=%s "
+        "AND execution_target_digest=%s AND state IN ('aborted','error') "
+        "ORDER BY created_at DESC,id DESC LIMIT 1",
+        (run_id, stage_name, member_item_id or 0, execution_target_digest),
+    ).fetchone()
+    if row is None:
+        return None
+    execution_id = row["id"] if hasattr(row, "keys") else row[0]
+    return select_plan_execution(conn, str(execution_id), lock=False)
+
+
 def existing_acceptance_requirement(
     conn: Any,
     *,

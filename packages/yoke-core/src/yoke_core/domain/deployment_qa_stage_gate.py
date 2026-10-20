@@ -12,6 +12,7 @@ from yoke_core.domain.deployment_qa_stage_acceptance import (
     completed_execution,
     missing_execution_blocker,
 )
+from yoke_core.domain.deployment_qa_acceptance_reads import stopped_case_execution
 from yoke_core.domain.deployment_qa_case_failure_kinds import failure_reasons
 from yoke_core.domain.deployment_qa_stage_case_failures import (
     case_failures,
@@ -231,6 +232,15 @@ def _settle_reads(
             if member_answer.verdict == NOT_REQUIRED:
                 result["reasons"] = list(member_answer.reasons)
             return result
+        # Every case passed across stopped walks: settle on the newest one.
+        execution = None if reasons else stopped_case_execution(
+            conn,
+            run_id=run_id,
+            stage_name=stage_name,
+            member_item_id=member_item_id,
+            execution_target_digest=current_target_digest,
+        )
+    if execution is None:
         _state, missing = missing_execution_blocker(
             conn, run_id, stage_name, member_item_id, current_target_digest
         )

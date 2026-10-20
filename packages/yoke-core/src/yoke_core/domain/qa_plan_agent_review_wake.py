@@ -138,8 +138,29 @@ def notify_stopped_capture_review(
     """Hand a stopped walk's pending review to its owner, else its waiters.
 
     Writes without committing, inside the caller's settlement transaction.
-    Returns one delivery result per notice (``""`` = nobody addressable).
+    Returns one delivery result per notice (``""`` = nobody addressable). A
+    refused send never blocks the stop: it prints a named line, and the stage
+    keeps naming the review in its own blocker.
     """
+    from yoke_core.domain.db_savepoint import savepoint
+    from yoke_core.domain.session_message_types import SessionMessageError
+
+    try:
+        with savepoint(conn, "_yoke_stopped_review_notice", owns=False):
+            return _notify_stopped(conn, execution, bundle_id=bundle_id)
+    except SessionMessageError as exc:
+        print(
+            f"stopped_review_unaddressed: execution {execution['id']} stopped "
+            f"as {execution['state']} with review bundle {bundle_id} pending; "
+            f"its notice was refused ({exc}). Run the stage's named "
+            "review-begin command, or staff a member who can."
+        )
+        return []
+
+
+def _notify_stopped(
+    conn: Any, execution: Mapping[str, Any], *, bundle_id: str
+) -> list[str]:
     from yoke_core.domain.qa_pending_agent_review import PendingAgentReview
     from yoke_core.domain.qa_pending_agent_review import review_scope_flag
 

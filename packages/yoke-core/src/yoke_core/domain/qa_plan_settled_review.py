@@ -99,7 +99,7 @@ def _persisted_verdicts(
     slots = ", ".join(placeholder for _ in requirement_ids)
     rows = conn.execute(
         "SELECT v.requirement_id, v.verdict, v.rationale, v.review_run_id, "
-        "b.execution_id FROM qa_plan_review_verdicts v "
+        "b.execution_id, v.capture_run_id FROM qa_plan_review_verdicts v "
         "JOIN qa_plan_review_bundles b ON b.id=v.bundle_id "
         "JOIN qa_plan_executions e ON e.id=b.execution_id "
         f"WHERE b.state='completed' AND e.execution_target_digest={placeholder} "
@@ -107,6 +107,14 @@ def _persisted_verdicts(
         "ORDER BY v.created_at DESC, v.requirement_id",
         (digest, *subject_params, *requirement_ids),
     ).fetchall()
+    from yoke_core.domain.qa_latest_execution import latest_executions
+
+    # A batch verdict settles a requirement only while it judges the newest
+    # capture: a later capture (a stopped walk's, say) reopens the question.
+    current = {
+        requirement_id: int(row["id"])
+        for requirement_id, row in latest_executions(conn, requirement_ids).items()
+    }
     newest_execution_id = None
     newest: set[int] = set()
     verdicts: dict[int, dict[str, Any]] = {}
@@ -116,6 +124,9 @@ def _persisted_verdicts(
             continue
         newest.add(requirement_id)
         if str(_value(row, "verdict", 1)) != "pass":
+            continue
+        judged = {int(_value(row, "review_run_id", 3)), int(_value(row, "capture_run_id", 5))}
+        if current.get(requirement_id) not in judged:
             continue
         if newest_execution_id is None:
             newest_execution_id = str(_value(row, "execution_id", 4))
@@ -140,15 +151,38 @@ def open_unsettled_roster(
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
     """Drop requirements whose newest recorded verdict is a pass.
 
+    Requirements a stopped walk's pending review owns drop out too; when
+    nothing else remains the run refuses with ``qa_plan_nothing_owed``.
+
     When nothing remains, return the settled execution carrying those
     verdicts so the runner reprints them. Otherwise return the roster still
     eligible to capture, including failed or undetermined requirements.
     """
     if not roster or not _review_tables(conn):
         return None, roster
+    from yoke_core.domain.qa_pending_agent_review import stopped_review_requirements
     from yoke_core.domain.qa_plan_execution_target_snapshot import (
         execution_target_for_roster,
     )
+
+    held = stopped_review_requirements(
+        conn, [int(row["requirement_id"]) for row in roster]
+    )
+    if held:
+        # A stopped walk's pending review owns these verdicts; recapturing
+        # them would race that review.
+        kept = [row for row in roster if int(row["requirement_id"]) not in held]
+        if not kept:
+            from yoke_core.domain.qa_plan_nothing_owed import nothing_owed
+
+            raise nothing_owed(
+                conn,
+                roster_size=len(roster),
+                deployment_run_id=deployment_run_id,
+                deployment_stage=deployment_stage,
+                held=held,
+            )
+        roster = [{**row, "ordinal": index} for index, row in enumerate(kept)]
 
     _target, digest = execution_target_for_roster(roster)
     if not digest:

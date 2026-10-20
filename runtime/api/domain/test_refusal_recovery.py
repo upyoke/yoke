@@ -40,7 +40,7 @@ def test_unsettled_acceptance_names_matched_execution_and_re_drive() -> None:
         execution_id="exec-1", digest="abc123"
     )
     assert "never settled against this deployment target" in text
-    assert "completed scoped execution exec-1 matches digest abc123" in text
+    assert "settling scoped execution exec-1 matches digest abc123" in text
     assert "no case failed" in text
     assert "re-drive the deployment run" in text
     assert "no member or worker action" in text

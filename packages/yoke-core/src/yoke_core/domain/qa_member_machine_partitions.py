@@ -164,7 +164,15 @@ def member_machine_partition(
         row = history[0]
         execution_id = str(row["id"] if hasattr(row, "keys") else row[0])
         return [], 0, select_plan_execution(conn, execution_id, lock=False)
-    pending = pending or roster
+    if not pending:
+        from yoke_core.domain.qa_plan_nothing_owed import nothing_owed
+
+        raise nothing_owed(
+            conn,
+            roster_size=len(roster),
+            deployment_run_id=deployment_run_id,
+            deployment_stage=deployment_stage,
+        )
     claimed = {host_group(row) for row in roster if int(row["requirement_id"]) in held}
     free = [row for row in pending if host_group(row) not in claimed]
     if held and not free:
