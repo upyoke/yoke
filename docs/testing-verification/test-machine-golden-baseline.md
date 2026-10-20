@@ -102,9 +102,13 @@ golden for this machine in that parent, and each one stays with its sidecars;
 only snapshots no project registers are deleted. A symlink is left in place.
 Capture seals each golden read-only and keeps macOS deny-delete ACLs, so
 removal first clears a snapshot's ACLs and makes its directories
-owner-writable.
+owner-writable. Sidecar files go before any snapshot folder, and each name is
+removed on its own: a name that fails is kept and the rest still go. A
+successful capture lists the removed names as `removed_snapshots`, and a
+refresh prints them.
 `golden_snapshot_retention_failed` means the new golden is already registered
-and the named leftovers are still there, with the host's own error; remove them, keep every project's
+and some leftovers are still there. Its reason lists the removed names and each
+kept name with why (`failed`, `symlink`), with the host's own error; remove them, keep every project's
 registered golden, and do not capture again until they are gone. When the
 server cannot name the other projects' goldens (`kept_golden_paths` absent or
 `kept_golden_paths_unknown` set), nothing is deleted and the refusal says why. Windows/WSL capture uses this same Linux archive, so the
@@ -129,7 +133,7 @@ read a release channel, reset, install, verify the installed version or
 capture stops the plan with `golden_refresh_*` and the step to repair, so no
 case runs on stale CLIs. Leftover old snapshots after a verified refresh
 capture do not stop the plan: it prints a `golden_snapshot_retention_failed`
-warning with the host's error and the cleanup, and continues, because the next
+warning with the removed and kept names, the host's error and the cleanup, and continues, because the next
 capture's space check still refuses a crowded disk. A server older than the `plan_execution_id` argument
 refuses with its floor; capture by hand with
 `yoke test-machine golden-capture` after updating the CLIs.
@@ -207,7 +211,11 @@ events), and the harness exit code. It never holds reply text, account output
 or a transcript. Cursor ask mode cannot disable tools. A Cursor `tool_call`
 whose payload is only a read, grep, list, or glob inspection does not reject
 when the final result is success and the reply is exactly OK. Write, shell,
-and any other tool call still reject. `tool_use` stays true on a rejection
+and any other tool call still reject. When such a tool call is the only fault
+of an exact OK reply, the standard Cursor probe runs once more inside the same
+110-second budget, so a rare call does not fail the capture or restore. A
+`tool_call` event type names its payload kind, such as
+`tool_call:shellToolCall`. `tool_use` stays true on a rejection
 record whenever a tool call was present. The failed probe row keeps the record, so an operator-run
 reset or verify returns it in its result. A QA run whose baseline rejected a
 reply stores each record as a `probe_reply_rejection` JSON artifact and names
