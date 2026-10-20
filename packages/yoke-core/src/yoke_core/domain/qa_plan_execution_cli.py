@@ -105,6 +105,13 @@ def _require_walker_dispatch_capability(
         raise QaPlanExecutionError(str(exc)) from exc
 
 
+def _qualify_walker_command(walker: dict, key: str, command: str, prefix: str) -> None:
+    """Route one walker command through the connection, in field and prompt."""
+    qualified = command.replace("yoke ", f"{prefix} ", 1)
+    walker[key] = qualified
+    walker["prompt"] = str(walker.get("prompt") or "").replace(command, qualified)
+
+
 def _qualify_review_dispatch(result: dict[str, Any]) -> None:
     bundle = result.get("review_bundle")
     if not isinstance(bundle, dict):
@@ -146,12 +153,13 @@ def _qualify_review_dispatch(result: dict[str, Any]) -> None:
             if not isinstance(command, str) or not command.startswith("yoke "):
                 label = key.replace("_", "-")
                 raise QaPlanExecutionError(f"QA mission walker lacks a typed {label}")
-            qualified = command.replace("yoke ", f"{prefix} ", 1)
-            walker[key] = qualified
-            walker["prompt"] = str(walker.get("prompt") or "").replace(
-                command,
-                qualified,
-            )
+            _qualify_walker_command(walker, key, command, prefix)
+        # Walk commands ride every current bundle; an older server's bundle
+        # without them keeps its prompt as composed.
+        for key in ("walk_start_command", "walk_end_command"):
+            command = walker.get(key)
+            if isinstance(command, str) and command.startswith("yoke "):
+                _qualify_walker_command(walker, key, command, prefix)
     submit = dispatch.get("submit_command")
     if not isinstance(submit, str) or not submit.startswith("yoke "):
         raise QaPlanExecutionError(

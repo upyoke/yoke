@@ -135,7 +135,9 @@ While parked, the execution retains and heartbeats its Test Machine lease. The
 returned dispatch has `dispatch_kind=main_agent_mission`. The main agent owns:
 
 - the item, work claim, Progress Log, and the human-request route;
-- dispatching each case's informed subagent walker;
+- dispatching each case's informed subagent walker with its
+  `walker_dispatches[].prompt` passed unchanged as the walker's instruction
+  (on a resumed walk, add only the Progress Log excerpt and resume state);
 - combining walker returns into the primary written report;
 - choosing and submitting the final verdict for every bundled case.
 

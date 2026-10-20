@@ -88,6 +88,8 @@ class AgentMissionAccessResponse(BaseModel):
     requirement_id: int
     execution: HostControlExecutionContract | None = None
     cleanup_lease: bool = False
+    #: The mission's capture run, which ``walk-end --run-id`` names.
+    run_id: int | None = None
 
 
 __all__ = [
