@@ -161,9 +161,9 @@ def release_claim_by_id(
     target = work_claim_target_from_row(dict(row))
     if target.machine_id:
         # A Test Machine release must advance the host's waiting line.
-        from .coordination_claims import release
+        from .qa_host_manual_release import release_host_claim
 
-        release(conn, claim_id, reason, canonical_reason=canonical_reason)
+        release_host_claim(conn, claim_id, reason, canonical_reason=canonical_reason)
         claim_row = _get_claim(conn, claim_id)
         if isinstance(claim_row, dict):
             claim_row["linked_path_claim_ids"] = []

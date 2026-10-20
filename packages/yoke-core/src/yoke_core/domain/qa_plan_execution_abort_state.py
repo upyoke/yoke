@@ -59,7 +59,14 @@ def owed_host_abort(conn, execution, *, reason):
     )
     runner = roster[ordinal].get("runner_id")
     if runner == "agent_mission" and request:
-        return request if execution.get("machine_lease_id") else None
+        from yoke_core.domain.agent_mission_restore import mission_restores_recorded
+
+        return (
+            request
+            if execution.get("machine_lease_id")
+            and not mission_restores_recorded(conn, execution)
+            else None
+        )
     if runner != "host_control":
         return None
     if host_cleanup_proven(conn, execution, ordinal):
