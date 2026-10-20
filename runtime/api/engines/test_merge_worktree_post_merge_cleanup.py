@@ -33,6 +33,7 @@ def _cleanup_ctx(tmp_path, monkeypatch):
     ctx.yoke_repo_root = str(tmp_path)
     ctx.item_id = "YOK-9999"
     ctx.epic_id = None
+    ctx.worktree_path = str(tmp_path / ".worktrees" / "YOK-9999")
     return ctx
 
 

@@ -183,3 +183,15 @@ def test_a_deletion_beside_new_work_is_still_preserved(lane):
 
     assert preserved and "notes.txt" in preserved[0]
     assert (path / "notes.txt").read_text(encoding="utf-8") == "keep\n"
+
+
+def test_an_empty_path_refuses_instead_of_removing_the_current_directory(
+    tmp_path, monkeypatch
+):
+    """``Path("")`` is the current directory; an unrecorded path removes nothing."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "keep.txt").write_text("kept\n")
+    result = remove_worktree(tmp_path, "")
+    assert result.removed is False
+    assert result.reason.startswith("worktree_path_missing:")
+    assert (tmp_path / "keep.txt").is_file()

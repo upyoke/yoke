@@ -57,6 +57,15 @@ def remove_worktree(
     repo_root: str | Path, worktree_path: str | Path
 ) -> WorktreeRemoval:
     """Retire one proved-disposable worktree through a tombstone."""
+    if not str(worktree_path).strip():
+        # ``Path("")`` is the current directory: removing it would retire
+        # whatever checkout the caller happens to be standing in.
+        return WorktreeRemoval(
+            False,
+            "worktree_path_missing: no lane path was recorded, so nothing was "
+            "removed; record it with `yoke item-worktrees path-record` and "
+            "rerun the merge",
+        )
     deferred = removal_deferral()
     if deferred:
         return WorktreeRemoval(False, deferred)
