@@ -64,6 +64,23 @@ def _delivery_item_ids(conn: Any, project_id: int, since) -> tuple[int, ...]:
     return tuple(sorted(found))
 
 
+def _require_member_landings_closed(conn: Any, run_id: str, item_ids) -> None:
+    """Refuse an open correction landing only for the run's current members.
+
+    A member removed from the run stays in the recorded snapshot and among
+    the project's delivery items, but this run no longer delivers it.
+    """
+    marker = _p(conn)
+    members = {
+        int(_cell(row, "item_id", 0))
+        for row in conn.execute(
+            f"SELECT item_id FROM deployment_run_items WHERE run_id={marker}",
+            (run_id,),
+        ).fetchall()
+    }
+    require_closed_landings(conn, members.intersection(int(i) for i in item_ids))
+
+
 def _basis_digest(basis: Mapping[str, Any]) -> str:
     payload = {
         "schema": int(basis.get("schema") or CANDIDATE_CONTAINMENT_SCHEMA),
@@ -95,12 +112,13 @@ def candidate_containment_basis(
         )
 
         snapshot = parse_candidate_containment(stored)
-        require_closed_landings(
+        _require_member_landings_closed(
             conn,
-            {
-                int(item["id"])
+            run_id,
+            [
+                item["id"]
                 for item in [*snapshot.get("items", []), *snapshot.get("answers", [])]
-            },
+            ],
         )
         return {"schema": CANDIDATE_CONTAINMENT_SCHEMA, "recorded_snapshot": snapshot}
     run = {
@@ -131,7 +149,7 @@ def candidate_containment_basis(
     projects: list[dict[str, Any]] = []
     for project_id in project_ids:
         item_ids = _delivery_item_ids(conn, project_id, anchor)
-        require_closed_landings(conn, item_ids)
+        _require_member_landings_closed(conn, run_id, item_ids)
         merges = recorded_merge_shas_for_items(conn, item_ids)
         items = [
             {
