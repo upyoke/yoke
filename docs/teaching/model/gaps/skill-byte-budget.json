@@ -1,9 +1,0 @@
-{
- "id": "skill-byte-budget",
- "title": "Hold skill bodies to a byte budget so cut text cannot grow back",
- "status": "observed",
- "text": "Skill bodies were cut to their routing, required commands, gates and stops, and the field-note directive now appears once in the /yoke router. No check yet fails a skill file that grows past its audited size; the authored-file byte budget that closes this gap is applied to skill files when it lands.",
- "position": 50,
- "owner": "Authored-file byte budget in yoke_core.domain.file_line_check",
- "sources": [".agents/skills/yoke/SKILL.md", "packages/yoke-core/src/yoke_core/domain/file_line_check.py"]
-}
