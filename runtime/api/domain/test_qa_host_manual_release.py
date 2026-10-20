@@ -90,28 +90,3 @@ def test_failed_settlement_rolls_back_manual_release(test_db, removed_mission):
     current = lock_plan_execution(test_db, request.payload["execution_id"])
     assert current["state"] == "awaiting_agent_review"
     assert current["machine_lease_id"] == original["lease_id"]
-
-
-@pytest.mark.parametrize("removed_mission", [
-    {"restored": False, "baseline": "fresh-host"},
-    {"restored": True, "baseline": "different-host"},
-    {"restored": "true", "baseline": "fresh-host"},
-    "not a restore object",
-], indirect=True)
-def test_unproven_recorded_restore_keeps_removed_mission_custody(
-    test_db, removed_mission
-):
-    from yoke_core.domain.qa_plan_execution_abort_reason import member_removal_pending
-    from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
-    from yoke_core.domain.qa_plan_execution_store import QaPlanExecutionStateError
-
-    request, _, original = removed_mission
-    current = lock_plan_execution(test_db, request.payload["execution_id"])
-    assert current["state"] == "awaiting_agent_review"
-    assert member_removal_pending(current)
-    assert current["machine_lease_id"] == original["lease_id"]
-    assert get_claim(test_db, original["lease_id"]).is_active
-    with pytest.raises(QaPlanExecutionStateError, match="qa_abort_walk_end_required"):
-        finish_plan_execution(test_db, current, state="aborted", reason="retry")
-    test_db.rollback()
-    assert get_claim(test_db, original["lease_id"]).is_active

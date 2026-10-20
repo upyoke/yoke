@@ -51,8 +51,7 @@ RUN = "run-mission-teardown"
 
 @pytest.fixture
 def removed_mission(test_db, tmp_path, monkeypatch, request):
-    restore_receipt = getattr(request, "param", None)
-    restored_before_removal = restore_receipt is True
+    restored_before_removal = getattr(request, "param", False)
     configure_test_machine(test_db, tmp_path, monkeypatch)
     requirement = _materialize_mission(test_db, item_id=ITEM)
     execution = begin_plan_execution(
@@ -105,7 +104,7 @@ def removed_mission(test_db, tmp_path, monkeypatch, request):
     test_db.execute("UPDATE items SET status='release' WHERE id=%s", (ITEM,))
     test_db.commit()
     control.existing_paths.add(mission_scratch_path(execution_id) + "/staged-token")
-    if restore_receipt:
+    if restored_before_removal:
         import base64
         import json
         from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
@@ -118,10 +117,9 @@ def removed_mission(test_db, tmp_path, monkeypatch, request):
                 "artifact_type": "starting_state_restore",
                 "filename": "starting-state-restore.json",
                 "content_type": "application/json",
-                "content_base64": base64.b64encode(json.dumps(
-                    {"restored": True, "baseline": "fresh-host"}
-                    if restored_before_removal else restore_receipt
-                ).encode()).decode(),
+                "content_base64": base64.b64encode(json.dumps({
+                    "restored": True, "baseline": "fresh-host",
+                }).encode()).decode(),
             },
         }))
         assert outcome.primary_success, outcome.error

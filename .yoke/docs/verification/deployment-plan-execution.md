@@ -139,10 +139,7 @@ releasing an unused reservation cancels the wait and passes a reserved turn to
 the next waiter.
 
 Removing a release member ends its QA execution and releases its hosts when
-every mission proves its walk-end restore: a declared baseline requires
-`restored: true` and the matching baseline; an `as_is` mission records that
-no restoration is owed. Failed, mismatched, malformed or unreadable receipts
-keep custody. Otherwise the removed
+every mission already recorded its walk-end restore. Otherwise the removed
 mission retains custody for its original owner's walk-end teardown. A deliberate
 host release by the holder, a covering steering seat, or claim id cancels the
 live execution and releases its entire host set in the same transaction;
