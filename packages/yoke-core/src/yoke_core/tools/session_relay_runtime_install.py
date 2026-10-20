@@ -13,6 +13,7 @@ import venv
 
 from yoke_cli.config.session_relay_instance import RELAY_STATE_DIR_ENV
 from yoke_harness.python_venv_dependencies import ensure_venv_support
+from yoke_core.tools.session_relay_release_retention import RELAY_RELEASE_LOCK_NAME
 from yoke_core.tools.session_relay_release import (
     PYTHON_ISOLATION_FLAG,
     RELAY_ACTIVE_RELEASE_NAME,
@@ -149,6 +150,7 @@ def _install_runtime_entrypoint(runtime: Path, *, state_dir: Path) -> None:
     target = runtime / "bin" / "yoke"
     source = RUNTIME_ENTRYPOINT_SOURCE.read_text(encoding="utf-8")
     source = source.replace("__YOKE_ACTIVE_RELEASE__", RELAY_ACTIVE_RELEASE_NAME)
+    source = source.replace("__YOKE_RELEASE_LOCK__", RELAY_RELEASE_LOCK_NAME)
     source = source.replace("__YOKE_RELAY_STATE_DIR_ENV__", RELAY_STATE_DIR_ENV)
     body = source[source.index("\n") :]
     content = f"#!{relay_runtime_python(state_dir)} {PYTHON_ISOLATION_FLAG}{body}"

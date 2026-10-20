@@ -7,13 +7,10 @@ from yoke_contracts.timestamps import iso8601_now
 from yoke_contracts.machine_config.directories import create_private_directory
 
 from collections.abc import Callable
-from contextlib import contextmanager
-import fcntl
 import os
 from pathlib import Path
 import shutil
 import subprocess
-from typing import Iterator
 import uuid
 
 from yoke_core.tools.distribution_channel import join_public_url
@@ -49,10 +46,12 @@ from yoke_core.tools.session_relay_runtime_install import (
 )
 from yoke_core.tools.session_relay_package_validate import relay_package_runnable_reason
 from yoke_core.tools import session_relay_local_install as local_install
-
+from yoke_core.tools.session_relay_release_retention import (
+    release_install_lock,
+    prune_relay_releases,
+)
 
 RELAY_RELEASES_DIR_NAME = "releases"
-RELAY_RELEASE_LOCK_NAME = "release-pin.lock"
 PRODUCT_REQUIREMENT = "yoke-core"
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
@@ -83,7 +82,7 @@ def pin_relay_release(
 
     try:
         create_private_directory(selected.state_dir)
-        with _release_lock(selected.state_dir):
+        with release_install_lock(selected.state_dir):
             runtime_python = ensure_relay_runtime(
                 selected.state_dir,
                 create_runtime=create_runtime,
@@ -93,6 +92,7 @@ def pin_relay_release(
             )
             if existing.package_ready and existing.pinned_release == release:
                 activate_relay_runtime(selected.state_dir)
+                prune_relay_releases(selected.state_dir)
                 _clear_failure(selected.state_dir)
                 return _status(selected, release, observed, index)
             _install_candidate(
@@ -106,6 +106,7 @@ def pin_relay_release(
                 runner=runner,
             )
             activate_relay_runtime(selected.state_dir)
+            prune_relay_releases(selected.state_dir)
             _clear_failure(selected.state_dir)
     except RelayReleaseError as exc:
         refusal = _with_recovery(selected, exc.code, str(exc))
@@ -197,6 +198,7 @@ def _install_candidate(
     token = uuid.uuid4().hex
     candidate = releases / token
     link = instance.state_dir / f".{RELAY_ACTIVE_RELEASE_NAME}-{token}"
+    previous = relay_active_release_path(instance.state_dir).resolve()
     activated = False
     try:
         create_venv(candidate)
@@ -259,6 +261,7 @@ def _install_candidate(
             candidate / RELAY_RELEASE_RECEIPT_NAME,
             {
                 "schema": 1,
+                "previous_release": str(previous) if previous.is_dir() else None,
                 "pinned_release": release,
                 "served_build": served_build,
                 "distribution_index": index,
@@ -276,16 +279,6 @@ def _install_candidate(
                 pass
             if candidate.exists():
                 shutil.rmtree(candidate, ignore_errors=True)
-
-
-@contextmanager
-def _release_lock(state_dir: Path) -> Iterator[None]:
-    with (state_dir / RELAY_RELEASE_LOCK_NAME).open("a", encoding="utf-8") as handle:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
 def _with_recovery(
