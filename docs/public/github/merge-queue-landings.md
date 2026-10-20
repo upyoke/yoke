@@ -84,10 +84,12 @@ superseded. Opening a never-armed attempt preserves the prior landed
 observation; closing that attempt unmerged leaves it available. Arming a new
 attempt starts a new observation episode. Leaving the queue clears the
 attempt's `enqueued_at`; the durable recovery record keeps the queue blocker
-and shared files. Release enrollment and containment refuse an open attempt
-with `item_landing_open`, naming its PR. Wait for the correction to merge or
-close, then refresh the candidate and retry release admission; the older
-landing cannot stand in for a correction still in flight.
+and shared files. Release enrollment and containment refuse a current run
+member's open attempt with `item_landing_open`, naming its PR. Wait for the
+correction to merge or close, then refresh the candidate and retry release
+admission; the older landing cannot stand in for a correction still in flight.
+A member removed with `yoke deployment-runs remove-item` no longer blocks the
+run: its open correction rides a later release.
 
 When a lane adds no content to its target, re-run `yoke merge item PREFIX-N`
 with `--result` and `--verification`. Close-out verifies the newest completed

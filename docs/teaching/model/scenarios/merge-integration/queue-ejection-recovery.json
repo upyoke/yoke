@@ -3,7 +3,7 @@
  "title": "Recover a queue ejection before release enrollment",
  "status": "observed",
  "trigger": "A queued PR is unmergeable in its train while it remains mergeable against the base, or an item has an open correction landing.",
- "need": "Read the snapshotted preceding PRs and shared files. Wait until those entries land or leave, then re-read base mergeability: rebase and re-verify a conflicting head; re-enqueue an unchanged mergeable head through the observer. The server record drives merge --wait and names read failures with recovery. Release admission and containment refuse an open correction PR until it lands or closes.",
+ "need": "Read the snapshotted preceding PRs and shared files. Wait until those entries land or leave, then re-read base mergeability: rebase and re-verify a conflicting head; re-enqueue an unchanged mergeable head through the observer. The server record drives merge --wait and names read failures with recovery. Release admission and containment refuse a current run member's open correction PR until it lands or closes; a member removed from the run never blocks it.",
  "sources": ["docs/public/github/merge-queue-landings.md", "runtime/api/domain/test_merge_queue_ejection_recovery.py", "runtime/api/domain/test_deployment_open_landing.py"],
  "topics": ["merging/landing", "merging/evidence/item-landing-record"]
 }
