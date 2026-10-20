@@ -34,6 +34,7 @@ def execute_terminal_recipe(
     terminal_size: tuple[int, int] | None = None,
     progress_callback: Callable[[], None] | None = None,
     allowed_operator_urls: tuple[str, ...] = (),
+    yoke_bin: str,
 ) -> HostActionResult:
     """Execute one already-validated campaign recipe and return raw evidence."""
     staged_ok, staged, staged_secrets = stage_recipe_files(
@@ -74,6 +75,7 @@ def execute_terminal_recipe(
                 terminal_size=terminal_size,
                 progress_callback=progress_callback,
                 allowed_operator_urls=allowed_operator_urls,
+                yoke_bin=yoke_bin,
             )
         else:
             from yoke_core.domain.ssh_mac_terminal_recipe import (
@@ -91,6 +93,7 @@ def execute_terminal_recipe(
                 terminal_size=terminal_size,
                 progress_callback=progress_callback,
                 allowed_operator_urls=allowed_operator_urls,
+                yoke_bin=yoke_bin,
             )
     except Exception as error:
         if communication_unknown(error):

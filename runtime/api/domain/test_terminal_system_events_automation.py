@@ -64,6 +64,7 @@ def test_terminal_case_refuses_before_opening_its_window(
 
     result = execute_terminal_recipe(
         host,
+        yoke_bin="yoke",
         upload_bytes=lambda *_args, **_kwargs: True,
         entry_surface="yoke setup",
         required_completion="done",

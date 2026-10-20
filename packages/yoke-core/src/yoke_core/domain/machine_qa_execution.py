@@ -21,6 +21,9 @@ from yoke_core.domain.host_control_runner import (
     TestMachineMaterial,
     resolve_contract_host_control,
 )
+from yoke_core.domain.machine_qa_fixture_validation_admission import (
+    admission_operator_urls,
+)
 from yoke_core.domain.machine_qa_method_contracts import (
     MACHINE_METHODS,
     MachineQaExecutionError,
@@ -144,7 +147,10 @@ class MachineQaLease:
                     required_completion=str(required_completion),
                     config=config,
                     progress_callback=self.progress_callback,
-                    allowed_operator_urls=self.allowed_operator_urls,
+                    allowed_operator_urls=(
+                        *self.allowed_operator_urls,
+                        *admission_operator_urls(config),
+                    ),
                 )
             else:
                 raw = self.control.run_terminal_case(

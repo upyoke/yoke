@@ -116,6 +116,7 @@ class SshMacHostControl(SshMacTransport):
             terminal_size=terminal_size,
             progress_callback=progress_callback,
             allowed_operator_urls=tuple(allowed_operator_urls),
+            yoke_bin=self.path_state.yoke_bin,
         )
 
 

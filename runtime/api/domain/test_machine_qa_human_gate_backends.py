@@ -1,4 +1,4 @@
-"""The human gate through both macOS terminal backends and Linux."""
+"""Operator gates through both macOS terminal backends and Linux."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from yoke_harness import ssh_linux_browser_approval
 SCREEN = "Match code: K7F2\nMachine connected.\n"
 
 
-def _config(mode: str, purpose: str = "machine_approval") -> dict:
+def _config(mode: str, purpose: str = "password_entry") -> dict:
     config = recipe(mode=mode)
     config["post_checks"] = []
     config["expected_text"] = ["Machine connected."]
@@ -40,9 +40,9 @@ def _config(mode: str, purpose: str = "machine_approval") -> dict:
 
 def _assert_human_step(step: dict, location: str) -> None:
     assert step["key"] == "person-acts"
-    assert step["human_action"]["self_approving"] is False
-    assert step["human_action"]["human_purpose"] == "machine_approval"
-    assert location in step["human_action"]["terminal_location"]
+    assert step["gate_evidence"]["self_approving"] is False
+    assert step["gate_evidence"]["human_purpose"] == "password_entry"
+    assert location in step["gate_evidence"]["terminal_location"]
 
 
 def test_tmux_backend_waits_without_sending_keys(
@@ -74,6 +74,7 @@ def test_tmux_backend_waits_without_sending_keys(
 
     result = ssh_mac_terminal_recipe._run_interactive_recipe(
         lambda command, **_kw: completed(command),
+        yoke_bin="yoke",
         entry_surface="yoke setup",
         required_completion="person-acts",
         config=_config("terminal-multiplexer"),
@@ -116,6 +117,7 @@ def test_terminal_app_backend_waits_without_sending_keys(
 
     result = execute_terminal_recipe(
         host,
+        yoke_bin="yoke",
         upload_bytes=lambda _path, _content: True,
         entry_surface="yoke setup",
         required_completion="person-acts",
@@ -161,8 +163,11 @@ def _linux(monkeypatch: pytest.MonkeyPatch, events: list) -> SimpleNamespace:
     )
     return SimpleNamespace(
         secret_values=(),
+        path_state=SimpleNamespace(yoke_bin="/home/qa/.local/bin/yoke"),
         _upload_bytes=lambda *a: True,
-        _run=lambda *a, **kw: None,
+        _run=lambda command, **kw: (
+            events.append(("run", command)) or completed(command)
+        ),
     )
 
 
@@ -183,32 +188,43 @@ def test_linux_backend_waits_without_sending_keys_or_a_browser(
         size=(120, 40),
     )
     assert result.ok, result.evidence
-    assert events == [("open", None)]
+    assert [event for event in events if event[0] != "run"] == [("open", None)]
     _assert_human_step(
         result.evidence["steps"][0], "tmux attach-session -t linux-session"
     )
 
 
-def test_linux_company_sign_in_opens_the_desktop_browser(
+def test_linux_owner_approval_runs_the_cli_as_the_fixture_owner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     events: list = []
-    desktop = {"DISPLAY": ":10"}
-    monkeypatch.setattr(
-        "yoke_core.domain.ssh_linux_terminal_recipe.prepare_desktop_chromium",
-        lambda control: SimpleNamespace(ok=True, evidence={"environment": desktop}),
-    )
-    control = _linux(monkeypatch, events)
-    control.capture_terminal_checkpoint = lambda: {"artifact_handle": "frame-1"}
+
+    def no_browser(control):
+        raise AssertionError("owner approval needs no browser")
+
+    monkeypatch.setattr(ssh_linux_browser_approval, "ensure_desktop", no_browser)
+    config = _config("terminal-multiplexer")
+    config["actions"][0] = {
+        "step": "owner-approves",
+        "keys": [],
+        "capture": False,
+        "operator_gate": "admission_owner_approval",
+        "completion_text": ["Machine connected."],
+        "gate_timeout_seconds": 600.0,
+    }
     result = execute_linux_recipe(
-        control,
+        _linux(monkeypatch, events),
         entry_surface="yoke setup",
-        required_completion="person-acts",
-        config=_config("terminal-multiplexer", "company_sign_in"),
+        required_completion="owner-approves",
+        config=config,
         size=(120, 40),
     )
     assert result.ok, result.evidence
-    assert events == [("open", desktop)]
+    runs = [value for kind, value in events if kind == "run"]
+    assert runs == [
+        "YOKE_MACHINE_HOME=/tmp/yoke-machine-qa-fixtures/machine-admission/"
+        "self-hosted/approver /home/qa/.local/bin/yoke machines approve K7F2"
+    ]
     step = result.evidence["steps"][0]
-    assert step["human_action"]["human_purpose"] == "company_sign_in"
-    assert step["artifact_handle"] == "frame-1"
+    assert step["gate_evidence"]["self_approving"] is True
+    assert step["gate_evidence"]["code"] == "K7F2"

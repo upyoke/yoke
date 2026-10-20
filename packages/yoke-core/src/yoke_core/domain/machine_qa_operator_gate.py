@@ -16,6 +16,7 @@ from yoke_contracts.machine_authorization import MATCH_CODE_LABEL
 
 from yoke_core.domain.machine_qa_phase_heartbeat import (
     HEARTBEAT_SECONDS,
+    MachineQaAborted,
     emit_heartbeat_line,
 )
 from yoke_core.domain.machine_qa_setup_exit import step_failure
@@ -154,7 +155,7 @@ def run_machine_browser_approval_with_io(
         )
     url, code = coordinates.complete_uri, coordinates.user_code
     _emit_browser_approval(url, code, browser)
-    if not send_keys(action["keys"]):
+    if action["keys"] and not send_keys(action["keys"]):
         return OperatorGateResult(
             False,
             transcript,
@@ -231,10 +232,6 @@ def run_machine_browser_approval_with_io(
                 try:
                     progress_callback()
                 except Exception as error:
-                    from yoke_core.domain.machine_qa_phase_heartbeat import (
-                        MachineQaAborted,
-                    )
-
                     if isinstance(error, MachineQaAborted):
                         raise
                     if communication_unknown(error):
@@ -249,12 +246,97 @@ def run_machine_browser_approval_with_io(
         time.sleep(1.0)
 
 
+def gate_failure(
+    error_code: str,
+    transcript: str,
+    evidence: Mapping[str, Any],
+    recovery: str,
+) -> OperatorGateResult:
+    """Refuse one gate with its evidence and the recovery step."""
+    return OperatorGateResult(
+        False,
+        transcript,
+        error_code,
+        step_evidence={**evidence, "recovery": recovery},
+    )
+
+
+def await_gate_completion(
+    *,
+    gate: str,
+    read_transcript: Callable[[], str],
+    read_exit_code: Callable[[str], int | None],
+    action: Mapping[str, Any],
+    progress_callback: Callable[[], None] | None,
+    evidence: dict[str, Any],
+    code: str | None,
+    timeout_recovery: str,
+) -> OperatorGateResult:
+    """Read the terminal until the step completes, is denied, exits or expires."""
+    timeout_seconds = float(action["gate_timeout_seconds"])
+    completion_text = tuple(action["completion_text"])
+    started = time.monotonic()
+    deadline = started + timeout_seconds
+    next_heartbeat = 0.0
+    while True:
+        transcript = read_transcript()
+        gate_transcript = (
+            current_gate_transcript(transcript, code) if code else transcript
+        )
+        now = time.monotonic()
+        evidence["waited_seconds"] = int(now - started)
+        if all(marker in gate_transcript for marker in completion_text):
+            return OperatorGateResult(True, transcript, step_evidence=evidence)
+        if any(marker in gate_transcript.casefold() for marker in DENIAL_MARKERS):
+            return gate_failure(
+                f"{gate}_rejected",
+                transcript,
+                evidence,
+                "The terminal reported the admission was denied or expired. "
+                "Read the transcript, then rerun the case.",
+            )
+        exited = gate_exit_result(action, gate_transcript, read_exit_code)
+        if exited is not None:
+            return exited
+        if now >= deadline:
+            return gate_failure(
+                f"{gate}_timed_out", transcript, evidence, timeout_recovery
+            )
+        if now >= next_heartbeat:
+            emit_heartbeat_line(
+                "operator_gate",
+                now - started,
+                step=str(action["step"]),
+                operator_gate=gate,
+                timeout_seconds=int(timeout_seconds),
+            )
+            if progress_callback is not None:
+                try:
+                    progress_callback()
+                except Exception as error:
+                    if isinstance(error, MachineQaAborted) or communication_unknown(
+                        error
+                    ):
+                        raise
+                    return gate_failure(
+                        f"{gate}_heartbeat_failed",
+                        transcript,
+                        evidence,
+                        "The run could not renew its host lease while waiting. "
+                        "Restore the control-plane connection, then rerun.",
+                    )
+            next_heartbeat = now + HEARTBEAT_SECONDS
+        time.sleep(1.0)
+
+
 __all__ = [
     "BROWSER_APPROVAL_NOT_CONFIRMED",
     "DENIAL_MARKERS",
     "OperatorGateResult",
+    "await_gate_completion",
     "current_gate_transcript",
     "gate_exit_result",
+    "gate_failure",
     "labeled_value",
     "run_machine_browser_approval_with_io",
 ]

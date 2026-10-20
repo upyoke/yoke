@@ -2,8 +2,9 @@
 
 The full-screen wizard journeys share their opening screens and match-code
 wait; the agent journeys run ``machine_qa_setup_agent_driver``. Every case
-installs the candidate, prepares the admission fixture for its mode, waits
-on a human-only gate for the person's step, and proves the universe's rows.
+installs the candidate, prepares the admission fixture for its mode, lets the
+run perform the owner's or teammate's step through a typed gate, and proves
+the universe's rows.
 """
 
 from __future__ import annotations
@@ -25,9 +26,14 @@ from yoke_core.domain.installer_campaign_plan_common import (
 )
 from yoke_core.domain.installer_campaign_recipe_operations import operation
 from yoke_core.domain.machine_qa_admission_host import (
+    TEAMMATE_NAME,
     api_url,
     approver_home,
     mode_root,
+)
+from yoke_core.domain.machine_qa_operator_gate_contract import (
+    ADMISSION_OWNER_APPROVAL,
+    MACHINE_BROWSER_APPROVAL,
 )
 from yoke_core.domain.machine_qa_fixture_constants import YOKE_BIN
 from yoke_core.domain.machine_qa_fixture_validation_admission import (
@@ -50,26 +56,27 @@ AGENT_DRIVER = (
     "-m yoke_core.domain.machine_qa_setup_agent_driver --stop-at github.machine"
 )
 OWNER_STEP = (
-    f"approve the match code as the owner on this test machine: "
+    "the run approves the match code as the owner on this test machine: "
     f"YOKE_MACHINE_HOME={OWNER_HOME} yoke machines approve CODE."
 )
 INVITE_STEP = (
-    f"issue the invite as the owner: YOKE_MACHINE_HOME={OWNER_HOME} yoke invite "
-    "'Fixture Teammate', then type the code privately into the wizard."
+    f"the run issues the invite as the owner (YOKE_MACHINE_HOME={OWNER_HOME} "
+    f"yoke invite '{TEAMMATE_NAME}') and types its code into the wizard."
 )
 COMPANY_STEP = (
-    "open the approval link in this test machine's browser, sign in as the "
-    "fixture teammate and approve this machine."
+    "the run approves this machine in the test machine's browser, where the "
+    "company sign-in signs in as the fixture teammate."
 )
 
 
-def human_gate(step: str, purpose: str, completion: str) -> dict[str, Any]:
+def agent_gate(step: str, gate: str, completion: str, *keys: str) -> dict[str, Any]:
+    """The run performs the person's step itself, then waits for *completion*."""
     return transition(
         step,
-        operator_gate="human_action",
-        human_purpose=purpose,
+        *keys,
+        operator_gate=gate,
         completion_text=(completion,),
-        gate_timeout_seconds=900,
+        gate_timeout_seconds=600,
     )
 
 
@@ -124,11 +131,23 @@ def wizard_start() -> list[dict[str, Any]]:
     ]
 
 
-def wizard_code_wait(purpose: str, step: str) -> list[dict[str, Any]]:
+def wizard_code_wait(step: str) -> list[dict[str, Any]]:
+    """Wait for the match code, then approve it as the owner."""
     return [
         action("match-code", ready_text=APPROVAL_TEXT, ready_timeout_seconds=60),
         transition("start-waiting", "Enter", ready_text=APPROVAL_TEXT),
-        human_gate(step, purpose, MACHINE_GITHUB_TEXT[0]),
+        agent_gate(step, ADMISSION_OWNER_APPROVAL, MACHINE_GITHUB_TEXT[0]),
+        action("machine-github"),
+    ]
+
+
+def wizard_browser_approval(step: str) -> list[dict[str, Any]]:
+    """Wait for the match code, then approve it in the wizard-opened browser tab."""
+    return [
+        action(
+            "match-code", ready_text=(*APPROVAL_TEXT, "Open:"), ready_timeout_seconds=60
+        ),
+        agent_gate(step, MACHINE_BROWSER_APPROVAL, MACHINE_GITHUB_TEXT[0], "Enter"),
         action("machine-github"),
     ]
 
@@ -151,7 +170,12 @@ def wizard_case(key, *, mode, expect, actions, captures, instructions, outcome):
 
 def agent_case(key, *, mode, expect, answers, actions, captures, instructions, outcome):
     connect = COMPANY if mode == "self-hosted-company-sign-in" else SERVER
-    flags = " ".join(f"--answer {shlex.quote(answer)}" for answer in answers)
+    flags = " ".join(
+        [
+            *(["--open-link"] if mode == "self-hosted-company-sign-in" else []),
+            *(f"--answer {shlex.quote(answer)}" for answer in answers),
+        ]
+    )
     return admission_case(
         key,
         mode=mode,
@@ -183,7 +207,8 @@ __all__ = [
     "TEAM_SERVER_TEXT",
     "admission_case",
     "agent_case",
-    "human_gate",
+    "agent_gate",
+    "wizard_browser_approval",
     "wizard_case",
     "wizard_code_wait",
     "wizard_start",

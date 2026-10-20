@@ -93,6 +93,7 @@ def test_interactive_recipe_rejects_a_known_unexpected_exit_code(
 
     result = execute_terminal_recipe(
         run,
+        yoke_bin="yoke",
         upload_bytes=lambda _path, _content: True,
         entry_surface="yoke setup",
         required_completion="done",
@@ -199,6 +200,7 @@ def test_interactive_recipe_uses_action_wait_then_global_fallback(
 
     result = execute_terminal_recipe(
         run,
+        yoke_bin="yoke",
         upload_bytes=lambda _path, _content: True,
         entry_surface="yoke setup",
         required_completion="done",
@@ -257,6 +259,7 @@ def test_interactive_recipe_resizes_the_created_native_session(
 
     result = execute_terminal_recipe(
         run,
+        yoke_bin="yoke",
         upload_bytes=lambda _path, _content: True,
         entry_surface="yoke setup",
         required_completion="done",

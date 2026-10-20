@@ -4,14 +4,16 @@ Agent-presentation installer cases run this on the test machine with the
 installed candidate's interpreter. It follows the documented agent loop: it
 shows the person each question the way an agent would (question, detail,
 choices, guidance), answers only the scripted choices, shows a browser
-step's link and match code once, then plays the person saying "done" by
+step's link and match code once (with ``--open-link`` it also opens that
+link in the test machine's browser, as an agent with desktop access does),
+then plays the person saying "done" by
 running ``yoke setup --agent`` again each poll interval until the step moves
 on, and hands a secret question to the person in ``yoke setup --tui`` in the
 same terminal, then resumes ``yoke setup --agent``. It never reads, receives
 or types a secret.
 
     python -m yoke_core.domain.machine_qa_setup_agent_driver \\
-        --connect URL --stop-at KEY [--answer KEY=VALUE ...]
+        --connect URL --stop-at KEY [--open-link] [--answer KEY=VALUE ...]
 
 It prints ``agent-presentation-reached: KEY`` when setup asks ``--stop-at``
 and exits 0; a refusal, failure or unexpected end prints its reason and
@@ -109,7 +111,22 @@ def _await_approval(line: dict[str, Any]) -> dict[str, Any] | None:
     return {"state": "failed", "reason": reason, "recovery": recovery}
 
 
-def drive(connect: str, stop_at: str, answers: dict[str, str]) -> int:
+def _open_link(line: dict[str, Any]) -> None:
+    """Open the browser step's link the way an agent with a desktop would."""
+    from yoke_cli.config.hosted_machine_browser import open_url
+
+    url = str((line.get("human") or {}).get("url") or "")
+    opened = open_url(url) if url else None
+    if opened is not None and opened.opened:
+        print(f"Opened the approval link in the browser ({opened.method}).", flush=True)
+        return
+    reason = opened.reason if opened is not None else "setup showed no link"
+    print(f"setup_agent_link_not_opened: {reason}; open the link yourself.", flush=True)
+
+
+def drive(
+    connect: str, stop_at: str, answers: dict[str, str], *, open_link: bool = False
+) -> int:
     line = _run_agent(["--connect", connect])
     for _turn in range(_MAX_TURNS):
         if line is None:
@@ -122,6 +139,8 @@ def drive(connect: str, stop_at: str, answers: dict[str, str]) -> int:
             print(f"{REACHED} {key}", flush=True)
             return 0
         if line.get("state") == "browser":
+            if open_link:
+                _open_link(line)
             line = _await_approval(line)
             continue
         if line.get("secret"):
@@ -149,10 +168,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--connect", required=True)
     parser.add_argument("--stop-at", required=True)
+    parser.add_argument("--open-link", action="store_true")
     parser.add_argument("--answer", action="append", default=[])
     parsed = parser.parse_args(argv)
     answers = dict(item.split("=", 1) for item in parsed.answer)
-    return drive(parsed.connect, parsed.stop_at, answers)
+    return drive(parsed.connect, parsed.stop_at, answers, open_link=parsed.open_link)
 
 
 if __name__ == "__main__":

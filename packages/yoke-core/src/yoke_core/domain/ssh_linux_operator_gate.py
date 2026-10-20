@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.machine_qa_admission_gate import yoke_runner
 from yoke_core.domain.machine_qa_human_gate import run_operator_gate_with_io
 from yoke_core.domain.machine_qa_setup_exit import marker_exit_code
 from yoke_core.domain.ssh_mac_terminal_recipe_support import send_recipe_keys
@@ -50,6 +51,7 @@ def run_operator_gate(control, terminal, action, rows, allowed_operator_urls, pr
         approve_browser=lambda url, code: approve_machine_in_desktop_chromium(
             control, verification_url=url, user_code=code
         ),
+        run_yoke=yoke_runner(control._run, control.path_state.yoke_bin),
         terminal_location=(
             "the terminal window on the test machine's desktop "
             f"(tmux attach-session -t {terminal.session})"
@@ -64,8 +66,8 @@ def run_operator_gate(control, terminal, action, rows, allowed_operator_urls, pr
             "browser_approval": gate.browser_evidence,
             "browser_automation_error_code": gate.browser_automation_error_code,
             **(
-                {"human_action": gate.step_evidence}
-                if action["operator_gate"] == "human_action"
+                {"gate_evidence": gate.step_evidence}
+                if gate.step_evidence is not None
                 else {}
             ),
         }
