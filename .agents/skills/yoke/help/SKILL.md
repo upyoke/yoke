@@ -12,33 +12,7 @@ File a field note each time a recipe, help text or refusal is wrong or missing, 
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 <!-- END GENERATED: field-note-directive -->
 
-## Output
-
-Teach the next action with prerequisites, a complete example and an exact
-deeper pointer. Follow `.yoke/docs/documentation/index.md` in an installed
-project or `https://upyoke.com/docs/documentation` outside one; verify the
-receiving context before offering an installed path.
-
-Match the request's scope before answering. For general help, show:
-
-```text
-yoke --help                         # terminal categories and actions
-/yoke idea --workflow issue {title}  # file work
-/yoke charge                        # select ready work
-```
-
-Explain that Yoke plans, builds, verifies and delivers software with people
-and agents. Point to `yoke <category> --help` and the installed project's
-`.yoke/docs/index.md`. Outside an installed project, use
-`https://upyoke.com/docs` and `https://upyoke.com/docs/cli/help`;
-command help remains available from any directory. Public docs describe the
-current service; command help describes the installed CLI's options.
-For a specific topic, read that command's `--help` or the applicable skill
-from the registry below. Answer with its shortest complete recipe, required
-prerequisites and exact installed deeper home. Read before teaching or acting.
-The following inventories are references to consult, not the default reply.
-Full skill inventory: `.yoke/docs/agents/commands.md`.
-Terminal help and output: `.yoke/docs/cli/help.md`.
+Answer only the asked scope; read that command's `--help` or skill first. General help: `yoke --help`. Docs: `.yoke/docs/index.md`, else `https://upyoke.com/docs`.
 
 <!-- BEGIN GENERATED: skill-registry -->
 Skill metadata is generated from `yoke_contracts.skill_registry`.
@@ -69,55 +43,3 @@ yoke_core.tools.render_skill_registry_inline --target-root CHECKOUT`.
 | `/yoke usher PREFIX-N [PREFIX-N ...] [--dry-run] [--merge-only] [--deploy-only] [--resume PREFIX-N]` | stage | `usher` | autonomous execution | merge and deliver an item |
 | `/yoke wrapup (no arguments)` | utility | `wrapup` | follow skill decision gates | wrap up the session |
 <!-- END GENERATED: skill-registry -->
-
-```text
-LOCAL TERMINAL HELPERS
- yoke setup
-  Machine setup: local, team server or upyoke.com.
- yoke project create
-  Create and bind a project/repo.
- yoke project import
-  Clone/import and bind a repo.
- yoke onboard project
-  Bind a local checkout after setup.
- yoke project install [CHECKOUT]
-  Install/repair the project-local operating layer.
- yoke status
-  Verify machine/env/credential/checkout bindings.
- yoke dev setup [CHECKOUT]
-  Explicit Yoke source-dev/admin setup.
- yoke dash --title TEXT --spec-file PATH / yoke task (same flags)
-  File direct work; Task is laneless and merge-free, and refuses projects
-  with a code repository: code project work -> yoke dash.
- /yoke idea --workflow issue|epic|blitz|task {title}
-  Select the filing workflow; `/yoke blitz` executes document-led work.
- yoke items freeze PREFIX-N / yoke items thaw PREFIX-N
-  Park/return an item, preserving lifecycle status. Cancel work that will never resume.
- yoke items cancel PREFIX-N --reason TEXT [--ref PREFIX-M]
-  Takes the claim without a level check; frozen items cancel in one step.
-  A steering seat covering the item's project cancels from any project.
- yoke items block PREFIX-N --reason TEXT / yoke items unblock PREFIX-N
-  Set/clear blocked flag/reason, preserving lifecycle. Takes the claim; refuses another holder.
- yoke board art variant create --ascii
-  Generate/preview/optionally apply .yoke/board-art variants.
-  Use `--mixed` or `--image PATH` for the other variant families.
-  Terminal-only; no harness session required.
- yoke models lookup MODEL_ID / get / validate / diff / publish / revisions / restore
-  Sourced effective-dated catalog reads/review/publication; full recipe: `/yoke models`.
-
-WORKFLOW ROUTING
- yoke workflows item get PREFIX-N --json
-  Read pinned workflow/version, live stage and next bound skill.
- yoke workflows version get <workflow> <version> --json
-  Read immutable stages/transitions/gates/skill bindings. The half-open binding
-  owns the live stage; through_stage_id is the command/claim handoff. Use returned
-  next_skill_id. The definition owns lifecycle flows, including the release wait.
-
-DEPENDENCY INSPECTION
- Authority: item_dependencies.
- yoke items dependency list PREFIX-N
-  Full graph, both directions; enforced before implementation and merge.
-  /yoke usher --dry-run shows dependency-driven merge order.
-
-For full Yoke documentation, read `.yoke/docs/index.md`.
-```

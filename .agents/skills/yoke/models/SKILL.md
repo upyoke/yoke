@@ -8,127 +8,19 @@ argument-hint: "lookup MODEL_ID | get | validate | diff | publish | revisions | 
 
 # /yoke models
 
-Catalog revisions have UTC `effective_at`. Session estimates use the revision
-effective at initial stored `offered_at`, including reactivation; raw usage
-remains stored, and read-time API-equivalent estimates name the revision.
-Bundled records bootstrap empty installations only.
-
 <!-- BEGIN GENERATED: field-note-directive -->
 File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 <!-- END GENERATED: field-note-directive -->
 
-Catalog facts include identity, successor `replacement_model_id`, published
-efforts/windows, API prices, subscription rules, optional benchmarks, URLs and
-dates. Unknown lookup is `researched=False`, never raises and does not gate
-discovery or usage. Unknown model or unpublished effort refuses item work admission;
-steering without item claims remains available. Server readers select `model_reference_store.revision_at`
-before pure `lookup_model_reference`. `operator_notes` is annotation;
-retired `proposed_tier`, `tier_evidence`, `tier_provisional` keys refuse by name.
-Execution levels contain model/minimum-effort rows, ignoring speed and launch
-stamps. Current successor facts drive exactly one class of older-model demotion.
-Pricing keeps the initial-start revision. Level changes need operator approval;
-thresholds strictly increase within each model as levels rise.
+Reads need no item; a refresh without a claimed item files `/yoke dash` first.
 
-## Phase map
+1. `yoke update --check --json`: shipped levels arrive with the server release.
+2. Research official provider pages; unknown values stay null.
+3. Build the full catalog from the latest revision; validate, diff.
+4. An org admin publishes on the diff's `base_revision_id`, effective now or later.
+5. Propose levels: [level-proposals.md](level-proposals.md).
 
-| Phase | Read before acting |
-|---|---|
-| Check for a newer Yoke | Step 0 below |
-| Read or refresh facts | Entry and refresh steps below |
-| Propose/update levels | [level-proposals.md](level-proposals.md) |
-
-## Step 0: is this Yoke current?
-
-Shipped level defaults and the bundled catalog live in the Yoke server, so a
-universe gets new defaults when its server runs the new release. Check first:
-
-```sh
-yoke update --check --json
+```text
+yoke models publish --stdin --expected-base REV --source-note 'official sources checked YYYY-MM-DD' --json < candidate.json
 ```
-
-It reports `cli_version`, `server_engine_version`, the channel's
-`latest_version`, the `destination` and `behind: cli|server|none`. Give the
-next step its `destination` names:
-
-- `local`: offer `yoke update`; it updates the CLI and local server together,
-  and new defaults apply right away.
-- `server` (self-hosted team server): `yoke update` updates only this CLI;
-  the server admin must upgrade the team server.
-- `hosted`: releases deploy to hosted servers right away; confirm the server
-  is current, or say the defaults arrive with the hosted release.
-
-A source checkout refuses `--check`; update it through git. A
-`server_version_unavailable` refusal names the env and its repair.
-Then read `yoke settings get levels --json`. `result.source: stored` means the
-universe stores its own levels and does not follow shipped defaults;
-`result.shipped_defaults_differ: true` means a newer default exists. Offer
-`yoke settings unset levels` (org admin) so the shipped defaults apply. A
-project override (`yoke projects level-summary get --project P` shows
-`source: project`) is cleared by rewriting that project's settings without
-`levels`: `yoke projects capability-settings set --cap-type session-routing`.
-
-## Entry
-
-Registered function ids and claim policy: [service catalog](../../../../.yoke/docs/functions/runtime.md).
-
-Read-only lookup/get/validate/diff/revisions needs no Dash:
-
-```sh
-yoke models lookup MODEL_ID [--json]
-yoke models get [--model-id MODEL_ID] [--json]
-yoke models get --revision-id REV [--json]
-yoke models get --at UTC [--json]
-yoke models revisions [--json]
-```
-
-A direct refresh without a claimed item files bounded `/yoke dash` and acquires
-its work claim. Repo changes use path survey and its registered lane; DB-only
-uses `--no-changes` survey and prepare's laneless skip. An existing claimed
-item keeps its lane/workflow. Candidate JSON stays in a temp file; durable
-sources belong in catalog records/publication notes. Review and publish on
-prod, record the revision and approved levels in Progress Log, then Dash
-close-out. DB-only refresh needs no release; approved level changes share it.
-
-## Refresh
-
-1. Research official provider pricing/model pages and Cursor docs. Record
-   published efforts, context windows and successor; observe surface launch
-   support with `yoke relay probe-models --surface S`. API dollars do not imply
-   subscription percentages; distinguish published multipliers from estimates.
-   Unknown conversion/values stay null or empty. Benchmarks need a named public
-   result; no composite quality score, paid probes or automatic experiments.
-2. Read revisions. Start from the latest scheduled revision with
-   `yoke models get --revision-id REV --json`, otherwise current get.
-   Prepare the complete catalog preserving unchanged records; validate changed
-   records and inspect adds/changes/removals, sources/dates, efforts/windows and
-   successors:
-
-   ```sh
-   yoke models validate --stdin --json < model-record.json
-   yoke models diff --stdin --json < candidate.json
-   ```
-
-3. An org admin publishes using the diff's `base_revision_id`, with sourced
-   evidence in `--source-note`. Effective time is UTC now/future; past refuses
-   to prevent old-session repricing. Base must be latest scheduled revision;
-   the new effective time cannot precede it.
-
-   ```sh
-   yoke models publish --stdin --expected-base REV --source-note 'official sources checked YYYY-MM-DD' [--effective-at UTC] --json < candidate.json
-   yoke models revisions --json
-   ```
-
-4. Re-read the published revision to verify content/time. Restore publishes a
-   new immutable-history revision copied from the source, with expected current
-   base and evidence. Replace a future revision at its effective time or later:
-
-   ```sh
-   yoke models restore REV --expected-base CURRENT --source-note 'reason' [--effective-at UTC] --json
-   ```
-
-5. Run `yoke models level-proposal`, follow the linked level phase, present
-   the complete proposal and obtain approval before applying it with the
-   proposal's `apply_command`: `yoke settings unset levels` when it equals the
-   shipped defaults, otherwise `yoke settings set levels`, which stops the
-   universe following future defaults. Record revision and approved change.

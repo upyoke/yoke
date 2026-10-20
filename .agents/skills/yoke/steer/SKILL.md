@@ -12,55 +12,37 @@ yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evide
 
 # /yoke steer [STRATEGY-DOC-SLUG] [--project P ...]
 
-Itemless autonomous steering of a claimed strategy document, defaulting to
-CURRENT-PLAN. Read its intent, reconcile live frontier/reports, staff executors,
-and write current plan state. The coordinator never implements.
+# /yoke steer [STRATEGY-DOC-SLUG] [--project P ...]
 
-Encode sequencing as item dependency edges, each the narrowest the work needs ([keep dependencies minimal](worker-lifecycle.md#1-encode-dependency-edges-before-availability)). Before announcing live, confirm the run carried the commit. Check infra is used before taking work on it.
+Steer one claimed strategy doc per project (default `CURRENT-PLAN`): staff
+workers and keep plan state. The steerer never implements.
 
 ## Phase map
 
 | Phase | Read before acting |
 |---|---|
-| Parse/read/take paired seat | [scope-and-authority.md](scope-and-authority.md) |
+| Resolve doc, take paired seat | [scope-and-authority.md](scope-and-authority.md) |
+| Attach fleet watcher | [watching.md](watching.md) |
 | Continuous pass | [loop.md](loop.md) |
-| Safe stop/handoff/release | [close-out.md](close-out.md) |
-| Staff, judge or restaff | [worker-lifecycle.md](worker-lifecycle.md), [model-selection.md](model-selection.md) |
-| Launch/settle worker | [worker-launch.md](worker-launch.md) |
-| Attach fleet stream | [watching.md](watching.md) |
-| Triage findings | [fleet-findings.md](fleet-findings.md) |
+| Triage report findings | [fleet-findings.md](fleet-findings.md) |
+| Dependencies, quiet workers, restaff | [worker-lifecycle.md](worker-lifecycle.md) |
+| Launch, message, rework | [worker-launch.md](worker-launch.md) |
+| Level and model choice | [model-selection.md](model-selection.md) |
 | Blitz document handoff | [blitz-handoff.md](blitz-handoff.md) |
 | Batch merged delivery | [release-batches.md](release-batches.md) |
-| Exact function lookup | [function-reference.md](function-reference.md) |
+| Stop, hand off, release | [close-out.md](close-out.md) |
+| Command lookup | [function-reference.md](function-reference.md) |
 
-Standing invariants:
+## Standing rules
 
-- For every defect or friction, first establish its root cause, using a subagent if needed: why it happened, why it didn't happen before, and what changed. Then propose the minimal right fix set for operator approval.
-- One atomic steering acquire pairs a steering-scope claim and document lock;
-  the document and linked items are durable state. Scope/links/overlap and role
-  mail are governed by scope-and-authority. No doc-less continuation.
-- Use steering-scope claim, steering claim holder, steering scope. Coordinator
-  is role prose, never a durable identifier. Avoid the bare phrase "steer claim".
-- Do not invoke `/yoke feed`. Feed and steer are unrelated. No new scheduler:
-  existing message wakes, fleet watcher and frontier reads drive the loop.
-- Each item keeps its pinned workflow and routed next_step. Never convert or
-  re-file it to fit a remembered workflow. Verify pin/full command before
-  claiming a capability absent or filing replacement work.
-- New filing defaults to Dash; code project work is always Dash (Task
-  refuses projects with a code repository). Genuinely laneless Task, required
-  Issue/Epic/Blitz structure, or operator direction are exceptions. Name
-  --strategy-doc SLUG at intake. Workers merge; the steerer batches delivery
-  at one verified source. Mandates prohibit worker deployment-run creation.
-- All launches use registered preview/create, including raw itemless mandates.
-  Effective item level and judged leg choose staffing; item-bound --level records
-  an every-stage override. No alternate native/app launch after Yoke refusal.
-- Every operator-visible reply states all verified outstanding operator actions,
-  blocked item and unblock condition until resolved/muted. Correct system-caused
-  attribution; fold reminders into normal reply/live snapshot, no extra nag turn.
-- Invoking this skill authorizes reads, claims, acknowledgements, staffing and
-  document writes. Ask only at its explicit missing-document creation or
-  reserved operator-decision gate.
+- Root-cause each defect (why now, what changed) before proposing a minimal
+  fix for operator approval.
+- No doc-less steering, no `/yoke feed`. Keep each item's pinned workflow.
+- File new work with `yoke dash ... --strategy-doc SLUG`.
+- Workers merge; only the steerer creates deployment runs.
+- Confirm a run carried a commit before calling it live.
+- Every operator-visible reply lists each outstanding operator action and what
+  it unblocks.
+- Ask only at the missing-doc gate or a reserved operator decision.
 
-Start with scope-and-authority. After both seat halves are held, read handoff
-mail, attach the fleet watcher ([watching.md](watching.md)), then begin
-[loop.md](loop.md). Follow one current phase at a time.
+Start: [scope-and-authority.md](scope-and-authority.md).
