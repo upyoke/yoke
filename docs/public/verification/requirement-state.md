@@ -293,7 +293,9 @@ Review-begin and the returned artifact-read commands use the universe's serving
 evidence plane; see [reading a capture](browser-evidence.md#reading-a-capture).
 Use the returned `review-submit` command to judge the captures independently;
 unwalked cases remain unfulfilled and the execution remains terminal.
-Incomplete captures without review authority settle as errors.
+Incomplete captures without review authority settle as errors. The stop wakes
+the capture session, else each member's holder (adopt first); the stage blocker
+names this command and new rosters skip those cases until review.
 
 After restaffing, the successor first acquires the execution item's work claim,
 then explicitly adopts the existing execution through `qa.plan_execution.adopt`:

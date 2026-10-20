@@ -204,3 +204,27 @@ def test_item_message_for_a_discharged_member_does_not_hand_plan_run():
     assert statement in body
     assert "yoke qa plan run" not in body
     assert "still needs to" not in body
+
+
+def test_item_message_names_a_blocker_no_case_run_can_clear():
+    blocker = (
+        "member EXT-541: review pending. Recovery: run "
+        "`yoke qa plan review-begin --deployment-run-id run-1 --execution-id e-1`"
+    )
+    body = stage_wait_message(
+        run_id="run-1",
+        stage_name="item-qa",
+        item_ref="EXT-541",
+        target_tier="persistent",
+        revision="a" * 40,
+        reasons=blocker,
+        route=HOLDER,
+        names_cases=True,
+        owes_run=False,
+    )
+
+    assert blocker in body
+    assert "has no case left to run" in body
+    assert "qa_plan_nothing_owed" in body
+    assert "Run its cases" not in body
+    assert "--stage item-qa --member" not in body

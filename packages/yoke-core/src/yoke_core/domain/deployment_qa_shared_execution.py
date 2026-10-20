@@ -167,9 +167,11 @@ def _begin_routed(conn, begin, kwargs, *, locked):
     inputs = None if locked else route.inputs
     if route.no_groups or route.private_first:
         return begin(conn, **{**kwargs, "_run_inputs": inputs})
+    from yoke_core.domain.qa_plan_nothing_owed import QaPlanNothingOwed
     from yoke_core.domain.qa_stage_execution_holders import StageRosterHeld
 
     held = None
+    owed_nothing = None
     for index, group in enumerate(route.pending):
         try:
             result = begin(
@@ -185,6 +187,10 @@ def _begin_routed(conn, begin, kwargs, *, locked):
         except StageRosterHeld as exc:
             # Another session walks every owed case of this group; try the next.
             held = held or (exc.execution, route.pending_digests[index])
+            continue
+        except QaPlanNothingOwed as exc:
+            # Its blocker is not a case to run; another group may still owe one.
+            owed_nothing = owed_nothing or exc
             continue
         own_remaining = result.get("remaining_requirement_count") or 0
         return {
@@ -208,6 +214,8 @@ def _begin_routed(conn, begin, kwargs, *, locked):
         return shared_execution_wait(
             held[0], member=member, desired_target_digest=held[1]
         )
+    if owed_nothing is not None:
+        raise owed_nothing
     if route.completed is not None:
         return {**route.completed, "remaining_requirement_count": 0}
     from yoke_core.domain.qa_plan_empty_roster import QaPlanRosterDischarged

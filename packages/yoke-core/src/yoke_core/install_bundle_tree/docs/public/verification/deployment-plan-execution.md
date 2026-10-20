@@ -307,9 +307,10 @@ stays while a later case of its chain is still owed, so the chain runs again
 from its opener. A case whose review lands after the roster froze is recorded
 `retained` when it and every later case of its chain now pass, instead of
 running or blocking its followers. A pass on
-another target, such as a new release lineage, still requires a fresh run. When
-every case already passed, the whole roster runs again, because stage
-acceptance needs one completed scoped execution. A live execution keeps its
+another target still requires a fresh run. Cases a stopped execution's pending
+review holds stay out. With nothing owed the run refuses `qa_plan_nothing_owed`,
+listing the stage's blockers and next commands; once every case passed, stage
+acceptance settles on the newest stopped execution. A live execution keeps its
 own roster: abort it first to drop cases passed elsewhere.
 
 ## Recover communication on the frozen execution

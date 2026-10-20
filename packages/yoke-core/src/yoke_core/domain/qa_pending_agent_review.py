@@ -2,10 +2,12 @@
 
 A plan execution that finished deterministic capture and opened a review
 bundle stands at ``awaiting_agent_review``: the capture is complete and no
-QA verdict exists yet. The verdict belongs to the reviewer that submits
-that bundle, never to the session that ran the capture. These readers let
-the verdict writes refuse a capture-side verdict on such a requirement, and
-let a deployment stage tell "review pending" apart from "never executed".
+QA verdict exists yet. An execution aborted or errored mid-walk keeps a
+pending bundle for its completed captures, so it owes the same review. The
+verdict belongs to the reviewer that submits that bundle, never to the
+session that ran the capture. These readers let the verdict writes refuse a
+capture-side verdict on such a requirement, and let a deployment stage tell
+"review pending" apart from "never executed".
 
 Nothing here writes.
 """
@@ -13,7 +15,7 @@ Nothing here writes.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -22,41 +24,66 @@ from yoke_core.domain.qa_plan_execution_store import marker
 from yoke_core.domain.refusal_recovery import compose_refusal
 
 _PENDING_REVIEW_SQL = (
-    "SELECT e.id AS execution_id, e.session_id AS session_id, "
-    "e.deployment_run_id,e.deployment_stage,e.deployment_member_item_id,e.execution_target_digest,"
-    "b.id AS bundle_id, b.bundle_json AS bundle_json "
+    "SELECT e.id AS execution_id, e.session_id AS session_id, e.state AS state, "
+    "e.item_id,e.deployment_run_id,e.deployment_stage,e.deployment_member_item_id,"
+    "e.execution_target_digest,b.id AS bundle_id, b.bundle_json AS bundle_json "
     "FROM qa_plan_executions e "
     "JOIN qa_plan_review_bundles b ON b.execution_id = e.id "
-    "WHERE e.state = 'awaiting_agent_review' AND b.state = 'pending'"
+    "WHERE e.state IN ('awaiting_agent_review','aborted','error') "
+    "AND b.state = 'pending'"
 )
+
+
+def review_scope_flag(conn: Any, execution: Mapping[str, Any]) -> str:
+    """The subject flag ``review-begin`` and ``adopt`` take for this execution."""
+    if execution.get("deployment_run_id"):
+        return f"--deployment-run-id {execution['deployment_run_id']}"
+    if execution.get("item_id"):
+        from yoke_core.domain.project_identity import render_item_ref
+
+        return f"--item {render_item_ref(conn, int(execution['item_id']))}"
+    return "--project PROJECT"
 
 
 @dataclass(frozen=True)
 class PendingAgentReview:
-    """One live execution whose capture is complete and review is pending."""
+    """One execution whose completed captures wait on a pending review bundle."""
 
     execution_id: str
     bundle_id: str
     session_id: str
+    state: str = "awaiting_agent_review"
+    scope_flag: str = ""
+
+    def review_begin_command(self) -> str:
+        return (
+            f"yoke qa plan review-begin {self.scope_flag} "
+            f"--execution-id {self.execution_id}"
+        )
 
     def next_action(self) -> str:
-        """The existing review step that settles this execution."""
+        """The review step that settles this execution."""
         return (
             "the session that ran the capture "
-            f"({self.session_id or 'unrecorded'}) re-runs the same "
-            "`yoke qa plan run` (or `yoke watch qa-plan`) invocation, which "
-            "reprints the pending review bundle without recapturing, "
-            "dispatches the reviewer that bundle names, and submits its "
-            "complete verdict batch with `yoke qa plan review-submit`; the "
-            "requirement and stage settle from that submission"
+            f"({self.session_id or 'unrecorded'}) runs "
+            f"`{self.review_begin_command()}`, dispatches the reviewer the "
+            "returned bundle names, and submits its complete verdict batch "
+            "with `yoke qa plan review-submit`; when that session has ended, "
+            "its successor first runs `yoke qa plan adopt "
+            f"{self.scope_flag} --execution-id {self.execution_id} --reason "
+            '"Review captured QA after restaffing"`. Re-running `yoke qa plan '
+            "run` cannot supply this verdict; the requirement and stage settle "
+            "from the submission"
         )
 
 
-def _pending(row: Any) -> PendingAgentReview:
+def _pending(conn: Any, row: Any) -> PendingAgentReview:
     return PendingAgentReview(
         execution_id=str(row["execution_id"]),
         bundle_id=str(row["bundle_id"]),
         session_id=str(row["session_id"] or ""),
+        state=str(row["state"]),
+        scope_flag=review_scope_flag(conn, row),
     )
 
 
@@ -79,8 +106,38 @@ def pending_review_for_requirement(
     """The pending review bundle that owns this requirement's verdict."""
     for row in conn.execute(_PENDING_REVIEW_SQL).fetchall():
         if int(requirement_id) in _bundle_requirement_ids(row["bundle_json"]):
-            return _pending(row)
+            return _pending(conn, row)
     return None
+
+
+def pending_review_requirements(
+    conn: Any, requirement_ids: Iterable[int], *, stopped_only: bool = False
+) -> dict[int, PendingAgentReview]:
+    """The pending review that owns each of these requirements' verdicts.
+
+    ``stopped_only`` keeps only reviews an aborted or errored execution
+    left: a new roster leaves those requirements out, since recapturing
+    them would race that review.
+    """
+    wanted = {int(value) for value in requirement_ids}
+    if not wanted:
+        return {}
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
+
+    stopped = " AND e.state IN ('aborted','error')" if stopped_only else ""
+    held: dict[int, PendingAgentReview] = {}
+    # One read per presentation: a stage walk asks once per member.
+    rows = presentation_read(
+        conn,
+        ("qa_pending_review_rows", stopped_only),
+        lambda: conn.execute(
+            f"{_PENDING_REVIEW_SQL}{stopped} ORDER BY e.created_at, e.id"
+        ).fetchall(),
+    )
+    for row in rows:
+        for requirement_id in _bundle_requirement_ids(row["bundle_json"]) & wanted:
+            held.setdefault(requirement_id, _pending(conn, row))
+    return held
 
 
 def pending_review_for_stage(
@@ -98,7 +155,7 @@ def pending_review_for_stage(
         conn, run_id, stage_name, member_item_id, execution_target_digest
     )
     if scoped:
-        return _pending(row) if row is not None else None
+        return _pending(conn, row) if row is not None else None
     p = marker(conn)
     row = conn.execute(
         f"{_PENDING_REVIEW_SQL} AND e.deployment_run_id = {p} "
@@ -108,7 +165,7 @@ def pending_review_for_stage(
         "ORDER BY e.created_at DESC, e.id DESC LIMIT 1",
         (run_id, stage_name, member_item_id or 0, execution_target_digest),
     ).fetchone()
-    return _pending(row) if row is not None else None
+    return _pending(conn, row) if row is not None else None
 
 
 def capture_verdict_refusal(pending: PendingAgentReview, requirement_id: int) -> str:
@@ -117,7 +174,7 @@ def capture_verdict_refusal(pending: PendingAgentReview, requirement_id: int) ->
         f"requirement {requirement_id} is captured and its independent agent "
         "review is pending; its verdict comes only from that review",
         evaluated=(
-            f"plan execution {pending.execution_id} is awaiting_agent_review "
+            f"plan execution {pending.execution_id} is {pending.state} "
             f"with pending review bundle {pending.bundle_id}; a capture-side "
             "verdict would report a pass or fail no reviewer recorded"
         ),
@@ -146,12 +203,12 @@ def pending_review_verdict_refusal(
 
 
 def stage_review_pending_blocker(pending: PendingAgentReview) -> str:
-    """Stage wait line for a completed capture whose review is pending."""
+    """Stage wait line for captures whose independent review is pending."""
     return compose_refusal(
-        "scoped QA capture is complete and independent agent review is "
+        "scoped QA captures are recorded and independent agent review is "
         "pending; no QA verdict exists yet",
         evaluated=(
-            f"plan execution {pending.execution_id} is awaiting_agent_review "
+            f"plan execution {pending.execution_id} is {pending.state} "
             f"with pending review bundle {pending.bundle_id}"
         ),
         recovery=pending.next_action(),
@@ -163,6 +220,8 @@ __all__ = [
     "capture_verdict_refusal",
     "pending_review_for_requirement",
     "pending_review_for_stage",
+    "pending_review_requirements",
     "pending_review_verdict_refusal",
+    "review_scope_flag",
     "stage_review_pending_blocker",
 ]

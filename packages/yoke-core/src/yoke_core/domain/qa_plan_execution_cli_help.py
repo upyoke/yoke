@@ -32,6 +32,11 @@ Select an item, deployment run, or manual project plan.
       One frozen QA stage of a deployment run. The stage must be the run's
       active pinned QA stage.
       PROJECT is the member's project for item QA, or the run's for run QA.
+      Cases already passed on the stage's target, and cases a stopped
+      execution's pending review holds, are skipped. With nothing owed it
+      refuses qa_plan_nothing_owed and lists the stage's blockers with their
+      next commands, such as `yoke qa plan review-begin`; it never replays a
+      passed roster.
 
 Release-time scope: a stage credits only its own name
 -----------------------------------------------------

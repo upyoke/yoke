@@ -130,7 +130,18 @@ def test_held_group_waits_on_durable_membership_and_receives_settlement_wake(
     assert {row["session_id"] for row in notices} == {"member-9901", "member-9902"}
     assert all("Shared group evidence comes from" in row["body"] for row in notices)
     assert all("--member YOK-" in row["body"] for row in notices)
-    second = _begin(test_db, MEMBERS[1], "member-9902", plan="release-smoke")
+    if settlement == "completed":
+        # The passed group owes nothing: no replay, and the refusal names the
+        # other group's case still waiting for its run.
+        from yoke_core.domain.qa_plan_nothing_owed import QaPlanNothingOwed
+
+        with pytest.raises(QaPlanNothingOwed, match="latest verdict is missing"):
+            _begin(test_db, MEMBERS[1], "member-9902", plan="release-smoke")
+        test_db.rollback()
+        second = _begin(test_db, MEMBERS[1], "member-9902")
+        assert {row["plan_id"] for row in second["roster"]} == {other}
+    else:
+        second = _begin(test_db, MEMBERS[1], "member-9902", plan="release-smoke")
     assert second["state"] == "active"
     assert second["session_id"] == "member-9902"
 
@@ -198,3 +209,21 @@ def test_registered_begin_preserves_wait_contract(test_db):
     ).model_dump()
     assert result["shared_execution_wait"]["execution_id"] == first["id"]
     assert result["state"] == "waiting"
+
+
+def test_settlement_wake_names_each_member_s_real_blocker(test_db):
+    _seed(test_db)
+    _holders(test_db)
+    for member in MEMBERS:
+        _materialize(test_db, member)
+    first = _begin(test_db, MEMBERS[0], "member-9901")
+    finish_plan_execution(test_db, first, state="aborted", reason="stop shared walk")
+
+    notices = _notices(test_db, first)
+    assert notices
+    for row in notices:
+        assert f"shared execution {first['id']} settled aborted; member YOK-" in (
+            row["body"]
+        )
+        assert "latest verdict is missing" in row["body"]
+        assert "yoke qa plan run --deployment-run-id" in row["body"]

@@ -245,6 +245,15 @@ def case_failures(
         ).items()
         if sum(counts.values())
     }
+    from yoke_core.domain.qa_pending_agent_review import pending_review_requirements
+
+    # A case with no verdict may be a stopped walk's capture whose review is
+    # pending; its line names that review's command, since no run clears it.
+    reviewing = pending_review_requirements(
+        conn,
+        [rid for rid in graded if (verdicts.get(rid) or (0, ""))[1] != "pass"],
+        stopped_only=True,
+    )
     failures: list[CaseFailure] = []
     for row in rows:
         if obligation_settled(row):
@@ -264,6 +273,12 @@ def case_failures(
                     detail=(
                         f"requirement #{row['id']} ({row['plan_case_key']}) latest "
                         f"verdict is {verdict or 'missing'}{replacement_note(row)}"
+                        + (
+                            "; its capture awaits independent review: "
+                            + reviewing[int(row["id"])].next_action()
+                            if not verdict and int(row["id"]) in reviewing
+                            else ""
+                        )
                     ),
                 )
             )
