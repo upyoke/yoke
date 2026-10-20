@@ -33,7 +33,7 @@ installers and dashboard guidance.
    compatibility in the receiving context. Refusals preserve their actual cause,
    necessary facts and supported recovery.
 7. **350 lines is the hard maximum for every teaching file.** Command
-   replies use the global byte ceiling in [help and replies](../cli/help.md). The smaller targets below are advisory, not gates. Count displayed
+   reads use concise projections and the human-read safety net in [help and replies](../cli/help.md). The smaller targets below are advisory, not gates. Count displayed
    lines after wrapping at 80 columns; character counts include spaces and code.
 8. **Preserve complete, coherent teaching.** Either advisory target prompts
    readability review, not arbitrary compression or splitting. Exceed a target

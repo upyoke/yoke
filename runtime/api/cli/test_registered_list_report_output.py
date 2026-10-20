@@ -111,14 +111,10 @@ def test_default_read_outputs_fit_fixed_universe(entry, read_universe, capsys):
         assert len((rendered.out + rendered.err).encode()) <= REPLY_LIMIT_BYTES
 
 
-def test_size_gate_rejects_oversized_fixture(capsys):
+def test_oversized_json_fixture_keeps_selected_result(capsys):
     response = FunctionCallResponse(
-        function="qa.plan.list",
-        version="v1",
-        success=True,
+        function="qa.plan.list", version="v1", success=True,
         result={"rows": [{"description": "x" * REPLY_LIMIT_BYTES}]},
     )
     assert emit_response(response, json_mode=True) == 0
-    rendered = json.loads(capsys.readouterr().out)
-    assert rendered["success"] is True
-    assert rendered["saved_response"]
+    assert json.loads(capsys.readouterr().out)["result"] == response.result

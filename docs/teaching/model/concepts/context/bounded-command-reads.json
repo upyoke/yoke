@@ -6,5 +6,5 @@
  "commands": ["yoke qa plan list", "yoke sessions list", "yoke steering report get"],
  "functions": ["qa.plan.list", "sessions.list", "steering.report.get"],
  "position": 0,
- "summary": "One global 4,000-byte UTF-8 default bounds human and JSON command replies. Oversized output saves complete evidence with narrow read guidance; --full --json deliberately serves the complete envelope."
+ "summary": "Routine replies use concise command-specific projections and pages. JSON envelopes and write replies remain complete. Only oversized registered human reads refuse atomically above 28,000 UTF-8 bytes; narrow the read or use --full for complete human detail."
 }

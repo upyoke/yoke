@@ -6,48 +6,12 @@ from collections.abc import Mapping
 from typing import Any, TextIO
 
 
-def write_local(
-    value: Any, stream: TextIO, *, writer=None, essential_writer=None
-) -> None:
-    """Bound a client-local receipt and save every oversized value."""
-    import io
-    from yoke_cli.transport.response_evidence import (
-        save_response,
-    )
-
-    from yoke_cli.transport.output_limit import reply_exceeds_limit
-
-    output = io.StringIO()
+def write_local(value: Any, stream: TextIO, *, writer=None) -> None:
+    """Print the complete client-local receipt."""
     if writer:
-        writer(value, output)
+        writer(value, stream)
     else:
-        write_human(value, output)
-    if not reply_exceeds_limit(output.getvalue()):
-        stream.write(output.getvalue())
-        return
-    try:
-        evidence = save_response(value, output.getvalue(), "")
-    except OSError as exc:
-        print(
-            f"error (response_evidence_unavailable): {exc}. Restore writable temporary storage and inspect the operation's read before repeating a mutation.",
-            file=stream,
-        )
-        raise SystemExit(1) from exc
-    delivered = io.StringIO()
-    print(f"Complete local result saved: {evidence}", file=delivered)
-    print(
-        "Open the file for every returned field. The operation already ran.",
-        file=delivered,
-    )
-    if essential_writer:
-        essential_writer(value, delivered)
-    if reply_exceeds_limit(delivered.getvalue()):
-        print(
-            f"error (essential_output_limit_exceeded): immediate recovery exceeds the display limit. Read the complete local result at {evidence} before continuing.",
-            file=stream,
-        )
-        raise SystemExit(1)
-    stream.write(delivered.getvalue())
+        write_human(value, stream)
 
 
 def label(key: Any) -> str:

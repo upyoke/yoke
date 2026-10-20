@@ -1,8 +1,8 @@
 {
  "id": "bounded-replies",
- "title": "Human replies label values and empty states. Oversized replies name complete private evidence instead of dropping fields.",
+ "title": "Human replies label values and empty states; JSON and write receipts remain complete.",
  "status": "observed",
  "form": "State",
- "verification": "Candidate shared response boundary uses a global 4,000-byte UTF-8 default for human and JSON replies, saving complete redacted evidence and naming narrow reads. Large operator instruction blocks require reading their saved field before continuing. Source fixtures and live transport proof must be distinguished.",
+ "verification": "Routine replies use concise command-specific projections and pages. JSON envelopes and write replies remain complete. Only oversized registered human reads refuse atomically above 28,000 UTF-8 bytes; narrow the read or use --full for complete human detail.",
  "topics": ["context/disclosure", "reference/commands", "documentation/disclosure/reactive-help"]
 }

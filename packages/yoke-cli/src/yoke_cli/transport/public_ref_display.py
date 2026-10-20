@@ -12,9 +12,6 @@ import sys
 from typing import Any, TextIO
 
 from yoke_cli.transport.human_values import write_human
-from yoke_cli.transport.response_evidence import (
-    save_response,
-)
 from yoke_contracts.api.function_call import FunctionCallResponse
 
 
@@ -43,7 +40,6 @@ def emit_response(
     from yoke_cli.transport.output_limit import (
         output_exceeds_limit,
         read_recovery,
-        reply_exceeds_limit,
     )
 
     stdout, stderr = io.StringIO(), io.StringIO()
@@ -70,86 +66,23 @@ def emit_response(
             message = f"warning: {warning.code} ({warning.step}): {warning.detail}"
             if message not in stderr.getvalue():
                 print(message, file=stderr)
-        if reply_exceeds_limit(stdout.getvalue() + stderr.getvalue()):
-            try:
-                evidence = save_response(
-                    response_to_dict(prepare_human_response(response)),
-                    stdout.getvalue(),
-                    stderr.getvalue(),
-                )
-            except OSError as exc:
-                print(
-                    f"error (response_evidence_unavailable): complete reply could not be saved: {exc}. Restore writable temporary storage and inspect the result through its read command; do not repeat a mutation.",
-                    file=sys.stderr,
-                )
-                return 1
-            # These are the explicit workflow delivery contracts, not guesses
-            # about which arbitrary result keys might be redundant.
-            essential = io.StringIO()
-            result = response.result or {}
-            if result.get("execution_instructions"):
-                from yoke_cli.commands.adapters.workflow_execution_instructions import (
-                    render_execution_instruction_block,
-                )
-
-                instructions = render_execution_instruction_block(
-                    result["execution_instructions"]
-                )
-                if reply_exceeds_limit(instructions):
-                    essential.write(
-                        f"Operator execution instructions apply: read {evidence} response.result.execution_instructions before continuing.\n"
-                    )
-                else:
-                    essential.write(instructions)
-            if result.get("handoff"):
-                write_human({"handoff": result["handoff"]}, essential)
-            essential.write(stderr.getvalue())
-            summary = (
-                f"{response.function}: {'completed' if response.success else 'refused'}. Complete reply saved: {evidence}\n"
-                f"Read {evidence} for all result fields, instructions, stdout and stderr. The command already ran.\n"
-                f"{read_recovery(response.function)}\n"
-            )
-            if reply_exceeds_limit(summary + essential.getvalue()):
-                print(
-                    f"error (essential_output_limit_exceeded): recovery or warnings exceed the display limit. Read the complete reply at {evidence}; resolve its named cause before continuing.",
-                    file=sys.stderr,
-                )
-                return 1
-            sys.stdout.write(summary)
-            sys.stderr.write(essential.getvalue())
-            return 0 if response.success else 1
-    if (
-        json_mode
-        and not machine_mode
-        and output_exceeds_limit(
-            response.function, stdout.getvalue(), stderr.getvalue(), full=full
-        )
+    if not json_mode and not machine_mode and output_exceeds_limit(
+        response.function, stdout.getvalue(), stderr.getvalue(), full=full
     ):
-        try:
-            evidence = save_response(
-                response_to_dict(prepare_human_response(response)),
-                stdout.getvalue(),
-                stderr.getvalue(),
-            )
-        except OSError as exc:
-            print(
-                f"error (response_evidence_unavailable): {exc}. Restore writable temporary storage; inspect the result before repeating a mutation.",
-                file=sys.stderr,
-            )
-            return 1
-        pointer = {
-            "success": response.success,
-            "function": response.function,
-            "saved_response": str(evidence),
-            "read": read_recovery(response.function),
-        }
-        if response.error:
-            pointer["error"] = response.error.code
-            pointer["recovery"] = (
-                "Read saved_response response.error before continuing."
-            )
-        print(json.dumps(pointer, ensure_ascii=False))
-        return 0 if response.success else 1
+        from yoke_contracts.api.function_call import FunctionError
+
+        refusal = response.model_copy(update={
+            "success": False,
+            "result": {},
+            "warnings": [],
+            "event_ids": [],
+            "error": FunctionError(
+                code="read_output_limit_exceeded",
+                message="The rendered read exceeds the 28000-byte CLI output limit; no partial answer was printed.",
+                recovery_hint=read_recovery(response.function),
+            ),
+        })
+        return emit_response(refusal, json_mode=False, full=True)
     sys.stdout.write(stdout.getvalue())
     sys.stderr.write(stderr.getvalue())
     return 0 if response.success else 1

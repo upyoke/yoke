@@ -72,4 +72,19 @@ def qa_plan_list(args: list[str]) -> int:
 
 
 def write_plan_rows(response, stdout, stderr) -> None:
-    write_human(response.result or {}, stdout)
+    from yoke_cli.transport.output_limit import full_output_requested
+    from yoke_cli.commands.adapters.session_control_human_output import write_table
+
+    result = response.result or {}
+    if full_output_requested():
+        write_human(result, stdout)
+        return
+    write_table("QA PLANS", (
+        ("ID", lambda row: row.get("id"), None),
+        ("SLUG", lambda row: row.get("slug"), 42),
+        ("CASES", lambda row: row.get("case_count"), 5),
+        ("OUTCOME", lambda row: row.get("last_outcome"), 10),
+    ), result.get("rows") or [], stdout, empty="No QA plans found.")
+    if result.get("next_offset") is not None:
+        print(f"Next page: --offset {result['next_offset']}", file=stdout)
+    print("Details: yoke qa plan get PLAN-ID; --full adds all page fields.", file=stdout)

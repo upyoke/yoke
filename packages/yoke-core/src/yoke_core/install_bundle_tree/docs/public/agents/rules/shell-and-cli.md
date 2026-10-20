@@ -31,8 +31,8 @@
   imports, curl against the API and DB-router or service-client forms are operator-debug only.
 - Install or repair the launcher per [install](../../start/install.md). Lane checks use
   `yoke dev run -- <command>`.
-- Ask the narrow read (AGENTS.md "Command Output"; [help and replies](../../cli/help.md)). An
-  oversized reply is saved to a named file: read it, and read saved instructions before acting.
+- Ask the narrow read (AGENTS.md "Command Output"; [help and replies](../../cli/help.md)). Registered human reads over 28,000 bytes refuse atomically; narrow them or use `--full`.
+  JSON and write replies remain complete.
 - Code that refuses composes through `yoke_core.domain.refusal_recovery.compose_refusal`: a
   true reason plus a reachable recovery, or the escalation owner.
 

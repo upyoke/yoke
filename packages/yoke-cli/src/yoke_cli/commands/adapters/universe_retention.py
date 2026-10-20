@@ -14,7 +14,6 @@ from yoke_cli.commands._helpers import (
 from yoke_cli.commands.adapters.universe_retention_output import (
     PruneRun,
     write_summary,
-    compact_json_response,
 )
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
 from yoke_cli.transport.relay_telemetry import TRANSPORT_FAILED_CODE
@@ -105,16 +104,6 @@ def _finish(response, parsed, run):
         update={"result": run.result("apply" if parsed.apply else "preview")}
     )
     if parsed.json_mode:
-        if not parsed.full:
-            try:
-                response = compact_json_response(response)
-            except OSError as exc:
-                refused = _failure(
-                    "response_evidence_unavailable",
-                    f"{exc}. Restore writable temporary storage; committed prune batches remain committed. Inspect existing state before repeating apply.",
-                )
-                refused.result = {"deleted": (response.result or {}).get("deleted", {})}
-                return emit_response(refused, json_mode=True)
         return emit_response(response, json_mode=True, full=parsed.full)
 
     def summary(display, out, _err):

@@ -87,7 +87,7 @@ def session_control_roster_list(args: List[str]) -> int:
         return 2
 
     def _human_writer(response, stdout, stderr) -> None:
-        write_human(response.result or {}, stdout)
+        write_roster_summary(response, stdout, stderr, full=parsed.full)
 
     payload = {
         key: value
@@ -113,3 +113,24 @@ def session_control_roster_list(args: List[str]) -> int:
 
 
 __all__ = ["SESSION_ROSTER_USAGE", "session_control_roster_list"]
+
+
+def write_roster_summary(response, stdout, stderr, *, full=False) -> None:
+    from yoke_cli.transport.output_limit import full_output_requested
+
+    result = response.result or {}
+    if full or full_output_requested():
+        write_human(result, stdout)
+        return
+    fields = result.get("fields") or []
+    rows = [dict(zip(fields, row)) if isinstance(row, list) else row for row in result.get("rows") or []]
+    write_human({"sessions": [{
+        "session_id": row.get("session_id"),
+        "liveness": row.get("liveness"),
+        "mode": row.get("mode"),
+        "current_item_ref": row.get("current_item_ref") or row.get("current_item"),
+        "executor_surface": row.get("executor_surface"),
+    } for row in rows]}, stdout)
+    if result.get("next_offset") is not None:
+        print(f"Next page: --offset {result['next_offset']}", file=stdout)
+    print("Details: yoke sessions list --session SESSION-ID --full", file=stdout)

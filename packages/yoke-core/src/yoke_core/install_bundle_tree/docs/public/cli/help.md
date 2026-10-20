@@ -31,20 +31,19 @@ the actual reason and its recovery. Only missing required project selection
 reports `project_required`. Access, ambiguity and capability failures retain
 their own meanings.
 
-Replies exceeding the global 4,000-byte default save the complete already-redacted envelope and both
-rendered output streams to a private temporary JSON file. The reply names its
-exact path and says what it holds. Open that file to read the result without
-repeating the operation. Successor handoffs, warnings and refusal recovery remain immediate. Large
-operator instruction blocks name the saved instruction field to read before continuing. If those essentials cannot
-fit, `essential_output_limit_exceeded` refuses continuation and points to the
-complete saved evidence. Restore writable temporary storage if
-`response_evidence_unavailable` prevents saving. Inspect the operation's result
-through its read command before retrying a mutation.
+Routine reads use command-specific summary fields and pages. Use the named
+field, page or `--full` recipe for detail. JSON output and write receipts
+always retain their complete selected result, warnings and recovery.
 
-Human and JSON default replies share one 4,000 UTF-8 byte ceiling across
-stdout and stderr. Complete saved files retain every returned field. Suggested root/category/command targets of
-40/80/120 lines and 2,400/4,800/7,200 characters prompt readability review.
-Routine replies target 40 lines and 2,400 characters. These targets are advisory.
+An unusually large registered human read over 28,000 UTF-8 bytes refuses with
+`read_output_limit_exceeded` before printing any partial answer. Narrow its
+fields or page, or add `--full` to print the complete human reply. This safety
+net does not apply to writes, JSON or deliberate machine formats.
+
+Suggested root/category/command targets of 40/80/120 lines and
+2,400/4,800/7,200 characters prompt readability review. Routine replies target
+40 lines and 2,400 characters. These targets are advisory; individual command
+size tests guard the routine projections.
 
 ## Deliberate data and machine formats
 
@@ -54,13 +53,11 @@ yoke items get APP-7 body --section "## Acceptance Criteria"
 yoke qa plan list --project example --limit 25 --offset 25
 ```
 
-`--json` preserves the response envelope when it fits. Larger replies return
-a JSON pointer with the original success, function, saved path and narrower
-read recipe. The saved file holds the entire response envelope. `--full`
-requests complete structured data explicitly. Human output still uses
-complete saved evidence when it exceeds the display ceiling. Database line
-format, credential helpers, tool protocols and watcher capture streams keep
-their explicit machine contracts.
+`--json` always emits the complete response envelope, including `result`.
+Default read projections still select summary fields; `--full` requests their
+complete detail and also prints full human output. Database line format,
+credential helpers, tool protocols and watcher capture streams retain their
+explicit machine contracts.
 
 ## Agent help and references
 
