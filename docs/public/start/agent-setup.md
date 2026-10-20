@@ -33,8 +33,12 @@ it with a command.
    `install_health` in full and the `next` steps in order.
 
 Answers are saved by question key, so every call resumes where setup stopped.
-Browser approval keeps the chosen destination; follow the next printed
-`answer_command` without choosing the newly saved connection again.
+Steps that change the machine record what they did in the same setup file:
+the Project step's clone, a saved connection, a backup restore, an opened git
+installer, and what Apply created. Later calls read those records first, so
+the next printed `answer_command` is always the next answer accepted. Setup
+never asks to resume its own clone, approve its own connection again, or
+restore the same backup twice.
 A bare `yoke setup --agent` repeats the waiting question. Human progress and
 wait notices go to stderr; stdout carries only the JSON lines.
 

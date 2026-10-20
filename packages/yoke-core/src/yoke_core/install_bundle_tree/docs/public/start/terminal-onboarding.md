@@ -36,6 +36,9 @@ or description is shortened, and the selected description appears below.
 Press **Esc**, **Ctrl-[**, or a **Back** row to return to exactly the previous
 interactive screen. Back stays on the first screen and waits while Apply is
 writing. Checks without a cancellation route also wait until they finish.
+Going forward again reuses what this setup already did: the repository it
+cloned, the connection it approved or started, a restored backup, and an
+opened git installer are never offered again as someone else's.
 
 `yoke uninstall` also handles unfinished setup: absent GitHub authorization
 or an absent active connection skips disconnect with a reason, so an otherwise
