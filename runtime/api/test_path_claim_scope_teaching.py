@@ -27,25 +27,24 @@ class TestNoDescopeForActivePathClaims:
             "idea_path_closure": idea / "path-closure.md",
         }
 
-    def test_agents_has_path_claims_hard_rule_section(self, docs):
-        text = _read(docs["agents"])
-        assert "## Path Claims — Hard Rule" in text
+    def test_claims_home_has_path_claims_section(self, docs):
+        text = _read(docs["claims_reference"])
+        assert "## Path claims" in text
 
     def test_agents_forbids_scope_narrowing_for_claimed_paths(self, docs):
         text = _read(docs["agents"])
-        assert "Claimed paths do not narrow scope" in text
-        assert "Every required file stays in the item" in text
-        assert "never omit, descope, or rewrite away a required file" in text
+        assert "Path claims never narrow scope" in text
+        assert "every required file stays in the item and its File Budget" in text
 
-    def test_agents_states_path_claims_are_coordination_facts(self, docs):
-        text = _read(docs["agents"])
+    def test_claims_home_states_path_claims_are_coordination_facts(self, docs):
+        text = _read(docs["claims_reference"])
         assert "coordination/dependency/blocking facts" in text
-        assert "never omit, descope, or rewrite away a required file" in text
+        assert "never narrow scope" in text
 
     def test_agents_requires_reference_that_enumerates_accepted_remediations(
         self, docs
     ):
-        assert "Read `lanes-and-claims.md` before resolving any overlap" in _read(
+        assert "`lanes-and-claims.md`: lanes, project scope, overlaps" in _read(
             docs["agents"]
         )
         text = _read(docs["claims_reference"])

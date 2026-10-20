@@ -144,7 +144,6 @@ def test_no_teaching_surface_reads_the_hand_back_as_the_end_of_the_call():
 
 def test_claude_session_rules_keep_the_watcher_alive_through_a_hand_back():
     content = _words(_read(CLAUDE_SESSION_RULES))
-    assert "`in-turn` runs foreground with Bash `timeout: 600000`" in content
     assert "a turn that ends there kills the watcher it was holding" in content
     assert (
         "Reading the background task's output is how you continue the call, "

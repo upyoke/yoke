@@ -127,10 +127,10 @@ class TestPolishVerificationFailureOwnership:
     """Current verification failures are not punted to future work."""
 
     def test_future_planned_claim_is_not_verification_waiver(self):
-        text = " ".join(_read(REPO / "AGENTS.md").split())
+        text = " ".join(_read(REPO / ".yoke/docs/agents/rules/verification.md").split())
 
         assert "Current-item verification failures belong to the current item" in text
-        assert "a future item or planned path claim is not a waiver" in text
+        assert "A future item or planned path claim is not a waiver" in text
         assert "Use dependency and claim reconciliation before override" in text
         assert "Do not use `path-claim-override` for a planned future claim" in text
 

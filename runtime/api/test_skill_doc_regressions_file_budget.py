@@ -75,10 +75,9 @@ class TestFileBudgetAdvanceImplementation:
         re_anchor = text[text.index("Implementation Re-Anchor") :]
         assert "yoke items get PREFIX-N spec" in re_anchor
 
-    def test_agents_md_names_canonical_backstop(self):
-        text = _read(REPO / "AGENTS.md")
-        assert "350-line authored-file limit" in text
-        assert "yoke_core.domain.file_line_check" in text
+    def test_claims_home_names_canonical_backstop(self):
+        text = _read(REPO / ".yoke/docs/agents/rules/lanes-and-claims.md")
+        assert "350-line `file_line_check` limit always holds" in text
 
 
 class TestFileBudgetConductDispatch:

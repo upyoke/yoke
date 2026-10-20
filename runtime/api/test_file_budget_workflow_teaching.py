@@ -41,13 +41,9 @@ def test_workflow_skills_resolve_file_budget_and_claims_independently() -> None:
 
 
 def test_skills_consume_central_effective_policy_projection() -> None:
-    for path in (
-        ROOT / "AGENTS.md",
-        ROOT / ".yoke/docs/agents/rules/lanes-and-claims.md",
-    ):
-        text = _read(path)
-        assert "workflows.item.get" in text
-        assert "effective_policies" in text
+    text = _read(ROOT / ".yoke/docs/agents/rules/lanes-and-claims.md")
+    assert "workflows.item.get" in text
+    assert "effective_policies" in text
     for path in (
         SKILLS / "refine" / "workflow-context.md",
         SKILLS / "implement" / "entry.md",

@@ -54,8 +54,8 @@ def test_usher_merge_selection_uses_pinned_lane_policy() -> None:
         "registered lane paths",
     ):
         assert required in text
-    agents = (ROOT / "AGENTS.md").read_text()
-    assert "Route from the live pinned workflow's half-open binding" in agents
+    lanes = (ROOT / ".yoke/docs/agents/rules/lanes-and-claims.md").read_text()
+    assert "half-open interval holds" in lanes
     assert "_item_workflow_id" not in text
     assert "issue items only" not in text.lower()
 

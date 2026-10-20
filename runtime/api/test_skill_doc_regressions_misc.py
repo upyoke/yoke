@@ -168,11 +168,7 @@ class TestSameSessionWorktreeScopeDocs:
     def test_implement_docs_describe_same_session_continuation(self, docs):
         text = _read(docs["implement"])
         worktree = _read(docs["implement_worktree"])
-        lanes = _read(
-            REPO / ".yoke" / "docs" / "agents" / "rules" / "lanes-and-claims.md"
-        )
         assert "in this session" in text
-        assert "the same session that ran preflight and acquired the claim" in lanes
         assert "SessionExecutionScopeChanged" not in worktree
         assert "SessionExecutionScopeChanged" not in text
 

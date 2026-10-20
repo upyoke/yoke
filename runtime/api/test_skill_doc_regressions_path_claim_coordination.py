@@ -43,11 +43,12 @@ IDEA_INFER_AND_CREATE = SKILLS / "idea" / "infer-and-create.md"
 REFINE_SURVEY_AND_FOCUS = SKILLS / "refine" / "survey-and-focus.md"
 REFINE_READINESS_REPAIR = SKILLS / "refine" / "readiness-repair.md"
 AGENTS_MD = REPO / "AGENTS.md"
+CLAIMS_HOME = REPO / "docs" / "public" / "agents" / "rules" / "lanes-and-claims.md"
 
 
 DOCS_WITH_COORDINATION_GUIDANCE = (
     PATH_CLAIM_BLOCKING,
-    AGENTS_MD,
+    CLAIMS_HOME,
 )
 
 # Intake docs that meet an overlap route it to the one classification doc.
