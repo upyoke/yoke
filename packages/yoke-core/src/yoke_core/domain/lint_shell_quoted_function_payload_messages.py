@@ -23,6 +23,7 @@ step across guardrails.
 
 from __future__ import annotations
 
+import re
 import shlex
 from typing import Dict, List, Tuple
 
@@ -62,13 +63,22 @@ def resolve_mode(payload: object | None = None) -> str:
     )
 
 
+_ITEM_REF_TOKEN_RE = re.compile(r"[A-Z][A-Z0-9]*-(?:\d+|N)")
+
+
+def is_item_ref_token(token: str) -> bool:
+    """True for a ``PREFIX-N`` item ref (or its ``PREFIX-N`` placeholder) in
+    any project; such a token ends a command sub-path."""
+    return bool(_ITEM_REF_TOKEN_RE.fullmatch(token or ""))
+
+
 def _is_placeholder(token: str) -> bool:
     """Return True for inventory placeholder tokens that terminate a sub-path."""
     if not token:
         return True
     if token.startswith("<") or token.startswith("--") or token.startswith("-"):
         return True
-    if token.startswith("YOK-"):
+    if is_item_ref_token(token):
         return True
     if token in {"PATH", "SID", "REASON", "RID"}:
         return True
@@ -84,7 +94,7 @@ def build_adapter_index() -> Tuple[Dict[str, str], Dict[str, List[str]]]:
 
     Walks each ``CLI_ADAPTERS`` entry, splits on shell quoting, finds the
     ``python(3) -m <module>`` prefix, and consumes every following token
-    until the first placeholder (``<X>``, ``YOK-N``, ``--flag``, path-like).
+    until the first placeholder (``<X>``, ``PREFIX-N``, ``--flag``, path-like).
     The collected tokens form the canonical sub-path under that module.
 
     Returns ``(by_key, subs_by_module)`` where:
