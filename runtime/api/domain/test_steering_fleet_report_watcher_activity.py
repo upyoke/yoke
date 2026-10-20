@@ -28,12 +28,12 @@ def _request(owner):
     )
 
 
-def _snapshot(conn, session_id, now):
+def _snapshot(conn, session_id, now, item_id=1):
     raw = dict(conn.execute(
         "SELECT * FROM harness_sessions WHERE session_id=%s", (session_id,),
     ).fetchone())
     raw["activity_at"], _ = _latest_activity(raw["last_heartbeat"], raw["last_tool_call_at"])
-    raw["claims"] = [{"target_kind": "item", "target": "YOK-1", "claimed_at": LONG_AGO}]
+    raw["claims"] = [{"target_kind": "item", "target": f"YOK-{item_id}", "claimed_at": LONG_AGO}]
     return FleetSnapshot(now, "steerer", sessions=session_rows({"rows": [raw]}))
 
 
