@@ -55,7 +55,8 @@ the same command selects the next unfinished shared group and reuses
 completed group evidence. A shared execution owned by another session, or a
 different group using the stage's cursor, returns `state=waiting` with
 `shared_execution_wait.execution_id` and `owner_session_id`. Keep the work claim
-and park with `yoke sessions touch --mode wait`. The deployment's member stage
+and park with `yoke sessions touch --mode parked --reason "waiting for shared QA"`.
+The deployment's member stage
 line retains the wait. Passing shared evidence credits every attaching member;
 completion, abort or error wakes members still owing QA to retry their own
 stage/member command. The owner resumes its existing execution as usual.

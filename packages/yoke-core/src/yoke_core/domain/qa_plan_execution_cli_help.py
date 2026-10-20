@@ -48,7 +48,8 @@ still required. Once private acceptance is complete, the same command reuses
 completed group evidence and continues its next unfinished shared group.
 A shared cursor owned by another session, or busy with another group, returns
 state=waiting with shared_execution_wait.execution_id and owner_session_id.
-Keep the claim and park with yoke sessions touch --mode wait. Passing shared
+Keep the claim and park with
+yoke sessions touch --mode parked --reason "waiting for shared QA". Passing shared
 evidence credits attaching members; settlement wakes members still owing QA
 to retry their own stage/member command. The owner resumes its walk as usual.
 

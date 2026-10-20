@@ -17,7 +17,6 @@ from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
 from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
 from yoke_core.domain.deployment_qa_run_acceptance import item_qa_acceptance_blockers
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
-from yoke_core.domain.qa_plan_execution_store import QaPlanExecutionStateError
 
 
 @pytest.mark.parametrize("shared_live", [False, True])
@@ -87,15 +86,20 @@ def test_private_progress_keeps_shared_acceptance_and_owner(
         == 0
     )
     if shared_live:
-        with pytest.raises(QaPlanExecutionStateError, match="owns the active"):
-            begin_plan_execution(
-                test_db,
-                deployment_run_id=RUN,
-                deployment_stage="item-qa",
-                deployment_member_item_id=member,
-                actor_id="2",
-                session_id="private-owner",
-            )
+        waiting = begin_plan_execution(
+            test_db,
+            deployment_run_id=RUN,
+            deployment_stage="item-qa",
+            deployment_member_item_id=member,
+            actor_id="2",
+            session_id="private-owner",
+        )
+        assert waiting["state"] == "waiting"
+        assert waiting["shared_execution_wait"] == {
+            "execution_id": shared["id"],
+            "owner_session_id": "shared-qa",
+            "same_target": True,
+        }
         assert _begin(test_db, member)["id"] == shared["id"]
     else:
         shared = _begin(test_db, member)

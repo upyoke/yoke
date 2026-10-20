@@ -1,15 +1,21 @@
 """Shared cursor waits use the deployment's existing member stage line."""
 
 from typing import Any, Mapping
+import json
 
 
 def shared_plan_names(
     conn: Any, run_id: str, stage: str, member: int
 ) -> tuple[str, ...]:
     """Name only the shared groups this member's frozen stage actually owes."""
-    if (
-        conn.execute("SELECT 1 FROM deployment_runs WHERE id=%s", (run_id,)).fetchone()
-        is None
+    targets = conn.execute(
+        "SELECT execution_target_json FROM qa_requirements WHERE deployment_run_id=%s "
+        "AND deployment_stage=%s AND deployment_member_item_id IS NULL AND plan_id IS NOT NULL",
+        (run_id, stage),
+    ).fetchall()
+    if not any(
+        (json.loads(row[0] or "{}").get("deployment") or {}).get("shared_plan")
+        for row in targets
     ):
         return ()
     from yoke_core.domain.deployment_qa_stage_contract import (
@@ -21,7 +27,11 @@ def shared_plan_names(
     from yoke_core.domain.deployment_qa_shared_plans import member_plan_subjects
 
     subject = deployment_qa_stage_subject(
-        conn, run_id=run_id, stage_name=stage, member_item_id=member
+        conn,
+        run_id=run_id,
+        stage_name=stage,
+        member_item_id=member,
+        require_active=False,
     )
     return tuple(
         str(group["shared_snapshot"]["plan"]["slug"])
@@ -55,7 +65,8 @@ def shared_execution_wait(
                 if same_target
                 else "This member is queued on the deployment stage's member line. "
             )
-            + "Keep the work claim and park with yoke sessions touch --mode wait; "
+            + "Keep the work claim and park with yoke sessions touch --mode parked "
+            f"--reason 'waiting for shared QA execution {execution_id}'; "
             "settlement wakes members still owing QA to retry their own stage/member command."
         ),
     }
