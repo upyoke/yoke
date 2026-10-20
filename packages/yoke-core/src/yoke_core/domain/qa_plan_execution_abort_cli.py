@@ -9,6 +9,14 @@ from typing import List, Optional
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.domain.qa_plan_execution import QaPlanExecutionError, _call_plan_function
+from yoke_core.domain.qa_plan_execution_abort_reason import ABORT_REASON_MAX_LENGTH
+
+REASON_HELP = (
+    f"Why the execution stops, at most {ABORT_REASON_MAX_LENGTH} characters: "
+    "a code, then a short diagnosis (blocked_on_precondition: <prerequisite "
+    "and recovery>). Put the full rationale in the Progress Log or an "
+    "artifact and cite it here."
+)
 
 
 def run(args: List[str]) -> int:
@@ -21,12 +29,19 @@ def run(args: List[str]) -> int:
     subject.add_argument("--item")
     subject.add_argument("--deployment-run-id")
     parser.add_argument("--execution-id", required=True)
-    parser.add_argument("--reason", required=True)
+    parser.add_argument("--reason", required=True, help=REASON_HELP)
     parser.add_argument("--project")
     parser.add_argument("--session-id")
     parsed = parser.parse_args(args)
     if not parsed.item and not parsed.deployment_run_id and not parsed.project:
         parser.error("standalone abort requires --project P")
+    if len(parsed.reason) > ABORT_REASON_MAX_LENGTH:
+        parser.error(
+            f"abort_reason_too_long: --reason is {len(parsed.reason)} characters; "
+            f"the limit is {ABORT_REASON_MAX_LENGTH}. Nothing was aborted. Keep "
+            "the code and a short diagnosis, move the full rationale to the "
+            "Progress Log or an artifact, and retry."
+        )
 
     from yoke_core.api.service_client_structured_api_adapter import build_actor
 

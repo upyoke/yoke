@@ -262,3 +262,4 @@ def test_qa_packet_transitions_name_live_workflow_stages() -> None:
         if name and not name.isupper() and name not in stages
     )
     assert not unknown, f"QA packet teaches transitions no live workflow has: {unknown}"
+

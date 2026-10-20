@@ -21,8 +21,9 @@ Pick exactly one branch; a failed managed step never falls back to no-host.
 
 - **Managed:** register site and environments (never overwrite an existing one), validate the flow
   (`execution_supported=false` creates it disabled, no default), create it.
-- **Merge-only:** a flow with two `auto` stages, `merged` and `complete`,
-  and no tier or environment; its `target_tier` read must print nothing.
+- **Merge-only:** a flow with two `auto` stages, `merged` and `complete`, each
+  `stage_kind: execution`, and no tier or environment;
+  `yoke deployment-flows get FLOW target_tier` must read `none`.
 - **No default:** remove the project `deploy_defaults`; the read must print nothing.
 
 Set the default for dash, issue, epic and blitz; never `--apply-to-all`.
@@ -33,4 +34,4 @@ yoke workflows delivery-default set --project {project} --workflow {workflow} --
 ```
 
 Then [verification-binding.md](verification-binding.md), [governed-database.md](governed-database.md);
-add one `test_roots` entry per test tree. Next: [domain-and-deploy.md](domain-and-deploy.md).
+add one `test_roots` entry per test tree (op shape: `yoke project-structure patch apply --help`). Next: [domain-and-deploy.md](domain-and-deploy.md).

@@ -54,9 +54,27 @@ def _validate_detail(detail: str) -> str:
     return detail
 
 
+#: Subjects agents ask for that no packet topic covers, and where each is taught.
+NON_PACKET_TOPIC_HOMES: dict[str, str] = {
+    "architecture": (
+        "architecture operations are taught in "
+        ".yoke/docs/agents/rules/architecture-model.md: yoke project-structure "
+        "architecture-draft get --project P, yoke project-structure "
+        "architecture-health get --project P, and yoke project-structure get "
+        "--project P --family architecture_model --json"
+    ),
+}
+
+
 def unknown_topic_message(topic: str, *, role: str) -> str:
     """Refuse an unknown topic, listing every valid one closest-first."""
     folded = topic.casefold()
+    home = NON_PACKET_TOPIC_HOMES.get(folded)
+    if home is not None:
+        return (
+            f"unknown topic: {topic} is not a packet topic; {home}. "
+            f"Packet topics: {', '.join(seed.TOPICS)}."
+        )
     ranked = sorted(
         seed.TOPICS,
         key=lambda name: (

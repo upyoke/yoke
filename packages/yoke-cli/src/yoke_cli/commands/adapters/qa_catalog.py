@@ -21,6 +21,7 @@ from yoke_cli.commands.adapters.qa_execution_subjects import (
 )
 from yoke_cli.commands.adapters.qa_catalog_usage import (
     ITEM_PLAN_ATTACH_EPILOG,
+    PLAN_CASES_SYNC_USAGE,
     USAGE_BY_FUNCTION_ID,
 )
 from yoke_cli.commands.adapters.qa_plan_listing import qa_plan_list
@@ -70,7 +71,8 @@ def _global(
         )
     if function_id == "qa.plan_cases.sync" and "source_revision" not in built_payload:
         return usage_error(
-            "qa_plan_source_revision_required: sync needs a source export document or --source-revision FULL_SHA"
+            "qa_plan_source_revision_required: pass the exporter's document or add --source-revision "
+            "FULL_SHA; author manual case arrays with yoke qa plan-cases replace"
         )
     if parsed.project:
         built_payload = {"project": parsed.project, **built_payload}
@@ -289,7 +291,7 @@ def qa_plan_cases_sync(args: List[str]) -> int:
     return _global(
         args,
         prog="yoke qa plan-cases sync",
-        usage="yoke qa plan-cases sync --project P --plan-id N (--cases-file PATH | --stdin) [--source-revision FULL_SHA] [--json]",
+        usage=PLAN_CASES_SYNC_USAGE,
         function_id="qa.plan_cases.sync",
         configure=_configure_case_replace,
         payload=_case_payload,

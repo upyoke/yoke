@@ -45,7 +45,8 @@ def test_no_host_merge_only_branch_creates_a_runless_default() -> None:
 
     assert "two `auto` stages, `merged` and `complete`" in merge_only
     assert "no tier or environment" in merge_only
-    assert "`target_tier` read must print nothing" in merge_only
+    assert "`stage_kind: execution`" in merge_only
+    assert "`yoke deployment-flows get FLOW target_tier` must read `none`" in merge_only
     assert "site" not in merge_only
 
 
