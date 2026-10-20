@@ -75,6 +75,26 @@ def browser_runtime() -> Path:
     return runtime
 
 
+@pytest.fixture(scope="module")
+def installed_browsers(browser_runtime) -> Path:
+    """The installed Playwright browsers folder, read-only.
+
+    Resolved before the per-test HOME takes effect: Playwright finds its
+    browsers under the home folder, and the isolated one holds none.
+    """
+    executable = Path(
+        _node(
+            browser_runtime,
+            "process.stdout.write(require('playwright').chromium.executablePath())",
+        ).stdout.strip()
+    )
+    return next(
+        parent.parent
+        for parent in executable.parents
+        if parent.name.startswith("chromium")
+    )
+
+
 class _SessionCookieHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):  # noqa: N802 - the stdlib server's own method name
         self.server.hits.append(self.path)
@@ -201,9 +221,12 @@ def _daemon_context_cookies(runtime: Path, profile: Path) -> list[str]:
 
 def test_a_sign_in_reaches_the_daemons_browser_context(
     browser_runtime,
+    installed_browsers,
     probe_server,
     tmp_path,
+    monkeypatch,
 ) -> None:
+    monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", str(installed_browsers))
     profile = tmp_path / "profile"
     profile.mkdir()
 

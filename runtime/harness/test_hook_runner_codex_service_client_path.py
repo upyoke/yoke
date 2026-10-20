@@ -90,6 +90,8 @@ def test_codex_register_stamps_native_thread_id_from_env(monkeypatch) -> None:
         return None
 
     _pin_local_transport(monkeypatch)
+    # The harness running the suite exports its own executor; this is Codex.
+    monkeypatch.delenv("YOKE_EXECUTOR", raising=False)
     monkeypatch.setenv("CODEX_THREAD_ID", "thread-42")
     monkeypatch.setattr(
         "yoke_core.hooks.target.target_service_client_path",
@@ -316,9 +318,7 @@ def test_generic_hook_registration_uses_universal_lifecycle_client(
             "session_id": "sid-claude",
             "executor": "claude",
             "provider": "anthropic",
-            "model_facts": SessionModelFacts(
-                requested_model="claude-opus-4-8[1m]"
-            ),
+            "model_facts": SessionModelFacts(requested_model="claude-opus-4-8[1m]"),
             "entrypoint": "claude-desktop",
             "executor_version": "0.1.0",
             "machine_id": "00000000-0000-4000-8000-000000000123",

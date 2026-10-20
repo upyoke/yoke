@@ -20,6 +20,11 @@ process makes and fails the test with `real_home_written`, naming each path.
 The checkout, its environment and the interpreter are exempt. Fix the
 reported path by resolving it at call time or pointing the fixture inside
 `tmp_path`. Subprocesses are covered by the inherited `HOME`, not the hook.
+A test that clears `os.environ` (`mock.patch.dict(..., clear=True)`) keeps
+`HOME` and `YOKE_SCRATCH_ROOT` in the cleared mapping; without `HOME`,
+`Path.home()` falls back to the account's real home. A test asserting that a
+home path is refused uses a home outside the OS temp roots (for example
+`/__yoke_test_home__`), because the per-test home is itself a free path.
 
 **The running environment.** The source runner starts pytest with
 `UV_PROJECT_ENVIRONMENT` naming the checkout's `.venv`. A test that inherits

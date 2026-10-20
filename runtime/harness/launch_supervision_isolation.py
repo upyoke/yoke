@@ -41,7 +41,10 @@ from yoke_cli.config import machine_config
 
 
 @pytest.fixture(autouse=True)
-def _isolate_launch_supervision_custody(tmp_path_factory, monkeypatch: pytest.MonkeyPatch):
+def _isolate_launch_supervision_custody(
+    _isolate_real_home, tmp_path_factory, monkeypatch: pytest.MonkeyPatch
+):
+    # After the per-test HOME, so the machine cache it moves is the test's own.
     from yoke_harness import session_launch_containment as containment
     from yoke_harness import session_launch_handoff as handoff
     from yoke_harness import session_relay_termination as termination
@@ -59,15 +62,19 @@ def _isolate_launch_supervision_custody(tmp_path_factory, monkeypatch: pytest.Mo
     handoff_directory = handoff._directory
 
     monkeypatch.setattr(
-        containment, "_directory",
+        containment,
+        "_directory",
         lambda state_dir=None: containment_directory(root(state_dir)),
     )
     monkeypatch.setattr(
-        handoff, "_directory",
+        handoff,
+        "_directory",
         lambda state_dir=None: handoff_directory(root(state_dir)),
     )
     monkeypatch.setattr(
-        termination, "local_state_root", lambda state_dir=None: root(state_dir),
+        termination,
+        "local_state_root",
+        lambda state_dir=None: root(state_dir),
     )
 
 
