@@ -40,8 +40,9 @@ def pending_run_message(
         f"waiting_on={PENDING_ZERO_JOBS_STALL_REASON} "
         f"failure_reason={CI_RUN_NEVER_STARTED_REASON} "
         f"run={run_id} status=pending jobs=0 updated_at={updated_text}; "
-        "force-cancel with `gh api --method POST "
-        f"repos/{repo}/actions/runs/{run_id}/force-cancel`"
+        "the QA case gate force-cancels a run that never starts and "
+        "redispatches it; otherwise cancel with "
+        f"`yoke github-actions run cancel {repo} {run_id} --project <project>`"
     )
 
 

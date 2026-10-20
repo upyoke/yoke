@@ -25,6 +25,7 @@ from yoke_core.domain.path_claim_bash_temp_vars import (
     is_temp_file_var_ref,
     temp_file_vars,
 )
+from yoke_core.domain.lint_session_cwd_host_command import local_argv_text
 from yoke_core.domain.shell_expansion_scan import strip_literal_heredocs
 from yoke_core.domain.path_claim_bash_parser_redirect import (
     extract_heredoc_redirect_target,
@@ -58,7 +59,6 @@ _FAIL_CLOSED_PREFIXES = ("eval ", "eval\t", "exec ", "exec\t")
 # as ambiguous so a ``grep ... | sh -c 'rm $1'`` shape cannot smuggle a
 # mutation past the parser.
 _FAIL_CLOSED_C_RES = ("bash -c", "sh -c")
-_FAIL_CLOSED_BASH_C_RE = "bash -c"
 # Heredoc detection lives in :func:`_has_unquoted_heredoc` so quoted
 # search literals like ``grep -n "python3 - <<" file`` no longer
 # misclassify as heredoc syntax.
@@ -232,7 +232,8 @@ def _classify_segment(segment: str, cwd: str) -> List[Mutation]:
     if any(stripped.startswith(p) for p in _FAIL_CLOSED_PREFIXES):
         return [Mutation(verb="ambiguous", target_path=stripped[:80])]
 
-    if any(shell_c in stripped for shell_c in _FAIL_CLOSED_C_RES):
+    local_text = local_argv_text(stripped)  # host-command argv runs remotely
+    if any(shell_c in local_text for shell_c in _FAIL_CLOSED_C_RES):
         return [Mutation(verb="ambiguous", target_path=stripped[:80])]
 
     # ``$(...)`` substitution body classification — canonical

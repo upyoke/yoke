@@ -65,8 +65,9 @@ def handle_run_cancel(request: FunctionCallRequest) -> HandlerOutcome:
             error=FunctionError(
                 code="workflow_run_cancel_refused",
                 message=(
-                    f"{exc}. Recovery: open the run in GitHub, cancel it there, "
-                    "and if it stays active use force-cancel."
+                    f"{exc}. Recovery: open the run in GitHub and cancel it "
+                    "there. A QA case gate force-cancels a run that never "
+                    "starts and redispatches it."
                 ),
             ),
         )

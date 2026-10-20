@@ -14,6 +14,9 @@ from yoke_core.domain.lint_session_cwd_read_only_signatures import (
 from yoke_core.domain.lint_session_cwd_repo_command import repo_command_block
 from yoke_core.domain.lint_payload_path_use import UNRESOLVED_HOME_PATH
 from yoke_core.domain.lint_session_cwd_validate import ValidationVerdict
+from yoke_core.domain.lint_session_cwd_wrapped_remote_argv import (
+    wrapped_remote_argv_note,
+)
 
 CLIENT_HOME_AUTHORITY_UNAVAILABLE = "client_home_metadata_missing_or_invalid"
 
@@ -53,6 +56,9 @@ def build_denial_reason(
             yoke_root=yoke_root,
         )
         body += repo_command_block(payload, outcome.claims) if not has_targets else ""
+        body += wrapped_remote_argv_note(
+            command, outcome.offending_target, machine_home
+        )
         tool_name = str(payload.get("tool_name") or payload.get("toolName") or "")
         if (
             machine_home == ""

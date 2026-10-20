@@ -125,7 +125,11 @@ class TestClassify:
         assert STALLED_DISPATCH_TOKEN in message
         assert f"waiting_on={PENDING_ZERO_JOBS_STALL_REASON}" in message
         assert f"failure_reason={CI_RUN_NEVER_STARTED_REASON}" in message
-        assert "repos/upyoke/yoke/actions/runs/123/force-cancel" in message
+        assert (
+            "yoke github-actions run cancel upyoke/yoke 123 --project <project>"
+            in message
+        )
+        assert "gh api" not in message
 
     def test_stale_pending_zero_jobs_is_terminal_for_the_polling_client(self):
         payload = github_actions_run.RunGetRequest(

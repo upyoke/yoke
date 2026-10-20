@@ -89,6 +89,24 @@ _GIT_LOCAL_STATE_MOVES = frozenset(
         "stash",
     }
 )
+#: ``git stash`` actions that only read the stash stack.
+_GIT_STASH_READS = frozenset({"list", "show"})
+
+
+def _git_state_move(tokens: list[str]) -> bool:
+    """True when this git invocation changes repository or worktree state."""
+    from yoke_core.domain.lint_session_cwd_read_only_signatures import (
+        GIT_MUTATING_SUBS,
+        git_subcommand_index,
+    )
+
+    index = git_subcommand_index(tokens)
+    if index is None:
+        return False
+    if tokens[index] == "stash":
+        action = tokens[index + 1] if index + 1 < len(tokens) else ""
+        return action not in _GIT_STASH_READS
+    return tokens[index] in GIT_MUTATING_SUBS | _GIT_LOCAL_STATE_MOVES
 
 
 def _capacity_operands(tokens: list[str], segment: str, bindings: Mapping[str, str]):
@@ -203,7 +221,7 @@ def analyze_shell_path_use(
             )
             capacity_segments.append(capacity_settled)
             state_move = (
-                git_subcommand(tokens) in GIT_MUTATING_SUBS | _GIT_LOCAL_STATE_MOVES
+                _git_state_move(tokens)
                 if base == "git"
                 else _state_move(tokens, shlex.join(tokens))
             )

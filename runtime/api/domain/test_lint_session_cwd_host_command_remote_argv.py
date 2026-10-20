@@ -17,8 +17,13 @@ from yoke_core.domain.lint_session_cwd_host_command import (
     is_host_command,
     remote_argv_indexes,
 )
+from yoke_core.domain.lint_session_cwd_denial import build_denial_reason
 from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     extract_command_targets,
+)
+from yoke_core.domain.lint_session_cwd_validate import ValidationVerdict
+from yoke_core.domain.lint_session_cwd_wrapped_remote_argv import (
+    wrapped_remote_argv_note,
 )
 
 
@@ -151,6 +156,59 @@ class TestDenialNamesTheExemption:
             repo_roots=("/Users/dev/repo",),
         )
         assert "host-command remote-argv exemption" not in body
+
+
+_ROLLOUT = "/Users/testy/.codex/sessions/2026/10/20/rollout-1.jsonl"
+
+
+class TestPullAFileFromTheTestMachine:
+    """The supported pull step is a direct host-command call."""
+
+    def test_direct_read_of_a_test_machine_path_extracts_no_target(self):
+        assert extract_command_targets(f"{_SUBJECT} -- /bin/cat {_ROLLOUT}") == []
+
+    def test_pull_step_extracts_only_its_local_redirect(self):
+        command = f"{_SUBJECT} -- base64 -i {_ROLLOUT} > /tmp/rollout.json"
+        assert extract_command_targets(command) == ["/tmp/rollout.json"]
+
+
+class TestWrappedRemoteArgvHint:
+    """A wrapper script hides remote argv; the refusal names the direct call."""
+
+    WRAPPED = f"bash /tmp/walk/pull.sh {_ROLLOUT}"
+
+    def _reason(self, command: str, target: str = _ROLLOUT) -> str:
+        verdict = ValidationVerdict(allow=False, offending_target=target)
+        reason, _authority = build_denial_reason(
+            verdict,
+            {"tool_name": "Bash", "tool_input": {"command": command}},
+            has_targets=True,
+            command=command,
+            read_only=False,
+            machine_home="/Users/dev",
+        )
+        return reason
+
+    def test_wrapped_call_names_the_direct_host_command_and_pull_step(self):
+        reason = self._reason(self.WRAPPED)
+        assert "Call host-command directly" in reason
+        assert "wrapper script hides the argv" in reason
+        assert "-- base64 -i REMOTE_PATH > LOCAL.json" in reason
+
+    def test_a_call_with_a_yoke_invocation_gets_no_wrapper_hint(self):
+        command = f"{_SUBJECT} -- /bin/ls /Users/testy > {_ROLLOUT}"
+        assert wrapped_remote_argv_note(command, _ROLLOUT, "/Users/dev") == ""
+
+    def test_own_home_and_shared_targets_get_no_wrapper_hint(self):
+        own = "/Users/dev/notes.txt"
+        shared = "/Users/Shared/yoke-golden/x"
+        assert wrapped_remote_argv_note(f"cp a {own}", own, "/Users/dev") == ""
+        assert wrapped_remote_argv_note(f"cp a {shared}", shared, "/Users/dev") == ""
+
+    def test_linux_other_user_home_gets_the_hint(self):
+        target = "/home/yoketest/.codex/sessions/x.jsonl"
+        note = wrapped_remote_argv_note(f"sh pull.sh {target}", target, "/home/dev")
+        assert "Call host-command directly" in note
 
 
 class TestHostCommandRecognition:

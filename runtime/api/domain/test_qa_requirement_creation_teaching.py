@@ -113,7 +113,9 @@ def test_ci_recovery_recipe_preserves_repository_and_qa_authority() -> None:
     body = (REPO_ROOT / "docs/qa-platform/cli-reference.md").read_text(encoding="utf-8")
     prose = " ".join(body.split())
     assert "commands that target the repository explicitly" in prose
-    assert "force-cancel endpoint for an orphaned run" in prose
+    assert "`yoke github-actions run cancel` commands" in prose
+    assert "the gate itself force-cancels a run that never starts" in prose
+    assert "gh run watch" not in prose
     assert "yoke qa case run --requirement-id REQUIREMENT_ID" in prose
     assert "yoke watch pytest -- <CI pytest paths and options> --collect-only" in prose
 

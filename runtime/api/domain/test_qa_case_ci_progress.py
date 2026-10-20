@@ -93,11 +93,14 @@ def test_dispatched_run_is_announced_before_the_wait(
             "yoke github-actions failed-log acme/widgets 9182736 "
             "--project <project>"
         ) in recovery
-        assert "gh run watch 9182736 --repo acme/widgets" in recovery
         assert (
-            "gh api --method POST "
-            "repos/acme/widgets/actions/runs/9182736/force-cancel"
+            "yoke github-actions run cancel acme/widgets 9182736 "
+            "--project <project>"
         ) in recovery
+        assert "force-cancels a run that never starts" in recovery
+        # Registered Yoke commands only: no raw GitHub CLI or API recipe.
+        assert "`gh " not in captured.err
+        assert "gh api" not in captured.err
         assert "yoke qa case run --requirement-id 41" in recovery
         return 0, "success"
 

@@ -20,9 +20,18 @@ case snapshot, and retained lease before resolving client-local Test Machine
 credentials. It accepts bounded argv rather than shell text and returns
 redacted output. Argv paths name the **Test Machine's** filesystem, so the
 session-cwd write-authority guard exempts them; a shell redirect after the
-argv still runs locally and stays enforced. At `--timeout-seconds` (default
-60, at most 900) a `--gui-session` command's whole process tree is stopped; a
-Yoke `setup`, `connect` or `onboard` that may wait on approval needs 600+.
+argv still runs locally and stays enforced. Guards see that argv only on a
+direct call, so never wrap host-command in your own script. To pull a file
+from the Test Machine:
+
+```text
+yoke --env <connection> qa mission host-command ... -- base64 -i REMOTE_PATH > LOCAL.json
+jq -r .stdout LOCAL.json | base64 -d > LOCAL_FILE
+```
+
+At `--timeout-seconds` (default 60, at most 900) a `--gui-session` command's
+whole process tree is stopped; a Yoke `setup`, `connect` or `onboard` that may
+wait on approval needs 600+.
 
 Missions are walked one at a time, in bundle order, because they share the
 plan's one Test Machine. The walker dispatch carries the scratch path and two

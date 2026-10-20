@@ -28,6 +28,7 @@ target it named.
 
 from __future__ import annotations
 
+import shlex
 from typing import List, Optional, Sequence, Tuple
 
 from yoke_core.domain.lint_shell_target_tokens import (
@@ -146,6 +147,25 @@ def remote_argv_indexes(command_base: str, tokens: Sequence[str]) -> set[int]:
     except ValueError:
         return set()
     return set(range(separator + 1, len(tokens)))
+
+
+def local_argv_text(segment: str) -> str:
+    """Return one invocation's text without the argv a host-command ships.
+
+    The path-claim guard fails closed on an opaque ``sh -c`` body, but one
+    that ``host-command`` runs on the Test Machine is a remote argv word.
+    Redirects and substitutions still run here, so callers keep reading
+    them from the full segment.
+    """
+    try:
+        tokens = shlex.split(segment)
+    except ValueError:
+        return segment
+    base = next((tok.rsplit("/", 1)[-1] for tok in tokens), "")
+    remote = remote_argv_indexes(base, tokens)
+    if not remote:
+        return segment
+    return " ".join(tok for i, tok in enumerate(tokens) if i not in remote)
 
 
 _AWS_VALUE_FLAGS = frozenset(
@@ -301,6 +321,7 @@ __all__ = [
     "is_host_command",
     "is_host_command_segment",
     "is_test_machine_exec_segment",
+    "local_argv_text",
     "remote_argv_indexes",
     "test_machine_exec_argv_indexes",
     "yoke_subcommand_positionals",

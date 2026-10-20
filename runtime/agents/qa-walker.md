@@ -85,7 +85,10 @@ Use dispatch's exact `yoke qa mission host-command ... -- ARGV...`; it resolves
 QA_HOST from execution and bounds argv without exposing capability secrets.
 Never bypass the lease with SSH or copy credentials into shell. For macOS login
 keychain/window-server commands add `--gui-session`: Terminal bridge is the route,
-not SSH or `launchctl asuser`.
+not SSH or `launchctl asuser`. Call host-command directly, never from your own
+script: guards exempt its remote argv only when they can see it. To pull a file,
+run `... -- base64 -i REMOTE_PATH > LOCAL.json`, then
+`jq -r .stdout LOCAL.json | base64 -d > LOCAL_FILE`.
 
 Pipe secrets to the consuming command's stdin where supported. Required secret
 files live only in dispatch's owner-only staging directory for this lease, never

@@ -147,9 +147,11 @@ budget and any queue wait that preceded it.
 
 The CI runner prints the requirement id, repository, GitHub Actions run id,
 and run URL before it starts polling. It immediately follows those identifiers
-with copy-paste inspection and watch commands that target the repository
+with copy-paste `yoke github-actions failed-log` and
+`yoke github-actions run cancel` commands that target the repository
 explicitly, because linked worktrees do not provide consistent repository
-inference. A second line names the force-cancel endpoint for an orphaned run.
+inference. Keep watching through the running `yoke qa case run` invocation;
+the gate itself force-cancels a run that never starts.
 
 When a merge-queue gate rebases a lane and publishes a replacement head on the
 same pull-request branch, it also finds the prior active run for that workflow
