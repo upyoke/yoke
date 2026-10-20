@@ -11,8 +11,7 @@ Committing on a ``YOK-N`` branch while the item is still ``refined-idea``
 (or anything past ``polishing-implementation``) is a procedural miss:
 the implementation-entry transition was skipped, or polish/usher already
 moved the item beyond commit-eligible. The guard refuses the commit and
-points at ``/yoke implement YOK-N`` (or ``--no-verify``
-as the documented operator escape hatch).
+points at ``/yoke implement YOK-N`` to enter the implementation lane.
 
 This closes the procedural gap where a worktree branch can receive
 commits before the item enters an implementation-owned status, or after
@@ -108,7 +107,6 @@ def _format_block(public_ref: str, observed: str) -> str:
         f"drive the proper transition.\n"
         f"  - From a post-polish status: investigate why a worktree "
         f"commit is being attempted; the implementation phase is over.\n"
-        f"  - Bypass (operator-asserted): `git commit --no-verify`.\n"
     )
 
 
