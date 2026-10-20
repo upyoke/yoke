@@ -4,9 +4,7 @@
 [Yoke](../../index.md) > [Agents](../index.md) > Operation homes
 <!-- /yoke:breadcrumbs -->
 
-Read the home for the action you are about to take, then the operation’s
-`--help`. These homes expand the standing rules in `AGENTS.md`; the session
-packet supplies live schemas and registered recipes.
+Read the home for your next action, then the command's `--help`.
 
 ## Related
 

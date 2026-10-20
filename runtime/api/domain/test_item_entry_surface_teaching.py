@@ -97,7 +97,7 @@ def test_item_creation_is_not_a_retained_boundary() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Shared project doctrine — AGENTS.md
+# Shared project doctrine — the item-writes operation home
 # ---------------------------------------------------------------------------
 
 
@@ -107,9 +107,10 @@ def _repo_root() -> Path:
     return find_repo_root(Path(__file__))
 
 
-def test_agents_md_carries_item_entry_rule() -> None:
-    body = (_repo_root() / "AGENTS.md").read_text(encoding="utf-8")
-    assert "Work-item entry surfaces" in body
+def test_item_writes_home_carries_item_entry_rule() -> None:
+    home = _repo_root() / "docs" / "public" / "agents" / "rules" / "item-writes.md"
+    body = home.read_text(encoding="utf-8")
+    assert "allowed entry surface" in body
     assert "/yoke idea" in body
     assert "harness_skill" in body
 

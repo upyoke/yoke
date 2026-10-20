@@ -119,7 +119,7 @@ def test_verification_teaching_does_not_treat_uncommitted_as_local_reason() -> N
     assert "uncommitted work does not justify" in agents
     assert "small targeted check expected to finish in about one minute" in agents
     session = _read(REPO / "runtime" / "harness" / "claude" / "rules" / "session.md")
-    assert "Read `AGENTS.md` for shared rules" in session
+    assert "Shared rules: `AGENTS.md`" in session
     assert ".yoke/docs/agents/rules/claude-sessions.md" in session
     inventory = _read(REPO / ".yoke" / "test-inventory.md")
     assert "python3 -m pytest <targeted files>" not in inventory

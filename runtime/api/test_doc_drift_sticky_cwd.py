@@ -47,14 +47,14 @@ def repo_root() -> Path:
 
 
 def test_agents_md_carries_sticky_cwd_doctrine(repo_root: Path) -> None:
-    """AGENTS.md still names the sticky-cwd surprise."""
-    agents = repo_root / "AGENTS.md"
+    """The Claude session rules still name the sticky-cwd surprise."""
+    agents = repo_root / "runtime" / "harness" / "claude" / "rules" / "session.md"
     text = agents.read_text(encoding="utf-8")
     # The canonical phrase that documents the sticky-cwd behaviour for
     # Claude Code / Claude Desktop.
     assert "sticky cwd" in text, (
-        "AGENTS.md must continue to document the Claude Code / Desktop "
-        "sticky cwd. If this surface is renamed, update both AGENTS.md "
+        "The Claude session rules must continue to document the Claude "
+        "sticky cwd. If this surface is renamed, update both session.md "
         "and runtime/api/test_doc_drift_sticky_cwd.py in the same commit."
     )
 

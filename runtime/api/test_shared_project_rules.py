@@ -10,7 +10,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 def test_shared_rules_retain_the_harness_neutral_tool_contract():
     text = (REPO / "AGENTS.md").read_text()
-    assert "Bash tool calls" in text
+    assert "Each shell call starts fresh: use absolute paths and `git -C`" in text
     assert "Subagent Bash calls" not in text
     assert extract_block_body(text)
 
@@ -26,7 +26,6 @@ def test_all_harnesses_declare_the_same_canonical_instruction_source():
 
 
 def test_shared_rules_let_the_work_claim_holder_attest_its_overlap():
-    text = (REPO / "AGENTS.md").read_text()
-    assert "The session holding the work claim attests independent overlaps" in text
-    assert "from its own skill" in text
-    assert "When no live work-claim holder exists, route to `/yoke refine`" in text
+    text = (REPO / "docs/public/agents/rules/lanes-and-claims.md").read_text()
+    assert "The work-claim holder attests from its own skill" in text
+    assert "No live holder → `/yoke refine`" in text

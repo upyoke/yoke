@@ -38,15 +38,14 @@ class TestLifecycleRoutingSection:
 
     @pytest.fixture
     def section_body(self, text: str) -> str:
-        assert "Read the applicable `.yoke/docs/agents/rules/` home first" in text
+        assert "read its home in `.yoke/docs/agents/rules/`" in text
         assert "`lanes-and-claims.md`" in text
-        assert "live pinned workflow's half-open binding" in text
         home = _read(REPO / ".yoke/docs/agents/rules/lanes-and-claims.md")
         match = re.search(
             r"## Lifecycle and routing\b(.*?)(?=\n## |\Z)", home, re.DOTALL
         )
         assert match, "operation home missing lifecycle routing contract"
-        return match.group(1)
+        return " ".join(match.group(1).split())
 
     def test_no_flat_advance_to_done(self, section_body: str) -> None:
         stale = re.compile(

@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 @pytest.mark.parametrize(
     "relative",
     [
-        "AGENTS.md",
+        "docs/public/agents/rules/code-and-cli.md",
         "runtime/agents/product-manager.md",
         "runtime/agents/architect/task-templates.md",
         ".agents/skills/yoke/idea/infer-and-create.md",

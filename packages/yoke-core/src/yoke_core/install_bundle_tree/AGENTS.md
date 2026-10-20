@@ -6,98 +6,63 @@ yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evide
 
 <!-- BEGIN YOKE MANAGED BLOCK -->
 <!-- Managed by `yoke project install`. Everything between the BEGIN and END markers is overwritten on refresh — do not edit it here. Your own content outside the markers is always preserved. -->
-Native loading: `.yoke/docs/agents/harness-discovery.md`. Standing rules bind now; operation homes bind before acting.
+These rules bind now. Rule loading per harness: `.yoke/docs/agents/harness-discovery.md`.
 
 ## Standing authority
 
-**Skill says auto-X → do auto-X, no asking.** Invoking a Yoke skill authorizes its autonomous steps; harness confirmation defaults do not apply. Security and prohibited actions always hold. Unsure: reread the skill.
+A Yoke skill that says auto-X authorizes X: do it without asking. Security rules and prohibited
+actions still hold.
 
 ## Writing to users
 <!-- BEGIN GENERATED: user-writing -->
 Each message to the user is one or two sentences unless they ask for more. Write short, literal, active sentences without idioms; natural questions are fine. Use plain words for ideas and exact names for fields, commands and files; explain an unfamiliar name briefly where it first appears. Never write a bare number or ID: say what it is, e.g. "#411 (soft-launch PR)". When the user must decide, ask one decision at a time, most important first, each with your recommendation. Teach only what they need now, show the action before explaining it, and point to the exact place for more. The sentence limit covers narration; required instructions, recipes and evidence stay complete.
 <!-- END GENERATED: user-writing -->
 
-## Project Scoping
+## Always
 
-One item has one project. Consumer code changes require linked companion items. The configured release-time exact-pair gate owns consumer proof; item merges need no separate consumer build. See `.yoke/docs/verification/consumer-proof.md`. Ask when the target is ambiguous.
+- Work in the lane your work claim covers. Never implement on main or use `--no-worktree`
+  unless the user asks.
+- Path claims never narrow scope: every required file stays in the item and its File Budget.
+  The 350-line authored-file limit always holds.
+- Run Yoke operations through `yoke <subcommand>`, never runtime API, client or HTTP calls.
+  SQL is diagnostic only: `yoke db read "SELECT ..."`, with `<>`. Never print secrets.
+- Each shell call starts fresh: use absolute paths and `git -C`. Capture long output once.
+- Check a name, path, flag or live state against evidence before you assert it. Use full
+  commit hashes and the bare integer `item_id`.
+- Name code for what it does now. Names and prose carry no work-item, plan, phase or criterion
+  ids (`PREFIX-12`, `AC-7`) unless they are runtime data.
+- Commit every completed change; leave no dirty tree. Commit before CI; never push by hand.
+  Update the surface that owns a changed behavior; delete text the change makes wrong.
+- Iterate with `yoke watch pytest --impacted main --bounded`; the attached QA case owns the
+  full run.
+- A verification failure in this item belongs to this item. Never edit or weaken an unchanged
+  consumer test that fails against new producer code; route it to the producer.
+- Never discard changes, stashes or files without user authority.
+- Write items only through typed `yoke` item commands. Never hand-edit generated views.
+- File bugs through `/yoke idea` or a field note. Find the root cause; describe a failure as a
+  system gap, never as agent error.
+- On a watcher wake, tell the user in one sentence what changed (item, PR, failing test), or
+  nothing. Fleet mail is only for blockers, conflicts, red gates, decisions, results.
+- After compaction, reload the current-phase skill. Answer a user message before you continue. Never
+  enter plan mode on your own.
 
-## Worktree Discipline
+## Operation homes
 
-Work claims authorize lanes. Never implement on main or use `--no-worktree` without explicit user instruction. Prepare the registered lane immediately after claim/read/minimal survey, from verified-current upstream. Preserve divergence; unreadable upstream blocks. Route from the live pinned workflow's half-open binding; never invent stages.
+Before an operation, read its home in `.yoke/docs/agents/rules/`, then the command's `--help`.
+Live recipes: `yoke packets render --role main_agent`.
 
-## Path Claims — Hard Rule
-
-File Budget and path claims are independent axes from `workflows.item.get`'s `effective_policies`. The 350-line authored-file limit (`yoke_core.domain.file_line_check`) always holds. Claimed paths do not narrow scope: Every required file stays in the item; never omit, descope, or rewrite away a required file. Claims are coordination/dependency/blocking facts. Read `lanes-and-claims.md` before resolving any overlap.
-
-The session holding the work claim attests independent overlaps with `coordination_only` from its own skill; ordered edits require directional `activation` evidence. Only the dependent waits. When no live work-claim holder exists, route to `/yoke refine`. Unattested overlap stays incompatible; claims coordinate physical files, including symlink targets.
-
-### yoke CLI
-
-Use registered function ids through `yoke <subcommand>`, never direct runtime API/client/HTTP recipes. Postgres owns control-plane state, never constructed paths/DSNs or lane DB files. Diagnostic SQL: `yoke db read "SELECT ..."`, with `<>`; no write SQL. Missing mutations escalate. Never print secrets or dump settings.
-
-Reusable capabilities ship as immutable Packs; config stays in DB/project policy, credentials capability-owned. Deployment runs take no claim: a run occupies its target servers until its QA settles, a newer run created on its flow and target takes it over once it waits only on item QA, and a run with a live driver answers only to that session. Merge before release; hosted flows own exact commits and proof. Remote changes originate locally.
-
-## Before acting: operation homes
-
-Read the applicable `.yoke/docs/agents/rules/` home first, then the operation's `--help`. [Operation homes](.yoke/docs/agents/rules/index.md) lists when each applies. Live schemas/recipes: `yoke packets render --role main_agent`.
-
-- `code-and-cli.md`: read before code, naming, simplify or teaching changes.
-- `shell-and-cli.md`: read before shell calls, CLI operations or serving-floor changes.
-- `lanes-and-claims.md`: read before preparation, scope, overlaps or destructive operations.
-- `item-writes.md`: read before item creation, typed writes, Progress Log or board work.
-- `databases.md`: read before schema/bulk-data changes or governed rehearsal.
-- `verification.md`: read before tests, QA, CI, captures or health checks.
-- `delivery.md`: read before deployment runs, binding-based delivery or release-target QA.
-- `release-roles.md`: read before release identity or permission configuration.
-- `packs.md`: read before capability packaging, credentials or Pack updates.
-- `architecture-model.md`: read before model changes or cross-cutting dependencies.
-- `claude-sessions.md`: read before Claude hooks, session identity or recovery.
-- `claude-long-commands.md`: read before Claude long commands or watcher waits.
-
-Before implementation, read `.yoke/docs/agents/rules/code-and-cli.md` for complete
-scope, portable behavior and durable-state ownership. Before teaching, read
-`.yoke/docs/documentation/index.md`; private-source classification and verified
-pointer replacement live in `.yoke/docs/projects/execution-instructions.md`.
-
-## Code Conventions
-
-Verify capabilities/state against live evidence before asserting them. Resolve refs to bare integer `item_id` and full commit hashes; never expand abbreviations. Purge retired terms; historical provenance goes in commits/archive. Prefer Python for stateful helpers.
-
-**Codebase-reader naming:** Assume future readers of the codebase will NOT have planning artifacts. Planning artifacts are scaffolding; name live code by current function, purpose, mechanics. FILE and DIRECTORY names, symbols and prose never carry work-item/epic/plan/milestone/phase/stage/tier/slice/track/wave/batch/field-note provenance or acceptance criterion/functional requirement/spec identifiers (`PREFIX-1234`, `AC-7`, `FR-3`, §7), except runtime/domain data and fixtures. A directory must explain its purpose to a repository reader.
-
-## Simplify — three-axis doctrine
-
-Apply reuse, quality and efficiency: name an existing surface, keep scope minimal, justify new infrastructure. Pull future concepts forward; read the code home for stage weights.
-
-Commit every completed change; no dirty tree between tasks. Update all affected docs. Permanent migrations are never deleted. Simulate with real values before execution; verify afterward.
-
-## Verification Failure Ownership
-
-Current-item verification failures belong to the current item; a future item or planned path claim is not a waiver. Fix failures here unless a live conflict or explicit operator waiver applies; preserve failure/rerun evidence. Use dependency and claim reconciliation before override. Do not use `path-claim-override` for a planned future claim; irreducible live collisions require a live steering seat covering the project; route the override through `yoke say --steering` and read `yoke claims path override --help`.
-
-A consumer test this item did not change that fails against a new producer source is evidence against the producer: never edit or weaken it; name the producer commit range or item and route it to steering (`yoke say --steering`) or the producer's companion item.
-
-### Bash tool calls
-
-Capture non-trivial commands once; use watchers for long runs. Iterate with `yoke watch pytest --impacted main --bounded`; the attached QA case owns the final full execution. Continue yielded handles until exit, never relaunch or manually poll. Read verification before local interruption. Shell variables reset per call; Claude's sticky cwd may persist. Use absolute paths, `git -C`, `python3`, quoted patterns and `rg --files`. Commit before CI; workers never push by hand.
-
-Never discard changes/stashes/files without sanctioned or user authority. Read destruction rules first; `git stash push -u -m "reason" -- <paths>` keeps the message before the separator.
-
-## Structured Item Writes
-
-Never edit generated views without an ingest command; `yoke board rebuild` explicitly refreshes the board. Item writes are typed registered functions. Progress Log entries are current-state checkpoints via `items.progress_log.append`; task-graph fields stay untouched with `generated_children=none`. Work-item entry surfaces use allowed workflows (`/yoke idea`: `harness_skill`); Architect decomposes.
-
-File bugs through `/yoke idea`, `yoke dash` or field-notes; never harness task suggestions. Find root cause first; describe failures systemically, never as "agent error/mistake." After compaction reload the current-phase skill. Answer mid-sequence user messages before continuing. Prefer inline chat; the item is the plan. Insufficient plans escalate; never enter plan mode on your own.
-
-Harness settings route hooks through `yoke hook evaluate <event>`; Python owns them. Read `.yoke/harness/<harness-dir>/manifest.json` from the installed release before stating capabilities (claude-code → claude).
-
-## Governed DB Mutation
-
-Read `databases.md` before schema or bulk-data changes; it owns restore points, serving floors, canonical serializers, idempotency and every live universe's rehearsal. Boot applies; items author and rehearse.
+- `code-and-cli.md`: code, naming, teaching. `shell-and-cli.md`: shell and CLI calls.
+- `lanes-and-claims.md`: lanes, project scope, overlaps, destructive operations.
+- `item-writes.md`: item writes, Progress Log, board. `databases.md`: schema or bulk data.
+- `verification.md`: tests, QA, CI. `delivery.md`: deployment runs and delivery.
+- `release-roles.md`: release identity. `packs.md`: Packs, credentials, infrastructure.
+- `architecture-model.md`: architecture model and cross-cutting dependencies.
+- `claude-sessions.md`, `claude-long-commands.md`: Claude hooks, identity, long commands.
 
 ## Architecture Model
 
-Read the authoritative payload before model/dependency changes. Use its gateways; declare `architecture_impact`. `uncertain` blocks readiness.
+Read the `architecture_model` payload before dependency changes; `architecture_impact: uncertain`
+blocks readiness.
 
 ## Command Output — Hard Rule
 <!-- BEGIN GENERATED: read-recipe -->

@@ -86,11 +86,12 @@ def test_recipe_repairs_and_registered_surfaces_stay_taught() -> None:
     assert "Use `-- -n 0`" in source_dev_doctrine
     assert "docs/source-dev-doctrine.md" in agents
     assert "`code-and-cli.md`" in agents
-    assert "Read the applicable `.yoke/docs/agents/rules/` home first" in agents
+    assert "read its home in `.yoke/docs/agents/rules/`" in agents
     code_home = (REPO / ".yoke/docs/agents/rules/code-and-cli.md").read_text()
     shell_home = (REPO / ".yoke/docs/agents/rules/shell-and-cli.md").read_text()
     assert "Enumerate optional globs with `rg --files`" in shell_home
-    assert "full commit hashes; never expand abbreviations" in agents
+    assert "commit hashes and the bare integer `item_id`" in agents
+    assert "Never invent or expand one" in code_home
     assert "cat-file -e '<sha>^{commit}'" in code_home
     assert "yoke dev run -- <command>" in verification
     assert "git diff --name-only --diff-filter=ACMR <base>...HEAD" in source_development
