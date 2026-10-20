@@ -59,12 +59,12 @@ def owed_host_abort(conn, execution, *, reason):
     )
     runner = roster[ordinal].get("runner_id")
     if runner == "agent_mission" and request:
-        from yoke_core.domain.agent_mission_restore import mission_restores_recorded
+        from yoke_core.domain.agent_mission_restore import mission_restores_proven
 
         return (
             request
             if execution.get("machine_lease_id")
-            and not mission_restores_recorded(conn, execution)
+            and not mission_restores_proven(conn, execution)
             else None
         )
     if runner != "host_control":
@@ -153,21 +153,35 @@ def host_cleanup_proven(conn, execution, ordinal):
         ).fetchone()
         if run is None:
             continue
-        raw = run[0] if not hasattr(run, "keys") else run["raw_result"]
-        evidence = (json.loads(raw) if isinstance(raw, str) else raw).get(
-            "evidence"
-        ) or {}
-        restore = evidence.get("starting_state_restore") or {}
-        if restore_required:
-            if restore.get("restored") is True and restore.get("baseline") == baseline:
-                return True
-        elif restore:
+        if case.get("runner_id") == "agent_mission":
+            from yoke_core.domain.agent_mission_restore import recorded_mission_restore
+
+            restore = recorded_mission_restore(
+                conn, requirement_id=row["requirement_id"], run_id=result["run_id"]
+            )
+        else:
+            raw = run[0] if not hasattr(run, "keys") else run["raw_result"]
+            evidence = (json.loads(raw) if isinstance(raw, str) else raw).get(
+                "evidence"
+            ) or {}
+            restore = evidence.get("starting_state_restore")
+        if starting_state_restore_proven(case, restore):
             return True
     if restore_required:
         from yoke_core.domain.qa_plan_abort_reset import reset_cleanup_proven
 
         return reset_cleanup_proven(conn, execution, baseline)
     return False
+
+
+def starting_state_restore_proven(case, restore):
+    """The shared baseline contract; as_is records that no restore is owed."""
+    if not isinstance(restore, dict) or not restore:
+        return False
+    baseline = case.get("host_baseline")
+    if case.get("starting_state") != "as_is" and baseline:
+        return restore.get("restored") is True and restore.get("baseline") == baseline
+    return True
 
 
 def settle_host_abort(conn, execution):
