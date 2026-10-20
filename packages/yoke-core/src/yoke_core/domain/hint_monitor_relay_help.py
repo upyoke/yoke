@@ -45,11 +45,14 @@ processes accumulating per 5-minute pytest run before the rule
 tightened.
 
 What you DO do during a Monitor-armed background command:
-- On each wake, relay the matched line as text (verbatim or a tight
-  paraphrase that preserves the concrete signal: `pytest [47%]`,
-  `FAILED tests/test_foo.py::test_bar`, `merge step 3 complete`).
-  No commentary, no preamble, no status summary, no filler between
-  wakes - silence between matched lines is correct.
+- On each wake, write one plain-language sentence saying what changed
+  that the user would care about, and keep its concrete signal: the
+  item, PR, failing test or terminal state (`FAILED
+  tests/test_foo.py::test_bar`, "PR #12 merged", "pytest is at 47%").
+  When the matched line changes nothing worth reporting, write nothing.
+  Never paste the raw line or a multi-line report block (`=== BEGIN
+  ... REPORT ===`, status fields) into chat. No preamble and no filler
+  between wakes - silence between wakes is correct.
 - Relay means YOUR OWN visible output, and nothing else. Never
   forward a matched line to another session as a durable Fleet
   message (`yoke say`). A percentage, an elapsed-time poll, a
@@ -67,12 +70,12 @@ What you DO do during a Monitor-armed background command:
   holds `# watch_<kind> digest ...` lines and stall notices and hands
   them over in front of the next urgent line or the exit sentinel. A
   digest covers every signal between its middle dots in the order they
-  happened; relay it as it stands with that wake - do not unpack it
-  into a turn per signal, and do not report only its last signal.
-  Urgent lines still arrive the moment they happen. A bare tail needs
-  no filter. An emitted line may also carry a
+  happened; fold what it says into that wake's one summary sentence -
+  do not unpack it into a turn per signal, and do not report only its
+  last signal. Urgent lines still arrive the moment they happen. A bare
+  tail needs no filter. An emitted line may also carry a
   `(suppressed N ticks)` suffix, meaning N numeric ticks were
-  superseded by that one; relay the suffix, do not strip it.
+  superseded by that one; the latest tick is the one to summarize.
 - Parallel work in other tools (Read, Edit, unrelated Bash) is fine
   and encouraged between wakes.
 - Do not emit no-op Bash calls to hold the turn while waiting
@@ -93,7 +96,7 @@ What you DO do during a Monitor-armed background command:
   also a capture file - `TaskOutput` artifacts live there. The
   peek/waiter rules apply to those paths identically.
 - Do not infer state that wasn't in a matched line. If the line
-  says "[ 65%]", relay "[ 65%]" - not "65%, all green".
+  says "[ 65%]", say the run is at 65% - not "65%, all green".
 
 When `wait_mode=background-wake` says the caller's harness has a native
 idle-wake primitive, completion releases that caller. The allowed

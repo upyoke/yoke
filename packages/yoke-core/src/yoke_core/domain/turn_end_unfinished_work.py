@@ -42,7 +42,13 @@ def waiting_on_landing(claim: dict[str, Any]) -> bool:
     from one whose remaining work belongs to GitHub. Nothing this session can
     do shortens that wait, and the control-plane landing observer messages the
     claim holder when it resolves, so stopping here is the designed handoff.
+
+    A re-land's arming lives on the item's open attempt while the item's own
+    stamps still describe the earlier landing, so an armed open attempt
+    (``open_attempt_enqueued_at``) is the in-flight landing and wins.
     """
+    if claim.get("open_attempt_enqueued_at"):
+        return True
     return bool(claim.get("merge_queue_enqueued_at")) and not landed_but_open(claim)
 
 

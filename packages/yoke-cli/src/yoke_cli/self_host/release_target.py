@@ -32,7 +32,6 @@ INSTALLER_RUN_TIMEOUT_SECONDS = 600.0
 
 _SOURCE_COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _CHANNEL = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
-_FETCH_BYTES: Callable[[str], bytes]
 
 
 class ReleaseTargetError(RuntimeError):
@@ -66,7 +65,7 @@ def current_release_target(
     manifest_url = (
         f"{selected_base}/dist/releases/{encoded_version}/migration-history.json"
     )
-    payload = _fetch_json(manifest_url, f"Yoke {version} release manifest")
+    payload = fetch_json(manifest_url, f"Yoke {version} release manifest")
     artifact = payload.get("artifact")
     if not isinstance(artifact, dict):
         raise ReleaseTargetError(
@@ -101,7 +100,7 @@ def channel_release_target(
     )
     selected_base = distribution_base_url(base_url)
     channel_url = f"{selected_base}/dist/channels/{selected_channel}.json"
-    payload = _fetch_json(channel_url, f"{selected_channel} release channel")
+    payload = fetch_json(channel_url, f"{selected_channel} release channel")
     if payload.get("schema_version") != 3:
         raise ReleaseTargetError(
             f"{selected_channel} release channel does not carry source-commit evidence; "
@@ -316,13 +315,13 @@ def distribution_base_url(override: str | None) -> str:
     return selected
 
 
-def _fetch_json(url: str, label: str) -> dict[str, Any]:
+def fetch_json(url: str, label: str, shape: type = dict) -> Any:
     try:
         value = json.loads(_FETCH_BYTES(url).decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ReleaseTargetError(f"{label} is not valid JSON") from exc
-    if not isinstance(value, dict):
-        raise ReleaseTargetError(f"{label} must be a JSON object")
+    if not isinstance(value, shape):
+        raise ReleaseTargetError(f"{label} is not a JSON {shape.__name__}")
     return value
 
 
@@ -334,7 +333,7 @@ def _fetch_bytes(url: str) -> bytes:
         raise ReleaseTargetError(f"could not fetch {url}: {exc}") from exc
 
 
-_FETCH_BYTES = _fetch_bytes
+_FETCH_BYTES: Callable[[str], bytes] = _fetch_bytes
 
 
 __all__ = [
@@ -345,6 +344,7 @@ __all__ = [
     "current_release_target",
     "distribution_base_url",
     "fetch_installer",
+    "fetch_json",
     "release_channel",
     "run_installer",
 ]

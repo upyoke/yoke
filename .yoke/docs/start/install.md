@@ -155,8 +155,13 @@ verified old and new version or that you're already current. Without that
 record it refuses; select one with `yoke settings set distribution --origin URL
 --channel NAME`. `--channel NAME` selects and saves another channel;
 `--version VERSION` installs that exact release. `yoke update --check [--json]`
-installs nothing: it reports the CLI, the active server's engine and the
-channel's latest, with `behind: cli|server|none` and the next step. On the
+installs nothing: it proves the installed build, then reports the active
+server's engine and the channel's latest, with `behind: cli|server|none` and
+the next step. The proof reads the full source commit the installed CLI wheel
+was built from (`source_commit`) and lists that release's published wheel
+sha256 values (`wheels`); it refuses with `installed_build_mismatch` and the
+exact reinstall command when the commit differs from the release manifest's.
+`yoke --version` prints only the version. On the
 local universe `yoke update` updates the CLI and local server together; a team
 server's admin upgrades it; hosted servers update with each hosted release.
 

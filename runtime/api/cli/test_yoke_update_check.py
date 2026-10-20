@@ -15,6 +15,8 @@ LATEST = "0.2.0.202610170000"
 OLDER = "0.2.0.202610100000"
 HOSTED_URL = "https://app.upyoke.com/api/orgs/acme"
 TEAM_URL = "https://yoke.example.com"
+COMMIT = "e2ec8be23286fbc918a6375dc2717c3d612dc87c"
+WHEELS = [{"filename": "yoke_cli-0.2.0-py3-none-any.whl", "sha256": "a" * 64}]
 
 
 def _binding(kind: str, version: str) -> dict:
@@ -23,6 +25,7 @@ def _binding(kind: str, version: str) -> dict:
         "checkout_root": "/work/yoke" if kind == KIND_SOURCE_CHECKOUT else None,
         "module_origin": "/wherever/yoke_cli/__init__.py",
         "version": version,
+        "source_commit": COMMIT if kind == KIND_PACKAGED_WHEEL else "",
     }
 
 
@@ -62,6 +65,20 @@ def install(monkeypatch):
             update_check.manifest, "diagnose_env_manifest_fetch", lambda _env: "401"
         )
         monkeypatch.setattr(update_check, "installed_engine_version", lambda: cli)
+        monkeypatch.setattr(
+            update_check.release_build,
+            "verify_installed",
+            lambda **kwargs: (
+                WHEELS
+                if kwargs
+                == {
+                    "version": cli,
+                    "source_commit": COMMIT,
+                    "base_url": "https://distribution.example",
+                }
+                else pytest.fail(f"unexpected build proof request {kwargs}")
+            ),
+        )
 
     return configure
 
@@ -69,6 +86,7 @@ def install(monkeypatch):
 def test_current_hosted_install_is_behind_nothing(install):
     install()
     report = update_check.run_check()
+    assert (report["source_commit"], report["wheels"]) == (COMMIT, WHEELS)
     assert report["behind"] == "none"
     assert report["destination"] == "hosted"
     assert report["server_engine_version"] == LATEST
@@ -133,9 +151,32 @@ def test_check_json_never_installs(install, monkeypatch, capsys):
     assert payload["ok"] is True
     assert payload["behind"] == "cli"
     assert payload["latest_version"] == LATEST
+    assert (payload["source_commit"], payload["wheels"]) == (COMMIT, WHEELS)
 
 
 def test_check_refuses_an_exact_version(install):
     install()
     with pytest.raises(SystemExit):
         command.update(["--check", "--version", LATEST])
+
+
+def test_build_mismatch_refuses_the_check(install, monkeypatch, capsys):
+    install()
+
+    def mismatch(**_kwargs):
+        raise update_check.release_build.ReleaseBuildError(
+            "installed_build_mismatch: reinstall"
+        )
+
+    monkeypatch.setattr(update_check.release_build, "verify_installed", mismatch)
+    assert command.update(["--check", "--json"]) == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {"ok": False, "error": "installed_build_mismatch: reinstall"}
+
+
+def test_check_text_names_the_commit_and_wheel_hashes(install, capsys):
+    install()
+    assert command.update(["--check"]) == 0
+    out = capsys.readouterr().out
+    assert f"built from {COMMIT}" in out
+    assert f"{WHEELS[0]['filename']} sha256 {'a' * 64}" in out

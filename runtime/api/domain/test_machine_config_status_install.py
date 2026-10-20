@@ -48,13 +48,70 @@ def test_contract_rejects_site_packages_origin(tmp_path: Path) -> None:
 
 
 class _Distribution:
-    def __init__(self, root: Path, version: str, files: tuple[Path, ...] = ()) -> None:
+    def __init__(
+        self,
+        root: Path,
+        version: str,
+        files: tuple[Path, ...] = (),
+        scm_version: str | None = None,
+    ) -> None:
         self._root = root
         self.version = version
         self.files = files
+        self._scm_version = scm_version
 
     def locate_file(self, path: str | Path) -> Path:
         return self._root / path
+
+    def read_text(self, filename: str) -> str | None:
+        return self._scm_version if filename == contract.SCM_VERSION_FILENAME else None
+
+
+def _packaged_cli(tmp_path: Path, monkeypatch, scm_version: str | None) -> Path:
+    site_packages = tmp_path / "venv" / "site-packages"
+    module_file = site_packages / "yoke_cli" / "__init__.py"
+    module_file.parent.mkdir(parents=True)
+    module_file.write_text("")
+    monkeypatch.setattr(
+        contract,
+        "_distribution",
+        lambda _name: _Distribution(
+            site_packages, "7.8.9", (Path("yoke_cli/__init__.py"),), scm_version
+        ),
+    )
+    return module_file
+
+
+def test_source_commit_reads_the_owning_wheel_scm_node(tmp_path: Path, monkeypatch):
+    commit = "e2ec8be23286fbc918a6375dc2717c3d612dc87c"
+    module_file = _packaged_cli(tmp_path, monkeypatch, f'{{"node": "g{commit}"}}')
+    assert (
+        contract.distribution_source_commit_for_module("yoke-cli", module_file)
+        == commit
+    )
+    elsewhere = tmp_path / "other" / "yoke_cli" / "__init__.py"
+    assert contract.distribution_source_commit_for_module("yoke-cli", elsewhere) == ""
+
+
+def test_source_commit_rejects_short_or_missing_nodes(tmp_path: Path, monkeypatch):
+    module_file = _packaged_cli(tmp_path, monkeypatch, '{"node": "g5d0edd8"}')
+    assert contract.distribution_source_commit_for_module("yoke-cli", module_file) == ""
+    monkeypatch.setattr(
+        contract,
+        "_distribution",
+        lambda _name: _Distribution(
+            module_file.parents[1], "7.8.9", (Path("yoke_cli/__init__.py"),)
+        ),
+    )
+    assert contract.distribution_source_commit_for_module("yoke-cli", module_file) == ""
+
+
+def test_source_commit_is_empty_for_a_source_checkout(tmp_path: Path) -> None:
+    root = _synthetic_checkout(tmp_path)
+    module_file = root / "packages" / "yoke-core" / "src" / "yoke_core" / "__init__.py"
+    assert (
+        contract.distribution_source_commit_for_module("yoke-core", module_file) == ""
+    )
 
 
 def test_distribution_version_requires_matching_packaged_origin(
