@@ -2,8 +2,9 @@
 
 A heredoc that feeds a typed ``yoke`` command on stdin is data, even when
 its prose quotes an import one-liner, and a quoted operand that mentions
-``python3 -c`` names no interpreter. A real reach-in in command position,
-alone or behind ``env``, is still refused.
+``python3 -c`` names no interpreter. A real reach-in in command position —
+alone or behind a launcher such as ``env``, ``uv run`` or ``timeout`` — is
+still refused.
 """
 
 from __future__ import annotations
@@ -51,6 +52,9 @@ def test_echoed_one_liner_names_no_interpreter() -> None:
         f"cat <<'EOF' > /tmp/x\nnote\nEOF\n{REACH_IN}",
         f"env YOKE_ENV=prod {REACH_IN}",
         f"YOKE_ENV=prod {REACH_IN}",
+        f"uv run {REACH_IN}",
+        f"uv run -- {REACH_IN}",
+        f"timeout 10 {REACH_IN}",
     ],
 )
 def test_command_position_reach_in_is_still_refused(command: str) -> None:

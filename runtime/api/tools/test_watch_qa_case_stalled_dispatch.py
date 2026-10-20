@@ -30,14 +30,15 @@ def _stalled_line() -> str:
     return f"  Workflow status: {message}\n"
 
 
-def test_pending_zero_jobs_stall_is_urgent_with_force_cancel_recovery() -> None:
+def test_pending_zero_jobs_stall_is_urgent_with_registered_cancel_recovery() -> None:
     line = _stalled_line()
 
     classification = watch_qa_case.QaCaseLineClassifier()(line)
 
     assert classification.cls is LineClass.URGENT
     assert f"waiting_on={PENDING_ZERO_JOBS_STALL_REASON}" in line
-    assert "actions/runs/88/force-cancel" in line
+    assert "yoke github-actions run cancel" in line
+    assert "force-cancels a run that never starts" in line
 
 
 def test_named_stall_does_not_fall_back_to_progress_throttle(

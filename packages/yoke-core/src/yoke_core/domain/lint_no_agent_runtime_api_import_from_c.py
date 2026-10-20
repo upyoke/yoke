@@ -125,6 +125,39 @@ def _read_mode(payload: object | None = None) -> str:
     )
 
 
+#: Commands that run the argv after them, so an interpreter there still runs.
+_LAUNCHER_WORDS = frozenset(
+    {"command", "env", "exec", "nice", "nohup", "run", "sudo", "timeout", "uv"}
+)
+
+
+def _interpreter_index(tokens: List[str]) -> Optional[int]:
+    """Index of the interpreter this invocation runs, or ``None``.
+
+    The command word, the word after a ``--`` that hands over an argv, or
+    a word reached only through launcher words, their flags, durations and
+    assignments. Any other word is an operand: ``rg 'python3 -c ...'``
+    names no interpreter.
+    """
+    if "--" in tokens:
+        after = tokens.index("--") + 1
+        if after < len(tokens) and _PYTHON_TOKEN_RE.match(
+            os.path.basename(tokens[after])
+        ):
+            return after
+    for i, tok in enumerate(tokens):
+        if _PYTHON_TOKEN_RE.match(os.path.basename(tok)):
+            return i
+        if not (
+            tok in _LAUNCHER_WORDS
+            or tok.startswith("-")
+            or tok.replace(".", "").isdigit()
+            or "=" in tok
+        ):
+            return None
+    return None
+
+
 def _iter_python_c_bodies(command: str):
     """Yield ``(ordinal, interpreter, body)`` per ``python(3)? -c`` invocation.
 
@@ -142,25 +175,17 @@ def _iter_python_c_bodies(command: str):
     ordinal = 0
     for segment in shell_command_segments(strip_heredoc_syntax(command)):
         tokens = strip_env_prefixes(command_operand_tokens(segment))
-        if tokens[:1] == ["env"]:
-            tokens = strip_env_prefixes(tokens[1:])
-        if "--" in tokens:
-            wrapped = tokens.index("--") + 1
-            if (
-                wrapped < len(tokens)
-                and _PYTHON_TOKEN_RE.match(os.path.basename(tokens[wrapped]))
-                and _is_registered_source_run(tokens, wrapped)
-            ):
-                ordinal += 1
-                continue
-        if not tokens or not _PYTHON_TOKEN_RE.match(os.path.basename(tokens[0])):
+        i = _interpreter_index(tokens)
+        if i is None:
             continue
         ordinal += 1
+        if _is_registered_source_run(tokens, i):
+            continue
         n = len(tokens)
-        for j in range(1, n):
+        for j in range(i + 1, n):
             arg = tokens[j]
             if arg == "-c" and j + 1 < n:
-                yield ordinal, tokens[0], tokens[j + 1]
+                yield ordinal, tokens[i], tokens[j + 1]
                 break
             if arg.startswith("-") and arg not in (
                 "-W",

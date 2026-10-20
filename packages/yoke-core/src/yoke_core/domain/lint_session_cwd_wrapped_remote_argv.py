@@ -54,12 +54,17 @@ def _invokes_yoke(command: str) -> bool:
 def wrapped_remote_argv_note(
     command: str, target: str, machine_home: str | None
 ) -> str:
-    """Return the direct-call hint for a refused other-user home target."""
+    """Return the direct-call hint for a refused other-user home target.
+
+    ``machine_home`` is the client's relayed home fact; without it no target
+    can be called another user's, so no hint is given.
+    """
     owner = _home_owner(target)
-    if not command.strip() or not owner or owner in _SHARED_HOME_DIRS:
+    if not machine_home or not command.strip() or not owner:
         return ""
-    home = os.path.expanduser("~") if machine_home is None else machine_home
-    if _home_owner(home.rstrip("/") + "/") == owner or _invokes_yoke(command):
+    if owner in _SHARED_HOME_DIRS:
+        return ""
+    if _home_owner(machine_home.rstrip("/") + "/") == owner or _invokes_yoke(command):
         return ""
     return WRAPPED_REMOTE_ARGV_NOTE.format(target=target)
 
