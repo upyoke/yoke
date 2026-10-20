@@ -93,7 +93,9 @@ def create_core_tables(conn: Any) -> None:
           archived_at TIMESTAMPTZ,
           created_at TIMESTAMPTZ NOT NULL,
           project_id INTEGER DEFAULT NULL REFERENCES projects(id),
-          target_project_id INTEGER DEFAULT NULL REFERENCES projects(id)
+          target_project_id INTEGER DEFAULT NULL REFERENCES projects(id),
+          correlation_id INTEGER DEFAULT NULL,
+          session_id TEXT DEFAULT NULL
         );
         -- durable bounded carry-forward for Strategize landed-work review:
         -- one row per (project_id, item_id) ever seen as landed. `state`
