@@ -4,5 +4,5 @@
  "status": "observed",
  "page": "test-machine-execution",
  "position": 0,
- "description": "Host admission filters case methods, instructions, capabilities and executable steps by required OS before ranking verified hosts. An incompatible pin or missing platform refuses with registration and verification recovery."
+ "description": "Single-host admission filters case methods, instructions, capabilities and executable steps by required OS before ranking verified hosts. Simultaneous cases retain the declared driver, admit each registered host and require the inferred platform somewhere in the full set. A missing platform refuses with registration and verification recovery."
 }

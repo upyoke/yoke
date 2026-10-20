@@ -22,6 +22,9 @@ running its host operations. A missing or expired lease requires fresh admission
 a released lease with an unknown receipt requires inspecting the retained
 capture, rather than repeating the operation.
 
+Simultaneous machine-QA cases keep their declared driver and check platforms
+across the full host set; see [host-set authoring](exploration.md#authoring-shape).
+
 When verification marks a host unhealthy, repair the named failure and run
 `yoke test-machine verify --project P --machine NAME` to wake the waiting line.
 Keep the sealed baseline unchanged during this recovery. Run

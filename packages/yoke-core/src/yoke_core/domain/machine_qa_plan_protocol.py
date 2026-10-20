@@ -73,8 +73,28 @@ def continue_plan_host_control_execution(
         allow_released=False,
     )
     from yoke_core.domain.machine_qa_case_platform import matching_platform_hosts
+    from yoke_core.domain.machine_qa_case_hosts import case_machines
+    from yoke_core.domain.host_control_runner import load_test_machine_contract
+    from yoke_core.domain.qa_plan_host_leases import require_case_host_leases
 
-    matching_platform_hosts([selected], cases)
+    hosts = {selected.settings["resource_name"]: selected}
+    for case in cases:
+        names = case_machines(case)
+        if len(names) > 1:
+            require_case_host_leases(
+                conn,
+                {
+                    "id": plan_execution_id,
+                    "session_id": session_id,
+                    "actor_id": actor_id,
+                },
+                case,
+            )
+            for name in names:
+                hosts[name] = load_test_machine_contract(
+                    conn, project=project, machine=name
+                )
+    matching_platform_hosts(list(hosts.values()), cases)
     selected_name = selected.settings["resource_name"]
     if machine and machine != selected_name:
         raise MachineQaProtocolError(
