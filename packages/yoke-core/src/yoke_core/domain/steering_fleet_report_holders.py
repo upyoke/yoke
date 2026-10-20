@@ -185,11 +185,14 @@ def claim_holders(
         now=parse_stamp(now),
     )
     for row in rows:
-        last_activity = parse_stamp(
-            row.get("last_tool_call_at")
-            if row.get("last_tool_call_at") is not None
-            else row.get("claimed_at")
-        )
+        # Watcher wrappers refresh the heartbeat while a long call runs.
+        # Once the wrapper stops, this stamp ages through the normal threshold.
+        activity = [
+            stamp
+            for key in ("last_tool_call_at", "last_heartbeat")
+            if (stamp := parse_stamp(row.get(key))) is not None
+        ]
+        last_activity = max(activity) if activity else parse_stamp(row.get("claimed_at"))
         mode = str(row.get("mode") or "")
         process = processes[str(row["session_id"])]
         resume = resumes.get(str(row["session_id"]))

@@ -28,7 +28,7 @@ from yoke_core.domain.session_mode import session_is_parked
 
 #: A live work-claim holder silent this long is probed and revived. Its
 #: liveness label stays ``active`` far past this point, so the age of the
-#: last tool call is the only usable signal.
+#: latest tool call or running command heartbeat is the activity signal.
 IDLE_HOLDER_MINUTES = 20
 #: A still-idle holder's alarm repeats this often until it clears.
 IDLE_HOLDER_REPEAT_MINUTES = 60
