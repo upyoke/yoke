@@ -245,37 +245,18 @@ def test_git_archive_metadata_is_exported_for_image_wheel_versions() -> None:
     assert "ref-names: $Format:%D$" in archival
 
 
-def test_dockerfile_ships_declared_server_tree_bundle_sources() -> None:
-    """Pack and agent routes read repo-root sources the wheel cannot carry.
+def test_dockerfile_serves_the_installed_packaged_tree() -> None:
+    """Install-bundle and Pack routes read the wheel's packaged tree.
 
-    Install-bundle and Pack routes resolve skills/Packs/adapters
-    from ``server_tree_root()``; in the container that root is the
-    declared ``YOKE_SERVER_TREE_ROOT`` tree, COPYed with repo layout.
+    The image declares no ``YOKE_SERVER_TREE_ROOT`` and copies no second
+    source tree, so ``server_tree_root()`` resolves the installed snapshot
+    whose bundles carry this image's build as ``source_build``.
     """
     dockerfile = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
 
-    assert "YOKE_SERVER_TREE_ROOT=/srv/yoke-tree" in dockerfile
-    assert "COPY packs /srv/yoke-tree/packs" in dockerfile
-    assert "COPY .agents /srv/yoke-tree/.agents" in dockerfile
-    assert (
-        "COPY runtime/harness/claude/agents "
-        "/srv/yoke-tree/runtime/harness/claude/agents" in dockerfile
-    )
-    assert (
-        "COPY runtime/harness/claude/rules "
-        "/srv/yoke-tree/runtime/harness/claude/rules" in dockerfile
-    )
-    assert (
-        "COPY runtime/harness/codex/agents "
-        "/srv/yoke-tree/runtime/harness/codex/agents" in dockerfile
-    )
-    assert (
-        "COPY runtime/harness/cursor/agents "
-        "/srv/yoke-tree/runtime/harness/cursor/agents" in dockerfile
-    )
-    assert "COPY --from=builder /bundle-source-files /srv/yoke-tree" in dockerfile
-    assert "COPY docs/public /srv/yoke-tree/docs/public" in dockerfile
-    assert "COPY .yoke/docs /srv/yoke-tree/.yoke/docs" in dockerfile
+    assert "YOKE_SERVER_TREE_ROOT" not in dockerfile
+    assert "/srv/yoke-tree" not in dockerfile
+    assert "YOKE_BUILD_SHA=${YOKE_BUILD_SHA}" in dockerfile
 
 
 def test_dockerignore_keeps_legacy_local_shapes_out_of_build_context() -> None:

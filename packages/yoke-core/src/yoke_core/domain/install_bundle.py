@@ -116,10 +116,10 @@ def server_tree_root() -> Path:
             )
         return root
     checkout = source_checkout_root(__file__)
-    return checkout if checkout is not None else _packaged_tree_root()
+    return checkout if checkout is not None else packaged_tree_root()
 
 
-def _packaged_tree_root() -> Path:
+def packaged_tree_root() -> Path:
     from importlib import resources
 
     root = resources.files("yoke_core.install_bundle_tree")
@@ -292,6 +292,7 @@ __all__ = [
     "InstallBundleError",
     "ProjectNotFoundError",
     "build_bundle",
+    "packaged_tree_root",
     "server_tree_root",
     "yoke_version",
 ]

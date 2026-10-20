@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List
 
+from yoke_contracts.execution_provenance import collect_execution_provenance
 from yoke_contracts.install_binding import is_yoke_source_checkout
 from yoke_contracts.project_contract.install_bundle import (
     BUNDLE_SCHEMA,
@@ -68,6 +69,31 @@ def proven_source_build(root: Path, *, require_clean: bool = False) -> str:
         return commit
     except (OSError, subprocess.SubprocessError):
         return ""
+
+
+def bundle_source_build(root: Path) -> str:
+    """Resolve the commit a bundle tree came from, or ``""`` when unproven.
+
+    A source checkout proves its own HEAD. The packaged wheel tree carries the
+    installed release's build: the loaded process provenance of an installed
+    wheel, whose full commit the server image bakes into ``YOKE_BUILD_SHA``.
+    Any other root (a custom ``YOKE_SERVER_TREE_ROOT``) claims no build.
+    """
+    if is_yoke_source_checkout(root):
+        return proven_source_build(root)
+    try:
+        packaged = bundle_sources.packaged_tree_root()
+    except bundle_sources.InstallBundleError:
+        return ""
+    loaded = collect_execution_provenance()
+    commit = loaded.get("source_sha", "")
+    if (
+        root.resolve() != packaged.resolve()
+        or loaded.get("install_kind") != "installed_wheel"
+        or not FULL_COMMIT_PATTERN.fullmatch(commit)
+    ):
+        return ""
+    return commit
 
 
 def _project_row(project_id: int, conn: Any) -> tuple[str, str, str]:
@@ -139,7 +165,7 @@ def build_project_bundle(project_id: int, conn: Any) -> Dict[str, Any]:
     files.append(
         installed_layer_receipt_entry(
             source_engine_release,
-            source_build=proven_source_build(root),
+            source_build=bundle_source_build(root),
         )
     )
     files.sort(key=lambda entry: entry["path"])
@@ -159,4 +185,9 @@ def build_project_bundle(project_id: int, conn: Any) -> Dict[str, Any]:
     }
 
 
-__all__ = ["CandidateIdentityError", "build_project_bundle", "proven_source_build"]
+__all__ = [
+    "CandidateIdentityError",
+    "build_project_bundle",
+    "bundle_source_build",
+    "proven_source_build",
+]

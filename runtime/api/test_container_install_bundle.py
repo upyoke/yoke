@@ -1,64 +1,94 @@
-"""The runtime image's declared source tree must render a project bundle."""
+"""The runtime image's packaged server tree must render an attributed bundle."""
 
-import shutil
+import json
 from pathlib import Path
 
 import pytest
 
-from yoke_core.domain.install_bundle import INSTALL_BUNDLE_SOURCE_DIRS
-from yoke_core.domain.install_bundle_sources import (
-    HARNESS_MANIFEST_SOURCES,
-    INSTALL_BUNDLE_SOURCE_FILES,
-    InstallBundleTreeError,
+from yoke_contracts.project_contract.installed_layer import (
+    INSTALLED_LAYER_RECEIPT_REL,
 )
+from yoke_core.domain import install_bundle, install_bundle_project
+from yoke_core.domain.install_bundle_sources import HARNESS_MANIFEST_SOURCES
+from yoke_core.domain.install_bundle_sources import InstallBundleTreeError
 from yoke_core.tools.container_bundle_validation import (
-    stage_source_files,
+    ContainerBundleError,
     verify_project_bundle,
 )
 
 
 ROOT = Path(__file__).resolve().parents[2]
+PACKAGED = ROOT / "packages/yoke-core/src/yoke_core/install_bundle_tree"
+BUILD = "0123456789abcdef0123456789abcdef01234567"
 
 
 @pytest.fixture
-def image_tree(tmp_path):
-    root = tmp_path / "server-tree"
-    for relative in INSTALL_BUNDLE_SOURCE_DIRS:
-        shutil.copytree(ROOT / relative, root / relative)
-    stage_source_files(ROOT, root)
+def image_tree(tmp_path, monkeypatch):
+    """Serve a copy of the packaged tree as an installed wheel would."""
+    import shutil
+
+    root = tmp_path / "install_bundle_tree"
+    shutil.copytree(PACKAGED, root)
+    monkeypatch.delenv("YOKE_SERVER_TREE_ROOT", raising=False)
+    monkeypatch.setattr(install_bundle, "source_checkout_root", lambda f: None)
+    monkeypatch.setattr(install_bundle, "packaged_tree_root", lambda: root)
     return root
 
 
-def test_staging_uses_all_canonical_standalone_inputs(tmp_path):
-    stage_source_files(ROOT, tmp_path)
-    assert sorted(
-        str(p.relative_to(tmp_path)) for p in tmp_path.rglob("*") if p.is_file()
-    ) == sorted(INSTALL_BUNDLE_SOURCE_FILES)
-    for relative in HARNESS_MANIFEST_SOURCES:
-        assert (tmp_path / relative).read_bytes() == (ROOT / relative).read_bytes()
+def _wheel_build(monkeypatch, sha: str) -> None:
+    monkeypatch.setattr(
+        install_bundle_project,
+        "collect_execution_provenance",
+        lambda: {"source_sha": sha, "install_kind": "installed_wheel"},
+    )
 
 
-def test_project_bundle_builds_against_image_tree(image_tree):
-    bundle = verify_project_bundle(image_tree)
+def _receipt(bundle: dict) -> dict:
+    entry = next(e for e in bundle["files"] if e["path"] == INSTALLED_LAYER_RECEIPT_REL)
+    return json.loads(entry["content"])
+
+
+def test_image_bundle_receipt_carries_the_full_build(image_tree, monkeypatch):
+    _wheel_build(monkeypatch, BUILD)
+    bundle = verify_project_bundle(BUILD)
     assert bundle["project_slug"] == "image-check"
     assert bundle["project_contract_files"]
+    assert _receipt(bundle)["source_build"] == BUILD
+
+
+@pytest.mark.parametrize("build", ["", BUILD[:12]])
+def test_image_without_full_build_renders_unattributed(image_tree, monkeypatch, build):
+    _wheel_build(monkeypatch, build or "unknown")
+    assert "source_build" not in _receipt(verify_project_bundle(build))
+
+
+def test_image_gate_refuses_a_lost_build(image_tree, monkeypatch):
+    _wheel_build(monkeypatch, "unknown")
+    with pytest.raises(ContainerBundleError, match="IMAGE_BUNDLE_BUILD_MISMATCH"):
+        verify_project_bundle(BUILD)
+
+
+def test_image_gate_refuses_a_declared_tree_override(image_tree, tmp_path, monkeypatch):
+    monkeypatch.setenv("YOKE_SERVER_TREE_ROOT", str(tmp_path))
+    with pytest.raises(ContainerBundleError, match="IMAGE_SERVER_TREE_NOT_PACKAGED"):
+        verify_project_bundle(BUILD)
 
 
 @pytest.mark.parametrize("relative", HARNESS_MANIFEST_SOURCES)
-def test_missing_image_manifest_fails_bundle_gate(image_tree, relative):
+def test_missing_image_manifest_fails_bundle_gate(image_tree, monkeypatch, relative):
+    _wheel_build(monkeypatch, BUILD)
     (image_tree / relative).unlink()
     with pytest.raises(
         InstallBundleTreeError, match="install_bundle_source_unreadable"
     ):
-        verify_project_bundle(image_tree)
+        verify_project_bundle(BUILD)
 
 
-def test_docker_build_gates_the_real_runtime_tree():
+def test_docker_build_gates_the_installed_packaged_tree():
     dockerfile = (ROOT / "Dockerfile").read_text()
-    assert "stage-source-files /build /bundle-source-files" in dockerfile
-    assert "COPY --from=builder /bundle-source-files /srv/yoke-tree" in dockerfile
-    gate = "RUN python -m yoke_core.tools.container_bundle_validation verify /srv/yoke-tree"
+    gate = "RUN python -m yoke_core.tools.container_bundle_validation verify\n"
     assert gate in dockerfile
+    assert "stage-source-files" not in dockerfile
     assert dockerfile.index(gate) > dockerfile.index(
         "yoke_core.tools.product_wheel_validation"
     )
