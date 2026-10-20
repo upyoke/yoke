@@ -19,6 +19,7 @@ from yoke_contracts.engine_version import (
 from yoke_contracts.install_binding import (
     KIND_PACKAGED_WHEEL,
     KIND_SOURCE_CHECKOUT,
+    distribution_source_commit_for_module,
     distribution_version_for_module,
     source_checkout_root,
 )
@@ -105,6 +106,7 @@ def detect_install(
             "checkout_root": None,
             "module_origin": "",
             "version": local_handshake_version(),
+            "source_commit": "",
         }
     resolved = Path(module_file)
     checkout_root = source_checkout_root(resolved)
@@ -115,6 +117,9 @@ def detect_install(
         "version": distribution_version_for_module(
             ENGINE_DISTRIBUTION_NAME,
             resolved,
+        ),
+        "source_commit": distribution_source_commit_for_module(
+            ENGINE_DISTRIBUTION_NAME, resolved
         ),
     }
 

@@ -34,7 +34,9 @@ def update(args: List[str]) -> int:
         "--check",
         action="store_true",
         help=(
-            "install nothing; report the installed CLI, the active server's "
+            "install nothing; prove the installed CLI's exact build (its full "
+            "source commit must match the release manifest; the release's "
+            "wheel sha256 values are listed), then report the active server's "
             "engine and the channel's latest release, with behind: cli|server|none"
         ),
     )
@@ -88,7 +90,13 @@ def _check(channel: str | None, json_mode: bool) -> int:
         print(json.dumps({"ok": True, **report}))
         return 0
     print(f"Channel {report['channel']} latest: v{report['latest_version']}")
-    print(f"Installed CLI: v{report['cli_version']}")
+    print(
+        f"Installed CLI: v{report['cli_version']}, built from "
+        f"{report['source_commit']} (matches the release manifest)"
+    )
+    print("Release wheels (published sha256):")
+    for wheel in report["wheels"]:
+        print(f"  {wheel['filename']} sha256 {wheel['sha256']}")
     print(
         f"Server engine ({report['destination']}, env {report['env']}): "
         f"v{report['server_engine_version']}"

@@ -32,6 +32,7 @@ from yoke_contracts.engine_version import (
 from yoke_contracts.install_binding import (  # noqa: F401 - re-exported surface
     KIND_PACKAGED_WHEEL,
     KIND_SOURCE_CHECKOUT,
+    distribution_source_commit_for_module,
     distribution_version_for_module,
     label,
     source_checkout_root,
@@ -42,7 +43,9 @@ def detect(module_file: str | Path | None = None) -> dict[str, Any]:
     """Return the install binding of the running CLI.
 
     ``module_file`` defaults to the imported ``yoke_cli`` package's own file;
-    tests inject synthetic paths to exercise both shapes.
+    tests inject synthetic paths to exercise both shapes. ``source_commit``
+    is the full commit the packaged wheel was built from; a source checkout
+    reports ``""``.
     """
 
     resolved = Path(module_file if module_file is not None else yoke_cli.__file__)
@@ -52,6 +55,9 @@ def detect(module_file: str | Path | None = None) -> dict[str, Any]:
         "checkout_root": str(checkout_root) if checkout_root else None,
         "module_origin": str(resolved),
         "version": distribution_version(resolved),
+        "source_commit": distribution_source_commit_for_module(
+            CLI_DISTRIBUTION_NAME, resolved
+        ),
     }
 
 
