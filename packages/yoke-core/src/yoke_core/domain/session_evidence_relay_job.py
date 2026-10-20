@@ -147,6 +147,10 @@ def claim_evidence_fetch(
         return None
     session_id = str(selected["target_session_id"])
     reference = str(selected.get("diagnostic_ref") or "")
+    # An evidence id names exactly one diagnostic, so it selects that file;
+    # without it the relay's newest log would answer instead.
+    kind = "diagnostic" if reference else str(selected.get("kind") or "")
+    file_name = reference or str(selected.get("file_name") or "")
 
     conn.commit()
     return RelayJob(
@@ -161,8 +165,8 @@ def claim_evidence_fetch(
         native_instruction="",
         target_session_id=session_id,
         evidence_request={
-            "kind": str(selected.get("kind") or "") or None,
-            "file_name": str(selected.get("file_name") or "") or None,
+            "kind": kind or None,
+            "file_name": file_name or None,
             "tail_lines": int(selected["tail_lines"]),
             "max_bytes": EVIDENCE_MAX_BYTES,
             "diagnostic_refs": (

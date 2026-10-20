@@ -106,10 +106,7 @@ def handle_execution_reentry(request):
                 )
 
                 result[START_IDENTITY_FIELD] = start_identity_expectation(
-                    conn,
-                    run_id=str(execution["deployment_run_id"]),
-                    stage_name=str(execution["deployment_stage"]),
-                    member_item_id=execution.get("deployment_member_item_id"),
+                    conn, execution
                 )
     except ValueError as exc:
         conn.rollback()

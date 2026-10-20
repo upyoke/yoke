@@ -134,10 +134,7 @@ def handle_plan_execution_begin(
             )
 
             result[START_IDENTITY_FIELD] = start_identity_expectation(
-                conn,
-                run_id=str(deployment_run_id),
-                stage_name=parsed.deployment_stage,
-                member_item_id=member_item_id,
+                conn, execution
             )
     except QaPlanRosterDischarged as exc:
         conn.rollback()
