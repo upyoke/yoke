@@ -157,7 +157,7 @@ def cmd_validate_composition(
                 errors=errors, enrolled=enrolled, enrollment_error=enrollment_error
             )
         else:
-            verdict = judge_then_enroll(conn, run_id, enrollment, errors, judge)
+            verdict = _judge_then_enroll(conn, run_id, enrollment, errors, judge)
         if connection is None:
             (conn.commit if verdict[0] else conn.rollback)()
         return verdict
@@ -298,7 +298,7 @@ def judge_composition(
     return True, ("OK; " + "; ".join(notes)) if notes else "OK"
 
 
-def judge_then_enroll(conn, run_id, enrollment, errors, judge) -> Tuple[bool, str]:
+def _judge_then_enroll(conn, run_id, enrollment, errors, judge) -> Tuple[bool, str]:
     """Judge the enrolled composition before the run lock, then enroll under it.
 
     The judgement reads the rows enrollment would insert as members, so it
