@@ -128,14 +128,7 @@ def ensure_initial_commit(root: Path, default_branch: str) -> None:
     nothing when a commit already exists.
     """
     _require_branch(default_branch)
-    project_git_prerequisite.require_git_available()
-    try:
-        head = project_local_git.run(root, "rev-parse", "--verify", "HEAD")
-    except (OSError, NetworkGitBoundaryError) as exc:
-        raise ProjectOnboardError(
-            "the local Git HEAD probe exceeded its safety boundary"
-        ) from exc
-    if head.returncode == 0:
+    if project_local_git.has_commit(root):
         return
     project_git_identity.ensure_configured_identity(root)
     run_git(root, "checkout", "-B", default_branch)

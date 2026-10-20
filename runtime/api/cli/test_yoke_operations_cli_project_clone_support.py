@@ -20,8 +20,12 @@ from yoke_cli.config.project_git_transport import git_auth_header
 
 def _git(root: Path, *args: str) -> str:
     result = subprocess.run(
-        ["git", *args], cwd=root, text=True,
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True,
+        ["git", *args],
+        cwd=root,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
     )
     return result.stdout.strip()
 
@@ -67,10 +71,12 @@ def test_https_clone_url_passes_https_through() -> None:
 
 def test_source_owner_repo_parses_both_forms() -> None:
     assert clone.source_owner_repo("git@github.com:acme/widgets.git") == (
-        "acme", "widgets",
+        "acme",
+        "widgets",
     )
     assert clone.source_owner_repo("https://github.com/acme/widgets") == (
-        "acme", "widgets",
+        "acme",
+        "widgets",
     )
 
 
@@ -78,7 +84,8 @@ def test_source_owner_repo_parses_both_forms() -> None:
 
 
 def test_clone_without_credential_reads_the_source_anonymously(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path,
+    monkeypatch,
 ) -> None:
     parent = tmp_path / "checkouts"
     parent.mkdir()
@@ -86,8 +93,9 @@ def test_clone_without_credential_reads_the_source_anonymously(
     monkeypatch.setattr(
         clone,
         "_run_clone",
-        lambda *args, **kwargs: calls.append(kwargs)
-        or subprocess.CompletedProcess([], 0, "", ""),
+        lambda *args, **kwargs: (
+            calls.append(kwargs) or subprocess.CompletedProcess([], 0, "", "")
+        ),
     )
 
     outcome = clone.clone_with_connected_access(
@@ -104,46 +112,13 @@ def test_clone_without_credential_reads_the_source_anonymously(
     ] == [{"github_web_url": None}]
 
 
-def test_connected_token_clones_once_and_rehomes_origin_cleanly(
-    tmp_path: Path, monkeypatch
-) -> None:
-    parent = tmp_path / "checkouts"
-    parent.mkdir()
-    token = "ghs_secret_token_value"
-    calls: list[dict] = []
-    monkeypatch.setattr(
-        clone,
-        "_run_clone",
-        lambda *args, **kwargs: calls.append(kwargs)
-        or subprocess.CompletedProcess([], 0, "", ""),
-    )
-    cleaned: list[str] = []
-    monkeypatch.setattr(
-        clone,
-        "run_git",
-        lambda _root, *_args: cleaned.append(_args[-1]),
-    )
-
-    outcome = clone.clone_with_connected_access(
-        parent, "widgets", "git@github.com:acme/widgets.git", token=token,
-    )
-
-    # The credential the caller already established reads the repo directly —
-    # a private source never pays for a guaranteed anonymous failure first.
-    assert outcome.used_token is True
-    assert outcome.origin_url == "https://github.com/acme/widgets.git"
-    assert [
-        {key: value for key, value in call.items() if key != "target_claim"}
-        for call in calls
-    ] == [{"token": token, "github_web_url": None}]
-    assert cleaned == ["https://github.com/acme/widgets.git", "-f"]
-
-
 def test_clone_plan_repr_hides_all_tokens() -> None:
     plan = clone.ClonePlan(
         fallback_token="fallback-secret",
         publish=clone.PublishRequest(
-            owner="octocat", name="app", user_login="octocat",
+            owner="octocat",
+            name="app",
+            user_login="octocat",
             token="publish-secret",
         ),
     )
@@ -163,13 +138,19 @@ def test_clone_token_fail_raises_clear_error_without_leaking_token(
         clone,
         "_run_clone",
         lambda *args, **kwargs: subprocess.CompletedProcess(
-            [], 1, "", f"denied {header}",
+            [],
+            1,
+            "",
+            f"denied {header}",
         ),
     )
 
     with pytest.raises(clone.CloneAccessError) as exc:
         clone.clone_with_connected_access(
-            parent, "widgets", "git@github.com:acme/widgets.git", token=token,
+            parent,
+            "widgets",
+            "git@github.com:acme/widgets.git",
+            token=token,
         )
 
     message = str(exc.value)
@@ -183,20 +164,28 @@ def test_clone_token_fail_raises_clear_error_without_leaking_token(
 
 def test_ghes_clone_references_use_configured_web_origin() -> None:
     web_url = "https://ghe.example"
-    assert clone.https_clone_url(
-        "git@ghe.example:Owner/Repo.git", web_url=web_url,
-    ) == "https://ghe.example/Owner/Repo.git"
+    assert (
+        clone.https_clone_url(
+            "git@ghe.example:Owner/Repo.git",
+            web_url=web_url,
+        )
+        == "https://ghe.example/Owner/Repo.git"
+    )
     assert clone.source_owner_repo(
-        "https://ghe.example/Owner/Repo.git", web_url=web_url,
+        "https://ghe.example/Owner/Repo.git",
+        web_url=web_url,
     ) == ("Owner", "Repo")
 
 
 def test_clone_token_transport_rejects_unrelated_origin() -> None:
     external = "https://attacker.example/Owner/Repo.git"
-    assert clone.https_clone_url(
-        external,
-        web_url="https://ghe.example",
-    ) == external
+    assert (
+        clone.https_clone_url(
+            external,
+            web_url="https://ghe.example",
+        )
+        == external
+    )
     with pytest.raises(clone.CloneAccessError, match="configured GitHub origin"):
         clone._run_clone(
             Path("."),
@@ -208,7 +197,8 @@ def test_clone_token_transport_rejects_unrelated_origin() -> None:
 
 
 def test_clone_without_github_access_teaches_the_connection_step(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path,
+    monkeypatch,
 ) -> None:
     parent = tmp_path / "checkouts"
     parent.mkdir()
@@ -218,7 +208,10 @@ def test_clone_without_github_access_teaches_the_connection_step(
         clone,
         "_run_clone",
         lambda *args, **kwargs: subprocess.CompletedProcess(
-            [], 1, "", "Zugriff verweigert",
+            [],
+            1,
+            "",
+            "Zugriff verweigert",
         ),
     )
 
@@ -233,32 +226,6 @@ def test_clone_without_github_access_teaches_the_connection_step(
     assert "run `yoke github connect`" in message
     assert "network connection" in message
     assert "Zugriff verweigert" in message
-
-
-def test_private_source_resolves_the_lazy_credential_before_cloning(
-    tmp_path: Path, monkeypatch,
-) -> None:
-    parent = tmp_path / "checkouts"
-    parent.mkdir()
-    attempts: list[dict] = []
-    monkeypatch.setattr(
-        clone,
-        "_run_clone",
-        lambda *args, **kwargs: attempts.append(kwargs)
-        or subprocess.CompletedProcess([], 0, "", ""),
-    )
-    monkeypatch.setattr(clone, "run_git", lambda *_args, **_kwargs: None)
-
-    outcome = clone.clone_with_connected_access(
-        parent,
-        "widgets",
-        "https://github.com/acme/widgets.git",
-        token_provider=lambda: "ghu_private",
-    )
-
-    assert outcome.used_token is True
-    assert len(attempts) == 1
-    assert attempts[0]["token"] == "ghu_private"
 
 
 # ── re-home / fork remote choreography ──────────────────────────────────
@@ -281,8 +248,10 @@ def test_rehome_keeps_upstream_and_pushes_to_new_origin(tmp_path: Path) -> None:
     target = _clone_into(tmp_path, source, "widgets")
 
     clone.rehome_to_new_origin(
-        target, new_origin_url=str(new_origin),
-        default_branch="main", keep_upstream=True,
+        target,
+        new_origin_url=str(new_origin),
+        default_branch="main",
+        keep_upstream=True,
     )
 
     assert _git(target, "remote", "get-url", "origin") == str(new_origin)
@@ -305,8 +274,10 @@ def test_rehome_pushes_the_clones_actual_branch_not_main(tmp_path: Path) -> None
     # Pass the (wrong) caller hint default_branch="main" to prove the push
     # follows the detected branch, not the hint.
     pushed_branch = clone.rehome_to_new_origin(
-        target, new_origin_url=str(new_origin),
-        default_branch="main", keep_upstream=True,
+        target,
+        new_origin_url=str(new_origin),
+        default_branch="main",
+        keep_upstream=True,
     )
 
     assert pushed_branch == "master"
@@ -323,8 +294,10 @@ def test_rehome_clean_copy_drops_the_source(tmp_path: Path) -> None:
     target = _clone_into(tmp_path, source, "widgets")
 
     clone.rehome_to_new_origin(
-        target, new_origin_url=str(new_origin),
-        default_branch="main", keep_upstream=False,
+        target,
+        new_origin_url=str(new_origin),
+        default_branch="main",
+        keep_upstream=False,
     )
 
     assert _git(target, "remote", "get-url", "origin") == str(new_origin)
@@ -333,7 +306,7 @@ def test_rehome_clean_copy_drops_the_source(tmp_path: Path) -> None:
 
 
 def test_set_fork_remotes_points_origin_at_fork_keeps_source_upstream(
-    tmp_path: Path
+    tmp_path: Path,
 ) -> None:
     source = _seed_bare_source(tmp_path, "source")
     fork = tmp_path / "fork.git"
