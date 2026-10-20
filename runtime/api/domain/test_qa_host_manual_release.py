@@ -127,8 +127,8 @@ def test_manual_release_owes_the_settled_case_baseline(
         host_baseline=baseline, starting_state="baseline" if baseline else "as_is"
     )
     test_db.execute(
-        "UPDATE qa_plan_executions SET roster_json=%s,roster_digest=%s WHERE id=%s",
-        (canonical(roster), roster_digest(roster), execution["id"]),
+        "UPDATE qa_plan_executions SET roster_json=%s,roster_digest=%s,cursor_ordinal=%s WHERE id=%s",
+        (canonical(roster), roster_digest(roster), len(roster), execution["id"]),
     )
     test_db.commit()
     release_claim_by_id(test_db, original["lease_id"], "stop host work")

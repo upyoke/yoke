@@ -152,6 +152,12 @@ def record_execution_reset_debt(conn, execution, leases):
     abort = abort_request(execution) or {}
     ordinal = int(abort.get("ordinal", execution["cursor_ordinal"]))
     case = roster[min(ordinal, len(roster) - 1)]
+    for candidate in reversed(roster[: ordinal + 1]):
+        if candidate.get("runner_id") in {"host_control", "agent_mission"} or (
+            candidate.get("method_config") or {}
+        ).get("machine"):
+            case = candidate
+            break
     for lease in leases:
         record_reset_owed(
             conn,
