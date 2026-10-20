@@ -24,6 +24,7 @@ from yoke_core.domain.machine_qa_fixture_runtime import (
     RemoteFixtureFailure,
     RemoteRunner,
     RemoteTextUploader,
+    failed_row,
 )
 from yoke_core.domain.machine_qa_fixture_service_operations import (
     MachineQaFixtureServiceOperations,
@@ -82,10 +83,7 @@ class MachineQaFixtureOperationRunner(
             try:
                 handlers[operation_id](parameters)
             except RemoteFixtureFailure as failure:
-                row = {"id": operation_id, "outcome": "failed"}
-                if str(failure):
-                    row["reason"] = str(failure)
-                rows.append(row)
+                rows.append(failed_row(operation_id, failure))
                 return HostActionResult(
                     ok=False,
                     evidence={"operations": rows},

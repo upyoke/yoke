@@ -42,8 +42,10 @@ def _empty_result(*, ok: bool, error_code: str | None = None) -> HostActionResul
     )
 
 
-def _operation_outcomes(result: HostActionResult) -> list[dict[str, str]]:
-    """Project runner evidence to operation identifiers and outcomes only."""
+def _operation_outcomes(
+    result: HostActionResult, secrets: Sequence[str]
+) -> list[dict[str, str]]:
+    """Project runner evidence to operation ids, outcomes and failure reasons."""
     raw = result.evidence.get("operations")
     if not isinstance(raw, list):
         return []
@@ -54,7 +56,12 @@ def _operation_outcomes(result: HostActionResult) -> list[dict[str, str]]:
         operation_id = str(row.get("id") or "")
         outcome = str(row.get("outcome") or "")
         if operation_id and outcome in {"passed", "failed"}:
-            outcomes.append({"id": operation_id, "outcome": outcome})
+            projected = {"id": operation_id, "outcome": outcome}
+            if outcome == "failed" and row.get("reason"):
+                projected["reason"] = bounded_machine_qa_diagnostic(
+                    row["reason"], secrets
+                )
+            outcomes.append(projected)
     return outcomes
 
 
@@ -81,20 +88,21 @@ def _lifecycle_evidence(
     setup: HostActionResult,
     post_state: HostActionResult,
     cleanup_attempts: list[HostActionResult],
+    secrets: Sequence[str],
 ) -> dict[str, Any]:
     return {
         "setup": {
             "outcome": "passed" if setup.ok else "failed",
-            "operations": _operation_outcomes(setup),
+            "operations": _operation_outcomes(setup, secrets),
         },
         "post_state": {
             "outcome": "passed" if post_state.ok else "failed",
-            "operations": _operation_outcomes(post_state),
+            "operations": _operation_outcomes(post_state, secrets),
         },
         "cleanup_attempts": [
             {
                 "outcome": "passed" if attempt.ok else "failed",
-                "operations": _operation_outcomes(attempt),
+                "operations": _operation_outcomes(attempt, secrets),
             }
             for attempt in cleanup_attempts
         ],
@@ -275,6 +283,7 @@ def execute_case_with_fixture_lifecycle(
         setup=setup,
         post_state=post_state,
         cleanup_attempts=cleanup_attempts,
+        secrets=_secret_values(execution),
     )
     cleanup_ok = bool(cleanup_attempts) and all(
         attempt.ok for attempt in cleanup_attempts
