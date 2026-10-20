@@ -182,6 +182,8 @@ release. A golden that is behind is refreshed once under the plan's own host
 lease: reset, install the newer CLIs as the test user, capture a new golden,
 then begin the case again, so every later reset restores current CLIs. A
 failed refresh stops the plan with a `golden_refresh_*` reason and its repair.
+Old snapshots left after a verified refresh capture only warn
+(`golden_snapshot_retention_failed`, with the host's error and the cleanup).
 
 Only an explicitly declared host baseline restores the golden home. A mission
 declared `as_is` keeps the home it finds and, absent `host_starting_state`, leaves

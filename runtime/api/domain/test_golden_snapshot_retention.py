@@ -127,6 +127,67 @@ def test_a_shared_machine_keeps_every_projects_registered_golden(tmp_path):
     }
 
 
+def _seal(path):
+    # Capture seals a golden read-only; macOS also keeps deny-delete ACLs.
+    if sys.platform == "darwin":
+        subprocess.run(
+            ["chmod", "-R", "+a", "everyone deny delete", str(path)], check=True
+        )
+    for root, dirs, files in os.walk(path, topdown=False):
+        for name in files:
+            os.chmod(os.path.join(root, name), 0o444)
+        for name in dirs:
+            os.chmod(os.path.join(root, name), 0o555)
+    os.chmod(path, 0o555 if path.is_dir() else 0o444)
+
+
+def test_a_sealed_retired_golden_is_removed(tmp_path):
+    parent = tmp_path / "yoke-golden"
+    parent.mkdir()
+    sealed = parent / "testy-home-20261010T0424Z"
+    (sealed / "Library" / "Preferences").mkdir(parents=True)
+    (sealed / "Library" / "Preferences" / "plist").write_text("old")
+    (sealed / ".zshrc").write_text("old")
+    probes = parent / "testy-home-20261010T0424Z.probes"
+    probes.write_text("old")
+    registered = parent / "testy-home-20261019T0039Z"
+    registered.mkdir()
+    _seal(sealed)
+    _seal(probes)
+
+    removed = apply_retention(
+        _run,
+        destination=str(registered),
+        user="testy",
+        kept_paths=[str(registered)],
+    )
+
+    assert set(removed) == {sealed.name, probes.name}
+    assert os.listdir(parent) == [registered.name]
+
+
+def test_a_failed_removal_names_the_remote_error_not_its_output():
+    listing = "/g/testy/old\0/g/testy/current\0"
+
+    def run(command, *, timeout=60):
+        if command.startswith("find "):
+            return subprocess.CompletedProcess(command, 0, stdout=listing, stderr="")
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            stdout="progress",
+            stderr="rm: /g/testy/old: Operation\nnot permitted",
+        )
+
+    with pytest.raises(SnapshotRetentionError) as raised:
+        apply_retention(
+            run, destination="/g/testy/current", user="testy", kept_paths=[]
+        )
+
+    assert "rm: /g/testy/old: Operation not permitted" in raised.value.detail
+    assert "progress" not in raised.value.detail
+
+
 def _verified(**fields):
     return {
         "status": "verified",
