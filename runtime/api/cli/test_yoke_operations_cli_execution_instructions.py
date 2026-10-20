@@ -227,7 +227,7 @@ def test_item_reads_deliver_operator_prose_once(fields):
     assert prose.rstrip() not in rendered
     assert (
         rendered.splitlines()[0]
-        == "Execution instructions 4 apply; full text: `yoke items get EX-1 --full --json`."
+        == "Execution instructions 4 apply; full text: `yoke items get EX-1 --json --full`."
     )
     assert len(rendered) <= len(prose) + 750
     assert instruction["content"] == prose
@@ -296,7 +296,7 @@ def test_section_and_log_reads_name_rules_without_repeating_prose(
     monkeypatch.setattr(items_section, "dispatch_and_emit", dispatch)
     assert getattr(items_section, function)(args) == 0
     assert output.getvalue() == (
-        "Execution instructions 4 apply; full text: `yoke items get EX-1 --full --json`.\nCheckpoint\n"
+        "Execution instructions 4 apply; full text: `yoke items get EX-1 --json --full`.\nCheckpoint\n"
     )
 
 

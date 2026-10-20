@@ -11,7 +11,7 @@ def render_item_instruction_summary(
     if not instructions:
         return ""
     names = ", ".join(str(rule.get("id") or "operator rule") for rule in instructions)
-    return f"Execution instructions {names} apply; full text: `yoke items get {item} --full --json`.\n"
+    return f"Execution instructions {names} apply; full text: `yoke items get {item} --json --full`.\n"
 
 
 def compact_item_result(
