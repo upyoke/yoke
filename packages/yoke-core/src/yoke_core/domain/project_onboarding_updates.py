@@ -24,7 +24,10 @@ from yoke_core.domain.project_onboarding_run_records import (
     validate_branch,
     with_operation,
 )
-from yoke_core.domain.project_onboarding_configuration import project_facts
+from yoke_core.domain.project_onboarding_configuration import (
+    profile_snapshot,
+    project_facts,
+)
 from yoke_core.domain.project_onboarding_facts import (
     update_machine_choices,
     validate_updates,
@@ -96,7 +99,9 @@ def persist_run(
             note=note,
         )
         if "execution_profile" in metadata:
-            saved["profile_facts"] = project_facts(conn, selected_project)
+            saved["profile_facts"] = profile_snapshot(
+                project_facts(conn, selected_project)
+            )
             row_status = {**row_status, "human-interview": "configured"}
         _upsert_run(
             conn, selected_id, selected_project, selected_branch, github_repo, now

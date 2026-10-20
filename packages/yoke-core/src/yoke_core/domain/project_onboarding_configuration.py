@@ -35,6 +35,10 @@ def _digest(value: Any) -> str:
     ).hexdigest()
 
 
+# Rows whose observed facts the confirmed setup profile depends on.
+PROFILE_INPUT_ROW_IDS = ("project-identity", "hosting-setup", "migration-model-setup")
+
+
 def project_facts(conn: Any, project_id: int | None) -> dict[str, dict[str, Any]]:
     """Read existing configuration owners; absent declarations stay unknown."""
     if project_id is None:
@@ -70,9 +74,6 @@ def project_facts(conn: Any, project_id: int | None) -> dict[str, dict[str, Any]
         present = {str(row[0]) for row in docs if str(row[1] or "").strip()}
         complete = {"MISSION", "LANDSCAPE", "VISION", "MASTER-PLAN", "CURRENT-PLAN"}
         facts["strategy-setup"] = _fact(complete <= present, "strategy_docs", recovery)
-        facts["strategy-setup"]["evidence"]["content_sha256"] = _digest(
-            {str(row[0]): str(row[1]) for row in docs}
-        )
     if _table_exists(conn, "project_capabilities"):
         settings = {
             str(row[0]): str(row[1])
@@ -114,27 +115,37 @@ def project_facts(conn: Any, project_id: int | None) -> dict[str, dict[str, Any]
                 "hosting-setup" if family == "hosting_posture" else "delivery-setup"
             )
             fact = _fact(True, "project_structure", "")
-            fact["evidence"]["settings_sha256"] = _digest(payload)
-            if (
-                family == "hosting_posture"
-                and payload.get("posture") == POSTURE_NO_YOKE_MANAGED_HOST
-            ):
-                fact["status"] = STATUS_NOT_NEEDED
+            if family == "hosting_posture":
+                fact["evidence"]["settings_sha256"] = _digest(payload)
+                if payload.get("posture") == POSTURE_NO_YOKE_MANAGED_HOST:
+                    fact["status"] = STATUS_NOT_NEEDED
             facts[row_id] = fact
     if _table_exists(conn, "qa_plan_project_defaults"):
-        bindings = conn.execute(
-            "SELECT plan_id, workflow_id, transition_id, qa_phase "
-            f"FROM qa_plan_project_defaults WHERE project_id = {p} "
-            "ORDER BY plan_id, workflow_id, transition_id",
+        bound = conn.execute(
+            f"SELECT 1 FROM qa_plan_project_defaults WHERE project_id = {p} LIMIT 1",
             (project_id,),
-        ).fetchall()
+        ).fetchone()
         facts["verification-command-binding"] = _fact(
-            bool(bindings), "qa_plan_project_defaults", recovery
-        )
-        facts["verification-command-binding"]["evidence"]["binding_sha256"] = _digest(
-            [[row[index] for index in range(4)] for row in bindings]
+            bound is not None, "qa_plan_project_defaults", recovery
         )
     return facts
+
+
+def profile_snapshot(facts: Any) -> dict[str, Any]:
+    """The profile inputs among observed facts, saved with the confirmed profile.
+
+    Strategy docs, delivery defaults and verification command bindings are
+    written by later setup steps and ordinary planning, so they stay out:
+    those writes never reopen the profile.
+    """
+    if not isinstance(facts, dict):
+        return {}
+    return {row_id: facts[row_id] for row_id in PROFILE_INPUT_ROW_IDS if row_id in facts}
+
+
+def profile_changed(snapshot: Any, facts: dict[str, dict[str, Any]]) -> bool:
+    """Whether a profile input changed since the profile was saved, row by row."""
+    return profile_snapshot(snapshot) != profile_snapshot(facts)
 
 
 def first_item_done_fact(

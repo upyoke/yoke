@@ -18,6 +18,7 @@ from yoke_contracts.onboard_checklist import (
     STATUS_UNKNOWN,
     STATUS_VERIFIED,
 )
+from yoke_core.domain.project_onboarding_configuration import profile_changed
 from yoke_core.domain.project_onboarding_run_records import ProjectOnboardingRunError
 
 
@@ -223,7 +224,7 @@ def project_rows(
         row["scope"] = "machine" if local else "project"
         row["machine_id"] = machine_id if local else None
         if row_id == "human-interview" and metadata.get("execution_profile"):
-            if metadata.get("profile_facts") != facts:
+            if profile_changed(metadata.get("profile_facts"), facts):
                 row.update(
                     {
                         "status": STATUS_UNKNOWN,
