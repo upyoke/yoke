@@ -182,6 +182,10 @@ def write_message_detail_result(response: Any, stdout: TextIO, stderr: TextIO) -
         write_human_message_result(result, stdout, with_body=True)
         return
     message = result.get("message") or {}
+    # A short letter is already the routine answer; only long prose needs a preview.
+    if len(str(message.get("body") or "").encode("utf-8")) <= 2_000:
+        write_human_message_result(result, stdout, with_body=True)
+        return
     print(f"Message: {message.get('message_id')}; state: {message.get('state')}", file=stdout)
     print(f"Sender: {message.get('sender_session_id') or message.get('sender_actor_label')}", file=stdout)
     print(f"Body preview: {excerpt(message.get('body'))}", file=stdout)
