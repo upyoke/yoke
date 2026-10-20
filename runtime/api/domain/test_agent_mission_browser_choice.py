@@ -71,7 +71,16 @@ def test_named_identities_select_managed_browser_without_installing_yoke(
         assert f"--identity {name}" in command
         assert command in prompt
     assert "pass `--identity NAME` to every step" in prompt
-    assert "HUMAN_GATE naming the identity, the site and the account" in prompt
+    assert "Re-sign in yourself or route an approval to steering." in prompt
+    assert (
+        "Return WALK_STATUS: HUMAN_GATE only when re-signing in needs a "
+        "password or credential the agent may not type"
+    ) in prompt
+    assert (
+        "the identity, the site and the account from the report, and resume state"
+        in prompt
+    )
+    assert "A site the check reports expired is WALK_STATUS: HUMAN_GATE" not in prompt
     assert "Never install Yoke on a Test Machine to get a browser." in prompt
 
 
@@ -125,3 +134,15 @@ def test_case_identities_do_not_read_project_defaults(monkeypatch) -> None:
     monkeypatch.setattr(identities, "query_scalar", unexpected_read)
     walker = _walker("informed_subagent", ["reviewer"], conn=object())
     assert walker["browser_identities"] == ["reviewer"]
+
+
+@pytest.mark.parametrize("identities", [[], ["operator"]])
+def test_walker_human_gate_names_only_prohibited_credential_entry(identities) -> None:
+    prompt = _walker("informed_subagent", identities)["prompt"]
+    assert (
+        "If a password or credential entry the agent may not type is needed, "
+        "return immediately with WALK_STATUS: HUMAN_GATE naming that one entry "
+        "and resume state."
+    ) in prompt
+    assert "If a permission dialog" not in prompt
+    assert "approval needs a person" not in prompt
