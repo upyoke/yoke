@@ -100,6 +100,7 @@ def refreshed_case_contract(
     latest = latest_harness_cli_versions(fetch)
     machine = key[1]
     step = "record read"
+    held_back = []
     try:
         register_test_machine_host_control()
         control, _material = resolve_contract_host_control(
@@ -119,11 +120,13 @@ def refreshed_case_contract(
             ("install", lambda: install_harness_clis(control, latest, outdated)),
         ):
             result = run()
+            held_back.extend(result.evidence.get("held_back", []))
             if not result.ok:
                 raise _refused(
                     f"golden_refresh_{step}_failed",
+                    f"{result.evidence.get('detail', '')} "
                     f"{step} on {machine} failed ({result.error_code}): "
-                    + json.dumps(result.evidence, default=str)[:800],
+                    + json.dumps(result.evidence, default=str),
                     str(
                         result.evidence.get("recovery")
                         or f"Repair the {step} on {machine}."
@@ -137,13 +140,15 @@ def refreshed_case_contract(
             f"{step} on {machine} raised {type(error).__name__}: {error}",
             f"Restore SSH access and /usr/bin/python3 on {machine}.",
         ) from error
+    for detail in held_back:
+        print(f"# qa plan run: {detail}", file=sys.stderr, flush=True)
     registered = _capture_golden(
         contract, plan_execution_id=plan_execution_id, actor=actor
     )
     _checked.add(key)
     behind = ", ".join(f"{harness} {latest[harness]}" for harness in outdated)
     print(
-        f"# qa plan run: refreshed the golden on {machine} to {behind}; "
+        f"# qa plan run: refreshed the golden on {machine}; requested {behind}; "
         f"resets now restore {registered}",
         file=sys.stderr,
         flush=True,

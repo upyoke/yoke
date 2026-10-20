@@ -191,7 +191,7 @@ def execute_begun_plan(
                 )
             except QaPlanExecutionError as abort_exc:
                 raise QaPlanExecutionError(
-                    f"QA case failed and execution {execution_id} could not close: "
+                    f"QA case failed: {exc}; execution {execution_id} could not close: "
                     f"{abort_exc}. Abort that execution, then retry the corrected plan"
                 ) from abort_exc
             if not isinstance(exc, Exception):

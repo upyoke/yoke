@@ -18,6 +18,7 @@ from yoke_contracts.harness_cli_releases import (
     outdated_harness_clis,
 )
 from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
+from yoke_harness.harness_cli_install_program import HOST_PROGRAM
 from yoke_harness.test_machine_types import HostActionResult
 
 GOLDEN_HARNESS_CLIS_SUFFIX = ".harness-clis"
@@ -25,64 +26,48 @@ VERSION_PROBE_TIMEOUT_SECONDS = 120
 INSTALL_TIMEOUT_SECONDS = 600
 PROVISIONING_DOC = "docs/packs/machine-qa/host-provisioning.md"
 
-# Runs on the host as the test user; only versions leave it.
-_VERSION_PROGRAM = """
-import json, os, re, shutil, subprocess, sys
-from pathlib import Path
-search = os.pathsep.join([str(Path.home() / '.local/bin'), os.environ.get('PATH', '')])
-pattern = re.compile(sys.argv[1])
-versions = {}
-for harness, names in json.loads(sys.argv[2]):
-    executable = next((p for n in names if (p := shutil.which(n, path=search))), None)
-    version = None
-    if executable:
-        try:
-            result = subprocess.run([executable, '--version'], capture_output=True, text=True, timeout=60)
-            matched = pattern.search(result.stdout) if result.returncode == 0 else None
-            version = matched.group(0).rstrip('-+._') if matched else None
-        except (OSError, subprocess.TimeoutExpired):
-            version = None
-    versions[harness] = version
-print(json.dumps(versions))
-"""
 
-
-def probe_harness_cli_versions(control: Any) -> dict[str, str | None]:
-    """Return each harness id's live CLI version on the host, or None.
-
-    macOS keychain-backed CLIs (Cursor's agent) refuse even ``--version`` over
-    plain SSH with a locked-keychain error, so a macOS host answers from its
-    logged-in GUI session, as its baseline probes do.
-    """
-    harnesses = [[r.harness_id, list(r.executables)] for r in HARNESS_CLI_RELEASES]
+def _host_program(control: Any, action: str, payload: Any, timeout: int) -> Any:
     gui = getattr(control, "os", None) == "macos"
     result = control.run_command(
         [
             "/usr/bin/python3",
             "-c",
-            _VERSION_PROGRAM,
+            HOST_PROGRAM,
             VERSION_TOKEN_PATTERN,
-            json.dumps(harnesses),
+            action,
+            json.dumps(payload),
         ],
-        timeout=VERSION_PROBE_TIMEOUT_SECONDS,
+        timeout=timeout,
         **({"required_session_context": GUI_SESSION_CONTEXT} if gui else {}),
     )
     if result.returncode != 0:
         raise RuntimeError(
-            "harness_cli_version_probe_failed: the host could not report harness "
-            f"CLI versions (exit {result.returncode}); repair SSH and "
-            "/usr/bin/python3 on the host, then retry"
+            f"harness_cli_{action}_failed: {payload[0] if action == 'install' else 'probe'} "
+            f"host exit {result.returncode}: "
+            f"{result.stderr.strip()[:400]}; repair the test user's CLI installation "
+            "and /usr/bin/python3, then rerun the QA plan"
         )
     lines = result.stdout.strip().splitlines()
-    observed = json.loads(lines[-1] if lines else "")
-    return {r.harness_id: observed.get(r.harness_id) for r in HARNESS_CLI_RELEASES}
+    return json.loads(lines[-1] if lines else "")
+
+
+def probe_harness_cli_versions(control: Any) -> dict[str, dict[str, Any]]:
+    """Return versions and unreadable CLI exit codes/stderr, in macOS GUI context."""
+    return _host_program(
+        control,
+        "probe",
+        [[r.harness_id, list(r.executables)] for r in HARNESS_CLI_RELEASES],
+        VERSION_PROBE_TIMEOUT_SECONDS,
+    )
 
 
 def record_golden_harness_clis(control: Any, destination: str) -> HostActionResult:
     """Write the live harness CLI versions beside a just-captured golden."""
     sidecar = destination + GOLDEN_HARNESS_CLIS_SUFFIX
     try:
-        versions = probe_harness_cli_versions(control)
+        probes = probe_harness_cli_versions(control)
+        versions = {h: p["version"] for h, p in probes.items()}
     except (RuntimeError, ValueError) as error:
         return HostActionResult(
             False,
@@ -96,6 +81,7 @@ def record_golden_harness_clis(control: Any, destination: str) -> HostActionResu
             {
                 "path": sidecar,
                 "harness_cli_versions": versions,
+                "probes": {h: probes[h] for h in missing},
                 "recovery": (
                     "Install and sign in " + ", ".join(missing) + " as the test "
                     f"user following {PROVISIONING_DOC}, then capture to a new "
@@ -134,44 +120,65 @@ def install_harness_clis(
 ) -> HostActionResult:
     """Install each named harness CLI's latest release and prove the version."""
     installs = []
+    held_back = []
+    observed = {}
     for harness_id in harness_ids:
         release = HARNESS_CLI_RELEASE_BY_ID[harness_id]
-        result = control.run_command(
-            ["/bin/sh", "-c", release.install_script, "sh", latest[harness_id]],
-            timeout=INSTALL_TIMEOUT_SECONDS,
+        receipt = _host_program(
+            control,
+            "install",
+            [
+                harness_id,
+                list(release.executables),
+                release.install_script,
+                latest[harness_id],
+            ],
+            INSTALL_TIMEOUT_SECONDS,
         )
-        installs.append({"harness_id": harness_id, "exit_code": result.returncode})
-        if result.returncode != 0:
+        probe = receipt["probe"]
+        observed[harness_id] = probe["version"]
+        diagnostic = receipt.get("failed_probe", probe)
+        detail = (
+            f"{harness_id} {latest[harness_id]} exit {diagnostic['exit_code']}: "
+            f"{diagnostic['stderr']}"
+        )
+        installs.append({"harness_id": harness_id, **receipt})
+        if receipt.get("held_back"):
+            held_back.append(
+                f"held back: {harness_id} {latest[harness_id]} does not run on "
+                f"this host: {diagnostic['stderr']} (exit {diagnostic['exit_code']}); "
+                f"using {probe['version']}"
+            )
+        failed_install = receipt["install_exit_code"] != 0
+        if failed_install:
+            detail = (
+                f"{harness_id} {latest[harness_id]} installer exit "
+                f"{receipt['install_exit_code']}: {receipt['install_stderr']}"
+            )
+        behind = harness_id in outdated_harness_clis(observed, latest)
+        if failed_install or (behind and not receipt.get("held_back")):
             return HostActionResult(
                 False,
                 {
+                    "detail": detail,
                     "installs": installs,
-                    "recovery": (
-                        f"Run the {harness_id} installer as the test user and read "
-                        f"its error ({release.install_script}), repair it, then "
-                        "rerun the QA plan."
-                    ),
+                    "held_back": held_back,
+                    "recovery": f"Repair {harness_id} as the test user following "
+                    f"{PROVISIONING_DOC}, prove --version runs, then rerun the QA plan. "
+                    + receipt["install_stderr"],
                 },
-                "harness_cli_install_failed",
+                "harness_cli_install_failed"
+                if failed_install
+                else "harness_cli_install_unverified",
             )
-    observed = probe_harness_cli_versions(control)
-    behind = [h for h in outdated_harness_clis(observed, latest) if h in harness_ids]
-    evidence = {"installs": installs, "harness_cli_versions": observed}
-    if behind:
-        return HostActionResult(
-            False,
-            {
-                **evidence,
-                "latest": dict(latest),
-                "recovery": (
-                    "After install, " + ", ".join(behind) + " still resolves an "
-                    "older CLI first on the test user's ~/.local/bin and PATH. "
-                    "Remove the stale copy the probe found, then rerun the QA plan."
-                ),
-            },
-            "harness_cli_install_unverified",
-        )
-    return HostActionResult(True, evidence)
+    return HostActionResult(
+        True,
+        {
+            "held_back": held_back,
+            "installs": installs,
+            "harness_cli_versions": observed,
+        },
+    )
 
 
 __all__ = [
