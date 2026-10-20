@@ -15,6 +15,10 @@ yoke setup
 yoke status
 ```
 
+To keep your harness permission settings unchanged, run
+`curl -fsSL https://upyoke.com/install | sh -s -- --skip-harness-permissions`;
+the installer passes the flag to the `yoke setup` it starts or names.
+
 Prerequisites: a shell, `curl`, and `uv` (the installer can install `uv` with
 consent). Yoke supports Python 3.11–3.14. When no supported interpreter is
 available, uv downloads a managed one automatically for the installer and

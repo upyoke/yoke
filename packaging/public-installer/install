@@ -16,6 +16,9 @@ version="${YOKE_VERSION:-}"
 yes="${YOKE_INSTALL_YES:-}"
 dry_run=""
 no_setup="${YOKE_NO_SETUP:-}"
+# Extra `yoke setup` arguments the installer forwards to the setup it launches
+# or names; each is a fixed literal, so word-splitting it is safe.
+setup_flags=""
 base_url="${YOKE_INSTALL_BASE_URL:-https://api.upyoke.com}"
 prompt_in_default=0
 prompt_out_default=0
@@ -74,10 +77,11 @@ if [ -n "$uv_bin_dir" ]; then
 fi
 
 usage() {
-  printf '%s\n' "usage: install [--channel CHANNEL] [--version VERSION] [--yes] [--dry-run] [--no-setup]"
+  printf '%s\n' "usage: install [--channel CHANNEL] [--version VERSION] [--yes] [--dry-run] [--no-setup] [--skip-harness-permissions]"
   printf '%s\n' "Install Yoke, or rerun the same command to upgrade/reinstall it."
   printf '%s\n' "The installer selects Yoke packages from the Yoke index and dependencies from public PyPI."
   printf '%s\n' "--dry-run confirms the resolved version is published at this origin and prints the install plan. It does not install packages or write configuration, and publication is not proof the install would succeed."
+  printf '%s\n' "--skip-harness-permissions passes the same flag to yoke setup, which then leaves every harness permission setting unchanged."
 }
 
 fail() {
@@ -217,7 +221,12 @@ onboard_disabled() {
 }
 
 print_onboard_next() {
-  printf '%sRun yoke setup in a terminal, or yoke setup --agent from an agent.\n' "$(gutter)"
+  if [ -z "$setup_flags" ]; then
+    printf '%sRun yoke setup in a terminal, or yoke setup --agent from an agent.\n' "$(gutter)"
+    return 0
+  fi
+  printf '%sRun yoke setup%s in a terminal, or yoke setup --agent%s from an agent.\n' \
+    "$(gutter)" "$setup_flags" "$setup_flags"
 }
 
 onboard_terminal_ready() {
@@ -318,7 +327,7 @@ offer_onboard() {
   yoke_bin=$(command -v yoke)
   if ! onboard_terminal_ready; then
     agent_status=0
-    "$yoke_bin" setup --agent --post-install < /dev/null || agent_status=$?
+    "$yoke_bin" setup --agent --post-install $setup_flags < /dev/null || agent_status=$?
     [ "$agent_status" -eq 0 ] || exit "$agent_status"
     return 0
   fi
@@ -327,7 +336,7 @@ offer_onboard() {
   else
     printf '%sStarting Yoke setup…\n' "$(gutter)"
   fi
-  run_prompt_command "\"$yoke_bin\" setup --post-install" || fail "Yoke setup did not finish; see the summary above."
+  run_prompt_command "\"$yoke_bin\" setup --post-install$setup_flags" || fail "Yoke setup did not finish; see the summary above."
   onboard_launched=1
 }
 
@@ -550,6 +559,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --no-setup)
       no_setup=1
+      shift
+      ;;
+    --skip-harness-permissions)
+      setup_flags=" --skip-harness-permissions"
       shift
       ;;
     --help|-h)
