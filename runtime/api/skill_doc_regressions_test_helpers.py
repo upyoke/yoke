@@ -39,18 +39,7 @@ def _read_bundle(*paths: Path) -> str:
 
 def _read_dispatch_context(path: Path) -> str:
     conduct_dir = path.parent
-    return _read_bundle(
-        path,
-        conduct_dir / "dispatch-context-project.md",
-        conduct_dir / "dispatch-context-rehydrate.md",
-        conduct_dir / "dispatch-context-dispatch.md",
-        conduct_dir / "dispatch-context-artifacts.md",
-        conduct_dir / "dispatch-context-gates.md",
-        conduct_dir / "dispatch-context-ephemeral.md",
-        conduct_dir / "dispatch-context-prompts.md",
-        conduct_dir / "dispatch-context-prompts-minimal.md",
-        conduct_dir / "dispatch-context-verify.md",
-    )
+    return _read_bundle(path, *sorted(conduct_dir.glob("dispatch-context-*.md")))
 
 
 def _read_skill_corpus(skill_root: Path) -> str:
@@ -72,11 +61,7 @@ def _read_refine_skill(path: Path) -> str:
 
 
 def _read_polish_skill(path: Path) -> str:
-    phases = (
-        "parse-and-claim.md", "context.md", "doctrine.md", "simplify-pass.md",
-        "review.md", "fixes.md", "verify-and-commit.md", "advance.md",
-    )
-    return _read_bundle(path, *(path.parent / phase for phase in phases))
+    return _read_skill_corpus(path.parent)
 
 
 def _count_invocations(text: str, module_name: str) -> tuple[int, int]:
